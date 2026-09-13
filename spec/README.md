@@ -14,9 +14,9 @@ these contracts.
 | [`fitness.md`](fitness.md) | Fitness calculation and solved criteria |
 | [`fitness_cases.md`](fitness_cases.md) | Fitness-case fixture schema |
 | [`grammar_config.md`](grammar_config.md) | Evolution search-space configuration |
+| [`grammar_definition.md`](grammar_definition.md) | Typed grammar construction, imports, scopes, templates, and compilation |
 
 Public format identifiers are defined by the specification that owns the
 format. Compatibility and release history belong in [`../VERSION.md`](../VERSION.md),
 not in historical copies of specifications. A semantic change must update its
 owning spec, conformance tests, and `benchmarks/spec_freeze.json` together.
-

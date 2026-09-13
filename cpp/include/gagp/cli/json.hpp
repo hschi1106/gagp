@@ -16,9 +16,14 @@ struct JsonValue {
   std::map<std::string, JsonValue> object_v;
 };
 
+struct JsonParseOptions {
+  bool strict = false;
+  std::size_t max_depth = 0;
+};
+
 class JsonParser {
  public:
-  explicit JsonParser(std::string text);
+  explicit JsonParser(std::string text, JsonParseOptions options = {});
 
   JsonValue parse();
 
@@ -39,6 +44,8 @@ class JsonParser {
 
   std::string text_;
   std::size_t pos_ = 0;
+  JsonParseOptions options_;
+  std::size_t depth_ = 0;
 };
 
 const JsonValue& require_object_field(const JsonValue& obj, const char* key);

@@ -293,3 +293,5 @@ Config tooling must test:
 - translated configs preserve old enabled constructs where possible.
 - translated configs disable release-only constructs by default.
 - CPU and GPU reproduction both respect non-default native configs.
+
+The staged typed-definition compiler is specified in [grammar_definition.md](grammar_definition.md). It is internal during migration; the CLI contract above remains the production path.

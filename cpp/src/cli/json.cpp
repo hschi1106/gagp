@@ -1,6 +1,7 @@
 #include "gagp/cli/json.hpp"
 
 #include <cerrno>
+#include <charconv>
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
@@ -9,7 +10,8 @@
 
 namespace gagp::cli_detail {
 
-JsonParser::JsonParser(std::string text) : text_(std::move(text)) {}
+JsonParser::JsonParser(std::string text, JsonParseOptions options)
+    : text_(std::move(text)), options_(options) {}
 
 JsonValue JsonParser::parse() {
   skip_ws();
@@ -22,6 +24,13 @@ JsonValue JsonParser::parse() {
 }
 
 JsonValue JsonParser::parse_value() {
+  struct DepthGuard {
+    std::size_t& depth;
+    ~DepthGuard() { --depth; }
+  } guard{depth_};
+  ++depth_;
+  if (options_.max_depth && depth_ > options_.max_depth)
+    throw std::runtime_error("JSON nesting limit exceeded");
   if (pos_ >= text_.size()) {
     throw std::runtime_error("unexpected end of JSON");
   }
@@ -52,7 +61,8 @@ JsonValue JsonParser::parse_object() {
     expect(':');
     skip_ws();
     JsonValue val = parse_value();
-    out.object_v.emplace(key.string_v, std::move(val));
+    const bool inserted = out.object_v.emplace(key.string_v, std::move(val)).second;
+    if (options_.strict && !inserted) throw std::runtime_error("duplicate JSON object key: " + key.string_v);
     skip_ws();
     if (peek('}')) {
       expect('}');
@@ -105,9 +115,63 @@ JsonValue JsonParser::parse_string() {
       else if (e == 'n') out.string_v.push_back('\n');
       else if (e == 'r') out.string_v.push_back('\r');
       else if (e == 't') out.string_v.push_back('\t');
+      else if (e == 'u' && options_.strict) {
+        const auto hex4 = [&]() {
+          unsigned value = 0;
+          for (int i = 0; i < 4; ++i) {
+            if (pos_ == text_.size()) throw std::runtime_error("short Unicode escape");
+            const char h = text_[pos_++];
+            unsigned digit;
+            if (h >= '0' && h <= '9') digit = h - '0';
+            else if (h >= 'a' && h <= 'f') digit = h - 'a' + 10;
+            else if (h >= 'A' && h <= 'F') digit = h - 'A' + 10;
+            else throw std::runtime_error("invalid Unicode escape");
+            value = value * 16 + digit;
+          }
+          return value;
+        };
+        unsigned code = hex4();
+        if (code >= 0xd800 && code <= 0xdbff) {
+          if (pos_ + 2 > text_.size() || text_[pos_] != '\\' || text_[pos_ + 1] != 'u')
+            throw std::runtime_error("missing low surrogate");
+          pos_ += 2;
+          const unsigned low = hex4();
+          if (low < 0xdc00 || low > 0xdfff) throw std::runtime_error("invalid low surrogate");
+          code = 0x10000 + ((code - 0xd800) << 10) + low - 0xdc00;
+        } else if (code >= 0xdc00 && code <= 0xdfff) throw std::runtime_error("unpaired low surrogate");
+        if (code < 0x80) out.string_v.push_back(static_cast<char>(code));
+        else if (code < 0x800) {
+          out.string_v.push_back(static_cast<char>(0xc0 | (code >> 6)));
+          out.string_v.push_back(static_cast<char>(0x80 | (code & 0x3f)));
+        } else {
+          if (code >= 0x10000) out.string_v.push_back(static_cast<char>(0xf0 | (code >> 18)));
+          out.string_v.push_back(static_cast<char>((code < 0x10000 ? 0xe0 : 0x80) | ((code >> 12) & 0x3f)));
+          out.string_v.push_back(static_cast<char>(0x80 | ((code >> 6) & 0x3f)));
+          out.string_v.push_back(static_cast<char>(0x80 | (code & 0x3f)));
+        }
+      }
       else throw std::runtime_error("unsupported JSON escape");
     } else {
+      if (options_.strict && static_cast<unsigned char>(c) < 0x20)
+        throw std::runtime_error("unescaped JSON control character");
       out.string_v.push_back(c);
+      if (options_.strict && static_cast<unsigned char>(c) >= 0x80) {
+        const unsigned lead = static_cast<unsigned char>(c);
+        const unsigned count = lead >= 0xc2 && lead <= 0xdf ? 1 :
+            lead >= 0xe0 && lead <= 0xef ? 2 : lead >= 0xf0 && lead <= 0xf4 ? 3 : 0;
+        if (!count) throw std::runtime_error("invalid UTF-8 in JSON string");
+        unsigned code = lead & ((1u << (6 - count)) - 1);
+        for (unsigned i = 0; i < count; ++i) {
+          if (pos_ == text_.size()) throw std::runtime_error("short UTF-8 in JSON string");
+          const unsigned next = static_cast<unsigned char>(text_[pos_++]);
+          if ((next & 0xc0) != 0x80) throw std::runtime_error("invalid UTF-8 continuation");
+          code = (code << 6) | (next & 0x3f);
+          out.string_v.push_back(static_cast<char>(next));
+        }
+        const unsigned minimum = count == 1 ? 0x80 : count == 2 ? 0x800 : 0x10000;
+        if (code < minimum || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff))
+          throw std::runtime_error("invalid UTF-8 code point");
+      }
     }
   }
   throw std::runtime_error("unterminated JSON string");
@@ -142,6 +206,12 @@ JsonValue JsonParser::parse_number() {
   JsonValue out;
   out.kind = JsonValue::Kind::Number;
   const std::string token = text_.substr(start, pos_ - start);
+  if (options_.strict) {
+    const auto parsed = std::from_chars(token.data(), token.data() + token.size(), out.number_v);
+    if (parsed.ec != std::errc{} || parsed.ptr != token.data() + token.size() || !std::isfinite(out.number_v))
+      throw std::runtime_error("JSON number out of range");
+    return out;
+  }
   errno = 0;
   char* end = nullptr;
   out.number_v = std::strtod(token.c_str(), &end);
@@ -192,7 +262,13 @@ void JsonParser::expect_word(const char* word) {
 bool JsonParser::peek(char c) const { return pos_ < text_.size() && text_[pos_] == c; }
 
 void JsonParser::skip_ws() {
-  while (pos_ < text_.size() && std::isspace(static_cast<unsigned char>(text_[pos_]))) pos_++;
+  while (pos_ < text_.size()) {
+    const char c = text_[pos_];
+    const bool whitespace = options_.strict ? (c == ' ' || c == '\t' || c == '\n' || c == '\r') :
+        std::isspace(static_cast<unsigned char>(c)) != 0;
+    if (!whitespace) break;
+    ++pos_;
+  }
 }
 
 const JsonValue& require_object_field(const JsonValue& obj, const char* key) {

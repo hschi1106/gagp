@@ -557,3 +557,41 @@ python3 -m gagp_tools.reports.grammar_migration NEW_RUN_DIRECTORY/trials.json --
 
 Final validation and the single commit are recorded in `goals/goal-01.md` and
 `baseline-capture.json`. Binary and raw trial evidence remain outside tracked source.
+
+## Goal 02 compiler acceptance
+
+The internal `grammar-definition-v1` compiler lives in
+`cpp/include/gagp/evolution/grammar/` and `cpp/src/evolution/grammar/`.
+The [normative schema](../../../spec/grammar_definition.md) and
+[custom integer example](../../../configs/grammar_definitions/custom_integer.json)
+cover exact value types, structural categories, local imports/overrides, typed
+constant domains, scopes, fixed templates, shared/forwarded holes, separate limits,
+canonical SHA-256 identity and membership/provenance/cache contracts.
+
+Compilation builds const numeric expression, production, template, region and
+context tables. Joint depth/node feasibility uses a fixed point, including
+productive recursive rules. General recursion/memoization declarations preserve
+exact result tags and phase visibility but explicitly reject execution until the
+later runtime stages. This commit does not introduce package-name runtime dispatch.
+The production grammar-config/generation/runtime paths remain available.
+
+Validation artifacts are under the existing grammar-migration artifact root:
+
+- `goal-02-gpu-build/`: separate Debug CUDA build with benchmarks enabled; the
+  Goal 01 `adapter-build` and original-reference builds are preserved.
+- `goal-02-gpu-native-tests.log`: 50/50 native tests passed, including GPU/parity
+  and the frozen migration oracle suites; no CUDA skips.
+- `goal-02-final-tools.log`: 52/52 operational tool tests passed.
+- `goal-02-final-repository.log`: 17/17 repository checks passed.
+- `goal-02-final-focused-tests.log`: 5/5 grammar/repository native tests passed
+  after the final context-index capacity accounting correction; the full 50-test
+  run preceded that compiler-only correction.
+- Compiler tests cover exact overloads and all 21 control signatures, invalid scopes,
+  category mismatch, productive/unproductive cycles, exact feasibility boundaries,
+  template cycles/forwarding/duplication, all typed domains, import cycles and
+  conflicts, source validation before replacement, transitive hash changes,
+  relocation independence, resolved round-trip and standard SHA-256 test vectors.
+
+Goal 03 implements grammar-driven materialization and artifacts; Goal 04 implements
+membership-aware variation. General structured execution remains assigned to
+Goals 05–07. Goal 02's declarations are not a claim that these later stages are done.

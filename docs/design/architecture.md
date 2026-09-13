@@ -26,6 +26,36 @@ implement AST typing, bytecode execution, fitness, or reproduction semantics.
 
 ## Product boundaries
 
+The grammar compiler uses a standalone `gagp_json` library for definition loading;
+`gagp_cli_support` links the same parser. Strict grammar parsing is opt-in and rejects
+duplicate object keys, invalid UTF-8, non-JSON whitespace and unrepresentable numbers.
+The default CLI parser retains its existing behavior.
+
+`grammar/definition` resolves local imports, detects conflicts/cycles, applies explicit
+replace/extend operations and exports canonical resolved JSON. Its SHA-256 identity
+includes schema/catalog/normalization versions and transitive source content, including
+content replaced by overrides, without recording absolute paths. `grammar/constants`
+owns decoded typed domains independently of payload registry tokens. `grammar/compiled`
+checks scopes and exact signatures and builds numeric expression/production tables.
+A depth-indexed fixed point computes minimum feasible node costs; this preserves the
+joint depth/node constraint instead of combining unrelated minima. Templates retain
+immutable fixed-body and typed-hole metadata, with explicit
+scope mappings and capture checks. Numeric context indexes prepare compatible
+nonterminals and productions by exact result type. Compilation is currently
+internal; materialization and membership/replay integration follow in the next
+migration stages before CLI cutover. The construction format is defined
+in [grammar_definition.md](../../spec/grammar_definition.md).
+
+The internal grammar-definition compiler lives under
+`cpp/include/gagp/evolution/grammar/` and `cpp/src/evolution/grammar/`, owned by
+`gagp_grammar`. Its primitive catalog resolves exact overloads into deterministic
+numeric IDs once during grammar construction. Scalar and sequence signatures are
+checked against the native AST verifier. Lexical `let` and ordered `traverse`
+currently declare typed body slots and binders but explicitly reject execution
+until their general lowering/runtime implementations are available. This catalog
+does not expose ASGP or LinearRec aliases. The existing grammar-config path remains
+the production path until grammar-driven materialization and all backends are integrated.
+
 ### Core and runtime
 
 `cpp/include/gagp/core/` owns shared values, errors, opcodes, bytecode, and
@@ -145,3 +175,13 @@ Named build/test configurations and focused commands are in
   contract together.
 - Repository moves: update `docs/README.md`, the checked repository layout, and
   the external repository skill references.
+
+The grammar catalog declares general recursive and memoized static-region contracts
+in `grammar/structured.hpp`. Parameterized state/result signatures become numeric
+compiled contract entries, with phase-specific binder visibility. Execution remains
+explicitly unavailable until rank/transition descriptors and generic runtime support
+are implemented. Existing control shapes have a separate syntax-category catalog;
+structural productions enforce category/type contracts and resolve declared mutable
+locals to numeric IDs before materialization. Repeated template
+holes retain one logical slot identity, and composed templates may forward holes
+through explicitly declared scopes.

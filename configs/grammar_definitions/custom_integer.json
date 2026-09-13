@@ -1,0 +1,102 @@
+{
+  "format_version": "grammar-definition-v1",
+  "entry": {
+    "nonterminal": "Expr",
+    "type": "Int"
+  },
+  "inputs": [
+    {
+      "name": "n",
+      "type": "Int"
+    }
+  ],
+  "search_limits": {
+    "max_nodes": 20,
+    "max_depth": 8
+  },
+  "execution_limits": {
+    "fuel": 100
+  },
+  "nonterminals": [
+    {
+      "id": "Expr",
+      "type": "Int",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "zero",
+          "weight": 1,
+          "expression": {
+            "constant": {
+              "type": "Int",
+              "values": [
+                "0"
+              ]
+            }
+          }
+        },
+        {
+          "id": "input",
+          "weight": 1,
+          "expression": {
+            "input": "n"
+          }
+        },
+        {
+          "id": "sum",
+          "weight": 2,
+          "expression": {
+            "signature": "add(Int,Int)->Int",
+            "args": [
+              {
+                "ref": "Expr"
+              },
+              {
+                "ref": "Expr"
+              }
+            ]
+          }
+        },
+        {
+          "id": "local",
+          "weight": 1,
+          "expression": {
+            "signature": "let(Int,Int)->Int",
+            "args": [
+              {
+                "ref": "Expr"
+              },
+              {
+                "ref": "Narrow"
+              }
+            ],
+            "bind": {
+              "1": [
+                "x"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Narrow",
+      "type": "Int",
+      "scope": [
+        {
+          "name": "x",
+          "type": "Int"
+        }
+      ],
+      "alternatives": [
+        {
+          "id": "value",
+          "weight": 1,
+          "expression": {
+            "bound": "x"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -93,14 +93,41 @@ target_link_libraries(gagp_evolution PUBLIC gagp_runtime_cpu)
 add_library(gagp_cpu INTERFACE)
 target_link_libraries(gagp_cpu INTERFACE gagp_evolution)
 
+add_library(gagp_json src/cli/json.cpp)
+target_include_directories(gagp_json PUBLIC include)
+
+add_library(gagp_grammar
+  src/evolution/grammar/catalog.cpp
+  src/evolution/grammar/definition.cpp
+  src/evolution/grammar/identity.cpp
+  src/evolution/grammar/constants.cpp
+  src/evolution/grammar/compiled.cpp
+  src/evolution/grammar/structured.cpp
+)
+target_include_directories(gagp_grammar PUBLIC include)
+target_link_libraries(gagp_grammar PUBLIC gagp_core gagp_json)
+
+add_executable(gagp_test_grammar_catalog tests/evolution/test_grammar_catalog.cpp)
+target_link_libraries(gagp_test_grammar_catalog PRIVATE gagp_grammar gagp_evolution)
+add_test(NAME gagp_test_grammar_catalog COMMAND gagp_test_grammar_catalog)
+set_tests_properties(gagp_test_grammar_catalog PROPERTIES LABELS "contract;unit")
+add_executable(gagp_test_grammar_definition tests/evolution/test_grammar_definition.cpp)
+target_link_libraries(gagp_test_grammar_definition PRIVATE gagp_grammar)
+add_executable(gagp_test_grammar_compiled tests/evolution/test_grammar_compiled.cpp)
+target_link_libraries(gagp_test_grammar_compiled PRIVATE gagp_grammar)
+target_compile_definitions(gagp_test_grammar_compiled PRIVATE GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+add_test(NAME gagp_test_grammar_compiled COMMAND gagp_test_grammar_compiled)
+set_tests_properties(gagp_test_grammar_compiled PROPERTIES LABELS "contract;integration")
+add_test(NAME gagp_test_grammar_definition COMMAND gagp_test_grammar_definition)
+set_tests_properties(gagp_test_grammar_definition PROPERTIES LABELS "contract;integration")
+
 add_library(gagp_cli_support
-  src/cli/json.cpp
   src/cli/codec.cpp
   src/cli/options.cpp
   src/cli/commands.cpp
 )
 target_include_directories(gagp_cli_support PUBLIC include)
-target_link_libraries(gagp_cli_support PUBLIC gagp_cpu)
+target_link_libraries(gagp_cli_support PUBLIC gagp_cpu gagp_json)
 
 if(GAGP_BUILD_BENCHMARKS)
   add_executable(gagp_runtime_multi_bench
