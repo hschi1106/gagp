@@ -107,6 +107,44 @@ if(GAGP_BUILD_BENCHMARKS)
     src/bench/runtime_multi_bench.cpp
   )
   target_link_libraries(gagp_runtime_multi_bench PRIVATE gagp_cpu)
+  add_executable(gagp_grammar_migration_bench
+    src/bench/grammar_migration_bench.cpp
+    src/bench/migration_snapshot.cpp
+  )
+  target_link_libraries(gagp_grammar_migration_bench PRIVATE gagp_cli_support)
+  if(GAGP_HAS_CUDA)
+    add_executable(gagp_migration_gpu_result_capture
+      src/bench/capture_gpu_results.cu src/bench/migration_snapshot.cpp)
+    target_link_libraries(gagp_migration_gpu_result_capture PRIVATE gagp_cli_support)
+    target_compile_definitions(gagp_migration_gpu_result_capture PRIVATE
+      GAGP_GPU_FITNESS_SOURCE="${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/gpu/fitness_gpu.cu")
+  endif()
+  foreach(mode IN ITEMS plain capture)
+    add_executable(gagp_migration_evolution_stats_${mode}
+      src/bench/capture_evolution_stats.cpp src/bench/migration_snapshot.cpp)
+    target_link_libraries(gagp_migration_evolution_stats_${mode} PRIVATE gagp_cli_support)
+    add_executable(gagp_migration_cpu_reproduction_${mode}
+      src/bench/capture_cpu_donors.cpp src/bench/migration_snapshot.cpp)
+    target_link_libraries(gagp_migration_cpu_reproduction_${mode} PRIVATE gagp_cli_support)
+    target_include_directories(gagp_migration_cpu_reproduction_${mode} PRIVATE src/evolution)
+  endforeach()
+  target_compile_definitions(gagp_migration_evolution_stats_capture PRIVATE
+    GAGP_EVOLVE_SOURCE="${CMAKE_CURRENT_SOURCE_DIR}/src/evolution/evolve.cpp")
+  target_compile_definitions(gagp_migration_cpu_reproduction_capture PRIVATE
+    GAGP_MUTATION_SOURCE="${CMAKE_CURRENT_SOURCE_DIR}/src/evolution/mutation.cpp")
+  add_executable(gagp_migration_oracle_replay
+    src/bench/replay_migration_oracle.cpp
+    src/bench/migration_snapshot.cpp
+  )
+  target_link_libraries(gagp_migration_oracle_replay PRIVATE gagp_cli_support)
+  add_executable(gagp_test_migration_snapshot
+    tests/runtime/test_migration_snapshot.cpp
+    src/bench/migration_snapshot.cpp
+  )
+  target_include_directories(gagp_test_migration_snapshot PRIVATE src/bench)
+  target_link_libraries(gagp_test_migration_snapshot PRIVATE gagp_cli_support)
+  add_test(NAME gagp_test_migration_snapshot COMMAND gagp_test_migration_snapshot)
+  set_tests_properties(gagp_test_migration_snapshot PROPERTIES LABELS "contract")
 endif()
 
 add_executable(gagp_evolve_cli
@@ -386,6 +424,78 @@ set_tests_properties(gagp_test_repro_prep PROPERTIES LABELS "property")
 
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_Interpreter_FOUND)
+  if(GAGP_BUILD_BENCHMARKS)
+    add_test(NAME gagp_test_evolution_statistics
+      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_evolution_statistics.py
+        --adapter $<TARGET_FILE:gagp_grammar_migration_bench>
+        --plain $<TARGET_FILE:gagp_migration_evolution_stats_plain>
+        --capture $<TARGET_FILE:gagp_migration_evolution_stats_capture>)
+    set_tests_properties(gagp_test_evolution_statistics PROPERTIES LABELS "contract;integration")
+    add_test(NAME gagp_test_cpu_donor_tape
+      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_cpu_donor_tape.py
+        --adapter $<TARGET_FILE:gagp_grammar_migration_bench>
+        --plain $<TARGET_FILE:gagp_migration_cpu_reproduction_plain>
+        --capture $<TARGET_FILE:gagp_migration_cpu_reproduction_capture>)
+    set_tests_properties(gagp_test_cpu_donor_tape PROPERTIES LABELS "contract;integration")
+    add_test(NAME gagp_test_migration_oracle
+      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_migration_oracle.py
+        --replayer $<TARGET_FILE:gagp_migration_oracle_replay>
+        --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration)
+    set_tests_properties(gagp_test_migration_oracle PROPERTIES LABELS "contract;integration")
+    add_test(NAME gagp_test_migration_ast_rejections
+      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_migration_oracle.py
+        --replayer $<TARGET_FILE:gagp_migration_oracle_replay>
+        --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration --verifiers)
+    set_tests_properties(gagp_test_migration_ast_rejections PROPERTIES LABELS "contract;integration")
+    add_test(NAME gagp_test_migration_bytecode_rejections
+      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_migration_oracle.py
+        --replayer $<TARGET_FILE:gagp_migration_oracle_replay>
+        --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration --bytecode-verifiers)
+    set_tests_properties(gagp_test_migration_bytecode_rejections PROPERTIES LABELS "contract;integration")
+    add_test(NAME gagp_test_migration_boundary_oracle
+      COMMAND gagp_migration_oracle_replay
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration/reference-boundary-oracle.jsonl
+        ${CMAKE_CURRENT_BINARY_DIR}/migration-boundary-replay.json)
+    set_tests_properties(gagp_test_migration_boundary_oracle PROPERTIES LABELS "contract;integration")
+    add_test(NAME gagp_test_migration_adapter
+      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_migration_adapter.py
+        --adapter $<TARGET_FILE:gagp_grammar_migration_bench>)
+    set_tests_properties(gagp_test_migration_adapter PROPERTIES LABELS "contract;integration")
+    if(GAGP_HAS_CUDA)
+      add_test(NAME gagp_test_evolution_statistics_gpu
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_evolution_statistics.py
+          --adapter $<TARGET_FILE:gagp_grammar_migration_bench>
+          --plain $<TARGET_FILE:gagp_migration_evolution_stats_plain>
+          --capture $<TARGET_FILE:gagp_migration_evolution_stats_capture> --gpu)
+      set_tests_properties(gagp_test_evolution_statistics_gpu PROPERTIES LABELS "gpu;contract;integration")
+      add_test(NAME gagp_test_gpu_result_oracle
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_gpu_result_oracle.py
+          --capture $<TARGET_FILE:gagp_migration_gpu_result_capture>
+          --oracle ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration/reference-oracle.jsonl)
+      set_tests_properties(gagp_test_gpu_result_oracle PROPERTIES LABELS "gpu;cpu_gpu_parity;integration")
+      add_test(NAME gagp_test_gpu_known_differences
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_gpu_result_oracle.py
+          --capture $<TARGET_FILE:gagp_migration_gpu_result_capture>
+          --oracle ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration/reference-gpu-differences.jsonl
+          --expected-gpu)
+      set_tests_properties(gagp_test_gpu_known_differences PROPERTIES LABELS "gpu;contract;integration")
+      add_test(NAME gagp_test_gpu_boundary_oracle
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_gpu_result_oracle.py
+          --capture $<TARGET_FILE:gagp_migration_gpu_result_capture>
+          --oracle ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration/reference-boundary-oracle.jsonl
+          --expected-gpu)
+      set_tests_properties(gagp_test_gpu_boundary_oracle PROPERTIES LABELS "gpu;contract;integration")
+      add_test(NAME gagp_test_migration_oracle_gpu
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_migration_oracle.py
+          --replayer $<TARGET_FILE:gagp_migration_oracle_replay>
+          --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration --gpu)
+      set_tests_properties(gagp_test_migration_oracle_gpu PROPERTIES LABELS "gpu;cpu_gpu_parity;integration")
+      add_test(NAME gagp_test_migration_adapter_gpu
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_migration_adapter.py
+          --adapter $<TARGET_FILE:gagp_grammar_migration_bench> --gpu)
+      set_tests_properties(gagp_test_migration_adapter_gpu PROPERTIES LABELS "gpu;cpu_gpu_parity;integration")
+    endif()
+  endif()
   add_test(
     NAME gagp_test_repository_contract
     COMMAND ${Python3_EXECUTABLE} -m unittest discover -s tests/repository -p test_*.py -v

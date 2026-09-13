@@ -1,0 +1,22 @@
+{
+  "reference_revision": "b04918307eb69ec0f08c6bf5b03a0fae9399dbbf",
+  "fixture_sha256": "bf7cd2c4e9e7dc5332b7f21f96e4c750072f90f7660655792cd38c2537e5b0cb",
+  "origins": [
+    {
+      "name": "integer_overflow",
+      "cpu_path": "/home/hschi1106/gagp-artifacts/grammar-migration/native-oracle-04/capture-2.jsonl",
+      "cpu_sha256": "ebc7a308b6df1b9e310da1e13f2780cb613802faf21911a8818ea94bdf85f997",
+      "gpu_path": "/home/hschi1106/gagp-artifacts/grammar-migration/gpu-native-results-01/capture-2.jsonl",
+      "gpu_sha256": "68e7133f7f2b62f4a41aa8b85f4c5f7e250dc57954bbf6b6bdedd0268fdbda57",
+      "ordinal": 753
+    },
+    {
+      "name": "dp2d_dependency_fuel",
+      "cpu_path": "/home/hschi1106/gagp-artifacts/grammar-migration/native-oracle-04/capture-1.jsonl",
+      "cpu_sha256": "48dc9e14e0bc973f424334f49f424fada7d83c8172c4a20da2d806a0cb74d6f5",
+      "gpu_path": "/home/hschi1106/gagp-artifacts/grammar-migration/gpu-native-results-01/capture-1.jsonl",
+      "gpu_sha256": "14dd5e54f85235001c6fdd194571668acf5203bba4a524a6bd2d8cc948cda4b9",
+      "ordinal": 20
+    }
+  ]
+}

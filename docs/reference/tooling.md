@@ -37,6 +37,8 @@ their existing explicit policies documented in `docs/guides/development.md`.
 | --- | --- | --- | --- |
 | `gagp_evolve_cli` | product CLI / native runtime | default | supported evolution, AST evaluation, and fixed-pop workflow |
 | `gagp_runtime_multi_bench` | benchmark / performance | `-DGAGP_BUILD_BENCHMARKS=ON` | low-level runtime throughput experiments |
+| `gagp_grammar_migration_bench` | benchmark / migration evidence | `-DGAGP_BUILD_BENCHMARKS=ON` | materialized population capture, production evolution replay, and CPU/GPU oracle measurements; not a product command |
+| `gagp_migration_oracle_replay` | benchmark / migration evidence | `-DGAGP_BUILD_BENCHMARKS=ON` | exact bytecode/payload restoration and reference CPU/GPU fitness replay; not a product command |
 | `gagp_simple_exp_population_probe` | experiment probe / parity research | `-DGAGP_BUILD_EXPERIMENTS=ON`, CUDA only | diagnostic fixed-pop CPU/GPU fitness comparison; not a product command |
 | `gagp_test_vm_cli_harness` | test harness / runtime contracts | default, driven by CTest | executes versioned runtime fixtures |
 | `gagp_test_*` | tests / owning native module | default, registered with CTest | unit, contract, property, integration, GPU, and parity gates |

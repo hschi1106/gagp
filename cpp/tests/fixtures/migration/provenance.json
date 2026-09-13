@@ -1,0 +1,57 @@
+{
+  "version": "migration-oracle-fixture-v1",
+  "reference_revision": "b04918307eb69ec0f08c6bf5b03a0fae9399dbbf",
+  "source": "cpp/tests/parity/test_fitness_cpu_gpu_parity.cpp",
+  "raw_artifact": "/home/hschi1106/gagp-artifacts/grammar-migration/native-oracle-03/capture-2.jsonl",
+  "raw_sha256": "ebc7a308b6df1b9e310da1e13f2780cb613802faf21911a8818ea94bdf85f997",
+  "ordinals": [
+    0,
+    192,
+    256,
+    320,
+    384,
+    448,
+    561,
+    758,
+    759,
+    778,
+    780,
+    781,
+    794,
+    2968,
+    3036,
+    3038,
+    3070,
+    3096
+  ],
+  "corpus_sha256": "3f68e73cc0c2426c79f449712e0a56bc1141d2849bbb6438887cfeaa9c0de82c",
+  "execution_rows": 18,
+  "result_tags": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "errors": [
+    "NameError",
+    "Timeout",
+    "TypeError",
+    "ValueError",
+    "ZeroDivisionError"
+  ],
+  "note": "Unmodified observations selected from the independently linked reference capture; not generated from the candidate replayer.",
+  "compilation_rows": 1,
+  "compilation_origins": [
+    {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/native-oracle-04/capture-0.jsonl",
+      "sha256": "331b43a0b24d79515311f98ab527f58faef5ace97a59c015e10c548418296da9",
+      "original_ordinal": 0,
+      "fixture_ordinal": 100000
+    }
+  ]
+}

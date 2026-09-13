@@ -1,0 +1,202 @@
+{
+  "version": "migration-oracle-evidence-v1",
+  "status": "partial",
+  "reference_revision": "b04918307eb69ec0f08c6bf5b03a0fae9399dbbf",
+  "native_artifact_root": "/home/hschi1106/gagp-artifacts/grammar-migration/native-oracle-04",
+  "native_manifest_sha256": "356466e229e27e7d8941f6b96d78867ce30fe34b7b5fb5e8a4ae9b444f178e36",
+  "native_captures": [
+    {
+      "source": "cpp/tests/evolution/test_structured_semantics.cpp",
+      "source_sha256": "45c9484d8b94620355f22382327b3ba5de52470bb9fb6b0fc7f9a26308bbbaa7",
+      "executable_sha256": "6b7b11abe73c3705416455c2f68a5a3a8cff57c1afeffd98ac1207ad1a1aee24",
+      "output": "capture-0.jsonl",
+      "output_sha256": "331b43a0b24d79515311f98ab527f58faef5ace97a59c015e10c548418296da9",
+      "counts": {
+        "compilation": 15,
+        "execution": 15,
+        "ast_rejection": 2
+      }
+    },
+    {
+      "source": "cpp/tests/runtime/test_asgp_semantics.cpp",
+      "source_sha256": "2137e02bb5f309f8dd0c58246f1beb11092f1de213b9aad093601c65f0b4ae59",
+      "executable_sha256": "8d9bb7b2e093ca03a9bfbf8389425603d6c9bda69dd4b8ca245086a1859f380b",
+      "output": "capture-1.jsonl",
+      "output_sha256": "48dc9e14e0bc973f424334f49f424fada7d83c8172c4a20da2d806a0cb74d6f5",
+      "counts": {
+        "execution": 23
+      }
+    },
+    {
+      "source": "cpp/tests/parity/test_fitness_cpu_gpu_parity.cpp",
+      "source_sha256": "388035437b814c5b7cf857d5d933100e897179430b15af8a3be58a322e438c7e",
+      "executable_sha256": "f9bcc2d8c085b9b9f075daa772196cda74a042751f6eda6e38cba6e9e787ee74",
+      "output": "capture-2.jsonl",
+      "output_sha256": "ebc7a308b6df1b9e310da1e13f2780cb613802faf21911a8818ea94bdf85f997",
+      "counts": {
+        "execution": 3040,
+        "compilation": 80
+      }
+    }
+  ],
+  "replays": {
+    "structured": {
+      "format_version": "migration-oracle-replay-v1",
+      "execution_rows": 15,
+      "bytecode_roundtrips": 15,
+      "cpu_checks": 75,
+      "gpu_fitness_checks": 15,
+      "non_execution_rows": 17,
+      "verifier_negative_executions": 0,
+      "baseline_fitness_disagreements": 0
+    },
+    "asgp": {
+      "format_version": "migration-oracle-replay-v1",
+      "execution_rows": 23,
+      "bytecode_roundtrips": 23,
+      "cpu_checks": 115,
+      "gpu_fitness_checks": 23,
+      "non_execution_rows": 0,
+      "verifier_negative_executions": 0,
+      "baseline_fitness_disagreements": 0
+    },
+    "fitness": {
+      "format_version": "migration-oracle-replay-v1",
+      "execution_rows": 3040,
+      "bytecode_roundtrips": 3040,
+      "cpu_checks": 15072,
+      "gpu_fitness_checks": 3040,
+      "non_execution_rows": 80,
+      "verifier_negative_executions": 1
+    },
+    "boundaries": {
+      "format_version": "migration-oracle-replay-v1",
+      "execution_rows": 186,
+      "bytecode_roundtrips": 186,
+      "cpu_checks": 930,
+      "gpu_fitness_checks": 186,
+      "non_execution_rows": 0,
+      "verifier_negative_executions": 2,
+      "baseline_fitness_disagreements": 14
+    }
+  },
+  "fitness_replay_input_sha256": "ebc7a308b6df1b9e310da1e13f2780cb613802faf21911a8818ea94bdf85f997",
+  "boundary_artifact_root": "/home/hschi1106/gagp-artifacts/grammar-migration/boundary-oracle-02",
+  "boundary_manifest_sha256": "a6176e855c0066be57e809e1bf5b7e69f16b5dab91cc71f4370205199c1f8fbc",
+  "boundary_capture_sha256": "ffe039c15561d0bb8326b03d8e47cf8395218b03c49b8b3d60c988938ddd0de8",
+  "baseline_fitness_disagreements": [
+    {
+      "ordinal": 63,
+      "scheme": "dc",
+      "cpu_fitness": 0,
+      "gpu_fitness": -1,
+      "cpu_first_non_timeout_fuel": 646
+    },
+    {
+      "ordinal": 64,
+      "scheme": "dc",
+      "cpu_fitness": 0,
+      "gpu_fitness": -1,
+      "cpu_first_non_timeout_fuel": 646
+    },
+    {
+      "ordinal": 65,
+      "scheme": "dc",
+      "cpu_fitness": 0,
+      "gpu_fitness": -1,
+      "cpu_first_non_timeout_fuel": 656
+    },
+    {
+      "ordinal": 66,
+      "scheme": "dc",
+      "cpu_fitness": 0,
+      "gpu_fitness": -1,
+      "cpu_first_non_timeout_fuel": 656
+    },
+    {
+      "ordinal": 73,
+      "scheme": "dp1d",
+      "cpu_fitness": 0,
+      "gpu_fitness": -1,
+      "cpu_first_non_timeout_fuel": 646
+    },
+    {
+      "ordinal": 75,
+      "scheme": "dp1d",
+      "cpu_fitness": 0,
+      "gpu_fitness": -1,
+      "cpu_first_non_timeout_fuel": 776
+    },
+    {
+      "ordinal": 76,
+      "scheme": "dp1d",
+      "cpu_fitness": 0,
+      "gpu_fitness": -1,
+      "cpu_first_non_timeout_fuel": 651
+    },
+    {
+      "ordinal": 78,
+      "scheme": "dp1d",
+      "cpu_fitness": 0,
+      "gpu_fitness": -1,
+      "cpu_first_non_timeout_fuel": 782
+    },
+    {
+      "ordinal": 79,
+      "scheme": "dp1d",
+      "cpu_fitness": 0,
+      "gpu_fitness": -1,
+      "cpu_first_non_timeout_fuel": 1006
+    },
+    {
+      "ordinal": 80,
+      "scheme": "dp1d",
+      "cpu_fitness": 0,
+      "gpu_fitness": -1,
+      "cpu_first_non_timeout_fuel": 1202
+    },
+    {
+      "ordinal": 81,
+      "scheme": "dp1d",
+      "cpu_fitness": 0,
+      "gpu_fitness": -1,
+      "cpu_first_non_timeout_fuel": 1208
+    },
+    {
+      "ordinal": 83,
+      "scheme": "dp2d",
+      "cpu_fitness": 0,
+      "gpu_fitness": -1,
+      "cpu_first_non_timeout_fuel": 1298
+    },
+    {
+      "ordinal": 84,
+      "scheme": "dp2d",
+      "cpu_fitness": 0,
+      "gpu_fitness": -1,
+      "cpu_first_non_timeout_fuel": 1523
+    },
+    {
+      "ordinal": 87,
+      "scheme": "dp2d",
+      "cpu_fitness": 0,
+      "gpu_fitness": -1,
+      "cpu_first_non_timeout_fuel": 1159
+    }
+  ],
+  "limitations": [
+    "GPU fitness is observed; GPU per-case error codes and exact returned tags/payload bytes are not exposed by this adapter",
+    "Comprehensive first-error-order, lexical-scope and payload-overflow audit remains pending",
+    "Performance matrix, parent/donor capture, warm sessions and controlled calibration remain pending"
+  ],
+  "hashes_match_repeated_capture": {
+    "fitness": true,
+    "boundaries": true
+  },
+  "reference_cuda_resource_usage": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/b049183/cuda-resource-usage.txt",
+    "sha256": "a870c129b93a5e6fc9340121d56b4d39fb91318449a89d9924db82aec2945e10",
+    "mixed_without_asgp_registers": 64,
+    "mixed_with_asgp_registers": 142
+  }
+}

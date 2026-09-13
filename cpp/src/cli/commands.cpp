@@ -975,6 +975,10 @@ gagp::evo::AstProgram gagp::cli_detail::decode_ast_json(const JsonValue& raw) {
   return decode_ast_json_impl(raw);
 }
 
+std::vector<gagp::evo::EvalCase> gagp::cli_detail::decode_fitness_cases_json(const JsonValue& raw) {
+  return parse_cases(raw);
+}
+
 std::string gagp::cli_detail::encode_ast_json(const evo::AstProgram& ast) {
   std::ostringstream out;
   write_ast_json(out, ast);

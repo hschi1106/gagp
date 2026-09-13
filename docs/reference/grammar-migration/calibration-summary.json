@@ -1,0 +1,482 @@
+{
+  "status": "pending",
+  "purpose": "reference-versus-reference calibration pilot; not full baseline or candidate acceptance",
+  "artifact_root": "/home/hschi1106/gagp-artifacts/grammar-migration/calibration-256",
+  "comparison": {
+    "version": "grammar-migration-comparison-v1",
+    "status": "pending",
+    "rows": {
+      "scalar-p64-g1-b256-calibration/cpu/cli_wall": {
+        "status": "rerun",
+        "samples": 15,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 1.0,
+            "ci95": [
+              1.0,
+              1.0
+            ]
+          },
+          "A_mode": {
+            "estimate": 1.0225533600778103,
+            "ci95": [
+              0.9467531948256112,
+              1.6257718682530558
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.0225533600778103,
+            "ci95": [
+              0.9467531948256112,
+              1.6257718682530558
+            ]
+          }
+        },
+        "exclusions": []
+      },
+      "scalar-p64-g1-b256-calibration/cpu/canonical_cold": {
+        "status": "rerun",
+        "samples": 15,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 1.0,
+            "ci95": [
+              1.0,
+              1.0
+            ]
+          },
+          "A_mode": {
+            "estimate": 1.004105070740243,
+            "ci95": [
+              0.958977259799719,
+              1.7242796313960902
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.004105070740243,
+            "ci95": [
+              0.958977259799719,
+              1.7242796313960902
+            ]
+          }
+        },
+        "exclusions": []
+      },
+      "scalar-p64-g1-b256-calibration/cpu/evolve_call": {
+        "status": "rerun",
+        "samples": 15,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 1.0,
+            "ci95": [
+              1.0,
+              1.0
+            ]
+          },
+          "A_mode": {
+            "estimate": 1.0039605367730886,
+            "ci95": [
+              0.9590390882747207,
+              1.7223370347621116
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.0039605367730886,
+            "ci95": [
+              0.9590390882747207,
+              1.7223370347621116
+            ]
+          }
+        },
+        "exclusions": []
+      },
+      "scalar-p64-g1-b256-calibration/gpu_eval/cli_wall": {
+        "status": "rerun",
+        "samples": 15,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 1.094650395727302,
+            "ci95": [
+              0.7030136073556693,
+              1.2170796671593043
+            ]
+          },
+          "A_mode": {
+            "estimate": 1.119338440261457,
+            "ci95": [
+              0.9436700542347283,
+              1.2198977448596797
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.0225533600778103,
+            "ci95": [
+              0.9467531948256112,
+              1.6257718682530558
+            ]
+          }
+        },
+        "exclusions": []
+      },
+      "scalar-p64-g1-b256-calibration/gpu_eval/canonical_cold": {
+        "status": "rerun",
+        "samples": 15,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 1.1026371658907732,
+            "ci95": [
+              0.6955884541310109,
+              1.3128532016713164
+            ]
+          },
+          "A_mode": {
+            "estimate": 1.107163569457576,
+            "ci95": [
+              0.9568469281231732,
+              1.346814566002252
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.004105070740243,
+            "ci95": [
+              0.958977259799719,
+              1.7242796313960902
+            ]
+          }
+        },
+        "exclusions": []
+      },
+      "scalar-p64-g1-b256-calibration/gpu_eval/evolve_call": {
+        "status": "rerun",
+        "samples": 15,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 1.1018165044898036,
+            "ci95": [
+              0.6959202704165504,
+              1.313762916868861
+            ]
+          },
+          "A_mode": {
+            "estimate": 1.1061802892730312,
+            "ci95": [
+              0.9567151293373832,
+              1.345948149840997
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.0039605367730886,
+            "ci95": [
+              0.9590390882747207,
+              1.7223370347621116
+            ]
+          }
+        },
+        "exclusions": []
+      },
+      "scalar-p64-g1-b256-calibration/gpu_repro/cli_wall": {
+        "status": "rerun",
+        "samples": 15,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 0.9348961590401644,
+            "ci95": [
+              0.5139504358588807,
+              1.1075455034914337
+            ]
+          },
+          "A_mode": {
+            "estimate": 0.9559812087503591,
+            "ci95": [
+              0.7956056513379252,
+              1.1284914125903354
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.0225533600778103,
+            "ci95": [
+              0.9467531948256112,
+              1.6257718682530558
+            ]
+          }
+        },
+        "exclusions": []
+      },
+      "scalar-p64-g1-b256-calibration/gpu_repro/canonical_cold": {
+        "status": "rerun",
+        "samples": 15,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 0.9612327295597826,
+            "ci95": [
+              0.47060344267058435,
+              1.2208701616038522
+            ]
+          },
+          "A_mode": {
+            "estimate": 0.9651786579124625,
+            "ci95": [
+              0.6555015444726314,
+              1.200446435341733
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.004105070740243,
+            "ci95": [
+              0.958977259799719,
+              1.7242796313960902
+            ]
+          }
+        },
+        "exclusions": []
+      },
+      "scalar-p64-g1-b256-calibration/gpu_repro/evolve_call": {
+        "status": "rerun",
+        "samples": 15,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 0.9613285519200181,
+            "ci95": [
+              0.4712644032491912,
+              1.2214023428769272
+            ]
+          },
+          "A_mode": {
+            "estimate": 0.9651359290009173,
+            "ci95": [
+              0.6558685376581916,
+              1.1999109895942504
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.0039605367730886,
+            "ci95": [
+              0.9590390882747207,
+              1.7223370347621116
+            ]
+          }
+        },
+        "exclusions": []
+      },
+      "scalar-p64-g1-b256-calibration/gpu_repro_overlap/cli_wall": {
+        "status": "rerun",
+        "samples": 15,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 0.9560418658651914,
+            "ci95": [
+              0.5839891892930668,
+              1.021220463499791
+            ]
+          },
+          "A_mode": {
+            "estimate": 0.9776038223155105,
+            "ci95": [
+              0.8134895509063028,
+              1.0171450447004997
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.0225533600778103,
+            "ci95": [
+              0.9467531948256112,
+              1.6257718682530558
+            ]
+          }
+        },
+        "exclusions": []
+      },
+      "scalar-p64-g1-b256-calibration/gpu_repro_overlap/canonical_cold": {
+        "status": "rerun",
+        "samples": 15,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 0.8937316808039575,
+            "ci95": [
+              0.5222045844894749,
+              1.0602243178299886
+            ]
+          },
+          "A_mode": {
+            "estimate": 0.8974005125764541,
+            "ci95": [
+              0.7584375895271376,
+              1.0849518058024046
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.004105070740243,
+            "ci95": [
+              0.958977259799719,
+              1.7242796313960902
+            ]
+          }
+        },
+        "exclusions": []
+      },
+      "scalar-p64-g1-b256-calibration/gpu_repro_overlap/evolve_call": {
+        "status": "rerun",
+        "samples": 15,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 0.895026847282283,
+            "ci95": [
+              0.5230507513373502,
+              1.0604526769544353
+            ]
+          },
+          "A_mode": {
+            "estimate": 0.8985716340238461,
+            "ci95": [
+              0.7590728563529691,
+              1.0860736927772139
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.0039605367730886,
+            "ci95": [
+              0.9590390882747207,
+              1.7223370347621116
+            ]
+          }
+        },
+        "exclusions": []
+      },
+      "scalar-p64-g1-b256-calibration/cpu_eval_gpu_repro/cli_wall": {
+        "status": "rerun",
+        "samples": 15,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 0.9076161122125543,
+            "ci95": [
+              0.5268443042893823,
+              1.0172084619174457
+            ]
+          },
+          "A_mode": {
+            "estimate": 0.9280859052037063,
+            "ci95": [
+              0.8077729985616937,
+              1.0097170680037144
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.0225533600778103,
+            "ci95": [
+              0.9467531948256112,
+              1.6257718682530558
+            ]
+          }
+        },
+        "exclusions": []
+      },
+      "scalar-p64-g1-b256-calibration/cpu_eval_gpu_repro/canonical_cold": {
+        "status": "rerun",
+        "samples": 15,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 0.8434338342911845,
+            "ci95": [
+              0.49212346743423263,
+              0.9563934866678352
+            ]
+          },
+          "A_mode": {
+            "estimate": 0.8468961898456643,
+            "ci95": [
+              0.7815846634589856,
+              0.9771479088251379
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.004105070740243,
+            "ci95": [
+              0.958977259799719,
+              1.7242796313960902
+            ]
+          }
+        },
+        "exclusions": []
+      },
+      "scalar-p64-g1-b256-calibration/cpu_eval_gpu_repro/evolve_call": {
+        "status": "rerun",
+        "samples": 15,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 0.8436024734038461,
+            "ci95": [
+              0.4926887650242271,
+              0.9563826607813105
+            ]
+          },
+          "A_mode": {
+            "estimate": 0.8469435920216306,
+            "ci95": [
+              0.7819530931820544,
+              0.9771928378943883
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.0039605367730886,
+            "ci95": [
+              0.9590390882747207,
+              1.7223370347621116
+            ]
+          }
+        },
+        "exclusions": []
+      }
+    }
+  },
+  "hashes": {
+    "identity.json": "8f6734f8a1bb67a5873c166f95791ef20ef098cdac2c190cc136ba45e46432a6",
+    "trials.json": "762e4ba562eed0c5875de61937a129cb88cd87c037dc32700f7a5cb94e8e550f",
+    "comparison.json": "c2deb00392bcced73e3d53df27fa6071d5996cfb831e830d8825ac1f3d9dcc3c",
+    "raw-sha256.json": "e340029aac0b0b7ab61e69d9323778d699d1dbfea3bec8d515b35670dc32f359"
+  }
+}

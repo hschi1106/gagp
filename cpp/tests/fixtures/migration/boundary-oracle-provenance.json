@@ -1,0 +1,177 @@
+{
+  "reference_revision": "b04918307eb69ec0f08c6bf5b03a0fae9399dbbf",
+  "fixture_sha256": "f1dd55fb5a2063c315c93625c451c99dde07dbc71dddb98e74696ed683c90062",
+  "cpu_path": "/home/hschi1106/gagp-artifacts/grammar-migration/boundary-oracle-order-02/capture-0.jsonl",
+  "cpu_sha256": "0a5c59f1b5f5e711c0b7a73050fb7dcf8f28c79fb2bf05de95e64801aec0cd62",
+  "gpu_path": "/home/hschi1106/gagp-artifacts/grammar-migration/gpu-boundary-order-02/capture-0.jsonl",
+  "gpu_sha256": "c6e2676563858d7848db81f7a9433195a36b115093fd066dc024903c9675adc9",
+  "observations": [
+    {
+      "name": "dc.source-before-divide-and-solve",
+      "ordinal": 186
+    },
+    {
+      "name": "dc.divide-before-solve",
+      "ordinal": 187
+    },
+    {
+      "name": "dc.left-before-right",
+      "ordinal": 188
+    },
+    {
+      "name": "dc.solve-before-combine",
+      "ordinal": 189
+    },
+    {
+      "name": "scope.dc.solve",
+      "ordinal": 190
+    },
+    {
+      "name": "scope.dc.divide",
+      "ordinal": 191
+    },
+    {
+      "name": "scope.dc.combine",
+      "ordinal": 192
+    },
+    {
+      "name": "scope.dp1.solve",
+      "ordinal": 193
+    },
+    {
+      "name": "scope.dp2.solve",
+      "ordinal": 194
+    },
+    {
+      "name": "scope.dp1.transition",
+      "ordinal": 195
+    },
+    {
+      "name": "scope.dp2.transition",
+      "ordinal": 196
+    },
+    {
+      "name": "payload.string-bytes.511",
+      "ordinal": 197
+    },
+    {
+      "name": "payload.string-bytes.512",
+      "ordinal": 198
+    },
+    {
+      "name": "payload.string-bytes.513",
+      "ordinal": 199
+    },
+    {
+      "name": "payload.list-values.type0.127",
+      "ordinal": 200
+    },
+    {
+      "name": "payload.list-values.type1.127",
+      "ordinal": 201
+    },
+    {
+      "name": "payload.list-values.type2.127",
+      "ordinal": 202
+    },
+    {
+      "name": "payload.list-values.type0.128",
+      "ordinal": 203
+    },
+    {
+      "name": "payload.list-values.type1.128",
+      "ordinal": 204
+    },
+    {
+      "name": "payload.list-values.type2.128",
+      "ordinal": 205
+    },
+    {
+      "name": "payload.list-values.type0.129",
+      "ordinal": 206
+    },
+    {
+      "name": "payload.list-values.type1.129",
+      "ordinal": 207
+    },
+    {
+      "name": "payload.list-values.type2.129",
+      "ordinal": 208
+    },
+    {
+      "name": "payload.string-entries.31",
+      "ordinal": 209
+    },
+    {
+      "name": "payload.string-entries.32",
+      "ordinal": 210
+    },
+    {
+      "name": "payload.string-entries.33",
+      "ordinal": 211
+    }
+  ],
+  "extensions": [
+    {
+      "previous_fixture_sha256": "eb81d5eb600e2c7151850c8dc66479a04ad31a9b70b46b431d0ce0569f8ccf7b",
+      "cpu_path": "/home/hschi1106/gagp-artifacts/grammar-migration/boundary-oracle-order-03/capture-0.jsonl",
+      "cpu_sha256": "58441d6ea46c5c45a0807a2cd71db194b63b2071733c758f59eb23ccd1a72b61",
+      "gpu_path": "/home/hschi1106/gagp-artifacts/grammar-migration/gpu-boundary-order-03/capture-0.jsonl",
+      "gpu_sha256": "d74fff82110f0b87250f9a4fbe4485c97b167ec3c82f709c83338d66ae04ac9a",
+      "observations": [
+        {
+          "name": "dp1.first-error.offsets-1-2",
+          "ordinal": 212
+        },
+        {
+          "name": "dp1.first-error.offsets-2-1",
+          "ordinal": 213
+        },
+        {
+          "name": "dp2.first-error.first-dependency-base",
+          "ordinal": 214
+        },
+        {
+          "name": "dp2.first-error.second-dependency-base",
+          "ordinal": 215
+        },
+        {
+          "name": "payload.list-entries.type0.31",
+          "ordinal": 216
+        },
+        {
+          "name": "payload.list-entries.type0.32",
+          "ordinal": 217
+        },
+        {
+          "name": "payload.list-entries.type0.33",
+          "ordinal": 218
+        },
+        {
+          "name": "payload.list-entries.type1.31",
+          "ordinal": 219
+        },
+        {
+          "name": "payload.list-entries.type1.32",
+          "ordinal": 220
+        },
+        {
+          "name": "payload.list-entries.type1.33",
+          "ordinal": 221
+        },
+        {
+          "name": "payload.list-entries.type2.31",
+          "ordinal": 222
+        },
+        {
+          "name": "payload.list-entries.type2.32",
+          "ordinal": 223
+        },
+        {
+          "name": "payload.list-entries.type2.33",
+          "ordinal": 224
+        }
+      ]
+    }
+  ]
+}

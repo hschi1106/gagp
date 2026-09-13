@@ -1,0 +1,27 @@
+{
+  "reference_revision": "b04918307eb69ec0f08c6bf5b03a0fae9399dbbf",
+  "corpus_sha256": "efefd37cc3a1889de6af8880b021a954960d8dce8c1df235e144cbec2b000736",
+  "bytecode_rejection_rows": 22,
+  "source": "/home/hschi1106/gagp-artifacts/grammar-migration/verifier-oracle-03/capture-2.jsonl",
+  "source_sha256": "64784ee67406f0b97de3a4066227b27a1b62895b02ca13b5c5e5545b4f167844",
+  "codes": {
+    "missing_operand": 1,
+    "invalid_constant_index": 1,
+    "unknown_opcode": 1,
+    "invalid_local_index": 1,
+    "invalid_local_count": 1,
+    "invalid_constant": 2,
+    "invalid_var_mapping": 1,
+    "invalid_jump_target": 1,
+    "stack_underflow": 1,
+    "invalid_builtin_id": 1,
+    "invalid_builtin_arity": 1,
+    "stack_join_mismatch": 2,
+    "invalid_fallthrough": 1,
+    "invalid_private_opcode": 2,
+    "invalid_segment_index": 1,
+    "invalid_segment_metadata": 2,
+    "invalid_binder_local": 1,
+    "resource_limit": 1
+  }
+}

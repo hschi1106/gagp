@@ -1,0 +1,329 @@
+{
+  "version": "grammar-migration-baseline-capture-v1",
+  "source_revision": "b04918307eb69ec0f08c6bf5b03a0fae9399dbbf",
+  "artifact_root": "/home/hschi1106/gagp-artifacts/grammar-migration/b049183",
+  "status": "complete baseline capture; no candidate acceptance claimed",
+  "build_type": "Release",
+  "cuda_architectures": [
+    89
+  ],
+  "correctness_device": 0,
+  "hashes": {
+    "build/gagp_evolve_cli": "3eaaf430bdc9209eeb62a25bd67fe4be4ba3bd430f98e6d48ee529835b613b06",
+    "build/gagp_test_vm_cli_harness": "32dfc5f7454c7f7579d8a8590f3fa5bc2d127657cdccbf24bd499fe7e7e6307b",
+    "build/gagp_test_fitness_contract": "73a270dfc5c045caabaa990ab364c06f1b82790cf8785ac5c918e2f84b6afcab",
+    "build/gagp_test_cli_options": "66ed12a288d173d32a047c05fc2479cf33a5fd5b77ab8ffd151be9e53f32e468",
+    "build/gagp_test_bytecode_verify": "4947698435a4acb0ed8b9644d7accf23d1cebf224152a22047ced40ca909954b",
+    "build/gagp_test_ast_codec_compaction": "d43ddf8e06c774595fdaaa879f28f2efa306df77037b5549912c60a5d9fb517d",
+    "build/gagp_test_node_descriptor": "a95bd0c2737b218a016e0b31e309badf18a850600218424003bff83548b82572",
+    "build/gagp_test_payload_registry": "b443f90f7396a8b4d06c22ef10cc8d337fa58cce8ec4e97d816e3db8f7a22f11",
+    "build/gagp_test_grammar_config": "7e46556147bccb75e10c143c713158b6b0b56f16d950b42cc9ab864111fda5cf",
+    "build/gagp_test_asgp_semantics": "20456e6a9641da8549915d6428b2406594b65bc5a6d5bff980a895344925e4a2",
+    "build/gagp_test_vm_smoke": "802c9d0ddc8f0aa6ba7165cb130282772fac8dfb8b15dc90e08b18193f6b71a3",
+    "build/gagp_runtime_multi_bench": "0c9a4bbe45b0fc964073ee41c0be1fd5ce94e0261ac4fd83a143f899a6646e1b",
+    "build/gagp_test_evolution_pipeline": "6684d0394913272c85c157959af3e26fd7b43b1cf6886045fe1ac2a57b4af522",
+    "build/gagp_test_genome_properties": "a42ebf684e52351baa1a5f74ad92076189ae5d96cf75b351dd9702a507c8223c",
+    "build/gagp_test_ast_verify_asgp": "681ad6ffe0531d0858c908b4d248888109c3d7611fad606e8812ace51aa999cb",
+    "build/gagp_test_ast_verify_structure": "775cb61c28c18417f3c29c75738e2310e4a09a1ec6558bf0b8329ea8e3562233",
+    "build/gagp_test_evolution_cpu_gpu_parity": "54a8b08833a5897dfa31fbabec0e464d42e3c669920958709903347418b32042",
+    "build/gagp_test_evolve": "4c8627065da48c70dc5a2813e4bfd457e752564767e1b10ad4747865fef0a08d",
+    "build/gagp_test_genome": "47607b847e88e10fea28339a35b237f59a8106fc93a1e3bb57cc74492c48c0ea",
+    "build/gagp_test_fitness_cpu_gpu_parity": "9424b89ffb8150f03f4063a379ba459a6b0e94ce4a67140a316cccea5cb5d7b2",
+    "build/gagp_test_compiler_lowering": "a822ca6fe0d06c7e1f5f9151fa10ca13c41dc784f303c8a4911d46ddd57757a5",
+    "build/gagp_test_cli_json": "ac8b3e4ccd3d19e4e655bb56fc742d180def44c3fd7b0b21cef1d82484a151a6",
+    "build/gagp_test_decode_fuzz_smoke": "a69771da7c3f700196e9a4a83f490f06b4a85e6d9bbf4101f769a676045e45b6",
+    "build/gagp_test_ast_verify_types": "1a454acd6d37f8107ab3f8de42e2c9ed86b7ec041e1c99cfb63a9172c47789c1",
+    "build/gagp_test_vm_gpu_smoke": "dd94d96e17242ff53d8b91795ab1b3eea3c90f336f250fba4d5ed805902cfb76",
+    "build/gagp_test_ast_verify_binders": "d90b4bcf3d0041eccbe19e21f21aab33ea3d7008c629412668cc9d3d337468dd",
+    "build/gagp_test_structured_semantics": "3139d7d9a9cd865bda7274c92b8855b4b38f50d662b72a5b71fed3a90be2a369",
+    "build/gagp_test_repro_prep": "41c064d37c3b3ddd37f630be18d611992ddd2ad7ea25c65bd526e89e6d8605fe",
+    "source-sha.txt": "220ab223e851527b992a8f2a0d807e8e8c24f44b81df9e834a10c1b4c345c813",
+    "source.diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "configure.log": "5fe360426084afcc1f707d0872c00c8313a18c0f2c2e17704d96bb0e7b98885c",
+    "build.log": "790859ae8c00ae3d9e7d560f81793d9946798ca9b55115e3453368cfe35cae3d",
+    "ctest.log": "699cf32a097790a2c1f1b102c745d9bb2b0e8f7d18f50ea5872c22de0c3d0562"
+  },
+  "pending": [],
+  "register_limited_build": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/b049183/build-r64",
+    "source_revision": "b04918307eb69ec0f08c6bf5b03a0fae9399dbbf",
+    "extra_cmake_option": "-DCMAKE_CUDA_FLAGS=--maxrregcount=64",
+    "candidate_requirement": "Use identical CUDA flags when comparing against this reference; retain default build separately.",
+    "native_tests": {
+      "passed": 33,
+      "skipped": 0
+    },
+    "hashes": {
+      "configure-r64.log": "739f2782c38e18c615645a925ceed61f8e3bf82ab11d4cd7ebfb008c01e07e38",
+      "build-r64.log": "3f33ef280580a346f894792c8a2d580439d5be9d4c667c837f4c45e57357e3a5",
+      "ctest-r64.log": "54dd86ab2b8ecf63d07e160b21e3f44d62836857d609c2a0d34e75891f5b1f7a",
+      "cuda-resource-usage-r64.txt": "b15fba684aaff0a1742c01381088d5c6bcebb5eebb85fdf702a2c3b81746993d",
+      "build-r64/libgagp_core.a": "7c1b1d97353f2e0d5a23c812c7c380a1cdcada77787914e5a8275b79ba5d0e9c",
+      "build-r64/libgagp_fuzz_support.a": "47a98f883d8bb1e925154e1f3de98bf463f81dba34f8826016f5e9510c5fa932",
+      "build-r64/libgagp_evolution.a": "69e79773829dfc9cf26dba96a4fa685a03b95898d47049a9fde01ca52e0e8c3a",
+      "build-r64/libgagp_gpu.a": "5a744940b95483ba593bf61ae71d0d0597c0fc7f835e44dd36cbc7c3fb469e58",
+      "build-r64/libgagp_cli_support.a": "7bd4820346e5f3805cea0d1ba22b4c26a06425b9d8f5d24a3ce2feb2d225f947",
+      "build-r64/libgagp_runtime_cpu.a": "522495258e7953d45b3d25b7a38ac83361766d3dc76d15e6fe6a9e1431065add",
+      "build-r64/gagp_evolve_cli": "baf32a1c943704e3460e7d696b986207f9a7734f2ba0b6d04b3cdcb9538b4f98"
+    },
+    "adapter_link": "/home/hschi1106/gagp-artifacts/grammar-migration/matrix-adapter-r64/link.json",
+    "adapter_link_sha256": "131e21b404ab9c299236a8f20bdfd91b80a2f1a9b5acae128f626f31129749fc",
+    "capability_checks": {
+      "nested_20_generations_1024": "passed",
+      "dc_int_dc_float_dp1d_dp2d_metadata_steady_1024": "passed"
+    },
+    "matrix": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/workload-matrix-r64/workloads.json",
+      "sha256": "ca3730c7c5a2ac16dd273453b8c4c401f62c0b08c304634fceecde6a5c81ef92",
+      "workloads": 208,
+      "status": "complete baseline: 3 warmup and 15 measured blocks",
+      "preflight_path": "/home/hschi1106/gagp-artifacts/grammar-migration/matrix-preflight-r64",
+      "preflight_status": "all 1640 processes passed; one warmup block only",
+      "preflight_audit_sha256": "1b9803fc2a59ebe49b0f14cc79295e44c5120802e2ca2d764951fe80eff57e2c",
+      "baseline_path": "/home/hschi1106/gagp-artifacts/grammar-migration/baseline-matrix-r64",
+      "recovery": {
+        "reason": "CUDA device selection out of memory",
+        "failed_block": 5,
+        "failed_workload_index": 78,
+        "receipt": "/home/hschi1106/gagp-artifacts/grammar-migration/baseline-matrix-r64/recovery-000.json",
+        "receipt_sha256": "48bbde3eb9b837d25c80bfb3c9946b1bc63ea8b61dc14b63be9dc2e7f71f0b3c",
+        "replacement_returncode": 0,
+        "status": "replacement succeeded; full resumed baseline audited complete"
+      },
+      "final_audit": "/home/hschi1106/gagp-artifacts/grammar-migration/baseline-matrix-r64-audit-final.json",
+      "final_audit_sha256": "940cc99a1923086de0b9d9c2619accf6d4f755e6eafcb35206a9d1781674572b",
+      "processes": 29520,
+      "required_rows": 4632
+    },
+    "boundary_oracle": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/boundary-oracle-r64/capture-0.jsonl",
+      "sha256": "ffe039c15561d0bb8326b03d8e47cf8395218b03c49b8b3d60c988938ddd0de8",
+      "identical_to": "/home/hschi1106/gagp-artifacts/grammar-migration/boundary-oracle-02/capture-0.jsonl"
+    },
+    "capability_evidence": {
+      "/home/hschi1106/gagp-artifacts/grammar-migration/matrix-adapter-r64/nested-1024.process.json": "e88ca26293b653b3bb4cc8038fc44e76a03ad4e5f541fd6cf940163440de5873",
+      "/home/hschi1106/gagp-artifacts/grammar-migration/matrix-adapter-r64/asgp-1024.processes.json": "d47205af076940894b55e1b6309b8d81f54047f73658493867762508b2373eaf"
+    }
+  },
+  "trial_evidence_audit": {
+    "implementation": "tools/gagp_tools/reports/audit_migration_trials.py",
+    "frozen_manifest_required": true,
+    "reference_calibration": {
+      "report": "/home/hschi1106/gagp-artifacts/grammar-migration/steady-calibration-30-comparison-audited.json",
+      "sha256": "d5614c9633eff082b86048a23393012489558522ece5544ac3bd9e2778bf8369",
+      "audit_status": "complete",
+      "processes": 132,
+      "performance_status": "pending"
+    },
+    "tests": {
+      "tools": 43,
+      "repository": 17,
+      "focused_comparator": 13
+    },
+    "logs": {
+      "/home/hschi1106/gagp-artifacts/grammar-migration/tools-evidence-audit.log": "88388cb0a2a0d818038ad04303dedbd22ae35b9721c84028c75fecef1f64c0cf",
+      "/home/hschi1106/gagp-artifacts/grammar-migration/repository-evidence-audit.log": "2a8e68f03033877231cd51e38e19569915582d2b8f42f851cab1d103ca8a16cc",
+      "/home/hschi1106/gagp-artifacts/grammar-migration/comparator-evidence-audit.log": "f434927c80cd5f1a518dcaa1e9d111410b7c6afa2d81fb6c0d508e3eb8ce4b2b"
+    },
+    "remaining": "Candidate performance comparison is a later goal; baseline timing and recovery audits are complete."
+  },
+  "reproduction_capture": {
+    "manifest": "/home/hschi1106/gagp-artifacts/grammar-migration/reproduction-workloads-01/manifest.json",
+    "manifest_sha256": "eaa25cb6ff26879797f4efaf196674c6462c64f175a7c2421309a3b212ea3df0",
+    "captures": 34,
+    "reference_adapter_link": "/home/hschi1106/gagp-artifacts/grammar-migration/reproduction-adapter-r64/link.json",
+    "reference_adapter_link_sha256": "e2641170b2b455c0890fe8ab41bd78ca70957452ccacb55b9e97abe2fc53fffd",
+    "validation_log": "/home/hschi1106/gagp-artifacts/grammar-migration/repro-capture-tests.log",
+    "validation_sha256": "2963375ce0e2501ca8471ec53c5bdb07ff67c1c6422f9bce8a2ae8173bc04196",
+    "status": "34 snapshots restore byte-identically; full reproduction baseline audited complete",
+    "restoration_results": "/home/hschi1106/gagp-artifacts/grammar-migration/reproduction-restore-r64/results.json",
+    "restoration_sha256": "ebd6412cefd2dc78e14fa22cdc8e5c680d15a898ccec9547ccd4ad747e7ee00e",
+    "restoration_tests": "/home/hschi1106/gagp-artifacts/grammar-migration/repro-restore-tests.log",
+    "restoration_tests_sha256": "eb6510f0025f5ad6d4c43a1cb1f605b74808739eb42dc19625681d126039f564",
+    "gpu_steady": {
+      "results": "/home/hschi1106/gagp-artifacts/grammar-migration/reproduction-steady-r64/results.json",
+      "sha256": "d667ce2b1071252460103a02a08593d2b6390d60f95178bd86ee738f01d8c779",
+      "workloads": 34,
+      "calls_per_workload": 18,
+      "warmups": 3,
+      "measured_calls": 15,
+      "device": 1,
+      "status": "GPU deterministic sessions passed; subsequent full CPU/GPU reproduction baseline complete",
+      "test_log": "/home/hschi1106/gagp-artifacts/grammar-migration/repro-steady-tests.log",
+      "test_sha256": "b75c65e6445824ad338df4bba93b6e3e69158aef2900f24a6b0d0921955d5486"
+    },
+    "cpu_donors": {
+      "manifest": "/home/hschi1106/gagp-artifacts/grammar-migration/cpu-donor-capture-03/manifest.json",
+      "sha256": "59dcd9ffbfade54bbb199f66be0056b1d2280e9b32fb36ccb8f13fd6e097940c",
+      "workloads": 34,
+      "donor_calls": 7565,
+      "plain_vs_instrumented_children_and_verification": "identical",
+      "baseline_rejected_children": {
+        "simple_exp_1024-p1024": 37
+      },
+      "rejection": "type_mismatch",
+      "status": "exact replay, steady sessions and full reproduction baseline verified",
+      "replay_manifest": "/home/hschi1106/gagp-artifacts/grammar-migration/cpu-donor-capture-04/manifest.json",
+      "replay_manifest_sha256": "4c3ca5ebb852dca6e62267040e272b64f6ad7c6e8aca61420d01f429f86673b4",
+      "replayed_calls": 7565,
+      "generated_during_replay": 0,
+      "replay_children_and_verification": "match original for all 34 workloads",
+      "native_test_log": "/home/hschi1106/gagp-artifacts/grammar-migration/cpu-replay-tests.log",
+      "native_test_log_sha256": "c00a3458d3b115c01a6ecb265e3510f3a61d95663163589dcb91744e8c6f580b",
+      "steady_manifest": "/home/hschi1106/gagp-artifacts/grammar-migration/cpu-donor-capture-05/manifest.json",
+      "steady_manifest_sha256": "63d38fedf7bf4933e9803582e9887c68d0931b2ca3af234287b607b60f607e3d",
+      "steady_workloads": 34,
+      "steady_calls_per_workload": 18,
+      "steady_test_log": "/home/hschi1106/gagp-artifacts/grammar-migration/cpu-steady-tests.log",
+      "steady_test_log_sha256": "6895ace1e75055773d23752e951100c9b45aa5220ce790e0855923f5a454d9ee"
+    },
+    "matrix": {
+      "manifest": "/home/hschi1106/gagp-artifacts/grammar-migration/reproduction-matrix-01/workloads.json",
+      "sha256": "38baf5582619a616302a93bdc8be228ea57e7c1b54cf1e7aea615aecd1828f9e",
+      "preflight_audit": "/home/hschi1106/gagp-artifacts/grammar-migration/reproduction-preflight-01-audit.json",
+      "preflight_audit_sha256": "b068dd839750ebffccfb99e018a6d8b0d86be80c06bc222f2232efbd5daf2273",
+      "preflight_processes": 68,
+      "baseline": "/home/hschi1106/gagp-artifacts/grammar-migration/reproduction-baseline-01",
+      "device": 1,
+      "status": "complete baseline capture; not candidate acceptance",
+      "audit": "/home/hschi1106/gagp-artifacts/grammar-migration/reproduction-baseline-01-audit.json",
+      "audit_sha256": "d50b74176ebf9a60230c43d92a959d3bec8f088b5c2416822e214ddaf6cb75f7",
+      "processes": 1224,
+      "required_rows": 68
+    }
+  },
+  "direct_gpu_oracle": {
+    "boundary_manifest": "/home/hschi1106/gagp-artifacts/grammar-migration/gpu-boundary-results-01/manifest.json",
+    "boundary_manifest_sha256": "3318e7805623899e53ba0bf409752fdd25cb889ad10a457d21b8b71393b6f557",
+    "executions": 186,
+    "cpu_differences": 15,
+    "ordinary_vs_inspected_core": "matched every probe",
+    "additional_fuel_difference": {
+      "ordinal": 20,
+      "error": "TypeError",
+      "cpu_boundary": 10,
+      "gpu_boundary": 9
+    },
+    "compact_test": {
+      "cases": 18,
+      "log": "/home/hschi1106/gagp-artifacts/grammar-migration/gpu-diagnostic-tests.log",
+      "sha256": "7345bbde1ba49721beefd688d268b8fae7d5e206c1b9397372c8fa9c390b7600"
+    },
+    "native_capture": "/home/hschi1106/gagp-artifacts/grammar-migration/gpu-native-results-01",
+    "status": "native, boundary and capacity captures complete; measured CPU/GPU differences preserved",
+    "native_manifest_sha256": "1531e19cd006a28c27abccfce0f1ad5bb7c57af4c28886b18272c8300640a2f9",
+    "native_executions": 3078,
+    "native_cpu_differences": 5,
+    "integer_difference": {
+      "ordinals": [
+        753,
+        754,
+        755,
+        756
+      ],
+      "operation": "INT64_MAX + 1",
+      "cpu_bits": "8000000000000001",
+      "gpu_bits": "8000000000000000"
+    },
+    "known_differences_test_log": "/home/hschi1106/gagp-artifacts/grammar-migration/known-differences-tests.log",
+    "known_differences_test_sha256": "934a0a491586a4b31cea1f441bad5e573280f1e3449169859bcc1435d2a9e12c"
+  },
+  "population_statistics": {
+    "pilot": "/home/hschi1106/gagp-artifacts/grammar-migration/evolution-statistics-pilot-01/results.json",
+    "pilot_sha256": "7ec2e01b30e46497d8b08c03b23366c7ad2c7daab65c0bc9c32bb7c99957675c",
+    "differential_combinations": 44,
+    "test_log": "/home/hschi1106/gagp-artifacts/grammar-migration/evolution-statistics-tests.log",
+    "test_log_sha256": "3b7a0e316fcc6f8116ac679be8941806e52a07dc5d9aa2b5872d3986d8c4265f",
+    "full_capture": "/home/hschi1106/gagp-artifacts/grammar-migration/evolution-statistics-full-01",
+    "status": "complete distributions and independent raw audit; full operator capture also complete",
+    "audit": "/home/hschi1106/gagp-artifacts/grammar-migration/evolution-statistics-full-01-audit.json"
+  },
+  "operator_decision_capture": {
+    "status": "complete full matrix and independent raw audit",
+    "adapter_manifest": "/home/hschi1106/gagp-artifacts/grammar-migration/operator-statistics-adapter-02/manifest.json",
+    "adapter_manifest_sha256": "f40cfbf22365582db9e5c5027c3a6b754b798f97615d33c14c4647b205d9fff9",
+    "source_probe_manifest": "/home/hschi1106/gagp-artifacts/grammar-migration/operator-statistics-adapter-02/operators/manifest.json",
+    "pilot": "/home/hschi1106/gagp-artifacts/grammar-migration/operator-statistics-pilot-02",
+    "pilot_audit": "/home/hschi1106/gagp-artifacts/grammar-migration/operator-statistics-pilot-02-audit.json",
+    "full_capture": "/home/hschi1106/gagp-artifacts/grammar-migration/operator-statistics-full-02",
+    "scope": "per-generation host decisions and GPU variation/mutation-choice/metadata/output counters; diagnostic only",
+    "pilot_comparisons": 44,
+    "pilot_gpu_generations": 126,
+    "pilot_gpu_physical_children": 8064,
+    "gpu_assembly_fallbacks": 103,
+    "gpu_metadata_invalid": 385,
+    "gpu_output_invalid": 480,
+    "caveat": "Failure stages overlap; do not sum them. Diagnostic timing is excluded from performance baselines.",
+    "full_audit": "/home/hschi1106/gagp-artifacts/grammar-migration/operator-statistics-full-02-audit.json",
+    "full_comparisons": 1496,
+    "full_processes": 2992
+  },
+  "order_visibility_and_payload_boundaries": {
+    "order_visibility_status": "11 named verified-bytecode probes match CPU/GPU errors and fuel boundaries",
+    "order_visibility_audit": "/home/hschi1106/gagp-artifacts/grammar-migration/order-visibility-audit-01.json",
+    "expanded_cpu_oracle": "/home/hschi1106/gagp-artifacts/grammar-migration/boundary-oracle-order-03",
+    "expanded_gpu_oracle": "/home/hschi1106/gagp-artifacts/grammar-migration/gpu-boundary-order-03",
+    "payload_status": "15 CPU/GPU payload capacity probes complete; five measured differences frozen separately",
+    "remaining": "nested structured-body/phase-scope and invalid-input coverage mapping",
+    "fixture": "cpp/tests/fixtures/migration/reference-boundary-oracle.jsonl",
+    "fixture_provenance": "cpp/tests/fixtures/migration/boundary-oracle-provenance.json",
+    "focused_tests": "2/2 CPU replay and GPU direct oracle tests passed",
+    "coverage_ledger": "docs/reference/grammar-migration/semantic-coverage.md",
+    "fixture_observations": 39,
+    "dependency_order_status": "4 competing-error observations match CPU/GPU errors and fuel",
+    "list_entry_status": "9 observations complete; three missing-materialization differences at 33 entries"
+  },
+  "ast_verifier_capture": {
+    "status": "11 immutable-test rejections captured and standalone replay verified",
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/verifier-oracle-02",
+    "manifest_sha256": "35d770f03915a291f720bc9e2e699c815bf6b57a1a45cf1cbcbcb230ca208db0",
+    "source_tests": [
+      "test_ast_verify_asgp.cpp",
+      "test_ast_verify_binders.cpp"
+    ],
+    "unsupported_reference_capability": "nested ASGP source form inside ASGP phase",
+    "prior_failed_capture": "/home/hschi1106/gagp-artifacts/grammar-migration/verifier-oracle-01",
+    "fixture": "cpp/tests/fixtures/migration/reference-ast-rejections.jsonl",
+    "provenance": "cpp/tests/fixtures/migration/ast-rejections-provenance.json",
+    "focused_tests": "3/3 replay integration tests passed; corrupted rejection is rejected"
+  },
+  "current_validation": {
+    "native": {
+      "passed": 47,
+      "log": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-01-native-final.log",
+      "sha256": "566ffa186bbaef75da9405e957359adcd58261b26b6da8f5d3a1408e4b998a8e"
+    },
+    "tools": {
+      "passed": 52,
+      "log": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-01-tools-final.log",
+      "sha256": "12f764df49366797d4b050174100e3b6e5965192d79db760fa7d13359490785e"
+    },
+    "repository": {
+      "passed": 17,
+      "log": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-01-repository-final.log",
+      "sha256": "c571113d3168dbd10df979b298d179a596363e8a2efe982cd2fdaaaeeaa50c4f"
+    }
+  },
+  "bytecode_verifier_capture": {
+    "status": "22 rejection cases captured and replay verified with original options",
+    "artifact": "/home/hschi1106/gagp-artifacts/grammar-migration/verifier-oracle-03",
+    "fixture": "cpp/tests/fixtures/migration/reference-bytecode-rejections.jsonl",
+    "provenance": "cpp/tests/fixtures/migration/bytecode-rejections-provenance.json",
+    "tests": "corrupted rejection and changed resource limit both rejected"
+  },
+  "compilation_snapshot_replay": {
+    "status": "95 compilation AST/payload/bytecode snapshots roundtrip exactly",
+    "reports": [
+      "/home/hschi1106/gagp-artifacts/grammar-migration/native-oracle-04-replay-compilation-0.json",
+      "/home/hschi1106/gagp-artifacts/grammar-migration/native-oracle-04-replay-compilation-1.json",
+      "/home/hschi1106/gagp-artifacts/grammar-migration/native-oracle-04-replay-compilation-2.json"
+    ],
+    "scope": "snapshot preservation, not compiler-equivalence validation"
+  },
+  "historical_timing_progress_audit": {
+    "status": "pending; unfinished blocks",
+    "checked_processes": 24825,
+    "report": "/home/hschi1106/gagp-artifacts/grammar-migration/baseline-matrix-r64-audit-progress-01.json",
+    "report_sha256": "c7deb00321fdad4e020ab77b196d0da64ea132df51b42316a75346963aaa4282"
+  }
+}

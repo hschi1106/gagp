@@ -1,0 +1,74 @@
+{
+  "reference_revision": "b04918307eb69ec0f08c6bf5b03a0fae9399dbbf",
+  "corpus_sha256": "54c972efe6756853dfe5a24111aef83748e209b7b9a039e2b042d85ae72c8116",
+  "ast_rejection_rows": 11,
+  "verification_context": "empty inputs and default VerifyOptions, confirmed from captured test sources",
+  "origins": [
+    {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/verifier-oracle-02/capture-0.jsonl",
+      "sha256": "ca955be90c437ef1c7d860bad8a367e3f4ae97014d5c13420509973e7744eba9",
+      "original_ordinal": 0,
+      "fixture_ordinal": 0
+    },
+    {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/verifier-oracle-02/capture-0.jsonl",
+      "sha256": "ca955be90c437ef1c7d860bad8a367e3f4ae97014d5c13420509973e7744eba9",
+      "original_ordinal": 1,
+      "fixture_ordinal": 1
+    },
+    {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/verifier-oracle-02/capture-0.jsonl",
+      "sha256": "ca955be90c437ef1c7d860bad8a367e3f4ae97014d5c13420509973e7744eba9",
+      "original_ordinal": 2,
+      "fixture_ordinal": 2
+    },
+    {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/verifier-oracle-02/capture-0.jsonl",
+      "sha256": "ca955be90c437ef1c7d860bad8a367e3f4ae97014d5c13420509973e7744eba9",
+      "original_ordinal": 3,
+      "fixture_ordinal": 3
+    },
+    {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/verifier-oracle-02/capture-0.jsonl",
+      "sha256": "ca955be90c437ef1c7d860bad8a367e3f4ae97014d5c13420509973e7744eba9",
+      "original_ordinal": 4,
+      "fixture_ordinal": 4
+    },
+    {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/verifier-oracle-02/capture-0.jsonl",
+      "sha256": "ca955be90c437ef1c7d860bad8a367e3f4ae97014d5c13420509973e7744eba9",
+      "original_ordinal": 5,
+      "fixture_ordinal": 5
+    },
+    {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/verifier-oracle-02/capture-0.jsonl",
+      "sha256": "ca955be90c437ef1c7d860bad8a367e3f4ae97014d5c13420509973e7744eba9",
+      "original_ordinal": 6,
+      "fixture_ordinal": 6
+    },
+    {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/verifier-oracle-02/capture-1.jsonl",
+      "sha256": "c94670e79a46ed2c3c7b7e0a36d70dbe3530cb7e927c4a3bc5953f4772775320",
+      "original_ordinal": 0,
+      "fixture_ordinal": 7
+    },
+    {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/verifier-oracle-02/capture-1.jsonl",
+      "sha256": "c94670e79a46ed2c3c7b7e0a36d70dbe3530cb7e927c4a3bc5953f4772775320",
+      "original_ordinal": 1,
+      "fixture_ordinal": 8
+    },
+    {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/verifier-oracle-02/capture-1.jsonl",
+      "sha256": "c94670e79a46ed2c3c7b7e0a36d70dbe3530cb7e927c4a3bc5953f4772775320",
+      "original_ordinal": 2,
+      "fixture_ordinal": 9
+    },
+    {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/verifier-oracle-02/capture-1.jsonl",
+      "sha256": "c94670e79a46ed2c3c7b7e0a36d70dbe3530cb7e927c4a3bc5953f4772775320",
+      "original_ordinal": 3,
+      "fixture_ordinal": 10
+    }
+  ]
+}
