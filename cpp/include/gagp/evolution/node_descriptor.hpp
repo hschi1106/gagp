@@ -22,6 +22,7 @@ enum class NodeIndexRole {
   Constant,
   ListTypeTag,
   BinderId,
+  DynamicArity,
 };
 
 enum class NodeMetadataKind {
@@ -31,6 +32,7 @@ enum class NodeMetadataKind {
   AsgpDp1dSpec,
   AsgpDp2dSpec,
   LexicalRegion,
+  BoundedRegion,
 };
 
 enum class DependencyFamily {
@@ -128,6 +130,7 @@ enum class NodeTypingRule {
   LetRegion,
   Traverse,
   RegionVariable,
+  BoundedRegion,
 };
 
 struct NodeDescriptor {
@@ -154,6 +157,12 @@ inline constexpr std::size_t k_node_kind_count = static_cast<std::size_t>(NodeKi
 
 const std::array<NodeDescriptor, k_node_kind_count>& all_node_descriptors() noexcept;
 const NodeDescriptor& node_descriptor(NodeKind kind);
+// Traverse concrete nodes through this entrypoint so descriptor-sized argument
+// layouts can validate their declared arity before any prefix walk.
+inline int node_prefix_arity(const AstNode& node) {
+  if (node.kind == NodeKind::BOUNDED_REGION) return node.i0;
+  return node_descriptor(node.kind).prefix_arity;
+}
 bool is_known_node_kind(int value) noexcept;
 
 }  // namespace gagp::evo

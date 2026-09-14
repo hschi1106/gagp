@@ -12,6 +12,7 @@
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/evolve.hpp"
 #include "gagp/evolution/grammar/cache.hpp"
+#include "gagp/evolution/node_descriptor.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 #include "../subtree_utils.hpp"
 
@@ -319,7 +320,7 @@ bool validate_bound_vars_prefix(const AstProgram& program,
   }
 
   std::size_t cur = idx + 1;
-  for (int child = 0; child < subtree::node_arity(node.kind); ++child) {
+  for (int child = 0; child < node_prefix_arity(node); ++child) {
     if (!validate_bound_vars_prefix(program, cur, active_binders, &cur)) {
       return false;
     }
@@ -1060,6 +1061,7 @@ ProgramGenome compact_genome_tables(const ProgramGenome& genome) {
   out.ast.lexical_regions = genome.ast.lexical_regions;
   out.ast.traversal_specs = genome.ast.traversal_specs;
   out.ast.fuel_specs = genome.ast.fuel_specs;
+  out.ast.bounded_region_specs = genome.ast.bounded_region_specs;
 
   std::vector<int> name_map(genome.ast.names.size(), -1);
   std::vector<int> const_map(genome.ast.consts.size(), -1);
@@ -1101,6 +1103,15 @@ ProgramGenome compact_genome_tables(const ProgramGenome& genome) {
                node.kind == NodeKind::ASSIGN || node.kind == NodeKind::FOR_RANGE ||
                node.kind == NodeKind::MAP_LIST || node.kind == NodeKind::FILTER_LIST) {
       if (!map_name(node.i0, &node.i0)) {
+        ProgramGenome rebuilt = genome;
+        rebuilt.meta = build_genome_meta(rebuilt.ast);
+        return rebuilt;
+      }
+    }
+  }
+  for (auto& spec : out.ast.bounded_region_specs) {
+    for (auto& capture : spec.parameters) {
+      if (capture.kind == RegionCaptureKind::Name && !map_name(capture.index, &capture.index)) {
         ProgramGenome rebuilt = genome;
         rebuilt.meta = build_genome_meta(rebuilt.ast);
         return rebuilt;
@@ -1401,10 +1412,12 @@ PackedHostData pack_population(const std::vector<ProgramGenome>& population,
                                const PreprocessOutput& prep,
                                const GpuReproConfig& input_config) {
   const auto reject_general_regions = [](const AstProgram& ast) {
+    if (!ast.bounded_region_specs.empty())
+      throw std::invalid_argument("bounded regions are not supported by GPU reproduction");
     if (!ast.fuel_specs.empty())
       throw std::invalid_argument("fuel profiles are not supported by GPU reproduction");
     for (const auto& node : ast.nodes) {
-      if (node.kind == NodeKind::LET_REGION || node.kind == NodeKind::TRAVERSE ||
+      if (node.kind == NodeKind::BOUNDED_REGION || node.kind == NodeKind::LET_REGION || node.kind == NodeKind::TRAVERSE ||
           node.kind == NodeKind::TRAVERSE_RANGE || node.kind == NodeKind::REGION_VAR ||
           node.kind == NodeKind::CHECK_INT || node.kind == NodeKind::CHECK_LIST)
         throw std::invalid_argument("general lexical regions are not supported by GPU reproduction");

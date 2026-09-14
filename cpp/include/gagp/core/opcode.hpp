@@ -34,6 +34,7 @@ enum class Opcode : std::uint8_t {
   AsgpDc = 25,
   AsgpDp1d = 26,
   AsgpDp2d = 27,
+  BoundedRegion = 28,
 };
 
 inline const char* opcode_name(Opcode op) {
@@ -94,6 +95,8 @@ inline const char* opcode_name(Opcode op) {
       return "ASGP_DP1D";
     case Opcode::AsgpDp2d:
       return "ASGP_DP2D";
+    case Opcode::BoundedRegion:
+      return "BOUNDED_REGION";
   }
   return "PUSH_CONST";
 }
@@ -127,6 +130,7 @@ inline bool opcode_from_name(std::string_view name, Opcode& out) {
   else if (name == "ASGP_DC") out = Opcode::AsgpDc;
   else if (name == "ASGP_DP1D") out = Opcode::AsgpDp1d;
   else if (name == "ASGP_DP2D") out = Opcode::AsgpDp2d;
+  else if (name == "BOUNDED_REGION") out = Opcode::BoundedRegion;
   else return false;
   return true;
 }

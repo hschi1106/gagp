@@ -17,6 +17,88 @@ void append_int_vector(std::ostringstream& oss, const std::vector<int>& values) 
   }
 }
 
+void append_region_bound(std::ostringstream& oss, const RegionBound& bound) {
+  oss << static_cast<int>(bound.kind) << ":" << bound.literal << ":"
+      << bound.operand;
+}
+
+void append_window_endpoint(std::ostringstream& oss,
+                            const WindowEndpoint& endpoint) {
+  oss << static_cast<int>(endpoint.kind) << ":" << endpoint.cut;
+}
+
+void append_region_plan(std::ostringstream& oss, const RegionPlan& plan) {
+  oss << "v" << plan.version << ";s" << plan.state_types.size();
+  for (ValueTag type : plan.state_types) oss << "/" << static_cast<int>(type);
+  oss << ";r" << static_cast<int>(plan.result_type);
+  oss << ";p" << plan.parameter_types.size();
+  for (ValueTag type : plan.parameter_types) oss << "/" << static_cast<int>(type);
+  oss << ";prep" << plan.preparations.size();
+  for (const RegionPreparation& preparation : plan.preparations) {
+    oss << "/" << static_cast<int>(preparation.type) << ":"
+        << static_cast<int>(preparation.kind);
+  }
+  oss << ";expr" << plan.request_expression_types.size();
+  for (ValueTag type : plan.request_expression_types)
+    oss << "/" << static_cast<int>(type);
+  oss << ";bounds" << plan.bound_operand_count;
+  oss << ";req" << plan.requests.size();
+  for (const RegionRequest& request : plan.requests) {
+    oss << "/" << request.states.size();
+    for (const RegionStateTransition& transition : request.states) {
+      oss << "[" << static_cast<int>(transition.kind) << ":"
+          << transition.source_state << ":" << transition.offset << ":";
+      append_window_endpoint(oss, transition.window.begin);
+      oss << ":";
+      append_window_endpoint(oss, transition.window.end);
+      oss << ":" << transition.expression << "]";
+    }
+  }
+  oss << ";lim" << plan.limits.frames << ":" << plan.limits.cells << ":"
+      << plan.limits.entry_fuel;
+  oss << ";memo" << (plan.memoized ? 1 : 0);
+  oss << ";dup" << static_cast<int>(plan.duplicate_policy);
+  oss << ";progress" << static_cast<int>(plan.progress);
+  oss << ";slots" << plan.coordinate_slots.size();
+  for (std::uint32_t slot : plan.coordinate_slots) oss << "/" << slot;
+  oss << ";rank" << plan.coordinate_rank.size();
+  for (const RankAxis& axis : plan.coordinate_rank)
+    oss << "/" << axis.coordinate << ":" << axis.direction;
+  oss << ";domains" << plan.coordinate_domains.size();
+  for (const RegionCoordinateDomain& domain : plan.coordinate_domains) {
+    oss << "/[";
+    append_region_bound(oss, domain.lower);
+    oss << ":";
+    append_region_bound(oss, domain.upper);
+    oss << "]";
+  }
+  oss << ";endpoint" << static_cast<int>(plan.coordinate_endpoint)
+      << ";sequence" << plan.sequence_state;
+}
+
+void append_bounded_region_specs(std::ostringstream& oss,
+                                 const std::vector<BoundedRegionSpec>& specs) {
+  oss << specs.size();
+  for (const BoundedRegionSpec& spec : specs) {
+    oss << "|owner" << spec.node_index << "{";
+    append_region_plan(oss, spec.plan);
+    oss << ";captures" << spec.parameters.size();
+    for (const RegionCapture& capture : spec.parameters) {
+      oss << "/" << static_cast<int>(capture.kind) << ":" << capture.index;
+    }
+    oss << ";phases" << spec.phases.size();
+    for (const RegionAstPhase& phase : spec.phases) {
+      oss << "/arg" << phase.argument << "[" << phase.bindings.size();
+      for (const RegionAstBinding& binding : phase.bindings) {
+        oss << "/" << static_cast<int>(binding.source.bank) << ":"
+            << binding.source.slot << ":" << binding.binder_id;
+      }
+      oss << "]";
+    }
+    oss << "}";
+  }
+}
+
 std::string canonical_prefix_serialize(const AstProgram& program) {
   std::ostringstream oss;
   oss << "AstPrefix(";
@@ -91,6 +173,10 @@ std::string canonical_prefix_serialize(const AstProgram& program) {
         oss << static_cast<int>(spec.charges[j].event) << ":" << spec.charges[j].cost;
       }
     }
+  }
+  if (!program.bounded_region_specs.empty()) {
+    oss << ";BoundedRegions=";
+    append_bounded_region_specs(oss, program.bounded_region_specs);
   }
   oss << ")";
   return oss.str();
@@ -185,6 +271,10 @@ std::string canonical_cache_key_serialize(const AstProgram& program) {
       for (const FuelCharge& charge : spec.charges)
         oss << "/" << static_cast<int>(charge.event) << ":" << charge.cost;
     }
+  }
+  if (!program.bounded_region_specs.empty()) {
+    oss << ";bounded_regions:";
+    append_bounded_region_specs(oss, program.bounded_region_specs);
   }
   oss << ")";
   return oss.str();

@@ -12,6 +12,7 @@
 #include "gagp/evolution/grammar/values.hpp"
 #include "gagp/evolution/node_descriptor.hpp"
 #include "gagp/evolution/repro/pack.hpp"
+#include "gagp/serialization/region_plan_json.hpp"
 
 namespace gagp::evo::grammar {
 namespace {
@@ -40,7 +41,8 @@ bool same_materialized_program(const AstProgram& a, const AstProgram& b) {
   if (a.version != b.version || a.nodes.size() != b.nodes.size()) return false;
   if (a.lexical_regions.size() != b.lexical_regions.size() ||
       a.traversal_specs.size() != b.traversal_specs.size() ||
-      a.fuel_specs.size() != b.fuel_specs.size()) return false;
+      a.fuel_specs.size() != b.fuel_specs.size() ||
+      a.bounded_region_specs.size() != b.bounded_region_specs.size()) return false;
   for (std::size_t i = 0; i < a.lexical_regions.size(); ++i) {
     const auto& left = a.lexical_regions[i];
     const auto& right = b.lexical_regions[i];
@@ -61,6 +63,31 @@ bool same_materialized_program(const AstProgram& a, const AstProgram& b) {
       if (left.charges[j].event != right.charges[j].event ||
           left.charges[j].cost != right.charges[j].cost) return false;
   }
+  for (std::size_t i = 0; i < a.bounded_region_specs.size(); ++i) {
+    const auto& left = a.bounded_region_specs[i];
+    const auto& right = b.bounded_region_specs[i];
+    if (left.node_index != right.node_index || left.parameters.size() != right.parameters.size() ||
+        left.phases.size() != right.phases.size() ||
+        canonical_json(serialization::encode_region_plan(left.plan)) !=
+            canonical_json(serialization::encode_region_plan(right.plan))) return false;
+    for (std::size_t j = 0; j < left.parameters.size(); ++j) {
+      const auto& x = left.parameters[j];
+      const auto& y = right.parameters[j];
+      if (x.kind != y.kind) return false;
+      if (x.kind == RegionCaptureKind::Name) {
+        if (a.names.at(x.index) != b.names.at(y.index)) return false;
+      } else if (x.index != y.index) return false;
+    }
+    for (std::size_t j = 0; j < left.phases.size(); ++j) {
+      const auto& x = left.phases[j];
+      const auto& y = right.phases[j];
+      if (x.argument != y.argument || x.bindings.size() != y.bindings.size()) return false;
+      for (std::size_t k = 0; k < x.bindings.size(); ++k)
+        if (x.bindings[k].binder_id != y.bindings[k].binder_id ||
+            x.bindings[k].source.bank != y.bindings[k].source.bank ||
+            x.bindings[k].source.slot != y.bindings[k].source.slot) return false;
+    }
+  }
   const auto same_index = [&](NodeIndexRole role, int left, int right) {
     switch (role) {
       case NodeIndexRole::Unused: return true;
@@ -68,6 +95,7 @@ bool same_materialized_program(const AstProgram& a, const AstProgram& b) {
       case NodeIndexRole::Constant:
         return canonical_json(encode_constant(a.consts.at(left))) ==
             canonical_json(encode_constant(b.consts.at(right)));
+      case NodeIndexRole::DynamicArity:
       case NodeIndexRole::BinderId:
       case NodeIndexRole::ListTypeTag: return left == right;
     }
@@ -142,32 +170,52 @@ AstProgram splice(const AstProgram& base, const VariationSite& destination,
       if (node.kind == NodeKind::REGION_VAR) used.insert(node.i0);
     for (const auto& region : donor.lexical_regions)
       for (const auto& binding : region.bindings) used.insert(binding.id);
+    for (const auto& region : donor.bounded_region_specs) {
+      for (const auto& phase : region.phases)
+        for (const auto& binding : phase.bindings) used.insert(binding.binder_id);
+      for (const auto& capture : region.parameters)
+        if (capture.kind == RegionCaptureKind::Lexical) used.insert(capture.index);
+    }
     std::map<int, int> introduced;
     std::set<int> declared;
     int fresh = 0;
+    const auto freshen = [&](int& id) {
+      declared.insert(id);
+      if (std::find(target_ids.begin(), target_ids.end(), id) == target_ids.end()) return;
+      while (fresh < std::numeric_limits<int>::max() && used.count(fresh)) ++fresh;
+      if (fresh == std::numeric_limits<int>::max())
+        throw std::overflow_error("variation exhausted native binder IDs");
+      introduced.emplace(id, fresh);
+      id = fresh;
+      used.insert(fresh);
+    };
     for (auto& region : mapped.lexical_regions) {
       if (region.node_index < payload.begin || region.node_index >= payload.end) continue;
-      for (auto& binding : region.bindings) {
-        declared.insert(binding.id);
-        if (std::find(target_ids.begin(), target_ids.end(), binding.id) == target_ids.end()) continue;
-        while (used.count(fresh)) ++fresh;
-        if (fresh == std::numeric_limits<int>::max())
-          throw std::overflow_error("variation exhausted native binder IDs");
-        introduced.emplace(binding.id, fresh);
-        binding.id = fresh; used.insert(fresh);
-      }
+      for (auto& binding : region.bindings) freshen(binding.id);
     }
-    for (auto index = payload.begin; index < payload.end; ++index) {
-      auto& node = mapped.nodes.at(index);
-      if (node.kind != NodeKind::REGION_VAR) continue;
-      const auto local = introduced.find(node.i0);
-      if (local != introduced.end()) node.i0 = local->second;
-      else if (!declared.count(node.i0)) {
-        const auto found = remap.find(node.i0);
+    for (auto& region : mapped.bounded_region_specs) {
+      if (region.node_index < payload.begin || region.node_index >= payload.end) continue;
+      for (auto& phase : region.phases)
+        for (auto& binding : phase.bindings) freshen(binding.binder_id);
+    }
+    const auto rename_reference = [&](int& id) {
+      const auto local = introduced.find(id);
+      if (local != introduced.end()) id = local->second;
+      else if (!declared.count(id)) {
+        const auto found = remap.find(id);
         if (found == remap.end())
           throw std::logic_error("variation donor has an unmapped lexical capture");
-        node.i0 = found->second;
+        id = found->second;
       }
+    };
+    for (auto index = payload.begin; index < payload.end; ++index) {
+      auto& node = mapped.nodes.at(index);
+      if (node.kind == NodeKind::REGION_VAR) rename_reference(node.i0);
+    }
+    for (auto& region : mapped.bounded_region_specs) {
+      if (region.node_index < payload.begin || region.node_index >= payload.end) continue;
+      for (auto& capture : region.parameters)
+        if (capture.kind == RegionCaptureKind::Lexical) rename_reference(capture.index);
     }
     result = subtree::replace_subtree(result, span.begin, span.end,
         mapped, payload.begin, payload.end);

@@ -1,10 +1,13 @@
 #pragma once
 
+#include <optional>
+
 #include "gagp/evolution/grammar/catalog.hpp"
+#include "gagp/core/region_plan.hpp"
 
 namespace gagp::evo::grammar {
 
-enum class StructuredFamily : std::uint8_t { BoundedRecursion, MemoizedRecurrence };
+enum class StructuredFamily : std::uint8_t { BoundedRecursion, MemoizedRecurrence, BoundedRegion };
 
 // General static-region contracts. No runtime closures or package identities.
 struct StructuredContract {
@@ -19,6 +22,7 @@ struct StructuredContract {
   std::uint32_t base_body = 0;
   std::uint32_t combine_body = 0;
   std::uint32_t boundary_body = 0;
+  std::optional<RegionPlan> plan;
 };
 
 inline constexpr std::uint32_t kStructuredStateCapacity = 4;
@@ -36,6 +40,8 @@ StructuredContract recursive_contract(const std::vector<RType>& state, RType res
 // exact even though all internal coordinate slots are Int.
 StructuredContract memoized_contract(std::uint32_t dimensions, RType result,
     std::uint32_t requests);
+
+StructuredContract bounded_contract(const RegionPlan& plan);
 
 void require_structured_execution(const StructuredContract& contract);
 

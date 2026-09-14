@@ -45,6 +45,17 @@ struct CompiledTemplate {
   NodeCategory category = NodeCategory::Expression;
 };
 
+enum class CompiledCaptureKind : std::uint8_t { Input, Local, Bound };
+struct CompiledRegionCapture {
+  CompiledCaptureKind kind = CompiledCaptureKind::Input;
+  std::uint32_t target = 0;
+};
+struct CompiledRegionPhase {
+  std::uint32_t argument = 0;
+  // Ordered source slots aligned with the corresponding regions binding names.
+  std::vector<RegionValueSlot> sources;
+};
+
 struct CompiledExpression {
   ExpressionKind kind = ExpressionKind::Primitive;
   RType type = RType::Invalid;
@@ -59,6 +70,8 @@ struct CompiledExpression {
   std::uint32_t context = kNoGrammarId;
   NodeCategory category = NodeCategory::Expression;
   std::uint32_t local = kNoGrammarId;
+  std::vector<CompiledRegionCapture> captures;
+  std::vector<CompiledRegionPhase> phases;
 };
 
 struct CompiledProduction {

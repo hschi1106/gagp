@@ -16,10 +16,11 @@ std::uint32_t subtree_depth(const AstProgram& ast, std::uint32_t* index,
     std::uint32_t end) {
   if (*index >= end)
     throw std::runtime_error("generated contextual donor has an incomplete payload subtree");
-  const auto& descriptor = node_descriptor(ast.nodes[*index].kind);
+  const auto& node = ast.nodes[*index];
+  const int arity = node_prefix_arity(node);
   ++*index;
   std::uint32_t child_depth = 0;
-  for (int child = 0; child < descriptor.prefix_arity; ++child)
+  for (int child = 0; child < arity; ++child)
     child_depth = std::max(child_depth, subtree_depth(ast, index, end));
   return child_depth + 1;
 }

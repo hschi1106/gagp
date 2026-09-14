@@ -116,6 +116,8 @@ constexpr std::array<NodeDescriptor, k_node_kind_count> k_descriptors{{
          Builtin, true),
     NODE(CHECK_LIST, "check_list", Expression, 1, Unused, None, GeneralRegion,
          Builtin, true),
+    NODE(BOUNDED_REGION, "bounded_region", Expression, 0, DynamicArity, BoundedRegion,
+         GeneralRegion, BoundedRegion, true),
 }};
 
 #undef DEPENDENCY

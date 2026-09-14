@@ -2,6 +2,7 @@
 #include "gagp/evolution/grammar/catalog.hpp"
 #include "gagp/evolution/grammar/identity.hpp"
 #include "gagp/evolution/grammar/constants.hpp"
+#include "gagp/serialization/region_plan_json.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -24,6 +25,38 @@ using cli_detail::require_string;
 Json string(std::string value) { Json out; out.kind = Kind::String; out.string_v = std::move(value); return out; }
 Json array() { Json out; out.kind = Kind::Array; return out; }
 Json object() { Json out; out.kind = Kind::Object; return out; }
+
+std::uint32_t source_uint32(const Json& value, const char* context) {
+  if (value.kind != Kind::Number || !std::isfinite(value.number_v) ||
+      value.number_v < 0 ||
+      value.number_v > static_cast<double>(std::numeric_limits<std::uint32_t>::max()) ||
+      std::floor(value.number_v) != value.number_v) {
+    throw std::invalid_argument(std::string(context) +
+                                " must be a uint32 integer");
+  }
+  return static_cast<std::uint32_t>(value.number_v);
+}
+
+RegionSlotBank source_region_bank(const std::string& name) {
+  if (name == "state") return RegionSlotBank::State;
+  if (name == "parameter") return RegionSlotBank::Parameter;
+  if (name == "prepared") return RegionSlotBank::Prepared;
+  if (name == "result") return RegionSlotBank::Result;
+  if (name == "measure") return RegionSlotBank::Measure;
+  throw std::invalid_argument("unknown bounded region slot bank: " + name);
+}
+
+void source_binding_identifier(const std::string& name) {
+  const auto letter = [](char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+  };
+  if (name.empty() || !letter(name.front()) ||
+      !std::all_of(name.begin(), name.end(), [&](char c) {
+        return letter(c) || (c >= '0' && c <= '9');
+      })) {
+    throw std::invalid_argument("invalid bounded region binding name");
+  }
+}
 
 void keys(const Json& value, std::initializer_list<const char*> allowed, const char* context) {
   if (value.kind != Kind::Object) throw std::invalid_argument(std::string(context) + " must be an object");
@@ -86,6 +119,7 @@ void source_expression(const Json& value) {
     if (holes.kind != Kind::Object) throw std::invalid_argument("template arguments must be an object");
     for (const auto& hole : holes.object_v) source_expression(hole.second);
   } else if (value.object_v.count("signature") || value.object_v.count("structured") || value.object_v.count("control")) {
+    bool bounded = false;
     if (value.object_v.count("signature")) {
       keys(value, {"signature", "args", "bind"}, "primitive expression");
       (void)PrimitiveCatalog::standard().resolve(require_string(value.object_v.at("signature"), "signature"));
@@ -94,15 +128,101 @@ void source_expression(const Json& value) {
       (void)PrimitiveCatalog::standard().resolve_control(require_string(value.object_v.at("control"), "control"));
       (void)parse_type(require_string(require_object_field(value, "type"), "type"));
     } else {
-      keys(value, {"structured", "args", "bind"}, "structured expression");
       const auto& contract = value.object_v.at("structured");
       const auto family = require_string(require_object_field(contract, "family"), "family");
       if (family == "recur") keys(contract, {"family", "state_types", "result_type", "requests"}, "recursive contract");
       else if (family == "memo") keys(contract, {"family", "dimensions", "result_type", "requests"}, "memoized contract");
+      else if (family == "bounded") {
+        bounded = true;
+        keys(value, {"structured", "captures", "phases", "args"},
+             "bounded structured expression");
+        keys(contract, {"family", "plan"}, "bounded region contract");
+        RegionPlan plan;
+        try {
+          plan = serialization::decode_region_plan(
+              require_object_field(contract, "plan"));
+        } catch (const std::exception& error) {
+          throw std::invalid_argument(std::string("invalid bounded region plan: ") +
+                                      error.what());
+        }
+
+        const auto& captures = elements(require_object_field(value, "captures"));
+        if (captures.size() != plan.parameter_types.size())
+          throw std::invalid_argument(
+              "bounded region capture count must match plan parameters");
+        std::set<std::pair<std::string, std::string>> capture_ids;
+        for (const Json& capture : captures) {
+          if (capture.kind != Kind::Object || capture.object_v.size() != 1)
+            throw std::invalid_argument(
+                "bounded region capture must contain exactly one reference");
+          const auto& reference = *capture.object_v.begin();
+          if (reference.first != "input" && reference.first != "local" &&
+              reference.first != "bound")
+            throw std::invalid_argument("unknown bounded region capture reference");
+          const std::string name = require_string(reference.second,
+                                                  "bounded region capture");
+          if (!capture_ids.insert({reference.first, name}).second)
+            throw std::invalid_argument("duplicate bounded region capture");
+        }
+
+        const std::size_t phase_count = bounded_region_arity(plan) -
+            plan.state_types.size() - plan.bound_operand_count;
+        const auto& phases = elements(require_object_field(value, "phases"));
+        if (phases.size() != phase_count)
+          throw std::invalid_argument("bounded region must declare every phase");
+        for (std::size_t ordinal = 0; ordinal < phases.size(); ++ordinal) {
+          const Json& phase = phases[ordinal];
+          keys(phase, {"argument", "bindings"}, "bounded region phase");
+          const std::uint32_t argument = source_uint32(
+              require_object_field(phase, "argument"),
+              "bounded region phase argument");
+          const std::uint32_t expected = static_cast<std::uint32_t>(
+              plan.state_types.size() + plan.bound_operand_count + ordinal);
+          if (argument != expected)
+            throw std::invalid_argument(
+                "bounded region phase argument is not canonical");
+          const auto& bindings = elements(require_object_field(phase, "bindings"));
+          if (bindings.size() > kBoundedRegionPhaseBindingCapacity)
+            throw std::invalid_argument(
+                "bounded region phase binding capacity exceeded");
+          std::set<std::pair<int, std::uint32_t>> sources;
+          std::set<std::string> names;
+          for (const Json& binding : bindings) {
+            keys(binding, {"bank", "slot", "name"},
+                 "bounded region phase binding");
+            RegionValueSlot source;
+            source.bank = source_region_bank(require_string(
+                require_object_field(binding, "bank"), "bounded region bank"));
+            source.slot = source_uint32(require_object_field(binding, "slot"),
+                                        "bounded region slot");
+            if (!sources.insert({static_cast<int>(source.bank), source.slot}).second)
+              throw std::invalid_argument(
+                  "duplicate bounded region phase source");
+            const std::string name = require_string(
+                require_object_field(binding, "name"),
+                "bounded region binding name");
+            source_binding_identifier(name);
+            if (!names.insert(name).second)
+              throw std::invalid_argument(
+                  "duplicate bounded region phase binding name");
+            try {
+              (void)region_slot_type(
+                  plan, bounded_region_phase_kind(plan, ordinal), source,
+                  bounded_region_preparation_ordinal(plan, ordinal));
+            } catch (const std::exception& error) {
+              throw std::invalid_argument(
+                  std::string("invalid bounded region phase source: ") +
+                  error.what());
+            }
+          }
+        }
+      }
       else throw std::invalid_argument("unknown structured primitive family: " + family);
+      if (!bounded)
+        keys(value, {"structured", "args", "bind"}, "structured expression");
     }
     for (const auto& arg : elements(require_object_field(value, "args"))) source_expression(arg);
-    if (value.object_v.count("bind")) {
+    if (!bounded && value.object_v.count("bind")) {
       const auto& bindings = value.object_v.at("bind");
       if (bindings.kind != Kind::Object) throw std::invalid_argument("bind must be an object");
       for (const auto& region : bindings.object_v)

@@ -1,8 +1,10 @@
 # Grammar migration execution evidence
 
-Goals 01–03 are committed. Goal 04 adds compiled grammar variation and shared host
+Goals 01–06 are implemented. Goal 04 adds compiled grammar variation and shared host
 preparation; its [validation evidence](goal-04-variation.md) is recorded separately.
-Goals 05–12 remain pending. The immutable
+Goal 06's [bounded-region evidence](goal-06-bounded-regions.md)
+distinguishes verified CPU behavior from later acceptance work. Goals 07–12 remain
+pending. The immutable
 reference source revision and binary/log hashes are recorded in
 [baseline-capture.json](baseline-capture.json). Existing production generation and
 runtime workflows remain available during the staged migration.

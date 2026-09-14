@@ -2,6 +2,9 @@
 
 #include <stdexcept>
 
+#include "gagp/evolution/grammar/definition.hpp"
+#include "gagp/serialization/region_plan_json.hpp"
+
 namespace gagp::evo::grammar {
 namespace {
 void validate(const std::vector<RType>& state, RType result, std::uint32_t requests) {
@@ -76,7 +79,52 @@ StructuredContract memoized_contract(std::uint32_t dimensions, RType result, std
   return contract;
 }
 
+StructuredContract bounded_contract(const RegionPlan& plan) {
+  validate_region_plan(plan);
+  const auto native_type = [](ValueTag tag) {
+    switch (tag) {
+      case ValueTag::Int: return RType::Int;
+      case ValueTag::Float: return RType::Float;
+      case ValueTag::Bool: return RType::Bool;
+      case ValueTag::Char: return RType::Char;
+      case ValueTag::String: return RType::String;
+      case ValueTag::IntList: return RType::IntList;
+      case ValueTag::FloatList: return RType::FloatList;
+      case ValueTag::StringList: return RType::StringList;
+      default: throw std::invalid_argument("bounded contract requires exact public types");
+    }
+  };
+  StructuredContract contract;
+  contract.family = StructuredFamily::BoundedRegion;
+  contract.plan = plan;
+  contract.result = native_type(plan.result_type);
+  contract.requests = static_cast<std::uint32_t>(plan.requests.size());
+  contract.key = "bounded:" + canonical_json(serialization::encode_region_plan(plan));
+  for (const auto type : plan.state_types) contract.state_types.push_back(native_type(type));
+  contract.arguments = contract.state_types;
+  contract.arguments.insert(contract.arguments.end(), plan.bound_operand_count, RType::Int);
+  const auto start = contract.arguments.size();
+  const auto count = bounded_region_arity(plan) - start;
+  for (std::size_t ordinal = 0; ordinal < count; ++ordinal) {
+    const auto argument = static_cast<std::uint32_t>(contract.arguments.size());
+    contract.arguments.push_back(native_type(bounded_region_phase_type(plan, ordinal)));
+    contract.regions.push_back({argument, {}});
+    switch (bounded_region_phase_kind(plan, ordinal)) {
+      case RegionPhaseKind::BasePredicate: contract.base_predicate = argument; break;
+      case RegionPhaseKind::BaseBody: contract.base_body = argument; break;
+      case RegionPhaseKind::Combine: contract.combine_body = argument; break;
+      case RegionPhaseKind::Boundary: contract.boundary_body = argument; break;
+      default: break;
+    }
+  }
+  return contract;
+}
+
 void require_structured_execution(const StructuredContract& contract) {
+  if (contract.family == StructuredFamily::BoundedRegion && contract.plan) {
+    validate_region_plan(*contract.plan);
+    return;
+  }
   throw std::invalid_argument("structured primitive is declared but execution is not implemented: " + contract.key);
 }
 

@@ -2,6 +2,7 @@
 
 #include <deque>
 #include <limits>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -15,7 +16,7 @@ SemanticFuelValidation fail(std::size_t instruction_index, std::string message) 
 bool is_known_opcode(Opcode op) {
   const int value = static_cast<int>(op);
   return value >= static_cast<int>(Opcode::PushConst) &&
-         value <= static_cast<int>(Opcode::AsgpDp2d);
+         value <= static_cast<int>(Opcode::BoundedRegion);
 }
 
 bool is_jump(Opcode op) {
@@ -110,6 +111,32 @@ SemanticFuelValidation validate_semantic_fuel(
   return {};
 }
 
+std::size_t bytecode_instruction_count(const BytecodeProgram& program) {
+  std::size_t count = program.code.size();
+  const auto add = [&](const PhaseProgram& phase) {
+    if (phase.code.size() > std::numeric_limits<std::size_t>::max() - count)
+      throw std::length_error("bytecode instruction count overflow");
+    count += phase.code.size();
+  };
+  for (const auto& segment : program.asgp_dc_segments) {
+    add(segment.solve); add(segment.divide); add(segment.combine);
+  }
+  for (const auto& segment : program.asgp_dp1d_segments) {
+    add(segment.solve); add(segment.transition);
+  }
+  for (const auto& segment : program.asgp_dp2d_segments) {
+    add(segment.solve); add(segment.transition);
+  }
+  for (const auto& segment : program.bounded_region_segments) {
+    if (segment.boundary) add(segment.boundary->program);
+    add(segment.base_predicate.program); add(segment.base_body.program);
+    for (const auto& phase : segment.preparations) add(phase.program);
+    for (const auto& phase : segment.request_expressions) add(phase.program);
+    add(segment.combine.program);
+  }
+  return count;
+}
+
 bool has_semantic_fuel(const BytecodeProgram& program) noexcept {
   if (!program.instruction_fuel.empty()) return true;
   for (const AsgpDcSegment& segment : program.asgp_dc_segments) {
@@ -130,6 +157,16 @@ bool has_semantic_fuel(const BytecodeProgram& program) noexcept {
         phase_has_semantic_fuel(segment.transition)) {
       return true;
     }
+  }
+  for (const auto& segment : program.bounded_region_segments) {
+    if ((segment.boundary && phase_has_semantic_fuel(segment.boundary->program)) ||
+        phase_has_semantic_fuel(segment.base_predicate.program) ||
+        phase_has_semantic_fuel(segment.base_body.program) ||
+        phase_has_semantic_fuel(segment.combine.program)) return true;
+    for (const auto& phase : segment.preparations)
+      if (phase_has_semantic_fuel(phase.program)) return true;
+    for (const auto& phase : segment.request_expressions)
+      if (phase_has_semantic_fuel(phase.program)) return true;
   }
   return false;
 }

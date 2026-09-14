@@ -1,5 +1,6 @@
 #include "gagp/evolution/grammar/compiled.hpp"
 #include "gagp/evolution/grammar/budget.hpp"
+#include "gagp/serialization/region_plan_json.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -31,6 +32,36 @@ std::uint32_t positive(const Json& value, std::uint32_t maximum, const char* nam
       value.number_v > maximum || std::floor(value.number_v) != value.number_v)
     throw std::invalid_argument(std::string(name) + " must be a positive integer within capacity");
   return static_cast<std::uint32_t>(value.number_v);
+}
+std::uint32_t nonnegative(const Json& value, std::uint32_t maximum,
+                          const char* name) {
+  if (value.kind != Kind::Number || !std::isfinite(value.number_v) ||
+      value.number_v < 0 || value.number_v > maximum ||
+      std::floor(value.number_v) != value.number_v)
+    throw std::invalid_argument(std::string(name) +
+                                " must be a nonnegative integer within capacity");
+  return static_cast<std::uint32_t>(value.number_v);
+}
+RType region_type(ValueTag type) {
+  switch (type) {
+    case ValueTag::Int: return RType::Int;
+    case ValueTag::Float: return RType::Float;
+    case ValueTag::Bool: return RType::Bool;
+    case ValueTag::Char: return RType::Char;
+    case ValueTag::String: return RType::String;
+    case ValueTag::IntList: return RType::IntList;
+    case ValueTag::FloatList: return RType::FloatList;
+    case ValueTag::StringList: return RType::StringList;
+    default: throw std::invalid_argument("bounded region requires an exact public type");
+  }
+}
+RegionSlotBank region_bank(const std::string& name) {
+  if (name == "state") return RegionSlotBank::State;
+  if (name == "parameter") return RegionSlotBank::Parameter;
+  if (name == "prepared") return RegionSlotBank::Prepared;
+  if (name == "result") return RegionSlotBank::Result;
+  if (name == "measure") return RegionSlotBank::Measure;
+  throw std::invalid_argument("unknown bounded region slot bank: " + name);
 }
 std::size_t type_index(RType type) {
   const auto& types = value_types();
@@ -144,12 +175,83 @@ class GrammarCompiler {
         out_.productions_.push_back(std::move(production));
       }
     }
+    validate_bounded_phase_closure();
     costs();
     index_contexts();
     return std::move(out_);
   }
 
  private:
+  void validate_bounded_phase_closure() const {
+    const auto validate_root = [&](std::uint32_t root) {
+      std::vector<std::uint32_t> pending = {root};
+      std::vector<bool> expressions(out_.expressions_.size(), false);
+      std::vector<bool> nonterminals(out_.nonterminals_.size(), false);
+      while (!pending.empty()) {
+        const std::uint32_t id = pending.back();
+        pending.pop_back();
+        if (expressions.at(id)) continue;
+        expressions[id] = true;
+        const CompiledExpression& expression = out_.expressions_[id];
+        if (expression.kind == ExpressionKind::Input ||
+            expression.kind == ExpressionKind::Local) {
+          throw std::invalid_argument(
+              "bounded region phase must use an explicit parameter binding");
+        }
+        if (expression.kind == ExpressionKind::Structured) {
+          throw std::invalid_argument(
+              "bounded region phase cannot contain a structured expression");
+        }
+        if (expression.kind == ExpressionKind::Hole &&
+            expression.children.empty()) {
+          throw std::invalid_argument(
+              "bounded region phase contains an unresolved template hole");
+        }
+        if (expression.kind == ExpressionKind::Reference) {
+          if (nonterminals.at(expression.target)) continue;
+          nonterminals[expression.target] = true;
+          for (std::uint32_t production :
+               out_.nonterminals_[expression.target].productions) {
+            pending.push_back(out_.productions_[production].expression);
+          }
+        }
+        pending.insert(pending.end(), expression.children.begin(),
+                       expression.children.end());
+      }
+    };
+    std::vector<bool> reachable(out_.expressions_.size(), false);
+    std::vector<std::uint32_t> pending;
+    for (const CompiledProduction& production : out_.productions_)
+      pending.push_back(production.expression);
+    while (!pending.empty()) {
+      const std::uint32_t id = pending.back();
+      pending.pop_back();
+      if (reachable.at(id)) continue;
+      reachable[id] = true;
+      const CompiledExpression& expression = out_.expressions_[id];
+      pending.insert(pending.end(), expression.children.begin(),
+                     expression.children.end());
+      if (expression.kind == ExpressionKind::Reference) {
+        for (std::uint32_t production :
+             out_.nonterminals_.at(expression.target).productions) {
+          pending.push_back(out_.productions_.at(production).expression);
+        }
+      }
+    }
+    for (std::size_t id = 0; id < out_.expressions_.size(); ++id) {
+      if (!reachable[id]) continue;
+      const CompiledExpression& expression = out_.expressions_[id];
+      if (expression.kind != ExpressionKind::Structured) continue;
+      const StructuredContract& contract = out_.structured_.at(expression.target);
+      if (contract.family != StructuredFamily::BoundedRegion) continue;
+      for (const CompiledRegionPhase& phase : expression.phases) {
+        if (phase.argument >= expression.children.size())
+          throw std::logic_error("compiled bounded phase argument is out of range");
+        validate_root(expression.children[phase.argument]);
+      }
+    }
+  }
+
   std::uint32_t intern_context(const Scope& scope) {
     for (const auto& context : out_.contexts_) {
       if (context.scope.size() != scope.size()) continue;
@@ -277,6 +379,17 @@ class GrammarCompiler {
       contract = memoized_contract(positive(require_object_field(value, "dimensions"), kStructuredStateCapacity, "dimensions"),
           parse_type(field(value, "result_type")),
           positive(require_object_field(value, "requests"), kStructuredRequestCapacity, "requests"));
+    } else if (family == "bounded") {
+      keys(value, {"family", "plan"}, "bounded region contract");
+      try {
+        contract = bounded_contract(serialization::decode_region_plan(
+            require_object_field(value, "plan")));
+      } catch (const std::exception& error) {
+        throw std::invalid_argument(std::string("invalid bounded region plan: ") +
+                                    error.what());
+      }
+      contract.key = "bounded:" + canonical_json(
+          serialization::encode_region_plan(*contract.plan));
     } else throw std::invalid_argument("unknown structured primitive family: " + family);
     for (std::uint32_t id = 0; id < out_.structured_.size(); ++id)
       if (out_.structured_[id].key == contract.key) return id;
@@ -376,7 +489,110 @@ class GrammarCompiler {
       node.target = binding(bindings, field(value, name)); node.type = bindings[node.target].type;
     } else {
       PrimitiveSignature signature;
-      if (value.object_v.count("structured")) {
+      bool bounded = false;
+      if (value.object_v.count("structured") &&
+          field(value.object_v.at("structured"), "family") == "bounded") {
+        keys(value, {"structured", "captures", "phases", "args"},
+             "bounded structured expression");
+        node.kind = ExpressionKind::Structured;
+        node.target = structured(value.object_v.at("structured"));
+        const auto& contract = out_.structured_[node.target];
+        const RegionPlan& plan = *contract.plan;
+        signature.arguments = contract.arguments;
+        signature.result = contract.result;
+        bounded = true;
+
+        const auto& captures = array(require_object_field(value, "captures"));
+        if (captures.size() != plan.parameter_types.size())
+          throw std::invalid_argument("bounded region capture count must match plan parameters");
+        std::set<std::pair<int, std::uint32_t>> unique_captures;
+        for (std::size_t i = 0; i < captures.size(); ++i) {
+          const Json& capture = captures[i];
+          if (capture.kind != Kind::Object || capture.object_v.size() != 1)
+            throw std::invalid_argument("bounded region capture must contain exactly one reference");
+          CompiledRegionCapture compiled;
+          RType actual = RType::Invalid;
+          if (capture.object_v.count("input")) {
+            keys(capture, {"input"}, "bounded region capture");
+            compiled.kind = CompiledCaptureKind::Input;
+            compiled.target = binding(out_.inputs_, field(capture, "input"));
+            actual = out_.inputs_[compiled.target].type;
+          } else if (capture.object_v.count("local")) {
+            keys(capture, {"local"}, "bounded region capture");
+            compiled.kind = CompiledCaptureKind::Local;
+            compiled.target = binding(out_.locals_, field(capture, "local"));
+            actual = out_.locals_[compiled.target].type;
+          } else if (capture.object_v.count("bound")) {
+            keys(capture, {"bound"}, "bounded region capture");
+            compiled.kind = CompiledCaptureKind::Bound;
+            compiled.target = binding(environment, field(capture, "bound"));
+            actual = environment[compiled.target].type;
+          } else {
+            throw std::invalid_argument("unknown bounded region capture reference");
+          }
+          if (actual != region_type(plan.parameter_types[i]))
+            throw std::invalid_argument("bounded region capture type mismatch");
+          const auto identity = std::make_pair(static_cast<int>(compiled.kind),
+                                               compiled.target);
+          if (!unique_captures.insert(identity).second)
+            throw std::invalid_argument("duplicate bounded region capture");
+          node.captures.push_back(compiled);
+        }
+
+        const std::size_t phase_count = bounded_region_arity(plan) -
+            plan.state_types.size() - plan.bound_operand_count;
+        const auto& phases = array(require_object_field(value, "phases"));
+        if (phases.size() != phase_count)
+          throw std::invalid_argument("bounded region must declare every phase");
+        for (std::size_t ordinal = 0; ordinal < phases.size(); ++ordinal) {
+          const Json& phase = phases[ordinal];
+          keys(phase, {"argument", "bindings"}, "bounded region phase");
+          const std::uint32_t expected_argument = static_cast<std::uint32_t>(
+              plan.state_types.size() + plan.bound_operand_count + ordinal);
+          const std::uint32_t argument = nonnegative(
+              require_object_field(phase, "argument"),
+              static_cast<std::uint32_t>(kBoundedRegionArityCapacity - 1),
+              "bounded region phase argument");
+          if (argument != expected_argument)
+            throw std::invalid_argument("bounded region phase argument is not canonical");
+          const auto& bindings = array(require_object_field(phase, "bindings"));
+          if (bindings.size() > kBoundedRegionPhaseBindingCapacity)
+            throw std::invalid_argument("bounded region phase binding capacity exceeded");
+          Scope phase_scope;
+          CompiledRegionPhase compiled_phase;
+          compiled_phase.argument = argument;
+          std::set<std::pair<int, std::uint32_t>> sources;
+          for (const Json& item : bindings) {
+            keys(item, {"bank", "slot", "name"}, "bounded region phase binding");
+            RegionValueSlot source;
+            source.bank = region_bank(field(item, "bank"));
+            source.slot = nonnegative(require_object_field(item, "slot"),
+                                      std::numeric_limits<std::uint32_t>::max(),
+                                      "bounded region binding slot");
+            const auto identity = std::make_pair(static_cast<int>(source.bank),
+                                                 source.slot);
+            if (!sources.insert(identity).second)
+              throw std::invalid_argument("duplicate bounded region phase source");
+            const RegionPhaseKind phase_kind =
+                bounded_region_phase_kind(plan, ordinal);
+            const std::uint32_t preparation =
+                bounded_region_preparation_ordinal(plan, ordinal);
+            RType type;
+            try {
+              type = region_type(region_slot_type(plan, phase_kind, source,
+                                                  preparation));
+            } catch (const std::exception& error) {
+              throw std::invalid_argument(
+                  std::string("invalid bounded region phase source: ") +
+                  error.what());
+            }
+            add_binding(phase_scope, field(item, "name"), type);
+            compiled_phase.sources.push_back(source);
+          }
+          node.regions.push_back({argument, std::move(phase_scope)});
+          node.phases.push_back(std::move(compiled_phase));
+        }
+      } else if (value.object_v.count("structured")) {
         keys(value, {"structured", "args", "bind"}, "structured expression");
         node.kind = ExpressionKind::Structured; node.target = structured(value.object_v.at("structured"));
         const auto& contract = out_.structured_[node.target];
@@ -392,7 +608,7 @@ class GrammarCompiler {
       const auto& arguments = array(require_object_field(value, "args"));
       if (arguments.size() != signature.arguments.size()) throw std::invalid_argument("primitive argument count mismatch");
       std::map<std::uint32_t, Scope> local;
-      if (value.object_v.count("bind")) {
+      if (!bounded && value.object_v.count("bind")) {
         const auto& bindings = value.object_v.at("bind");
         if (bindings.kind != Kind::Object) throw std::invalid_argument("bind must be an object keyed by region argument");
         for (const auto& item : bindings.object_v) {
@@ -411,7 +627,11 @@ class GrammarCompiler {
           local.emplace(region->argument, std::move(body)); node.regions.push_back(std::move(renamed));
         }
       }
-      if (local.size() != signature.regions.size()) throw std::invalid_argument("primitive requires explicit region binding names");
+      if (!bounded && local.size() != signature.regions.size()) throw std::invalid_argument("primitive requires explicit region binding names");
+      if (bounded) {
+        for (const RegionSlot& region : node.regions)
+          local.emplace(region.argument, region.bindings);
+      }
       for (std::size_t i = 0; i < arguments.size(); ++i) {
         const auto found = local.find(static_cast<std::uint32_t>(i));
         const auto child = expression(arguments[i], found == local.end() ? environment : found->second, depth + 1, context, fixed_region);

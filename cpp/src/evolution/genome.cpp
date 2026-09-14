@@ -25,7 +25,7 @@ bool is_binary_expr(NodeKind kind) {
 }
 
 bool is_expr_kind(NodeKind kind) {
-  return kind == NodeKind::LET_REGION || kind == NodeKind::TRAVERSE ||
+  return kind == NodeKind::BOUNDED_REGION || kind == NodeKind::LET_REGION || kind == NodeKind::TRAVERSE ||
          kind == NodeKind::TRAVERSE_RANGE || kind == NodeKind::REGION_VAR ||
          kind == NodeKind::CHECK_INT || kind == NodeKind::CHECK_LIST ||
          kind == NodeKind::CONST || kind == NodeKind::VAR || kind == NodeKind::NEG || kind == NodeKind::NOT ||
@@ -84,7 +84,7 @@ DepthResult compute_expr_depth_prefix(const AstProgram& program, std::size_t idx
   if (idx >= program.nodes.size()) return {idx, 0};
   const AstNode& node = program.nodes[idx];
   if (is_expr_kind(node.kind)) {
-    const int arity = subtree::node_arity(node.kind);
+    const int arity = node_prefix_arity(node);
     std::size_t cur = idx + 1;
     int child_max = 0;
     for (int i = 0; i < arity; ++i) {

@@ -1,4 +1,5 @@
 #include "gagp/cli/codec.hpp"
+#include "gagp/cli/region_codec.hpp"
 
 #include <cmath>
 #include <limits>
@@ -527,6 +528,22 @@ BytecodeProgram decode_program(const JsonValue& bc) {
         segment.transition = decode_phase_program(require_object_field(raw_segment, "transition"));
         validate_asgp_dp2d_segment_arity(segment);
         program.asgp_dp2d_segments.push_back(std::move(segment));
+      }
+    }
+
+    auto bounded_it = segments_it->second.object_v.find("bounded_region");
+    if (bounded_it != segments_it->second.object_v.end()) {
+      if (bounded_it->second.kind != JsonValue::Kind::Array) {
+        throw std::runtime_error("segments.bounded_region must be array");
+      }
+      if (bounded_it->second.array_v.size() >
+          static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+        throw std::runtime_error("segments.bounded_region exceeds capacity");
+      }
+      program.bounded_region_segments.reserve(bounded_it->second.array_v.size());
+      for (const JsonValue& raw_segment : bounded_it->second.array_v) {
+        program.bounded_region_segments.push_back(
+            decode_bounded_region_segment(raw_segment));
       }
     }
   }

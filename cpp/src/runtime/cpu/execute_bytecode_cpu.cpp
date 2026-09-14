@@ -1,15 +1,19 @@
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
+#include "gagp/runtime/cpu/execution_session.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <array>
 #include <limits>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "gagp/core/builtin.hpp"
+#include "gagp/core/bytecode_verify.hpp"
+#include "region_adapter.hpp"
 #include "gagp/core/opcode.hpp"
 #include "gagp/core/value_semantics.hpp"
 #include "gagp/runtime/cpu/builtins_cpu.hpp"
@@ -23,6 +27,7 @@ namespace {
 struct LocalSlot {
   bool is_set = false;
   Value value = Value::invalid();
+  ValueTag expected = ValueTag::Invalid;
 };
 
 ExecResult fail(ErrCode code, const std::string& message) {
@@ -92,12 +97,42 @@ ExecResult compare_values(const Opcode op, const Value& a, const Value& b) {
   return fail(ErrCode::Type, "unknown comparison op");
 }
 
+struct RegionInvocationBuffers {
+  std::vector<Value> operands;
+  std::vector<CoordinateDomain> domains;
+  std::vector<std::optional<Value>> parameters;
+  detail::RegionPhaseScratch phases;
+};
+
+struct RegionRunContext {
+  struct Validation {
+    int caller_n_locals = -1;
+    std::optional<BytecodeVerifyResult> result;
+  };
+  std::vector<Validation> validations;
+  detail::RegionScratch scratch;
+  RegionInvocationBuffers buffers;
+
+  const BytecodeVerifyResult& validate(std::size_t index,
+                                      const BoundedRegionSegment& segment,
+                                      int caller_n_locals) {
+    auto& entry = validations.at(index);
+    if (!entry.result || entry.caller_n_locals != caller_n_locals) {
+      entry.result = verify_bounded_region_segment(segment, caller_n_locals);
+      entry.caller_n_locals = caller_n_locals;
+    }
+    return *entry.result;
+  }
+};
+
 struct CodeView {
   const std::vector<Value>& consts;
   const std::vector<Instr>& code;
   int n_locals = 0;
   const std::unordered_map<std::string, int>& var2idx;
   const std::vector<std::uint32_t>& instruction_fuel;
+  const std::vector<std::pair<int, ValueTag>>* preset_types = nullptr;
+  RegionRunContext* region_context = nullptr;
 };
 
 bool is_asgp_dc_source(const Value& v) {
@@ -377,6 +412,9 @@ ExecResult run_code_impl(const CodeView& view,
     locals[static_cast<std::size_t>(idx)].value = item.second;
   }
 
+  if (view.preset_types)
+    for (const auto& item : *view.preset_types) locals[item.first].expected = item.second;
+
   if constexpr (SemanticFuel) {
     if (view.instruction_fuel.size() != view.code.size())
       return fail(ErrCode::Value, "instruction fuel schedule size mismatch");
@@ -422,6 +460,8 @@ ExecResult run_code_impl(const CodeView& view,
         if (!slot.is_set) {
           return fail(ErrCode::Name, "read of uninitialized local");
         }
+        if (slot.expected != ValueTag::Invalid && slot.value.tag != slot.expected)
+          return fail(ErrCode::Type, "bounded region binding type mismatch");
         stack.push_back(slot.value);
         continue;
       }
@@ -435,6 +475,7 @@ ExecResult run_code_impl(const CodeView& view,
         }
         locals[static_cast<std::size_t>(ins.a)].is_set = true;
         locals[static_cast<std::size_t>(ins.a)].value = stack.back();
+        locals[static_cast<std::size_t>(ins.a)].expected = ValueTag::Invalid;
         stack.pop_back();
         continue;
       }
@@ -715,6 +756,103 @@ ExecResult run_code_impl(const CodeView& view,
         continue;
       }
 
+      case Opcode::BoundedRegion: {
+        if (root_program == nullptr || !ins.has_a || ins.a < 0 ||
+            static_cast<std::size_t>(ins.a) >= root_program->bounded_region_segments.size())
+          return fail(ErrCode::Value, "bounded region segment index out of range");
+        const auto& segment = root_program->bounded_region_segments[ins.a];
+        try {
+          BytecodeVerifyResult one_shot_validation;
+          const BytecodeVerifyResult* verified;
+          if (view.region_context) {
+            verified = &view.region_context->validate(
+                static_cast<std::size_t>(ins.a), segment, view.n_locals);
+          } else {
+            one_shot_validation = verify_bounded_region_segment(segment, view.n_locals);
+            verified = &one_shot_validation;
+          }
+          if (!verified->ok) return fail(ErrCode::Value, verified->diagnostic.message);
+          const auto& plan = segment.plan;
+          const auto count = plan.state_types.size() + plan.bound_operand_count;
+          if (stack.size() < count) return fail(ErrCode::Value, "stack underflow");
+          RegionInvocationBuffers one_shot_buffers;
+          auto& buffers = view.region_context ? view.region_context->buffers : one_shot_buffers;
+          auto& operands = buffers.operands;
+          operands.resize(count);
+          for (std::size_t i = count; i > 0; --i) {
+            operands[i - 1] = stack.back();
+            stack.pop_back();
+          }
+          for (std::size_t i = plan.state_types.size(); i < count; ++i)
+            if (operands[i].tag != ValueTag::Int)
+              return fail(ErrCode::Type, "bounded region bound operand must be Int");
+          auto& domains = buffers.domains;
+          domains.clear();
+          if (plan.progress == RegionProgressKind::Coordinates) {
+            bool dynamic_bounds = false;
+            auto bound = [&](const RegionBound& source, std::int64_t& value) {
+              if (source.kind == RegionBoundKind::Literal) { value = source.literal; return true; }
+              dynamic_bounds = true;
+              if (operands[source.operand].tag != ValueTag::Int) return false;
+              value = operands[source.operand].i;
+              return true;
+            };
+            for (const auto& domain : plan.coordinate_domains) {
+              CoordinateDomain resolved;
+              if (!bound(domain.lower, resolved.lower) || !bound(domain.upper, resolved.upper))
+                return fail(ErrCode::Type, "bounded region coordinate bound must be Int");
+              domains.push_back(resolved);
+            }
+            // Literal domain arithmetic was proved by segment validation.
+            // Invocation operands still require checking their resolved bounds.
+            if (dynamic_bounds) {
+              CoordinateRecurrence recurrence;
+              recurrence.domains = domains;
+              recurrence.endpoint = plan.coordinate_endpoint;
+              recurrence.rank = plan.coordinate_rank;
+              recurrence.duplicate_policy = plan.duplicate_policy;
+              for (const auto& request : plan.requests) {
+                std::vector<std::int64_t> offsets;
+                for (const auto slot : plan.coordinate_slots) offsets.push_back(request.states[slot].offset);
+                recurrence.offsets.push_back(std::move(offsets));
+              }
+              validate_coordinate_recurrence(recurrence);
+            }
+          }
+          auto& parameters = buffers.parameters;
+          parameters.clear();
+          for (const auto index : segment.parameter_locals) {
+            const auto& local = locals[index];
+            parameters.push_back(local.is_set ? std::optional<Value>(local.value) : std::nullopt);
+          }
+          auto phase_runner = [](const PhaseProgram& phase,
+                                 const std::vector<std::pair<int, Value>>& presets,
+                                 const std::vector<std::pair<int, ValueTag>>& types, int& remaining) {
+            return run_code(CodeView{phase.consts, phase.code, phase.n_locals, phase.var2idx,
+                                     phase.instruction_fuel, &types}, {}, presets, remaining, false, nullptr);
+          };
+          detail::RegionAdapter<decltype(phase_runner)> adapter{
+              segment, parameters, domains, phase_runner, buffers.phases};
+          detail::RegionState initial{};
+          for (std::size_t i = 0; i < plan.state_types.size(); ++i) initial[i] = operands[i];
+          detail::RegionExecutionLayout layout;
+          layout.state_count = static_cast<std::uint32_t>(plan.state_types.size());
+          layout.request_count = static_cast<std::uint32_t>(plan.requests.size());
+          layout.frame_limit = plan.limits.frames;
+          layout.cell_limit = plan.limits.cells;
+          layout.entry_fuel = plan.limits.entry_fuel;
+          layout.memoized = plan.memoized;
+          detail::RegionScratch one_shot_scratch;
+          auto& scratch = view.region_context ? view.region_context->scratch : one_shot_scratch;
+          auto result = detail::execute_bounded_region(layout, initial, adapter, scratch, fuel);
+          if (result.is_error) return result;
+          stack.push_back(result.value);
+        } catch (const std::exception& error) {
+          return fail(ErrCode::Value, error.what());
+        }
+        continue;
+      }
+
       case Opcode::Return: {
         if (stack.empty()) {
           return fail(ErrCode::Value, "return requires value on stack");
@@ -750,6 +888,33 @@ ExecResult run_code(const CodeView& view,
 }
 
 }  // namespace
+
+struct CpuExecutionSession::Impl {
+  explicit Impl(BytecodeProgram snapshot) : program(std::move(snapshot)) {
+    context.validations.resize(program.bounded_region_segments.size());
+  }
+  const BytecodeProgram program;
+  RegionRunContext context;
+};
+
+CpuExecutionSession::CpuExecutionSession(BytecodeProgram program)
+    : impl_(std::make_unique<Impl>(std::move(program))) {}
+CpuExecutionSession::~CpuExecutionSession() = default;
+CpuExecutionSession::CpuExecutionSession(CpuExecutionSession&&) noexcept = default;
+CpuExecutionSession& CpuExecutionSession::operator=(CpuExecutionSession&&) noexcept = default;
+
+ExecResult CpuExecutionSession::execute(
+    const std::vector<std::pair<int, Value>>& inputs, int fuel) {
+  if (!impl_) return fail(ErrCode::Value, "execution session has been moved");
+  const auto& program = impl_->program;
+  return run_code(CodeView{program.consts, program.code, program.n_locals,
+                          program.var2idx, program.instruction_fuel, nullptr,
+                          &impl_->context}, inputs, {}, fuel, true, &program);
+}
+
+std::size_t CpuExecutionSession::retained_region_bytes() const noexcept {
+  return impl_ ? impl_->context.scratch.storage_bytes() : 0;
+}
 
 ExecResult execute_bytecode_cpu(const BytecodeProgram& program,
                                 const std::vector<std::pair<int, Value>>& inputs,

@@ -70,7 +70,7 @@ void check_shape_capacity(const evo::AstProgram& ast, const GrammarLimits& limit
     --remaining.back();
     if (!evo::is_known_node_kind(static_cast<int>(node.kind)))
       throw std::invalid_argument("artifact AST contains an unknown node kind");
-    const auto arity = evo::node_descriptor(node.kind).prefix_arity;
+    const auto arity = evo::node_prefix_arity(node);
     if (arity > 0) remaining.push_back(arity);
   }
   for (const auto count : remaining)

@@ -48,6 +48,9 @@ else()
 endif()
 
 add_library(gagp_core
+  src/runtime/region_plan.cpp
+  src/runtime/recurrence_rank.cpp
+  src/runtime/sequence_rank.cpp
   src/runtime/semantic_fuel.cpp
   src/runtime/bytecode_verify.cpp
 )
@@ -66,6 +69,7 @@ add_library(gagp_evolution
   src/evolution/fuel_events.cpp
   src/evolution/ast_program.cpp
   src/evolution/node_descriptor.cpp
+  src/evolution/bounded_region.cpp
   src/evolution/case_set.cpp
   src/evolution/population_init.cpp
   src/evolution/timing.cpp
@@ -99,6 +103,10 @@ target_link_libraries(gagp_cpu INTERFACE gagp_evolution)
 add_library(gagp_json src/cli/json.cpp)
 target_include_directories(gagp_json PUBLIC include)
 
+add_library(gagp_region_plan_json src/serialization/region_plan_json.cpp)
+target_include_directories(gagp_region_plan_json PUBLIC include)
+target_link_libraries(gagp_region_plan_json PUBLIC gagp_core gagp_json)
+
 add_library(gagp_grammar
   src/evolution/grammar/catalog.cpp
   src/evolution/grammar/definition.cpp
@@ -112,7 +120,7 @@ add_library(gagp_grammar
   src/evolution/grammar/budget.cpp
 )
 target_include_directories(gagp_grammar PUBLIC include)
-target_link_libraries(gagp_grammar PUBLIC gagp_core gagp_json)
+target_link_libraries(gagp_grammar PUBLIC gagp_core gagp_json gagp_region_plan_json)
 target_sources(gagp_evolution PRIVATE
   src/evolution/grammar/generate.cpp
   src/evolution/grammar/values.cpp
@@ -172,11 +180,12 @@ add_library(gagp_cli_support
   src/cli/grammar_population_artifact.cpp
   src/cli/grammar_generate.cpp
   src/cli/codec.cpp
+  src/cli/region_codec.cpp
   src/cli/options.cpp
   src/cli/commands.cpp
 )
 target_include_directories(gagp_cli_support PUBLIC include)
-target_link_libraries(gagp_cli_support PUBLIC gagp_cpu gagp_json)
+target_link_libraries(gagp_cli_support PUBLIC gagp_cpu gagp_json gagp_region_plan_json)
 
 add_executable(gagp_generate_cli src/cli/generate_cli.cpp)
 target_link_libraries(gagp_generate_cli PRIVATE gagp_cli_support)
@@ -677,6 +686,41 @@ if(Python3_Interpreter_FOUND)
     LABELS "tooling;contract")
 endif()
 
+add_executable(gagp_test_region_plan tests/runtime/test_region_plan.cpp)
+target_link_libraries(gagp_test_region_plan PRIVATE gagp_core)
+add_test(NAME gagp_test_region_plan COMMAND gagp_test_region_plan)
+set_tests_properties(gagp_test_region_plan PROPERTIES LABELS "unit;contract")
+
+add_executable(gagp_test_sequence_rank tests/runtime/test_sequence_rank.cpp)
+target_link_libraries(gagp_test_sequence_rank PRIVATE gagp_core)
+add_test(NAME gagp_test_sequence_rank COMMAND gagp_test_sequence_rank)
+set_tests_properties(gagp_test_sequence_rank PROPERTIES LABELS "unit;contract")
+
+add_executable(gagp_test_bounded_sequence tests/runtime/test_bounded_sequence.cpp)
+target_link_libraries(gagp_test_bounded_sequence PRIVATE gagp_runtime_cpu)
+add_test(NAME gagp_test_bounded_sequence COMMAND gagp_test_bounded_sequence)
+set_tests_properties(gagp_test_bounded_sequence PROPERTIES LABELS "unit;contract;integration")
+
+add_executable(gagp_test_recurrence_memo tests/runtime/test_recurrence_memo.cpp)
+target_link_libraries(gagp_test_recurrence_memo PRIVATE gagp_core)
+add_test(NAME gagp_test_recurrence_memo COMMAND gagp_test_recurrence_memo)
+set_tests_properties(gagp_test_recurrence_memo PROPERTIES LABELS "unit;contract")
+
+add_executable(gagp_test_bounded_region tests/runtime/test_bounded_region.cpp)
+target_link_libraries(gagp_test_bounded_region PRIVATE gagp_core)
+add_test(NAME gagp_test_bounded_region COMMAND gagp_test_bounded_region)
+set_tests_properties(gagp_test_bounded_region PROPERTIES LABELS "unit;contract")
+
+add_executable(gagp_test_recurrence_rank tests/runtime/test_recurrence_rank.cpp)
+target_link_libraries(gagp_test_recurrence_rank PRIVATE gagp_core)
+add_test(NAME gagp_test_recurrence_rank COMMAND gagp_test_recurrence_rank)
+set_tests_properties(gagp_test_recurrence_rank PROPERTIES LABELS "unit;contract")
+
+add_executable(gagp_test_recurrence_rank_properties tests/runtime/test_recurrence_rank_properties.cpp)
+target_link_libraries(gagp_test_recurrence_rank_properties PRIVATE gagp_core)
+add_test(NAME gagp_test_recurrence_rank_properties COMMAND gagp_test_recurrence_rank_properties)
+set_tests_properties(gagp_test_recurrence_rank_properties PROPERTIES LABELS "unit;contract")
+
 add_executable(gagp_test_semantic_fuel tests/runtime/test_semantic_fuel.cpp)
 target_link_libraries(gagp_test_semantic_fuel PRIVATE gagp_core)
 add_test(NAME gagp_test_semantic_fuel COMMAND gagp_test_semantic_fuel)
@@ -763,7 +807,10 @@ add_test(NAME gagp_test_fuel_optimization COMMAND gagp_test_fuel_optimization)
 set_tests_properties(gagp_test_fuel_optimization PROPERTIES LABELS "contract;unit")
 
 # Transition-only oracle adapter; production executables do not link this target.
-add_library(gagp_transition src/transition/linear_rec.cpp)
+add_library(gagp_transition
+  src/transition/linear_rec.cpp
+  src/transition/bounded_regions.cpp
+  src/transition/bounded_bytecode.cpp)
 target_include_directories(gagp_transition PUBLIC include)
 target_link_libraries(gagp_transition PUBLIC gagp_cpu)
 
@@ -771,6 +818,21 @@ add_executable(gagp_test_linear_rec_transition tests/evolution/test_linear_rec_t
 target_link_libraries(gagp_test_linear_rec_transition PRIVATE gagp_transition)
 add_test(NAME gagp_test_linear_rec_transition COMMAND gagp_test_linear_rec_transition)
 set_tests_properties(gagp_test_linear_rec_transition PROPERTIES LABELS "contract;integration")
+
+add_executable(gagp_test_bounded_transition tests/evolution/test_bounded_transition.cpp)
+target_link_libraries(gagp_test_bounded_transition PRIVATE gagp_transition)
+add_test(NAME gagp_test_bounded_transition COMMAND gagp_test_bounded_transition)
+set_tests_properties(gagp_test_bounded_transition PROPERTIES LABELS "contract;integration")
+
+add_executable(gagp_test_bounded_transition_scope tests/evolution/test_bounded_transition_scope.cpp)
+target_link_libraries(gagp_test_bounded_transition_scope PRIVATE gagp_transition)
+add_test(NAME gagp_test_bounded_transition_scope COMMAND gagp_test_bounded_transition_scope)
+set_tests_properties(gagp_test_bounded_transition_scope PROPERTIES LABELS "contract;integration")
+
+add_executable(gagp_test_bounded_bytecode_transition tests/evolution/test_bounded_bytecode_transition.cpp)
+target_link_libraries(gagp_test_bounded_bytecode_transition PRIVATE gagp_transition)
+add_test(NAME gagp_test_bounded_bytecode_transition COMMAND gagp_test_bounded_bytecode_transition)
+set_tests_properties(gagp_test_bounded_bytecode_transition PROPERTIES LABELS "contract;integration")
 
 add_executable(gagp_test_source_fuel_preservation tests/evolution/test_source_fuel_preservation.cpp)
 target_link_libraries(gagp_test_source_fuel_preservation PRIVATE gagp_cli_support)
@@ -782,4 +844,93 @@ if(GAGP_BUILD_BENCHMARKS)
   add_executable(gagp_benchmark_linear_transition
     src/bench/benchmark_linear_transition.cpp src/bench/migration_snapshot.cpp)
   target_link_libraries(gagp_benchmark_linear_transition PRIVATE gagp_transition gagp_cli_support)
+  add_executable(gagp_benchmark_bounded_transition
+    src/bench/benchmark_bounded_transition.cpp src/bench/migration_snapshot.cpp)
+  target_link_libraries(gagp_benchmark_bounded_transition PRIVATE gagp_transition gagp_cli_support)
+  add_executable(gagp_check_bounded_bytecode_transition
+    src/bench/check_bounded_bytecode_transition.cpp src/bench/migration_snapshot.cpp)
+  target_link_libraries(gagp_check_bounded_bytecode_transition PRIVATE gagp_transition gagp_cli_support)
+  target_compile_definitions(gagp_check_bounded_bytecode_transition PRIVATE GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
 endif()
+
+add_executable(gagp_test_region_bytecode_verify tests/runtime/test_region_bytecode_verify.cpp)
+target_link_libraries(gagp_test_region_bytecode_verify PRIVATE gagp_core)
+add_test(NAME gagp_test_region_bytecode_verify COMMAND gagp_test_region_bytecode_verify)
+set_tests_properties(gagp_test_region_bytecode_verify PROPERTIES LABELS "unit;contract")
+
+add_executable(gagp_test_region_execution tests/runtime/test_region_execution.cpp)
+target_link_libraries(gagp_test_region_execution PRIVATE gagp_runtime_cpu)
+add_test(NAME gagp_test_region_execution COMMAND gagp_test_region_execution)
+set_tests_properties(gagp_test_region_execution PROPERTIES LABELS "unit;contract;integration")
+
+add_executable(gagp_test_cpu_execution_session tests/runtime/test_cpu_execution_session.cpp)
+target_link_libraries(gagp_test_cpu_execution_session PRIVATE gagp_runtime_cpu)
+add_test(NAME gagp_test_cpu_execution_session COMMAND gagp_test_cpu_execution_session)
+set_tests_properties(gagp_test_cpu_execution_session PROPERTIES LABELS "unit;contract;integration")
+
+add_executable(gagp_test_region_bytecode_codec tests/runtime/test_region_codec.cpp)
+target_link_libraries(gagp_test_region_bytecode_codec PRIVATE gagp_cli_support)
+add_test(NAME gagp_test_region_bytecode_codec COMMAND gagp_test_region_bytecode_codec)
+set_tests_properties(gagp_test_region_bytecode_codec PROPERTIES LABELS "unit;contract;integration")
+
+add_executable(gagp_test_bounded_region_structure tests/evolution/test_bounded_region_structure.cpp)
+target_include_directories(gagp_test_bounded_region_structure PRIVATE src/evolution)
+target_link_libraries(gagp_test_bounded_region_structure PRIVATE gagp_evolution)
+add_test(NAME gagp_test_bounded_region_structure COMMAND gagp_test_bounded_region_structure)
+set_tests_properties(gagp_test_bounded_region_structure PROPERTIES LABELS "unit;contract;integration")
+
+add_executable(gagp_test_bounded_region_typing tests/evolution/test_bounded_region_typing.cpp)
+target_include_directories(gagp_test_bounded_region_typing PRIVATE src/evolution)
+target_link_libraries(gagp_test_bounded_region_typing PRIVATE gagp_evolution)
+add_test(NAME gagp_test_bounded_region_typing COMMAND gagp_test_bounded_region_typing)
+set_tests_properties(gagp_test_bounded_region_typing PROPERTIES LABELS "unit;contract;integration")
+
+add_executable(gagp_test_bounded_region_compile tests/evolution/test_bounded_region_compile.cpp)
+target_include_directories(gagp_test_bounded_region_compile PRIVATE src/evolution)
+target_link_libraries(gagp_test_bounded_region_compile PRIVATE gagp_cpu)
+add_test(NAME gagp_test_bounded_region_compile COMMAND gagp_test_bounded_region_compile)
+set_tests_properties(gagp_test_bounded_region_compile PROPERTIES LABELS "unit;contract;integration")
+
+add_executable(gagp_test_bounded_region_ast_codec tests/evolution/test_bounded_region_ast_codec.cpp)
+target_include_directories(gagp_test_bounded_region_ast_codec PRIVATE src/evolution)
+target_link_libraries(gagp_test_bounded_region_ast_codec PRIVATE gagp_cli_support)
+add_test(NAME gagp_test_bounded_region_ast_codec COMMAND gagp_test_bounded_region_ast_codec)
+set_tests_properties(gagp_test_bounded_region_ast_codec PROPERTIES LABELS "unit;contract;integration")
+
+add_executable(gagp_test_bounded_region_analysis tests/evolution/test_bounded_region_analysis.cpp)
+target_include_directories(gagp_test_bounded_region_analysis PRIVATE src/evolution)
+target_link_libraries(gagp_test_bounded_region_analysis PRIVATE gagp_cpu)
+add_test(NAME gagp_test_bounded_region_analysis COMMAND gagp_test_bounded_region_analysis)
+set_tests_properties(gagp_test_bounded_region_analysis PROPERTIES LABELS "unit;contract;integration")
+
+add_executable(gagp_test_bounded_region_sequence_compile tests/evolution/test_bounded_region_sequence_compile.cpp)
+target_link_libraries(gagp_test_bounded_region_sequence_compile PRIVATE gagp_cpu)
+add_test(NAME gagp_test_bounded_region_sequence_compile COMMAND gagp_test_bounded_region_sequence_compile)
+set_tests_properties(gagp_test_bounded_region_sequence_compile PROPERTIES LABELS "unit;contract;integration")
+
+add_executable(gagp_test_grammar_bounded_parse tests/evolution/test_grammar_bounded_parse.cpp)
+target_link_libraries(gagp_test_grammar_bounded_parse PRIVATE gagp_cpu)
+add_test(NAME gagp_test_grammar_bounded_parse COMMAND gagp_test_grammar_bounded_parse)
+set_tests_properties(gagp_test_grammar_bounded_parse PROPERTIES LABELS "unit;contract;integration")
+
+add_executable(gagp_test_grammar_bounded_generation tests/evolution/test_grammar_bounded_generation.cpp)
+target_link_libraries(gagp_test_grammar_bounded_generation PRIVATE gagp_cpu)
+target_compile_definitions(gagp_test_grammar_bounded_generation PRIVATE GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+add_test(NAME gagp_test_grammar_bounded_generation COMMAND gagp_test_grammar_bounded_generation)
+set_tests_properties(gagp_test_grammar_bounded_generation PROPERTIES LABELS "unit;contract;integration")
+
+add_executable(gagp_test_grammar_bounded_membership tests/evolution/test_grammar_bounded_membership.cpp)
+target_link_libraries(gagp_test_grammar_bounded_membership PRIVATE gagp_cpu)
+add_test(NAME gagp_test_grammar_bounded_membership COMMAND gagp_test_grammar_bounded_membership)
+set_tests_properties(gagp_test_grammar_bounded_membership PROPERTIES LABELS "unit;contract;integration")
+
+add_executable(gagp_test_grammar_bounded_variation tests/evolution/test_grammar_bounded_variation.cpp)
+target_link_libraries(gagp_test_grammar_bounded_variation PRIVATE gagp_cpu)
+add_test(NAME gagp_test_grammar_bounded_variation COMMAND gagp_test_grammar_bounded_variation)
+set_tests_properties(gagp_test_grammar_bounded_variation PROPERTIES LABELS "unit;contract;integration")
+
+add_executable(gagp_test_grammar_bounded_artifact tests/evolution/test_grammar_bounded_artifact.cpp)
+target_link_libraries(gagp_test_grammar_bounded_artifact PRIVATE gagp_cli_support)
+target_compile_definitions(gagp_test_grammar_bounded_artifact PRIVATE GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+add_test(NAME gagp_test_grammar_bounded_artifact COMMAND gagp_test_grammar_bounded_artifact)
+set_tests_properties(gagp_test_grammar_bounded_artifact PROPERTIES LABELS "contract;integration")

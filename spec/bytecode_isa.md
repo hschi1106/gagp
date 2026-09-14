@@ -251,3 +251,74 @@ ASGP implementation requirements:
 - CPU implementations may use bounded recursion or explicit stacks.
 - GPU implementations must use explicit bounded stacks, iterative schedules,
   or equivalent non-recursive execution.
+
+
+## Private bounded recursive regions
+
+`BOUNDED_REGION` (opcode 28) takes operand `a`, an index into the program's
+`bounded_region_segments`. It consumes the initial typed states in slot order,
+followed by additional Int bound operands, and produces one exact typed result.
+It is a CPU staging instruction; GPU acceptance rejects both its descriptors and
+instructions until the corresponding device implementation is enabled.
+
+A segment contains a validated `RegionPlan` and ordinary bytecode phases with
+explicit source-bank-to-local bindings. It captures the listed caller locals once,
+including their set/unset state. Captures are lazy: an unused unset capture is
+harmless; loading it raises Name after paying the LOAD charge. Loading a set
+capture with a tag different from its declared parameter type raises Type at that
+same point. A phase STORE replaces the local value and its initial capture
+constraint. Phase locals have no implicit caller inputs or named binder mapping.
+State and parameter banks are visible throughout; prepared values are visible to
+later preparations, requests and combine; child results are visible only to
+combine. Sequence Measure slot 0 is the current source length. Structured calls,
+including another BOUNDED_REGION, are forbidden inside every phase.
+
+Plans admit 1–4 typed states, 1–8 ordered requests, at most 4 preparations,
+32 lexical parameters and 8 additional bound operands. Each request constructs
+every state via copy, checked Int offset, proper sequence window or a typed
+ordinary expression. Rank-affecting states cannot use arbitrary expressions.
+Coordinate progress uses a signed lexicographic permutation of unique Int state
+slots: each request's first nonzero projected offset must decrease rank. Domains
+have explicit exclusive or inclusive upper endpoints. Literal or invocation
+operand bounds are resolved once, checked for ordering and checked against every
+in-domain coordinate addition before the first frame. Additional operands and
+referenced state bounds must be Int. No Cartesian-domain size limit is imposed on
+sparse memoization. Arithmetic overflow raises Value; offset construction uses
+exact checked int64 arithmetic independently of ordinary numeric ADD semantics.
+
+Sequence progress uses proper windows of one ranked source, with endpoints at
+begin, end or a prepared interior cut. Cuts clamp exact Int values to [1,n-1].
+Length at most one selects the base body before predicate or preparation. Larger
+sources may also terminate through the Bool base predicate. Windows use ordinary
+Slice behavior, including empty and reversed ranges. Successful Slice results are
+typechecked on the next charged frame entry. Full-source windows and unproved
+rank transitions are rejected during descriptor validation.
+
+Execution uses an explicit bounded frame stack. The opcode charge precedes
+metadata and invocation checks. A zero frame limit fails with Timeout before root
+entry. Every frame pays its positive serialized entry charge (1 through INT_MAX)
+before exact state tag checks. Coordinate boundary selection precedes base
+predicate/body; base selection precedes memo lookup. Boundary and base results
+are never memoized. On a miss, preparations execute once, then requests execute in
+source order, each finishing its entire descendant evaluation before the next
+request. Construction errors precede child frame-capacity checks; a rejected child
+receives no entry charge. Child errors precede combine. Every successful phase
+must return its exact declared type; predicates return Bool. Successful nonterminal
+combine results are inserted only after their type check, so combine errors
+precede memo-cell exhaustion. Duplicate requests require explicit permission and
+retain their order. A zero memo-cell bound permits terminal results but times out
+on the first successful nonterminal insertion.
+
+Memoization requires coordinate projection to cover all state slots; keys contain
+every Int state, and cached values retain exact runtime tags. Frame and cell
+limits are serialized execution parameters, independent of grammar search limits.
+Allocation arithmetic is checked and storage grows only with visited states.
+Ordinary phase instruction fuel shares the caller's budget; explicit schedules
+must satisfy the zero-cost-cycle verifier. Descriptor validation rejects unknown
+banks, inaccessible slots, wrong bindings, invalid proof metadata, invalid phase
+control flow, and success paths whose exact output type cannot be established.
+Proven runtime-error paths impose no successful result type. Besides definite
+type errors and unset local loads, the verifier recognizes `DIV`/`MOD` with an
+immediately preceding numeric zero `PUSH_CONST` when no jump targets the arithmetic
+instruction. A jump may target the constant itself, which still establishes the
+divisor. This proof does not remove instructions or change fuel/error ordering.

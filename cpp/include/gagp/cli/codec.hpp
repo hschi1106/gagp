@@ -10,6 +10,7 @@
 namespace gagp::cli_detail {
 
 Value decode_typed_value(const JsonValue& v);
+std::vector<Instr> decode_code(const JsonValue& code);
 BytecodeProgram decode_program(const JsonValue& bc);
 CaseBindings decode_input_case(const JsonValue& v);
 std::vector<CaseBindings> decode_cases(const JsonValue& v);

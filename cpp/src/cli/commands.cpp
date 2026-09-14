@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <initializer_list>
 #include <iostream>
 #include <limits>
 #include <sstream>
@@ -18,11 +19,13 @@
 #include "gagp/evolution/fuel_events.hpp"
 #include "gagp/evolution/genome_generation.hpp"
 #include "gagp/evolution/genome.hpp"
+#include "gagp/evolution/grammar/definition.hpp"
 #include "gagp/evolution/grammar_config.hpp"
 #include "gagp/evolution/repro/pack.hpp"
 #include "gagp/cli/codec.hpp"
 #include "gagp/cli/commands.hpp"
 #include "gagp/cli/json.hpp"
+#include "gagp/cli/region_codec.hpp"
 #include "gagp/cli/grammar_artifact.hpp"
 #include "gagp/cli/options.hpp"
 #include "gagp/runtime/payload/payload.hpp"
@@ -179,6 +182,25 @@ const char* lexical_binding_type_name(gagp::evo::RType type) {
   throw std::runtime_error("unsupported lexical binding type");
 }
 
+const char* region_capture_kind_name(gagp::evo::RegionCaptureKind kind) {
+  switch (kind) {
+    case gagp::evo::RegionCaptureKind::Lexical: return "lexical";
+    case gagp::evo::RegionCaptureKind::Name: return "name";
+  }
+  throw std::runtime_error("unsupported bounded-region capture kind");
+}
+
+const char* region_slot_bank_name(gagp::RegionSlotBank bank) {
+  switch (bank) {
+    case gagp::RegionSlotBank::State: return "state";
+    case gagp::RegionSlotBank::Parameter: return "parameter";
+    case gagp::RegionSlotBank::Prepared: return "prepared";
+    case gagp::RegionSlotBank::Result: return "result";
+    case gagp::RegionSlotBank::Measure: return "measure";
+  }
+  throw std::runtime_error("unsupported bounded-region slot bank");
+}
+
 void write_ast_json(std::ostream& out, const gagp::evo::AstProgram& ast) {
   out << "{";
   out << "\"version\":\"" << json_escape(ast.version) << "\",";
@@ -332,6 +354,47 @@ void write_ast_json(std::ostream& out, const gagp::evo::AstProgram& ast) {
     }
     out << "]";
   }
+  if (!ast.bounded_region_specs.empty()) {
+    out << ",\"bounded_region_specs\":[";
+    for (std::size_t i = 0; i < ast.bounded_region_specs.size(); ++i) {
+      if (i > 0) out << ",";
+      const gagp::evo::BoundedRegionSpec& spec = ast.bounded_region_specs[i];
+      out << "{\"node_index\":" << spec.node_index
+          << ",\"plan\":"
+          << gagp::evo::grammar::canonical_json(
+                 gagp::cli_detail::encode_region_plan(spec.plan))
+          << ",\"parameters\":[";
+      for (std::size_t j = 0; j < spec.parameters.size(); ++j) {
+        if (j > 0) out << ",";
+        const gagp::evo::RegionCapture& capture = spec.parameters[j];
+        if (capture.index < 0 || capture.index == std::numeric_limits<int>::max()) {
+          throw std::runtime_error("bounded-region capture index is out of range");
+        }
+        out << "{\"kind\":\"" << region_capture_kind_name(capture.kind)
+            << "\",\"index\":" << capture.index << "}";
+      }
+      out << "],\"phases\":[";
+      for (std::size_t j = 0; j < spec.phases.size(); ++j) {
+        if (j > 0) out << ",";
+        const gagp::evo::RegionAstPhase& phase = spec.phases[j];
+        out << "{\"argument\":" << phase.argument << ",\"bindings\":[";
+        for (std::size_t k = 0; k < phase.bindings.size(); ++k) {
+          if (k > 0) out << ",";
+          const gagp::evo::RegionAstBinding& binding = phase.bindings[k];
+          if (binding.binder_id < 0 ||
+              binding.binder_id == std::numeric_limits<int>::max()) {
+            throw std::runtime_error("bounded-region binder id is out of range");
+          }
+          out << "{\"bank\":\"" << region_slot_bank_name(binding.source.bank)
+              << "\",\"slot\":" << binding.source.slot
+              << ",\"binder_id\":" << binding.binder_id << "}";
+        }
+        out << "]}";
+      }
+      out << "]}";
+    }
+    out << "]";
+  }
   out << "}";
 }
 
@@ -461,6 +524,45 @@ gagp::evo::RType decode_lexical_binding_type(const JsonValue& raw,
   if (raw.string_v == "FloatList") return gagp::evo::RType::FloatList;
   if (raw.string_v == "StringList") return gagp::evo::RType::StringList;
   throw std::runtime_error(std::string("unknown lexical binding type: ") + raw.string_v);
+}
+
+gagp::evo::RegionCaptureKind decode_region_capture_kind(const JsonValue& raw) {
+  if (raw.kind != JsonValue::Kind::String) {
+    throw std::runtime_error("AST bounded_region_specs.parameters.kind must be a string");
+  }
+  if (raw.string_v == "lexical") return gagp::evo::RegionCaptureKind::Lexical;
+  if (raw.string_v == "name") return gagp::evo::RegionCaptureKind::Name;
+  throw std::runtime_error("unknown bounded-region capture kind: " + raw.string_v);
+}
+
+gagp::RegionSlotBank decode_region_slot_bank(const JsonValue& raw) {
+  if (raw.kind != JsonValue::Kind::String) {
+    throw std::runtime_error("AST bounded_region_specs.phases.bindings.bank must be a string");
+  }
+  if (raw.string_v == "state") return gagp::RegionSlotBank::State;
+  if (raw.string_v == "parameter") return gagp::RegionSlotBank::Parameter;
+  if (raw.string_v == "prepared") return gagp::RegionSlotBank::Prepared;
+  if (raw.string_v == "result") return gagp::RegionSlotBank::Result;
+  if (raw.string_v == "measure") return gagp::RegionSlotBank::Measure;
+  throw std::runtime_error("unknown bounded-region slot bank: " + raw.string_v);
+}
+
+void reject_unknown_bounded_ast_fields(
+    const JsonValue& raw, std::initializer_list<const char*> allowed,
+    const char* section) {
+  for (const auto& field : raw.object_v) {
+    bool known = false;
+    for (const char* name : allowed) {
+      if (field.first == name) {
+        known = true;
+        break;
+      }
+    }
+    if (!known) {
+      throw std::runtime_error(std::string("AST unknown field: ") + section +
+                               "." + field.first);
+    }
+  }
 }
 
 std::vector<int> require_int_array_field_local(const JsonValue& raw,
@@ -729,6 +831,134 @@ gagp::evo::AstProgram decode_ast_json_impl(const JsonValue& raw) {
         });
       }
       ast.fuel_specs.push_back(std::move(spec));
+    }
+  }
+
+  auto bounded_it = raw.object_v.find("bounded_region_specs");
+  if (bounded_it != raw.object_v.end()) {
+    if (bounded_it->second.kind != JsonValue::Kind::Array) {
+      throw std::runtime_error("AST bounded_region_specs must be an array");
+    }
+    if (bounded_it->second.array_v.size() > ast.nodes.size()) {
+      throw std::runtime_error("AST bounded_region_specs exceeds node count");
+    }
+    ast.bounded_region_specs.reserve(bounded_it->second.array_v.size());
+    for (const JsonValue& row : bounded_it->second.array_v) {
+      if (row.kind != JsonValue::Kind::Object) {
+        throw std::runtime_error("AST bounded_region_specs item must be an object");
+      }
+      reject_unknown_bounded_ast_fields(
+          row, {"node_index", "plan", "parameters", "phases"},
+          "bounded_region_specs");
+      auto plan_it = row.object_v.find("plan");
+      auto parameters_it = row.object_v.find("parameters");
+      auto phases_it = row.object_v.find("phases");
+      if (plan_it == row.object_v.end()) {
+        throw std::runtime_error("AST bounded_region_specs missing field: plan");
+      }
+      if (parameters_it == row.object_v.end() ||
+          parameters_it->second.kind != JsonValue::Kind::Array) {
+        throw std::runtime_error("AST bounded_region_specs.parameters must be an array");
+      }
+      if (phases_it == row.object_v.end() ||
+          phases_it->second.kind != JsonValue::Kind::Array) {
+        throw std::runtime_error("AST bounded_region_specs.phases must be an array");
+      }
+
+      gagp::evo::BoundedRegionSpec spec;
+      spec.node_index = require_bounded_size_field_local(
+          row, "node_index", "bounded_region_specs");
+      spec.plan = gagp::cli_detail::decode_region_plan(plan_it->second);
+      if (parameters_it->second.array_v.size() != spec.plan.parameter_types.size() ||
+          parameters_it->second.array_v.size() > gagp::kRegionParameterCapacity) {
+        throw std::runtime_error(
+            "AST bounded_region_specs.parameters count does not match plan");
+      }
+      spec.parameters.reserve(parameters_it->second.array_v.size());
+      for (const JsonValue& capture_row : parameters_it->second.array_v) {
+        if (capture_row.kind != JsonValue::Kind::Object) {
+          throw std::runtime_error(
+              "AST bounded_region_specs.parameters item must be an object");
+        }
+        reject_unknown_bounded_ast_fields(
+            capture_row, {"kind", "index"},
+            "bounded_region_specs.parameters");
+        auto kind_it = capture_row.object_v.find("kind");
+        if (kind_it == capture_row.object_v.end()) {
+          throw std::runtime_error(
+              "AST bounded_region_specs.parameters missing field: kind");
+        }
+        spec.parameters.push_back(gagp::evo::RegionCapture{
+            decode_region_capture_kind(kind_it->second),
+            require_bounded_nonnegative_int_field_local(
+                capture_row, "index", "bounded_region_specs.parameters", false),
+        });
+      }
+
+      const std::size_t expected_phases =
+          3 + spec.plan.preparations.size() +
+          spec.plan.request_expression_types.size() +
+          (spec.plan.progress == gagp::RegionProgressKind::Coordinates ? 1 : 0);
+      if (phases_it->second.array_v.size() != expected_phases) {
+        throw std::runtime_error(
+            "AST bounded_region_specs.phases count does not match plan");
+      }
+      spec.phases.reserve(phases_it->second.array_v.size());
+      constexpr std::size_t kMaxRegionAstBindings =
+          gagp::kRecurrenceCoordinateCapacity + gagp::kRegionParameterCapacity +
+          gagp::kRegionPreparationCapacity + gagp::kRecurrenceRequestCapacity + 1;
+      for (const JsonValue& phase_row : phases_it->second.array_v) {
+        if (phase_row.kind != JsonValue::Kind::Object) {
+          throw std::runtime_error(
+              "AST bounded_region_specs.phases item must be an object");
+        }
+        reject_unknown_bounded_ast_fields(
+            phase_row, {"argument", "bindings"},
+            "bounded_region_specs.phases");
+        auto bindings_it = phase_row.object_v.find("bindings");
+        if (bindings_it == phase_row.object_v.end() ||
+            bindings_it->second.kind != JsonValue::Kind::Array) {
+          throw std::runtime_error(
+              "AST bounded_region_specs.phases.bindings must be an array");
+        }
+        if (bindings_it->second.array_v.size() > kMaxRegionAstBindings) {
+          throw std::runtime_error(
+              "AST bounded_region_specs.phases.bindings exceeds capacity");
+        }
+        gagp::evo::RegionAstPhase phase;
+        phase.argument = static_cast<std::uint32_t>(
+            require_bounded_nonnegative_int_field_local(
+                phase_row, "argument", "bounded_region_specs.phases", true));
+        phase.bindings.reserve(bindings_it->second.array_v.size());
+        for (const JsonValue& binding_row : bindings_it->second.array_v) {
+          if (binding_row.kind != JsonValue::Kind::Object) {
+            throw std::runtime_error(
+                "AST bounded_region_specs.phases.bindings item must be an object");
+          }
+          reject_unknown_bounded_ast_fields(
+              binding_row, {"bank", "slot", "binder_id"},
+              "bounded_region_specs.phases.bindings");
+          auto bank_it = binding_row.object_v.find("bank");
+          if (bank_it == binding_row.object_v.end()) {
+            throw std::runtime_error(
+                "AST bounded_region_specs.phases.bindings missing field: bank");
+          }
+          phase.bindings.push_back(gagp::evo::RegionAstBinding{
+              gagp::RegionValueSlot{
+                  decode_region_slot_bank(bank_it->second),
+                  static_cast<std::uint32_t>(
+                      require_bounded_nonnegative_int_field_local(
+                          binding_row, "slot",
+                          "bounded_region_specs.phases.bindings", true)),
+              },
+              require_bounded_nonnegative_int_field_local(
+                  binding_row, "binder_id",
+                  "bounded_region_specs.phases.bindings", false),
+          });
+        }
+        spec.phases.push_back(std::move(phase));
+      }
+      ast.bounded_region_specs.push_back(std::move(spec));
     }
   }
   return ast;

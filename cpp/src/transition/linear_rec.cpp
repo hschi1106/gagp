@@ -23,6 +23,9 @@ class Adapter {
     out_.consts = source.consts;
     for (const auto& region : source.lexical_regions)
       for (const auto& binding : region.bindings) used_.insert(binding.id);
+    for (const auto& region : source.bounded_region_specs)
+      for (const auto& phase : region.phases)
+        for (const auto& binding : phase.bindings) used_.insert(binding.binder_id);
   }
 
   AstProgram run() {
@@ -33,6 +36,7 @@ class Adapter {
     copy_rows(source_.lexical_regions, out_.lexical_regions);
     copy_rows(source_.traversal_specs, out_.traversal_specs);
     copy_rows(source_.fuel_specs, out_.fuel_specs);
+    copy_rows(source_.bounded_region_specs, out_.bounded_region_specs);
     return std::move(out_);
   }
 
@@ -94,7 +98,7 @@ class Adapter {
     const auto destination = emit(copied.kind, copied.i0, copied.i1);
     node_map_[index] = destination;
     auto child = index + 1;
-    for (int argument = 0; argument < node_descriptor(node.kind).prefix_arity; ++argument) {
+    for (int argument = 0; argument < node_prefix_arity(node); ++argument) {
       auto visible = captures;
       if ((node.kind == NodeKind::MAP_LIST || node.kind == NodeKind::FILTER_LIST) && argument == 1)
         visible.erase(node.i0);

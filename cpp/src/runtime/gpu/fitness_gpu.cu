@@ -404,6 +404,11 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
 
 FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodeProgram>& programs) const {
   for (const BytecodeProgram& program : programs) {
+    if (has_bounded_region(program)) {
+      return fitness_eval_single_error(
+          ErrCode::Value,
+          "bounded region execution is not supported by the GPU runtime");
+    }
     if (has_semantic_fuel(program)) {
       return fitness_eval_single_error(ErrCode::Value, "semantic fuel schedules are not supported by the GPU runtime");
     }

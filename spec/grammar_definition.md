@@ -208,6 +208,94 @@ frame/cell capacities, boundary/base/memo ordering and charging parameters must
 be separately specified and verified for materialized execution. There are no
 separate 1D/2D evaluators in this contract.
 
+The coordinate progress DSL uses a full permutation of the coordinate axes,
+each with direction `+1` or `-1`, as a lexicographic rank. Direction `+1` means
+that increasing that coordinate increases rank; `-1` reverses it. Each declared
+request is a constant signed integer offset vector. At its first nonzero
+coordinate in rank order, the offset must decrease rank. Zero vectors and
+nondecreasing requests are invalid. Later coordinates may move in either
+direction: for example, rank `[(0,+1),(1,+1)]` admits `[-1,+2]` and `[0,-1]`.
+All coordinates have finite bounds, so strictly decreasing in-domain requests
+cannot form a cycle. A boundary request terminates before expanding more edges.
+An arbitrary expression or a runtime-only decrease assertion is not a proof.
+
+Coordinate domains explicitly distinguish inclusive and exclusive upper bounds.
+Exclusive equal endpoints represent an empty domain; inclusive equal endpoints
+represent one coordinate. Reversed bounds are invalid. Duplicate offset vectors
+are rejected unless the descriptor explicitly allows repeated ordered requests;
+allowing duplicates does not change the decreasing-rank requirement. Rank axes
+must cover every dimension exactly once, directions must be exactly `+1` or
+`-1`, and every request must have exactly one offset per dimension. The existing
+capacities of four coordinates and eight requests also apply to this DSL.
+
+For a nonempty Cartesian domain, every in-domain coordinate plus every declared
+offset must be representable as an `Int`, including requests that leave the
+domain. Descriptor validation rejects potential overflow before execution.
+An empty Cartesian domain has no outgoing requests. Storage cardinality is
+checked separately against a caller-supplied bound using overflow-safe arithmetic;
+an empty domain requires zero cells. A full inclusive `Int` domain has more cells
+than a 64-bit allocation count can represent and cannot be allocated as a dense
+table. These checks do not themselves enable structured execution; the materialized
+execution and serialization requirements above still apply.
+
+Static progress validation is independent of the domain bounds: a serialized
+rank and its offsets can be checked before runtime extent expressions are
+evaluated. Once those expressions produce bounds, invocation validation checks
+domain ordering and coordinate-addition safety. Sparse memo capacity counts
+successful stored results, not every coordinate in the Cartesian domain; a large
+domain alone must not cause premature memo exhaustion.
+
+The staged CPU driver uses explicit fixed-layout frames with state, prepared
+values, ordered child results and a continuation index. Each entered frame pays
+the declared entry charge before state/boundary/base evaluation. Boundary and base
+handling precede memo lookup, so their results are not cached. A nonterminal memo
+miss prepares its per-frame values once, then evaluates requests depth-first in
+declared order. Request construction and its errors precede the frame-capacity
+check; a rejected child pays no entry charge. Combine evaluation and result checks
+precede memo-capacity failure. Only successful nonterminal combines are stored.
+All phases share the remaining invocation fuel and propagate their first error.
+Logical frame/cell bounds are independent of retained reusable scratch allocation.
+This internal driver is not yet exposed by an executable grammar contract.
+
+Sequence progress uses a ranked sequence state and ordered half-open windows whose
+endpoints are the beginning, end, or one of at most four prepared interior cuts.
+An interior cut is an exact `Int` clamped to `[1, length-1]`. Length zero or one
+selects the base body before preparing cuts. A request from beginning to end is
+invalid because it retains the whole source. Every other endpoint pair is proper
+for length at least two, including empty or reversed windows. Resolution preserves
+endpoint order for the sequence slice operation. Duplicate windows need explicit
+allowance. This permits user-defined multiway decompositions and overlapping proper
+windows; it does not encode a divide-and-conquer package identity.
+
+The staged `RegionPlan` shape uses exact public state/result/parameter types,
+ordered preparations and requests, explicit execution limits, and one progress
+proof. Coordinate slots project `Int` state slots; every projected next state must
+use its own checked constant-offset constructor. A ranked sequence must use a
+proper-window constructor from that same source. An arbitrary request expression
+is permitted only for an unranked state slot and must have that slot's exact type.
+Memoization requires coordinates covering every state slot, so its key omits no
+changing state. Nonmemoized plans have a canonical zero cell limit.
+Materialized plans require a frame-entry charge in `[1, INT_MAX]`; thus every
+visited state is metered even when its phase instructions have zero charges.
+
+Invocation operands consist of initial states followed by at most eight additional
+`Int` bound operands. Each coordinate bound is explicitly a literal or an operand
+reference. New memo extent arguments can therefore define exclusive zero-based
+domains, while a translated template can state inclusive literal bounds without
+overflow-prone endpoint conversion. All-literal domains are checked statically;
+actual dynamic bounds still require invocation validation. Plan version 1 admits
+up to four state slots, eight requests, four preparations and 32 lexical parameters.
+
+Phase inputs name typed slot banks explicitly. State and captured parameters may
+be selected by any phase. Prepared values are available only to later preparations,
+request expressions and combine; child results are available only to combine.
+Sequence measure slot zero is the current ranked source length. A phase's explicit
+binding list selects from these banks, allowing isolated template phases without
+implicit access to every available slot. Captured locals must preserve set/unset
+state; an unused capture must not raise an eager `Name` error. Native materialization,
+phase bytecode verification and codecs must preserve these contracts before the
+staged shape becomes executable.
+
 An expression selects a contract with `structured` instead of `signature`, for
 example `{"structured":{"family":"recur","state_types":["Int"],"result_type":"Int","requests":1},"args":[],"bind":{}}`.
 That abbreviated example is intentionally invalid: it omits all five required
@@ -484,3 +572,50 @@ The v2 primitive catalog also supplies `check_int(Int)->Int` and
 `check_list(T)->T` for T in IntList, FloatList and StringList. They lower to the
 checked-value expressions specified in grammar.md. They validate a value without
 introducing a binder, allocating a payload or enabling any structured runtime form.
+
+
+## Materialized bounded structural productions
+
+The `bounded` structured family supplies a complete verified RegionPlan instead
+of an unproved recursion declaration. Its exact expression keys are `structured`,
+`captures`, `phases` and `args`. `structured` has exactly `family: "bounded"` and
+`plan`; the plan uses the exact schema in bytecode_format.md, including canonical
+int64 decimal strings, explicit progress constructors, memo policy and execution
+limits. Contract identity includes every plan field. The earlier `recur` and `memo`
+shape-only declarations retain their staging behavior.
+
+`captures` is positional to plan.parameter_types. Each row has exactly one key:
+`input`, `local`, or `bound`, whose value is a declared grammar identifier. Input
+and local captures resolve to ordinary native name-table entries; bound captures
+resolve through the occurrence's lexical environment. Types must agree exactly,
+and duplicate capture references are invalid. Captures snapshot caller local state;
+they are not extra evaluated arguments. An explicitly captured local may remain
+unset, and only reading the corresponding phase parameter raises Name.
+
+`phases` contains every phase in canonical order: predicate, base, preparations,
+request expressions, combine, and coordinate boundary when applicable. Each row has
+`argument` and `bindings`; the argument equals the initial state count plus extra
+bound operand count plus phase ordinal. Bindings are ordered objects with `bank`,
+`slot` and `name`. Banks are `state`, `parameter`, `prepared`, `result`, `measure`.
+The shared plan determines slot visibility and exact types; names and sources must
+be unique within a phase. Empty phases still have an explicit row with empty
+bindings. At most 49 bank bindings can occur in a phase.
+
+`args` follows the native flat child order: initial states, additional Int bounds,
+then the phase bodies above. Initial expressions use the surrounding lexical
+environment. Each phase uses a closed environment containing only its declared
+binding names. Ordinary lexical primitives may introduce further local bindings.
+Global input/local expressions and nested structured recursion are forbidden in
+phase bodies, including when reached through nonterminal references or template
+instantiations. Abstract template holes are checked through concrete invocations;
+unresolved holes in a concrete phase remain invalid.
+
+Materialization assigns fresh native phase binder IDs and emits one
+BOUNDED_REGION node with its checked arity. Repeated template holes preserve the
+whole plan and independently freshen introduced phase declarations, while mapping
+captured lexical bindings to each occurrence's environment. Membership verifies
+all plan fields, capture references, phase sources and exact types. Witness and
+variation scope mappings use formal positions rather than requiring identical
+physical binder IDs across occurrences. Lowered instruction budgets count both
+root and isolated phase bytecode; a phase cannot evade the budget by residing in a
+segment table.

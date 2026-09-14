@@ -1,11 +1,13 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include "gagp/core/opcode.hpp"
+#include "gagp/core/region_plan.hpp"
 #include "gagp/core/value.hpp"
 
 namespace gagp {
@@ -26,6 +28,29 @@ struct PhaseProgram {
   std::unordered_map<int, int> binder_locals;
   // Empty preserves legacy unit charges; otherwise one semantic cost per instruction.
   std::vector<std::uint32_t> instruction_fuel;
+};
+
+struct RegionPhaseBinding {
+  RegionValueSlot source;
+  int local = 0;
+};
+
+struct RegionPhase {
+  PhaseProgram program;
+  std::vector<RegionPhaseBinding> bindings;
+};
+
+struct BoundedRegionSegment {
+  RegionPlan plan;
+  // Snapshot each caller local, including its set/unset state, once on entry.
+  // Types correspond positionally to plan.parameter_types.
+  std::vector<int> parameter_locals;
+  std::optional<RegionPhase> boundary;
+  RegionPhase base_predicate;
+  RegionPhase base_body;
+  std::vector<RegionPhase> preparations;
+  std::vector<RegionPhase> request_expressions;
+  RegionPhase combine;
 };
 
 struct AsgpDcSegment {
@@ -82,6 +107,41 @@ struct BytecodeProgram {
   std::vector<AsgpDp2dSegment> asgp_dp2d_segments;
   // Empty preserves legacy unit charges; otherwise one semantic cost per instruction.
   std::vector<std::uint32_t> instruction_fuel;
+  std::vector<BoundedRegionSegment> bounded_region_segments;
 };
+
+inline bool has_bounded_region(const PhaseProgram& phase) noexcept {
+  for (const Instr& instruction : phase.code) {
+    if (instruction.op == Opcode::BoundedRegion) return true;
+  }
+  return false;
+}
+
+inline bool has_bounded_region(const BytecodeProgram& program) noexcept {
+  if (!program.bounded_region_segments.empty()) return true;
+  for (const Instr& instruction : program.code) {
+    if (instruction.op == Opcode::BoundedRegion) return true;
+  }
+  for (const AsgpDcSegment& segment : program.asgp_dc_segments) {
+    if (has_bounded_region(segment.solve) ||
+        has_bounded_region(segment.divide) ||
+        has_bounded_region(segment.combine)) {
+      return true;
+    }
+  }
+  for (const AsgpDp1dSegment& segment : program.asgp_dp1d_segments) {
+    if (has_bounded_region(segment.solve) ||
+        has_bounded_region(segment.transition)) {
+      return true;
+    }
+  }
+  for (const AsgpDp2dSegment& segment : program.asgp_dp2d_segments) {
+    if (has_bounded_region(segment.solve) ||
+        has_bounded_region(segment.transition)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 }  // namespace gagp

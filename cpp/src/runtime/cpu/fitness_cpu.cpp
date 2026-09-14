@@ -7,6 +7,7 @@
 
 #include "gagp/core/value_semantics.hpp"
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
+#include "gagp/runtime/cpu/execution_session.hpp"
 
 namespace gagp {
 
@@ -42,6 +43,9 @@ std::vector<double> eval_fitness_cpu(
   std::vector<double> fitness(programs.size(), 0.0);
   const int lanes = std::max(1, reduction_lanes);
   for (std::size_t p = 0; p < programs.size(); ++p) {
+    std::unique_ptr<CpuExecutionSession> session;
+    if (!programs[p].bounded_region_segments.empty())
+      session = std::make_unique<CpuExecutionSession>(programs[p]);
     std::vector<double> partial_scores(static_cast<std::size_t>(lanes), 0.0);
     for (int lane = 0; lane < lanes; ++lane) {
       const std::size_t chunk_start =
@@ -55,7 +59,8 @@ std::vector<double> eval_fitness_cpu(
         for (const InputBinding& binding : shared_cases[c]) {
           inputs.push_back({binding.idx, binding.value});
         }
-        const ExecResult out = execute_bytecode_cpu(programs[p], inputs, fuel);
+        const ExecResult out = session ? session->execute(inputs, fuel)
+                                      : execute_bytecode_cpu(programs[p], inputs, fuel);
         if (out.is_error) {
           local_score = canonicalize_fitness_accumulator(local_score - std::fabs(penalty));
           continue;

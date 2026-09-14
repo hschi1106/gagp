@@ -1,8 +1,11 @@
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/grammar/values.hpp"
 #include "gagp/evolution/ast_verify.hpp"
+#include "gagp/evolution/bounded_region.hpp"
 #include "gagp/evolution/node_descriptor.hpp"
 #include "gagp/evolution/compiler.hpp"
+#include "gagp/core/semantic_fuel.hpp"
+#include "gagp/serialization/region_plan_json.hpp"
 
 #include <memory>
 
@@ -35,6 +38,17 @@ const LexicalRegion& region_at(const AstProgram& ast, std::size_t index) {
     if (region.node_index == index) return region;
   throw std::logic_error("verified AST is missing lexical region metadata");
 }
+const BoundedRegionSpec& bounded_region_at(const AstProgram& ast, std::size_t index) {
+  const auto* spec = lookup_bounded_region_spec(ast, index);
+  if (spec) return *spec;
+  throw std::logic_error("verified AST is missing bounded region metadata");
+}
+std::string plan_encoding(const RegionPlan& plan) {
+  return canonical_json(serialization::encode_region_plan(plan));
+}
+bool same_slot(const RegionValueSlot& left, const RegionValueSlot& right) {
+  return left.bank == right.bank && left.slot == right.slot;
+}
 TraversalDirection direction_at(const AstProgram& ast, std::size_t index) {
   for (const auto& traversal : ast.traversal_specs)
     if (traversal.node_index == index) return traversal.direction;
@@ -44,6 +58,17 @@ void extend_region_scope(std::vector<int>& environment, const CompiledExpression
                          const AstProgram& ast, std::size_t index, std::size_t argument) {
   for (const auto& region : source.regions) {
     if (region.argument != argument) continue;
+    if (ast.nodes[index].kind == NodeKind::BOUNDED_REGION) {
+      const auto& spec = bounded_region_at(ast, index);
+      const auto phase = std::find_if(spec.phases.begin(), spec.phases.end(),
+          [&](const RegionAstPhase& item) { return item.argument == argument; });
+      if (phase == spec.phases.end())
+        throw std::logic_error("verified AST is missing bounded phase metadata");
+      environment.clear();
+      for (const auto& binding : phase->bindings)
+        environment.push_back(binding.binder_id);
+      continue;
+    }
     const auto& native = region_at(ast, index);
     for (const auto& binding : native.bindings) environment.push_back(binding.id);
   }
@@ -68,7 +93,7 @@ class Matcher {
       if (pending.size() > request_.budget.max_depth) fail("materialized depth budget exceeded");
       --pending.back();
       if (!is_known_node_kind(static_cast<int>(node.kind))) fail("unknown native node");
-      const auto arity = node_descriptor(node.kind).prefix_arity;
+      const auto arity = node_prefix_arity(node);
       if (arity) pending.push_back(arity);
     }
     for (auto count : pending) if (count) fail("missing prefix children");
@@ -144,6 +169,36 @@ class Matcher {
         }
         if (a.kind != NodeKind::LET_REGION &&
             direction_at(ast_, left + offset) != direction_at(ast_, right + offset)) return false;
+      } else if (node_descriptor(a.kind).metadata == NodeMetadataKind::BoundedRegion) {
+        const auto& x = bounded_region_at(ast_, left + offset);
+        const auto& y = bounded_region_at(ast_, right + offset);
+        if (plan_encoding(x.plan) != plan_encoding(y.plan) ||
+            x.parameters.size() != y.parameters.size() ||
+            x.phases.size() != y.phases.size()) return false;
+        for (std::size_t i = 0; i < x.parameters.size(); ++i) {
+          const auto& first = x.parameters[i];
+          const auto& second = y.parameters[i];
+          if (first.kind != second.kind) return false;
+          if (first.kind == RegionCaptureKind::Name) {
+            if (ast_.names.at(first.index) != ast_.names.at(second.index)) return false;
+          } else {
+            const auto found = ids.find(first.index);
+            if (found == ids.end() ? first.index != second.index : found->second != second.index)
+              return false;
+          }
+        }
+        for (std::size_t phase = 0; phase < x.phases.size(); ++phase) {
+          const auto& first = x.phases[phase];
+          const auto& second = y.phases[phase];
+          if (first.argument != second.argument ||
+              first.bindings.size() != second.bindings.size()) return false;
+          for (std::size_t binding = 0; binding < first.bindings.size(); ++binding) {
+            if (!same_slot(first.bindings[binding].source,
+                           second.bindings[binding].source) ||
+                !ids.emplace(first.bindings[binding].binder_id,
+                             second.bindings[binding].binder_id).second) return false;
+          }
+        }
       }
     }
     for (std::size_t offset = 0; offset < size; ++offset) {
@@ -192,6 +247,44 @@ class Matcher {
     if (domain.integer_range)
       return value.tag == ValueTag::Int && value.i >= domain.minimum && value.i <= domain.maximum;
     return grammar_.constant_encoding_allowed(id, constants_[node.i0]);
+  }
+  bool bounded(const CompiledExpression& source, std::size_t index) const {
+    const auto& node = ast_.nodes[index];
+    if (node.kind != NodeKind::BOUNDED_REGION ||
+        source.target >= grammar_.structured_contracts().size()) return false;
+    const auto& contract = grammar_.structured_contracts()[source.target];
+    if (contract.family != StructuredFamily::BoundedRegion || !contract.plan) return false;
+    const auto& spec = bounded_region_at(ast_, index);
+    if (node.i0 != static_cast<int>(source.children.size()) ||
+        node.i0 != static_cast<int>(bounded_region_arity(*contract.plan)) ||
+        plan_encoding(spec.plan) != plan_encoding(*contract.plan) ||
+        spec.parameters.size() != source.captures.size() ||
+        spec.phases.size() != source.phases.size()) return false;
+    for (std::size_t i = 0; i < source.captures.size(); ++i) {
+      const auto& expected = source.captures[i];
+      const auto& actual = spec.parameters[i];
+      if (expected.kind == CompiledCaptureKind::Bound) {
+        if (actual.kind != RegionCaptureKind::Lexical ||
+            expected.target >= lexical_environment_.size() ||
+            lexical_environment_[expected.target] < 0 ||
+            actual.index != lexical_environment_[expected.target]) return false;
+      } else {
+        if (actual.kind != RegionCaptureKind::Name) return false;
+        const auto& name = expected.kind == CompiledCaptureKind::Input ?
+            grammar_.inputs().at(expected.target).name :
+            grammar_.locals().at(expected.target).name;
+        if (ast_.names.at(actual.index) != name) return false;
+      }
+    }
+    for (std::size_t i = 0; i < source.phases.size(); ++i) {
+      const auto& expected = source.phases[i];
+      const auto& actual = spec.phases[i];
+      if (actual.argument != expected.argument ||
+          actual.bindings.size() != expected.sources.size()) return false;
+      for (std::size_t j = 0; j < expected.sources.size(); ++j)
+        if (!same_slot(actual.bindings[j].source, expected.sources[j])) return false;
+    }
+    return true;
   }
   bool expression(std::uint32_t id, std::size_t index) {
     Frame frame(*this);
@@ -245,6 +338,9 @@ class Matcher {
       expected = signature.lowering_node;
       if (node.kind != expected) return false;
       if (signature.requires_name && ast_.names[node.i0] != grammar_.locals()[source.local].name) return false;
+    } else if (source.kind == ExpressionKind::Structured) {
+      if (!bounded(source, index)) return false;
+      expected = NodeKind::BOUNDED_REGION;
     } else fail("expression has no native membership contract");
     if (node.kind != expected) return false;
     if (source.category == NodeCategory::Expression && verified_.expression_types[index] != source.type) return false;
@@ -318,9 +414,10 @@ class WitnessBuilder {
     if (!lowered.asgp_dc_segments.empty() || !lowered.asgp_dp1d_segments.empty() ||
         !lowered.asgp_dp2d_segments.empty())
       throw std::invalid_argument("grammar witness cannot certify specialized bytecode segments");
-    if (lowered.code.size() > kGrammarMaxLoweredInstructions)
+    const auto lowered_instructions = bytecode_instruction_count(lowered);
+    if (lowered_instructions > kGrammarMaxLoweredInstructions)
       throw std::invalid_argument("grammar witness exceeds 1048576 lowered instructions");
-    out_.lowered_instructions = static_cast<std::uint32_t>(lowered.code.size());
+    out_.lowered_instructions = static_cast<std::uint32_t>(lowered_instructions);
     if (choice_lexical_environments_out_) {
       if (choice_lexical_environments_.size() != out_.choices.size())
         throw std::logic_error("grammar witness lexical sidecar lost choice alignment");
@@ -421,15 +518,33 @@ class WitnessBuilder {
           if (slot.environment[i] >= 0)
             alpha.emplace(slot.environment[i], lexical_environment_[i]);
         for (std::size_t offset = 0; offset < end - begin; ++offset) {
-          if (node_descriptor(genome_.ast.nodes[slot.begin + offset].kind).metadata !=
-              NodeMetadataKind::LexicalRegion) continue;
-          const auto& first = region_at(genome_.ast, slot.begin + offset);
-          const auto& current = region_at(genome_.ast, begin + offset);
-          if (first.bindings.size() != current.bindings.size())
-            throw std::logic_error("grammar witness repeated hole changed lexical binding arity");
-          for (std::size_t i = 0; i < first.bindings.size(); ++i)
-            if (!alpha.emplace(first.bindings[i].id, current.bindings[i].id).second)
-              throw std::logic_error("grammar witness repeated hole reused a lexical binding ID");
+          const auto metadata = node_descriptor(
+              genome_.ast.nodes[slot.begin + offset].kind).metadata;
+          if (metadata == NodeMetadataKind::LexicalRegion) {
+            const auto& first = region_at(genome_.ast, slot.begin + offset);
+            const auto& current = region_at(genome_.ast, begin + offset);
+            if (first.bindings.size() != current.bindings.size())
+              throw std::logic_error("grammar witness repeated hole changed lexical binding arity");
+            for (std::size_t i = 0; i < first.bindings.size(); ++i)
+              if (!alpha.emplace(first.bindings[i].id, current.bindings[i].id).second)
+                throw std::logic_error("grammar witness repeated hole reused a lexical binding ID");
+          } else if (metadata == NodeMetadataKind::BoundedRegion) {
+            const auto& first = bounded_region_at(genome_.ast, slot.begin + offset);
+            const auto& current = bounded_region_at(genome_.ast, begin + offset);
+            if (first.phases.size() != current.phases.size())
+              throw std::logic_error("grammar witness repeated hole changed bounded phase arity");
+            for (std::size_t phase = 0; phase < first.phases.size(); ++phase) {
+              if (first.phases[phase].bindings.size() !=
+                  current.phases[phase].bindings.size())
+                throw std::logic_error(
+                    "grammar witness repeated hole changed bounded binding arity");
+              for (std::size_t i = 0; i < first.phases[phase].bindings.size(); ++i)
+                if (!alpha.emplace(first.phases[phase].bindings[i].binder_id,
+                                   current.phases[phase].bindings[i].binder_id).second)
+                  throw std::logic_error(
+                      "grammar witness repeated hole reused a bounded binding ID");
+            }
+          }
         }
       }
       for (auto choice : slot.choices) {

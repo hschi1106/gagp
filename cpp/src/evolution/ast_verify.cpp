@@ -3,8 +3,10 @@
 #include <algorithm>
 #include <limits>
 #include <set>
+#include <stdexcept>
 #include <string>
 
+#include "gagp/evolution/bounded_region.hpp"
 #include "gagp/evolution/fuel_events.hpp"
 #include "gagp/evolution/node_descriptor.hpp"
 
@@ -171,6 +173,13 @@ class StructuralVerifier {
                            "binder id must be in the public non-negative id range");
         }
         return true;
+      case NodeIndexRole::DynamicArity:
+        if (value < 0 ||
+            static_cast<std::size_t>(value) > kBoundedRegionArityCapacity) {
+          return fail_bool(VerifyCode::InvalidIndexField, node_index, path,
+                           "dynamic prefix arity is outside the supported range");
+        }
+        return true;
     }
     return false;
   }
@@ -189,7 +198,8 @@ class StructuralVerifier {
         !add_entries(ast_.asgp_dp2d_specs.size()) ||
         !add_entries(ast_.lexical_regions.size()) ||
         !add_entries(ast_.traversal_specs.size()) ||
-        !add_entries(ast_.fuel_specs.size())) {
+        !add_entries(ast_.fuel_specs.size()) ||
+        !add_entries(ast_.bounded_region_specs.size())) {
       return fail_bool(VerifyCode::ResourceLimit, 0, "$",
                        "metadata count exceeds configured limit");
     }
@@ -203,6 +213,34 @@ class StructuralVerifier {
       if (!add_entries(spec.charges.size())) {
         return fail_bool(VerifyCode::ResourceLimit, spec.node_index, "$.fuel_specs",
                          "metadata count exceeds configured limit");
+      }
+    }
+    for (const BoundedRegionSpec& spec : ast_.bounded_region_specs) {
+      if (!add_entries(spec.parameters.size()) ||
+          !add_entries(spec.phases.size()) ||
+          !add_entries(spec.plan.state_types.size()) ||
+          !add_entries(spec.plan.parameter_types.size()) ||
+          !add_entries(spec.plan.preparations.size()) ||
+          !add_entries(spec.plan.request_expression_types.size()) ||
+          !add_entries(spec.plan.coordinate_slots.size()) ||
+          !add_entries(spec.plan.coordinate_rank.size()) ||
+          !add_entries(spec.plan.coordinate_domains.size()) ||
+          !add_entries(spec.plan.requests.size())) {
+        return fail_bool(VerifyCode::ResourceLimit, spec.node_index,
+                         "$.bounded_region_specs",
+                         "metadata count exceeds configured limit");
+      }
+      for (const auto& request : spec.plan.requests) {
+        if (!add_entries(request.states.size()))
+          return fail_bool(VerifyCode::ResourceLimit, spec.node_index,
+                           "$.bounded_region_specs", "metadata count exceeds configured limit");
+      }
+      for (const RegionAstPhase& phase : spec.phases) {
+        if (!add_entries(phase.bindings.size())) {
+          return fail_bool(VerifyCode::ResourceLimit, spec.node_index,
+                           "$.bounded_region_specs",
+                           "metadata count exceeds configured limit");
+        }
       }
     }
     return true;
@@ -319,9 +357,9 @@ class StructuralVerifier {
       return fail_bool(VerifyCode::ResourceLimit, index, node_path(index),
                        "expression depth exceeds configured limit");
     }
-    const NodeDescriptor& descriptor = node_descriptor(node->kind);
+    const int arity = node_prefix_arity(*node);
     std::size_t next = index + 1;
-    for (int child = 0; child < descriptor.prefix_arity; ++child) {
+    for (int child = 0; child < arity; ++child) {
       if (!parse_expression(next, depth + 1, &next)) return false;
     }
     result_.verified.subtree_end[index] = next;
@@ -354,6 +392,7 @@ class StructuralVerifier {
     std::set<std::size_t> expected_dp2;
     std::set<std::size_t> expected_lexical;
     std::set<std::size_t> expected_traversal;
+    std::set<std::size_t> expected_bounded;
     for (std::size_t i = 0; i < ast_.nodes.size(); ++i) {
       switch (node_descriptor(ast_.nodes[i].kind).metadata) {
         case NodeMetadataKind::LinearRecBinders: expected_linear.insert(i); break;
@@ -361,6 +400,7 @@ class StructuralVerifier {
         case NodeMetadataKind::AsgpDp1dSpec: expected_dp1.insert(i); break;
         case NodeMetadataKind::AsgpDp2dSpec: expected_dp2.insert(i); break;
         case NodeMetadataKind::LexicalRegion: expected_lexical.insert(i); break;
+        case NodeMetadataKind::BoundedRegion: expected_bounded.insert(i); break;
         case NodeMetadataKind::None: break;
       }
       if (ast_.nodes[i].kind == NodeKind::TRAVERSE ||
@@ -528,6 +568,133 @@ class StructuralVerifier {
       }
     }
 
+    std::set<std::size_t> seen_bounded;
+    for (std::size_t i = 0; i < ast_.bounded_region_specs.size(); ++i) {
+      const BoundedRegionSpec& row = ast_.bounded_region_specs[i];
+      const std::string path =
+          "$.bounded_region_specs[" + std::to_string(i) + "]";
+      if (!check_metadata_node(row.node_index, NodeKind::BOUNDED_REGION, path) ||
+          !check_unique(&seen_bounded, row.node_index, path)) {
+        return false;
+      }
+      try {
+        validate_region_plan(row.plan);
+      } catch (const std::invalid_argument& error) {
+        return fail_bool(VerifyCode::InvalidBounds, row.node_index,
+                         path + ".plan", error.what());
+      }
+
+      std::size_t arity = 0;
+      try {
+        arity = bounded_region_arity(row.plan);
+      } catch (const std::invalid_argument& error) {
+        return fail_bool(VerifyCode::DependencyArityMismatch, row.node_index,
+                         path + ".plan", error.what());
+      }
+      if (ast_.nodes[row.node_index].i0 != static_cast<int>(arity)) {
+        return fail_bool(VerifyCode::DependencyArityMismatch, row.node_index,
+                         node_path(row.node_index) + ".i0",
+                         "bounded region node arity does not match its plan");
+      }
+      if (row.parameters.size() != row.plan.parameter_types.size()) {
+        return fail_bool(VerifyCode::DependencyArityMismatch, row.node_index,
+                         path + ".parameters",
+                         "bounded region captures must match parameter types");
+      }
+      std::set<std::pair<int, int>> captured;
+      for (std::size_t j = 0; j < row.parameters.size(); ++j) {
+        const RegionCapture& capture = row.parameters[j];
+        if (!captured.emplace(static_cast<int>(capture.kind), capture.index).second)
+          return fail_bool(VerifyCode::DuplicateMetadata, row.node_index, path + ".parameters",
+                           "bounded region captures must be distinct");
+        const std::string capture_path =
+            path + ".parameters[" + std::to_string(j) + "]";
+        switch (capture.kind) {
+          case RegionCaptureKind::Lexical:
+            if (capture.index < 0 ||
+                capture.index == std::numeric_limits<int>::max()) {
+              return fail_bool(
+                  VerifyCode::InvalidIndexField, row.node_index,
+                  capture_path + ".index",
+                  "lexical capture id must be in the public non-negative id range");
+            }
+            break;
+          case RegionCaptureKind::Name:
+            if (!valid_name(capture.index, row.node_index,
+                            capture_path + ".index")) {
+              return false;
+            }
+            break;
+          default:
+            return fail_bool(VerifyCode::InvalidIndexField, row.node_index,
+                             capture_path + ".kind",
+                             "invalid bounded region capture kind");
+        }
+      }
+
+      const std::size_t phase_count =
+          arity - row.plan.state_types.size() - row.plan.bound_operand_count;
+      if (row.phases.size() != phase_count) {
+        return fail_bool(VerifyCode::DependencyArityMismatch, row.node_index,
+                         path + ".phases",
+                         "bounded region phase count does not match its plan");
+      }
+      for (std::size_t j = 0; j < row.phases.size(); ++j) {
+        const RegionAstPhase& phase = row.phases[j];
+        const std::string phase_path =
+            path + ".phases[" + std::to_string(j) + "]";
+        const std::size_t expected_argument = row.plan.state_types.size() +
+                                              row.plan.bound_operand_count + j;
+        if (phase.argument != expected_argument) {
+          return fail_bool(VerifyCode::MetadataNodeMismatch, row.node_index,
+                           phase_path + ".argument",
+                           "bounded region phase argument is not canonical");
+        }
+        if (phase.bindings.size() > kBoundedRegionPhaseBindingCapacity) {
+          return fail_bool(VerifyCode::ResourceLimit, row.node_index,
+                           phase_path + ".bindings",
+                           "bounded region phase binding count exceeds capacity");
+        }
+
+        const RegionPhaseKind kind =
+            bounded_region_phase_kind(row.plan, j);
+        const std::uint32_t preparation =
+            bounded_region_preparation_ordinal(row.plan, j);
+        std::set<std::pair<int, std::uint32_t>> sources;
+        for (std::size_t k = 0; k < phase.bindings.size(); ++k) {
+          const RegionAstBinding& binding = phase.bindings[k];
+          const std::string binding_path =
+              phase_path + ".bindings[" + std::to_string(k) + "]";
+          const auto source_key = std::make_pair(
+              static_cast<int>(binding.source.bank), binding.source.slot);
+          if (!sources.insert(source_key).second) {
+            return fail_bool(VerifyCode::DuplicateMetadata, row.node_index,
+                             binding_path + ".source",
+                             "bounded region phase source slots must be unique");
+          }
+          try {
+            (void)region_slot_type(row.plan, kind, binding.source,
+                                   preparation);
+          } catch (const std::invalid_argument& error) {
+            return fail_bool(VerifyCode::MetadataNodeMismatch, row.node_index,
+                             binding_path + ".source", error.what());
+          }
+          if (binding.binder_id < 0 ||
+              binding.binder_id == std::numeric_limits<int>::max()) {
+            return fail_bool(
+                VerifyCode::InvalidIndexField, row.node_index,
+                binding_path + ".binder_id",
+                "phase binder id must be in the public non-negative id range");
+          }
+          if (!declared_binder_ids.insert(binding.binder_id).second) {
+            return fail_bool(VerifyCode::DuplicateBinder, row.node_index,
+                             binding_path + ".binder_id",
+                             "phase binder ids must be globally unique");
+          }
+        }
+      }
+    }
+
     std::set<std::size_t> seen_traversal;
     for (std::size_t i = 0; i < ast_.traversal_specs.size(); ++i) {
       const TraversalSpec& row = ast_.traversal_specs[i];
@@ -591,7 +758,9 @@ class StructuralVerifier {
         !check_missing(expected_dp1, seen_dp1, "$.asgp_dp1d_specs") ||
         !check_missing(expected_dp2, seen_dp2, "$.asgp_dp2d_specs") ||
         !check_missing(expected_lexical, seen_lexical, "$.lexical_regions") ||
-        !check_missing(expected_traversal, seen_traversal, "$.traversal_specs")) return false;
+        !check_missing(expected_traversal, seen_traversal, "$.traversal_specs") ||
+        !check_missing(expected_bounded, seen_bounded,
+                       "$.bounded_region_specs")) return false;
     return true;
   }
 

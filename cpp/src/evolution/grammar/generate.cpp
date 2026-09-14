@@ -3,6 +3,7 @@
 #include "gagp/evolution/grammar/budget.hpp"
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/compiler.hpp"
+#include "gagp/core/semantic_fuel.hpp"
 #include "gagp/evolution/grammar/values.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
 
@@ -72,9 +73,11 @@ class Generator {
     const auto lowered = compile_for_eval(out_.genome, verified.verified, input_names);
     if (!lowered.asgp_dc_segments.empty() || !lowered.asgp_dp1d_segments.empty() || !lowered.asgp_dp2d_segments.empty())
       throw std::logic_error("typed grammar unexpectedly lowered to specialized segments");
-    if (lowered.code.size() > kGrammarMaxLoweredInstructions)
+    const auto lowered_instructions = bytecode_instruction_count(lowered);
+    if (lowered_instructions > kGrammarMaxLoweredInstructions)
       throw std::invalid_argument("generated program exceeds 1048576 lowered instructions");
-    out_.derivation.lowered_instructions = static_cast<std::uint32_t>(lowered.code.size());
+    out_.derivation.lowered_instructions =
+        static_cast<std::uint32_t>(lowered_instructions);
     out_.genome.meta = build_genome_meta(out_.genome.ast);
     out_.genome.derivation = std::make_shared<const DerivationMetadata>(out_.derivation);
     return std::move(out_);
@@ -138,6 +141,7 @@ class Generator {
     std::vector<LexicalRegion> lexical_regions;
     std::vector<TraversalSpec> traversal_specs;
     std::vector<NodeFuelSpec> fuel_specs;
+    std::vector<BoundedRegionSpec> bounded_region_specs;
     std::vector<int> environment;
   };
   struct TemplatePlan {
@@ -232,6 +236,7 @@ class Generator {
       const auto region_begin = out_.genome.ast.lexical_regions.size();
       const auto traversal_begin = out_.genome.ast.traversal_specs.size();
       const auto fuel_begin = out_.genome.ast.fuel_specs.size();
+      const auto bounded_begin = out_.genome.ast.bounded_region_specs.size();
       slot.environment = environment_;
       expression(source.children.at(0), slot.depth, slot.reserved, production, nt);
       active_slot_ = saved_slot;
@@ -245,6 +250,9 @@ class Generator {
           out_.genome.ast.traversal_specs.end());
       slot.fuel_specs.assign(out_.genome.ast.fuel_specs.begin() + fuel_begin,
           out_.genome.ast.fuel_specs.end());
+      slot.bounded_region_specs.assign(
+          out_.genome.ast.bounded_region_specs.begin() + bounded_begin,
+          out_.genome.ast.bounded_region_specs.end());
       slot.reserved = static_cast<std::uint32_t>(slot.nodes.size());
     } else {
       const auto shift = begin - slot.begin;
@@ -253,6 +261,10 @@ class Generator {
       for (const auto& region : slot.lexical_regions)
         for (const auto& binding : region.bindings)
           binder_renames.emplace(binding.id, fresh_binder());
+      for (const auto& spec : slot.bounded_region_specs)
+        for (const auto& phase : spec.phases)
+          for (const auto& binding : phase.bindings)
+            binder_renames.emplace(binding.binder_id, fresh_binder());
       auto copied_nodes = slot.nodes;
       for (auto& node : copied_nodes) {
         if (node.kind != NodeKind::REGION_VAR) continue;
@@ -293,6 +305,29 @@ class Generator {
       for (auto fuel : slot.fuel_specs) {
         fuel.node_index += shift;
         out_.genome.ast.fuel_specs.push_back(std::move(fuel));
+      }
+      for (auto spec : slot.bounded_region_specs) {
+        spec.node_index += shift;
+        for (auto& capture : spec.parameters) {
+          if (capture.kind != RegionCaptureKind::Lexical) continue;
+          const auto introduced = binder_renames.find(capture.index);
+          if (introduced != binder_renames.end()) {
+            capture.index = introduced->second;
+            continue;
+          }
+          const auto free = std::find(slot.environment.begin(),
+                                      slot.environment.end(), capture.index);
+          if (free == slot.environment.end())
+            throw std::logic_error("template hole snapshot contains an untracked lexical capture");
+          const auto position = static_cast<std::size_t>(free - slot.environment.begin());
+          if (position >= environment_.size() || environment_[position] < 0)
+            throw std::invalid_argument("general binding runtime: external lexical binding requires a materialization frame");
+          capture.index = environment_[position];
+        }
+        for (auto& phase : spec.phases)
+          for (auto& binding : phase.bindings)
+            binding.binder_id = binder_renames.at(binding.binder_id);
+        out_.genome.ast.bounded_region_specs.push_back(std::move(spec));
       }
     }
     environment_ = saved_environment;
@@ -388,6 +423,7 @@ class Generator {
       if (owner) origin.template_instance = owner->instance;
     } else { origin.template_instance = active_slot_.first; origin.slot = active_slot_.second; }
     AstNode node;
+    std::optional<BoundedRegionSpec> bounded_region;
     if (source.kind == ExpressionKind::Constant) {
       node = {NodeKind::CONST, static_cast<int>(out_.genome.ast.consts.size()), 0};
       out_.genome.ast.consts.push_back(constant(grammar_.constants()[source.target]));
@@ -401,6 +437,70 @@ class Generator {
         throw std::invalid_argument("general binding runtime: external lexical binding requires a materialization frame");
       node = {NodeKind::REGION_VAR, environment_[source.target], 0};
     }
+    else if (source.kind == ExpressionKind::Structured) {
+      const auto& contract = grammar_.structured_contracts().at(source.target);
+      if (contract.family != StructuredFamily::BoundedRegion || !contract.plan)
+        throw std::invalid_argument("materialization requires an implemented native structured contract");
+      if (source.children.size() != bounded_region_arity(*contract.plan))
+        throw std::logic_error("compiled bounded region child layout is inconsistent");
+      if (source.children.size() >
+          static_cast<std::size_t>(std::numeric_limits<int>::max()))
+        throw std::overflow_error("structured node arity exceeds the native index range");
+      node = {NodeKind::BOUNDED_REGION,
+              static_cast<int>(source.children.size()), 0};
+      bounded_region = BoundedRegionSpec{};
+      bounded_region->plan = *contract.plan;
+      if (source.captures.size() != contract.plan->parameter_types.size())
+        throw std::logic_error("compiled bounded region capture layout is inconsistent");
+      bounded_region->parameters.reserve(source.captures.size());
+      for (const CompiledRegionCapture& capture : source.captures) {
+        switch (capture.kind) {
+          case CompiledCaptureKind::Input:
+            if (capture.target >= grammar_.inputs().size())
+              throw std::logic_error("compiled region input capture is out of range");
+            bounded_region->parameters.push_back(
+                {RegionCaptureKind::Name, static_cast<int>(capture.target)});
+            break;
+          case CompiledCaptureKind::Local:
+            if (capture.target >= grammar_.locals().size())
+              throw std::logic_error("compiled region local capture is out of range");
+            if (grammar_.inputs().size() + capture.target >
+                static_cast<std::size_t>(std::numeric_limits<int>::max()))
+              throw std::overflow_error("compiled region local capture exceeds the native name range");
+            bounded_region->parameters.push_back({
+                RegionCaptureKind::Name,
+                static_cast<int>(grammar_.inputs().size() + capture.target)});
+            break;
+          case CompiledCaptureKind::Bound:
+            if (capture.target >= environment_.size())
+              throw std::logic_error("compiled region bound capture is out of range");
+            if (environment_[capture.target] < 0)
+              throw std::invalid_argument("general binding runtime: external lexical binding requires a materialization frame");
+            bounded_region->parameters.push_back(
+                {RegionCaptureKind::Lexical, environment_[capture.target]});
+            break;
+          default:
+            throw std::logic_error("compiled region capture kind is invalid");
+        }
+      }
+      if (source.phases.size() != source.regions.size())
+        throw std::logic_error("compiled region phases and lexical regions are not aligned");
+      bounded_region->phases.reserve(source.phases.size());
+      for (std::size_t phase_index = 0; phase_index < source.phases.size();
+           ++phase_index) {
+        const CompiledRegionPhase& phase = source.phases[phase_index];
+        const RegionSlot& region = source.regions[phase_index];
+        if (phase.argument != region.argument ||
+            phase.sources.size() != region.bindings.size())
+          throw std::logic_error("compiled region phase binding layout is inconsistent");
+        RegionAstPhase materialized;
+        materialized.argument = phase.argument;
+        for (std::size_t binding = 0; binding < phase.sources.size(); ++binding)
+          materialized.bindings.push_back(
+              {phase.sources[binding], fresh_binder()});
+        bounded_region->phases.push_back(std::move(materialized));
+      }
+    }
     else if (source.kind == ExpressionKind::Primitive) {
       const auto& signature = PrimitiveCatalog::standard().at(source.target);
       node = {*signature.lowering_node, 0, 0};
@@ -410,6 +510,7 @@ class Generator {
     } else throw std::invalid_argument("materialization requires an implemented native node contract");
     const auto node_index = out_.genome.ast.nodes.size();
     emit(node, origin);
+    if (bounded_region) bounded_region->node_index = node_index;
     std::optional<LexicalRegion> lexical_region;
     if (source.kind == ExpressionKind::Primitive && !source.regions.empty()) {
       if (source.regions.size() != 1)
@@ -432,12 +533,27 @@ class Generator {
       const auto allowance = static_cast<std::uint32_t>(random_.integer(lower, remaining - reserved));
       const auto begin = out_.genome.ast.nodes.size();
       const auto saved_environment = environment_;
-      if (lexical_region && static_cast<std::uint32_t>(i) == source.regions.front().argument)
+      if (bounded_region) {
+        const auto phase = std::find_if(
+            bounded_region->phases.begin(), bounded_region->phases.end(),
+            [&](const RegionAstPhase& candidate) {
+              return candidate.argument == i;
+            });
+        if (phase != bounded_region->phases.end()) {
+          environment_.clear();
+          for (const RegionAstBinding& binding : phase->bindings)
+            environment_.push_back(binding.binder_id);
+        }
+      } else if (lexical_region &&
+                 static_cast<std::uint32_t>(i) == source.regions.front().argument)
         for (const auto& binding : lexical_region->bindings) environment_.push_back(binding.id);
       expression(source.children[i], depth - 1, allowance, production, nt);
       environment_ = saved_environment;
       remaining -= static_cast<std::uint32_t>(out_.genome.ast.nodes.size() - begin);
     }
+    if (bounded_region)
+      out_.genome.ast.bounded_region_specs.push_back(
+          std::move(*bounded_region));
   }
   const CompiledGrammar& grammar_;
   GrammarRandom random_;

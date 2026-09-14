@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "gagp/evolution/bounded_region.hpp"
 #include "gagp/evolution/node_descriptor.hpp"
 #include "subtree_utils.hpp"
 
@@ -73,7 +74,8 @@ bool is_expr_kind(NodeKind kind) {
 
 bool is_structured_root_kind(NodeKind kind) {
   return kind == NodeKind::MAP_LIST || kind == NodeKind::FILTER_LIST || kind == NodeKind::LINEAR_REC ||
-         kind == NodeKind::ASGP_DC || kind == NodeKind::ASGP_DP1D || kind == NodeKind::ASGP_DP2D;
+         kind == NodeKind::ASGP_DC || kind == NodeKind::ASGP_DP1D ||
+         kind == NodeKind::ASGP_DP2D || kind == NodeKind::BOUNDED_REGION;
 }
 
 bool range_contains(std::size_t start, std::size_t stop, std::size_t idx) {
@@ -250,6 +252,11 @@ ExprCheck infer_expr_prefix(const AstProgram& p,
     const RType t = (it == env.end()) ? RType::Invalid : it->second;
     return {t, end[idx]};
   }
+  if (n.kind == NodeKind::BOUNDED_REGION) {
+    // The legacy overload has neither input declarations nor verified lexical
+    // scopes. Do not infer phase or capture types from ordinary name spelling.
+    return {RType::Invalid, end[idx]};
+  }
   if (n.kind == NodeKind::NEG || n.kind == NodeKind::NOT) {
     ExprCheck e = infer_expr_prefix(p, end, idx + 1, env, out);
     const RType t = (n.kind == NodeKind::NEG) ? (is_numeric_type(e.t) ? e.t : RType::Invalid)
@@ -399,7 +406,7 @@ ExprCheck infer_expr_prefix(const AstProgram& p,
     if (n.kind == NodeKind::CALL_ABS || n.kind == NodeKind::CALL_MIN ||
         n.kind == NodeKind::CALL_MAX || n.kind == NodeKind::CALL_CLIP) {
       RType numeric_type = RType::Invalid;
-      for (int i = 0; i < subtree::node_arity(n.kind); ++i) {
+      for (int i = 0; i < node_prefix_arity(n); ++i) {
         ExprCheck a = infer_expr_prefix(p, end, cur, env, out);
         if (!is_numeric_type(a.t)) {
           ok = false;
@@ -414,7 +421,7 @@ ExprCheck infer_expr_prefix(const AstProgram& p,
       if (out != nullptr && r != RType::Invalid) append_root(out, p, idx, cur, r, env);
       return {r, cur};
     }
-    for (int i = 0; i < subtree::node_arity(n.kind); ++i) {
+    for (int i = 0; i < node_prefix_arity(n); ++i) {
       ExprCheck a = infer_expr_prefix(p, end, cur, env, out);
       if (a.t != RType::Int) ok = false;
       cur = a.next;
@@ -643,7 +650,16 @@ void annotate_typed_root(const AstProgram& program,
   const NodeKind root_kind = program.nodes[root.start].kind;
   if (is_structured_root_kind(root_kind)) {
     root.scheme_kind = static_cast<int>(root_kind);
-    root.binder_signature = node_signature(root_kind);
+    if (root_kind == NodeKind::BOUNDED_REGION) {
+      const BoundedRegionSpec* spec =
+          lookup_bounded_region_spec(program, root.start);
+      if (spec != nullptr) {
+        root.dp_dependency_arity =
+            static_cast<int>(spec->plan.requests.size());
+      }
+    } else {
+      root.binder_signature = node_signature(root_kind);
+    }
     if (root_kind == NodeKind::MAP_LIST || root_kind == NodeKind::FILTER_LIST) {
       root.binder_signature = mix_u64(root.binder_signature, static_cast<std::uint64_t>(program.nodes[root.start].i1));
     } else if (root_kind == NodeKind::LINEAR_REC) {
@@ -731,6 +747,30 @@ void annotate_typed_root(const AstProgram& program,
         root.phase_name = 2;
         root.dp_dependency_arity = dep_arity;
         root.binder_signature = mix_u64(node_signature(NodeKind::ASGP_DP2D), static_cast<std::uint64_t>(dep_arity + 1));
+      }
+    } else if (kind == NodeKind::BOUNDED_REGION) {
+      const BoundedRegionSpec* spec =
+          lookup_bounded_region_spec(program, idx);
+      if (spec == nullptr || program.nodes[idx].i0 < 0) continue;
+      std::vector<std::size_t> arguments;
+      arguments.reserve(static_cast<std::size_t>(program.nodes[idx].i0));
+      std::size_t argument = idx + 1;
+      for (int i = 0; i < program.nodes[idx].i0 &&
+                      argument < program.nodes.size(); ++i) {
+        arguments.push_back(argument);
+        argument = subtree_end[argument];
+      }
+      for (std::size_t ordinal = 0; ordinal < spec->phases.size(); ++ordinal) {
+        const std::uint32_t position = spec->phases[ordinal].argument;
+        if (position >= arguments.size()) continue;
+        const std::size_t phase = arguments[position];
+        if (!range_contains(phase, subtree_end[phase], root.start)) continue;
+        root.scheme_kind = static_cast<int>(NodeKind::BOUNDED_REGION);
+        root.phase_name =
+            static_cast<int>(bounded_region_phase_kind(spec->plan, ordinal)) + 1;
+        root.dp_dependency_arity =
+            static_cast<int>(spec->plan.requests.size());
+        break;
       }
     }
   }
@@ -837,6 +877,23 @@ bool is_asgp_phase_body_root(const AstProgram& program,
       if (range_contains(solve, subtree_end[solve], root.start) ||
           range_contains(transition, subtree_end[transition], root.start)) {
         return true;
+      }
+    } else if (kind == NodeKind::BOUNDED_REGION) {
+      const BoundedRegionSpec* spec =
+          lookup_bounded_region_spec(program, idx);
+      if (spec == nullptr || program.nodes[idx].i0 < 0) continue;
+      std::vector<std::size_t> arguments;
+      arguments.reserve(static_cast<std::size_t>(program.nodes[idx].i0));
+      std::size_t argument = idx + 1;
+      for (int i = 0; i < program.nodes[idx].i0 &&
+                      argument < program.nodes.size(); ++i) {
+        arguments.push_back(argument);
+        argument = subtree_end[argument];
+      }
+      for (const RegionAstPhase& phase : spec->phases) {
+        if (phase.argument >= arguments.size()) continue;
+        const std::size_t body = arguments[phase.argument];
+        if (range_contains(body, subtree_end[body], root.start)) return true;
       }
     }
   }

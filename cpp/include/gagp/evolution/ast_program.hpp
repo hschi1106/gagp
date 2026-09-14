@@ -101,6 +101,7 @@ enum class NodeKind {
   REGION_VAR,
   CHECK_INT,
   CHECK_LIST,
+  BOUNDED_REGION,
   COUNT,
 };
 
@@ -223,6 +224,34 @@ struct NodeFuelSpec {
   std::vector<FuelCharge> charges;
 };
 
+enum class RegionCaptureKind { Lexical, Name };
+
+// Indices name an enclosing lexical binder or an ordinary name-table entry.
+// Lowering snapshots the physical caller local without evaluating a LOAD.
+struct RegionCapture {
+  RegionCaptureKind kind = RegionCaptureKind::Lexical;
+  int index = 0;
+};
+
+struct RegionAstBinding {
+  RegionValueSlot source;
+  int binder_id = 0;
+};
+
+struct RegionAstPhase {
+  std::uint32_t argument = 0;
+  std::vector<RegionAstBinding> bindings;
+};
+
+struct BoundedRegionSpec {
+  std::size_t node_index = 0;
+  RegionPlan plan;
+  std::vector<RegionCapture> parameters;
+  // Canonical phase order: predicate, base, preparations, request expressions,
+  // combine, and coordinate boundary. Arguments follow initial states/bounds.
+  std::vector<RegionAstPhase> phases;
+};
+
 struct AstProgram {
   std::vector<AstNode> nodes;
   std::vector<std::string> names;
@@ -234,6 +263,7 @@ struct AstProgram {
   std::vector<LexicalRegion> lexical_regions;
   std::vector<TraversalSpec> traversal_specs;
   std::vector<NodeFuelSpec> fuel_specs;
+  std::vector<BoundedRegionSpec> bounded_region_specs;
   std::string version = k_ast_prefix_version_current;
 };
 

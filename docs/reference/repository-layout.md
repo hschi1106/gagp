@@ -14,6 +14,7 @@ nearest component documentation, not here.
 | `cpp/src/runtime/` | CPU/GPU runtime and payload implementation |
 | `cpp/src/evolution/` | Compiler, generation, evaluation, selection, and reproduction |
 | `cpp/src/transition/` | Test-only lowering adapters for migration comparisons |
+| `cpp/src/serialization/` | Shared execution-plan JSON codec without CLI dependencies |
 | `cpp/src/cli/` | Native CLI parsing, codecs, commands, and output adaptation |
 | `cpp/src/bench/` | Opt-in native benchmarks |
 | `cpp/src/experiments/` | Opt-in experiment probes |

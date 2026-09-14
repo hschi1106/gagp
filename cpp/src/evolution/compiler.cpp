@@ -13,6 +13,7 @@
 #include "gagp/core/builtin.hpp"
 #include "gagp/core/semantic_fuel.hpp"
 #include "gagp/evolution/fuel_events.hpp"
+#include "gagp/evolution/bounded_region.hpp"
 #include "gagp/core/bytecode_verify.hpp"
 #include "gagp/evolution/node_descriptor.hpp"
 #include "subtree_utils.hpp"
@@ -82,7 +83,7 @@ class Compiler {
          verified_->subtree_end[0] != program.nodes.size())) {
       throw std::invalid_argument("prefix compile: VerifiedAst does not match program shape");
     }
-    if (!program.lexical_regions.empty() || !program.traversal_specs.empty() || !program.fuel_specs.empty()) {
+    if (!program.lexical_regions.empty() || !program.traversal_specs.empty() || !program.fuel_specs.empty() || !program.bounded_region_specs.empty()) {
       const auto structure = verify_ast_structure(program);
       if (!structure) throw std::invalid_argument("prefix compile: " + structure.diagnostic.message);
     }
@@ -124,6 +125,7 @@ class Compiler {
     out.asgp_dc_segments = asgp_dc_segments_;
     out.asgp_dp1d_segments = asgp_dp1d_segments_;
     out.asgp_dp2d_segments = asgp_dp2d_segments_;
+    out.bounded_region_segments = bounded_region_segments_;
     return out;
   }
 
@@ -180,7 +182,7 @@ class Compiler {
       return end;
     }
     std::size_t cur = idx + 1;
-    for (int i = 0; i < subtree::node_arity(program.nodes[idx].kind); ++i) {
+    for (int i = 0; i < node_prefix_arity(program.nodes[idx]); ++i) {
       cur = expr_end_prefix(program, cur);
     }
     return cur;
@@ -794,11 +796,81 @@ class Compiler {
     const std::size_t end = expr_end_prefix(program, idx);
     for (std::size_t i = idx; i < end; ++i) {
       const NodeKind kind = program.nodes[i].kind;
-      if (kind == NodeKind::ASGP_DC || kind == NodeKind::ASGP_DP1D || kind == NodeKind::ASGP_DP2D) {
+      if (kind == NodeKind::ASGP_DC || kind == NodeKind::ASGP_DP1D || kind == NodeKind::ASGP_DP2D || kind == NodeKind::BOUNDED_REGION) {
         return true;
       }
     }
     return false;
+  }
+
+  RegionPhase compile_bounded_phase(const AstProgram& program,
+                                    const RegionAstPhase& binding,
+                                    std::size_t begin, std::size_t end) {
+    if (subtree_contains_asgp(program, begin))
+      throw std::invalid_argument("prefix compile: nested structured region in phase");
+    // Ordinary inputs must enter through explicit Parameter bank bindings.
+    for (std::size_t i = begin; i < end; ++i)
+      if (program.nodes[i].kind == NodeKind::VAR)
+        throw std::invalid_argument("prefix compile: implicit variable capture in region phase");
+    Compiler phase;
+    RegionPhase out;
+    for (const auto& item : binding.bindings) {
+      const int local_idx = phase.local(phase.new_temp());
+      phase.push_binder(-item.binder_id - 1, local_idx);
+      out.bindings.push_back({item.source, local_idx});
+    }
+    if (phase.compile_expr_prefix(program, begin) != end)
+      throw std::invalid_argument("prefix compile: region phase trailing tokens");
+    phase.patch_jumps();
+    out.program.consts = std::move(phase.consts_);
+    out.program.code = std::move(phase.code_);
+    out.program.n_locals = static_cast<int>(phase.var2idx_.size());
+    if (phase.has_general_regions_ || phase.has_source_fuel_) {
+      out.program.instruction_fuel = std::move(phase.fuel_);
+      const auto valid = validate_semantic_fuel(out.program.code, out.program.instruction_fuel);
+      if (!valid) throw std::invalid_argument("prefix phase compile: " + valid.message);
+    }
+    return out;
+  }
+
+  std::size_t compile_bounded_prefix(const AstProgram& program, std::size_t owner) {
+    const auto* spec = lookup_bounded_region_spec(program, owner);
+    if (!spec) throw std::invalid_argument("prefix compile: missing bounded region metadata");
+    BoundedRegionSegment segment;
+    segment.plan = spec->plan;
+    std::size_t cursor = owner + 1;
+    const auto operands = spec->plan.state_types.size() + spec->plan.bound_operand_count;
+    for (std::size_t i = 0; i < operands; ++i)
+      cursor = compile_expr_prefix(program, cursor);
+    for (const auto& capture : spec->parameters) {
+      if (capture.kind == RegionCaptureKind::Name) {
+        segment.parameter_locals.push_back(local(name_at(program, capture.index)));
+      } else {
+        const auto found = binder_stack_.find(-capture.index - 1);
+        if (found == binder_stack_.end() || found->second.empty())
+          throw std::invalid_argument("prefix compile: undefined bounded region capture");
+        segment.parameter_locals.push_back(found->second.back());
+      }
+    }
+    for (std::size_t ordinal = 0; ordinal < spec->phases.size(); ++ordinal) {
+      const auto end = expr_end_prefix(program, cursor);
+      auto phase = compile_bounded_phase(program, spec->phases[ordinal], cursor, end);
+      switch (bounded_region_phase_kind(spec->plan, ordinal)) {
+        case RegionPhaseKind::BasePredicate: segment.base_predicate = std::move(phase); break;
+        case RegionPhaseKind::BaseBody: segment.base_body = std::move(phase); break;
+        case RegionPhaseKind::Preparation: segment.preparations.push_back(std::move(phase)); break;
+        case RegionPhaseKind::Request: segment.request_expressions.push_back(std::move(phase)); break;
+        case RegionPhaseKind::Combine: segment.combine = std::move(phase); break;
+        case RegionPhaseKind::Boundary: segment.boundary = std::move(phase); break;
+      }
+      cursor = end;
+    }
+    const auto verified = verify_bounded_region_segment(segment, static_cast<int>(var2idx_.size()));
+    if (!verified) throw std::invalid_argument("prefix compile: " + verified.diagnostic.message);
+    const auto index = static_cast<int>(bounded_region_segments_.size());
+    bounded_region_segments_.push_back(std::move(segment));
+    emit(Opcode::BoundedRegion, index, true);
+    return cursor;
   }
 
   PhaseProgram compile_phase_expr(const AstProgram& program,
@@ -1045,6 +1117,8 @@ class Compiler {
   std::size_t compile_expr_impl(const AstProgram& program, std::size_t idx) {
     const AstNode& node = node_at(program, idx);
     switch (node.kind) {
+      case NodeKind::BOUNDED_REGION:
+        return compile_bounded_prefix(program, idx);
       case NodeKind::CHECK_INT:
       case NodeKind::CHECK_LIST: {
         has_general_regions_ = true;
@@ -1173,7 +1247,7 @@ class Compiler {
       case NodeKind::CALL_TO_STRING:
       case NodeKind::CALL_SINGLETON: {
         std::size_t next = idx + 1;
-        const int argc = subtree::node_arity(node.kind);
+        const int argc = node_prefix_arity(node);
         for (int i = 0; i < argc; ++i) {
           next = compile_expr_prefix(program, next);
         }
@@ -1277,6 +1351,7 @@ class Compiler {
   std::vector<AsgpDcSegment> asgp_dc_segments_;
   std::vector<AsgpDp1dSegment> asgp_dp1d_segments_;
   std::vector<AsgpDp2dSegment> asgp_dp2d_segments_;
+  std::vector<BoundedRegionSegment> bounded_region_segments_;
   bool has_general_regions_ = false;
   int label_counter_ = 0;
   int tmp_counter_ = 0;

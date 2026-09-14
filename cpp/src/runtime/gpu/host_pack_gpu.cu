@@ -124,6 +124,9 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
 
   for (std::size_t p = 0; p < programs.size(); ++p) {
     const BytecodeProgram& prog = programs[p];
+    if (has_bounded_region(prog)) {
+      throw std::invalid_argument("bounded region execution is not supported by the GPU runtime");
+    }
     if (has_semantic_fuel(prog)) {
       throw std::invalid_argument("semantic fuel schedules are not supported by the GPU runtime");
     }

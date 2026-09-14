@@ -66,4 +66,8 @@ BytecodeVerifyResult verify_bytecode(
     const BytecodeProgram& program,
     const BytecodeVerifyOptions& options = BytecodeVerifyOptions{});
 
+BytecodeVerifyResult verify_bounded_region_segment(
+    const BoundedRegionSegment& segment, int caller_n_locals,
+    const BytecodeVerifyOptions& options = BytecodeVerifyOptions{});
+
 }  // namespace gagp

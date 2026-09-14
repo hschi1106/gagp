@@ -79,6 +79,7 @@ bool operation_node(NodeKind kind) {
     case NodeKind::VAR:
     case NodeKind::BOUND_VAR:
     case NodeKind::REGION_VAR:
+    case NodeKind::BOUNDED_REGION:
     case NodeKind::NEG:
     case NodeKind::NOT:
     case NodeKind::CHECK_INT:

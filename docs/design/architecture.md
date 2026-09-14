@@ -186,6 +186,40 @@ locals to numeric IDs before materialization. Repeated template
 holes retain one logical slot identity, and composed templates may forward holes
 through explicitly declared scopes.
 
+`core/recurrence_rank.hpp` owns the shared coordinate progress proof and bounded
+cardinality checks, implemented in `runtime/recurrence_rank.cpp` within `gagp_core`.
+The proof uses signed lexicographic axes and ordered constant offset vectors, with
+explicit endpoint and duplicate policies. It rejects unproved edges and possible
+coordinate overflow without allocating an execution table. Grammar, bytecode, and
+device packing can share this validation boundary; the utility alone does not
+enable the staged recursive runtime.
+
+The CPU staging substrate in `runtime/cpu/bounded_region.hpp` uses an explicit
+frame vector with fixed arrays for state, prepared values and ordered child
+results. Its phase adapter runs boundary/base checks before memo lookup, prepares
+each missed frame once, constructs one request at a time, and combines after all
+children succeed. Request construction precedes the frame-capacity check; successful
+combine and result validation precede memo-capacity checks. It does not call the
+legacy DC/DP evaluators. The adapter remains an internal boundary for subsequently
+verified materialized regions, not a user-supplied executable extension.
+
+`runtime/cpu/recurrence_memo.hpp` supplies bounded, reusable open-addressing storage
+for fixed coordinate keys and exact `Value` results. It allocates lazily and checks
+power-of-two growth before allocation. Frame and memo limits count live logical
+entries; scratch may retain larger physical allocations from a previous invocation.
+Both structures expose resident storage measurements for the migration benchmarks.
+`node_prefix_arity(const AstNode&)` is the common host AST traversal entrypoint for
+the upcoming statically declared structured argument layouts; existing node arities
+remain unchanged.
+
+`core/sequence_rank.hpp` owns proper-window construction proofs and safe interior
+cut resolution. `core/region_plan.hpp`, validated by `runtime/region_plan.cpp`,
+combines coordinate or sequence progress with exact state/result types, typed
+preparations, request constructors, literal/operand domain bounds and phase slot
+banks. These core types do not depend on evolution types or package names. Native
+AST binders and bytecode local mappings remain separate representation concerns;
+the shared plan is their static contract, not yet a wire format or executable gate.
+
 Goal 03 materialization is being integrated through `grammar/generate.hpp/.cpp`,
 compiled into `gagp_evolution` and backed by immutable `gagp_grammar` tables. The
 initial internal path handles native value/control nodes and owned constant domains,
@@ -358,3 +392,75 @@ encode the old charging order without a runtime package-name condition. Copying
 respects legacy binder shadowing and isolated ASGP phase scopes; introduced native
 IDs are globally fresh. The transform copies each source subtree once and remaps
 retained metadata in a separate linear pass; it does not unroll sequence elements.
+
+
+The CPU bounded-region bytecode adapter owns invocation-bound resolution, lazy
+caller-local capture snapshots and explicit phase-bank bindings. It calls the
+shared iterative frame engine and ordinary instruction evaluator with no root
+program handle in phases, preventing hidden recursive dispatch. The bytecode
+verifier independently proves phase success types and slot visibility before an
+unchecked native descriptor can execute. Initial captured local tags are checked
+lazily by LOAD; stores replace that initial constraint. This CPU integration is
+staged before device execution.
+
+
+Native bounded regions share the core RegionPlan and add only node ownership,
+explicit capture references and phase lexical binder mappings. Dynamic arity is
+cached in AstNode.i0 and validated against the plan before prefix traversal.
+The compiler lowers isolated phase expressions into RegionPhase bindings, resolving
+captured caller locals without emitting a read. Exact native typing and bytecode
+phase verification independently check the boundary. AST identity and generated
+runtime cache identity include all plan fields; compaction and subtree insertion
+preserve metadata and rename named captures and introduced lexical IDs separately.
+
+`CpuExecutionSession` owns a private immutable bytecode snapshot and thread-confined
+execution state. It validates a bounded segment on first invocation, after the
+containing instruction's fuel charge, and retains that result only for the owned
+snapshot. Unreachable invalid segments remain unobserved. The session reuses frame,
+memo, operand, parameter and phase-binding storage while resetting invocation values
+and memo contents each time. CPU fitness evaluation creates one session per bounded
+program and reuses it across cases; one-shot execution of mutable BytecodeProgram
+values still validates each invocation. Sessions do not own payload-registry entries
+and follow the same payload lifetime contract as ordinary bytecode execution.
+The retained-region memory metric reports frame and memo storage separately from
+the bytecode snapshot, validation results and binding buffers. Cold construction
+and first execution are measured separately from warm execution.
+Structural grammar productions carry the complete plan, positional captures and
+explicit phase binding lists. Pure phase layout helpers live in core so grammar
+compilation does not depend on native evolution. Phase scopes are closed; a graph
+check follows concrete nonterminal and template expansions to reject implicit
+inputs, locals and nested recursive regions. Abstract template holes are checked
+when instantiated. Generation, membership witnesses and typed variation preserve
+phase ownership and alpha-rename captures and declarations across repeated holes.
+Instruction budgets include root code and every phase program. Standalone examples
+in `configs/grammar_definitions/bounded_sequence.json` and `bounded_memo.json`
+exercise three-way sequence decomposition and a custom two-coordinate dependency
+pattern without runtime package dispatch.
+
+The transition-only `lower_bounded_regions` adapter composes the LinearRec rewrite
+and replaces legacy DC/DP AST nodes with these descriptors. DC uses an explicit
+sequence/offset state, a clamped preparation and ordered proper windows; DP uses
+inclusive coordinate domains and ordered signed offsets. Synthetic expressions
+carry zero-cost fuel profiles while copied phase expressions retain their charges.
+DP type checks carry the old opcode charge, and DP2 binds both initial expressions
+before checking either type. The CPU oracle profile uses `INT_MAX` frames and memo
+cells, with zero cells for nonmemoized DC; GPU capacity observations remain separate.
+The adapter verifies its source and output. Its equivalence contract uses the
+declared native input types: raw VM callers can violate those types, and legacy DC
+accepted alternate sequence tags that an exact typed region rejects. Such calls
+are tested and recorded separately from matching-schema differential comparisons.
+
+The separate `lower_bounded_bytecode` oracle adapter accepts exact type hints for
+legacy tables, retains phase bytecode and fuel schedules, and remaps root jumps
+after inserting typed state operands and guards. It preserves out-of-domain base
+predicates because boundary evaluation precedes base handling; a verification copy
+normalizes only that legacy metadata defect before checking remaining structure.
+The lowered program always passes complete descriptor verification. The frozen
+checker records strict phase-output rejections separately from translated result
+and fuel comparisons; rejection is not evidence of execution parity.
+
+
+`gagp_region_plan_json` owns the exact RegionPlan wire codec and depends only on
+core contracts and the JSON value library. Both grammar parsing and CLI codecs can
+use it without an evolution-to-CLI dependency cycle. Bytecode phase constants and
+segment serialization remain in CLI support, which already depends on evolution.

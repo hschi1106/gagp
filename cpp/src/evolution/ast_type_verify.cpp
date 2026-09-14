@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "gagp/evolution/bounded_region.hpp"
 #include "gagp/evolution/node_descriptor.hpp"
 
 namespace gagp::evo {
@@ -53,6 +54,22 @@ RType list_type_from_tag(int tag) {
 
 RType value_type(const Value& value) {
   switch (value.tag) {
+    case ValueTag::Int: return RType::Int;
+    case ValueTag::Float: return RType::Float;
+    case ValueTag::Bool: return RType::Bool;
+    case ValueTag::Char: return RType::Char;
+    case ValueTag::String: return RType::String;
+    case ValueTag::IntList: return RType::IntList;
+    case ValueTag::FloatList: return RType::FloatList;
+    case ValueTag::StringList: return RType::StringList;
+    case ValueTag::FallbackToken:
+    case ValueTag::Invalid: return RType::Invalid;
+  }
+  return RType::Invalid;
+}
+
+RType value_type(ValueTag tag) {
+  switch (tag) {
     case ValueTag::Int: return RType::Int;
     case ValueTag::Float: return RType::Float;
     case ValueTag::Bool: return RType::Bool;
@@ -246,7 +263,7 @@ class TypedVerifier {
 
   std::vector<std::size_t> children(std::size_t node_index) const {
     std::vector<std::size_t> out;
-    const int arity = node_descriptor(ast_.nodes[node_index].kind).prefix_arity;
+    const int arity = node_prefix_arity(ast_.nodes[node_index]);
     out.reserve(static_cast<std::size_t>(arity));
     std::size_t next = node_index + 1;
     for (int i = 0; i < arity; ++i) {
@@ -275,14 +292,31 @@ class TypedVerifier {
                                const TypeEnv& binders, bool asgp_phase) {
     const AstNode& node = ast_.nodes[node_index];
     const NodeKind kind = node.kind;
-    result_.verified.expression_scope_signatures[node_index] = type_env_signature(locals);
+    TypeEnv annotated_locals;
+    const TypeEnv* scope_locals = &locals;
+    if (kind == NodeKind::BOUNDED_REGION) {
+      if (const auto* spec = lookup_bounded_region_spec(ast_, node_index)) {
+        annotated_locals = locals;
+        for (std::size_t i = 0; i < spec->parameters.size(); ++i) {
+          if (spec->parameters[i].kind != RegionCaptureKind::Name) continue;
+          annotated_locals.emplace(spec->parameters[i].index,
+                                   value_type(spec->plan.parameter_types[i]));
+        }
+        scope_locals = &annotated_locals;
+      }
+    }
+    result_.verified.expression_scope_signatures[node_index] =
+        type_env_signature(*scope_locals);
     result_.verified.expression_binder_signatures[node_index] = type_env_signature(binders);
-    if (options_.capture_exact_scopes && !capture_exact_scope(node_index, locals, binders)) {
+    if (options_.capture_exact_scopes &&
+        !capture_exact_scope(node_index, *scope_locals, binders)) {
       return ExprResult{RType::Invalid, result_.verified.subtree_end[node_index]};
     }
-    if (asgp_phase && is_asgp_kind(kind)) {
+    if (asgp_phase && (is_asgp_kind(kind) || kind == NodeKind::BOUNDED_REGION)) {
       return fail_expr(VerifyCode::NestedAsgp, node_index,
-                       "ASGP phase bodies cannot contain ASGP source forms");
+                       kind == NodeKind::BOUNDED_REGION
+                           ? "isolated phase bodies cannot contain bounded region source forms"
+                           : "ASGP phase bodies cannot contain ASGP source forms");
     }
 
     if (kind == NodeKind::CONST) {
@@ -323,6 +357,8 @@ class TypedVerifier {
     if (kind == NodeKind::ASGP_DC) return verify_dc(node_index, child, locals, binders);
     if (kind == NodeKind::ASGP_DP1D) return verify_dp1(node_index, child, locals, binders);
     if (kind == NodeKind::ASGP_DP2D) return verify_dp2(node_index, child, locals, binders);
+    if (kind == NodeKind::BOUNDED_REGION)
+      return verify_bounded_region(node_index, child, locals, binders, asgp_phase);
 
     std::vector<RType> args;
     args.reserve(child.size());
@@ -527,6 +563,88 @@ class TypedVerifier {
                        "traversal step must return the exact accumulator type");
     }
     return typed(node_index, body.type);
+  }
+
+  ExprResult verify_bounded_region(std::size_t node_index,
+                                   const std::vector<std::size_t>& child,
+                                   const TypeEnv& locals,
+                                   const TypeEnv& binders,
+                                   bool isolated_phase) {
+    const BoundedRegionSpec* spec = lookup_bounded_region_spec(ast_, node_index);
+    if (spec == nullptr) {
+      return fail_expr(VerifyCode::MissingMetadata, node_index,
+                       "bounded region metadata is missing");
+    }
+    const RegionPlan& plan = spec->plan;
+    const std::size_t state_count = plan.state_types.size();
+    const std::size_t bound_count = plan.bound_operand_count;
+    for (std::size_t i = 0; i < state_count; ++i) {
+      const ExprResult state =
+          verify_expression(child[i], locals, binders, isolated_phase);
+      if (!result_) return state;
+      const RType expected = value_type(plan.state_types[i]);
+      if (state.type != expected) {
+        return fail_expr(VerifyCode::TypeMismatch, child[i],
+                         "bounded region initial state has the wrong exact type");
+      }
+    }
+    for (std::size_t i = 0; i < bound_count; ++i) {
+      const std::size_t argument = state_count + i;
+      const ExprResult bound =
+          verify_expression(child[argument], locals, binders, isolated_phase);
+      if (!result_) return bound;
+      if (bound.type != RType::Int) {
+        return fail_expr(VerifyCode::TypeMismatch, child[argument],
+                         "bounded region dynamic bound must have type Int");
+      }
+    }
+
+    for (std::size_t i = 0; i < spec->parameters.size(); ++i) {
+      const RegionCapture& capture = spec->parameters[i];
+      const RType expected = value_type(plan.parameter_types[i]);
+      if (capture.kind == RegionCaptureKind::Lexical) {
+        const auto found = binders.find(-capture.index - 1);
+        if (found == binders.end()) {
+          return fail_expr(VerifyCode::UndefinedBinder, node_index,
+                           "bounded region captures an invisible lexical binder");
+        }
+        if (found->second != expected) {
+          return fail_expr(VerifyCode::TypeMismatch, node_index,
+                           "bounded region lexical capture has the wrong exact type");
+        }
+      } else {
+        const auto found = locals.find(capture.index);
+        // A named capture is a typed declaration supplied by the plan. Preserve
+        // the caller local's unset state; only an ordinary VAR or a runtime phase
+        // LOAD constitutes a read. A visible name still has to agree exactly.
+        if (found != locals.end() && found->second != expected) {
+          return fail_expr(VerifyCode::TypeMismatch, node_index,
+                           "bounded region name capture has the wrong exact type");
+        }
+      }
+    }
+
+    for (std::size_t ordinal = 0; ordinal < spec->phases.size(); ++ordinal) {
+      const RegionAstPhase& phase = spec->phases[ordinal];
+      const RegionPhaseKind phase_kind = bounded_region_phase_kind(plan, ordinal);
+      const std::uint32_t preparation =
+          bounded_region_preparation_ordinal(plan, ordinal);
+      TypeEnv phase_binders;
+      for (const RegionAstBinding& binding : phase.bindings) {
+        const RType binding_type = value_type(
+            region_slot_type(plan, phase_kind, binding.source, preparation));
+        phase_binders[-binding.binder_id - 1] = binding_type;
+      }
+      const ExprResult body = verify_expression(
+          child[phase.argument], TypeEnv{}, phase_binders, true);
+      if (!result_) return body;
+      const RType expected = value_type(bounded_region_phase_type(plan, ordinal));
+      if (body.type != expected) {
+        return fail_expr(VerifyCode::TypeMismatch, child[phase.argument],
+                         "bounded region phase has the wrong exact result type");
+      }
+    }
+    return typed(node_index, value_type(plan.result_type));
   }
 
   ExprResult verify_map(std::size_t node_index, const std::vector<std::size_t>& child,

@@ -1080,3 +1080,48 @@ additional cost within that event. Events and profiles have no package-name bran
 Unselected branches and unentered loop bodies incur no charges. Profiles are
 materialized execution metadata; the current compiled grammar schema does not
 declare them, so grammar membership rejects unsolicited source profiles.
+
+
+## Native bounded recursive regions
+
+The general native `BOUNDED_REGION` expression is represented by one node and a
+node-indexed `BoundedRegionSpec`. Its shared `RegionPlan` specifies typed states,
+result, captures, preparations, ordered recursive state constructors, progress
+proof, memo policy and execution bounds as defined in the private bounded-region
+ISA. This is an internal materialized expression; recursion is not a dynamic
+function call and no tuple value is introduced.
+
+The flat prefix arguments have canonical order: initial states, additional Int
+bound operands, base predicate, base body, preparations, request expressions,
+combine, and coordinate boundary when applicable. The node's `i0` caches this
+arity (at most 52); verification requires exact equality with the plan. `i1` is
+zero. Every phase has one metadata row in the same canonical order, identifying
+its argument and binding visible state/parameter/prepared/result/measure slots to
+fresh native lexical binder IDs. All binder IDs are globally unique across these
+phase declarations and ordinary lexical regions. The shared plan determines exact
+phase output types and slot visibility; the metadata cannot broaden either.
+
+Initial state and bound expressions use the surrounding scope and evaluate in
+source order. Parameter metadata explicitly captures either a visible lexical
+binder ID or a name-table index. A lexical capture must resolve to a visible binder
+of the declared exact type. A named capture declares its exact type through the
+plan: if the name has a known surrounding type, that type must agree; otherwise
+its physical caller local may remain unset. Capturing does not evaluate a LOAD.
+This does not relax the undefined-local rule for ordinary `VAR` expressions.
+The runtime checks a named capture only when a phase reads it, preserving Name
+for unset locals and Type for actual values with a different tag.
+
+Phase expressions use only their declared lexical binders and bindings introduced
+within the phase. They cannot implicitly read surrounding ordinary names or
+lexical binders. An outer value enters through an explicit Parameter-bank binding.
+Each phase returns its exact declared result type; the base predicate returns Bool.
+Nested bounded regions are permitted in initial argument expressions, but all
+structured recursive source forms are rejected inside isolated phases. Ordinary
+local lexical regions and traversals remain valid within phase expressions.
+
+The source `operation` fuel event controls the containing BOUNDED_REGION opcode;
+phase expressions carry their own ordinary source fuel events. Frame entry uses
+the plan's positive serialized charge. Prefix traversal, hashing, table compaction
+and subtree replacement preserve every plan field and capture/binding mapping.
+Subtree insertion freshens introduced phase binder IDs before remapping captures.
+GPU reproduction rejects this native metadata until device support is enabled.

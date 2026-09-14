@@ -1,0 +1,88 @@
+{
+  "format_version": "grammar-definition-v1",
+  "entry": {"nonterminal": "Sequence", "type": "StringList"},
+  "inputs": [{"name": "source", "type": "StringList"}],
+  "search_limits": {"max_nodes": 40, "max_depth": 12},
+  "execution_limits": {"fuel": 10000},
+  "nonterminals": [{
+    "id": "Sequence",
+    "type": "StringList",
+    "scope": [],
+    "alternatives": [{
+      "id": "three_way_identity",
+      "weight": 1,
+      "expression": {
+        "structured": {
+          "family": "bounded",
+          "plan": {
+            "version": 1,
+            "state_types": ["StringList"],
+            "result_type": "StringList",
+            "parameter_types": [],
+            "preparations": [
+              {"type": "Int", "kind": "interior_cut"},
+              {"type": "Int", "kind": "interior_cut"}
+            ],
+            "request_expression_types": [],
+            "bound_operand_count": 0,
+            "requests": [
+              {"states": [{
+                "kind": "sequence_window", "source_state": 0, "offset": "0",
+                "window": {"begin": {"kind": "begin", "cut": 0}, "end": {"kind": "interior_cut", "cut": 0}},
+                "expression": 0
+              }]},
+              {"states": [{
+                "kind": "sequence_window", "source_state": 0, "offset": "0",
+                "window": {"begin": {"kind": "interior_cut", "cut": 0}, "end": {"kind": "interior_cut", "cut": 1}},
+                "expression": 0
+              }]},
+              {"states": [{
+                "kind": "sequence_window", "source_state": 0, "offset": "0",
+                "window": {"begin": {"kind": "interior_cut", "cut": 1}, "end": {"kind": "end", "cut": 0}},
+                "expression": 0
+              }]}
+            ],
+            "limits": {"frames": 64, "cells": 0, "entry_fuel": 1},
+            "memoized": false,
+            "duplicate_policy": "reject",
+            "progress": "sequence_windows",
+            "coordinate_slots": [],
+            "coordinate_rank": [],
+            "coordinate_domains": [],
+            "coordinate_endpoint": "exclusive",
+            "sequence_state": 0
+          }
+        },
+        "captures": [],
+        "phases": [
+          {"argument": 1, "bindings": []},
+          {"argument": 2, "bindings": [{"bank": "state", "slot": 0, "name": "part"}]},
+          {"argument": 3, "bindings": [{"bank": "measure", "slot": 0, "name": "length"}]},
+          {"argument": 4, "bindings": [{"bank": "prepared", "slot": 0, "name": "first_cut"}]},
+          {"argument": 5, "bindings": [
+            {"bank": "result", "slot": 0, "name": "left"},
+            {"bank": "result", "slot": 1, "name": "middle"},
+            {"bank": "result", "slot": 2, "name": "right"}
+          ]}
+        ],
+        "args": [
+          {"input": "source"},
+          {"constant": {"type": "Bool", "values": [false]}},
+          {"bound": "part"},
+          {"signature": "idiv0(Int,Int)->Int", "args": [
+            {"bound": "length"}, {"constant": {"type": "Int", "values": ["3"]}}
+          ]},
+          {"signature": "mul(Int,Int)->Int", "args": [
+            {"bound": "first_cut"}, {"constant": {"type": "Int", "values": ["2"]}}
+          ]},
+          {"signature": "concat(StringList,StringList)->StringList", "args": [
+            {"signature": "concat(StringList,StringList)->StringList", "args": [
+              {"bound": "left"}, {"bound": "middle"}
+            ]},
+            {"bound": "right"}
+          ]}
+        ]
+      }
+    }]
+  }]
+}

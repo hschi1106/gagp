@@ -48,7 +48,7 @@ bool value_equal(const Value& a, const Value& b) {
 std::size_t fill_subtree_end_at(const AstProgram& program, std::size_t idx, std::vector<std::size_t>& out) {
   if (idx >= program.nodes.size()) throw std::runtime_error("prefix traversal out of range");
   std::size_t cur = idx + 1;
-  for (int i = 0; i < node_arity(program.nodes[idx].kind); ++i) {
+  for (int i = 0; i < node_prefix_arity(program.nodes[idx]); ++i) {
     cur = fill_subtree_end_at(program, cur, out);
   }
   out[idx] = cur;
@@ -188,50 +188,52 @@ std::unordered_map<int, int> region_binder_renames(
     const AstProgram& base, const AstProgram& donor,
     std::size_t donor_start, std::size_t donor_stop) {
   std::set<int> introduced_ids;
-  for (const LexicalRegion& region : donor.lexical_regions) {
+  std::vector<int> introduced_order;
+  const auto introduce = [&](int id) {
+    if (introduced_ids.insert(id).second) introduced_order.push_back(id);
+  };
+  for (const auto& region : donor.lexical_regions) {
     if (!node_in_interval(region.node_index, donor_start, donor_stop)) continue;
-    for (const LexicalBinding& binding : region.bindings) {
-      introduced_ids.insert(binding.id);
-    }
+    for (const auto& binding : region.bindings) introduce(binding.id);
   }
-
+  for (const auto& region : donor.bounded_region_specs) {
+    if (!node_in_interval(region.node_index, donor_start, donor_stop)) continue;
+    for (const auto& phase : region.phases)
+      for (const auto& binding : phase.bindings) introduce(binding.binder_id);
+  }
   std::set<int> blocked_ids;
-  for (const LexicalRegion& region : base.lexical_regions) {
-    for (const LexicalBinding& binding : region.bindings) {
-      blocked_ids.insert(binding.id);
-    }
-  }
+  for (const auto& region : base.lexical_regions)
+    for (const auto& binding : region.bindings) blocked_ids.insert(binding.id);
+  for (const auto& region : base.bounded_region_specs)
+    for (const auto& phase : region.phases)
+      for (const auto& binding : phase.bindings) blocked_ids.insert(binding.binder_id);
   for (std::size_t i = donor_start; i < donor_stop; ++i) {
-    const AstNode& node = donor.nodes[i];
-    if (node.kind == NodeKind::REGION_VAR && introduced_ids.count(node.i0) == 0U) {
+    const auto& node = donor.nodes[i];
+    if (node.kind == NodeKind::REGION_VAR && !introduced_ids.count(node.i0))
       blocked_ids.insert(node.i0);
-    }
   }
-
+  for (const auto& region : donor.bounded_region_specs) {
+    if (!node_in_interval(region.node_index, donor_start, donor_stop)) continue;
+    for (const auto& capture : region.parameters)
+      if (capture.kind == RegionCaptureKind::Lexical && !introduced_ids.count(capture.index))
+        blocked_ids.insert(capture.index);
+  }
   std::set<int> reserved_ids = blocked_ids;
-  for (int id : introduced_ids) {
-    if (blocked_ids.count(id) == 0U) reserved_ids.insert(id);
-  }
+  for (int id : introduced_ids)
+    if (!blocked_ids.count(id)) reserved_ids.insert(id);
   std::unordered_map<int, int> renames;
   int next_candidate = 0;
-  for (const LexicalRegion& region : donor.lexical_regions) {
-    if (!node_in_interval(region.node_index, donor_start, donor_stop)) continue;
-    for (const LexicalBinding& binding : region.bindings) {
-      if (renames.count(binding.id) != 0U) continue;
-      int mapped = binding.id;
-      if (blocked_ids.count(mapped) != 0U) {
-        while (next_candidate < std::numeric_limits<int>::max() &&
-               reserved_ids.count(next_candidate) != 0U) {
-          ++next_candidate;
-        }
-        if (next_candidate == std::numeric_limits<int>::max()) {
-          throw std::overflow_error("no public lexical binder id remains for subtree splice");
-        }
-        mapped = next_candidate;
-      }
-      renames.emplace(binding.id, mapped);
-      reserved_ids.insert(mapped);
+  for (const int id : introduced_order) {
+    int mapped = id;
+    if (blocked_ids.count(mapped)) {
+      while (next_candidate < std::numeric_limits<int>::max() && reserved_ids.count(next_candidate))
+        ++next_candidate;
+      if (next_candidate == std::numeric_limits<int>::max())
+        throw std::overflow_error("no public lexical binder id remains for subtree splice");
+      mapped = next_candidate;
     }
+    renames.emplace(id, mapped);
+    reserved_ids.insert(mapped);
   }
   return renames;
 }
@@ -788,6 +790,26 @@ AstProgram replace_subtree(const AstProgram& base,
       binding.id = binder_renames.at(binding.id);
     }
     out.lexical_regions.push_back(std::move(copied));
+  }
+  for (const auto& spec : base.bounded_region_specs) {
+    if (node_in_interval(spec.node_index, target_start, target_stop)) continue;
+    auto shifted = spec;
+    if (shifted.node_index >= target_stop) shifted.node_index = shifted.node_index - removed + inserted;
+    out.bounded_region_specs.push_back(std::move(shifted));
+  }
+  for (const auto& spec : donor.bounded_region_specs) {
+    if (!node_in_interval(spec.node_index, donor_start, donor_stop)) continue;
+    auto copied = spec;
+    copied.node_index = target_start + (spec.node_index - donor_start);
+    for (auto& phase : copied.phases)
+      for (auto& binding : phase.bindings) binding.binder_id = binder_renames.at(binding.binder_id);
+    for (auto& capture : copied.parameters) {
+      if (capture.kind == RegionCaptureKind::Name)
+        capture.index = remap_name_from_donor(out, donor, capture.index);
+      else if (const auto found = binder_renames.find(capture.index); found != binder_renames.end())
+        capture.index = found->second;
+    }
+    out.bounded_region_specs.push_back(std::move(copied));
   }
   for (const TraversalSpec& spec : base.traversal_specs) {
     if (node_in_interval(spec.node_index, target_start, target_stop)) continue;

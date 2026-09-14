@@ -235,6 +235,183 @@ The implementation-defined ASGP segment payloads are encoded under
 Main bytecode refers to ASGP segment arrays by zero-based segment index in the
 `a` operand of `ASGP_DC`, `ASGP_DP1D`, and `ASGP_DP2D`.
 
+## Bounded Region Segment Encoding
+
+The generic bounded-region representation is a private CPU staging format. A
+program stores it in the `segments.bounded_region` array, and `BOUNDED_REGION.a`
+is the zero-based index into that array. Region objects use a strict schema:
+every field shown below is required, including empty arrays and `null`, and an
+unknown field is an error.
+
+```jsonc
+{
+  "plan": RegionPlan,
+  "parameter_locals": [0],
+  "boundary": RegionPhase,
+  "base_predicate": RegionPhase,
+  "base_body": RegionPhase,
+  "preparations": [RegionPhase],
+  "request_expressions": [RegionPhase],
+  "combine": RegionPhase
+}
+```
+
+`boundary` is a phase object for coordinate progress and is `null` for sequence
+window progress. `parameter_locals` corresponds positionally to
+`plan.parameter_types`. Preparation and request-expression phase counts must
+equal their respective plan type-table counts. Parameter locals are distinct,
+nonnegative caller-local indices. Standalone segment decoding validates the
+segment using a synthetic caller extent; complete-program verification checks
+each capture against the program's actual `n_locals`.
+
+### Region plan
+
+```jsonc
+{
+  "version": 1,
+  "state_types": ["Int"],
+  "result_type": "Int",
+  "parameter_types": [],
+  "preparations": [
+    {"type": "Int", "kind": "identity"}
+  ],
+  "request_expression_types": [],
+  "bound_operand_count": 0,
+  "requests": [
+    {"states": [
+      {
+        "kind": "coordinate_offset",
+        "source_state": 0,
+        "offset": "-1",
+        "window": {
+          "begin": {"kind": "begin", "cut": 0},
+          "end": {"kind": "begin", "cut": 0}
+        },
+        "expression": 0
+      }
+    ]}
+  ],
+  "limits": {"frames": 64, "cells": 0, "entry_fuel": 1},
+  "memoized": false,
+  "duplicate_policy": "reject",
+  "progress": "coordinates",
+  "coordinate_slots": [0],
+  "coordinate_rank": [{"coordinate": 0, "direction": 1}],
+  "coordinate_domains": [
+    {
+      "lower": {"kind": "literal", "literal": "0", "operand": 0},
+      "upper": {"kind": "literal", "literal": "10", "operand": 0}
+    }
+  ],
+  "coordinate_endpoint": "exclusive",
+  "sequence_state": 0
+}
+```
+
+The exact public type strings are `Int`, `Float`, `Bool`, `Char`, `String`,
+`IntList`, `FloatList`, and `StringList`. Other enum strings are:
+
+- progress: `coordinates`, `sequence_windows`;
+- duplicate policy: `reject`, `allow`;
+- domain endpoint: `exclusive`, `inclusive`;
+- bound kind: `literal`, `operand`;
+- preparation kind: `identity`, `interior_cut`;
+- transition kind: `copy_state`, `coordinate_offset`, `sequence_window`,
+  `expression`;
+- window endpoint kind: `begin`, `end`, `interior_cut`.
+
+Every signed 64-bit bound literal and coordinate offset is a canonical base-10
+string. Examples are `"0"`, `"-1"`, `"-9223372036854775808"`, and
+`"9223372036854775807"`. Leading zeroes, a leading plus sign, numeric JSON
+values, trailing characters, and out-of-range strings are invalid. Counts,
+indices, directions, local numbers, and limits remain finite integral JSON
+numbers in their declared `uint32` or `int` range. Rank direction is exactly
+`1` or `-1`.
+
+All structure fields are serialized even when inactive. Their canonical values
+are:
+
+- a literal bound has `operand: 0`; an operand bound has `literal: "0"`;
+- `begin` and `end` endpoints have `cut: 0`;
+- `copy_state` has `offset: "0"`, `expression: 0`, and the default
+  begin-to-begin window;
+- `coordinate_offset` has `expression: 0` and the default window;
+- `sequence_window` has `offset: "0"` and `expression: 0`;
+- `expression` has `source_state: 0`, `offset: "0"`, and the default window;
+- coordinate plans have `sequence_state: 0`;
+- sequence plans have empty coordinate arrays, an `exclusive` coordinate
+  endpoint, and `bound_operand_count: 0`.
+
+Version 1 permits one through four state slots, at most 32 parameters, four
+preparations, eight additional bound operands, and one through eight ordered
+requests. A request constructs every state slot. The request-expression type
+table cannot exceed `state count * request count`. Coordinate rank/domain arrays
+cannot exceed four entries. `frames` and `cells` are `uint32`; `entry_fuel` is
+also `uint32` but cannot exceed `INT_MAX`. A nonmemoized plan has canonical
+`cells: 0`. Memoization is limited to coordinate plans whose projection covers
+every state slot. Static plan validation also checks exact transition types,
+rank decrease, domain shape, duplicate policy, proper sequence windows, and
+interior-cut preparation references.
+
+The decoder applies these fixed capacities before reserving or decoding the
+corresponding arrays.
+
+### Region phases
+
+```jsonc
+{
+  "program": {
+    "n_locals": 1,
+    "consts": [GrammarConstant],
+    "code": [
+      {"op": "LOAD", "a": 0, "b": null}
+    ],
+    "instruction_fuel": [1],
+    "var2idx": [],
+    "binder_locals": []
+  },
+  "bindings": [
+    {"bank": "state", "slot": 0, "local": 0}
+  ]
+}
+```
+
+Region phase instructions use the existing opcode-name format, but both `a`
+and `b` keys are present; an unused operand is `null`. `n_locals`, instruction
+operands, and binding locals are bounded `int` values. `n_locals` and binding
+locals are nonnegative, each binding local is below `n_locals`, and destination
+locals cannot alias. A nonempty `instruction_fuel` array matches `code` exactly
+and contains costs from zero through `INT_MAX`; `[]` selects legacy unit
+charging.
+
+A phase binding array is capped at 49 entries before allocation: four state,
+32 parameter, four prepared, eight result, and one measure slot. The selected
+plan and phase usually admit fewer; visibility, source uniqueness, and slot
+bounds are checked after this aggregate wire cap.
+
+The phase slot bank strings are `state`, `parameter`, `prepared`, `result`, and
+`measure`. Each binding object has exactly `bank`, `slot`, and `local`.
+Visibility and exact types follow the region phase contract: state and parameter
+slots are available in every phase, prepared slots are available to later
+preparations and to request/combine phases, results are combine-only, and
+measure slot zero belongs only to sequence progress. Duplicate source bindings
+and destination locals are invalid.
+
+Generic phases do not use the legacy name maps. Both `var2idx` and
+`binder_locals` are required canonical empty arrays. Phase constants use the
+exact grammar artifact singleton-domain codec, rather than the legacy bytecode
+`Value` codec. For example, an exact signed integer constant is
+`{"type":"Int","values":["-9223372036854775808"]}`; list types retain
+their explicit `IntList`, `FloatList`, or `StringList` name, including when the
+single value is an empty array. Decoding reconstructs payload-backed strings and
+typed lists and rejects opaque or invalid constants.
+
+After structural decoding, the region plan and each phase program are verified.
+This includes constant tags, instruction operands, fuel schedules, binding
+visibility and types, required phase result types, structured-opcode exclusion
+inside phases, and phase/control-flow validity. The containing program then runs
+the complete bytecode verifier, including its real caller-local capture ranges.
+
 ## Decode-Time Verification
 
 Native JSON decoders verify each complete program before returning it. The
@@ -312,6 +489,52 @@ Current optional side-table arrays are:
 - `asgp_dp2d_specs`: `node_index`, both dimension bounds, the base cell,
   `boundary_const`, numeric dependency-node `dep_kind`, solve/transition state
   names, and `transition_dep_names`.
+
+Native `BOUNDED_REGION` expressions use the optional `bounded_region_specs`
+side table:
+
+```jsonc
+{
+  "node_index": 0,
+  "plan": RegionPlan,
+  "parameters": [
+    {"kind": "lexical", "index": 7},
+    {"kind": "name", "index": 0}
+  ],
+  "phases": [
+    {
+      "argument": 3,
+      "bindings": [
+        {"bank": "state", "slot": 0, "binder_id": 8}
+      ]
+    }
+  ]
+}
+```
+
+Every row requires exactly the shown top-level fields. `plan` uses the complete
+Region plan schema above, including exact decimal strings for all signed 64-bit
+literals and offsets and canonical values in inactive fields. Capture `kind` is
+`lexical` or `name`; `index` is respectively an immutable lexical binder ID or
+an index in the AST name table. Both index forms and every `binder_id` are
+nonnegative and strictly below `INT_MAX`.
+
+`parameters` corresponds positionally and exactly to `plan.parameter_types`.
+Phase rows are ordered as base predicate, base body, each preparation, each
+request expression, combine, then coordinate boundary. Sequence-window plans
+omit the final coordinate-boundary phase. `argument` is the zero-based child
+argument owned by that phase. Binding bank strings are `state`, `parameter`,
+`prepared`, `result`, and `measure`; `slot` selects the logical plan slot and
+`binder_id` declares the immutable lexical ID visible in that phase expression.
+Each phase binding array is capped at 49 entries before allocation, using the
+same aggregate bank bound as bytecode region phases. Plan validation, exact
+phase count, parameter count, owner uniqueness, child arguments, slot
+visibility/types, and binder uniqueness/scope are checked before compilation.
+
+The `BOUNDED_REGION` child order is initial states, additional bound operands,
+base predicate, base body, preparations, request expressions, combine, and the
+coordinate boundary. The final child is absent for sequence-window progress;
+`i0` contains this dynamic arity and `i1` is canonical zero.
 
 Omitted side-table arrays are treated as empty. Every entry is owned by exactly
 one matching node index. Their verified semantics satisfy:
