@@ -1,4 +1,5 @@
 #include "gagp/core/bytecode_verify.hpp"
+#include "gagp/core/semantic_fuel.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -32,6 +33,7 @@ const char* bytecode_verify_code_name(BytecodeVerifyCode code) noexcept {
     case BytecodeVerifyCode::InvalidVarMapping: return "invalid_var_mapping";
     case BytecodeVerifyCode::InvalidBinderLocal: return "invalid_binder_local";
     case BytecodeVerifyCode::InvalidSegmentMetadata: return "invalid_segment_metadata";
+    case BytecodeVerifyCode::InvalidFuelSchedule: return "invalid_fuel_schedule";
     case BytecodeVerifyCode::ResourceLimit: return "resource_limit";
   }
   return "unknown";
@@ -198,6 +200,11 @@ class Verifier {
 
   BytecodeVerifyResult run() {
     if (!check_segment_limit()) return result_;
+    const auto fuel = validate_semantic_fuel(program_.code, program_.instruction_fuel);
+    if (!fuel) {
+      fail(BytecodeVerifyCode::InvalidFuelSchedule, fuel.instruction_index, "$.instruction_fuel", fuel.message);
+      return result_;
+    }
     CodeSummary main_summary;
     if (!verify_code(program_.consts, program_.code, program_.n_locals, program_.var2idx,
                      {}, "$.code", true, true, &main_summary)) {
@@ -627,6 +634,9 @@ class Verifier {
 
   bool verify_phase(const PhaseProgram& phase, const std::vector<int>& required_names,
                     const std::vector<AbstractType>& required_types, const std::string& path) {
+    const auto fuel = validate_semantic_fuel(phase.code, phase.instruction_fuel);
+    if (!fuel) return fail(BytecodeVerifyCode::InvalidFuelSchedule, fuel.instruction_index,
+        path + ".instruction_fuel", fuel.message);
     std::unordered_map<int, AbstractType> initial;
     if (!validate_binder_map(phase, required_names, path, required_types, &initial)) return false;
     CodeSummary summary;

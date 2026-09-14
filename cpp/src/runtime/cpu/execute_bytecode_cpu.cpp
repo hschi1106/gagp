@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
+#include <limits>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -12,6 +14,7 @@
 #include "gagp/core/value_semantics.hpp"
 #include "gagp/runtime/cpu/builtins_cpu.hpp"
 #include "gagp/runtime/payload/payload.hpp"
+#include "value_stack.hpp"
 
 namespace gagp {
 
@@ -94,6 +97,7 @@ struct CodeView {
   const std::vector<Instr>& code;
   int n_locals = 0;
   const std::unordered_map<std::string, int>& var2idx;
+  const std::vector<std::uint32_t>& instruction_fuel;
 };
 
 bool is_asgp_dc_source(const Value& v) {
@@ -120,7 +124,7 @@ ExecResult run_phase(const PhaseProgram& phase,
       preset_locals.push_back({it->second, item.second});
     }
   }
-  return run_code(CodeView{phase.consts, phase.code, phase.n_locals, phase.var2idx}, {}, preset_locals, fuel, false,
+  return run_code(CodeView{phase.consts, phase.code, phase.n_locals, phase.var2idx, phase.instruction_fuel}, {}, preset_locals, fuel, false,
                   root_program);
 }
 
@@ -341,15 +345,21 @@ ExecResult eval_asgp_dp2d(const AsgpDp2dSegment& segment,
   return out;
 }
 
-ExecResult run_code(const CodeView& view,
+template <bool SemanticFuel>
+ExecResult run_code_impl(const CodeView& view,
                     const std::vector<std::pair<int, Value>>& inputs,
                     const std::vector<std::pair<int, Value>>& preset_locals,
                     int& fuel,
                     bool require_return,
                     const BytecodeProgram* root_program) {
-  std::vector<Value> stack;
-  std::vector<LocalSlot> locals;
-  locals.resize(static_cast<std::size_t>(view.n_locals));
+  detail::ValueStack stack;
+  std::array<LocalSlot, 16> inline_locals;
+  std::vector<LocalSlot> heap_locals;
+  LocalSlot* locals = inline_locals.data();
+  if (static_cast<std::size_t>(view.n_locals) > inline_locals.size()) {
+    heap_locals.resize(static_cast<std::size_t>(view.n_locals));
+    locals = heap_locals.data();
+  }
 
   for (const auto& item : inputs) {
     const int idx = item.first;
@@ -367,326 +377,355 @@ ExecResult run_code(const CodeView& view,
     locals[static_cast<std::size_t>(idx)].value = item.second;
   }
 
+  if constexpr (SemanticFuel) {
+    if (view.instruction_fuel.size() != view.code.size())
+      return fail(ErrCode::Value, "instruction fuel schedule size mismatch");
+  }
+  std::size_t uncharged_steps = 0;
   int ip = 0;
   while (ip < static_cast<int>(view.code.size())) {
-    if (fuel <= 0) {
-      return fail(ErrCode::Timeout, "out of fuel");
+    if constexpr (SemanticFuel) {
+      const auto cost = view.instruction_fuel[static_cast<std::size_t>(ip)];
+      if (cost > static_cast<std::uint32_t>(std::numeric_limits<int>::max()))
+        return fail(ErrCode::Value, "instruction fuel cost exceeds signed fuel capacity");
+      if (fuel < static_cast<int>(cost))
+        return fail(ErrCode::Timeout, "out of fuel");
+      fuel -= static_cast<int>(cost);
+      if (cost != 0) {
+        uncharged_steps = 0;
+      } else if (++uncharged_steps > view.code.size()) {
+        return fail(ErrCode::Value, "zero-cost instruction cycle");
+      }
+    } else {
+      if (fuel <= 0) return fail(ErrCode::Timeout, "out of fuel");
+      fuel -= 1;
     }
-    fuel -= 1;
 
     const Instr& ins = view.code[static_cast<std::size_t>(ip)];
     ip += 1;
     const Opcode op = ins.op;
 
-    if (op == Opcode::PushConst) {
-      if (!ins.has_a || ins.a < 0 || ins.a >= static_cast<int>(view.consts.size())) {
-        return fail(ErrCode::Value, "const index out of range");
-      }
-      stack.push_back(view.consts[static_cast<std::size_t>(ins.a)]);
-      continue;
-    }
-
-    if (op == Opcode::Load) {
-      if (!ins.has_a || ins.a < 0 || ins.a >= static_cast<int>(locals.size())) {
-        return fail(ErrCode::Name, "local index out of range");
-      }
-      const LocalSlot& slot = locals[static_cast<std::size_t>(ins.a)];
-      if (!slot.is_set) {
-        return fail(ErrCode::Name, "read of uninitialized local");
-      }
-      stack.push_back(slot.value);
-      continue;
-    }
-
-    if (op == Opcode::Store) {
-      if (!ins.has_a || ins.a < 0 || ins.a >= static_cast<int>(locals.size())) {
-        return fail(ErrCode::Name, "local index out of range");
-      }
-      if (stack.empty()) {
-        return fail(ErrCode::Value, "stack underflow");
-      }
-      locals[static_cast<std::size_t>(ins.a)].is_set = true;
-      locals[static_cast<std::size_t>(ins.a)].value = stack.back();
-      stack.pop_back();
-      continue;
-    }
-
-    if (op == Opcode::CheckList) {
-      if (stack.empty()) {
-        return fail(ErrCode::Value, "stack underflow");
-      }
-      if (!is_list_value(stack.back())) {
-        return fail(ErrCode::Type, "structured list source must be a typed list");
-      }
-      continue;
-    }
-
-    if (op == Opcode::CheckInt) {
-      if (stack.empty()) {
-        return fail(ErrCode::Value, "stack underflow");
-      }
-      if (stack.back().tag != ValueTag::Int) {
-        return fail(ErrCode::Type, "expected int");
-      }
-      continue;
-    }
-
-    if (op == Opcode::EmptyList) {
-      if (!ins.has_a) {
-        return fail(ErrCode::Type, "EMPTY_LIST requires list tag");
-      }
-      const Value out = make_empty_list_for_tag(ins.a);
-      if (out.tag == ValueTag::Invalid) {
-        return fail(ErrCode::Type, "unknown list tag");
-      }
-      stack.push_back(out);
-      continue;
-    }
-
-    if (op == Opcode::EmptyListLike) {
-      if (stack.empty()) {
-        return fail(ErrCode::Value, "stack underflow");
-      }
-      const Value source = stack.back();
-      stack.pop_back();
-      if (!is_list_value(source)) {
-        return fail(ErrCode::Type, "EMPTY_LIST_LIKE expects typed list");
-      }
-      stack.push_back(make_empty_list_like(source));
-      continue;
-    }
-
-    if (op == Opcode::Neg || op == Opcode::Not) {
-      if (stack.empty()) {
-        return fail(ErrCode::Value, "stack underflow");
-      }
-      const Value x = stack.back();
-      stack.pop_back();
-      if (op == Opcode::Neg) {
-        if (!is_numeric(x)) {
-          return fail(ErrCode::Type, "NEG expects numeric");
+    switch (op) {
+      case Opcode::PushConst: {
+        if (!ins.has_a || ins.a < 0 || ins.a >= static_cast<int>(view.consts.size())) {
+          return fail(ErrCode::Value, "const index out of range");
         }
-        if (x.tag == ValueTag::Float) {
-          stack.push_back(Value::from_float(vm_semantics::canonicalize_vm_float(-x.f)));
+        stack.push_back(view.consts[static_cast<std::size_t>(ins.a)]);
+        continue;
+      }
+
+      case Opcode::Load: {
+        if (!ins.has_a || ins.a < 0 || ins.a >= view.n_locals) {
+          return fail(ErrCode::Name, "local index out of range");
+        }
+        const LocalSlot& slot = locals[static_cast<std::size_t>(ins.a)];
+        if (!slot.is_set) {
+          return fail(ErrCode::Name, "read of uninitialized local");
+        }
+        stack.push_back(slot.value);
+        continue;
+      }
+
+      case Opcode::Store: {
+        if (!ins.has_a || ins.a < 0 || ins.a >= view.n_locals) {
+          return fail(ErrCode::Name, "local index out of range");
+        }
+        if (stack.empty()) {
+          return fail(ErrCode::Value, "stack underflow");
+        }
+        locals[static_cast<std::size_t>(ins.a)].is_set = true;
+        locals[static_cast<std::size_t>(ins.a)].value = stack.back();
+        stack.pop_back();
+        continue;
+      }
+
+      case Opcode::CheckList: {
+        if (stack.empty()) {
+          return fail(ErrCode::Value, "stack underflow");
+        }
+        if (!is_list_value(stack.back())) {
+          return fail(ErrCode::Type, "structured list source must be a typed list");
+        }
+        continue;
+      }
+
+      case Opcode::CheckInt: {
+        if (stack.empty()) {
+          return fail(ErrCode::Value, "stack underflow");
+        }
+        if (stack.back().tag != ValueTag::Int) {
+          return fail(ErrCode::Type, "expected int");
+        }
+        continue;
+      }
+
+      case Opcode::EmptyList: {
+        if (!ins.has_a) {
+          return fail(ErrCode::Type, "EMPTY_LIST requires list tag");
+        }
+        const Value out = make_empty_list_for_tag(ins.a);
+        if (out.tag == ValueTag::Invalid) {
+          return fail(ErrCode::Type, "unknown list tag");
+        }
+        stack.push_back(out);
+        continue;
+      }
+
+      case Opcode::EmptyListLike: {
+        if (stack.empty()) {
+          return fail(ErrCode::Value, "stack underflow");
+        }
+        const Value source = stack.back();
+        stack.pop_back();
+        if (!is_list_value(source)) {
+          return fail(ErrCode::Type, "EMPTY_LIST_LIKE expects typed list");
+        }
+        stack.push_back(make_empty_list_like(source));
+        continue;
+      }
+
+      case Opcode::Neg:
+      case Opcode::Not: {
+        if (stack.empty()) {
+          return fail(ErrCode::Value, "stack underflow");
+        }
+        const Value x = stack.back();
+        stack.pop_back();
+        if (op == Opcode::Neg) {
+          if (!is_numeric(x)) {
+            return fail(ErrCode::Type, "NEG expects numeric");
+          }
+          if (x.tag == ValueTag::Float) {
+            stack.push_back(Value::from_float(vm_semantics::canonicalize_vm_float(-x.f)));
+          } else {
+            stack.push_back(Value::from_int(vm_semantics::wrap_int_neg(x.i)));
+          }
         } else {
-          stack.push_back(Value::from_int(vm_semantics::wrap_int_neg(x.i)));
+          if (x.tag != ValueTag::Bool) {
+            return fail(ErrCode::Type, "NOT expects bool");
+          }
+          stack.push_back(Value::from_bool(!x.b));
         }
-      } else {
-        if (x.tag != ValueTag::Bool) {
-          return fail(ErrCode::Type, "NOT expects bool");
+        continue;
+      }
+
+      case Opcode::Add:
+      case Opcode::Sub:
+      case Opcode::Mul:
+      case Opcode::Div:
+      case Opcode::Mod: {
+        if (stack.size() < 2) {
+          return fail(ErrCode::Value, "stack underflow");
         }
-        stack.push_back(Value::from_bool(!x.b));
-      }
-      continue;
-    }
+        const Value b = stack.back();
+        stack.pop_back();
+        const Value a = stack.back();
+        stack.pop_back();
 
-    if (op == Opcode::Add || op == Opcode::Sub || op == Opcode::Mul || op == Opcode::Div ||
-        op == Opcode::Mod) {
-      if (stack.size() < 2) {
-        return fail(ErrCode::Value, "stack underflow");
-      }
-      const Value b = stack.back();
-      stack.pop_back();
-      const Value a = stack.back();
-      stack.pop_back();
+        double a_num = 0.0;
+        double b_num = 0.0;
+        bool any_float = false;
+        if (!to_numeric_pair(a, b, a_num, b_num, any_float)) {
+          return fail(ErrCode::Type, std::string(opcode_name(op)) + " expects numeric operands");
+        }
 
-      double a_num = 0.0;
-      double b_num = 0.0;
-      bool any_float = false;
-      if (!to_numeric_pair(a, b, a_num, b_num, any_float)) {
-        return fail(ErrCode::Type, std::string(opcode_name(op)) + " expects numeric operands");
-      }
+        if ((op == Opcode::Div || op == Opcode::Mod) && b_num == 0.0) {
+          return fail(ErrCode::ZeroDiv, (op == Opcode::Div) ? "division by zero" : "modulo by zero");
+        }
 
-      if ((op == Opcode::Div || op == Opcode::Mod) && b_num == 0.0) {
-        return fail(ErrCode::ZeroDiv, (op == Opcode::Div) ? "division by zero" : "modulo by zero");
-      }
-
-      if (op == Opcode::Add) {
-        if (any_float) {
-          stack.push_back(Value::from_float(vm_semantics::canonicalize_vm_float(a_num + b_num)));
+        if (op == Opcode::Add) {
+          if (any_float) {
+            stack.push_back(Value::from_float(vm_semantics::canonicalize_vm_float(a_num + b_num)));
+          } else {
+            stack.push_back(Value::from_int(
+                vm_semantics::wrap_int_add(static_cast<long long>(a_num), static_cast<long long>(b_num))));
+          }
+        } else if (op == Opcode::Sub) {
+          if (any_float) {
+            stack.push_back(Value::from_float(vm_semantics::canonicalize_vm_float(a_num - b_num)));
+          } else {
+            stack.push_back(Value::from_int(
+                vm_semantics::wrap_int_sub(static_cast<long long>(a_num), static_cast<long long>(b_num))));
+          }
+        } else if (op == Opcode::Mul) {
+          if (any_float) {
+            stack.push_back(Value::from_float(vm_semantics::canonicalize_vm_float(a_num * b_num)));
+          } else {
+            stack.push_back(Value::from_int(
+                vm_semantics::wrap_int_mul(static_cast<long long>(a_num), static_cast<long long>(b_num))));
+          }
+        } else if (op == Opcode::Div) {
+          stack.push_back(Value::from_float(vm_semantics::canonicalize_vm_float(a_num / b_num)));
+        } else if (any_float) {
+          stack.push_back(
+              Value::from_float(vm_semantics::canonicalize_vm_float(vm_semantics::py_float_mod(a_num, b_num))));
         } else {
-          stack.push_back(Value::from_int(
-              vm_semantics::wrap_int_add(static_cast<long long>(a_num), static_cast<long long>(b_num))));
+          const long long ai = static_cast<long long>(a_num);
+          const long long bi = static_cast<long long>(b_num);
+          stack.push_back(Value::from_int(vm_semantics::py_int_mod(ai, bi)));
         }
-      } else if (op == Opcode::Sub) {
-        if (any_float) {
-          stack.push_back(Value::from_float(vm_semantics::canonicalize_vm_float(a_num - b_num)));
-        } else {
-          stack.push_back(Value::from_int(
-              vm_semantics::wrap_int_sub(static_cast<long long>(a_num), static_cast<long long>(b_num))));
+        continue;
+      }
+
+      case Opcode::Lt:
+      case Opcode::Le:
+      case Opcode::Gt:
+      case Opcode::Ge:
+      case Opcode::Eq:
+      case Opcode::Ne: {
+        if (stack.size() < 2) {
+          return fail(ErrCode::Value, "stack underflow");
         }
-      } else if (op == Opcode::Mul) {
-        if (any_float) {
-          stack.push_back(Value::from_float(vm_semantics::canonicalize_vm_float(a_num * b_num)));
-        } else {
-          stack.push_back(Value::from_int(
-              vm_semantics::wrap_int_mul(static_cast<long long>(a_num), static_cast<long long>(b_num))));
+        const Value b = stack.back();
+        stack.pop_back();
+        const Value a = stack.back();
+        stack.pop_back();
+        ExecResult cmp = compare_values(op, a, b);
+        if (cmp.is_error) {
+          return cmp;
         }
-      } else if (op == Opcode::Div) {
-        stack.push_back(Value::from_float(vm_semantics::canonicalize_vm_float(a_num / b_num)));
-      } else if (any_float) {
-        stack.push_back(
-            Value::from_float(vm_semantics::canonicalize_vm_float(vm_semantics::py_float_mod(a_num, b_num))));
-      } else {
-        const long long ai = static_cast<long long>(a_num);
-        const long long bi = static_cast<long long>(b_num);
-        stack.push_back(Value::from_int(vm_semantics::py_int_mod(ai, bi)));
-      }
-      continue;
-    }
-
-    if (op == Opcode::Lt || op == Opcode::Le || op == Opcode::Gt || op == Opcode::Ge || op == Opcode::Eq ||
-        op == Opcode::Ne) {
-      if (stack.size() < 2) {
-        return fail(ErrCode::Value, "stack underflow");
-      }
-      const Value b = stack.back();
-      stack.pop_back();
-      const Value a = stack.back();
-      stack.pop_back();
-      ExecResult cmp = compare_values(op, a, b);
-      if (cmp.is_error) {
-        return cmp;
-      }
-      stack.push_back(cmp.value);
-      continue;
-    }
-
-    if (op == Opcode::Jmp) {
-      if (!ins.has_a || ins.a < 0 || ins.a > static_cast<int>(view.code.size())) {
-        return fail(ErrCode::Value, "jump target out of range");
-      }
-      ip = ins.a;
-      continue;
-    }
-
-    if (op == Opcode::JmpIfFalse || op == Opcode::JmpIfTrue) {
-      if (stack.empty()) {
-        return fail(ErrCode::Value, "stack underflow");
-      }
-      if (!ins.has_a || ins.a < 0 || ins.a > static_cast<int>(view.code.size())) {
-        return fail(ErrCode::Value, "jump target out of range");
-      }
-      const Value c = stack.back();
-      stack.pop_back();
-      bool cond = false;
-      if (!value_to_bool(c, cond)) {
-        return fail(ErrCode::Type, "jump condition must be bool");
-      }
-      if (op == Opcode::JmpIfFalse && !cond) ip = ins.a;
-      if (op == Opcode::JmpIfTrue && cond) ip = ins.a;
-      continue;
-    }
-
-    if (op == Opcode::CallBuiltin) {
-      const int bid = ins.has_a ? ins.a : -1;
-      const int argc = ins.has_b ? ins.b : -1;
-      if (argc < 0) {
-        return fail(ErrCode::Type, "invalid builtin argc");
-      }
-      if (static_cast<int>(stack.size()) < argc) {
-        return fail(ErrCode::Value, "stack underflow");
-      }
-      std::vector<Value> args;
-      args.reserve(static_cast<std::size_t>(argc));
-      const std::size_t start = stack.size() - static_cast<std::size_t>(argc);
-      for (std::size_t i = start; i < stack.size(); ++i) {
-        args.push_back(stack[i]);
-      }
-      stack.resize(start);
-
-      BuiltinId builtin_id = BuiltinId::Abs;
-      if (!builtin_id_from_int(bid, builtin_id)) {
-        return fail(ErrCode::Name, "unknown builtin id");
+        stack.push_back(cmp.value);
+        continue;
       }
 
-      BuiltinResult out = builtin_call(builtin_id, args);
-      if (out.is_error) {
-        return ExecResult{true, Value::invalid(), out.err};
+      case Opcode::Jmp: {
+        if (!ins.has_a || ins.a < 0 || ins.a > static_cast<int>(view.code.size())) {
+          return fail(ErrCode::Value, "jump target out of range");
+        }
+        ip = ins.a;
+        continue;
       }
-      stack.push_back(out.value);
-      continue;
-    }
 
-    if (op == Opcode::AsgpDc) {
-      if (root_program == nullptr || !ins.has_a || ins.a < 0 ||
-          ins.a >= static_cast<int>(root_program->asgp_dc_segments.size())) {
-        return fail(ErrCode::Value, "ASGP-DC segment index out of range");
+      case Opcode::JmpIfFalse:
+      case Opcode::JmpIfTrue: {
+        if (stack.empty()) {
+          return fail(ErrCode::Value, "stack underflow");
+        }
+        if (!ins.has_a || ins.a < 0 || ins.a > static_cast<int>(view.code.size())) {
+          return fail(ErrCode::Value, "jump target out of range");
+        }
+        const Value c = stack.back();
+        stack.pop_back();
+        bool cond = false;
+        if (!value_to_bool(c, cond)) {
+          return fail(ErrCode::Type, "jump condition must be bool");
+        }
+        if (op == Opcode::JmpIfFalse && !cond) ip = ins.a;
+        if (op == Opcode::JmpIfTrue && cond) ip = ins.a;
+        continue;
       }
-      if (stack.empty()) {
-        return fail(ErrCode::Value, "stack underflow");
-      }
-      const Value source = stack.back();
-      stack.pop_back();
-      ExecResult out =
-          eval_asgp_dc(root_program->asgp_dc_segments[static_cast<std::size_t>(ins.a)], source, 0, fuel,
-                       root_program);
-      if (out.is_error) {
-        return out;
-      }
-      stack.push_back(out.value);
-      continue;
-    }
 
-    if (op == Opcode::AsgpDp1d) {
-      if (root_program == nullptr || !ins.has_a || ins.a < 0 ||
-          ins.a >= static_cast<int>(root_program->asgp_dp1d_segments.size())) {
-        return fail(ErrCode::Value, "ASGP-DP1D segment index out of range");
+      case Opcode::CallBuiltin: {
+        const int bid = ins.has_a ? ins.a : -1;
+        const int argc = ins.has_b ? ins.b : -1;
+        if (argc < 0) {
+          return fail(ErrCode::Type, "invalid builtin argc");
+        }
+        if (static_cast<int>(stack.size()) < argc) {
+          return fail(ErrCode::Value, "stack underflow");
+        }
+        const std::size_t start = stack.size() - static_cast<std::size_t>(argc);
+
+        BuiltinId builtin_id = BuiltinId::Abs;
+        if (!builtin_id_from_int(bid, builtin_id)) {
+          return fail(ErrCode::Name, "unknown builtin id");
+        }
+
+        // Builtins borrow operands for this call and cannot mutate the VM stack.
+        // Keep the values alive until the call returns, then consume the range.
+        const Value* args = argc == 0 ? nullptr : stack.data() + start;
+        BuiltinResult out = builtin_call(builtin_id, args, static_cast<std::size_t>(argc));
+        stack.truncate(start);
+        if (out.is_error) {
+          return ExecResult{true, Value::invalid(), out.err};
+        }
+        stack.push_back(out.value);
+        continue;
       }
-      if (stack.empty()) {
-        return fail(ErrCode::Value, "stack underflow");
-      }
-      const Value state = stack.back();
-      stack.pop_back();
-      if (state.tag != ValueTag::Int) {
-        return fail(ErrCode::Type, "ASGP-DP1D state must be int");
-      }
-      std::unordered_map<long long, Value> memo;
-      ExecResult out =
-          eval_asgp_dp1d(root_program->asgp_dp1d_segments[static_cast<std::size_t>(ins.a)], state.i, memo, fuel,
+
+      case Opcode::AsgpDc: {
+        if (root_program == nullptr || !ins.has_a || ins.a < 0 ||
+            ins.a >= static_cast<int>(root_program->asgp_dc_segments.size())) {
+          return fail(ErrCode::Value, "ASGP-DC segment index out of range");
+        }
+        if (stack.empty()) {
+          return fail(ErrCode::Value, "stack underflow");
+        }
+        const Value source = stack.back();
+        stack.pop_back();
+        ExecResult out =
+            eval_asgp_dc(root_program->asgp_dc_segments[static_cast<std::size_t>(ins.a)], source, 0, fuel,
                          root_program);
-      if (out.is_error) {
+        if (out.is_error) {
+          return out;
+        }
+        stack.push_back(out.value);
+        continue;
+      }
+
+      case Opcode::AsgpDp1d: {
+        if (root_program == nullptr || !ins.has_a || ins.a < 0 ||
+            ins.a >= static_cast<int>(root_program->asgp_dp1d_segments.size())) {
+          return fail(ErrCode::Value, "ASGP-DP1D segment index out of range");
+        }
+        if (stack.empty()) {
+          return fail(ErrCode::Value, "stack underflow");
+        }
+        const Value state = stack.back();
+        stack.pop_back();
+        if (state.tag != ValueTag::Int) {
+          return fail(ErrCode::Type, "ASGP-DP1D state must be int");
+        }
+        std::unordered_map<long long, Value> memo;
+        ExecResult out =
+            eval_asgp_dp1d(root_program->asgp_dp1d_segments[static_cast<std::size_t>(ins.a)], state.i, memo, fuel,
+                           root_program);
+        if (out.is_error) {
+          return out;
+        }
+        stack.push_back(out.value);
+        continue;
+      }
+
+      case Opcode::AsgpDp2d: {
+        if (root_program == nullptr || !ins.has_a || ins.a < 0 ||
+            ins.a >= static_cast<int>(root_program->asgp_dp2d_segments.size())) {
+          return fail(ErrCode::Value, "ASGP-DP2D segment index out of range");
+        }
+        if (stack.size() < 2) {
+          return fail(ErrCode::Value, "stack underflow");
+        }
+        const Value state_j = stack.back();
+        stack.pop_back();
+        const Value state_i = stack.back();
+        stack.pop_back();
+        if (state_i.tag != ValueTag::Int) {
+          return fail(ErrCode::Type, "ASGP-DP2D state_i must be int");
+        }
+        if (state_j.tag != ValueTag::Int) {
+          return fail(ErrCode::Type, "ASGP-DP2D state_j must be int");
+        }
+        std::unordered_map<std::uint64_t, Value> memo;
+        ExecResult out = eval_asgp_dp2d(root_program->asgp_dp2d_segments[static_cast<std::size_t>(ins.a)],
+                                        state_i.i, state_j.i, memo, fuel, root_program);
+        if (out.is_error) {
+          return out;
+        }
+        stack.push_back(out.value);
+        continue;
+      }
+
+      case Opcode::Return: {
+        if (stack.empty()) {
+          return fail(ErrCode::Value, "return requires value on stack");
+        }
+        ExecResult out;
+        out.value = stack.back();
         return out;
       }
-      stack.push_back(out.value);
-      continue;
-    }
-
-    if (op == Opcode::AsgpDp2d) {
-      if (root_program == nullptr || !ins.has_a || ins.a < 0 ||
-          ins.a >= static_cast<int>(root_program->asgp_dp2d_segments.size())) {
-        return fail(ErrCode::Value, "ASGP-DP2D segment index out of range");
+      default: {
+        return fail(ErrCode::Value, "unknown opcode");
       }
-      if (stack.size() < 2) {
-        return fail(ErrCode::Value, "stack underflow");
-      }
-      const Value state_j = stack.back();
-      stack.pop_back();
-      const Value state_i = stack.back();
-      stack.pop_back();
-      if (state_i.tag != ValueTag::Int) {
-        return fail(ErrCode::Type, "ASGP-DP2D state_i must be int");
-      }
-      if (state_j.tag != ValueTag::Int) {
-        return fail(ErrCode::Type, "ASGP-DP2D state_j must be int");
-      }
-      std::unordered_map<std::uint64_t, Value> memo;
-      ExecResult out = eval_asgp_dp2d(root_program->asgp_dp2d_segments[static_cast<std::size_t>(ins.a)],
-                                      state_i.i, state_j.i, memo, fuel, root_program);
-      if (out.is_error) {
-        return out;
-      }
-      stack.push_back(out.value);
-      continue;
-    }
-
-    if (op == Opcode::Return) {
-      if (stack.empty()) {
-        return fail(ErrCode::Value, "return requires value on stack");
-      }
-      ExecResult out;
-      out.value = stack.back();
-      return out;
     }
   }
 
@@ -701,12 +740,21 @@ ExecResult run_code(const CodeView& view,
   return out;
 }
 
+ExecResult run_code(const CodeView& view,
+    const std::vector<std::pair<int, Value>>& inputs,
+    const std::vector<std::pair<int, Value>>& preset_locals,
+    int& fuel, bool require_return, const BytecodeProgram* root_program) {
+  if (view.instruction_fuel.empty())
+    return run_code_impl<false>(view, inputs, preset_locals, fuel, require_return, root_program);
+  return run_code_impl<true>(view, inputs, preset_locals, fuel, require_return, root_program);
+}
+
 }  // namespace
 
 ExecResult execute_bytecode_cpu(const BytecodeProgram& program,
                                 const std::vector<std::pair<int, Value>>& inputs,
                                 int fuel) {
-  return run_code(CodeView{program.consts, program.code, program.n_locals, program.var2idx}, inputs, {}, fuel, true,
+  return run_code(CodeView{program.consts, program.code, program.n_locals, program.var2idx, program.instruction_fuel}, inputs, {}, fuel, true,
                   &program);
 }
 

@@ -36,7 +36,8 @@ std::string runtime_cache_identity(const ProgramGenome& genome,
     if (!is_known_node_kind(static_cast<int>(node.kind)))
       throw std::invalid_argument("runtime cache identity rejects unknown AST nodes");
     const auto& descriptor = node_descriptor(node.kind);
-    if (descriptor.metadata != NodeMetadataKind::None || descriptor.category == NodeCategory::DependencyMarker)
+    if ((descriptor.metadata != NodeMetadataKind::None && descriptor.metadata != NodeMetadataKind::LexicalRegion) ||
+        descriptor.category == NodeCategory::DependencyMarker)
       throw std::invalid_argument("runtime cache identity rejects specialized AST segments");
   }
 
@@ -46,6 +47,9 @@ std::string runtime_cache_identity(const ProgramGenome& genome,
   structure.nodes = ast.nodes;
   structure.names = ast.names;
   structure.version = ast.version;
+  structure.lexical_regions = ast.lexical_regions;
+  structure.traversal_specs = ast.traversal_specs;
+  structure.fuel_specs = ast.fuel_specs;
   std::string material;
   append_field(material, "generated-runtime-cache-v1");
   append_field(material, kGrammarSemanticVersion);

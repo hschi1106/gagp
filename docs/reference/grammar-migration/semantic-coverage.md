@@ -84,3 +84,21 @@ and provenance replay successfully. The test changes an expected rejection and
 separately removes the triggering resource limit; both changes must fail replay.
 The unchanged original verifier tests also run their generated-program acceptance
 checks during capture.
+
+## Inherited UTF-8 string discrepancy
+
+The Goal05 indexed-payload review confirmed an existing CPU discrepancy against
+[`builtins_runtime.md`](../../../spec/builtins_runtime.md): the specification says
+`len(String)` counts characters rather than bytes, but the frozen runtime stores and
+indexes string bytes. For UTF-8 `U+00E9` (bytes `C3 A9`), both frozen and candidate
+return length 2, character value 195 at index 0, and character value 169 at index 1
+or -1. Index 2 returns a value error. These are measured compatibility results, not
+a replacement for the normative character contract; no Unicode-correctness claim
+follows from their agreement.
+
+Evidence is `goal-05-utf8-string-probe.cpp`, the separately linked
+`goal-05-utf8-string-{reference,candidate}` binaries and logs, and
+`goal-05-utf8-string-provenance.json`. The reference uses unchanged b049183 headers
+and Release libraries. Goal05 preserves this inherited behavior rather than silently
+changing it during an allocation optimization. This probe establishes CPU behavior
+only; it does not establish GPU Unicode parity.

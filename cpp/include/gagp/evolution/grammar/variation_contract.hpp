@@ -20,6 +20,9 @@ struct VariationSite {
   std::uint32_t slot = kNoGrammarId;
   // All occurrences of this logical choice must be replaced atomically.
   std::vector<VariationSpan> occurrences;
+  // Physical IDs in ordered formal scope, aligned with occurrences. IDs are
+  // remapped during copying and are deliberately absent from compatibility keys.
+  std::vector<std::vector<int>> occurrence_binder_ids;
   // Subtree allowance, without an expression's standalone four-node envelope.
   GrammarLimits replacement_budget;
   std::uint32_t remaining_template_nesting = 0;

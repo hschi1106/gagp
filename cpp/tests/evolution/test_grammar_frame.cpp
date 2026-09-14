@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -121,6 +122,34 @@ void test_program_and_request_validation(const CompiledGrammar& grammar) {
       "mistyped custom request reached frame validation", "generation request exact type");
 }
 
+void test_lexical_frame_projection(const CompiledGrammar& grammar) {
+  GenerationRequest request{nonterminal(grammar, "Expr"), RType::Int,
+      {{"x", RType::Int}, {"label", RType::String}}, {5, 4}};
+  GenerationFrame frame{{}, {7, 12}};
+  AstProgram ast;
+  ast.names = {"__gagp_frame_binder_0"};
+  ast.nodes = {{NodeKind::REGION_VAR, 7, 0}, {NodeKind::REGION_VAR, 12, 0},
+      {NodeKind::REGION_VAR, 33, 0}};
+  const auto projected = project_frame(grammar, request, frame, ast);
+  check(ast.nodes[0].kind == NodeKind::REGION_VAR, "projection mutated contextual AST");
+  check(projected.ast.nodes[0].kind == NodeKind::VAR &&
+      projected.ast.nodes[1].kind == NodeKind::VAR &&
+      projected.ast.nodes[2].kind == NodeKind::REGION_VAR,
+      "projection failed to distinguish captured and unsupplied native binders");
+  check(projected.inputs.size() == grammar.inputs().size() + 2 &&
+      projected.inputs[2].type == RType::Int && projected.inputs[3].type == RType::String &&
+      projected.inputs[2].name != ast.names[0], "projection lost exact types or collided with a name");
+  check(frame_environment(grammar, request, frame).empty(), "empty formal scope captured extra bindings");
+  rejects([&] { frame_inputs(grammar, request, {{}, {7}}); }, "short binder frame accepted");
+  rejects([&] { frame_inputs(grammar, request, {{}, {7, 7}}); }, "duplicate binder frame accepted");
+  rejects([&] { frame_inputs(grammar, request, {{}, {-1, 12}}); }, "negative binder frame accepted");
+  rejects([&] { frame_inputs(grammar, request, {{}, {7, std::numeric_limits<int>::max()}}); },
+      "out-of-range binder frame accepted");
+  ast.lexical_regions.push_back({0, 1, {{7, RType::Int}}});
+  rejects([&] { project_frame(grammar, request, frame, ast); },
+      "introduced binder colliding with frame accepted", "collides");
+}
+
 }  // namespace
 
 int main() {
@@ -129,6 +158,7 @@ int main() {
     test_inputs_and_frame_order(grammar);
     test_frame_validation(grammar);
     test_program_and_request_validation(grammar);
+    test_lexical_frame_projection(grammar);
     std::cout << "grammar frame tests passed\n";
     return 0;
   } catch (const std::exception& error) {

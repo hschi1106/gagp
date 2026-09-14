@@ -59,6 +59,39 @@ std::string canonical_prefix_serialize(const AstProgram& program) {
         << spec.transition_i_name << ":" << spec.transition_j_name << ":";
     append_int_vector(oss, spec.transition_dep_names);
   }
+  if (!program.lexical_regions.empty()) {
+    oss << ";LexicalRegions=";
+    for (std::size_t i = 0; i < program.lexical_regions.size(); ++i) {
+      if (i > 0) oss << ",";
+      const LexicalRegion& region = program.lexical_regions[i];
+      oss << region.node_index << ":" << region.body_argument << ":";
+      for (std::size_t j = 0; j < region.bindings.size(); ++j) {
+        if (j > 0) oss << "/";
+        const LexicalBinding& binding = region.bindings[j];
+        oss << binding.id << ":" << static_cast<int>(binding.type);
+      }
+    }
+  }
+  if (!program.traversal_specs.empty()) {
+    oss << ";TraversalSpecs=";
+    for (std::size_t i = 0; i < program.traversal_specs.size(); ++i) {
+      if (i > 0) oss << ",";
+      const TraversalSpec& spec = program.traversal_specs[i];
+      oss << spec.node_index << ":" << static_cast<int>(spec.direction);
+    }
+  }
+  if (!program.fuel_specs.empty()) {
+    oss << ";FuelSpecs=";
+    for (std::size_t i = 0; i < program.fuel_specs.size(); ++i) {
+      if (i > 0) oss << ",";
+      const NodeFuelSpec& spec = program.fuel_specs[i];
+      oss << spec.node_index << ":";
+      for (std::size_t j = 0; j < spec.charges.size(); ++j) {
+        if (j > 0) oss << "/";
+        oss << static_cast<int>(spec.charges[j].event) << ":" << spec.charges[j].cost;
+      }
+    }
+  }
   oss << ")";
   return oss.str();
 }
@@ -128,6 +161,30 @@ std::string canonical_cache_key_serialize(const AstProgram& program) {
         << static_cast<int>(spec.dep_kind) << ":" << spec.solve_i_name << ":" << spec.solve_j_name << ":"
         << spec.transition_i_name << ":" << spec.transition_j_name << ":";
     append_int_vector(oss, spec.transition_dep_names);
+  }
+  if (!program.lexical_regions.empty()) {
+    oss << ";lexical_regions:" << program.lexical_regions.size();
+    for (const LexicalRegion& region : program.lexical_regions) {
+      oss << "|" << region.node_index << ":" << region.body_argument << ":"
+          << region.bindings.size();
+      for (const LexicalBinding& binding : region.bindings) {
+        oss << "/" << binding.id << ":" << static_cast<int>(binding.type);
+      }
+    }
+  }
+  if (!program.traversal_specs.empty()) {
+    oss << ";traversal_specs:" << program.traversal_specs.size();
+    for (const TraversalSpec& spec : program.traversal_specs) {
+      oss << "|" << spec.node_index << ":" << static_cast<int>(spec.direction);
+    }
+  }
+  if (!program.fuel_specs.empty()) {
+    oss << ";fuel_specs:" << program.fuel_specs.size();
+    for (const NodeFuelSpec& spec : program.fuel_specs) {
+      oss << "|" << spec.node_index << ":" << spec.charges.size();
+      for (const FuelCharge& charge : spec.charges)
+        oss << "/" << static_cast<int>(charge.event) << ":" << charge.cost;
+    }
   }
   oss << ")";
   return oss.str();

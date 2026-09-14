@@ -12,7 +12,7 @@
 
 namespace gagp::evo::grammar {
 
-inline constexpr std::string_view kCatalogVersion = "gagp-primitives-v1";
+inline constexpr std::string_view kCatalogVersion = "gagp-primitives-v2";
 
 const std::array<RType, 8>& value_types();
 std::string_view type_name(RType type);
@@ -36,6 +36,7 @@ struct PrimitiveSignature {
   RType result = RType::Invalid;
   std::optional<NodeKind> lowering_node;
   std::vector<RegionSlot> regions;
+  std::optional<TraversalDirection> traversal_direction;
 
   bool executable() const noexcept { return lowering_node.has_value(); }
 };

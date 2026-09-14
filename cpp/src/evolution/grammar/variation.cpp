@@ -1,6 +1,10 @@
 #include "gagp/evolution/grammar/variation.hpp"
 
 #include <stdexcept>
+#include <algorithm>
+#include <map>
+#include <set>
+#include <limits>
 #include <utility>
 
 #include "variation_internal.hpp"
@@ -34,6 +38,29 @@ namespace gagp::evo::grammar::variation_detail {
 namespace {
 bool same_materialized_program(const AstProgram& a, const AstProgram& b) {
   if (a.version != b.version || a.nodes.size() != b.nodes.size()) return false;
+  if (a.lexical_regions.size() != b.lexical_regions.size() ||
+      a.traversal_specs.size() != b.traversal_specs.size() ||
+      a.fuel_specs.size() != b.fuel_specs.size()) return false;
+  for (std::size_t i = 0; i < a.lexical_regions.size(); ++i) {
+    const auto& left = a.lexical_regions[i];
+    const auto& right = b.lexical_regions[i];
+    if (left.node_index != right.node_index || left.body_argument != right.body_argument ||
+        left.bindings.size() != right.bindings.size()) return false;
+    for (std::size_t j = 0; j < left.bindings.size(); ++j)
+      if (left.bindings[j].id != right.bindings[j].id ||
+          left.bindings[j].type != right.bindings[j].type) return false;
+  }
+  for (std::size_t i = 0; i < a.traversal_specs.size(); ++i)
+    if (a.traversal_specs[i].node_index != b.traversal_specs[i].node_index ||
+        a.traversal_specs[i].direction != b.traversal_specs[i].direction) return false;
+  for (std::size_t i = 0; i < a.fuel_specs.size(); ++i) {
+    const auto& left = a.fuel_specs[i];
+    const auto& right = b.fuel_specs[i];
+    if (left.node_index != right.node_index || left.charges.size() != right.charges.size()) return false;
+    for (std::size_t j = 0; j < left.charges.size(); ++j)
+      if (left.charges[j].event != right.charges[j].event ||
+          left.charges[j].cost != right.charges[j].cost) return false;
+  }
   const auto same_index = [&](NodeIndexRole role, int left, int right) {
     switch (role) {
       case NodeIndexRole::Unused: return true;
@@ -41,6 +68,7 @@ bool same_materialized_program(const AstProgram& a, const AstProgram& b) {
       case NodeIndexRole::Constant:
         return canonical_json(encode_constant(a.consts.at(left))) ==
             canonical_json(encode_constant(b.consts.at(right)));
+      case NodeIndexRole::BinderId:
       case NodeIndexRole::ListTypeTag: return left == right;
     }
     return false;
@@ -93,13 +121,57 @@ ProgramGenome accept(AstProgram candidate, const ProgramGenome& certified_parent
 }
 
 AstProgram splice(const AstProgram& base, const VariationSite& destination,
-    const AstProgram& donor, VariationSpan payload) {
+    const AstProgram& donor, VariationSpan payload, const std::vector<int>& donor_binder_ids) {
   AstProgram result = base;
   // Sites come from the certified analysis. Descending physical indices leave
   // earlier original spans stable while all copies receive the identical donor.
-  for (auto span = destination.occurrences.rbegin(); span != destination.occurrences.rend(); ++span)
-    result = subtree::replace_subtree(result, span->begin, span->end,
-        donor, payload.begin, payload.end);
+  for (std::size_t i = destination.occurrences.size(); i-- > 0;) {
+    const auto& span = destination.occurrences[i];
+    const auto& target_ids = destination.occurrence_binder_ids.at(i);
+    if (target_ids.size() != donor_binder_ids.size())
+      throw std::logic_error("variation donor and destination lexical scopes differ");
+    std::map<int, int> remap;
+    for (std::size_t j = 0; j < target_ids.size(); ++j)
+      remap.emplace(donor_binder_ids[j], target_ids[j]);
+    AstProgram mapped = donor;
+    // A destination capture may use an ID declared inside the donor. Freshen
+    // those declarations before mapping captures, so splice alpha-renaming can
+    // still distinguish introduced references from captured references.
+    std::set<int> used(target_ids.begin(), target_ids.end());
+    for (const auto& node : donor.nodes)
+      if (node.kind == NodeKind::REGION_VAR) used.insert(node.i0);
+    for (const auto& region : donor.lexical_regions)
+      for (const auto& binding : region.bindings) used.insert(binding.id);
+    std::map<int, int> introduced;
+    std::set<int> declared;
+    int fresh = 0;
+    for (auto& region : mapped.lexical_regions) {
+      if (region.node_index < payload.begin || region.node_index >= payload.end) continue;
+      for (auto& binding : region.bindings) {
+        declared.insert(binding.id);
+        if (std::find(target_ids.begin(), target_ids.end(), binding.id) == target_ids.end()) continue;
+        while (used.count(fresh)) ++fresh;
+        if (fresh == std::numeric_limits<int>::max())
+          throw std::overflow_error("variation exhausted native binder IDs");
+        introduced.emplace(binding.id, fresh);
+        binding.id = fresh; used.insert(fresh);
+      }
+    }
+    for (auto index = payload.begin; index < payload.end; ++index) {
+      auto& node = mapped.nodes.at(index);
+      if (node.kind != NodeKind::REGION_VAR) continue;
+      const auto local = introduced.find(node.i0);
+      if (local != introduced.end()) node.i0 = local->second;
+      else if (!declared.count(node.i0)) {
+        const auto found = remap.find(node.i0);
+        if (found == remap.end())
+          throw std::logic_error("variation donor has an unmapped lexical capture");
+        node.i0 = found->second;
+      }
+    }
+    result = subtree::replace_subtree(result, span.begin, span.end,
+        mapped, payload.begin, payload.end);
+  }
   return result;
 }
 

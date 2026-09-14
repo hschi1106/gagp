@@ -36,8 +36,7 @@ std::vector<RegionBinding> native_scope(const CompiledGrammar& grammar, const Pr
   const auto id = verified.expression_scope_ids.at(index);
   if (id == kNoGrammarId) throw std::logic_error("variation expression lacks an exact native scope");
   const auto& scope = verified.scopes.at(id);
-  if (!scope.binders.empty())
-    throw std::invalid_argument("compiled variation requires the general lexical binding runtime");
+
   std::vector<RegionBinding> result;
   for (const auto& binding : scope.locals)
     result.push_back({genome.ast.names.at(binding.first), binding.second});
@@ -71,7 +70,8 @@ VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const Progra
 VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const ProgramGenome& genome,
     const GenerationRequest& request, CompatibilityRegistry* registry) {
   VariationAnalysis result;
-  result.witness = reconstruct_derivation(grammar, genome, request, &result.verified);
+  std::vector<std::vector<int>> choice_environments;
+  result.witness = reconstruct_derivation(grammar, genome, request, &result.verified, &choice_environments);
   const auto& witness = result.witness;
   const auto& verified = result.verified;
   std::vector<std::uint32_t> depths(genome.ast.nodes.size());
@@ -83,11 +83,24 @@ VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const Progra
   }
   using Group = std::tuple<std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t>;
   std::map<Group, std::size_t> groups;
-  for (const auto& choice : witness.choices) {
+  for (std::size_t choice_index = 0; choice_index < witness.choices.size(); ++choice_index) {
+    const auto& choice = witness.choices[choice_index];
     const auto& nt = grammar.nonterminals().at(choice.nonterminal);
     // Complete Program and expression donors share the existing generation request
     // contract. Structural Block/Stmt fragments need their own contextual lowering.
     if (nt.category != NodeCategory::Expression && nt.category != NodeCategory::Program) continue;
+    const auto& environment = choice_environments.at(choice_index);
+    if (environment.size() != nt.scope.size())
+      throw std::logic_error("variation witness lexical scope arity differs from its nonterminal");
+    if (!environment.empty()) {
+      const auto& scope = verified.scopes.at(verified.expression_scope_ids.at(choice.ast_begin));
+      for (std::size_t i = 0; i < environment.size(); ++i) {
+        if (environment[i] < 0) continue;  // Unconsumed external request binding.
+        const auto binding = std::make_pair(-environment[i] - 1, nt.scope[i].type);
+        if (std::find(scope.binders.begin(), scope.binders.end(), binding) == scope.binders.end())
+          throw std::logic_error("variation witness lexical binding is unavailable at its occurrence");
+      }
+    }
     const auto logical = witness.nodes.at(choice.ast_begin).logical_instance;
     const Group group{choice.nonterminal, logical, choice.template_instance, choice.slot};
     auto found = groups.find(group);
@@ -97,7 +110,10 @@ VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const Progra
       site.context = nt.context; site.slot = choice.slot;
       if (choice.template_instance != kNoGrammarId)
         site.template_id = witness.templates.at(choice.template_instance).template_id;
-      site.visible_environment = request.visible_environment;
+      const auto& ids = choice_environments.at(choice_index);
+      const bool materialized_scope = !ids.empty() &&
+          std::all_of(ids.begin(), ids.end(), [](int id) { return id >= 0; });
+      site.visible_environment = materialized_scope ? nt.scope : request.visible_environment;
       site.available_locals = native_scope(grammar, genome, verified, choice.ast_begin, nt.category);
       site.replacement_budget = request.budget;
       site.remaining_template_nesting = 256;
@@ -110,6 +126,7 @@ VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const Progra
       return span.begin == choice.ast_begin && span.end == choice.ast_end;
     })) continue;
     site.occurrences.push_back({choice.ast_begin, choice.ast_end});
+    site.occurrence_binder_ids.push_back(choice_environments.at(choice_index));
     site.remaining_template_nesting = std::min(site.remaining_template_nesting, 256 - choice.enclosing_template_depth);
     site.materialized_nodes = choice.ast_end - choice.ast_begin;
     for (auto index = choice.ast_begin; index < choice.ast_end; ++index) {
@@ -124,9 +141,10 @@ VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const Progra
         request.budget.max_depth - depths.at(choice.ast_begin) + 1);
   }
   for (auto& site : result.sites) {
-    std::sort(site.occurrences.begin(), site.occurrences.end(), [](const auto& a, const auto& b) {
-      return a.begin < b.begin;
-    });
+    // Witness traversal is in prefix order; preserve the parallel binder mapping.
+    if (!std::is_sorted(site.occurrences.begin(), site.occurrences.end(), [](const auto& a, const auto& b) {
+          return a.begin < b.begin;
+        })) throw std::logic_error("variation witness occurrences are not in prefix order");
     std::uint32_t removed = 0, last_end = 0;
     for (const auto& span : site.occurrences) {
       if (span.begin < last_end) throw std::logic_error("logical variation occurrences overlap");

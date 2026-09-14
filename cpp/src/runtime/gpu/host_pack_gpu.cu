@@ -1,3 +1,6 @@
+#include "gagp/core/semantic_fuel.hpp"
+#include <stdexcept>
+
 #include "gagp/runtime/gpu/host_pack_gpu.hpp"
 
 #include <cstdint>
@@ -121,6 +124,9 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
 
   for (std::size_t p = 0; p < programs.size(); ++p) {
     const BytecodeProgram& prog = programs[p];
+    if (has_semantic_fuel(prog)) {
+      throw std::invalid_argument("semantic fuel schedules are not supported by the GPU runtime");
+    }
 
     DProgramMeta meta;
     meta.code_offset = static_cast<int>(out.all_code.size());

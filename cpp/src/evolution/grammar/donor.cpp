@@ -52,6 +52,10 @@ void validate_site(const CompiledGrammar& grammar, const VariationSite& site) {
 
 GenerationFrame donor_frame(const CompiledGrammar& grammar, const VariationSite& site) {
   GenerationFrame frame;
+  if (!site.occurrence_binder_ids.empty() &&
+      std::all_of(site.occurrence_binder_ids.front().begin(), site.occurrence_binder_ids.front().end(),
+          [](int id) { return id >= 0; }))
+    frame.binder_ids = site.occurrence_binder_ids.front();
   std::set<std::string> available_names;
   for (const auto& binding : site.available_locals) {
     if (!available_names.insert(binding.name).second)
@@ -87,6 +91,7 @@ ContextualDonor generate_donor(const CompiledGrammar& grammar, std::uint64_t see
       throw std::runtime_error("contextual donor witness does not cover its native AST");
 
     ContextualDonor donor;
+    donor.frame = frame;
     donor.inputs = frame_inputs(grammar, request, frame);
     donor.genome = std::move(generated.genome);
     const auto size = static_cast<std::uint32_t>(donor.genome.ast.nodes.size());

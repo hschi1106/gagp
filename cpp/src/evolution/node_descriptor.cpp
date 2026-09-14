@@ -104,6 +104,18 @@ constexpr std::array<NodeDescriptor, k_node_kind_count> k_descriptors{{
     DEPENDENCY(DP2_DIAGONAL_FORWARD, "dp2_diagonal_forward", 1, Dp2d),
     DEPENDENCY(DP2_NEIGHBORHOOD_BACKWARD3, "dp2_neighborhood_backward3", 3, Dp2d),
     DEPENDENCY(DP2_NEIGHBORHOOD_FORWARD3, "dp2_neighborhood_forward3", 3, Dp2d),
+    NODE(LET_REGION, "let_region", Expression, 2, Unused, LexicalRegion, GeneralRegion,
+         LetRegion, true),
+    NODE(TRAVERSE, "traverse", Expression, 4, Unused, LexicalRegion, GeneralRegion,
+         Traverse, true),
+    NODE(TRAVERSE_RANGE, "traverse_range", Expression, 6, Unused, LexicalRegion,
+         GeneralRegion, Traverse, true),
+    NODE(REGION_VAR, "region_var", Expression, 0, BinderId, None, GeneralRegion,
+         RegionVariable, false),
+    NODE(CHECK_INT, "check_int", Expression, 1, Unused, None, GeneralRegion,
+         Builtin, true),
+    NODE(CHECK_LIST, "check_list", Expression, 1, Unused, None, GeneralRegion,
+         Builtin, true),
 }};
 
 #undef DEPENDENCY

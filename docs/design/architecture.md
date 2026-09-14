@@ -272,3 +272,89 @@ atomic occurrence groups, and prescans capacities to avoid truncating compiled p
 Compiled buffers have an explicit mode; legacy device entry points reject them before
 allocation or execution. Variation counters remain integer counts through timing and CLI
 serialization and classify operator outputs rather than final retained population members.
+
+### Semantic fuel lowering foundation
+
+Bytecode blocks optionally carry a parallel `instruction_fuel` vector. The core
+validator checks shape, bounded costs, and acyclicity of the zero-cost control-flow
+subgraph using an iterative traversal. The CPU interpreter dispatches once per
+block between unit-cost and scheduled execution, preserving the legacy instruction
+layout and loop. This permits semantic charges to survive changes in compiler
+bookkeeping. GPU fitness and direct host packing reject scheduled blocks until the
+general GPU path implements their contract. Nested phases retain their existing
+call-entry charges in addition to any instruction schedule.
+
+### General static lexical bodies
+
+The staged CPU AST represents lexical bodies through one `lexical_regions` table
+with ordered typed declarations. Traversal direction is a general per-node
+specification. Region reference IDs are disjoint from ordinary name indices;
+typing and lowering resolve them to lexical environments and hidden local slots.
+The current verifier internally reserves negative environment keys for these IDs,
+while public AST IDs remain nonnegative. Let and traversal bodies may capture
+outer lexical bindings. Whole-sequence and ranged traversal lower to ordinary
+bytecode loops rather than per-element AST expansion. Table compaction preserves
+region IDs and metadata. GPU packing rejects these staged forms until its general
+region implementation is available.
+
+
+Contextual grammar donors carry explicit native binder IDs alongside their ordered
+formal scope. Membership reconstructs per-choice environments as an optional runtime
+sidecar, independent of serialized derivation provenance. Variation stores these
+physical mappings per occurrence and uses formal contracts for compatibility.
+Copying freshens introduced IDs before remapping captures, then applies ordinary
+subtree compaction and full membership certification. Isolated donor verification
+uses a private input projection of captured REGION_VAR nodes; public materialized
+AST execution continues to require closed lexical scopes.
+
+Generic CHECK_INT and CHECK_LIST expressions lower directly to existing validation
+opcodes, preserving explicit validation order without introducing runtime package
+identity. Their compiled programs use the experimental semantic-fuel envelope and
+are rejected by GPU execution/reproduction alongside general regions until Goal07.
+
+
+Source fuel profiles attach supported semantic event costs to native expression
+nodes. The compiler indexes profiles once, isolates child expression schedules and
+emits one charge per event plus zero-cost administrative instructions. Unprofiled
+nodes retain their previous instruction charges. Validation rejects malformed event
+contracts and possible zero-cost cycles in both Debug and Release lowering. Profiles
+are preserved in standalone AST codec/cache/splicing; current compiled grammars
+reject unsolicited profiles because their schema does not declare this metadata.
+
+Zero-cost traversal setup can reuse immutable lexical captures and a sequence length
+computed by an enclosing let. These facts expire with their lexical scope. Redundant
+Int checks are removed only when an earlier operation proves the runtime value is an
+Int; an input's declared type alone is insufficient. Literal-zero endpoints need no
+zero-cost clamp because sequence lengths are nonnegative. Charged events remain
+observable even when their values are known. Compiler tests cover dynamic type errors,
+exact fuel boundaries, sibling branches and changing state in nested traversals.
+The compiler also tracks bounded offsets from an observed sequence length. A branch
+that compares that exact length with zero can prove a nonempty range endpoint such
+as `length - 1`. These source-specific facts permit zero-cost clamp removal and
+immutable endpoint reuse; they do not suppress charged events or operand evaluation.
+
+CPU builtin calls borrow their contiguous argument range from the VM stack for the
+duration of the call. The stack consumes those operands after the builtin returns.
+This avoids a temporary argument-vector allocation while preserving arity, underflow,
+unknown-builtin and value-error ordering. The vector-based C++ entrypoint remains a
+wrapper around the borrowed-range entrypoint.
+The CPU operand stack keeps its first eight non-owning values inline and grows into
+retained heap storage when necessary. This is an allocation optimization, not an
+execution limit. Stack-growth and builtin tests cover preserved operands and fuel
+boundaries after spilling.
+Local storage similarly keeps up to sixteen slots inline and allocates larger
+storage when required; initialization and bounds checks remain the same.
+CPU `INDEX` copies only the selected element while holding the payload registry
+lock, avoiding a full-container temporary. The builtin still validates the sequence,
+index type and logical bounds before looking up payload data, and retains the existing
+fallback-token behavior when no element is resident.
+
+
+The transition-only `gagp_transition` library provides LinearRec-to-general-AST
+lowering for differential validation. Production executables do not link it.
+It checks start before sequence, retains lazy empty/last/step selection, binds the
+last element once, and traverses the preceding range in reverse. Semantic profiles
+encode the old charging order without a runtime package-name condition. Copying
+respects legacy binder shadowing and isolated ASGP phase scopes; introduced native
+IDs are globally fresh. The transform copies each source subtree once and remaps
+retained metadata in a separate linear pass; it does not unroll sequence elements.

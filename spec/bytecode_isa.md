@@ -89,7 +89,8 @@ adds source-language behavior beyond the public grammar contract.
 
 ## Fuel and Errors
 
-Before each instruction or equivalent lowered operation:
+Without an explicit semantic fuel schedule, before each instruction or equivalent
+lowered operation:
 
 ```text
 if fuel == 0:
@@ -98,6 +99,28 @@ else:
     fuel -= 1
     execute operation
 ```
+
+The staged CPU semantic fuel extension permits an optional parallel
+`instruction_fuel` array on each code block. An absent or empty array retains the
+unit-cost contract above. A nonempty array has exactly one integer in
+`[0, INT_MAX]` per instruction. Before executing an instruction, compare the
+remaining fuel with its cost: insufficient fuel returns `Timeout`; otherwise
+subtract the cost and execute. A zero-cost instruction may execute with zero
+remaining fuel. Charges precede operation validation, so an exhausted budget
+wins over an error that the operation would otherwise produce. A charge cannot
+be moved across a potentially failing operation while preserving semantics.
+
+Every cycle in a block's control-flow graph must contain a positive-cost
+instruction. Validation checks even unreachable zero-cost cycles and rejects
+invalid schedules as `invalid_fuel_schedule`. This is an intraprocedural rule;
+existing structured-call entry charges remain in force. Raw CPU execution also
+bounds consecutive zero-cost steps by the block's instruction count and returns
+`ValueError` for an unmetered cycle when verification was bypassed.
+
+This schedule encodes semantic charges on lowered operations without changing
+instruction layout. The current GPU runtime explicitly rejects any nonempty
+schedule, including schedules in nested phases, until the general GPU execution
+path supports them. It must never silently execute such a program with unit costs.
 
 Structured expressions and ASGP schemes must not bypass fuel accounting.
 

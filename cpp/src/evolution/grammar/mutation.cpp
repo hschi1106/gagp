@@ -61,7 +61,7 @@ ProgramGenome mutate(const ProgramGenome& genome, std::uint64_t seed,
     return variation_detail::fallback(parent, context);
   }
   return variation_detail::accept(variation_detail::splice(parent.ast, site,
-      donor.genome.ast, donor.payload), parent, context);
+      donor.genome.ast, donor.payload, site.occurrence_binder_ids.front()), parent, context);
 }
 
 }  // namespace gagp::evo

@@ -84,11 +84,20 @@ Use these when exact container behavior should be available later.
 - `register_list()`
 - `lookup_string()`
 - `lookup_list()`
+- `lookup_index()`
 - `clear()`
 - `retain_only()`
 - `stats()`
 
 `clear()` drops the registry contents without invalidating existing `Value` tokens. After that, the same `Value` may still exist, but exact payload lookup will fail.
+
+`lookup_index()` copies one selected value under the registry mutex rather than
+copying a complete container. It returns false for absent payload, invalid arguments,
+or an index outside the registered payload. CPU `INDEX` checks logical bounds first
+and uses its existing fallback token when this lookup cannot provide an element.
+String lookup preserves the frozen CPU byte behavior; the inherited difference
+from the normative character contract is recorded in the
+[semantic coverage ledger](../reference/grammar-migration/semantic-coverage.md#inherited-utf-8-string-discrepancy).
 `retain_only()` keeps only the live payload-token closure reachable from a root value set; for list payloads this recursively keeps any referenced element payloads such as strings inside a `StringList`.
 
 ### Snapshot export

@@ -9,11 +9,46 @@
 #include <algorithm>
 #include <map>
 #include <set>
+#include <tuple>
 #include <stdexcept>
 
 namespace gagp::evo::grammar {
 namespace {
-using ProductionDecisions = std::map<std::pair<std::uint32_t, std::size_t>, std::uint32_t>;
+using MatchKey = std::tuple<std::uint32_t, std::size_t, std::vector<int>>;
+using ProductionDecisions = std::map<MatchKey, std::uint32_t>;
+
+// Scope maps are positions in compiled environments, not public AST binder IDs.
+struct LexicalScope {
+  std::vector<int>& environment;
+  std::vector<int> saved;
+  explicit LexicalScope(std::vector<int>& env) : environment(env), saved(env) {}
+  LexicalScope(std::vector<int>& env, const std::vector<std::uint32_t>& mapping)
+      : environment(env), saved(env) {
+    environment.clear();
+    for (auto slot : mapping) environment.push_back(saved.at(slot));
+  }
+  ~LexicalScope() { environment = std::move(saved); }
+};
+
+const LexicalRegion& region_at(const AstProgram& ast, std::size_t index) {
+  for (const auto& region : ast.lexical_regions)
+    if (region.node_index == index) return region;
+  throw std::logic_error("verified AST is missing lexical region metadata");
+}
+TraversalDirection direction_at(const AstProgram& ast, std::size_t index) {
+  for (const auto& traversal : ast.traversal_specs)
+    if (traversal.node_index == index) return traversal.direction;
+  throw std::logic_error("verified AST is missing traversal metadata");
+}
+void extend_region_scope(std::vector<int>& environment, const CompiledExpression& source,
+                         const AstProgram& ast, std::size_t index, std::size_t argument) {
+  for (const auto& region : source.regions) {
+    if (region.argument != argument) continue;
+    const auto& native = region_at(ast, index);
+    for (const auto& binding : native.bindings) environment.push_back(binding.id);
+  }
+}
+
 class Matcher {
  public:
   Matcher(const CompiledGrammar& grammar, const AstProgram& ast, const GenerationRequest& request, bool record_decisions = false, bool capture_exact_scopes = false, const GenerationFrame* frame = nullptr)
@@ -22,6 +57,8 @@ class Matcher {
   void run() {
     (void)validate_request(grammar_, request_);
     grammar_.require_executable(request_.nonterminal);
+    if (!ast_.fuel_specs.empty())
+      fail("source fuel profiles are not declared by this compiled grammar");
     if (ast_.nodes.empty() || ast_.nodes.size() > request_.budget.max_nodes)
       fail("materialized node budget exceeded or empty AST");
     std::vector<int> pending{1};
@@ -35,12 +72,17 @@ class Matcher {
       if (arity) pending.push_back(arity);
     }
     for (auto count : pending) if (count) fail("missing prefix children");
-    std::vector<InputSpec> inputs;
-    if (frame_) inputs = frame_inputs(grammar_, request_, *frame_);
-    else for (const auto& input : grammar_.inputs()) inputs.push_back({input.name, input.type});
     VerifyOptions options;
     options.capture_exact_scopes = capture_exact_scopes_;
-    const auto result = verify_ast(ast_, inputs, options);
+    AstVerifyResult result;
+    if (frame_) {
+      const auto projected = project_frame(grammar_, request_, *frame_, ast_);
+      result = verify_ast(projected.ast, projected.inputs, options);
+    } else {
+      std::vector<InputSpec> inputs;
+      for (const auto& input : grammar_.inputs()) inputs.push_back({input.name, input.type});
+      result = verify_ast(ast_, inputs, options);
+    }
     if (!result) fail("native verification: " + result.diagnostic.message);
     verified_ = result.verified;
     const auto& entry = grammar_.nonterminals()[request_.nonterminal];
@@ -55,15 +97,18 @@ class Matcher {
         fail("expression entry requires its single-return envelope");
       start = 3;
     }
+    lexical_environment_ = frame_ ? frame_environment(grammar_, request_, *frame_) :
+        std::vector<int>(entry.scope.size(), -1);
     if (!nonterminal(request_.nonterminal, start)) fail("AST cannot be derived from the grammar entry");
   }
   const VerifiedAst& verified() const { return verified_; }
   VerifiedAst take_verified() { return std::move(verified_); }
   const ProductionDecisions& decisions() const { return decisions_; }
  private:
+  struct HoleMatch { std::size_t index; std::vector<int> environment; };
   struct Instance {
     std::uint32_t template_id;
-    std::map<std::uint32_t, std::size_t> holes;
+    std::map<std::uint32_t, HoleMatch> holes;
   };
   [[noreturn]] static void fail(const std::string& reason) {
     throw std::invalid_argument("grammar membership: " + reason);
@@ -76,9 +121,31 @@ class Matcher {
     }
     ~Frame() { --owner.depth_; }
   };
-  bool same_subtree(std::size_t left, std::size_t right) const {
+  bool same_subtree(std::size_t left, std::size_t right,
+                    const std::vector<int>& left_environment,
+                    const std::vector<int>& right_environment) const {
     const auto size = verified_.subtree_end[left] - left;
     if (verified_.subtree_end[right] - right != size) return false;
+    if (left_environment.size() != right_environment.size()) return false;
+    std::map<int, int> ids;
+    for (std::size_t i = 0; i < left_environment.size(); ++i)
+      if (left_environment[i] >= 0) ids.emplace(left_environment[i], right_environment[i]);
+    for (std::size_t offset = 0; offset < size; ++offset) {
+      const auto& a = ast_.nodes[left + offset];
+      const auto& b = ast_.nodes[right + offset];
+      if (a.kind != b.kind) return false;
+      if (node_descriptor(a.kind).metadata == NodeMetadataKind::LexicalRegion) {
+        const auto& x = region_at(ast_, left + offset);
+        const auto& y = region_at(ast_, right + offset);
+        if (x.body_argument != y.body_argument || x.bindings.size() != y.bindings.size()) return false;
+        for (std::size_t i = 0; i < x.bindings.size(); ++i) {
+          if (x.bindings[i].type != y.bindings[i].type) return false;
+          if (!ids.emplace(x.bindings[i].id, y.bindings[i].id).second) return false;
+        }
+        if (a.kind != NodeKind::LET_REGION &&
+            direction_at(ast_, left + offset) != direction_at(ast_, right + offset)) return false;
+      }
+    }
     for (std::size_t offset = 0; offset < size; ++offset) {
       const auto& a = ast_.nodes[left + offset];
       const auto& b = ast_.nodes[right + offset];
@@ -87,6 +154,10 @@ class Matcher {
       const auto equal_index = [&](NodeIndexRole role, int x, int y) {
         if (role == NodeIndexRole::Name) return ast_.names[x] == ast_.names[y];
         if (role == NodeIndexRole::Constant) return constants_[x] == constants_[y];
+        if (role == NodeIndexRole::BinderId) {
+          const auto found = ids.find(x);
+          return found == ids.end() ? x == y : found->second == y;
+        }
         return x == y;
       };
       if (!equal_index(descriptor.i0_role, a.i0, b.i0) ||
@@ -96,7 +167,7 @@ class Matcher {
   }
   bool nonterminal(std::uint32_t id, std::size_t index) {
     Frame frame(*this);
-    const auto key = std::make_pair(id, index);
+    const auto key = std::make_tuple(id, index, lexical_environment_);
     // Nonterminal definitions cannot capture holes of a caller's template;
     // each production's holes are enclosed by its own compiled Template node.
     // Therefore success has no side effects on the caller's hole bindings.
@@ -125,26 +196,36 @@ class Matcher {
   bool expression(std::uint32_t id, std::size_t index) {
     Frame frame(*this);
     const auto& source = grammar_.expressions()[id];
-    if (source.kind == ExpressionKind::Reference) return nonterminal(source.target, index);
+    if (source.kind == ExpressionKind::Reference) {
+      LexicalScope scope(lexical_environment_, source.scope_mapping);
+      return nonterminal(source.target, index);
+    }
     if (source.kind == ExpressionKind::Template) {
+      LexicalScope scope(lexical_environment_, source.scope_mapping);
       instances_.push_back({source.target, {}});
       const bool matches = expression(source.children.at(0), index);
       instances_.pop_back();
       return matches;
     }
     if (source.kind == ExpressionKind::Hole) {
+      LexicalScope scope(lexical_environment_, source.scope_mapping);
       auto owner = instances_.size();
       while (owner && instances_[owner - 1].template_id != source.template_id) --owner;
       if (!owner) fail("compiled hole has no enclosing template instance");
       // Child evaluation can append instances and invalidate references.
       const auto found = instances_[owner - 1].holes.find(source.target);
-      if (found != instances_[owner - 1].holes.end() && !same_subtree(found->second, index)) return false;
+      if (found != instances_[owner - 1].holes.end() && !same_subtree(found->second.index, index, found->second.environment, lexical_environment_)) return false;
       if (!expression(source.children.at(0), index)) return false;
-      instances_[owner - 1].holes.emplace(source.target, index);
+      instances_[owner - 1].holes.emplace(source.target, HoleMatch{index, lexical_environment_});
       return true;
     }
     const auto& node = ast_.nodes[index];
     if (source.kind == ExpressionKind::Constant) return constant(source.target, node);
+    if (source.kind == ExpressionKind::Bound) {
+      const int expected = lexical_environment_.at(source.target);
+      return expected >= 0 && node.kind == NodeKind::REGION_VAR && node.i0 == expected &&
+          verified_.expression_types[index] == source.type;
+    }
     if (source.kind == ExpressionKind::Input || source.kind == ExpressionKind::Local) {
       const auto& name = source.kind == ExpressionKind::Input ?
           grammar_.inputs()[source.target].name : grammar_.locals()[source.target].name;
@@ -156,6 +237,9 @@ class Matcher {
       const auto& signature = PrimitiveCatalog::standard().at(source.target);
       if (!signature.lowering_node) fail("primitive has no native membership contract");
       expected = *signature.lowering_node;
+      if (node.kind != expected) return false;
+      if (signature.traversal_direction &&
+          direction_at(ast_, index) != *signature.traversal_direction) return false;
     } else if (source.kind == ExpressionKind::Control) {
       const auto& signature = PrimitiveCatalog::standard().control_signatures()[source.target];
       expected = signature.lowering_node;
@@ -165,8 +249,10 @@ class Matcher {
     if (node.kind != expected) return false;
     if (source.category == NodeCategory::Expression && verified_.expression_types[index] != source.type) return false;
     auto child_index = index + 1;
-    for (auto child : source.children) {
-      if (!expression(child, child_index)) return false;
+    for (std::size_t argument = 0; argument < source.children.size(); ++argument) {
+      LexicalScope scope(lexical_environment_);
+      extend_region_scope(lexical_environment_, source, ast_, index, argument);
+      if (!expression(source.children[argument], child_index)) return false;
       child_index = verified_.subtree_end[child_index];
     }
     return child_index == verified_.subtree_end[index];
@@ -177,7 +263,8 @@ class Matcher {
   VerifiedAst verified_;
   std::vector<std::string> constants_;
   std::vector<Instance> instances_;
-  std::set<std::pair<std::uint32_t, std::size_t>> active_, accepted_;
+  std::set<MatchKey> active_, accepted_;
+  std::vector<int> lexical_environment_;
   ProductionDecisions decisions_;
   bool record_decisions_ = false;
   bool capture_exact_scopes_ = false;
@@ -190,9 +277,11 @@ class Matcher {
 class WitnessBuilder {
  public:
   WitnessBuilder(const CompiledGrammar& grammar, const ProgramGenome& genome,
-      const GenerationRequest& request, const Matcher& matcher, const GenerationFrame* frame = nullptr)
+      const GenerationRequest& request, const Matcher& matcher, const GenerationFrame* frame = nullptr,
+      std::vector<std::vector<int>>* choice_lexical_environments = nullptr)
       : grammar_(grammar), genome_(genome), verified_(matcher.verified()),
-        decisions_(matcher.decisions()), frame_(frame) {
+        decisions_(matcher.decisions()), frame_(frame),
+        choice_lexical_environments_out_(choice_lexical_environments) {
     out_.seed_replayable = false;
     out_.request = request;
     out_.request_scope_mapping = validate_request(grammar, request);
@@ -202,25 +291,41 @@ class WitnessBuilder {
     out_.nodes.resize(genome.ast.nodes.size());
   }
   DerivationMetadata run() {
+    if (choice_lexical_environments_out_) choice_lexical_environments_out_->clear();
     const auto nt = out_.request.nonterminal;
     const bool wrap = grammar_.nonterminals()[nt].category == NodeCategory::Expression;
     if (wrap) {
       for (const auto index : {std::size_t{0}, std::size_t{1}, std::size_t{2}, out_.nodes.size() - 1})
         out_.nodes[index].fixed = true;
     }
+    lexical_environment_ = frame_ ? frame_environment(grammar_, out_.request, *frame_) :
+        std::vector<int>(grammar_.nonterminals()[nt].scope.size(), -1);
     derive(nt, wrap ? 3 : 0);
     out_.derived_nodes = static_cast<std::uint32_t>(genome_.ast.nodes.size() - (wrap ? 4 : 0));
-    std::vector<std::string> inputs;
-    if (frame_) {
-      for (const auto& input : frame_inputs(grammar_, out_.request, *frame_)) inputs.push_back(input.name);
-    } else for (const auto& input : grammar_.inputs()) inputs.push_back(input.name);
-    const auto lowered = compile_for_eval(genome_, verified_, inputs);
+    const auto lowered = [&] {
+      if (frame_) {
+        auto projected = project_frame(grammar_, out_.request, *frame_, genome_.ast);
+        auto projected_genome = genome_;
+        projected_genome.ast = std::move(projected.ast);
+        std::vector<std::string> inputs;
+        for (const auto& input : projected.inputs) inputs.push_back(input.name);
+        return compile_for_eval(projected_genome, verified_, inputs);
+      }
+      std::vector<std::string> inputs;
+      for (const auto& input : grammar_.inputs()) inputs.push_back(input.name);
+      return compile_for_eval(genome_, verified_, inputs);
+    }();
     if (!lowered.asgp_dc_segments.empty() || !lowered.asgp_dp1d_segments.empty() ||
         !lowered.asgp_dp2d_segments.empty())
       throw std::invalid_argument("grammar witness cannot certify specialized bytecode segments");
     if (lowered.code.size() > kGrammarMaxLoweredInstructions)
       throw std::invalid_argument("grammar witness exceeds 1048576 lowered instructions");
     out_.lowered_instructions = static_cast<std::uint32_t>(lowered.code.size());
+    if (choice_lexical_environments_out_) {
+      if (choice_lexical_environments_.size() != out_.choices.size())
+        throw std::logic_error("grammar witness lexical sidecar lost choice alignment");
+      *choice_lexical_environments_out_ = std::move(choice_lexical_environments_);
+    }
     return std::move(out_);
   }
  private:
@@ -231,6 +336,8 @@ class WitnessBuilder {
     std::vector<NodeOrigin> nodes;
     std::vector<DerivationChoice> choices;
     std::vector<HoleOccurrence> holes;
+    std::vector<std::vector<int>> choice_lexical_environments;
+    std::vector<int> environment;
   };
   struct Instance {
     std::uint32_t template_id;
@@ -257,11 +364,13 @@ class WitnessBuilder {
   }
   void derive(std::uint32_t nt, std::size_t index) {
     Frame frame(*this);
-    const auto production = decisions_.at({nt, index});
+    const auto production = decisions_.at(std::make_tuple(nt, index, lexical_environment_));
     const auto parent = current_choice_;
     current_choice_ = static_cast<std::uint32_t>(out_.choices.size());
     out_.choices.push_back({nt, production, parent, static_cast<std::uint32_t>(index),
         static_cast<std::uint32_t>(verified_.subtree_end[index]), active_slot_.first, active_slot_.second, static_cast<std::uint32_t>(instances_.size())});
+    if (choice_lexical_environments_out_)
+      choice_lexical_environments_.push_back(lexical_environment_);
     expression(grammar_.productions()[production].expression, index, production, nt);
     current_choice_ = parent;
   }
@@ -273,9 +382,11 @@ class WitnessBuilder {
     const auto end = static_cast<std::uint32_t>(verified_.subtree_end[index]);
     if (slot.begin == kNoGrammarId) {
       slot.begin = begin;
+      slot.environment = lexical_environment_;
       slot.enclosing_depth = static_cast<std::uint32_t>(instances_.size());
       slot.choice_begin = static_cast<std::uint32_t>(out_.choices.size());
       const auto hole_begin = out_.holes.size();
+      const auto choice_environment_begin = choice_lexical_environments_.size();
       const auto saved_slot = active_slot_;
       active_slot_ = {instance.instance, source.target};
       expression(source.children.at(0), index, production, nt);
@@ -283,6 +394,10 @@ class WitnessBuilder {
       slot.nodes.assign(out_.nodes.begin() + begin, out_.nodes.begin() + end);
       slot.choices.assign(out_.choices.begin() + slot.choice_begin, out_.choices.end());
       slot.holes.assign(out_.holes.begin() + hole_begin, out_.holes.end());
+      if (choice_lexical_environments_out_)
+        slot.choice_lexical_environments.assign(
+            choice_lexical_environments_.begin() + choice_environment_begin,
+            choice_lexical_environments_.end());
     } else {
       if (end - begin != slot.nodes.size() || begin < slot.begin)
         throw std::logic_error("grammar witness has inconsistent repeated hole spans");
@@ -298,6 +413,25 @@ class WitnessBuilder {
         out_.nodes[index].template_depth = shifted_depth(out_.nodes[index].template_depth);
       const auto shift = begin - slot.begin;
       const auto choice_begin = static_cast<std::uint32_t>(out_.choices.size());
+      std::map<int, int> alpha;
+      if (choice_lexical_environments_out_) {
+        if (slot.environment.size() != lexical_environment_.size())
+          throw std::logic_error("grammar witness repeated hole changed its formal lexical arity");
+        for (std::size_t i = 0; i < slot.environment.size(); ++i)
+          if (slot.environment[i] >= 0)
+            alpha.emplace(slot.environment[i], lexical_environment_[i]);
+        for (std::size_t offset = 0; offset < end - begin; ++offset) {
+          if (node_descriptor(genome_.ast.nodes[slot.begin + offset].kind).metadata !=
+              NodeMetadataKind::LexicalRegion) continue;
+          const auto& first = region_at(genome_.ast, slot.begin + offset);
+          const auto& current = region_at(genome_.ast, begin + offset);
+          if (first.bindings.size() != current.bindings.size())
+            throw std::logic_error("grammar witness repeated hole changed lexical binding arity");
+          for (std::size_t i = 0; i < first.bindings.size(); ++i)
+            if (!alpha.emplace(first.bindings[i].id, current.bindings[i].id).second)
+              throw std::logic_error("grammar witness repeated hole reused a lexical binding ID");
+        }
+      }
       for (auto choice : slot.choices) {
         choice.enclosing_template_depth = shifted_depth(choice.enclosing_template_depth);
         choice.parent = choice.parent >= slot.choice_begin &&
@@ -305,6 +439,18 @@ class WitnessBuilder {
             choice_begin + choice.parent - slot.choice_begin : current_choice_;
         choice.ast_begin += shift; choice.ast_end += shift;
         out_.choices.push_back(choice);
+      }
+      if (choice_lexical_environments_out_) {
+        for (auto environment : slot.choice_lexical_environments) {
+          for (auto& id : environment) {
+            if (id < 0) continue;
+            const auto mapped = alpha.find(id);
+            if (mapped == alpha.end())
+              throw std::logic_error("grammar witness repeated hole lost a lexical binding mapping");
+            id = mapped->second;
+          }
+          choice_lexical_environments_.push_back(std::move(environment));
+        }
       }
       for (auto occurrence : slot.holes) {
         occurrence.ast_begin += shift; occurrence.ast_end += shift;
@@ -317,8 +463,12 @@ class WitnessBuilder {
       std::uint32_t production, std::uint32_t nt) {
     Frame frame(*this);
     const auto& source = grammar_.expressions()[id];
-    if (source.kind == ExpressionKind::Reference) { derive(source.target, index); return; }
+    if (source.kind == ExpressionKind::Reference) {
+      LexicalScope scope(lexical_environment_, source.scope_mapping);
+      derive(source.target, index); return;
+    }
     if (source.kind == ExpressionKind::Template) {
+      LexicalScope scope(lexical_environment_, source.scope_mapping);
       if (instances_.size() >= 256)
         throw std::invalid_argument("grammar witness exceeds 256 nested template instances");
       const auto instance = static_cast<std::uint32_t>(out_.templates.size());
@@ -328,15 +478,20 @@ class WitnessBuilder {
       instances_.pop_back();
       return;
     }
-    if (source.kind == ExpressionKind::Hole) { hole(source, index, production, nt); return; }
+    if (source.kind == ExpressionKind::Hole) {
+      LexicalScope scope(lexical_environment_, source.scope_mapping);
+      hole(source, index, production, nt); return;
+    }
     NodeOrigin origin{id, production, nt, out_.logical_steps, kNoGrammarId, kNoGrammarId, source.fixed};
     if (source.fixed) origin.template_instance = owner(source.template_id).instance;
     else { origin.template_instance = active_slot_.first; origin.slot = active_slot_.second; }
     origin.template_depth = static_cast<std::uint32_t>(instances_.size());
     out_.nodes[index] = origin;
     auto child_index = index + 1;
-    for (auto child : source.children) {
-      expression(child, child_index, production, nt);
+    for (std::size_t argument = 0; argument < source.children.size(); ++argument) {
+      LexicalScope scope(lexical_environment_);
+      extend_region_scope(lexical_environment_, source, genome_.ast, index, argument);
+      expression(source.children[argument], child_index, production, nt);
       child_index = verified_.subtree_end[child_index];
     }
   }
@@ -350,6 +505,9 @@ class WitnessBuilder {
   std::uint32_t current_choice_ = kNoGrammarId;
   std::pair<std::uint32_t, std::uint32_t> active_slot_{kNoGrammarId, kNoGrammarId};
   std::vector<std::unique_ptr<Instance>> instances_;
+  std::vector<int> lexical_environment_;
+  std::vector<std::vector<int>> choice_lexical_environments_;
+  std::vector<std::vector<int>>* choice_lexical_environments_out_ = nullptr;
 };
 }  // namespace
 
@@ -368,14 +526,16 @@ DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const 
 
 DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const ProgramGenome& genome,
     const GenerationRequest& request) {
-  return reconstruct_derivation(grammar, genome, request, nullptr);
+  return reconstruct_derivation(grammar, genome, request, nullptr, nullptr);
 }
 
 DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const ProgramGenome& genome,
-    const GenerationRequest& request, VerifiedAst* verified) {
+    const GenerationRequest& request, VerifiedAst* verified,
+    std::vector<std::vector<int>>* choice_lexical_environments) {
   Matcher matcher(grammar, genome.ast, request, true, verified != nullptr);
   matcher.run();
-  auto witness = WitnessBuilder(grammar, genome, request, matcher).run();
+  auto witness = WitnessBuilder(grammar, genome, request, matcher, nullptr,
+      choice_lexical_environments).run();
   if (verified) *verified = matcher.take_verified();
   return witness;
 }
@@ -386,10 +546,12 @@ void require_membership_in_frame(const CompiledGrammar& grammar, const ProgramGe
 }
 
 DerivationMetadata reconstruct_derivation_in_frame(const CompiledGrammar& grammar, const ProgramGenome& genome,
-    const GenerationRequest& request, const GenerationFrame& frame, VerifiedAst* verified) {
+    const GenerationRequest& request, const GenerationFrame& frame, VerifiedAst* verified,
+    std::vector<std::vector<int>>* choice_lexical_environments) {
   Matcher matcher(grammar, genome.ast, request, true, verified != nullptr, &frame);
   matcher.run();
-  auto witness = WitnessBuilder(grammar, genome, request, matcher, &frame).run();
+  auto witness = WitnessBuilder(grammar, genome, request, matcher, &frame,
+      choice_lexical_environments).run();
   if (verified) *verified = matcher.take_verified();
   return witness;
 }

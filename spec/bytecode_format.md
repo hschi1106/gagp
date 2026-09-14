@@ -47,6 +47,35 @@ Fields:
 - `shared_cases` is the required list of shared input cases.
 - `shared_answer` is optional expected-output data for fitness paths.
 
+## Optional lexical region metadata
+
+The staged CPU AST forms append `LET_REGION`, `TRAVERSE`, `TRAVERSE_RANGE`, and
+`REGION_VAR` numeric kinds after the existing kinds. Their prefix arities are
+respectively 2, 4, 6, and 0. `REGION_VAR.i0` is a declaration ID; all other index
+fields on these forms are zero. Optional `lexical_regions` rows contain
+`node_index`, `body_argument`, and ordered `bindings` objects with `id` and `type`.
+Types use the eight exact names such as `Int`, `Char`, and `StringList`.
+
+Every LetRegion has one row with body argument 1 and one binding. Every Traverse
+has one row with body argument 3 and three bindings; TraverseRange uses body
+argument 5 and three bindings. Only those body arguments see the declarations.
+Every traversal also has one `traversal_specs` row containing `node_index` and
+`direction` (`"forward"` or `"reverse"`). Duplicate declarations or metadata,
+missing rows, wrong owners/body slots/arity, invalid types or directions, and
+out-of-scope references are rejected. Empty metadata arrays are omitted when
+writing legacy ASTs so their serialized representation is preserved.
+
+## Optional semantic fuel schedule
+
+A bytecode program or nested phase may contain `"instruction_fuel": [3, 0]`
+when its `code` array contains two instructions. Omission and `[]` select legacy
+unit charging. A nonempty schedule must match the code length exactly and contain
+only integers from zero through `INT_MAX`; `null` is invalid. Invalid zero-cost
+control-flow cycles are rejected at the decode boundary. See the
+[ISA fuel contract](./bytecode_isa.md#fuel-and-errors) for charge ordering.
+This staged extension is executable on CPU only; GPU execution explicitly rejects
+nonempty schedules in the root or any nested phase.
+
 ## Value Encoding
 
 Supported values:
@@ -371,3 +400,13 @@ the scenario form so every group carries its semantic intent.
 Fixtures must not contain retired value tags. Program decoding runs the
 bytecode verifier before any case is executed, so malformed representation is
 covered by verifier/codec tests rather than encoded as a runtime-error case.
+
+
+Source ASTs may carry optional `fuel_specs` rows of the form
+`{"node_index":3,"charges":[{"event":"operation","cost":2}]}`. Owners must be
+unique in-bounds node indexes; charges must be nonempty with unique event names
+supported by the owner node kind. Numeric fields are finite integral values and
+costs lie in [0, INT_MAX]. Rows and charges count toward metadata limits. The field
+is omitted when empty. Event names and semantics are specified in grammar.md.
+Lowering emits the existing parallel `instruction_fuel` schedule, with zero-cost
+administrative instructions; no instruction-layout or opcode extension is needed.

@@ -48,6 +48,7 @@ else()
 endif()
 
 add_library(gagp_core
+  src/runtime/semantic_fuel.cpp
   src/runtime/bytecode_verify.cpp
 )
 target_include_directories(gagp_core PUBLIC include)
@@ -62,6 +63,7 @@ target_include_directories(gagp_runtime_cpu PUBLIC include)
 target_link_libraries(gagp_runtime_cpu PUBLIC gagp_core)
 
 add_library(gagp_evolution
+  src/evolution/fuel_events.cpp
   src/evolution/ast_program.cpp
   src/evolution/node_descriptor.cpp
   src/evolution/case_set.cpp
@@ -355,6 +357,7 @@ if(GAGP_HAS_CUDA)
     src/evolution/repro/gpu/copyback.cu
   )
   target_include_directories(gagp_gpu PUBLIC include)
+  target_link_libraries(gagp_gpu PUBLIC gagp_core)
   target_compile_definitions(gagp_evolution PUBLIC GAGP_HAS_CUDA=1)
   target_link_libraries(gagp_evolution PUBLIC gagp_gpu)
 
@@ -672,4 +675,111 @@ if(Python3_Interpreter_FOUND)
   set_tests_properties(gagp_test_repository_contract PROPERTIES
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
     LABELS "tooling;contract")
+endif()
+
+add_executable(gagp_test_semantic_fuel tests/runtime/test_semantic_fuel.cpp)
+target_link_libraries(gagp_test_semantic_fuel PRIVATE gagp_core)
+add_test(NAME gagp_test_semantic_fuel COMMAND gagp_test_semantic_fuel)
+set_tests_properties(gagp_test_semantic_fuel PROPERTIES LABELS "unit;contract")
+
+add_executable(gagp_test_semantic_fuel_execution tests/runtime/test_semantic_fuel_execution.cpp)
+target_link_libraries(gagp_test_semantic_fuel_execution PRIVATE gagp_cpu)
+add_test(NAME gagp_test_semantic_fuel_execution COMMAND gagp_test_semantic_fuel_execution)
+set_tests_properties(gagp_test_semantic_fuel_execution PROPERTIES LABELS "unit;contract")
+
+add_executable(gagp_test_builtin_arguments tests/runtime/test_builtin_arguments.cpp)
+target_link_libraries(gagp_test_builtin_arguments PRIVATE gagp_cpu)
+add_test(NAME gagp_test_builtin_arguments COMMAND gagp_test_builtin_arguments)
+set_tests_properties(gagp_test_builtin_arguments PROPERTIES LABELS "unit;contract")
+
+add_executable(gagp_test_value_stack tests/runtime/test_value_stack.cpp)
+target_link_libraries(gagp_test_value_stack PRIVATE gagp_cpu)
+add_test(NAME gagp_test_value_stack COMMAND gagp_test_value_stack)
+set_tests_properties(gagp_test_value_stack PROPERTIES LABELS "unit;contract")
+
+add_executable(gagp_test_payload_index tests/runtime/test_payload_index.cpp)
+target_link_libraries(gagp_test_payload_index PRIVATE gagp_cpu)
+add_test(NAME gagp_test_payload_index COMMAND gagp_test_payload_index)
+set_tests_properties(gagp_test_payload_index PROPERTIES LABELS "unit;contract")
+
+if(GAGP_HAS_CUDA)
+  add_executable(gagp_test_semantic_fuel_gpu_rejection tests/gpu/test_semantic_fuel_gpu_rejection.cpp)
+  target_include_directories(gagp_test_semantic_fuel_gpu_rejection PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+  target_link_libraries(gagp_test_semantic_fuel_gpu_rejection PRIVATE gagp_gpu)
+  add_test(NAME gagp_test_semantic_fuel_gpu_rejection COMMAND gagp_test_semantic_fuel_gpu_rejection)
+  set_tests_properties(gagp_test_semantic_fuel_gpu_rejection PROPERTIES LABELS "unit;contract;gpu")
+endif()
+
+add_executable(gagp_test_lexical_regions tests/evolution/test_lexical_regions.cpp)
+target_link_libraries(gagp_test_lexical_regions PRIVATE gagp_cli_support)
+add_test(NAME gagp_test_lexical_regions COMMAND gagp_test_lexical_regions)
+set_tests_properties(gagp_test_lexical_regions PROPERTIES LABELS "unit;contract")
+
+add_executable(gagp_test_region_codec tests/evolution/test_region_codec.cpp)
+target_link_libraries(gagp_test_region_codec PRIVATE gagp_cli_support)
+add_test(NAME gagp_test_region_codec COMMAND gagp_test_region_codec)
+set_tests_properties(gagp_test_region_codec PROPERTIES LABELS "unit;contract")
+
+add_executable(gagp_test_region_splice tests/evolution/test_region_splice.cpp)
+target_include_directories(gagp_test_region_splice PRIVATE src/evolution)
+target_link_libraries(gagp_test_region_splice PRIVATE gagp_cpu)
+add_test(NAME gagp_test_region_splice COMMAND gagp_test_region_splice)
+set_tests_properties(gagp_test_region_splice PROPERTIES LABELS "unit;contract")
+
+add_executable(gagp_test_grammar_regions tests/evolution/test_grammar_regions.cpp)
+target_link_libraries(gagp_test_grammar_regions PRIVATE gagp_cli_support)
+target_compile_definitions(gagp_test_grammar_regions PRIVATE GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+add_test(NAME gagp_test_grammar_regions COMMAND gagp_test_grammar_regions)
+set_tests_properties(gagp_test_grammar_regions PROPERTIES LABELS "contract;integration")
+
+add_executable(gagp_test_grammar_region_artifacts tests/evolution/test_grammar_region_artifacts.cpp)
+target_link_libraries(gagp_test_grammar_region_artifacts PRIVATE gagp_cli_support)
+add_test(NAME gagp_test_grammar_region_artifacts COMMAND gagp_test_grammar_region_artifacts)
+set_tests_properties(gagp_test_grammar_region_artifacts PROPERTIES LABELS "contract;integration")
+
+add_executable(gagp_test_grammar_region_variation tests/evolution/test_grammar_region_variation.cpp)
+target_link_libraries(gagp_test_grammar_region_variation PRIVATE gagp_cli_support)
+add_test(NAME gagp_test_grammar_region_variation COMMAND gagp_test_grammar_region_variation)
+set_tests_properties(gagp_test_grammar_region_variation PROPERTIES LABELS "contract;integration")
+
+add_executable(gagp_test_checked_values tests/evolution/test_checked_values.cpp)
+target_link_libraries(gagp_test_checked_values PRIVATE gagp_cpu)
+add_test(NAME gagp_test_checked_values COMMAND gagp_test_checked_values)
+set_tests_properties(gagp_test_checked_values PROPERTIES LABELS "contract;unit")
+
+add_executable(gagp_test_ast_fuel_codec tests/evolution/test_ast_fuel_codec.cpp)
+target_link_libraries(gagp_test_ast_fuel_codec PRIVATE gagp_cli_support)
+add_test(NAME gagp_test_ast_fuel_codec COMMAND gagp_test_ast_fuel_codec)
+set_tests_properties(gagp_test_ast_fuel_codec PROPERTIES LABELS "contract;unit")
+
+add_executable(gagp_test_source_fuel tests/evolution/test_source_fuel.cpp)
+target_link_libraries(gagp_test_source_fuel PRIVATE gagp_cpu)
+add_test(NAME gagp_test_source_fuel COMMAND gagp_test_source_fuel)
+set_tests_properties(gagp_test_source_fuel PROPERTIES LABELS "contract;unit")
+
+add_executable(gagp_test_fuel_optimization tests/evolution/test_fuel_optimization.cpp)
+target_link_libraries(gagp_test_fuel_optimization PRIVATE gagp_cpu)
+add_test(NAME gagp_test_fuel_optimization COMMAND gagp_test_fuel_optimization)
+set_tests_properties(gagp_test_fuel_optimization PROPERTIES LABELS "contract;unit")
+
+# Transition-only oracle adapter; production executables do not link this target.
+add_library(gagp_transition src/transition/linear_rec.cpp)
+target_include_directories(gagp_transition PUBLIC include)
+target_link_libraries(gagp_transition PUBLIC gagp_cpu)
+
+add_executable(gagp_test_linear_rec_transition tests/evolution/test_linear_rec_transition.cpp)
+target_link_libraries(gagp_test_linear_rec_transition PRIVATE gagp_transition)
+add_test(NAME gagp_test_linear_rec_transition COMMAND gagp_test_linear_rec_transition)
+set_tests_properties(gagp_test_linear_rec_transition PROPERTIES LABELS "contract;integration")
+
+add_executable(gagp_test_source_fuel_preservation tests/evolution/test_source_fuel_preservation.cpp)
+target_link_libraries(gagp_test_source_fuel_preservation PRIVATE gagp_cli_support)
+target_include_directories(gagp_test_source_fuel_preservation PRIVATE src/evolution)
+add_test(NAME gagp_test_source_fuel_preservation COMMAND gagp_test_source_fuel_preservation)
+set_tests_properties(gagp_test_source_fuel_preservation PROPERTIES LABELS "contract;integration")
+
+if(GAGP_BUILD_BENCHMARKS)
+  add_executable(gagp_benchmark_linear_transition
+    src/bench/benchmark_linear_transition.cpp src/bench/migration_snapshot.cpp)
+  target_link_libraries(gagp_benchmark_linear_transition PRIVATE gagp_transition gagp_cli_support)
 endif()

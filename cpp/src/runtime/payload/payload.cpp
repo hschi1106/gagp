@@ -209,6 +209,26 @@ bool lookup_list(const Value& key, std::vector<Value>* out) {
   return true;
 }
 
+bool lookup_index(const Value& key, std::size_t index, Value* out) {
+  if (out == nullptr) return false;
+  const bool is_list = key.tag == ValueTag::IntList || key.tag == ValueTag::FloatList ||
+                       key.tag == ValueTag::StringList;
+  if (key.tag != ValueTag::String && !is_list) return false;
+
+  std::lock_guard<std::mutex> lock(g_mu);
+  if (key.tag == ValueTag::String) {
+    const auto it = g_strings.find(key_of(key));
+    if (it == g_strings.end() || index >= it->second.size()) return false;
+    *out = Value::from_char(static_cast<unsigned char>(it->second[index]));
+    return true;
+  }
+
+  const auto it = g_lists.find(key_of(key));
+  if (it == g_lists.end() || index >= it->second.size()) return false;
+  *out = it->second[index];
+  return true;
+}
+
 bool lookup_string_packed(std::int64_t packed, std::string* out) {
   if (out == nullptr) return false;
   std::lock_guard<std::mutex> lock(g_mu);

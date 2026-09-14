@@ -25,7 +25,10 @@ bool is_binary_expr(NodeKind kind) {
 }
 
 bool is_expr_kind(NodeKind kind) {
-  return kind == NodeKind::CONST || kind == NodeKind::VAR || kind == NodeKind::NEG || kind == NodeKind::NOT ||
+  return kind == NodeKind::LET_REGION || kind == NodeKind::TRAVERSE ||
+         kind == NodeKind::TRAVERSE_RANGE || kind == NodeKind::REGION_VAR ||
+         kind == NodeKind::CHECK_INT || kind == NodeKind::CHECK_LIST ||
+         kind == NodeKind::CONST || kind == NodeKind::VAR || kind == NodeKind::NEG || kind == NodeKind::NOT ||
          kind == NodeKind::IF_EXPR || is_binary_expr(kind) || kind == NodeKind::CALL_ABS ||
          kind == NodeKind::CALL_CLIP || kind == NodeKind::CALL_LEN || kind == NodeKind::CALL_SLICE ||
          kind == NodeKind::CALL_REVERSE || kind == NodeKind::CALL_CHAR_TO_STRING ||

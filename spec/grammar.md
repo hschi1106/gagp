@@ -977,3 +977,106 @@ cover top-level evolution, backend dispatch, direct GPU preparation and executio
 overlap start/finish, decoding, and low-level allocation/upload/launch/copyback. Guards
 run before CUDA operations or pointer access, including empty populations. Retaining
 contract IDs in host buffers does not imply that legacy kernels enforce them.
+
+## General lexical regions and traversal (staged CPU path)
+
+`LetRegion(initializer, body)` evaluates its initializer once, stores the value in
+an immutable lexical binding, and evaluates the body with that binding visible.
+The initializer cannot see its own binding. A nested body may capture enclosing
+lexical bindings. Ordinary variables and transitional named `BoundVar` bindings
+are separate namespaces. `RegionVar(id)` refers to a globally unique declaration
+ID in the current AST, independent of the ordinary name table. Declaration IDs
+are integers in `[0, INT_MAX)` and are immutable during execution; copying a region
+must explicitly rename introduced IDs to avoid capture.
+
+`Traverse(sequence, start_index, seed, step)` visits the whole sequence in its
+statically declared forward or reverse direction. `TraverseRange(sequence,
+start_index, begin, end, seed, step)` visits a half-open physical offset interval.
+Each endpoint is clamped independently to `[0, len(sequence)]`; an interval whose
+end is at most its beginning is empty. Forward order is beginning through end
+minus one; reverse order is end minus one through beginning.
+
+Traversal evaluates the sequence and index operands once in source order, then
+checks the index operands as exact Ints in source order and obtains the sequence
+length. It then evaluates the seed once, including for empty intervals. The step
+is evaluated only for visited elements. Its three immutable bindings, in order,
+are the current element, the Int index, and the current accumulator. The index is
+`ADD(start_index, physical_offset)` using the existing CPU ADD behavior;
+it is not an array-bound constraint. The initial accumulator is the seed. Each
+step returns the next accumulator, and traversal returns the final accumulator.
+
+Sequences are String, IntList, FloatList, or StringList. String elements are Char;
+there is no CharList. The element binding has exactly the sequence's element type,
+the index binding is exactly Int, and the accumulator binding, seed, step result,
+and traversal result share one of the eight exact public value types. All body
+branches are statically checked even when a branch is not executed. Runtime
+conditionals remain lazy. Traversal uses the existing len/index semantics and
+payload lifetime contract; it does not eagerly materialize the sequence or a slice.
+
+Bodies are static prefix-AST regions, not runtime closures. The initial CPU
+lowering uses hidden locals and a bounded-size loop, with no per-element grammar
+lookup. Compiled blocks containing these forms carry an explicit unit-cost fuel
+schedule unless explicit source semantic event profiles override its charging as
+described below.
+The staged GPU execution and reproduction paths reject these forms explicitly.
+
+Migration compatibility note: the frozen CPU ADD implementation converts Int
+operands through double before its wrapping helper. Large Ints can therefore lose
+precision: on the frozen reference, `9007199254740993 + 2` produces
+`9007199254740994`, and `INT64_MAX + 2` produces `INT64_MIN + 2`. Traversal index
+calculation preserves that measured behavior; it does not substitute idealized
+64-bit addition. Range endpoints are clamped by comparisons and selection, avoiding
+this numeric conversion. The boundary reference probe is recorded in the Goal05
+execution evidence; the existing scalar runtime is unchanged by this staged path.
+
+
+### Checked values (experimental CPU composition)
+
+`CHECK_INT(value)` evaluates its child once, applies the existing CHECK_INT bytecode
+validation and returns the unchanged value. Its static argument and result type are
+Int. `CHECK_LIST(value)` similarly applies CHECK_LIST and preserves its child's exact
+static IntList, FloatList or StringList type. At runtime CHECK_LIST accepts any of
+these three list tags; it does not resolve payload storage or convert elements.
+Both validations run after child evaluation and raise Type on an inadmissible tag.
+They remain lazy when placed in an unselected conditional branch. These general
+expressions allow validation order to be represented explicitly in a composition.
+Like the new lexical-region forms, they are rejected by experimental GPU execution
+and reproduction until the general GPU implementation is available.
+
+
+### Source semantic fuel events (experimental CPU)
+
+An AST may attach a `fuel_specs` row to a supported expression node. A row maps
+named semantic events to nonnegative costs bounded by INT_MAX; unspecified events
+of that profiled node cost one. Nodes without a profile retain unit instruction
+charging. Profiles never implicitly apply to child expressions. Costs are paid
+before the associated event; insufficient fuel produces Timeout before its effects
+or validation. Zero-cost events may execute with zero remaining fuel. The compiler
+rejects possible zero-cost control-flow cycles, including in Release builds.
+
+For a simple constant, variable, unary operation, arithmetic/comparison or builtin,
+`operation` applies after argument evaluation, at the operation itself. Boolean
+AND/OR and structured runtime expressions do not accept profiles. Let supports
+`bind`, after the initializer. IfExpr supports `branch_test` after the condition and
+`branch_merge` only when the then branch jumps over the else branch.
+
+Traversal supports the following ordered events; argument and body evaluations
+occur between these events and keep their own schedules:
+
+- `store_sequence`, `store_start`, and (for ranged traversal) `store_begin`,
+  `store_end`, each after evaluation of the corresponding argument.
+- `check_start` and, when ranged, `check_begin`, `check_end`, validating index values.
+- `observe_sequence`, obtaining and retaining the sequence length.
+- `clamp_begin`, `clamp_end` for ranged traversal; otherwise `set_begin`, `set_end`.
+- `initialize_state` after seed evaluation, then `initialize_cursor`.
+- `test_cursor` at every loop guard, including the final failed guard.
+- `read_element`, `bind_element`, `compute_index`, then step-body evaluation.
+- `update_state`, `advance_cursor`, `repeat` for each completed step.
+- `result` when loading the final state.
+
+Each event is charged once when entered, independent of the number of administrative
+instructions used to implement it. Grouped loads, stores and arithmetic carry zero
+additional cost within that event. Events and profiles have no package-name branch.
+Unselected branches and unentered loop bodies incur no charges. Profiles are
+materialized execution metadata; the current compiled grammar schema does not
+declare them, so grammar membership rejects unsolicited source profiles.

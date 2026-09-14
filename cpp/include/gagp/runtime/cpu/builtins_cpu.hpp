@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -15,6 +16,9 @@ struct BuiltinResult {
   Err err{ErrCode::Value, ""};
 };
 
+// Borrows the contiguous argument range for the duration of the call. args may
+// be null only when argc is zero.
+BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc);
 BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args);
 
 }  // namespace gagp

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -34,6 +35,9 @@ void register_list(const Value& key, const std::vector<Value>& elems);
 
 bool lookup_string(const Value& key, std::string* out);
 bool lookup_list(const Value& key, std::vector<Value>* out);
+// Copies one resident element under the registry lock. False means no element
+// is available at this index (including missing payload or invalid arguments).
+bool lookup_index(const Value& key, std::size_t index, Value* out);
 bool lookup_string_packed(std::int64_t packed, std::string* out);
 bool lookup_list_packed(ValueTag tag, std::int64_t packed, std::vector<Value>* out);
 

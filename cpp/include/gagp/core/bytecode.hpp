@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -23,6 +24,8 @@ struct PhaseProgram {
   int n_locals = 0;
   std::unordered_map<std::string, int> var2idx;
   std::unordered_map<int, int> binder_locals;
+  // Empty preserves legacy unit charges; otherwise one semantic cost per instruction.
+  std::vector<std::uint32_t> instruction_fuel;
 };
 
 struct AsgpDcSegment {
@@ -77,6 +80,8 @@ struct BytecodeProgram {
   std::vector<AsgpDcSegment> asgp_dc_segments;
   std::vector<AsgpDp1dSegment> asgp_dp1d_segments;
   std::vector<AsgpDp2dSegment> asgp_dp2d_segments;
+  // Empty preserves legacy unit charges; otherwise one semantic cost per instruction.
+  std::vector<std::uint32_t> instruction_fuel;
 };
 
 }  // namespace gagp

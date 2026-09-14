@@ -80,12 +80,43 @@ int main() {
     const auto sum = grammar.productions()[2]; // IDs sorted input, local, sum, zero.
     check(sum.stable_id == "Expr/sum" && sum.minimum_nodes_by_depth[1] == kNoGrammarId &&
           sum.minimum_nodes_by_depth[2] == 3, "minimum depth/node table");
-    rejects([&] { grammar.require_executable(); }, "execution is not implemented");
+    grammar.require_executable();
     const auto roundtrip = compile_grammar(parse_definition(grammar.canonical_definition()));
     check(roundtrip.content_hash() == grammar.content_hash(), "compiled identity roundtrip");
     for (std::size_t i = 0; i < grammar.productions().size(); ++i)
       check(grammar.productions()[i].stable_id == roundtrip.productions()[i].stable_id, "numeric IDs changed");
-    auto doc = json(custom);
+
+    auto doc = json(R"({
+      "format_version":"grammar-definition-v1",
+      "entry":{"nonterminal":"Expr","type":"Int"},
+      "inputs":[{"name":"xs","type":"IntList"}],
+      "search_limits":{"max_nodes":30,"max_depth":10},
+      "execution_limits":{"fuel":100},
+      "nonterminals":[
+        {"id":"Expr","type":"Int","scope":[],"alternatives":[
+          {"id":"fold","weight":1,"expression":{
+            "signature":"traverse_range_reverse(IntList,Int,Int,Int,Int,Int)->Int",
+            "args":[{"input":"xs"},{"constant":{"type":"Int","values":["0"]}},
+              {"constant":{"type":"Int","values":["0"]}},
+              {"constant":{"type":"Int","values":["3"]}},
+              {"constant":{"type":"Int","values":["0"]}},{"ref":"Step"}],
+            "bind":{"5":["element","index","accumulator"]}}}]},
+        {"id":"Step","type":"Int","scope":[
+          {"name":"element","type":"Int"},{"name":"index","type":"Int"},
+          {"name":"accumulator","type":"Int"}],"alternatives":[
+          {"id":"sum","weight":1,"expression":{"signature":"add(Int,Int)->Int",
+            "args":[{"bound":"accumulator"},{"bound":"element"}]}}]}
+      ]
+    })");
+    const auto ranged_traversal = compile(doc);
+    ranged_traversal.require_executable();
+    check(ranged_traversal.nonterminals()[0].minimum_nodes == 9,
+          "ranged traversal schema lost primitive or body materialization cost");
+    doc.object_v.at("nonterminals").array_v[1].object_v.at("scope").array_v.push_back(
+        json(R"({"name":"outside","type":"Int"})"));
+    rejects([&] { compile(doc); }, "not visible");
+
+    doc = json(custom);
     alternatives(doc).array_v[3].object_v.at("expression").object_v.at("args").array_v[0] = json(R"({"ref":"Narrow"})");
     rejects([&] { compile(doc); }, "not visible");
     doc = json(custom);

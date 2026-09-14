@@ -55,7 +55,7 @@ same imported files does not change identity. Modifying transitive content does.
 Canonical numbers use finite binary64 values with enough digits for round-trip;
 strings use UTF-8, escaping quotation marks, backslashes and control characters.
 The grammar identity is lowercase SHA-256 of the complete canonical resolved export,
-including `grammar-definition-v1`, `gagp-primitives-v1`, and normalization version `1`.
+including `grammar-definition-v1`, `gagp-primitives-v2`, and normalization version `1`.
 Export/parse/export is byte-idempotent. The compiler recomputes identity from the
 resolved model rather than trusting separately supplied cached strings or hashes.
 
@@ -93,9 +93,20 @@ Region-bearing signatures require `bind`, an object keyed by the zero-based regi
 argument index. Each value is an array of names in catalog binder order. For example,
 `let(Int,Int)->Int` has argument 1 as its body and requires `"bind":{"1":["x"]}`.
 The initializer cannot see `x`; the body can. `traverse` similarly declares element,
-index and accumulator bindings only in its step body. These two contracts currently
-compile but fail explicitly when execution is requested; general runtime support
-arrives in subsequent migration stages.
+index and accumulator bindings only in its step body. Closed regions generate,
+verify and execute on CPU. `traverse_reverse` reverses iteration order;
+`traverse_range` and `traverse_range_reverse` take sequence, start index, begin,
+end, seed and step arguments, with bindings on argument 5. Whole-sequence variants
+bind argument 3. Ranges clamp both endpoints to the sequence length and use a
+half-open interval. String elements have type Char; all eight accumulator types
+are supported. Experimental native regions are explicitly rejected on GPU.
+
+Scope mappings project ordered formal bindings onto native binder IDs. Repeated
+shared holes preserve one logical derivation while alpha-renaming introduced
+binders and mapping captured bindings to each occurrence's environment. Membership
+checks binder roles and traversal direction, accepting consistent alpha-renaming.
+The v2 catalog adds traversal signatures; numeric signature IDs and canonical
+identity are versioned accordingly.
 
 ## Constant domains
 
@@ -159,8 +170,7 @@ GPU paths.
 [custom_integer.json](../configs/grammar_definitions/custom_integer.json) selects
 Int constants/input/addition and a lexical region. Its `Narrow` nonterminal can use
 only the declared `x` binding, while `Expr` has no lexical bindings. It compiles to
-five productions; requesting execution currently rejects the declared `let`
-primitive until its runtime stage is implemented.
+five productions and supports CPU generation, membership and execution.
 
 [invalid_scope.json](../cpp/tests/fixtures/grammar/invalid_scope.json) moves the
 reference to `Narrow` into the let initializer. Compilation rejects it because `x`
@@ -433,9 +443,10 @@ bindings are permitted. The returned scope mapping indexes required bindings int
 caller's ordered environment, preserving lexical identity without type-only matching.
 Global input/local declarations remain those of the compiled grammar. Native verification
 still checks their actual availability in the materialized program. Actual bound-value
-execution remains unavailable until the general lexical runtime; a reachable Bound node
-fails preflight explicitly. Scoped rules that do not consume a bound value can still
-be generated and their scope contracts are retained.
+execution is supported within materialized lexical regions. A standalone request
+that consumes an external binding requires a materialization frame; generation
+rejects such a reference when no frame supplies it. Scoped rules that do not consume
+a bound value can still be generated and their scope contracts are retained.
 
 Generation, genome-generation and population-initialization overloads consume the same
 request. Membership has a corresponding request-aware overload; its default overload
@@ -449,3 +460,27 @@ reconstructs the request and validates the complete rematerialized artifact, inc
 scope mapping and requested return type. Materialized execution still checks native
 validity independently of generation provenance. Immutable genome provenance retains
 the complete request for later constrained variation.
+
+### Contextual lexical variation
+
+Variation reconstructs each selected nonterminal's ordered formal binder environment
+from the compiled scope mappings and the materialized regions. Each physical
+occurrence retains its own native IDs. Compatibility compares the formal contract,
+exact types and available ordinary locals; physical binder IDs do not make otherwise
+equivalent sites incompatible. A shared logical hole is replaced at all occurrences,
+with captured references mapped separately for each occurrence. Introduced donor
+binders are alpha-renamed as needed, including collisions with destination captures.
+
+An isolated donor frame may supply native binder IDs aligned with its request's
+visible environment. IDs must be unique, valid and disjoint from declarations inside
+the donor. Generation reserves those IDs when allocating new region bindings.
+Private verification and lowering project captured references onto fresh temporary
+input names without changing node positions. The stored donor retains REGION_VAR
+references and requires its frame; this does not extend the standalone artifact
+input contract or permit unbound references in materialized execution.
+
+
+The v2 primitive catalog also supplies `check_int(Int)->Int` and
+`check_list(T)->T` for T in IntList, FloatList and StringList. They lower to the
+checked-value expressions specified in grammar.md. They validate a value without
+introducing a binder, allocating a payload or enabling any structured runtime form.

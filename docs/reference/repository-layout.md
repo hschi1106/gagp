@@ -13,6 +13,7 @@ nearest component documentation, not here.
 | `cpp/include/gagp/` | Public native headers |
 | `cpp/src/runtime/` | CPU/GPU runtime and payload implementation |
 | `cpp/src/evolution/` | Compiler, generation, evaluation, selection, and reproduction |
+| `cpp/src/transition/` | Test-only lowering adapters for migration comparisons |
 | `cpp/src/cli/` | Native CLI parsing, codecs, commands, and output adaptation |
 | `cpp/src/bench/` | Opt-in native benchmarks |
 | `cpp/src/experiments/` | Opt-in experiment probes |
@@ -35,4 +36,3 @@ Generated `logs/`, build directories, downloaded datasets, and the historical
 ignored `experiment/` working directory are intentionally absent. The
 canonical maintained experiment protocol is
 [`../guides/experiment-protocol.md`](../guides/experiment-protocol.md).
-

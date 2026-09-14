@@ -130,9 +130,9 @@ long long ascii_to_upper(long long c) {
 
 }  // namespace
 
-BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
+BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
   if (id == BuiltinId::Abs) {
-    if (args.size() != 1) {
+    if (argc != 1) {
       return fail(ErrCode::Type, "abs expects 1 argument");
     }
     const Value& x = args[0];
@@ -147,7 +147,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::Min || id == BuiltinId::Max) {
-    if (args.size() != 2) {
+    if (argc != 2) {
       return fail(ErrCode::Type, std::string(builtin_name(id)) + " expects 2 arguments");
     }
     double a = 0.0;
@@ -164,7 +164,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::Clip) {
-    if (args.size() != 3) {
+    if (argc != 3) {
       return fail(ErrCode::Type, "clip expects 3 arguments: clip(x, lo, hi)");
     }
     const Value& x = args[0];
@@ -197,7 +197,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::IDiv0 || id == BuiltinId::IMod0) {
-    if (args.size() != 2) {
+    if (argc != 2) {
       return fail(ErrCode::Type, std::string(builtin_name(id)) + " expects 2 arguments");
     }
     const Value& a = args[0];
@@ -217,7 +217,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::Len) {
-    if (args.size() != 1) {
+    if (argc != 1) {
       return fail(ErrCode::Type, "len expects 1 argument");
     }
     const Value& x = args[0];
@@ -230,7 +230,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::Concat) {
-    if (args.size() != 2) {
+    if (argc != 2) {
       return fail(ErrCode::Type, "concat expects 2 arguments");
     }
     const Value& a = args[0];
@@ -267,7 +267,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::Slice) {
-    if (args.size() != 3) {
+    if (argc != 3) {
       return fail(ErrCode::Type, "slice expects 3 arguments: slice(x, lo, hi)");
     }
     const Value& x = args[0];
@@ -321,7 +321,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::Index) {
-    if (args.size() != 2) {
+    if (argc != 2) {
       return fail(ErrCode::Type, "index expects 2 arguments: index(x, i)");
     }
     const Value& x = args[0];
@@ -338,22 +338,12 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
       return fail(ErrCode::Value, "index out of range");
     }
     BuiltinResult out;
+    if (payload::lookup_index(x, static_cast<std::size_t>(j), &out.value)) return out;
     if (x.tag == ValueTag::String) {
-      std::string sx;
-      if (payload::lookup_string(x, &sx)) {
-        const char ch = sx[static_cast<std::size_t>(j)];
-        out.value = Value::from_char(static_cast<unsigned char>(ch));
-        return out;
-      }
       out.value = Value::from_fallback_token(Value::index_container_token64(5U, x, j));
       return out;
     }
     if (is_list_tag(x.tag)) {
-      std::vector<Value> lx;
-      if (payload::lookup_list(x, &lx)) {
-        out.value = lx[static_cast<std::size_t>(j)];
-        return out;
-      }
       out.value = Value::from_fallback_token(Value::index_container_token64(list_type_code(x), x, j));
       return out;
     }
@@ -361,7 +351,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::Append) {
-    if (args.size() != 2) {
+    if (argc != 2) {
       return fail(ErrCode::Type, "append expects 2 arguments");
     }
     const Value& xs = args[0];
@@ -391,7 +381,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::Prepend) {
-    if (args.size() != 2) {
+    if (argc != 2) {
       return fail(ErrCode::Type, "prepend expects 2 arguments");
     }
     const Value& xs = args[0];
@@ -421,7 +411,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::Reverse) {
-    if (args.size() != 1) {
+    if (argc != 1) {
       return fail(ErrCode::Type, "reverse expects 1 argument");
     }
     const Value& x = args[0];
@@ -451,7 +441,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::Find || id == BuiltinId::Contains) {
-    if (args.size() != 2) {
+    if (argc != 2) {
       return fail(ErrCode::Type, std::string(builtin_name(id)) + " expects 2 arguments");
     }
     const Value& haystack = args[0];
@@ -475,7 +465,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::IsInt) {
-    if (args.size() != 1) {
+    if (argc != 1) {
       return fail(ErrCode::Type, "is_int expects 1 argument");
     }
     BuiltinResult out;
@@ -484,7 +474,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::CharToString) {
-    if (args.size() != 1 || args[0].tag != ValueTag::Char) {
+    if (argc != 1 || args[0].tag != ValueTag::Char) {
       return fail(ErrCode::Type, "char_to_string expects char");
     }
     const long long c = args[0].i;
@@ -495,7 +485,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::StringToChar) {
-    if (args.size() != 1 || args[0].tag != ValueTag::String) {
+    if (argc != 1 || args[0].tag != ValueTag::String) {
       return fail(ErrCode::Type, "string_to_char expects string");
     }
     std::string s;
@@ -509,14 +499,14 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::Ord) {
-    if (args.size() != 1 || args[0].tag != ValueTag::Char) {
+    if (argc != 1 || args[0].tag != ValueTag::Char) {
       return fail(ErrCode::Type, "ord expects char");
     }
     return BuiltinResult{false, Value::from_int(args[0].i), Err{ErrCode::Value, ""}};
   }
 
   if (id == BuiltinId::Chr) {
-    if (args.size() != 1 || args[0].tag != ValueTag::Int) {
+    if (argc != 1 || args[0].tag != ValueTag::Int) {
       return fail(ErrCode::Type, "chr expects int");
     }
     if (args[0].i < 0 || args[0].i > 255) {
@@ -527,7 +517,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
 
   if (id == BuiltinId::IsLetter || id == BuiltinId::IsDigit || id == BuiltinId::IsSpace ||
       id == BuiltinId::IsVowel || id == BuiltinId::ToLower || id == BuiltinId::ToUpper) {
-    if (args.size() != 1 || args[0].tag != ValueTag::Char) {
+    if (argc != 1 || args[0].tag != ValueTag::Char) {
       return fail(ErrCode::Type, std::string(builtin_name(id)) + " expects char");
     }
     const long long c = args[0].i;
@@ -542,7 +532,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::ToString) {
-    if (args.size() != 1 || !is_numeric(args[0])) {
+    if (argc != 1 || !is_numeric(args[0])) {
       return fail(ErrCode::Type, "to_string expects int or float");
     }
     if (args[0].tag == ValueTag::Int) {
@@ -552,7 +542,7 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   if (id == BuiltinId::Singleton) {
-    if (args.size() != 1) {
+    if (argc != 1) {
       return fail(ErrCode::Type, "singleton expects 1 argument");
     }
     const Value& x = args[0];
@@ -575,6 +565,10 @@ BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
   }
 
   return fail(ErrCode::Name, "unknown builtin");
+}
+
+BuiltinResult builtin_call(BuiltinId id, const std::vector<Value>& args) {
+  return builtin_call(id, args.data(), args.size());
 }
 
 }  // namespace gagp

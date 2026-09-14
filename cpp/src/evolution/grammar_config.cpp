@@ -109,6 +109,12 @@ bool GrammarConfig::allows_type(RType type) const {
 
 bool GrammarConfig::allows_node_kind(NodeKind kind) const {
   switch (kind) {
+    case NodeKind::LET_REGION:
+    case NodeKind::TRAVERSE:
+    case NodeKind::TRAVERSE_RANGE:
+    case NodeKind::REGION_VAR:
+    case NodeKind::CHECK_INT:
+    case NodeKind::CHECK_LIST:
     case NodeKind::PROGRAM:
     case NodeKind::BLOCK_NIL:
     case NodeKind::BLOCK_CONS:

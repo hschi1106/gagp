@@ -479,8 +479,6 @@ void CompiledGrammar::require_executable(std::uint32_t nonterminal) const {
     if (expressions[id]) continue;
     expressions[id] = true;
     const auto& expression = expressions_[id];
-    if (expression.kind == ExpressionKind::Bound)
-      throw std::invalid_argument("lexical bound-value materialization requires the general binding runtime");
     if (expression.kind == ExpressionKind::Primitive) PrimitiveCatalog::standard().require_executable(expression.target);
     if (expression.kind == ExpressionKind::Structured) require_structured_execution(structured_[expression.target]);
     if (expression.kind == ExpressionKind::Reference) enqueue(expression.target);

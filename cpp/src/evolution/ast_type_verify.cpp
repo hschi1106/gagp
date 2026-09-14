@@ -296,6 +296,14 @@ class TypedVerifier {
       }
       return typed(node_index, it->second);
     }
+    if (kind == NodeKind::REGION_VAR) {
+      const auto it = binders.find(-node.i0 - 1);
+      if (it == binders.end()) {
+        return fail_expr(VerifyCode::UndefinedBinder, node_index,
+                         "region reference is outside its declaring lexical body");
+      }
+      return typed(node_index, it->second);
+    }
     if (kind == NodeKind::BOUND_VAR) {
       const auto it = binders.find(node.i0);
       if (it == binders.end()) {
@@ -306,6 +314,9 @@ class TypedVerifier {
     }
 
     const std::vector<std::size_t> child = children(node_index);
+    if (kind == NodeKind::LET_REGION || kind == NodeKind::TRAVERSE ||
+        kind == NodeKind::TRAVERSE_RANGE)
+      return verify_region(node_index, child, locals, binders, asgp_phase);
     if (kind == NodeKind::MAP_LIST) return verify_map(node_index, child, locals, binders, asgp_phase);
     if (kind == NodeKind::FILTER_LIST) return verify_filter(node_index, child, locals, binders, asgp_phase);
     if (kind == NodeKind::LINEAR_REC) return verify_linear(node_index, child, locals, binders, asgp_phase);
@@ -323,6 +334,16 @@ class TypedVerifier {
 
     if (kind == NodeKind::NEG) {
       if (!is_numeric_type(args[0])) return fail_expr(VerifyCode::TypeMismatch, node_index, "NEG requires Int or Float");
+      return typed(node_index, args[0]);
+    }
+    if (kind == NodeKind::CHECK_INT) {
+      return require_type(node_index, args[0], RType::Int, "CHECK_INT");
+    }
+    if (kind == NodeKind::CHECK_LIST) {
+      if (list_element_type(args[0]) == RType::Invalid) {
+        return fail_expr(VerifyCode::TypeMismatch, node_index,
+                         "CHECK_LIST requires IntList, FloatList, or StringList");
+      }
       return typed(node_index, args[0]);
     }
     if (kind == NodeKind::NOT) return require_type(node_index, args[0], RType::Bool, "NOT");
@@ -458,6 +479,54 @@ class TypedVerifier {
   ExprResult unary_builtin(std::size_t node_index, RType actual, RType input, RType output) {
     if (actual != input) return fail_expr(VerifyCode::TypeMismatch, node_index, "builtin argument has the wrong exact type");
     return typed(node_index, output);
+  }
+
+  ExprResult verify_region(std::size_t node_index,
+                           const std::vector<std::size_t>& child,
+                           const TypeEnv& locals, const TypeEnv& binders,
+                           bool asgp_phase) {
+    const LexicalRegion* region = nullptr;
+    for (const auto& row : ast_.lexical_regions) {
+      if (row.node_index == node_index) { region = &row; break; }
+    }
+    if (!region) return fail_expr(VerifyCode::MissingMetadata, node_index,
+                                  "lexical region metadata is missing");
+    const bool is_let = ast_.nodes[node_index].kind == NodeKind::LET_REGION;
+    const std::size_t body_slot = is_let ? 1 :
+        (ast_.nodes[node_index].kind == NodeKind::TRAVERSE_RANGE ? 5 : 3);
+    std::vector<RType> args;
+    for (std::size_t slot = 0; slot < body_slot; ++slot) {
+      const auto value = verify_expression(child[slot], locals, binders, asgp_phase);
+      if (!result_) return value;
+      args.push_back(value.type);
+    }
+    std::vector<RType> expected;
+    if (is_let) {
+      expected = {args[0]};
+    } else {
+      if (!is_sequence_type(args[0]) || args[1] != RType::Int ||
+          (body_slot == 5 && (args[2] != RType::Int || args[3] != RType::Int))) {
+        return fail_expr(VerifyCode::TypeMismatch, node_index,
+                         "traversal requires a sequence and exact Int indices");
+      }
+      const RType element = args[0] == RType::String ? RType::Char : list_element_type(args[0]);
+      expected = {element, RType::Int, args.back()};
+    }
+    TypeEnv body_binders = binders;
+    for (std::size_t slot = 0; slot < expected.size(); ++slot) {
+      if (region->bindings[slot].type != expected[slot]) {
+        return fail_expr(VerifyCode::TypeMismatch, node_index,
+                         "lexical binding declaration does not match its exact operand type");
+      }
+      body_binders[-region->bindings[slot].id - 1] = expected[slot];
+    }
+    const auto body = verify_expression(child[body_slot], locals, body_binders, asgp_phase);
+    if (!result_) return body;
+    if (!is_let && body.type != args.back()) {
+      return fail_expr(VerifyCode::TypeMismatch, node_index,
+                       "traversal step must return the exact accumulator type");
+    }
+    return typed(node_index, body.type);
   }
 
   ExprResult verify_map(std::size_t node_index, const std::vector<std::size_t>& child,

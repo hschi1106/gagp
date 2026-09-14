@@ -9,15 +9,15 @@
   "specs": [
     {
       "path": "spec/grammar.md",
-      "sha256": "770000553945a9a01f47aebdec108203b9d2a1991fd29e5453af7b5948e31c17"
+      "sha256": "d9649271f34962df53c6d0e67564e84b550486bb87003303758fba69ff58fd21"
     },
     {
       "path": "spec/bytecode_isa.md",
-      "sha256": "e201ec7e7ea0e78f91cd9da8bb79a683b368f71f1ab1793ccfffed84f8afd48e"
+      "sha256": "729ed2b76c9f9c2aa0d1c4f469d2880425adc2e46e2f82e798387d9f3f3a7e0f"
     },
     {
       "path": "spec/bytecode_format.md",
-      "sha256": "1a9ca3ede88780cb72490511f34e37dede1ac198416ff70973de4cda4e274ccb"
+      "sha256": "8d72dbb1654afb5bb337754e62b3455e582280d80910bd2ab46e93c3af369653"
     },
     {
       "path": "spec/builtins_base.md",
@@ -41,7 +41,7 @@
     },
     {
       "path": "spec/grammar_definition.md",
-      "sha256": "a25b0a1687cbef31953ff2234f2b6ba1ba92bf4f0bc119a32b24c6b2d5d21687"
+      "sha256": "fa69846852c22e6283644bd532ce52ae624123403ac800e094602d90d0a57135"
     }
   ],
   "status": "frozen"

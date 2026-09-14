@@ -68,7 +68,8 @@ PrimitiveCatalog::PrimitiveCatalog() {
   std::sort(controls_.begin(), controls_.end(), [](const auto& a, const auto& b) { return a.key < b.key; });
   for (std::size_t i = 0; i < controls_.size(); ++i) controls_[i].id = static_cast<std::uint32_t>(i);
   const auto add = [&](std::string operation, std::vector<RType> arguments, RType result,
-                       std::optional<NodeKind> node, std::vector<RegionSlot> regions = {}) {
+                       std::optional<NodeKind> node, std::vector<RegionSlot> regions = {},
+                       std::optional<TraversalDirection> traversal_direction = std::nullopt) {
     PrimitiveSignature signature;
     signature.key = key_for(operation, arguments, result);
     signature.operation = std::move(operation);
@@ -76,6 +77,7 @@ PrimitiveCatalog::PrimitiveCatalog() {
     signature.result = result;
     signature.lowering_node = node;
     signature.regions = std::move(regions);
+    signature.traversal_direction = traversal_direction;
     signatures_.push_back(std::move(signature));
   };
   for (RType type : value_types()) {
@@ -86,7 +88,8 @@ PrimitiveCatalog::PrimitiveCatalog() {
     add("eq", {type, type}, RType::Bool, NodeKind::EQ);
     add("ne", {type, type}, RType::Bool, NodeKind::NE);
     for (RType bound : value_types())
-      add("let", {bound, type}, type, std::nullopt, {{1, {{"value", bound}}}});
+      add("let", {bound, type}, type, NodeKind::LET_REGION,
+          {{1, {{"value", bound}}}});
   }
   for (RType type : {RType::Int, RType::Float}) {
     for (auto entry : {std::pair{"add", NodeKind::ADD}, {"sub", NodeKind::SUB},
@@ -108,6 +111,10 @@ PrimitiveCatalog::PrimitiveCatalog() {
   add("or", {RType::Bool, RType::Bool}, RType::Bool, NodeKind::OR);
   add("idiv0", {RType::Int, RType::Int}, RType::Int, NodeKind::CALL_IDIV0);
   add("imod0", {RType::Int, RType::Int}, RType::Int, NodeKind::CALL_IMOD0);
+  add("check_int", {RType::Int}, RType::Int, NodeKind::CHECK_INT);
+  for (RType list : {RType::IntList, RType::FloatList, RType::StringList}) {
+    add("check_list", {list}, list, NodeKind::CHECK_LIST);
+  }
   for (auto sequence : {std::pair{RType::String, RType::Char}, {RType::IntList, RType::Int},
                         {RType::FloatList, RType::Float}, {RType::StringList, RType::String}}) {
     const auto list = sequence.first, element = sequence.second;
@@ -121,9 +128,22 @@ PrimitiveCatalog::PrimitiveCatalog() {
       add("append", {list, element}, list, NodeKind::CALL_APPEND);
       add("prepend", {list, element}, list, NodeKind::CALL_PREPEND);
     }
-    for (RType state : value_types())
-      add("traverse", {list, RType::Int, state, state}, state, std::nullopt,
-          {{3, {{"element", element}, {"index", RType::Int}, {"accumulator", state}}}});
+    for (RType state : value_types()) {
+      const std::vector<RegionSlot> traverse_region{
+          {3, {{"element", element}, {"index", RType::Int}, {"accumulator", state}}}};
+      add("traverse", {list, RType::Int, state, state}, state, NodeKind::TRAVERSE,
+          traverse_region, TraversalDirection::Forward);
+      add("traverse_reverse", {list, RType::Int, state, state}, state,
+          NodeKind::TRAVERSE, traverse_region, TraversalDirection::Reverse);
+      const std::vector<RegionSlot> range_region{
+          {5, {{"element", element}, {"index", RType::Int}, {"accumulator", state}}}};
+      const std::vector<RType> range_arguments{
+          list, RType::Int, RType::Int, RType::Int, state, state};
+      add("traverse_range", range_arguments, state, NodeKind::TRAVERSE_RANGE,
+          range_region, TraversalDirection::Forward);
+      add("traverse_range_reverse", range_arguments, state, NodeKind::TRAVERSE_RANGE,
+          range_region, TraversalDirection::Reverse);
+    }
   }
   add("find", {RType::String, RType::String}, RType::Int, NodeKind::CALL_FIND);
   add("contains", {RType::String, RType::String}, RType::Bool, NodeKind::CALL_CONTAINS);

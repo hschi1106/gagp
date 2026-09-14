@@ -10,7 +10,9 @@ namespace gagp::evo::grammar {
 
 struct ContextualDonor {
   ProgramGenome genome;
+  // Ordinary inputs/locals; lexical captures require project_frame with frame.
   std::vector<InputSpec> inputs;
+  GenerationFrame frame;
   VariationSpan payload;
   std::uint32_t nodes = 0;
   std::uint32_t depth = 0;

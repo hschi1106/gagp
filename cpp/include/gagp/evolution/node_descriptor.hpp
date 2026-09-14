@@ -21,6 +21,7 @@ enum class NodeIndexRole {
   Name,
   Constant,
   ListTypeTag,
+  BinderId,
 };
 
 enum class NodeMetadataKind {
@@ -29,6 +30,7 @@ enum class NodeMetadataKind {
   AsgpDcBinders,
   AsgpDp1dSpec,
   AsgpDp2dSpec,
+  LexicalRegion,
 };
 
 enum class DependencyFamily {
@@ -95,6 +97,7 @@ enum class GrammarFeature {
   BuiltinToUpper,
   BuiltinToString,
   BuiltinSingleton,
+  GeneralRegion,
 };
 
 enum class NodeTypingRule {
@@ -122,6 +125,9 @@ enum class NodeTypingRule {
   AsgpDp1d,
   AsgpDp2d,
   DependencyMarker,
+  LetRegion,
+  Traverse,
+  RegionVariable,
 };
 
 struct NodeDescriptor {

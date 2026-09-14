@@ -5,6 +5,7 @@
 #include <set>
 #include <string>
 
+#include "gagp/evolution/fuel_events.hpp"
 #include "gagp/evolution/node_descriptor.hpp"
 
 namespace gagp::evo {
@@ -95,11 +96,7 @@ class StructuralVerifier {
     if (options_.max_nodes != 0 && ast_.nodes.size() > options_.max_nodes) {
       return fail(VerifyCode::ResourceLimit, 0, "$.nodes", "node count exceeds configured limit");
     }
-    const std::size_t metadata_count = ast_.linear_rec_binders.size() + ast_.asgp_dc_binders.size() +
-                                       ast_.asgp_dp1d_specs.size() + ast_.asgp_dp2d_specs.size();
-    if (options_.max_metadata_entries != 0 && metadata_count > options_.max_metadata_entries) {
-      return fail(VerifyCode::ResourceLimit, 0, "$", "metadata count exceeds configured limit");
-    }
+    if (!validate_metadata_limit()) return result_;
     if (!validate_nodes_and_tables()) return result_;
     if (ast_.nodes.front().kind != NodeKind::PROGRAM) {
       return fail(VerifyCode::InvalidRoot, 0, node_path(0), "root node must be PROGRAM");
@@ -168,8 +165,47 @@ class StructuralVerifier {
                            "list type tag must be Int, Float, or String");
         }
         return true;
+      case NodeIndexRole::BinderId:
+        if (value < 0 || value == std::numeric_limits<int>::max()) {
+          return fail_bool(VerifyCode::InvalidIndexField, node_index, path,
+                           "binder id must be in the public non-negative id range");
+        }
+        return true;
     }
     return false;
+  }
+
+  bool validate_metadata_limit() {
+    if (options_.max_metadata_entries == 0) return true;
+    std::size_t metadata_count = 0;
+    const auto add_entries = [&](std::size_t count) {
+      if (count > options_.max_metadata_entries - metadata_count) return false;
+      metadata_count += count;
+      return true;
+    };
+    if (!add_entries(ast_.linear_rec_binders.size()) ||
+        !add_entries(ast_.asgp_dc_binders.size()) ||
+        !add_entries(ast_.asgp_dp1d_specs.size()) ||
+        !add_entries(ast_.asgp_dp2d_specs.size()) ||
+        !add_entries(ast_.lexical_regions.size()) ||
+        !add_entries(ast_.traversal_specs.size()) ||
+        !add_entries(ast_.fuel_specs.size())) {
+      return fail_bool(VerifyCode::ResourceLimit, 0, "$",
+                       "metadata count exceeds configured limit");
+    }
+    for (const LexicalRegion& region : ast_.lexical_regions) {
+      if (!add_entries(region.bindings.size())) {
+        return fail_bool(VerifyCode::ResourceLimit, region.node_index, "$.lexical_regions",
+                         "metadata count exceeds configured limit");
+      }
+    }
+    for (const NodeFuelSpec& spec : ast_.fuel_specs) {
+      if (!add_entries(spec.charges.size())) {
+        return fail_bool(VerifyCode::ResourceLimit, spec.node_index, "$.fuel_specs",
+                         "metadata count exceeds configured limit");
+      }
+    }
+    return true;
   }
 
   bool validate_nodes_and_tables() {
@@ -316,13 +352,20 @@ class StructuralVerifier {
     std::set<std::size_t> expected_dc;
     std::set<std::size_t> expected_dp1;
     std::set<std::size_t> expected_dp2;
+    std::set<std::size_t> expected_lexical;
+    std::set<std::size_t> expected_traversal;
     for (std::size_t i = 0; i < ast_.nodes.size(); ++i) {
       switch (node_descriptor(ast_.nodes[i].kind).metadata) {
         case NodeMetadataKind::LinearRecBinders: expected_linear.insert(i); break;
         case NodeMetadataKind::AsgpDcBinders: expected_dc.insert(i); break;
         case NodeMetadataKind::AsgpDp1dSpec: expected_dp1.insert(i); break;
         case NodeMetadataKind::AsgpDp2dSpec: expected_dp2.insert(i); break;
+        case NodeMetadataKind::LexicalRegion: expected_lexical.insert(i); break;
         case NodeMetadataKind::None: break;
+      }
+      if (ast_.nodes[i].kind == NodeKind::TRAVERSE ||
+          ast_.nodes[i].kind == NodeKind::TRAVERSE_RANGE) {
+        expected_traversal.insert(i);
       }
     }
 
@@ -421,11 +464,153 @@ class StructuralVerifier {
       }
     }
 
+    std::set<std::size_t> seen_lexical;
+    std::set<int> declared_binder_ids;
+    for (std::size_t i = 0; i < ast_.lexical_regions.size(); ++i) {
+      const LexicalRegion& row = ast_.lexical_regions[i];
+      const std::string path = "$.lexical_regions[" + std::to_string(i) + "]";
+      if (row.node_index >= ast_.nodes.size()) {
+        return fail_bool(VerifyCode::MetadataNodeMismatch, row.node_index,
+                         path + ".node_index",
+                         "lexical metadata node_index does not identify a region node");
+      }
+      const NodeKind kind = ast_.nodes[row.node_index].kind;
+      int expected_body_argument = 0;
+      std::size_t expected_binding_count = 0;
+      switch (kind) {
+        case NodeKind::LET_REGION:
+          expected_body_argument = 1;
+          expected_binding_count = 1;
+          break;
+        case NodeKind::TRAVERSE:
+          expected_body_argument = 3;
+          expected_binding_count = 3;
+          break;
+        case NodeKind::TRAVERSE_RANGE:
+          expected_body_argument = 5;
+          expected_binding_count = 3;
+          break;
+        default:
+          return fail_bool(VerifyCode::MetadataNodeMismatch, row.node_index,
+                           path + ".node_index",
+                           "lexical metadata may only identify a region node");
+      }
+      if (!check_unique(&seen_lexical, row.node_index, path)) return false;
+      if (row.body_argument != expected_body_argument) {
+        return fail_bool(VerifyCode::MetadataNodeMismatch, row.node_index,
+                         path + ".body_argument",
+                         "lexical metadata body_argument does not match the region form");
+      }
+      if (row.bindings.size() != expected_binding_count) {
+        return fail_bool(VerifyCode::DependencyArityMismatch, row.node_index,
+                         path + ".bindings",
+                         "lexical metadata binding count does not match the region form");
+      }
+      for (std::size_t j = 0; j < row.bindings.size(); ++j) {
+        const LexicalBinding& binding = row.bindings[j];
+        const std::string binding_path =
+            path + ".bindings[" + std::to_string(j) + "]";
+        if (binding.id < 0 || binding.id == std::numeric_limits<int>::max()) {
+          return fail_bool(VerifyCode::InvalidIndexField, row.node_index,
+                           binding_path + ".id",
+                           "lexical binding id must be in the public non-negative id range");
+        }
+        if (!is_public_rtype(binding.type)) {
+          return fail_bool(VerifyCode::InvalidInputType, row.node_index,
+                           binding_path + ".type",
+                           "lexical binding must use one of the eight public value types");
+        }
+        if (!declared_binder_ids.insert(binding.id).second) {
+          return fail_bool(VerifyCode::DuplicateBinder, row.node_index,
+                           binding_path + ".id",
+                           "lexical binding ids must be globally unique");
+        }
+      }
+    }
+
+    std::set<std::size_t> seen_traversal;
+    for (std::size_t i = 0; i < ast_.traversal_specs.size(); ++i) {
+      const TraversalSpec& row = ast_.traversal_specs[i];
+      const std::string path = "$.traversal_specs[" + std::to_string(i) + "]";
+      if (row.node_index >= ast_.nodes.size() ||
+          (ast_.nodes[row.node_index].kind != NodeKind::TRAVERSE &&
+           ast_.nodes[row.node_index].kind != NodeKind::TRAVERSE_RANGE)) {
+        return fail_bool(VerifyCode::MetadataNodeMismatch, row.node_index,
+                         path + ".node_index",
+                         "traversal metadata may only identify a traversal node");
+      }
+      if (!check_unique(&seen_traversal, row.node_index, path)) return false;
+      if (row.direction != TraversalDirection::Forward &&
+          row.direction != TraversalDirection::Reverse) {
+        return fail_bool(VerifyCode::InvalidIndexField, row.node_index,
+                         path + ".direction",
+                         "traversal direction must be Forward or Reverse");
+      }
+    }
+
+    std::set<std::size_t> seen_fuel;
+    for (std::size_t i = 0; i < ast_.fuel_specs.size(); ++i) {
+      const NodeFuelSpec& row = ast_.fuel_specs[i];
+      const std::string path = "$.fuel_specs[" + std::to_string(i) + "]";
+      if (row.node_index >= ast_.nodes.size()) {
+        return fail_bool(VerifyCode::MetadataNodeMismatch, row.node_index,
+                         path + ".node_index",
+                         "fuel metadata node_index does not identify a node");
+      }
+      if (!check_unique(&seen_fuel, row.node_index, path)) return false;
+      if (row.charges.empty()) {
+        return fail_bool(VerifyCode::MissingMetadata, row.node_index,
+                         path + ".charges",
+                         "fuel metadata must contain at least one charge");
+      }
+      std::set<FuelEvent> seen_events;
+      for (std::size_t j = 0; j < row.charges.size(); ++j) {
+        const FuelCharge& charge = row.charges[j];
+        const std::string charge_path =
+            path + ".charges[" + std::to_string(j) + "]";
+        if (!seen_events.insert(charge.event).second) {
+          return fail_bool(VerifyCode::DuplicateMetadata, row.node_index,
+                           charge_path + ".event",
+                           "fuel events must be unique within a node profile");
+        }
+        if (!supports_fuel_event(ast_.nodes[row.node_index].kind, charge.event)) {
+          return fail_bool(VerifyCode::MetadataNodeMismatch, row.node_index,
+                           charge_path + ".event",
+                           "fuel event is not supported by the owning node kind");
+        }
+        if (charge.cost > static_cast<std::uint32_t>(std::numeric_limits<int>::max())) {
+          return fail_bool(VerifyCode::InvalidIndexField, row.node_index,
+                           charge_path + ".cost",
+                           "fuel charge cost exceeds INT_MAX");
+        }
+      }
+    }
+
     if (!check_missing(expected_linear, seen_linear, "$.linear_rec_binders") ||
         !check_missing(expected_dc, seen_dc, "$.asgp_dc_binders") ||
         !check_missing(expected_dp1, seen_dp1, "$.asgp_dp1d_specs") ||
-        !check_missing(expected_dp2, seen_dp2, "$.asgp_dp2d_specs")) return false;
+        !check_missing(expected_dp2, seen_dp2, "$.asgp_dp2d_specs") ||
+        !check_missing(expected_lexical, seen_lexical, "$.lexical_regions") ||
+        !check_missing(expected_traversal, seen_traversal, "$.traversal_specs")) return false;
     return true;
+  }
+
+  bool is_public_rtype(RType type) const {
+    switch (type) {
+      case RType::Int:
+      case RType::Float:
+      case RType::Bool:
+      case RType::Char:
+      case RType::String:
+      case RType::IntList:
+      case RType::FloatList:
+      case RType::StringList:
+        return true;
+      case RType::Any:
+      case RType::Invalid:
+        return false;
+    }
+    return false;
   }
 
   bool check_missing(const std::set<std::size_t>& expected,

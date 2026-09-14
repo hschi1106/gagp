@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -94,6 +95,12 @@ enum class NodeKind {
   DP2_DIAGONAL_FORWARD,
   DP2_NEIGHBORHOOD_BACKWARD3,
   DP2_NEIGHBORHOOD_FORWARD3,
+  LET_REGION,
+  TRAVERSE,
+  TRAVERSE_RANGE,
+  REGION_VAR,
+  CHECK_INT,
+  CHECK_LIST,
   COUNT,
 };
 
@@ -156,6 +163,66 @@ struct AsgpDp2dSpec {
   std::vector<int> transition_dep_names;
 };
 
+struct LexicalBinding {
+  int id = 0;
+  RType type = RType::Invalid;
+};
+
+struct LexicalRegion {
+  std::size_t node_index = 0;
+  int body_argument = 0;
+  std::vector<LexicalBinding> bindings;
+};
+
+enum class TraversalDirection {
+  Forward = 0,
+  Reverse = 1,
+};
+
+struct TraversalSpec {
+  std::size_t node_index = 0;
+  TraversalDirection direction = TraversalDirection::Forward;
+};
+
+enum class FuelEvent {
+  Operation,
+  Bind,
+  BranchTest,
+  BranchMerge,
+  StoreSequence,
+  StoreStart,
+  StoreBegin,
+  StoreEnd,
+  CheckStart,
+  CheckBegin,
+  CheckEnd,
+  ObserveSequence,
+  ClampBegin,
+  ClampEnd,
+  SetBegin,
+  SetEnd,
+  InitializeState,
+  InitializeCursor,
+  TestCursor,
+  ReadElement,
+  BindElement,
+  ComputeIndex,
+  UpdateState,
+  AdvanceCursor,
+  Repeat,
+  Result,
+};
+
+struct FuelCharge {
+  FuelEvent event = FuelEvent::Operation;
+  std::uint32_t cost = 0;
+};
+
+struct NodeFuelSpec {
+  std::size_t node_index = 0;
+  std::vector<FuelCharge> charges;
+};
+
 struct AstProgram {
   std::vector<AstNode> nodes;
   std::vector<std::string> names;
@@ -164,6 +231,9 @@ struct AstProgram {
   std::vector<AsgpDcBinders> asgp_dc_binders;
   std::vector<AsgpDp1dSpec> asgp_dp1d_specs;
   std::vector<AsgpDp2dSpec> asgp_dp2d_specs;
+  std::vector<LexicalRegion> lexical_regions;
+  std::vector<TraversalSpec> traversal_specs;
+  std::vector<NodeFuelSpec> fuel_specs;
   std::string version = k_ast_prefix_version_current;
 };
 

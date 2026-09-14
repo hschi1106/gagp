@@ -1,5 +1,6 @@
 #include <iostream>
 #include <stdexcept>
+#include <utility>
 
 #include "gagp/evolution/grammar/catalog.hpp"
 #include "gagp/evolution/grammar/structured.hpp"
@@ -81,16 +82,61 @@ int main() {
     rejects([&] { catalog.resolve("linear_rec", {RType::IntList}, RType::Int); });
     rejects([] { parse_type("Any"); });
     rejects([] { parse_type("CharList"); });
-    const auto& traversal = catalog.resolve("traverse", {RType::String, RType::Int, RType::Int, RType::Int}, RType::Int);
-    check(traversal.regions.size() == 1 && traversal.regions[0].argument == 3, "traversal body slot changed");
-    check(traversal.regions[0].bindings[0].type == RType::Char, "String traversal must bind Char");
-    rejects([&] { catalog.require_executable(traversal.id); });
+    const auto& let = catalog.resolve("let", {RType::Float, RType::String}, RType::String);
+    check(let.executable() && let.lowering_node == NodeKind::LET_REGION &&
+              !let.traversal_direction,
+          "let lowering or non-traversal direction changed");
+    const std::pair<RType, RType> sequences[] = {
+        {RType::String, RType::Char},
+        {RType::IntList, RType::Int},
+        {RType::FloatList, RType::Float},
+        {RType::StringList, RType::String},
+    };
+    for (const auto& sequence : sequences) {
+      for (RType state : value_types()) {
+        for (const auto& variant : {
+                 std::pair{"traverse", TraversalDirection::Forward},
+                 std::pair{"traverse_reverse", TraversalDirection::Reverse}}) {
+          const auto& traversal = catalog.resolve(
+              variant.first, {sequence.first, RType::Int, state, state}, state);
+          check(traversal.lowering_node == NodeKind::TRAVERSE &&
+                    traversal.traversal_direction == variant.second,
+                "traversal lowering or direction missing");
+          check(traversal.regions.size() == 1 &&
+                    traversal.regions[0].argument == 3 &&
+                    traversal.regions[0].bindings.size() == 3,
+                "traversal body region shape changed");
+          check(traversal.regions[0].bindings[0].type == sequence.second &&
+                    traversal.regions[0].bindings[1].type == RType::Int &&
+                    traversal.regions[0].bindings[2].type == state,
+                "traversal binder types changed");
+        }
+        for (const auto& variant : {
+                 std::pair{"traverse_range", TraversalDirection::Forward},
+                 std::pair{"traverse_range_reverse", TraversalDirection::Reverse}}) {
+          const auto& traversal = catalog.resolve(
+              variant.first,
+              {sequence.first, RType::Int, RType::Int, RType::Int, state, state},
+              state);
+          check(traversal.lowering_node == NodeKind::TRAVERSE_RANGE &&
+                    traversal.traversal_direction == variant.second,
+                "ranged traversal lowering or direction missing");
+          check(traversal.regions.size() == 1 &&
+                    traversal.regions[0].argument == 5 &&
+                    traversal.regions[0].bindings.size() == 3,
+                "ranged traversal body region shape changed");
+        }
+      }
+    }
     std::size_t checked = 0;
     for (const auto& signature : catalog.signatures()) {
       check(&catalog.at(signature.id) == &signature, "numeric catalog index changed");
       check(&catalog.resolve(signature.operation, signature.arguments, signature.result) == &signature,
             "exact overload lookup is inconsistent");
       if (signature.id) check(catalog.at(signature.id - 1).key < signature.key, "IDs are not canonical");
+      if (signature.operation.rfind("traverse", 0) != 0)
+        check(!signature.traversal_direction,
+              "ordinary primitive unexpectedly carries traversal direction");
       if (!signature.executable() || signature.operation == "bound") continue;
       AstProgram ast;
       ast.nodes = {{NodeKind::PROGRAM, 0, 0}, {NodeKind::BLOCK_CONS, 0, 0},
@@ -104,6 +150,20 @@ int main() {
       for (auto argument : signature.arguments) {
         ast.nodes.push_back({NodeKind::CONST, static_cast<int>(ast.consts.size()), 0});
         ast.consts.push_back(literal(argument));
+      }
+      if (!signature.regions.empty()) {
+        const RegionSlot& region = signature.regions.front();
+        LexicalRegion lexical;
+        lexical.node_index = 3;
+        lexical.body_argument = static_cast<int>(region.argument);
+        for (std::size_t i = 0; i < region.bindings.size(); ++i) {
+          lexical.bindings.push_back(
+              {static_cast<int>(i), region.bindings[i].type});
+        }
+        ast.lexical_regions.push_back(std::move(lexical));
+      }
+      if (signature.traversal_direction) {
+        ast.traversal_specs.push_back({3, *signature.traversal_direction});
       }
       ast.nodes.push_back({NodeKind::BLOCK_NIL, 0, 0});
       const auto result = verify_ast(ast, inputs);

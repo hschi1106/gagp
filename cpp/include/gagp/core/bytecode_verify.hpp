@@ -26,6 +26,7 @@ enum class BytecodeVerifyCode {
   InvalidVarMapping,
   InvalidBinderLocal,
   InvalidSegmentMetadata,
+  InvalidFuelSchedule,
   ResourceLimit,
 };
 

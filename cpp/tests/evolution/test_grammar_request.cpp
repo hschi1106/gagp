@@ -269,9 +269,11 @@ void test_bound_runtime_boundary(const CompiledGrammar& grammar) {
   check(validate_request(grammar, bound) == std::vector<std::uint32_t>({0}),
         "valid Bound request failed before the execution boundary");
   rejects([&] { generate_derivation(grammar, 0, bound); },
-      "Bound request reached materialization", "general binding runtime");
-  rejects([&] { require_membership(grammar, generate_derivation(grammar, 0).genome, bound); },
-      "Bound request reached membership matching", "general binding runtime");
+      "external Bound request reached materialization", "materialization frame");
+  GenerationRequest unrelated{nonterminal(grammar, "OtherInt"), RType::Int, {}, {5, 4}};
+  const auto constant = generate_derivation(grammar, 0, unrelated);
+  rejects([&] { require_membership(grammar, constant.genome, bound); },
+      "external Bound request accepted an unrelated constant", "cannot be derived");
 
   const auto default_bound = compile(R"({
     "format_version":"grammar-definition-v1",
@@ -285,12 +287,15 @@ void test_bound_runtime_boundary(const CompiledGrammar& grammar) {
         "expression":{"constant":{"type":"Int","values":["8"]}}}]}
     ]
   })");
-  rejects([&] { generate_derivation(default_bound, 1); },
-      "unimplemented default entry materialized", "execution is not implemented");
+  const auto bound_entry = generate_derivation(default_bound, 1);
+  check(bound_entry.genome.ast.nodes.at(3).kind == NodeKind::LET_REGION &&
+        bound_entry.genome.ast.lexical_regions.size() == 1,
+        "closed lexical entry did not materialize a native region");
+  require_membership(default_bound, bound_entry.genome);
   GenerationRequest safe{nonterminal(default_bound, "Safe"), RType::Int, {}, {5, 4}};
   const auto generated = generate_derivation(default_bound, 1, safe);
   check(generated.genome.ast.consts.at(0).i == 8,
-        "unimplemented default entry blocked a separate executable request");
+        "lexical default entry blocked a separate executable request");
   require_membership(default_bound, generated.genome, safe);
 }
 }  // namespace

@@ -1,5 +1,7 @@
 #include "gagp/cli/codec.hpp"
 
+#include <cmath>
+#include <limits>
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
@@ -398,11 +400,30 @@ std::vector<int> decode_int_array(const JsonValue& raw, const char* field_name) 
   return out;
 }
 
+std::vector<std::uint32_t> decode_instruction_fuel(const JsonValue& raw) {
+  const auto it = raw.object_v.find("instruction_fuel");
+  if (it == raw.object_v.end()) return {};
+  if (it->second.kind != JsonValue::Kind::Array)
+    throw std::runtime_error("instruction_fuel must be array");
+  std::vector<std::uint32_t> out;
+  out.reserve(it->second.array_v.size());
+  for (const JsonValue& cost : it->second.array_v) {
+    if (cost.kind != JsonValue::Kind::Number || !std::isfinite(cost.number_v) ||
+        cost.number_v < 0 || cost.number_v > std::numeric_limits<int>::max() ||
+        std::floor(cost.number_v) != cost.number_v) {
+      throw std::runtime_error("instruction_fuel costs must be integers in [0, INT_MAX]");
+    }
+    out.push_back(static_cast<std::uint32_t>(cost.number_v));
+  }
+  return out;
+}
+
 PhaseProgram decode_phase_program(const JsonValue& raw) {
   PhaseProgram phase;
   phase.n_locals = require_int(require_object_field(raw, "n_locals"), "phase.n_locals");
   phase.consts = decode_const_array(require_object_field(raw, "consts"));
   phase.code = decode_code(require_object_field(raw, "code"));
+  phase.instruction_fuel = decode_instruction_fuel(raw);
 
   auto binders_it = raw.object_v.find("binder_locals");
   if (binders_it != raw.object_v.end() && binders_it->second.kind != JsonValue::Kind::Null) {
@@ -424,6 +445,7 @@ BytecodeProgram decode_program(const JsonValue& bc) {
 
   program.consts = decode_const_array(require_object_field(bc, "consts"));
   program.code = decode_code(require_object_field(bc, "code"));
+  program.instruction_fuel = decode_instruction_fuel(bc);
 
   auto segments_it = bc.object_v.find("segments");
   if (segments_it != bc.object_v.end() && segments_it->second.kind != JsonValue::Kind::Null) {

@@ -40,8 +40,8 @@ std::pair<ProgramGenome, ProgramGenome> crossover(const ProgramGenome& parent_a,
     }
   }
   if (!selected_a) return {variation_detail::fallback(a, context), variation_detail::fallback(b, context)};
-  auto child_a = variation_detail::splice(a.ast, *selected_a, b.ast, selected_b->occurrences.front());
-  auto child_b = variation_detail::splice(b.ast, *selected_b, a.ast, selected_a->occurrences.front());
+  auto child_a = variation_detail::splice(a.ast, *selected_a, b.ast, selected_b->occurrences.front(), selected_b->occurrence_binder_ids.front());
+  auto child_b = variation_detail::splice(b.ast, *selected_b, a.ast, selected_a->occurrences.front(), selected_a->occurrence_binder_ids.front());
   return {variation_detail::accept(std::move(child_a), a, context),
       variation_detail::accept(std::move(child_b), b, context)};
 }

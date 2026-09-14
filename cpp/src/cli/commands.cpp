@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -14,6 +15,7 @@
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/evolve.hpp"
+#include "gagp/evolution/fuel_events.hpp"
 #include "gagp/evolution/genome_generation.hpp"
 #include "gagp/evolution/genome.hpp"
 #include "gagp/evolution/grammar_config.hpp"
@@ -161,6 +163,22 @@ void write_typed_value_json(std::ostream& out, const Value& v) {
   throw std::runtime_error("unsupported AST constant value tag");
 }
 
+const char* lexical_binding_type_name(gagp::evo::RType type) {
+  switch (type) {
+    case gagp::evo::RType::Int: return "Int";
+    case gagp::evo::RType::Float: return "Float";
+    case gagp::evo::RType::Bool: return "Bool";
+    case gagp::evo::RType::Char: return "Char";
+    case gagp::evo::RType::String: return "String";
+    case gagp::evo::RType::IntList: return "IntList";
+    case gagp::evo::RType::FloatList: return "FloatList";
+    case gagp::evo::RType::StringList: return "StringList";
+    case gagp::evo::RType::Any:
+    case gagp::evo::RType::Invalid: break;
+  }
+  throw std::runtime_error("unsupported lexical binding type");
+}
+
 void write_ast_json(std::ostream& out, const gagp::evo::AstProgram& ast) {
   out << "{";
   out << "\"version\":\"" << json_escape(ast.version) << "\",";
@@ -251,7 +269,70 @@ void write_ast_json(std::ostream& out, const gagp::evo::AstProgram& ast) {
     }
     out << "]}";
   }
-  out << "]}";
+  out << "]";
+  if (!ast.lexical_regions.empty()) {
+    out << ",\"lexical_regions\":[";
+    for (std::size_t i = 0; i < ast.lexical_regions.size(); ++i) {
+      if (i > 0) out << ",";
+      const gagp::evo::LexicalRegion& region = ast.lexical_regions[i];
+      if (region.body_argument < 0) {
+        throw std::runtime_error("lexical region body_argument must be non-negative");
+      }
+      out << "{\"node_index\":" << region.node_index
+          << ",\"body_argument\":" << region.body_argument
+          << ",\"bindings\":[";
+      for (std::size_t j = 0; j < region.bindings.size(); ++j) {
+        if (j > 0) out << ",";
+        const gagp::evo::LexicalBinding& binding = region.bindings[j];
+        if (binding.id < 0 || binding.id == std::numeric_limits<int>::max()) {
+          throw std::runtime_error("lexical binding id must be in the public non-negative id range");
+        }
+        out << "{\"id\":" << binding.id
+            << ",\"type\":\"" << lexical_binding_type_name(binding.type) << "\"}";
+      }
+      out << "]}";
+    }
+    out << "]";
+  }
+  if (!ast.traversal_specs.empty()) {
+    out << ",\"traversal_specs\":[";
+    for (std::size_t i = 0; i < ast.traversal_specs.size(); ++i) {
+      if (i > 0) out << ",";
+      const gagp::evo::TraversalSpec& spec = ast.traversal_specs[i];
+      const char* direction = nullptr;
+      switch (spec.direction) {
+        case gagp::evo::TraversalDirection::Forward: direction = "forward"; break;
+        case gagp::evo::TraversalDirection::Reverse: direction = "reverse"; break;
+        default: throw std::runtime_error("unsupported traversal direction");
+      }
+      out << "{\"node_index\":" << spec.node_index
+          << ",\"direction\":\"" << direction << "\"}";
+    }
+    out << "]";
+  }
+  if (!ast.fuel_specs.empty()) {
+    out << ",\"fuel_specs\":[";
+    for (std::size_t i = 0; i < ast.fuel_specs.size(); ++i) {
+      if (i > 0) out << ",";
+      const gagp::evo::NodeFuelSpec& spec = ast.fuel_specs[i];
+      out << "{\"node_index\":" << spec.node_index << ",\"charges\":[";
+      for (std::size_t j = 0; j < spec.charges.size(); ++j) {
+        if (j > 0) out << ",";
+        const gagp::evo::FuelCharge& charge = spec.charges[j];
+        if (charge.cost > static_cast<std::uint32_t>(std::numeric_limits<int>::max())) {
+          throw std::runtime_error("fuel charge cost exceeds INT_MAX");
+        }
+        const char* event = gagp::evo::fuel_event_name(charge.event);
+        if (std::string(event) == "unknown") {
+          throw std::runtime_error("unsupported fuel event");
+        }
+        out << "{\"event\":\"" << event << "\",\"cost\":" << charge.cost << "}";
+      }
+      out << "]}";
+    }
+    out << "]";
+  }
+  out << "}";
 }
 
 bool is_integer_number(double x) {
@@ -330,6 +411,56 @@ std::size_t require_node_index_field_local(const JsonValue& raw, const char* sec
     throw std::runtime_error(std::string(section) + ".node_index must be non-negative");
   }
   return static_cast<std::size_t>(index);
+}
+
+int require_bounded_nonnegative_int_field_local(const JsonValue& raw,
+                                                const char* key,
+                                                const char* section,
+                                                bool allow_int_max) {
+  auto it = raw.object_v.find(key);
+  if (it == raw.object_v.end() || it->second.kind != JsonValue::Kind::Number) {
+    throw std::runtime_error(std::string("expected integer field: ") + section + "." + key);
+  }
+  const double value = it->second.number_v;
+  const double upper = static_cast<double>(std::numeric_limits<int>::max());
+  if (!std::isfinite(value) || std::trunc(value) != value || value < 0.0 ||
+      value > upper || (!allow_int_max && value == upper)) {
+    throw std::runtime_error(std::string("integer field out of range: ") + section + "." + key);
+  }
+  return static_cast<int>(value);
+}
+
+std::size_t require_bounded_size_field_local(const JsonValue& raw,
+                                             const char* key,
+                                             const char* section) {
+  auto it = raw.object_v.find(key);
+  if (it == raw.object_v.end() || it->second.kind != JsonValue::Kind::Number) {
+    throw std::runtime_error(std::string("expected integer field: ") + section + "." + key);
+  }
+  const double value = it->second.number_v;
+  const double upper_exclusive =
+      std::ldexp(1.0, std::numeric_limits<std::size_t>::digits);
+  if (!std::isfinite(value) || std::trunc(value) != value || value < 0.0 ||
+      value >= upper_exclusive) {
+    throw std::runtime_error(std::string("integer field out of range: ") + section + "." + key);
+  }
+  return static_cast<std::size_t>(value);
+}
+
+gagp::evo::RType decode_lexical_binding_type(const JsonValue& raw,
+                                             const char* section) {
+  if (raw.kind != JsonValue::Kind::String) {
+    throw std::runtime_error(std::string("expected string field: ") + section + ".type");
+  }
+  if (raw.string_v == "Int") return gagp::evo::RType::Int;
+  if (raw.string_v == "Float") return gagp::evo::RType::Float;
+  if (raw.string_v == "Bool") return gagp::evo::RType::Bool;
+  if (raw.string_v == "Char") return gagp::evo::RType::Char;
+  if (raw.string_v == "String") return gagp::evo::RType::String;
+  if (raw.string_v == "IntList") return gagp::evo::RType::IntList;
+  if (raw.string_v == "FloatList") return gagp::evo::RType::FloatList;
+  if (raw.string_v == "StringList") return gagp::evo::RType::StringList;
+  throw std::runtime_error(std::string("unknown lexical binding type: ") + raw.string_v);
 }
 
 std::vector<int> require_int_array_field_local(const JsonValue& raw,
@@ -490,6 +621,114 @@ gagp::evo::AstProgram decode_ast_json_impl(const JsonValue& raw) {
           require_int_field_local(row, "transition_j_name", "asgp_dp2d_specs"),
           require_int_array_field_local(row, "transition_dep_names", "asgp_dp2d_specs"),
       });
+    }
+  }
+
+  auto regions_it = raw.object_v.find("lexical_regions");
+  if (regions_it != raw.object_v.end()) {
+    if (regions_it->second.kind != JsonValue::Kind::Array) {
+      throw std::runtime_error("AST lexical_regions must be an array");
+    }
+    ast.lexical_regions.reserve(regions_it->second.array_v.size());
+    for (const JsonValue& row : regions_it->second.array_v) {
+      if (row.kind != JsonValue::Kind::Object) {
+        throw std::runtime_error("AST lexical_regions item must be an object");
+      }
+      auto bindings_it = row.object_v.find("bindings");
+      if (bindings_it == row.object_v.end() || bindings_it->second.kind != JsonValue::Kind::Array) {
+        throw std::runtime_error("AST lexical_regions.bindings must be an array");
+      }
+      gagp::evo::LexicalRegion region;
+      region.node_index =
+          require_bounded_size_field_local(row, "node_index", "lexical_regions");
+      region.body_argument = require_bounded_nonnegative_int_field_local(
+          row, "body_argument", "lexical_regions", true);
+      region.bindings.reserve(bindings_it->second.array_v.size());
+      for (const JsonValue& binding_row : bindings_it->second.array_v) {
+        if (binding_row.kind != JsonValue::Kind::Object) {
+          throw std::runtime_error("AST lexical_regions.bindings item must be an object");
+        }
+        auto type_it = binding_row.object_v.find("type");
+        if (type_it == binding_row.object_v.end()) {
+          throw std::runtime_error("AST lexical_regions.bindings missing field: type");
+        }
+        region.bindings.push_back(gagp::evo::LexicalBinding{
+            require_bounded_nonnegative_int_field_local(
+                binding_row, "id", "lexical_regions.bindings", false),
+            decode_lexical_binding_type(type_it->second, "lexical_regions.bindings"),
+        });
+      }
+      ast.lexical_regions.push_back(std::move(region));
+    }
+  }
+
+  auto traversals_it = raw.object_v.find("traversal_specs");
+  if (traversals_it != raw.object_v.end()) {
+    if (traversals_it->second.kind != JsonValue::Kind::Array) {
+      throw std::runtime_error("AST traversal_specs must be an array");
+    }
+    ast.traversal_specs.reserve(traversals_it->second.array_v.size());
+    for (const JsonValue& row : traversals_it->second.array_v) {
+      if (row.kind != JsonValue::Kind::Object) {
+        throw std::runtime_error("AST traversal_specs item must be an object");
+      }
+      auto direction_it = row.object_v.find("direction");
+      if (direction_it == row.object_v.end() || direction_it->second.kind != JsonValue::Kind::String) {
+        throw std::runtime_error("AST traversal_specs.direction must be a string");
+      }
+      gagp::evo::TraversalDirection direction;
+      if (direction_it->second.string_v == "forward") {
+        direction = gagp::evo::TraversalDirection::Forward;
+      } else if (direction_it->second.string_v == "reverse") {
+        direction = gagp::evo::TraversalDirection::Reverse;
+      } else {
+        throw std::runtime_error("AST traversal_specs.direction must be forward or reverse");
+      }
+      ast.traversal_specs.push_back(gagp::evo::TraversalSpec{
+          require_bounded_size_field_local(row, "node_index", "traversal_specs"),
+          direction,
+      });
+    }
+  }
+
+  auto fuel_it = raw.object_v.find("fuel_specs");
+  if (fuel_it != raw.object_v.end()) {
+    if (fuel_it->second.kind != JsonValue::Kind::Array) {
+      throw std::runtime_error("AST fuel_specs must be an array");
+    }
+    ast.fuel_specs.reserve(fuel_it->second.array_v.size());
+    for (const JsonValue& row : fuel_it->second.array_v) {
+      if (row.kind != JsonValue::Kind::Object) {
+        throw std::runtime_error("AST fuel_specs item must be an object");
+      }
+      auto charges_it = row.object_v.find("charges");
+      if (charges_it == row.object_v.end() || charges_it->second.kind != JsonValue::Kind::Array) {
+        throw std::runtime_error("AST fuel_specs.charges must be an array");
+      }
+      gagp::evo::NodeFuelSpec spec;
+      spec.node_index = require_bounded_size_field_local(row, "node_index", "fuel_specs");
+      spec.charges.reserve(charges_it->second.array_v.size());
+      for (const JsonValue& charge_row : charges_it->second.array_v) {
+        if (charge_row.kind != JsonValue::Kind::Object) {
+          throw std::runtime_error("AST fuel_specs.charges item must be an object");
+        }
+        auto event_it = charge_row.object_v.find("event");
+        if (event_it == charge_row.object_v.end() ||
+            event_it->second.kind != JsonValue::Kind::String) {
+          throw std::runtime_error("AST fuel_specs.charges.event must be a string");
+        }
+        gagp::evo::FuelEvent event;
+        if (!gagp::evo::parse_fuel_event(event_it->second.string_v, &event)) {
+          throw std::runtime_error("unknown fuel event: " + event_it->second.string_v);
+        }
+        const int cost = require_bounded_nonnegative_int_field_local(
+            charge_row, "cost", "fuel_specs.charges", true);
+        spec.charges.push_back(gagp::evo::FuelCharge{
+            event,
+            static_cast<std::uint32_t>(cost),
+        });
+      }
+      ast.fuel_specs.push_back(std::move(spec));
     }
   }
   return ast;

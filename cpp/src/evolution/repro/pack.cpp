@@ -1057,6 +1057,9 @@ ProgramGenome compact_genome_tables(const ProgramGenome& genome) {
   out.derivation = genome.derivation;
   out.ast.version = genome.ast.version;
   out.ast.nodes = genome.ast.nodes;
+  out.ast.lexical_regions = genome.ast.lexical_regions;
+  out.ast.traversal_specs = genome.ast.traversal_specs;
+  out.ast.fuel_specs = genome.ast.fuel_specs;
 
   std::vector<int> name_map(genome.ast.names.size(), -1);
   std::vector<int> const_map(genome.ast.consts.size(), -1);
@@ -1397,6 +1400,20 @@ GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population
 PackedHostData pack_population(const std::vector<ProgramGenome>& population,
                                const PreprocessOutput& prep,
                                const GpuReproConfig& input_config) {
+  const auto reject_general_regions = [](const AstProgram& ast) {
+    if (!ast.fuel_specs.empty())
+      throw std::invalid_argument("fuel profiles are not supported by GPU reproduction");
+    for (const auto& node : ast.nodes) {
+      if (node.kind == NodeKind::LET_REGION || node.kind == NodeKind::TRAVERSE ||
+          node.kind == NodeKind::TRAVERSE_RANGE || node.kind == NodeKind::REGION_VAR ||
+          node.kind == NodeKind::CHECK_INT || node.kind == NodeKind::CHECK_LIST)
+        throw std::invalid_argument("general lexical regions are not supported by GPU reproduction");
+    }
+    if (!ast.lexical_regions.empty() || !ast.traversal_specs.empty())
+      throw std::invalid_argument("general lexical regions are not supported by GPU reproduction");
+  };
+  for (const auto& genome : population) reject_general_regions(genome.ast);
+  for (const auto& donor : prep.donor_pool) reject_general_regions(donor.ast);
   if (input_config.contract_mode != prep.contract_mode)
     throw std::invalid_argument("pack config and preparation contract modes differ");
   if (input_config.contract_mode != ReproductionContractMode::Legacy &&

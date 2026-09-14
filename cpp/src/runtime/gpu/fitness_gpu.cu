@@ -1,3 +1,5 @@
+#include "gagp/core/semantic_fuel.hpp"
+
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
 
 #include <cuda_runtime.h>
@@ -401,6 +403,11 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
 }
 
 FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodeProgram>& programs) const {
+  for (const BytecodeProgram& program : programs) {
+    if (has_semantic_fuel(program)) {
+      return fitness_eval_single_error(ErrCode::Value, "semantic fuel schedules are not supported by the GPU runtime");
+    }
+  }
   if (!impl_ || !impl_->ready) {
     return fitness_eval_single_error(ErrCode::Value, "gpu fitness session is not initialized");
   }
