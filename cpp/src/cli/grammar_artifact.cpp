@@ -90,6 +90,8 @@ std::string encode_generated_artifact(const evo::grammar::CompiledGrammar& gramm
     const evo::grammar::GeneratedDerivation& generated) {
   using namespace evo::grammar;
   const auto& metadata = generated.derivation;
+  if (!metadata.seed_replayable)
+    throw std::invalid_argument("reconstructed grammar provenance is not an original seed replay; execute the materialized AST; seed replay requires original generation provenance");
   if (metadata.grammar_hash != grammar.content_hash()) throw std::invalid_argument("artifact grammar identity mismatch");
   Json root = object();
   root.object_v["format_version"] = string(kGeneratedGrammarArtifactVersion);

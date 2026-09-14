@@ -14,11 +14,18 @@ struct Layer {
 };
 class Budget {
  public:
-  Budget(const CompiledGrammar& grammar, const HoleBudgetLookup& enclosing) : grammar_(grammar), enclosing_(enclosing) {}
+  Budget(const CompiledGrammar& grammar, const HoleBudgetLookup& enclosing,
+      const NonterminalBudgetLookup& nonterminal, const ExpressionBudgetOverride& override_cost)
+      : grammar_(grammar), enclosing_(enclosing), nonterminal_(nonterminal), override_cost_(override_cost) {}
   std::uint32_t cost(std::uint32_t id, std::uint32_t depth) {
     const auto& node = grammar_.expressions().at(id);
+    if (override_cost_) {
+      const auto overridden = override_cost_(node, depth);
+      if (overridden) return *overridden;
+    }
     if (node.kind == ExpressionKind::Reference)
-      return grammar_.nonterminals().at(node.target).minimum_nodes_by_depth.at(depth);
+      return nonterminal_ ? nonterminal_(node.target, depth) :
+          grammar_.nonterminals().at(node.target).minimum_nodes_by_depth.at(depth);
     if (node.kind == ExpressionKind::Hole) {
       for (auto i = layers_.rbegin(); i != layers_.rend(); ++i)
         if (i->template_id == node.template_id) return i->costs.at(node.target);
@@ -68,13 +75,16 @@ class Budget {
   }
   const CompiledGrammar& grammar_;
   const HoleBudgetLookup& enclosing_;
+  const NonterminalBudgetLookup& nonterminal_;
+  const ExpressionBudgetOverride& override_cost_;
   std::vector<Layer> layers_;
 };
 }  // namespace
 
 std::uint32_t minimum_expression_nodes(const CompiledGrammar& grammar,
-    std::uint32_t expression, std::uint32_t depth, const HoleBudgetLookup& enclosing) {
-  return Budget(grammar, enclosing).cost(expression, depth);
+    std::uint32_t expression, std::uint32_t depth, const HoleBudgetLookup& enclosing,
+    const NonterminalBudgetLookup& nonterminal, const ExpressionBudgetOverride& override_cost) {
+  return Budget(grammar, enclosing, nonterminal, override_cost).cost(expression, depth);
 }
 
 }  // namespace gagp::evo::grammar

@@ -7,11 +7,15 @@
 
 namespace gagp::evo::grammar {
 
+using NonterminalBudgetLookup = std::function<std::uint32_t(std::uint32_t, std::uint32_t)>;
+using ExpressionBudgetOverride = std::function<std::optional<std::uint32_t>(const CompiledExpression&, std::uint32_t)>;
+
 using HoleBudgetLookup = std::function<std::optional<std::uint32_t>(std::uint32_t, std::uint32_t)>;
 
 // Exact minimum for fixed skeletons and shared holes, using the nonterminal
 // fixed-point tables and optionally already-reserved enclosing hole budgets.
 std::uint32_t minimum_expression_nodes(const CompiledGrammar& grammar,
-    std::uint32_t expression, std::uint32_t depth, const HoleBudgetLookup& enclosing = {});
+    std::uint32_t expression, std::uint32_t depth, const HoleBudgetLookup& enclosing = {},
+    const NonterminalBudgetLookup& nonterminal = {}, const ExpressionBudgetOverride& override_cost = {});
 
 }  // namespace gagp::evo::grammar

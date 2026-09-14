@@ -61,3 +61,14 @@ Replay rejects explicit size/seed overrides. This CLI supports `--help`, rejects
 unknown/duplicate flags, validates inputs before output replacement, and refuses to
 overwrite a direct input file. It generates and replays populations without invoking
 legacy reproduction.
+
+
+Compiled-grammar variation counters are exposed alongside reproduction timing. The nine
+suffixes are `crossover_attempts`, `mutation_attempts`, `contract_rejections`,
+`budget_rejections`, `generation_rejections`, `acceptance_rejections`, `fallback_children`,
+`unchanged_children`, and `changed_children`. Aggregate JSON keys and summary stdout phases
+use `generations_repro_<suffix>_total`; per-generation fields/JSON series use
+`generation_repro_<suffix>`. Summary stdout uses `count=` for these integer values.
+Legacy operators currently report zero. Counters classify operator outputs, including
+both crossover children and subsequent mutation outputs, rather than only retained
+population members; see [GPU reproduction](../design/gpu-reproduction.md).

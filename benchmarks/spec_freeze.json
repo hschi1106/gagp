@@ -9,7 +9,7 @@
   "specs": [
     {
       "path": "spec/grammar.md",
-      "sha256": "0e64966597feb49a0f3bd13069eec9048f7aa1d3da93d5ee73aadb9834caed59"
+      "sha256": "770000553945a9a01f47aebdec108203b9d2a1991fd29e5453af7b5948e31c17"
     },
     {
       "path": "spec/bytecode_isa.md",

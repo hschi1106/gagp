@@ -36,6 +36,7 @@ bool upload_gpu_repro_inputs(const PackedHostData& packed,
                              GpuReproArena* arena,
                              ReproductionStats* stats,
                              std::string* message_out) {
+  if (!require_legacy_gpu_contract(packed.config, message_out)) return false;
   const auto t0 = std::chrono::steady_clock::now();
   if (!ensure_cuda(cudaSetDevice(arena->device_id), "cudaSetDevice", message_out)) {
     return false;
@@ -88,6 +89,7 @@ bool launch_gpu_repro_kernels(GpuReproArena* arena,
                               const std::vector<double>& fitness,
                               ReproductionStats* stats,
                               std::string* message_out) {
+  if (!require_legacy_gpu_contract(config, message_out)) return false;
   const auto upload_t0 = std::chrono::steady_clock::now();
   if (!ensure_cuda(cudaSetDevice(arena->device_id), "cudaSetDevice", message_out)) {
     return false;

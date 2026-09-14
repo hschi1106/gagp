@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "gagp/evolution/ast_program.hpp"
@@ -60,6 +61,12 @@ struct VerifyOptions {
   std::size_t max_statements = 0;
   std::size_t max_metadata_entries = 0;
   const GrammarConfig* grammar_config = nullptr;
+  bool capture_exact_scopes = false;
+};
+
+struct VerifiedScope {
+  std::vector<std::pair<int, RType>> locals;
+  std::vector<std::pair<int, RType>> binders;
 };
 
 struct VerifiedAst {
@@ -68,6 +75,8 @@ struct VerifiedAst {
   std::vector<RType> expression_types;
   std::vector<std::uint64_t> expression_scope_signatures;
   std::vector<std::uint64_t> expression_binder_signatures;
+  std::vector<VerifiedScope> scopes;
+  std::vector<std::uint32_t> expression_scope_ids;
   std::size_t max_expression_depth = 0;
   std::size_t statement_count = 0;
 };

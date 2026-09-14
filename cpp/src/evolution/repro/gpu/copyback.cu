@@ -92,6 +92,7 @@ bool copyback_gpu_repro_children(const GpuReproArena& arena,
                                  GpuReproChildView* out,
                                  ReproductionStats* stats,
                                  std::string* message_out) {
+  if (!require_legacy_gpu_contract(config, message_out)) return false;
   if (staging == nullptr || out == nullptr) {
     if (message_out != nullptr) {
       *message_out = "gpu reproduction copyback output is null";

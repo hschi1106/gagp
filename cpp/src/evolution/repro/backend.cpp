@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "gagp/evolution/crossover.hpp"
+#include "gagp/evolution/grammar/variation.hpp"
 #include "gagp/evolution/evolve.hpp"
 #include "gagp/evolution/mutation.hpp"
 #include "gagp/evolution/repro/gpu.hpp"
@@ -503,6 +504,20 @@ ReproductionResult run_cpu_backend_impl(const std::vector<ScoredGenomeRef>& scor
                                         const EvolutionConfig& cfg,
                                         std::mt19937_64& rng) {
   ReproductionResult out;
+  std::unique_ptr<grammar::VariationContext> context;
+  if (cfg.compiled_grammar) {
+    if (scored.empty()) throw std::invalid_argument("compiled reproduction requires a nonempty population");
+    const auto prepare_t0 = std::chrono::steady_clock::now();
+    context = std::make_unique<grammar::VariationContext>(cfg.compiled_grammar,
+        cfg.generation_request.value_or(grammar::entry_request(*cfg.compiled_grammar)));
+    // Membership is a population invariant, including parents selection never uses.
+    for (const auto& parent : scored) {
+      if (!parent.genome) throw std::invalid_argument("compiled reproduction has a null parent");
+      (void)context->cache().analyze(*parent.genome, context->request());
+    }
+    out.stats.preprocess_ms += std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - prepare_t0).count();
+  }
   out.next_population.reserve(static_cast<std::size_t>(cfg.population_size));
   const int pair_count = (cfg.population_size + 1) / 2;
   const int selected_parent_count = pair_count * 2;
@@ -548,7 +563,9 @@ ReproductionResult run_cpu_backend_impl(const std::vector<ScoredGenomeRef>& scor
     const auto crossover_t0 = std::chrono::steady_clock::now();
     std::pair<ProgramGenome, ProgramGenome> children;
     CandidatePair coupled_pair;
-    if (cfg.cpu_repro_ablation == CpuReproAblation::GpuCandidates) {
+    if (context) {
+      children = crossover(parent_a, parent_b, crossover_seed, *context);
+    } else if (cfg.cpu_repro_ablation == CpuReproAblation::GpuCandidates) {
       const CandidatePair pair = choose_gpu_candidate_pair(
           ablation_data.prep.candidates[selected_parent_indices[i]],
           ablation_data.prep.candidates[selected_parent_indices[i + 1]],
@@ -567,7 +584,9 @@ ReproductionResult run_cpu_backend_impl(const std::vector<ScoredGenomeRef>& scor
       if (prob_dist(rng) < cfg.mutation_rate) {
         const auto mutation_t0 = std::chrono::steady_clock::now();
         const std::uint64_t mutation_seed = seed_dist(rng);
-        if (cfg.cpu_repro_ablation == CpuReproAblation::GpuCoupledDonor && !coupled_pair.valid) {
+        if (context) {
+          child = mutate(child, mutation_seed, *context, cfg.mutation_subtree_prob);
+        } else if (cfg.cpu_repro_ablation == CpuReproAblation::GpuCoupledDonor && !coupled_pair.valid) {
           child = parent;
         } else if (cfg.cpu_repro_ablation == CpuReproAblation::GpuCoupledDonor &&
                    cpu_style_subtree_branch(mutation_seed, cfg.mutation_subtree_prob)) {
@@ -597,6 +616,7 @@ ReproductionResult run_cpu_backend_impl(const std::vector<ScoredGenomeRef>& scor
     maybe_mutate(children.second, parent_b, coupled_pair.b);
     out.next_population.push_back(std::move(children.second));
   }
+  if (context) out.stats.variation = context->counters();
   out.stats.crossover_ms = crossover_ms;
   out.stats.mutation_ms = mutation_ms;
   return out;
@@ -620,6 +640,27 @@ ReproductionResult run_cpu_backend(const std::vector<ScoredGenomeRef>& scored,
 }
 
 }  // namespace
+
+void require_reproduction_mode_supported(const EvolutionConfig& cfg, bool gpu_entry) {
+  if (!cfg.compiled_grammar) {
+    if (cfg.generation_request)
+      throw std::invalid_argument("generation_request requires a compiled grammar");
+    return;
+  }
+  if (gpu_entry || cfg.reproduction_backend == ReproductionBackend::Gpu)
+    throw std::invalid_argument("compiled grammar GPU reproduction is unavailable until Goal 07");
+  if (cfg.cpu_repro_ablation != CpuReproAblation::None)
+    throw std::invalid_argument("compiled grammar reproduction does not support legacy CPU ablations");
+  if (cfg.fuel <= 0 || static_cast<std::uint32_t>(cfg.fuel) != cfg.compiled_grammar->execution_limits().fuel)
+    throw std::invalid_argument("compiled grammar execution fuel must match EvolutionConfig fuel");
+  if (cfg.population_size <= 0)
+    throw std::invalid_argument("compiled reproduction population_size must be positive");
+  if (!std::isfinite(cfg.mutation_rate) || cfg.mutation_rate < 0 || cfg.mutation_rate > 1 ||
+      !std::isfinite(cfg.mutation_subtree_prob) || cfg.mutation_subtree_prob < 0 || cfg.mutation_subtree_prob > 1)
+    throw std::invalid_argument("compiled reproduction mutation probabilities must be in [0,1]");
+  (void)grammar::validate_request(*cfg.compiled_grammar,
+      cfg.generation_request.value_or(grammar::entry_request(*cfg.compiled_grammar)));
+}
 
 std::string reproduction_backend_name(ReproductionBackend backend) {
   switch (backend) {
@@ -674,6 +715,7 @@ CpuReproAblation parse_cpu_repro_ablation_name(const std::string& raw) {
 ReproductionResult run_reproduction_backend(const std::vector<ScoredGenome>& scored,
                                             const EvolutionConfig& cfg,
                                             std::mt19937_64& rng) {
+  require_reproduction_mode_supported(cfg);
   if (cfg.reproduction_backend == ReproductionBackend::Gpu) {
     return run_gpu_repro_backend(scored, cfg, rng);
   }
@@ -683,6 +725,7 @@ ReproductionResult run_reproduction_backend(const std::vector<ScoredGenome>& sco
 ReproductionResult run_reproduction_backend(const std::vector<ScoredGenomeRef>& scored,
                                             const EvolutionConfig& cfg,
                                             std::mt19937_64& rng) {
+  require_reproduction_mode_supported(cfg);
   if (cfg.reproduction_backend == ReproductionBackend::Gpu) {
     return run_gpu_repro_backend(scored, cfg, rng);
   }

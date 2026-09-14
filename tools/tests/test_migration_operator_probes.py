@@ -4,7 +4,7 @@ import re
 import unittest
 from pathlib import Path
 
-from gagp_tools.experiments.instrument_migration_operators import generate, insert_event
+from gagp_tools.experiments.instrument_migration_operators import generate, insert_event, insert_event_variant
 from gagp_tools.experiments.capture_evolution_statistics import validate_host_decisions, validate_gpu_decisions
 
 
@@ -42,6 +42,18 @@ class TestMigrationOperatorProbes(unittest.TestCase):
             "pack.decode.accepted": 3, "pack.decode.device_invalid": 1}}, True)
         validate_host_decisions({"population_size": 4, "host_operator_decisions": {
             "backend.mutation.eligible": 4, "backend.mutation.selected": 2}}, False)
+
+    def test_explicit_historical_and_current_anchor_variants(self):
+        anchors = ("  if (condition) {\n    return parent;",
+                   "  } else if (condition) {\n    return parent;")
+        for original in anchors:
+            generated = insert_event_variant(original, anchors, "fallback")
+            restored = "".join(line for line in generated.splitlines(keepends=True)
+                               if "record_operator_decision" not in line)
+            self.assertEqual(restored, original)
+        for invalid in ("", anchors[0] + anchors[1], anchors[0] * 2):
+            with self.assertRaises(ValueError):
+                insert_event_variant(invalid, anchors, "fallback")
 
     def test_ambiguous_or_missing_anchor_is_rejected(self):
         anchor = "if (condition) {\n  return parent;"

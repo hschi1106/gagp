@@ -6,6 +6,7 @@
 
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/evolution/grammar/cache.hpp"
+#include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/lifecycle.hpp"
 #include "gagp/evolution/population_init.hpp"
 #include "gagp/evolution/repro/backend.hpp"
@@ -19,6 +20,18 @@
 namespace gagp::evo {
 
 namespace {
+
+CaseSet evolution_case_set(const std::vector<EvalCase>& cases, const EvolutionConfig& cfg) {
+  auto result = prepare_case_set(cases, cfg.compiled_grammar ? GrammarConfig{} : cfg.grammar);
+  if (cfg.compiled_grammar) {
+    const auto request = cfg.generation_request.value_or(grammar::entry_request(*cfg.compiled_grammar));
+    validate_grammar_case_set(*cfg.compiled_grammar, result, request);
+    for (const auto& one : cases)
+      if (one.inputs.size() != cfg.compiled_grammar->inputs().size())
+        throw std::invalid_argument("every fitness case must supply every compiled grammar input");
+  }
+  return result;
+}
 
 struct CompileCache {
   std::unordered_map<std::string, BytecodeProgram> by_program;
@@ -37,6 +50,7 @@ struct PopulationEvaluation {
 ReproductionTiming reproduction_timing_from_stats(
     const repro::ReproductionStats& stats) {
   ReproductionTiming timing;
+  timing.variation = stats.variation;
   timing.selection_ms = stats.selection_ms;
   timing.crossover_ms = stats.crossover_ms;
   timing.mutation_ms = stats.mutation_ms;
@@ -179,7 +193,13 @@ std::string eval_engine_name(EvalEngine engine) {
 std::vector<ScoredGenome> evaluate_population(const std::vector<ProgramGenome>& population,
                                               const std::vector<EvalCase>& cases,
                                               const EvolutionConfig& cfg) {
-  const CaseSet case_set = prepare_case_set(cases, cfg.grammar);
+  repro::require_reproduction_mode_supported(cfg);
+  const CaseSet case_set = evolution_case_set(cases, cfg);
+  if (cfg.compiled_grammar) {
+    const auto request = cfg.generation_request.value_or(grammar::entry_request(*cfg.compiled_grammar));
+    for (const auto& genome : population)
+      grammar::require_membership(*cfg.compiled_grammar, genome, request);
+  }
   EvolutionResult result;
   return materialize_scored_population(score_population_cpu_refs(
       population, case_set.input_names, case_set.bindings, case_set.expected_values,
@@ -190,6 +210,7 @@ std::vector<ScoredGenome> evaluate_population(const std::vector<ProgramGenome>& 
 EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
                                   const EvolutionConfig& cfg,
                                   const std::vector<ProgramGenome>* initial_population) {
+  repro::require_reproduction_mode_supported(cfg);
   if (cases.empty()) {
     throw std::invalid_argument("cases must not be empty");
   }
@@ -203,11 +224,11 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
       cfg.cpu_repro_ablation != repro::CpuReproAblation::None) {
     throw std::invalid_argument("cpu_repro_ablation requires cpu reproduction backend");
   }
-  cfg.grammar.validate();
+  if (!cfg.compiled_grammar) cfg.grammar.validate();
 
   const auto all_t0 = std::chrono::steady_clock::now();
   std::mt19937_64 rng(cfg.seed);
-  const CaseSet case_set = prepare_case_set(cases, cfg.grammar);
+  const CaseSet case_set = evolution_case_set(cases, cfg);
   EvolutionConfig reproduction_cfg = cfg;
   reproduction_cfg.verification_inputs = case_set.input_specs;
   const PayloadLifetimeManager payload_lifetime(cases);

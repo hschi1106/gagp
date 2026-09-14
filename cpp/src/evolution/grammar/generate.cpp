@@ -15,19 +15,22 @@ namespace gagp::evo::grammar {
 namespace {
 class Generator {
  public:
-  Generator(const CompiledGrammar& grammar, std::uint64_t seed, const GenerationRequest& request)
-      : grammar_(grammar), random_(seed) {
+  Generator(const CompiledGrammar& grammar, std::uint64_t seed, const GenerationRequest& request,
+      const GenerationFrame* frame = nullptr)
+      : grammar_(grammar), random_(seed), frame_(frame) {
     out_.derivation.request = request;
     out_.derivation.request_scope_mapping = validate_request(grammar, request);
     out_.derivation.grammar_hash = grammar.content_hash(); out_.derivation.seed = seed;
     out_.derivation.search_limits = request.budget; out_.derivation.execution_limits = grammar.execution_limits();
     for (const auto& input : grammar.inputs()) out_.genome.ast.names.push_back(input.name);
     for (const auto& local : grammar.locals()) out_.genome.ast.names.push_back(local.name);
+    if (frame_) (void)frame_inputs(grammar, request, *frame_);
   }
   GeneratedDerivation run() {
     grammar_.require_executable(out_.derivation.request.nonterminal);
     const auto& entry = grammar_.nonterminals()[out_.derivation.request.nonterminal];
     const bool wrap = entry.category == NodeCategory::Expression;
+    if (frame_ && wrap) prepare_frame_costs();
     auto depth = out_.derivation.request.budget.max_depth;
     auto budget = out_.derivation.request.budget.max_nodes;
     if (wrap) {
@@ -43,6 +46,15 @@ class Generator {
     derive(out_.derivation.request.nonterminal, depth, budget);
     out_.derivation.derived_nodes = static_cast<std::uint32_t>(out_.genome.ast.nodes.size() - start);
     if (wrap) emit({NodeKind::BLOCK_NIL, 0, 0}, {});
+    if (frame_) {
+      // A donor frame supplies explicit values for destination locals. Its witness
+      // certifies that context, not ordinary grammar-input-only seed replay.
+      out_.derivation = reconstruct_derivation_in_frame(grammar_, out_.genome,
+          out_.derivation.request, *frame_);
+      out_.genome.meta = build_genome_meta(out_.genome.ast);
+      out_.genome.derivation = std::make_shared<const DerivationMetadata>(out_.derivation);
+      return std::move(out_);
+    }
     std::vector<InputSpec> inputs;
     for (const auto& input : grammar_.inputs()) inputs.push_back({input.name, input.type});
     const auto verified = verify_ast(out_.genome.ast, inputs);
@@ -63,6 +75,49 @@ class Generator {
   }
 
  private:
+  std::uint32_t contextual_minimum(std::uint32_t id, std::uint32_t depth,
+      const HoleBudgetLookup& enclosing = {}) const {
+    if (frame_costs_.empty()) return minimum_expression_nodes(grammar_, id, depth, enclosing);
+    return minimum_expression_nodes(grammar_, id, depth, enclosing,
+        [&](std::uint32_t nt, std::uint32_t d) { return frame_costs_.at(nt).at(d); },
+        [&](const CompiledExpression& expression, std::uint32_t) -> std::optional<std::uint32_t> {
+          if (expression.kind == ExpressionKind::Local && !available_locals_.at(expression.target))
+            return kNoGrammarId;
+          return std::nullopt;
+        });
+  }
+  void prepare_frame_costs() {
+    available_locals_.assign(grammar_.locals().size(), false);
+    for (std::size_t i = 0; i < grammar_.locals().size(); ++i)
+      available_locals_[i] = std::any_of(frame_->locals.begin(), frame_->locals.end(), [&](const auto& binding) {
+        return binding.name == grammar_.locals()[i].name;
+      });
+    const auto depth_limit = out_.derivation.request.budget.max_depth - 3;
+    frame_costs_.assign(grammar_.nonterminals().size(),
+        std::vector<std::uint32_t>(depth_limit + 1, kNoGrammarId));
+    // Local availability is immutable throughout an expression donor. Compute the
+    // same least fixed point as compilation, excluding unavailable local leaves.
+    // Structural Program donors retain their own normal assignment/dataflow rules.
+    for (std::uint32_t depth = 0; depth <= depth_limit; ++depth) {
+      bool changed;
+      do {
+        changed = false;
+        for (const auto& nt : grammar_.nonterminals()) {
+          if (nt.category != NodeCategory::Expression) continue;
+          auto best = frame_costs_[nt.id][depth];
+          for (auto production : nt.productions)
+            best = std::min(best, contextual_minimum(grammar_.productions()[production].expression, depth));
+          if (best < frame_costs_[nt.id][depth]) {
+            frame_costs_[nt.id][depth] = best;
+            changed = true;
+          }
+        }
+      } while (changed);
+    }
+    if (frame_costs_[out_.derivation.request.nonterminal][depth_limit] >
+        out_.derivation.request.budget.max_nodes - 4)
+      throw std::invalid_argument("no grammar derivation fits the donor budget and available local frame");
+  }
   struct Slot {
     std::uint32_t expression = kNoGrammarId;
     std::uint32_t depth = kNoGrammarId;
@@ -99,7 +154,7 @@ class Generator {
     for (auto child : node.children) gather(child, wrapper ? depth : depth - 1, owner);
   }
   std::uint32_t minimum(std::uint32_t id, std::uint32_t depth) const {
-    return minimum_expression_nodes(grammar_, id, depth,
+    return contextual_minimum(id, depth,
         [&](std::uint32_t owner_id, std::uint32_t slot_id) -> std::optional<std::uint32_t> {
           const auto* owner = plan(owner_id);
           if (!owner || owner->slots.at(slot_id).reserved == kNoGrammarId) return std::nullopt;
@@ -188,7 +243,9 @@ class Generator {
       std::vector<std::uint32_t> eligible;
       for (auto id : grammar_.nonterminals()[nt].productions) {
         const auto& production = grammar_.productions()[id];
-        if (production.minimum_nodes_by_depth.at(depth) <= budget &&
+        const auto required = frame_costs_.empty() ? production.minimum_nodes_by_depth.at(depth) :
+            contextual_minimum(production.expression, depth);
+        if (required <= budget &&
             feasible_alias_exit(production.expression, depth, budget, aliases)) eligible.push_back(id);
       }
       const auto production = random_.production(grammar_, eligible);
@@ -272,6 +329,9 @@ class Generator {
   }
   const CompiledGrammar& grammar_;
   GrammarRandom random_;
+  const GenerationFrame* frame_ = nullptr;
+  std::vector<bool> available_locals_;
+  std::vector<std::vector<std::uint32_t>> frame_costs_;
   GeneratedDerivation out_;
   std::uint32_t current_choice_ = kNoGrammarId;
   std::vector<std::pair<std::uint32_t, std::size_t>> alias_frames_;
@@ -287,6 +347,11 @@ GeneratedDerivation generate_derivation(const CompiledGrammar& grammar, std::uin
 GeneratedDerivation generate_derivation(const CompiledGrammar& grammar, std::uint64_t seed,
     const GenerationRequest& request) {
   return Generator(grammar, seed, request).run();
+}
+
+GeneratedDerivation generate_derivation_in_frame(const CompiledGrammar& grammar, std::uint64_t seed,
+    const GenerationRequest& request, const GenerationFrame& frame) {
+  return Generator(grammar, seed, request, &frame).run();
 }
 
 }  // namespace gagp::evo::grammar

@@ -11,6 +11,7 @@
 
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/evolve.hpp"
+#include "gagp/evolution/grammar/cache.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 #include "../subtree_utils.hpp"
 
@@ -1291,11 +1292,128 @@ PlainAsgpDp2dSpec encode_asgp_dp2d_spec(const AsgpDp2dSpec& spec) {
   return out;
 }
 
+namespace {
+GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population,
+    const PreprocessOutput& prep, GpuReproConfig config) {
+  if (!prep.compiled_grammar || prep.population_identities.size() != population.size() ||
+      prep.candidates.size() != population.size() || prep.subtree_ends.size() != population.size() ||
+      prep.donor_contracts.size() != prep.donor_pool.size() ||
+      prep.donor_identities.size() != prep.donor_pool.size())
+    throw std::invalid_argument("compiled pack requires complete preparation metadata");
+  if (config.max_nodes != prep.prepared_max_nodes || config.max_expr_depth != prep.prepared_max_depth)
+    throw std::invalid_argument("compiled pack search limits differ from preparation");
+  if (config.population_size <= 0 || population.size() != static_cast<std::size_t>(config.population_size) ||
+      config.population_size > 65536 || config.candidates_per_program <= 0 || config.candidates_per_program > 65536 ||
+      config.max_nodes <= 0 || config.max_nodes > kGpuReproKernelMaxNodes ||
+      config.max_donor_nodes <= 0 || config.max_donor_nodes > kGpuReproKernelMaxNodes ||
+      config.max_names <= 0 || config.max_names > kGpuReproMaxNames ||
+      config.max_consts <= 0 || config.max_consts > kGpuReproMaxConsts ||
+      prep.donor_pool.size() > 1048576 || prep.occurrences.size() > 1048576)
+    throw std::invalid_argument("compiled pack exceeds supported host/device capacities");
+  // No structured side tables are executable in this staged grammar subset.
+  config.max_linear_rec_binders = config.max_asgp_dc_binders = 0;
+  config.max_asgp_dp1d_specs = config.max_asgp_dp2d_specs = 0;
+  std::vector<std::string> inputs;
+  for (const auto& input : prep.compiled_grammar->inputs()) inputs.push_back(input.name);
+  const auto fuel = prep.compiled_grammar->execution_limits().fuel;
+  const auto prescan = [&](const AstProgram& ast, bool donor) {
+    if (ast.nodes.empty() || ast.nodes.size() > static_cast<std::size_t>(config.max_nodes) ||
+        ast.names.size() > kGpuReproMaxNames || ast.consts.size() > kGpuReproMaxConsts ||
+        !ast.linear_rec_binders.empty() || !ast.asgp_dc_binders.empty() ||
+        !ast.asgp_dp1d_specs.empty() || !ast.asgp_dp2d_specs.empty())
+      throw std::invalid_argument("compiled pack cannot truncate nodes, tables or metadata");
+    config.max_names = std::max(config.max_names, static_cast<int>(ast.names.size()));
+    config.max_consts = std::max(config.max_consts, static_cast<int>(ast.consts.size()));
+    if (donor) config.max_donor_nodes = std::max(config.max_donor_nodes, static_cast<int>(ast.nodes.size()));
+  };
+  for (std::size_t p = 0; p < population.size(); ++p) {
+    const auto& genome = population[p];
+    if (grammar::runtime_cache_identity(genome, inputs, fuel) != prep.population_identities[p])
+      throw std::invalid_argument("compiled pack preparation does not match population identity");
+    prescan(genome.ast, false);
+    if (prep.subtree_ends[p].size() != genome.ast.nodes.size() ||
+        prep.candidates[p].size() > static_cast<std::size_t>(config.candidates_per_program))
+      throw std::invalid_argument("compiled pack candidate shape exceeds its capacity");
+    for (const auto& candidate : prep.candidates[p]) {
+      if (candidate.compatibility_id >= prep.compatibility_keys.size() || candidate.occurrence_offset < 0 ||
+          candidate.occurrence_count <= 0 ||
+          static_cast<std::size_t>(candidate.occurrence_offset) + candidate.occurrence_count > prep.occurrences.size() ||
+          candidate.donor_offset < 0 || candidate.donor_count < 0 ||
+          static_cast<std::size_t>(candidate.donor_offset) + candidate.donor_count > prep.donor_pool.size() ||
+          candidate.materialized_nodes <= 0 || candidate.materialized_nodes > config.max_nodes ||
+          candidate.materialized_depth <= 0 || candidate.materialized_depth > candidate.materialized_nodes ||
+          candidate.materialized_depth > config.max_expr_depth ||
+          candidate.template_nesting < 0 || candidate.template_nesting > 256 ||
+          candidate.replacement_max_nodes <= 0 || candidate.replacement_max_depth <= 0 ||
+          candidate.remaining_template_nesting < 0 || candidate.remaining_template_nesting > 256)
+        throw std::invalid_argument("compiled pack has an invalid candidate contract");
+      int previous_stop = 0;
+      for (int i = 0; i < candidate.occurrence_count; ++i) {
+        const auto span = prep.occurrences[candidate.occurrence_offset + i];
+        if (span.start < previous_stop || span.stop <= span.start ||
+            span.stop - span.start != candidate.materialized_nodes ||
+            static_cast<std::size_t>(span.stop) > genome.ast.nodes.size() ||
+            prep.subtree_ends[p][span.start] != static_cast<std::size_t>(span.stop) ||
+            (i == 0 && (span.start != candidate.start || span.stop != candidate.stop)))
+          throw std::invalid_argument("compiled pack has invalid atomic occurrence spans");
+        previous_stop = span.stop;
+      }
+      for (int i = 0; i < candidate.donor_count; ++i) {
+        const auto id = static_cast<std::size_t>(candidate.donor_offset + i);
+        const auto& donor = prep.donor_contracts[id];
+        if (donor.compatibility_id != candidate.compatibility_id ||
+            static_cast<int>(prep.donor_pool[id].type) != candidate.aux ||
+            donor.materialized_nodes <= 0 || donor.materialized_nodes > candidate.replacement_max_nodes ||
+            donor.materialized_depth <= 0 || donor.materialized_depth > candidate.replacement_max_depth ||
+            donor.template_nesting < 0 || donor.template_nesting > candidate.remaining_template_nesting)
+          throw std::invalid_argument("compiled pack donor violates its destination contract");
+      }
+    }
+  }
+  for (std::size_t i = 0; i < prep.donor_pool.size(); ++i) {
+    ProgramGenome genome;
+    genome.ast = prep.donor_pool[i].ast;
+    if (grammar::runtime_cache_identity(genome, inputs, fuel) != prep.donor_identities[i])
+      throw std::invalid_argument("compiled pack preparation does not match donor identity");
+    prescan(genome.ast, true);
+    if (prep.donor_contracts[i].materialized_nodes != static_cast<int>(genome.ast.nodes.size()))
+      throw std::invalid_argument("compiled pack donor measurement differs from payload");
+  }
+  config.compiled_donor_count = static_cast<int>(prep.donor_pool.size());
+  const std::uint64_t parents = population.size(), donors = prep.donor_pool.size();
+  const std::uint64_t bytes = parents * (sizeof(PackedProgramMeta) +
+      static_cast<std::uint64_t>(config.max_nodes) * sizeof(PlainNode) +
+      static_cast<std::uint64_t>(config.candidates_per_program) * sizeof(CandidateRange)) +
+      donors * (static_cast<std::uint64_t>(config.max_donor_nodes) * sizeof(PlainNode) + sizeof(int) * 7) +
+      (parents + donors) * (static_cast<std::uint64_t>(config.max_names) * sizeof(std::uint64_t) +
+      static_cast<std::uint64_t>(config.max_consts) * sizeof(Value)) +
+      prep.occurrences.size() * sizeof(CandidateOccurrence) + prep.donor_contracts.size() * sizeof(DonorContract);
+  if (bytes > 256ULL * 1024 * 1024)
+    throw std::invalid_argument("compiled packed buffers exceed 256 MiB");
+  return config;
+}
+}  // namespace
+
 PackedHostData pack_population(const std::vector<ProgramGenome>& population,
                                const PreprocessOutput& prep,
-                               const GpuReproConfig& config) {
+                               const GpuReproConfig& input_config) {
+  if (input_config.contract_mode != prep.contract_mode)
+    throw std::invalid_argument("pack config and preparation contract modes differ");
+  if (input_config.contract_mode != ReproductionContractMode::Legacy &&
+      input_config.contract_mode != ReproductionContractMode::CompiledGrammar)
+    throw std::invalid_argument("unknown reproduction contract mode");
+  if (input_config.contract_mode == ReproductionContractMode::Legacy &&
+      (prep.compiled_grammar || !prep.compatibility_keys.empty() || !prep.occurrences.empty() || !prep.donor_contracts.empty() ||
+       !prep.population_identities.empty() || !prep.donor_identities.empty()))
+    throw std::invalid_argument("compiled preparation cannot be packed in legacy mode");
+  const auto config = input_config.contract_mode == ReproductionContractMode::CompiledGrammar ?
+      compiled_pack_config(population, prep, input_config) : input_config;
   PackedHostData out;
   out.config = config;
+  out.compiled_grammar = prep.compiled_grammar;
+  out.compatibility_keys = prep.compatibility_keys;
+  out.occurrences = prep.occurrences;
+  out.donor_contracts = prep.donor_contracts;
   const std::size_t total_donor_count = prep.donor_pool.size();
   out.program_nodes.resize(static_cast<std::size_t>(config.population_size * config.max_nodes));
   out.metas.resize(static_cast<std::size_t>(config.population_size));
@@ -1396,7 +1514,14 @@ PackedHostData pack_population(const std::vector<ProgramGenome>& population,
         candidates.empty() ? CandidateRange{0, 0, static_cast<int>(CandidateTag::Expr), static_cast<int>(RType::Invalid)}
                            : candidates.front();
     const std::size_t base = static_cast<std::size_t>(p * config.candidates_per_program);
+    if (config.contract_mode == ReproductionContractMode::CompiledGrammar)
+      out.metas[p].candidate_count = static_cast<int>(candidates.size());
     for (int i = 0; i < config.candidates_per_program; ++i) {
+      if (config.contract_mode == ReproductionContractMode::CompiledGrammar) {
+        out.candidates[base + static_cast<std::size_t>(i)] =
+            static_cast<std::size_t>(i) < candidates.size() ? candidates[i] : CandidateRange{};
+        continue;
+      }
       out.candidates[base + static_cast<std::size_t>(i)] =
           candidates.empty() ? fallback : candidates[static_cast<std::size_t>(i % static_cast<int>(candidates.size()))];
     }
@@ -1481,6 +1606,10 @@ std::vector<ProgramGenome> decode_gpu_repro_children(const PackedHostData& packe
                                                      const GpuReproChildView& copyback,
                                                      const std::vector<ScoredGenomeRef>& scored,
                                                      const EvolutionConfig& cfg) {
+  require_reproduction_mode_supported(cfg, true);
+  if (packed.config.contract_mode != ReproductionContractMode::Legacy ||
+      copyback.config.contract_mode != ReproductionContractMode::Legacy || packed.compiled_grammar)
+    throw std::invalid_argument("compiled grammar GPU reproduction is unavailable until Goal 07");
   std::vector<ProgramGenome> out;
   out.reserve(static_cast<std::size_t>(cfg.population_size));
   const int total_children = std::min<int>(cfg.population_size,

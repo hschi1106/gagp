@@ -61,9 +61,11 @@ foreach(required IN ITEMS
     "\"cpu_compile_ms_total\""
     "\"gpu_eval_pack_upload_ms_total\""
     "\"generations_repro_prepare_inputs_ms_total\""
+    "\"generations_repro_crossover_attempts_total\""
     "\"generation_eval_ms\""
     "\"generation_gpu_eval_kernel_ms\""
     "\"generation_repro_decode_ms\""
+    "\"generation_repro_changed_children\""
     "\"generation_total_ms\"")
   string(FIND "${evolve_json}" "${required}" position)
   if(position EQUAL -1)

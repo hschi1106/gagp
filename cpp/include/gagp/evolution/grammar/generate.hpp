@@ -4,6 +4,7 @@
 #include "gagp/evolution/grammar/compiled.hpp"
 #include "gagp/evolution/grammar/random.hpp"
 #include "gagp/evolution/grammar/request.hpp"
+#include "gagp/evolution/grammar/frame.hpp"
 
 namespace gagp::evo::grammar {
 
@@ -19,6 +20,8 @@ struct NodeOrigin {
   std::uint32_t template_instance = kNoGrammarId;
   std::uint32_t slot = kNoGrammarId;
   bool fixed = false;
+  // Physical template nesting in a reconstructed witness (copies may differ).
+  std::uint32_t template_depth = 0;
 };
 
 struct DerivationChoice {
@@ -27,6 +30,10 @@ struct DerivationChoice {
   std::uint32_t parent = kNoGrammarId;
   std::uint32_t ast_begin = 0;
   std::uint32_t ast_end = 0;
+  // Incoming logical hole contract, populated by membership reconstruction.
+  std::uint32_t template_instance = kNoGrammarId;
+  std::uint32_t slot = kNoGrammarId;
+  std::uint32_t enclosing_template_depth = 0;
 };
 
 struct TemplateInstance {
@@ -42,6 +49,8 @@ struct HoleOccurrence {
 };
 
 struct DerivationMetadata {
+  // Membership reconstruction certifies structure, not an original RNG history.
+  bool seed_replayable = true;
   GenerationRequest request;
   std::vector<std::uint32_t> request_scope_mapping;
   std::string grammar_hash;
@@ -71,5 +80,10 @@ struct GeneratedDerivation {
 GeneratedDerivation generate_derivation(const CompiledGrammar& grammar, std::uint64_t seed);
 GeneratedDerivation generate_derivation(const CompiledGrammar& grammar, std::uint64_t seed,
     const GenerationRequest& request);
+
+// Isolated donor validation may bind declared native locals as explicit inputs.
+// The returned complete AST is frame-dependent and is not an original seed artifact.
+GeneratedDerivation generate_derivation_in_frame(const CompiledGrammar& grammar, std::uint64_t seed,
+    const GenerationRequest& request, const GenerationFrame& frame);
 
 }  // namespace gagp::evo::grammar

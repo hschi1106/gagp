@@ -32,6 +32,14 @@ def insert_event(source: str, anchor: str, event: str) -> str:
     return source.replace(anchor, replacement, 1)
 
 
+def insert_event_variant(source: str, anchors: tuple[str, ...], event: str) -> str:
+    """Accept one explicit historical/current spelling, never an ambiguous match."""
+    matches = [anchor for anchor in anchors if source.count(anchor)]
+    if len(matches) != 1:
+        raise ValueError(f"expected exactly one supported anchor for {event}")
+    return insert_event(source, matches[0], event)
+
+
 def instrument(source: str, kind: str) -> tuple[str, list[str]]:
     events: list[str] = []
 
@@ -72,8 +80,13 @@ def instrument(source: str, kind: str) -> tuple[str, list[str]]:
             "mutation.eligible")
         add("      if (prob_dist(rng) < cfg.mutation_rate) {\n        const auto mutation_t0 = std::chrono::steady_clock::now();",
             "mutation.selected")
-        add("        if (cfg.cpu_repro_ablation == CpuReproAblation::GpuCoupledDonor && !coupled_pair.valid) {\n          child = parent;",
-            "mutation.invalid_coupled_pair")
+        # The compiled branch precedes this legacy ablation in the candidate;
+        # frozen references retain the original leading if. Both remain exact.
+        event = "backend.mutation.invalid_coupled_pair"
+        condition = "(cfg.cpu_repro_ablation == CpuReproAblation::GpuCoupledDonor && !coupled_pair.valid) {\n          child = parent;"
+        source = insert_event_variant(source, ("        if " + condition,
+            "        } else if " + condition), event)
+        events.append(event)
     elif kind == "pack":
         add("    if (copyback.child_meta[static_cast<std::size_t>(child_index)].valid == 0) {\n      next = fallback_parent_for_child(scored, copyback, child_index);",
             "decode.device_invalid")

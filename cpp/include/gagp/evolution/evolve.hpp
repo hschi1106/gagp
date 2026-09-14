@@ -2,11 +2,14 @@
 
 #include <cstdint>
 #include <random>
+#include <memory>
+#include <optional>
 #include <vector>
 
 #include "gagp/evolution/case_set.hpp"
 #include "gagp/evolution/genome.hpp"
 #include "gagp/evolution/grammar_config.hpp"
+#include "gagp/evolution/grammar/request.hpp"
 #include "gagp/evolution/input_spec.hpp"
 #include "gagp/evolution/repro/backend.hpp"
 #include "gagp/evolution/selection.hpp"
@@ -35,6 +38,10 @@ struct EvolutionConfig {
   int fuel = 20000;
   Limits limits;
   GrammarConfig grammar;
+  // Staged typed-grammar mode. Own the immutable definition across worker copies.
+  std::shared_ptr<const grammar::CompiledGrammar> compiled_grammar;
+  std::optional<grammar::GenerationRequest> generation_request;
+
   bool skip_final_eval = false;
   bool retain_final_population = true;
   // Derived by evolve_population for verifier checks at reproduction boundaries.

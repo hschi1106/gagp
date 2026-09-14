@@ -283,6 +283,7 @@ bool alloc_host_pinned(T** ptr, std::size_t count, std::string* message_out, con
 bool ensure_gpu_repro_arena_capacity(GpuReproArena* arena,
                                      const GpuReproConfig& config,
                                      std::string* message_out) {
+  if (!require_legacy_gpu_contract(config, message_out)) return false;
   if (arena == nullptr) {
     if (message_out != nullptr) {
       *message_out = "gpu reproduction arena is null";
@@ -329,6 +330,7 @@ void destroy_gpu_repro_host_staging(GpuReproHostStaging* staging) {
 bool ensure_gpu_repro_host_staging_capacity(GpuReproHostStaging* staging,
                                             const GpuReproConfig& config,
                                             std::string* message_out) {
+  if (!require_legacy_gpu_contract(config, message_out)) return false;
   if (staging == nullptr) {
     if (message_out != nullptr) {
       *message_out = "gpu reproduction host staging is null";

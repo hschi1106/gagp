@@ -184,6 +184,35 @@ DonorProgram make_donor_program(std::uint64_t seed,
 GpuReproConfig make_gpu_repro_config(const std::vector<ProgramGenome>& population,
                                      const EvolutionConfig& cfg) {
   GpuReproConfig out;
+  if (cfg.compiled_grammar) {
+    if (population.empty() || population.size() > 65536)
+      throw std::invalid_argument("compiled preparation population size must be in [1,65536]");
+    const auto request = cfg.generation_request.value_or(grammar::entry_request(*cfg.compiled_grammar));
+    (void)grammar::validate_request(*cfg.compiled_grammar, request);
+    out.contract_mode = ReproductionContractMode::CompiledGrammar;
+    out.population_size = static_cast<int>(population.size());
+    out.pair_count = (out.population_size + 1) / 2;
+    out.max_nodes = static_cast<int>(request.budget.max_nodes);
+    out.max_expr_depth = static_cast<int>(request.budget.max_depth);
+    out.max_donor_nodes = 1;  // Compiled packing prescans actual donor payloads.
+    out.max_names = 1;
+    out.max_consts = 1;
+    out.max_linear_rec_binders = 0;
+    out.max_asgp_dc_binders = 0;
+    out.max_asgp_dp1d_specs = 0;
+    out.max_asgp_dp2d_specs = 0;
+    out.tournament_k = clamp_tournament_size(out.population_size, cfg.selection_pressure);
+    out.mutation_ratio = cfg.mutation_rate;
+    out.mutation_subtree_ratio = cfg.mutation_subtree_prob;
+    out.seed = cfg.seed;
+    for (const auto& genome : population) {
+      if (genome.ast.names.size() > 65536 || genome.ast.consts.size() > 65536)
+        throw std::invalid_argument("compiled preparation requires compact bounded tables");
+      out.max_names = std::max(out.max_names, static_cast<int>(genome.ast.names.size()));
+      out.max_consts = std::max(out.max_consts, static_cast<int>(genome.ast.consts.size()));
+    }
+    return out;
+  }
   out.population_size = static_cast<int>(population.size());
   out.pair_count = (out.population_size + 1) / 2;
   out.candidates_per_program = 16;
@@ -221,6 +250,8 @@ PreprocessOutput preprocess_population_impl(const std::vector<ProgramGenome>& po
                                             const std::vector<VerifiedAst>* verified,
                                             const GpuReproConfig& config,
                                             const GrammarConfig& grammar) {
+  if (config.contract_mode != ReproductionContractMode::Legacy)
+    throw std::invalid_argument("compiled preparation requires a VariationContext");
   grammar.validate();
   if (verified != nullptr && verified->size() != population.size()) {
     throw std::invalid_argument("preprocess VerifiedAst count does not match population");

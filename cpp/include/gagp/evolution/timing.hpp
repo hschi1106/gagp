@@ -2,6 +2,8 @@
 
 #include <vector>
 
+#include "gagp/evolution/grammar/variation_stats.hpp"
+
 namespace gagp::evo {
 
 struct EvaluationTiming {
@@ -35,6 +37,7 @@ struct ReproductionTiming {
   double teardown_ms = 0.0;
   double selection_kernel_ms = 0.0;
   double variation_kernel_ms = 0.0;
+  grammar::VariationCounters variation;
 };
 
 struct GenerationTiming {

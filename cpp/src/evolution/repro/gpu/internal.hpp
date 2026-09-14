@@ -9,6 +9,12 @@
 
 namespace gagp::evo::repro {
 
+inline bool require_legacy_gpu_contract(const GpuReproConfig& config, std::string* message_out) {
+  if (config.contract_mode == ReproductionContractMode::Legacy) return true;
+  if (message_out) *message_out = "compiled grammar GPU reproduction is unavailable until Goal 07";
+  return false;
+}
+
 struct GpuReproArena {
   int device_id = -1;
   GpuReproConfig capacity;

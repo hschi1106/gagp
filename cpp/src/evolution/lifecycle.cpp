@@ -56,6 +56,7 @@ void PayloadLifetimeManager::retain(
 bool gpu_reproduction_overlap_enabled(const EvolutionConfig& config) {
   return config.eval_engine == EvalEngine::GPU &&
          config.reproduction_backend == repro::ReproductionBackend::Gpu &&
+         config.compiled_grammar == nullptr &&
          config.repro_overlap;
 }
 
@@ -63,6 +64,7 @@ std::future<OverlapPrepared> start_gpu_reproduction_overlap(
     const std::vector<ProgramGenome>& population,
     const EvolutionConfig& config,
     std::uint64_t seed) {
+  repro::require_reproduction_mode_supported(config, true);
   if (!gpu_reproduction_overlap_enabled(config)) {
     throw std::invalid_argument("GPU reproduction overlap is not enabled");
   }
@@ -79,6 +81,7 @@ repro::ReproductionResult finish_gpu_reproduction_overlap(
     const std::vector<ProgramGenome>& population,
     const std::vector<double>& raw_fitness,
     const EvolutionConfig& config) {
+  repro::require_reproduction_mode_supported(config, true);
   if (future == nullptr || !future->valid()) {
     throw std::invalid_argument("GPU reproduction overlap future is not valid");
   }

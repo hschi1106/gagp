@@ -1,7 +1,8 @@
 # Grammar migration execution evidence
 
-Goals 01–02 are committed. Goal 03 adds staged grammar generation and artifacts;
-its validation evidence is recorded below. Goals 04–12 remain pending. The immutable
+Goals 01–03 are committed. Goal 04 adds compiled grammar variation and shared host
+preparation; its [validation evidence](goal-04-variation.md) is recorded separately.
+Goals 05–12 remain pending. The immutable
 reference source revision and binary/log hashes are recorded in
 [baseline-capture.json](baseline-capture.json). Existing production generation and
 runtime workflows remain available during the staged migration.

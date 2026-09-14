@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
+#include <limits>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -8,7 +10,20 @@
 #include "gagp/core/value.hpp"
 #include "gagp/evolution/ast_program.hpp"
 
+namespace gagp::evo::grammar { class CompiledGrammar; }
+
 namespace gagp::evo::repro {
+
+enum class ReproductionContractMode : int { Legacy = 0, CompiledGrammar = 1 };
+inline constexpr std::uint32_t kNoCompatibilityId = std::numeric_limits<std::uint32_t>::max();
+
+struct CandidateOccurrence { int start = 0; int stop = 0; };
+struct DonorContract {
+  std::uint32_t compatibility_id = kNoCompatibilityId;
+  int materialized_nodes = 0;
+  int materialized_depth = 0;
+  int template_nesting = 0;
+};
 
 constexpr int kGpuReproMaxNames = 128;
 constexpr int kGpuReproMaxConsts = 128;
@@ -17,6 +32,7 @@ constexpr int kGpuReproDonorTypeCount = 9;
 
 enum class CandidateTag {
   Expr = 0,
+  Program = 1,
 };
 
 struct CandidateRange {
@@ -30,6 +46,17 @@ struct CandidateRange {
   int phase_name = 0;
   std::uint64_t visible_env_signature = 0;
   int dp_dependency_arity = -1;
+  std::uint32_t compatibility_id = kNoCompatibilityId;
+  int occurrence_offset = 0;
+  int occurrence_count = 0;
+  int replacement_max_nodes = 0;
+  int replacement_max_depth = 0;
+  int remaining_template_nesting = 0;
+  int materialized_nodes = 0;
+  int materialized_depth = 0;
+  int template_nesting = 0;
+  int donor_offset = 0;
+  int donor_count = 0;
 };
 
 struct PlainNode {
@@ -96,6 +123,7 @@ struct PackedProgramMeta {
   int asgp_dc_count = 0;
   int asgp_dp1d_count = 0;
   int asgp_dp2d_count = 0;
+  int candidate_count = 0;
 };
 
 struct DonorProgram {
@@ -104,12 +132,24 @@ struct DonorProgram {
 };
 
 struct PreprocessOutput {
+  ReproductionContractMode contract_mode = ReproductionContractMode::Legacy;
+  int prepared_max_nodes = 0;
+  int prepared_max_depth = 0;
+  std::shared_ptr<const grammar::CompiledGrammar> compiled_grammar;
+  std::vector<std::string> compatibility_keys;
+  std::vector<CandidateOccurrence> occurrences;
+  std::vector<DonorContract> donor_contracts;
+  std::vector<std::string> population_identities;
+  std::vector<std::string> donor_identities;
   std::vector<std::vector<std::size_t>> subtree_ends;
   std::vector<std::vector<CandidateRange>> candidates;
   std::vector<DonorProgram> donor_pool;
 };
 
 struct GpuReproConfig {
+  ReproductionContractMode contract_mode = ReproductionContractMode::Legacy;
+  int donor_pool_size_per_site = 4;
+  int compiled_donor_count = 0;
   int population_size = 0;
   int pair_count = 0;
   int candidates_per_program = 16;
@@ -132,6 +172,10 @@ struct GpuReproConfig {
 
 struct PackedHostData {
   GpuReproConfig config;
+  std::shared_ptr<const grammar::CompiledGrammar> compiled_grammar;
+  std::vector<std::string> compatibility_keys;
+  std::vector<CandidateOccurrence> occurrences;
+  std::vector<DonorContract> donor_contracts;
   std::vector<PlainNode> program_nodes;
   std::vector<PackedProgramMeta> metas;
   std::vector<CandidateRange> candidates;

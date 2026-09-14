@@ -67,6 +67,7 @@ GpuReproPreparedData prepare_gpu_repro_backend_inputs(const std::vector<ProgramG
                                                       const EvolutionConfig& cfg,
                                                       std::uint64_t seed,
                                                       ReproductionStats* stats) {
+  require_reproduction_mode_supported(cfg, true);
   GpuReproPreparedData out;
   const auto prepare_t0 = std::chrono::steady_clock::now();
   const std::vector<ProgramGenome> packed_population = compact_population_tables(population);
@@ -102,6 +103,7 @@ ReproductionResult run_gpu_repro_backend_prepared(const std::vector<ScoredGenome
                                                   const EvolutionConfig& cfg,
                                                   const GpuReproPreparedData& prepared,
                                                   ReproductionStats* stats) {
+  require_reproduction_mode_supported(cfg, true);
   const std::vector<ScoredGenomeRef> scored_refs = make_scored_refs(scored);
   return run_gpu_repro_backend_prepared(scored_refs, cfg, prepared, stats);
 }
@@ -110,6 +112,10 @@ ReproductionResult run_gpu_repro_backend_prepared(const std::vector<ScoredGenome
                                                   const EvolutionConfig& cfg,
                                                   const GpuReproPreparedData& prepared,
                                                   ReproductionStats* stats) {
+  require_reproduction_mode_supported(cfg, true);
+  if (prepared.config.contract_mode != ReproductionContractMode::Legacy ||
+      prepared.packed.config.contract_mode != ReproductionContractMode::Legacy || prepared.packed.compiled_grammar)
+    throw std::invalid_argument("compiled grammar GPU reproduction is unavailable until Goal 07");
 #ifndef GAGP_HAS_CUDA
   (void)scored;
   (void)cfg;
@@ -164,6 +170,7 @@ ReproductionResult run_gpu_repro_backend_prepared(const std::vector<ScoredGenome
 ReproductionResult run_gpu_repro_backend(const std::vector<ScoredGenome>& scored,
                                          const EvolutionConfig& cfg,
                                          std::mt19937_64& rng) {
+  require_reproduction_mode_supported(cfg, true);
   const std::vector<ScoredGenomeRef> scored_refs = make_scored_refs(scored);
   return run_gpu_repro_backend(scored_refs, cfg, rng);
 }
@@ -171,6 +178,7 @@ ReproductionResult run_gpu_repro_backend(const std::vector<ScoredGenome>& scored
 ReproductionResult run_gpu_repro_backend(const std::vector<ScoredGenomeRef>& scored,
                                          const EvolutionConfig& cfg,
                                          std::mt19937_64& rng) {
+  require_reproduction_mode_supported(cfg, true);
 #ifndef GAGP_HAS_CUDA
   (void)scored;
   (void)cfg;

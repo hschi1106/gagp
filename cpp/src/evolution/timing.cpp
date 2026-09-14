@@ -29,6 +29,15 @@ void accumulate_timing(ReproductionTiming* total, const ReproductionTiming& valu
   total->teardown_ms += value.teardown_ms;
   total->selection_kernel_ms += value.selection_kernel_ms;
   total->variation_kernel_ms += value.variation_kernel_ms;
+  total->variation.crossover_attempts += value.variation.crossover_attempts;
+  total->variation.mutation_attempts += value.variation.mutation_attempts;
+  total->variation.contract_rejections += value.variation.contract_rejections;
+  total->variation.budget_rejections += value.variation.budget_rejections;
+  total->variation.generation_rejections += value.variation.generation_rejections;
+  total->variation.acceptance_rejections += value.variation.acceptance_rejections;
+  total->variation.fallback_children += value.variation.fallback_children;
+  total->variation.unchanged_children += value.variation.unchanged_children;
+  total->variation.changed_children += value.variation.changed_children;
 }
 
 }  // namespace gagp::evo

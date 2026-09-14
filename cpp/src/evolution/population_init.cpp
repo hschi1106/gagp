@@ -8,6 +8,7 @@
 #include "gagp/evolution/genome_generation.hpp"
 #include "gagp/evolution/grammar/compiled.hpp"
 #include "gagp/evolution/grammar/request.hpp"
+#include "gagp/evolution/grammar/membership.hpp"
 
 namespace gagp::evo {
 namespace {
@@ -19,23 +20,8 @@ bool should_seed_for_expected_return_type(RType type) {
 
 }  // namespace
 
-PopulationInitialization initialize_population(
-    const grammar::CompiledGrammar& grammar,
-    const CaseSet& case_set,
-    int population_size,
-    std::uint64_t seed) {
-  return initialize_population(grammar, case_set, population_size, seed, grammar::entry_request(grammar));
-}
-
-PopulationInitialization initialize_population(
-    const grammar::CompiledGrammar& grammar,
-    const CaseSet& case_set,
-    int population_size,
-    std::uint64_t seed,
-    const grammar::GenerationRequest& request) {
-  if (population_size <= 0) {
-    throw std::invalid_argument("population_size must be positive");
-  }
+void validate_grammar_case_set(const grammar::CompiledGrammar& grammar,
+    const CaseSet& case_set, const grammar::GenerationRequest& request) {
   (void)grammar::validate_request(grammar, request);
   grammar.require_executable(request.nonterminal);
   std::unordered_map<std::string, RType> inputs;
@@ -57,6 +43,26 @@ PopulationInitialization initialize_population(
   if (case_set.expected_return_type != request.type) {
     throw std::invalid_argument("case expected_return_type must match requested nonterminal type");
   }
+}
+
+PopulationInitialization initialize_population(
+    const grammar::CompiledGrammar& grammar,
+    const CaseSet& case_set,
+    int population_size,
+    std::uint64_t seed) {
+  return initialize_population(grammar, case_set, population_size, seed, grammar::entry_request(grammar));
+}
+
+PopulationInitialization initialize_population(
+    const grammar::CompiledGrammar& grammar,
+    const CaseSet& case_set,
+    int population_size,
+    std::uint64_t seed,
+    const grammar::GenerationRequest& request) {
+  if (population_size <= 0) {
+    throw std::invalid_argument("population_size must be positive");
+  }
+  validate_grammar_case_set(grammar, case_set, request);
   PopulationInitialization out;
   out.population.reserve(static_cast<std::size_t>(population_size));
   for (int i = 0; i < population_size; ++i) {
@@ -70,6 +76,26 @@ PopulationInitialization initialize_population(
     const CaseSet& case_set,
     const std::vector<ProgramGenome>* replay_population) {
   PopulationInitialization out;
+  if (config.compiled_grammar) {
+    repro::require_reproduction_mode_supported(config);
+    const auto& grammar = *config.compiled_grammar;
+    const auto request = config.generation_request.value_or(grammar::entry_request(grammar));
+    validate_grammar_case_set(grammar, case_set, request);
+    if (!replay_population)
+      return initialize_population(grammar, case_set, config.population_size, config.seed, request);
+    if (replay_population->size() != static_cast<std::size_t>(config.population_size))
+      throw std::invalid_argument("initial_population size must match population_size");
+    out.population = *replay_population;
+    out.replayed = true;
+    for (auto& genome : out.population) {
+      auto witness = grammar::reconstruct_derivation(grammar, genome, request);
+      genome.meta = build_genome_meta(genome.ast);
+      genome.derivation = std::make_shared<const grammar::DerivationMetadata>(std::move(witness));
+    }
+    return out;
+  }
+  if (config.generation_request)
+    throw std::invalid_argument("generation_request requires a compiled grammar");
   if (replay_population != nullptr) {
     out.population = *replay_population;
     out.replayed = true;

@@ -287,3 +287,40 @@ For overlap mode:
 - [development guide](../guides/development.md)
 - [architecture](architecture.md)
 - [payload model](payload.md)
+
+
+## Staged compiled grammar preparation
+
+Compiled CPU reproduction owns one `grammar::VariationContext` per generation. It retains
+an immutable grammar/request, validates all parents, and preserves tournament selection
+and crossover-then-child-mutation order. Legacy CPU reproduction ablations are rejected
+in this mode. The existing legacy grammar-config path remains the migration reference.
+
+Host `preprocess_population(..., VariationContext&)` uses one registry for numeric
+compatibility IDs, samples logical sites without replacement and stores every physical
+occurrence of shared holes. Candidate records carry separate node/depth/template budgets
+and source measurements. Per-site donor offsets address contextual donors that fit those
+budgets; they do not use the legacy nine-type buckets. Donor payloads exclude standalone
+expression envelopes and preserve local names and decoded constant values when packed.
+
+Preparation retains grammar ownership and materialized population/donor identities.
+Packing rejects stale preparation, checks spans and contracts, and prescans capacities
+instead of truncating data. Compiled program metadata has an actual candidate count;
+padded candidates are invalid. Current transport caps are 512 nodes, 128 names/constants
+and 256 MiB padded storage. These caps are independent of CPU evolution's grammar limits.
+
+The explicit compiled mode is rejected by legacy GPU preparation/execution entry points,
+overlap start/finish, decode and low-level allocation/upload/launch/copyback. In this stage,
+use the host preparation/packing APIs to inspect contracts; device enforcement belongs
+to Goal 07. Configuration copies retain shared immutable grammar ownership, and compiled
+mode cannot start the legacy asynchronous overlap worker.
+
+Variation counters accompany timing as integer counts: `crossover_attempts`,
+`mutation_attempts`, `contract_rejections`, `budget_rejections`, `generation_rejections`,
+`acceptance_rejections`, `fallback_children`, `unchanged_children`, `changed_children`.
+They currently apply to compiled CPU operators; legacy operators report zero. Contract
+and budget rejections count candidate pairs considered. Fallback is a subset of unchanged
+outputs. Crossover classifies both outputs (including an odd-population discarded child),
+and a later mutation classifies its output separately. These counts must not be interpreted
+as final-population diversity or fitness improvement. Host donor preparation failures also
+increment generation rejections on its worker context.

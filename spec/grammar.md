@@ -798,3 +798,182 @@ The grammar does not include:
 - generic list values
 - `CharList`
 - tuple or product values
+
+
+## Compiled-grammar membership witnesses (staged)
+
+Materialized native ASTs may be executed without grammar provenance. The staged
+`reconstruct_derivation` API certifies membership against a supplied compiled grammar
+and contextual generation request, independently of any metadata attached to the
+genome. It performs native verification, exact grammar/domain/template matching and
+native lowering before returning a witness. An incompatible AST fails with a grammar
+membership diagnostic. This API does not change the legacy production variation path.
+
+Reconstruction is deterministic for a given grammar, AST and request. Membership
+matching considers production order and excludes active zero-node alias cycles; it
+records successful production decisions, then constructs provenance in a separate
+traversal. Failed alternatives do not contribute witness rows. Positive decisions
+may be memoized; their provenance is rebuilt with the correct parent and physical
+span when reached from the selected derivation.
+
+Witness rows use the same nonterminal, production, expression, template and slot IDs
+as the compiled grammar. Repeated or forwarded template holes retain common logical
+node and template-instance identities while recording each physical occurrence.
+Fixed template skeletons remain fixed. An expression root's four structural envelope
+nodes are fixed sentinel origins with no production/nonterminal identity. Table
+compaction may renumber names and constants without changing this provenance.
+
+A reconstructed witness has `seed_replayable=false`: it certifies membership, not
+an original sequence of RNG decisions. Original generation retains
+`seed_replayable=true`. The `grammar-generated-v1` encoder rejects reconstructed
+witnesses rather than presenting them as seed replay artifacts. Cloning and table
+compaction preserve the distinction. Materialized execution remains independent of it.
+
+Reconstruction enforces the request's complete AST node/depth budgets and the same
+1,048,576-instruction lowered-code limit as generation. Its witness traversal is
+limited to 1,048,576 logical steps, 4,096 grammar frames and 256 nested template
+instances; exhaustion is an explicit error. General lexical/structured execution
+continues to require the later staged runtime implementation.
+
+### Replacement-site contracts (staged)
+
+`analyze_variation` reconstructs a witness and collects admitted Expression and
+complete Program nonterminal boundaries. Fixed template interiors cannot invent new
+replacement sites; an enclosing nonterminal may replace the entire template it
+admits. Block/Stmt fragment generation is not enabled by this analysis API.
+Each logical choice groups every physical occurrence, including forwarded/repeated
+holes. Its incoming template definition and declared slot identify the compatibility
+contract; a per-genome template instance identifies the atomic group only.
+
+Compatibility compares an exact length-framed key containing grammar/semantic identity,
+nonterminal, category, exact type, compiled context, declared template/slot, ordered
+visible lexical environment and exact available native variable environment. Native
+name-table indices are normalized to names for this comparison. Current native locals
+are uniquely named declarations within a grammar; general lexical binder instances
+still require the later runtime implementation. All free local references of an
+expression site are recorded and must be available at every grouped occurrence.
+Conservative full-environment equality may reject otherwise legal substitutions.
+
+The verifier's opt-in `capture_exact_scopes` records interned sorted local and binder
+environments separately, with one numeric ID per expression and the UINT32_MAX
+sentinel on structural nodes. Interning compares complete environments. The default
+verification path leaves these annotations empty. Repeated sites use the intersection
+of available native environments, so a donor must be valid at all physical copies.
+
+Budgets are separate from compatibility equality. For an atomic group with C copies,
+N total program nodes and R removed nodes, the per-copy node allowance is
+`floor((max_nodes - N + R) / C)`. Depth uses the tightest physical occurrence allowance.
+Template nesting also uses physical occurrence depth, not logical hole-owner ancestry;
+forwarding can make those differ. Witness copying adjusts recorded physical depths
+while preserving shared logical IDs, and rejects physical nesting above 256. Donor
+size, prefix depth and template height must fit independently. `donor_request` adds
+the four-node/three-level envelope for standalone expression generation.
+
+A compatibility registry assigns dense IDs to exact keys, up to 65,536 contracts.
+IDs are comparable only within the same registry; equal IDs from separate registries
+do not establish compatibility. The staged analysis cache owns its immutable grammar
+and registry, stores owned immutable analyses, and uses bounded FIFO eviction
+(default 128 entries). Its key covers grammar identity, complete materialized runtime
+identity (including decoded constants, inputs, fuel and semantic version), requested
+nonterminal/type, ordered lexical environment and both structural limits. Invalid
+requests cannot hit the cache; expired payload tokens must be resolved before lookup.
+Hits, misses and evictions are counted. The mutable cache is owned by one preparation
+worker; concurrent workers must not share it without synchronization.
+
+### Isolated donor frames (staged)
+
+`GenerationFrame` supplies available declared native locals as additional inputs only
+for isolated donor verification and lowering. It does not change grammar inputs or
+interpret the request's lexical environment as native variables. Bindings must have
+unique declared local names and exact types; unknown names, input collisions and type
+mismatches are rejected. Complete Program generation requires an empty local frame.
+
+For Expression donors, generation computes depth-indexed minimum costs with unavailable
+local leaves excluded. The same costs govern alternative eligibility, alias feasibility,
+child reservations and repeated template-hole multiplicity. If no derivation fits the
+frame and budget, generation fails before sampling. Program generation retains its
+normal assignment/dataflow verification because locals can become available internally.
+
+Framed membership and witness reconstruction verify against the explicit original-input
+plus local schema. The resulting metadata is not original seed replay provenance and
+cannot be encoded as an original generated artifact. A framed expression may refer to
+locals absent from the original input schema; it must be spliced into a destination and
+the complete child verified and reconstructed under the original grammar inputs before
+population acceptance. Compiled operators use these APIs solely for isolated donors.
+
+`generate_donor` validates the site's nonterminal/type/category/context, derives its
+native local frame, and returns both the isolated input schema and a payload span.
+Expression payloads exclude their fixed standalone envelope; Program payloads include
+the complete native program. Measured payload nodes, prefix depth and physical template
+height must fit the destination. Invalid availability and infeasible generation produce
+an explicit donor-generation error.
+
+### Compiled variation operators (staged)
+
+The existing `crossover` and `mutate` APIs have compiled-grammar overloads using a
+worker-owned `VariationContext`. This context owns an immutable grammar/request, one
+analysis cache/compatibility registry and cumulative counters. CPU reproduction uses these overloads when `EvolutionConfig::compiled_grammar` is set.
+Compiled device dispatch remains unavailable until the general GPU implementation.
+
+Crossover samples uniformly among pairs of admitted sites whose exact contracts match
+and whose payloads fit both destinations. Each selected logical group's occurrences
+are replaced together, in descending physical order, using the same donor payload.
+The complete children are compacted and independently certified under the original
+input schema. Invalid imported parents raise errors before they can serve as fallbacks;
+all returned fallback parents also carry freshly validated, non-seed-replayable witness
+metadata. Internal logic/resource failures are not treated as invalid child fallbacks.
+
+Mutation selects subtree regeneration according to its configured probability.
+Otherwise it samples a logical mutable constant group and resamples from the exact
+constant domain in its reconstructed production. All physical copies receive the same
+value. Fixed template constants are excluded. If no mutable constant group exists,
+mutation regenerates an admitted nonterminal instead. Generation or acceptance failure
+returns the certified parent and increments the corresponding rejection counter.
+
+Counters distinguish operator attempts, rejected candidate contracts/budgets, donor
+generation failures, child acceptance failures, fallback children, unchanged children
+and changed children. Candidate rejection counts describe pair enumeration, not operator
+attempts. Fallback children are a subset of unchanged children. Actual-change comparison
+resolves referenced names and constant values per node, ignoring unused tables and
+constant-pool sharing, so table remapping cannot count as evolutionary progress.
+
+### Compiled reproduction integration (staged)
+
+`EvolutionConfig` owns an immutable compiled grammar and an optional generation request;
+without an explicit request it uses the grammar entry. A request without a grammar is
+invalid. Compiled execution fuel must equal the grammar's declared fuel. Legacy limits
+and grammar-config restrictions do not override compiled search limits or input types.
+Population initialization uses compiled generation; imported populations require witness
+reconstruction before their first fitness evaluation. Fitness cases must match the exact
+input schema and supply every input in every case.
+
+The CPU backend creates one worker-owned variation context per generation and validates
+all parents, including unselected parents. It preserves tournament selection, shuffling,
+seed draws, crossover before mutation, and per-child mutation decisions. Legacy CPU
+ablation paths are incompatible with compiled reproduction. Operator counters propagate
+through generation and aggregate timing and CLI output. Counts describe operator outputs:
+a crossover produces two classified children even when an odd population size discards
+the second; mutation classifies its output again. They are not final-population counts.
+
+Shared host preparation carries numeric compatibility IDs, flattened atomic occurrence
+spans, independent destination budgets, materialized donor measures and contiguous
+per-site donor ranges. IDs use one retained registry across the population. Logical sites
+are sampled without replacement; physical copies do not become independent candidates.
+The packed program metadata records the actual candidate count, with invalid padding
+rather than repeated candidates. Compiled donor pools are per site because equal contracts
+may have different budgets. Generation failure leaves the site eligible for crossover,
+possibly with zero mutation donors, and increments generation rejection accounting.
+
+Preparation owns the immutable grammar, registry keys and materialized population/donor
+identities. Packing rejects stale identities, changed prepared search limits and invalid spans/contracts. It extracts
+standalone donor payloads without expression envelopes and preserves referenced names and
+constant values. Packing prescans donor tables and grows required capacities; it never
+truncates a compiled payload. Staged transport limits are 512 nodes per program/payload,
+128 names, 128 constants and 256 MiB of padded buffers; preparation additionally bounds
+item counts. These transport limits do not restrict CPU grammar evolution.
+
+Compiled-mode buffers cannot enter the legacy CUDA reproduction implementation. Guards
+cover top-level evolution, backend dispatch, direct GPU preparation and execution,
+overlap start/finish, decoding, and low-level allocation/upload/launch/copyback. Guards
+run before CUDA operations or pointer access, including empty populations. Retaining
+contract IDs in host buffers does not imply that legacy kernels enforce them.

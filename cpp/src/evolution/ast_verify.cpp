@@ -1,6 +1,7 @@
 #include "gagp/evolution/ast_verify.hpp"
 
 #include <algorithm>
+#include <limits>
 #include <set>
 #include <string>
 
@@ -77,6 +78,10 @@ class StructuralVerifier {
     result_.verified.expression_types.assign(ast.nodes.size(), RType::Invalid);
     result_.verified.expression_scope_signatures.assign(ast.nodes.size(), 0);
     result_.verified.expression_binder_signatures.assign(ast.nodes.size(), 0);
+    if (options.capture_exact_scopes) {
+      result_.verified.expression_scope_ids.assign(
+          ast.nodes.size(), std::numeric_limits<std::uint32_t>::max());
+    }
   }
 
   AstVerifyResult run() {

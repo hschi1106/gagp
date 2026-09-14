@@ -1200,6 +1200,24 @@ int gagp::cli_detail::run_evolve_command(const CliOptions& args) {
                 << std::setprecision(3) << repro.selection_kernel_ms << "\n";
       std::cout << "TIMING phase=generations_repro_variation_kernel_total ms=" << std::fixed
                 << std::setprecision(3) << repro.variation_kernel_ms << "\n";
+      std::cout << "TIMING phase=generations_repro_crossover_attempts_total count="
+                << repro.variation.crossover_attempts << "\n";
+      std::cout << "TIMING phase=generations_repro_mutation_attempts_total count="
+                << repro.variation.mutation_attempts << "\n";
+      std::cout << "TIMING phase=generations_repro_contract_rejections_total count="
+                << repro.variation.contract_rejections << "\n";
+      std::cout << "TIMING phase=generations_repro_budget_rejections_total count="
+                << repro.variation.budget_rejections << "\n";
+      std::cout << "TIMING phase=generations_repro_generation_rejections_total count="
+                << repro.variation.generation_rejections << "\n";
+      std::cout << "TIMING phase=generations_repro_acceptance_rejections_total count="
+                << repro.variation.acceptance_rejections << "\n";
+      std::cout << "TIMING phase=generations_repro_fallback_children_total count="
+                << repro.variation.fallback_children << "\n";
+      std::cout << "TIMING phase=generations_repro_unchanged_children_total count="
+                << repro.variation.unchanged_children << "\n";
+      std::cout << "TIMING phase=generations_repro_changed_children_total count="
+                << repro.variation.changed_children << "\n";
       std::cout << "TIMING phase=cpu_compile_total ms=" << std::fixed << std::setprecision(3)
                 << eval.cpu_compile_ms << "\n";
       std::cout << "TIMING phase=final_eval ms=" << std::fixed << std::setprecision(3)
@@ -1253,6 +1271,15 @@ int gagp::cli_detail::run_evolve_command(const CliOptions& args) {
                   << " repro_teardown_ms=" << repro.teardown_ms
                   << " repro_selection_kernel_ms=" << repro.selection_kernel_ms
                   << " repro_variation_kernel_ms=" << repro.variation_kernel_ms
+                  << " generation_repro_crossover_attempts=" << repro.variation.crossover_attempts
+                  << " generation_repro_mutation_attempts=" << repro.variation.mutation_attempts
+                  << " generation_repro_contract_rejections=" << repro.variation.contract_rejections
+                  << " generation_repro_budget_rejections=" << repro.variation.budget_rejections
+                  << " generation_repro_generation_rejections=" << repro.variation.generation_rejections
+                  << " generation_repro_acceptance_rejections=" << repro.variation.acceptance_rejections
+                  << " generation_repro_fallback_children=" << repro.variation.fallback_children
+                  << " generation_repro_unchanged_children=" << repro.variation.unchanged_children
+                  << " generation_repro_changed_children=" << repro.variation.changed_children
                   << " cpu_compile_ms=" << eval.cpu_compile_ms << "\n";
         if (cfg.eval_engine == gagp::evo::EvalEngine::GPU) {
           std::cout << "TIMING gpu_gen=" << std::setfill('0') << std::setw(3) << i << std::setfill(' ')
@@ -1346,6 +1373,24 @@ int gagp::cli_detail::run_evolve_command(const CliOptions& args) {
           << repro.selection_kernel_ms << ",\n";
       out << "      \"generations_repro_variation_kernel_ms_total\": "
           << repro.variation_kernel_ms << ",\n";
+      out << "      \"generations_repro_crossover_attempts_total\": "
+          << repro.variation.crossover_attempts << ",\n";
+      out << "      \"generations_repro_mutation_attempts_total\": "
+          << repro.variation.mutation_attempts << ",\n";
+      out << "      \"generations_repro_contract_rejections_total\": "
+          << repro.variation.contract_rejections << ",\n";
+      out << "      \"generations_repro_budget_rejections_total\": "
+          << repro.variation.budget_rejections << ",\n";
+      out << "      \"generations_repro_generation_rejections_total\": "
+          << repro.variation.generation_rejections << ",\n";
+      out << "      \"generations_repro_acceptance_rejections_total\": "
+          << repro.variation.acceptance_rejections << ",\n";
+      out << "      \"generations_repro_fallback_children_total\": "
+          << repro.variation.fallback_children << ",\n";
+      out << "      \"generations_repro_unchanged_children_total\": "
+          << repro.variation.unchanged_children << ",\n";
+      out << "      \"generations_repro_changed_children_total\": "
+          << repro.variation.changed_children << ",\n";
       out << "      \"total_ms\": " << timing.total_ms << "\n";
       out << "    }\n";
       out << "  },\n";
@@ -1401,6 +1446,15 @@ int gagp::cli_detail::run_evolve_command(const CliOptions& args) {
       dump_series("generation_repro_teardown_ms", [](const auto& g) { return g.reproduction.teardown_ms; }, false);
       dump_series("generation_repro_selection_kernel_ms", [](const auto& g) { return g.reproduction.selection_kernel_ms; }, false);
       dump_series("generation_repro_variation_kernel_ms", [](const auto& g) { return g.reproduction.variation_kernel_ms; }, false);
+      dump_series("generation_repro_crossover_attempts", [](const auto& g) { return g.reproduction.variation.crossover_attempts; }, false);
+      dump_series("generation_repro_mutation_attempts", [](const auto& g) { return g.reproduction.variation.mutation_attempts; }, false);
+      dump_series("generation_repro_contract_rejections", [](const auto& g) { return g.reproduction.variation.contract_rejections; }, false);
+      dump_series("generation_repro_budget_rejections", [](const auto& g) { return g.reproduction.variation.budget_rejections; }, false);
+      dump_series("generation_repro_generation_rejections", [](const auto& g) { return g.reproduction.variation.generation_rejections; }, false);
+      dump_series("generation_repro_acceptance_rejections", [](const auto& g) { return g.reproduction.variation.acceptance_rejections; }, false);
+      dump_series("generation_repro_fallback_children", [](const auto& g) { return g.reproduction.variation.fallback_children; }, false);
+      dump_series("generation_repro_unchanged_children", [](const auto& g) { return g.reproduction.variation.unchanged_children; }, false);
+      dump_series("generation_repro_changed_children", [](const auto& g) { return g.reproduction.variation.changed_children; }, false);
       dump_series("generation_total_ms", [](const auto& g) { return g.total_ms; }, true);
       out << "  },\n";
 

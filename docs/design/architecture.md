@@ -231,3 +231,44 @@ are validated and recorded in immutable provenance and artifacts. The entry APIs
 wrappers around this request path. Request-aware membership and population generation
 share the same contract; executable preflight follows the requested nonterminal.
 Actual bound-value lowering remains part of the subsequent general-runtime work.
+
+Grammar membership now also offers deterministic witness reconstruction for imported
+or varied native ASTs. The matcher records only successful production decisions; a
+second traversal builds node/choice/template/hole metadata and preserves shared-hole
+logical identity across physical copies. Reconstruction ignores supplied provenance
+and verifies/lower-checks the materialized program. Its metadata is explicitly not
+seed-replayable, so the original generation artifact encoder rejects it. Compiled reproduction uses these witnesses; the legacy grammar-config path remains
+available until the public migration cutover.
+
+`grammar/variation_contract` derives logical replacement sites and exact compatibility
+keys from reconstructed witnesses and opt-in native scope annotations. It groups
+physical hole copies, computes destination-relative node/depth/template allowances,
+and separates contract equality from donor fit. `grammar/variation_cache` retains an
+immutable compiled grammar, owns its compatibility registry and cached analyses, and
+bounds retained entries with FIFO eviction. Its identities include materialized values
+and contextual limits, so stale metadata cannot certify a cache hit. Compiled operators and shared host preparation consume these contracts. Legacy device
+kernels cannot consume them and reject compiled mode.
+
+`grammar/frame` validates isolated donor inputs: original grammar inputs followed by
+explicitly available declared native locals. Expression generation recomputes minimum
+costs for that availability frame, including alias and shared-hole costs. Framed
+membership and reconstruction use the same schema and return provenance that cannot
+claim original seed replay. The destination operator must still certify the complete
+spliced child with the original inputs before acceptance.
+
+`grammar/donor` packages isolated donor payloads and explicit input schemas, checking
+node/depth/template allowances. `grammar/variation` owns run context, certification,
+atomic repeated-hole insertion and outcome accounting. Compiled-grammar overloads of
+`crossover` and `mutate` use these shared contracts while retaining the public operator
+names. Constant mutation resamples the reconstructed production domain. CPU backend selection and mutation order now use these overloads in compiled mode.
+Shared host packing transports the contracts, while legacy GPU dispatch rejects that mode.
+
+`EvolutionConfig` retains the compiled definition and optional generation request by
+ownership, including configuration copies. Compiled initialization certifies imports
+before scoring; reproduction validates every parent and shares one variation context
+within each generation. `repro/grammar_prep` samples logical sites and generates donors
+for each site's frame and budgets. `repro/pack` verifies preparation identities, preserves
+atomic occurrence groups, and prescans capacities to avoid truncating compiled payloads.
+Compiled buffers have an explicit mode; legacy device entry points reject them before
+allocation or execution. Variation counters remain integer counts through timing and CLI
+serialization and classify operator outputs rather than final retained population members.

@@ -1,6 +1,8 @@
 #include "gagp/evolution/ast_verify.hpp"
 
 #include <algorithm>
+#include <limits>
+#include <map>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -13,6 +15,8 @@ namespace gagp::evo {
 namespace {
 
 using TypeEnv = std::unordered_map<int, RType>;
+using SortedTypeEnv = std::vector<std::pair<int, RType>>;
+using ExactScopeKey = std::pair<SortedTypeEnv, SortedTypeEnv>;
 
 std::string node_path(std::size_t index) {
   return "$.nodes[" + std::to_string(index) + "]";
@@ -97,6 +101,14 @@ std::uint64_t type_env_signature(const TypeEnv& env) {
     hash *= 1099511628211ULL;
   }
   return hash;
+}
+
+SortedTypeEnv sorted_type_env(const TypeEnv& env) {
+  SortedTypeEnv entries(env.begin(), env.end());
+  std::sort(entries.begin(), entries.end(), [](const auto& left, const auto& right) {
+    return left.first < right.first;
+  });
+  return entries;
 }
 
 class TypedVerifier {
@@ -265,6 +277,9 @@ class TypedVerifier {
     const NodeKind kind = node.kind;
     result_.verified.expression_scope_signatures[node_index] = type_env_signature(locals);
     result_.verified.expression_binder_signatures[node_index] = type_env_signature(binders);
+    if (options_.capture_exact_scopes && !capture_exact_scope(node_index, locals, binders)) {
+      return ExprResult{RType::Invalid, result_.verified.subtree_end[node_index]};
+    }
     if (asgp_phase && is_asgp_kind(kind)) {
       return fail_expr(VerifyCode::NestedAsgp, node_index,
                        "ASGP phase bodies cannot contain ASGP source forms");
@@ -348,6 +363,27 @@ class TypedVerifier {
     }
     if (node_descriptor(kind).is_builtin()) return verify_builtin(node_index, args);
     return fail_expr(VerifyCode::TypeMismatch, node_index, "expression has no typing rule");
+  }
+
+  bool capture_exact_scope(std::size_t node_index, const TypeEnv& locals,
+                           const TypeEnv& binders) {
+    ExactScopeKey key{sorted_type_env(locals), sorted_type_env(binders)};
+    const auto found = exact_scope_ids_.find(key);
+    std::uint32_t scope_id = 0;
+    if (found == exact_scope_ids_.end()) {
+      if (result_.verified.scopes.size() >=
+          static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max())) {
+        return fail_bool(VerifyCode::ResourceLimit, node_index, node_path(node_index),
+                         "exact scope table exceeds its 32-bit identifier limit");
+      }
+      scope_id = static_cast<std::uint32_t>(result_.verified.scopes.size());
+      result_.verified.scopes.push_back(VerifiedScope{key.first, key.second});
+      exact_scope_ids_.emplace(std::move(key), scope_id);
+    } else {
+      scope_id = found->second;
+    }
+    result_.verified.expression_scope_ids[node_index] = scope_id;
+    return true;
   }
 
   ExprResult verify_builtin(std::size_t node_index, const std::vector<RType>& args) {
@@ -622,6 +658,7 @@ class TypedVerifier {
   const std::vector<InputSpec>& inputs_;
   const VerifyOptions& options_;
   AstVerifyResult result_;
+  std::map<ExactScopeKey, std::uint32_t> exact_scope_ids_;
   std::unordered_map<std::string, int> name_to_id_;
   bool saw_return_ = false;
   RType return_type_ = RType::Invalid;

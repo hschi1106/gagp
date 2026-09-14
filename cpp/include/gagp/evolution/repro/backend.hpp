@@ -32,6 +32,9 @@ struct ReproductionResult {
   ReproductionStats stats;
 };
 
+// gpu_entry also guards direct GPU calls even if cfg selects CPU reproduction.
+void require_reproduction_mode_supported(const EvolutionConfig& cfg, bool gpu_entry = false);
+
 std::string reproduction_backend_name(ReproductionBackend backend);
 ReproductionBackend parse_reproduction_backend_name(const std::string& raw);
 std::string cpu_repro_ablation_name(CpuReproAblation ablation);

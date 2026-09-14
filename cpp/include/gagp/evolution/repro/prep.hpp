@@ -8,10 +8,15 @@
 #include "gagp/evolution/repro/types.hpp"
 
 namespace gagp::evo {
+namespace grammar { class VariationContext; }
 struct EvolutionConfig;
 }
 
 namespace gagp::evo::repro {
+
+// Host-only compiled preparation; legacy GPU dispatch rejects this mode.
+PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& population,
+    const GpuReproConfig& config, grammar::VariationContext& context);
 
 GpuReproConfig make_gpu_repro_config(const std::vector<ProgramGenome>& population,
                                      const EvolutionConfig& cfg);
