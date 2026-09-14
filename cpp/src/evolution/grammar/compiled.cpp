@@ -1,4 +1,5 @@
 #include "gagp/evolution/grammar/compiled.hpp"
+#include "gagp/evolution/grammar/budget.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -319,6 +320,16 @@ class GrammarCompiler {
       node.kind = ExpressionKind::Constant;
       node.target = static_cast<std::uint32_t>(out_.constants_.size());
       out_.constants_.push_back(parse_constant_domain(value.object_v.at("constant")));
+      out_.constant_encodings_.emplace_back();
+      const auto& domain_json = value.object_v.at("constant");
+      if (!out_.constants_.back().integer_range) {
+        Json singleton = domain_json;
+        singleton.object_v.at("values").array_v.clear();
+        for (const auto& item : domain_json.object_v.at("values").array_v) {
+          singleton.object_v.at("values").array_v = {item};
+          out_.constant_encodings_.back().insert(canonical_json(singleton));
+        }
+      }
       node.type = out_.constants_.back().type;
       if (context && fixed_region && (out_.constants_.back().integer_range || out_.constants_.back().values.size() != 1))
         throw std::invalid_argument("fixed template constant requires exactly one value");
@@ -412,19 +423,7 @@ class GrammarCompiler {
     return append(std::move(node));
   }
   std::uint32_t cost(std::uint32_t id, std::uint32_t depth) const {
-    const auto& node = out_.expressions_[id];
-    if (node.kind == ExpressionKind::Reference) return out_.nonterminals_[node.target].minimum_nodes_by_depth[depth];
-    if (node.kind == ExpressionKind::Template || node.kind == ExpressionKind::Hole)
-      return node.children.empty() ? kNoGrammarId : cost(node.children.front(), depth);
-    if (!depth) return kNoGrammarId;
-    std::uint64_t result = 1;
-    for (auto child : node.children) {
-      const auto nodes = cost(child, depth - 1);
-      if (nodes == kNoGrammarId) return kNoGrammarId;
-      result += nodes;
-      if (result > out_.search_limits_.max_nodes) return kNoGrammarId;
-    }
-    return static_cast<std::uint32_t>(result);
+    return minimum_expression_nodes(out_, id, depth);
   }
   void costs() {
     const auto depths = out_.search_limits_.max_depth;
@@ -464,10 +463,28 @@ const std::vector<std::uint32_t>& CompiledGrammar::productions_for_type(RType ty
 const std::vector<std::uint32_t>& CompiledGrammar::productions_for_category(NodeCategory category) const {
   return by_category_[category_index(category)];
 }
-void CompiledGrammar::require_executable() const {
-  for (const auto& expression : expressions_) {
+void CompiledGrammar::require_executable() const { require_executable(entry_); }
+void CompiledGrammar::require_executable(std::uint32_t nonterminal) const {
+  if (nonterminal >= nonterminals_.size()) throw std::invalid_argument("unknown executable nonterminal");
+  std::vector<std::uint32_t> pending;
+  std::vector<bool> nonterminals(nonterminals_.size(), false), expressions(expressions_.size(), false);
+  const auto enqueue = [&](std::uint32_t nt) {
+    if (nonterminals[nt]) return;
+    nonterminals[nt] = true;
+    for (auto production : nonterminals_[nt].productions) pending.push_back(productions_[production].expression);
+  };
+  enqueue(nonterminal);
+  while (!pending.empty()) {
+    const auto id = pending.back(); pending.pop_back();
+    if (expressions[id]) continue;
+    expressions[id] = true;
+    const auto& expression = expressions_[id];
+    if (expression.kind == ExpressionKind::Bound)
+      throw std::invalid_argument("lexical bound-value materialization requires the general binding runtime");
     if (expression.kind == ExpressionKind::Primitive) PrimitiveCatalog::standard().require_executable(expression.target);
     if (expression.kind == ExpressionKind::Structured) require_structured_execution(structured_[expression.target]);
+    if (expression.kind == ExpressionKind::Reference) enqueue(expression.target);
+    pending.insert(pending.end(), expression.children.begin(), expression.children.end());
   }
 }
 

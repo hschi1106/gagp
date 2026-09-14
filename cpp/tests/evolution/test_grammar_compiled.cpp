@@ -3,6 +3,7 @@
 #include <limits>
 
 #include "gagp/evolution/grammar/compiled.hpp"
+#include "gagp/evolution/grammar/random.hpp"
 
 using namespace gagp::evo::grammar;
 using gagp::cli_detail::JsonParser;
@@ -47,6 +48,25 @@ int main() {
     rejects([] { compile_grammar(load_definition(std::string(GAGP_REPOSITORY_ROOT) +
         "/cpp/tests/fixtures/grammar/invalid_scope.json")); }, "not visible");
     const auto grammar = compile(json(custom));
+    GrammarRandom golden(0);
+    check(golden.next() == UINT64_C(0xe220a8397b1dcdaf) && golden.next() == UINT64_C(0x6e789e6aa1b965f4) &&
+          golden.next() == UINT64_C(0x06c45d188009454f), "grammar RNG version changed");
+    GrammarRandom random(42);
+    check(random.integer(std::numeric_limits<std::int64_t>::min(), std::numeric_limits<std::int64_t>::min()) ==
+          std::numeric_limits<std::int64_t>::min(), "minimum Int sampling overflow");
+    check(random.integer(std::numeric_limits<std::int64_t>::max(), std::numeric_limits<std::int64_t>::max()) ==
+          std::numeric_limits<std::int64_t>::max(), "maximum Int sampling overflow");
+    bool negative = false, positive = false;
+    unsigned sums = 0;
+    for (unsigned i = 0; i < 10000; ++i) {
+      const auto value = random.integer(std::numeric_limits<std::int64_t>::min(), std::numeric_limits<std::int64_t>::max());
+      negative |= value < 0; positive |= value >= 0;
+      const auto chosen = random.production(grammar, {0, 2});
+      check(chosen == 0 || chosen == 2, "sampling enabled an excluded production");
+      sums += chosen == 2;
+    }
+    check(negative && positive && sums > 6000 && sums < 7300, "sampling range or eligible weight normalization changed");
+    rejects([&] { random.production(grammar, {}); }, "no grammar production");
     check(grammar.nonterminals().size() == 2 && grammar.productions().size() == 5, "compiled rule count");
     check(grammar.nonterminals()[0].minimum_nodes == 1 && grammar.nonterminals()[0].minimum_depth == 1, "recursive minimum cost");
     check(grammar.productions_for_type(gagp::evo::RType::Int).size() == 5, "type index");

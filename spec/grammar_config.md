@@ -295,3 +295,38 @@ Config tooling must test:
 - CPU and GPU reproduction both respect non-default native configs.
 
 The staged typed-definition compiler is specified in [grammar_definition.md](grammar_definition.md). It is internal during migration; the CLI contract above remains the production path.
+
+The additive C++ compiled-grammar generation/population overloads validate exact case
+schemas and use the domain-only constant policy documented there. They do not change
+the production CLI or reinterpret legacy `Limits` as full-prefix search budgets.
+
+
+## Staged explicit typed conversion
+
+`convert_grammar_config(config, options)` implements `grammar-config-typed-v1` using
+stable `Gct1.*` nonterminal IDs. It maps enabled exact native operations to catalog
+signatures, with equal production weights. The caller supplies the exact return type,
+input schema, typed locals, one owned constant domain for every enabled value type,
+full-prefix search limits, execution fuel, per-block statement bound and literal loop
+bound. Empty, duplicate, extra or mismatched domains are rejected. There is no implicit
+`x` input, expected-output payload injection, or legacy `Limits` reinterpretation.
+
+The conversion policy initializes declared locals from their own constant domains in
+a root prologue. Those assignments count against the root block's statement limit and
+require assignment to be enabled. Local types remain fixed. A final root return is
+mandatory; nested blocks may be empty and all blocks respect the supplied statement
+bound. ForRange uses the first declared Int local and a separate explicit constant
+production `[0,max_for_k]`. Enabling loops without an Int local, or if statements without
+Bool, is an error. Capacities are 1..64 statements per block and at most 16 locals, with
+room for the prologue and final return. The generated definition records these choices
+as ordinary productions, so membership and replay use the same compiled grammar.
+
+The converter rejects enabled map/filter, LinearRec and ASGP switches until their new
+execution counterparts are available, and rejects legacy Any-input compatibility.
+Supported enabled operation semantics are preserved under the caller's explicit typed
+scope and domains. This is not an assertion that the complete legacy generated language
+or sampling distribution is identical: legacy assignments can change types, old depth
+limits measure generator recursion, and some enabled operations were not sampled by
+that generator. Exact scalar constant support can be supplied explicitly; finite typed
+payload pools are caller-selected constraints, not a claim to enumerate the old String
+or list distribution. The original grammar-config generator remains the migration oracle.

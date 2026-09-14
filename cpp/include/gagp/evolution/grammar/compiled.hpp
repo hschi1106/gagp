@@ -5,6 +5,7 @@
 #include <limits>
 #include <string>
 #include <vector>
+#include <unordered_set>
 
 #include "gagp/evolution/grammar/catalog.hpp"
 #include "gagp/evolution/grammar/constants.hpp"
@@ -110,6 +111,10 @@ class CompiledGrammar {
   const std::vector<CompiledProduction>& productions() const noexcept { return productions_; }
   const std::vector<CompiledExpression>& expressions() const noexcept { return expressions_; }
   const std::vector<ConstantDomain>& constants() const noexcept { return constants_; }
+  // Finite-domain lookup is compiled once; encoding is the singleton domain JSON.
+  bool constant_encoding_allowed(std::uint32_t domain, const std::string& encoding) const {
+    return constant_encodings_.at(domain).count(encoding) != 0;
+  }
   const std::vector<CompiledTemplate>& templates() const noexcept { return templates_; }
   const std::vector<CompiledContext>& contexts() const noexcept { return contexts_; }
   const std::vector<StructuredContract>& structured_contracts() const noexcept { return structured_; }
@@ -118,6 +123,7 @@ class CompiledGrammar {
   const std::vector<std::uint32_t>& productions_for_category(NodeCategory category) const;
   const std::vector<std::uint32_t>& productions_for_type(RType type) const;
   void require_executable() const;
+  void require_executable(std::uint32_t nonterminal) const;
 
  private:
   friend class GrammarCompiler;
@@ -130,6 +136,7 @@ class CompiledGrammar {
   std::vector<CompiledProduction> productions_;
   std::vector<CompiledExpression> expressions_;
   std::vector<ConstantDomain> constants_;
+  std::vector<std::unordered_set<std::string>> constant_encodings_;
   std::vector<CompiledTemplate> templates_;
   std::vector<CompiledContext> contexts_;
   std::vector<StructuredContract> structured_;

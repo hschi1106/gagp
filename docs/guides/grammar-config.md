@@ -82,3 +82,66 @@ its output JSON.
 - `cpp/tests/evolution/test_repro_prep.cpp`: reproduction preprocessing
   conformance
 
+
+
+## Staged typed-definition artifacts
+
+The internal compiled-grammar C++ APIs generate typed programs and initial populations
+with immutable derivation metadata. `encode_generated_artifact` records one program;
+`encode_generated_population_artifact` records an initial population with exact
+same-version replay checks. Both retain decoded payload contents rather than relying
+on process-local registry entries. Their schema and limits are defined in
+[`../../spec/grammar_definition.md`](../../spec/grammar_definition.md).
+
+A generated single-program artifact can be evaluated with the existing CLI:
+
+```bash
+cpp/build/gagp_evolve_cli --cases cases.json --eval-ast-json generated.json --out-json result.json
+```
+
+The fixture must match the artifact's exact input schema and return type. The recorded
+fuel is used automatically; if supplied, `--fuel` must agree. Evaluation can use the
+materialized program even when its generator version is unavailable. Use the C++ replay
+API when validating generation identity and provenance. The typed-definition generation
+and population replay APIs are still staged; legacy `--grammar-config` evolution remains
+the production workflow until grammar-aware reproduction is integrated.
+
+
+Generate or replay a staged initial population with the native generation CLI:
+
+```bash
+cpp/build/gagp_generate_cli --grammar-definition grammar.json --cases cases.json --population-size 64 --seed 0 --out-json population.json
+cpp/build/gagp_generate_cli --replay-json population.json --cases cases.json --out-json replayed.json
+```
+
+Supply `--grammar-definition grammar.json` during replay to require that exact resolved
+grammar and import identity. A changed grammar fails before the output is replaced.
+Population artifacts bundle complete single-program members; the one-AST evaluation
+command above consumes one such member, not the population wrapper.
+
+
+`grammar/config_adapter.hpp` provides the explicit C++ migration adapter
+`convert_grammar_config`. Supply exact inputs, typed locals, owned constant domains,
+new search/fuel limits, statement capacity and loop bounds in `GrammarConfigConversion`.
+Then pass the returned resolved definition to `compile_grammar`. This maps supported
+enabled operations without changing the legacy generator. Local initialization and
+limit differences are specified in
+[`../../spec/grammar_config.md`](../../spec/grammar_config.md#staged-explicit-typed-conversion).
+Unsupported structured switches fail with an actionable diagnostic.
+
+
+With `GAGP_BUILD_BENCHMARKS=ON`, the scalar initialization benchmark also emits the
+resolved conversion used for its measurements:
+
+```bash
+cpp/build/gagp_grammar_initialization_bench --grammar-config configs/grammar/scalar.json --cases data/fixtures/simple_exp_1024.json --population-size 64 --seed 0 --warmups 3 --trials 15 --out-json logs/initialization.json --out-definition logs/converted-scalar.json
+```
+
+The benchmark explicitly chooses one initialized Int local, 80 full-prefix nodes,
+depth 32, six statements per block, loop bounds 0..16, and fuel 20000. Scalar domains
+include Int -8..8, both Bool values, and every Float thousandth from -8 through 8 plus
+negative zero. The emitted definition records the actual search space. Setup timing
+includes input loading, domain construction, conversion and compilation. Each raw
+initialization sample includes generation, membership verification and lowering; output
+serialization and summaries occur afterward. This is an early migration overhead
+measurement, not a claim of identical old/new program distributions or a performance gate.

@@ -13,7 +13,7 @@ not supported; it follows the unknown-argument error contract.
 | `--cases` | `cases_path` | `required` | Fitness-case input path |
 | `--population-json` | `population_json` | `unset` | Fixed `population-seeds` replay path |
 | `--grammar-config` | `grammar_config_path` | `unset` | Evolution search-space config path |
-| `--eval-ast-json` | `eval_ast_json` | `unset` | Evaluate one materialized AST on CPU |
+| `--eval-ast-json` | `eval_ast_json` | `unset` | Evaluate one native AST or generated grammar artifact on CPU |
 | `--engine` | `engine` | `cpu` | Fitness backend: `cpu` or `gpu` |
 | `--repro-backend` | `repro_backend` | `cpu` | Reproduction backend: `cpu` or `gpu` |
 | `--cpu-repro-ablation` | `cpu_repro_ablation` | `none` | CPU experiment mode: `none`, `gpu_selection`, `gpu_candidates`, or `gpu_coupled_donor` |
@@ -43,3 +43,21 @@ Fixed-population timing should use `--population-json`, `--generations 1`,
 [`../guides/benchmarking.md`](../guides/benchmarking.md) for the complete fair
 comparison procedure.
 
+`--eval-ast-json` also accepts staged `grammar-generated-v1` artifacts. This evaluates
+the stored materialized AST without requiring its generator version or resolved grammar.
+The case file must match the recorded exact input schema and return type. Execution uses
+the artifact's fuel; an explicit `--fuel` must equal that value. The result JSON reports
+the fuel actually used. Native `ast-prefix` inputs retain the normal CLI fuel behavior.
+This evaluation establishes native validity; it does not replay or certify grammar
+provenance. The C++ artifact replay APIs provide that separate check.
+
+
+The staged `gagp_generate_cli` creates `grammar-population-v1` initial-population
+artifacts. Generation requires `--grammar-definition`, `--cases` and `--out-json`;
+`--population-size` defaults to 1 (maximum 65536), and `--seed` defaults to 0 and accepts
+a canonical unsigned 64-bit decimal. Replay uses `--replay-json` with `--cases` and
+`--out-json`; an optional `--grammar-definition` imposes a required grammar identity.
+Replay rejects explicit size/seed overrides. This CLI supports `--help`, rejects
+unknown/duplicate flags, validates inputs before output replacement, and refuses to
+overwrite a direct input file. It generates and replays populations without invoking
+legacy reproduction.

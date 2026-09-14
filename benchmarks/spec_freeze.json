@@ -1,7 +1,7 @@
 {
   "authoritative_entrypoint": "spec/grammar.md",
   "format_version": "spec-freeze",
-  "generated_at": "2026-09-13",
+  "generated_at": "2026-09-14",
   "notes": [
     "This manifest records the maintained normative spec set, including the staged internal typed grammar-definition contract; existing runtime semantics remain release 1.0.0.",
     "The hash gate is intentionally mechanical: if a listed spec changes, update this manifest in the same semantic change."
@@ -37,11 +37,11 @@
     },
     {
       "path": "spec/grammar_config.md",
-      "sha256": "d5cd411665ae3871ce0783947c3ee3e2ba6d3eb758bfcd1c711e33c9b66dbfd6"
+      "sha256": "4a35a93b65ca6cb320e0d0fae3a679341ceac2dfc5ffc353643e83d0b4b40ea6"
     },
     {
       "path": "spec/grammar_definition.md",
-      "sha256": "dde86126cd80e04bc1a6110025c9e022ab38621b735ba4a1ed8703a6084673c1"
+      "sha256": "a25b0a1687cbef31953ff2234f2b6ba1ba92bf4f0bc119a32b24c6b2d5d21687"
     }
   ],
   "status": "frozen"

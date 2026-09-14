@@ -21,6 +21,7 @@
 #include "gagp/cli/codec.hpp"
 #include "gagp/cli/commands.hpp"
 #include "gagp/cli/json.hpp"
+#include "gagp/cli/grammar_artifact.hpp"
 #include "gagp/cli/options.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 
@@ -992,13 +993,38 @@ gagp::evo::GrammarConfig gagp::cli_detail::decode_grammar_config_json(
 
 int gagp::cli_detail::run_eval_ast_command(const CliOptions& args) {
       const LoadedCommandInputs inputs = load_command_inputs(args);
-      const gagp::evo::EvolutionConfig cfg = make_evolution_config(args, inputs.grammar);
+      gagp::evo::EvolutionConfig cfg = make_evolution_config(args, inputs.grammar);
       if (cfg.eval_engine != gagp::evo::EvalEngine::CPU) {
         throw std::runtime_error("--eval-ast-json currently supports --engine cpu only");
       }
-      const JsonValue ast_payload = gagp::cli_detail::JsonParser(read_text_file(args.eval_ast_json)).parse();
+      const auto ast_text = read_text_file(args.eval_ast_json);
+      if (ast_text.size() > 256u * 1024u * 1024u) {
+        throw std::invalid_argument("AST JSON exceeds 256 MiB");
+      }
+      const JsonValue ast_payload =
+          gagp::cli_detail::JsonParser(ast_text, {false, 512}).parse();
       gagp::evo::ProgramGenome genome;
-      genome.ast = decode_ast_json(ast_payload);
+      const auto format = ast_payload.object_v.find("format_version");
+      if (format != ast_payload.object_v.end() && format->second.kind == JsonValue::Kind::String &&
+          format->second.string_v == kGeneratedGrammarArtifactVersion) {
+        auto materialized = decode_materialized_program(ast_text);
+        const auto fixture = gagp::evo::prepare_case_set(inputs.cases, cfg.grammar);
+        if (fixture.input_specs.size() != materialized.inputs.size() ||
+            fixture.expected_return_type != materialized.return_type)
+          throw std::invalid_argument("grammar artifact fixture schema differs from --cases");
+        for (const auto& input : materialized.inputs) {
+          const auto found = std::find_if(fixture.input_specs.begin(), fixture.input_specs.end(),
+              [&](const auto& candidate) { return candidate.name == input.name && candidate.type == input.type; });
+          if (found == fixture.input_specs.end())
+            throw std::invalid_argument("grammar artifact input schema differs from --cases");
+        }
+        if (args.fuel_explicit && args.fuel != static_cast<int>(materialized.execution_limits.fuel))
+          throw std::invalid_argument("--fuel differs from grammar artifact execution contract; use its recorded fuel");
+        cfg.fuel = static_cast<int>(materialized.execution_limits.fuel);
+        genome = std::move(materialized.genome);
+      } else {
+        genome.ast = decode_ast_json(ast_payload);
+      }
       const gagp::evo::AstVerifyResult verified = gagp::evo::verify_ast(
           genome.ast, gagp::evo::canonical_input_specs(inputs.cases, cfg.grammar));
       if (!verified) {

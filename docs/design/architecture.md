@@ -185,3 +185,49 @@ structural productions enforce category/type contracts and resolve declared muta
 locals to numeric IDs before materialization. Repeated template
 holes retain one logical slot identity, and composed templates may forward holes
 through explicitly declared scopes.
+
+Goal 03 materialization is being integrated through `grammar/generate.hpp/.cpp`,
+compiled into `gagp_evolution` and backed by immutable `gagp_grammar` tables. The
+initial internal path handles native value/control nodes and owned constant domains,
+then performs native AST verification before returning a genome. It reports logical
+steps, derived nodes and node-aligned origins separately from total AST size.
+Expression entries reserve four envelope nodes and three prefix levels from the
+search budget; Program entries already own that structure. Execution fuel is copied
+separately into derivation metadata. Shared/forwarded template holes now materialize with reserved copy budgets and
+logical identity. `ProgramGenome` optionally retains immutable derivation metadata;
+clones and table compaction preserve it, while newly changed legacy children have
+no grammar provenance. The staged `grammar-generated-v1` artifact stores a resolved
+grammar, versioned seed replay and lossless typed constants separately from AST
+structure. Replay checks the complete canonical regenerated artifact; materialized
+decoding independently checks native validity and returns the input/return contract
+and recorded execution limits. The one-AST CLI accepts this artifact and enforces its
+fuel and fixture schema. `grammar-population-v1` bundles initial members with exact
+replay on encoding and decoding, rejecting stale attached provenance.
+Compiled-grammar overloads in genome generation and population initialization keep
+that provenance and validate exact case schemas. Every generated result passes the
+independent materialized membership matcher before acceptance. Its per-invocation
+memoization cannot leak matches between grammars or ASTs. Generation also lowers and
+verifies bytecode, recording its instruction count separately from AST size. Generated
+runtime cache identities include decoded constants, input ordering, fuel and the runtime
+semantic version while excluding search weights and provenance. The staged
+`gagp_generate_cli` exercises generation and exact population replay end to end.
+The versioned grammar-config adapter emits ordinary typed productions with explicit
+domains, initialized local scope and structural limits; it retains the legacy path
+for the migration oracle. Finite constant-domain membership indexes are built once
+with the compiled grammar rather than reconstructed for each candidate. The production CLI cutover
+and grammar-aware reproduction remain later migration work.
+
+`grammar/budget.hpp/.cpp` is shared by compilation and materialization. It constrains
+all copies of a logical template hole to the tightest occurrence depth and computes
+the corresponding joint minimum cost. Generation adds active enclosing reservations
+without parsing source definitions. Template plans sample holes once and copy native
+subtrees with remapped physical spans and parent-choice indexes. Execution preflight
+visits only entry-reachable rules and instantiated bodies.
+
+
+Contextual generation uses `grammar/request.hpp`: callers select a compiled nonterminal,
+exact type, visible lexical bindings and remaining structural budget. Scope mappings
+are validated and recorded in immutable provenance and artifacts. The entry APIs are
+wrappers around this request path. Request-aware membership and population generation
+share the same contract; executable preflight follows the requested nonterminal.
+Actual bound-value lowering remains part of the subsequent general-runtime work.

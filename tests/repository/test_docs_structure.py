@@ -117,6 +117,10 @@ class TestDocumentationStructure(unittest.TestCase):
             else:
                 field_defaults[field] = raw_default.strip('"')
 
+        # Presence tracking is internal parser state, not a separate user flag.
+        # Its behavior is covered by the native artifact CLI contract test.
+        self.assertEqual(field_defaults.pop("fuel_explicit"), "off")
+
         parser_pairs = dict(
             re.findall(
                 r'(?:if|else if) \(arg == "(--[^"]+)"\) \{\s*'

@@ -1,9 +1,10 @@
 # Grammar migration execution evidence
 
-Goal 01 baseline capture is complete.
-Goals 02–12 have not started. The immutable source
-revision and binary/log hashes are recorded in [baseline-capture.json](baseline-capture.json).
-No generation or runtime implementation has changed.
+Goals 01–02 are committed. Goal 03 adds staged grammar generation and artifacts;
+its validation evidence is recorded below. Goals 04–12 remain pending. The immutable
+reference source revision and binary/log hashes are recorded in
+[baseline-capture.json](baseline-capture.json). Existing production generation and
+runtime workflows remain available during the staged migration.
 
 ## Expanded matrix and launch capability
 
@@ -595,3 +596,42 @@ Validation artifacts are under the existing grammar-migration artifact root:
 Goal 03 implements grammar-driven materialization and artifacts; Goal 04 implements
 membership-aware variation. General structured execution remains assigned to
 Goals 05–07. Goal 02's declarations are not a claim that these later stages are done.
+
+## Goal 03 initialization checkpoint
+
+[Initialization evidence](goal-03-initialization.md) records the frozen-reference and
+converted-grammar measurements, full setup cost, different AST size distributions,
+raw artifact paths and explicit limits on performance conclusions.
+
+## Goal 03 generation and replay validation
+
+The staged implementation provides contextual typed generation, independent grammar
+membership, immutable derivation metadata, explicit legacy-config conversion, lossless
+materialized artifacts, exact generation replay and `gagp_generate_cli`. Native
+verification and bytecode lowering remain inside initialization timing. General
+lexical execution and grammar-aware variation remain Goals 05 and 04 respectively.
+
+Current-request validation logs under the artifact root:
+
+- `goal-03-request-cpu-tests-03.log`: 43/43 CPU-only native tests passed.
+- `goal-03-request-final-ctest.log`: 60/60 CUDA-enabled native tests passed, no skips;
+  includes CPU/GPU fitness/evolution parity and migration-oracle tests.
+- `goal-03-request-final-configure.log` and `goal-03-request-final-build.log`:
+  successful Debug CUDA build with benchmarks enabled.
+- `goal-03-request-final-tools-unittest.log`: 52/52 operational checks passed.
+- `goal-03-request-final-repository-unittest.log`: 17/17 repository checks passed.
+- `goal-03-request-cli-smoke/commands.json`: actual CLI generation of three members
+  across uint64 seed wraparound, byte-identical population replay and member evaluation.
+
+Generation properties include 512 scalar seeds, 256 repeated/forwarded template seeds,
+304 config-conversion samples across all eight exact types, payload domain and
+cold-registry artifact round trips, reduced request budgets, scope mappings, disabled
+leaves and impossible-budget rejection. Same-version replay checks consistency with
+the recorded request; a different valid request can also reproduce the same program.
+
+Final CLI dispatch review added the 256 MiB/512-level bounds before format detection,
+preserving legacy non-strict JSON behavior. The focused artifact CLI test passed
+with both excessive artifact/legacy nesting rejection and normal legacy evaluation
+(`goal-03-cli-dispatch-build-02.log`, `goal-03-cli-dispatch-ctest-02.log`). This narrow
+correction followed the full 60-test run above. Final spec/doc repository checks
+passed 17/17 (`goal-03-final-docs-repository.log`).

@@ -11,6 +11,12 @@
 
 namespace gagp::evo {
 
+namespace grammar { class CompiledGrammar; struct GenerationRequest; }
+
+ProgramGenome generate_random_genome(std::uint64_t seed, const grammar::CompiledGrammar& grammar);
+ProgramGenome generate_random_genome(std::uint64_t seed, const grammar::CompiledGrammar& grammar,
+    const grammar::GenerationRequest& request);
+
 ProgramGenome generate_random_genome(std::uint64_t seed, const Limits& limits = Limits{});
 ProgramGenome generate_random_genome(std::uint64_t seed,
                                      const Limits& limits,

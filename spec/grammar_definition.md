@@ -265,3 +265,187 @@ never selects a runtime evaluator by package name. These contracts must remain t
 when later stages add concrete artifact fields and acceptance checks.
 
 Source shape validation runs before override resolution discards definitions; an overridden unknown key or malformed constant is still an error.
+
+## Staged materialization policy
+
+The internal generator identifies its sampling algorithm as `typed-derivation-v1`
+and its RNG as `splitmix64-rejection-v1`. Bounded integer sampling uses rejection
+before modulo reduction; the complete signed 64-bit domain is supported without
+signed overflow. Weights are normalized by the maximum eligible weight before
+summing in binary64. Excluded productions are never restored as a fallback.
+
+A Program entry already contains its native envelope. An Expression entry reserves
+four nodes (PROGRAM, BLOCK_CONS, RETURN, BLOCK_NIL) and three prefix depth levels
+from the total search budget before deriving its expression. If this envelope plus
+a finite expression cannot fit, generation fails with a budget diagnostic. Metadata
+reports logical sampling steps, derived nodes and total materialized AST size
+separately, and retains search limits separately from execution fuel.
+
+Children receive a random allowance between their minimum feasible node cost and
+the remaining budget after reserving their siblings' minimum costs. Unused allowance
+returns to later siblings. Alias-only cycles are redundant derivations of the same
+AST: selection excludes paths that revisit a nonterminal without materializing a
+node, including through transparent template/hole wrappers. Alias chains are iterative;
+recursive productions that materialize nodes retain normal depth/node accounting.
+The current additional logical-step capacity is 1,048,576 and reports exhaustion.
+
+Each template instance plans a common budget for every logical hole. Its depth is
+the tightest of all occurrences, and its reservation accounts for every copy.
+Feasibility analysis applies this shared constraint rather than independently choosing
+different derivations for different occurrences. The hole is sampled once; later
+occurrences copy its native subtree, constant references and logical origin IDs.
+Forwarded holes preserve their enclosing slot identity. Unused reserved nodes are
+released after the first materialization determines the actual subtree size.
+
+Fixed skeleton origins identify their template instance. Hole occurrence records
+identify shared slots and physical AST spans; copied production-choice records remap
+parent indexes and spans. Native verification is mandatory before returning a generated
+program. Execution preflight follows the entry's reachable productions and instantiated
+bodies; an unused imported template does not request execution of its primitives.
+Population integration is still being implemented before the Goal 03 production
+interface is finalized.
+
+
+### Generated artifacts (staged)
+
+`grammar-generated-v1` records the resolved grammar and hash, generator/RNG versions,
+runtime semantic version `gagp-native-1.0.0`, canonical unsigned 64-bit decimal seed, ordered input schema and its SHA-256 hash,
+exact return type, search limits, execution fuel, and `domain-only-v1` payload policy.
+That policy samples only declared constant domains; expected outputs do not inject
+additional constants. The artifact also stores a native `ast_shape` with an empty
+constant pool and a separate `constants` array. Each constant uses the singleton
+constant-domain encoding, retaining full signed 64-bit values, signed floating zero,
+Unicode scalar values and complete typed payload contents without registry IDs.
+
+Derivation metadata contains logical-step, derived-node and lowered-instruction counts
+plus numeric rows:
+
+| Array | Columns |
+| --- | --- |
+| nodes | expression, production, nonterminal, logical instance, template instance, slot, fixed (0/1) |
+| choices | nonterminal, production, parent choice, AST begin, AST end |
+| templates | template ID, parent instance |
+| holes | template instance, slot, AST begin, AST end |
+
+AST spans are half-open. Missing numeric identities use `4294967295`.
+Same-version replay compiles the embedded resolved definition, checks its declared and
+optionally required grammar identity, regenerates from the seed, and compares the
+entire canonical artifact. Constants, provenance, schemas, limits or version identities
+that disagree with the regenerated request fail with a diagnostic. A changed request
+that is itself valid and regenerates the recorded program can pass; replay establishes
+internal reproducibility, not authenticity of the original request. Arbitrary varied
+programs require a separate membership validator.
+
+Materialized decoding is independent of the recorded generator and resolved grammar.
+It restores payloads from content and verifies the native AST against the recorded
+input schema and return type. It establishes native validity, not grammar membership.
+The contract-preserving decoder returns the recorded search limits, execution fuel,
+input schema and return type alongside the AST; it checks the recorded structural
+limits as well as global capacities. Callers executing the decoded program must use
+the recorded execution fuel. Both
+paths accept at most 256 MiB of artifact JSON and 512 JSON nesting levels. The AST
+evaluation CLI applies these bounds before dispatching by artifact format. Materialized ASTs are limited to 65,536
+nodes and prefix depth 256; structural numeric fields must be signed 32-bit integers
+before conversion by the native AST codec.
+
+
+### Materialized membership and population generation (staged)
+
+`require_membership` validates native structure, exact input/return typing and full
+materialized node/depth budgets, then matches the entry's compiled productions.
+Expression entries require their exact single-return envelope. Referenced constants must belong
+to their declared typed domains, including integer range endpoints and signed floating
+zero; opaque payload IDs are insufficient. Input/local leaves retain their declared
+names and exact types. Fixed template skeletons must match, and repeated or forwarded
+holes must have equal materialized subtrees. Equality resolves names and constant
+contents, so table compaction and duplicate constant-table entries do not change it.
+Membership does not depend on generation seed or attached provenance. It does not
+certify the accuracy of supplied provenance; artifact replay checks that separately.
+
+Matching excludes active zero-node alias cycles, caches positive nonterminal matches
+only within one grammar/AST invocation, and reports capacity exhaustion at 1,048,576
+matching steps or 4,096 grammar frames. Negative matches are not cached because they
+can depend on the current alias ancestry. Generation runs this membership gate before
+accepting a result. Its cost belongs inside initialization timing.
+
+The compiled-grammar overload of population initialization requires a positive size,
+exact case input names/types (order-independent), and an expected return type matching
+the entry. Individual seeds are `seed + index` modulo 2^64. Each member retains its
+immutable derivation metadata. The domain-only policy ignores expected values when
+sampling constants. The existing grammar-config population and reproduction paths
+remain available as the migration oracle; selecting compiled initialization does not
+imply that legacy reproduction enforces the new grammar.
+
+
+`grammar-population-v1` bundles an initial population with exactly four root fields:
+`format_version`, `grammar_hash`, `count`, and `members`. Members are complete
+`grammar-generated-v1` objects in population order. The population must contain
+1..65536 members and fit in 256 MiB. Each member must have the same grammar identity.
+Encoding requires attached immutable provenance and checks exact same-version replay
+before accepting each member; changed ASTs with stale provenance fail. Decoding checks
+root fields/count, required grammar identity when supplied, and each member's complete
+replay. This format reconstructs generated initial populations; varied populations
+require a future artifact version with variation provenance.
+
+The existing one-AST CLI evaluation path can consume a generated artifact as a
+materialized program. It verifies the case schema, applies the recorded fuel, and
+rejects a conflicting explicit fuel override. This path does not certify generation
+provenance and does not route the population into legacy reproduction.
+
+
+Before accepting a generated program, generation lowers it through the native compiler
+and its bytecode verifier, records the ordinary instruction count, and enforces the
+implementation capacity of 1,048,576 lowered instructions. This count is separate from
+logical sampling steps and materialized AST nodes. Typed definitions cannot lower to
+legacy specialized segments. Compilation and membership verification are included in
+initialization timing; later compilation caches do not move this work outside the gate.
+
+Generated-program runtime compilation identities include the runtime semantic version,
+materialized AST structure, exact constant contents, ordered input names and actual
+execution fuel. Grammar file paths, production weights, seed and derivation metadata
+are excluded. The identity supports ordinary native grammar programs; specialized
+legacy metadata is rejected. Legacy migration genomes keep their existing cache path.
+Materialized artifact execution requires the recorded runtime semantic version even
+when the generator is unavailable; an incompatible runtime version is rejected.
+
+
+Finite-domain membership encodings are compiled once alongside owned constant domains.
+Lookup uses exact singleton-domain canonical JSON, including typed payload contents and
+signed floating zero. This index belongs to one immutable compiled grammar and does not
+change domain order or production sampling weights. Integer ranges retain direct
+inclusive endpoint checks.
+
+
+### Contextual generation requests
+
+`GenerationRequest` names a compiled nonterminal ID, its exact result type, an ordered
+visible lexical environment, and a remaining full-native-program node/depth budget.
+The budget must be positive and no larger than the compiled grammar limits; expression
+requests include the four-node/three-level envelope. The requested nonterminal must
+be an Expression or Program, and its minimum feasible derivation must fit. Generation
+reports an actionable diagnostic before sampling when these conditions do not hold.
+The default API constructs the compiled entry request with empty lexical scope and the
+full grammar limits, retaining its sampling sequence.
+
+Visible bindings require unique valid names and exact public value types, with capacity
+4096. Every required nonterminal binding must appear by name and exact type; extra
+bindings are permitted. The returned scope mapping indexes required bindings into the
+caller's ordered environment, preserving lexical identity without type-only matching.
+Global input/local declarations remain those of the compiled grammar. Native verification
+still checks their actual availability in the materialized program. Actual bound-value
+execution remains unavailable until the general lexical runtime; a reachable Bound node
+fails preflight explicitly. Scoped rules that do not consume a bound value can still
+be generated and their scope contracts are retained.
+
+Generation, genome-generation and population-initialization overloads consume the same
+request. Membership has a corresponding request-aware overload; its default overload
+checks the grammar entry and full limits. Executability preflight follows the requested
+nonterminal, so an unrelated unsupported default entry does not block another executable
+request. All recursive production choices remain within that request's structural budget.
+
+Generated artifacts record `request` with `nonterminal`, `type`, `visible_environment`
+and `scope_mapping`; the request budget is the artifact's `search_limits`. Exact replay
+reconstructs the request and validates the complete rematerialized artifact, including
+scope mapping and requested return type. Materialized execution still checks native
+validity independently of generation provenance. Immutable genome provenance retains
+the complete request for later constrained variation.

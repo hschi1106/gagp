@@ -60,6 +60,7 @@ CliOptions parse_cli_options(int argc, char** argv) {
       opts.seed = static_cast<std::uint64_t>(std::stoull(need_value("--seed")));
     } else if (arg == "--fuel") {
       opts.fuel = std::stoi(need_value("--fuel"));
+      opts.fuel_explicit = true;
     } else if (arg == "--max-expr-depth") {
       opts.max_expr_depth = std::stoi(need_value("--max-expr-depth"));
     } else if (arg == "--max-stmts-per-block") {

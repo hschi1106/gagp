@@ -1053,6 +1053,7 @@ const ProgramGenome& fallback_parent_for_child(const std::vector<ScoredGenomeRef
 
 ProgramGenome compact_genome_tables(const ProgramGenome& genome) {
   ProgramGenome out;
+  out.derivation = genome.derivation;
   out.ast.version = genome.ast.version;
   out.ast.nodes = genome.ast.nodes;
 

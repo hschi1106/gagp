@@ -25,6 +25,8 @@ struct CliOptions {
   int selection_pressure = 2;
   std::uint64_t seed = 0;
   int fuel = 20000;
+  // Parser bookkeeping: distinguishes a default from an explicit contract override.
+  bool fuel_explicit = false;
   int max_expr_depth = 7;
   int max_stmts_per_block = 6;
   int max_total_nodes = 80;

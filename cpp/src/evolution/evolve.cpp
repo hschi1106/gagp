@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 #include "gagp/evolution/compiler.hpp"
+#include "gagp/evolution/grammar/cache.hpp"
 #include "gagp/evolution/lifecycle.hpp"
 #include "gagp/evolution/population_init.hpp"
 #include "gagp/evolution/repro/backend.hpp"
@@ -55,13 +56,15 @@ ReproductionTiming reproduction_timing_from_stats(
 
 CompiledPopulation compile_population(const std::vector<ProgramGenome>& population,
                                       const std::vector<std::string>& input_names,
-                                      CompileCache* compile_cache) {
+                                      CompileCache* compile_cache, int fuel) {
   CompiledPopulation out;
   out.programs.reserve(population.size());
   CompileCache local_cache;
   CompileCache* cache = (compile_cache != nullptr) ? compile_cache : &local_cache;
   for (const ProgramGenome& genome : population) {
-    const std::string& key = genome.meta.program_key;
+    const auto generated_key = genome.derivation ?
+        grammar::runtime_cache_identity(genome, input_names, static_cast<std::uint32_t>(fuel)) : std::string{};
+    const std::string& key = genome.derivation ? generated_key : genome.meta.program_key;
     if (cache != nullptr) {
       auto it = cache->by_program.find(key);
       if (it != cache->by_program.end()) {
@@ -123,7 +126,7 @@ std::vector<ScoredGenomeRef> score_population_cpu_refs(
     double* fitness_sum_out,
     std::vector<double>* raw_fitness_out,
     bool sort_output) {
-  const CompiledPopulation compiled = compile_population(population, input_names, compile_cache);
+  const CompiledPopulation compiled = compile_population(population, input_names, compile_cache, fuel);
   PopulationEvaluation evaluation;
   evaluation.timing.cpu_compile_ms = compiled.compile_ms;
   evaluation.fitness = eval_fitness_cpu(
@@ -138,13 +141,14 @@ std::vector<ScoredGenomeRef> score_population_gpu_refs(
     const std::vector<ProgramGenome>& population,
     const std::vector<std::string>& input_names,
     FitnessSessionGpu* session,
+    int fuel,
     CompileCache* compile_cache,
     EvolutionResult* result,
     GenerationTiming* generation_timing,
     double* fitness_sum_out,
     std::vector<double>* raw_fitness_out,
     bool sort_output) {
-  const CompiledPopulation compiled = compile_population(population, input_names, compile_cache);
+  const CompiledPopulation compiled = compile_population(population, input_names, compile_cache, fuel);
   FitnessEvalResult fit = session->eval_programs(compiled.programs);
   if (!fit.ok) {
     throw std::runtime_error("gpu fitness evaluation failed: " + fit.err.message);
@@ -252,7 +256,7 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
     }
     if (cfg.eval_engine == EvalEngine::GPU) {
 #ifdef GAGP_HAS_CUDA
-      scored = score_population_gpu_refs(population, case_set.input_names, &gpu_session, nullptr,
+      scored = score_population_gpu_refs(population, case_set.input_names, &gpu_session, cfg.fuel, nullptr,
                                          &result, &generation_timing, &fitness_sum,
                                          overlap_gpu ? &raw_fitness : nullptr, true);
 #else
@@ -309,7 +313,7 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
     if (cfg.eval_engine == EvalEngine::GPU) {
 #ifdef GAGP_HAS_CUDA
       const std::vector<ScoredGenomeRef> final_scored =
-          score_population_gpu_refs(population, case_set.input_names, &gpu_session,
+          score_population_gpu_refs(population, case_set.input_names, &gpu_session, cfg.fuel,
                                     nullptr, &result, nullptr, nullptr, nullptr, true);
       result.best = materialize_scored_genome(final_scored.front());
       result.final_population = cfg.retain_final_population

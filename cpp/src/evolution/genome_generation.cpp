@@ -10,10 +10,20 @@
 #include <vector>
 
 #include "gagp/evolution/ast_verify.hpp"
+#include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 #include "subtree_utils.hpp"
 
 namespace gagp::evo {
+
+ProgramGenome generate_random_genome(std::uint64_t seed, const grammar::CompiledGrammar& grammar) {
+  return grammar::generate_derivation(grammar, seed).genome;
+}
+
+ProgramGenome generate_random_genome(std::uint64_t seed, const grammar::CompiledGrammar& grammar,
+    const grammar::GenerationRequest& request) {
+  return grammar::generate_derivation(grammar, seed, request).genome;
+}
 
 namespace {
 
