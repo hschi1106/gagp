@@ -439,9 +439,6 @@ class WitnessBuilder {
       for (const auto& input : grammar_.inputs()) inputs.push_back(input.name);
       return compile_for_eval(genome_, verified_, inputs);
     }();
-    if (!lowered.asgp_dc_segments.empty() || !lowered.asgp_dp1d_segments.empty() ||
-        !lowered.asgp_dp2d_segments.empty())
-      throw std::invalid_argument("grammar witness cannot certify specialized bytecode segments");
     const auto lowered_instructions = bytecode_instruction_count(lowered);
     if (lowered_instructions > kGrammarMaxLoweredInstructions)
       throw std::invalid_argument("grammar witness exceeds 1048576 lowered instructions");

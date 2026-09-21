@@ -76,13 +76,9 @@ add_library(gagp_evolution
   src/evolution/ast_verify.cpp
   src/evolution/ast_type_verify.cpp
   src/evolution/genome.cpp
-  src/evolution/grammar_config.cpp
   src/evolution/subtree_utils.cpp
-  src/evolution/typed_expr_analysis.cpp
   src/evolution/compiler.cpp
   src/evolution/genome_generation.cpp
-  src/evolution/mutation.cpp
-  src/evolution/crossover.cpp
   src/evolution/selection.cpp
   src/evolution/repro/prep.cpp
   src/evolution/repro/grammar_prep.cpp
@@ -128,7 +124,6 @@ target_sources(gagp_evolution PRIVATE
   src/evolution/grammar/generate.cpp
   src/evolution/grammar/values.cpp
   src/evolution/grammar/cache.cpp
-  src/evolution/grammar/config_adapter.cpp
   src/evolution/grammar/membership.cpp
   src/evolution/grammar/donor.cpp
   src/evolution/grammar/variation.cpp
@@ -138,11 +133,6 @@ target_sources(gagp_evolution PRIVATE
   src/evolution/grammar/variation_cache.cpp
 )
 target_link_libraries(gagp_evolution PUBLIC gagp_grammar)
-
-add_executable(gagp_test_grammar_config_adapter tests/evolution/test_grammar_config_adapter.cpp)
-target_link_libraries(gagp_test_grammar_config_adapter PRIVATE gagp_evolution)
-add_test(NAME gagp_test_grammar_config_adapter COMMAND gagp_test_grammar_config_adapter)
-set_tests_properties(gagp_test_grammar_config_adapter PROPERTIES LABELS "contract;property")
 
 add_executable(gagp_test_grammar_cache tests/evolution/test_grammar_cache.cpp)
 target_link_libraries(gagp_test_grammar_cache PRIVATE gagp_evolution)
@@ -160,17 +150,6 @@ target_compile_definitions(gagp_test_grammar_packages PRIVATE
   GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
 add_test(NAME gagp_test_grammar_packages COMMAND gagp_test_grammar_packages)
 set_tests_properties(gagp_test_grammar_packages PROPERTIES LABELS "contract;integration")
-
-add_executable(gagp_test_grammar_package_equivalence
-  tests/evolution/test_grammar_package_equivalence.cpp)
-target_link_libraries(gagp_test_grammar_package_equivalence PRIVATE
-  gagp_transition gagp_evolution)
-target_compile_definitions(gagp_test_grammar_package_equivalence PRIVATE
-  GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
-add_test(NAME gagp_test_grammar_package_equivalence
-  COMMAND gagp_test_grammar_package_equivalence)
-set_tests_properties(gagp_test_grammar_package_equivalence PROPERTIES
-  LABELS "contract;integration")
 
 add_executable(gagp_test_grammar_population tests/evolution/test_grammar_population.cpp)
 target_link_libraries(gagp_test_grammar_population PRIVATE gagp_evolution)
@@ -253,10 +232,10 @@ target_link_libraries(gagp_test_grammar_reproduction PRIVATE gagp_evolution)
 add_test(NAME gagp_test_grammar_reproduction COMMAND gagp_test_grammar_reproduction)
 set_tests_properties(gagp_test_grammar_reproduction PROPERTIES LABELS "contract;property;integration")
 
-add_executable(gagp_test_grammar_repro_guards tests/evolution/test_grammar_repro_guards.cpp)
-target_link_libraries(gagp_test_grammar_repro_guards PRIVATE gagp_evolution)
-add_test(NAME gagp_test_grammar_repro_guards COMMAND gagp_test_grammar_repro_guards)
-set_tests_properties(gagp_test_grammar_repro_guards PROPERTIES LABELS "contract;property;integration")
+add_executable(gagp_test_evolution_pipeline tests/evolution/test_evolution_pipeline.cpp)
+target_link_libraries(gagp_test_evolution_pipeline PRIVATE gagp_cpu)
+add_test(NAME gagp_test_evolution_pipeline COMMAND gagp_test_evolution_pipeline)
+set_tests_properties(gagp_test_evolution_pipeline PROPERTIES LABELS "unit;contract;integration")
 
 add_executable(gagp_test_grammar_mutation tests/evolution/test_grammar_mutation.cpp)
 target_link_libraries(gagp_test_grammar_mutation PRIVATE gagp_evolution)
@@ -314,50 +293,10 @@ add_test(NAME gagp_test_grammar_artifact COMMAND gagp_test_grammar_artifact)
 set_tests_properties(gagp_test_grammar_artifact PROPERTIES LABELS "contract;integration")
 
 if(GAGP_BUILD_BENCHMARKS)
-  add_executable(gagp_grammar_initialization_bench src/bench/grammar_initialization_bench.cpp)
-  target_link_libraries(gagp_grammar_initialization_bench PRIVATE gagp_cli_support)
   add_executable(gagp_runtime_multi_bench
     src/bench/runtime_multi_bench.cpp
   )
   target_link_libraries(gagp_runtime_multi_bench PRIVATE gagp_cpu)
-  add_executable(gagp_grammar_migration_bench
-    src/bench/grammar_migration_bench.cpp
-    src/bench/migration_snapshot.cpp
-  )
-  target_link_libraries(gagp_grammar_migration_bench PRIVATE gagp_cli_support)
-  if(GAGP_HAS_CUDA)
-    add_executable(gagp_migration_gpu_result_capture
-      src/bench/capture_gpu_results.cu src/bench/migration_snapshot.cpp)
-    target_link_libraries(gagp_migration_gpu_result_capture PRIVATE gagp_cli_support)
-    target_compile_definitions(gagp_migration_gpu_result_capture PRIVATE
-      GAGP_GPU_FITNESS_SOURCE="${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/gpu/fitness_gpu.cu")
-  endif()
-  foreach(mode IN ITEMS plain capture)
-    add_executable(gagp_migration_evolution_stats_${mode}
-      src/bench/capture_evolution_stats.cpp src/bench/migration_snapshot.cpp)
-    target_link_libraries(gagp_migration_evolution_stats_${mode} PRIVATE gagp_cli_support)
-    add_executable(gagp_migration_cpu_reproduction_${mode}
-      src/bench/capture_cpu_donors.cpp src/bench/migration_snapshot.cpp)
-    target_link_libraries(gagp_migration_cpu_reproduction_${mode} PRIVATE gagp_cli_support)
-    target_include_directories(gagp_migration_cpu_reproduction_${mode} PRIVATE src/evolution)
-  endforeach()
-  target_compile_definitions(gagp_migration_evolution_stats_capture PRIVATE
-    GAGP_EVOLVE_SOURCE="${CMAKE_CURRENT_SOURCE_DIR}/src/evolution/evolve.cpp")
-  target_compile_definitions(gagp_migration_cpu_reproduction_capture PRIVATE
-    GAGP_MUTATION_SOURCE="${CMAKE_CURRENT_SOURCE_DIR}/src/evolution/mutation.cpp")
-  add_executable(gagp_migration_oracle_replay
-    src/bench/replay_migration_oracle.cpp
-    src/bench/migration_snapshot.cpp
-  )
-  target_link_libraries(gagp_migration_oracle_replay PRIVATE gagp_cli_support)
-  add_executable(gagp_test_migration_snapshot
-    tests/runtime/test_migration_snapshot.cpp
-    src/bench/migration_snapshot.cpp
-  )
-  target_include_directories(gagp_test_migration_snapshot PRIVATE src/bench)
-  target_link_libraries(gagp_test_migration_snapshot PRIVATE gagp_cli_support)
-  add_test(NAME gagp_test_migration_snapshot COMMAND gagp_test_migration_snapshot)
-  set_tests_properties(gagp_test_migration_snapshot PROPERTIES LABELS "contract")
 endif()
 
 add_executable(gagp_evolve_cli
@@ -369,12 +308,7 @@ add_test(
   COMMAND ${CMAKE_COMMAND}
     -DCLI=$<TARGET_FILE:gagp_evolve_cli>
     -DCASES=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ast_eval_cases.json
-    -DASGP_CASES=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ast_eval_asgp_cases.json
-    -DASGP_SCALAR_CASES=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ast_eval_asgp_scalar_cases.json
     -DVALID_AST=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ast_eval_valid.json
-    -DVALID_ASGP_AST=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ast_eval_asgp_dc.json
-    -DVALID_DP1_AST=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ast_eval_asgp_dp1d.json
-    -DVALID_DP2_AST=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ast_eval_asgp_dp2d.json
     -DINVALID_AST=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ast_eval_invalid.json
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_ast_json_boundary.cmake
 )
@@ -383,7 +317,9 @@ add_test(
   NAME gagp_test_evolve_cli_contract
   COMMAND ${CMAKE_COMMAND}
     -DCLI=$<TARGET_FILE:gagp_evolve_cli>
-    -DCASES=${CMAKE_CURRENT_SOURCE_DIR}/../data/fixtures/simple_exp_1024.json
+    -DCASES=${CMAKE_CURRENT_SOURCE_DIR}/../configs/grammar/examples/restricted_combine.cases.json
+    -DGRAMMAR=${CMAKE_CURRENT_SOURCE_DIR}/../configs/grammar/examples/restricted_combine.json
+    -DLEGACY_GRAMMAR=${CMAKE_CURRENT_SOURCE_DIR}/../configs/grammar/migration/v1/all.json
     -DOUT_JSON=${CMAKE_CURRENT_BINARY_DIR}/evolve_cli_contract.run.json
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_evolve_cli_contract.cmake
 )
@@ -501,16 +437,6 @@ target_link_libraries(gagp_test_compiler_lowering PRIVATE gagp_cpu)
 add_test(NAME gagp_test_compiler_lowering COMMAND gagp_test_compiler_lowering)
 set_tests_properties(gagp_test_compiler_lowering PROPERTIES LABELS "unit;contract")
 
-add_executable(gagp_test_grammar_config
-  tests/evolution/test_grammar_config.cpp
-)
-target_link_libraries(gagp_test_grammar_config PRIVATE gagp_cli_support)
-add_test(
-  NAME gagp_test_grammar_config
-  COMMAND gagp_test_grammar_config ${CMAKE_CURRENT_SOURCE_DIR}/../configs/grammar/all.json
-)
-set_tests_properties(gagp_test_grammar_config PROPERTIES LABELS "unit;contract")
-
 add_executable(gagp_test_ast_codec_compaction
   tests/evolution/test_ast_codec_compaction.cpp
 )
@@ -524,27 +450,6 @@ add_executable(gagp_test_fitness_contract
 target_link_libraries(gagp_test_fitness_contract PRIVATE gagp_cpu)
 add_test(NAME gagp_test_fitness_contract COMMAND gagp_test_fitness_contract)
 set_tests_properties(gagp_test_fitness_contract PROPERTIES LABELS "unit;contract")
-
-add_executable(gagp_test_structured_semantics
-  tests/evolution/test_structured_semantics.cpp
-)
-target_link_libraries(gagp_test_structured_semantics PRIVATE gagp_cpu)
-add_test(NAME gagp_test_structured_semantics COMMAND gagp_test_structured_semantics)
-set_tests_properties(gagp_test_structured_semantics PROPERTIES LABELS "contract")
-
-add_executable(gagp_test_asgp_semantics
-  tests/runtime/test_asgp_semantics.cpp
-)
-target_link_libraries(gagp_test_asgp_semantics PRIVATE gagp_cpu)
-add_test(NAME gagp_test_asgp_semantics COMMAND gagp_test_asgp_semantics)
-set_tests_properties(gagp_test_asgp_semantics PROPERTIES LABELS "contract")
-
-add_executable(gagp_test_genome_properties
-  tests/evolution/test_genome_properties.cpp
-)
-target_link_libraries(gagp_test_genome_properties PRIVATE gagp_cpu)
-add_test(NAME gagp_test_genome_properties COMMAND gagp_test_genome_properties)
-set_tests_properties(gagp_test_genome_properties PROPERTIES LABELS "property")
 
 add_library(gagp_fuzz_support STATIC
   tests/fuzz/fuzz_entrypoints.cpp
@@ -572,13 +477,6 @@ if(GAGP_BUILD_FUZZERS)
   target_link_options(gagp_fuzz_ast_verify PRIVATE -fsanitize=fuzzer,address,undefined)
 endif()
 
-add_executable(gagp_test_genome
-  tests/evolution/test_genome.cpp
-)
-target_link_libraries(gagp_test_genome PRIVATE gagp_cpu)
-add_test(NAME gagp_test_genome COMMAND gagp_test_genome)
-set_tests_properties(gagp_test_genome PROPERTIES LABELS "property")
-
 add_executable(gagp_test_node_descriptor
   tests/evolution/test_node_descriptor.cpp
 )
@@ -601,120 +499,8 @@ target_link_libraries(gagp_test_ast_verify_types PRIVATE gagp_cpu)
 add_test(NAME gagp_test_ast_verify_types COMMAND gagp_test_ast_verify_types)
 set_tests_properties(gagp_test_ast_verify_types PROPERTIES LABELS "unit;contract;property")
 
-add_executable(gagp_test_ast_verify_binders
-  tests/evolution/test_ast_verify_binders.cpp
-)
-target_link_libraries(gagp_test_ast_verify_binders PRIVATE gagp_cpu)
-add_test(NAME gagp_test_ast_verify_binders COMMAND gagp_test_ast_verify_binders)
-set_tests_properties(gagp_test_ast_verify_binders PROPERTIES LABELS "unit;contract")
-
-add_executable(gagp_test_ast_verify_asgp
-  tests/evolution/test_ast_verify_asgp.cpp
-)
-target_link_libraries(gagp_test_ast_verify_asgp PRIVATE gagp_cpu)
-add_test(NAME gagp_test_ast_verify_asgp COMMAND gagp_test_ast_verify_asgp)
-set_tests_properties(gagp_test_ast_verify_asgp PROPERTIES LABELS "unit;contract")
-
-add_executable(gagp_test_evolve
-  tests/evolution/test_evolve.cpp
-)
-target_link_libraries(gagp_test_evolve PRIVATE gagp_cpu)
-add_test(NAME gagp_test_evolve COMMAND gagp_test_evolve)
-set_tests_properties(gagp_test_evolve PROPERTIES LABELS "unit")
-
-add_executable(gagp_test_evolution_pipeline
-  tests/evolution/test_evolution_pipeline.cpp
-)
-target_link_libraries(gagp_test_evolution_pipeline PRIVATE gagp_cpu)
-add_test(NAME gagp_test_evolution_pipeline COMMAND gagp_test_evolution_pipeline)
-set_tests_properties(gagp_test_evolution_pipeline PROPERTIES LABELS "unit;contract")
-
-add_executable(gagp_test_repro_prep
-  tests/evolution/test_repro_prep.cpp
-)
-target_link_libraries(gagp_test_repro_prep PRIVATE gagp_cpu)
-add_test(NAME gagp_test_repro_prep COMMAND gagp_test_repro_prep)
-set_tests_properties(gagp_test_repro_prep PROPERTIES LABELS "property")
-
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_Interpreter_FOUND)
-  if(GAGP_BUILD_BENCHMARKS)
-    add_test(NAME gagp_test_evolution_statistics
-      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_evolution_statistics.py
-        --adapter $<TARGET_FILE:gagp_grammar_migration_bench>
-        --plain $<TARGET_FILE:gagp_migration_evolution_stats_plain>
-        --capture $<TARGET_FILE:gagp_migration_evolution_stats_capture>)
-    set_tests_properties(gagp_test_evolution_statistics PROPERTIES LABELS "contract;integration")
-    add_test(NAME gagp_test_cpu_donor_tape
-      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_cpu_donor_tape.py
-        --adapter $<TARGET_FILE:gagp_grammar_migration_bench>
-        --plain $<TARGET_FILE:gagp_migration_cpu_reproduction_plain>
-        --capture $<TARGET_FILE:gagp_migration_cpu_reproduction_capture>)
-    set_tests_properties(gagp_test_cpu_donor_tape PROPERTIES LABELS "contract;integration")
-    add_test(NAME gagp_test_migration_oracle
-      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_migration_oracle.py
-        --replayer $<TARGET_FILE:gagp_migration_oracle_replay>
-        --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration)
-    set_tests_properties(gagp_test_migration_oracle PROPERTIES LABELS "contract;integration")
-    add_test(NAME gagp_test_migration_ast_rejections
-      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_migration_oracle.py
-        --replayer $<TARGET_FILE:gagp_migration_oracle_replay>
-        --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration --verifiers)
-    set_tests_properties(gagp_test_migration_ast_rejections PROPERTIES LABELS "contract;integration")
-    add_test(NAME gagp_test_migration_bytecode_rejections
-      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_migration_oracle.py
-        --replayer $<TARGET_FILE:gagp_migration_oracle_replay>
-        --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration --bytecode-verifiers)
-    set_tests_properties(gagp_test_migration_bytecode_rejections PROPERTIES LABELS "contract;integration")
-    add_test(NAME gagp_test_migration_boundary_oracle
-      COMMAND gagp_migration_oracle_replay
-        ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration/reference-boundary-oracle.jsonl
-        ${CMAKE_CURRENT_BINARY_DIR}/migration-boundary-replay.json)
-    set_tests_properties(gagp_test_migration_boundary_oracle PROPERTIES LABELS "contract;integration")
-    add_test(NAME gagp_test_compiled_migration_adapter
-      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_compiled_migration_adapter.py
-        --adapter $<TARGET_FILE:gagp_grammar_migration_bench>
-        --generator $<TARGET_FILE:gagp_generate_cli>)
-    set_tests_properties(gagp_test_compiled_migration_adapter PROPERTIES LABELS "contract;integration;tooling")
-    add_test(NAME gagp_test_migration_adapter
-      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_migration_adapter.py
-        --adapter $<TARGET_FILE:gagp_grammar_migration_bench>)
-    set_tests_properties(gagp_test_migration_adapter PROPERTIES LABELS "contract;integration")
-    if(GAGP_HAS_CUDA)
-      add_test(NAME gagp_test_evolution_statistics_gpu
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_evolution_statistics.py
-          --adapter $<TARGET_FILE:gagp_grammar_migration_bench>
-          --plain $<TARGET_FILE:gagp_migration_evolution_stats_plain>
-          --capture $<TARGET_FILE:gagp_migration_evolution_stats_capture> --gpu)
-      set_tests_properties(gagp_test_evolution_statistics_gpu PROPERTIES LABELS "gpu;contract;integration")
-      add_test(NAME gagp_test_gpu_result_oracle
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_gpu_result_oracle.py
-          --capture $<TARGET_FILE:gagp_migration_gpu_result_capture>
-          --oracle ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration/reference-oracle.jsonl)
-      set_tests_properties(gagp_test_gpu_result_oracle PROPERTIES LABELS "gpu;cpu_gpu_parity;integration")
-      add_test(NAME gagp_test_gpu_known_differences
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_gpu_result_oracle.py
-          --capture $<TARGET_FILE:gagp_migration_gpu_result_capture>
-          --oracle ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration/reference-gpu-differences.jsonl
-          --expected-gpu)
-      set_tests_properties(gagp_test_gpu_known_differences PROPERTIES LABELS "gpu;contract;integration")
-      add_test(NAME gagp_test_gpu_boundary_oracle
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_gpu_result_oracle.py
-          --capture $<TARGET_FILE:gagp_migration_gpu_result_capture>
-          --oracle ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration/reference-boundary-oracle.jsonl
-          --expected-gpu)
-      set_tests_properties(gagp_test_gpu_boundary_oracle PROPERTIES LABELS "gpu;contract;integration")
-      add_test(NAME gagp_test_migration_oracle_gpu
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_migration_oracle.py
-          --replayer $<TARGET_FILE:gagp_migration_oracle_replay>
-          --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration --gpu)
-      set_tests_properties(gagp_test_migration_oracle_gpu PROPERTIES LABELS "gpu;cpu_gpu_parity;integration")
-      add_test(NAME gagp_test_migration_adapter_gpu
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_migration_adapter.py
-          --adapter $<TARGET_FILE:gagp_grammar_migration_bench> --gpu)
-      set_tests_properties(gagp_test_migration_adapter_gpu PROPERTIES LABELS "gpu;cpu_gpu_parity;integration")
-    endif()
-  endif()
   add_test(
     NAME gagp_test_repository_contract
     COMMAND ${Python3_EXECUTABLE} -m unittest discover -s tests/repository -p test_*.py -v
@@ -848,13 +634,8 @@ if(GAGP_HAS_CUDA)
   add_test(NAME gagp_test_atomic_splice_gpu COMMAND gagp_test_atomic_splice_gpu)
   set_tests_properties(gagp_test_atomic_splice_gpu PROPERTIES LABELS "contract;integration;gpu")
 
-  add_executable(gagp_test_grammar_selection_gpu tests/gpu/test_grammar_selection_gpu.cu)
-  target_link_libraries(gagp_test_grammar_selection_gpu PRIVATE gagp_gpu)
-  add_test(NAME gagp_test_grammar_selection_gpu COMMAND gagp_test_grammar_selection_gpu)
-  set_tests_properties(gagp_test_grammar_selection_gpu PROPERTIES LABELS "contract;integration;gpu")
-
   add_executable(gagp_test_bounded_region_gpu_results
-    tests/gpu/test_bounded_region_gpu_results.cu src/bench/migration_snapshot.cpp)
+    tests/gpu/test_bounded_region_gpu_results.cu)
   target_link_libraries(gagp_test_bounded_region_gpu_results PRIVATE gagp_cli_support)
   target_compile_definitions(gagp_test_bounded_region_gpu_results PRIVATE
     GAGP_GPU_FITNESS_SOURCE="${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/gpu/fitness_gpu.cu"
@@ -863,7 +644,7 @@ if(GAGP_HAS_CUDA)
   set_tests_properties(gagp_test_bounded_region_gpu_results PROPERTIES LABELS "contract;integration;gpu;cpu_gpu_parity")
 
   add_executable(gagp_test_grammar_package_gpu_results
-    tests/gpu/test_grammar_package_gpu_results.cu src/bench/migration_snapshot.cpp)
+    tests/gpu/test_grammar_package_gpu_results.cu)
   target_link_libraries(gagp_test_grammar_package_gpu_results PRIVATE gagp_cli_support)
   target_compile_definitions(gagp_test_grammar_package_gpu_results PRIVATE
     GAGP_GPU_FITNESS_SOURCE="${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/gpu/fitness_gpu.cu"
@@ -933,50 +714,50 @@ set_tests_properties(gagp_test_fuel_optimization PROPERTIES LABELS "contract;uni
 
 # Transition-only oracle adapter; production executables do not link this target.
 add_library(gagp_transition
+  src/migration/artifact.cpp
+  src/migration/legacy_grammar_config.cpp
+  src/transition/legacy_ast_v1.cpp
   src/transition/linear_rec.cpp
-  src/transition/bounded_regions.cpp
-  src/transition/bounded_bytecode.cpp)
+  src/transition/bounded_regions.cpp)
 target_include_directories(gagp_transition PUBLIC include)
-target_link_libraries(gagp_transition PUBLIC gagp_cpu)
+target_link_libraries(gagp_transition PUBLIC gagp_cpu gagp_cli_support)
 
-add_executable(gagp_test_linear_rec_transition tests/evolution/test_linear_rec_transition.cpp)
-target_link_libraries(gagp_test_linear_rec_transition PRIVATE gagp_transition)
-add_test(NAME gagp_test_linear_rec_transition COMMAND gagp_test_linear_rec_transition)
-set_tests_properties(gagp_test_linear_rec_transition PROPERTIES LABELS "contract;integration")
+add_executable(gagp_migrate_artifact src/migration/migrate_artifact_cli.cpp)
+target_link_libraries(gagp_migrate_artifact PRIVATE gagp_transition)
 
-add_executable(gagp_test_bounded_transition tests/evolution/test_bounded_transition.cpp)
-target_link_libraries(gagp_test_bounded_transition PRIVATE gagp_transition)
-add_test(NAME gagp_test_bounded_transition COMMAND gagp_test_bounded_transition)
-set_tests_properties(gagp_test_bounded_transition PROPERTIES LABELS "contract;integration")
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+add_test(NAME gagp_test_migrate_artifact_cli
+  COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/migration/test_migrate_artifact_cli.py
+    $<TARGET_FILE:gagp_migrate_artifact>
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+    $<TARGET_FILE:gagp_evolve_cli>)
+set_tests_properties(gagp_test_migrate_artifact_cli PROPERTIES
+  LABELS "contract;integration;migration")
 
-add_executable(gagp_test_bounded_transition_scope tests/evolution/test_bounded_transition_scope.cpp)
-target_link_libraries(gagp_test_bounded_transition_scope PRIVATE gagp_transition)
-add_test(NAME gagp_test_bounded_transition_scope COMMAND gagp_test_bounded_transition_scope)
-set_tests_properties(gagp_test_bounded_transition_scope PROPERTIES LABELS "contract;integration")
+add_executable(gagp_test_legacy_ast_migration_boundary
+  tests/evolution/test_legacy_ast_migration_boundary.cpp)
+target_link_libraries(gagp_test_legacy_ast_migration_boundary PRIVATE gagp_transition)
+add_test(NAME gagp_test_legacy_ast_migration_boundary
+  COMMAND gagp_test_legacy_ast_migration_boundary)
+set_tests_properties(gagp_test_legacy_ast_migration_boundary PROPERTIES
+  LABELS "contract;integration;migration")
 
-add_executable(gagp_test_bounded_bytecode_transition tests/evolution/test_bounded_bytecode_transition.cpp)
-target_link_libraries(gagp_test_bounded_bytecode_transition PRIVATE gagp_transition)
-add_test(NAME gagp_test_bounded_bytecode_transition COMMAND gagp_test_bounded_bytecode_transition)
-set_tests_properties(gagp_test_bounded_bytecode_transition PROPERTIES LABELS "contract;integration")
+add_executable(gagp_test_legacy_package_equivalence
+  tests/migration/test_legacy_package_equivalence.cpp)
+target_link_libraries(gagp_test_legacy_package_equivalence PRIVATE gagp_transition)
+target_compile_definitions(gagp_test_legacy_package_equivalence PRIVATE
+  GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+add_test(NAME gagp_test_legacy_package_equivalence
+  COMMAND gagp_test_legacy_package_equivalence)
+set_tests_properties(gagp_test_legacy_package_equivalence PROPERTIES
+  LABELS "contract;integration;migration")
 
 add_executable(gagp_test_source_fuel_preservation tests/evolution/test_source_fuel_preservation.cpp)
 target_link_libraries(gagp_test_source_fuel_preservation PRIVATE gagp_cli_support)
 target_include_directories(gagp_test_source_fuel_preservation PRIVATE src/evolution)
 add_test(NAME gagp_test_source_fuel_preservation COMMAND gagp_test_source_fuel_preservation)
 set_tests_properties(gagp_test_source_fuel_preservation PROPERTIES LABELS "contract;integration")
-
-if(GAGP_BUILD_BENCHMARKS)
-  add_executable(gagp_benchmark_linear_transition
-    src/bench/benchmark_linear_transition.cpp src/bench/migration_snapshot.cpp)
-  target_link_libraries(gagp_benchmark_linear_transition PRIVATE gagp_transition gagp_cli_support)
-  add_executable(gagp_benchmark_bounded_transition
-    src/bench/benchmark_bounded_transition.cpp src/bench/migration_snapshot.cpp)
-  target_link_libraries(gagp_benchmark_bounded_transition PRIVATE gagp_transition gagp_cli_support)
-  add_executable(gagp_check_bounded_bytecode_transition
-    src/bench/check_bounded_bytecode_transition.cpp src/bench/migration_snapshot.cpp)
-  target_link_libraries(gagp_check_bounded_bytecode_transition PRIVATE gagp_transition gagp_cli_support)
-  target_compile_definitions(gagp_check_bounded_bytecode_transition PRIVATE GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
-endif()
 
 add_executable(gagp_test_region_bytecode_verify tests/runtime/test_region_bytecode_verify.cpp)
 target_link_libraries(gagp_test_region_bytecode_verify PRIVATE gagp_core)
@@ -1021,12 +802,6 @@ target_include_directories(gagp_test_bounded_region_ast_codec PRIVATE src/evolut
 target_link_libraries(gagp_test_bounded_region_ast_codec PRIVATE gagp_cli_support)
 add_test(NAME gagp_test_bounded_region_ast_codec COMMAND gagp_test_bounded_region_ast_codec)
 set_tests_properties(gagp_test_bounded_region_ast_codec PROPERTIES LABELS "unit;contract;integration")
-
-add_executable(gagp_test_bounded_region_analysis tests/evolution/test_bounded_region_analysis.cpp)
-target_include_directories(gagp_test_bounded_region_analysis PRIVATE src/evolution)
-target_link_libraries(gagp_test_bounded_region_analysis PRIVATE gagp_cpu)
-add_test(NAME gagp_test_bounded_region_analysis COMMAND gagp_test_bounded_region_analysis)
-set_tests_properties(gagp_test_bounded_region_analysis PROPERTIES LABELS "unit;contract;integration")
 
 add_executable(gagp_test_bounded_region_sequence_compile tests/evolution/test_bounded_region_sequence_compile.cpp)
 target_link_libraries(gagp_test_bounded_region_sequence_compile PRIVATE gagp_cpu)

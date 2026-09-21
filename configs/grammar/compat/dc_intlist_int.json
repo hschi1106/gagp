@@ -1,5 +1,5 @@
 {
-  "format_version": "grammar-definition-v1",
+  "format_version": "grammar-definition-v2",
   "imports": ["../packages/dc_intlist_int.json"],
   "entry": {"nonterminal": "Compat.DC.IntList.Int", "type": "Int"},
   "inputs": [{"name": "source", "type": "IntList"}],

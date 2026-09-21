@@ -8,7 +8,6 @@
 
 #include "gagp/evolution/case_set.hpp"
 #include "gagp/evolution/genome.hpp"
-#include "gagp/evolution/grammar_config.hpp"
 #include "gagp/evolution/grammar/request.hpp"
 #include "gagp/evolution/input_spec.hpp"
 #include "gagp/evolution/repro/backend.hpp"
@@ -36,9 +35,7 @@ struct EvolutionConfig {
   int selection_pressure = 2;
   std::uint64_t seed = 0;
   int fuel = 20000;
-  Limits limits;
-  GrammarConfig grammar;
-  // Staged typed-grammar mode. Own the immutable definition across worker copies.
+  // Own the immutable compiled search space across worker copies.
   std::shared_ptr<const grammar::CompiledGrammar> compiled_grammar;
   std::optional<grammar::GenerationRequest> generation_request;
 

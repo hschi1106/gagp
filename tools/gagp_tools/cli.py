@@ -11,8 +11,7 @@ def _commands() -> dict[tuple[str, str], tuple[str, Command]]:
     from .datasets.convert_psb import main as convert
     from .datasets.fetch_psb import main as fetch
     from .datasets.materialize_psb import main as materialize
-    from .experiments.grammar_profiles import main as grammar_profile
-    from .experiments.population_seeds import main as population_seeds
+    from .experiments.materialize_population import main as materialize_population
     from .experiments.run_psb import main as run_psb
     from .reports.compare_psb import main as compare
     from .reports.psb_manifest import main as psb_manifest
@@ -24,10 +23,9 @@ def _commands() -> dict[tuple[str, str], tuple[str, Command]]:
         ("psb", "materialize"): ("materialize supported PSB fixtures", materialize),
         ("psb", "run"): ("run the PSB regression matrix", run_psb),
         ("psb", "compare"): ("compare compatible PSB summaries", compare),
-        ("benchmark", "population-seeds"): ("write deterministic population seeds", population_seeds),
+        ("benchmark", "population"): ("materialize a compiled-grammar population", materialize_population),
         ("report", "psb-manifest"): ("write compact PSB evidence", psb_manifest),
         ("report", "simple-manifest"): ("write compact simple-expression evidence", simple_manifest),
-        ("grammar", "profile"): ("materialize a grammar profile", grammar_profile),
     }
 
 

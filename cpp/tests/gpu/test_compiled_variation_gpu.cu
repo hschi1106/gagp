@@ -159,7 +159,6 @@ Result run(const Fixture& fixture) {
   d_cand_b[0] = fixture.cand_b;
 
   GpuReproConfig config;
-  config.contract_mode = ReproductionContractMode::CompiledGrammar;
   config.population_size = 2;
   config.pair_count = 1;
   config.candidates_per_program = fixture.candidates_per_program;

@@ -24,7 +24,7 @@ void rejects(const std::function<void()>& action) {
 Json parse(const std::string& text) { return JsonParser(text, {true, 512}).parse(); }
 CompiledGrammar fixture(const std::string& values = R"([["a","b"],["c"]])") {
   return compile_grammar(parse_definition(
-      R"({"format_version":"grammar-definition-v1","entry":{"nonterminal":"Value","type":"StringList"},
+      R"({"format_version":"grammar-definition-v2","entry":{"nonterminal":"Value","type":"StringList"},
       "search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":100},
       "nonterminals":[{"id":"Value","type":"StringList","scope":[],"alternatives":[
       {"id":"constant","weight":1,"expression":{"constant":{"type":"StringList","values":)" + values + "}}}]}]}"));
@@ -36,6 +36,8 @@ void test_population() {
     population.push_back(generate_derivation(grammar, std::numeric_limits<std::uint64_t>::max() + offset).genome);
   const auto artifact = encode_generated_population_artifact(grammar, population);
   const auto root = parse(artifact);
+  check(root.object_v.at("format_version").string_v == "grammar-population-v2",
+        "population artifact did not publish the current version");
   const auto& members = root.object_v.at("members").array_v;
   check(members[0].object_v.at("seed").string_v == "18446744073709551615" &&
         members[1].object_v.at("seed").string_v == "0" &&
@@ -54,6 +56,9 @@ void test_population() {
     auto changed = root; edit(changed);
     rejects([&] { replay_generated_population_artifact(canonical_json(changed)); });
   };
+  tamper([](Json& value) {
+    value.object_v.at("format_version").string_v = "grammar-population-v1";
+  });
   tamper([](Json& value) { value.object_v.at("count").number_v += 1; });
   tamper([](Json& value) { value.object_v.at("count").number_v = 1.5; });
   tamper([](Json& value) { value.object_v.at("count").kind = Json::Kind::String; });

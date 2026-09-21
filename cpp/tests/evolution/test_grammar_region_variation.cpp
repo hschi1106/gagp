@@ -123,7 +123,7 @@ ProgramGenome rename_binders(ProgramGenome genome,
 }
 
 const char* scoped_grammar = R"({
-  "format_version":"grammar-definition-v1",
+  "format_version":"grammar-definition-v2",
   "entry":{"nonterminal":"Main","type":"Int"},
   "search_limits":{"max_nodes":30,"max_depth":12},
   "execution_limits":{"fuel":10000},

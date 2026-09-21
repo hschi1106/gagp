@@ -24,6 +24,7 @@ execute_process(
   OUTPUT_VARIABLE old_stdout
   ERROR_VARIABLE old_stderr
 )
-if(NOT old_result EQUAL 2 OR NOT old_stderr MATCHES "unsupported format_version")
+if(NOT old_result EQUAL 2 OR
+   NOT old_stderr MATCHES "bytecode migration is unsupported because source AST/type provenance is absent")
   message(FATAL_ERROR "old fixture format was not rejected: ${old_result}\n${old_stdout}\n${old_stderr}")
 endif()

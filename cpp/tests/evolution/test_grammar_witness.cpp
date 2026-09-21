@@ -109,7 +109,7 @@ ProgramGenome imported_add(std::int64_t left, std::int64_t right) {
 
 void test_deterministic_witness_and_backtracking() {
   const auto grammar = compile(R"({
-    "format_version":"grammar-definition-v1","entry":{"nonterminal":"Expr","type":"Int"},
+    "format_version":"grammar-definition-v2","entry":{"nonterminal":"Expr","type":"Int"},
     "search_limits":{"max_nodes":12,"max_depth":7},"execution_limits":{"fuel":100},
     "nonterminals":[{"id":"Expr","type":"Int","scope":[],"alternatives":[
       {"id":"almost","weight":1,"expression":{"signature":"add(Int,Int)->Int","args":[
@@ -147,7 +147,7 @@ void test_deterministic_witness_and_backtracking() {
 
 CompiledGrammar template_grammar() {
   return compile(R"({
-    "format_version":"grammar-definition-v1","entry":{"nonterminal":"Main","type":"Int"},
+    "format_version":"grammar-definition-v2","entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":20,"max_depth":10},"execution_limits":{"fuel":1000},
     "templates":[
       {"id":"Double","type":"Int","scope":[],"holes":[{"id":"value","type":"Int","scope":[]}],
@@ -279,7 +279,7 @@ void test_templates_domains_and_provenance_independence() {
 
 void test_custom_request_and_artifact_boundary() {
   const auto grammar = compile(R"({
-    "format_version":"grammar-definition-v1","entry":{"nonterminal":"Entry","type":"Int"},
+    "format_version":"grammar-definition-v2","entry":{"nonterminal":"Entry","type":"Int"},
     "search_limits":{"max_nodes":12,"max_depth":7},"execution_limits":{"fuel":100},
     "nonterminals":[
       {"id":"Entry","type":"Int","scope":[],"alternatives":[{"id":"zero","weight":1,

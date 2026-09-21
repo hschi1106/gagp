@@ -8,8 +8,7 @@ namespace gagp::evo::repro {
 
 __device__ inline bool d_compiled_node_uses_name(NodeKind kind) {
   return kind == NodeKind::VAR || kind == NodeKind::BOUND_VAR ||
-         kind == NodeKind::ASSIGN || kind == NodeKind::FOR_RANGE ||
-         kind == NodeKind::MAP_LIST || kind == NodeKind::FILTER_LIST;
+         kind == NodeKind::ASSIGN || kind == NodeKind::FOR_RANGE;
 }
 
 __device__ inline std::uint64_t d_float_bits(double value) {

@@ -71,9 +71,7 @@ AstProgram region_program() {
 
 std::string ast_json_with(const std::string& fields) {
   return std::string(
-      R"({"version":"ast-prefix","nodes":[],"names":[],"consts":[],)"
-      R"("linear_rec_binders":[],"asgp_dc_binders":[],)"
-      R"("asgp_dp1d_specs":[],"asgp_dp2d_specs":[])") + fields + "}";
+      R"({"version":"ast-prefix-v2","nodes":[],"names":[],"consts":[])") + fields + "}";
 }
 
 bool decode_rejects(const std::string& json) {
@@ -137,21 +135,19 @@ bool test_round_trip_and_identity() {
                "binding id must participate in AST identity");
 }
 
-bool test_legacy_output_is_unchanged() {
+bool test_empty_output_is_canonical() {
   const AstProgram ast;
   const std::string expected_json =
-      R"({"version":"ast-prefix","nodes":[],"names":[],"consts":[],"linear_rec_binders":[],"asgp_dc_binders":[],"asgp_dp1d_specs":[],"asgp_dp2d_specs":[]})";
-  const std::string expected_repr =
-      "AstPrefix(;LinearRec=;AsgpDC=;AsgpDP1D=;AsgpDP2D=)";
+      R"({"version":"ast-prefix-v2","nodes":[],"names":[],"consts":[]})";
+  const std::string expected_repr = "AstPrefix()";
   const std::string expected_key =
-      "AstCache(version:10:ast-prefix;names:0;consts:0;nodes:0;linear_rec:0;"
-      "asgp_dc:0;asgp_dp1d:0;asgp_dp2d:0)";
+      "AstCache(version:13:ast-prefix-v2;names:0;consts:0;nodes:0)";
   return check(gagp::cli_detail::encode_ast_json(ast) == expected_json,
-               "empty metadata arrays must be omitted from legacy JSON") &&
+               "empty metadata arrays must be omitted from AST JSON") &&
          check(gagp::evo::ast_to_string(ast) == expected_repr,
-               "empty metadata must preserve legacy AST text") &&
+               "empty metadata must preserve canonical AST text") &&
          check(gagp::evo::ast_cache_key(ast) == expected_key,
-               "empty metadata must preserve legacy cache identity");
+               "empty metadata must preserve canonical cache identity");
 }
 
 bool test_runtime_cache_identity_and_compaction() {
@@ -298,7 +294,7 @@ bool test_encode_and_structural_boundaries() {
 
 int main() {
   if (!test_round_trip_and_identity()) return 1;
-  if (!test_legacy_output_is_unchanged()) return 1;
+  if (!test_empty_output_is_canonical()) return 1;
   if (!test_runtime_cache_identity_and_compaction()) return 1;
   if (!test_decode_rejects_invalid_fields()) return 1;
   if (!test_encode_and_structural_boundaries()) return 1;

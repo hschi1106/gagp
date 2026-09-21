@@ -107,21 +107,6 @@ AstProgram loop_program() {
   return ast;
 }
 
-AstProgram separate_namespace_program() {
-  AstProgram ast;
-  ast.names = {"shared"};
-  ast.nodes = {
-      {NodeKind::PROGRAM, 0, 0},
-      {NodeKind::BLOCK_CONS, 0, 0},
-      {NodeKind::RETURN, 0, 0},
-      {NodeKind::MAP_LIST, 0, static_cast<int>(ListTypeTag::Int)},
-      {NodeKind::VAR, 0, 0},
-      {NodeKind::BOUND_VAR, 0, 0},
-      {NodeKind::BLOCK_NIL, 0, 0},
-  };
-  return ast;
-}
-
 }  // namespace
 
 int main() {
@@ -167,13 +152,6 @@ int main() {
                    "loop body includes the loop local") ||
       !check_scope(scope_at(result, 10), {{1, RType::Int}}, {},
                    "loop locals do not escape the body")) return 1;
-
-  ast = separate_namespace_program();
-  result = verify_ast(ast, {InputSpec{"shared", RType::IntList}},
-                      exact_scope_options());
-  if (!check(result.ok, "same-name local and binder verification succeeds") ||
-      !check_scope(scope_at(result, 5), {{0, RType::IntList}}, {{0, RType::Int}},
-                   "local and binder namespaces remain independent")) return 1;
 
   return 0;
 }

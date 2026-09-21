@@ -150,14 +150,6 @@ std::uint32_t instruction_fuel(
   return costs.empty() ? 1U : costs[index];
 }
 
-int phase_binder_local(const PhaseProgram& phase, int binder_name) {
-  const auto it = phase.binder_locals.find(binder_name);
-  if (it == phase.binder_locals.end()) {
-    return -1;
-  }
-  return it->second;
-}
-
 DPhaseMeta append_phase(const PhaseProgram& phase,
                         std::vector<DInstr>* all_phase_code,
                         std::vector<Value>* all_phase_consts,
@@ -323,9 +315,6 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
     meta.code_offset = checked_index(out.all_code.size(), "root code offset");
     meta.const_offset = checked_index(out.all_consts.size(), "root constant offset");
     meta.n_locals = prog.n_locals;
-    meta.asgp_dc_offset = checked_index(out.asgp_dc_segments.size(), "ASGP-DC offset");
-    meta.asgp_dp1d_offset = checked_index(out.asgp_dp1d_segments.size(), "ASGP-DP1D offset");
-    meta.asgp_dp2d_offset = checked_index(out.asgp_dp2d_segments.size(), "ASGP-DP2D offset");
     meta.region_offset = checked_index(out.region_segments.size(), "region offset");
     meta.case_offset = checked_index(out.total_cases, "case offset");
     meta.case_count = shared_case_count;
@@ -346,127 +335,6 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
         meta.err_code = ErrCode::Type;
       }
     }
-
-    for (const AsgpDcSegment& segment : prog.asgp_dc_segments) {
-      check_append_capacity(out.asgp_dc_segments.size(), 1, "ASGP-DC table");
-      bool ok = true;
-      DAsgpDcSegment packed_segment;
-      packed_segment.solve_xs_local = phase_binder_local(segment.solve, segment.solve_xs_name);
-      packed_segment.solve_n_local = phase_binder_local(segment.solve, segment.solve_n_name);
-      packed_segment.solve_lo_local = phase_binder_local(segment.solve, segment.solve_lo_name);
-      packed_segment.divide_n_local = phase_binder_local(segment.divide, segment.divide_n_name);
-      packed_segment.combine_left_local = phase_binder_local(segment.combine, segment.combine_left_name);
-      packed_segment.combine_right_local = phase_binder_local(segment.combine, segment.combine_right_name);
-      packed_segment.solve = append_phase(segment.solve, &out.all_phase_code, &out.all_phase_consts, &ok);
-      packed_segment.divide = append_phase(segment.divide, &out.all_phase_code, &out.all_phase_consts, &ok);
-      packed_segment.combine = append_phase(segment.combine, &out.all_phase_code, &out.all_phase_consts, &ok);
-      if (packed_segment.solve_xs_local < 0 || packed_segment.solve_n_local < 0 ||
-          packed_segment.solve_lo_local < 0 || packed_segment.divide_n_local < 0 ||
-          packed_segment.combine_left_local < 0 || packed_segment.combine_right_local < 0) {
-        ok = false;
-      }
-      if (!ok) {
-        meta.is_valid = 0;
-        meta.err_code = ErrCode::Name;
-      }
-      out.asgp_dc_segments.push_back(packed_segment);
-    }
-    meta.asgp_dc_count = checked_index(prog.asgp_dc_segments.size(), "ASGP-DC count");
-
-    for (const AsgpDp1dSegment& segment : prog.asgp_dp1d_segments) {
-      check_append_capacity(out.asgp_dp1d_segments.size(), 1, "ASGP-DP1D table");
-      bool ok = true;
-      DAsgpDp1dSegment packed_segment;
-      packed_segment.lo = segment.lo;
-      packed_segment.hi = segment.hi;
-      packed_segment.base_state = segment.base_state;
-      packed_segment.boundary_value = segment.boundary_value;
-      packed_segment.dep_kind = segment.dep_kind;
-      if (segment.dep_offsets.size() > static_cast<std::size_t>(DMAX_ASGP_DP_DEPS) ||
-          segment.transition_dep_names.size() > static_cast<std::size_t>(DMAX_ASGP_DP_DEPS)) {
-        ok = false;
-      }
-      packed_segment.dep_offset_count = static_cast<int>(
-          segment.dep_offsets.size() <= static_cast<std::size_t>(DMAX_ASGP_DP_DEPS)
-              ? segment.dep_offsets.size()
-              : static_cast<std::size_t>(DMAX_ASGP_DP_DEPS));
-      for (int i = 0; i < packed_segment.dep_offset_count; ++i) {
-        packed_segment.dep_offsets[i] = segment.dep_offsets[static_cast<std::size_t>(i)];
-      }
-      packed_segment.solve_state_local = phase_binder_local(segment.solve, segment.solve_state_name);
-      packed_segment.transition_state_local =
-          phase_binder_local(segment.transition, segment.transition_state_name);
-      packed_segment.transition_dep_count = static_cast<int>(
-          segment.transition_dep_names.size() <= static_cast<std::size_t>(DMAX_ASGP_DP_DEPS)
-              ? segment.transition_dep_names.size()
-              : static_cast<std::size_t>(DMAX_ASGP_DP_DEPS));
-      for (int i = 0; i < packed_segment.transition_dep_count; ++i) {
-        packed_segment.transition_dep_locals[i] =
-            phase_binder_local(segment.transition, segment.transition_dep_names[static_cast<std::size_t>(i)]);
-        if (packed_segment.transition_dep_locals[i] < 0) {
-          ok = false;
-        }
-      }
-      packed_segment.solve = append_phase(segment.solve, &out.all_phase_code, &out.all_phase_consts, &ok);
-      packed_segment.transition =
-          append_phase(segment.transition, &out.all_phase_code, &out.all_phase_consts, &ok);
-      if (packed_segment.solve_state_local < 0 || packed_segment.transition_state_local < 0) {
-        ok = false;
-      }
-      if (!ok) {
-        meta.is_valid = 0;
-        meta.err_code = ErrCode::Name;
-      }
-      out.asgp_dp1d_segments.push_back(packed_segment);
-    }
-    meta.asgp_dp1d_count = checked_index(prog.asgp_dp1d_segments.size(), "ASGP-DP1D count");
-
-    for (const AsgpDp2dSegment& segment : prog.asgp_dp2d_segments) {
-      check_append_capacity(out.asgp_dp2d_segments.size(), 1, "ASGP-DP2D table");
-      bool ok = true;
-      DAsgpDp2dSegment packed_segment;
-      packed_segment.i_lo = segment.i_lo;
-      packed_segment.i_hi = segment.i_hi;
-      packed_segment.j_lo = segment.j_lo;
-      packed_segment.j_hi = segment.j_hi;
-      packed_segment.base_i = segment.base_i;
-      packed_segment.base_j = segment.base_j;
-      packed_segment.boundary_value = segment.boundary_value;
-      packed_segment.dep_kind = segment.dep_kind;
-      if (segment.transition_dep_names.size() > static_cast<std::size_t>(DMAX_ASGP_DP_DEPS)) {
-        ok = false;
-      }
-      packed_segment.solve_i_local = phase_binder_local(segment.solve, segment.solve_i_name);
-      packed_segment.solve_j_local = phase_binder_local(segment.solve, segment.solve_j_name);
-      packed_segment.transition_i_local =
-          phase_binder_local(segment.transition, segment.transition_i_name);
-      packed_segment.transition_j_local =
-          phase_binder_local(segment.transition, segment.transition_j_name);
-      packed_segment.transition_dep_count = static_cast<int>(
-          segment.transition_dep_names.size() <= static_cast<std::size_t>(DMAX_ASGP_DP_DEPS)
-              ? segment.transition_dep_names.size()
-              : static_cast<std::size_t>(DMAX_ASGP_DP_DEPS));
-      for (int i = 0; i < packed_segment.transition_dep_count; ++i) {
-        packed_segment.transition_dep_locals[i] =
-            phase_binder_local(segment.transition, segment.transition_dep_names[static_cast<std::size_t>(i)]);
-        if (packed_segment.transition_dep_locals[i] < 0) {
-          ok = false;
-        }
-      }
-      packed_segment.solve = append_phase(segment.solve, &out.all_phase_code, &out.all_phase_consts, &ok);
-      packed_segment.transition =
-          append_phase(segment.transition, &out.all_phase_code, &out.all_phase_consts, &ok);
-      if (packed_segment.solve_i_local < 0 || packed_segment.solve_j_local < 0 ||
-          packed_segment.transition_i_local < 0 || packed_segment.transition_j_local < 0) {
-        ok = false;
-      }
-      if (!ok) {
-        meta.is_valid = 0;
-        meta.err_code = ErrCode::Name;
-      }
-      out.asgp_dp2d_segments.push_back(packed_segment);
-    }
-    meta.asgp_dp2d_count = checked_index(prog.asgp_dp2d_segments.size(), "ASGP-DP2D count");
 
     if (bounded) {
       check_append_capacity(out.region_segments.size(),
@@ -526,9 +394,6 @@ DeviceArena::~DeviceArena() {
   if (d_code) cudaFree(d_code);
   if (d_phase_consts) cudaFree(d_phase_consts);
   if (d_phase_code) cudaFree(d_phase_code);
-  if (d_asgp_dc_segments) cudaFree(d_asgp_dc_segments);
-  if (d_asgp_dp1d_segments) cudaFree(d_asgp_dp1d_segments);
-  if (d_asgp_dp2d_segments) cudaFree(d_asgp_dp2d_segments);
   if (d_region_segments) cudaFree(d_region_segments);
   if (d_region_phases) cudaFree(d_region_phases);
   if (d_region_bindings) cudaFree(d_region_bindings);

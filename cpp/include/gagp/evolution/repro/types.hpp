@@ -17,7 +17,6 @@ namespace gagp::evo::repro {
 
 struct ConstantMutationTable;
 
-enum class ReproductionContractMode : int { Legacy = 0, CompiledGrammar = 1 };
 inline constexpr std::uint32_t kNoCompatibilityId = std::numeric_limits<std::uint32_t>::max();
 
 struct CandidateOccurrence {
@@ -52,10 +51,7 @@ struct CandidateRange {
   int aux = static_cast<int>(RType::Invalid);
   std::uint64_t scope_signature = 0;
   std::uint64_t binder_signature = 0;
-  int scheme_kind = 0;
-  int phase_name = 0;
   std::uint64_t visible_env_signature = 0;
-  int dp_dependency_arity = -1;
   std::uint32_t compatibility_id = kNoCompatibilityId;
   int occurrence_offset = 0;
   int occurrence_count = 0;
@@ -75,64 +71,10 @@ struct PlainNode {
   int i1 = 0;
 };
 
-struct PlainLinearRecBinders {
-  int node_index = 0;
-  int elem_name = 0;
-  int accum_name = 0;
-  int index_name = 0;
-};
-
-struct PlainAsgpDcBinders {
-  int node_index = 0;
-  int solve_xs_name = 0;
-  int solve_n_name = 0;
-  int solve_lo_name = 0;
-  int divide_n_name = 0;
-  int combine_left_name = 0;
-  int combine_right_name = 0;
-};
-
-struct PlainAsgpDp1dSpec {
-  int node_index = 0;
-  int lo = 0;
-  int hi = 0;
-  int base_state = 0;
-  int boundary_const = 0;
-  int dep_kind = 0;
-  int dep_offsets[3] = {0, 0, 0};
-  int dep_offset_count = 0;
-  int solve_state_name = 0;
-  int transition_state_name = 0;
-  int transition_dep_names[3] = {0, 0, 0};
-  int transition_dep_count = 0;
-};
-
-struct PlainAsgpDp2dSpec {
-  int node_index = 0;
-  int i_lo = 0;
-  int i_hi = 0;
-  int j_lo = 0;
-  int j_hi = 0;
-  int base_i = 0;
-  int base_j = 0;
-  int boundary_const = 0;
-  int dep_kind = 0;
-  int solve_i_name = 0;
-  int solve_j_name = 0;
-  int transition_i_name = 0;
-  int transition_j_name = 0;
-  int transition_dep_names[4] = {0, 0, 0, 0};
-  int transition_dep_count = 0;
-};
-
 struct PackedProgramMeta {
   int used_len = 0;
   int name_count = 0;
   int const_count = 0;
-  int linear_rec_count = 0;
-  int asgp_dc_count = 0;
-  int asgp_dp1d_count = 0;
-  int asgp_dp2d_count = 0;
   int candidate_count = 0;
 };
 
@@ -142,7 +84,6 @@ struct DonorProgram {
 };
 
 struct PreprocessOutput {
-  ReproductionContractMode contract_mode = ReproductionContractMode::Legacy;
   int prepared_max_nodes = 0;
   int prepared_max_depth = 0;
   std::shared_ptr<const grammar::CompiledGrammar> compiled_grammar;
@@ -165,7 +106,6 @@ enum class CompiledVariationPass : int { Crossover = 0, Mutation = 1 };
 
 struct GpuReproConfig {
   CompiledVariationPass compiled_pass = CompiledVariationPass::Crossover;
-  ReproductionContractMode contract_mode = ReproductionContractMode::Legacy;
   int donor_pool_size_per_site = 4;
   int compiled_donor_count = 0;
   int compiled_occurrence_count = 0;
@@ -183,10 +123,6 @@ struct GpuReproConfig {
   int max_donor_nodes = 24;
   int max_names = kGpuReproMaxNames;
   int max_consts = kGpuReproMaxConsts;
-  int max_linear_rec_binders = 1;
-  int max_asgp_dc_binders = 1;
-  int max_asgp_dp1d_specs = 1;
-  int max_asgp_dp2d_specs = 1;
   int tournament_k = 3;
   int max_expr_depth = 0;
   int max_for_k = 0;
@@ -219,24 +155,12 @@ struct PackedHostData {
   std::vector<CandidateRange> candidates;
   std::vector<std::uint64_t> program_name_ids;
   std::vector<Value> program_consts;
-  std::vector<PlainLinearRecBinders> program_linear_rec_binders;
-  std::vector<PlainAsgpDcBinders> program_asgp_dc_binders;
-  std::vector<PlainAsgpDp1dSpec> program_asgp_dp1d_specs;
-  std::vector<PlainAsgpDp2dSpec> program_asgp_dp2d_specs;
   std::vector<PlainNode> donor_nodes;
   std::vector<int> donor_lens;
   std::vector<std::uint64_t> donor_name_ids;
   std::vector<int> donor_name_counts;
   std::vector<Value> donor_consts;
   std::vector<int> donor_const_counts;
-  std::vector<PlainLinearRecBinders> donor_linear_rec_binders;
-  std::vector<int> donor_linear_rec_counts;
-  std::vector<PlainAsgpDcBinders> donor_asgp_dc_binders;
-  std::vector<int> donor_asgp_dc_counts;
-  std::vector<PlainAsgpDp1dSpec> donor_asgp_dp1d_specs;
-  std::vector<int> donor_asgp_dp1d_counts;
-  std::vector<PlainAsgpDp2dSpec> donor_asgp_dp2d_specs;
-  std::vector<int> donor_asgp_dp2d_counts;
   std::unordered_map<std::uint64_t, std::string> name_lookup;
 };
 

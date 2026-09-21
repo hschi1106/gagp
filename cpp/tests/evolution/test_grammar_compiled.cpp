@@ -20,7 +20,7 @@ template <class Action> void rejects(Action action, const std::string& diagnosti
 }
 Json json(const std::string& text) { return JsonParser(text, {true, 256}).parse(); }
 const std::string custom = R"({
-  "format_version":"grammar-definition-v1",
+  "format_version":"grammar-definition-v2",
   "entry":{"nonterminal":"Expr","type":"Int"},
   "inputs":[{"name":"n","type":"Int"}],
   "search_limits":{"max_nodes":20,"max_depth":8},
@@ -87,7 +87,7 @@ int main() {
       check(grammar.productions()[i].stable_id == roundtrip.productions()[i].stable_id, "numeric IDs changed");
 
     auto doc = json(R"({
-      "format_version":"grammar-definition-v1",
+      "format_version":"grammar-definition-v2",
       "entry":{"nonterminal":"Expr","type":"Int"},
       "inputs":[{"name":"xs","type":"IntList"}],
       "search_limits":{"max_nodes":30,"max_depth":10},
@@ -156,7 +156,7 @@ int main() {
           "binding-leaf fuel profiles did not retain their concrete owners");
 
     auto traversal_doc = json(R"({
-      "format_version":"grammar-definition-v1",
+      "format_version":"grammar-definition-v2",
       "entry":{"nonterminal":"Expr","type":"Int"},
       "inputs":[{"name":"xs","type":"IntList"}],
       "search_limits":{"max_nodes":20,"max_depth":8},
@@ -316,7 +316,7 @@ int main() {
     check(compile(doc).nonterminals()[0].minimum_nodes == 3, "template hole forwarding lost scope or cost");
 
     doc = json(R"({
-      "format_version":"grammar-definition-v1",
+      "format_version":"grammar-definition-v2",
       "entry":{"nonterminal":"Main","category":"Program","type":"Int"},
       "locals":[{"name":"i","type":"Int"}],
       "search_limits":{"max_nodes":30,"max_depth":10},"execution_limits":{"fuel":100},

@@ -15,12 +15,12 @@
   "fairness": {
     "baseline_grammar_config": {
       "hash": "sha256:b9f4609037d8332fdc8d791133fc7c26ba8d68b04cbfe0718ead7b9d1029a96b",
-      "path": "configs/grammar/all.json"
+      "path": "configs/grammar/migration/v1/all.json"
     },
     "candidate_generated_config_count": 1,
     "candidate_base_grammar_config": {
       "hash": "sha256:b9f4609037d8332fdc8d791133fc7c26ba8d68b04cbfe0718ead7b9d1029a96b",
-      "path": "configs/grammar/all.json"
+      "path": "configs/grammar/migration/v1/all.json"
     }
   },
   "format_version": "psb-comparison-manifest",

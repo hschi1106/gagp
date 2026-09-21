@@ -14,7 +14,7 @@ __device__ DResult d_region_phase(
     const DRegionFrame& frame, const Value* caller_locals,
     std::uint64_t caller_set, const DPayloadTables& payload_tables,
     typename DPayloadFlavorTraits<Flavor>::State& payload_state,
-    const DAsgpTables& tables, int& fuel, bool result_phase = false) {
+    const DExecutionTables& tables, int& fuel, bool result_phase = false) {
   if (phase_index < 0 || phase_index >= tables.region_phase_count)
     return d_error(ErrCode::Value);
   const auto& phase = tables.region_phases[phase_index];
@@ -80,7 +80,7 @@ __device__ __noinline__ DResult d_run_bounded_region(
     const Value* caller_locals, std::uint64_t caller_set,
     const DPayloadTables& payload_tables,
     typename DPayloadFlavorTraits<Flavor>::State& payload_state,
-    const DAsgpTables& tables, int& fuel, DRegionWorkspace workspace) {
+    const DExecutionTables& tables, int& fuel, DRegionWorkspace workspace) {
   if (segment.state_count == 0 || segment.state_count > DMAX_REGION_STATES ||
       segment.request_count == 0 || segment.request_count > DMAX_REGION_REQUESTS ||
       segment.limits.frames > DMAX_REGION_FRAMES || segment.limits.cells > DMAX_REGION_MEMO)

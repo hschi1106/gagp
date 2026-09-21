@@ -30,7 +30,7 @@ void rejects(const std::function<void()>& action, const char* message) {
 
 std::shared_ptr<const CompiledGrammar> fixture(int root_weight = 1) {
   return std::make_shared<const CompiledGrammar>(compile_grammar(parse_definition(
-      R"({"format_version":"grammar-definition-v1",
+      R"({"format_version":"grammar-definition-v2",
       "entry":{"nonterminal":"Root","type":"Int"},
       "search_limits":{"max_nodes":9,"max_depth":6},
       "execution_limits":{"fuel":100},
@@ -152,7 +152,7 @@ void test_grammar_and_payload_boundaries() {
         "grammar content hash was omitted from compatibility identity");
 
   const auto string_grammar = std::make_shared<const CompiledGrammar>(compile_grammar(parse_definition(
-      R"({"format_version":"grammar-definition-v1",
+      R"({"format_version":"grammar-definition-v2",
       "entry":{"nonterminal":"Root","type":"String"},
       "search_limits":{"max_nodes":5,"max_depth":4},
       "execution_limits":{"fuel":100},

@@ -72,16 +72,6 @@ const BoundedRegionSpec& only_region(const ProgramGenome& genome,
   return genome.ast.bounded_region_specs.front();
 }
 
-void no_legacy_nodes(const ProgramGenome& genome, const std::string& label) {
-  for (const auto& node : genome.ast.nodes) {
-    check(node.kind != NodeKind::LINEAR_REC &&
-              node.kind != NodeKind::ASGP_DC &&
-              node.kind != NodeKind::ASGP_DP1D &&
-              node.kind != NodeKind::ASGP_DP2D,
-          label + ": materialized a legacy structured node");
-  }
-}
-
 const NodeFuelSpec* fuel_at(const AstProgram& ast, std::size_t node) {
   for (const auto& profile : ast.fuel_specs)
     if (profile.node_index == node) return &profile;
@@ -176,7 +166,6 @@ std::string dp2_key(const RegionPlan& plan) {
 
 void check_family(const ProgramGenome& genome, Family family,
                   const std::string& label) {
-  no_legacy_nodes(genome, label);
   if (family == Family::Linear) {
     check(genome.ast.bounded_region_specs.empty(),
           label + ": LinearRec package emitted a bounded region");
@@ -206,7 +195,6 @@ ProgramGenome generate_checked(const CompiledGrammar& grammar,
                                const std::string& label) {
   auto generated = generate_derivation(grammar, seed).genome;
   require_membership(grammar, generated);
-  no_legacy_nodes(generated, label);
   return generated;
 }
 
@@ -537,7 +525,7 @@ std::string linear_matrix_root(const std::string& source,
                                const std::string& package) {
   const std::string prefix = "Matrix.LinearRec." + source + "." + result;
   std::ostringstream out;
-  out << R"({"format_version":"grammar-definition-v1","imports":[")"
+  out << R"({"format_version":"grammar-definition-v2","imports":[")"
       << package << R"("],"entry":{"nonterminal":")" << prefix
       << R"(.Main","type":")" << result
       << R"("},"inputs":[{"name":"source","type":")" << source
@@ -572,7 +560,7 @@ std::string dc_matrix_root(const std::string& source,
                            const std::string& package) {
   const std::string prefix = "Matrix.DC." + source + "." + result;
   std::ostringstream out;
-  out << R"({"format_version":"grammar-definition-v1","imports":[")"
+  out << R"({"format_version":"grammar-definition-v2","imports":[")"
       << package << R"("],"entry":{"nonterminal":")" << prefix
       << R"(.Main","type":")" << result
       << R"("},"inputs":[{"name":"source","type":")" << source
@@ -607,7 +595,7 @@ std::string dp_matrix_root(const std::string& family,
                            const std::string& resource,
                            const std::string& package) {
   std::ostringstream out;
-  out << R"({"format_version":"grammar-definition-v1","imports":[")"
+  out << R"({"format_version":"grammar-definition-v2","imports":[")"
       << package << R"("],"entry":{"nonterminal":")" << resource
       << R"(","type":")" << result << R"("},"inputs":[)";
   if (family == "dp1d") {

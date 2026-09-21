@@ -44,7 +44,7 @@ std::shared_ptr<const CompiledGrammar> compile(const std::string& text) {
 
 std::string leaf_grammar(const std::string& type,
                          const std::string& domain) {
-  return R"({"format_version":"grammar-definition-v1",
+  return R"({"format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Value","type":")" + type +
       R"("},"search_limits":{"max_nodes":5,"max_depth":4},
     "execution_limits":{"fuel":100},"nonterminals":[{
@@ -131,7 +131,6 @@ void test_preprocess_rejects_domains_from_another_grammar_owner() {
   const auto request = entry_request(*grammar);
   VariationContext context(grammar, request);
   GpuReproConfig config;
-  config.contract_mode = ReproductionContractMode::CompiledGrammar;
   config.population_size = 1;
   config.candidates_per_program = 1;
   config.donor_pool_size_per_site = 1;
@@ -146,7 +145,7 @@ void test_preprocess_rejects_domains_from_another_grammar_owner() {
 
 std::shared_ptr<const CompiledGrammar> repeated_and_shared_grammar() {
   return compile(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":14,"max_depth":9},
     "execution_limits":{"fuel":100},
@@ -261,113 +260,6 @@ void test_rejects_mismatched_sidecars() {
   }, "mismatched witness node length was accepted");
 }
 
-AstProgram metadata_root_fragment(std::vector<int> dp1_roots,
-                                  std::vector<int> dp2_roots) {
-  AstProgram ast;
-  ast.consts = {Value::from_int(10), Value::from_int(20), Value::from_int(30)};
-  for (const int root : dp1_roots) {
-    AsgpDp1dSpec spec;
-    spec.boundary_const = root;
-    ast.asgp_dp1d_specs.push_back(std::move(spec));
-  }
-  for (const int root : dp2_roots) {
-    AsgpDp2dSpec spec;
-    spec.boundary_const = root;
-    ast.asgp_dp2d_specs.push_back(std::move(spec));
-  }
-  return ast;
-}
-
-void test_metadata_only_constant_roots() {
-  ConstantMutationTable table;
-  DerivationMetadata witness;
-  const AstProgram ast = metadata_root_fragment({2, 0, 2}, {1, 0});
-
-  append_constant_mutation_stream(table, ast, witness);
-
-  check(table.groups.empty() && table.group_nodes.empty() &&
-            table.node_group_origins.empty(),
-        "metadata-only fragment unexpectedly created node mutation state");
-  check(table.metadata_roots == std::vector<int>({2, 0, 1}),
-        "metadata roots were not retained and deduplicated in first-use order");
-  check(table.streams.size() == 1 &&
-            table.streams[0].metadata_root_offset == 0 &&
-            table.streams[0].metadata_root_count == 3,
-        "metadata-only stream recorded the wrong root slice");
-  check(constant_mutation_table_bytes(table) ==
-            3 * sizeof(int) + sizeof(ConstantMutationStream),
-        "metadata roots were omitted from logical table bytes");
-}
-
-void test_metadata_root_offsets_across_streams() {
-  ConstantMutationTable table;
-  DerivationMetadata witness;
-  append_constant_mutation_stream(
-      table, metadata_root_fragment({1}, {2}), witness);
-  append_constant_mutation_stream(
-      table, metadata_root_fragment({}, {}), witness);
-  append_constant_mutation_stream(
-      table, metadata_root_fragment({0, 2}, {}), witness);
-
-  check(table.metadata_roots == std::vector<int>({1, 2, 0, 2}),
-        "metadata root slices changed across streams");
-  check(table.streams.size() == 3 &&
-            table.streams[0].metadata_root_offset == 0 &&
-            table.streams[0].metadata_root_count == 2 &&
-            table.streams[1].metadata_root_offset == 2 &&
-            table.streams[1].metadata_root_count == 0 &&
-            table.streams[2].metadata_root_offset == 2 &&
-            table.streams[2].metadata_root_count == 2,
-        "metadata root offsets do not describe consecutive stream slices");
-}
-
-void test_invalid_metadata_root_rolls_back() {
-  ConstantMutationTable table;
-  DerivationMetadata witness;
-  append_constant_mutation_stream(
-      table, metadata_root_fragment({1}, {}), witness);
-  const auto roots_before = table.metadata_roots;
-  const auto streams_before = table.streams;
-  const auto origins_before = table.node_group_origins;
-  const auto groups_before = table.groups;
-  const auto group_nodes_before = table.group_nodes;
-
-  rejects([&] {
-    append_constant_mutation_stream(
-        table, metadata_root_fragment({0}, {3}), witness);
-  }, "out-of-range metadata constant index was accepted");
-
-  check(table.metadata_roots == roots_before &&
-            table.streams.size() == streams_before.size() &&
-            table.node_group_origins == origins_before &&
-            table.groups.size() == groups_before.size() &&
-            table.group_nodes == group_nodes_before,
-        "invalid metadata constant index partially appended a stream");
-  check(table.streams[0].metadata_root_offset ==
-            streams_before[0].metadata_root_offset &&
-            table.streams[0].metadata_root_count ==
-            streams_before[0].metadata_root_count,
-        "invalid metadata constant index changed an existing stream");
-}
-
-void test_rejects_too_many_metadata_roots() {
-  ConstantMutationTable table;
-  DerivationMetadata witness;
-  AstProgram ast;
-  ast.consts.assign(129, Value::from_int(0));
-  for (int root = 0; root < 129; ++root) {
-    AsgpDp1dSpec spec;
-    spec.boundary_const = root;
-    ast.asgp_dp1d_specs.push_back(std::move(spec));
-  }
-
-  rejects([&] {
-    append_constant_mutation_stream(table, ast, witness);
-  }, "more than 128 unique metadata constant roots were accepted");
-  check(table.metadata_roots.empty() && table.streams.empty(),
-        "metadata root limit failure partially appended a stream");
-}
-
 }  // namespace
 
 int main() {
@@ -384,10 +276,6 @@ int main() {
     test_preprocess_rejects_domains_from_another_grammar_owner();
     test_logical_groups_ignore_constant_slots();
     test_rejects_mismatched_sidecars();
-    test_metadata_only_constant_roots();
-    test_metadata_root_offsets_across_streams();
-    test_invalid_metadata_root_rolls_back();
-    test_rejects_too_many_metadata_roots();
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';
     return 1;

@@ -9,20 +9,12 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
-from .grammar_profiles import (
-    build_compat_config,
-    build_full_config,
-    load_fixture_schema,
-    schema_hash,
-    write_profile,
-)
 from ..shared.hashing import sha256_file
 from ..shared.schemas import PSB_REGRESSION_SUMMARY
 
 
 ROOT = Path(__file__).resolve().parents[3]
 NUMERIC_TYPES = {"int", "float"}
-COMPAT_PROFILES = {"compat", "compact"}
 
 
 def parse_csv(text: str) -> List[str]:
@@ -180,12 +172,14 @@ def build_command(
     cases_path: Path,
     seed: int,
     out_json: Path,
-    grammar_config_path: Path | None,
+    grammar_definition_path: Path,
 ) -> List[str]:
     cmd = [
         str(args.binary),
         "--cases",
         str(cases_path),
+        "--grammar-definition",
+        str(grammar_definition_path),
         "--engine",
         args.engine,
         "--repro-backend",
@@ -204,8 +198,6 @@ def build_command(
         str(args.mutation_rate),
         "--mutation-subtree-prob",
         str(args.mutation_subtree_prob),
-        "--fuel",
-        str(args.fuel),
         "--seed",
         str(seed),
         "--timing",
@@ -213,8 +205,6 @@ def build_command(
         "--out-json",
         str(out_json),
     ]
-    if grammar_config_path is not None:
-        cmd.extend(["--grammar-config", str(grammar_config_path)])
     if args.skip_final_eval:
         cmd.extend(["--skip-final-eval", "on"])
     if args.retain_final_population:
@@ -227,74 +217,21 @@ def write_json(path: Path, payload: Dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def materialize_problem_grammar_config(
-    args: argparse.Namespace,
-    problem: str,
-    cases_path: Path,
-    target: Dict[str, Any],
-) -> tuple[Path | None, Dict[str, Any] | None]:
-    if args.grammar_config is not None:
-        return args.grammar_config, {
-            "kind": "explicit",
-            "path": str(args.grammar_config),
-            "hash": sha256_file(args.grammar_config),
-        }
-
-    if args.profile in COMPAT_PROFILES:
-        if args.base_grammar_config is None:
-            raise ValueError(f"--profile {args.profile} requires --base-grammar-config or --grammar-config")
-        field_schemas, fixture_schema_hash = load_fixture_schema(cases_path)
-        fixture_schema_hash = target.get("schema_hash") or fixture_schema_hash or schema_hash(field_schemas)
-        num_list_mode = "both" if args.profile == "compact" else "schema"
-        payload = build_compat_config(
-            base_config_path=args.base_grammar_config,
-            field_schemas=field_schemas,
-            fixture_schema_hash=str(fixture_schema_hash),
-            profile=args.profile,
-            num_list_mode=num_list_mode,
-        )
-        out_path = args.out_dir / "_grammar_configs" / f"{problem}.{args.profile}.json"
-        generated_hash = write_profile(out_path, payload)
-        return out_path, {
-            "kind": f"generated_{args.profile}",
-            "path": str(out_path),
-            "hash": generated_hash,
-            "base_config": {
-                "path": str(args.base_grammar_config),
-                "hash": sha256_file(args.base_grammar_config),
-            },
-            "fixture_schema_hash": fixture_schema_hash,
-            "num_list_mode": num_list_mode,
-        }
-
-    if args.profile == "full":
-        payload = build_full_config()
-        out_path = args.out_dir / "_grammar_configs" / "full.json"
-        generated_hash = write_profile(out_path, payload)
-        return out_path, {
-            "kind": "generated_full",
-            "path": str(out_path),
-            "hash": generated_hash,
-        }
-
-    return None, None
-
-
 def run_one(
     args: argparse.Namespace,
     problem: str,
     cases_path: Path,
     seed: int,
     target: Dict[str, Any],
-    grammar_config_path: Path | None,
-    grammar_config_record: Dict[str, Any] | None,
+    grammar_definition_path: Path,
+    grammar_definition_record: Dict[str, Any],
 ) -> Dict[str, Any]:
     run_dir = args.out_dir / problem / f"seed_{seed}"
     run_dir.mkdir(parents=True, exist_ok=True)
     out_json = run_dir / "run.json"
     stdout_path = run_dir / "stdout.txt"
     stderr_path = run_dir / "stderr.txt"
-    cmd = build_command(args, cases_path, seed, out_json, grammar_config_path)
+    cmd = build_command(args, cases_path, seed, out_json, grammar_definition_path)
 
     record: Dict[str, Any] = {
         "problem": problem,
@@ -308,8 +245,7 @@ def run_one(
         "stdout": str(stdout_path),
         "stderr": str(stderr_path),
     }
-    if grammar_config_record is not None:
-        record["grammar_config"] = grammar_config_record
+    record["grammar_definition"] = grammar_definition_record
 
     if args.dry_run:
         record.update(
@@ -367,7 +303,7 @@ def run_one(
             "--engine",
             "cpu",
             "--fuel",
-            str(args.fuel),
+            str(args.eval_fuel),
             "--penalty",
             str(args.penalty),
             "--out-json",
@@ -446,8 +382,7 @@ def main() -> int:
     parser.add_argument("--problems", help="comma-separated problem subset")
     parser.add_argument("--seeds", type=parse_seeds, required=True)
     parser.add_argument("--binary", type=Path, default=Path("cpp/build/gagp_evolve_cli"))
-    parser.add_argument("--grammar-config", type=Path)
-    parser.add_argument("--base-grammar-config", type=Path)
+    parser.add_argument("--grammar-definition", required=True, type=Path)
     parser.add_argument("--engine", default="gpu", choices=["cpu", "gpu"])
     parser.add_argument("--repro-backend", default="gpu", choices=["cpu", "gpu"])
     parser.add_argument("--repro-overlap", nargs="?", const="on", default="off", type=parse_on_off)
@@ -458,7 +393,7 @@ def main() -> int:
     parser.add_argument("--mutation-rate", type=float, default=0.5)
     parser.add_argument("--mutation-subtree-prob", type=float, default=0.8)
     parser.add_argument("--penalty", type=float, default=1.0)
-    parser.add_argument("--fuel", type=int, default=20000)
+    parser.add_argument("--eval-fuel", type=int, default=20000)
     parser.add_argument("--skip-final-eval", action="store_true")
     parser.add_argument("--retain-final-population", action="store_true")
     parser.add_argument("--eval-test", action="store_true", help="Evaluate the final best AST on matching *.test.json cases.")
@@ -473,14 +408,18 @@ def main() -> int:
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     runs: List[Dict[str, Any]] = []
-    generated_grammar_configs: Dict[str, Any] = {}
+    grammar_definition_record = {
+        "kind": "explicit_v2",
+        "path": str(args.grammar_definition),
+        "hash": sha256_file(args.grammar_definition),
+    }
     for problem, cases_path in sorted(problem_files.items()):
         target = solved_target_for_cases(cases_path)
-        grammar_config_path, grammar_config_record = materialize_problem_grammar_config(args, problem, cases_path, target)
-        if grammar_config_record is not None and grammar_config_record.get("kind", "").startswith("generated_"):
-            generated_grammar_configs[problem] = grammar_config_record
         for seed in args.seeds:
-            run = run_one(args, problem, cases_path, seed, target, grammar_config_path, grammar_config_record)
+            run = run_one(
+                args, problem, cases_path, seed, target,
+                args.grammar_definition, grammar_definition_record,
+            )
             runs.append(run)
             print(
                 f"PSB_RUN suite={args.suite} profile={args.profile} problem={problem} "
@@ -504,19 +443,11 @@ def main() -> int:
         "mutation_rate": args.mutation_rate,
         "mutation_subtree_prob": args.mutation_subtree_prob,
         "penalty": args.penalty,
-        "fuel": args.fuel,
+        "eval_fuel": args.eval_fuel,
         "eval_test": args.eval_test,
         "dry_run": args.dry_run,
     }
-    if args.grammar_config is not None:
-        metadata["grammar_config"] = {"path": str(args.grammar_config), "hash": sha256_file(args.grammar_config)}
-    if args.base_grammar_config is not None:
-        metadata["base_grammar_config"] = {
-            "path": str(args.base_grammar_config),
-            "hash": sha256_file(args.base_grammar_config),
-        }
-    if generated_grammar_configs:
-        metadata["generated_grammar_configs"] = generated_grammar_configs
+    metadata["grammar_definition"] = grammar_definition_record
 
     summary = {
         "format_version": PSB_REGRESSION_SUMMARY,

@@ -13,32 +13,20 @@ enum class NodeCategory {
   Block,
   Statement,
   Expression,
-  DependencyMarker,
 };
 
 enum class NodeIndexRole {
   Unused,
   Name,
   Constant,
-  ListTypeTag,
   BinderId,
   DynamicArity,
 };
 
 enum class NodeMetadataKind {
   None,
-  LinearRecBinders,
-  AsgpDcBinders,
-  AsgpDp1dSpec,
-  AsgpDp2dSpec,
   LexicalRegion,
   BoundedRegion,
-};
-
-enum class DependencyFamily {
-  None,
-  Dp1d,
-  Dp2d,
 };
 
 enum class GrammarFeature {
@@ -50,13 +38,6 @@ enum class GrammarFeature {
   ExpressionConst,
   ExpressionVar,
   ExpressionIf,
-  ExpressionMapList,
-  ExpressionFilterList,
-  ExpressionLinearRec,
-  ExpressionAsgpDc,
-  ExpressionAsgpDp1d,
-  ExpressionAsgpDp2d,
-  AsgpDependency,
   UnaryNeg,
   UnaryNot,
   BinaryAdd,
@@ -120,13 +101,6 @@ enum class NodeTypingRule {
   Conditional,
   Builtin,
   BoundVariable,
-  MapList,
-  FilterList,
-  LinearRec,
-  AsgpDc,
-  AsgpDp1d,
-  AsgpDp2d,
-  DependencyMarker,
   LetRegion,
   Traverse,
   RegionVariable,
@@ -143,8 +117,6 @@ struct NodeDescriptor {
   NodeIndexRole i1_role;
   int builtin_id;
   int builtin_arity;
-  int dependency_arity;
-  DependencyFamily dependency_family;
   NodeMetadataKind metadata;
   GrammarFeature grammar_feature;
   NodeTypingRule typing_rule;
@@ -153,7 +125,7 @@ struct NodeDescriptor {
   constexpr bool is_builtin() const noexcept { return builtin_id >= 0; }
 };
 
-inline constexpr std::size_t k_node_kind_count = static_cast<std::size_t>(NodeKind::COUNT);
+inline constexpr std::size_t k_node_kind_count = 60;
 
 const std::array<NodeDescriptor, k_node_kind_count>& all_node_descriptors() noexcept;
 const NodeDescriptor& node_descriptor(NodeKind kind);

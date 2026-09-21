@@ -7,6 +7,7 @@
 #include <initializer_list>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -20,13 +21,13 @@
 #include "gagp/evolution/genome_generation.hpp"
 #include "gagp/evolution/genome.hpp"
 #include "gagp/evolution/grammar/definition.hpp"
-#include "gagp/evolution/grammar_config.hpp"
 #include "gagp/evolution/repro/pack.hpp"
 #include "gagp/cli/codec.hpp"
 #include "gagp/cli/commands.hpp"
 #include "gagp/cli/json.hpp"
 #include "gagp/cli/region_codec.hpp"
 #include "gagp/cli/grammar_artifact.hpp"
+#include "gagp/cli/grammar_population_artifact.hpp"
 #include "gagp/cli/options.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 
@@ -39,7 +40,8 @@ using gagp::cli_detail::JsonValue;
 
 std::string json_escape(const std::string& s) {
   std::ostringstream oss;
-  for (char c : s) {
+  static constexpr char kHex[] = "0123456789abcdef";
+  for (unsigned char c : s) {
     if (c == '"') {
       oss << "\\\"";
     } else if (c == '\\') {
@@ -50,8 +52,10 @@ std::string json_escape(const std::string& s) {
       oss << "\\r";
     } else if (c == '\t') {
       oss << "\\t";
+    } else if (c < 0x20) {
+      oss << "\\u00" << kHex[c >> 4] << kHex[c & 0x0f];
     } else {
-      oss << c;
+      oss << static_cast<char>(c);
     }
   }
   return oss.str();
@@ -221,75 +225,6 @@ void write_ast_json(std::ostream& out, const gagp::evo::AstProgram& ast) {
   for (std::size_t i = 0; i < ast.consts.size(); ++i) {
     if (i > 0) out << ",";
     write_typed_value_json(out, ast.consts[i]);
-  }
-  out << "],\"linear_rec_binders\":[";
-  for (std::size_t i = 0; i < ast.linear_rec_binders.size(); ++i) {
-    if (i > 0) out << ",";
-    const gagp::evo::LinearRecBinders& binders = ast.linear_rec_binders[i];
-    out << "{\"node_index\":" << binders.node_index
-        << ",\"elem_name\":" << binders.elem_name
-        << ",\"accum_name\":" << binders.accum_name
-        << ",\"index_name\":" << binders.index_name << "}";
-  }
-  out << "],\"asgp_dc_binders\":[";
-  for (std::size_t i = 0; i < ast.asgp_dc_binders.size(); ++i) {
-    if (i > 0) out << ",";
-    const gagp::evo::AsgpDcBinders& binders = ast.asgp_dc_binders[i];
-    out << "{\"node_index\":" << binders.node_index
-        << ",\"solve_xs_name\":" << binders.solve_xs_name
-        << ",\"solve_n_name\":" << binders.solve_n_name
-        << ",\"solve_lo_name\":" << binders.solve_lo_name
-        << ",\"divide_n_name\":" << binders.divide_n_name
-        << ",\"combine_left_name\":" << binders.combine_left_name
-        << ",\"combine_right_name\":" << binders.combine_right_name << "}";
-  }
-  out << "],\"asgp_dp1d_specs\":[";
-  for (std::size_t i = 0; i < ast.asgp_dp1d_specs.size(); ++i) {
-    if (i > 0) out << ",";
-    const gagp::evo::AsgpDp1dSpec& spec = ast.asgp_dp1d_specs[i];
-    out << "{\"node_index\":" << spec.node_index
-        << ",\"lo\":" << spec.lo
-        << ",\"hi\":" << spec.hi
-        << ",\"base_state\":" << spec.base_state
-        << ",\"boundary_const\":" << spec.boundary_const
-        << ",\"dep_kind\":" << static_cast<int>(spec.dep_kind)
-        << ",\"dep_offsets\":[";
-    for (std::size_t j = 0; j < spec.dep_offsets.size(); ++j) {
-      if (j > 0) out << ",";
-      out << spec.dep_offsets[j];
-    }
-    out << "],\"solve_state_name\":" << spec.solve_state_name
-        << ",\"transition_state_name\":" << spec.transition_state_name
-        << ",\"transition_dep_names\":[";
-    for (std::size_t j = 0; j < spec.transition_dep_names.size(); ++j) {
-      if (j > 0) out << ",";
-      out << spec.transition_dep_names[j];
-    }
-    out << "]}";
-  }
-  out << "],\"asgp_dp2d_specs\":[";
-  for (std::size_t i = 0; i < ast.asgp_dp2d_specs.size(); ++i) {
-    if (i > 0) out << ",";
-    const gagp::evo::AsgpDp2dSpec& spec = ast.asgp_dp2d_specs[i];
-    out << "{\"node_index\":" << spec.node_index
-        << ",\"i_lo\":" << spec.i_lo
-        << ",\"i_hi\":" << spec.i_hi
-        << ",\"j_lo\":" << spec.j_lo
-        << ",\"j_hi\":" << spec.j_hi
-        << ",\"base_i\":" << spec.base_i
-        << ",\"base_j\":" << spec.base_j
-        << ",\"boundary_const\":" << spec.boundary_const
-        << ",\"dep_kind\":" << static_cast<int>(spec.dep_kind)
-        << ",\"solve_i_name\":" << spec.solve_i_name
-        << ",\"solve_j_name\":" << spec.solve_j_name
-        << ",\"transition_i_name\":" << spec.transition_i_name
-        << ",\"transition_j_name\":" << spec.transition_j_name
-        << ",\"transition_dep_names\":[";
-    for (std::size_t j = 0; j < spec.transition_dep_names.size(); ++j) {
-      if (j > 0) out << ",";
-      out << spec.transition_dep_names[j];
-    }
-    out << "]}";
   }
   out << "]";
   if (!ast.lexical_regions.empty()) {
@@ -565,24 +500,6 @@ void reject_unknown_bounded_ast_fields(
   }
 }
 
-std::vector<int> require_int_array_field_local(const JsonValue& raw,
-                                               const char* key,
-                                               const char* section) {
-  auto it = raw.object_v.find(key);
-  if (it == raw.object_v.end() || it->second.kind != JsonValue::Kind::Array) {
-    throw std::runtime_error(std::string("expected integer array field: ") + section + "." + key);
-  }
-  std::vector<int> out;
-  out.reserve(it->second.array_v.size());
-  for (const JsonValue& item : it->second.array_v) {
-    if (item.kind != JsonValue::Kind::Number || !is_integer_number(item.number_v)) {
-      throw std::runtime_error(std::string("expected integer elements: ") + section + "." + key);
-    }
-    out.push_back(static_cast<int>(item.number_v));
-  }
-  return out;
-}
-
 gagp::evo::AstProgram decode_ast_json_impl(const JsonValue& raw) {
   if (raw.kind != JsonValue::Kind::Object) {
     throw std::runtime_error("AST JSON must be an object");
@@ -593,6 +510,16 @@ gagp::evo::AstProgram decode_ast_json_impl(const JsonValue& raw) {
     throw std::runtime_error("AST JSON missing string field: version");
   }
   ast.version = version_it->second.string_v;
+  if (ast.version != gagp::evo::k_ast_prefix_version_current) {
+    throw std::runtime_error("AST JSON version must be ast-prefix-v2");
+  }
+  for (const char* legacy_field : {"linear_rec_binders", "asgp_dc_binders",
+                                   "asgp_dp1d_specs", "asgp_dp2d_specs"}) {
+    if (raw.object_v.find(legacy_field) != raw.object_v.end()) {
+      throw std::runtime_error(std::string("AST legacy sidecar field is not valid in ast-prefix-v2: ") +
+                               legacy_field);
+    }
+  }
 
   auto nodes_it = raw.object_v.find("nodes");
   if (nodes_it == raw.object_v.end() || nodes_it->second.kind != JsonValue::Kind::Array) {
@@ -604,6 +531,9 @@ gagp::evo::AstProgram decode_ast_json_impl(const JsonValue& raw) {
       throw std::runtime_error("AST node must be an object");
     }
     const int kind = require_int_field_local(row, "kind", "node");
+    if (!gagp::evo::is_known_node_kind(kind)) {
+      throw std::runtime_error("AST node has an unknown or legacy kind");
+    }
     ast.nodes.push_back(gagp::evo::AstNode{
         static_cast<gagp::evo::NodeKind>(kind),
         require_int_field_local(row, "i0", "node"),
@@ -630,100 +560,6 @@ gagp::evo::AstProgram decode_ast_json_impl(const JsonValue& raw) {
   ast.consts.reserve(consts_it->second.array_v.size());
   for (const JsonValue& item : consts_it->second.array_v) {
     ast.consts.push_back(gagp::cli_detail::decode_typed_value(item));
-  }
-
-  auto binders_it = raw.object_v.find("linear_rec_binders");
-  if (binders_it != raw.object_v.end()) {
-    if (binders_it->second.kind != JsonValue::Kind::Array) {
-      throw std::runtime_error("AST linear_rec_binders must be an array");
-    }
-    ast.linear_rec_binders.reserve(binders_it->second.array_v.size());
-    for (const JsonValue& row : binders_it->second.array_v) {
-      if (row.kind != JsonValue::Kind::Object) {
-        throw std::runtime_error("AST linear_rec_binders item must be an object");
-      }
-      ast.linear_rec_binders.push_back(gagp::evo::LinearRecBinders{
-          require_node_index_field_local(row, "linear_rec_binders"),
-          require_int_field_local(row, "elem_name", "linear_rec_binders"),
-          require_int_field_local(row, "accum_name", "linear_rec_binders"),
-          require_int_field_local(row, "index_name", "linear_rec_binders"),
-      });
-    }
-  }
-
-  auto dc_it = raw.object_v.find("asgp_dc_binders");
-  if (dc_it != raw.object_v.end()) {
-    if (dc_it->second.kind != JsonValue::Kind::Array) {
-      throw std::runtime_error("AST asgp_dc_binders must be an array");
-    }
-    for (const JsonValue& row : dc_it->second.array_v) {
-      if (row.kind != JsonValue::Kind::Object) {
-        throw std::runtime_error("AST asgp_dc_binders item must be an object");
-      }
-      ast.asgp_dc_binders.push_back(gagp::evo::AsgpDcBinders{
-          require_node_index_field_local(row, "asgp_dc_binders"),
-          require_int_field_local(row, "solve_xs_name", "asgp_dc_binders"),
-          require_int_field_local(row, "solve_n_name", "asgp_dc_binders"),
-          require_int_field_local(row, "solve_lo_name", "asgp_dc_binders"),
-          require_int_field_local(row, "divide_n_name", "asgp_dc_binders"),
-          require_int_field_local(row, "combine_left_name", "asgp_dc_binders"),
-          require_int_field_local(row, "combine_right_name", "asgp_dc_binders"),
-      });
-    }
-  }
-
-  auto dp1_it = raw.object_v.find("asgp_dp1d_specs");
-  if (dp1_it != raw.object_v.end()) {
-    if (dp1_it->second.kind != JsonValue::Kind::Array) {
-      throw std::runtime_error("AST asgp_dp1d_specs must be an array");
-    }
-    for (const JsonValue& row : dp1_it->second.array_v) {
-      if (row.kind != JsonValue::Kind::Object) {
-        throw std::runtime_error("AST asgp_dp1d_specs item must be an object");
-      }
-      ast.asgp_dp1d_specs.push_back(gagp::evo::AsgpDp1dSpec{
-          require_node_index_field_local(row, "asgp_dp1d_specs"),
-          require_int_field_local(row, "lo", "asgp_dp1d_specs"),
-          require_int_field_local(row, "hi", "asgp_dp1d_specs"),
-          require_int_field_local(row, "base_state", "asgp_dp1d_specs"),
-          require_int_field_local(row, "boundary_const", "asgp_dp1d_specs"),
-          static_cast<gagp::evo::NodeKind>(
-              require_int_field_local(row, "dep_kind", "asgp_dp1d_specs")),
-          require_int_array_field_local(row, "dep_offsets", "asgp_dp1d_specs"),
-          require_int_field_local(row, "solve_state_name", "asgp_dp1d_specs"),
-          require_int_field_local(row, "transition_state_name", "asgp_dp1d_specs"),
-          require_int_array_field_local(row, "transition_dep_names", "asgp_dp1d_specs"),
-      });
-    }
-  }
-
-  auto dp2_it = raw.object_v.find("asgp_dp2d_specs");
-  if (dp2_it != raw.object_v.end()) {
-    if (dp2_it->second.kind != JsonValue::Kind::Array) {
-      throw std::runtime_error("AST asgp_dp2d_specs must be an array");
-    }
-    for (const JsonValue& row : dp2_it->second.array_v) {
-      if (row.kind != JsonValue::Kind::Object) {
-        throw std::runtime_error("AST asgp_dp2d_specs item must be an object");
-      }
-      ast.asgp_dp2d_specs.push_back(gagp::evo::AsgpDp2dSpec{
-          require_node_index_field_local(row, "asgp_dp2d_specs"),
-          require_int_field_local(row, "i_lo", "asgp_dp2d_specs"),
-          require_int_field_local(row, "i_hi", "asgp_dp2d_specs"),
-          require_int_field_local(row, "j_lo", "asgp_dp2d_specs"),
-          require_int_field_local(row, "j_hi", "asgp_dp2d_specs"),
-          require_int_field_local(row, "base_i", "asgp_dp2d_specs"),
-          require_int_field_local(row, "base_j", "asgp_dp2d_specs"),
-          require_int_field_local(row, "boundary_const", "asgp_dp2d_specs"),
-          static_cast<gagp::evo::NodeKind>(
-              require_int_field_local(row, "dep_kind", "asgp_dp2d_specs")),
-          require_int_field_local(row, "solve_i_name", "asgp_dp2d_specs"),
-          require_int_field_local(row, "solve_j_name", "asgp_dp2d_specs"),
-          require_int_field_local(row, "transition_i_name", "asgp_dp2d_specs"),
-          require_int_field_local(row, "transition_j_name", "asgp_dp2d_specs"),
-          require_int_array_field_local(row, "transition_dep_names", "asgp_dp2d_specs"),
-      });
-    }
   }
 
   auto regions_it = raw.object_v.find("lexical_regions");
@@ -964,279 +800,6 @@ gagp::evo::AstProgram decode_ast_json_impl(const JsonValue& raw) {
   return ast;
 }
 
-bool paths_match(const std::string& lhs, const std::string& rhs) {
-  if (lhs == rhs) {
-    return true;
-  }
-  try {
-    const auto lhs_path = std::filesystem::absolute(std::filesystem::path(lhs)).lexically_normal();
-    const auto rhs_path = std::filesystem::absolute(std::filesystem::path(rhs)).lexically_normal();
-    return lhs_path == rhs_path;
-  } catch (const std::exception&) {
-    return false;
-  }
-}
-
-std::string fnv1a64_hex(const std::string& text) {
-  std::uint64_t h = 1469598103934665603ULL;
-  for (unsigned char c : text) {
-    h ^= static_cast<std::uint64_t>(c);
-    h *= 1099511628211ULL;
-  }
-  std::ostringstream oss;
-  oss << "fnv1a64:" << std::hex << std::setfill('0') << std::setw(16) << h;
-  return oss.str();
-}
-
-const JsonValue& require_object_section(const JsonValue& raw, const char* key) {
-  auto it = raw.object_v.find(key);
-  if (it == raw.object_v.end() || it->second.kind != JsonValue::Kind::Object) {
-    throw std::runtime_error(std::string("grammar config missing object section: ") + key);
-  }
-  return it->second;
-}
-
-void reject_unknown_fields(const JsonValue& raw, const std::vector<std::string>& allowed, const char* section) {
-  if (raw.kind != JsonValue::Kind::Object) {
-    throw std::runtime_error(std::string("grammar config section is not an object: ") + section);
-  }
-  for (const auto& kv : raw.object_v) {
-    if (std::find(allowed.begin(), allowed.end(), kv.first) == allowed.end()) {
-      throw std::runtime_error(std::string("grammar config unknown field: ") + section + "." + kv.first);
-    }
-  }
-}
-
-bool require_bool_field(const JsonValue& raw, const char* key, const char* section) {
-  auto it = raw.object_v.find(key);
-  if (it == raw.object_v.end() || it->second.kind != JsonValue::Kind::Bool) {
-    throw std::runtime_error(std::string("grammar config expected boolean field: ") + section + "." + key);
-  }
-  return it->second.bool_v;
-}
-
-void require_bool_fields(const JsonValue& raw, const std::vector<std::string>& keys, const char* section) {
-  for (const std::string& key : keys) {
-    (void)require_bool_field(raw, key.c_str(), section);
-  }
-}
-
-const JsonValue* optional_object_section(const JsonValue& raw, const char* key, const char* owner) {
-  auto it = raw.object_v.find(key);
-  if (it == raw.object_v.end()) {
-    return nullptr;
-  }
-  if (it->second.kind != JsonValue::Kind::Object) {
-    throw std::runtime_error(std::string("grammar config expected object field: ") + owner + "." + key);
-  }
-  return &it->second;
-}
-
-void validate_optional_metadata(const JsonValue& payload) {
-  if (const JsonValue* structured = optional_object_section(payload, "structured", "root")) {
-    reject_unknown_fields(*structured,
-                          {"max_nested_binders", "max_map_body_depth", "max_filter_pred_depth",
-                           "max_linear_rec_body_depth"},
-                          "structured");
-  }
-  if (const JsonValue* limits = optional_object_section(payload, "limits", "root")) {
-    reject_unknown_fields(*limits,
-                          {"max_expr_depth", "max_stmts_per_block", "max_total_nodes", "max_for_k",
-                           "max_call_args"},
-                          "limits");
-  }
-  if (const JsonValue* asgp = optional_object_section(payload, "asgp", "root")) {
-    reject_unknown_fields(*asgp, {"max_scheme_nesting", "dc", "dp1d", "dp2d"}, "asgp");
-    if (const JsonValue* dc = optional_object_section(*asgp, "dc", "asgp")) {
-      reject_unknown_fields(*dc, {"enabled_source_elems", "max_depth"}, "asgp.dc");
-    }
-    if (const JsonValue* dp1d = optional_object_section(*asgp, "dp1d", "asgp")) {
-      reject_unknown_fields(*dp1d, {"max_states", "max_step", "dependency_patterns"}, "asgp.dp1d");
-    }
-    if (const JsonValue* dp2d = optional_object_section(*asgp, "dp2d", "asgp")) {
-      reject_unknown_fields(*dp2d, {"max_cells", "dependency_patterns"}, "asgp.dp2d");
-    }
-  }
-  auto compat_it = payload.object_v.find("compat");
-  if (compat_it != payload.object_v.end() &&
-      compat_it->second.kind != JsonValue::Kind::Null &&
-      compat_it->second.kind != JsonValue::Kind::Object) {
-    throw std::runtime_error("grammar config expected root.compat to be null or object");
-  }
-}
-
-bool config_requests_legacy_num_list_input_compat(const JsonValue& payload) {
-  auto compat_it = payload.object_v.find("compat");
-  if (compat_it == payload.object_v.end() || compat_it->second.kind == JsonValue::Kind::Null) {
-    return false;
-  }
-  const JsonValue& compat = compat_it->second;
-  if (compat.kind != JsonValue::Kind::Object) {
-    return false;
-  }
-  auto mode_it = compat.object_v.find("mode");
-  auto num_list_mode_it = compat.object_v.find("num_list_mode");
-  if (mode_it == compat.object_v.end() || num_list_mode_it == compat.object_v.end() ||
-      mode_it->second.kind != JsonValue::Kind::String ||
-      num_list_mode_it->second.kind != JsonValue::Kind::String) {
-    return false;
-  }
-  return mode_it->second.string_v == "compact" &&
-         num_list_mode_it->second.string_v == "both";
-}
-
-gagp::evo::GrammarConfig parse_grammar_config_current_payload(const JsonValue& payload) {
-  if (payload.kind != JsonValue::Kind::Object) {
-    throw std::runtime_error("grammar config must be a JSON object");
-  }
-  auto fv_it = payload.object_v.find("format_version");
-  if (fv_it == payload.object_v.end() || fv_it->second.kind != JsonValue::Kind::String ||
-      fv_it->second.string_v != "grammar-config") {
-    throw std::runtime_error("grammar config must include format_version=grammar-config");
-  }
-
-  const JsonValue& statements = require_object_section(payload, "statements");
-  const JsonValue& expressions = require_object_section(payload, "expressions");
-  const JsonValue& builtins = require_object_section(payload, "builtins");
-  const JsonValue& values = require_object_section(payload, "values");
-
-  reject_unknown_fields(payload,
-                        {"format_version", "profile", "statements", "expressions", "builtins", "values",
-                         "structured", "asgp", "limits", "compat"},
-                        "root");
-  reject_unknown_fields(statements, {"assign", "if_stmt", "for_range", "return"}, "statements");
-  reject_unknown_fields(expressions,
-                        {"const", "var", "bound_var", "unary", "binary", "if_expr", "call",
-                         "map_list", "filter_list", "linear_rec", "asgp_dc", "asgp_dp1d", "asgp_dp2d"},
-                        "expressions");
-  reject_unknown_fields(builtins,
-                        {"abs", "min", "max", "clip", "idiv0", "imod0", "len", "concat", "slice",
-                         "index", "append", "prepend", "reverse", "find", "contains", "singleton",
-                         "char_to_string", "string_to_char", "ord", "chr", "is_letter", "is_digit",
-                         "is_space", "is_vowel", "to_lower", "to_upper", "to_string"},
-                        "builtins");
-  reject_unknown_fields(values,
-                        {"int", "float", "bool", "char", "string", "int_list", "float_list",
-                         "string_list"},
-                        "values");
-  validate_optional_metadata(payload);
-
-  gagp::evo::GrammarConfig cfg;
-  cfg.statement_assign = require_bool_field(statements, "assign", "statements");
-  cfg.statement_if_stmt = require_bool_field(statements, "if_stmt", "statements");
-  cfg.statement_for_range = require_bool_field(statements, "for_range", "statements");
-  cfg.statement_return = require_bool_field(statements, "return", "statements");
-
-  cfg.expression_const = require_bool_field(expressions, "const", "expressions");
-  cfg.expression_var = require_bool_field(expressions, "var", "expressions");
-  (void)require_bool_field(expressions, "bound_var", "expressions");
-  const bool unary_enabled = require_bool_field(expressions, "unary", "expressions");
-  const bool binary_enabled = require_bool_field(expressions, "binary", "expressions");
-  cfg.expression_if_expr = require_bool_field(expressions, "if_expr", "expressions");
-  const bool call_enabled = require_bool_field(expressions, "call", "expressions");
-  cfg.expression_map_list = require_bool_field(expressions, "map_list", "expressions");
-  cfg.expression_filter_list = require_bool_field(expressions, "filter_list", "expressions");
-  cfg.expression_linear_rec = require_bool_field(expressions, "linear_rec", "expressions");
-  cfg.expression_asgp_dc = require_bool_field(expressions, "asgp_dc", "expressions");
-  cfg.expression_asgp_dp1d = require_bool_field(expressions, "asgp_dp1d", "expressions");
-  cfg.expression_asgp_dp2d = require_bool_field(expressions, "asgp_dp2d", "expressions");
-
-  cfg.unary_neg = unary_enabled;
-  cfg.unary_not = unary_enabled;
-  cfg.binary_add = binary_enabled;
-  cfg.binary_sub = binary_enabled;
-  cfg.binary_mul = binary_enabled;
-  cfg.binary_div = binary_enabled;
-  cfg.binary_mod = binary_enabled;
-  cfg.binary_lt = binary_enabled;
-  cfg.binary_le = binary_enabled;
-  cfg.binary_gt = binary_enabled;
-  cfg.binary_ge = binary_enabled;
-  cfg.binary_eq = binary_enabled;
-  cfg.binary_ne = binary_enabled;
-  cfg.binary_and = binary_enabled;
-  cfg.binary_or = binary_enabled;
-
-  const bool builtin_abs = require_bool_field(builtins, "abs", "builtins");
-  const bool builtin_min = require_bool_field(builtins, "min", "builtins");
-  const bool builtin_max = require_bool_field(builtins, "max", "builtins");
-  const bool builtin_clip = require_bool_field(builtins, "clip", "builtins");
-  const bool builtin_idiv0 = require_bool_field(builtins, "idiv0", "builtins");
-  const bool builtin_imod0 = require_bool_field(builtins, "imod0", "builtins");
-  const bool builtin_len = require_bool_field(builtins, "len", "builtins");
-  const bool builtin_concat = require_bool_field(builtins, "concat", "builtins");
-  const bool builtin_slice = require_bool_field(builtins, "slice", "builtins");
-  const bool builtin_index = require_bool_field(builtins, "index", "builtins");
-  const bool builtin_append = require_bool_field(builtins, "append", "builtins");
-  const bool builtin_prepend = require_bool_field(builtins, "prepend", "builtins");
-  const bool builtin_reverse = require_bool_field(builtins, "reverse", "builtins");
-  const bool builtin_find = require_bool_field(builtins, "find", "builtins");
-  const bool builtin_contains = require_bool_field(builtins, "contains", "builtins");
-  const bool builtin_singleton = require_bool_field(builtins, "singleton", "builtins");
-  const bool builtin_char_to_string = require_bool_field(builtins, "char_to_string", "builtins");
-  const bool builtin_string_to_char = require_bool_field(builtins, "string_to_char", "builtins");
-  const bool builtin_ord = require_bool_field(builtins, "ord", "builtins");
-  const bool builtin_chr = require_bool_field(builtins, "chr", "builtins");
-  const bool builtin_is_letter = require_bool_field(builtins, "is_letter", "builtins");
-  const bool builtin_is_digit = require_bool_field(builtins, "is_digit", "builtins");
-  const bool builtin_is_space = require_bool_field(builtins, "is_space", "builtins");
-  const bool builtin_is_vowel = require_bool_field(builtins, "is_vowel", "builtins");
-  const bool builtin_to_lower = require_bool_field(builtins, "to_lower", "builtins");
-  const bool builtin_to_upper = require_bool_field(builtins, "to_upper", "builtins");
-  const bool builtin_to_string = require_bool_field(builtins, "to_string", "builtins");
-  cfg.builtin_abs = call_enabled && builtin_abs;
-  cfg.builtin_min = call_enabled && builtin_min;
-  cfg.builtin_max = call_enabled && builtin_max;
-  cfg.builtin_clip = call_enabled && builtin_clip;
-  cfg.builtin_idiv0 = call_enabled && builtin_idiv0;
-  cfg.builtin_imod0 = call_enabled && builtin_imod0;
-  cfg.builtin_len = call_enabled && builtin_len;
-  cfg.builtin_concat = call_enabled && builtin_concat;
-  cfg.builtin_slice = call_enabled && builtin_slice;
-  cfg.builtin_index = call_enabled && builtin_index;
-  cfg.builtin_append = call_enabled && builtin_append;
-  cfg.builtin_prepend = call_enabled && builtin_prepend;
-  cfg.builtin_reverse = call_enabled && builtin_reverse;
-  cfg.builtin_find = call_enabled && builtin_find;
-  cfg.builtin_contains = call_enabled && builtin_contains;
-  cfg.builtin_singleton = call_enabled && builtin_singleton;
-  cfg.builtin_char_to_string = call_enabled && builtin_char_to_string;
-  cfg.builtin_string_to_char = call_enabled && builtin_string_to_char;
-  cfg.builtin_ord = call_enabled && builtin_ord;
-  cfg.builtin_chr = call_enabled && builtin_chr;
-  cfg.builtin_is_letter = call_enabled && builtin_is_letter;
-  cfg.builtin_is_digit = call_enabled && builtin_is_digit;
-  cfg.builtin_is_space = call_enabled && builtin_is_space;
-  cfg.builtin_is_vowel = call_enabled && builtin_is_vowel;
-  cfg.builtin_to_lower = call_enabled && builtin_to_lower;
-  cfg.builtin_to_upper = call_enabled && builtin_to_upper;
-  cfg.builtin_to_string = call_enabled && builtin_to_string;
-
-  cfg.value_int = require_bool_field(values, "int", "values");
-  cfg.value_float = require_bool_field(values, "float", "values");
-  cfg.value_bool = require_bool_field(values, "bool", "values");
-  cfg.value_char = require_bool_field(values, "char", "values");
-  cfg.value_string = require_bool_field(values, "string", "values");
-  cfg.value_int_list = require_bool_field(values, "int_list", "values");
-  cfg.value_float_list = require_bool_field(values, "float_list", "values");
-  cfg.value_string_list = require_bool_field(values, "string_list", "values");
-  cfg.compat_legacy_num_list_inputs_as_any =
-      config_requests_legacy_num_list_input_compat(payload);
-  cfg.validate();
-  return cfg;
-}
-
-gagp::evo::GrammarConfig parse_grammar_config_payload(const JsonValue& payload) {
-  if (payload.kind != JsonValue::Kind::Object) {
-    throw std::runtime_error("grammar config must be a JSON object");
-  }
-  auto fv_it = payload.object_v.find("format_version");
-  if (fv_it == payload.object_v.end() || fv_it->second.kind != JsonValue::Kind::String) {
-    throw std::runtime_error("grammar config must include format_version=grammar-config");
-  }
-  return parse_grammar_config_current_payload(payload);
-}
-
 std::vector<gagp::evo::EvalCase> parse_cases(const JsonValue& payload) {
   if (payload.kind != JsonValue::Kind::Object) {
     throw std::runtime_error("input JSON must be object");
@@ -1275,114 +838,6 @@ std::vector<gagp::evo::EvalCase> parse_cases(const JsonValue& payload) {
   return out;
 }
 
-std::string read_text_file(const std::string& path);
-
-gagp::evo::Limits parse_limits_object(const JsonValue& raw) {
-  if (raw.kind != JsonValue::Kind::Object) {
-    throw std::runtime_error("population seed set limits must be an object");
-  }
-  auto read_int = [&](const char* key) -> int {
-    auto it = raw.object_v.find(key);
-    if (it == raw.object_v.end() || it->second.kind != JsonValue::Kind::Number) {
-      throw std::runtime_error(std::string("population seed set missing numeric limits.") + key);
-    }
-    return static_cast<int>(it->second.number_v);
-  };
-  return gagp::evo::Limits{
-      read_int("max_expr_depth"),
-      read_int("max_stmts_per_block"),
-      read_int("max_total_nodes"),
-      read_int("max_for_k"),
-      read_int("max_call_args"),
-  };
-}
-
-struct LoadedPopulation {
-  gagp::evo::Limits limits;
-  std::vector<std::uint64_t> seeds;
-  std::vector<gagp::evo::ProgramGenome> genomes;
-};
-
-LoadedPopulation load_population_from_seed_set(const std::string& population_json,
-                                               const std::string& cases_path,
-                                               const gagp::evo::GrammarConfig& grammar,
-                                               const std::string& grammar_config_path,
-                                               const std::string& grammar_config_hash) {
-  const JsonValue payload = gagp::cli_detail::JsonParser(read_text_file(population_json)).parse();
-  if (payload.kind != JsonValue::Kind::Object) {
-    throw std::runtime_error("population seed set must be a JSON object");
-  }
-
-  auto fv_it = payload.object_v.find("format_version");
-  if (fv_it == payload.object_v.end() || fv_it->second.kind != JsonValue::Kind::String ||
-      fv_it->second.string_v != "population-seeds") {
-    throw std::runtime_error("population seed set must include format_version=population-seeds");
-  }
-
-  auto cases_it = payload.object_v.find("cases_path");
-  if (cases_it != payload.object_v.end() && cases_it->second.kind == JsonValue::Kind::String &&
-      !cases_it->second.string_v.empty() && !paths_match(cases_it->second.string_v, cases_path)) {
-    throw std::runtime_error("population seed set cases_path does not match --cases");
-  }
-
-  auto grammar_it = payload.object_v.find("grammar_config");
-  if (grammar_it != payload.object_v.end() && grammar_it->second.kind == JsonValue::Kind::Object) {
-    const JsonValue& seed_grammar = grammar_it->second;
-    std::string seed_hash;
-    std::string seed_path;
-    auto hash_it = seed_grammar.object_v.find("hash");
-    if (hash_it != seed_grammar.object_v.end() && hash_it->second.kind == JsonValue::Kind::String) {
-      seed_hash = hash_it->second.string_v;
-    }
-    auto path_it = seed_grammar.object_v.find("path");
-    if (path_it != seed_grammar.object_v.end() && path_it->second.kind == JsonValue::Kind::String) {
-      seed_path = path_it->second.string_v;
-    }
-    if (!seed_hash.empty()) {
-      if (grammar_config_hash.empty()) {
-        throw std::runtime_error("population seed set requires matching --grammar-config hash");
-      }
-      if (seed_hash != grammar_config_hash) {
-        throw std::runtime_error("population seed set grammar_config.hash does not match --grammar-config");
-      }
-    } else if (!seed_path.empty()) {
-      if (grammar_config_path.empty() || !paths_match(seed_path, grammar_config_path)) {
-        throw std::runtime_error("population seed set grammar_config.path does not match --grammar-config");
-      }
-    }
-  }
-
-  auto limits_it = payload.object_v.find("limits");
-  if (limits_it == payload.object_v.end()) {
-    throw std::runtime_error("population seed set missing limits");
-  }
-  auto seeds_it = payload.object_v.find("seeds");
-  if (seeds_it == payload.object_v.end() || seeds_it->second.kind != JsonValue::Kind::Array) {
-    throw std::runtime_error("population seed set missing seeds array");
-  }
-
-  LoadedPopulation out;
-  out.limits = parse_limits_object(limits_it->second);
-  out.seeds.reserve(seeds_it->second.array_v.size());
-  out.genomes.reserve(seeds_it->second.array_v.size());
-  for (const JsonValue& row : seeds_it->second.array_v) {
-    if (row.kind != JsonValue::Kind::Object) {
-      throw std::runtime_error("population seed set seeds[i] must be object");
-    }
-    auto seed_it = row.object_v.find("seed");
-    if (seed_it == row.object_v.end() || seed_it->second.kind != JsonValue::Kind::Number) {
-      throw std::runtime_error("population seed set seeds[i] missing numeric seed");
-    }
-    const std::uint64_t seed = static_cast<std::uint64_t>(seed_it->second.number_v);
-    out.seeds.push_back(seed);
-    out.genomes.push_back(gagp::evo::generate_random_genome(seed, out.limits, grammar));
-  }
-  if (out.genomes.empty()) {
-    throw std::runtime_error("population seed set must contain at least one seed");
-  }
-  return out;
-}
-
 std::string read_text_file(const std::string& path) {
   std::ifstream in(path);
   if (!in) {
@@ -1394,28 +849,75 @@ std::string read_text_file(const std::string& path) {
 }
 
 struct LoadedCommandInputs {
-  gagp::evo::GrammarConfig grammar;
-  std::string grammar_hash;
   std::vector<gagp::evo::EvalCase> cases;
 };
 
 LoadedCommandInputs load_command_inputs(const CliOptions& args) {
   LoadedCommandInputs inputs;
-  if (!args.grammar_config_path.empty()) {
-    const std::string grammar_text = read_text_file(args.grammar_config_path);
-    inputs.grammar =
-        parse_grammar_config_payload(gagp::cli_detail::JsonParser(grammar_text).parse());
-    inputs.grammar_hash = fnv1a64_hex(grammar_text);
-  }
-
   const std::string cases_text = read_text_file(args.cases_path);
   inputs.cases =
       parse_cases(gagp::cli_detail::JsonParser(cases_text).parse());
   return inputs;
 }
 
-gagp::evo::EvolutionConfig make_evolution_config(
-    const CliOptions& args, const gagp::evo::GrammarConfig& grammar) {
+std::shared_ptr<const gagp::evo::grammar::CompiledGrammar> load_compiled_definition(
+    const std::string& path) {
+  const std::string text = read_text_file(path);
+  const JsonValue raw = gagp::cli_detail::JsonParser(text, {true, 512}).parse();
+  if (raw.kind == JsonValue::Kind::Object) {
+    const auto version = raw.object_v.find("format_version");
+    if (version != raw.object_v.end() && version->second.kind == JsonValue::Kind::String &&
+        version->second.string_v == "grammar-config") {
+      throw std::invalid_argument(
+          "--grammar-definition received legacy format_version=grammar-config; "
+          "migrate the config offline to grammar-definition-v2 before evolution");
+    }
+  }
+  return std::make_shared<const gagp::evo::grammar::CompiledGrammar>(
+      gagp::evo::grammar::compile_grammar(gagp::evo::grammar::load_definition(path)));
+}
+
+int compiled_limit(std::uint32_t value, const char* field) {
+  if (value > static_cast<std::uint32_t>(std::numeric_limits<int>::max()))
+    throw std::invalid_argument(std::string("grammar definition ") + field +
+                                " exceeds the native evolution limit");
+  return static_cast<int>(value);
+}
+
+void apply_compiled_contract(const CliOptions& args,
+    const std::shared_ptr<const gagp::evo::grammar::CompiledGrammar>& grammar,
+    gagp::evo::EvolutionConfig* cfg) {
+  const int max_depth = compiled_limit(grammar->search_limits().max_depth,
+                                       "search_limits.max_depth");
+  const int max_nodes = compiled_limit(grammar->search_limits().max_nodes,
+                                       "search_limits.max_nodes");
+  const int fuel = compiled_limit(grammar->execution_limits().fuel,
+                                  "execution_limits.fuel");
+  if (args.fuel_explicit && args.fuel != fuel)
+    throw std::invalid_argument("--fuel conflicts with grammar definition execution_limits.fuel=" +
+                                std::to_string(fuel));
+  if (args.max_expr_depth_explicit && args.max_expr_depth != max_depth)
+    throw std::invalid_argument("--max-expr-depth conflicts with grammar definition search_limits.max_depth=" +
+                                std::to_string(max_depth));
+  if (args.max_total_nodes_explicit && args.max_total_nodes != max_nodes)
+    throw std::invalid_argument("--max-total-nodes conflicts with grammar definition search_limits.max_nodes=" +
+                                std::to_string(max_nodes));
+  if (args.max_stmts_per_block_explicit)
+    throw std::invalid_argument(
+        "--max-stmts-per-block cannot override a compiled grammar; encode the block bound in --grammar-definition");
+  if (args.max_for_k_explicit)
+    throw std::invalid_argument(
+        "--max-for-k cannot override a compiled grammar; encode loop-bound constants in --grammar-definition");
+  if (args.max_call_args_explicit)
+    throw std::invalid_argument(
+        "--max-call-args cannot override a compiled grammar; encode primitive arity in --grammar-definition");
+
+  cfg->compiled_grammar = grammar;
+  cfg->generation_request = gagp::evo::grammar::entry_request(*grammar);
+  cfg->fuel = fuel;
+}
+
+gagp::evo::EvolutionConfig make_evolution_config(const CliOptions& args) {
   gagp::evo::EvolutionConfig cfg;
   cfg.population_size = args.population_size;
   cfg.generations = args.generations;
@@ -1435,7 +937,6 @@ gagp::evo::EvolutionConfig make_evolution_config(
   cfg.fuel = args.fuel;
   cfg.skip_final_eval = args.skip_final_eval;
   cfg.retain_final_population = args.retain_final_population;
-  cfg.grammar = grammar;
   return cfg;
 }
 
@@ -1455,14 +956,9 @@ std::string gagp::cli_detail::encode_ast_json(const evo::AstProgram& ast) {
   return out.str();
 }
 
-gagp::evo::GrammarConfig gagp::cli_detail::decode_grammar_config_json(
-    const JsonValue& raw) {
-  return parse_grammar_config_payload(raw);
-}
-
 int gagp::cli_detail::run_eval_ast_command(const CliOptions& args) {
       const LoadedCommandInputs inputs = load_command_inputs(args);
-      gagp::evo::EvolutionConfig cfg = make_evolution_config(args, inputs.grammar);
+      gagp::evo::EvolutionConfig cfg = make_evolution_config(args);
       if (cfg.eval_engine != gagp::evo::EvalEngine::CPU) {
         throw std::runtime_error("--eval-ast-json currently supports --engine cpu only");
       }
@@ -1475,9 +971,12 @@ int gagp::cli_detail::run_eval_ast_command(const CliOptions& args) {
       gagp::evo::ProgramGenome genome;
       const auto format = ast_payload.object_v.find("format_version");
       if (format != ast_payload.object_v.end() && format->second.kind == JsonValue::Kind::String &&
-          format->second.string_v == kGeneratedGrammarArtifactVersion) {
-        auto materialized = decode_materialized_program(ast_text);
-        const auto fixture = gagp::evo::prepare_case_set(inputs.cases, cfg.grammar);
+          (format->second.string_v == kGeneratedGrammarArtifactVersion ||
+           format->second.string_v == kMaterializedGrammarArtifactVersion)) {
+        auto materialized = format->second.string_v == kGeneratedGrammarArtifactVersion
+            ? decode_materialized_program(ast_text)
+            : decode_migrated_materialized_program(ast_text);
+        const auto fixture = gagp::evo::prepare_case_set(inputs.cases);
         if (fixture.input_specs.size() != materialized.inputs.size() ||
             fixture.expected_return_type != materialized.return_type)
           throw std::invalid_argument("grammar artifact fixture schema differs from --cases");
@@ -1495,7 +994,7 @@ int gagp::cli_detail::run_eval_ast_command(const CliOptions& args) {
         genome.ast = decode_ast_json(ast_payload);
       }
       const gagp::evo::AstVerifyResult verified = gagp::evo::verify_ast(
-          genome.ast, gagp::evo::canonical_input_specs(inputs.cases, cfg.grammar));
+          genome.ast, gagp::evo::canonical_input_specs(inputs.cases));
       if (!verified) {
         throw std::runtime_error(
             std::string("invalid AST (") +
@@ -1536,30 +1035,34 @@ int gagp::cli_detail::run_eval_ast_command(const CliOptions& args) {
 
 int gagp::cli_detail::run_evolve_command(const CliOptions& args) {
     const LoadedCommandInputs inputs = load_command_inputs(args);
-    gagp::evo::EvolutionConfig cfg = make_evolution_config(args, inputs.grammar);
+    gagp::evo::EvolutionConfig cfg = make_evolution_config(args);
     const std::vector<gagp::evo::EvalCase>& cases = inputs.cases;
-    const std::string& grammar_config_hash = inputs.grammar_hash;
+    const auto compiled_grammar = load_compiled_definition(args.grammar_definition_path);
+    apply_compiled_contract(args, compiled_grammar, &cfg);
 
     std::vector<gagp::evo::ProgramGenome> initial_population;
     const std::vector<gagp::evo::ProgramGenome>* initial_population_ptr = nullptr;
     std::string population_source = "generated";
     if (!args.population_json.empty()) {
-      LoadedPopulation loaded = load_population_from_seed_set(args.population_json,
-                                                              args.cases_path,
-                                                              cfg.grammar,
-                                                              args.grammar_config_path,
-                                                              grammar_config_hash);
-      cfg.population_size = static_cast<int>(loaded.genomes.size());
-      cfg.limits = loaded.limits;
-      initial_population = std::move(loaded.genomes);
+      const std::string population_text = read_text_file(args.population_json);
+      const JsonValue population_payload =
+          gagp::cli_detail::JsonParser(population_text, {true, 512}).parse();
+      const auto format = population_payload.kind == JsonValue::Kind::Object
+          ? population_payload.object_v.find("format_version")
+          : population_payload.object_v.end();
+      if (population_payload.kind == JsonValue::Kind::Object &&
+          format != population_payload.object_v.end() &&
+          format->second.kind == JsonValue::Kind::String &&
+          format->second.string_v == "population-seeds") {
+        throw std::invalid_argument(
+            "legacy population-seeds cannot replay compiled grammar evolution exactly; "
+            "materialize the population with the frozen legacy build, then migrate it");
+      }
+      initial_population = replay_generated_population_artifact(
+          population_text, compiled_grammar.get());
+      cfg.population_size = static_cast<int>(initial_population.size());
       initial_population_ptr = &initial_population;
       population_source = "population_json";
-    } else {
-      cfg.limits = gagp::evo::Limits{args.max_expr_depth,
-                                      args.max_stmts_per_block,
-                                      args.max_total_nodes,
-                                      args.max_for_k,
-                                      args.max_call_args};
     }
 
     const gagp::evo::EvolutionResult result =
@@ -1786,14 +1289,9 @@ int gagp::cli_detail::run_evolve_command(const CliOptions& args) {
       } else {
         out << "    \"population_json\": null,\n";
       }
-      out << "    \"grammar_config\": {\n";
-      if (!args.grammar_config_path.empty()) {
-        out << "      \"path\": \"" << json_escape(args.grammar_config_path) << "\",\n";
-        out << "      \"hash\": \"" << json_escape(grammar_config_hash) << "\"\n";
-      } else {
-        out << "      \"path\": null,\n";
-        out << "      \"hash\": null\n";
-      }
+      out << "    \"grammar_definition\": {\n";
+      out << "      \"path\": \"" << json_escape(args.grammar_definition_path) << "\",\n";
+      out << "      \"hash\": \"" << json_escape(compiled_grammar->content_hash()) << "\"\n";
       out << "    },\n";
       out << "    \"selection\": \"" << selection_label << "\",\n";
       out << "    \"crossover_method\": \"" << crossover_label << "\",\n";

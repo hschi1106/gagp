@@ -188,40 +188,6 @@ BytecodeProgram invocation(BoundedRegionSegment segment,
   return program;
 }
 
-BytecodeProgram legacy_dp1d_program() {
-  PhaseProgram solve;
-  solve.n_locals = 1;
-  solve.consts = {Value::from_int(1)};
-  solve.binder_locals = {{10, 0}};
-  solve.code = {ins_a(Opcode::PushConst, 0), ins(Opcode::Return)};
-
-  PhaseProgram transition;
-  transition.n_locals = 2;
-  transition.binder_locals = {{11, 0}, {12, 1}};
-  transition.code = {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 0),
-                     ins(Opcode::Add), ins(Opcode::Return)};
-
-  AsgpDp1dSegment segment;
-  segment.lo = 0;
-  segment.hi = 5;
-  segment.base_state = 0;
-  segment.boundary_value = Value::from_int(99);
-  segment.dep_kind = -1;
-  segment.dep_offsets = {1};
-  segment.solve_state_name = 10;
-  segment.transition_state_name = 11;
-  segment.transition_dep_names = {12};
-  segment.solve = std::move(solve);
-  segment.transition = std::move(transition);
-
-  BytecodeProgram program;
-  program.consts = {Value::from_int(4)};
-  program.code = {ins_a(Opcode::PushConst, 0),
-                  ins_a(Opcode::AsgpDp1d, 0), ins(Opcode::Return)};
-  program.asgp_dp1d_segments = {std::move(segment)};
-  return program;
-}
-
 BytecodeProgram ordinary_program() {
   BytecodeProgram program;
   program.consts = {Value::from_int(3)};
@@ -582,17 +548,15 @@ bool test_production_capability_dispatch_sequence() {
   constexpr double penalty = 7.0;
   const std::vector<CaseBindings> cases{{}};
   const std::vector<Value> answers{Value::from_int(10)};
-  const BytecodeProgram legacy = legacy_dp1d_program();
   const BytecodeProgram region = invocation(
       unary_segment(Value::from_int(7)), {Value::from_int(2)});
   const BytecodeProgram ordinary = ordinary_program();
-  if (!verify_fixture(legacy, "legacy capability dispatch") ||
-      !verify_fixture(region, "region capability dispatch") ||
+  if (!verify_fixture(region, "region capability dispatch") ||
       !verify_fixture(ordinary, "ordinary capability dispatch")) {
     return false;
   }
 
-  for (const auto* program : {&legacy, &region, &ordinary}) {
+  for (const auto* program : {&region, &ordinary}) {
     if (!check(!execute_bytecode_cpu(*program, {}, fuel).is_error,
                "capability dispatch fixture unexpectedly fails on CPU")) {
       return false;
@@ -633,8 +597,6 @@ bool test_production_capability_dispatch_sequence() {
   for (int i = 0; i < 32; ++i) {
     if (i % 4 == 0) {
       reuse_population.push_back(ordinary);
-    } else if (i % 4 == 2) {
-      reuse_population.push_back(legacy);
     } else {
       const Value terminal = Value::from_int(100 + i);
       BoundedRegionSegment segment = unary_segment(terminal);
@@ -661,9 +623,8 @@ bool test_production_capability_dispatch_sequence() {
     }
   }
 
-  return compare_population({legacy}, "legacy-only dispatch") &&
-         compare_population({legacy, region, ordinary},
-                            "mixed legacy/region/ordinary dispatch") &&
+  return compare_population({region, ordinary},
+                            "mixed region/ordinary dispatch") &&
          compare_population(reuse_population,
                             "grid-stride region workspace reuse") &&
          compare_population({ordinary}, "ordinary-only dispatch");

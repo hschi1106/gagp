@@ -4,7 +4,7 @@
 
 namespace gagp::cli_detail {
 
-inline constexpr const char* kGeneratedGrammarPopulationArtifactVersion = "grammar-population-v1";
+inline constexpr const char* kGeneratedGrammarPopulationArtifactVersion = "grammar-population-v2";
 
 // Population artifacts describe unchanged, same-version generated members.
 std::string encode_generated_population_artifact(const evo::grammar::CompiledGrammar& grammar,

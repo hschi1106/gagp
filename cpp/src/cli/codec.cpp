@@ -16,6 +16,27 @@ namespace gagp::cli_detail {
 
 Value decode_typed_value(const JsonValue& v);
 
+BytecodeJsonFormat require_bytecode_json_format(const JsonValue& root) {
+  if (root.kind != JsonValue::Kind::Object) {
+    throw std::runtime_error("bytecode JSON must be an object");
+  }
+  const std::string version = require_string(
+      require_object_field(root, "format_version"), "format_version");
+  if (version == kBytecodeJsonVersion) return BytecodeJsonFormat::Request;
+  if (version == kBytecodeFixtureVersion) return BytecodeJsonFormat::Fixture;
+  if (version == "bytecode-json" || version == "bytecode-fixture" ||
+      version == "migration-bytecode-v1") {
+    throw std::runtime_error(
+        "unsupported bytecode format_version '" + version +
+        "' (release 1.0.0); bytecode migration is unsupported because source "
+        "AST/type provenance is absent. Migrate the source ast-prefix artifact, "
+        "then recompile with this release.");
+  }
+  throw std::runtime_error(
+      "unsupported bytecode format_version '" + version +
+      "'; expected bytecode-json-v2 or bytecode-fixture-v2");
+}
+
 namespace {
 
 std::uint64_t fnv1a64_bytes(const unsigned char* p, std::size_t n) {
@@ -37,43 +58,6 @@ std::uint64_t fnv1a64_mix(std::uint64_t h, std::uint64_t x) {
 }
 
 std::uint64_t stable_typed_hash(const JsonValue& v);
-
-Value decode_legacy_typed_list(const JsonValue& raw);
-
-int expected_dp2d_transition_arity(int dep_kind) {
-  switch (dep_kind) {
-    case 0:
-    case 1:
-      return 2;
-    case 2:
-    case 3:
-      return 1;
-    case 4:
-    case 5:
-      return 3;
-    default:
-      throw std::runtime_error("ASGP-DP2D dep_kind must be in [0, 5]");
-  }
-}
-
-void validate_asgp_dp1d_segment_arity(const AsgpDp1dSegment& segment) {
-  if (segment.dep_kind != -1 && segment.dep_kind != 1) {
-    throw std::runtime_error("ASGP-DP1D dep_kind must be -1 or 1");
-  }
-  if (segment.dep_offsets.empty()) {
-    throw std::runtime_error("ASGP-DP1D dep_offsets must not be empty");
-  }
-  if (segment.dep_offsets.size() != segment.transition_dep_names.size()) {
-    throw std::runtime_error("ASGP-DP1D dependency arity mismatch");
-  }
-}
-
-void validate_asgp_dp2d_segment_arity(const AsgpDp2dSegment& segment) {
-  const int expected_arity = expected_dp2d_transition_arity(segment.dep_kind);
-  if (segment.transition_dep_names.size() != static_cast<std::size_t>(expected_arity)) {
-    throw std::runtime_error("ASGP-DP2D dependency arity mismatch");
-  }
-}
 
 std::uint64_t stable_scalar_hash(const std::string& t, const JsonValue& raw) {
   std::uint64_t h = fnv1a64_bytes(reinterpret_cast<const unsigned char*>(t.data()), t.size());
@@ -119,7 +103,7 @@ std::uint64_t stable_scalar_hash(const std::string& t, const JsonValue& raw) {
 std::uint64_t stable_typed_hash(const JsonValue& v) {
   const JsonValue& t_node = require_object_field(v, "type");
   const std::string t = require_string(t_node, "type");
-  if (t == "int_list" || t == "float_list" || t == "num_list") {
+  if (t == "int_list" || t == "float_list") {
     const JsonValue& raw = require_object_field(v, "value");
     if (raw.kind != JsonValue::Kind::Array) {
       throw std::runtime_error(t + " typed value requires array payload");
@@ -131,10 +115,6 @@ std::uint64_t stable_typed_hash(const JsonValue& v) {
         throw std::runtime_error(t + " elements must be numeric");
       }
       if (t == "int_list") {
-        h = fnv1a64_mix(h, stable_scalar_hash("int", e));
-      } else if (t == "float_list") {
-        h = fnv1a64_mix(h, stable_scalar_hash("float", e));
-      } else if (static_cast<double>(static_cast<long long>(e.number_v)) == e.number_v) {
         h = fnv1a64_mix(h, stable_scalar_hash("int", e));
       } else {
         h = fnv1a64_mix(h, stable_scalar_hash("float", e));
@@ -157,62 +137,11 @@ std::uint64_t stable_typed_hash(const JsonValue& v) {
     }
     return h;
   }
-  if (t == "list") {
-    const Value legacy = decode_legacy_typed_list(require_object_field(v, "value"));
-    if (legacy.tag == ValueTag::IntList) {
-      return fnv1a64_mix(fnv1a64_bytes(reinterpret_cast<const unsigned char*>("legacy_int_list"), 15),
-                         static_cast<std::uint64_t>(legacy.i));
-    }
-    if (legacy.tag == ValueTag::FloatList) {
-      return fnv1a64_mix(fnv1a64_bytes(reinterpret_cast<const unsigned char*>("legacy_float_list"), 17),
-                         static_cast<std::uint64_t>(legacy.i));
-    }
-    return fnv1a64_mix(fnv1a64_bytes(reinterpret_cast<const unsigned char*>("legacy_string_list"), 18),
-                       static_cast<std::uint64_t>(legacy.i));
-  }
   auto it = v.object_v.find("value");
   if (it == v.object_v.end()) {
     throw std::runtime_error("typed value requires field: value");
   }
   return stable_scalar_hash(t, it->second);
-}
-
-Value decode_legacy_typed_list(const JsonValue& raw) {
-  if (raw.kind != JsonValue::Kind::Array) {
-    throw std::runtime_error("legacy list typed value requires array payload");
-  }
-  std::vector<Value> elems;
-  elems.reserve(raw.array_v.size());
-  bool all_numeric = true;
-  bool all_string = true;
-  bool any_float = false;
-  for (const JsonValue& e : raw.array_v) {
-    const Value v = decode_typed_value(e);
-    elems.push_back(v);
-    if (!is_numeric(v)) {
-      all_numeric = false;
-    } else if (v.tag == ValueTag::Float) {
-      any_float = true;
-    }
-    if (v.tag != ValueTag::String) {
-      all_string = false;
-    }
-  }
-  if (all_numeric) {
-    if (!any_float) {
-      return payload::make_int_list_value(elems);
-    }
-    std::vector<Value> float_elems;
-    float_elems.reserve(elems.size());
-    for (const Value& elem : elems) {
-      float_elems.push_back(elem.tag == ValueTag::Float ? elem : Value::from_float(static_cast<double>(elem.i)));
-    }
-    return payload::make_float_list_value(float_elems);
-  }
-  if (all_string) {
-    return payload::make_string_list_value(elems);
-  }
-  throw std::runtime_error("legacy list typed value must infer to int_list, float_list, or string_list");
 }
 
 }  // namespace
@@ -296,37 +225,6 @@ Value decode_typed_value(const JsonValue& v) {
     }
     return payload::make_float_list_value(elems);
   }
-  if (t == "num_list") {
-    const JsonValue& raw = require_object_field(v, "value");
-    if (raw.kind != JsonValue::Kind::Array) {
-      throw std::runtime_error("legacy num_list typed value requires array payload");
-    }
-    bool any_float = false;
-    std::vector<double> numbers;
-    numbers.reserve(raw.array_v.size());
-    for (const JsonValue& e : raw.array_v) {
-      if (e.kind != JsonValue::Kind::Number) {
-        throw std::runtime_error("legacy num_list elements must be numeric");
-      }
-      const long long i = static_cast<long long>(e.number_v);
-      if (static_cast<double>(i) != e.number_v) {
-        any_float = true;
-      }
-      numbers.push_back(e.number_v);
-    }
-    std::vector<Value> elems;
-    elems.reserve(numbers.size());
-    if (any_float) {
-      for (double number : numbers) {
-        elems.push_back(Value::from_float(number));
-      }
-      return payload::make_float_list_value(elems);
-    }
-    for (double number : numbers) {
-      elems.push_back(Value::from_int(static_cast<long long>(number)));
-    }
-    return payload::make_int_list_value(elems);
-  }
   if (t == "string_list") {
     const JsonValue& raw = require_object_field(v, "value");
     if (raw.kind != JsonValue::Kind::Array) {
@@ -342,9 +240,9 @@ Value decode_typed_value(const JsonValue& v) {
     }
     return payload::make_string_list_value(elems);
   }
-  if (t == "list") {
-    return decode_legacy_typed_list(require_object_field(v, "value"));
-  }
+  if (t == "num_list" || t == "list")
+    throw std::runtime_error("legacy typed list tag '" + t +
+                             "' requires offline migration to an exact list type");
   throw std::runtime_error("unknown typed value type");
 }
 
@@ -385,18 +283,6 @@ std::vector<Value> decode_const_array(const JsonValue& consts) {
   out.reserve(consts.array_v.size());
   for (const JsonValue& c : consts.array_v) {
     out.push_back(decode_typed_value(c));
-  }
-  return out;
-}
-
-std::vector<int> decode_int_array(const JsonValue& raw, const char* field_name) {
-  if (raw.kind != JsonValue::Kind::Array) {
-    throw std::runtime_error(std::string(field_name) + " must be array");
-  }
-  std::vector<int> out;
-  out.reserve(raw.array_v.size());
-  for (const JsonValue& item : raw.array_v) {
-    out.push_back(require_int(item, field_name));
   }
   return out;
 }
@@ -453,81 +339,12 @@ BytecodeProgram decode_program(const JsonValue& bc) {
     if (segments_it->second.kind != JsonValue::Kind::Object) {
       throw std::runtime_error("bytecode.segments must be object");
     }
-    auto dc_it = segments_it->second.object_v.find("asgp_dc");
-    if (dc_it != segments_it->second.object_v.end()) {
-      if (dc_it->second.kind != JsonValue::Kind::Array) {
-        throw std::runtime_error("segments.asgp_dc must be array");
-      }
-      for (const JsonValue& raw_segment : dc_it->second.array_v) {
-        AsgpDcSegment segment;
-        segment.solve_xs_name = require_int(require_object_field(raw_segment, "solve_xs_name"), "solve_xs_name");
-        segment.solve_n_name = require_int(require_object_field(raw_segment, "solve_n_name"), "solve_n_name");
-        segment.solve_lo_name = require_int(require_object_field(raw_segment, "solve_lo_name"), "solve_lo_name");
-        segment.divide_n_name = require_int(require_object_field(raw_segment, "divide_n_name"), "divide_n_name");
-        segment.combine_left_name =
-            require_int(require_object_field(raw_segment, "combine_left_name"), "combine_left_name");
-        segment.combine_right_name =
-            require_int(require_object_field(raw_segment, "combine_right_name"), "combine_right_name");
-        segment.solve = decode_phase_program(require_object_field(raw_segment, "solve"));
-        segment.divide = decode_phase_program(require_object_field(raw_segment, "divide"));
-        segment.combine = decode_phase_program(require_object_field(raw_segment, "combine"));
-        program.asgp_dc_segments.push_back(std::move(segment));
-      }
-    }
-
-    auto dp1_it = segments_it->second.object_v.find("asgp_dp1d");
-    if (dp1_it != segments_it->second.object_v.end()) {
-      if (dp1_it->second.kind != JsonValue::Kind::Array) {
-        throw std::runtime_error("segments.asgp_dp1d must be array");
-      }
-      for (const JsonValue& raw_segment : dp1_it->second.array_v) {
-        AsgpDp1dSegment segment;
-        segment.lo = require_int(require_object_field(raw_segment, "lo"), "lo");
-        segment.hi = require_int(require_object_field(raw_segment, "hi"), "hi");
-        segment.base_state = require_int(require_object_field(raw_segment, "base_state"), "base_state");
-        segment.boundary_value = decode_typed_value(require_object_field(raw_segment, "boundary_value"));
-        segment.dep_kind = require_int(require_object_field(raw_segment, "dep_kind"), "dep_kind");
-        segment.dep_offsets = decode_int_array(require_object_field(raw_segment, "dep_offsets"), "dep_offsets");
-        segment.solve_state_name =
-            require_int(require_object_field(raw_segment, "solve_state_name"), "solve_state_name");
-        segment.transition_state_name =
-            require_int(require_object_field(raw_segment, "transition_state_name"), "transition_state_name");
-        segment.transition_dep_names =
-            decode_int_array(require_object_field(raw_segment, "transition_dep_names"), "transition_dep_names");
-        segment.solve = decode_phase_program(require_object_field(raw_segment, "solve"));
-        segment.transition = decode_phase_program(require_object_field(raw_segment, "transition"));
-        validate_asgp_dp1d_segment_arity(segment);
-        program.asgp_dp1d_segments.push_back(std::move(segment));
-      }
-    }
-
-    auto dp2_it = segments_it->second.object_v.find("asgp_dp2d");
-    if (dp2_it != segments_it->second.object_v.end()) {
-      if (dp2_it->second.kind != JsonValue::Kind::Array) {
-        throw std::runtime_error("segments.asgp_dp2d must be array");
-      }
-      for (const JsonValue& raw_segment : dp2_it->second.array_v) {
-        AsgpDp2dSegment segment;
-        segment.i_lo = require_int(require_object_field(raw_segment, "i_lo"), "i_lo");
-        segment.i_hi = require_int(require_object_field(raw_segment, "i_hi"), "i_hi");
-        segment.j_lo = require_int(require_object_field(raw_segment, "j_lo"), "j_lo");
-        segment.j_hi = require_int(require_object_field(raw_segment, "j_hi"), "j_hi");
-        segment.base_i = require_int(require_object_field(raw_segment, "base_i"), "base_i");
-        segment.base_j = require_int(require_object_field(raw_segment, "base_j"), "base_j");
-        segment.boundary_value = decode_typed_value(require_object_field(raw_segment, "boundary_value"));
-        segment.dep_kind = require_int(require_object_field(raw_segment, "dep_kind"), "dep_kind");
-        segment.solve_i_name = require_int(require_object_field(raw_segment, "solve_i_name"), "solve_i_name");
-        segment.solve_j_name = require_int(require_object_field(raw_segment, "solve_j_name"), "solve_j_name");
-        segment.transition_i_name =
-            require_int(require_object_field(raw_segment, "transition_i_name"), "transition_i_name");
-        segment.transition_j_name =
-            require_int(require_object_field(raw_segment, "transition_j_name"), "transition_j_name");
-        segment.transition_dep_names =
-            decode_int_array(require_object_field(raw_segment, "transition_dep_names"), "transition_dep_names");
-        segment.solve = decode_phase_program(require_object_field(raw_segment, "solve"));
-        segment.transition = decode_phase_program(require_object_field(raw_segment, "transition"));
-        validate_asgp_dp2d_segment_arity(segment);
-        program.asgp_dp2d_segments.push_back(std::move(segment));
+    for (const char* removed_key : {"asgp_dc", "asgp_dp1d", "asgp_dp2d"}) {
+      if (segments_it->second.object_v.find(removed_key) !=
+          segments_it->second.object_v.end()) {
+        throw std::runtime_error(
+            std::string("bytecode.segments.") + removed_key +
+            " is unsupported; recompile the source artifact to bounded_region bytecode");
       }
     }
 

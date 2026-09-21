@@ -82,7 +82,7 @@ const BoundedRegionSpec& only_bounded(const AstProgram& ast) {
 
 std::string ownership_grammar() {
   return R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "inputs":[{"name":"n","type":"Int"}],
     "locals":[{"name":"tmp","type":"Int"}],
@@ -208,7 +208,7 @@ void check_ownership_and_exact_matching() {
 
 std::string repeated_hole_grammar() {
   return R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":48,"max_depth":16},
     "execution_limits":{"fuel":1000},

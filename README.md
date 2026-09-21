@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION.md"><img alt="Release 1.0.0" src="https://img.shields.io/badge/release-1.0.0-2563eb"></a>
+  <a href="VERSION.md"><img alt="Release 2.0.0" src="https://img.shields.io/badge/release-2.0.0-2563eb"></a>
   <img alt="C++ 17" src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&amp;logoColor=white">
   <img alt="CUDA accelerated" src="https://img.shields.io/badge/CUDA-accelerated-76B900?logo=nvidia&amp;logoColor=white">
   <img alt="CPU and GPU parity" src="https://img.shields.io/badge/parity-CPU%20%2B%20GPU-7c3aed">
@@ -27,7 +27,7 @@ program-synthesis pipeline.
   bytecode verification, and dedicated CPU/GPU parity tests guard every trust
   boundary.
 - **Reproducible experiments** — fixed populations, deterministic seeds,
-  grammar profiles, timing output, and compact benchmark manifests support fair
+  compiled grammar definitions, timing output, and compact benchmark manifests support fair
   comparisons.
 - **A lean native core** — language semantics, compilation, evolution, and
   execution live in C++/CUDA. Python is limited to independent dataset and
@@ -77,6 +77,7 @@ For a CPU-only build, configure with `-DGAGP_ENABLE_CUDA=OFF`.
 ```bash
 cpp/build/gagp_evolve_cli \
   --cases data/fixtures/simple_exp_1024.json \
+  --grammar-definition configs/grammar/basic/int.json \
   --engine gpu \
   --repro-backend gpu \
   --repro-overlap on \
@@ -94,7 +95,7 @@ GPU-capable paths automatically choose the least-used visible CUDA device. Set
 
 ```mermaid
 flowchart TB
-    A[Cases · grammar config · seed]
+    A[Cases · compiled grammar definition · seed]
     A --> B[Prepare typed AST population]
     B --> C[Verify + compile to bytecode]
     C --> D[CPU or CUDA fitness]
@@ -112,7 +113,7 @@ and [native dataflow](docs/design/dataflow.md) for the full model.
 ## Operational tools
 
 The dependency-free Python package handles PSB datasets, fixture conversion,
-population seeds, regression runs, comparisons, and manifests. It does not
+v2 population materialization, regression runs, comparisons, and manifests. It does not
 implement product runtime semantics.
 
 ```bash
@@ -128,14 +129,14 @@ Follow the complete artifact pipeline in the
 
 | Start here | What it covers |
 | --- | --- |
-| [Specifications](spec/README.md) | Normative grammar, bytecode, builtin, fitness, fixture, and grammar-config contracts |
+| [Specifications](spec/README.md) | Normative grammar, bytecode, builtin, fitness, fixture, compiled-definition, and migration contracts |
 | [Architecture](docs/design/architecture.md) | Native components, dependency direction, and stable invariants |
 | [Dataflow](docs/design/dataflow.md) | End-to-end execution, evolution, and artifact flow |
 | [Development](docs/guides/development.md) | Builds, presets, tests, sanitizers, fuzzing, and GPU policy |
 | [CLI reference](docs/reference/cli.md) | Mechanically checked flags and defaults |
 | [Benchmarking](docs/guides/benchmarking.md) | Reproducible fixed-population CPU/GPU comparisons |
 | [PSB workflow](docs/guides/psb-workflow.md) | Dataset acquisition, fixtures, regression, and reports |
-| [Grammar configuration](docs/guides/grammar-config.md) | Search-space profiles and replay |
+| [Grammar definitions and migration](docs/guides/grammar-config.md) | Compiled search spaces, artifacts, and offline v1 migration |
 | [Documentation index](docs/README.md) | Ownership of every maintained document |
 
 ## Repository layout
@@ -152,7 +153,7 @@ gagp/
 ├── docs/                 Design, guides, references, and refactor evidence
 ├── tools/                Independent operational Python package
 ├── tests/repository/     Runtime-independent repository checks
-├── configs/grammar/      Search-space profiles
+├── configs/grammar/      Compiled definitions, packages, and examples
 └── benchmarks/           Compact validation manifests and provenance
 ```
 
@@ -181,5 +182,5 @@ Parser or output changes must also update the checked
 [CLI reference](docs/reference/cli.md). Repository conventions and GPU profiling
 rules are collected in [AGENTS.md](AGENTS.md).
 
-GAGP is currently at release **1.0.0**. See [VERSION.md](VERSION.md) for the
+GAGP is currently at release **2.0.0**. See [VERSION.md](VERSION.md) for the
 release contract.

@@ -1,332 +1,97 @@
-# Grammar Config
+# Legacy Grammar Config Migration
 
-This document defines the `grammar-config` JSON format for controlling the
-release 1.0.0 evolution search space.
+`grammar-config` is the release-1 search-space format. It is not a release-2
+production input, runtime mode, or evolution option. Release 2 uses only
+compiled [`grammar-definition-v2`](grammar_definition.md) definitions for
+generation, membership, variation, and evolution.
 
-See also:
+## Offline conversion contract
 
-- [grammar.md](./grammar.md)
-- [builtins_base.md](./builtins_base.md)
-- [builtins_runtime.md](./builtins_runtime.md)
-- [fitness_cases.md](./fitness_cases.md)
+The migration command accepts a release-1 document with
+`format_version: "grammar-config"`, an exact `fitness-cases` schema, and the
+explicit `constrained-intent-v1` conversion profile. It emits a self-contained
+`grammar-definition-v2`. Production CLIs reject `grammar-config` and direct
+users to this offline conversion.
 
-## Scope
+Conversion must:
 
-Grammar config is a search-space control only. It affects:
+- derive enabled ordinary operations from document contents rather than infer
+  behavior from a filename such as `all.json`;
+- require exact input and return types and reject `Any` or ambiguous empty-list
+  inference;
+- preserve structural limits from the source document and make every domain,
+  schema, and execution limit in the constrained output explicit;
+- map ordinary scalar, control, builtin, and typed-list choices to exact
+  compiled productions;
+- expand supported structured intent into general lexical/traversal/bounded
+  templates;
+- reject unknown fields, unsupported combinations, missing limits/domains, and
+  ambiguous legacy intent with an actionable diagnostic.
 
-- random genome generation
-- mutation donor synthesis
-- crossover and mutation candidate filtering
-- CPU reproduction preprocessing
-- GPU reproduction preprocessing
-- seed replay when replay regenerates genomes from seeds
+A release-1 `grammar-config` does not contain constant domains, execution fuel,
+an exact input/return schema, or the dynamic assignment environment used by the
+release-1 generator. The current v2 finite-domain and fixed-local schema cannot
+represent that generator's complete String/list literal domains and dynamic
+name retyping. Therefore config conversion is deliberately labelled
+`constrained-intent-v1`; it is not an exact release-1 program-set or seed
+replay claim. The profile uses the exact case schema, canonical finite domains
+(`Int[-1,1]`, `Float{0,1}`, both Bool values, `Char{'a'}`, and empty
+String/typed-list values), and fuel 1,000,000. Those choices are visible in the
+resulting definition. Omission or misspelling of the profile is rejected rather
+than silently selecting it. Exact old behavior is preserved by migrating
+materialized artifacts.
 
-Grammar config does not affect:
+The converter reads every legacy structured switch so it cannot silently widen
+or narrow the source search space. A switch that is enabled is rejected with an
+instruction to migrate materialized ASTs or select the corresponding release-2
+package: the boolean alone does not encode the typed holes, phase scopes, or
+dependency choices needed for an exact compiled definition. Materialized
+`MapList`, `FilterList`, `LinearRec`, ASGP, and DP nodes are migrated to ordinary
+lexical, traversal, template, and bounded-region structures. No output contains
+node, opcode, or catalog aliases for the removed forms.
 
-- execution of already materialized AST programs
-- bytecode decoding
-- interpreter or VM semantics
-- CPU/GPU fitness semantics
-- the runtime type of an already materialized value
+## Materialized artifacts and seeds
 
-The runtime must support the full release 1.0.0 language regardless of which values or
-constructs are disabled by the active config.
+Release-1 `ast-prefix` artifacts may be migrated offline because they contain
+a materialized program. The output is `grammar-materialized-v2`, containing
+target runtime semantic version `gagp-native-2.0.0`, an `ast-prefix-v2` shape,
+exact inputs/return type, search and execution limits, losslessly detached
+singleton-domain constants/payloads, and source identity. A plain legacy AST
+needs `--cases`, `--fuel`, `--max-nodes`, and `--max-depth` because it does not
+embed that contract.
 
-## Format
+A complete `grammar-generated-v1` member is already materialized and embeds
+its schema, search limits, fuel, AST shape, constants, and provenance. It is
+migrated without `--cases` or limit overrides. Full signed 64-bit integers,
+Unicode characters, embedded-NUL strings, and typed lists use the detached
+constant codec. Normal v2 execution reconstructs the pool by content and does
+not load the old grammar or package files.
 
-Every config file must explicitly define every known key.
+`grammar-population-v1` is not converted as one container. Extract each
+complete member and migrate it independently; the command rejects the
+container with that instruction.
 
-```json
-{
-  "format_version": "grammar-config",
-  "profile": "full",
-  "values": {
-    "int": true,
-    "float": true,
-    "bool": true,
-    "char": true,
-    "string": true,
-    "int_list": true,
-    "float_list": true,
-    "string_list": true
-  },
-  "statements": {
-    "assign": true,
-    "if_stmt": true,
-    "for_range": true,
-    "return": true
-  },
-  "expressions": {
-    "const": true,
-    "var": true,
-    "bound_var": true,
-    "unary": true,
-    "binary": true,
-    "if_expr": true,
-    "call": true,
-    "map_list": true,
-    "filter_list": true,
-    "linear_rec": true,
-    "asgp_dc": true,
-    "asgp_dp1d": true,
-    "asgp_dp2d": true
-  },
-  "builtins": {
-    "abs": true,
-    "min": true,
-    "max": true,
-    "clip": true,
-    "idiv0": true,
-    "imod0": true,
-    "len": true,
-    "concat": true,
-    "slice": true,
-    "index": true,
-    "append": true,
-    "prepend": true,
-    "reverse": true,
-    "find": true,
-    "contains": true,
-    "singleton": true,
-    "char_to_string": true,
-    "string_to_char": true,
-    "ord": true,
-    "chr": true,
-    "is_letter": true,
-    "is_digit": true,
-    "is_space": true,
-    "is_vowel": true,
-    "to_lower": true,
-    "to_upper": true,
-    "to_string": true
-  },
-  "structured": {
-    "max_nested_binders": 3,
-    "max_map_body_depth": 5,
-    "max_filter_pred_depth": 5,
-    "max_linear_rec_body_depth": 5
-  },
-  "asgp": {
-    "max_scheme_nesting": 1,
-    "dc": {
-      "enabled_source_elems": ["int", "float", "string", "char"],
-      "max_depth": 64
-    },
-    "dp1d": {
-      "max_states": 512,
-      "max_step": 3,
-      "dependency_patterns": [
-        "backward1",
-        "backward2",
-        "backward3",
-        "forward1",
-        "forward2",
-        "forward3"
-      ]
-    },
-    "dp2d": {
-      "max_cells": 4096,
-      "dependency_patterns": [
-        "cross_backward",
-        "cross_forward",
-        "diagonal_backward",
-        "diagonal_forward",
-        "neighborhood_backward3",
-        "neighborhood_forward3"
-      ]
-    }
-  },
-  "limits": {
-    "max_expr_depth": 7,
-    "max_stmts_per_block": 6,
-    "max_total_nodes": 80,
-    "max_for_k": 16,
-    "max_call_args": 3
-  },
-  "compat": null
-}
-```
+`population-seeds` cannot guarantee exact replay under the v2 generator and
+RNG mapping. A seed-only input must fail with instructions to materialize every
+member using the frozen release-1 build and then migrate those materialized
+ASTs. Changed regeneration must never be labelled exact replay.
 
-## Value Controls
+Release-1 bytecode is also rejected: it cannot recover the source AST or exact
+grammar/type provenance. Migrate the source AST and recompile it.
 
-`values` controls which exact runtime types evolution may generate.
+## Isolation
 
-Rules:
+Legacy decoding is linked only into migration executables/libraries and their
+tests or benchmarks. The normal AST/bytecode codecs, compiler, runtime,
+generation, reproduction, and product CLI do not accept this schema or legacy
+side tables. Checked files under `configs/grammar/compat/` and
+`configs/grammar/packages/` are release-2 definitions; historical names
+describe compatibility intent only.
 
-- `char` controls `Char` expressions.
-- `string` controls `String` expressions.
-- `int_list`, `float_list`, and `string_list` are independent.
-- no key named `none` exists.
-- no key named `num_list` exists.
-- enabling one list type never reinterprets another list type.
+## Validation
 
-## Statement and Expression Controls
-
-`statements` and `expressions` control source-form generation and variation
-candidate synthesis.
-
-Rules:
-
-- `return` must be enabled for a config that can generate complete programs.
-- `bound_var` controls whether generated structured bodies may refer to active
-  binders.
-- `map_list`, `filter_list`, and `linear_rec` require the relevant list value
-  controls.
-- ASGP expression forms require the corresponding `asgp` section.
-
-Disabling a form only prevents generation and donor synthesis. It does not
-invalidate already materialized ASTs.
-
-## Builtin Controls
-
-`builtins` controls source-level calls generated by evolution.
-
-Rules:
-
-- a builtin may be enabled only when all relevant input and output value types
-  are enabled.
-- `index` over `String` produces `Char`; compatibility profiles that disable
-  `Char` must also prevent generation of `index(String, Int)` unless they add
-  an explicit old-behavior lowering.
-- `singleton(Char) -> String` requires both `char` and `string`.
-- `singleton(Int)`, `singleton(Float)`, and `singleton(String)` require the
-  matching list value controls.
-
-## Structured Limits
-
-`structured` limits apply to `MapList`, `FilterList`, and `LinearRec`.
-
-Limits are construction controls. Runtime semantics remain those in
-[grammar.md](./grammar.md).
-
-## ASGP Limits
-
-`asgp` controls ASGP search space and bounded execution resources.
-
-Rules:
-
-- `max_scheme_nesting` controls generated nesting and must be `0` or `1` for
-  compatibility profiles.
-- `dc.max_depth` is a generation/runtime resource bound for ASGP-DC.
-- `dp1d.max_states` bounds generated DP1D state spaces.
-- `dp2d.max_cells` bounds generated DP2D cell spaces.
-- dependency pattern names map exactly to grammar-level patterns.
-- DP transition body arity is derived from the selected dependency pattern.
-
-Runtime overflow of ASGP frames, memo tables, or payload materialization must
-be deterministic.
-
-## Native Full Profile
-
-`full` enables all release 1.0.0 source forms subject to resource limits.
-
-It is used to evaluate whether the new grammar improves solution quality or
-expressiveness. It is not the fair compatibility comparison against baseline.
-
-## Native Compatibility Profile
-
-`compat` is the fair comparison profile against the old implementation.
-
-It must be derived from a legacy `grammar-config` file and a `fitness-cases` fixture
-schema, not manually approximated.
-
-### Compatibility Metadata
-
-The generated config must include:
-
-```json
-{
-  "compat": {
-    "mode": "compat",
-    "source_format_version": "grammar-config",
-    "source_path": "configs/grammar/all.json",
-    "source_hash": "sha256:...",
-    "fixture_schema_hash": "sha256:...",
-    "derivation": 1
-  }
-}
-```
-
-### Compatibility Mapping Rules
-
-Use a conservative one-way mapping:
-
-- legacy enabled statements map to equivalent release 1.0.0 statements.
-- legacy enabled expressions map to equivalent release 1.0.0 expressions.
-- legacy enabled builtins map to equivalent release 1.0.0 builtins.
-- legacy `StringList` maps to release 1.0.0 `StringList`.
-- old `NumList` maps through the problem fixture schema:
-  - all-int fields map to `IntList`
-  - all-float fields map to `FloatList`
-  - mixed numeric fields are rejected unless a schema normalization rule
-    exists
-  - empty numeric fields require an explicit destination tag
-- `Char` defaults to disabled unless the base config semantically requires
-  character traversal.
-- `MapList`, `FilterList`, `LinearRec`, `AsgpDC`, `AsgpDP1D`, and `AsgpDP2D`
-  default to disabled.
-- release-only builtins default to disabled unless required to preserve a legacy
-  operation exactly.
-- grammar config must not reinterpret an already materialized runtime value.
-
-### Compatibility Reporting
-
-Every `compat` run must record:
-
-- base config path
-- base config hash
-- generated native config hash
-- fixture schema hash
-- CLI args
-- git commit
-- build metadata
-- CUDA device selection metadata when using GPU paths
-
-## Validation Requirements
-
-Config tooling must test:
-
-- unknown keys are rejected.
-- missing keys are rejected.
-- `none` and `num_list` keys are rejected.
-- `compat` translation is deterministic.
-- translated configs preserve old enabled constructs where possible.
-- translated configs disable release-only constructs by default.
-- CPU and GPU reproduction both respect non-default native configs.
-
-The typed-definition compiler is specified in [grammar_definition.md](grammar_definition.md). It is internal during migration; the CLI contract above remains the production path.
-
-The additive C++ compiled-grammar generation/population overloads validate exact case
-schemas and use the domain-only constant policy documented there. They do not change
-the production CLI or reinterpret legacy `Limits` as full-prefix search budgets.
-
-
-## Staged explicit typed conversion
-
-`convert_grammar_config(config, options)` implements `grammar-config-typed-v1` using
-stable `Gct1.*` nonterminal IDs. It maps enabled exact native operations to catalog
-signatures, with equal production weights. The caller supplies the exact return type,
-input schema, typed locals, one owned constant domain for every enabled value type,
-full-prefix search limits, execution fuel, per-block statement bound and literal loop
-bound. Empty, duplicate, extra or mismatched domains are rejected. There is no implicit
-`x` input, expected-output payload injection, or legacy `Limits` reinterpretation.
-
-The conversion policy initializes declared locals from their own constant domains in
-a root prologue. Those assignments count against the root block's statement limit and
-require assignment to be enabled. Local types remain fixed. A final root return is
-mandatory; nested blocks may be empty and all blocks respect the supplied statement
-bound. ForRange uses the first declared Int local and a separate explicit constant
-production `[0,max_for_k]`. Enabling loops without an Int local, or if statements without
-Bool, is an error. Capacities are 1..64 statements per block and at most 16 locals, with
-room for the prologue and final return. The generated definition records these choices
-as ordinary productions, so membership and replay use the same compiled grammar.
-
-The converter rejects enabled map/filter, LinearRec and ASGP switches until their new
-execution counterparts are available, and rejects legacy Any-input compatibility.
-Supported enabled operation semantics are preserved under the caller's explicit typed
-scope and domains. This is not an assertion that the complete legacy generated language
-or sampling distribution is identical: legacy assignments can change types, old depth
-limits measure generator recursion, and some enabled operations were not sampled by
-that generator. Exact scalar constant support can be supplied explicitly; finite typed
-payload pools are caller-selected constraints, not a claim to enumerate the old String
-or list distribution. The original grammar-config generator remains the migration oracle.
+For every maintained release-1 preset, conversion is deterministic for the
+same source, case schema, and explicit choices. Tests compare canonical output
+and diagnostics. Semantic equivalence is established with materialized
+programs and the frozen release-1 oracle; a filename or seed alone is
+insufficient evidence.

@@ -9,6 +9,18 @@
 
 namespace gagp::cli_detail {
 
+inline constexpr const char* kBytecodeJsonVersion = "bytecode-json-v2";
+inline constexpr const char* kBytecodeFixtureVersion = "bytecode-fixture-v2";
+
+enum class BytecodeJsonFormat {
+  Request,
+  Fixture,
+};
+
+// Owns the public document version boundary. Inner programs and phases do not
+// carry format identifiers and are decoded only after this check.
+BytecodeJsonFormat require_bytecode_json_format(const JsonValue& root);
+
 Value decode_typed_value(const JsonValue& v);
 std::vector<Instr> decode_code(const JsonValue& code);
 BytecodeProgram decode_program(const JsonValue& bc);

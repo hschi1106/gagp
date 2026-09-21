@@ -8,9 +8,9 @@
 
 namespace gagp::evo::grammar {
 
-inline constexpr const char* kGrammarSemanticVersion = "gagp-native-1.0.0";
+inline constexpr const char* kGrammarSemanticVersion = "gagp-native-2.0.0";
 inline constexpr std::uint32_t kGrammarMaxLoweredInstructions = 1048576;
-inline constexpr const char* kGrammarGeneratorVersion = "typed-derivation-v1";
+inline constexpr const char* kGrammarGeneratorVersion = "typed-derivation-v2";
 
 struct NodeOrigin {
   std::uint32_t expression = kNoGrammarId;

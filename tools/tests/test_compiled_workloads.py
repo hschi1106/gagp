@@ -48,7 +48,7 @@ class TestCompiledWorkloads(unittest.TestCase):
         seed = int(command[command.index("--seed") + 1])
         output = Path(command[command.index("--out-json") + 1])
         payload = {
-            "format_version": "grammar-population-v1",
+            "format_version": "grammar-population-v2",
             "grammar_hash": sha256(grammar),
             "count": size,
             "seed": seed,

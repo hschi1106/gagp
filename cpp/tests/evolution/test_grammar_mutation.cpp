@@ -31,7 +31,7 @@ std::shared_ptr<const CompiledGrammar> compile(const std::string& text) {
 
 std::string constant_grammar(const std::string& type,
     const std::string& domain) {
-  return R"({"format_version":"grammar-definition-v1",
+  return R"({"format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Value","type":")" + type +
     R"("},"search_limits":{"max_nodes":5,"max_depth":4},
     "execution_limits":{"fuel":100},"nonterminals":[{
@@ -69,7 +69,7 @@ void check_counters(const VariationCounters& counters,
 
 std::shared_ptr<const CompiledGrammar> repeated_hole_grammar() {
   return compile(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":9,"max_depth":7},
     "execution_limits":{"fuel":100},
@@ -150,7 +150,7 @@ void test_all_constant_domains() {
 
 std::shared_ptr<const CompiledGrammar> assigned_local_grammar() {
   return compile(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","category":"Program","type":"Int"},
     "inputs":[{"name":"input","type":"Int"}],
     "locals":[{"name":"x","type":"Int"}],

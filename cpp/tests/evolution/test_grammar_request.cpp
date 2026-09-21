@@ -74,7 +74,7 @@ std::uint32_t prefix_depth(const AstProgram& ast) {
 }
 
 const char* request_fixture = R"({
-  "format_version":"grammar-definition-v1",
+  "format_version":"grammar-definition-v2",
   "entry":{"nonterminal":"Expr","type":"Int"},
   "search_limits":{"max_nodes":20,"max_depth":8},
   "execution_limits":{"fuel":1000},
@@ -276,7 +276,7 @@ void test_bound_runtime_boundary(const CompiledGrammar& grammar) {
       "external Bound request accepted an unrelated constant", "cannot be derived");
 
   const auto default_bound = compile(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":12,"max_depth":6},"execution_limits":{"fuel":100},
     "nonterminals":[

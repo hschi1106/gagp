@@ -31,7 +31,7 @@ void rejects(const std::function<void()>& action, const char* message,
 
 CompiledGrammar fixture() {
   return compile_grammar(parse_definition(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Expr","type":"Int"},
     "inputs":[{"name":"source","type":"String"},{"name":"count","type":"Int"}],
     "locals":[

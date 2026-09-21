@@ -224,36 +224,6 @@ AstProgram nested_region(bool in_phase) {
   return ast;
 }
 
-AstProgram nested_asgp_phase() {
-  AstProgram ast;
-  ast.names = {"solve_state", "transition_state", "dependency"};
-  ast.consts = {Value::from_int(1), Value::from_bool(true), Value::from_int(0)};
-  const RegionPlan plan = coordinate_plan();
-  ast.nodes = {
-      {NodeKind::PROGRAM, 0, 0}, {NodeKind::BLOCK_CONS, 0, 0},
-      {NodeKind::RETURN, 0, 0}, {NodeKind::BOUNDED_REGION, 5, 0},
-      {NodeKind::CONST, 0, 0}, {NodeKind::CONST, 1, 0},
-      {NodeKind::ASGP_DP1D, 0, 0}, {NodeKind::CONST, 0, 0},
-      {NodeKind::CONST, 2, 0}, {NodeKind::CONST, 2, 0},
-      {NodeKind::CONST, 2, 0}, {NodeKind::CONST, 2, 0},
-      {NodeKind::BLOCK_NIL, 0, 0},
-  };
-  ast.bounded_region_specs = {{3, plan, {}, phases(1)}};
-  AsgpDp1dSpec nested;
-  nested.node_index = 6;
-  nested.lo = 0;
-  nested.hi = 2;
-  nested.base_state = 0;
-  nested.boundary_const = 2;
-  nested.dep_kind = NodeKind::DP1_BACKWARD1;
-  nested.dep_offsets = {1};
-  nested.solve_state_name = 0;
-  nested.transition_state_name = 1;
-  nested.transition_dep_names = {2};
-  ast.asgp_dp1d_specs.push_back(std::move(nested));
-  return ast;
-}
-
 const VerifiedScope& scope_at(const AstVerifyResult& result,
                               std::size_t node_index) {
   return result.verified.scopes[result.verified.expression_scope_ids[node_index]];
@@ -348,10 +318,8 @@ bool test_nested_region_boundary() {
              "bounded region should be allowed in an initial-state expression")) {
     return false;
   }
-  return expect(nested_region(true), {}, VerifyCode::NestedAsgp,
-                "bounded region nested in isolated phase") &&
-         expect(nested_asgp_phase(), {}, VerifyCode::NestedAsgp,
-                "ASGP region nested in isolated phase");
+  return expect(nested_region(true), {}, VerifyCode::NestedIsolatedRegion,
+                "bounded region nested in isolated phase");
 }
 
 }  // namespace

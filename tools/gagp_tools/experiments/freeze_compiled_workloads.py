@@ -39,7 +39,7 @@ def _write(path: Path, value: Any) -> dict[str, str]:
 
 def _typed_grammar(type_name: str, values: list[Any]) -> dict[str, Any]:
     return {
-        "format_version": "grammar-definition-v1",
+        "format_version": "grammar-definition-v2",
         "entry": {"nonterminal": "Main", "type": type_name},
         "search_limits": {"max_nodes": 12, "max_depth": 8},
         "execution_limits": {"fuel": TYPED_FUEL},

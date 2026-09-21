@@ -31,7 +31,7 @@ CompiledGrammar compile(const cli_detail::JsonValue& doc) {
   return compile_grammar(parse_definition(canonical_json(doc)));
 }
 std::string constant_grammar(const std::string& type, const std::string& values) {
-  return R"({"format_version":"grammar-definition-v1","entry":{"nonterminal":"Value","type":")" + type +
+  return R"({"format_version":"grammar-definition-v2","entry":{"nonterminal":"Value","type":")" + type +
     R"("},"search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":100},
     "nonterminals":[{"id":"Value","type":")" + type + R"(","scope":[],"alternatives":[
     {"id":"constant","weight":1,"expression":{"constant":{"type":")" + type + R"(","values":)" + values + "}}}]}]}";
@@ -40,7 +40,7 @@ std::string constant_grammar(const std::string& type, const std::string& values)
 
 int main() {
   try {
-    const auto scalar_doc = json(R"({"format_version":"grammar-definition-v1",
+    const auto scalar_doc = json(R"({"format_version":"grammar-definition-v2",
       "entry":{"nonterminal":"Expr","type":"Int"},
       "search_limits":{"max_nodes":40,"max_depth":12},"execution_limits":{"fuel":1000},
       "nonterminals":[{"id":"Expr","type":"Int","scope":[],"alternatives":[
@@ -132,7 +132,7 @@ int main() {
     rejects(leaves, repeated);
 
     const auto fuel_grammar = compile(json(R"({
-      "format_version":"grammar-definition-v1",
+      "format_version":"grammar-definition-v2",
       "entry":{"nonterminal":"Main","type":"Int"},
       "search_limits":{"max_nodes":12,"max_depth":8},
       "execution_limits":{"fuel":100},
@@ -164,7 +164,7 @@ int main() {
     rejects(fuel_grammar, missing_profile);
 
     const auto branch_fuel = compile(json(R"({
-      "format_version":"grammar-definition-v1",
+      "format_version":"grammar-definition-v2",
       "entry":{"nonterminal":"Expr","type":"Int"},
       "search_limits":{"max_nodes":12,"max_depth":8},
       "execution_limits":{"fuel":100},

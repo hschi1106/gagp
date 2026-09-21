@@ -101,19 +101,46 @@ bool is_typed_list(AbstractType type) {
          type == AbstractType::StringList;
 }
 
-bool is_container(AbstractType type) {
-  return type == AbstractType::String || is_typed_list(type);
+bool is_known_opcode(Opcode op) {
+  switch (op) {
+    case Opcode::PushConst:
+    case Opcode::Load:
+    case Opcode::Store:
+    case Opcode::Neg:
+    case Opcode::Not:
+    case Opcode::Add:
+    case Opcode::Sub:
+    case Opcode::Mul:
+    case Opcode::Div:
+    case Opcode::Mod:
+    case Opcode::Lt:
+    case Opcode::Le:
+    case Opcode::Gt:
+    case Opcode::Ge:
+    case Opcode::Eq:
+    case Opcode::Ne:
+    case Opcode::Jmp:
+    case Opcode::JmpIfFalse:
+    case Opcode::JmpIfTrue:
+    case Opcode::CallBuiltin:
+    case Opcode::Return:
+    case Opcode::CheckList:
+    case Opcode::CheckInt:
+    case Opcode::EmptyList:
+    case Opcode::EmptyListLike:
+    case Opcode::BoundedRegion:
+      return true;
+  }
+  return false;
 }
 
 bool is_private_opcode(Opcode op) {
   return op == Opcode::CheckList || op == Opcode::CheckInt || op == Opcode::EmptyList ||
-         op == Opcode::EmptyListLike || op == Opcode::AsgpDc || op == Opcode::AsgpDp1d ||
-         op == Opcode::AsgpDp2d || op == Opcode::BoundedRegion;
+         op == Opcode::EmptyListLike || op == Opcode::BoundedRegion;
 }
 
 bool is_structured_opcode(Opcode op) {
-  return op == Opcode::AsgpDc || op == Opcode::AsgpDp1d ||
-         op == Opcode::AsgpDp2d || op == Opcode::BoundedRegion;
+  return op == Opcode::BoundedRegion;
 }
 
 int expected_builtin_arity(BuiltinId id) {
@@ -248,10 +275,7 @@ class Verifier {
   }
 
   bool check_segment_limit() {
-    const std::size_t segments = program_.asgp_dc_segments.size() +
-                                 program_.asgp_dp1d_segments.size() +
-                                 program_.asgp_dp2d_segments.size() +
-                                 program_.bounded_region_segments.size();
+    const std::size_t segments = program_.bounded_region_segments.size();
     if (options_.max_segments != 0 && segments > options_.max_segments) {
       return fail(BytecodeVerifyCode::ResourceLimit, 0, "$.segments",
                   "segment count exceeds configured limit");
@@ -292,9 +316,7 @@ class Verifier {
                             std::size_t code_size, std::size_t const_count,
                             int n_locals, bool allow_structured,
                             const std::string& code_path) {
-    const int raw_op = static_cast<int>(ins.op);
-    if (raw_op < static_cast<int>(Opcode::PushConst) ||
-        raw_op > static_cast<int>(Opcode::BoundedRegion)) {
+    if (!is_known_opcode(ins.op)) {
       return fail(BytecodeVerifyCode::UnknownOpcode, ip,
                   code_path + "[" + std::to_string(ip) + "].op", "unknown opcode value");
     }
@@ -307,9 +329,7 @@ class Verifier {
     if (is_structured_opcode(op) && !allow_structured) {
       return fail(BytecodeVerifyCode::InvalidPrivateOpcode, ip,
                   code_path + "[" + std::to_string(ip) + "].op",
-                  op == Opcode::BoundedRegion
-                      ? "bounded region calls are forbidden inside phase programs"
-                      : "ASGP calls are forbidden inside phase programs");
+                  "bounded region calls are forbidden inside phase programs");
     }
 
     const bool requires_a = op == Opcode::PushConst || op == Opcode::Load || op == Opcode::Store ||
@@ -354,24 +374,6 @@ class Verifier {
     if (op == Opcode::EmptyList && (ins.a < 1 || ins.a > 3)) {
       return fail(BytecodeVerifyCode::InvalidConstant, ip,
                   code_path + "[" + std::to_string(ip) + "].a", "invalid typed-list tag");
-    }
-    if (op == Opcode::AsgpDc &&
-        (ins.a < 0 || static_cast<std::size_t>(ins.a) >= program_.asgp_dc_segments.size())) {
-      return fail(BytecodeVerifyCode::InvalidSegmentIndex, ip,
-                  code_path + "[" + std::to_string(ip) + "].a",
-                  "ASGP-DC segment index is out of range");
-    }
-    if (op == Opcode::AsgpDp1d &&
-        (ins.a < 0 || static_cast<std::size_t>(ins.a) >= program_.asgp_dp1d_segments.size())) {
-      return fail(BytecodeVerifyCode::InvalidSegmentIndex, ip,
-                  code_path + "[" + std::to_string(ip) + "].a",
-                  "ASGP-DP1D segment index is out of range");
-    }
-    if (op == Opcode::AsgpDp2d &&
-        (ins.a < 0 || static_cast<std::size_t>(ins.a) >= program_.asgp_dp2d_segments.size())) {
-      return fail(BytecodeVerifyCode::InvalidSegmentIndex, ip,
-                  code_path + "[" + std::to_string(ip) + "].a",
-                  "ASGP-DP2D segment index is out of range");
     }
     if (op == Opcode::BoundedRegion &&
         (ins.a < 0 || static_cast<std::size_t>(ins.a) >=
@@ -686,22 +688,6 @@ class Verifier {
         BuiltinId id = BuiltinId::Abs;
         (void)builtin_id_from_int(ins.a, id);
         state.stack.push_back(builtin_result_type(id, args));
-      } else if (op == Opcode::AsgpDc || op == Opcode::AsgpDp1d || op == Opcode::AsgpDp2d) {
-        const std::size_t argc = op == Opcode::AsgpDp2d ? 2U : 1U;
-        if (!require_stack(argc)) return false;
-        if (op == Opcode::AsgpDc) {
-          const AbstractType source = state.stack.back();
-          if (source != AbstractType::Unknown && !is_container(source)) guaranteed_runtime_error = true;
-        } else {
-          for (std::size_t i = 0; i < argc; ++i) {
-            const AbstractType input = state.stack[state.stack.size() - argc + i];
-            if (input != AbstractType::Unknown && input != AbstractType::Int) {
-              guaranteed_runtime_error = true;
-            }
-          }
-        }
-        state.stack.resize(state.stack.size() - argc);
-        if (!guaranteed_runtime_error) state.stack.push_back(AbstractType::Unknown);
       } else if (op == Opcode::BoundedRegion) {
         const BoundedRegionSegment& segment =
             program_.bounded_region_segments[static_cast<std::size_t>(ins.a)];
@@ -756,52 +742,6 @@ class Verifier {
         }
       }
     }
-    return true;
-  }
-
-  bool validate_binder_map(const PhaseProgram& phase, const std::vector<int>& required_names,
-                           const std::string& path,
-                           const std::vector<AbstractType>& required_types,
-                           std::unordered_map<int, AbstractType>* initial) {
-    std::set<int> required_unique;
-    std::set<int> local_unique;
-    for (std::size_t i = 0; i < required_names.size(); ++i) {
-      const int name = required_names[i];
-      if (name < 0 || !required_unique.insert(name).second) {
-        return fail(BytecodeVerifyCode::InvalidSegmentMetadata, 0, path,
-                    "segment binder names must be non-negative and distinct");
-      }
-      const auto it = phase.binder_locals.find(name);
-      if (it == phase.binder_locals.end()) {
-        return fail(BytecodeVerifyCode::InvalidBinderLocal, 0, path + ".binder_locals",
-                    "phase is missing a required binder-local mapping");
-      }
-      if (it->second < 0 || it->second >= phase.n_locals || !local_unique.insert(it->second).second) {
-        return fail(BytecodeVerifyCode::InvalidBinderLocal, 0, path + ".binder_locals",
-                    "phase binder local is out of range or aliases another binder");
-      }
-      (*initial)[it->second] = required_types[i];
-    }
-    for (const auto& item : phase.binder_locals) {
-      if (item.first < 0 || item.second < 0 || item.second >= phase.n_locals) {
-        return fail(BytecodeVerifyCode::InvalidBinderLocal, 0, path + ".binder_locals",
-                    "binder-local mapping is out of range");
-      }
-    }
-    return true;
-  }
-
-  bool verify_phase(const PhaseProgram& phase, const std::vector<int>& required_names,
-                    const std::vector<AbstractType>& required_types, const std::string& path) {
-    const auto fuel = validate_semantic_fuel(phase.code, phase.instruction_fuel);
-    if (!fuel) return fail(BytecodeVerifyCode::InvalidFuelSchedule, fuel.instruction_index,
-        path + ".instruction_fuel", fuel.message);
-    std::unordered_map<int, AbstractType> initial;
-    if (!validate_binder_map(phase, required_names, path, required_types, &initial)) return false;
-    CodeSummary summary;
-    if (!verify_code(phase.consts, phase.code, phase.n_locals, phase.var2idx, initial,
-                     path + ".code", false, false, std::nullopt, &summary)) return false;
-    result_.verified.phase_program_count += 1;
     return true;
   }
 
@@ -966,75 +906,7 @@ class Verifier {
                                segment.plan.result_type, path + ".combine");
   }
 
-  bool validate_boundary(const Value& value, const std::string& path) {
-    return validate_value(value, 0, path);
-  }
-
   bool verify_segments() {
-    for (std::size_t i = 0; i < program_.asgp_dc_segments.size(); ++i) {
-      const AsgpDcSegment& segment = program_.asgp_dc_segments[i];
-      const std::string path = "$.segments.asgp_dc[" + std::to_string(i) + "]";
-      if (!verify_phase(segment.solve,
-                        {segment.solve_xs_name, segment.solve_n_name, segment.solve_lo_name},
-                        {AbstractType::Unknown, AbstractType::Int, AbstractType::Int}, path + ".solve") ||
-          !verify_phase(segment.divide, {segment.divide_n_name}, {AbstractType::Int}, path + ".divide") ||
-          !verify_phase(segment.combine, {segment.combine_left_name, segment.combine_right_name},
-                        {AbstractType::Unknown, AbstractType::Unknown}, path + ".combine")) {
-        return false;
-      }
-    }
-
-    for (std::size_t i = 0; i < program_.asgp_dp1d_segments.size(); ++i) {
-      const AsgpDp1dSegment& segment = program_.asgp_dp1d_segments[i];
-      const std::string path = "$.segments.asgp_dp1d[" + std::to_string(i) + "]";
-      if (segment.lo > segment.hi || segment.base_state < segment.lo || segment.base_state > segment.hi ||
-          (segment.dep_kind != -1 && segment.dep_kind != 1) || segment.dep_offsets.empty() ||
-          segment.dep_offsets.size() != segment.transition_dep_names.size() ||
-          std::any_of(segment.dep_offsets.begin(), segment.dep_offsets.end(),
-                      [](int offset) { return offset <= 0; })) {
-        return fail(BytecodeVerifyCode::InvalidSegmentMetadata, 0, path,
-                    "invalid ASGP-DP1D bounds, base state, dependency direction, or arity");
-      }
-      if (!validate_boundary(segment.boundary_value, path + ".boundary_value")) return false;
-      const AbstractType cell_type = abstract_type(segment.boundary_value.tag);
-      std::vector<AbstractType> transition_types(1 + segment.transition_dep_names.size(), cell_type);
-      transition_types[0] = AbstractType::Int;
-      std::vector<int> transition_names = {segment.transition_state_name};
-      transition_names.insert(transition_names.end(), segment.transition_dep_names.begin(),
-                              segment.transition_dep_names.end());
-      if (!verify_phase(segment.solve, {segment.solve_state_name}, {AbstractType::Int}, path + ".solve") ||
-          !verify_phase(segment.transition, transition_names, transition_types, path + ".transition")) {
-        return false;
-      }
-    }
-
-    for (std::size_t i = 0; i < program_.asgp_dp2d_segments.size(); ++i) {
-      const AsgpDp2dSegment& segment = program_.asgp_dp2d_segments[i];
-      const std::string path = "$.segments.asgp_dp2d[" + std::to_string(i) + "]";
-      static constexpr int expected_arities[] = {2, 2, 1, 1, 3, 3};
-      if (segment.i_lo > segment.i_hi || segment.j_lo > segment.j_hi ||
-          segment.base_i < segment.i_lo || segment.base_i > segment.i_hi ||
-          segment.base_j < segment.j_lo || segment.base_j > segment.j_hi ||
-          segment.dep_kind < 0 || segment.dep_kind > 5 ||
-          segment.transition_dep_names.size() !=
-              static_cast<std::size_t>(expected_arities[segment.dep_kind])) {
-        return fail(BytecodeVerifyCode::InvalidSegmentMetadata, 0, path,
-                    "invalid ASGP-DP2D bounds, base cell, dependency kind, or arity");
-      }
-      if (!validate_boundary(segment.boundary_value, path + ".boundary_value")) return false;
-      const AbstractType cell_type = abstract_type(segment.boundary_value.tag);
-      std::vector<int> transition_names = {segment.transition_i_name, segment.transition_j_name};
-      transition_names.insert(transition_names.end(), segment.transition_dep_names.begin(),
-                              segment.transition_dep_names.end());
-      std::vector<AbstractType> transition_types(transition_names.size(), cell_type);
-      transition_types[0] = AbstractType::Int;
-      transition_types[1] = AbstractType::Int;
-      if (!verify_phase(segment.solve, {segment.solve_i_name, segment.solve_j_name},
-                        {AbstractType::Int, AbstractType::Int}, path + ".solve") ||
-          !verify_phase(segment.transition, transition_names, transition_types, path + ".transition")) {
-        return false;
-      }
-    }
     for (std::size_t i = 0; i < program_.bounded_region_segments.size(); ++i) {
       if (!verify_bounded_segment(
               program_.bounded_region_segments[i], program_.n_locals,

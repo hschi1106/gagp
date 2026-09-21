@@ -1,47 +1,47 @@
 {
   "authoritative_entrypoint": "spec/grammar.md",
   "format_version": "spec-freeze",
-  "generated_at": "2026-09-21",
+  "generated_at": "2026-09-22",
   "notes": [
-    "This manifest records the maintained normative spec set, including the typed grammar-definition and compiled CPU/GPU execution contract; existing runtime semantics remain release 1.0.0.",
+    "This manifest records the release 2.0.0 normative spec set after the compiled-grammar production cutover and v2 AST/bytecode/artifact version boundary.",
     "The hash gate is intentionally mechanical: if a listed spec changes, update this manifest in the same semantic change."
   ],
   "specs": [
     {
       "path": "spec/grammar.md",
-      "sha256": "ada55b0f898666295550b16f4db755004efdcf886f9824ac33fcae9526dd91d5"
+      "sha256": "55dec3dfde264bf6fd3ab0919353b60d7d72c46e59c39f04b96380c4f38d9e6d"
     },
     {
       "path": "spec/bytecode_isa.md",
-      "sha256": "cbb1dac44352165e1ef6274126dd33d05439a3935cecc842656b469f2ee13bc4"
+      "sha256": "4a7b5dc3342eff45341b5580962c9ff5d99257cb7696cd61161668f0cbbdf167"
     },
     {
       "path": "spec/bytecode_format.md",
-      "sha256": "137041e0549622aeeaaee7d2e89d0987609bdcb74de826b89797823419a94f89"
+      "sha256": "19ebb58be4e42fe33ddd9ffd49a97bd39651fb0a7024533056862918a30b3c38"
     },
     {
       "path": "spec/builtins_base.md",
-      "sha256": "fed40c96c3ab3b2edaa2d91b1b5b36ae2a1bf4162e77d600d4cfe63227abd5ad"
+      "sha256": "42901ee1d0fc7c45512495fa8710bce1282d6ac91b3c1855be28b0dde2837b70"
     },
     {
       "path": "spec/builtins_runtime.md",
-      "sha256": "0fc1c545024cb65dc9a8e1c4ffa2b2b2b37f8331a9d51c8f9f5eb65171f37ee3"
+      "sha256": "79c2e9607f0f25cda4f2bc31287b1c7a8fc610ef2a2d23dec6563bf4e1ed219c"
     },
     {
       "path": "spec/fitness.md",
-      "sha256": "4892a500e1cb57f445428b6c9c60697721cd67dac7aa718587ad5dfc27d642d1"
+      "sha256": "f8dfad796be13d934b520d26fc9fef09ab90a1f2f431a558b3e0de405c0a6e86"
     },
     {
       "path": "spec/fitness_cases.md",
-      "sha256": "f91901a0e51895053b5cf0fa196c75c7cfcf5570db8304bd0a7962c256cbc30c"
+      "sha256": "50aae142b7bc4c387865876b2b977fff6abb216654b88f3b306a4a324b7ff8cf"
     },
     {
       "path": "spec/grammar_config.md",
-      "sha256": "b2d8563f0a83223e50369b9aa2e2e709213a5ef3809e390c882218f7962bb1c2"
+      "sha256": "a68952891df7da479edcf613d509a9dcd831506078b652d453e4f918e806c075"
     },
     {
       "path": "spec/grammar_definition.md",
-      "sha256": "db876876815f3b38ecb2aed167cd726dbdcfd89f66f5323d247c54a2fefb0b89"
+      "sha256": "d2ddc713a7e0c23e1c8ca8d3eae7c806a93c2c949d4851f1e6cb09106267a5a5"
     }
   ],
   "status": "frozen"

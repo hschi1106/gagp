@@ -11,15 +11,6 @@
 #include "gagp/evolution/grammar/membership.hpp"
 
 namespace gagp::evo {
-namespace {
-
-bool should_seed_for_expected_return_type(RType type) {
-  return type == RType::String || type == RType::IntList ||
-         type == RType::FloatList || type == RType::StringList;
-}
-
-}  // namespace
-
 void validate_grammar_case_set(const grammar::CompiledGrammar& grammar,
     const CaseSet& case_set, const grammar::GenerationRequest& request) {
   (void)grammar::validate_request(grammar, request);
@@ -76,48 +67,20 @@ PopulationInitialization initialize_population(
     const CaseSet& case_set,
     const std::vector<ProgramGenome>* replay_population) {
   PopulationInitialization out;
-  if (config.compiled_grammar) {
-    repro::require_reproduction_mode_supported(config);
-    const auto& grammar = *config.compiled_grammar;
-    const auto request = config.generation_request.value_or(grammar::entry_request(grammar));
-    validate_grammar_case_set(grammar, case_set, request);
-    if (!replay_population)
-      return initialize_population(grammar, case_set, config.population_size, config.seed, request);
-    if (replay_population->size() != static_cast<std::size_t>(config.population_size))
-      throw std::invalid_argument("initial_population size must match population_size");
-    out.population = *replay_population;
-    out.replayed = true;
-    for (auto& genome : out.population) {
-      auto witness = grammar::reconstruct_derivation(grammar, genome, request);
-      genome.meta = build_genome_meta(genome.ast);
-      genome.derivation = std::make_shared<const grammar::DerivationMetadata>(std::move(witness));
-    }
-    return out;
-  }
-  if (config.generation_request)
-    throw std::invalid_argument("generation_request requires a compiled grammar");
-  if (replay_population != nullptr) {
-    out.population = *replay_population;
-    out.replayed = true;
-  } else {
-    out.population.reserve(static_cast<std::size_t>(config.population_size));
-    const bool seed_for_return_type =
-        should_seed_for_expected_return_type(case_set.expected_return_type) &&
-        config.grammar.allows_type(case_set.expected_return_type);
-    for (int i = 0; i < config.population_size; ++i) {
-      const std::uint64_t seed = config.seed + static_cast<std::uint64_t>(i);
-      if (seed_for_return_type) {
-        out.population.push_back(generate_random_genome_for_return_type(
-            seed, case_set.expected_return_type, config.limits,
-            case_set.input_specs, config.grammar));
-      } else {
-        out.population.push_back(generate_random_genome(
-            seed, config.limits, case_set.input_specs, config.grammar));
-      }
-    }
-  }
-  if (static_cast<int>(out.population.size()) != config.population_size) {
+  repro::require_reproduction_mode_supported(config);
+  const auto& grammar = *config.compiled_grammar;
+  const auto& request = *config.generation_request;
+  validate_grammar_case_set(grammar, case_set, request);
+  if (!replay_population)
+    return initialize_population(grammar, case_set, config.population_size, config.seed, request);
+  if (replay_population->size() != static_cast<std::size_t>(config.population_size))
     throw std::invalid_argument("initial_population size must match population_size");
+  out.population = *replay_population;
+  out.replayed = true;
+  for (auto& genome : out.population) {
+    auto witness = grammar::reconstruct_derivation(grammar, genome, request);
+    genome.meta = build_genome_meta(genome.ast);
+    genome.derivation = std::make_shared<const grammar::DerivationMetadata>(std::move(witness));
   }
   return out;
 }

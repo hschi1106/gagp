@@ -1,5 +1,5 @@
 {
-  "format_version": "grammar-definition-v1",
+  "format_version": "grammar-definition-v2",
   "entry": {"nonterminal": "Sequence", "type": "StringList"},
   "inputs": [{"name": "source", "type": "StringList"}],
   "search_limits": {"max_nodes": 40, "max_depth": 12},

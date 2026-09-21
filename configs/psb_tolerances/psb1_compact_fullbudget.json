@@ -31,7 +31,7 @@
     "candidate_profile": "compact",
     "cases_root": "logs/psb1_materialized_256_64",
     "generations": 100,
-    "base_grammar_config": "configs/grammar/all.json",
+    "base_grammar_config": "configs/grammar/migration/v1/all.json",
     "population_size": 8192,
     "seeds": [
       0,

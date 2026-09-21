@@ -96,6 +96,13 @@ int main() {
                       "unknown opcode")) {
     return 1;
   }
+  for (int removed_opcode = 25; removed_opcode <= 27; ++removed_opcode) {
+    if (!expect_failure({ins(static_cast<Opcode>(removed_opcode))}, {0}, 0,
+                        "unknown opcode",
+                        "reserved opcode " + std::to_string(removed_opcode))) {
+      return 1;
+    }
+  }
 
   constexpr std::size_t chain_size = 100000;
   std::vector<Instr> long_chain(chain_size, ins(Opcode::Neg));
@@ -112,19 +119,10 @@ int main() {
   if (!check(has_semantic_fuel(program), "root semantic fuel is detected")) return 1;
   program.instruction_fuel.clear();
 
-  program.asgp_dc_segments.emplace_back();
-  program.asgp_dc_segments.back().combine.instruction_fuel = {1};
-  if (!check(has_semantic_fuel(program), "ASGP-DC phase semantic fuel is detected")) return 1;
-  program.asgp_dc_segments.clear();
-
-  program.asgp_dp1d_segments.emplace_back();
-  program.asgp_dp1d_segments.back().transition.instruction_fuel = {1};
-  if (!check(has_semantic_fuel(program), "ASGP-DP1D phase semantic fuel is detected")) return 1;
-  program.asgp_dp1d_segments.clear();
-
-  program.asgp_dp2d_segments.emplace_back();
-  program.asgp_dp2d_segments.back().solve.instruction_fuel = {1};
-  if (!check(has_semantic_fuel(program), "ASGP-DP2D phase semantic fuel is detected")) return 1;
+  program.bounded_region_segments.emplace_back();
+  program.bounded_region_segments.back().combine.program.instruction_fuel = {1};
+  if (!check(has_semantic_fuel(program),
+             "bounded-region phase semantic fuel is detected")) return 1;
 
   return 0;
 }

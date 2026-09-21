@@ -1,10 +1,14 @@
 #include <cassert>
+#include <cstdint>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 #include "gagp/evolution/case_set.hpp"
 #include "gagp/evolution/evolve.hpp"
+#include "gagp/evolution/grammar/definition.hpp"
+#include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/lifecycle.hpp"
 #include "gagp/evolution/population_init.hpp"
 #include "gagp/evolution/selection.hpp"
@@ -17,6 +21,22 @@ gagp::evo::ProgramGenome keyed_genome(const char* key) {
   gagp::evo::ProgramGenome genome;
   genome.meta.program_key = key;
   return genome;
+}
+
+std::shared_ptr<const gagp::evo::grammar::CompiledGrammar> timing_grammar() {
+  using namespace gagp::evo::grammar;
+  return std::make_shared<const CompiledGrammar>(compile_grammar(parse_definition(R"({
+    "format_version":"grammar-definition-v2",
+    "entry":{"nonterminal":"Expr","type":"Int"},
+    "inputs":[{"name":"x","type":"Int"}],
+    "search_limits":{"max_nodes":16,"max_depth":6},
+    "execution_limits":{"fuel":20000},
+    "nonterminals":[{"id":"Expr","type":"Int","scope":[],"alternatives":[
+      {"id":"input","weight":1,"expression":{"input":"x"}},
+      {"id":"constant","weight":1,"expression":{"constant":{"type":"Int","values":["0","1"]}}},
+      {"id":"add","weight":1,"expression":{"signature":"add(Int,Int)->Int","args":[{"ref":"Expr"},{"ref":"Expr"}]}}
+    ]}]
+  })")));
 }
 
 }  // namespace
@@ -32,8 +52,7 @@ int main() {
       EvalCase{{{"z", Value::from_float(4.0)}, {"a", Value::from_float(2.5)}},
                Value::from_int(4)},
   };
-  const auto case_set = gagp::evo::prepare_case_set(
-      cases, gagp::evo::GrammarConfig::all_enabled());
+  const auto case_set = gagp::evo::prepare_case_set(cases);
   assert((case_set.input_names == std::vector<std::string>{"a", "z"}));
   assert(case_set.input_specs.size() == 2);
   assert(case_set.input_specs[0].type == RType::Float);
@@ -44,8 +63,7 @@ int main() {
   assert(case_set.expected_return_type == RType::Int);
 
   const auto mixed_expected = gagp::evo::prepare_case_set(
-      {EvalCase{{}, Value::from_int(1)}, EvalCase{{}, Value::from_bool(true)}},
-      gagp::evo::GrammarConfig::all_enabled());
+      {EvalCase{{}, Value::from_int(1)}, EvalCase{{}, Value::from_bool(true)}});
   assert(mixed_expected.expected_return_type == RType::Invalid);
 
   std::vector<gagp::evo::ProgramGenome> population = {
@@ -61,13 +79,25 @@ int main() {
 
   gagp::evo::EvolutionConfig config;
   config.population_size = static_cast<int>(population.size());
-  const auto replay = gagp::evo::initialize_population(config, case_set, &population);
-  assert(replay.replayed && replay.population.size() == population.size());
-  assert(replay.population[1].meta.program_key == "a");
+  config.compiled_grammar = timing_grammar();
+  config.generation_request =
+      gagp::evo::grammar::entry_request(*config.compiled_grammar);
+  std::vector<gagp::evo::ProgramGenome> replay_population;
+  for (std::uint64_t seed = 0; seed < population.size(); ++seed) {
+    replay_population.push_back(gagp::evo::grammar::generate_derivation(
+        *config.compiled_grammar, seed, *config.generation_request).genome);
+  }
+  const auto replay_case_set = gagp::evo::prepare_case_set(
+      {EvalCase{{{"x", Value::from_int(0)}}, Value::from_int(0)}});
+  const auto replay = gagp::evo::initialize_population(
+      config, replay_case_set, &replay_population);
+  assert(replay.replayed && replay.population.size() == replay_population.size());
+  assert(replay.population[1].meta.program_key == replay_population[1].meta.program_key);
 
   config.population_size += 1;
   try {
-    (void)gagp::evo::initialize_population(config, case_set, &population);
+    (void)gagp::evo::initialize_population(
+        config, replay_case_set, &replay_population);
     assert(false && "expected replay size mismatch");
   } catch (const std::invalid_argument& error) {
     assert(std::string(error.what()) ==
@@ -138,7 +168,14 @@ int main() {
   timing_config.generations = 2;
   timing_config.seed = 17;
   timing_config.skip_final_eval = true;
-  const auto timed = gagp::evo::evolve_population(cases, timing_config);
+  timing_config.compiled_grammar = timing_grammar();
+  timing_config.generation_request =
+      gagp::evo::grammar::entry_request(*timing_config.compiled_grammar);
+  const std::vector<EvalCase> timing_cases = {
+      EvalCase{{{"x", Value::from_int(0)}}, Value::from_int(0)},
+      EvalCase{{{"x", Value::from_int(1)}}, Value::from_int(1)},
+  };
+  const auto timed = gagp::evo::evolve_population(timing_cases, timing_config);
   assert(timed.timing.generations.size() == 2);
   double cpu_compile_sum = 0.0;
   double selection_sum = 0.0;

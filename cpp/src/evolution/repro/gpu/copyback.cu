@@ -128,7 +128,6 @@ bool copyback_gpu_repro_children(const GpuReproArena& arena,
   }
 
   const bool selection_counters_active =
-      config.contract_mode == ReproductionContractMode::CompiledGrammar &&
       config.compiled_pass == CompiledVariationPass::Crossover;
   if ((selection_counters_active &&
        !ensure_cuda(cudaMemcpyAsync(staging->selection_counters, arena.d_selection_counters,

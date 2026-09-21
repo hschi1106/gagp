@@ -195,7 +195,7 @@ std::string counter_expression(const std::string& capture,
 }
 
 std::string repeated_hole_grammar() {
-  return R"({"format_version":"grammar-definition-v1",
+  return R"({"format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":40,"max_depth":14},
     "execution_limits":{"fuel":10000},
@@ -240,7 +240,7 @@ void test_repeated_hole_alpha_mapping() {
 
 void test_unused_local_capture_in_empty_frame() {
   const std::string grammar_text =
-      R"({"format_version":"grammar-definition-v1",
+      R"({"format_version":"grammar-definition-v2",
         "entry":{"nonterminal":"Main","type":"Int"},
         "locals":[{"name":"optional_seed","type":"Int"}],
         "search_limits":{"max_nodes":20,"max_depth":10},

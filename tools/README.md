@@ -7,8 +7,8 @@ PSB upstream JSONL
   -> psb fetch
   -> psb convert / psb materialize
   -> fitness-cases fixtures and support manifests
-  -> grammar profile (when compatibility shaping is needed)
-  -> benchmark population-seeds (for fixed-population runs)
+  -> authored grammar-definition-v2 search space
+  -> benchmark population (for fixed-population runs)
   -> psb run -> gagp_evolve_cli
   -> psb compare
   -> report psb-manifest / report simple-manifest
@@ -23,8 +23,9 @@ python3 -m venv .venv-tools
 .venv-tools/bin/gagp-tools --help
 ```
 
-The historical `tools/*.py` paths remain thin compatibility wrappers during
-the migration. They and the unified command execute the same package functions.
+Retained `tools/*.py` paths are thin wrappers around the same package functions
+used by the unified command. The explicitly named legacy grammar-config wrapper
+is migration-only.
 
 ## Dataset commands
 
@@ -40,10 +41,11 @@ Dataset commands own acquisition and conversion only. They emit typed
 ## Experiment commands
 
 ```bash
-gagp-tools grammar profile --help
-gagp-tools benchmark population-seeds \
-  --cases data/fixtures/simple_exp_1024.json --count 1024 \
-  --out logs/fixed_population.seeds.json
+gagp-tools benchmark population \
+  --grammar-definition configs/grammar/examples/restricted_combine.json \
+  --cases configs/grammar/examples/restricted_combine.cases.json \
+  --population-size 1024 --seed 0 \
+  --out logs/fixed_population.json
 gagp-tools psb run --suite psb1 --cases-root data/fixtures/psb1 --dry-run
 ```
 

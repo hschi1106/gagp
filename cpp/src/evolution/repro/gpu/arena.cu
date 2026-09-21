@@ -58,8 +58,7 @@ bool parse_env_device_override(int* out_dev) {
 }  // namespace
 
 bool gpu_repro_config_fits_capacity(const GpuReproConfig& need, const GpuReproConfig& have) {
-  return have.contract_mode == need.contract_mode &&
-         have.population_size >= need.population_size &&
+  return have.population_size >= need.population_size &&
          have.pair_count >= need.pair_count &&
          have.candidates_per_program >= need.candidates_per_program &&
          have.donor_pool_size_per_type >= need.donor_pool_size_per_type &&
@@ -74,11 +73,7 @@ bool gpu_repro_config_fits_capacity(const GpuReproConfig& need, const GpuReproCo
          have.max_nodes >= need.max_nodes &&
          have.max_donor_nodes >= need.max_donor_nodes &&
          have.max_names >= need.max_names &&
-         have.max_consts >= need.max_consts &&
-         have.max_linear_rec_binders >= need.max_linear_rec_binders &&
-         have.max_asgp_dc_binders >= need.max_asgp_dc_binders &&
-         have.max_asgp_dp1d_specs >= need.max_asgp_dp1d_specs &&
-         have.max_asgp_dp2d_specs >= need.max_asgp_dp2d_specs;
+         have.max_consts >= need.max_consts;
 }
 
 bool select_gpu_repro_device(int* device_id, std::string* message_out) {
@@ -215,10 +210,7 @@ bool allocate_gpu_arena(GpuReproArena* arena,
     }
     return set_error(cudaMalloc(reinterpret_cast<void**>(ptr), bytes), what, message_out);
   };
-  const std::size_t total_donor_count = config.contract_mode == ReproductionContractMode::CompiledGrammar
-      ? static_cast<std::size_t>(config.compiled_donor_count)
-      : static_cast<std::size_t>(config.donor_pool_size_per_type) *
-            static_cast<std::size_t>(kGpuReproDonorTypeCount);
+  const std::size_t total_donor_count = static_cast<std::size_t>(config.compiled_donor_count);
   const std::size_t population_count = static_cast<std::size_t>(config.population_size);
   const std::size_t candidate_count = population_count *
       static_cast<std::size_t>(config.candidates_per_program);
@@ -251,7 +243,7 @@ bool allocate_gpu_arena(GpuReproArena* arena,
       !alloc(&arena->d_constant_streams, sizeof(ConstantMutationStream) * static_cast<std::size_t>(config.constant_stream_count),
              "cudaMalloc constant_streams") ||
       !alloc(&arena->d_parent_constant_streams,
-             config.contract_mode == ReproductionContractMode::CompiledGrammar ? sizeof(int) * population_count : 0,
+             sizeof(int) * population_count,
              "cudaMalloc parent_constant_streams") ||
       !alloc(&arena->d_donor_constant_streams,
              sizeof(int) * static_cast<std::size_t>(config.compiled_donor_count),
@@ -284,8 +276,7 @@ bool allocate_gpu_arena(GpuReproArena* arena,
              sizeof(double) * population_count,
              "cudaMalloc fitness") ||
       !alloc(&arena->d_selection_counters,
-             config.contract_mode == ReproductionContractMode::CompiledGrammar
-                 ? sizeof(PackedSelectionCounters) * static_cast<std::size_t>(config.pair_count) : 0,
+             sizeof(PackedSelectionCounters) * static_cast<std::size_t>(config.pair_count),
              "cudaMalloc selection_counters") ||
       !alloc(&arena->d_parent_a,
              sizeof(int) * static_cast<std::size_t>(config.pair_count),
@@ -424,8 +415,7 @@ bool ensure_gpu_repro_host_staging_capacity(GpuReproHostStaging* staging,
   destroy_gpu_repro_host_staging(staging);
 
   if (!alloc_host_pinned(&staging->selection_counters,
-                         config.contract_mode == ReproductionContractMode::CompiledGrammar
-                             ? static_cast<std::size_t>(config.pair_count) : 0,
+                         static_cast<std::size_t>(config.pair_count),
                          message_out, "cudaMallocHost selection_counters") ||
       !alloc_host_pinned(&staging->parent_a, static_cast<std::size_t>(config.pair_count), message_out,
                          "cudaMallocHost parent_a") ||

@@ -12,7 +12,7 @@
 
 namespace gagp::evo::grammar {
 
-inline constexpr std::string_view kCatalogVersion = "gagp-primitives-v2";
+inline constexpr std::string_view kCatalogVersion = "gagp-primitives-v3";
 
 const std::array<RType, 8>& value_types();
 std::string_view type_name(RType type);

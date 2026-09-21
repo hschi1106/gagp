@@ -1,32 +1,6 @@
-if(NOT DEFINED CLI OR NOT DEFINED CASES OR NOT DEFINED ASGP_CASES OR
-   NOT DEFINED ASGP_SCALAR_CASES OR NOT DEFINED VALID_AST OR
-   NOT DEFINED VALID_ASGP_AST OR NOT DEFINED VALID_DP1_AST OR
-   NOT DEFINED VALID_DP2_AST OR NOT DEFINED INVALID_AST)
+if(NOT DEFINED CLI OR NOT DEFINED CASES OR NOT DEFINED VALID_AST OR
+   NOT DEFINED INVALID_AST)
   message(FATAL_ERROR "all AST boundary fixtures are required")
-endif()
-
-foreach(dp_ast IN ITEMS "${VALID_DP1_AST}" "${VALID_DP2_AST}")
-  execute_process(
-    COMMAND "${CLI}" --cases "${ASGP_SCALAR_CASES}" --eval-ast-json "${dp_ast}"
-    RESULT_VARIABLE dp_result
-    OUTPUT_VARIABLE dp_stdout
-    ERROR_VARIABLE dp_stderr
-  )
-  if(NOT dp_result EQUAL 0 OR NOT dp_stdout MATCHES "AST_EVAL fitness=0\\.000000")
-    message(FATAL_ERROR
-      "valid ASGP-DP AST boundary failed (${dp_result})\nstdout: ${dp_stdout}\nstderr: ${dp_stderr}")
-  endif()
-endforeach()
-
-execute_process(
-  COMMAND "${CLI}" --cases "${ASGP_CASES}" --eval-ast-json "${VALID_ASGP_AST}"
-  RESULT_VARIABLE asgp_result
-  OUTPUT_VARIABLE asgp_stdout
-  ERROR_VARIABLE asgp_stderr
-)
-if(NOT asgp_result EQUAL 0 OR NOT asgp_stdout MATCHES "AST_EVAL fitness=0\\.000000")
-  message(FATAL_ERROR
-    "valid ASGP AST boundary failed (${asgp_result})\nstdout: ${asgp_stdout}\nstderr: ${asgp_stderr}")
 endif()
 
 execute_process(

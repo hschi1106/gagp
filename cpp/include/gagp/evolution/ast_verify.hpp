@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "gagp/evolution/ast_program.hpp"
-#include "gagp/evolution/grammar_config.hpp"
 #include "gagp/evolution/input_spec.hpp"
 
 namespace gagp::evo {
@@ -25,11 +24,9 @@ enum class VerifyCode {
   ConstantIndexOutOfRange,
   InvalidConstantTag,
   InvalidIndexField,
-  InvalidListTypeTag,
   MissingMetadata,
   DuplicateMetadata,
   MetadataNodeMismatch,
-  InvalidDependencyKind,
   DependencyArityMismatch,
   InvalidBounds,
   DuplicateName,
@@ -41,8 +38,7 @@ enum class VerifyCode {
   TypeMismatch,
   InconsistentReturnType,
   MissingReturn,
-  NestedAsgp,
-  GrammarConfigDisallowed,
+  NestedIsolatedRegion,
   ResourceLimit,
 };
 
@@ -60,7 +56,6 @@ struct VerifyOptions {
   std::size_t max_expression_depth = 0;
   std::size_t max_statements = 0;
   std::size_t max_metadata_entries = 0;
-  const GrammarConfig* grammar_config = nullptr;
   bool capture_exact_scopes = false;
 };
 

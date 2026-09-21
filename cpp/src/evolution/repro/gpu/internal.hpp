@@ -10,18 +10,10 @@
 
 namespace gagp::evo::repro {
 
-inline bool require_legacy_gpu_contract(const GpuReproConfig& config, std::string* message_out) {
-  if (config.contract_mode == ReproductionContractMode::Legacy) return true;
-  if (message_out) *message_out = "legacy GPU reproduction entry point cannot consume compiled grammar state";
-  return false;
-}
-
-// Validate dimensions and bounded storage for both compiled operator passes.
+// Validate dimensions and bounded storage for compiled operator passes.
 inline bool require_gpu_transport_config(const GpuReproConfig& c, std::string* message_out) {
-  if (c.contract_mode == ReproductionContractMode::Legacy) return true;
   const auto count = [](int n) { return n >= 0 && n <= 1048576; };
-  if (c.contract_mode != ReproductionContractMode::CompiledGrammar ||
-      c.population_size <= 0 || c.population_size > 65536 ||
+  if (c.population_size <= 0 || c.population_size > 65536 ||
       c.pair_count != (c.population_size + 1) / 2 ||
       c.candidates_per_program <= 0 || c.candidates_per_program > 65536 ||
       c.max_nodes <= 0 || c.max_nodes > kGpuReproKernelMaxNodes ||

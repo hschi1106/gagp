@@ -210,44 +210,6 @@ __device__ inline PackedChildMeta d_compute_child_meta(const DPlainNode* nodes,
           }
           break;
         }
-        if (kind == NodeKind::MAP_LIST || kind == NodeKind::FILTER_LIST) {
-          if (!d_push_parse_task(task_stack, &task_size, DParseTaskKind::ReduceBinary) ||
-              !d_push_parse_task(task_stack, &task_size, DParseTaskKind::Expr) ||
-              !d_push_parse_task(task_stack, &task_size, DParseTaskKind::Expr)) {
-            return out;
-          }
-          break;
-        }
-        if (kind == NodeKind::LINEAR_REC) {
-          if (!d_push_parse_task(task_stack, &task_size, DParseTaskKind::ReduceFive) ||
-              !d_push_parse_task(task_stack, &task_size, DParseTaskKind::Expr) ||
-              !d_push_parse_task(task_stack, &task_size, DParseTaskKind::Expr) ||
-              !d_push_parse_task(task_stack, &task_size, DParseTaskKind::Expr) ||
-              !d_push_parse_task(task_stack, &task_size, DParseTaskKind::Expr) ||
-              !d_push_parse_task(task_stack, &task_size, DParseTaskKind::Expr)) {
-            return out;
-          }
-          break;
-        }
-        if (kind == NodeKind::ASGP_DC || kind == NodeKind::ASGP_DP2D) {
-          if (!d_push_parse_task(task_stack, &task_size, DParseTaskKind::ReduceFour) ||
-              !d_push_parse_task(task_stack, &task_size, DParseTaskKind::Expr) ||
-              !d_push_parse_task(task_stack, &task_size, DParseTaskKind::Expr) ||
-              !d_push_parse_task(task_stack, &task_size, DParseTaskKind::Expr) ||
-              !d_push_parse_task(task_stack, &task_size, DParseTaskKind::Expr)) {
-            return out;
-          }
-          break;
-        }
-        if (kind == NodeKind::ASGP_DP1D) {
-          if (!d_push_parse_task(task_stack, &task_size, DParseTaskKind::ReduceTernary) ||
-              !d_push_parse_task(task_stack, &task_size, DParseTaskKind::Expr) ||
-              !d_push_parse_task(task_stack, &task_size, DParseTaskKind::Expr) ||
-              !d_push_parse_task(task_stack, &task_size, DParseTaskKind::Expr)) {
-            return out;
-          }
-          break;
-        }
         return out;
       }
       case DParseTaskKind::ReduceUnary:
@@ -401,8 +363,7 @@ __device__ inline DPlainNode remap_node_for_child(const DPlainNode& in,
   if (kind == NodeKind::CONST) {
     out.i0 = remap_const_value(source_consts[in.i0], child_consts, child_const_count, max_consts);
   } else if (kind == NodeKind::VAR || kind == NodeKind::BOUND_VAR ||
-             kind == NodeKind::ASSIGN || kind == NodeKind::FOR_RANGE ||
-             kind == NodeKind::MAP_LIST || kind == NodeKind::FILTER_LIST) {
+             kind == NodeKind::ASSIGN || kind == NodeKind::FOR_RANGE) {
     out.i0 = remap_name_id(source_names[in.i0], child_names, child_name_count, max_names);
   }
   return out;

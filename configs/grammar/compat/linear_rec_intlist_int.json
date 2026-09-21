@@ -1,5 +1,5 @@
 {
-  "format_version": "grammar-definition-v1",
+  "format_version": "grammar-definition-v2",
   "imports": ["../packages/linear_rec_intlist_int.json"],
   "entry": {"nonterminal": "Compat.LinearRec.IntList.Int", "type": "Int"},
   "inputs": [{"name": "source", "type": "IntList"}, {"name": "start", "type": "Int"}],

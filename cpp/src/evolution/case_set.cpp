@@ -45,15 +45,7 @@ RType infer_expected_return_type(const std::vector<EvalCase>& cases) {
 
 }  // namespace
 
-RType generation_input_type_for_grammar(RType inferred, const GrammarConfig& grammar) {
-  if (grammar.compat_legacy_num_list_inputs_as_any &&
-      (inferred == RType::IntList || inferred == RType::FloatList)) {
-    return RType::Any;
-  }
-  return inferred;
-}
-
-CaseSet prepare_case_set(const std::vector<EvalCase>& cases, const GrammarConfig& grammar) {
+CaseSet prepare_case_set(const std::vector<EvalCase>& cases) {
   CaseSet out;
   std::set<std::string> names;
   for (const EvalCase& one_case : cases) {
@@ -70,8 +62,7 @@ CaseSet prepare_case_set(const std::vector<EvalCase>& cases, const GrammarConfig
         type = merge_input_type(type, value_rtype(found->second, true));
       }
     }
-    out.input_specs.push_back(
-        InputSpec{name, generation_input_type_for_grammar(type, grammar)});
+    out.input_specs.push_back(InputSpec{name, type});
   }
 
   out.bindings.reserve(cases.size());
@@ -92,9 +83,8 @@ CaseSet prepare_case_set(const std::vector<EvalCase>& cases, const GrammarConfig
   return out;
 }
 
-std::vector<InputSpec> canonical_input_specs(const std::vector<EvalCase>& cases,
-                                             const GrammarConfig& grammar) {
-  return prepare_case_set(cases, grammar).input_specs;
+std::vector<InputSpec> canonical_input_specs(const std::vector<EvalCase>& cases) {
+  return prepare_case_set(cases).input_specs;
 }
 
 }  // namespace gagp::evo

@@ -1,9 +1,7 @@
-#include <cstdint>
 #include <iostream>
 #include <string>
 
 #include "gagp/evolution/ast_verify.hpp"
-#include "gagp/evolution/genome_generation.hpp"
 
 namespace {
 
@@ -24,57 +22,6 @@ AstProgram simple_program() {
       AstNode{NodeKind::CONST, 0, 0},
       AstNode{NodeKind::BLOCK_NIL, 0, 0},
   };
-  return ast;
-}
-
-AstProgram linear_program() {
-  AstProgram ast;
-  ast.names = {"u", "v", "idx"};
-  ast.consts = {
-      gagp::Value::from_int(1),
-      gagp::Value::from_int(0),
-      gagp::Value::from_int(2),
-      gagp::Value::from_int(3),
-      gagp::Value::from_int(4),
-  };
-  ast.nodes = {
-      AstNode{NodeKind::PROGRAM, 0, 0},
-      AstNode{NodeKind::BLOCK_CONS, 0, 0},
-      AstNode{NodeKind::RETURN, 0, 0},
-      AstNode{NodeKind::LINEAR_REC, 0, 0},
-      AstNode{NodeKind::CONST, 0, 0},
-      AstNode{NodeKind::CONST, 1, 0},
-      AstNode{NodeKind::CONST, 2, 0},
-      AstNode{NodeKind::CONST, 3, 0},
-      AstNode{NodeKind::CONST, 4, 0},
-      AstNode{NodeKind::BLOCK_NIL, 0, 0},
-  };
-  ast.linear_rec_binders = {LinearRecBinders{3, 0, 1, 2}};
-  return ast;
-}
-
-AstProgram dp1_program() {
-  AstProgram ast;
-  ast.names = {"solve_s", "transition_s", "dep"};
-  ast.consts = {
-      gagp::Value::from_int(2),
-      gagp::Value::from_int(1),
-      gagp::Value::from_int(3),
-      gagp::Value::from_int(0),
-  };
-  ast.nodes = {
-      AstNode{NodeKind::PROGRAM, 0, 0},
-      AstNode{NodeKind::BLOCK_CONS, 0, 0},
-      AstNode{NodeKind::RETURN, 0, 0},
-      AstNode{NodeKind::ASGP_DP1D, 0, 0},
-      AstNode{NodeKind::CONST, 0, 0},
-      AstNode{NodeKind::CONST, 1, 0},
-      AstNode{NodeKind::CONST, 2, 0},
-      AstNode{NodeKind::BLOCK_NIL, 0, 0},
-  };
-  ast.asgp_dp1d_specs = {AsgpDp1dSpec{
-      3, 0, 5, 0, 3, NodeKind::DP1_BACKWARD1, {1}, 0, 1, {2},
-  }};
   return ast;
 }
 
@@ -145,39 +92,6 @@ int main() {
   ast.consts[0] = gagp::Value::invalid();
   if (!expect_code(ast, VerifyCode::InvalidConstantTag, "invalid constant tag")) return 1;
 
-  ast = simple_program();
-  ast.names = {"u"};
-  ast.nodes[3] = AstNode{NodeKind::MAP_LIST, 0, 0};
-  ast.nodes.insert(ast.nodes.begin() + 4, AstNode{NodeKind::CONST, 0, 0});
-  ast.nodes.insert(ast.nodes.begin() + 5, AstNode{NodeKind::CONST, 0, 0});
-  if (!expect_code(ast, VerifyCode::InvalidListTypeTag, "map result list tag")) return 1;
-
-  ast = linear_program();
-  ast.linear_rec_binders.clear();
-  if (!expect_code(ast, VerifyCode::MissingMetadata, "missing linear metadata")) return 1;
-
-  ast = linear_program();
-  ast.linear_rec_binders.push_back(ast.linear_rec_binders.front());
-  if (!expect_code(ast, VerifyCode::DuplicateMetadata, "duplicate linear metadata")) return 1;
-
-  ast = simple_program();
-  ast.names = {"u", "v", "idx"};
-  ast.linear_rec_binders = {LinearRecBinders{3, 0, 1, 2}};
-  if (!expect_code(ast, VerifyCode::MetadataNodeMismatch, "misplaced linear metadata")) return 1;
-
-  ast = dp1_program();
-  if (!check(verify_ast_structure(ast).ok, "valid DP1D structure")) return 1;
-  ast.asgp_dp1d_specs[0].dep_offsets.push_back(2);
-  if (!expect_code(ast, VerifyCode::DependencyArityMismatch, "DP1D dependency arity")) return 1;
-
-  ast = dp1_program();
-  ast.asgp_dp1d_specs[0].dep_kind = NodeKind::ADD;
-  if (!expect_code(ast, VerifyCode::InvalidDependencyKind, "DP1D dependency kind")) return 1;
-
-  ast = dp1_program();
-  ast.asgp_dp1d_specs[0].base_state = 5;
-  if (!expect_code(ast, VerifyCode::InvalidBounds, "DP1D base state")) return 1;
-
   VerifyOptions limits;
   limits.max_nodes = 4;
   if (!expect_code(simple_program(), VerifyCode::ResourceLimit, "node limit", limits)) return 1;
@@ -188,14 +102,6 @@ int main() {
   ast.nodes[3] = AstNode{NodeKind::NEG, 0, 0};
   ast.nodes.insert(ast.nodes.begin() + 4, AstNode{NodeKind::CONST, 0, 0});
   if (!expect_code(ast, VerifyCode::ResourceLimit, "expression depth limit", limits)) return 1;
-
-  for (std::uint64_t seed = 0; seed < 128; ++seed) {
-    const ProgramGenome genome = generate_random_genome(seed);
-    const AstVerifyResult generated = verify_ast_structure(genome.ast);
-    if (!check(generated.ok,
-               "generated seed " + std::to_string(seed) + " should verify structurally: " +
-                   generated.diagnostic.message)) return 1;
-  }
 
   return 0;
 }

@@ -145,7 +145,7 @@ void test_documented_custom_grammar() {
 }
 
 const char* nested_scope_grammar = R"({
-  "format_version":"grammar-definition-v1",
+  "format_version":"grammar-definition-v2",
   "entry":{"nonterminal":"Main","type":"Int"},
   "search_limits":{"max_nodes":20,"max_depth":10},
   "execution_limits":{"fuel":1000},
@@ -225,7 +225,7 @@ std::string traversal_grammar(const std::string& operation, bool ranged) {
           {"constant":{"type":"Int","values":["0"]}},
           {"ref":"Step"}])";
   const std::string body_argument = ranged ? "5" : "3";
-  return R"({"format_version":"grammar-definition-v1",
+  return R"({"format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":24,"max_depth":10},
     "execution_limits":{"fuel":10000},
@@ -271,7 +271,7 @@ void test_traversal_directions_and_ranges() {
 }
 
 const char* sibling_hole_grammar = R"({
-  "format_version":"grammar-definition-v1",
+  "format_version":"grammar-definition-v2",
   "entry":{"nonterminal":"Main","type":"Int"},
   "search_limits":{"max_nodes":20,"max_depth":10},
   "execution_limits":{"fuel":1000},
@@ -291,7 +291,7 @@ const char* sibling_hole_grammar = R"({
 })";
 
 const char* nested_payload_hole_grammar = R"({
-  "format_version":"grammar-definition-v1",
+  "format_version":"grammar-definition-v2",
   "entry":{"nonterminal":"Main","type":"Int"},
   "search_limits":{"max_nodes":30,"max_depth":12},
   "execution_limits":{"fuel":1000},
@@ -338,7 +338,7 @@ void test_repeated_holes_across_sibling_regions() {
 }
 
 const char* forwarded_scope_grammar = R"({
-  "format_version":"grammar-definition-v1",
+  "format_version":"grammar-definition-v2",
   "entry":{"nonterminal":"Main","type":"Int"},
   "search_limits":{"max_nodes":20,"max_depth":10},
   "execution_limits":{"fuel":1000},
@@ -370,7 +370,7 @@ void test_forwarded_nonempty_scope_hole() {
 }
 
 const char* divergent_constant_grammar = R"({
-  "format_version":"grammar-definition-v1",
+  "format_version":"grammar-definition-v2",
   "entry":{"nonterminal":"Main","type":"Int"},
   "search_limits":{"max_nodes":10,"max_depth":7},
   "execution_limits":{"fuel":100},

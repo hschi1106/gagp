@@ -16,8 +16,8 @@ compatibility wrappers.
 | `psb fetch` / `fetch_psb_datasets.py` | public workflow / datasets | PSB family, problem selection, upstream network | JSONL under `data/psb*_datasets/` | conversion/materialization | maintained |
 | `psb convert` / `convert_psb_to_fitness_cases.py` | public workflow / datasets | PSB JSONL, split/schema options | `fitness-cases` JSON | native CLI, materializer | maintained |
 | `psb materialize` / `materialize_psb_fixtures.py` | public workflow / datasets | mirrored datasets, exclusions, schema policy | fixtures plus support manifest | PSB experiment runner | maintained |
-| `grammar profile` / `grammar_config_profiles.py` | internal support / experiments | base grammar profile and compatibility choices | generated grammar-config JSON/hash | regression runner | maintained |
-| `benchmark population-seeds` / `make_population_seeds.py` | public workflow / experiments | cases path, count, limits, seed base | `population-seeds` JSON | fixed-pop CLI runs | maintained |
+| `legacy_grammar_config_profiles.py` | migration-only legacy support | release-1 grammar profile and compatibility choices | release-1 grammar-config JSON/hash | frozen oracle workflow | legacy migration only |
+| `make_population.py` | public workflow / experiments | v2 definition, cases, population size, seed | `grammar-population-v2` JSON | fixed-pop CLI runs | maintained |
 | `psb run` / `run_psb_regression.py` | public workflow / experiments | native binary, fixtures, seeds/config, run matrix | per-run JSON and summary | comparison/report commands | maintained |
 | `psb compare` / `compare_psb_baseline.py` | public workflow / reports | compatible baseline/candidate summaries, tolerance policy | comparison JSON and exit gate | CI/release review | maintained |
 | `report psb-manifest` / `write_psb_manifest.py` | internal support / reports | PSB comparison/run artifacts | compact PSB evidence manifest | committed `benchmarks/` evidence | maintained |
@@ -37,9 +37,8 @@ their existing explicit policies documented in `docs/guides/development.md`.
 | --- | --- | --- | --- |
 | `gagp_evolve_cli` | product CLI / native runtime | default | supported evolution, AST evaluation, and fixed-pop workflow |
 | `gagp_runtime_multi_bench` | benchmark / performance | `-DGAGP_BUILD_BENCHMARKS=ON` | low-level runtime throughput experiments |
-| `gagp_grammar_migration_bench` | benchmark / migration evidence | `-DGAGP_BUILD_BENCHMARKS=ON` | materialized population capture, production evolution replay, and CPU/GPU oracle measurements; not a product command |
-| `gagp_migration_oracle_replay` | benchmark / migration evidence | `-DGAGP_BUILD_BENCHMARKS=ON` | exact bytecode/payload restoration and reference CPU/GPU fitness replay; not a product command |
-| `gagp_simple_exp_population_probe` | experiment probe / parity research | `-DGAGP_BUILD_EXPERIMENTS=ON`, CUDA only | diagnostic fixed-pop CPU/GPU fitness comparison; not a product command |
+| `gagp_migrate_artifact` | offline migration command | default migration target | converts supported release-1 grammar configs and materialized ASTs to v2; not production execution dispatch |
+| `gagp_simple_exp_population_probe` | experiment probe / parity research | `-DGAGP_BUILD_EXPERIMENTS=ON`, CUDA only | diagnostic fixed-pop CPU/GPU fitness comparison with compiled-grammar generation and variation; not a product command |
 | `gagp_test_vm_cli_harness` | test harness / runtime contracts | default, driven by CTest | executes versioned runtime fixtures |
 | `gagp_test_*` | tests / owning native module | default, registered with CTest | unit, contract, property, integration, GPU, and parity gates |
 | `gagp_fuzz_*` | fuzz harness / verifier boundaries | `-DGAGP_BUILD_FUZZERS=ON`, Clang and CPU-only | extended malformed-input campaigns |

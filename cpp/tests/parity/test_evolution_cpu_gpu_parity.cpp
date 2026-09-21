@@ -6,6 +6,8 @@
 
 #include "gagp/core/value.hpp"
 #include "gagp/evolution/evolve.hpp"
+#include "gagp/evolution/grammar/definition.hpp"
+#include "gagp/evolution/grammar/generate.hpp"
 
 namespace {
 
@@ -30,17 +32,6 @@ std::vector<gagp::evo::EvalCase> simple_cases() {
   };
 }
 
-bool genome_contains_asgp(const gagp::evo::ProgramGenome& genome) {
-  for (const gagp::evo::AstNode& node : genome.ast.nodes) {
-    if (node.kind == gagp::evo::NodeKind::ASGP_DC ||
-        node.kind == gagp::evo::NodeKind::ASGP_DP1D ||
-        node.kind == gagp::evo::NodeKind::ASGP_DP2D) {
-      return true;
-    }
-  }
-  return false;
-}
-
 void diagnose_generation_population(const std::vector<gagp::evo::EvalCase>& cases,
                                     gagp::evo::EvolutionConfig cpu_cfg,
                                     gagp::evo::EvolutionConfig gpu_cfg,
@@ -60,8 +51,7 @@ void diagnose_generation_population(const std::vector<gagp::evo::EvalCase>& case
     auto it = gpu_by_key.find(one.genome.meta.program_key);
     if (it == gpu_by_key.end()) {
       std::cerr << "DIAG: missing gpu program key at generation " << generation
-                << " key=" << one.genome.meta.program_key
-                << " asgp=" << (genome_contains_asgp(one.genome) ? "true" : "false") << "\n";
+                << " key=" << one.genome.meta.program_key << "\n";
       return;
     }
     if (one.fitness != it->second->fitness) {
@@ -69,7 +59,6 @@ void diagnose_generation_population(const std::vector<gagp::evo::EvalCase>& case
                 << " key=" << one.genome.meta.program_key
                 << " cpu=" << one.fitness
                 << " gpu=" << it->second->fitness
-                << " asgp=" << (genome_contains_asgp(one.genome) ? "true" : "false")
                 << " nodes=" << one.genome.meta.node_count << "\n";
       return;
     }
@@ -126,6 +115,20 @@ bool same_history(const gagp::evo::EvolutionResult& cpu, const gagp::evo::Evolut
 }  // namespace
 
 int main() {
+  const auto grammar = std::make_shared<const gagp::evo::grammar::CompiledGrammar>(
+      gagp::evo::grammar::compile_grammar(
+          gagp::evo::grammar::parse_definition(R"({
+    "format_version":"grammar-definition-v2",
+    "entry":{"nonterminal":"Expr","type":"Int"},
+    "inputs":[{"name":"x","type":"Int"}],
+    "search_limits":{"max_nodes":30,"max_depth":8},
+    "execution_limits":{"fuel":20000},
+    "nonterminals":[{"id":"Expr","type":"Int","scope":[],"alternatives":[
+      {"id":"input","weight":2,"expression":{"input":"x"}},
+      {"id":"constant","weight":1,"expression":{"constant":{"type":"Int","range":["-2","3"]}}},
+      {"id":"add","weight":2,"expression":{"signature":"add(Int,Int)->Int","args":[{"ref":"Expr"},{"ref":"Expr"}]}}
+    ]}]
+  })")));
   gagp::evo::EvolutionConfig cpu_cfg;
   cpu_cfg.population_size = 64;
   cpu_cfg.generations = 8;
@@ -134,6 +137,8 @@ int main() {
   cpu_cfg.selection_pressure = 3;
   cpu_cfg.seed = 42;
   cpu_cfg.eval_engine = gagp::evo::EvalEngine::CPU;
+  cpu_cfg.compiled_grammar = grammar;
+  cpu_cfg.generation_request = gagp::evo::grammar::entry_request(*grammar);
 
   gagp::evo::EvolutionConfig gpu_cfg = cpu_cfg;
   gpu_cfg.eval_engine = gagp::evo::EvalEngine::GPU;

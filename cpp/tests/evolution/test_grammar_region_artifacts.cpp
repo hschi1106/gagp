@@ -24,7 +24,7 @@ namespace {
 using Json = JsonValue;
 
 const std::string definition = R"({
-  "format_version":"grammar-definition-v1",
+  "format_version":"grammar-definition-v2",
   "entry":{"nonterminal":"Main","type":"Int"},
   "search_limits":{"max_nodes":40,"max_depth":12},
   "execution_limits":{"fuel":1000},

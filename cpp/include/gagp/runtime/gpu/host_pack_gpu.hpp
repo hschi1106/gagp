@@ -18,9 +18,6 @@ struct PackResult {
   std::vector<Value> all_consts;
   std::vector<DInstr> all_phase_code;
   std::vector<Value> all_phase_consts;
-  std::vector<DAsgpDcSegment> asgp_dc_segments;
-  std::vector<DAsgpDp1dSegment> asgp_dp1d_segments;
-  std::vector<DAsgpDp2dSegment> asgp_dp2d_segments;
   std::vector<DRegionSegment> region_segments;
   std::vector<DRegionPhase> region_phases;
   std::vector<DRegionPhaseBinding> region_bindings;
@@ -42,9 +39,6 @@ struct DeviceArena {
   DInstr* d_code = nullptr;
   Value* d_phase_consts = nullptr;
   DInstr* d_phase_code = nullptr;
-  DAsgpDcSegment* d_asgp_dc_segments = nullptr;
-  DAsgpDp1dSegment* d_asgp_dp1d_segments = nullptr;
-  DAsgpDp2dSegment* d_asgp_dp2d_segments = nullptr;
   DRegionSegment* d_region_segments = nullptr;
   DRegionPhase* d_region_phases = nullptr;
   DRegionPhaseBinding* d_region_bindings = nullptr;

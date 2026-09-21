@@ -69,7 +69,7 @@ std::string encoded_plan(const RegionPlan& plan) {
 // memoized one-dependency bounded region.
 std::string unary_template_definition() {
   std::string text = R"JSON({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":100,"max_depth":20},
     "execution_limits":{"fuel":1000},
@@ -132,7 +132,7 @@ std::string nested_template_definition() {
       unary_plan(false, false), R"JSON({"hole":"initial"})JSON",
       R"JSON({"constant":{"type":"Int","values":["0"]}})JSON", "1");
   return std::string(R"JSON({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":64,"max_depth":20},
     "execution_limits":{"fuel":1000},
@@ -181,13 +181,6 @@ enum class Shape {
 void require_shape(const ProgramGenome& genome, Shape shape,
                    const std::string& label) {
   const auto& regions = genome.ast.bounded_region_specs;
-  for (const auto& node : genome.ast.nodes) {
-    require(node.kind != NodeKind::LINEAR_REC &&
-                node.kind != NodeKind::ASGP_DC &&
-                node.kind != NodeKind::ASGP_DP1D &&
-                node.kind != NodeKind::ASGP_DP2D,
-            label + ": generated a legacy structured node");
-  }
   if (shape == Shape::PackageLinear) {
     require(regions.empty() &&
                 std::count_if(genome.ast.nodes.begin(), genome.ast.nodes.end(),
@@ -350,7 +343,7 @@ void exercise_mode(const std::shared_ptr<const CompiledGrammar>& grammar,
   population.reserve(evolved.final_population.size());
   for (const auto& scored : evolved.final_population)
     population.push_back(scored.genome);
-  const CaseSet case_set = prepare_case_set(cases, config.grammar);
+  const CaseSet case_set = prepare_case_set(cases);
   const auto programs = validate_and_compile(
       *grammar, *config.generation_request, population, case_set, shape,
       expected, label, exact_expected);

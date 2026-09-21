@@ -57,7 +57,7 @@ void rejects(const std::vector<std::string>& args) {
   throw std::runtime_error("invalid generation CLI invocation accepted");
 }
 const std::string definition = R"({
-  "format_version":"grammar-definition-v1","entry":{"nonterminal":"Value","type":"Int"},
+  "format_version":"grammar-definition-v2","entry":{"nonterminal":"Value","type":"Int"},
   "inputs":[{"name":"x","type":"Int"}],
   "search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":100},
   "nonterminals":[{"id":"Value","type":"Int","scope":[],"alternatives":[
@@ -135,7 +135,7 @@ void test_generation_and_replay() {
 void test_import_identity() {
   TempFiles files;
   auto root = parse(definition);
-  auto library = parse(R"({"format_version":"grammar-definition-v1"})");
+  auto library = parse(R"({"format_version":"grammar-definition-v2"})");
   library.object_v["nonterminals"] = root.object_v.at("nonterminals");
   root.object_v["nonterminals"] = parse("[]");
   root.object_v["imports"] = parse(R"(["library.json"])");

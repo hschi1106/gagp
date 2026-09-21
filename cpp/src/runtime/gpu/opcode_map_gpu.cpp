@@ -5,6 +5,14 @@
 
 namespace gagp::gpu_detail {
 
-int host_opcode(const Opcode op) { return static_cast<int>(op); }
+int host_opcode(const Opcode op) {
+  const int value = static_cast<int>(op);
+  if ((value >= static_cast<int>(Opcode::PushConst) &&
+       value <= static_cast<int>(Opcode::EmptyListLike)) ||
+      value == static_cast<int>(Opcode::BoundedRegion)) {
+    return value;
+  }
+  return -1;
+}
 
 }  // namespace gagp::gpu_detail

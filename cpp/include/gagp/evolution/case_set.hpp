@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "gagp/core/value.hpp"
-#include "gagp/evolution/grammar_config.hpp"
 #include "gagp/evolution/input_spec.hpp"
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 
@@ -26,9 +25,7 @@ struct CaseSet {
   RType expected_return_type = RType::Invalid;
 };
 
-RType generation_input_type_for_grammar(RType inferred, const GrammarConfig& grammar);
-CaseSet prepare_case_set(const std::vector<EvalCase>& cases, const GrammarConfig& grammar);
-std::vector<InputSpec> canonical_input_specs(const std::vector<EvalCase>& cases,
-                                             const GrammarConfig& grammar);
+CaseSet prepare_case_set(const std::vector<EvalCase>& cases);
+std::vector<InputSpec> canonical_input_specs(const std::vector<EvalCase>& cases);
 
 }  // namespace gagp::evo

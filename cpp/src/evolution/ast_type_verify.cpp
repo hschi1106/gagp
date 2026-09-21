@@ -45,13 +45,6 @@ RType list_element_type(RType type) {
   return RType::Invalid;
 }
 
-RType list_type_from_tag(int tag) {
-  if (tag == static_cast<int>(ListTypeTag::Int)) return RType::IntList;
-  if (tag == static_cast<int>(ListTypeTag::Float)) return RType::FloatList;
-  if (tag == static_cast<int>(ListTypeTag::String)) return RType::StringList;
-  return RType::Invalid;
-}
-
 RType value_type(const Value& value) {
   switch (value.tag) {
     case ValueTag::Int: return RType::Int;
@@ -100,11 +93,6 @@ const char* type_name(RType type) {
   return "Invalid";
 }
 
-bool is_asgp_kind(NodeKind kind) {
-  return kind == NodeKind::ASGP_DC || kind == NodeKind::ASGP_DP1D ||
-         kind == NodeKind::ASGP_DP2D;
-}
-
 std::uint64_t type_env_signature(const TypeEnv& env) {
   std::vector<std::pair<int, RType>> entries(env.begin(), env.end());
   std::sort(entries.begin(), entries.end(), [](const auto& left, const auto& right) {
@@ -137,7 +125,6 @@ class TypedVerifier {
   AstVerifyResult run() {
     if (!result_) return result_;
     if (!prepare_names_and_inputs()) return result_;
-    if (!check_grammar_config()) return result_;
 
     TypeEnv locals;
     for (const InputSpec& input : inputs_) {
@@ -205,62 +192,6 @@ class TypedVerifier {
     return true;
   }
 
-  bool check_grammar_config() {
-    if (options_.grammar_config == nullptr) return true;
-    for (std::size_t i = 0; i < ast_.nodes.size(); ++i) {
-      if (!options_.grammar_config->allows_node_kind(ast_.nodes[i].kind)) {
-        return fail_bool(VerifyCode::GrammarConfigDisallowed, i, node_path(i),
-                         "node is valid in the language but disabled by the supplied grammar config");
-      }
-    }
-    for (std::size_t i = 0; i < ast_.consts.size(); ++i) {
-      if (!options_.grammar_config->allows_type(value_type(ast_.consts[i]))) {
-        return fail_bool(VerifyCode::GrammarConfigDisallowed, 0,
-                         "$.consts[" + std::to_string(i) + "]",
-                         "constant type is disabled by the supplied grammar config");
-      }
-    }
-    return true;
-  }
-
-  const LinearRecBinders& linear_metadata(std::size_t node_index) const {
-    for (const LinearRecBinders& row : ast_.linear_rec_binders) {
-      if (row.node_index == node_index) return row;
-    }
-    return ast_.linear_rec_binders.front();
-  }
-
-  const AsgpDcBinders& dc_metadata(std::size_t node_index) const {
-    for (const AsgpDcBinders& row : ast_.asgp_dc_binders) {
-      if (row.node_index == node_index) return row;
-    }
-    return ast_.asgp_dc_binders.front();
-  }
-
-  const AsgpDp1dSpec& dp1_metadata(std::size_t node_index) const {
-    for (const AsgpDp1dSpec& row : ast_.asgp_dp1d_specs) {
-      if (row.node_index == node_index) return row;
-    }
-    return ast_.asgp_dp1d_specs.front();
-  }
-
-  const AsgpDp2dSpec& dp2_metadata(std::size_t node_index) const {
-    for (const AsgpDp2dSpec& row : ast_.asgp_dp2d_specs) {
-      if (row.node_index == node_index) return row;
-    }
-    return ast_.asgp_dp2d_specs.front();
-  }
-
-  bool distinct_binders(std::size_t node_index, const std::vector<int>& names,
-                        const std::string& context) {
-    std::set<int> unique(names.begin(), names.end());
-    if (unique.size() != names.size()) {
-      return fail_bool(VerifyCode::DuplicateBinder, node_index, node_path(node_index),
-                       context + " binder roles must use distinct names");
-    }
-    return true;
-  }
-
   std::vector<std::size_t> children(std::size_t node_index) const {
     std::vector<std::size_t> out;
     const int arity = node_prefix_arity(ast_.nodes[node_index]);
@@ -289,7 +220,7 @@ class TypedVerifier {
   }
 
   ExprResult verify_expression(std::size_t node_index, const TypeEnv& locals,
-                               const TypeEnv& binders, bool asgp_phase) {
+                               const TypeEnv& binders, bool isolated_phase) {
     const AstNode& node = ast_.nodes[node_index];
     const NodeKind kind = node.kind;
     TypeEnv annotated_locals;
@@ -312,11 +243,9 @@ class TypedVerifier {
         !capture_exact_scope(node_index, *scope_locals, binders)) {
       return ExprResult{RType::Invalid, result_.verified.subtree_end[node_index]};
     }
-    if (asgp_phase && (is_asgp_kind(kind) || kind == NodeKind::BOUNDED_REGION)) {
-      return fail_expr(VerifyCode::NestedAsgp, node_index,
-                       kind == NodeKind::BOUNDED_REGION
-                           ? "isolated phase bodies cannot contain bounded region source forms"
-                           : "ASGP phase bodies cannot contain ASGP source forms");
+    if (isolated_phase && kind == NodeKind::BOUNDED_REGION) {
+      return fail_expr(VerifyCode::NestedIsolatedRegion, node_index,
+                       "isolated phase bodies cannot contain bounded region source forms");
     }
 
     if (kind == NodeKind::CONST) {
@@ -350,20 +279,14 @@ class TypedVerifier {
     const std::vector<std::size_t> child = children(node_index);
     if (kind == NodeKind::LET_REGION || kind == NodeKind::TRAVERSE ||
         kind == NodeKind::TRAVERSE_RANGE)
-      return verify_region(node_index, child, locals, binders, asgp_phase);
-    if (kind == NodeKind::MAP_LIST) return verify_map(node_index, child, locals, binders, asgp_phase);
-    if (kind == NodeKind::FILTER_LIST) return verify_filter(node_index, child, locals, binders, asgp_phase);
-    if (kind == NodeKind::LINEAR_REC) return verify_linear(node_index, child, locals, binders, asgp_phase);
-    if (kind == NodeKind::ASGP_DC) return verify_dc(node_index, child, locals, binders);
-    if (kind == NodeKind::ASGP_DP1D) return verify_dp1(node_index, child, locals, binders);
-    if (kind == NodeKind::ASGP_DP2D) return verify_dp2(node_index, child, locals, binders);
+      return verify_region(node_index, child, locals, binders, isolated_phase);
     if (kind == NodeKind::BOUNDED_REGION)
-      return verify_bounded_region(node_index, child, locals, binders, asgp_phase);
+      return verify_bounded_region(node_index, child, locals, binders, isolated_phase);
 
     std::vector<RType> args;
     args.reserve(child.size());
     for (std::size_t index : child) {
-      const ExprResult value = verify_expression(index, locals, binders, asgp_phase);
+      const ExprResult value = verify_expression(index, locals, binders, isolated_phase);
       if (!result_) return value;
       args.push_back(value.type);
     }
@@ -520,7 +443,7 @@ class TypedVerifier {
   ExprResult verify_region(std::size_t node_index,
                            const std::vector<std::size_t>& child,
                            const TypeEnv& locals, const TypeEnv& binders,
-                           bool asgp_phase) {
+                           bool isolated_phase) {
     const LexicalRegion* region = nullptr;
     for (const auto& row : ast_.lexical_regions) {
       if (row.node_index == node_index) { region = &row; break; }
@@ -532,7 +455,7 @@ class TypedVerifier {
         (ast_.nodes[node_index].kind == NodeKind::TRAVERSE_RANGE ? 5 : 3);
     std::vector<RType> args;
     for (std::size_t slot = 0; slot < body_slot; ++slot) {
-      const auto value = verify_expression(child[slot], locals, binders, asgp_phase);
+      const auto value = verify_expression(child[slot], locals, binders, isolated_phase);
       if (!result_) return value;
       args.push_back(value.type);
     }
@@ -556,7 +479,7 @@ class TypedVerifier {
       }
       body_binders[-region->bindings[slot].id - 1] = expected[slot];
     }
-    const auto body = verify_expression(child[body_slot], locals, body_binders, asgp_phase);
+    const auto body = verify_expression(child[body_slot], locals, body_binders, isolated_phase);
     if (!result_) return body;
     if (!is_let && body.type != args.back()) {
       return fail_expr(VerifyCode::TypeMismatch, node_index,
@@ -645,132 +568,6 @@ class TypedVerifier {
       }
     }
     return typed(node_index, value_type(plan.result_type));
-  }
-
-  ExprResult verify_map(std::size_t node_index, const std::vector<std::size_t>& child,
-                        const TypeEnv& locals, const TypeEnv& binders, bool asgp_phase) {
-    const ExprResult source = verify_expression(child[0], locals, binders, asgp_phase);
-    if (!result_) return source;
-    const RType element = list_element_type(source.type);
-    const RType result_type = list_type_from_tag(ast_.nodes[node_index].i1);
-    const RType expected_body = list_element_type(result_type);
-    if (element == RType::Invalid || expected_body == RType::Invalid) return fail_expr(VerifyCode::TypeMismatch, node_index, "MapList requires a typed list source and result");
-    TypeEnv body_binders = binders;
-    body_binders[ast_.nodes[node_index].i0] = element;
-    const ExprResult body = verify_expression(child[1], locals, body_binders, asgp_phase);
-    if (!result_) return body;
-    if (body.type != expected_body) return fail_expr(VerifyCode::TypeMismatch, node_index, "MapList body type does not match its result-list tag");
-    return typed(node_index, result_type);
-  }
-
-  ExprResult verify_filter(std::size_t node_index, const std::vector<std::size_t>& child,
-                           const TypeEnv& locals, const TypeEnv& binders, bool asgp_phase) {
-    const ExprResult source = verify_expression(child[0], locals, binders, asgp_phase);
-    if (!result_) return source;
-    const RType element = list_element_type(source.type);
-    if (element == RType::Invalid) return fail_expr(VerifyCode::TypeMismatch, node_index, "FilterList requires a typed list source");
-    TypeEnv predicate_binders = binders;
-    predicate_binders[ast_.nodes[node_index].i0] = element;
-    const ExprResult predicate = verify_expression(child[1], locals, predicate_binders, asgp_phase);
-    if (!result_) return predicate;
-    if (predicate.type != RType::Bool) return fail_expr(VerifyCode::TypeMismatch, node_index, "FilterList predicate must return Bool");
-    return typed(node_index, source.type);
-  }
-
-  ExprResult verify_linear(std::size_t node_index, const std::vector<std::size_t>& child,
-                           const TypeEnv& locals, const TypeEnv& binders, bool asgp_phase) {
-    const LinearRecBinders& metadata = linear_metadata(node_index);
-    if (!distinct_binders(node_index, {metadata.elem_name, metadata.accum_name, metadata.index_name}, "LinearRec")) return ExprResult{};
-    const ExprResult source = verify_expression(child[0], locals, binders, asgp_phase);
-    if (!result_) return source;
-    const ExprResult start = verify_expression(child[1], locals, binders, asgp_phase);
-    if (!result_) return start;
-    const ExprResult empty = verify_expression(child[2], locals, binders, asgp_phase);
-    if (!result_) return empty;
-    const RType element = list_element_type(source.type);
-    if (element == RType::Invalid || start.type != RType::Int || !is_value_type(empty.type)) return fail_expr(VerifyCode::TypeMismatch, node_index, "LinearRec requires (List, Int, R) before its phase bodies");
-    TypeEnv step_binders = binders;
-    step_binders[metadata.elem_name] = element;
-    step_binders[metadata.accum_name] = empty.type;
-    step_binders[metadata.index_name] = RType::Int;
-    const ExprResult step = verify_expression(child[3], locals, step_binders, asgp_phase);
-    if (!result_) return step;
-    TypeEnv last_binders = binders;
-    last_binders[metadata.elem_name] = element;
-    last_binders[metadata.index_name] = RType::Int;
-    const ExprResult last = verify_expression(child[4], locals, last_binders, asgp_phase);
-    if (!result_) return last;
-    if (step.type != empty.type || last.type != empty.type) return fail_expr(VerifyCode::TypeMismatch, node_index, "LinearRec empty, step, and last results must have one exact type");
-    return typed(node_index, empty.type);
-  }
-
-  ExprResult verify_dc(std::size_t node_index, const std::vector<std::size_t>& child,
-                       const TypeEnv& locals, const TypeEnv& binders) {
-    const AsgpDcBinders& metadata = dc_metadata(node_index);
-    if (!distinct_binders(node_index, {metadata.solve_xs_name, metadata.solve_n_name, metadata.solve_lo_name}, "ASGP-DC solve") ||
-        !distinct_binders(node_index, {metadata.combine_left_name, metadata.combine_right_name}, "ASGP-DC combine")) return ExprResult{};
-    const ExprResult source = verify_expression(child[0], locals, binders, false);
-    if (!result_) return source;
-    if (!is_sequence_type(source.type)) return fail_expr(VerifyCode::TypeMismatch, node_index, "ASGP-DC source must be a sequence");
-    TypeEnv solve_binders{{metadata.solve_xs_name, source.type}, {metadata.solve_n_name, RType::Int}, {metadata.solve_lo_name, RType::Int}};
-    const ExprResult solve = verify_expression(child[1], TypeEnv{}, solve_binders, true);
-    if (!result_) return solve;
-    TypeEnv divide_binders{{metadata.divide_n_name, RType::Int}};
-    const ExprResult divide = verify_expression(child[2], TypeEnv{}, divide_binders, true);
-    if (!result_) return divide;
-    TypeEnv combine_binders{{metadata.combine_left_name, solve.type}, {metadata.combine_right_name, solve.type}};
-    const ExprResult combine = verify_expression(child[3], TypeEnv{}, combine_binders, true);
-    if (!result_) return combine;
-    if (!is_value_type(solve.type) || divide.type != RType::Int || combine.type != solve.type) return fail_expr(VerifyCode::TypeMismatch, node_index, "ASGP-DC solve/combine types must match and divide must return Int");
-    return typed(node_index, solve.type);
-  }
-
-  ExprResult verify_dp1(std::size_t node_index, const std::vector<std::size_t>& child,
-                        const TypeEnv& locals, const TypeEnv& binders) {
-    const AsgpDp1dSpec& metadata = dp1_metadata(node_index);
-    std::vector<int> transition_names{metadata.transition_state_name};
-    transition_names.insert(transition_names.end(), metadata.transition_dep_names.begin(), metadata.transition_dep_names.end());
-    if (!distinct_binders(node_index, transition_names, "ASGP-DP1D transition")) return ExprResult{};
-    const ExprResult state = verify_expression(child[0], locals, binders, false);
-    if (!result_) return state;
-    TypeEnv solve_binders{{metadata.solve_state_name, RType::Int}};
-    const ExprResult solve = verify_expression(child[1], TypeEnv{}, solve_binders, true);
-    if (!result_) return solve;
-    TypeEnv transition_binders{{metadata.transition_state_name, RType::Int}};
-    for (int name : metadata.transition_dep_names) transition_binders[name] = solve.type;
-    const ExprResult transition = verify_expression(child[2], TypeEnv{}, transition_binders, true);
-    if (!result_) return transition;
-    if (state.type != RType::Int || !is_value_type(solve.type) || transition.type != solve.type ||
-        value_type(ast_.consts[static_cast<std::size_t>(metadata.boundary_const)]) != solve.type) {
-      return fail_expr(VerifyCode::TypeMismatch, node_index, "ASGP-DP1D requires Int state and identical solve, transition, and boundary types");
-    }
-    return typed(node_index, solve.type);
-  }
-
-  ExprResult verify_dp2(std::size_t node_index, const std::vector<std::size_t>& child,
-                        const TypeEnv& locals, const TypeEnv& binders) {
-    const AsgpDp2dSpec& metadata = dp2_metadata(node_index);
-    if (!distinct_binders(node_index, {metadata.solve_i_name, metadata.solve_j_name}, "ASGP-DP2D solve")) return ExprResult{};
-    std::vector<int> transition_names{metadata.transition_i_name, metadata.transition_j_name};
-    transition_names.insert(transition_names.end(), metadata.transition_dep_names.begin(), metadata.transition_dep_names.end());
-    if (!distinct_binders(node_index, transition_names, "ASGP-DP2D transition")) return ExprResult{};
-    const ExprResult state_i = verify_expression(child[0], locals, binders, false);
-    if (!result_) return state_i;
-    const ExprResult state_j = verify_expression(child[1], locals, binders, false);
-    if (!result_) return state_j;
-    TypeEnv solve_binders{{metadata.solve_i_name, RType::Int}, {metadata.solve_j_name, RType::Int}};
-    const ExprResult solve = verify_expression(child[2], TypeEnv{}, solve_binders, true);
-    if (!result_) return solve;
-    TypeEnv transition_binders{{metadata.transition_i_name, RType::Int}, {metadata.transition_j_name, RType::Int}};
-    for (int name : metadata.transition_dep_names) transition_binders[name] = solve.type;
-    const ExprResult transition = verify_expression(child[3], TypeEnv{}, transition_binders, true);
-    if (!result_) return transition;
-    if (state_i.type != RType::Int || state_j.type != RType::Int || !is_value_type(solve.type) ||
-        transition.type != solve.type ||
-        value_type(ast_.consts[static_cast<std::size_t>(metadata.boundary_const)]) != solve.type) {
-      return fail_expr(VerifyCode::TypeMismatch, node_index, "ASGP-DP2D requires Int states and identical solve, transition, and boundary types");
-    }
-    return typed(node_index, solve.type);
   }
 
   bool verify_block(std::size_t block_index, TypeEnv* locals, const TypeEnv& binders) {

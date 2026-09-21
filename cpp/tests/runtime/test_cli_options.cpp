@@ -28,8 +28,10 @@ void expect_error(const std::vector<std::string>& args, const std::string& messa
 
 int main() {
   {
-    const auto opts = parse({"gagp_evolve_cli", "--cases", "cases.json"});
+    const auto opts = parse({"gagp_evolve_cli", "--cases", "cases.json",
+                             "--grammar-definition", "grammar.json"});
     assert(opts.cases_path == "cases.json");
+    assert(opts.grammar_definition_path == "grammar.json");
     assert(opts.engine == "cpu");
     assert(opts.repro_backend == "cpu");
     assert(opts.cpu_repro_ablation == "none");
@@ -56,7 +58,7 @@ int main() {
   {
     const auto opts = parse({
         "gagp_evolve_cli", "--cases", "cases.json",
-        "--population-json", "population.json", "--grammar-config", "grammar.json",
+        "--population-json", "population.json", "--grammar-definition", "grammar.json",
         "--eval-ast-json", "ast.json", "--engine", "gpu", "--repro-backend", "cpu",
         "--cpu-repro-ablation", "gpu_candidates", "--repro-overlap", "on",
         "--skip-final-eval", "on", "--retain-final-population", "on",
@@ -67,7 +69,7 @@ int main() {
         "--max-total-nodes", "100", "--max-for-k", "12", "--max-call-args", "5",
         "--show-program", "both", "--timing", "all", "--out-json", "run.json"});
     assert(opts.population_json == "population.json");
-    assert(opts.grammar_config_path == "grammar.json");
+    assert(opts.grammar_definition_path == "grammar.json");
     assert(opts.eval_ast_json == "ast.json");
     assert(opts.engine == "gpu");
     assert(opts.cpu_repro_ablation == "gpu_candidates");
@@ -77,29 +79,35 @@ int main() {
     assert(opts.penalty == 2.5 && opts.selection_pressure == 4 && opts.seed == 42);
     assert(opts.fuel == 500 && opts.max_expr_depth == 8 && opts.max_stmts_per_block == 7);
     assert(opts.max_total_nodes == 100 && opts.max_for_k == 12 && opts.max_call_args == 5);
+    assert(opts.fuel_explicit && opts.max_expr_depth_explicit &&
+           opts.max_stmts_per_block_explicit && opts.max_total_nodes_explicit &&
+           opts.max_for_k_explicit && opts.max_call_args_explicit);
     assert(opts.show_program == "both" && opts.timing == "all" && opts.out_json == "run.json");
   }
 
   expect_error({"cli"}, "--cases is required");
   expect_error({"cli", "--cases"}, "missing value for --cases");
+  expect_error({"cli", "--cases", "x"}, "--grammar-definition is required for evolution");
   expect_error({"cli", "--cases", "x", "--unknown"}, "unknown argument: --unknown");
-  expect_error({"cli", "--cases", "x", "--engine", "other"}, "--engine must be cpu or gpu");
-  expect_error({"cli", "--cases", "x", "--repro-backend", "other"},
+  expect_error({"cli", "--cases", "x", "--grammar-config", "old.json"},
+               "unknown argument: --grammar-config");
+  expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--engine", "other"}, "--engine must be cpu or gpu");
+  expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--repro-backend", "other"},
                "--repro-backend must be cpu or gpu");
-  expect_error({"cli", "--cases", "x", "--cpu-repro-ablation", "other"},
+  expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--cpu-repro-ablation", "other"},
                "--cpu-repro-ablation must be one of: none|gpu_selection|gpu_candidates|gpu_coupled_donor");
-  expect_error({"cli", "--cases", "x", "--repro-backend", "gpu", "--cpu-repro-ablation", "gpu_selection"},
+  expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--repro-backend", "gpu", "--cpu-repro-ablation", "gpu_selection"},
                "--cpu-repro-ablation requires --repro-backend cpu");
-  expect_error({"cli", "--cases", "x", "--repro-overlap", "maybe"},
+  expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--repro-overlap", "maybe"},
                "--repro-overlap must be on or off");
-  expect_error({"cli", "--cases", "x", "--blocksize", "0"}, "--blocksize must be > 0");
-  expect_error({"cli", "--cases", "x", "--selection-pressure", "0"},
+  expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--blocksize", "0"}, "--blocksize must be > 0");
+  expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--selection-pressure", "0"},
                "--selection-pressure must be > 0");
-  expect_error({"cli", "--cases", "x", "--mutation-subtree-prob", "1.1"},
+  expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--mutation-subtree-prob", "1.1"},
                "--mutation-subtree-prob must be in [0, 1]");
-  expect_error({"cli", "--cases", "x", "--penalty", "-1"}, "--penalty must be >= 0");
-  expect_error({"cli", "--cases", "x", "--show-program", "best"},
+  expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--penalty", "-1"}, "--penalty must be >= 0");
+  expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--show-program", "best"},
                "--show-program must be one of: none|ast|bytecode|both");
-  expect_error({"cli", "--cases", "x", "--timing", "verbose"},
+  expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--timing", "verbose"},
                "--timing must be one of: none|summary|per_gen|all");
 }

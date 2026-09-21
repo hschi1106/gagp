@@ -82,7 +82,7 @@ void certify_and_execute(const CompiledGrammar& grammar, const ProgramGenome& ch
 std::shared_ptr<const CompiledGrammar> repeated_hole_grammar(
     const std::string& values = "[\"1\",\"9\"]") {
   return compile_shared(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":12,"max_depth":7},
     "execution_limits":{"fuel":100},
@@ -137,7 +137,7 @@ void test_repeated_holes_are_replaced_atomically() {
 
 std::shared_ptr<const CompiledGrammar> split_nonterminal_grammar() {
   return compile_shared(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":12,"max_depth":7},
     "execution_limits":{"fuel":100},
@@ -272,7 +272,7 @@ void test_explicit_generation_request_context() {
 
 std::shared_ptr<const CompiledGrammar> asymmetric_budget_grammar() {
   return compile_shared(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":11,"max_depth":7},
     "execution_limits":{"fuel":100},

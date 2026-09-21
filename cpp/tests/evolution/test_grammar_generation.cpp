@@ -15,7 +15,7 @@ using namespace gagp::evo;
 using namespace gagp::evo::grammar;
 namespace {
 void check(bool condition, const char* message) { if (!condition) throw std::runtime_error(message); }
-const std::string scalar = R"({"format_version":"grammar-definition-v1",
+const std::string scalar = R"({"format_version":"grammar-definition-v2",
   "entry":{"nonterminal":"Expr","type":"Int"},
   "search_limits":{"max_nodes":40,"max_depth":12},"execution_limits":{"fuel":10000},
   "nonterminals":[{"id":"Expr","type":"Int","scope":[],"alternatives":[
@@ -23,7 +23,7 @@ const std::string scalar = R"({"format_version":"grammar-definition-v1",
     {"id":"sum","weight":4,"expression":{"signature":"add(Int,Int)->Int","args":[{"ref":"Expr"},{"ref":"Expr"}]}}
   ]}]})";
 std::string constant_grammar(const std::string& type, const std::string& values) {
-  return R"({"format_version":"grammar-definition-v1","entry":{"nonterminal":"Value","type":")" + type +
+  return R"({"format_version":"grammar-definition-v2","entry":{"nonterminal":"Value","type":")" + type +
     R"("},"search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":100},
     "nonterminals":[{"id":"Value","type":")" + type + R"(","scope":[],"alternatives":[
     {"id":"constant","weight":1,"expression":{"constant":{"type":")" + type + R"(","values":)" + values + "}}}]}]}";
@@ -57,7 +57,7 @@ int main() {
             "table compaction reordered generated prefix nodes");
     }
     const auto program_grammar = compile_grammar(parse_definition(R"({
-      "format_version":"grammar-definition-v1","entry":{"nonterminal":"Main","category":"Program","type":"Int"},
+      "format_version":"grammar-definition-v2","entry":{"nonterminal":"Main","category":"Program","type":"Int"},
       "search_limits":{"max_nodes":10,"max_depth":8},"execution_limits":{"fuel":100},"locals":[{"name":"i","type":"Int"}],
       "nonterminals":[{"id":"Main","category":"Program","type":"Int","scope":[],"alternatives":[
         {"id":"loop","weight":1,"expression":{"control":"program(Block)->Program","type":"Int","args":[
@@ -176,7 +176,7 @@ int main() {
       check(generate_derivation(wrapped_alias, seed).genome.ast.nodes.size() == 5,
             "template wrapper hid a nonproductive alias path");
 
-    auto asymmetric = cli_detail::JsonParser(R"({"format_version":"grammar-definition-v1",
+    auto asymmetric = cli_detail::JsonParser(R"({"format_version":"grammar-definition-v2",
       "entry":{"nonterminal":"Main","type":"Int"},"search_limits":{"max_nodes":14,"max_depth":7},"execution_limits":{"fuel":1000},
       "templates":[{"id":"Asymmetric","type":"Int","scope":[],"holes":[{"id":"x","type":"Int","scope":[]}],
         "body":{"signature":"add(Int,Int)->Int","args":[{"hole":"x"},{"signature":"neg(Int)->Int","args":[{"hole":"x"}]}]}}],

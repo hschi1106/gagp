@@ -1,5 +1,4 @@
 #include <cstdint>
-#include <initializer_list>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -198,34 +197,6 @@ RegionPhase jump_to_zero_push_phase() {
   return phase;
 }
 
-PhaseProgram legacy_load(std::initializer_list<int> names, int selected) {
-  PhaseProgram phase;
-  phase.n_locals = static_cast<int>(names.size());
-  int local = 0;
-  for (int name : names) phase.binder_locals[name] = local++;
-  phase.code = {op_a(Opcode::Load, selected)};
-  return phase;
-}
-
-BytecodeProgram legacy_phase_with_bounded_call() {
-  BytecodeProgram program;
-  program.consts = {Value::from_int(0)};
-  program.code = {op_a(Opcode::PushConst, 0), op(Opcode::Return)};
-  AsgpDcSegment segment;
-  segment.solve_xs_name = 0;
-  segment.solve_n_name = 1;
-  segment.solve_lo_name = 2;
-  segment.divide_n_name = 3;
-  segment.combine_left_name = 4;
-  segment.combine_right_name = 5;
-  segment.solve = legacy_load({0, 1, 2}, 0);
-  segment.solve.code = {op_a(Opcode::BoundedRegion, 0)};
-  segment.divide = legacy_load({3}, 0);
-  segment.combine = legacy_load({4, 5}, 0);
-  program.asgp_dc_segments.push_back(std::move(segment));
-  return program;
-}
-
 }  // namespace
 
 int main() {
@@ -375,22 +346,17 @@ int main() {
   if (!rejects(segment, 2, BytecodeVerifyCode::InvalidSegmentMetadata,
                "phase-invisible slot")) return 1;
 
-  segment = coordinate_segment();
-  segment.base_body.program.code = {op_a(Opcode::AsgpDp1d, 0)};
-  if (!rejects(segment, 2, BytecodeVerifyCode::InvalidPrivateOpcode,
-               "nested legacy structured opcode")) return 1;
+  for (int removed_opcode = 25; removed_opcode <= 27; ++removed_opcode) {
+    segment = coordinate_segment();
+    segment.base_body.program.code = {
+        op_a(static_cast<Opcode>(removed_opcode), 0)};
+    if (!rejects(segment, 2, BytecodeVerifyCode::UnknownOpcode,
+                 "removed opcode in phase")) return 1;
+  }
   segment = coordinate_segment();
   segment.base_body.program.code = {op_a(Opcode::BoundedRegion, 0)};
   if (!rejects(segment, 2, BytecodeVerifyCode::InvalidPrivateOpcode,
                "nested generic structured opcode")) return 1;
-  program = legacy_phase_with_bounded_call();
-  result = verify_bytecode(program);
-  if (!check(!result &&
-                 result.diagnostic.code ==
-                     BytecodeVerifyCode::InvalidPrivateOpcode,
-             "generic structured opcode is forbidden in legacy phases")) {
-    return 1;
-  }
 
   segment = coordinate_segment();
   segment.base_body.program.instruction_fuel = {1, 1};

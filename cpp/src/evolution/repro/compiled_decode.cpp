@@ -73,8 +73,7 @@ std::vector<ProgramGenome> decode_compiled_pass(
     const PackedHostData& packed, const GpuReproChildView& view,
     grammar::VariationContext& context) {
   const auto& c = packed.config;
-  require(c.contract_mode == ReproductionContractMode::CompiledGrammar &&
-              view.config.contract_mode == c.contract_mode && packed.compiled_sources &&
+  require(packed.compiled_sources &&
               packed.compiled_grammar == context.grammar_owner(),
           "compiled copyback requires its prepared grammar and sources");
   require(c.population_size > 0 && c.population_size <= 65536 &&

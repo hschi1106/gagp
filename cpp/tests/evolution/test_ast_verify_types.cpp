@@ -1,11 +1,8 @@
-#include <cstdint>
 #include <iostream>
 #include <string>
 #include <vector>
 
 #include "gagp/evolution/ast_verify.hpp"
-#include "gagp/evolution/genome_generation.hpp"
-#include "typed_expr_analysis.hpp"
 
 namespace {
 
@@ -58,10 +55,6 @@ int main() {
       !check(result.verified.expression_types[4] == RType::Int, "Var annotation") ||
       !check(result.verified.expression_scope_signatures[3] != 0, "scope annotation")) return 1;
 
-  const auto roots = typed_expr::collect_typed_expr_roots(ast, result.verified);
-  if (!check(!roots.empty(), "verified typed-root view") ||
-      !check(roots.front().type == RType::Int, "verified root type")) return 1;
-
   if (!expect_code(ast, {}, VerifyCode::UndefinedLocal, "missing input")) return 1;
   if (!expect_code(ast, {InputSpec{"x", RType::Any}}, VerifyCode::InvalidInputType,
                    "non-exact input")) return 1;
@@ -96,14 +89,6 @@ int main() {
   ast.names = {"x"};
   ast.names.push_back("x");
   if (!expect_code(ast, {}, VerifyCode::DuplicateName, "duplicate AST name")) return 1;
-
-  ast = return_program({AstNode{NodeKind::CONST, 0, 0}},
-                       {gagp::Value::from_string_hash_len(3, 1)});
-  GrammarConfig scalar = GrammarConfig::scalar();
-  VerifyOptions options;
-  options.grammar_config = &scalar;
-  if (!expect_code(ast, {}, VerifyCode::GrammarConfigDisallowed,
-                   "grammar-config eligibility", options)) return 1;
 
   ast = return_program({AstNode{NodeKind::CONST, 0, 0}},
                        {gagp::Value::from_int(1)});
@@ -178,16 +163,6 @@ int main() {
       AstNode{NodeKind::BLOCK_NIL, 0, 0},
   };
   if (!expect_code(ast, {}, VerifyCode::TypeMismatch, "ForRange Float bound")) return 1;
-
-  const std::vector<InputSpec> generated_inputs{{"x", RType::Int}};
-  for (std::uint64_t seed = 0; seed < 256; ++seed) {
-    const ProgramGenome genome = generate_random_genome(seed, Limits{}, generated_inputs);
-    result = verify_ast(genome.ast, generated_inputs);
-    if (!check(result.ok,
-               "generated seed " + std::to_string(seed) + " should type-check: " +
-                   verify_code_name(result.diagnostic.code) + " " + result.diagnostic.message +
-                   " program=" + ast_to_string(genome.ast))) return 1;
-  }
 
   return 0;
 }

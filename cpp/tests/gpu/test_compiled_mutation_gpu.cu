@@ -110,7 +110,6 @@ Fixture basic_fixture(int population_size = 1) {
   Fixture fixture;
   auto& config = fixture.config;
   config.compiled_pass = CompiledVariationPass::Mutation;
-  config.contract_mode = ReproductionContractMode::CompiledGrammar;
   config.population_size = population_size;
   config.pair_count = (population_size + 1) / 2;
   config.candidates_per_program = 1;

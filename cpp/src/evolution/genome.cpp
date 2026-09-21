@@ -36,9 +36,7 @@ bool is_expr_kind(NodeKind kind) {
          kind == NodeKind::CALL_IS_LETTER || kind == NodeKind::CALL_IS_DIGIT || kind == NodeKind::CALL_IS_SPACE ||
          kind == NodeKind::CALL_IS_VOWEL || kind == NodeKind::CALL_TO_LOWER || kind == NodeKind::CALL_TO_UPPER ||
          kind == NodeKind::CALL_TO_STRING || kind == NodeKind::CALL_SINGLETON ||
-         kind == NodeKind::BOUND_VAR || kind == NodeKind::MAP_LIST ||
-         kind == NodeKind::FILTER_LIST || kind == NodeKind::LINEAR_REC || kind == NodeKind::ASGP_DC ||
-         kind == NodeKind::ASGP_DP1D || kind == NodeKind::ASGP_DP2D;
+         kind == NodeKind::BOUND_VAR;
 }
 
 DepthResult compute_expr_depth_prefix(const AstProgram& program, std::size_t idx);

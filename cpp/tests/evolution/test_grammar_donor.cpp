@@ -59,7 +59,7 @@ bool same_inputs(const std::vector<InputSpec>& actual,
 
 CompiledGrammar assigned_local_grammar() {
   return compile(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","category":"Program","type":"Int"},
     "inputs":[{"name":"input","type":"Int"}],
     "locals":[{"name":"x","type":"Int"},{"name":"y","type":"Int"}],

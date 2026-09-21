@@ -31,7 +31,7 @@ struct DomainCase {
 std::shared_ptr<const grammar::CompiledGrammar> make_grammar(const DomainCase& row) {
   const std::string type = row.type;
   const std::string source = R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":")" + type + R"("},
     "search_limits":{"max_nodes":12,"max_depth":8},
     "execution_limits":{"fuel":100},

@@ -67,7 +67,7 @@ ASGP 的主要設定是每題 100 runs、population 1000、最大 tree depth 7�
 
 公平性規則：
 
-- fixed-population timing 必須重用同一個 `population-seeds` 檔案。
+- fixed-population timing 必須重用同一個 `grammar-population-v2` 檔案。
 - `cpu` 與 `gpu_eval` 使用 CPU reproduction 時，paired seed 應產生相同 best-fitness trajectory；不一致視為 parity failure，不當作隨機波動。
 - `gpu_repro` 與 `gpu_repro_overlap` 應比較分布。除非測試已證明 RNG 與 execution order 完全相同，不要求逐 seed trajectory 相同。
 - 所有 mode 使用相同 cases、grammar hash、limits、fuel、penalty、population size 與 budget。
@@ -110,14 +110,14 @@ Dataset sampling seed 固定為 `20260721`。Train 優先包含 edge cases，其
 
 **硬性要求：train/test raw rows 必須 disjoint。** 目前 converter 對補入 train 的 random rows 與 test rows 是獨立抽樣，正式 materialization 前須改為 without-replacement across splits，並在 manifest 記錄 overlap count = 0。
 
-Test fixtures 在 protocol、commit、grammar configs 與 analysis code freeze 後才能批次評估一次。Pilot 只檢查 train-side execution/schema，不查看 test fitness；若要依資料選 hyperparameter，必須另建與 train/test disjoint 的 validation split。
+Test fixtures 在 protocol、commit、compiled grammar definitions 與 analysis code freeze 後才能批次評估一次。Pilot 只檢查 train-side execution/schema，不查看 test fitness；若要依資料選 hyperparameter，必須另建與 train/test disjoint 的 validation split。
 
 #### Extended PSB1 set
 
 - 使用 `benchmarks/psb_release_exclusions.json` 所列 28 個 supported PSB1 problems。
 - `replace-space-with-newline` 因 multi-output contract 尚未支援而排除。
 - 統一採 train 200 / test 2000；資料不足時才採 train 100 / test 1000，並在結果表標記，不得靜默 fallback。
-- 每題使用獨立 task-specific compact grammar config，以 fixture schema 限制不相關 value types。
+- 每題使用獨立 task-specific compiled grammar definition，以 fixture schema 限制不相關 value types。
 
 #### Optional PSB2 extension
 
@@ -456,19 +456,20 @@ ctest --test-dir cpp/build_release --output-on-failure
 ### 11.2 Fixed population
 
 ```bash
-python3 tools/make_population_seeds.py \
+python3 tools/make_population.py \
+  --generator cpp/build_release/gagp_generate_cli \
+  --grammar-definition configs/grammar/basic/int.json \
   --cases data/fixtures/simple_exp_1024.json \
-  --count 4096 \
-  --start-seed 0 \
-  --grammar-config configs/grammar/all.json \
-  --out logs/experiment/fixed/simple_exp_p4096.seeds.json
+  --population-size 4096 \
+  --seed 0 \
+  --out logs/experiment/fixed/simple_exp_p4096.population-v2.json
 ```
 
 ```bash
 GAGP_CUDA_DEVICE=0 cpp/build_release/gagp_evolve_cli \
   --cases data/fixtures/simple_exp_1024.json \
-  --population-json logs/experiment/fixed/simple_exp_p4096.seeds.json \
-  --grammar-config configs/grammar/all.json \
+  --population-json logs/experiment/fixed/simple_exp_p4096.population-v2.json \
+  --grammar-definition configs/grammar/basic/int.json \
   --engine gpu \
   --repro-backend gpu \
   --repro-overlap on \
@@ -492,7 +493,7 @@ GAGP_CUDA_DEVICE=0 python3 tools/run_psb_regression.py \
   --problems compare-string-lengths,count-odds,last-index-of-zero,median,smallest \
   --seeds "$SEEDS" \
   --binary cpp/build_release/gagp_evolve_cli \
-  --base-grammar-config configs/grammar/all.json \
+  --grammar-definition configs/grammar/basic/int.json \
   --engine gpu \
   --repro-backend gpu \
   --repro-overlap on \
@@ -541,7 +542,9 @@ logs/experiment/<study_id>/<commit>/<hardware_id>/<mode>/<problem>/<seed_or_repe
 2. evolution loop 目前不 early-stop。可維持 fixed full budget，但需保存 first-solved event；若實作 early-stop，所有 mode 必須同時使用相同規則。
 3. PSB converter 需保證 train/test random rows 跨 split 不重複，manifest 必須驗證 overlap=0。
 4. regression runner 應明確轉送並記錄 `--penalty` 與所有 `--max-*` limits，不能只依賴 CLI defaults。
-5. controlled depth/node populations 必須以 `ast-prefix` AST 與凍結的 grammar config 重新 materialize 並通過 replay check。
+5. controlled depth/node populations 必須以 `ast-prefix-v2` AST、凍結的
+   `grammar-definition-v2` 與 `grammar-population-v2` materialize，並通過
+   same-version replay check。
 6. 若論文主張相對於一般 CPU 的 speedup，需新增可重現的 CPU-multicore baseline；否則全文固定標示 CPU-1T。
 7. 正式 run 前凍結 commit、Release binary SHA-256、dataset/config hashes 與 analysis script。
 

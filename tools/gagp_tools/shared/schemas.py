@@ -4,7 +4,6 @@ from typing import Any, Mapping
 
 
 FITNESS_CASES = "fitness-cases"
-POPULATION_SEEDS = "population-seeds"
 PSB_REGRESSION_SUMMARY = "psb-regression-summary"
 
 

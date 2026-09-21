@@ -16,11 +16,9 @@ int main() {
   std::set<std::string> source_names;
   std::set<std::string> serialized_names;
   std::size_t builtin_count = 0;
-  std::size_t dependency_count = 0;
   for (std::size_t i = 0; i < descriptors.size(); ++i) {
     const NodeDescriptor& descriptor = descriptors[i];
-    assert(static_cast<std::size_t>(descriptor.kind) == i);
-    assert(is_known_node_kind(static_cast<int>(i)));
+    assert(is_known_node_kind(static_cast<int>(descriptor.kind)));
     assert(&node_descriptor(descriptor.kind) == &descriptor);
     assert(!descriptor.source_name.empty());
     assert(!descriptor.serialized_name.empty());
@@ -38,26 +36,19 @@ int main() {
       assert(descriptor.builtin_arity == -1);
     }
     const bool in_device_builtin_range =
-        i >= static_cast<std::size_t>(NodeKind::CALL_ABS) &&
-        i <= static_cast<std::size_t>(NodeKind::CALL_SINGLETON);
+        static_cast<int>(descriptor.kind) >= static_cast<int>(NodeKind::CALL_ABS) &&
+        static_cast<int>(descriptor.kind) <= static_cast<int>(NodeKind::CALL_SINGLETON);
     assert(in_device_builtin_range == descriptor.is_builtin());
-
-    if (descriptor.category == NodeCategory::DependencyMarker) {
-      ++dependency_count;
-      assert(descriptor.prefix_arity == 0);
-      assert(descriptor.dependency_arity >= 1);
-      assert(descriptor.dependency_family != DependencyFamily::None);
-    }
   }
 
   assert(builtin_count == 27U);
-  assert(dependency_count == 12U);
   assert(node_descriptor(NodeKind::PROGRAM).prefix_arity == 1);
-  assert(node_descriptor(NodeKind::LINEAR_REC).metadata == NodeMetadataKind::LinearRecBinders);
-  assert(node_descriptor(NodeKind::ASGP_DP2D).metadata == NodeMetadataKind::AsgpDp2dSpec);
-  assert(node_descriptor(NodeKind::DP1_BACKWARD3).dependency_arity == 3);
-  assert(node_descriptor(NodeKind::DP2_DIAGONAL_FORWARD).dependency_arity == 1);
   assert(node_descriptor(NodeKind::CALL_INDEX).builtin_id == static_cast<int>(gagp::BuiltinId::Index));
+  assert(static_cast<int>(NodeKind::LET_REGION) == 71);
+  assert(static_cast<int>(NodeKind::BOUNDED_REGION) == 77);
+  for (int legacy_kind = 53; legacy_kind <= 70; ++legacy_kind) {
+    assert(!is_known_node_kind(legacy_kind));
+  }
 
   assert(!is_known_node_kind(-1));
   assert(!is_known_node_kind(static_cast<int>(NodeKind::COUNT)));

@@ -153,7 +153,7 @@ def measurement_command(workload: dict[str, Any], mode: str, binary: Path, root:
     if measurement != "evolution":
         command.extend(["--warmups", str(workload["session_warmups"]), "--trials", str(workload["session_trials"])])
     if workload.get("grammar"):
-        command.extend(["--grammar-config", str((root / workload["grammar"]["path"]).resolve())])
+        command.extend(["--grammar-definition", str((root / workload["grammar"]["path"]).resolve())])
     return command
 
 

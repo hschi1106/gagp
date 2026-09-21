@@ -39,9 +39,8 @@ AstProgram constant_program() {
 
 std::string ast_json_with(const std::string& fields) {
   return std::string(
-      R"({"version":"ast-prefix","nodes":[],"names":[],"consts":[],)"
-      R"("linear_rec_binders":[],"asgp_dc_binders":[],)"
-      R"("asgp_dp1d_specs":[],"asgp_dp2d_specs":[])" + fields + "}");
+      R"({"version":"ast-prefix-v2","nodes":[],"names":[],"consts":[])" +
+      fields + "}");
 }
 
 bool decode_rejects(const std::string& json) {
@@ -165,6 +164,15 @@ bool test_decoder_rejects_malformed_profiles() {
                "non-finite fuel costs must be rejected");
 }
 
+bool test_decoder_rejects_legacy_ast_shape() {
+  const std::string legacy_kind =
+      R"({"version":"ast-prefix-v2","nodes":[{"kind":53,"i0":0,"i1":0}],"names":[],"consts":[]})";
+  return check(decode_rejects(legacy_kind),
+               "removed node-kind ordinals must be rejected") &&
+         check(decode_rejects(ast_json_with(R"(,"linear_rec_binders":[])")),
+               "legacy AST sidecars must be rejected");
+}
+
 bool test_structural_validation() {
   AstProgram valid = constant_program();
   valid.fuel_specs = {NodeFuelSpec{3, {FuelCharge{FuelEvent::Operation, 0}}}};
@@ -216,6 +224,7 @@ int main() {
   ok = test_event_names_and_support() && ok;
   ok = test_codec_round_trip_and_legacy_omission() && ok;
   ok = test_decoder_rejects_malformed_profiles() && ok;
+  ok = test_decoder_rejects_legacy_ast_shape() && ok;
   ok = test_structural_validation() && ok;
   if (!ok) return 1;
   std::cout << "test_ast_fuel_codec: OK\n";

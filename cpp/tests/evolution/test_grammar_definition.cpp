@@ -31,13 +31,13 @@ struct Temp {
     if (!out) throw std::runtime_error("failed to write grammar fixture");
   }
 };
-const std::string base = R"({"format_version":"grammar-definition-v1","nonterminals":[
+const std::string base = R"({"format_version":"grammar-definition-v2","nonterminals":[
   {"id":"Expr","type":"Int","scope":[],"alternatives":[
     {"id":"zero","weight":1,"expression":{"constant":{"type":"Int","values":["0"]}}}]}]})";
 const std::string settings = R"("entry":{"nonterminal":"Expr","type":"Int"},
   "search_limits":{"max_nodes":10,"max_depth":5},"execution_limits":{"fuel":100})";
 std::string root(const std::string& imports, const std::string& rules = "[]") {
-  return "{\"format_version\":\"grammar-definition-v1\",\"imports\":" + imports +
+  return "{\"format_version\":\"grammar-definition-v2\",\"imports\":" + imports +
       ",\"nonterminals\":" + rules + "," + settings + "}";
 }
 std::string replacement(const std::string& id) {
@@ -72,8 +72,8 @@ int main() {
     rejects([] { JsonParser("1e9999", {true, 64}).parse(); }, "out of range");
     check(JsonParser("1.25", {true, 64}).parse().number_v == 1.25, "strict numeric conversion");
     rejects([] { JsonParser("[[[0]]]", {true, 3}).parse(); }, "nesting");
-    rejects([] { parse_definition(R"({"format_version":"grammar-definition-v2"})"); }, "version");
-    rejects([] { parse_definition(R"({"format_version":"grammar-definition-v1","hook":"execute"})"); }, "unknown key");
+    rejects([] { parse_definition(R"({"format_version":"grammar-definition-v1"})"); }, "version");
+    rejects([] { parse_definition(R"({"format_version":"grammar-definition-v2","hook":"execute"})"); }, "unknown key");
     rejects([] { parse_definition(root("[\"file.json\"]")); }, "in-memory");
 
     Temp first, second;

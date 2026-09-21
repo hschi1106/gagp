@@ -26,7 +26,7 @@ void rejects(const std::function<void()>& action, const char* message) {
   throw std::runtime_error(message);
 }
 std::string constant_grammar(const std::string& type, const std::string& values) {
-  return R"({"format_version":"grammar-definition-v1","entry":{"nonterminal":"Value","type":")" + type +
+  return R"({"format_version":"grammar-definition-v2","entry":{"nonterminal":"Value","type":")" + type +
     R"("},"search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":100},
     "nonterminals":[{"id":"Value","type":")" + type + R"(","scope":[],"alternatives":[
     {"id":"constant","weight":1,"expression":{"constant":{"type":")" + type + R"(","values":)" + values + "}}}]}]}";
@@ -58,7 +58,12 @@ void test_constants_and_replay() {
     const auto grammar = compile_grammar(parse_definition(constant_grammar(domain.first, domain.second)));
     const auto generated = generate_derivation(grammar, std::numeric_limits<std::uint64_t>::max());
     const auto artifact = encode_generated_artifact(grammar, generated);
-    check(parse(artifact).object_v.at("seed").string_v == "18446744073709551615", "uint64 seed rounded or truncated");
+    const auto encoded = parse(artifact);
+    check(encoded.object_v.at("format_version").string_v == "grammar-generated-v2" &&
+          encoded.object_v.at("semantic_version").string_v == "gagp-native-2.0.0" &&
+          encoded.object_v.at("generator_version").string_v == "typed-derivation-v2",
+          "generated artifact did not publish current version identities");
+    check(encoded.object_v.at("seed").string_v == "18446744073709551615", "uint64 seed rounded or truncated");
     payload::clear();
     const auto decoded = decode_materialized_artifact(artifact);
     check(decoded.ast.consts.size() == 1, "materialized constant pool changed size");
@@ -82,6 +87,10 @@ void test_tampering() {
   const auto grammar = compile_grammar(parse_definition(constant_grammar("Int", "[\"7\"]")));
   const auto artifact = encode_generated_artifact(grammar, generate_derivation(grammar, 42));
   const auto original = parse(artifact);
+  auto legacy = original;
+  legacy.object_v.at("format_version").string_v = "grammar-generated-v1";
+  rejects([&] { decode_materialized_artifact(canonical_json(legacy)); },
+          "legacy generated artifact accepted by the current decoder");
   const auto tamper = [&](const std::function<void(Json&)>& change) {
     auto root = original;
     change(root);

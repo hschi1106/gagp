@@ -55,7 +55,7 @@ class TestDocsContract(unittest.TestCase):
             "GPU-Accelerated Genetic Programming for Program Synthesis",
             readme,
         )
-        self.assertIn("Current release: 1.0.0", version)
+        self.assertIn("Current release: 2.0.0", version)
         self.assertIn("project(gagp LANGUAGES CXX)", cmake)
         self.assertIn('name = "gagp-tools"', pyproject)
         self.assertTrue((ROOT / "cpp" / "include" / "gagp").is_dir())

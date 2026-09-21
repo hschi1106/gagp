@@ -1,77 +1,57 @@
 # Benchmarking
 
 This guide owns supported fixed-population timing and run commands. Timing
-field definitions remain in [`../reference/timing.md`](../reference/timing.md),
-and formal study constraints remain in
-[`experiment-protocol.md`](experiment-protocol.md).
+fields are defined in [the timing reference](../reference/timing.md).
 
-## Fixed-Pop Benchmark Mode
+## Fixed-population workflow
 
-The supported fixed-population benchmark workflow is:
+Create one release-2 materialized population:
 
 ```bash
-python3 tools/make_population_seeds.py \
+cpp/build/gagp_generate_cli \
+  --grammar-definition configs/grammar/basic/int.json \
   --cases data/fixtures/simple_exp_1024.json \
-  --count 1024 \
-  --out logs/fixed_population.seeds.json
-
-cpp/build/gagp_evolve_cli \
-  --cases data/fixtures/simple_exp_1024.json \
-  --population-json logs/fixed_population.seeds.json \
-  --engine gpu \
-  --repro-backend gpu \
-  --repro-overlap off \
-  --blocksize 1024 \
-  --generations 1 \
-  --skip-final-eval on \
-  --timing all \
-  --out-json logs/fixed_population.run.json
+  --population-size 1024 --seed 0 \
+  --out-json logs/fixed.population-v2.json
 ```
 
-For fair comparisons:
-- reuse the same `population-seeds` file across all modes
-- generate seed files with `tools/make_population_seeds.py` so `limits`,
-  `cases_path`, and optional grammar-config identity are recorded consistently
-- compare generation-0 timing fields only
-- treat `total_ms` as the primary wall-clock metric, then inspect subphases
-
-Canonical timing names, scope boundaries, and CLI/JSON mappings are defined in [timing.md](../reference/timing.md).
-
-Important timing interpretations:
-- `generation_eval_ms` includes compile, scoring, canonicalization, and scored-population rebuild for that generation
-- GPU evaluation detail is reported with the `gpu_eval_*` family, including `gpu_eval_init_ms`, `gpu_eval_call_ms`, `gpu_eval_pack_ms`, `gpu_eval_launch_prep_ms`, `gpu_eval_upload_ms`, `gpu_eval_pack_upload_ms`, `gpu_eval_kernel_ms`, `gpu_eval_copyback_ms`, and `gpu_eval_teardown_ms`
-- reproduction detail is reported with the `repro_*` family, including selection/crossover/mutation plus the GPU backend phases `repro_prepare_inputs_ms`, `repro_setup_ms`, `repro_preprocess_ms`, `repro_pack_ms`, `repro_upload_ms`, `repro_kernel_ms`, `repro_copyback_ms`, `repro_decode_ms`, `repro_teardown_ms`, `repro_selection_kernel_ms`, and `repro_variation_kernel_ms`
-- with `--repro-overlap on`, `repro_prepare_inputs_ms`, `repro_preprocess_ms`, and `repro_pack_ms` may be partially hidden behind GPU evaluation wall time
-
-## Canonical Runbooks
-
-### Evolution progress run
+Reuse it for each mode:
 
 ```bash
 cpp/build/gagp_evolve_cli \
   --cases data/fixtures/simple_exp_1024.json \
-  --engine gpu \
-  --repro-backend gpu \
-  --repro-overlap on \
-  --blocksize 1024 \
-  --population-size 1024 \
-  --generations 20 \
-  --out-json logs/simple_exp_1024.run.json
+  --grammar-definition configs/grammar/basic/int.json \
+  --population-json logs/fixed.population-v2.json \
+  --engine gpu --repro-backend gpu --repro-overlap off \
+  --blocksize 1024 --generations 1 --skip-final-eval on \
+  --timing all --out-json logs/fixed.gpu.run.json
 ```
 
-### Fixed-population timing smoke
+For fair comparisons, reuse the same `grammar-population-v2`, cases,
+definition content, limits, and device policy. Compare generation-0 timing
+first. Treat `total_ms` as wall clock and inspect evaluation/reproduction
+subphases to explain it.
+
+Seed-only release-1 populations are not a v2 fixed-population input. Materialize
+them with the frozen release-1 build and migrate every AST before using them in
+a cross-version oracle study. Do not describe regenerated v2 seeds as exact
+replay.
+
+## Evolution progress run
 
 ```bash
 cpp/build/gagp_evolve_cli \
   --cases data/fixtures/simple_exp_1024.json \
-  --population-json logs/fixed_population.seeds.json \
-  --engine gpu \
-  --repro-backend gpu \
-  --repro-overlap on \
-  --blocksize 1024 \
-  --generations 1 \
-  --skip-final-eval on \
-  --timing all \
-  --out-json logs/fixed_population.run.json
+  --grammar-definition configs/grammar/basic/int.json \
+  --engine gpu --repro-backend gpu --repro-overlap on \
+  --blocksize 1024 --population-size 1024 --generations 20 \
+  --out-json logs/simple-exp.run.json
 ```
 
+`generation_eval_ms` includes compile, scoring, canonicalization, and scored
+population rebuild. GPU evaluation detail uses the `gpu_eval_*` family.
+Reproduction detail uses `repro_*`; with overlap, preparation/preprocess/pack
+may be partially hidden behind evaluation.
+
+Release-2 speed or transfer-cost claims require new measured artifacts. The
+format cutover and documentation alone provide no performance result.

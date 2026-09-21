@@ -56,8 +56,8 @@ void check_counter_and_fuel() {
   ProgramGenome genome;
   genome.ast = ast;
   const auto bytecode = compile_for_eval(genome, checked.verified);
-  require(bytecode.bounded_region_segments.size() == 1 && bytecode.asgp_dc_segments.empty() &&
-      bytecode.asgp_dp1d_segments.empty() && bytecode.asgp_dp2d_segments.empty(), "legacy evaluator dispatched");
+  require(bytecode.bounded_region_segments.size() == 1,
+          "bounded region did not use the general evaluator segment");
   for (int fuel = 0; fuel < 29; ++fuel) {
     const auto result = execute_bytecode_cpu(bytecode, {}, fuel);
     require(result.is_error && result.err.code == ErrCode::Timeout, "counter fuel threshold moved");

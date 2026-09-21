@@ -26,11 +26,9 @@ const char* verify_code_name(VerifyCode code) noexcept {
     case VerifyCode::ConstantIndexOutOfRange: return "constant_index_out_of_range";
     case VerifyCode::InvalidConstantTag: return "invalid_constant_tag";
     case VerifyCode::InvalidIndexField: return "invalid_index_field";
-    case VerifyCode::InvalidListTypeTag: return "invalid_list_type_tag";
     case VerifyCode::MissingMetadata: return "missing_metadata";
     case VerifyCode::DuplicateMetadata: return "duplicate_metadata";
     case VerifyCode::MetadataNodeMismatch: return "metadata_node_mismatch";
-    case VerifyCode::InvalidDependencyKind: return "invalid_dependency_kind";
     case VerifyCode::DependencyArityMismatch: return "dependency_arity_mismatch";
     case VerifyCode::InvalidBounds: return "invalid_bounds";
     case VerifyCode::DuplicateName: return "duplicate_name";
@@ -42,8 +40,7 @@ const char* verify_code_name(VerifyCode code) noexcept {
     case VerifyCode::TypeMismatch: return "type_mismatch";
     case VerifyCode::InconsistentReturnType: return "inconsistent_return_type";
     case VerifyCode::MissingReturn: return "missing_return";
-    case VerifyCode::NestedAsgp: return "nested_asgp";
-    case VerifyCode::GrammarConfigDisallowed: return "grammar_config_disallowed";
+    case VerifyCode::NestedIsolatedRegion: return "nested_isolated_region";
     case VerifyCode::ResourceLimit: return "resource_limit";
   }
   return "unknown_verify_code";
@@ -90,7 +87,7 @@ class StructuralVerifier {
   AstVerifyResult run() {
     if (ast_.version != k_ast_prefix_version_current) {
       return fail(VerifyCode::UnsupportedVersion, 0, "$.version",
-                  "expected AST version ast-prefix");
+                  "expected AST version ast-prefix-v2");
     }
     if (ast_.nodes.empty()) {
       return fail(VerifyCode::EmptyProgram, 0, "$.nodes", "program has no prefix nodes");
@@ -160,13 +157,6 @@ class StructuralVerifier {
         return valid_name(value, node_index, path);
       case NodeIndexRole::Constant:
         return valid_const(value, node_index, path);
-      case NodeIndexRole::ListTypeTag:
-        if (value < static_cast<int>(ListTypeTag::Int) ||
-            value > static_cast<int>(ListTypeTag::String)) {
-          return fail_bool(VerifyCode::InvalidListTypeTag, node_index, path,
-                           "list type tag must be Int, Float, or String");
-        }
-        return true;
       case NodeIndexRole::BinderId:
         if (value < 0 || value == std::numeric_limits<int>::max()) {
           return fail_bool(VerifyCode::InvalidIndexField, node_index, path,
@@ -192,11 +182,7 @@ class StructuralVerifier {
       metadata_count += count;
       return true;
     };
-    if (!add_entries(ast_.linear_rec_binders.size()) ||
-        !add_entries(ast_.asgp_dc_binders.size()) ||
-        !add_entries(ast_.asgp_dp1d_specs.size()) ||
-        !add_entries(ast_.asgp_dp2d_specs.size()) ||
-        !add_entries(ast_.lexical_regions.size()) ||
+    if (!add_entries(ast_.lexical_regions.size()) ||
         !add_entries(ast_.traversal_specs.size()) ||
         !add_entries(ast_.fuel_specs.size()) ||
         !add_entries(ast_.bounded_region_specs.size())) {
@@ -386,19 +372,11 @@ class StructuralVerifier {
   }
 
   bool validate_side_tables() {
-    std::set<std::size_t> expected_linear;
-    std::set<std::size_t> expected_dc;
-    std::set<std::size_t> expected_dp1;
-    std::set<std::size_t> expected_dp2;
     std::set<std::size_t> expected_lexical;
     std::set<std::size_t> expected_traversal;
     std::set<std::size_t> expected_bounded;
     for (std::size_t i = 0; i < ast_.nodes.size(); ++i) {
       switch (node_descriptor(ast_.nodes[i].kind).metadata) {
-        case NodeMetadataKind::LinearRecBinders: expected_linear.insert(i); break;
-        case NodeMetadataKind::AsgpDcBinders: expected_dc.insert(i); break;
-        case NodeMetadataKind::AsgpDp1dSpec: expected_dp1.insert(i); break;
-        case NodeMetadataKind::AsgpDp2dSpec: expected_dp2.insert(i); break;
         case NodeMetadataKind::LexicalRegion: expected_lexical.insert(i); break;
         case NodeMetadataKind::BoundedRegion: expected_bounded.insert(i); break;
         case NodeMetadataKind::None: break;
@@ -406,101 +384,6 @@ class StructuralVerifier {
       if (ast_.nodes[i].kind == NodeKind::TRAVERSE ||
           ast_.nodes[i].kind == NodeKind::TRAVERSE_RANGE) {
         expected_traversal.insert(i);
-      }
-    }
-
-    std::set<std::size_t> seen_linear;
-    for (std::size_t i = 0; i < ast_.linear_rec_binders.size(); ++i) {
-      const LinearRecBinders& row = ast_.linear_rec_binders[i];
-      const std::string path = "$.linear_rec_binders[" + std::to_string(i) + "]";
-      if (!check_metadata_node(row.node_index, NodeKind::LINEAR_REC, path) ||
-          !check_unique(&seen_linear, row.node_index, path) ||
-          !valid_name(row.elem_name, row.node_index, path + ".elem_name") ||
-          !valid_name(row.accum_name, row.node_index, path + ".accum_name") ||
-          !valid_name(row.index_name, row.node_index, path + ".index_name")) return false;
-    }
-
-    std::set<std::size_t> seen_dc;
-    for (std::size_t i = 0; i < ast_.asgp_dc_binders.size(); ++i) {
-      const AsgpDcBinders& row = ast_.asgp_dc_binders[i];
-      const std::string path = "$.asgp_dc_binders[" + std::to_string(i) + "]";
-      if (!check_metadata_node(row.node_index, NodeKind::ASGP_DC, path) ||
-          !check_unique(&seen_dc, row.node_index, path) ||
-          !valid_name(row.solve_xs_name, row.node_index, path + ".solve_xs_name") ||
-          !valid_name(row.solve_n_name, row.node_index, path + ".solve_n_name") ||
-          !valid_name(row.solve_lo_name, row.node_index, path + ".solve_lo_name") ||
-          !valid_name(row.divide_n_name, row.node_index, path + ".divide_n_name") ||
-          !valid_name(row.combine_left_name, row.node_index, path + ".combine_left_name") ||
-          !valid_name(row.combine_right_name, row.node_index, path + ".combine_right_name")) return false;
-    }
-
-    std::set<std::size_t> seen_dp1;
-    for (std::size_t i = 0; i < ast_.asgp_dp1d_specs.size(); ++i) {
-      const AsgpDp1dSpec& row = ast_.asgp_dp1d_specs[i];
-      const std::string path = "$.asgp_dp1d_specs[" + std::to_string(i) + "]";
-      if (!check_metadata_node(row.node_index, NodeKind::ASGP_DP1D, path) ||
-          !check_unique(&seen_dp1, row.node_index, path)) return false;
-      if (row.lo >= row.hi || row.base_state < row.lo || row.base_state >= row.hi) {
-        return fail_bool(VerifyCode::InvalidBounds, row.node_index, path,
-                         "DP1D bounds must be non-empty and contain base_state");
-      }
-      if (!valid_const(row.boundary_const, row.node_index, path + ".boundary_const")) return false;
-      if (!is_known_node_kind(static_cast<int>(row.dep_kind)) ||
-          node_descriptor(row.dep_kind).dependency_family != DependencyFamily::Dp1d) {
-        return fail_bool(VerifyCode::InvalidDependencyKind, row.node_index, path + ".dep_kind",
-                         "DP1D metadata requires a DP1D dependency kind");
-      }
-      const int arity = node_descriptor(row.dep_kind).dependency_arity;
-      if (row.dep_offsets.size() != static_cast<std::size_t>(arity) ||
-          row.transition_dep_names.size() != static_cast<std::size_t>(arity)) {
-        return fail_bool(VerifyCode::DependencyArityMismatch, row.node_index, path,
-                         "DP1D dependency arrays do not match the dependency kind arity");
-      }
-      for (std::size_t j = 0; j < row.dep_offsets.size(); ++j) {
-        if (row.dep_offsets[j] <= 0) {
-          return fail_bool(VerifyCode::InvalidBounds, row.node_index,
-                           path + ".dep_offsets[" + std::to_string(j) + "]",
-                           "DP1D dependency offsets must be positive");
-        }
-      }
-      if (!valid_name(row.solve_state_name, row.node_index, path + ".solve_state_name") ||
-          !valid_name(row.transition_state_name, row.node_index, path + ".transition_state_name")) return false;
-      for (std::size_t j = 0; j < row.transition_dep_names.size(); ++j) {
-        if (!valid_name(row.transition_dep_names[j], row.node_index,
-                        path + ".transition_dep_names[" + std::to_string(j) + "]")) return false;
-      }
-    }
-
-    std::set<std::size_t> seen_dp2;
-    for (std::size_t i = 0; i < ast_.asgp_dp2d_specs.size(); ++i) {
-      const AsgpDp2dSpec& row = ast_.asgp_dp2d_specs[i];
-      const std::string path = "$.asgp_dp2d_specs[" + std::to_string(i) + "]";
-      if (!check_metadata_node(row.node_index, NodeKind::ASGP_DP2D, path) ||
-          !check_unique(&seen_dp2, row.node_index, path)) return false;
-      if (row.i_lo >= row.i_hi || row.j_lo >= row.j_hi ||
-          row.base_i < row.i_lo || row.base_i >= row.i_hi ||
-          row.base_j < row.j_lo || row.base_j >= row.j_hi) {
-        return fail_bool(VerifyCode::InvalidBounds, row.node_index, path,
-                         "DP2D bounds must be non-empty and contain the base cell");
-      }
-      if (!valid_const(row.boundary_const, row.node_index, path + ".boundary_const")) return false;
-      if (!is_known_node_kind(static_cast<int>(row.dep_kind)) ||
-          node_descriptor(row.dep_kind).dependency_family != DependencyFamily::Dp2d) {
-        return fail_bool(VerifyCode::InvalidDependencyKind, row.node_index, path + ".dep_kind",
-                         "DP2D metadata requires a DP2D dependency kind");
-      }
-      const int arity = node_descriptor(row.dep_kind).dependency_arity;
-      if (row.transition_dep_names.size() != static_cast<std::size_t>(arity)) {
-        return fail_bool(VerifyCode::DependencyArityMismatch, row.node_index, path,
-                         "DP2D dependency names do not match the dependency kind arity");
-      }
-      if (!valid_name(row.solve_i_name, row.node_index, path + ".solve_i_name") ||
-          !valid_name(row.solve_j_name, row.node_index, path + ".solve_j_name") ||
-          !valid_name(row.transition_i_name, row.node_index, path + ".transition_i_name") ||
-          !valid_name(row.transition_j_name, row.node_index, path + ".transition_j_name")) return false;
-      for (std::size_t j = 0; j < row.transition_dep_names.size(); ++j) {
-        if (!valid_name(row.transition_dep_names[j], row.node_index,
-                        path + ".transition_dep_names[" + std::to_string(j) + "]")) return false;
       }
     }
 
@@ -753,11 +636,7 @@ class StructuralVerifier {
       }
     }
 
-    if (!check_missing(expected_linear, seen_linear, "$.linear_rec_binders") ||
-        !check_missing(expected_dc, seen_dc, "$.asgp_dc_binders") ||
-        !check_missing(expected_dp1, seen_dp1, "$.asgp_dp1d_specs") ||
-        !check_missing(expected_dp2, seen_dp2, "$.asgp_dp2d_specs") ||
-        !check_missing(expected_lexical, seen_lexical, "$.lexical_regions") ||
+    if (!check_missing(expected_lexical, seen_lexical, "$.lexical_regions") ||
         !check_missing(expected_traversal, seen_traversal, "$.traversal_specs") ||
         !check_missing(expected_bounded, seen_bounded,
                        "$.bounded_region_specs")) return false;

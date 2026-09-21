@@ -58,7 +58,7 @@ std::shared_ptr<const grammar::CompiledGrammar> repeated_capture_grammar(
       : R"({"bound":"x"})";
   return std::make_shared<const grammar::CompiledGrammar>(
       grammar::compile_grammar(grammar::parse_definition(std::string(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":20,"max_depth":10},
     "execution_limits":{"fuel":100},
@@ -86,7 +86,6 @@ std::shared_ptr<const grammar::CompiledGrammar> repeated_capture_grammar(
 GpuReproConfig compiled_config(const grammar::CompiledGrammar& grammar,
                                int population_size) {
   GpuReproConfig config;
-  config.contract_mode = ReproductionContractMode::CompiledGrammar;
   config.donor_pool_size_per_site = 2;
   config.population_size = population_size;
   config.pair_count = (population_size + 1) / 2;

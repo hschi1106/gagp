@@ -1,109 +1,104 @@
 # Native Dataflow
 
-This document explains how inputs move through the maintained native system.
-Normative AST, bytecode, fitness, and fixture behavior remains in
-[`../../spec/`](../../spec/README.md).
-
 ## Command boundary
 
-`gagp_evolve_cli` is a thin process boundary. The CLI support library parses
-and validates options, loads JSON cases, grammar configuration, and optional
-population seeds, then dispatches either AST evaluation or evolution. The
-command layer writes stable console and JSON output; it does not own evolution
-semantics.
+Evolution requires cases and a compiled definition:
 
 ```text
-arguments + JSON inputs
-        |
-        v
-CLI parser / codec / command dispatcher
-        |
-        v
-CaseSet + GrammarConfig + EvolutionConfig
-        |
-        v
-population initialization or fixed-population replay
+fitness-cases + grammar-definition-v2 + options
+                    |
+                    v
+strict resolve / compile / exact case request
+                    |
+                    v
+generate or replay grammar-population-v2
 ```
 
-External AST and bytecode inputs are verified before execution. Generated and
-reproduced genomes are verified at their construction boundaries, so the
-compiler and evaluators consume structurally valid, typed programs.
+The CLI rejects release-1 `grammar-config`, `population-seeds`, AST, and
+bytecode formats. Migration is an offline command before production execution.
 
-## Evaluation loop
-
-`CaseSet` normalizes fixture bindings, expected values, input names, and input
-types once. `initialize_population` either checks and replays an explicitly
-loaded population or generates genomes using the active grammar and inferred
-case schema.
-
-For each generation:
+## Evolution loop
 
 ```text
-ProgramGenome population
-        |
-        v
-compile_for_eval + bytecode verification
-        |
-        +---------------------+
-        |                     |
-        v                     v
-CPU fitness evaluator    GPU FitnessSession
-        |                     |
-        +----------+----------+
-                   v
-        canonical fitness vector
-                   |
-                   v
-       shared ranking and statistics
-                   |
-                   v
-       CPU or GPU reproduction backend
-                   |
-                   v
-     verified next-generation genomes
+verified ast-prefix-v2 population
+          |
+          v
+compile + bytecode verification
+          |
+          +----------------------+
+          |                      |
+          v                      v
+ CPU fitness              GPU FitnessSession
+          |                      |
+          +----------+-----------+
+                     v
+          canonical fitness vector
+                     |
+                     v
+             shared ranking
+                     |
+                     v
+      CPU or GPU compiled reproduction
+                     |
+                     v
+   verify + reconstruct accepted children
 ```
 
-Both evaluators return the same population-shaped fitness vector. One shared
-ranking path canonicalizes values, records timing, computes generation
-statistics, and materializes scored genomes. This keeps evaluation backend
-choice out of selection semantics.
+Initialization materializes from immutable compiled tables. Membership and
+lowering run before a generated member is accepted. CPU and GPU evaluation
+return the same population-shaped fitness vector. Ranking and statistics are
+shared.
 
-The reproduction backend receives the ranked population and the same grammar
-and shape limits. CPU reproduction performs selection, typed-subtree
-crossover, and mutation on the host. GPU reproduction prepares typed candidate
-metadata, packs it, performs device selection and variation, copies results
-back, decodes them, and verifies the resulting genomes.
+Reproduction reconstructs compiled witnesses, derives exact typed replacement
+contracts, prepares compatible donors, performs typed crossover then optional
+mutation, and certifies complete children. GPU reproduction moves these
+contracts and candidate payloads to the device; host copyback still decodes and
+certifies the result.
 
-When GPU evaluation and GPU reproduction overlap are enabled, reproduction
-input preparation starts while the current population is evaluated. Selection
-still waits for the completed fitness vector; overlap changes scheduling, not
-the ranking or operator contract. `PayloadLifetimeManager` retains container
-values referenced by cases, active genomes, history, and final results across
-these boundaries.
+With GPU overlap enabled, immutable reproduction preparation may run while
+fitness is in flight. Selection waits for the completed vector. Payload
+lifetimes cover cases, active programs, donors, history, best, and optional
+final results.
 
-After the configured generations, the engine either evaluates and ranks the
-final population or marks that pass skipped. `EvolutionResult` owns the best
-genome, history, optional final population, and nested timing aggregates. The
-CLI output adapter maps those structures to the stable flat JSON keys described
-in [`../reference/timing.md`](../reference/timing.md).
-
-## Operational artifact flow
-
-The independent Python tool package orchestrates data and reports; it does not
-implement runtime or evolution semantics.
+## Artifact flow
 
 ```text
-PSB source rows
-  -> fetch -> convert -> materialize fixtures
-  -> derive grammar profile / population seeds
-  -> native CLI runs
-  -> compare summaries
-  -> compact committed manifest
+grammar-definition-v2 + fitness-cases
+  -> grammar-generated-v2 / grammar-population-v2
+  -> ast-prefix-v2
+  -> bytecode-json-v2
+  -> CPU or GPU execution
 ```
 
-Generated datasets, populations, per-run JSON, and profiler output stay in
-artifact directories. Only compact manifests with provenance belong in
-`benchmarks/`. See [`../../tools/README.md`](../../tools/README.md) for the
-command surface and [`../guides/experiment-protocol.md`](../guides/experiment-protocol.md)
-for experiment controls.
+Same-version population replay checks grammar and generation identity. A
+materialized member can execute without the definition file, but reproduction
+requires the active compiled definition and successful membership
+reconstruction.
 
+Release-1 conversion is separate:
+
+```text
+grammar-config + exact cases + constrained-intent-v1
+  -> lossy search-space migration -> grammar-definition-v2
+
+release-1 ast-prefix + exact cases + explicit limits
+  -> exact program migration -> grammar-materialized-v2
+
+complete grammar-generated-v1 member
+  -> embedded-contract migration -> grammar-materialized-v2
+
+grammar-population-v1
+  -> split complete members -> migrate each member independently
+
+population-seeds
+  -> frozen release-1 materialization -> AST migration
+```
+
+Both exact program routes record `gagp-native-2.0.0`, keep the v2 AST constant
+table empty, and carry one detached lossless constant/payload pool. There is no
+release-1 bytecode route. Recompile the migrated AST.
+
+Operational Python tools orchestrate datasets and reports; they do not
+implement grammar, AST, runtime, or reproduction semantics. Generated raw runs
+stay under artifact directories, and only reviewed compact manifests belong in
+`benchmarks/`.

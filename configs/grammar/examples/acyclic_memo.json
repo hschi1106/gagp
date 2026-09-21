@@ -1,5 +1,5 @@
 {
-  "format_version": "grammar-definition-v1",
+  "format_version": "grammar-definition-v2",
   "entry": {"nonterminal": "Example.AcyclicMemo", "type": "Int"},
   "inputs": [{"name": "row", "type": "Int"}, {"name": "column", "type": "Int"}],
   "search_limits": {"max_nodes": 64, "max_depth": 20},

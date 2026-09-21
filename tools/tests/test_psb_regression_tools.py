@@ -54,6 +54,8 @@ class TestPsbRegressionTools(unittest.TestCase):
                 "tools/run_psb_regression.py",
                 "--suite",
                 "psb1",
+                "--grammar-definition",
+                "configs/grammar/all.json",
                 "--cases-root",
                 str(cases_root),
                 "--problems",
@@ -84,7 +86,7 @@ class TestPsbRegressionTools(unittest.TestCase):
             self.assertEqual(summary["runs"][0]["status"], "dry_run")
             self.assertFalse((out_dir / "count-odds" / "seed_0" / "run.json").exists())
 
-    def test_run_psb_regression_generates_compat_config(self):
+    def test_run_psb_regression_uses_explicit_v2_definition(self):
         with tempfile.TemporaryDirectory(prefix="g3p_psb_compat_") as td:
             td_path = Path(td)
             cases_root = td_path / "cases"
@@ -109,8 +111,8 @@ class TestPsbRegressionTools(unittest.TestCase):
                 "--suite",
                 "psb1",
                 "--profile",
-                "compat",
-                "--base-grammar-config",
+                "compiled",
+                "--grammar-definition",
                 "configs/grammar/num_list.json",
                 "--cases-root",
                 str(cases_root),
@@ -129,21 +131,14 @@ class TestPsbRegressionTools(unittest.TestCase):
             subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True, check=True)
 
             summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
-            generated = summary["metadata"]["generated_grammar_configs"]["count-odds"]
-            generated_path = ROOT / generated["path"]
-            self.assertTrue(generated_path.exists())
-            profile = json.loads(generated_path.read_text(encoding="utf-8"))
-            self.assertEqual(profile["format_version"], "grammar-config")
-            self.assertEqual(profile["compat"]["fixture_schema_hash"], "sha256:test-schema")
-            self.assertTrue(profile["values"]["int_list"])
-            self.assertFalse(profile["values"]["float_list"])
-            self.assertFalse(profile["values"]["char"])
             run = summary["runs"][0]
-            self.assertEqual(run["grammar_config"]["kind"], "generated_compat")
-            self.assertIn("--grammar-config", run["command"])
-            self.assertIn(generated["path"], run["command"])
+            self.assertEqual(run["grammar_definition"]["kind"], "explicit_v2")
+            self.assertIn("--grammar-definition", run["command"])
+            self.assertNotIn("--grammar-config", run["command"])
+            self.assertIn("configs/grammar/num_list.json", run["command"])
+            self.assertEqual(summary["metadata"]["grammar_definition"], run["grammar_definition"])
 
-    def test_run_psb_regression_generates_compact_config_with_old_num_list_shape(self):
+    def test_run_psb_regression_requires_definition(self):
         with tempfile.TemporaryDirectory(prefix="g3p_psb_compact_") as td:
             td_path = Path(td)
             cases_root = td_path / "cases"
@@ -167,10 +162,6 @@ class TestPsbRegressionTools(unittest.TestCase):
                 "tools/run_psb_regression.py",
                 "--suite",
                 "psb1",
-                "--profile",
-                "compact",
-                "--base-grammar-config",
-                "configs/grammar/num_list.json",
                 "--cases-root",
                 str(cases_root),
                 "--problems",
@@ -185,46 +176,43 @@ class TestPsbRegressionTools(unittest.TestCase):
                 str(out_dir),
                 "--dry-run",
             ]
-            subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True, check=True)
+            result = subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("--grammar-definition", result.stderr)
 
-            summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
-            generated = summary["metadata"]["generated_grammar_configs"]["count-odds"]
-            profile = json.loads((ROOT / generated["path"]).read_text(encoding="utf-8"))
-            self.assertEqual(profile["profile"], "compact")
-            self.assertEqual(profile["compat"]["num_list_mode"], "both")
-            self.assertTrue(profile["values"]["int_list"])
-            self.assertTrue(profile["values"]["float_list"])
-            self.assertEqual(summary["runs"][0]["grammar_config"]["kind"], "generated_compact")
-
-    def test_make_population_seeds_writes_replayable_seed_set(self):
-        with tempfile.TemporaryDirectory(prefix="g3p_population_seeds_") as td:
+    def test_make_population_materializes_compiled_snapshot(self):
+        with tempfile.TemporaryDirectory(prefix="gagp_population_") as td:
             td_path = Path(td)
-            out = td_path / "population.seeds.json"
+            out = td_path / "population.json"
+            generator = td_path / "generator.py"
+            generator.write_text(
+                "#!/usr/bin/env python3\n"
+                "import json, pathlib, sys\n"
+                "a=sys.argv[1:]; pathlib.Path(a[a.index('--out-json')+1]).write_text("
+                "json.dumps({'format_version':'grammar-population-v2'}))\n",
+                encoding="utf-8",
+            )
+            generator.chmod(0o755)
             cmd = [
                 "python3",
-                "tools/make_population_seeds.py",
+                "tools/make_population.py",
+                "--generator",
+                str(generator),
                 "--cases",
                 "data/fixtures/simple_exp_1024.json",
-                "--grammar-config",
+                "--grammar-definition",
                 "configs/grammar/scalar.json",
-                "--count",
+                "--population-size",
                 "3",
-                "--start-seed",
+                "--seed",
                 "10",
-                "--stride",
-                "5",
                 "--out",
                 str(out),
             ]
             proc = subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True, check=True)
-            self.assertIn("POPULATION_SEEDS_COUNT 3", proc.stdout)
+            self.assertIn("POPULATION_SIZE 3", proc.stdout)
             payload = json.loads(out.read_text(encoding="utf-8"))
-            self.assertEqual(payload["format_version"], "population-seeds")
-            self.assertEqual(payload["cases_path"], "data/fixtures/simple_exp_1024.json")
-            self.assertEqual([row["seed"] for row in payload["seeds"]], [10, 15, 20])
-            self.assertEqual(payload["limits"]["max_expr_depth"], 7)
-            self.assertEqual(payload["grammar_config"]["path"], "configs/grammar/scalar.json")
-            self.assertTrue(payload["grammar_config"]["hash"].startswith("fnv1a64:"))
+            self.assertEqual(payload["format_version"], "grammar-population-v2")
 
     def test_materialize_psb_fixtures_writes_manifest_with_exclusions(self):
         with tempfile.TemporaryDirectory(prefix="g3p_psb_materialize_") as td:
@@ -368,14 +356,14 @@ class TestPsbRegressionTools(unittest.TestCase):
             train = {
                 "format_version": "fitness-cases",
                 "meta": {"schema_hash": "sha256:test-schema"},
-                "schema": {"inputs": {"x": "int"}, "expected": "int"},
-                "cases": [{"inputs": {"x": {"type": "int", "value": 1}}, "expected": {"type": "int", "value": 1}}],
+                "schema": {"inputs": {"n": "int"}, "expected": "int"},
+                "cases": [{"inputs": {"n": {"type": "int", "value": 1}}, "expected": {"type": "int", "value": 1}}],
             }
             test = {
                 "format_version": "fitness-cases",
                 "meta": {"schema_hash": "sha256:test-schema"},
-                "schema": {"inputs": {"x": "int"}, "expected": "int"},
-                "cases": [{"inputs": {"x": {"type": "int", "value": 2}}, "expected": {"type": "int", "value": 2}}],
+                "schema": {"inputs": {"n": "int"}, "expected": "int"},
+                "cases": [{"inputs": {"n": {"type": "int", "value": 2}}, "expected": {"type": "int", "value": 2}}],
             }
             (cases_root / "toy.train.json").write_text(json.dumps(train), encoding="utf-8")
             (cases_root / "toy.test.json").write_text(json.dumps(test), encoding="utf-8")
@@ -385,6 +373,8 @@ class TestPsbRegressionTools(unittest.TestCase):
                 "tools/run_psb_regression.py",
                 "--suite",
                 "psb1",
+                "--grammar-definition",
+                "configs/grammar_definitions/custom_integer.json",
                 "--cases-root",
                 str(cases_root),
                 "--problems",
@@ -772,7 +762,7 @@ class TestPsbRegressionTools(unittest.TestCase):
                             "profile": "baseline",
                             "cases_root": "logs/baseline_cases",
                             "grammar_config": {
-                                "path": "configs/grammar/all.json",
+                                "path": "configs/grammar/migration/v1/all.json",
                                 "hash": "sha256:old",
                             },
                             "seeds": [0, 1],
@@ -798,7 +788,7 @@ class TestPsbRegressionTools(unittest.TestCase):
                             "profile": "compact",
                             "cases_root": "logs/current_cases",
                             "base_grammar_config": {
-                                "path": "configs/grammar/all.json",
+                                "path": "configs/grammar/migration/v1/all.json",
                                 "hash": "sha256:old",
                             },
                             "generated_grammar_configs": {

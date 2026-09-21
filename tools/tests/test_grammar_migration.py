@@ -52,6 +52,23 @@ class TestGrammarMigration(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_manifest(manifest, root)
 
+    def test_measurement_command_uses_compiled_definition_flag(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            artifact = {"path": "artifact.json", "sha256": "unused"}
+            workload = {
+                "measurement": "evolution",
+                "snapshot": artifact,
+                "cases": artifact,
+                "grammar": artifact,
+                "args": ["--population-size", "64", "--generations", "1",
+                         "--blocksize", "256", "--seed", "42", "--fuel", "20000"],
+            }
+            command = measurement_command(
+                workload, "cpu", root / "adapter", root, root / "result.json")
+            self.assertIn("--grammar-definition", command)
+            self.assertNotIn("--grammar-config", command)
+
     def test_raw_audit_detects_pruned_rows_and_fabricated_timings(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

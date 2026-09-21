@@ -22,14 +22,12 @@ namespace gagp::evo {
 namespace {
 
 CaseSet evolution_case_set(const std::vector<EvalCase>& cases, const EvolutionConfig& cfg) {
-  auto result = prepare_case_set(cases, cfg.compiled_grammar ? GrammarConfig{} : cfg.grammar);
-  if (cfg.compiled_grammar) {
-    const auto request = cfg.generation_request.value_or(grammar::entry_request(*cfg.compiled_grammar));
-    validate_grammar_case_set(*cfg.compiled_grammar, result, request);
-    for (const auto& one : cases)
-      if (one.inputs.size() != cfg.compiled_grammar->inputs().size())
-        throw std::invalid_argument("every fitness case must supply every compiled grammar input");
-  }
+  auto result = prepare_case_set(cases);
+  const auto& request = *cfg.generation_request;
+  validate_grammar_case_set(*cfg.compiled_grammar, result, request);
+  for (const auto& one : cases)
+    if (one.inputs.size() != cfg.compiled_grammar->inputs().size())
+      throw std::invalid_argument("every fitness case must supply every compiled grammar input");
   return result;
 }
 
@@ -193,13 +191,10 @@ std::string eval_engine_name(EvalEngine engine) {
 std::vector<ScoredGenome> evaluate_population(const std::vector<ProgramGenome>& population,
                                               const std::vector<EvalCase>& cases,
                                               const EvolutionConfig& cfg) {
-  repro::require_reproduction_mode_supported(cfg);
-  const CaseSet case_set = evolution_case_set(cases, cfg);
-  if (cfg.compiled_grammar) {
-    const auto request = cfg.generation_request.value_or(grammar::entry_request(*cfg.compiled_grammar));
-    for (const auto& genome : population)
-      grammar::require_membership(*cfg.compiled_grammar, genome, request);
-  }
+  // Evaluation is also the package-independent execution boundary for
+  // materialized ASTs. Compiled-grammar membership belongs to evolution and
+  // reproduction, not to execution of an already verified program.
+  const CaseSet case_set = prepare_case_set(cases);
   EvolutionResult result;
   return materialize_scored_population(score_population_cpu_refs(
       population, case_set.input_names, case_set.bindings, case_set.expected_values,
@@ -224,15 +219,12 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
       cfg.cpu_repro_ablation != repro::CpuReproAblation::None) {
     throw std::invalid_argument("cpu_repro_ablation requires cpu reproduction backend");
   }
-  if (!cfg.compiled_grammar) cfg.grammar.validate();
-
   const auto all_t0 = std::chrono::steady_clock::now();
   std::mt19937_64 rng(cfg.seed);
   const CaseSet case_set = evolution_case_set(cases, cfg);
   EvolutionConfig reproduction_cfg = cfg;
   reproduction_cfg.verification_inputs = case_set.input_specs;
-  const auto gpu_repro_resources = cfg.compiled_grammar &&
-          cfg.reproduction_backend == repro::ReproductionBackend::Gpu
+  const auto gpu_repro_resources = cfg.reproduction_backend == repro::ReproductionBackend::Gpu
       ? repro::make_gpu_repro_run_resources(reproduction_cfg) : nullptr;
   const PayloadLifetimeManager payload_lifetime(cases, gpu_repro_resources);
   const auto init_t0 = std::chrono::steady_clock::now();

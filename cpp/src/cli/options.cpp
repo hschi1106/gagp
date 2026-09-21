@@ -25,8 +25,8 @@ CliOptions parse_cli_options(int argc, char** argv) {
       opts.cases_path = need_value("--cases");
     } else if (arg == "--population-json") {
       opts.population_json = need_value("--population-json");
-    } else if (arg == "--grammar-config") {
-      opts.grammar_config_path = need_value("--grammar-config");
+    } else if (arg == "--grammar-definition") {
+      opts.grammar_definition_path = need_value("--grammar-definition");
     } else if (arg == "--eval-ast-json") {
       opts.eval_ast_json = need_value("--eval-ast-json");
     } else if (arg == "--engine") {
@@ -63,14 +63,19 @@ CliOptions parse_cli_options(int argc, char** argv) {
       opts.fuel_explicit = true;
     } else if (arg == "--max-expr-depth") {
       opts.max_expr_depth = std::stoi(need_value("--max-expr-depth"));
+      opts.max_expr_depth_explicit = true;
     } else if (arg == "--max-stmts-per-block") {
       opts.max_stmts_per_block = std::stoi(need_value("--max-stmts-per-block"));
+      opts.max_stmts_per_block_explicit = true;
     } else if (arg == "--max-total-nodes") {
       opts.max_total_nodes = std::stoi(need_value("--max-total-nodes"));
+      opts.max_total_nodes_explicit = true;
     } else if (arg == "--max-for-k") {
       opts.max_for_k = std::stoi(need_value("--max-for-k"));
+      opts.max_for_k_explicit = true;
     } else if (arg == "--max-call-args") {
       opts.max_call_args = std::stoi(need_value("--max-call-args"));
+      opts.max_call_args_explicit = true;
     } else if (arg == "--show-program") {
       opts.show_program = need_value("--show-program");
     } else if (arg == "--timing") {
@@ -84,6 +89,9 @@ CliOptions parse_cli_options(int argc, char** argv) {
 
   if (opts.cases_path.empty()) {
     throw std::runtime_error("--cases is required");
+  }
+  if (opts.eval_ast_json.empty() && opts.grammar_definition_path.empty()) {
+    throw std::runtime_error("--grammar-definition is required for evolution");
   }
   if (opts.engine != "cpu" && opts.engine != "gpu") {
     throw std::runtime_error("--engine must be cpu or gpu");

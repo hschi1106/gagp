@@ -139,8 +139,7 @@ __device__ inline bool d_run_compiled_crossover_child(
   const DCandidateRange source = pointers.candidates[
       static_cast<std::uint64_t>(source_parent) * config.candidates_per_program +
       source_index];
-  if (!d_candidate_keys_compatible(destination, source,
-                                   ReproductionContractMode::CompiledGrammar) ||
+  if (!d_candidate_keys_compatible(destination, source) ||
       !d_compiled_occurrences_are_valid(destination, base_meta.used_len, config,
                                         pointers) ||
       !d_compiled_occurrences_are_valid(source, source_meta.used_len, config,
@@ -204,8 +203,7 @@ __global__ void compiled_crossover_kernel(
   const int pair = static_cast<int>(blockIdx.x);
   const int lane = static_cast<int>(threadIdx.x);
   if (pair >= config.pair_count || lane >= 2) return;
-  if (config.contract_mode != ReproductionContractMode::CompiledGrammar ||
-      config.max_nodes <= 0 || config.max_nodes > kGpuReproKernelMaxNodes ||
+  if (config.max_nodes <= 0 || config.max_nodes > kGpuReproKernelMaxNodes ||
       config.max_names < 0 || config.max_consts < 0 ||
       config.candidates_per_program <= 0 ||
       pointers.program_nodes == nullptr || pointers.candidates == nullptr ||

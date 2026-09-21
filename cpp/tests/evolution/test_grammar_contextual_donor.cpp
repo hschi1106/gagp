@@ -52,7 +52,7 @@ GenerationRequest request_for(const CompiledGrammar& grammar, const std::string&
 
 CompiledGrammar local_only_grammar() {
   return compile(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Safe","type":"Int"},
     "inputs":[{"name":"external","type":"Bool"}],
     "locals":[{"name":"x","type":"Int"}],
@@ -130,7 +130,7 @@ void test_frame_validation_and_missing_local_filtering() {
       "frame accepted duplicate local bindings");
 
   const auto alternatives = compile(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Choice","type":"Int"},
     "locals":[{"name":"x","type":"Int"}],
     "search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":100},
@@ -151,7 +151,7 @@ void test_frame_validation_and_missing_local_filtering() {
 
 CompiledGrammar shared_alias_grammar() {
   return compile(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "locals":[{"name":"x","type":"Int"}],
     "search_limits":{"max_nodes":16,"max_depth":8},"execution_limits":{"fuel":100},
@@ -204,7 +204,7 @@ void test_contextual_minimum_cost_with_shared_holes_and_aliases() {
 
 void test_all_public_local_types_become_frame_inputs() {
   const auto grammar = compile(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"IntLocal","type":"Int"},
     "inputs":[{"name":"base","type":"Bool"}],
     "locals":[

@@ -65,7 +65,7 @@ void test_identity() {
 
   const auto fixture = [](int weight) {
     return compile_grammar(parse_definition(
-        R"({"format_version":"grammar-definition-v1","entry":{"nonterminal":"Value","type":"Int"},
+        R"({"format_version":"grammar-definition-v2","entry":{"nonterminal":"Value","type":"Int"},
         "search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":100},
         "nonterminals":[{"id":"Value","type":"Int","scope":[],"alternatives":[
         {"id":"constant","weight":)" + std::to_string(weight) +
@@ -103,21 +103,6 @@ void test_rejections() {
   rejects([&] { key(constant(Value::from_fallback_token(42))); });
   rejects([&] { key(constant(Value::from_float(std::numeric_limits<double>::infinity()))); });
   rejects([&] { key(constant(Value::from_string_hash_len(999999, 12))); });
-  auto specialized = genome;
-  specialized.ast.linear_rec_binders.push_back({});
-  rejects([&] { key(specialized); });
-  specialized = genome;
-  specialized.ast.asgp_dc_binders.push_back({});
-  rejects([&] { key(specialized); });
-  specialized = genome;
-  specialized.ast.asgp_dp1d_specs.push_back({});
-  rejects([&] { key(specialized); });
-  specialized = genome;
-  specialized.ast.asgp_dp2d_specs.push_back({});
-  rejects([&] { key(specialized); });
-  specialized = genome;
-  specialized.ast.nodes[3].kind = NodeKind::LINEAR_REC;
-  rejects([&] { key(specialized); });
 }
 }  // namespace
 int main() {

@@ -1,6 +1,6 @@
 # Fitness
 
-This document defines release 1.0.0 scoring rules used by evolution and benchmark
+This document defines release 2.0.0 scoring rules used by evolution and benchmark
 entrypoints.
 
 Current preserves the old scoring shape, removes public `None`, removes public
@@ -105,7 +105,7 @@ This includes:
 - `ZeroDiv`
 - `ValueError`
 - `Timeout`
-- deterministic ASGP stack, memo, or payload overflow errors
+- deterministic bounded-region frame, memo, or payload overflow errors
 
 The first runtime error for a case terminates that case execution.
 

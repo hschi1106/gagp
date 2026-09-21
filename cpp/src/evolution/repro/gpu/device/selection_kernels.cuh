@@ -155,23 +155,13 @@ __device__ inline bool d_compiled_donor_fits(const DCandidateRange& destination,
 }
 
 __device__ inline bool d_candidate_keys_compatible(
-    const DCandidateRange& a, const DCandidateRange& b,
-    ReproductionContractMode contract_mode = ReproductionContractMode::Legacy) {
+    const DCandidateRange& a, const DCandidateRange& b) {
   if (!d_candidate_is_valid(a) || !d_candidate_is_valid(b)) {
     return false;
   }
-  if (contract_mode == ReproductionContractMode::CompiledGrammar) {
-    return a.compatibility_id != kNoCompatibilityId &&
-           a.compatibility_id == b.compatibility_id &&
-           d_compiled_donor_fits(a, b) && d_compiled_donor_fits(b, a);
-  }
-  return a.aux == b.aux &&
-         a.scope_signature == b.scope_signature &&
-         a.binder_signature == b.binder_signature &&
-         a.scheme_kind == b.scheme_kind &&
-         a.phase_name == b.phase_name &&
-         a.visible_env_signature == b.visible_env_signature &&
-         a.dp_dependency_arity == b.dp_dependency_arity;
+  return a.compatibility_id != kNoCompatibilityId &&
+         a.compatibility_id == b.compatibility_id &&
+         d_compiled_donor_fits(a, b) && d_compiled_donor_fits(b, a);
 }
 
 __device__ inline int d_pick_candidate_index_for_type(const DCandidateRange* candidates,
@@ -211,8 +201,6 @@ __device__ inline void d_choose_typed_candidate_pair(const DCandidateRange* cand
                                                      std::uint64_t seed,
                                                      int* cand_a_out,
                                                      int* cand_b_out,
-                                                     ReproductionContractMode contract_mode =
-                                                         ReproductionContractMode::Legacy,
                                                      const DPackedProgramMeta* metas = nullptr,
                                                      PackedSelectionCounters* counters_out = nullptr) {
   if (counters_out != nullptr) {
@@ -223,43 +211,38 @@ __device__ inline void d_choose_typed_candidate_pair(const DCandidateRange* cand
   const DCandidateRange* candidates_b = candidates + static_cast<std::uint64_t>(parent_b_index) * candidates_per_program;
   int candidate_count_a = candidates_per_program;
   int candidate_count_b = candidates_per_program;
-  if (contract_mode == ReproductionContractMode::CompiledGrammar) {
-    candidate_count_a = metas == nullptr ? 0 : metas[parent_a_index].candidate_count;
-    candidate_count_b = metas == nullptr ? 0 : metas[parent_b_index].candidate_count;
-    candidate_count_a = candidate_count_a < 0 ? 0 :
-        (candidate_count_a > candidates_per_program ? candidates_per_program : candidate_count_a);
-    candidate_count_b = candidate_count_b < 0 ? 0 :
-        (candidate_count_b > candidates_per_program ? candidates_per_program : candidate_count_b);
-  }
+  candidate_count_a = metas == nullptr ? 0 : metas[parent_a_index].candidate_count;
+  candidate_count_b = metas == nullptr ? 0 : metas[parent_b_index].candidate_count;
+  candidate_count_a = candidate_count_a < 0 ? 0 :
+      (candidate_count_a > candidates_per_program ? candidates_per_program : candidate_count_a);
+  candidate_count_b = candidate_count_b < 0 ? 0 :
+      (candidate_count_b > candidates_per_program ? candidates_per_program : candidate_count_b);
 
   std::uint64_t compatible_count = 0;
   for (int i = 0; i < candidate_count_a; ++i) {
     for (int j = 0; j < candidate_count_b; ++j) {
       const DCandidateRange candidate_a = candidates_a[i];
       const DCandidateRange candidate_b = candidates_b[j];
-      if (contract_mode == ReproductionContractMode::CompiledGrammar &&
-          (!d_candidate_is_valid(candidate_a) || !d_candidate_is_valid(candidate_b) ||
+      if (!d_candidate_is_valid(candidate_a) || !d_candidate_is_valid(candidate_b) ||
            candidate_a.compatibility_id == kNoCompatibilityId ||
-           candidate_a.compatibility_id != candidate_b.compatibility_id)) {
+           candidate_a.compatibility_id != candidate_b.compatibility_id) {
         if (counters_out != nullptr) {
           ++counters_out->contract_rejections;
         }
-      } else if (contract_mode == ReproductionContractMode::CompiledGrammar &&
-                 (!d_compiled_donor_fits(candidate_a, candidate_b) ||
-                  !d_compiled_donor_fits(candidate_b, candidate_a))) {
+      } else if (!d_compiled_donor_fits(candidate_a, candidate_b) ||
+                 !d_compiled_donor_fits(candidate_b, candidate_a)) {
         if (counters_out != nullptr) {
           ++counters_out->budget_rejections;
         }
-      } else if (d_candidate_keys_compatible(candidate_a, candidate_b, contract_mode)) {
+      } else if (d_candidate_keys_compatible(candidate_a, candidate_b)) {
         compatible_count += 1;
       }
     }
   }
 
   if (compatible_count == 0) {
-    const int no_candidate = contract_mode == ReproductionContractMode::CompiledGrammar ? -1 : 0;
-    *cand_a_out = no_candidate;
-    *cand_b_out = no_candidate;
+    *cand_a_out = -1;
+    *cand_b_out = -1;
     return;
   }
 
@@ -268,7 +251,7 @@ __device__ inline void d_choose_typed_candidate_pair(const DCandidateRange* cand
   std::uint64_t seen = 0;
   for (int i = 0; i < candidate_count_a; ++i) {
     for (int j = 0; j < candidate_count_b; ++j) {
-      if (!d_candidate_keys_compatible(candidates_a[i], candidates_b[j], contract_mode)) {
+      if (!d_candidate_keys_compatible(candidates_a[i], candidates_b[j])) {
         continue;
       }
       if (seen == chosen_rank) {
@@ -280,9 +263,8 @@ __device__ inline void d_choose_typed_candidate_pair(const DCandidateRange* cand
     }
   }
 
-  const int no_candidate = contract_mode == ReproductionContractMode::CompiledGrammar ? -1 : 0;
-  *cand_a_out = no_candidate;
-  *cand_b_out = no_candidate;
+  *cand_a_out = -1;
+  *cand_b_out = -1;
 }
 
 __global__ void tournament_select_kernel(const double* fitness,
@@ -296,8 +278,6 @@ __global__ void tournament_select_kernel(const double* fitness,
                                          int* parent_b,
                                          int* cand_a,
                                          int* cand_b,
-                                         ReproductionContractMode contract_mode =
-                                             ReproductionContractMode::Legacy,
                                          const DPackedProgramMeta* metas = nullptr,
                                          PackedSelectionCounters* counters = nullptr) {
   const int idx = static_cast<int>(blockIdx.x * blockDim.x + threadIdx.x);
@@ -314,7 +294,7 @@ __global__ void tournament_select_kernel(const double* fitness,
 
   const std::uint64_t cseed = hash64(seed + static_cast<std::uint64_t>(idx + 1) * 0x9e3779b97f4a7c15ULL);
   d_choose_typed_candidate_pair(candidates, candidates_per_program, pa, pb, cseed,
-                                &cand_a[idx], &cand_b[idx], contract_mode, metas,
+                                &cand_a[idx], &cand_b[idx], metas,
                                 counters == nullptr ? nullptr : &counters[idx]);
 }
 

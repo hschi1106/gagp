@@ -97,7 +97,7 @@ bool same_materialized_program(const AstProgram& a, const AstProgram& b) {
             canonical_json(encode_constant(b.consts.at(right)));
       case NodeIndexRole::DynamicArity:
       case NodeIndexRole::BinderId:
-      case NodeIndexRole::ListTypeTag: return left == right;
+        return left == right;
     }
     return false;
   };

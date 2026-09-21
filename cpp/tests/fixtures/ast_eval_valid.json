@@ -1,5 +1,5 @@
 {
-  "version": "ast-prefix",
+  "version": "ast-prefix-v2",
   "nodes": [
     {"kind": 0, "i0": 0, "i1": 0},
     {"kind": 2, "i0": 0, "i1": 0},

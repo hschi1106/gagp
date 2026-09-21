@@ -191,23 +191,6 @@ void append_constant_mutation_stream(ConstantMutationTable& table,
 
   std::vector<int> metadata_roots;
   metadata_roots.reserve(static_cast<std::size_t>(kGpuReproMaxConsts));
-  const auto add_metadata_root = [&](int index) {
-    if (index < 0 || static_cast<std::size_t>(index) >= ast.consts.size())
-      throw std::invalid_argument(
-          "constant mutation stream has an invalid metadata constant index");
-    if (std::find(metadata_roots.begin(), metadata_roots.end(), index) !=
-        metadata_roots.end())
-      return;
-    if (metadata_roots.size() ==
-        static_cast<std::size_t>(kGpuReproMaxConsts))
-      throw std::invalid_argument(
-          "constant mutation stream exceeds metadata constant root limit");
-    metadata_roots.push_back(index);
-  };
-  for (const auto& spec : ast.asgp_dp1d_specs)
-    add_metadata_root(spec.boundary_const);
-  for (const auto& spec : ast.asgp_dp2d_specs)
-    add_metadata_root(spec.boundary_const);
 
   std::map<std::uint32_t, PendingGroup> pending;
   for (std::size_t i = 0; i < node_count; ++i) {

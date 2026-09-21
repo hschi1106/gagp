@@ -94,8 +94,7 @@ bool same_request(const grammar::GenerationRequest& a, const grammar::Generation
 void validate_run_resources(const std::shared_ptr<GpuReproRunResources>& resources,
                             const EvolutionConfig& cfg) {
   if (!resources || resources->grammar != cfg.compiled_grammar ||
-      !same_request(resources->request, cfg.generation_request.value_or(
-          grammar::entry_request(*cfg.compiled_grammar))))
+      !same_request(resources->request, *cfg.generation_request))
     throw std::invalid_argument("compiled GPU run resource grammar/request mismatch");
 }
 
@@ -108,19 +107,15 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
   require_reproduction_mode_supported(cfg, true);
   GpuReproPreparedData out;
   const auto prepare_t0 = std::chrono::steady_clock::now();
-  if (cfg.compiled_grammar) {
-    if (!resources) resources = make_gpu_repro_run_resources(cfg);
-    validate_run_resources(resources, cfg);
-    out.run_resources = resources;
-    if (population.empty() || population.size() != static_cast<std::size_t>(cfg.population_size))
-      throw std::invalid_argument("compiled GPU preparation population size mismatch");
-    if (!context) context = std::make_shared<grammar::VariationContext>(cfg.compiled_grammar,
-        cfg.generation_request.value_or(grammar::entry_request(*cfg.compiled_grammar)));
-    for (const auto& genome : population) (void)context->cache().analyze(genome, context->request());
-    out.compiled_context = context;
-  }
-  if (resources && !cfg.compiled_grammar)
-    throw std::invalid_argument("compiled GPU run resources require a compiled grammar");
+  if (!resources) resources = make_gpu_repro_run_resources(cfg);
+  validate_run_resources(resources, cfg);
+  out.run_resources = resources;
+  if (population.empty() || population.size() != static_cast<std::size_t>(cfg.population_size))
+    throw std::invalid_argument("compiled GPU preparation population size mismatch");
+  if (!context) context = std::make_shared<grammar::VariationContext>(
+      cfg.compiled_grammar, *cfg.generation_request);
+  for (const auto& genome : population) (void)context->cache().analyze(genome, context->request());
+  out.compiled_context = context;
   const std::vector<ProgramGenome> packed_population = compact_population_tables(population);
   out.config = make_gpu_repro_config(packed_population, cfg);
   out.config.seed = seed;
@@ -147,9 +142,8 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
       resources->domains = prepare_constant_mutation_domains(resources->grammar);
     domains = resources->domains;
   }
-  const PreprocessOutput prep = context
-      ? preprocess_population(packed_population, out.config, *context, domains)
-      : preprocess_population(packed_population, out.config, cfg.grammar);
+  const PreprocessOutput prep =
+      preprocess_population(packed_population, out.config, *context, domains);
   const auto prep_t1 = std::chrono::steady_clock::now();
   if (stats != nullptr) {
     stats->preprocess_ms += std::chrono::duration<double, std::milli>(prep_t1 - prep_t0).count();
@@ -178,13 +172,12 @@ bool same_request(const grammar::GenerationRequest& a, const grammar::Generation
 
 bool same_config(const GpuReproConfig& a, const GpuReproConfig& b) {
   const auto fields = [](const GpuReproConfig& c) {
-    return std::tie(c.compiled_pass, c.contract_mode, c.donor_pool_size_per_site,
+    return std::tie(c.compiled_pass, c.donor_pool_size_per_site,
         c.compiled_donor_count, c.compiled_occurrence_count, c.constant_domain_count,
         c.constant_value_count, c.constant_group_count, c.constant_origin_count,
         c.constant_stream_count, c.constant_root_count, c.population_size, c.pair_count,
         c.candidates_per_program, c.donor_pool_size_per_type, c.max_nodes,
-        c.max_donor_nodes, c.max_names, c.max_consts, c.max_linear_rec_binders,
-        c.max_asgp_dc_binders, c.max_asgp_dp1d_specs, c.max_asgp_dp2d_specs,
+        c.max_donor_nodes, c.max_names, c.max_consts,
         c.tournament_k, c.max_expr_depth, c.max_for_k, c.mutation_ratio,
         c.mutation_subtree_ratio, c.seed);
   };
@@ -196,11 +189,10 @@ void validate_compiled_prepared(const std::vector<ScoredGenomeRef>& scored,
   if (!prepared.run_resources || !prepared.compiled_context || !prepared.packed.compiled_sources ||
       prepared.packed.compiled_grammar != cfg.compiled_grammar ||
       prepared.compiled_context->grammar_owner() != cfg.compiled_grammar ||
-      prepared.config.contract_mode != ReproductionContractMode::CompiledGrammar ||
       prepared.config.compiled_pass != CompiledVariationPass::Crossover ||
       !same_config(prepared.config, prepared.packed.config) ||
       !same_request(prepared.compiled_context->request(),
-          cfg.generation_request.value_or(grammar::entry_request(*cfg.compiled_grammar))) ||
+          *cfg.generation_request) ||
       prepared.config.population_size != cfg.population_size ||
       scored.size() != static_cast<std::size_t>(cfg.population_size) ||
       prepared.packed.compiled_sources->parents.size() != scored.size() ||
@@ -280,7 +272,7 @@ std::shared_ptr<GpuReproRunResources> make_gpu_repro_run_resources(const Evoluti
     throw std::invalid_argument("compiled GPU run resources require a compiled grammar");
   auto resources = std::make_shared<GpuReproRunResources>();
   resources->grammar = cfg.compiled_grammar;
-  resources->request = cfg.generation_request.value_or(grammar::entry_request(*cfg.compiled_grammar));
+  resources->request = *cfg.generation_request;
   return resources;
 }
 
@@ -314,13 +306,7 @@ ReproductionResult run_gpu_repro_backend_prepared(const std::vector<ScoredGenome
                                                   const GpuReproPreparedData& prepared,
                                                   ReproductionStats* stats) {
   require_reproduction_mode_supported(cfg, true);
-  if (cfg.compiled_grammar) validate_compiled_prepared(scored, cfg, prepared);
-  else if (prepared.run_resources || prepared.compiled_context ||
-      prepared.config.contract_mode != ReproductionContractMode::Legacy ||
-      prepared.packed.config.contract_mode != ReproductionContractMode::Legacy || prepared.packed.compiled_grammar ||
-      prepared.packed.compiled_sources || prepared.packed.constant_mutation ||
-      !prepared.packed.parent_constant_streams.empty() || !prepared.packed.donor_constant_streams.empty())
-    throw std::invalid_argument("legacy GPU reproduction entry point cannot consume compiled grammar state");
+  validate_compiled_prepared(scored, cfg, prepared);
 #ifndef GAGP_HAS_CUDA
   (void)scored;
   (void)cfg;
@@ -328,48 +314,7 @@ ReproductionResult run_gpu_repro_backend_prepared(const std::vector<ScoredGenome
   (void)stats;
   throw std::runtime_error("gpu reproduction requested but CUDA is unavailable in this build");
 #else
-  if (cfg.compiled_grammar) return run_compiled_prepared(scored, cfg, prepared, stats);
-  if (scored.empty()) {
-    return ReproductionResult{};
-  }
-  if (static_cast<int>(scored.size()) != prepared.config.population_size) {
-    throw std::runtime_error("gpu reproduction prepared population size mismatch");
-  }
-
-  GpuReproRuntimeCache& cache = gpu_runtime_cache();
-  std::string message;
-  const auto setup_t0 = std::chrono::steady_clock::now();
-  if (!ensure_gpu_repro_arena_capacity(&cache.arena, prepared.config, &message) ||
-      !ensure_gpu_repro_host_staging_capacity(&cache.staging, prepared.config, &message)) {
-    throw std::runtime_error(message);
-  }
-  const auto setup_t1 = std::chrono::steady_clock::now();
-
-  ReproductionResult out;
-  if (stats != nullptr) {
-    out.stats = *stats;
-  }
-  out.stats.setup_ms += std::chrono::duration<double, std::milli>(setup_t1 - setup_t0).count();
-
-  try {
-    if (!upload_gpu_repro_inputs(prepared.packed, &cache.arena, &out.stats, &message)) {
-      throw std::runtime_error(message);
-    }
-    if (!launch_gpu_repro_kernels(&cache.arena, prepared.config, extract_fitness(scored), &out.stats, &message)) {
-      throw std::runtime_error(message);
-    }
-    GpuReproChildView copyback;
-    if (!copyback_gpu_repro_children(cache.arena, prepared.config, &cache.staging, &copyback, &out.stats, &message)) {
-      throw std::runtime_error(message);
-    }
-    const auto decode_t0 = std::chrono::steady_clock::now();
-    out.next_population = decode_gpu_repro_children(prepared.packed, copyback, scored, cfg);
-    const auto decode_t1 = std::chrono::steady_clock::now();
-    out.stats.decode_ms += std::chrono::duration<double, std::milli>(decode_t1 - decode_t0).count();
-  } catch (...) {
-    throw;
-  }
-  return out;
+  return run_compiled_prepared(scored, cfg, prepared, stats);
 #endif
 }
 
@@ -387,7 +332,7 @@ ReproductionResult run_gpu_repro_backend(const std::vector<ScoredGenomeRef>& sco
                                          std::mt19937_64& rng,
                                          std::shared_ptr<GpuReproRunResources> resources) {
   require_reproduction_mode_supported(cfg, true);
-  if (cfg.compiled_grammar && scored.empty()) return ReproductionResult{};
+  if (scored.empty()) return ReproductionResult{};
 #ifndef GAGP_HAS_CUDA
   (void)scored;
   (void)cfg;

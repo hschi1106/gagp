@@ -13,7 +13,8 @@ nearest component documentation, not here.
 | `cpp/include/gagp/` | Public native headers |
 | `cpp/src/runtime/` | CPU/GPU runtime and payload implementation |
 | `cpp/src/evolution/` | Compiler, generation, evaluation, selection, and reproduction |
-| `cpp/src/transition/` | Test-only lowering adapters for migration comparisons |
+| `cpp/src/transition/` | Migration-only lowering adapters used by offline conversion and oracle tests |
+| `cpp/src/migration/` | Offline release-1 readers and conversion implementation |
 | `cpp/src/serialization/` | Shared execution-plan JSON codec without CLI dependencies |
 | `cpp/src/cli/` | Native CLI parsing, codecs, commands, and output adaptation |
 | `cpp/src/bench/` | Opt-in native benchmarks |

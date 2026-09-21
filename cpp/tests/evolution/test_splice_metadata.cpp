@@ -310,57 +310,6 @@ void test_bounded_name_capture_remaps_reordered_table() {
           "remapped bounded name capture returned the wrong value");
 }
 
-void test_legacy_dp1_tables_are_remapped() {
-  AstProgram base;
-  base.names = {"kept"};
-  base.consts = {Value::from_int(99)};
-  base.nodes = {
-      {NodeKind::PROGRAM}, {NodeKind::BLOCK_CONS}, {NodeKind::RETURN},
-      {NodeKind::CONST, 0}, {NodeKind::BLOCK_NIL},
-  };
-
-  AstProgram donor;
-  donor.names = {"solve_s", "transition_s", "dep"};
-  donor.consts = {Value::from_int(2), Value::from_int(1),
-                  Value::from_int(3), Value::from_int(0)};
-  donor.nodes = {
-      {NodeKind::PROGRAM}, {NodeKind::BLOCK_CONS}, {NodeKind::RETURN},
-      {NodeKind::ASGP_DP1D}, {NodeKind::CONST, 0}, {NodeKind::CONST, 1},
-      {NodeKind::CONST, 2}, {NodeKind::BLOCK_NIL},
-  };
-  donor.asgp_dp1d_specs = {{
-      3, 0, 5, 0, 3, NodeKind::DP1_BACKWARD1, {1}, 0, 1, {2},
-  }};
-  require_valid(base, "legacy mapping base fixture is invalid");
-  require_valid(donor, "legacy DP1 donor fixture is invalid");
-
-  const std::vector<SpliceOccurrence> occurrences = {{3, 4, {}}};
-  std::vector<AstNode> inserted(donor.nodes.begin() + 3,
-                                donor.nodes.begin() + 7);
-  inserted[1].i0 = 2;
-  inserted[2].i0 = 3;
-  inserted[3].i0 = 1;
-  AstProgram child = base;
-  child.nodes = splice_nodes(base, occurrences, inserted);
-  child.names = {"dep", "kept", "transition_s", "solve_s"};
-  child.consts = {Value::from_int(0), Value::from_int(3),
-                  Value::from_int(2), Value::from_int(1),
-                  Value::from_int(99)};
-  const auto names_before = child.names;
-  const auto const_count_before = child.consts.size();
-
-  reconstruct_splice_metadata(child, base, donor, occurrences, 3, 7, {});
-  require(child.names == names_before && child.consts.size() == const_count_before &&
-              child.asgp_dp1d_specs.size() == 1 &&
-              child.asgp_dp1d_specs[0].boundary_const == 0 &&
-              child.asgp_dp1d_specs[0].solve_state_name == 3 &&
-              child.asgp_dp1d_specs[0].transition_state_name == 2 &&
-              child.asgp_dp1d_specs[0].transition_dep_names ==
-                  std::vector<int>({0}),
-          "legacy DP1 metadata did not follow reordered name/constant tables");
-  require_valid(child, "remapped legacy DP1 child fixture is invalid");
-}
-
 struct TraversalFixture {
   AstProgram base;
   AstProgram donor;
@@ -466,7 +415,7 @@ void test_rejection_is_transactional() {
 std::shared_ptr<const grammar::CompiledGrammar> scoped_repeated_hole_grammar() {
   return std::make_shared<const grammar::CompiledGrammar>(
       grammar::compile_grammar(grammar::parse_definition(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":20,"max_depth":10},
     "execution_limits":{"fuel":100},
@@ -494,7 +443,6 @@ std::shared_ptr<const grammar::CompiledGrammar> scoped_repeated_hole_grammar() {
 repro::GpuReproConfig compiled_config(
     const grammar::CompiledGrammar& grammar, std::size_t population_size) {
   repro::GpuReproConfig config;
-  config.contract_mode = repro::ReproductionContractMode::CompiledGrammar;
   config.donor_pool_size_per_site = 2;
   config.population_size = static_cast<int>(population_size);
   config.pair_count = static_cast<int>((population_size + 1) / 2);
@@ -738,7 +686,6 @@ int main() {
     test_repeated_lexical_capture_and_freshening();
     test_bounded_bindings_and_lexical_capture();
     test_bounded_name_capture_remaps_reordered_table();
-    test_legacy_dp1_tables_are_remapped();
     test_traversal_and_fuel_relocation();
     test_rejection_is_transactional();
     test_compiled_parent_and_donor_provenance();

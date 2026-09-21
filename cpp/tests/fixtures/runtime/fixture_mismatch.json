@@ -1,5 +1,5 @@
 {
-  "format_version": "bytecode-fixture",
+  "format_version": "bytecode-fixture-v2",
   "fuel": 10,
   "scenarios": [{
     "intent": "fixture runner reports an exact-value mismatch",

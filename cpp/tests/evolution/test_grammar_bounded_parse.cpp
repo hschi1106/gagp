@@ -85,7 +85,7 @@ Json document(bool two_occurrences = false) {
   const std::string first = bounded_expression(plan(), R"({"input":"x"})");
   const std::string second = bounded_expression(plan(), R"({"local":"tmp"})");
   return parse(std::string(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "inputs":[{"name":"x","type":"Int"},{"name":"flag","type":"Bool"}],
     "locals":[{"name":"tmp","type":"Int"}],

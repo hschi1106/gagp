@@ -12,11 +12,13 @@
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/node_descriptor.hpp"
 #include "gagp/evolution/transition/linear_rec.hpp"
+#include "linear_rec_internal.hpp"
 
 namespace gagp::evo::transition {
 namespace {
 
 using Captures = std::map<int, int>;
+namespace legacy = gagp::migration::legacy_v1;
 
 ValueTag value_tag(RType type) {
   switch (type) {
@@ -71,10 +73,10 @@ RegionStateTransition expression_state(std::uint32_t expression) {
 
 class Adapter {
  public:
-  Adapter(const AstProgram& source, const VerifiedAst& verified)
+  Adapter(const legacy::AstProgram& source, const legacy::VerifiedAst& verified)
       : source_(source), verified_(verified) {
     node_map_.assign(source.nodes.size(), unmapped());
-    out_.version = source.version;
+    out_.version = k_ast_prefix_version_current;
     out_.names = source.names;
     out_.consts = source.consts;
     for (const auto& region : source.lexical_regions)
@@ -86,7 +88,6 @@ class Adapter {
 
   AstProgram run() {
     copy(0, {});
-    copy_rows(source_.linear_rec_binders, out_.linear_rec_binders);
     copy_rows(source_.lexical_regions, out_.lexical_regions);
     copy_rows(source_.traversal_specs, out_.traversal_specs);
     copy_fuel_rows();
@@ -155,9 +156,9 @@ class Adapter {
 
   void copy_fuel_rows() {
     for (auto row : source_.fuel_specs) {
-      if (source_.nodes.at(row.node_index).kind == NodeKind::ASGP_DC ||
-          source_.nodes.at(row.node_index).kind == NodeKind::ASGP_DP1D ||
-          source_.nodes.at(row.node_index).kind == NodeKind::ASGP_DP2D) {
+      if (source_.nodes.at(row.node_index).kind == legacy::NodeKind::ASGP_DC ||
+          source_.nodes.at(row.node_index).kind == legacy::NodeKind::ASGP_DP1D ||
+          source_.nodes.at(row.node_index).kind == legacy::NodeKind::ASGP_DP2D) {
         continue;
       }
       const auto mapped = node_map_.at(row.node_index);
@@ -174,19 +175,19 @@ class Adapter {
     return nullptr;
   }
 
-  const AsgpDcBinders& dc_spec(std::size_t owner) const {
+  const legacy::AsgpDcBinders& dc_spec(std::size_t owner) const {
     for (const auto& spec : source_.asgp_dc_binders)
       if (spec.node_index == owner) return spec;
     throw std::logic_error("verified ASGP-DC lost binding metadata");
   }
 
-  const AsgpDp1dSpec& dp1_spec(std::size_t owner) const {
+  const legacy::AsgpDp1dSpec& dp1_spec(std::size_t owner) const {
     for (const auto& spec : source_.asgp_dp1d_specs)
       if (spec.node_index == owner) return spec;
     throw std::logic_error("verified ASGP-DP1D lost metadata");
   }
 
-  const AsgpDp2dSpec& dp2_spec(std::size_t owner) const {
+  const legacy::AsgpDp2dSpec& dp2_spec(std::size_t owner) const {
     for (const auto& spec : source_.asgp_dp2d_specs)
       if (spec.node_index == owner) return spec;
     throw std::logic_error("verified ASGP-DP2D lost metadata");
@@ -194,27 +195,28 @@ class Adapter {
 
   void copy(std::size_t index, const Captures& captures) {
     const auto& node = source_.nodes.at(index);
-    if (node.kind == NodeKind::ASGP_DC) { dc(index, captures); return; }
-    if (node.kind == NodeKind::ASGP_DP1D) { dp1(index, captures); return; }
-    if (node.kind == NodeKind::ASGP_DP2D) { dp2(index, captures); return; }
+    if (node.kind == legacy::NodeKind::ASGP_DC) { dc(index, captures); return; }
+    if (node.kind == legacy::NodeKind::ASGP_DP1D) { dp1(index, captures); return; }
+    if (node.kind == legacy::NodeKind::ASGP_DP2D) { dp2(index, captures); return; }
 
-    auto copied = node;
-    if (node.kind == NodeKind::BOUND_VAR) {
+    auto copied_kind = legacy::current_kind(node.kind);
+    int copied_i0 = node.i0;
+    if (node.kind == legacy::NodeKind::BOUND_VAR) {
       const auto found = captures.find(node.i0);
       if (found != captures.end()) {
-        copied.kind = NodeKind::REGION_VAR;
-        copied.i0 = found->second;
+        copied_kind = NodeKind::REGION_VAR;
+        copied_i0 = found->second;
       }
     }
-    const auto destination = emit(copied.kind, copied.i0, copied.i1);
+    const auto destination = emit(copied_kind, copied_i0, node.i1);
     node_map_[index] = destination;
     auto child = index + 1;
-    const auto* bounded_spec = node.kind == NodeKind::BOUNDED_REGION ? bounded(index) : nullptr;
+    const auto* bounded_spec = node.kind == legacy::NodeKind::BOUNDED_REGION ? bounded(index) : nullptr;
     const std::size_t bounded_operands = bounded_spec == nullptr ? 0 :
         bounded_spec->plan.state_types.size() + bounded_spec->plan.bound_operand_count;
-    for (int argument = 0; argument < node_prefix_arity(node); ++argument) {
+    for (int argument = 0; argument < legacy::prefix_arity(source_, index); ++argument) {
       auto visible = captures;
-      if ((node.kind == NodeKind::MAP_LIST || node.kind == NodeKind::FILTER_LIST) &&
+      if ((node.kind == legacy::NodeKind::MAP_LIST || node.kind == legacy::NodeKind::FILTER_LIST) &&
           argument == 1) {
         visible.erase(node.i0);
       }
@@ -319,9 +321,9 @@ class Adapter {
   void dp1(std::size_t index, const Captures& captures) {
     const auto child = children(index, 3);
     const auto& old = dp1_spec(index);
-    const bool backward = old.dep_kind == NodeKind::DP1_BACKWARD1 ||
-                          old.dep_kind == NodeKind::DP1_BACKWARD2 ||
-                          old.dep_kind == NodeKind::DP1_BACKWARD3;
+    const bool backward = old.dep_kind == legacy::NodeKind::DP1_BACKWARD1 ||
+                          old.dep_kind == legacy::NodeKind::DP1_BACKWARD2 ||
+                          old.dep_kind == legacy::NodeKind::DP1_BACKWARD3;
     RegionPlan plan = common_coordinate_plan(index, 1, old.dep_offsets.size());
     plan.duplicate_policy = DuplicatePolicy::Allow;
     plan.coordinate_slots = {0};
@@ -374,15 +376,15 @@ class Adapter {
     out_.bounded_region_specs.push_back(std::move(spec));
   }
 
-  std::vector<std::pair<std::int64_t, std::int64_t>> dp2_offsets(NodeKind kind) const {
+  std::vector<std::pair<std::int64_t, std::int64_t>> dp2_offsets(legacy::NodeKind kind) const {
     switch (kind) {
-      case NodeKind::DP2_CROSS_BACKWARD: return {{-1, 0}, {0, -1}};
-      case NodeKind::DP2_CROSS_FORWARD: return {{1, 0}, {0, 1}};
-      case NodeKind::DP2_DIAGONAL_BACKWARD: return {{-1, -1}};
-      case NodeKind::DP2_DIAGONAL_FORWARD: return {{1, 1}};
-      case NodeKind::DP2_NEIGHBORHOOD_BACKWARD3:
+      case legacy::NodeKind::DP2_CROSS_BACKWARD: return {{-1, 0}, {0, -1}};
+      case legacy::NodeKind::DP2_CROSS_FORWARD: return {{1, 0}, {0, 1}};
+      case legacy::NodeKind::DP2_DIAGONAL_BACKWARD: return {{-1, -1}};
+      case legacy::NodeKind::DP2_DIAGONAL_FORWARD: return {{1, 1}};
+      case legacy::NodeKind::DP2_NEIGHBORHOOD_BACKWARD3:
         return {{-1, 0}, {0, -1}, {-1, -1}};
-      case NodeKind::DP2_NEIGHBORHOOD_FORWARD3:
+      case legacy::NodeKind::DP2_NEIGHBORHOOD_FORWARD3:
         return {{1, 0}, {0, 1}, {1, 1}};
       default: throw std::logic_error("verified ASGP-DP2D has an invalid dependency kind");
     }
@@ -467,8 +469,8 @@ class Adapter {
     out_.bounded_region_specs.push_back(std::move(spec));
   }
 
-  const AstProgram& source_;
-  const VerifiedAst& verified_;
+  const legacy::AstProgram& source_;
+  const legacy::VerifiedAst& verified_;
   AstProgram out_;
   std::vector<std::size_t> node_map_;
   std::set<int> used_;
@@ -477,18 +479,15 @@ class Adapter {
 
 }  // namespace
 
-ProgramGenome lower_bounded_regions(const ProgramGenome& source,
+ProgramGenome lower_bounded_regions(const legacy::AstProgram& source,
                                     const std::vector<InputSpec>& inputs) {
   // Keep the already differential-tested LinearRec rewrite as the single owner
   // of its scope and semantic-fuel mapping. The second verification supplies
   // exact subtree/type annotations for the DC/DP rewrite below.
-  ProgramGenome linear = lower_linear_rec(source, inputs);
-  const auto verified = verify_ast(linear.ast, inputs);
-  if (!verified)
-    throw std::invalid_argument("bounded-region transition source: " +
-                                verified.diagnostic.message);
+  legacy::AstProgram linear = detail::lower_linear_rec_legacy_ast(source, inputs);
+  const auto verified = legacy::verify(linear, inputs);
   ProgramGenome result;
-  result.ast = Adapter(linear.ast, verified.verified).run();
+  result.ast = Adapter(linear, verified).run();
   const auto lowered = verify_ast(result.ast, inputs);
   if (!lowered)
     throw std::logic_error("bounded-region transition result: " +

@@ -71,8 +71,6 @@ class Generator {
     std::vector<std::string> input_names;
     for (const auto& input : inputs) input_names.push_back(input.name);
     const auto lowered = compile_for_eval(out_.genome, verified.verified, input_names);
-    if (!lowered.asgp_dc_segments.empty() || !lowered.asgp_dp1d_segments.empty() || !lowered.asgp_dp2d_segments.empty())
-      throw std::logic_error("typed grammar unexpectedly lowered to specialized segments");
     const auto lowered_instructions = bytecode_instruction_count(lowered);
     if (lowered_instructions > kGrammarMaxLoweredInstructions)
       throw std::invalid_argument("generated program exceeds 1048576 lowered instructions");

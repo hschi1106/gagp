@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -28,10 +29,9 @@ class TestToolCli(unittest.TestCase):
             "psb materialize",
             "psb run",
             "psb compare",
-            "benchmark population-seeds",
+            "benchmark population",
             "report psb-manifest",
             "report simple-manifest",
-            "grammar profile",
         ):
             self.assertIn(command, result.stdout)
 
@@ -42,10 +42,9 @@ class TestToolCli(unittest.TestCase):
             ("psb", "materialize"),
             ("psb", "run"),
             ("psb", "compare"),
-            ("benchmark", "population-seeds"),
+            ("benchmark", "population"),
             ("report", "psb-manifest"),
             ("report", "simple-manifest"),
-            ("grammar", "profile"),
         )
         for command in commands:
             with self.subTest(command=command):
@@ -53,26 +52,40 @@ class TestToolCli(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn("usage:", result.stdout)
 
-    def test_population_seed_wrapper_and_unified_output_match(self) -> None:
-        wrapper_out = TOOLS / "tests" / ".population-wrapper.json"
-        unified_out = TOOLS / "tests" / ".population-unified.json"
-        try:
+    def test_population_wrapper_and_unified_output_match(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="gagp_population_tool_") as td:
+            root = Path(td)
+            wrapper_out = root / "population-wrapper.json"
+            unified_out = root / "population-unified.json"
+            generator = root / "generator.py"
+            generator.write_text(
+                "#!/usr/bin/env python3\n"
+                "import json, pathlib, sys\n"
+                "a=sys.argv[1:]; out=pathlib.Path(a[a.index('--out-json')+1])\n"
+                "out.write_text(json.dumps({'format_version':'grammar-population-v2','size':int(a[a.index('--population-size')+1])}))\n",
+                encoding="utf-8",
+            )
+            generator.chmod(0o755)
             common = [
+                "--generator",
+                str(generator),
+                "--grammar-definition",
+                "configs/grammar/scalar.json",
                 "--cases",
                 "data/fixtures/simple_exp_1024.json",
-                "--count",
+                "--population-size",
                 "3",
-                "--start-seed",
+                "--seed",
                 "9",
             ]
             wrapper = subprocess.run(
-                ["python3", "tools/make_population_seeds.py", *common, "--out", str(wrapper_out)],
+                ["python3", "tools/make_population.py", *common, "--out", str(wrapper_out)],
                 cwd=ROOT,
                 text=True,
                 capture_output=True,
             )
             unified = self.run_unified(
-                "benchmark", "population-seeds", *common, "--out", str(unified_out)
+                "benchmark", "population", *common, "--out", str(unified_out)
             )
             self.assertEqual(wrapper.returncode, 0, wrapper.stderr)
             self.assertEqual(unified.returncode, 0, unified.stderr)
@@ -80,9 +93,6 @@ class TestToolCli(unittest.TestCase):
                 json.loads(wrapper_out.read_text(encoding="utf-8")),
                 json.loads(unified_out.read_text(encoding="utf-8")),
             )
-        finally:
-            wrapper_out.unlink(missing_ok=True)
-            unified_out.unlink(missing_ok=True)
 
     def test_compatibility_wrappers_are_thin(self) -> None:
         for path in sorted(TOOLS.glob("*.py")):

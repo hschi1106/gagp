@@ -1,5 +1,5 @@
 {
-  "format_version": "bytecode-fixture",
+  "format_version": "bytecode-fixture-v2",
   "fuel": 20000,
   "scenarios": [
     {

@@ -7,6 +7,7 @@
 
 #include <charconv>
 #include <cmath>
+#include <cctype>
 #include <limits>
 #include <stdexcept>
 
@@ -49,8 +50,41 @@ Json parse(const std::string& text) {
     throw std::invalid_argument("unsupported generated grammar artifact version");
   return value;
 }
-// The legacy AST codec narrows numeric fields to int. Validate the detached
-// shape before entering it; constants use the separate lossless domain codec.
+Json parse_materialized(const std::string& text) {
+  if (text.size() > 256 * 1024 * 1024)
+    throw std::invalid_argument("grammar artifact exceeds 256 MiB");
+  Json value;
+  try { value = JsonParser(text, {true, 512}).parse(); }
+  catch (const std::runtime_error& error) {
+    throw std::invalid_argument(std::string("invalid grammar artifact JSON: ") + error.what());
+  }
+  if (require_string(require_object_field(value, "format_version"), "format_version") !=
+      kMaterializedGrammarArtifactVersion)
+    throw std::invalid_argument("unsupported materialized grammar artifact version");
+  return value;
+}
+void require_only_fields(const Json& value,
+                         std::initializer_list<const char*> allowed,
+                         const char* section) {
+  if (value.kind != Json::Kind::Object)
+    throw std::invalid_argument(std::string(section) + " must be an object");
+  for (const auto& field : value.object_v) {
+    bool found = false;
+    for (const char* name : allowed) found = found || field.first == name;
+    if (!found)
+      throw std::invalid_argument(std::string(section) + " has unknown field: " +
+                                  field.first);
+  }
+}
+void require_sha256(const std::string& value) {
+  if (value.size() != 64)
+    throw std::invalid_argument("materialized source identity SHA-256 must have 64 lowercase hex digits");
+  for (unsigned char c : value)
+    if (!std::isdigit(c) && !(c >= 'a' && c <= 'f'))
+      throw std::invalid_argument("materialized source identity SHA-256 must have 64 lowercase hex digits");
+}
+// The AST codec narrows structural numeric fields to int. Migrated constants
+// are always detached and use the separate lossless singleton-domain codec.
 void check_shape_numbers(const Json& value) {
   if (value.kind == Json::Kind::Number &&
       (!std::isfinite(value.number_v) || std::trunc(value.number_v) != value.number_v ||
@@ -174,6 +208,69 @@ MaterializedGrammarArtifact decode_materialized_program(const std::string& artif
   out.return_type = parse_type(require_string(require_object_field(root, "return_type"), "return_type"));
   if (verified.verified.return_type != out.return_type)
     throw std::invalid_argument("materialized artifact return type differs from its declared contract");
+  out.genome.ast = std::move(ast);
+  out.genome.meta = evo::build_genome_meta(out.genome.ast);
+  return out;
+}
+
+MaterializedGrammarArtifact decode_migrated_materialized_program(
+    const std::string& artifact) {
+  using namespace evo::grammar;
+  const auto root = parse_materialized(artifact);
+  require_only_fields(root,
+      {"format_version", "semantic_version", "source_identity", "inputs", "return_type",
+       "search_limits", "execution_limits", "ast", "constants"},
+      "materialized artifact");
+  if (require_string(require_object_field(root, "semantic_version"),
+                     "semantic_version") != kGrammarSemanticVersion)
+    throw std::invalid_argument(
+        "materialized artifact semantic version mismatch; use the recorded runtime");
+
+  const auto& identity = require_object_field(root, "source_identity");
+  require_only_fields(identity, {"format_version", "content_sha256"},
+                      "materialized source_identity");
+  const auto source_version = require_string(
+      require_object_field(identity, "format_version"),
+      "source_identity.format_version");
+  if (source_version != "ast-prefix-v1" &&
+      source_version != "grammar-generated-v1")
+    throw std::invalid_argument(
+        "materialized source identity must name ast-prefix-v1 or grammar-generated-v1");
+  require_sha256(require_string(require_object_field(identity, "content_sha256"),
+                                "source_identity.content_sha256"));
+
+  MaterializedGrammarArtifact out;
+  const auto& search = require_object_field(root, "search_limits");
+  require_only_fields(search, {"max_nodes", "max_depth"},
+                      "materialized search_limits");
+  out.search_limits = {
+      positive_limit(search, "max_nodes", 65536),
+      positive_limit(search, "max_depth", 256),
+  };
+  const auto& execution = require_object_field(root, "execution_limits");
+  require_only_fields(execution, {"fuel"}, "materialized execution_limits");
+  out.execution_limits.fuel = positive_limit(execution, "fuel", 2147483647);
+
+  const auto& schema = require_object_field(root, "inputs");
+  out.inputs = inputs(schema);
+  const auto& shape = require_object_field(root, "ast");
+  check_shape_numbers(shape);
+  auto ast = decode_ast_json(shape);
+  if (!ast.consts.empty())
+    throw std::invalid_argument(
+        "materialized artifact must not contain two constant pools");
+  for (const auto& value : elements(require_object_field(root, "constants")))
+    ast.consts.push_back(decode_constant(value));
+  check_shape_capacity(ast, out.search_limits);
+  const auto verified = evo::verify_ast(ast, out.inputs);
+  if (!verified)
+    throw std::invalid_argument("materialized artifact fails native verification: " +
+                                verified.diagnostic.message);
+  out.return_type = parse_type(require_string(
+      require_object_field(root, "return_type"), "return_type"));
+  if (verified.verified.return_type != out.return_type)
+    throw std::invalid_argument(
+        "materialized artifact return type differs from its declared contract");
   out.genome.ast = std::move(ast);
   out.genome.meta = evo::build_genome_meta(out.genome.ast);
   return out;

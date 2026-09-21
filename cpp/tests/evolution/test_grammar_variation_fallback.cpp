@@ -27,7 +27,7 @@ void check(bool condition, const char* message) {
 std::shared_ptr<const CompiledGrammar> fallback_grammar() {
   return std::make_shared<const CompiledGrammar>(
       compile_grammar(parse_definition(R"({
-        "format_version":"grammar-definition-v1",
+        "format_version":"grammar-definition-v2",
         "entry":{"nonterminal":"Main","category":"Program","type":"Int"},
         "locals":[{"name":"x","type":"Int"}],
         "search_limits":{"max_nodes":8,"max_depth":7},

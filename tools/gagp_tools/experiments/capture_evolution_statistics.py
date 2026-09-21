@@ -77,7 +77,7 @@ def capture(workloads: Path, adapter_manifest: Path, root: Path, output: Path, d
                     "--cases", str((root / workload["cases"]["path"]).resolve()), *workload["args"],
                     *mode_options, "--out-json", str(path)]
                 if workload.get("grammar"):
-                    command.extend(["--grammar-config", str((root / workload["grammar"]["path"]).resolve())])
+                    command.extend(["--grammar-definition", str((root / workload["grammar"]["path"]).resolve())])
                 result = subprocess.run(command, capture_output=True, text=True, cwd=root,
                                         env=dict(os.environ, GAGP_CUDA_DEVICE=str(device)))
                 write_json(directory / f"{variant}.process.json", {"command": command,

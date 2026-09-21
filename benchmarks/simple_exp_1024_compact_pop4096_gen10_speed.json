@@ -3,7 +3,7 @@
     "baseline_grammar_config": null,
     "candidate_grammar_config": {
       "hash": "fnv1a64:268dda69937c450d",
-      "path": "configs/grammar/all.json"
+      "path": "configs/grammar/migration/v1/all.json"
     },
     "fields": {
       "cases_path": {

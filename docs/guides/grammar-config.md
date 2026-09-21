@@ -1,184 +1,116 @@
-# Grammar Config Guide
+# Compiled Grammar and Migration Guide
 
-`grammar-config` restricts what evolution may generate or synthesize. It does
-not change execution semantics and does not reject an already-materialized AST
-or bytecode program solely because a construct is disabled. The complete schema
-and validation rules are normative in
-[`../../spec/grammar_config.md`](../../spec/grammar_config.md).
+Release 2 uses `grammar-definition-v2` as the only production search-space
+format. Definitions control initial generation, membership, CPU/GPU donor
+generation, crossover, mutation, and replay identity. They never change runtime
+semantics for an already materialized program.
 
-## Choose a checked preset
+## Choose a checked definition
 
-Presets live under `configs/grammar/`:
+Checked roots live under `configs/grammar/`:
 
-| Preset | Intended search space |
-| --- | --- |
-| `all.json` | All enabled source constructs |
-| `scalar.json` | Numeric/boolean scalar programs |
-| `string.json` | Scalar plus string-compatible constructs |
-| `num_list.json` | Legacy numeric-list comparison profile, translated on load |
-| `string_list.json` | Scalar plus string/string-list constructs |
-| `sequence.json` | Broad sequence profile |
+- `basic/`: concrete reusable building blocks;
+- `packages/`: reusable templates and bounded-region productions;
+- `compat/`: runnable v2 roots preserving supported release-1 search intent;
+- `examples/`: custom definitions showing changed structure.
 
-Pass one to the native CLI:
+Paths and filenames do not enable constructs or participate in the grammar
+hash. The resolved content, catalog/schema versions, exact types, domains,
+templates, limits, and weights define behavior.
+
+Run evolution with a definition:
 
 ```bash
 cpp/build/gagp_evolve_cli \
   --cases data/fixtures/simple_exp_1024.json \
-  --grammar-config configs/grammar/scalar.json \
+  --grammar-definition configs/grammar/basic/int.json \
   --engine gpu --repro-backend gpu --repro-overlap on \
   --population-size 64 --generations 5
 ```
 
-The selection affects initial generation, CPU mutation donors, GPU
-reproduction candidate/donor preparation, and seed replay that regenerates
-genomes. CPU/GPU runtime semantics and fitness remain unchanged.
+The definition owns `search_limits.max_depth`,
+`search_limits.max_nodes`, and `execution_limits.fuel`. Explicit matching
+CLI values are accepted where documented; conflicting overrides fail.
 
-## Compatibility profiles
-
-Checked presets from the legacy search-space shape are accepted as comparison
-inputs. The loader translates legacy numeric-list enablement into the explicit
-typed-list search space and rejects unknown keys. This preserves benchmark
-search-space comparability; it does not reintroduce legacy runtime values.
-
-The tool package can derive deterministic profiles:
-
-```bash
-gagp-tools grammar profile \
-  --profile compact \
-  --base-grammar-config configs/grammar/num_list.json \
-  --fixture-cases data/fixtures/psb1/count-odds.train.json \
-  --out logs/count-odds.compact.json
-```
-
-- `compat` derives the native typed-list choices from the fixture schema.
-- `compact` preserves the base profile's numeric-list search shape for direct
-  comparisons and records its compatibility metadata.
-- `full` emits the full native profile for experiments.
-
-`gagp-tools psb run --profile compat|compact --base-grammar-config PATH`
-creates per-problem configs under the run output directory and records base,
-generated-config, and fixture-schema hashes.
-
-## Seed replay
-
-Population-seed artifacts should record the grammar-config path and hash. A
-replay with recorded config identity requires matching content; an artifact
-without config metadata uses the all-enabled default unless the caller supplies
-`--grammar-config`.
-
-Use the same cases, grammar config, limits, and population-seed file across
-backend comparisons. The native CLI records the selected config identity in
-its output JSON.
-
-## Implementation and tests
-
-- `cpp/include/gagp/evolution/grammar_config.hpp` and
-  `cpp/src/evolution/grammar_config.cpp`: native configuration model/validation
-- `cpp/src/evolution/genome_generation.cpp` and reproduction modules: search
-  gating consumers
-- `tools/gagp_tools/experiments/grammar_profiles.py`: profile generation
-- `cpp/tests/evolution/test_genome_properties.cpp`: deterministic generation
-  conformance
-- `cpp/tests/evolution/test_repro_prep.cpp`: reproduction preprocessing
-  conformance
-
-
-
-## Staged typed-definition artifacts
-
-The internal compiled-grammar C++ APIs generate typed programs and initial populations
-with immutable derivation metadata. `encode_generated_artifact` records one program;
-`encode_generated_population_artifact` records an initial population with exact
-same-version replay checks. Both retain decoded payload contents rather than relying
-on process-local registry entries. Their schema and limits are defined in
-[`../../spec/grammar_definition.md`](../../spec/grammar_definition.md).
-
-A generated single-program artifact can be evaluated with the existing CLI:
-
-```bash
-cpp/build/gagp_evolve_cli --cases cases.json --eval-ast-json generated.json --out-json result.json
-```
-
-The fixture must match the artifact's exact input schema and return type. The recorded
-fuel is used automatically; if supplied, `--fuel` must agree. Evaluation can use the
-materialized program even when its generator version is unavailable. Use the C++ replay
-API when validating generation identity and provenance. Typed-definition generation,
-population replay, and grammar-aware CPU/GPU reproduction are implemented. The
-production evolution CLI still selects the legacy `--grammar-config` workflow; compiled
-evolution is available through the internal API and migration benchmark adapter.
-
-
-Generate or replay a typed initial population with the native generation CLI:
-
-```bash
-cpp/build/gagp_generate_cli --grammar-definition grammar.json --cases cases.json --population-size 64 --seed 0 --out-json population.json
-cpp/build/gagp_generate_cli --replay-json population.json --cases cases.json --out-json replayed.json
-```
-
-Supply `--grammar-definition grammar.json` during replay to require that exact resolved
-grammar and import identity. A changed grammar fails before the output is replaced.
-Population artifacts bundle complete single-program members; the one-AST evaluation
-command above consumes one such member, not the population wrapper.
-
-## Reusable typed grammar packages
-
-Typed-definition resources are grouped by role:
-
-- `configs/grammar/basic/` contains small concrete-type building blocks.
-- `configs/grammar/packages/` contains reusable fixed templates and bounded-region
-  productions. LinearRec, DC, DP1D, and DP2D are package data, not catalog operation
-  names.
-- `configs/grammar/compat/` contains runnable roots and cases that reproduce the
-  repository's legacy scheme contracts.
-- `configs/grammar/examples/` contains custom structures, including a restricted
-  combine grammar, a changed recursive base/split, and a different acyclic memo graph.
-
-Generate a compatibility population directly from one of the roots:
+## Generate and replay
 
 ```bash
 cpp/build/gagp_generate_cli \
-  --grammar-definition configs/grammar/compat/linear_rec_intlist_int.json \
-  --cases configs/grammar/compat/linear_rec_intlist_int.cases.json \
-  --population-size 64 --seed 42 \
-  --out-json logs/linear-rec.population.json
+  --grammar-definition grammar.json \
+  --cases cases.json --population-size 64 --seed 0 \
+  --out-json population.json
+
+cpp/build/gagp_generate_cli \
+  --replay-json population.json \
+  --cases cases.json --out-json replayed.json
 ```
 
-The DP roots expose every legacy direction/dependency pattern as ordinary weighted
-alternatives while keeping coordinate ranks and request order fixed. Exact-type
-variants are listed in `configs/grammar/compat/matrix.json`; the definition format
-has no implicit type variables or conversions.
+Generation emits `grammar-population-v2` containing complete
+`grammar-generated-v2` members. Replay is same-version and checks the embedded
+grammar/generator/RNG identity. Supplying `--grammar-definition` during replay
+also requires that resolved grammar identity.
 
-Imports use relative paths, but paths and filenames do not participate in behavior.
-You may copy or rename a package and update the root import. If the resolved content
-is unchanged, canonical grammar identity and generated programs remain unchanged.
-Change template bodies, alternatives, phase scopes, plans, or `fuel_events` to create
-a new grammar. Semantic-fuel declarations belong only on concrete materialized
-expressions; the normative owner and cost rules are in
-[`../../spec/grammar_definition.md`](../../spec/grammar_definition.md).
+A generated or migrated single-program artifact may be evaluated with
+`--eval-ast-json`. Evaluation checks the case schema and uses the artifact's
+recorded fuel. Materialized execution establishes native validity; it does not
+claim original seed provenance.
 
+## Offline release-1 migration
 
-`grammar/config_adapter.hpp` provides the explicit C++ migration adapter
-`convert_grammar_config`. Supply exact inputs, typed locals, owned constant domains,
-new search/fuel limits, statement capacity and loop bounds in `GrammarConfigConversion`.
-Then pass the returned resolved definition to `compile_grammar`. This maps supported
-enabled operations without changing the legacy generator. Local initialization and
-limit differences are specified in
-[`../../spec/grammar_config.md`](../../spec/grammar_config.md#staged-explicit-typed-conversion).
-Unsupported structured switches fail with an actionable diagnostic.
-
-
-With `GAGP_BUILD_BENCHMARKS=ON`, the scalar initialization benchmark also emits the
-resolved conversion used for its measurements:
+The production CLI rejects `format_version=grammar-config`. Convert its enabled
+ordinary-operation intent with the migration executable using the exact
+fitness-case schema and the explicit constrained profile. The converter emits
+`grammar-definition-v2`.
 
 ```bash
-cpp/build/gagp_grammar_initialization_bench --grammar-config configs/grammar/scalar.json --cases data/fixtures/simple_exp_1024.json --population-size 64 --seed 0 --warmups 3 --trials 15 --out-json logs/initialization.json --out-definition logs/converted-scalar.json
+cpp/build/gagp_migrate_artifact \
+  --input legacy.json --cases cases.json \
+  --conversion-profile constrained-intent-v1 \
+  --out migrated-v2.json
 ```
 
-The benchmark explicitly chooses one initialized Int local, 80 full-prefix nodes,
-depth 32, six statements per block, loop bounds 0..16, and fuel 20000. Scalar domains
-include Int -8..8, both Bool values, and every Float thousandth from -8 through 8 plus
-negative zero. The emitted definition records the actual search space. Setup timing
-includes input loading, domain construction, conversion and compilation. Each raw
-initialization sample includes generation, membership verification and lowering; output
-serialization and summaries occur afterward. This is an early migration overhead
-measurement, not a claim of identical old/new program distributions or a performance gate.
+The profile is required because release-1 configs do not contain exact
+constant domains, execution fuel, or a typed assignment environment. It uses
+the case schema, canonical finite v2 domains, and fuel 1,000,000. This is a
+deterministic but explicitly lossy search-space conversion: it preserves the
+ordinary enable/disable intent that can be represented by the fixed v2 schema,
+but it does not preserve the complete release-1 program set, dynamic assignment
+environment, literal domains, or seed replay. Use materialized migration when
+exact old values and behavior are required.
+
+Conversion reads enablement from document contents and never infers “full”
+behavior from `all.json` or any other filename. An enabled legacy structured
+switch is rejected because its boolean does not encode the typed holes, phase
+scopes, or dependency choices needed for an exact v2 definition; select the
+corresponding general package or migrate materialized programs instead.
+Unsupported or ambiguous inputs fail.
+
+Release-1 materialized `ast-prefix` programs can be converted to
+`grammar-materialized-v2` with exact cases and explicit fuel/node/depth limits.
+A complete `grammar-generated-v1` member already embeds its contract and is
+converted without `--cases` or overrides. Both routes emit a target semantic
+version of `gagp-native-2.0.0`, an empty `ast-prefix-v2` constant table, and
+exactly one separate lossless constant pool. The generated-member route validates
+the release-1 semantic/generator/RNG identities and uses the embedded schema,
+limits, fuel, AST shape, and detached constants; it does not rerun the old
+generator. The result executes without the authoring package tree. A
+`grammar-population-v1` container is rejected and must be split into complete
+members, each migrated independently.
+Release-1 bytecode cannot be converted: migrate the source AST and recompile it.
+
+A `population-seeds` artifact is also insufficient for exact migration.
+Materialize each member with the frozen release-1 build, then migrate those
+ASTs. Do not compare new seed regeneration as exact replay.
+
+## Compatibility packages
+
+Compatibility packages may retain names such as linear recurrence, DC, DP1D,
+or DP2D to state the search intent they reproduce. They contain ordinary
+release-2 definitions and materialize only general lexical/traversal/bounded
+AST forms. Copying or renaming a package without changing resolved content does
+not change grammar identity.
+
+The exact schema, artifact contracts, and structural forms are normative in
+[grammar_definition.md](../../spec/grammar_definition.md). The legacy
+conversion boundary is normative in
+[grammar_config.md](../../spec/grammar_config.md).

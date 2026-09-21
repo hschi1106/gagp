@@ -32,7 +32,7 @@ std::string definition() {
   edge.kind = RegionTransitionKind::CoordinateOffset; edge.offset = -1;
   plan.requests = {{{edge}}}; plan.memoized = true; plan.limits = {8, 8, 1};
   std::string text = R"JSON({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":100,"max_depth":20},
     "execution_limits":{"fuel":1000},

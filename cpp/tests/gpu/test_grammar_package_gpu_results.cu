@@ -1,5 +1,6 @@
+#define GAGP_CAPTURE_LIBRARY_ONLY 1
 #define main gagp_capture_tool_main
-#include "../../src/bench/capture_gpu_results.cu"
+#include "gpu_result_probe.cu"
 #undef main
 
 #include "gagp/evolution/compiler.hpp"

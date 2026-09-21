@@ -48,7 +48,7 @@ std::shared_ptr<const CompiledGrammar> compile_shared(const std::string& text) {
 
 std::shared_ptr<const CompiledGrammar> repeated_hole_grammar() {
   return compile_shared(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":12,"max_depth":7},
     "execution_limits":{"fuel":100},
@@ -69,7 +69,7 @@ std::shared_ptr<const CompiledGrammar> repeated_hole_grammar() {
 
 std::shared_ptr<const CompiledGrammar> local_grammar() {
   return compile_shared(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","category":"Program","type":"Int"},
     "inputs":[{"name":"input","type":"Int"}],
     "locals":[{"name":"x","type":"Int"}],
@@ -117,6 +117,7 @@ EvolutionConfig compiled_config(
   cfg.seed = 991;
   cfg.fuel = static_cast<int>(grammar->execution_limits().fuel);
   cfg.compiled_grammar = grammar;
+  cfg.generation_request = entry_request(*grammar);
   cfg.reproduction_backend = repro::ReproductionBackend::Cpu;
   return cfg;
 }
@@ -296,13 +297,8 @@ void test_all_parents_are_validated_before_selection() {
 void test_compiled_initialization_and_evolve_validation() {
   const auto grammar = repeated_hole_grammar();
   auto cfg = compiled_config(grammar, 5);
-  cfg.limits.max_total_nodes = 1;
-  cfg.limits.max_expr_depth = 1;
-  cfg.grammar.expression_const = false;
-  cfg.grammar.binary_add = false;
-  cfg.grammar.compat_legacy_num_list_inputs_as_any = true;
   const std::vector<EvalCase> cases{{{}, Value::from_int(4)}};
-  const auto case_set = prepare_case_set(cases, GrammarConfig::all_enabled());
+  const auto case_set = prepare_case_set(cases);
 
   const auto initialized = initialize_population(cfg, case_set);
   check(!initialized.replayed && initialized.population.size() == 5,
@@ -348,7 +344,7 @@ void test_nonentry_request_is_used_end_to_end() {
   auto cfg = compiled_config(grammar, 6);
   cfg.generation_request = request;
   const std::vector<EvalCase> cases{{{}, Value::from_int(2)}};
-  const auto case_set = prepare_case_set(cases, GrammarConfig::all_enabled());
+  const auto case_set = prepare_case_set(cases);
   const auto initialized = initialize_population(cfg, case_set);
   require_population_membership(*grammar, initialized.population, &request);
 

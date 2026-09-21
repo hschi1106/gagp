@@ -10,7 +10,7 @@ contract as a second source of truth.
 
 | Document | Owns |
 | --- | --- |
-| [`../spec/README.md`](../spec/README.md) | Normative language, bytecode, builtin, fitness, fixture, and grammar-config behavior |
+| [`../spec/README.md`](../spec/README.md) | Normative language, bytecode, builtin, fitness, fixture, compiled-definition, and migration behavior |
 | [`design/architecture.md`](design/architecture.md) | Native component boundaries and invariants |
 | [`design/dataflow.md`](design/dataflow.md) | End-to-end execution and evolution dataflow |
 | [`design/payload.md`](design/payload.md) | Host/device payload transport implementation |
@@ -18,7 +18,7 @@ contract as a second source of truth.
 | [`guides/development.md`](guides/development.md) | Build, test, CLI, and local development workflows |
 | [`guides/benchmarking.md`](guides/benchmarking.md) | Fixed-population timing and canonical native run workflows |
 | [`guides/psb-workflow.md`](guides/psb-workflow.md) | PSB dataset, regression, comparison, and manifest workflows |
-| [`guides/grammar-config.md`](guides/grammar-config.md) | Operational grammar-config use and replay |
+| [`guides/grammar-config.md`](guides/grammar-config.md) | Compiled grammar use, artifacts, and offline release-1 migration |
 | [`guides/experiment-protocol.md`](guides/experiment-protocol.md) | Canonical experiment protocol and reporting constraints |
 | [`reference/timing.md`](reference/timing.md) | Timing field names, scopes, and output mapping |
 | [`reference/grammar-migration/README.md`](reference/grammar-migration/README.md) | In-progress grammar migration baseline capture and execution evidence |
@@ -26,6 +26,7 @@ contract as a second source of truth.
 | [`reference/grammar-migration/goal-04-variation.md`](reference/grammar-migration/goal-04-variation.md) | Compiled variation contracts, shared preparation, rejection accounting and validation |
 | [`reference/grammar-migration/goal-06-bounded-regions.md`](reference/grammar-migration/goal-06-bounded-regions.md) | Bounded CPU regions, frozen-oracle comparisons, timing evidence and remaining acceptance |
 | [`reference/grammar-migration/goal-08-compatibility-packages.md`](reference/grammar-migration/goal-08-compatibility-packages.md) | User-authored compatibility packages, typed variant validation, transition size evidence and current acceptance limits |
+| [`reference/grammar-migration/goal-09-cutover.md`](reference/grammar-migration/goal-09-cutover.md) | Release-2 production cutover, version boundary, and documentation validation record |
 | [`reference/grammar-migration/semantic-coverage.md`](reference/grammar-migration/semantic-coverage.md) | Semantic baseline evidence mapped to requirements and remaining gaps |
 | [`reference/cli.md`](reference/cli.md) | Mechanically checked native CLI flags and defaults |
 | [`reference/tooling.md`](reference/tooling.md) | Maintained tool and auxiliary executable ownership |

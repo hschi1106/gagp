@@ -1,12 +1,9 @@
 # Typed grammar definitions
 
-This document describes the internal `grammar-definition-v1` construction format.
-The production evolution CLI still accepts the existing
-[grammar-config](grammar_config.md) format. The generation CLI accepts this format for
-generation and replay, and internal evolution APIs and the migration benchmark execute
-compiled grammars on CPU and GPU. Materialized derivation validation and structured
-execution descriptors are part of that compiled runtime contract. Direct production
-evolution-CLI selection of this format remains pending.
+This document defines the production `grammar-definition-v2` construction
+format. It is the sole release-2 authoring and search-space input for generation,
+membership, CPU/GPU variation, and evolution. Release-1 `grammar-config` inputs
+must be converted offline as specified in [grammar_config.md](grammar_config.md).
 
 ## Types and entry
 
@@ -57,7 +54,7 @@ same imported files does not change identity. Modifying transitive content does.
 Canonical numbers use finite binary64 values with enough digits for round-trip;
 strings use UTF-8, escaping quotation marks, backslashes and control characters.
 The grammar identity is lowercase SHA-256 of the complete canonical resolved export,
-including `grammar-definition-v1`, `gagp-primitives-v2`, and normalization version `1`.
+including `grammar-definition-v2`, `gagp-primitives-v3`, and normalization version `1`.
 Export/parse/export is byte-idempotent. The compiler recomputes identity from the
 resolved model rather than trusting separately supplied cached strings or hashes.
 
@@ -429,8 +426,8 @@ budgets, and membership contract.
 
 ### Generated artifacts
 
-`grammar-generated-v1` records the resolved grammar and hash, generator/RNG versions,
-runtime semantic version `gagp-native-1.0.0`, canonical unsigned 64-bit decimal seed, ordered input schema and its SHA-256 hash,
+`grammar-generated-v2` records the resolved grammar and hash, generator/RNG versions,
+runtime semantic version `gagp-native-2.0.0`, canonical unsigned 64-bit decimal seed, ordered input schema and its SHA-256 hash,
 exact return type, search limits, execution fuel, and `domain-only-v1` payload policy.
 That policy samples only declared constant domains; expected outputs do not inject
 additional constants. The artifact also stores a native `ast_shape` with an empty
@@ -469,6 +466,24 @@ evaluation CLI applies these bounds before dispatching by artifact format. Mater
 nodes and prefix depth 256; structural numeric fields must be signed 32-bit integers
 before conversion by the native AST codec.
 
+Offline migration of a complete `grammar-generated-v1` member is a materialization
+route, not generator replay. The migration reader requires its release-1 semantic,
+generator, RNG and payload-seeding versions, verifies its grammar and input-schema
+hashes and provenance shape, and takes the exact input/return contract, search limits,
+fuel, AST shape and detached constants from the member. A plain release-1
+`ast-prefix` artifact instead requires an exact `fitness-cases` schema plus explicit
+fuel, maximum-node and maximum-depth values because it does not embed that contract.
+
+Both exact program routes emit `grammar-materialized-v2`. The envelope records target
+runtime `semantic_version` `gagp-native-2.0.0`, a content hash and format identity for
+the release-1 source, exact schemas and limits, an `ast-prefix-v2` shape whose native
+constant table is empty, and exactly one detached `constants` array using the lossless
+singleton-domain codec above. Decoding rejects an incompatible semantic version, a
+missing detached pool, or constants present in both locations. This contract preserves
+materialized values and behavior; it makes no claim that a release-1 seed regenerates
+the same program under v2. A `grammar-population-v1` container has no whole-container
+conversion: callers must extract and migrate each complete materialized member.
+
 
 ### Materialized membership and population generation
 
@@ -493,14 +508,13 @@ The compiled-grammar overload of population initialization requires a positive s
 exact case input names/types (order-independent), and an expected return type matching
 the entry. Individual seeds are `seed + index` modulo 2^64. Each member retains its
 immutable derivation metadata. The domain-only policy ignores expected values when
-sampling constants. The existing grammar-config population and reproduction paths
-remain available as the migration oracle; selecting compiled initialization does not
-imply that legacy reproduction enforces the new grammar.
+sampling constants. There is no production grammar-config population or reproduction
+path; the release-1 reader is isolated in offline migration tooling.
 
 
-`grammar-population-v1` bundles an initial population with exactly four root fields:
+`grammar-population-v2` bundles an initial population with exactly four root fields:
 `format_version`, `grammar_hash`, `count`, and `members`. Members are complete
-`grammar-generated-v1` objects in population order. The population must contain
+`grammar-generated-v2` objects in population order. The population must contain
 1..65536 members and fit in 256 MiB. Each member must have the same grammar identity.
 Encoding requires attached immutable provenance and checks exact same-version replay
 before accepting each member; changed ASTs with stale provenance fail. Decoding checks
@@ -511,21 +525,21 @@ require a future artifact version with variation provenance.
 The existing one-AST CLI evaluation path can consume a generated artifact as a
 materialized program. It verifies the case schema, applies the recorded fuel, and
 rejects a conflicting explicit fuel override. This path does not certify generation
-provenance and does not route the population into legacy reproduction.
+provenance.
 
 
 Before accepting a generated program, generation lowers it through the native compiler
 and its bytecode verifier, records the ordinary instruction count, and enforces the
 implementation capacity of 1,048,576 lowered instructions. This count is separate from
-logical sampling steps and materialized AST nodes. Typed definitions cannot lower to
-legacy specialized segments. Compilation and membership verification are included in
+logical sampling steps and materialized AST nodes. Typed definitions lower only to
+the general release-2 AST and bytecode forms. Compilation and membership verification are included in
 initialization timing; later compilation caches do not move this work outside the gate.
 
 Generated-program runtime compilation identities include the runtime semantic version,
 materialized AST structure, exact constant contents, ordered input names and actual
 execution fuel. Grammar file paths, production weights, seed and derivation metadata
-are excluded. The identity supports ordinary native grammar programs; specialized
-legacy metadata is rejected. Legacy migration genomes keep their existing cache path.
+are excluded. Specialized release-1 metadata is rejected. Migrated materialized
+programs use the same release-2 compilation identity after conversion.
 Materialized artifact execution requires the recorded runtime semantic version even
 when the generator is unavailable; an incompatible runtime version is rejected.
 

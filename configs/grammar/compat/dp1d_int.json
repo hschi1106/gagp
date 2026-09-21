@@ -1,5 +1,5 @@
 {
-  "format_version": "grammar-definition-v1",
+  "format_version": "grammar-definition-v2",
   "imports": ["../packages/dp1d_int.json"],
   "entry": {"nonterminal": "Package.DP1D.Int", "type": "Int"},
   "inputs": [{"name": "state", "type": "Int"}],

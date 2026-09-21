@@ -31,9 +31,7 @@ enum class Opcode : std::uint8_t {
   CheckInt = 22,
   EmptyList = 23,
   EmptyListLike = 24,
-  AsgpDc = 25,
-  AsgpDp1d = 26,
-  AsgpDp2d = 27,
+  // Values 25-27 are reserved for removed specialized region opcodes.
   BoundedRegion = 28,
 };
 
@@ -89,12 +87,6 @@ inline const char* opcode_name(Opcode op) {
       return "EMPTY_LIST";
     case Opcode::EmptyListLike:
       return "EMPTY_LIST_LIKE";
-    case Opcode::AsgpDc:
-      return "ASGP_DC";
-    case Opcode::AsgpDp1d:
-      return "ASGP_DP1D";
-    case Opcode::AsgpDp2d:
-      return "ASGP_DP2D";
     case Opcode::BoundedRegion:
       return "BOUNDED_REGION";
   }
@@ -127,9 +119,6 @@ inline bool opcode_from_name(std::string_view name, Opcode& out) {
   else if (name == "CHECK_INT") out = Opcode::CheckInt;
   else if (name == "EMPTY_LIST") out = Opcode::EmptyList;
   else if (name == "EMPTY_LIST_LIKE") out = Opcode::EmptyListLike;
-  else if (name == "ASGP_DC") out = Opcode::AsgpDc;
-  else if (name == "ASGP_DP1D") out = Opcode::AsgpDp1d;
-  else if (name == "ASGP_DP2D") out = Opcode::AsgpDp2d;
   else if (name == "BOUNDED_REGION") out = Opcode::BoundedRegion;
   else return false;
   return true;

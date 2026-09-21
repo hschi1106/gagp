@@ -29,18 +29,14 @@ std::string runtime_cache_identity(const ProgramGenome& genome,
   if (fuel == 0 || fuel > static_cast<std::uint32_t>(std::numeric_limits<int>::max()))
     throw std::invalid_argument("runtime cache identity requires positive signed-int fuel");
   const auto& ast = genome.ast;
-  if (!ast.linear_rec_binders.empty() || !ast.asgp_dc_binders.empty() ||
-      !ast.asgp_dp1d_specs.empty() || !ast.asgp_dp2d_specs.empty())
-    throw std::invalid_argument("runtime cache identity rejects specialized AST metadata");
   for (const auto& node : ast.nodes) {
     if (!is_known_node_kind(static_cast<int>(node.kind)))
       throw std::invalid_argument("runtime cache identity rejects unknown AST nodes");
     const auto& descriptor = node_descriptor(node.kind);
-    if ((descriptor.metadata != NodeMetadataKind::None &&
-         descriptor.metadata != NodeMetadataKind::LexicalRegion &&
-         descriptor.metadata != NodeMetadataKind::BoundedRegion) ||
-        descriptor.category == NodeCategory::DependencyMarker)
-      throw std::invalid_argument("runtime cache identity rejects specialized AST segments");
+    if (descriptor.metadata != NodeMetadataKind::None &&
+        descriptor.metadata != NodeMetadataKind::LexicalRegion &&
+        descriptor.metadata != NodeMetadataKind::BoundedRegion)
+      throw std::invalid_argument("runtime cache identity rejects unknown AST metadata");
   }
 
   // The legacy AST serializer encodes registry tokens for sequence constants.

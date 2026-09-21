@@ -214,15 +214,12 @@ int main(int argc, char** argv) {
   try {
     const JsonValue root = gagp::cli_detail::JsonParser(read_input(argc, argv)).parse();
     if (root.kind != JsonValue::Kind::Object) throw std::runtime_error("top-level JSON must be object");
-    const std::string format = gagp::cli_detail::require_string(
-        gagp::cli_detail::require_object_field(root, "format_version"), "format_version");
-    if (format != "bytecode-json" && format != "bytecode-fixture") {
-      throw std::runtime_error("unsupported format_version");
-    }
+    const auto format = gagp::cli_detail::require_bytecode_json_format(root);
     const int fuel = gagp::cli_detail::require_int(
         gagp::cli_detail::require_object_field(root, "fuel"), "fuel");
-    return format == "bytecode-fixture" ? run_fixture(root, fuel)
-                                         : run_bytecode_request(root, fuel);
+    return format == gagp::cli_detail::BytecodeJsonFormat::Fixture
+               ? run_fixture(root, fuel)
+               : run_bytecode_request(root, fuel);
   } catch (const std::exception& error) {
     std::cerr << "gagp_test_vm_cli_harness error: " << error.what() << "\n";
     return 2;

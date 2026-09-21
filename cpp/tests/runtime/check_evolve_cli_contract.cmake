@@ -1,5 +1,6 @@
-if(NOT DEFINED CLI OR NOT DEFINED CASES OR NOT DEFINED OUT_JSON)
-  message(FATAL_ERROR "CLI, CASES, and OUT_JSON are required")
+if(NOT DEFINED CLI OR NOT DEFINED CASES OR NOT DEFINED GRAMMAR OR
+   NOT DEFINED LEGACY_GRAMMAR OR NOT DEFINED OUT_JSON)
+  message(FATAL_ERROR "CLI, CASES, GRAMMAR, LEGACY_GRAMMAR, and OUT_JSON are required")
 endif()
 
 execute_process(
@@ -25,7 +26,48 @@ if(NOT help_result EQUAL 2 OR NOT help_stdout STREQUAL "" OR
 endif()
 
 execute_process(
-  COMMAND "${CLI}" --cases "${CASES}" --population-size 4 --generations 1
+  COMMAND "${CLI}" --cases "${CASES}"
+  RESULT_VARIABLE missing_grammar_result
+  OUTPUT_VARIABLE missing_grammar_stdout
+  ERROR_VARIABLE missing_grammar_stderr
+)
+if(NOT missing_grammar_result EQUAL 2 OR NOT missing_grammar_stdout STREQUAL "" OR
+   NOT missing_grammar_stderr STREQUAL
+       "gagp_evolve_cli error: --grammar-definition is required for evolution\n")
+  message(FATAL_ERROR "required grammar contract changed: ${missing_grammar_result}; ${missing_grammar_stderr}")
+endif()
+
+execute_process(
+  COMMAND "${CLI}" --cases "${CASES}" --grammar-definition "${LEGACY_GRAMMAR}"
+  RESULT_VARIABLE legacy_grammar_result
+  OUTPUT_VARIABLE legacy_grammar_stdout
+  ERROR_VARIABLE legacy_grammar_stderr
+)
+if(NOT legacy_grammar_result EQUAL 2 OR NOT legacy_grammar_stdout STREQUAL "")
+  message(FATAL_ERROR "legacy grammar config was not rejected: ${legacy_grammar_result}; ${legacy_grammar_stderr}")
+endif()
+string(FIND "${legacy_grammar_stderr}"
+  "migrate the config offline to grammar-definition-v2 before evolution"
+  legacy_diagnostic_position)
+if(legacy_diagnostic_position EQUAL -1)
+  message(FATAL_ERROR "legacy grammar diagnostic lost migration guidance: ${legacy_grammar_stderr}")
+endif()
+
+execute_process(
+  COMMAND "${CLI}" --cases "${CASES}" --grammar-definition "${GRAMMAR}" --fuel 1
+  RESULT_VARIABLE fuel_conflict_result
+  OUTPUT_VARIABLE fuel_conflict_stdout
+  ERROR_VARIABLE fuel_conflict_stderr
+)
+if(NOT fuel_conflict_result EQUAL 2 OR NOT fuel_conflict_stdout STREQUAL "" OR
+   NOT fuel_conflict_stderr STREQUAL
+       "gagp_evolve_cli error: --fuel conflicts with grammar definition execution_limits.fuel=20000\n")
+  message(FATAL_ERROR "definition fuel conflict contract changed: ${fuel_conflict_result}; ${fuel_conflict_stderr}")
+endif()
+
+execute_process(
+  COMMAND "${CLI}" --cases "${CASES}" --grammar-definition "${GRAMMAR}"
+          --population-size 4 --generations 1
           --seed 7 --timing none --show-program none --out-json "${OUT_JSON}"
   RESULT_VARIABLE evolve_result
   OUTPUT_VARIABLE evolve_stdout
@@ -36,8 +78,8 @@ if(NOT evolve_result EQUAL 0 OR NOT evolve_stderr STREQUAL "")
 endif()
 
 foreach(required IN ITEMS
-    "GEN 000 best=-1024.000000 mean=-1024.000000"
-    "FINAL best=-1024.000000"
+    "GEN 000 best="
+    "FINAL best="
     "repro_backend=cpu"
     "selection=round_based_tournament"
     "crossover=typed_subtree")
@@ -54,6 +96,7 @@ foreach(required IN ITEMS
     "\"timing\""
     "\"final\""
     "\"population_source\": \"generated\""
+    "\"grammar_definition\""
     "\"eval_engine\": \"cpu\""
     "\"reproduction_backend\": \"cpu\""
     "\"skipped\": false"

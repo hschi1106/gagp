@@ -122,7 +122,7 @@ int run_grammar_generate_command(int argc, char** argv) {
                  "  --grammar-definition PATH  Required for generation; optional identity check for replay\n"
                  "  --population-size N        1..65536 (default: 1)\n"
                  "  --seed N                   Canonical uint64 (default: 0)\n"
-                 "  --replay-json PATH         Replay grammar-population-v1; excludes size and seed\n"
+                 "  --replay-json PATH         Replay grammar-population-v2; excludes size and seed\n"
                  "  --help                     Show this help\n";
     return 0;
   }
@@ -140,8 +140,7 @@ int run_grammar_generate_command(int argc, char** argv) {
     if (options.count(input)) check_output_path(options.at("--out-json"), options.at(input));
 
   const auto cases = evo::prepare_case_set(
-      decode_fitness_cases_json(JsonParser(read_input(options.at("--cases")), {true, 512}).parse()),
-      evo::GrammarConfig::all_enabled());
+      decode_fitness_cases_json(JsonParser(read_input(options.at("--cases")), {true, 512}).parse()));
   std::optional<evo::grammar::CompiledGrammar> grammar;
   if (options.count("--grammar-definition"))
     grammar.emplace(evo::grammar::compile_grammar(evo::grammar::load_definition(options.at("--grammar-definition"))));

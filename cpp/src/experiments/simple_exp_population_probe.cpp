@@ -16,15 +16,14 @@
 #include "gagp/evolution/crossover.hpp"
 #include "gagp/evolution/evolve.hpp"
 #include "gagp/evolution/genome_generation.hpp"
+#include "gagp/evolution/grammar/definition.hpp"
+#include "gagp/evolution/grammar/request.hpp"
+#include "gagp/evolution/grammar/variation.hpp"
 #include "gagp/evolution/mutation.hpp"
 #include "gagp/runtime/cpu/builtins_cpu.hpp"
 #include "gagp/core/builtin.hpp"
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
-
-// Keep this file directly buildable without adding new library targets.
-#include "gagp/cli/codec.hpp"
-#include "gagp/cli/json.hpp"
 
 namespace {
 
@@ -320,17 +319,22 @@ std::vector<EvalCase> load_cases(const std::string& path) {
   return out;
 }
 
-std::vector<ProgramGenome> init_population(const EvolutionConfig& cfg) {
+std::vector<ProgramGenome> init_population(
+    const EvolutionConfig& cfg,
+    const gagp::evo::grammar::CompiledGrammar& grammar,
+    const gagp::evo::grammar::GenerationRequest& request) {
   std::vector<ProgramGenome> out;
   out.reserve(static_cast<std::size_t>(cfg.population_size));
   for (int i = 0; i < cfg.population_size; ++i) {
-    out.push_back(gagp::evo::generate_random_genome(cfg.seed + static_cast<std::uint64_t>(i), cfg.limits));
+    out.push_back(gagp::evo::generate_random_genome(
+        cfg.seed + static_cast<std::uint64_t>(i), grammar, request));
   }
   return out;
 }
 
 std::vector<ProgramGenome> next_population_from_scored(const std::vector<ScoredGenome>& scored,
                                                        const EvolutionConfig& cfg,
+                                                       gagp::evo::grammar::VariationContext& context,
                                                        std::mt19937_64* rng) {
   std::vector<ProgramGenome> next_population;
   next_population.reserve(static_cast<std::size_t>(cfg.population_size));
@@ -346,7 +350,8 @@ std::vector<ProgramGenome> next_population_from_scored(const std::vector<ScoredG
   if (selected_parents.size() > 1) {
     std::shuffle(offspring.begin(), offspring.end(), *rng);
     for (std::size_t i = 0; i + 1 < offspring.size(); i += 2) {
-      auto children = gagp::evo::crossover(offspring[i], offspring[i + 1], seed_dist(*rng), cfg.limits);
+      auto children = gagp::evo::crossover(
+          offspring[i], offspring[i + 1], seed_dist(*rng), context);
       offspring[i] = std::move(children.first);
       offspring[i + 1] = std::move(children.second);
     }
@@ -354,13 +359,36 @@ std::vector<ProgramGenome> next_population_from_scored(const std::vector<ScoredG
 
   for (ProgramGenome& child : offspring) {
     if (prob_dist(*rng) < cfg.mutation_rate) {
-      child = gagp::evo::mutate(child, seed_dist(*rng), cfg.limits, cfg.mutation_subtree_prob);
+      child = gagp::evo::mutate(
+          child, seed_dist(*rng), context, cfg.mutation_subtree_prob);
     }
   }
   next_population.insert(next_population.end(),
                          std::make_move_iterator(offspring.begin()),
                          std::make_move_iterator(offspring.begin() + cfg.population_size));
   return next_population;
+}
+
+std::shared_ptr<const gagp::evo::grammar::CompiledGrammar> simple_exp_grammar() {
+  return std::make_shared<const gagp::evo::grammar::CompiledGrammar>(
+      gagp::evo::grammar::compile_grammar(
+          gagp::evo::grammar::parse_definition(R"({
+    "format_version":"grammar-definition-v2",
+    "entry":{"nonterminal":"Expr","type":"Float"},
+    "inputs":[{"name":"x","type":"Float"}],
+    "search_limits":{"max_nodes":80,"max_depth":7},
+    "execution_limits":{"fuel":20000},
+    "nonterminals":[{"id":"Expr","type":"Float","scope":[],"alternatives":[
+      {"id":"input","weight":3,"expression":{"input":"x"}},
+      {"id":"constant","weight":2,"expression":{"constant":{"type":"Float","values":[-1,0,1]}}},
+      {"id":"add","weight":2,"expression":{"signature":"add(Float,Float)->Float","args":[{"ref":"Expr"},{"ref":"Expr"}]}},
+      {"id":"sub","weight":2,"expression":{"signature":"sub(Float,Float)->Float","args":[{"ref":"Expr"},{"ref":"Expr"}]}},
+      {"id":"mul","weight":2,"expression":{"signature":"mul(Float,Float)->Float","args":[{"ref":"Expr"},{"ref":"Expr"}]}},
+      {"id":"div","weight":1,"expression":{"signature":"div(Float,Float)->Float","args":[{"ref":"Expr"},{"ref":"Expr"}]}},
+      {"id":"neg","weight":1,"expression":{"signature":"neg(Float)->Float","args":[{"ref":"Expr"}]}},
+      {"id":"abs","weight":1,"expression":{"signature":"abs(Float)->Float","args":[{"ref":"Expr"}]}}
+    ]}]
+  })")));
 }
 
 gagp::CaseBindings to_case_inputs(const EvalCase& one_case,
@@ -380,6 +408,8 @@ gagp::CaseBindings to_case_inputs(const EvalCase& one_case,
 
 int main() {
   const std::vector<EvalCase> cases = load_cases("data/fixtures/simple_exp_1024.json");
+  const auto grammar = simple_exp_grammar();
+  const auto request = gagp::evo::grammar::entry_request(*grammar);
 
   EvolutionConfig cpu_cfg;
   cpu_cfg.population_size = 2048;
@@ -391,6 +421,8 @@ int main() {
   cpu_cfg.fuel = 20000;
   cpu_cfg.gpu_blocksize = 256;
   cpu_cfg.eval_engine = gagp::evo::EvalEngine::CPU;
+  cpu_cfg.compiled_grammar = grammar;
+  cpu_cfg.generation_request = request;
 
   if (const char* generations_env = std::getenv("GAGP_PROBE_GENERATIONS")) {
     cpu_cfg.generations = std::atoi(generations_env);
@@ -401,7 +433,8 @@ int main() {
   const std::vector<std::string> input_names = {"x"};
 
   std::mt19937_64 rng(cpu_cfg.seed);
-  std::vector<ProgramGenome> population = init_population(cpu_cfg);
+  gagp::evo::grammar::VariationContext variation(grammar, request);
+  std::vector<ProgramGenome> population = init_population(cpu_cfg, *grammar, request);
 
   for (int gen = 0; gen < cpu_cfg.generations; ++gen) {
     const std::vector<gagp::evo::ScoredGenome> cpu_scored =
@@ -475,7 +508,7 @@ int main() {
     }
 
     const std::vector<ScoredGenome> scored = gagp::evo::evaluate_population(population, cases, cpu_cfg);
-    population = next_population_from_scored(scored, cpu_cfg, &rng);
+    population = next_population_from_scored(scored, cpu_cfg, variation, &rng);
   }
 
   std::cout << "simple_exp_population_probe: OK\n";

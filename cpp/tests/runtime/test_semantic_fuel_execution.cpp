@@ -138,52 +138,6 @@ bool test_verifier_and_raw_runtime_guards() {
                "raw runtime should stop an unverified zero-cost cycle");
 }
 
-BytecodeProgram weighted_phase_program() {
-  BytecodeProgram program;
-  program.consts = {Value::from_int(0)};
-  program.code = {ins_a(Opcode::PushConst, 0),
-                  ins_a(Opcode::AsgpDp1d, 0), ins(Opcode::Return)};
-  program.instruction_fuel = {1, 0, 0};
-
-  AsgpDp1dSegment segment;
-  segment.lo = 0;
-  segment.hi = 0;
-  segment.base_state = 0;
-  segment.boundary_value = Value::from_int(-1);
-  segment.dep_kind = -1;
-  segment.dep_offsets = {1};
-  segment.solve_state_name = 10;
-  segment.transition_state_name = 11;
-  segment.transition_dep_names = {12};
-
-  segment.solve.consts = {Value::from_int(42)};
-  segment.solve.code = {ins_a(Opcode::PushConst, 0), ins(Opcode::Return)};
-  segment.solve.instruction_fuel = {3, 0};
-  segment.solve.n_locals = 1;
-  segment.solve.binder_locals = {{10, 0}};
-
-  segment.transition.code = {ins_a(Opcode::Load, 1), ins(Opcode::Return)};
-  segment.transition.n_locals = 2;
-  segment.transition.binder_locals = {{11, 0}, {12, 1}};
-
-  program.asgp_dp1d_segments.push_back(std::move(segment));
-  return program;
-}
-
-bool test_weighted_phase_execution() {
-  const BytecodeProgram program = weighted_phase_program();
-  if (!check(verify_bytecode(program).ok,
-             "program with a weighted phase should verify")) {
-    return false;
-  }
-  if (!check(is_error(execute_bytecode_cpu(program, {}, 4), ErrCode::Timeout),
-             "weighted phase should enforce its own instruction charge")) {
-    return false;
-  }
-  return check(is_int_result(execute_bytecode_cpu(program, {}, 5), 42),
-               "weighted phase should succeed at its exact aggregate boundary");
-}
-
 }  // namespace
 
 int main() {
@@ -192,6 +146,5 @@ int main() {
   if (!test_charge_precedes_fallible_operation()) return 1;
   if (!test_empty_schedule_preserves_legacy_fuel()) return 1;
   if (!test_verifier_and_raw_runtime_guards()) return 1;
-  if (!test_weighted_phase_execution()) return 1;
   return 0;
 }

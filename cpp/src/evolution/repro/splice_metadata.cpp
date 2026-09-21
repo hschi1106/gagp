@@ -55,29 +55,6 @@ void append_metadata(AstProgram& out, const AstProgram& source,
       target.push_back(std::move(result));
     }
   };
-  copy(source.linear_rec_binders, out.linear_rec_binders, [&](auto& x) {
-    x.elem_name = name(x.elem_name); x.accum_name = name(x.accum_name);
-    x.index_name = name(x.index_name);
-  });
-  copy(source.asgp_dc_binders, out.asgp_dc_binders, [&](auto& x) {
-    x.solve_xs_name = name(x.solve_xs_name); x.solve_n_name = name(x.solve_n_name);
-    x.solve_lo_name = name(x.solve_lo_name); x.divide_n_name = name(x.divide_n_name);
-    x.combine_left_name = name(x.combine_left_name);
-    x.combine_right_name = name(x.combine_right_name);
-  });
-  copy(source.asgp_dp1d_specs, out.asgp_dp1d_specs, [&](auto& x) {
-    x.boundary_const = constant(x.boundary_const);
-    x.solve_state_name = name(x.solve_state_name);
-    x.transition_state_name = name(x.transition_state_name);
-    for (auto& id : x.transition_dep_names) id = name(id);
-  });
-  copy(source.asgp_dp2d_specs, out.asgp_dp2d_specs, [&](auto& x) {
-    x.boundary_const = constant(x.boundary_const);
-    x.solve_i_name = name(x.solve_i_name); x.solve_j_name = name(x.solve_j_name);
-    x.transition_i_name = name(x.transition_i_name);
-    x.transition_j_name = name(x.transition_j_name);
-    for (auto& id : x.transition_dep_names) id = name(id);
-  });
   copy(source.lexical_regions, out.lexical_regions, [&](auto& x) {
     for (auto& binding : x.bindings) binding.id = rename(binding.id);
   });
@@ -202,8 +179,6 @@ void reconstruct_splice_metadata(
       return a.node_index < b.node_index;
     });
   };
-  sort(out.linear_rec_binders); sort(out.asgp_dc_binders);
-  sort(out.asgp_dp1d_specs); sort(out.asgp_dp2d_specs);
   sort(out.lexical_regions); sort(out.bounded_region_specs);
   sort(out.traversal_specs); sort(out.fuel_specs);
   child = std::move(out);
@@ -212,8 +187,7 @@ void reconstruct_splice_metadata(
 void reconstruct_compiled_child_metadata(
     AstProgram& child, const PackedHostData& packed, const PackedChildSplice& splice) {
   const auto fail = []() { throw std::invalid_argument("invalid compiled child splice provenance"); };
-  if (packed.config.contract_mode != ReproductionContractMode::CompiledGrammar ||
-      !packed.compiled_sources || !packed.compiled_grammar ||
+  if (!packed.compiled_sources || !packed.compiled_grammar ||
       (splice.applied != 0 && splice.applied != 1) || splice.base_parent < 0 ||
       static_cast<std::size_t>(splice.base_parent) >= packed.compiled_sources->parents.size() ||
       packed.config.candidates_per_program <= 0)

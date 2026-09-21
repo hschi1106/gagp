@@ -119,7 +119,15 @@ class TestDocumentationStructure(unittest.TestCase):
 
         # Presence tracking is internal parser state, not a separate user flag.
         # Its behavior is covered by the native artifact CLI contract test.
-        self.assertEqual(field_defaults.pop("fuel_explicit"), "off")
+        for field in (
+            "fuel_explicit",
+            "max_expr_depth_explicit",
+            "max_stmts_per_block_explicit",
+            "max_total_nodes_explicit",
+            "max_for_k_explicit",
+            "max_call_args_explicit",
+        ):
+            self.assertEqual(field_defaults.pop(field), "off")
 
         parser_pairs = dict(
             re.findall(

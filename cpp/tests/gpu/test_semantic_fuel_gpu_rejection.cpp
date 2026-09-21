@@ -42,35 +42,6 @@ BytecodeProgram root_schedule_program() {
   return program;
 }
 
-BytecodeProgram weighted_phase_program() {
-  BytecodeProgram program;
-  program.consts = {Value::from_int(0)};
-  program.code = {ins_a(Opcode::PushConst, 0),
-                  ins_a(Opcode::AsgpDp1d, 0), ins(Opcode::Return)};
-  program.instruction_fuel = {1, 0, 0};
-
-  gagp::AsgpDp1dSegment segment;
-  segment.lo = 0;
-  segment.hi = 0;
-  segment.base_state = 0;
-  segment.boundary_value = Value::from_int(-1);
-  segment.dep_kind = -1;
-  segment.dep_offsets = {1};
-  segment.solve_state_name = 10;
-  segment.transition_state_name = 11;
-  segment.transition_dep_names = {12};
-  segment.solve.consts = {Value::from_int(42)};
-  segment.solve.code = {ins_a(Opcode::PushConst, 0), ins(Opcode::Return)};
-  segment.solve.instruction_fuel = {3, 0};
-  segment.solve.n_locals = 1;
-  segment.solve.binder_locals = {{10, 0}};
-  segment.transition.code = {ins_a(Opcode::Load, 1), ins(Opcode::Return)};
-  segment.transition.n_locals = 2;
-  segment.transition.binder_locals = {{11, 0}, {12, 1}};
-  program.asgp_dp1d_segments.push_back(std::move(segment));
-  return program;
-}
-
 bool test_fuel_costs_pack() {
   const auto root = gagp::gpu_detail::pack_programs_with_shared_case_count(
       {root_schedule_program()}, 1, 0);
@@ -80,18 +51,7 @@ bool test_fuel_costs_pack() {
     return false;
   }
 
-  const auto phase = gagp::gpu_detail::pack_programs_with_shared_case_count(
-      {weighted_phase_program()}, 1, 0);
-  return check(phase.all_code.size() == 3 &&
-                   phase.all_code[0].fuel == 1 &&
-                   phase.all_code[1].fuel == 0 &&
-                   phase.all_code[2].fuel == 0 &&
-                   phase.all_phase_code.size() == 4 &&
-                   phase.all_phase_code[0].fuel == 3 &&
-                   phase.all_phase_code[1].fuel == 0 &&
-                   phase.all_phase_code[2].fuel == 1 &&
-                   phase.all_phase_code[3].fuel == 1,
-               "root and legacy phase fuel costs should pack exactly");
+  return true;
 }
 
 bool pack_rejects_schedule(const BytecodeProgram& program,
@@ -152,26 +112,7 @@ bool test_malformed_schedules_reject() {
     return false;
   }
 
-  BytecodeProgram phase_length = weighted_phase_program();
-  phase_length.asgp_dp1d_segments[0].solve.instruction_fuel = {3};
-  if (!pack_rejects_schedule(phase_length, "phase semantic fuel schedule",
-                             "phase schedule length mismatch") ||
-      !session_rejects_schedule(&session, phase_length,
-                                "phase semantic fuel schedule",
-                                "phase schedule length mismatch")) {
-    return false;
-  }
-
-  BytecodeProgram phase_cycle = weighted_phase_program();
-  auto& solve = phase_cycle.asgp_dp1d_segments[0].solve;
-  solve.consts.clear();
-  solve.code = {ins_a(Opcode::Jmp, 0)};
-  solve.instruction_fuel = {0};
-  return pack_rejects_schedule(phase_cycle, "zero-cost control-flow cycle",
-                               "phase zero-cost cycle") &&
-         session_rejects_schedule(&session, phase_cycle,
-                                  "zero-cost control-flow cycle",
-                                  "phase zero-cost cycle");
+  return true;
 }
 
 bool eval_fitness_at_fuel(const BytecodeProgram& program, const Value& expected,
@@ -248,14 +189,6 @@ bool test_nonunit_branch_and_check_fuel() {
                               "weighted CHECK_LIST exact threshold");
 }
 
-bool test_weighted_legacy_phase_threshold() {
-  const BytecodeProgram program = weighted_phase_program();
-  return eval_fitness_at_fuel(program, Value::from_int(42), 4, -kPenalty,
-                              "weighted DP phase below threshold") &&
-         eval_fitness_at_fuel(program, Value::from_int(42), 5, 0.0,
-                              "weighted DP phase exact threshold");
-}
-
 bool uninitialized_session_rejects(const BytecodeProgram& program,
                                    const std::string& label) {
   gagp::FitnessSessionGpu session;
@@ -292,20 +225,11 @@ BytecodeProgram descriptor_only_program() {
   return program;
 }
 
-BytecodeProgram nested_bounded_opcode_program() {
-  BytecodeProgram program = constant_program();
-  gagp::AsgpDcSegment segment;
-  segment.solve.code = {ins_a(Opcode::BoundedRegion, 0)};
-  program.asgp_dc_segments.push_back(std::move(segment));
-  return program;
-}
-
 bool test_bounded_region_preflight_rejection() {
   for (const auto& [program, label] :
        std::vector<std::pair<BytecodeProgram, std::string>>{
            {root_bounded_opcode_program(), "malformed root bounded opcode"},
-           {descriptor_only_program(), "descriptor without opcode"},
-           {nested_bounded_opcode_program(), "bounded opcode in legacy phase"}}) {
+           {descriptor_only_program(), "descriptor without opcode"}}) {
     if (!pack_rejects_bounded_region(program, label + " pack") ||
         !uninitialized_session_rejects(program, label + " session eval")) {
       return false;
@@ -323,6 +247,22 @@ bool test_empty_schedule_packs() {
                "an empty fuel schedule should retain legacy unit charging");
 }
 
+bool test_removed_opcode_values_reject() {
+  for (int value = 25; value <= 27; ++value) {
+    BytecodeProgram program = constant_program();
+    program.code[0].op = static_cast<Opcode>(value);
+    const auto packed = gagp::gpu_detail::pack_programs_with_shared_case_count(
+        {program}, 1, 0);
+    if (!check(packed.metas.size() == 1 && !packed.metas[0].is_valid &&
+                   packed.metas[0].err_code == gagp::ErrCode::Type,
+               "removed opcode " + std::to_string(value) +
+                   " should be rejected by GPU packing")) {
+      return false;
+    }
+  }
+  return true;
+}
+
 }  // namespace
 
 int main() {
@@ -332,8 +272,8 @@ int main() {
   if (!test_zero_cost_return_threshold()) return 1;
   if (!test_all_zero_program_at_zero_and_negative_fuel()) return 1;
   if (!test_nonunit_branch_and_check_fuel()) return 1;
-  if (!test_weighted_legacy_phase_threshold()) return 1;
   if (!test_bounded_region_preflight_rejection()) return 1;
   if (!test_empty_schedule_packs()) return 1;
+  if (!test_removed_opcode_values_reject()) return 1;
   return 0;
 }

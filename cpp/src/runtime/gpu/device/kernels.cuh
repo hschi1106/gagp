@@ -16,7 +16,7 @@ __device__ inline double d_canonicalize_fitness_accumulator(double value) {
   return ldexp(static_cast<double>(quantized_mantissa), exponent - kMantissaBits);
 }
 
-template <DPayloadFlavor Flavor, bool EnableAsgp, bool EnableRegions = false>
+template <DPayloadFlavor Flavor, bool EnableRegions = false>
 __global__ void evaluate_fitness_programs_impl(
     int program_count,
     const Value* all_consts, const DInstr* all_code, const DProgramMeta* metas,
@@ -28,12 +28,6 @@ __global__ void evaluate_fitness_programs_impl(
     const Value* list_payload_values,
     const DInstr* phase_code,
     const Value* phase_consts,
-    const DAsgpDcSegment* asgp_dc_segments,
-    int asgp_dc_segment_count,
-    const DAsgpDp1dSegment* asgp_dp1d_segments,
-    int asgp_dp1d_segment_count,
-    const DAsgpDp2dSegment* asgp_dp2d_segments,
-    int asgp_dp2d_segment_count,
     int fuel, double penalty, double* fitness_out,
     const DRegionSegment* region_segments = nullptr, int region_segment_count = 0,
     const DRegionPhase* region_phases = nullptr, int region_phase_count = 0,
@@ -62,15 +56,9 @@ __global__ void evaluate_fitness_programs_impl(
       list_payload_entry_count,
       list_payload_values,
   };
-  const DAsgpTables asgp_tables{
+  const DExecutionTables execution_tables{
       phase_code,
       phase_consts,
-      asgp_dc_segments,
-      asgp_dc_segment_count,
-      asgp_dp1d_segments,
-      asgp_dp1d_segment_count,
-      asgp_dp2d_segments,
-      asgp_dp2d_segment_count,
       region_segments, region_segment_count,
       region_phases, region_phase_count,
       region_bindings, region_binding_count,
@@ -94,9 +82,9 @@ __global__ void evaluate_fitness_programs_impl(
   const int chunk_start = (meta.case_count * tid) / static_cast<int>(blockDim.x);
   const int chunk_end = (meta.case_count * (tid + 1)) / static_cast<int>(blockDim.x);
   for (int local_case = chunk_start; local_case < chunk_end; ++local_case) {
-    const DResult result = d_execute_bytecode_impl<Flavor, EnableAsgp, EnableRegions>(
+    const DResult result = d_execute_bytecode_impl<Flavor, EnableRegions>(
         meta, shared_code, all_consts, shared_case_local_vals, shared_case_local_set,
-        payload_tables, asgp_tables, local_case, fuel, workspace);
+        payload_tables, execution_tables, local_case, fuel, workspace);
     if (result.is_error) {
       local_score = d_canonicalize_fitness_accumulator(local_score - fabs(penalty));
       continue;

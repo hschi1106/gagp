@@ -49,7 +49,7 @@
     "eval_test": true,
     "blocksize": 1024,
     "cases_root": "logs/psb1_baseline_materialized_256_64",
-    "grammar_config": "configs/grammar/all.json"
+    "grammar_config": "configs/grammar/migration/v1/all.json"
   },
   "raw_evidence": {
     "summary": "logs/psb_all_config_supported_fullbudget_merged/summary.json",

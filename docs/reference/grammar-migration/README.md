@@ -182,12 +182,14 @@ all 11 modes. All 44 combinations preserve the exact best-program snapshots and
 fitness histories. Native CPU/GPU integration tests check complete histogram and
 evaluation-count accounting. The full capture under `evolution-statistics-full-01/`
 completed on device 1; its manifest records commands, hashes, and completed rows.
-Host operator decisions are now instrumented through
-`experiments.instrument_migration_operators`. It generates separate diagnostic
-copies of the immutable crossover, mutation, reproduction backend, and GPU host
-decode sources. Exact anchors must match once; generated sources, counter event
-names, source hashes and diffs are archived. Removing the inserted counter lines
-reconstructs the original sources exactly. Production sources remain unchanged.
+Host operator decisions were instrumented before the 2.0 cutover through a
+separate diagnostic source-rewrite tool. It generated copies of the immutable
+crossover, mutation, reproduction backend, and GPU host decode sources. Exact
+anchors had to match once; generated sources, counter event names, source hashes
+and diffs are archived. Removing the inserted counter lines reconstructed the
+original sources exactly. Production sources remained unchanged. The generator
+was retired with the specialized operator files; the archived artifacts remain
+the evidence for this historical measurement.
 The observer records decisions per reproduced generation, including accepted
 children that happen to equal their parents; equality is not used to infer a
 fallback. Mutation eligibility and selection are separate counters, so skipped
@@ -204,9 +206,10 @@ decisions. The latter include 7,241 accepted children, 480 device-invalid fallba
 341 binder/AST verification fallbacks, and two empty-decoding fallbacks.
 These are diagnostic observations, not performance measurements.
 
-The subsequent `operator-statistics-adapter-02/` also compiles a diagnostic copy
-of the production GPU launch and variation sources. `migration_gpu_probes.py`
-inserts atomic counters without changing the original source lines. It records
+The subsequent `operator-statistics-adapter-02/` also compiled a diagnostic copy
+of the production GPU launch and variation sources. Its now-retired probe
+generator inserted atomic counters without changing the original source lines.
+It recorded
 assembly versus parent fallback, each fallback condition (conditions may overlap),
 mutation choice, metadata validity before fallback handling, and final device
 validity. Counters reset before each variation launch and are read after its
@@ -229,9 +232,10 @@ evaluation plus 15,708 reproduction observations. The decision audit accounts fo
 outputs match host device-invalid fallback counts. Reports are
 `evolution-statistics-full-01-audit.json` and `operator-statistics-full-02-audit.json`.
 
-`gagp_grammar_migration_bench` is opt-in under `GAGP_BUILD_BENCHMARKS`.
-Its source is `cpp/src/bench/grammar_migration_bench.cpp`, with lossless artifact
-support in `migration_snapshot.{hpp,cpp}`. It accepts common evolution CLI options
+The archived `gagp_grammar_migration_bench` was opt-in under
+`GAGP_BUILD_BENCHMARKS` before the release-2 cutover. Its frozen source and
+binaries are retained in the recorded external evidence and Goal 08 revision;
+they are intentionally absent from the release-2 worktree. It accepted common evolution CLI options
 plus `--action freeze|freeze-repro|repro-check|repro-steady|run|oracle|steady`, `--snapshot PATH`, and optional
 `--source-ast PATH` for capture. The product CLI has no added flags. The only
 CLI library addition exposes its existing fitness-case parser for reuse.
@@ -245,14 +249,14 @@ failure is an error, not a CPU fallback. CPU values/fuel boundaries are separate
 from GPU fitness. The direct device oracle described below captures per-case values,
 errors, payloads, and fuel; the complete native capture is retained with its audit.
 
-`capture_gpu_results.cu` includes the immutable production fitness source to reuse
+The archived `capture_gpu_results.cu` included the immutable production fitness source to reuse
 its packing helpers and device execution core. Each diagnostic probe runs the
 ordinary `d_execute_bytecode_impl` and the same `d_run_code_core` with retained
 scratch state, and rejects any difference between their returned value/error.
 The scratch state provides materialized result payloads and remaining fuel.
 Host payload registries are restored after every probe. This is diagnostic code,
-not an alternate evaluator or a timing path. `experiments.capture_gpu_oracle`
-archives reference/source/library hashes, compilation and execution commands,
+not an alternate evaluator or a timing path. The retired
+`experiments.capture_gpu_oracle` archived reference/source/library hashes, compilation and execution commands,
 direct GPU observations, and comparisons with the CPU oracle.
 
 All 18 compact oracle cases match CPU values, errors, and fuel boundaries exactly;
@@ -318,7 +322,7 @@ capability measurements ran while the main device-0 baseline was in its first
 warmup block and do not establish uncontended performance acceptance.
 
 CPU mutation creates donors inside each mutation rather than consuming the GPU
-donor pool. `experiments.capture_cpu_reproduction` compiles the immutable mutation
+donor pool. The archived `experiments.capture_cpu_reproduction` compiled the immutable mutation
 source with interception at its production donor call, while a separate plain
 executable links the original mutation archive unchanged. The captures under
 `cpu-donor-capture-03/` preserve 7,565 calls across all 34 parent workloads, including
@@ -358,8 +362,9 @@ because it contains one warmup block. The full device-1 baseline under
 runs and all 68 required rows, each with three warmup and fifteen measured blocks.
 This is baseline capture, not candidate acceptance.
 
-Optional benchmark builds provide `gagp_migration_cpu_reproduction_plain` and
-`gagp_migration_cpu_reproduction_capture`. The native `gagp_test_cpu_donor_tape`
+The pre-cutover optional benchmark builds provided
+`gagp_migration_cpu_reproduction_plain` and
+`gagp_migration_cpu_reproduction_capture`. The retired native `gagp_test_cpu_donor_tape`
 integration test compares original, intercepted, and replayed children and rejects
 missing/extra tape entries, changed requests, and malformed RNG states. The
 reference capture tool archives its sources, compile commands, library hashes,
@@ -423,7 +428,7 @@ oracle results, fixture population and link recipe. This evidence is partial Goa
 
 ## Independent native oracle expansion
 
-The capture tool `tools/gagp_tools/experiments/capture_migration_oracle.py` builds
+The archived capture tool `tools/gagp_tools/experiments/capture_migration_oracle.py` built
 `cpp/src/bench/capture_baseline_tests.cpp` around unchanged tests from the immutable
 reference checkout. It links the original core, CPU, evolution and GPU archives.
 Wrappers observe production calls and retain the original assertions and exit codes;
@@ -450,7 +455,7 @@ payloads, error messages, fitness and exact first-non-Timeout fuel with checks a
 and immediately below the boundary. The bounded probe cap is 20,000; an unresolved
 Timeout at that cap remains explicitly unresolved.
 
-`gagp_migration_oracle_replay` reconstructs bytecode/payloads and checks these
+The archived `gagp_migration_oracle_replay` reconstructed bytecode/payloads and checked these
 observations in fresh processes. The corpus contains an intentional invalid
 list-tag runtime test rejected by the bytecode verifier. Such tests require an
 explicit captured verifier result plus `runtime_negative_test: true`; only this
@@ -486,7 +491,9 @@ including five GPU-labelled tests without skips (`oracle-final-ctest.log`);
 40 operational tool tests and 17 repository checks pass. The full fitness and
 boundary captures remained byte-identical when regenerated with archived sources.
 
-Reproduction (prefix with `rtk proxy`, set `PYTHONPATH=tools`):
+Historical reproduction requires checkout of the recorded Goal 01/Goal 08
+revision and its archived adapter sources (prefix with `rtk proxy`, set
+`PYTHONPATH=tools`):
 
 ```bash
 python3 -m gagp_tools.experiments.capture_migration_oracle --reference /home/hschi1106/gagp-artifacts/grammar-migration/b049183/source --reference-build /home/hschi1106/gagp-artifacts/grammar-migration/b049183/build --adapter-build /home/hschi1106/gagp-artifacts/grammar-migration/adapter-build --output NEW_CAPTURE_DIRECTORY --device 0
@@ -661,7 +668,7 @@ committed process records; failed partial attempts are retained separately. Its 
 performance acceptance. Frozen legacy snapshots do not exercise compiled grammar
 reproduction, so compiled workload measurements must also be recorded.
 
-The private `gagp_grammar_migration_bench` adapter accepts `--grammar-definition PATH`
+The retired private `gagp_grammar_migration_bench` adapter accepted `--grammar-definition PATH`
 with a native `grammar-population-v1` snapshot for `run`, `oracle`, and `steady`.
 It verifies grammar identity, execution fuel, one common recorded generation request,
 and the fitness-case schema. Compiled reproduction timing includes all nine variation

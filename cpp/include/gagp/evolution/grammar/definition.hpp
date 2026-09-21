@@ -7,7 +7,7 @@
 
 namespace gagp::evo::grammar {
 
-inline constexpr const char* kDefinitionVersion = "grammar-definition-v1";
+inline constexpr const char* kDefinitionVersion = "grammar-definition-v2";
 inline constexpr const char* kNormalizationVersion = "1";
 
 struct ResolvedDefinition {

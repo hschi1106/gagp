@@ -51,7 +51,7 @@ ctest --test-dir cpp/build -L cpu_gpu_parity --output-on-failure
 ```
 
 The runtime semantic corpus is split into independently named scalar,
-control-flow, builtin, typed-value, structured-expression, and ASGP contracts.
+control-flow, builtin, typed-value, lexical/traversal, and bounded-region contracts.
 Fixture data lives under `cpp/tests/fixtures/runtime/`; tests do not compile C++
 sources ad hoc.
 
@@ -109,6 +109,7 @@ visible-device index:
 ```bash
 GAGP_CUDA_DEVICE=0 cpp/build/gagp_evolve_cli \
   --cases data/fixtures/simple_exp_1024.json \
+  --grammar-definition configs/grammar/basic/int.json \
   --engine gpu --repro-backend gpu --repro-overlap on \
   --population-size 64 --generations 2
 ```
@@ -122,10 +123,11 @@ reference for `gagp_evolve_cli`. The parser requires `--cases`; `--help` is not
 a supported flag and exits through the unknown-argument error contract. Command
 stdout and top-level JSON keys are locked by the native CLI contract test.
 
-Grammar configs control generation and reproduction search space, not execution
-of materialized AST/bytecode. Operational usage is in
-[grammar-config.md](grammar-config.md), while the schema is normative in
-[`../../spec/grammar_config.md`](../../spec/grammar_config.md).
+Compiled grammar definitions control generation and reproduction search space,
+not execution of a materialized AST/bytecode program. Operational use and
+offline release-1 conversion are in [grammar-config.md](grammar-config.md);
+the production schema is normative in
+[`../../spec/grammar_definition.md`](../../spec/grammar_definition.md).
 
 ## Related workflows
 
@@ -133,4 +135,3 @@ of materialized AST/bytecode. Operational usage is in
 - [PSB workflow](psb-workflow.md): datasets, regression, comparison, manifests
 - [Experiment protocol](experiment-protocol.md): controlled formal studies
 - [Operational tools](../../tools/README.md): unified commands and artifacts
-

@@ -259,7 +259,6 @@ __global__ void compiled_mutation_kernel(
   const int lane = static_cast<int>(threadIdx.x);
   if (pair >= config.pair_count || lane >= 2) return;
   if (config.compiled_pass != CompiledVariationPass::Mutation ||
-      config.contract_mode != ReproductionContractMode::CompiledGrammar ||
       config.population_size <= 0 || config.max_nodes <= 0 ||
       config.max_nodes > kGpuReproKernelMaxNodes || config.max_names < 0 ||
       config.max_consts < 0 || config.max_consts > kGpuReproMaxConsts ||

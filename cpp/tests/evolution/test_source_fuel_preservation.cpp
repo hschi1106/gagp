@@ -178,7 +178,7 @@ bool test_compaction_and_splice() {
 bool test_membership_and_gpu_rejections() {
   const auto grammar = gagp::evo::grammar::compile_grammar(
       gagp::evo::grammar::parse_definition(R"({
-        "format_version":"grammar-definition-v1",
+        "format_version":"grammar-definition-v2",
         "entry":{"nonterminal":"Value","type":"Int"},
         "search_limits":{"max_nodes":5,"max_depth":4},
         "execution_limits":{"fuel":100},
@@ -199,10 +199,11 @@ bool test_membership_and_gpu_rejections() {
         {genome(profiled_add())}, gagp::evo::repro::PreprocessOutput{},
         gagp::evo::repro::GpuReproConfig{});
   } catch (const std::invalid_argument& error) {
-    return check(std::string(error.what()).find("fuel profiles") != std::string::npos,
-                 "GPU reproduction reported the wrong profile rejection");
+    return check(std::string(error.what()).find("complete preparation metadata") !=
+                     std::string::npos,
+                 "GPU reproduction reported the wrong compiled-preparation rejection");
   }
-  return check(false, "GPU reproduction accepted source fuel profiles");
+  return check(false, "GPU reproduction accepted missing compiled preparation");
 }
 }  // namespace
 

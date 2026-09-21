@@ -26,7 +26,7 @@ void rejects(const std::function<void()>& action) {
 int main() {
   try {
     const auto grammar = compile_grammar(parse_definition(R"({
-      "format_version":"grammar-definition-v1",
+      "format_version":"grammar-definition-v2",
       "entry":{"nonterminal":"Expr","type":"Int"},
       "search_limits":{"max_nodes":5,"max_depth":4},
       "execution_limits":{"fuel":100},

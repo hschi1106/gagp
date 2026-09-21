@@ -44,7 +44,7 @@ bool upload_gpu_repro_inputs(const PackedHostData& packed,
     if (message_out) *message_out = "gpu reproduction upload arena capacity mismatch";
     return false;
   }
-  if (packed.config.contract_mode == ReproductionContractMode::CompiledGrammar) {
+  {
     const auto& c = packed.config;
     const std::size_t parents = static_cast<std::size_t>(c.population_size);
     const std::size_t donors = static_cast<std::size_t>(c.compiled_donor_count);
@@ -199,8 +199,7 @@ bool launch_gpu_repro_kernels(GpuReproArena* arena,
   if (!ensure_cuda(cudaSetDevice(arena->device_id), "cudaSetDevice", message_out)) {
     return false;
   }
-  const bool mutation_pass = config.contract_mode == ReproductionContractMode::CompiledGrammar &&
-      config.compiled_pass == CompiledVariationPass::Mutation;
+  const bool mutation_pass = config.compiled_pass == CompiledVariationPass::Mutation;
   if (!mutation_pass && !ensure_cuda(cudaMemcpy(arena->d_fitness, fitness.data(),
                               sizeof(double) * fitness.size(), cudaMemcpyHostToDevice),
                    "cudaMemcpy fitness", message_out)) {
@@ -218,7 +217,7 @@ bool launch_gpu_repro_kernels(GpuReproArena* arena,
     tournament_select_kernel<<<select_blocks, select_threads>>>(
         arena->d_fitness, arena->d_candidates, config.population_size, config.pair_count,
         config.candidates_per_program, config.tournament_k, config.seed, arena->d_parent_a,
-        arena->d_parent_b, arena->d_cand_a, arena->d_cand_b, config.contract_mode, arena->d_metas,
+        arena->d_parent_b, arena->d_cand_a, arena->d_cand_b, arena->d_metas,
         arena->d_selection_counters);
     if (!ensure_cuda(cudaGetLastError(), "tournament_select_kernel", message_out) ||
         !ensure_cuda(cudaDeviceSynchronize(), "cudaDeviceSynchronize selection", message_out)) {
@@ -228,7 +227,7 @@ bool launch_gpu_repro_kernels(GpuReproArena* arena,
   const auto select_t1 = std::chrono::steady_clock::now();
 
   const auto variation_t0 = std::chrono::steady_clock::now();
-  if (config.contract_mode == ReproductionContractMode::CompiledGrammar) {
+  {
     CompiledVariationPointers pointers;
     pointers.program_nodes = arena->d_program_nodes;
     pointers.metas = arena->d_metas;
@@ -268,17 +267,6 @@ bool launch_gpu_repro_kernels(GpuReproArena* arena,
     } else {
       compiled_crossover_kernel<<<config.pair_count, 32>>>(config, pointers);
     }
-  } else {
-    variation_kernel<<<config.pair_count, 128>>>(
-        arena->d_program_nodes, arena->d_metas, arena->d_candidates, arena->d_program_name_ids,
-        arena->d_program_consts, arena->d_donor_nodes, arena->d_donor_lens, arena->d_donor_name_ids,
-        arena->d_donor_name_counts, arena->d_donor_consts, arena->d_donor_const_counts,
-        config.max_nodes, config.candidates_per_program, config.max_donor_nodes, config.max_names, config.max_consts,
-        config.max_expr_depth, config.max_for_k, config.pair_count, config.donor_pool_size_per_type,
-        config.mutation_ratio, config.mutation_subtree_ratio, config.seed,
-        arena->d_parent_a, arena->d_parent_b, arena->d_cand_a, arena->d_cand_b, arena->d_child_nodes,
-        arena->d_child_used_len, arena->d_child_name_ids, arena->d_child_name_counts, arena->d_child_consts,
-        arena->d_child_const_counts, arena->d_child_meta);
   }
   if (!ensure_cuda(cudaGetLastError(), "variation_kernel", message_out) ||
       !ensure_cuda(cudaDeviceSynchronize(), "cudaDeviceSynchronize variation", message_out)) {

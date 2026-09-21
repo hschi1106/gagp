@@ -14,9 +14,36 @@ SemanticFuelValidation fail(std::size_t instruction_index, std::string message) 
 }
 
 bool is_known_opcode(Opcode op) {
-  const int value = static_cast<int>(op);
-  return value >= static_cast<int>(Opcode::PushConst) &&
-         value <= static_cast<int>(Opcode::BoundedRegion);
+  switch (op) {
+    case Opcode::PushConst:
+    case Opcode::Load:
+    case Opcode::Store:
+    case Opcode::Neg:
+    case Opcode::Not:
+    case Opcode::Add:
+    case Opcode::Sub:
+    case Opcode::Mul:
+    case Opcode::Div:
+    case Opcode::Mod:
+    case Opcode::Lt:
+    case Opcode::Le:
+    case Opcode::Gt:
+    case Opcode::Ge:
+    case Opcode::Eq:
+    case Opcode::Ne:
+    case Opcode::Jmp:
+    case Opcode::JmpIfFalse:
+    case Opcode::JmpIfTrue:
+    case Opcode::CallBuiltin:
+    case Opcode::Return:
+    case Opcode::CheckList:
+    case Opcode::CheckInt:
+    case Opcode::EmptyList:
+    case Opcode::EmptyListLike:
+    case Opcode::BoundedRegion:
+      return true;
+  }
+  return false;
 }
 
 bool is_jump(Opcode op) {
@@ -118,15 +145,6 @@ std::size_t bytecode_instruction_count(const BytecodeProgram& program) {
       throw std::length_error("bytecode instruction count overflow");
     count += phase.code.size();
   };
-  for (const auto& segment : program.asgp_dc_segments) {
-    add(segment.solve); add(segment.divide); add(segment.combine);
-  }
-  for (const auto& segment : program.asgp_dp1d_segments) {
-    add(segment.solve); add(segment.transition);
-  }
-  for (const auto& segment : program.asgp_dp2d_segments) {
-    add(segment.solve); add(segment.transition);
-  }
   for (const auto& segment : program.bounded_region_segments) {
     if (segment.boundary) add(segment.boundary->program);
     add(segment.base_predicate.program); add(segment.base_body.program);
@@ -139,25 +157,6 @@ std::size_t bytecode_instruction_count(const BytecodeProgram& program) {
 
 bool has_semantic_fuel(const BytecodeProgram& program) noexcept {
   if (!program.instruction_fuel.empty()) return true;
-  for (const AsgpDcSegment& segment : program.asgp_dc_segments) {
-    if (phase_has_semantic_fuel(segment.solve) ||
-        phase_has_semantic_fuel(segment.divide) ||
-        phase_has_semantic_fuel(segment.combine)) {
-      return true;
-    }
-  }
-  for (const AsgpDp1dSegment& segment : program.asgp_dp1d_segments) {
-    if (phase_has_semantic_fuel(segment.solve) ||
-        phase_has_semantic_fuel(segment.transition)) {
-      return true;
-    }
-  }
-  for (const AsgpDp2dSegment& segment : program.asgp_dp2d_segments) {
-    if (phase_has_semantic_fuel(segment.solve) ||
-        phase_has_semantic_fuel(segment.transition)) {
-      return true;
-    }
-  }
   for (const auto& segment : program.bounded_region_segments) {
     if ((segment.boundary && phase_has_semantic_fuel(segment.boundary->program)) ||
         phase_has_semantic_fuel(segment.base_predicate.program) ||

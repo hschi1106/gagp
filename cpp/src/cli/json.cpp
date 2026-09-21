@@ -115,7 +115,7 @@ JsonValue JsonParser::parse_string() {
       else if (e == 'n') out.string_v.push_back('\n');
       else if (e == 'r') out.string_v.push_back('\r');
       else if (e == 't') out.string_v.push_back('\t');
-      else if (e == 'u' && options_.strict) {
+      else if (e == 'u') {
         const auto hex4 = [&]() {
           unsigned value = 0;
           for (int i = 0; i < 4; ++i) {

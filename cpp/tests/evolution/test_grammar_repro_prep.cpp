@@ -33,7 +33,6 @@ using gagp::evo::repro::CandidateRange;
 using gagp::evo::repro::GpuReproConfig;
 using gagp::evo::repro::PackedHostData;
 using gagp::evo::repro::PreprocessOutput;
-using gagp::evo::repro::ReproductionContractMode;
 
 void check(bool condition, const char* message) {
   if (!condition) throw std::runtime_error(message);
@@ -56,7 +55,6 @@ std::shared_ptr<const CompiledGrammar> compile_shared(const std::string& text) {
 GpuReproConfig compiled_config(const CompiledGrammar& grammar,
                                std::size_t population_size) {
   GpuReproConfig config;
-  config.contract_mode = ReproductionContractMode::CompiledGrammar;
   config.donor_pool_size_per_site = 2;
   config.population_size = static_cast<int>(population_size);
   config.pair_count = static_cast<int>((population_size + 1) / 2);
@@ -72,7 +70,7 @@ GpuReproConfig compiled_config(const CompiledGrammar& grammar,
 
 std::shared_ptr<const CompiledGrammar> split_nonterminal_grammar() {
   return compile_shared(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":12,"max_depth":7},
     "execution_limits":{"fuel":100},
@@ -90,7 +88,7 @@ std::shared_ptr<const CompiledGrammar> split_nonterminal_grammar() {
 
 std::shared_ptr<const CompiledGrammar> repeated_hole_grammar() {
   return compile_shared(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":12,"max_depth":7},
     "execution_limits":{"fuel":100},
@@ -109,7 +107,7 @@ std::shared_ptr<const CompiledGrammar> repeated_hole_grammar() {
 
 std::shared_ptr<const CompiledGrammar> scoped_repeated_hole_grammar() {
   return compile_shared(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":20,"max_depth":10},
     "execution_limits":{"fuel":100},
@@ -136,7 +134,7 @@ std::shared_ptr<const CompiledGrammar> scoped_repeated_hole_grammar() {
 
 std::shared_ptr<const CompiledGrammar> named_constant_donor_grammar() {
   return compile_shared(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","category":"Program","type":"Int"},
     "inputs":[{"name":"input","type":"Int"}],
     "locals":[{"name":"x","type":"Int"},{"name":"y","type":"Int"}],
@@ -169,10 +167,7 @@ bool same_candidate(const CandidateRange& left, const CandidateRange& right) {
          left.tag == right.tag && left.aux == right.aux &&
          left.scope_signature == right.scope_signature &&
          left.binder_signature == right.binder_signature &&
-         left.scheme_kind == right.scheme_kind &&
-         left.phase_name == right.phase_name &&
          left.visible_env_signature == right.visible_env_signature &&
-         left.dp_dependency_arity == right.dp_dependency_arity &&
          left.compatibility_id == right.compatibility_id &&
          left.occurrence_offset == right.occurrence_offset &&
          left.occurrence_count == right.occurrence_count &&
@@ -303,8 +298,7 @@ void test_exact_contracts_and_shared_occurrences() {
 
 void check_deterministic_prep(const PreprocessOutput& first,
                               const PreprocessOutput& second) {
-  check(first.contract_mode == second.contract_mode &&
-            first.compatibility_keys == second.compatibility_keys &&
+  check(first.compatibility_keys == second.compatibility_keys &&
             first.population_identities == second.population_identities &&
             first.donor_identities == second.donor_identities &&
             first.occurrence_binder_ids == second.occurrence_binder_ids &&
@@ -384,8 +378,7 @@ void test_determinism_packing_ownership_and_guards() {
   std::vector<ProgramGenome> population;
   GpuReproConfig config;
   const PreprocessOutput prep = prepare_after_local_owners_expire(&population, &config);
-  check(prep.contract_mode == ReproductionContractMode::CompiledGrammar &&
-            prep.compiled_grammar != nullptr,
+  check(prep.compiled_grammar != nullptr,
         "compiled preparation did not retain grammar ownership");
   prep.compiled_grammar->require_executable();
 
@@ -395,8 +388,7 @@ void test_determinism_packing_ownership_and_guards() {
   check_deterministic_prep(prep, replay);
 
   const auto packed = gagp::evo::repro::pack_population(population, prep, config);
-  check(packed.config.contract_mode == prep.contract_mode &&
-            packed.compiled_grammar == prep.compiled_grammar &&
+  check(packed.compiled_grammar == prep.compiled_grammar &&
             packed.compatibility_keys == prep.compatibility_keys &&
             packed.occurrences.size() == prep.occurrences.size() &&
             packed.occurrence_binder_ids == prep.occurrence_binder_ids &&
@@ -568,10 +560,6 @@ void test_determinism_packing_ownership_and_guards() {
   rejects_invalid([&] { (void)gagp::evo::repro::pack_population(population, prep, changed_limits); },
       "compiled packing accepted changed search limits after preparation");
 
-  GpuReproConfig legacy = config;
-  legacy.contract_mode = ReproductionContractMode::Legacy;
-  rejects_invalid([&] { (void)gagp::evo::repro::pack_population(population, prep, legacy); },
-      "packing accepted a legacy-config/compiled-preparation mismatch");
 
   GpuReproConfig invalid = config;
   invalid.max_names = gagp::evo::repro::kGpuReproMaxNames + 1;

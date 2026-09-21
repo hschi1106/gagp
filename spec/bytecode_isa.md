@@ -1,337 +1,116 @@
 # Bytecode ISA
 
-This document defines the release 1.0.0 bytecode execution contract shared by the
-compiler, CPU runtime, and GPU runtime.
+This document defines the release 2.0.0 bytecode execution contract shared by
+the compiler, CPU runtime, and GPU runtime. JSON encoding is defined in
+[bytecode_format.md](bytecode_format.md).
 
-Semantics must conform to:
+## Version boundary
 
-- [grammar.md](./grammar.md)
-- [builtins_base.md](./builtins_base.md)
-- [builtins_runtime.md](./builtins_runtime.md)
+Release-2 bytecode uses `bytecode-json-v2` and `bytecode-fixture-v2`.
+Release-1 `bytecode-json`, `bytecode-fixture`, and migration bytecode
+snapshots are rejected by production decoders. Bytecode migration is
+unsupported because bytecode lacks source AST, type/scope, and derivation
+provenance. Migrate the source `ast-prefix` artifact offline and compile the
+resulting `ast-prefix-v2`.
 
-The `bytecode-json` representation is defined by
-[bytecode_format.md](./bytecode_format.md).
+Numeric opcode values are fixed:
 
-## Compatibility
+| Value | Opcode |
+| ---: | --- |
+| 0–20 | `PUSH_CONST`, `LOAD`, `STORE`, `NEG`, `NOT`, `ADD`, `SUB`, `MUL`, `DIV`, `MOD`, `LT`, `LE`, `GT`, `GE`, `EQ`, `NE`, `JMP`, `JMP_IF_FALSE`, `JMP_IF_TRUE`, `CALL_BUILTIN`, `RETURN` |
+| 21 | `CHECK_LIST` |
+| 22 | `CHECK_INT` |
+| 23 | `EMPTY_LIST` |
+| 24 | `EMPTY_LIST_LIKE` |
+| 25–27 | reserved holes for removed specialized region opcodes |
+| 28 | `BOUNDED_REGION` |
 
-Release 1.0.0 is a breaking bytecode contract relative to legacy artifacts.
+Values 25–27 are never aliases and must be rejected. The release-1 specialized
+DC/DP opcodes, segment arrays, and dispatch paths do not exist in production.
 
-- Old serialized values containing `None` are invalid.
-- Old serialized values containing `NumList` are invalid.
-- Old AST programs using `ast-prefix-old` are invalid as public `ast-prefix`
-  inputs.
-- Release 1.0.0 uses exact `Int`, `Float`, `Bool`, `Char`, `String`, `IntList`,
-  `FloatList`, and `StringList` value tags.
+## Execution state and fuel
 
-Implementations may keep private migration tooling, but native runtime entrypoints
-must not silently reinterpret old public values.
+A VM owns an instruction pointer, operand stack, local array with separate
+initialization state, constant pool, remaining fuel, optional hidden locals,
+and general bounded-region frames. Public `None` does not exist.
 
-## Execution State
+Without an explicit schedule, each instruction costs one. A nonempty
+`instruction_fuel` array has one integer in `[0, INT_MAX]` per instruction.
+The interpreter checks and subtracts the charge before validation or side
+effects. A zero-cost instruction may execute at zero remaining fuel, but every
+control-flow cycle must contain a positive cost. Verification rejects even
+unreachable zero-cost cycles. CPU and GPU packing execute the same schedule.
 
-A VM instance has:
+The first runtime error terminates the current case:
+`NameError`, `TypeError`, `ZeroDiv`, `ValueError`, or `Timeout`.
 
-- instruction pointer
-- operand stack
-- local variable array
-- constant pool
-- remaining fuel
-- internal local initialization state
-- optional hidden locals
-- optional structured-expression and ASGP frame state
+## Verification boundary
 
-Public `None` does not exist. Uninitialized storage must be tracked by an
-internal validity bit, unset marker, or equivalent mechanism that cannot be
-observed as a source-language value.
+External bytecode is verified before execution. Verification checks opcode and
+operand domains, constant/local/segment indices, control-flow targets, stack
+shape and joins, fuel schedules, exact phase output types, and bounded-region
+plans/bindings. Compiler output is verified in debug and test builds. Malformed
+programs are decode errors; valid operations that fail on case values produce a
+runtime error.
 
-## Public Opcodes
+## Operators and builtins
 
-The baseline public opcode set remains:
+Arithmetic accepts exact `Int` or `Float` operands; ordering accepts numeric
+scalars; equality requires identical runtime tags. `Bool` and `Char` are
+not numeric.
 
-- `PUSH_CONST`
-- `LOAD`
-- `STORE`
-- `NEG`
-- `NOT`
-- `ADD`
-- `SUB`
-- `MUL`
-- `DIV`
-- `MOD`
-- `LT`
-- `LE`
-- `GT`
-- `GE`
-- `EQ`
-- `NE`
-- `JMP`
-- `JMP_IF_FALSE`
-- `JMP_IF_TRUE`
-- `CALL_BUILTIN`
-- `RETURN`
-
-Only this public opcode set is portable between bytecode consumers. Source
-forms may be lowered into it plus hidden locals and bytecode segments.
-
-Current native private helper opcodes for structured-expression lowering are:
-
-- `CHECK_LIST`
-- `CHECK_INT`
-- `EMPTY_LIST`
-- `EMPTY_LIST_LIKE`
-- `ASGP_DC`
-- `ASGP_DP1D`
-- `ASGP_DP2D`
-
-These helpers belong to the native GAGP private execution profile. The native
-`bytecode-json` codec and verifier accept them with their required segment and
-metadata checks, but another consumer may reject them. No private helper opcode
-adds source-language behavior beyond the public grammar contract.
-
-## Fuel and Errors
-
-Without an explicit semantic fuel schedule, before each instruction or equivalent
-lowered operation:
+Builtin IDs are:
 
 ```text
-if fuel == 0:
-    return Timeout
-else:
-    fuel -= 1
-    execute operation
+0 abs        1 min             2 max          3 clip
+4 len        5 concat          6 slice        7 index
+8 append     9 reverse        10 find        11 contains
+12 is_int   13 idiv0           14 imod0       15 prepend
+16 char_to_string             17 string_to_char
+18 ord      19 chr            20 is_letter   21 is_digit
+22 is_space 23 is_vowel       24 to_lower    25 to_upper
+26 to_string                  27 singleton
 ```
 
-The semantic fuel extension permits an optional parallel
-`instruction_fuel` array on each code block. An absent or empty array retains the
-unit-cost contract above. A nonempty array has exactly one integer in
-`[0, INT_MAX]` per instruction. Before executing an instruction, compare the
-remaining fuel with its cost: insufficient fuel returns `Timeout`; otherwise
-subtract the cost and execute. A zero-cost instruction may execute with zero
-remaining fuel. Charges precede operation validation, so an exhausted budget
-wins over an error that the operation would otherwise produce. A charge cannot
-be moved across a potentially failing operation while preserving semantics.
+`is_int` is compiler-internal and is not source syntax.
 
-Every cycle in a block's control-flow graph must contain a positive-cost
-instruction. Validation checks even unreachable zero-cost cycles and rejects
-invalid schedules as `invalid_fuel_schedule`. This is an intraprocedural rule;
-existing structured-call entry charges remain in force. Raw CPU execution also
-bounds consecutive zero-cost steps by the block's instruction count and returns
-`ValueError` for an unmetered cycle when verification was bypassed.
+## General helper opcodes
 
-This schedule encodes semantic charges on lowered operations without changing
-the serialized instruction layout. GPU host packing validates root and phase
-schedules and embeds each cost in its private packed instruction. The device
-interpreter applies the same charge-before-operation rule, including zero-cost
-instructions at zero remaining fuel. A negative starting budget still times out.
-Structured-region capability checks remain separate from schedule support.
+`CHECK_LIST` and `CHECK_INT` preserve the checked value after exact tag
+validation. `EMPTY_LIST` constructs the statically selected list tag;
+`EMPTY_LIST_LIKE` preserves the list family of its operand.
 
-Structured expressions and ASGP schemes must not bypass fuel accounting.
+`BOUNDED_REGION` consumes the plan's initial state values followed by its
+additional bound operands and produces one exact typed result. Operand `a`
+indexes `bounded_region_segments`. Each segment contains a versioned
+`RegionPlan` and ordinary bytecode phases with explicit plan-bank-to-local
+bindings. Structured calls, including nested `BOUNDED_REGION`, are forbidden
+inside phases.
 
-Runtime error kinds:
+Plans admit one to four state slots, up to eight ordered requests, four
+preparations, 32 parameters, and eight bound operands. Coordinate progress and
+sequence-window progress are validated structurally before execution. Bounds
+resolve once; checked arithmetic overflow yields `ValueError`.
 
-- `NameError`
-- `TypeError`
-- `ZeroDiv`
-- `ValueError`
-- `Timeout`
+Every frame pays its positive entry charge before state tag checks. Boundary
+and base selection precede memo lookup. Preparations run once per miss, child
+requests run serially, and combine runs after all children succeed. Frame or
+memo capacity exhaustion yields `Timeout`. Memo keys cover all state slots;
+cached values retain exact runtime tags.
 
-The first runtime error terminates the current case execution.
+GPU transport supports at most 128 declared frames and 128 declared memo cells
+per region and rejects larger declarations before upload. It does not clamp
+limits or execute phases on the host. CPU and GPU preserve request order,
+error order, fuel charges, result tags, and memo behavior within that profile.
 
-Deterministic ASGP stack, memo, or payload overflow must map to a runtime
-error result and must be treated as `-penalty` by fitness evaluation.
+## Compiler lowering
 
-## Verification Boundary
+Lexical declarations map to hidden immutable locals. Ordinary `Var` and
+`Assign` cannot access or write them. Traversal lowers to hidden locals and
+ordinary branches with the source evaluation and event order defined in
+[grammar.md](grammar.md). Bounded regions lower only to opcode 28 and the
+general segment representation.
 
-Native external bytecode decoding must run the verifier described in
-[bytecode_format.md](./bytecode_format.md) before execution. Debug native
-compiler builds also verify their completed output. This check is a boundary
-and debug invariant, not a per-case execution step or a per-individual release
-hot-path requirement.
-
-Malformed operands, indices, CFG stack joins, and segment metadata are decode
-errors. Well-formed instructions whose values cause a language runtime error
-remain executable so fixture suites can assert the error behavior above.
-
-## Type-Sensitive Operators
-
-Arithmetic operators accept `Int` and `Float` only. `Bool` and `Char` are not
-numeric.
-
-Ordering comparisons accept `Int` and `Float` only.
-
-Equality and inequality require exact same runtime type. Comparing different
-runtime types is a `TypeError` in generated well-typed programs and must not be
-used as an implicit conversion mechanism.
-
-## Builtin IDs
-
-The builtin ID mapping below is normative for release 1.0.0 bytecode serialization.
-
-```text
-0   abs
-1   min
-2   max
-3   clip
-4   len
-5   concat
-6   slice
-7   index
-8   append
-9   reverse
-10  find
-11  contains
-12  is_int          compiler-internal helper, not source syntax
-13  idiv0
-14  imod0
-15  prepend
-16  char_to_string
-17  string_to_char
-18  ord
-19  chr
-20  is_letter
-21  is_digit
-22  is_space
-23  is_vowel
-24  to_lower
-25  to_upper
-26  to_string
-27  singleton
-```
-
-`is_int` remains compiler-internal and is not a source-language call.
-
-## Bound Variable Lowering
-
-`BoundVar` is a source AST distinction used to preserve lexical scope during
-generation, variation, and compilation.
-
-Required compiler behavior:
-
-- each structured or scheme binder maps to a hidden immutable slot or
-  equivalent internal location.
-- ordinary source `Var` cannot access hidden binder slots.
-- source `Assign` cannot write binder slots.
-- nested binders must resolve capture-safely.
-- hidden slots may be reused only when lifetimes do not overlap.
-
-## Structured List Lowering
-
-`MapList`, `FilterList`, and `LinearRec` must preserve the evaluation order
-defined in [grammar.md](./grammar.md).
-
-Required behavior:
-
-- source expressions are evaluated exactly once.
-- binder values are assigned before body evaluation.
-- bodies are evaluated exactly once when selected by the grammar semantics.
-- first selected body error terminates execution.
-- empty list results preserve exact static list tags.
-- `LinearRec` is equivalent to right-to-left recurrence and may be lowered to
-  an iterative reverse traversal.
-
-## ASGP Execution
-
-ASGP schemes may be represented as bytecode phase segments or equivalent
-runtime-internal segments.
-
-Required phase isolation:
-
-- DC `solve` reads only `xs`, `n`, `lo`, and constants.
-- DC `ordivide` reads only `n` and constants.
-- DC `andcombine` reads only `r1`, `r2`, and constants.
-- DP solve phases read only their state binders and constants.
-- DP transition phases read only their state binders, dependency values, and
-  constants.
-
-ASGP implementation requirements:
-
-- DC split is `clamp(ordivide(n), 1, n - 1)`.
-- DP dependency expansion must be acyclic by grammar construction.
-- out-of-bounds DP dependencies use the configured boundary value.
-- memo hits must not re-evaluate already memoized states.
-- DP2D phase segments carry required bounds, base cell, boundary value, and
-  dependency-pattern metadata equivalent to the source grammar parameters.
-- CPU implementations may use bounded recursion or explicit stacks.
-- GPU implementations must use explicit bounded stacks, iterative schedules,
-  or equivalent non-recursive execution.
-
-
-## Private bounded recursive regions
-
-`BOUNDED_REGION` (opcode 28) takes operand `a`, an index into the program's
-`bounded_region_segments`. It consumes the initial typed states in slot order,
-followed by additional Int bound operands, and produces one exact typed result.
-CPU and GPU execute the same descriptors. GPU packing verifies the complete
-program before upload and rejects declared frame or memo-cell limits above 128;
-limits are never silently clamped. Device execution uses fixed explicit frames
-and memo storage, without device recursion or host execution of program phases.
-
-A segment contains a validated `RegionPlan` and ordinary bytecode phases with
-explicit source-bank-to-local bindings. It captures the listed caller locals once,
-including their set/unset state. Captures are lazy: an unused unset capture is
-harmless; loading it raises Name after paying the LOAD charge. Loading a set
-capture with a tag different from its declared parameter type raises Type at that
-same point. A phase STORE replaces the local value and its initial capture
-constraint. Phase locals have no implicit caller inputs or named binder mapping.
-State and parameter banks are visible throughout; prepared values are visible to
-later preparations, requests and combine; child results are visible only to
-combine. Sequence Measure slot 0 is the current source length. Structured calls,
-including another BOUNDED_REGION, are forbidden inside every phase.
-
-Plans admit 1–4 typed states, 1–8 ordered requests, at most 4 preparations,
-32 lexical parameters and 8 additional bound operands. Each request constructs
-every state via copy, checked Int offset, proper sequence window or a typed
-ordinary expression. Rank-affecting states cannot use arbitrary expressions.
-Coordinate progress uses a signed lexicographic permutation of unique Int state
-slots: each request's first nonzero projected offset must decrease rank. Domains
-have explicit exclusive or inclusive upper endpoints. Literal or invocation
-operand bounds are resolved once, checked for ordering and checked against every
-in-domain coordinate addition before the first frame. Additional operands and
-referenced state bounds must be Int. No Cartesian-domain size limit is imposed on
-sparse memoization. Arithmetic overflow raises Value; offset construction uses
-exact checked int64 arithmetic independently of ordinary numeric ADD semantics.
-
-Sequence progress uses proper windows of one ranked source, with endpoints at
-begin, end or a prepared interior cut. Cuts clamp exact Int values to [1,n-1].
-Length at most one selects the base body before predicate or preparation. Larger
-sources may also terminate through the Bool base predicate. Windows use ordinary
-Slice behavior, including empty and reversed ranges. Successful Slice results are
-typechecked on the next charged frame entry. Full-source windows and unproved
-rank transitions are rejected during descriptor validation.
-
-Execution uses an explicit bounded frame stack. The opcode charge precedes
-metadata and invocation checks. A zero frame limit fails with Timeout before root
-entry. Every frame pays its positive serialized entry charge (1 through INT_MAX)
-before exact state tag checks. Coordinate boundary selection precedes base
-predicate/body; base selection precedes memo lookup. Boundary and base results
-are never memoized. On a miss, preparations execute once, then requests execute in
-source order, each finishing its entire descendant evaluation before the next
-request. Construction errors precede child frame-capacity checks; a rejected child
-receives no entry charge. Child errors precede combine. Every phase has an exact
-verified nominal output type; predicates return Bool. State, predicate,
-preparation and request-expression values must retain their exact runtime tags.
-Boundary, base and combine result phases additionally admit the internal
-FallbackToken representation produced by ordinary payload builtins. This does not
-add a public result type or permit fallback constants in verified phases. Each
-completed child must have the same actual runtime tag as earlier siblings, checked
-before the next request; combine must retain that tag. Thus uniformly opaque
-results can flow through an identity combine, while mixing an exact value with a
-fallback result raises Type. Successful nonterminal combine results are inserted
-only after these checks, so combine errors precede memo-cell exhaustion. Duplicate requests require explicit permission and
-retain their order. A zero memo-cell bound permits terminal results but times out
-on the first successful nonterminal insertion.
-
-Memoization requires coordinate projection to cover all state slots; keys contain
-every Int state, and cached values retain exact runtime tags. Frame and cell
-limits are serialized execution parameters, independent of grammar search limits.
-Allocation arithmetic is checked. CPU storage grows only with visited states;
-GPU storage has fixed physical capacities, while serialized limits bound logical
-frame and cell usage.
-Ordinary phase instruction fuel shares the caller's budget; explicit schedules
-must satisfy the zero-cost-cycle verifier. Descriptor validation rejects unknown
-banks, inaccessible slots, wrong bindings, invalid proof metadata, invalid phase
-control flow, and success paths whose exact output type cannot be established.
-Proven runtime-error paths impose no successful result type. Besides definite
-type errors and unset local loads, the verifier recognizes `DIV`/`MOD` with an
-immediately preceding numeric zero `PUSH_CONST` when no jump targets the arithmetic
-instruction. A jump may target the constant itself, which still establishes the
-divisor. This proof does not remove instructions or change fuel/error ordering.
+No compiler path emits `MapList`, `FilterList`, `LinearRec`, ASGP
+opcodes, dependency-pattern instructions, or phase-specific legacy metadata.
+Equivalent package templates materialize only general AST and bytecode forms.

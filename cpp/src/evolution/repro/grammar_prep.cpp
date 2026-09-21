@@ -107,8 +107,6 @@ PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& populat
                                        const GpuReproConfig& config,
                                        grammar::VariationContext& context,
                                        std::shared_ptr<const ConstantMutationDomains> domains) {
-  if (config.contract_mode != ReproductionContractMode::CompiledGrammar)
-    throw std::invalid_argument("compiled grammar preprocessing requires compiled contract mode");
   if (config.population_size <= 0 || config.population_size > 65536 ||
       static_cast<std::size_t>(config.population_size) != population.size())
     throw std::invalid_argument("compiled grammar preprocessing population size mismatch");
@@ -135,7 +133,6 @@ PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& populat
   auto constants = std::make_shared<ConstantMutationTable>();
   constants->grammar_domains = std::move(domains);
   PreprocessOutput out;
-  out.contract_mode = ReproductionContractMode::CompiledGrammar;
   out.prepared_max_nodes = config.max_nodes;
   out.prepared_max_depth = config.max_expr_depth;
   out.compiled_grammar = context.grammar_owner();

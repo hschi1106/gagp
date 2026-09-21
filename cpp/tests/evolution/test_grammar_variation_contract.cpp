@@ -48,7 +48,7 @@ bool same_bindings(const std::vector<RegionBinding>& actual,
 }
 
 const char* split_rules = R"({
-  "format_version":"grammar-definition-v1",
+  "format_version":"grammar-definition-v2",
   "entry":{"nonterminal":"Main","type":"Int"},
   "search_limits":{"max_nodes":12,"max_depth":7},
   "execution_limits":{"fuel":100},
@@ -64,7 +64,7 @@ const char* split_rules = R"({
 
 CompiledGrammar template_grammar() {
   return compile(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":18,"max_depth":8},
     "execution_limits":{"fuel":100},
@@ -184,7 +184,7 @@ void test_template_sites_occurrences_and_budgets() {
 
 void test_asymmetric_forwarding_uses_physical_nesting() {
   const auto grammar = compile(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":18,"max_depth":8},
     "execution_limits":{"fuel":100},
@@ -232,7 +232,7 @@ void test_asymmetric_forwarding_uses_physical_nesting() {
 
 CompiledGrammar local_scope_grammar() {
   return compile(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","category":"Program","type":"Int"},
     "inputs":[{"name":"input","type":"Int"}],
     "locals":[{"name":"x","type":"Int"},{"name":"y","type":"Int"}],
@@ -277,7 +277,7 @@ void test_exact_native_scope_and_request_identity() {
       "free local references or their exact available scope were lost");
 
   const auto scoped = compile(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Entry","type":"Int"},
     "search_limits":{"max_nodes":8,"max_depth":5},"execution_limits":{"fuel":100},
     "nonterminals":[
@@ -306,7 +306,7 @@ void test_exact_native_scope_and_request_identity() {
 
 void test_compaction_and_untrusted_provenance() {
   const auto grammar = compile(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Read","type":"Int"},
     "inputs":[{"name":"n","type":"Int"}],
     "search_limits":{"max_nodes":6,"max_depth":5},"execution_limits":{"fuel":100},

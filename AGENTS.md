@@ -20,7 +20,8 @@
   - `fitness.md`
   - `fitness_cases.md`
   - `grammar_config.md`
-  Treat these files as the release 1.0.0 behavioral source of truth. Historical spec
+  - `grammar_definition.md`
+  Treat these files as the release 2.0.0 behavioral source of truth. Historical spec
   files are not kept in-tree after the breaking refactor. Release details are
   recorded only in `VERSION.md`.
 - Maintained documentation is indexed by `docs/README.md` and grouped by
@@ -67,7 +68,7 @@
   - compiler/runtime contract parity,
   - CPU vs GPU fitness parity when touching runtime, payload, or GPU execution,
   - `IntList` / `FloatList` / `StringList` typed-list behavior when touching sequence values, fixture conversion, payloads, or generation,
-  - `grammar-config` search-space behavior when touching generation, mutation, reproduction, or seed replay,
+  - compiled grammar-definition and generation-request behavior when touching generation, mutation, reproduction, or replay,
   - edge cases around fuel/timeouts and numeric/type operations.
 
 ## Profiling Guidelines

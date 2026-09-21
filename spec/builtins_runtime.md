@@ -1,6 +1,6 @@
 # Builtins Runtime
 
-This document defines release 1.0.0 sequence, list-construction, and payload-backed
+This document defines release 2.0.0 sequence, list-construction, and payload-backed
 builtin behavior.
 
 See also:
@@ -171,10 +171,9 @@ Result types:
 - `singleton(String) -> StringList`
 - `singleton(Char) -> String`
 
-## Structured Expression Payload Behavior
+## Structured Payload Behavior
 
-`MapList`, `FilterList`, and `LinearRec` are grammar forms, not builtins. They
-still depend on exact typed-list payload access.
+General traversal and bounded-region forms depend on exact sequence payload access.
 
 Required behavior:
 
@@ -185,18 +184,6 @@ Required behavior:
 - result builders must preserve exact result list tags.
 - empty results must preserve statically selected list tags.
 
-## ASGP Payload Behavior
-
-`AsgpDC`, `AsgpDP1D`, and `AsgpDP2D` are grammar forms, not builtins.
-
-Required behavior:
-
-- `SeqOf(Char)` traverses a `String` as `Char` values.
-- `SeqOf(Int)` traverses an `IntList`.
-- `SeqOf(Float)` traverses a `FloatList`.
-- `SeqOf(String)` traverses a `StringList`.
-- ASGP frame-stack overflow is deterministic.
-- ASGP memo-table overflow is deterministic.
-- ASGP payload materialization overflow is deterministic.
-
-GPU implementations must not depend on device recursion.
+General region frame, memo, and payload materialization overflow is
+deterministic. GPU implementations use explicit bounded storage and do not
+depend on device recursion.

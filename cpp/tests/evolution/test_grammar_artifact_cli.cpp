@@ -63,7 +63,7 @@ struct CaptureOutput {
 };
 std::string artifact() {
   const auto grammar = compile_grammar(parse_definition(R"({
-    "format_version":"grammar-definition-v1","entry":{"nonterminal":"Value","type":"Int"},
+    "format_version":"grammar-definition-v2","entry":{"nonterminal":"Value","type":"Int"},
     "inputs":[{"name":"x","type":"Int"}],
     "search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":1},
     "nonterminals":[{"id":"Value","type":"Int","scope":[],"alternatives":[
@@ -161,7 +161,8 @@ void test_cli_rejects_excessive_dispatch_depth() {
                   "CLI did not reject excessive legacy AST dispatch nesting");
 }
 void test_fuel_option_tracking() {
-  std::vector<std::string> args{"gagp_evolve_cli", "--cases", "unused.json"};
+  std::vector<std::string> args{"gagp_evolve_cli", "--cases", "unused.json",
+                                "--eval-ast-json", "unused-ast.json"};
   auto parse_args = [&] {
     std::vector<char*> argv;
     for (auto& arg : args) argv.push_back(arg.data());

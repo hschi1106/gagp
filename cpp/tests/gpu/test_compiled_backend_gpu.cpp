@@ -59,7 +59,7 @@ std::shared_ptr<const CompiledGrammar> repeated_capture_grammar() {
   return std::make_shared<const CompiledGrammar>(
       gagp::evo::grammar::compile_grammar(
           gagp::evo::grammar::parse_definition(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":20,"max_depth":10},
     "execution_limits":{"fuel":100},
@@ -89,7 +89,7 @@ std::shared_ptr<const CompiledGrammar> payload_domain_grammar() {
   return std::make_shared<const CompiledGrammar>(
       gagp::evo::grammar::compile_grammar(
           gagp::evo::grammar::parse_definition(R"({
-    "format_version":"grammar-definition-v1",
+    "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
     "search_limits":{"max_nodes":5,"max_depth":4},
     "execution_limits":{"fuel":100},
@@ -439,6 +439,15 @@ void exercise_three_generations(int population_size, bool explicit_request,
                                             mutation_rate,
                                             subtree_probability,
                                             explicit_request);
+  if (!explicit_request) {
+    std::mt19937_64 rejected_rng(config.seed);
+    expect_invalid([&] {
+      (void)gagp::evo::repro::run_gpu_repro_backend(
+          score_manually(source_population(*grammar, population_size)),
+          config, rejected_rng);
+    }, "compiled backend accepted a missing generation request");
+    config.generation_request = gagp::evo::grammar::entry_request(*grammar);
+  }
   const GenerationRequest request = config.generation_request.value_or(
       gagp::evo::grammar::entry_request(*grammar));
   std::vector<ProgramGenome> population =
