@@ -120,6 +120,42 @@ grammar and import identity. A changed grammar fails before the output is replac
 Population artifacts bundle complete single-program members; the one-AST evaluation
 command above consumes one such member, not the population wrapper.
 
+## Reusable typed grammar packages
+
+Typed-definition resources are grouped by role:
+
+- `configs/grammar/basic/` contains small concrete-type building blocks.
+- `configs/grammar/packages/` contains reusable fixed templates and bounded-region
+  productions. LinearRec, DC, DP1D, and DP2D are package data, not catalog operation
+  names.
+- `configs/grammar/compat/` contains runnable roots and cases that reproduce the
+  repository's legacy scheme contracts.
+- `configs/grammar/examples/` contains custom structures, including a restricted
+  combine grammar, a changed recursive base/split, and a different acyclic memo graph.
+
+Generate a compatibility population directly from one of the roots:
+
+```bash
+cpp/build/gagp_generate_cli \
+  --grammar-definition configs/grammar/compat/linear_rec_intlist_int.json \
+  --cases configs/grammar/compat/linear_rec_intlist_int.cases.json \
+  --population-size 64 --seed 42 \
+  --out-json logs/linear-rec.population.json
+```
+
+The DP roots expose every legacy direction/dependency pattern as ordinary weighted
+alternatives while keeping coordinate ranks and request order fixed. Exact-type
+variants are listed in `configs/grammar/compat/matrix.json`; the definition format
+has no implicit type variables or conversions.
+
+Imports use relative paths, but paths and filenames do not participate in behavior.
+You may copy or rename a package and update the root import. If the resolved content
+is unchanged, canonical grammar identity and generated programs remain unchanged.
+Change template bodies, alternatives, phase scopes, plans, or `fuel_events` to create
+a new grammar. Semantic-fuel declarations belong only on concrete materialized
+expressions; the normative owner and cost rules are in
+[`../../spec/grammar_definition.md`](../../spec/grammar_definition.md).
+
 
 `grammar/config_adapter.hpp` provides the explicit C++ migration adapter
 `convert_grammar_config`. Supply exact inputs, typed locals, owned constant domains,

@@ -105,6 +105,13 @@ int main() {
     first.write("base.json", canonical_json(malformed_source));
     rejects([&] { load_definition(first.path / "root.json"); }, "unknown key");
     malformed_source = JsonParser(base).parse();
+    malformed_source.object_v.at("nonterminals").array_v[0]
+        .object_v.at("alternatives").array_v[0]
+        .object_v.at("expression").object_v["fuel_events"] =
+        JsonParser("{}").parse();
+    first.write("base.json", canonical_json(malformed_source));
+    rejects([&] { load_definition(first.path / "root.json"); }, "nonempty object");
+    malformed_source = JsonParser(base).parse();
     malformed_source.object_v.at("nonterminals").array_v[0].object_v.at("alternatives").array_v[0]
         .object_v.at("expression").object_v.at("constant").object_v.at("values") = JsonParser("[1]").parse();
     first.write("base.json", canonical_json(malformed_source));

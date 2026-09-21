@@ -19,6 +19,7 @@
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
+#include "gagp/runtime/payload/payload.hpp"
 #include "gagp/serialization/region_plan_json.hpp"
 
 namespace {
@@ -152,6 +153,13 @@ std::shared_ptr<const CompiledGrammar> compile_shared(
   return grammar;
 }
 
+std::shared_ptr<const CompiledGrammar> load_shared(const std::string& path) {
+  auto grammar = std::make_shared<const CompiledGrammar>(
+      compile_grammar(load_definition(path)));
+  grammar->require_executable();
+  return grammar;
+}
+
 std::vector<InputSpec> grammar_inputs(const CompiledGrammar& grammar) {
   std::vector<InputSpec> result;
   result.reserve(grammar.inputs().size());
@@ -160,11 +168,59 @@ std::vector<InputSpec> grammar_inputs(const CompiledGrammar& grammar) {
   return result;
 }
 
-enum class Shape { UnaryTemplate, BinaryMemo, Nested };
+enum class Shape {
+  UnaryTemplate,
+  BinaryMemo,
+  Nested,
+  PackageLinear,
+  PackageDc,
+  PackageDp1,
+  PackageDp2,
+};
 
 void require_shape(const ProgramGenome& genome, Shape shape,
                    const std::string& label) {
   const auto& regions = genome.ast.bounded_region_specs;
+  for (const auto& node : genome.ast.nodes) {
+    require(node.kind != NodeKind::LINEAR_REC &&
+                node.kind != NodeKind::ASGP_DC &&
+                node.kind != NodeKind::ASGP_DP1D &&
+                node.kind != NodeKind::ASGP_DP2D,
+            label + ": generated a legacy structured node");
+  }
+  if (shape == Shape::PackageLinear) {
+    require(regions.empty() &&
+                std::count_if(genome.ast.nodes.begin(), genome.ast.nodes.end(),
+                    [](const AstNode& node) {
+                      return node.kind == NodeKind::TRAVERSE_RANGE;
+                    }) == 1,
+            label + ": LinearRec package shape changed");
+    return;
+  }
+  if (shape == Shape::PackageDc) {
+    require(regions.size() == 1 && !regions.front().plan.memoized &&
+                regions.front().plan.progress ==
+                    RegionProgressKind::SequenceWindows &&
+                regions.front().plan.requests.size() == 2,
+            label + ": DC package shape changed");
+    return;
+  }
+  if (shape == Shape::PackageDp1) {
+    require(regions.size() == 1 && regions.front().plan.memoized &&
+                regions.front().plan.state_types.size() == 1 &&
+                regions.front().plan.requests.size() >= 1 &&
+                regions.front().plan.requests.size() <= 3,
+            label + ": DP1D package shape changed");
+    return;
+  }
+  if (shape == Shape::PackageDp2) {
+    require(regions.size() == 1 && regions.front().plan.memoized &&
+                regions.front().plan.state_types.size() == 2 &&
+                regions.front().plan.requests.size() >= 1 &&
+                regions.front().plan.requests.size() <= 3,
+            label + ": DP2D package shape changed");
+    return;
+  }
   if (shape == Shape::UnaryTemplate) {
     require(regions.size() == 2,
             label + ": repeated template hole lost a bounded occurrence");
@@ -203,7 +259,8 @@ void require_shape(const ProgramGenome& genome, Shape shape,
 std::vector<BytecodeProgram> validate_and_compile(
     const CompiledGrammar& grammar, const GenerationRequest& request,
     const std::vector<ProgramGenome>& population, const CaseSet& case_set,
-    Shape shape, std::int64_t expected, const std::string& label) {
+    Shape shape, std::int64_t expected, const std::string& label,
+    bool exact_expected = true) {
   require(population.size() == 7, label + ": final population size changed");
   const std::vector<InputSpec> inputs = grammar_inputs(grammar);
   std::vector<BytecodeProgram> programs;
@@ -224,8 +281,8 @@ std::vector<BytecodeProgram> validate_and_compile(
     const ExecResult execution =
         execute_bytecode_cpu(program, bindings, grammar.execution_limits().fuel);
     require(!execution.is_error && execution.value.tag == ValueTag::Int &&
-                execution.value.i == expected,
-            label + ": final child changed the fixture's fixed semantics");
+                (!exact_expected || execution.value.i == expected),
+            label + ": final child changed the fixture's result contract");
     programs.push_back(std::move(program));
   }
   return programs;
@@ -233,7 +290,8 @@ std::vector<BytecodeProgram> validate_and_compile(
 
 void require_cpu_gpu_parity(const std::vector<BytecodeProgram>& programs,
                             const CaseSet& cases, int fuel, double penalty,
-                            const std::string& label) {
+                            const std::string& label,
+                            bool require_zero_fitness = true) {
   const std::vector<double> cpu = eval_fitness_cpu(
       programs, cases.bindings, cases.expected_values, fuel, penalty, 32);
   FitnessSessionGpu session;
@@ -246,9 +304,11 @@ void require_cpu_gpu_parity(const std::vector<BytecodeProgram>& programs,
   require(gpu.ok, label + ": GPU parity evaluation failed: " + gpu.err.message);
   require(cpu == gpu.fitness,
           label + ": final population CPU/GPU fitness differs");
-  require(std::all_of(cpu.begin(), cpu.end(),
-                      [](double score) { return score == 0.0; }),
-          label + ": fixed numeric fixture did not retain zero error");
+  if (require_zero_fitness) {
+    require(std::all_of(cpu.begin(), cpu.end(),
+                        [](double score) { return score == 0.0; }),
+            label + ": fixed numeric fixture did not retain zero error");
+  }
 }
 
 void exercise_mode(const std::shared_ptr<const CompiledGrammar>& grammar,
@@ -256,7 +316,8 @@ void exercise_mode(const std::shared_ptr<const CompiledGrammar>& grammar,
                    std::int64_t expected, EvalEngine engine,
                    repro::ReproductionBackend reproduction_backend,
                    bool overlap,
-                   const std::string& label) {
+                   const std::string& label,
+                   bool exact_expected = true) {
   EvolutionConfig config;
   config.population_size = 7;
   config.generations = 3;
@@ -292,28 +353,30 @@ void exercise_mode(const std::shared_ptr<const CompiledGrammar>& grammar,
   const CaseSet case_set = prepare_case_set(cases, config.grammar);
   const auto programs = validate_and_compile(
       *grammar, *config.generation_request, population, case_set, shape,
-      expected, label);
-  require_cpu_gpu_parity(programs, case_set, config.fuel, config.penalty, label);
+      expected, label, exact_expected);
+  require_cpu_gpu_parity(programs, case_set, config.fuel, config.penalty, label,
+                         exact_expected);
 }
 
 void exercise_fixture(const std::shared_ptr<const CompiledGrammar>& grammar,
                       const std::vector<EvalCase>& cases, Shape shape,
-                      std::int64_t expected, const std::string& label) {
+                      std::int64_t expected, const std::string& label,
+                      bool exact_expected = true) {
   exercise_mode(grammar, cases, shape, expected, EvalEngine::CPU,
                 repro::ReproductionBackend::Cpu, false,
-                label + " cpu-eval/cpu-repro");
+                label + " cpu-eval/cpu-repro", exact_expected);
   exercise_mode(grammar, cases, shape, expected, EvalEngine::GPU,
                 repro::ReproductionBackend::Cpu, false,
-                label + " gpu-eval/cpu-repro");
+                label + " gpu-eval/cpu-repro", exact_expected);
   exercise_mode(grammar, cases, shape, expected, EvalEngine::GPU,
                 repro::ReproductionBackend::Gpu, false,
-                label + " gpu-eval/gpu-repro/sync");
+                label + " gpu-eval/gpu-repro/sync", exact_expected);
   exercise_mode(grammar, cases, shape, expected, EvalEngine::GPU,
                 repro::ReproductionBackend::Gpu, true,
-                label + " gpu-eval/gpu-repro/overlap");
+                label + " gpu-eval/gpu-repro/overlap", exact_expected);
   exercise_mode(grammar, cases, shape, expected, EvalEngine::CPU,
                 repro::ReproductionBackend::Gpu, false,
-                label + " cpu-eval/gpu-repro");
+                label + " cpu-eval/gpu-repro", exact_expected);
 }
 
 bool cuda_unavailable(const std::string& message) {
@@ -359,6 +422,28 @@ int main() {
     exercise_fixture(compile_shared(nested_template_definition()),
                      {{{}, Value::from_int(3)}}, Shape::Nested, 3,
                      "nested initial-state template");
+
+    const Value package_source = payload::make_int_list_value(
+        {Value::from_int(1), Value::from_int(2), Value::from_int(3),
+         Value::from_int(4)});
+    exercise_fixture(
+        load_shared(root + "/configs/grammar/compat/linear_rec_intlist_int.json"),
+        {{{{"source", package_source}, {"start", Value::from_int(0)}},
+          Value::from_int(10)}},
+        Shape::PackageLinear, 0, "LinearRec compatibility package", false);
+    exercise_fixture(
+        load_shared(root + "/configs/grammar/compat/dc_intlist_int.json"),
+        {{{{"source", package_source}}, Value::from_int(4)}},
+        Shape::PackageDc, 0, "DC compatibility package", false);
+    exercise_fixture(
+        load_shared(root + "/configs/grammar/compat/dp1d_int.json"),
+        {{{{"state", Value::from_int(4)}}, Value::from_int(5)}},
+        Shape::PackageDp1, 0, "DP1D compatibility package", false);
+    exercise_fixture(
+        load_shared(root + "/configs/grammar/compat/dp2d_int.json"),
+        {{{{"row", Value::from_int(2)}, {"column", Value::from_int(2)}},
+          Value::from_int(6)}},
+        Shape::PackageDp2, 0, "DP2D compatibility package", false);
   } catch (const std::runtime_error& error) {
     if (cuda_unavailable(error.what())) {
       std::cout << "gagp_test_compiled_evolution_stress_gpu: SKIP ("

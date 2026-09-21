@@ -4,7 +4,10 @@ Goals 01–06 are implemented. Goal 04 adds compiled grammar variation and share
 preparation; its [validation evidence](goal-04-variation.md) is recorded separately.
 Goal 06's [bounded-region evidence](goal-06-bounded-regions.md)
 distinguishes verified CPU behavior from later acceptance work. Goal 07 integrates
-compiled grammars across GPU evaluation and reproduction; Goals 08–12 remain pending. The immutable
+compiled grammars across GPU evaluation and reproduction. Goal 08's
+[compatibility-package evidence](goal-08-compatibility-packages.md) records typed
+package generation, focused CPU contracts, and transition size observations while
+its remaining final gates stay explicit. Goals 09–12 remain pending. The immutable
 reference source revision and binary/log hashes are recorded in
 [baseline-capture.json](baseline-capture.json). Existing production generation and
 runtime workflows remain available during the staged migration.

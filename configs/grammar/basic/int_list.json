@@ -1,0 +1,14 @@
+{
+  "format_version": "grammar-definition-v1",
+  "nonterminals": [
+    {
+      "id": "Basic.IntList.Closed",
+      "type": "IntList",
+      "scope": [],
+      "alternatives": [
+        {"id": "empty", "weight": 1, "expression": {"constant": {"type": "IntList", "values": [[]]}}},
+        {"id": "sample", "weight": 1, "expression": {"constant": {"type": "IntList", "values": [["1", "2", "3", "4"]]}}}
+      ]
+    }
+  ]
+}

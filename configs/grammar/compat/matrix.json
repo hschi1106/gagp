@@ -1,0 +1,519 @@
+{
+  "format_version": "gagp-grammar-compat-matrix-v1",
+  "exact_types": [
+    "Int",
+    "Float",
+    "Bool",
+    "Char",
+    "String",
+    "IntList",
+    "FloatList",
+    "StringList"
+  ],
+  "linear_rec": {
+    "count": 24,
+    "package": "../packages/linear_rec_intlist_int.json",
+    "variants": [
+      {
+        "source": "IntList",
+        "result": "Int",
+        "template": "Package.LinearRec.IntList.Int"
+      },
+      {
+        "source": "IntList",
+        "result": "Float",
+        "template": "Package.LinearRec.IntList.Float"
+      },
+      {
+        "source": "IntList",
+        "result": "Bool",
+        "template": "Package.LinearRec.IntList.Bool"
+      },
+      {
+        "source": "IntList",
+        "result": "Char",
+        "template": "Package.LinearRec.IntList.Char"
+      },
+      {
+        "source": "IntList",
+        "result": "String",
+        "template": "Package.LinearRec.IntList.String"
+      },
+      {
+        "source": "IntList",
+        "result": "IntList",
+        "template": "Package.LinearRec.IntList.IntList"
+      },
+      {
+        "source": "IntList",
+        "result": "FloatList",
+        "template": "Package.LinearRec.IntList.FloatList"
+      },
+      {
+        "source": "IntList",
+        "result": "StringList",
+        "template": "Package.LinearRec.IntList.StringList"
+      },
+      {
+        "source": "FloatList",
+        "result": "Int",
+        "template": "Package.LinearRec.FloatList.Int"
+      },
+      {
+        "source": "FloatList",
+        "result": "Float",
+        "template": "Package.LinearRec.FloatList.Float"
+      },
+      {
+        "source": "FloatList",
+        "result": "Bool",
+        "template": "Package.LinearRec.FloatList.Bool"
+      },
+      {
+        "source": "FloatList",
+        "result": "Char",
+        "template": "Package.LinearRec.FloatList.Char"
+      },
+      {
+        "source": "FloatList",
+        "result": "String",
+        "template": "Package.LinearRec.FloatList.String"
+      },
+      {
+        "source": "FloatList",
+        "result": "IntList",
+        "template": "Package.LinearRec.FloatList.IntList"
+      },
+      {
+        "source": "FloatList",
+        "result": "FloatList",
+        "template": "Package.LinearRec.FloatList.FloatList"
+      },
+      {
+        "source": "FloatList",
+        "result": "StringList",
+        "template": "Package.LinearRec.FloatList.StringList"
+      },
+      {
+        "source": "StringList",
+        "result": "Int",
+        "template": "Package.LinearRec.StringList.Int"
+      },
+      {
+        "source": "StringList",
+        "result": "Float",
+        "template": "Package.LinearRec.StringList.Float"
+      },
+      {
+        "source": "StringList",
+        "result": "Bool",
+        "template": "Package.LinearRec.StringList.Bool"
+      },
+      {
+        "source": "StringList",
+        "result": "Char",
+        "template": "Package.LinearRec.StringList.Char"
+      },
+      {
+        "source": "StringList",
+        "result": "String",
+        "template": "Package.LinearRec.StringList.String"
+      },
+      {
+        "source": "StringList",
+        "result": "IntList",
+        "template": "Package.LinearRec.StringList.IntList"
+      },
+      {
+        "source": "StringList",
+        "result": "FloatList",
+        "template": "Package.LinearRec.StringList.FloatList"
+      },
+      {
+        "source": "StringList",
+        "result": "StringList",
+        "template": "Package.LinearRec.StringList.StringList"
+      }
+    ]
+  },
+  "dc": {
+    "count": 32,
+    "package": "../packages/dc_intlist_int.json",
+    "variants": [
+      {
+        "source": "String",
+        "result": "Int",
+        "template": "Package.DC.String.Int"
+      },
+      {
+        "source": "String",
+        "result": "Float",
+        "template": "Package.DC.String.Float"
+      },
+      {
+        "source": "String",
+        "result": "Bool",
+        "template": "Package.DC.String.Bool"
+      },
+      {
+        "source": "String",
+        "result": "Char",
+        "template": "Package.DC.String.Char"
+      },
+      {
+        "source": "String",
+        "result": "String",
+        "template": "Package.DC.String.String"
+      },
+      {
+        "source": "String",
+        "result": "IntList",
+        "template": "Package.DC.String.IntList"
+      },
+      {
+        "source": "String",
+        "result": "FloatList",
+        "template": "Package.DC.String.FloatList"
+      },
+      {
+        "source": "String",
+        "result": "StringList",
+        "template": "Package.DC.String.StringList"
+      },
+      {
+        "source": "IntList",
+        "result": "Int",
+        "template": "Package.DC.IntList.Int"
+      },
+      {
+        "source": "IntList",
+        "result": "Float",
+        "template": "Package.DC.IntList.Float"
+      },
+      {
+        "source": "IntList",
+        "result": "Bool",
+        "template": "Package.DC.IntList.Bool"
+      },
+      {
+        "source": "IntList",
+        "result": "Char",
+        "template": "Package.DC.IntList.Char"
+      },
+      {
+        "source": "IntList",
+        "result": "String",
+        "template": "Package.DC.IntList.String"
+      },
+      {
+        "source": "IntList",
+        "result": "IntList",
+        "template": "Package.DC.IntList.IntList"
+      },
+      {
+        "source": "IntList",
+        "result": "FloatList",
+        "template": "Package.DC.IntList.FloatList"
+      },
+      {
+        "source": "IntList",
+        "result": "StringList",
+        "template": "Package.DC.IntList.StringList"
+      },
+      {
+        "source": "FloatList",
+        "result": "Int",
+        "template": "Package.DC.FloatList.Int"
+      },
+      {
+        "source": "FloatList",
+        "result": "Float",
+        "template": "Package.DC.FloatList.Float"
+      },
+      {
+        "source": "FloatList",
+        "result": "Bool",
+        "template": "Package.DC.FloatList.Bool"
+      },
+      {
+        "source": "FloatList",
+        "result": "Char",
+        "template": "Package.DC.FloatList.Char"
+      },
+      {
+        "source": "FloatList",
+        "result": "String",
+        "template": "Package.DC.FloatList.String"
+      },
+      {
+        "source": "FloatList",
+        "result": "IntList",
+        "template": "Package.DC.FloatList.IntList"
+      },
+      {
+        "source": "FloatList",
+        "result": "FloatList",
+        "template": "Package.DC.FloatList.FloatList"
+      },
+      {
+        "source": "FloatList",
+        "result": "StringList",
+        "template": "Package.DC.FloatList.StringList"
+      },
+      {
+        "source": "StringList",
+        "result": "Int",
+        "template": "Package.DC.StringList.Int"
+      },
+      {
+        "source": "StringList",
+        "result": "Float",
+        "template": "Package.DC.StringList.Float"
+      },
+      {
+        "source": "StringList",
+        "result": "Bool",
+        "template": "Package.DC.StringList.Bool"
+      },
+      {
+        "source": "StringList",
+        "result": "Char",
+        "template": "Package.DC.StringList.Char"
+      },
+      {
+        "source": "StringList",
+        "result": "String",
+        "template": "Package.DC.StringList.String"
+      },
+      {
+        "source": "StringList",
+        "result": "IntList",
+        "template": "Package.DC.StringList.IntList"
+      },
+      {
+        "source": "StringList",
+        "result": "FloatList",
+        "template": "Package.DC.StringList.FloatList"
+      },
+      {
+        "source": "StringList",
+        "result": "StringList",
+        "template": "Package.DC.StringList.StringList"
+      }
+    ]
+  },
+  "dp1d": {
+    "result_type_count": 8,
+    "pattern_count": 6,
+    "total_pattern_variants": 48,
+    "package": "../packages/dp1d_int.json",
+    "variants": [
+      {
+        "result": "Int",
+        "entry": "Package.DP1D.Int",
+        "patterns": [
+          "backward1",
+          "backward2",
+          "backward3",
+          "forward1",
+          "forward2",
+          "forward3"
+        ]
+      },
+      {
+        "result": "Float",
+        "entry": "Package.DP1D.Float",
+        "patterns": [
+          "backward1",
+          "backward2",
+          "backward3",
+          "forward1",
+          "forward2",
+          "forward3"
+        ]
+      },
+      {
+        "result": "Bool",
+        "entry": "Package.DP1D.Bool",
+        "patterns": [
+          "backward1",
+          "backward2",
+          "backward3",
+          "forward1",
+          "forward2",
+          "forward3"
+        ]
+      },
+      {
+        "result": "Char",
+        "entry": "Package.DP1D.Char",
+        "patterns": [
+          "backward1",
+          "backward2",
+          "backward3",
+          "forward1",
+          "forward2",
+          "forward3"
+        ]
+      },
+      {
+        "result": "String",
+        "entry": "Package.DP1D.String",
+        "patterns": [
+          "backward1",
+          "backward2",
+          "backward3",
+          "forward1",
+          "forward2",
+          "forward3"
+        ]
+      },
+      {
+        "result": "IntList",
+        "entry": "Package.DP1D.IntList",
+        "patterns": [
+          "backward1",
+          "backward2",
+          "backward3",
+          "forward1",
+          "forward2",
+          "forward3"
+        ]
+      },
+      {
+        "result": "FloatList",
+        "entry": "Package.DP1D.FloatList",
+        "patterns": [
+          "backward1",
+          "backward2",
+          "backward3",
+          "forward1",
+          "forward2",
+          "forward3"
+        ]
+      },
+      {
+        "result": "StringList",
+        "entry": "Package.DP1D.StringList",
+        "patterns": [
+          "backward1",
+          "backward2",
+          "backward3",
+          "forward1",
+          "forward2",
+          "forward3"
+        ]
+      }
+    ]
+  },
+  "dp2d": {
+    "result_type_count": 8,
+    "pattern_count": 6,
+    "total_pattern_variants": 48,
+    "package": "../packages/dp2d_int.json",
+    "variants": [
+      {
+        "result": "Int",
+        "entry": "Package.DP2D.Int",
+        "patterns": [
+          "cross_backward",
+          "cross_forward",
+          "diagonal_backward",
+          "diagonal_forward",
+          "neighborhood_backward3",
+          "neighborhood_forward3"
+        ]
+      },
+      {
+        "result": "Float",
+        "entry": "Package.DP2D.Float",
+        "patterns": [
+          "cross_backward",
+          "cross_forward",
+          "diagonal_backward",
+          "diagonal_forward",
+          "neighborhood_backward3",
+          "neighborhood_forward3"
+        ]
+      },
+      {
+        "result": "Bool",
+        "entry": "Package.DP2D.Bool",
+        "patterns": [
+          "cross_backward",
+          "cross_forward",
+          "diagonal_backward",
+          "diagonal_forward",
+          "neighborhood_backward3",
+          "neighborhood_forward3"
+        ]
+      },
+      {
+        "result": "Char",
+        "entry": "Package.DP2D.Char",
+        "patterns": [
+          "cross_backward",
+          "cross_forward",
+          "diagonal_backward",
+          "diagonal_forward",
+          "neighborhood_backward3",
+          "neighborhood_forward3"
+        ]
+      },
+      {
+        "result": "String",
+        "entry": "Package.DP2D.String",
+        "patterns": [
+          "cross_backward",
+          "cross_forward",
+          "diagonal_backward",
+          "diagonal_forward",
+          "neighborhood_backward3",
+          "neighborhood_forward3"
+        ]
+      },
+      {
+        "result": "IntList",
+        "entry": "Package.DP2D.IntList",
+        "patterns": [
+          "cross_backward",
+          "cross_forward",
+          "diagonal_backward",
+          "diagonal_forward",
+          "neighborhood_backward3",
+          "neighborhood_forward3"
+        ]
+      },
+      {
+        "result": "FloatList",
+        "entry": "Package.DP2D.FloatList",
+        "patterns": [
+          "cross_backward",
+          "cross_forward",
+          "diagonal_backward",
+          "diagonal_forward",
+          "neighborhood_backward3",
+          "neighborhood_forward3"
+        ]
+      },
+      {
+        "result": "StringList",
+        "entry": "Package.DP2D.StringList",
+        "patterns": [
+          "cross_backward",
+          "cross_forward",
+          "diagonal_backward",
+          "diagonal_forward",
+          "neighborhood_backward3",
+          "neighborhood_forward3"
+        ]
+      }
+    ]
+  },
+  "runnable_roots": [
+    "linear_rec_intlist_int.json",
+    "dc_intlist_int.json",
+    "dp1d_int.json",
+    "dp2d_int.json"
+  ]
+}

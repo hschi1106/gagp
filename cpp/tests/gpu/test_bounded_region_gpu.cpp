@@ -601,7 +601,7 @@ bool test_production_capability_dispatch_sequence() {
 
   FitnessSessionGpu session;
   const FitnessSessionInitResult initialized =
-      session.init(cases, answers, fuel, 1024, penalty);
+      session.init(cases, answers, fuel, 256, penalty);
   if (!check(initialized.ok, "capability dispatch GPU initialization failed: " +
                                  initialized.err.message)) {
     return false;

@@ -1086,8 +1086,11 @@ Each event is charged once when entered, independent of the number of administra
 instructions used to implement it. Grouped loads, stores and arithmetic carry zero
 additional cost within that event. Events and profiles have no package-name branch.
 Unselected branches and unentered loop bodies incur no charges. Profiles are
-materialized execution metadata; the current compiled grammar schema does not
-declare them, so grammar membership rejects unsolicited source profiles.
+materialized execution metadata. A typed grammar definition declares a profile with
+the concrete expression's optional `fuel_events` object as specified in
+[grammar_definition.md](grammar_definition.md). Generation attaches that profile to
+the physical node, and grammar membership rejects missing, changed, or unsolicited
+profiles.
 
 
 ## Native bounded recursive regions
@@ -1140,3 +1143,34 @@ through device variation and verified copyback. GPU execution uses bounded expli
 frame and memo storage; declarations exceeding supported device capacities reject
 explicitly rather than selecting a CPU execution path. See the device transport
 limits in `bytecode_format.md`.
+
+
+## Derived compatibility packages
+
+`LinearRec`, `AsgpDC`, `AsgpDP1D`, and `AsgpDP2D` above remain the legacy source
+forms used by frozen migration oracles and the compatibility transition. They are
+not primitive operations available through the typed-definition catalog. User
+grammars express the same repository behaviors by composing fixed templates,
+lexical traversal, checked values, semantic fuel profiles, and bounded regions.
+
+The checked-in packages under `configs/grammar/packages/` are ordinary
+`grammar-definition-v1` resources:
+
+- Linear recursion binds and checks its source and start once, handles the empty
+  branch lazily, seeds from the last element, and traverses the remaining range in
+  reverse order.
+- Divide-and-conquer uses sequence-window progress, an interior cut, ordered left
+  and right requests, and distinct solve, divide, request, and combine scopes.
+- One- and two-dimensional dynamic programming use memoized coordinate progress,
+  explicit domains and ranks, ordered dependency offsets, base predicates, and
+  closed boundary expressions.
+
+Package paths, filenames, resource IDs, and compatibility-facing names do not select
+runtime behavior. Import resolution reduces them to the same general templates,
+expressions, and region plans. Copying or renaming a package without changing its
+resolved content therefore preserves its canonical definition and behavior. The
+runnable roots under `configs/grammar/compat/` reproduce this repository's legacy
+language contracts; they do not claim the research algorithms' fitness functions,
+selection distributions, or simplification policies. Examples under
+`configs/grammar/examples/` demonstrate structures beyond the legacy enable/disable
+configuration surface using the same authoring mechanism.

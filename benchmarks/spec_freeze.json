@@ -9,7 +9,7 @@
   "specs": [
     {
       "path": "spec/grammar.md",
-      "sha256": "0057818c4650bfdde4abb368c4946452bc2aae4edf3fa738e6eb6f0ea579ab30"
+      "sha256": "ada55b0f898666295550b16f4db755004efdcf886f9824ac33fcae9526dd91d5"
     },
     {
       "path": "spec/bytecode_isa.md",
@@ -41,7 +41,7 @@
     },
     {
       "path": "spec/grammar_definition.md",
-      "sha256": "13f2f79251b006691b88cee07394f653d5aec95d0b2c9766c36802852352b870"
+      "sha256": "db876876815f3b38ecb2aed167cd726dbdcfd89f66f5323d247c54a2fefb0b89"
     }
   ],
   "status": "frozen"

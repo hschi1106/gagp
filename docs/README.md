@@ -25,6 +25,7 @@ contract as a second source of truth.
 | [`reference/grammar-migration/goal-03-initialization.md`](reference/grammar-migration/goal-03-initialization.md) | Typed grammar initialization timing, setup costs and comparison limitations |
 | [`reference/grammar-migration/goal-04-variation.md`](reference/grammar-migration/goal-04-variation.md) | Compiled variation contracts, shared preparation, rejection accounting and validation |
 | [`reference/grammar-migration/goal-06-bounded-regions.md`](reference/grammar-migration/goal-06-bounded-regions.md) | Bounded CPU regions, frozen-oracle comparisons, timing evidence and remaining acceptance |
+| [`reference/grammar-migration/goal-08-compatibility-packages.md`](reference/grammar-migration/goal-08-compatibility-packages.md) | User-authored compatibility packages, typed variant validation, transition size evidence and current acceptance limits |
 | [`reference/grammar-migration/semantic-coverage.md`](reference/grammar-migration/semantic-coverage.md) | Semantic baseline evidence mapped to requirements and remaining gaps |
 | [`reference/cli.md`](reference/cli.md) | Mechanically checked native CLI flags and defaults |
 | [`reference/tooling.md`](reference/tooling.md) | Maintained tool and auxiliary executable ownership |

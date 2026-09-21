@@ -66,7 +66,6 @@ target_include_directories(gagp_runtime_cpu PUBLIC include)
 target_link_libraries(gagp_runtime_cpu PUBLIC gagp_core)
 
 add_library(gagp_evolution
-  src/evolution/fuel_events.cpp
   src/evolution/ast_program.cpp
   src/evolution/node_descriptor.cpp
   src/evolution/bounded_region.cpp
@@ -111,6 +110,7 @@ target_include_directories(gagp_region_plan_json PUBLIC include)
 target_link_libraries(gagp_region_plan_json PUBLIC gagp_core gagp_json)
 
 add_library(gagp_grammar
+  src/evolution/fuel_events.cpp
   src/evolution/grammar/catalog.cpp
   src/evolution/grammar/definition.cpp
   src/evolution/grammar/identity.cpp
@@ -153,6 +153,24 @@ add_executable(gagp_test_grammar_membership tests/evolution/test_grammar_members
 target_link_libraries(gagp_test_grammar_membership PRIVATE gagp_evolution)
 add_test(NAME gagp_test_grammar_membership COMMAND gagp_test_grammar_membership)
 set_tests_properties(gagp_test_grammar_membership PROPERTIES LABELS "contract;property")
+
+add_executable(gagp_test_grammar_packages tests/evolution/test_grammar_packages.cpp)
+target_link_libraries(gagp_test_grammar_packages PRIVATE gagp_evolution)
+target_compile_definitions(gagp_test_grammar_packages PRIVATE
+  GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+add_test(NAME gagp_test_grammar_packages COMMAND gagp_test_grammar_packages)
+set_tests_properties(gagp_test_grammar_packages PROPERTIES LABELS "contract;integration")
+
+add_executable(gagp_test_grammar_package_equivalence
+  tests/evolution/test_grammar_package_equivalence.cpp)
+target_link_libraries(gagp_test_grammar_package_equivalence PRIVATE
+  gagp_transition gagp_evolution)
+target_compile_definitions(gagp_test_grammar_package_equivalence PRIVATE
+  GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+add_test(NAME gagp_test_grammar_package_equivalence
+  COMMAND gagp_test_grammar_package_equivalence)
+set_tests_properties(gagp_test_grammar_package_equivalence PROPERTIES
+  LABELS "contract;integration")
 
 add_executable(gagp_test_grammar_population tests/evolution/test_grammar_population.cpp)
 target_link_libraries(gagp_test_grammar_population PRIVATE gagp_evolution)
@@ -843,6 +861,16 @@ if(GAGP_HAS_CUDA)
     GAGP_CAPTURE_HAS_GENERIC_REGIONS=1)
   add_test(NAME gagp_test_bounded_region_gpu_results COMMAND gagp_test_bounded_region_gpu_results)
   set_tests_properties(gagp_test_bounded_region_gpu_results PROPERTIES LABELS "contract;integration;gpu;cpu_gpu_parity")
+
+  add_executable(gagp_test_grammar_package_gpu_results
+    tests/gpu/test_grammar_package_gpu_results.cu src/bench/migration_snapshot.cpp)
+  target_link_libraries(gagp_test_grammar_package_gpu_results PRIVATE gagp_cli_support)
+  target_compile_definitions(gagp_test_grammar_package_gpu_results PRIVATE
+    GAGP_GPU_FITNESS_SOURCE="${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/gpu/fitness_gpu.cu"
+    GAGP_CAPTURE_HAS_GENERIC_REGIONS=1
+    GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+  add_test(NAME gagp_test_grammar_package_gpu_results COMMAND gagp_test_grammar_package_gpu_results)
+  set_tests_properties(gagp_test_grammar_package_gpu_results PROPERTIES LABELS "contract;integration;gpu;cpu_gpu_parity")
 
   add_executable(gagp_test_bounded_region_gpu tests/gpu/test_bounded_region_gpu.cpp)
   target_include_directories(gagp_test_bounded_region_gpu PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})

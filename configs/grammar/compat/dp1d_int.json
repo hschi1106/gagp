@@ -1,0 +1,8 @@
+{
+  "format_version": "grammar-definition-v1",
+  "imports": ["../packages/dp1d_int.json"],
+  "entry": {"nonterminal": "Package.DP1D.Int", "type": "Int"},
+  "inputs": [{"name": "state", "type": "Int"}],
+  "search_limits": {"max_nodes": 64, "max_depth": 24},
+  "execution_limits": {"fuel": 20000}
+}

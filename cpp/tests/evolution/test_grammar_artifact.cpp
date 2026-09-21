@@ -150,6 +150,30 @@ void test_input_schema() {
             "materialized verifier accepted missing or mistyped referenced input");
   }
 }
+void test_authored_fuel_profile_roundtrip() {
+  auto doc = parse(constant_grammar("Int", "[\"7\"]"));
+  doc.object_v.at("nonterminals").array_v[0]
+      .object_v.at("alternatives").array_v[0]
+      .object_v.at("expression").object_v["fuel_events"] =
+      parse(R"({"operation":0})");
+  const auto grammar = compile_grammar(
+      parse_definition(canonical_json(doc)));
+  const auto generated = generate_derivation(grammar, 17);
+  check(generated.genome.ast.fuel_specs.size() == 1 &&
+            generated.genome.ast.fuel_specs[0].node_index == 3 &&
+            generated.genome.ast.fuel_specs[0].charges.size() == 1 &&
+            generated.genome.ast.fuel_specs[0].charges[0].cost == 0,
+        "authored zero-cost fuel profile was not materialized");
+  const auto artifact = encode_generated_artifact(grammar, generated);
+  const auto decoded = decode_materialized_artifact(artifact);
+  check(decoded.ast.fuel_specs.size() == 1 &&
+            decoded.ast.fuel_specs[0].charges[0].event == FuelEvent::Operation &&
+            decoded.ast.fuel_specs[0].charges[0].cost == 0,
+        "authored fuel profile changed across materialized artifact decoding");
+  const auto replayed = replay_generated_artifact(artifact, &grammar);
+  check(encode_generated_artifact(grammar, replayed) == artifact,
+        "authored fuel profile did not replay byte-stably");
+}
 void test_forwarded_template_provenance() {
   auto doc = parse(constant_grammar("Int", "[\"7\"]"));
   doc.object_v.at("search_limits") = parse(R"({"max_nodes":20,"max_depth":10})");
@@ -184,6 +208,7 @@ int main() {
     test_constants_and_replay();
     test_tampering();
     test_input_schema();
+    test_authored_fuel_profile_roundtrip();
     test_forwarded_template_provenance();
     std::cout << "grammar artifact: typed materialization, exact replay, and tamper rejection passed\n";
   } catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }

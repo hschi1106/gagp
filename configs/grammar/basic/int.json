@@ -1,0 +1,14 @@
+{
+  "format_version": "grammar-definition-v1",
+  "nonterminals": [
+    {
+      "id": "Basic.Int.Closed",
+      "type": "Int",
+      "scope": [],
+      "alternatives": [
+        {"id": "zero", "weight": 1, "expression": {"constant": {"type": "Int", "values": ["0"]}}},
+        {"id": "one", "weight": 1, "expression": {"constant": {"type": "Int", "values": ["1"]}}}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "format_version": "grammar-definition-v1",
+  "imports": ["../packages/dc_intlist_int.json"],
+  "entry": {"nonterminal": "Example.RestrictedCombine", "type": "Int"},
+  "inputs": [{"name": "source", "type": "IntList"}],
+  "search_limits": {"max_nodes": 80, "max_depth": 28},
+  "execution_limits": {"fuel": 20000},
+  "nonterminals": [
+    {
+      "id": "Example.RestrictedCombine", "type": "Int", "scope": [],
+      "alternatives": [{"id": "maximum_only", "weight": 1, "expression": {
+        "template": "Package.DC.IntList.Int",
+        "holes": {
+          "source": {"input": "source"},
+          "solve": {"ref": "Example.RestrictedCombine.Solve"},
+          "divide": {"ref": "Example.RestrictedCombine.Divide"},
+          "combine": {"ref": "Example.RestrictedCombine.Combine"}
+        }
+      }}]
+    },
+    {
+      "id": "Example.RestrictedCombine.Solve", "type": "Int",
+      "scope": [{"name": "xs", "type": "IntList"}, {"name": "n", "type": "Int"}, {"name": "lo", "type": "Int"}],
+      "alternatives": [
+        {"id": "length", "weight": 1, "expression": {"bound": "n"}},
+        {"id": "offset", "weight": 1, "expression": {"bound": "lo"}}
+      ]
+    },
+    {
+      "id": "Example.RestrictedCombine.Divide", "type": "Int", "scope": [{"name": "n", "type": "Int"}],
+      "alternatives": [{"id": "half", "weight": 1, "expression": {"signature": "idiv0(Int,Int)->Int", "args": [
+        {"bound": "n"}, {"constant": {"type": "Int", "values": ["2"]}}
+      ]}}]
+    },
+    {
+      "id": "Example.RestrictedCombine.Combine", "type": "Int",
+      "scope": [{"name": "left", "type": "Int"}, {"name": "right", "type": "Int"}],
+      "alternatives": [{"id": "maximum", "weight": 1, "expression": {"signature": "max(Int,Int)->Int", "args": [
+        {"bound": "left"}, {"bound": "right"}
+      ]}}]
+    }
+  ]
+}

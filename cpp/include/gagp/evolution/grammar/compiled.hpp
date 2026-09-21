@@ -72,6 +72,9 @@ struct CompiledExpression {
   std::uint32_t local = kNoGrammarId;
   std::vector<CompiledRegionCapture> captures;
   std::vector<CompiledRegionPhase> phases;
+  // Empty means that the materialized node has no authored profile. Otherwise
+  // charges are stored once in canonical FuelEvent order, including zero costs.
+  std::vector<FuelCharge> fuel_charges;
 };
 
 struct CompiledProduction {

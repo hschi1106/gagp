@@ -91,6 +91,25 @@ leaf primitives use the constant/input/bound expression syntax, so a catalog lea
 cannot bypass its domain or scope contract. No ASGP or LinearRec primitive is
 available to new authors.
 
+A concrete expression may declare an optional nonempty `fuel_events` object. Its
+keys are semantic event names from the native fuel contract and its values are JSON
+integers in `0..2147483647`. Constants, signatures, controls, executable bounded
+structured expressions, inputs, bound values, and local values own materialized
+nodes and may declare a profile. Nonterminal references, template invocations, and
+holes are construction wrappers and cannot declare one; the concrete expression
+selected through the wrapper owns any profile. An event must be supported by the
+resolved native node kind. Unknown events, unsupported events, booleans, fractional
+costs, negative costs, overflow, and empty profiles are errors.
+
+Profile presence is semantic. With no `fuel_events`, the compiler retains the
+ordinary instruction fuel behavior. With a profile, an explicitly declared zero is
+preserved, and supported events omitted from the object use the native profiled-event
+default cost of one. The compiler stores authored entries in canonical event order,
+generation attaches them to the physical node, and membership requires the same
+profile presence and event-to-cost map at that node. Repeated template holes must
+copy an identical profile to every physical occurrence. Event object ordering alone
+does not affect membership or grammar identity after canonicalization.
+
 Region-bearing signatures require `bind`, an object keyed by the zero-based region
 argument index. Each value is an array of names in catalog binder order. For example,
 `let(Int,Int)->Int` has argument 1 as its body and requires `"bind":{"1":["x"]}`.
@@ -153,6 +172,8 @@ compiler capacities are 65,536 nodes and depth 256; both limits must be positive
 Execution limits currently serialize as `{"fuel":100}`, a positive integer no larger
 than 2,147,483,647. Search settings never substitute for execution fuel. Additional
 structured execution bounds will be specified with their primitive descriptors.
+The `entry_fuel` field of a bounded `RegionPlan` charges region-frame entry and is
+independent of a bounded expression's optional node-level `fuel_events` profile.
 
 Compilation is bounded to 4,096 nonterminals, 4,096 templates, 65,536 productions,
 and 65,536 compiled expressions. It rejects every nonterminal lacking a finite

@@ -2,6 +2,7 @@
 #include "gagp/evolution/grammar/catalog.hpp"
 #include "gagp/evolution/grammar/identity.hpp"
 #include "gagp/evolution/grammar/constants.hpp"
+#include "gagp/evolution/fuel_events.hpp"
 #include "gagp/serialization/region_plan_json.hpp"
 
 #include <algorithm>
@@ -35,6 +36,26 @@ std::uint32_t source_uint32(const Json& value, const char* context) {
                                 " must be a uint32 integer");
   }
   return static_cast<std::uint32_t>(value.number_v);
+}
+
+void source_fuel_events(const Json& expression, NodeKind owner) {
+  const auto found = expression.object_v.find("fuel_events");
+  if (found == expression.object_v.end()) return;
+  const Json& profile = found->second;
+  if (profile.kind != Kind::Object || profile.object_v.empty())
+    throw std::invalid_argument("fuel_events must be a nonempty object");
+  for (const auto& item : profile.object_v) {
+    FuelEvent event;
+    if (!parse_fuel_event(item.first, &event))
+      throw std::invalid_argument("unknown fuel event: " + item.first);
+    (void)source_uint32(item.second, "fuel event cost");
+    if (item.second.number_v >
+        static_cast<double>(std::numeric_limits<int>::max()))
+      throw std::invalid_argument("fuel event cost must be within 0..INT_MAX");
+    if (!supports_fuel_event(owner, event))
+      throw std::invalid_argument("fuel event is not supported by the owning node kind: " +
+                                  item.first);
+  }
 }
 
 RegionSlotBank source_region_bank(const std::string& name) {
@@ -110,8 +131,9 @@ void source_category(const Json& value) {
 void source_expression(const Json& value) {
   if (value.kind != Kind::Object) throw std::invalid_argument("expression must be an object");
   if (value.object_v.count("constant")) {
-    keys(value, {"constant"}, "constant expression");
+    keys(value, {"constant", "fuel_events"}, "constant expression");
     (void)parse_constant_domain(value.object_v.at("constant"));
+    source_fuel_events(value, NodeKind::CONST);
   } else if (value.object_v.count("template")) {
     keys(value, {"template", "holes"}, "template invocation");
     (void)require_string(value.object_v.at("template"), "template");
@@ -121,11 +143,19 @@ void source_expression(const Json& value) {
   } else if (value.object_v.count("signature") || value.object_v.count("structured") || value.object_v.count("control")) {
     bool bounded = false;
     if (value.object_v.count("signature")) {
-      keys(value, {"signature", "args", "bind"}, "primitive expression");
-      (void)PrimitiveCatalog::standard().resolve(require_string(value.object_v.at("signature"), "signature"));
+      keys(value, {"signature", "args", "bind", "fuel_events"}, "primitive expression");
+      const auto& signature = PrimitiveCatalog::standard().resolve(
+          require_string(value.object_v.at("signature"), "signature"));
+      if (value.object_v.count("fuel_events")) {
+        if (!signature.lowering_node)
+          throw std::invalid_argument("fuel_events requires a concrete materialized owner");
+        source_fuel_events(value, *signature.lowering_node);
+      }
     } else if (value.object_v.count("control")) {
-      keys(value, {"control", "type", "args", "name"}, "control expression");
-      (void)PrimitiveCatalog::standard().resolve_control(require_string(value.object_v.at("control"), "control"));
+      keys(value, {"control", "type", "args", "name", "fuel_events"}, "control expression");
+      const auto& signature = PrimitiveCatalog::standard().resolve_control(
+          require_string(value.object_v.at("control"), "control"));
+      source_fuel_events(value, signature.lowering_node);
       (void)parse_type(require_string(require_object_field(value, "type"), "type"));
     } else {
       const auto& contract = value.object_v.at("structured");
@@ -134,8 +164,9 @@ void source_expression(const Json& value) {
       else if (family == "memo") keys(contract, {"family", "dimensions", "result_type", "requests"}, "memoized contract");
       else if (family == "bounded") {
         bounded = true;
-        keys(value, {"structured", "captures", "phases", "args"},
+        keys(value, {"structured", "captures", "phases", "args", "fuel_events"},
              "bounded structured expression");
+        source_fuel_events(value, NodeKind::BOUNDED_REGION);
         keys(contract, {"family", "plan"}, "bounded region contract");
         RegionPlan plan;
         try {
@@ -231,7 +262,14 @@ void source_expression(const Json& value) {
   } else {
     for (const char* field : {"ref", "input", "bound", "local", "hole"}) {
       if (!value.object_v.count(field)) continue;
-      keys(value, {field}, "reference expression");
+      if (std::string(field) == "input" || std::string(field) == "local" ||
+          std::string(field) == "bound") {
+        keys(value, {field, "fuel_events"}, "binding expression");
+        source_fuel_events(value, std::string(field) == "bound" ?
+            NodeKind::REGION_VAR : NodeKind::VAR);
+      } else {
+        keys(value, {field}, "reference expression");
+      }
       (void)require_string(value.object_v.at(field), field); return;
     }
     throw std::invalid_argument("unknown grammar expression shape");

@@ -448,6 +448,16 @@ in `configs/grammar_definitions/bounded_sequence.json` and `bounded_memo.json`
 exercise three-way sequence decomposition and a custom two-coordinate dependency
 pattern without runtime package dispatch.
 
+Reusable compatibility resources live separately under `configs/grammar/packages/`,
+with runnable roots under `configs/grammar/compat/` and noncompatibility structures
+under `configs/grammar/examples/`. They compile through the same imports, templates,
+catalog lookup, scope mapping, RegionPlan validation, generation, membership, and
+lowering paths as any other typed definition. The compiler stores an optional
+canonical fuel-charge vector on each concrete compiled expression. Generation emits
+the corresponding node-indexed profile, while membership compares exact profile
+presence and event costs. Template and nonterminal wrappers never own profiles;
+repeated holes copy and remap the physical node metadata with the subtree.
+
 The transition-only `lower_bounded_regions` adapter composes the LinearRec rewrite
 and replaces legacy DC/DP AST nodes with these descriptors. DC uses an explicit
 sequence/offset state, a clamped preparation and ordered proper windows; DP uses

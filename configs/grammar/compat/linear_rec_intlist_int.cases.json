@@ -1,0 +1,10 @@
+{
+  "format_version": "fitness-cases",
+  "cases": [{
+    "inputs": {
+      "source": {"type": "int_list", "value": [1, 2, 3, 4]},
+      "start": {"type": "int", "value": 0}
+    },
+    "expected": {"type": "int", "value": 10}
+  }]
+}

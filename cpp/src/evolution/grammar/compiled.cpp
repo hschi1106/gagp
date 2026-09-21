@@ -1,5 +1,6 @@
 #include "gagp/evolution/grammar/compiled.hpp"
 #include "gagp/evolution/grammar/budget.hpp"
+#include "gagp/evolution/fuel_events.hpp"
 #include "gagp/serialization/region_plan_json.hpp"
 
 #include <algorithm>
@@ -41,6 +42,33 @@ std::uint32_t nonnegative(const Json& value, std::uint32_t maximum,
     throw std::invalid_argument(std::string(name) +
                                 " must be a nonnegative integer within capacity");
   return static_cast<std::uint32_t>(value.number_v);
+}
+
+std::vector<FuelCharge> fuel_charges(const Json& expression, NodeKind owner) {
+  const auto found = expression.object_v.find("fuel_events");
+  if (found == expression.object_v.end()) return {};
+  const Json& profile = found->second;
+  if (profile.kind != Kind::Object || profile.object_v.empty())
+    throw std::invalid_argument("fuel_events must be a nonempty object");
+  std::vector<FuelCharge> charges;
+  charges.reserve(profile.object_v.size());
+  for (const auto& item : profile.object_v) {
+    FuelEvent event;
+    if (!parse_fuel_event(item.first, &event))
+      throw std::invalid_argument("unknown fuel event: " + item.first);
+    const auto cost = nonnegative(item.second,
+        static_cast<std::uint32_t>(std::numeric_limits<int>::max()),
+        "fuel event cost");
+    if (!supports_fuel_event(owner, event))
+      throw std::invalid_argument("fuel event is not supported by the owning node kind: " +
+                                  item.first);
+    charges.push_back({event, cost});
+  }
+  std::sort(charges.begin(), charges.end(), [](const FuelCharge& left,
+                                               const FuelCharge& right) {
+    return static_cast<int>(left.event) < static_cast<int>(right.event);
+  });
+  return charges;
 }
 RType region_type(ValueTag type) {
   switch (type) {
@@ -429,7 +457,7 @@ class GrammarCompiler {
         node.children.push_back(child);
       }
     } else if (value.object_v.count("constant")) {
-      keys(value, {"constant"}, "constant expression");
+      keys(value, {"constant", "fuel_events"}, "constant expression");
       node.kind = ExpressionKind::Constant;
       node.target = static_cast<std::uint32_t>(out_.constants_.size());
       out_.constants_.push_back(parse_constant_domain(value.object_v.at("constant")));
@@ -444,6 +472,7 @@ class GrammarCompiler {
         }
       }
       node.type = out_.constants_.back().type;
+      node.fuel_charges = fuel_charges(value, NodeKind::CONST);
       if (context && fixed_region && (out_.constants_.back().integer_range || out_.constants_.back().values.size() != 1))
         throw std::invalid_argument("fixed template constant requires exactly one value");
     } else if (value.object_v.count("ref")) {
@@ -454,14 +483,16 @@ class GrammarCompiler {
       node.category = target.category;
       node.scope_mapping = map_scope(target.scope, environment);
     } else if (value.object_v.count("local")) {
-      keys(value, {"local"}, "local expression");
+      keys(value, {"local", "fuel_events"}, "local expression");
       node.kind = ExpressionKind::Local; node.target = binding(out_.locals_, field(value, "local"));
       node.type = out_.locals_[node.target].type;
+      node.fuel_charges = fuel_charges(value, NodeKind::VAR);
     } else if (value.object_v.count("control")) {
-      keys(value, {"control", "type", "args", "name"}, "control expression");
+      keys(value, {"control", "type", "args", "name", "fuel_events"}, "control expression");
       const auto& signature = PrimitiveCatalog::standard().resolve_control(field(value, "control"));
       node.kind = ExpressionKind::Control; node.target = signature.id; node.category = signature.result;
       node.type = parse_type(field(value, "type"));
+      node.fuel_charges = fuel_charges(value, signature.lowering_node);
       if (signature.requires_name) {
         node.local = binding(out_.locals_, field(value, "name"));
         if (out_.locals_[node.local].type != signature.arguments.front().value_type)
@@ -483,16 +514,17 @@ class GrammarCompiler {
     } else if (value.object_v.count("bound") || value.object_v.count("input")) {
       const bool input = value.object_v.count("input") != 0;
       const char* name = input ? "input" : "bound";
-      keys(value, {name}, "binding expression");
+      keys(value, {name, "fuel_events"}, "binding expression");
       const auto& bindings = input ? out_.inputs_ : environment;
       node.kind = input ? ExpressionKind::Input : ExpressionKind::Bound;
       node.target = binding(bindings, field(value, name)); node.type = bindings[node.target].type;
+      node.fuel_charges = fuel_charges(value, input ? NodeKind::VAR : NodeKind::REGION_VAR);
     } else {
       PrimitiveSignature signature;
       bool bounded = false;
       if (value.object_v.count("structured") &&
           field(value.object_v.at("structured"), "family") == "bounded") {
-        keys(value, {"structured", "captures", "phases", "args"},
+        keys(value, {"structured", "captures", "phases", "args", "fuel_events"},
              "bounded structured expression");
         node.kind = ExpressionKind::Structured;
         node.target = structured(value.object_v.at("structured"));
@@ -501,6 +533,7 @@ class GrammarCompiler {
         signature.arguments = contract.arguments;
         signature.result = contract.result;
         bounded = true;
+        node.fuel_charges = fuel_charges(value, NodeKind::BOUNDED_REGION);
 
         const auto& captures = array(require_object_field(value, "captures"));
         if (captures.size() != plan.parameter_types.size())
@@ -598,9 +631,14 @@ class GrammarCompiler {
         const auto& contract = out_.structured_[node.target];
         signature.arguments = contract.arguments; signature.regions = contract.regions; signature.result = contract.result;
       } else {
-        keys(value, {"signature", "args", "bind"}, "primitive expression");
+        keys(value, {"signature", "args", "bind", "fuel_events"}, "primitive expression");
         signature = PrimitiveCatalog::standard().resolve(field(value, "signature"));
         node.kind = ExpressionKind::Primitive; node.target = signature.id;
+        if (value.object_v.count("fuel_events")) {
+          if (!signature.lowering_node)
+            throw std::invalid_argument("fuel_events requires a concrete materialized owner");
+          node.fuel_charges = fuel_charges(value, *signature.lowering_node);
+        }
       }
       if (signature.operation == "constant" || signature.operation == "input" || signature.operation == "bound")
         throw std::invalid_argument("leaf primitive requires a domain or binding expression");

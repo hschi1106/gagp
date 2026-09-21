@@ -1,0 +1,48 @@
+{
+  "format_version": "grammar-definition-v1",
+  "imports": ["../packages/linear_rec_intlist_int.json"],
+  "entry": {"nonterminal": "Compat.LinearRec.IntList.Int", "type": "Int"},
+  "inputs": [{"name": "source", "type": "IntList"}, {"name": "start", "type": "Int"}],
+  "search_limits": {"max_nodes": 96, "max_depth": 32},
+  "execution_limits": {"fuel": 20000},
+  "nonterminals": [
+    {
+      "id": "Compat.LinearRec.IntList.Int",
+      "type": "Int",
+      "scope": [],
+      "alternatives": [{
+        "id": "compat",
+        "weight": 1,
+        "expression": {"template": "Package.LinearRec.IntList.Int", "holes": {
+          "source": {"input": "source", "fuel_events": {"operation": 1}},
+          "start": {"input": "start", "fuel_events": {"operation": 1}},
+          "empty": {"constant": {"type": "Int", "values": ["0"]}, "fuel_events": {"operation": 1}},
+          "step": {"ref": "Compat.LinearRec.Step"},
+          "last": {"ref": "Compat.LinearRec.Last"}
+        }}
+      }]
+    },
+    {
+      "id": "Compat.LinearRec.Step",
+      "type": "Int",
+      "scope": [
+        {"name": "element", "type": "Int"}, {"name": "accumulator", "type": "Int"}, {"name": "index", "type": "Int"}
+      ],
+      "alternatives": [
+        {"id": "sum", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"bound": "element"}, {"bound": "accumulator"}]}},
+        {"id": "indexed_sum", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [
+          {"signature": "add(Int,Int)->Int", "args": [{"bound": "element"}, {"bound": "accumulator"}]}, {"bound": "index"}
+        ]}}
+      ]
+    },
+    {
+      "id": "Compat.LinearRec.Last",
+      "type": "Int",
+      "scope": [{"name": "last_element", "type": "Int"}, {"name": "last_index", "type": "Int"}],
+      "alternatives": [
+        {"id": "element", "weight": 1, "expression": {"bound": "last_element"}},
+        {"id": "element_plus_index", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"bound": "last_element"}, {"bound": "last_index"}]}}
+      ]
+    }
+  ]
+}

@@ -82,8 +82,6 @@ class Matcher {
   void run() {
     (void)validate_request(grammar_, request_);
     grammar_.require_executable(request_.nonterminal);
-    if (!ast_.fuel_specs.empty())
-      fail("source fuel profiles are not declared by this compiled grammar");
     if (ast_.nodes.empty() || ast_.nodes.size() > request_.budget.max_nodes)
       fail("materialized node budget exceeded or empty AST");
     std::vector<int> pending{1};
@@ -110,6 +108,9 @@ class Matcher {
     }
     if (!result) fail("native verification: " + result.diagnostic.message);
     verified_ = result.verified;
+    fuel_specs_.assign(ast_.nodes.size(), nullptr);
+    for (const NodeFuelSpec& spec : ast_.fuel_specs)
+      fuel_specs_.at(spec.node_index) = &spec;
     const auto& entry = grammar_.nonterminals()[request_.nonterminal];
     if (verified_.return_type != entry.type) fail("return type differs from grammar entry");
     // Decode every pool value, including unused values, to reject opaque payloads.
@@ -159,6 +160,7 @@ class Matcher {
       const auto& a = ast_.nodes[left + offset];
       const auto& b = ast_.nodes[right + offset];
       if (a.kind != b.kind) return false;
+      if (!same_fuel_profile(left + offset, right + offset)) return false;
       if (node_descriptor(a.kind).metadata == NodeMetadataKind::LexicalRegion) {
         const auto& x = region_at(ast_, left + offset);
         const auto& y = region_at(ast_, right + offset);
@@ -219,6 +221,30 @@ class Matcher {
           !equal_index(descriptor.i1_role, a.i1, b.i1)) return false;
     }
     return true;
+  }
+  static std::map<FuelEvent, std::uint32_t> charge_map(
+      const NodeFuelSpec* profile) {
+    std::map<FuelEvent, std::uint32_t> result;
+    if (profile)
+      for (const FuelCharge& charge : profile->charges)
+        result.emplace(charge.event, charge.cost);
+    return result;
+  }
+  bool same_fuel_profile(std::size_t left, std::size_t right) const {
+    const NodeFuelSpec* first = fuel_specs_.at(left);
+    const NodeFuelSpec* second = fuel_specs_.at(right);
+    return static_cast<bool>(first) == static_cast<bool>(second) &&
+        charge_map(first) == charge_map(second);
+  }
+  bool matches_fuel_profile(const CompiledExpression& source,
+                            std::size_t index) const {
+    const NodeFuelSpec* actual = fuel_specs_.at(index);
+    if (source.fuel_charges.empty()) return actual == nullptr;
+    if (!actual) return false;
+    std::map<FuelEvent, std::uint32_t> expected;
+    for (const FuelCharge& charge : source.fuel_charges)
+      expected.emplace(charge.event, charge.cost);
+    return expected == charge_map(actual);
   }
   bool nonterminal(std::uint32_t id, std::size_t index) {
     Frame frame(*this);
@@ -313,6 +339,7 @@ class Matcher {
       return true;
     }
     const auto& node = ast_.nodes[index];
+    if (!matches_fuel_profile(source, index)) return false;
     if (source.kind == ExpressionKind::Constant) return constant(source.target, node);
     if (source.kind == ExpressionKind::Bound) {
       const int expected = lexical_environment_.at(source.target);
@@ -361,6 +388,7 @@ class Matcher {
   std::vector<Instance> instances_;
   std::set<MatchKey> active_, accepted_;
   std::vector<int> lexical_environment_;
+  std::vector<const NodeFuelSpec*> fuel_specs_;
   ProductionDecisions decisions_;
   bool record_decisions_ = false;
   bool capture_exact_scopes_ = false;

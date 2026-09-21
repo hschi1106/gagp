@@ -1,0 +1,49 @@
+{
+  "format_version": "grammar-definition-v1",
+  "imports": ["../packages/dc_intlist_int.json"],
+  "entry": {"nonterminal": "Compat.DC.IntList.Int", "type": "Int"},
+  "inputs": [{"name": "source", "type": "IntList"}],
+  "search_limits": {"max_nodes": 96, "max_depth": 32},
+  "execution_limits": {"fuel": 20000},
+  "nonterminals": [
+    {
+      "id": "Compat.DC.IntList.Int",
+      "type": "Int",
+      "scope": [],
+      "alternatives": [{"id": "compat", "weight": 1, "expression": {
+        "template": "Package.DC.IntList.Int",
+        "holes": {
+          "source": {"input": "source", "fuel_events": {"operation": 1}},
+          "solve": {"ref": "Compat.DC.Solve"},
+          "divide": {"ref": "Compat.DC.Divide"},
+          "combine": {"ref": "Compat.DC.Combine"}
+        }
+      }}]
+    },
+    {
+      "id": "Compat.DC.Solve", "type": "Int",
+      "scope": [{"name": "xs", "type": "IntList"}, {"name": "n", "type": "Int"}, {"name": "lo", "type": "Int"}],
+      "alternatives": [
+        {"id": "length", "weight": 1, "expression": {"bound": "n"}},
+        {"id": "offset", "weight": 1, "expression": {"bound": "lo"}},
+        {"id": "first", "weight": 1, "expression": {"signature": "index(IntList,Int)->Int", "args": [
+          {"bound": "xs"}, {"constant": {"type": "Int", "values": ["0"]}}
+        ]}}
+      ]
+    },
+    {
+      "id": "Compat.DC.Divide", "type": "Int", "scope": [{"name": "n", "type": "Int"}],
+      "alternatives": [
+        {"id": "one", "weight": 1, "expression": {"constant": {"type": "Int", "values": ["1"]}}},
+        {"id": "half", "weight": 1, "expression": {"signature": "idiv0(Int,Int)->Int", "args": [
+          {"bound": "n"}, {"constant": {"type": "Int", "values": ["2"]}}
+        ]}}
+      ]
+    },
+    {
+      "id": "Compat.DC.Combine", "type": "Int",
+      "scope": [{"name": "left", "type": "Int"}, {"name": "right", "type": "Int"}],
+      "alternatives": [{"id": "sum", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"bound": "left"}, {"bound": "right"}]}}]
+    }
+  ]
+}

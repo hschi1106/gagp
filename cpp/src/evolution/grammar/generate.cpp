@@ -510,6 +510,9 @@ class Generator {
     } else throw std::invalid_argument("materialization requires an implemented native node contract");
     const auto node_index = out_.genome.ast.nodes.size();
     emit(node, origin);
+    if (!source.fuel_charges.empty())
+      out_.genome.ast.fuel_specs.push_back(
+          NodeFuelSpec{node_index, source.fuel_charges});
     if (bounded_region) bounded_region->node_index = node_index;
     std::optional<LexicalRegion> lexical_region;
     if (source.kind == ExpressionKind::Primitive && !source.regions.empty()) {

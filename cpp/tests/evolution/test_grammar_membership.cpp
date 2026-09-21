@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -129,6 +130,68 @@ int main() {
     require_membership(leaves, repro::compact_genome_tables(repeated));
     repeated.ast.consts[1] = Value::from_int(2);
     rejects(leaves, repeated);
+
+    const auto fuel_grammar = compile(json(R"({
+      "format_version":"grammar-definition-v1",
+      "entry":{"nonterminal":"Main","type":"Int"},
+      "search_limits":{"max_nodes":12,"max_depth":8},
+      "execution_limits":{"fuel":100},
+      "nonterminals":[
+        {"id":"Leaf","type":"Int","scope":[],"alternatives":[
+          {"id":"one","weight":1,"expression":{"constant":{"type":"Int","values":["0"]},"fuel_events":{"operation":1}}},
+          {"id":"two","weight":1,"expression":{"constant":{"type":"Int","values":["0"]},"fuel_events":{"operation":2}}}]},
+        {"id":"Main","type":"Int","scope":[],"alternatives":[{"id":"double","weight":1,
+          "expression":{"template":"Double","holes":{"value":{"ref":"Leaf"}}}}]}],
+      "templates":[{"id":"Double","type":"Int","scope":[],
+        "holes":[{"id":"value","type":"Int","scope":[]}],
+        "body":{"signature":"add(Int,Int)->Int","args":[{"hole":"value"},{"hole":"value"}]}}]
+    })"));
+    auto fuel_repeated = generate_derivation(fuel_grammar, 3).genome;
+    check(fuel_repeated.ast.fuel_specs.size() == 2,
+          "generation did not copy a repeated-hole fuel profile");
+    require_membership(fuel_grammar, fuel_repeated);
+    fuel_repeated.derivation.reset();
+    require_membership(fuel_grammar, fuel_repeated);
+    (void)reconstruct_derivation(fuel_grammar, fuel_repeated);
+    require_membership(fuel_grammar,
+                       repro::compact_genome_tables(fuel_repeated));
+    auto divergent_profile = fuel_repeated;
+    divergent_profile.ast.fuel_specs[1].charges[0].cost =
+        divergent_profile.ast.fuel_specs[0].charges[0].cost == 1 ? 2 : 1;
+    rejects(fuel_grammar, divergent_profile);
+    auto missing_profile = fuel_repeated;
+    missing_profile.ast.fuel_specs.erase(missing_profile.ast.fuel_specs.begin());
+    rejects(fuel_grammar, missing_profile);
+
+    const auto branch_fuel = compile(json(R"({
+      "format_version":"grammar-definition-v1",
+      "entry":{"nonterminal":"Expr","type":"Int"},
+      "search_limits":{"max_nodes":12,"max_depth":8},
+      "execution_limits":{"fuel":100},
+      "nonterminals":[{"id":"Expr","type":"Int","scope":[],"alternatives":[{
+        "id":"branch","weight":1,"expression":{
+          "signature":"if(Bool,Int,Int)->Int",
+          "fuel_events":{"branch_test":0,"branch_merge":3},
+          "args":[{"constant":{"type":"Bool","values":[true]}},
+                  {"constant":{"type":"Int","values":["1"]}},
+                  {"constant":{"type":"Int","values":["2"]}}]}}]}]
+    })"));
+    auto branch = generate_derivation(branch_fuel, 0).genome;
+    check(branch.ast.fuel_specs.size() == 1 &&
+              branch.ast.fuel_specs[0].node_index == 3 &&
+              branch.ast.fuel_specs[0].charges.size() == 2,
+          "generation did not attach the authored profile to its physical owner");
+    require_membership(branch_fuel, branch);
+    std::reverse(branch.ast.fuel_specs[0].charges.begin(),
+                 branch.ast.fuel_specs[0].charges.end());
+    require_membership(branch_fuel, branch);
+    branch.ast.fuel_specs[0].charges[0].cost += 1;
+    rejects(branch_fuel, branch);
+
+    auto undeclared_profile = generate_derivation(scalar, 0).genome;
+    undeclared_profile.ast.fuel_specs.push_back(
+        {3, {{FuelEvent::Operation, 0}}});
+    rejects(scalar, undeclared_profile);
 
     auto aliases = scalar_doc;
     aliases.object_v.at("nonterminals").array_v[0].object_v.at("alternatives").array_v.insert(

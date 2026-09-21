@@ -116,6 +116,90 @@ int main() {
         json(R"({"name":"outside","type":"Int"})"));
     rejects([&] { compile(doc); }, "not visible");
 
+    // Authored profiles are accepted only on physical owners, validated against
+    // that NodeKind, and retained in canonical FuelEvent order.
+    doc = json(custom);
+    auto& profiled_sum = alternatives(doc).array_v[2].object_v.at("expression");
+    profiled_sum.object_v["fuel_events"] = json(R"({"operation":0})");
+    auto profiled = compile(doc);
+    const auto& sum_profile = profiled.expressions().at(
+        profiled.productions().at(2).expression).fuel_charges;
+    check(sum_profile.size() == 1 &&
+              sum_profile[0].event == gagp::evo::FuelEvent::Operation &&
+              sum_profile[0].cost == 0,
+          "compiled fuel profile lost explicit zero");
+
+    auto binding_profiles_doc = json(custom);
+    binding_profiles_doc.object_v["locals"] =
+        json(R"([{"name":"saved","type":"Int"}])");
+    alternatives(binding_profiles_doc).array_v[1]
+        .object_v.at("expression").object_v["fuel_events"] =
+        json(R"({"operation":0})");
+    alternatives(binding_profiles_doc, 1).array_v[0]
+        .object_v.at("expression").object_v["fuel_events"] =
+        json(R"({"operation":2})");
+    alternatives(binding_profiles_doc).array_v.push_back(json(R"({
+      "id":"saved","weight":1,"expression":{"local":"saved",
+      "fuel_events":{"operation":3}}})"));
+    const auto binding_profiles = compile(binding_profiles_doc);
+    bool saw_input = false, saw_bound = false, saw_local = false;
+    for (const auto& expression : binding_profiles.expressions()) {
+      if (expression.fuel_charges.empty()) continue;
+      saw_input |= expression.kind == ExpressionKind::Input &&
+          expression.fuel_charges[0].cost == 0;
+      saw_bound |= expression.kind == ExpressionKind::Bound &&
+          expression.fuel_charges[0].cost == 2;
+      saw_local |= expression.kind == ExpressionKind::Local &&
+          expression.fuel_charges[0].cost == 3;
+    }
+    check(saw_input && saw_bound && saw_local,
+          "binding-leaf fuel profiles did not retain their concrete owners");
+
+    auto traversal_doc = json(R"({
+      "format_version":"grammar-definition-v1",
+      "entry":{"nonterminal":"Expr","type":"Int"},
+      "inputs":[{"name":"xs","type":"IntList"}],
+      "search_limits":{"max_nodes":20,"max_depth":8},
+      "execution_limits":{"fuel":100},
+      "nonterminals":[{"id":"Expr","type":"Int","scope":[],"alternatives":[{
+        "id":"fold","weight":1,"expression":{
+          "signature":"traverse_range_reverse(IntList,Int,Int,Int,Int,Int)->Int",
+          "fuel_events":{"result":0,"test_cursor":4,"store_sequence":2},
+          "args":[{"input":"xs"},{"constant":{"type":"Int","values":["0"]}},
+            {"constant":{"type":"Int","values":["0"]}},
+            {"constant":{"type":"Int","values":["1"]}},
+            {"constant":{"type":"Int","values":["0"]}},
+            {"bound":"acc"}],"bind":{"5":["elem","index","acc"]}}
+      }]}]})");
+    const auto traversal_profiled = compile(traversal_doc);
+    const auto& charges = traversal_profiled.expressions().at(
+        traversal_profiled.productions().front().expression).fuel_charges;
+    check(charges.size() == 3 &&
+              charges[0].event == gagp::evo::FuelEvent::StoreSequence &&
+              charges[1].event == gagp::evo::FuelEvent::TestCursor &&
+              charges[2].event == gagp::evo::FuelEvent::Result,
+          "compiled fuel charges are not in canonical event order");
+
+    const auto rejects_profile = [&](const std::string& profile,
+                                     const std::string& diagnostic) {
+      auto invalid = json(custom);
+      alternatives(invalid).array_v[0].object_v.at("expression")
+          .object_v["fuel_events"] = json(profile);
+      rejects([&] { compile(invalid); }, diagnostic);
+    };
+    rejects_profile("{}", "nonempty object");
+    rejects_profile(R"({"operation":true})", "uint32 integer");
+    rejects_profile(R"({"operation":1.5})", "uint32 integer");
+    rejects_profile(R"({"operation":-1})", "uint32 integer");
+    rejects_profile(R"({"operation":2147483648})", "0..INT_MAX");
+    rejects_profile(R"({"unknown":1})", "unknown fuel event");
+    rejects_profile(R"({"branch_test":1})", "not supported");
+
+    auto annotated_alias = json(custom);
+    alternatives(annotated_alias).array_v[0].object_v.at("expression") =
+        json(R"({"ref":"Expr","fuel_events":{"operation":1}})");
+    rejects([&] { compile(annotated_alias); }, "unknown key fuel_events");
+
     doc = json(custom);
     alternatives(doc).array_v[3].object_v.at("expression").object_v.at("args").array_v[0] = json(R"({"ref":"Narrow"})");
     rejects([&] { compile(doc); }, "not visible");
@@ -177,6 +261,15 @@ int main() {
       if (expr.kind == ExpressionKind::Hole) open_hole |= !expr.fixed && expr.scope_mapping.size() == 1;
     }
     check(fixed_body && open_hole, "template skeleton and hole contracts lost");
+    auto annotated_template = doc;
+    alternatives(annotated_template).array_v[0].object_v.at("expression")
+        .object_v["fuel_events"] = json(R"({"operation":1})");
+    rejects([&] { compile(annotated_template); }, "unknown key fuel_events");
+    auto annotated_hole = doc;
+    annotated_hole.object_v.at("templates").array_v[0].object_v.at("body")
+        .object_v.at("args").array_v[1].object_v["fuel_events"] =
+        json(R"({"operation":1})");
+    rejects([&] { compile(annotated_hole); }, "unknown key fuel_events");
     const auto template_doc = doc;
     alternatives(doc).array_v[0].object_v.at("expression").object_v.at("holes").object_v.at("body") =
         json(R"({"constant":{"type":"Bool","values":[true]}})");

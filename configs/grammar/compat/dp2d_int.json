@@ -1,0 +1,8 @@
+{
+  "format_version": "grammar-definition-v1",
+  "imports": ["../packages/dp2d_int.json"],
+  "entry": {"nonterminal": "Package.DP2D.Int", "type": "Int"},
+  "inputs": [{"name": "row", "type": "Int"}, {"name": "column", "type": "Int"}],
+  "search_limits": {"max_nodes": 80, "max_depth": 28},
+  "execution_limits": {"fuel": 20000}
+}
