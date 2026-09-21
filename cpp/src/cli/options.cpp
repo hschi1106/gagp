@@ -64,18 +64,9 @@ CliOptions parse_cli_options(int argc, char** argv) {
     } else if (arg == "--max-expr-depth") {
       opts.max_expr_depth = std::stoi(need_value("--max-expr-depth"));
       opts.max_expr_depth_explicit = true;
-    } else if (arg == "--max-stmts-per-block") {
-      opts.max_stmts_per_block = std::stoi(need_value("--max-stmts-per-block"));
-      opts.max_stmts_per_block_explicit = true;
     } else if (arg == "--max-total-nodes") {
       opts.max_total_nodes = std::stoi(need_value("--max-total-nodes"));
       opts.max_total_nodes_explicit = true;
-    } else if (arg == "--max-for-k") {
-      opts.max_for_k = std::stoi(need_value("--max-for-k"));
-      opts.max_for_k_explicit = true;
-    } else if (arg == "--max-call-args") {
-      opts.max_call_args = std::stoi(need_value("--max-call-args"));
-      opts.max_call_args_explicit = true;
     } else if (arg == "--show-program") {
       opts.show_program = need_value("--show-program");
     } else if (arg == "--timing") {

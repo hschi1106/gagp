@@ -39,23 +39,39 @@ If a study begins with a release-1 `grammar-config`, convert it offline for
 each exact schema and archive the migration report. Do not pass it to the
 production runner.
 
+For example, this deterministic lossy conversion produces an exact
+`count-odds` schema root for a migration study:
+
+```bash
+.venv-tools/bin/gagp-tools grammar migrate \
+  --input configs/grammar/migration/v1/sequence.json \
+  --cases data/fixtures/psb1/count-odds.train.json \
+  --conversion-profile constrained-intent-v1 \
+  --out /tmp/count-odds-v2.json
+.venv-tools/bin/gagp-tools grammar validate \
+  --grammar-definition /tmp/count-odds-v2.json
+```
+
 ## Regression sweep
 
 ```bash
 python3 tools/run_psb_regression.py \
   --suite psb1 \
   --profile compiled-v2 \
-  --grammar-definition configs/grammar/basic/int.json \
-  --cases-root data/fixtures/psb1-current \
+  --grammar-definition /tmp/count-odds-v2.json \
+  --cases-root data/fixtures/psb1 \
+  --problems count-odds \
   --engine gpu --repro-backend gpu --repro-overlap on \
   --blocksize 1024 --population-size 8192 --generations 100 \
   --selection-pressure 2 --mutation-rate 0.5 \
-  --mutation-subtree-prob 0.8 --fuel 20000 \
+  --mutation-subtree-prob 0.8 \
   --seeds 0,1,2,3,4 --eval-test \
   --out-dir logs/psb/compiled-v2
 ```
 
-The runner requires the definition path and records its file hash. The
+Run one exact schema/task per invocation; a single grammar definition cannot
+span unrelated PSB input/output schemas. The runner requires the definition
+path and records its file hash. The
 definition owns its compiled search and execution limits; a conflicting
 explicit fuel value fails at the native CLI boundary.
 

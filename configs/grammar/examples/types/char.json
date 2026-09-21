@@ -1,0 +1,10 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "Types.Char", "type": "Char"},
+  "inputs": [{"name": "value", "type": "Char"}],
+  "search_limits": {"max_nodes": 5, "max_depth": 4},
+  "execution_limits": {"fuel": 32},
+  "nonterminals": [{"id": "Types.Char", "type": "Char", "scope": [], "alternatives": [
+    {"id": "identity", "weight": 1, "expression": {"input": "value"}}
+  ]}]
+}

@@ -10,6 +10,20 @@ cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug
 cmake --build cpp/build -j
 ```
 
+Install the dependency-free operational tools in a separate virtual
+environment. This editable install exposes `gagp-tools`, including the thin
+wrappers around the native grammar commands:
+
+```bash
+python3 -m venv .venv-tools
+.venv-tools/bin/pip install -e tools
+.venv-tools/bin/gagp-tools --help
+```
+
+Rebuild after changing C++ or CUDA. A grammar definition is JSON loaded at
+process startup, so editing one under `configs/grammar/` or `/tmp` needs only a
+fresh validate/generate/evolve command, not a rebuild or reinstall.
+
 `cpp/CMakePresets.json` also defines `debug`, `release`, `cuda-parity`,
 `sanitizer`, and `fuzz` configure presets. For example:
 
@@ -109,7 +123,7 @@ visible-device index:
 ```bash
 GAGP_CUDA_DEVICE=0 cpp/build/gagp_evolve_cli \
   --cases data/fixtures/simple_exp_1024.json \
-  --grammar-definition configs/grammar/basic/int.json \
+  --grammar-definition configs/grammar/benchmarks/simple_exp.json \
   --engine gpu --repro-backend gpu --repro-overlap on \
   --population-size 64 --generations 2
 ```
@@ -126,6 +140,7 @@ stdout and top-level JSON keys are locked by the native CLI contract test.
 Compiled grammar definitions control generation and reproduction search space,
 not execution of a materialized AST/bytecode program. Operational use and
 offline release-1 conversion are in [grammar-config.md](grammar-config.md);
+the authoring loop is in [grammar-authoring.md](grammar-authoring.md);
 the production schema is normative in
 [`../../spec/grammar_definition.md`](../../spec/grammar_definition.md).
 

@@ -20,7 +20,10 @@ nearest component documentation, not here.
 | `cpp/src/bench/` | Opt-in native benchmarks |
 | `cpp/src/experiments/` | Opt-in experiment probes |
 | `cpp/tests/` | Native unit, contract, property, parity, and GPU tests |
-| `configs/grammar/` | Checked grammar-search presets |
+| `configs/grammar/` | Checked grammar definitions and package documentation |
+| `configs/grammar/examples/authoring/` | Copyable scalar, sequence, template, and memo authoring roots with cases |
+| `configs/grammar/examples/types/` | Checked roots and cases for all public value types |
+| `configs/grammar/benchmarks/` | Grammar definitions paired with maintained benchmark fixtures |
 | `configs/psb_schemas/` | PSB fixture schema overrides |
 | `configs/psb_tolerances/` | Versioned PSB quality-gate policies |
 | `data/fixtures/` | Maintained runtime and benchmark fixtures |

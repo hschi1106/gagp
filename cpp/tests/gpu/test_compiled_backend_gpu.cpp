@@ -431,6 +431,22 @@ void test_run_resources_retain_grammar_payloads() {
   gagp::payload::clear();
 }
 
+void test_source_identity_normalizes_unused_tables() {
+  const auto grammar = repeated_capture_grammar();
+  EvolutionConfig config = compiled_config(grammar, 3, 0.0, 0.0, true);
+  auto population = source_population(*grammar, config.population_size, 3);
+  for (auto& genome : population) {
+    genome.ast.names.push_back("unused_name");
+    genome.ast.consts.push_back(gagp::Value::from_int(999));
+  }
+  const auto scored = score_manually(population, 3);
+  std::mt19937_64 rng(17);
+  const ReproductionResult result =
+      gagp::evo::repro::run_gpu_repro_backend(scored, config, rng);
+  require(result.next_population.size() == population.size(),
+          "GPU reproduction rejected semantically irrelevant unused tables");
+}
+
 void exercise_three_generations(int population_size, bool explicit_request,
                                 double mutation_rate,
                                 double subtree_probability) {
@@ -624,6 +640,7 @@ int main() {
   try {
     test_prepared_replay_and_rejections();
     test_run_resources_retain_grammar_payloads();
+    test_source_identity_normalizes_unused_tables();
     test_public_modes_and_overlap();
   } catch (const std::exception& error) {
     std::cerr << "FAIL: " << error.what() << '\n';

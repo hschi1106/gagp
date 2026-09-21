@@ -12,7 +12,10 @@ Checked roots live under `configs/grammar/`:
 - `basic/`: concrete reusable building blocks;
 - `packages/`: reusable templates and bounded-region productions;
 - `compat/`: runnable v2 roots preserving supported release-1 search intent;
-- `examples/`: custom definitions showing changed structure.
+- `examples/authoring/`: scalar, typed-sequence, template, and memo starters;
+- `examples/types/`: checked roots and cases for every public value type;
+- `benchmarks/`: definitions tied to maintained benchmark fixtures;
+- other `examples/`: custom definitions showing changed structure.
 
 Paths and filenames do not enable constructs or participate in the grammar
 hash. The resolved content, catalog/schema versions, exact types, domains,
@@ -23,12 +26,13 @@ Run evolution with a definition:
 ```bash
 cpp/build/gagp_evolve_cli \
   --cases data/fixtures/simple_exp_1024.json \
-  --grammar-definition configs/grammar/basic/int.json \
+  --grammar-definition configs/grammar/benchmarks/simple_exp.json \
   --engine gpu --repro-backend gpu --repro-overlap on \
   --population-size 64 --generations 5
 ```
 
-The definition owns `search_limits.max_depth`,
+The production option is `--grammar-definition`; there is no
+`--grammar-config` alias. The definition owns `search_limits.max_depth`,
 `search_limits.max_nodes`, and `execution_limits.fuel`. Explicit matching
 CLI values are accepted where documented; conflicting overrides fail.
 
@@ -36,13 +40,17 @@ CLI values are accepted where documented; conflicting overrides fail.
 
 ```bash
 cpp/build/gagp_generate_cli \
-  --grammar-definition grammar.json \
-  --cases cases.json --population-size 64 --seed 0 \
-  --out-json population.json
+  --grammar-definition configs/grammar/examples/authoring/scalar.json \
+  --cases configs/grammar/examples/authoring/scalar.cases.json \
+  --population-size 64 --seed 0 \
+  --out-json /tmp/scalar.population-v2.json
 
 cpp/build/gagp_generate_cli \
-  --replay-json population.json \
-  --cases cases.json --out-json replayed.json
+  --replay-json /tmp/scalar.population-v2.json \
+  --grammar-definition configs/grammar/examples/authoring/scalar.json \
+  --cases configs/grammar/examples/authoring/scalar.cases.json \
+  --out-json /tmp/scalar.replayed.population-v2.json
+cmp /tmp/scalar.population-v2.json /tmp/scalar.replayed.population-v2.json
 ```
 
 Generation emits `grammar-population-v2` containing complete
@@ -63,10 +71,11 @@ fitness-case schema and the explicit constrained profile. The converter emits
 `grammar-definition-v2`.
 
 ```bash
-cpp/build/gagp_migrate_artifact \
-  --input legacy.json --cases cases.json \
+.venv-tools/bin/gagp-tools grammar migrate \
+  --input configs/grammar/migration/v1/scalar.json \
+  --cases configs/grammar/examples/authoring/scalar.cases.json \
   --conversion-profile constrained-intent-v1 \
-  --out migrated-v2.json
+  --out /tmp/scalar.migrated-v2.json
 ```
 
 The profile is required because release-1 configs do not contain exact
@@ -114,3 +123,7 @@ The exact schema, artifact contracts, and structural forms are normative in
 [grammar_definition.md](../../spec/grammar_definition.md). The legacy
 conversion boundary is normative in
 [grammar_config.md](../../spec/grammar_config.md).
+
+The [grammar authoring guide](grammar-authoring.md) provides complete scalar,
+typed-sequence, template/package, and memo workflows; exact type conversion;
+authoring versus execution bounds; and validate/inspect/resolve commands.

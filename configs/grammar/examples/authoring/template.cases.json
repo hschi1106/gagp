@@ -1,0 +1,7 @@
+{
+  "format_version": "fitness-cases",
+  "cases": [{
+    "inputs": {"x": {"type": "int", "value": 3}},
+    "expected": {"type": "int", "value": 6}
+  }]
+}

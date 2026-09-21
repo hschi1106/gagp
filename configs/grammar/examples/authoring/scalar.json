@@ -1,0 +1,20 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "Authoring.Scalar", "type": "Int"},
+  "inputs": [{"name": "n", "type": "Int"}],
+  "search_limits": {"max_nodes": 9, "max_depth": 5},
+  "execution_limits": {"fuel": 32},
+  "nonterminals": [{
+    "id": "Authoring.Scalar",
+    "type": "Int",
+    "scope": [],
+    "alternatives": [
+      {"id": "input", "weight": 3, "expression": {"input": "n"}},
+      {"id": "zero", "weight": 1, "expression": {"constant": {"type": "Int", "values": ["0"]}}},
+      {"id": "sum", "weight": 1, "expression": {
+        "signature": "add(Int,Int)->Int",
+        "args": [{"ref": "Authoring.Scalar"}, {"ref": "Authoring.Scalar"}]
+      }}
+    ]
+  }]
+}

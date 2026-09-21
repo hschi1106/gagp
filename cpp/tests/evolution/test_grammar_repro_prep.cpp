@@ -11,6 +11,8 @@
 #include "gagp/evolution/grammar/definition.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/grammar/variation.hpp"
+#include "gagp/evolution/evolve.hpp"
+#include "gagp/evolution/repro/gpu.hpp"
 #include "gagp/evolution/repro/pack.hpp"
 #include "gagp/evolution/repro/prep.hpp"
 #include "../../src/evolution/repro/constant_prep.hpp"
@@ -50,6 +52,34 @@ void rejects_invalid(const std::function<void()>& action, const char* message) {
 std::shared_ptr<const CompiledGrammar> compile_shared(const std::string& text) {
   return std::make_shared<const CompiledGrammar>(
       compile_grammar(parse_definition(text)));
+}
+
+void test_gpu_run_resources_reject_oversized_search_space() {
+  const auto grammar = compile_shared(R"({
+    "format_version":"grammar-definition-v2",
+    "entry":{"nonterminal":"Main","type":"Int"},
+    "search_limits":{"max_nodes":513,"max_depth":4},
+    "execution_limits":{"fuel":100},
+    "nonterminals":[{"id":"Main","type":"Int","scope":[],"alternatives":[
+      {"id":"one","weight":1,"expression":{"constant":{"type":"Int","values":["1"]}}}
+    ]}]
+  })");
+  gagp::evo::EvolutionConfig config;
+  config.compiled_grammar = grammar;
+  config.generation_request = gagp::evo::grammar::entry_request(*grammar);
+  config.reproduction_backend = gagp::evo::repro::ReproductionBackend::Gpu;
+  config.fuel = 100;
+  try {
+    (void)gagp::evo::repro::make_gpu_repro_run_resources(config);
+  } catch (const std::invalid_argument& error) {
+    check(std::string(error.what()).find(
+              "gpu reproduction mode capacity exceeded: generation request max_nodes=513") !=
+              std::string::npos,
+          "GPU capacity diagnostic did not name the failed mode and limit");
+    return;
+  }
+  throw std::runtime_error(
+      "GPU run resources accepted a search space larger than kernel capacity");
 }
 
 GpuReproConfig compiled_config(const CompiledGrammar& grammar,
@@ -571,6 +601,7 @@ void test_determinism_packing_ownership_and_guards() {
 
 int main() {
   try {
+    test_gpu_run_resources_reject_oversized_search_space();
     test_exact_contracts_and_shared_occurrences();
     test_determinism_packing_ownership_and_guards();
   } catch (const std::exception& error) {

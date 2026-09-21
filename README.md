@@ -77,7 +77,7 @@ For a CPU-only build, configure with `-DGAGP_ENABLE_CUDA=OFF`.
 ```bash
 cpp/build/gagp_evolve_cli \
   --cases data/fixtures/simple_exp_1024.json \
-  --grammar-definition configs/grammar/basic/int.json \
+  --grammar-definition configs/grammar/benchmarks/simple_exp.json \
   --engine gpu \
   --repro-backend gpu \
   --repro-overlap on \
@@ -120,7 +120,14 @@ implement product runtime semantics.
 python3 -m venv .venv-tools
 .venv-tools/bin/pip install -e tools
 .venv-tools/bin/gagp-tools --help
+.venv-tools/bin/gagp-tools grammar init --example scalar --out /tmp/my-grammar.json
+.venv-tools/bin/gagp-tools grammar validate --grammar-definition /tmp/my-grammar.json
 ```
+
+Edit the copied JSON and rerun `grammar validate`; grammar files are loaded at
+process startup, so JSON-only changes do not require a C++ rebuild. The checked
+scalar, typed-sequence, template, and memo examples are documented in the
+[grammar authoring guide](docs/guides/grammar-authoring.md).
 
 Follow the complete artifact pipeline in the
 [operational tools guide](tools/README.md).
@@ -137,6 +144,7 @@ Follow the complete artifact pipeline in the
 | [Benchmarking](docs/guides/benchmarking.md) | Reproducible fixed-population CPU/GPU comparisons |
 | [PSB workflow](docs/guides/psb-workflow.md) | Dataset acquisition, fixtures, regression, and reports |
 | [Grammar definitions and migration](docs/guides/grammar-config.md) | Compiled search spaces, artifacts, and offline v1 migration |
+| [Grammar authoring](docs/guides/grammar-authoring.md) | Start, validate, inspect, resolve, customize, and run a definition |
 | [Documentation index](docs/README.md) | Ownership of every maintained document |
 
 ## Repository layout

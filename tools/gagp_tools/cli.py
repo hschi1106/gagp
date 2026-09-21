@@ -13,6 +13,11 @@ def _commands() -> dict[tuple[str, str], tuple[str, Command]]:
     from .datasets.materialize_psb import main as materialize
     from .experiments.materialize_population import main as materialize_population
     from .experiments.run_psb import main as run_psb
+    from .grammar.commands import inspect_main as grammar_inspect
+    from .grammar.commands import init_main as grammar_init
+    from .grammar.commands import migrate_main as grammar_migrate
+    from .grammar.commands import resolve_main as grammar_resolve
+    from .grammar.commands import validate_main as grammar_validate
     from .reports.compare_psb import main as compare
     from .reports.psb_manifest import main as psb_manifest
     from .reports.simple_manifest import main as simple_manifest
@@ -24,6 +29,11 @@ def _commands() -> dict[tuple[str, str], tuple[str, Command]]:
         ("psb", "run"): ("run the PSB regression matrix", run_psb),
         ("psb", "compare"): ("compare compatible PSB summaries", compare),
         ("benchmark", "population"): ("materialize a compiled-grammar population", materialize_population),
+        ("grammar", "init"): ("copy a grammar authoring example", grammar_init),
+        ("grammar", "validate"): ("validate a grammar definition", grammar_validate),
+        ("grammar", "inspect"): ("inspect a grammar definition", grammar_inspect),
+        ("grammar", "resolve"): ("resolve a grammar definition", grammar_resolve),
+        ("grammar", "migrate"): ("migrate a legacy grammar artifact", grammar_migrate),
         ("report", "psb-manifest"): ("write compact PSB evidence", psb_manifest),
         ("report", "simple-manifest"): ("write compact simple-expression evidence", simple_manifest),
     }

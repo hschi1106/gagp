@@ -485,7 +485,12 @@ class Resolver {
     for (const auto& text : sources_) content.array_v.push_back(parse(text));
     out.object_v["source_content"] = std::move(content);
     const auto canonical = canonical_json(out);
-    return {std::move(out), canonical, content_sha256(canonical)};
+    std::vector<std::filesystem::path> source_paths;
+    source_paths.reserve(visited_.size());
+    for (const auto& visited : visited_)
+      if (!visited.first.empty()) source_paths.push_back(visited.first);
+    return {std::move(out), canonical, content_sha256(canonical),
+            std::move(source_paths)};
   }
   std::set<std::filesystem::path> active_;
   std::map<std::filesystem::path, std::set<std::filesystem::path>> visited_;

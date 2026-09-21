@@ -1,0 +1,32 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "Benchmark.SimpleExp", "type": "Float"},
+  "inputs": [{"name": "x", "type": "Float"}],
+  "search_limits": {"max_nodes": 31, "max_depth": 8},
+  "execution_limits": {"fuel": 256},
+  "nonterminals": [{
+    "id": "Benchmark.SimpleExp",
+    "type": "Float",
+    "scope": [],
+    "alternatives": [
+      {"id": "input", "weight": 4, "expression": {"input": "x"}},
+      {"id": "constant", "weight": 3, "expression": {"constant": {"type": "Float", "values": [0.5, 1.0, 2.0]} }},
+      {"id": "bounded_sum", "weight": 2, "expression": {
+        "signature": "clip(Float,Float,Float)->Float",
+        "args": [
+          {"signature": "add(Float,Float)->Float", "args": [{"ref": "Benchmark.SimpleExp"}, {"ref": "Benchmark.SimpleExp"}]},
+          {"constant": {"type": "Float", "values": [-8.0]}},
+          {"constant": {"type": "Float", "values": [8.0]}}
+        ]
+      }},
+      {"id": "bounded_product", "weight": 2, "expression": {
+        "signature": "clip(Float,Float,Float)->Float",
+        "args": [
+          {"signature": "mul(Float,Float)->Float", "args": [{"ref": "Benchmark.SimpleExp"}, {"ref": "Benchmark.SimpleExp"}]},
+          {"constant": {"type": "Float", "values": [-8.0]}},
+          {"constant": {"type": "Float", "values": [8.0]}}
+        ]
+      }}
+    ]
+  }]
+}

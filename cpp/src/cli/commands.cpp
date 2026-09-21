@@ -20,7 +20,9 @@
 #include "gagp/evolution/fuel_events.hpp"
 #include "gagp/evolution/genome_generation.hpp"
 #include "gagp/evolution/genome.hpp"
+#include "gagp/evolution/grammar/catalog.hpp"
 #include "gagp/evolution/grammar/definition.hpp"
+#include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/repro/pack.hpp"
 #include "gagp/cli/codec.hpp"
 #include "gagp/cli/commands.hpp"
@@ -902,15 +904,6 @@ void apply_compiled_contract(const CliOptions& args,
   if (args.max_total_nodes_explicit && args.max_total_nodes != max_nodes)
     throw std::invalid_argument("--max-total-nodes conflicts with grammar definition search_limits.max_nodes=" +
                                 std::to_string(max_nodes));
-  if (args.max_stmts_per_block_explicit)
-    throw std::invalid_argument(
-        "--max-stmts-per-block cannot override a compiled grammar; encode the block bound in --grammar-definition");
-  if (args.max_for_k_explicit)
-    throw std::invalid_argument(
-        "--max-for-k cannot override a compiled grammar; encode loop-bound constants in --grammar-definition");
-  if (args.max_call_args_explicit)
-    throw std::invalid_argument(
-        "--max-call-args cannot override a compiled grammar; encode primitive arity in --grammar-definition");
 
   cfg->compiled_grammar = grammar;
   cfg->generation_request = gagp::evo::grammar::entry_request(*grammar);
@@ -1291,7 +1284,20 @@ int gagp::cli_detail::run_evolve_command(const CliOptions& args) {
       }
       out << "    \"grammar_definition\": {\n";
       out << "      \"path\": \"" << json_escape(args.grammar_definition_path) << "\",\n";
-      out << "      \"hash\": \"" << json_escape(compiled_grammar->content_hash()) << "\"\n";
+      out << "      \"hash\": \"" << json_escape(compiled_grammar->content_hash()) << "\",\n";
+      out << "      \"content_sha256\": \"" << json_escape(compiled_grammar->content_hash()) << "\",\n";
+      out << "      \"format_version\": \""
+          << gagp::evo::grammar::kDefinitionVersion << "\",\n";
+      out << "      \"catalog_version\": \""
+          << gagp::evo::grammar::kCatalogVersion << "\",\n";
+      out << "      \"normalization_version\": \""
+          << gagp::evo::grammar::kNormalizationVersion << "\",\n";
+      out << "      \"semantic_version\": \""
+          << gagp::evo::grammar::kGrammarSemanticVersion << "\",\n";
+      out << "      \"generator_version\": \""
+          << gagp::evo::grammar::kGrammarGeneratorVersion << "\",\n";
+      out << "      \"rng_version\": \""
+          << gagp::evo::grammar::kGrammarRngVersion << "\"\n";
       out << "    },\n";
       out << "    \"selection\": \"" << selection_label << "\",\n";
       out << "    \"crossover_method\": \"" << crossover_label << "\",\n";

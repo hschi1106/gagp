@@ -179,6 +179,7 @@ add_library(gagp_cli_support
   src/cli/grammar_artifact.cpp
   src/cli/grammar_population_artifact.cpp
   src/cli/grammar_generate.cpp
+  src/cli/grammar_author.cpp
   src/cli/codec.cpp
   src/cli/region_codec.cpp
   src/cli/options.cpp
@@ -189,6 +190,9 @@ target_link_libraries(gagp_cli_support PUBLIC gagp_cpu gagp_json gagp_region_pla
 
 add_executable(gagp_generate_cli src/cli/generate_cli.cpp)
 target_link_libraries(gagp_generate_cli PRIVATE gagp_cli_support)
+
+add_executable(gagp_grammar_cli src/cli/grammar_cli.cpp)
+target_link_libraries(gagp_grammar_cli PRIVATE gagp_cli_support)
 
 add_executable(gagp_test_ast_verify_exact_scope tests/evolution/test_ast_verify_exact_scope.cpp)
 target_link_libraries(gagp_test_ast_verify_exact_scope PRIVATE gagp_evolution)
@@ -276,6 +280,20 @@ add_executable(gagp_test_grammar_generate_cli tests/evolution/test_grammar_gener
 target_link_libraries(gagp_test_grammar_generate_cli PRIVATE gagp_cli_support)
 add_test(NAME gagp_test_grammar_generate_cli COMMAND gagp_test_grammar_generate_cli)
 set_tests_properties(gagp_test_grammar_generate_cli PROPERTIES LABELS "contract;integration")
+
+add_executable(gagp_test_grammar_author_cli tests/evolution/test_grammar_author_cli.cpp)
+target_link_libraries(gagp_test_grammar_author_cli PRIVATE gagp_cli_support)
+add_test(NAME gagp_test_grammar_author_cli COMMAND gagp_test_grammar_author_cli)
+set_tests_properties(gagp_test_grammar_author_cli PROPERTIES LABELS "contract;integration")
+
+add_test(NAME gagp_test_grammar_examples
+  COMMAND ${CMAKE_COMMAND}
+    -DGRAMMAR_CLI=$<TARGET_FILE:gagp_grammar_cli>
+    -DGENERATE_CLI=$<TARGET_FILE:gagp_generate_cli>
+    -DREPOSITORY_ROOT=${CMAKE_CURRENT_SOURCE_DIR}/..
+    -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/grammar-example-test
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/evolution/check_grammar_examples.cmake)
+set_tests_properties(gagp_test_grammar_examples PROPERTIES LABELS "contract;integration")
 
 add_executable(gagp_test_grammar_population_artifact tests/evolution/test_grammar_population_artifact.cpp)
 target_link_libraries(gagp_test_grammar_population_artifact PRIVATE gagp_cli_support)

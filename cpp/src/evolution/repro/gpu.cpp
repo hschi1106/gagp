@@ -213,8 +213,9 @@ void validate_compiled_prepared(const std::vector<ScoredGenomeRef>& scored,
     if (!scored[i].genome) throw std::invalid_argument("compiled GPU preparation has a null source");
     ProgramGenome expected;
     expected.ast = prepared.packed.compiled_sources->parents[i];
+    const ProgramGenome compacted_scored = compact_genome_tables(*scored[i].genome);
     if (grammar::runtime_cache_identity(expected, inputs, cfg.fuel) !=
-        grammar::runtime_cache_identity(*scored[i].genome, inputs, cfg.fuel))
+        grammar::runtime_cache_identity(compacted_scored, inputs, cfg.fuel))
       throw std::invalid_argument("compiled GPU preparation source identity mismatch");
   }
 }
@@ -270,6 +271,27 @@ std::shared_ptr<GpuReproRunResources> make_gpu_repro_run_resources(const Evoluti
   require_reproduction_mode_supported(cfg, true);
   if (!cfg.compiled_grammar)
     throw std::invalid_argument("compiled GPU run resources require a compiled grammar");
+  if (cfg.generation_request->budget.max_nodes >
+      static_cast<std::uint32_t>(kGpuReproKernelMaxNodes)) {
+    throw std::invalid_argument(
+        "gpu reproduction mode capacity exceeded: generation request max_nodes=" +
+        std::to_string(cfg.generation_request->budget.max_nodes) +
+        " exceeds kernel maximum " + std::to_string(kGpuReproKernelMaxNodes) +
+        " (grammar search_limits.max_nodes=" +
+        std::to_string(cfg.compiled_grammar->search_limits().max_nodes) + ")");
+  }
+#ifdef GAGP_HAS_CUDA
+  std::string device_message;
+  int device_id = -1;
+  if (!initialize_gpu_repro_runtime(&device_message) ||
+      !select_gpu_repro_device(&device_id, &device_message)) {
+    throw std::runtime_error(
+        "gpu reproduction mode device preflight failed: " + device_message);
+  }
+#else
+  throw std::runtime_error(
+      "gpu reproduction mode device preflight failed: CUDA is unavailable in this build");
+#endif
   auto resources = std::make_shared<GpuReproRunResources>();
   resources->grammar = cfg.compiled_grammar;
   resources->request = *cfg.generation_request;

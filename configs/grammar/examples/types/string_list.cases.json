@@ -1,0 +1,1 @@
+{"format_version":"fitness-cases","cases":[{"inputs":{"value":{"type":"string_list","value":["alpha","β"]}},"expected":{"type":"string_list","value":["alpha","β"]}}]}

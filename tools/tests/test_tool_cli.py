@@ -30,6 +30,11 @@ class TestToolCli(unittest.TestCase):
             "psb run",
             "psb compare",
             "benchmark population",
+            "grammar init",
+            "grammar validate",
+            "grammar inspect",
+            "grammar resolve",
+            "grammar migrate",
             "report psb-manifest",
             "report simple-manifest",
         ):
@@ -43,6 +48,11 @@ class TestToolCli(unittest.TestCase):
             ("psb", "run"),
             ("psb", "compare"),
             ("benchmark", "population"),
+            ("grammar", "init"),
+            ("grammar", "validate"),
+            ("grammar", "inspect"),
+            ("grammar", "resolve"),
+            ("grammar", "migrate"),
             ("report", "psb-manifest"),
             ("report", "simple-manifest"),
         )

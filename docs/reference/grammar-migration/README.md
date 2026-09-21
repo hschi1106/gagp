@@ -587,7 +587,9 @@ context tables. Joint depth/node feasibility uses a fixed point, including
 productive recursive rules. General recursion/memoization declarations preserve
 exact result tags and phase visibility but explicitly reject execution until the
 later runtime stages. This commit does not introduce package-name runtime dispatch.
-The production grammar-config/generation/runtime paths remain available.
+Historical Goal 02 status: the then-production grammar-config/generation/runtime
+paths remained available at that checkpoint. Current release-2 production has
+cut over to `--grammar-definition`; there is no `--grammar-config` alias.
 
 Validation artifacts are under the existing grammar-migration artifact root:
 

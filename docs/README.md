@@ -19,6 +19,7 @@ contract as a second source of truth.
 | [`guides/benchmarking.md`](guides/benchmarking.md) | Fixed-population timing and canonical native run workflows |
 | [`guides/psb-workflow.md`](guides/psb-workflow.md) | PSB dataset, regression, comparison, and manifest workflows |
 | [`guides/grammar-config.md`](guides/grammar-config.md) | Compiled grammar use, artifacts, and offline release-1 migration |
+| [`guides/grammar-authoring.md`](guides/grammar-authoring.md) | User workflow for creating, checking, resolving, customizing, and running grammars |
 | [`guides/experiment-protocol.md`](guides/experiment-protocol.md) | Canonical experiment protocol and reporting constraints |
 | [`reference/timing.md`](reference/timing.md) | Timing field names, scopes, and output mapping |
 | [`reference/grammar-migration/README.md`](reference/grammar-migration/README.md) | In-progress grammar migration baseline capture and execution evidence |

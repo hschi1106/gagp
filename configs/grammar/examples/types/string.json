@@ -1,0 +1,10 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "Types.String", "type": "String"},
+  "inputs": [{"name": "value", "type": "String"}],
+  "search_limits": {"max_nodes": 5, "max_depth": 4},
+  "execution_limits": {"fuel": 32},
+  "nonterminals": [{"id": "Types.String", "type": "String", "scope": [], "alternatives": [
+    {"id": "identity", "weight": 1, "expression": {"input": "value"}}
+  ]}]
+}

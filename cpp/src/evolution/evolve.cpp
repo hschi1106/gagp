@@ -227,15 +227,8 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
   const auto gpu_repro_resources = cfg.reproduction_backend == repro::ReproductionBackend::Gpu
       ? repro::make_gpu_repro_run_resources(reproduction_cfg) : nullptr;
   const PayloadLifetimeManager payload_lifetime(cases, gpu_repro_resources);
-  const auto init_t0 = std::chrono::steady_clock::now();
-  PopulationInitialization initialization =
-      initialize_population(cfg, case_set, initial_population);
-  std::vector<ProgramGenome> population = std::move(initialization.population);
-  const auto init_t1 = std::chrono::steady_clock::now();
 
   EvolutionResult result;
-  result.timing.init_population_ms =
-      std::chrono::duration<double, std::milli>(init_t1 - init_t0).count();
   result.timing.generations.reserve(static_cast<std::size_t>(cfg.generations));
 
 #ifdef GAGP_HAS_CUDA
@@ -254,6 +247,15 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
     throw std::runtime_error("gpu evaluation requested but CUDA is unavailable in this build");
 #endif
   }
+
+  const auto init_t0 = std::chrono::steady_clock::now();
+  PopulationInitialization initialization =
+      initialize_population(cfg, case_set, initial_population);
+  std::vector<ProgramGenome> population = std::move(initialization.population);
+  const auto init_t1 = std::chrono::steady_clock::now();
+
+  result.timing.init_population_ms =
+      std::chrono::duration<double, std::milli>(init_t1 - init_t0).count();
 
   payload_lifetime.retain(population, result.history_best);
 

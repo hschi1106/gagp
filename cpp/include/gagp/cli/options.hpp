@@ -29,14 +29,8 @@ struct CliOptions {
   bool fuel_explicit = false;
   int max_expr_depth = 7;
   bool max_expr_depth_explicit = false;
-  int max_stmts_per_block = 6;
-  bool max_stmts_per_block_explicit = false;
   int max_total_nodes = 80;
   bool max_total_nodes_explicit = false;
-  int max_for_k = 16;
-  bool max_for_k_explicit = false;
-  int max_call_args = 3;
-  bool max_call_args_explicit = false;
   std::string show_program = "none";
   std::string timing = "summary";
   std::string out_json;

@@ -1,0 +1,1 @@
+{"format_version":"fitness-cases","cases":[{"inputs":{"value":{"type":"int_list","value":[-3,0,5]}},"expected":{"type":"int_list","value":[-3,0,5]}}]}

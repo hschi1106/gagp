@@ -48,10 +48,7 @@ int main() {
     assert(opts.seed == 0);
     assert(opts.fuel == 20000);
     assert(opts.max_expr_depth == 7);
-    assert(opts.max_stmts_per_block == 6);
     assert(opts.max_total_nodes == 80);
-    assert(opts.max_for_k == 16);
-    assert(opts.max_call_args == 3);
     assert(opts.show_program == "none");
     assert(opts.timing == "summary");
   }
@@ -65,8 +62,7 @@ int main() {
         "--blocksize", "256", "--population-size", "32", "--generations", "9",
         "--mutation-rate", "0.25", "--mutation-subtree-prob", "0.4",
         "--penalty", "2.5", "--selection-pressure", "4", "--seed", "42",
-        "--fuel", "500", "--max-expr-depth", "8", "--max-stmts-per-block", "7",
-        "--max-total-nodes", "100", "--max-for-k", "12", "--max-call-args", "5",
+        "--fuel", "500", "--max-expr-depth", "8", "--max-total-nodes", "100",
         "--show-program", "both", "--timing", "all", "--out-json", "run.json"});
     assert(opts.population_json == "population.json");
     assert(opts.grammar_definition_path == "grammar.json");
@@ -77,11 +73,9 @@ int main() {
     assert(opts.blocksize == 256 && opts.population_size == 32 && opts.generations == 9);
     assert(opts.mutation_rate == 0.25 && opts.mutation_subtree_prob == 0.4);
     assert(opts.penalty == 2.5 && opts.selection_pressure == 4 && opts.seed == 42);
-    assert(opts.fuel == 500 && opts.max_expr_depth == 8 && opts.max_stmts_per_block == 7);
-    assert(opts.max_total_nodes == 100 && opts.max_for_k == 12 && opts.max_call_args == 5);
+    assert(opts.fuel == 500 && opts.max_expr_depth == 8 && opts.max_total_nodes == 100);
     assert(opts.fuel_explicit && opts.max_expr_depth_explicit &&
-           opts.max_stmts_per_block_explicit && opts.max_total_nodes_explicit &&
-           opts.max_for_k_explicit && opts.max_call_args_explicit);
+           opts.max_total_nodes_explicit);
     assert(opts.show_program == "both" && opts.timing == "all" && opts.out_json == "run.json");
   }
 
@@ -91,6 +85,12 @@ int main() {
   expect_error({"cli", "--cases", "x", "--unknown"}, "unknown argument: --unknown");
   expect_error({"cli", "--cases", "x", "--grammar-config", "old.json"},
                "unknown argument: --grammar-config");
+  expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--max-stmts-per-block", "7"},
+               "unknown argument: --max-stmts-per-block");
+  expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--max-for-k", "12"},
+               "unknown argument: --max-for-k");
+  expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--max-call-args", "5"},
+               "unknown argument: --max-call-args");
   expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--engine", "other"}, "--engine must be cpu or gpu");
   expect_error({"cli", "--cases", "x", "--grammar-definition", "g", "--repro-backend", "other"},
                "--repro-backend must be cpu or gpu");

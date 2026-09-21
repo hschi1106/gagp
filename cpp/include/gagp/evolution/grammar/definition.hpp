@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include "gagp/cli/json.hpp"
 
@@ -14,6 +15,9 @@ struct ResolvedDefinition {
   cli_detail::JsonValue document;
   std::string canonical;
   std::string content_hash;
+  // Canonical root/import paths consulted while resolving a file-backed
+  // definition. In-memory definitions have no source paths.
+  std::vector<std::filesystem::path> source_paths;
 };
 
 std::string canonical_json(const cli_detail::JsonValue& value);

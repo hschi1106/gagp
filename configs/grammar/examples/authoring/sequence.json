@@ -1,0 +1,26 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "Authoring.Sequence", "type": "IntList"},
+  "inputs": [{"name": "source", "type": "IntList"}],
+  "search_limits": {"max_nodes": 7, "max_depth": 4},
+  "execution_limits": {"fuel": 32},
+  "nonterminals": [{
+    "id": "Authoring.Sequence",
+    "type": "IntList",
+    "scope": [],
+    "alternatives": [
+      {"id": "input", "weight": 2, "expression": {"input": "source"}},
+      {"id": "reverse", "weight": 1, "expression": {
+        "signature": "reverse(IntList)->IntList",
+        "args": [{"input": "source"}]
+      }},
+      {"id": "concat_with_reverse", "weight": 1, "expression": {
+        "signature": "concat(IntList,IntList)->IntList",
+        "args": [
+          {"input": "source"},
+          {"signature": "reverse(IntList)->IntList", "args": [{"input": "source"}]}
+        ]
+      }}
+    ]
+  }]
+}

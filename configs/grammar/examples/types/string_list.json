@@ -1,0 +1,10 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "Types.StringList", "type": "StringList"},
+  "inputs": [{"name": "value", "type": "StringList"}],
+  "search_limits": {"max_nodes": 5, "max_depth": 4},
+  "execution_limits": {"fuel": 32},
+  "nonterminals": [{"id": "Types.StringList", "type": "StringList", "scope": [], "alternatives": [
+    {"id": "identity", "weight": 1, "expression": {"input": "value"}}
+  ]}]
+}

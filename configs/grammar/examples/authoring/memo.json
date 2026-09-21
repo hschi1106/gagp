@@ -1,0 +1,60 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "Authoring.Memo", "type": "Int"},
+  "inputs": [{"name": "row", "type": "Int"}, {"name": "column", "type": "Int"}],
+  "search_limits": {"max_nodes": 64, "max_depth": 20},
+  "execution_limits": {"fuel": 20000},
+  "nonterminals": [{
+    "id": "Authoring.Memo",
+    "type": "Int",
+    "scope": [],
+    "alternatives": [{"id": "skew_dependencies", "weight": 1, "expression": {
+      "structured": {"family": "bounded", "plan": {
+        "version": 1,
+        "state_types": ["Int", "Int"],
+        "result_type": "Int",
+        "parameter_types": [],
+        "preparations": [],
+        "request_expression_types": [],
+        "bound_operand_count": 0,
+        "requests": [
+          {"states": [
+            {"kind": "coordinate_offset", "source_state": 0, "offset": "-1", "window": {"begin": {"kind": "begin", "cut": 0}, "end": {"kind": "begin", "cut": 0}}, "expression": 0},
+            {"kind": "coordinate_offset", "source_state": 1, "offset": "2", "window": {"begin": {"kind": "begin", "cut": 0}, "end": {"kind": "begin", "cut": 0}}, "expression": 0}
+          ]},
+          {"states": [
+            {"kind": "coordinate_offset", "source_state": 0, "offset": "0", "window": {"begin": {"kind": "begin", "cut": 0}, "end": {"kind": "begin", "cut": 0}}, "expression": 0},
+            {"kind": "coordinate_offset", "source_state": 1, "offset": "-1", "window": {"begin": {"kind": "begin", "cut": 0}, "end": {"kind": "begin", "cut": 0}}, "expression": 0}
+          ]}
+        ],
+        "limits": {"frames": 128, "cells": 128, "entry_fuel": 1},
+        "memoized": true,
+        "duplicate_policy": "reject",
+        "progress": "coordinates",
+        "coordinate_slots": [0, 1],
+        "coordinate_rank": [{"coordinate": 0, "direction": 1}, {"coordinate": 1, "direction": 1}],
+        "coordinate_domains": [
+          {"lower": {"kind": "literal", "literal": "0", "operand": 0}, "upper": {"kind": "literal", "literal": "4", "operand": 0}},
+          {"lower": {"kind": "literal", "literal": "0", "operand": 0}, "upper": {"kind": "literal", "literal": "4", "operand": 0}}
+        ],
+        "coordinate_endpoint": "inclusive",
+        "sequence_state": 0
+      }},
+      "captures": [],
+      "phases": [
+        {"argument": 2, "bindings": [{"bank": "state", "slot": 0, "name": "i"}, {"bank": "state", "slot": 1, "name": "j"}]},
+        {"argument": 3, "bindings": []},
+        {"argument": 4, "bindings": [{"bank": "result", "slot": 0, "name": "skew"}, {"bank": "result", "slot": 1, "name": "previous"}]},
+        {"argument": 5, "bindings": []}
+      ],
+      "args": [
+        {"input": "row"},
+        {"input": "column"},
+        {"constant": {"type": "Bool", "values": [false]}},
+        {"constant": {"type": "Int", "values": ["1"]}},
+        {"signature": "add(Int,Int)->Int", "args": [{"bound": "skew"}, {"bound": "previous"}]},
+        {"constant": {"type": "Int", "values": ["0"]}}
+      ]
+    }}]
+  }]
+}

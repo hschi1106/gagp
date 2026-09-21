@@ -122,10 +122,7 @@ class TestDocumentationStructure(unittest.TestCase):
         for field in (
             "fuel_explicit",
             "max_expr_depth_explicit",
-            "max_stmts_per_block_explicit",
             "max_total_nodes_explicit",
-            "max_for_k_explicit",
-            "max_call_args_explicit",
         ):
             self.assertEqual(field_defaults.pop(field), "off")
 

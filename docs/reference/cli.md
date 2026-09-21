@@ -31,10 +31,7 @@ not supported; it follows the unknown-argument error contract.
 | `--seed` | `seed` | `0` | Deterministic RNG seed |
 | `--fuel` | `fuel` | `20000` | Explicit values must equal the grammar definition's execution fuel |
 | `--max-expr-depth` | `max_expr_depth` | `7` | Explicit values must equal the grammar definition's maximum depth |
-| `--max-stmts-per-block` | `max_stmts_per_block` | `6` | Legacy override rejected for compiled evolution |
 | `--max-total-nodes` | `max_total_nodes` | `80` | Explicit values must equal the grammar definition's maximum nodes |
-| `--max-for-k` | `max_for_k` | `16` | Legacy override rejected for compiled evolution |
-| `--max-call-args` | `max_call_args` | `3` | Legacy override rejected for compiled evolution |
 | `--show-program` | `show_program` | `none` | Program output: `none`, `ast`, `bytecode`, or `both` |
 | `--timing` | `timing` | `summary` | Timing output: `none`, `summary`, `per_gen`, or `all` |
 | `--out-json` | `out_json` | `unset` | Optional result JSON path |
@@ -45,11 +42,16 @@ Fixed-population timing should use `--population-json`, `--generations 1`,
 comparison procedure.
 
 Evolution uses the same canonical definition loader and compiler as
-`gagp_generate_cli`, and result metadata records the resolved content hash. Passing a
+`gagp_generate_cli`. Result `meta.grammar_definition` records the source path,
+canonical resolved `content_sha256`, `format_version`, `catalog_version`,
+`normalization_version`, `semantic_version`, `generator_version`, and
+`rng_version`. Together with cases, seed, and generation request, this is the
+deterministic same-version identity tuple. Passing a
 legacy `format_version=grammar-config` file to `--grammar-definition` reports that it
 must be migrated offline to `grammar-definition-v2`. `--population-json` accepts materialized
 `grammar-population-v2` artifacts; seed-only `population-seeds` files are rejected
 with instructions to materialize them in the frozen release-1 build and migrate the ASTs.
+There is no production `--grammar-config` flag or alias.
 
 `--eval-ast-json` also accepts `grammar-generated-v2` and
 `grammar-materialized-v2` artifacts. This evaluates
@@ -98,6 +100,24 @@ and leaves an existing destination unchanged. Unknown or duplicate options, miss
 option values, incomplete numeric triplets, and unsupported route/option combinations
 exit with status 2 and a diagnostic on standard error. The command has no `--help`
 mode.
+
+`gagp_grammar_cli` provides native authoring diagnostics:
+
+```text
+gagp_grammar_cli {validate|inspect|resolve} --grammar-definition PATH [--out-json PATH]
+gagp_grammar_cli --help
+```
+
+All three actions require `--grammar-definition`. `validate` emits
+`grammar-validation-v1` with resolved identity, entry, limits, counts, and
+entry executability. `inspect` emits `grammar-inspection-v1` with compiled
+nonterminals, productions, contexts, scopes, templates, minimum costs, and the
+same identity. `resolve` emits canonical import-resolved
+`grammar-definition-v2`. Without `--out-json`, the artifact is written to
+stdout. With it, the command writes atomically and stdout reports the action
+and grammar hash. Root or imported-source overwrite, duplicate/unknown flags, resolution
+failures, and compilation failures return status 2 with a structured
+`grammar-diagnostic-v1` on stderr.
 
 
 Compiled-grammar variation counters are exposed alongside reproduction timing. The nine

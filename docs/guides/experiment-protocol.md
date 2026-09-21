@@ -158,10 +158,7 @@ mutation_subtree_prob: 0.8
 penalty: 1.0
 fuel: 20000
 max_expr_depth: 7
-max_stmts_per_block: 6
 max_total_nodes: 80
-max_for_k: 16
-max_call_args: 3
 blocksize: 1024
 retain_final_population: off
 timing: all
@@ -458,7 +455,7 @@ ctest --test-dir cpp/build_release --output-on-failure
 ```bash
 python3 tools/make_population.py \
   --generator cpp/build_release/gagp_generate_cli \
-  --grammar-definition configs/grammar/basic/int.json \
+  --grammar-definition configs/grammar/benchmarks/simple_exp.json \
   --cases data/fixtures/simple_exp_1024.json \
   --population-size 4096 \
   --seed 0 \
@@ -469,7 +466,7 @@ python3 tools/make_population.py \
 GAGP_CUDA_DEVICE=0 cpp/build_release/gagp_evolve_cli \
   --cases data/fixtures/simple_exp_1024.json \
   --population-json logs/experiment/fixed/simple_exp_p4096.population-v2.json \
-  --grammar-definition configs/grammar/basic/int.json \
+  --grammar-definition configs/grammar/benchmarks/simple_exp.json \
   --engine gpu \
   --repro-backend gpu \
   --repro-overlap on \
@@ -486,14 +483,19 @@ GAGP_CUDA_DEVICE=0 cpp/build_release/gagp_evolve_cli \
 
 ```bash
 SEEDS=$(seq -s, 0 99)
+cpp/build_release/gagp_migrate_artifact \
+  --input configs/grammar/migration/v1/sequence.json \
+  --cases data/fixtures/psb1/count-odds.train.json \
+  --conversion-profile constrained-intent-v1 \
+  --out /tmp/count-odds-v2.json
 GAGP_CUDA_DEVICE=0 python3 tools/run_psb_regression.py \
   --suite psb1 \
   --profile compact \
-  --cases-root data/fixtures/experiment/psb1-core-paper \
-  --problems compare-string-lengths,count-odds,last-index-of-zero,median,smallest \
+  --cases-root data/fixtures/psb1 \
+  --problems count-odds \
   --seeds "$SEEDS" \
   --binary cpp/build_release/gagp_evolve_cli \
-  --grammar-definition configs/grammar/basic/int.json \
+  --grammar-definition /tmp/count-odds-v2.json \
   --engine gpu \
   --repro-backend gpu \
   --repro-overlap on \
@@ -502,7 +504,6 @@ GAGP_CUDA_DEVICE=0 python3 tools/run_psb_regression.py \
   --selection-pressure 2 \
   --mutation-rate 0.5 \
   --mutation-subtree-prob 0.8 \
-  --fuel 20000 \
   --eval-test \
   --out-dir logs/experiment/effectiveness/gpu_repro_overlap
 ```
@@ -541,7 +542,7 @@ logs/experiment/<study_id>/<commit>/<hardware_id>/<mode>/<problem>/<seed_or_repe
 1. `run_psb_regression.py` 目前以 final population best 判定成功，未保存 best-ever AST、first-solved generation/NFE/time；需補齊後才能正確計算 success 與 ERT。
 2. evolution loop 目前不 early-stop。可維持 fixed full budget，但需保存 first-solved event；若實作 early-stop，所有 mode 必須同時使用相同規則。
 3. PSB converter 需保證 train/test random rows 跨 split 不重複，manifest 必須驗證 overlap=0。
-4. regression runner 應明確轉送並記錄 `--penalty` 與所有 `--max-*` limits，不能只依賴 CLI defaults。
+4. regression runner 應明確記錄 `penalty`、resolved grammar hash，以及 grammar-owned search/execution limits；不得用 CLI defaults 取代 definition identity。
 5. controlled depth/node populations 必須以 `ast-prefix-v2` AST、凍結的
    `grammar-definition-v2` 與 `grammar-population-v2` materialize，並通過
    same-version replay check。
