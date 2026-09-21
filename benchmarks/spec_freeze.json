@@ -1,23 +1,23 @@
 {
   "authoritative_entrypoint": "spec/grammar.md",
   "format_version": "spec-freeze",
-  "generated_at": "2026-09-14",
+  "generated_at": "2026-09-21",
   "notes": [
-    "This manifest records the maintained normative spec set, including the staged internal typed grammar-definition contract; existing runtime semantics remain release 1.0.0.",
+    "This manifest records the maintained normative spec set, including the typed grammar-definition and compiled CPU/GPU execution contract; existing runtime semantics remain release 1.0.0.",
     "The hash gate is intentionally mechanical: if a listed spec changes, update this manifest in the same semantic change."
   ],
   "specs": [
     {
       "path": "spec/grammar.md",
-      "sha256": "f9e9341510bf6670b28b1b479c6e7bce00fcfd76fe8d8090ed65acaaa6707004"
+      "sha256": "0057818c4650bfdde4abb368c4946452bc2aae4edf3fa738e6eb6f0ea579ab30"
     },
     {
       "path": "spec/bytecode_isa.md",
-      "sha256": "f47b3ef49b61895c8ec4b17e8a15b8cfdc8453d47bb96bffc0d1e9fafd0bbf62"
+      "sha256": "cbb1dac44352165e1ef6274126dd33d05439a3935cecc842656b469f2ee13bc4"
     },
     {
       "path": "spec/bytecode_format.md",
-      "sha256": "de80602fe58d7b5e5d4680c170c07a7ade281151bfbf0145591f4726188cc960"
+      "sha256": "137041e0549622aeeaaee7d2e89d0987609bdcb74de826b89797823419a94f89"
     },
     {
       "path": "spec/builtins_base.md",
@@ -37,11 +37,11 @@
     },
     {
       "path": "spec/grammar_config.md",
-      "sha256": "4a35a93b65ca6cb320e0d0fae3a679341ceac2dfc5ffc353643e83d0b4b40ea6"
+      "sha256": "b2d8563f0a83223e50369b9aa2e2e709213a5ef3809e390c882218f7962bb1c2"
     },
     {
       "path": "spec/grammar_definition.md",
-      "sha256": "9a9b26fca4b8afd3f66dca7df5445b55529490289f8b4298db759185118fad04"
+      "sha256": "13f2f79251b006691b88cee07394f653d5aec95d0b2c9766c36802852352b870"
     }
   ],
   "status": "frozen"

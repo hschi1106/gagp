@@ -16,6 +16,7 @@
 #include "gagp/evolution/grammar/variation.hpp"
 #include "gagp/evolution/repro/pack.hpp"
 #include "../subtree_utils.hpp"
+#include "constant_prep.hpp"
 
 namespace gagp::evo::repro {
 namespace {
@@ -94,11 +95,18 @@ ProgramGenome extract_donor_fragment(const grammar::ContextualDonor& donor) {
   return fragment;
 }
 
+bool shares_owner(
+    const std::shared_ptr<const grammar::CompiledGrammar>& left,
+    const std::shared_ptr<const grammar::CompiledGrammar>& right) {
+  return left && right && !left.owner_before(right) && !right.owner_before(left);
+}
+
 }  // namespace
 
 PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& population,
                                        const GpuReproConfig& config,
-                                       grammar::VariationContext& context) {
+                                       grammar::VariationContext& context,
+                                       std::shared_ptr<const ConstantMutationDomains> domains) {
   if (config.contract_mode != ReproductionContractMode::CompiledGrammar)
     throw std::invalid_argument("compiled grammar preprocessing requires compiled contract mode");
   if (config.population_size <= 0 || config.population_size > 65536 ||
@@ -119,11 +127,19 @@ PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& populat
       throw std::invalid_argument("compiled grammar parent exceeds configured max_nodes");
   }
 
+  if (!domains)
+    domains = prepare_constant_mutation_domains(context.grammar_owner());
+  if (!shares_owner(domains->grammar_owner, context.grammar_owner()))
+    throw std::invalid_argument(
+        "constant mutation domains do not match the compiled grammar owner");
+  auto constants = std::make_shared<ConstantMutationTable>();
+  constants->grammar_domains = std::move(domains);
   PreprocessOutput out;
   out.contract_mode = ReproductionContractMode::CompiledGrammar;
   out.prepared_max_nodes = config.max_nodes;
   out.prepared_max_depth = config.max_expr_depth;
   out.compiled_grammar = context.grammar_owner();
+  out.constant_mutation = constants;
   out.population_identities.reserve(population.size());
   out.subtree_ends.resize(population.size());
   out.candidates.resize(population.size());
@@ -140,6 +156,8 @@ PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& populat
         parent, input_names, context.grammar().execution_limits().fuel));
 
     const auto analysis = context.cache().analyze(parent, context.request());
+    out.parent_constant_streams.push_back(as_int(constants->streams.size(), "parent constant stream"));
+    append_constant_mutation_stream(*constants, parent.ast, analysis->verified, analysis->witness);
     out.subtree_ends[parent_index] = analysis->verified.subtree_end;
     if (analysis->sites.size() > kMaxCompiledPrepItems)
       throw std::invalid_argument("compiled grammar site count exceeds compiled preparation limit");
@@ -160,15 +178,34 @@ PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& populat
 
     for (const std::size_t site_index : site_indices) {
       const grammar::VariationSite& site = analysis->sites[site_index];
+      if (site.occurrence_binder_ids.size() != site.occurrences.size())
+        throw std::logic_error(
+            "compiled variation candidate binder mappings do not align with occurrences");
       require_room(out.occurrences.size(), site.occurrences.size(),
                    "compiled grammar occurrence count");
 
       CandidateRange candidate =
           make_candidate(site, out.occurrences.size(), out.donor_pool.size());
-      for (const auto& occurrence : site.occurrences) {
+      std::size_t formal_arity = 0;
+      if (!site.occurrence_binder_ids.empty())
+        formal_arity = site.occurrence_binder_ids.front().size();
+      for (std::size_t occurrence_index = 0;
+           occurrence_index < site.occurrences.size(); ++occurrence_index) {
+        const auto& occurrence = site.occurrences[occurrence_index];
+        const auto& binder_ids = site.occurrence_binder_ids[occurrence_index];
+        if (binder_ids.size() != formal_arity)
+          throw std::logic_error(
+              "compiled variation candidate occurrences have different binder arities");
+        require_room(out.occurrence_binder_ids.size(), binder_ids.size(),
+                     "compiled grammar occurrence binder count");
         out.occurrences.push_back(CandidateOccurrence{
             as_int(occurrence.begin, "candidate occurrence start"),
-            as_int(occurrence.end, "candidate occurrence stop")});
+            as_int(occurrence.end, "candidate occurrence stop"),
+            as_int(out.occurrence_binder_ids.size(),
+                   "candidate occurrence binder offset"),
+            as_int(binder_ids.size(), "candidate occurrence binder count")});
+        out.occurrence_binder_ids.insert(
+            out.occurrence_binder_ids.end(), binder_ids.begin(), binder_ids.end());
       }
 
       for (int attempt = 0; attempt < config.donor_pool_size_per_site; ++attempt) {
@@ -180,7 +217,22 @@ PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& populat
           continue;
         }
         require_room(out.donor_pool.size(), 1, "compiled grammar donor count");
+        if (!donor.frame.binder_ids.empty() &&
+            donor.frame.binder_ids != site.occurrence_binder_ids.front())
+          throw std::logic_error(
+              "compiled donor formal binder IDs differ from its source occurrence");
+        const auto& donor_binder_ids = site.occurrence_binder_ids.front();
+        require_room(out.donor_binder_ids.size(), donor_binder_ids.size(),
+                     "compiled grammar donor binder count");
         ProgramGenome fragment = extract_donor_fragment(donor);
+        if (!donor.genome.derivation || donor.payload.end > donor.genome.derivation->nodes.size())
+          throw std::logic_error("compiled donor lost its verified constant witness");
+        grammar::DerivationMetadata fragment_witness;
+        fragment_witness.nodes.assign(
+            donor.genome.derivation->nodes.begin() + donor.payload.begin,
+            donor.genome.derivation->nodes.begin() + donor.payload.end);
+        out.donor_constant_streams.push_back(as_int(constants->streams.size(), "donor constant stream"));
+        append_constant_mutation_stream(*constants, fragment.ast, fragment_witness);
         std::string donor_identity = grammar::runtime_cache_identity(
             fragment, input_names, context.grammar().execution_limits().fuel);
         out.donor_pool.push_back(DonorProgram{std::move(fragment.ast), site.type});
@@ -188,7 +240,11 @@ PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& populat
             site.compatibility_id,
             as_int(donor.nodes, "donor materialized nodes"),
             as_int(donor.depth, "donor materialized depth"),
-            as_int(donor.template_nesting, "donor template nesting")});
+            as_int(donor.template_nesting, "donor template nesting"),
+            as_int(out.donor_binder_ids.size(), "donor binder offset"),
+            as_int(donor_binder_ids.size(), "donor binder count")});
+        out.donor_binder_ids.insert(
+            out.donor_binder_ids.end(), donor_binder_ids.begin(), donor_binder_ids.end());
         out.donor_identities.push_back(std::move(donor_identity));
         ++candidate.donor_count;
       }

@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <limits>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -403,16 +404,6 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
 }
 
 FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodeProgram>& programs) const {
-  for (const BytecodeProgram& program : programs) {
-    if (has_bounded_region(program)) {
-      return fitness_eval_single_error(
-          ErrCode::Value,
-          "bounded region execution is not supported by the GPU runtime");
-    }
-    if (has_semantic_fuel(program)) {
-      return fitness_eval_single_error(ErrCode::Value, "semantic fuel schedules are not supported by the GPU runtime");
-    }
-  }
   if (!impl_ || !impl_->ready) {
     return fitness_eval_single_error(ErrCode::Value, "gpu fitness session is not initialized");
   }
@@ -425,9 +416,13 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
 
   const auto all_t0 = std::chrono::steady_clock::now();
   const auto pack_t0 = std::chrono::steady_clock::now();
-  const gpu_detail::PackResult packed =
-      gpu_detail::pack_programs_with_shared_case_count(
-          programs, impl_->shared_case_count, impl_->shared_input_payload_mask);
+  gpu_detail::PackResult packed;
+  try {
+    packed = gpu_detail::pack_programs_with_shared_case_count(
+        programs, impl_->shared_case_count, impl_->shared_input_payload_mask);
+  } catch (const std::invalid_argument& error) {
+    return fitness_eval_single_error(ErrCode::Value, error.what());
+  }
   if (packed.total_cases == 0) {
     return fitness_eval_single_error(ErrCode::Value, "cases must not be empty");
   }
@@ -457,8 +452,34 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
   if (shared_bytes > static_cast<std::size_t>(impl_->props.sharedMemPerBlock)) {
     return fitness_eval_single_error(ErrCode::Value, "shared memory requirement exceeded");
   }
+  // Keep generic frame/memo storage out of legacy-only kernel call graphs.
   const bool has_asgp = !packed.asgp_dc_segments.empty() || !packed.asgp_dp1d_segments.empty() ||
                         !packed.asgp_dp2d_segments.empty();
+  const bool has_regions = !packed.region_segments.empty();
+  gpu_detail::DRegionWorkspace region_workspace;
+  for (const auto& segment : packed.region_segments) {
+    region_workspace.frame_capacity =
+        std::max(region_workspace.frame_capacity, segment.limits.frames);
+    if (segment.memoized) {
+      region_workspace.memo_capacity =
+          std::max(region_workspace.memo_capacity, segment.limits.cells);
+    }
+  }
+  // Bound transient scratch independently of population size. This limits only
+  // concurrent program blocks, never a program's declared frame or memo limits.
+  constexpr std::size_t kRegionWorkspaceBudget = 512u * 1024u * 1024u;
+  const std::size_t workspace_bytes_per_thread =
+      sizeof(gpu_detail::DRegionFrame) * region_workspace.frame_capacity +
+      (sizeof(std::int64_t) * gpu_detail::DMAX_REGION_STATES + sizeof(Value)) *
+          region_workspace.memo_capacity;
+  const std::size_t workspace_bytes_per_block =
+      workspace_bytes_per_thread * static_cast<std::size_t>(impl_->blocksize);
+  const std::size_t region_blocks = workspace_bytes_per_block == 0 ? programs.size() :
+      std::min(programs.size(), kRegionWorkspaceBudget / workspace_bytes_per_block);
+  if (has_regions && region_blocks == 0) {
+    return fitness_eval_single_error(ErrCode::Value, "GPU region workspace budget exceeded");
+  }
+  const std::size_t workspace_threads = region_blocks * impl_->blocksize;
   const auto launch_prep_t1 = std::chrono::steady_clock::now();
 
   FitnessEvalResult out;
@@ -473,6 +494,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
         !gpu_detail::cuda_alloc_and_copy_in(packed.asgp_dc_segments, &dev.d_asgp_dc_segments) ||
         !gpu_detail::cuda_alloc_and_copy_in(packed.asgp_dp1d_segments, &dev.d_asgp_dp1d_segments) ||
         !gpu_detail::cuda_alloc_and_copy_in(packed.asgp_dp2d_segments, &dev.d_asgp_dp2d_segments) ||
+        !gpu_detail::cuda_alloc_and_copy_in(packed.region_segments, &dev.d_region_segments) ||
+        !gpu_detail::cuda_alloc_and_copy_in(packed.region_phases, &dev.d_region_phases) ||
+        !gpu_detail::cuda_alloc_and_copy_in(packed.region_bindings, &dev.d_region_bindings) ||
         !gpu_detail::cuda_alloc_and_copy_in(packed.metas, &dev.d_metas) ||
         !gpu_detail::cuda_alloc_and_copy_in(payload_pack.string_entries, &dev.d_string_payload_entries) ||
         !gpu_detail::cuda_alloc_and_copy_in(payload_pack.string_bytes, &dev.d_string_payload_bytes) ||
@@ -486,10 +510,40 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
     if (cudaMemset(dev.d_fitness, 0, sizeof(double) * programs.size()) != cudaSuccess) {
       return fitness_eval_single_error(ErrCode::Value, "cuda memset failure");
     }
+    if (has_regions) {
+      const std::size_t frame_bytes = workspace_threads * region_workspace.frame_capacity *
+                                      sizeof(gpu_detail::DRegionFrame);
+      const std::size_t key_bytes = workspace_threads * region_workspace.memo_capacity *
+                                    gpu_detail::DMAX_REGION_STATES * sizeof(std::int64_t);
+      const std::size_t value_bytes = workspace_threads * region_workspace.memo_capacity * sizeof(Value);
+      if ((frame_bytes && cudaMalloc(reinterpret_cast<void**>(&dev.d_region_frames), frame_bytes) != cudaSuccess) ||
+          (key_bytes && cudaMalloc(reinterpret_cast<void**>(&dev.d_region_memo_keys), key_bytes) != cudaSuccess) ||
+          (value_bytes && cudaMalloc(reinterpret_cast<void**>(&dev.d_region_memo_values), value_bytes) != cudaSuccess)) {
+        return fitness_eval_single_error(ErrCode::Value, "cuda region workspace allocation failure");
+      }
+      region_workspace.frames = dev.d_region_frames;
+      region_workspace.memo_keys = dev.d_region_memo_keys;
+      region_workspace.memo_values = dev.d_region_memo_values;
+    }
     const auto upload_t1 = std::chrono::steady_clock::now();
 
     const auto kernel_t0 = std::chrono::steady_clock::now();
-    if (has_asgp) {
+    if (has_regions) {
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::Mixed, true, true>
+          <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
+              static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
+              impl_->d_shared_case_local_vals, impl_->d_shared_case_local_set, impl_->d_expected,
+              dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
+              dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
+              dev.d_phase_code, dev.d_phase_consts, dev.d_asgp_dc_segments,
+              static_cast<int>(packed.asgp_dc_segments.size()), dev.d_asgp_dp1d_segments,
+              static_cast<int>(packed.asgp_dp1d_segments.size()), dev.d_asgp_dp2d_segments,
+              static_cast<int>(packed.asgp_dp2d_segments.size()),
+              impl_->fuel, impl_->penalty, dev.d_fitness,
+              dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
+              dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
+              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace);
+    } else if (has_asgp) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::Mixed, true>
           <<<static_cast<unsigned int>(programs.size()), impl_->blocksize, shared_bytes>>>(
               static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
@@ -500,7 +554,10 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
               static_cast<int>(packed.asgp_dc_segments.size()), dev.d_asgp_dp1d_segments,
               static_cast<int>(packed.asgp_dp1d_segments.size()), dev.d_asgp_dp2d_segments,
               static_cast<int>(packed.asgp_dp2d_segments.size()),
-              impl_->fuel, impl_->penalty, dev.d_fitness);
+              impl_->fuel, impl_->penalty, dev.d_fitness,
+              dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
+              dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
+              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()));
     } else {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::Mixed, false>
           <<<static_cast<unsigned int>(programs.size()), impl_->blocksize, shared_bytes>>>(

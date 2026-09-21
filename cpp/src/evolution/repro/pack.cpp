@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <stdexcept>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -15,6 +16,7 @@
 #include "gagp/evolution/node_descriptor.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 #include "../subtree_utils.hpp"
+#include "constant_prep.hpp"
 
 namespace gagp::evo::repro {
 
@@ -1307,9 +1309,54 @@ PlainAsgpDp2dSpec encode_asgp_dp2d_spec(const AsgpDp2dSpec& spec) {
 }
 
 namespace {
+// Account logical source storage, including nested sidecars, before copying it.
+// Allocator bookkeeping/capacity slack is outside the packed-buffer byte budget.
+std::uint64_t splice_source_bytes(const AstProgram& ast) {
+  constexpr std::uint64_t limit = 256ULL * 1024 * 1024;
+  std::uint64_t bytes = sizeof(AstProgram);
+  const auto add = [&](std::size_t count, std::size_t width) {
+    if (count > limit / width || bytes > limit - count * width)
+      throw std::invalid_argument("compiled source metadata exceeds 256 MiB");
+    bytes += count * width;
+  };
+  const auto vector = [&](const auto& values) {
+    add(values.size(), sizeof(typename std::decay_t<decltype(values)>::value_type));
+  };
+  add(ast.version.size() + 1, 1);
+  vector(ast.nodes); vector(ast.names); vector(ast.consts);
+  for (const auto& name : ast.names) add(name.size() + 1, 1);
+  vector(ast.linear_rec_binders); vector(ast.asgp_dc_binders);
+  vector(ast.asgp_dp1d_specs); vector(ast.asgp_dp2d_specs);
+  for (const auto& spec : ast.asgp_dp1d_specs) {
+    vector(spec.dep_offsets); vector(spec.transition_dep_names);
+  }
+  for (const auto& spec : ast.asgp_dp2d_specs) vector(spec.transition_dep_names);
+  vector(ast.lexical_regions);
+  for (const auto& region : ast.lexical_regions) vector(region.bindings);
+  vector(ast.traversal_specs); vector(ast.fuel_specs);
+  for (const auto& fuel : ast.fuel_specs) vector(fuel.charges);
+  vector(ast.bounded_region_specs);
+  for (const auto& region : ast.bounded_region_specs) {
+    vector(region.parameters); vector(region.phases);
+    for (const auto& phase : region.phases) vector(phase.bindings);
+    const auto& plan = region.plan;
+    vector(plan.state_types); vector(plan.parameter_types);
+    vector(plan.preparations); vector(plan.request_expression_types);
+    vector(plan.requests);
+    for (const auto& request : plan.requests) vector(request.states);
+    vector(plan.coordinate_slots); vector(plan.coordinate_rank);
+    vector(plan.coordinate_domains);
+  }
+  return bytes;
+}
+
 GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population,
     const PreprocessOutput& prep, GpuReproConfig config) {
-  if (!prep.compiled_grammar || prep.population_identities.size() != population.size() ||
+  if (!prep.compiled_grammar || !prep.constant_mutation ||
+      !prep.constant_mutation->grammar_domains ||
+      prep.parent_constant_streams.size() != population.size() ||
+      prep.donor_constant_streams.size() != prep.donor_pool.size() ||
+      prep.population_identities.size() != population.size() ||
       prep.candidates.size() != population.size() || prep.subtree_ends.size() != population.size() ||
       prep.donor_contracts.size() != prep.donor_pool.size() ||
       prep.donor_identities.size() != prep.donor_pool.size())
@@ -1322,9 +1369,38 @@ GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population
       config.max_donor_nodes <= 0 || config.max_donor_nodes > kGpuReproKernelMaxNodes ||
       config.max_names <= 0 || config.max_names > kGpuReproMaxNames ||
       config.max_consts <= 0 || config.max_consts > kGpuReproMaxConsts ||
-      prep.donor_pool.size() > 1048576 || prep.occurrences.size() > 1048576)
+      prep.donor_pool.size() > 1048576 || prep.occurrences.size() > 1048576 ||
+      prep.occurrence_binder_ids.size() > 1048576 || prep.donor_binder_ids.size() > 1048576)
     throw std::invalid_argument("compiled pack exceeds supported host/device capacities");
-  // No structured side tables are executable in this staged grammar subset.
+  const auto& mutation = *prep.constant_mutation;
+  const auto& domains = *mutation.grammar_domains;
+  if (!domains.grammar_owner ||
+      domains.grammar_owner.owner_before(prep.compiled_grammar) ||
+      prep.compiled_grammar.owner_before(domains.grammar_owner))
+    throw std::invalid_argument(
+        "compiled pack constant domains do not match its grammar owner");
+  const auto check_constant_stream = [&](int index, const AstProgram& ast) {
+    if (index < 0 || static_cast<std::size_t>(index) >= mutation.streams.size())
+      throw std::invalid_argument("compiled pack has an invalid constant stream index");
+    const auto& stream = mutation.streams[index];
+    if (stream.node_count < 0 || static_cast<std::size_t>(stream.node_count) != ast.nodes.size() ||
+        stream.node_origin_offset < 0 || stream.group_offset < 0 || stream.group_count < 0 ||
+        stream.metadata_root_offset < 0 || stream.metadata_root_count < 0 ||
+        static_cast<std::size_t>(stream.metadata_root_offset) + stream.metadata_root_count > mutation.metadata_roots.size() ||
+        static_cast<std::size_t>(stream.node_origin_offset) + stream.node_count > mutation.node_group_origins.size() ||
+        static_cast<std::size_t>(stream.group_offset) + stream.group_count > mutation.groups.size())
+      throw std::invalid_argument("compiled pack has an invalid constant stream slice");
+    for (int i = 0; i < stream.metadata_root_count; ++i) {
+      const int root = mutation.metadata_roots[stream.metadata_root_offset + i];
+      if (root < 0 || static_cast<std::size_t>(root) >= ast.consts.size())
+        throw std::invalid_argument("compiled pack has an invalid metadata constant root");
+    }
+  };
+  for (std::size_t i = 0; i < population.size(); ++i)
+    check_constant_stream(prep.parent_constant_streams[i], population[i].ast);
+  for (std::size_t i = 0; i < prep.donor_pool.size(); ++i)
+    check_constant_stream(prep.donor_constant_streams[i], prep.donor_pool[i].ast);
+  // Compiled decoding uses immutable AST sources, never truncated legacy POD sidecars.
   config.max_linear_rec_binders = config.max_asgp_dc_binders = 0;
   config.max_asgp_dp1d_specs = config.max_asgp_dp2d_specs = 0;
   std::vector<std::string> inputs;
@@ -1332,9 +1408,7 @@ GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population
   const auto fuel = prep.compiled_grammar->execution_limits().fuel;
   const auto prescan = [&](const AstProgram& ast, bool donor) {
     if (ast.nodes.empty() || ast.nodes.size() > static_cast<std::size_t>(config.max_nodes) ||
-        ast.names.size() > kGpuReproMaxNames || ast.consts.size() > kGpuReproMaxConsts ||
-        !ast.linear_rec_binders.empty() || !ast.asgp_dc_binders.empty() ||
-        !ast.asgp_dp1d_specs.empty() || !ast.asgp_dp2d_specs.empty())
+        ast.names.size() > kGpuReproMaxNames || ast.consts.size() > kGpuReproMaxConsts)
       throw std::invalid_argument("compiled pack cannot truncate nodes, tables or metadata");
     config.max_names = std::max(config.max_names, static_cast<int>(ast.names.size()));
     config.max_consts = std::max(config.max_consts, static_cast<int>(ast.consts.size()));
@@ -1362,6 +1436,7 @@ GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population
           candidate.remaining_template_nesting < 0 || candidate.remaining_template_nesting > 256)
         throw std::invalid_argument("compiled pack has an invalid candidate contract");
       int previous_stop = 0;
+      const int formal_arity = prep.occurrences[candidate.occurrence_offset].binder_count;
       for (int i = 0; i < candidate.occurrence_count; ++i) {
         const auto span = prep.occurrences[candidate.occurrence_offset + i];
         if (span.start < previous_stop || span.stop <= span.start ||
@@ -1370,11 +1445,21 @@ GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population
             prep.subtree_ends[p][span.start] != static_cast<std::size_t>(span.stop) ||
             (i == 0 && (span.start != candidate.start || span.stop != candidate.stop)))
           throw std::invalid_argument("compiled pack has invalid atomic occurrence spans");
+        if (span.binder_offset < 0 || span.binder_count < 0 ||
+            span.binder_count != formal_arity ||
+            static_cast<std::size_t>(span.binder_offset) + span.binder_count >
+                prep.occurrence_binder_ids.size())
+          throw std::invalid_argument("compiled pack has invalid occurrence binder slices");
         previous_stop = span.stop;
       }
       for (int i = 0; i < candidate.donor_count; ++i) {
         const auto id = static_cast<std::size_t>(candidate.donor_offset + i);
         const auto& donor = prep.donor_contracts[id];
+        if (donor.binder_offset < 0 || donor.binder_count < 0 ||
+            donor.binder_count != formal_arity ||
+            static_cast<std::size_t>(donor.binder_offset) + donor.binder_count >
+                prep.donor_binder_ids.size())
+          throw std::invalid_argument("compiled pack has invalid donor binder slices");
         if (donor.compatibility_id != candidate.compatibility_id ||
             static_cast<int>(prep.donor_pool[id].type) != candidate.aux ||
             donor.materialized_nodes <= 0 || donor.materialized_nodes > candidate.replacement_max_nodes ||
@@ -1394,16 +1479,34 @@ GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population
       throw std::invalid_argument("compiled pack donor measurement differs from payload");
   }
   config.compiled_donor_count = static_cast<int>(prep.donor_pool.size());
+  config.compiled_occurrence_count = static_cast<int>(prep.occurrences.size());
+  (void)constant_mutation_table_bytes(mutation);  // checks counts before narrowing
+  config.constant_domain_count = static_cast<int>(domains.domains.size());
+  config.constant_value_count = static_cast<int>(domains.values.size());
+  config.constant_group_count = static_cast<int>(mutation.groups.size());
+  config.constant_origin_count = static_cast<int>(mutation.node_group_origins.size());
+  config.constant_stream_count = static_cast<int>(mutation.streams.size());
+  config.constant_root_count = static_cast<int>(mutation.metadata_roots.size());
   const std::uint64_t parents = population.size(), donors = prep.donor_pool.size();
-  const std::uint64_t bytes = parents * (sizeof(PackedProgramMeta) +
+  std::uint64_t bytes = parents * (sizeof(PackedProgramMeta) +
       static_cast<std::uint64_t>(config.max_nodes) * sizeof(PlainNode) +
       static_cast<std::uint64_t>(config.candidates_per_program) * sizeof(CandidateRange)) +
       donors * (static_cast<std::uint64_t>(config.max_donor_nodes) * sizeof(PlainNode) + sizeof(int) * 7) +
       (parents + donors) * (static_cast<std::uint64_t>(config.max_names) * sizeof(std::uint64_t) +
       static_cast<std::uint64_t>(config.max_consts) * sizeof(Value)) +
-      prep.occurrences.size() * sizeof(CandidateOccurrence) + prep.donor_contracts.size() * sizeof(DonorContract);
-  if (bytes > 256ULL * 1024 * 1024)
-    throw std::invalid_argument("compiled packed buffers exceed 256 MiB");
+      prep.occurrences.size() * sizeof(CandidateOccurrence) + prep.donor_contracts.size() * sizeof(DonorContract) +
+      (prep.occurrence_binder_ids.size() + prep.donor_binder_ids.size()) * sizeof(int) +
+      constant_mutation_table_bytes(mutation) +
+      (prep.parent_constant_streams.size() + prep.donor_constant_streams.size()) * sizeof(int);
+  const auto account_source = [&](const AstProgram& ast) {
+    const auto source_bytes = splice_source_bytes(ast);
+    constexpr std::uint64_t limit = 256ULL * 1024 * 1024;
+    if (source_bytes > limit || bytes > limit - source_bytes)
+      throw std::invalid_argument("compiled packed buffers and sources exceed 256 MiB");
+    bytes += source_bytes;
+  };
+  for (const auto& parent : population) account_source(parent.ast);
+  for (const auto& donor : prep.donor_pool) account_source(donor.ast);
   return config;
 }
 }  // namespace
@@ -1425,8 +1528,10 @@ PackedHostData pack_population(const std::vector<ProgramGenome>& population,
     if (!ast.lexical_regions.empty() || !ast.traversal_specs.empty())
       throw std::invalid_argument("general lexical regions are not supported by GPU reproduction");
   };
-  for (const auto& genome : population) reject_general_regions(genome.ast);
-  for (const auto& donor : prep.donor_pool) reject_general_regions(donor.ast);
+  if (input_config.contract_mode == ReproductionContractMode::Legacy) {
+    for (const auto& genome : population) reject_general_regions(genome.ast);
+    for (const auto& donor : prep.donor_pool) reject_general_regions(donor.ast);
+  }
   if (input_config.contract_mode != prep.contract_mode)
     throw std::invalid_argument("pack config and preparation contract modes differ");
   if (input_config.contract_mode != ReproductionContractMode::Legacy &&
@@ -1434,16 +1539,31 @@ PackedHostData pack_population(const std::vector<ProgramGenome>& population,
     throw std::invalid_argument("unknown reproduction contract mode");
   if (input_config.contract_mode == ReproductionContractMode::Legacy &&
       (prep.compiled_grammar || !prep.compatibility_keys.empty() || !prep.occurrences.empty() || !prep.donor_contracts.empty() ||
-       !prep.population_identities.empty() || !prep.donor_identities.empty()))
+       !prep.population_identities.empty() || !prep.donor_identities.empty() ||
+       !prep.occurrence_binder_ids.empty() || !prep.donor_binder_ids.empty() ||
+       prep.constant_mutation || !prep.parent_constant_streams.empty() || !prep.donor_constant_streams.empty()))
     throw std::invalid_argument("compiled preparation cannot be packed in legacy mode");
   const auto config = input_config.contract_mode == ReproductionContractMode::CompiledGrammar ?
       compiled_pack_config(population, prep, input_config) : input_config;
   PackedHostData out;
   out.config = config;
   out.compiled_grammar = prep.compiled_grammar;
+  if (config.contract_mode == ReproductionContractMode::CompiledGrammar) {
+    auto sources = std::make_shared<CompiledSpliceSources>();
+    sources->parents.reserve(population.size());
+    sources->donors.reserve(prep.donor_pool.size());
+    for (const auto& parent : population) sources->parents.push_back(parent.ast);
+    for (const auto& donor : prep.donor_pool) sources->donors.push_back(donor.ast);
+    out.compiled_sources = std::move(sources);
+  }
+  out.constant_mutation = prep.constant_mutation;
+  out.parent_constant_streams = prep.parent_constant_streams;
+  out.donor_constant_streams = prep.donor_constant_streams;
   out.compatibility_keys = prep.compatibility_keys;
   out.occurrences = prep.occurrences;
+  out.occurrence_binder_ids = prep.occurrence_binder_ids;
   out.donor_contracts = prep.donor_contracts;
+  out.donor_binder_ids = prep.donor_binder_ids;
   const std::size_t total_donor_count = prep.donor_pool.size();
   out.program_nodes.resize(static_cast<std::size_t>(config.population_size * config.max_nodes));
   out.metas.resize(static_cast<std::size_t>(config.population_size));
@@ -1638,8 +1758,10 @@ std::vector<ProgramGenome> decode_gpu_repro_children(const PackedHostData& packe
                                                      const EvolutionConfig& cfg) {
   require_reproduction_mode_supported(cfg, true);
   if (packed.config.contract_mode != ReproductionContractMode::Legacy ||
-      copyback.config.contract_mode != ReproductionContractMode::Legacy || packed.compiled_grammar)
-    throw std::invalid_argument("compiled grammar GPU reproduction is unavailable until Goal 07");
+      copyback.config.contract_mode != ReproductionContractMode::Legacy || packed.compiled_grammar ||
+      packed.compiled_sources || packed.constant_mutation ||
+      !packed.parent_constant_streams.empty() || !packed.donor_constant_streams.empty())
+    throw std::invalid_argument("legacy GPU reproduction entry point cannot consume compiled grammar state");
   std::vector<ProgramGenome> out;
   out.reserve(static_cast<std::size_t>(cfg.population_size));
   const int total_children = std::min<int>(cfg.population_size,

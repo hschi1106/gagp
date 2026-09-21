@@ -354,3 +354,27 @@ The repo no longer emits the old GPU eval aliases:
 - `gpu_generations_*`
 
 Use the canonical `gpu_eval_*` family instead.
+
+
+Generic bounded-region GPU verification and descriptor/phase/binding flattening
+are included once in the existing GPU evaluation packing interval. Their device
+array allocations and copies are included in the existing upload interval. Region
+workspace sizing and block-count planning belong to `gpu_eval_launch_prep_ms`;
+workspace allocations belong to `gpu_eval_upload_ms` and their frees belong to
+`gpu_eval_teardown_ms`. Phase execution and workspace reuse across programs remain
+part of the Mixed kernel timing. There is no separate generic-phase
+timer to add to these totals. Numeric reproduction contract and formal binder
+preparation remain inside reproduction preprocessing, and copying the resulting
+host tables remains inside reproduction packing.
+
+Goal07 low-level reproduction launch timing accumulates the current pass's selection
+and variation durations into `kernel_ms`. It does not add the already accumulated
+selection/variation totals again, so callers sharing one stats object across device
+passes retain `kernel_ms = selection_kernel_ms + variation_kernel_ms`.
+
+Compiled GPU constant-domain materialization is charged once per run resource to
+`repro_preprocess_ms`, where lazy initialization occurs. Per-pass stream/group
+preparation remains in that interval. Static domain upload and host validation are
+charged to `repro_upload_ms` only when the domain owner changes or the arena is
+recreated. Subsequent passes upload their dynamic tables. No extra timer is added
+to these totals. Synchronous and overlap modes use the same accounting scopes.

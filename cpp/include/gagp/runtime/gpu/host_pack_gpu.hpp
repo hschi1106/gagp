@@ -8,6 +8,7 @@
 #include "gagp/core/bytecode.hpp"
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 #include "gagp/runtime/gpu/device_types_gpu.hpp"
+#include "gagp/runtime/gpu/region_types_gpu.hpp"
 
 namespace gagp::gpu_detail {
 
@@ -20,6 +21,9 @@ struct PackResult {
   std::vector<DAsgpDcSegment> asgp_dc_segments;
   std::vector<DAsgpDp1dSegment> asgp_dp1d_segments;
   std::vector<DAsgpDp2dSegment> asgp_dp2d_segments;
+  std::vector<DRegionSegment> region_segments;
+  std::vector<DRegionPhase> region_phases;
+  std::vector<DRegionPhaseBinding> region_bindings;
   std::vector<Value> packed_case_local_vals;
   std::vector<unsigned char> packed_case_local_set;
   std::size_t total_cases = 0;
@@ -41,6 +45,12 @@ struct DeviceArena {
   DAsgpDcSegment* d_asgp_dc_segments = nullptr;
   DAsgpDp1dSegment* d_asgp_dp1d_segments = nullptr;
   DAsgpDp2dSegment* d_asgp_dp2d_segments = nullptr;
+  DRegionSegment* d_region_segments = nullptr;
+  DRegionPhase* d_region_phases = nullptr;
+  DRegionPhaseBinding* d_region_bindings = nullptr;
+  DRegionFrame* d_region_frames = nullptr;
+  std::int64_t* d_region_memo_keys = nullptr;
+  Value* d_region_memo_values = nullptr;
   DProgramMeta* d_metas = nullptr;
   Value* d_shared_case_local_vals = nullptr;
   unsigned char* d_shared_case_local_set = nullptr;
@@ -63,6 +73,10 @@ bool cuda_alloc_and_copy_in(const std::vector<T>& host, T** dev) {
   if (host.empty()) {
     *dev = nullptr;
     return true;
+  }
+  if (host.size() > static_cast<std::size_t>(-1) / sizeof(T)) {
+    *dev = nullptr;
+    return false;
   }
   if (cudaMalloc(reinterpret_cast<void**>(dev), sizeof(T) * host.size()) != cudaSuccess) {
     return false;

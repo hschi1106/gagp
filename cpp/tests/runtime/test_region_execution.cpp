@@ -294,6 +294,28 @@ bool test_all_exact_result_tags_and_duplicate_memo() {
 
 RegionPhase false_phase() { return constant_phase(Value::from_bool(false)); }
 
+Value compact_string(std::uint64_t hash, std::uint32_t length) {
+  return Value::from_string_hash_len(hash, length);
+}
+
+RegionPhase concat_fallback_phase() {
+  return phase(
+      {compact_string(UINT64_C(0x123456789abc), 2),
+       compact_string(UINT64_C(0x23456789abcd), 3)},
+      {ins_a(Opcode::PushConst, 0), ins_a(Opcode::PushConst, 1),
+       ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Concat), 2),
+       ins(Opcode::Return)});
+}
+
+RegionPhase index_fallback_phase() {
+  return phase(
+      {Value::from_int_list_hash_len(UINT64_C(0x3456789abcde), 1),
+       Value::from_int(0)},
+      {ins_a(Opcode::PushConst, 0), ins_a(Opcode::PushConst, 1),
+       ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Index), 2),
+       ins(Opcode::Return)});
+}
+
 RegionPhase cut_phase(bool second) {
   if (!second) {
     return phase(
@@ -667,6 +689,131 @@ bool test_lazy_captured_local_and_runtime_tag_guard() {
                "charged capture LOAD failed at its exact fuel boundary");
 }
 
+bool test_internal_fallback_result_boundaries() {
+  payload::clear();
+  const Value nominal_string = compact_string(UINT64_C(0x456789abcdef), 1);
+
+  BoundedRegionSegment terminal =
+      typed_unary_segment(nominal_string, false);
+  terminal.base_body = concat_fallback_phase();
+  BytecodeProgram terminal_program =
+      invocation(std::move(terminal), {Value::from_int(0)});
+  if (!valid(terminal_program, "terminal fallback program")) return false;
+  const ExecResult terminal_result =
+      execute_bytecode_cpu(terminal_program, {}, 20);
+  if (!check(!terminal_result.is_error &&
+                 terminal_result.value.tag == ValueTag::FallbackToken,
+             "terminal result phase rejected a builtin fallback")) {
+    return false;
+  }
+
+  BoundedRegionSegment identity =
+      typed_unary_segment(nominal_string, false);
+  identity.base_body = concat_fallback_phase();
+  BytecodeProgram identity_program =
+      invocation(std::move(identity), {Value::from_int(1)});
+  if (!valid(identity_program, "identity combine fallback program")) return false;
+  const ExecResult identity_result =
+      execute_bytecode_cpu(identity_program, {}, 30);
+  if (!check(!identity_result.is_error &&
+                 identity_result.value.tag == ValueTag::FallbackToken,
+             "identity combine rejected a homogeneous fallback result")) {
+    return false;
+  }
+
+  BoundedRegionSegment siblings;
+  siblings.plan.state_types = {ValueTag::Int, ValueTag::Int};
+  siblings.plan.result_type = ValueTag::String;
+  siblings.plan.request_expression_types = {ValueTag::Int, ValueTag::Int};
+  RegionStateTransition ordinary_expression;
+  ordinary_expression.kind = RegionTransitionKind::Expression;
+  ordinary_expression.expression = 0;
+  RegionStateTransition failing_expression = ordinary_expression;
+  failing_expression.expression = 1;
+  siblings.plan.requests = {
+      {{offset(0, -2), ordinary_expression}},
+      {{offset(0, -1), ordinary_expression}},
+      {{offset(0, -1), failing_expression}}};
+  siblings.plan.limits = {16, 0, 1};
+  siblings.plan.duplicate_policy = DuplicatePolicy::Allow;
+  siblings.plan.progress = RegionProgressKind::Coordinates;
+  siblings.plan.coordinate_slots = {0};
+  siblings.plan.coordinate_rank = {{0, 1}};
+  siblings.plan.coordinate_domains = {{literal_bound(0), literal_bound(1)}};
+  siblings.plan.coordinate_endpoint = DomainEndpoint::Inclusive;
+  siblings.boundary = concat_fallback_phase();
+  siblings.base_predicate = coordinate_base_predicate_1d();
+  siblings.base_body = constant_phase(nominal_string);
+  siblings.request_expressions = {
+      constant_phase(Value::from_int(0)), zero_div_phase(ValueTag::Int)};
+  siblings.combine = load_phase(RegionSlotBank::Result, 0);
+  BytecodeProgram sibling_program = invocation(
+      std::move(siblings), {Value::from_int(1), Value::from_int(0)});
+  if (!valid(sibling_program, "mixed sibling fallback program")) return false;
+  if (!check(is_error(execute_bytecode_cpu(sibling_program, {}, 100),
+                      ErrCode::Type),
+             "mixed sibling result tags reached the next request expression")) {
+    return false;
+  }
+
+  BoundedRegionSegment combine_change =
+      typed_unary_segment(nominal_string, false);
+  combine_change.base_body = concat_fallback_phase();
+  combine_change.combine = constant_phase(nominal_string);
+  combine_change.plan.limits.cells = 0;
+  BytecodeProgram combine_change_program =
+      invocation(std::move(combine_change), {Value::from_int(1)});
+  if (!valid(combine_change_program, "combine tag-change program")) return false;
+  if (!check(is_error(execute_bytecode_cpu(combine_change_program, {}, 30),
+                      ErrCode::Type),
+             "combine result tag change did not precede memo exhaustion")) {
+    return false;
+  }
+
+  BoundedRegionSegment preparation =
+      typed_unary_segment(Value::from_int(1), false);
+  preparation.plan.preparations = {
+      {ValueTag::Int, RegionPreparationKind::Identity}};
+  preparation.preparations = {index_fallback_phase()};
+  BytecodeProgram preparation_program =
+      invocation(std::move(preparation), {Value::from_int(1)});
+  if (!valid(preparation_program, "preparation fallback program")) return false;
+  if (!check(is_error(execute_bytecode_cpu(preparation_program, {}, 30),
+                      ErrCode::Type),
+             "preparation phase accepted a builtin fallback")) {
+    return false;
+  }
+
+  BoundedRegionSegment request_expression;
+  request_expression.plan.state_types = {ValueTag::Int, ValueTag::Int};
+  request_expression.plan.result_type = ValueTag::Int;
+  request_expression.plan.request_expression_types = {ValueTag::Int};
+  RegionStateTransition indexed_expression;
+  indexed_expression.kind = RegionTransitionKind::Expression;
+  request_expression.plan.requests = {
+      {{offset(0, -1), indexed_expression}}};
+  request_expression.plan.limits = {16, 0, 1};
+  request_expression.plan.progress = RegionProgressKind::Coordinates;
+  request_expression.plan.coordinate_slots = {0};
+  request_expression.plan.coordinate_rank = {{0, 1}};
+  request_expression.plan.coordinate_domains = {
+      {literal_bound(0), literal_bound(1)}};
+  request_expression.plan.coordinate_endpoint = DomainEndpoint::Inclusive;
+  request_expression.boundary = constant_phase(Value::from_int(0));
+  request_expression.base_predicate = coordinate_base_predicate_1d();
+  request_expression.base_body = constant_phase(Value::from_int(1));
+  request_expression.request_expressions = {index_fallback_phase()};
+  request_expression.combine = load_phase(RegionSlotBank::Result, 0);
+  BytecodeProgram request_expression_program =
+      invocation(std::move(request_expression),
+                 {Value::from_int(1), Value::from_int(0)});
+  if (!valid(request_expression_program, "request expression fallback program"))
+    return false;
+  return check(is_error(execute_bytecode_cpu(request_expression_program, {}, 30),
+                        ErrCode::Type),
+               "request expression accepted a builtin fallback");
+}
+
 bool test_malformed_phase_metadata_rejected() {
   BytecodeProgram malformed = invocation(
       typed_unary_segment(Value::from_int(1), false), {Value::from_int(0)});
@@ -692,6 +839,7 @@ int main() {
   if (!test_dynamic_bounds_before_frames_and_overflow()) return 1;
   if (!test_capacity_and_phase_error_ordering()) return 1;
   if (!test_lazy_captured_local_and_runtime_tag_guard()) return 1;
+  if (!test_internal_fallback_result_boundaries()) return 1;
   if (!test_malformed_phase_metadata_rejected()) return 1;
   std::cout << "gagp_test_region_execution: OK\n";
   return 0;

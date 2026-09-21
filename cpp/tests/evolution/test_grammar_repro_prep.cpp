@@ -13,6 +13,7 @@
 #include "gagp/evolution/grammar/variation.hpp"
 #include "gagp/evolution/repro/pack.hpp"
 #include "gagp/evolution/repro/prep.hpp"
+#include "../../src/evolution/repro/constant_prep.hpp"
 
 namespace {
 
@@ -102,6 +103,33 @@ std::shared_ptr<const CompiledGrammar> repeated_hole_grammar() {
         "expression":{"constant":{"type":"Int","values":["7"]}}}]},
       {"id":"Main","type":"Int","scope":[],"alternatives":[{"id":"cancel","weight":1,
         "expression":{"template":"Cancel","holes":{"value":{"ref":"Value"}}}}]}
+    ]
+  })");
+}
+
+std::shared_ptr<const CompiledGrammar> scoped_repeated_hole_grammar() {
+  return compile_shared(R"({
+    "format_version":"grammar-definition-v1",
+    "entry":{"nonterminal":"Main","type":"Int"},
+    "search_limits":{"max_nodes":20,"max_depth":10},
+    "execution_limits":{"fuel":100},
+    "templates":[{"id":"Sibling","type":"Int","scope":[],
+      "holes":[{"id":"value","type":"Int","scope":[
+        {"name":"x","type":"Int"}]}],
+      "body":{"signature":"add(Int,Int)->Int","args":[
+        {"signature":"let(Int,Int)->Int","args":[
+          {"constant":{"type":"Int","values":["1"]}},{"hole":"value"}],
+         "bind":{"1":["x"]}},
+        {"signature":"let(Int,Int)->Int","args":[
+          {"constant":{"type":"Int","values":["2"]}},{"hole":"value"}],
+         "bind":{"1":["x"]}}]}}],
+    "nonterminals":[
+      {"id":"Main","type":"Int","scope":[],"alternatives":[
+        {"id":"main","weight":1,"expression":{"template":"Sibling","holes":{
+          "value":{"ref":"Scoped"}}}}]},
+      {"id":"Scoped","type":"Int","scope":[{"name":"x","type":"Int"}],
+       "alternatives":[{"id":"bound","weight":1,
+         "expression":{"bound":"x"}}]}
     ]
   })");
 }
@@ -208,6 +236,69 @@ void test_exact_contracts_and_shared_occurrences() {
     check(first.start != second.start && first.stop > first.start && second.stop > second.start,
         "shared-hole occurrence table did not retain both concrete spans");
   }
+
+  {
+    const auto grammar = scoped_repeated_hole_grammar();
+    std::vector<ProgramGenome> population = {
+        gagp::evo::repro::compact_genome_tables(generate_derivation(*grammar, 3).genome),
+        gagp::evo::repro::compact_genome_tables(generate_derivation(*grammar, 4).genome),
+    };
+    VariationContext context(grammar);
+    const auto prep = gagp::evo::repro::preprocess_population(
+        population, compiled_config(*grammar, population.size()), context);
+    const auto repeated = std::find_if(prep.candidates.front().begin(),
+        prep.candidates.front().end(),
+        [](const CandidateRange& value) { return value.occurrence_count == 2; });
+    check(repeated != prep.candidates.front().end(),
+        "scoped shared hole was not represented by one candidate");
+    const auto& first = prep.occurrences.at(
+        static_cast<std::size_t>(repeated->occurrence_offset));
+    const auto& second = prep.occurrences.at(
+        static_cast<std::size_t>(repeated->occurrence_offset + 1));
+    check(first.binder_count == 1 && second.binder_count == 1 &&
+              first.binder_offset >= 0 && second.binder_offset >= 0,
+        "scoped occurrence binder slices lost their formal arity");
+    const int first_binder = prep.occurrence_binder_ids.at(
+        static_cast<std::size_t>(first.binder_offset));
+    const int second_binder = prep.occurrence_binder_ids.at(
+        static_cast<std::size_t>(second.binder_offset));
+    check(first_binder >= 0 && second_binder >= 0 &&
+              first_binder != second_binder,
+        "scoped occurrences lost their distinct physical binder IDs");
+    check(repeated->donor_count > 0,
+        "scoped candidate did not retain a contextual donor");
+    auto packed = gagp::evo::repro::pack_population(
+        population, prep, compiled_config(*grammar, population.size()));
+    check(packed.compiled_sources &&
+              packed.compiled_sources->parents.size() == population.size() &&
+              packed.compiled_sources->donors.size() == prep.donor_pool.size(),
+        "compiled packing lost its owned generic source snapshots");
+    for (std::size_t p = 0; p < population.size(); ++p) {
+      check(!packed.compiled_sources->parents[p].lexical_regions.empty() &&
+                ast_cache_key(packed.compiled_sources->parents[p]) ==
+                    ast_cache_key(population[p].ast),
+          "compiled packing changed lexical source sidecars or binder IDs");
+    }
+    for (std::size_t d = 0; d < prep.donor_pool.size(); ++d)
+      check(ast_cache_key(packed.compiled_sources->donors[d]) ==
+                ast_cache_key(prep.donor_pool[d].ast),
+          "compiled packing lost contextual donor metadata");
+    const auto shared_copy = packed;
+    check(shared_copy.compiled_sources == packed.compiled_sources,
+        "copying prepared inputs duplicated immutable source snapshots");
+    const auto source_key = ast_cache_key(packed.compiled_sources->parents.front());
+    population.front().ast.lexical_regions.clear();
+    check(ast_cache_key(packed.compiled_sources->parents.front()) == source_key,
+        "source snapshots borrowed mutable population metadata");
+    for (int i = 0; i < repeated->donor_count; ++i) {
+      const auto& donor = prep.donor_contracts.at(
+          static_cast<std::size_t>(repeated->donor_offset + i));
+      check(donor.binder_count == first.binder_count && donor.binder_offset >= 0 &&
+                prep.donor_binder_ids.at(
+                    static_cast<std::size_t>(donor.binder_offset)) == first_binder,
+          "contextual donor lost its formal binder IDs");
+    }
+  }
 }
 
 void check_deterministic_prep(const PreprocessOutput& first,
@@ -216,6 +307,8 @@ void check_deterministic_prep(const PreprocessOutput& first,
             first.compatibility_keys == second.compatibility_keys &&
             first.population_identities == second.population_identities &&
             first.donor_identities == second.donor_identities &&
+            first.occurrence_binder_ids == second.occurrence_binder_ids &&
+            first.donor_binder_ids == second.donor_binder_ids &&
             first.occurrences.size() == second.occurrences.size() &&
             first.donor_pool.size() == second.donor_pool.size() &&
             first.donor_contracts.size() == second.donor_contracts.size() &&
@@ -223,7 +316,9 @@ void check_deterministic_prep(const PreprocessOutput& first,
         "compiled preparation table sizes or keys were nondeterministic");
   for (std::size_t i = 0; i < first.occurrences.size(); ++i) {
     check(first.occurrences[i].start == second.occurrences[i].start &&
-              first.occurrences[i].stop == second.occurrences[i].stop,
+              first.occurrences[i].stop == second.occurrences[i].stop &&
+              first.occurrences[i].binder_offset == second.occurrences[i].binder_offset &&
+              first.occurrences[i].binder_count == second.occurrences[i].binder_count,
         "compiled preparation occurrence offsets were nondeterministic");
   }
   for (std::size_t p = 0; p < first.candidates.size(); ++p) {
@@ -244,7 +339,9 @@ void check_deterministic_prep(const PreprocessOutput& first,
     check(a.compatibility_id == b.compatibility_id &&
               a.materialized_nodes == b.materialized_nodes &&
               a.materialized_depth == b.materialized_depth &&
-              a.template_nesting == b.template_nesting,
+              a.template_nesting == b.template_nesting &&
+              a.binder_offset == b.binder_offset &&
+              a.binder_count == b.binder_count,
         "compiled donor contract table was nondeterministic");
   }
 }
@@ -302,11 +399,36 @@ void test_determinism_packing_ownership_and_guards() {
             packed.compiled_grammar == prep.compiled_grammar &&
             packed.compatibility_keys == prep.compatibility_keys &&
             packed.occurrences.size() == prep.occurrences.size() &&
+            packed.occurrence_binder_ids == prep.occurrence_binder_ids &&
+            packed.donor_binder_ids == prep.donor_binder_ids &&
             packed.donor_contracts.size() == prep.donor_contracts.size(),
         "packing dropped the compiled schema or grammar owner");
   check(packed.config.compiled_donor_count ==
             static_cast<int>(prep.donor_pool.size()),
         "packed config did not record the actual compiled donor count");
+  check(packed.constant_mutation && packed.constant_mutation == prep.constant_mutation &&
+            packed.parent_constant_streams == prep.parent_constant_streams &&
+            packed.donor_constant_streams == prep.donor_constant_streams &&
+            packed.constant_mutation->streams.size() == population.size() + prep.donor_pool.size(),
+        "packing dropped shared constant domains or stream ownership");
+  const auto check_stream = [&](int id, const gagp::evo::AstProgram& ast) {
+    const auto& stream = packed.constant_mutation->streams.at(static_cast<std::size_t>(id));
+    check(stream.node_count == static_cast<int>(ast.nodes.size()),
+        "constant stream retained a donor envelope or lost parent nodes");
+    for (int i = 0; i < stream.node_count; ++i) {
+      const int group = packed.constant_mutation->node_group_origins.at(
+          static_cast<std::size_t>(stream.node_origin_offset + i));
+      if (group < 0) continue;
+      check(group >= stream.group_offset && group - stream.group_offset < stream.group_count &&
+                ast.nodes[static_cast<std::size_t>(i)].kind == NodeKind::CONST,
+          "packed constant origin escaped its stream or targeted a nonconstant");
+    }
+  };
+  for (std::size_t i = 0; i < population.size(); ++i)
+    check_stream(packed.parent_constant_streams[i], population[i].ast);
+  for (std::size_t i = 0; i < prep.donor_pool.size(); ++i)
+    check_stream(packed.donor_constant_streams[i], prep.donor_pool[i].ast);
+
 
   int required_max_names = 1;
   int required_max_consts = 1;
@@ -413,6 +535,25 @@ void test_determinism_packing_ownership_and_guards() {
             population, changed_donor_prep, config);
       },
       "compiled packing accepted stale preparation after a donor changed");
+
+  auto invalid_constant_stream = prep;
+  invalid_constant_stream.parent_constant_streams.front() =
+      static_cast<int>(prep.constant_mutation->streams.size());
+  rejects_invalid([&] {
+    (void)gagp::evo::repro::pack_population(population, invalid_constant_stream, config);
+  }, "compiled packing accepted an out-of-range constant stream");
+
+  auto invalid_occurrence_binders = prep;
+  invalid_occurrence_binders.occurrences.front().binder_offset =
+      static_cast<int>(prep.occurrence_binder_ids.size()) + 1;
+  rejects_invalid([&] {
+    (void)gagp::evo::repro::pack_population(population, invalid_occurrence_binders, config);
+  }, "compiled packing accepted an out-of-range occurrence binder slice");
+  auto invalid_donor_binders = prep;
+  invalid_donor_binders.donor_contracts.front().binder_count = -1;
+  rejects_invalid([&] {
+    (void)gagp::evo::repro::pack_population(population, invalid_donor_binders, config);
+  }, "compiled packing accepted a negative donor binder count");
 
   auto stale_measure = prep;
   ++stale_measure.candidates.front().front().materialized_nodes;

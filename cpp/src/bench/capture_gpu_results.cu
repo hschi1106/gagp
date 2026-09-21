@@ -1,10 +1,24 @@
 // GAGP_GPU_FITNESS_SOURCE names the immutable reference fitness_gpu.cu.
 // Its host packing helpers and device evaluator remain the production source.
+#ifndef GAGP_CAPTURE_HAS_GENERIC_REGIONS
+#if defined(__has_include)
+#if __has_include("gagp/runtime/gpu/region_types_gpu.hpp")
+#define GAGP_CAPTURE_HAS_GENERIC_REGIONS 1
+#endif
+#endif
+#endif
+#ifndef GAGP_CAPTURE_HAS_GENERIC_REGIONS
+#define GAGP_CAPTURE_HAS_GENERIC_REGIONS 0
+#endif
 #include GAGP_GPU_FITNESS_SOURCE
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#if GAGP_CAPTURE_HAS_GENERIC_REGIONS
+#include "gagp/cli/codec.hpp"
+#endif
 #include "migration_snapshot.hpp"
 
 namespace gagp::migration {
@@ -17,12 +31,24 @@ struct Observation {
   DMixedPayloadState scratch;
 };
 
-template <bool Asgp>
+template <bool Asgp, bool Regions = false>
 __global__ void inspect_execution(DProgramMeta meta, const DInstr* code, const Value* constants,
     const Value* inputs, const unsigned char* input_set, DPayloadTables payloads,
-    DAsgpTables phases, int fuel, Observation* out) {
+    DAsgpTables phases, int fuel, Observation* out
+#if GAGP_CAPTURE_HAS_GENERIC_REGIONS
+    , DRegionWorkspace workspace = {}
+#endif
+    ) {
+#if GAGP_CAPTURE_HAS_GENERIC_REGIONS
+  out->ordinary = d_execute_bytecode_impl<DPayloadFlavor::Mixed, Asgp, Regions>(
+#else
   out->ordinary = d_execute_bytecode_impl<DPayloadFlavor::Mixed, Asgp>(
-      meta, code, constants, inputs, input_set, payloads, phases, 0, fuel);
+#endif
+      meta, code, constants, inputs, input_set, payloads, phases, 0, fuel
+#if GAGP_CAPTURE_HAS_GENERIC_REGIONS
+      , workspace
+#endif
+      );
   out->fuel_left = fuel;
   if (!meta.is_valid) {
     out->inspected = out->ordinary;
@@ -31,9 +57,21 @@ __global__ void inspect_execution(DProgramMeta meta, const DInstr* code, const V
   DPayloadStateStorage<DPayloadFlavor::Mixed> storage;
   const DCodeView view{code, meta.code_len, constants + meta.const_offset, meta.const_len,
       meta.n_locals, meta.asgp_dc_offset, meta.asgp_dc_count, meta.asgp_dp1d_offset,
-      meta.asgp_dp1d_count, meta.asgp_dp2d_offset, meta.asgp_dp2d_count};
+      meta.asgp_dp1d_count, meta.asgp_dp2d_offset, meta.asgp_dp2d_count,
+#if GAGP_CAPTURE_HAS_GENERIC_REGIONS
+      meta.region_offset, meta.region_count,
+#endif
+  };
+#if GAGP_CAPTURE_HAS_GENERIC_REGIONS
+  out->inspected = d_run_code_core<DPayloadFlavor::Mixed, Asgp, Regions>(view, inputs, input_set,
+#else
   out->inspected = d_run_code_core<DPayloadFlavor::Mixed, Asgp>(view, inputs, input_set,
-      0, nullptr, 0, payloads, storage.ref(), phases, out->fuel_left, true);
+#endif
+      0, nullptr, 0, payloads, storage.ref(), phases, out->fuel_left, true
+#if GAGP_CAPTURE_HAS_GENERIC_REGIONS
+      , workspace
+#endif
+      );
   out->scratch = storage.state;
 }
 
@@ -44,6 +82,30 @@ void checked(cudaError_t result) {
 template <class T>
 void upload(const std::vector<T>& values, T** pointer) {
   if (!cuda_alloc_and_copy_in(values, pointer)) throw std::runtime_error("GPU diagnostic upload failed");
+}
+
+BytecodeProgram decode_probe_bytecode(const cli_detail::JsonValue& raw) {
+#if GAGP_CAPTURE_HAS_GENERIC_REGIONS
+  if (raw.kind != cli_detail::JsonValue::Kind::Object) {
+    throw std::runtime_error("diagnostic bytecode must be an object");
+  }
+  const auto format = raw.object_v.find("format_version");
+  if (format != raw.object_v.end()) {
+    const std::string version =
+        cli_detail::require_string(format->second, "bytecode.format_version");
+    if (version == "migration-bytecode-v1") return decode_bytecode(raw);
+    throw std::runtime_error("unsupported diagnostic bytecode format_version: " + version);
+  }
+  for (const char* field : {"n_locals", "consts", "code"}) {
+    if (raw.object_v.find(field) == raw.object_v.end()) {
+      throw std::runtime_error(
+          std::string("unrecognized diagnostic bytecode schema; missing public field: ") + field);
+    }
+  }
+  return cli_detail::decode_program(raw);
+#else
+  return decode_bytecode(raw);
+#endif
 }
 
 std::string probe(const BytecodeProgram& program, const CaseBindings& inputs, int fuel,
@@ -78,6 +140,34 @@ std::string probe(const BytecodeProgram& program, const CaseBindings& inputs, in
   upload(packed.asgp_dc_segments, &device.d_asgp_dc_segments);
   upload(packed.asgp_dp1d_segments, &device.d_asgp_dp1d_segments);
   upload(packed.asgp_dp2d_segments, &device.d_asgp_dp2d_segments);
+#if GAGP_CAPTURE_HAS_GENERIC_REGIONS
+  upload(packed.region_segments, &device.d_region_segments);
+  upload(packed.region_phases, &device.d_region_phases);
+  upload(packed.region_bindings, &device.d_region_bindings);
+  std::uint32_t region_frame_capacity = 0;
+  std::uint32_t region_memo_capacity = 0;
+  for (const auto& segment : packed.region_segments) {
+    region_frame_capacity = std::max(region_frame_capacity, segment.limits.frames);
+    region_memo_capacity = std::max(region_memo_capacity, segment.limits.cells);
+  }
+  const std::size_t region_memo_key_capacity =
+      static_cast<std::size_t>(region_memo_capacity) * DMAX_REGION_STATES;
+  if (region_frame_capacity) {
+    checked(cudaMalloc(reinterpret_cast<void**>(&device.d_region_frames),
+                       sizeof(DRegionFrame) * region_frame_capacity));
+  }
+  if (region_memo_key_capacity) {
+    checked(cudaMalloc(reinterpret_cast<void**>(&device.d_region_memo_keys),
+                       sizeof(std::int64_t) * region_memo_key_capacity));
+  }
+  if (region_memo_capacity) {
+    checked(cudaMalloc(reinterpret_cast<void**>(&device.d_region_memo_values),
+                       sizeof(Value) * region_memo_capacity));
+  }
+  const DRegionWorkspace region_workspace{
+      device.d_region_frames, device.d_region_memo_keys, device.d_region_memo_values,
+      region_frame_capacity, region_memo_capacity};
+#endif
   upload(packed.packed_case_local_vals, &device.d_shared_case_local_vals);
   upload(packed.packed_case_local_set, &device.d_shared_case_local_set);
   upload(host_payload.string_entries, &device.d_string_payload_entries);
@@ -89,18 +179,43 @@ std::string probe(const BytecodeProgram& program, const CaseBindings& inputs, in
   const DAsgpTables phases{device.d_phase_code, device.d_phase_consts,
       device.d_asgp_dc_segments, static_cast<int>(packed.asgp_dc_segments.size()),
       device.d_asgp_dp1d_segments, static_cast<int>(packed.asgp_dp1d_segments.size()),
-      device.d_asgp_dp2d_segments, static_cast<int>(packed.asgp_dp2d_segments.size())};
+      device.d_asgp_dp2d_segments, static_cast<int>(packed.asgp_dp2d_segments.size()),
+#if GAGP_CAPTURE_HAS_GENERIC_REGIONS
+      device.d_region_segments, static_cast<int>(packed.region_segments.size()),
+      device.d_region_phases, static_cast<int>(packed.region_phases.size()),
+      device.d_region_bindings, static_cast<int>(packed.region_bindings.size()),
+#endif
+  };
   Observation* result = nullptr;
   checked(cudaMallocManaged(&result, sizeof(Observation)));
   try {
     checked(cudaMemset(result, 0, sizeof(Observation)));
     const auto meta = packed.metas.at(0);
-    if (meta.asgp_dc_count || meta.asgp_dp1d_count || meta.asgp_dp2d_count) {
-      inspect_execution<true><<<1, 1>>>(meta, device.d_code, device.d_consts,
-          device.d_shared_case_local_vals, device.d_shared_case_local_set, payloads, phases, fuel, result);
+    const bool has_asgp =
+        meta.asgp_dc_count || meta.asgp_dp1d_count || meta.asgp_dp2d_count;
+#if GAGP_CAPTURE_HAS_GENERIC_REGIONS
+    if (meta.region_count) {
+      inspect_execution<true, true><<<1, 1>>>(meta, device.d_code, device.d_consts,
+          device.d_shared_case_local_vals, device.d_shared_case_local_set, payloads, phases, fuel,
+          result, region_workspace);
+    } else
+#endif
+    if (has_asgp) {
+      inspect_execution<true, false><<<1, 1>>>(meta, device.d_code, device.d_consts,
+          device.d_shared_case_local_vals, device.d_shared_case_local_set, payloads, phases, fuel,
+          result
+#if GAGP_CAPTURE_HAS_GENERIC_REGIONS
+          , region_workspace
+#endif
+          );
     } else {
-      inspect_execution<false><<<1, 1>>>(meta, device.d_code, device.d_consts,
-          device.d_shared_case_local_vals, device.d_shared_case_local_set, payloads, phases, fuel, result);
+      inspect_execution<false, false><<<1, 1>>>(meta, device.d_code, device.d_consts,
+          device.d_shared_case_local_vals, device.d_shared_case_local_set, payloads, phases, fuel,
+          result
+#if GAGP_CAPTURE_HAS_GENERIC_REGIONS
+          , region_workspace
+#endif
+          );
     }
     checked(cudaGetLastError());
     checked(cudaDeviceSynchronize());
@@ -150,7 +265,8 @@ int main(int argc, char** argv) {
       const auto row = JsonParser(line).parse();
       if (require_string(require_object_field(row, "kind"), "kind") != "execution") continue;
       payload::clear();
-      const auto program = migration::decode_bytecode(require_object_field(row, "bytecode"));
+      const auto program =
+          migration::decode_probe_bytecode(require_object_field(row, "bytecode"));
       CaseBindings inputs;
       for (const auto& input : require_object_field(row, "inputs").array_v) {
         inputs.push_back({require_int(input.array_v.at(0), "local"), migration::decode_value(input.array_v.at(1))});

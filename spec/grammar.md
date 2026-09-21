@@ -800,9 +800,9 @@ The grammar does not include:
 - tuple or product values
 
 
-## Compiled-grammar membership witnesses (staged)
+## Compiled-grammar membership witnesses
 
-Materialized native ASTs may be executed without grammar provenance. The staged
+Materialized native ASTs may be executed without grammar provenance. The
 `reconstruct_derivation` API certifies membership against a supplied compiled grammar
 and contextual generation request, independently of any metadata attached to the
 genome. It performs native verification, exact grammar/domain/template matching and
@@ -832,10 +832,10 @@ compaction preserve the distinction. Materialized execution remains independent 
 Reconstruction enforces the request's complete AST node/depth budgets and the same
 1,048,576-instruction lowered-code limit as generation. Its witness traversal is
 limited to 1,048,576 logical steps, 4,096 grammar frames and 256 nested template
-instances; exhaustion is an explicit error. General lexical/structured execution
-continues to require the later staged runtime implementation.
+instances; exhaustion is an explicit error. General lexical and structured forms
+execute through their compiled CPU/GPU runtime contracts.
 
-### Replacement-site contracts (staged)
+### Replacement-site contracts
 
 `analyze_variation` reconstructs a witness and collects admitted Expression and
 complete Program nonterminal boundaries. Fixed template interiors cannot invent new
@@ -849,8 +849,8 @@ Compatibility compares an exact length-framed key containing grammar/semantic id
 nonterminal, category, exact type, compiled context, declared template/slot, ordered
 visible lexical environment and exact available native variable environment. Native
 name-table indices are normalized to names for this comparison. Current native locals
-are uniquely named declarations within a grammar; general lexical binder instances
-still require the later runtime implementation. All free local references of an
+are uniquely named declarations within a grammar; lexical binder instances use their
+explicit declaration IDs. All free local references of an
 expression site are recorded and must be available at every grouped occurrence.
 Conservative full-environment equality may reject otherwise legal substitutions.
 
@@ -871,7 +871,7 @@ the four-node/three-level envelope for standalone expression generation.
 
 A compatibility registry assigns dense IDs to exact keys, up to 65,536 contracts.
 IDs are comparable only within the same registry; equal IDs from separate registries
-do not establish compatibility. The staged analysis cache owns its immutable grammar
+do not establish compatibility. The analysis cache owns its immutable grammar
 and registry, stores owned immutable analyses, and uses bounded FIFO eviction
 (default 128 entries). Its key covers grammar identity, complete materialized runtime
 identity (including decoded constants, inputs, fuel and semantic version), requested
@@ -880,7 +880,7 @@ requests cannot hit the cache; expired payload tokens must be resolved before lo
 Hits, misses and evictions are counted. The mutable cache is owned by one preparation
 worker; concurrent workers must not share it without synchronization.
 
-### Isolated donor frames (staged)
+### Isolated donor frames
 
 `GenerationFrame` supplies available declared native locals as additional inputs only
 for isolated donor verification and lowering. It does not change grammar inputs or
@@ -908,12 +908,14 @@ the complete native program. Measured payload nodes, prefix depth and physical t
 height must fit the destination. Invalid availability and infeasible generation produce
 an explicit donor-generation error.
 
-### Compiled variation operators (staged)
+### Compiled variation operators
 
 The existing `crossover` and `mutate` APIs have compiled-grammar overloads using a
 worker-owned `VariationContext`. This context owns an immutable grammar/request, one
-analysis cache/compatibility registry and cumulative counters. CPU reproduction uses these overloads when `EvolutionConfig::compiled_grammar` is set.
-Compiled device dispatch remains unavailable until the general GPU implementation.
+analysis cache/compatibility registry and cumulative counters. CPU reproduction uses
+these overloads when `EvolutionConfig::compiled_grammar` is set. GPU reproduction
+packs the same contracts and domains, performs selection, crossover and mutation on
+the device, and reconstructs and certifies accepted children on the host.
 
 Crossover samples uniformly among pairs of admitted sites whose exact contracts match
 and whose payloads fit both destinations. Each selected logical group's occurrences
@@ -937,7 +939,7 @@ attempts. Fallback children are a subset of unchanged children. Actual-change co
 resolves referenced names and constant values per node, ignoring unused tables and
 constant-pool sharing, so table remapping cannot count as evolutionary progress.
 
-### Compiled reproduction integration (staged)
+### Compiled reproduction integration
 
 `EvolutionConfig` owns an immutable compiled grammar and an optional generation request;
 without an explicit request it uses the grammar entry. A request without a grammar is
@@ -968,17 +970,18 @@ Preparation owns the immutable grammar, registry keys and materialized populatio
 identities. Packing rejects stale identities, changed prepared search limits and invalid spans/contracts. It extracts
 standalone donor payloads without expression envelopes and preserves referenced names and
 constant values. Packing prescans donor tables and grows required capacities; it never
-truncates a compiled payload. Staged transport limits are 512 nodes per program/payload,
+truncates a compiled payload. GPU transport limits are 512 nodes per program/payload,
 128 names, 128 constants and 256 MiB of padded buffers; preparation additionally bounds
 item counts. These transport limits do not restrict CPU grammar evolution.
 
-Compiled-mode buffers cannot enter the legacy CUDA reproduction implementation. Guards
-cover top-level evolution, backend dispatch, direct GPU preparation and execution,
-overlap start/finish, decoding, and low-level allocation/upload/launch/copyback. Guards
-run before CUDA operations or pointer access, including empty populations. Retaining
-contract IDs in host buffers does not imply that legacy kernels enforce them.
+Compiled-mode buffers enter the compiled CUDA selection and two-pass variation path;
+legacy-only entry points reject them. Guards cover top-level evolution, backend
+dispatch, direct GPU preparation and execution, overlap start/finish, decoding, and
+low-level allocation/upload/launch/copyback. They run before CUDA operations or pointer
+access, including empty populations. Compiled kernels enforce numeric contract IDs,
+destination budgets, atomic occurrence groups, and explicit copyback provenance.
 
-## General lexical regions and traversal (staged CPU path)
+## General lexical regions and traversal
 
 `LetRegion(initializer, body)` evaluates its initializer once, stores the value in
 an immutable lexical binding, and evaluates the body with that binding visible.
@@ -1013,12 +1016,14 @@ branches are statically checked even when a branch is not executed. Runtime
 conditionals remain lazy. Traversal uses the existing len/index semantics and
 payload lifetime contract; it does not eagerly materialize the sequence or a slice.
 
-Bodies are static prefix-AST regions, not runtime closures. The initial CPU
+Bodies are static prefix-AST regions, not runtime closures. The
 lowering uses hidden locals and a bounded-size loop, with no per-element grammar
 lookup. Compiled blocks containing these forms carry an explicit unit-cost fuel
 schedule unless explicit source semantic event profiles override its charging as
 described below.
-The staged GPU execution and reproduction paths reject these forms explicitly.
+GPU evaluation executes the lowered lexical and traversal bytecode with the same
+semantic fuel schedule. Compiled-grammar GPU reproduction preserves the native
+body metadata and capture mappings through device variation and verified copyback.
 
 Migration compatibility note: the frozen CPU ADD implementation converts Int
 operands through double before its wrapping helper. Large Ints can therefore lose
@@ -1027,10 +1032,10 @@ precision: on the frozen reference, `9007199254740993 + 2` produces
 calculation preserves that measured behavior; it does not substitute idealized
 64-bit addition. Range endpoints are clamped by comparisons and selection, avoiding
 this numeric conversion. The boundary reference probe is recorded in the Goal05
-execution evidence; the existing scalar runtime is unchanged by this staged path.
+execution evidence; the existing scalar runtime is unchanged by this compiled path.
 
 
-### Checked values (experimental CPU composition)
+### Checked values
 
 `CHECK_INT(value)` evaluates its child once, applies the existing CHECK_INT bytecode
 validation and returns the unchanged value. Its static argument and result type are
@@ -1040,11 +1045,11 @@ these three list tags; it does not resolve payload storage or convert elements.
 Both validations run after child evaluation and raise Type on an inadmissible tag.
 They remain lazy when placed in an unselected conditional branch. These general
 expressions allow validation order to be represented explicitly in a composition.
-Like the new lexical-region forms, they are rejected by experimental GPU execution
-and reproduction until the general GPU implementation is available.
+CPU and GPU execution apply the same validation bytecode, and compiled GPU
+reproduction preserves the corresponding native nodes.
 
 
-### Source semantic fuel events (experimental CPU)
+### Source semantic fuel events
 
 An AST may attach a `fuel_specs` row to a supported expression node. A row maps
 named semantic events to nonnegative costs bounded by INT_MAX; unspecified events
@@ -1053,10 +1058,13 @@ charging. Profiles never implicitly apply to child expressions. Costs are paid
 before the associated event; insufficient fuel produces Timeout before its effects
 or validation. Zero-cost events may execute with zero remaining fuel. The compiler
 rejects possible zero-cost control-flow cycles, including in Release builds.
+GPU bytecode packing carries the same validated schedule on every instruction.
 
 For a simple constant, variable, unary operation, arithmetic/comparison or builtin,
 `operation` applies after argument evaluation, at the operation itself. Boolean
-AND/OR and structured runtime expressions do not accept profiles. Let supports
+AND/OR and legacy ASGP structured expressions do not accept profiles. A bounded
+region accepts the `operation` event independently from its plan's frame-entry fuel.
+Let supports
 `bind`, after the initializer. IfExpr supports `branch_test` after the condition and
 `branch_merge` only when the then branch jumps over the else branch.
 
@@ -1114,7 +1122,10 @@ for unset locals and Type for actual values with a different tag.
 Phase expressions use only their declared lexical binders and bindings introduced
 within the phase. They cannot implicitly read surrounding ordinary names or
 lexical binders. An outer value enters through an explicit Parameter-bank binding.
-Each phase returns its exact declared result type; the base predicate returns Bool.
+Each phase has its exact declared nominal result type; the base predicate returns
+Bool. At runtime, boundary, base and combine results may carry the internal payload
+fallback representation under the sibling/combine tag rules in `bytecode_isa.md`.
+State, predicate, preparation and request-expression values retain exact runtime tags.
 Nested bounded regions are permitted in initial argument expressions, but all
 structured recursive source forms are rejected inside isolated phases. Ordinary
 local lexical regions and traversals remain valid within phase expressions.
@@ -1124,4 +1135,8 @@ phase expressions carry their own ordinary source fuel events. Frame entry uses
 the plan's positive serialized charge. Prefix traversal, hashing, table compaction
 and subtree replacement preserve every plan field and capture/binding mapping.
 Subtree insertion freshens introduced phase binder IDs before remapping captures.
-GPU reproduction rejects this native metadata until device support is enabled.
+Compiled-grammar GPU reproduction preserves bounded-region plans and phase bindings
+through device variation and verified copyback. GPU execution uses bounded explicit
+frame and memo storage; declarations exceeding supported device capacities reject
+explicitly rather than selecting a CPU execution path. See the device transport
+limits in `bytecode_format.md`.

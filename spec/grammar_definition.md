@@ -1,10 +1,12 @@
 # Typed grammar definitions
 
 This document describes the internal `grammar-definition-v1` construction format.
-The production CLI still accepts the existing [grammar-config](grammar_config.md)
-format. CLI integration, materialized derivation validation, and structured execution
-descriptors are pending during the staged migration. A compiled grammar
-is a construction artifact, not a runtime execution mode.
+The production evolution CLI still accepts the existing
+[grammar-config](grammar_config.md) format. The generation CLI accepts this format for
+generation and replay, and internal evolution APIs and the migration benchmark execute
+compiled grammars on CPU and GPU. Materialized derivation validation and structured
+execution descriptors are part of that compiled runtime contract. Direct production
+evolution-CLI selection of this format remains pending.
 
 ## Types and entry
 
@@ -245,7 +247,7 @@ domain ordering and coordinate-addition safety. Sparse memo capacity counts
 successful stored results, not every coordinate in the Cartesian domain; a large
 domain alone must not cause premature memo exhaustion.
 
-The staged CPU driver uses explicit fixed-layout frames with state, prepared
+The bounded-region drivers use explicit fixed-layout frames with state, prepared
 values, ordered child results and a continuation index. Each entered frame pays
 the declared entry charge before state/boundary/base evaluation. Boundary and base
 handling precede memo lookup, so their results are not cached. A nonterminal memo
@@ -255,7 +257,8 @@ check; a rejected child pays no entry charge. Combine evaluation and result chec
 precede memo-capacity failure. Only successful nonterminal combines are stored.
 All phases share the remaining invocation fuel and propagate their first error.
 Logical frame/cell bounds are independent of retained reusable scratch allocation.
-This internal driver is not yet exposed by an executable grammar contract.
+The compiled execution contract exposes this driver on CPU and GPU with the same
+declared frame, memo and semantic-fuel limits.
 
 Sequence progress uses a ranked sequence state and ordered half-open windows whose
 endpoints are the beginning, end, or one of at most four prepared interior cuts.
@@ -267,7 +270,7 @@ endpoint order for the sequence slice operation. Duplicate windows need explicit
 allowance. This permits user-defined multiway decompositions and overlapping proper
 windows; it does not encode a divide-and-conquer package identity.
 
-The staged `RegionPlan` shape uses exact public state/result/parameter types,
+The compiled `RegionPlan` shape uses exact public state/result/parameter types,
 ordered preparations and requests, explicit execution limits, and one progress
 proof. Coordinate slots project `Int` state slots; every projected next state must
 use its own checked constant-offset constructor. A ranked sequence must use a
@@ -293,8 +296,7 @@ Sequence measure slot zero is the current ranked source length. A phase's explic
 binding list selects from these banks, allowing isolated template phases without
 implicit access to every available slot. Captured locals must preserve set/unset
 state; an unused capture must not raise an eager `Name` error. Native materialization,
-phase bytecode verification and codecs must preserve these contracts before the
-staged shape becomes executable.
+phase bytecode verification and codecs preserve these contracts before execution.
 
 An expression selects a contract with `structured` instead of `signature`, for
 example `{"structured":{"family":"recur","state_types":["Int"],"result_type":"Int","requests":1},"args":[],"bind":{}}`.
@@ -400,11 +402,11 @@ identify shared slots and physical AST spans; copied production-choice records r
 parent indexes and spans. Native verification is mandatory before returning a generated
 program. Execution preflight follows the entry's reachable productions and instantiated
 bodies; an unused imported template does not request execution of its primitives.
-Population integration is still being implemented before the Goal 03 production
-interface is finalized.
+Population generation and replay preserve the same compiled production identities,
+budgets, and membership contract.
 
 
-### Generated artifacts (staged)
+### Generated artifacts
 
 `grammar-generated-v1` records the resolved grammar and hash, generator/RNG versions,
 runtime semantic version `gagp-native-1.0.0`, canonical unsigned 64-bit decimal seed, ordered input schema and its SHA-256 hash,
@@ -447,7 +449,7 @@ nodes and prefix depth 256; structural numeric fields must be signed 32-bit inte
 before conversion by the native AST codec.
 
 
-### Materialized membership and population generation (staged)
+### Materialized membership and population generation
 
 `require_membership` validates native structure, exact input/return typing and full
 materialized node/depth budgets, then matches the entry's compiled productions.

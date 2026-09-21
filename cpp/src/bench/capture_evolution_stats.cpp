@@ -7,6 +7,7 @@
 #include <mutex>
 #include <set>
 #include <sstream>
+#include <utility>
 
 #include "migration_snapshot.hpp"
 #include "gagp/cli/commands.hpp"
@@ -108,6 +109,12 @@ ReproductionResult capture_reproduction(const std::vector<ScoredGenomeRef>& scor
   observe(result.next_population, "reproduction");
   return result;
 }
+template <class... Args>
+ReproductionResult capture_gpu_reproduction(Args&&... args) {
+  auto result = run_gpu_repro_backend(std::forward<Args>(args)...);
+  observe(result.next_population, "reproduction");
+  return result;
+}
 }  // namespace repro
 repro::ReproductionResult capture_overlap(std::future<OverlapPrepared>* future,
     const std::vector<ProgramGenome>& population, const std::vector<double>& fitness,
@@ -119,10 +126,12 @@ repro::ReproductionResult capture_overlap(std::future<OverlapPrepared>* future,
 }  // namespace gagp::evo
 #define rank_population_refs capture_rank
 #define run_reproduction_backend capture_reproduction
+#define run_gpu_repro_backend capture_gpu_reproduction
 #define finish_gpu_reproduction_overlap capture_overlap
 #include GAGP_EVOLVE_SOURCE
 #undef rank_population_refs
 #undef run_reproduction_backend
+#undef run_gpu_repro_backend
 #undef finish_gpu_reproduction_overlap
 #endif
 

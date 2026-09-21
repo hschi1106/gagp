@@ -528,8 +528,18 @@ ReproductionResult run_cpu_backend_impl(const std::vector<ScoredGenomeRef>& scor
     selected_parent_indices =
         gpu_style_selection_indices(scored, cfg.selection_pressure, selected_parent_count, rng());
   } else {
-    selected_parent_indices =
-        tournament_selection_indices_without_replacement(scored, rng, cfg.selection_pressure, selected_parent_count);
+    const bool needs_odd_partner = cfg.population_size % 2 != 0 &&
+        static_cast<std::size_t>(cfg.population_size) == scored.size();
+    selected_parent_indices = tournament_selection_indices_without_replacement(
+        scored, rng, cfg.selection_pressure,
+        needs_odd_partner ? cfg.population_size : selected_parent_count);
+    if (needs_odd_partner) {
+      // Complete the final crossover pair with a fresh tournament. The selector's
+      // public count bound remains intact, including for a singleton population.
+      const auto partner = tournament_selection_indices_without_replacement(
+          scored, rng, cfg.selection_pressure, 1);
+      selected_parent_indices.push_back(partner.front());
+    }
   }
   const auto selection_t1 = std::chrono::steady_clock::now();
   out.stats.selection_ms =
@@ -641,14 +651,12 @@ ReproductionResult run_cpu_backend(const std::vector<ScoredGenomeRef>& scored,
 
 }  // namespace
 
-void require_reproduction_mode_supported(const EvolutionConfig& cfg, bool gpu_entry) {
+void require_reproduction_mode_supported(const EvolutionConfig& cfg, bool /*gpu_entry*/) {
   if (!cfg.compiled_grammar) {
     if (cfg.generation_request)
       throw std::invalid_argument("generation_request requires a compiled grammar");
     return;
   }
-  if (gpu_entry || cfg.reproduction_backend == ReproductionBackend::Gpu)
-    throw std::invalid_argument("compiled grammar GPU reproduction is unavailable until Goal 07");
   if (cfg.cpu_repro_ablation != CpuReproAblation::None)
     throw std::invalid_argument("compiled grammar reproduction does not support legacy CPU ablations");
   if (cfg.fuel <= 0 || static_cast<std::uint32_t>(cfg.fuel) != cfg.compiled_grammar->execution_limits().fuel)

@@ -100,7 +100,7 @@ else:
     execute operation
 ```
 
-The staged CPU semantic fuel extension permits an optional parallel
+The semantic fuel extension permits an optional parallel
 `instruction_fuel` array on each code block. An absent or empty array retains the
 unit-cost contract above. A nonempty array has exactly one integer in
 `[0, INT_MAX]` per instruction. Before executing an instruction, compare the
@@ -118,9 +118,11 @@ bounds consecutive zero-cost steps by the block's instruction count and returns
 `ValueError` for an unmetered cycle when verification was bypassed.
 
 This schedule encodes semantic charges on lowered operations without changing
-instruction layout. The current GPU runtime explicitly rejects any nonempty
-schedule, including schedules in nested phases, until the general GPU execution
-path supports them. It must never silently execute such a program with unit costs.
+the serialized instruction layout. GPU host packing validates root and phase
+schedules and embeds each cost in its private packed instruction. The device
+interpreter applies the same charge-before-operation rule, including zero-cost
+instructions at zero remaining fuel. A negative starting budget still times out.
+Structured-region capability checks remain separate from schedule support.
 
 Structured expressions and ASGP schemes must not bypass fuel accounting.
 
@@ -258,8 +260,10 @@ ASGP implementation requirements:
 `BOUNDED_REGION` (opcode 28) takes operand `a`, an index into the program's
 `bounded_region_segments`. It consumes the initial typed states in slot order,
 followed by additional Int bound operands, and produces one exact typed result.
-It is a CPU staging instruction; GPU acceptance rejects both its descriptors and
-instructions until the corresponding device implementation is enabled.
+CPU and GPU execute the same descriptors. GPU packing verifies the complete
+program before upload and rejects declared frame or memo-cell limits above 128;
+limits are never silently clamped. Device execution uses fixed explicit frames
+and memo storage, without device recursion or host execution of program phases.
 
 A segment contains a validated `RegionPlan` and ordinary bytecode phases with
 explicit source-bank-to-local bindings. It captures the listed caller locals once,
@@ -302,17 +306,26 @@ predicate/body; base selection precedes memo lookup. Boundary and base results
 are never memoized. On a miss, preparations execute once, then requests execute in
 source order, each finishing its entire descendant evaluation before the next
 request. Construction errors precede child frame-capacity checks; a rejected child
-receives no entry charge. Child errors precede combine. Every successful phase
-must return its exact declared type; predicates return Bool. Successful nonterminal
-combine results are inserted only after their type check, so combine errors
-precede memo-cell exhaustion. Duplicate requests require explicit permission and
+receives no entry charge. Child errors precede combine. Every phase has an exact
+verified nominal output type; predicates return Bool. State, predicate,
+preparation and request-expression values must retain their exact runtime tags.
+Boundary, base and combine result phases additionally admit the internal
+FallbackToken representation produced by ordinary payload builtins. This does not
+add a public result type or permit fallback constants in verified phases. Each
+completed child must have the same actual runtime tag as earlier siblings, checked
+before the next request; combine must retain that tag. Thus uniformly opaque
+results can flow through an identity combine, while mixing an exact value with a
+fallback result raises Type. Successful nonterminal combine results are inserted
+only after these checks, so combine errors precede memo-cell exhaustion. Duplicate requests require explicit permission and
 retain their order. A zero memo-cell bound permits terminal results but times out
 on the first successful nonterminal insertion.
 
 Memoization requires coordinate projection to cover all state slots; keys contain
 every Int state, and cached values retain exact runtime tags. Frame and cell
 limits are serialized execution parameters, independent of grammar search limits.
-Allocation arithmetic is checked and storage grows only with visited states.
+Allocation arithmetic is checked. CPU storage grows only with visited states;
+GPU storage has fixed physical capacities, while serialized limits bound logical
+frame and cell usage.
 Ordinary phase instruction fuel shares the caller's budget; explicit schedules
 must satisfy the zero-cost-cycle verifier. Descriptor validation rejects unknown
 banks, inaccessible slots, wrong bindings, invalid proof metadata, invalid phase

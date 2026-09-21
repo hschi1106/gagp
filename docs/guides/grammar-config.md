@@ -102,12 +102,13 @@ cpp/build/gagp_evolve_cli --cases cases.json --eval-ast-json generated.json --ou
 The fixture must match the artifact's exact input schema and return type. The recorded
 fuel is used automatically; if supplied, `--fuel` must agree. Evaluation can use the
 materialized program even when its generator version is unavailable. Use the C++ replay
-API when validating generation identity and provenance. The typed-definition generation
-and population replay APIs are still staged; legacy `--grammar-config` evolution remains
-the production workflow until grammar-aware reproduction is integrated.
+API when validating generation identity and provenance. Typed-definition generation,
+population replay, and grammar-aware CPU/GPU reproduction are implemented. The
+production evolution CLI still selects the legacy `--grammar-config` workflow; compiled
+evolution is available through the internal API and migration benchmark adapter.
 
 
-Generate or replay a staged initial population with the native generation CLI:
+Generate or replay a typed initial population with the native generation CLI:
 
 ```bash
 cpp/build/gagp_generate_cli --grammar-definition grammar.json --cases cases.json --population-size 64 --seed 0 --out-json population.json

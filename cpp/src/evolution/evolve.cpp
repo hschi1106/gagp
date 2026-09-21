@@ -231,7 +231,10 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
   const CaseSet case_set = evolution_case_set(cases, cfg);
   EvolutionConfig reproduction_cfg = cfg;
   reproduction_cfg.verification_inputs = case_set.input_specs;
-  const PayloadLifetimeManager payload_lifetime(cases);
+  const auto gpu_repro_resources = cfg.compiled_grammar &&
+          cfg.reproduction_backend == repro::ReproductionBackend::Gpu
+      ? repro::make_gpu_repro_run_resources(reproduction_cfg) : nullptr;
+  const PayloadLifetimeManager payload_lifetime(cases, gpu_repro_resources);
   const auto init_t0 = std::chrono::steady_clock::now();
   PopulationInitialization initialization =
       initialize_population(cfg, case_set, initial_population);
@@ -273,7 +276,7 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
     std::future<OverlapPrepared> overlap_future;
     if (overlap_gpu) {
       overlap_future = start_gpu_reproduction_overlap(
-          population, reproduction_cfg, rng());
+          population, reproduction_cfg, rng(), gpu_repro_resources);
     }
     if (cfg.eval_engine == EvalEngine::GPU) {
 #ifdef GAGP_HAS_CUDA
@@ -302,6 +305,8 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
     if (overlap_gpu) {
       reproduction = finish_gpu_reproduction_overlap(
           &overlap_future, population, raw_fitness, reproduction_cfg);
+    } else if (gpu_repro_resources) {
+      reproduction = repro::run_gpu_repro_backend(scored, reproduction_cfg, rng, gpu_repro_resources);
     } else {
       reproduction = repro::run_reproduction_backend(scored, reproduction_cfg, rng);
     }

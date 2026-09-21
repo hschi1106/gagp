@@ -41,20 +41,19 @@ A depth-indexed fixed point computes minimum feasible node costs; this preserves
 joint depth/node constraint instead of combining unrelated minima. Templates retain
 immutable fixed-body and typed-hole metadata, with explicit
 scope mappings and capture checks. Numeric context indexes prepare compatible
-nonterminals and productions by exact result type. Compilation is currently
-internal; materialization and membership/replay integration follow in the next
-migration stages before CLI cutover. The construction format is defined
+nonterminals and productions by exact result type. The compiled representation
+drives materialization, membership/replay, contextual variation, and CPU/GPU
+evolution. The construction format is defined
 in [grammar_definition.md](../../spec/grammar_definition.md).
 
 The internal grammar-definition compiler lives under
 `cpp/include/gagp/evolution/grammar/` and `cpp/src/evolution/grammar/`, owned by
 `gagp_grammar`. Its primitive catalog resolves exact overloads into deterministic
 numeric IDs once during grammar construction. Scalar and sequence signatures are
-checked against the native AST verifier. Lexical `let` and ordered `traverse`
-currently declare typed body slots and binders but explicitly reject execution
-until their general lowering/runtime implementations are available. This catalog
-does not expose ASGP or LinearRec aliases. The existing grammar-config path remains
-the production path until grammar-driven materialization and all backends are integrated.
+checked against the native AST verifier. Lexical `let`, ordered `traverse`, and
+bounded regions lower to native AST metadata and execute through the shared CPU and
+GPU runtimes. This catalog does not expose ASGP or LinearRec aliases. The legacy
+grammar-config path remains available alongside compiled grammar definitions.
 
 ### Core and runtime
 
@@ -178,9 +177,9 @@ Named build/test configurations and focused commands are in
 
 The grammar catalog declares general recursive and memoized static-region contracts
 in `grammar/structured.hpp`. Parameterized state/result signatures become numeric
-compiled contract entries, with phase-specific binder visibility. Execution remains
-explicitly unavailable until rank/transition descriptors and generic runtime support
-are implemented. Existing control shapes have a separate syntax-category catalog;
+compiled contract entries, with phase-specific binder visibility. Materialization
+emits validated rank/transition descriptors consumed by the generic CPU and GPU
+runtimes. Existing control shapes have a separate syntax-category catalog;
 structural productions enforce category/type contracts and resolve declared mutable
 locals to numeric IDs before materialization. Repeated template
 holes retain one logical slot identity, and composed templates may forward holes
@@ -191,8 +190,7 @@ cardinality checks, implemented in `runtime/recurrence_rank.cpp` within `gagp_co
 The proof uses signed lexicographic axes and ordered constant offset vectors, with
 explicit endpoint and duplicate policies. It rejects unproved edges and possible
 coordinate overflow without allocating an execution table. Grammar, bytecode, and
-device packing can share this validation boundary; the utility alone does not
-enable the staged recursive runtime.
+device packing share this validation boundary.
 
 The CPU staging substrate in `runtime/cpu/bounded_region.hpp` uses an explicit
 frame vector with fixed arrays for state, prepared values and ordered child
@@ -201,7 +199,8 @@ each missed frame once, constructs one request at a time, and combines after all
 children succeed. Request construction precedes the frame-capacity check; successful
 combine and result validation precede memo-capacity checks. It does not call the
 legacy DC/DP evaluators. The adapter remains an internal boundary for subsequently
-verified materialized regions, not a user-supplied executable extension.
+verified materialized regions; grammar data reaches it only after compilation and
+native verification.
 
 `runtime/cpu/recurrence_memo.hpp` supplies bounded, reusable open-addressing storage
 for fixed coordinate keys and exact `Value` results. It allocates lazily and checks
@@ -209,28 +208,29 @@ power-of-two growth before allocation. Frame and memo limits count live logical
 entries; scratch may retain larger physical allocations from a previous invocation.
 Both structures expose resident storage measurements for the migration benchmarks.
 `node_prefix_arity(const AstNode&)` is the common host AST traversal entrypoint for
-the upcoming statically declared structured argument layouts; existing node arities
-remain unchanged.
+the statically declared structured argument layouts; existing node arities remain
+unchanged.
 
 `core/sequence_rank.hpp` owns proper-window construction proofs and safe interior
 cut resolution. `core/region_plan.hpp`, validated by `runtime/region_plan.cpp`,
 combines coordinate or sequence progress with exact state/result types, typed
 preparations, request constructors, literal/operand domain bounds and phase slot
 banks. These core types do not depend on evolution types or package names. Native
-AST binders and bytecode local mappings remain separate representation concerns;
-the shared plan is their static contract, not yet a wire format or executable gate.
+AST binders and bytecode local mappings remain separate representation concerns.
+The shared plan is validated during compilation, serialized in public artifacts,
+lowered into bytecode region segments, and packed into compact GPU descriptors.
 
-Goal 03 materialization is being integrated through `grammar/generate.hpp/.cpp`,
-compiled into `gagp_evolution` and backed by immutable `gagp_grammar` tables. The
-initial internal path handles native value/control nodes and owned constant domains,
-then performs native AST verification before returning a genome. It reports logical
+Materialization lives in `grammar/generate.hpp/.cpp`, compiled into `gagp_evolution`
+and backed by immutable `gagp_grammar` tables. It handles native value/control nodes,
+lexical/traversal forms, bounded regions, and owned constant domains, then performs
+native AST verification before returning a genome. It reports logical
 steps, derived nodes and node-aligned origins separately from total AST size.
 Expression entries reserve four envelope nodes and three prefix levels from the
 search budget; Program entries already own that structure. Execution fuel is copied
 separately into derivation metadata. Shared/forwarded template holes now materialize with reserved copy budgets and
 logical identity. `ProgramGenome` optionally retains immutable derivation metadata;
 clones and table compaction preserve it, while newly changed legacy children have
-no grammar provenance. The staged `grammar-generated-v1` artifact stores a resolved
+no grammar provenance. The `grammar-generated-v1` artifact stores a resolved
 grammar, versioned seed replay and lossless typed constants separately from AST
 structure. Replay checks the complete canonical regenerated artifact; materialized
 decoding independently checks native validity and returns the input/return contract
@@ -243,13 +243,14 @@ independent materialized membership matcher before acceptance. Its per-invocatio
 memoization cannot leak matches between grammars or ASTs. Generation also lowers and
 verifies bytecode, recording its instruction count separately from AST size. Generated
 runtime cache identities include decoded constants, input ordering, fuel and the runtime
-semantic version while excluding search weights and provenance. The staged
+semantic version while excluding search weights and provenance. The
 `gagp_generate_cli` exercises generation and exact population replay end to end.
 The versioned grammar-config adapter emits ordinary typed productions with explicit
 domains, initialized local scope and structural limits; it retains the legacy path
 for the migration oracle. Finite constant-domain membership indexes are built once
-with the compiled grammar rather than reconstructed for each candidate. The production CLI cutover
-and grammar-aware reproduction remain later migration work.
+with the compiled grammar rather than reconstructed for each candidate. Grammar-aware
+reproduction is integrated on CPU and GPU; direct production CLI cutover remains later
+migration work.
 
 `grammar/budget.hpp/.cpp` is shared by compilation and materialization. It constrains
 all copies of a logical template hole to the tightest occurrence depth and computes
@@ -264,7 +265,7 @@ exact type, visible lexical bindings and remaining structural budget. Scope mapp
 are validated and recorded in immutable provenance and artifacts. The entry APIs are
 wrappers around this request path. Request-aware membership and population generation
 share the same contract; executable preflight follows the requested nonterminal.
-Actual bound-value lowering remains part of the subsequent general-runtime work.
+Materialization and lowering preserve the request's bound values and exact scopes.
 
 Grammar membership now also offers deterministic witness reconstruction for imported
 or varied native ASTs. The matcher records only successful production decisions; a
@@ -280,8 +281,9 @@ physical hole copies, computes destination-relative node/depth/template allowanc
 and separates contract equality from donor fit. `grammar/variation_cache` retains an
 immutable compiled grammar, owns its compatibility registry and cached analyses, and
 bounds retained entries with FIFO eviction. Its identities include materialized values
-and contextual limits, so stale metadata cannot certify a cache hit. Compiled operators and shared host preparation consume these contracts. Legacy device
-kernels cannot consume them and reject compiled mode.
+and contextual limits, so stale metadata cannot certify a cache hit. Compiled operators,
+shared host preparation, and the compiled GPU selection/variation kernels consume these
+contracts. Legacy-only entry points reject compiled state explicitly.
 
 `grammar/frame` validates isolated donor inputs: original grammar inputs followed by
 explicitly available declared native locals. Expression generation recomputes minimum
@@ -294,8 +296,9 @@ spliced child with the original inputs before acceptance.
 node/depth/template allowances. `grammar/variation` owns run context, certification,
 atomic repeated-hole insertion and outcome accounting. Compiled-grammar overloads of
 `crossover` and `mutate` use these shared contracts while retaining the public operator
-names. Constant mutation resamples the reconstructed production domain. CPU backend selection and mutation order now use these overloads in compiled mode.
-Shared host packing transports the contracts, while legacy GPU dispatch rejects that mode.
+names. Constant mutation resamples the reconstructed production domain. CPU backend
+selection and mutation order use these overloads in compiled mode. Shared host packing
+transports the same contracts to the compiled GPU crossover and mutation passes.
 
 `EvolutionConfig` retains the compiled definition and optional generation request by
 ownership, including configuration copies. Compiled initialization certifies imports
@@ -314,13 +317,18 @@ validator checks shape, bounded costs, and acyclicity of the zero-cost control-f
 subgraph using an iterative traversal. The CPU interpreter dispatches once per
 block between unit-cost and scheduled execution, preserving the legacy instruction
 layout and loop. This permits semantic charges to survive changes in compiler
-bookkeeping. GPU fitness and direct host packing reject scheduled blocks until the
-general GPU path implements their contract. Nested phases retain their existing
-call-entry charges in addition to any instruction schedule.
+bookkeeping. GPU packing validates root and phase schedules and embeds a uint32
+cost in each private `DInstr`, defaulting to one for unscheduled code. Existing
+code buffers, uploads and shared-memory copies carry the cost with its instruction;
+no additional fuel-buffer lifetime is introduced. Device execution checks fuel
+before each operation, including zero-cost instructions at a zero budget. Nested
+phases retain their existing call-entry charges in addition to any instruction
+schedule. The device instruction grows from 12 to 16 bytes; performance evidence
+must include the resulting packing and shared-memory costs.
 
 ### General static lexical bodies
 
-The staged CPU AST represents lexical bodies through one `lexical_regions` table
+The native AST represents lexical bodies through one `lexical_regions` table
 with ordered typed declarations. Traversal direction is a general per-node
 specification. Region reference IDs are disjoint from ordinary name indices;
 typing and lowering resolve them to lexical environments and hidden local slots.
@@ -328,8 +336,10 @@ The current verifier internally reserves negative environment keys for these IDs
 while public AST IDs remain nonnegative. Let and traversal bodies may capture
 outer lexical bindings. Whole-sequence and ranged traversal lower to ordinary
 bytecode loops rather than per-element AST expansion. Table compaction preserves
-region IDs and metadata. GPU packing rejects these staged forms until its general
-region implementation is available.
+region IDs and metadata. GPU evaluation executes their lowered ordinary bytecode
+and semantic fuel schedules. Compiled GPU reproduction preserves their AST metadata
+through numeric compatibility checks, capture-safe device variation, metadata
+reconstruction and cached native/grammar acceptance.
 
 
 Contextual grammar donors carry explicit native binder IDs alongside their ordered
@@ -343,8 +353,9 @@ AST execution continues to require closed lexical scopes.
 
 Generic CHECK_INT and CHECK_LIST expressions lower directly to existing validation
 opcodes, preserving explicit validation order without introducing runtime package
-identity. Their compiled programs use the experimental semantic-fuel envelope and
-are rejected by GPU execution/reproduction alongside general regions until Goal07.
+identity. Their compiled programs carry semantic instruction fuel through CPU and
+GPU execution. Compiled GPU reproduction retains the corresponding native node
+contracts and metadata.
 
 
 Source fuel profiles attach supported semantic event costs to native expression
@@ -400,8 +411,8 @@ shared iterative frame engine and ordinary instruction evaluator with no root
 program handle in phases, preventing hidden recursive dispatch. The bytecode
 verifier independently proves phase success types and slot visibility before an
 unchecked native descriptor can execute. Initial captured local tags are checked
-lazily by LOAD; stores replace that initial constraint. This CPU integration is
-staged before device execution.
+lazily by LOAD; stores replace that initial constraint. GPU execution uses the same
+verified descriptor and explicit bounded frame/memo workspace contract.
 
 
 Native bounded regions share the core RegionPlan and add only node ownership,
@@ -464,3 +475,50 @@ and fuel comparisons; rejection is not evidence of execution parity.
 core contracts and the JSON value library. Both grammar parsing and CLI codecs can
 use it without an evolution-to-CLI dependency cycle. Bytecode phase constants and
 segment serialization remain in CLI support, which already depends on evolution.
+
+
+The GPU bounded-region adapter packs verified plans, phase metadata and bindings
+into separate immutable device arrays, sharing the existing phase instruction,
+constant and payload tables. The Mixed fitness kernel selects ordinary, legacy
+structured, or generic-region capabilities from each packed evaluation batch. Legacy-only batches exclude the
+generic-region frame and memo storage from their device call graph; batches with
+generic regions also support legacy instructions in the same launch.
+The Mixed interpreter executes ordinary phases with structured calls disabled and maintains up to 128 explicit frames and 128 memo
+cells. Frame and memo values reside in an evaluation-owned global device workspace,
+sized from the batch's maximum declared frame capacity and memoized cell capacity.
+A 512 MiB workspace budget bounds concurrent program blocks; each block processes
+further programs by grid stride and each thread exclusively owns its workspace slice.
+This changes scheduling, not per-program capacities or execution order. The block
+finishes its fitness reduction before reusing shared code for the next program.
+Workspace allocation and cleanup use the existing evaluation arena lifetime, with
+no additional device-wide synchronization or CPU execution path.
+Declared larger capacities are rejected during host packing. Frame and
+memo values share the invocation's payload scratch lifetime. Terminal/combine
+result phases preserve internal fallback representations and enforce sibling and
+combine runtime-tag consistency; control and state phases retain exact checks.
+Generic grammar GPU reproduction uses the compiled operator pipeline described below.
+
+
+`evolution/repro/splice_metadata.cpp` reconstructs sidecar metadata from explicit
+splice spans after device node copyback. It handles lexical, traversal, fuel,
+bounded-region and legacy metadata owners without performing structural variation
+on the host. Introduced lexical IDs are fresh per physical copy; free captures map
+to the corresponding destination occurrence. Its tests verify native structure
+and execute reconstructed lexical/traversal/bounded programs on the CPU.
+
+Compiled reproduction uses a device crossover pass followed by a mutation pass:
+checked arena allocation and typed table upload feed numeric selection and two
+serial control lanes per pair; copyback carries explicit source provenance. Immutable
+source AST snapshots reconstruct lexical/region metadata after the device fixes the
+node stream. A device mutation dispatch now chooses constant groups or contextual donors after
+crossover offspring are analyzed. Constant compaction pins explicit metadata roots.
+The internal pass decoder restores metadata and performs cached native/grammar
+acceptance. Public synchronous compiled GPU reproduction now runs both passes,
+retains preparation context through acceptance, and rejects stale prepared inputs.
+Selection rejection rows feed the same variation counters as host preparation and
+decode. Public backend tests exercise restrictive grammars across generations.
+Compiled asynchronous preparation owns its context in the existing host worker and
+transfers it through the future before GPU execution and payload cleanup. A run-owned
+resource lazily materializes immutable constant domains once; both passes and later
+generations share them. Registry sweeps include those domain values, and GPU arena
+recreation invalidates the cached static domain upload.

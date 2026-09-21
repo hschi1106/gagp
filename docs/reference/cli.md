@@ -43,7 +43,7 @@ Fixed-population timing should use `--population-json`, `--generations 1`,
 [`../guides/benchmarking.md`](../guides/benchmarking.md) for the complete fair
 comparison procedure.
 
-`--eval-ast-json` also accepts staged `grammar-generated-v1` artifacts. This evaluates
+`--eval-ast-json` also accepts `grammar-generated-v1` artifacts. This evaluates
 the stored materialized AST without requiring its generator version or resolved grammar.
 The case file must match the recorded exact input schema and return type. Execution uses
 the artifact's fuel; an explicit `--fuel` must equal that value. The result JSON reports
@@ -52,7 +52,7 @@ This evaluation establishes native validity; it does not replay or certify gramm
 provenance. The C++ artifact replay APIs provide that separate check.
 
 
-The staged `gagp_generate_cli` creates `grammar-population-v1` initial-population
+`gagp_generate_cli` creates `grammar-population-v1` initial-population
 artifacts. Generation requires `--grammar-definition`, `--cases` and `--out-json`;
 `--population-size` defaults to 1 (maximum 65536), and `--seed` defaults to 0 and accepts
 a canonical unsigned 64-bit decimal. Replay uses `--replay-json` with `--cases` and

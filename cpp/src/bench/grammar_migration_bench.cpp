@@ -9,10 +9,13 @@
 #include "migration_reproduction.hpp"
 #include "migration_reproduction_bench.hpp"
 #include "gagp/cli/commands.hpp"
+#include "gagp/cli/grammar_population_artifact.hpp"
 #include "gagp/cli/options.hpp"
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/evolution/evolve.hpp"
+#include "gagp/evolution/grammar/definition.hpp"
+#include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/population_init.hpp"
 #include "gagp/core/bytecode_verify.hpp"
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
@@ -48,6 +51,23 @@ int positive_count(const std::string& text) {
   const int value = std::stoi(text, &consumed);
   if (consumed != text.size() || value <= 0) throw std::runtime_error("trial count must be a positive integer");
   return value;
+}
+
+bool same_request(const grammar::GenerationRequest& left,
+                  const grammar::GenerationRequest& right) {
+  if (left.nonterminal != right.nonterminal || left.type != right.type ||
+      left.budget.max_nodes != right.budget.max_nodes ||
+      left.budget.max_depth != right.budget.max_depth ||
+      left.visible_environment.size() != right.visible_environment.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < left.visible_environment.size(); ++i) {
+    if (left.visible_environment[i].name != right.visible_environment[i].name ||
+        left.visible_environment[i].type != right.visible_environment[i].type) {
+      return false;
+    }
+  }
+  return true;
 }
 
 void evaluation_timing(std::ostream& out, const EvaluationTiming& t);
@@ -139,7 +159,16 @@ void reproduction_timing(std::ostream& out, const ReproductionTiming& t) {
       << ",\"kernel_ms\":" << t.kernel_ms << ",\"copyback_ms\":" << t.copyback_ms
       << ",\"decode_ms\":" << t.decode_ms << ",\"teardown_ms\":" << t.teardown_ms
       << ",\"selection_kernel_ms\":" << t.selection_kernel_ms
-      << ",\"variation_kernel_ms\":" << t.variation_kernel_ms << '}';
+      << ",\"variation_kernel_ms\":" << t.variation_kernel_ms
+      << ",\"crossover_attempts\":" << t.variation.crossover_attempts
+      << ",\"mutation_attempts\":" << t.variation.mutation_attempts
+      << ",\"contract_rejections\":" << t.variation.contract_rejections
+      << ",\"budget_rejections\":" << t.variation.budget_rejections
+      << ",\"generation_rejections\":" << t.variation.generation_rejections
+      << ",\"acceptance_rejections\":" << t.variation.acceptance_rejections
+      << ",\"fallback_children\":" << t.variation.fallback_children
+      << ",\"unchanged_children\":" << t.variation.unchanged_children
+      << ",\"changed_children\":" << t.variation.changed_children << '}';
 }
 
 void emit_result(std::ostream& out, const ExecResult& result) {
@@ -153,7 +182,7 @@ void emit_result(std::ostream& out, const ExecResult& result) {
 int main(int argc, char** argv) {
   try {
     const auto process_start = Clock::now();
-    std::string action, snapshot, ast_path;
+    std::string action, snapshot, ast_path, grammar_definition_path;
     int warmups = 3, trials = 15;
     bool explicit_trial_counts = false;
     std::vector<char*> common{argv[0]};
@@ -163,9 +192,17 @@ int main(int argc, char** argv) {
         explicit_trial_counts = true;
         if (++i >= argc) throw std::runtime_error("missing trial count");
         (arg == "--trials" ? trials : warmups) = positive_count(argv[i]);
-      } else if (arg == "--action" || arg == "--snapshot" || arg == "--source-ast") {
+      } else if (arg == "--action" || arg == "--snapshot" || arg == "--source-ast" ||
+                 arg == "--grammar-definition") {
         if (++i >= argc) throw std::runtime_error("missing adapter option value");
-        (arg == "--action" ? action : arg == "--snapshot" ? snapshot : ast_path) = argv[i];
+        if (arg == "--action") action = argv[i];
+        else if (arg == "--snapshot") snapshot = argv[i];
+        else if (arg == "--source-ast") ast_path = argv[i];
+        else {
+          if (!grammar_definition_path.empty())
+            throw std::runtime_error("duplicate --grammar-definition");
+          grammar_definition_path = argv[i];
+        }
       } else {
         common.push_back(argv[i]);
       }
@@ -178,6 +215,11 @@ int main(int argc, char** argv) {
     }
     if (explicit_trial_counts && action != "steady" && action != "repro-steady") {
       throw std::runtime_error("--warmups and --trials only apply to steady measurement actions");
+    }
+    const bool compiled_mode = !grammar_definition_path.empty();
+    if (compiled_mode && action != "run" && action != "oracle" && action != "steady") {
+      throw std::runtime_error(
+          "--grammar-definition supports only run, oracle and steady actions; compiled freeze and reproduction snapshots are unsupported");
     }
     const CliOptions opts = parse_cli_options(static_cast<int>(common.size()), common.data());
     if (!opts.population_json.empty() || !opts.eval_ast_json.empty()) {
@@ -209,6 +251,18 @@ int main(int argc, char** argv) {
     cfg.retain_final_population = opts.retain_final_population;
     cfg.limits = Limits{opts.max_expr_depth, opts.max_stmts_per_block, opts.max_total_nodes,
                         opts.max_for_k, opts.max_call_args};
+    if (compiled_mode && !opts.grammar_config_path.empty())
+      throw std::runtime_error("--grammar-definition cannot be combined with --grammar-config");
+    if (compiled_mode) {
+      cfg.compiled_grammar = std::make_shared<const grammar::CompiledGrammar>(
+          grammar::compile_grammar(grammar::load_definition(grammar_definition_path)));
+      cfg.generation_request = grammar::entry_request(*cfg.compiled_grammar);
+      if (cfg.fuel <= 0 || static_cast<std::uint32_t>(cfg.fuel) !=
+                               cfg.compiled_grammar->execution_limits().fuel) {
+        throw std::runtime_error(
+            "--fuel must match the compiled grammar execution limit");
+      }
+    }
     if (!opts.grammar_config_path.empty()) cfg.grammar = decode_grammar_config_json(read_json(opts.grammar_config_path));
     std::vector<EvalCase> cases;
     CaseSet case_set;
@@ -216,6 +270,8 @@ int main(int argc, char** argv) {
     const auto case_format = require_string(require_object_field(cases_json, "format_version"), "format_version");
     const bool frozen_cases = case_format == "migration-evaluation-cases-v1";
     if (frozen_cases) {
+      if (compiled_mode)
+        throw std::runtime_error("compiled grammar benchmarks require fitness-cases input");
       if (action != "steady") throw std::runtime_error("raw binding snapshots are only supported by steady evaluation");
       const auto& rows = require_object_field(cases_json, "cases");
       if (rows.kind != JsonValue::Kind::Array || rows.array_v.empty()) throw std::runtime_error("empty raw case snapshot");
@@ -259,7 +315,32 @@ int main(int argc, char** argv) {
       if (!ast_path.empty()) throw std::runtime_error("--source-ast only applies to freeze");
       const auto raw = read_json(snapshot);
       const auto format = require_string(require_object_field(raw, "format_version"), "format_version");
-      if (format == "migration-bytecode-population-v1") {
+      const bool compiled_snapshot = format == kGeneratedGrammarPopulationArtifactVersion;
+      if (compiled_snapshot != compiled_mode) {
+        throw std::runtime_error(compiled_snapshot
+            ? "grammar-population-v1 requires --grammar-definition"
+            : "--grammar-definition requires a grammar-population-v1 snapshot");
+      }
+      if (compiled_snapshot) {
+        population = replay_generated_population_artifact(
+            grammar::canonical_json(raw), cfg.compiled_grammar.get());
+        if (!population.front().derivation)
+          throw std::runtime_error("grammar population member lacks a recorded request");
+        cfg.generation_request = population.front().derivation->request;
+        for (const auto& genome : population) {
+          if (!genome.derivation ||
+              !same_request(genome.derivation->request, *cfg.generation_request)) {
+            throw std::runtime_error(
+                "grammar population members do not share one exact generation request");
+          }
+        }
+        validate_grammar_case_set(*cfg.compiled_grammar, case_set,
+                                  *cfg.generation_request);
+        for (const auto& one : cases)
+          if (one.inputs.size() != cfg.compiled_grammar->inputs().size())
+            throw std::runtime_error(
+                "every fitness case must supply every compiled grammar input");
+      } else if (format == "migration-bytecode-population-v1") {
         if (action != "steady") throw std::runtime_error("bytecode snapshots only support steady evaluation");
         const auto& programs = require_object_field(raw, "programs");
         if (programs.kind != JsonValue::Kind::Array || programs.array_v.empty()) throw std::runtime_error("empty bytecode population");
@@ -281,6 +362,8 @@ int main(int argc, char** argv) {
       const auto verified = verify_ast(genome.ast, case_set.input_specs);
       if (!verified.ok) throw std::runtime_error(std::string("snapshot AST rejected: ") +
                                                  verify_code_name(verified.diagnostic.code));
+      if (compiled_mode)
+        grammar::require_membership(*cfg.compiled_grammar, genome, *cfg.generation_request);
     }
     if (action == "freeze") {
       write_file(snapshot, migration::encode_population(population));
@@ -314,12 +397,22 @@ int main(int argc, char** argv) {
         throw std::runtime_error("GPU oracle requested without CUDA");
 #endif
       }
-      out << "{\"format_version\":\"migration-oracle-v1\",\"programs\":[";
+      // The legacy bytecode snapshot codec predates generic regions and semantic
+      // fuel schedules. Compiled oracles retain the complete native AST instead
+      // of publishing a bytecode object with those execution fields missing.
+      if (compiled_mode)
+        out << "{\"format_version\":\"grammar-oracle-v1\",\"grammar_hash\":\""
+            << cfg.compiled_grammar->content_hash() << "\",\"programs\":[";
+      else
+        out << "{\"format_version\":\"migration-oracle-v1\",\"programs\":[";
       for (std::size_t p = 0; p < population.size(); ++p) {
         if (p) out << ',';
         const auto& bytecode = programs[p];
-        out << "{\"bytecode\":" << migration::encode_bytecode(bytecode)
-            << ",\"cpu_fitness\":" << cpu_fitness[p] << ",\"fitness\":" << fitness[p]
+        if (compiled_mode)
+          out << "{\"ast\":" << encode_ast_json(population[p].ast);
+        else
+          out << "{\"bytecode\":" << migration::encode_bytecode(bytecode);
+        out << ",\"cpu_fitness\":" << cpu_fitness[p] << ",\"fitness\":" << fitness[p]
             << ",\"cases\":[";
         for (std::size_t c = 0; c < case_set.bindings.size(); ++c) {
           if (c) out << ',';

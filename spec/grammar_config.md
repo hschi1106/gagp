@@ -294,7 +294,7 @@ Config tooling must test:
 - translated configs disable release-only constructs by default.
 - CPU and GPU reproduction both respect non-default native configs.
 
-The staged typed-definition compiler is specified in [grammar_definition.md](grammar_definition.md). It is internal during migration; the CLI contract above remains the production path.
+The typed-definition compiler is specified in [grammar_definition.md](grammar_definition.md). It is internal during migration; the CLI contract above remains the production path.
 
 The additive C++ compiled-grammar generation/population overloads validate exact case
 schemas and use the domain-only constant policy documented there. They do not change

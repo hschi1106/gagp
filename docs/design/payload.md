@@ -100,6 +100,13 @@ from the normative character contract is recorded in the
 [semantic coverage ledger](../reference/grammar-migration/semantic-coverage.md#inherited-utf-8-string-discrepancy).
 `retain_only()` keeps only the live payload-token closure reachable from a root value set; for list payloads this recursively keeps any referenced element payloads such as strings inside a `StringList`.
 
+Compiled GPU evolution also roots the immutable constant-domain values owned by its
+run resource. These include grammar constants absent from cases and the current
+population. Preparation materializes them once, and subsequent generation sweeps
+keep their full payload closure. Shared C++ ownership of a table alone does not keep
+its registry tokens resident; standalone callers performing sweeps must append the
+run resource's payload roots too.
+
 ### Snapshot export
 
 - `snapshot_strings()`
@@ -224,6 +231,30 @@ On fallback:
 - string and typed-list indexing return `FallbackToken`
 
 This means the exact result type is predictable from the typed-list tag, while missing payloads still produce the deterministic fallback token.
+
+## Bounded-region results and ownership
+
+General bounded regions use the ordinary payload tables and one invocation's
+shared per-thread scratch. Host packing gathers constants from every phase,
+including boundary phases. Frame values and memo cells contain compact `Value`
+references in explicitly owned global device workspace slices. Payload scratch
+remains live through all descendants, memo hits, and the returned payload. Workspace
+slices are reused between invocations only after their frame/memo references are no
+longer needed; this does not extend or shorten payload scratch lifetime. A scalar result permits restoring the invocation's scratch
+counters only after the region has completed.
+
+The bytecode verifier proves exact nominal phase types. At runtime, terminal and
+combine result phases also accept internal fallback tokens produced by ordinary
+payload operations. Sibling results must agree in their actual tags before the
+next request runs, and combine must retain that tag. Predicates, preparations,
+request expressions and child state entry keep exact tag checks. These rules are
+shared by the CPU and GPU adapters; they do not expose a public fallback type.
+Compact typed-list overflow retains its list tag, while indexing an unavailable
+payload can produce an opaque fallback result even for a nominal scalar type.
+
+Direct execution tests must distinguish a successful fallback from a type error
+and check consumed fuel. Both can receive the same fitness penalty, so aggregate
+fitness equality alone does not establish fallback compatibility.
 
 ## Typed-List Hashing Is Shallow
 

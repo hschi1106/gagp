@@ -16,7 +16,7 @@ __device__ inline double d_canonicalize_fitness_accumulator(double value) {
   return ldexp(static_cast<double>(quantized_mantissa), exponent - kMantissaBits);
 }
 
-template <DPayloadFlavor Flavor, bool EnableAsgp>
+template <DPayloadFlavor Flavor, bool EnableAsgp, bool EnableRegions = false>
 __global__ void evaluate_fitness_programs_impl(
     int program_count,
     const Value* all_consts, const DInstr* all_code, const DProgramMeta* metas,
@@ -34,10 +34,24 @@ __global__ void evaluate_fitness_programs_impl(
     int asgp_dp1d_segment_count,
     const DAsgpDp2dSegment* asgp_dp2d_segments,
     int asgp_dp2d_segment_count,
-    int fuel, double penalty, double* fitness_out) {
-  const int prog_idx = static_cast<int>(blockIdx.x);
+    int fuel, double penalty, double* fitness_out,
+    const DRegionSegment* region_segments = nullptr, int region_segment_count = 0,
+    const DRegionPhase* region_phases = nullptr, int region_phase_count = 0,
+    const DRegionPhaseBinding* region_bindings = nullptr, int region_binding_count = 0,
+    DRegionWorkspace workspace = {}) {
   const int tid = static_cast<int>(threadIdx.x);
-  if (prog_idx < 0 || prog_idx >= program_count) return;
+  if constexpr (EnableRegions) {
+    const std::size_t slice = static_cast<std::size_t>(blockIdx.x) * blockDim.x + tid;
+    if (workspace.frames) workspace.frames += slice * workspace.frame_capacity;
+    if (workspace.memo_keys)
+      workspace.memo_keys += slice * workspace.memo_capacity * DMAX_REGION_STATES;
+    if (workspace.memo_values) workspace.memo_values += slice * workspace.memo_capacity;
+  }
+
+  // Each block owns its workspace slices throughout the launch. Grid-stride
+  // program traversal bounds scratch allocation independently of population size.
+  for (std::size_t prog_idx = blockIdx.x;
+       prog_idx < static_cast<std::size_t>(program_count); prog_idx += gridDim.x) {
 
   const DProgramMeta meta = metas[prog_idx];
   const DPayloadTables payload_tables{
@@ -57,6 +71,9 @@ __global__ void evaluate_fitness_programs_impl(
       asgp_dp1d_segment_count,
       asgp_dp2d_segments,
       asgp_dp2d_segment_count,
+      region_segments, region_segment_count,
+      region_phases, region_phase_count,
+      region_bindings, region_binding_count,
   };
 
   extern __shared__ DInstr shared_code[];
@@ -77,9 +94,9 @@ __global__ void evaluate_fitness_programs_impl(
   const int chunk_start = (meta.case_count * tid) / static_cast<int>(blockDim.x);
   const int chunk_end = (meta.case_count * (tid + 1)) / static_cast<int>(blockDim.x);
   for (int local_case = chunk_start; local_case < chunk_end; ++local_case) {
-    const DResult result = d_execute_bytecode_impl<Flavor, EnableAsgp>(
+    const DResult result = d_execute_bytecode_impl<Flavor, EnableAsgp, EnableRegions>(
         meta, shared_code, all_consts, shared_case_local_vals, shared_case_local_set,
-        payload_tables, asgp_tables, local_case, fuel);
+        payload_tables, asgp_tables, local_case, fuel, workspace);
     if (result.is_error) {
       local_score = d_canonicalize_fitness_accumulator(local_score - fabs(penalty));
       continue;
@@ -117,6 +134,10 @@ __global__ void evaluate_fitness_programs_impl(
       total_score = d_canonicalize_fitness_accumulator(total_score + partial_scores[warp << 5]);
     }
     fitness_out[prog_idx] = total_score;
+  }
+  if constexpr (!EnableRegions) break;
+  // Thread 0 must finish consuming the reduction before shared code is reused.
+  __syncthreads();
   }
 }
 

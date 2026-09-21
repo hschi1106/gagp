@@ -395,6 +395,10 @@ bool test_gpu_repro_backend_preserves_asgp_metadata() {
       std::cerr << "FAIL: ASGP metadata gpu setup failed: " << message << "\n";
       return false;
     }
+    if (staging.selection_counters != nullptr) {
+      std::cerr << "FAIL: legacy host staging allocated compiled selection counters\n";
+      return false;
+    }
 
     std::vector<double> ranked_fitness;
     ranked_fitness.reserve(scored.size());
@@ -1202,6 +1206,17 @@ bool copyback_gpu_selection_parents(const gagp::evo::EvolutionConfig& cfg,
   if (!gagp::evo::repro::copyback_gpu_repro_children(
           arena, prepared.config, &staging, &copyback, &run_stats, message_out)) {
     return false;
+  }
+
+  if (copyback.child_splices == nullptr) {
+    if (message_out) *message_out = "copyback omitted child splice provenance storage";
+    return false;
+  }
+  for (int i = 0; i < prepared.config.pair_count * 2; ++i) {
+    if (copyback.child_splices[i].applied != 0) {
+      if (message_out) *message_out = "legacy variation published an uninitialized generic splice";
+      return false;
+    }
   }
 
   parent_a_out->assign(copyback.parent_a, copyback.parent_a + prepared.config.pair_count);

@@ -14,6 +14,7 @@ struct DInstr {
   std::uint8_t flags = 0;
   std::int32_t a = 0;
   std::int32_t b = 0;
+  std::uint32_t fuel = 1;
 };
 
 struct DResult {
@@ -95,6 +96,8 @@ struct DProgramMeta {
   int is_valid = 0;
   DPayloadFlavor payload_flavor = DPayloadFlavor::None;
   ErrCode err_code = ErrCode::Value;
+  int region_offset = 0;
+  int region_count = 0;
 };
 
 struct DStringPayloadEntry {

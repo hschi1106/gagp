@@ -49,7 +49,7 @@ Fields:
 
 ## Optional lexical region metadata
 
-The staged CPU AST forms append `LET_REGION`, `TRAVERSE`, `TRAVERSE_RANGE`, and
+The native AST forms append `LET_REGION`, `TRAVERSE`, `TRAVERSE_RANGE`, and
 `REGION_VAR` numeric kinds after the existing kinds. Their prefix arities are
 respectively 2, 4, 6, and 0. `REGION_VAR.i0` is a declaration ID; all other index
 fields on these forms are zero. Optional `lexical_regions` rows contain
@@ -73,8 +73,9 @@ unit charging. A nonempty schedule must match the code length exactly and contai
 only integers from zero through `INT_MAX`; `null` is invalid. Invalid zero-cost
 control-flow cycles are rejected at the decode boundary. See the
 [ISA fuel contract](./bytecode_isa.md#fuel-and-errors) for charge ordering.
-This staged extension is executable on CPU only; GPU execution explicitly rejects
-nonempty schedules in the root or any nested phase.
+CPU and GPU execution honor schedules in the root and supported nested phases.
+GPU packing validates them before upload; private device instruction layout does
+not change this wire format. Unsupported structured regions are rejected separately.
 
 ## Value Encoding
 
@@ -237,7 +238,7 @@ Main bytecode refers to ASGP segment arrays by zero-based segment index in the
 
 ## Bounded Region Segment Encoding
 
-The generic bounded-region representation is a private CPU staging format. A
+The generic bounded-region representation is a private CPU/GPU execution format. A
 program stores it in the `segments.bounded_region` array, and `BOUNDED_REGION.a`
 is the zero-based index into that array. Region objects use a strict schema:
 every field shown below is required, including empty arrays and `null`, and an
@@ -263,6 +264,20 @@ equal their respective plan type-table counts. Parameter locals are distinct,
 nonnegative caller-local indices. Standalone segment decoding validates the
 segment using a synthetic caller extent; complete-program verification checks
 each capture against the program's actual `n_locals`.
+
+### GPU execution capacities
+
+The current GPU transport supports at most 128 declared frames and 128 declared
+memo cells per bounded region. It rejects larger declarations before upload,
+including a larger cell declaration on a non-memoized plan; it does not clamp
+serialized limits or execute the region on the CPU. A program can therefore be
+valid for CPU execution while exceeding the GPU's supported resource profile.
+
+The fixed device descriptor supports four state slots, eight ordered requests,
+four preparations, 32 parameters, eight bound operands, and 32 request-expression
+phases. The core plan verifier checks the corresponding structural bounds before
+packing. CPU and GPU execution retain the same declared limits and semantic fuel
+charges for programs within the supported GPU profile.
 
 ### Region plan
 

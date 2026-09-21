@@ -3,8 +3,8 @@
 Goals 01–06 are implemented. Goal 04 adds compiled grammar variation and shared host
 preparation; its [validation evidence](goal-04-variation.md) is recorded separately.
 Goal 06's [bounded-region evidence](goal-06-bounded-regions.md)
-distinguishes verified CPU behavior from later acceptance work. Goals 07–12 remain
-pending. The immutable
+distinguishes verified CPU behavior from later acceptance work. Goal 07 integrates
+compiled grammars across GPU evaluation and reproduction; Goals 08–12 remain pending. The immutable
 reference source revision and binary/log hashes are recorded in
 [baseline-capture.json](baseline-capture.json). Existing production generation and
 runtime workflows remain available during the staged migration.
@@ -239,8 +239,8 @@ AST. `run` invokes production `evolve_population` with the restored population.
 records CPU values/errors and the first non-Timeout fuel boundary, and computes
 fitness in original population order. GPU mode explicitly calls `FitnessSessionGpu`;
 failure is an error, not a CPU fallback. CPU values/fuel boundaries are separate
-from GPU fitness. The direct device oracle described below now captures per-case
-values, errors, payloads, and fuel; the complete native capture is in progress.
+from GPU fitness. The direct device oracle described below captures per-case values,
+errors, payloads, and fuel; the complete native capture is retained with its audit.
 
 `capture_gpu_results.cu` includes the immutable production fitness source to reuse
 its packing helpers and device execution core. Each diagnostic probe runs the
@@ -638,3 +638,161 @@ with both excessive artifact/legacy nesting rejection and normal legacy evaluati
 (`goal-03-cli-dispatch-build-02.log`, `goal-03-cli-dispatch-ctest-02.log`). This narrow
 correction followed the full 60-test run above. Final spec/doc repository checks
 passed 17/17 (`goal-03-final-docs-repository.log`).
+
+
+## Goal 07 GPU integration evidence
+
+Compiled GPU reproduction now runs synchronous and overlapped preparation with
+per-run immutable constant domains, payload-root retention and cached device domain
+uploads. The final 133-test native suite and 100-test CPU sanitizer suite pass.
+Focused stress tests passed 320 typed-capture evolution
+generations and 45 structured-region generations across all five supported mode
+combinations. Structured coverage includes repeated template occurrences, unary and
+two-coordinate memoization, and nested initial-state regions; final children pass
+native/grammar verification and CPU/GPU fitness comparison.
+
+The new Release CUDA build uses architecture 89 and `--maxrregcount=64`. The unchanged
+frozen matrix pilot stopped on GPU allocation failures under
+`goal-07-matrix-pilot-01` in the external artifact root. Its audit verifies 2,784
+committed process records; failed partial attempts are retained separately. Its first warmup block is capability evidence only; it cannot establish
+performance acceptance. Frozen legacy snapshots do not exercise compiled grammar
+reproduction, so compiled workload measurements must also be recorded.
+
+The private `gagp_grammar_migration_bench` adapter accepts `--grammar-definition PATH`
+with a native `grammar-population-v1` snapshot for `run`, `oracle`, and `steady`.
+It verifies grammar identity, execution fuel, one common recorded generation request,
+and the fitness-case schema. Compiled reproduction timing includes all nine variation
+counters. Compiled oracles use `grammar-oracle-v1` and retain the full native AST;
+legacy `migration-oracle-v1` bytecode output is unchanged. This avoids losing generic
+region descriptors or semantic-fuel information through the legacy bytecode serializer.
+Compiled freeze and reproduction-tape actions are explicitly unsupported by this
+adapter; generated population artifacts supply its frozen inputs.
+
+Adapter CPU checks passed for run/oracle/steady, explicit request replay, mixed-request
+rejection, missing grammar, wrong fuel, unsupported actions, counter output and bounded
+region oracle metadata. These checks are correctness evidence; profiler timings remain
+excluded from compiled GPU performance measurements.
+
+
+Compiled workload preregistration is materialized by
+`python3 -m gagp_tools.experiments.freeze_compiled_workloads --repository ROOT
+--generator GENERATE_CLI --output INPUTS` (with `PYTHONPATH=tools`). It freezes
+80 configurations: eight typed lexical captures, bounded sequence traversal, and
+bounded memoization, each at populations 64/1024, generations 1/20, and blocks
+256/1024. Every profile has 1024 fitness cases. The memo profile explicitly declares
+128 cells; its independent bottom-up recurrence gives 84303 for the frozen inputs.
+Grammar, cases, native generated populations, generator identity, and generation
+process records retain content hashes. Failed generation also retains its process
+record. The checked-in memo definition remains unchanged.
+
+The candidate runner is
+`python3 -m gagp_tools.experiments.compiled_migration INPUTS/workloads.json
+--binary ADAPTER --output OUTPUT --device DEVICE`. It validates frozen inputs,
+randomizes complete five-mode blocks, and records three warmup and fifteen measured
+blocks. `--block-limit 1` is an explicitly incomplete capability pilot. Output retains
+commands, return codes, raw adapter JSON, all phase timings and nine variation
+counters, GPU state, and host maximum RSS when `/usr/bin/time` is available. Host RSS
+is not a GPU memory measurement. Candidate capture completion does not establish a
+before/after comparison or performance acceptance.
+
+The first native materialization (`goal-07-compiled-workloads-01`) produced all
+80 configurations. CPU preflight of all ten profiles at population 64/generation 1
+passed through the actual adapter and runner schema extraction, including independent
+bounded sequence and memo fitness checks (`goal-07-compiled-cpu-preflight-01`). These
+checks ran concurrently with the legacy capability pilot and are correctness evidence.
+
+
+Use `python3 -m gagp_tools.reports.compiled_migration OUTPUT/trials.json
+--workloads INPUTS/workloads.json --output SUMMARY.json` to summarize a completed
+candidate capture or completed pilot; write the summary outside its evidence directory.
+The reporter checks frozen artifact and binary identities, the raw file inventory,
+exact per-mode commands, output paths and JSON, timing arrays, variation counters,
+and host RSS against the retained time output. It reports descriptive candidate/CPU
+speedups and absolute canonical cold, process wall and evolve-call times, per-generation
+phase distributions, and variation outcome rates. Warmups remain in a separate
+`warmup_descriptive` section. The rate denominator is changed plus unchanged operator
+outcomes, including discarded crossover siblings and later mutation outcomes; it is
+not the final population size. A completed candidate report makes no before/after
+performance-acceptance claim.
+
+The original `goal-07-release-build` and subsequent `goal-07-release-build-02`
+remain frozen for their artifact provenance. Launch-time out-of-memory failures
+under competing load led to two repairs: separate legacy/generic kernel capabilities,
+and explicitly owned global device frame/memo workspace. A 512 MiB workspace budget
+bounds concurrent blocks without changing declared program capacities; blocks reuse
+their slices while processing further programs in the same launch.
+
+The repaired Debug build passed all 133 native tests, including all 24 GPU tests.
+The new frozen `goal-07-release-build-03` passed all 109 CPU tests and the three
+previously failing generic GPU tests. Additional raw-result tests for physical
+capacity boundaries and exact payloads retained across memo hits were subsequently
+added and passed on device 0. An initial device-1 attempt failed before assertions
+with only 1.2 GiB free; its log is retained as environmental allocation evidence.
+`goal-07-workspace-profile-01` retains a
+successful separate Nsight Systems trace: the 32-program regression used 13 blocks,
+all tracked device allocations were freed, and no CUDA runtime call failed. Its
+allocation measurements and kernel local-memory fields are reported separately;
+they do not establish whole-process peak GPU memory. Profiler timing is excluded
+from performance acceptance.
+
+The first-block capability capture in `goal-07-matrix-pilot-02` completed all
+3,280 processes without failure. Its audit verified every raw hash and all 4,632
+scope rows for block 0; later blocks remain intentionally absent. The v2 early
+report records descriptive warmup comparisons and makes no acceptance claim.
+The failed `goal-07-matrix-pilot-01` remains intact.
+
+The corrected reproduction capture in `goal-07-reproduction-pilot-02` completed
+all 136 paired processes and its audit verified the raw inventory. The retained
+`goal-07-reproduction-pilot-01` failed before measurement because the candidate
+CPU donor command used the plain binary instead of the required instrumented
+capture target. The compiled workload first-block pilot ran separately on device 0
+and completed all 400 processes without failure; the strict reporter
+validated 1,283 raw files, exact commands, timing fields, variation counters and
+host RSS. All 80 rows in each of the five modes reported zero fallback and zero
+acceptance, contract, budget or generation rejection. These one-block results are
+exploratory warmups. Full measured performance acceptance remains a later goal.
+
+The first complete 320-trace memory diagnostic used frozen Release03. Every process
+returned zero and no trace contained a failed CUDA runtime call, but the strict report
+rejected all 80 CPU-evaluation/GPU-reproduction traces because their static reproduction
+arena remained allocated when CUDA runtime teardown began. The other three modes had
+zero final tracked allocation balance. `goal-07-compiled-memory-plan-03-lifecycle-review.json`
+records the complete rejected diagnostic and cause: GPU-evaluation modes initialized
+CUDA before constructing the function-static reproduction cache, while CPU evaluation
+did not, reversing their exit-time destructor order.
+
+GPU reproduction now initializes the CUDA runtime before constructing that cache, so
+the arena and pinned staging destructors run first. A targeted Nsight Systems replay of
+the formerly failing mode records 40 device allocations, 40 matching frees, zero final
+balance, and no failed runtime calls. Fresh immutable `goal-07-release-build-04` passed
+all 133 native tests, including 24 GPU tests; the current Debug build passed the same
+suite. The operational tools passed 66/66, repository checks passed 17/17, and the
+CPU ASan/UBSan build passed all 100 tests. Release04's four-mode diagnostic smoke also
+had zero final device allocation balance in every mode. Profiler timings remain excluded
+from performance acceptance.
+
+The full Release04 diagnostic then completed all 320 preregistered profiles. The strict
+report revalidated every command, workload and binary identity, 1,600 raw-file hashes,
+all CUDA runtime return values, and a zero final tracked allocation balance for every
+trace. Median/maximum tracked peaks were 12.618/25.574 MiB for CPU evaluation plus GPU
+reproduction, 1.238/515.063 MiB for GPU evaluation, and 24.715/540.637 MiB for both
+synchronous and overlapped GPU reproduction. These are traced CUDA allocation peaks,
+not whole-device or whole-process peaks.
+
+The one-block Release03 compiled pilot remains exploratory warmup evidence. The table
+reports medians across its 80 workloads; each time triple is canonical-cold / evolve-call
+/ process-wall milliseconds, and each speedup triple uses the matching CPU value. A
+speedup below one is slower. Release04 memory evidence is shown separately above because
+the lifecycle repair changed the binary identity.
+
+| Mode | Absolute ms | Speedup vs CPU | Prepare / preprocess / pack ms | Select / repro kernel / copyback / decode ms | GPU eval kernel ms | Fallbacks / classified outcomes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| CPU | 85.001 / 113.095 / 455.590 | 1.000 / 1.000 / 1.000 | 0 / 1.705 / 0 | 0 / 0 / 0 / 0 | 0 | 0 / 686,040 |
+| GPU evaluation | 228.815 / 370.289 / 665.636 | 0.351 / 0.372 / 0.663 | 0 / 1.732 / 0 | 0 / 0 / 0 / 0 | 15.620 | 0 / 686,040 |
+| GPU reproduction | 376.602 / 1,535.645 / 1,658.292 | 0.200 / 0.217 / 0.413 | 4.597 / 69.151 / 15.400 | 2.274 / 6.834 / 4.878 / 18.579 | 15.619 | 0 / 685,740 |
+| GPU reproduction overlap | 368.401 / 1,395.846 / 1,575.033 | 0.208 / 0.230 / 0.429 | 5.035 / 69.897 / 18.008 | 2.266 / 6.826 / 4.891 / 18.823 | 15.622 | 0 / 685,740 |
+| CPU evaluation + GPU reproduction | 409.406 / 1,483.444 / 1,599.722 | 0.192 / 0.210 / 0.363 | 4.685 / 68.979 / 15.125 | 2.269 / 6.821 / 4.894 / 18.776 | 0 | 0 / 685,740 |
+
+Every mode also recorded zero acceptance, contract, budget, and generation rejections.
+The single warmup block does not support a performance conclusion; these measured
+regressions and phase costs carry explicitly into Goal 11.

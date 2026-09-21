@@ -30,7 +30,7 @@ struct RegionAdapter {
   RegionPhaseScratch& scratch;
 
   ExecResult run(const RegionPhase& phase, ValueTag expected,
-                 const RegionFrame& frame, int& fuel) {
+                 const RegionFrame& frame, int& fuel, bool result_phase = false) {
     const auto& program = phase.program;
     // Verified constant phases have no observable local reads. Avoid building
     // bindings and an interpreter frame, preserving the full instruction charge
@@ -47,7 +47,7 @@ struct RegionAdapter {
         return region_failure(ErrCode::Timeout, "out of fuel");
       fuel -= static_cast<int>(cost);
       const auto value = program.consts[program.code[0].a];
-      if (value.tag != expected)
+      if (value.tag != expected && !(result_phase && value.tag == ValueTag::FallbackToken))
         return region_failure(ErrCode::Type, "bounded region phase result type mismatch");
       return {false, value, {ErrCode::Value, ""}};
     }
@@ -77,7 +77,8 @@ struct RegionAdapter {
       presets.emplace_back(binding.local, value);
     }
     auto result = phase_runner(phase.program, presets, types, fuel);
-    if (!result.is_error && result.value.tag != expected)
+    if (!result.is_error && result.value.tag != expected &&
+        !(result_phase && result.value.tag == ValueTag::FallbackToken))
       return region_failure(ErrCode::Type, "bounded region phase result type mismatch");
     return result;
   }
@@ -93,15 +94,15 @@ struct RegionAdapter {
         if (value < domains[i].lower ||
             (plan.coordinate_endpoint == DomainEndpoint::Exclusive
                  ? value >= domains[i].upper : value > domains[i].upper))
-          return {true, run(*segment.boundary, plan.result_type, frame, fuel)};
+          return {true, run(*segment.boundary, plan.result_type, frame, fuel, true)};
       }
     } else if (Value::container_len(frame.state[plan.sequence_state]) <= 1) {
-      return {true, run(segment.base_body, plan.result_type, frame, fuel)};
+      return {true, run(segment.base_body, plan.result_type, frame, fuel, true)};
     }
     auto predicate = run(segment.base_predicate, ValueTag::Bool, frame, fuel);
     if (predicate.is_error) return {false, predicate};
     if (predicate.value.b)
-      return {true, run(segment.base_body, plan.result_type, frame, fuel)};
+      return {true, run(segment.base_body, plan.result_type, frame, fuel, true)};
     return {};
   }
 
@@ -121,6 +122,10 @@ struct RegionAdapter {
   ExecResult request(RegionFrame& frame, std::uint32_t ordinal,
                      RegionState& next, int& fuel) {
     const auto& plan = segment.plan;
+    // Check each delivered sibling before constructing another request. Internal
+    // fallback representations must agree across all results of one frame.
+    if (ordinal > 1 && frame.results[ordinal - 1].tag != frame.results[0].tag)
+      return region_failure(ErrCode::Type, "bounded region child result type mismatch");
     const auto& request = plan.requests[ordinal];
     for (std::size_t i = 0; i < request.states.size(); ++i) {
       const auto& transition = request.states[i];
@@ -167,9 +172,14 @@ struct RegionAdapter {
 
   ExecResult combine(RegionFrame& frame, int& fuel) {
     for (std::size_t i = 0; i < segment.plan.requests.size(); ++i)
-      if (frame.results[i].tag != segment.plan.result_type)
+      if ((frame.results[i].tag != segment.plan.result_type &&
+           frame.results[i].tag != ValueTag::FallbackToken) ||
+          frame.results[i].tag != frame.results[0].tag)
         return region_failure(ErrCode::Type, "bounded region child result type mismatch");
-    return run(segment.combine, segment.plan.result_type, frame, fuel);
+    auto result = run(segment.combine, segment.plan.result_type, frame, fuel, true);
+    if (!result.is_error && result.value.tag != frame.results[0].tag)
+      return region_failure(ErrCode::Type, "bounded region combine result type mismatch");
+    return result;
   }
 };
 

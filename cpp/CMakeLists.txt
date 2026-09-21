@@ -88,6 +88,9 @@ add_library(gagp_evolution
   src/evolution/repro/prep.cpp
   src/evolution/repro/grammar_prep.cpp
   src/evolution/repro/pack.cpp
+  src/evolution/repro/splice_metadata.cpp
+  src/evolution/repro/constant_prep.cpp
+  src/evolution/repro/compiled_decode.cpp
   src/evolution/repro/backend.cpp
   src/evolution/repro/gpu.cpp
   src/evolution/evolve.cpp
@@ -209,6 +212,18 @@ add_executable(gagp_test_grammar_variation_fallback tests/evolution/test_grammar
 target_link_libraries(gagp_test_grammar_variation_fallback PRIVATE gagp_evolution)
 add_test(NAME gagp_test_grammar_variation_fallback COMMAND gagp_test_grammar_variation_fallback)
 set_tests_properties(gagp_test_grammar_variation_fallback PROPERTIES LABELS "contract;property")
+
+add_executable(gagp_test_constant_prep tests/evolution/test_constant_prep.cpp)
+target_include_directories(gagp_test_constant_prep PRIVATE src/evolution/repro)
+target_link_libraries(gagp_test_constant_prep PRIVATE gagp_evolution)
+add_test(NAME gagp_test_constant_prep COMMAND gagp_test_constant_prep)
+set_tests_properties(gagp_test_constant_prep PROPERTIES LABELS "contract;property;integration")
+
+add_executable(gagp_test_splice_metadata tests/evolution/test_splice_metadata.cpp)
+target_include_directories(gagp_test_splice_metadata PRIVATE src/evolution/repro)
+target_link_libraries(gagp_test_splice_metadata PRIVATE gagp_cpu)
+add_test(NAME gagp_test_splice_metadata COMMAND gagp_test_splice_metadata)
+set_tests_properties(gagp_test_splice_metadata PROPERTIES LABELS "contract;integration")
 
 add_executable(gagp_test_grammar_repro_prep tests/evolution/test_grammar_repro_prep.cpp)
 target_link_libraries(gagp_test_grammar_repro_prep PRIVATE gagp_evolution)
@@ -638,6 +653,11 @@ if(Python3_Interpreter_FOUND)
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/migration/reference-boundary-oracle.jsonl
         ${CMAKE_CURRENT_BINARY_DIR}/migration-boundary-replay.json)
     set_tests_properties(gagp_test_migration_boundary_oracle PROPERTIES LABELS "contract;integration")
+    add_test(NAME gagp_test_compiled_migration_adapter
+      COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_compiled_migration_adapter.py
+        --adapter $<TARGET_FILE:gagp_grammar_migration_bench>
+        --generator $<TARGET_FILE:gagp_generate_cli>)
+    set_tests_properties(gagp_test_compiled_migration_adapter PROPERTIES LABELS "contract;integration;tooling")
     add_test(NAME gagp_test_migration_adapter
       COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_migration_adapter.py
         --adapter $<TARGET_FILE:gagp_grammar_migration_bench>)
@@ -752,6 +772,83 @@ if(GAGP_HAS_CUDA)
   target_link_libraries(gagp_test_semantic_fuel_gpu_rejection PRIVATE gagp_gpu)
   add_test(NAME gagp_test_semantic_fuel_gpu_rejection COMMAND gagp_test_semantic_fuel_gpu_rejection)
   set_tests_properties(gagp_test_semantic_fuel_gpu_rejection PROPERTIES LABELS "unit;contract;gpu")
+
+  add_executable(gagp_test_lexical_region_gpu tests/gpu/test_lexical_region_gpu.cpp)
+  target_include_directories(gagp_test_lexical_region_gpu PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+  target_link_libraries(gagp_test_lexical_region_gpu PRIVATE gagp_cli_support gagp_gpu)
+  add_test(NAME gagp_test_lexical_region_gpu COMMAND gagp_test_lexical_region_gpu)
+  set_tests_properties(gagp_test_lexical_region_gpu PROPERTIES LABELS "contract;integration;gpu;cpu_gpu_parity")
+
+  add_executable(gagp_test_compiled_evolution_stress_gpu tests/gpu/test_compiled_evolution_stress_gpu.cpp)
+  target_link_libraries(gagp_test_compiled_evolution_stress_gpu PRIVATE gagp_gpu gagp_cpu)
+  target_compile_definitions(gagp_test_compiled_evolution_stress_gpu PRIVATE GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+  add_test(NAME gagp_test_compiled_evolution_stress_gpu COMMAND gagp_test_compiled_evolution_stress_gpu)
+  set_tests_properties(gagp_test_compiled_evolution_stress_gpu PROPERTIES LABELS "contract;integration;gpu;cpu_gpu_parity")
+
+  add_executable(gagp_test_compiled_payload_evolution_gpu tests/gpu/test_compiled_payload_evolution_gpu.cpp)
+  target_link_libraries(gagp_test_compiled_payload_evolution_gpu PRIVATE gagp_gpu gagp_cpu)
+  add_test(NAME gagp_test_compiled_payload_evolution_gpu COMMAND gagp_test_compiled_payload_evolution_gpu)
+  set_tests_properties(gagp_test_compiled_payload_evolution_gpu PROPERTIES LABELS "contract;integration;gpu;cpu_gpu_parity")
+
+  add_executable(gagp_test_compiled_backend_gpu tests/gpu/test_compiled_backend_gpu.cpp)
+  target_link_libraries(gagp_test_compiled_backend_gpu PRIVATE gagp_gpu gagp_cpu)
+  add_test(NAME gagp_test_compiled_backend_gpu COMMAND gagp_test_compiled_backend_gpu)
+  set_tests_properties(gagp_test_compiled_backend_gpu PROPERTIES LABELS "contract;integration;gpu")
+
+  add_executable(gagp_test_compiled_mutation_gpu tests/gpu/test_compiled_mutation_gpu.cu)
+  target_link_libraries(gagp_test_compiled_mutation_gpu PRIVATE gagp_gpu gagp_cpu)
+  add_test(NAME gagp_test_compiled_mutation_gpu COMMAND gagp_test_compiled_mutation_gpu)
+  set_tests_properties(gagp_test_compiled_mutation_gpu PROPERTIES LABELS "contract;integration;gpu")
+
+  add_executable(gagp_test_constant_mutation_gpu tests/gpu/test_constant_mutation_gpu.cu)
+  target_link_libraries(gagp_test_constant_mutation_gpu PRIVATE gagp_gpu gagp_cpu)
+  add_test(NAME gagp_test_constant_mutation_gpu COMMAND gagp_test_constant_mutation_gpu)
+  set_tests_properties(gagp_test_constant_mutation_gpu PROPERTIES LABELS "contract;integration;gpu")
+
+  add_executable(gagp_test_compiled_transport_gpu tests/gpu/test_compiled_transport_gpu.cu)
+  target_link_libraries(gagp_test_compiled_transport_gpu PRIVATE gagp_gpu gagp_cpu)
+  add_test(NAME gagp_test_compiled_transport_gpu COMMAND gagp_test_compiled_transport_gpu)
+  set_tests_properties(gagp_test_compiled_transport_gpu PROPERTIES LABELS "contract;integration;gpu")
+
+  add_executable(gagp_test_compiled_variation_gpu tests/gpu/test_compiled_variation_gpu.cu)
+  target_link_libraries(gagp_test_compiled_variation_gpu PRIVATE gagp_gpu gagp_cpu)
+  add_test(NAME gagp_test_compiled_variation_gpu COMMAND gagp_test_compiled_variation_gpu)
+  set_tests_properties(gagp_test_compiled_variation_gpu PROPERTIES LABELS "contract;integration;gpu")
+
+  add_executable(gagp_test_grammar_random_gpu tests/gpu/test_grammar_random_gpu.cu)
+  target_link_libraries(gagp_test_grammar_random_gpu PRIVATE gagp_gpu gagp_evolution)
+  add_test(NAME gagp_test_grammar_random_gpu COMMAND gagp_test_grammar_random_gpu)
+  set_tests_properties(gagp_test_grammar_random_gpu PROPERTIES LABELS "contract;integration;gpu;cpu_gpu_parity")
+
+  add_executable(gagp_test_compiled_splice_gpu tests/gpu/test_compiled_splice_gpu.cu)
+  target_link_libraries(gagp_test_compiled_splice_gpu PRIVATE gagp_gpu gagp_cpu)
+  add_test(NAME gagp_test_compiled_splice_gpu COMMAND gagp_test_compiled_splice_gpu)
+  set_tests_properties(gagp_test_compiled_splice_gpu PROPERTIES LABELS "contract;integration;gpu")
+
+  add_executable(gagp_test_atomic_splice_gpu tests/gpu/test_atomic_splice_gpu.cu)
+  target_link_libraries(gagp_test_atomic_splice_gpu PRIVATE gagp_gpu)
+  add_test(NAME gagp_test_atomic_splice_gpu COMMAND gagp_test_atomic_splice_gpu)
+  set_tests_properties(gagp_test_atomic_splice_gpu PROPERTIES LABELS "contract;integration;gpu")
+
+  add_executable(gagp_test_grammar_selection_gpu tests/gpu/test_grammar_selection_gpu.cu)
+  target_link_libraries(gagp_test_grammar_selection_gpu PRIVATE gagp_gpu)
+  add_test(NAME gagp_test_grammar_selection_gpu COMMAND gagp_test_grammar_selection_gpu)
+  set_tests_properties(gagp_test_grammar_selection_gpu PROPERTIES LABELS "contract;integration;gpu")
+
+  add_executable(gagp_test_bounded_region_gpu_results
+    tests/gpu/test_bounded_region_gpu_results.cu src/bench/migration_snapshot.cpp)
+  target_link_libraries(gagp_test_bounded_region_gpu_results PRIVATE gagp_cli_support)
+  target_compile_definitions(gagp_test_bounded_region_gpu_results PRIVATE
+    GAGP_GPU_FITNESS_SOURCE="${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/gpu/fitness_gpu.cu"
+    GAGP_CAPTURE_HAS_GENERIC_REGIONS=1)
+  add_test(NAME gagp_test_bounded_region_gpu_results COMMAND gagp_test_bounded_region_gpu_results)
+  set_tests_properties(gagp_test_bounded_region_gpu_results PROPERTIES LABELS "contract;integration;gpu;cpu_gpu_parity")
+
+  add_executable(gagp_test_bounded_region_gpu tests/gpu/test_bounded_region_gpu.cpp)
+  target_include_directories(gagp_test_bounded_region_gpu PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+  target_link_libraries(gagp_test_bounded_region_gpu PRIVATE gagp_cli_support gagp_gpu)
+  add_test(NAME gagp_test_bounded_region_gpu COMMAND gagp_test_bounded_region_gpu)
+  set_tests_properties(gagp_test_bounded_region_gpu PROPERTIES LABELS "contract;integration;gpu;cpu_gpu_parity")
 endif()
 
 add_executable(gagp_test_lexical_regions tests/evolution/test_lexical_regions.cpp)

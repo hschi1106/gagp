@@ -1,5 +1,8 @@
 #include "gagp/core/semantic_fuel.hpp"
+#include "gagp/core/bytecode_verify.hpp"
+#include <limits>
 #include <stdexcept>
+#include <string>
 
 #include "gagp/runtime/gpu/host_pack_gpu.hpp"
 
@@ -15,6 +18,52 @@ namespace {
 
 constexpr unsigned kPayloadMaskString = 1U << 0;
 constexpr unsigned kPayloadMaskList = 1U << 1;
+
+int checked_index(std::size_t value, const char* context) {
+  if (value > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+    throw std::invalid_argument(std::string(context) + " exceeds GPU index capacity");
+  }
+  return static_cast<int>(value);
+}
+
+void check_append_capacity(std::size_t current, std::size_t added,
+                           const char* context) {
+  const std::size_t limit =
+      static_cast<std::size_t>(std::numeric_limits<int>::max());
+  if (added > limit || current > limit - added) {
+    throw std::invalid_argument(std::string(context) +
+                                " exceeds GPU index capacity");
+  }
+}
+
+void verify_bounded_program_or_throw(const BytecodeProgram& prog) {
+  BytecodeVerifyOptions options;
+  options.max_locals_per_code = MAX_LOCALS;
+  options.max_stack_depth = MAX_STACK;
+  const BytecodeVerifyResult verified = verify_bytecode(prog, options);
+  if (!verified) {
+    const BytecodeVerifyDiagnostic& diagnostic = verified.diagnostic;
+    throw std::invalid_argument(
+        std::string("bounded region bytecode verification failed: ") +
+        bytecode_verify_code_name(diagnostic.code) + " at " + diagnostic.path +
+        " instruction " + std::to_string(diagnostic.instruction_index) +
+        ": " + diagnostic.message);
+  }
+  for (std::size_t i = 0; i < prog.bounded_region_segments.size(); ++i) {
+    const RegionExecutionLimits& limits =
+        prog.bounded_region_segments[i].plan.limits;
+    if (limits.frames > DMAX_REGION_FRAMES) {
+      throw std::invalid_argument(
+          "bounded region segment " + std::to_string(i) +
+          " frame limit exceeds GPU capacity 128");
+    }
+    if (limits.cells > DMAX_REGION_MEMO) {
+      throw std::invalid_argument(
+          "bounded region segment " + std::to_string(i) +
+          " cell limit exceeds GPU capacity 128");
+    }
+  }
+}
 
 unsigned value_payload_mask(const Value& v) {
   if (v.tag == ValueTag::String) return kPayloadMaskString;
@@ -68,7 +117,7 @@ DPayloadFlavor classify_payload_flavor(const BytecodeProgram& prog, unsigned sha
   return DPayloadFlavor::Mixed;
 }
 
-DInstr pack_instr(const Instr& ins, bool* ok) {
+DInstr pack_instr(const Instr& ins, std::uint32_t fuel, bool* ok) {
   const int op = host_opcode(ins.op);
   if (op < 0) {
     *ok = false;
@@ -79,7 +128,26 @@ DInstr pack_instr(const Instr& ins, bool* ok) {
   di.flags = static_cast<std::uint8_t>((ins.has_a ? DINSTR_HAS_A : 0) | (ins.has_b ? DINSTR_HAS_B : 0));
   di.a = static_cast<std::int32_t>(ins.a);
   di.b = static_cast<std::int32_t>(ins.b);
+  di.fuel = fuel;
   return di;
+}
+
+void validate_fuel_or_throw(const std::vector<Instr>& code,
+                            const std::vector<std::uint32_t>& costs,
+                            const char* context) {
+  const SemanticFuelValidation validation =
+      validate_semantic_fuel(code, costs);
+  if (!validation) {
+    throw std::invalid_argument(
+        std::string(context) + " semantic fuel schedule is invalid at instruction " +
+        std::to_string(validation.instruction_index) + ": " +
+        validation.message);
+  }
+}
+
+std::uint32_t instruction_fuel(
+    const std::vector<std::uint32_t>& costs, std::size_t index) {
+  return costs.empty() ? 1U : costs[index];
 }
 
 int phase_binder_local(const PhaseProgram& phase, int binder_name) {
@@ -94,20 +162,135 @@ DPhaseMeta append_phase(const PhaseProgram& phase,
                         std::vector<DInstr>* all_phase_code,
                         std::vector<Value>* all_phase_consts,
                         bool* ok) {
+  validate_fuel_or_throw(phase.code, phase.instruction_fuel, "phase");
+  check_append_capacity(all_phase_code->size(), phase.code.size(),
+                        "phase code table");
+  check_append_capacity(all_phase_consts->size(), phase.consts.size(),
+                        "phase constant table");
   DPhaseMeta meta;
-  meta.code_offset = static_cast<int>(all_phase_code->size());
-  meta.const_offset = static_cast<int>(all_phase_consts->size());
+  meta.code_offset = checked_index(all_phase_code->size(), "phase code offset");
+  meta.const_offset = checked_index(all_phase_consts->size(), "phase constant offset");
   meta.n_locals = phase.n_locals;
   all_phase_consts->insert(all_phase_consts->end(), phase.consts.begin(), phase.consts.end());
-  meta.const_len = static_cast<int>(phase.consts.size());
-  for (const Instr& ins : phase.code) {
-    all_phase_code->push_back(pack_instr(ins, ok));
+  meta.const_len = checked_index(phase.consts.size(), "phase constant count");
+  for (std::size_t ip = 0; ip < phase.code.size(); ++ip) {
+    all_phase_code->push_back(pack_instr(
+        phase.code[ip], instruction_fuel(phase.instruction_fuel, ip), ok));
   }
-  meta.code_len = static_cast<int>(all_phase_code->size()) - meta.code_offset;
+  meta.code_len = checked_index(phase.code.size(), "phase code count");
   if (phase.n_locals < 0 || phase.n_locals > MAX_LOCALS) {
     *ok = false;
   }
   return meta;
+}
+
+int append_region_phase(const RegionPhase& phase,
+                        std::vector<DInstr>* all_phase_code,
+                        std::vector<Value>* all_phase_consts,
+                        std::vector<DRegionPhase>* region_phases,
+                        std::vector<DRegionPhaseBinding>* region_bindings) {
+  check_append_capacity(region_phases->size(), 1, "region phase table");
+  check_append_capacity(region_bindings->size(), phase.bindings.size(),
+                        "region phase binding table");
+  const int phase_index = checked_index(region_phases->size(), "region phase index");
+  DRegionPhase packed;
+  bool ok = true;
+  packed.program = append_phase(
+      phase.program, all_phase_code, all_phase_consts, &ok);
+  if (!ok) {
+    throw std::invalid_argument("verified bounded region phase cannot be packed for GPU execution");
+  }
+  packed.binding_offset =
+      checked_index(region_bindings->size(), "region phase binding offset");
+  packed.binding_count =
+      checked_index(phase.bindings.size(), "region phase binding count");
+  for (const RegionPhaseBinding& binding : phase.bindings) {
+    DRegionPhaseBinding packed_binding;
+    packed_binding.bank = binding.source.bank;
+    packed_binding.slot = binding.source.slot;
+    packed_binding.local = binding.local;
+    region_bindings->push_back(packed_binding);
+  }
+  region_phases->push_back(packed);
+  return phase_index;
+}
+
+DRegionSegment pack_region_segment(
+    const BoundedRegionSegment& segment, std::vector<DInstr>* all_phase_code,
+    std::vector<Value>* all_phase_consts,
+    std::vector<DRegionPhase>* region_phases,
+    std::vector<DRegionPhaseBinding>* region_bindings) {
+  const RegionPlan& plan = segment.plan;
+  DRegionSegment packed;
+  packed.state_count = static_cast<std::uint32_t>(plan.state_types.size());
+  for (std::size_t i = 0; i < plan.state_types.size(); ++i) {
+    packed.state_types[i] = plan.state_types[i];
+  }
+  packed.result_type = plan.result_type;
+
+  packed.parameter_count = static_cast<std::uint32_t>(plan.parameter_types.size());
+  for (std::size_t i = 0; i < plan.parameter_types.size(); ++i) {
+    packed.parameter_types[i] = plan.parameter_types[i];
+    packed.parameter_caller_locals[i] = segment.parameter_locals[i];
+  }
+
+  packed.preparation_count = static_cast<std::uint32_t>(plan.preparations.size());
+  for (std::size_t i = 0; i < plan.preparations.size(); ++i) {
+    packed.preparation_kinds[i] = plan.preparations[i].kind;
+    packed.preparation_types[i] = plan.preparations[i].type;
+  }
+  packed.request_expression_count =
+      static_cast<std::uint32_t>(plan.request_expression_types.size());
+  for (std::size_t i = 0; i < plan.request_expression_types.size(); ++i) {
+    packed.request_expression_types[i] = plan.request_expression_types[i];
+  }
+
+  packed.bound_operand_count = plan.bound_operand_count;
+  packed.request_count = static_cast<std::uint32_t>(plan.requests.size());
+  for (std::size_t request = 0; request < plan.requests.size(); ++request) {
+    for (std::size_t state = 0; state < plan.state_types.size(); ++state) {
+      packed.requests[request][state] = plan.requests[request].states[state];
+    }
+  }
+  packed.limits = plan.limits;
+  packed.memoized = plan.memoized;
+  packed.progress = plan.progress;
+
+  packed.coordinate_count =
+      static_cast<std::uint32_t>(plan.coordinate_slots.size());
+  for (std::size_t i = 0; i < plan.coordinate_slots.size(); ++i) {
+    packed.coordinate_slots[i] = plan.coordinate_slots[i];
+    packed.coordinate_rank[i] = plan.coordinate_rank[i];
+    packed.coordinate_domains[i] = plan.coordinate_domains[i];
+  }
+  packed.coordinate_endpoint = plan.coordinate_endpoint;
+  packed.sequence_state = plan.sequence_state;
+
+  if (segment.boundary) {
+    packed.boundary_phase = append_region_phase(
+        *segment.boundary, all_phase_code, all_phase_consts, region_phases,
+        region_bindings);
+  }
+  packed.base_predicate_phase = append_region_phase(
+      segment.base_predicate, all_phase_code, all_phase_consts, region_phases,
+      region_bindings);
+  packed.base_body_phase = append_region_phase(
+      segment.base_body, all_phase_code, all_phase_consts, region_phases,
+      region_bindings);
+  for (std::size_t i = 0; i < segment.preparations.size(); ++i) {
+    packed.preparation_phases[i] = append_region_phase(
+        segment.preparations[i], all_phase_code, all_phase_consts,
+        region_phases, region_bindings);
+  }
+  for (std::size_t i = 0; i < segment.request_expressions.size(); ++i) {
+    packed.request_expression_phases[i] = append_region_phase(
+        segment.request_expressions[i], all_phase_code, all_phase_consts,
+        region_phases, region_bindings);
+  }
+  packed.combine_phase = append_region_phase(
+      segment.combine, all_phase_code, all_phase_consts, region_phases,
+      region_bindings);
+  return packed;
 }
 
 }  // namespace
@@ -120,25 +303,31 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
                                                 int shared_case_count,
                                                 unsigned shared_input_payload_mask) {
   PackResult out;
+  if (shared_case_count < 0) {
+    throw std::invalid_argument("shared case count must be non-negative");
+  }
+  checked_index(programs.size(), "program count");
   out.metas.resize(programs.size());
 
   for (std::size_t p = 0; p < programs.size(); ++p) {
     const BytecodeProgram& prog = programs[p];
-    if (has_bounded_region(prog)) {
-      throw std::invalid_argument("bounded region execution is not supported by the GPU runtime");
+    const bool bounded = has_bounded_region(prog);
+    if (bounded) {
+      verify_bounded_program_or_throw(prog);
     }
-    if (has_semantic_fuel(prog)) {
-      throw std::invalid_argument("semantic fuel schedules are not supported by the GPU runtime");
-    }
+    validate_fuel_or_throw(prog.code, prog.instruction_fuel, "root");
 
     DProgramMeta meta;
-    meta.code_offset = static_cast<int>(out.all_code.size());
-    meta.const_offset = static_cast<int>(out.all_consts.size());
+    check_append_capacity(out.all_code.size(), prog.code.size(), "root code table");
+    check_append_capacity(out.all_consts.size(), prog.consts.size(), "root constant table");
+    meta.code_offset = checked_index(out.all_code.size(), "root code offset");
+    meta.const_offset = checked_index(out.all_consts.size(), "root constant offset");
     meta.n_locals = prog.n_locals;
-    meta.asgp_dc_offset = static_cast<int>(out.asgp_dc_segments.size());
-    meta.asgp_dp1d_offset = static_cast<int>(out.asgp_dp1d_segments.size());
-    meta.asgp_dp2d_offset = static_cast<int>(out.asgp_dp2d_segments.size());
-    meta.case_offset = static_cast<int>(out.total_cases);
+    meta.asgp_dc_offset = checked_index(out.asgp_dc_segments.size(), "ASGP-DC offset");
+    meta.asgp_dp1d_offset = checked_index(out.asgp_dp1d_segments.size(), "ASGP-DP1D offset");
+    meta.asgp_dp2d_offset = checked_index(out.asgp_dp2d_segments.size(), "ASGP-DP2D offset");
+    meta.region_offset = checked_index(out.region_segments.size(), "region offset");
+    meta.case_offset = checked_index(out.total_cases, "case offset");
     meta.case_count = shared_case_count;
     meta.case_local_offset = 0;
     meta.is_valid = 1;
@@ -146,11 +335,12 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
     meta.err_code = ErrCode::Value;
 
     out.all_consts.insert(out.all_consts.end(), prog.consts.begin(), prog.consts.end());
-    meta.const_len = static_cast<int>(prog.consts.size());
+    meta.const_len = checked_index(prog.consts.size(), "root constant count");
 
-    for (const Instr& ins : prog.code) {
+    for (std::size_t ip = 0; ip < prog.code.size(); ++ip) {
       bool ok = true;
-      out.all_code.push_back(pack_instr(ins, &ok));
+      out.all_code.push_back(pack_instr(
+          prog.code[ip], instruction_fuel(prog.instruction_fuel, ip), &ok));
       if (!ok) {
         meta.is_valid = 0;
         meta.err_code = ErrCode::Type;
@@ -158,6 +348,7 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
     }
 
     for (const AsgpDcSegment& segment : prog.asgp_dc_segments) {
+      check_append_capacity(out.asgp_dc_segments.size(), 1, "ASGP-DC table");
       bool ok = true;
       DAsgpDcSegment packed_segment;
       packed_segment.solve_xs_local = phase_binder_local(segment.solve, segment.solve_xs_name);
@@ -180,9 +371,10 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
       }
       out.asgp_dc_segments.push_back(packed_segment);
     }
-    meta.asgp_dc_count = static_cast<int>(out.asgp_dc_segments.size()) - meta.asgp_dc_offset;
+    meta.asgp_dc_count = checked_index(prog.asgp_dc_segments.size(), "ASGP-DC count");
 
     for (const AsgpDp1dSegment& segment : prog.asgp_dp1d_segments) {
+      check_append_capacity(out.asgp_dp1d_segments.size(), 1, "ASGP-DP1D table");
       bool ok = true;
       DAsgpDp1dSegment packed_segment;
       packed_segment.lo = segment.lo;
@@ -227,9 +419,10 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
       }
       out.asgp_dp1d_segments.push_back(packed_segment);
     }
-    meta.asgp_dp1d_count = static_cast<int>(out.asgp_dp1d_segments.size()) - meta.asgp_dp1d_offset;
+    meta.asgp_dp1d_count = checked_index(prog.asgp_dp1d_segments.size(), "ASGP-DP1D count");
 
     for (const AsgpDp2dSegment& segment : prog.asgp_dp2d_segments) {
+      check_append_capacity(out.asgp_dp2d_segments.size(), 1, "ASGP-DP2D table");
       bool ok = true;
       DAsgpDp2dSegment packed_segment;
       packed_segment.i_lo = segment.i_lo;
@@ -273,9 +466,22 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
       }
       out.asgp_dp2d_segments.push_back(packed_segment);
     }
-    meta.asgp_dp2d_count = static_cast<int>(out.asgp_dp2d_segments.size()) - meta.asgp_dp2d_offset;
+    meta.asgp_dp2d_count = checked_index(prog.asgp_dp2d_segments.size(), "ASGP-DP2D count");
 
-    meta.code_len = static_cast<int>(out.all_code.size()) - meta.code_offset;
+    if (bounded) {
+      check_append_capacity(out.region_segments.size(),
+                            prog.bounded_region_segments.size(),
+                            "region segment table");
+      for (const BoundedRegionSegment& segment : prog.bounded_region_segments) {
+        out.region_segments.push_back(pack_region_segment(
+            segment, &out.all_phase_code, &out.all_phase_consts,
+            &out.region_phases, &out.region_bindings));
+      }
+    }
+    meta.region_count = checked_index(prog.bounded_region_segments.size(),
+                                      "region segment count");
+
+    meta.code_len = checked_index(prog.code.size(), "root code count");
     if (static_cast<std::size_t>(meta.code_len) > out.max_code_len) {
       out.max_code_len = static_cast<std::size_t>(meta.code_len);
     }
@@ -284,7 +490,9 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
       meta.err_code = ErrCode::Value;
     }
 
-    out.total_cases += static_cast<std::size_t>(shared_case_count);
+    const std::size_t case_count = static_cast<std::size_t>(shared_case_count);
+    check_append_capacity(out.total_cases, case_count, "case table");
+    out.total_cases += case_count;
     out.metas[p] = meta;
   }
 
@@ -294,8 +502,14 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
 void pack_shared_cases_only(const std::vector<CaseBindings>& shared_cases,
                             std::vector<Value>* packed_case_local_vals,
                             std::vector<unsigned char>* packed_case_local_set) {
-  packed_case_local_vals->assign(shared_cases.size() * MAX_LOCALS, Value::invalid());
-  packed_case_local_set->assign(shared_cases.size() * MAX_LOCALS, 0);
+  if (shared_cases.size() >
+      std::numeric_limits<std::size_t>::max() / static_cast<std::size_t>(MAX_LOCALS)) {
+    throw std::invalid_argument("shared case local table exceeds host size capacity");
+  }
+  const std::size_t local_count =
+      shared_cases.size() * static_cast<std::size_t>(MAX_LOCALS);
+  packed_case_local_vals->assign(local_count, Value::invalid());
+  packed_case_local_set->assign(local_count, 0);
   for (std::size_t case_idx = 0; case_idx < shared_cases.size(); ++case_idx) {
     const std::size_t base = case_idx * MAX_LOCALS;
     for (const InputBinding& binding : shared_cases[case_idx]) {
@@ -315,6 +529,12 @@ DeviceArena::~DeviceArena() {
   if (d_asgp_dc_segments) cudaFree(d_asgp_dc_segments);
   if (d_asgp_dp1d_segments) cudaFree(d_asgp_dp1d_segments);
   if (d_asgp_dp2d_segments) cudaFree(d_asgp_dp2d_segments);
+  if (d_region_segments) cudaFree(d_region_segments);
+  if (d_region_phases) cudaFree(d_region_phases);
+  if (d_region_bindings) cudaFree(d_region_bindings);
+  if (d_region_frames) cudaFree(d_region_frames);
+  if (d_region_memo_keys) cudaFree(d_region_memo_keys);
+  if (d_region_memo_values) cudaFree(d_region_memo_values);
   if (d_metas) cudaFree(d_metas);
   if (d_shared_case_local_vals) cudaFree(d_shared_case_local_vals);
   if (d_shared_case_local_set) cudaFree(d_shared_case_local_set);

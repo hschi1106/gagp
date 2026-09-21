@@ -6,6 +6,7 @@
 #include "builtins_device.cuh"
 #include "gagp/core/value_semantics.hpp"
 #include "gagp/runtime/gpu/device_types_gpu.hpp"
+#include "gagp/runtime/gpu/region_types_gpu.hpp"
 
 namespace gagp::gpu_detail {
 
@@ -51,6 +52,12 @@ struct DAsgpTables {
   int dp1d_segment_count = 0;
   const DAsgpDp2dSegment* dp2d_segments = nullptr;
   int dp2d_segment_count = 0;
+  const DRegionSegment* region_segments = nullptr;
+  int region_segment_count = 0;
+  const DRegionPhase* region_phases = nullptr;
+  int region_phase_count = 0;
+  const DRegionPhaseBinding* region_bindings = nullptr;
+  int region_binding_count = 0;
 };
 
 struct DCodeView {
@@ -65,11 +72,14 @@ struct DCodeView {
   int asgp_dp1d_count = 0;
   int asgp_dp2d_offset = 0;
   int asgp_dp2d_count = 0;
+  int region_offset = 0;
+  int region_count = 0;
 };
 
 struct DLocalPreset {
   int local = -1;
   Value value = Value::invalid();
+  ValueTag expected = ValueTag::Invalid;
 };
 
 __device__ inline DResult d_ok(Value value) {
@@ -97,7 +107,7 @@ __device__ inline bool d_is_payload_value(const Value& v) {
          v.tag == ValueTag::FallbackToken;
 }
 
-template <DPayloadFlavor Flavor, bool EnableAsgp>
+template <DPayloadFlavor Flavor, bool EnableAsgp, bool EnableRegions = false>
 __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
                                                 const Value* shared_case_local_vals,
                                                 const unsigned char* shared_case_local_set,
@@ -108,7 +118,8 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
                                                 typename DPayloadFlavorTraits<Flavor>::State& payload_state,
                                                 const DAsgpTables& asgp_tables,
                                                 int& fuel_left,
-                                                bool require_return);
+                                                bool require_return,
+                                                DRegionWorkspace workspace = {});
 
 template <DPayloadFlavor Flavor>
 __device__ inline DResult d_run_asgp_phase(const DPhaseMeta& phase,
@@ -136,6 +147,8 @@ __device__ inline DResult d_run_asgp_phase(const DPhaseMeta& phase,
   return d_run_code_core<Flavor, false>(view, nullptr, nullptr, 0, presets, preset_count,
                                         payload_tables, payload_state, asgp_tables, fuel_left, false);
 }
+
+#include "region_execution_device.cuh"
 
 struct DAsgpDcFrame {
   Value source = Value::invalid();
@@ -767,7 +780,7 @@ __device__ __noinline__ DResult d_eval_asgp_dp1d(const DAsgpDp1dSegment& segment
   return d_error(ErrCode::Value);
 }
 
-template <DPayloadFlavor Flavor, bool EnableAsgp>
+template <DPayloadFlavor Flavor, bool EnableAsgp, bool EnableRegions>
 __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
                                                 const Value* shared_case_local_vals,
                                                 const unsigned char* shared_case_local_set,
@@ -778,7 +791,8 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
                                                 typename DPayloadFlavorTraits<Flavor>::State& payload_state,
                                                 const DAsgpTables& asgp_tables,
                                                 int& fuel_left,
-                                                bool require_return) {
+                                                bool require_return,
+                                                DRegionWorkspace workspace) {
   DResult result;
   result.is_error = 0;
   result.err_code = ErrCode::Value;
@@ -788,6 +802,8 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
   Value locals[MAX_LOCALS];
   static_assert(MAX_LOCALS <= 64, "local_set_mask requires MAX_LOCALS <= 64");
   std::uint64_t local_set_mask = 0;
+  std::uint64_t local_type_mask = 0;
+  ValueTag local_types[MAX_LOCALS];
 
   if (view.n_locals < 0 || view.n_locals > MAX_LOCALS) {
     return d_error(ErrCode::Value);
@@ -808,6 +824,10 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
     }
     locals[local] = presets[i].value;
     local_set_mask |= (std::uint64_t{1} << local);
+    if (presets[i].expected != ValueTag::Invalid) {
+      local_types[local] = presets[i].expected;
+      local_type_mask |= (std::uint64_t{1} << local);
+    }
   }
 
   int sp = 0;
@@ -815,13 +835,13 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
   bool returned = false;
 
   while (ip < view.code_len) {
-    if (fuel_left <= 0) {
+    const DInstr ins = view.code[ip];
+    if (fuel_left < 0 || ins.fuel > static_cast<std::uint32_t>(fuel_left)) {
       d_fail(result, ErrCode::Timeout);
       break;
     }
-    fuel_left -= 1;
+    fuel_left -= static_cast<int>(ins.fuel);
 
-    const DInstr ins = view.code[ip];
     ip += 1;
 
     if (ins.op == OP_PUSH_CONST) {
@@ -842,6 +862,11 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
         d_fail(result, ErrCode::Name);
         break;
       }
+      if ((local_type_mask & (std::uint64_t{1} << ins.a)) != 0 &&
+          locals[ins.a].tag != local_types[ins.a]) {
+        d_fail(result, ErrCode::Type);
+        break;
+      }
       stack[sp++] = locals[ins.a];
       continue;
     }
@@ -857,6 +882,7 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
       }
       locals[ins.a] = stack[--sp];
       local_set_mask |= (std::uint64_t{1} << ins.a);
+      local_type_mask &= ~(std::uint64_t{1} << ins.a);
       continue;
     }
 
@@ -1060,6 +1086,39 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
       continue;
     }
 
+    if constexpr (EnableRegions) {
+      if (ins.op == OP_BOUNDED_REGION) {
+        if (!d_has_a(ins) || ins.a < 0 || ins.a >= view.region_count) {
+          d_fail(result, ErrCode::Value);
+          break;
+        }
+        const int index = view.region_offset + ins.a;
+        if (index < 0 || index >= asgp_tables.region_segment_count) {
+          d_fail(result, ErrCode::Value);
+          break;
+        }
+        const auto& segment = asgp_tables.region_segments[index];
+        const int count = static_cast<int>(segment.state_count + segment.bound_operand_count);
+        if (sp < count) { d_fail(result, ErrCode::Value); break; }
+        sp -= count;
+        const int saved_strings = payload_state.string_entry_count;
+        const int saved_lists = payload_state.list_entry_count;
+        const int saved_bytes = payload_state.string_bytes_used;
+        const int saved_values = payload_state.list_values_used;
+        const DResult out = d_run_bounded_region<Flavor>(
+            segment, stack + sp, locals, local_set_mask, payload_tables,
+            payload_state, asgp_tables, fuel_left, workspace);
+        if (out.is_error) { result = out; break; }
+        if (!d_is_payload_value(out.value)) {
+          payload_state.string_entry_count = saved_strings;
+          payload_state.list_entry_count = saved_lists;
+          payload_state.string_bytes_used = saved_bytes;
+          payload_state.list_values_used = saved_values;
+        }
+        stack[sp++] = out.value;
+        continue;
+      }
+    }
     if constexpr (EnableAsgp) {
       if (ins.op == OP_ASGP_DC) {
         if (!d_has_a(ins) || ins.a < 0 || ins.a >= view.asgp_dc_count || sp < 1 || sp >= MAX_STACK) {
@@ -1171,7 +1230,7 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
   return result;
 }
 
-template <DPayloadFlavor Flavor, bool EnableAsgp>
+template <DPayloadFlavor Flavor, bool EnableAsgp, bool EnableRegions = false>
 __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta,
                                                         const DInstr* shared_code,
                                                         const Value* all_consts,
@@ -1180,7 +1239,8 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
                                                         const DPayloadTables& payload_tables,
                                                         const DAsgpTables& asgp_tables,
                                                         int local_case,
-                                                        int fuel) {
+                                                        int fuel,
+                                                        DRegionWorkspace workspace = {}) {
   DResult result;
   result.is_error = 0;
   result.err_code = ErrCode::Value;
@@ -1205,10 +1265,12 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
       meta.asgp_dp1d_count,
       meta.asgp_dp2d_offset,
       meta.asgp_dp2d_count,
+      meta.region_offset,
+      meta.region_count,
   };
-  return d_run_code_core<Flavor, EnableAsgp>(view, shared_case_local_vals, shared_case_local_set,
+  return d_run_code_core<Flavor, EnableAsgp, EnableRegions>(view, shared_case_local_vals, shared_case_local_set,
                                             local_case, nullptr, 0, payload_tables,
-                                            payload_state_storage.ref(), asgp_tables, fuel_left, true);
+                                            payload_state_storage.ref(), asgp_tables, fuel_left, true, workspace);
 }
 
 }  // namespace gagp::gpu_detail

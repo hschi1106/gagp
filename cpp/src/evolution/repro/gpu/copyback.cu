@@ -92,11 +92,16 @@ bool copyback_gpu_repro_children(const GpuReproArena& arena,
                                  GpuReproChildView* out,
                                  ReproductionStats* stats,
                                  std::string* message_out) {
-  if (!require_legacy_gpu_contract(config, message_out)) return false;
+  if (!require_gpu_transport_config(config, message_out)) return false;
   if (staging == nullptr || out == nullptr) {
     if (message_out != nullptr) {
       *message_out = "gpu reproduction copyback output is null";
     }
+    return false;
+  }
+  if (!gpu_repro_config_fits_capacity(config, arena.capacity) ||
+      !gpu_repro_config_fits_capacity(config, staging->capacity)) {
+    if (message_out) *message_out = "gpu reproduction copyback capacity mismatch";
     return false;
   }
   const auto t0 = std::chrono::steady_clock::now();
@@ -122,7 +127,15 @@ bool copyback_gpu_repro_children(const GpuReproArena& arena,
     return false;
   }
 
-  if (!ensure_cuda(cudaMemcpyAsync(staging->parent_a, arena.d_parent_a,
+  const bool selection_counters_active =
+      config.contract_mode == ReproductionContractMode::CompiledGrammar &&
+      config.compiled_pass == CompiledVariationPass::Crossover;
+  if ((selection_counters_active &&
+       !ensure_cuda(cudaMemcpyAsync(staging->selection_counters, arena.d_selection_counters,
+                                   sizeof(PackedSelectionCounters) * static_cast<std::size_t>(config.pair_count),
+                                   cudaMemcpyDeviceToHost),
+                   "cudaMemcpyAsync selection_counters", message_out)) ||
+      !ensure_cuda(cudaMemcpyAsync(staging->parent_a, arena.d_parent_a,
                                    sizeof(int) * static_cast<std::size_t>(config.pair_count),
                                    cudaMemcpyDeviceToHost),
                    "cudaMemcpyAsync parent_a", message_out) ||
@@ -154,6 +167,10 @@ bool copyback_gpu_repro_children(const GpuReproArena& arena,
                                    sizeof(PackedChildMeta) * static_cast<std::size_t>(child_count),
                                    cudaMemcpyDeviceToHost),
                    "cudaMemcpyAsync child_meta", message_out) ||
+      !ensure_cuda(cudaMemcpyAsync(staging->child_splices, arena.d_child_splices,
+                                   sizeof(PackedChildSplice) * static_cast<std::size_t>(child_count),
+                                   cudaMemcpyDeviceToHost),
+                   "cudaMemcpyAsync child_splices", message_out) ||
       !ensure_cuda(cudaMemcpyAsync(staging->child_node_offsets, arena.d_child_node_offsets,
                                    sizeof(int) * static_cast<std::size_t>(child_count + 1),
                                    cudaMemcpyDeviceToHost),
@@ -198,6 +215,7 @@ bool copyback_gpu_repro_children(const GpuReproArena& arena,
     stats->copyback_ms += ms_between(t0, t1);
   }
   out->config = config;
+  out->selection_counters = selection_counters_active ? staging->selection_counters : nullptr;
   out->parent_a = staging->parent_a;
   out->parent_b = staging->parent_b;
   out->cand_a = staging->cand_a;
@@ -212,6 +230,7 @@ bool copyback_gpu_repro_children(const GpuReproArena& arena,
   out->child_name_counts = staging->child_name_counts;
   out->child_const_counts = staging->child_const_counts;
   out->child_meta = staging->child_meta;
+  out->child_splices = staging->child_splices;
   return true;
 }
 

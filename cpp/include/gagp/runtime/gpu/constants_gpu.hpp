@@ -43,5 +43,6 @@ constexpr int OP_EMPTY_LIST_LIKE = static_cast<int>(Opcode::EmptyListLike);
 constexpr int OP_ASGP_DC = static_cast<int>(Opcode::AsgpDc);
 constexpr int OP_ASGP_DP1D = static_cast<int>(Opcode::AsgpDp1d);
 constexpr int OP_ASGP_DP2D = static_cast<int>(Opcode::AsgpDp2d);
+constexpr int OP_BOUNDED_REGION = static_cast<int>(Opcode::BoundedRegion);
 
 }  // namespace gagp::gpu_detail
