@@ -1,5 +1,8 @@
 # Grammar migration execution evidence
 
+[Stage A resumed optimization](goal-11.5-resume.md) records the 2026-09-27
+Stage B rollback, preserved evidence and current acceptance instructions.
+
 The [Goal 11.5 Stage A checkpoint](goal-11.5-stage-a.md) records the integrated
 build, workflow checks, and fixed p1024 parity investigation before the three
 grammar restrictions.
