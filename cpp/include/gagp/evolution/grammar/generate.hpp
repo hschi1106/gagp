@@ -10,7 +10,7 @@ namespace gagp::evo::grammar {
 
 class VariationContext;
 
-inline constexpr const char* kGrammarSemanticVersion = "gagp-native-2.0.0";
+inline constexpr const char* kGrammarSemanticVersion = "gagp-native-2.0.0-restricted-1";
 inline constexpr std::uint32_t kGrammarMaxLoweredInstructions = 1048576;
 inline constexpr const char* kGrammarGeneratorVersion = "typed-derivation-v2";
 

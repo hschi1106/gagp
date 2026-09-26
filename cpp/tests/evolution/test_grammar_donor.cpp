@@ -98,7 +98,7 @@ CompiledGrammar assigned_local_grammar() {
     "nonterminals":[
       {"id":"One","type":"Int","scope":[],"alternatives":[{"id":"one","weight":1,
         "expression":{"constant":{"type":"Int","values":["1"]}}}]},
-      {"id":"LocalX","type":"Int","scope":[],"alternatives":[{"id":"x","weight":1,
+      {"id":"LocalX","type":"Int","scope":[],"mutation_locals":[{"name":"x","type":"Int"}],"alternatives":[{"id":"x","weight":1,
         "expression":{"template":"Identity","holes":{"value":{"local":"x"}}}}]},
       {"id":"Main","category":"Program","type":"Int","scope":[],"alternatives":[
         {"id":"body","weight":1,"expression":{"control":"program(Block)->Program","type":"Int","args":[
@@ -140,7 +140,7 @@ void test_destination_local_donor_contract() {
         donor_fits(destination, donor.nodes, donor.depth, donor.template_nesting),
       "donor facade reported incorrect payload measurements");
   check(same_inputs(donor.inputs,
-          {{"input", RType::Int}, {"x", RType::Int}, {"y", RType::Int}}),
+          {{"input", RType::Int}, {"x", RType::Int}}),
       "donor facade did not expose the destination's explicit evaluation inputs");
 
   const auto verified = verify_ast(donor.genome.ast, donor.inputs);
@@ -203,8 +203,10 @@ void test_worker_frame_cost_cache_identity_and_keys() {
           [](const RegionBinding& binding) { return binding.name == "y"; }),
       fewer_locals.available_locals.end());
   (void)generate_donor(context, 73, fewer_locals);
-  check(context.frame_cost_cache_counters().misses == 3,
-      "exact local availability was omitted from the frame-cost cache key");
+  check(context.frame_cost_cache_counters().misses == 2,
+      "incidental destination local fragmented the declared donor interface");
+  deeper.replacement_budget.max_depth = 3;
+  (void)generate_donor(context, 73, deeper);
   check(context.frame_cost_cache_counters().evictions == 1,
       "worker frame-cost cache did not enforce its configured bound");
 
@@ -237,6 +239,43 @@ void test_worker_frame_cost_cache_identity_and_keys() {
   check(costly_context.frame_cost_cache_counters().misses == 1 &&
         costly_context.frame_cost_cache_counters().hits == 1,
       "impossible node budget did not consult the matching cached cost table");
+}
+
+void test_fixed_interface_and_bounded_pool_refresh() {
+  auto definition = parse_definition(assigned_local_grammar().canonical_definition());
+  for (auto& rule : definition.document.object_v.at("nonterminals").array_v)
+    rule.object_v.erase("mutation_locals");
+  const auto closed = compile(canonical_json(definition.document));
+  rejects([&] { (void)generate_donor(closed, 91, destination_site(closed)); },
+      "undeclared destination local leaked into a fresh donor");
+
+  const auto grammar = std::make_shared<const CompiledGrammar>(compile(R"({
+    "format_version":"grammar-definition-v2",
+    "entry":{"nonterminal":"Value","type":"Int"},
+    "search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":100},
+    "nonterminals":[{"id":"Value","type":"Int","scope":[],"alternatives":[
+      {"id":"value","weight":1,"expression":{"constant":{"type":"Int","range":["0","1000000"]}}}]}]
+  })"));
+  const auto parent = generate_derivation(*grammar, 1).genome;
+  VariationContext context(grammar), replay(grammar);
+  const auto site = context.analyze(parent)->sites.front();
+  std::vector<DonorPoolJob> jobs;
+  for (std::uint64_t i = 0; i < 17; ++i) jobs.push_back({&parent, site, {i * 2 + 20, i * 2 + 21}});
+  const auto result = try_generate_donor_pools(context, jobs);
+  const auto repeated = try_generate_donor_pools(replay, jobs);
+  check(result && repeated && result->size() == 17, "bounded pool batch unavailable");
+  for (std::size_t i = 0; i < 17; ++i) {
+    for (std::size_t slot = 0; slot < 2; ++slot) {
+      check((*result)[i][slot] && (*repeated)[i][slot] &&
+          same_generated_donor(*(*result)[i][slot], *(*repeated)[i][slot]),
+          "bounded pools are not reproducible");
+      check(same_generated_donor(*(*result)[i][slot], *(*result)[(i / 8) * 8][slot]),
+          "equivalent destinations did not share their bounded pool");
+    }
+  }
+  check((*result)[0][0]->genome.meta.program_key != (*result)[8][0]->genome.meta.program_key &&
+        (*result)[8][0]->genome.meta.program_key != (*result)[16][0]->genome.meta.program_key,
+      "bounded pool did not refresh after eight destinations");
 }
 
 void test_malformed_site_rejection() {
@@ -335,6 +374,7 @@ int main() {
     test_exact_budget_and_template_nesting_boundaries();
     test_worker_frame_cost_cache_identity_and_keys();
     test_malformed_site_rejection();
+    test_fixed_interface_and_bounded_pool_refresh();
     test_mutation_entry();
     std::cout << "grammar donor facade: contextual payload, inputs, provenance, and boundaries passed\n";
   } catch (const std::exception& error) {

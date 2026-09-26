@@ -33,7 +33,16 @@ All candidate rows and donor-seed draws remain in their original order. The GPU
 still makes the mutation decisions, samples the candidate and donor, and performs
 the splice; anticipation only avoids preparing data that cannot be consumed.
 
-Repeated template-hole occurrences remain one atomic site.
+Replacement IDs include a compiler-proved recursive language class; author group
+labels cannot bypass membership. Fresh donors have declared inputs, lexical
+binders and `mutation_locals`, excluding incidental destination names. Preparation
+shares exact interface/budget pools across at most eight destinations in a
+128-parent window, refreshing subsequent windows and generations. Each shared
+entry receives destination budget/admission checks; rejects get fresh retries.
+Shared samples are correlated and intentionally change RNG trajectories.
+
+Repeated template-hole occurrences remain one atomic site. Fixed skeletons and
+explicit mutable constants use the same origin metadata on CPU and GPU.
 
 GPU reproduction supports at most 1024 physical AST nodes per program. Compiled
 crossover and mutation allocate their shared origin workspace for the configured
@@ -43,13 +52,24 @@ the union-capacity cap used for offspring must never truncate an input buffer.
 
 An optional projected offspring budget is separate from physical allocation limits.
 When each native-kind/fuel-profile pair has a unique resource charge throughout the
-grammar, cached analysis can certify exact local replacement allowances. Packed
-candidates carry projected node cost, carried/reset depth, and destination limits;
-device selection checks both directions before choosing a pair. Grammars without
-this sufficient certificate retain all candidates admitted by the physical and
-grammar contracts, with projected admission checked on the complete copied-back
-child. This prevents unsafe pruning when canonical ancestor matching changes costs.
-Budgeted donor preparation already checks the complete spliced destination.
+grammar, cached analysis can certify exact local replacement allowances. With
+compiler-proved replacement closure, the weaker per-root charge-invariance proof
+also permits crossover summaries. Packed candidates carry projected node cost,
+carried/reset depth, and destination limits; device selection checks both
+directions before choosing a pair. Uncertified grammars retain complete-child
+resource admission. A freshly verified donor in the same replacement language
+can use the root allowance; a different mutation-entry language still requires
+destination reconstruction. Final children always undergo normal native,
+membership, resource and lowering validation. Public imported provenance and
+prepared state never supply these proofs themselves.
+
+Pass-specific preparation, preprocessing, packing and decode timers partition
+their aggregate counterparts. Donor time is nested in preprocessing and must not
+be added again. `overlap_wait_ms` measures the exposed wait on preparation after
+fitness, and `replay_validation_ms` measures public prepared-state validation.
+Crossover preparation can overlap evaluation; mutation preparation depends on
+completed crossover children. Whole-generation wall time is the authoritative
+time for acceleration; overlapping stage totals are not additive.
 
 Finite constant values and Int/Float range descriptors remain cached per grammar.
 Constant domain descriptors also carry the mutation policy. The default resamples;

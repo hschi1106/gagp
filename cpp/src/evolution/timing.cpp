@@ -15,6 +15,18 @@ void accumulate_timing(EvaluationTiming* total, const EvaluationTiming& value) {
 }
 
 void accumulate_timing(ReproductionTiming* total, const ReproductionTiming& value) {
+  total->crossover_prepare_ms += value.crossover_prepare_ms;
+  total->crossover_preprocess_ms += value.crossover_preprocess_ms;
+  total->crossover_donor_ms += value.crossover_donor_ms;
+  total->crossover_pack_ms += value.crossover_pack_ms;
+  total->crossover_decode_ms += value.crossover_decode_ms;
+  total->mutation_prepare_ms += value.mutation_prepare_ms;
+  total->mutation_preprocess_ms += value.mutation_preprocess_ms;
+  total->mutation_donor_ms += value.mutation_donor_ms;
+  total->mutation_pack_ms += value.mutation_pack_ms;
+  total->mutation_decode_ms += value.mutation_decode_ms;
+  total->replay_validation_ms += value.replay_validation_ms;
+  total->overlap_wait_ms += value.overlap_wait_ms;
   total->selection_ms += value.selection_ms;
   total->crossover_ms += value.crossover_ms;
   total->mutation_ms += value.mutation_ms;
@@ -29,6 +41,10 @@ void accumulate_timing(ReproductionTiming* total, const ReproductionTiming& valu
   total->teardown_ms += value.teardown_ms;
   total->selection_kernel_ms += value.selection_kernel_ms;
   total->variation_kernel_ms += value.variation_kernel_ms;
+  total->variation.pool_classes += value.variation.pool_classes;
+  total->variation.pool_reused_slots += value.variation.pool_reused_slots;
+  total->variation.pool_fresh_slots += value.variation.pool_fresh_slots;
+  total->variation.pool_rejected_slots += value.variation.pool_rejected_slots;
   total->variation.crossover_attempts += value.variation.crossover_attempts;
   total->variation.mutation_attempts += value.variation.mutation_attempts;
   total->variation.contract_rejections += value.variation.contract_rejections;

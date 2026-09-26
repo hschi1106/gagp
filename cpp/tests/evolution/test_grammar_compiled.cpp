@@ -291,6 +291,20 @@ int main() {
         json(R"({"operation":1})");
     rejects([&] { compile(annotated_hole); }, "unknown key fuel_events");
     const auto template_doc = doc;
+    auto mutable_template = doc;
+    auto& mutable_value = mutable_template.object_v.at("templates").array_v[0]
+        .object_v.at("body").object_v.at("args").array_v[0];
+    mutable_value.object_v["mutable"] = json("true");
+    mutable_value.object_v.at("constant").object_v.at("values") = json(R"(["4","5"])");
+    (void)compile(mutable_template);
+    mutable_value.object_v["mutable"] = json(R"("yes")");
+    rejects([&] { compile(mutable_template); }, "mutable must be Boolean");
+    mutable_value.object_v["mutable"] = json("false");
+    rejects([&] { compile(mutable_template); }, "fixed template constant");
+    auto outside_mutable = json(custom);
+    alternatives(outside_mutable).array_v = {json(R"({"id":"bad","weight":1,
+      "expression":{"constant":{"type":"Int","values":["1"]},"mutable":true}})")};
+    rejects([&] { compile(outside_mutable); }, "only supported on a fixed template constant");
     alternatives(doc).array_v[0].object_v.at("expression").object_v.at("holes").object_v.at("body") =
         json(R"({"constant":{"type":"Bool","values":[true]}})");
     rejects([&] { compile(doc); }, "hole result type mismatch");
@@ -342,6 +356,17 @@ int main() {
     const auto duplicate_hole = compile(doc);
     check(duplicate_hole.nonterminals()[0].minimum_nodes == 5 && duplicate_hole.nonterminals()[0].minimum_depth == 3,
           "repeated hole materialization budget omitted a copy");
+
+    auto too_many_holes = template_doc;
+    auto repeated = json(R"({"hole":"body"})");
+    for (unsigned i = 1; i < 65; ++i) {
+      auto pair = json(R"({"signature":"add(Int,Int)->Int","args":[{"hole":"body"},{"hole":"body"}]})");
+      pair.object_v.at("args").array_v[1] = std::move(repeated);
+      repeated = std::move(pair);
+    }
+    too_many_holes.object_v.at("templates").array_v[0].object_v.at("body")
+        .object_v.at("args").array_v[1] = std::move(repeated);
+    rejects([&] { compile(too_many_holes); }, "1..64 times");
 
     doc = template_doc;
     doc.object_v.at("templates").array_v.push_back(json(R"({

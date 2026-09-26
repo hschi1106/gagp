@@ -2,7 +2,8 @@
 
 The [Goal 11.5 Stage A checkpoint](goal-11.5-stage-a.md) records the integrated
 build, workflow checks, and fixed p1024 parity investigation before the three
-grammar restrictions.
+grammar restrictions. The [restricted compatibility design](goal-11.5-compatibility.md)
+records the Stage B boundaries before implementation.
 
 Goals 01–06 are implemented. Goal 04 adds compiled grammar variation and shared host
 preparation; its [validation evidence](goal-04-variation.md) is recorded separately.
@@ -31,7 +32,7 @@ kind may appear only once per logical workload. Without `logical_id`, the row ID
 defines a separate logical workload. In paired v2 manifests, `logical_id` belongs
 at the common row level, never inside either role.
 
-The current gate accepts `Q >= 0.95`; `A_mode` and `A_cpu` are reported without
+The historical Goal 11 gate accepts `Q >= 0.95`; `A_mode` and `A_cpu` are reported without
 absolute-time acceptance thresholds. Historical `representative-2026-09-23`
 manifests retain the former absolute-time gate and must not be relabeled.
 
@@ -50,6 +51,17 @@ must cover that profile's reachable lists and still fit the selected backend.
 Current v2 artifacts and source-less bytecode snapshots reject this import-only
 option. Results record `minimum_dc_frames`; the v2 runner admits the option only
 on the candidate side and includes it in workload identity.
+
+## Restricted Goal 11.5 continuation
+
+The user revision dated 2026-09-26 requires a Stage A recovery commit followed by
+one supported restricted grammar implementation. Goal 11.5 compares the immutable
+reference, Stage A and restricted candidate on the six existing logical workloads,
+with one warm-up and three observations. Q >= 0.95 is an optimization target for
+this continuation, not a hard completion gate. Correctness, supported structured
+families, actual GPU execution, complete evidence and bounded optimization remain
+mandatory. Original unrestricted Goal 11 acceptance is not relabeled as passed.
+Goal 12 may continue after the revised Goal 11.5 requirements are met.
 
 ## Expanded matrix and launch capability
 
@@ -893,3 +905,7 @@ side when a grammar is provided. Supply one to eight distinct, nonempty root IDs
 separated by commas; root options participate in workload identity and are passed
 to the candidate benchmark. This retains mixed exact return types in one frozen
 population instead of partitioning the workload.
+
+The [Goal 11.5 results](goal-11.5-results.md) and
+[machine-readable measurements](goal-11.5-measurements.json) record the restricted
+continuation, clean CUDA workflows and the remaining reference-performance gap.

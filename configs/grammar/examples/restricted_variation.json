@@ -1,0 +1,143 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {
+    "nonterminal": "Main",
+    "type": "Int"
+  },
+  "inputs": [
+    {
+      "name": "n",
+      "type": "Int"
+    }
+  ],
+  "search_limits": {
+    "max_nodes": 16,
+    "max_depth": 8
+  },
+  "execution_limits": {
+    "fuel": 1000
+  },
+  "templates": [
+    {
+      "id": "Offset",
+      "type": "Int",
+      "scope": [],
+      "holes": [
+        {
+          "id": "value",
+          "type": "Int",
+          "scope": []
+        }
+      ],
+      "body": {
+        "signature": "add(Int,Int)->Int",
+        "args": [
+          {
+            "hole": "value"
+          },
+          {
+            "constant": {
+              "type": "Int",
+              "range": [
+                "0",
+                "3"
+              ]
+            },
+            "mutable": true
+          }
+        ]
+      }
+    }
+  ],
+  "nonterminals": [
+    {
+      "id": "Left",
+      "type": "Int",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "input",
+          "weight": 1,
+          "crossover_group": "integer",
+          "expression": {
+            "input": "n"
+          }
+        },
+        {
+          "id": "constant",
+          "weight": 1,
+          "crossover_group": "integer",
+          "expression": {
+            "constant": {
+              "type": "Int",
+              "range": [
+                "0",
+                "9"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Right",
+      "type": "Int",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "input",
+          "weight": 1,
+          "crossover_group": "integer",
+          "expression": {
+            "input": "n"
+          }
+        },
+        {
+          "id": "constant",
+          "weight": 1,
+          "crossover_group": "integer",
+          "expression": {
+            "constant": {
+              "type": "Int",
+              "range": [
+                "0",
+                "9"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Main",
+      "type": "Int",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "left",
+          "weight": 1,
+          "expression": {
+            "template": "Offset",
+            "holes": {
+              "value": {
+                "ref": "Left"
+              }
+            }
+          }
+        },
+        {
+          "id": "right",
+          "weight": 1,
+          "expression": {
+            "template": "Offset",
+            "holes": {
+              "value": {
+                "ref": "Right"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

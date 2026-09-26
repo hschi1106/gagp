@@ -963,6 +963,49 @@ void test_float_range_on_gpu(bool quantized, bool separated = false, bool additi
           "Float interval overlap changed evolution");
 }
 
+void test_mutable_template_constant_on_gpu() {
+  using namespace gagp;
+  using namespace gagp::evo;
+  using namespace gagp::evo::grammar;
+  const auto grammar = std::make_shared<const CompiledGrammar>(compile_grammar(parse_definition(R"({
+    "format_version":"grammar-definition-v2","entry":{"nonterminal":"Main","type":"Int"},
+    "search_limits":{"max_nodes":7,"max_depth":5},"execution_limits":{"fuel":100},
+    "templates":[{"id":"FixedAdd","type":"Int","scope":[],"holes":[],
+      "body":{"signature":"add(Int,Int)->Int","args":[
+        {"constant":{"type":"Int","values":["99"]}},
+        {"constant":{"type":"Int","range":["0","100"]},"mutable":true}]}}],
+    "nonterminals":[{"id":"Main","type":"Int","scope":[],"variation":false,"alternatives":[
+      {"id":"body","weight":1,"expression":{"template":"FixedAdd","holes":{}}}]}]
+  })")));
+  auto config = compiled_config(grammar, 16, 1.0, 0.0, true);
+  const auto population = std::vector<ProgramGenome>(16, generate_derivation(*grammar, 3).genome);
+  const auto prepared = repro::prepare_gpu_repro_backend_inputs(population, config, 101, nullptr);
+  const auto result = repro::run_gpu_repro_backend_prepared(score_manually(population), config, prepared, nullptr);
+  require(result.stats.kernel_ms > 0 && result.stats.variation.changed_children > 0 &&
+          result.stats.variation.acceptance_rejections == 0,
+          "explicit mutable template constant did not evolve on GPU");
+  for (const auto& child : result.next_population) {
+    require_membership(*grammar, child);
+    require(child.ast.nodes[3].kind == NodeKind::ADD &&
+            child.ast.consts.at(child.ast.nodes[4].i0).i == 99,
+            "GPU constant mutation changed the fixed template skeleton");
+  }
+  config.eval_engine = EvalEngine::GPU;
+  const std::vector<EvalCase> cases{{{}, Value::from_int(150)}};
+  auto direct_population = population;
+  const auto direct = evolve_population(cases, config, &direct_population);
+  config.repro_overlap = true;
+  auto overlap_population = population;
+  const auto overlap = evolve_population(cases, config, &overlap_population);
+  require(direct.history_mean_fitness == overlap.history_mean_fitness &&
+          overlap.timing.reproduction_totals.kernel_ms > 0,
+          "mutable template constant overlap changed fitness or omitted GPU execution");
+  for (std::size_t i = 0; i < direct.final_population.size(); ++i)
+    require(ast_cache_key(direct.final_population[i].genome.ast) ==
+                ast_cache_key(overlap.final_population[i].genome.ast),
+            "mutable template constant direct/overlap replay differs");
+}
+
 void test_constant_policies_on_gpu() {
   using namespace gagp;
   using namespace gagp::evo;
@@ -1349,6 +1392,7 @@ int main() {
     test_mixed_roots_across_all_modes();
     test_sequence_constant_proposals_and_overlap();
     test_generation_stages_on_gpu();
+    test_mutable_template_constant_on_gpu();
     test_constant_policies_on_gpu();
     test_int_addition_on_gpu();
     test_float_range_on_gpu(false);

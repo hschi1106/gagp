@@ -34,7 +34,8 @@ std::pair<ProgramGenome, ProgramGenome> crossover_with_sites(const ProgramGenome
         ++context.counters().budget_rejections;
         continue;
       }
-      if (context.offspring_budget() && !(site_a.has_projected_allowance && site_b.has_projected_allowance)) {
+      if (context.offspring_budget() && !((site_a.has_projected_allowance || site_a.has_crossover_allowance) &&
+          (site_b.has_projected_allowance || site_b.has_crossover_allowance))) {
         // Charges can change when a splice selects a different canonical
         // ancestor production. Check the whole child, not independent subtree
         // minima or a transplanted source witness.

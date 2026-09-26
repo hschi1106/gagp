@@ -244,9 +244,42 @@ void test_explicit_crossover_groups() {
   const auto separated_sites = analyze_variation(*separated, split_parent(*separated, 1, 2));
   check(!compatible_sites(separated_sites.sites[0], separated_sites.sites[1]),
       "different authored groups unexpectedly matched");
+  group.string_v = "integer";
+  auto& domain = right.object_v.at("alternatives").array_v[0].object_v.at("expression").object_v.at("constant");
+  domain.object_v.at("range") = cli_detail::JsonParser(R"(["30","40"])").parse();
+  const auto incompatible = compile_shared(canonical_json(definition.document));
+  const auto incompatible_sites = analyze_variation(*incompatible, generate_derivation(*incompatible, 7).genome);
+  check(!compatible_sites(incompatible_sites.sites[0], incompatible_sites.sites[1]),
+      "author-supplied group bypassed compiled language compatibility");
   group.string_v.clear();
   rejects([&] { (void)compile_shared(canonical_json(definition.document)); },
       "empty crossover group accepted");
+}
+
+void test_recursive_rules_share_verified_contract() {
+  auto definition = parse_definition(R"({
+    "format_version":"grammar-definition-v2",
+    "entry":{"nonterminal":"Left","type":"Int"},
+    "search_limits":{"max_nodes":12,"max_depth":8},"execution_limits":{"fuel":100},
+    "nonterminals":[
+      {"id":"Left","type":"Int","scope":[],"alternatives":[
+        {"id":"leaf","weight":1,"expression":{"constant":{"type":"Int","values":["1"]}}},
+        {"id":"recur","weight":1,"expression":{"signature":"neg(Int)->Int","args":[{"ref":"Left"}]}}]},
+      {"id":"Right","type":"Int","scope":[],"alternatives":[
+        {"id":"leaf","weight":3,"expression":{"constant":{"type":"Int","values":["1"]}}},
+        {"id":"recur","weight":2,"expression":{"signature":"neg(Int)->Int","args":[{"ref":"Right"}]}}]}
+    ]})");
+  auto grammar = compile_grammar(definition);
+  const auto id = [&](const char* name) {
+    return grammar.productions().at(grammar.nonterminals().at(nonterminal(grammar, name)).productions.front()).replacement_class;
+  };
+  check(id("Left") == id("Right"), "recursive rule names prevented proved language equivalence");
+  auto& right = definition.document.object_v.at("nonterminals").array_v[1];
+  right.object_v.at("alternatives").array_v[1].object_v.at("expression") =
+      cli_detail::JsonParser(R"({"signature":"add(Int,Int)->Int","args":[{"ref":"Right"},
+        {"constant":{"type":"Int","values":["1"]}}]})").parse();
+  grammar = compile_grammar(definition);
+  check(id("Left") != id("Right"), "same result type hid distinct recursive operators");
 }
 
 void test_closed_crossover_scope() {
@@ -544,6 +577,7 @@ int main() {
     test_same_type_different_nonterminals_never_cross();
     test_explicit_crossover_groups();
     test_closed_crossover_scope();
+    test_recursive_rules_share_verified_contract();
     test_stale_provenance_compaction_and_semantic_unchanged_counting();
     test_malformed_import_is_an_error_even_with_stale_metadata();
     test_explicit_generation_request_context();

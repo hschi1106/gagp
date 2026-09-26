@@ -160,7 +160,7 @@ std::shared_ptr<const CompiledGrammar> assigned_local_grammar() {
       {"id":"Seed","type":"Int","scope":[],"alternatives":[
         {"id":"seed","weight":1,"expression":{"constant":{
           "type":"Int","values":["1","2"]}}}]},
-      {"id":"LocalX","type":"Int","scope":[],"alternatives":[
+      {"id":"LocalX","type":"Int","scope":[],"mutation_locals":[{"name":"x","type":"Int"}],"alternatives":[
         {"id":"x","weight":1,"expression":{"local":"x"}}]},
       {"id":"Main","category":"Program","type":"Int","scope":[],"alternatives":[
         {"id":"body","weight":1,"expression":{
@@ -191,6 +191,37 @@ void test_destination_local_mutation_returns_full_valid_children() {
   }
   check_counters(context.counters(), 64,
       "destination-local mutation counters do not account for every returned child");
+}
+
+void test_explicit_template_mutable_constant() {
+  const auto grammar = compile(R"({
+    "format_version":"grammar-definition-v2",
+    "entry":{"nonterminal":"Main","type":"Int"},
+    "search_limits":{"max_nodes":7,"max_depth":5},"execution_limits":{"fuel":100},
+    "templates":[{"id":"FixedAdd","type":"Int","scope":[],"holes":[],
+      "body":{"signature":"add(Int,Int)->Int","args":[
+        {"constant":{"type":"Int","values":["99"]}},
+        {"constant":{"type":"Int","range":["0","100"]},"mutable":true}]}}],
+    "nonterminals":[{"id":"Main","type":"Int","scope":[],"variation":false,"alternatives":[
+      {"id":"body","weight":1,"expression":{"template":"FixedAdd","holes":{}}}]}]
+  })");
+  VariationContext context(grammar), replay(grammar);
+  auto genome = generate_derivation(*grammar, 3).genome;
+  auto repeated = genome;
+  bool changed = false;
+  for (std::uint64_t seed = 0; seed < 32; ++seed) {
+    const auto previous = genome.meta.program_key;
+    genome = mutate(genome, seed, context, 0.0);
+    repeated = mutate(repeated, seed, replay, 0.0);
+    require_valid_child(*grammar, genome);
+    check(genome.ast.nodes[3].kind == NodeKind::ADD &&
+        genome.ast.consts.at(genome.ast.nodes[4].i0).i == 99,
+        "explicit constant mutation altered the fixed template skeleton");
+    check(genome.meta.program_key == repeated.meta.program_key,
+        "restricted constant mutation is not reproducible");
+    changed |= previous != genome.meta.program_key;
+  }
+  check(changed, "explicit mutable template constant never evolved");
 }
 
 void test_imported_invalid_parent_rejected() {
@@ -233,6 +264,7 @@ int main() {
     test_all_constant_domains();
     test_destination_local_mutation_returns_full_valid_children();
     test_imported_invalid_parent_rejected();
+    test_explicit_template_mutable_constant();
     test_full_int64_constant_range();
     std::cout << "grammar mutation: domains, atomic templates, locals, and counters passed\n";
   } catch (const std::exception& error) {

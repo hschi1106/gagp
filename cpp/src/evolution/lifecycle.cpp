@@ -1,6 +1,7 @@
 #include "gagp/evolution/lifecycle.hpp"
 
 #include <stdexcept>
+#include <chrono>
 
 #include "gagp/evolution/evolve.hpp"
 #include "gagp/runtime/payload/payload.hpp"
@@ -91,7 +92,10 @@ repro::ReproductionResult finish_gpu_reproduction_overlap(
   if (future == nullptr || !future->valid()) {
     throw std::invalid_argument("GPU reproduction overlap future is not valid");
   }
+  const auto wait_start = std::chrono::steady_clock::now();
   OverlapPrepared overlap = future->get();
+  overlap.stats.overlap_wait_ms += std::chrono::duration<double, std::milli>(
+      std::chrono::steady_clock::now() - wait_start).count();
   const std::vector<ScoredGenomeRef> scored =
       rank_population_refs(population, raw_fitness, false);
   return repro::run_gpu_repro_backend_prepared(

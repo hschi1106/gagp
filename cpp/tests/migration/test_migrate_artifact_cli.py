@@ -166,7 +166,7 @@ def main() -> int:
         migrated = json.loads(ast_out.read_text(encoding="utf-8"))
         if migrated["format_version"] != "grammar-materialized-v2":
             raise AssertionError("AST migration did not produce the materialized envelope")
-        if migrated["semantic_version"] != "gagp-native-2.0.0":
+        if migrated["semantic_version"] != "gagp-native-2.0.0-restricted-1":
             raise AssertionError("AST migration did not record its target runtime semantics")
         if migrated["source_identity"]["format_version"] != "ast-prefix-v1":
             raise AssertionError("AST migration did not retain the explicit release-1 identity")
@@ -374,7 +374,7 @@ def main() -> int:
         write(generated_in, generated)
         run(cli, ["--input", str(generated_in), "--out", str(generated_out)])
         generated_migrated = json.loads(generated_out.read_text(encoding="utf-8"))
-        if generated_migrated["semantic_version"] != "gagp-native-2.0.0":
+        if generated_migrated["semantic_version"] != "gagp-native-2.0.0-restricted-1":
             raise AssertionError("generated migration did not record target runtime semantics")
         if generated_migrated["source_identity"]["format_version"] != "grammar-generated-v1":
             raise AssertionError("generated migration lost its source format identity")

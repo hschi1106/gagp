@@ -19,6 +19,8 @@ struct VariationSite {
   std::uint32_t template_id = kNoGrammarId;
   std::uint32_t slot = kNoGrammarId;
   std::string crossover_group;
+  std::uint32_t replacement_class = kNoGrammarId;
+  std::uint32_t closed_replacement_class = kNoGrammarId;
   bool crossover_closed = false;
   // All occurrences of this logical choice must be replaced atomically.
   std::vector<VariationSpan> occurrences;
@@ -35,6 +37,9 @@ struct VariationSite {
   ProjectedResources projected_resources;
   // Only populated when the grammar certifies context-independent charges.
   bool has_projected_allowance = false;
+  // Root charge invariance plus compiled replacement closure permits crossover
+  // summaries, but says nothing about a different mutation-entry language.
+  bool has_crossover_allowance = false;
   ProjectedAllowance projected_allowance;
   std::vector<RegionBinding> visible_environment;
   std::vector<RegionBinding> available_locals;
@@ -61,13 +66,15 @@ struct VariationAnalysis {
 
 VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const ProgramGenome& genome,
     const GenerationRequest& request, CompatibilityRegistry* registry = nullptr,
-    const ProjectedBudget* local_projected_budget = nullptr);
+    const ProjectedBudget* local_projected_budget = nullptr,
+    const ProjectedBudget* crossover_budget = nullptr);
 VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const ProgramGenome& genome,
     CompatibilityRegistry* registry = nullptr);
 
 VariationAnalysis analyze_population_variation(const CompiledGrammar& grammar,
     const ProgramGenome& genome, const std::vector<GenerationRequest>& requests,
-    CompatibilityRegistry* registry = nullptr, const ProjectedBudget* local_projected_budget = nullptr);
+    CompatibilityRegistry* registry = nullptr, const ProjectedBudget* local_projected_budget = nullptr,
+    const ProjectedBudget* crossover_budget = nullptr);
 
 // Equality of contracts and fit of the donor are separate predicates.
 bool compatible_sites(const VariationSite& left, const VariationSite& right);

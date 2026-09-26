@@ -30,6 +30,8 @@ contract as a second source of truth.
 | [`reference/grammar-migration/goal-09-cutover.md`](reference/grammar-migration/goal-09-cutover.md) | Release-2 production cutover, version boundary, and documentation validation record |
 | [`reference/grammar-migration/goal-11-performance.md`](reference/grammar-migration/goal-11-performance.md) | Performance repairs, mapped benchmark protocol, correctness evidence, and pending timing blocker |
 | [`reference/grammar-migration/goal-11.5-stage-a.md`](reference/grammar-migration/goal-11.5-stage-a.md) | Working implementation checkpoint, integrated CUDA checks, and p1024 parity audit |
+| [`reference/grammar-migration/goal-11.5-compatibility.md`](reference/grammar-migration/goal-11.5-compatibility.md) | Restricted evolution compatibility design and retained boundaries. |
+| [`reference/grammar-migration/goal-11.5-results.md`](reference/grammar-migration/goal-11.5-results.md) | Restricted evolution results, three-version measurements, compatibility and clean CUDA validation |
 | [`reference/grammar-migration/semantic-coverage.md`](reference/grammar-migration/semantic-coverage.md) | Semantic baseline evidence mapped to requirements and remaining gaps |
 | [`reference/cli.md`](reference/cli.md) | Mechanically checked native CLI flags and defaults |
 | [`reference/tooling.md`](reference/tooling.md) | Maintained tool and auxiliary executable ownership |
