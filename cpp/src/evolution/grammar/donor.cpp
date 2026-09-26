@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <atomic>
 #include <future>
-#include <map>
-#include <sstream>
 #include <thread>
 #include <set>
 #include <stdexcept>
@@ -68,14 +66,19 @@ GenerationFrame donor_frame(const CompiledGrammar& grammar, const VariationSite&
       std::all_of(site.occurrence_binder_ids.front().begin(), site.occurrence_binder_ids.front().end(),
           [](int id) { return id >= 0; }))
     frame.binder_ids = site.occurrence_binder_ids.front();
-  // Fresh donors never inherit incidental destination names. The fixed
-  // ordinary-local interface is explicitly authored; inputs and formal binders
-  // retain their separate checked generation interfaces.
-  for (const auto& binding : grammar.nonterminals().at(site.nonterminal).mutation_locals) {
-    const auto available = std::find_if(site.available_locals.begin(), site.available_locals.end(),
-        [&](const auto& value) { return value.name == binding.name && value.type == binding.type; });
-    if (available == site.available_locals.end())
-      throw std::runtime_error("mutation donor requires declared local: " + binding.name);
+  std::set<std::string> available_names;
+  for (const auto& binding : site.available_locals) {
+    if (!available_names.insert(binding.name).second)
+      throw std::runtime_error("contextual donor site has duplicate available binding: " +
+          binding.name);
+    const auto input = std::find_if(grammar.inputs().begin(), grammar.inputs().end(),
+        [&](const auto& candidate) { return candidate.name == binding.name; });
+    if (input != grammar.inputs().end()) {
+      if (input->type != binding.type)
+        throw std::runtime_error(
+            "contextual donor site input has the wrong exact type: " + binding.name);
+      continue;
+    }
     frame.locals.push_back(binding);
   }
   return frame;
@@ -181,14 +184,6 @@ void prepare_destination(VariationContext& context, const VariationSite& site,
   }
 }
 
-bool generated_replacement_is_closed(const CompiledGrammar& grammar, const VariationSite& site) {
-  const auto& target = grammar.nonterminals().at(site.nonterminal);
-  const auto donor = target.mutation_entry == kNoGrammarId ? target.id : target.mutation_entry;
-  const auto& productions = grammar.nonterminals().at(donor).productions;
-  return !productions.empty() && site.has_crossover_allowance &&
-      grammar.productions().at(productions.front()).replacement_class == site.replacement_class;
-}
-
 ContextualDonor generate_budgeted_donor(VariationContext& context, std::uint64_t seed,
     const VariationSite& site, const ProgramGenome& destination, std::size_t maximum_attempts,
     std::unordered_map<std::string, bool>& admissions, PoolDestination& prepared,
@@ -200,7 +195,6 @@ ContextualDonor generate_budgeted_donor(VariationContext& context, std::uint64_t
   // This pool owns the analysis even if accepted children evict its cache entry.
   const auto* certified = prepared.site;
   const auto& destination_analysis = prepared.analysis;
-  const bool local_admission = generated_replacement_is_closed(context.grammar(), *certified);
   GrammarRandom attempts(seed);
   auto attempt_seed = seed;
   std::vector<std::string> input_names;
@@ -210,16 +204,6 @@ ContextualDonor generate_budgeted_donor(VariationContext& context, std::uint64_t
   // The caller confines this bounded cache to one destination/site/frame.
   for (std::size_t attempt = 0; attempt < maximum_attempts; ++attempt) {
     auto donor = generate_donor(context, attempt_seed, *certified);
-    // This donor was just generated and fully verified in the declared frame.
-    // Equal compiled replacement languages prove membership closure; root
-    // invariance proves the transplanted resource charges. A different
-    // mutation-entry language still takes complete destination reconstruction.
-    // Returned children retain ordinary full acceptance/lowering validation.
-    if (local_admission) {
-      if (certified->projected_allowance.accepts(donor.projected_resources)) return donor;
-      attempt_seed = attempts.next();
-      continue;
-    }
     const auto identity = runtime_cache_identity(donor.genome, input_names,
         context.grammar().execution_limits().fuel);
     const auto previous = admissions.find(identity);
@@ -393,88 +377,35 @@ std::optional<std::vector<DonorPool>> try_generate_donor_pools(VariationContext&
   std::vector<PoolDestination> destinations(jobs.size());
   for (std::size_t i = 0; i < jobs.size(); ++i) {
     if (!jobs[i].destination) throw std::invalid_argument("donor batch has no destination");
-    prepare_destination(context, jobs[i].site, *jobs[i].destination, destinations[i]);
+    if (context.offspring_budget())
+      prepare_destination(context, jobs[i].site, *jobs[i].destination, destinations[i]);
   }
-  // Group only identical fixed generation interfaces and physical budgets.
-  // A pool is shared by at most eight destinations, then refreshed using the
-  // next destination's seeds. Every preparation window starts empty. Admission
-  // remains destination-specific, including all repeated occurrences and the
-  // source resource budget; failed reused entries receive fresh bounded retries.
-  std::map<std::string, std::size_t> current;
-  std::vector<std::vector<std::size_t>> groups;
-  for (std::size_t i = 0; i < jobs.size(); ++i) {
-    const auto& site = *destinations[i].site;
-    const auto frame = donor_frame(context.grammar(), site);
-    std::ostringstream key;
-    key << site.nonterminal << '/' << site.replacement_budget.max_nodes << '/'
-        << site.replacement_budget.max_depth << '/' << site.remaining_template_nesting
-        << '/' << jobs[i].seeds.size();
-    for (auto binder : frame.binder_ids) key << "/b" << binder;
-    for (const auto& binding : site.visible_environment)
-      key << "/v" << binding.name.size() << ':' << binding.name << ':' << int(binding.type);
-    const auto encoded = key.str();
-    auto found = current.find(encoded);
-    if (found == current.end() || groups[found->second].size() == 8) {
-      const auto index = groups.size();
-      groups.push_back({}); current[encoded] = index;
-      found = current.find(encoded);
-    }
-    groups[found->second].push_back(i);
-  }
-  std::vector<VariationCounters> metrics(groups.size());
   std::vector<DonorPool> results(jobs.size());
-  std::vector<std::unique_ptr<payload::StagedPayloads>> payloads(groups.size());
-  std::vector<std::exception_ptr> errors(groups.size());
+  std::vector<std::unique_ptr<payload::StagedPayloads>> payloads(jobs.size());
+  std::vector<std::exception_ptr> errors(jobs.size());
   std::atomic<std::size_t> next{0};
   std::vector<std::future<void>> pending;
-  for (std::size_t worker_index = 0; worker_index < std::min(workers, groups.size()); ++worker_index)
+  for (std::size_t worker_index = 0; worker_index < workers; ++worker_index)
     pending.push_back(std::async(std::launch::async, [&] {
       VariationContext worker(context.grammar_owner(), context.requests(), 128, context.offspring_budget());
       for (;;) {
-        const auto group = next.fetch_add(1, std::memory_order_relaxed);
-        if (group >= groups.size()) break;
+        const auto index = next.fetch_add(1, std::memory_order_relaxed);
+        if (index >= jobs.size()) break;
         try {
-          payloads[group] = std::make_unique<payload::StagedPayloads>();
-          payload::StagedPayloads::Scope scope(*payloads[group]);
-          const DonorPool* shared = nullptr;
-          for (auto index : groups[group]) {
-            const auto& job = jobs[index];
-            auto destination = destinations[index];
-            const auto& site = *destination.site;
-            auto& result = results[index]; result.reserve(job.seeds.size());
-            for (std::size_t slot = 0; slot < job.seeds.size(); ++slot) {
-              if (shared && (*shared)[slot]) {
-                const auto& donor = *(*shared)[slot];
-                bool accepted = donor_fits(site, donor.nodes, donor.depth, donor.template_nesting);
-                if (accepted && generated_replacement_is_closed(worker.grammar(), site)) {
-                  accepted = site.projected_allowance.accepts(donor.projected_resources);
-                } else if (accepted) {
-                  ProgramGenome child;
-                  child.ast = variation_detail::splice(job.destination->ast, site, donor.genome.ast,
-                      donor.payload, site.occurrence_binder_ids.front());
-                  try {
-                    const auto resources = project_derivation_resources(worker.grammar(), child,
-                        destination.analysis->witness.request);
-                    accepted = !worker.offspring_budget() ||
-                        worker.offspring_budget()->accepts(resources.subtree());
-                  } catch (const std::invalid_argument&) { accepted = false; }
-                }
-                if (accepted) {
-                  ++metrics[group].pool_reused_slots;
-                  result.emplace_back(donor); continue;
-                }
-                ++metrics[group].pool_rejected_slots;
-              }
-              ++metrics[group].pool_fresh_slots;
-              std::unordered_map<std::string, bool> admissions;
-              try {
-                result.emplace_back(generate_budgeted_donor(worker, job.seeds[slot], site, *job.destination,
-                    maximum_attempts, admissions, destination, false));
-              } catch (const std::runtime_error&) { result.emplace_back(std::nullopt); }
-            }
-            if (!shared) shared = &result;
+          const auto& job = jobs[index];
+          payloads[index] = std::make_unique<payload::StagedPayloads>();
+          payload::StagedPayloads::Scope scope(*payloads[index]);
+          auto destination = destinations[index];
+          auto& result = results[index]; result.reserve(job.seeds.size());
+          for (auto seed : job.seeds) {
+            // Keep the existing parallel pool's independent per-seed retries.
+            std::unordered_map<std::string, bool> admissions;
+            try {
+              result.emplace_back(generate_budgeted_donor(worker, seed, job.site, *job.destination,
+                  maximum_attempts, admissions, destination, false));
+            } catch (const std::runtime_error&) { result.emplace_back(std::nullopt); }
           }
-        } catch (...) { errors[group] = std::current_exception(); }
+        } catch (...) { errors[index] = std::current_exception(); }
       }
     }));
   for (auto& task : pending) task.get();
@@ -483,12 +414,6 @@ std::optional<std::vector<DonorPool>> try_generate_donor_pools(VariationContext&
   std::vector<payload::StagedPayloads*> transactions;
   for (auto& transaction : payloads) transactions.push_back(transaction.get());
   if (!payload::StagedPayloads::commit_all(transactions)) return std::nullopt;
-  context.counters().pool_classes += groups.size();
-  for (const auto& counts : metrics) {
-    context.counters().pool_reused_slots += counts.pool_reused_slots;
-    context.counters().pool_fresh_slots += counts.pool_fresh_slots;
-    context.counters().pool_rejected_slots += counts.pool_rejected_slots;
-  }
   return results;
 }
 

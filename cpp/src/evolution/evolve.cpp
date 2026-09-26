@@ -48,19 +48,6 @@ ReproductionTiming reproduction_timing_from_stats(
     const repro::ReproductionStats& stats) {
   ReproductionTiming timing;
   timing.variation = stats.variation;
-  timing.crossover_prepare_ms = stats.crossover_prepare_ms;
-  timing.crossover_preprocess_ms = stats.crossover_preprocess_ms;
-  timing.crossover_donor_ms = stats.crossover_donor_ms;
-  timing.crossover_pack_ms = stats.crossover_pack_ms;
-  timing.crossover_decode_ms = stats.crossover_decode_ms;
-  timing.mutation_prepare_ms = stats.mutation_prepare_ms;
-  timing.mutation_preprocess_ms = stats.mutation_preprocess_ms;
-  timing.mutation_donor_ms = stats.mutation_donor_ms;
-  timing.mutation_pack_ms = stats.mutation_pack_ms;
-  timing.mutation_decode_ms = stats.mutation_decode_ms;
-  timing.replay_validation_ms = stats.replay_validation_ms;
-  timing.overlap_wait_ms = stats.overlap_wait_ms;
-
   timing.selection_ms = stats.selection_ms;
   timing.crossover_ms = stats.crossover_ms;
   timing.mutation_ms = stats.mutation_ms;

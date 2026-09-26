@@ -159,7 +159,7 @@ class GrammarCompiler {
     const auto& rules = array(require_object_field(doc, "nonterminals"));
     if (rules.empty() || rules.size() > 4096) throw std::invalid_argument("grammar requires 1..4096 nonterminals");
     for (const auto& rule : rules) {
-      keys(rule, {"id", "type", "scope", "alternatives", "category", "variation", "mutation_entry", "mutation_locals"}, "nonterminal");
+      keys(rule, {"id", "type", "scope", "alternatives", "category", "variation", "mutation_entry"}, "nonterminal");
       CompiledNonterminal nt;
       nt.id = static_cast<std::uint32_t>(out_.nonterminals_.size());
       nt.stable_id = field(rule, "id"); nt.type = parse_type(field(rule, "type"));
@@ -172,14 +172,6 @@ class GrammarCompiler {
       }
       nt.scope = scope(require_object_field(rule, "scope"));
       nt.context = intern_context(nt.scope);
-      if (rule.object_v.count("mutation_locals")) {
-        nt.mutation_locals = scope(rule.object_v.at("mutation_locals"));
-        for (const auto& required : nt.mutation_locals) {
-          const auto index = binding(out_.locals_, required.name);
-          if (out_.locals_[index].type != required.type)
-            throw std::invalid_argument("mutation_locals requires a declared local of the exact type");
-        }
-      }
       ids_.emplace(nt.stable_id, nt.id); out_.nonterminals_.push_back(std::move(nt));
     }
     for (std::size_t i = 0; i < rules.size(); ++i) {
@@ -235,7 +227,6 @@ class GrammarCompiler {
         out_.productions_.push_back(std::move(production));
       }
     }
-    compile_replacement_classes(rules);
     validate_bounded_phase_closure();
     costs();
     index_contexts();
@@ -243,78 +234,6 @@ class GrammarCompiler {
   }
 
  private:
-  // A deliberately conservative syntactic language certificate. References
-  // use proved recursive classes, templates retain their checked hole linkage,
-  // and fuel/resource annotations remain part of the contract. Sampling and
-  // constant perturbation policies do not change membership. This is not a
-  // general grammar-equivalence solver or an author-supplied assertion.
-  static void membership_domain(Json& value) {
-    value.object_v.erase("sample_from");
-    value.object_v.erase("mutation");
-    if (value.object_v.count("elements")) membership_domain(value.object_v.at("elements"));
-  }
-  static void membership_expression(Json& value) {
-    if (value.kind == Kind::Object) {
-      if (value.object_v.count("constant")) membership_domain(value.object_v.at("constant"));
-      for (auto& item : value.object_v) membership_expression(item.second);
-    } else if (value.kind == Kind::Array) {
-      for (auto& item : value.array_v) membership_expression(item);
-    }
-  }
-  void rewrite_references(Json& value, const std::vector<std::uint32_t>& classes) const {
-    if (value.kind == Kind::Object) {
-      const auto ref = value.object_v.find("ref");
-      if (ref != value.object_v.end() && ref->second.kind == Kind::String)
-        ref->second.string_v = "@" + std::to_string(classes.at(reference(ref->second.string_v)));
-      for (auto& item : value.object_v) rewrite_references(item.second, classes);
-    } else if (value.kind == Kind::Array) {
-      for (auto& item : value.array_v) rewrite_references(item, classes);
-    }
-  }
-  void compile_replacement_classes(const std::vector<Json>& rules) {
-    std::vector<std::vector<Json>> expressions(rules.size());
-    for (std::size_t i = 0; i < rules.size(); ++i)
-      for (const auto& alternative : array(require_object_field(rules[i], "alternatives"))) {
-        auto expression = require_object_field(alternative, "expression");
-        membership_expression(expression);
-        expressions[i].push_back(std::move(expression));
-      }
-    // Monotone partition refinement proves recursive rule bisimulation. It
-    // ignores rule names and alternative order/weights, but preserves every
-    // expression field, ordered binding interface and shared-hole relation.
-    std::vector<std::uint32_t> classes(rules.size(), 0);
-    std::size_t previous_count = 1;
-    for (;;) {
-      std::map<std::string, std::uint32_t> partitions;
-      auto next = classes;
-      for (std::size_t i = 0; i < rules.size(); ++i) {
-        std::set<std::string> language;
-        for (auto expression : expressions[i]) {
-          rewrite_references(expression, classes);
-          language.insert(canonical_json(expression));
-        }
-        const auto& nt = out_.nonterminals_[i];
-        std::string key = std::to_string(classes[i]) + ":" + std::to_string(int(nt.type)) + ":" +
-            std::to_string(int(nt.category)) + ":" + canonical_json(require_object_field(rules[i], "scope"));
-        for (const auto& expression : language)
-          key += std::to_string(expression.size()) + ":" + expression;
-        next[i] = partitions.emplace(key, static_cast<std::uint32_t>(partitions.size())).first->second;
-      }
-      classes = std::move(next);
-      if (partitions.size() == previous_count) break;
-      previous_count = partitions.size();
-    }
-    std::map<std::string, std::uint32_t> closed;
-    for (std::size_t i = 0; i < rules.size(); ++i)
-      for (std::size_t j = 0; j < expressions[i].size(); ++j) {
-        auto expression = expressions[i][j];
-        rewrite_references(expression, classes);
-        auto& production = out_.productions_[out_.nonterminals_[i].productions[j]];
-        production.replacement_class = classes[i];
-        production.closed_replacement_class = closed.emplace(canonical_json(expression),
-            static_cast<std::uint32_t>(closed.size())).first->second;
-      }
-  }
   void validate_bounded_phase_closure() const {
     const auto validate_root = [&](std::uint32_t root) {
       std::vector<std::uint32_t> pending = {root};
@@ -482,8 +401,7 @@ class GrammarCompiler {
     if (out_.expressions_[body].type != definition.type || out_.expressions_[body].category != definition.category)
       throw std::invalid_argument("template body result type mismatch");
     for (auto count : uses)
-      if (!count || count > 64)
-        throw std::invalid_argument("each template hole must occur 1..64 times; split independent holes explicitly");
+      if (!count) throw std::invalid_argument("each template hole must occur in its body");
     node.children.push_back(body);
     active_templates_.erase(id);
     return append(std::move(node));
@@ -563,12 +481,7 @@ class GrammarCompiler {
         node.children.push_back(child);
       }
     } else if (value.object_v.count("constant")) {
-      keys(value, {"constant", "fuel_events", "resource_charge", "mutable"}, "constant expression");
-      if (value.object_v.count("mutable")) {
-        if (!context || !fixed_region || value.object_v.at("mutable").kind != Kind::Bool)
-          throw std::invalid_argument("mutable is only supported on a fixed template constant");
-        if (value.object_v.at("mutable").bool_v) node.fixed = false;
-      }
+      keys(value, {"constant", "fuel_events", "resource_charge"}, "constant expression");
       node.kind = ExpressionKind::Constant;
       node.target = static_cast<std::uint32_t>(out_.constants_.size());
       out_.constants_.push_back(parse_constant_domain(value.object_v.at("constant")));
@@ -586,7 +499,7 @@ class GrammarCompiler {
       }
       node.type = out_.constants_.back().type;
       node.fuel_charges = fuel_charges(value, NodeKind::CONST);
-      if (node.fixed && (out_.constants_.back().integer_range || out_.constants_.back().float_range || out_.constants_.back().elements || out_.constants_.back().values.size() != 1))
+      if (context && fixed_region && (out_.constants_.back().integer_range || out_.constants_.back().values.size() != 1))
         throw std::invalid_argument("fixed template constant requires exactly one value");
     } else if (value.object_v.count("ref")) {
       if (context && fixed_region) throw std::invalid_argument("evolvable template reference must occupy a declared hole");

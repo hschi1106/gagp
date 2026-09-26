@@ -303,11 +303,7 @@ void test_crossover_admission_matches_full_analysis() {
     std::uint64_t eligible = 0, contracts = 0, budgets = 0;
     for (const auto& x : aa->sites) for (const auto& y : bb->sites) {
       if (!compatible_sites(x, y)) { ++contracts; continue; }
-      // Independent oracle: do not consult the optimized projected allowance.
-      if (!donor_fits(x, y.materialized_nodes, y.materialized_depth, y.template_nesting) ||
-          !donor_fits(y, x.materialized_nodes, x.materialized_depth, x.template_nesting)) {
-        ++budgets; continue;
-      }
+      if (!donor_fits(x, y) || !donor_fits(y, x)) { ++budgets; continue; }
       bool invalid = false;
       const auto fits = [&](const ProgramGenome& base, const VariationSite& destination,
                             const ProgramGenome& donor, const VariationSite& source) {
@@ -489,8 +485,7 @@ void test_destination_resource_interpretation() {
   VariationContext context(grammar, 128, ProjectedBudget{12, 5});
   const auto parent = generate_derivation(*grammar, 42).genome;
   const auto site = context.analyze(parent)->sites.front();
-  check(!site.has_projected_allowance && site.has_crossover_allowance &&
-        grammar->resource_invariant_roots({grammar->entry()}).front(),
+  check(!site.has_projected_allowance && grammar->resource_invariant_roots({grammar->entry()}).front(),
         "destination interpretation fixture did not use root invariance");
   const auto donor = generate_donor(context, 1, site);
   check(donor.projected_resources.nodes == 20, "mutation entry cost fixture changed");

@@ -77,32 +77,6 @@ Destination membership and crossover remain unchanged; generated donors outside
 the destination language are rejected by normal offspring admission. This permits
 fixed construction values with broader standalone replacement distributions.
 The field participates in grammar identity and cannot be changed by an extension.
-
-A nonterminal may declare `mutation_locals: [{"name":"x","type":"Int"}]`.
-These must name grammar-declared ordinary locals with exact matching types. This
-is the complete ordinary-local interface for fresh subtree donors; the default
-is empty. Extra names available at the destination are not donor inputs. Every
-required local must actually be available at the selected site, otherwise donor
-generation reports the missing name and bounded mutation falls back. Grammar
-inputs and the rule's ordered lexical `scope` remain separate interfaces. Existing
-materialized programs may still read their valid local names. To migrate a grammar
-that intentionally used contextual locals in donors, declare them explicitly.
-An extension cannot alter this interface; use an explicit replacement definition.
-
-GPU mutation preparation shares a pool only within an exact nonterminal,
-physical budget, nesting allowance, binder-ID and visible-interface class. A
-128-destination preparation window contains at most 64 slots per destination and
-at most 1,048,576 conservative node-capacity units. A pool serves at most eight
-equivalent destinations before refill, using the next destination's seeds; every
-new window/preparation refreshes it. Reused entries undergo destination-specific
-membership and source-budget admission. Rejected or absent entries use that
-destination's fresh bounded retries. Payload transactions cover the entire group
-and commit atomically; failed speculative preparation uses the ordinary path.
-CPU selected-site mutation remains fresh. Shared draws are correlated and may
-change weights after destination rejection; support is not a claim of independent
-sampling or identical old trajectories. The `pool_*` counters count batch slots,
-not distinct offspring or individual retry attempts.
-
 Optional `category` defaults to Expression and also supports Program, Block and
 Statement. For structural categories, `type` is the enclosing program result contract,
 not a runtime value produced by a statement or block. Entry may be Expression or
@@ -111,34 +85,29 @@ alternative has `id`, a positive finite `weight`, and `expression`. Its stable
 production ID is `nonterminal-id/alternative-id`. Numeric IDs follow sorted stable
 IDs and are meaningful only with the grammar identity.
 
-An alternative may opt into a nonempty string `crossover_group`. The group is
-an authoring partition, not a membership certificate. The compiler refines
-nonterminal replacement classes to a fixed point using exact expression trees,
-ordered type/scope interfaces and referenced classes. Rule names, production
-weights/order, generation stages and constant sampling/perturbation policies do
-not affect this membership proof. Constant domains, fuel/resource profiles,
-template identities and shared-hole relationships do. Equivalent recursive rules
-can share a class without sharing a name. This conservative proof may separate
-semantically equivalent languages with different expression or template shapes;
-use a common canonical rule/template to express their intended interchangeability.
-
-Ordinary exchanges require both the same compiled replacement class and the
-same authored group (or both ungrouped), exact type/category, ordered formal
-scope and available ordinary locals. Enclosing template/slot names no longer
-artificially partition otherwise identical hole contracts. Incompatible rules
-remain separate even with identical authored groups; the compiler never treats
-a label or exact result type as proof of grammar closure. Atomic repeated-hole
-replacement, physical/projected budgets and final child validation still apply.
+An alternative may opt into a nonempty string `crossover_group`. For a site
+reconstructed through that alternative, group identity replaces the nonterminal
+ID and enclosing template/slot IDs in the crossover compatibility key. Exact
+result type, category, formal scope and available ordinary locals must still
+match. Ungrouped alternatives retain the original exact contract and never match
+grouped alternatives. Different groups never match. This permits explicitly
+interchangeable rules or holes while distinguishing alternatives with different
+structural roles. Grouping does not alter construction, mutation donor selection,
+atomic repeated-hole replacement, budgets or destination membership admission;
+an exchanged child outside its destination language is still rejected. Authors
+should group mutually admissible languages to avoid rejected offspring. The
+authored group is part of grammar identity and shared CPU/GPU site analysis.
 
 Grouped alternatives may additionally declare `crossover_scope: "closed"`
 (default `"exact"`). Canonical site analysis checks every physical occurrence
 for lexical closure, including REGION_VAR references and lexical bounded-region
 captures. A reference is internal only if its declaration lies inside the
-replaced subtree. Proven closed sites in the same group and the same compiled production-language
-class may exchange across different formal lexical contexts; ordinary local availability and exact result
+replaced subtree. Proven closed sites in the same group may exchange across
+different formal lexical contexts; ordinary local availability and exact result
 type/category still match. Sites with an external lexical capture retain exact
 scope matching and cannot match a proven closed site. The actual AST determines
-closure; the authored policy alone never certifies it. Mutation retains the declared donor interface and its donor rules. CPU splice and GPU metadata reconstruction
+closure; the authored policy alone never certifies it. Mutation retains the full
+destination frame and its donor rules. CPU splice and GPU metadata reconstruction
 check the incoming payload before omitting external binder remapping. Atomic
 replacement, budget checks and destination membership remain in force. Without
 a crossover group this scope policy is rejected.
@@ -688,7 +657,7 @@ budgets, and membership contract.
 ### Generated artifacts
 
 `grammar-generated-v2` records the resolved grammar and hash, generator/RNG versions,
-runtime semantic version `gagp-native-2.0.0-restricted-1`, canonical unsigned 64-bit decimal seed, ordered input schema and its SHA-256 hash,
+runtime semantic version `gagp-native-2.0.0`, canonical unsigned 64-bit decimal seed, ordered input schema and its SHA-256 hash,
 exact return type, search limits, execution fuel, and `domain-only-v1` payload policy.
 That policy samples only declared constant domains; expected outputs do not inject
 additional constants. The artifact also stores a native `ast_shape` with an empty
@@ -736,7 +705,7 @@ fuel, AST shape and detached constants from the member. A plain release-1
 fuel, maximum-node and maximum-depth values because it does not embed that contract.
 
 Both exact program routes emit `grammar-materialized-v2`. The envelope records target
-runtime `semantic_version` `gagp-native-2.0.0-restricted-1`, a content hash and format identity for
+runtime `semantic_version` `gagp-native-2.0.0`, a content hash and format identity for
 the release-1 source, exact schemas and limits, an `ast-prefix-v2` shape whose native
 constant table is empty, and exactly one detached `constants` array using the lossless
 singleton-domain codec above. Decoding rejects an incompatible semantic version, a
@@ -950,24 +919,3 @@ reference. Fixed references in template implementation bodies do not count;
 references supplied through holes do. Membership reconstruction, not imported
 provenance, determines fixed origins. This policy controls both subtree mutation
 and crossover candidate enumeration, and leaves constant perturbation unchanged.
-
-## Restricted template variation
-
-A template's control skeleton and binding layout are fixed. References must occur
-inside declared typed holes. A hole may occur 1..64 times; all occurrences retain
-one logical choice and vary atomically. Each occurrence must satisfy the same
-ordered declared scope; unsupported scope/type mappings are rejected at compile
-time. Nested templates remain supported under existing expansion/resource bounds.
-Whole-template expressions remain eligible according to their nonterminal and
-production policies, so a fixed internal skeleton does not freeze the family.
-
-Skeleton constants are fixed singletons by default. Explicitly declare
-`{"constant":{"type":"Int","range":["0","10"]},"mutable":true}` in a template
-body to expose a constant domain without exposing its surrounding control nodes.
-`mutable` must be Boolean and is rejected outside a fixed template constant.
-Constant mutation follows its domain's existing policy. Constants in typed holes
-retain the existing domain policy. All eight runtime types remain supported.
-
-These construction/variation changes use semantic/replay identity
-`gagp-native-2.0.0-restricted-1`. Old seed-only artifacts do not claim replay under
-the new semantics; valid materialized AST execution remains grammar-independent.

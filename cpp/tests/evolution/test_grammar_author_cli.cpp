@@ -104,7 +104,7 @@ void test_validate_and_inspect(const TempFiles& files) {
         validation.object_v.at("definition_version").string_v == "grammar-definition-v2" &&
         validation.object_v.at("catalog_version").string_v == "gagp-primitives-v3" &&
         validation.object_v.at("normalization_version").string_v == "1" &&
-        validation.object_v.at("semantic_version").string_v == "gagp-native-2.0.0-restricted-1" &&
+        validation.object_v.at("semantic_version").string_v == "gagp-native-2.0.0" &&
         validation.object_v.at("generator_version").string_v == "typed-derivation-v2" &&
         validation.object_v.at("rng_version").string_v == "splitmix64-rejection-v1" &&
         validation.object_v.at("entry").object_v.at("id").string_v == "Program" &&

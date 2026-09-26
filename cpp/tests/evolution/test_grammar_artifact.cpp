@@ -60,7 +60,7 @@ void test_constants_and_replay() {
     const auto artifact = encode_generated_artifact(grammar, generated);
     const auto encoded = parse(artifact);
     check(encoded.object_v.at("format_version").string_v == "grammar-generated-v2" &&
-          encoded.object_v.at("semantic_version").string_v == "gagp-native-2.0.0-restricted-1" &&
+          encoded.object_v.at("semantic_version").string_v == "gagp-native-2.0.0" &&
           encoded.object_v.at("generator_version").string_v == "typed-derivation-v2",
           "generated artifact did not publish current version identities");
     check(encoded.object_v.at("seed").string_v == "18446744073709551615", "uint64 seed rounded or truncated");

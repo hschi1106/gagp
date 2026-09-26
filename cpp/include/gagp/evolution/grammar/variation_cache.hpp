@@ -71,7 +71,6 @@ class VariationAnalysisCache {
   std::shared_ptr<const CompiledGrammar> grammar_;
   std::size_t capacity_ = 0;
   std::optional<ProjectedBudget> local_projected_budget_;
-  std::optional<ProjectedBudget> crossover_projected_budget_;
   std::vector<std::string> input_names_;
   std::unordered_map<std::string, std::shared_ptr<VariationAnalysis>> prepared_;
   CompatibilityRegistry registry_;

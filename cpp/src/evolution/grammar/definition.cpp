@@ -134,9 +134,7 @@ void source_expression(const Json& value) {
   if (value.object_v.count("resource_charge"))
     (void)parse_resource_charge(value.object_v.at("resource_charge"));
   if (value.object_v.count("constant")) {
-    keys(value, {"constant", "fuel_events", "resource_charge", "mutable"}, "constant expression");
-    if (value.object_v.count("mutable") && value.object_v.at("mutable").kind != Kind::Bool)
-      throw std::invalid_argument("template constant mutable must be Boolean");
+    keys(value, {"constant", "fuel_events", "resource_charge"}, "constant expression");
     (void)parse_constant_domain(value.object_v.at("constant"));
     source_fuel_events(value, NodeKind::CONST);
   } else if (value.object_v.count("template")) {
@@ -292,7 +290,7 @@ void source_schema(const Json& document) {
     if (!document.object_v.count(category)) continue;
     for (const auto& resource : elements(document.object_v.at(category))) {
       const bool nt = std::string(category) == "nonterminals";
-      if (nt) keys(resource, {"id", "operation", "type", "scope", "category", "alternatives", "variation", "mutation_entry", "mutation_locals"}, "nonterminal");
+      if (nt) keys(resource, {"id", "operation", "type", "scope", "category", "alternatives", "variation", "mutation_entry"}, "nonterminal");
       else keys(resource, {"id", "operation", "type", "scope", "category", "holes", "body"}, "template");
       const auto operation = resource.object_v.count("operation") ? require_string(resource.object_v.at("operation"), "operation") : "define";
       if (operation == "extend") {
@@ -304,8 +302,6 @@ void source_schema(const Json& document) {
         source_category(resource);
       }
       if (nt) {
-        if (resource.object_v.count("mutation_locals"))
-          source_scope(resource.object_v.at("mutation_locals"));
         const auto mutation_entry = resource.object_v.find("mutation_entry");
         if (mutation_entry != resource.object_v.end())
           (void)require_string(mutation_entry->second, "mutation_entry");

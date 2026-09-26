@@ -28,8 +28,8 @@ ContextualDonor generate_donor(const CompiledGrammar& grammar, std::uint64_t see
     const VariationSite& site);
 ContextualDonor generate_donor(VariationContext& context, std::uint64_t seed,
     const VariationSite& site);
-// With an offspring budget, use local summaries only for certified replacement
-// closure and invariant root charges; otherwise test the complete destination.
+// With an offspring budget, test the complete spliced destination, so ambiguous
+// membership and ancestor charges cannot make a subtree-only estimate unsound.
 ContextualDonor generate_donor(VariationContext& context, std::uint64_t seed,
     const VariationSite& site, const ProgramGenome& destination,
     std::size_t maximum_attempts = 64);
@@ -46,9 +46,7 @@ struct DonorPoolJob {
   std::vector<std::uint64_t> seeds;
 };
 using DonorPool = std::vector<std::optional<ContextualDonor>>;
-// Speculative pools retain job/slot order and atomically commit group payloads.
-// Equal fixed interfaces/budgets reuse a pool for at most eight destinations,
-// then refill with the next job's seeds. Every call refreshes all pools.
+// Speculative pools preserve job/seed order and commit payloads atomically.
 // nullopt leaves payloads unchanged: callers must replay their original complete
 // interleaved preparation, not just postpone all sequential pools until assembly.
 std::optional<std::vector<DonorPool>> try_generate_donor_pools(VariationContext& context,

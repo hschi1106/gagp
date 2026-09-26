@@ -1,28 +1,5 @@
 # Grammar Authoring
 
-Restricted evolution uses compiler-verified replacement classes, fixed donor
-interfaces and template skeletons. The complete
-[restricted example](../../configs/grammar/examples/restricted_variation.json)
-demonstrates all three policies:
-
-- `Left` and `Right` have the same accepted language and share the `integer`
-  crossover group. `inspect` reports their equal `replacement_class`; changing
-  one rule's accepted operators/domain separates them even if the group is kept.
-- Fresh donors see the declared input `n` and each rule's declared lexical scope.
-  They do not inherit extra ordinary names from their destination. If an ordinary
-  local is intentionally required, declare e.g.
-  `"mutation_locals":[{"name":"x","type":"Int"}]` on the selected rule;
-  `x` must also be a grammar local and available at the actual destination.
-- `Offset` fixes its add skeleton and exposes the `value` hole plus an explicitly
-  `mutable` constant. Repeated holes stay atomic (at most 64 occurrences), and
-  the whole template can still be replaced through `Main`.
-
-See the [normative restrictions and migration rules](../../spec/grammar_definition.md#restricted-template-variation).
-CPU donors remain fresh; GPU preparation may share a bounded pool across eight
-equivalent destinations, refreshing every preparation window. This changes
-sampling correlations and seed trajectories. Replay identity is now
-`gagp-native-2.0.0-restricted-1`; regenerate seed-only artifacts under this version.
-
 Build the native commands and install the thin Python command wrapper from the
 repository root:
 
@@ -70,7 +47,7 @@ The deterministic identity tuple reported by validation/inspection is:
 definition_version = grammar-definition-v2
 catalog_version = gagp-primitives-v3
 normalization_version = 1
-semantic_version = gagp-native-2.0.0-restricted-1
+semantic_version = gagp-native-2.0.0
 generator_version = typed-derivation-v2
 rng_version = splitmix64-rejection-v1
 ```
@@ -386,11 +363,11 @@ nonterminal and constant-domain policies for those controls. CPU and GPU use the
 same filtered site analysis.
 
 Alternatives can declare `"crossover_group":"coordinate-int"` to explicitly
-partition exchanges across different nonterminals or template holes. The compiler
-must also prove equal replacement classes; a label cannot assert interchangeability.
-Exact type and scope still have to match, and child validation remains active. Different groups
+permit exchanges across different nonterminals or template holes. Use matching
+groups only for mutually admissible replacements; exact type and scope still
+have to match, and normal child validation remains active. Different groups
 separate structural roles even within one nonterminal. Omit the field to retain
-the default compiler-verified replacement contract. Grouping does not change
+the default exact nonterminal/template-hole contract. Grouping does not change
 which subtree mutation donors are generated.
 
 Add `"crossover_scope":"closed"` to a grouped alternative when complete
@@ -399,7 +376,7 @@ bindings. The runtime first proves that the actual subtree has no external
 lexical references. A capturing subtree keeps exact scope matching. This is
 useful for moving a complete nested traversal whose bindings are all internal;
 it does not permit moving a body that depends on an enclosing traversal element.
-Mutation uses the rule's declared lexical interface and `mutation_locals`.
+Mutation continues to use the destination's full lexical frame.
 
 Use `"mutation_entry":"OtherRule"` when a node needs one construction
 distribution inside a newly generated structure and another when selected for

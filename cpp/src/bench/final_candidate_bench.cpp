@@ -243,18 +243,6 @@ void reproduction_timing(std::ostream& out, const ReproductionTiming& value) {
       << ",\"mutation_ms\":" << value.mutation_ms
       << ",\"prepare_inputs_ms\":" << value.prepare_inputs_ms
       << ",\"setup_ms\":" << value.setup_ms
-      << ",\"crossover_prepare_ms\":" << value.crossover_prepare_ms
-      << ",\"crossover_preprocess_ms\":" << value.crossover_preprocess_ms
-      << ",\"crossover_donor_ms\":" << value.crossover_donor_ms
-      << ",\"crossover_pack_ms\":" << value.crossover_pack_ms
-      << ",\"crossover_decode_ms\":" << value.crossover_decode_ms
-      << ",\"mutation_prepare_ms\":" << value.mutation_prepare_ms
-      << ",\"mutation_preprocess_ms\":" << value.mutation_preprocess_ms
-      << ",\"mutation_donor_ms\":" << value.mutation_donor_ms
-      << ",\"mutation_pack_ms\":" << value.mutation_pack_ms
-      << ",\"mutation_decode_ms\":" << value.mutation_decode_ms
-      << ",\"replay_validation_ms\":" << value.replay_validation_ms
-      << ",\"overlap_wait_ms\":" << value.overlap_wait_ms
       << ",\"preprocess_ms\":" << value.preprocess_ms
       << ",\"pack_ms\":" << value.pack_ms
       << ",\"upload_ms\":" << value.upload_ms
@@ -268,10 +256,6 @@ void reproduction_timing(std::ostream& out, const ReproductionTiming& value) {
       << ",\"mutation_attempts\":" << value.variation.mutation_attempts
       << ",\"contract_rejections\":" << value.variation.contract_rejections
       << ",\"budget_rejections\":" << value.variation.budget_rejections
-      << ",\"pool_classes\":" << value.variation.pool_classes
-      << ",\"pool_reused_slots\":" << value.variation.pool_reused_slots
-      << ",\"pool_fresh_slots\":" << value.variation.pool_fresh_slots
-      << ",\"pool_rejected_slots\":" << value.variation.pool_rejected_slots
       << ",\"generation_rejections\":" << value.variation.generation_rejections
       << ",\"acceptance_rejections\":" << value.variation.acceptance_rejections
       << ",\"fallback_children\":" << value.variation.fallback_children

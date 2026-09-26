@@ -177,7 +177,7 @@ std::shared_ptr<const CompiledGrammar> named_constant_donor_grammar() {
     "nonterminals":[
       {"id":"Initial","type":"Int","scope":[],"alternatives":[{"id":"one","weight":1,
         "expression":{"constant":{"type":"Int","values":["1"]}}}]},
-      { "id":"LocalExpr","type":"Int","scope":[],"mutation_locals":[{"name":"x","type":"Int"},{"name":"y","type":"Int"}],"alternatives":[{"id":"sum","weight":1,
+      {"id":"LocalExpr","type":"Int","scope":[],"alternatives":[{"id":"sum","weight":1,
         "expression":{"signature":"add(Int,Int)->Int","args":[
           {"signature":"add(Int,Int)->Int","args":[{"local":"x"},{"local":"y"}]},
           {"signature":"add(Int,Int)->Int","args":[

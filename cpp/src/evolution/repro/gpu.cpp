@@ -166,9 +166,8 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
   }
   const auto prepare_t1 = std::chrono::steady_clock::now();
   if (stats != nullptr) {
-    const auto elapsed = std::chrono::duration<double, std::milli>(prepare_t1 - prepare_t0).count();
-    stats->prepare_inputs_ms += elapsed;
-    (pass == CompiledVariationPass::Mutation ? stats->mutation_prepare_ms : stats->crossover_prepare_ms) += elapsed;
+    stats->prepare_inputs_ms +=
+        std::chrono::duration<double, std::milli>(prepare_t1 - prepare_t0).count();
   }
 
   const auto prep_t0 = std::chrono::steady_clock::now();
@@ -192,10 +191,7 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
           pass == CompiledVariationPass::Mutation, warmed_members);
   const auto prep_t1 = std::chrono::steady_clock::now();
   if (stats != nullptr) {
-    const auto elapsed = std::chrono::duration<double, std::milli>(prep_t1 - prep_t0).count();
-    stats->preprocess_ms += elapsed;
-    (pass == CompiledVariationPass::Mutation ? stats->mutation_preprocess_ms : stats->crossover_preprocess_ms) += elapsed;
-    (pass == CompiledVariationPass::Mutation ? stats->mutation_donor_ms : stats->crossover_donor_ms) += prep.donor_preprocess_ms;
+    stats->preprocess_ms += std::chrono::duration<double, std::milli>(prep_t1 - prep_t0).count();
   }
 
   const auto pack_t0 = std::chrono::steady_clock::now();
@@ -213,9 +209,7 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
   if (context) out.preparation_counters = context->counters();
   const auto pack_t1 = std::chrono::steady_clock::now();
   if (stats != nullptr) {
-    const auto elapsed = std::chrono::duration<double, std::milli>(pack_t1 - pack_t0).count();
-    stats->pack_ms += elapsed;
-    (pass == CompiledVariationPass::Mutation ? stats->mutation_pack_ms : stats->crossover_pack_ms) += elapsed;
+    stats->pack_ms += std::chrono::duration<double, std::milli>(pack_t1 - pack_t0).count();
   }
   return out;
 }
@@ -325,11 +319,8 @@ ReproductionResult run_compiled_prepared(const std::vector<ScoredGenomeRef>& sco
       throw std::runtime_error(message);
     const auto decode_start = std::chrono::steady_clock::now();
     auto children = decode_compiled_pass(pass.packed, view, context, pass.parent_certificates.get());
-    const auto elapsed = std::chrono::duration<double, std::milli>(
+    out.stats.decode_ms += std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - decode_start).count();
-    out.stats.decode_ms += elapsed;
-    (pass.config.compiled_pass == CompiledVariationPass::Mutation ?
-        out.stats.mutation_decode_ms : out.stats.crossover_decode_ms) += elapsed;
     return children;
   };
   auto crossed = run_pass(prepared, extract_fitness(scored));
@@ -414,10 +405,7 @@ ReproductionResult run_gpu_repro_backend_prepared(const std::vector<ScoredGenome
                                                   const GpuReproPreparedData& prepared,
                                                   ReproductionStats* stats) {
   require_reproduction_mode_supported(cfg, true);
-  const auto validation_start = std::chrono::steady_clock::now();
   validate_compiled_prepared(scored, cfg, prepared);
-  if (stats) stats->replay_validation_ms += std::chrono::duration<double, std::milli>(
-      std::chrono::steady_clock::now() - validation_start).count();
 #ifndef GAGP_HAS_CUDA
   (void)scored;
   (void)cfg;

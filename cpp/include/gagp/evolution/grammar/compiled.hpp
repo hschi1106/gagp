@@ -90,9 +90,6 @@ struct CompiledProduction {
   std::uint32_t nonterminal = 0;
   double weight = 0;
   std::string crossover_group;
-  // Compiler-proved replacement languages; authored labels are not proofs.
-  std::uint32_t replacement_class = kNoGrammarId;
-  std::uint32_t closed_replacement_class = kNoGrammarId;
   bool closed_crossover = false;
   bool variation_enabled = true;
   bool unbound_variation = false;
@@ -119,9 +116,6 @@ struct CompiledNonterminal {
   // Optional construction entry for subtree mutation; destination membership
   // and crossover continue to use this nonterminal's own language.
   std::uint32_t mutation_entry = kNoGrammarId;
-  // Fixed ordinary-name interface for fresh mutation donors. Grammar inputs
-  // and the ordered lexical scope are separate and always declared explicitly.
-  std::vector<RegionBinding> mutation_locals;
   std::vector<RegionBinding> scope;
   std::vector<std::uint32_t> productions;
   std::vector<std::uint32_t> minimum_nodes_by_depth;

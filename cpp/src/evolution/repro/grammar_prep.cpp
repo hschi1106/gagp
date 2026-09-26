@@ -4,7 +4,6 @@
 #include "gagp/evolution/repro/prep.hpp"
 
 #include <algorithm>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -88,7 +87,7 @@ CandidateRange make_candidate(const grammar::VariationSite& site,
   candidate.template_nesting =
       as_int(site.template_nesting, "candidate template nesting");
   candidate.donor_offset = as_int(donor_offset, "candidate donor offset");
-  candidate.has_projected_allowance = site.has_projected_allowance || site.has_crossover_allowance;
+  candidate.has_projected_allowance = site.has_projected_allowance;
   candidate.projected_allowance = site.projected_allowance;
   candidate.projected_resources = site.projected_resources;
   return candidate;
@@ -225,10 +224,7 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
           }
         }
       }
-      const auto donor_start = std::chrono::steady_clock::now();
       planned_pools = grammar::try_generate_donor_pools(context, planned_jobs);
-      out.donor_preprocess_ms += std::chrono::duration<double, std::milli>(
-          std::chrono::steady_clock::now() - donor_start).count();
     } catch (const std::exception&) {
       // The batch API publishes no payloads until successful return. Replaying
       // the original interleaved loop preserves errors and collision behavior.
@@ -337,12 +333,7 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
             planned_jobs.at(planned_cursor).seeds != donor_seeds)
           throw std::logic_error("prefetched donor schedule differs from sequential generation");
         donor_pool = std::move((*planned_pools)[planned_cursor++]);
-      } else {
-        const auto donor_start = std::chrono::steady_clock::now();
-        donor_pool = grammar::generate_donor_pool(context, donor_seeds, site, parent);
-        out.donor_preprocess_ms += std::chrono::duration<double, std::milli>(
-            std::chrono::steady_clock::now() - donor_start).count();
-      }
+      } else donor_pool = grammar::generate_donor_pool(context, donor_seeds, site, parent);
       for (auto& prepared_donor : donor_pool) {
         if (!prepared_donor) {
           ++context.counters().generation_rejections;

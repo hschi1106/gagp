@@ -101,7 +101,7 @@ foreach(required IN ITEMS
     "\"format_version\": \"grammar-definition-v2\""
     "\"catalog_version\": \"gagp-primitives-v3\""
     "\"normalization_version\": \"1\""
-    "\"semantic_version\": \"gagp-native-2.0.0-restricted-1\""
+    "\"semantic_version\": \"gagp-native-2.0.0\""
     "\"generator_version\": \"typed-derivation-v2\""
     "\"rng_version\": \"splitmix64-rejection-v1\""
     "\"eval_engine\": \"cpu\""

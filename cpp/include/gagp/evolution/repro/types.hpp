@@ -89,7 +89,6 @@ struct DonorProgram {
 };
 
 struct PreprocessOutput {
-  double donor_preprocess_ms = 0.0;
   int prepared_max_nodes = 0;
   int prepared_max_depth = 0;
   std::shared_ptr<const grammar::CompiledGrammar> compiled_grammar;

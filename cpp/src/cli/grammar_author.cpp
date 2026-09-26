@@ -178,7 +178,6 @@ Json nonterminals_json(const CompiledGrammar& grammar) {
     item.object_v["type"] = string(std::string(type_name(nonterminal.type)));
     item.object_v["category"] = string(category_name(nonterminal.category));
     item.object_v["scope"] = scope_json(nonterminal.scope);
-    item.object_v["mutation_locals"] = scope_json(nonterminal.mutation_locals);
     item.object_v["production_ids"] = strings(nonterminal.productions);
     item.object_v["minimum_depth"] = number(nonterminal.minimum_depth);
     item.object_v["minimum_nodes"] = number(nonterminal.minimum_nodes);
@@ -195,9 +194,6 @@ Json productions_json(const CompiledGrammar& grammar) {
     item.object_v["id"] = string(production.stable_id);
     item.object_v["numeric_id"] = number(production.id);
     item.object_v["nonterminal_id"] = number(production.nonterminal);
-    item.object_v["replacement_class"] = number(production.replacement_class);
-    item.object_v["closed_replacement_class"] = number(production.closed_replacement_class);
-    item.object_v["crossover_group"] = string(production.crossover_group);
     item.object_v["weight"] = real(production.weight);
     item.object_v["root_expression_id"] = number(production.expression);
     item.object_v["minimum_nodes_by_depth"] = minimum_costs(production.minimum_nodes_by_depth);
