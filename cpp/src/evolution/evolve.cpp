@@ -1,6 +1,12 @@
 #include "gagp/evolution/evolve.hpp"
 
 #include <chrono>
+#include <atomic>
+#include <algorithm>
+#include <future>
+#include <thread>
+#include <optional>
+#include "../runtime/payload/staging.hpp"
 #include <stdexcept>
 #include <unordered_map>
 
@@ -67,31 +73,90 @@ ReproductionTiming reproduction_timing_from_stats(
 
 CompiledPopulation compile_population(const std::vector<ProgramGenome>& population,
                                       const std::vector<std::string>& input_names,
-                                      CompileCache* compile_cache, int fuel) {
+                                      CompileCache* compile_cache, int fuel, bool parallel_allowed = false) {
   CompiledPopulation out;
   out.programs.reserve(population.size());
   CompileCache local_cache;
   CompileCache* cache = (compile_cache != nullptr) ? compile_cache : &local_cache;
-  for (const ProgramGenome& genome : population) {
-    const auto generated_key = genome.derivation ?
-        grammar::runtime_cache_identity(genome, input_names, static_cast<std::uint32_t>(fuel)) : std::string{};
-    const std::string& key = genome.derivation ? generated_key : genome.meta.program_key;
-    if (cache != nullptr) {
-      auto it = cache->by_program.find(key);
-      if (it != cache->by_program.end()) {
-        out.programs.push_back(it->second);
+  constexpr std::size_t batch_size = 128;
+  const auto workers = parallel_allowed ? std::min(8u, std::thread::hardware_concurrency()) : 1u;
+  const bool parallel = population.size() >= 32 && workers > 1 &&
+      !payload::StagedPayloads::has_active_scope();
+  struct PreparedCompile {
+    std::string key;
+    std::optional<BytecodeProgram> bytecode;
+    std::unique_ptr<payload::StagedPayloads> reads;
+    std::exception_ptr error;
+    bool key_ready = false;
+    std::chrono::steady_clock::time_point compile_begin{}, compile_end{};
+  };
+  const auto key_for = [&](const ProgramGenome& genome) {
+    return genome.derivation ? grammar::runtime_cache_identity(
+        genome, input_names, static_cast<std::uint32_t>(fuel)) : genome.meta.program_key;
+  };
+  for (std::size_t begin = 0; begin < population.size(); begin += batch_size) {
+    const auto count = std::min(batch_size, population.size() - begin);
+    std::vector<PreparedCompile> prepared(parallel ? count : 0);
+    bool valid = parallel;
+    if (parallel) {
+      std::atomic<std::size_t> next{0};
+      std::vector<std::future<void>> tasks;
+      for (std::size_t worker = 0; worker < std::min<std::size_t>(workers, count); ++worker)
+        tasks.push_back(std::async(std::launch::async, [&] {
+          for (;;) {
+            const auto i = next.fetch_add(1, std::memory_order_relaxed);
+            if (i >= count) break;
+            auto& row = prepared[i];
+            row.reads = std::make_unique<payload::StagedPayloads>();
+            try {
+              payload::StagedPayloads::Scope scope(*row.reads);
+              const auto& genome = population[begin + i];
+              row.key = key_for(genome);
+              row.key_ready = true;
+              if (cache->by_program.find(row.key) != cache->by_program.end()) continue;
+              row.compile_begin = std::chrono::steady_clock::now();
+              row.bytecode = compile_for_eval(genome, input_names);
+              row.compile_end = std::chrono::steady_clock::now();
+            } catch (...) { row.error = std::current_exception(); }
+          }
+        }));
+      for (auto& task : tasks) task.get();
+      std::vector<payload::StagedPayloads*> reads;
+      for (const auto& row : prepared) reads.push_back(row.reads.get());
+      valid = payload::StagedPayloads::commit_all(reads);
+    }
+    std::optional<std::chrono::steady_clock::time_point> compile_begin, compile_end;
+    // Publish in source order. Duplicate keys keep the first compiled result;
+    // errors and payload conflicts retain the ordinary sequential behavior.
+    for (std::size_t i = 0; i < count; ++i) {
+      const auto& genome = population[begin + i];
+      if (valid && prepared[i].error && !prepared[i].key_ready)
+        std::rethrow_exception(prepared[i].error);
+      auto key = valid ? std::move(prepared[i].key) : key_for(genome);
+      const auto found = cache->by_program.find(key);
+      if (found != cache->by_program.end()) {
+        out.programs.push_back(found->second);
         continue;
       }
+      BytecodeProgram bc;
+      if (valid) {
+        if (prepared[i].error) std::rethrow_exception(prepared[i].error);
+        bc = std::move(*prepared[i].bytecode);
+        compile_begin = compile_begin ? std::min(*compile_begin, prepared[i].compile_begin)
+                                      : prepared[i].compile_begin;
+        compile_end = compile_end ? std::max(*compile_end, prepared[i].compile_end)
+                                  : prepared[i].compile_end;
+      } else {
+        const auto t0 = std::chrono::steady_clock::now();
+        bc = compile_for_eval(genome, input_names);
+        out.compile_ms += std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - t0).count();
+      }
+      cache->by_program.emplace(std::move(key), bc);
+      out.programs.push_back(std::move(bc));
     }
-
-    const auto t0 = std::chrono::steady_clock::now();
-    BytecodeProgram bc = compile_for_eval(genome, input_names);
-    const auto t1 = std::chrono::steady_clock::now();
-    out.compile_ms += std::chrono::duration<double, std::milli>(t1 - t0).count();
-    if (cache != nullptr) {
-      cache->by_program.emplace(key, bc);
-    }
-    out.programs.push_back(std::move(bc));
+    if (compile_begin)
+      out.compile_ms += std::chrono::duration<double, std::milli>(*compile_end - *compile_begin).count();
   }
   return out;
 }
@@ -159,7 +224,7 @@ std::vector<ScoredGenomeRef> score_population_gpu_refs(
     double* fitness_sum_out,
     std::vector<double>* raw_fitness_out,
     bool sort_output) {
-  const CompiledPopulation compiled = compile_population(population, input_names, compile_cache, fuel);
+  const CompiledPopulation compiled = compile_population(population, input_names, compile_cache, fuel, true);
   FitnessEvalResult fit = session->eval_programs(compiled.programs);
   if (!fit.ok) {
     throw std::runtime_error("gpu fitness evaluation failed: " + fit.err.message);

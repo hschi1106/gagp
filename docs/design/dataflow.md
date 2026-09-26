@@ -102,3 +102,15 @@ Operational Python tools orchestrate datasets and reports; they do not
 implement grammar, AST, runtime, or reproduction semantics. Generated raw runs
 stay under artifact directories, and only reviewed compact manifests belong in
 `benchmarks/`.
+
+### Bounded GPU evaluation compilation
+
+GPU evaluation prepares bytecode in source-ordered batches of at most 128 members,
+using up to eight workers when the population has at least 32 members. Each worker
+captures the runtime identity and compilation under one payload read snapshot.
+After joining workers, all snapshots must validate atomically before cache/results
+are published in population order. Conflicting reads fall back to sequential
+preparation; enclosing payload scopes and small populations do not spawn workers.
+Duplicate cache keys retain the first published bytecode without dropping any
+population member or fitness work. CPU evaluation keeps sequential compilation.
+Timing semantics are defined in [the timing reference](../reference/timing.md).

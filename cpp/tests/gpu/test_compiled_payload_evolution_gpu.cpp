@@ -114,7 +114,10 @@ int main() {
       {"FloatList", ValueTag::FloatList, "[[1.25,-2.5],[7.5]]"},
       {"StringList", ValueTag::StringList, R"([["alpha","beta"],["gamma"]])"},
   };
-  for (const auto& row : cases) for (int size : {1, 5}) for (int mode = 0; mode < 5; ++mode) {
+  for (const auto& row : cases) for (int size : {1, 5, 64}) for (int mode = 0; mode < 5; ++mode) {
+    // Large populations exercise parallel compilation with duplicate typed
+    // payload programs, both GPU evaluation and overlapped reproduction.
+    if (size == 64 && mode != 1 && mode != 3) continue;
     try {
       exercise(row, size, mode);
     } catch (const std::exception& error) {

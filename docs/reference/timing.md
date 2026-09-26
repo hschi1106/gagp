@@ -262,6 +262,14 @@ GPU summary phases:
 - `gpu_eval_copyback_ms`
 - `gpu_eval_teardown_ms`
 
+For GPU evaluation populations of at least 32 members, compilation may use up to
+8 workers in batches of 128. `gpu_compile_ms` sums the wall-clock spans from the
+first to last published cache-miss compilation in each batch; it does not sum
+concurrent worker durations. Such spans may include interleaved identity work.
+The full generation wall time remains the acceleration comparison metric.
+CPU evaluation retains sequential compilation. Small populations and an enclosing
+payload transaction also retain sequential preparation.
+
 ### JSON timing keys
 
 `meta.timing` stores run-level totals:
