@@ -66,6 +66,11 @@ FramedProgram project_frame(const CompiledGrammar& grammar,
     for (const auto& binding : region.bindings)
       if (external.count(binding.id))
         throw std::invalid_argument("generation frame binder collides with an introduced region binding");
+  for (const auto& region : ast.bounded_region_specs)
+    for (const auto& phase : region.phases)
+      for (const auto& binding : phase.bindings)
+        if (external.count(binding.binder_id))
+          throw std::invalid_argument("generation frame binder collides with an introduced bounded phase binding");
   std::set<std::string> names(ast.names.begin(), ast.names.end());
   for (const auto& input : result.inputs) names.insert(input.name);
   std::map<int, int> projected;
@@ -83,6 +88,18 @@ FramedProgram project_frame(const CompiledGrammar& grammar,
     const auto found = projected.find(node.i0);
     if (found != projected.end()) { node.kind = NodeKind::VAR; node.i0 = found->second; }
   }
+  // Bounded regions capture values through metadata as well as AST nodes.
+  // Only external frame IDs become names; captures of introduced phase/region
+  // bindings remain lexical in this isolated verification and lowering view.
+  for (auto& region : result.ast.bounded_region_specs)
+    for (auto& capture : region.parameters) {
+      if (capture.kind != RegionCaptureKind::Lexical) continue;
+      const auto found = projected.find(capture.index);
+      if (found != projected.end()) {
+        capture.kind = RegionCaptureKind::Name;
+        capture.index = found->second;
+      }
+    }
   return result;
 }
 

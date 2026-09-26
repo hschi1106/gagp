@@ -1,26 +1,44 @@
 #include "gagp/evolution/ast_program.hpp"
 
+#include <charconv>
+#include <type_traits>
+#include <utility>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <iomanip>
-#include <sstream>
 
 namespace gagp::evo {
 
 namespace {
 
-void append_region_bound(std::ostringstream& oss, const RegionBound& bound) {
+// Decimal formatting without stream sentry/locale overhead on every AST field.
+class AstTextWriter {
+ public:
+  AstTextWriter& operator<<(const std::string& value) { text_ += value; return *this; }
+  AstTextWriter& operator<<(const char* value) { text_ += value; return *this; }
+  template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+  AstTextWriter& operator<<(T value) {
+    char buffer[32];
+    const auto end = std::to_chars(buffer, buffer + sizeof(buffer), value).ptr;
+    text_.append(buffer, end);
+    return *this;
+  }
+  std::string str() { return std::move(text_); }
+ private:
+  std::string text_;
+};
+
+void append_region_bound(AstTextWriter& oss, const RegionBound& bound) {
   oss << static_cast<int>(bound.kind) << ":" << bound.literal << ":"
       << bound.operand;
 }
 
-void append_window_endpoint(std::ostringstream& oss,
+void append_window_endpoint(AstTextWriter& oss,
                             const WindowEndpoint& endpoint) {
   oss << static_cast<int>(endpoint.kind) << ":" << endpoint.cut;
 }
 
-void append_region_plan(std::ostringstream& oss, const RegionPlan& plan) {
+void append_region_plan(AstTextWriter& oss, const RegionPlan& plan) {
   oss << "v" << plan.version << ";s" << plan.state_types.size();
   for (ValueTag type : plan.state_types) oss << "/" << static_cast<int>(type);
   oss << ";r" << static_cast<int>(plan.result_type);
@@ -69,7 +87,7 @@ void append_region_plan(std::ostringstream& oss, const RegionPlan& plan) {
       << ";sequence" << plan.sequence_state;
 }
 
-void append_bounded_region_specs(std::ostringstream& oss,
+void append_bounded_region_specs(AstTextWriter& oss,
                                  const std::vector<BoundedRegionSpec>& specs) {
   oss << specs.size();
   for (const BoundedRegionSpec& spec : specs) {
@@ -93,7 +111,7 @@ void append_bounded_region_specs(std::ostringstream& oss,
 }
 
 std::string canonical_prefix_serialize(const AstProgram& program) {
-  std::ostringstream oss;
+  AstTextWriter oss;
   oss << "AstPrefix(";
   for (std::size_t i = 0; i < program.nodes.size(); ++i) {
     if (i > 0) oss << ",";
@@ -142,40 +160,40 @@ std::string canonical_prefix_serialize(const AstProgram& program) {
 }
 
 std::string encode_value_for_cache_key(const Value& value) {
-  std::ostringstream oss;
-  oss << static_cast<int>(value.tag) << ":";
+  std::string encoded = std::to_string(static_cast<int>(value.tag)) + ":";
   if (value.tag == ValueTag::Int || value.tag == ValueTag::Char || value.tag == ValueTag::String ||
       value.tag == ValueTag::IntList || value.tag == ValueTag::FloatList || value.tag == ValueTag::StringList ||
       value.tag == ValueTag::FallbackToken) {
-    oss << value.i;
-    return oss.str();
-  }
-  if (value.tag == ValueTag::Float) {
+    encoded += std::to_string(value.i);
+  } else if (value.tag == ValueTag::Float) {
     std::uint64_t bits = 0;
     std::memcpy(&bits, &value.f, sizeof(bits));
-    oss << std::hex << std::setfill('0') << std::setw(16) << bits;
-    return oss.str();
+    char buffer[16];
+    const auto end = std::to_chars(buffer, buffer + sizeof(buffer), bits, 16).ptr;
+    encoded.append(16 - static_cast<std::size_t>(end - buffer), '0');
+    encoded.append(buffer, end);
+  } else if (value.tag == ValueTag::Bool) {
+    encoded += value.b ? '1' : '0';
+  } else {
+    encoded += "invalid";
   }
-  if (value.tag == ValueTag::Bool) {
-    oss << (value.b ? 1 : 0);
-    return oss.str();
-  }
-  oss << "invalid";
-  return oss.str();
+  return encoded;
 }
 
-std::string canonical_cache_key_serialize(const AstProgram& program) {
-  std::ostringstream oss;
+std::string canonical_cache_key_serialize(const AstProgram& program, bool include_constants = true) {
+  AstTextWriter oss;
   oss << "AstCache(";
   oss << "version:" << program.version.size() << ":" << program.version;
   oss << ";names:" << program.names.size();
   for (const std::string& name : program.names) {
     oss << "|" << name.size() << ":" << name;
   }
-  oss << ";consts:" << program.consts.size();
-  for (const Value& value : program.consts) {
-    const std::string encoded = encode_value_for_cache_key(value);
-    oss << "|" << encoded.size() << ":" << encoded;
+  oss << ";consts:" << (include_constants ? program.consts.size() : 0);
+  if (include_constants) {
+    for (const Value& value : program.consts) {
+      const std::string encoded = encode_value_for_cache_key(value);
+      oss << "|" << encoded.size() << ":" << encoded;
+    }
   }
   oss << ";nodes:" << program.nodes.size();
   for (const AstNode& node : program.nodes) {
@@ -218,5 +236,9 @@ std::string canonical_cache_key_serialize(const AstProgram& program) {
 std::string ast_to_string(const AstProgram& program) { return canonical_prefix_serialize(program); }
 
 std::string ast_cache_key(const AstProgram& program) { return canonical_cache_key_serialize(program); }
+
+std::string ast_structure_cache_key(const AstProgram& program) {
+  return canonical_cache_key_serialize(program, false);
+}
 
 }  // namespace gagp::evo

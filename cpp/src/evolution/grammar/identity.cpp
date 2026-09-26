@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
+#ifdef GAGP_HAS_OPENSSL_SHA256
+#include <openssl/sha.h>
+#endif
 
 namespace gagp::evo::grammar {
 namespace {
@@ -43,6 +46,20 @@ void compress(std::array<std::uint32_t, 8>& state, const unsigned char* block) {
 std::string content_sha256(std::string_view bytes) {
   if (bytes.size() > std::numeric_limits<std::uint64_t>::max() / 8)
     throw std::length_error("SHA-256 input length overflow");
+#ifdef GAGP_HAS_OPENSSL_SHA256
+  // A caller-owned digest keeps concurrent identity construction independent.
+  // Retain the portable implementation if the provider cannot supply SHA-256.
+  std::array<unsigned char, SHA256_DIGEST_LENGTH> digest{};
+  if (SHA256(reinterpret_cast<const unsigned char*>(bytes.data()), bytes.size(), digest.data())) {
+    std::string result;
+    result.reserve(64);
+    for (auto byte : digest) {
+      result += "0123456789abcdef"[byte >> 4];
+      result += "0123456789abcdef"[byte & 15];
+    }
+    return result;
+  }
+#endif
   std::array<std::uint32_t, 8> state{0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
       0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
   std::size_t offset = 0;

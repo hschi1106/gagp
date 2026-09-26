@@ -151,7 +151,9 @@ int main() {
       !check_scope(scope_at(result, 6), {{0, RType::Int}, {1, RType::Int}}, {},
                    "loop body includes the loop local") ||
       !check_scope(scope_at(result, 10), {{1, RType::Int}}, {},
-                   "loop locals do not escape the body")) return 1;
+                   "loop locals do not escape the body") ||
+      !check(result.verified.expression_scope_ids[3] == result.verified.expression_scope_ids[10],
+             "leaving the loop restores the original exact scope ID")) return 1;
 
   return 0;
 }

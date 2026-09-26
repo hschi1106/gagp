@@ -23,11 +23,25 @@ Json reference_expression(const std::string& name) { return object({{"ref", stri
 Json alternative(std::string id, Json expression) {
   return object({{"id", string(std::move(id))}, {"weight", number(1)}, {"expression", std::move(expression)}});
 }
-Json domain_json(const ConstantDomain& domain) {
+Json domain_json(const ConstantDomain& domain, unsigned depth = 0) {
+  if (domain.mutation != ConstantMutationPolicy::Resample &&
+      domain.mutation != ConstantMutationPolicy::Keep && domain.mutation != ConstantMutationPolicy::Flip &&
+      domain.mutation != ConstantMutationPolicy::Add)
+    throw std::invalid_argument("conversion constant mutation policy is invalid");
+  if (depth > 3) throw std::invalid_argument("conversion constant domain nesting exceeds capacity");
   Json out = object({{"type", string(type(domain.type))}});
+  if (int(domain.integer_range) + int(domain.float_range) + int(bool(domain.elements)) +
+      int(!domain.values.empty()) != 1)
+    throw std::invalid_argument("conversion constant domain requires exactly one domain representation");
   if (domain.integer_range) {
-    if (!domain.values.empty()) throw std::invalid_argument("conversion constant range must not also contain values");
     out.object_v["range"] = array({string(std::to_string(domain.minimum)), string(std::to_string(domain.maximum))});
+  } else if (domain.float_range) {
+    out.object_v["range"] = array({number(domain.float_minimum), number(domain.float_maximum)});
+    if (domain.float_quantization_scale != 0)
+      out.object_v["quantization_scale"] = number(domain.float_quantization_scale);
+  } else if (domain.elements) {
+    out.object_v["sequence"] = object({{"length", array({number(domain.minimum_length), number(domain.maximum_length)})},
+        {"element", domain_json(*domain.elements,depth + 1)}});
   } else {
     Json values = array();
     for (const auto& value : domain.values) {
@@ -40,6 +54,16 @@ Json domain_json(const ConstantDomain& domain) {
     }
     out.object_v["values"] = std::move(values);
   }
+  if (domain.sampling) out.object_v["sample_from"] = domain_json(*domain.sampling,depth + 1);
+  if (domain.mutation == ConstantMutationPolicy::Add) {
+    Json mutation = object({{"kind",string("add")}});
+    mutation.object_v["range"] = domain.type == RType::Int ?
+        array({string(std::to_string(domain.delta.integer_minimum)),string(std::to_string(domain.delta.integer_maximum))}) :
+        array({number(domain.delta.float_minimum),number(domain.delta.float_maximum)});
+    if (domain.delta.gpu_grid_steps) mutation.object_v["gpu_grid_steps"] = number(domain.delta.gpu_grid_steps);
+    out.object_v["mutation"] = std::move(mutation);
+  } else if (domain.mutation != ConstantMutationPolicy::Resample)
+    out.object_v["mutation"] = string(domain.mutation == ConstantMutationPolicy::Keep ? "keep" : "flip");
   (void)parse_constant_domain(out);
   return out;
 }
@@ -147,8 +171,13 @@ evo::grammar::ResolvedDefinition convert_legacy_grammar_config(
 
   Json rules = array();
   const auto rule = [&](std::string id, RType value, const char* category, std::vector<Json> alternatives) {
-    rules.array_v.push_back(object({{"id", string(std::move(id))}, {"type", string(type(value))},
-        {"category", string(category)}, {"scope", array()}, {"alternatives", array(std::move(alternatives))}}));
+    auto definition = object({{"id", string(std::move(id))}, {"type", string(type(value))},
+        {"category", string(category)}, {"scope", array()}, {"alternatives", array(std::move(alternatives))}});
+    if (std::string(category) == "Program") {
+      Json disabled; disabled.kind = Json::Kind::Bool; disabled.bool_v = false;
+      definition.object_v["variation"] = std::move(disabled);
+    }
+    rules.array_v.push_back(std::move(definition));
   };
   const auto& catalog = PrimitiveCatalog::standard();
   for (auto value : value_types()) {
@@ -175,6 +204,11 @@ evo::grammar::ResolvedDefinition convert_legacy_grammar_config(
   const auto control = [&](const std::string& key, std::vector<Json> args, const std::string& name = "") {
     (void)catalog.resolve_control(key);
     auto out = object({{"control", string(key)}, {"type", string(type(options.return_type))}, {"args", array(std::move(args))}});
+    // Source statement/block ancestry contributes nodes, but restarts expression
+    // depth. Keep physical construction limits separate from these charges.
+    Json reset; reset.kind = Json::Kind::Bool; reset.bool_v = true;
+    out.object_v["resource_charge"] = object({{"nodes", number(1)},
+        {"depth", number(0)}, {"resets_depth", std::move(reset)}});
     if (!name.empty()) out.object_v["name"] = string(name);
     return out;
   };

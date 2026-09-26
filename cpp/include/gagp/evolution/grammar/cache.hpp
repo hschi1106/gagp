@@ -14,4 +14,9 @@ std::string runtime_cache_identity(const ProgramGenome& genome,
                                    const std::vector<std::string>& input_names,
                                    std::uint32_t fuel);
 
+// Read the AST directly when no genome wrapper is owned by the caller.
+std::string runtime_cache_identity(const AstProgram& ast,
+                                   const std::vector<std::string>& input_names,
+                                   std::uint32_t fuel);
+
 }  // namespace gagp::evo::grammar

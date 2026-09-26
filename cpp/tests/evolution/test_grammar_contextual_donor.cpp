@@ -247,6 +247,9 @@ void test_all_public_local_types_become_frame_inputs() {
     const auto generated = generate_derivation_in_frame(grammar, 100 + i, request, frame);
     check(generated.genome.ast.nodes[3].kind == NodeKind::VAR,
           "typed contextual local did not materialize as a native variable");
+    check(generated.genome.ast.names == std::vector<std::string>{locals[i].name} &&
+          generated.genome.ast.nodes[3].i0 == 0,
+          "contextual donor retained unused names or lost its remapped local");
     VerifiedAst verified;
     reconstruct_derivation_in_frame(grammar, generated.genome, request, frame, &verified);
     check(verified.return_type == locals[i].type,

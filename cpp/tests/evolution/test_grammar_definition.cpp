@@ -56,6 +56,11 @@ int main() {
           "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1", "SHA-256 two-block vector");
     check(content_sha256(std::string(1000000, 'a')) ==
           "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0", "SHA-256 streaming vector");
+    std::string binary;
+    for (unsigned byte = 0; byte < 256; ++byte) binary.push_back(static_cast<char>(byte));
+    check(content_sha256(binary) ==
+          "40aff2e9d2d8922e47afd4648e6967497158785fbd1da870e7110266bf944880",
+          "SHA-256 binary vector including embedded NUL");
     rejects([] { JsonParser(R"({"x":1,"x":2})", {true, 64}).parse(); }, "duplicate");
     rejects([] { JsonParser(R"({"\u0078":1,"x":2})", {true, 64}).parse(); }, "duplicate");
     check(JsonParser(R"({"x":1,"x":2})").parse().object_v.at("x").number_v == 1,

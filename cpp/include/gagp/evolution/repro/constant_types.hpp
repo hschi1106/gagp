@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "gagp/evolution/grammar/constant_policy.hpp"
 
 namespace gagp::evo::repro {
 
@@ -15,6 +16,12 @@ struct ConstantMutationDomain {
   int integer_range = 0;
   std::int64_t minimum = 0;
   std::int64_t maximum = 0;
+  int float_range = 0;
+  double float_minimum = 0;
+  double float_maximum = 0;
+  double float_quantization_scale = 0;
+  grammar::ConstantMutationPolicy mutation = grammar::ConstantMutationPolicy::Resample;
+  grammar::ConstantMutationDelta delta;
 };
 
 struct ConstantMutationGroup {

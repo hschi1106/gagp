@@ -8,12 +8,14 @@
 #include <fstream>
 #include <iostream>
 #include <map>
-#include <optional>
+#include <memory>
 #include <stdexcept>
 #include <system_error>
 #include <unistd.h>
 
 #include "gagp/cli/commands.hpp"
+#include "gagp/cli/options.hpp"
+#include "gagp/evolution/evolve.hpp"
 #include "gagp/cli/grammar_population_artifact.hpp"
 #include "gagp/evolution/population_init.hpp"
 
@@ -110,7 +112,8 @@ int run_grammar_generate_command(int argc, char** argv) {
       continue;
     }
     if (flag != "--grammar-definition" && flag != "--cases" && flag != "--out-json" &&
-        flag != "--population-size" && flag != "--seed" && flag != "--replay-json")
+        flag != "--population-size" && flag != "--seed" && flag != "--replay-json" &&
+        flag != "--population-roots")
       throw std::invalid_argument("unknown flag: " + flag);
     if (options.count(flag)) throw std::invalid_argument("duplicate flag: " + flag);
     if (++i == argc || std::string(argv[i]).empty() || std::string(argv[i]).rfind("--", 0) == 0)
@@ -121,6 +124,7 @@ int run_grammar_generate_command(int argc, char** argv) {
     std::cout << "Usage: gagp_generate_cli --cases PATH --out-json PATH\n"
                  "  --grammar-definition PATH  Required for generation; optional identity check for replay\n"
                  "  --population-size N        1..65536 (default: 1)\n"
+                 "  --population-roots IDs     Ordered comma-separated exact root IDs\n"
                  "  --seed N                   Canonical uint64 (default: 0)\n"
                  "  --replay-json PATH         Replay grammar-population-v2; excludes size and seed\n"
                  "  --help                     Show this help\n";
@@ -141,21 +145,53 @@ int run_grammar_generate_command(int argc, char** argv) {
 
   const auto cases = evo::prepare_case_set(
       decode_fitness_cases_json(JsonParser(read_input(options.at("--cases")), {true, 512}).parse()));
-  std::optional<evo::grammar::CompiledGrammar> grammar;
+  std::shared_ptr<const evo::grammar::CompiledGrammar> grammar;
   if (options.count("--grammar-definition"))
-    grammar.emplace(evo::grammar::compile_grammar(evo::grammar::load_definition(options.at("--grammar-definition"))));
+    grammar = std::make_shared<const evo::grammar::CompiledGrammar>(
+        evo::grammar::compile_grammar(evo::grammar::load_definition(options.at("--grammar-definition"))));
   std::string artifact, hash;
   std::size_t count = 0;
   if (replay) {
     artifact = read_input(options.at("--replay-json"));
-    count = replay_generated_population_artifact(artifact, grammar ? &*grammar : nullptr).size();
+    const auto population = replay_generated_population_artifact(artifact, grammar ? &*grammar : nullptr);
+    count = population.size();
     const auto root = JsonParser(artifact, {true, 512}).parse();
-    for (const auto& member : require_object_field(root, "members").array_v)
-      validate_member_cases(decode_materialized_program(evo::grammar::canonical_json(member)), cases);
+    if (options.count("--population-roots")) {
+      if (!grammar) {
+        const auto& member = require_object_field(root, "members").array_v.front();
+        grammar = std::make_shared<const evo::grammar::CompiledGrammar>(
+            evo::grammar::compile_grammar(evo::grammar::parse_definition(
+            evo::grammar::canonical_json(require_object_field(member, "grammar")))));
+      }
+      const auto requests = evo::grammar::named_population_requests(*grammar,
+          parse_population_root_names(options.at("--population-roots")));
+      evo::EvolutionConfig cfg;
+      cfg.compiled_grammar = grammar;
+      cfg.generation_request = requests.front();
+      cfg.additional_generation_requests.assign(requests.begin() + 1, requests.end());
+      cfg.population_size = static_cast<int>(count);
+      cfg.fuel = static_cast<int>(grammar->execution_limits().fuel);
+      (void)evo::initialize_population(cfg, cases, &population);
+    } else {
+      for (const auto& member : require_object_field(root, "members").array_v)
+        validate_member_cases(decode_materialized_program(evo::grammar::canonical_json(member)), cases);
+    }
     artifact = evo::grammar::canonical_json(root);
     hash = require_string(require_object_field(root, "grammar_hash"), "grammar_hash");
   } else {
-    const auto initialized = evo::initialize_population(*grammar, cases, static_cast<int>(size), seed);
+    evo::EvolutionConfig cfg;
+    cfg.compiled_grammar = grammar;
+    cfg.generation_request = evo::grammar::entry_request(*grammar);
+    cfg.population_size = static_cast<int>(size);
+    cfg.seed = seed;
+    cfg.fuel = static_cast<int>(grammar->execution_limits().fuel);
+    if (options.count("--population-roots")) {
+      const auto requests = evo::grammar::named_population_requests(*grammar,
+          parse_population_root_names(options.at("--population-roots")));
+      cfg.generation_request = requests.front();
+      cfg.additional_generation_requests.assign(requests.begin() + 1, requests.end());
+    }
+    const auto initialized = evo::initialize_population(cfg, cases, nullptr);
     artifact = encode_generated_population_artifact(*grammar, initialized.population);
     count = initialized.population.size();
     hash = grammar->content_hash();

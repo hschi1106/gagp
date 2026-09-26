@@ -15,7 +15,9 @@
 namespace gagp::evo {
 namespace {
 
-using TypeEnv = std::unordered_map<int, RType>;
+// Scope signatures and exact annotations both require name-index order. Keep
+// that order in the environment instead of allocating and sorting per node.
+using TypeEnv = std::map<int, RType>;
 using SortedTypeEnv = std::vector<std::pair<int, RType>>;
 using ExactScopeKey = std::pair<SortedTypeEnv, SortedTypeEnv>;
 
@@ -94,12 +96,8 @@ const char* type_name(RType type) {
 }
 
 std::uint64_t type_env_signature(const TypeEnv& env) {
-  std::vector<std::pair<int, RType>> entries(env.begin(), env.end());
-  std::sort(entries.begin(), entries.end(), [](const auto& left, const auto& right) {
-    return left.first < right.first;
-  });
   std::uint64_t hash = 1469598103934665603ULL;
-  for (const auto& entry : entries) {
+  for (const auto& entry : env) {
     hash ^= static_cast<std::uint64_t>(entry.first + 1);
     hash *= 1099511628211ULL;
     hash ^= static_cast<std::uint64_t>(entry.second) + 1ULL;
@@ -109,11 +107,7 @@ std::uint64_t type_env_signature(const TypeEnv& env) {
 }
 
 SortedTypeEnv sorted_type_env(const TypeEnv& env) {
-  SortedTypeEnv entries(env.begin(), env.end());
-  std::sort(entries.begin(), entries.end(), [](const auto& left, const auto& right) {
-    return left.first < right.first;
-  });
-  return entries;
+  return SortedTypeEnv(env.begin(), env.end());
 }
 
 class TypedVerifier {
@@ -140,7 +134,7 @@ class TypedVerifier {
     result_.verified.return_type = return_type_;
     result_.ok = true;
     result_.diagnostic = VerifyDiagnostic{};
-    return result_;
+    return std::move(result_);
   }
 
  private:
@@ -347,6 +341,22 @@ class TypedVerifier {
 
   bool capture_exact_scope(std::size_t node_index, const TypeEnv& locals,
                            const TypeEnv& binders) {
+    // Adjacent expressions commonly share the same complete environment. Compare
+    // actual bindings, not just signatures, before avoiding temporary key copies.
+    if (last_scope_id_ < result_.verified.scopes.size()) {
+      const auto& previous = result_.verified.scopes[last_scope_id_];
+      const auto equal = [](const SortedTypeEnv& saved, const TypeEnv& current) {
+        return saved.size() == current.size() &&
+            std::equal(saved.begin(), saved.end(), current.begin(),
+                [](const auto& a, const auto& b) {
+                  return a.first == b.first && a.second == b.second;
+                });
+      };
+      if (equal(previous.locals, locals) && equal(previous.binders, binders)) {
+        result_.verified.expression_scope_ids[node_index] = last_scope_id_;
+        return true;
+      }
+    }
     ExactScopeKey key{sorted_type_env(locals), sorted_type_env(binders)};
     const auto found = exact_scope_ids_.find(key);
     std::uint32_t scope_id = 0;
@@ -362,6 +372,7 @@ class TypedVerifier {
     } else {
       scope_id = found->second;
     }
+    last_scope_id_ = scope_id;
     result_.verified.expression_scope_ids[node_index] = scope_id;
     return true;
   }
@@ -643,6 +654,7 @@ class TypedVerifier {
   const VerifyOptions& options_;
   AstVerifyResult result_;
   std::map<ExactScopeKey, std::uint32_t> exact_scope_ids_;
+  std::uint32_t last_scope_id_ = std::numeric_limits<std::uint32_t>::max();
   std::unordered_map<std::string, int> name_to_id_;
   bool saw_return_ = false;
   RType return_type_ = RType::Invalid;

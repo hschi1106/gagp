@@ -907,6 +907,12 @@ void apply_compiled_contract(const CliOptions& args,
 
   cfg->compiled_grammar = grammar;
   cfg->generation_request = gagp::evo::grammar::entry_request(*grammar);
+  if (!args.population_roots.empty()) {
+    const auto requests = gagp::evo::grammar::named_population_requests(
+        *grammar, args.population_roots);
+    cfg->generation_request = requests.front();
+    cfg->additional_generation_requests.assign(requests.begin() + 1, requests.end());
+  }
   cfg->fuel = fuel;
 }
 
@@ -1038,19 +1044,6 @@ int gagp::cli_detail::run_evolve_command(const CliOptions& args) {
     std::string population_source = "generated";
     if (!args.population_json.empty()) {
       const std::string population_text = read_text_file(args.population_json);
-      const JsonValue population_payload =
-          gagp::cli_detail::JsonParser(population_text, {true, 512}).parse();
-      const auto format = population_payload.kind == JsonValue::Kind::Object
-          ? population_payload.object_v.find("format_version")
-          : population_payload.object_v.end();
-      if (population_payload.kind == JsonValue::Kind::Object &&
-          format != population_payload.object_v.end() &&
-          format->second.kind == JsonValue::Kind::String &&
-          format->second.string_v == "population-seeds") {
-        throw std::invalid_argument(
-            "legacy population-seeds cannot replay compiled grammar evolution exactly; "
-            "materialize the population with the frozen legacy build, then migrate it");
-      }
       initial_population = replay_generated_population_artifact(
           population_text, compiled_grammar.get());
       cfg.population_size = static_cast<int>(initial_population.size());
@@ -1282,6 +1275,14 @@ int gagp::cli_detail::run_evolve_command(const CliOptions& args) {
       } else {
         out << "    \"population_json\": null,\n";
       }
+      out << "    \"population_roots\": [";
+      const auto requests = gagp::evo::population_requests(cfg);
+      for (std::size_t i = 0; i < requests.size(); ++i) {
+        if (i) out << ", ";
+        out << "\"" << json_escape(compiled_grammar->nonterminals()[requests[i].nonterminal].stable_id)
+            << "\"";
+      }
+      out << "],\n";
       out << "    \"grammar_definition\": {\n";
       out << "      \"path\": \"" << json_escape(args.grammar_definition_path) << "\",\n";
       out << "      \"hash\": \"" << json_escape(compiled_grammar->content_hash()) << "\",\n";

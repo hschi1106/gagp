@@ -11,6 +11,7 @@ option(GAGP_ENABLE_SANITIZERS "Enable CPU AddressSanitizer and UndefinedBehavior
 option(GAGP_BUILD_FUZZERS "Build Clang libFuzzer targets" OFF)
 option(GAGP_BUILD_BENCHMARKS "Build auxiliary benchmark executables" OFF)
 option(GAGP_BUILD_EXPERIMENTS "Build auxiliary experiment probes" OFF)
+option(GAGP_ENABLE_OPENSSL_SHA256 "Use system OpenSSL SHA-256 when available" ON)
 
 if((GAGP_ENABLE_SANITIZERS OR GAGP_BUILD_FUZZERS) AND GAGP_ENABLE_CUDA)
   message(FATAL_ERROR "sanitizer/fuzzer builds require -DGAGP_ENABLE_CUDA=OFF")
@@ -117,14 +118,25 @@ add_library(gagp_grammar
   src/evolution/grammar/request.cpp
   src/evolution/grammar/frame.cpp
   src/evolution/grammar/budget.cpp
+  src/evolution/grammar/joint_budget.cpp
+  src/evolution/grammar/resource_projection.cpp
 )
 target_include_directories(gagp_grammar PUBLIC include)
 target_link_libraries(gagp_grammar PUBLIC gagp_core gagp_json gagp_region_plan_json)
+if(GAGP_ENABLE_OPENSSL_SHA256)
+  find_package(OpenSSL QUIET COMPONENTS Crypto)
+  if(OpenSSL_FOUND)
+    target_link_libraries(gagp_grammar PRIVATE OpenSSL::Crypto)
+    target_compile_definitions(gagp_grammar PRIVATE GAGP_HAS_OPENSSL_SHA256=1)
+  endif()
+endif()
 target_sources(gagp_evolution PRIVATE
   src/evolution/grammar/generate.cpp
   src/evolution/grammar/values.cpp
   src/evolution/grammar/cache.cpp
   src/evolution/grammar/membership.cpp
+  src/evolution/grammar/derivation_resources.cpp
+  src/evolution/grammar/resource_invariance.cpp
   src/evolution/grammar/donor.cpp
   src/evolution/grammar/variation.cpp
   src/evolution/grammar/crossover.cpp
@@ -246,6 +258,30 @@ target_link_libraries(gagp_test_grammar_mutation PRIVATE gagp_evolution)
 add_test(NAME gagp_test_grammar_mutation COMMAND gagp_test_grammar_mutation)
 set_tests_properties(gagp_test_grammar_mutation PROPERTIES LABELS "contract;property")
 
+add_executable(gagp_test_grammar_generation_stages tests/evolution/test_grammar_generation_stages.cpp)
+target_link_libraries(gagp_test_grammar_generation_stages PRIVATE gagp_cli_support)
+add_test(NAME gagp_test_grammar_generation_stages COMMAND gagp_test_grammar_generation_stages)
+set_tests_properties(gagp_test_grammar_generation_stages PROPERTIES LABELS "contract;property")
+
+add_executable(gagp_test_grammar_sequence_constants tests/evolution/test_grammar_sequence_constants.cpp)
+target_link_libraries(gagp_test_grammar_sequence_constants PRIVATE gagp_evolution)
+add_test(NAME gagp_test_grammar_sequence_constants COMMAND gagp_test_grammar_sequence_constants)
+set_tests_properties(gagp_test_grammar_sequence_constants PROPERTIES LABELS "contract;property")
+add_executable(gagp_test_grammar_numeric_constants tests/evolution/test_grammar_numeric_constants.cpp)
+target_link_libraries(gagp_test_grammar_numeric_constants PRIVATE gagp_evolution)
+add_test(NAME gagp_test_grammar_numeric_constants COMMAND gagp_test_grammar_numeric_constants)
+set_tests_properties(gagp_test_grammar_numeric_constants PROPERTIES LABELS "contract;property")
+
+add_executable(gagp_test_resource_projection tests/evolution/test_resource_projection.cpp)
+target_link_libraries(gagp_test_resource_projection PRIVATE gagp_grammar)
+add_test(NAME gagp_test_resource_projection COMMAND gagp_test_resource_projection)
+set_tests_properties(gagp_test_resource_projection PROPERTIES LABELS "contract;property")
+
+add_executable(gagp_test_derivation_resources tests/evolution/test_derivation_resources.cpp)
+target_link_libraries(gagp_test_derivation_resources PRIVATE gagp_evolution)
+add_test(NAME gagp_test_derivation_resources COMMAND gagp_test_derivation_resources)
+set_tests_properties(gagp_test_derivation_resources PROPERTIES LABELS "contract;property")
+
 add_executable(gagp_test_grammar_crossover tests/evolution/test_grammar_crossover.cpp)
 target_link_libraries(gagp_test_grammar_crossover PRIVATE gagp_evolution)
 add_test(NAME gagp_test_grammar_crossover COMMAND gagp_test_grammar_crossover)
@@ -335,6 +371,7 @@ add_test(
   NAME gagp_test_evolve_cli_contract
   COMMAND ${CMAKE_COMMAND}
     -DCLI=$<TARGET_FILE:gagp_evolve_cli>
+    -DGENERATOR=$<TARGET_FILE:gagp_generate_cli>
     -DCASES=${CMAKE_CURRENT_SOURCE_DIR}/../configs/grammar/examples/restricted_combine.cases.json
     -DGRAMMAR=${CMAKE_CURRENT_SOURCE_DIR}/../configs/grammar/examples/restricted_combine.json
     -DLEGACY_GRAMMAR=${CMAKE_CURRENT_SOURCE_DIR}/../configs/grammar/migration/v1/all.json
@@ -440,6 +477,11 @@ add_test(
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_fixture_harness.cmake
 )
 set_tests_properties(gagp_test_fixture_codec PROPERTIES LABELS "contract;integration")
+
+add_executable(gagp_test_payload_staging tests/runtime/test_payload_staging.cpp)
+target_link_libraries(gagp_test_payload_staging PRIVATE gagp_cpu)
+add_test(NAME gagp_test_payload_staging COMMAND gagp_test_payload_staging)
+set_tests_properties(gagp_test_payload_staging PROPERTIES LABELS "unit;contract")
 
 add_executable(gagp_test_payload_registry
   tests/runtime/test_payload_registry.cpp
@@ -732,6 +774,9 @@ set_tests_properties(gagp_test_fuel_optimization PROPERTIES LABELS "contract;uni
 
 # Transition-only oracle adapter; production executables do not link this target.
 add_library(gagp_transition
+  src/migration/typed_storage.cpp
+  src/migration/legacy_budget.cpp
+  src/migration/legacy_constants.cpp
   src/migration/artifact.cpp
   src/migration/legacy_grammar_config.cpp
   src/transition/legacy_ast_v1.cpp
@@ -740,8 +785,34 @@ add_library(gagp_transition
 target_include_directories(gagp_transition PUBLIC include)
 target_link_libraries(gagp_transition PUBLIC gagp_cpu gagp_cli_support)
 
+add_executable(gagp_test_typed_storage tests/migration/test_typed_storage.cpp)
+add_executable(gagp_test_legacy_budget tests/migration/test_legacy_budget.cpp)
+target_link_libraries(gagp_test_legacy_budget PRIVATE gagp_transition)
+add_test(NAME gagp_test_legacy_budget COMMAND gagp_test_legacy_budget)
+set_tests_properties(gagp_test_legacy_budget PROPERTIES LABELS "contract;migration;unit")
+target_link_libraries(gagp_test_typed_storage PRIVATE gagp_transition)
+add_test(NAME gagp_test_typed_storage COMMAND gagp_test_typed_storage)
+set_tests_properties(gagp_test_typed_storage PROPERTIES LABELS "contract;migration;integration")
+
 add_executable(gagp_migrate_artifact src/migration/migrate_artifact_cli.cpp)
 target_link_libraries(gagp_migrate_artifact PRIVATE gagp_transition)
+
+if(GAGP_BUILD_BENCHMARKS)
+  # Goal 11 comparison adapter. It is deliberately transition-only and is not
+  # linked into either production CLI.
+  add_executable(gagp_final_candidate_bench
+    src/bench/final_candidate_bench.cpp
+    src/bench/final_candidate_snapshot.cpp)
+  target_link_libraries(gagp_final_candidate_bench PRIVATE gagp_transition)
+  add_executable(gagp_final_candidate_stats
+    src/bench/final_candidate_stats.cpp
+    src/bench/final_candidate_snapshot.cpp)
+  target_link_libraries(gagp_final_candidate_stats PRIVATE gagp_transition)
+  if(GAGP_HAS_CUDA)
+    target_link_libraries(gagp_final_candidate_stats PRIVATE gagp_gpu)
+    target_link_libraries(gagp_final_candidate_bench PRIVATE gagp_gpu)
+  endif()
+endif()
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 add_test(NAME gagp_test_migrate_artifact_cli
@@ -752,6 +823,29 @@ add_test(NAME gagp_test_migrate_artifact_cli
     $<TARGET_FILE:gagp_evolve_cli>)
 set_tests_properties(gagp_test_migrate_artifact_cli PROPERTIES
   LABELS "contract;integration;migration")
+
+if(GAGP_BUILD_BENCHMARKS)
+  add_test(NAME gagp_test_final_candidate_bench
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/tests/migration/test_final_candidate_bench.py
+      $<TARGET_FILE:gagp_final_candidate_bench>
+      $<TARGET_FILE:gagp_generate_cli>)
+  set_tests_properties(gagp_test_final_candidate_bench PROPERTIES
+    LABELS "contract;integration;migration;benchmark")
+  add_test(NAME gagp_test_final_candidate_stats
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/tests/migration/test_final_candidate_stats.py
+      $<TARGET_FILE:gagp_final_candidate_bench>
+      $<TARGET_FILE:gagp_final_candidate_stats>
+      $<TARGET_FILE:gagp_generate_cli>
+      ${CMAKE_CURRENT_SOURCE_DIR}/..
+      $<BOOL:${GAGP_HAS_CUDA}>)
+  set_tests_properties(gagp_test_final_candidate_stats PROPERTIES
+    LABELS "contract;integration;migration;benchmark")
+  if(GAGP_HAS_CUDA)
+    set_property(TEST gagp_test_final_candidate_stats APPEND PROPERTY LABELS gpu)
+  endif()
+endif()
 
 add_executable(gagp_test_legacy_ast_migration_boundary
   tests/evolution/test_legacy_ast_migration_boundary.cpp)

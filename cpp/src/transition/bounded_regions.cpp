@@ -20,6 +20,24 @@ namespace {
 using Captures = std::map<int, int>;
 namespace legacy = gagp::migration::legacy_v1;
 
+std::uint32_t inclusive_domain_cells(
+    const std::vector<std::pair<int, int>>& domains) {
+  constexpr auto limit = std::numeric_limits<std::uint32_t>::max();
+  std::uint64_t cells = 1;
+  for (const auto& [lower, upper] : domains) {
+    const auto span = static_cast<std::uint64_t>(
+        static_cast<std::int64_t>(upper) - static_cast<std::int64_t>(lower)) + 1U;
+    if (span > limit || cells > limit / span) return limit;
+    cells *= span;
+  }
+  return static_cast<std::uint32_t>(cells);
+}
+
+std::uint32_t frame_capacity_for_cells(std::uint32_t cells) {
+  if (cells == std::numeric_limits<std::uint32_t>::max()) return cells;
+  return cells + 1U;
+}
+
 ValueTag value_tag(RType type) {
   switch (type) {
     case RType::Int: return ValueTag::Int;
@@ -73,8 +91,9 @@ RegionStateTransition expression_state(std::uint32_t expression) {
 
 class Adapter {
  public:
-  Adapter(const legacy::AstProgram& source, const legacy::VerifiedAst& verified)
-      : source_(source), verified_(verified) {
+  Adapter(const legacy::AstProgram& source, const legacy::VerifiedAst& verified,
+          std::uint32_t minimum_dc_frames)
+      : source_(source), verified_(verified), minimum_dc_frames_(minimum_dc_frames) {
     node_map_.assign(source.nodes.size(), unmapped());
     out_.version = k_ast_prefix_version_current;
     out_.names = source.names;
@@ -238,14 +257,18 @@ class Adapter {
     return result;
   }
 
-  RegionPlan common_coordinate_plan(std::size_t owner, std::size_t states,
-                                    std::size_t requests) const {
+  RegionPlan common_coordinate_plan(
+      std::size_t owner, std::size_t states, std::size_t requests,
+      const std::vector<std::pair<int, int>>& domains) const {
     RegionPlan plan;
     plan.state_types.assign(states, ValueTag::Int);
     plan.result_type = value_tag(verified_.expression_types.at(owner));
     plan.requests.resize(requests);
-    plan.limits.frames = static_cast<std::uint32_t>(std::numeric_limits<int>::max());
-    plan.limits.cells = static_cast<std::uint32_t>(std::numeric_limits<int>::max());
+    plan.limits.cells = inclusive_domain_cells(domains);
+    // Coordinate requests strictly advance the verified rank. A live DFS path
+    // can therefore contain at most every in-domain cell plus one boundary
+    // frame, while memoization can retain at most every in-domain cell.
+    plan.limits.frames = frame_capacity_for_cells(plan.limits.cells);
     plan.limits.entry_fuel = 1;
     plan.memoized = true;
     plan.progress = RegionProgressKind::Coordinates;
@@ -269,7 +292,15 @@ class Adapter {
                        endpoint(WindowEndpointKind::InteriorCut, 0)), copy_state(1)}},
         {{window_state(endpoint(WindowEndpointKind::InteriorCut, 0),
                        endpoint(WindowEndpointKind::End)), expression_state(0)}}};
-    plan.limits.frames = static_cast<std::uint32_t>(std::numeric_limits<int>::max());
+    const auto& source_node = source_.nodes.at(child[0]);
+    plan.limits.frames = Value::k_container_len_max;
+    if (source_node.kind == legacy::NodeKind::CONST) {
+      const auto& source_value = source_.consts.at(
+          static_cast<std::size_t>(source_node.i0));
+      const auto length = Value::container_len(source_value);
+      plan.limits.frames = length == 0 ? 1U : length;
+    }
+    plan.limits.frames = std::max(plan.limits.frames, minimum_dc_frames_);
     plan.limits.cells = 0;
     plan.limits.entry_fuel = 1;
     plan.memoized = false;
@@ -324,7 +355,8 @@ class Adapter {
     const bool backward = old.dep_kind == legacy::NodeKind::DP1_BACKWARD1 ||
                           old.dep_kind == legacy::NodeKind::DP1_BACKWARD2 ||
                           old.dep_kind == legacy::NodeKind::DP1_BACKWARD3;
-    RegionPlan plan = common_coordinate_plan(index, 1, old.dep_offsets.size());
+    RegionPlan plan = common_coordinate_plan(
+        index, 1, old.dep_offsets.size(), {{old.lo, old.hi}});
     plan.duplicate_policy = DuplicatePolicy::Allow;
     plan.coordinate_slots = {0};
     plan.coordinate_rank = {{0, backward ? 1 : -1}};
@@ -395,7 +427,9 @@ class Adapter {
     const auto& old = dp2_spec(index);
     const auto offsets = dp2_offsets(old.dep_kind);
     const bool backward = offsets.front().first < 0 || offsets.front().second < 0;
-    RegionPlan plan = common_coordinate_plan(index, 2, offsets.size());
+    RegionPlan plan = common_coordinate_plan(
+        index, 2, offsets.size(),
+        {{old.i_lo, old.i_hi}, {old.j_lo, old.j_hi}});
     plan.duplicate_policy = DuplicatePolicy::Reject;
     plan.coordinate_slots = {0, 1};
     plan.coordinate_rank = {{0, backward ? 1 : -1}, {1, backward ? 1 : -1}};
@@ -471,6 +505,7 @@ class Adapter {
 
   const legacy::AstProgram& source_;
   const legacy::VerifiedAst& verified_;
+  std::uint32_t minimum_dc_frames_ = 0;
   AstProgram out_;
   std::vector<std::size_t> node_map_;
   std::set<int> used_;
@@ -480,14 +515,17 @@ class Adapter {
 }  // namespace
 
 ProgramGenome lower_bounded_regions(const legacy::AstProgram& source,
-                                    const std::vector<InputSpec>& inputs) {
+                                    const std::vector<InputSpec>& inputs,
+                                    std::uint32_t minimum_dc_frames) {
+  if (minimum_dc_frames > Value::k_container_len_max)
+    throw std::invalid_argument("minimum DC frames exceeds the source container limit");
   // Keep the already differential-tested LinearRec rewrite as the single owner
   // of its scope and semantic-fuel mapping. The second verification supplies
   // exact subtree/type annotations for the DC/DP rewrite below.
   legacy::AstProgram linear = detail::lower_linear_rec_legacy_ast(source, inputs);
   const auto verified = legacy::verify(linear, inputs);
   ProgramGenome result;
-  result.ast = Adapter(linear, verified).run();
+  result.ast = Adapter(linear, verified, minimum_dc_frames).run();
   const auto lowered = verify_ast(result.ast, inputs);
   if (!lowered)
     throw std::logic_error("bounded-region transition result: " +

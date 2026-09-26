@@ -20,12 +20,11 @@ ProgramGenome mutate(const ProgramGenome& genome, std::uint64_t seed,
     throw std::invalid_argument("compiled mutation subtree probability must be in [0,1]");
   ++context.counters().mutation_attempts;
   auto parent = variation_detail::certify(genome, context);
-  const auto analysis = context.cache().analyze(parent, context.request());
+  const auto analysis = context.analyze(parent);
   GrammarRandom random(seed);
   const double draw = static_cast<double>(random.next() >> 11) * 0x1.0p-53;
   if (draw >= mutation_subtree_prob) {
-    // Resample within the reconstructed selected domain. This also handles full
-    // int64 ranges without arithmetic overflow and all owned sequence types.
+    // Select a logical constant first, then apply its declared variation policy.
     std::map<std::uint32_t, std::vector<std::size_t>> groups;
     for (std::size_t i = 0; i < analysis->witness.nodes.size(); ++i) {
       const auto& origin = analysis->witness.nodes[i];
@@ -40,11 +39,14 @@ ProgramGenome mutate(const ProgramGenome& genome, std::uint64_t seed,
       const auto& origin = analysis->witness.nodes[selected->second.front()];
       const auto& expression = context.grammar().expressions().at(origin.expression);
       const auto& domain = context.grammar().constants().at(expression.target);
-      const ConstantData value = domain.integer_range ? ConstantData{random.integer(domain.minimum, domain.maximum)} :
-          domain.values.at(random.bounded(domain.values.size()));
+      if (domain.mutation == ConstantMutationPolicy::Keep) {
+        ++context.counters().unchanged_children;
+        return parent;
+      }
       auto candidate = parent.ast;
       const auto index = static_cast<int>(candidate.consts.size());
-      candidate.consts.push_back(materialize_constant(domain.type, value));
+      const auto& previous = parent.ast.consts.at(parent.ast.nodes[selected->second.front()].i0);
+      candidate.consts.push_back(mutate_constant_value(domain,previous,random));
       for (auto node : selected->second) candidate.nodes[node].i0 = index;
       return variation_detail::accept(std::move(candidate), parent, context);
     }
@@ -55,7 +57,7 @@ ProgramGenome mutate(const ProgramGenome& genome, std::uint64_t seed,
   const auto& site = analysis->sites[random.bounded(analysis->sites.size())];
   ContextualDonor donor;
   try {
-    donor = generate_donor(context.grammar(), random.next(), site);
+    donor = generate_donor(context, random.next(), site, parent);
   } catch (const std::runtime_error&) {
     ++context.counters().generation_rejections;
     return variation_detail::fallback(parent, context);

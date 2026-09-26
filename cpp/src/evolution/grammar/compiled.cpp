@@ -159,14 +159,28 @@ class GrammarCompiler {
     const auto& rules = array(require_object_field(doc, "nonterminals"));
     if (rules.empty() || rules.size() > 4096) throw std::invalid_argument("grammar requires 1..4096 nonterminals");
     for (const auto& rule : rules) {
-      keys(rule, {"id", "type", "scope", "alternatives", "category"}, "nonterminal");
+      keys(rule, {"id", "type", "scope", "alternatives", "category", "variation", "mutation_entry"}, "nonterminal");
       CompiledNonterminal nt;
       nt.id = static_cast<std::uint32_t>(out_.nonterminals_.size());
       nt.stable_id = field(rule, "id"); nt.type = parse_type(field(rule, "type"));
       nt.category = category(rule);
+      const auto variation = rule.object_v.find("variation");
+      if (variation != rule.object_v.end()) {
+        if (variation->second.kind != Kind::Bool)
+          throw std::invalid_argument("nonterminal variation must be Boolean");
+        nt.variation_enabled = variation->second.bool_v;
+      }
       nt.scope = scope(require_object_field(rule, "scope"));
       nt.context = intern_context(nt.scope);
       ids_.emplace(nt.stable_id, nt.id); out_.nonterminals_.push_back(std::move(nt));
+    }
+    for (std::size_t i = 0; i < rules.size(); ++i) {
+      if (!rules[i].object_v.count("mutation_entry")) continue;
+      auto& nt = out_.nonterminals_[i];
+      nt.mutation_entry = reference(field(rules[i], "mutation_entry"));
+      const auto& donor = out_.nonterminals_[nt.mutation_entry];
+      if (donor.type != nt.type || donor.category != nt.category || donor.context != nt.context)
+        throw std::invalid_argument("mutation_entry requires identical type, category and ordered scope");
     }
     declare_templates(array(require_object_field(doc, "templates")));
     for (std::uint32_t id = 0; id < out_.templates_.size(); ++id)
@@ -186,7 +200,7 @@ class GrammarCompiler {
       auto& nt = out_.nonterminals_[i];
       for (const auto& alternative : alternatives) {
         if (out_.productions_.size() >= 65536) throw std::invalid_argument("grammar production capacity exceeded");
-        keys(alternative, {"id", "weight", "expression"}, "alternative");
+        keys(alternative, {"id", "weight", "expression", "generation_stages", "crossover_group", "crossover_scope", "variation"}, "alternative");
         const auto& weight = require_object_field(alternative, "weight");
         if (weight.kind != Kind::Number || !std::isfinite(weight.number_v) || weight.number_v <= 0)
           throw std::invalid_argument("production weight must be positive and finite");
@@ -194,6 +208,16 @@ class GrammarCompiler {
         production.id = static_cast<std::uint32_t>(out_.productions_.size());
         production.stable_id = nt.stable_id + "/" + field(alternative, "id");
         production.nonterminal = nt.id; production.weight = weight.number_v;
+        if (alternative.object_v.count("crossover_group"))
+          production.crossover_group = field(alternative, "crossover_group");
+        const auto variation = alternative.object_v.find("variation");
+        if (variation != alternative.object_v.end()) {
+          production.variation_enabled = variation->second.kind != Json::Kind::Bool || variation->second.bool_v;
+          production.unbound_variation = variation->second.kind == Json::Kind::String;
+        }
+        production.closed_crossover = alternative.object_v.count("crossover_scope") &&
+            field(alternative, "crossover_scope") == "closed";
+        production.generation_mask = production_generation_mask(alternative);
         production.expression = expression(require_object_field(alternative, "expression"), nt.scope, 0);
         if (out_.expressions_[production.expression].type != nt.type || out_.expressions_[production.expression].category != nt.category)
           throw std::invalid_argument("production result type mismatch: " + production.stable_id);
@@ -457,14 +481,16 @@ class GrammarCompiler {
         node.children.push_back(child);
       }
     } else if (value.object_v.count("constant")) {
-      keys(value, {"constant", "fuel_events"}, "constant expression");
+      keys(value, {"constant", "fuel_events", "resource_charge"}, "constant expression");
       node.kind = ExpressionKind::Constant;
       node.target = static_cast<std::uint32_t>(out_.constants_.size());
       out_.constants_.push_back(parse_constant_domain(value.object_v.at("constant")));
       out_.constant_encodings_.emplace_back();
       const auto& domain_json = value.object_v.at("constant");
-      if (!out_.constants_.back().integer_range) {
+      if (!out_.constants_.back().integer_range && !out_.constants_.back().float_range && !out_.constants_.back().elements) {
         Json singleton = domain_json;
+        // Variation policy belongs to grammar identity, never value identity.
+        singleton.object_v.erase("mutation");
         singleton.object_v.at("values").array_v.clear();
         for (const auto& item : domain_json.object_v.at("values").array_v) {
           singleton.object_v.at("values").array_v = {item};
@@ -483,21 +509,26 @@ class GrammarCompiler {
       node.category = target.category;
       node.scope_mapping = map_scope(target.scope, environment);
     } else if (value.object_v.count("local")) {
-      keys(value, {"local", "fuel_events"}, "local expression");
+      keys(value, {"local", "fuel_events", "resource_charge"}, "local expression");
       node.kind = ExpressionKind::Local; node.target = binding(out_.locals_, field(value, "local"));
       node.type = out_.locals_[node.target].type;
       node.fuel_charges = fuel_charges(value, NodeKind::VAR);
     } else if (value.object_v.count("control")) {
-      keys(value, {"control", "type", "args", "name", "fuel_events"}, "control expression");
+      keys(value, {"control", "type", "args", "name", "input_name", "fuel_events", "resource_charge"}, "control expression");
       const auto& signature = PrimitiveCatalog::standard().resolve_control(field(value, "control"));
       node.kind = ExpressionKind::Control; node.target = signature.id; node.category = signature.result;
       node.type = parse_type(field(value, "type"));
       node.fuel_charges = fuel_charges(value, signature.lowering_node);
       if (signature.requires_name) {
-        node.local = binding(out_.locals_, field(value, "name"));
-        if (out_.locals_[node.local].type != signature.arguments.front().value_type)
+        if (value.object_v.count("name") + value.object_v.count("input_name") != 1)
+          throw std::invalid_argument("control requires exactly one name or input_name target");
+        node.target_input = value.object_v.count("input_name") != 0;
+        const auto& targets = node.target_input ? out_.inputs_ : out_.locals_;
+        node.local = binding(targets, field(value, node.target_input ? "input_name" : "name"));
+        if (targets[node.local].type != signature.arguments.front().value_type)
           throw std::invalid_argument("control target local type mismatch");
-      } else if (value.object_v.count("name")) throw std::invalid_argument("control does not accept a target name");
+      } else if (value.object_v.count("name") || value.object_v.count("input_name"))
+        throw std::invalid_argument("control does not accept a target name");
       if (signature.lowering_node == NodeKind::RETURN && signature.arguments.front().value_type != node.type)
         throw std::invalid_argument("return type disagrees with enclosing result contract");
       const auto& arguments = array(require_object_field(value, "args"));
@@ -514,7 +545,7 @@ class GrammarCompiler {
     } else if (value.object_v.count("bound") || value.object_v.count("input")) {
       const bool input = value.object_v.count("input") != 0;
       const char* name = input ? "input" : "bound";
-      keys(value, {name, "fuel_events"}, "binding expression");
+      keys(value, {name, "fuel_events", "resource_charge"}, "binding expression");
       const auto& bindings = input ? out_.inputs_ : environment;
       node.kind = input ? ExpressionKind::Input : ExpressionKind::Bound;
       node.target = binding(bindings, field(value, name)); node.type = bindings[node.target].type;
@@ -524,7 +555,7 @@ class GrammarCompiler {
       bool bounded = false;
       if (value.object_v.count("structured") &&
           field(value.object_v.at("structured"), "family") == "bounded") {
-        keys(value, {"structured", "captures", "phases", "args", "fuel_events"},
+        keys(value, {"structured", "captures", "phases", "args", "fuel_events", "resource_charge"},
              "bounded structured expression");
         node.kind = ExpressionKind::Structured;
         node.target = structured(value.object_v.at("structured"));
@@ -631,8 +662,10 @@ class GrammarCompiler {
         const auto& contract = out_.structured_[node.target];
         signature.arguments = contract.arguments; signature.regions = contract.regions; signature.result = contract.result;
       } else {
-        keys(value, {"signature", "args", "bind", "fuel_events"}, "primitive expression");
+        keys(value, {"signature", "args", "bind", "fuel_events", "resource_charge"}, "primitive expression");
         signature = PrimitiveCatalog::standard().resolve(field(value, "signature"));
+        if (value.object_v.count("resource_charge") && !signature.lowering_node)
+          throw std::invalid_argument("resource_charge requires a concrete materialized owner");
         node.kind = ExpressionKind::Primitive; node.target = signature.id;
         if (value.object_v.count("fuel_events")) {
           if (!signature.lowering_node)
@@ -678,6 +711,9 @@ class GrammarCompiler {
         node.children.push_back(child);
       }
     }
+    if (value.object_v.count("resource_charge")) {
+      node.resource_charge = parse_resource_charge(value.object_v.at("resource_charge"));
+    }
     return append(std::move(node));
   }
   std::uint32_t cost(std::uint32_t id, std::uint32_t depth) const {
@@ -698,6 +734,32 @@ class GrammarCompiler {
           if (nodes < target) { target = nodes; changed = true; }
         }
       } while (changed);
+    }
+    if (std::any_of(out_.productions_.begin(), out_.productions_.end(),
+        [](const auto& production) { return production.generation_mask != 3; })) {
+      for (auto stage : {GenerationStage::Initial, GenerationStage::Mutation}) {
+        const auto index = static_cast<std::size_t>(stage);
+        for (auto& nt : out_.nonterminals_)
+          nt.generation_minimum_nodes[index].assign(depths + 1, kNoGrammarId);
+        for (auto& production : out_.productions_)
+          production.generation_minimum_nodes[index].assign(depths + 1, kNoGrammarId);
+        for (std::uint32_t depth = 1; depth <= depths; ++depth) {
+          bool changed;
+          do {
+            changed = false;
+            for (auto& production : out_.productions_) {
+              if (!production.generates(stage)) continue;
+              const auto nodes = minimum_expression_nodes(out_, production.expression, depth, {},
+                  [&](std::uint32_t nt, std::uint32_t d) {
+                    return out_.nonterminals_[nt].generation_minimum_nodes[index][d];
+                  });
+              production.generation_minimum_nodes[index][depth] = nodes;
+              auto& target = out_.nonterminals_[production.nonterminal].generation_minimum_nodes[index][depth];
+              if (nodes < target) { target = nodes; changed = true; }
+            }
+          } while (changed);
+        }
+      }
     }
     for (auto& nt : out_.nonterminals_) {
       for (std::uint32_t depth = 1; depth <= depths; ++depth) {
@@ -721,9 +783,43 @@ const std::vector<std::uint32_t>& CompiledGrammar::productions_for_type(RType ty
 const std::vector<std::uint32_t>& CompiledGrammar::productions_for_category(NodeCategory category) const {
   return by_category_[category_index(category)];
 }
+bool CompiledGrammar::generates_payload(std::uint32_t nonterminal) const {
+  if (nonterminal >= nonterminals_.size()) throw std::invalid_argument("unknown construction nonterminal");
+  std::lock_guard<std::mutex> lock(executable_cache_->mutex);
+  const auto cached = executable_cache_->payload_roots.find(nonterminal);
+  if (cached != executable_cache_->payload_roots.end()) return cached->second;
+  std::vector<std::uint32_t> pending;
+  std::vector<bool> seen_nt(nonterminals_.size()), seen_expression(expressions_.size());
+  const auto enqueue = [&](std::uint32_t nt) {
+    if (seen_nt[nt]) return;
+    seen_nt[nt] = true;
+    for (auto production : nonterminals_[nt].productions)
+      pending.push_back(productions_[production].expression);
+  };
+  enqueue(nonterminal);
+  bool payload = false;
+  while (!pending.empty() && !payload) {
+    const auto id = pending.back(); pending.pop_back();
+    if (seen_expression[id]) continue;
+    seen_expression[id] = true;
+    const auto& expression = expressions_[id];
+    if (expression.kind == ExpressionKind::Constant) {
+      const auto type = constants_[expression.target].type;
+      payload = type == RType::String || type == RType::IntList ||
+          type == RType::FloatList || type == RType::StringList;
+    }
+    if (expression.kind == ExpressionKind::Reference) enqueue(expression.target);
+    pending.insert(pending.end(), expression.children.begin(), expression.children.end());
+  }
+  executable_cache_->payload_roots.emplace(nonterminal, payload);
+  return payload;
+}
+
 void CompiledGrammar::require_executable() const { require_executable(entry_); }
 void CompiledGrammar::require_executable(std::uint32_t nonterminal) const {
   if (nonterminal >= nonterminals_.size()) throw std::invalid_argument("unknown executable nonterminal");
+  std::lock_guard<std::mutex> lock(executable_cache_->mutex);
+  if (executable_cache_->verified_roots.count(nonterminal)) return;
   std::vector<std::uint32_t> pending;
   std::vector<bool> nonterminals(nonterminals_.size(), false), expressions(expressions_.size(), false);
   const auto enqueue = [&](std::uint32_t nt) {
@@ -742,6 +838,7 @@ void CompiledGrammar::require_executable(std::uint32_t nonterminal) const {
     if (expression.kind == ExpressionKind::Reference) enqueue(expression.target);
     pending.insert(pending.end(), expression.children.begin(), expression.children.end());
   }
+  executable_cache_->verified_roots.insert(nonterminal);
 }
 
 }  // namespace gagp::evo::grammar

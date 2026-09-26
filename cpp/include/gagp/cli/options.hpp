@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace gagp::cli_detail {
 
@@ -9,6 +10,7 @@ struct CliOptions {
   std::string cases_path;
   std::string population_json;
   std::string grammar_definition_path;
+  std::vector<std::string> population_roots;
   std::string eval_ast_json;
   std::string engine = "cpu";
   std::string repro_backend = "cpu";
@@ -37,5 +39,6 @@ struct CliOptions {
 };
 
 CliOptions parse_cli_options(int argc, char** argv);
+std::vector<std::string> parse_population_root_names(const std::string& roots);
 
 }  // namespace gagp::cli_detail

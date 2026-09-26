@@ -1,5 +1,6 @@
 #pragma once
 
+#include "gagp/cli/json.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/input_spec.hpp"
 
@@ -33,5 +34,12 @@ evo::ProgramGenome decode_materialized_artifact(const std::string& artifact);
 // Same-version replay validates the complete stored materialization/provenance.
 evo::grammar::GeneratedDerivation replay_generated_artifact(const std::string& artifact,
     const evo::grammar::CompiledGrammar* required_grammar = nullptr);
+
+// Population replay already owns a parsed JSON tree and one compiled grammar.
+// This path retains complete same-version validation without serializing and
+// reparsing every member or recompiling its repeated embedded definition.
+evo::grammar::GeneratedDerivation replay_parsed_generated_artifact(
+    const JsonValue& artifact, const evo::grammar::CompiledGrammar& grammar,
+    const JsonValue& canonical_definition);
 
 }  // namespace gagp::cli_detail

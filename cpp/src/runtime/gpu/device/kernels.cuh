@@ -17,7 +17,7 @@ __device__ inline double d_canonicalize_fitness_accumulator(double value) {
 }
 
 template <DPayloadFlavor Flavor, bool EnableRegions = false>
-__global__ void evaluate_fitness_programs_impl(
+__global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     int program_count,
     const Value* all_consts, const DInstr* all_code, const DProgramMeta* metas,
     const Value* shared_case_local_vals, const unsigned char* shared_case_local_set,
@@ -35,11 +35,12 @@ __global__ void evaluate_fitness_programs_impl(
     DRegionWorkspace workspace = {}) {
   const int tid = static_cast<int>(threadIdx.x);
   if constexpr (EnableRegions) {
-    const std::size_t slice = static_cast<std::size_t>(blockIdx.x) * blockDim.x + tid;
-    if (workspace.frames) workspace.frames += slice * workspace.frame_capacity;
+    const std::size_t block_base = static_cast<std::size_t>(blockIdx.x) * blockDim.x;
+    workspace.slot_stride = blockDim.x;
+    if (workspace.frames) workspace.frames += block_base * workspace.frame_capacity + tid;
     if (workspace.memo_keys)
-      workspace.memo_keys += slice * workspace.memo_capacity * DMAX_REGION_STATES;
-    if (workspace.memo_values) workspace.memo_values += slice * workspace.memo_capacity;
+      workspace.memo_keys += block_base * workspace.memo_capacity * DMAX_REGION_STATES + tid;
+    if (workspace.memo_values) workspace.memo_values += block_base * workspace.memo_capacity + tid;
   }
 
   // Each block owns its workspace slices throughout the launch. Grid-stride

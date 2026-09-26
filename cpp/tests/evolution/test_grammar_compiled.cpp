@@ -48,6 +48,26 @@ int main() {
     rejects([] { compile_grammar(load_definition(std::string(GAGP_REPOSITORY_ROOT) +
         "/cpp/tests/fixtures/grammar/invalid_scope.json")); }, "not visible");
     const auto grammar = compile(json(custom));
+    check(!grammar.generates_payload(grammar.entry()), "scalar recursion reported payload generation");
+    auto payload_doc = json(custom);
+    payload_doc.object_v.at("nonterminals").array_v.push_back(json(R"({
+      "id":"Payload","type":"String","scope":[],"alternatives":[
+      {"id":"literal","weight":1,"expression":{"constant":{"type":"String","values":["x"]}}}]
+    })"));
+    auto separate_payload = compile(payload_doc);
+    check(!separate_payload.generates_payload(separate_payload.entry()),
+          "unreachable payload rule polluted the root certificate");
+    for (const auto& nt : separate_payload.nonterminals())
+      if (nt.stable_id == "Payload") check(separate_payload.generates_payload(nt.id),
+          "payload root was incorrectly certified read-only");
+    alternatives(payload_doc).array_v.push_back(json(R"({"id":"length","weight":1,
+      "expression":{"signature":"len(String)->Int","args":[{"ref":"Payload"}]}})"));
+    const auto reachable_payload = compile(payload_doc);
+    check(reachable_payload.generates_payload(reachable_payload.entry()),
+          "scalar root hid its reachable payload construction");
+    const auto copied_scalar = grammar;
+    check(!copied_scalar.generates_payload(copied_scalar.entry()), "copied grammar lost its certificate");
+    rejects([&] { grammar.generates_payload(kNoGrammarId); }, "unknown construction nonterminal");
     GrammarRandom golden(0);
     check(golden.next() == UINT64_C(0xe220a8397b1dcdaf) && golden.next() == UINT64_C(0x6e789e6aa1b965f4) &&
           golden.next() == UINT64_C(0x06c45d188009454f), "grammar RNG version changed");
@@ -297,6 +317,23 @@ int main() {
     check(declared_recursion.structured_contracts().size() == 1 &&
           declared_recursion.nonterminals()[0].minimum_nodes == 6, "structured expression lost static regions");
     rejects([&] { declared_recursion.require_executable(); }, "execution is not implemented");
+    auto mixed_execution_doc = doc;
+    mixed_execution_doc.object_v.at("nonterminals").array_v.push_back(json(R"({
+      "id":"Executable","type":"Int","scope":[],"alternatives":[
+        {"id":"literal","weight":1,"expression":{"constant":{"type":"Int","values":["1"]}}}]
+    })"));
+    const auto mixed_execution = compile(mixed_execution_doc);
+    std::uint32_t executable_root = kNoGrammarId;
+    for (const auto& nt : mixed_execution.nonterminals())
+      if (nt.stable_id == "Executable") executable_root = nt.id;
+    mixed_execution.require_executable(executable_root);
+    mixed_execution.require_executable(executable_root);
+    const auto copied_execution = mixed_execution;
+    copied_execution.require_executable(executable_root);
+    rejects([&] { mixed_execution.require_executable(); }, "execution is not implemented");
+    rejects([&] { copied_execution.require_executable(); }, "execution is not implemented");
+    rejects([&] { mixed_execution.require_executable(kNoGrammarId); }, "unknown executable nonterminal");
+
     alternatives(doc).array_v[0].object_v.at("expression").object_v.at("args").array_v[3] = json(R"({"bound":"r"})");
     rejects([&] { compile(doc); }, "not visible");
     doc = template_doc;
@@ -348,6 +385,16 @@ int main() {
     compile(doc).require_executable();
     assignment.object_v.at("name") = json(R"("missing")");
     rejects([&] { compile(doc); }, "not visible");
+
+    doc.object_v["inputs"] = json(R"([{"name":"input_counter","type":"Int"}])");
+    assignment.object_v.erase("name");
+    assignment.object_v["input_name"] = json(R"("input_counter")");
+    compile(doc).require_executable();
+    assignment.object_v["name"] = json(R"("i")");
+    rejects([&] { compile(doc); }, "exactly one");
+    assignment.object_v.erase("name");
+    doc.object_v["inputs"] = json(R"([{"name":"input_counter","type":"Float"}])");
+    rejects([&] { compile(doc); }, "target local type mismatch");
 
     auto domain = parse_constant_domain(json(R"({"type":"Int","range":["-9223372036854775808","9223372036854775807"]})"));
     check(domain.minimum == std::numeric_limits<std::int64_t>::min() && domain.maximum == std::numeric_limits<std::int64_t>::max(),

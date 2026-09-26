@@ -3,12 +3,12 @@
 #include <cuda_runtime.h>
 
 #include <chrono>
+#include <cmath>
 #include <sstream>
 #include <string>
 #include <vector>
 
 #include "device/selection_kernels.cuh"
-#include "device/variation_kernels.cuh"
 #include "device/compiled_variation.cuh"
 #include "device/compiled_mutation.cuh"
 #include "../constant_prep.hpp"
@@ -137,15 +137,39 @@ bool upload_gpu_repro_inputs(const PackedHostData& packed,
       for (const auto& domain : constants.grammar_domains->domains) {
         ValueTag tag = ValueTag::Invalid;
         bool valid = constant_mutation_detail::expected_tag(domain.type, &tag);
-        if (domain.integer_range == 1) {
+        using Policy = grammar::ConstantMutationPolicy;
+        if (domain.mutation == Policy::Keep && valid) continue;
+        valid = valid && (domain.mutation == Policy::Resample ||
+            domain.mutation == Policy::Add || (domain.mutation == Policy::Flip && tag == ValueTag::Bool));
+        if (domain.mutation == Policy::Add) {
+          valid = valid && ((domain.integer_range == 1 &&
+              domain.delta.integer_minimum <= domain.delta.integer_maximum && domain.delta.gpu_grid_steps == 0) ||
+              (domain.float_range == 1 && domain.float_quantization_scale == 0 &&
+               std::isfinite(domain.delta.float_minimum) && std::isfinite(domain.delta.float_maximum) &&
+               domain.delta.float_minimum <= domain.delta.float_maximum));
+        }
+        if ((domain.float_range != 0 && domain.float_range != 1) ||
+            (domain.integer_range && domain.float_range)) {
+          valid = false;
+        } else if (domain.float_range == 1) {
+          valid = valid && tag == ValueTag::Float && std::isfinite(domain.float_minimum) &&
+              std::isfinite(domain.float_maximum) && domain.float_minimum <= domain.float_maximum &&
+              grammar::valid_float_quantization(domain.float_minimum, domain.float_maximum,
+                                                domain.float_quantization_scale);
+        } else if (domain.integer_range == 1) {
           valid = valid && tag == ValueTag::Int && domain.minimum <= domain.maximum;
         } else if (domain.integer_range == 0) {
           valid = valid && domain.value_offset >= 0 && domain.value_count > 0 &&
               static_cast<std::size_t>(domain.value_offset) <= constants.grammar_domains->values.size() &&
               static_cast<std::size_t>(domain.value_count) <=
                   constants.grammar_domains->values.size() - domain.value_offset;
-          if (valid) for (int i = 0; i < domain.value_count; ++i)
-            valid = valid && constants.grammar_domains->values[domain.value_offset + i].tag == tag;
+          bool yes = false, no = false;
+          if (valid) for (int i = 0; i < domain.value_count; ++i) {
+            const auto& value = constants.grammar_domains->values[domain.value_offset + i];
+            valid = valid && value.tag == tag;
+            if (tag == ValueTag::Bool) { if (value.b) yes = true; else no = true; }
+          }
+          if (domain.mutation == Policy::Flip) valid = valid && yes && no;
         } else valid = false;
         if (!valid) {
           if (message_out) *message_out = "GPU constant domain is invalid";
@@ -263,9 +287,11 @@ bool launch_gpu_repro_kernels(GpuReproArena* arena,
       mutation.constant_streams = arena->d_constant_streams;
       mutation.parent_constant_streams = arena->d_parent_constant_streams;
       mutation.metadata_roots = arena->d_constant_roots;
-      compiled_mutation_kernel<<<config.pair_count, 32>>>(config, mutation);
+      compiled_mutation_kernel<<<config.pair_count, 32,
+          2 * config.max_nodes * sizeof(AtomicSpliceOrigin)>>>(config, mutation);
     } else {
-      compiled_crossover_kernel<<<config.pair_count, 32>>>(config, pointers);
+      compiled_crossover_kernel<<<config.pair_count, 32,
+          2 * config.max_nodes * sizeof(AtomicSpliceOrigin)>>>(config, pointers);
     }
   }
   if (!ensure_cuda(cudaGetLastError(), "variation_kernel", message_out) ||

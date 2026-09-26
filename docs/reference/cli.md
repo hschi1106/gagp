@@ -14,10 +14,11 @@ not supported; it follows the unknown-argument error contract.
 | `--cases` | `cases_path` | `required` | Fitness-case input path |
 | `--population-json` | `population_json` | `unset` | Fixed `grammar-population-v2` replay path |
 | `--grammar-definition` | `grammar_definition_path` | `unset` | Required compiled grammar definition path for evolution |
+| `--population-roots` | `population_roots` | grammar entry | Ordered comma-separated root IDs with distinct exact result types |
 | `--eval-ast-json` | `eval_ast_json` | `unset` | Evaluate one native AST or generated grammar artifact on CPU |
 | `--engine` | `engine` | `cpu` | Fitness backend: `cpu` or `gpu` |
 | `--repro-backend` | `repro_backend` | `cpu` | Reproduction backend: `cpu` or `gpu` |
-| `--cpu-repro-ablation` | `cpu_repro_ablation` | `none` | CPU experiment mode: `none`, `gpu_selection`, `gpu_candidates`, or `gpu_coupled_donor` |
+| `--cpu-repro-ablation` | `cpu_repro_ablation` | `none` | CPU experiment mode. Compiled-grammar reproduction supports `none`, `gpu_selection`, `gpu_candidates`, and `gpu_coupled_donor`. Candidate mode uses GPU-prepared sites; coupled-donor mode retains the CPU crossover site for prepared-donor subtree mutation. All ablations require CPU reproduction. |
 | `--repro-overlap` | `repro_overlap` | `off` | Overlap GPU reproduction preparation with GPU evaluation |
 | `--skip-final-eval` | `skip_final_eval` | `off` | Skip the post-generation final scoring pass |
 | `--retain-final-population` | `retain_final_population` | `off` | Materialize the full final scored population |
@@ -129,3 +130,20 @@ use `generations_repro_<suffix>_total`; per-generation fields/JSON series use
 Legacy operators currently report zero. Counters classify operator outputs, including
 both crossover children and subsequent mutation outputs, rather than only retained
 population members; see [GPU reproduction](../design/gpu-reproduction.md).
+
+For a mixed population, pass `--population-roots RootInt,RootFloat` with a grammar
+that defines both roots. Up to eight roots may be selected; they must be closed,
+executable, and have distinct exact result types. All use the grammar's search
+limits. Generated populations cycle through the ordered roots at initialization;
+selection then operates on the whole population, so later type proportions can
+change. Every case's expected type must be admitted by the selected roots.
+`meta.population_roots` records the effective ordered IDs, including the default
+single entry. With `--population-json`, select the full intended root set explicitly;
+each stored member is checked against it. The flag applies only to evolution.
+
+`gagp_generate_cli` accepts the same `--population-roots` list for generation and
+`--replay-json`. Supply that list when replaying a mixed artifact, including when
+using its embedded grammar. Replay preserves the artifact bytes and checks every
+member against the selected root contracts and case schema before writing output.
+The `gagp-tools benchmark population` wrapper accepts `--population-roots` with
+the same ordering and validation; omitting it selects the grammar entry.

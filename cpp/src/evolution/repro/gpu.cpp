@@ -1,3 +1,5 @@
+#include "pack_internal.hpp"
+#include "prep_internal.hpp"
 #include "gagp/evolution/repro/gpu.hpp"
 
 #include <algorithm>
@@ -24,9 +26,11 @@ namespace gagp::evo::repro {
 
 struct GpuReproRunResources {
   std::shared_ptr<const grammar::CompiledGrammar> grammar;
-  grammar::GenerationRequest request;
+  std::vector<grammar::GenerationRequest> requests;
+  std::optional<grammar::ProjectedBudget> offspring_budget;
   std::mutex mutex;
   std::shared_ptr<const ConstantMutationDomains> domains;
+  std::vector<std::weak_ptr<const ConstantMutationDomains>> proposal_domains;
 };
 
 namespace {
@@ -89,12 +93,20 @@ std::vector<ScoredGenomeRef> make_scored_refs(const std::vector<ScoredGenome>& s
 
 namespace {
 
-bool same_request(const grammar::GenerationRequest& a, const grammar::GenerationRequest& b);
+bool same_requests(const std::vector<grammar::GenerationRequest>& a,
+                   const std::vector<grammar::GenerationRequest>& b);
+
+bool same_budget(const std::optional<grammar::ProjectedBudget>& a,
+                 const std::optional<grammar::ProjectedBudget>& b) {
+  return a.has_value() == b.has_value() &&
+      (!a || (a->max_nodes == b->max_nodes && a->max_depth == b->max_depth));
+}
 
 void validate_run_resources(const std::shared_ptr<GpuReproRunResources>& resources,
                             const EvolutionConfig& cfg) {
   if (!resources || resources->grammar != cfg.compiled_grammar ||
-      !same_request(resources->request, *cfg.generation_request))
+      !same_budget(resources->offspring_budget, cfg.offspring_resource_budget) ||
+      !same_requests(resources->requests, population_requests(cfg)))
     throw std::invalid_argument("compiled GPU run resource grammar/request mismatch");
 }
 
@@ -103,7 +115,8 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
                                                       std::uint64_t seed,
                                                       ReproductionStats* stats,
                                                       std::shared_ptr<grammar::VariationContext> context = nullptr,
-                                                      std::shared_ptr<GpuReproRunResources> resources = nullptr) {
+                                                      std::shared_ptr<GpuReproRunResources> resources = nullptr,
+                                                      CompiledVariationPass pass = CompiledVariationPass::Crossover) {
   require_reproduction_mode_supported(cfg, true);
   GpuReproPreparedData out;
   const auto prepare_t0 = std::chrono::steady_clock::now();
@@ -112,13 +125,36 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
   out.run_resources = resources;
   if (population.empty() || population.size() != static_cast<std::size_t>(cfg.population_size))
     throw std::invalid_argument("compiled GPU preparation population size mismatch");
+  // Retain parents across preparation and decoding, with room for donor children.
+  // Bound retained analyses independently of the maximum supported population.
+  const auto analysis_capacity = std::min<std::size_t>(4096,
+      std::max<std::size_t>(128, population.size() * 4));
   if (!context) context = std::make_shared<grammar::VariationContext>(
-      cfg.compiled_grammar, *cfg.generation_request);
-  for (const auto& genome : population) (void)context->cache().analyze(genome, context->request());
+      cfg.compiled_grammar, population_requests(cfg), analysis_capacity,
+      cfg.offspring_resource_budget);
+  std::vector<grammar::WarmPopulationMember> warmed_members;
+  context->cache().warm_population(population, context->requests(), 8, &warmed_members);
   out.compiled_context = context;
-  const std::vector<ProgramGenome> packed_population = compact_population_tables(population);
+  // Only the private mutation pass receives decode_compiled_pass output:
+  // accepted children and certified fallbacks already have compact tables.
+  // Keep warming/revalidation above so registry changes remain observable.
+  const auto compacted_population = pass == CompiledVariationPass::Mutation
+      ? std::vector<ProgramGenome>{} : compact_population_tables(population);
+  const auto& packed_population = pass == CompiledVariationPass::Mutation
+      ? population : compacted_population;
+  // Compaction changes exact cache identities when unused table entries are
+  // removed. Keep the original validation above (including unused payloads),
+  // then prepare the actual packed representation in parallel rather than
+  // reconstructing every changed parent serially during preprocessing.
+  bool compacted_tables = false;
+  for (std::size_t i = 0; i < population.size(); ++i)
+    compacted_tables |= population[i].ast.names.size() != packed_population[i].ast.names.size() ||
+        population[i].ast.consts.size() != packed_population[i].ast.consts.size();
+  if (compacted_tables)
+    context->cache().warm_population(packed_population, context->requests(), 8, &warmed_members);
   out.config = make_gpu_repro_config(packed_population, cfg);
   out.config.seed = seed;
+  out.config.compiled_pass = pass;
   if (context) {
     // Variation needs room for new table entries, beyond present occupancy.
     out.config.max_names = kGpuReproMaxNames;
@@ -141,16 +177,34 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
     if (!resources->domains)
       resources->domains = prepare_constant_mutation_domains(resources->grammar);
     domains = resources->domains;
+    domains = sample_constant_mutation_domains(domains, seed, population.size());
+    if (domains != resources->domains) {
+      auto& live = resources->proposal_domains;
+      live.erase(std::remove_if(live.begin(), live.end(), [](const auto& weak) {
+        return weak.expired();
+      }), live.end());
+      live.push_back(domains);
+    }
   }
   const PreprocessOutput prep =
-      preprocess_population(packed_population, out.config, *context, domains);
+      preprocess_warmed_population(packed_population, out.config, *context, domains,
+          pass == CompiledVariationPass::Mutation, warmed_members);
   const auto prep_t1 = std::chrono::steady_clock::now();
   if (stats != nullptr) {
     stats->preprocess_ms += std::chrono::duration<double, std::milli>(prep_t1 - prep_t0).count();
   }
 
   const auto pack_t0 = std::chrono::steady_clock::now();
-  out.packed = pack_population(packed_population, prep, out.config);
+  out.packed = pack_warmed_population(packed_population, prep, out.config, warmed_members);
+  if (warmed_members.size() == packed_population.size()) {
+    auto certificates = std::make_shared<PreparedParentCertificates>();
+    certificates->sources = out.packed.compiled_sources;
+    certificates->context = context;
+    certificates->analyses = std::move(warmed_members);
+    certificates->metadata.reserve(packed_population.size());
+    for (const auto& member : packed_population) certificates->metadata.push_back(member.meta);
+    out.parent_certificates = std::move(certificates);
+  }
   out.config = out.packed.config;
   if (context) out.preparation_counters = context->counters();
   const auto pack_t1 = std::chrono::steady_clock::now();
@@ -161,12 +215,20 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
 }
 
 bool same_request(const grammar::GenerationRequest& a, const grammar::GenerationRequest& b) {
-  if (a.nonterminal != b.nonterminal || a.type != b.type ||
+  if (a.nonterminal != b.nonterminal || a.type != b.type || a.stage != b.stage ||
       a.budget.max_nodes != b.budget.max_nodes || a.budget.max_depth != b.budget.max_depth ||
       a.visible_environment.size() != b.visible_environment.size()) return false;
   for (std::size_t i = 0; i < a.visible_environment.size(); ++i)
     if (a.visible_environment[i].name != b.visible_environment[i].name ||
         a.visible_environment[i].type != b.visible_environment[i].type) return false;
+  return true;
+}
+
+bool same_requests(const std::vector<grammar::GenerationRequest>& a,
+                   const std::vector<grammar::GenerationRequest>& b) {
+  if (a.size() != b.size()) return false;
+  for (std::size_t i = 0; i < a.size(); ++i)
+    if (!same_request(a[i], b[i])) return false;
   return true;
 }
 
@@ -189,10 +251,11 @@ void validate_compiled_prepared(const std::vector<ScoredGenomeRef>& scored,
   if (!prepared.run_resources || !prepared.compiled_context || !prepared.packed.compiled_sources ||
       prepared.packed.compiled_grammar != cfg.compiled_grammar ||
       prepared.compiled_context->grammar_owner() != cfg.compiled_grammar ||
+      !same_budget(prepared.compiled_context->offspring_budget(), cfg.offspring_resource_budget) ||
       prepared.config.compiled_pass != CompiledVariationPass::Crossover ||
       !same_config(prepared.config, prepared.packed.config) ||
-      !same_request(prepared.compiled_context->request(),
-          *cfg.generation_request) ||
+      !same_requests(prepared.compiled_context->requests(),
+          population_requests(cfg)) ||
       prepared.config.population_size != cfg.population_size ||
       scored.size() != static_cast<std::size_t>(cfg.population_size) ||
       prepared.packed.compiled_sources->parents.size() != scored.size() ||
@@ -203,16 +266,27 @@ void validate_compiled_prepared(const std::vector<ScoredGenomeRef>& scored,
   validate_run_resources(prepared.run_resources, cfg);
   {
     std::lock_guard<std::mutex> lock(prepared.run_resources->mutex);
-    if (!prepared.packed.constant_mutation || !prepared.run_resources->domains ||
-        prepared.packed.constant_mutation->grammar_domains != prepared.run_resources->domains)
+    const auto domains = prepared.packed.constant_mutation
+        ? prepared.packed.constant_mutation->grammar_domains : nullptr;
+    const auto base = prepared.run_resources->domains;
+    const auto registered = [&] {
+      return std::any_of(prepared.run_resources->proposal_domains.begin(),
+          prepared.run_resources->proposal_domains.end(), [&](const auto& weak) {
+            return weak.lock() == domains;
+          });
+    };
+    if (!domains || !base ||
+        (base->has_sequence_domains && domains == base) ||
+        (domains != base && (domains->base_domains != base ||
+          domains->proposal_seed != prepared.config.seed ||
+          domains->proposals_per_domain != scored.size() || !registered())))
       throw std::invalid_argument("compiled GPU preparation domain owner mismatch");
   }
   std::vector<std::string> inputs;
   for (const auto& input : cfg.compiled_grammar->inputs()) inputs.push_back(input.name);
   for (std::size_t i = 0; i < scored.size(); ++i) {
     if (!scored[i].genome) throw std::invalid_argument("compiled GPU preparation has a null source");
-    ProgramGenome expected;
-    expected.ast = prepared.packed.compiled_sources->parents[i];
+    const auto& expected = prepared.packed.compiled_sources->parents[i];
     const ProgramGenome compacted_scored = compact_genome_tables(*scored[i].genome);
     if (grammar::runtime_cache_identity(expected, inputs, cfg.fuel) !=
         grammar::runtime_cache_identity(compacted_scored, inputs, cfg.fuel))
@@ -244,7 +318,7 @@ ReproductionResult run_compiled_prepared(const std::vector<ScoredGenomeRef>& sco
     if (!copyback_gpu_repro_children(cache.arena, pass.config, &cache.staging, &view, &out.stats, &message))
       throw std::runtime_error(message);
     const auto decode_start = std::chrono::steady_clock::now();
-    auto children = decode_compiled_pass(pass.packed, view, context);
+    auto children = decode_compiled_pass(pass.packed, view, context, pass.parent_certificates.get());
     out.stats.decode_ms += std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - decode_start).count();
     return children;
@@ -255,9 +329,8 @@ ReproductionResult run_compiled_prepared(const std::vector<ScoredGenomeRef>& sco
   } else {
     grammar::GrammarRandom random(prepared.config.seed ^ UINT64_C(0xa0761d6478bd642f));
     auto mutation = prepare_backend_inputs(crossed, cfg, random.next(), &out.stats,
-                                           prepared.compiled_context, prepared.run_resources);
-    mutation.config.compiled_pass = CompiledVariationPass::Mutation;
-    mutation.packed.config = mutation.config;
+                                           prepared.compiled_context, prepared.run_resources,
+                                           CompiledVariationPass::Mutation);
     out.next_population = run_pass(mutation, std::vector<double>(crossed.size(), 0.0));
   }
   out.stats.variation = context.counters();
@@ -294,7 +367,8 @@ std::shared_ptr<GpuReproRunResources> make_gpu_repro_run_resources(const Evoluti
 #endif
   auto resources = std::make_shared<GpuReproRunResources>();
   resources->grammar = cfg.compiled_grammar;
-  resources->request = *cfg.generation_request;
+  resources->requests = population_requests(cfg);
+  resources->offspring_budget = cfg.offspring_resource_budget;
   return resources;
 }
 
@@ -305,6 +379,9 @@ void append_gpu_repro_run_payload_roots(
   std::lock_guard<std::mutex> lock(resources->mutex);
   if (resources->domains)
     roots->insert(roots->end(), resources->domains->values.begin(), resources->domains->values.end());
+  for (const auto& weak : resources->proposal_domains)
+    if (const auto domains = weak.lock())
+      roots->insert(roots->end(), domains->values.begin(), domains->values.end());
 }
 
 GpuReproPreparedData prepare_gpu_repro_backend_inputs(
@@ -373,7 +450,11 @@ ReproductionResult run_gpu_repro_backend(const std::vector<ScoredGenomeRef>& sco
   }
   ReproductionStats prep_stats;
   const GpuReproPreparedData prepared = prepare_gpu_repro_backend_inputs(population, cfg, rng(), &prep_stats, std::move(resources));
-  return run_gpu_repro_backend_prepared(scored, cfg, prepared, &prep_stats);
+  // This call owns the just-prepared population and never exposes prepared
+  // state to a caller. Preparation already validates imports, config/resources,
+  // compact sources and payload identities. Replay validation is needed only
+  // when a caller can replace or mutate that state between prepare and run.
+  return run_compiled_prepared(scored, cfg, prepared, &prep_stats);
 #endif
 }
 

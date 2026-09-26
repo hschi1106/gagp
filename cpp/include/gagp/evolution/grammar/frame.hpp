@@ -30,6 +30,7 @@ struct FramedProgram {
 
 // Private donor validation/lowering view. Only captured references become fresh
 // synthetic inputs; introduced region bindings retain their native identity.
+// This includes lexical captures stored in bounded-region parameter metadata.
 // The original AST remains contextual and cannot be executed as a closed artifact.
 FramedProgram project_frame(const CompiledGrammar& grammar,
     const GenerationRequest& request, const GenerationFrame& frame, const AstProgram& ast);

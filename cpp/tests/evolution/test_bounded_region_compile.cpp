@@ -1,3 +1,7 @@
+#include "../../src/evolution/region_plan_equal.hpp"
+#include "gagp/evolution/grammar/definition.hpp"
+#include "gagp/serialization/region_plan_json.hpp"
+#include <functional>
 #include <iostream>
 #include <stdexcept>
 
@@ -105,6 +109,66 @@ void check_capture_and_compaction() {
       "compaction changed native region execution");
 }
 
+void check_direct_plan_equality() {
+  std::vector<RegionPlan> bases{counter().bounded_region_specs[0].plan,
+      captured_counter().bounded_region_specs[0].plan};
+  RegionPlan sequence;
+  sequence.state_types = {ValueTag::String};
+  sequence.result_type = ValueTag::String;
+  sequence.progress = RegionProgressKind::SequenceWindows;
+  sequence.preparations = {{ValueTag::Int, RegionPreparationKind::InteriorCut}};
+  RegionStateTransition edge;
+  edge.kind = RegionTransitionKind::SequenceWindow;
+  edge.window.begin = {WindowEndpointKind::Begin, 0};
+  edge.window.end = {WindowEndpointKind::InteriorCut, 0};
+  sequence.requests = {{{edge}}};
+  bases.push_back(sequence);
+  const std::vector<std::function<void(RegionPlan&)>> changes{
+      [](auto& p) { ++p.version; },
+      [](auto& p) { ++p.limits.frames; },
+      [](auto& p) { ++p.limits.cells; },
+      [](auto& p) { ++p.limits.entry_fuel; },
+      [](auto& p) { p.result_type = ValueTag::Float; },
+      [](auto& p) { p.parameter_types.push_back(ValueTag::Bool); },
+      [](auto& p) { p.request_expression_types.push_back(ValueTag::Int); },
+      [](auto& p) { p.preparations.push_back({ValueTag::Float, RegionPreparationKind::Identity}); },
+      [](auto& p) { ++p.bound_operand_count; },
+      [](auto& p) { p.requests.push_back(p.requests.front()); },
+      [](auto& p) { p.memoized = !p.memoized; p.limits.cells = p.memoized ? 4 : 0; },
+      [](auto& p) { p.coordinate_endpoint = DomainEndpoint::Inclusive; },
+      [](auto& p) { ++p.sequence_state; },
+      [](auto& p) { p.requests[0].states[0].offset = -2; },
+      [](auto& p) { ++p.requests[0].states[0].source_state; },
+      [](auto& p) { ++p.requests[0].states[0].expression; },
+      [](auto& p) { ++p.requests[0].states[0].window.end.cut; },
+      [](auto& p) { p.requests[0].states[0].window.end.kind = WindowEndpointKind::End; },
+      [](auto& p) { if (!p.coordinate_domains.empty()) ++p.coordinate_domains[0].upper.literal; },
+      [](auto& p) { if (!p.coordinate_domains.empty()) ++p.coordinate_domains[0].lower.operand; },
+      [](auto& p) { if (!p.coordinate_slots.empty()) ++p.coordinate_slots[0]; },
+      [](auto& p) { if (!p.coordinate_rank.empty()) p.coordinate_rank[0].direction *= -1; }};
+  std::size_t valid_changes = 0, rejected_changes = 0;
+  for (const auto& base : bases) {
+    const auto encoded = grammar::canonical_json(serialization::encode_region_plan(base));
+    require(same_region_plan(base, base), "region plan equality is not reflexive");
+    for (const auto& change : changes) {
+      auto changed = base;
+      change(changed);
+      bool reference_rejects = false, direct_rejects = false;
+      bool expected = false, actual = false;
+      try { expected = encoded == grammar::canonical_json(serialization::encode_region_plan(changed)); }
+      catch (const std::exception&) { reference_rejects = true; }
+      try { actual = same_region_plan(base, changed); }
+      catch (const std::exception&) { direct_rejects = true; }
+      require(reference_rejects == direct_rejects, "direct plan comparison changed validation");
+      if (reference_rejects) { ++rejected_changes; continue; }
+      ++valid_changes;
+      require(expected == actual && same_region_plan(changed, base) == expected,
+          "direct plan comparison differs from canonical JSON equality");
+    }
+  }
+  require(valid_changes > 20 && rejected_changes > 10, "plan comparison oracle coverage is too small");
+}
+
 void check_splice_ownership() {
   const auto donor = captured_counter();
   auto base = counter();
@@ -122,6 +186,7 @@ void check_splice_ownership() {
 
 int main() {
   try {
+    check_direct_plan_equality();
     check_counter_and_fuel();
     check_capture_and_compaction();
     check_splice_ownership();

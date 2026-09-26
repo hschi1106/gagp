@@ -8,6 +8,7 @@
 
 #include "gagp/evolution/grammar/variation_contract.hpp"
 #include "gagp/evolution/repro/pack.hpp"
+#include "../fixtures/bounded_capture.hpp"
 
 using namespace gagp;
 using namespace gagp::evo;
@@ -338,15 +339,108 @@ void test_compaction_and_untrusted_provenance() {
       "variation analysis trusted imported or stale witness metadata");
 }
 
+void test_unbound_variation() {
+  const std::string text = R"({"format_version":"grammar-definition-v2",
+    "entry":{"nonterminal":"Main","type":"Int"},
+    "search_limits":{"max_nodes":30,"max_depth":12},"execution_limits":{"fuel":100},
+    "nonterminals":[
+      {"id":"Main","type":"Int","scope":[],"variation":false,"alternatives":[
+        {"id":"let","weight":1,"expression":{"signature":"let(Int,Int)->Int",
+         "args":[{"constant":{"type":"Int","values":["1"]}},{"ref":"Body"}],"bind":{"1":["x"]}}}]},
+      {"id":"Body","type":"Int","scope":[{"name":"x","type":"Int"}],"alternatives":[
+        {"id":"add","weight":1,"variation":"unbound","expression":{"signature":"add(Int,Int)->Int",
+         "args":[{"ref":"Bound"},{"ref":"Literal"}]}}]},
+      {"id":"Bound","type":"Int","scope":[{"name":"x","type":"Int"}],"alternatives":[
+        {"id":"bound","weight":1,"variation":"unbound","expression":{"bound":"x"}}]},
+      {"id":"Literal","type":"Int","scope":[],"alternatives":[
+        {"id":"literal","weight":1,"variation":"unbound","expression":{"constant":{"type":"Int","values":["2"]}}}]}
+    ]})";
+  auto grammar = compile(text);
+  auto program = generate_derivation(grammar, 1).genome;
+  auto analysis = analyze_variation(grammar, program);
+  check(analysis.sites.size() == 1 && analysis.sites[0].nonterminal == nonterminal(grammar, "Literal"),
+        "unbound policy retained a bound leaf or enclosing arithmetic site");
+  auto document = parse_definition(text).document;
+  auto& rules = document.object_v.at("nonterminals").array_v;
+  auto& literal = *std::find_if(rules.begin(), rules.end(), [](const auto& rule) {
+    return rule.object_v.at("id").string_v == "Literal";
+  });
+  auto& policy = literal.object_v.at("alternatives").array_v[0].object_v.at("variation");
+  policy.kind = cli_detail::JsonValue::Kind::Bool;
+  policy.bool_v = false;
+  grammar = compile(canonical_json(document));
+  program = generate_derivation(grammar, 1).genome;
+  check(analyze_variation(grammar, program).sites.empty(), "disabled production still exposed a site");
+  policy.bool_v = true;
+  auto& body = *std::find_if(rules.begin(), rules.end(), [](const auto& rule) {
+    return rule.object_v.at("id").string_v == "Body";
+  });
+  body.object_v.at("alternatives").array_v[0].object_v.at("expression") =
+      cli_detail::JsonParser(R"({"template":"Fixed","holes":{"value":{"ref":"Literal"}}})").parse();
+  document.object_v["templates"] = cli_detail::JsonParser(R"([{
+    "id":"Fixed","type":"Int","scope":[],"holes":[{"id":"value","type":"Int","scope":[]}],
+    "body":{"signature":"let(Int,Int)->Int","bind":{"1":["y"]},"args":[
+      {"constant":{"type":"Int","values":["1"]}},
+      {"signature":"add(Int,Int)->Int","args":[{"bound":"y"},{"hole":"value"}]}]}
+  }])").parse();
+  grammar = compile(canonical_json(document));
+  program = generate_derivation(grammar, 1).genome;
+  check(analyze_variation(grammar, program).sites.size() == 2,
+        "fixed template binding incorrectly excluded a variation site");
+
+}
+
+void test_metadata_only_bounded_capture_is_not_closed() {
+  auto document = cli_detail::JsonParser(gagp::test::bounded_capture_definition()).parse();
+  for (auto& nt : document.object_v.at("nonterminals").array_v) {
+    const auto& id = nt.object_v.at("id").string_v;
+    if (id != "Main" && id != "Recurrence") continue;
+    for (auto& alternative : nt.object_v.at("alternatives").array_v) {
+      alternative.object_v["crossover_group"] = cli_detail::JsonParser("\"same-int-group\"").parse();
+      alternative.object_v["crossover_scope"] = cli_detail::JsonParser("\"closed\"").parse();
+    }
+  }
+  const auto grammar = compile(canonical_json(document));
+  const auto genome = generate_derivation(grammar, 1).genome;
+  const auto analysis = analyze_variation(grammar, genome);
+  const auto& root = site_for(analysis, nonterminal(grammar, "Main"));
+  const auto& recurrence = site_for(analysis, nonterminal(grammar, "Recurrence"));
+  check(root.crossover_closed && !recurrence.crossover_closed &&
+        recurrence.occurrences.size() == 2,
+        "metadata-only external capture was treated as closed crossover");
+  check(!compatible_sites(root, recurrence),
+        "closed crossover group erased a bounded donor's external scope");
+  for (std::size_t i = 0; i < recurrence.occurrences.size(); ++i) {
+    const auto span = recurrence.occurrences[i];
+    const auto captured = recurrence.occurrence_binder_ids[i].front();
+    bool metadata_reference = false;
+    for (auto index = span.begin; index < span.end; ++index)
+      check(genome.ast.nodes[index].kind != NodeKind::REGION_VAR ||
+            genome.ast.nodes[index].i0 != captured,
+            "fixture must capture its external value through metadata only");
+    for (const auto& region : genome.ast.bounded_region_specs)
+      if (region.node_index >= span.begin && region.node_index < span.end)
+        for (const auto& capture : region.parameters)
+          metadata_reference |= capture.kind == RegionCaptureKind::Lexical &&
+              capture.index == captured;
+    check(metadata_reference && !lexically_closed(genome.ast, span),
+          "closure check omitted a physical occurrence's bounded capture");
+  }
+  check(lexically_closed(genome.ast, root.occurrences.front()),
+        "a capture declared inside the complete donor was incorrectly external");
+}
+
 }  // namespace
 
 int main() {
   try {
+    test_unbound_variation();
     test_nonterminal_and_registry_compatibility();
     test_template_sites_occurrences_and_budgets();
     test_asymmetric_forwarding_uses_physical_nesting();
     test_exact_native_scope_and_request_identity();
     test_compaction_and_untrusted_provenance();
+    test_metadata_only_bounded_capture_is_not_closed();
     std::cout << "grammar variation contract: exact keys, template groups, budgets, scopes, and reconstruction passed\n";
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';

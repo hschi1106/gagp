@@ -3,6 +3,7 @@
 #include "gagp/evolution/grammar/identity.hpp"
 #include "gagp/evolution/grammar/constants.hpp"
 #include "gagp/evolution/fuel_events.hpp"
+#include "gagp/evolution/grammar/resource_projection.hpp"
 #include "gagp/serialization/region_plan_json.hpp"
 
 #include <algorithm>
@@ -130,8 +131,10 @@ void source_category(const Json& value) {
 }
 void source_expression(const Json& value) {
   if (value.kind != Kind::Object) throw std::invalid_argument("expression must be an object");
+  if (value.object_v.count("resource_charge"))
+    (void)parse_resource_charge(value.object_v.at("resource_charge"));
   if (value.object_v.count("constant")) {
-    keys(value, {"constant", "fuel_events"}, "constant expression");
+    keys(value, {"constant", "fuel_events", "resource_charge"}, "constant expression");
     (void)parse_constant_domain(value.object_v.at("constant"));
     source_fuel_events(value, NodeKind::CONST);
   } else if (value.object_v.count("template")) {
@@ -143,16 +146,18 @@ void source_expression(const Json& value) {
   } else if (value.object_v.count("signature") || value.object_v.count("structured") || value.object_v.count("control")) {
     bool bounded = false;
     if (value.object_v.count("signature")) {
-      keys(value, {"signature", "args", "bind", "fuel_events"}, "primitive expression");
+      keys(value, {"signature", "args", "bind", "fuel_events", "resource_charge"}, "primitive expression");
       const auto& signature = PrimitiveCatalog::standard().resolve(
           require_string(value.object_v.at("signature"), "signature"));
+      if (value.object_v.count("resource_charge") && !signature.lowering_node)
+        throw std::invalid_argument("resource_charge requires a concrete materialized owner");
       if (value.object_v.count("fuel_events")) {
         if (!signature.lowering_node)
           throw std::invalid_argument("fuel_events requires a concrete materialized owner");
         source_fuel_events(value, *signature.lowering_node);
       }
     } else if (value.object_v.count("control")) {
-      keys(value, {"control", "type", "args", "name", "fuel_events"}, "control expression");
+      keys(value, {"control", "type", "args", "name", "input_name", "fuel_events", "resource_charge"}, "control expression");
       const auto& signature = PrimitiveCatalog::standard().resolve_control(
           require_string(value.object_v.at("control"), "control"));
       source_fuel_events(value, signature.lowering_node);
@@ -164,7 +169,7 @@ void source_expression(const Json& value) {
       else if (family == "memo") keys(contract, {"family", "dimensions", "result_type", "requests"}, "memoized contract");
       else if (family == "bounded") {
         bounded = true;
-        keys(value, {"structured", "captures", "phases", "args", "fuel_events"},
+        keys(value, {"structured", "captures", "phases", "args", "fuel_events", "resource_charge"},
              "bounded structured expression");
         source_fuel_events(value, NodeKind::BOUNDED_REGION);
         keys(contract, {"family", "plan"}, "bounded region contract");
@@ -264,7 +269,7 @@ void source_expression(const Json& value) {
       if (!value.object_v.count(field)) continue;
       if (std::string(field) == "input" || std::string(field) == "local" ||
           std::string(field) == "bound") {
-        keys(value, {field, "fuel_events"}, "binding expression");
+        keys(value, {field, "fuel_events", "resource_charge"}, "binding expression");
         source_fuel_events(value, std::string(field) == "bound" ?
             NodeKind::REGION_VAR : NodeKind::VAR);
       } else {
@@ -285,7 +290,7 @@ void source_schema(const Json& document) {
     if (!document.object_v.count(category)) continue;
     for (const auto& resource : elements(document.object_v.at(category))) {
       const bool nt = std::string(category) == "nonterminals";
-      if (nt) keys(resource, {"id", "operation", "type", "scope", "category", "alternatives"}, "nonterminal");
+      if (nt) keys(resource, {"id", "operation", "type", "scope", "category", "alternatives", "variation", "mutation_entry"}, "nonterminal");
       else keys(resource, {"id", "operation", "type", "scope", "category", "holes", "body"}, "template");
       const auto operation = resource.object_v.count("operation") ? require_string(resource.object_v.at("operation"), "operation") : "define";
       if (operation == "extend") {
@@ -297,8 +302,30 @@ void source_schema(const Json& document) {
         source_category(resource);
       }
       if (nt) {
+        const auto mutation_entry = resource.object_v.find("mutation_entry");
+        if (mutation_entry != resource.object_v.end())
+          (void)require_string(mutation_entry->second, "mutation_entry");
+        const auto variation = resource.object_v.find("variation");
+        if (variation != resource.object_v.end() && variation->second.kind != Kind::Bool)
+          throw std::invalid_argument("nonterminal variation must be Boolean");
         for (const auto& alternative : elements(require_object_field(resource, "alternatives"))) {
-          keys(alternative, {"id", "weight", "expression"}, "alternative");
+          keys(alternative, {"id", "weight", "expression", "generation_stages", "crossover_group", "crossover_scope", "variation"}, "alternative");
+          const auto variation = alternative.object_v.find("variation");
+          if (variation != alternative.object_v.end() &&
+              variation->second.kind != Json::Kind::Bool &&
+              !(variation->second.kind == Json::Kind::String && variation->second.string_v == "unbound"))
+            throw std::invalid_argument("alternative variation must be boolean or unbound");
+          const auto group = alternative.object_v.find("crossover_group");
+          if (group != alternative.object_v.end() &&
+              require_string(group->second, "crossover_group").empty())
+            throw std::invalid_argument("crossover_group must be nonempty");
+          const auto scope_policy = alternative.object_v.find("crossover_scope");
+          if (scope_policy != alternative.object_v.end()) {
+            const auto policy = require_string(scope_policy->second, "crossover_scope");
+            if (group == alternative.object_v.end() || (policy != "exact" && policy != "closed"))
+              throw std::invalid_argument("crossover_scope requires a group and exact or closed policy");
+          }
+          (void)production_generation_mask(alternative);
           const auto& weight = require_object_field(alternative, "weight");
           if (weight.kind != Kind::Number || !std::isfinite(weight.number_v) || weight.number_v <= 0)
             throw std::invalid_argument("production weight must be positive and finite");
@@ -498,6 +525,33 @@ class Resolver {
   std::set<std::string> sources_;
 };
 }  // namespace
+
+const char* generation_stage_name(GenerationStage stage) {
+  switch (stage) {
+    case GenerationStage::Initial: return "initial";
+    case GenerationStage::Mutation: return "mutation";
+  }
+  throw std::invalid_argument("unknown generation stage");
+}
+GenerationStage parse_generation_stage(const std::string& name) {
+  if (name == "initial") return GenerationStage::Initial;
+  if (name == "mutation") return GenerationStage::Mutation;
+  throw std::invalid_argument("unknown generation stage: " + name);
+}
+std::uint8_t production_generation_mask(const cli_detail::JsonValue& alternative) {
+  const auto found = alternative.object_v.find("generation_stages");
+  if (found == alternative.object_v.end()) return 3;
+  std::uint8_t result = 0;
+  for (const auto& value : elements(found->second)) {
+    if (value.kind != Kind::String)
+      throw std::invalid_argument("generation stage must be a string");
+    const auto stage = parse_generation_stage(value.string_v);
+    const auto bit = static_cast<std::uint8_t>(1u << static_cast<unsigned>(stage));
+    if (result & bit) throw std::invalid_argument("duplicate generation stage");
+    result |= bit;
+  }
+  return result;
+}
 
 std::string canonical_json(const cli_detail::JsonValue& value) {
   std::ostringstream out; out.imbue(std::locale::classic()); emit(out, value); return out.str();

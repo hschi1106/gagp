@@ -1,12 +1,15 @@
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 #include "gagp/evolution/ast_verify.hpp"
+#include "gagp/evolution/mutation.hpp"
 #include "gagp/evolution/grammar/donor.hpp"
+#include "gagp/evolution/grammar/variation.hpp"
 
 using namespace gagp;
 using namespace gagp::evo;
@@ -55,6 +58,28 @@ bool same_inputs(const std::vector<InputSpec>& actual,
     if (actual[i].name != expected[i].name || actual[i].type != expected[i].type)
       return false;
   return true;
+}
+
+bool same_generated_donor(const ContextualDonor& left, const ContextualDonor& right) {
+  if (left.payload.begin != right.payload.begin || left.payload.end != right.payload.end ||
+      left.nodes != right.nodes || left.depth != right.depth ||
+      left.template_nesting != right.template_nesting ||
+      left.genome.ast.nodes.size() != right.genome.ast.nodes.size() ||
+      left.genome.ast.names != right.genome.ast.names ||
+      left.genome.meta.program_key != right.genome.meta.program_key ||
+      !same_inputs(left.inputs, right.inputs) ||
+      !left.genome.derivation || !right.genome.derivation)
+    return false;
+  for (std::size_t i = 0; i < left.genome.ast.nodes.size(); ++i) {
+    const auto& a = left.genome.ast.nodes[i];
+    const auto& b = right.genome.ast.nodes[i];
+    if (a.kind != b.kind || a.i0 != b.i0 || a.i1 != b.i1) return false;
+  }
+  const auto& a = *left.genome.derivation;
+  const auto& b = *right.genome.derivation;
+  return a.seed == b.seed && a.logical_steps == b.logical_steps &&
+      a.derived_nodes == b.derived_nodes && a.nodes.size() == b.nodes.size() &&
+      a.choices.size() == b.choices.size();
 }
 
 CompiledGrammar assigned_local_grammar() {
@@ -150,6 +175,70 @@ void test_exact_budget_and_template_nesting_boundaries() {
       "donor generation accepted a template beyond the destination nesting allowance");
 }
 
+void test_worker_frame_cost_cache_identity_and_keys() {
+  const auto grammar = std::make_shared<const CompiledGrammar>(assigned_local_grammar());
+  auto destination = destination_site(*grammar);
+  destination.replacement_budget = {1, 1};
+  destination.remaining_template_nesting = 1;
+  VariationContext context(grammar, 2);
+
+  const auto cold = generate_donor(*grammar, 73, destination);
+  const auto first = generate_donor(context, 73, destination);
+  const auto repeated = generate_donor(context, 73, destination);
+  check(same_generated_donor(cold, first) && same_generated_donor(first, repeated),
+      "cached contextual costs changed fixed-seed donor generation");
+  check(context.frame_cost_cache_counters().misses == 1 &&
+        context.frame_cost_cache_counters().hits == 1,
+      "repeated contextual donor did not reuse its frame-cost table");
+
+  auto deeper = destination;
+  deeper.replacement_budget.max_depth = 2;
+  (void)generate_donor(context, 73, deeper);
+  check(context.frame_cost_cache_counters().misses == 2,
+      "effective donor depth was omitted from the frame-cost cache key");
+
+  auto fewer_locals = destination;
+  fewer_locals.available_locals.erase(
+      std::remove_if(fewer_locals.available_locals.begin(), fewer_locals.available_locals.end(),
+          [](const RegionBinding& binding) { return binding.name == "y"; }),
+      fewer_locals.available_locals.end());
+  (void)generate_donor(context, 73, fewer_locals);
+  check(context.frame_cost_cache_counters().misses == 3,
+      "exact local availability was omitted from the frame-cost cache key");
+  check(context.frame_cost_cache_counters().evictions == 1,
+      "worker frame-cost cache did not enforce its configured bound");
+
+  const auto costly_grammar = std::make_shared<const CompiledGrammar>(compile(R"({
+    "format_version":"grammar-definition-v2",
+    "entry":{"nonterminal":"Pair","type":"Int"},
+    "locals":[{"name":"x","type":"Int"}],
+    "search_limits":{"max_nodes":7,"max_depth":5},
+    "execution_limits":{"fuel":100},
+    "nonterminals":[{"id":"Pair","type":"Int","scope":[],"alternatives":[
+      {"id":"unavailable","weight":1,"expression":{"local":"x"}},
+      {"id":"pair","weight":1,"expression":{"signature":"add(Int,Int)->Int","args":[
+        {"constant":{"type":"Int","values":["1"]}},
+        {"constant":{"type":"Int","values":["2"]}}]}}
+    ]}]
+  })"));
+  const auto& pair = costly_grammar->nonterminals().at(nonterminal(*costly_grammar, "Pair"));
+  VariationSite costly_site;
+  costly_site.nonterminal = pair.id;
+  costly_site.type = pair.type;
+  costly_site.category = pair.category;
+  costly_site.context = pair.context;
+  costly_site.replacement_budget = {3, 2};
+  costly_site.remaining_template_nesting = 1;
+  VariationContext costly_context(costly_grammar, 4);
+  (void)generate_donor(costly_context, 73, costly_site);
+  costly_site.replacement_budget.max_nodes = 1;
+  rejects([&] { (void)generate_donor(costly_context, 73, costly_site); },
+      "cached contextual costs bypassed the per-request node feasibility check");
+  check(costly_context.frame_cost_cache_counters().misses == 1 &&
+        costly_context.frame_cost_cache_counters().hits == 1,
+      "impossible node budget did not consult the matching cached cost table");
+}
+
 void test_malformed_site_rejection() {
   const auto grammar = assigned_local_grammar();
   const auto destination = destination_site(grammar);
@@ -184,13 +273,69 @@ void test_malformed_site_rejection() {
       "donor generation accepted a destination local with the wrong exact type");
 }
 
+void test_mutation_entry() {
+  const std::string source = R"({
+    "format_version":"grammar-definition-v2",
+    "entry":{"nonterminal":"Fixed","type":"Int"},
+    "inputs":[],"locals":[],"templates":[],
+    "search_limits":{"max_nodes":8,"max_depth":6},
+    "execution_limits":{"fuel":100},
+    "nonterminals":[
+      {"id":"Fixed","type":"Int","scope":[],"mutation_entry":"Donor",
+       "alternatives":[{"id":"fixed","weight":1,"expression":{"constant":{
+         "type":"Int","range":["-8","8"],
+         "sample_from":{"type":"Int","values":["2"]}}}}]},
+      {"id":"Donor","type":"Int","scope":[],"variation":false,
+       "alternatives":[{"id":"seven","weight":1,"expression":{
+         "constant":{"type":"Int","values":["7"]}}}]}
+    ]})";
+  const auto grammar = std::make_shared<const CompiledGrammar>(compile(source));
+  const auto parent = generate_derivation(*grammar, 3).genome;
+  const auto value = [](const ProgramGenome& genome) {
+    return genome.ast.consts.at(genome.ast.nodes.at(3).i0).i;
+  };
+  check(value(parent) == 2, "mutation entry changed ordinary construction");
+  auto construction = entry_request(*grammar);
+  construction.stage = GenerationStage::Mutation;
+  check(value(generate_derivation(*grammar, 3, construction).genome) == 2,
+      "nested mutation construction incorrectly redirected a nonterminal");
+  VariationContext context(grammar);
+  const auto child = mutate(parent, 19, context, 1.0);
+  check(value(child) == 7, "subtree mutation ignored its construction entry");
+  check(context.analyze(child)->sites.size() == 1,
+      "mutated child lost destination membership or exposed helper sites");
+
+  auto escaping = source;
+  escaping.replace(escaping.find("[\"7\"]"), 5, "[\"9\"]");
+  const auto escaping_grammar = std::make_shared<const CompiledGrammar>(compile(escaping));
+  VariationContext escaping_context(escaping_grammar);
+  const auto escaping_parent = generate_derivation(*escaping_grammar, 3).genome;
+  check(value(mutate(escaping_parent, 19, escaping_context, 1.0)) == 2,
+      "mutation entry bypassed destination membership");
+
+  // A differently typed construction entry is rejected before generation.
+  auto invalid = source;
+  const auto position = invalid.find("\"id\":\"Donor\",\"type\":\"Int\"");
+  check(position != std::string::npos, "mutation entry fixture lost donor declaration");
+  invalid.replace(position, std::string("\"id\":\"Donor\",\"type\":\"Int\"").size(),
+      "\"id\":\"Donor\",\"type\":\"Bool\"");
+  bool rejected = false;
+  try { (void)compile(invalid); }
+  catch (const std::invalid_argument& error) {
+    rejected = std::string(error.what()).find("mutation_entry") != std::string::npos;
+  }
+  check(rejected, "mutation entry accepted a different exact type");
+}
+
 }  // namespace
 
 int main() {
   try {
     test_destination_local_donor_contract();
     test_exact_budget_and_template_nesting_boundaries();
+    test_worker_frame_cost_cache_identity_and_keys();
     test_malformed_site_rejection();
+    test_mutation_entry();
     std::cout << "grammar donor facade: contextual payload, inputs, provenance, and boundaries passed\n";
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';

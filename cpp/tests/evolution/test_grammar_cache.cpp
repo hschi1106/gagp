@@ -95,6 +95,56 @@ void test_materialized_payloads() {
   payload::register_string(b, "world");
   check(key(constant(a)) != key(constant(b)), "decoded payload omitted");
 }
+void test_structure_identity_without_copy() {
+  auto ast = constant(Value::from_int(7)).ast;
+  ast.names = {"a|b", "c:d"};
+  ast.lexical_regions.emplace_back();
+  ast.traversal_specs.emplace_back();
+  ast.fuel_specs.emplace_back();
+  ast.bounded_region_specs.emplace_back();
+  const auto original = ast_cache_key(ast);
+  auto structure = ast;
+  structure.consts.clear();
+  check(ast_structure_cache_key(ast) == ast_cache_key(structure),
+        "direct structure encoding differs from copied AST with empty pool");
+  check(ast_cache_key(ast) == original,
+        "structure identity modified its input constant pool");
+  ast.consts = {Value::invalid()};
+  check(ast_structure_cache_key(ast) == ast_cache_key(structure),
+        "structure identity unexpectedly encoded constant transport values");
+}
+void test_direct_constant_encoding() {
+  const std::vector<Value> values{
+      Value::from_int(std::numeric_limits<std::int64_t>::min()),
+      Value::from_int(0), Value::from_int(std::numeric_limits<std::int64_t>::max()),
+      Value::from_float(0.0), Value::from_float(-0.0), Value::from_float(1.25),
+      Value::from_float(std::numeric_limits<double>::denorm_min()),
+      Value::from_float(std::numeric_limits<double>::max()),
+      Value::from_bool(false), Value::from_bool(true),
+      Value::from_char(0), Value::from_char('"'), Value::from_char(0x10ffff),
+      payload::make_string_value("quoted\"\\\n\t"),
+      payload::make_int_list_value({Value::from_int(-1), Value::from_int(2)}),
+      payload::make_float_list_value({Value::from_float(-0.0)}),
+      payload::make_string_list_value({payload::make_string_value("x")})};
+  for (const auto& value : values)
+    check(canonical_constant_encoding(value) == canonical_json(encode_constant(value)),
+          "direct constant encoding changed canonical bytes");
+  for (unsigned count = 0; count < 32; ++count) {
+    std::vector<Value> ints, floats, strings;
+    for (unsigned i = 0; i < count; ++i) {
+      ints.push_back(Value::from_int(i % 2 ? std::numeric_limits<std::int64_t>::min() : i));
+      floats.push_back(Value::from_float(i % 2 ? -0.0 : std::numeric_limits<double>::denorm_min()));
+      strings.push_back(payload::make_string_value(std::string(i, '\0') + "\"\\\n\t\xF0\x9F\x98\x80"));
+    }
+    for (const auto& value : {payload::make_int_list_value(ints),
+         payload::make_float_list_value(floats), payload::make_string_list_value(strings)})
+      check(canonical_constant_encoding(value) == canonical_json(encode_constant(value)),
+            "direct list encoding differs from canonical artifact serialization");
+  }
+  rejects([] { canonical_constant_encoding(Value::from_char(0xd800)); });
+  rejects([] { canonical_constant_encoding(Value::from_float(
+      std::numeric_limits<double>::quiet_NaN())); });
+}
 void test_rejections() {
   const auto genome = constant(Value::from_int(1));
   rejects([&] { runtime_cache_identity(genome, {}, 0); });
@@ -108,6 +158,8 @@ void test_rejections() {
 int main() {
   try {
     test_identity();
+    test_structure_identity_without_copy();
+    test_direct_constant_encoding();
     test_materialized_payloads();
     test_rejections();
     std::cout << "grammar runtime cache identity: materialization and search independence passed\n";

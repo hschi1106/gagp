@@ -1,3 +1,7 @@
+#include "../../src/evolution/repro/pack_internal.hpp"
+#include "../../src/runtime/payload/staging.hpp"
+#include "../../src/evolution/repro/prep_internal.hpp"
+#include "gagp/runtime/payload/payload.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -58,7 +62,7 @@ void test_gpu_run_resources_reject_oversized_search_space() {
   const auto grammar = compile_shared(R"({
     "format_version":"grammar-definition-v2",
     "entry":{"nonterminal":"Main","type":"Int"},
-    "search_limits":{"max_nodes":513,"max_depth":4},
+    "search_limits":{"max_nodes":1025,"max_depth":4},
     "execution_limits":{"fuel":100},
     "nonterminals":[{"id":"Main","type":"Int","scope":[],"alternatives":[
       {"id":"one","weight":1,"expression":{"constant":{"type":"Int","values":["1"]}}}
@@ -73,7 +77,7 @@ void test_gpu_run_resources_reject_oversized_search_space() {
     (void)gagp::evo::repro::make_gpu_repro_run_resources(config);
   } catch (const std::invalid_argument& error) {
     check(std::string(error.what()).find(
-              "gpu reproduction mode capacity exceeded: generation request max_nodes=513") !=
+              "gpu reproduction mode capacity exceeded: generation request max_nodes=1025") !=
               std::string::npos,
           "GPU capacity diagnostic did not name the failed mode and limit");
     return;
@@ -209,6 +213,136 @@ bool same_candidate(const CandidateRange& left, const CandidateRange& right) {
          left.template_nesting == right.template_nesting &&
          left.donor_offset == right.donor_offset &&
          left.donor_count == right.donor_count;
+}
+
+void test_disabled_mutation_skips_speculative_analysis() {
+  const auto grammar = split_nonterminal_grammar();
+  std::vector<ProgramGenome> population(128,
+      gagp::evo::repro::compact_genome_tables(generate_derivation(*grammar, 1).genome));
+  auto config = compiled_config(*grammar, population.size());
+  config.compiled_pass = gagp::evo::repro::CompiledVariationPass::Mutation;
+  config.mutation_ratio = 0.0;
+  VariationContext context(grammar), reference_context(grammar);
+  const auto result = gagp::evo::repro::preprocess_population(population, config, context);
+  const auto reference = gagp::evo::repro::preprocess_population(
+      population, config, reference_context, nullptr, false);
+  check(result.donor_pool.empty(), "disabled mutation generated donors");
+  check(context.cache().counters().hits + context.cache().counters().misses == population.size(),
+        "disabled mutation redundantly analyzed speculative donor parents");
+  check(result.compatibility_keys == reference.compatibility_keys &&
+            result.population_identities == reference.population_identities,
+        "disabled mutation changed source or compatibility identities");
+  for (std::size_t i = 0; i < population.size(); ++i) {
+    check(result.candidates[i].size() == reference.candidates[i].size(),
+          "disabled mutation changed candidate count");
+    for (std::size_t j = 0; j < result.candidates[i].size(); ++j)
+      check(same_candidate(result.candidates[i][j], reference.candidates[i][j]),
+            "disabled mutation changed candidate selection or order");
+  }
+}
+
+void test_prefetched_parent_analysis_matches_sequential() {
+  const auto grammar = split_nonterminal_grammar();
+  std::vector<ProgramGenome> population(128,
+      gagp::evo::repro::compact_genome_tables(generate_derivation(*grammar, 1).genome));
+  auto config = compiled_config(*grammar, population.size());
+  config.compiled_pass = gagp::evo::repro::CompiledVariationPass::Mutation;
+  config.mutation_ratio = 1.0;
+  config.mutation_subtree_ratio = 1.0;
+  VariationContext context(grammar), reference_context(grammar);
+  const auto result = gagp::evo::repro::preprocess_population(population, config, context);
+  gagp::payload::StagedPayloads transaction;
+  // An enclosing transaction forces the original per-seed donor path and must
+  // not attempt a nested snapshot or commit for the parent-analysis handoff.
+  const auto reference = [&] {
+    gagp::payload::StagedPayloads::Scope scope(transaction);
+    return gagp::evo::repro::preprocess_population(population, config, reference_context);
+  }();
+  check(result.population_identities == reference.population_identities &&
+            result.compatibility_keys == reference.compatibility_keys &&
+            result.donor_identities == reference.donor_identities,
+        "prefetched parent analysis changed parent or donor identity/order");
+  check(!result.donor_pool.empty(), "prefetch oracle did not exercise donor generation");
+  for (std::size_t i = 0; i < population.size(); ++i) {
+    check(result.candidates[i].size() == reference.candidates[i].size(),
+          "prefetch oracle candidate count differs");
+    for (std::size_t j = 0; j < result.candidates[i].size(); ++j)
+      check(same_candidate(result.candidates[i][j], reference.candidates[i][j]),
+            "prefetched parent analysis changed candidate or donor slices");
+  }
+}
+
+void test_warmed_population_handoff() {
+  const auto grammar = split_nonterminal_grammar();
+  const auto token = Value::from_string_hash_len(17823649, 5);
+  for (const bool changed_payload : {false, true}) {
+    gagp::payload::register_string(token, "alive");
+    auto member = gagp::evo::repro::compact_genome_tables(
+        generate_derivation(*grammar, 1).genome);
+    // Unused constants still belong to the exact runtime identity and its
+    // payload read dependencies; changing one must invalidate the handoff.
+    member.ast.consts.push_back(token);
+    std::vector<ProgramGenome> population(128, member);
+    auto config = compiled_config(*grammar, population.size());
+    config.compiled_pass = gagp::evo::repro::CompiledVariationPass::Mutation;
+    config.mutation_ratio = 1.0;
+    config.mutation_subtree_ratio = 1.0;
+    VariationContext context(grammar), reference_context(grammar);
+    std::vector<gagp::evo::grammar::WarmPopulationMember> handoff;
+    context.cache().warm_population(population, context.requests(), 8, &handoff);
+    reference_context.cache().warm_population(population, reference_context.requests());
+    check(handoff.size() == population.size(), "warm handoff lost population rows");
+    if (changed_payload) gagp::payload::register_string(token, "other");
+    for (const auto& row : handoff) {
+      if (row.reads)
+        check(row.reads->read_snapshot_unchanged() != changed_payload,
+              "warm handoff did not track payload contents");
+    }
+    const auto result = gagp::evo::repro::preprocess_warmed_population(
+        population, config, context, nullptr, true, handoff);
+    const auto reference = gagp::evo::repro::preprocess_population(
+        population, config, reference_context);
+    check(result.population_identities == reference.population_identities &&
+              result.compatibility_keys == reference.compatibility_keys &&
+              result.donor_identities == reference.donor_identities,
+          "warm handoff changed identities or registry order");
+    check(!result.donor_pool.empty(), "warm handoff oracle generated no donors");
+    for (std::size_t i = 0; i < population.size(); ++i) {
+      check(result.candidates[i].size() == reference.candidates[i].size(),
+            "warm handoff changed candidate count");
+      for (std::size_t j = 0; j < result.candidates[i].size(); ++j)
+        check(same_candidate(result.candidates[i][j], reference.candidates[i][j]),
+              "warm handoff changed candidates or donor slices");
+      if (changed_payload && handoff[i].analysis)
+        check(result.population_identities[i] != handoff[i].runtime_identity,
+              "changed payload reused stale runtime identity");
+    }
+    const auto packed = gagp::evo::repro::pack_warmed_population(
+        population, result, config, handoff);
+    const auto ordinary = gagp::evo::repro::pack_population(population, result, config);
+    check(packed.program_name_ids == ordinary.program_name_ids &&
+              packed.compatibility_keys == ordinary.compatibility_keys &&
+              packed.program_nodes.size() == ordinary.program_nodes.size(),
+          "warm packing changed names, contracts or node counts");
+    for (std::size_t i = 0; i < packed.program_nodes.size(); ++i)
+      check(packed.program_nodes[i].kind == ordinary.program_nodes[i].kind &&
+                packed.program_nodes[i].i0 == ordinary.program_nodes[i].i0 &&
+                packed.program_nodes[i].i1 == ordinary.program_nodes[i].i1,
+            "warm packing changed physical nodes");
+    auto forged = result;
+    forged.population_identities.front() = "forged";
+    rejects_invalid([&] { (void)gagp::evo::repro::pack_warmed_population(
+        population, forged, config, handoff); }, "warm packing accepted forged identity");
+    if (changed_payload && handoff.front().analysis) {
+      forged.population_identities.front() = handoff.front().runtime_identity;
+      rejects_invalid([&] { (void)gagp::evo::repro::pack_warmed_population(
+          population, forged, config, handoff); }, "warm packing accepted expired payload identity");
+    }
+    // Retention is bounded even when the population exceeds cache capacity.
+    population.push_back(member);
+    context.cache().warm_population(population, context.requests(), 8, &handoff);
+    check(handoff.empty(), "warm handoff exceeded cache retention bound");
+  }
 }
 
 void test_exact_contracts_and_shared_occurrences() {
@@ -416,6 +550,41 @@ void test_determinism_packing_ownership_and_guards() {
   const auto replay = gagp::evo::repro::preprocess_population(
       population, config, replay_context);
   check_deterministic_prep(prep, replay);
+  const auto crossover_only = gagp::evo::repro::preprocess_population(
+      population, config, replay_context, nullptr, false);
+  check(crossover_only.donor_pool.empty() && crossover_only.donor_contracts.empty(),
+        "crossover-only preparation built unused mutation donors");
+  check(crossover_only.candidates.size() == prep.candidates.size(),
+        "omitting donors changed candidate population");
+  for (std::size_t p = 0; p < prep.candidates.size(); ++p) {
+    check(crossover_only.candidates[p].size() == prep.candidates[p].size(),
+          "omitting donors changed candidate count");
+    for (std::size_t i = 0; i < prep.candidates[p].size(); ++i) {
+      const auto& a = prep.candidates[p][i];
+      const auto& b = crossover_only.candidates[p][i];
+      check(a.occurrence_offset == b.occurrence_offset &&
+            a.occurrence_count == b.occurrence_count &&
+            a.compatibility_id == b.compatibility_id && b.donor_count == 0,
+            "omitting donors changed site sampling or contracts");
+    }
+  }
+  const auto crossover_packed = gagp::evo::repro::pack_population(population, crossover_only, config);
+  check(crossover_packed.config.compiled_donor_count == 0,
+        "empty crossover donor pool did not pack");
+
+  auto constant_config = config;
+  constant_config.compiled_pass = gagp::evo::repro::CompiledVariationPass::Mutation;
+  constant_config.mutation_ratio = 1.0;
+  constant_config.mutation_subtree_ratio = 0.0;
+  const auto constant_only = gagp::evo::repro::preprocess_population(
+      population, constant_config, replay_context);
+  for (const int stream : constant_only.parent_constant_streams)
+    check(constant_only.constant_mutation->streams.at(stream).group_count > 0,
+          "constant-only preparation fixture has no eligible group");
+  check(constant_only.donor_pool.empty() && constant_only.donor_contracts.empty(),
+        "constant-only mutation prepared unreachable subtree donors");
+  check(constant_only.candidates.size() == prep.candidates.size(),
+        "constant-only mutation removed parent candidate tables");
 
   const auto packed = gagp::evo::repro::pack_population(population, prep, config);
   check(packed.compiled_grammar == prep.compiled_grammar &&
@@ -476,10 +645,10 @@ void test_determinism_packing_ownership_and_guards() {
             required_max_consts <= gagp::evo::repro::kGpuReproMaxConsts &&
             required_max_donor_nodes <= gagp::evo::repro::kGpuReproKernelMaxNodes,
         "fixture unexpectedly exceeded the supported compiled packing capacities");
-  check(packed.config.max_names == required_max_names &&
-            packed.config.max_consts == required_max_consts &&
+  check(packed.config.max_names == std::min(gagp::evo::repro::kGpuReproMaxNames, 2 * required_max_names) &&
+            packed.config.max_consts == std::min(gagp::evo::repro::kGpuReproMaxConsts, 2 * required_max_consts) &&
             packed.config.max_donor_nodes == required_max_donor_nodes,
-        "compiled packing prescan did not grow exact capacities from one");
+        "compiled packing prescan did not reserve bounded splice table unions");
 
   for (std::size_t p = 0; p < prep.candidates.size(); ++p) {
     const std::size_t valid_count = prep.candidates[p].size();
@@ -601,6 +770,9 @@ void test_determinism_packing_ownership_and_guards() {
 
 int main() {
   try {
+    test_disabled_mutation_skips_speculative_analysis();
+    test_prefetched_parent_analysis_matches_sequential();
+    test_warmed_population_handoff();
     test_gpu_run_resources_reject_oversized_search_space();
     test_exact_contracts_and_shared_occurrences();
     test_determinism_packing_ownership_and_guards();

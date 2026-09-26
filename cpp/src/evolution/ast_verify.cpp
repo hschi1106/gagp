@@ -5,6 +5,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include "gagp/evolution/bounded_region.hpp"
 #include "gagp/evolution/fuel_events.hpp"
@@ -111,7 +112,7 @@ class StructuralVerifier {
 
     result_.ok = true;
     result_.diagnostic = VerifyDiagnostic{};
-    return result_;
+    return std::move(result_);
   }
 
  private:
@@ -136,37 +137,37 @@ class StructuralVerifier {
     return true;
   }
 
-  bool valid_const(int value, std::size_t node_index, const std::string& path) {
-    if (value < 0 || static_cast<std::size_t>(value) >= ast_.consts.size()) {
-      return fail_bool(VerifyCode::ConstantIndexOutOfRange, node_index, path,
-                       "constant index is outside the consts table");
-    }
-    return true;
-  }
-
   bool validate_index_role(NodeIndexRole role, int value, std::size_t node_index,
-                           const std::string& path) {
+                           const char* field) {
+    // Valid nodes need no diagnostic path allocation.
+    const auto path = [&] { return node_path(node_index) + field; };
     switch (role) {
       case NodeIndexRole::Unused:
         if (value != 0) {
-          return fail_bool(VerifyCode::InvalidIndexField, node_index, path,
+          return fail_bool(VerifyCode::InvalidIndexField, node_index, path(),
                            "unused node index field must be zero");
         }
         return true;
       case NodeIndexRole::Name:
-        return valid_name(value, node_index, path);
+        if (value < 0 || static_cast<std::size_t>(value) >= ast_.names.size())
+          return fail_bool(VerifyCode::NameIndexOutOfRange, node_index, path(),
+                           "name index is outside the names table");
+        return true;
       case NodeIndexRole::Constant:
-        return valid_const(value, node_index, path);
+        if (value < 0 || static_cast<std::size_t>(value) >= ast_.consts.size())
+          return fail_bool(VerifyCode::ConstantIndexOutOfRange, node_index, path(),
+                           "constant index is outside the consts table");
+        return true;
       case NodeIndexRole::BinderId:
         if (value < 0 || value == std::numeric_limits<int>::max()) {
-          return fail_bool(VerifyCode::InvalidIndexField, node_index, path,
+          return fail_bool(VerifyCode::InvalidIndexField, node_index, path(),
                            "binder id must be in the public non-negative id range");
         }
         return true;
       case NodeIndexRole::DynamicArity:
         if (value < 0 ||
             static_cast<std::size_t>(value) > kBoundedRegionArityCapacity) {
-          return fail_bool(VerifyCode::InvalidIndexField, node_index, path,
+          return fail_bool(VerifyCode::InvalidIndexField, node_index, path(),
                            "dynamic prefix arity is outside the supported range");
         }
         return true;
@@ -241,8 +242,8 @@ class StructuralVerifier {
                          "node kind is outside the current descriptor table");
       }
       const NodeDescriptor& descriptor = node_descriptor(node.kind);
-      if (!validate_index_role(descriptor.i0_role, node.i0, i, node_path(i) + ".i0")) return false;
-      if (!validate_index_role(descriptor.i1_role, node.i1, i, node_path(i) + ".i1")) return false;
+      if (!validate_index_role(descriptor.i0_role, node.i0, i, ".i0")) return false;
+      if (!validate_index_role(descriptor.i1_role, node.i1, i, ".i1")) return false;
     }
     for (std::size_t i = 0; i < ast_.consts.size(); ++i) {
       if (!is_public_value_tag(ast_.consts[i].tag)) {
@@ -598,39 +599,43 @@ class StructuralVerifier {
       }
     }
 
-    std::set<std::size_t> seen_fuel;
+    std::vector<bool> seen_fuel(ast_.fuel_specs.empty() ? 0 : ast_.nodes.size(), false);
     for (std::size_t i = 0; i < ast_.fuel_specs.size(); ++i) {
       const NodeFuelSpec& row = ast_.fuel_specs[i];
-      const std::string path = "$.fuel_specs[" + std::to_string(i) + "]";
+      const auto path = [&] { return "$.fuel_specs[" + std::to_string(i) + "]"; };
       if (row.node_index >= ast_.nodes.size()) {
         return fail_bool(VerifyCode::MetadataNodeMismatch, row.node_index,
-                         path + ".node_index",
+                         path() + ".node_index",
                          "fuel metadata node_index does not identify a node");
       }
-      if (!check_unique(&seen_fuel, row.node_index, path)) return false;
+      if (seen_fuel[row.node_index])
+        return fail_bool(VerifyCode::DuplicateMetadata, row.node_index, path() + ".node_index",
+                         "structured node has duplicate side-table metadata");
+      seen_fuel[row.node_index] = true;
       if (row.charges.empty()) {
         return fail_bool(VerifyCode::MissingMetadata, row.node_index,
-                         path + ".charges",
+                         path() + ".charges",
                          "fuel metadata must contain at least one charge");
       }
-      std::set<FuelEvent> seen_events;
       for (std::size_t j = 0; j < row.charges.size(); ++j) {
         const FuelCharge& charge = row.charges[j];
-        const std::string charge_path =
-            path + ".charges[" + std::to_string(j) + "]";
-        if (!seen_events.insert(charge.event).second) {
+        const auto charge_path = [&] {
+          return path() + ".charges[" + std::to_string(j) + "]";
+        };
+        if (std::any_of(row.charges.begin(), row.charges.begin() + j,
+                        [&](const FuelCharge& earlier) { return earlier.event == charge.event; })) {
           return fail_bool(VerifyCode::DuplicateMetadata, row.node_index,
-                           charge_path + ".event",
+                           charge_path() + ".event",
                            "fuel events must be unique within a node profile");
         }
         if (!supports_fuel_event(ast_.nodes[row.node_index].kind, charge.event)) {
           return fail_bool(VerifyCode::MetadataNodeMismatch, row.node_index,
-                           charge_path + ".event",
+                           charge_path() + ".event",
                            "fuel event is not supported by the owning node kind");
         }
         if (charge.cost > static_cast<std::uint32_t>(std::numeric_limits<int>::max())) {
           return fail_bool(VerifyCode::InvalidIndexField, row.node_index,
-                           charge_path + ".cost",
+                           charge_path() + ".cost",
                            "fuel charge cost exceeds INT_MAX");
         }
       }

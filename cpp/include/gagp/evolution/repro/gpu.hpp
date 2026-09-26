@@ -20,6 +20,8 @@ std::shared_ptr<GpuReproRunResources> make_gpu_repro_run_resources(const Evoluti
 void append_gpu_repro_run_payload_roots(
     const std::shared_ptr<GpuReproRunResources>& resources, std::vector<Value>* roots);
 
+struct PreparedParentCertificates;
+
 struct GpuReproPreparedData {
   GpuReproConfig config;
   PackedHostData packed;
@@ -27,6 +29,7 @@ struct GpuReproPreparedData {
   // Prepared runs are sequential, like the shared GPU arena they use.
   std::shared_ptr<grammar::VariationContext> compiled_context;
   grammar::VariationCounters preparation_counters;
+  std::shared_ptr<const PreparedParentCertificates> parent_certificates;
   std::shared_ptr<GpuReproRunResources> run_resources;
 
 };

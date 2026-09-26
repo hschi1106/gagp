@@ -131,10 +131,43 @@ bool test_verified_compile_reuses_and_validates_annotations() {
   return check(false, "verified compile should reject annotations for another AST shape");
 }
 
+bool test_sequential_loops_reuse_only_hidden_locals() {
+  AstProgram ast;
+  ast.names = {"count", "i"};
+  ast.consts = {Value::from_int(0), Value::from_int(1), Value::from_int(2)};
+  ast.nodes = {{NodeKind::PROGRAM, 0, 0}, {NodeKind::BLOCK_CONS, 0, 0},
+               {NodeKind::ASSIGN, 0, 0}, {NodeKind::CONST, 0, 0},
+               {NodeKind::BLOCK_CONS, 0, 0}, {NodeKind::ASSIGN, 1, 0},
+               {NodeKind::CONST, 0, 0}};
+  for (int i = 0; i < 40; ++i) {
+    const std::vector<AstNode> loop{
+        {NodeKind::BLOCK_CONS, 0, 0}, {NodeKind::FOR_RANGE, 1, 0},
+        {NodeKind::CONST, 2, 0}, {NodeKind::BLOCK_CONS, 0, 0},
+        {NodeKind::ASSIGN, 0, 0}, {NodeKind::ADD, 0, 0},
+        {NodeKind::VAR, 0, 0}, {NodeKind::CONST, 1, 0},
+        {NodeKind::BLOCK_NIL, 0, 0}};
+    ast.nodes.insert(ast.nodes.end(), loop.begin(), loop.end());
+  }
+  const std::vector<AstNode> tail{{NodeKind::BLOCK_CONS, 0, 0},
+      {NodeKind::RETURN, 0, 0}, {NodeKind::ADD, 0, 0},
+      {NodeKind::VAR, 0, 0}, {NodeKind::VAR, 1, 0}, {NodeKind::BLOCK_NIL, 0, 0}};
+  ast.nodes.insert(ast.nodes.end(), tail.begin(), tail.end());
+  const auto verified = gagp::evo::verify_ast(ast, {});
+  if (!check(verified.ok, "sequential loop fixture must verify")) return false;
+  const auto program = gagp::evo::compile_for_eval(genome(ast), verified.verified);
+  if (!check(program.n_locals <= 64, "sequential loop temporaries must fit GPU limits"))
+    return false;
+  const auto result = gagp::execute_bytecode_cpu(program, {}, 10000);
+  return check(!result.is_error && result.value.tag == gagp::ValueTag::Int &&
+                   result.value.i == 81,
+               "named count and loop variable must survive temporary reuse");
+}
+
 }  // namespace
 
 int main() {
   if (!test_for_range_bound_is_evaluated_once()) return 1;
+  if (!test_sequential_loops_reuse_only_hidden_locals()) return 1;
   if (!test_logical_operators_short_circuit()) return 1;
   if (!test_verified_compile_reuses_and_validates_annotations()) return 1;
   std::cout << "gagp_test_compiler_lowering: OK\n";

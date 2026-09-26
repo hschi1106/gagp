@@ -204,5 +204,8 @@ struct Limits {
 
 std::string ast_to_string(const AstProgram& program);
 std::string ast_cache_key(const AstProgram& program);
+// Same structure encoding as ast_cache_key with an empty constant pool. Callers
+// must separately include decoded constants before using this as an identity.
+std::string ast_structure_cache_key(const AstProgram& program);
 
 }  // namespace gagp::evo

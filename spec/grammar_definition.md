@@ -61,6 +61,22 @@ resolved model rather than trusting separately supplied cached strings or hashes
 ## Productions, expressions and scopes
 
 A nonterminal has `id`, `type`, `scope` and a nonempty `alternatives` array.
+It may declare Boolean `variation` (default `true`). When false, derivation
+choices for that nonterminal are excluded from subtree crossover/mutation site
+selection on both CPU and GPU. Descendant nonterminals retain their own policy;
+constant perturbation is governed separately by constant domains. Generation,
+membership and execution do not change. This policy is part of grammar identity.
+Extensions cannot change it; use an explicit definition/override.
+Optional `mutation_entry` names the nonterminal used to construct a subtree donor
+when this nonterminal is selected for mutation. The referenced rule must have the
+same exact type, category and ordered lexical scope. Ordinary construction, even
+inside a larger mutation donor, still uses this rule's own productions. The
+redirected request uses the mutation generation stage and the destination's
+physical and projected budgets. Redirection is applied once, not recursively.
+Destination membership and crossover remain unchanged; generated donors outside
+the destination language are rejected by normal offspring admission. This permits
+fixed construction values with broader standalone replacement distributions.
+The field participates in grammar identity and cannot be changed by an extension.
 Optional `category` defaults to Expression and also supports Program, Block and
 Statement. For structural categories, `type` is the enclosing program result contract,
 not a runtime value produced by a statement or block. Entry may be Expression or
@@ -68,6 +84,54 @@ Program, and its optional category must match the referenced nonterminal. Each
 alternative has `id`, a positive finite `weight`, and `expression`. Its stable
 production ID is `nonterminal-id/alternative-id`. Numeric IDs follow sorted stable
 IDs and are meaningful only with the grammar identity.
+
+An alternative may opt into a nonempty string `crossover_group`. For a site
+reconstructed through that alternative, group identity replaces the nonterminal
+ID and enclosing template/slot IDs in the crossover compatibility key. Exact
+result type, category, formal scope and available ordinary locals must still
+match. Ungrouped alternatives retain the original exact contract and never match
+grouped alternatives. Different groups never match. This permits explicitly
+interchangeable rules or holes while distinguishing alternatives with different
+structural roles. Grouping does not alter construction, mutation donor selection,
+atomic repeated-hole replacement, budgets or destination membership admission;
+an exchanged child outside its destination language is still rejected. Authors
+should group mutually admissible languages to avoid rejected offspring. The
+authored group is part of grammar identity and shared CPU/GPU site analysis.
+
+Grouped alternatives may additionally declare `crossover_scope: "closed"`
+(default `"exact"`). Canonical site analysis checks every physical occurrence
+for lexical closure, including REGION_VAR references and lexical bounded-region
+captures. A reference is internal only if its declaration lies inside the
+replaced subtree. Proven closed sites in the same group may exchange across
+different formal lexical contexts; ordinary local availability and exact result
+type/category still match. Sites with an external lexical capture retain exact
+scope matching and cannot match a proven closed site. The actual AST determines
+closure; the authored policy alone never certifies it. Mutation retains the full
+destination frame and its donor rules. CPU splice and GPU metadata reconstruction
+check the incoming payload before omitting external binder remapping. Atomic
+replacement, budget checks and destination membership remain in force. Without
+a crossover group this scope policy is rejected.
+
+An alternative may also declare `generation_stages`, an array containing distinct
+`"initial"` and/or `"mutation"` strings. Omission enables both stages; an empty
+array retains the production for membership but excludes it from generation.
+Unknown, duplicate or non-string stages are errors, including in overridden
+source definitions. This field filters every recursive production choice, not
+only the entry rule. Each alternative retains its own expression and constant
+domains, so stages may use different terminal ranges or skeletons without changing
+the nonterminal's type/scope identity. Positive weights are normalized over the
+feasible alternatives enabled for the selected stage.
+
+Membership, derivation reconstruction and crossover compatibility use the union
+of all alternatives, including membership-only productions. Generation stages do
+not impose an additional runtime validity restriction. Constant perturbation is
+not production generation and retains its separately defined domain policy.
+Compilation checks union productivity and computes stage-specific minimum costs;
+a nonterminal may be unproductive in one or both generation stages. A generation
+request fails if its selected stage cannot fit the budget, even when the union
+would fit. Disabled alternatives never provide an alias exit or a template-hole
+minimum. Unrestricted grammars share their existing cost tables and retain their
+sampling order and RNG consumption.
 
 A scope is an ordered array of `{name,type}` bindings. Binding names match
 `[A-Za-z_][A-Za-z0-9_]*`; duplicates and lexical shadowing are rejected. A reference
@@ -128,7 +192,8 @@ identity are versioned accordingly.
 
 ## Constant domains
 
-A domain has exactly `type` and one of `values` or `range`. `values` is a nonempty
+A domain has `type` and exactly one of `values`, `range`, or `sequence`.
+Only Float ranges additionally accept `quantization_scale`. `values` is a nonempty
 array of exact typed values. Int values use canonical decimal strings within signed
 64-bit bounds, preserving values beyond JSON binary64 integer precision. Float values
 are finite JSON numbers, Bool values are JSON booleans, Char values are strings
@@ -136,9 +201,135 @@ containing exactly one Unicode scalar, and String values are strings. Each typed
 value is an array of its element encoding; empty lists and strings are valid. Nested
 or heterogeneous lists are rejected.
 
-`range` is available only for Int and contains two inclusive decimal-string endpoints
-in ascending order. The full signed 64-bit range is valid. Constant domains own their
+`range` accepts Int or Float and contains two endpoints in ascending order.
+Int endpoints are decimal strings; membership and sampling are inclusive, and
+the full signed 64-bit range is valid. Float endpoints are finite JSON numbers;
+membership is inclusive and rejects nonfinite values. A numeric Float interval
+containing zero admits both signed zeros; finite `values` distinguish their signs.
+Constant domains own their
 decoded values and never identify strings/lists solely by runtime payload tokens.
+
+Float sampling consumes one RNG word, uses its upper 53 bits divided by `2^53`,
+and interpolates into `[minimum, maximum)`. Equal endpoints return the first
+endpoint exactly, including its zero sign. Arithmetic rounds each operation
+separately on CPU and GPU. When endpoint subtraction overflows, interpolation
+uses separately rounded `minimum * (1-fraction) + maximum * fraction`; otherwise
+it uses `minimum + fraction * (maximum-minimum)`. A result rounded to the upper
+endpoint is replaced by the adjacent Float toward the minimum; a result below
+the minimum is clamped to the minimum. This defines finite, reproducible samples
+even for the full finite binary64 interval and adjacent/subnormal endpoints.
+GPU scalar mutation samples this interval on-device without a finite host
+proposal table. This range constructor does not imply additive perturbation.
+
+An optional positive finite `quantization_scale` applies
+`round(sample * scale) / scale` after interval sampling, with ties away from zero
+and each arithmetic operation separately rounded. For example,
+`{"type":"Float","range":[-8,8],"quantization_scale":1000}` constructs
+three-decimal values, including signed zeros and both endpoints. It samples a
+continuous interval before rounding, not uniformly among grid points; endpoint
+cells retain their half-width. Both endpoints must round-trip through
+quantization unchanged and have rounded grid-index magnitude at most
+`2^50`. That bound retains enough precision to recover the integer grid index
+from a generated binary64 value. Membership additionally requires quantizing the
+value to leave it unchanged. Omission disables quantization; explicit zero,
+negative, nonfinite, off-grid or oversized configurations are rejected. The
+option is valid inside a FloatList element domain and is included in grammar
+identity and replay. It does not add a perturbation policy.
+
+Int and Float range domains may additionally declare `sample_from`, a same-type
+numeric domain used for generation and constant resampling. The outer range and
+its optional quantization still define membership. For example, a Float range
+`[-100,100]` can sample from `{"type":"Float","range":[-8,8],"quantization_scale":1000}`
+while accepting other finite values in the outer interval. Sampling does not
+clamp or re-quantize existing member values.
+
+The sampler is a non-nested domain with either finite `values` or a numeric
+`range`, optionally quantized for Float. Compilation proves it stays inside the
+outer membership domain: finite values are checked individually and range bounds
+must be contained. For quantized outer support, a non-singleton sampler range
+must use the same scale; a singleton must be a member. Different-scale range
+inclusions are rejected unless expressed as checked finite values. Recursive
+`sample_from`, type mismatches, non-range outer domains and escaping samplers
+are rejected. The option also works on numeric element domains within typed
+sequences. GPU preparation retains outer grammar identity while flattening the
+scalar sampler into its cached range/value descriptor. Default domains retain
+their original draws and membership behavior.
+
+A constant domain may declare `mutation: "resample"` (the default), `"keep"`, or
+`"flip"`. This controls only the selected logical constant mutation, not initial
+generation, subtree donors, membership, or candidate selection. `keep` is an
+accepted unchanged child: it remains eligible for selection and does not trigger
+subtree regeneration or count as fallback/rejection. `flip` requires a Bool domain
+containing both `false` and `true`, and complements the selected value without a
+replacement draw. Repeated occurrences of one logical constant change atomically;
+fixed template constants remain ineligible. CPU and GPU apply the same policies.
+GPU `keep` needs no value/proposal table and preserves existing payload roots.
+Unknown policies, non-Bool or one-sided `flip`, and `mutation` declarations inside
+`sample_from` or sequence element domains are rejected. Policy is part of grammar
+identity and replay; concrete constant artifacts cannot carry a mutation policy.
+
+Numeric range domains also accept a mutation object, for example:
+
+```json
+{"type":"Float","range":[-100,100],
+ "sample_from":{"type":"Float","range":[-8,8],"quantization_scale":1000},
+ "mutation":{"kind":"add","range":[-1,1],"gpu_grid_steps":65535}}
+```
+
+The mutation object's `range` describes an additive delta with the same type as
+the outer domain. Int endpoints use canonical decimal strings and are sampled
+uniformly, inclusively; Float endpoints are finite JSON numbers and use the same
+continuous half-open sampler as Float construction (including exact singleton
+ranges). The result is added to the current value without quantization or
+resampling from `sample_from`. This requires numeric range membership; finite
+membership sets and quantized outer Float ranges are rejected. Construction may
+still use a quantized `sample_from` domain.
+
+Optional `gpu_grid_steps` is Float-only and must be an integer in
+`[1,4294967295]`. CPU deltas remain continuous; GPU deltas instead select an
+equally weighted integer index `i` in `[0,steps]` and interpolate the closed
+delta range using `i/steps`. Both endpoints are included, multiplication and
+addition round separately, and overflowing interval width uses the weighted
+endpoint form. Thus `[-1,1]` with 65535 steps has 65536 equally weighted indices,
+including both endpoints and no zero. This is not rounding a continuous draw;
+it preserves a distinct declared GPU sampling law. Omission uses continuous
+sampling on both backends. Backend policy and grid size participate in grammar
+identity and replay.
+
+Signed Int overflow, nonfinite Float sums, and sums outside the outer membership
+range retain the previous value as an accepted unchanged result. They do not
+clamp to an endpoint, retry the draw, fall back to subtree mutation, or count as
+acceptance rejection. The original value must already satisfy membership. Each
+selected logical constant uses one delta, shared by all of its lowered copies;
+fixed constants and independent logical origins are unaffected.
+
+`sequence` contains exactly `length` and `element`. `length` is a pair of inclusive
+integer endpoints in `[0,65536]`, in ascending order. `element` is a constant
+domain: String requires Char, IntList requires Int, FloatList requires Float,
+and StringList requires String. Other outer types are rejected. This permits a
+StringList of bounded strings but never nested lists. String lengths count
+Unicode scalars, including NUL, rather than UTF-8 bytes. Sampling chooses the
+length uniformly and samples each element independently using its domain.
+Membership checks both bounds and every element under its own domain semantics.
+
+Sequence compilation rejects an expansion bound above 16 MiB. A finite scalar
+element costs eight units; a finite String costs eight plus its decoded byte
+length, maximized over its domain. A sequence costs eight plus maximum length
+times its element bound. This bounds construction; it neither changes runtime
+payload semantics nor reports actual allocator memory. Fixed template constants
+still require singleton `values`. Saved AST constants remain concrete singleton
+encodings, never domain generators.
+
+CPU constant mutation samples the domain directly. GPU preparation samples fresh
+sequence proposals, one per population member per sequence domain, from the full
+declared domain and preparation seed. Device mutation selects and installs a
+proposal. Shared proposals can correlate children; backend RNG trajectories are
+not required to match. They are preparation-local, not a run-level restricted
+grammar. Live immutable proposal snapshots retain payload roots across overlap.
+Preparation rejects more than one million total values or a sequence expansion
+bound above 256 MiB before sampling; it never truncates a domain or switches GPU
+reproduction to CPU. Finite values and integer-range tables retain their existing
+cached behavior and RNG consumption.
 
 ## Templates and fixed regions
 
@@ -171,6 +362,44 @@ than 2,147,483,647. Search settings never substitute for execution fuel. Additio
 structured execution bounds will be specified with their primitive descriptors.
 The `entry_fuel` field of a bounded `RegionPlan` charges region-frame entry and is
 independent of a bounded expression's optional node-level `fuel_events` profile.
+
+Concrete materialized expressions may additionally declare
+`"resource_charge":{"nodes":1,"depth":1,"resets_depth":false}`. All three
+fields are required; nodes must be an integer in `[0,65536]`, depth an integer
+in `[0,256]`, and resets_depth a Boolean. Omission means one node, one depth
+level and no reset. This annotation is permitted on constants, bindings, locals,
+control nodes, executable primitives and bounded structured nodes, including
+fixed template bodies. References, template invocations, holes and abstract
+nonmaterialized primitives cannot own a charge.
+
+`project_derivation_resources` reconstructs canonical grammar membership and
+projects these charges over the verified materialized tree. Node charges sum;
+depth charges accumulate along a path and a reset starts depth accounting anew
+at that node. Earlier ancestor peaks still count. Each physical occurrence of a
+repeated hole contributes its own charge. Implicit expression envelopes have
+the default unit charge; use an explicit Program production to author different
+structural charges. Attached provenance is not trusted for this calculation.
+Ambiguous derivations use the canonical reconstructed membership witness, not
+an asserted seed history. Charges participate in grammar identity and do not
+change program ASTs or execution fuel.
+
+This projection is currently an accounting interface. The serialized
+`search_limits`, generation feasibility and production variation limits still
+count physical nodes/depth; resource annotations alone never authorize a larger
+search space. Enforcing separate projected budgets remains pending integration.
+
+`joint_resource_frontier` computes nondominated structural construction costs
+within both a request's physical limits and supplied projected node/depth limits.
+Each row retains physical node count and projected node/carried-depth/reset-depth
+costs from one derivation. Production stages apply. A repeated template hole
+selects one shared cost alternative at its tightest physical depth, rather than
+mixing alternatives independently across copies. Reference cycles use a bounded
+fixed point over physical depth. Unproductive joint budgets return an empty set;
+state-capacity or construction-work exhaustion throws rather than silently
+discarding feasible alternatives. The default retained-state cap is 1,000,000;
+construction work is capped at 64,000,000 steps. This is derivation-based structural
+feasibility, not native validity or contextual-frame admission; ambiguous
+membership choices must still be resolved when enforcing a projected budget.
 
 Compilation is bounded to 4,096 nonterminals, 4,096 templates, 65,536 productions,
 and 65,536 compiled expressions. It rejects every nonterminal lacking a finite
@@ -335,8 +564,9 @@ independent `assign(T)->Statement` and `return(T)->Statement` signatures for eac
 of the eight value types. Assignment and ForRange require a target/index name.
 Their categories and prefix arities are checked against native node descriptors.
 Structural productions use `{"control":"return(Int)->Statement","type":"Int","args":[{"constant":{"type":"Int","values":["7"]}}]}` and analogous exact control
-keys. Named controls require `name` referring to a declared local of the exact
-assignment/index type. Other controls reject a target name. Each child must match
+keys. Named controls require exactly one of `name` (a declared local) or
+`input_name` (a declared input) of the exact assignment/index type. Other
+controls reject both target fields. Each child must match
 its required syntax category; structural children carry the same enclosing result
 type. Return's exact value type must agree with that contract. Categories constrain
 nesting, so a block cannot be substituted into a value-expression argument.
@@ -369,7 +599,7 @@ implements variation/reconstruction acceptance.
 
 Generation/derivation cache identity includes canonical grammar content and all
 schema/catalog/normalization versions, generator/RNG version, requested nonterminal,
-exact context/binding mapping, search and execution limits, fixture input-schema
+exact context/binding mapping, generation stage, search and execution limits, fixture input-schema
 identity and the configured payload-seeding policy. Changing production weights or
 transitive content invalidates construction caches. Node-analysis/variation caches
 also include materialized AST content, scope/provenance identity and destination
@@ -579,8 +809,17 @@ checks the grammar entry and full limits. Executability preflight follows the re
 nonterminal, so an unrelated unsupported default entry does not block another executable
 request. All recursive production choices remain within that request's structural budget.
 
+Generation requests default to the `initial` stage. CPU subtree mutation and GPU
+donor preparation select `mutation` through the shared donor request constructor.
+Contextual feasibility tables and analysis cache provenance distinguish the
+selected stage, including when available locals and budgets otherwise match.
+The stage does not enter crossover compatibility IDs. Both modes still require
+native verification and union membership for accepted children.
+
 Generated artifacts record `request` with `nonterminal`, `type`, `visible_environment`
-and `scope_mapping`; the request budget is the artifact's `search_limits`. Exact replay
+and `scope_mapping`; a non-default stage adds `generation_stage: "mutation"`.
+Omission means `initial`, preserving the default canonical encoding. The request
+budget is the artifact's `search_limits`. Exact replay
 reconstructs the request and validates the complete rematerialized artifact, including
 scope mapping and requested return type. Materialized execution still checks native
 validity independently of generation provenance. Immutable genome provenance retains
@@ -600,8 +839,12 @@ An isolated donor frame may supply native binder IDs aligned with its request's
 visible environment. IDs must be unique, valid and disjoint from declarations inside
 the donor. Generation reserves those IDs when allocating new region bindings.
 Private verification and lowering project captured references onto fresh temporary
-input names without changing node positions. The stored donor retains REGION_VAR
-references and requires its frame; this does not extend the standalone artifact
+input names without changing node positions. This projection includes external
+lexical captures in bounded-region parameter metadata, not just REGION_VAR nodes.
+Captures of bindings introduced inside the donor remain lexical; both lexical
+region declarations and bounded phase declarations must be disjoint from the
+external frame IDs. The stored donor retains REGION_VAR nodes and lexical capture
+metadata and requires its frame; this does not extend the standalone artifact
 input contract or permit unbound references in materialized execution.
 
 
@@ -656,3 +899,23 @@ variation scope mappings use formal positions rather than requiring identical
 physical binder IDs across occurrences. Lowered instruction budgets count both
 root and isolated phase bytecode; a phase cannot evade the budget by residing in a
 segment table.
+
+### Explicit input write targets
+
+A named control expression (`assign` or `for_range`) specifies exactly one of
+`name` (a declared local) or `input_name` (a declared input). The target's declared
+exact type must match the control signature. Input writes update the same native
+slot subsequently read by an `input` expression, for that execution only. They
+do not mutate the external case data. Other controls reject both target fields.
+Local declarations still cannot conflict with input names.
+
+### Production variation eligibility
+
+An alternative may set `variation` to `true` (default), `false`, or `"unbound"`.
+The owning nonterminal must also enable variation. `false` excludes the selected
+production's site without excluding descendant choices. `"unbound"` excludes
+that site when its materialized subtree contains a non-fixed lexical bound
+reference. Fixed references in template implementation bodies do not count;
+references supplied through holes do. Membership reconstruction, not imported
+provenance, determines fixed origins. This policy controls both subtree mutation
+and crossover candidate enumeration, and leaves constant perturbation unchanged.

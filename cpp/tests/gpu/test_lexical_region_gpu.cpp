@@ -440,12 +440,56 @@ bool test_sequence_and_result_matrix() {
   return true;
 }
 
+// More than 64 hidden declarations, but only one traversal is live at a time.
+// The outer binding must remain live through all siblings and repeated execution.
+bool test_sibling_traversals_reuse_temporary_storage() {
+  constexpr int count = 12;
+  std::vector<Expr> terms;
+  for (int i = 0; i < count; ++i) {
+    const int base = 1000 + 3 * i;
+    terms.push_back(traverse(
+        leaf(NodeKind::CONST, 0), leaf(NodeKind::CONST, 1),
+        leaf(NodeKind::REGION_VAR, 900),
+        binary(NodeKind::ADD, leaf(NodeKind::REGION_VAR, base),
+               leaf(NodeKind::REGION_VAR, base + 2))));
+  }
+  // A balanced sum keeps operand stack pressure independent of this slot test.
+  while (terms.size() > 1) {
+    std::vector<Expr> next;
+    for (std::size_t i = 0; i < terms.size(); i += 2) {
+      next.push_back(i + 1 == terms.size() ? terms[i] :
+          binary(NodeKind::ADD, terms[i], terms[i + 1]));
+    }
+    terms = std::move(next);
+  }
+  auto ast = return_program(let_region(leaf(NodeKind::VAR, 0),
+      binary(NodeKind::ADD, terms[0], leaf(NodeKind::REGION_VAR, 900))),
+      {gagp::payload::make_int_list_value({Value::from_int(1), Value::from_int(2)}),
+       Value::from_int(0)}, {"x"});
+  add_let(&ast, 3, 900, RType::Int);
+  const auto owners = indices(ast, NodeKind::TRAVERSE);
+  for (int i = 0; i < count; ++i) {
+    const int base = 1000 + 3 * i;
+    add_traversal(&ast, owners.at(i), TraversalDirection::Forward,
+                  base, RType::Int, base + 1, base + 2, RType::Int, 3);
+  }
+  const auto program = compile_checked(ast, {{"x", RType::Int}});
+  if (!check(program.n_locals <= 64, "disjoint traversal lifetimes must fit GPU locals"))
+    return false;
+  return compare_exact_boundary(program, {{0, Value::from_int(5)}},
+                                Value::from_int(101), 256, "sibling traversals") &&
+      compare_fitness(program, {{{0, Value::from_int(2)}}, {{0, Value::from_int(5)}}},
+                      {Value::from_int(62), Value::from_int(101)}, 4096, 1024,
+                      "sibling traversal changed inputs");
+}
+
 }  // namespace
 
 int main() {
   try {
     gagp::payload::clear();
-    if (!test_nested_lexical_and_changed_inputs(128) ||
+    if (!test_sibling_traversals_reuse_temporary_storage() ||
+        !test_nested_lexical_and_changed_inputs(128) ||
         !test_nested_range_directions(128) ||
         !test_sequence_and_result_matrix()) {
       return 1;

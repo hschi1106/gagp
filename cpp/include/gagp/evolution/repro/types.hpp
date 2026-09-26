@@ -10,6 +10,7 @@
 #include "gagp/core/value.hpp"
 #include "gagp/evolution/repro/constant_types.hpp"
 #include "gagp/evolution/ast_program.hpp"
+#include "gagp/evolution/grammar/resource_projection.hpp"
 
 namespace gagp::evo::grammar { class CompiledGrammar; }
 
@@ -36,7 +37,7 @@ struct DonorContract {
 
 constexpr int kGpuReproMaxNames = 128;
 constexpr int kGpuReproMaxConsts = 128;
-constexpr int kGpuReproKernelMaxNodes = 512;
+constexpr int kGpuReproKernelMaxNodes = 1024;
 constexpr int kGpuReproDonorTypeCount = 9;
 
 enum class CandidateTag {
@@ -63,6 +64,10 @@ struct CandidateRange {
   int template_nesting = 0;
   int donor_offset = 0;
   int donor_count = 0;
+  bool has_projected_allowance = false;
+  grammar::ProjectedAllowance projected_allowance;
+  grammar::ProjectedResources projected_resources;
+  bool crossover_closed = false;
 };
 
 struct PlainNode {

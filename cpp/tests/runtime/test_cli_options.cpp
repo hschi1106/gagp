@@ -80,6 +80,21 @@ int main() {
   }
 
   expect_error({"cli"}, "--cases is required");
+  {
+    const auto opts = parse({"cli", "--cases", "c", "--grammar-definition", "g",
+                             "--population-roots", "RootInt,RootFloat"});
+    assert((opts.population_roots == std::vector<std::string>{"RootInt", "RootFloat"}));
+  }
+  for (const auto& roots : {"", ",A", "A,", "A,,B"})
+    expect_error({"cli", "--cases", "c", "--grammar-definition", "g",
+                  "--population-roots", roots},
+                 "--population-roots requires nonempty comma-separated root IDs");
+  expect_error({"cli", "--cases", "c", "--grammar-definition", "g",
+                "--population-roots", "A", "--population-roots", "B"},
+               "--population-roots may be specified only once");
+  expect_error({"cli", "--cases", "c", "--eval-ast-json", "a",
+                "--population-roots", "A"},
+               "--population-roots applies to evolution, not --eval-ast-json");
   expect_error({"cli", "--cases"}, "missing value for --cases");
   expect_error({"cli", "--cases", "x"}, "--grammar-definition is required for evolution");
   expect_error({"cli", "--cases", "x", "--unknown"}, "unknown argument: --unknown");

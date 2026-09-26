@@ -1,0 +1,1623 @@
+{
+  "format_version": "goal-11-mapping-summary-v1",
+  "status": "pending",
+  "historical": {
+    "families": 18,
+    "workloads": 242,
+    "evolution_and_steady_manifest_sha256": "ca3730c7c5a2ac16dd273453b8c4c401f62c0b08c304634fceecde6a5c81ef92",
+    "reproduction_manifest_sha256": "38baf5582619a616302a93bdc8be228ea57e7c1b54cf1e7aea615aecd1828f9e",
+    "superseded_remaining_mapping_work": [
+      "Rebuild the full eleven-mode manifest after repairing search-space mappings, then measure every restored ablation combination on the final candidate.",
+      "Rebuild mappings that narrowed the original search space or partitioned mixed reproduction; the canonical effective-work audit disproves acceptance of the current replacement grammar."
+    ],
+    "superseded_universal_mapping_work": [
+      "Complete source/donor proposal and reachable offspring/crossover mapping for the six preselected workloads; retain full mixed populations and accepted name/type compatibility rules.",
+      "Complete the representative four-mode performance gate on the final candidate after repairing the material speedup regression; no eleven-mode exhaustive matrix is required."
+    ]
+  },
+  "goal_07_current_profiles": {
+    "profiles": 10,
+    "workloads": 80,
+    "manifest_sha256": "ef29b3a0d61dc2b3b1a1e19ccc12ffdb29283dd779b42e921082eae9917afaad",
+    "comparable_historical_pairs": 0,
+    "reason": "The profiles cover required types and general features but use different cases and population members."
+  },
+  "mapping_inventory": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-mapped-01/inventory.json",
+    "sha256": "f5b3e25ed583b971245e064322784c616d6e440a40ab35d8a6d5d26dc0007b7e"
+  },
+  "no_input_compatibility_roots": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-mapped-01/noinput/manifest.json",
+    "sha256": "e5403af231cb395465525eb6958bdf4967d613903f0672a8668b4adcb4221dfa",
+    "families": [
+      "linear_int",
+      "linear_float",
+      "linear_string",
+      "dc_int",
+      "dc_float"
+    ],
+    "population_sizes": [
+      64,
+      1024
+    ],
+    "frozen_cases_per_family": 1024,
+    "validation": "definition, generation, and one-generation CPU evolution passed"
+  },
+  "no_input_dp_roots": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-mapped-01/noinput-dp/manifest.json",
+    "sha256": "b56f653ee92f55934cfbcf6be27dd21118bca8571a5d7886074f7ebc8d4b70e4",
+    "families": [
+      "dp1d",
+      "dp2d"
+    ],
+    "population_sizes": [
+      64,
+      1024
+    ],
+    "frozen_cases_per_family": 1024,
+    "validation": "definition, generation, and one-generation CPU evolution passed"
+  },
+  "simple_exp_root": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-mapped-01/simple-exp/manifest.json",
+    "sha256": "6d9963f80c515a89b3fa01c7f2415e3b6f6b1ddea753d8ad95bcf9c1fc808288",
+    "family": "simple_exp_1024",
+    "population_sizes": [
+      64,
+      1024
+    ],
+    "frozen_cases": 1024,
+    "limits": {
+      "fuel": 20000,
+      "max_nodes": 80,
+      "max_depth": 7
+    },
+    "validation": "definition, byte-identical replay, and one-generation CPU evolution passed"
+  },
+  "bounded_fallback_replay": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-mapped-01/bounded-fallback/manifest.json",
+    "sha256": "eb350cc9750ec63e52d63496f54ce476910edf99d5357ce2a298e59d014fc80c",
+    "family": "bounded_fallback",
+    "mapping": "exact source-less bytecode and case replay for steady runtime evaluation",
+    "population_sizes": [
+      64,
+      1024
+    ],
+    "validation": "reference/candidate CPU and GPU fitness identity passed; observed timing excluded for contention"
+  },
+  "traversal_roots": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-mapped-01/traversal/manifest.json",
+    "sha256": "61dc691417981309719f2eb46ebd36316b73d87d3639eb2d53615f0a43234204",
+    "families": [
+      "int_list_map",
+      "int_list_filter",
+      "float_list_map",
+      "string_list_filter",
+      "string_list_empty_map",
+      "nested_binders"
+    ],
+    "population_sizes": [
+      64,
+      1024
+    ],
+    "frozen_cases_per_family": 1024,
+    "validation": "definition, byte-identical replay, and one-generation CPU evolution passed",
+    "gap": "behavioral search-space mappings; historical members and numeric binder identities are not equal v2 derivations"
+  },
+  "mixed_current_partitions": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-mapped-01/mixed/manifest.json",
+    "sha256": "aac28a80efef383e3505cc1839f34f7175a90af6352b1d2feebc0320e8466893",
+    "families": [
+      "bool_char",
+      "mixed_exact_payloads",
+      "metadata_stress"
+    ],
+    "partitions": 9,
+    "population_sizes": [
+      64,
+      1024
+    ],
+    "validation": "definition, byte-identical replay, and one-generation CPU evolution passed for every partition",
+    "gaps": [
+      "return-type partitioning changes selection and reproduction semantics",
+      "current members differ from the historical populations",
+      "metadata_stress Int and IntList require 96-node/32-depth search limits"
+    ]
+  },
+  "mixed_reference_partitions": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-mapped-01/mixed-reference/manifest.json",
+    "sha256": "97f96ef6f331399da827a58f426e9b8c17464f35353e04eb4dcdb2fc20b18f0d",
+    "families": [
+      "bool_char",
+      "mixed_exact_payloads",
+      "metadata_stress"
+    ],
+    "partitions": 9,
+    "population_sizes": [
+      64,
+      1024
+    ],
+    "validation": "typed historical cases, aligned reproduction captures, full donor pools, and plain/instrumented/replay/steady child identity passed for all partitions",
+    "gaps": [
+      "return-type partitioning changes historical tournament selection, parent pairing, crossover eligibility, and child trajectories",
+      "cycling same-type members changes their source multiplicities",
+      "the retained donor pools validate partitioned reproduction rather than the original mixed-family parent selection"
+    ]
+  },
+  "reference_reproduction_96": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-mapped-01/reference-repro-96/manifest.json",
+    "sha256": "97ef15e45c82e7ec9cf3fe38c3c56789b57f0a3b7fc1caa24f29026e42c6fe18",
+    "families": 13,
+    "population_sizes": [
+      64,
+      1024
+    ],
+    "limits": {
+      "fuel": 20000,
+      "max_nodes": 96,
+      "max_depth": 32
+    },
+    "validation": "capture dimensions, plain/instrumented/replay child identity, verifier results, zero replay-generated donors, and 3+15 steady samples passed",
+    "gaps": []
+  },
+  "mixed_reference_reproduction_96": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-mapped-01/reference-repro-mixed-96/manifest.json",
+    "sha256": "6f9893d798c1fd2ada651e2f8b606553074396f2295df68db5d0cbb0c6b51efa",
+    "partitions": [
+      "metadata_stress.int",
+      "metadata_stress.int_list"
+    ],
+    "population_sizes": [
+      64,
+      1024
+    ],
+    "limits": {
+      "fuel": 20000,
+      "max_nodes": 96,
+      "max_depth": 32
+    },
+    "validation": "plain, instrumented, donor replay, and 3+15 steady children are byte-identical for all four captures",
+    "gaps": []
+  },
+  "legacy_bounded_gpu_capacity": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-mapped-01/gpu-bound-functional/manifest.json",
+    "sha256": "ff5225cc65ccca980f8d4a7143d8680c403e7ea066bd7a3585a9daa8535d899a",
+    "repair": "literal DP domains now determine finite memo/frame capacities; constant DC sources now determine finite frame capacity; dynamic DC retains the full sequence bound",
+    "functional_families": [
+      "metadata_stress",
+      "dc_int",
+      "dc_float",
+      "dp1d",
+      "dp2d"
+    ],
+    "population_sizes": [
+      64,
+      1024
+    ],
+    "validation": "Debug and Release focused tests passed; exact CPU/GPU fitness arrays matched and no GPU capacity rejection occurred",
+    "timing_accepted": false,
+    "timing_exclusion": "both visible GPUs were fully occupied by unrelated jobs"
+  },
+  "full_paired_manifest": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-mapped-01/full-v2/manifest.json",
+    "sha256": "4ab4a7e9564991d12c3ce04fc16372512b583e6448482e06d0d042b80dec3fba",
+    "validation_report_sha256": "9492b4bf8e67562a59594934d55b7bd60396d9fb66382ce493c791c1e0cd84fd",
+    "command_reconstruction_sha256": "409ef4deeb38904de8f7c7276b2fa979e676a2e87677a21c21a54c37ecc97c73",
+    "pairs": 302,
+    "measurements": {
+      "evolution": 184,
+      "steady_eval": 72,
+      "steady_repro": 46
+    },
+    "mapping_kinds": {
+      "exact_runtime_replay": 72,
+      "typed_search_space": 140,
+      "typed_partition_search_space": 90
+    },
+    "selected_modes": 7,
+    "excluded_legacy_ablation_modes": [
+      "cpu_gpu_candidates",
+      "cpu_gpu_coupled_donor",
+      "gpu_gpu_candidates",
+      "gpu_gpu_coupled_donor"
+    ],
+    "reconstructed_role_mode_commands": 3048,
+    "fresh_processes_for_3_plus_15_blocks": 54864,
+    "all_selected_mode_smoke_sha256": "90cca671855b1df0db3a27df3d4458f682dcd18c79b3c84176276e869a06af9b",
+    "validation": "schema, artifacts, role arguments, exact cases and limits, pair IDs, comparison metadata, all selected-mode command reconstruction, and paired functional smokes for all seven valid compiled-grammar modes passed; four Goal 09-retired specialized ablations remain explicit non-gating inventory"
+  },
+  "test_evidence": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-mapped-01/test-evidence-final/manifest.json",
+    "sha256": "adaf9a701d1315d32b67242136c5a05694768de4345eb14f531d62486adba43c",
+    "sidecar_sha256": "a98467606648b13c3d71010768c8bc338bd44df2e2c231dafd1aa7629abedd95",
+    "validation": "109 native Debug, 74 operational tool, 23 repository, 3 explicit CUDA, and matching 12-test Debug/Release focused sets passed with commands, timestamps, exit status, raw output, source identities, and hashes retained"
+  },
+  "remaining_mapping_work": [
+    "Verify final candidate/profile hashes and reuse the scoped mapping, payload/type/fuel, full-population and budget evidence in the final representative check; investigate any concrete mismatch without adding a universal closure proof requirement.",
+    "Repair the material speedup regression and complete the representative four-mode performance gate on the final candidate."
+  ],
+  "acceptance": {
+    "mapped_manifest_frozen": true,
+    "full_contract_mapping_accepted": false,
+    "paired_timing_complete": false,
+    "all_rows_pass": false
+  },
+  "canonical_effective_work_audit": {
+    "status": "rejected for acceptance",
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-effective-work-01/work-audit.json",
+    "requested_nfe_before": 1280,
+    "requested_nfe_after": 1280,
+    "initial_native_ast_mean_nodes_before": 35.078125,
+    "initial_native_ast_mean_nodes_after": 6.171875,
+    "reason": "The replacement Float grammar narrows the frozen mixed full-language search space. Equal NFE does not establish equal work."
+  },
+  "current_candidate_mode_extension": {
+    "modes": [
+      "gpu_candidates",
+      "gpu_coupled_donor"
+    ],
+    "status": "implemented locally; all 110 native, 75 tool, 23 repository checks passed; 22 CUDA and 8 CPU-only diagnostic comparisons passed; performance pending",
+    "combinations": [
+      "cpu_gpu_candidates",
+      "gpu_gpu_candidates",
+      "cpu_gpu_coupled_donor",
+      "gpu_gpu_coupled_donor"
+    ],
+    "evidence": [
+      "goal-11-candidate-ablation-01",
+      "goal-11-coupled-ablation-01"
+    ],
+    "archived_manifest_modified": false,
+    "still_unimplemented": []
+  },
+  "frozen_ast_audit": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-search-space-audit-01/audit.json",
+    "source_populations": 34,
+    "source_members": 18496,
+    "source_less_populations": 2,
+    "native_verification": "all source members pass",
+    "root_type_histograms": "unchanged",
+    "canonical_p1024_varying_assignment_types": 17,
+    "canonical_p1024_over_80_nodes_after_migration": 304,
+    "canonical_p1024_max_migrated_nodes": 214
+  },
+  "mixed_root_variation": {
+    "status": "Native initialization, global CPU/GPU/overlapped evolution, heterogeneous cases, private benchmark, production CLI and mixed population artifact integration implemented; complete frozen grammar mapping pending",
+    "evidence": "goal-11-mixed-roots-01",
+    "root_contract": "distinct exact types, closed roots, shared physical node/depth bounds; parent root preserved on acceptance",
+    "integration_evidence": [
+      "goal-11-mixed-evolution-01",
+      "goal-11-mixed-cli-01"
+    ]
+  },
+  "storage_identity_audit": {
+    "evidence": "goal-11-local-types-01",
+    "accepted_mapping": false,
+    "canonical_p64_conflicting_programs": 15,
+    "canonical_p1024_conflicting_programs": 200,
+    "canonical_p1024_input_retypes": 158,
+    "canonical_p1024_loop_variable_retypes": 33,
+    "sampled_comparisons": 660480,
+    "sampled_mismatches": 0,
+    "independent_counterexample": "Type-based renaming changes Bool(true) to Float(7); full storage/dataflow equivalence remains required."
+  },
+  "typed_storage_proof": {
+    "evidence": "goal-11-storage-proof-02",
+    "source_populations": 34,
+    "programs": 18496,
+    "canonical_conflicts_proven": {
+      "p64": 15,
+      "p1024": 200
+    },
+    "case_fuel_comparisons": 660480,
+    "mismatches": 0,
+    "node_count_changes": 0,
+    "maximum_compiled_locals": 38,
+    "full_mapping_accepted": false,
+    "remaining": [
+      "frozen node budget",
+      "complete grammar/search mapping",
+      "final performance acceptance"
+    ]
+  },
+  "integrated_candidate_validation": {
+    "artifact": "/home/hschi1106/gagp-artifacts/grammar-migration/snoopy-20260922/integrated-01/summary.json",
+    "sha256": "9c11268cf66cec75b52ae48e14a2bbe1132264627f953259af0d4adf1224c6ee",
+    "source_archive_sha256": "dbdd159318d3e3ee9110606c1dd7fc82c66d9186c969f7c0f6dee579393dd9df",
+    "native_tests": {
+      "release": 111,
+      "debug": 111
+    },
+    "tools_tests": 75,
+    "repository_tests": 23,
+    "frozen_runtime_pairs": 72,
+    "same_backend_exact_commands": 144,
+    "performance_acceptance": false
+  },
+  "physical_budget_audit": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-budget-audit-01/summary.json",
+    "sha256": "6e046faa88a51614a2e2dd64dfa3c72dd449c1e403cee27de39fd8c5f13799c1",
+    "manifest_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-budget-audit-01/sha256.json",
+    "manifest_sha256": "a6fb0a23f94810cc4854b2f9e7cdee2bb8241213f4a9fd1292d187fbcc907cee",
+    "populations": 34,
+    "members": 18496,
+    "gate_pass": false,
+    "status": "Equivalent budget translation now explicitly authorized; original audit remains immutable evidence of differing metrics."
+  },
+  "integrated_runtime_remeasurement": {
+    "status": "complete: four CPU rows pass, all four GPU Q rows regress",
+    "full_matrix_acceptance": false,
+    "manifest_path": "/home/hschi1106/gagp-artifacts/grammar-migration/snoopy-20260922/runtime-integrated-pilot-manifest-01.json",
+    "manifest_sha256": "ba0f3c26c9abe1b5772ca7cc3a25647fc80987810777beec7bd4ea2cd76ce592",
+    "remote_output": "/home/hschi1106/gagp-goal11-20260922/runtime-integrated-pilot-trials-01",
+    "candidate_binary_sha256": "3da7577c33f175bfbe7e903b65fb4c1b953a35fc88ae76d5975d869cec38a4f8",
+    "warmup_blocks": 3,
+    "measured_blocks": 30,
+    "workloads": 4,
+    "note": "Canonical steady CPU/GPU rows only; complete matrix and evolution mapping remain pending.",
+    "results_path": "/home/hschi1106/gagp-artifacts/grammar-migration/snoopy-20260922/pilot-results-01",
+    "comparison_sha256": "25a2afc4a2f2c760f0630c7b007dd9dd7dbfecc1675e16859403d06612f24598",
+    "gpu_rows": {
+      "simple_exp_1024-p64-steady-b256/gpu_eval/steady_eval": {
+        "status": "regression",
+        "samples": 30,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 0.8548971097453086,
+            "ci95": [
+              0.8473633050701297,
+              0.8826228168651852
+            ]
+          },
+          "A_mode": {
+            "estimate": 0.9629627096662282,
+            "ci95": [
+              0.9587783291048504,
+              0.9934560262303869
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.1264077263673455,
+            "ci95": [
+              1.117968315469976,
+              1.135323676189048
+            ]
+          }
+        },
+        "median_ms": {
+          "cpu_before_ms": 91.9908585,
+          "mode_before_ms": 3.097696,
+          "cpu_after_ms": 81.6674605,
+          "mode_after_ms": 3.2168390000000002
+        },
+        "speedup_before": 29.69654172003967,
+        "speedup_after": 25.38748768589289,
+        "exclusions": []
+      },
+      "simple_exp_1024-p64-steady-b1024/gpu_eval/steady_eval": {
+        "status": "regression",
+        "samples": 30,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 0.8396373640513409,
+            "ci95": [
+              0.8317276597551049,
+              0.8467706876445653
+            ]
+          },
+          "A_mode": {
+            "estimate": 0.94167726192992,
+            "ci95": [
+              0.9391803479200034,
+              0.9424894765297885
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.121528533921151,
+            "ci95": [
+              1.1116564784905323,
+              1.1294106425227632
+            ]
+          }
+        },
+        "median_ms": {
+          "cpu_before_ms": 93.1417105,
+          "mode_before_ms": 1.6308965,
+          "cpu_after_ms": 83.0488995,
+          "mode_after_ms": 1.731906
+        },
+        "speedup_before": 57.110742772456746,
+        "speedup_after": 47.952313520479755,
+        "exclusions": []
+      },
+      "simple_exp_1024-p1024-steady-b256/gpu_eval/steady_eval": {
+        "status": "regression",
+        "samples": 30,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 0.9445163667620563,
+            "ci95": [
+              0.9367724855226334,
+              0.9491496831825449
+            ]
+          },
+          "A_mode": {
+            "estimate": 1.0423966716954718,
+            "ci95": [
+              1.037312988320066,
+              1.0447849365675714
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.1036300781837838,
+            "ci95": [
+              1.0992900657645486,
+              1.112097164954852
+            ]
+          }
+        },
+        "median_ms": {
+          "cpu_before_ms": 2985.281028,
+          "mode_before_ms": 41.120540000000005,
+          "cpu_after_ms": 2704.965266,
+          "mode_after_ms": 39.448073
+        },
+        "speedup_before": 72.59829340762548,
+        "speedup_after": 68.57027632249616,
+        "exclusions": []
+      },
+      "simple_exp_1024-p1024-steady-b1024/gpu_eval/steady_eval": {
+        "status": "regression",
+        "samples": 30,
+        "warmups": 3,
+        "seed": 20260911,
+        "resamples": 10000,
+        "metrics": {
+          "Q": {
+            "estimate": 0.867265280140301,
+            "ci95": [
+              0.8601657724747852,
+              0.8720418696796954
+            ]
+          },
+          "A_mode": {
+            "estimate": 0.9632587351942979,
+            "ci95": [
+              0.9607099720821072,
+              0.9660494916785015
+            ]
+          },
+          "A_cpu": {
+            "estimate": 1.1106852277523063,
+            "ci95": [
+              1.1048602782720356,
+              1.118998693519073
+            ]
+          }
+        },
+        "median_ms": {
+          "cpu_before_ms": 3010.3966625,
+          "mode_before_ms": 25.227334,
+          "cpu_after_ms": 2710.3958775,
+          "mode_after_ms": 26.189572
+        },
+        "speedup_before": 119.33074903991044,
+        "speedup_after": 103.49141549544989,
+        "exclusions": []
+      }
+    },
+    "local_transfer_verification": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/snoopy-20260922/pilot-results-01/local-verification.json",
+      "sha256": "1764c7a903e995b34c3215abc2f7483f96aa9e73516a54ebda5caf37f2c022a3",
+      "raw_files": 1190,
+      "processes": 528,
+      "comparison_recomputation_exact": true
+    }
+  },
+  "compact_workspace_experiment": {
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-compact-workspace-01/summary.json",
+    "summary_sha256": "4570c108e72e68f1dc2f5e2f191af4b18c9faf186f5d6575e49c3fb1087135cd",
+    "status": "Rejected after local Release diagnostics; runtime restored, tests retained",
+    "performance_acceptance": false
+  },
+  "phase_workspace_experiment": {
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-phase-workspace-01/reversion-summary.json",
+    "summary_sha256": "7f17dc4f74d322028985b73f79453d96139ac2e7ed23c70a46b817abec428f9e",
+    "status": "rejected and reverted; integrated runtime restored, new correctness tests retained",
+    "performance_acceptance": false,
+    "broad_runtime_diagnostic": {
+      "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-phase-workspace-01/local-runtime-matrix-01/summary.json",
+      "summary_sha256": "70d677b0306b946c18486ba8300efe5d68acdda6b2f021609a50afbd389bd1f2",
+      "workloads": 72,
+      "paired_blocks_per_workload": 5,
+      "fitness_exact_pairs": 360,
+      "A_below_one_rows": 14,
+      "minimum_A": 0.9824264642854788,
+      "status": "potential regressions require 30-pair follow-up",
+      "followup_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-phase-workspace-01/local-runtime-matrix-30",
+      "performance_acceptance": false,
+      "phase_analysis_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-phase-workspace-01/local-runtime-matrix-01-phases.json",
+      "phase_analysis_sha256": "2c1bafc73cc4731239adfc9a451336f9225c30a337f7a3f8bae9f7f15c0d6e9c",
+      "phase_observation": "Largest five-pair losses are concentrated in kernel time; confirmation pending 30-pair run."
+    },
+    "broad_runtime_30_pair_diagnostic": {
+      "analysis_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-phase-workspace-01/local-runtime-matrix-30-analysis.json",
+      "analysis_sha256": "fa2476b0c4af5eb285a8cf454d1058b9741be354450fe17aec20a46f05159221",
+      "paired_blocks_per_workload": 30,
+      "workloads": 72,
+      "fitness_exact_pairs": 2160,
+      "verified_sealed_files": 8646,
+      "faster_rows": 58,
+      "slower_rows": 11,
+      "uncertain_rows": 3,
+      "performance_acceptance": false,
+      "nsys": {
+        "analysis_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-phase-workspace-01/local-runtime-matrix-30-nsys-analysis.json",
+        "analysis_sha256": "04ed167a350d1cc57a3bf6c898de8000f1a43436be26453ed28d9335e29eed81",
+        "status": "six before/after profile pairs complete; launch geometry and register counts unchanged"
+      }
+    },
+    "abi_control": {
+      "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-phase-workspace-01/local-runtime-stack-abi-05/summary.json",
+      "summary_sha256": "635d62e15e87fbd6ec5e011e12b14616237ca27d70970d3befd08df096a27677",
+      "status": "five-pair all-72 control did not remove large-block regression pattern",
+      "fitness_exact_pairs": 360,
+      "focused_gpu_tests": 2,
+      "performance_acceptance": false
+    },
+    "array_control": {
+      "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-phase-workspace-01/local-runtime-stack-arrays-05/summary.json",
+      "summary_sha256": "32f99e519a3a96cd51e057082ec30fc113cb5b1e53eac589d6de83ba0448070a",
+      "fitness_exact_pairs": 360,
+      "A_below_one_rows": 13,
+      "focused_gpu_tests": 2,
+      "performance_acceptance": false
+    },
+    "restored_runtime_sha256": {
+      "cpp/src/runtime/gpu/device/execute_bytecode_device.cuh": "dc13f8f11956a2f434afa47d864999ff0163b6222f527de4cfd34e13b98a3bfb",
+      "cpp/src/runtime/gpu/device/region_execution_device.cuh": "99cc7181aedfa9cdb06c2777963517424c7d6aec5baf11ea3335756f385fed83"
+    }
+  },
+  "prepared_remote_stack_validation": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/snoopy-20260922/stack-reuse-01",
+    "archive_sha256": "5fba59c4914daf57f2536544a5d456e9efa327740fdb81fb4060bb95beba8856",
+    "source_files": 535,
+    "replay_commands": 144,
+    "status": "superseded: stack candidate rejected and reverted; do not deploy this bundle",
+    "performance_acceptance": false
+  },
+  "prepared_remote_restored_validation": {
+    "status": "prepared snapshot predates new legacy-budget module; refresh source and expected test count before deployment",
+    "bundle_path": "/home/hschi1106/gagp-artifacts/grammar-migration/snoopy-20260922/restored-integrated-02",
+    "source_identity_sha256": "e7df4faf40525ce1ec8950320925af72a90e43d1732ff76b1a9e8453dda841f6",
+    "runner_sha256": "a1c3c72d6e16694a07f9327f9601c30002e1ab286de53c5a0807c63c0a766b5b",
+    "file_count": 535,
+    "native_tests_per_build": 111,
+    "tool_tests": 78,
+    "repository_tests": 23,
+    "runtime_replay_pairs": 72,
+    "performance_acceptance": false,
+    "production_source_comparison_path": "/home/hschi1106/gagp-artifacts/grammar-migration/snoopy-20260922/restored-integrated-source-comparison-02.json",
+    "production_source_comparison_sha256": "3a7b1c3de7f43a7c5dc811cfe9194bde36b9078d551c2ef67dab6afe6bc4af77"
+  },
+  "equivalent_budget_translation": {
+    "authorization": "User explicitly approved implementation and verification of equivalent budget translation in this session.",
+    "status": "source resource semantics, exact per-tree prediction, and conservative search-wide physical ceiling implemented and audited; source-equivalent grammar/generation/variation integration pending",
+    "preserved_contract": [
+      "legacy grammar search restrictions",
+      "complete frozen populations",
+      "execution fuel",
+      "all performance thresholds and required rows"
+    ],
+    "required_proof": [
+      "derive physical node/depth bounds from the mapping, not observed population maxima alone",
+      "check legacy admissibility separately from physical representation feasibility",
+      "verify generation and variation do not enlarge the legacy search space",
+      "cover every frozen source population and retained bytecode-only runtime row"
+    ],
+    "not_acceptance": "Raising physical limits alone does not establish equivalence.",
+    "source_resource_api": "cpp/include/gagp/migration/legacy_budget.hpp",
+    "tests": "gagp_test_legacy_budget passed",
+    "source_population_audit": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-budget-source-02/summary.json",
+      "sha256": "3ad6263036a3bac0e6d9de996f2a19c79784db71a82ba31f6eed70f69b00fc67",
+      "members": 18496,
+      "populations": 34,
+      "metrics_match_prior_audit": true,
+      "initialization_resource_rejections": 0,
+      "variation_resource_rejections": 88,
+      "scope": "nominal frozen 80-node/7-expression-depth resource checks; not full search equivalence"
+    },
+    "expansion_prediction": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-budget-expansion-03/summary.json",
+      "sha256": "ba2a45c5435cb10a9805fd9d2f66bd396f8bfa3474d55539fcf3bdaa84461930",
+      "members": 18496,
+      "populations": 34,
+      "physical_nodes_exact": true,
+      "physical_depth_exact": true,
+      "search_space_equivalence": false
+    },
+    "physical_ceiling": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-budget-ceiling-04/summary.json",
+      "sha256": "1af9f5692afb80ce716c499e6765b70defebbc8fc79f080259ecabc7085e4060",
+      "source_nodes": 80,
+      "physical_nodes": 531,
+      "physical_depth": 141,
+      "derived_from_rewrite_shapes": true,
+      "production_limits_changed": false,
+      "search_space_equivalence": false
+    },
+    "gpu_capacity_audit": {
+      "kernel_max_nodes": 512,
+      "generic_physical_ceiling": 531,
+      "resource_admissible_counterexample": {
+        "source_nodes": 80,
+        "source_expression_depth_at_most": 7,
+        "physical_nodes": 515,
+        "recurrence_nodes": 15,
+        "test": "test_large_valid_source_expansion in gagp_test_legacy_budget",
+        "profile_derivability_proven": false
+      },
+      "required_next_step": "Include actual source structured/nesting restrictions in grammar mapping; if mapped admissible shapes exceed 512, preserve GPU execution by repairing capacity rather than pruning or CPU fallback."
+    },
+    "subtree_layout": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-budget-layout-05/summary.json",
+      "sha256": "f30c581b298620333790d4051b6fe9a14b8c13fb212a5d9a956499c00f8ddeeb",
+      "populations": 34,
+      "members": 18496,
+      "source_subtrees": 224261,
+      "target_spans_and_depths_exact": true,
+      "source_constant_identity_preserved": true,
+      "administrative_nodes_have_no_source_site": true,
+      "variation_eligibility_proven": false,
+      "search_space_equivalence": false,
+      "validation": {
+        "native": {
+          "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-budget-layout-validation-05/native.log",
+          "sha256": "2438738e6328d4056b7479a3fa38f7120346f23d40b4352bd39b5301222cd3f5",
+          "passed": 112
+        },
+        "tools": {
+          "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-budget-layout-validation-05/tools.log",
+          "sha256": "f4ff062d21f2d01de47bf9d18a8fa5a637098d76fc8fbff05736d1e631e4cbfc",
+          "passed": 78
+        },
+        "repository": {
+          "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-budget-layout-validation-05/repository.log",
+          "sha256": "5873bdeb59ff56118f40c8d9cb6a9eb2753bb63125fb0a757f0402b188020152",
+          "passed": 23
+        }
+      }
+    },
+    "replacement_resources": {
+      "populations": 34,
+      "members": 18496,
+      "checked_expression_sites": 148226,
+      "leaf_accepted": 143880,
+      "repairing_sites": 530,
+      "repairable_over_depth_parents": 88,
+      "search_space_equivalence": false,
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-budget-replacement-06/summary.json",
+      "sha256": "c3ce46738af055d823cf759e9bc83f8f051e78e7293e1d3b6a7f693fac88720f",
+      "stage": "variation resource predicate only",
+      "operator_eligibility_proven": false,
+      "production_integration": false,
+      "validation": {
+        "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-budget-replacement-validation-06/sha256.json",
+        "sha256": "1756e2d3dddcccf534a35774450ec398d192a324e3611e70c7d8c890616638ae",
+        "migration_tests_passed": 7,
+        "repository_tests_passed": 23
+      }
+    }
+  },
+  "root_preset_specialization_experiment": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-root-presets-01/summary.json",
+    "sha256": "cdfa4eefd44d5b3bdf422be1ff29af8a40c4119b5baf33ca3baf9b691295efeb",
+    "status": "screening_complete_not_promoted",
+    "production_runtime_changed": false,
+    "rows": 72,
+    "paired_blocks": 5,
+    "point_estimates_below_one": 13,
+    "performance_acceptance": false
+  },
+  "stack_top_cache_experiment": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-stack-top-01/summary.json",
+    "sha256": "8bc5563847c0860acefff65db318012f7f8e4c1e6ed8130f86c05a983c31b28a",
+    "status": "screening_complete_not_promoted",
+    "rows": 72,
+    "paired_blocks": 5,
+    "point_estimates_below_one": 60,
+    "production_runtime_changed": false,
+    "performance_acceptance": false
+  },
+  "switch_dispatch_experiment": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-switch-dispatch-01/summary.json",
+    "sha256": "12f134b38aa0f39ec8154101c646dccb956bb477fb7234a52b7428290b6f8584",
+    "status": "screening_complete_not_promoted",
+    "rows": 72,
+    "paired_blocks": 5,
+    "point_estimates_below_one": 47,
+    "production_runtime_changed": false,
+    "performance_acceptance": false
+  },
+  "set_locals_experiment": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-set-locals-01",
+    "status": "screening_complete_not_promoted",
+    "source_sha256_manifest": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-set-locals-01/source-after-sha256.json",
+    "source_sha256_manifest_sha256": "09f5676f588c9aaca227a216f2099ee8df47d162979aa44541ed903dbc21064e",
+    "production_runtime_changed": false,
+    "performance_acceptance": false,
+    "timing_status_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-set-locals-01/local-runtime-05/status.json",
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-set-locals-01/summary.json",
+    "summary_sha256": "6f6ddc20dd0fb6a6679149b169f42e12ab279dd5e7ab5a73ed6111a060e8c24e"
+  },
+  "case_layout_experiment": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-case-layout-01",
+    "status": "screening_complete_not_promoted",
+    "source_sha256_manifest": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-case-layout-01/source-after-sha256.json",
+    "source_sha256_manifest_sha256": "6583fa65317183829872a6d438b9a2afe542c0237580ef37e73e813b06c224ca",
+    "production_runtime_changed": false,
+    "performance_acceptance": false,
+    "tests_log": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-case-layout-01/tests.log",
+    "tests_log_sha256": "44b3f406ffd75c86302d3ad49f276d6dfaa9a226e10b9073c2ae62f58ff20fdd",
+    "timing_status_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-case-layout-01/local-runtime-05/status.json",
+    "gpu_validation_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-case-layout-01/gpu-validation.json",
+    "gpu_validation_sha256": "d97418a72281f9fc1abb88cb082baebcf940fff34ad5a5ba3c77fd839a12de44",
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-case-layout-01/summary.json",
+    "summary_sha256": "3e0f5f171c48055858ad3c45c6fd06986f3bb9fc5865dc65e2cc8e7d20bb6455"
+  },
+  "sequence_constant_domains": {
+    "status": "implemented_correctness_verified_performance_pending",
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-sequence-domains-01/summary.json",
+    "summary_sha256": "1b64ed79c6039f100485a7eb86e093c11b723fb3d26298a8ee2372686c2e9c68",
+    "source_manifest_sha256": "248d88e96cedc168354dd91748da3bf38ffcd26567313960e828b44b5e8e634b",
+    "frozen_search_equivalence": false,
+    "performance_acceptance": false,
+    "normative_spec": "spec/grammar_definition.md",
+    "normative_spec_sha256": "d68ba5b706501f12349f7e8ef2ec66fb86bba6760a99966bda317e66fa2159df"
+  },
+  "resource_projection_integration": {
+    "status": "verified_unit_charge_integration_source_profile_pending",
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-budget-projection-integration-10/summary.json",
+    "summary_sha256": "8210cf78330084d5a8bab395b587118887ea8c205244a88eefb78a0eab0af59e",
+    "projected_members": 18496,
+    "projected_expression_sites": 148226,
+    "abstract_donor_resource_comparisons": 96050448,
+    "production_limits_changed": false,
+    "performance_acceptance": false
+  },
+  "source_generation_stage_audit": {
+    "status": "verified_source_stage_boundaries_not_implemented",
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-generation-stages-01/summary.json",
+    "summary_sha256": "153a79d967e1a5e9747d636a639f99e85a62df10e8a239bd56498b97ea71bad6",
+    "seal_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-generation-stages-01/sha256.json",
+    "seal_sha256": "294d7cb61f04a2e8b0979d1dec73d6ab6131bb3a7a5b8d345da996039e626817",
+    "initial_typed_programs": 16384,
+    "donor_primary_samples": 163840,
+    "paired_depth_64_identity_checks": 98304,
+    "production_changed": false,
+    "search_equivalence": false,
+    "performance_acceptance": false
+  },
+  "generation_stages_implementation": {
+    "status": "implemented_correctness_verified_performance_pending",
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-generation-stages-02/summary.json",
+    "summary_sha256": "19f11ed8b4ba2549dbdeefe7a759f9c03fedf171117beb750d17e8d5b93061e1",
+    "seal_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-generation-stages-02/sha256.json",
+    "seal_sha256": "458c1688731e34e3e0c77a8a26c76b4e59b20b465aa883157a839fc251b81b18",
+    "native_tests_passed": 115,
+    "gpu_tests_passed": 19,
+    "tools_tests_passed": 78,
+    "repository_tests_passed": 23,
+    "search_equivalence": false,
+    "performance_acceptance": false
+  },
+  "local_frozen_reference_comparison": {
+    "status": "paired_timing_running",
+    "artifact_root": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-local-reference-01",
+    "selected_gpu_uuid": "GPU-079560d8-bac0-0829-4e73-820f61d1cb0c",
+    "workloads": 72,
+    "warmup_blocks": 3,
+    "measured_blocks": 15,
+    "source_manifest_sha256": "d767d83481dbd86a80beb5b337fc8c6b18989eacd85b9fe0b87f7cd778d65ccf",
+    "setup_seal_sha256": "d5edaf937bc78e9cea39244189f849b14a33968a7dab7a3910451aaf3e6b7a09",
+    "release_native_tests_passed": 115,
+    "release_gpu_tests_passed": 19,
+    "performance_acceptance": false,
+    "full_search_equivalence": false,
+    "preflight_diagnostic": {
+      "members": [
+        202,
+        727
+      ],
+      "cases_per_member": 1024,
+      "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-local-reference-01/diagnostic-01/full-summary.json",
+      "summary_sha256": "061526af4cf8f34d4b0642e2c4bdffa3d5e14ba90c837f5d47efe01cb3ddb92c",
+      "before_after_values_errors_fuel_exact": true,
+      "cpu_gpu_fallback_differences_preserved": true
+    },
+    "preflight_workloads_passed": 72,
+    "preflight_contract": "exact before/after per backend; CPU/GPU differences recorded separately",
+    "preflight_summary": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-local-reference-01/resume-02/preflight-summary.json",
+    "preflight_summary_sha256": "624b271e75fe55cf402c95980d786b70d6b18da8d45bcda2fddb5245902c1036",
+    "timing_status_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-local-reference-01/resume-02/timing-status.json"
+  },
+  "numeric_constant_domains": {
+    "status": "implemented_correctness_verified_performance_pending",
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-numeric-domains-01/summary.json",
+    "summary_sha256": "9a8c3d6efb1ab3a45fb95f63738be329a79ce76fdea911987df03bd67b2d6062",
+    "seal_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-numeric-domains-01/sha256.json",
+    "seal_sha256": "e5bb241c89875ad6da567d3db3f359282a08d8e044b1bc0fd32390cda97b9ed2",
+    "native_tests_passed": 116,
+    "gpu_tests_passed": 19,
+    "tools_tests_passed": 79,
+    "repository_tests_passed": 23,
+    "search_equivalence": false,
+    "performance_acceptance": false,
+    "remaining": "Source numeric generation quantization and additive perturbation remain to be mapped."
+  },
+  "source_numeric_policy_audit": {
+    "status": "source_rules_verified_implementation_pending",
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-numeric-policy-audit-01/summary.json",
+    "summary_sha256": "3d906ffa6f2647f849ac92d6d5f9186dba31f53e84ef8a67886086a130dc15cd",
+    "seal_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-numeric-policy-audit-01/sha256.json",
+    "seal_sha256": "7895d1d3ed97275f3d82db1eac70105ac6cce08fd974242e6c71e9c6f09f10e8",
+    "source_files": 4,
+    "gpu_delta_values_checked": 65536,
+    "search_equivalence": false,
+    "performance_acceptance": false
+  },
+  "quantized_constant_domains": {
+    "status": "implemented_release_correctness_verified",
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-quantized-domains-02/summary.json",
+    "summary_sha256": "4ea8f1ead967076d8d721a0131bd1851f1c258dda4c99dfcd9a86e92395734fb",
+    "seal_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-quantized-domains-02/sha256.json",
+    "seal_sha256": "3837f9610dec111b16a306b9eb6468e0f765c73b70c9257229710e8ee61b9964",
+    "search_equivalence": false,
+    "performance_acceptance": false
+  },
+  "numeric_sampling_membership_domains": {
+    "status": "implemented_release_correctness_verified",
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-sampling-domains-01/summary.json",
+    "summary_sha256": "ae7e4e967789e509660fce826dfcc6d597cb1d40927904e5d30b7e0bca7f49ad",
+    "seal_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-sampling-domains-01/sha256.json",
+    "seal_sha256": "1f8649634c836fdc027c918f45b3a2507a6064ed4faab31b83b906757147daeb",
+    "search_equivalence": false,
+    "performance_acceptance": false
+  },
+  "constant_mutation_keep_flip": {
+    "status": "implemented_release_correctness_verified",
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-constant-policies-03/summary.json",
+    "summary_sha256": "a0a146f017c6a9e0a899bc7121ca2bf3ea0db0748444d60ce55954f947df96c4",
+    "seal_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-constant-policies-03/sha256.json",
+    "seal_sha256": "782f7cf4eb6f8d32ece2adb0dfeffa675a77558c8c28ee735055c612abbbb9aa",
+    "search_equivalence": false,
+    "performance_acceptance": false
+  },
+  "additive_constant_mutation": {
+    "status": "implemented_release_correctness_verified",
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-additive-constants-02/summary.json",
+    "summary_sha256": "5709b735ec29a17ea50f94a9b1776885a17c25ccc6dcc7ff34cba240d1e25b2c",
+    "seal_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-additive-constants-02/sha256.json",
+    "seal_sha256": "2647559bcead53efc24b318dbf102ac11ad9de53accec38dec8529c6f1e4f07e",
+    "gpu_delta_grid_values_bitwise_verified": 65536,
+    "search_equivalence": false,
+    "performance_acceptance": false
+  },
+  "source_constant_origin_projection": {
+    "status": "implemented_frozen_population_correspondence_verified",
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-constant-origins-01/summary.json",
+    "summary_sha256": "3cfea11201eb0a74a87b6a5e4fa719c3f1d888af99b5788e60bcd0381c529a1c",
+    "seal_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-constant-origins-01/sha256.json",
+    "seal_sha256": "1d870ac429c64a584ebf19209b1e3ea7bd0af9b533952c95efabc178ac89ca20",
+    "populations": 34,
+    "members": 18496,
+    "candidates": 59518,
+    "administrative_constants": 45811,
+    "shared_slot_candidates": 1268,
+    "reordered": 1270,
+    "commutation_checks": 59518,
+    "search_equivalence": false,
+    "performance_acceptance": false
+  },
+  "authored_derivation_resources": {
+    "status": "accounting_implemented_release_correctness_verified_enforcement_pending",
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-authored-resources-01/summary.json",
+    "summary_sha256": "8aabf45be4e4f1180258cba5365967bd275110d92407230681bed8b58c38addf",
+    "seal_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-authored-resources-01/sha256.json",
+    "seal_sha256": "b20b44cec4fbb033fdebc7050c0a60daf484269b8fc7a009ef6e5592d028c84e",
+    "native_tests_passed": 117,
+    "gpu_tests_passed": 19,
+    "projected_budget_enforcement": false,
+    "search_equivalence": false,
+    "performance_acceptance": false
+  },
+  "joint_derivation_resource_frontier": {
+    "status": "structural_feasibility_implemented_release_correctness_verified_enforcement_pending",
+    "summary_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-joint-resources-03/summary.json",
+    "summary_sha256": "27e0416dfc4ddac940a5bc3a595f8f8bfcdcfc91b522927fa561f5eb50105ec6",
+    "seal_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-joint-resources-03/sha256.json",
+    "seal_sha256": "f041a73c48baac4e33f217e4cfe2bd1db0bbbe524da6950587add472767ef472",
+    "exhaustive_budget_combinations": 7560,
+    "native_tests_passed": 117,
+    "gpu_tests_passed": 19,
+    "projected_budget_enforcement": false,
+    "search_equivalence": false,
+    "performance_acceptance": false
+  },
+  "selected_dp2d_initial_profile": {
+    "status": "initial_membership_and_cpu_fitness_verified_evolution_mapping_pending",
+    "members": 64,
+    "verification_path": "/home/hschi1106/gagp-artifacts/grammar-migration/goal-11-dp2d-profile-01/verification.json",
+    "verification_sha256": "8e74798b31ba791119d3a0246a8d1c58c53d199e4b146750377c124a319af1df",
+    "source_budget_nodes": 80,
+    "source_offspring_depth": 7,
+    "physical_budget_nodes": 531,
+    "physical_budget_depth": 141,
+    "complete_evolution_search_mapping": false,
+    "performance_acceptance": false
+  },
+  "current_donor_routing_audit": {
+    "status": "gpu_donor_routing_gap_and_legacy_name_remapping_race_diagnosed",
+    "audit_path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/donor-routing-audit/audit.json",
+    "audit_sha256": "1f238e05aa0eb7966974b659e8f96ae2a2bec16cfe98fffde220e4b4b53d50b1",
+    "complete_evolution_search_mapping": false,
+    "performance_acceptance": false,
+    "sha256": "2f249dc8a846979aed3d8c1a50c4c434bc6c3d23873f7d40a0500bcc23a92fb9"
+  },
+  "current_acceptance": {
+    "as_of": "2026-09-24",
+    "status": "incomplete",
+    "performance_acceptance": false,
+    "required_relative_speedup": 0.95,
+    "latest_paired_diagnostic": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/warm-analysis-handoff/assessment.json",
+      "sha256": "720a24169a5d7339842690f1cc25616867fdde6a2cef3ba85488a8932d019c6a",
+      "old_speedup": 41.52707079200436,
+      "candidate_speedup": 10.849780218073288,
+      "relative_speedup": 0.261270058570139,
+      "measured_pairs": 1,
+      "candidate_sha256": "af1895a8b5b2447d19c017ddffb7ed87f8d11b74f18043ea01a789f9b00db2c8",
+      "candidate_state": "historical warm-analysis handoff; newer candidate measured separately"
+    },
+    "remaining": [
+      "Verify final candidate/profile hashes and reuse the scoped mapping, payload/type/fuel, full-population and budget evidence in the final representative check; investigate any concrete mismatch without adding a universal closure proof requirement.",
+      "Complete the representative four-mode performance gate on the final candidate after repairing the material speedup regression; no eleven-mode exhaustive matrix is required.",
+      "Run the final affected integration and Goal 12 clean-checkout/report audit once the candidate passes; earlier full suites are historical evidence."
+    ],
+    "historical_record_policy": "Earlier entries record the state at their evidence snapshot; running/pending strings in those records are not current process status.",
+    "integrated_correctness": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/integrated-20260924-assessment.json",
+      "sha256": "5ca9f3e6664712b561615bd3e73a8dc17486228b240c81fd3fb170037523cf93",
+      "status": "integrated_suite_passed_after_targeted_preset_fix",
+      "total_tests": 118,
+      "gpu_tests_executed": 19,
+      "skipped": 0,
+      "clean_checkout": false
+    },
+    "latest_candidate_diagnostic": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/immediate-prepared-run/assessment.json",
+      "sha256": "c39382a15d93ef4343eaa630adae9c106fdee463d253a69a160421bfb69aa14b",
+      "status": "retained immediate private execution after owned preparation",
+      "cpu_ms": 6172.874035,
+      "gpu_ms": 441.599888,
+      "speedup": 13.97843206654074,
+      "relative_to_recent_reference": 0.3366101147984691,
+      "reference_measured_in_same_pair": false,
+      "benchmark_sha256": "039e58a978124eb1678048c965893f4285b07df30d495d9524b70d99de6ca884",
+      "diagnostic_only": true
+    },
+    "latest_targeted_validation": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/warmed-parent-pack/ownership-parity-tests.log",
+      "sha256": "63661d1542569ec9845d34eef62052f66b8364406188f3f3824d66d1083b6a03",
+      "tests_passed": [
+        "gagp_test_compiled_backend_gpu",
+        "gagp_test_evolution_cpu_gpu_parity"
+      ],
+      "coverage": "prepared parent source/context ownership mismatch fallback and current evolution CPU/GPU parity",
+      "clean_checkout": false,
+      "full_suite": false,
+      "candidate_scope": "preceding warm-parent-packing candidate; immediate-run candidate has separate targeted backend validation"
+    }
+  },
+  "current_dp2d_donor_routing": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/dp2d-routing-audit/assessment.json",
+    "sha256": "13404854cabf9d5ea2ef427551f6400613e9162b2ab9a877829293120b1d14d1",
+    "status": "coordinate_gpu_donor_routing_repaired_directed_checks_passed_full_closure_pending",
+    "full_search_equivalence": false,
+    "performance_acceptance": false
+  },
+  "current_nested_metadata_donor_routing": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/nested-metadata-routing-audit/assessment.json",
+    "sha256": "448904525268d047eaef19ebc45ead70f6073e862dd7d5d6580e56cc4d1c88bf",
+    "status": "Int_donor_routes_repaired_directed_and_evolution_checks_passed_full_mapping_pending",
+    "full_search_equivalence": false,
+    "performance_acceptance": false
+  },
+  "current_mixed_donor_routing": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/mixed-routing-audit/assessment.json",
+    "sha256": "79e8c2f2d74a7bc1634ca3b1160ed20b7d6e1361bf87d210f8b3a53a15a0ecf3",
+    "status": "mixed_scalar_routes_repaired_directed_checks_passed_full_closure_pending",
+    "full_search_equivalence": false,
+    "performance_acceptance": false
+  },
+  "current_mode_profile_manifest": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/workloads-all-mode-profiles-draft.json",
+    "sha256": "3d644f5987d38ae201d01828bb3a730b6a98dbd564d31452d727023f2543e2a2",
+    "status": "draft_schema_and_artifact_validation_passed_closure_pending",
+    "logical_workloads": 6,
+    "measurement_rows": 12,
+    "dependency_closure_verified": true
+  },
+  "five_generation_anchor": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/five-generation-anchor-summary.json",
+    "sha256": "e01a0ca182a86c820610752f2f5c024eb738d48487cf3dcf163e6f1c35c60330",
+    "status": "five_generation_functional_anchor_passed_performance_materially_regressed",
+    "candidate_binary_sha256": "cb33f12eb80e709b6b1838d6b2e1f6cd814da31047780ed9a6c7aeacf0ad06cf",
+    "performance_acceptance": false
+  },
+  "current_crossover_admission_optimization": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/crossover-admission-assessment.json",
+    "sha256": "6eacc95bc9ca1fc4235b969f236db3f4ae2363c41975ae97c1ae11a80ae229e3",
+    "retained": true,
+    "binary_sha256": "2befdb99393a8db46b34aadbdbe53c8753770c6c610a34492f425bdee08603d8",
+    "performance_acceptance": false,
+    "full_representative_rerun_pending": true
+  },
+  "current_complete_generation_speedup_check": {
+    "artifact": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/speedup-current-20260924-031117-assessment.json",
+    "population": 1024,
+    "warmups_per_configuration": 1,
+    "measured_runs_per_configuration": 3,
+    "old_speedup": 41.02819648941197,
+    "new_speedup": 5.886861997506957,
+    "retention": 0.1434833236948683,
+    "status": "fails relative-speedup allowance; diagnostic canonical anchor only",
+    "binary_sha256": "2befdb99393a8db46b34aadbdbe53c8753770c6c610a34492f425bdee08603d8"
+  },
+  "negative_membership_cache_experiment": {
+    "artifact": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/membership-negative-cache-assessment.json",
+    "retained": false,
+    "retained_test": "alias-ancestry regression; original matcher passes, unsafe mutant fails"
+  },
+  "donor_admission_audit": {
+    "artifact": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/donor-admission-audit/assessment.json",
+    "attempts": 9155,
+    "repeated_rejections": 3676,
+    "invariant_budget_rejections": 3871,
+    "full_child_accepts": 1608,
+    "production_instrumentation_retained": false
+  },
+  "rejected_admission_experiments": [
+    {
+      "artifact": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/framed-witness-cache-assessment.json",
+      "retained": false
+    },
+    {
+      "artifact": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/membership-head-dispatch-assessment.json",
+      "retained": false
+    }
+  ],
+  "post_experiment_source_restoration": {
+    "artifact": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/donor-admission-audit/restoration.json",
+    "production_sources_restored": true,
+    "rebuilt_binary_sha256": "f045f520c871b85d59b80c1482e1b3dbabbcd8d0ac66c4069ac4a40dfa0b287e",
+    "timing_status": "not newly measured; older measurements retain their original binary identities"
+  },
+  "bounded_frame_capture_repair": {
+    "artifact": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/bounded-frame-capture/assessment.json",
+    "retained": true,
+    "status": "directed generation, GPU reproduction, fitness parity and overlap checks pass",
+    "candidate_binary_sha256": "ac1b51e4a5c52888273358e17d9e85feeb4f15f6503e8223e00b6f47789e4cea",
+    "performance_status": "not remeasured; no performance acceptance claim"
+  },
+  "analysis_payload_snapshot": {
+    "status": "targeted_tests_passed_single_pair_diagnostic_not_final_gate",
+    "artifact": "analysis-payload-snapshot-assessment.json",
+    "cpu_generation_ms": 6202.047784,
+    "gpu_generation_ms": 994.263643,
+    "speedup": 6.23783020496104,
+    "relative_speedup": 0.15203764090806765,
+    "binary_sha256": "affd9e8a9b908968cdf0f0cb0a62cbc7de0fa737bb04d8b7d47c6dc4d21a897d"
+  },
+  "retained_population_validation": {
+    "status": "24 retained population diagnostics passed; not full search closure or performance acceptance",
+    "artifact": "retained-closure-assessment.json",
+    "binary_sha256": "944a7aa000f539c7d0257d7cf7c0132eeca24a5c16a5170a47a7e176abaca8d1",
+    "runs": 24,
+    "members_checked": 5376,
+    "gpu_reproduction_kernel_runs": 12,
+    "validation_budget": "initial including unchanged grandfathered parents; offspring depth enforced separately by reproduction",
+    "test": "gagp_test_final_candidate_bench passed"
+  },
+  "overlap_population_order_repair": {
+    "status": "six representative direct/overlap pairs agree exactly; performance acceptance pending",
+    "artifact": "overlap-order-fixed-equivalence.json",
+    "binary_sha256": "3e1f87295f838efea49a50afa6640e0a80bc8de45061502cd001dd76642c7066",
+    "tests_passed": 3,
+    "before_regression": "unequal-fitness overlap replay test failed; four representative workloads differed"
+  },
+  "post_overlap_order_speedup": {
+    "artifact": "overlap-order-speedup-assessment.json",
+    "sample_count_per_mode": 1,
+    "diagnostic_only": true,
+    "cpu_ms": 6109.872276,
+    "gpu_ms": 1025.485679,
+    "speedup": 5.958027889729312,
+    "old_speedup_historical_three_run_median": 41.0281964894,
+    "relative_speedup": 0.14521788427304186,
+    "binary_sha256": "3e1f87295f838efea49a50afa6640e0a80bc8de45061502cd001dd76642c7066",
+    "status": "material relative speedup regression persists; not accepted"
+  },
+  "compact_parent_analysis_warm": {
+    "diagnostic_only": true,
+    "samples_before": 1,
+    "samples_after": 1,
+    "old_generation_ms": 1025.485679,
+    "new_generation_ms": 931.99502,
+    "reduction_fraction": 0.09116720098048292,
+    "same_operator_counters": true,
+    "same_fitness": true,
+    "binary_sha256": "5ce4aaed136bb5f4f067d560593553926bc26d6e818c9b2e9d4ef51f779e0d36",
+    "phase_audit": "preprocess-wall-audit/assessment.json",
+    "tests": [
+      "gagp_test_compiled_backend_gpu",
+      "gagp_test_evolution_cpu_gpu_parity"
+    ],
+    "status": "retained targeted optimization; relative-speedup gate still pending",
+    "source_sha256": {
+      "cpp/src/evolution/repro/gpu.cpp": "23cc89125fa393fe68ea4cdbf563a097024481a90dbc81f1bf51b195c19e035d",
+      "cpp/src/evolution/repro/grammar_prep.cpp": "883aa3f28be449fad982de64f70dd8b3f94f470c41ede5f48977a4a119260b6d",
+      "cpp/tests/gpu/test_compiled_backend_gpu.cpp": "7ba7a91db472a6dffe2fc2b3987e45c3a7629d974caa370fb2f7ccd572ac20f8"
+    }
+  },
+  "donor_payload_scope_audit": {
+    "status": "read-only donor snapshot experiment reverted: single-run gain too small to retain",
+    "baseline_gpu_ms": 931.99502,
+    "experimental_gpu_ms": 916.620351,
+    "relative_reduction": 0.01649651411227493,
+    "diagnostic_only": true,
+    "retained_fix": "donor pool uses enclosing payload scope serially; optional batch declines without launching workers",
+    "tests": [
+      "gagp_test_derivation_resources",
+      "gagp_test_grammar_contextual_donor",
+      "gagp_test_compiled_backend_gpu"
+    ],
+    "retained_binary_sha256": "0c2c37c0e9c3a6ccc2461867ec7cb083fc28f274e5bdb913d44f07d8b56aeb2b",
+    "retained_binary_measured": false,
+    "historical_nsys_mutex_wait_thread_ms": {
+      "donor": 149.039321,
+      "analysis": 180.201088,
+      "other": 78.981353
+    }
+  },
+  "bounded_donor_prefetch": {
+    "status": "retained window128 donor prefetch; performance acceptance incomplete",
+    "binary_sha256": "a54610ebd3b97cc2b82484ea4f30813fbae5a3a5c3a71574ad0902725a3fd99a",
+    "diagnostic_only": true,
+    "records": [
+      {
+        "mode": "gpu_repro",
+        "generation_ms": 830.683599,
+        "preprocess_ms": 345.952574,
+        "exact_final_population_and_counters_match_reference": true
+      },
+      {
+        "mode": "gpu_repro_overlap",
+        "generation_ms": 749.327714,
+        "preprocess_ms": 341.084881,
+        "exact_final_population_and_counters_match_reference": true
+      }
+    ],
+    "tests_passed": [
+      "gagp_test_grammar_repro_prep",
+      "gagp_test_derivation_resources",
+      "gagp_test_compiled_backend_gpu"
+    ],
+    "window32_diagnostic_ms": 938.554212,
+    "window128_instrumented_diagnostic_ms": 817.917772,
+    "pre_prefetch_gpu_diagnostic_ms": 931.99502
+  },
+  "flat_type_environment_experiment": {
+    "status": "reverted: single-pair movement insufficient to retain another data-structure optimization",
+    "artifact": "flat-type-env-assessment.json",
+    "experimental_cpu_ms": 6052.098014,
+    "experimental_gpu_ms": 803.554204,
+    "retained_gpu_diagnostic_ms": 830.683599
+  },
+  "disabled_prefetch_guard": {
+    "status": "passed targeted checks; no new timing claim",
+    "binary_sha256": "e69cfae4d5183b5ac6e426a403c097e69457ff12b558cc30038abbc71741242f",
+    "changes": "skip prefetch when mutation ratio is zero or reported hardware concurrency is below two",
+    "tested": "128-member disabled-mutation preparation matches non-donor reference; one analysis lookup per member; compiled GPU backend passes",
+    "evidence": "prefetch-disabled/tests.log",
+    "untested_environment": "hardware_concurrency below two early-return branch was reviewed but not executed on this host"
+  },
+  "composed_admission_diagnostic": {
+    "status": "diagnostic opportunity only; no admission shortcut implemented",
+    "accepted_with_destination_budget_proof": 1532,
+    "accepted_without_proof": 0,
+    "proof_fit_but_full_budget_rejected": 0,
+    "proof_fit_but_full_validation_error": 0,
+    "operator_counters_match_retained_candidate": true,
+    "restored_binary_sha256": "e69cfae4d5183b5ac6e426a403c097e69457ff12b558cc30038abbc71741242f",
+    "raw_evidence": "composed-admission-audit/assessment.json",
+    "limitations": [
+      "one canonical population and seed",
+      "resource fit alone does not certify full-child grammar membership, native verification or lowering",
+      "must preserve repeated-hole identity, external lexical captures and canonical witness limits"
+    ]
+  },
+  "hashed_positive_match_experiment": {
+    "status": "reverted: small single-pair change does not justify retaining another optimization",
+    "artifact": "hashed-positive-matches-assessment.json",
+    "experimental_cpu_ms": 6097.169535,
+    "experimental_gpu_ms": 806.637936
+  },
+  "optional_system_sha256": {
+    "status": "retained; performance gate incomplete",
+    "candidate_sha256": "7030f77cb7937d51e5c6e2d73f000aef092405b6f8a9cb341483b46c115ebfc6",
+    "evidence": "openssl-identity/verification.json",
+    "diagnostic": "speedup-user-check-assessment.json",
+    "cpu_ms": 6059.038138,
+    "gpu_ms": 785.926552,
+    "speedup": 7.709420330158282,
+    "reference_speedup": 41.089092738286084,
+    "relative_speedup": 0.1876269300775965,
+    "trials": 1,
+    "final_gate": false
+  },
+  "cross_seed_batch_admission_experiment": {
+    "status": "reverted; no material improvement",
+    "evidence": "batch-admission-reuse/assessment.json",
+    "cpu_ms": 6280.944571,
+    "gpu_ms": 788.336655,
+    "trials": 1,
+    "tests": "derivation resources and compiled GPU backend passed",
+    "same_backend_fitness_and_counters": "unchanged"
+  },
+  "current_mapping_evidence_audit": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/current-mapping-evidence-audit.json",
+    "sha256": "322d630f1c6d7e144de634ea14cb1c5b20a0d1f6bb2674707b9e88ac94b6ebde",
+    "scope": "manifest dependencies and existing retained-output hashes verified; no new runtime execution or closure proof"
+  },
+  "executable_certificate_atomic_experiment": {
+    "status": "reverted: no material wall-time improvement",
+    "artifact": "executable-certificate-atomic/assessment.json",
+    "cpu_ms": 6186.054746,
+    "gpu_ms": 787.24069,
+    "trials": 1,
+    "tests": "concurrent certificate publication/error isolation and compiled GPU backend passed",
+    "profile": "sha-candidate-host-trace-summary.json"
+  },
+  "current_restored_candidate": {
+    "binary_sha256": "453e8206019fdd0457c720c5a5892798c0e1afccb3d09e495505cdc07d8707a2",
+    "artifact": "certificate-restored-assessment.json",
+    "cpu_ms": 6051.537209,
+    "gpu_ms": 787.515121,
+    "speedup": 7.684344144802776,
+    "samples": 1,
+    "production_source_hashes_match_local": true,
+    "tests_passed": 2,
+    "full_gate": false
+  },
+  "current_native_integration": {
+    "status": "118 passing native outcomes: 117 initial passes plus repaired diagnostic target rerun",
+    "initial_tests": 118,
+    "initial_passes": 117,
+    "initial_failures": [
+      "gagp_test_final_candidate_stats"
+    ],
+    "repaired_target_pass": true,
+    "diagnostic_timed_comparisons": 22,
+    "gpu_label_tests": 19,
+    "skipped_tests": 0,
+    "full_suite_repeated_after_repair": false,
+    "timed_path_changed": false,
+    "binary_sha256": {
+      "gagp_final_candidate_bench": "453e8206019fdd0457c720c5a5892798c0e1afccb3d09e495505cdc07d8707a2",
+      "gagp_final_candidate_stats": "75a7af8330029357356fc1fe9c92ccc79919335bad82102323406f59f05c54ed"
+    },
+    "source_sha256": {
+      "cpp/src/bench/final_candidate_stats.cpp": "6c57b4ffefd13e7e150963fe233f8b894116e849cb9656fdce9c539e323bce24",
+      "cpp/tests/migration/test_final_candidate_stats.py": "b06f0dd0df177ea6b39f8ed8fe99f0783b08c8b402d6c9f3781e0fec18918c15"
+    },
+    "log_sha256": {
+      "current-integration-stats-tests.log": "5295b4ea06d52ae43e9733c414a14fab7c7ae1041be276b939e9de3ed4357c23",
+      "current-integration-before-LastTest.log": "c578d7dc643866a62e0d765472e98ba33d8ea1cba2ee3911c90fb44cdd960ea1",
+      "current-integration-tests.log": "6c50185aee736cf643be9a6e69255f7ce430218bf418b2844e4f35a1b28a2f2a"
+    },
+    "artifact": "current-integration/assessment.json",
+    "performance_acceptance": false
+  },
+  "sequence_preparation_audit": {
+    "artifact": "sequence-preparation-audit/assessment.json",
+    "materializations": 0,
+    "production_change": false,
+    "conclusion": "not the canonical p1024 bottleneck"
+  },
+  "child_compaction_audit": {
+    "artifact": "child-compaction-audit/assessment.json",
+    "secondary_analysis_calls": 0,
+    "production_change": false,
+    "conclusion": "not the canonical p1024 decode bottleneck"
+  },
+  "direct_list_identity_encoding": {
+    "status": "retained; final performance gate incomplete",
+    "artifact": "direct-list-encoding/assessment.json",
+    "profile": "main-thread-phases/assessment.json",
+    "binary_sha256": "6c754f10ed0c72b81e208a89eb485a3920db8bde48645d42abc93d908a1aa1da",
+    "cpu_ms": 6045.131313,
+    "gpu_ms": 746.870781,
+    "speedup": 8.093945387589075,
+    "samples_per_configuration": 1,
+    "tests_passed": [
+      "gagp_test_grammar_cache",
+      "gagp_test_compiled_backend_gpu"
+    ],
+    "same_backend_fitness_and_counters": true
+  },
+  "cached_sha_provider_experiment": {
+    "status": "reverted; small single-run difference",
+    "artifact": "cached-sha-provider/assessment.json",
+    "cpu_ms": 6070.187491,
+    "gpu_ms": 733.332959,
+    "samples": 1,
+    "tests_passed": 2
+  },
+  "identity_memo_experiment": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/identity-memo/assessment.json",
+    "sha256": "1d7213b9e9be43a0c5f1fc7d5e5c8eb559f49290696d71fedbc9bfdf85b43925",
+    "status": "rejected; sources restored",
+    "cpu_ms": 6190.841815,
+    "gpu_ms": 715.721108,
+    "reason": "Single diagnostic improved GPU generation by only 3.0%; registry invalidation and memo complexity not retained. Fitness and non-timing reproduction counters unchanged; focused identity and GPU contract tests passed."
+  },
+  "parallel_identity_experiment": {
+    "status": "rejected: 2.7% single-sample GPU gain does not justify batch identity complexity",
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/identity-batch/assessment.json",
+    "sha256": "a2428376e2fa0cc87754bd8891f27bbfa57f4077c43b873a38c6d8a237f7ab4f",
+    "all_five_sources_restored": true
+  },
+  "donor_literal_policy_audit": {
+    "status": "literal-proposal-declaration-audit",
+    "scope": "All declared expression variation sites in selected profile/import closures, including implicit self donors; no claim about reachable crossover closure, CPU statement placement or finite-budget conditional distributions.",
+    "profile_count": 11,
+    "route_count": 454,
+    "implicit_self_routes": 46,
+    "matching_literal_domains": 454,
+    "matching_declared_weights": 454,
+    "reference_source": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/b049183/source/cpp/src/evolution/subtree_utils.cpp",
+      "sha256": "2d23fbfd841de501a8e06562a44fedc0e372e116cc3b37f174a67591deb3d2e0",
+      "literal_rule_lines": [
+        536,
+        589
+      ]
+    },
+    "remaining": [
+      "Structured template expansions and weights by CPU/GPU placement",
+      "CPU statement-value placement and reachable crossover closure",
+      "Finite-budget admission and rejection behavior"
+    ],
+    "assessment": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/donor-policy-audit/assessment.json",
+      "sha256": "a3c9271db42db09c76399da65f8f786fff2281931a0f64a1e235782c1f955f23"
+    },
+    "checker": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/donor-policy-audit/audit.py",
+      "sha256": "a31b64e34e39a827fea8af232d0cab01806b15776b7feccc9befa439a349ad35"
+    },
+    "complete_search_mapping": false,
+    "counting": "Counts declarations per profile path, including p64/p1024 equivalent profiles and imported declarations; not distinct reachable runtime sites."
+  },
+  "frozen_cpu_donor_placement_audit": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/donor-placement-audit/assessment.json",
+    "sha256": "2c21b1ac445d5df6d1a16b9a4e3bd898f2515ddcbf55f52e5868111b0cf642da",
+    "workloads": 6,
+    "members": 1344,
+    "scalar_occurrences_checked": 15164,
+    "statement_value_occurrences": 864,
+    "mismatches": 0,
+    "scope": "Frozen mapped populations only; source statement-value predicate applied to mapped RETURN/ASSIGN adjacency. Structured availability before depth/budget filtering, not sampled probabilities or arbitrary offspring closure.",
+    "complete_search_mapping": false
+  },
+  "structured_donor_hole_audit": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/donor-policy-audit/structured-assessment.json",
+    "sha256": "9ab9ce40c8dad856f1702a8e7956ee2932d601837626eb9e3ba1f129f38a4f95",
+    "proposals_checked": 571,
+    "type_family_pairs": 15,
+    "mismatches": 0,
+    "scope": "All structured donor hole expressions across declared expression variation sites; Map binder names checked against template formal scope. Template bodies, runtime behavior and finite-budget eligibility are not proved by this audit.",
+    "complete_template_equivalence": false
+  },
+  "bounded_donor_body_audit": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/donor-policy-audit/body-assessment.json",
+    "sha256": "5d496023d881d02f2607f9f6d71e75f902d18e1dcdc4eae59e8b7f793e633492",
+    "templates_checked": 63,
+    "body_mismatches": 0,
+    "capacity_mismatches": 0,
+    "scope": "DC/DP template body comparison to maintained package bodies, excluding resource_charge and separately checked frame/cell reservations; fuel events and control plans retained. Package parity evidence is separate, not rerun here.",
+    "complete_search_mapping": false
+  },
+  "traversal_and_template_resource_audit": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/donor-policy-audit/traversal-assessment.json",
+    "sha256": "3e10d4f5d7e41410c15665b3066f3eba60be04b7522e31391bf153ae163be7a3",
+    "traversal_templates": 110,
+    "bounded_charge_templates": 63,
+    "mismatches": 0,
+    "scope": "Map/Filter exact control/fuel/resource body check against independently encoded transition recipe; bounded-template source root charged once and all other administrative nodes zero. Hole/offspring resource composition is a separate obligation.",
+    "complete_search_mapping": false
+  },
+  "structured_splice_resource_regression": {
+    "status": "passed",
+    "test": "gagp_test_legacy_budget",
+    "command": "ctest --test-dir /home/hschi1106/gagp-goal11-numeric-20260923/cpp/build -R ^gagp_test_legacy_budget$ --output-on-failure",
+    "source": "cpp/tests/migration/test_legacy_budget.cpp",
+    "source_sha256": "fd7e5d21e7308c5d7a86810c2d380a7b0771c1cd47503ecb2ed2971b13cf0c1d",
+    "typed_lists": [
+      "IntList",
+      "FloatList",
+      "StringList"
+    ],
+    "actual_splices": 90,
+    "boundary_comparisons": 810,
+    "scope": "Nested Filter replacements at outer expression and inner source leaf, donor depths 0..4 and parent depths 1..3; source child metrics versus native verified lowered splices and projected replacement acceptance. Does not prove arbitrary grammar crossover closure.",
+    "production_changed": false,
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/structured-splice-assessment.json",
+    "sha256": "d7d32deac910705ab38e842a4d84bd8f29b4ca4b0afee3bee2fdadb03c90d44a"
+  },
+  "representative_scope_review": {
+    "status": "corrected an over-broad verification prerequisite",
+    "authority": [
+      "goals/README.md: revised representative acceptance contract",
+      "goals/goal-11.md: implementation items 1, 3, 5, 6, 7",
+      "user instruction: reduce testing and repeated measurements"
+    ],
+    "decision": "Do not require a universal arbitrary-offspring/crossover closure proof as an additional Goal 11 gate. Preserve correct semantics, full mapped populations, type/fuel/payload checks and equivalent budgets; investigate concrete failures with focused tests. Existing limited evidence must remain labelled by its scope.",
+    "evidence_available": [
+      "donor_literal_policy_audit",
+      "frozen_cpu_donor_placement_audit",
+      "structured_donor_hole_audit",
+      "bounded_donor_body_audit",
+      "traversal_and_template_resource_audit",
+      "structured_splice_resource_regression",
+      "retained_population_validation",
+      "overlap_population_order_repair"
+    ],
+    "not_claimed": [
+      "universal search-language equivalence",
+      "arbitrary offspring closure",
+      "performance acceptance",
+      "final-candidate integrated gate"
+    ],
+    "next_required_work": "Repair material speedup regression, then final affected integration and representative four-mode measurements using the exact final candidate."
+  },
+  "main_identity_callsite_profile": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/identity-callers/assessment.json",
+    "sha256": "5d807a1830fe8163a75f32cb3bf517af8e82f33c5f438788ddae762aad8aa97c",
+    "diagnostic_only": true,
+    "scope": "main thread, generation loop only, p1024 one GPU generation; timings include instrumentation overhead",
+    "call_sites": [
+      {
+        "site": "pack parents",
+        "calls": 2048,
+        "ms": 26.908351
+      },
+      {
+        "site": "pack donors",
+        "calls": 1532,
+        "ms": 3.191966
+      },
+      {
+        "site": "prepared sources",
+        "calls": 1024,
+        "ms": 13.502404
+      },
+      {
+        "site": "prepared scored",
+        "calls": 1024,
+        "ms": 12.567997
+      },
+      {
+        "site": "compile population",
+        "calls": 1024,
+        "ms": 15.656563
+      },
+      {
+        "site": "variation analysis cache key",
+        "calls": 7309,
+        "ms": 101.091229
+      },
+      {
+        "site": "preprocess parents",
+        "calls": 2048,
+        "ms": 31.691883
+      },
+      {
+        "site": "preprocess donors",
+        "calls": 1532,
+        "ms": 3.955491
+      }
+    ],
+    "total_calls": 17541,
+    "total_ms": 208.56588399999998,
+    "source_sha256": {
+      "cache.cpp.instrumented": "ba417512ff78dfadc49b7bbf578fed5186e9e4d70243e00462d4e02870554966",
+      "evolve.cpp.instrumented": "21e376533ea9b2dfa6a5bcbcbb6a64358ea037fa49dbe8e1f5eaab5a501f6566",
+      "probe.hpp": "7688b00be7f58dc49bc06bdd69548d3cce836ac5f66a25ad0ea1ffff32a134fc"
+    },
+    "next_action": "Reduce repeated variation-analysis key calculation using validated immutable analysis ownership; do not skip child verification or reuse mutable payload identities without validation."
+  },
+  "shared_analysis_identity": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/shared-analysis-identity/assessment.json",
+    "sha256": "7350ce0931f69bf573470924e9aa12a723ae46a85a5f3e94286d4ee384edc822",
+    "status": "retained: reuse runtime identity produced by the same analysis lookup",
+    "cpu_ms": 6052.018564,
+    "gpu_ms": 721.147796,
+    "speedup": 8.392202815523824,
+    "benchmark_sha256": "91d8b7322d0f81dd8641309317422ce07c45edad4e1ee6e7c63132a56b01be06",
+    "diagnostic_only": true,
+    "saved_identity_calls_per_p1024_generation": 2048
+  },
+  "certified_analysis_handoff_experiment": {
+    "status": "rejected: no observed GPU generation improvement",
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/certified-analysis-handoff/assessment.json",
+    "sha256": "b270678d23d1d15675c6fe2014f90a6df290bd1f5884d26f3505435fbea33cd3",
+    "cpu_ms": 6185.381532,
+    "gpu_ms": 723.00327,
+    "sources_restored": true
+  },
+  "empty_donor_pool_fast_return": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/empty-donor-pool/assessment.json",
+    "sha256": "cf827cf48419cb259189b2131dd56054acefe937646e0c724746bec6e74748c6",
+    "status": "retained: return immediately for empty donor seed pools",
+    "cpu_ms": 6260.191746,
+    "gpu_ms": 665.523487,
+    "speedup": 9.406417456759119,
+    "benchmark_sha256": "06b1d2db9ef269bad3db02d1743a6836bf67ac378be80e282a27e6d4bd9c3028",
+    "diagnostic_only": true
+  },
+  "superseded_acceptance_diagnostics_before_warm_handoff": {
+    "latest_paired_diagnostic": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/speedup-latest-user-check-assessment.json",
+      "sha256": "ebc11bc358e00c5fb078b7f9c7f6535f8bd58ea2d0524edeb506685a4e415d1d",
+      "old_speedup": 40.214443718896774,
+      "candidate_speedup": 8.307342584097844,
+      "relative_speedup": 0.20657609097286164,
+      "measured_pairs": 1,
+      "candidate_sha256": "6c754f10ed0c72b81e208a89eb485a3920db8bde48645d42abc93d908a1aa1da",
+      "candidate_state": "retained direct-list encoding; diagnostic only, not final representative gate"
+    },
+    "latest_candidate_diagnostic": {
+      "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/empty-donor-pool/assessment.json",
+      "sha256": "cf827cf48419cb259189b2131dd56054acefe937646e0c724746bec6e74748c6",
+      "status": "retained: return immediately for empty donor seed pools",
+      "cpu_ms": 6260.191746,
+      "gpu_ms": 665.523487,
+      "speedup": 9.406417456759119,
+      "benchmark_sha256": "06b1d2db9ef269bad3db02d1743a6836bf67ac378be80e282a27e6d4bd9c3028",
+      "diagnostic_only": true
+    }
+  },
+  "warm_parent_pack_diagnostic": {
+    "path": "/home/hschi1106/gagp-artifacts/grammar-migration/representative-snoopy-01/warmed-parent-pack/assessment.json",
+    "sha256": "260190ae7cf3721f4f6a9f44db3b146f56d58a3174616e58f99d2e40f92a04a5",
+    "status": "retained private parent certificates and warm parent packing",
+    "cpu_ms": 6001.053748,
+    "gpu_ms": 472.65011,
+    "speedup": 12.696609227489654,
+    "relative_to_recent_reference": 0.30574295237636323,
+    "reference_measured_in_same_pair": false,
+    "benchmark_sha256": "6783fbda563369b8220b17fdf965ea3f3295159370d17a17d572800d7fc0f255",
+    "diagnostic_only": true
+  }
+}

@@ -316,8 +316,20 @@ bool test_zero_cycle_and_invalid_profiles() {
   duplicate.fuel_specs.push_back(
       {3, {{FuelEvent::Operation, 1}, {FuelEvent::Operation, 2}}});
   const auto bad = gagp::evo::verify_ast(duplicate, {});
-  return check(!bad.ok && bad.diagnostic.code == VerifyCode::DuplicateMetadata,
-               "native verification should reject duplicate source events");
+  if (!check(!bad.ok && bad.diagnostic.code == VerifyCode::DuplicateMetadata &&
+                 bad.diagnostic.path == "$.fuel_specs[0].charges[1].event",
+             "duplicate source event diagnostic must retain its exact path")) return false;
+  duplicate.fuel_specs[0].charges.resize(1);
+  duplicate.fuel_specs.push_back(duplicate.fuel_specs[0]);
+  const auto repeated = gagp::evo::verify_ast(duplicate, {});
+  if (!check(!repeated.ok && repeated.diagnostic.code == VerifyCode::DuplicateMetadata &&
+                 repeated.diagnostic.path == "$.fuel_specs[1].node_index",
+             "duplicate source profile diagnostic must retain its exact path")) return false;
+  duplicate.fuel_specs[1].node_index = duplicate.nodes.size();
+  const auto outside = gagp::evo::verify_ast(duplicate, {});
+  return check(!outside.ok && outside.diagnostic.code == VerifyCode::MetadataNodeMismatch &&
+                   outside.diagnostic.path == "$.fuel_specs[1].node_index",
+               "out-of-range fuel owner must be checked before indexing");
 }
 
 bool test_legacy_unprofiled_program() {

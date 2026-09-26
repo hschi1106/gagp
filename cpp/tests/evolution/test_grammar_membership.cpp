@@ -131,6 +131,33 @@ int main() {
     repeated.ast.consts[1] = Value::from_int(2);
     rejects(leaves, repeated);
 
+    // B initially fails at the left child while A is active. After A selects
+    // its leaf and the first root alternative fails on the right child, B at
+    // the SAME AST coordinate must be retried under the new alias ancestry.
+    const auto ancestry = compile(json(R"({
+      "format_version":"grammar-definition-v2",
+      "entry":{"nonterminal":"Root","type":"Int"},
+      "search_limits":{"max_nodes":20,"max_depth":10},"execution_limits":{"fuel":100},
+      "nonterminals":[
+        {"id":"Root","type":"Int","scope":[],"alternatives":[
+          {"id":"first","weight":1,"expression":{"signature":"add(Int,Int)->Int","args":[
+            {"ref":"A"},{"constant":{"type":"Int","values":["0"]}}]}},
+          {"id":"second","weight":1,"expression":{"signature":"add(Int,Int)->Int","args":[
+            {"ref":"B"},{"constant":{"type":"Int","values":["1"]}}]}}]},
+        {"id":"A","type":"Int","scope":[],"alternatives":[
+          {"id":"alias","weight":1,"expression":{"ref":"B"}},
+          {"id":"leaf","weight":1,"expression":{"constant":{"type":"Int","values":["1"]}}}]},
+        {"id":"B","type":"Int","scope":[],"alternatives":[
+          {"id":"alias","weight":1,"expression":{"ref":"A"}}]}]
+    })"));
+    auto ancestry_member = repeated;
+    ancestry_member.ast.consts[1] = Value::from_int(1);
+    require_membership(ancestry, ancestry_member);
+    check(reconstruct_derivation(ancestry, ancestry_member).nodes.size() == ancestry_member.ast.nodes.size(),
+          "alias-dependent failure was reused under a different ancestry");
+    ancestry_member.ast.consts[0] = Value::from_int(2);
+    rejects(ancestry, ancestry_member);
+
     const auto fuel_grammar = compile(json(R"({
       "format_version":"grammar-definition-v2",
       "entry":{"nonterminal":"Main","type":"Int"},
@@ -185,6 +212,16 @@ int main() {
     std::reverse(branch.ast.fuel_specs[0].charges.begin(),
                  branch.ast.fuel_specs[0].charges.end());
     require_membership(branch_fuel, branch);
+    auto missing_event = branch;
+    missing_event.ast.fuel_specs[0].charges.pop_back();
+    rejects(branch_fuel, missing_event);
+    auto duplicate_event = branch;
+    duplicate_event.ast.fuel_specs[0].charges[1] = duplicate_event.ast.fuel_specs[0].charges[0];
+    check(!verify_ast(duplicate_event.ast, {}), "native verification accepted duplicate fuel events");
+    bool duplicate_rejected = false;
+    try { require_membership(branch_fuel, duplicate_event); }
+    catch (const std::invalid_argument&) { duplicate_rejected = true; }
+    check(duplicate_rejected, "membership accepted duplicate fuel events");
     branch.ast.fuel_specs[0].charges[0].cost += 1;
     rejects(branch_fuel, branch);
 
@@ -199,6 +236,8 @@ int main() {
         json(R"({"id":"alias","weight":1e300,"expression":{"ref":"Expr"}})"));
     const auto alias_grammar = compile(aliases);
     require_membership(alias_grammar, sum);
+    check(reconstruct_derivation(alias_grammar, sum).nodes.size() == sum.ast.nodes.size(),
+          "self-alias match did not retain a reconstructable successful decision");
     for (std::uint64_t seed = 0; seed < 32; ++seed)
       require_membership(alias_grammar, generate_derivation(alias_grammar, seed).genome);
     aliases.object_v.at("nonterminals").array_v.push_back(json(R"({
@@ -209,6 +248,8 @@ int main() {
         .object_v.at("expression").object_v.at("ref").string_v = "Other";
     const auto mutual = compile(aliases);
     require_membership(mutual, sum);
+    check(reconstruct_derivation(mutual, sum).nodes.size() == sum.ast.nodes.size(),
+          "mutual-alias match retained an active or failed production decision");
     for (std::uint64_t seed = 0; seed < 32; ++seed)
       require_membership(mutual, generate_derivation(mutual, seed).genome);
     std::cout << "grammar membership passed\n";

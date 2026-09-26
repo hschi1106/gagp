@@ -316,7 +316,10 @@ Runs：100 seeds/problem/grammar。
 
 ### E8：GPU reproduction ablation（延伸）
 
-使用 `--cpu-repro-ablation none|gpu_selection|gpu_candidates|gpu_coupled_donor` 隔離 selection、candidate preprocessing、donor coupling 的效果。固定 GPU evaluation、Core set、30 seeds；只有觀察到明顯效果後再擴充 100 seeds。
+編譯 grammar 的 production path 可使用 `--cpu-repro-ablation none|gpu_selection`
+隔離 selection 的效果。`gpu_candidates` 與 `gpu_coupled_donor` 屬於 release-1
+專用 candidate bucket/donor coupling 診斷；Goal 09 移除該專用路徑後，現在會明確拒絕，
+只保留於歷史 baseline 清單。固定 GPU evaluation、Core set、30 seeds；只有觀察到明顯效果後再擴充 100 seeds。
 
 ## 8. Metric 定義
 
@@ -573,3 +576,40 @@ logs/experiment/<study_id>/<commit>/<hardware_id>/<mode>/<problem>/<seed_or_repe
 | F | E7 | 2500 = 5 problems × 5 grammars × 100 seeds |
 
 E4、E8 與 PSB2 為延伸實驗，不計入上表。每個 phase 完成後先做完整 artifact audit，再開始下一 phase；不得在看到 phase D/E 的 test outcomes 後修改 primary config。
+
+### Migration benchmark mode-specific proposal grammars
+
+A `migration-workloads-v2` candidate (`after`) may keep its default `grammar`
+artifact and provide `grammar_by_mode`, a map from selected mode names to
+`{"path": "…", "sha256": "…"}` artifacts. An override replaces only the grammar
+passed to that mode; modes without overrides use the default. This records the
+frozen CPU/GPU donor-policy distinction without adding backend-specific behavior
+to the runtime. Every override is hash-checked, included in workload identity and
+used when the trial auditor reconstructs the command. All scopes of one logical
+workload must carry the same map, including overrides unused by that scope.
+Changed profiles require a new manifest/run directory; earlier trials cannot be
+reused under the new identity. A valid manifest alone does not prove search-space
+mapping or performance acceptance.
+
+Grammar artifacts with file imports must also contain a `dependencies` list of
+`{"path": "…", "sha256": "…"}` records. Record every transitively imported file
+exactly once, excluding the root grammar. Artifact paths are relative to the
+benchmark root; import paths inside each grammar are relative to that grammar's
+directory. For example:
+
+```json
+{
+  "path": "inputs/profile.json",
+  "sha256": "<root file SHA-256>",
+  "dependencies": [
+    {"path": "inputs/source_literals.json", "sha256": "<import SHA-256>"}
+  ]
+}
+```
+
+Validation rejects missing, changed, duplicate, unused or cyclic dependencies,
+including imports used only by a mode override. Dependency records participate in
+workload hashes and cross-scope identity checks: identical root bytes with different
+imported definitions are different workloads. Import-free grammars may omit the
+list. Existing manifests with imports need dependency records before a new run;
+do not rewrite historical trial identities to claim they froze those dependencies.

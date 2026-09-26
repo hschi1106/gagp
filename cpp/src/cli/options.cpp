@@ -4,6 +4,21 @@
 
 namespace gagp::cli_detail {
 
+std::vector<std::string> parse_population_root_names(const std::string& roots) {
+  std::vector<std::string> names;
+  std::size_t start = 0;
+  do {
+    const auto end = roots.find(',', start);
+    const auto root = roots.substr(start, end - start);
+    if (root.empty())
+      throw std::runtime_error("--population-roots requires nonempty comma-separated root IDs");
+    names.push_back(root);
+    if (end == std::string::npos) break;
+    start = end + 1;
+  } while (true);
+  return names;
+}
+
 CliOptions parse_cli_options(int argc, char** argv) {
   CliOptions opts;
   auto parse_on_off = [](const std::string& raw, const char* flag) -> bool {
@@ -27,6 +42,10 @@ CliOptions parse_cli_options(int argc, char** argv) {
       opts.population_json = need_value("--population-json");
     } else if (arg == "--grammar-definition") {
       opts.grammar_definition_path = need_value("--grammar-definition");
+    } else if (arg == "--population-roots") {
+      if (!opts.population_roots.empty())
+        throw std::runtime_error("--population-roots may be specified only once");
+      opts.population_roots = parse_population_root_names(need_value("--population-roots"));
     } else if (arg == "--eval-ast-json") {
       opts.eval_ast_json = need_value("--eval-ast-json");
     } else if (arg == "--engine") {
@@ -84,6 +103,8 @@ CliOptions parse_cli_options(int argc, char** argv) {
   if (opts.eval_ast_json.empty() && opts.grammar_definition_path.empty()) {
     throw std::runtime_error("--grammar-definition is required for evolution");
   }
+  if (!opts.population_roots.empty() && !opts.eval_ast_json.empty())
+    throw std::runtime_error("--population-roots applies to evolution, not --eval-ast-json");
   if (opts.engine != "cpu" && opts.engine != "gpu") {
     throw std::runtime_error("--engine must be cpu or gpu");
   }

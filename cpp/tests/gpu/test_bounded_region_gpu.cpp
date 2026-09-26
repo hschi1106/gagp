@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <stdexcept>
@@ -454,6 +455,47 @@ bool test_boundary_base_and_fuel() {
                          "exact region fuel");
 }
 
+bool test_workspace_thread_isolation() {
+  auto program = captured_counter_program();
+  auto& segment = program.bounded_region_segments[0];
+  segment.plan.requests.push_back(segment.plan.requests[0]);
+  segment.plan.duplicate_policy = DuplicatePolicy::Allow;
+  if (!verify_fixture(program, "thread-isolated memo counter")) return false;
+  auto second = program;
+  second.bounded_region_segments[0].combine.program.consts[0] = Value::from_int(2);
+  std::vector<CaseBindings> cases;
+  std::vector<Value> answers;
+  for (int i = 0; i < 2053; ++i) {
+    const int depth = i % 8;
+    cases.push_back({{0, Value::from_int(depth)}, {1, Value::from_int(100 + i)}});
+    answers.push_back(Value::from_int(100 + i + depth));
+  }
+  for (const int blocksize : {256, 1024}) {
+    for (const int fuel : {6, 100}) {
+      FitnessSessionGpu session;
+      const auto initialized = session.init(cases, answers, fuel, blocksize, 7.0);
+      if (!check(initialized.ok, "thread-isolation session init")) return false;
+      const std::vector<BytecodeProgram> programs{program, second};
+      const auto cpu = eval_fitness_cpu(programs, cases, answers, fuel, 7.0, blocksize);
+      for (int repeat = 0; repeat < 2; ++repeat) {
+        const auto gpu = session.eval_programs(programs);
+        if (!gpu.ok || gpu.fitness != cpu) {
+          std::cerr << "block=" << blocksize << " fuel=" << fuel << " repeat=" << repeat
+                    << " error=" << gpu.err.message << '\n';
+          for (std::size_t i = 0; i < cpu.size(); ++i) {
+            std::cerr << "cpu[" << i << "]=" << cpu[i];
+            if (i < gpu.fitness.size()) std::cerr << " gpu=" << gpu.fitness[i];
+            std::cerr << '\n';
+          }
+        }
+        if (!check(gpu.ok && gpu.fitness == cpu,
+                   "divergent thread/case/program memo state must remain isolated")) return false;
+      }
+    }
+  }
+  return true;
+}
+
 bool test_exact_capacity_exhaustion() {
   BoundedRegionSegment frames_ok = unary_segment(Value::from_int(1));
   frames_ok.plan.limits.frames = 2;
@@ -543,6 +585,102 @@ bool test_host_pack_validation_and_profile_limits() {
                "host pack did not validate all region plans before upload");
 }
 
+bool test_phase_binding_capacities() {
+  for (const bool leaf : {false, true}) {
+    for (const int count : {1, 2, 4, 5, 8, 9, 32}) {
+      auto segment = unary_segment(Value::from_int(-1));
+      segment.plan.parameter_types.assign(count, ValueTag::Int);
+      std::vector<RegionPhaseBinding> bindings;
+      CaseBindings inputs;
+      for (int i = 0; i < count; ++i) {
+        segment.parameter_locals.push_back(i);
+        bindings.push_back({slot(RegionSlotBank::Parameter, i), i});
+        inputs.push_back({i, Value::from_int(100 + i)});
+      }
+      segment.base_body = phase(
+          {}, {ins_a(Opcode::Load, count - 1), ins(Opcode::Return)},
+          std::move(bindings), count);
+      if (leaf) {
+        segment.base_body.program.code.pop_back();
+        segment.base_body.program.instruction_fuel.pop_back();
+      }
+      segment.base_body.program.instruction_fuel[0] = 3;
+      auto program = invocation(std::move(segment), {Value::from_int(0)});
+      program.n_locals = count;
+      const Value answer = Value::from_int(99 + count);
+      auto missing = inputs;
+      missing.pop_back();
+      auto wrong_type = inputs;
+      wrong_type.back().value = Value::from_float(1.0);
+      const std::string label = std::string(leaf ? "leaf" : "returned") +
+          " phase binding capacity " + std::to_string(count);
+      if (!verify_fixture(program, label) ||
+          !compare_fitness(program,
+                           {{inputs, answer, ErrCode::Value, true},
+                            {missing, answer, ErrCode::Name, false},
+                            {wrong_type, answer, ErrCode::Type, false}},
+                           5, label) ||
+          !compare_fitness(program,
+                           {{inputs, answer, ErrCode::Timeout, false},
+                            {missing, answer, ErrCode::Timeout, false},
+                            {wrong_type, answer, ErrCode::Timeout, false}},
+                           4, label + " below instruction fuel")) return false;
+    }
+  }
+  return true;
+}
+
+bool test_leaf_phase_types_and_fuel() {
+  const std::vector<Value> terminals{
+      Value::from_int(17), Value::from_float(1.25), Value::from_bool(true),
+      Value::from_char('a'), payload::make_string_value("leaf"),
+      payload::make_int_list_value({Value::from_int(2)}),
+      payload::make_float_list_value({Value::from_float(2.5)}),
+      payload::make_string_list_value({payload::make_string_value("item")})};
+  for (const auto terminal : terminals) {
+    auto segment = unary_segment(terminal);
+    for (auto* leaf : {&segment.base_body, &segment.combine}) {
+      leaf->program.code.pop_back();
+      leaf->program.instruction_fuel = {2};
+    }
+    const auto program = invocation(std::move(segment), {Value::from_int(1)});
+    if (!verify_fixture(program, "leaf result types") ||
+        !compare_fitness(program, {{{}, terminal, ErrCode::Value, true}},
+                         7, "leaf exact fuel") ||
+        !compare_fitness(program, {{{}, terminal, ErrCode::Timeout, false}},
+                         6, "leaf below exact fuel")) return false;
+  }
+  return true;
+}
+
+bool test_phase_frame_boundaries() {
+  for (const int length : {16, 17}) {
+    for (const int locals : {8, 9}) {
+      auto segment = unary_segment(Value::from_int(-1));
+      std::vector<Instr> code{ins_a(Opcode::PushConst, 0)};
+      for (int i = 0; i < length - 2; ++i) code.push_back(ins(Opcode::Neg));
+      code.push_back(ins(Opcode::Return));
+      segment.base_body = phase({Value::from_int(7)}, std::move(code), {}, locals);
+      const auto program = invocation(std::move(segment), {Value::from_int(0)});
+      const std::string label = "phase frame length=" + std::to_string(length) +
+                                " locals=" + std::to_string(locals);
+      if (!verify_fixture(program, label) || !compare_fitness(program,
+                           {{{}, Value::from_int(length % 2 ? -7 : 7), ErrCode::Value, true}},
+                           100, label)) return false;
+    }
+  }
+  auto segment = unary_segment(Value::from_int(-1));
+  segment.base_body = phase(
+      {Value::from_bool(false), Value::from_int(7)},
+      {ins_a(Opcode::PushConst, 0), ins_a(Opcode::JmpIfFalse, 4),
+       ins_a(Opcode::PushConst, 1), ins(Opcode::Return),
+       ins_a(Opcode::PushConst, 1), ins(Opcode::Return)});
+  const auto program = invocation(std::move(segment), {Value::from_int(0)});
+  return verify_fixture(program, "branching phase") &&
+         compare_fitness(program, {{{}, Value::from_int(7), ErrCode::Value, true}},
+                         100, "branching phase fallback");
+}
+
 bool test_production_capability_dispatch_sequence() {
   constexpr int fuel = 1000;
   constexpr double penalty = 7.0;
@@ -597,6 +735,7 @@ bool test_production_capability_dispatch_sequence() {
   for (int i = 0; i < 32; ++i) {
     if (i % 4 == 0) {
       reuse_population.push_back(ordinary);
+      reuse_population.back().consts[0] = Value::from_int(1000 + i);
     } else {
       const Value terminal = Value::from_int(100 + i);
       BoundedRegionSegment segment = unary_segment(terminal);
@@ -623,17 +762,61 @@ bool test_production_capability_dispatch_sequence() {
     }
   }
 
-  return compare_population({region, ordinary},
+  const BytecodeProgram memo_a = invocation(
+      unary_segment(Value::from_int(9), true), {Value::from_int(2)});
+  const BytecodeProgram memo_b = invocation(
+      unary_segment(Value::from_int(41), true), {Value::from_int(2)});
+  auto wide_segment = unary_segment(Value::from_int(7), true);
+  wide_segment.plan.state_types.assign(4, ValueTag::Int);
+  wide_segment.plan.coordinate_slots = {0, 1, 2, 3};
+  wide_segment.plan.coordinate_rank = {{0, 1}, {1, 1}, {2, 1}, {3, 1}};
+  wide_segment.plan.coordinate_domains.assign(4, {literal(0), literal(100)});
+  wide_segment.plan.requests.assign(8, {{{offset(0, -1), offset(1, 0),
+                                         offset(2, 0), offset(3, 0)}}});
+  for (int i = 0; i < 4; ++i) {
+    wide_segment.plan.preparations.push_back({ValueTag::Int, RegionPreparationKind::Identity});
+    wide_segment.preparations.push_back(constant_phase(Value::from_int(10 + i)));
+  }
+  wide_segment.base_body = load_phase(RegionSlotBank::State, 3);
+  wide_segment.combine = phase({},
+      {ins_a(Opcode::Load, 0), ins_a(Opcode::Load, 1), ins(Opcode::Add),
+       ins_a(Opcode::Load, 2), ins(Opcode::Add), ins_a(Opcode::Load, 3),
+       ins(Opcode::Add), ins(Opcode::Return)},
+      {{slot(RegionSlotBank::Result, 7), 0}, {slot(RegionSlotBank::Prepared, 3), 1},
+       {slot(RegionSlotBank::State, 2), 2}, {slot(RegionSlotBank::State, 1), 3}}, 4);
+  const auto wide = invocation(std::move(wide_segment),
+      {Value::from_int(2), Value::from_int(3), Value::from_int(5), Value::from_int(17)});
+  if (!verify_fixture(wide, "maximum frame slot layout") ||
+      !check(exact_value(execute_bytecode_cpu(wide, {}, fuel).value, Value::from_int(59)),
+             "maximum frame slot fixture result")) return false;
+  std::vector<BytecodeProgram> reversed_population = reuse_population;
+  std::reverse(reversed_population.begin(), reversed_population.end());
+  return compare_population({memo_a}, "initial memo workspace") &&
+         compare_population({memo_b}, "same-layout memo must not retain results") &&
+         compare_population({memo_a}, "same-layout memo repeated") &&
+         compare_population({wide, memo_b}, "maximum state/preparation/request slots") &&
+         compare_population({memo_a}, "shrink all frame slot banks") &&
+         compare_population({wide, ordinary, memo_b}, "regrow all frame slot banks") &&
+         compare_population({region, ordinary},
                             "mixed region/ordinary dispatch") &&
          compare_population(reuse_population,
                             "grid-stride region workspace reuse") &&
-         compare_population({ordinary}, "ordinary-only dispatch");
+         compare_population(reuse_population,
+                            "repeat maximum workspace layout") &&
+         compare_population(reversed_population,
+                            "reversed schedule preserves output positions") &&
+         compare_population({ordinary}, "ordinary-only dispatch") &&
+         compare_population({memo_b}, "shrink workspace after ordinary dispatch");
 }
 
 }  // namespace
 
 int main() {
   payload::clear();
+  if (!test_workspace_thread_isolation()) return 1;
+  if (!test_phase_binding_capacities()) return 1;
+  if (!test_leaf_phase_types_and_fuel()) return 1;
+  if (!test_phase_frame_boundaries()) return 1;
   if (!test_production_capability_dispatch_sequence()) return 1;
   if (!test_ordered_coordinate_memo()) return 1;
   if (!test_sequence_divide_and_conquer()) return 1;

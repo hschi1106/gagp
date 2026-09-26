@@ -104,7 +104,7 @@ class Compiler {
       const auto validation = validate_semantic_fuel(out.code, out.instruction_fuel);
       if (!validation) throw std::invalid_argument("prefix compile: " + validation.message);
     }
-    out.n_locals = static_cast<int>(var2idx_.size());
+    out.n_locals = local_count_;
     out.var2idx = var2idx_;
     out.bounded_region_segments = bounded_region_segments_;
     return out;
@@ -120,7 +120,7 @@ class Compiler {
     if (it != var2idx_.end()) {
       return it->second;
     }
-    const int idx = static_cast<int>(var2idx_.size());
+    const int idx = local_count_++;
     var2idx_[name] = idx;
     return idx;
   }
@@ -129,7 +129,27 @@ class Compiler {
     return prefix + "_" + std::to_string(label_counter_++);
   }
 
-  std::string new_temp() { return std::string("\x00for_i_") + std::to_string(tmp_counter_++); }
+  // Named locals retain their slots for the entire program. Compiler temporaries
+  // can share storage only after the enclosing lexical construct has finished.
+  int temporary() {
+    const int slot = free_temporaries_.empty() ? local_count_++ : free_temporaries_.back();
+    if (!free_temporaries_.empty()) free_temporaries_.pop_back();
+    live_temporaries_.push_back(slot);
+    return slot;
+  }
+
+  struct TemporaryScope {
+    Compiler& compiler;
+    std::size_t begin;
+    explicit TemporaryScope(Compiler& owner)
+        : compiler(owner), begin(owner.live_temporaries_.size()) {}
+    ~TemporaryScope() {
+      while (compiler.live_temporaries_.size() > begin) {
+        compiler.free_temporaries_.push_back(compiler.live_temporaries_.back());
+        compiler.live_temporaries_.pop_back();
+      }
+    }
+  };
 
   void push_binder(int name_id, int local_idx) {
     binder_stack_[name_id].push_back(local_idx);
@@ -172,7 +192,7 @@ class Compiler {
   std::size_t compile_for_loop_body(const std::string& user_name, int bound_local, const AstProgram& program, std::size_t body_idx) {
     const int idx_0 = add_const(Value::from_int(0));
     const int idx_1 = add_const(Value::from_int(1));
-    const int counter_i = local(new_temp());
+    const int counter_i = temporary();
     const int user_i = local(user_name);
 
     const std::string loop_label = new_label("for_loop");
@@ -293,6 +313,7 @@ class Compiler {
   }
 
   std::size_t compile_region_prefix(const AstProgram& program, std::size_t idx) {
+    TemporaryScope temporaries(*this);
     has_general_regions_ = true;
     const LexicalRegion* region = nullptr;
     for (const auto& row : program.lexical_regions) {
@@ -300,7 +321,7 @@ class Compiler {
     }
     if (!region) throw std::invalid_argument("prefix compile: missing lexical region");
     if (program.nodes[idx].kind == NodeKind::LET_REGION) {
-      const int slot = local(new_temp());
+      const int slot = temporary();
       const auto body = compile_expr_prefix(program, idx + 1);
       fuel_event(program, idx, FuelEvent::Bind, [&] { emit(Opcode::Store, slot, true); });
       const int binding = region->bindings.at(0).id;
@@ -361,14 +382,14 @@ class Compiler {
       const auto found = observed_lengths_.find(program.nodes[source_arg].i0);
       if (found != observed_lengths_.end()) length_alias = found->second;
     }
-    const int xs = source_alias ? *source_alias : local(new_temp());
-    const int start = start_alias ? *start_alias : local(new_temp());
+    const int xs = source_alias ? *source_alias : temporary();
+    const int start = start_alias ? *start_alias : temporary();
     // Only a proven identity clamp permits sharing immutable endpoint storage.
-    const int begin = constant_begin ? -1 : local(new_temp());
-    const int limit = end_alias ? *end_alias : local(new_temp());
-    const int length = length_alias ? *length_alias : local(new_temp());
-    const int counter = local(new_temp());
-    const int element = local(new_temp()), index = local(new_temp()), state = local(new_temp());
+    const int begin = constant_begin ? -1 : temporary();
+    const int limit = end_alias ? *end_alias : temporary();
+    const int length = length_alias ? *length_alias : temporary();
+    const int counter = temporary();
+    const int element = temporary(), index = temporary(), state = temporary();
     const auto emit_begin = [&] {
       if (constant_begin) emit(Opcode::PushConst, add_const(Value::from_int(0)), true);
       else emit(Opcode::Load, begin, true);
@@ -546,7 +567,7 @@ class Compiler {
     Compiler phase;
     RegionPhase out;
     for (const auto& item : binding.bindings) {
-      const int local_idx = phase.local(phase.new_temp());
+      const int local_idx = phase.temporary();
       phase.push_binder(-item.binder_id - 1, local_idx);
       out.bindings.push_back({item.source, local_idx});
     }
@@ -555,7 +576,7 @@ class Compiler {
     phase.patch_jumps();
     out.program.consts = std::move(phase.consts_);
     out.program.code = std::move(phase.code_);
-    out.program.n_locals = static_cast<int>(phase.var2idx_.size());
+    out.program.n_locals = phase.local_count_;
     if (phase.has_general_regions_ || phase.has_source_fuel_) {
       out.program.instruction_fuel = std::move(phase.fuel_);
       const auto valid = validate_semantic_fuel(out.program.code, out.program.instruction_fuel);
@@ -596,7 +617,7 @@ class Compiler {
       }
       cursor = end;
     }
-    const auto verified = verify_bounded_region_segment(segment, static_cast<int>(var2idx_.size()));
+    const auto verified = verify_bounded_region_segment(segment, local_count_);
     if (!verified) throw std::invalid_argument("prefix compile: " + verified.diagnostic.message);
     const auto index = static_cast<int>(bounded_region_segments_.size());
     bounded_region_segments_.push_back(std::move(segment));
@@ -878,7 +899,8 @@ class Compiler {
       return next;
     }
     if (node.kind == NodeKind::FOR_RANGE) {
-      const int bound_local = local(new_temp());
+      TemporaryScope temporaries(*this);
+      const int bound_local = temporary();
       const std::string valid_label = new_label("for_valid");
       const std::string bad_label = new_label("for_bad");
       std::size_t next = compile_expr_prefix(program, idx + 1);
@@ -917,7 +939,9 @@ class Compiler {
   std::vector<BoundedRegionSegment> bounded_region_segments_;
   bool has_general_regions_ = false;
   int label_counter_ = 0;
-  int tmp_counter_ = 0;
+  int local_count_ = 0;
+  std::vector<int> free_temporaries_;
+  std::vector<int> live_temporaries_;
   const VerifiedAst* verified_ = nullptr;
 };
 

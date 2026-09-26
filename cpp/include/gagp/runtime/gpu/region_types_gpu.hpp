@@ -26,7 +26,9 @@ static_assert(DMAX_REGION_REQUEST_EXPRESSIONS ==
               DMAX_REGION_STATES * DMAX_REGION_REQUESTS);
 
 // Per-invocation values live in explicitly allocated device storage. A CUDA
-// thread owns one slice and reuses it only after the previous invocation returns.
+// thread owns one logical slice and reuses it only after the previous invocation
+// returns. Production slices are interleaved within each block; single-thread
+// probes use a stride of one.
 struct DRegionFrame {
   Value state[DMAX_REGION_STATES];
   Value prepared[DMAX_REGION_PREPARATIONS];
@@ -40,6 +42,7 @@ struct DRegionWorkspace {
   Value* memo_values = nullptr;
   std::uint32_t frame_capacity = 0;
   std::uint32_t memo_capacity = 0;
+  std::uint32_t slot_stride = 1;
 };
 
 static_assert(std::is_trivially_copyable<DRegionFrame>::value);

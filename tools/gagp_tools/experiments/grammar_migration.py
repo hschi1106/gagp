@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from gagp_tools.shared.migration_protocol import STRICT_PROTOCOL, representative
+
 
 MODES = {
     "cpu": ["--engine", "cpu", "--repro-backend", "cpu", "--repro-overlap", "off"],
@@ -53,58 +55,275 @@ def canonical_hash(value: Any) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+def validate_grammar_dependencies(artifact: dict[str, Any], root: Path) -> None:
+    """Freeze the complete file-import closure, including mode overrides."""
+    declared = artifact.get("dependencies", [])
+    if not isinstance(declared, list):
+        raise ValueError("grammar dependencies must be artifact records")
+    hashes = {}
+    for dependency in declared:
+        if not isinstance(dependency, dict) or not isinstance(dependency.get("path"), str):
+            raise ValueError("grammar dependencies must be artifact records")
+        path = (root / dependency["path"]).resolve()
+        if path in hashes or not path.is_file() or sha256(path) != dependency.get("sha256"):
+            raise ValueError("duplicate, changed or missing grammar dependency")
+        hashes[path] = dependency["sha256"]
+    visited, active = set(), set()
+
+    def visit(path: Path) -> None:
+        if path in active:
+            raise ValueError("cyclic grammar imports")
+        if path in visited:
+            return
+        if not path.is_file():
+            raise ValueError(f"missing grammar import: {path}")
+        document = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(document, dict) or not isinstance(document.get("imports", []), list):
+            raise ValueError("grammar imports require an object and a path list")
+        active.add(path)
+        for imported in document.get("imports", []):
+            if (not isinstance(imported, str) or not imported or
+                    Path(imported).is_absolute() or "://" in imported or "\0" in imported):
+                raise ValueError("grammar imports must be local relative paths")
+            visit((path.parent / imported).resolve())
+        active.remove(path)
+        visited.add(path)
+
+    entry = (root / artifact["path"]).resolve()
+    visit(entry)
+    if visited - {entry} != set(hashes):
+        raise ValueError("grammar dependencies must exactly cover the import closure")
+
+
+def grammar_artifact_identity(artifact: dict[str, Any]) -> dict[str, Any]:
+    return {"sha256": artifact["sha256"],
+            "dependencies": sorted((d["path"], d["sha256"])
+                                   for d in artifact.get("dependencies", []))}
+
+
+def workload_id(workload: dict[str, Any]) -> str:
+    return workload.get("pair_id", workload.get("id", ""))
+
+
+def workload_for_role(workload: dict[str, Any], role: str) -> dict[str, Any]:
+    """Return one executable side while retaining common paired metadata."""
+    if "pair_id" not in workload:
+        return workload
+    side = workload[role]
+    return {key: value for key, value in workload.items()
+            if key not in ("before", "after")} | side
+
+
+def workload_hash(workload: dict[str, Any], role: str) -> str:
+    if "pair_id" not in workload:
+        return canonical_hash(workload)
+    return canonical_hash(workload_for_role(workload, role))
+
+
+def uses_cpu_donor_replay(workload: dict[str, Any], role: str) -> bool:
+    """Whether one steady-reproduction side uses the retired CPU tape runner."""
+    if workload.get("measurement") != "steady_repro":
+        return False
+    if "pair_id" not in workload:
+        return True
+    return workload_for_role(workload, role).get("cpu_repro_source") == "donor_replay"
+
+
 def validate_manifest(manifest: dict[str, Any], root: Path) -> None:
-    if manifest.get("version") != "migration-workloads-v1":
+    version = manifest.get("version")
+    if version not in ("migration-workloads-v1", "migration-workloads-v2"):
         raise ValueError("unsupported workload manifest version")
-    if manifest.get("warmup_blocks") != 3 or manifest.get("measured_blocks") not in (15, 30):
-        raise ValueError("require 3 warmup blocks and 15 or 30 measured blocks")
+    reduced = representative(manifest.get("acceptance_protocol", STRICT_PROTOCOL))
+    warmups, counts = (1, (3, 5)) if reduced else (3, (15, 30))
+    if manifest.get("warmup_blocks") != warmups or manifest.get("measured_blocks") not in counts:
+        raise ValueError(f"require {warmups} warmup blocks and measured blocks in {counts}")
     selected = manifest["modes"]
-    if not set(BASE_MODES) <= set(selected) or set(selected) - set(MODES) or len(selected) != len(set(selected)):
-        raise ValueError("require all five base modes, with unique supported optional modes")
+    required_modes = BASE_MODES[:4] if reduced else BASE_MODES
+    if not set(required_modes) <= set(selected) or set(selected) - set(MODES) or len(selected) != len(set(selected)):
+        raise ValueError("require all protocol modes, with unique supported optional modes")
     if not isinstance(manifest["analysis_seed"], int) or isinstance(manifest["analysis_seed"], bool):
         raise ValueError("analysis_seed must be an integer")
     seen = set()
+    logical_workloads = {}
+    logical_measurements = set()
     for workload in manifest["workloads"]:
         if workload.get("measurement", "evolution") not in ("evolution", "steady_eval", "steady_repro"):
             raise ValueError("unsupported workload measurement")
         if workload.get("measurement") in ("steady_eval", "steady_repro"):
-            if workload.get("session_warmups") != 3 or workload.get("session_trials") not in (15, 30):
-                raise ValueError("steady evaluation requires 3 session warmups and 15 or 30 session trials")
-        name = workload["id"]
+            session_warmups, session_trials = (1, (1,)) if reduced else (3, (15, 30))
+            if workload.get("session_warmups") != session_warmups or workload.get("session_trials") not in session_trials:
+                raise ValueError("steady session repetitions differ from the selected protocol")
+        if version == "migration-workloads-v2":
+            if set(workload) & {"id", "args", "cases", "snapshot", "grammar", "grammar_by_mode", "donor_tape"}:
+                raise ValueError("v2 workload artifacts and args must be inside before and after")
+            if not isinstance(workload.get("before"), dict) or not isinstance(workload.get("after"), dict):
+                raise ValueError("v2 workload requires before and after sides")
+            comparison = workload.get("comparison")
+            if not isinstance(comparison, dict):
+                raise ValueError("v2 workload requires comparison metadata")
+            comparison_fields = {"gate_eligible", "mapping_kind", "case_identity",
+                                 "limits_identity", "program_identity", "limitations",
+                                 "evidence"}
+            if set(comparison) != comparison_fields:
+                raise ValueError("v2 comparison metadata fields differ from the frozen schema")
+            if comparison["gate_eligible"] is not True:
+                raise ValueError("v2 workload must be explicitly eligible for the paired gate")
+            if comparison["mapping_kind"] not in (
+                    "exact-runtime-replay", "typed-search-space",
+                    "typed-partition-search-space"):
+                raise ValueError("v2 workload has an unsupported mapping kind")
+            if comparison["case_identity"] != "exact" or comparison["limits_identity"] != "exact":
+                raise ValueError("v2 paired gate requires exact cases and execution/search limits")
+            if comparison["program_identity"] not in ("exact", "mapped"):
+                raise ValueError("v2 workload has an unsupported program identity")
+            if ((comparison["mapping_kind"] == "exact-runtime-replay") !=
+                    (comparison["program_identity"] == "exact")):
+                raise ValueError("v2 mapping kind and program identity disagree")
+            if (not isinstance(comparison["limitations"], list) or
+                    not all(isinstance(item, str) and item
+                            for item in comparison["limitations"])):
+                raise ValueError("v2 comparison limitations must be nonempty strings")
+            if (not isinstance(comparison["evidence"], list) or
+                    not comparison["evidence"] or
+                    not all(isinstance(item, str) and item
+                            for item in comparison["evidence"])):
+                raise ValueError("v2 comparison requires nonempty evidence references")
+            common = {"pair_id", "logical_id", "measurement", "session_warmups", "session_trials"}
+            if set(workload["before"]) & common or set(workload["after"]) & common:
+                raise ValueError("v2 pair and measurement metadata must be common to both sides")
+        elif "pair_id" in workload or "before" in workload or "after" in workload:
+            raise ValueError("v1 workload cannot contain paired v2 sides")
+        name = workload_id(workload)
         if not name or name in seen:
-            raise ValueError("workload IDs must be nonempty and unique")
+            raise ValueError("workload IDs or pair IDs must be nonempty and unique")
         seen.add(name)
-        args = workload["args"]
-        if not isinstance(args, list) or len(args) % 2:
-            raise ValueError("workload args must be option/value pairs")
-        options = args[::2]
-        allowed = {"--population-size", "--generations", "--blocksize", "--seed", "--fuel",
-                   "--penalty", "--selection-pressure", "--mutation-rate", "--mutation-subtree-prob",
-                   "--max-expr-depth", "--max-stmts-per-block", "--max-total-nodes",
-                   "--max-for-k", "--max-call-args", "--skip-final-eval", "--retain-final-population"}
-        if len(set(options)) != len(options) or set(options) - allowed:
-            raise ValueError("duplicate or unsupported workload option")
-        if not {"--population-size", "--generations", "--blocksize", "--seed", "--fuel"} <= set(options):
-            raise ValueError("workload must freeze population, generations, blocksize, seed and fuel")
-        kinds = ("cases", "snapshot", "grammar", "donor_tape") if workload.get("measurement") == "steady_repro" else ("cases", "snapshot", "grammar")
-        for kind in kinds:
-            artifact = workload.get(kind)
-            if artifact is None and kind == "grammar":
-                continue
-            if artifact is None or sha256(root / artifact["path"]) != artifact["sha256"]:
-                raise ValueError(f"changed or missing {kind} artifact for {name}")
+        roles = ("before", "after") if version == "migration-workloads-v2" else ("before",)
+        for role in roles:
+            side = workload_for_role(workload, role)
+            args = side["args"]
+            prefix = f"{role} " if version == "migration-workloads-v2" else ""
+            if not isinstance(args, list) or len(args) % 2:
+                raise ValueError(f"{prefix}workload args must be option/value pairs")
+            options = args[::2]
+            allowed = {"--population-size", "--generations", "--blocksize", "--seed", "--fuel",
+                       "--penalty", "--selection-pressure", "--mutation-rate", "--mutation-subtree-prob",
+                       "--max-expr-depth", "--max-stmts-per-block", "--max-total-nodes",
+                       "--source-max-total-nodes", "--source-max-expr-depth",
+                       "--minimum-dc-frames", "--normalize-typed-storage", "--population-roots",
+                       "--max-for-k", "--max-call-args", "--skip-final-eval", "--retain-final-population"}
+            if len(set(options)) != len(options) or set(options) - allowed:
+                raise ValueError(f"duplicate or unsupported {prefix}workload option")
+            source_options = {"--source-max-total-nodes", "--source-max-expr-depth"}
+            if "--population-roots" in options:
+                roots = args[options.index("--population-roots") * 2 + 1].split(",")
+                if (version != "migration-workloads-v2" or role != "after" or
+                        "grammar" not in side or not 1 <= len(roots) <= 8 or
+                        any(not name or name != name.strip() for name in roots) or
+                        len(set(roots)) != len(roots)):
+                    raise ValueError("population roots require a v2 candidate grammar and one to eight unique nonempty roots")
+            if "--normalize-typed-storage" in options:
+                values = dict(zip(options, args[1::2]))
+                if (version != "migration-workloads-v2" or role != "after" or
+                        values["--normalize-typed-storage"] not in {"on", "off"}):
+                    raise ValueError("typed storage normalization requires a v2 candidate and on/off")
+            if "--minimum-dc-frames" in options:
+                values = dict(zip(options, args[1::2]))
+                if (version != "migration-workloads-v2" or role != "after" or
+                        "grammar" not in side or not 1 <= int(values["--minimum-dc-frames"]) <= 65535):
+                    raise ValueError("minimum DC frames requires a v2 candidate grammar and 1..65535 frames")
+            if set(options) & source_options:
+                if (version != "migration-workloads-v2" or role != "after" or
+                        "grammar" not in side or not source_options <= set(options)):
+                    raise ValueError("source resource limits require a v2 candidate grammar and both limits")
+                values = dict(zip(options, args[1::2]))
+                if any(int(values[option]) <= 0 for option in source_options):
+                    raise ValueError("source resource limits must be positive")
+            if not {"--population-size", "--generations", "--blocksize", "--seed", "--fuel"} <= set(options):
+                raise ValueError(f"{prefix}workload must freeze population, generations, blocksize, seed and fuel")
+            if workload.get("measurement") == "steady_repro" and version == "migration-workloads-v2":
+                source = side.get("cpu_repro_source")
+                if source not in ("adapter", "donor_replay"):
+                    raise ValueError(f"{role} steady reproduction requires an explicit cpu_repro_source")
+                if source == "adapter" and "donor_tape" in side:
+                    raise ValueError(f"{role} adapter reproduction cannot include a donor tape")
+                if source == "adapter" and "grammar" not in side:
+                    raise ValueError(f"{role} adapter reproduction requires a grammar")
+            elif "cpu_repro_source" in side:
+                raise ValueError(f"{prefix}cpu_repro_source is only valid for v2 steady reproduction")
+            overrides = side.get("grammar_by_mode", {})
+            if "grammar_by_mode" in side:
+                if (version != "migration-workloads-v2" or role != "after" or
+                        "grammar" not in side or not isinstance(overrides, dict) or
+                        not overrides or set(overrides) - set(selected)):
+                    raise ValueError("grammar_by_mode requires a v2 candidate default grammar and selected modes")
+                for mode, artifact in overrides.items():
+                    if (not isinstance(artifact, dict) or
+                            not isinstance(artifact.get("path"), str) or
+                            not (root / artifact["path"]).is_file() or
+                            sha256(root / artifact["path"]) != artifact.get("sha256")):
+                        raise ValueError(f"changed or missing after grammar_by_mode {mode} artifact for {name}")
+                    validate_grammar_dependencies(artifact, root)
+            kinds = ["cases", "snapshot", "grammar"]
+            if uses_cpu_donor_replay(workload, role):
+                kinds.append("donor_tape")
+            for kind in kinds:
+                artifact = side.get(kind)
+                if artifact is None and kind == "grammar":
+                    continue
+                path = root / artifact["path"] if artifact is not None else None
+                if (artifact is None or not path.is_file()
+                        or sha256(path) != artifact["sha256"]):
+                    label = f"{role} {kind}" if version == "migration-workloads-v2" else kind
+                    raise ValueError(f"changed or missing {label} artifact for {name}")
+                if kind == "grammar":
+                    validate_grammar_dependencies(artifact, root)
+        if reduced:
+            logical_id = workload.get("logical_id", name)
+            if not isinstance(logical_id, str) or not logical_id.strip():
+                raise ValueError("logical workload ID must be a nonempty string")
+            # Different scopes share one workload only when their actual inputs
+            # and search settings agree. Generation count and output retention
+            # may differ for the short evolution anchor.
+            identity = {}
+            for role in roles:
+                side = workload_for_role(workload, role)
+                options = dict(zip(side["args"][::2], side["args"][1::2]))
+                for option in ("--generations", "--skip-final-eval", "--retain-final-population"):
+                    options.pop(option, None)
+                identity[role] = {
+                    "options": options,
+                    "grammar_by_mode": {mode: grammar_artifact_identity(artifact) for mode, artifact in
+                                        side.get("grammar_by_mode", {}).items()},
+                    "grammar_dependencies": grammar_artifact_identity(side["grammar"]) if "grammar" in side else None,
+                    "artifacts": {kind: side[kind]["sha256"] if kind in side else None
+                                  for kind in ("cases", "snapshot", "grammar")},
+                }
+            if logical_id in logical_workloads and logical_workloads[logical_id] != identity:
+                raise ValueError("logical workload scopes must preserve inputs and search settings")
+            logical_workloads[logical_id] = identity
+            measurement = (logical_id, workload.get("measurement", "evolution"))
+            if measurement in logical_measurements:
+                raise ValueError("duplicate measurement for logical workload")
+            logical_measurements.add(measurement)
+            if len(logical_workloads) > 6:
+                raise ValueError("representative protocol permits at most six logical workloads")
     if not seen:
         raise ValueError("empty workload matrix")
 
 
-def extract_scopes(payload: dict[str, Any], wall_ms: float) -> dict[str, float]:
+def extract_scopes(payload: dict[str, Any], wall_ms: float,
+                   protocol: str = STRICT_PROTOCOL) -> dict[str, float]:
+    reduced = representative(protocol)
+    if payload.get("diagnostic_only") is True:
+        raise ValueError("diagnostic observations cannot be used as timing evidence")
     steady_formats = {"migration-steady-eval-v1": "steady_eval",
                       "migration-steady-reproduction-v1": "steady_reproduction",
                       "migration-steady-cpu-reproduction-v1": "steady_reproduction"}
     if payload.get("format_version") in steady_formats:
         warmups, trials = payload["warmups"], payload["measured_trials"]
         samples = payload["samples"]
-        if warmups < 3 or trials < 15 or len(samples) != warmups + trials:
+        valid_counts = (warmups == 1 and trials == 1) if reduced else (warmups >= 3 and trials >= 15)
+        if not valid_counts or len(samples) != warmups + trials:
             raise ValueError("incomplete steady session")
         for i, sample in enumerate(samples):
             if sample["index"] != i or sample["warmup"] is not (i < warmups):
@@ -137,9 +356,12 @@ def gpu_state() -> dict[str, Any]:
 
 
 def measurement_command(workload: dict[str, Any], mode: str, binary: Path, root: Path,
-                        result_path: Path, cpu_reproduction: Path | None = None) -> list[str]:
+                        result_path: Path, cpu_reproduction: Path | None = None,
+                        role: str = "before") -> list[str]:
+    cpu_donor_replay = uses_cpu_donor_replay(workload, role)
+    workload = workload_for_role(workload, role)
     measurement = workload.get("measurement", "evolution")
-    if measurement == "steady_repro" and mode == "cpu":
+    if measurement == "steady_repro" and mode == "cpu" and cpu_donor_replay:
         if cpu_reproduction is None:
             raise ValueError("steady reproduction requires the CPU donor replay executable")
         command = [str(cpu_reproduction), "--steady", "--donor-tape",
@@ -152,8 +374,9 @@ def measurement_command(workload: dict[str, Any], mode: str, binary: Path, root:
                     *MODES[mode], "--out-json", str(result_path.resolve())])
     if measurement != "evolution":
         command.extend(["--warmups", str(workload["session_warmups"]), "--trials", str(workload["session_trials"])])
-    if workload.get("grammar"):
-        command.extend(["--grammar-definition", str((root / workload["grammar"]["path"]).resolve())])
+    grammar = workload.get("grammar_by_mode", {}).get(mode, workload.get("grammar"))
+    if grammar:
+        command.extend(["--grammar-definition", str((root / grammar["path"]).resolve())])
     return command
 
 
@@ -175,9 +398,10 @@ def run_manifest(manifest: dict[str, Any], root: Path, before: Path, after: Path
             binaries["after"] = after.resolve()
         cpu_reproduction = {role: path.resolve() for role, path in
                             (("before", before_cpu_repro), ("after", after_cpu_repro)) if path is not None}
-        if any(w.get("measurement") == "steady_repro" for w in manifest["workloads"]):
-            if set(cpu_reproduction) != set(binaries):
-                raise ValueError("each measured revision requires a CPU donor replay executable")
+        replay_roles = {role for role in binaries for workload in manifest["workloads"]
+                        if uses_cpu_donor_replay(workload, role)}
+        if set(cpu_reproduction) != replay_roles:
+            raise ValueError("CPU donor replay executable roles differ from the frozen workload protocol")
         identity = {"manifest_sha256": canonical_hash(manifest),
                     "binaries": {k: {"path": str(p), "sha256": sha256(p)} for k, p in binaries.items()},
                     "device": device, "cpu_affinity": sorted(os.sched_getaffinity(0)),
@@ -200,13 +424,15 @@ def run_manifest(manifest: dict[str, Any], root: Path, before: Path, after: Path
         report = {"version": "grammar-migration-trials-v1" if after else "grammar-migration-baseline-trials-v1",
                   "analysis_seed": manifest["analysis_seed"],
                   "required_rows": [], "rows": {}}
+        if "acceptance_protocol" in manifest:
+            report["acceptance_protocol"] = manifest["acceptance_protocol"]
         for workload in manifest["workloads"]:
             for mode in workload_modes(workload, manifest["modes"]):
                 for scope in workload_scopes(workload):
-                    name = f"{workload['id']}/{mode}/{scope}"
+                    name = f"{workload_id(workload)}/{mode}/{scope}"
                     report["required_rows"].append(name)
-                    report["rows"][name] = {"workload_before_sha256": canonical_hash(workload),
-                        "workload_after_sha256": canonical_hash(workload), "scope": scope,
+                    report["rows"][name] = {"workload_before_sha256": workload_hash(workload, "before"),
+                        "workload_after_sha256": workload_hash(workload, "after"), "scope": scope,
                         "timing_source": "canonical_cold_disjoint" if scope == "canonical_cold" else "direct",
                         "blocks": []}
         if resume:
@@ -239,7 +465,7 @@ def run_manifest(manifest: dict[str, Any], root: Path, before: Path, after: Path
                 modes = workload_modes(workload, manifest["modes"])
                 order = [(role, mode) for role in binaries for mode in modes]
                 rng.shuffle(order)
-                names = [f"{workload['id']}/{mode}/{scope}" for mode in modes for scope in workload_scopes(workload)]
+                names = [f"{workload_id(workload)}/{mode}/{scope}" for mode in modes for scope in workload_scopes(workload)]
                 present = [any(b["block_id"] == block for b in report["rows"][name]["blocks"]) for name in names]
                 if all(present):
                     continue
@@ -261,7 +487,7 @@ def run_manifest(manifest: dict[str, Any], root: Path, before: Path, after: Path
                 for role, mode in order:
                     result_path = directory / f"{role}-{mode}.json"
                     command = measurement_command(workload, mode, binaries[role], root, result_path,
-                                                  cpu_reproduction.get(role))
+                                                  cpu_reproduction.get(role), role)
                     started = datetime.now(timezone.utc).isoformat()
                     before_gpu = gpu_state()
                     start = time.perf_counter()
@@ -273,13 +499,14 @@ def run_manifest(manifest: dict[str, Any], root: Path, before: Path, after: Path
                     write_json(directory / f"{role}-{mode}.process.json", raw)
                     if result.returncode:
                         raise RuntimeError(f"measurement failed; raw evidence retained at {directory}")
-                    values[role, mode] = extract_scopes(json.loads(result_path.read_text()), wall_ms)
+                    values[role, mode] = extract_scopes(json.loads(result_path.read_text()), wall_ms,
+                        manifest.get("acceptance_protocol", STRICT_PROTOCOL))
                     if set(values[role, mode]) != set(workload_scopes(workload)):
                         raise ValueError("binary returned the wrong measurement scopes")
                 write_json(directory / "order.json", order)
                 for mode in modes:
                     for scope in workload_scopes(workload):
-                        name = f"{workload['id']}/{mode}/{scope}"
+                        name = f"{workload_id(workload)}/{mode}/{scope}"
                         observation = {"block_id": block,
                             "warmup": block < manifest["warmup_blocks"],
                             "cpu_before_ms": values["before", "cpu"][scope],

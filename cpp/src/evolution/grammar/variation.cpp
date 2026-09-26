@@ -1,3 +1,4 @@
+#include "../region_plan_equal.hpp"
 #include "gagp/evolution/grammar/variation.hpp"
 
 #include <stdexcept>
@@ -23,14 +24,59 @@ GenerationRequest checked_entry(const std::shared_ptr<const CompiledGrammar>& gr
 }  // namespace
 
 VariationContext::VariationContext(std::shared_ptr<const CompiledGrammar> grammar,
-    std::size_t cache_capacity)
-    : VariationContext(grammar, checked_entry(grammar), cache_capacity) {}
+    std::size_t cache_capacity, std::optional<ProjectedBudget> offspring_budget)
+    : VariationContext(grammar, checked_entry(grammar), cache_capacity, offspring_budget) {}
 
 VariationContext::VariationContext(std::shared_ptr<const CompiledGrammar> grammar,
-    GenerationRequest request, std::size_t cache_capacity)
-    : grammar_(std::move(grammar)), request_(std::move(request)), cache_(grammar_, cache_capacity) {
+    GenerationRequest request, std::size_t cache_capacity, std::optional<ProjectedBudget> offspring_budget)
+    : grammar_(std::move(grammar)), request_(std::move(request)), requests_{request_}, cache_(grammar_, cache_capacity, offspring_budget),
+      offspring_budget_(offspring_budget), frame_cost_cache_capacity_(cache_capacity) {
   (void)validate_request(*grammar_, request_);
   grammar_->require_executable(request_.nonterminal);
+}
+
+VariationContext::VariationContext(std::shared_ptr<const CompiledGrammar> grammar,
+    std::vector<GenerationRequest> requests, std::size_t cache_capacity,
+    std::optional<ProjectedBudget> offspring_budget)
+    : VariationContext(grammar, requests.empty() ? checked_entry(grammar) : requests.front(),
+                       cache_capacity, offspring_budget) {
+  validate_population_requests(*grammar_, requests);
+  requests_ = std::move(requests);
+}
+
+std::shared_ptr<const VariationAnalysis> VariationContext::analyze(const ProgramGenome& genome, std::string* runtime_identity) {
+  return requests_.size() == 1 ? cache_.analyze(genome, request_, runtime_identity)
+                               : cache_.analyze_member(genome, requests_, runtime_identity);
+}
+
+std::shared_ptr<const ContextualFrameCostTable> VariationContext::find_frame_costs(
+    const std::vector<bool>& local_availability, std::uint32_t effective_depth_limit, GenerationStage stage) {
+  const FrameCostCacheKey key{local_availability, effective_depth_limit, stage};
+  const auto found = frame_cost_cache_.find(key);
+  if (found == frame_cost_cache_.end()) {
+    ++frame_cost_cache_counters_.misses;
+    return nullptr;
+  }
+  ++frame_cost_cache_counters_.hits;
+  return found->second;
+}
+
+std::shared_ptr<const ContextualFrameCostTable> VariationContext::remember_frame_costs(
+    const std::vector<bool>& local_availability, std::uint32_t effective_depth_limit,
+    std::shared_ptr<const ContextualFrameCostTable> costs, GenerationStage stage) {
+  if (!costs) throw std::invalid_argument("variation context cannot cache null frame costs");
+  if (frame_cost_cache_capacity_ == 0) return costs;
+  const FrameCostCacheKey key{local_availability, effective_depth_limit, stage};
+  const auto existing = frame_cost_cache_.find(key);
+  if (existing != frame_cost_cache_.end()) return existing->second;
+  if (frame_cost_cache_.size() == frame_cost_cache_capacity_) {
+    frame_cost_cache_.erase(frame_cost_cache_order_.front());
+    frame_cost_cache_order_.pop_front();
+    ++frame_cost_cache_counters_.evictions;
+  }
+  frame_cost_cache_order_.push_back(key);
+  frame_cost_cache_.emplace(key, costs);
+  return costs;
 }
 
 }  // namespace gagp::evo::grammar
@@ -68,8 +114,7 @@ bool same_materialized_program(const AstProgram& a, const AstProgram& b) {
     const auto& right = b.bounded_region_specs[i];
     if (left.node_index != right.node_index || left.parameters.size() != right.parameters.size() ||
         left.phases.size() != right.phases.size() ||
-        canonical_json(serialization::encode_region_plan(left.plan)) !=
-            canonical_json(serialization::encode_region_plan(right.plan))) return false;
+        !same_region_plan(left.plan, right.plan)) return false;
     for (std::size_t j = 0; j < left.parameters.size(); ++j) {
       const auto& x = left.parameters[j];
       const auto& y = right.parameters[j];
@@ -93,8 +138,8 @@ bool same_materialized_program(const AstProgram& a, const AstProgram& b) {
       case NodeIndexRole::Unused: return true;
       case NodeIndexRole::Name: return a.names.at(left) == b.names.at(right);
       case NodeIndexRole::Constant:
-        return canonical_json(encode_constant(a.consts.at(left))) ==
-            canonical_json(encode_constant(b.consts.at(right)));
+        return canonical_constant_encoding(a.consts.at(left)) ==
+            canonical_constant_encoding(b.consts.at(right));
       case NodeIndexRole::DynamicArity:
       case NodeIndexRole::BinderId:
         return left == right;
@@ -115,10 +160,15 @@ bool same_materialized_program(const AstProgram& a, const AstProgram& b) {
 
 ProgramGenome certify(ProgramGenome genome, VariationContext& context) {
   // Validate before compaction so malformed imports cannot reach table remapping.
-  (void)context.cache().analyze(genome, context.request());
-  genome = repro::compact_genome_tables(genome);
-  const auto analysis = context.cache().analyze(genome, context.request());
-  genome.meta = build_genome_meta(genome.ast);
+  auto analysis = context.analyze(genome);
+  const auto names = genome.ast.names.size();
+  const auto constants = genome.ast.consts.size();
+  genome = repro::compact_genome_tables(std::move(genome));
+  // Compaction only removes unused entries, preserving the order of survivors.
+  // Equal sizes therefore prove every table index and AST annotation unchanged.
+  if (genome.ast.names.size() != names || genome.ast.consts.size() != constants)
+    analysis = context.analyze(genome);
+  // compact_genome_tables already refreshed the native metadata.
   genome.derivation = std::make_shared<const DerivationMetadata>(analysis->witness);
   return genome;
 }
@@ -135,8 +185,18 @@ ProgramGenome accept(AstProgram candidate, const ProgramGenome& certified_parent
   child.ast = std::move(candidate);
   try {
     child = certify(std::move(child), context);
+    if (context.requests().size() > 1 && child.derivation->request.nonterminal !=
+        context.analyze(certified_parent)->witness.request.nonterminal)
+      throw std::invalid_argument("variation changed the parent root contract");
   } catch (const std::invalid_argument&) {
     ++context.counters().acceptance_rejections;
+    return fallback(certified_parent, context);
+  }
+  // certify reconstructed this witness from the candidate AST. Never trust a
+  // copied parent's resource index or generation's potentially ambiguous choice.
+  if (context.offspring_budget() &&
+      !context.offspring_budget()->accepts(child.derivation->resources->subtree())) {
+    ++context.counters().budget_rejections;
     return fallback(certified_parent, context);
   }
   // Compare referenced values, not table indices or sharing. Atomic copying can
@@ -149,18 +209,23 @@ ProgramGenome accept(AstProgram candidate, const ProgramGenome& certified_parent
 }
 
 AstProgram splice(const AstProgram& base, const VariationSite& destination,
-    const AstProgram& donor, VariationSpan payload, const std::vector<int>& donor_binder_ids) {
+    const AstProgram& donor, VariationSpan payload, const std::vector<int>& donor_binder_ids,
+    bool closed_crossover) {
+  if (closed_crossover && (!destination.crossover_closed || !lexically_closed(donor, payload)))
+    throw std::logic_error("closed crossover has an external lexical capture");
+  const std::vector<int> empty_ids;
+  const auto& source_ids = closed_crossover ? empty_ids : donor_binder_ids;
   AstProgram result = base;
   // Sites come from the certified analysis. Descending physical indices leave
   // earlier original spans stable while all copies receive the identical donor.
   for (std::size_t i = destination.occurrences.size(); i-- > 0;) {
     const auto& span = destination.occurrences[i];
-    const auto& target_ids = destination.occurrence_binder_ids.at(i);
-    if (target_ids.size() != donor_binder_ids.size())
+    const auto& target_ids = closed_crossover ? empty_ids : destination.occurrence_binder_ids.at(i);
+    if (target_ids.size() != source_ids.size())
       throw std::logic_error("variation donor and destination lexical scopes differ");
     std::map<int, int> remap;
     for (std::size_t j = 0; j < target_ids.size(); ++j)
-      remap.emplace(donor_binder_ids[j], target_ids[j]);
+      remap.emplace(source_ids[j], target_ids[j]);
     AstProgram mapped = donor;
     // A destination capture may use an ID declared inside the donor. Freshen
     // those declarations before mapping captures, so splice alpha-renaming can

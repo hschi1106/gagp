@@ -16,6 +16,8 @@ GpuReproConfig make_gpu_repro_config(const std::vector<ProgramGenome>& populatio
     throw std::invalid_argument("compiled preparation population size must be in [1,65536]");
   const auto& request = *cfg.generation_request;
   (void)grammar::validate_request(*cfg.compiled_grammar, request);
+  if (!cfg.additional_generation_requests.empty())
+    grammar::validate_population_requests(*cfg.compiled_grammar, population_requests(cfg));
   GpuReproConfig out;
   out.population_size = static_cast<int>(population.size());
   out.pair_count = (out.population_size + 1) / 2;

@@ -8,8 +8,8 @@ __device__ inline bool d_region_addable(std::int64_t value, std::int64_t offset)
            (offset < 0 && value < INT64_MIN - offset));
 }
 
-template <DPayloadFlavor Flavor>
-__device__ DResult d_region_phase(
+template <DPayloadFlavor Flavor, int BindingCapacity>
+__device__ DResult d_region_phase_impl(
     const DRegionSegment& segment, int phase_index, ValueTag expected,
     const DRegionFrame& frame, const Value* caller_locals,
     std::uint64_t caller_set, const DPayloadTables& payload_tables,
@@ -18,11 +18,9 @@ __device__ DResult d_region_phase(
   if (phase_index < 0 || phase_index >= tables.region_phase_count)
     return d_error(ErrCode::Value);
   const auto& phase = tables.region_phases[phase_index];
-  constexpr int kBindings = DMAX_REGION_STATES + DMAX_REGION_PARAMETERS +
-                            DMAX_REGION_PREPARATIONS + DMAX_REGION_REQUESTS + 1;
-  DLocalPreset presets[kBindings];
+  DLocalPreset presets[BindingCapacity];
   int count = 0;
-  if (phase.binding_count < 0 || phase.binding_count > kBindings ||
+  if (phase.binding_count < 0 || phase.binding_count > BindingCapacity ||
       phase.binding_offset < 0 ||
       phase.binding_count > tables.region_binding_count - phase.binding_offset)
     return d_error(ErrCode::Value);
@@ -63,6 +61,29 @@ __device__ DResult d_region_phase(
       !(result_phase && result.value.tag == ValueTag::FallbackToken))
     return d_error(ErrCode::Type);
   return result;
+}
+
+template <DPayloadFlavor Flavor>
+__device__ DResult d_region_phase(
+    const DRegionSegment& segment, int phase_index, ValueTag expected,
+    const DRegionFrame& frame, const Value* caller_locals,
+    std::uint64_t caller_set, const DPayloadTables& payload_tables,
+    typename DPayloadFlavorTraits<Flavor>::State& payload_state,
+    const DExecutionTables& tables, int& fuel, bool result_phase = false) {
+  if (phase_index < 0 || phase_index >= tables.region_phase_count)
+    return d_error(ErrCode::Value);
+  // Most phases bind only a few slots. Avoid constructing the maximum-size
+  // preset array on every phase invocation while retaining the full capacity.
+  if (tables.region_phases[phase_index].binding_count <= 4) {
+    return d_region_phase_impl<Flavor, 4>(
+        segment, phase_index, expected, frame, caller_locals, caller_set,
+        payload_tables, payload_state, tables, fuel, result_phase);
+  }
+  constexpr int kBindings = DMAX_REGION_STATES + DMAX_REGION_PARAMETERS +
+                            DMAX_REGION_PREPARATIONS + DMAX_REGION_REQUESTS + 1;
+  return d_region_phase_impl<Flavor, kBindings>(
+      segment, phase_index, expected, frame, caller_locals, caller_set,
+      payload_tables, payload_state, tables, fuel, result_phase);
 }
 
 __device__ inline bool d_region_endpoint(
@@ -131,12 +152,13 @@ __device__ __noinline__ DResult d_run_bounded_region(
   DRegionFrame* frames = workspace.frames;
   std::int64_t* memo_keys = workspace.memo_keys;
   Value* memo_values = workspace.memo_values;
+  const std::size_t stride = workspace.slot_stride;
   std::uint32_t memo_count = 0;
   std::uint32_t depth = 1;
   for (std::uint32_t i = 0; i < segment.state_count; ++i) frames[0].state[i] = operands[i];
   frames[0].next_request = -1;
   for (;;) {
-    auto& frame = frames[depth - 1];
+    auto& frame = frames[(depth - 1) * stride];
     bool completed = false;
     DResult result;
     if (frame.next_request < 0) {
@@ -173,8 +195,8 @@ __device__ __noinline__ DResult d_run_bounded_region(
           for (std::uint32_t cell = 0; cell < memo_count; ++cell) {
             bool matches = true;
             for (std::uint32_t axis = 0; axis < segment.state_count; ++axis)
-              matches &= memo_keys[cell * DMAX_REGION_STATES + axis] == frame.state[axis].i;
-            if (matches) { result = d_ok(memo_values[cell]); completed = true; break; }
+              matches &= memo_keys[(cell * DMAX_REGION_STATES + axis) * stride] == frame.state[axis].i;
+            if (matches) { result = d_ok(memo_values[cell * stride]); completed = true; break; }
           }
         }
         if (!completed) {
@@ -230,8 +252,9 @@ __device__ __noinline__ DResult d_run_bounded_region(
       }
       if (depth >= segment.limits.frames) return d_error(ErrCode::Timeout);
       ++frame.next_request;
-      for (std::uint32_t i = 0; i < segment.state_count; ++i) frames[depth].state[i] = next[i];
-      frames[depth++].next_request = -1;
+      for (std::uint32_t i = 0; i < segment.state_count; ++i) frames[depth * stride].state[i] = next[i];
+      frames[depth * stride].next_request = -1;
+      ++depth;
       continue;
     }
     if (!completed) {
@@ -244,12 +267,13 @@ __device__ __noinline__ DResult d_run_bounded_region(
       if (result.value.tag != frame.results[0].tag) return d_error(ErrCode::Type);
       if (segment.memoized) {
         if (memo_count >= segment.limits.cells) return d_error(ErrCode::Timeout);
-        for (std::uint32_t i = 0; i < segment.state_count; ++i) memo_keys[memo_count * DMAX_REGION_STATES + i] = frame.state[i].i;
-        memo_values[memo_count++] = result.value;
+        for (std::uint32_t i = 0; i < segment.state_count; ++i) memo_keys[(memo_count * DMAX_REGION_STATES + i) * stride] = frame.state[i].i;
+        memo_values[memo_count * stride] = result.value;
+        ++memo_count;
       }
     }
     if (--depth == 0) return result;
-    auto& parent = frames[depth - 1];
+    auto& parent = frames[(depth - 1) * stride];
     if (parent.next_request > 1 && result.value.tag != parent.results[0].tag)
       return d_error(ErrCode::Type);
     parent.results[parent.next_request - 1] = result.value;

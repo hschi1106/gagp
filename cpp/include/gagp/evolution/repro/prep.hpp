@@ -16,9 +16,11 @@ namespace gagp::evo::repro {
 struct ConstantMutationDomains;
 
 // Compiled preparation shared by CPU and GPU reproduction dispatch.
+// Crossover-only preparation can omit unused donors while preserving site RNG draws.
 PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& population,
     const GpuReproConfig& config, grammar::VariationContext& context,
-    std::shared_ptr<const ConstantMutationDomains> domains = nullptr);
+    std::shared_ptr<const ConstantMutationDomains> domains = nullptr,
+    bool prepare_donors = true);
 
 GpuReproConfig make_gpu_repro_config(const std::vector<ProgramGenome>& population,
                                      const EvolutionConfig& cfg);

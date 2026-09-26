@@ -223,11 +223,10 @@ __global__ void compiled_crossover_kernel(
   const int source_index = lane == 0 ? pointers.cand_b[pair] : pointers.cand_a[pair];
   if (!d_compiled_parent_is_copyable(base_parent, config, pointers)) return;
 
-  __shared__ AtomicSpliceOrigin
-      origin_storage[2 * kGpuReproKernelMaxNodes];
+  extern __shared__ AtomicSpliceOrigin origin_storage[];
   if (!d_run_compiled_crossover_child(
           child, base_parent, source_parent, destination_index, source_index,
-          origin_storage + lane * kGpuReproKernelMaxNodes, config, pointers)) {
+          origin_storage + lane * config.max_nodes, config, pointers)) {
     // d_prepare_compiled_splice is transactional only for published lengths;
     // overwrite every externally visible table to restore the exact base.
     d_copy_compiled_base_child(child, base_parent, config, pointers);

@@ -1,5 +1,7 @@
 #include "compiled_decode.hpp"
+#include "../../runtime/payload/staging.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <limits>
 #include <optional>
@@ -71,7 +73,8 @@ AstProgram read_child(const PackedHostData& packed, const GpuReproChildView& vie
 
 std::vector<ProgramGenome> decode_compiled_pass(
     const PackedHostData& packed, const GpuReproChildView& view,
-    grammar::VariationContext& context) {
+    grammar::VariationContext& context,
+    const PreparedParentCertificates* certificates) {
   const auto& c = packed.config;
   require(packed.compiled_sources &&
               packed.compiled_grammar == context.grammar_owner(),
@@ -103,7 +106,19 @@ std::vector<ProgramGenome> decode_compiled_pass(
     if (!cached) {
       ProgramGenome source;
       source.ast = packed.compiled_sources->parents[index];
-      cached = grammar::variation_detail::certify(std::move(source), context);
+      if (certificates && certificates->sources == packed.compiled_sources &&
+          certificates->context.get() == &context &&
+          certificates->metadata.size() == parents.size() &&
+          certificates->analyses.size() == parents.size() &&
+          certificates->analyses[index].analysis && certificates->analyses[index].reads &&
+          certificates->analyses[index].reads->read_snapshot_unchanged()) {
+        source.meta = certificates->metadata[index];
+        source.derivation = std::make_shared<const grammar::DerivationMetadata>(
+            certificates->analyses[index].analysis->witness);
+        cached = std::move(source);
+      } else {
+        cached = grammar::variation_detail::certify(std::move(source), context);
+      }
     }
     return *cached;
   };
@@ -146,7 +161,38 @@ std::vector<ProgramGenome> decode_compiled_pass(
   // Crossover classifies the odd discarded sibling; mutation visits actual
   // offspring only, matching the generation operator order and counter contract.
   const int accepted_count = mutation ? c.population_size : physical_children;
+  constexpr int analysis_batch = 128;
+  std::vector<ProgramGenome> staged;
+  std::vector<int> staged_indices;
   for (int i = 0; i < accepted_count; ++i) {
+    if (i % analysis_batch == 0) {
+      const auto count = std::min(analysis_batch, accepted_count - i);
+      staged.clear(); staged.reserve(count); staged_indices.assign(count, -1);
+      for (int offset = 0; offset < count; ++offset) {
+        const auto index = i + offset;
+        const auto& proposal = view.child_splices[index];
+        if (!proposal.applied && proposal.mutation_outcome != CompiledMutationOutcome::Constant)
+          continue;
+        try {
+          ProgramGenome candidate;
+          candidate.ast = read_child(packed, view, index);
+          reconstruct_compiled_child_metadata(candidate.ast, packed, proposal);
+          staged_indices[offset] = static_cast<int>(staged.size());
+          staged.push_back(std::move(candidate));
+        } catch (const std::exception&) {
+          // Speculation is never admission. The ordered path below repeats the
+          // original checks and reports errors at the original child position.
+          staged_indices[offset] = -1;
+        }
+      }
+      try {
+        if (staged.size() >= 32) context.cache().warm_candidates(staged, context.requests());
+      }
+      catch (const std::exception&) {
+        // An invalid candidate must still receive normal ordered fallback/error
+        // handling. Successfully cached analyses remain safe immutable results.
+      }
+    }
     const auto& splice = view.child_splices[i];
     const int expected_parent = mutation ? i : (i % 2 ? view.parent_b[i / 2] : view.parent_a[i / 2]);
     require(splice.base_parent == expected_parent, "compiled child changed its selected base parent");
@@ -172,8 +218,13 @@ std::vector<ProgramGenome> decode_compiled_pass(
     require(view.child_used_len[i] > 0 && view.child_meta[i].valid &&
                 view.child_meta[i].node_count == view.child_used_len[i],
             "compiled child has invalid physical metadata");
-    auto ast = read_child(packed, view, i);
-    reconstruct_compiled_child_metadata(ast, packed, splice);
+    const int staged_index = staged_indices[i % analysis_batch];
+    AstProgram ast;
+    if (staged_index >= 0) ast = std::move(staged[staged_index].ast);
+    else {
+      ast = read_child(packed, view, i);
+      reconstruct_compiled_child_metadata(ast, packed, splice);
+    }
     const bool performed = splice.applied != 0 || outcome == CompiledMutationOutcome::Constant;
     ProgramGenome child;
     if (!performed) {

@@ -7,6 +7,8 @@
 #include "gagp/cli/commands.hpp"
 #include "gagp/evolution/grammar/values.hpp"
 #include "gagp/runtime/payload/payload.hpp"
+#include "gagp/evolution/population_init.hpp"
+#include "../fixtures/mixed_population.hpp"
 
 using namespace gagp;
 using namespace gagp::evo;
@@ -19,6 +21,15 @@ void check(bool condition, const char* message) {
 }
 void rejects(const std::function<void()>& action) {
   try { action(); } catch (const std::invalid_argument&) { return; }
+  throw std::runtime_error("invalid population artifact accepted");
+}
+void rejects_with(const std::function<void()>& action, const std::string& message) {
+  try { action(); }
+  catch (const std::invalid_argument& error) {
+    check(std::string(error.what()).find(message) != std::string::npos,
+          "population artifact rejection diagnostic changed");
+    return;
+  }
   throw std::runtime_error("invalid population artifact accepted");
 }
 Json parse(const std::string& text) { return JsonParser(text, {true, 512}).parse(); }
@@ -47,6 +58,10 @@ void test_population() {
   check(replayed.size() == 3, "population count changed");
   check(encode_generated_population_artifact(grammar, replayed) == artifact,
         "population replay changed after clearing payload registry");
+  payload::clear();
+  const auto embedded_replayed = replay_generated_population_artifact(artifact);
+  check(encode_generated_population_artifact(grammar, embedded_replayed) == artifact,
+        "embedded-grammar payload replay was not byte stable");
   for (std::size_t i = 0; i < replayed.size(); ++i) {
     check(replayed[i].derivation != nullptr, "population replay lost immutable provenance");
     check(canonical_json(encode_constant(replayed[i].ast.consts[0])) ==
@@ -72,6 +87,10 @@ void test_population() {
         .object_v.at("logical_steps").number_v += 1;
   });
   tamper([](Json& value) {
+    value.object_v.at("members").array_v[1].object_v.at("derivation")
+        .object_v["unknown"] = Json{};
+  });
+  tamper([](Json& value) {
     value.object_v.at("members").array_v[0].object_v.at("constants").array_v[0]
         .object_v.at("values").array_v[0].array_v[0].string_v = "edited";
   });
@@ -80,6 +99,22 @@ void test_population() {
   tamper([&](Json& value) {
     value.object_v.at("members").array_v[0] = parse(encode_generated_artifact(other, generate_derivation(other, 0)));
   });
+  {
+    auto changed = root;
+    changed.object_v.at("members").array_v[0].object_v.at("grammar")
+        .object_v.at("execution_limits").object_v.at("fuel").number_v += 1;
+    rejects([&] {
+      replay_generated_population_artifact(canonical_json(changed), &grammar);
+    });
+  }
+  {
+    auto changed = root;
+    changed.object_v.at("members").array_v[0].object_v.at("request")
+        .object_v.at("nonterminal").number_v = -0.0;
+    rejects([&] {
+      replay_generated_population_artifact(canonical_json(changed), &grammar);
+    });
+  }
   auto invalid = replayed;
   invalid[0].derivation.reset();
   rejects([&] { encode_generated_population_artifact(grammar, invalid); });
@@ -93,11 +128,38 @@ void test_population() {
   rejects([&] { encode_generated_population_artifact(grammar, std::vector<ProgramGenome>(65537)); });
   rejects([&] { replay_generated_population_artifact("{\"count\":3," + artifact.substr(1)); });
   rejects([&] { replay_generated_population_artifact(std::string(513, '[') + "0" + std::string(513, ']')); });
+  rejects_with([&] {
+    replay_generated_population_artifact(
+        R"({"format_version":"population-seeds","seeds":[{"seed":1}]})");
+  }, "legacy population-seeds cannot replay compiled grammar evolution exactly");
+}
+
+void test_mixed_population() {
+  const auto cfg = gagp::test::mixed_population_config();
+  const auto& grammar = *cfg.compiled_grammar;
+  const auto requests = population_requests(cfg);
+  std::vector<ProgramGenome> population;
+  for (std::size_t i = 0; i < requests.size(); ++i)
+    population.push_back(generate_derivation(grammar, i, requests[i]).genome);
+  const auto artifact = encode_generated_population_artifact(grammar, population);
+  payload::clear();
+  const auto replayed = replay_generated_population_artifact(artifact, &grammar);
+  check(replayed.size() == 8, "mixed population lost a root type");
+  for (std::size_t i = 0; i < requests.size(); ++i)
+    check(replayed[i].derivation->request.type == requests[i].type,
+          "mixed population changed member root contract");
+  check(encode_generated_population_artifact(grammar, replayed) == artifact,
+        "mixed population cold replay changed artifact");
+  payload::clear();
+  check(encode_generated_population_artifact(grammar,
+        replay_generated_population_artifact(artifact)) == artifact,
+        "mixed population embedded grammar replay changed artifact");
 }
 }  // namespace
 int main() {
   try {
     test_population();
+    test_mixed_population();
     std::cout << "grammar population artifact: cold replay, seed wraparound, and rejection passed\n";
   } catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
 }

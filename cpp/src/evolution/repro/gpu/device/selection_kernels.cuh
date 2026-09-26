@@ -151,7 +151,12 @@ __device__ inline bool d_compiled_donor_fits(const DCandidateRange& destination,
          destination.remaining_template_nesting >= 0 &&
          donor.materialized_nodes <= destination.replacement_max_nodes &&
          donor.materialized_depth <= destination.replacement_max_depth &&
-         donor.template_nesting <= destination.remaining_template_nesting;
+         donor.template_nesting <= destination.remaining_template_nesting &&
+         (!destination.has_projected_allowance ||
+          (destination.projected_allowance.surrounding_fits &&
+           donor.projected_resources.nodes <= destination.projected_allowance.max_nodes &&
+           donor.projected_resources.carried_depth <= destination.projected_allowance.max_carried_depth &&
+           donor.projected_resources.reset_depth <= destination.projected_allowance.max_reset_depth));
 }
 
 __device__ inline bool d_candidate_keys_compatible(

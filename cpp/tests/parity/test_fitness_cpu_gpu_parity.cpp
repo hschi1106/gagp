@@ -590,6 +590,45 @@ bool check_single_cpu_gpu_exact(const BytecodeProgram& program,
   return true;
 }
 
+bool check_sparse_case_locals() {
+  BytecodeProgram sum;
+  sum.n_locals = 64;
+  sum.code = {ins_a(Opcode::Load, 0), ins_a(Opcode::Load, 63),
+              ins(Opcode::Add), ins(Opcode::Return)};
+  BytecodeProgram missing;
+  missing.n_locals = 64;
+  missing.code = {ins_a(Opcode::Load, 31), ins(Opcode::Return)};
+  BytecodeProgram assigned;
+  assigned.n_locals = 64;
+  assigned.consts = {Value::from_int(7)};
+  assigned.code = {ins_a(Opcode::PushConst, 0), ins_a(Opcode::Store, 63),
+                   ins_a(Opcode::Load, 63), ins(Opcode::Return)};
+  const std::vector<BytecodeProgram> programs{sum, missing, assigned};
+  for (int count : {1, 33, 257, 2053}) {
+    std::vector<CaseBindings> cases(count);
+    std::vector<Value> expected;
+    int missing_count = 0;
+    for (int i = 0; i < count; ++i) {
+      cases[i].push_back({7, Value::from_int(-i - 4)});
+      if (i % 11 != 0) cases[i].push_back({0, Value::from_int(3 * i)});
+      if (i % 7 != 0) cases[i].push_back({63, Value::from_int(i * i + 7)});
+      if (i % 11 == 0 || i % 7 == 0) ++missing_count;
+      expected.push_back(Value::from_int(i * i + 3 * i + 7));
+    }
+    for (int blocksize : {64, 256, 1024}) {
+      const auto cpu = gagp::eval_fitness_cpu(programs, cases, expected, 8, 1, blocksize);
+      const auto gpu = eval_gpu_via_session(programs, cases, expected, 8, blocksize, 1);
+      if (!gpu.ok || gpu.fitness != cpu || cpu.size() != 3 ||
+          cpu[0] != -static_cast<double>(missing_count) || cpu[1] != -static_cast<double>(count)) {
+        std::cerr << "FAIL: sparse case locals lost case/slot identity, missing-value checks "
+                     "or store initialization at cases=" << count << " block=" << blocksize << '\n';
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 }  // namespace
 
 int main() {
@@ -2562,6 +2601,7 @@ int main() {
     }
   }
 
+  if (!check_sparse_case_locals()) return 1;
   std::cout << "gagp_test_fitness_cpu_gpu_parity: OK\n";
   return 0;
 }

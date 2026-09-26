@@ -6,6 +6,7 @@
 #include "gagp/core/semantic_fuel.hpp"
 #include "gagp/evolution/grammar/values.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
+#include "gagp/evolution/grammar/variation.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -19,15 +20,19 @@ namespace {
 class Generator {
  public:
   Generator(const CompiledGrammar& grammar, std::uint64_t seed, const GenerationRequest& request,
-      const GenerationFrame* frame = nullptr)
-      : grammar_(grammar), random_(seed), frame_(frame) {
+      const GenerationFrame* frame = nullptr, VariationContext* variation_context = nullptr)
+      : grammar_(grammar), random_(seed), frame_(frame), variation_context_(variation_context) {
     out_.derivation.request = request;
     out_.derivation.request_scope_mapping = validate_request(grammar, request);
     environment_.assign(grammar.nonterminals()[request.nonterminal].scope.size(), -1);
     out_.derivation.grammar_hash = grammar.content_hash(); out_.derivation.seed = seed;
     out_.derivation.search_limits = request.budget; out_.derivation.execution_limits = grammar.execution_limits();
-    for (const auto& input : grammar.inputs()) out_.genome.ast.names.push_back(input.name);
-    for (const auto& local : grammar.locals()) out_.genome.ast.names.push_back(local.name);
+    if (frame_) {
+      native_names_.assign(grammar.inputs().size() + grammar.locals().size(), -1);
+    } else {
+      for (const auto& input : grammar.inputs()) out_.genome.ast.names.push_back(input.name);
+      for (const auto& local : grammar.locals()) out_.genome.ast.names.push_back(local.name);
+    }
     if (frame_) {
       environment_ = frame_environment(grammar, request, *frame_);
       reserved_binder_ids_.insert(frame_->binder_ids.begin(), frame_->binder_ids.end());
@@ -45,6 +50,8 @@ class Generator {
         throw std::invalid_argument("expression entry needs four envelope nodes and three prefix levels in addition to its derivation");
       depth -= 3; budget -= 4;
     }
+    if (entry.generation_costs(out_.derivation.request.stage).at(depth) > budget)
+      throw std::invalid_argument("generation request has no feasible derivation in selected stage");
     if (wrap) {
       emit({NodeKind::PROGRAM, 0, 0}, {}); emit({NodeKind::BLOCK_CONS, 0, 0}, {});
       emit({NodeKind::RETURN, 0, 0}, {});
@@ -68,6 +75,11 @@ class Generator {
     if (!verified) throw std::invalid_argument("generated derivation failed native verification: " + verified.diagnostic.message);
     if (verified.verified.return_type != entry.type) throw std::logic_error("generated return type violates grammar entry");
     require_membership(grammar_, out_.genome, out_.derivation.request);
+    std::vector<ResourceCharge> charges(out_.derivation.nodes.size());
+    for (std::size_t i = 0; i < charges.size(); ++i)
+      if (out_.derivation.nodes[i].expression != kNoGrammarId)
+        charges[i] = grammar_.expressions().at(out_.derivation.nodes[i].expression).resource_charge;
+    out_.derivation.resources = std::make_shared<const ResourceProjection>(verified.verified.subtree_end, charges);
     std::vector<std::string> input_names;
     for (const auto& input : inputs) input_names.push_back(input.name);
     const auto lowered = compile_for_eval(out_.genome, verified.verified, input_names);
@@ -82,46 +94,103 @@ class Generator {
   }
 
  private:
+  int native_name(std::size_t index) {
+    if (!frame_) return static_cast<int>(index);
+    auto& mapped = native_names_.at(index);
+    if (mapped < 0) {
+      mapped = static_cast<int>(out_.genome.ast.names.size());
+      out_.genome.ast.names.push_back(index < grammar_.inputs().size() ?
+          grammar_.inputs()[index].name : grammar_.locals()[index - grammar_.inputs().size()].name);
+    }
+    return mapped;
+  }
+
   std::uint32_t contextual_minimum(std::uint32_t id, std::uint32_t depth,
       const HoleBudgetLookup& enclosing = {}) const {
-    if (frame_costs_.empty()) return minimum_expression_nodes(grammar_, id, depth, enclosing);
+    if (!frame_costs_ && grammar_.nonterminals().front().generation_minimum_nodes[0].empty())
+      return minimum_expression_nodes(grammar_, id, depth, enclosing);
+    if (!frame_costs_) return minimum_expression_nodes(grammar_, id, depth, enclosing,
+        [&](std::uint32_t nt, std::uint32_t d) {
+          return grammar_.nonterminals()[nt].generation_costs(out_.derivation.request.stage).at(d);
+        });
     return minimum_expression_nodes(grammar_, id, depth, enclosing,
-        [&](std::uint32_t nt, std::uint32_t d) { return frame_costs_.at(nt).at(d); },
+        [&](std::uint32_t nt, std::uint32_t d) { return frame_costs_->at(nt).at(d); },
         [&](const CompiledExpression& expression, std::uint32_t) -> std::optional<std::uint32_t> {
           if (expression.kind == ExpressionKind::Local && !available_locals_.at(expression.target))
             return kNoGrammarId;
           return std::nullopt;
         });
   }
+  bool reachable_local_dependency() const {
+    std::vector<std::uint32_t> pending;
+    std::unordered_set<std::uint32_t> visited;
+    const auto append_productions = [&](std::uint32_t nt) {
+      for (auto id : grammar_.nonterminals()[nt].productions) {
+        const auto& production = grammar_.productions()[id];
+        if (production.generates(out_.derivation.request.stage))
+          pending.push_back(production.expression);
+      }
+    };
+    append_productions(out_.derivation.request.nonterminal);
+    while (!pending.empty()) {
+      const auto id = pending.back(); pending.pop_back();
+      if (!visited.insert(id).second) continue;
+      const auto& expression = grammar_.expressions()[id];
+      if (expression.kind == ExpressionKind::Local ||
+          std::any_of(expression.captures.begin(), expression.captures.end(), [](const auto& capture) {
+            return capture.kind == CompiledCaptureKind::Local;
+          })) return true;
+      if (expression.kind == ExpressionKind::Reference) append_productions(expression.target);
+      pending.insert(pending.end(), expression.children.begin(), expression.children.end());
+    }
+    return false;
+  }
+
   void prepare_frame_costs() {
+    // A frame cannot change feasibility of a construction that never reads locals.
+    // Reuse the compiled stage cost tables, including template/shared-hole costs.
+    if (!reachable_local_dependency()) return;
     available_locals_.assign(grammar_.locals().size(), false);
     for (std::size_t i = 0; i < grammar_.locals().size(); ++i)
       available_locals_[i] = std::any_of(frame_->locals.begin(), frame_->locals.end(), [&](const auto& binding) {
         return binding.name == grammar_.locals()[i].name;
       });
     const auto depth_limit = out_.derivation.request.budget.max_depth - 3;
-    frame_costs_.assign(grammar_.nonterminals().size(),
+    if (variation_context_)
+      frame_costs_ = variation_context_->find_frame_costs(available_locals_, depth_limit, out_.derivation.request.stage);
+    if (!frame_costs_) {
+      auto costs = std::make_shared<ContextualFrameCostTable>(grammar_.nonterminals().size(),
         std::vector<std::uint32_t>(depth_limit + 1, kNoGrammarId));
-    // Local availability is immutable throughout an expression donor. Compute the
-    // same least fixed point as compilation, excluding unavailable local leaves.
-    // Structural Program donors retain their own normal assignment/dataflow rules.
-    for (std::uint32_t depth = 0; depth <= depth_limit; ++depth) {
-      bool changed;
-      do {
-        changed = false;
-        for (const auto& nt : grammar_.nonterminals()) {
-          if (nt.category != NodeCategory::Expression) continue;
-          auto best = frame_costs_[nt.id][depth];
-          for (auto production : nt.productions)
-            best = std::min(best, contextual_minimum(grammar_.productions()[production].expression, depth));
-          if (best < frame_costs_[nt.id][depth]) {
-            frame_costs_[nt.id][depth] = best;
-            changed = true;
+      frame_costs_ = costs;
+      // Local availability is immutable throughout an expression donor. Compute the
+      // same least fixed point as compilation, excluding unavailable local leaves.
+      // Structural Program donors retain their own normal assignment/dataflow rules.
+      for (std::uint32_t depth = 0; depth <= depth_limit; ++depth) {
+        bool changed;
+        do {
+          changed = false;
+          for (const auto& nt : grammar_.nonterminals()) {
+            if (nt.category != NodeCategory::Expression) continue;
+            auto best = costs->at(nt.id).at(depth);
+            for (auto id : nt.productions) {
+              const auto& production = grammar_.productions()[id];
+              if (production.generates(out_.derivation.request.stage))
+                best = std::min(best, contextual_minimum(production.expression, depth));
+            }
+            if (best < costs->at(nt.id).at(depth)) {
+              costs->at(nt.id).at(depth) = best;
+              changed = true;
+            }
           }
-        }
-      } while (changed);
+        } while (changed);
+      }
+      if (variation_context_)
+        frame_costs_ = variation_context_->remember_frame_costs(
+            available_locals_, depth_limit, std::move(costs), out_.derivation.request.stage);
     }
-    if (frame_costs_[out_.derivation.request.nonterminal][depth_limit] >
+    // Node feasibility remains request-specific because max_nodes is deliberately
+    // absent from the deterministic table's cache key.
+    if (frame_costs_->at(out_.derivation.request.nonterminal).at(depth_limit) >
         out_.derivation.request.budget.max_nodes - 4)
       throw std::invalid_argument("no grammar derivation fits the donor budget and available local frame");
   }
@@ -352,7 +421,8 @@ class Generator {
       std::vector<std::uint32_t> eligible;
       for (auto id : grammar_.nonterminals()[nt].productions) {
         const auto& production = grammar_.productions()[id];
-        const auto required = frame_costs_.empty() ? production.minimum_nodes_by_depth.at(depth) :
+        if (!production.generates(out_.derivation.request.stage)) continue;
+        const auto required = !frame_costs_ ? production.generation_costs(out_.derivation.request.stage).at(depth) :
             contextual_minimum(production.expression, depth);
         if (required <= budget &&
             feasible_alias_exit(production.expression, depth, budget, aliases)) eligible.push_back(id);
@@ -389,16 +459,16 @@ class Generator {
         if (minimum(id, depth) <= budget) return true;
       } else if (!visited[node.target]) {
         visited[node.target] = true;
-        for (auto production : grammar_.nonterminals()[node.target].productions)
-          pending.push_back(grammar_.productions()[production].expression);
+        for (auto id : grammar_.nonterminals()[node.target].productions) {
+          const auto& production = grammar_.productions()[id];
+          if (production.generates(out_.derivation.request.stage)) pending.push_back(production.expression);
+        }
       }
     }
     return false;
   }
   Value constant(const ConstantDomain& domain) {
-    if (domain.integer_range) return Value::from_int(random_.integer(domain.minimum, domain.maximum));
-    const auto& data = domain.values[static_cast<std::size_t>(random_.bounded(domain.values.size()))];
-    return materialize_constant(domain.type, data);
+    return sample_constant(domain, random_);
   }
   void expression(std::uint32_t id, std::uint32_t depth, std::uint32_t budget,
       std::uint32_t production, std::uint32_t nt) {
@@ -425,9 +495,9 @@ class Generator {
     if (source.kind == ExpressionKind::Constant) {
       node = {NodeKind::CONST, static_cast<int>(out_.genome.ast.consts.size()), 0};
       out_.genome.ast.consts.push_back(constant(grammar_.constants()[source.target]));
-    } else if (source.kind == ExpressionKind::Input) node = {NodeKind::VAR, static_cast<int>(source.target), 0};
+    } else if (source.kind == ExpressionKind::Input) node = {NodeKind::VAR, native_name(source.target), 0};
     else if (source.kind == ExpressionKind::Local)
-      node = {NodeKind::VAR, static_cast<int>(grammar_.inputs().size() + source.target), 0};
+      node = {NodeKind::VAR, native_name(grammar_.inputs().size() + source.target), 0};
     else if (source.kind == ExpressionKind::Bound) {
       if (source.target >= environment_.size())
         throw std::logic_error("compiled bound position exceeds the current lexical environment");
@@ -457,7 +527,7 @@ class Generator {
             if (capture.target >= grammar_.inputs().size())
               throw std::logic_error("compiled region input capture is out of range");
             bounded_region->parameters.push_back(
-                {RegionCaptureKind::Name, static_cast<int>(capture.target)});
+                {RegionCaptureKind::Name, native_name(capture.target)});
             break;
           case CompiledCaptureKind::Local:
             if (capture.target >= grammar_.locals().size())
@@ -467,7 +537,7 @@ class Generator {
               throw std::overflow_error("compiled region local capture exceeds the native name range");
             bounded_region->parameters.push_back({
                 RegionCaptureKind::Name,
-                static_cast<int>(grammar_.inputs().size() + capture.target)});
+                native_name(grammar_.inputs().size() + capture.target)});
             break;
           case CompiledCaptureKind::Bound:
             if (capture.target >= environment_.size())
@@ -504,7 +574,7 @@ class Generator {
       node = {*signature.lowering_node, 0, 0};
     } else if (source.kind == ExpressionKind::Control) {
       const auto& signature = PrimitiveCatalog::standard().control_signatures()[source.target];
-      node = {signature.lowering_node, signature.requires_name ? static_cast<int>(grammar_.inputs().size() + source.local) : 0, 0};
+      node = {signature.lowering_node, signature.requires_name ? native_name((source.target_input ? 0 : grammar_.inputs().size()) + source.local) : 0, 0};
     } else throw std::invalid_argument("materialization requires an implemented native node contract");
     const auto node_index = out_.genome.ast.nodes.size();
     emit(node, origin);
@@ -559,8 +629,10 @@ class Generator {
   const CompiledGrammar& grammar_;
   GrammarRandom random_;
   const GenerationFrame* frame_ = nullptr;
+  VariationContext* variation_context_ = nullptr;
   std::vector<bool> available_locals_;
-  std::vector<std::vector<std::uint32_t>> frame_costs_;
+  std::vector<int> native_names_;
+  std::shared_ptr<const ContextualFrameCostTable> frame_costs_;
   GeneratedDerivation out_;
   std::uint32_t current_choice_ = kNoGrammarId;
   std::vector<std::pair<std::uint32_t, std::size_t>> alias_frames_;
@@ -581,9 +653,30 @@ GeneratedDerivation generate_derivation(const CompiledGrammar& grammar, std::uin
   return Generator(grammar, seed, request).run();
 }
 
+GeneratedDerivation generate_derivation(const CompiledGrammar& grammar, std::uint64_t seed,
+    const GenerationRequest& request, ProjectedBudget projected_budget,
+    std::size_t maximum_attempts) {
+  if (!maximum_attempts)
+    throw std::invalid_argument("projected generation requires a positive attempt limit");
+  GrammarRandom attempts(seed);
+  auto attempt_seed = seed;
+  for (std::size_t attempt = 0; attempt < maximum_attempts; ++attempt) {
+    auto generated = Generator(grammar, attempt_seed, request).run();
+    const auto witness = reconstruct_derivation(grammar, generated.genome, request);
+    if (projected_budget.accepts(witness.resources->subtree())) return generated;
+    attempt_seed = attempts.next();
+  }
+  throw std::runtime_error("projected generation exhausted its attempt limit; feasibility is unresolved");
+}
+
 GeneratedDerivation generate_derivation_in_frame(const CompiledGrammar& grammar, std::uint64_t seed,
     const GenerationRequest& request, const GenerationFrame& frame) {
   return Generator(grammar, seed, request, &frame).run();
+}
+
+GeneratedDerivation generate_derivation_in_frame(VariationContext& context, std::uint64_t seed,
+    const GenerationRequest& request, const GenerationFrame& frame) {
+  return Generator(context.grammar(), seed, request, &frame, &context).run();
 }
 
 }  // namespace gagp::evo::grammar

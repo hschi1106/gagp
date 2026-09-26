@@ -14,6 +14,8 @@ namespace grammar { class CompiledGrammar; struct GenerationRequest; }
 void validate_grammar_case_set(const grammar::CompiledGrammar& grammar,
     const CaseSet& case_set, const grammar::GenerationRequest& request);
 
+void validate_grammar_case_set(const EvolutionConfig& config, const CaseSet& case_set);
+
 struct PopulationInitialization {
   std::vector<ProgramGenome> population;
   bool replayed = false;

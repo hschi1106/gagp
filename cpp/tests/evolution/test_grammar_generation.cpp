@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 #include "gagp/evolution/grammar/generate.hpp"
+#include "gagp/evolution/grammar/variation_contract.hpp"
 #include "gagp/evolution/grammar/values.hpp"
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/evolution/repro/pack.hpp"
@@ -29,8 +30,37 @@ std::string constant_grammar(const std::string& type, const std::string& values)
     {"id":"constant","weight":1,"expression":{"constant":{"type":")" + type + R"(","values":)" + values + "}}}]}]}";
 }
 }  // namespace
+void check_input_write() {
+  const auto grammar = compile_grammar(parse_definition(R"({
+    "format_version":"grammar-definition-v2",
+    "entry":{"nonterminal":"Main","type":"Float","category":"Program"},
+    "inputs":[{"name":"x","type":"Float"}],
+    "search_limits":{"max_nodes":20,"max_depth":10},"execution_limits":{"fuel":100},
+    "nonterminals":[{"id":"Main","type":"Float","category":"Program","scope":[],
+      "alternatives":[{"id":"write","weight":1,"expression":{
+        "control":"program(Block)->Program","type":"Float","args":[{
+          "control":"block_cons(Statement,Block)->Block","type":"Float","args":[{
+            "control":"assign(Float)->Statement","type":"Float","input_name":"x","args":[{
+              "signature":"add(Float,Float)->Float","args":[{"input":"x"},{"constant":{"type":"Float","values":[1]}}]}]}, {
+            "control":"block_cons(Statement,Block)->Block","type":"Float","args":[{
+              "control":"return(Float)->Statement","type":"Float","args":[{"input":"x"}]},
+              {"control":"block_nil()->Block","type":"Float","args":[]}]}]}]}}]}]
+  })"));
+  const auto generated = generate_derivation(grammar, 7);
+  (void)analyze_variation(grammar, generated.genome);
+  const auto verified = verify_ast(generated.genome.ast, {{"x", RType::Float}});
+  check(verified.ok, "input write produced an invalid AST");
+  const auto code = compile_for_eval(generated.genome, verified.verified, {"x"});
+  const std::vector<std::pair<int, Value>> inputs{{code.var2idx.at("x"), Value::from_float(6)}};
+  const auto result = execute_bytecode_cpu(code, inputs, 100);
+  check(!result.is_error && result.value.tag == ValueTag::Float && result.value.f == 7,
+        "input write did not update subsequent reads");
+  check(inputs.front().second.f == 6, "input write changed external case data");
+}
+
 int main() {
   try {
+    check_input_write();
     const auto grammar = compile_grammar(parse_definition(scalar));
     auto owned = generate_derivation(grammar, 7);
     check(owned.genome.derivation != nullptr, "generated genome lost derivation ownership");

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "gagp/evolution/repro/mutation_schedule.hpp"
 
 #include "compiled_variation.cuh"
 #include "constant_mutation.cuh"
@@ -35,16 +36,11 @@ struct CompiledMutationPointers {
 namespace compiled_mutation_detail {
 
 __device__ inline double unit_random(DGrammarRandom* random) {
-  // Use the high 53 bits, yielding [0, 1) even at the upper endpoint.
-  return static_cast<double>(random->next() >> 11) *
-         (1.0 / 9007199254740992.0);
+  return compiled_mutation_unit(random);
 }
 
-__device__ inline std::uint64_t child_seed(const GpuReproConfig& config,
-                                           int child) {
-  return hash64(config.seed ^
-                (static_cast<std::uint64_t>(child + 1) *
-                 UINT64_C(0x9e3779b97f4a7c15)));
+__device__ inline std::uint64_t child_seed(const GpuReproConfig& config, int child) {
+  return compiled_mutation_seed(config.seed, child);
 }
 
 __device__ inline void set_outcome(int child, int parent,
@@ -296,13 +292,12 @@ __global__ void compiled_mutation_kernel(
   DGrammarRandom random(child_seed(config, child));
   if (unit_random(&random) >= config.mutation_ratio) return;
 
-  __shared__ AtomicSpliceOrigin
-      origin_storage[2 * kGpuReproKernelMaxNodes];
+  extern __shared__ AtomicSpliceOrigin origin_storage[];
   __shared__ __align__(16) unsigned char constant_work_storage[
       2 * kGpuReproMaxConsts * sizeof(Value)];
   __shared__ int remapped_roots[2 * kGpuReproMaxConsts];
   AtomicSpliceOrigin* origins =
-      origin_storage + lane * kGpuReproKernelMaxNodes;
+      origin_storage + lane * config.max_nodes;
   Value* constant_work = reinterpret_cast<Value*>(constant_work_storage) +
                          lane * kGpuReproMaxConsts;
 

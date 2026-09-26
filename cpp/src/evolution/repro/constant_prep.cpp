@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cmath>
 #include <limits>
 #include <map>
 #include <stdexcept>
@@ -10,6 +11,8 @@
 #include <utility>
 
 #include "gagp/evolution/grammar/values.hpp"
+#include "gagp/evolution/grammar/random.hpp"
+#include "gagp/evolution/grammar/numeric_sampling.hpp"
 #include "gagp/evolution/repro/types.hpp"
 
 namespace gagp::evo::repro {
@@ -137,10 +140,27 @@ std::shared_ptr<const ConstantMutationDomains> prepare_constant_mutation_domains
   out->domains.reserve(compiled.constants().size());
   out->expression_domains.assign(compiled.expressions().size(), -1);
 
-  for (const auto& source : compiled.constants()) {
+  for (const auto& declared : compiled.constants()) {
+    const auto& source = declared.sampling && declared.mutation != grammar::ConstantMutationPolicy::Add
+        ? *declared.sampling : declared;
+    if (declared.mutation == grammar::ConstantMutationPolicy::Keep) {
+      ConstantMutationDomain domain;
+      domain.type = static_cast<int>(declared.type);
+      domain.mutation = declared.mutation;
+      out->domains.push_back(domain);
+      continue;
+    }
     if (source.integer_range) {
       if (source.type != RType::Int || source.minimum > source.maximum)
         throw std::invalid_argument("compiled constant range is invalid");
+    } else if (source.float_range) {
+      if (source.type != RType::Float || !std::isfinite(source.float_minimum) ||
+          !std::isfinite(source.float_maximum) || source.float_minimum > source.float_maximum ||
+          !grammar::valid_float_quantization(source.float_minimum, source.float_maximum,
+                                             source.float_quantization_scale))
+        throw std::invalid_argument("compiled Float range is invalid");
+    } else if (source.elements) {
+      out->has_sequence_domains = true;
     } else if (source.values.empty()) {
       throw std::invalid_argument("compiled finite constant domain is empty");
     }
@@ -149,12 +169,18 @@ std::shared_ptr<const ConstantMutationDomains> prepare_constant_mutation_domains
           "constant value count exceeds constant preparation item limit");
 
     ConstantMutationDomain domain;
+    domain.mutation = declared.mutation;
+    domain.delta = declared.delta;
     domain.type = static_cast<int>(source.type);
     domain.value_offset = as_int(out->values.size(), "constant value offset");
     domain.value_count = as_int(source.values.size(), "constant value count");
     domain.integer_range = source.integer_range ? 1 : 0;
     domain.minimum = source.minimum;
     domain.maximum = source.maximum;
+    domain.float_range = source.float_range ? 1 : 0;
+    domain.float_minimum = source.float_minimum;
+    domain.float_maximum = source.float_maximum;
+    domain.float_quantization_scale = source.float_quantization_scale;
     for (const auto& value : source.values)
       out->values.push_back(grammar::materialize_constant(source.type, value));
     out->domains.push_back(domain);
@@ -167,6 +193,48 @@ std::shared_ptr<const ConstantMutationDomains> prepare_constant_mutation_domains
       throw std::invalid_argument(
           "compiled constant expression has invalid domain ID");
     out->expression_domains[i] = as_int(expression.target, "constant domain ID");
+  }
+  ConstantMutationTable table;
+  table.grammar_domains = out;
+  (void)checked_table_bytes(table);
+  return out;
+}
+
+std::shared_ptr<const ConstantMutationDomains> sample_constant_mutation_domains(
+    const std::shared_ptr<const ConstantMutationDomains>& domains,
+    std::uint64_t seed, std::size_t count) {
+  if (!domains || !domains->grammar_owner)
+    throw std::invalid_argument("constant proposals require compiled domains");
+  if (!domains->has_sequence_domains) return domains;
+  if (domains->base_domains) {
+    if (domains->proposal_seed != seed || domains->proposals_per_domain != count)
+      throw std::invalid_argument("constant proposal preparation identity mismatch");
+    return domains;
+  }
+  if (!count || count > 65536)
+    throw std::invalid_argument("constant proposal count must be in [1,65536]");
+  std::size_t bytes = 0, values = domains->values.size();
+  for (const auto& source : domains->grammar_owner->constants()) {
+    if (!source.elements || source.mutation == grammar::ConstantMutationPolicy::Keep) continue;
+    if (count > kMaxPreparedItems - values)
+      throw std::invalid_argument("constant proposals exceed preparation item limit");
+    values += count;
+    add_bytes(count, source.sequence_storage_bound, &bytes);
+  }
+  auto out = std::make_shared<ConstantMutationDomains>(*domains);
+  out->base_domains = domains;
+  out->proposal_seed = seed;
+  out->proposals_per_domain = count;
+  out->values.reserve(values);
+  grammar::GrammarRandom random(seed);
+  for (std::size_t i = 0; i < out->domains.size(); ++i) {
+    const auto& source = out->grammar_owner->constants()[i];
+    if (!source.elements || source.mutation == grammar::ConstantMutationPolicy::Keep) continue;
+    auto& target = out->domains[i];
+    target.value_offset = as_int(out->values.size(), "constant proposal offset");
+    target.value_count = as_int(count, "constant proposal count");
+    for (std::size_t j = 0; j < count; ++j)
+      out->values.push_back(grammar::sample_constant(source, random));
   }
   ConstantMutationTable table;
   table.grammar_domains = out;

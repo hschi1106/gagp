@@ -10,6 +10,12 @@ cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug
 cmake --build cpp/build -j
 ```
 
+Grammar identities use system OpenSSL Crypto for SHA-256 when CMake finds it.
+OpenSSL is optional: without it, the built-in implementation is used. Configure
+with `-DGAGP_ENABLE_OPENSSL_SHA256=OFF` to explicitly select the built-in path.
+Both implementations produce identical grammar and cache identities; artifacts
+do not depend on which implementation built them.
+
 Install the dependency-free operational tools in a separate virtual
 environment. This editable install exposes `gagp-tools`, including the thin
 wrappers around the native grammar commands:

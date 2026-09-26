@@ -1,4 +1,5 @@
-#include "gagp/evolution/repro/pack.hpp"
+#include "pack_internal.hpp"
+#include "../../runtime/payload/staging.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -66,7 +67,8 @@ std::uint64_t splice_source_bytes(const AstProgram& ast) {
 
 GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population,
                                     const PreprocessOutput& prep,
-                                    GpuReproConfig config) {
+                                    GpuReproConfig config,
+                                    const std::vector<grammar::WarmPopulationMember>* warmed) {
   if (!prep.compiled_grammar || !prep.constant_mutation ||
       !prep.constant_mutation->grammar_domains ||
       prep.parent_constant_streams.size() != population.size() ||
@@ -123,8 +125,11 @@ GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population
     const auto& ast = population[i].ast;
     if (ast.nodes.empty() || ast.nodes.size() > static_cast<std::size_t>(config.max_nodes))
       throw std::invalid_argument("compiled parent exceeds its request budget");
-    ProgramGenome genome; genome.ast = ast;
-    if (grammar::runtime_cache_identity(genome, inputs, fuel) != prep.population_identities[i])
+    const auto* row = warmed && warmed->size() == population.size() ? &(*warmed)[i] : nullptr;
+    const bool reuse = row && row->analysis && row->reads && row->reads->read_snapshot_unchanged();
+    const auto identity = reuse ? row->runtime_identity :
+        grammar::runtime_cache_identity(population[i], inputs, fuel);
+    if (identity != prep.population_identities[i])
       throw std::invalid_argument("compiled pack preparation does not match parent identity");
     if (prep.candidates[i].size() > static_cast<std::size_t>(max_candidates))
       throw std::invalid_argument("compiled parent candidate count exceeds configured capacity");
@@ -172,8 +177,7 @@ GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population
   }
   for (std::size_t i = 0; i < prep.donor_pool.size(); ++i) {
     const auto& ast = prep.donor_pool[i].ast;
-    ProgramGenome genome; genome.ast = ast;
-    if (grammar::runtime_cache_identity(genome, inputs, fuel) != prep.donor_identities[i])
+    if (grammar::runtime_cache_identity(ast, inputs, fuel) != prep.donor_identities[i])
       throw std::invalid_argument("compiled pack preparation does not match donor identity");
     if (prep.donor_contracts[i].materialized_nodes != static_cast<int>(ast.nodes.size()))
       throw std::invalid_argument("compiled pack donor measurement differs from payload");
@@ -183,8 +187,16 @@ GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population
   }
   config.candidates_per_program = max_candidates;
   config.max_donor_nodes = max_donor_nodes;
-  config.max_names = max_names;
-  config.max_consts = max_consts;
+  // Union capacity may be capped, but each input must fit before packing.
+  // Otherwise pack_ast would copy an oversized input into a truncated buffer.
+  if (max_names > kGpuReproMaxNames || max_consts > kGpuReproMaxConsts)
+    throw std::invalid_argument("compiled source tables exceed GPU reproduction capacity");
+  // A splice can retain distinct values from both inputs. Reserve their union,
+  // bounded by the existing device table limits; device splice compacts dead
+  // entries before enforcing those capacities. Search node/depth limits remain
+  // independent and unchanged.
+  config.max_names = std::min(kGpuReproMaxNames, 2 * max_names);
+  config.max_consts = std::min(kGpuReproMaxConsts, 2 * max_consts);
   config.compiled_donor_count = static_cast<int>(prep.donor_pool.size());
   config.compiled_occurrence_count = static_cast<int>(prep.occurrences.size());
   config.constant_domain_count = static_cast<int>(domains.domains.size());
@@ -203,8 +215,7 @@ GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population
 
 }  // namespace
 
-ProgramGenome compact_genome_tables(const ProgramGenome& genome) {
-  ProgramGenome out = genome;
+ProgramGenome compact_genome_tables(ProgramGenome out) {
   std::vector<bool> used_names(out.ast.names.size(), false);
   std::vector<bool> used_constants(out.ast.consts.size(), false);
   const auto mark = [](int index, std::vector<bool>* used, const char* table) {
@@ -228,6 +239,14 @@ ProgramGenome compact_genome_tables(const ProgramGenome& genome) {
     for (const auto& capture : region.parameters)
       if (capture.kind == RegionCaptureKind::Name)
         mark(capture.index, &used_names, "bounded-region capture name");
+
+  // All indices were checked above, including bounded-region captures. When
+  // every entry is live, stable compaction is the identity mapping.
+  if (std::all_of(used_names.begin(), used_names.end(), [](bool used) { return used; }) &&
+      std::all_of(used_constants.begin(), used_constants.end(), [](bool used) { return used; })) {
+    out.meta = build_genome_meta(out.ast);
+    return out;
+  }
 
   const auto compact = [](const auto& source, const std::vector<bool>& used,
                           std::vector<int>* remap) {
@@ -272,10 +291,11 @@ std::vector<ProgramGenome> compact_population_tables(const std::vector<ProgramGe
   return out;
 }
 
-PackedHostData pack_population(const std::vector<ProgramGenome>& population,
+static PackedHostData pack_population_impl(const std::vector<ProgramGenome>& population,
                                const PreprocessOutput& prep,
-                               const GpuReproConfig& input_config) {
-  const auto config = compiled_pack_config(population, prep, input_config);
+                               const GpuReproConfig& input_config,
+                               const std::vector<grammar::WarmPopulationMember>* warmed) {
+  const auto config = compiled_pack_config(population, prep, input_config, warmed);
   PackedHostData out;
   out.config = config;
   out.compiled_grammar = prep.compiled_grammar;
@@ -337,6 +357,17 @@ PackedHostData pack_population(const std::vector<ProgramGenome>& population,
              out.donor_consts.data() + d * config.max_consts);
   }
   return out;
+}
+
+PackedHostData pack_population(const std::vector<ProgramGenome>& population,
+    const PreprocessOutput& prep, const GpuReproConfig& config) {
+  return pack_population_impl(population, prep, config, nullptr);
+}
+
+PackedHostData pack_warmed_population(const std::vector<ProgramGenome>& population,
+    const PreprocessOutput& prep, const GpuReproConfig& config,
+    const std::vector<grammar::WarmPopulationMember>& warmed) {
+  return pack_population_impl(population, prep, config, &warmed);
 }
 
 }  // namespace gagp::evo::repro

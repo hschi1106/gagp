@@ -14,13 +14,19 @@
 
 namespace gagp::evo::repro {
 
-// Immutable rows shared by every population prepared from one compiled grammar.
-// values contains exact materializations in declared order, including duplicates.
+// Immutable grammar rows retain finite values in declared order, including
+// duplicates. A preparation-local copy appends sampled sequence proposals.
 struct ConstantMutationDomains {
   std::vector<ConstantMutationDomain> domains;
   std::vector<Value> values;
   std::vector<int> expression_domains;
   std::shared_ptr<const grammar::CompiledGrammar> grammar_owner;
+  // A preparation-local proposal table retains its immutable grammar table.
+  // Sequence proposals are resampled for each preparation, never frozen for a run.
+  std::shared_ptr<const ConstantMutationDomains> base_domains;
+  std::uint64_t proposal_seed = 0;
+  std::size_t proposals_per_domain = 0;
+  bool has_sequence_domains = false;
 };
 
 // Owns only the population-specific mutation streams and shares its grammar rows.
@@ -35,6 +41,10 @@ struct ConstantMutationTable {
 
 std::shared_ptr<const ConstantMutationDomains> prepare_constant_mutation_domains(
     const std::shared_ptr<const grammar::CompiledGrammar>& grammar);
+
+std::shared_ptr<const ConstantMutationDomains> sample_constant_mutation_domains(
+    const std::shared_ptr<const ConstantMutationDomains>& domains,
+    std::uint64_t seed, std::size_t count);
 
 // Logical bytes owned by the bounded flat vectors (excluding allocator
 // capacity and payload-registry backing stores).

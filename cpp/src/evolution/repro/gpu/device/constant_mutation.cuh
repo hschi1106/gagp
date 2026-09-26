@@ -4,6 +4,7 @@
 
 #include "gagp/core/value.hpp"
 #include "gagp/evolution/ast_program.hpp"
+#include "gagp/evolution/grammar/numeric_sampling.hpp"
 #include "gagp/evolution/repro/constant_types.hpp"
 #include "atomic_splice.cuh"
 #include "grammar_random.cuh"
@@ -104,23 +105,47 @@ __device__ inline bool resolve_group(
 __device__ inline bool valid_domain(const ConstantMutationDomain& domain,
                                     DConstantMutationTableView table) {
   ValueTag expected = ValueTag::Invalid;
+  using Policy = grammar::ConstantMutationPolicy;
+  if (domain.mutation != Policy::Resample && domain.mutation != Policy::Keep &&
+      domain.mutation != Policy::Flip && domain.mutation != Policy::Add) return false;
   if (!expected_tag(domain.type, &expected) ||
-      (domain.integer_range != 0 && domain.integer_range != 1)) {
+      (domain.integer_range != 0 && domain.integer_range != 1) ||
+      (domain.float_range != 0 && domain.float_range != 1) ||
+      (domain.integer_range && domain.float_range)) {
     return false;
+  }
+  if (domain.mutation == Policy::Keep) return true;
+  if (domain.mutation == Policy::Flip && expected != ValueTag::Bool) return false;
+  if (domain.mutation == Policy::Add) {
+    if (domain.integer_range) {
+      if (domain.delta.integer_minimum > domain.delta.integer_maximum || domain.delta.gpu_grid_steps) return false;
+    } else if (domain.float_range) {
+      if (!isfinite(domain.delta.float_minimum) || !isfinite(domain.delta.float_maximum) ||
+          domain.delta.float_minimum > domain.delta.float_maximum || domain.float_quantization_scale != 0) return false;
+    } else return false;
   }
   if (domain.integer_range != 0)
     return expected == ValueTag::Int && domain.minimum <= domain.maximum;
+  if (domain.float_range != 0)
+    return expected == ValueTag::Float && isfinite(domain.float_minimum) &&
+        isfinite(domain.float_maximum) && domain.float_minimum <= domain.float_maximum &&
+        grammar::valid_float_quantization(domain.float_minimum, domain.float_maximum,
+                                          domain.float_quantization_scale);
   if (domain.value_offset < 0 || domain.value_count <= 0 ||
       domain.value_offset > table.value_count ||
       domain.value_count > table.value_count - domain.value_offset ||
       table.values == nullptr) {
     return false;
   }
-  if (table.domains_validated) return true;
+  if (table.domains_validated && domain.mutation != Policy::Flip) return true;
+  bool yes = false, no = false;
   for (int i = 0; i < domain.value_count; ++i) {
     if (table.values[domain.value_offset + i].tag != expected) return false;
+    if (expected == ValueTag::Bool) {
+      if (table.values[domain.value_offset + i].b) yes = true; else no = true;
+    }
   }
-  return true;
+  return domain.mutation != Policy::Flip || (yes && no);
 }
 
 __device__ inline int find_value(const Value* values, int count,
@@ -220,6 +245,7 @@ __device__ inline DConstantMutationResult d_mutate_compiled_constants(
   LogicalGroup selected;
   int seen_groups = 0;
   bool found_selected = false;
+  int selected_node = -1;
   for (int i = 0; i < child_node_count && !found_selected; ++i) {
     if (static_cast<NodeKind>(child_nodes[i].kind) != NodeKind::CONST) continue;
     LogicalGroup current;
@@ -242,6 +268,7 @@ __device__ inline DConstantMutationResult d_mutate_compiled_constants(
     if (!appeared) {
       if (seen_groups == selected_rank) {
         selected = current;
+        selected_node = i;
         found_selected = true;
       }
       ++seen_groups;
@@ -251,9 +278,36 @@ __device__ inline DConstantMutationResult d_mutate_compiled_constants(
 
   const int domain_index = table.groups[selected.prepared_group].domain;
   const ConstantMutationDomain domain = table.domains[domain_index];
+  if (domain.mutation == grammar::ConstantMutationPolicy::Keep) {
+    for (int i = 0; i < pinned.count; ++i) pinned.remapped_indices[i] = pinned.indices[i];
+    return DConstantMutationResult::Applied;
+  }
   Value sampled;
-  if (domain.integer_range != 0) {
+  if (domain.mutation == grammar::ConstantMutationPolicy::Add) {
+    const Value previous = child_consts[child_nodes[selected_node].i0];
+    if (domain.integer_range) {
+      if (previous.tag != ValueTag::Int) return DConstantMutationResult::Invalid;
+      sampled = Value::from_int(grammar::add_integer_in_range(previous.i,
+          random.integer(domain.delta.integer_minimum,domain.delta.integer_maximum),domain.minimum,domain.maximum));
+    } else {
+      if (previous.tag != ValueTag::Float) return DConstantMutationResult::Invalid;
+      const auto& delta = domain.delta;
+      const double amount = delta.gpu_grid_steps ? grammar::sample_float_grid(
+          delta.float_minimum,delta.float_maximum,
+          random.bounded(static_cast<std::uint64_t>(delta.gpu_grid_steps) + 1),delta.gpu_grid_steps) :
+          grammar::sample_float_interval(delta.float_minimum,delta.float_maximum,random.next());
+      sampled = Value::from_float(grammar::add_float_in_range(previous.f,amount,
+          domain.float_minimum,domain.float_maximum));
+    }
+  } else if (domain.mutation == grammar::ConstantMutationPolicy::Flip) {
+    const Value previous = child_consts[child_nodes[selected_node].i0];
+    if (previous.tag != ValueTag::Bool) return DConstantMutationResult::Invalid;
+    sampled = Value::from_bool(!previous.b);
+  } else if (domain.integer_range != 0) {
     sampled = Value::from_int(random.integer(domain.minimum, domain.maximum));
+  } else if (domain.float_range != 0) {
+    sampled = Value::from_float(grammar::quantize_float(grammar::sample_float_interval(
+        domain.float_minimum, domain.float_maximum, random.next()), domain.float_quantization_scale));
   } else {
     const int value_index = domain.value_offset + static_cast<int>(
         random.bounded(static_cast<std::uint64_t>(domain.value_count)));

@@ -192,3 +192,7 @@ rules are collected in [AGENTS.md](AGENTS.md).
 
 GAGP is currently at release **2.0.0**. See [VERSION.md](VERSION.md) for the
 release contract.
+
+Mixed exact-type populations can use `gagp_evolve_cli --population-roots RootInt,RootFloat`
+with roots from the supplied grammar. Selection remains global across all members;
+see the [CLI contract](docs/reference/cli.md) for root and replay requirements.

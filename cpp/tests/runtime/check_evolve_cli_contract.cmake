@@ -124,3 +124,64 @@ foreach(required IN ITEMS
 endforeach()
 
 file(REMOVE "${OUT_JSON}")
+
+# Mixed roots use the same global evolution path through the production CLI.
+set(mixed_grammar "${OUT_JSON}.mixed-grammar.json")
+set(mixed_cases "${OUT_JSON}.mixed-cases.json")
+file(WRITE "${mixed_grammar}" [=[{
+  "format_version":"grammar-definition-v2",
+  "entry":{"nonterminal":"Integer","type":"Int"},
+  "search_limits":{"max_nodes":5,"max_depth":4},
+  "execution_limits":{"fuel":100},
+  "nonterminals":[
+    {"id":"Integer","type":"Int","scope":[],"alternatives":[
+      {"id":"zero","weight":1,"expression":{"constant":{"type":"Int","values":["0"]}}}]},
+    {"id":"Real","type":"Float","scope":[],"alternatives":[
+      {"id":"two","weight":1,"expression":{"constant":{"type":"Float","values":[2.0]}}}]}
+  ]}]=])
+file(WRITE "${mixed_cases}" [=[{"format_version":"fitness-cases","cases":[
+  {"inputs":{},"expected":{"type":"int","value":0}},
+  {"inputs":{},"expected":{"type":"float","value":2.0}}]}]=])
+execute_process(COMMAND "${CLI}" --cases "${mixed_cases}"
+  --grammar-definition "${mixed_grammar}" --population-roots Integer,Real
+  --population-size 4 --generations 2 --selection-pressure 1 --penalty 9
+  --timing none --out-json "${OUT_JSON}.mixed.json"
+  RESULT_VARIABLE mixed_result OUTPUT_VARIABLE mixed_stdout ERROR_VARIABLE mixed_stderr)
+if(NOT mixed_result EQUAL 0)
+  message(FATAL_ERROR "mixed CLI evolution failed: ${mixed_stderr}")
+endif()
+file(READ "${OUT_JSON}.mixed.json" mixed_json)
+string(JSON root0 GET "${mixed_json}" meta population_roots 0)
+string(JSON root1 GET "${mixed_json}" meta population_roots 1)
+if(NOT root0 STREQUAL "Integer" OR NOT root1 STREQUAL "Real")
+  message(FATAL_ERROR "mixed CLI metadata lost ordered population roots")
+endif()
+string(FIND "${mixed_stdout}" "GEN 001 best=-2.000000 mean=-2.000000" mixed_score)
+if(mixed_score EQUAL -1)
+  message(FATAL_ERROR "mixed numeric fitness changed: ${mixed_stdout}")
+endif()
+foreach(roots IN ITEMS Integer,Missing Integer,Integer)
+  execute_process(COMMAND "${CLI}" --cases "${mixed_cases}"
+    --grammar-definition "${mixed_grammar}" --population-roots "${roots}"
+    RESULT_VARIABLE invalid_result OUTPUT_VARIABLE invalid_stdout ERROR_VARIABLE invalid_stderr)
+  if(NOT invalid_result EQUAL 2 OR NOT invalid_stdout STREQUAL "")
+    message(FATAL_ERROR "invalid mixed roots accepted: ${roots}")
+  endif()
+endforeach()
+
+execute_process(COMMAND "${GENERATOR}" --cases "${mixed_cases}"
+  --grammar-definition "${mixed_grammar}" --population-roots Integer,Real
+  --population-size 4 --out-json "${OUT_JSON}.mixed-population.json"
+  RESULT_VARIABLE generated_result ERROR_VARIABLE generated_stderr)
+if(NOT generated_result EQUAL 0)
+  message(FATAL_ERROR "mixed population generation failed: ${generated_stderr}")
+endif()
+execute_process(COMMAND "${CLI}" --cases "${mixed_cases}"
+  --grammar-definition "${mixed_grammar}" --population-roots Integer,Real
+  --population-json "${OUT_JSON}.mixed-population.json"
+  --generations 2 --selection-pressure 1 --penalty 9 --timing none
+  --out-json "${OUT_JSON}.mixed-replayed.json"
+  RESULT_VARIABLE replay_result OUTPUT_VARIABLE replay_stdout ERROR_VARIABLE replay_stderr)
+if(NOT replay_result EQUAL 0 OR NOT replay_stdout STREQUAL mixed_stdout)
+  message(FATAL_ERROR "mixed population evolution replay differed: ${replay_stderr}; ${replay_stdout}")
+endif()

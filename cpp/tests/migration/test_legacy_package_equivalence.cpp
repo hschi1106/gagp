@@ -17,7 +17,12 @@
 #include "gagp/evolution/grammar/compiled.hpp"
 #include "gagp/evolution/grammar/definition.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
+#include "gagp/evolution/grammar/derivation_resources.hpp"
+#include "gagp/evolution/grammar/request.hpp"
+#include "gagp/evolution/grammar/values.hpp"
 #include "gagp/evolution/transition/bounded_regions.hpp"
+#include "gagp/migration/legacy_grammar_config.hpp"
+#include "gagp/migration/legacy_budget.hpp"
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 
@@ -392,11 +397,51 @@ std::string dp_root(const TypeCase& type, bool two_dimensional) {
       ",\"search_limits\":{\"max_nodes\":96,\"max_depth\":32},\"execution_limits\":{\"fuel\":20000}}";
 }
 
+void test_legacy_map_filter_fuel() {
+  for (int size : {0, 3}) {
+    const auto xs = payload::make_int_list_value(std::vector<Value>(size, Value::from_int(2)));
+    for (int mode = 0; mode < 3; ++mode) {
+      const bool filter = mode != 0;
+      auto source = legacy_program(
+          {{filter ? legacy::NodeKind::FILTER_LIST : legacy::NodeKind::MAP_LIST, 0, filter ? 0 : 1},
+           {legacy::NodeKind::CONST, 0, 0},
+           {filter ? legacy::NodeKind::CONST : legacy::NodeKind::BOUND_VAR,
+            filter ? 1 : 0, 0}},
+          {xs, Value::from_bool(mode == 2)}, {"element"});
+      const auto lowered = transition::lower_bounded_regions(source);
+      const auto program = compile_checked(lowered);
+      // Frozen compiler: setup/final test/return = 14 (map), 15 (filter).
+      // Each map or accepted-filter element costs 20; a rejected filter costs 16.
+      const int expected = (filter ? 15 : 14) + size * (mode == 1 ? 16 : 20);
+      require(first_non_timeout(program, {}) == expected,
+              "legacy map/filter fuel boundary must preserve the frozen bytecode cost");
+      const auto result = execute_bytecode_cpu(program, {}, expected);
+      require(!result.is_error && same_value(result.value,
+                  mode == 1 ? payload::make_int_list_value({}) : xs),
+              "legacy map/filter exact-fuel result differs");
+    }
+  }
+}
+
+void compare_source_resources(const CompiledGrammar& grammar, const ProgramGenome& package,
+    const legacy::AstProgram& source, const std::vector<InputSpec>& inputs = {}) {
+  const auto expected = migration::legacy_budget_metrics(source, inputs);
+  const auto projected = project_derivation_resources(grammar, package);
+  require(projected.subtree().nodes == expected.nodes,
+          "package expansion does not preserve source node accounting");
+  // These package roots are expressions with a fixed native four-node envelope.
+  // The legacy depth predicate excludes structural ancestry, so compare the
+  // payload's projected depth rather than its default native envelope depth.
+  require(projected.subtree(3).peak() == expected.expression_depth,
+          "package expansion does not preserve source expression depth");
+}
+
 void test_value_and_fuel_matrix() {
   for (const auto& type : type_cases()) {
     {
       PackageRoot root("linear_rec_intlist_int.json", linear_root(type));
       const auto package = generated(root.grammar());
+      compare_source_resources(root.grammar(), package, old_linear(type));
       const auto migrated = transition::lower_bounded_regions(old_linear(type));
       compare(compile_checked(migrated), compile_checked(package), {}, {},
               "LinearRec " + std::string(type.name));
@@ -404,7 +449,15 @@ void test_value_and_fuel_matrix() {
     {
       PackageRoot root("dc_intlist_int.json", dc_root(type));
       const auto package = generated(root.grammar());
+      compare_source_resources(root.grammar(), package, old_dc(type));
       const auto migrated = transition::lower_bounded_regions(old_dc(type));
+      const auto reserved = transition::lower_bounded_regions(old_dc(type), {}, 8);
+      require(reserved.ast.bounded_region_specs.front().plan.limits.frames >= 8,
+              "DC frame reservation was not applied");
+      require(reserved.ast.nodes.size() == migrated.ast.nodes.size(),
+              "DC frame reservation changed the program shape");
+      compare(compile_checked(migrated), compile_checked(reserved), {}, {},
+              "DC reserved frames " + std::string(type.name));
       compare(compile_checked(migrated), compile_checked(package), {}, {},
               "DC " + std::string(type.name));
     }
@@ -413,6 +466,7 @@ void test_value_and_fuel_matrix() {
       Value solve, boundary;
       const auto package = find_dp(root.grammar(), false, &solve, &boundary);
       const std::vector<InputSpec> schema{{"state", RType::Int}};
+      compare_source_resources(root.grammar(), package, old_dp1(solve, boundary), schema);
       const auto migrated = transition::lower_bounded_regions(
           old_dp1(solve, boundary), schema);
       const auto old_code = compile_checked(migrated, schema);
@@ -429,6 +483,7 @@ void test_value_and_fuel_matrix() {
       Value solve, boundary;
       const auto package = find_dp(root.grammar(), true, &solve, &boundary);
       const std::vector<InputSpec> schema{{"row", RType::Int}, {"column", RType::Int}};
+      compare_source_resources(root.grammar(), package, old_dp2(solve, boundary), schema);
       const auto migrated = transition::lower_bounded_regions(
           old_dp2(solve, boundary), schema);
       const auto old_code = compile_checked(migrated, schema);
@@ -447,6 +502,110 @@ void test_value_and_fuel_matrix() {
           "DP2D type error " + std::string(type.name));
     }
   }
+}
+
+void test_source_literal_package() {
+  for (const auto& type : type_cases()) {
+    PackageRoot root("source_literals.json", root_prefix("source_literals.json",
+        "Source.Literal." + std::string(type.name)) + type.name +
+        R"("},"search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":100}})");
+    const auto& grammar = root.grammar();
+    for (const auto stage : {GenerationStage::Initial, GenerationStage::Mutation}) {
+      auto request = entry_request(grammar);
+      request.stage = stage;
+      const ConstantDomain* domain = nullptr;
+      for (const auto& production : grammar.productions())
+        if (production.nonterminal == grammar.entry() && production.generates(stage)) {
+          require(!domain, "source literal stage has multiple construction alternatives");
+          domain = &grammar.constants().at(grammar.expressions().at(production.expression).target);
+        }
+      require(domain, "source literal stage has no construction alternative");
+      const auto member = generate_derivation(grammar, 42, request).genome;
+      require(member.ast.nodes.size() == 5 && member.ast.consts.size() == 1 &&
+                  constant_domain_contains(*domain, member.ast.consts.front()),
+              "source literal generation did not follow its stage domain");
+      const bool initial = stage == GenerationStage::Initial;
+      if (type.type == RType::Int || type.type == RType::Float) {
+        require(domain->mutation == ConstantMutationPolicy::Add && domain->sampling,
+                "source numeric literals lost separate sampling/additive mutation");
+        require(constant_domain_contains(*domain, type.type == RType::Int ?
+                    Value::from_int(100) : Value::from_float(100.25)),
+                "source numeric membership was narrowed to construction range");
+        if (type.type == RType::Float)
+          require(domain->sampling->float_quantization_scale == 1000 &&
+                      domain->delta.gpu_grid_steps == 65535,
+                  "source Float quantizer or GPU perturbation grid changed");
+      } else if (type.type == RType::Bool) {
+        require(domain->mutation == ConstantMutationPolicy::Flip, "source Bool must flip");
+      } else {
+        require(domain->mutation == ConstantMutationPolicy::Keep, "source payload/Char must stay unchanged");
+        if (type.type == RType::Char)
+          require(domain->values.size() == (initial ? 37 : 26), "source Char alphabet changed");
+        else if (type.type == RType::String)
+          require(domain->maximum_length == 8, "source String length changed");
+        else {
+          require(domain->maximum_length == (initial ? 5 : 4), "source list stage length changed");
+          if (type.type == RType::StringList)
+            require(domain->elements->maximum_length == (initial ? 8 : 5), "source nested String stage length changed");
+        }
+      }
+    }
+  }
+}
+
+void test_numeric_domain_conversion() {
+  migration::LegacyGrammarConfig config;
+  config.statement_if_stmt = config.statement_for_range = false;
+  config.value_int = config.value_bool = config.value_char = config.value_string = false;
+  config.value_int_list = config.value_string_list = false;
+  migration::LegacyGrammarConfigConversion options;
+  options.return_type = RType::Float;
+  options.search_limits = {80, 20};
+  options.execution_limits.fuel = 1000;
+  for (const auto text : {R"({"type":"Float","range":[-100,100],"sample_from":{"type":"Float","range":[-5,5],"quantization_scale":1000},"mutation":{"kind":"add","range":[-1,1],"gpu_grid_steps":65535}})",
+       R"({"type":"FloatList","mutation":"keep","sequence":{"length":[0,5],"element":{"type":"Float","range":[-100,100],"sample_from":{"type":"Float","range":[-2,2],"quantization_scale":1000}}}})"})
+    options.constants.push_back(parse_constant_domain(cli_detail::JsonParser(text).parse()));
+  const auto converted = compile_grammar(migration::convert_legacy_grammar_config(config,options));
+  require(!converted.nonterminals().at(converted.entry()).variation_enabled,
+          "source conversion allowed whole-program replacement");
+  const auto source = legacy_program(
+      {{legacy::NodeKind::NEG, 0, 0}, {legacy::NodeKind::CONST, 0, 0}},
+      {Value::from_float(2.25)}, {});
+  const auto mapped = transition::lower_bounded_regions(source);
+  const auto expected_resources = migration::legacy_budget_metrics(source);
+  const auto actual_resources = project_derivation_resources(converted, mapped).subtree();
+  require(actual_resources.nodes == expected_resources.nodes &&
+          actual_resources.peak() == expected_resources.expression_depth,
+          "converted program structural ancestry changed source resource accounting");
+  bool scalar = false, sequence = false;
+  for (const auto& domain : converted.constants()) {
+    scalar |= domain.float_range && domain.float_minimum == -100 && domain.float_maximum == 100 &&
+        domain.mutation == ConstantMutationPolicy::Add && domain.delta.float_minimum == -1 &&
+        domain.delta.float_maximum == 1 && domain.delta.gpu_grid_steps == 65535 &&
+        domain.sampling && domain.sampling->float_minimum == -5 && domain.sampling->float_maximum == 5 &&
+        domain.sampling->float_quantization_scale == 1000;
+    sequence |= domain.mutation == ConstantMutationPolicy::Keep && domain.elements && domain.elements->float_range &&
+        domain.elements->float_minimum == -100 && domain.elements->float_maximum == 100 &&
+        domain.minimum_length == 0 && domain.maximum_length == 5 &&
+        domain.elements->sampling && domain.elements->sampling->float_minimum == -2 &&
+        domain.elements->sampling->float_maximum == 2 && domain.elements->sampling->float_quantization_scale == 1000;
+  }
+  require(scalar && sequence, "conversion narrowed numeric or nested sequence domain");
+  config.value_bool = true;
+  options.constants.push_back(parse_constant_domain(cli_detail::JsonParser(
+      R"({"type":"Bool","values":[false,true],"mutation":"flip"})").parse()));
+  const auto with_bool = compile_grammar(migration::convert_legacy_grammar_config(config,options));
+  bool flip = false;
+  for (const auto& domain : with_bool.constants()) flip |= domain.mutation == ConstantMutationPolicy::Flip;
+  require(flip,"conversion lost Bool flip policy");
+  config.value_int = true;
+  options.constants.push_back(parse_constant_domain(cli_detail::JsonParser(
+      R"({"type":"Int","range":["-100","100"],"sample_from":{"type":"Int","range":["-8","8"]},"mutation":{"kind":"add","range":["-2","2"]}})").parse()));
+  const auto with_int = compile_grammar(migration::convert_legacy_grammar_config(config,options));
+  bool integer_add = false;
+  for (const auto& domain : with_int.constants()) integer_add |= domain.integer_range &&
+      domain.mutation == ConstantMutationPolicy::Add && domain.delta.integer_minimum == -2 && domain.delta.integer_maximum == 2;
+  require(integer_add,"conversion lost Int additive policy");
 }
 
 void test_sequence_type_errors() {
@@ -482,8 +641,11 @@ void test_sequence_type_errors() {
 int main() {
   try {
     payload::clear();
+    test_legacy_map_filter_fuel();
     test_value_and_fuel_matrix();
     test_sequence_type_errors();
+    test_numeric_domain_conversion();
+    test_source_literal_package();
     std::cout << "grammar package CPU equivalence: values, errors, and fuel boundaries passed\n";
     return 0;
   } catch (const std::exception& error) {

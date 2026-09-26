@@ -1,3 +1,6 @@
+#include "prep_internal.hpp"
+#include "../../runtime/payload/staging.hpp"
+#include "gagp/evolution/repro/mutation_schedule.hpp"
 #include "gagp/evolution/repro/prep.hpp"
 
 #include <algorithm>
@@ -7,6 +10,7 @@
 #include <numeric>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -67,6 +71,7 @@ CandidateRange make_candidate(const grammar::VariationSite& site,
                                        : CandidateTag::Expr);
   candidate.aux = static_cast<int>(site.type);
   candidate.compatibility_id = site.compatibility_id;
+  candidate.crossover_closed = site.crossover_closed;
   candidate.occurrence_offset = as_int(occurrence_offset, "candidate occurrence offset");
   candidate.occurrence_count = as_int(site.occurrences.size(), "candidate occurrence count");
   candidate.replacement_max_nodes =
@@ -82,6 +87,9 @@ CandidateRange make_candidate(const grammar::VariationSite& site,
   candidate.template_nesting =
       as_int(site.template_nesting, "candidate template nesting");
   candidate.donor_offset = as_int(donor_offset, "candidate donor offset");
+  candidate.has_projected_allowance = site.has_projected_allowance;
+  candidate.projected_allowance = site.projected_allowance;
+  candidate.projected_resources = site.projected_resources;
   return candidate;
 }
 
@@ -103,10 +111,12 @@ bool shares_owner(
 
 }  // namespace
 
-PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& population,
+static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGenome>& population,
                                        const GpuReproConfig& config,
                                        grammar::VariationContext& context,
-                                       std::shared_ptr<const ConstantMutationDomains> domains) {
+                                       std::shared_ptr<const ConstantMutationDomains> domains,
+                                       bool prepare_donors,
+                                       const std::vector<grammar::WarmPopulationMember>* handoff) {
   if (config.population_size <= 0 || config.population_size > 65536 ||
       static_cast<std::size_t>(config.population_size) != population.size())
     throw std::invalid_argument("compiled grammar preprocessing population size mismatch");
@@ -130,6 +140,7 @@ PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& populat
   if (!shares_owner(domains->grammar_owner, context.grammar_owner()))
     throw std::invalid_argument(
         "constant mutation domains do not match the compiled grammar owner");
+  domains = sample_constant_mutation_domains(domains, config.seed, population.size());
   auto constants = std::make_shared<ConstantMutationTable>();
   constants->grammar_domains = std::move(domains);
   PreprocessOutput out;
@@ -147,12 +158,107 @@ PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& populat
 
   grammar::GrammarRandom random(config.seed);
   std::size_t donor_attempts = 0;
-  for (std::size_t parent_index = 0; parent_index < population.size(); ++parent_index) {
-    const ProgramGenome& parent = population[parent_index];
-    out.population_identities.push_back(grammar::runtime_cache_identity(
-        parent, input_names, context.grammar().execution_limits().fuel));
+  constexpr std::size_t pool_window = 128;
+  std::vector<grammar::DonorPoolJob> planned_jobs;
+  std::vector<std::pair<std::size_t, std::size_t>> planned_sites;
+  std::optional<std::vector<grammar::DonorPool>> planned_pools;
+  std::size_t planned_cursor = 0;
+  struct PreviewAnalysis {
+    std::shared_ptr<const grammar::VariationAnalysis> analysis;
+    std::string identity;
+    std::shared_ptr<payload::StagedPayloads> reads;
+  };
+  std::vector<PreviewAnalysis> preview_analyses;
+  const auto warmed = [&](std::size_t index) -> const grammar::WarmPopulationMember* {
+    if (!handoff || handoff->size() != population.size()) return nullptr;
+    const auto& member = (*handoff)[index];
+    return member.analysis && member.reads && member.reads->read_snapshot_unchanged()
+        ? &member : nullptr;
+  };
 
-    const auto analysis = context.cache().analyze(parent, context.request());
+  const auto prefetch = [&](std::size_t begin) {
+    planned_jobs.clear(); planned_sites.clear(); planned_pools.reset(); planned_cursor = 0;
+    preview_analyses.clear();
+    if (!prepare_donors || config.compiled_pass != CompiledVariationPass::Mutation ||
+        config.mutation_ratio <= 0.0 || std::thread::hardware_concurrency() < 2 ||
+        config.donor_pool_size_per_site < 2 || population.size() < pool_window) return;
+    // Preview the existing schedule with a copied RNG. No main RNG, output
+    // offsets, mutation counters or stream order change during speculation.
+    auto preview_random = random;
+    preview_analyses.resize(std::min(pool_window, population.size() - begin));
+    ConstantMutationTable preview_constants;
+    preview_constants.grammar_domains = constants->grammar_domains;
+    try {
+      for (auto index = begin; index < std::min(population.size(), begin + pool_window); ++index) {
+        auto& saved = preview_analyses[index - begin];
+        if (const auto* member = warmed(index)) {
+          saved.analysis = member->analysis;
+          saved.identity = member->runtime_identity;
+          saved.reads = member->reads;
+        } else if (!payload::StagedPayloads::has_active_scope()) {
+          saved.reads = std::make_unique<payload::StagedPayloads>();
+          payload::StagedPayloads::Scope scope(*saved.reads);
+          saved.analysis = context.analyze(population[index], &saved.identity);
+        } else {
+          saved.analysis = context.analyze(population[index]);
+        }
+        const auto& analysis = saved.analysis;
+        append_constant_mutation_stream(preview_constants, population[index].ast,
+            analysis->verified, analysis->witness);
+        const auto selected = std::min(analysis->sites.size(),
+            static_cast<std::size_t>(config.candidates_per_program));
+        auto sites = shuffled_site_indices(analysis->sites.size(), &preview_random);
+        sites.resize(selected);
+        const int anticipated = anticipated_mutation_candidate<grammar::GrammarRandom>(
+            config.seed, static_cast<int>(index), config.mutation_ratio,
+            config.mutation_subtree_ratio, selected, preview_constants.streams.back().group_count > 0);
+        for (std::size_t rank = 0; rank < sites.size(); ++rank) {
+          std::vector<std::uint64_t> seeds;
+          for (int attempt = 0; attempt < config.donor_pool_size_per_site; ++attempt) {
+            const auto seed = preview_random.next();
+            if (static_cast<int>(rank) == anticipated) seeds.push_back(seed);
+          }
+          if (!seeds.empty()) {
+            planned_sites.emplace_back(index, sites[rank]);
+            planned_jobs.push_back({&population[index], analysis->sites[sites[rank]], std::move(seeds)});
+          }
+        }
+      }
+      planned_pools = grammar::try_generate_donor_pools(context, planned_jobs);
+    } catch (const std::exception&) {
+      // The batch API publishes no payloads until successful return. Replaying
+      // the original interleaved loop preserves errors and collision behavior.
+      planned_pools.reset();
+    }
+  };
+  for (std::size_t parent_index = 0; parent_index < population.size(); ++parent_index) {
+    if (parent_index % pool_window == 0) {
+      if (planned_pools && planned_cursor != planned_pools->size())
+        throw std::logic_error("prefetched donor schedule did not consume its pools");
+      prefetch(parent_index);
+    }
+    const ProgramGenome& parent = population[parent_index];
+    std::string parent_identity;
+    std::shared_ptr<const grammar::VariationAnalysis> analysis;
+    const auto preview_index = parent_index % pool_window;
+    if (preview_index < preview_analyses.size()) {
+      auto& saved = preview_analyses[preview_index];
+      // The population is const for this call, but registry payloads are mutable.
+      // Only reuse an analysis after validating its exact read dependencies.
+      if (saved.analysis && saved.reads &&
+          saved.reads->read_snapshot_unchanged()) {
+        analysis = std::move(saved.analysis);
+        parent_identity = std::move(saved.identity);
+      }
+      saved.reads.reset();
+    }
+    if (!analysis) {
+      if (const auto* member = warmed(parent_index)) {
+        analysis = member->analysis;
+        parent_identity = member->runtime_identity;
+      } else analysis = context.analyze(parent, &parent_identity);
+    }
+    out.population_identities.push_back(std::move(parent_identity));
     out.parent_constant_streams.push_back(as_int(constants->streams.size(), "parent constant stream"));
     append_constant_mutation_stream(*constants, parent.ast, analysis->verified, analysis->witness);
     out.subtree_ends[parent_index] = analysis->verified.subtree_end;
@@ -173,7 +279,17 @@ PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& populat
     site_indices.resize(selected_count);
     out.candidates[parent_index].reserve(site_indices.size());
 
+    const int anticipated_candidate = config.compiled_pass == CompiledVariationPass::Mutation ?
+        anticipated_mutation_candidate<grammar::GrammarRandom>(config.seed,
+            static_cast<int>(parent_index), config.mutation_ratio,
+            config.mutation_subtree_ratio, selected_count,
+            constants->streams.back().group_count > 0) : -1;
+    std::size_t candidate_rank = 0;
     for (const std::size_t site_index : site_indices) {
+      const bool needs_donors = prepare_donors &&
+          (config.compiled_pass != CompiledVariationPass::Mutation ||
+           static_cast<int>(candidate_rank) == anticipated_candidate);
+      ++candidate_rank;
       const grammar::VariationSite& site = analysis->sites[site_index];
       if (site.occurrence_binder_ids.size() != site.occurrences.size())
         throw std::logic_error(
@@ -205,14 +321,25 @@ PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& populat
             out.occurrence_binder_ids.end(), binder_ids.begin(), binder_ids.end());
       }
 
+      std::vector<std::uint64_t> donor_seeds;
       for (int attempt = 0; attempt < config.donor_pool_size_per_site; ++attempt) {
-        grammar::ContextualDonor donor;
-        try {
-          donor = grammar::generate_donor(context.grammar(), random.next(), site);
-        } catch (const std::runtime_error&) {
+        const auto donor_seed = random.next();
+        if (needs_donors) donor_seeds.push_back(donor_seed);
+      }
+      grammar::DonorPool donor_pool;
+      if (planned_pools && needs_donors) {
+        if (planned_cursor >= planned_pools->size() ||
+            planned_sites.at(planned_cursor) != std::make_pair(parent_index, site_index) ||
+            planned_jobs.at(planned_cursor).seeds != donor_seeds)
+          throw std::logic_error("prefetched donor schedule differs from sequential generation");
+        donor_pool = std::move((*planned_pools)[planned_cursor++]);
+      } else donor_pool = grammar::generate_donor_pool(context, donor_seeds, site, parent);
+      for (auto& prepared_donor : donor_pool) {
+        if (!prepared_donor) {
           ++context.counters().generation_rejections;
           continue;
         }
+        auto& donor = *prepared_donor;
         require_room(out.donor_pool.size(), 1, "compiled grammar donor count");
         if (!donor.frame.binder_ids.empty() &&
             donor.frame.binder_ids != site.occurrence_binder_ids.front())
@@ -249,8 +376,23 @@ PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& populat
     }
   }
 
+  if (planned_pools && planned_cursor != planned_pools->size())
+    throw std::logic_error("prefetched donor schedule has unconsumed pools");
   out.compatibility_keys = context.cache().registry().keys();
   return out;
+}
+
+PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& population,
+    const GpuReproConfig& config, grammar::VariationContext& context,
+    std::shared_ptr<const ConstantMutationDomains> domains, bool prepare_donors) {
+  return preprocess_population_impl(population, config, context, std::move(domains), prepare_donors, nullptr);
+}
+
+PreprocessOutput preprocess_warmed_population(const std::vector<ProgramGenome>& population,
+    const GpuReproConfig& config, grammar::VariationContext& context,
+    std::shared_ptr<const ConstantMutationDomains> domains, bool prepare_donors,
+    const std::vector<grammar::WarmPopulationMember>& handoff) {
+  return preprocess_population_impl(population, config, context, std::move(domains), prepare_donors, &handoff);
 }
 
 }  // namespace gagp::evo::repro

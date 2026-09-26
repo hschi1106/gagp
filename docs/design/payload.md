@@ -303,3 +303,27 @@ For the full runtime picture, read these in order:
 3. [cpp/src/runtime/payload/payload.cpp](../../cpp/src/runtime/payload/payload.cpp)
 4. [cpp/src/runtime/cpu/builtins_cpu.cpp](../../cpp/src/runtime/cpu/builtins_cpu.cpp)
 5. GPU mirrors under `cpp/src/runtime/gpu/`
+
+## Internal donor staging
+
+Parallel donor generation uses an internal thread-local `StagedPayloads::Scope`.
+String and typed-list writes stay private, and lookups see those writes before
+capturing a committed-registry value or absence. Repeated reads reuse the captured
+value. Registry enumeration remains committed-only; clearing or pruning within a
+scope is rejected. Normal runtime calls outside a scope retain their existing
+behavior.
+
+After workers join, a single registry lock protects validation and commit. Read
+dependencies must still match the committed registry and the other workers;
+conflicting writes, including different floating-point bit patterns, reject the
+whole batch without publishing staged entries. The caller then reruns the donor
+pool sequentially. Successful commits publish the complete string/list closure.
+Scopes cannot nest or be reused, and commit requires completed worker scopes.
+
+A sealed read-only staging snapshot may revalidate its captured dependencies
+without committing or consuming them. The check holds the registry mutex and
+compares exact strings and typed-list elements, including Float bits. It rejects
+writes, unsealed/active snapshots, conflicts, and an enclosing thread-local scope.
+Successful earlier commit does not prevent another read validation. Consumers
+must separately ensure their AST/request ownership has not changed; payload
+validity alone does not certify an arbitrary mutable genome.

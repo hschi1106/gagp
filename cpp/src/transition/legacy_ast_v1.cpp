@@ -345,7 +345,10 @@ class Verifier {
       if (!sequence(args[0])) fail(node, "reverse requires a sequence"); return args[0];
     }
     if (kind == NodeKind::CALL_FIND || kind == NodeKind::CALL_CONTAINS) {
-      if (!sequence(args[0]) || element(args[0]) != args[1]) fail(node, "find/contains types are invalid");
+      const auto searched = args[0] == evo::RType::String
+          ? evo::RType::String : element(args[0]);
+      if (!sequence(args[0]) || searched != args[1])
+        fail(node, "find/contains types are invalid");
       return kind == NodeKind::CALL_FIND ? evo::RType::Int : evo::RType::Bool;
     }
     if (kind == NodeKind::CALL_CHAR_TO_STRING) { if (args[0] != evo::RType::Char) fail(node, "char_to_string requires Char"); return evo::RType::String; }

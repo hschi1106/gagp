@@ -1,5 +1,9 @@
 # Grammar migration execution evidence
 
+The [Goal 11.5 Stage A checkpoint](goal-11.5-stage-a.md) records the integrated
+build, workflow checks, and fixed p1024 parity investigation before the three
+grammar restrictions.
+
 Goals 01–06 are implemented. Goal 04 adds compiled grammar variation and shared host
 preparation; its [validation evidence](goal-04-variation.md) is recorded separately.
 Goal 06's [bounded-region evidence](goal-06-bounded-regions.md)
@@ -7,10 +11,45 @@ distinguishes verified CPU behavior from later acceptance work. Goal 07 integrat
 compiled grammars across GPU evaluation and reproduction. Goal 08's
 [compatibility-package evidence](goal-08-compatibility-packages.md) records typed
 package generation, focused CPU contracts, and transition size observations while
-its remaining final gates stay explicit. Goals 09–12 remain pending. The immutable
+its remaining final gates stay explicit. Goals 09 and 10 are implemented; Goals 11
+and 12 remain pending. The immutable
 reference source revision and binary/log hashes are recorded in
 [baseline-capture.json](baseline-capture.json). Existing production generation and
 runtime workflows remain available during the staged migration.
+
+## Revised representative protocol
+
+Goal 11 now uses `representative-speedup-2026-09-23`: one warmup and three measured
+pairs, with at most two additional pairs for a targeted recheck. The selected
+inputs are recorded in [goal-11-representative-selection.json](goal-11-representative-selection.json).
+The limit of six counts logical workloads, not measurement scopes. A manifest may
+set a common `logical_id` on separate `evolution`, `steady_eval`, and `steady_repro`
+rows; row IDs remain unique. Within each logical workload, each role must preserve
+case, population and grammar hashes and all supplied search/execution options,
+except generation count and final-evaluation/retention options. Each measurement
+kind may appear only once per logical workload. Without `logical_id`, the row ID
+defines a separate logical workload. In paired v2 manifests, `logical_id` belongs
+at the common row level, never inside either role.
+
+The current gate accepts `Q >= 0.95`; `A_mode` and `A_cpu` are reported without
+absolute-time acceptance thresholds. Historical `representative-2026-09-23`
+manifests retain the former absolute-time gate and must not be relabeled.
+
+The runner's 25 focused tests pass, including twelve scope rows grouped into six
+workloads and rejection of a seventh workload, changed fuel within a group, and
+duplicate measurement kinds. This validates manifest handling, not final candidate
+performance. Older exhaustive captures below remain historical evidence.
+
+The final-candidate adapter accepts `--minimum-dc-frames N` only for frozen source
+AST imports with a supplied grammar. This reserves at least N DC stack frames
+without lowering the original source-derived capacity; values are bounded by the
+source container limit 65535. DP plans, fuel and program nodes are unchanged.
+It addresses the difference between a constant source's current length and a
+mapped evolution grammar's larger reachable sequence bound. The chosen bound
+must cover that profile's reachable lists and still fit the selected backend.
+Current v2 artifacts and source-less bytecode snapshots reject this import-only
+option. Results record `minimum_dc_frames`; the v2 runner admits the option only
+on the candidate side and includes it in workload identity.
 
 ## Expanded matrix and launch capability
 
@@ -515,8 +554,11 @@ unresolved rows remain pending. Synthetic reference-equality tests are unit test
 not measured reference calibration.
 
 Manifest format `grammar-migration-trials-v1` contains `analysis_seed`, an explicit
-`required_rows` list, and a `rows` mapping. Each row contains matching
+`required_rows` list, and a `rows` mapping. Each row contains independently frozen
 `workload_before_sha256`/`workload_after_sha256`, `timing_source: direct`, and `blocks`.
+The hashes are equal for a `migration-workloads-v1` workload. A
+`migration-workloads-v2` pair has common measurement metadata and distinct, audited
+before/after artifacts and arguments, so its hashes may differ.
 For the canonical cold scope, `timing_source: canonical_cold_disjoint` permits only
 the documented generation-0 total plus disjoint GPU session initialization.
 Each block contains a unique `block_id`, `warmup`, and positive `cpu_before_ms`,
@@ -534,6 +576,19 @@ output, and checksums evidence. Existing output directories cannot be overwritte
 The runner now also supports warm persistent sessions, frozen donors and audited
 incomplete-block recovery. Complete evolving-population statistics are captured
 separately from timing trials.
+
+For an honestly mapped release-1/release-2 comparison, `migration-workloads-v2`
+uses a common `pair_id`, measurement kind, and session counts plus role-local
+`before` and `after` objects. Both sides independently freeze arguments, cases,
+snapshots, optional grammar definitions, and hashes. Steady reproduction also fixes
+`cpu_repro_source`: `donor_replay` routes the retired side through its frozen donor
+tape executable, while `adapter` runs current CPU reproduction through the measured
+candidate. The raw-evidence audit reconstructs both commands and hashes. Distinct
+hashes authorize no semantic equivalence by themselves; the mapping record must
+separately prove equal effective work. The validator therefore requires common
+`comparison` metadata that marks the pair gate-eligible, classifies exact runtime,
+typed search-space, or typed-partition mapping, fixes exact cases and limits, states
+whether programs are exact or mapped, and cites nonempty evidence references.
 
 Initial calibration used identical adapter copies on both sides: `simple_exp_1024`,
 population 64, one generation, block size 256, seed 42, fuel 20000, three warmup and
@@ -808,3 +863,33 @@ the lifecycle repair changed the binary identity.
 Every mode also recorded zero acceptance, contract, budget, and generation rejections.
 The single warmup block does not support a performance conclusion; these measured
 regressions and phase costs carry explicitly into Goal 11.
+
+## Goal 11 performance work
+
+[Goal 11 performance evidence](goal-11-performance.md) records the benchmark-only
+transition adapter, mapped-pair runner, replay and donor-preprocessing repairs,
+correctness checks, the frozen 302-pair mapped manifest, mapping limits, and the
+current timing blocker. No Goal 11 acceptance claim exists until every required row
+completes on uncontended GPUs.
+
+The final-candidate benchmark accepts `--normalize-typed-storage on` for frozen
+source AST imports, including captured reproduction parents. It invokes the
+checked offline reaching-definition analysis before grammar admission, splits
+ordinary names by verified type, and rebuilds genome metadata. Ambiguous reads
+are rejected. Current v2 artifacts and source-less bytecode are not rewritten.
+The result records `normalize_typed_storage: true`; v2 manifests allow this
+option only on the candidate side and include it in workload identity.
+
+The enabled storage import also canonicalizes every non-input binding by original
+name bytes and exact type, independent of its name-table index. This prevents
+a name such as `t0` from acquiring conflicting declarations across frozen
+population members. Input bindings keep their declared names. Canonical-name
+collisions with source names are rejected rather than given member-specific
+suffixes. The standalone normalization API retains its narrower default mode.
+
+
+The representative paired runner accepts `--population-roots` on the v2 candidate
+side when a grammar is provided. Supply one to eight distinct, nonempty root IDs
+separated by commas; root options participate in workload identity and are passed
+to the candidate benchmark. This retains mixed exact return types in one frozen
+population instead of partitioning the workload.

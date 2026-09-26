@@ -10,6 +10,7 @@
 
 #include "gagp/cli/grammar_generate.hpp"
 #include "gagp/cli/grammar_population_artifact.hpp"
+#include "../fixtures/mixed_population.hpp"
 
 using namespace gagp::cli_detail;
 using namespace gagp::evo::grammar;
@@ -65,6 +66,37 @@ const std::string definition = R"({
 })";
 const std::string cases = R"({"format_version":"fitness-cases","cases":[{
   "inputs":{"x":{"type":"int","value":3}},"expected":{"type":"int","value":7}}]})";
+
+void test_mixed_generation_and_replay() {
+  TempFiles files;
+  const auto cfg = gagp::test::mixed_population_config();
+  files.write("mixed.json", cfg.compiled_grammar->canonical_definition());
+  files.write("cases.json", R"({"format_version":"fitness-cases","cases":[
+    {"inputs":{},"expected":{"type":"int","value":0}},
+    {"inputs":{},"expected":{"type":"string","value":"left"}}]})");
+  const std::string roots = "RootInt,RootFloat,RootBool,RootChar,RootString,RootInts,RootFloats,RootStrings";
+  CaptureOutput capture;
+  check(run({"--grammar-definition", files.path("mixed.json"), "--cases", files.path("cases.json"),
+             "--population-roots", roots, "--population-size", "16",
+             "--out-json", files.path("population.json")}) == 0, "mixed generation failed");
+  const auto original = files.read("population.json");
+  const auto population = replay_generated_population_artifact(original);
+  check(population.size() == 16, "mixed generation count changed");
+  for (std::size_t i = 0; i < 8; ++i)
+    check(population[i].derivation->request.type == population[i + 8].derivation->request.type,
+          "mixed generation order changed");
+  std::vector<std::string> replay{"--cases", files.path("cases.json"), "--replay-json",
+      files.path("population.json"), "--out-json", files.path("replayed.json"),
+      "--population-roots", roots};
+  check(run(replay) == 0 && files.read("replayed.json") == original,
+        "mixed embedded replay changed artifact");
+  replay.insert(replay.end(), {"--grammar-definition", files.path("mixed.json")});
+  check(run(replay) == 0 && files.read("replayed.json") == original,
+        "mixed required grammar replay changed artifact");
+  replay[7] = "RootInt,RootString";
+  rejects(replay);
+  check(files.read("replayed.json") == original, "mixed rejection overwrote output");
+}
 
 void test_generation_and_replay() {
   TempFiles files;
@@ -184,6 +216,7 @@ void test_options() {
 int main() {
   try {
     test_generation_and_replay();
+    test_mixed_generation_and_replay();
     test_import_identity();
     test_options();
     std::cout << "grammar generate CLI: generation, replay, identity, schema, and validation passed\n";

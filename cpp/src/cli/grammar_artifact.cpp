@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cctype>
 #include <limits>
+#include <optional>
 #include <stdexcept>
 
 namespace gagp::cli_detail {
@@ -21,6 +22,30 @@ Json string(std::string value) { Json out; out.kind = Json::Kind::String; out.st
 Json integer(std::uint32_t value) { Json out; out.kind = Json::Kind::Number; out.number_v = value; return out; }
 Json row(std::initializer_list<std::uint32_t> fields) {
   Json out = array(); for (auto value : fields) out.array_v.push_back(integer(value)); return out;
+}
+bool equal_json(const Json& lhs, const Json& rhs) {
+  if (lhs.kind != rhs.kind) return false;
+  switch (lhs.kind) {
+    case Json::Kind::Null: return true;
+    case Json::Kind::Bool: return lhs.bool_v == rhs.bool_v;
+    case Json::Kind::Number:
+      return lhs.number_v == rhs.number_v &&
+          (lhs.number_v != 0.0 || std::signbit(lhs.number_v) == std::signbit(rhs.number_v));
+    case Json::Kind::String: return lhs.string_v == rhs.string_v;
+    case Json::Kind::Array:
+      if (lhs.array_v.size() != rhs.array_v.size()) return false;
+      for (std::size_t i = 0; i < lhs.array_v.size(); ++i)
+        if (!equal_json(lhs.array_v[i], rhs.array_v[i])) return false;
+      return true;
+    case Json::Kind::Object:
+      if (lhs.object_v.size() != rhs.object_v.size()) return false;
+      for (const auto& [name, value] : lhs.object_v) {
+        const auto found = rhs.object_v.find(name);
+        if (found == rhs.object_v.end() || !equal_json(value, found->second)) return false;
+      }
+      return true;
+  }
+  return false;
 }
 const std::vector<Json>& elements(const Json& value) {
   if (value.kind != Json::Kind::Array) throw std::invalid_argument("artifact field must be an array");
@@ -118,28 +143,32 @@ std::vector<evo::InputSpec> inputs(const Json& value) {
   }
   return out;
 }
-}  // namespace
 
-std::string encode_generated_artifact(const evo::grammar::CompiledGrammar& grammar,
-    const evo::grammar::GeneratedDerivation& generated) {
-  using namespace evo::grammar;
+Json generated_artifact_value(const CompiledGrammar& grammar,
+    const GeneratedDerivation& generated, const Json& definition,
+    bool include_definition) {
   const auto& metadata = generated.derivation;
   if (!metadata.seed_replayable)
     throw std::invalid_argument("reconstructed grammar provenance is not an original seed replay; execute the materialized AST; seed replay requires original generation provenance");
-  if (metadata.grammar_hash != grammar.content_hash()) throw std::invalid_argument("artifact grammar identity mismatch");
+  if (metadata.grammar_hash != grammar.content_hash())
+    throw std::invalid_argument("artifact grammar identity mismatch");
   Json root = object();
   root.object_v["format_version"] = string(kGeneratedGrammarArtifactVersion);
   root.object_v["semantic_version"] = string(metadata.semantic_version);
   root.object_v["generator_version"] = string(metadata.generator_version);
   root.object_v["rng_version"] = string(metadata.rng_version);
   root.object_v["grammar_hash"] = string(grammar.content_hash());
-  root.object_v["grammar"] = JsonParser(grammar.canonical_definition(), {true, 512}).parse();
-  root.object_v["inputs"] = root.object_v["grammar"].object_v.at("inputs");
-  root.object_v["input_schema_hash"] = string(content_sha256(canonical_json(root.object_v["inputs"])));
-  root.object_v["return_type"] = string(std::string(type_name(metadata.request.type)));
+  if (include_definition) root.object_v["grammar"] = definition;
+  root.object_v["inputs"] = definition.object_v.at("inputs");
+  root.object_v["input_schema_hash"] =
+      string(content_sha256(canonical_json(root.object_v["inputs"])));
+  root.object_v["return_type"] =
+      string(std::string(type_name(metadata.request.type)));
   Json request = object();
   request.object_v["nonterminal"] = integer(metadata.request.nonterminal);
   request.object_v["type"] = string(std::string(type_name(metadata.request.type)));
+  if (metadata.request.stage != GenerationStage::Initial)
+    request.object_v["generation_stage"] = string(generation_stage_name(metadata.request.stage));
   request.object_v["visible_environment"] = array();
   for (const auto& binding : metadata.request.visible_environment) {
     Json value = object();
@@ -154,31 +183,51 @@ std::string encode_generated_artifact(const evo::grammar::CompiledGrammar& gramm
   root.object_v["seed"] = string(std::to_string(metadata.seed));
   root.object_v["payload_seeding"] = string("domain-only-v1");
   root.object_v["search_limits"] = object();
-  root.object_v["search_limits"].object_v["max_nodes"] = integer(metadata.search_limits.max_nodes);
-  root.object_v["search_limits"].object_v["max_depth"] = integer(metadata.search_limits.max_depth);
+  root.object_v["search_limits"].object_v["max_nodes"] =
+      integer(metadata.search_limits.max_nodes);
+  root.object_v["search_limits"].object_v["max_depth"] =
+      integer(metadata.search_limits.max_depth);
   root.object_v["execution_limits"] = object();
-  root.object_v["execution_limits"].object_v["fuel"] = integer(metadata.execution_limits.fuel);
+  root.object_v["execution_limits"].object_v["fuel"] =
+      integer(metadata.execution_limits.fuel);
   auto shape = generated.genome.ast;
   shape.consts.clear();
-  root.object_v["ast_shape"] = JsonParser(encode_ast_json(shape), {true, 512}).parse();
+  root.object_v["ast_shape"] =
+      JsonParser(encode_ast_json(shape), {true, 512}).parse();
   Json constants = array();
-  for (const auto& value : generated.genome.ast.consts) constants.array_v.push_back(encode_constant(value));
+  for (const auto& value : generated.genome.ast.consts)
+    constants.array_v.push_back(encode_constant(value));
   root.object_v["constants"] = std::move(constants);
   Json provenance = object();
   provenance.object_v["logical_steps"] = integer(metadata.logical_steps);
   provenance.object_v["derived_nodes"] = integer(metadata.derived_nodes);
   provenance.object_v["lowered_instructions"] = integer(metadata.lowered_instructions);
-  for (const char* field : {"nodes", "choices", "templates", "holes"}) provenance.object_v[field] = array();
+  for (const char* field : {"nodes", "choices", "templates", "holes"})
+    provenance.object_v[field] = array();
   for (const auto& node : metadata.nodes)
-    provenance.object_v["nodes"].array_v.push_back(row({node.expression, node.production, node.nonterminal,
-        node.logical_instance, node.template_instance, node.slot, node.fixed ? 1u : 0u}));
+    provenance.object_v["nodes"].array_v.push_back(row({node.expression, node.production,
+        node.nonterminal, node.logical_instance, node.template_instance, node.slot,
+        node.fixed ? 1u : 0u}));
   for (const auto& choice : metadata.choices)
-    provenance.object_v["choices"].array_v.push_back(row({choice.nonterminal, choice.production, choice.parent, choice.ast_begin, choice.ast_end}));
+    provenance.object_v["choices"].array_v.push_back(row({choice.nonterminal,
+        choice.production, choice.parent, choice.ast_begin, choice.ast_end}));
   for (const auto& instance : metadata.templates)
-    provenance.object_v["templates"].array_v.push_back(row({instance.template_id, instance.parent}));
+    provenance.object_v["templates"].array_v.push_back(
+        row({instance.template_id, instance.parent}));
   for (const auto& hole : metadata.holes)
-    provenance.object_v["holes"].array_v.push_back(row({hole.template_instance, hole.slot, hole.ast_begin, hole.ast_end}));
+    provenance.object_v["holes"].array_v.push_back(row({hole.template_instance,
+        hole.slot, hole.ast_begin, hole.ast_end}));
   root.object_v["derivation"] = std::move(provenance);
+  return root;
+}
+}  // namespace
+
+std::string encode_generated_artifact(const evo::grammar::CompiledGrammar& grammar,
+    const evo::grammar::GeneratedDerivation& generated) {
+  using namespace evo::grammar;
+  const auto definition =
+      JsonParser(grammar.canonical_definition(), {true, 512}).parse();
+  const auto root = generated_artifact_value(grammar, generated, definition, true);
   const auto result = canonical_json(root);
   if (result.size() > 256 * 1024 * 1024) throw std::invalid_argument("grammar artifact exceeds 256 MiB");
   return result;
@@ -284,13 +333,36 @@ evo::grammar::GeneratedDerivation replay_generated_artifact(const std::string& a
     const evo::grammar::CompiledGrammar* required_grammar) {
   using namespace evo::grammar;
   const auto root = parse(artifact);
+  std::optional<CompiledGrammar> embedded_grammar;
+  const CompiledGrammar* grammar = required_grammar;
+  if (!grammar) {
+    const auto definition_json =
+        canonical_json(require_object_field(root, "grammar"));
+    embedded_grammar.emplace(
+        compile_grammar(parse_definition(definition_json)));
+    grammar = &*embedded_grammar;
+  }
+  const auto canonical_definition =
+      JsonParser(grammar->canonical_definition(), {true, 512}).parse();
+  return replay_parsed_generated_artifact(root, *grammar, canonical_definition);
+}
+
+evo::grammar::GeneratedDerivation replay_parsed_generated_artifact(
+    const JsonValue& root, const evo::grammar::CompiledGrammar& grammar,
+    const JsonValue& canonical_definition) {
+  using namespace evo::grammar;
+  if (require_string(require_object_field(root, "format_version"), "format_version") !=
+      kGeneratedGrammarArtifactVersion)
+    throw std::invalid_argument("unsupported generated grammar artifact version");
   if (require_string(require_object_field(root, "semantic_version"), "semantic_version") != kGrammarSemanticVersion ||
       require_string(require_object_field(root, "generator_version"), "generator_version") != kGrammarGeneratorVersion ||
       require_string(require_object_field(root, "rng_version"), "rng_version") != kGrammarRngVersion)
     throw std::invalid_argument("artifact semantic/generator/RNG version mismatch; restore its recorded runtime and generator; materialized decoding requires matching runtime semantics");
-  const auto grammar = compile_grammar(parse_definition(canonical_json(require_object_field(root, "grammar"))));
-  if (require_string(require_object_field(root, "grammar_hash"), "grammar_hash") != grammar.content_hash() ||
-      (required_grammar && required_grammar->content_hash() != grammar.content_hash()))
+  const auto& recorded_definition = require_object_field(root, "grammar");
+  const auto& recorded_hash =
+      require_string(require_object_field(root, "grammar_hash"), "grammar_hash");
+  if (recorded_hash != grammar.content_hash() ||
+      !equal_json(recorded_definition, canonical_definition))
     throw std::invalid_argument("artifact grammar hash mismatch; restore the recorded resolved grammar and imports");
   const auto seed_text = require_string(require_object_field(root, "seed"), "seed");
   std::uint64_t seed = 0;
@@ -299,6 +371,8 @@ evo::grammar::GeneratedDerivation replay_generated_artifact(const std::string& a
     throw std::invalid_argument("artifact seed must be a canonical unsigned 64-bit decimal string");
   const auto& recorded_request = require_object_field(root, "request");
   GenerationRequest request;
+  if (recorded_request.object_v.count("generation_stage"))
+    request.stage = parse_generation_stage(require_string(recorded_request.object_v.at("generation_stage"), "generation_stage"));
   request.nonterminal = index_value(require_object_field(recorded_request, "nonterminal"));
   request.type = parse_type(require_string(require_object_field(recorded_request, "type"), "request type"));
   for (const auto& binding : elements(require_object_field(recorded_request, "visible_environment")))
@@ -307,8 +381,16 @@ evo::grammar::GeneratedDerivation replay_generated_artifact(const std::string& a
   const auto& limits = require_object_field(root, "search_limits");
   request.budget = {positive_limit(limits, "max_nodes", 65536), positive_limit(limits, "max_depth", 256)};
   auto generated = generate_derivation(grammar, seed, request);
-  if (encode_generated_artifact(grammar, generated) != canonical_json(root))
+  const auto expected = generated_artifact_value(
+      grammar, generated, canonical_definition, false);
+  if (root.kind != Json::Kind::Object ||
+      root.object_v.size() != expected.object_v.size() + 1)
     throw std::invalid_argument("artifact materialization, limits, input schema or provenance differs from same-version replay");
+  for (const auto& [name, value] : expected.object_v) {
+    const auto found = root.object_v.find(name);
+    if (found == root.object_v.end() || !equal_json(value, found->second))
+      throw std::invalid_argument("artifact materialization, limits, input schema or provenance differs from same-version replay");
+  }
   return generated;
 }
 

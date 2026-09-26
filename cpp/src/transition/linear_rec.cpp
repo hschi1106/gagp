@@ -145,17 +145,21 @@ class Adapter {
          {state, result_type}}});
     out_.traversal_specs.push_back({traversal, TraversalDirection::Forward});
     out_.fuel_specs.push_back({traversal, {
-        {FuelEvent::StoreSequence, 2}, {FuelEvent::StoreStart, 1},
-        {FuelEvent::ObserveSequence, 3}, {FuelEvent::SetBegin, 2},
-        {FuelEvent::SetEnd, 2}, {FuelEvent::InitializeState, 1},
+        {FuelEvent::StoreSequence, 1}, {FuelEvent::StoreStart, 0},
+        {FuelEvent::CheckStart, 0}, {FuelEvent::ObserveSequence, 0},
+        {FuelEvent::SetBegin, 0}, {FuelEvent::SetEnd, 0},
+        {FuelEvent::InitializeState, 1},
         {FuelEvent::InitializeCursor, 2}, {FuelEvent::TestCursor, 5},
         {FuelEvent::ReadElement, 3}, {FuelEvent::BindElement, 1},
-        {FuelEvent::ComputeIndex, 0}, {FuelEvent::UpdateState, filter ? 1U : 2U},
+        {FuelEvent::ComputeIndex, 0}, {FuelEvent::UpdateState, filter ? 0U : 1U},
         {FuelEvent::AdvanceCursor, 4}, {FuelEvent::Repeat, 1},
         {FuelEvent::Result, 1}}});
+    // Preserve the old check before storing the sequence. The cached length and
+    // generic start/begin/end bookkeeping are administrative, not legacy work.
+    emit(legacy::NodeKind::CHECK_LIST);
     copy(source, captures);
-    constant(0, 1);
-    constant(empty_list(result_type), 1);
+    constant(0, 0);
+    constant(empty_list(result_type), filter ? 2 : 1);
     auto body_captures = captures;
     body_captures[old.i0] = element;
     if (filter) {
@@ -164,11 +168,19 @@ class Adapter {
       emit(legacy::NodeKind::CALL_APPEND);
       ref(state, 1);
       ref(element, 1);
-      ref(state, 1);
+      // The true branch's merge charge accounts for the old output store;
+      // the false branch neither stores nor loads an observable legacy value.
+      ref(state, 0);
     } else {
-      emit(legacy::NodeKind::CALL_APPEND);
-      ref(state, 1);
-      copy(body, body_captures);
+      const int value = binder();
+      const RType value_type = result_type == RType::IntList ? RType::Int :
+          (result_type == RType::FloatList ? RType::Float : RType::String);
+      let(value, value_type, 1,
+          [&] { copy(body, body_captures); }, [&] {
+            emit(legacy::NodeKind::CALL_APPEND);
+            ref(state, 1);
+            ref(value, 1);
+          });
     }
   }
 

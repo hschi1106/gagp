@@ -1,4 +1,6 @@
 #include "gagp/evolution/grammar/variation_contract.hpp"
+#include "gagp/evolution/grammar/resource_projection.hpp"
+#include "gagp/evolution/grammar/derivation_resources.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -23,10 +25,21 @@ std::string contract_key(const CompiledGrammar& grammar, const VariationSite& si
   field(key, "grammar-variation-contract-v1");
   field(key, grammar.content_hash());
   field(key, kGrammarSemanticVersion);
-  number(key, site.nonterminal); number(key, static_cast<std::uint32_t>(site.type));
-  number(key, static_cast<std::uint32_t>(site.category)); number(key, site.context);
-  number(key, site.template_id); number(key, site.slot);
-  bindings(key, site.visible_environment); bindings(key, site.available_locals);
+  field(key, site.crossover_group.empty() ? "exact" : "group");
+  if (site.crossover_group.empty()) {
+    number(key, site.nonterminal);
+    number(key, site.template_id); number(key, site.slot);
+  } else {
+    field(key, site.crossover_group);
+  }
+  number(key, static_cast<std::uint32_t>(site.type));
+  number(key, static_cast<std::uint32_t>(site.category));
+  field(key, site.crossover_closed ? "closed" : "exact-scope");
+  if (!site.crossover_closed) {
+    number(key, site.context);
+    bindings(key, site.visible_environment);
+  }
+  bindings(key, site.available_locals);
   return key;
 }
 std::vector<RegionBinding> native_scope(const CompiledGrammar& grammar, const ProgramGenome& genome,
@@ -52,6 +65,28 @@ void intersect(std::vector<RegionBinding>& left, const std::vector<RegionBinding
 }
 }  // namespace
 
+bool lexically_closed(const AstProgram& ast, VariationSpan payload) {
+  if (payload.begin >= payload.end || payload.end > ast.nodes.size())
+    throw std::invalid_argument("invalid lexical closure payload");
+  std::set<int> declarations;
+  for (const auto& region : ast.lexical_regions)
+    if (region.node_index >= payload.begin && region.node_index < payload.end)
+      for (const auto& binding : region.bindings) declarations.insert(binding.id);
+  for (const auto& region : ast.bounded_region_specs)
+    if (region.node_index >= payload.begin && region.node_index < payload.end)
+      for (const auto& phase : region.phases)
+        for (const auto& binding : phase.bindings) declarations.insert(binding.binder_id);
+  for (auto i = payload.begin; i < payload.end; ++i)
+    if (ast.nodes[i].kind == NodeKind::REGION_VAR && !declarations.count(ast.nodes[i].i0))
+      return false;
+  for (const auto& region : ast.bounded_region_specs)
+    if (region.node_index >= payload.begin && region.node_index < payload.end)
+      for (const auto& capture : region.parameters)
+        if (capture.kind == RegionCaptureKind::Lexical && !declarations.count(capture.index))
+          return false;
+  return true;
+}
+
 std::uint32_t CompatibilityRegistry::intern(const std::string& key) {
   if (key.empty()) throw std::invalid_argument("cannot intern an empty grammar compatibility contract");
   const auto found = ids_.find(key);
@@ -67,11 +102,17 @@ VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const Progra
   return analyze_variation(grammar, genome, entry_request(grammar), registry);
 }
 
-VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const ProgramGenome& genome,
-    const GenerationRequest& request, CompatibilityRegistry* registry) {
+static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, const ProgramGenome& genome,
+    const GenerationRequest& initial_request, CompatibilityRegistry* registry,
+    const ProjectedBudget* local_projected_budget, const std::vector<GenerationRequest>* requests) {
   VariationAnalysis result;
+  if (local_projected_budget && !resource_charges_are_local(grammar))
+    throw std::invalid_argument("projected candidate allowance requires context-independent resource charges");
   std::vector<std::vector<int>> choice_environments;
-  result.witness = reconstruct_derivation(grammar, genome, request, &result.verified, &choice_environments);
+  result.witness = requests ?
+      reconstruct_population_derivation(grammar, genome, *requests, &result.verified, &choice_environments) :
+      reconstruct_derivation(grammar, genome, initial_request, &result.verified, &choice_environments);
+  const auto& request = result.witness.request;
   const auto& witness = result.witness;
   const auto& verified = result.verified;
   std::vector<std::uint32_t> depths(genome.ast.nodes.size());
@@ -86,6 +127,17 @@ VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const Progra
   for (std::size_t choice_index = 0; choice_index < witness.choices.size(); ++choice_index) {
     const auto& choice = witness.choices[choice_index];
     const auto& nt = grammar.nonterminals().at(choice.nonterminal);
+    const auto& production = grammar.productions().at(choice.production);
+    if (!nt.variation_enabled || !production.variation_enabled) continue;
+    if (production.unbound_variation) {
+      bool contains_binding = false;
+      for (auto i = choice.ast_begin; i < choice.ast_end; ++i)
+        if (genome.ast.nodes[i].kind == NodeKind::REGION_VAR && !witness.nodes[i].fixed) {
+          contains_binding = true;
+          break;
+        }
+      if (contains_binding) continue;
+    }
     // Complete Program and expression donors share the existing generation request
     // contract. Structural Block/Stmt fragments need their own contextual lowering.
     if (nt.category != NodeCategory::Expression && nt.category != NodeCategory::Program) continue;
@@ -107,6 +159,8 @@ VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const Progra
     if (found == groups.end()) {
       VariationSite site;
       site.nonterminal = choice.nonterminal; site.type = nt.type; site.category = nt.category;
+      site.crossover_group = grammar.productions().at(choice.production).crossover_group;
+      site.crossover_closed = grammar.productions().at(choice.production).closed_crossover;
       site.context = nt.context; site.slot = choice.slot;
       if (choice.template_instance != kNoGrammarId)
         site.template_id = witness.templates.at(choice.template_instance).template_id;
@@ -129,6 +183,7 @@ VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const Progra
     site.occurrence_binder_ids.push_back(choice_environments.at(choice_index));
     site.remaining_template_nesting = std::min(site.remaining_template_nesting, 256 - choice.enclosing_template_depth);
     site.materialized_nodes = choice.ast_end - choice.ast_begin;
+    site.projected_resources = witness.resources->subtree(choice.ast_begin);
     for (auto index = choice.ast_begin; index < choice.ast_end; ++index) {
       site.materialized_depth = std::max(site.materialized_depth, depths[index] - depths[choice.ast_begin] + 1);
       if (witness.nodes[index].template_depth < choice.enclosing_template_depth)
@@ -136,11 +191,21 @@ VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const Progra
       site.template_nesting = std::max(site.template_nesting,
           witness.nodes[index].template_depth - choice.enclosing_template_depth);
     }
-    intersect(site.available_locals, native_scope(grammar, genome, verified, choice.ast_begin, nt.category));
+    // The first occurrence initialized available_locals when the site was created.
+    // Only linked later occurrences need another scope lookup and intersection.
+    if (site.occurrences.size() > 1)
+      intersect(site.available_locals, native_scope(grammar, genome, verified, choice.ast_begin, nt.category));
     site.replacement_budget.max_depth = std::min(site.replacement_budget.max_depth,
         request.budget.max_depth - depths.at(choice.ast_begin) + 1);
   }
   for (auto& site : result.sites) {
+    if (local_projected_budget) {
+      std::vector<std::size_t> roots;
+      for (const auto& span : site.occurrences) roots.push_back(span.begin);
+      site.has_projected_allowance = true;
+      site.projected_allowance = witness.resources->replacement(roots,
+          local_projected_budget->max_nodes, local_projected_budget->max_depth);
+    }
     // Witness traversal is in prefix order; preserve the parallel binder mapping.
     if (!std::is_sorted(site.occurrences.begin(), site.occurrences.end(), [](const auto& a, const auto& b) {
           return a.begin < b.begin;
@@ -150,8 +215,13 @@ VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const Progra
       if (span.begin < last_end) throw std::logic_error("logical variation occurrences overlap");
       removed += span.end - span.begin; last_end = span.end;
     }
-    site.replacement_budget.max_nodes = static_cast<std::uint32_t>(
-        (request.budget.max_nodes - genome.ast.nodes.size() + removed) / site.occurrences.size());
+    // The verified parent fits physical limits, so the depth limit is a proved
+    // upper bound for untouched nodes. Unit charges need no weighted index or
+    // extra per-site allocation; use the same allowance formula as projections.
+    const auto allowance = resource_detail::allowance_after_validation(genome.ast.nodes.size(), removed,
+        site.occurrences.size(), request.budget.max_depth - site.replacement_budget.max_depth,
+        request.budget.max_nodes, request.budget.max_depth);
+    site.replacement_budget.max_nodes = static_cast<std::uint32_t>(allowance.max_nodes);
     std::map<std::string, RType> free;
     if (site.category == NodeCategory::Expression) {
       const auto span = site.occurrences.front();
@@ -164,10 +234,26 @@ VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const Progra
       if (std::none_of(site.available_locals.begin(), site.available_locals.end(), [&](const auto& available) {
         return binding.name == available.name && binding.type == available.type;
       })) throw std::logic_error("logical variation site has a free local unavailable at an occurrence");
+    if (site.crossover_closed)
+      for (const auto& span : site.occurrences)
+        site.crossover_closed = site.crossover_closed && lexically_closed(genome.ast, span);
     site.compatibility_key = contract_key(grammar, site);
     if (registry) site.compatibility_id = registry->intern(site.compatibility_key);
   }
   return result;
+}
+
+VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const ProgramGenome& genome,
+    const GenerationRequest& request, CompatibilityRegistry* registry,
+    const ProjectedBudget* local_projected_budget) {
+  return analyze_variation_impl(grammar, genome, request, registry, local_projected_budget, nullptr);
+}
+
+VariationAnalysis analyze_population_variation(const CompiledGrammar& grammar,
+    const ProgramGenome& genome, const std::vector<GenerationRequest>& requests,
+    CompatibilityRegistry* registry, const ProjectedBudget* local_projected_budget) {
+  if (requests.empty()) throw std::invalid_argument("population requires a root request");
+  return analyze_variation_impl(grammar, genome, requests.front(), registry, local_projected_budget, &requests);
 }
 
 bool compatible_sites(const VariationSite& left, const VariationSite& right) {
@@ -188,7 +274,12 @@ GenerationRequest donor_request(const VariationSite& site) {
     budget.max_nodes += 4; budget.max_depth += 3;
   } else if (site.category != NodeCategory::Program)
     throw std::invalid_argument("variation donor requires an Expression or Program nonterminal");
-  return {site.nonterminal, site.type, site.visible_environment, budget};
+  return {site.nonterminal, site.type, site.visible_environment, budget, GenerationStage::Mutation};
+}
+
+bool donor_fits(const VariationSite& destination, const VariationSite& donor) {
+  return donor_fits(destination, donor.materialized_nodes, donor.materialized_depth, donor.template_nesting) &&
+      (!destination.has_projected_allowance || destination.projected_allowance.accepts(donor.projected_resources));
 }
 
 }  // namespace gagp::evo::grammar

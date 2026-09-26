@@ -38,12 +38,23 @@ struct EvolutionConfig {
   // Own the immutable compiled search space across worker copies.
   std::shared_ptr<const grammar::CompiledGrammar> compiled_grammar;
   std::optional<grammar::GenerationRequest> generation_request;
+  // Optional exact roots in the same grammar; selection remains population-wide.
+  // Empty retains the single-request generation and replay contract.
+  std::vector<grammar::GenerationRequest> additional_generation_requests;
+  // Optional authored-cost admission for offspring, independent of physical
+  // allocation limits and initial-population admission.
+  std::optional<grammar::ProjectedBudget> offspring_resource_budget;
+  // Separate initial admission permits source profiles whose construction and
+  // variation use different depth rules. No option changes physical capacities.
+  std::optional<grammar::ProjectedBudget> initial_resource_budget;
 
   bool skip_final_eval = false;
   bool retain_final_population = true;
   // Derived by evolve_population for verifier checks at reproduction boundaries.
   std::vector<InputSpec> verification_inputs;
 };
+
+std::vector<grammar::GenerationRequest> population_requests(const EvolutionConfig& config);
 
 struct EvolutionResult {
   ScoredGenome best;

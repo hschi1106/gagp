@@ -1,7 +1,7 @@
 {
   "authoritative_entrypoint": "spec/grammar.md",
   "format_version": "spec-freeze",
-  "generated_at": "2026-09-22",
+  "generated_at": "2026-09-24",
   "notes": [
     "This manifest records the release 2.0.0 normative spec set after the compiled-grammar production cutover and v2 AST/bytecode/artifact version boundary.",
     "The hash gate is intentionally mechanical: if a listed spec changes, update this manifest in the same semantic change."
@@ -41,7 +41,7 @@
     },
     {
       "path": "spec/grammar_definition.md",
-      "sha256": "d2ddc713a7e0c23e1c8ca8d3eae7c806a93c2c949d4851f1e6cb09106267a5a5"
+      "sha256": "1c947a8dffd49b6757377c2b359b25e60d3ea766c1adb5e445867f1d33308a39"
     }
   ],
   "status": "frozen"

@@ -657,6 +657,107 @@ bool test_combine_fallback_must_match_child_tag() {
                "combine fallback did not reject an exact child tag mismatch");
 }
 
+bool test_phase_vm_masks_are_fresh() {
+  auto missing_segment = unary_segment(ValueTag::Int,
+      load_phase(RegionSlotBank::Parameter, 0), load_phase(RegionSlotBank::Result, 0));
+  missing_segment.plan.parameter_types = {ValueTag::Int};
+  missing_segment.parameter_locals = {0};
+  missing_segment.base_body.program.instruction_fuel[0] = 3;
+  auto missing = invocation(std::move(missing_segment), 0);
+  missing.n_locals = 1;
+  if (!valid(missing, "phase local validity reset")) return false;
+  const auto missing_cpu = execute_bytecode_cpu(missing, {}, 5);
+  const auto missing_gpu = probe(missing, 5);
+  const auto short_gpu = probe(missing, 4);
+  if (!check(missing_cpu.is_error && missing_cpu.err.code == ErrCode::Name &&
+                 missing_gpu.is_error && missing_gpu.error == "NameError" &&
+                 missing_gpu.fuel_left == 0 && short_gpu.is_error &&
+                 short_gpu.error == "Timeout" && short_gpu.fuel_left == 2,
+             "phase inherited a prior local value or changed fuel/error order")) return false;
+
+  auto typed_segment = unary_segment(ValueTag::Float,
+      constant_phase(Value::from_float(1.25)),
+      phase({}, {ins_a(Opcode::Load, 1), ins(Opcode::Return)},
+            {{slot(RegionSlotBank::Result, 0), 1}}, 2));
+  typed_segment.plan.parameter_types = {ValueTag::Int};
+  typed_segment.parameter_locals = {0};
+  typed_segment.base_predicate.program.n_locals = 2;
+  typed_segment.base_predicate.bindings.push_back({slot(RegionSlotBank::Parameter, 0), 1});
+  auto typed = invocation(std::move(typed_segment), 1);
+  typed.n_locals = 1;
+  typed.consts.push_back(Value::from_int(7));
+  typed.code.insert(typed.code.begin(), {ins_a(Opcode::PushConst, 1), ins_a(Opcode::Store, 0)});
+  typed.instruction_fuel = {0, 0, 0, 1, 0};
+  if (!valid(typed, "phase local type reset")) return false;
+  const auto cpu = execute_bytecode_cpu(typed, {}, 3);
+  const auto gpu = probe(typed, 3);
+  return check(!cpu.is_error && cpu.value.tag == ValueTag::Float && cpu.value.f == 1.25 &&
+                   !gpu.is_error && gpu.tag == static_cast<int>(ValueTag::Float) &&
+                   gpu.bits == encoded_bits(Value::from_float(1.25)) && gpu.fuel_left == 0,
+               "phase inherited a prior captured-local type constraint");
+}
+
+bool test_stack_top_survives_operand_transitions() {
+  auto arithmetic = ordinary(
+      {Value::from_int(100), Value::from_int(7), Value::from_int(2),
+       Value::from_int(3), Value::from_int(9), Value::from_bool(false)},
+      {ins_a(Opcode::PushConst, 0), ins_a(Opcode::PushConst, 1),
+       ins_a(Opcode::PushConst, 2), ins(Opcode::Sub), ins(Opcode::Neg),
+       ins_a(Opcode::Store, 0), ins_a(Opcode::Load, 0),
+       ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Abs), 1),
+       ins_a(Opcode::PushConst, 3), ins_a(Opcode::PushConst, 4),
+       ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Clip), 3),
+       ins(Opcode::Add), ins_a(Opcode::PushConst, 5),
+       ins_a(Opcode::JmpIfFalse, 16), ins_a(Opcode::PushConst, 2),
+       ins_a(Opcode::Store, 0), ins(Opcode::Return)});
+  arithmetic.n_locals = 1;
+  arithmetic.instruction_fuel.assign(arithmetic.code.size(), 1);
+  if (!valid(arithmetic, "retained operand across stack transitions")) return false;
+  for (int fuel = 0; fuel <= 17; ++fuel) {
+    const auto cpu = execute_bytecode_cpu(arithmetic, {}, fuel);
+    const auto gpu = probe(arithmetic, fuel);
+    if (fuel < 15) {
+      if (!check(cpu.is_error && cpu.err.code == ErrCode::Timeout &&
+                     gpu.is_error && gpu.error == "Timeout" && gpu.fuel_left == 0,
+                 "stack transition changed an instruction fuel boundary")) return false;
+    } else if (!check(!cpu.is_error && cpu.value.tag == ValueTag::Int && cpu.value.i == 105 &&
+                         !gpu.is_error && gpu.bits == encoded_bits(Value::from_int(105)) &&
+                         gpu.fuel_left == fuel - 15,
+                     "store/load, unary, builtin or branch lost an underlying operand")) return false;
+  }
+
+  auto lists = ordinary({Value::from_int(100)},
+      {ins_a(Opcode::PushConst, 0), ins_a(Opcode::EmptyList, 1),
+       ins(Opcode::CheckList), ins(Opcode::EmptyListLike),
+       ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Len), 1),
+       ins(Opcode::Add), ins(Opcode::Return)});
+  if (!valid(lists, "list checks preserve retained stack operand")) return false;
+  const auto list_cpu = execute_bytecode_cpu(lists, {}, 0);
+  const auto list_gpu = probe(lists, 0);
+  if (!check(!list_cpu.is_error && list_cpu.value.i == 100 && !list_gpu.is_error &&
+                 list_gpu.bits == encoded_bits(Value::from_int(100)),
+             "list construction/check replaced an underlying stack operand")) return false;
+
+  auto region = invocation(unary_segment(ValueTag::Int,
+      constant_phase(Value::from_int(7)), load_phase(RegionSlotBank::Result, 0)), 0);
+  region.consts.push_back(Value::from_int(100));
+  region.code.insert(region.code.begin(), ins_a(Opcode::PushConst, 1));
+  region.code.insert(region.code.end() - 1, ins(Opcode::Add));
+  region.instruction_fuel.assign(region.code.size(), 0);
+  if (!valid(region, "bounded call preserves retained stack operand")) return false;
+  for (int fuel = 0; fuel <= 4; ++fuel) {
+    const auto cpu = execute_bytecode_cpu(region, {}, fuel);
+    const auto gpu = probe(region, fuel);
+    if (cpu.is_error) {
+      if (!check(cpu.err.code == ErrCode::Timeout && gpu.is_error && gpu.error == "Timeout",
+                 "bounded stack transition changed timeout behavior")) return false;
+    } else if (!check(cpu.value.tag == ValueTag::Int && cpu.value.i == 107 &&
+                         !gpu.is_error && gpu.bits == encoded_bits(Value::from_int(107)),
+                     "bounded call failed to flush or restore its stack operands")) return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 int main() {
@@ -667,6 +768,8 @@ int main() {
              "GPU selection failed: " + device_error)) {
     return 1;
   }
+  if (!test_phase_vm_masks_are_fresh()) return 1;
+  if (!test_stack_top_survives_operand_transitions()) return 1;
   if (!test_public_capture_decoder()) return 1;
   if (!test_exact_string_and_fuel()) return 1;
   if (!test_string_fallback()) return 1;

@@ -3,14 +3,18 @@
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 #include <unordered_set>
+#include <unordered_map>
 
 #include "gagp/evolution/grammar/catalog.hpp"
 #include "gagp/evolution/grammar/constants.hpp"
 #include "gagp/evolution/grammar/definition.hpp"
 #include "gagp/evolution/grammar/structured.hpp"
+#include "gagp/evolution/grammar/resource_projection.hpp"
 
 namespace gagp::evo::grammar {
 
@@ -70,11 +74,14 @@ struct CompiledExpression {
   std::uint32_t context = kNoGrammarId;
   NodeCategory category = NodeCategory::Expression;
   std::uint32_t local = kNoGrammarId;
+  bool target_input = false;
   std::vector<CompiledRegionCapture> captures;
   std::vector<CompiledRegionPhase> phases;
   // Empty means that the materialized node has no authored profile. Otherwise
   // charges are stored once in canonical FuelEvent order, including zero costs.
   std::vector<FuelCharge> fuel_charges;
+  // Authored construction resource accounting, independent of runtime fuel.
+  ResourceCharge resource_charge;
 };
 
 struct CompiledProduction {
@@ -82,18 +89,42 @@ struct CompiledProduction {
   std::string stable_id;
   std::uint32_t nonterminal = 0;
   double weight = 0;
+  std::string crossover_group;
+  bool closed_crossover = false;
+  bool variation_enabled = true;
+  bool unbound_variation = false;
+  std::uint8_t generation_mask = 3;
+  bool generates(GenerationStage stage) const {
+    return (generation_mask & (1u << static_cast<unsigned>(stage))) != 0;
+  }
   std::uint32_t expression = 0;
   // Index d gives minimum materialized nodes at depth <= d; UINT_MAX is impossible.
   std::vector<std::uint32_t> minimum_nodes_by_depth;
+  // Empty for unrestricted grammars: share the union membership cost table.
+  std::array<std::vector<std::uint32_t>, 2> generation_minimum_nodes;
+  const std::vector<std::uint32_t>& generation_costs(GenerationStage stage) const {
+    const auto& costs = generation_minimum_nodes.at(static_cast<std::size_t>(stage));
+    return costs.empty() ? minimum_nodes_by_depth : costs;
+  }
 };
 
 struct CompiledNonterminal {
   std::uint32_t id = 0;
   std::string stable_id;
   RType type = RType::Invalid;
+  bool variation_enabled = true;
+  // Optional construction entry for subtree mutation; destination membership
+  // and crossover continue to use this nonterminal's own language.
+  std::uint32_t mutation_entry = kNoGrammarId;
   std::vector<RegionBinding> scope;
   std::vector<std::uint32_t> productions;
   std::vector<std::uint32_t> minimum_nodes_by_depth;
+  // Empty for unrestricted grammars: share the union membership cost table.
+  std::array<std::vector<std::uint32_t>, 2> generation_minimum_nodes;
+  const std::vector<std::uint32_t>& generation_costs(GenerationStage stage) const {
+    const auto& costs = generation_minimum_nodes.at(static_cast<std::size_t>(stage));
+    return costs.empty() ? minimum_nodes_by_depth : costs;
+  }
   std::uint32_t minimum_depth = kNoGrammarId;
   std::uint32_t minimum_nodes = kNoGrammarId;
   std::uint32_t context = kNoGrammarId;
@@ -138,6 +169,10 @@ class CompiledGrammar {
   const std::vector<RegionBinding>& locals() const noexcept { return locals_; }
   const std::vector<std::uint32_t>& productions_for_category(NodeCategory category) const;
   const std::vector<std::uint32_t>& productions_for_type(RType type) const;
+  // Conservative reachability query across all construction stages.
+  bool generates_payload(std::uint32_t nonterminal) const;
+  // Shared immutable-root certificates; unsupported analyses cache false.
+  std::vector<bool> resource_invariant_roots(const std::vector<std::uint32_t>& roots) const;
   void require_executable() const;
   void require_executable(std::uint32_t nonterminal) const;
 
@@ -149,6 +184,14 @@ class CompiledGrammar {
   ExecutionLimits execution_limits_;
   std::uint32_t entry_ = 0;
   std::vector<CompiledNonterminal> nonterminals_;
+  struct ExecutableCache {
+    std::mutex mutex;
+    std::unordered_set<std::uint32_t> verified_roots;
+    std::unordered_map<std::uint32_t, bool> payload_roots;
+    std::unordered_map<std::uint32_t, bool> resource_roots;
+  };
+  // Copies have identical immutable grammar contents and may share certificates.
+  std::shared_ptr<ExecutableCache> executable_cache_ = std::make_shared<ExecutableCache>();
   std::vector<CompiledProduction> productions_;
   std::vector<CompiledExpression> expressions_;
   std::vector<ConstantDomain> constants_;

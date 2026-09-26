@@ -91,10 +91,10 @@ __device__ inline bool d_prepare_compiled_splice(
     return false;
   }
 
-  int work_name_count = base_name_count;
-  for (int i = 0; i < base_name_count; ++i) child_name_ids[i] = base_name_ids[i];
-  int work_const_count = base_const_count;
-  for (int i = 0; i < base_const_count; ++i) child_consts[i] = base_consts[i];
+  // Only surviving node references consume device table capacity. Metadata-only
+  // names are restored by the existing host sidecar reconstruction by value.
+  int work_name_count = 0;
+  int work_const_count = 0;
 
   for (int i = 0; i < work_len; ++i) {
     DPlainNode& node = child_nodes[i];
@@ -105,23 +105,19 @@ __device__ inline bool d_prepare_compiled_splice(
     if (kind == NodeKind::CONST) {
       const int available = from_source ? source_const_count : base_const_count;
       if (source_index < 0 || source_index >= available) return false;
-      if (from_source) {
-        const int mapped = d_find_or_append_compiled_const(
-            source_consts[source_index], child_consts, &work_const_count,
-            const_capacity);
-        if (mapped < 0) return false;
-        node.i0 = mapped;
-      }
+      const int mapped = d_find_or_append_compiled_const(
+          from_source ? source_consts[source_index] : base_consts[source_index],
+          child_consts, &work_const_count, const_capacity);
+      if (mapped < 0) return false;
+      node.i0 = mapped;
     } else if (d_compiled_node_uses_name(kind)) {
       const int available = from_source ? source_name_count : base_name_count;
       if (source_index < 0 || source_index >= available) return false;
-      if (from_source) {
-        const int mapped = d_find_or_append_compiled_name(
-            source_name_ids[source_index], child_name_ids, &work_name_count,
-            name_capacity);
-        if (mapped < 0) return false;
-        node.i0 = mapped;
-      }
+      const int mapped = d_find_or_append_compiled_name(
+          from_source ? source_name_ids[source_index] : base_name_ids[source_index],
+          child_name_ids, &work_name_count, name_capacity);
+      if (mapped < 0) return false;
+      node.i0 = mapped;
     }
     // REGION_VAR carries a lexical binder ID rather than a table index. Host
     // metadata reconstruction remaps it for each physical occurrence.

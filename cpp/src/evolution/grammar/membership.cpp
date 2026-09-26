@@ -1,3 +1,4 @@
+#include "gagp/evolution/grammar/derivation_resources.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/grammar/values.hpp"
 #include "gagp/evolution/ast_verify.hpp"
@@ -5,7 +6,7 @@
 #include "gagp/evolution/node_descriptor.hpp"
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/core/semantic_fuel.hpp"
-#include "gagp/serialization/region_plan_json.hpp"
+#include "../region_plan_equal.hpp"
 
 #include <memory>
 
@@ -14,6 +15,7 @@
 #include <set>
 #include <tuple>
 #include <stdexcept>
+#include <utility>
 
 namespace gagp::evo::grammar {
 namespace {
@@ -42,9 +44,6 @@ const BoundedRegionSpec& bounded_region_at(const AstProgram& ast, std::size_t in
   const auto* spec = lookup_bounded_region_spec(ast, index);
   if (spec) return *spec;
   throw std::logic_error("verified AST is missing bounded region metadata");
-}
-std::string plan_encoding(const RegionPlan& plan) {
-  return canonical_json(serialization::encode_region_plan(plan));
 }
 bool same_slot(const RegionValueSlot& left, const RegionValueSlot& right) {
   return left.bank == right.bank && left.slot == right.slot;
@@ -76,9 +75,10 @@ void extend_region_scope(std::vector<int>& environment, const CompiledExpression
 
 class Matcher {
  public:
-  Matcher(const CompiledGrammar& grammar, const AstProgram& ast, const GenerationRequest& request, bool record_decisions = false, bool capture_exact_scopes = false, const GenerationFrame* frame = nullptr)
-      : grammar_(grammar), ast_(ast), request_(request), record_decisions_(record_decisions),
-        capture_exact_scopes_(capture_exact_scopes), frame_(frame) {}
+  Matcher(const CompiledGrammar& grammar, const AstProgram& ast, const GenerationRequest& request, bool capture_exact_scopes = false, const GenerationFrame* frame = nullptr,
+      const std::vector<GenerationRequest>* population_requests = nullptr)
+      : grammar_(grammar), ast_(ast), request_(request),
+        capture_exact_scopes_(capture_exact_scopes), frame_(frame), population_requests_(population_requests) {}
   void run() {
     (void)validate_request(grammar_, request_);
     grammar_.require_executable(request_.nonterminal);
@@ -107,14 +107,21 @@ class Matcher {
       result = verify_ast(ast_, inputs, options);
     }
     if (!result) fail("native verification: " + result.diagnostic.message);
-    verified_ = result.verified;
+    verified_ = std::move(result.verified);
+    if (population_requests_) {
+      const auto selected = std::find_if(population_requests_->begin(), population_requests_->end(),
+          [&](const GenerationRequest& candidate) { return candidate.type == verified_.return_type; });
+      if (selected == population_requests_->end())
+        fail("mixed population member has no admitted root result type");
+      request_ = *selected;
+    }
     fuel_specs_.assign(ast_.nodes.size(), nullptr);
     for (const NodeFuelSpec& spec : ast_.fuel_specs)
       fuel_specs_.at(spec.node_index) = &spec;
     const auto& entry = grammar_.nonterminals()[request_.nonterminal];
     if (verified_.return_type != entry.type) fail("return type differs from grammar entry");
     // Decode every pool value, including unused values, to reject opaque payloads.
-    for (const auto& value : ast_.consts) constants_.push_back(canonical_json(encode_constant(value)));
+    for (const auto& value : ast_.consts) constants_.push_back(canonical_constant_encoding(value));
     std::size_t start = 0;
     if (entry.category == NodeCategory::Expression) {
       if (ast_.nodes.size() < 5 || ast_.nodes[0].kind != NodeKind::PROGRAM ||
@@ -127,6 +134,7 @@ class Matcher {
         std::vector<int>(entry.scope.size(), -1);
     if (!nonterminal(request_.nonterminal, start)) fail("AST cannot be derived from the grammar entry");
   }
+  const GenerationRequest& request() const { return request_; }
   const VerifiedAst& verified() const { return verified_; }
   VerifiedAst take_verified() { return std::move(verified_); }
   const ProductionDecisions& decisions() const { return decisions_; }
@@ -174,7 +182,7 @@ class Matcher {
       } else if (node_descriptor(a.kind).metadata == NodeMetadataKind::BoundedRegion) {
         const auto& x = bounded_region_at(ast_, left + offset);
         const auto& y = bounded_region_at(ast_, right + offset);
-        if (plan_encoding(x.plan) != plan_encoding(y.plan) ||
+        if (!same_region_plan(x.plan, y.plan) ||
             x.parameters.size() != y.parameters.size() ||
             x.phases.size() != y.phases.size()) return false;
         for (std::size_t i = 0; i < x.parameters.size(); ++i) {
@@ -222,48 +230,52 @@ class Matcher {
     }
     return true;
   }
-  static std::map<FuelEvent, std::uint32_t> charge_map(
-      const NodeFuelSpec* profile) {
-    std::map<FuelEvent, std::uint32_t> result;
-    if (profile)
-      for (const FuelCharge& charge : profile->charges)
-        result.emplace(charge.event, charge.cost);
-    return result;
+  static bool same_charges(const std::vector<FuelCharge>& left,
+                           const std::vector<FuelCharge>& right) {
+    // Compilation and native verification reject duplicate events. Profiles are
+    // small, and input AST event order is deliberately not significant.
+    if (left.size() != right.size()) return false;
+    for (const auto& charge : left) {
+      const auto match = std::find_if(right.begin(), right.end(), [&](const auto& other) {
+        return charge.event == other.event && charge.cost == other.cost;
+      });
+      if (match == right.end()) return false;
+    }
+    return true;
   }
   bool same_fuel_profile(std::size_t left, std::size_t right) const {
     const NodeFuelSpec* first = fuel_specs_.at(left);
     const NodeFuelSpec* second = fuel_specs_.at(right);
-    return static_cast<bool>(first) == static_cast<bool>(second) &&
-        charge_map(first) == charge_map(second);
+    if (!first || !second) return first == second;
+    return same_charges(first->charges, second->charges);
   }
   bool matches_fuel_profile(const CompiledExpression& source,
                             std::size_t index) const {
     const NodeFuelSpec* actual = fuel_specs_.at(index);
     if (source.fuel_charges.empty()) return actual == nullptr;
-    if (!actual) return false;
-    std::map<FuelEvent, std::uint32_t> expected;
-    for (const FuelCharge& charge : source.fuel_charges)
-      expected.emplace(charge.event, charge.cost);
-    return expected == charge_map(actual);
+    return actual && same_charges(source.fuel_charges, actual->charges);
   }
   bool nonterminal(std::uint32_t id, std::size_t index) {
     Frame frame(*this);
-    const auto key = std::make_tuple(id, index, lexical_environment_);
+    auto key = std::make_tuple(id, index, lexical_environment_);
     // Nonterminal definitions cannot capture holes of a caller's template;
     // each production's holes are enclosed by its own compiled Template node.
     // Therefore success has no side effects on the caller's hole bindings.
-    if (accepted_.count(key)) return true;
-    if (!active_.insert(key).second) return false;
+    // One table stores both active recursion (the sentinel) and successful
+    // first-production decisions. Failed matches are erased because negative
+    // results can depend on the current zero-node alias ancestry.
+    const auto found = decisions_.lower_bound(key);
+    if (found != decisions_.end() && found->first == key)
+      return found->second != kNoGrammarId;
+    const auto inserted = decisions_.emplace_hint(found, std::move(key), kNoGrammarId);
     bool matches = false;
     for (auto production : grammar_.nonterminals()[id].productions) {
       if (expression(grammar_.productions()[production].expression, index)) {
-        if (record_decisions_) decisions_.emplace(key, production);
+        inserted->second = production;
         matches = true; break;
       }
     }
-    active_.erase(key);
-    // Negative results can depend on the current zero-node alias ancestry.
-    if (matches) accepted_.insert(key);
+    if (!matches) decisions_.erase(inserted);
     return matches;
   }
   bool constant(std::uint32_t id, const AstNode& node) {
@@ -272,6 +284,7 @@ class Matcher {
     const auto& value = ast_.consts[node.i0];
     if (domain.integer_range)
       return value.tag == ValueTag::Int && value.i >= domain.minimum && value.i <= domain.maximum;
+    if (domain.float_range || domain.elements) return constant_domain_contains(domain, value);
     return grammar_.constant_encoding_allowed(id, constants_[node.i0]);
   }
   bool bounded(const CompiledExpression& source, std::size_t index) const {
@@ -283,7 +296,7 @@ class Matcher {
     const auto& spec = bounded_region_at(ast_, index);
     if (node.i0 != static_cast<int>(source.children.size()) ||
         node.i0 != static_cast<int>(bounded_region_arity(*contract.plan)) ||
-        plan_encoding(spec.plan) != plan_encoding(*contract.plan) ||
+        !same_region_plan(spec.plan, *contract.plan) ||
         spec.parameters.size() != source.captures.size() ||
         spec.phases.size() != source.phases.size()) return false;
     for (std::size_t i = 0; i < source.captures.size(); ++i) {
@@ -339,6 +352,10 @@ class Matcher {
       return true;
     }
     const auto& node = ast_.nodes[index];
+    if ((source.kind == ExpressionKind::Constant && node.kind != NodeKind::CONST) ||
+        (source.kind == ExpressionKind::Bound && node.kind != NodeKind::REGION_VAR) ||
+        ((source.kind == ExpressionKind::Input || source.kind == ExpressionKind::Local) &&
+         node.kind != NodeKind::VAR)) return false;
     if (!matches_fuel_profile(source, index)) return false;
     if (source.kind == ExpressionKind::Constant) return constant(source.target, node);
     if (source.kind == ExpressionKind::Bound) {
@@ -364,7 +381,7 @@ class Matcher {
       const auto& signature = PrimitiveCatalog::standard().control_signatures()[source.target];
       expected = signature.lowering_node;
       if (node.kind != expected) return false;
-      if (signature.requires_name && ast_.names[node.i0] != grammar_.locals()[source.local].name) return false;
+      if (signature.requires_name && ast_.names[node.i0] != (source.target_input ? grammar_.inputs() : grammar_.locals())[source.local].name) return false;
     } else if (source.kind == ExpressionKind::Structured) {
       if (!bounded(source, index)) return false;
       expected = NodeKind::BOUNDED_REGION;
@@ -382,17 +399,16 @@ class Matcher {
   }
   const CompiledGrammar& grammar_;
   const AstProgram& ast_;
-  const GenerationRequest& request_;
+  GenerationRequest request_;
   VerifiedAst verified_;
   std::vector<std::string> constants_;
   std::vector<Instance> instances_;
-  std::set<MatchKey> active_, accepted_;
   std::vector<int> lexical_environment_;
   std::vector<const NodeFuelSpec*> fuel_specs_;
   ProductionDecisions decisions_;
-  bool record_decisions_ = false;
   bool capture_exact_scopes_ = false;
   const GenerationFrame* frame_ = nullptr;
+  const std::vector<GenerationRequest>* population_requests_ = nullptr;
   std::uint32_t steps_ = 0, depth_ = 0;
 };
 
@@ -414,7 +430,7 @@ class WitnessBuilder {
     out_.execution_limits = grammar.execution_limits();
     out_.nodes.resize(genome.ast.nodes.size());
   }
-  DerivationMetadata run() {
+  DerivationMetadata run(bool validate_lowering = true, const ProjectedBudget* budget = nullptr) {
     if (choice_lexical_environments_out_) choice_lexical_environments_out_->clear();
     const auto nt = out_.request.nonterminal;
     const bool wrap = grammar_.nonterminals()[nt].category == NodeCategory::Expression;
@@ -425,7 +441,16 @@ class WitnessBuilder {
     lexical_environment_ = frame_ ? frame_environment(grammar_, out_.request, *frame_) :
         std::vector<int>(grammar_.nonterminals()[nt].scope.size(), -1);
     derive(nt, wrap ? 3 : 0);
+    std::vector<ResourceCharge> charges(out_.nodes.size());
+    for (std::size_t i = 0; i < charges.size(); ++i)
+      if (out_.nodes[i].expression != kNoGrammarId)
+        charges[i] = grammar_.expressions().at(out_.nodes[i].expression).resource_charge;
+    out_.resources = std::make_shared<const ResourceProjection>(verified_.subtree_end, charges);
     out_.derived_nodes = static_cast<std::uint32_t>(genome_.ast.nodes.size() - (wrap ? 4 : 0));
+    // Resource-only queries never admit a child for execution. Full witness
+    // reconstruction still checks lowering at generation/acceptance boundaries.
+    if (!validate_lowering || (budget && !budget->accepts(out_.resources->subtree())))
+      return std::move(out_);
     const auto lowered = [&] {
       if (frame_) {
         auto projected = project_frame(grammar_, out_.request, *frame_, genome_.ast);
@@ -672,7 +697,7 @@ DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const 
 DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const ProgramGenome& genome,
     const GenerationRequest& request, VerifiedAst* verified,
     std::vector<std::vector<int>>* choice_lexical_environments) {
-  Matcher matcher(grammar, genome.ast, request, true, verified != nullptr);
+  Matcher matcher(grammar, genome.ast, request, verified != nullptr);
   matcher.run();
   auto witness = WitnessBuilder(grammar, genome, request, matcher, nullptr,
       choice_lexical_environments).run();
@@ -680,15 +705,55 @@ DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const 
   return witness;
 }
 
+DerivationMetadata reconstruct_population_derivation(const CompiledGrammar& grammar,
+    const ProgramGenome& genome, const std::vector<GenerationRequest>& requests,
+    VerifiedAst* verified, std::vector<std::vector<int>>* choice_lexical_environments) {
+  validate_population_requests(grammar, requests);
+  Matcher matcher(grammar, genome.ast, requests.front(), verified != nullptr, nullptr, &requests);
+  matcher.run();
+  auto witness = WitnessBuilder(grammar, genome, matcher.request(), matcher, nullptr,
+      choice_lexical_environments).run();
+  if (verified) *verified = matcher.take_verified();
+  return witness;
+}
+
+bool validate_budgeted_derivation(const CompiledGrammar& grammar, const ProgramGenome& genome,
+    const GenerationRequest& request, const ProjectedBudget& budget) {
+  Matcher matcher(grammar, genome.ast, request);
+  matcher.run();
+  const auto witness = WitnessBuilder(grammar, genome, request, matcher).run(true, &budget);
+  return budget.accepts(witness.resources->subtree());
+}
+
+ResourceProjection project_derivation_resources(const CompiledGrammar& grammar,
+    const ProgramGenome& genome, const GenerationRequest& request) {
+  Matcher matcher(grammar, genome.ast, request);
+  matcher.run();
+  const auto witness = WitnessBuilder(grammar, genome, request, matcher).run(false);
+  return *witness.resources;
+}
+
+ResourceProjection project_derivation_resources(const CompiledGrammar& grammar,
+    const ProgramGenome& genome) {
+  return project_derivation_resources(grammar, genome, entry_request(grammar));
+}
+
+ResourceProjection project_derivation_resources_in_frame(const CompiledGrammar& grammar,
+    const ProgramGenome& genome, const GenerationRequest& request, const GenerationFrame& frame) {
+  Matcher matcher(grammar, genome.ast, request, false, &frame);
+  matcher.run();
+  return *WitnessBuilder(grammar, genome, request, matcher, &frame).run(false).resources;
+}
+
 void require_membership_in_frame(const CompiledGrammar& grammar, const ProgramGenome& genome,
     const GenerationRequest& request, const GenerationFrame& frame) {
-  Matcher(grammar, genome.ast, request, false, false, &frame).run();
+  Matcher(grammar, genome.ast, request, false, &frame).run();
 }
 
 DerivationMetadata reconstruct_derivation_in_frame(const CompiledGrammar& grammar, const ProgramGenome& genome,
     const GenerationRequest& request, const GenerationFrame& frame, VerifiedAst* verified,
     std::vector<std::vector<int>>* choice_lexical_environments) {
-  Matcher matcher(grammar, genome.ast, request, true, verified != nullptr, &frame);
+  Matcher matcher(grammar, genome.ast, request, verified != nullptr, &frame);
   matcher.run();
   auto witness = WitnessBuilder(grammar, genome, request, matcher, &frame,
       choice_lexical_environments).run();

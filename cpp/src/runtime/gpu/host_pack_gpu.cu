@@ -300,6 +300,16 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
   }
   checked_index(programs.size(), "program count");
   out.metas.resize(programs.size());
+  std::size_t code_capacity = 0;
+  std::size_t const_capacity = 0;
+  for (const auto& program : programs) {
+    check_append_capacity(code_capacity, program.code.size(), "root code table");
+    check_append_capacity(const_capacity, program.consts.size(), "root constant table");
+    code_capacity += program.code.size();
+    const_capacity += program.consts.size();
+  }
+  out.all_code.reserve(code_capacity);
+  out.all_consts.reserve(const_capacity);
 
   for (std::size_t p = 0; p < programs.size(); ++p) {
     const BytecodeProgram& prog = programs[p];

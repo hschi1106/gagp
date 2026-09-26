@@ -312,8 +312,44 @@ struct FitnessSessionGpu::Impl {
   std::vector<Value> shared_list_tokens;
   cudaDeviceProp props{};
   Err last_err{ErrCode::Value, ""};
+  gpu_detail::DRegionFrame* region_frames = nullptr;
+  std::int64_t* region_memo_keys = nullptr;
+  Value* region_memo_values = nullptr;
+  std::size_t region_frame_bytes = 0;
+  std::size_t region_key_bytes = 0;
+  std::size_t region_value_bytes = 0;
+
+  void release_region_workspace() {
+    if (region_frames) cudaFree(region_frames);
+    if (region_memo_keys) cudaFree(region_memo_keys);
+    if (region_memo_values) cudaFree(region_memo_values);
+    region_frames = nullptr;
+    region_memo_keys = nullptr;
+    region_memo_values = nullptr;
+    region_frame_bytes = region_key_bytes = region_value_bytes = 0;
+  }
+
+  bool reserve_region_workspace(std::size_t frames, std::size_t keys,
+                                std::size_t values) {
+    if (frames == region_frame_bytes && keys == region_key_bytes &&
+        values == region_value_bytes) return true;
+    // Replace the whole layout so retained high-water marks from different
+    // frame/memo configurations cannot exceed the workspace budget.
+    release_region_workspace();
+    if ((frames && cudaMalloc(reinterpret_cast<void**>(&region_frames), frames) != cudaSuccess) ||
+        (keys && cudaMalloc(reinterpret_cast<void**>(&region_memo_keys), keys) != cudaSuccess) ||
+        (values && cudaMalloc(reinterpret_cast<void**>(&region_memo_values), values) != cudaSuccess)) {
+      release_region_workspace();
+      return false;
+    }
+    region_frame_bytes = frames;
+    region_key_bytes = keys;
+    region_value_bytes = values;
+    return true;
+  }
 
   ~Impl() {
+    release_region_workspace();
     if (d_shared_case_local_vals) cudaFree(d_shared_case_local_vals);
     if (d_shared_case_local_set) cudaFree(d_shared_case_local_set);
     if (d_expected) cudaFree(d_expected);
@@ -505,14 +541,12 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
       const std::size_t key_bytes = workspace_threads * region_workspace.memo_capacity *
                                     gpu_detail::DMAX_REGION_STATES * sizeof(std::int64_t);
       const std::size_t value_bytes = workspace_threads * region_workspace.memo_capacity * sizeof(Value);
-      if ((frame_bytes && cudaMalloc(reinterpret_cast<void**>(&dev.d_region_frames), frame_bytes) != cudaSuccess) ||
-          (key_bytes && cudaMalloc(reinterpret_cast<void**>(&dev.d_region_memo_keys), key_bytes) != cudaSuccess) ||
-          (value_bytes && cudaMalloc(reinterpret_cast<void**>(&dev.d_region_memo_values), value_bytes) != cudaSuccess)) {
+      if (!impl_->reserve_region_workspace(frame_bytes, key_bytes, value_bytes)) {
         return fitness_eval_single_error(ErrCode::Value, "cuda region workspace allocation failure");
       }
-      region_workspace.frames = dev.d_region_frames;
-      region_workspace.memo_keys = dev.d_region_memo_keys;
-      region_workspace.memo_values = dev.d_region_memo_values;
+      region_workspace.frames = impl_->region_frames;
+      region_workspace.memo_keys = impl_->region_memo_keys;
+      region_workspace.memo_values = impl_->region_memo_values;
     }
     const auto upload_t1 = std::chrono::steady_clock::now();
 

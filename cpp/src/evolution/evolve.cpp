@@ -23,8 +23,7 @@ namespace {
 
 CaseSet evolution_case_set(const std::vector<EvalCase>& cases, const EvolutionConfig& cfg) {
   auto result = prepare_case_set(cases);
-  const auto& request = *cfg.generation_request;
-  validate_grammar_case_set(*cfg.compiled_grammar, result, request);
+  validate_grammar_case_set(cfg, result);
   for (const auto& one : cases)
     if (one.inputs.size() != cfg.compiled_grammar->inputs().size())
       throw std::invalid_argument("every fitness case must supply every compiled grammar input");
@@ -276,7 +275,7 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
 #ifdef GAGP_HAS_CUDA
       scored = score_population_gpu_refs(population, case_set.input_names, &gpu_session, cfg.fuel, nullptr,
                                          &result, &generation_timing, &fitness_sum,
-                                         overlap_gpu ? &raw_fitness : nullptr, true);
+                                         gpu_repro_resources ? &raw_fitness : nullptr, true);
 #else
       throw std::runtime_error("gpu evaluation requested but CUDA is unavailable in this build");
 #endif
@@ -284,7 +283,8 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
       scored = score_population_cpu_refs(
           population, case_set.input_names, case_set.bindings, case_set.expected_values,
           cfg.fuel, cfg.penalty, cfg.gpu_blocksize,
-          nullptr, &result, &generation_timing, &fitness_sum, nullptr, true);
+          nullptr, &result, &generation_timing, &fitness_sum,
+          gpu_repro_resources ? &raw_fitness : nullptr, true);
     }
     const auto eval_t1 = std::chrono::steady_clock::now();
     const ScoredGenomeRef& best = scored.front();
@@ -300,7 +300,11 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
       reproduction = finish_gpu_reproduction_overlap(
           &overlap_future, population, raw_fitness, reproduction_cfg);
     } else if (gpu_repro_resources) {
-      reproduction = repro::run_gpu_repro_backend(scored, reproduction_cfg, rng, gpu_repro_resources);
+      // Preparation assigns candidate streams and tournament indices in source
+      // population order. Match the overlap path, which starts before fitness is
+      // available; the ranked view above is only for reporting the best member.
+      const auto source_order = rank_population_refs(population, raw_fitness, false);
+      reproduction = repro::run_gpu_repro_backend(source_order, reproduction_cfg, rng, gpu_repro_resources);
     } else {
       reproduction = repro::run_reproduction_backend(scored, reproduction_cfg, rng);
     }

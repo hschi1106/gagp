@@ -2,6 +2,7 @@
 #include "gagp/cli/commands.hpp"
 
 #include <cmath>
+#include <optional>
 #include <stdexcept>
 
 namespace gagp::cli_detail {
@@ -58,8 +59,13 @@ std::vector<evo::ProgramGenome> replay_generated_population_artifact(const std::
   catch (const std::runtime_error& error) {
     throw std::invalid_argument(std::string("invalid grammar population JSON: ") + error.what());
   }
-  if (require_string(require_object_field(root, "format_version"), "format_version") !=
-      kGeneratedGrammarPopulationArtifactVersion)
+  const auto& version =
+      require_string(require_object_field(root, "format_version"), "format_version");
+  if (version == "population-seeds")
+    throw std::invalid_argument(
+        "legacy population-seeds cannot replay compiled grammar evolution exactly; "
+        "materialize the population with the frozen legacy build, then migrate it");
+  if (version != kGeneratedGrammarPopulationArtifactVersion)
     throw std::invalid_argument("unsupported grammar population artifact version");
   if (root.object_v.size() != 4)
     throw std::invalid_argument("grammar population artifact contains unknown root fields");
@@ -74,12 +80,28 @@ std::vector<evo::ProgramGenome> replay_generated_population_artifact(const std::
   if (count.kind != Json::Kind::Number || !std::isfinite(count.number_v) ||
       count.number_v != static_cast<double>(members.array_v.size()))
     throw std::invalid_argument("grammar population member count mismatch");
+  std::optional<evo::grammar::CompiledGrammar> embedded_grammar;
+  const evo::grammar::CompiledGrammar* grammar = required_grammar;
+  if (!grammar) {
+    const auto& first = members.array_v.front();
+    if (require_string(require_object_field(first, "grammar_hash"), "grammar_hash") != hash)
+      throw std::invalid_argument("grammar population member grammar identity mismatch");
+    embedded_grammar.emplace(evo::grammar::compile_grammar(
+        evo::grammar::parse_definition(canonical_json(
+            require_object_field(first, "grammar")))));
+    grammar = &*embedded_grammar;
+  }
+  if (grammar->content_hash() != hash)
+    throw std::invalid_argument("grammar population required grammar identity mismatch; restore the recorded grammar and imports, or replay without a required grammar to use the embedded snapshot");
+  const auto canonical_definition =
+      JsonParser(grammar->canonical_definition(), {true, 512}).parse();
   std::vector<evo::ProgramGenome> population;
   population.reserve(members.array_v.size());
   for (const auto& member : members.array_v) {
     if (require_string(require_object_field(member, "grammar_hash"), "grammar_hash") != hash)
       throw std::invalid_argument("grammar population member grammar identity mismatch");
-    population.push_back(replay_generated_artifact(canonical_json(member), required_grammar).genome);
+    population.push_back(replay_parsed_generated_artifact(
+        member, *grammar, canonical_definition).genome);
   }
   return population;
 }

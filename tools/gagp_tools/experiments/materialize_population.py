@@ -9,7 +9,7 @@ from typing import List
 
 
 def build_command(args: argparse.Namespace) -> List[str]:
-    return [
+    command = [
         str(args.generator),
         "--grammar-definition",
         str(args.grammar_definition),
@@ -22,6 +22,9 @@ def build_command(args: argparse.Namespace) -> List[str]:
         "--out-json",
         str(args.out),
     ]
+    if args.population_roots is not None:
+        command.extend(["--population-roots", args.population_roots])
+    return command
 
 
 def main() -> int:
@@ -32,6 +35,10 @@ def main() -> int:
     parser.add_argument("--grammar-definition", required=True, type=Path)
     parser.add_argument("--cases", required=True, type=Path)
     parser.add_argument("--population-size", required=True, type=int)
+    parser.add_argument(
+        "--population-roots",
+        help="Ordered comma-separated exact root IDs (default: grammar entry).",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args()

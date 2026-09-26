@@ -244,14 +244,13 @@ void test_repeated_copies_share_table_slots() {
                           {20}, {Value::from_int(42)}, 5, 2, 3);
   check(result.accepted && result.child_len == 5,
         "compiled repeated splice was rejected");
-  check(result.name_count == 2 && result.names[0] == 10 && result.names[1] == 20,
-        "source name was not appended exactly once");
-  check(result.const_count == 3 && result.consts[0].i == 7 &&
-            result.consts[1].i == 99 && result.consts[2].i == 42,
-        "base constants changed or source constant was not appended exactly once");
-  check(result.nodes[0].i0 == 1 && result.nodes[1].i0 == 2 &&
-            result.nodes[2].i0 == 0 && result.nodes[3].i0 == 1 &&
-            result.nodes[4].i0 == 2,
+  check(result.name_count == 2 && result.names[0] == 20 && result.names[1] == 10,
+        "live names were not compacted in first-reference order");
+  check(result.const_count == 1 && result.consts[0].i == 42,
+        "dead base constants survived or repeated donor constants were duplicated");
+  check(result.nodes[0].i0 == 0 && result.nodes[1].i0 == 0 &&
+            result.nodes[2].i0 == 1 && result.nodes[3].i0 == 0 &&
+            result.nodes[4].i0 == 0,
         "repeated source nodes did not share remapped table slots");
   check(result.provenance.applied == 1 && result.provenance.base_parent == 4 &&
             result.provenance.destination_candidate == 2 &&
@@ -262,23 +261,35 @@ void test_repeated_copies_share_table_slots() {
 }
 
 void test_float_bit_identity_preserves_negative_zero() {
-  const auto result = run({node(NodeKind::CONST, 0)}, {10},
-                          {Value::from_float(0.0)}, {occurrence(0, 1)},
+  const auto result = run({node(NodeKind::CONST, 0), node(NodeKind::CONST, 0)}, {10},
+                          {Value::from_float(0.0)}, {occurrence(1, 2)},
                           {node(NodeKind::CONST, 0)}, 0, 1, {20},
-                          {Value::from_float(-0.0)}, 1, 1, 2);
-  check(result.accepted && result.const_count == 2 && result.nodes[0].i0 == 1,
+                          {Value::from_float(-0.0)}, 2, 1, 2);
+  check(result.accepted && result.const_count == 2 && result.nodes[0].i0 == 0 && result.nodes[1].i0 == 1,
         "bit-distinct floating constants shared one slot");
   check(!std::signbit(result.consts[0].f) && std::signbit(result.consts[1].f),
         "compiled splice did not preserve positive and negative zero bits");
 
-  const auto booleans = run({node(NodeKind::CONST, 0)}, {10},
-                            {Value::from_bool(false)}, {occurrence(0, 1)},
+  const auto booleans = run({node(NodeKind::CONST, 0), node(NodeKind::CONST, 0)}, {10},
+                            {Value::from_bool(false)}, {occurrence(1, 2)},
                             {node(NodeKind::CONST, 0)}, 0, 1, {20},
-                            {Value::from_bool(true)}, 1, 1, 2);
+                            {Value::from_bool(true)}, 2, 1, 2);
   check(booleans.accepted && booleans.const_count == 2 &&
             !booleans.consts[0].b && booleans.consts[1].b &&
-            booleans.nodes[0].i0 == 1,
+            booleans.nodes[0].i0 == 0 && booleans.nodes[1].i0 == 1,
         "compiled splice ignored the Bool payload bit during constant identity");
+}
+
+void test_removed_entries_do_not_consume_capacity() {
+  const auto constants = run({node(NodeKind::CONST, 0)}, {},
+      {Value::from_int(1)}, {occurrence(0, 1)}, {node(NodeKind::CONST, 0)},
+      0, 1, {}, {Value::from_int(2)}, 1, 0, 1);
+  check(constants.accepted && constants.const_count == 1 && constants.consts[0].i == 2,
+        "removed constant prevented a one-slot replacement");
+  const auto names = run({node(NodeKind::VAR, 0)}, {10}, {},
+      {occurrence(0, 1)}, {node(NodeKind::VAR, 0)}, 0, 1, {20}, {}, 1, 1, 0);
+  check(names.accepted && names.name_count == 1 && names.names[0] == 20,
+        "removed name prevented a one-slot replacement");
 }
 
 void test_region_binder_ids_remain_raw() {
@@ -301,10 +312,10 @@ void test_invalid_indices_and_capacity_do_not_publish() {
             invalid_const.provenance.applied == 0,
         "invalid source constant index published a child");
 
-  auto exhausted_names = run({node(NodeKind::VAR, 0)}, {10},
-                             {Value::from_int(1)}, {occurrence(0, 1)},
+  auto exhausted_names = run({node(NodeKind::VAR, 0), node(NodeKind::VAR, 0)}, {10},
+                             {Value::from_int(1)}, {occurrence(1, 2)},
                              {node(NodeKind::VAR, 0)}, 0, 1, {20},
-                             {Value::from_int(2)}, 1, 1, 1);
+                             {Value::from_int(2)}, 2, 1, 1);
   check(!exhausted_names.accepted && exhausted_names.child_len == kSentinel &&
             exhausted_names.provenance.applied == 0,
         "exhausted name capacity published a child");
@@ -317,10 +328,10 @@ void test_invalid_indices_and_capacity_do_not_publish() {
             invalid_name.provenance.applied == 0,
         "invalid source name index published a child");
 
-  auto exhausted_consts = run({node(NodeKind::CONST, 0)}, {10},
-                              {Value::from_int(1)}, {occurrence(0, 1)},
+  auto exhausted_consts = run({node(NodeKind::CONST, 0), node(NodeKind::CONST, 0)}, {10},
+                              {Value::from_int(1)}, {occurrence(1, 2)},
                               {node(NodeKind::CONST, 0)}, 0, 1, {20},
-                              {Value::from_int(2)}, 1, 1, 1);
+                              {Value::from_int(2)}, 2, 1, 1);
   check(!exhausted_consts.accepted && exhausted_consts.child_len == kSentinel &&
             exhausted_consts.provenance.applied == 0,
         "exhausted constant capacity published a child");
@@ -338,6 +349,7 @@ int main() {
     test_repeated_copies_share_table_slots();
     test_float_bit_identity_preserves_negative_zero();
     test_region_binder_ids_remain_raw();
+    test_removed_entries_do_not_consume_capacity();
     test_invalid_indices_and_capacity_do_not_publish();
   } catch (const std::exception& error) {
     std::cerr << "FAIL: " << error.what() << '\n';

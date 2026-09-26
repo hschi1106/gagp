@@ -1,0 +1,636 @@
+{
+  "format_version": "grammar-definition-v2",
+  "nonterminals": [
+    {
+      "id": "Source.Literal.Int",
+      "type": "Int",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "initial",
+          "weight": 1,
+          "generation_stages": [
+            "initial"
+          ],
+          "expression": {
+            "constant": {
+              "type": "Int",
+              "range": [
+                "-9223372036854775808",
+                "9223372036854775807"
+              ],
+              "sample_from": {
+                "type": "Int",
+                "range": [
+                  "-8",
+                  "8"
+                ]
+              },
+              "mutation": {
+                "kind": "add",
+                "range": [
+                  "-2",
+                  "2"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "mutation",
+          "weight": 1,
+          "generation_stages": [
+            "mutation"
+          ],
+          "expression": {
+            "constant": {
+              "type": "Int",
+              "range": [
+                "-9223372036854775808",
+                "9223372036854775807"
+              ],
+              "sample_from": {
+                "type": "Int",
+                "range": [
+                  "-8",
+                  "8"
+                ]
+              },
+              "mutation": {
+                "kind": "add",
+                "range": [
+                  "-2",
+                  "2"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Source.Literal.Float",
+      "type": "Float",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "initial",
+          "weight": 1,
+          "generation_stages": [
+            "initial"
+          ],
+          "expression": {
+            "constant": {
+              "type": "Float",
+              "range": [
+                -1.7976931348623157e+308,
+                1.7976931348623157e+308
+              ],
+              "sample_from": {
+                "type": "Float",
+                "range": [
+                  -8,
+                  8
+                ],
+                "quantization_scale": 1000
+              },
+              "mutation": {
+                "kind": "add",
+                "range": [
+                  -1,
+                  1
+                ],
+                "gpu_grid_steps": 65535
+              }
+            }
+          }
+        },
+        {
+          "id": "mutation",
+          "weight": 1,
+          "generation_stages": [
+            "mutation"
+          ],
+          "expression": {
+            "constant": {
+              "type": "Float",
+              "range": [
+                -1.7976931348623157e+308,
+                1.7976931348623157e+308
+              ],
+              "sample_from": {
+                "type": "Float",
+                "range": [
+                  -8,
+                  8
+                ],
+                "quantization_scale": 1000
+              },
+              "mutation": {
+                "kind": "add",
+                "range": [
+                  -1,
+                  1
+                ],
+                "gpu_grid_steps": 65535
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Source.Literal.Bool",
+      "type": "Bool",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "initial",
+          "weight": 1,
+          "generation_stages": [
+            "initial"
+          ],
+          "expression": {
+            "constant": {
+              "type": "Bool",
+              "values": [
+                false,
+                true
+              ],
+              "mutation": "flip"
+            }
+          }
+        },
+        {
+          "id": "mutation",
+          "weight": 1,
+          "generation_stages": [
+            "mutation"
+          ],
+          "expression": {
+            "constant": {
+              "type": "Bool",
+              "values": [
+                false,
+                true
+              ],
+              "mutation": "flip"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Source.Literal.Char",
+      "type": "Char",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "initial",
+          "weight": 1,
+          "generation_stages": [
+            "initial"
+          ],
+          "expression": {
+            "constant": {
+              "type": "Char",
+              "values": [
+                "a",
+                "b",
+                "c",
+                "d",
+                "e",
+                "f",
+                "g",
+                "h",
+                "i",
+                "j",
+                "k",
+                "l",
+                "m",
+                "n",
+                "o",
+                "p",
+                "q",
+                "r",
+                "s",
+                "t",
+                "u",
+                "v",
+                "w",
+                "x",
+                "y",
+                "z",
+                "0",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                " "
+              ],
+              "mutation": "keep"
+            }
+          }
+        },
+        {
+          "id": "mutation",
+          "weight": 1,
+          "generation_stages": [
+            "mutation"
+          ],
+          "expression": {
+            "constant": {
+              "type": "Char",
+              "values": [
+                "a",
+                "b",
+                "c",
+                "d",
+                "e",
+                "f",
+                "g",
+                "h",
+                "i",
+                "j",
+                "k",
+                "l",
+                "m",
+                "n",
+                "o",
+                "p",
+                "q",
+                "r",
+                "s",
+                "t",
+                "u",
+                "v",
+                "w",
+                "x",
+                "y",
+                "z"
+              ],
+              "mutation": "keep"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Source.Literal.String",
+      "type": "String",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "initial",
+          "weight": 1,
+          "generation_stages": [
+            "initial"
+          ],
+          "expression": {
+            "constant": {
+              "type": "String",
+              "sequence": {
+                "length": [
+                  0,
+                  8
+                ],
+                "element": {
+                  "type": "Char",
+                  "values": [
+                    "a",
+                    "b",
+                    "c",
+                    "d",
+                    "e",
+                    "f",
+                    "g",
+                    "h",
+                    "i",
+                    "j",
+                    "k",
+                    "l",
+                    "m",
+                    "n",
+                    "o",
+                    "p",
+                    "q",
+                    "r",
+                    "s",
+                    "t",
+                    "u",
+                    "v",
+                    "w",
+                    "x",
+                    "y",
+                    "z"
+                  ]
+                }
+              },
+              "mutation": "keep"
+            }
+          }
+        },
+        {
+          "id": "mutation",
+          "weight": 1,
+          "generation_stages": [
+            "mutation"
+          ],
+          "expression": {
+            "constant": {
+              "type": "String",
+              "sequence": {
+                "length": [
+                  0,
+                  8
+                ],
+                "element": {
+                  "type": "Char",
+                  "values": [
+                    "a",
+                    "b",
+                    "c",
+                    "d",
+                    "e",
+                    "f",
+                    "g",
+                    "h",
+                    "i",
+                    "j",
+                    "k",
+                    "l",
+                    "m",
+                    "n",
+                    "o",
+                    "p",
+                    "q",
+                    "r",
+                    "s",
+                    "t",
+                    "u",
+                    "v",
+                    "w",
+                    "x",
+                    "y",
+                    "z"
+                  ]
+                }
+              },
+              "mutation": "keep"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Source.Literal.IntList",
+      "type": "IntList",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "initial",
+          "weight": 1,
+          "generation_stages": [
+            "initial"
+          ],
+          "expression": {
+            "constant": {
+              "type": "IntList",
+              "sequence": {
+                "length": [
+                  0,
+                  5
+                ],
+                "element": {
+                  "type": "Int",
+                  "range": [
+                    "-8",
+                    "8"
+                  ]
+                }
+              },
+              "mutation": "keep"
+            }
+          }
+        },
+        {
+          "id": "mutation",
+          "weight": 1,
+          "generation_stages": [
+            "mutation"
+          ],
+          "expression": {
+            "constant": {
+              "type": "IntList",
+              "sequence": {
+                "length": [
+                  0,
+                  4
+                ],
+                "element": {
+                  "type": "Int",
+                  "range": [
+                    "-8",
+                    "8"
+                  ]
+                }
+              },
+              "mutation": "keep"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Source.Literal.FloatList",
+      "type": "FloatList",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "initial",
+          "weight": 1,
+          "generation_stages": [
+            "initial"
+          ],
+          "expression": {
+            "constant": {
+              "type": "FloatList",
+              "sequence": {
+                "length": [
+                  0,
+                  5
+                ],
+                "element": {
+                  "type": "Float",
+                  "range": [
+                    -8,
+                    8
+                  ],
+                  "quantization_scale": 1000
+                }
+              },
+              "mutation": "keep"
+            }
+          }
+        },
+        {
+          "id": "mutation",
+          "weight": 1,
+          "generation_stages": [
+            "mutation"
+          ],
+          "expression": {
+            "constant": {
+              "type": "FloatList",
+              "sequence": {
+                "length": [
+                  0,
+                  4
+                ],
+                "element": {
+                  "type": "Float",
+                  "range": [
+                    -8,
+                    8
+                  ],
+                  "quantization_scale": 1000
+                }
+              },
+              "mutation": "keep"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Source.Literal.StringList",
+      "type": "StringList",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "initial",
+          "weight": 1,
+          "generation_stages": [
+            "initial"
+          ],
+          "expression": {
+            "constant": {
+              "type": "StringList",
+              "sequence": {
+                "length": [
+                  0,
+                  5
+                ],
+                "element": {
+                  "type": "String",
+                  "sequence": {
+                    "length": [
+                      0,
+                      8
+                    ],
+                    "element": {
+                      "type": "Char",
+                      "values": [
+                        "a",
+                        "b",
+                        "c",
+                        "d",
+                        "e",
+                        "f",
+                        "g",
+                        "h",
+                        "i",
+                        "j",
+                        "k",
+                        "l",
+                        "m",
+                        "n",
+                        "o",
+                        "p",
+                        "q",
+                        "r",
+                        "s",
+                        "t",
+                        "u",
+                        "v",
+                        "w",
+                        "x",
+                        "y",
+                        "z"
+                      ]
+                    }
+                  }
+                }
+              },
+              "mutation": "keep"
+            }
+          }
+        },
+        {
+          "id": "mutation",
+          "weight": 1,
+          "generation_stages": [
+            "mutation"
+          ],
+          "expression": {
+            "constant": {
+              "type": "StringList",
+              "sequence": {
+                "length": [
+                  0,
+                  4
+                ],
+                "element": {
+                  "type": "String",
+                  "sequence": {
+                    "length": [
+                      0,
+                      5
+                    ],
+                    "element": {
+                      "type": "Char",
+                      "values": [
+                        "a",
+                        "b",
+                        "c",
+                        "d",
+                        "e",
+                        "f",
+                        "g",
+                        "h",
+                        "i",
+                        "j",
+                        "k",
+                        "l",
+                        "m",
+                        "n",
+                        "o",
+                        "p",
+                        "q",
+                        "r",
+                        "s",
+                        "t",
+                        "u",
+                        "v",
+                        "w",
+                        "x",
+                        "y",
+                        "z"
+                      ]
+                    }
+                  }
+                }
+              },
+              "mutation": "keep"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

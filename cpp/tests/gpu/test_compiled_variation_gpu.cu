@@ -185,7 +185,7 @@ Result run(const Fixture& fixture) {
   pointers.child_const_counts = d_const_count.data();
   pointers.child_meta = d_meta.data();
   pointers.child_splices = d_splice.data();
-  compiled_crossover_kernel<<<1, 2>>>(config, pointers);
+  compiled_crossover_kernel<<<1, 2, 2 * config.max_nodes * sizeof(AtomicSpliceOrigin)>>>(config, pointers);
   check_cuda(cudaGetLastError(), "compiled_crossover_kernel launch");
   check_cuda(cudaDeviceSynchronize(), "compiled_crossover_kernel execution");
 
@@ -240,14 +240,14 @@ void test_paired_crossover_and_table_remap() {
             result.splice[1].source_index == 0,
         "paired crossover provenance was not reciprocal");
   check(result.used_len[0] == 2 && result.nodes[0].kind ==
-            static_cast<int>(NodeKind::VAR) && result.nodes[0].i0 == 1 &&
-            result.name_count[0] == 2 && result.names[1] == 20,
+            static_cast<int>(NodeKind::VAR) && result.nodes[0].i0 == 0 &&
+            result.name_count[0] == 2 && result.names[0] == 20 && result.names[1] == 10,
         "child A did not remap the selected parent B name");
   const int child_b = fixture.max_nodes;
   check(result.used_len[1] == 2 && result.nodes[child_b].kind ==
-            static_cast<int>(NodeKind::CONST) && result.nodes[child_b].i0 == 1 &&
+            static_cast<int>(NodeKind::CONST) && result.nodes[child_b].i0 == 0 &&
             result.const_count[1] == 2 &&
-            result.consts[fixture.max_consts + 1].i == 1,
+            result.consts[fixture.max_consts].i == 1 && result.consts[fixture.max_consts + 1].i == 2,
         "child B did not remap the selected parent A constant");
   check(result.meta[0].valid == 1 && result.meta[0].node_count == 2 &&
             result.meta[0].max_depth == 0 && result.meta[1].valid == 1 &&
@@ -269,8 +269,8 @@ void test_repeated_occurrences() {
   const Result result = run(fixture);
   check(result.splice[0].applied == 1 &&
             result.splice[0].occurrence_count == 2 &&
-            result.used_len[0] == 3 && result.name_count[0] == 2 &&
-            result.nodes[0].i0 == 1 && result.nodes[2].i0 == 1,
+            result.used_len[0] == 3 && result.name_count[0] == 1 &&
+            result.names[0] == 20 && result.nodes[0].i0 == 0 && result.nodes[2].i0 == 0,
         "compiled crossover did not replace every prepared occurrence");
 }
 
@@ -333,6 +333,58 @@ void test_no_candidate_and_actual_counts_copy_base() {
                   "candidate padding beyond actual count changed child B");
 }
 
+__global__ void projected_selection(const CandidateRange* candidates,
+    const PackedProgramMeta* metas, int* selected, PackedSelectionCounters* counters) {
+  d_choose_typed_candidate_pair(candidates, 1, 0, 1, 42,
+      selected, selected + 1, metas, counters);
+}
+
+void test_projected_selection() {
+  Managed<CandidateRange> candidates(2);
+  Managed<PackedProgramMeta> metas(2);
+  Managed<int> selected(2);
+  Managed<PackedSelectionCounters> counters(1);
+  for (unsigned scenario = 0; scenario < 9; ++scenario) {
+    candidates[0] = candidate(0, 1, 7, 0, 1);
+    candidates[1] = candidate(0, 1, 7, 1, 1);
+    candidates[0].has_projected_allowance = true;
+    candidates[0].projected_allowance = {true, 3, 2, 5};
+    candidates[0].projected_resources = {1, 1, 0};
+    candidates[1].projected_resources = {3, 2, 5};
+    if (scenario == 1) candidates[1].projected_resources.nodes = 4;
+    if (scenario == 2) candidates[1].projected_resources.carried_depth = 3;
+    if (scenario == 3) candidates[1].projected_resources.reset_depth = 6;
+    if (scenario == 4) candidates[0].projected_allowance.surrounding_fits = false;
+    if (scenario == 5) {
+      candidates[0].has_projected_allowance = false;
+      candidates[1].projected_resources = {UINT64_MAX, UINT64_MAX, UINT64_MAX};
+    }
+    if (scenario == 6) {
+      candidates[0].projected_allowance = {true, 0, 0, 0};
+      candidates[1].projected_resources = {};
+    }
+    if (scenario == 7) {
+      candidates[0].projected_allowance = {true, UINT64_MAX, UINT64_MAX, UINT64_MAX};
+      candidates[1].projected_resources = {UINT64_MAX, UINT64_MAX, UINT64_MAX};
+    }
+    if (scenario == 8) {
+      candidates[1].has_projected_allowance = true;
+      candidates[1].projected_allowance = {true, 0, 0, 0};
+    }
+    metas[0] = {}; metas[1] = {};
+    metas[0].candidate_count = metas[1].candidate_count = 1;
+    projected_selection<<<1, 1>>>(candidates.data(), metas.data(), selected.data(), counters.data());
+    check_cuda(cudaGetLastError(), "projected selection launch");
+    check_cuda(cudaDeviceSynchronize(), "projected selection execution");
+    const bool accepted = scenario == 0 || scenario == 5 || scenario == 6 || scenario == 7;
+    check(selected[0] == (accepted ? 0 : -1) && selected[1] == (accepted ? 0 : -1),
+          "GPU selection ignored projected node/carried/reset or surrounding bounds");
+    check(counters[0].budget_rejections == (accepted ? 0U : 1U) &&
+          counters[0].contract_rejections == 0,
+          "GPU projected rejection counters differ from selected feasibility");
+  }
+}
+
 }  // namespace
 
 int main() {
@@ -345,6 +397,7 @@ int main() {
     test_paired_crossover_and_table_remap();
     test_repeated_occurrences();
     test_numeric_compatibility_and_budgets();
+    test_projected_selection();
     test_capacity_failure_is_transactional();
     test_no_candidate_and_actual_counts_copy_base();
   } catch (const std::exception& error) {

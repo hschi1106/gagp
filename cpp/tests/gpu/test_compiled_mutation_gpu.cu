@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
+#include "gagp/evolution/grammar/random.hpp"
 #include "../../src/evolution/repro/gpu/device/compiled_mutation.cuh"
 
 namespace {
@@ -245,7 +246,7 @@ Result run(const Fixture& fixture) {
   pointers.parent_constant_streams = parent_streams.data();
   pointers.metadata_roots = metadata_roots.data();
 
-  compiled_mutation_kernel<<<config.pair_count, 2>>>(config, pointers);
+  compiled_mutation_kernel<<<config.pair_count, 2, 2 * config.max_nodes * sizeof(AtomicSpliceOrigin)>>>(config, pointers);
   check_cuda(cudaGetLastError(), "compiled_mutation_kernel launch");
   check_cuda(cudaDeviceSynchronize(), "compiled_mutation_kernel execution");
 
@@ -312,6 +313,10 @@ void test_forced_constant_with_pinned_metadata_root() {
   fixture.config.constant_origin_count = 2;
   fixture.config.constant_stream_count = 1;
   fixture.config.constant_root_count = 1;
+  check(anticipated_mutation_candidate<gagp::evo::grammar::GrammarRandom>(
+            fixture.config.seed, 0, fixture.config.mutation_ratio, 0.0, 1, true) == -1,
+        "prepared constant branch requested an unused donor pool");
+  fixture.candidates[0].donor_count = 0;
   const Result result = run(fixture);
   check(result.splices[0].mutation_outcome == CompiledMutationOutcome::Constant &&
             result.splices[0].applied == 0,
@@ -346,6 +351,37 @@ void test_no_constant_groups_falls_through_to_subtree() {
   check(result.splices[0].mutation_outcome == CompiledMutationOutcome::Subtree &&
             result.splices[0].applied == 1,
         "no-groups did not fall through to subtree");
+}
+
+void test_anticipated_candidate_matches_device() {
+  for (double subtree_ratio : {0.0, 1.0}) {
+    for (std::uint64_t seed = 0; seed < 8; ++seed) {
+      Fixture fixture = basic_fixture();
+      fixture.config.seed = seed;
+      fixture.config.mutation_ratio = 0.5;
+      fixture.config.mutation_subtree_ratio = subtree_ratio;
+      fixture.config.candidates_per_program = 7;
+      fixture.metas[0].candidate_count = 7;
+      fixture.candidates.resize(7, fixture.candidates.front());
+      fixture.origins[0] = kNoConstantMutationGroup;
+      fixture.config.constant_origin_count = 2;
+      fixture.config.constant_stream_count = 1;
+      const int anticipated = anticipated_mutation_candidate<gagp::evo::grammar::GrammarRandom>(
+          seed, 0, 0.5, subtree_ratio, 7);
+      // Only the anticipated pool exists; all other candidates have no donors.
+      for (int i = 0; i < 7; ++i)
+        if (i != anticipated) fixture.candidates[i].donor_count = 0;
+      const auto result = run(fixture);
+      if (anticipated < 0) {
+        check_base_copy(fixture, result, 0, 0, "skipped mutation changed its base");
+      } else {
+        check(result.splices[0].mutation_outcome == CompiledMutationOutcome::Subtree &&
+              result.splices[0].applied == 1 &&
+              result.splices[0].destination_candidate == anticipated,
+              "anticipated donor pool differs from GPU candidate selection");
+      }
+    }
+  }
 }
 
 void test_empty_site_and_empty_donor_outcomes() {
@@ -402,6 +438,7 @@ int main() {
     test_forced_constant_with_pinned_metadata_root();
     test_forced_subtree();
     test_no_constant_groups_falls_through_to_subtree();
+    test_anticipated_candidate_matches_device();
     test_empty_site_and_empty_donor_outcomes();
     test_invalid_and_capacity_restore_base();
     std::cout << "compiled mutation gpu tests passed\n";
