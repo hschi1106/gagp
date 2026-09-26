@@ -13,8 +13,8 @@ inflate the CPU/GPU ratio.
 
 - Immutable Goal 01: `b04918307eb69ec0f08c6bf5b03a0fae9399dbbf`, unchanged reference
   libraries with the frozen snapshot benchmark adapter.
-- Stage A recovery: `2d11d4a`, documented in [the checkpoint report](goal-11.5-stage-a.md).
-- Stage B: reviewed working source based on `7c11429`; final commit identity pending.
+- Stage A recovery: `2d11d4a1971b4cbcd61ebd43e0f0b1745392296d`, documented in [the checkpoint report](goal-11.5-stage-a.md).
+- Stage B implementation: `462d9582c048220137bbd011b7abc48b48678d6b`, based on `7c11429`.
   `reviewed-source-hashes.json` identifies every file of the clean build snapshot.
 
 All timed binaries use Release/O3, GCC 11, CUDA 12.6, sm_86 and maxrregcount=64
@@ -347,3 +347,11 @@ compiler classes. Imported materialized execution is independent of packages;
 the three restrictions limit construction/variation, not the runtime type set.
 The revised completion must not be described as passing original Goal 11 or as
 being close to reference GPU acceleration.
+
+
+The tested Stage B code is committed above. The following documentation-only
+handoff records that identity without changing the measured implementation.
+Stage A and the original Goal 01 reference remain separate recovery/comparison
+points. `gagp_progress_report.html` remains untracked and unchanged. Local ignored
+Goal 11.5/README/Goal 12 plans were aligned with the revised continuation; the
+tracked report is the portable completion record.

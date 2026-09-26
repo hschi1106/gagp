@@ -1,5 +1,5 @@
 {
-  "status": "validated",
+  "status": "complete",
   "receipts": 468,
   "counts": {
     "evolution": 288,
@@ -20663,7 +20663,7 @@
     "reference_revision": "b04918307eb69ec0f08c6bf5b03a0fae9399dbbf",
     "stage_a_revision": "2d11d4a1971b4cbcd61ebd43e0f0b1745392296d",
     "stage_b_base_revision": "7c11429ef116d079bb4f42a4050caf8284f0ce7e",
-    "stage_b_revision": "recorded by follow-up documentation commit"
+    "stage_b_revision": "462d9582c048220137bbd011b7abc48b48678d6b"
   },
   "completion_audit": {
     "restrictions_and_replay_identity": "spec/grammar_definition.md and compiler/crossover/donor/mutation tests",
