@@ -95,13 +95,15 @@
   - test evidence,
   - spec updates in `spec/` when semantics change.
 
-## Skills
-A skill is a set of local instructions stored in a `SKILL.md` file.
+## Agent workflow
 
-Repo-stable skill:
-- `gagp-repo`: repository-specific guidance for architecture, parity constraints, benchmark workflow, payload behavior, and change impact
-
-Use repo skills this way:
-- If the task clearly matches the repo skill, open `/home/hschi1106/.codex/skills/gagp-repo/SKILL.md` and read only the referenced material you need.
-- Keep context small; avoid bulk-loading unrelated references.
-- System-provided skills may vary by session, so treat the live session skill list as the source of truth for non-repo skills.
+- For feature location or cross-module impact, use
+  `.agents/skills/gagp-navigation/SKILL.md` and follow only the matching route.
+  Already-localized changes need not load the full map; confirm their callers,
+  contract, and tests. Do not reread unchanged material still in context.
+- Before finishing implementation, inspect the actual changed, added, and removed
+  paths, including untracked files. In the same change, update only affected
+  navigation or authority docs when module ownership, entry points, interfaces,
+  dependencies, dataflow, settings, validation commands, or invariants changed.
+  If navigation is unaffected, leave docs alone. Check new links and keep one
+  authoritative source per contract.

@@ -7,6 +7,7 @@ nearest component documentation, not here.
 
 | Checked path | Role |
 | --- | --- |
+| `.agents/skills/gagp-navigation/` | On-demand coding-agent routes to implementation owners, contracts, and tests |
 | `AGENTS.md` | Contributor and coding-agent rules |
 | `README.md` | Product entry point and quick start |
 | `VERSION.md` | Release and compatibility history |
