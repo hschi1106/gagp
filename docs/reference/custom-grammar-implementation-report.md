@@ -2,16 +2,24 @@
 
 **最新驗收狀態：使用者於 2026-09-27 明確接受目前結果，將 Goal 11／11.5
 標記為達成。** 原始 Q≥0.95 數值門檻仍未達到；以下數據與歷史判斷保留，
-不改寫為數值達標。Goal 12 的最終整合與交付驗收仍為獨立工作。
+不改寫為數值達標。Goal 12 的獨立整合與交付驗收結果如下。
 
-Goal 12 後續範圍已由使用者擴充為：完整 repo 盤點與清理、移除確認不再需要
-的檔案、整理程式碼模組及文件架構、完善新手安裝與 CPU/GPU 操作指引、
-自訂 grammar 到輸出／replay 的完整教學，以及乾淨 checkout 的整合驗證。
-保留必要基準與可追溯證據，歷史資料與目前使用說明分開；不以刪除使用者
-檔案或必要測試換取整潔。此為新增待執行範圍，並非宣告整理已完成。
+**Goal 12 已完成擴充後的 repo 整理與交付驗證。** 詳見
+[完整盤點、刪除理由、架構審查與驗收表](repository-cleanup.md)。
+`25e566e` 整理重複套件設定、ignore 規則與文件入口，新增
+[CPU/CUDA 入門教學](../guides/getting-started.md)及
+[疑難排解](../guides/troubleshooting.md)；`f864070` 修正要求 CUDA 卻靜默
+產生 CPU-only build 的問題。使用者資料與必要 baseline／實驗證據均保留。
+
+最終程式／建置版本 `f864070`：全新 Debug/CUDA **116 項預設 CTest 全通過**
+（18 項 GPU label、無跳過）；**84 項工具、24 項 repository 檢查全通過**。
+乾淨 CPU Release 與 CUDA Release 教學通過，包括 grammar 修改、四種 backend、
+跨機 population replay、最佳 AST 匯出／評分與 migration。362 個非 CMake
+native 檔案與效能測量版本 `36c8cea` 完全相同；不因文件整理重跑效能實驗。
+原始 Q 未達是已接受且保留的效能限制，不再列為 Goal 12 待確認項目。
 
 
-2026-09-27 最新續跑實作：`36c8cea692f4e82fdb8612d0a8480ce16f8d056b`。
+2026-09-27 效能優化實作（Goal 12 前）：`36c8cea692f4e82fdb8612d0a8480ce16f8d056b`。
 平行重建 child AST／metadata，batch 256、最多 20 workers；完整驗證與搜尋
 規則不變。13 種探索設定後保留此項，配對 GPU generation 中位數改善 5.26%。
 相同最終 binary 在兩組測量的 CPU/GPU 加速比為 **31.4393／30.4398 倍**；
@@ -168,7 +176,7 @@ window checkpoint 完全相同；另驗證 native membership、lowering 與 budg
 | 09 | `e0d8926` | 移除 specialized production core、切換 v2 |
 | 10 | `6fe14ca` | authoring、migration、CLI、文件 |
 | 11／11.5 | `2d11d4a`、`6538358`、`9cdc72e`、`7495153`、`a2630eb`、`d21b062`、`6337d36`、`c574b7b` | Stage A、Stage B 回退、效能修復與診斷修復；Q 原門檻未達 |
-| 12 | 本報告與 clean-checkout 證據 | 功能／流程／代表性測量完成；overlap 是否作驗收模式待確認，不標示全 goals 完成 |
+| 12 | `25e566e`、`f864070` 與最終文件提交 | repo 整理、使用者教學、建置修復、clean-checkout 與整合驗收完成；詳見本報告頂部最新狀態 |
 
 LinearRec package 是 lexical bindings 加 reverse traversal；DC 是有界的
 sequence-window region 與有序 left/right requests；DP1D／DP2D 是資料定義的

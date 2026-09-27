@@ -1,0 +1,45 @@
+{
+  "remote_archive": {
+    "sha256": "053facd488527eca29e49bcf38d9d0237a3d9c77ad1e477039677f0491258405",
+    "files": 60,
+    "bytes": 1683262
+  },
+  "remote_source_audit": {
+    "revision": "f86407033650b3e8256bbb2382bbb24e62a97023",
+    "verified_files": 578,
+    "all_match": true
+  },
+  "native_correspondence": {
+    "measured_revision": "36c8cea",
+    "delivered_revision": "f86407033650b3e8256bbb2382bbb24e62a97023",
+    "unchanged_native_paths": 362,
+    "changed_build_configuration": [
+      "cpp/CMakeLists.txt"
+    ],
+    "runtime_and_tests_unchanged": true
+  },
+  "tests": {
+    "cuda_default": 116,
+    "cuda_labeled": 18,
+    "tools": 84,
+    "repository": 24,
+    "skipped": 0
+  },
+  "cpu_tutorial_passed": true,
+  "best_export_fitness_equal": true,
+  "cross_machine_replay_exact": true,
+  "debug_and_release_four_modes_passed": true,
+  "no_runtime_or_rule_changes": true,
+  "local_archive": {
+    "archive": "goal12-evidence.tar.gz",
+    "sha256": "0e11f001d62c5dfcc370e72645f797ebf21c67dfcf714cbcf0d998aec0fa7918",
+    "files": 44,
+    "bytes": 5041529,
+    "all_archived_hashes_verified": true
+  },
+  "cleanup_commits": [
+    "25e566e",
+    "f864070"
+  ],
+  "accepted_goals_11_11_5": "ce75eb2"
+}

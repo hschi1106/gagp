@@ -2,8 +2,9 @@
 
 **Current status (2026-09-27): Goal 11 and Goal 11.5 are achieved by explicit
 user acceptance of the reported result.** Historical Q>=0.95 remains numerically
-unmet; measured evidence below is unchanged. Goal 12 remains the separate final
-repository integration and reporting task.
+unmet; measured evidence below is unchanged. Expanded Goal 12 repository cleanup,
+user onboarding and final integration are complete; see the
+[final cleanup audit](../repository-cleanup.md).
 
 
 [Latest optimization report](goal-11.5-target35.md) records code `36c8cea`,

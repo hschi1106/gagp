@@ -36,6 +36,8 @@ enabled; `gagp_cli_support` composes evolution with the JSON/CLI codecs.
 - Native focused checks: `ctest --test-dir cpp/build -R '<test-name-regex>' --output-on-failure`.
 - Python tools and repository checks: use the two `unittest discover` commands
   in root `AGENTS.md`; narrow discovery to the affected test when practical.
+- CUDA-enabled configuration fails if its compiler is unavailable; set
+  `CMAKE_CUDA_COMPILER` explicitly or choose `GAGP_ENABLE_CUDA=OFF` intentionally.
 - Run CPU/GPU parity checks only in a CUDA-enabled build with a usable device.
   GPU paths choose the least-used visible device; `GAGP_CUDA_DEVICE` can select
   one. GPU profiling uses `nsys`; do not use `ncu`.
