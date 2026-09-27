@@ -11,6 +11,7 @@
 #include "gagp/evolution/lifecycle.hpp"
 #include "gagp/evolution/repro/gpu.hpp"
 #include "gagp/evolution/selection.hpp"
+#include "../evolution/repro/owned_overlap.hpp"
 
 namespace {
 std::vector<std::string> captured_populations;
@@ -74,6 +75,25 @@ std::vector<ScoredGenomeRef> capture_rank(const std::vector<ProgramGenome>& popu
   return rank_population_refs(population, fitness, sort_output);
 }
 namespace repro {
+OwnedGpuReproOverlap capture_owned_overlap(std::vector<ProgramGenome> population,
+    const EvolutionConfig& cfg, std::uint64_t seed,
+    std::shared_ptr<GpuReproRunResources> resources) {
+  auto result = start_owned_gpu_repro_overlap(
+      std::move(population), cfg, seed, std::move(resources));
+  // Keep preparation asynchronous; intercept only the completed reproduction
+  // in this diagnostic executable, after fitness has been supplied.
+  result.completion = std::async(std::launch::deferred,
+      [prepared = std::move(result.completion)]() mutable {
+        auto complete = prepared.get();
+        return std::function<ReproductionResult(const std::vector<double>&)>(
+            [complete = std::move(complete)](const std::vector<double>& fitness) mutable {
+              auto reproduction = complete(fitness);
+              capture_population(reproduction.next_population, "reproduction");
+              return reproduction;
+            });
+      });
+  return result;
+}
 ReproductionResult capture_reproduction(const std::vector<ScoredGenomeRef>& scored,
                                         const EvolutionConfig& cfg, std::mt19937_64& rng) {
   auto result = run_reproduction_backend(scored, cfg, rng);
@@ -101,11 +121,13 @@ repro::ReproductionResult capture_overlap(std::future<OverlapPrepared>* future,
 #define run_reproduction_backend capture_reproduction
 #define run_gpu_repro_backend capture_gpu_reproduction
 #define finish_gpu_reproduction_overlap capture_overlap
+#define start_owned_gpu_repro_overlap capture_owned_overlap
 #include "../evolution/evolve.cpp"
 #undef rank_population_refs
 #undef run_reproduction_backend
 #undef run_gpu_repro_backend
 #undef finish_gpu_reproduction_overlap
+#undef start_owned_gpu_repro_overlap
 
 #define main final_candidate_benchmark_main
 #include "final_candidate_bench.cpp"

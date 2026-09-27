@@ -435,3 +435,25 @@ Final code SHA-256 is
 `449ff9969cbf65406d094b9cb47d52539219e0843d705fbea34dc7c958c863c2`;
 `guard-cpp-hashes.json` verifies all 363 source paths. Receipts are preserved in
 `target30-proof-guard-tcmalloc/`. No noisy completed observation was excluded.
+
+### Final guard measurements and clean-checkout diagnostic repair
+
+The final guard binary's one-warmup/three-block follow-up is preserved in
+`target30-guard-final-paired/`. CPU observations are 5216.690, 5200.009,
+5317.230 ms; direct GPU 287.518, 204.885, 204.925 ms; overlap GPU 175.576,
+176.147, 180.874 ms. The medians give 25.457x direct and 29.616x overlap.
+The slower direct observation remains included. This final source has not yet
+established >30x; the earlier 30.4896x remains an earlier-binary result.
+
+A fresh Debug/CUDA checkout of `d21b062` on Snoopy passed 117/118 native tests.
+The diagnostic-only `gagp_final_candidate_stats` still intercepted the old
+overlap completion function and missed reproduction observations on the new
+owned continuation. Its wrapper now captures the owned completion without
+changing production evolution or benchmark timing. The existing failed test
+then passed (all evaluation/reproduction modes, final evaluation on/off).
+This is 118 distinct native checks covered across the original suite and focused
+repair rerun, not a claim of a second complete suite. The tools suite passed
+80 checks locally and all four initially skipped native integration checks
+on the fresh remote build (84 total); repository checks passed 23/23.
+Logs are in external `grammar-migration/goal12-audit-20260927` and remote
+`/home/hschi1106/gagp-goal12-audit-20260927`.
