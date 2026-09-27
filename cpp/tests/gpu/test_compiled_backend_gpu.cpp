@@ -412,9 +412,10 @@ void test_immediate_run_matches_public_replay() {
 
 void test_prepared_parent_certificates() {
   const auto grammar = repeated_capture_grammar();
-  // Exercise both complete admission batches and untouched/fallback children.
+  // Exercise complete and partial admission batches, the odd discarded sibling,
+  // and untouched/fallback children through parallel metadata reconstruction.
   for (const auto mutation_rate : {0.0, 1.0}) {
-    auto config = compiled_config(grammar, 128, mutation_rate, 0.5, true);
+    auto config = compiled_config(grammar, 257, mutation_rate, 0.5, true);
     auto population = source_population(*grammar, config.population_size);
     for (auto& member : population) member.meta.program_key = "untrusted";
     const auto scored = score_manually(population);

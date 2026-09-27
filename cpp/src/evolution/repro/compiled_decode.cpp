@@ -165,7 +165,7 @@ std::vector<ProgramGenome> decode_compiled_pass(
   // Crossover classifies the odd discarded sibling; mutation visits actual
   // offspring only, matching the generation operator order and counter contract.
   const int accepted_count = mutation ? c.population_size : physical_children;
-  constexpr int analysis_batch = 128;
+  constexpr int analysis_batch = 256;
   std::vector<ProgramGenome> staged;
   std::vector<int> staged_indices;
   std::vector<std::optional<ProgramGenome>> admitted;
@@ -178,22 +178,44 @@ std::vector<ProgramGenome> decode_compiled_pass(
     if (i % analysis_batch == 0) {
       const auto count = std::min(analysis_batch, accepted_count - i);
       staged.clear(); staged.reserve(count); staged_indices.assign(count, -1);
-      for (int offset = 0; offset < count; ++offset) {
+      std::vector<std::optional<ProgramGenome>> reconstructed(count);
+      const auto reconstruct = [&](int offset) {
         const auto index = i + offset;
         const auto& proposal = view.child_splices[index];
         if (!proposal.applied && proposal.mutation_outcome != CompiledMutationOutcome::Constant)
-          continue;
+          return;
         try {
           ProgramGenome candidate;
           candidate.ast = read_child(packed, view, index);
           reconstruct_compiled_child_metadata(candidate.ast, packed, proposal);
-          staged_indices[offset] = static_cast<int>(staged.size());
-          staged.push_back(std::move(candidate));
+          reconstructed[offset] = std::move(candidate);
         } catch (const std::exception&) {
           // Speculation is never admission. The ordered path below repeats the
           // original checks and reports errors at the original child position.
           staged_indices[offset] = -1;
         }
+      };
+      if (count >= 32 && certificates &&
+          certificates->sources == packed.compiled_sources &&
+          certificates->context.get() == &context &&
+          !payload::StagedPayloads::has_active_scope()) {
+        if (!team) team = std::make_unique<detail::BatchWorkers>(
+            std::min(20u, std::max(1u, std::thread::hardware_concurrency())));
+        std::atomic<int> next{0};
+        team->run([&] {
+          for (;;) {
+            const int offset = next.fetch_add(1, std::memory_order_relaxed);
+            if (offset >= count) break;
+            reconstruct(offset);
+          }
+        });
+      } else {
+        for (int offset = 0; offset < count; ++offset) reconstruct(offset);
+      }
+      for (int offset = 0; offset < count; ++offset) {
+        if (!reconstructed[offset]) continue;
+        staged_indices[offset] = static_cast<int>(staged.size());
+        staged.push_back(std::move(*reconstructed[offset]));
       }
       admitted.clear(); admitted.resize(count);
       admission_counts.assign(count, {});

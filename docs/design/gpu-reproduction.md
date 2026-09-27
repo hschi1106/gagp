@@ -212,6 +212,16 @@ payload validation and ordered publication. Exceptions wait for all readers
 before propagating. GPU compilation, parent compaction and private complete-child
 admission use the same operation-owned team mechanism.
 
+Private child admission uses batches of at most 256 children. Its operation-owned
+team first reconstructs independent device child ASTs and metadata into indexed
+slots, then joins before collecting them in child order and running full admission.
+Metadata reconstruction reads only immutable prepared tables and private outputs;
+it does not publish payloads or choose variations. Enclosing payload scopes and
+unmatched source/context ownership keep reconstruction sequential. Speculative
+failures repeat on the ordered path, preserving the original error position.
+The team remains capped at 20 workers; each batch bounds reconstruction and
+admission storage, including an odd discarded crossover sibling.
+
 Donor pools may evaluate independent seeds with at most four concurrent workers.
 The pool resolves and owns the destination analysis once; workers share that
 immutable certificate while keeping separate VariationContexts, admission caches,
