@@ -457,3 +457,43 @@ repair rerun, not a claim of a second complete suite. The tools suite passed
 on the fresh remote build (84 total); repository checks passed 23/23.
 Logs are in external `grammar-migration/goal12-audit-20260927` and remote
 `/home/hschi1106/gagp-goal12-audit-20260927`.
+
+### Retained parallel donor identity validation
+
+The private owned packing continuation now computes every donor's full runtime
+identity using up to 20 workers (minimum pool 128, chunks of 16), joins them,
+and consumes matches/errors in original order. Public packing and enclosing
+payload transactions stay sequential. No donor, constant, hash input, proposal,
+validation rule, or GPU workload is removed. Additional scratch is one byte plus
+one exception pointer per donor and worker-local identity strings.
+
+The exact final production benchmark SHA-256 is
+`75f53eaf85a69c24e959fa5b5de5f2d7f56e908330e1abcf32f9f06471e4281f`.
+`target30-parallel-donor-paired/` records one warm-up and three rotated blocks:
+
+| Mode | Three observations (ms) | Median (ms) | Speedup |
+| --- | --- | ---: | ---: |
+| CPU | 5385.446, 5245.560, 5213.354 | 5245.560 | — |
+| GPU direct | 206.070, 205.081, 202.150 | 205.081 | 25.5780x |
+| GPU overlap | 177.498, 169.709, 173.250 | 173.250 | **30.2773x** |
+
+Each of the three same-block CPU/overlap pairs exceeds 30x. Samples remain small;
+no confidence interval or guarantee for other workloads/hosts is implied. Versus
+the preceding guard campaign, overlap median decreases 1.64%; CPU variation is
+0.55%, and its implementation is unchanged by this patch. Original direct >30x
+and original Q>=0.95 remain unmet. Same-allocator reference S=37.8023x gives
+Q=0.8009; the historical default-allocator S=41.9585x gives Q=0.7216.
+
+The four affected Release/CUDA checks pass (grammar reproduction preparation,
+compiled transport, compiled backend, evolution CPU/GPU parity). Added cases
+exercise >=128 donors, forged identities, exceptions from invalid donor nodes,
+and enclosing payload scopes. Independent final-evaluation validation retains
+all 1024 members, checks native membership/lowering and budget handling, and
+compares complete ordered native AST records against the window checkpoint: equal.
+Output SHA-256: `f401ece00609aca0c46c45ea4577ac66dcce3de37cd67fc3d5820dfa2a1c0525`.
+
+`target30-parallel-donor-summary.json` records medians, hashes and receipts;
+`parallel-donor-paired.py`, `parallel-donor-population.py`, and `audit-final.py`
+reproduce the campaign/validation/audit using preserved inputs and binaries.
+The previous guard campaign, exploratory trial, failed workflow probe and all
+completed observations remain preserved. No new grammar restriction is retained.

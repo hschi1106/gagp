@@ -328,6 +328,15 @@ void test_warmed_population_handoff() {
     const auto packed = gagp::evo::repro::pack_warmed_population(
         population, result, config, handoff);
     const auto ordinary = gagp::evo::repro::pack_population(population, result, config);
+    check(result.donor_pool.size() >= 128, "warm packing did not exercise parallel donor checks");
+    {
+      gagp::payload::StagedPayloads reads;
+      gagp::payload::StagedPayloads::Scope scope(reads);
+      const auto scoped = gagp::evo::repro::pack_warmed_population(
+          population, result, config, handoff);
+      check(scoped.donor_lens == ordinary.donor_lens,
+            "active payload scope changed donor packing");
+    }
     check(packed.program_name_ids == ordinary.program_name_ids &&
               packed.compatibility_keys == ordinary.compatibility_keys &&
               packed.program_nodes.size() == ordinary.program_nodes.size(),
@@ -338,6 +347,14 @@ void test_warmed_population_handoff() {
                 packed.program_nodes[i].i1 == ordinary.program_nodes[i].i1,
             "warm packing changed physical nodes");
     auto forged = result;
+    forged.donor_identities.back() = "forged";
+    rejects_invalid([&] { (void)gagp::evo::repro::pack_warmed_population(
+        population, forged, config, handoff); }, "parallel packing accepted forged donor identity");
+    forged = result;
+    forged.donor_pool.back().ast.nodes.front().kind = static_cast<NodeKind>(-1);
+    rejects_invalid([&] { (void)gagp::evo::repro::pack_warmed_population(
+        population, forged, config, handoff); }, "parallel packing lost donor identity exception");
+    forged = result;
     forged.population_identities.front() = "forged";
     rejects_invalid([&] { (void)gagp::evo::repro::pack_warmed_population(
         population, forged, config, handoff); }, "warm packing accepted forged identity");

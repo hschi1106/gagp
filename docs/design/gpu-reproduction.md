@@ -330,6 +330,14 @@ genomes just to compute a key. The genome overload forwards to the same AST
 implementation; full decoded-constant, metadata, input-name and fuel validation
 still runs for each check, including detection of changed payload registry values.
 
+For the private owned packing continuation, pools of at least 128 donors compute
+these complete identities with up to 20 operation-owned workers in chunks of 16.
+The caller joins the workers before consuming results and reports errors in the
+original donor order. This adds one byte and one exception pointer per donor,
+plus worker-local identity strings; it does not cache or omit decoded identities.
+Public packing and callers with an active payload scope keep the sequential path
+so transaction reads remain on their owning thread.
+
 Table compaction takes ownership of its working genome. Callers retaining their
 source pass an lvalue and receive a compacted copy; certification transfers its
 already-owned genome with a move. Native index checks, survivor order, remapping,

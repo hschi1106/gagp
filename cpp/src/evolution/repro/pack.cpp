@@ -1,7 +1,9 @@
 #include "pack_internal.hpp"
 #include "../../runtime/payload/staging.hpp"
+#include "../batch_workers.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <limits>
 #include <stdexcept>
@@ -121,6 +123,32 @@ GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population
   std::vector<std::string> inputs;
   for (const auto& input : prep.compiled_grammar->inputs()) inputs.push_back(input.name);
   const auto fuel = prep.compiled_grammar->execution_limits().fuel;
+  // The private preparation continuation owns immutable donors. Parallelize
+  // their complete decoded identities, retaining ordered error reporting. An
+  // active caller payload scope must keep its reads on the calling thread.
+  std::vector<unsigned char> donor_matches;
+  std::vector<std::exception_ptr> donor_errors;
+  if (warmed && prep.donor_pool.size() >= 128 &&
+      !payload::StagedPayloads::has_active_scope()) {
+    donor_matches.resize(prep.donor_pool.size());
+    donor_errors.resize(prep.donor_pool.size());
+    std::atomic<std::size_t> next{0};
+    detail::BatchWorkers workers(std::min<std::size_t>(20,
+        std::max(1u, std::thread::hardware_concurrency())));
+    workers.run([&] {
+      for (;;) {
+        const auto begin = next.fetch_add(16);
+        if (begin >= prep.donor_pool.size()) break;
+        const auto end = std::min(begin + 16, prep.donor_pool.size());
+        for (auto i = begin; i < end; ++i) {
+          try {
+            donor_matches[i] = grammar::runtime_cache_identity(
+                prep.donor_pool[i].ast, inputs, fuel) == prep.donor_identities[i];
+          } catch (...) { donor_errors[i] = std::current_exception(); }
+        }
+      }
+    });
+  }
   for (std::size_t i = 0; i < population.size(); ++i) {
     const auto& ast = population[i].ast;
     if (ast.nodes.empty() || ast.nodes.size() > static_cast<std::size_t>(config.max_nodes))
@@ -177,7 +205,11 @@ GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population
   }
   for (std::size_t i = 0; i < prep.donor_pool.size(); ++i) {
     const auto& ast = prep.donor_pool[i].ast;
-    if (grammar::runtime_cache_identity(ast, inputs, fuel) != prep.donor_identities[i])
+    if (!donor_errors.empty() && donor_errors[i]) std::rethrow_exception(donor_errors[i]);
+    const bool matches = donor_matches.empty()
+        ? grammar::runtime_cache_identity(ast, inputs, fuel) == prep.donor_identities[i]
+        : donor_matches[i] != 0;
+    if (!matches)
       throw std::invalid_argument("compiled pack preparation does not match donor identity");
     if (prep.donor_contracts[i].materialized_nodes != static_cast<int>(ast.nodes.size()))
       throw std::invalid_argument("compiled pack donor measurement differs from payload");
