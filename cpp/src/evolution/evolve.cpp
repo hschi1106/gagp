@@ -79,7 +79,7 @@ CompiledPopulation compile_population(const std::vector<ProgramGenome>& populati
   CompileCache local_cache;
   CompileCache* cache = (compile_cache != nullptr) ? compile_cache : &local_cache;
   constexpr std::size_t batch_size = 128;
-  const auto workers = parallel_allowed ? std::min(8u, std::thread::hardware_concurrency()) : 1u;
+  const auto workers = parallel_allowed ? std::min(20u, std::thread::hardware_concurrency()) : 1u;
   const bool parallel = population.size() >= 32 && workers > 1 &&
       !payload::StagedPayloads::has_active_scope();
   struct PreparedCompile {

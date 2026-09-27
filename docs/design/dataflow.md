@@ -106,7 +106,7 @@ stay under artifact directories, and only reviewed compact manifests belong in
 ### Bounded GPU evaluation compilation
 
 GPU evaluation prepares bytecode in source-ordered batches of at most 128 members,
-using up to eight workers when the population has at least 32 members. Each worker
+using up to 20 workers, capped by hardware concurrency, when the population has at least 32 members. Each worker
 captures the runtime identity and compilation under one payload read snapshot.
 After joining workers, all snapshots must validate atomically before cache/results
 are published in population order. Conflicting reads fall back to sequential
@@ -114,3 +114,9 @@ preparation; enclosing payload scopes and small populations do not spawn workers
 Duplicate cache keys retain the first published bytecode without dropping any
 population member or fitness work. CPU evaluation keeps sequential compilation.
 Timing semantics are defined in [the timing reference](../reference/timing.md).
+
+GPU reproduction also batches parent compaction and complete child admission.
+Stable table compaction can transport already validated analyses; payload changes
+or unavailable ownership proofs fall back to full analysis. See the
+[GPU reproduction dataflow](gpu-reproduction.md) for ownership and publication
+invariants. These schedules retain every population member and operator proposal.

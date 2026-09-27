@@ -411,47 +411,50 @@ void test_immediate_run_matches_public_replay() {
 
 void test_prepared_parent_certificates() {
   const auto grammar = repeated_capture_grammar();
-  auto config = compiled_config(grammar, 128, 0.0, 0.0, true);
-  auto population = source_population(*grammar, config.population_size);
-  for (auto& member : population) member.meta.program_key = "untrusted";
-  const auto scored = score_manually(population);
-  auto prepared = gagp::evo::repro::prepare_gpu_repro_backend_inputs(population, config, 91);
-  require(prepared.parent_certificates != nullptr, "missing prepared parent certificates");
-  const auto result = gagp::evo::repro::run_gpu_repro_backend_prepared(scored, config, prepared);
-  auto plain = prepared;
-  plain.parent_certificates.reset();
-  const auto reference = gagp::evo::repro::run_gpu_repro_backend_prepared(scored, config, plain);
-  require(same_population(result.next_population, reference.next_population) &&
-              same_counters(result.stats.variation, reference.stats.variation),
-          "parent certificates changed offspring or counters");
-  for (const auto& member : result.next_population)
-    require(member.meta.program_key == ast_cache_key(member.ast) && member.derivation,
-            "parent certificates reused untrusted metadata");
-  // Each independently invalid boundary must decline the continuation. Poison
-  // saved metadata so accidental reuse is visible even for an identical AST.
-  const auto certificates = prepared.parent_certificates;
-  for (int boundary = 0; boundary < 3; ++boundary) {
-    auto invalidated = std::make_shared<gagp::evo::repro::PreparedParentCertificates>(
-        *certificates);
-    if (boundary == 0) {
-      for (auto& row : invalidated->analyses)
-        row.reads = std::make_shared<gagp::payload::StagedPayloads>();
-    } else if (boundary == 1) {
-      invalidated->sources = std::make_shared<const gagp::evo::repro::CompiledSpliceSources>(
-          *certificates->sources);
-    } else {
-      invalidated->context = std::make_shared<gagp::evo::grammar::VariationContext>(
-          grammar, certificates->context->requests());
+  // Exercise both complete admission batches and untouched/fallback children.
+  for (const auto mutation_rate : {0.0, 1.0}) {
+    auto config = compiled_config(grammar, 128, mutation_rate, 0.5, true);
+    auto population = source_population(*grammar, config.population_size);
+    for (auto& member : population) member.meta.program_key = "untrusted";
+    const auto scored = score_manually(population);
+    auto prepared = gagp::evo::repro::prepare_gpu_repro_backend_inputs(population, config, 91);
+    require(prepared.parent_certificates != nullptr, "missing prepared parent certificates");
+    const auto result = gagp::evo::repro::run_gpu_repro_backend_prepared(scored, config, prepared);
+    auto plain = prepared;
+    plain.parent_certificates.reset();
+    const auto reference = gagp::evo::repro::run_gpu_repro_backend_prepared(scored, config, plain);
+    require(same_population(result.next_population, reference.next_population) &&
+                same_counters(result.stats.variation, reference.stats.variation),
+            "parent certificates changed offspring or counters");
+    for (const auto& member : result.next_population)
+      require(member.meta.program_key == ast_cache_key(member.ast) && member.derivation,
+              "parent certificates reused untrusted metadata");
+    // Each independently invalid boundary must decline the continuation. Poison
+    // saved metadata so accidental reuse is visible even for an identical AST.
+    const auto certificates = prepared.parent_certificates;
+    for (int boundary = 0; boundary < 3; ++boundary) {
+      auto invalidated = std::make_shared<gagp::evo::repro::PreparedParentCertificates>(
+          *certificates);
+      if (boundary == 0) {
+        for (auto& row : invalidated->analyses)
+          row.reads = std::make_shared<gagp::payload::StagedPayloads>();
+      } else if (boundary == 1) {
+        invalidated->sources = std::make_shared<const gagp::evo::repro::CompiledSpliceSources>(
+            *certificates->sources);
+      } else {
+        invalidated->context = std::make_shared<gagp::evo::grammar::VariationContext>(
+            grammar, certificates->context->requests());
+      }
+      for (auto& meta : invalidated->metadata) meta.program_key = "invalidated";
+      prepared.parent_certificates = invalidated;
+      const auto fallback = gagp::evo::repro::run_gpu_repro_backend_prepared(scored, config, prepared);
+      require(same_population(fallback.next_population, reference.next_population) &&
+                  same_counters(fallback.stats.variation, reference.stats.variation),
+              "invalid parent certificate changed fallback behavior");
+      for (const auto& member : fallback.next_population)
+        require(member.meta.program_key == ast_cache_key(member.ast),
+                "invalid parent certificate reused saved metadata");
     }
-    for (auto& meta : invalidated->metadata) meta.program_key = "invalidated";
-    prepared.parent_certificates = invalidated;
-    const auto fallback = gagp::evo::repro::run_gpu_repro_backend_prepared(scored, config, prepared);
-    require(same_population(fallback.next_population, reference.next_population) &&
-                same_counters(fallback.stats.variation, reference.stats.variation),
-            "invalid parent certificate changed fallback behavior");
-    for (const auto& member : fallback.next_population)
-      require(member.meta.program_key == ast_cache_key(member.ast),
-              "invalid parent certificate reused saved metadata");
   }
 }
 
@@ -520,6 +523,47 @@ void test_run_resources_retain_grammar_payloads() {
               nested_a == "nested-a" && nested_b == "nested-b",
           "payload sweep dropped nested StringList string roots");
   gagp::payload::clear();
+}
+
+void test_compacted_analysis_drops_unused_inputs() {
+  const auto grammar = std::make_shared<const CompiledGrammar>(gagp::evo::grammar::compile_grammar(
+      gagp::evo::grammar::parse_definition(R"({
+    "format_version":"grammar-definition-v2",
+    "entry":{"nonterminal":"Main","type":"Int"},
+    "inputs":[{"name":"unused_x","type":"Float"},{"name":"unused_y","type":"Int"}],
+    "locals":[], "templates":[],
+    "search_limits":{"max_nodes":20,"max_depth":10},"execution_limits":{"fuel":100},
+    "nonterminals":[{"id":"Main","type":"Int","scope":[],"alternatives":[
+      {"id":"add","weight":1,"expression":{"signature":"add(Int,Int)->Int","args":[
+        {"ref":"Leaf"},{"ref":"Leaf"}]}}]},
+      {"id":"Leaf","type":"Int","scope":[],"alternatives":[
+        {"id":"value","weight":1,"expression":{"constant":{"type":"Int","values":["1","2"]}}}]}]
+  })")));
+  const auto config = compiled_config(grammar, 64, 1.0, 0.5, true);
+  const auto population = source_population(*grammar, 64, 3);
+  const auto prepared = gagp::evo::repro::prepare_gpu_repro_backend_inputs(population, config, 17);
+  const auto& saved = *prepared.parent_certificates;
+  for (std::size_t i = 0; i < population.size(); ++i) {
+    ProgramGenome compacted;
+    compacted.ast = saved.sources->parents[i];
+    require(compacted.ast.names.empty(), "fixture retained unused input names");
+    const auto fresh = gagp::evo::grammar::analyze_population_variation(
+        *grammar, compacted, saved.context->requests());
+    const auto& transported = *saved.analyses[i].analysis;
+    require(transported.verified.expression_types == fresh.verified.expression_types &&
+            transported.verified.expression_scope_ids == fresh.verified.expression_scope_ids &&
+            transported.verified.expression_scope_signatures == fresh.verified.expression_scope_signatures &&
+            transported.verified.expression_binder_signatures == fresh.verified.expression_binder_signatures &&
+            transported.verified.scopes.size() == fresh.verified.scopes.size() &&
+            transported.sites.size() == fresh.sites.size(), "compacted verification differs from fresh analysis");
+    for (std::size_t j = 0; j < fresh.verified.scopes.size(); ++j)
+      require(transported.verified.scopes[j].locals == fresh.verified.scopes[j].locals &&
+              transported.verified.scopes[j].binders == fresh.verified.scopes[j].binders,
+              "compacted scopes retained unused inputs or changed binders");
+    for (std::size_t j = 0; j < fresh.sites.size(); ++j)
+      require(transported.sites[j].compatibility_key == fresh.sites[j].compatibility_key,
+              "compacted compatibility differs from full analysis");
+  }
 }
 
 void test_source_identity_normalizes_unused_tables() {
@@ -1344,6 +1388,7 @@ int main() {
     test_bounded_external_capture_donors();
     test_run_resources_retain_grammar_payloads();
     test_source_identity_normalizes_unused_tables();
+    test_compacted_analysis_drops_unused_inputs();
     test_closed_cross_scope_crossover();
     test_public_modes_and_overlap();
     test_mixed_roots_across_all_modes();

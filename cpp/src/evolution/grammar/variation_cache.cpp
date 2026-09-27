@@ -40,12 +40,17 @@ VariationAnalysisCache::VariationAnalysisCache(
 
 std::string VariationAnalysisCache::key(
     const ProgramGenome& genome, const GenerationRequest& request, std::string* runtime_identity) const {
+  const auto identity = runtime_cache_identity(genome, input_names_, grammar_->execution_limits().fuel);
+  if (runtime_identity) *runtime_identity = identity;
+  return key(identity, request);
+}
+
+std::string VariationAnalysisCache::key(const std::string& identity,
+    const GenerationRequest& request) const {
   std::string result;
   append_field(result, "grammar-variation-analysis-cache-v1");
   append_field(result, grammar_->content_hash());
-  const auto identity = runtime_cache_identity(genome, input_names_, grammar_->execution_limits().fuel);
   append_field(result, identity);
-  if (runtime_identity) *runtime_identity = identity;
   append_number(result, request.nonterminal);
   append_number(result, static_cast<std::uint32_t>(request.type));
   append_number(result, static_cast<std::uint32_t>(request.visible_environment.size()));
@@ -92,7 +97,14 @@ std::shared_ptr<const VariationAnalysis> VariationAnalysisCache::remember(
 
 std::string VariationAnalysisCache::member_key(const ProgramGenome& genome,
     const std::vector<GenerationRequest>& requests, std::string* runtime_identity) const {
-  auto cache_key = key(genome, requests.front(), runtime_identity);
+  const auto identity = runtime_cache_identity(genome, input_names_, grammar_->execution_limits().fuel);
+  if (runtime_identity) *runtime_identity = identity;
+  return member_key(identity, requests);
+}
+
+std::string VariationAnalysisCache::member_key(const std::string& identity,
+    const std::vector<GenerationRequest>& requests) const {
+  auto cache_key = key(identity, requests.front());
   if (requests.size() == 1) return cache_key;
   append_field(cache_key, "population-root-requests-v1");
   append_number(cache_key, static_cast<std::uint32_t>(requests.size()));

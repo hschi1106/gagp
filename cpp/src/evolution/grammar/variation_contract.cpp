@@ -282,4 +282,65 @@ bool donor_fits(const VariationSite& destination, const VariationSite& donor) {
       (!destination.has_projected_allowance || destination.projected_allowance.accepts(donor.projected_resources));
 }
 
+namespace variation_detail {
+VariationAnalysis remap_compacted_analysis(const CompiledGrammar& grammar,
+    const VariationAnalysis& source, const AstProgram& before, const AstProgram& after) {
+  VariationAnalysis result = source;
+  std::vector<int> remap(before.names.size(), -1);
+  std::size_t next = 0;
+  for (std::size_t i = 0; i < before.names.size(); ++i)
+    if (next < after.names.size() && before.names[i] == after.names[next])
+      remap[i] = static_cast<int>(next++);
+  if (next != after.names.size()) throw std::logic_error("analysis compaction is not stable");
+  using ScopeKey = std::pair<std::vector<std::pair<int, RType>>, std::vector<std::pair<int, RType>>>;
+  std::map<ScopeKey, std::uint32_t> scope_ids;
+  std::vector<std::uint32_t> remapped_scopes;
+  std::vector<VerifiedScope> scopes;
+  std::vector<std::uint64_t> signatures;
+  for (const auto& original : source.verified.scopes) {
+    VerifiedScope scope;
+    scope.binders = original.binders;
+    for (const auto& entry : original.locals)
+      if (remap.at(entry.first) >= 0) scope.locals.emplace_back(remap[entry.first], entry.second);
+    ScopeKey key{scope.locals, scope.binders};
+    auto found = scope_ids.find(key);
+    if (found == scope_ids.end()) {
+      const auto id = static_cast<std::uint32_t>(scopes.size());
+      found = scope_ids.emplace(std::move(key), id).first;
+      std::uint64_t signature = 1469598103934665603ULL;
+      for (const auto& entry : scope.locals) {
+        signature ^= static_cast<std::uint64_t>(entry.first + 1);
+        signature *= 1099511628211ULL;
+        signature ^= static_cast<std::uint64_t>(entry.second) + 1ULL;
+        signature *= 1099511628211ULL;
+      }
+      signatures.push_back(signature);
+      scopes.push_back(std::move(scope));
+    }
+    remapped_scopes.push_back(found->second);
+  }
+  for (std::size_t i = 0; i < result.verified.expression_scope_ids.size(); ++i) {
+    auto& id = result.verified.expression_scope_ids[i];
+    if (id == kNoGrammarId) continue;
+    id = remapped_scopes.at(id);
+    result.verified.expression_scope_signatures[i] = signatures.at(id);
+  }
+  result.verified.scopes = std::move(scopes);
+  std::set<std::string> names(after.names.begin(), after.names.end());
+  for (auto& site : result.sites) {
+    const auto prior_count = site.available_locals.size();
+    if (site.category != NodeCategory::Program)
+      site.available_locals.erase(std::remove_if(site.available_locals.begin(), site.available_locals.end(),
+          [&](const auto& binding) { return !names.count(binding.name); }), site.available_locals.end());
+    // The original IDs belong to the same live context registry. Stable table
+    // renumbering changes compatibility only when an unused input disappears.
+    if (site.available_locals.size() != prior_count) {
+      site.compatibility_key = contract_key(grammar, site);
+      site.compatibility_id = kNoGrammarId;
+    }
+  }
+  return result;
+}
+}  // namespace variation_detail
+
 }  // namespace gagp::evo::grammar

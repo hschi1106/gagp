@@ -199,7 +199,7 @@ preparation and decoding while allowing bounded headroom for generated children;
 entries remain exact-runtime-identity keyed and eviction does not relax admission.
 
 Parent analysis warm-up uses bounded batches of at most 128 programs with up to
-eight readers (limited by hardware concurrency). Each reader reconstructs native
+20 readers (limited by hardware concurrency) in the GPU backend. Each reader reconstructs native
 membership, lowering and variation sites without writing the payload registry or
 compatibility registry. After all readers join, the owning thread commits results
 in population order and interns compatibility IDs in site order. Exact decoded
@@ -257,17 +257,21 @@ charges; refinement uses each ordered child's set of reachable partition IDs.
 Only a fixed point is merged, preserving recursive languages and node costs.
 This reduces certificate startup work without changing donor admission rules.
 
-GPU copyback prepares changed-child ASTs in bounded batches of 128 and speculatively
-analyzes batches with at least 32 proposals using the existing analysis workers.
-Pending results have no compatibility IDs and do not change cache counters.
-Ordinary ordered `analyze` calls register and cache a result only when consumed;
-unused proposals cannot fill the compatibility registry. Pending storage is capped
-by both cache capacity and batch size. Malformed proposals remain on the original
-ordered validation/fallback path; speculation never bypasses provenance, physical
-metadata, membership, resource-budget or execution-admission checks.
+GPU copyback prepares changed-child ASTs in bounded batches of 128. With at least
+32 proposals, an owned prepared-source/context continuation can perform complete
+child admission using at most 20 readers, capped by hardware concurrency. Workers
+use separate variation contexts and payload snapshots; they perform ordinary
+native/grammar certification, lowering, root-contract and resource checks.
+Every worker joins before atomic read validation. Provenance and physical metadata
+remain checked in the original child order before results and admission counters
+are published. Failed speculation or changed payloads falls back to ordinary
+ordered admission. Enclosing payload scopes and callers without the owned
+continuation keep deferred analysis warming and the existing ordered path.
+Worker cache/registry IDs do not escape into the owning context; only certified
+children and the five admission-result counters are transferred.
 
-The donor module also provides a speculative multi-pool API, not yet connected to
-preprocessing. Up to eight workers process independent pools while preserving the
+The donor module provides the speculative multi-pool API used by bounded mutation
+prefetch. Up to eight workers process independent pools while preserving the
 returned job/seed order. Each pool stages payload writes; only a successful atomic
 commit publishes results. On conflict or unsupported batching it returns no result,
 and the caller must replay its original complete interleaved preparation. Merely
@@ -280,7 +284,23 @@ physical donor nodes across their outputs; exceeding a bound declines speculatio
 
 The evolution loop supplies GPU reproduction with fitness aligned to the original population order in both direct and overlap modes. Candidate shuffles, donor seeds and tournament indices therefore refer to the same members for a fixed seed. A separate ranked view identifies the best member for reporting. Previously, direct execution prepared fitness-sorted parents while overlap prepared original-order parents, changing seeded trajectories when fitness differed. The correction changes the direct GPU trajectory to match overlap; it does not change evaluation order, tournament distribution, or CPU reproduction ordering. Lower-level prepared reproduction still requires callers to supply fitness and genomes aligned with the prepared source order.
 
-Parent analyses are first warmed on the original tables, preserving validation of unused constants and payloads. If compaction removes table entries, the compacted population is also warmed in parallel before preprocessing. Exact cache identities differ across those representations; warming only the originals would force serial reconstruction of compacted parents. When no entries are removed the extra warm-up is skipped. Both passes commit analyses in population order.
+Parent analyses are first warmed on the original tables, preserving validation
+of unused constants and payloads. Private parent compaction processes batches of
+at most 128 members with up to 20 readers outside enclosing payload transactions.
+Read conflicts fall back to sequential compaction and errors retain source order.
+
+When stable compaction removes table entries, its owning preparation call can
+transport the validated analysis: physical nodes, types, binders, witness and
+resource charges remain unchanged; native scope name indexes are remapped,
+unused input names are removed from expression scopes, duplicate scopes are
+interned again, and affected compatibility keys are rebuilt. Program-root input
+contracts remain unchanged. Exact runtime identities and payload reads are
+revalidated before ordered cache publication. Existing compatibility IDs are
+reused only in their original live context registry. Transport is bounded by the
+128–4096-entry warm-handoff capacity and never accepts caller-supplied provenance.
+Unavailable handoffs, enclosing transactions, failed remapping or changed reads
+use full compacted-population analysis. No-removal compaction skips the extra
+analysis stage.
 
 Donor-pool calls inside an active staged payload transaction use sequential generation in the caller's view. Optional cross-pool batching declines in that situation. This keeps uncommitted destination values visible and leaves all donor writes owned by the enclosing transaction, including rollback. Worker-local transactions are used only outside an enclosing transaction.
 

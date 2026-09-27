@@ -3,6 +3,10 @@
 #include "gagp/evolution/repro/gpu.hpp"
 
 #include <algorithm>
+#include <atomic>
+#include <future>
+#include <thread>
+#include "../../runtime/payload/staging.hpp"
 #include <chrono>
 #include <exception>
 #include <stdexcept>
@@ -19,10 +23,66 @@
 #include "gagp/evolution/repro/prep.hpp"
 #include "gpu/internal.hpp"
 #include "compiled_decode.hpp"
+#include "../grammar/variation_internal.hpp"
 #include "gagp/evolution/grammar/cache.hpp"
 #include "gagp/evolution/grammar/random.hpp"
 
 namespace gagp::evo::repro {
+struct OwnedCompactedAnalysis {
+  static bool transport(grammar::VariationContext& context,
+      const std::vector<ProgramGenome>& before, const std::vector<ProgramGenome>& after,
+      std::vector<grammar::WarmPopulationMember>& warmed) {
+    if (warmed.size() != before.size() || payload::StagedPayloads::has_active_scope()) return false;
+    std::vector<std::shared_ptr<grammar::VariationAnalysis>> analyses(before.size());
+    std::vector<grammar::WarmPopulationMember> output(before.size());
+    std::vector<std::string> input_names;
+    for (const auto& input : context.grammar().inputs()) input_names.push_back(input.name);
+    std::atomic<std::size_t> next{0};
+    std::vector<std::future<void>> pending;
+    const auto workers = std::min(20u, std::max(1u, std::thread::hardware_concurrency()));
+    for (unsigned worker = 0; worker < workers; ++worker)
+      pending.push_back(std::async(std::launch::async, [&] {
+        for (;;) {
+          const auto i = next.fetch_add(1, std::memory_order_relaxed);
+          if (i >= before.size()) break;
+          try {
+            if (!warmed[i].analysis || !warmed[i].reads || !warmed[i].reads->read_snapshot_unchanged()) continue;
+            output[i].reads = std::make_shared<payload::StagedPayloads>();
+            payload::StagedPayloads::Scope scope(*output[i].reads);
+            analyses[i] = std::make_shared<grammar::VariationAnalysis>(grammar::variation_detail::remap_compacted_analysis(
+                context.grammar(), *warmed[i].analysis, before[i].ast, after[i].ast));
+            output[i].runtime_identity = grammar::runtime_cache_identity(after[i], input_names,
+                context.grammar().execution_limits().fuel);
+          } catch (const std::exception&) { analyses[i].reset(); }
+        }
+      }));
+    for (auto& task : pending) task.get();
+    std::vector<payload::StagedPayloads*> reads;
+    for (std::size_t i = 0; i < before.size(); ++i) {
+      if (!analyses[i] || !warmed[i].reads->read_snapshot_unchanged()) return false;
+      reads.push_back(output[i].reads.get());
+    }
+    if (!payload::StagedPayloads::commit_all(reads)) return false;
+    auto& cache = context.cache();
+    for (std::size_t i = 0; i < before.size(); ++i) {
+      auto key = cache.member_key(output[i].runtime_identity, context.requests());
+      const auto found = cache.entries_.find(key);
+      if (found != cache.entries_.end()) {
+        ++cache.counters_.hits;
+        output[i].analysis = found->second;
+      } else {
+        ++cache.counters_.misses;
+        for (auto& site : analyses[i]->sites)
+          if (site.compatibility_id == grammar::kNoGrammarId)
+            site.compatibility_id = cache.registry_.intern(site.compatibility_key);
+        output[i].analysis = cache.remember(std::move(key), std::move(analyses[i]));
+      }
+    }
+    warmed = std::move(output);
+    return true;
+  }
+};
+
 
 struct GpuReproRunResources {
   std::shared_ptr<const grammar::CompiledGrammar> grammar;
@@ -110,6 +170,43 @@ void validate_run_resources(const std::shared_ptr<GpuReproRunResources>& resourc
     throw std::invalid_argument("compiled GPU run resource grammar/request mismatch");
 }
 
+std::vector<ProgramGenome> compact_prepared_population(const std::vector<ProgramGenome>& population) {
+  if (population.size() < 32 || payload::StagedPayloads::has_active_scope())
+    return compact_population_tables(population);
+  std::vector<ProgramGenome> result(population.size());
+  const auto workers = std::min(20u, std::max(1u, std::thread::hardware_concurrency()));
+  constexpr std::size_t batch = 128;
+  for (std::size_t begin = 0; begin < population.size(); begin += batch) {
+    const auto count = std::min(batch, population.size() - begin);
+    std::vector<std::unique_ptr<payload::StagedPayloads>> reads(count);
+    std::vector<std::exception_ptr> errors(count);
+    std::atomic<std::size_t> next{0};
+    std::vector<std::future<void>> pending;
+    for (unsigned worker = 0; worker < workers; ++worker)
+      pending.push_back(std::async(std::launch::async, [&] {
+        for (;;) {
+          const auto offset = next.fetch_add(1, std::memory_order_relaxed);
+          if (offset >= count) break;
+          try {
+            reads[offset] = std::make_unique<payload::StagedPayloads>();
+            payload::StagedPayloads::Scope scope(*reads[offset]);
+            result[begin + offset] = compact_genome_tables(population[begin + offset]);
+          } catch (...) { errors[offset] = std::current_exception(); }
+        }
+      }));
+    for (auto& task : pending) task.get();
+    std::vector<payload::StagedPayloads*> transactions;
+    for (const auto& read : reads) if (read) transactions.push_back(read.get());
+    if (!payload::StagedPayloads::commit_all(transactions)) {
+      for (std::size_t offset = 0; offset < count; ++offset)
+        result[begin + offset] = compact_genome_tables(population[begin + offset]);
+    } else {
+      for (const auto& error : errors) if (error) std::rethrow_exception(error);
+    }
+  }
+  return result;
+}
+
 GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& population,
                                                       const EvolutionConfig& cfg,
                                                       std::uint64_t seed,
@@ -133,13 +230,13 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
       cfg.compiled_grammar, population_requests(cfg), analysis_capacity,
       cfg.offspring_resource_budget);
   std::vector<grammar::WarmPopulationMember> warmed_members;
-  context->cache().warm_population(population, context->requests(), 8, &warmed_members);
+  context->cache().warm_population(population, context->requests(), 20, &warmed_members);
   out.compiled_context = context;
   // Only the private mutation pass receives decode_compiled_pass output:
   // accepted children and certified fallbacks already have compact tables.
   // Keep warming/revalidation above so registry changes remain observable.
   const auto compacted_population = pass == CompiledVariationPass::Mutation
-      ? std::vector<ProgramGenome>{} : compact_population_tables(population);
+      ? std::vector<ProgramGenome>{} : compact_prepared_population(population);
   const auto& packed_population = pass == CompiledVariationPass::Mutation
       ? population : compacted_population;
   // Compaction changes exact cache identities when unused table entries are
@@ -150,8 +247,8 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
   for (std::size_t i = 0; i < population.size(); ++i)
     compacted_tables |= population[i].ast.names.size() != packed_population[i].ast.names.size() ||
         population[i].ast.consts.size() != packed_population[i].ast.consts.size();
-  if (compacted_tables)
-    context->cache().warm_population(packed_population, context->requests(), 8, &warmed_members);
+  if (compacted_tables && !OwnedCompactedAnalysis::transport(*context, population, packed_population, warmed_members))
+    context->cache().warm_population(packed_population, context->requests(), 20, &warmed_members);
   out.config = make_gpu_repro_config(packed_population, cfg);
   out.config.seed = seed;
   out.config.compiled_pass = pass;

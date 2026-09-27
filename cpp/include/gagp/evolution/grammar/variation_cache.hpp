@@ -11,6 +11,7 @@
 #include "gagp/evolution/grammar/variation_contract.hpp"
 
 namespace gagp::payload { class StagedPayloads; }
+namespace gagp::evo::repro { struct OwnedCompactedAnalysis; }
 
 namespace gagp::evo::grammar {
 
@@ -57,6 +58,10 @@ class VariationAnalysisCache {
   const VariationCacheCounters& counters() const noexcept { return counters_; }
 
  private:
+  friend struct gagp::evo::repro::OwnedCompactedAnalysis;
+  std::string key(const std::string& identity, const GenerationRequest& request) const;
+  std::string member_key(const std::string& identity,
+      const std::vector<GenerationRequest>& requests) const;
   void prepare_population(const std::vector<ProgramGenome>& population,
       const std::vector<GenerationRequest>& requests, std::size_t max_workers, bool deferred,
       std::vector<WarmPopulationMember>* handoff = nullptr);

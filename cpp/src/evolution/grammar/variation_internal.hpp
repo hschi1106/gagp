@@ -13,6 +13,11 @@ std::pair<ProgramGenome, ProgramGenome> crossover_with_sites(
     const ProgramGenome& parent_a, const ProgramGenome& parent_b,
     std::uint64_t seed, VariationContext& context, SelectedCrossoverSites* selected);
 
+// Internal stable-table compaction continuation; the caller owns the exact
+// validated source and compacted AST and validates their payload snapshots.
+VariationAnalysis remap_compacted_analysis(const CompiledGrammar& grammar,
+    const VariationAnalysis& source, const AstProgram& before, const AstProgram& after);
+
 ProgramGenome certify(ProgramGenome genome, VariationContext& context);
 ProgramGenome fallback(const ProgramGenome& certified_parent, VariationContext& context);
 ProgramGenome accept(AstProgram candidate, const ProgramGenome& certified_parent,

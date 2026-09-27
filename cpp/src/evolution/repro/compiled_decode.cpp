@@ -2,6 +2,9 @@
 #include "../../runtime/payload/staging.hpp"
 
 #include <algorithm>
+#include <atomic>
+#include <future>
+#include <thread>
 #include <cstring>
 #include <limits>
 #include <optional>
@@ -164,6 +167,9 @@ std::vector<ProgramGenome> decode_compiled_pass(
   constexpr int analysis_batch = 128;
   std::vector<ProgramGenome> staged;
   std::vector<int> staged_indices;
+  std::vector<std::optional<ProgramGenome>> admitted;
+  std::vector<grammar::VariationCounters> admission_counts;
+  std::vector<std::shared_ptr<payload::StagedPayloads>> admission_reads;
   for (int i = 0; i < accepted_count; ++i) {
     if (i % analysis_batch == 0) {
       const auto count = std::min(analysis_batch, accepted_count - i);
@@ -185,12 +191,55 @@ std::vector<ProgramGenome> decode_compiled_pass(
           staged_indices[offset] = -1;
         }
       }
-      try {
-        if (staged.size() >= 32) context.cache().warm_candidates(staged, context.requests());
+      admitted.clear(); admitted.resize(count);
+      admission_counts.assign(count, {});
+      admission_reads.clear(); admission_reads.resize(count);
+      bool parallel_admission = staged.size() >= 32 && certificates &&
+          certificates->sources == packed.compiled_sources &&
+          certificates->context.get() == &context &&
+          !payload::StagedPayloads::has_active_scope();
+      std::vector<const ProgramGenome*> bases(count, nullptr);
+      if (parallel_admission) {
+        try {
+          for (int offset = 0; offset < count; ++offset) {
+            if (staged_indices[offset] < 0) continue;
+            const int index = i + offset;
+            bases[offset] = &parent(mutation ? index :
+                (index % 2 ? view.parent_b[index / 2] : view.parent_a[index / 2]));
+          }
+        } catch (const std::exception&) { parallel_admission = false; }
       }
-      catch (const std::exception&) {
-        // An invalid candidate must still receive normal ordered fallback/error
-        // handling. Successfully cached analyses remain safe immutable results.
+      if (parallel_admission) {
+        std::atomic<int> next{0};
+        std::vector<std::future<void>> pending;
+        const auto workers = std::min(20u, std::max(1u, std::thread::hardware_concurrency()));
+        for (unsigned worker = 0; worker < workers; ++worker)
+          pending.push_back(std::async(std::launch::async, [&] {
+            grammar::VariationContext local(context.grammar_owner(), context.requests(),
+                128, context.offspring_budget());
+            for (;;) {
+              const int offset = next.fetch_add(1, std::memory_order_relaxed);
+              if (offset >= count) break;
+              if (staged_indices[offset] < 0) continue;
+              try {
+                admission_reads[offset] = std::make_shared<payload::StagedPayloads>();
+                payload::StagedPayloads::Scope scope(*admission_reads[offset]);
+                local.counters() = {};
+                admitted[offset] = grammar::variation_detail::accept(
+                    staged[staged_indices[offset]].ast, *bases[offset], local);
+                admission_counts[offset] = local.counters();
+              } catch (const std::exception&) { admitted[offset].reset(); }
+            }
+          }));
+        for (auto& task : pending) task.get();
+        std::vector<payload::StagedPayloads*> reads;
+        for (const auto& read : admission_reads) if (read) reads.push_back(read.get());
+        if (!payload::StagedPayloads::commit_all(reads))
+          for (auto& child : admitted) child.reset();
+      } else {
+        try {
+          if (staged.size() >= 32) context.cache().warm_candidates(staged, context.requests());
+        } catch (const std::exception&) {}
       }
     }
     const auto& splice = view.child_splices[i];
@@ -239,7 +288,19 @@ std::vector<ProgramGenome> decode_compiled_pass(
         child = grammar::variation_detail::fallback(base, context);
       }
     } else {
-      child = grammar::variation_detail::accept(std::move(ast), base, context);
+      const auto offset = i % analysis_batch;
+      if (admitted[offset] && admission_reads[offset]->read_snapshot_unchanged()) {
+        child = std::move(*admitted[offset]);
+        const auto& counts = admission_counts[offset];
+        auto& total = context.counters();
+        total.acceptance_rejections += counts.acceptance_rejections;
+        total.budget_rejections += counts.budget_rejections;
+        total.fallback_children += counts.fallback_children;
+        total.unchanged_children += counts.unchanged_children;
+        total.changed_children += counts.changed_children;
+      } else {
+        child = grammar::variation_detail::accept(std::move(ast), base, context);
+      }
     }
     if (i < c.population_size) result.push_back(std::move(child));
   }
