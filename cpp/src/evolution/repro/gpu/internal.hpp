@@ -62,6 +62,7 @@ inline bool require_gpu_transport_config(const GpuReproConfig& c, std::string* m
 struct ConstantMutationDomains;
 
 struct GpuReproArena {
+  void* storage = nullptr;
   // Strong ownership prevents a reused address from matching stale device data.
   std::shared_ptr<const ConstantMutationDomains> uploaded_domains;
   int device_id = -1;

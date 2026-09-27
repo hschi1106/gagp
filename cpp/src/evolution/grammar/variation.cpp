@@ -180,13 +180,14 @@ ProgramGenome fallback(const ProgramGenome& certified_parent, VariationContext& 
 }
 
 ProgramGenome accept(AstProgram candidate, const ProgramGenome& certified_parent,
-    VariationContext& context) {
+    VariationContext& context, std::optional<std::uint32_t> owned_parent_root) {
   ProgramGenome child;
   child.ast = std::move(candidate);
   try {
     child = certify(std::move(child), context);
     if (context.requests().size() > 1 && child.derivation->request.nonterminal !=
-        context.analyze(certified_parent)->witness.request.nonterminal)
+        (owned_parent_root ? *owned_parent_root :
+            context.analyze(certified_parent)->witness.request.nonterminal))
       throw std::invalid_argument("variation changed the parent root contract");
   } catch (const std::invalid_argument&) {
     ++context.counters().acceptance_rejections;

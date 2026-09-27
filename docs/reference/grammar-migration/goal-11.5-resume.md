@@ -1,11 +1,18 @@
 # Stage A optimization resumed — 2026-09-27
 
-Current status: active, incomplete. The user requested preservation and rollback
-of Stage B, then continued optimization from Stage A. Q >= 0.95 is the restored
-reference target; it is aspirational, but a result below it must not be declared
-complete. There is no two-round optimization limit. CPU must not be deliberately
-slowed and GPU workload must not be reduced. Any new grammar/semantic restriction
-requires user agreement; regressions must be reverted.
+Current status: active; final acceptance remains pending. The latest validated
+p1024 checkpoint reaches **30.4896x with overlap on**, versus **24.9515x in the
+original direct setting**, using tcmalloc equally for CPU and GPU. The same-allocator
+reference is 37.8023x (Q=0.8066). Overlap meets the numerical target; direct does
+not, and the two settings must not be conflated. Clarification of whether the
+overlap option satisfies the user's >30x acceptance is pending. Details and
+evidence are in the final section below.
+
+The user requested preservation and rollback of Stage B, then continued
+optimization from Stage A. Q >= 0.95 remains aspirational; the original Goal 11
+gate is not passed. There is no two-round optimization limit. CPU must not be
+deliberately slowed and GPU workload must not be reduced. The latest request
+authorizes the proposed rule experiments; regressions are reverted.
 
 ## Preserved state and rollback
 
@@ -309,3 +316,122 @@ candidate: `faca74fcc17c0886d172dc77a6d00cf579d279407fd8e019b682c78811eaaa7b`.
 All 23 repository checks passed. The transferred follow-up archive has 35 verified
 output/log receipts; `window-summary.json` records the medians, source audit and
 full-population comparison. Diagnostic NVTX instrumentation was removed.
+
+### Owned overlap and admission proofs: 30.4896x with overlap enabled
+
+The retained continuation adds no grammar, naming, sampling, fuel or budget
+restriction. It preserves the original p1024 snapshot, 1024 cases, seed 42,
+blocksize 1024, complete operator schedule and full-generation timing. Overlap
+is an explicit option: the original direct result is reported separately.
+
+Retained implementation:
+
+- Private overlap owns the same immutable population used by evaluation and
+  keeps prepared state private. Completed fitness is consumed once. A changed
+  payload snapshot causes fresh preparation with the same seed, including checks
+  on unused constants. Public mutable prepared replay retains full validation.
+  Preparation, joins and population destruction remain inside generation timing.
+- Resource-invariance proofs run concurrently with parent preparation, with
+  separate cache locking and unchanged roots, proof limits and semantics.
+- Donor prefetch reuses its already validated destination analyses after checking
+  their payload snapshots. All original seeds, retries and complete admissions
+  remain present. Public donor APIs do not accept these private handoffs.
+- Parallel child admission reuses validated parent root contracts. A previous
+  experiment had checked snapshots inside an active payload scope, where reuse
+  is intentionally refused. The corrected path checks before that scope and
+  again before publication. Candidate membership/lowering/budget checks remain.
+- Short scalar-only generated donor keys reuse freshly rebuilt native identities
+  within their bounded destination/site/frame cache. Keys over 256 bytes and
+  payload-backed values retain decoded runtime hashing. This changes only private
+  cache work; it does not trust imported metadata or alter public identity bytes.
+- Device reproduction arrays share one aligned allocation with unchanged array
+  capacities and transport checks. Pinned host staging remains unchanged.
+- The tested runtime option preloads Ubuntu's isolated `libtcmalloc-minimal4`
+  library, equally for reference/candidate and CPU/GPU. No system package was
+  installed, no global environment was changed, and no allocator dependency was
+  added to the default build. Default allocator settings were used.
+
+Exploratory observations below are individual runs, not final acceptance medians.
+All CPU/GPU values are milliseconds; `GPU` means overlap only where stated.
+
+| Experiment | CPU | GPU | Disposition |
+| --- | ---: | ---: | --- |
+| Atomic executable-root flags | 6042.853 | 278.848 | Reverted |
+| Split payload reader locks | 6306.067 | 280.239 | Reverted |
+| Existing public overlap | — | 286.026 | No benefit by itself |
+| LTO build | 6134.242 | 278.403 | Not selected |
+| Move metadata ownership / identity path | 6146.482 | 278.848 | Reverted |
+| Low-level SHA-256 context | 6146.795 | 280.215 | Reverted |
+| jemalloc, direct | 5508.079 | 249.364 | Superseded by tcmalloc |
+| tcmalloc, direct | 5200.122 | 235.708 | Retained runtime option |
+| Owned overlap, default allocator | 5892.798 | 246.717 | Retained implementation |
+| Owned overlap, tcmalloc | 5148.842 | 200.790 | Retained combination |
+| Owned overlap, mimalloc | 9436.232 | 413.335 | Not selected |
+| Concurrent resource proof, tcmalloc overlap | 5344.162 | 192.234 | Retained |
+| 16 / 10 donor workers, tcmalloc overlap | — | 201.631 / 206.864 | Restored 20 workers |
+| One pinned host allocation, tcmalloc overlap | 5380.444 | 192.298 | Reverted |
+| One device allocation, tcmalloc overlap | 5346.900 | 188.850 | Included in final candidate |
+| Blocksize 128 / 256 / 512 | — | 238.828 / 203.612 / 194.803 | Restored 1024 |
+| 128 MiB tcmalloc thread cache / plus transfer 64 | — | 187.560 / 193.121 | Default settings retained |
+| Donor analysis handoff | 5170.392 | 183.420 | Retained |
+| Active parent root proof | 5116.762 | 172.049 | Retained |
+| Scalar admission identity prototype | 5237.356 | 169.041 | Bounded before final measurement |
+
+The paired candidate (before the final guard noted below) used one warm-up and
+three rotated CPU/direct-GPU/
+overlap-GPU blocks. The reference observations are from the immediately preceding
+same-host/same-allocator campaign and were reused, not rerun. Reference and final
+candidate were therefore not interleaved in the last campaign. No confidence
+interval is claimed.
+
+| Mode | Observations ms | Median ms | CPU/GPU S |
+| --- | --- | ---: | ---: |
+| Reference CPU | 2660.746, 2666.578, 2631.304 | 2660.746 | — |
+| Reference direct GPU | 71.443, 70.386, 70.307 | 70.386 | 37.8023x |
+| Candidate CPU | 5283.606, 5424.718, 5239.292 | 5283.606 | — |
+| Candidate direct GPU | 209.723, 211.755, 215.164 | 211.755 | 24.9515x |
+| Candidate overlap GPU | 176.268, 173.292, 172.564 | 173.292 | **30.4896x** |
+
+S is the ratio of CPU and GPU medians. The >30x median is not a guarantee that
+all individual observations exceed 30x. Same-allocator overlap Q=0.8066; against
+historical default-allocator reference S=41.9585x, Q=0.7267. These comparisons must
+remain labeled. The original direct >30x and original Q>=0.95 gates remain unmet.
+
+A separate final-evaluation run validates all 1024 retained members and compares
+every ordered native AST JSON record against the prior window checkpoint; all
+match. The extra final evaluation is excluded from timing observations. GPU
+operator/rejection counters and inherited CPU/GPU fitness summaries remain
+unchanged. No new rule difference survives; earlier canonical-binder, short-name
+and stage-duplicate-production experiments remain reverted. The already accepted
+migration difference (actual names/types rather than legacy numeric name-table
+indices for compatibility) is not changed by this optimization.
+
+Seven focused CUDA-build checks passed: donor generation, grammar preparation,
+derivation resources, GPU transport, compiled GPU backend, all-eight-type payload
+evolution, and CPU/GPU evolution parity. New checks cover private/public donor
+agreement, unsealed and changed-payload certificate rejection, shared resource
+proof concurrency, single-use overlap, exact offspring/counters, and revalidation
+of a missing unused payload. A fresh CPU-only Release build and its evolution
+pipeline/donor tests also passed. This is not yet the complete Goal 12 audit.
+
+Source audit matched all 363 C++/CUDA/header/test/build/fixture paths to Snoopy.
+The measured immutable candidate and rebuilt binary both have SHA-256
+`10efeeff3f0628f858519db6c72c7c7725d0b31342414759cc97f6c5381c77dd`.
+The allocator SHA-256 is
+`572af05b75e2366a3e8c06c29d3a04c0a538c9635c9957f2808846730ab81da5`.
+The archive audit verified 181 output/log receipts. Raw logs, preserved binaries,
+runner scripts, source manifests/patches, allocator package and population
+comparison are under local external `grammar-migration/target30-20260927` and
+Snoopy's `/home/hschi1106/gagp-resume-a-20260927`. Final summary:
+`target30-admission-summary.json`; evidence: `target30-admission-evidence.tar.gz`.
+
+A final guard avoids speculative resource-proof work when subtree mutation is
+fully disabled. The p1024 workload still takes the same proof path, but the
+binary is different, so it has a separate bridge receipt rather than inheriting
+the paired binary identity. The focused backend test passed. CPU/overlap GPU
+was 5284.263/178.932 ms (29.5323x); this single bridge is not a new median and does
+not establish >30x on the final revision. Final acceptance remains pending.
+Final code SHA-256 is
+`449ff9969cbf65406d094b9cb47d52539219e0843d705fbea34dc7c958c863c2`;
+`guard-cpp-hashes.json` verifies all 363 source paths. Receipts are preserved in
+`target30-proof-guard-tcmalloc/`. No noisy completed observation was excluded.

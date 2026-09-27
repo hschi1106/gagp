@@ -186,6 +186,7 @@ class CompiledGrammar {
   std::vector<CompiledNonterminal> nonterminals_;
   struct ExecutableCache {
     std::mutex mutex;
+    std::mutex resource_mutex;
     std::unordered_set<std::uint32_t> verified_roots;
     std::unordered_map<std::uint32_t, bool> payload_roots;
     std::unordered_map<std::uint32_t, bool> resource_roots;

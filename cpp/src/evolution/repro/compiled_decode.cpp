@@ -171,6 +171,8 @@ std::vector<ProgramGenome> decode_compiled_pass(
   std::vector<std::optional<ProgramGenome>> admitted;
   std::vector<grammar::VariationCounters> admission_counts;
   std::vector<std::shared_ptr<payload::StagedPayloads>> admission_reads;
+  std::vector<std::shared_ptr<payload::StagedPayloads>> parent_reads;
+  std::vector<std::optional<std::uint32_t>> parent_roots;
   std::unique_ptr<detail::BatchWorkers> team;
   for (int i = 0; i < accepted_count; ++i) {
     if (i % analysis_batch == 0) {
@@ -196,6 +198,7 @@ std::vector<ProgramGenome> decode_compiled_pass(
       admitted.clear(); admitted.resize(count);
       admission_counts.assign(count, {});
       admission_reads.clear(); admission_reads.resize(count);
+      parent_reads.assign(count, nullptr); parent_roots.assign(count, std::nullopt);
       bool parallel_admission = staged.size() >= 32 && certificates &&
           certificates->sources == packed.compiled_sources &&
           certificates->context.get() == &context &&
@@ -206,8 +209,17 @@ std::vector<ProgramGenome> decode_compiled_pass(
           for (int offset = 0; offset < count; ++offset) {
             if (staged_indices[offset] < 0) continue;
             const int index = i + offset;
-            bases[offset] = &parent(mutation ? index :
-                (index % 2 ? view.parent_b[index / 2] : view.parent_a[index / 2]));
+            const auto parent_index = mutation ? index :
+                (index % 2 ? view.parent_b[index / 2] : view.parent_a[index / 2]);
+            bases[offset] = &parent(parent_index);
+            if (certificates->analyses.size() == parents.size() &&
+                certificates->metadata.size() == parents.size()) {
+              const auto& row = certificates->analyses[parent_index];
+              if (row.analysis && row.reads && row.reads->read_snapshot_unchanged()) {
+                parent_reads[offset] = row.reads;
+                parent_roots[offset] = row.analysis->witness.request.nonterminal;
+              }
+            }
           }
         } catch (const std::exception&) { parallel_admission = false; }
       }
@@ -223,11 +235,15 @@ std::vector<ProgramGenome> decode_compiled_pass(
               if (offset >= count) break;
               if (staged_indices[offset] < 0) continue;
               try {
+                // Validate before entering the worker's own payload scope:
+                // snapshots conservatively decline reuse inside any active scope.
+                const auto root = parent_reads[offset] && parent_reads[offset]->read_snapshot_unchanged()
+                    ? parent_roots[offset] : std::nullopt;
                 admission_reads[offset] = std::make_shared<payload::StagedPayloads>();
                 payload::StagedPayloads::Scope scope(*admission_reads[offset]);
                 local.counters() = {};
                 admitted[offset] = grammar::variation_detail::accept(
-                    staged[staged_indices[offset]].ast, *bases[offset], local);
+                    staged[staged_indices[offset]].ast, *bases[offset], local, root);
                 admission_counts[offset] = local.counters();
               } catch (const std::exception&) { admitted[offset].reset(); }
             }
@@ -289,7 +305,8 @@ std::vector<ProgramGenome> decode_compiled_pass(
       }
     } else {
       const auto offset = i % analysis_batch;
-      if (admitted[offset] && admission_reads[offset]->read_snapshot_unchanged()) {
+      if (admitted[offset] && admission_reads[offset]->read_snapshot_unchanged() &&
+          (!parent_reads[offset] || parent_reads[offset]->read_snapshot_unchanged())) {
         child = std::move(*admitted[offset]);
         const auto& counts = admission_counts[offset];
         auto& total = context.counters();

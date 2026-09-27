@@ -7,6 +7,7 @@
 #include <limits>
 #include <sstream>
 #include <string>
+#include <type_traits>
 
 namespace gagp::evo::repro {
 
@@ -144,48 +145,7 @@ void destroy_gpu_repro_arena(GpuReproArena* arena) {
     return;
   }
   if (arena->device_id >= 0) cudaSetDevice(arena->device_id);
-  if (arena->d_program_nodes) cudaFree(arena->d_program_nodes);
-  if (arena->d_metas) cudaFree(arena->d_metas);
-  if (arena->d_candidates) cudaFree(arena->d_candidates);
-  if (arena->d_occurrences) cudaFree(arena->d_occurrences);
-  if (arena->d_donor_contracts) cudaFree(arena->d_donor_contracts);
-  if (arena->d_constant_domains) cudaFree(arena->d_constant_domains);
-  if (arena->d_constant_values) cudaFree(arena->d_constant_values);
-  if (arena->d_constant_groups) cudaFree(arena->d_constant_groups);
-  if (arena->d_constant_origins) cudaFree(arena->d_constant_origins);
-  if (arena->d_constant_roots) cudaFree(arena->d_constant_roots);
-  if (arena->d_constant_streams) cudaFree(arena->d_constant_streams);
-  if (arena->d_parent_constant_streams) cudaFree(arena->d_parent_constant_streams);
-  if (arena->d_donor_constant_streams) cudaFree(arena->d_donor_constant_streams);
-
-  if (arena->d_program_name_ids) cudaFree(arena->d_program_name_ids);
-  if (arena->d_program_consts) cudaFree(arena->d_program_consts);
-  if (arena->d_donor_nodes) cudaFree(arena->d_donor_nodes);
-  if (arena->d_donor_lens) cudaFree(arena->d_donor_lens);
-  if (arena->d_donor_name_ids) cudaFree(arena->d_donor_name_ids);
-  if (arena->d_donor_name_counts) cudaFree(arena->d_donor_name_counts);
-  if (arena->d_donor_consts) cudaFree(arena->d_donor_consts);
-  if (arena->d_donor_const_counts) cudaFree(arena->d_donor_const_counts);
-  if (arena->d_fitness) cudaFree(arena->d_fitness);
-  if (arena->d_selection_counters) cudaFree(arena->d_selection_counters);
-  if (arena->d_parent_a) cudaFree(arena->d_parent_a);
-  if (arena->d_parent_b) cudaFree(arena->d_parent_b);
-  if (arena->d_cand_a) cudaFree(arena->d_cand_a);
-  if (arena->d_cand_b) cudaFree(arena->d_cand_b);
-  if (arena->d_child_nodes) cudaFree(arena->d_child_nodes);
-  if (arena->d_child_used_len) cudaFree(arena->d_child_used_len);
-  if (arena->d_child_name_ids) cudaFree(arena->d_child_name_ids);
-  if (arena->d_child_name_counts) cudaFree(arena->d_child_name_counts);
-  if (arena->d_child_consts) cudaFree(arena->d_child_consts);
-  if (arena->d_child_const_counts) cudaFree(arena->d_child_const_counts);
-  if (arena->d_child_meta) cudaFree(arena->d_child_meta);
-  if (arena->d_child_splices) cudaFree(arena->d_child_splices);
-  if (arena->d_child_node_offsets) cudaFree(arena->d_child_node_offsets);
-  if (arena->d_child_name_offsets) cudaFree(arena->d_child_name_offsets);
-  if (arena->d_child_const_offsets) cudaFree(arena->d_child_const_offsets);
-  if (arena->d_live_child_nodes) cudaFree(arena->d_live_child_nodes);
-  if (arena->d_live_child_name_ids) cudaFree(arena->d_live_child_name_ids);
-  if (arena->d_live_child_consts) cudaFree(arena->d_live_child_consts);
+  if (arena->storage) cudaFree(arena->storage);
   *arena = GpuReproArena{};
 }
 
@@ -203,137 +163,108 @@ bool allocate_gpu_arena(GpuReproArena* arena,
   if (!query_device(arena->device_id, message_out)) {
     return false;
   }
-  auto alloc = [&](auto** ptr, std::size_t bytes, const char* what) {
-    if (bytes == 0) {
-      *ptr = nullptr;
-      return true;
-    }
-    return set_error(cudaMalloc(reinterpret_cast<void**>(ptr), bytes), what, message_out);
+  std::size_t total_bytes = 0;
+  unsigned char* storage = nullptr;
+  auto bind = [&](auto** ptr, std::size_t bytes) {
+    using T = std::remove_pointer_t<std::decay_t<decltype(*ptr)>>;
+    constexpr auto alignment = alignof(T);
+    const auto offset = (total_bytes + alignment - 1) & ~(alignment - 1);
+    total_bytes = offset + bytes;
+    if (storage) *ptr = bytes ? reinterpret_cast<T*>(storage + offset) : nullptr;
   };
   const std::size_t total_donor_count = static_cast<std::size_t>(config.compiled_donor_count);
   const std::size_t population_count = static_cast<std::size_t>(config.population_size);
   const std::size_t candidate_count = population_count *
       static_cast<std::size_t>(config.candidates_per_program);
   const std::size_t child_count = static_cast<std::size_t>(config.pair_count) * 2;
-  if (!alloc(&arena->d_program_nodes,
-             sizeof(PlainNode) * population_count * static_cast<std::size_t>(config.max_nodes),
-             "cudaMalloc program_nodes") ||
-      !alloc(&arena->d_metas,
-             sizeof(PackedProgramMeta) * population_count,
-             "cudaMalloc metas") ||
-      !alloc(&arena->d_candidates,
-             sizeof(CandidateRange) * candidate_count,
-             "cudaMalloc candidates") ||
-      !alloc(&arena->d_occurrences,
+  // All original array capacities are retained in one aligned allocation.
+  // The first visit sizes it; the second binds the typed subarrays.
+  for (int phase = 0; phase < 2; ++phase) {
+    total_bytes = 0;
+    bind(&arena->d_program_nodes,
+             sizeof(PlainNode) * population_count * static_cast<std::size_t>(config.max_nodes));
+    bind(&arena->d_metas,
+             sizeof(PackedProgramMeta) * population_count);
+    bind(&arena->d_candidates,
+             sizeof(CandidateRange) * candidate_count);
+    bind(&arena->d_occurrences,
              sizeof(CandidateOccurrence) *
-                 static_cast<std::size_t>(config.compiled_occurrence_count),
-             "cudaMalloc occurrences") ||
-      !alloc(&arena->d_donor_contracts, sizeof(DonorContract) * static_cast<std::size_t>(config.compiled_donor_count),
-             "cudaMalloc donor_contracts") ||
-      !alloc(&arena->d_constant_domains, sizeof(ConstantMutationDomain) * static_cast<std::size_t>(config.constant_domain_count),
-             "cudaMalloc constant_domains") ||
-      !alloc(&arena->d_constant_values, sizeof(Value) * static_cast<std::size_t>(config.constant_value_count),
-             "cudaMalloc constant_values") ||
-      !alloc(&arena->d_constant_groups, sizeof(ConstantMutationGroup) * static_cast<std::size_t>(config.constant_group_count),
-             "cudaMalloc constant_groups") ||
-      !alloc(&arena->d_constant_origins, sizeof(int) * static_cast<std::size_t>(config.constant_origin_count),
-             "cudaMalloc constant_origins") ||
-      !alloc(&arena->d_constant_roots, sizeof(int) * static_cast<std::size_t>(config.constant_root_count),
-             "cudaMalloc constant_roots") ||
-      !alloc(&arena->d_constant_streams, sizeof(ConstantMutationStream) * static_cast<std::size_t>(config.constant_stream_count),
-             "cudaMalloc constant_streams") ||
-      !alloc(&arena->d_parent_constant_streams,
-             sizeof(int) * population_count,
-             "cudaMalloc parent_constant_streams") ||
-      !alloc(&arena->d_donor_constant_streams,
-             sizeof(int) * static_cast<std::size_t>(config.compiled_donor_count),
-             "cudaMalloc donor_constant_streams") ||
-      !alloc(&arena->d_program_name_ids,
-             sizeof(std::uint64_t) * population_count * static_cast<std::size_t>(config.max_names),
-             "cudaMalloc program_name_ids") ||
-      !alloc(&arena->d_program_consts,
-             sizeof(Value) * population_count * static_cast<std::size_t>(config.max_consts),
-             "cudaMalloc program_consts") ||
-      !alloc(&arena->d_donor_nodes,
-             sizeof(PlainNode) * (total_donor_count * static_cast<std::size_t>(config.max_donor_nodes)),
-             "cudaMalloc donor_nodes") ||
-      !alloc(&arena->d_donor_lens,
-             sizeof(int) * total_donor_count,
-             "cudaMalloc donor_lens") ||
-      !alloc(&arena->d_donor_name_ids,
-             sizeof(std::uint64_t) * (total_donor_count * static_cast<std::size_t>(config.max_names)),
-             "cudaMalloc donor_name_ids") ||
-      !alloc(&arena->d_donor_name_counts,
-             sizeof(int) * total_donor_count,
-             "cudaMalloc donor_name_counts") ||
-      !alloc(&arena->d_donor_consts,
-             sizeof(Value) * (total_donor_count * static_cast<std::size_t>(config.max_consts)),
-             "cudaMalloc donor_consts") ||
-      !alloc(&arena->d_donor_const_counts,
-             sizeof(int) * total_donor_count,
-             "cudaMalloc donor_const_counts") ||
-      !alloc(&arena->d_fitness,
-             sizeof(double) * population_count,
-             "cudaMalloc fitness") ||
-      !alloc(&arena->d_selection_counters,
-             sizeof(PackedSelectionCounters) * static_cast<std::size_t>(config.pair_count),
-             "cudaMalloc selection_counters") ||
-      !alloc(&arena->d_parent_a,
-             sizeof(int) * static_cast<std::size_t>(config.pair_count),
-             "cudaMalloc parent_a") ||
-      !alloc(&arena->d_parent_b,
-             sizeof(int) * static_cast<std::size_t>(config.pair_count),
-             "cudaMalloc parent_b") ||
-      !alloc(&arena->d_cand_a,
-             sizeof(int) * static_cast<std::size_t>(config.pair_count),
-             "cudaMalloc cand_a") ||
-      !alloc(&arena->d_cand_b,
-             sizeof(int) * static_cast<std::size_t>(config.pair_count),
-             "cudaMalloc cand_b") ||
-      !alloc(&arena->d_child_nodes,
-             sizeof(PlainNode) * child_count * static_cast<std::size_t>(config.max_nodes),
-             "cudaMalloc child_nodes") ||
-      !alloc(&arena->d_child_used_len,
-             sizeof(int) * child_count,
-             "cudaMalloc child_used_len") ||
-      !alloc(&arena->d_child_name_ids,
-             sizeof(std::uint64_t) * child_count * static_cast<std::size_t>(config.max_names),
-             "cudaMalloc child_name_ids") ||
-      !alloc(&arena->d_child_name_counts,
-             sizeof(int) * child_count,
-             "cudaMalloc child_name_counts") ||
-      !alloc(&arena->d_child_consts,
-             sizeof(Value) * child_count * static_cast<std::size_t>(config.max_consts),
-             "cudaMalloc child_consts") ||
-      !alloc(&arena->d_child_const_counts,
-             sizeof(int) * child_count,
-             "cudaMalloc child_const_counts") ||
-      !alloc(&arena->d_child_meta,
-             sizeof(PackedChildMeta) * child_count,
-             "cudaMalloc child_meta") ||
-      !alloc(&arena->d_child_splices,
-             sizeof(PackedChildSplice) * child_count,
-             "cudaMalloc child_splices") ||
-      !alloc(&arena->d_child_node_offsets,
-             sizeof(int) * static_cast<std::size_t>(config.pair_count * 2 + 1),
-             "cudaMalloc child_node_offsets") ||
-      !alloc(&arena->d_child_name_offsets,
-             sizeof(int) * static_cast<std::size_t>(config.pair_count * 2 + 1),
-             "cudaMalloc child_name_offsets") ||
-      !alloc(&arena->d_child_const_offsets,
-             sizeof(int) * static_cast<std::size_t>(config.pair_count * 2 + 1),
-             "cudaMalloc child_const_offsets") ||
-      !alloc(&arena->d_live_child_nodes,
-             sizeof(PlainNode) * child_count * static_cast<std::size_t>(config.max_nodes),
-             "cudaMalloc live_child_nodes") ||
-      !alloc(&arena->d_live_child_name_ids,
-             sizeof(std::uint64_t) * child_count * static_cast<std::size_t>(config.max_names),
-             "cudaMalloc live_child_name_ids") ||
-      !alloc(&arena->d_live_child_consts,
-             sizeof(Value) * child_count * static_cast<std::size_t>(config.max_consts),
-             "cudaMalloc live_child_consts")) {
-    destroy_gpu_repro_arena(arena);
-    return false;
+                 static_cast<std::size_t>(config.compiled_occurrence_count));
+    bind(&arena->d_donor_contracts, sizeof(DonorContract) * static_cast<std::size_t>(config.compiled_donor_count));
+    bind(&arena->d_constant_domains, sizeof(ConstantMutationDomain) * static_cast<std::size_t>(config.constant_domain_count));
+    bind(&arena->d_constant_values, sizeof(Value) * static_cast<std::size_t>(config.constant_value_count));
+    bind(&arena->d_constant_groups, sizeof(ConstantMutationGroup) * static_cast<std::size_t>(config.constant_group_count));
+    bind(&arena->d_constant_origins, sizeof(int) * static_cast<std::size_t>(config.constant_origin_count));
+    bind(&arena->d_constant_roots, sizeof(int) * static_cast<std::size_t>(config.constant_root_count));
+    bind(&arena->d_constant_streams, sizeof(ConstantMutationStream) * static_cast<std::size_t>(config.constant_stream_count));
+    bind(&arena->d_parent_constant_streams,
+             sizeof(int) * population_count);
+    bind(&arena->d_donor_constant_streams,
+             sizeof(int) * static_cast<std::size_t>(config.compiled_donor_count));
+    bind(&arena->d_program_name_ids,
+             sizeof(std::uint64_t) * population_count * static_cast<std::size_t>(config.max_names));
+    bind(&arena->d_program_consts,
+             sizeof(Value) * population_count * static_cast<std::size_t>(config.max_consts));
+    bind(&arena->d_donor_nodes,
+             sizeof(PlainNode) * (total_donor_count * static_cast<std::size_t>(config.max_donor_nodes)));
+    bind(&arena->d_donor_lens,
+             sizeof(int) * total_donor_count);
+    bind(&arena->d_donor_name_ids,
+             sizeof(std::uint64_t) * (total_donor_count * static_cast<std::size_t>(config.max_names)));
+    bind(&arena->d_donor_name_counts,
+             sizeof(int) * total_donor_count);
+    bind(&arena->d_donor_consts,
+             sizeof(Value) * (total_donor_count * static_cast<std::size_t>(config.max_consts)));
+    bind(&arena->d_donor_const_counts,
+             sizeof(int) * total_donor_count);
+    bind(&arena->d_fitness,
+             sizeof(double) * population_count);
+    bind(&arena->d_selection_counters,
+             sizeof(PackedSelectionCounters) * static_cast<std::size_t>(config.pair_count));
+    bind(&arena->d_parent_a,
+             sizeof(int) * static_cast<std::size_t>(config.pair_count));
+    bind(&arena->d_parent_b,
+             sizeof(int) * static_cast<std::size_t>(config.pair_count));
+    bind(&arena->d_cand_a,
+             sizeof(int) * static_cast<std::size_t>(config.pair_count));
+    bind(&arena->d_cand_b,
+             sizeof(int) * static_cast<std::size_t>(config.pair_count));
+    bind(&arena->d_child_nodes,
+             sizeof(PlainNode) * child_count * static_cast<std::size_t>(config.max_nodes));
+    bind(&arena->d_child_used_len,
+             sizeof(int) * child_count);
+    bind(&arena->d_child_name_ids,
+             sizeof(std::uint64_t) * child_count * static_cast<std::size_t>(config.max_names));
+    bind(&arena->d_child_name_counts,
+             sizeof(int) * child_count);
+    bind(&arena->d_child_consts,
+             sizeof(Value) * child_count * static_cast<std::size_t>(config.max_consts));
+    bind(&arena->d_child_const_counts,
+             sizeof(int) * child_count);
+    bind(&arena->d_child_meta,
+             sizeof(PackedChildMeta) * child_count);
+    bind(&arena->d_child_splices,
+             sizeof(PackedChildSplice) * child_count);
+    bind(&arena->d_child_node_offsets,
+             sizeof(int) * static_cast<std::size_t>(config.pair_count * 2 + 1));
+    bind(&arena->d_child_name_offsets,
+             sizeof(int) * static_cast<std::size_t>(config.pair_count * 2 + 1));
+    bind(&arena->d_child_const_offsets,
+             sizeof(int) * static_cast<std::size_t>(config.pair_count * 2 + 1));
+    bind(&arena->d_live_child_nodes,
+             sizeof(PlainNode) * child_count * static_cast<std::size_t>(config.max_nodes));
+    bind(&arena->d_live_child_name_ids,
+             sizeof(std::uint64_t) * child_count * static_cast<std::size_t>(config.max_names));
+    bind(&arena->d_live_child_consts,
+             sizeof(Value) * child_count * static_cast<std::size_t>(config.max_consts));
+    if (phase == 0) {
+      if (!set_error(cudaMalloc(&arena->storage, total_bytes),
+                     "cudaMalloc reproduction arena", message_out)) {
+        destroy_gpu_repro_arena(arena);
+        return false;
+      }
+      storage = static_cast<unsigned char*>(arena->storage);
+    }
   }
   arena->capacity = config;
   return true;

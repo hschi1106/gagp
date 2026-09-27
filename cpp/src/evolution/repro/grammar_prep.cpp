@@ -20,6 +20,7 @@
 #include "gagp/evolution/grammar/variation.hpp"
 #include "gagp/evolution/repro/pack.hpp"
 #include "../subtree_utils.hpp"
+#include "../grammar/donor_internal.hpp"
 #include "constant_prep.hpp"
 
 namespace gagp::evo::repro {
@@ -239,7 +240,13 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
           }
         }
       }
-      planned_pools = grammar::try_generate_donor_pools(context, planned_jobs);
+      std::vector<grammar::WarmPopulationMember> certificates;
+      certificates.reserve(planned_jobs.size());
+      for (const auto& site : planned_sites) {
+        const auto& saved = preview_analyses.at(site.first - begin);
+        certificates.push_back({saved.analysis, saved.identity, saved.reads});
+      }
+      planned_pools = grammar::try_generate_warmed_donor_pools(context, planned_jobs, certificates);
     } catch (const std::exception&) {
       // The batch API publishes no payloads until successful return. Replaying
       // the original interleaved loop preserves errors and collision behavior.

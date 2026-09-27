@@ -20,8 +20,11 @@ VariationAnalysis remap_compacted_analysis(const CompiledGrammar& grammar,
 
 ProgramGenome certify(ProgramGenome genome, VariationContext& context);
 ProgramGenome fallback(const ProgramGenome& certified_parent, VariationContext& context);
+// The optional root is private owned-source evidence. Its caller must validate
+// the parent certificate's payload snapshot before work and before publication.
+// Candidate membership, lowering, budget and root-contract checks still run.
 ProgramGenome accept(AstProgram candidate, const ProgramGenome& certified_parent,
-    VariationContext& context);
+    VariationContext& context, std::optional<std::uint32_t> owned_parent_root = std::nullopt);
 AstProgram splice(const AstProgram& base, const VariationSite& destination,
     const AstProgram& donor, VariationSpan payload, const std::vector<int>& donor_binder_ids,
     bool closed_crossover = false);

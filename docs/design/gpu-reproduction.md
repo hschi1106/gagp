@@ -396,3 +396,39 @@ ownership, packed shapes and payload identities. Public prepared replay (includi
 caller-supplied overlap state) retains full validation against scored genomes.
 A direct-versus-replay oracle checks offspring, variation counters and host RNG
 consumption; malformed imported ASTs and mismatched fuel are still rejected.
+
+The evolution loop also has a private owned overlap continuation in
+`cpp/src/evolution/repro/owned_overlap.hpp`. Evaluation and preparation share one
+const population owner; the continuation captures its configuration and consumes
+fitness once, without exposing mutable prepared data. Source payload values,
+including unused constants, are snapshotted before preparation. If that snapshot
+changes before execution, preparation is repeated with the same seed and full
+validation. Public lifecycle overlap/replay APIs retain their existing source
+checks. The old population and prepared state are released before the generation
+timer ends and before the payload sweep.
+
+For GPU crossover preparation with a projected offspring budget and subsequent
+mutation, nonlocal resource-invariance analysis can run concurrently with parent
+preparation. It is joined within preparation, retains the same roots and proof
+work limits, and uses a separate certificate-cache mutex so executable-root
+lookups can proceed. No proof work is moved outside the generation.
+
+Device reproduction arrays share one allocation with individually aligned typed
+slices. Their capacities and transport checks are unchanged. Growth replaces the
+allocation and clears the uploaded-domain owner; sufficient capacity is reused.
+Pinned host staging retains separate allocations.
+
+Private donor prefetch can reuse the destination analysis already held by its
+owned preparation window after checking its payload snapshot. Public donor APIs
+still reconstruct/lookup their own destination analysis. Within each fixed
+destination/site/frame admission cache, a newly generated scalar donor can reuse
+its freshly rebuilt native key when that key is at most 256 bytes. Longer keys
+and payload-backed donors retain decoded runtime identities; no input artifact
+metadata is trusted and all original seeds/retries are retained.
+
+Parallel child admission can also reuse the validated parent's root contract.
+The parent snapshot is checked before entering the worker's payload scope and
+again before publishing its result. Snapshot checks deliberately reject reuse
+inside an active scope; checking there would silently disable the optimization.
+Every child still receives membership, native/lowering and budget validation.
+Invalid parent evidence falls back to ordinary parent analysis.

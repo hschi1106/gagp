@@ -16,6 +16,7 @@
 #include "gagp/evolution/grammar/variation.hpp"
 #include "gagp/evolution/node_descriptor.hpp"
 #include "variation_internal.hpp"
+#include "donor_internal.hpp"
 #include "../../runtime/payload/staging.hpp"
 
 namespace gagp::evo::grammar {
@@ -155,7 +156,7 @@ void prepare_destination(VariationContext& context, const VariationSite& site,
   // Reject a malformed destination before retries, rather than disguising it as
   // an impossible donor. Site coordinates are supplied by its certified analysis.
   if (!prepared.site) {
-    prepared.analysis = context.analyze(destination);
+    if (!prepared.analysis) prepared.analysis = context.analyze(destination);
     const auto& sites = prepared.analysis->sites;
     const auto certified = std::find_if(sites.begin(), sites.end(),
         [&](const VariationSite& candidate) {
@@ -204,8 +205,20 @@ ContextualDonor generate_budgeted_donor(VariationContext& context, std::uint64_t
   // The caller confines this bounded cache to one destination/site/frame.
   for (std::size_t attempt = 0; attempt < maximum_attempts; ++attempt) {
     auto donor = generate_donor(context, attempt_seed, *certified);
-    const auto identity = runtime_cache_identity(donor.genome, input_names,
-        context.grammar().execution_limits().fuel);
+    // Generation just rebuilt this native key from the complete verified AST.
+    // For scalar-only pools it already identifies every value exactly; the
+    // destination/frame/grammar/fuel are fixed for this private admission cache.
+    // Bound key storage independently of donor size. Longer keys and payload
+    // values still use the decoded identity and its snapshot reads.
+    const bool scalar = donor.genome.meta.program_key.size() <= 256 &&
+        std::all_of(donor.genome.ast.consts.begin(), donor.genome.ast.consts.end(),
+        [](const Value& value) {
+          return value.tag == ValueTag::Int || value.tag == ValueTag::Float ||
+              value.tag == ValueTag::Bool || value.tag == ValueTag::Char;
+        });
+    const auto identity = scalar ? "native-scalar:" + donor.genome.meta.program_key :
+        "decoded:" + runtime_cache_identity(donor.genome, input_names,
+            context.grammar().execution_limits().fuel);
     const auto previous = admissions.find(identity);
     if (previous != admissions.end()) {
       if (previous->second) return donor;
@@ -356,8 +369,9 @@ std::vector<std::optional<ContextualDonor>> generate_donor_pool(VariationContext
   return result;
 }
 
-std::optional<std::vector<DonorPool>> try_generate_donor_pools(VariationContext& context,
-    const std::vector<DonorPoolJob>& jobs, std::size_t maximum_attempts) {
+static std::optional<std::vector<DonorPool>> generate_donor_pools_impl(VariationContext& context,
+    const std::vector<DonorPoolJob>& jobs, std::size_t maximum_attempts,
+    const std::vector<WarmPopulationMember>* certificates) {
   if (!maximum_attempts) throw std::invalid_argument("donor batches require a positive attempt limit");
   // Parallel workers cannot observe the caller's uncommitted payload view,
   // and their transactions cannot commit inside that enclosing scope.
@@ -377,8 +391,14 @@ std::optional<std::vector<DonorPool>> try_generate_donor_pools(VariationContext&
   std::vector<PoolDestination> destinations(jobs.size());
   for (std::size_t i = 0; i < jobs.size(); ++i) {
     if (!jobs[i].destination) throw std::invalid_argument("donor batch has no destination");
-    if (context.offspring_budget())
+    if (context.offspring_budget()) {
+      if (certificates && certificates->size() == jobs.size()) {
+        const auto& proof = certificates->at(i);
+        if (proof.analysis && proof.reads && proof.reads->read_snapshot_unchanged())
+          destinations[i].analysis = proof.analysis;
+      }
       prepare_destination(context, jobs[i].site, *jobs[i].destination, destinations[i]);
+    }
   }
   std::vector<DonorPool> results(jobs.size());
   std::vector<std::unique_ptr<payload::StagedPayloads>> payloads(jobs.size());
@@ -415,6 +435,17 @@ std::optional<std::vector<DonorPool>> try_generate_donor_pools(VariationContext&
   for (auto& transaction : payloads) transactions.push_back(transaction.get());
   if (!payload::StagedPayloads::commit_all(transactions)) return std::nullopt;
   return results;
+}
+
+std::optional<std::vector<DonorPool>> try_generate_donor_pools(VariationContext& context,
+    const std::vector<DonorPoolJob>& jobs, std::size_t maximum_attempts) {
+  return generate_donor_pools_impl(context, jobs, maximum_attempts, nullptr);
+}
+
+std::optional<std::vector<DonorPool>> try_generate_warmed_donor_pools(
+    VariationContext& context, const std::vector<DonorPoolJob>& jobs,
+    const std::vector<WarmPopulationMember>& certificates, std::size_t maximum_attempts) {
+  return generate_donor_pools_impl(context, jobs, maximum_attempts, &certificates);
 }
 
 }  // namespace gagp::evo::grammar

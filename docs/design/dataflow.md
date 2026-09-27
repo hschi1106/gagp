@@ -60,6 +60,13 @@ fitness is in flight. Selection waits for the completed vector. Payload
 lifetimes cover cases, active programs, donors, history, best, and optional
 final results.
 
+The evolution loop's private overlap continuation owns the same immutable
+population read by evaluation. It consumes completed fitness once and keeps
+prepared state private. A changed source payload snapshot triggers fresh
+preparation; caller-supplied prepared replay still performs full replay checks.
+Preparation, joining, and destruction of the owned population remain inside
+the complete-generation timing boundary.
+
 ## Artifact flow
 
 ```text

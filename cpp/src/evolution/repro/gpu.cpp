@@ -24,6 +24,9 @@
 #include "gagp/evolution/repro/prep.hpp"
 #include "gpu/internal.hpp"
 #include "compiled_decode.hpp"
+#include "owned_overlap.hpp"
+#include "gagp/evolution/grammar/values.hpp"
+#include "gagp/evolution/grammar/derivation_resources.hpp"
 #include "../grammar/variation_internal.hpp"
 #include "gagp/evolution/grammar/cache.hpp"
 #include "gagp/evolution/grammar/random.hpp"
@@ -228,6 +231,15 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
   if (!context) context = std::make_shared<grammar::VariationContext>(
       cfg.compiled_grammar, population_requests(cfg), analysis_capacity,
       cfg.offspring_resource_budget);
+  std::future<std::vector<bool>> resource_proof;
+  if (pass == CompiledVariationPass::Crossover && cfg.mutation_rate > 0 && cfg.mutation_subtree_prob > 0 &&
+      cfg.offspring_resource_budget && !grammar::resource_charges_are_local(*cfg.compiled_grammar)) {
+    std::vector<std::uint32_t> roots;
+    for (const auto& request : context->requests()) roots.push_back(request.nonterminal);
+    resource_proof = std::async(std::launch::async, [owner = cfg.compiled_grammar, roots] {
+      return owner->resource_invariant_roots(roots);
+    });
+  }
   std::vector<grammar::WarmPopulationMember> warmed_members;
   context->cache().warm_population(population, context->requests(), 20, &warmed_members);
   out.compiled_context = context;
@@ -302,6 +314,7 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
     out.parent_certificates = std::move(certificates);
   }
   out.config = out.packed.config;
+  if (resource_proof.valid()) (void)resource_proof.get();
   if (context) out.preparation_counters = context->counters();
   const auto pack_t1 = std::chrono::steady_clock::now();
   if (stats != nullptr) {
@@ -485,6 +498,48 @@ GpuReproPreparedData prepare_gpu_repro_backend_inputs(
     std::uint64_t seed, ReproductionStats* stats,
     std::shared_ptr<GpuReproRunResources> resources) {
   return prepare_backend_inputs(population, cfg, seed, stats, nullptr, std::move(resources));
+}
+
+OwnedGpuReproOverlap start_owned_gpu_repro_overlap(
+    std::vector<ProgramGenome> population, const EvolutionConfig& config,
+    std::uint64_t seed, std::shared_ptr<GpuReproRunResources> resources) {
+  require_reproduction_mode_supported(config, true);
+  OwnedGpuReproOverlap out;
+  out.population = std::make_shared<const std::vector<ProgramGenome>>(std::move(population));
+  out.completion = std::async(std::launch::async,
+      [population = out.population, config, seed, resources]() {
+    auto reads = std::make_shared<payload::StagedPayloads>();
+    {
+      // Registry contents are mutable even though the owning ASTs are const.
+      // Record all constants, including unused entries, before preparation.
+      payload::StagedPayloads::Scope scope(*reads);
+      for (const auto& genome : *population)
+        for (const auto& value : genome.ast.consts)
+          (void)grammar::canonical_constant_encoding(value);
+    }
+    ReproductionStats stats;
+    auto prepared = std::make_shared<const GpuReproPreparedData>(
+        prepare_backend_inputs(*population, config, seed, &stats, nullptr, resources));
+    return std::function<ReproductionResult(const std::vector<double>&)>(
+        [population, config, seed, resources, prepared, reads, stats,
+         consumed = std::make_shared<std::atomic<bool>>(false)](
+            const std::vector<double>& fitness) mutable -> ReproductionResult {
+      if (consumed->exchange(true))
+        throw std::logic_error("owned GPU overlap continuation already consumed");
+      const auto scored = rank_population_refs(*population, fitness, false);
+#ifdef GAGP_HAS_CUDA
+      if (!reads->read_snapshot_unchanged()) {
+        const auto refreshed = prepare_backend_inputs(
+            *population, config, seed, &stats, nullptr, resources);
+        return run_compiled_prepared(scored, config, refreshed, &stats);
+      }
+      return run_compiled_prepared(scored, config, *prepared, &stats);
+#else
+      throw std::runtime_error("gpu reproduction requested but CUDA is unavailable in this build");
+#endif
+    });
+  });
+  return out;
 }
 
 ReproductionResult run_gpu_repro_backend_prepared(const std::vector<ScoredGenome>& scored,

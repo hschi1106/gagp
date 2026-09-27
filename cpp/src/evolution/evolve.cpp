@@ -1,4 +1,5 @@
 #include "batch_workers.hpp"
+#include "repro/owned_overlap.hpp"
 #include "gagp/evolution/evolve.hpp"
 
 #include <chrono>
@@ -331,14 +332,15 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
     double fitness_sum = 0.0;
     std::vector<double> raw_fitness;
     const bool overlap_gpu = gpu_reproduction_overlap_enabled(cfg);
-    std::future<OverlapPrepared> overlap_future;
+    repro::OwnedGpuReproOverlap overlap;
     if (overlap_gpu) {
-      overlap_future = start_gpu_reproduction_overlap(
-          population, reproduction_cfg, rng(), gpu_repro_resources);
+      overlap = repro::start_owned_gpu_repro_overlap(
+          std::move(population), reproduction_cfg, rng(), gpu_repro_resources);
     }
+    const auto& evaluated_population = overlap_gpu ? *overlap.population : population;
     if (cfg.eval_engine == EvalEngine::GPU) {
 #ifdef GAGP_HAS_CUDA
-      scored = score_population_gpu_refs(population, case_set.input_names, &gpu_session, cfg.fuel, nullptr,
+      scored = score_population_gpu_refs(evaluated_population, case_set.input_names, &gpu_session, cfg.fuel, nullptr,
                                          &result, &generation_timing, &fitness_sum,
                                          gpu_repro_resources ? &raw_fitness : nullptr, true);
 #else
@@ -346,7 +348,7 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
 #endif
     } else {
       scored = score_population_cpu_refs(
-          population, case_set.input_names, case_set.bindings, case_set.expected_values,
+          evaluated_population, case_set.input_names, case_set.bindings, case_set.expected_values,
           cfg.fuel, cfg.penalty, cfg.gpu_blocksize,
           nullptr, &result, &generation_timing, &fitness_sum,
           gpu_repro_resources ? &raw_fitness : nullptr, true);
@@ -362,8 +364,7 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
     const auto repro_t0 = std::chrono::steady_clock::now();
     repro::ReproductionResult reproduction;
     if (overlap_gpu) {
-      reproduction = finish_gpu_reproduction_overlap(
-          &overlap_future, population, raw_fitness, reproduction_cfg);
+      reproduction = overlap.completion.get()(raw_fitness);
     } else if (gpu_repro_resources) {
       // Preparation assigns candidate streams and tournament indices in source
       // population order. Match the overlap path, which starts before fitness is
@@ -376,6 +377,7 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
     const auto repro_t1 = std::chrono::steady_clock::now();
 
     population = std::move(reproduction.next_population);
+    overlap.population.reset();
     payload_lifetime.retain(population, result.history_best);
     const auto gen_t1 = std::chrono::steady_clock::now();
 

@@ -1,4 +1,5 @@
 #include "../../src/evolution/repro/compiled_decode.hpp"
+#include "../../src/evolution/repro/owned_overlap.hpp"
 #include "../../src/runtime/payload/staging.hpp"
 #include <algorithm>
 #include <cmath>
@@ -753,6 +754,36 @@ void test_compiled_overlap_matches_direct_preparation() {
     const ReproductionResult direct =
         gagp::evo::repro::run_gpu_repro_backend_prepared(
             ranked, config, direct_prepared, &direct_stats);
+
+    auto owned = gagp::evo::repro::start_owned_gpu_repro_overlap(
+        population, config, seed, resources);
+    require(same_population(*owned.population, population),
+            "owned overlap did not preserve the evaluated population");
+    auto finish_owned = owned.completion.get();
+    auto duplicate_finish = finish_owned;
+    owned.population.reset();
+    const auto owned_result = finish_owned(evaluation.fitness);
+    require(same_population(owned_result.next_population, direct.next_population) &&
+                same_counters(owned_result.stats.variation, direct.stats.variation),
+            "owned overlap changed direct offspring or counters");
+    bool consumed = false;
+    try { (void)duplicate_finish(evaluation.fitness); }
+    catch (const std::logic_error&) { consumed = true; }
+    require(consumed, "owned overlap permitted repeated continuation consumption");
+
+    if (generation == 0) {
+      // Even an unused payload is part of initial admission. Losing it after
+      // preparation must force full revalidation, not reuse its old proof.
+      auto mutable_payload_population = population;
+      const auto unused = gagp::payload::make_string_value("owned-overlap-unused");
+      mutable_payload_population.front().ast.consts.push_back(unused);
+      auto stale = gagp::evo::repro::start_owned_gpu_repro_overlap(
+          std::move(mutable_payload_population), config, seed, resources);
+      auto finish_stale = stale.completion.get();
+      gagp::payload::clear();
+      expect_invalid([&] { (void)finish_stale(evaluation.fitness); },
+                     "owned overlap reused a missing payload admission proof");
+    }
 
     require(same_population(overlapped.next_population,
                             direct.next_population),

@@ -1,4 +1,5 @@
 #include <iostream>
+#include <future>
 #include <memory>
 #include <thread>
 #include <stdexcept>
@@ -17,6 +18,7 @@
 #include "gagp/evolution/evolve.hpp"
 #include "gagp/evolution/population_init.hpp"
 #include "../../src/evolution/grammar/variation_internal.hpp"
+#include "../../src/evolution/grammar/donor_internal.hpp"
 #include "../../src/runtime/payload/staging.hpp"
 
 using namespace gagp;
@@ -130,6 +132,18 @@ Json tradeoffs() {
           {"constant":{"type":"Int","values":["2"]}}]}}]}]})");
 }
 void test_resource_invariance_certificate() {
+  const auto cold = compile(tradeoffs());
+  std::vector<std::future<std::vector<bool>>> readers;
+  for (int i = 0; i < 4; ++i)
+    readers.push_back(std::async(std::launch::async, [cold] {
+      cold.require_executable();
+      const auto result = cold.resource_invariant_roots({cold.entry(), cold.entry()});
+      cold.require_executable();
+      return result;
+    }));
+  for (auto& reader : readers)
+    check(reader.get() == std::vector<bool>({true, true}),
+          "concurrent executable/resource certificates changed shared-copy results");
   const auto unambiguous = compile(tradeoffs());
   check(!resource_charges_are_local(unambiguous), "fixture must defeat native-kind locality");
   auto certificate = certify_resource_invariance(unambiguous, {unambiguous.entry()});
@@ -603,12 +617,30 @@ void test_independent_donor_pool_batch() {
   if (std::thread::hardware_concurrency() > 1) {
     check(bool(batch), "independent scalar donor batch unexpectedly declined");
     check(batch->size() == jobs.size(), "donor batch changed pool count");
+    std::vector<WarmPopulationMember> proofs;
+    for (const auto& parent : parents) {
+      WarmPopulationMember proof;
+      proof.reads = std::make_shared<payload::StagedPayloads>();
+      {
+        payload::StagedPayloads::Scope scope(*proof.reads);
+        proof.analysis = context.analyze(parent, &proof.runtime_identity);
+      }
+      proofs.push_back(std::move(proof));
+    }
+    const auto warmed = try_generate_warmed_donor_pools(context, jobs, proofs, 4);
+    auto poisoned = std::make_shared<VariationAnalysis>(*proofs.front().analysis);
+    poisoned->sites.clear();
+    proofs.front().analysis = std::move(poisoned);
+    proofs.front().reads = std::make_shared<payload::StagedPayloads>();
+    const auto invalidated = try_generate_warmed_donor_pools(context, jobs, proofs, 4);
+    check(warmed && invalidated, "donor handoff failed reuse or unsealed-proof fallback");
     for (std::size_t i = 0; i < jobs.size(); ++i) {
       const auto reference = generate_donor_pool(context, jobs[i].seeds, jobs[i].site, *jobs[i].destination, 4);
       check((*batch)[i].size() == reference.size(), "donor batch changed seed count");
       for (std::size_t j = 0; j < reference.size(); ++j)
-        check((reference[j] ? ast_cache_key(reference[j]->genome.ast) : std::string{}) ==
-              ((*batch)[i][j] ? ast_cache_key((*batch)[i][j]->genome.ast) : std::string{}),
+        for (const auto* result : {&*batch, &*warmed, &*invalidated})
+          check((reference[j] ? ast_cache_key(reference[j]->genome.ast) : std::string{}) ==
+              ((*result)[i][j] ? ast_cache_key((*result)[i][j]->genome.ast) : std::string{}),
               "donor batch changed seeded proposals or bounded exhaustion");
     }
   }
@@ -670,6 +702,15 @@ void test_payload_pool_conflict_replay() {
     }
     check(payload::lookup_string(colliding, &committed) && committed == "a",
           "successful batch did not publish its new payload");
+    WarmPopulationMember proof;
+    proof.reads = std::make_shared<payload::StagedPayloads>();
+    {
+      payload::StagedPayloads::Scope scope(*proof.reads);
+      proof.analysis = context.analyze(parent, &proof.runtime_identity);
+    }
+    payload::register_string(parent.ast.consts.front(), "outside-domain");
+    rejects([&] { (void)try_generate_warmed_donor_pools(context, jobs, {proof, proof}, 4); });
+    payload::register_string(parent.ast.consts.front(), "b");
   }
   payload::clear();
   {

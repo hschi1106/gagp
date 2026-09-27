@@ -267,7 +267,7 @@ std::vector<bool> CompiledGrammar::resource_invariant_roots(
     const std::vector<std::uint32_t>& roots) const {
   for (auto root : roots)
     if (root >= nonterminals_.size()) throw std::invalid_argument("unknown resource certificate root");
-  std::lock_guard<std::mutex> lock(executable_cache_->mutex);
+  std::lock_guard<std::mutex> lock(executable_cache_->resource_mutex);
   std::vector<std::uint32_t> missing;
   for (auto root : roots)
     if (!executable_cache_->resource_roots.count(root)) missing.push_back(root);
