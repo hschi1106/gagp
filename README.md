@@ -145,6 +145,7 @@ Follow the complete artifact pipeline in the
 | [PSB workflow](docs/guides/psb-workflow.md) | Dataset acquisition, fixtures, regression, and reports |
 | [Grammar definitions and migration](docs/guides/grammar-config.md) | Compiled search spaces, artifacts, and offline v1 migration |
 | [Grammar authoring](docs/guides/grammar-authoring.md) | Start, validate, inspect, resolve, customize, and run a definition |
+| [Implementation and performance report](docs/reference/custom-grammar-implementation-report.md) | Verified grammar migration, retained optimizations, p1024 speedup and remaining acceptance limits |
 | [Documentation index](docs/README.md) | Ownership of every maintained document |
 
 ## Repository layout

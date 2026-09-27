@@ -1,5 +1,12 @@
 # Grammar migration execution evidence
 
+[Final implementation report](../custom-grammar-implementation-report.md) and
+[final representative measurements](goal-11.5-final-measurements.md) record
+`c574b7b`, the verified 30.2773x p1024 overlap result, 25.5780x direct result,
+all six workloads, and the still-unmet original Q gate. Original Goal 11 is not
+passed; overlap's qualification for the revised target remains explicitly pending.
+The correctness/workflow audit and final measurement coverage are complete.
+
 [Stage A resumed optimization](goal-11.5-resume.md) records the 2026-09-27
 Stage B rollback, preserved evidence and current acceptance instructions.
 
@@ -7,18 +14,18 @@ The [Goal 11.5 Stage A checkpoint](goal-11.5-stage-a.md) records the integrated
 build, workflow checks, and fixed p1024 parity investigation before the three
 grammar restrictions.
 
-Goals 01–06 are implemented. Goal 04 adds compiled grammar variation and shared host
+Goals 01–10 are implemented. Goal 04 adds compiled grammar variation and shared host
 preparation; its [validation evidence](goal-04-variation.md) is recorded separately.
 Goal 06's [bounded-region evidence](goal-06-bounded-regions.md)
 distinguishes verified CPU behavior from later acceptance work. Goal 07 integrates
 compiled grammars across GPU evaluation and reproduction. Goal 08's
 [compatibility-package evidence](goal-08-compatibility-packages.md) records typed
 package generation, focused CPU contracts, and transition size observations while
-its remaining final gates stay explicit. Goals 09 and 10 are implemented; Goals 11
-and 12 remain pending. The immutable
+its remaining final gates stay explicit. Final numerical acceptance remains
+distinct from implementation and measurement completion. The immutable
 reference source revision and binary/log hashes are recorded in
-[baseline-capture.json](baseline-capture.json). Existing production generation and
-runtime workflows remain available during the staged migration.
+[baseline-capture.json](baseline-capture.json). Production now uses the v2
+architecture; historical staged-migration records below retain their original scope.
 
 ## Revised representative protocol
 

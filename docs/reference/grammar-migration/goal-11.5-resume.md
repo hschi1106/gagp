@@ -110,13 +110,14 @@ Raw commands, outputs, receipt hashes and test logs are in the external
 `resume-stage-a-20260927/gpu-compile-paired` directory and `gpu-compile-summary.json`.
 Remote builds and logs remain at `/home/hschi1106/gagp-resume-a-20260927`.
 
-## Target-30 continuation (2026-09-27, in progress)
+## Target-30 continuation (2026-09-27; experiment history)
 
 The user now authorizes all five proposed directions, including experimental
 rule changes, and asks for >30x CPU/GPU speedup on the original p1024 complete-
 generation comparison. Keep improvements only; preserve raw evidence and report
 rule/semantic differences. No local GPU runs or subagents. The old Q>=0.95 remains
-a reference aspiration; this continuation has not reached either target.
+a reference aspiration. At the start of these experiments neither target had
+been reached; the final overlap result and its qualification are recorded below.
 
 Experiments are isolated under external `grammar-migration/target30-20260927`
 and remote `/home/hschi1106/gagp-resume-a-20260927/target30-*`. No final acceptance
@@ -497,3 +498,36 @@ Output SHA-256: `f401ece00609aca0c46c45ea4577ac66dcce3de37cd67fc3d5820dfa2a1c052
 reproduce the campaign/validation/audit using preserved inputs and binaries.
 The previous guard campaign, exploratory trial, failed workflow probe and all
 completed observations remain preserved. No new grammar restriction is retained.
+
+### Final representative coverage and evidence archive
+
+Final code `c574b7b` now has all six representative workloads measured in all
+four evolution modes, both fixed-population evaluation modes, and the p64
+five-generation anchor. There are 296 verified receipts: 276 new processes and
+20 reused completed p1024 records. Each comparison has three measured samples;
+all 36 same-backend reference/candidate steady fitness vectors match exactly.
+See [full tables](goal-11.5-final-measurements.md) and the
+[implementation report](../custom-grammar-implementation-report.md).
+
+The newly measured reference overlap median is 57.893 ms (S=45.959x), so the
+final overlap candidate's **same-mode Q is 0.6588**. The earlier 0.8009 compares
+candidate overlap to reference direct; both remain reported with their modes.
+Original Q>=0.95 is unpassed. No new grammar restriction is retained. Final
+reporting does not declare all goals complete while overlap's qualification for
+the requested >30x target awaits the earlier clarification.
+
+363 tracked native-source paths match both remote build source trees and
+`final-cpp-hashes.json`. The final patch additionally passed CPU-only Release
+preparation and clean Debug preparation/evolution parity checks. The clean
+authoring workflow recorded 59 successful commands plus one explicitly unsupported
+GPU `--eval-ast-json` rejection; all completed successes were reused on resume.
+
+The transferred archive `target30-final-evidence-v2.tar.gz` includes final raw
+trials, receipts, scripts, binaries, inputs, allocator bytes and clean-audit logs.
+All **1,238 files** match their manifest after extraction on the local machine.
+Archive SHA-256: `9f5c2f85ba3b6449b03fcad1a7fd69778126c2893aee95ef3a6abb2fbf377a81`.
+The v2 archive stores allocator bytes rather than a dangling source symlink;
+the first packaging archive is preserved separately. This packaging correction
+did not rerun or replace any experiment. Source is also preserved in
+`final-source-c574b7b.tar.gz`; final CPU-only logs and local archive audit live
+alongside it in external `grammar-migration/target30-20260927`.

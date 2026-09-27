@@ -22,6 +22,7 @@ contract as a second source of truth.
 | [`guides/grammar-authoring.md`](guides/grammar-authoring.md) | User workflow for creating, checking, resolving, customizing, and running grammars |
 | [`guides/experiment-protocol.md`](guides/experiment-protocol.md) | Canonical experiment protocol and reporting constraints |
 | [`reference/timing.md`](reference/timing.md) | Timing field names, scopes, and output mapping |
+| [`reference/custom-grammar-implementation-report.md`](reference/custom-grammar-implementation-report.md) | Verified grammar migration, final-code performance, optimizations, rule differences and acceptance limits |
 | [`reference/grammar-migration/README.md`](reference/grammar-migration/README.md) | In-progress grammar migration baseline capture and execution evidence |
 | [`reference/grammar-migration/goal-03-initialization.md`](reference/grammar-migration/goal-03-initialization.md) | Typed grammar initialization timing, setup costs and comparison limitations |
 | [`reference/grammar-migration/goal-04-variation.md`](reference/grammar-migration/goal-04-variation.md) | Compiled variation contracts, shared preparation, rejection accounting and validation |
@@ -31,6 +32,7 @@ contract as a second source of truth.
 | [`reference/grammar-migration/goal-11-performance.md`](reference/grammar-migration/goal-11-performance.md) | Performance repairs, mapped benchmark protocol, correctness evidence, and pending timing blocker |
 | [`reference/grammar-migration/goal-11.5-stage-a.md`](reference/grammar-migration/goal-11.5-stage-a.md) | Working implementation checkpoint, integrated CUDA checks, and p1024 parity audit |
 | [`reference/grammar-migration/goal-11.5-resume.md`](reference/grammar-migration/goal-11.5-resume.md) | Preserved Stage B rollback evidence and resumed Stage A speedup optimization |
+| [`reference/grammar-migration/goal-11.5-final-measurements.md`](reference/grammar-migration/goal-11.5-final-measurements.md) | Final six-workload generation, steady evaluation, five-generation and cold-process timings |
 | [`reference/grammar-migration/semantic-coverage.md`](reference/grammar-migration/semantic-coverage.md) | Semantic baseline evidence mapped to requirements and remaining gaps |
 | [`reference/cli.md`](reference/cli.md) | Mechanically checked native CLI flags and defaults |
 | [`reference/tooling.md`](reference/tooling.md) | Maintained tool and auxiliary executable ownership |
