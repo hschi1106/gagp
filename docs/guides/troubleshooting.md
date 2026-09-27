@@ -17,7 +17,7 @@ supported options and defaults.
 | Grammar type/scope/productivity error | Run `grammar validate` and `grammar inspect`, follow the reported field/production, and compare with the matching checked authoring example. |
 | Replay identity or schema mismatch | Restore the exact resolved grammar, cases and version tuple used to generate the artifact. Changed weights/domains change identity. |
 | Conflicting fuel/node/depth overrides | Edit the grammar's search/execution limits and regenerate; do not silently override a saved population contract. |
-| GPU unavailable after a successful build | Check `nvidia-smi`, `nvcc --version` and CMake's CUDA compiler detection; reconfigure the separate CUDA directory after fixing toolkit discovery. |
+| CUDA compiler not found / GPU unavailable | Check `nvidia-smi` and `nvcc --version`; pass `-DCMAKE_CUDA_COMPILER=/path/to/cuda/bin/nvcc` if the toolkit is outside PATH, or select `-DGAGP_ENABLE_CUDA=OFF` intentionally. |
 | No kernel image / invalid device function | Rebuild with the device's `CMAKE_CUDA_ARCHITECTURES` value (86 for RTX 3090, 89 for RTX 4090). |
 | GPU is busy or timings vary | Inspect `nvidia-smi`, choose an available visible index with `GAGP_CUDA_DEVICE`, and avoid concurrent experiments; do not stop someone else's processes. |
 | GPU descriptor/workspace capacity rejected | Inspect reported limits, program structure and documented [payload](../design/payload.md) / [grammar](../../spec/grammar.md) constraints; use a supported configuration or explicitly choose CPU execution. |

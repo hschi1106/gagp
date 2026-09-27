@@ -35,6 +35,12 @@ endif()
 include(CheckLanguage)
 if(GAGP_ENABLE_CUDA)
   check_language(CUDA)
+  if(NOT CMAKE_CUDA_COMPILER)
+    message(FATAL_ERROR
+      "GAGP_ENABLE_CUDA=ON requires a CUDA compiler. Set CUDACXX or "
+      "CMAKE_CUDA_COMPILER to nvcc, or configure a CPU-only build with "
+      "-DGAGP_ENABLE_CUDA=OFF.")
+  endif()
 endif()
 if(GAGP_ENABLE_CUDA AND CMAKE_CUDA_COMPILER)
   enable_language(CUDA)

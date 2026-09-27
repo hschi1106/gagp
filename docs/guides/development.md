@@ -10,6 +10,11 @@ cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug
 cmake --build cpp/build -j
 ```
 
+CUDA is enabled by default and configuration fails if its compiler cannot be
+found. Select `-DGAGP_ENABLE_CUDA=OFF` for CPU-only use, or pass
+`-DCMAKE_CUDA_COMPILER=/path/to/cuda/bin/nvcc` for a toolkit outside PATH. This
+prevents a requested CUDA test build from silently losing its GPU targets.
+
 Grammar identities use system OpenSSL Crypto for SHA-256 when CMake finds it.
 OpenSSL is optional: without it, the built-in implementation is used. Configure
 with `-DGAGP_ENABLE_OPENSSL_SHA256=OFF` to explicitly select the built-in path.

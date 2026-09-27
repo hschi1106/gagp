@@ -124,8 +124,8 @@ export GAGP_BIN=cpp/build-cuda
 "$GAGP_BIN/gagp_evolve_cli" --grammar-definition "$GAGP_RUN_DIR/grammar.json" --cases configs/grammar/examples/authoring/scalar.cases.json --population-json "$GAGP_RUN_DIR/population.json" --population-size 16 --seed 7 --generations 2 --engine gpu --repro-backend gpu --repro-overlap on --blocksize 256 --out-json "$GAGP_RUN_DIR/gpu.json"
 ```
 
-Check CMake actually detects a CUDA compiler: requesting CUDA without one can
-produce a CPU-only build. GPU-capable commands select the least-used visible GPU;
+CMake rejects a CUDA-enabled build if it cannot find the compiler. If `nvcc` is
+outside PATH, add `-DCMAKE_CUDA_COMPILER=/path/to/cuda/bin/nvcc` when configuring. GPU-capable commands select the least-used visible GPU;
 `GAGP_CUDA_DEVICE=0` forces visible device 0. Inspect the run's config and timing
 output to confirm the requested route. These are the four canonical modes:
 
