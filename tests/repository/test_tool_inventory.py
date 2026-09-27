@@ -31,9 +31,9 @@ class TestToolInventory(unittest.TestCase):
 
     def test_tool_package_has_one_dependency_free_entrypoint(self) -> None:
         pyproject = (ROOT / "tools" / "pyproject.toml").read_text(encoding="utf-8")
-        setup_cfg = (ROOT / "tools" / "setup.cfg").read_text(encoding="utf-8")
         self.assertIn('gagp-tools = "gagp_tools.cli:main"', pyproject)
-        self.assertIn("gagp-tools = gagp_tools.cli:main", setup_cfg)
+        self.assertFalse((ROOT / "tools" / "setup.cfg").exists())
+        self.assertIn('setuptools>=64', pyproject)
         self.assertIn("dependencies = []", pyproject)
         expected_modules = {
             "datasets/convert_psb.py",

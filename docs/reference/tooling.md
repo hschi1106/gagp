@@ -8,8 +8,8 @@ these tools; `spec/` and the native implementation remain authoritative.
 
 All retained commands use the Python standard library and are covered by
 `tools/tests/`. Their implementations live in the `gagp_tools` package behind
-one discoverable command. The listed file paths are thin temporary
-compatibility wrappers.
+one discoverable command. The listed file paths are maintained compatibility wrappers; implementation lives
+only in the package. `tools/pyproject.toml` is the sole package metadata owner.
 
 | Command | Class / owner | Inputs | Outputs | Downstream consumer | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -17,7 +17,7 @@ compatibility wrappers.
 | `psb convert` / `convert_psb_to_fitness_cases.py` | public workflow / datasets | PSB JSONL, split/schema options | `fitness-cases` JSON | native CLI, materializer | maintained |
 | `psb materialize` / `materialize_psb_fixtures.py` | public workflow / datasets | mirrored datasets, exclusions, schema policy | fixtures plus support manifest | PSB experiment runner | maintained |
 | `legacy_grammar_config_profiles.py` | migration-only legacy support | release-1 grammar profile and compatibility choices | release-1 grammar-config JSON/hash | frozen oracle workflow | legacy migration only |
-| `make_population.py` | public workflow / experiments | v2 definition, cases, population size, seed | `grammar-population-v2` JSON | fixed-pop CLI runs | maintained |
+| `benchmark population` / `make_population.py` | public workflow / experiments | v2 definition, cases, population size, seed | `grammar-population-v2` JSON | fixed-pop CLI runs | maintained |
 | `psb run` / `run_psb_regression.py` | public workflow / experiments | native binary, fixtures, seeds/config, run matrix | per-run JSON and summary | comparison/report commands | maintained |
 | `psb compare` / `compare_psb_baseline.py` | public workflow / reports | compatible baseline/candidate summaries, tolerance policy | comparison JSON and exit gate | CI/release review | maintained |
 | `report psb-manifest` / `write_psb_manifest.py` | internal support / reports | PSB comparison/run artifacts | compact PSB evidence manifest | committed `benchmarks/` evidence | maintained |
@@ -35,6 +35,8 @@ their existing explicit policies documented in `docs/guides/development.md`.
 
 | Target | Class / owner | Build policy | Use case |
 | --- | --- | --- | --- |
+| `gagp_grammar_cli` | grammar authoring / compiled definition | default | validate, inspect and resolve definitions; wrapped by `gagp-tools grammar` |
+| `gagp_generate_cli` | generation / artifact replay | default | generate and same-version replay complete populations |
 | `gagp_evolve_cli` | product CLI / native runtime | default | supported evolution, AST evaluation, and fixed-pop workflow |
 | `gagp_runtime_multi_bench` | benchmark / performance | `-DGAGP_BUILD_BENCHMARKS=ON` | low-level runtime throughput experiments |
 | `gagp_migrate_artifact` | offline migration command | default migration target | converts supported release-1 grammar configs and materialized ASTs to v2; not production execution dispatch |

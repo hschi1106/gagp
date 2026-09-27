@@ -6,6 +6,17 @@ implementation, guides describe workflows, and references record checked
 interfaces. Documents may link to another layer but must not restate its
 contract as a second source of truth.
 
+## Find your next task
+
+- New user: [Getting started](guides/getting-started.md), then [Troubleshooting](guides/troubleshooting.md).
+- Customize search: [Grammar authoring](guides/grammar-authoring.md) and [cases format](../spec/fitness_cases.md).
+- Save/replay or migrate: [Grammar artifacts](guides/grammar-config.md).
+- Compare performance: [Benchmarking](guides/benchmarking.md) and [timing fields](reference/timing.md).
+- Develop GAGP: [Contributor workflow](guides/development.md#contributor-workflow) and [architecture](design/architecture.md).
+
+Historical execution records below substantiate past results; they are not
+installation instructions or prerequisites for normal use.
+
 ## Ownership
 
 | Document | Owns |
@@ -15,6 +26,8 @@ contract as a second source of truth.
 | [`design/dataflow.md`](design/dataflow.md) | End-to-end execution and evolution dataflow |
 | [`design/payload.md`](design/payload.md) | Host/device payload transport implementation |
 | [`design/gpu-reproduction.md`](design/gpu-reproduction.md) | GPU reproduction pipeline and overlap design |
+| [`guides/getting-started.md`](guides/getting-started.md) | New-user CPU/CUDA installation and end-to-end custom-grammar tutorial |
+| [`guides/troubleshooting.md`](guides/troubleshooting.md) | Setup, grammar, artifact and GPU failure recovery |
 | [`guides/development.md`](guides/development.md) | Build, test, CLI, and local development workflows |
 | [`guides/benchmarking.md`](guides/benchmarking.md) | Fixed-population timing and canonical native run workflows |
 | [`guides/psb-workflow.md`](guides/psb-workflow.md) | PSB dataset, regression, comparison, and manifest workflows |
@@ -23,8 +36,22 @@ contract as a second source of truth.
 | [`guides/experiment-protocol.md`](guides/experiment-protocol.md) | Canonical experiment protocol and reporting constraints |
 | [`reference/timing.md`](reference/timing.md) | Timing field names, scopes, and output mapping |
 | [`reference/custom-grammar-implementation-report.md`](reference/custom-grammar-implementation-report.md) | Verified grammar migration, final-code performance, optimizations, rule differences and acceptance limits |
+| [`reference/cli.md`](reference/cli.md) | Mechanically checked native CLI flags and defaults |
+| [`reference/tooling.md`](reference/tooling.md) | Maintained tool and auxiliary executable ownership |
+| [`reference/repository-layout.md`](reference/repository-layout.md) | Mechanically checked stable repository paths and roles |
+| [`../tools/README.md`](../tools/README.md) | Operational tool commands and artifact lifecycle |
+| [`../benchmarks/README.md`](../benchmarks/README.md) | Committed benchmark-manifest provenance and interpretation |
+
+`README.md` at the repository root remains the product entry point;
+`AGENTS.md` contains contributor constraints; `VERSION.md` contains release and
+compatibility history. Those files link here rather than duplicating this map.
+
+## Historical evidence index
+
+| Document | Records |
+| --- | --- |
 | [`reference/grammar-migration/goal-11.5-target35.md`](reference/grammar-migration/goal-11.5-target35.md) | Further p1024 optimization, two measurement campaigns, reverted trials and stopping judgment |
-| [`reference/grammar-migration/README.md`](reference/grammar-migration/README.md) | In-progress grammar migration baseline capture and execution evidence |
+| [`reference/grammar-migration/README.md`](reference/grammar-migration/README.md) | Historical grammar migration baseline capture and execution evidence |
 | [`reference/grammar-migration/goal-03-initialization.md`](reference/grammar-migration/goal-03-initialization.md) | Typed grammar initialization timing, setup costs and comparison limitations |
 | [`reference/grammar-migration/goal-04-variation.md`](reference/grammar-migration/goal-04-variation.md) | Compiled variation contracts, shared preparation, rejection accounting and validation |
 | [`reference/grammar-migration/goal-06-bounded-regions.md`](reference/grammar-migration/goal-06-bounded-regions.md) | Bounded CPU regions, frozen-oracle comparisons, timing evidence and remaining acceptance |
@@ -35,16 +62,7 @@ contract as a second source of truth.
 | [`reference/grammar-migration/goal-11.5-resume.md`](reference/grammar-migration/goal-11.5-resume.md) | Preserved Stage B rollback evidence and resumed Stage A speedup optimization |
 | [`reference/grammar-migration/goal-11.5-final-measurements.md`](reference/grammar-migration/goal-11.5-final-measurements.md) | Final six-workload generation, steady evaluation, five-generation and cold-process timings |
 | [`reference/grammar-migration/semantic-coverage.md`](reference/grammar-migration/semantic-coverage.md) | Semantic baseline evidence mapped to requirements and remaining gaps |
-| [`reference/cli.md`](reference/cli.md) | Mechanically checked native CLI flags and defaults |
-| [`reference/tooling.md`](reference/tooling.md) | Maintained tool and auxiliary executable ownership |
-| [`reference/repository-layout.md`](reference/repository-layout.md) | Mechanically checked stable repository paths and roles |
 | [`refactor/README.md`](refactor/README.md) | Evidence retained for the Python-retirement/native-verifier refactor |
-| [`../tools/README.md`](../tools/README.md) | Operational tool commands and artifact lifecycle |
-| [`../benchmarks/README.md`](../benchmarks/README.md) | Committed benchmark-manifest provenance and interpretation |
-
-`README.md` at the repository root remains the product entry point;
-`AGENTS.md` contains contributor constraints; `VERSION.md` contains release and
-compatibility history. Those files link here rather than duplicating this map.
 
 ## Editing rules
 

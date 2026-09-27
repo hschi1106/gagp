@@ -156,3 +156,37 @@ the production schema is normative in
 - [PSB workflow](psb-workflow.md): datasets, regression, comparison, manifests
 - [Experiment protocol](experiment-protocol.md): controlled formal studies
 - [Operational tools](../../tools/README.md): unified commands and artifacts
+
+## Contributor workflow
+
+Start with the [repository map](../reference/repository-layout.md) and the
+[architecture boundaries](../design/architecture.md). Public C++ headers belong
+under `cpp/include/gagp`; implementation details stay with their owning module.
+Python `gagp_tools` handles orchestration and reports, never runtime semantics.
+Compatibility command wrappers are maintained entry points, not duplicate logic.
+
+For a grammar-only change, copy a checked root, adjust its JSON, validate it and
+run the authoring tutorial against matching cases. Add a new grammar package under
+`configs/grammar/packages` only when its definitions are reusable; keep runnable
+roots and cases under examples. Check generation, membership, variation and replay
+for the new package without adding package-name branches to the native core.
+
+For a primitive or behavior change:
+
+1. Identify the owning specification and catalog entry; read the matching compiler,
+   verifier and CPU/CUDA runtime callers before editing. The navigation routes in
+   [the repository skill](../../.agents/skills/gagp-navigation/SKILL.md) map these owners.
+2. Update types, scopes, error/fuel behavior and resource bounds together. Preserve
+   reserved numeric holes and versioned artifact contracts; document any deliberate
+   compatibility boundary in `VERSION.md`.
+3. Add meaningful native contract tests and CPU/GPU parity coverage. Register new
+   test sources in `cpp/CMakeLists.txt`; update operational tests only if tool flow
+   changes. Keep test fixtures small and independent of downloaded datasets.
+4. Run the affected checks, then the integration suite for cross-module changes.
+   Update the owning spec (and spec-freeze hash when changed), design, user guide
+   and navigation links only where their contract or ownership changed.
+
+Use `feat:`, `fix:`, `refactor:`, `docs:`, `test:` or `chore:` commits. Explain the
+observable change, validation and limitations in review. Do not commit generated
+builds, dataset mirrors, virtual environments or raw run logs. Retain compact,
+reviewed manifests and put unique raw evidence in a documented archive.

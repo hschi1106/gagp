@@ -59,37 +59,37 @@ fallback behavior. The exact public contracts live in the
 - An NVIDIA CUDA toolkit and compatible GPU for CUDA backends
 - Python 3.10 or newer only for operational tools and repository checks
 
-### Build and test
+### First CPU run
 
 ```bash
 git clone https://github.com/hschi1106/gagp.git
 cd gagp
-
-cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug
-cmake --build cpp/build -j
-ctest --test-dir cpp/build --output-on-failure
-```
-
-For a CPU-only build, configure with `-DGAGP_ENABLE_CUDA=OFF`.
-
-### Run GPU-accelerated evolution
-
-```bash
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release -DGAGP_ENABLE_CUDA=OFF
+cmake --build cpp/build -j 4 --target gagp_evolve_cli
 cpp/build/gagp_evolve_cli \
-  --cases data/fixtures/simple_exp_1024.json \
-  --grammar-definition configs/grammar/benchmarks/simple_exp.json \
-  --engine gpu \
-  --repro-backend gpu \
-  --repro-overlap on \
-  --blocksize 256 \
-  --population-size 64 \
-  --generations 2 \
-  --show-program ast \
-  --out-json /tmp/gagp-simple-exp.run.json
+  --cases configs/grammar/examples/authoring/scalar.cases.json \
+  --grammar-definition configs/grammar/examples/authoring/scalar.json \
+  --engine cpu --repro-backend cpu --repro-overlap off \
+  --population-size 16 --generations 2 --seed 7 --show-program ast
 ```
 
-GPU-capable paths automatically choose the least-used visible CUDA device. Set
-`GAGP_CUDA_DEVICE=0` to select a specific visible-device index.
+Successful execution prints generation fitness statistics and the selected AST.
+This small example checks the workflow; it does not guarantee a solved problem.
+For a complete **install → customize grammar → run → inspect → export/replay**
+walkthrough, follow [Getting started](docs/guides/getting-started.md).
+
+### CUDA route
+
+Use a separate build with `-DGAGP_ENABLE_CUDA=ON` and the correct
+`-DCMAKE_CUDA_ARCHITECTURES` for your GPU (86 for RTX 3090; 89 for RTX 4090).
+CMake must detect the CUDA compiler. Then select
+`--engine gpu --repro-backend gpu --repro-overlap on`.
+The [CUDA tutorial](docs/guides/getting-started.md#run-on-cuda-optional) includes
+complete build/run commands and all four backend combinations.
+GPU paths choose the least-used visible device; `GAGP_CUDA_DEVICE=0` pins visible
+device 0. Linux CPU/CUDA workflows are verified; other platforms are not part of
+the release validation. See [Troubleshooting](docs/guides/troubleshooting.md) for
+setup errors and [Development](docs/guides/development.md) for full test builds.
 
 ## How it works
 
@@ -136,6 +136,8 @@ Follow the complete artifact pipeline in the
 
 | Start here | What it covers |
 | --- | --- |
+| [Getting started](docs/guides/getting-started.md) | CPU/CUDA setup, complete custom-grammar tutorial, results and replay |
+| [Troubleshooting](docs/guides/troubleshooting.md) | Common setup, grammar, artifact and GPU errors |
 | [Specifications](spec/README.md) | Normative grammar, bytecode, builtin, fitness, fixture, compiled-definition, and migration contracts |
 | [Architecture](docs/design/architecture.md) | Native components, dependency direction, and stable invariants |
 | [Dataflow](docs/design/dataflow.md) | End-to-end execution, evolution, and artifact flow |
@@ -145,7 +147,7 @@ Follow the complete artifact pipeline in the
 | [PSB workflow](docs/guides/psb-workflow.md) | Dataset acquisition, fixtures, regression, and reports |
 | [Grammar definitions and migration](docs/guides/grammar-config.md) | Compiled search spaces, artifacts, and offline v1 migration |
 | [Grammar authoring](docs/guides/grammar-authoring.md) | Start, validate, inspect, resolve, customize, and run a definition |
-| [Implementation and performance report](docs/reference/custom-grammar-implementation-report.md) | Verified grammar migration, retained optimizations, p1024 speedup and remaining acceptance limits |
+| [Implementation and performance report](docs/reference/custom-grammar-implementation-report.md) | Verified grammar migration, retained optimizations, p1024 speedup, accepted results and measured limitations |
 | [Documentation index](docs/README.md) | Ownership of every maintained document |
 
 ## Repository layout
