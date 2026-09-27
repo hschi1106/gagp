@@ -158,7 +158,9 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
 
   grammar::GrammarRandom random(config.seed);
   std::size_t donor_attempts = 0;
-  constexpr std::size_t pool_window = 128;
+  const std::size_t pool_window = std::min<std::size_t>(1024,
+      std::max<std::size_t>(128, population.size()));
+  std::size_t preview_begin = 0, preview_end = 0;
   std::vector<grammar::DonorPoolJob> planned_jobs;
   std::vector<std::pair<std::size_t, std::size_t>> planned_sites;
   std::optional<std::vector<grammar::DonorPool>> planned_pools;
@@ -177,11 +179,19 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
   };
 
   const auto prefetch = [&](std::size_t begin) {
+    preview_begin = begin;
+    preview_end = std::min(population.size(), begin + pool_window);
     planned_jobs.clear(); planned_sites.clear(); planned_pools.reset(); planned_cursor = 0;
     preview_analyses.clear();
     if (!prepare_donors || config.compiled_pass != CompiledVariationPass::Mutation ||
         config.mutation_ratio <= 0.0 || std::thread::hardware_concurrency() < 2 ||
         config.donor_pool_size_per_site < 2 || population.size() < pool_window) return;
+    // Stop before the next selected parent would exceed the batch API's donor
+    // storage bound. Sparse mutation schedules can use the full window; dense
+    // schedules retain bounded parallel batches rather than falling back en masse.
+    const auto max_jobs = (std::size_t{1048576} / context.request().budget.max_nodes) /
+        static_cast<std::size_t>(config.donor_pool_size_per_site);
+    if (max_jobs < 2) return;
     // Preview the existing schedule with a copied RNG. No main RNG, output
     // offsets, mutation counters or stream order change during speculation.
     auto preview_random = random;
@@ -189,7 +199,7 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
     ConstantMutationTable preview_constants;
     preview_constants.grammar_domains = constants->grammar_domains;
     try {
-      for (auto index = begin; index < std::min(population.size(), begin + pool_window); ++index) {
+      for (auto index = begin; index < preview_end; ++index) {
         auto& saved = preview_analyses[index - begin];
         if (const auto* member = warmed(index)) {
           saved.analysis = member->analysis;
@@ -212,6 +222,11 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
         const int anticipated = anticipated_mutation_candidate<grammar::GrammarRandom>(
             config.seed, static_cast<int>(index), config.mutation_ratio,
             config.mutation_subtree_ratio, selected, preview_constants.streams.back().group_count > 0);
+        if (anticipated >= 0 && planned_jobs.size() == max_jobs) {
+          preview_end = index;
+          preview_analyses.resize(index - begin);
+          break;
+        }
         for (std::size_t rank = 0; rank < sites.size(); ++rank) {
           std::vector<std::uint64_t> seeds;
           for (int attempt = 0; attempt < config.donor_pool_size_per_site; ++attempt) {
@@ -232,7 +247,7 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
     }
   };
   for (std::size_t parent_index = 0; parent_index < population.size(); ++parent_index) {
-    if (parent_index % pool_window == 0) {
+    if (parent_index == preview_end) {
       if (planned_pools && planned_cursor != planned_pools->size())
         throw std::logic_error("prefetched donor schedule did not consume its pools");
       prefetch(parent_index);
@@ -240,7 +255,7 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
     const ProgramGenome& parent = population[parent_index];
     std::string parent_identity;
     std::shared_ptr<const grammar::VariationAnalysis> analysis;
-    const auto preview_index = parent_index % pool_window;
+    const auto preview_index = parent_index - preview_begin;
     if (preview_index < preview_analyses.size()) {
       auto& saved = preview_analyses[preview_index];
       // The population is const for this call, but registry payloads are mutable.

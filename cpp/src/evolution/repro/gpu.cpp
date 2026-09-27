@@ -1,3 +1,4 @@
+#include "../batch_workers.hpp"
 #include "pack_internal.hpp"
 #include "prep_internal.hpp"
 #include "gagp/evolution/repro/gpu.hpp"
@@ -176,14 +177,13 @@ std::vector<ProgramGenome> compact_prepared_population(const std::vector<Program
   std::vector<ProgramGenome> result(population.size());
   const auto workers = std::min(20u, std::max(1u, std::thread::hardware_concurrency()));
   constexpr std::size_t batch = 128;
+  detail::BatchWorkers team(workers);
   for (std::size_t begin = 0; begin < population.size(); begin += batch) {
     const auto count = std::min(batch, population.size() - begin);
     std::vector<std::unique_ptr<payload::StagedPayloads>> reads(count);
     std::vector<std::exception_ptr> errors(count);
     std::atomic<std::size_t> next{0};
-    std::vector<std::future<void>> pending;
-    for (unsigned worker = 0; worker < workers; ++worker)
-      pending.push_back(std::async(std::launch::async, [&] {
+    team.run([&] {
         for (;;) {
           const auto offset = next.fetch_add(1, std::memory_order_relaxed);
           if (offset >= count) break;
@@ -193,8 +193,7 @@ std::vector<ProgramGenome> compact_prepared_population(const std::vector<Program
             result[begin + offset] = compact_genome_tables(population[begin + offset]);
           } catch (...) { errors[offset] = std::current_exception(); }
         }
-      }));
-    for (auto& task : pending) task.get();
+    });
     std::vector<payload::StagedPayloads*> transactions;
     for (const auto& read : reads) if (read) transactions.push_back(read.get());
     if (!payload::StagedPayloads::commit_all(transactions)) {

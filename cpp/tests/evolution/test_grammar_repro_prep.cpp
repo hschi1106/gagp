@@ -241,12 +241,20 @@ void test_disabled_mutation_skips_speculative_analysis() {
   }
 }
 
-void test_prefetched_parent_analysis_matches_sequential() {
-  const auto grammar = split_nonterminal_grammar();
-  std::vector<ProgramGenome> population(128,
+void test_prefetched_parent_analysis_matches_sequential(bool capacity_split) {
+  auto grammar = split_nonterminal_grammar();
+  if (capacity_split) {
+    auto document = gagp::cli_detail::JsonParser(grammar->canonical_definition()).parse();
+    document.object_v.at("search_limits").object_v.at("max_nodes").number_v = 1024;
+    grammar = compile_shared(gagp::evo::grammar::canonical_json(document));
+  }
+  // 257 jobs exceed the former 128-job window. With 1024-node donor budgets
+  // and eight seeds, the storage bound instead forces 128 + 128 + 1 jobs.
+  std::vector<ProgramGenome> population(257,
       gagp::evo::repro::compact_genome_tables(generate_derivation(*grammar, 1).genome));
   auto config = compiled_config(*grammar, population.size());
   config.compiled_pass = gagp::evo::repro::CompiledVariationPass::Mutation;
+  config.donor_pool_size_per_site = 8;
   config.mutation_ratio = 1.0;
   config.mutation_subtree_ratio = 1.0;
   VariationContext context(grammar), reference_context(grammar);
@@ -771,7 +779,8 @@ void test_determinism_packing_ownership_and_guards() {
 int main() {
   try {
     test_disabled_mutation_skips_speculative_analysis();
-    test_prefetched_parent_analysis_matches_sequential();
+    test_prefetched_parent_analysis_matches_sequential(false);
+    test_prefetched_parent_analysis_matches_sequential(true);
     test_warmed_population_handoff();
     test_gpu_run_resources_reject_oversized_search_space();
     test_exact_contracts_and_shared_occurrences();

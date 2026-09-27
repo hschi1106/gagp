@@ -20,7 +20,8 @@ class ProductAnalysis {
  public:
   ProductAnalysis(const CompiledGrammar& grammar, std::size_t limit)
       : grammar_(grammar), remaining_(limit), closures_(grammar.expressions().size()),
-        closure_ready_(closures_.size()), labels_(closures_.size()), label_ready_(closures_.size()) {}
+        closure_ready_(closures_.size()), labels_(closures_.size()), label_ready_(closures_.size()),
+        label_ids_(closures_.size(), kNoGrammarId) {}
 
   ResourceInvarianceCertificate run(const std::vector<std::uint32_t>& roots) {
     std::vector<std::vector<std::uint32_t>> root_leaves;
@@ -143,12 +144,12 @@ class ProductAnalysis {
     for (std::size_t i = 0; i < reachable.size(); ++i)
       for (auto child : grammar_.expressions()[reachable[i]].children)
         for (auto id : closure(child)) { tick(); enqueue(id); }
-    using Initial = std::tuple<Label, std::uint64_t, std::uint64_t, bool>;
+    using Initial = std::tuple<std::uint32_t, std::uint64_t, std::uint64_t, bool>;
     std::map<Initial, std::uint32_t> initial;
     std::vector<std::uint32_t> classes(closures_.size(), kNoGrammarId);
     for (auto id : reachable) {
       tick(); const auto& cost = grammar_.expressions()[id].resource_charge;
-      const Initial key{label(id), cost.nodes, cost.depth, cost.resets_depth};
+      const Initial key{label_id(id), cost.nodes, cost.depth, cost.resets_depth};
       classes[id] = initial.emplace(key, initial.size()).first->second;
     }
     auto count = initial.size();
@@ -216,11 +217,17 @@ class ProductAnalysis {
     label_ready_[id] = true;
     return labels_[id];
   }
+  std::uint32_t label_id(std::uint32_t id) {
+    auto& cached = label_ids_[id];
+    if (cached == kNoGrammarId)
+      cached = label_classes_.emplace(label(id), label_classes_.size()).first->second;
+    return cached;
+  }
   std::vector<std::size_t> pairs(const std::vector<std::uint32_t>& left,
       const std::vector<std::uint32_t>& right) {
     std::vector<std::size_t> result;
     for (auto a : left) for (auto b : right) {
-      tick(); if (label(a) != label(b)) continue;
+      tick(); if (label_id(a) != label_id(b)) continue;
       Pair pair{std::min(a, b), std::max(a, b)};
       auto found = ids_.find(pair);
       if (found == ids_.end()) {
@@ -240,6 +247,8 @@ class ProductAnalysis {
   std::vector<bool> closure_ready_;
   std::vector<Label> labels_;
   std::vector<bool> label_ready_;
+  std::vector<std::uint32_t> label_ids_;
+  std::map<Label, std::uint32_t> label_classes_;
   std::map<Pair, std::size_t> ids_;
   std::vector<State> states_;
 };

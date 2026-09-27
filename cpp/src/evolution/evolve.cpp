@@ -1,3 +1,4 @@
+#include "batch_workers.hpp"
 #include "gagp/evolution/evolve.hpp"
 
 #include <chrono>
@@ -94,15 +95,15 @@ CompiledPopulation compile_population(const std::vector<ProgramGenome>& populati
     return genome.derivation ? grammar::runtime_cache_identity(
         genome, input_names, static_cast<std::uint32_t>(fuel)) : genome.meta.program_key;
   };
+  std::unique_ptr<detail::BatchWorkers> team;
+  if (parallel) team = std::make_unique<detail::BatchWorkers>(workers);
   for (std::size_t begin = 0; begin < population.size(); begin += batch_size) {
     const auto count = std::min(batch_size, population.size() - begin);
     std::vector<PreparedCompile> prepared(parallel ? count : 0);
     bool valid = parallel;
     if (parallel) {
       std::atomic<std::size_t> next{0};
-      std::vector<std::future<void>> tasks;
-      for (std::size_t worker = 0; worker < std::min<std::size_t>(workers, count); ++worker)
-        tasks.push_back(std::async(std::launch::async, [&] {
+      team->run([&] {
           for (;;) {
             const auto i = next.fetch_add(1, std::memory_order_relaxed);
             if (i >= count) break;
@@ -119,8 +120,7 @@ CompiledPopulation compile_population(const std::vector<ProgramGenome>& populati
               row.compile_end = std::chrono::steady_clock::now();
             } catch (...) { row.error = std::current_exception(); }
           }
-        }));
-      for (auto& task : tasks) task.get();
+      });
       std::vector<payload::StagedPayloads*> reads;
       for (const auto& row : prepared) reads.push_back(row.reads.get());
       valid = payload::StagedPayloads::commit_all(reads);

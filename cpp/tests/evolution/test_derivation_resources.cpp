@@ -595,7 +595,7 @@ void test_independent_donor_pool_batch() {
   auto grammar = std::make_shared<const CompiledGrammar>(compile(tradeoffs()));
   VariationContext context(grammar, 128, ProjectedBudget{5, 5});
   std::vector<ProgramGenome> parents;
-  for (std::uint64_t seed = 0; seed < 9; ++seed) parents.push_back(generate_derivation(*grammar, seed).genome);
+  for (std::uint64_t seed = 0; seed < 137; ++seed) parents.push_back(generate_derivation(*grammar, seed).genome);
   std::vector<DonorPoolJob> jobs;
   for (std::size_t i = 0; i < parents.size(); ++i)
     jobs.push_back({&parents[i], context.analyze(parents[i])->sites.front(), {i * 4, i * 4 + 1, i * 4 + 2, i * 4 + 3}});

@@ -1,3 +1,4 @@
+#include "../batch_workers.hpp"
 #include "gagp/evolution/grammar/variation_cache.hpp"
 
 #include <stdexcept>
@@ -163,6 +164,7 @@ void VariationAnalysisCache::prepare_population(const std::vector<ProgramGenome>
   }
   // Bound speculative results and join every reader before returning to generation.
   constexpr std::size_t batch_size = 128;
+  detail::BatchWorkers team(std::min({workers, population.size(), batch_size}));
   for (std::size_t begin = 0; begin < population.size(); begin += batch_size) {
     const auto count = std::min(batch_size, population.size() - begin);
     std::vector<std::string> keys(count);
@@ -172,9 +174,7 @@ void VariationAnalysisCache::prepare_population(const std::vector<ProgramGenome>
     std::vector<std::exception_ptr> errors(count);
     std::vector<std::unique_ptr<payload::StagedPayloads>> snapshots(count);
     std::atomic<std::size_t> next{0};
-    std::vector<std::future<void>> pending;
-    for (std::size_t worker = 0; worker < std::min(workers, count); ++worker)
-      pending.push_back(std::async(std::launch::async, [&] {
+    team.run([&] {
         for (;;) {
           const auto i = next.fetch_add(1, std::memory_order_relaxed);
           if (i >= count) break;
@@ -192,8 +192,7 @@ void VariationAnalysisCache::prepare_population(const std::vector<ProgramGenome>
                 local_projected_budget_ ? &*local_projected_budget_ : nullptr));
           } catch (...) { errors[i] = std::current_exception(); }
         }
-      }));
-    for (auto& task : pending) task.get();
+    });
     std::vector<payload::StagedPayloads*> transactions;
     for (const auto& snapshot : snapshots) transactions.push_back(snapshot.get());
     if (!payload::StagedPayloads::commit_all(transactions)) {

@@ -362,10 +362,10 @@ std::optional<std::vector<DonorPool>> try_generate_donor_pools(VariationContext&
   // Parallel workers cannot observe the caller's uncommitted payload view,
   // and their transactions cannot commit inside that enclosing scope.
   if (payload::StagedPayloads::has_active_scope()) return std::nullopt;
-  const auto workers = std::min<std::size_t>({8, std::thread::hardware_concurrency(), jobs.size()});
+  const auto workers = std::min<std::size_t>({20, std::thread::hardware_concurrency(), jobs.size()});
   // The old single-seed path retains analyses in the caller's registry. Keep it
   // on that path instead of changing observable preparation identities.
-  if (workers < 2 || jobs.size() > 128 ||
+  if (workers < 2 || jobs.size() > 1024 ||
       std::any_of(jobs.begin(), jobs.end(), [](const auto& job) { return job.seeds.size() < 2; }))
     return std::nullopt;
   std::size_t donor_count = 0;

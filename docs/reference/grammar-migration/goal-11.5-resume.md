@@ -242,3 +242,70 @@ source. The unrelated untracked `gagp_progress_report.html` remains unchanged.
 The final population comparison covers the complete ordered native AST JSON
 arrays for all 1024 children, not just aggregate fitness. This is a focused
 checkpoint validation, not completion of Goal 11 or all later goals.
+
+
+### Continuing toward 30x: worker reuse and wider donor scheduling
+
+The next retained checkpoint reuses operation-owned workers across the existing
+128-member compilation, parent-analysis, compaction and admission batches.
+Every batch still completes all callbacks before payload validation and ordered
+publication; exceptions also wait for all readers. CPU compilation is unchanged.
+The private helper is `cpp/src/evolution/batch_workers.hpp`.
+
+Mutation prefetch now spans up to 1024 parents with up to 20 donor workers. It
+stops before another selected parent would exceed the existing 1,048,576 declared
+donor-node storage bound, then resumes at that parent. Job count is bounded at
+1024; the 64-seed per-job bound is unchanged. Actual seeds, retries, proposed
+programs, rejection outcomes and final population are unchanged. Resource-proof
+labels are interned for exact integer comparisons without changing equivalence,
+work-limit accounting or the proof algorithm.
+
+Exploratory CPU/GPU observations (ms; not acceptance medians):
+
+| Experiment | CPU | GPU | Disposition |
+| --- | ---: | ---: | --- |
+| Reorder donor-site equality checks | 5990.558 | 352.008 | Reverted; no clear gain |
+| Reuse workers across batches | 6004.753 | 336.143 | Retained |
+| Intern resource-proof labels | 6265.388 | 338.498 | Included in the candidate below |
+| Wider donor window, 8 workers | 5959.987 | 302.038 | Superseded by 20 workers |
+| Wider donor window, 20 workers | 6006.695 | 274.293 | Retained, then paired |
+| Expand analysis/admission batches to 1024 | 6057.341 | 276.305 | Reverted; no clear overall gain |
+| Parallel child-metadata reconstruction | 6187.152 | 277.015 | Reverted; no clear overall gain |
+
+One warm-up followed by three paired observations compared the immutable
+7495153 candidate with the new scheduling checkpoint on Snoopy:
+
+| Version | CPU observations ms | GPU observations ms | CPU/GPU median ratio |
+| --- | --- | --- | ---: |
+| 7495153 control | 6056.088, 6075.219, 6143.329 | 346.455, 364.569, 372.092 | 16.6641x |
+| Worker/window candidate | 6146.424, 5879.989, 6034.888 | 284.071, 279.175, 274.954 | 21.6168x |
+
+Candidate medians are CPU 6034.888 ms and GPU 279.175 ms: GPU time is 23.4% lower
+and S is 29.7% higher than its paired control. Against the earlier measured
+reference S=41.9585x, Q is 0.5152; that reference comparison is historical, not a
+new simultaneous reference measurement. **The 30x target remains unmet:** at this
+CPU time the GPU generation must fall below 201.163 ms, another 27.9% reduction.
+No grammar, naming, budget or execution rule is changed by this checkpoint.
+
+Six focused tests passed: grammar preparation, derivation resources, compiled
+GPU backend, all-eight-type compiled payload evolution, CPU/GPU evolution parity,
+and variation cache. New checks exercise worker exception/barrier/payload-scope
+lifetimes, 137 independent donor jobs, a 257-parent prefetch, and capacity-driven
+128+128+1-job windows against sequential generation. A separate retained final
+population run validates all 1024 members and matches every ordered native AST
+JSON record from the prior candidate. The additional final evaluation is excluded
+from paired timings. This remains checkpoint evidence, not Goal 11 completion.
+
+Raw receipts, binaries, complete population comparison, diagnostic Nsight reports,
+source snapshots and rejected patches are preserved under the existing external
+`target30-20260927` artifact directory and isolated Snoopy build directory. The
+paired runner refuses to overwrite completed receipts. CPU sampling with Nsight
+is unavailable on Snoopy (`perf_event_open` denied); no host configuration was
+changed to enable it.
+
+The source audit matches all 361 production/test/build/header fixture paths to the
+isolated remote source. Its rebuilt benchmark is byte-identical to the paired
+candidate: `faca74fcc17c0886d172dc77a6d00cf579d279407fd8e019b682c78811eaaa7b`.
+All 23 repository checks passed. The transferred follow-up archive has 35 verified
+output/log receipts; `window-summary.json` records the medians, source audit and
+full-population comparison. Diagnostic NVTX instrumentation was removed.

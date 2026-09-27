@@ -108,7 +108,8 @@ stay under artifact directories, and only reviewed compact manifests belong in
 GPU evaluation prepares bytecode in source-ordered batches of at most 128 members,
 using up to 20 workers, capped by hardware concurrency, when the population has at least 32 members. Each worker
 captures the runtime identity and compilation under one payload read snapshot.
-After joining workers, all snapshots must validate atomically before cache/results
+The operation reuses one worker team across batches. After each batch barrier,
+all snapshots must validate atomically before cache/results
 are published in population order. Conflicting reads fall back to sequential
 preparation; enclosing payload scopes and small populations do not spawn workers.
 Duplicate cache keys retain the first published bytecode without dropping any

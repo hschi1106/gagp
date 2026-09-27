@@ -1,3 +1,4 @@
+#include "../batch_workers.hpp"
 #include "compiled_decode.hpp"
 #include "../../runtime/payload/staging.hpp"
 
@@ -170,6 +171,7 @@ std::vector<ProgramGenome> decode_compiled_pass(
   std::vector<std::optional<ProgramGenome>> admitted;
   std::vector<grammar::VariationCounters> admission_counts;
   std::vector<std::shared_ptr<payload::StagedPayloads>> admission_reads;
+  std::unique_ptr<detail::BatchWorkers> team;
   for (int i = 0; i < accepted_count; ++i) {
     if (i % analysis_batch == 0) {
       const auto count = std::min(analysis_batch, accepted_count - i);
@@ -211,10 +213,9 @@ std::vector<ProgramGenome> decode_compiled_pass(
       }
       if (parallel_admission) {
         std::atomic<int> next{0};
-        std::vector<std::future<void>> pending;
-        const auto workers = std::min(20u, std::max(1u, std::thread::hardware_concurrency()));
-        for (unsigned worker = 0; worker < workers; ++worker)
-          pending.push_back(std::async(std::launch::async, [&] {
+        if (!team) team = std::make_unique<detail::BatchWorkers>(
+            std::min(20u, std::max(1u, std::thread::hardware_concurrency())));
+        team->run([&] {
             grammar::VariationContext local(context.grammar_owner(), context.requests(),
                 128, context.offspring_budget());
             for (;;) {
@@ -230,8 +231,7 @@ std::vector<ProgramGenome> decode_compiled_pass(
                 admission_counts[offset] = local.counters();
               } catch (const std::exception&) { admitted[offset].reset(); }
             }
-          }));
-        for (auto& task : pending) task.get();
+        });
         std::vector<payload::StagedPayloads*> reads;
         for (const auto& read : admission_reads) if (read) reads.push_back(read.get());
         if (!payload::StagedPayloads::commit_all(reads))

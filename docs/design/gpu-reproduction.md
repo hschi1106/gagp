@@ -201,12 +201,16 @@ entries remain exact-runtime-identity keyed and eviction does not relax admissio
 Parent analysis warm-up uses bounded batches of at most 128 programs with up to
 20 readers (limited by hardware concurrency) in the GPU backend. Each reader reconstructs native
 membership, lowering and variation sites without writing the payload registry or
-compatibility registry. After all readers join, the owning thread commits results
+compatibility registry. After all readers finish a batch, the owning thread commits results
 in population order and interns compatibility IDs in site order. Exact decoded
 runtime keys are recomputed before cache lookup, including payload liveness.
 Payload registration during parent warm-up is prohibited. Populations below
 32 members use the serial path. Failed analyses propagate in population order;
-no worker survives the call, including exception unwinding.
+no worker survives the call, including exception unwinding. The call owns one
+worker team reused across batches; its barrier completes every callback before
+payload validation and ordered publication. Exceptions wait for all readers
+before propagating. GPU compilation, parent compaction and private complete-child
+admission use the same operation-owned team mechanism.
 
 Donor pools may evaluate independent seeds with at most four concurrent workers.
 The pool resolves and owns the destination analysis once; workers share that
@@ -271,13 +275,13 @@ Worker cache/registry IDs do not escape into the owning context; only certified
 children and the five admission-result counters are transferred.
 
 The donor module provides the speculative multi-pool API used by bounded mutation
-prefetch. Up to eight workers process independent pools while preserving the
+prefetch. Up to 20 workers process independent pools while preserving the
 returned job/seed order. Each pool stages payload writes; only a successful atomic
 commit publishes results. On conflict or unsupported batching it returns no result,
 and the caller must replay its original complete interleaved preparation. Merely
 generating all pools sequentially before later assembly would not preserve payload
 collision behavior. Single-seed pools keep their existing caller-registry path.
-Batches are limited to 128 jobs, 64 seeds per job and at most 1,048,576 declared
+Batches are limited to 1024 jobs, 64 seeds per job and at most 1,048,576 declared
 physical donor nodes across their outputs; exceeding a bound declines speculation.
 
 ### Population order across overlap modes
@@ -304,7 +308,7 @@ analysis stage.
 
 Donor-pool calls inside an active staged payload transaction use sequential generation in the caller's view. Optional cross-pool batching declines in that situation. This keeps uncommitted destination values visible and leaves all donor writes owned by the enclosing transaction, including rollback. Worker-local transactions are used only outside an enclosing transaction.
 
-Mutation preprocessing may preview donor work for a bounded window of 128 parents. A copied RNG reproduces the existing site-shuffle and donor-seed schedule; only the anticipated subtree-mutation site creates a pool job. Bounded pool workers generate in parallel, then commit payload transactions atomically. The ordinary loop consumes results in its original parent/site/seed order, checking the preview against the actual schedule. If speculative work declines or fails, it publishes no writes and the loop generates donors through the existing per-site path. Populations below the window size and crossover preparation bypass prefetch. This changes scheduling, not proposal weights, seeds, fallback decisions or acceptance validation.
+Mutation preprocessing may preview donor work for a bounded window of up to 1024 parents (at least 128 parents are required). The preview stops before its next selected parent would exceed the declared donor-node storage bound; the next window resumes at that parent. A copied RNG reproduces the existing site-shuffle and donor-seed schedule; only the anticipated subtree-mutation site creates a pool job. Bounded pool workers generate in parallel, then commit payload transactions atomically. The ordinary loop consumes results in its original parent/site/seed order, checking the preview against the actual schedule. If speculative work declines or fails, it publishes no writes and the loop generates donors through the existing per-site path. Populations below 128 members and crossover preparation bypass prefetch. This changes scheduling, not proposal weights, seeds, fallback decisions or acceptance validation.
 
 The donor preview is bypassed when mutation is disabled or fewer than two hardware threads are reported, since no parallel donor work can result. The ordinary loop still consumes its established site and donor-seed schedule.
 
