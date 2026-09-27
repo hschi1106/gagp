@@ -23,6 +23,7 @@ contract as a second source of truth.
 | [`guides/experiment-protocol.md`](guides/experiment-protocol.md) | Canonical experiment protocol and reporting constraints |
 | [`reference/timing.md`](reference/timing.md) | Timing field names, scopes, and output mapping |
 | [`reference/custom-grammar-implementation-report.md`](reference/custom-grammar-implementation-report.md) | Verified grammar migration, final-code performance, optimizations, rule differences and acceptance limits |
+| [`reference/grammar-migration/goal-11.5-target35.md`](reference/grammar-migration/goal-11.5-target35.md) | Further p1024 optimization, two measurement campaigns, reverted trials and stopping judgment |
 | [`reference/grammar-migration/README.md`](reference/grammar-migration/README.md) | In-progress grammar migration baseline capture and execution evidence |
 | [`reference/grammar-migration/goal-03-initialization.md`](reference/grammar-migration/goal-03-initialization.md) | Typed grammar initialization timing, setup costs and comparison limitations |
 | [`reference/grammar-migration/goal-04-variation.md`](reference/grammar-migration/goal-04-variation.md) | Compiled variation contracts, shared preparation, rejection accounting and validation |

@@ -1,11 +1,17 @@
 # Grammar migration execution evidence
 
-[Final implementation report](../custom-grammar-implementation-report.md) and
-[final representative measurements](goal-11.5-final-measurements.md) record
-`c574b7b`, the verified 30.2773x p1024 overlap result, 25.5780x direct result,
-all six workloads, and the still-unmet original Q gate. Original Goal 11 is not
-passed; overlap's qualification for the revised target remains explicitly pending.
-The correctness/workflow audit and final measurement coverage are complete.
+[Latest optimization report](goal-11.5-target35.md) records code `36c8cea`,
+13 explored configurations and the retained parallel offspring reconstruction.
+The selected binary measured 31.4393x and 30.4398x in two campaigns; combining all
+six observations gives a descriptive 30.7458x, not a new paired acceptance test.
+Direct measured 25.9176x. The estimated 32–35x range was not stably reached;
+local optimization stopped under the user's requested diminishing-return judgment.
+Original Goal 11 Q>=0.95 remains unmet. No new grammar restrictions were retained.
+
+[Implementation report](../custom-grammar-implementation-report.md) links this
+continuation and preserves the first-round correctness/workflow audit.
+[First-round representative measurements](goal-11.5-final-measurements.md)
+remain scoped to `c574b7b` (30.2773x overlap, 25.5780x direct, six workloads).
 
 [Stage A resumed optimization](goal-11.5-resume.md) records the 2026-09-27
 Stage B rollback, preserved evidence and current acceptance instructions.

@@ -531,3 +531,20 @@ the first packaging archive is preserved separately. This packaging correction
 did not rerun or replace any experiment. Source is also preserved in
 `final-source-c574b7b.tar.gz`; final CPU-only logs and local archive audit live
 alongside it in external `grammar-migration/target30-20260927`.
+
+## Further optimization under the user’s stopping criterion
+
+Code `36c8cea` retains parallel child AST/metadata reconstruction, batch 256 and
+20 workers, after 13 exploratory configurations. Paired GPU generation median
+improved 5.26%; the same selected binary measured 31.4393x and 30.4398x across two
+campaigns (six-observation descriptive ratio 30.7458x); direct was 25.9176x.
+The earlier 32–35x estimate was not stably attained. No new rules were retained;
+full ordered 1024-offspring output matches the checkpoint. Four focused CUDA
+and two CPU tests pass. Original Q>=0.95 is still unmet, not declared complete.
+User-authorized continuation supersedes the earlier pending overlap question.
+See [full continuation report](goal-11.5-target35.md) for all trials and limits.
+
+Evidence archive `target35-evidence.tar.gz` SHA-256:
+`3b6b551825aec196c22dc7c3ab9c0ba9a102253f5525d9240325d95a1dbe7885`;
+all 299 archived files verified after local download. Native source manifest
+covers 363 paths; restored build is byte-identical to the selected timed binary.
