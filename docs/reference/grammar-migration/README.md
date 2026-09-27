@@ -1,12 +1,18 @@
 # Grammar migration execution evidence
 
+**Current status (2026-09-27): Goal 11 and Goal 11.5 are achieved by explicit
+user acceptance of the reported result.** Historical Q>=0.95 remains numerically
+unmet; measured evidence below is unchanged. Goal 12 remains the separate final
+repository integration and reporting task.
+
+
 [Latest optimization report](goal-11.5-target35.md) records code `36c8cea`,
 13 explored configurations and the retained parallel offspring reconstruction.
 The selected binary measured 31.4393x and 30.4398x in two campaigns; combining all
 six observations gives a descriptive 30.7458x, not a new paired acceptance test.
 Direct measured 25.9176x. The estimated 32–35x range was not stably reached;
 local optimization stopped under the user's requested diminishing-return judgment.
-Original Goal 11 Q>=0.95 remains unmet. No new grammar restrictions were retained.
+The historical Goal 11 Q>=0.95 numerical gate remains unmet. No new grammar restrictions were retained.
 
 [Implementation report](../custom-grammar-implementation-report.md) links this
 continuation and preserves the first-round correctness/workflow audit.
