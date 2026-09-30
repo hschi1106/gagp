@@ -32,7 +32,7 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     const DRegionSegment* region_segments = nullptr, int region_segment_count = 0,
     const DRegionPhase* region_phases = nullptr, int region_phase_count = 0,
     const DRegionPhaseBinding* region_bindings = nullptr, int region_binding_count = 0,
-    DRegionWorkspace workspace = {}, unsigned int* case_counts = nullptr) {
+    DRegionWorkspace workspace = {}, unsigned int* case_counts = nullptr, const int* case_order = nullptr) {
   const int tid = static_cast<int>(threadIdx.x);
   if constexpr (EnableRegions) {
     const std::size_t block_base = static_cast<std::size_t>(blockIdx.x) * blockDim.x;
@@ -83,9 +83,12 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
   const int chunk_start = (meta.case_count * tid) / static_cast<int>(blockDim.x);
   const int chunk_end = (meta.case_count * (tid + 1)) / static_cast<int>(blockDim.x);
   for (int local_case = chunk_start; local_case < chunk_end; ++local_case) {
+    int input_case = local_case;
+    if constexpr (Flavor == DPayloadFlavor::IntListViews)
+      if (case_order) input_case = case_order[local_case];
     const DResult result = d_execute_bytecode_impl<Flavor, EnableRegions>(
         meta, shared_code, all_consts, shared_case_local_vals, shared_case_local_set,
-        payload_tables, execution_tables, local_case, fuel, workspace);
+        payload_tables, execution_tables, input_case, fuel, workspace);
     unsigned int* counts = case_counts ? case_counts + prog_idx * 5 : nullptr;
     if (counts) atomicAdd(counts, 1u);
     if (result.is_error) {
@@ -99,7 +102,7 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
 
     if (counts && result.value.tag == ValueTag::FallbackToken) atomicAdd(counts + 3, 1u);
     double case_score = 0.0;
-    if (vm_semantics::fitness_score_for_values(result.value, shared_answer[local_case], penalty, case_score)) {
+    if (vm_semantics::fitness_score_for_values(result.value, shared_answer[input_case], penalty, case_score)) {
       local_score = d_canonicalize_fitness_accumulator(local_score + case_score);
     } else if (counts) atomicAdd(counts + 4, 1u);
   }

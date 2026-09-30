@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <limits>
 #include <memory>
+#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -308,6 +309,7 @@ struct FitnessSessionGpu::Impl {
   Value* d_shared_case_local_vals = nullptr;
   unsigned char* d_shared_case_local_set = nullptr;
   Value* d_expected = nullptr;
+  int* d_case_order = nullptr;
   mutable HostStringPayloadLookup host_string_payloads;
   mutable HostListPayloadLookup host_list_payloads;
   std::vector<std::int64_t> shared_string_tokens;
@@ -355,6 +357,7 @@ struct FitnessSessionGpu::Impl {
     if (d_shared_case_local_vals) cudaFree(d_shared_case_local_vals);
     if (d_shared_case_local_set) cudaFree(d_shared_case_local_set);
     if (d_expected) cudaFree(d_expected);
+    if (d_case_order) cudaFree(d_case_order);
   }
 };
 
@@ -410,6 +413,22 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
     }
     impl_->shared_input_types[local] = type;
   }
+  std::vector<int> case_order;
+  // Only permute when all per-case scores are integral and their bounded sum
+  // is exactly representable by the existing 48-bit canonical reduction.
+  if (std::getenv("GAGP_SORT_CASES") && std::isfinite(penalty) && std::floor(std::fabs(penalty)) == std::fabs(penalty) &&
+      shared_cases.size() * std::max(1.0, std::fabs(penalty)) < 1099511627776.0 &&
+      std::all_of(shared_answer.begin(), shared_answer.end(), [](const auto& v) { return v.tag == ValueTag::Int || v.tag == ValueTag::Bool; })) {
+    std::vector<std::uint64_t> lengths(shared_cases.size(), 0);
+    for (std::size_t c = 0; c < shared_cases.size(); ++c)
+      for (int local = 0; local < 64; ++local) {
+        const auto& v = packed_case_local_vals[c * 64 + local];
+        if (packed_case_local_set[c * 64 + local] && v.tag == ValueTag::IntList) lengths[c] += Value::container_len(v);
+      }
+    case_order.resize(shared_cases.size());
+    std::iota(case_order.begin(), case_order.end(), 0);
+    std::stable_sort(case_order.begin(), case_order.end(), [&](int a, int b) { return lengths[a] < lengths[b]; });
+  }
   const auto shared_case_pack_t1 = std::chrono::steady_clock::now();
 
   const auto payload_cache_t0 = std::chrono::steady_clock::now();
@@ -425,6 +444,9 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   const auto payload_cache_t1 = std::chrono::steady_clock::now();
 
   const auto upload_t0 = std::chrono::steady_clock::now();
+  if (impl_->d_case_order) { cudaFree(impl_->d_case_order); impl_->d_case_order = nullptr; }
+  if (!case_order.empty() && !gpu_detail::cuda_alloc_and_copy_in(case_order, &impl_->d_case_order))
+    return fitness_init_single_error(ErrCode::Value, "cuda case permutation allocation failure");
   if (!gpu_detail::cuda_alloc_and_copy_in(packed_case_local_vals, &impl_->d_shared_case_local_vals) ||
       !gpu_detail::cuda_alloc_and_copy_in(packed_case_local_set, &impl_->d_shared_case_local_set) ||
       !gpu_detail::cuda_alloc_and_copy_in(shared_answer, &impl_->d_expected)) {
@@ -595,7 +617,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
               impl_->fuel, impl_->penalty, dev.d_fitness,
               dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
-              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts);
+              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, impl_->d_case_order);
     } else if (has_regions) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::Mixed, true>
           <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
@@ -651,6 +673,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
 
     out.ok = true;
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : "mixed";
+    if (use_views && impl_->d_case_order) out.execution_profile += "-sorted";
     out.fitness = std::move(host_fitness);
     out.timing.pack_ms = ms_between(pack_t0, pack_t1);
     out.timing.launch_prep_ms = ms_between(launch_prep_t0, launch_prep_t1);
