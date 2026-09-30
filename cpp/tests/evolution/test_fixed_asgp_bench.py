@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -15,8 +16,8 @@ from gagp_tools.experiments.fixed_asgp.grammar import TASKS, definition
 
 
 class TestFixedAsgpNative(unittest.TestCase):
-    def call(self, *args):
-        result = subprocess.run([str(BINARY), *map(str, args)], capture_output=True, text=True)
+    def call(self, *args, env=None):
+        result = subprocess.run([str(BINARY), *map(str, args)], capture_output=True, text=True, env=env)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_three_schemes_known_solutions_and_five_modes(self):
@@ -57,6 +58,21 @@ class TestFixedAsgpNative(unittest.TestCase):
                         self.assertEqual([r["rep"] for r in rows], [-1, 0, 1, 2])
                         self.assertTrue(all(r["cases"] == 1024 and r["population"] == 8 for r in rows))
                         self.assertTrue(all(r["generation_ms"] > 0 for r in rows))
+                    if name == "sum_of_elements":
+                        output = folder / "fresh-phase-bank.json"
+                        env = dict(os.environ, GAGP_BANK_FRESH_MUTATION="1",
+                                   GAGP_BANK_GENERATIONS="2", GAGP_GPU_DIAGNOSTICS="1",
+                                   GAGP_VIEW_PROFILE="1", GAGP_TYPED_VIEW_PHASE="1")
+                        self.call("measure", source, prepared, grammar, 8, "phase_bank", output, env=env)
+                        probe = json.loads(output.read_text())
+                        self.assertEqual(probe["profile"], "independent-phase-bank-with-fresh-mutation")
+                        self.assertEqual(probe["export_fitness_equal"], 1)
+                        self.assertEqual(len(probe["final_population"]), 8)
+                        self.assertTrue(all(r["cases"] == 8 * 1024 and r["unscored"] == 0
+                                            for r in probe["generations"]))
+                        self.assertGreaterEqual(probe["generations"][0]["first_generation_with_bank_ms"],
+                                                probe["bank_init_ms"])
+
 
 
 if __name__ == "__main__":

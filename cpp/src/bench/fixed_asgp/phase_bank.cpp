@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/evolution/grammar/variation.hpp"
+#include "gagp/evolution/grammar/donor.hpp"
 #include "gagp/evolution/grammar/cache.hpp"
 #include "gagp/evolution/grammar/values.hpp"
 #include "gagp/evolution/grammar/derivation_resources.hpp"
@@ -74,16 +75,19 @@ void phase_bank_probe(const std::vector<ProgramGenome>& population,
   const auto setup_begin=Clock::now();
   const auto request=gg::entry_request(*grammar);
   require(gg::resource_charges_are_local(*grammar),"requires local resource charges");
+  const bool fresh_mutation=std::getenv("GAGP_BANK_FRESH_MUTATION")!=nullptr;
+  if(fresh_mutation)for(const auto& domain:grammar->constants())
+    require(domain.type==RType::Int || domain.type==RType::Bool || domain.type==RType::Float || domain.type==RType::Char,
+        "fresh phase prototype requires registry-independent constant domains");
+  std::vector<ProgramGenome> bank_genomes=population;
   std::vector<Member> bank(population.size());
   std::atomic<std::size_t> next{0};
   gagp::evo::detail::BatchWorkers workers(20);
-  workers.run([&] {
-    for (;;) {
-      auto i=next.fetch_add(1); if(i>=bank.size()) break;
-      auto& m=bank[i]; const auto& ast=population[i].ast;
+  const auto analyze_member=[&](const ProgramGenome& genome) {
+      Member m; const auto& ast=genome.ast;
       require(ast.bounded_region_specs.size()==1,"requires one AST region");
-      m.analysis=gg::analyze_variation(*grammar,population[i],request);
-      m.code=compile_for_eval(population[i],m.analysis.verified,cs.input_names);
+      m.analysis=gg::analyze_variation(*grammar,genome,request);
+      m.code=compile_for_eval(genome,m.analysis.verified,cs.input_names);
       const auto& region=ast.bounded_region_specs[0];
       auto cursor=region.node_index+1;
       for(std::size_t j=0;j<region.plan.state_types.size()+region.plan.bound_operand_count;++j)
@@ -105,8 +109,9 @@ void phase_bank_probe(const std::vector<ProgramGenome>& population,
         cursor=end;
       }
       require(!m.sites.empty(),"no independent whole-phase variation sites");
-    }
-  });
+      return m;
+  };
+  workers.run([&] { for(;;) {auto i=next.fetch_add(1);if(i>=bank.size())break;bank[i]=analyze_member(population[i]);} });
   const auto analysis_compile_ms=elapsed(setup_begin);
   const auto skeleton_begin=Clock::now();
   const auto dimensions=bank[0].sites.size();
@@ -145,8 +150,9 @@ void phase_bank_probe(const std::vector<ProgramGenome>& population,
   std::vector<Chromosome> current(bank.size(),Chromosome(dimensions));
   std::vector<std::vector<unsigned>> canonical(dimensions,std::vector<unsigned>(bank.size()));
   std::vector<Json> unique_phase_counts;
+  std::vector<std::unordered_map<std::string,unsigned>> phase_maps(dimensions);
   for(std::size_t p=0;p<dimensions;++p) {
-    std::unordered_map<std::string,unsigned> identities;identities.reserve(bank.size());
+    auto& identities=phase_maps[p];identities.reserve(bank.size());
     for(std::size_t i=0;i<bank.size();++i) {
       auto [it,inserted]=identities.emplace(phase_identity(*phases(bank[i].code).at(bank[0].ordinals[p])),i);
       canonical[p][i]=it->second; current[i][p]=it->second;
@@ -180,6 +186,7 @@ void phase_bank_probe(const std::vector<ProgramGenome>& population,
   std::vector<Json> rows,initial,final;
   const int generations=std::getenv("GAGP_BANK_GENERATIONS")?std::stoi(std::getenv("GAGP_BANK_GENERATIONS")):4;
   require(generations>=1 && generations<=256,"generation count outside [1,256]");
+  require(!fresh_mutation || generations<=16,"fresh prototype retains full proof sources; limited to 16 generations");
   std::size_t changed=0,rejected=0;
   for(int generation=0;generation<generations;++generation) {
     const auto begin=Clock::now(); std::vector<BytecodeProgram> programs; programs.reserve(current.size());
@@ -191,13 +198,58 @@ void phase_bank_probe(const std::vector<ProgramGenome>& population,
     const auto repro_begin=Clock::now();
     const auto pick=[&] { auto a=random.bounded(current.size()),b=random.bounded(current.size()); return fit.fitness[a]>=fit.fitness[b]?a:b; };
     std::vector<Chromosome> children; children.reserve(current.size()); children.push_back(current[best]);
-    changed=0;rejected=0;
+    std::vector<std::size_t> bases{std::size_t(best)};
+    struct Job {std::size_t child,slot;std::uint64_t seed;};
+    std::vector<Job> jobs;
+    changed=0;rejected=0;std::size_t mutations=0;
     while(children.size()<current.size()) {
       const auto a=pick(),b=pick(); auto child=current[a];
       auto p=random.bounded(dimensions); child[p]=current[b][p];
-      if(random.bounded(1000000)<300000) { auto slot=random.bounded(dimensions); child[slot]=canonical[slot][random.bounded(bank.size())]; }
-      if(!fits(child)) { ++rejected; child=current[a]; }
-      changed+=child!=current[a]; children.push_back(std::move(child));
+      if(random.bounded(1000000)<300000) {
+        ++mutations;
+        auto slot=random.bounded(dimensions);
+        if(fresh_mutation)jobs.push_back({children.size(),slot,random.next()});
+        else child[slot]=canonical[slot][random.bounded(bank.size())];
+      }
+      bases.push_back(a);children.push_back(std::move(child));
+    }
+    std::vector<std::optional<std::pair<ProgramGenome,Member>>> generated(jobs.size());
+    std::size_t new_phases=0,mutation_rejected=0;
+    if(!jobs.empty()) {
+      next=0;
+      workers.run([&] {
+        gg::VariationContext context(grammar,request,128);
+        for(;;) {
+          const auto j=next.fetch_add(1);if(j>=jobs.size())break;
+          const auto& job=jobs[j];
+          auto pool=gg::generate_donor_pool(context,{job.seed},bank[0].sites[job.slot],bank_genomes[0]);
+          if(!pool[0])continue;
+          const auto& donor=*pool[0];
+          ProgramGenome g;
+          g.ast=gg::variation_detail::splice(bank_genomes[0].ast,bank[0].sites[job.slot],
+              donor.genome.ast,donor.payload,donor.frame.binder_ids,false);
+          g=repro::compact_genome_tables(std::move(g));
+          auto m=analyze_member(g);
+          require(m.sites.size()==dimensions && m.ordinals==bank[0].ordinals,"fresh phase changed hole contracts");
+          for(std::size_t p=0;p<dimensions;++p)
+            require(gg::compatible_sites(m.sites[p],bank[0].sites[p]),"fresh phase changed grammar compatibility");
+          if(std::uint64_t(m.analysis.witness.logical_steps)*(dimensions+1)>1048576 ||
+              std::uint64_t(m.analysis.witness.lowered_instructions)*(dimensions+1)>1048576)continue;
+          generated[j]=std::make_pair(std::move(g),std::move(m));
+        }
+      });
+      for(std::size_t j=0;j<jobs.size();++j) {
+        if(!generated[j]){++mutation_rejected;continue;}
+        auto& [g,m]=*generated[j];const auto& job=jobs[j];
+        auto key=phase_identity(*phases(m.code).at(bank[0].ordinals[job.slot]));
+        auto [it,inserted]=phase_maps[job.slot].emplace(std::move(key),bank.size());
+        if(inserted){bank_genomes.push_back(std::move(g));bank.push_back(std::move(m));++new_phases;}
+        children[job.child][job.slot]=it->second;
+      }
+    }
+    for(std::size_t i=1;i<children.size();++i) {
+      if(!fits(children[i])){++rejected;children[i]=current[bases[i]];}
+      changed+=children[i]!=current[bases[i]];
     }
     current=std::move(children);
     const auto repro_ms=elapsed(repro_begin), generation_ms=elapsed(begin);
@@ -207,7 +259,7 @@ void phase_bank_probe(const std::vector<ProgramGenome>& population,
       {"first_generation_with_bank_ms",number(generation_ms+(generation==0?setup_ms:0))},
       {"eval_ms",number(fit.timing.total_ms)},{"kernel_ms",number(fit.timing.kernel_ms)},{"repro_ms",number(repro_ms)},
       {"best",number(fit.fitness[best])},{"mean",number(std::accumulate(fit.fitness.begin(),fit.fitness.end(),0.0)/fit.fitness.size())},
-      {"changed",number(changed)},{"budget_rejected",number(rejected)},{"unique_chromosomes",number(unique.size())},{"mean_nodes",number(mean_nodes/current.size())},
+      {"execution_profile",string(fit.execution_profile)},{"fresh_phases",number(new_phases)},{"mutation_attempts",number(mutations)},{"mutation_rejected",number(mutation_rejected)},{"changed",number(changed)},{"budget_rejected",number(rejected)},{"unique_chromosomes",number(unique.size())},{"mean_nodes",number(mean_nodes/current.size())},
       {"cases",number(counts[0])},{"errors",number(counts[1])},{"timeouts",number(counts[2])},{"fallbacks",number(counts[3])},{"unscored",number(counts[4])}}));
   }
   // Independent full AST admission audit of every final chromosome. This is a
@@ -219,7 +271,7 @@ void phase_bank_probe(const std::vector<ProgramGenome>& population,
       auto out=population[0];
       for(std::size_t p=dimensions;p-->0;) {
         const auto index=current[i][p]; const auto& source=bank[index].sites[p];
-        out.ast=gg::variation_detail::splice(out.ast,bank[0].sites[p],population[index].ast,
+        out.ast=gg::variation_detail::splice(out.ast,bank[0].sites[p],bank_genomes[index].ast,
             source.occurrences[0],source.occurrence_binder_ids[0],false);
       }
       out=repro::compact_genome_tables(std::move(out)); out.derivation.reset();
@@ -242,7 +294,7 @@ void phase_bank_probe(const std::vector<ProgramGenome>& population,
   auto cpu=eval_fitness_cpu(top,cs.bindings,cs.expected_values,2000000,1000,512);
   std::vector<Json> top_rows;for(std::size_t k=0;k<top.size();++k)top_rows.push_back(object({{"index",number(order[k])},{"gpu",number(fit.fitness[order[k]])},{"cpu",number(cpu[k])}}));
   const auto cpu_ms=elapsed(cpu_begin);
-  write(output,object({{"profile",string("finite-independent-phase-bank")},{"seed",number(seed)},{"dimensions",number(dimensions)},
+  write(output,object({{"profile",string(fresh_mutation?"independent-phase-bank-with-fresh-mutation":"finite-independent-phase-bank")},{"seed",number(seed)},{"dimensions",number(dimensions)},
     {"top16_cpu",array(std::move(top_rows))},{"top16_cpu_ms",number(cpu_ms)},{"unique_phases",array(std::move(unique_phase_counts))},{"bank_members",number(bank.size())},{"bank_init_ms",number(setup_ms)},{"analysis_compile_ms",number(analysis_compile_ms)},{"skeleton_ms",number(skeleton_ms)},{"intern_ms",number(intern_ms)},{"gpu_init_ms",number(init.timing.total_ms)},
     {"generations",array(std::move(rows))},{"initial_fitness",array(std::move(initial))},{"final_population",array(std::move(final))},
     {"final_eval_ms",number(final_ms)},{"full_export_admission_ms",number(audit_ms)},{"export_fitness_equal",number(1)},{"total_diagnostic_call_ms",number(elapsed(call_start))}}));

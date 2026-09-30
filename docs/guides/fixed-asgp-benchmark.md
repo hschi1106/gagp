@@ -185,6 +185,16 @@ must match. Export, final evaluation and top-16 CPU checks are separately timed.
 Report cold first generation and subsequent generation times separately; do not
 substitute amortized bank timings for the original fixed benchmark.
 
+Setting `GAGP_BANK_FRESH_MUTATION=1` replaces finite-bank mutation with fresh
+whole-phase donors from the authored grammar. Each donor is fully admitted,
+compiled and interned during the generation; failures and effective changes are
+reported. This variant requires registry-independent constant domains and limits
+the probe to 16 generations because it retains complete proof sources. It still
+fixes the region skeleton and varies only independent whole phases. Three-seed
+short screens improved House and preserved Sum, but Median remained at its initial
+best: it is not a substitute for native variation quality. Both bank variants
+remain separate from the primary fixed benchmark.
+
 Short searches can expose obvious degradation; they do not establish convergence
 or time-to-solution equivalence. The phase-bank prototype is isolated in the
 optional benchmark executable and does not change native CLI evolution.

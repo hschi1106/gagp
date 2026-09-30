@@ -50,6 +50,9 @@
 | E17 | NCU 2024.3 minimal metrics | Launcher works, but ERR_NVGPUCTRPERM blocks hardware counters | no system changes; nsys and targeted A/B continue |
 | E21 | Generation-owned analysis handoff independent of the 4096-entry FIFO capacity | P8192 overlap 2012/1586/1319 ms versus 6307/6596/6852 ms; every non-timing field equal; capacity-3 ownership/eviction test passes | retain opt-in; repeated controls agree; peak RSS increases by ~0.74/0.33/0.76 GiB (Sum/House/Median) |
 
+| E18 | Fresh grammar-generated whole-phase mutation | Reproduction ~5 ms/generation, 70–145 novel phases; all cases, final AST export/fitness audit passes. Three seeds: Sum best 0; House -8479/-8479/-8443; Median stays -31025. No timeout/unscored/failed mutation | retain isolated prototype; Median quality limitation persists |
+| E19 | Verifier-proven smaller root VM, 16 stack / 8 locals | 276.9/219.4/176.1 ms; no meaningful end-to-end improvement; targeted GPU tests pass | REJECTED; patch/binary saved |
+
 ## Current checkpoint and continuation
 
 - Stable code: `e26dba3`; preserved executable `logs/optimization/best_bench`.
