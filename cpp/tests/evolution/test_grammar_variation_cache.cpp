@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstdlib>
 #include <atomic>
 #include <functional>
 #include <iostream>
@@ -295,6 +296,15 @@ void test_deferred_candidate_analysis() {
   }
 }
 void test_parallel_population_analysis() {
+  struct HandoffEnvironment {
+    bool had = std::getenv("GAGP_POPULATION_HANDOFF") != nullptr;
+    std::string old = had ? std::getenv("GAGP_POPULATION_HANDOFF") : "";
+    HandoffEnvironment() { setenv("GAGP_POPULATION_HANDOFF", "1", 1); }
+    ~HandoffEnvironment() {
+      if (had) setenv("GAGP_POPULATION_HANDOFF", old.c_str(), 1);
+      else unsetenv("GAGP_POPULATION_HANDOFF");
+    }
+  } environment;
   const auto config = gagp::test::mixed_population_config();
   std::vector<GenerationRequest> requests{*config.generation_request};
   requests.insert(requests.end(), config.additional_generation_requests.begin(),
@@ -307,16 +317,25 @@ void test_parallel_population_analysis() {
     VariationAnalysisCache sequential(config.compiled_grammar, capacity);
     VariationAnalysisCache parallel(config.compiled_grammar, capacity);
     sequential.warm_population(population, requests, 1);
-    parallel.warm_population(population, requests, 4);
+    std::vector<WarmPopulationMember> owned;
+    parallel.warm_population(population, requests, 4, &owned);
+    check(owned.size()==population.size(), "generation handoff was dropped at cache capacity");
+    for (const auto& item : owned)
+      check(item.analysis && item.reads && !item.runtime_identity.empty(),
+            "generation handoff lost its proof or read dependencies");
     check(sequential.registry().keys() == parallel.registry().keys(),
           "parallel analysis reordered compatibility IDs");
     check(sequential.counters().hits == parallel.counters().hits &&
           sequential.counters().misses == parallel.counters().misses &&
           sequential.counters().evictions == parallel.counters().evictions,
           "parallel analysis changed ordered cache accounting");
-    for (const auto& genome : population) {
+    for (std::size_t member=0;member<population.size();++member) {
+      const auto& genome=population[member];
       const auto a = sequential.analyze_member(genome, requests);
       const auto b = parallel.analyze_member(genome, requests);
+      check(owned[member].analysis->verified.expression_types==a->verified.expression_types &&
+            owned[member].analysis->sites.size()==a->sites.size(),
+            "evicted handoff must still describe the original member");
       check(a->verified.expression_types == b->verified.expression_types &&
             a->witness.lowered_instructions == b->witness.lowered_instructions &&
             a->sites.size() == b->sites.size(), "parallel analysis changed verification");

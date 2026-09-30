@@ -1,0 +1,35 @@
+[
+  {
+    "task": "sum_of_elements",
+    "population": 8192,
+    "control_ms": 6227.782045,
+    "handoff_ms": 1999.628838,
+    "rss": {
+      "control": "max_rss_kib=3407040 elapsed=29.14",
+      "handoff": "max_rss_kib=4182168 elapsed=12.25"
+    },
+    "semantic_fields_equal": true
+  },
+  {
+    "task": "house_robber",
+    "population": 8192,
+    "control_ms": 6612.561703,
+    "handoff_ms": 1571.141453,
+    "rss": {
+      "control": "max_rss_kib=3388988 elapsed=30.97",
+      "handoff": "max_rss_kib=3737816 elapsed=10.90"
+    },
+    "semantic_fields_equal": true
+  },
+  {
+    "task": "median",
+    "population": 8192,
+    "control_ms": 6814.290068,
+    "handoff_ms": 1304.903376,
+    "rss": {
+      "control": "max_rss_kib=3452360 elapsed=31.61",
+      "handoff": "max_rss_kib=4247408 elapsed=9.56"
+    },
+    "semantic_fields_equal": true
+  }
+]

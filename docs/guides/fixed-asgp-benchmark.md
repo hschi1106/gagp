@@ -148,7 +148,9 @@ GAGP_CUDA_DEVICE=0 PYTHONPATH=tools python3 -m gagp_tools benchmark fixed-asgp r
 ```
 
 The runner records all `GAGP_*` environment settings alongside binary/source
-identity. These flags neither alter population/case counts nor bypass unsupported
+identity. For populations beyond the analysis-cache capacity, the optional
+`GAGP_POPULATION_HANDOFF=1` [generation-owned continuation](../design/gpu-reproduction.md)
+trades additional host memory for avoiding repeated analysis. These flags neither alter population/case counts nor bypass unsupported
 programs. The continuing optimization record, controls, rejected experiments and
 resume commands are in [the progress index](../../benchmarks/fixed_asgp/optimization/PROGRESS.md).
 

@@ -3,6 +3,7 @@
 
 #include <stdexcept>
 #include <algorithm>
+#include <cstdlib>
 #include <atomic>
 #include <future>
 #include <thread>
@@ -143,7 +144,9 @@ void VariationAnalysisCache::prepare_population(const std::vector<ProgramGenome>
     std::vector<WarmPopulationMember>* handoff) {
   if (handoff) {
     handoff->clear();
-    if (population.size() > capacity_) handoff = nullptr;
+    // The opt-in continuation is owned by this generation, independently of the
+    // bounded FIFO cache. Its consumers still validate exact identity/read sets.
+    if (population.size() > capacity_ && !std::getenv("GAGP_POPULATION_HANDOFF")) handoff = nullptr;
     else handoff->resize(population.size());
   }
   validate_population_requests(*grammar_, requests);

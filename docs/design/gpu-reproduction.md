@@ -194,7 +194,7 @@ cache. Retry seeds, per-donor admission checks, and the pool-scoped decoded-AST
 admission cache are unchanged.
 
 GPU preparation sizes its worker-owned variation analysis cache to four times
-the population, clamped to 128–4096 entries. This retains parent analyses through
+the population, clamped to 128–4096 entries. This retains some parent analyses through
 preparation and decoding while allowing bounded headroom for generated children;
 entries remain exact-runtime-identity keyed and eviction does not relax admission.
 
@@ -311,7 +311,7 @@ interned again, and affected compatibility keys are rebuilt. Program-root input
 contracts remain unchanged. Exact runtime identities and payload reads are
 revalidated before ordered cache publication. Existing compatibility IDs are
 reused only in their original live context registry. Transport is bounded by the
-128–4096-entry warm-handoff capacity and never accepts caller-supplied provenance.
+warm-handoff ownership policy below and never accepts caller-supplied provenance.
 Unavailable handoffs, enclosing transactions, failed remapping or changed reads
 use full compacted-population analysis. No-removal compaction skips the extra
 analysis stage.
@@ -380,15 +380,22 @@ read-only payload snapshots into preprocessing. This continuation requires the
 same population ASTs, grammar, requests and context; table compaction that
 changes the representation triggers another warm-up. Each consumer revalidates
 payload reads before reuse and falls back to ordinary analysis on a mismatch.
-Public preprocessing accepts no such handoff. Retention is capped by the
-analysis-cache capacity; oversized populations and sequential/enclosing-scope
-warm-up paths use ordinary preprocessing. Registry IDs are still published in
+Public preprocessing accepts no such handoff. By default retention is capped by
+analysis-cache capacity. Setting `GAGP_POPULATION_HANDOFF=1` instead retains one
+analysis/read snapshot per population member in the prepared generation, even
+when the FIFO cache evicts it. The persistent cache keeps its 128–4096-entry cap;
+the continuation adds memory proportional to the current population and its
+analysis sizes, and releases that ownership with prepared generation state.
+This prevents oversized populations from repeating warm analysis serially during
+preprocessing and parent certification. The same exact-identity, owner and
+payload-read checks apply. Sequential/enclosing-scope warm-up paths still use
+ordinary preprocessing. Registry IDs are still published in
 population order. Tests compare candidate fields, identities and donor ordering
 with public preprocessing, including a changed unused String constant payload
 that must invalidate the saved identity.
 
 Prepared backend state also retains an opaque parent-certificate continuation
-bounded by the warm-analysis capacity. It owns the exact immutable packed source
+following the warm-analysis ownership policy above. It owns the exact immutable packed source
 set, its variation context, freshly built compact-parent metadata and warm
 analyses/read snapshots. Decode reuses it only when source/context owners match,
 row counts agree, and the payload snapshot remains valid; otherwise normal parent
