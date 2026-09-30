@@ -632,6 +632,19 @@ bool check_sparse_case_locals() {
 }  // namespace
 
 int main() {
+  for (const auto op : {gagp::BuiltinId::IDiv0, gagp::BuiltinId::IMod0}) {
+    for (const long long divisor : {-1LL, 0LL, 1LL}) {
+      BytecodeProgram program;
+      program.consts = {Value::from_int(LLONG_MIN), Value::from_int(divisor)};
+      program.code = {ins_a(Opcode::PushConst, 0), ins_a(Opcode::PushConst, 1),
+                     ins_ab(Opcode::CallBuiltin, static_cast<int>(op), 2),
+                     ins(Opcode::Return)};
+      const auto expected = Value::from_int(
+          op == gagp::BuiltinId::IDiv0 && divisor != 0 ? LLONG_MIN : 0);
+      if (!check_single_cpu_gpu_exact(program, expected, 0.0, 4, 256, 1000,
+                                      "protected integer division boundary")) return 1;
+    }
+  }
   const double penalty = 1.0;
   constexpr int kParityBlocksize = 128;
 

@@ -473,7 +473,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     if (b.i == 0) {
       out = Value::from_int(0);
     } else if (bid == BuiltinId::IDiv0) {
-      out = Value::from_int(a.i / b.i);
+      out = Value::from_int(vm_semantics::wrap_int_div(a.i, b.i));
     } else {
       out = Value::from_int(d_int_mod(a.i, b.i));
     }

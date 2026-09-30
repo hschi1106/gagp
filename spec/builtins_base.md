@@ -103,6 +103,8 @@ evaluation and does not swap bounds.
 - result type: `Int`
 - result: truncating integer division when `y != 0`
 - result when `y == 0`: `0`
+- overflow: `idiv0(-9223372036854775808, -1)` wraps to
+  `-9223372036854775808`, consistently on CPU and GPU
 
 ### `imod0(x, y)`
 

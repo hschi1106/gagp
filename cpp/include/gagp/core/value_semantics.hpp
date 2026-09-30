@@ -103,6 +103,12 @@ GAGP_VM_HD inline long long wrap_int_neg(long long x) {
   return static_cast<long long>(0ULL - static_cast<std::uint64_t>(x));
 }
 
+// The caller protects a zero divisor. Negation also handles INT64_MIN / -1
+// without invoking signed-division overflow on either execution backend.
+GAGP_VM_HD inline long long wrap_int_div(long long a, long long b) {
+  return b == -1 ? wrap_int_neg(a) : a / b;
+}
+
 GAGP_VM_HD inline long long wrap_int_add(long long a, long long b) {
   return static_cast<long long>(static_cast<std::uint64_t>(a) + static_cast<std::uint64_t>(b));
 }

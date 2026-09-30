@@ -209,7 +209,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     if (b.i == 0) {
       out.value = Value::from_int(0);
     } else if (id == BuiltinId::IDiv0) {
-      out.value = Value::from_int(a.i / b.i);
+      out.value = Value::from_int(vm_semantics::wrap_int_div(a.i, b.i));
     } else {
       out.value = Value::from_int(vm_semantics::py_int_mod(a.i, b.i));
     }

@@ -1,7 +1,7 @@
 {
   "authoritative_entrypoint": "spec/grammar.md",
   "format_version": "spec-freeze",
-  "generated_at": "2026-09-24",
+  "generated_at": "2026-10-01",
   "notes": [
     "This manifest records the release 2.0.0 normative spec set after the compiled-grammar production cutover and v2 AST/bytecode/artifact version boundary.",
     "The hash gate is intentionally mechanical: if a listed spec changes, update this manifest in the same semantic change."
@@ -21,7 +21,7 @@
     },
     {
       "path": "spec/builtins_base.md",
-      "sha256": "42901ee1d0fc7c45512495fa8710bce1282d6ac91b3c1855be28b0dde2837b70"
+      "sha256": "4f02457a81083dbdba39167855fb9ac9437846963324753ba605b93bd307e966"
     },
     {
       "path": "spec/builtins_runtime.md",

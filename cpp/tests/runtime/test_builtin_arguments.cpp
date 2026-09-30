@@ -1,6 +1,7 @@
 #include <array>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -122,6 +123,35 @@ bool test_dispatch_precedence() {
   return exact_error_boundary(
       call_program(static_cast<int>(BuiltinId::Abs), 0), 1,
       ErrCode::Type, "zero arguments with empty stack");
+}
+
+bool test_protected_integer_division() {
+  const long long minimum = std::numeric_limits<long long>::min();
+  struct Case { BuiltinId op; long long a, b, expected; };
+  const Case cases[] = {
+      {BuiltinId::IDiv0, minimum, -1, minimum},
+      {BuiltinId::IDiv0, minimum, 1, minimum},
+      {BuiltinId::IDiv0, minimum, 0, 0},
+      {BuiltinId::IDiv0, -7, 2, -3},
+      {BuiltinId::IDiv0, 7, -1, -7},
+      {BuiltinId::IMod0, minimum, -1, 0},
+      {BuiltinId::IMod0, minimum, 0, 0},
+      {BuiltinId::IMod0, -7, 2, 1},
+  };
+  for (const auto& item : cases) {
+    const std::vector<Value> args{Value::from_int(item.a), Value::from_int(item.b)};
+    const auto direct = gagp::builtin_call(item.op, args);
+    auto program = call_program(static_cast<int>(item.op), 2, args);
+    program.code.push_back(ins(Opcode::Return));
+    const auto vm = gagp::execute_bytecode_cpu(program, {}, 4);
+    if (!check(!direct.is_error && direct.value.tag == ValueTag::Int &&
+                   direct.value.i == item.expected,
+               "protected integer arithmetic: direct result") ||
+        !check(!vm.is_error && vm.value.tag == ValueTag::Int &&
+                   vm.value.i == item.expected,
+               "protected integer arithmetic: VM result")) return false;
+  }
+  return true;
 }
 
 bool test_chained_calls_preserve_stack_prefix() {
@@ -296,6 +326,7 @@ bool test_local_slot_storage_boundaries() {
 int main() {
   gagp::payload::clear();
   if (!test_dispatch_precedence()) return 1;
+  if (!test_protected_integer_division()) return 1;
   if (!test_chained_calls_preserve_stack_prefix()) return 1;
   if (!test_builtin_after_stack_spill()) return 1;
   if (!test_pointer_count_overload()) return 1;
