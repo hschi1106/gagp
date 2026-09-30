@@ -37,7 +37,13 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
   if constexpr (EnableRegions) {
     const std::size_t block_base = static_cast<std::size_t>(blockIdx.x) * blockDim.x;
     workspace.slot_stride = blockDim.x;
-    if (workspace.frames) workspace.frames += block_base * workspace.frame_capacity + tid;
+    if (workspace.frames) {
+      const auto slot = block_base * workspace.frame_capacity + tid;
+      if (workspace.compact_frames)
+        workspace.frames = reinterpret_cast<DRegionFrame*>(
+            reinterpret_cast<DCompactRegionFrame*>(workspace.frames) + slot);
+      else workspace.frames += slot;
+    }
     if (workspace.memo_keys)
       workspace.memo_keys += block_base * workspace.memo_capacity * DMAX_REGION_STATES + tid;
     if (workspace.memo_values) workspace.memo_values += block_base * workspace.memo_capacity + tid;

@@ -6,7 +6,7 @@
 - Baseline executable: `logs/optimization/baseline_bench` (hash in `logs/optimization/origin.json`). Frozen inputs symlink to original artifacts; never modify them.
 - Reference ASGP 1T: Sum 1841.160175 ms, House 1282.011816 ms. Targets <46.029004 / <32.050295 ms per full generation (40×). These are unprofiled medians from archived profiler controls.
 - `medium`: searched existing settings, results, docs and ASGP sources; no independent named workload found. Prior Median interpretation was an assumption. User clarification pending; Sum/House continue. Median remains an auxiliary overhead probe.
-- Current best: E06 with `GAGP_VIEW_PROFILE=1 GAGP_TYPED_VIEW_PHASE=1`; Sum 379.1 / House 346.1 / Median 179.3 ms. Strict compilation remains inside every generation. Previous binaries retained in experiment directories.
+- Current best: E07 with `GAGP_VIEW_PROFILE=1 GAGP_TYPED_VIEW_PHASE=1 GAGP_SORT_CASES=1`; Sum 282.7 / House 243.6 / Median 177.0 ms. Strict compilation remains inside every generation. Previous binaries retained in experiment directories.
 - Build: `cmake --build cpp/build/release --target gagp_fixed_asgp_bench gagp_test_fitness_cpu_gpu_parity gagp_test_evolution_cpu_gpu_parity -j10`.
 - Experiment results: `logs/optimization/`; compact summaries/checkpoints recorded here. GPUs run serially.
 
@@ -31,6 +31,11 @@
 | E05 | Opt-in read-only IntList views, proven by forward type analysis, generic fallback otherwise | 472.5 / 481.6 / 180.4 ms; kernels 310.7 / 304.2 / 4.2. Sum errors decrease 453208→318332, 192 program fitness changes; House/Median exact per-program agreement. Full CPU comparison and known solutions recorded | retain prototype, quality/search gate still pending |
 
 | E06 | Type-proven phase VM with unboxed payloads; ordinary integer conversion semantics/fuel retained | 379.1 / 346.1 / 179.3 ms; kernels 213.4 / 168.7 / 3.8. All per-program fitness and diagnostic counts match E05; refreshed nsys Sum/House recorded | retain prototype; host now roughly half of Sum/House |
+
+| E07 | Stable length ordering of all cases, only type-proven integer fitness with exact bounded sum; setup included in session initialization | 282.7 / 243.6 / 177.0 ms; kernels 118.2 / 70.7 / 4.0; all 1024 per-program rows exactly equal to E06 | retain opt-in; host now dominant |
+
+| E08 | Carry complete variation analyses across decode/preparation, exact identity and budget checks | 284.8 / 249.0 / 181.9 ms; no end-to-end gain, extra copy/key retention cost | REJECTED; patch and binary saved |
+| E09 | Structurally bounded 1-state/1-preparation/2-request frames (72 vs 264 bytes), same frame/memo limits | 286.3 / 223.7 / 176.3 ms; House kernel 49.3 vs 70.7; Sum unchanged; fixed rows equal | retain opt-in `GAGP_COMPACT_FRAMES=1` |
 
 ## Next
 

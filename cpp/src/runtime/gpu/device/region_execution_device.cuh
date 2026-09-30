@@ -8,10 +8,10 @@ __device__ inline bool d_region_addable(std::int64_t value, std::int64_t offset)
            (offset < 0 && value < INT64_MIN - offset));
 }
 
-template <DPayloadFlavor Flavor, int BindingCapacity>
+template <DPayloadFlavor Flavor, int BindingCapacity, class Frame>
 __device__ DResult d_region_phase_impl(
     const DRegionSegment& segment, int phase_index, ValueTag expected,
-    const DRegionFrame& frame, const Value* caller_locals,
+    const Frame& frame, const Value* caller_locals,
     std::uint64_t caller_set, const DPayloadTables& payload_tables,
     typename DPayloadFlavorTraits<Flavor>::State& payload_state,
     const DExecutionTables& tables, int& fuel, bool result_phase = false) {
@@ -74,10 +74,10 @@ __device__ DResult d_region_phase_impl(
   return result;
 }
 
-template <DPayloadFlavor Flavor>
+template <DPayloadFlavor Flavor, class Frame>
 __device__ DResult d_region_phase(
     const DRegionSegment& segment, int phase_index, ValueTag expected,
-    const DRegionFrame& frame, const Value* caller_locals,
+    const Frame& frame, const Value* caller_locals,
     std::uint64_t caller_set, const DPayloadTables& payload_tables,
     typename DPayloadFlavorTraits<Flavor>::State& payload_state,
     const DExecutionTables& tables, int& fuel, bool result_phase = false) {
@@ -97,17 +97,18 @@ __device__ DResult d_region_phase(
       payload_tables, payload_state, tables, fuel, result_phase);
 }
 
+template <class Frame>
 __device__ inline bool d_region_endpoint(
     const WindowEndpoint& endpoint, std::uint32_t length,
-    const DRegionFrame& frame, std::int64_t& out) {
+    const Frame& frame, std::int64_t& out) {
   if (endpoint.kind == WindowEndpointKind::Begin) { out = 0; return true; }
   if (endpoint.kind == WindowEndpointKind::End) { out = length; return true; }
   out = frame.prepared[endpoint.cut].i;
   return out > 0 && out < static_cast<std::int64_t>(length);
 }
 
-template <DPayloadFlavor Flavor>
-__device__ __noinline__ DResult d_run_bounded_region(
+template <DPayloadFlavor Flavor, class Frame>
+__device__ __noinline__ DResult d_run_bounded_region_impl(
     const DRegionSegment& segment, const Value* operands,
     const Value* caller_locals, std::uint64_t caller_set,
     const DPayloadTables& payload_tables,
@@ -160,7 +161,7 @@ __device__ __noinline__ DResult d_run_bounded_region(
        (!workspace.memo_keys || !workspace.memo_values ||
         workspace.memo_capacity < segment.limits.cells)))
     return d_error(ErrCode::Value);
-  DRegionFrame* frames = workspace.frames;
+  Frame* frames = reinterpret_cast<Frame*>(workspace.frames);
   std::int64_t* memo_keys = workspace.memo_keys;
   Value* memo_values = workspace.memo_values;
   const std::size_t stride = workspace.slot_stride;
@@ -289,4 +290,21 @@ __device__ __noinline__ DResult d_run_bounded_region(
       return d_error(ErrCode::Type);
     parent.results[parent.next_request - 1] = result.value;
   }
+}
+
+template <DPayloadFlavor Flavor>
+__device__ DResult d_run_bounded_region(
+    const DRegionSegment& segment, const Value* operands,
+    const Value* caller_locals, std::uint64_t caller_set,
+    const DPayloadTables& payload_tables,
+    typename DPayloadFlavorTraits<Flavor>::State& payload_state,
+    const DExecutionTables& tables, int& fuel, DRegionWorkspace workspace) {
+  if (workspace.compact_frames) {
+    if (segment.state_count > 1 || segment.preparation_count > 1 || segment.request_count > 2)
+      return d_error(ErrCode::Value);
+    return d_run_bounded_region_impl<Flavor, DCompactRegionFrame>(segment, operands,
+        caller_locals, caller_set, payload_tables, payload_state, tables, fuel, workspace);
+  }
+  return d_run_bounded_region_impl<Flavor, DRegionFrame>(segment, operands,
+      caller_locals, caller_set, payload_tables, payload_state, tables, fuel, workspace);
 }

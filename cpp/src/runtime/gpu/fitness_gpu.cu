@@ -534,6 +534,12 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
   // Keep generic frame/memo storage out of ordinary kernel call graphs.
   const bool has_regions = !packed.region_segments.empty();
   gpu_detail::DRegionWorkspace region_workspace;
+  region_workspace.compact_frames = std::getenv("GAGP_COMPACT_FRAMES") &&
+      std::all_of(packed.region_segments.begin(), packed.region_segments.end(), [](const auto& segment) {
+        return segment.state_count <= 1 && segment.preparation_count <= 1 && segment.request_count <= 2;
+      });
+  const std::size_t frame_size = region_workspace.compact_frames
+      ? sizeof(gpu_detail::DCompactRegionFrame) : sizeof(gpu_detail::DRegionFrame);
   for (const auto& segment : packed.region_segments) {
     region_workspace.frame_capacity =
         std::max(region_workspace.frame_capacity, segment.limits.frames);
@@ -546,7 +552,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
   // concurrent program blocks, never a program's declared frame or memo limits.
   constexpr std::size_t kRegionWorkspaceBudget = 512u * 1024u * 1024u;
   const std::size_t workspace_bytes_per_thread =
-      sizeof(gpu_detail::DRegionFrame) * region_workspace.frame_capacity +
+      frame_size * region_workspace.frame_capacity +
       (sizeof(std::int64_t) * gpu_detail::DMAX_REGION_STATES + sizeof(Value)) *
           region_workspace.memo_capacity;
   const std::size_t workspace_bytes_per_block =
@@ -592,7 +598,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
     }
     if (has_regions) {
       const std::size_t frame_bytes = workspace_threads * region_workspace.frame_capacity *
-                                      sizeof(gpu_detail::DRegionFrame);
+                                      frame_size;
       const std::size_t key_bytes = workspace_threads * region_workspace.memo_capacity *
                                     gpu_detail::DMAX_REGION_STATES * sizeof(std::int64_t);
       const std::size_t value_bytes = workspace_threads * region_workspace.memo_capacity * sizeof(Value);

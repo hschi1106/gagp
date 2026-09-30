@@ -36,8 +36,16 @@ struct DRegionFrame {
   int next_request;
 };
 
+struct DCompactRegionFrame {
+  Value state[1];
+  Value prepared[1];
+  Value results[2];
+  int next_request;
+};
+
 struct DRegionWorkspace {
   DRegionFrame* frames = nullptr;
+  bool compact_frames = false;
   std::int64_t* memo_keys = nullptr;
   Value* memo_values = nullptr;
   std::uint32_t frame_capacity = 0;
