@@ -1,6 +1,12 @@
 #include "gagp/core/semantic_fuel.hpp"
 #include "gagp/core/bytecode_verify.hpp"
 #include <limits>
+#include <algorithm>
+#include <atomic>
+#include <cstdlib>
+#include <exception>
+#include <future>
+#include <thread>
 #include <stdexcept>
 #include <string>
 
@@ -311,11 +317,37 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
   out.all_code.reserve(code_capacity);
   out.all_consts.reserve(const_capacity);
 
+  // The verifier only reads bytecode. Keep every check in this packing call,
+  // but verify independent programs concurrently. Retain per-program errors
+  // so the ordinary pack loop still reports the first invalid input in order.
+  const bool parallel_verify = programs.size() >= 32 &&
+      std::getenv("GAGP_SERIAL_PACK_VERIFY") == nullptr;
+  std::vector<std::exception_ptr> verification_errors(programs.size());
+  if (parallel_verify) {
+    std::atomic<std::size_t> next{0};
+    const auto count = std::min<unsigned>(20, std::max(1u, std::thread::hardware_concurrency()));
+    auto verify_next = [&] {
+      for (;;) {
+        const auto p = next.fetch_add(1, std::memory_order_relaxed);
+        if (p >= programs.size()) break;
+        try {
+          if (has_bounded_region(programs[p])) verify_bounded_program_or_throw(programs[p]);
+        } catch (...) { verification_errors[p] = std::current_exception(); }
+      }
+    };
+    std::vector<std::future<void>> workers;
+    for (unsigned i = 1; i < count; ++i)
+      workers.emplace_back(std::async(std::launch::async, verify_next));
+    verify_next();
+    for (auto& worker : workers) worker.get();
+  }
+
   for (std::size_t p = 0; p < programs.size(); ++p) {
     const BytecodeProgram& prog = programs[p];
     const bool bounded = has_bounded_region(prog);
     if (bounded) {
-      verify_bounded_program_or_throw(prog);
+      if (!parallel_verify) verify_bounded_program_or_throw(prog);
+      else if (verification_errors[p]) std::rethrow_exception(verification_errors[p]);
     }
     validate_fuel_or_throw(prog.code, prog.instruction_fuel, "root");
 

@@ -100,7 +100,7 @@ bool copyback_gpu_repro_children(const GpuReproArena& arena,
     return false;
   }
   if (!gpu_repro_config_fits_capacity(config, arena.capacity) ||
-      !gpu_repro_config_fits_capacity(config, staging->capacity)) {
+      !gpu_repro_staging_fits_capacity(config, staging->capacity)) {
     if (message_out) *message_out = "gpu reproduction copyback capacity mismatch";
     return false;
   }

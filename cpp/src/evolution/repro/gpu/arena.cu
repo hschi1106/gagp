@@ -340,7 +340,10 @@ bool ensure_gpu_repro_host_staging_capacity(GpuReproHostStaging* staging,
     }
     return false;
   }
-  if (gpu_repro_config_fits_capacity(config, staging->capacity)) {
+  // These are the only dimensions used by the pinned child-copyback buffers.
+  // Donor/domain/preprocessing dimensions can change between passes without
+  // changing any staging allocation.
+  if (gpu_repro_staging_fits_capacity(config, staging->capacity)) {
     return true;
   }
   destroy_gpu_repro_host_staging(staging);

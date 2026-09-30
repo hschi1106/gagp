@@ -131,6 +131,11 @@ struct GpuReproHostStaging {
 };
 
 bool gpu_repro_config_fits_capacity(const GpuReproConfig& need, const GpuReproConfig& have);
+// Pinned child-copyback buffers depend only on these four dimensions.
+inline bool gpu_repro_staging_fits_capacity(const GpuReproConfig& need, const GpuReproConfig& have) {
+  return have.pair_count >= need.pair_count && have.max_nodes >= need.max_nodes &&
+         have.max_names >= need.max_names && have.max_consts >= need.max_consts;
+}
 bool initialize_gpu_repro_runtime(std::string* message_out);
 bool select_gpu_repro_device(int* device_id, std::string* message_out);
 void destroy_gpu_repro_arena(GpuReproArena* arena);

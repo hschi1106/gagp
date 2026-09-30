@@ -569,6 +569,15 @@ bool test_host_pack_validation_and_profile_limits() {
   malformed.bounded_region_segments[0].plan.requests.clear();
 
   BytecodeProgram valid = maximum_program;
+  // Exercise concurrent verification, including an invalid late input.
+  std::vector<BytecodeProgram> batch(64, valid);
+  const auto packed_batch = gpu_detail::pack_programs_with_shared_case_count(batch, 1, 0);
+  if (!check(packed_batch.metas.size() == batch.size(), "parallel valid pack")) return false;
+  batch.back() = malformed;
+  bool rejected = false;
+  try { (void)gpu_detail::pack_programs_with_shared_case_count(batch, 1, 0); }
+  catch (const std::invalid_argument&) { rejected = true; }
+  if (!check(rejected, "parallel pack must reject malformed last region")) return false;
   try {
     (void)gpu_detail::pack_programs_with_shared_case_count({valid, malformed}, 1,
                                                            0);
