@@ -42,7 +42,7 @@ void check_append_capacity(std::size_t current, std::size_t added,
   }
 }
 
-void verify_bounded_program_or_throw(const BytecodeProgram& prog) {
+int verify_bounded_program_or_throw(const BytecodeProgram& prog) {
   BytecodeVerifyOptions options;
   options.max_locals_per_code = MAX_LOCALS;
   options.max_stack_depth = MAX_STACK;
@@ -69,6 +69,7 @@ void verify_bounded_program_or_throw(const BytecodeProgram& prog) {
           " cell limit exceeds GPU capacity 128");
     }
   }
+  return static_cast<int>(verified.verified.max_stack_depth);
 }
 
 unsigned value_payload_mask(const Value& v) {
@@ -323,6 +324,7 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
   const bool parallel_verify = programs.size() >= 32 &&
       std::getenv("GAGP_SERIAL_PACK_VERIFY") == nullptr;
   std::vector<std::exception_ptr> verification_errors(programs.size());
+  std::vector<int> verified_stack_bounds(programs.size(), MAX_STACK);
   if (parallel_verify) {
     std::atomic<std::size_t> next{0};
     const auto count = std::min<unsigned>(20, std::max(1u, std::thread::hardware_concurrency()));
@@ -331,7 +333,7 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
         const auto p = next.fetch_add(1, std::memory_order_relaxed);
         if (p >= programs.size()) break;
         try {
-          if (has_bounded_region(programs[p])) verify_bounded_program_or_throw(programs[p]);
+          if (has_bounded_region(programs[p])) verified_stack_bounds[p] = verify_bounded_program_or_throw(programs[p]);
         } catch (...) { verification_errors[p] = std::current_exception(); }
       }
     };
@@ -346,7 +348,7 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
     const BytecodeProgram& prog = programs[p];
     const bool bounded = has_bounded_region(prog);
     if (bounded) {
-      if (!parallel_verify) verify_bounded_program_or_throw(prog);
+      if (!parallel_verify) verified_stack_bounds[p] = verify_bounded_program_or_throw(prog);
       else if (verification_errors[p]) std::rethrow_exception(verification_errors[p]);
     }
     validate_fuel_or_throw(prog.code, prog.instruction_fuel, "root");
@@ -379,6 +381,7 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
     }
 
     if (bounded) {
+      const auto phase_begin = out.region_phases.size();
       check_append_capacity(out.region_segments.size(),
                             prog.bounded_region_segments.size(),
                             "region segment table");
@@ -387,6 +390,9 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
             segment, &out.all_phase_code, &out.all_phase_consts,
             &out.region_phases, &out.region_bindings));
       }
+      if (std::getenv("GAGP_GENERIC_PHASE_VM") == nullptr)
+        for (auto i = phase_begin; i < out.region_phases.size(); ++i)
+          out.region_phases[i].program.verified_stack_bound = verified_stack_bounds[p];
     }
     meta.region_count = checked_index(prog.bounded_region_segments.size(),
                                       "region segment count");

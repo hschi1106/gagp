@@ -90,7 +90,7 @@ __device__ inline bool d_is_payload_value(const Value& v) {
          v.tag == ValueTag::FallbackToken;
 }
 
-template <DPayloadFlavor Flavor, bool EnableRegions = false>
+template <DPayloadFlavor Flavor, bool EnableRegions = false, int StackCapacity = MAX_STACK, int LocalCapacity = MAX_LOCALS>
 __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
                                                 const Value* shared_case_local_vals,
                                                 const unsigned char* shared_case_local_set,
@@ -106,7 +106,7 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
 
 #include "region_execution_device.cuh"
 
-template <DPayloadFlavor Flavor, bool EnableRegions>
+template <DPayloadFlavor Flavor, bool EnableRegions, int StackCapacity, int LocalCapacity>
 __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
                                                 const Value* shared_case_local_vals,
                                                 const unsigned char* shared_case_local_set,
@@ -124,14 +124,14 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
   result.err_code = ErrCode::Value;
   result.value = Value::invalid();
 
-  Value stack[MAX_STACK];
-  Value locals[MAX_LOCALS];
-  static_assert(MAX_LOCALS <= 64, "local_set_mask requires MAX_LOCALS <= 64");
+  Value stack[StackCapacity];
+  Value locals[LocalCapacity];
+  static_assert(LocalCapacity <= 64, "local_set_mask requires LocalCapacity <= 64");
   std::uint64_t local_set_mask = 0;
   std::uint64_t local_type_mask = 0;
-  ValueTag local_types[MAX_LOCALS];
+  ValueTag local_types[LocalCapacity];
 
-  if (view.n_locals < 0 || view.n_locals > MAX_LOCALS) {
+  if (view.n_locals < 0 || view.n_locals > LocalCapacity) {
     return d_error(ErrCode::Value);
   }
   if (shared_case_local_vals != nullptr && shared_case_local_set != nullptr) {
@@ -171,7 +171,7 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
     ip += 1;
 
     if (ins.op == OP_PUSH_CONST) {
-      if (!d_has_a(ins) || ins.a < 0 || ins.a >= view.const_len || sp >= MAX_STACK) {
+      if (!d_has_a(ins) || ins.a < 0 || ins.a >= view.const_len || sp >= StackCapacity) {
         d_fail(result, ErrCode::Value);
         break;
       }
@@ -180,7 +180,7 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
     }
 
     if (ins.op == OP_LOAD) {
-      if (!d_has_a(ins) || ins.a < 0 || ins.a >= view.n_locals || sp >= MAX_STACK) {
+      if (!d_has_a(ins) || ins.a < 0 || ins.a >= view.n_locals || sp >= StackCapacity) {
         d_fail(result, ErrCode::Name);
         break;
       }
@@ -351,7 +351,7 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
         d_fail(result, derr);
         break;
       }
-      if (sp >= MAX_STACK) {
+      if (sp >= StackCapacity) {
         d_fail(result, ErrCode::Value);
         break;
       }
@@ -384,7 +384,7 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
     }
 
     if (ins.op == OP_EMPTY_LIST) {
-      if (!d_has_a(ins) || sp >= MAX_STACK) {
+      if (!d_has_a(ins) || sp >= StackCapacity) {
         d_fail(result, ErrCode::Value);
         break;
       }

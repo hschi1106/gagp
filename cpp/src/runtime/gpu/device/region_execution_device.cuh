@@ -51,9 +51,16 @@ __device__ DResult d_region_phase_impl(
   view.consts = tables.phase_consts ? tables.phase_consts + phase.program.const_offset : nullptr;
   view.const_len = phase.program.const_len;
   view.n_locals = phase.program.n_locals;
-  DResult result = d_run_code_core<Flavor, false>(
-      view, nullptr, nullptr, 0, presets, count, payload_tables, payload_state,
-      tables, fuel, false);
+  DResult result;
+  if (view.n_locals <= 8 && phase.program.verified_stack_bound <= 16) {
+    result = d_run_code_core<Flavor, false, 16, 8>(
+        view, nullptr, nullptr, 0, presets, count, payload_tables, payload_state,
+        tables, fuel, false);
+  } else {
+    result = d_run_code_core<Flavor, false>(
+        view, nullptr, nullptr, 0, presets, count, payload_tables, payload_state,
+        tables, fuel, false);
+  }
   // The verifier proves the nominal phase type. A bounded payload operation
   // can represent a result with the internal fallback token; only result phases
   // admit it. Control, preparation, and next-state phases keep exact tag checks.

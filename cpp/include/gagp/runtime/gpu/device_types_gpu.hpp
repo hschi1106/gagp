@@ -24,6 +24,7 @@ struct DResult {
 };
 
 struct DPhaseMeta {
+  int verified_stack_bound = MAX_STACK;
   int code_offset = 0;
   int code_len = 0;
   int const_offset = 0;
