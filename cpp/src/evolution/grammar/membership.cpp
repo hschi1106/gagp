@@ -9,6 +9,8 @@
 #include "../region_plan_equal.hpp"
 
 #include <memory>
+#include <cstdlib>
+#include "gagp/evolution/grammar/cache.hpp"
 
 #include <algorithm>
 #include <map>
@@ -18,7 +20,32 @@
 #include <utility>
 
 namespace gagp::evo::grammar {
+// Definition intentionally private to this translation unit. The witness copy
+// has no certificate pointer, avoiding a cycle or reliance on public provenance.
+class DerivationCertificate {
+ public:
+  std::string identity;
+  DerivationMetadata witness;
+  VerifiedAst verified;
+  std::vector<std::vector<int>> environments;
+};
 namespace {
+bool certificates_enabled() { return std::getenv("GAGP_NO_DERIVATION_CERTIFICATES") == nullptr; }
+bool same_certificate_request(const GenerationRequest& a, const GenerationRequest& b) {
+  if (a.nonterminal != b.nonterminal || a.type != b.type || a.stage != b.stage ||
+      a.budget.max_nodes != b.budget.max_nodes || a.budget.max_depth != b.budget.max_depth ||
+      a.visible_environment.size() != b.visible_environment.size()) return false;
+  for (std::size_t i = 0; i < a.visible_environment.size(); ++i)
+    if (a.visible_environment[i].name != b.visible_environment[i].name ||
+        a.visible_environment[i].type != b.visible_environment[i].type) return false;
+  return true;
+}
+std::string certificate_identity(const CompiledGrammar& grammar, const ProgramGenome& genome) {
+  std::vector<std::string> inputs;
+  for (const auto& input : grammar.inputs()) inputs.push_back(input.name);
+  return runtime_cache_identity(genome, inputs, grammar.execution_limits().fuel);
+}
+
 using MatchKey = std::tuple<std::uint32_t, std::size_t, std::vector<int>>;
 using ProductionDecisions = std::map<MatchKey, std::uint32_t>;
 
@@ -697,10 +724,33 @@ DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const 
 DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const ProgramGenome& genome,
     const GenerationRequest& request, VerifiedAst* verified,
     std::vector<std::vector<int>>* choice_lexical_environments) {
-  Matcher matcher(grammar, genome.ast, request, verified != nullptr);
+  const bool cache = certificates_enabled();
+  if (cache && genome.derivation && genome.derivation->certificate) {
+    const auto& proof = *genome.derivation->certificate;
+    if (proof.witness.grammar_hash == grammar.content_hash() &&
+        same_certificate_request(proof.witness.request, request) &&
+        proof.identity == certificate_identity(grammar, genome)) {
+      if (verified) *verified = proof.verified;
+      if (choice_lexical_environments) *choice_lexical_environments = proof.environments;
+      auto witness = proof.witness;
+      witness.certificate = genome.derivation->certificate;
+      return witness;
+    }
+  }
+  Matcher matcher(grammar, genome.ast, request, cache || verified != nullptr);
   matcher.run();
+  std::vector<std::vector<int>> environments;
   auto witness = WitnessBuilder(grammar, genome, request, matcher, nullptr,
-      choice_lexical_environments).run();
+      cache ? &environments : choice_lexical_environments).run();
+  if (cache) {
+    auto proof = std::make_shared<DerivationCertificate>();
+    proof->identity = certificate_identity(grammar, genome);
+    proof->witness = witness;
+    proof->verified = matcher.verified();
+    proof->environments = std::move(environments);
+    if (choice_lexical_environments) *choice_lexical_environments = proof->environments;
+    witness.certificate = std::move(proof);
+  }
   if (verified) *verified = matcher.take_verified();
   return witness;
 }
@@ -709,6 +759,8 @@ DerivationMetadata reconstruct_population_derivation(const CompiledGrammar& gram
     const ProgramGenome& genome, const std::vector<GenerationRequest>& requests,
     VerifiedAst* verified, std::vector<std::vector<int>>* choice_lexical_environments) {
   validate_population_requests(grammar, requests);
+  if (requests.size() == 1)
+    return reconstruct_derivation(grammar, genome, requests.front(), verified, choice_lexical_environments);
   Matcher matcher(grammar, genome.ast, requests.front(), verified != nullptr, nullptr, &requests);
   matcher.run();
   auto witness = WitnessBuilder(grammar, genome, matcher.request(), matcher, nullptr,

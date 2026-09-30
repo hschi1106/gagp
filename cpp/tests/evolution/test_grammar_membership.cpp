@@ -57,6 +57,33 @@ int main() {
       if (generated.ast.nodes[3].kind == NodeKind::ADD) sum = generated;
     }
     check(!sum.ast.nodes.empty(), "scalar seeds did not exercise recursive sum");
+    // A genuine proof can be reused; public provenance and stale ASTs cannot
+    // authorize changed programs or a different request.
+    sum.derivation = std::make_shared<const DerivationMetadata>(reconstruct_derivation(scalar, sum));
+    check(bool(sum.derivation->certificate), "membership must retain opaque proof");
+    const auto reused = reconstruct_derivation(scalar, sum);
+    check(reused.certificate == sum.derivation->certificate, "identical membership should reuse proof");
+    auto forged_metadata = std::make_shared<DerivationMetadata>(*sum.derivation);
+    forged_metadata->lowered_instructions = 0;
+    auto forged = sum; forged.derivation = forged_metadata;
+    check(reconstruct_derivation(scalar, forged).lowered_instructions == reused.lowered_instructions,
+          "cached witness must not trust public provenance fields");
+    auto stale = sum; stale.ast.nodes[3].kind = NodeKind::SUB;
+    bool stale_rejected = false;
+    try { (void)reconstruct_derivation(scalar, stale); }
+    catch (const std::invalid_argument&) { stale_rejected = true; }
+    check(stale_rejected, "stale proof must not admit changed AST");
+    stale = sum;
+    for (auto& value : stale.ast.consts) value = Value::from_int(99);
+    stale_rejected = false;
+    try { (void)reconstruct_derivation(scalar, stale); }
+    catch (const std::invalid_argument&) { stale_rejected = true; }
+    check(stale_rejected, "proof identity includes decoded constants");
+    auto tight_request = entry_request(scalar); tight_request.budget.max_nodes = 5;
+    stale_rejected = false;
+    try { (void)reconstruct_derivation(scalar, sum, tight_request); }
+    catch (const std::invalid_argument&) { stale_rejected = true; }
+    check(stale_rejected, "proof cannot bypass changed request budget");
     auto forbidden = sum;
     forbidden.ast.nodes[3].kind = NodeKind::SUB;
     rejects(scalar, forbidden);

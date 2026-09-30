@@ -9,6 +9,7 @@
 namespace gagp::evo::grammar {
 
 class VariationContext;
+class DerivationCertificate;
 
 inline constexpr const char* kGrammarSemanticVersion = "gagp-native-2.0.0";
 inline constexpr std::uint32_t kGrammarMaxLoweredInstructions = 1048576;
@@ -51,6 +52,9 @@ struct HoleOccurrence {
 };
 
 struct DerivationMetadata {
+  // Opaque in-process proof. Imported metadata cannot construct one. Reuse
+  // checks the exact decoded runtime identity, grammar and request each time.
+  std::shared_ptr<const DerivationCertificate> certificate;
   // Membership reconstruction certifies structure, not an original RNG history.
   bool seed_replayable = true;
   GenerationRequest request;
