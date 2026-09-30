@@ -827,7 +827,8 @@ if(GAGP_BUILD_BENCHMARKS)
     target_compile_features(asgp_core PUBLIC cxx_std_20)
     add_executable(gagp_fixed_asgp_bench
       src/bench/fixed_asgp/main.cpp
-      src/bench/fixed_asgp/adapter.cpp)
+      src/bench/fixed_asgp/adapter.cpp
+      src/bench/fixed_asgp/phase_bank.cpp)
     target_compile_features(gagp_fixed_asgp_bench PRIVATE cxx_std_20)
     target_link_libraries(gagp_fixed_asgp_bench PRIVATE gagp_cli_support gagp_gpu asgp_core)
   endif()

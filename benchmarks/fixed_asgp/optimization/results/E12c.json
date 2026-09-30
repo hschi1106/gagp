@@ -1,0 +1,526 @@
+{
+  "diagnostic_timings_only": true,
+  "cells": {
+    "sum_of_elements": {
+      "profile": "finite-independent-phase-bank",
+      "seed": 0,
+      "dimensions": 3,
+      "bank_members": 1024,
+      "bank_init_ms": 31.387562,
+      "unique_phases": [
+        606,
+        726,
+        728
+      ],
+      "generations": [
+        {
+          "best": 0,
+          "budget_rejected": 0,
+          "cases": 1048576,
+          "changed": 990,
+          "errors": 318332,
+          "eval_ms": 139.345357,
+          "fallbacks": 0,
+          "first_generation_with_bank_ms": 173.955413,
+          "generation": 0,
+          "generation_ms": 142.567851,
+          "kernel_ms": 128.957928,
+          "mean": -873309.2548828125,
+          "mean_nodes": 55.4501953125,
+          "repro_ms": 0.26898,
+          "timeouts": 0,
+          "unique_chromosomes": 989,
+          "unscored": 0
+        },
+        {
+          "best": 0,
+          "budget_rejected": 0,
+          "cases": 1048576,
+          "changed": 976,
+          "errors": 119000,
+          "eval_ms": 161.733703,
+          "fallbacks": 0,
+          "first_generation_with_bank_ms": 164.389455,
+          "generation": 1,
+          "generation_ms": 164.389455,
+          "kernel_ms": 154.878746,
+          "mean": -827678.26171875,
+          "mean_nodes": 51.2431640625,
+          "repro_ms": 0.242173,
+          "timeouts": 0,
+          "unique_chromosomes": 999,
+          "unscored": 0
+        },
+        {
+          "best": 0,
+          "budget_rejected": 0,
+          "cases": 1048576,
+          "changed": 988,
+          "errors": 47002,
+          "eval_ms": 156.24163,
+          "fallbacks": 0,
+          "first_generation_with_bank_ms": 158.626018,
+          "generation": 2,
+          "generation_ms": 158.626018,
+          "kernel_ms": 149.819779,
+          "mean": -802050.798828125,
+          "mean_nodes": 48.3974609375,
+          "repro_ms": 0.235504,
+          "timeouts": 0,
+          "unique_chromosomes": 992,
+          "unscored": 0
+        },
+        {
+          "best": 0,
+          "budget_rejected": 0,
+          "cases": 1048576,
+          "changed": 978,
+          "errors": 24936,
+          "eval_ms": 161.799544,
+          "fallbacks": 0,
+          "first_generation_with_bank_ms": 164.068823,
+          "generation": 3,
+          "generation_ms": 164.068823,
+          "kernel_ms": 155.74062,
+          "mean": -787377.1552734375,
+          "mean_nodes": 47.193359375,
+          "repro_ms": 0.218132,
+          "timeouts": 0,
+          "unique_chromosomes": 983,
+          "unscored": 0
+        }
+      ],
+      "top16_cpu": [
+        {
+          "cpu": 0,
+          "gpu": 0,
+          "index": 0
+        },
+        {
+          "cpu": 0,
+          "gpu": 0,
+          "index": 141
+        },
+        {
+          "cpu": 0,
+          "gpu": 0,
+          "index": 175
+        },
+        {
+          "cpu": 0,
+          "gpu": 0,
+          "index": 211
+        },
+        {
+          "cpu": 0,
+          "gpu": 0,
+          "index": 218
+        },
+        {
+          "cpu": 0,
+          "gpu": 0,
+          "index": 272
+        },
+        {
+          "cpu": 0,
+          "gpu": 0,
+          "index": 390
+        },
+        {
+          "cpu": 0,
+          "gpu": 0,
+          "index": 691
+        },
+        {
+          "cpu": 0,
+          "gpu": 0,
+          "index": 696
+        },
+        {
+          "cpu": 0,
+          "gpu": 0,
+          "index": 727
+        },
+        {
+          "cpu": 0,
+          "gpu": 0,
+          "index": 754
+        },
+        {
+          "cpu": 0,
+          "gpu": 0,
+          "index": 950
+        },
+        {
+          "cpu": 0,
+          "gpu": 0,
+          "index": 961
+        },
+        {
+          "cpu": -1024,
+          "gpu": -1024,
+          "index": 330
+        },
+        {
+          "cpu": -1024,
+          "gpu": -1024,
+          "index": 782
+        },
+        {
+          "cpu": -2436,
+          "gpu": -2436,
+          "index": 859
+        }
+      ],
+      "full_export_admission_ms": 11.981726,
+      "export_fitness_equal": 1
+    },
+    "house_robber": {
+      "profile": "finite-independent-phase-bank",
+      "seed": 0,
+      "dimensions": 2,
+      "bank_members": 1024,
+      "bank_init_ms": 35.591978,
+      "unique_phases": [
+        725,
+        725
+      ],
+      "generations": [
+        {
+          "best": -8503,
+          "budget_rejected": 0,
+          "cases": 1048576,
+          "changed": 1002,
+          "errors": 0,
+          "eval_ms": 63.862462,
+          "fallbacks": 0,
+          "first_generation_with_bank_ms": 102.026969,
+          "generation": 0,
+          "generation_ms": 66.434991,
+          "kernel_ms": 50.782926,
+          "mean": -117310.05859375,
+          "mean_nodes": 85.0322265625,
+          "repro_ms": 0.334595,
+          "timeouts": 0,
+          "unique_chromosomes": 934,
+          "unscored": 0
+        },
+        {
+          "best": -8503,
+          "budget_rejected": 0,
+          "cases": 1048576,
+          "changed": 993,
+          "errors": 0,
+          "eval_ms": 56.527228,
+          "fallbacks": 0,
+          "first_generation_with_bank_ms": 58.846233,
+          "generation": 1,
+          "generation_ms": 58.846233,
+          "kernel_ms": 46.771662,
+          "mean": -76098.1171875,
+          "mean_nodes": 80.0869140625,
+          "repro_ms": 0.236868,
+          "timeouts": 0,
+          "unique_chromosomes": 875,
+          "unscored": 0
+        },
+        {
+          "best": -8503,
+          "budget_rejected": 0,
+          "cases": 1048576,
+          "changed": 982,
+          "errors": 0,
+          "eval_ms": 54.677519,
+          "fallbacks": 0,
+          "first_generation_with_bank_ms": 56.882147,
+          "generation": 2,
+          "generation_ms": 56.882147,
+          "kernel_ms": 45.660199,
+          "mean": -70593.8828125,
+          "mean_nodes": 69.162109375,
+          "repro_ms": 0.224244,
+          "timeouts": 0,
+          "unique_chromosomes": 853,
+          "unscored": 0
+        },
+        {
+          "best": -8503,
+          "budget_rejected": 0,
+          "cases": 1048576,
+          "changed": 978,
+          "errors": 0,
+          "eval_ms": 54.859453,
+          "fallbacks": 0,
+          "first_generation_with_bank_ms": 56.989302,
+          "generation": 3,
+          "generation_ms": 56.989302,
+          "kernel_ms": 46.55759,
+          "mean": -64844.1953125,
+          "mean_nodes": 70.8720703125,
+          "repro_ms": 0.243409,
+          "timeouts": 0,
+          "unique_chromosomes": 800,
+          "unscored": 0
+        }
+      ],
+      "top16_cpu": [
+        {
+          "cpu": -8503,
+          "gpu": -8503,
+          "index": 0
+        },
+        {
+          "cpu": -8503,
+          "gpu": -8503,
+          "index": 283
+        },
+        {
+          "cpu": -8503,
+          "gpu": -8503,
+          "index": 364
+        },
+        {
+          "cpu": -8503,
+          "gpu": -8503,
+          "index": 524
+        },
+        {
+          "cpu": -8503,
+          "gpu": -8503,
+          "index": 921
+        },
+        {
+          "cpu": -9681,
+          "gpu": -9681,
+          "index": 689
+        },
+        {
+          "cpu": -9727,
+          "gpu": -9727,
+          "index": 643
+        },
+        {
+          "cpu": -9727,
+          "gpu": -9727,
+          "index": 881
+        },
+        {
+          "cpu": -11407,
+          "gpu": -11407,
+          "index": 21
+        },
+        {
+          "cpu": -12613,
+          "gpu": -12613,
+          "index": 568
+        },
+        {
+          "cpu": -13694,
+          "gpu": -13694,
+          "index": 37
+        },
+        {
+          "cpu": -13694,
+          "gpu": -13694,
+          "index": 622
+        },
+        {
+          "cpu": -13881,
+          "gpu": -13881,
+          "index": 101
+        },
+        {
+          "cpu": -13977,
+          "gpu": -13977,
+          "index": 408
+        },
+        {
+          "cpu": -13977,
+          "gpu": -13977,
+          "index": 712
+        },
+        {
+          "cpu": -14088,
+          "gpu": -14088,
+          "index": 327
+        }
+      ],
+      "full_export_admission_ms": 13.908942,
+      "export_fitness_equal": 1
+    },
+    "median": {
+      "profile": "finite-independent-phase-bank",
+      "seed": 0,
+      "dimensions": 3,
+      "bank_members": 1024,
+      "bank_init_ms": 31.591904,
+      "unique_phases": [
+        637,
+        729,
+        715
+      ],
+      "generations": [
+        {
+          "best": -31025,
+          "budget_rejected": 0,
+          "cases": 1048576,
+          "changed": 995,
+          "errors": 275609,
+          "eval_ms": 17.304015,
+          "fallbacks": 0,
+          "first_generation_with_bank_ms": 52.110701,
+          "generation": 0,
+          "generation_ms": 20.518797,
+          "kernel_ms": 6.735935,
+          "mean": -304667.439453125,
+          "mean_nodes": 63.3203125,
+          "repro_ms": 0.28247,
+          "timeouts": 0,
+          "unique_chromosomes": 1008,
+          "unscored": 0
+        },
+        {
+          "best": -31025,
+          "budget_rejected": 0,
+          "cases": 1048576,
+          "changed": 992,
+          "errors": 80905,
+          "eval_ms": 11.34975,
+          "fallbacks": 0,
+          "first_generation_with_bank_ms": 14.383319,
+          "generation": 1,
+          "generation_ms": 14.383319,
+          "kernel_ms": 3.879066,
+          "mean": -118300.673828125,
+          "mean_nodes": 68.9140625,
+          "repro_ms": 0.240128,
+          "timeouts": 0,
+          "unique_chromosomes": 1006,
+          "unscored": 0
+        },
+        {
+          "best": -31025,
+          "budget_rejected": 0,
+          "cases": 1048576,
+          "changed": 968,
+          "errors": 43834,
+          "eval_ms": 11.566259,
+          "fallbacks": 0,
+          "first_generation_with_bank_ms": 14.133256,
+          "generation": 2,
+          "generation_ms": 14.133256,
+          "kernel_ms": 3.856434,
+          "mean": -82447.1572265625,
+          "mean_nodes": 67.4560546875,
+          "repro_ms": 0.231918,
+          "timeouts": 0,
+          "unique_chromosomes": 1008,
+          "unscored": 0
+        },
+        {
+          "best": -31025,
+          "budget_rejected": 0,
+          "cases": 1048576,
+          "changed": 957,
+          "errors": 24385,
+          "eval_ms": 11.592338,
+          "fallbacks": 0,
+          "first_generation_with_bank_ms": 14.031274,
+          "generation": 3,
+          "generation_ms": 14.031274,
+          "kernel_ms": 3.897905,
+          "mean": -60111.693359375,
+          "mean_nodes": 72.87109375,
+          "repro_ms": 0.217114,
+          "timeouts": 0,
+          "unique_chromosomes": 987,
+          "unscored": 0
+        }
+      ],
+      "top16_cpu": [
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 0
+        },
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 6
+        },
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 12
+        },
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 19
+        },
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 34
+        },
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 83
+        },
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 231
+        },
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 235
+        },
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 248
+        },
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 286
+        },
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 300
+        },
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 308
+        },
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 326
+        },
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 364
+        },
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 415
+        },
+        {
+          "cpu": -31025,
+          "gpu": -31025,
+          "index": 442
+        }
+      ],
+      "full_export_admission_ms": 16.105401,
+      "export_fitness_equal": 1
+    }
+  }
+}

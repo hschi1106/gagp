@@ -1,4 +1,5 @@
 #include "adapter.hpp"
+#include "phase_bank.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -241,7 +242,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
 }
 void measure(const Json& source, const std::string& prepared_path, const std::string& grammar_path,
              int count, const std::string& mode, const std::string& output) {
-  const std::set<std::string> modes{"asgp_1t","gagp_cpu","gpu_eval","gpu_repro","gpu_overlap","snapshot","search"};
+  const std::set<std::string> modes{"asgp_1t","gagp_cpu","gpu_eval","gpu_repro","gpu_overlap","snapshot","search","phase_bank"};
   if (!modes.count(mode)) throw std::runtime_error("unknown mode");
   auto spec=task(source.object_v.at("task").string_v);
   std::vector<gagp::evo::EvalCase> cases;
@@ -263,6 +264,7 @@ void measure(const Json& source, const std::string& prepared_path, const std::st
       population.push_back(std::move(g));
     }
   }
+  if (mode=="phase_bank") { phase_bank_probe(population,cases,grammar,output); return; }
   if (mode=="snapshot") { snapshot(population,cases,output); return; }
   if (mode=="search") { search(population,cases,grammar,output); return; }
   std::ofstream log(output);

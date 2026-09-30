@@ -37,6 +37,11 @@
 | E08 | Carry complete variation analyses across decode/preparation, exact identity and budget checks | 284.8 / 249.0 / 181.9 ms; no end-to-end gain, extra copy/key retention cost | REJECTED; patch and binary saved |
 | E09 | Structurally bounded 1-state/1-preparation/2-request frames (72 vs 264 bytes), same frame/memo limits | 286.3 / 223.7 / 176.3 ms; House kernel 49.3 vs 70.7; Sum unchanged; fixed rows equal | retain opt-in `GAGP_COMPACT_FRAMES=1` |
 
+| E10 | Delay overlap preparation until compilation finishes | 280.6 / 219.9 / 184.7 ms; Sum/House changes small, Median regresses | REJECTED; preserve original overlap scheduling |
+| E11 | Cap worker teams at 2/4/8/10 vs original 20 | Every cap slows all workloads; 2 workers about 458/430/366 ms | REJECTED; CPU computation, not oversubscription alone, dominates |
+
+| E12c | Immutable whole-phase bank; grammar-compatible independent holes; tournament, phase crossover and 0.3 finite-bank mutation; all cases, full pack verification | Setup 31–36 ms; reproduction ~0.3 ms; initial fitness exactly matches E09. Four-generation outputs all re-admitted and AST/handle fitness equal. Effective changes ~957–1002/1023; no timeout/fallback. Timings diagnostic only | retain isolated prototype, not default or 40× claim; needs multiple seeds/unprofiled repetitions |
+
 ## Next
 
 1. Parallel bounded bytecode verification (same checks inside generation), pinned staging capacity reuse; validate malformed bytecode and parity.
@@ -47,4 +52,4 @@ Diagnostics: native `measure SOURCE PREPARED GRAMMAR 1024 snapshot OUT.json`; `G
 
 E05 is enabled with `GAGP_VIEW_PROFILE=1`. It removes bounded copy-pool losses for read-only lists; no change to case count, precision, fuel, limits or reproduction operators. Container equality/output and unsupported bytecode use generic backend, never skipped.
 
-Resume point: E06 compiled and snapshot validated. Next high-value probes: length-aware case ordering/compact region frames (all cases preserved), then host/reproduction representation and construction proofs; do not keep tuning tiny transfer/sync phases. Need final broad tests, repeated controls, short multi-seed quality and 60-cell scaling before completion.
+Resume point: E09 is best general-grammar path; E12 finite independent phase-bank prototype is being quality gated. Its initial fixed evaluation uses exactly the original fitness rows, but phase-bank mutation restricts the search space. Next: evaluate typed interpreter inlining, then repeat/quality/final scaling gates. Raw E12 initial counts used distinct source indices and overcounted duplicate phases; E12c canonicalizes executable phases before reporting effective variation/diversity. Need final broad tests, repeated controls, multi-seed quality and 60-cell scaling.
