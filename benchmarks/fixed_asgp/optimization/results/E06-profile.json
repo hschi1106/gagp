@@ -1,0 +1,30 @@
+[
+  {
+    "task": "sum_of_elements",
+    "cuda_eval_ms": [
+      213.242473,
+      211.794158,
+      211.037426,
+      212.010199
+    ],
+    "median_cuda_eval_ms": 211.794158,
+    "traced_generation_ms": 375.227819,
+    "traced_repro_stage_ms": 122.843082,
+    "native_pack_ms": 10.083879,
+    "native_compile_ms": 15.832704
+  },
+  {
+    "task": "house_robber",
+    "cuda_eval_ms": [
+      165.117062,
+      161.415157,
+      160.728952,
+      162.2605
+    ],
+    "median_cuda_eval_ms": 161.415157,
+    "traced_generation_ms": 340.225548,
+    "traced_repro_stage_ms": 131.168045,
+    "native_pack_ms": 12.763416,
+    "native_compile_ms": 20.548473
+  }
+]

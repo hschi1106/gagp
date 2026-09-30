@@ -104,6 +104,7 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
                                                 bool require_return,
                                                 DRegionWorkspace workspace = {});
 
+#include "view_phase_device.cuh"
 #include "region_execution_device.cuh"
 
 template <DPayloadFlavor Flavor, bool EnableRegions, int StackCapacity, int LocalCapacity>

@@ -51,6 +51,10 @@ __device__ DResult d_region_phase_impl(
   view.consts = tables.phase_consts ? tables.phase_consts + phase.program.const_offset : nullptr;
   view.const_len = phase.program.const_len;
   view.n_locals = phase.program.n_locals;
+  if constexpr (Flavor == DPayloadFlavor::IntListViews) {
+    if (phase.program.typed_view && view.n_locals <= 8 && phase.program.verified_stack_bound <= 16)
+      return d_run_view_phase(view, presets, count, payload_tables, fuel, expected);
+  }
   DResult result;
   if (view.n_locals <= 8 && phase.program.verified_stack_bound <= 16) {
     result = d_run_code_core<Flavor, false, 16, 8>(

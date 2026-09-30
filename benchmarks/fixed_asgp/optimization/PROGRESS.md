@@ -6,7 +6,7 @@
 - Baseline executable: `logs/optimization/baseline_bench` (hash in `logs/optimization/origin.json`). Frozen inputs symlink to original artifacts; never modify them.
 - Reference ASGP 1T: Sum 1841.160175 ms, House 1282.011816 ms. Targets <46.029004 / <32.050295 ms per full generation (40×). These are unprofiled medians from archived profiler controls.
 - `medium`: searched existing settings, results, docs and ASGP sources; no independent named workload found. Prior Median interpretation was an assumption. User clarification pending; Sum/House continue. Median remains an auxiliary overhead probe.
-- Current best: E04b; Sum 518.8 / House 531.4 / Median 177.3 ms. Compilation remains inside every measured generation.
+- Current best: E06 with `GAGP_VIEW_PROFILE=1 GAGP_TYPED_VIEW_PHASE=1`; Sum 379.1 / House 346.1 / Median 179.3 ms. Strict compilation remains inside every generation. Previous binaries retained in experiment directories.
 - Build: `cmake --build cpp/build/release --target gagp_fixed_asgp_bench gagp_test_fitness_cpu_gpu_parity gagp_test_evolution_cpu_gpu_parity -j10`.
 - Experiment results: `logs/optimization/`; compact summaries/checkpoints recorded here. GPUs run serially.
 
@@ -30,6 +30,8 @@
 
 | E05 | Opt-in read-only IntList views, proven by forward type analysis, generic fallback otherwise | 472.5 / 481.6 / 180.4 ms; kernels 310.7 / 304.2 / 4.2. Sum errors decrease 453208→318332, 192 program fitness changes; House/Median exact per-program agreement. Full CPU comparison and known solutions recorded | retain prototype, quality/search gate still pending |
 
+| E06 | Type-proven phase VM with unboxed payloads; ordinary integer conversion semantics/fuel retained | 379.1 / 346.1 / 179.3 ms; kernels 213.4 / 168.7 / 3.8. All per-program fitness and diagnostic counts match E05; refreshed nsys Sum/House recorded | retain prototype; host now roughly half of Sum/House |
+
 ## Next
 
 1. Parallel bounded bytecode verification (same checks inside generation), pinned staging capacity reuse; validate malformed bytecode and parity.
@@ -39,3 +41,5 @@
 Diagnostics: native `measure SOURCE PREPARED GRAMMAR 1024 snapshot OUT.json`; `GAGP_SNAPSHOT_CPU=1` adds full CPU reference. `GAGP_GPU_DIAGNOSTICS=1 GAGP_BM_SEED=0 ... measure ... 1024 search OUT.json` runs four generations plus separately timed final eval. Diagnostic kernel atomics are opt-in; never use those timings as headline speedups.
 
 E05 is enabled with `GAGP_VIEW_PROFILE=1`. It removes bounded copy-pool losses for read-only lists; no change to case count, precision, fuel, limits or reproduction operators. Container equality/output and unsupported bytecode use generic backend, never skipped.
+
+Resume point: E06 compiled and snapshot validated. Next high-value probes: length-aware case ordering/compact region frames (all cases preserved), then host/reproduction representation and construction proofs; do not keep tuning tiny transfer/sync phases. Need final broad tests, repeated controls, short multi-seed quality and 60-cell scaling before completion.

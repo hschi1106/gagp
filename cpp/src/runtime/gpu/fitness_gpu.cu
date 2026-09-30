@@ -485,14 +485,20 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
   sort_and_unique_tokens(&needed_string_tokens);
   sort_and_unique_list_tokens(&needed_list_tokens);
   populate_payload_cache(needed_string_tokens, needed_list_tokens, &impl_->host_string_payloads, &impl_->host_list_payloads);
+  const auto required_list_count = needed_list_tokens.size();
   const HostPayloadPack payload_pack =
       build_payload_pack(impl_->host_string_payloads, impl_->host_list_payloads, std::move(needed_string_tokens),
                          std::move(needed_list_tokens));
   const bool use_views = std::getenv("GAGP_VIEW_PROFILE") != nullptr && !packed.region_segments.empty() &&
+      payload_pack.list_entries.size() == required_list_count &&
+      std::all_of(payload_pack.list_entries.begin(), payload_pack.list_entries.end(), [](const auto& entry) { return entry.tag == ValueTag::IntList; }) &&
+      std::all_of(payload_pack.list_values.begin(), payload_pack.list_values.end(), [](const auto& value) { return value.tag == ValueTag::Int; }) &&
       std::all_of(programs.begin(), programs.end(), [&](const auto& program) {
         return gpu_detail::view_program_supported(program, impl_->shared_input_types);
       });
   if (use_views) {
+    if (std::getenv("GAGP_TYPED_VIEW_PHASE"))
+      for (auto& phase : packed.region_phases) phase.program.typed_view = true;
     for (auto& value : packed.all_consts) if (value.tag == ValueTag::IntList) value.b = false;
     for (auto& value : packed.all_phase_consts) if (value.tag == ValueTag::IntList) value.b = false;
   }
@@ -644,7 +650,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
     const auto copy_t1 = std::chrono::steady_clock::now();
 
     out.ok = true;
-    out.execution_profile = use_views ? "int-list-views" : "mixed";
+    out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : "mixed";
     out.fitness = std::move(host_fitness);
     out.timing.pack_ms = ms_between(pack_t0, pack_t1);
     out.timing.launch_prep_ms = ms_between(launch_prep_t0, launch_prep_t1);
