@@ -86,8 +86,8 @@ These scopes follow the [native timing reference](../reference/timing.md).
 Report per-task median/min/max generation milliseconds, ASGP-1T/GAGP-mode,
 GAGP-CPU/GAGP-mode and synchronous/overlapped reproduction ratios. Do not compare
 un-normalized native fitness values across systems. Variation counters classify
-operator outputs, not final-population counts. Native fitness APIs do not expose
-per-case error/timeout counts; the report explicitly leaves these unavailable.
+operator outputs, not final-population counts. The main timing modes leave optional per-case diagnostics disabled. Error/timeout
+counts come from the separate probes below, never inferred from aggregate fitness.
 
 Known hand-authored solutions are checked against every frozen case in ASGP and
 GAGP CPU before timing. GPU aggregate fitness is recorded, including nonzero
@@ -95,8 +95,9 @@ error from its accepted payload approximation. No arbitrary evolved-program
 parity gate is imposed. Crashes and missing results are failures, not losses.
 Short evolution/held-out quality experiments are separate from this timing suite.
 
-The 40× target applies to Sum of Elements at 1024×1024; Median intentionally
-exposes fixed overhead and is not required to meet that same ratio.
+The 40× target applies to Sum of Elements and House Robber at 1024×1024. Median
+exposes fixed overhead. The conversational term `medium` has no confirmed workload
+mapping; do not treat Median results as satisfying an unidentified medium target.
 
 ## Build and run
 
@@ -132,3 +133,56 @@ runtime semantics. Validate runner aggregation/failures with
 `python3 -m unittest discover -s tools/tests -p test_fixed_asgp.py -v`.
 The optional `gagp_test_fixed_asgp_bench` CTest checks all three known solutions,
 population translation and five modes using eight parents and all 1024 cases.
+
+
+## Optimization and diagnostic probes
+
+The current opt-in runtime profiles and eligibility rules are owned by
+[payload design](../design/payload.md#proven-integerlist-execution-profile).
+For the tested combination, prefix ordinary fixed runs with:
+
+```bash
+GAGP_VIEW_PROFILE=1 GAGP_TYPED_VIEW_PHASE=1 GAGP_SORT_CASES=1 GAGP_COMPACT_FRAMES=1 \
+GAGP_CUDA_DEVICE=0 PYTHONPATH=tools python3 -m gagp_tools benchmark fixed-asgp run \
+  --suite scaling --out logs/fixed-asgp/optimized-scaling
+```
+
+The runner records all `GAGP_*` environment settings alongside binary/source
+identity. These flags neither alter population/case counts nor bypass unsupported
+programs. The continuing optimization record, controls, rejected experiments and
+resume commands are in [the progress index](../../benchmarks/fixed_asgp/optimization/PROGRESS.md).
+
+The native `measure SOURCE PREPARED GRAMMAR POP MODE OUT` entry also supports
+`snapshot`, `search` and `phase_bank`. They write diagnostic JSON and are separate
+from the five modes above:
+
+- `snapshot`: identical frozen programs and all cases, per-program fitness/error/
+  timeout/fallback counts. `GAGP_SNAPSHOT_CPU=1` also scores every program on CPU.
+- `search`: four actual generations, plus separately timed final evaluation and
+  top-16 full-case CPU reevaluation. Set `GAGP_GPU_DIAGNOSTICS=1` for per-generation
+  counters and `GAGP_BM_SEED=0/1/2` for the short quality screen. Final population
+  sizes and exact decoded genome diversity are recorded.
+- `phase_bank`: experimental finite independent-phase profile. Capability
+  detection receives grammar/program structure, not task identifiers. It requires
+  one fixed bounded-region skeleton and independent compatible template holes;
+  unsupported structures fail explicitly. Initial compilation, membership/site
+  analysis, skeleton proof and phase interning are timed as `bank_init_ms`, added
+  to the first complete generation in `first_generation_with_bank_ms`. Subsequent
+  generations materialize bytecode references, fully verify/pack and evaluate all
+  cases. No fitness cache is used.
+
+Phase-bank reproduction uses tournament 2, elite 1, one whole-phase crossover and
+0.3 mutation by sampling an admitted source phase. It cannot invent new phase
+shapes/constants and is **not the full grammar search space**. Fuel, precision,
+case count and execution limits remain unchanged. Phase identities are interned
+before reporting changed children/diversity. Conservative grammar/node/depth
+bounds cover combinations. Every final child is independently exported and
+re-admitted to the original grammar; exported AST and handle fitness/counters
+must match. Export, final evaluation and top-16 CPU checks are separately timed.
+`GAGP_BANK_GENERATIONS` controls only this probe (default 4, maximum 256).
+Report cold first generation and subsequent generation times separately; do not
+substitute amortized bank timings for the original fixed benchmark.
+
+Short searches can expose obvious degradation; they do not establish convergence
+or time-to-solution equivalence. The phase-bank prototype is isolated in the
+optional benchmark executable and does not change native CLI evolution.

@@ -45,12 +45,12 @@ struct DCompactRegionFrame {
 
 struct DRegionWorkspace {
   DRegionFrame* frames = nullptr;
-  bool compact_frames = false;
   std::int64_t* memo_keys = nullptr;
   Value* memo_values = nullptr;
   std::uint32_t frame_capacity = 0;
   std::uint32_t memo_capacity = 0;
   std::uint32_t slot_stride = 1;
+  bool compact_frames = false;
 };
 
 static_assert(std::is_trivially_copyable<DRegionFrame>::value);

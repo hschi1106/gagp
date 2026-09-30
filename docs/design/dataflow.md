@@ -128,3 +128,26 @@ Stable table compaction can transport already validated analyses; payload change
 or unavailable ownership proofs fall back to full analysis. See the
 [GPU reproduction dataflow](gpu-reproduction.md) for ownership and publication
 invariants. These schedules retain every population member and operator proposal.
+
+
+### Reusable membership proofs and GPU packing
+
+Successful membership reconstruction can retain an opaque immutable
+`DerivationCertificate` (`grammar/membership.cpp`). Reuse compares the full
+runtime identity, including decoded constant contents, compiled grammar hash,
+and complete generation request. It returns the private verified witness and
+exact scopes, never caller-editable provenance. Changes trigger full validation.
+`GAGP_NO_DERIVATION_CERTIFICATES=1` provides a control path. The certificate does
+not retain executable bytecode; ordinary generation compilation remains timed.
+
+GPU host packing independently verifies every bounded program. For populations
+of at least 32 it performs these checks on up to 20 workers and publishes errors
+in original program order. `GAGP_SERIAL_PACK_VERIFY=1` selects serial checks.
+The verifier supplies stack bounds for the execution storage choices described
+in [payload execution profiles](payload.md#proven-integerlist-execution-profile).
+
+The optional benchmark-only phase-bank prototype replaces AST evolution with
+immutable compatible phase references. Its restricted search space, initialization
+cost and export audit are described in the
+[fixed benchmark guide](../guides/fixed-asgp-benchmark.md#optimization-and-diagnostic-probes).
+It is not part of `evolve_population` or the default reproduction backend.

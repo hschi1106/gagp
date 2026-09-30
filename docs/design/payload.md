@@ -151,7 +151,7 @@ This separation is important:
 
 ## GPU Payload Flavors
 
-The device path now uses one production eval kernel family.
+The default device path uses the generic `Mixed` eval kernel family.
 
 Programs are still classifiable into four fine-grained payload flavors in `cpp/src/runtime/gpu/host_pack_gpu.cu`:
 
@@ -160,13 +160,50 @@ Programs are still classifiable into four fine-grained payload flavors in `cpp/s
 - `ListOnly`
 - `Mixed`
 
-The production GPU fitness path always launches a single `Mixed` eval kernel over the full accepted population.
+The GPU fitness path launches one kernel over the full accepted population. An opt-in, structurally proven integer/list view profile is described below.
 
 The finer `StringOnly` / `ListOnly` labels are kept for experiment tooling and offline bucket studies rather than the production eval dispatch tree.
 
 Exact string/typed-list builtins use bounded per-thread scratch. CPU and GPU share the release 2.0.0 direct-list tags (`IntList`, `FloatList`, `StringList`). When exact string output materialization will not fit in GPU per-thread scratch, GPU string operations use the fallback path. Direct-list operations preserve the list tag and compact hash/length token even when the exact expanded payload cannot be materialized in thread-local scratch.
 
-Operationally, this means production GPU eval no longer maintains a runtime dispatch split between payload-free and payload-bearing programs. Timing and benchmark analysis should treat `gpu_eval_kernel_ms` as one kernel family rather than reconstructing legacy `None` / `Mixed` launch buckets.
+There is no legacy payload-free/payload-bearing bucket split. The whole launch
+uses `Mixed` or the proven view profile, and evaluates every program/case pair.
+
+### Proven integer/list execution profile
+
+`cpp/src/runtime/gpu/view_profile.hpp` checks forward type flow after full ordinary
+bytecode verification. With `GAGP_VIEW_PROFILE=1`, a population containing bounded
+regions can use `IntListViews` only when every root/phase is supported, all required
+list payloads are present and contain integers, and final outputs are scalar.
+Supported observations are Len/Index/Slice; list equality/output, other containers,
+Float, backward jumps and unsupported instructions use the generic whole-batch
+fallback. Programs are never discarded. `FitnessEvalResult::execution_profile`
+reports the selected path.
+
+Read-only lists then use a private offset/length descriptor into the immutable
+launch payload array. The descriptor never escapes the evaluator. Slices need no
+copy or hash, removing copy-pool losses for this subset. The public Value and
+serialized payload representations stay the same.
+
+`GAGP_TYPED_VIEW_PHASE=1` uses unboxed int64/view payloads for proven phases with
+at most 8 locals and verified stack bound 16. It retains ordinary numeric
+conversions, protected division, checks and every semantic fuel charge. Larger
+phases use the ordinary interpreter. Independently, verified small phase bounds
+select smaller tagged interpreter arrays; `GAGP_GENERIC_PHASE_VM=1` disables that
+storage optimization for controls.
+
+`GAGP_SORT_CASES=1` stably orders cases by total input IntList length and traverses
+them in strided lane order. It applies only to proven view execution with integer
+answers/penalty and a conservative exact accumulator bound. All cases remain;
+other profiles retain their original reduction order. Sorting and its upload are
+charged to session initialization, once per session.
+
+`GAGP_COMPACT_FRAMES=1` uses 72-byte frames when every segment needs at most one
+state, one preparation and two results, otherwise 264-byte generic frames. Frame
+and memo capacities do not decrease. The 512 MiB workspace limit controls launch
+concurrency, never evaluation coverage. `gagp_test_bounded_region_gpu` checks the
+fast path, generic fallback, numeric boundaries and exact fuel/capacity exhaustion.
+
 
 ## Exact Path vs Fallback Path
 

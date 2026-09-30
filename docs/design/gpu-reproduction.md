@@ -434,7 +434,7 @@ lookups can proceed. No proof work is moved outside the generation.
 Device reproduction arrays share one allocation with individually aligned typed
 slices. Their capacities and transport checks are unchanged. Growth replaces the
 allocation and clears the uploaded-domain owner; sufficient capacity is reused.
-Pinned host staging retains separate allocations.
+Pinned host staging retains separate allocations. Its reuse predicate compares only pair, node, name and constant capacities used by staging; donor/domain dimensions do not force a staging reallocation. Allocation and copyback use the same predicate.
 
 Private donor prefetch can reuse the destination analysis already held by its
 owned preparation window after checking its payload snapshot. Public donor APIs

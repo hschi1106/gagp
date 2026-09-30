@@ -58,3 +58,10 @@ Diagnostics: native `measure SOURCE PREPARED GRAMMAR 1024 snapshot OUT.json`; `G
 E05 is enabled with `GAGP_VIEW_PROFILE=1`. It removes bounded copy-pool losses for read-only lists; no change to case count, precision, fuel, limits or reproduction operators. Container equality/output and unsupported bytecode use generic backend, never skipped.
 
 Resume point: E15 is best general-grammar path; E16 finite independent phase-bank prototype is being quality gated. Its initial fixed evaluation uses exactly the original fitness rows, but phase-bank mutation restricts the search space. Next: evaluate typed interpreter inlining, then repeat/quality/final scaling gates. Raw E12 initial counts used distinct source indices and overcounted duplicate phases; E12c canonicalizes executable phases before reporting effective variation/diversity. Need final broad tests, repeated controls, multi-seed quality and 60-cell scaling.
+
+Final validation checkpoint: all 119 native tests pass; 24 repository checks pass;
+89 operational tests run (4 pre-existing optional skips). Full-build testing caught
+a positional `DRegionWorkspace` initializer in result probes; the new flag was
+moved to the end to preserve that interface. Next queued commands run optimized
+GPU regressions, `logs/optimization/quality_run.py`,
+`logs/optimization/repeat_run.py`, then the existing scaling matrix.

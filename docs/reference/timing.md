@@ -114,7 +114,19 @@ These are the canonical metrics for GPU fitness attribution.
 | `gpu_eval_copyback_ms` | Fitness copyback | Direct |
 | `gpu_eval_teardown_ms` | Temporary eval teardown after copyback | Direct |
 
-Current production behavior uses one `Mixed` eval kernel for the full accepted population. `gpu_eval_kernel_ms` is therefore one kernel family rather than a sum of separate runtime dispatch buckets.
+Each evaluation launches one kernel family over the full population: generic
+`Mixed`, or an opt-in type-proven integer/list profile (see
+[payload design](../design/payload.md#proven-integerlist-execution-profile)).
+`gpu_eval_kernel_ms` includes host launch and synchronization; CUDA activity time
+must come from the trace, and must not be mixed with unprofiled generation totals.
+
+`FitnessSessionGpu::eval_programs(programs, true)` optionally collects five counts
+per program: evaluated cases, errors, timeouts (a subset of errors), fallback-token
+results and unscored results. `GAGP_GPU_DIAGNOSTICS=1` enables this in evolution,
+accumulating `program_cases`, `eval_errors`, `eval_timeouts`, `eval_fallbacks` and
+`eval_unscored`. Counters are empty/zero when not requested; zero then does not
+assert error-free evaluation. Device atomics and their transfer are diagnostic
+overhead and must be disabled for headline timing runs.
 
 ### Reproduction metrics
 
