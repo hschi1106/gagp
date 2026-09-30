@@ -1,6 +1,8 @@
 #pragma once
 
 #include <memory>
+#include <array>
+#include <cstdint>
 #include <utility>
 #include <vector>
 
@@ -38,6 +40,9 @@ struct FitnessEvalTiming {
 struct FitnessEvalResult {
   bool ok = false;
   std::vector<double> fitness;
+  // Opt-in diagnostics: evaluated cases, errors, timeouts (subset of errors),
+  // fallback-token results, and results without a fitness comparison.
+  std::vector<std::array<unsigned int, 5>> case_counts;
   FitnessEvalTiming timing;
   Err err{ErrCode::Value, ""};
 };
@@ -56,7 +61,7 @@ class FitnessSessionGpu {
                                 int fuel = 10000,
                                 int blocksize = 1024,
                                 double penalty = 1.0);
-  FitnessEvalResult eval_programs(const std::vector<BytecodeProgram>& programs) const;
+  FitnessEvalResult eval_programs(const std::vector<BytecodeProgram>& programs, bool capture_case_counts = false) const;
   bool is_ready() const;
 
  private:

@@ -3,6 +3,11 @@
 namespace gagp::evo {
 
 void accumulate_timing(EvaluationTiming* total, const EvaluationTiming& value) {
+  total->program_cases += value.program_cases;
+  total->eval_errors += value.eval_errors;
+  total->eval_timeouts += value.eval_timeouts;
+  total->eval_fallbacks += value.eval_fallbacks;
+  total->eval_unscored += value.eval_unscored;
   total->cpu_compile_ms += value.cpu_compile_ms;
   total->gpu_compile_ms += value.gpu_compile_ms;
   total->gpu_eval_call_ms += value.gpu_eval_call_ms;

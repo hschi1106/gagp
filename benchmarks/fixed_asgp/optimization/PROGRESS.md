@@ -26,8 +26,12 @@
 | E04 | Opaque membership/verified-AST certificate plus reuse of admission bytecode | 511.4 / 515.4 / 173.6 ms; all output fields identical | superseded: primary BM keeps per-generation compilation explicitly |
 | E04b | Keep membership proof only; exact AST/payload identity, grammar/request validation; full compile each generation | 518.8 / 531.4 / 177.3 ms; stale AST/constant/request and forged provenance tests + payload evolution pass | retain provisionally |
 
+| D01 | Fixed-program snapshot evaluator with optional per-case counters; 4-generation search diagnostics | All 1024 per-program fitness/count rows equal between generic and small VM, all 1024 cases each. Sum errors 453208; House 0; Median 275609; all timeouts/fallback tokens 0 | diagnostic gate; no speedup claimed |
+
 ## Next
 
 1. Parallel bounded bytecode verification (same checks inside generation), pinned staging capacity reuse; validate malformed bytecode and parity.
 2. Inspect eval phase interpreter and region workspace for high-impact compact execution prototype, guarded by structural applicability.
 3. After each meaningful candidate, fixed programs + full cases and end-to-end generations; retain only measured gains. Collect errors/timeout/fallback and short search quality before final adoption.
+
+Diagnostics: native `measure SOURCE PREPARED GRAMMAR 1024 snapshot OUT.json`; `GAGP_SNAPSHOT_CPU=1` adds full CPU reference. `GAGP_GPU_DIAGNOSTICS=1 GAGP_BM_SEED=0 ... measure ... 1024 search OUT.json` runs four generations plus separately timed final eval. Diagnostic kernel atomics are opt-in; never use those timings as headline speedups.

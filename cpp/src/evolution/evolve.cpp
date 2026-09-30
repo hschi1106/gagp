@@ -3,6 +3,7 @@
 #include "gagp/evolution/evolve.hpp"
 
 #include <chrono>
+#include <cstdlib>
 #include <atomic>
 #include <algorithm>
 #include <future>
@@ -226,12 +227,19 @@ std::vector<ScoredGenomeRef> score_population_gpu_refs(
     std::vector<double>* raw_fitness_out,
     bool sort_output) {
   const CompiledPopulation compiled = compile_population(population, input_names, compile_cache, fuel, true);
-  FitnessEvalResult fit = session->eval_programs(compiled.programs);
+  FitnessEvalResult fit = session->eval_programs(compiled.programs, std::getenv("GAGP_GPU_DIAGNOSTICS") != nullptr);
   if (!fit.ok) {
     throw std::runtime_error("gpu fitness evaluation failed: " + fit.err.message);
   }
   PopulationEvaluation evaluation;
   evaluation.fitness = std::move(fit.fitness);
+  for (const auto& counts : fit.case_counts) {
+    evaluation.timing.program_cases += counts[0];
+    evaluation.timing.eval_errors += counts[1];
+    evaluation.timing.eval_timeouts += counts[2];
+    evaluation.timing.eval_fallbacks += counts[3];
+    evaluation.timing.eval_unscored += counts[4];
+  }
   evaluation.timing.gpu_compile_ms = compiled.compile_ms;
   evaluation.timing.gpu_eval_call_ms = fit.timing.total_ms;
   evaluation.timing.gpu_eval_pack_ms = fit.timing.pack_ms;

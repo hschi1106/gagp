@@ -454,6 +454,7 @@ DeviceArena::~DeviceArena() {
   if (d_out) cudaFree(d_out);
   if (d_expected) cudaFree(d_expected);
   if (d_fitness) cudaFree(d_fitness);
+  if (d_case_counts) cudaFree(d_case_counts);
   if (d_string_payload_entries) cudaFree(d_string_payload_entries);
   if (d_string_payload_bytes) cudaFree(d_string_payload_bytes);
   if (d_list_payload_entries) cudaFree(d_list_payload_entries);

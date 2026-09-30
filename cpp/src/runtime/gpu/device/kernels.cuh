@@ -32,7 +32,7 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     const DRegionSegment* region_segments = nullptr, int region_segment_count = 0,
     const DRegionPhase* region_phases = nullptr, int region_phase_count = 0,
     const DRegionPhaseBinding* region_bindings = nullptr, int region_binding_count = 0,
-    DRegionWorkspace workspace = {}) {
+    DRegionWorkspace workspace = {}, unsigned int* case_counts = nullptr) {
   const int tid = static_cast<int>(threadIdx.x);
   if constexpr (EnableRegions) {
     const std::size_t block_base = static_cast<std::size_t>(blockIdx.x) * blockDim.x;
@@ -86,15 +86,22 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     const DResult result = d_execute_bytecode_impl<Flavor, EnableRegions>(
         meta, shared_code, all_consts, shared_case_local_vals, shared_case_local_set,
         payload_tables, execution_tables, local_case, fuel, workspace);
+    unsigned int* counts = case_counts ? case_counts + prog_idx * 5 : nullptr;
+    if (counts) atomicAdd(counts, 1u);
     if (result.is_error) {
+      if (counts) {
+        atomicAdd(counts + 1, 1u);
+        if (result.err_code == ErrCode::Timeout) atomicAdd(counts + 2, 1u);
+      }
       local_score = d_canonicalize_fitness_accumulator(local_score - fabs(penalty));
       continue;
     }
 
+    if (counts && result.value.tag == ValueTag::FallbackToken) atomicAdd(counts + 3, 1u);
     double case_score = 0.0;
     if (vm_semantics::fitness_score_for_values(result.value, shared_answer[local_case], penalty, case_score)) {
       local_score = d_canonicalize_fitness_accumulator(local_score + case_score);
-    }
+    } else if (counts) atomicAdd(counts + 4, 1u);
   }
 
   partial_scores[tid] = local_score;

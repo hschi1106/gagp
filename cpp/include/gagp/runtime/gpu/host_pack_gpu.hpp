@@ -51,6 +51,7 @@ struct DeviceArena {
   DResult* d_out = nullptr;
   Value* d_expected = nullptr;
   double* d_fitness = nullptr;
+  unsigned int* d_case_counts = nullptr;
   DStringPayloadEntry* d_string_payload_entries = nullptr;
   char* d_string_payload_bytes = nullptr;
   DListPayloadEntry* d_list_payload_entries = nullptr;

@@ -439,7 +439,7 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   return out;
 }
 
-FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodeProgram>& programs) const {
+FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodeProgram>& programs, bool capture_case_counts) const {
   if (!impl_ || !impl_->ready) {
     return fitness_eval_single_error(ErrCode::Value, "gpu fitness session is not initialized");
   }
@@ -532,6 +532,12 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
     if (cudaMalloc(reinterpret_cast<void**>(&dev.d_fitness), sizeof(double) * programs.size()) != cudaSuccess) {
       return fitness_eval_single_error(ErrCode::Value, "cuda allocation failure");
     }
+    if (capture_case_counts) {
+      const auto bytes = sizeof(unsigned int) * 5 * programs.size();
+      if (cudaMalloc(reinterpret_cast<void**>(&dev.d_case_counts), bytes) != cudaSuccess ||
+          cudaMemset(dev.d_case_counts, 0, bytes) != cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value, "cuda diagnostics allocation failure");
+    }
     if (cudaMemset(dev.d_fitness, 0, sizeof(double) * programs.size()) != cudaSuccess) {
       return fitness_eval_single_error(ErrCode::Value, "cuda memset failure");
     }
@@ -562,7 +568,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
               impl_->fuel, impl_->penalty, dev.d_fitness,
               dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
-              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace);
+              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts);
     } else {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::Mixed>
           <<<static_cast<unsigned int>(programs.size()), impl_->blocksize, shared_bytes>>>(
@@ -571,7 +577,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
               dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
               dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
               dev.d_phase_code, dev.d_phase_consts,
-              impl_->fuel, impl_->penalty, dev.d_fitness);
+              impl_->fuel, impl_->penalty, dev.d_fitness, nullptr, 0, nullptr, 0, nullptr, 0, {}, dev.d_case_counts);
     }
     const cudaError_t launch_err = cudaGetLastError();
     const cudaError_t sync_err = cudaDeviceSynchronize();
@@ -594,6 +600,13 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
     if (cudaMemcpy(host_fitness.data(), dev.d_fitness, sizeof(double) * programs.size(), cudaMemcpyDeviceToHost) !=
         cudaSuccess) {
       return fitness_eval_single_error(ErrCode::Value, "cuda copy-back failure");
+    }
+    if (capture_case_counts) {
+      out.case_counts.resize(programs.size());
+      static_assert(sizeof(out.case_counts[0]) == sizeof(unsigned int) * 5);
+      if (cudaMemcpy(out.case_counts.data(), dev.d_case_counts,
+                     sizeof(unsigned int) * 5 * programs.size(), cudaMemcpyDeviceToHost) != cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value, "cuda diagnostics copy-back failure");
     }
     const auto copy_t1 = std::chrono::steady_clock::now();
 

@@ -259,7 +259,12 @@ bool compare_fitness(const BytecodeProgram& program,
              label + ": GPU initialization failed: " + initialized.err.message)) {
     return false;
   }
-  const FitnessEvalResult gpu = session.eval_programs({program});
+  const FitnessEvalResult gpu = session.eval_programs({program}, true);
+  const auto errors = std::count_if(intended.begin(), intended.end(), [](const auto& c) { return !c.succeeds; });
+  const auto timeouts = std::count_if(intended.begin(), intended.end(), [](const auto& c) { return !c.succeeds && c.error == ErrCode::Timeout; });
+  if (!check(gpu.case_counts.size() == 1 && gpu.case_counts[0][0] == intended.size() &&
+             gpu.case_counts[0][1] == errors && gpu.case_counts[0][2] == timeouts,
+             label + ": exact case/error/timeout diagnostic counts")) return false;
   return check(gpu.ok, label + ": GPU evaluation failed: " + gpu.err.message) &&
          check(gpu.fitness.size() == 1,
                label + ": GPU fitness result shape changed") &&
