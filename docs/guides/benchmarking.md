@@ -6,6 +6,9 @@ maintained nonlinear benchmark definition is
 `configs/grammar/benchmarks/simple_exp.json`; it exactly matches
 `data/fixtures/simple_exp_1024.json`.
 
+For the three-task ASGP/GAGP daily and scaling comparison, use the
+[fixed ASGP benchmark contract and commands](fixed-asgp-benchmark.md).
+
 ## Fixed-population workflow
 
 Create and same-version replay one population before comparing backends:

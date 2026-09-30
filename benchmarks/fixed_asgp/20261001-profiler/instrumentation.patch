@@ -1,0 +1,345 @@
+--- a/cpp/CMakeLists.txt
++++ b/cpp/CMakeLists.txt
+@@ -5,6 +5,8 @@
+ set(CMAKE_CXX_STANDARD_REQUIRED ON)
+ set(CMAKE_CXX_EXTENSIONS OFF)
+ enable_testing()
++include_directories("/usr/local/cuda-12.6/include")
++link_libraries(${CMAKE_DL_LIBS})
+ 
+ option(GAGP_ENABLE_CUDA "Build CUDA runtime and parity targets" ON)
+ option(GAGP_ENABLE_SANITIZERS "Enable CPU AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+--- a/cpp/include/gagp/profile_probe.hpp
++++ b/cpp/include/gagp/profile_probe.hpp
+@@ -0,0 +1,15 @@
++#pragma once
++#include <nvtx3/nvToolsExt.h>
++namespace gagp::profile_probe {
++class Range {
++  bool active_ = true;
++ public:
++  explicit Range(const char* name) { nvtxRangePushA(name); }
++  ~Range() { finish(); }
++  void finish() { if (active_) { nvtxRangePop(); active_ = false; } }
++  void next(const char* name) { finish(); nvtxRangePushA(name); active_ = true; }
++};
++}
++#define GAGP_PROBE_JOIN_(a,b) a##b
++#define GAGP_PROBE_JOIN(a,b) GAGP_PROBE_JOIN_(a,b)
++#define GAGP_PROBE(name) gagp::profile_probe::Range GAGP_PROBE_JOIN(gagp_probe_,__LINE__)(name)
+--- a/cpp/src/bench/fixed_asgp/main.cpp
++++ b/cpp/src/bench/fixed_asgp/main.cpp
+@@ -1,3 +1,4 @@
++#include "gagp/profile_probe.hpp"
+ #include "adapter.hpp"
+ 
+ #include <algorithm>
+@@ -208,6 +209,8 @@
+   std::ofstream log(output);
+   if (!log) throw std::runtime_error("cannot open result file");
+   for (int rep=-1; rep<3; ++rep) {
++    const auto rep_name = std::string("rep/") + std::to_string(rep);
++    GAGP_PROBE(rep_name.c_str());
+     auto row=mode=="asgp_1t" ? measure_asgp(parents,spec) : measure_gagp(population,cases,grammar,mode);
+     row.object_v["task"]=string(spec.id); row.object_v["mode"]=string(mode);
+     row.object_v["population"]=number(count); row.object_v["cases"]=number(cases.size());
+--- a/cpp/src/evolution/evolve.cpp
++++ b/cpp/src/evolution/evolve.cpp
+@@ -1,3 +1,4 @@
++#include "gagp/profile_probe.hpp"
+ #include "batch_workers.hpp"
+ #include "repro/owned_overlap.hpp"
+ #include "gagp/evolution/evolve.hpp"
+@@ -76,6 +77,7 @@
+ CompiledPopulation compile_population(const std::vector<ProgramGenome>& population,
+                                       const std::vector<std::string>& input_names,
+                                       CompileCache* compile_cache, int fuel, bool parallel_allowed = false) {
++  GAGP_PROBE("compile.total");
+   CompiledPopulation out;
+   out.programs.reserve(population.size());
+   CompileCache local_cache;
+@@ -170,6 +172,7 @@
+     double* fitness_sum_out,
+     std::vector<double>* raw_fitness_out,
+     bool sort_output) {
++  GAGP_PROBE("selection.rank_host");
+   for (double& value : evaluation.fitness) {
+     value = canonicalize_fitness_for_ranking(value);
+   }
+@@ -327,6 +330,8 @@
+   for (int gen = 0; gen < cfg.generations; ++gen) {
+     GenerationTiming generation_timing;
+     const auto gen_t0 = std::chrono::steady_clock::now();
++    gagp::profile_probe::Range generation_range("generation");
++    gagp::profile_probe::Range generation_stage("eval.stage");
+     const auto eval_t0 = std::chrono::steady_clock::now();
+     std::vector<ScoredGenomeRef> scored;
+     double fitness_sum = 0.0;
+@@ -362,6 +367,7 @@
+     result.history_mean_fitness.push_back(mean);
+ 
+     const auto repro_t0 = std::chrono::steady_clock::now();
++    generation_stage.next("repro.stage");
+     repro::ReproductionResult reproduction;
+     if (overlap_gpu) {
+       reproduction = overlap.completion.get()(raw_fitness);
+@@ -379,6 +385,8 @@
+     population = std::move(reproduction.next_population);
+     overlap.population.reset();
+     payload_lifetime.retain(population, result.history_best);
++    generation_stage.finish();
++    generation_range.finish();
+     const auto gen_t1 = std::chrono::steady_clock::now();
+ 
+     generation_timing.reproduction = reproduction_timing_from_stats(reproduction.stats);
+--- a/cpp/src/evolution/grammar/variation.cpp
++++ b/cpp/src/evolution/grammar/variation.cpp
+@@ -1,3 +1,4 @@
++#include "gagp/profile_probe.hpp"
+ #include "../region_plan_equal.hpp"
+ #include "gagp/evolution/grammar/variation.hpp"
+ 
+@@ -181,6 +182,7 @@
+ 
+ ProgramGenome accept(AstProgram candidate, const ProgramGenome& certified_parent,
+     VariationContext& context, std::optional<std::uint32_t> owned_parent_root) {
++  GAGP_PROBE("verification.accept_worker");
+   ProgramGenome child;
+   child.ast = std::move(candidate);
+   try {
+--- a/cpp/src/evolution/grammar/variation_cache.cpp
++++ b/cpp/src/evolution/grammar/variation_cache.cpp
+@@ -1,3 +1,4 @@
++#include "gagp/profile_probe.hpp"
+ #include "../batch_workers.hpp"
+ #include "gagp/evolution/grammar/variation_cache.hpp"
+ 
+@@ -130,11 +131,13 @@
+ void VariationAnalysisCache::warm_population(const std::vector<ProgramGenome>& population,
+     const std::vector<GenerationRequest>& requests, std::size_t max_workers,
+     std::vector<WarmPopulationMember>* handoff) {
++  GAGP_PROBE("verification.parent_analysis");
+   prepare_population(population, requests, max_workers, false, handoff);
+ }
+ 
+ void VariationAnalysisCache::warm_candidates(const std::vector<ProgramGenome>& population,
+     const std::vector<GenerationRequest>& requests, std::size_t max_workers) {
++  GAGP_PROBE("verification.candidate_analysis");
+   prepare_population(population, requests, max_workers, true);
+ }
+ 
+--- a/cpp/src/evolution/lifecycle.cpp
++++ b/cpp/src/evolution/lifecycle.cpp
+@@ -1,3 +1,4 @@
++#include "gagp/profile_probe.hpp"
+ #include "gagp/evolution/lifecycle.hpp"
+ 
+ #include <stdexcept>
+@@ -45,6 +46,7 @@
+     const std::vector<ScoredGenome>& history_best,
+     const ScoredGenome* best,
+     const std::vector<ScoredGenome>* final_population) const {
++  GAGP_PROBE("lifecycle.retain");
+   std::vector<Value> roots = case_roots_;
+   roots.reserve(case_roots_.size() + population.size() * 8U +
+                 history_best.size() * 8U + 16U);
+--- a/cpp/src/evolution/repro/backend.cpp
++++ b/cpp/src/evolution/repro/backend.cpp
+@@ -1,3 +1,4 @@
++#include "gagp/profile_probe.hpp"
+ #include "gagp/evolution/repro/backend.hpp"
+ 
+ #include <algorithm>
+@@ -187,6 +188,8 @@
+ ReproductionResult run_cpu_backend_impl(const std::vector<ScoredGenomeRef>& scored,
+                                         const EvolutionConfig& cfg,
+                                         std::mt19937_64& rng) {
++  GAGP_PROBE("repro.cpu");
++  gagp::profile_probe::Range stage("repro.cpu_preprocess");
+   if (scored.empty()) throw std::invalid_argument("compiled reproduction requires a nonempty population");
+   ReproductionResult out;
+   const auto prepare_t0 = std::chrono::steady_clock::now();
+@@ -239,6 +242,7 @@
+   const int selected_count = ((cfg.population_size + 1) / 2) * 2;
+ 
+   const auto selection_t0 = std::chrono::steady_clock::now();
++  stage.next("selection.cpu_tournament");
+   std::vector<std::size_t> selected;
+   if (cfg.cpu_repro_ablation == CpuReproAblation::GpuSelection) {
+     selected = gpu_style_selection_indices(scored, cfg.selection_pressure, selected_count, rng());
+@@ -257,6 +261,7 @@
+   out.stats.selection_ms = std::chrono::duration<double, std::milli>(
+       std::chrono::steady_clock::now() - selection_t0).count();
+ 
++  stage.next("repro.cpu_variation");
+   std::uniform_real_distribution<double> probability(0.0, 1.0);
+   std::uniform_int_distribution<std::uint64_t> seeds(0, UINT64_C(2000000000));
+   for (std::size_t i = 0; i + 1 < selected.size() &&
+--- a/cpp/src/evolution/repro/compiled_decode.cpp
++++ b/cpp/src/evolution/repro/compiled_decode.cpp
+@@ -1,3 +1,4 @@
++#include "gagp/profile_probe.hpp"
+ #include "../batch_workers.hpp"
+ #include "compiled_decode.hpp"
+ #include "../../runtime/payload/staging.hpp"
+@@ -176,6 +177,7 @@
+   std::unique_ptr<detail::BatchWorkers> team;
+   for (int i = 0; i < accepted_count; ++i) {
+     if (i % analysis_batch == 0) {
++      gagp::profile_probe::Range batch_range("repro.decode_batch");
+       const auto count = std::min(analysis_batch, accepted_count - i);
+       staged.clear(); staged.reserve(count); staged_indices.assign(count, -1);
+       std::vector<std::optional<ProgramGenome>> reconstructed(count);
+@@ -217,6 +219,7 @@
+         staged_indices[offset] = static_cast<int>(staged.size());
+         staged.push_back(std::move(*reconstructed[offset]));
+       }
++      batch_range.next("verification.admission_batch");
+       admitted.clear(); admitted.resize(count);
+       admission_counts.assign(count, {});
+       admission_reads.clear(); admission_reads.resize(count);
+--- a/cpp/src/evolution/repro/gpu.cpp
++++ b/cpp/src/evolution/repro/gpu.cpp
+@@ -1,3 +1,4 @@
++#include "gagp/profile_probe.hpp"
+ #include "../batch_workers.hpp"
+ #include "pack_internal.hpp"
+ #include "prep_internal.hpp"
+@@ -175,6 +176,7 @@
+ }
+ 
+ std::vector<ProgramGenome> compact_prepared_population(const std::vector<ProgramGenome>& population) {
++  GAGP_PROBE("repro.compact");
+   if (population.size() < 32 || payload::StagedPayloads::has_active_scope())
+     return compact_population_tables(population);
+   std::vector<ProgramGenome> result(population.size());
+@@ -216,6 +218,8 @@
+                                                       std::shared_ptr<grammar::VariationContext> context = nullptr,
+                                                       std::shared_ptr<GpuReproRunResources> resources = nullptr,
+                                                       CompiledVariationPass pass = CompiledVariationPass::Crossover) {
++  GAGP_PROBE(pass == CompiledVariationPass::Crossover ? "repro.prepare.crossover" : "repro.prepare.mutation");
++  gagp::profile_probe::Range stage("repro.prepare_inputs");
+   require_reproduction_mode_supported(cfg, true);
+   GpuReproPreparedData out;
+   const auto prepare_t0 = std::chrono::steady_clock::now();
+@@ -279,6 +283,7 @@
+   }
+ 
+   const auto prep_t0 = std::chrono::steady_clock::now();
++  stage.next("repro.preprocess");
+   std::shared_ptr<const ConstantMutationDomains> domains;
+   if (resources) {
+     std::lock_guard<std::mutex> lock(resources->mutex);
+@@ -303,6 +308,7 @@
+   }
+ 
+   const auto pack_t0 = std::chrono::steady_clock::now();
++  stage.next("repro.pack");
+   out.packed = pack_warmed_population(packed_population, prep, out.config, warmed_members);
+   if (warmed_members.size() == packed_population.size()) {
+     auto certificates = std::make_shared<PreparedParentCertificates>();
+@@ -357,6 +363,7 @@
+ 
+ void validate_compiled_prepared(const std::vector<ScoredGenomeRef>& scored,
+     const EvolutionConfig& cfg, const GpuReproPreparedData& prepared) {
++  GAGP_PROBE("verification.prepared_identity");
+   if (!prepared.run_resources || !prepared.compiled_context || !prepared.packed.compiled_sources ||
+       prepared.packed.compiled_grammar != cfg.compiled_grammar ||
+       prepared.compiled_context->grammar_owner() != cfg.compiled_grammar ||
+@@ -413,6 +420,8 @@
+   auto& context = *prepared.compiled_context;
+   context.counters() = prepared.preparation_counters;
+   const auto run_pass = [&](const GpuReproPreparedData& pass, const std::vector<double>& fitness) {
++    GAGP_PROBE(pass.config.compiled_pass == CompiledVariationPass::Crossover ? "repro.pass.crossover" : "repro.pass.mutation");
++    gagp::profile_probe::Range pass_stage("repro.setup");
+     std::string message;
+     const auto setup_start = std::chrono::steady_clock::now();
+     if (!ensure_gpu_repro_arena_capacity(&cache.arena, pass.config, &message) ||
+@@ -420,13 +429,16 @@
+       throw std::runtime_error(message);
+     out.stats.setup_ms += std::chrono::duration<double, std::milli>(
+         std::chrono::steady_clock::now() - setup_start).count();
++    pass_stage.next("repro.upload_and_kernels");
+     if (!upload_gpu_repro_inputs(pass.packed, &cache.arena, &out.stats, &message) ||
+         !launch_gpu_repro_kernels(&cache.arena, pass.config, fitness, &out.stats, &message))
+       throw std::runtime_error(message);
+     GpuReproChildView view;
++    pass_stage.next("repro.copyback");
+     if (!copyback_gpu_repro_children(cache.arena, pass.config, &cache.staging, &view, &out.stats, &message))
+       throw std::runtime_error(message);
+     const auto decode_start = std::chrono::steady_clock::now();
++    pass_stage.next("repro.decode_and_verify");
+     auto children = decode_compiled_pass(pass.packed, view, context, pass.parent_certificates.get());
+     out.stats.decode_ms += std::chrono::duration<double, std::milli>(
+         std::chrono::steady_clock::now() - decode_start).count();
+--- a/cpp/src/runtime/gpu/fitness_gpu.cu
++++ b/cpp/src/runtime/gpu/fitness_gpu.cu
+@@ -1,3 +1,4 @@
++#include "gagp/profile_probe.hpp"
+ #include "gagp/core/semantic_fuel.hpp"
+ 
+ #include "gagp/runtime/gpu/fitness_gpu.hpp"
+@@ -440,6 +441,8 @@
+ }
+ 
+ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodeProgram>& programs) const {
++  GAGP_PROBE("eval.call");
++  gagp::profile_probe::Range stage("eval.pack");
+   if (!impl_ || !impl_->ready) {
+     return fitness_eval_single_error(ErrCode::Value, "gpu fitness session is not initialized");
+   }
+@@ -478,6 +481,7 @@
+   const auto pack_t1 = std::chrono::steady_clock::now();
+ 
+   const auto launch_prep_t0 = std::chrono::steady_clock::now();
++  stage.next("eval.launch_prep");
+   const std::size_t shared_bytes = kernel_shared_bytes(packed.max_code_len, impl_->blocksize);
+   if (shared_bytes > static_cast<std::size_t>(impl_->props.sharedMemPerBlock)) {
+     return fitness_eval_single_error(ErrCode::Value, "shared memory requirement exceeded");
+@@ -515,6 +519,7 @@
+   {
+     gpu_detail::DeviceArena dev;
+     const auto upload_t0 = std::chrono::steady_clock::now();
++    stage.next("eval.alloc_upload");
+     if (!gpu_detail::cuda_alloc_and_copy_in(packed.all_consts, &dev.d_consts) ||
+         !gpu_detail::cuda_alloc_and_copy_in(packed.all_code, &dev.d_code) ||
+         !gpu_detail::cuda_alloc_and_copy_in(packed.all_phase_consts, &dev.d_phase_consts) ||
+@@ -551,6 +556,7 @@
+     const auto upload_t1 = std::chrono::steady_clock::now();
+ 
+     const auto kernel_t0 = std::chrono::steady_clock::now();
++    stage.next("eval.launch_wait");
+     if (has_regions) {
+       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::Mixed, true>
+           <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
+@@ -590,6 +596,7 @@
+     const auto kernel_t1 = std::chrono::steady_clock::now();
+ 
+     const auto copy_t0 = std::chrono::steady_clock::now();
++    stage.next("eval.copyback");
+     std::vector<double> host_fitness(programs.size(), 0.0);
+     if (cudaMemcpy(host_fitness.data(), dev.d_fitness, sizeof(double) * programs.size(), cudaMemcpyDeviceToHost) !=
+         cudaSuccess) {
+@@ -606,6 +613,7 @@
+     out.timing.copyback_ms = ms_between(copy_t0, copy_t1);
+     out.err = Err{ErrCode::Value, ""};
+     teardown_t0 = std::chrono::steady_clock::now();
++    stage.next("eval.teardown");
+   }
+   const auto teardown_t1 = std::chrono::steady_clock::now();
+   out.timing.teardown_ms = ms_between(teardown_t0, teardown_t1);
+--- a/cpp/src/runtime/gpu/host_pack_gpu.cu
++++ b/cpp/src/runtime/gpu/host_pack_gpu.cu
+@@ -1,3 +1,4 @@
++#include "gagp/profile_probe.hpp"
+ #include "gagp/core/semantic_fuel.hpp"
+ #include "gagp/core/bytecode_verify.hpp"
+ #include <limits>
+@@ -37,6 +38,7 @@
+ }
+ 
+ void verify_bounded_program_or_throw(const BytecodeProgram& prog) {
++  GAGP_PROBE("verification.bytecode_pack");
+   BytecodeVerifyOptions options;
+   options.max_locals_per_code = MAX_LOCALS;
+   options.max_stack_depth = MAX_STACK;

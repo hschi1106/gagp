@@ -18,6 +18,7 @@ only in the package. `tools/pyproject.toml` is the sole package metadata owner.
 | `psb materialize` / `materialize_psb_fixtures.py` | public workflow / datasets | mirrored datasets, exclusions, schema policy | fixtures plus support manifest | PSB experiment runner | maintained |
 | `legacy_grammar_config_profiles.py` | migration-only legacy support | release-1 grammar profile and compatibility choices | release-1 grammar-config JSON/hash | frozen oracle workflow | legacy migration only |
 | `benchmark population` / `make_population.py` | public workflow / experiments | v2 definition, cases, population size, seed | `grammar-population-v2` JSON | fixed-pop CLI runs | maintained |
+| `benchmark fixed-asgp` | benchmark / experiments/fixed_asgp | external ASGP checkout, frozen three-task inputs, native adapter | raw cell timings, identity manifest, reports | daily/scaling performance review | maintained, optional |
 | `psb run` / `run_psb_regression.py` | public workflow / experiments | native binary, fixtures, seeds/config, run matrix | per-run JSON and summary | comparison/report commands | maintained |
 | `psb compare` / `compare_psb_baseline.py` | public workflow / reports | compatible baseline/candidate summaries, tolerance policy | comparison JSON and exit gate | CI/release review | maintained |
 | `report psb-manifest` / `write_psb_manifest.py` | internal support / reports | PSB comparison/run artifacts | compact PSB evidence manifest | committed `benchmarks/` evidence | maintained |
@@ -39,6 +40,7 @@ their existing explicit policies documented in `docs/guides/development.md`.
 | `gagp_generate_cli` | generation / artifact replay | default | generate and same-version replay complete populations |
 | `gagp_evolve_cli` | product CLI / native runtime | default | supported evolution, AST evaluation, and fixed-pop workflow |
 | `gagp_runtime_multi_bench` | benchmark / performance | `-DGAGP_BUILD_BENCHMARKS=ON` | low-level runtime throughput experiments |
+| `gagp_fixed_asgp_bench` | benchmark / fixed_asgp | benchmarks enabled, CUDA, `GAGP_ASGP_SOURCE_DIR` | freeze/translate ASGP parents, validate known solutions, time five system modes |
 | `gagp_migrate_artifact` | offline migration command | default migration target | converts supported release-1 grammar configs and materialized ASTs to v2; not production execution dispatch |
 | `gagp_simple_exp_population_probe` | experiment probe / parity research | `-DGAGP_BUILD_EXPERIMENTS=ON`, CUDA only | diagnostic fixed-pop CPU/GPU fitness comparison with compiled-grammar generation and variation; not a product command |
 | `gagp_test_vm_cli_harness` | test harness / runtime contracts | default, driven by CTest | executes versioned runtime fixtures |

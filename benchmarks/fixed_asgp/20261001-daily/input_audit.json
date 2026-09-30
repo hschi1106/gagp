@@ -1,0 +1,50 @@
+{
+  "sum_of_elements": {
+    "cases": 1024,
+    "source_parents": 8192,
+    "translated_parents": 8192,
+    "daily_equals_scaling_prefix": true,
+    "known_solution": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": -690000,
+      "task": "sum_of_elements",
+      "unique_inputs": 1022
+    },
+    "input_length_min": 1,
+    "input_length_max": 50
+  },
+  "median": {
+    "cases": 1024,
+    "source_parents": 8192,
+    "translated_parents": 8192,
+    "daily_equals_scaling_prefix": true,
+    "known_solution": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "task": "median",
+      "unique_inputs": 1024
+    },
+    "input_length_min": 3,
+    "input_length_max": 3
+  },
+  "house_robber": {
+    "cases": 1024,
+    "source_parents": 8192,
+    "translated_parents": 8192,
+    "daily_equals_scaling_prefix": true,
+    "known_solution": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "task": "house_robber",
+      "unique_inputs": 994
+    },
+    "input_length_min": 1,
+    "input_length_max": 20
+  }
+}

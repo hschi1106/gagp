@@ -1,0 +1,891 @@
+{
+  "contract": "fixed-asgp-v1",
+  "suite": "daily",
+  "complete": true,
+  "wall_seconds": 180.3591257627122,
+  "daily_budget_met": true,
+  "rows": [
+    {
+      "task": "sum_of_elements",
+      "population": 1024,
+      "mode": "asgp_1t",
+      "status": "ok",
+      "median_ms": 1882.094569,
+      "min_ms": 1881.719777,
+      "max_ms": 1898.934904,
+      "phases_ms": {
+        "eval_ms": 1881.262004,
+        "generation_ms": 1882.094569,
+        "repro_ms": 0.8180780000000141
+      },
+      "variation": {},
+      "speedup_asgp_1t": 1.0,
+      "speedup_gagp_cpu": 9.809659940631812
+    },
+    {
+      "task": "sum_of_elements",
+      "population": 1024,
+      "mode": "gagp_cpu",
+      "status": "ok",
+      "median_ms": 18462.707698,
+      "min_ms": 18275.468522,
+      "max_ms": 19043.638871,
+      "phases_ms": {
+        "compile_ms": 74.90352,
+        "eval_ms": 17654.215598,
+        "evolve_call_ms": 18629.754934,
+        "generation_ms": 18462.707698,
+        "gpu_copyback_ms": 0,
+        "gpu_eval_call_ms": 0,
+        "gpu_init_ms": 0,
+        "gpu_kernel_ms": 0,
+        "gpu_pack_ms": 0,
+        "gpu_upload_ms": 0,
+        "repro_copyback_ms": 0,
+        "repro_decode_ms": 0,
+        "repro_kernel_ms": 0,
+        "repro_ms": 759.269354,
+        "repro_pack_ms": 0,
+        "repro_prepare_ms": 0,
+        "repro_preprocess_ms": 253.046847,
+        "repro_setup_ms": 0,
+        "repro_upload_ms": 0
+      },
+      "variation": {
+        "acceptance_rejections": [
+          0,
+          0,
+          0
+        ],
+        "budget_rejections": [
+          0,
+          0,
+          0
+        ],
+        "changed_operator_outputs": [
+          1197,
+          1197,
+          1197
+        ],
+        "contract_rejections": [
+          617945,
+          617945,
+          617945
+        ],
+        "fallback_operator_outputs": [
+          0,
+          0,
+          0
+        ],
+        "generation_rejections": [
+          0,
+          0,
+          0
+        ],
+        "unchanged_operator_outputs": [
+          157,
+          157,
+          157
+        ]
+      },
+      "speedup_asgp_1t": 0.1019403329016513,
+      "speedup_gagp_cpu": 1.0
+    },
+    {
+      "task": "sum_of_elements",
+      "population": 1024,
+      "mode": "gpu_eval",
+      "status": "ok",
+      "median_ms": 1382.352375,
+      "min_ms": 1370.430116,
+      "max_ms": 1387.137145,
+      "phases_ms": {
+        "compile_ms": 10.505578000000002,
+        "eval_ms": 642.518431,
+        "evolve_call_ms": 1550.966591,
+        "generation_ms": 1382.352375,
+        "gpu_copyback_ms": 0.023461,
+        "gpu_eval_call_ms": 624.807882,
+        "gpu_init_ms": 3.617842,
+        "gpu_kernel_ms": 567.564965,
+        "gpu_pack_ms": 56.089931,
+        "gpu_upload_ms": 0.862178,
+        "repro_copyback_ms": 0,
+        "repro_decode_ms": 0,
+        "repro_kernel_ms": 0,
+        "repro_ms": 735.771852,
+        "repro_pack_ms": 0,
+        "repro_prepare_ms": 0,
+        "repro_preprocess_ms": 249.877955,
+        "repro_setup_ms": 0,
+        "repro_upload_ms": 0
+      },
+      "variation": {
+        "acceptance_rejections": [
+          0,
+          0,
+          0
+        ],
+        "budget_rejections": [
+          0,
+          0,
+          0
+        ],
+        "changed_operator_outputs": [
+          1188,
+          1188,
+          1188
+        ],
+        "contract_rejections": [
+          408722,
+          408722,
+          408722
+        ],
+        "fallback_operator_outputs": [
+          0,
+          0,
+          0
+        ],
+        "generation_rejections": [
+          0,
+          0,
+          0
+        ],
+        "unchanged_operator_outputs": [
+          166,
+          166,
+          166
+        ]
+      },
+      "speedup_asgp_1t": 1.3615157777697602,
+      "speedup_gagp_cpu": 13.356006783726182
+    },
+    {
+      "task": "sum_of_elements",
+      "population": 1024,
+      "mode": "gpu_repro",
+      "status": "ok",
+      "median_ms": 837.195032,
+      "min_ms": 835.195026,
+      "max_ms": 840.07039,
+      "phases_ms": {
+        "compile_ms": 10.684436,
+        "eval_ms": 644.435976,
+        "evolve_call_ms": 1007.935045,
+        "generation_ms": 837.195032,
+        "gpu_copyback_ms": 0.026929,
+        "gpu_eval_call_ms": 626.948025,
+        "gpu_init_ms": 4.710121,
+        "gpu_kernel_ms": 567.005782,
+        "gpu_pack_ms": 58.801795,
+        "gpu_upload_ms": 0.88012,
+        "repro_copyback_ms": 0.466016,
+        "repro_decode_ms": 42.258773,
+        "repro_kernel_ms": 1.4716939999999998,
+        "repro_ms": 190.610045,
+        "repro_pack_ms": 8.310728000000001,
+        "repro_prepare_ms": 55.744547999999995,
+        "repro_preprocess_ms": 28.191025,
+        "repro_setup_ms": 13.049741000000001,
+        "repro_upload_ms": 4.680005
+      },
+      "variation": {
+        "acceptance_rejections": [
+          0,
+          0,
+          0
+        ],
+        "budget_rejections": [
+          0,
+          0,
+          0
+        ],
+        "changed_operator_outputs": [
+          1147,
+          1147,
+          1147
+        ],
+        "contract_rejections": [
+          49868,
+          49868,
+          49868
+        ],
+        "fallback_operator_outputs": [
+          0,
+          0,
+          0
+        ],
+        "generation_rejections": [
+          0,
+          0,
+          0
+        ],
+        "unchanged_operator_outputs": [
+          173,
+          173,
+          173
+        ]
+      },
+      "speedup_asgp_1t": 2.2480957209024623,
+      "speedup_gagp_cpu": 22.053054536042684
+    },
+    {
+      "task": "sum_of_elements",
+      "population": 1024,
+      "mode": "gpu_overlap",
+      "status": "ok",
+      "median_ms": 807.275926,
+      "min_ms": 804.568692,
+      "max_ms": 809.72112,
+      "phases_ms": {
+        "compile_ms": 18.906226999999998,
+        "eval_ms": 660.414452,
+        "evolve_call_ms": 977.076813,
+        "generation_ms": 807.275926,
+        "gpu_copyback_ms": 0.025263,
+        "gpu_eval_call_ms": 630.76407,
+        "gpu_init_ms": 4.290409,
+        "gpu_kernel_ms": 567.538886,
+        "gpu_pack_ms": 62.15158,
+        "gpu_upload_ms": 0.904841,
+        "repro_copyback_ms": 0.464931,
+        "repro_decode_ms": 43.816435,
+        "repro_kernel_ms": 1.4681899999999999,
+        "repro_ms": 142.513679,
+        "repro_pack_ms": 11.868158999999999,
+        "repro_prepare_ms": 61.035888,
+        "repro_preprocess_ms": 29.047193,
+        "repro_setup_ms": 12.416164,
+        "repro_upload_ms": 4.546905
+      },
+      "variation": {
+        "acceptance_rejections": [
+          0,
+          0,
+          0
+        ],
+        "budget_rejections": [
+          0,
+          0,
+          0
+        ],
+        "changed_operator_outputs": [
+          1147,
+          1147,
+          1147
+        ],
+        "contract_rejections": [
+          49868,
+          49868,
+          49868
+        ],
+        "fallback_operator_outputs": [
+          0,
+          0,
+          0
+        ],
+        "generation_rejections": [
+          0,
+          0,
+          0
+        ],
+        "unchanged_operator_outputs": [
+          173,
+          173,
+          173
+        ]
+      },
+      "speedup_asgp_1t": 2.3314142146238113,
+      "speedup_gagp_cpu": 22.870380626214782,
+      "overlap_speedup": 1.0370618087773869
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "mode": "gagp_cpu",
+      "status": "ok",
+      "median_ms": 1358.477084,
+      "min_ms": 1351.795844,
+      "max_ms": 1364.571997,
+      "phases_ms": {
+        "compile_ms": 78.40262499999993,
+        "eval_ms": 530.48999,
+        "evolve_call_ms": 1525.553398,
+        "generation_ms": 1358.477084,
+        "gpu_copyback_ms": 0,
+        "gpu_eval_call_ms": 0,
+        "gpu_init_ms": 0,
+        "gpu_kernel_ms": 0,
+        "gpu_pack_ms": 0,
+        "gpu_upload_ms": 0,
+        "repro_copyback_ms": 0,
+        "repro_decode_ms": 0,
+        "repro_kernel_ms": 0,
+        "repro_ms": 819.444851,
+        "repro_pack_ms": 0,
+        "repro_prepare_ms": 0,
+        "repro_preprocess_ms": 251.931337,
+        "repro_setup_ms": 0,
+        "repro_upload_ms": 0
+      },
+      "variation": {
+        "acceptance_rejections": [
+          0,
+          0,
+          0
+        ],
+        "budget_rejections": [
+          0,
+          0,
+          0
+        ],
+        "changed_operator_outputs": [
+          1224,
+          1224,
+          1224
+        ],
+        "contract_rejections": [
+          908333,
+          908333,
+          908333
+        ],
+        "fallback_operator_outputs": [
+          0,
+          0,
+          0
+        ],
+        "generation_rejections": [
+          0,
+          0,
+          0
+        ],
+        "unchanged_operator_outputs": [
+          130,
+          130,
+          130
+        ]
+      },
+      "speedup_asgp_1t": 0.047505433665452984,
+      "speedup_gagp_cpu": 1.0
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "mode": "gpu_eval",
+      "status": "ok",
+      "median_ms": 936.988062,
+      "min_ms": 932.203204,
+      "max_ms": 947.821584,
+      "phases_ms": {
+        "compile_ms": 10.987798999999999,
+        "eval_ms": 88.442124,
+        "evolve_call_ms": 1118.471497,
+        "generation_ms": 936.988062,
+        "gpu_copyback_ms": 0.014019,
+        "gpu_eval_call_ms": 70.139457,
+        "gpu_init_ms": 3.56696,
+        "gpu_kernel_ms": 10.779185,
+        "gpu_pack_ms": 58.323203,
+        "gpu_upload_ms": 0.823926,
+        "repro_copyback_ms": 0,
+        "repro_decode_ms": 0,
+        "repro_kernel_ms": 0,
+        "repro_ms": 844.776771,
+        "repro_pack_ms": 0,
+        "repro_prepare_ms": 0,
+        "repro_preprocess_ms": 265.746417,
+        "repro_setup_ms": 0,
+        "repro_upload_ms": 0
+      },
+      "variation": {
+        "acceptance_rejections": [
+          0,
+          0,
+          0
+        ],
+        "budget_rejections": [
+          0,
+          0,
+          0
+        ],
+        "changed_operator_outputs": [
+          1224,
+          1224,
+          1224
+        ],
+        "contract_rejections": [
+          908333,
+          908333,
+          908333
+        ],
+        "fallback_operator_outputs": [
+          0,
+          0,
+          0
+        ],
+        "generation_rejections": [
+          0,
+          0,
+          0
+        ],
+        "unchanged_operator_outputs": [
+          130,
+          130,
+          130
+        ]
+      },
+      "speedup_asgp_1t": 0.06887498957270599,
+      "speedup_gagp_cpu": 1.4498339296877831
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "mode": "gpu_repro",
+      "status": "ok",
+      "median_ms": 287.85754,
+      "min_ms": 285.181804,
+      "max_ms": 290.442582,
+      "phases_ms": {
+        "compile_ms": 11.027482000000001,
+        "eval_ms": 87.823548,
+        "evolve_call_ms": 461.841396,
+        "generation_ms": 287.85754,
+        "gpu_copyback_ms": 0.014966,
+        "gpu_eval_call_ms": 69.784081,
+        "gpu_init_ms": 4.756213,
+        "gpu_kernel_ms": 10.822432,
+        "gpu_pack_ms": 57.920451,
+        "gpu_upload_ms": 0.845117,
+        "repro_copyback_ms": 0.5162100000000001,
+        "repro_decode_ms": 44.505631,
+        "repro_kernel_ms": 1.610838,
+        "repro_ms": 196.141975,
+        "repro_pack_ms": 8.153991,
+        "repro_prepare_ms": 57.573640999999995,
+        "repro_preprocess_ms": 28.968965,
+        "repro_setup_ms": 12.710116,
+        "repro_upload_ms": 4.334592
+      },
+      "variation": {
+        "acceptance_rejections": [
+          0,
+          0,
+          0
+        ],
+        "budget_rejections": [
+          0,
+          0,
+          0
+        ],
+        "changed_operator_outputs": [
+          1213,
+          1213,
+          1213
+        ],
+        "contract_rejections": [
+          57913,
+          57913,
+          57913
+        ],
+        "fallback_operator_outputs": [
+          0,
+          0,
+          0
+        ],
+        "generation_rejections": [
+          0,
+          0,
+          0
+        ],
+        "unchanged_operator_outputs": [
+          107,
+          107,
+          107
+        ]
+      },
+      "speedup_asgp_1t": 0.2241909070716022,
+      "speedup_gagp_cpu": 4.719268718825292
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "mode": "gpu_overlap",
+      "status": "ok",
+      "median_ms": 262.598145,
+      "min_ms": 262.479002,
+      "max_ms": 268.493035,
+      "phases_ms": {
+        "compile_ms": 20.278415,
+        "eval_ms": 107.075956,
+        "evolve_call_ms": 438.07911,
+        "generation_ms": 262.598145,
+        "gpu_copyback_ms": 0.015117,
+        "gpu_eval_call_ms": 75.498669,
+        "gpu_init_ms": 3.683582,
+        "gpu_kernel_ms": 10.819527,
+        "gpu_pack_ms": 63.641145,
+        "gpu_upload_ms": 0.875107,
+        "repro_copyback_ms": 0.515374,
+        "repro_decode_ms": 47.726242,
+        "repro_kernel_ms": 1.602577,
+        "repro_ms": 154.441603,
+        "repro_pack_ms": 12.047201999999999,
+        "repro_prepare_ms": 66.227667,
+        "repro_preprocess_ms": 30.144638999999998,
+        "repro_setup_ms": 12.489844000000002,
+        "repro_upload_ms": 4.321301999999999
+      },
+      "variation": {
+        "acceptance_rejections": [
+          0,
+          0,
+          0
+        ],
+        "budget_rejections": [
+          0,
+          0,
+          0
+        ],
+        "changed_operator_outputs": [
+          1213,
+          1213,
+          1213
+        ],
+        "contract_rejections": [
+          57913,
+          57913,
+          57913
+        ],
+        "fallback_operator_outputs": [
+          0,
+          0,
+          0
+        ],
+        "generation_rejections": [
+          0,
+          0,
+          0
+        ],
+        "unchanged_operator_outputs": [
+          107,
+          107,
+          107
+        ]
+      },
+      "speedup_asgp_1t": 0.2457558982375904,
+      "speedup_gagp_cpu": 5.173216604405184,
+      "overlap_speedup": 1.096190302486714
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "mode": "asgp_1t",
+      "status": "ok",
+      "median_ms": 64.535043,
+      "min_ms": 64.465644,
+      "max_ms": 64.625275,
+      "phases_ms": {
+        "eval_ms": 63.816006,
+        "generation_ms": 64.535043,
+        "repro_ms": 0.6799540000000022
+      },
+      "variation": {},
+      "speedup_asgp_1t": 1.0,
+      "speedup_gagp_cpu": 21.05022358162836
+    },
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "mode": "gpu_eval",
+      "status": "ok",
+      "median_ms": 1480.9265,
+      "min_ms": 1477.97214,
+      "max_ms": 1481.818111,
+      "phases_ms": {
+        "compile_ms": 14.797397,
+        "eval_ms": 586.072599,
+        "evolve_call_ms": 1675.484142,
+        "generation_ms": 1480.9265,
+        "gpu_copyback_ms": 0.021172,
+        "gpu_eval_call_ms": 564.980851,
+        "gpu_init_ms": 3.57271,
+        "gpu_kernel_ms": 481.118535,
+        "gpu_pack_ms": 82.45309,
+        "gpu_upload_ms": 0.998217,
+        "repro_copyback_ms": 0,
+        "repro_decode_ms": 0,
+        "repro_kernel_ms": 0,
+        "repro_ms": 891.657757,
+        "repro_pack_ms": 0,
+        "repro_prepare_ms": 0,
+        "repro_preprocess_ms": 277.86886,
+        "repro_setup_ms": 0,
+        "repro_upload_ms": 0
+      },
+      "variation": {
+        "acceptance_rejections": [
+          0,
+          0,
+          0
+        ],
+        "budget_rejections": [
+          749,
+          749,
+          749
+        ],
+        "changed_operator_outputs": [
+          1208,
+          1208,
+          1208
+        ],
+        "contract_rejections": [
+          648216,
+          648216,
+          648216
+        ],
+        "fallback_operator_outputs": [
+          0,
+          0,
+          0
+        ],
+        "generation_rejections": [
+          0,
+          0,
+          0
+        ],
+        "unchanged_operator_outputs": [
+          146,
+          146,
+          146
+        ]
+      },
+      "speedup_asgp_1t": 0.8834720291655258,
+      "speedup_gagp_cpu": 5.807887793891188
+    },
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "mode": "gpu_repro",
+      "status": "ok",
+      "median_ms": 788.157298,
+      "min_ms": 787.634077,
+      "max_ms": 790.451141,
+      "phases_ms": {
+        "compile_ms": 14.797592999999999,
+        "eval_ms": 581.114287,
+        "evolve_call_ms": 978.822983,
+        "generation_ms": 788.157298,
+        "gpu_copyback_ms": 0.021812,
+        "gpu_eval_call_ms": 559.863794,
+        "gpu_init_ms": 3.674735,
+        "gpu_kernel_ms": 478.066739,
+        "gpu_pack_ms": 80.610503,
+        "gpu_upload_ms": 0.958121,
+        "repro_copyback_ms": 0.530149,
+        "repro_decode_ms": 48.378819,
+        "repro_kernel_ms": 1.3187829999999998,
+        "repro_ms": 204.15225,
+        "repro_pack_ms": 8.280927,
+        "repro_prepare_ms": 64.375212,
+        "repro_preprocess_ms": 31.364297999999998,
+        "repro_setup_ms": 12.811314,
+        "repro_upload_ms": 4.356198
+      },
+      "variation": {
+        "acceptance_rejections": [
+          0,
+          0,
+          0
+        ],
+        "budget_rejections": [
+          0,
+          0,
+          0
+        ],
+        "changed_operator_outputs": [
+          1211,
+          1211,
+          1211
+        ],
+        "contract_rejections": [
+          32502,
+          32502,
+          32502
+        ],
+        "fallback_operator_outputs": [
+          0,
+          0,
+          0
+        ],
+        "generation_rejections": [
+          0,
+          0,
+          0
+        ],
+        "unchanged_operator_outputs": [
+          109,
+          109,
+          109
+        ]
+      },
+      "speedup_asgp_1t": 1.660020332641772,
+      "speedup_gagp_cpu": 10.912865953060045
+    },
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "mode": "gpu_overlap",
+      "status": "ok",
+      "median_ms": 763.604515,
+      "min_ms": 758.229664,
+      "max_ms": 766.067259,
+      "phases_ms": {
+        "compile_ms": 25.202853,
+        "eval_ms": 601.423771,
+        "evolve_call_ms": 952.735318,
+        "generation_ms": 763.604515,
+        "gpu_copyback_ms": 0.023931,
+        "gpu_eval_call_ms": 569.246706,
+        "gpu_init_ms": 3.598572,
+        "gpu_kernel_ms": 479.947455,
+        "gpu_pack_ms": 88.123518,
+        "gpu_upload_ms": 0.959912,
+        "repro_copyback_ms": 0.521184,
+        "repro_decode_ms": 50.12773,
+        "repro_kernel_ms": 1.3111519999999999,
+        "repro_ms": 155.333773,
+        "repro_pack_ms": 12.333276000000001,
+        "repro_prepare_ms": 74.804799,
+        "repro_preprocess_ms": 32.019205,
+        "repro_setup_ms": 12.268802,
+        "repro_upload_ms": 4.362735
+      },
+      "variation": {
+        "acceptance_rejections": [
+          0,
+          0,
+          0
+        ],
+        "budget_rejections": [
+          0,
+          0,
+          0
+        ],
+        "changed_operator_outputs": [
+          1211,
+          1211,
+          1211
+        ],
+        "contract_rejections": [
+          32502,
+          32502,
+          32502
+        ],
+        "fallback_operator_outputs": [
+          0,
+          0,
+          0
+        ],
+        "generation_rejections": [
+          0,
+          0,
+          0
+        ],
+        "unchanged_operator_outputs": [
+          109,
+          109,
+          109
+        ]
+      },
+      "speedup_asgp_1t": 1.7133962860342702,
+      "speedup_gagp_cpu": 11.263756007257237,
+      "overlap_speedup": 1.0321537949523518
+    },
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "mode": "asgp_1t",
+      "status": "ok",
+      "median_ms": 1308.35714,
+      "min_ms": 1304.576487,
+      "max_ms": 1321.004203,
+      "phases_ms": {
+        "eval_ms": 1307.710558,
+        "generation_ms": 1308.35714,
+        "repro_ms": 0.731653999999935
+      },
+      "variation": {},
+      "speedup_asgp_1t": 1.0,
+      "speedup_gagp_cpu": 6.573935113007446
+    },
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "mode": "gagp_cpu",
+      "status": "ok",
+      "median_ms": 8601.054943,
+      "min_ms": 8558.278229,
+      "max_ms": 8613.232064,
+      "phases_ms": {
+        "compile_ms": 102.02818999999997,
+        "eval_ms": 7738.775666,
+        "evolve_call_ms": 8780.681802,
+        "generation_ms": 8601.054943,
+        "gpu_copyback_ms": 0,
+        "gpu_eval_call_ms": 0,
+        "gpu_init_ms": 0,
+        "gpu_kernel_ms": 0,
+        "gpu_pack_ms": 0,
+        "gpu_upload_ms": 0,
+        "repro_copyback_ms": 0,
+        "repro_decode_ms": 0,
+        "repro_kernel_ms": 0,
+        "repro_ms": 859.139556,
+        "repro_pack_ms": 0,
+        "repro_prepare_ms": 0,
+        "repro_preprocess_ms": 264.041865,
+        "repro_setup_ms": 0,
+        "repro_upload_ms": 0
+      },
+      "variation": {
+        "acceptance_rejections": [
+          0,
+          0,
+          0
+        ],
+        "budget_rejections": [
+          749,
+          749,
+          749
+        ],
+        "changed_operator_outputs": [
+          1208,
+          1208,
+          1208
+        ],
+        "contract_rejections": [
+          648216,
+          648216,
+          648216
+        ],
+        "fallback_operator_outputs": [
+          0,
+          0,
+          0
+        ],
+        "generation_rejections": [
+          0,
+          0,
+          0
+        ],
+        "unchanged_operator_outputs": [
+          146,
+          146,
+          146
+        ]
+      },
+      "speedup_asgp_1t": 0.15211589144245746,
+      "speedup_gagp_cpu": 1.0
+    }
+  ]
+}

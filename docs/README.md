@@ -30,6 +30,7 @@ installation instructions or prerequisites for normal use.
 | [`guides/troubleshooting.md`](guides/troubleshooting.md) | Setup, grammar, artifact and GPU failure recovery |
 | [`guides/development.md`](guides/development.md) | Build, test, CLI, and local development workflows |
 | [`guides/benchmarking.md`](guides/benchmarking.md) | Fixed-population timing and canonical native run workflows |
+| [`guides/fixed-asgp-benchmark.md`](guides/fixed-asgp-benchmark.md) | Three-task fixed ASGP/GAGP daily/scaling contract and commands |
 | [`guides/psb-workflow.md`](guides/psb-workflow.md) | PSB dataset, regression, comparison, and manifest workflows |
 | [`guides/grammar-config.md`](guides/grammar-config.md) | Compiled grammar use, artifacts, and offline release-1 migration |
 | [`guides/grammar-authoring.md`](guides/grammar-authoring.md) | User workflow for creating, checking, resolving, customizing, and running grammars |

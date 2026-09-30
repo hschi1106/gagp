@@ -11,6 +11,7 @@ option(GAGP_ENABLE_SANITIZERS "Enable CPU AddressSanitizer and UndefinedBehavior
 option(GAGP_BUILD_FUZZERS "Build Clang libFuzzer targets" OFF)
 option(GAGP_BUILD_BENCHMARKS "Build auxiliary benchmark executables" OFF)
 option(GAGP_BUILD_EXPERIMENTS "Build auxiliary experiment probes" OFF)
+set(GAGP_ASGP_SOURCE_DIR "" CACHE PATH "Optional ASGP checkout for the fixed comparison benchmark")
 option(GAGP_ENABLE_OPENSSL_SHA256 "Use system OpenSSL SHA-256 when available" ON)
 
 if((GAGP_ENABLE_SANITIZERS OR GAGP_BUILD_FUZZERS) AND GAGP_ENABLE_CUDA)
@@ -818,9 +819,29 @@ if(GAGP_BUILD_BENCHMARKS)
     target_link_libraries(gagp_final_candidate_stats PRIVATE gagp_gpu)
     target_link_libraries(gagp_final_candidate_bench PRIVATE gagp_gpu)
   endif()
+  if(GAGP_ASGP_SOURCE_DIR)
+    if(NOT GAGP_HAS_CUDA)
+      message(FATAL_ERROR "The fixed ASGP comparison requires CUDA")
+    endif()
+    add_subdirectory("${GAGP_ASGP_SOURCE_DIR}/src" "external-asgp" EXCLUDE_FROM_ALL)
+    target_compile_features(asgp_core PUBLIC cxx_std_20)
+    add_executable(gagp_fixed_asgp_bench
+      src/bench/fixed_asgp/main.cpp
+      src/bench/fixed_asgp/adapter.cpp)
+    target_compile_features(gagp_fixed_asgp_bench PRIVATE cxx_std_20)
+    target_link_libraries(gagp_fixed_asgp_bench PRIVATE gagp_cli_support gagp_gpu asgp_core)
+  endif()
 endif()
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
+if(TARGET gagp_fixed_asgp_bench)
+  add_test(NAME gagp_test_fixed_asgp_bench
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/tests/evolution/test_fixed_asgp_bench.py
+      $<TARGET_FILE:gagp_fixed_asgp_bench> ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  set_tests_properties(gagp_test_fixed_asgp_bench PROPERTIES
+    LABELS "contract;integration;benchmark;gpu" TIMEOUT 180)
+endif()
 add_test(NAME gagp_test_migrate_artifact_cli
   COMMAND ${Python3_EXECUTABLE}
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/migration/test_migrate_artifact_cli.py

@@ -48,7 +48,7 @@ Produced by `FitnessSessionGpu::init(...)`.
 
 Produced by `FitnessSessionGpu::eval_programs(...)`.
 
-- `pack_ms`: host packing of bytecode programs and payload token lookup
+- `pack_ms`: host packing of bytecode programs, bounded bytecode verification, and payload token lookup
 - `launch_prep_ms`: launch-shape preparation and host-side eval setup after packing
 - `upload_ms`: per-eval device allocation, upload, and fitness buffer initialization
 - `kernel_ms`: eval kernel launch plus synchronization
@@ -68,9 +68,9 @@ Produced by the reproduction backend.
 - `preprocess_ms`: subtree/candidate/donor preprocessing
 - `pack_ms`: host flattening into the packed GPU upload schema
 - `upload_ms`: H2D upload of reproduction inputs
-- `kernel_ms`: total GPU reproduction kernel time
+- `kernel_ms`: host wall time around GPU reproduction kernel launches and synchronization
 - `copyback_ms`: child copyback to host staging
-- `decode_ms`: reconstruction of `ProgramGenome` children from packed copyback buffers
+- `decode_ms`: reconstruction of `ProgramGenome` children from packed copyback buffers, including child analysis/admission
 - `teardown_ms`: reproduction arena teardown
 - `selection_kernel_ms`: selection-kernel subset of `kernel_ms`
 - `variation_kernel_ms`: variation-kernel subset of `kernel_ms`
@@ -83,7 +83,7 @@ These are the first metrics to use for end-to-end benchmark comparison.
 
 | Metric | Meaning |
 | --- | --- |
-| `compile_ms` | Fixed-population compile-cache lookup plus any genome-to-bytecode compilation |
+| `compile_ms` | Recorded genome-to-bytecode compilation spans; not the full compile-population wall time |
 | `eval_ms` | One benchmark eval stage wall-clock |
 | `repro_ms` | One benchmark reproduction stage wall-clock |
 | `total_ms` | Full benchmark or full evolution run wall-clock |
@@ -110,7 +110,7 @@ These are the canonical metrics for GPU fitness attribution.
 | `gpu_eval_launch_prep_ms` | Launch preparation and host-side pre-launch setup | Direct |
 | `gpu_eval_upload_ms` | Per-eval upload/allocation phase | Direct |
 | `gpu_eval_pack_upload_ms` | `gpu_eval_pack_ms + gpu_eval_upload_ms` | Derived convenience aggregate |
-| `gpu_eval_kernel_ms` | GPU eval kernel time | Direct |
+| `gpu_eval_kernel_ms` | Host wall time around eval kernel launch and synchronization | Direct |
 | `gpu_eval_copyback_ms` | Fitness copyback | Direct |
 | `gpu_eval_teardown_ms` | Temporary eval teardown after copyback | Direct |
 
@@ -130,9 +130,9 @@ These are the canonical metrics for reproduction attribution.
 | `repro_preprocess_ms` | Preprocessing for subtree/donor metadata |
 | `repro_pack_ms` | Host flattening into packed reproduction buffers |
 | `repro_upload_ms` | Reproduction H2D upload |
-| `repro_kernel_ms` | Total GPU reproduction kernel time |
+| `repro_kernel_ms` | Host wall time around reproduction kernel launches and synchronization |
 | `repro_copyback_ms` | Reproduction D2H copyback |
-| `repro_decode_ms` | Host decode of copied-back children |
+| `repro_decode_ms` | Host decode and analysis/admission of copied-back children |
 | `repro_teardown_ms` | Reproduction teardown |
 | `repro_selection_kernel_ms` | Selection-kernel subset of `repro_kernel_ms` |
 | `repro_variation_kernel_ms` | Variation-kernel subset of `repro_kernel_ms` |
@@ -341,6 +341,9 @@ The top-level `timing` object stores per-generation arrays:
 
 ## Accounting Notes
 
+- Native `*_kernel_ms` metrics above are host wall scopes, not CUDA device-activity timestamps. Do not add separately measured synchronization waits to these scopes: they overlap kernel execution. Nsight Systems device activities are needed to distinguish actual kernels, copies, and exposed API overhead.
+- `compile_ms` omits some identity/cache preparation and worker setup outside the recorded compilation spans. For the entire compile stage, measure `compile_population` wall time; concurrent worker durations must not be added as generation wall time.
+- The [1024 × 1024 fixed-ASGP profiler baseline](../../benchmarks/fixed_asgp/20261001-profiler/README.md) shows a concrete, additive Nsight/NVTX partition, including verification inside packing and admission inside reproduction. It also records overlap separately. This evidence does not rename the native metrics or change their timing boundaries.
 - `gpu_eval_init_ms` depends on shared cases, payload setup, CUDA context state, and shared-buffer upload. It does not scale with program depth in the same way as `gpu_eval_call_ms`.
 - `gpu_eval_call_ms` includes `gpu_eval_teardown_ms`. This is intentional so temporary eval allocation cleanup is no longer hidden in an unlabelled residual.
 - `gpu_eval_pack_upload_ms` is a convenience aggregate. The direct timers remain `gpu_eval_pack_ms` and `gpu_eval_upload_ms`.

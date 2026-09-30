@@ -12,6 +12,7 @@ def _commands() -> dict[tuple[str, str], tuple[str, Command]]:
     from .datasets.fetch_psb import main as fetch
     from .datasets.materialize_psb import main as materialize
     from .experiments.materialize_population import main as materialize_population
+    from .experiments.fixed_asgp.runner import main as fixed_asgp
     from .experiments.run_psb import main as run_psb
     from .grammar.commands import inspect_main as grammar_inspect
     from .grammar.commands import init_main as grammar_init
@@ -29,6 +30,7 @@ def _commands() -> dict[tuple[str, str], tuple[str, Command]]:
         ("psb", "run"): ("run the PSB regression matrix", run_psb),
         ("psb", "compare"): ("compare compatible PSB summaries", compare),
         ("benchmark", "population"): ("materialize a compiled-grammar population", materialize_population),
+        ("benchmark", "fixed-asgp"): ("prepare/run the fixed ASGP/GAGP comparison", fixed_asgp),
         ("grammar", "init"): ("copy a grammar authoring example", grammar_init),
         ("grammar", "validate"): ("validate a grammar definition", grammar_validate),
         ("grammar", "inspect"): ("inspect a grammar definition", grammar_inspect),
