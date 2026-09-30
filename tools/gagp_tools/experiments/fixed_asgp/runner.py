@@ -180,7 +180,8 @@ def environment(binary: Path) -> dict:
             "platform": platform.platform(), "cpu": capture(["lscpu"]),
             "gpu": capture(["nvidia-smi", "--query-gpu=index,name,driver_version,memory.used,utilization.gpu", "--format=csv"]),
             "cuda_device": os.environ.get("GAGP_CUDA_DEVICE", "automatic"),
-            "allocator_preload": os.environ.get("LD_PRELOAD", "")}
+            "allocator_preload": os.environ.get("LD_PRELOAD", ""),
+            "gagp_environment": {k: v for k, v in sorted(os.environ.items()) if k.startswith("GAGP_")}}
 
 
 def report(folder: Path, manifest: dict) -> None:

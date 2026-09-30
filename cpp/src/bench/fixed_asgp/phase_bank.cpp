@@ -5,6 +5,7 @@
 #include <numeric>
 #include <set>
 #include <map>
+#include <unordered_map>
 #include <stdexcept>
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/evolution/grammar/variation.hpp"
@@ -43,12 +44,22 @@ struct Member {
 };
 using Chromosome=std::vector<unsigned>;
 std::string phase_identity(const RegionPhase& phase) {
-  std::string key=std::to_string(phase.program.n_locals)+";";
-  for(const auto& v:phase.program.consts) key+=gg::canonical_constant_encoding(v)+";";
-  key+="|";
-  for(const auto& i:phase.program.code) key+=std::to_string(static_cast<int>(i.op))+","+std::to_string(i.a)+","+std::to_string(i.b)+","+std::to_string(i.has_a)+","+std::to_string(i.has_b)+";";
-  key+="|";for(auto fuel:phase.program.instruction_fuel)key+=std::to_string(fuel)+",";
-  key+="|";for(const auto& b:phase.bindings)key+=std::to_string(static_cast<int>(b.source.bank))+","+std::to_string(b.source.slot)+","+std::to_string(b.local)+";";
+  std::string key;key.reserve(phase.program.code.size()*24+phase.program.consts.size()*16);
+  const auto integer=[&](std::uint64_t value){key.append(reinterpret_cast<const char*>(&value),sizeof(value));};
+  integer(phase.program.n_locals);integer(phase.program.consts.size());
+  for(const auto& v:phase.program.consts) {
+    integer(static_cast<unsigned>(v.tag));
+    if(v.tag==ValueTag::Int)integer(v.i);
+    else if(v.tag==ValueTag::Bool)integer(v.b);
+    else {const auto value=gg::canonical_constant_encoding(v);integer(value.size());key+=value;}
+  }
+  integer(phase.program.code.size());
+  for(const auto& i:phase.program.code) {
+    integer(static_cast<unsigned>(i.op));integer(i.a);integer(i.b);integer(i.has_a);integer(i.has_b);
+  }
+  integer(phase.program.instruction_fuel.size());for(auto fuel:phase.program.instruction_fuel)integer(fuel);
+  integer(phase.bindings.size());
+  for(const auto& b:phase.bindings){integer(static_cast<unsigned>(b.source.bank));integer(b.source.slot);integer(b.local);}
   return key;
 }
 }
@@ -96,6 +107,8 @@ void phase_bank_probe(const std::vector<ProgramGenome>& population,
       require(!m.sites.empty(),"no independent whole-phase variation sites");
     }
   });
+  const auto analysis_compile_ms=elapsed(setup_begin);
+  const auto skeleton_begin=Clock::now();
   const auto dimensions=bank[0].sites.size();
   std::uint64_t max_logical=0,max_lowered=0;
   for(const auto& m:bank) {
@@ -127,17 +140,20 @@ void phase_bank_probe(const std::vector<ProgramGenome>& population,
     }
   });
   for(const auto& m:bank) require(m.skeleton==bank[0].skeleton,"fixed skeletons or capture mappings differ");
+  const auto skeleton_ms=elapsed(skeleton_begin);
+  const auto intern_begin=Clock::now();
   std::vector<Chromosome> current(bank.size(),Chromosome(dimensions));
   std::vector<std::vector<unsigned>> canonical(dimensions,std::vector<unsigned>(bank.size()));
   std::vector<Json> unique_phase_counts;
   for(std::size_t p=0;p<dimensions;++p) {
-    std::map<std::string,unsigned> identities;
+    std::unordered_map<std::string,unsigned> identities;identities.reserve(bank.size());
     for(std::size_t i=0;i<bank.size();++i) {
       auto [it,inserted]=identities.emplace(phase_identity(*phases(bank[i].code).at(bank[0].ordinals[p])),i);
       canonical[p][i]=it->second; current[i][p]=it->second;
     }
     unique_phase_counts.push_back(number(identities.size()));
   }
+  const auto intern_ms=elapsed(intern_begin);
   const auto materialize=[&](const Chromosome& c) {
     auto program=bank[0].code; auto targets=phases(program);
     for(std::size_t p=0;p<dimensions;++p)
@@ -227,7 +243,7 @@ void phase_bank_probe(const std::vector<ProgramGenome>& population,
   std::vector<Json> top_rows;for(std::size_t k=0;k<top.size();++k)top_rows.push_back(object({{"index",number(order[k])},{"gpu",number(fit.fitness[order[k]])},{"cpu",number(cpu[k])}}));
   const auto cpu_ms=elapsed(cpu_begin);
   write(output,object({{"profile",string("finite-independent-phase-bank")},{"seed",number(seed)},{"dimensions",number(dimensions)},
-    {"top16_cpu",array(std::move(top_rows))},{"top16_cpu_ms",number(cpu_ms)},{"unique_phases",array(std::move(unique_phase_counts))},{"bank_members",number(bank.size())},{"bank_init_ms",number(setup_ms)},{"gpu_init_ms",number(init.timing.total_ms)},
+    {"top16_cpu",array(std::move(top_rows))},{"top16_cpu_ms",number(cpu_ms)},{"unique_phases",array(std::move(unique_phase_counts))},{"bank_members",number(bank.size())},{"bank_init_ms",number(setup_ms)},{"analysis_compile_ms",number(analysis_compile_ms)},{"skeleton_ms",number(skeleton_ms)},{"intern_ms",number(intern_ms)},{"gpu_init_ms",number(init.timing.total_ms)},
     {"generations",array(std::move(rows))},{"initial_fitness",array(std::move(initial))},{"final_population",array(std::move(final))},
     {"final_eval_ms",number(final_ms)},{"full_export_admission_ms",number(audit_ms)},{"export_fitness_equal",number(1)},{"total_diagnostic_call_ms",number(elapsed(call_start))}}));
 }

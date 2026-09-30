@@ -6,7 +6,7 @@
 - Baseline executable: `logs/optimization/baseline_bench` (hash in `logs/optimization/origin.json`). Frozen inputs symlink to original artifacts; never modify them.
 - Reference ASGP 1T: Sum 1841.160175 ms, House 1282.011816 ms. Targets <46.029004 / <32.050295 ms per full generation (40×). These are unprofiled medians from archived profiler controls.
 - `medium`: searched existing settings, results, docs and ASGP sources; no independent named workload found. Prior Median interpretation was an assumption. User clarification pending; Sum/House continue. Median remains an auxiliary overhead probe.
-- Current best: E07 with `GAGP_VIEW_PROFILE=1 GAGP_TYPED_VIEW_PHASE=1 GAGP_SORT_CASES=1`; Sum 282.7 / House 243.6 / Median 177.0 ms. Strict compilation remains inside every generation. Previous binaries retained in experiment directories.
+- Current best general path: E15 strided sorted cases, `GAGP_VIEW_PROFILE=1 GAGP_TYPED_VIEW_PHASE=1 GAGP_SORT_CASES=1 GAGP_COMPACT_FRAMES=1`; provisional full generations 271.0 / 213.8 / 177.8 ms. Strict compilation remains inside every generation. Phase-bank E16 is a separate finite-search-space prototype, with initialization charged to first generation.
 - Build: `cmake --build cpp/build/release --target gagp_fixed_asgp_bench gagp_test_fitness_cpu_gpu_parity gagp_test_evolution_cpu_gpu_parity -j10`.
 - Experiment results: `logs/optimization/`; compact summaries/checkpoints recorded here. GPUs run serially.
 
@@ -42,6 +42,11 @@
 
 | E12c | Immutable whole-phase bank; grammar-compatible independent holes; tournament, phase crossover and 0.3 finite-bank mutation; all cases, full pack verification | Setup 31–36 ms; reproduction ~0.3 ms; initial fitness exactly matches E09. Four-generation outputs all re-admitted and AST/handle fitness equal. Effective changes ~957–1002/1023; no timeout/fallback. Timings diagnostic only | retain isolated prototype, not default or 40× claim; needs multiple seeds/unprofiled repetitions |
 
+| E13 | Force-inline typed phase interpreter | 285.6 / 223.9 / 177.6 ms; no gain | REJECTED |
+| E14 | Fuel-preserving constant-only phase folding, bounded integer domain | 282.4 / 223.5 / 176.4 ms; compile overhead offsets tiny kernel gain | REJECTED |
+| E15 | Strided traversal of sorted full cases; 512/256/128/64 thread sweep | 512 best Sum/House: 271.0/213.8 ms, kernels 109.1/42.1. Smaller blocks regress; Median difference negligible in full generation | retain strided traversal; remove thread override prototype |
+| E16 | Binary exact phase identities and hash interning; phase-bank startup attribution | Startup 25.2/27.3/25.8 ms vs 31–36 ms. Analysis+compile 18–20 ms, skeleton ~2 ms, interning ~5 ms | retain in isolated phase-bank prototype; no primary benchmark speedup claim |
+
 ## Next
 
 1. Parallel bounded bytecode verification (same checks inside generation), pinned staging capacity reuse; validate malformed bytecode and parity.
@@ -52,4 +57,4 @@ Diagnostics: native `measure SOURCE PREPARED GRAMMAR 1024 snapshot OUT.json`; `G
 
 E05 is enabled with `GAGP_VIEW_PROFILE=1`. It removes bounded copy-pool losses for read-only lists; no change to case count, precision, fuel, limits or reproduction operators. Container equality/output and unsupported bytecode use generic backend, never skipped.
 
-Resume point: E09 is best general-grammar path; E12 finite independent phase-bank prototype is being quality gated. Its initial fixed evaluation uses exactly the original fitness rows, but phase-bank mutation restricts the search space. Next: evaluate typed interpreter inlining, then repeat/quality/final scaling gates. Raw E12 initial counts used distinct source indices and overcounted duplicate phases; E12c canonicalizes executable phases before reporting effective variation/diversity. Need final broad tests, repeated controls, multi-seed quality and 60-cell scaling.
+Resume point: E15 is best general-grammar path; E16 finite independent phase-bank prototype is being quality gated. Its initial fixed evaluation uses exactly the original fitness rows, but phase-bank mutation restricts the search space. Next: evaluate typed interpreter inlining, then repeat/quality/final scaling gates. Raw E12 initial counts used distinct source indices and overcounted duplicate phases; E12c canonicalizes executable phases before reporting effective variation/diversity. Need final broad tests, repeated controls, multi-seed quality and 60-cell scaling.

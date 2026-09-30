@@ -14,6 +14,8 @@
 #include "gagp/evolution/evolve.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
+#include "gagp/runtime/cpu/fitness_cpu.hpp"
+#include "gagp/evolution/grammar/cache.hpp"
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
 
 namespace {
@@ -236,7 +238,21 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   }
   for (const auto& one:result.final_population)
     final.push_back(object({{"fitness",number(one.fitness)}, {"nodes",number(one.genome.ast.nodes.size())}}));
-  write(output,object({{"seed",number(cfg.seed)}, {"generations",array(std::move(rows))},
+  const auto audit_begin=Clock::now();
+  const auto cs=gagp::evo::prepare_case_set(cases);
+  std::vector<gagp::BytecodeProgram> top;
+  std::set<std::string> unique;
+  for(std::size_t i=0;i<result.final_population.size();++i) {
+    const auto& one=result.final_population[i];
+    unique.insert(gg::runtime_cache_identity(one.genome,cs.input_names,cfg.fuel));
+    if(i<16)top.push_back(gagp::evo::compile_for_eval(one.genome,cs.input_names));
+  }
+  auto cpu=gagp::eval_fitness_cpu(top,cs.bindings,cs.expected_values,cfg.fuel,cfg.penalty,512);
+  std::vector<Json> top_rows;
+  for(std::size_t i=0;i<cpu.size();++i)
+    top_rows.push_back(object({{"gpu",number(result.final_population[i].fitness)},{"cpu",number(cpu[i])}}));
+  write(output,object({{"top16_cpu",array(std::move(top_rows))},{"cpu_audit_ms",number(elapsed(audit_begin))},
+    {"unique_final_genomes",number(unique.size())},{"seed",number(cfg.seed)}, {"generations",array(std::move(rows))},
     {"final_population",array(std::move(final))}, {"evolve_call_ms",number(result.timing.total_ms)},
     {"initial_admission_ms",number(result.timing.init_population_ms)}, {"final_eval_ms",number(result.timing.final_eval_ms)}}));
 }

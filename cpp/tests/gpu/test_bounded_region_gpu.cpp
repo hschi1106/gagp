@@ -1,4 +1,7 @@
 #include <cstddef>
+#include <cstdlib>
+#include <limits>
+#include "../../src/runtime/gpu/view_profile.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
@@ -823,10 +826,57 @@ bool test_production_capability_dispatch_sequence() {
          compare_population({memo_b}, "shrink workspace after ordinary dispatch");
 }
 
+bool test_verified_view_profile() {
+  struct Environment {
+    const char* key; std::string old; bool had;
+    explicit Environment(const char* name) : key(name), had(std::getenv(name)!=nullptr) {
+      if(had) old=std::getenv(name); setenv(key,"1",1);
+    }
+    ~Environment(){if(had)setenv(key,old.c_str(),1);else unsetenv(key);}
+  } view("GAGP_VIEW_PROFILE"), typed("GAGP_TYPED_VIEW_PHASE"), sorted("GAGP_SORT_CASES"), compact("GAGP_COMPACT_FRAMES");
+  const auto numeric = [&](BuiltinId id, std::vector<Value> constants, Value answer, const std::string& label) {
+    auto segment=unary_segment(Value::from_int(0));
+    std::vector<Instr> code;
+    for(std::size_t i=0;i<constants.size();++i)code.push_back(ins_a(Opcode::PushConst,i));
+    code.push_back(ins_ab(Opcode::CallBuiltin,static_cast<int>(id),constants.size()));
+    code.push_back(ins(Opcode::Return));
+    segment.base_body=phase(std::move(constants),std::move(code));
+    const auto program=invocation(std::move(segment),{Value::from_int(0)});
+    FitnessSessionGpu session;
+    if(!check(session.init({{}},{answer},100,32,7).ok,label+" init"))return false;
+    const auto fit=session.eval_programs({program},true);
+    return check(fit.ok && fit.execution_profile=="int-list-views-typed-sorted",label+" selects proven profile") &&
+        compare_fitness(program,{{{},answer,ErrCode::Value,true}},100,label);
+  };
+  constexpr auto low=std::numeric_limits<std::int64_t>::min();
+  constexpr std::int64_t huge=(INT64_C(1)<<53)+9;
+  if(!numeric(BuiltinId::Clip,{Value::from_int(huge),Value::from_int(huge-3),Value::from_int(huge+4)},Value::from_int(huge),"typed exact clip above 2^53") ||
+     !numeric(BuiltinId::IDiv0,{Value::from_int(low),Value::from_int(-1)},Value::from_int(low),"typed protected div overflow") ||
+     !numeric(BuiltinId::IDiv0,{Value::from_int(17),Value::from_int(0)},Value::from_int(0),"typed zero divisor") ||
+     !numeric(BuiltinId::IMod0,{Value::from_int(-17),Value::from_int(5)},Value::from_int(3),"typed negative remainder"))return false;
+  const auto list=payload::make_int_list_value({Value::from_int(2),Value::from_int(3)});
+  auto returns_list=invocation(unary_segment(list),{Value::from_int(0)});
+  FitnessSessionGpu fallback;
+  if(!check(fallback.init({{}},{list},100,32,7).ok,"view fallback init"))return false;
+  auto result=fallback.eval_programs({returns_list},true);
+  if(!check(result.ok && result.execution_profile=="mixed" && result.case_counts.at(0)[0]==1,
+            "container results must execute the generic fallback"))return false;
+  std::array<ValueTag,64> inputs;inputs.fill(ValueTag::Invalid);
+  auto untyped=ordinary_program();untyped.consts[0]=Value::from_float(1.5);
+  if(!check(!gpu_detail::view_program_supported(untyped,inputs),"Float must decline integer profile"))return false;
+  auto comparison=ordinary_program();comparison.consts={list,list};
+  comparison.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),ins(Opcode::Eq),ins(Opcode::Return)};
+  if(!check(!gpu_detail::view_program_supported(comparison,inputs),"list equality must decline private offset views"))return false;
+  auto backward=ordinary_program();backward.code={ins_a(Opcode::Jmp,0)};
+  return check(!gpu_detail::view_program_supported(backward,inputs),"backward control flow must decline proof") &&
+      test_exact_capacity_exhaustion() && test_boundary_base_and_fuel() && test_phase_binding_capacities();
+}
+
 }  // namespace
 
 int main() {
   payload::clear();
+  if (!test_verified_view_profile()) return 1;
   if (!test_workspace_thread_isolation()) return 1;
   if (!test_phase_binding_capacities()) return 1;
   if (!test_leaf_phase_types_and_fuel()) return 1;

@@ -88,7 +88,11 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
   double local_score = 0.0;
   const int chunk_start = (meta.case_count * tid) / static_cast<int>(blockDim.x);
   const int chunk_end = (meta.case_count * (tid + 1)) / static_cast<int>(blockDim.x);
-  for (int local_case = chunk_start; local_case < chunk_end; ++local_case) {
+  const bool strided = Flavor == DPayloadFlavor::IntListViews && case_order;
+  const int case_begin = strided ? tid : chunk_start;
+  const int case_end = strided ? meta.case_count : chunk_end;
+  const int case_step = strided ? static_cast<int>(blockDim.x) : 1;
+  for (int local_case = case_begin; local_case < case_end; local_case += case_step) {
     int input_case = local_case;
     if constexpr (Flavor == DPayloadFlavor::IntListViews)
       if (case_order) input_case = case_order[local_case];
