@@ -210,7 +210,7 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
   }
   write(output,object({{"compile_ms",number(compile_ms)}, {"gpu_init_ms",number(init.timing.total_ms)},
     {"eval_ms",number(result.timing.total_ms)}, {"kernel_ms",number(result.timing.kernel_ms)},
-    {"diagnostic_only",number(1)}, {"programs",array(std::move(rows))}}));
+    {"execution_profile",string(result.execution_profile)}, {"diagnostic_only",number(1)}, {"programs",array(std::move(rows))}}));
 }
 void search(const std::vector<gagp::evo::ProgramGenome>& population,
             const std::vector<gagp::evo::EvalCase>& cases,

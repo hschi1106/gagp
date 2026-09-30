@@ -38,6 +38,7 @@ struct FitnessEvalTiming {
 };
 
 struct FitnessEvalResult {
+  std::string execution_profile = "mixed";
   bool ok = false;
   std::vector<double> fitness;
   // Opt-in diagnostics: evaluated cases, errors, timeouts (subset of errors),

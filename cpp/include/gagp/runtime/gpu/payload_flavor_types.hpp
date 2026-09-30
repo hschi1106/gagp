@@ -9,6 +9,7 @@ enum class DPayloadFlavor : std::uint8_t {
   StringOnly = 1,
   ListOnly = 2,
   Mixed = 3,
+  IntListViews = 4,
 };
 
 }  // namespace gagp::gpu_detail

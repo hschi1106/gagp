@@ -28,6 +28,8 @@
 
 | D01 | Fixed-program snapshot evaluator with optional per-case counters; 4-generation search diagnostics | All 1024 per-program fitness/count rows equal between generic and small VM, all 1024 cases each. Sum errors 453208; House 0; Median 275609; all timeouts/fallback tokens 0 | diagnostic gate; no speedup claimed |
 
+| E05 | Opt-in read-only IntList views, proven by forward type analysis, generic fallback otherwise | 472.5 / 481.6 / 180.4 ms; kernels 310.7 / 304.2 / 4.2. Sum errors decrease 453208→318332, 192 program fitness changes; House/Median exact per-program agreement. Full CPU comparison and known solutions recorded | retain prototype, quality/search gate still pending |
+
 ## Next
 
 1. Parallel bounded bytecode verification (same checks inside generation), pinned staging capacity reuse; validate malformed bytecode and parity.
@@ -35,3 +37,5 @@
 3. After each meaningful candidate, fixed programs + full cases and end-to-end generations; retain only measured gains. Collect errors/timeout/fallback and short search quality before final adoption.
 
 Diagnostics: native `measure SOURCE PREPARED GRAMMAR 1024 snapshot OUT.json`; `GAGP_SNAPSHOT_CPU=1` adds full CPU reference. `GAGP_GPU_DIAGNOSTICS=1 GAGP_BM_SEED=0 ... measure ... 1024 search OUT.json` runs four generations plus separately timed final eval. Diagnostic kernel atomics are opt-in; never use those timings as headline speedups.
+
+E05 is enabled with `GAGP_VIEW_PROFILE=1`. It removes bounded copy-pool losses for read-only lists; no change to case count, precision, fuel, limits or reproduction operators. Container equality/output and unsupported bytecode use generic backend, never skipped.

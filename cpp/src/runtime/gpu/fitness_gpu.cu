@@ -21,6 +21,7 @@
 #include "gagp/runtime/gpu/host_pack_gpu.hpp"
 #include "device/kernels.cuh"
 #include "opcode_map_gpu.hpp"
+#include "view_profile.hpp"
 #include "gagp/runtime/gpu/device_types_gpu.hpp"
 
 namespace gagp {
@@ -302,6 +303,7 @@ struct FitnessSessionGpu::Impl {
   double penalty = 1.0;
   int shared_case_count = 0;
   unsigned shared_input_payload_mask = 0U;
+  std::array<ValueTag, 64> shared_input_types{};
   std::size_t shared_bytes = 0;
   Value* d_shared_case_local_vals = nullptr;
   unsigned char* d_shared_case_local_set = nullptr;
@@ -397,6 +399,17 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   std::vector<unsigned char> packed_case_local_set;
   const auto shared_case_pack_t0 = std::chrono::steady_clock::now();
   gpu_detail::pack_shared_cases_only(shared_cases, &packed_case_local_vals, &packed_case_local_set);
+  impl_->shared_input_types.fill(ValueTag::Invalid);
+  for (int local = 0; local < 64; ++local) {
+    auto type = packed_case_local_set[local] ? packed_case_local_vals[local].tag : ValueTag::Invalid;
+    for (std::size_t c = 0; c < shared_cases.size(); ++c) {
+      const auto i = c * 64 + local;
+      if (!packed_case_local_set[i] || packed_case_local_vals[i].tag != type) type = ValueTag::Invalid;
+      // Container b is semantically unused; reserve the marker for device views.
+      if (packed_case_local_vals[i].tag == ValueTag::IntList) packed_case_local_vals[i].b = false;
+    }
+    impl_->shared_input_types[local] = type;
+  }
   const auto shared_case_pack_t1 = std::chrono::steady_clock::now();
 
   const auto payload_cache_t0 = std::chrono::steady_clock::now();
@@ -475,6 +488,14 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
   const HostPayloadPack payload_pack =
       build_payload_pack(impl_->host_string_payloads, impl_->host_list_payloads, std::move(needed_string_tokens),
                          std::move(needed_list_tokens));
+  const bool use_views = std::getenv("GAGP_VIEW_PROFILE") != nullptr && !packed.region_segments.empty() &&
+      std::all_of(programs.begin(), programs.end(), [&](const auto& program) {
+        return gpu_detail::view_program_supported(program, impl_->shared_input_types);
+      });
+  if (use_views) {
+    for (auto& value : packed.all_consts) if (value.tag == ValueTag::IntList) value.b = false;
+    for (auto& value : packed.all_phase_consts) if (value.tag == ValueTag::IntList) value.b = false;
+  }
   const auto pack_t1 = std::chrono::steady_clock::now();
 
   const auto launch_prep_t0 = std::chrono::steady_clock::now();
@@ -557,7 +578,19 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
     const auto upload_t1 = std::chrono::steady_clock::now();
 
     const auto kernel_t0 = std::chrono::steady_clock::now();
-    if (has_regions) {
+    if (has_regions && use_views) {
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IntListViews, true>
+          <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
+              static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
+              impl_->d_shared_case_local_vals, impl_->d_shared_case_local_set, impl_->d_expected,
+              dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
+              dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
+              dev.d_phase_code, dev.d_phase_consts,
+              impl_->fuel, impl_->penalty, dev.d_fitness,
+              dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
+              dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
+              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts);
+    } else if (has_regions) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::Mixed, true>
           <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
               static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
@@ -611,6 +644,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
     const auto copy_t1 = std::chrono::steady_clock::now();
 
     out.ok = true;
+    out.execution_profile = use_views ? "int-list-views" : "mixed";
     out.fitness = std::move(host_fitness);
     out.timing.pack_ms = ms_between(pack_t0, pack_t1);
     out.timing.launch_prep_ms = ms_between(launch_prep_t0, launch_prep_t1);

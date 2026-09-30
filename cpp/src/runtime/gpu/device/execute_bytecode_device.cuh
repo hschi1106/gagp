@@ -175,7 +175,11 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
         d_fail(result, ErrCode::Value);
         break;
       }
-      stack[sp++] = view.consts[ins.a];
+      Value value = view.consts[ins.a];
+      if constexpr (Flavor == DPayloadFlavor::IntListViews) {
+        if (!d_convert_list_view(value, payload_tables)) { d_fail(result, ErrCode::Value); break; }
+      }
+      stack[sp++] = value;
       continue;
     }
 
@@ -192,6 +196,9 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
           locals[ins.a].tag != local_types[ins.a]) {
         d_fail(result, ErrCode::Type);
         break;
+      }
+      if constexpr (Flavor == DPayloadFlavor::IntListViews) {
+        if (!d_convert_list_view(locals[ins.a], payload_tables)) { d_fail(result, ErrCode::Value); break; }
       }
       stack[sp++] = locals[ins.a];
       continue;

@@ -65,6 +65,13 @@ struct DPayloadFlavorTraits<DPayloadFlavor::ListOnly> {
 };
 
 template <>
+struct DPayloadFlavorTraits<DPayloadFlavor::IntListViews> {
+  using State = DNoPayloadState;
+  static constexpr bool kHasString = false;
+  static constexpr bool kHasList = false;
+};
+
+template <>
 struct DPayloadFlavorTraits<DPayloadFlavor::Mixed> {
   using State = DMixedPayloadState;
   static constexpr bool kHasString = true;
@@ -301,6 +308,21 @@ __device__ inline int d_find_list_payload_entry(const DPayloadTables& tables, Va
   return lo;
 }
 
+// Private read-only view: b marks an offset into this launch's list table.
+// Static capability analysis excludes container equality and container outputs.
+__device__ inline Value d_list_view(std::uint64_t offset, std::uint32_t length) {
+  Value value = Value::from_int_list_hash_len(offset, length);
+  value.b = true;
+  return value;
+}
+__device__ inline bool d_convert_list_view(Value& value, const DPayloadTables& tables) {
+  if (value.tag != ValueTag::IntList || value.b) return true;
+  const int entry = d_find_list_payload_entry(tables, value.tag, value.i);
+  if (entry < 0) return false;
+  value = d_list_view(tables.list_entries[entry].offset, Value::container_len(value));
+  return true;
+}
+
 template <typename State>
 __device__ inline bool d_lookup_string_payload(const DPayloadTables& tables,
                                                const State& st,
@@ -388,6 +410,29 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
                                       Value& out,
                                       ErrCode& err) {
   using PayloadTraits = DPayloadFlavorTraits<Flavor>;
+
+  if constexpr (Flavor == DPayloadFlavor::IntListViews) {
+    if (bid == BuiltinId::Index || bid == BuiltinId::Slice) {
+      if (argc != (bid == BuiltinId::Index ? 2 : 3) || args[0].tag != ValueTag::IntList ||
+          args[1].tag != ValueTag::Int || (argc == 3 && args[2].tag != ValueTag::Int)) {
+        err = ErrCode::Type; return false;
+      }
+      Value source = args[0];
+      if (!d_convert_list_view(source, tables)) { err = ErrCode::Value; return false; }
+      const auto offset = Value::container_hash48(source);
+      const auto length = static_cast<long long>(Value::container_len(source));
+      if (bid == BuiltinId::Index) {
+        long long index;
+        if (!d_norm_index_idx(args[1].i, length, index)) { err = ErrCode::Value; return false; }
+        out = tables.list_values[offset + index];
+      } else {
+        const auto lo = d_norm_slice_idx(args[1].i, length);
+        const auto hi = d_norm_slice_idx(args[2].i, length);
+        out = d_list_view(offset + lo, static_cast<std::uint32_t>(hi > lo ? hi - lo : 0));
+      }
+      return true;
+    }
+  }
 
   if (bid == BuiltinId::Abs) {
     if (argc != 1) {
