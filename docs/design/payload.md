@@ -198,6 +198,13 @@ answers/penalty and a conservative exact accumulator bound. All cases remain;
 other profiles retain their original reduction order. Sorting and its upload are
 charged to session initialization, once per session.
 
+`GAGP_CONSTANT_PHASE=1` separately recognizes fully verified phases containing
+one scalar constant push and an optional return, with no locals or bindings.
+Int/Bool/Float/Char results can bypass the interpreter. The original instruction
+fuel is charged, including an explicit return, and the expected result tag is
+checked. Other phases use their ordinary evaluator; this optimization does not
+narrow numeric precision or remove necessary validation.
+
 `GAGP_COMPACT_FRAMES=1` uses 72-byte frames for at most one state, or 88-byte
 frames for at most two states, when every segment also needs at most one
 preparation and two results; other shapes use 264-byte generic frames. Frame

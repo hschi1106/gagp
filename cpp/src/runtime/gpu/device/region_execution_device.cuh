@@ -83,6 +83,15 @@ __device__ DResult d_region_phase(
     const DExecutionTables& tables, int& fuel, bool result_phase = false) {
   if (phase_index < 0 || phase_index >= tables.region_phase_count)
     return d_error(ErrCode::Value);
+  const auto& constant = tables.region_phases[phase_index].program;
+  if (constant.scalar_constant_index >= 0) {
+    if (fuel < 0 || constant.scalar_constant_fuel > static_cast<unsigned>(fuel))
+      return d_error(ErrCode::Timeout);
+    fuel -= static_cast<int>(constant.scalar_constant_fuel);
+    const auto value = tables.phase_consts[constant.scalar_constant_index];
+    if (value.tag != expected) return d_error(ErrCode::Type);
+    return d_ok(value);
+  }
   // Most phases bind only a few slots. Avoid constructing the maximum-size
   // preset array on every phase invocation while retaining the full capacity.
   if (tables.region_phases[phase_index].binding_count <= 4) {

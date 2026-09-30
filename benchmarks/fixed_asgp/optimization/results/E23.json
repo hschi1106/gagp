@@ -1,0 +1,68 @@
+[
+  {
+    "task": "sum_of_elements",
+    "label": "control",
+    "samples": 9,
+    "generation_median_ms": 254.411565,
+    "generation_range_ms": [
+      253.333549,
+      256.343502
+    ],
+    "kernel_host_median_ms": 89.525475
+  },
+  {
+    "task": "sum_of_elements",
+    "label": "constant",
+    "samples": 9,
+    "generation_median_ms": 250.317705,
+    "generation_range_ms": [
+      242.95385,
+      254.207545
+    ],
+    "kernel_host_median_ms": 86.615802
+  },
+  {
+    "task": "house_robber",
+    "label": "control",
+    "samples": 9,
+    "generation_median_ms": 218.289078,
+    "generation_range_ms": [
+      213.712191,
+      220.552362
+    ],
+    "kernel_host_median_ms": 41.857793
+  },
+  {
+    "task": "house_robber",
+    "label": "constant",
+    "samples": 9,
+    "generation_median_ms": 217.49477,
+    "generation_range_ms": [
+      215.009308,
+      221.309967
+    ],
+    "kernel_host_median_ms": 42.626817
+  },
+  {
+    "task": "median",
+    "label": "control",
+    "samples": 9,
+    "generation_median_ms": 176.250199,
+    "generation_range_ms": [
+      172.533248,
+      180.860882
+    ],
+    "kernel_host_median_ms": 3.920912
+  },
+  {
+    "task": "median",
+    "label": "constant",
+    "samples": 9,
+    "generation_median_ms": 176.443262,
+    "generation_range_ms": [
+      173.8628,
+      178.348542
+    ],
+    "kernel_host_median_ms": 3.920093
+  }
+]

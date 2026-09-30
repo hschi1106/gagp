@@ -6,7 +6,7 @@
 - Baseline executable: `logs/optimization/baseline_bench` (hash in `logs/optimization/origin.json`). Frozen inputs symlink to original artifacts; never modify them.
 - Reference ASGP 1T: Sum 1841.160175 ms, House 1282.011816 ms. Targets <46.029004 / <32.050295 ms per full generation (40×). These are unprofiled medians from archived profiler controls.
 - `medium`: searched existing settings, results, docs and ASGP sources; no independent named workload found. Prior Median interpretation was an assumption. User clarification pending; Sum/House continue. Median remains an auxiliary overhead probe.
-- Current best general path: E15 strided sorted cases, `GAGP_VIEW_PROFILE=1 GAGP_TYPED_VIEW_PHASE=1 GAGP_SORT_CASES=1 GAGP_COMPACT_FRAMES=1`; nine-sample full-generation medians 274.706 / 217.977 / 177.029 ms. Strict compilation remains inside every generation. Phase-bank E16 is a separate finite-search-space prototype, with initialization charged to first generation.
+- Current general path: E22 compact frames plus E21 large-population handoff, `GAGP_VIEW_PROFILE=1 GAGP_TYPED_VIEW_PHASE=1 GAGP_SORT_CASES=1 GAGP_COMPACT_FRAMES=1`; prior e26 nine-sample medians 274.706 / 217.977 / 177.029 ms; E22 Sum ~255–261 ms, final repeats pending. Strict compilation remains inside every generation. Phase-bank E16 is a separate finite-search-space prototype, with initialization charged to first generation.
 - Build: `cmake --build cpp/build/release --target gagp_fixed_asgp_bench gagp_test_fitness_cpu_gpu_parity gagp_test_evolution_cpu_gpu_parity -j10`.
 - Experiment results: `logs/optimization/`; compact summaries/checkpoints recorded here. GPUs run serially.
 
@@ -56,48 +56,49 @@
 | E20 | Explicit Int32 phase arithmetic, same fuel and full cases | Kernel ~94/41/4 ms, no gain; 21 Sum and 36 House program fitness rows change; no timeout increase or false-perfect programs vs full CPU snapshot | REJECTED; overflow/division/list-cast/fuel tests passed; patch/binary preserved |
 | E22c | Compact two-state frames (88 bytes), retaining one-state 72-byte layout | Sum ~261 ms / kernel 93 ms; House ~218 ms. All 1024 per-program fitness/counters identical to E09; 2D memo and GPU parity tests pass | retain; final repeats/scaling still needed |
 
+| E23b | Proven scalar constant phases bypass interpreter, preserving explicit/implicit return fuel | Sum kernel ~86 ms vs ~91 ms; full generation ~248 ms; House/Median near noise | retain opt-in; nine-sample median 250.318/217.495/176.443 ms; Sum improves 254.412→250.318 ms; others within noise |
+| E24 | Fuse typed-VM operand load with arithmetic/comparison, preserving both fuel checks and jump targets | Sum kernel ~90 ms vs ~91 ms; combined result attributable to E23; no material generation gain | REJECTED; patch/binary saved |
+
 ## Current checkpoint and continuation
 
-- Stable code: `e26dba3`; preserved executable `logs/optimization/best_bench`.
-  Final scaling runs that unchanged binary; no concurrent GPU or build jobs.
-- Validation: all 119 native tests, 20 optimized GPU tests, 24 repository tests
-  passed; 89 tooling tests ran (4 optional skips). Payload proof reuse requires
-  a coherent read snapshot for registry-backed constants; scalar genomes unchanged.
-- `logs/optimization/repeats-final/`: nine alternated samples versus E09;
-  Sum 274.706 ms, House 217.977 ms, Median 177.029 ms. Three independent cold
-  finite-bank runs charge bank setup to generation one; GPU context initialization
-  is reported separately under the existing timing contract.
-- `logs/optimization/quality-final/`: 27 four-generation cells (three profiles,
-  three tasks, seeds 0/1/2), all full cases. Optimized Sum best CPU/GPU fitness is
-  0 in all seeds; House matches generic trajectories. No timeout or unscored cases.
-  Finite phase-bank Median stays at -31025 versus standard variation reaching
-  -28478 in 2/3 seeds. Finite mutation is not an equivalent search replacement.
-- Completed: original 60-cell scaling, all cells succeeded in 2435.98 seconds.
-  Results/environment: `logs/optimization/scaling-final/`. It exposed a large
-  P8192 host-analysis cliff in every task; E21 is now under A/B and RSS validation
-  (`logs/optimization/E21-rss/`). Original scaling binary/results remain intact.
-- Next evidence-driven experiments, staged but not installed:
-  1. NCU 2024.3 at `/usr/local/cuda-12.6/bin/ncu` with one evaluator launch and
-     only SM/DRAM throughput, active warps, local loads. Earlier failure used
-     NCU 2022.3. User explicitly permits NCU, overriding old repository guidance.
-     No system/driver changes if counter access fails.
-  2. Fresh grammar-generated phase mutation (`logs/optimization/phase_bank_fresh.cpp`)
-     to address observed finite-bank stagnation. Copy to the isolated phase-bank
-     benchmark source, build, run diagnostics; quality gate before adoption.
-  3. Scaling discovered P8192 Sum GPU reproduction 7195 ms and overlap 6307 ms,
-     versus P4096 1142/1059 ms. The 4096-entry cache disables population
-     handoffs above capacity, triggering repeated serial analysis. Test an opt-in
-     generation-owned handoff independent of LRU capacity, measure peak RSS and
-     retain bounded persistent cache (`logs/optimization/apply_handoff_prototype.py`).
-  4. Verified small root VM (`logs/optimization/apply_small_root_prototype.py`),
-     opt-in `GAGP_SMALL_ROOT_VM=1`; phase VM was reduced earlier, root remains 64/64.
-  5. Numerical-lossy Int32 phase arithmetic draft
-     `logs/optimization/int32_view_phase.cuh`, not wired or tested. Preserve 64-bit
-     list descriptors and fuel; report narrowing/overflow and quality differences.
-     Only proceed if profiling or minimal A/B supports value.
-- After retained changes: reprofile, repeat unprofiled timing, check snapshots and
-  several seeds. Reuse explicitly identified unchanged CPU controls if updating
-  scaling GPU cells. Do not mix profiler times with speedup denominators.
+- Stable source: `6fd4f5c` (E22 two-state frames + E21 handoffs + isolated fresh
+  phase-bank probe). Current uncommitted experiments: E23 constant scalar phase
+  shortcut and E24 fused typed-VM dispatch; one serial build/test/A-B shell is
+  running, logs `build-E24.log`, `test-E24.log`, result directories `E24*`.
+- Preserved binaries: original `baseline_bench`; e26 `best_bench`; E21
+  `E21/bench`; combined rejected Int32 experiment `E20/bench`; pre-E24
+  `E23b/bench`, all under `logs/optimization/`. See individual manifests for
+  hashes and exact flags. Never overwrite frozen artifacts or old binaries.
+- Main flags: `GAGP_VIEW_PROFILE=1 GAGP_TYPED_VIEW_PHASE=1 GAGP_SORT_CASES=1
+  GAGP_COMPACT_FRAMES=1`; add `GAGP_POPULATION_HANDOFF=1` for large populations.
+  No numeric narrowing is retained. Root-storage reduction was rejected.
+- Completed 60-cell scaling on e26: all cells succeeded, 2435.98 seconds,
+  `logs/optimization/scaling-final/`. E21 repeated 8192 overlap controls:
+  Sum 6228→2000 ms, House 6613→1571 ms, Median 6814→1305 ms; every non-timing
+  field equal. Additional peak RSS ~0.74/0.33/0.76 GiB, respectively.
+- e26 validation: 119 native, 20 optimized GPU, 24 repository checks pass;
+  89 tooling tests ran (4 optional skips). New E21 eviction/ownership test, E18
+  adapter integration, E22 GPU/2D-memo/fuel/parity tests pass. Final full build
+  and affected regression/scaling checks still required after experiments settle.
+- Formal e26 repeats/quality: `repeats-final/` and `quality-final/`; nine timing
+  samples; 27 four-generation cells over three variation seeds with the SAME
+  frozen initial population. Sum best CPU/GPU 0, House generic trajectory exact;
+  no timeout or unscored cases. This is not a convergence-quality proof.
+- E18 fresh phase mutation: `E18/`, nine cells, complete final AST admission and
+  handle/AST fitness equality. Sum best 0; House -8479/-8479/-8443; Median
+  remains -31025. Reproduction ~5 ms, 70–145 novel phases per generation. It
+  remains an optional benchmark prototype with a fixed skeleton, not a native
+  full-grammar replacement. Its startup and final audits are separately timed.
+- NCU 2024.3 works but counters are denied (`ERR_NVGPUCTRPERM`); no system changes.
+  Latest nsys trace `E21-nsys/`: actual CUDA eval 110.85/43.26/4.04 ms before
+  two-state compaction. Sum grid=79 blocks exposed its frame-size/concurrency
+  issue; E22 kernel falls to ~93 ms. Reprofile the final retained candidate.
+- Next: assess E24 dispatch fusion with and without E23; compare all snapshot
+  rows and exact fuel boundaries. Retain only improvements exceeding timing
+  noise. Then repeat timing/short quality, update scaling GPU cells and clearly
+  identify any reused unchanged controls. If these instruction-reduction
+  experiments plateau, document remaining interpreter/host costs and quality
+  restrictions rather than inventing a 40× claim.
 
 ## Reproduction
 

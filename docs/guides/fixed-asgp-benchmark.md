@@ -142,7 +142,8 @@ The current opt-in runtime profiles and eligibility rules are owned by
 For the tested combination, prefix ordinary fixed runs with:
 
 ```bash
-GAGP_VIEW_PROFILE=1 GAGP_TYPED_VIEW_PHASE=1 GAGP_SORT_CASES=1 GAGP_COMPACT_FRAMES=1 \
+GAGP_VIEW_PROFILE=1 GAGP_TYPED_VIEW_PHASE=1 GAGP_SORT_CASES=1 \
+GAGP_COMPACT_FRAMES=1 GAGP_CONSTANT_PHASE=1 GAGP_POPULATION_HANDOFF=1 \
 GAGP_CUDA_DEVICE=0 PYTHONPATH=tools python3 -m gagp_tools benchmark fixed-asgp run \
   --suite scaling --out logs/fixed-asgp/optimized-scaling
 ```
@@ -190,8 +191,8 @@ whole-phase donors from the authored grammar. Each donor is fully admitted,
 compiled and interned during the generation; failures and effective changes are
 reported. This variant requires registry-independent constant domains and limits
 the probe to 16 generations because it retains complete proof sources. It still
-fixes the region skeleton and varies only independent whole phases. Three-seed
-short screens improved House and preserved Sum, but Median remained at its initial
+fixes the region skeleton and varies only independent whole phases. Three variation seeds with the same frozen parents
+matched or improved the observed House best and preserved Sum, but Median remained at its initial
 best: it is not a substitute for native variation quality. Both bank variants
 remain separate from the primary fixed benchmark.
 

@@ -31,6 +31,8 @@ struct DPhaseMeta {
   int const_offset = 0;
   int const_len = 0;
   int n_locals = 0;
+  int scalar_constant_index = -1;
+  unsigned scalar_constant_fuel = 0;
 };
 
 struct DProgramMeta {

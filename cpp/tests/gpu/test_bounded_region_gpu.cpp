@@ -833,7 +833,7 @@ bool test_verified_view_profile() {
       if(had) old=std::getenv(name); setenv(key,"1",1);
     }
     ~Environment(){if(had)setenv(key,old.c_str(),1);else unsetenv(key);}
-  } view("GAGP_VIEW_PROFILE"), typed("GAGP_TYPED_VIEW_PHASE"), sorted("GAGP_SORT_CASES"), compact("GAGP_COMPACT_FRAMES");
+  } view("GAGP_VIEW_PROFILE"), typed("GAGP_TYPED_VIEW_PHASE"), sorted("GAGP_SORT_CASES"), compact("GAGP_COMPACT_FRAMES"), constant("GAGP_CONSTANT_PHASE");
   const auto numeric = [&](BuiltinId id, std::vector<Value> constants, Value answer, const std::string& label) {
     auto segment=unary_segment(Value::from_int(0));
     std::vector<Instr> code;
@@ -854,6 +854,25 @@ bool test_verified_view_profile() {
      !numeric(BuiltinId::IDiv0,{Value::from_int(low),Value::from_int(-1)},Value::from_int(low),"typed protected div overflow") ||
      !numeric(BuiltinId::IDiv0,{Value::from_int(17),Value::from_int(0)},Value::from_int(0),"typed zero divisor") ||
      !numeric(BuiltinId::IMod0,{Value::from_int(-17),Value::from_int(5)},Value::from_int(3),"typed negative remainder"))return false;
+  for (bool explicit_return : {false,true}) {
+    auto scalar=unary_segment(Value::from_int(17));
+    scalar.base_body.program.code={ins_a(Opcode::PushConst,0)};
+    scalar.base_body.program.consts={Value::from_int(17)};
+    scalar.base_body.program.instruction_fuel={5};
+    if(explicit_return) {
+      scalar.base_body.program.code.push_back(ins(Opcode::Return));
+      scalar.base_body.program.instruction_fuel.push_back(7);
+    }
+    const auto program=invocation(std::move(scalar),{Value::from_int(0)});
+    for(int fuel=0;fuel<30;++fuel) {
+      FitnessSessionGpu session;
+      if(!check(session.init({{}},{Value::from_int(17)},fuel,32,7).ok,"constant phase fuel init"))return false;
+      auto gpu=session.eval_programs({program},true);
+      auto cpu=eval_fitness_cpu({program},{{}},{Value::from_int(17)},fuel,7,32);
+      if(!check(gpu.ok && gpu.fitness==cpu && gpu.case_counts[0][2]==(cpu[0]<0?1u:0u),
+          "constant phase keeps explicit and implicit return fuel boundaries"))return false;
+    }
+  }
   const auto list=payload::make_int_list_value({Value::from_int(2),Value::from_int(3)});
   auto returns_list=invocation(unary_segment(list),{Value::from_int(0)});
   FitnessSessionGpu fallback;

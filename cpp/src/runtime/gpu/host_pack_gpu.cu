@@ -393,6 +393,22 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
       if (std::getenv("GAGP_GENERIC_PHASE_VM") == nullptr)
         for (auto i = phase_begin; i < out.region_phases.size(); ++i)
           out.region_phases[i].program.verified_stack_bound = verified_stack_bounds[p];
+      if (std::getenv("GAGP_CONSTANT_PHASE")) {
+        for (auto i = phase_begin; i < out.region_phases.size(); ++i) {
+          auto& phase = out.region_phases[i]; auto& m = phase.program;
+          if (phase.binding_count != 0 || m.n_locals != 0 || (m.code_len != 1 && m.code_len != 2)) continue;
+          const auto& a = out.all_phase_code[m.code_offset];
+          if (a.op != OP_PUSH_CONST || a.a < 0 || a.a >= m.const_len) continue;
+          if (m.code_len == 2 && out.all_phase_code[m.code_offset + 1].op != OP_RETURN) continue;
+          const auto tag = out.all_phase_consts[m.const_offset + a.a].tag;
+          if (tag != ValueTag::Int && tag != ValueTag::Bool && tag != ValueTag::Float && tag != ValueTag::Char) continue;
+          const auto charge = static_cast<std::uint64_t>(a.fuel) +
+              (m.code_len == 2 ? out.all_phase_code[m.code_offset + 1].fuel : 0);
+          if (charge > static_cast<std::uint64_t>(INT_MAX)) continue;
+          m.scalar_constant_index = m.const_offset + a.a;
+          m.scalar_constant_fuel = static_cast<unsigned>(charge);
+        }
+      }
     }
     meta.region_count = checked_index(prog.bounded_region_segments.size(),
                                       "region segment count");
