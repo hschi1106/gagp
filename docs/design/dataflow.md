@@ -135,7 +135,9 @@ invariants. These schedules retain every population member and operator proposal
 Successful membership reconstruction can retain an opaque immutable
 `DerivationCertificate` (`grammar/membership.cpp`). Reuse compares the full
 runtime identity, including decoded constant contents, compiled grammar hash,
-and complete generation request. It returns the private verified witness and
+and complete generation request. Registry-backed constants additionally require
+an active payload read snapshot; public calls without one use full reconstruction.
+It returns the private verified witness and
 exact scopes, never caller-editable provenance. Changes trigger full validation.
 `GAGP_NO_DERIVATION_CERTIFICATES=1` provides a control path. The certificate does
 not retain executable bytecode; ordinary generation compilation remains timed.

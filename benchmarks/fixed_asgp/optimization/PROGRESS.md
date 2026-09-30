@@ -65,3 +65,9 @@ a positional `DRegionWorkspace` initializer in result probes; the new flag was
 moved to the end to preserve that interface. Next queued commands run optimized
 GPU regressions, `logs/optimization/quality_run.py`,
 `logs/optimization/repeat_run.py`, then the existing scaling matrix.
+
+Payload-proof audit: cache reuse/creation for registry-backed constants now requires
+an enclosing read snapshot. Scalar fixed-benchmark genomes are unaffected. The
+27-cell quality screen completed on ca436c0; repeats/scaling had not started and
+were held for this correctness gate. Rebuild/tests, then run repeats/scaling on the
+final binary; keep original quality evidence with its recorded hash.

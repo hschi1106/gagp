@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "gagp/evolution/ast_verify.hpp"
+#include "../../src/runtime/payload/staging.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/repro/pack.hpp"
@@ -118,6 +119,21 @@ int main() {
         auto genome = generate_derivation(grammar, seed).genome;
         genome.derivation.reset();
         require_membership(grammar, genome);
+        if (seed==0 && (domain.first=="String" || domain.first.find("List")!=std::string::npos)) {
+          check(!reconstruct_derivation(grammar,genome).certificate,
+                "mutable registry proofs require an enclosing read snapshot");
+          payload::StagedPayloads reads;
+          {
+            payload::StagedPayloads::Scope scope(reads);
+            genome.derivation=std::make_shared<const DerivationMetadata>(reconstruct_derivation(grammar,genome));
+            check(bool(genome.derivation->certificate),"snapshot can retain a payload proof");
+            check(reconstruct_derivation(grammar,genome).certificate==genome.derivation->certificate,
+                  "identical decoded payload proof should be reusable inside snapshot");
+          }
+          check(payload::StagedPayloads::commit_all({&reads}),"payload proof snapshot must validate");
+          check(!reconstruct_derivation(grammar,genome).certificate,
+                "outside snapshot must revalidate mutable payloads even when carrying proof");
+        }
         if (domain.first == "Float") {
           genome.ast.consts[0] = Value::from_float(0.0);
           rejects(grammar, genome);

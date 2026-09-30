@@ -9,6 +9,7 @@
 #include "../region_plan_equal.hpp"
 
 #include <memory>
+#include "../../runtime/payload/staging.hpp"
 #include <cstdlib>
 #include "gagp/evolution/grammar/cache.hpp"
 
@@ -724,7 +725,14 @@ DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const 
 DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const ProgramGenome& genome,
     const GenerationRequest& request, VerifiedAst* verified,
     std::vector<std::vector<int>>* choice_lexical_environments) {
-  const bool cache = certificates_enabled();
+  // A public caller without a read snapshot cannot bind mutable registry
+  // contents to one consistent proof. Scalar-only ASTs have no such dependency.
+  const bool registry_constants = std::any_of(genome.ast.consts.begin(), genome.ast.consts.end(), [](const auto& value) {
+    return value.tag == ValueTag::String || value.tag == ValueTag::IntList ||
+        value.tag == ValueTag::FloatList || value.tag == ValueTag::StringList;
+  });
+  const bool cache = certificates_enabled() &&
+      (!registry_constants || payload::StagedPayloads::has_active_scope());
   if (cache && genome.derivation && genome.derivation->certificate) {
     const auto& proof = *genome.derivation->certificate;
     if (proof.witness.grammar_hash == grammar.content_hash() &&
