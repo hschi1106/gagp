@@ -869,7 +869,8 @@ bool test_verified_view_profile() {
   if(!check(!gpu_detail::view_program_supported(comparison,inputs),"list equality must decline private offset views"))return false;
   auto backward=ordinary_program();backward.code={ins_a(Opcode::Jmp,0)};
   return check(!gpu_detail::view_program_supported(backward,inputs),"backward control flow must decline proof") &&
-      test_exact_capacity_exhaustion() && test_boundary_base_and_fuel() && test_phase_binding_capacities();
+      test_exact_capacity_exhaustion() && test_boundary_base_and_fuel() && test_phase_binding_capacities() &&
+      test_ordered_coordinate_memo();
 }
 
 }  // namespace

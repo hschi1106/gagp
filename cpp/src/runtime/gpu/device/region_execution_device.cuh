@@ -300,8 +300,11 @@ __device__ DResult d_run_bounded_region(
     typename DPayloadFlavorTraits<Flavor>::State& payload_state,
     const DExecutionTables& tables, int& fuel, DRegionWorkspace workspace) {
   if (workspace.compact_frames) {
-    if (segment.state_count > 1 || segment.preparation_count > 1 || segment.request_count > 2)
+    if (segment.state_count > (workspace.two_state_frames ? 2u : 1u) || segment.preparation_count > 1 || segment.request_count > 2)
       return d_error(ErrCode::Value);
+    if (workspace.two_state_frames)
+      return d_run_bounded_region_impl<Flavor, DCompactPairRegionFrame>(segment, operands,
+          caller_locals, caller_set, payload_tables, payload_state, tables, fuel, workspace);
     return d_run_bounded_region_impl<Flavor, DCompactRegionFrame>(segment, operands,
         caller_locals, caller_set, payload_tables, payload_state, tables, fuel, workspace);
   }

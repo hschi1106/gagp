@@ -198,8 +198,9 @@ answers/penalty and a conservative exact accumulator bound. All cases remain;
 other profiles retain their original reduction order. Sorting and its upload are
 charged to session initialization, once per session.
 
-`GAGP_COMPACT_FRAMES=1` uses 72-byte frames when every segment needs at most one
-state, one preparation and two results, otherwise 264-byte generic frames. Frame
+`GAGP_COMPACT_FRAMES=1` uses 72-byte frames for at most one state, or 88-byte
+frames for at most two states, when every segment also needs at most one
+preparation and two results; other shapes use 264-byte generic frames. Frame
 and memo capacities do not decrease. The 512 MiB workspace limit controls launch
 concurrency, never evaluation coverage. `gagp_test_bounded_region_gpu` checks the
 fast path, generic fallback, numeric boundaries and exact fuel/capacity exhaustion.

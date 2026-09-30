@@ -53,6 +53,9 @@
 | E18 | Fresh grammar-generated whole-phase mutation | Reproduction ~5 ms/generation, 70–145 novel phases; all cases, final AST export/fitness audit passes. Three seeds: Sum best 0; House -8479/-8479/-8443; Median stays -31025. No timeout/unscored/failed mutation | retain isolated prototype; Median quality limitation persists |
 | E19 | Verifier-proven smaller root VM, 16 stack / 8 locals | 276.9/219.4/176.1 ms; no meaningful end-to-end improvement; targeted GPU tests pass | REJECTED; patch/binary saved |
 
+| E20 | Explicit Int32 phase arithmetic, same fuel and full cases | Kernel ~94/41/4 ms, no gain; 21 Sum and 36 House program fitness rows change; no timeout increase or false-perfect programs vs full CPU snapshot | REJECTED; overflow/division/list-cast/fuel tests passed; patch/binary preserved |
+| E22c | Compact two-state frames (88 bytes), retaining one-state 72-byte layout | Sum ~261 ms / kernel 93 ms; House ~218 ms. All 1024 per-program fitness/counters identical to E09; 2D memo and GPU parity tests pass | retain; final repeats/scaling still needed |
+
 ## Current checkpoint and continuation
 
 - Stable code: `e26dba3`; preserved executable `logs/optimization/best_bench`.

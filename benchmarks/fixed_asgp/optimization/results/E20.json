@@ -1,0 +1,26 @@
+[
+  {
+    "task": "sum_of_elements",
+    "changed_fitness": 21,
+    "errors": 318332,
+    "timeouts": 0,
+    "false_perfect_vs_cpu": 0,
+    "decision": "rejected: no material kernel gain; numerical changes not adopted"
+  },
+  {
+    "task": "house_robber",
+    "changed_fitness": 36,
+    "errors": 0,
+    "timeouts": 0,
+    "false_perfect_vs_cpu": 0,
+    "decision": "rejected: no material kernel gain; numerical changes not adopted"
+  },
+  {
+    "task": "median",
+    "changed_fitness": 0,
+    "errors": 275609,
+    "timeouts": 0,
+    "false_perfect_vs_cpu": 0,
+    "decision": "rejected: no material kernel gain; numerical changes not adopted"
+  }
+]

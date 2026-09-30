@@ -536,10 +536,15 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
   gpu_detail::DRegionWorkspace region_workspace;
   region_workspace.compact_frames = std::getenv("GAGP_COMPACT_FRAMES") &&
       std::all_of(packed.region_segments.begin(), packed.region_segments.end(), [](const auto& segment) {
-        return segment.state_count <= 1 && segment.preparation_count <= 1 && segment.request_count <= 2;
+        return segment.state_count <= 2 && segment.preparation_count <= 1 && segment.request_count <= 2;
       });
-  const std::size_t frame_size = region_workspace.compact_frames
-      ? sizeof(gpu_detail::DCompactRegionFrame) : sizeof(gpu_detail::DRegionFrame);
+  region_workspace.two_state_frames = region_workspace.compact_frames &&
+      std::any_of(packed.region_segments.begin(), packed.region_segments.end(), [](const auto& segment) {
+        return segment.state_count > 1;
+      });
+  const std::size_t frame_size = !region_workspace.compact_frames ? sizeof(gpu_detail::DRegionFrame) :
+      (region_workspace.two_state_frames ? sizeof(gpu_detail::DCompactPairRegionFrame) :
+       sizeof(gpu_detail::DCompactRegionFrame));
   for (const auto& segment : packed.region_segments) {
     region_workspace.frame_capacity =
         std::max(region_workspace.frame_capacity, segment.limits.frames);

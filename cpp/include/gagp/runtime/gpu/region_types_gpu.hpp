@@ -36,12 +36,16 @@ struct DRegionFrame {
   int next_request;
 };
 
-struct DCompactRegionFrame {
-  Value state[1];
+template <unsigned States>
+struct DCompactRegionFrameStorage {
+  Value state[States];
   Value prepared[1];
   Value results[2];
   int next_request;
 };
+
+using DCompactRegionFrame = DCompactRegionFrameStorage<1>;
+using DCompactPairRegionFrame = DCompactRegionFrameStorage<2>;
 
 struct DRegionWorkspace {
   DRegionFrame* frames = nullptr;
@@ -51,6 +55,7 @@ struct DRegionWorkspace {
   std::uint32_t memo_capacity = 0;
   std::uint32_t slot_stride = 1;
   bool compact_frames = false;
+  bool two_state_frames = false;
 };
 
 static_assert(std::is_trivially_copyable<DRegionFrame>::value);
