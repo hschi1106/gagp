@@ -246,3 +246,12 @@ variation analysis. GPU operators remain unchanged; their two copybacks and AST
 rebuilds still occur. Crossover/final children receive canonical execution
 admission without eagerly building future sites. Parent continuations own the
 exact scalar AST/proof and are bound to the packed source owner and context.
+
+The validated allocator configuration is optional process-local jemalloc
+5.2.1-4ubuntu1 (`LD_PRELOAD` with the library path and
+`MALLOC_CONF=background_thread:false,narenas:1`). It adds no application workers;
+no system allocator change is required. Record the library hash and both
+variables with the binary/flags. Default allocator controls and raw repetitions
+are retained in `optimization/results/native-allocator-validation.json` under
+the fixed benchmark directory. Do not substitute allocator-run ASGP controls
+for the frozen headline denominator.

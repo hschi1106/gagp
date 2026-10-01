@@ -1,0 +1,578 @@
+{
+  "formal": {
+    "sum_of_elements": {
+      "before": {
+        "samples_ms": [
+          386.397584,
+          385.221795,
+          385.950693,
+          399.986793,
+          396.542512,
+          397.787065,
+          379.961218,
+          381.205478,
+          379.19914
+        ],
+        "median_ms": 385.950693,
+        "min_ms": 379.19914,
+        "max_ms": 399.986793
+      },
+      "after": {
+        "samples_ms": [
+          320.474321,
+          319.520226,
+          319.715734,
+          327.712578,
+          327.336964,
+          327.404,
+          331.619163,
+          330.269679,
+          327.328618
+        ],
+        "median_ms": 327.336964,
+        "min_ms": 319.520226,
+        "max_ms": 331.619163
+      }
+    },
+    "house_robber": {
+      "before": {
+        "samples_ms": [
+          404.849587,
+          402.194605,
+          401.864346,
+          418.328033,
+          411.821419,
+          412.720855,
+          417.197269,
+          411.067024,
+          413.245758
+        ],
+        "median_ms": 411.821419,
+        "min_ms": 401.864346,
+        "max_ms": 418.328033
+      },
+      "after": {
+        "samples_ms": [
+          341.626065,
+          340.711178,
+          340.488981,
+          357.703591,
+          355.00028,
+          365.279129,
+          346.57278,
+          345.024845,
+          344.476033
+        ],
+        "median_ms": 345.024845,
+        "min_ms": 340.488981,
+        "max_ms": 365.279129
+      }
+    },
+    "median": {
+      "before": {
+        "samples_ms": [
+          392.509098,
+          392.187691,
+          391.467419,
+          403.202592,
+          402.650987,
+          400.157515,
+          407.460451,
+          406.762218,
+          401.731063
+        ],
+        "median_ms": 401.731063,
+        "min_ms": 391.467419,
+        "max_ms": 407.460451
+      },
+      "after": {
+        "samples_ms": [
+          334.239085,
+          333.183162,
+          336.923405,
+          328.641831,
+          327.815792,
+          327.879725,
+          343.698491,
+          352.727953,
+          340.673727
+        ],
+        "median_ms": 334.239085,
+        "min_ms": 327.815792,
+        "max_ms": 352.727953
+      }
+    }
+  },
+  "snapshots": {
+    "sum_of_elements": {
+      "programs": 1024,
+      "all_fields_match": true
+    },
+    "house_robber": {
+      "programs": 1024,
+      "all_fields_match": true
+    },
+    "median": {
+      "programs": 1024,
+      "all_fields_match": true
+    }
+  },
+  "quality": [
+    {
+      "task": "sum_of_elements",
+      "seed": 0,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1684.288498,
+      "after_evolve_ms": 1403.135924
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 1,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1631.824103,
+      "after_evolve_ms": 1385.512413
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 2,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1657.944876,
+      "after_evolve_ms": 1410.247721
+    },
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1597.935066,
+      "after_evolve_ms": 1408.834264
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1586.72653,
+      "after_evolve_ms": 1352.035757
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1594.287756,
+      "after_evolve_ms": 1344.945611
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1872.654872,
+      "after_evolve_ms": 1547.21281
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1881.359459,
+      "after_evolve_ms": 1523.750059
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1877.821922,
+      "after_evolve_ms": 1542.555027
+    }
+  ],
+  "long_quality": [
+    {
+      "task": "sum_of_elements",
+      "seed": 0,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 14726.903536,
+      "after_wall_ms": 11917.906341,
+      "resources": {
+        "before": "rss_kb=1215180\nwall_seconds=16.28\n",
+        "after": "rss_kb=1337156\nwall_seconds=13.47\n"
+      }
+    },
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 15603.514704,
+      "after_wall_ms": 12481.926418,
+      "resources": {
+        "before": "rss_kb=1203384\nwall_seconds=16.98\n",
+        "after": "rss_kb=1341284\nwall_seconds=13.86\n"
+      }
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 17327.495345,
+      "after_wall_ms": 13691.718412,
+      "resources": {
+        "before": "rss_kb=1296080\nwall_seconds=18.63\n",
+        "after": "rss_kb=1439876\nwall_seconds=15.01\n"
+      }
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 1,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 15071.939764,
+      "after_wall_ms": 12581.674415,
+      "resources": {
+        "before": "rss_kb=1181096\nwall_seconds=16.63\n",
+        "after": "rss_kb=1306448\nwall_seconds=14.07\n"
+      }
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 12849.785888,
+      "after_wall_ms": 10202.749614,
+      "resources": {
+        "before": "rss_kb=1047844\nwall_seconds=14.11\n",
+        "after": "rss_kb=1158140\nwall_seconds=11.43\n"
+      }
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 17306.525409,
+      "after_wall_ms": 13446.80111,
+      "resources": {
+        "before": "rss_kb=1215380\nwall_seconds=18.55\n",
+        "after": "rss_kb=1354924\nwall_seconds=14.67\n"
+      }
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 2,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 14434.038096,
+      "after_wall_ms": 11468.613708,
+      "resources": {
+        "before": "rss_kb=1201036\nwall_seconds=15.96\n",
+        "after": "rss_kb=1326632\nwall_seconds=12.97\n"
+      }
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 12926.6153,
+      "after_wall_ms": 10384.496087,
+      "resources": {
+        "before": "rss_kb=1055096\nwall_seconds=14.19\n",
+        "after": "rss_kb=1170628\nwall_seconds=11.56\n"
+      }
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 18172.926212,
+      "after_wall_ms": 13990.267363,
+      "resources": {
+        "before": "rss_kb=1277680\nwall_seconds=19.48\n",
+        "after": "rss_kb=1425576\nwall_seconds=15.28\n"
+      }
+    }
+  ],
+  "source": "36af0f0",
+  "dependency": {
+    "package": "libjemalloc2",
+    "version": "5.2.1-4ubuntu1",
+    "source": "Ubuntu jammy universe package, downloaded and locally extracted only",
+    "files": {
+      "logs/optimization/native-allocator/libjemalloc2_5.2.1-4ubuntu1_amd64.deb": {
+        "sha256": "144eaa64b9da0319760c407ebe330b46d9d03ef9952fc067d48221cc9832e45c",
+        "bytes": 239774
+      },
+      "logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2": {
+        "sha256": "c769f7591006b37ac8893a69a82fc40d5ac831e8e109670878c4e4d44c8a6ba9",
+        "bytes": 744440
+      }
+    },
+    "MALLOC_CONF": "background_thread:false,narenas:1"
+  },
+  "modes": {
+    "sum_of_elements.asgp_1t": {
+      "before": [
+        1869.389186,
+        1870.516613,
+        1867.534167
+      ],
+      "after": [
+        1901.597142,
+        1937.430893,
+        1911.347131
+      ]
+    },
+    "sum_of_elements.gagp_cpu": {
+      "before": [
+        17624.358504,
+        17744.515152,
+        17759.422564
+      ],
+      "after": [
+        16631.168433,
+        16734.230519,
+        16772.990275
+      ]
+    },
+    "sum_of_elements.gpu_eval": {
+      "before": [
+        481.529787,
+        486.656171,
+        483.628426
+      ],
+      "after": [
+        408.961745,
+        407.821724,
+        399.324585
+      ]
+    },
+    "sum_of_elements.gpu_repro": {
+      "before": [
+        423.653205,
+        424.505104,
+        423.282869
+      ],
+      "after": [
+        373.88762,
+        371.477378,
+        370.625083
+      ]
+    },
+    "house_robber.asgp_1t": {
+      "before": [
+        1361.671272,
+        1334.312332,
+        1344.779878
+      ],
+      "after": [
+        1304.161272,
+        1299.646674,
+        1300.860844
+      ]
+    },
+    "house_robber.gagp_cpu": {
+      "before": [
+        7800.743788,
+        7742.772431,
+        7730.097464
+      ],
+      "after": [
+        7566.502898,
+        7660.086216,
+        7778.35133
+      ]
+    },
+    "house_robber.gpu_eval": {
+      "before": [
+        482.20456,
+        482.827219,
+        481.637388
+      ],
+      "after": [
+        398.484764,
+        398.714282,
+        401.859206
+      ]
+    },
+    "house_robber.gpu_repro": {
+      "before": [
+        444.337602,
+        451.014174,
+        442.719216
+      ],
+      "after": [
+        382.879905,
+        385.920694,
+        382.120327
+      ]
+    },
+    "median.asgp_1t": {
+      "before": [
+        61.988708,
+        61.935793,
+        62.466682
+      ],
+      "after": [
+        56.995373,
+        57.986096,
+        57.155418
+      ]
+    },
+    "median.gagp_cpu": {
+      "before": [
+        837.097877,
+        818.691334,
+        834.188766
+      ],
+      "after": [
+        713.01586,
+        709.487445,
+        712.307712
+      ]
+    },
+    "median.gpu_eval": {
+      "before": [
+        481.460828,
+        482.155356,
+        481.173308
+      ],
+      "after": [
+        382.186364,
+        382.829103,
+        382.896486
+      ]
+    },
+    "median.gpu_repro": {
+      "before": [
+        405.547816,
+        404.543752,
+        404.334454
+      ],
+      "after": [
+        340.514794,
+        340.093544,
+        341.00667
+      ]
+    }
+  },
+  "profile": {
+    "generation": {
+      "calls": 1,
+      "inclusive_ms": 373.292679,
+      "self_ms": 65.931196
+    },
+    "compile.population": {
+      "calls": 1,
+      "inclusive_ms": 18.662037,
+      "self_ms": 3.931143
+    },
+    "identity.runtime": {
+      "calls": 13915,
+      "inclusive_ms": 92.511662,
+      "self_ms": 92.511662
+    },
+    "verify.bytecode": {
+      "calls": 1024,
+      "inclusive_ms": 13.319907,
+      "self_ms": 13.319907
+    },
+    "admission.execution": {
+      "calls": 3368,
+      "inclusive_ms": 143.266331,
+      "self_ms": 3.366311
+    },
+    "membership.reconstruct": {
+      "calls": 5416,
+      "inclusive_ms": 143.379629,
+      "self_ms": 16.204602
+    },
+    "ast.compact": {
+      "calls": 4552,
+      "inclusive_ms": 18.326429,
+      "self_ms": 3.038778
+    },
+    "identity.meta": {
+      "calls": 5736,
+      "inclusive_ms": 16.701841,
+      "self_ms": 16.701841
+    },
+    "analysis.sites": {
+      "calls": 2048,
+      "inclusive_ms": 63.381013,
+      "self_ms": 15.699173
+    },
+    "sites.build": {
+      "calls": 2048,
+      "inclusive_ms": 16.028248,
+      "self_ms": 11.435678
+    },
+    "sites.native_scope": {
+      "calls": 26391,
+      "inclusive_ms": 4.533005,
+      "self_ms": 4.533005
+    },
+    "sites.finish": {
+      "calls": 2048,
+      "inclusive_ms": 11.161638,
+      "self_ms": 5.131669
+    },
+    "sites.contract_key": {
+      "calls": 8529,
+      "inclusive_ms": 6.007727,
+      "self_ms": 6.007727
+    },
+    "decode.pass": {
+      "calls": 2,
+      "inclusive_ms": 128.397942,
+      "self_ms": 7.373458
+    },
+    "decode.ast": {
+      "calls": 2048,
+      "inclusive_ms": 1.290846,
+      "self_ms": 1.290846
+    },
+    "decode.metadata": {
+      "calls": 2048,
+      "inclusive_ms": 4.183396,
+      "self_ms": 4.183396
+    },
+    "admission.accept": {
+      "calls": 1320,
+      "inclusive_ms": 115.717166,
+      "self_ms": 1.897667
+    },
+    "membership.matcher": {
+      "calls": 2504,
+      "inclusive_ms": 39.685197,
+      "self_ms": 21.522956
+    },
+    "verify.ast": {
+      "calls": 2504,
+      "inclusive_ms": 18.162241,
+      "self_ms": 9.55259
+    },
+    "verify.structure": {
+      "calls": 3892,
+      "inclusive_ms": 14.877683,
+      "self_ms": 14.877683
+    },
+    "membership.witness": {
+      "calls": 2504,
+      "inclusive_ms": 61.474532,
+      "self_ms": 21.974228
+    },
+    "compile.ast": {
+      "calls": 2504,
+      "inclusive_ms": 39.530279,
+      "self_ms": 16.383139
+    },
+    "verify.region.bytecode": {
+      "calls": 1388,
+      "inclusive_ms": 16.923457,
+      "self_ms": 16.923457
+    }
+  },
+  "profile_note": "NVTX diagnostic only, jemalloc, same flags; not headline timings",
+  "manifest": "logs/optimization/native-allocator-validation/manifest.json",
+  "raw_summary": "logs/optimization/native-allocator-validation/summary.json"
+}

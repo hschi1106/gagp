@@ -6,18 +6,23 @@ Median remains fixed-overhead workload. Do not resume retired CPU fragment route
 
 ## Current best and active experiment
 
-Best runtime `8dbd765`, scalar selected-site native GPU path. Use the flags in
-`round2.py` (including `GAGP_SELECTED_SITES=1`, CPU1T). Formal nine-repeat medians
-Sum381.969 / House406.176 / Median395.585 ms; same-round descriptor controls
-418.058 /428.467 /442.650. Frozen headline ~4.82×Sum/~3.16×House, not30×.
-Archive/repeats/commands: `logs/optimization/native-selected-sites-validation/`;
+Best source `36af0f0` (selected-site runtime plus CPU Slice bounds safety), with
+locally extracted jemalloc 5.2.1-4ubuntu1. Use `round2.py` FLAGS and process env:
+```
+LD_PRELOAD=$PWD/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2
+MALLOC_CONF=background_thread:false,narenas:1
+```
+No system installation; allocator confirms no background workers and one arena.
+Nine-repeat full-generation medians Sum327.337 / House345.025 / Median334.239ms;
+same-binary default allocator controls385.951 /411.821 /401.731ms.
+Frozen headline5.625x Sum /3.716x House, not30x. All3072 snapshots,3 seeds x4/32
+generation results and final ASTs match. All5 native mode non-time fields match.
+All120 native tests pass with best flags/allocator; scaling still pending.
+Archive/repeats/commands `logs/optimization/native-allocator-validation/`, matching
+long controls `native-allocator-long-controls/`; [validation](results/native-allocator-validation.json).
+Dependency hashes at `logs/optimization/native-allocator/dependency.json`.
+Earlier selected-site source-only results remain in
 [validation](results/native-selected-sites-validation.json).
-All3072 full-case snapshots,3 seeds ×4-generation searches and3 seeds ×32-generation
-searches match all non-time fields and exported ASTs. All nine longer searches
-also improve external evolve wall. Max RSS ~1.05–1.30GB across these candidate
-runs; these are process peaks, not proof of indefinitely bounded retention.
-Five focused tests cover selected-vs-full scopes/contracts/repeated holes and
-source/context/capacity boundaries. Scaling/full regression still pending.
 
 K selects logical sites before materializing contracts and uses owned scalar
 parent continuations. Full fallback for multiple root requests, projected
@@ -36,9 +41,16 @@ flag, exclusive API/stats/tests removed; raw binaries/patch/counters retained in
 `logs/optimization/native-cpu-slice/`. Short registered-list Slice bounds fix and
 its negative test remain. Next CPU direction needs cheaper view execution, not
 another cache capacity sweep.
-Next: refresh K host profile and test allocator cost with a local, optional
-library if available; no system installation/settings or CPU workers. Native
-intermediate preparation/admission remains the main target.
+Retained M: allocator reduces all three GPU generation times15-18%; all nine
+32-generation searches preserve non-time results/exports. Full120-test pass.
+New Median NVTX diagnostic (373ms profiled vs334ms unprofiled):13,915 runtime
+identities92.5ms; membership Matcher21.5ms self, witness22.0ms self;
+2 decode passes128.4ms inclusive; selected analysis63.4ms inclusive.
+Raw timeline/attribution: `logs/optimization/native-selected-profile/`.
+Next N hypothesis: an owned immutable scalar population can share its admission
+witness/VerifiedAst/identity through native preprocess/pack, avoiding repeated
+serialization and proof copies while preserving public input checks. Keep GPU
+operators, RNG, membership and both copybacks unchanged for this experiment.
 
 ## Current fair baseline
 
