@@ -337,3 +337,14 @@ these annotated/overlapped times from formal totals.
 - Next hypothesis: compile_population serializes each admitted AST for the cache
   key and again to validate its executable; one private combined lookup should
   eliminate the duplicate while retaining mutation/input/fuel validation.
+
+### Q — single evaluation identity
+
+- `GAGP_SINGLE_EVAL_IDENTITY=1` computes the current runtime identity once and
+  returns the matching sealed executable in the same private lookup. External
+  AST mutation, input order and fuel still invalidate reuse. No RNG/operator change.
+- Focused membership/reproduction/parity tests pass; all non-time search fields
+  and exports match for three tasks × four generations. Raw quick and nine-repeat
+  results: `logs/optimization/native-single-identity{,-formal}/`.
+- Next: preserve ownership between the already-admitted GPU crossover output
+  and mutation preparation; no admission deletion at external boundaries.

@@ -337,3 +337,9 @@ canonical admission still validates each changed final offspring. The new donor
 RNG trajectory/allocation policy is an experimental search-rule difference;
 identical frozen-parent evaluator work can be compared, but later populations
 must be evaluated as different searches.
+
+`GAGP_SINGLE_EVAL_IDENTITY=1` combines native evaluation-cache identity and
+sealed-executable lookup in one synchronous read. The helper computes the key
+itself; callers cannot supply an unchecked identity. Mutable imports still need
+identity validation, and registry constants keep their existing path. It does
+not change grammar admission, operator choices or evaluator semantics.

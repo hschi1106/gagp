@@ -1,6 +1,7 @@
 #include "gagp/core/host_threads.hpp"
 #include "batch_workers.hpp"
 #include "repro/owned_overlap.hpp"
+#include "grammar/evaluation_identity.hpp"
 #include "gagp/evolution/evolve.hpp"
 
 #include <chrono>
@@ -91,20 +92,25 @@ CompiledPopulation compile_population(const std::vector<ProgramGenome>& populati
   const bool parallel = population.size() >= 32 && workers > 1 &&
       !payload::StagedPayloads::has_active_scope();
   struct PreparedCompile {
-    std::string key;
+    grammar::detail::EvaluationIdentity identity;
     std::optional<BytecodeProgram> bytecode;
     std::unique_ptr<payload::StagedPayloads> reads;
     std::exception_ptr error;
     bool key_ready = false;
     std::chrono::steady_clock::time_point compile_begin{}, compile_end{};
   };
-  const auto key_for = [&](const ProgramGenome& genome) {
-    return genome.derivation ? grammar::runtime_cache_identity(
-        genome, input_names, static_cast<std::uint32_t>(fuel)) : genome.meta.program_key;
+  const bool single_identity = std::getenv("GAGP_SINGLE_EVAL_IDENTITY") != nullptr;
+  const auto identity_for = [&](const ProgramGenome& genome) {
+    if (single_identity) return grammar::detail::evaluation_identity(
+        genome, input_names, static_cast<std::uint32_t>(fuel));
+    return grammar::detail::EvaluationIdentity{genome.derivation ? grammar::runtime_cache_identity(
+        genome, input_names, static_cast<std::uint32_t>(fuel)) : genome.meta.program_key, nullptr};
   };
-  const auto compile_one = [&](const ProgramGenome& genome) {
-    if (const auto admitted = grammar::admitted_bytecode_for_eval(
-            genome, input_names, static_cast<std::uint32_t>(fuel))) return *admitted;
+  const auto compile_one = [&](const ProgramGenome& genome,
+                               const grammar::detail::EvaluationIdentity& identity) {
+    const auto admitted = single_identity ? identity.executable : grammar::admitted_bytecode_for_eval(
+        genome, input_names, static_cast<std::uint32_t>(fuel));
+    if (admitted) return *admitted;
     return compile_for_eval(genome, input_names);
   };
   std::unique_ptr<detail::BatchWorkers> team;
@@ -124,11 +130,11 @@ CompiledPopulation compile_population(const std::vector<ProgramGenome>& populati
             try {
               payload::StagedPayloads::Scope scope(*row.reads);
               const auto& genome = population[begin + i];
-              row.key = key_for(genome);
+              row.identity = identity_for(genome);
               row.key_ready = true;
-              if (cache->by_program.find(row.key) != cache->by_program.end()) continue;
+              if (cache->by_program.find(row.identity.key) != cache->by_program.end()) continue;
               row.compile_begin = std::chrono::steady_clock::now();
-              row.bytecode = compile_one(genome);
+              row.bytecode = compile_one(genome, row.identity);
               row.compile_end = std::chrono::steady_clock::now();
             } catch (...) { row.error = std::current_exception(); }
           }
@@ -144,7 +150,8 @@ CompiledPopulation compile_population(const std::vector<ProgramGenome>& populati
       const auto& genome = population[begin + i];
       if (valid && prepared[i].error && !prepared[i].key_ready)
         std::rethrow_exception(prepared[i].error);
-      auto key = valid ? std::move(prepared[i].key) : key_for(genome);
+      auto identity = valid ? std::move(prepared[i].identity) : identity_for(genome);
+      auto& key = identity.key;
       const auto found = cache->by_program.find(key);
       if (found != cache->by_program.end()) {
         out.programs.push_back(found->second);
@@ -160,7 +167,7 @@ CompiledPopulation compile_population(const std::vector<ProgramGenome>& populati
                                   : prepared[i].compile_end;
       } else {
         const auto t0 = std::chrono::steady_clock::now();
-        bc = compile_one(genome);
+        bc = compile_one(genome, identity);
         out.compile_ms += std::chrono::duration<double, std::milli>(
             std::chrono::steady_clock::now() - t0).count();
       }

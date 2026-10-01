@@ -56,3 +56,5 @@ fair ASGP comparisons explicitly use `GAGP_HOST_THREADS=1`.
 Stop expanding the read set once the changed owner, affected callers, governing
 contract, and matching tests are clear. For implementation-time documentation
 maintenance, follow the rules in root `AGENTS.md`.
+
+- Private evaluation identity/executable lookup: `cpp/src/evolution/grammar/evaluation_identity.hpp`, implemented beside certificates in `membership.cpp`; regression coverage in `test_grammar_membership.cpp`.

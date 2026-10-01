@@ -1,4 +1,5 @@
 #include "owned_population.hpp"
+#include "evaluation_identity.hpp"
 #include "variation_internal.hpp"
 #include "gagp/evolution/grammar/derivation_resources.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
@@ -745,18 +746,35 @@ const std::vector<std::vector<int>>& OwnedScalarPopulation::environments(std::si
 const std::string& OwnedScalarPopulation::identity(std::size_t i) const { return proofs_.at(i)->identity; }
 }  // namespace variation_detail
 
+namespace {
+bool may_reuse_executable(const ProgramGenome& genome) {
+  if (!certificates_enabled() || !std::getenv("GAGP_REUSE_ADMISSION_COMPILE") ||
+      !genome.derivation || !genome.derivation->certificate ||
+      !genome.derivation->certificate->executable) return false;
+  for (const auto& value : genome.ast.consts)
+    if (value.tag != ValueTag::Int && value.tag != ValueTag::Float &&
+        value.tag != ValueTag::Bool && value.tag != ValueTag::Char) return false;
+  return true;
+}
+}  // namespace
+
+detail::EvaluationIdentity detail::evaluation_identity(const ProgramGenome& genome,
+    const std::vector<std::string>& input_names, std::uint32_t fuel) {
+  EvaluationIdentity result;
+  result.key = genome.derivation ? runtime_cache_identity(genome, input_names, fuel)
+                                : genome.meta.program_key;
+  if (may_reuse_executable(genome)) {
+    const auto& proof = *genome.derivation->certificate;
+    if (proof.identity == result.key) result.executable = proof.executable;
+  }
+  return result;
+}
+
 std::shared_ptr<const BytecodeProgram> admitted_bytecode_for_eval(
     const ProgramGenome& genome, const std::vector<std::string>& input_names,
     std::uint32_t fuel) {
-  if (!certificates_enabled() || !std::getenv("GAGP_REUSE_ADMISSION_COMPILE") ||
-      !genome.derivation || !genome.derivation->certificate) return nullptr;
-  const auto& proof = *genome.derivation->certificate;
-  if (!proof.executable) return nullptr;
-  for (const auto& value : genome.ast.consts)
-    if (value.tag != ValueTag::Int && value.tag != ValueTag::Float &&
-        value.tag != ValueTag::Bool && value.tag != ValueTag::Char) return nullptr;
-  if (proof.identity != runtime_cache_identity(genome, input_names, fuel)) return nullptr;
-  return proof.executable;
+  if (!may_reuse_executable(genome)) return nullptr;
+  return detail::evaluation_identity(genome, input_names, fuel).executable;
 }
 
 void require_membership(const CompiledGrammar& grammar, const ProgramGenome& genome) {

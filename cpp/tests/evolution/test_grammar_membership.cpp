@@ -8,6 +8,8 @@
 
 #include "gagp/evolution/ast_verify.hpp"
 #include "../../src/runtime/payload/staging.hpp"
+#include "../../src/evolution/grammar/evaluation_identity.hpp"
+#include "gagp/evolution/grammar/cache.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/repro/pack.hpp"
@@ -68,6 +70,19 @@ int main() {
     check(reused.certificate == sum.derivation->certificate, "identical membership should reuse proof");
     const auto executable = admitted_bytecode_for_eval(sum, {}, scalar.execution_limits().fuel);
     check(bool(executable), "scalar admission must retain its existing lowering");
+    const auto combined = gagp::evo::grammar::detail::evaluation_identity(sum, {}, scalar.execution_limits().fuel);
+    check(combined.executable == executable &&
+          combined.key == runtime_cache_identity(sum, {}, scalar.execution_limits().fuel),
+          "combined executable lookup must compute the real cache identity");
+    auto stale_combined = sum;
+    stale_combined.ast.consts.front() = Value::from_int(999);
+    const auto stale_lookup = gagp::evo::grammar::detail::evaluation_identity(
+        stale_combined, {}, scalar.execution_limits().fuel);
+    check(!stale_lookup.executable && stale_lookup.key != combined.key,
+          "combined lookup reused a stale mutable AST certificate");
+    check(!gagp::evo::grammar::detail::evaluation_identity(sum, {"wrong_input"}, scalar.execution_limits().fuel).executable &&
+          !gagp::evo::grammar::detail::evaluation_identity(sum, {}, scalar.execution_limits().fuel + 1).executable,
+          "combined lookup ignored the execution contract");
     check(admitted_bytecode_for_eval(sum, {}, scalar.execution_limits().fuel) == executable,
           "unchanged scalar executable lost its sealed identity");
     check(!admitted_bytecode_for_eval(sum, {"wrong_input"}, scalar.execution_limits().fuel),
