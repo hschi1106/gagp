@@ -706,15 +706,15 @@ void test_certification_compaction_boundaries() {
         "changed compaction failed to remap the referenced constant");
   check(context.analyze(compacted)->verified.return_type == RType::Int,
         "changed compaction retained a stale type certificate");
-  {
+  for (const auto use : {variation_detail::AdmissionUse::Variation, variation_detail::AdmissionUse::Execution}) {
     VariationContext admission(grammar);
-    const auto accepted = variation_detail::accept(padded.ast, original, admission);
+    const auto accepted = variation_detail::accept(padded.ast, original, admission, std::nullopt, use);
     check(ast_cache_key(accepted.ast) == ast_cache_key(original.ast) &&
           admission.counters().acceptance_rejections == 0,
           "internal compaction changed valid admission");
     const auto rejected = [&](AstProgram ast, const char* reason) {
       admission.counters() = {};
-      const auto child = variation_detail::accept(std::move(ast), original, admission);
+      const auto child = variation_detail::accept(std::move(ast), original, admission, std::nullopt, use);
       check(admission.counters().acceptance_rejections == 1 &&
             admission.counters().fallback_children == 1 &&
             ast_cache_key(child.ast) == ast_cache_key(original.ast),

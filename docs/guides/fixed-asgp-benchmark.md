@@ -234,3 +234,23 @@ does not change the fixed generation boundary. Any newly retained run analysis
 must be released within the last generation timer; deferred destruction cannot
 be claimed as fixed-generation speedup. Cold/process wall and search total remain
 separate evidence.
+
+Native admission experiment: `GAGP_FINAL_EXECUTION_ADMISSION=1` omits future
+variation-site construction at the final GPU mutation admission. Canonical
+grammar membership, external AST/table validation, lowering, compaction, root
+contract and projected-budget admission are unchanged. Crossover still builds
+its analysis for immediate mutation preparation. Final children keep the same
+opaque executable certificate; any later variation analysis is built normally
+inside that generation, never represented by a truncated public analysis.
+
+`GAGP_SELECTED_SITES=1` is the native selected-site experiment: CPU1T, one root,
+no projected offspring budget, scalar AST constants and no active payload
+transaction. Other populations use the full native preparation path. Grammar
+membership/lowering and table validation still precede compaction. Logical sites
+are enumerated in the existing order; the same RNG shuffle chooses candidates,
+then only their full scope/resource/compatibility contracts are materialized.
+Repeated holes remain atomic. No site subset is published as a complete public
+variation analysis. GPU operators remain unchanged; their two copybacks and AST
+rebuilds still occur. Crossover/final children receive canonical execution
+admission without eagerly building future sites. Parent continuations own the
+exact scalar AST/proof and are bound to the packed source owner and context.

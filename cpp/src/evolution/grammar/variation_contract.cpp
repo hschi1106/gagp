@@ -1,4 +1,5 @@
 #include "gagp/evolution/grammar/variation_contract.hpp"
+#include "selected_variation.hpp"
 #include "gagp/evolution/grammar/resource_projection.hpp"
 #include "gagp/evolution/grammar/derivation_resources.hpp"
 
@@ -106,7 +107,9 @@ VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const Progra
 
 static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, const ProgramGenome& genome,
     const GenerationRequest& initial_request, CompatibilityRegistry* registry,
-    const ProjectedBudget* local_projected_budget, const std::vector<GenerationRequest>* requests) {
+    const ProjectedBudget* local_projected_budget, const std::vector<GenerationRequest>* requests,
+    const variation_detail::SiteSelector* selector = nullptr,
+    std::vector<std::size_t>* selected_indices = nullptr, std::size_t* total_sites = nullptr) {
   VariationAnalysis result;
   if (local_projected_budget && !resource_charges_are_local(grammar))
     throw std::invalid_argument("projected candidate allowance requires context-independent resource charges");
@@ -126,6 +129,42 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
   }
   using Group = std::tuple<std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t>;
   std::map<Group, std::size_t> groups;
+  std::vector<std::size_t> choice_groups;
+  std::vector<bool> selected_groups;
+  if (selector) {
+    // Enumerate eligibility/group identity only. Expensive per-site scope,
+    // resource and compatibility materialization follows selection.
+    std::map<Group, std::size_t> logical_groups;
+    choice_groups.assign(witness.choices.size(), std::numeric_limits<std::size_t>::max());
+    for (std::size_t i = 0; i < witness.choices.size(); ++i) {
+      const auto& choice = witness.choices[i];
+      const auto& nt = grammar.nonterminals().at(choice.nonterminal);
+      const auto& production = grammar.productions().at(choice.production);
+      if (!nt.variation_enabled || !production.variation_enabled ||
+          (nt.category != NodeCategory::Expression && nt.category != NodeCategory::Program)) continue;
+      if (production.unbound_variation) {
+        bool bound = false;
+        for (auto j = choice.ast_begin; j < choice.ast_end; ++j)
+          bound |= genome.ast.nodes[j].kind == NodeKind::REGION_VAR && !witness.nodes[j].fixed;
+        if (bound) continue;
+      }
+      const Group key{choice.nonterminal, witness.nodes.at(choice.ast_begin).logical_instance,
+          choice.template_instance, choice.slot};
+      const auto inserted = logical_groups.emplace(key, logical_groups.size());
+      choice_groups[i] = inserted.first->second;
+    }
+    *total_sites = logical_groups.size();
+    const auto requested = (*selector)(*total_sites);
+    selected_groups.assign(*total_sites, false);
+    for (auto index : requested) {
+      if (index >= *total_sites || selected_groups[index])
+        throw std::invalid_argument("selected variation sites must be distinct valid indices");
+      selected_groups[index] = true;
+    }
+    // Build in canonical order, then restore the selector's order below.
+    *selected_indices = requested;
+  }
+  std::vector<std::size_t> built_indices;
   // Within this verified AST/request, scope IDs identify exact locals and
   // nonterminal IDs identify formal environments. The cache never escapes it.
   using ContractShape = std::tuple<std::uint32_t, std::uint32_t, std::uint32_t,
@@ -134,6 +173,8 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
   std::map<ContractShape, std::string> contract_keys;
   const bool reuse_contracts = std::getenv("GAGP_REUSE_SITE_CONTRACTS") != nullptr;
   for (std::size_t choice_index = 0; choice_index < witness.choices.size(); ++choice_index) {
+    if (selector && (choice_groups[choice_index] == std::numeric_limits<std::size_t>::max() ||
+                     !selected_groups[choice_groups[choice_index]])) continue;
     const auto& choice = witness.choices[choice_index];
     const auto& nt = grammar.nonterminals().at(choice.nonterminal);
     const auto& production = grammar.productions().at(choice.production);
@@ -181,6 +222,7 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
       site.replacement_budget = request.budget;
       site.remaining_template_nesting = 256;
       const auto id = result.sites.size();
+      if (selector) built_indices.push_back(choice_groups[choice_index]);
       if (reuse_contracts)
         shapes.emplace_back(site.nonterminal, site.template_id, site.slot,
             nt.category == NodeCategory::Program ? kNoGrammarId : verified.expression_scope_ids.at(choice.ast_begin),
@@ -264,6 +306,16 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
     ++site_index;
     if (registry) site.compatibility_id = registry->intern(site.compatibility_key);
   }
+  if (selector) {
+    std::vector<VariationSite> ordered;
+    ordered.reserve(selected_indices->size());
+    for (auto index : *selected_indices) {
+      const auto found = std::find(built_indices.begin(), built_indices.end(), index);
+      if (found == built_indices.end()) throw std::logic_error("selected logical site was not built");
+      ordered.push_back(std::move(result.sites[static_cast<std::size_t>(found - built_indices.begin())]));
+    }
+    result.sites = std::move(ordered);
+  }
   return result;
 }
 
@@ -307,6 +359,20 @@ bool donor_fits(const VariationSite& destination, const VariationSite& donor) {
 }
 
 namespace variation_detail {
+SelectedVariationAnalysis analyze_selected_variation(const CompiledGrammar& grammar,
+    const ProgramGenome& genome, const std::vector<GenerationRequest>& requests,
+    const SiteSelector& select, CompatibilityRegistry* registry,
+    const ProjectedBudget* local_projected_budget) {
+  if (requests.empty()) throw std::invalid_argument("population requires a root request");
+  SelectedVariationAnalysis selected;
+  auto result = analyze_variation_impl(grammar, genome, requests.front(), registry,
+      local_projected_budget, &requests, &select, &selected.original_indices, &selected.total_sites);
+  selected.witness = std::move(result.witness);
+  selected.verified = std::move(result.verified);
+  selected.sites = std::move(result.sites);
+  return selected;
+}
+
 VariationAnalysis remap_compacted_analysis(const CompiledGrammar& grammar,
     const VariationAnalysis& source, const AstProgram& before, const AstProgram& after) {
   VariationAnalysis result = source;

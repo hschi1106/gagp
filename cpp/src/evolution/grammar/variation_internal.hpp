@@ -19,12 +19,17 @@ VariationAnalysis remap_compacted_analysis(const CompiledGrammar& grammar,
     const VariationAnalysis& source, const AstProgram& before, const AstProgram& after);
 
 ProgramGenome certify(ProgramGenome genome, VariationContext& context);
+ProgramGenome certify_execution(ProgramGenome genome, VariationContext& context);
 ProgramGenome fallback(const ProgramGenome& certified_parent, VariationContext& context);
 // The optional root is private owned-source evidence. Its caller must validate
 // the parent certificate's payload snapshot before work and before publication.
 // Candidate membership, lowering, budget and root-contract checks still run.
+enum class AdmissionUse { Variation, Execution };
+// Execution admission builds the same canonical membership/lowering witness,
+// but no future variation sites. It never publishes an incomplete cache entry.
 ProgramGenome accept(AstProgram candidate, const ProgramGenome& certified_parent,
-    VariationContext& context, std::optional<std::uint32_t> owned_parent_root = std::nullopt);
+    VariationContext& context, std::optional<std::uint32_t> owned_parent_root = std::nullopt,
+    AdmissionUse use = AdmissionUse::Variation);
 AstProgram splice(const AstProgram& base, const VariationSite& destination,
     const AstProgram& donor, VariationSpan payload, const std::vector<int>& donor_binder_ids,
     bool closed_crossover = false);

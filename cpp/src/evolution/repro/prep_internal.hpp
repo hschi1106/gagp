@@ -9,4 +9,7 @@ PreprocessOutput preprocess_warmed_population(const std::vector<ProgramGenome>& 
     const GpuReproConfig& config, grammar::VariationContext& context,
     std::shared_ptr<const ConstantMutationDomains> domains, bool prepare_donors,
     const std::vector<grammar::WarmPopulationMember>& handoff);
+PreprocessOutput preprocess_selected_population(const std::vector<ProgramGenome>& population,
+    const GpuReproConfig& config, grammar::VariationContext& context,
+    std::shared_ptr<const ConstantMutationDomains> domains, bool prepare_donors);
 }

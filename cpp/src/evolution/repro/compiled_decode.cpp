@@ -8,6 +8,7 @@
 #include <future>
 #include <thread>
 #include <cstring>
+#include <cstdlib>
 #include <limits>
 #include <optional>
 #include <stdexcept>
@@ -95,6 +96,10 @@ std::vector<ProgramGenome> decode_compiled_pass(
   const bool mutation = c.compiled_pass == CompiledVariationPass::Mutation;
   require(mutation || c.compiled_pass == CompiledVariationPass::Crossover,
           "compiled copyback has an unknown operator pass");
+  const auto admission_use = (mutation && std::getenv("GAGP_FINAL_EXECUTION_ADMISSION")) ||
+      (certificates && !certificates->admitted_parents.empty())
+      ? grammar::variation_detail::AdmissionUse::Execution
+      : grammar::variation_detail::AdmissionUse::Variation;
   const int physical_children = c.pair_count * 2;
   check_offsets(view.child_node_offsets, view.child_used_len, physical_children, c.max_nodes);
   check_offsets(view.child_name_offsets, view.child_name_counts, physical_children, c.max_names);
@@ -112,6 +117,9 @@ std::vector<ProgramGenome> decode_compiled_pass(
       ProgramGenome source;
       source.ast = packed.compiled_sources->parents[index];
       if (certificates && certificates->sources == packed.compiled_sources &&
+          certificates->context.get() == &context && certificates->admitted_parents.size() == parents.size()) {
+        cached = certificates->admitted_parents[index];
+      } else if (certificates && certificates->sources == packed.compiled_sources &&
           certificates->context.get() == &context &&
           certificates->metadata.size() == parents.size() &&
           certificates->analyses.size() == parents.size() &&
@@ -266,7 +274,7 @@ std::vector<ProgramGenome> decode_compiled_pass(
                 payload::StagedPayloads::Scope scope(*admission_reads[offset]);
                 local.counters() = {};
                 admitted[offset] = grammar::variation_detail::accept(
-                    staged[staged_indices[offset]].ast, *bases[offset], local, root);
+                    staged[staged_indices[offset]].ast, *bases[offset], local, root, admission_use);
                 admission_counts[offset] = local.counters();
               } catch (const std::exception&) { admitted[offset].reset(); }
             }
@@ -343,7 +351,7 @@ std::vector<ProgramGenome> decode_compiled_pass(
         total.unchanged_children += counts.unchanged_children;
         total.changed_children += counts.changed_children;
       } else {
-        child = grammar::variation_detail::accept(std::move(ast), base, context);
+        child = grammar::variation_detail::accept(std::move(ast), base, context, std::nullopt, admission_use);
       }
     }
     if (i < c.population_size) result.push_back(std::move(child));

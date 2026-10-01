@@ -173,6 +173,21 @@ ProgramGenome certify(ProgramGenome genome, VariationContext& context) {
   return genome;
 }
 
+ProgramGenome certify_execution(ProgramGenome genome, VariationContext& context) {
+  const auto reconstruct = [&] {
+    return reconstruct_population_derivation(context.grammar(), genome, context.requests());
+  };
+  // Admission precedes compaction: unused malformed tables must still reject.
+  auto witness = reconstruct();
+  const auto names = genome.ast.names.size();
+  const auto constants = genome.ast.consts.size();
+  genome = repro::compact_genome_tables(std::move(genome));
+  if (genome.ast.names.size() != names || genome.ast.consts.size() != constants)
+    witness = reconstruct();
+  genome.derivation = std::make_shared<const DerivationMetadata>(std::move(witness));
+  return genome;
+}
+
 ProgramGenome fallback(const ProgramGenome& certified_parent, VariationContext& context) {
   ++context.counters().fallback_children;
   ++context.counters().unchanged_children;
@@ -180,11 +195,12 @@ ProgramGenome fallback(const ProgramGenome& certified_parent, VariationContext& 
 }
 
 ProgramGenome accept(AstProgram candidate, const ProgramGenome& certified_parent,
-    VariationContext& context, std::optional<std::uint32_t> owned_parent_root) {
+    VariationContext& context, std::optional<std::uint32_t> owned_parent_root, AdmissionUse use) {
   ProgramGenome child;
   child.ast = std::move(candidate);
   try {
-    child = certify(std::move(child), context);
+    child = use == AdmissionUse::Execution ? certify_execution(std::move(child), context)
+                                          : certify(std::move(child), context);
     if (context.requests().size() > 1 && child.derivation->request.nonterminal !=
         (owned_parent_root ? *owned_parent_root :
             context.analyze(certified_parent)->witness.request.nonterminal))

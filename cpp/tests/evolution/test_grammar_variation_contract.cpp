@@ -6,6 +6,9 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <tuple>
+#include <numeric>
+#include "../../src/evolution/grammar/selected_variation.hpp"
 
 #include "gagp/evolution/grammar/variation_contract.hpp"
 #include "gagp/evolution/repro/pack.hpp"
@@ -19,6 +22,28 @@ namespace {
 
 void check(bool condition, const char* message) {
   if (!condition) throw std::runtime_error(message);
+}
+
+bool equal_site(const VariationSite& a, const VariationSite& b) {
+  const auto scalar = [](const auto& x) { return std::tie(x.nonterminal, x.type, x.category,
+      x.context, x.template_id, x.slot, x.crossover_group, x.crossover_closed,
+      x.replacement_budget.max_nodes, x.replacement_budget.max_depth,
+      x.remaining_template_nesting, x.materialized_nodes, x.materialized_depth,
+      x.template_nesting, x.projected_resources.nodes, x.projected_resources.carried_depth,
+      x.projected_resources.reset_depth, x.has_projected_allowance,
+      x.projected_allowance.surrounding_fits, x.projected_allowance.max_nodes,
+      x.projected_allowance.max_carried_depth, x.projected_allowance.max_reset_depth,
+      x.compatibility_key, x.occurrence_binder_ids); };
+  if (scalar(a) != scalar(b) || a.occurrences.size() != b.occurrences.size()) return false;
+  for (std::size_t i=0; i<a.occurrences.size(); ++i)
+    if (a.occurrences[i].begin != b.occurrences[i].begin || a.occurrences[i].end != b.occurrences[i].end) return false;
+  const auto bindings = [](const auto& x, const auto& y) {
+    if (x.size()!=y.size()) return false;
+    for(std::size_t i=0; i<x.size(); ++i) if(x[i].name!=y[i].name || x[i].type!=y[i].type) return false;
+    return true;
+  };
+  return bindings(a.visible_environment,b.visible_environment) &&
+      bindings(a.available_locals,b.available_locals) && bindings(a.free_locals,b.free_locals);
 }
 
 // Differentially exercise repeated holes, lexical scopes, nonterminal groups,
@@ -42,6 +67,30 @@ VariationAnalysis checked_analysis(Args&&... args) {
     check(reference.sites[i].compatibility_key == candidate.sites[i].compatibility_key &&
           reference.sites[i].compatibility_id == candidate.sites[i].compatibility_id,
           "contract reuse changed exact scope/nonterminal/group compatibility");
+  const auto arguments = std::forward_as_tuple(args...);
+  const auto& grammar = std::get<0>(arguments);
+  const auto& genome = std::get<1>(arguments);
+  for (int mode=0; mode<3; ++mode) {
+    const auto subset = variation_detail::analyze_selected_variation(grammar, genome,
+        {reference.witness.request}, [mode](std::size_t count) {
+          std::vector<std::size_t> ids;
+          for (std::size_t i=count; i>0; --i) if (mode==0 || (mode==1 && i%2)) ids.push_back(i-1);
+          return ids;
+        });
+    check(subset.total_sites == reference.sites.size(), "selected analysis changed logical group count");
+    for (std::size_t i=0; i<subset.sites.size(); ++i)
+      check(equal_site(subset.sites[i], reference.sites.at(subset.original_indices[i])),
+          "selected analysis changed occurrence/scope/resource/compatibility contract");
+  }
+  for (bool duplicate : {false,true}) {
+    bool rejected=false;
+    try { (void)variation_detail::analyze_selected_variation(grammar, genome,
+        {reference.witness.request}, [duplicate](std::size_t count) {
+          return duplicate && count ? std::vector<std::size_t>{0,0} : std::vector<std::size_t>{count};
+        });
+    } catch (const std::invalid_argument&) { rejected=true; }
+    check(rejected, "invalid selected logical site indices accepted");
+  }
   return candidate;
 }
 

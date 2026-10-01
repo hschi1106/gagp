@@ -10,6 +10,7 @@
 #include <thread>
 #include "../../runtime/payload/staging.hpp"
 #include <chrono>
+#include <cstdlib>
 #include <exception>
 #include <stdexcept>
 #include <string>
@@ -241,15 +242,30 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
       return owner->resource_invariant_roots(roots);
     });
   }
+  const bool selected_sites = std::getenv("GAGP_SELECTED_SITES") && gagp::host_thread_limit() == 1 &&
+      context->requests().size() == 1 && !context->offspring_budget() &&
+      !payload::StagedPayloads::has_active_scope() &&
+      std::all_of(population.begin(), population.end(), [](const auto& genome) {
+        return std::all_of(genome.ast.consts.begin(), genome.ast.consts.end(), [](const auto& value) {
+          return value.tag == ValueTag::Int || value.tag == ValueTag::Float ||
+              value.tag == ValueTag::Bool || value.tag == ValueTag::Char;
+        });
+      });
+  std::vector<ProgramGenome> execution_parents;
+  if (selected_sites) {
+    execution_parents.reserve(population.size());
+    for (const auto& parent : population)
+      execution_parents.push_back(grammar::variation_detail::certify_execution(parent, *context));
+  }
   std::vector<grammar::WarmPopulationMember> warmed_members;
-  context->cache().warm_population(population, context->requests(), 20, &warmed_members);
+  if (!selected_sites) context->cache().warm_population(population, context->requests(), 20, &warmed_members);
   out.compiled_context = context;
   // Only the private mutation pass receives decode_compiled_pass output:
   // accepted children and certified fallbacks already have compact tables.
   // Keep warming/revalidation above so registry changes remain observable.
-  const auto compacted_population = pass == CompiledVariationPass::Mutation
+  const auto compacted_population = selected_sites || pass == CompiledVariationPass::Mutation
       ? std::vector<ProgramGenome>{} : compact_prepared_population(population);
-  const auto& packed_population = pass == CompiledVariationPass::Mutation
+  const auto& packed_population = selected_sites ? execution_parents : pass == CompiledVariationPass::Mutation
       ? population : compacted_population;
   // Compaction changes exact cache identities when unused table entries are
   // removed. Keep the original validation above (including unused payloads),
@@ -259,7 +275,7 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
   for (std::size_t i = 0; i < population.size(); ++i)
     compacted_tables |= population[i].ast.names.size() != packed_population[i].ast.names.size() ||
         population[i].ast.consts.size() != packed_population[i].ast.consts.size();
-  if (compacted_tables && !OwnedCompactedAnalysis::transport(*context, population, packed_population, warmed_members))
+  if (!selected_sites && compacted_tables && !OwnedCompactedAnalysis::transport(*context, population, packed_population, warmed_members))
     context->cache().warm_population(packed_population, context->requests(), 20, &warmed_members);
   out.config = make_gpu_repro_config(packed_population, cfg);
   out.config.seed = seed;
@@ -295,7 +311,9 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
       live.push_back(domains);
     }
   }
-  const PreprocessOutput prep =
+  const PreprocessOutput prep = selected_sites ?
+      preprocess_selected_population(packed_population, out.config, *context, domains,
+          pass == CompiledVariationPass::Mutation) :
       preprocess_warmed_population(packed_population, out.config, *context, domains,
           pass == CompiledVariationPass::Mutation, warmed_members);
   const auto prep_t1 = std::chrono::steady_clock::now();
@@ -304,8 +322,16 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
   }
 
   const auto pack_t0 = std::chrono::steady_clock::now();
-  out.packed = pack_warmed_population(packed_population, prep, out.config, warmed_members);
-  if (warmed_members.size() == packed_population.size()) {
+  out.packed = selected_sites ? pack_population(packed_population, prep, out.config) :
+      pack_warmed_population(packed_population, prep, out.config, warmed_members);
+  if (selected_sites) {
+    auto certificates = std::make_shared<PreparedParentCertificates>();
+    certificates->sources = out.packed.compiled_sources;
+    certificates->context = context;
+    certificates->admitted_parents = std::move(execution_parents);
+    out.parent_certificates = std::move(certificates);
+  }
+  if (!selected_sites && warmed_members.size() == packed_population.size()) {
     auto certificates = std::make_shared<PreparedParentCertificates>();
     certificates->sources = out.packed.compiled_sources;
     certificates->context = context;

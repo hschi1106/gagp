@@ -14,9 +14,22 @@ nine short searches (3 seeds ×4 generations) and exported ASTs match exactly.
 Raw binary/repeats/commands: `logs/optimization/native-node-index-validation/`;
 summary [descriptor validation](results/native-node-index-validation.json).
 Flags unchanged from E+F, CPU1T. No interface/navigation change.
-Candidate J underway: omit unused future sites at final GPU mutation admission,
-keeping canonical membership/lowering, compaction and budgets. Raw
-`logs/optimization/native-final-admission/`. Not promoted yet.
+Candidate J final execution-only admission: quick401.6/423.1/426.5 ms, too small
+to promote alone. Combined candidate K (`GAGP_SELECTED_SITES=1`) keeps GPU
+operators and canonical admission, selects logical sites before materializing
+contracts, and uses scalar private parent continuations. Full path fallback:
+multiple root requests, projected budgets, registry constants, staged payloads,
+or explicit multiple workers. Quick386.695/401.850/395.286 ms, all non-time fields
+match. Five focused tests pass, including full-vs-selected contract fields,
+repeated holes, scopes, invalid selector and source/context boundary checks.
+One test's legacy-only direct site access initially segfaulted; its original
+checks remain, now comparing both owned admission and full analysis against
+independent fresh analysis. No failed safety assertions were removed.
+Raw `logs/optimization/native-selected-sites/`; formal repeats, snapshots and
+3 seeds ×4/32-generation searches running in `native-selected-sites-validation`.
+This is a recoverable experiment, not yet the validated best (still `a5562f8`).
+Next: evaluate results, then profile remaining admission/identity work; two GPU
+copybacks/AST rebuilds remain. No CPU fragment path or application worker added.
 
 ## Current fair baseline
 

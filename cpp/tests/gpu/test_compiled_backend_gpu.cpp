@@ -438,6 +438,7 @@ void test_prepared_parent_certificates() {
       auto invalidated = std::make_shared<gagp::evo::repro::PreparedParentCertificates>(
           *certificates);
       if (boundary == 0) {
+        if (!invalidated->admitted_parents.empty()) invalidated->admitted_parents.pop_back();
         for (auto& row : invalidated->analyses)
           row.reads = std::make_shared<gagp::payload::StagedPayloads>();
       } else if (boundary == 1) {
@@ -448,6 +449,7 @@ void test_prepared_parent_certificates() {
             grammar, certificates->context->requests());
       }
       for (auto& meta : invalidated->metadata) meta.program_key = "invalidated";
+      for (auto& parent : invalidated->admitted_parents) parent.meta.program_key = "invalidated";
       prepared.parent_certificates = invalidated;
       const auto fallback = gagp::evo::repro::run_gpu_repro_backend_prepared(scored, config, prepared);
       require(same_population(fallback.next_population, reference.next_population) &&
@@ -551,7 +553,13 @@ void test_compacted_analysis_drops_unused_inputs() {
     require(compacted.ast.names.empty(), "fixture retained unused input names");
     const auto fresh = gagp::evo::grammar::analyze_population_variation(
         *grammar, compacted, saved.context->requests());
-    const auto& transported = *saved.analyses[i].analysis;
+    const auto admitted = saved.admitted_parents.empty()
+        ? std::optional<gagp::evo::grammar::VariationAnalysis>{}
+        : gagp::evo::grammar::analyze_population_variation(
+            *grammar, saved.admitted_parents.at(i), saved.context->requests());
+    require(admitted || (saved.analyses.size() == population.size() && saved.analyses[i].analysis),
+            "compaction lost its admission continuation");
+    const auto& transported = admitted ? *admitted : *saved.analyses[i].analysis;
     require(transported.verified.expression_types == fresh.verified.expression_types &&
             transported.verified.expression_scope_ids == fresh.verified.expression_scope_ids &&
             transported.verified.expression_scope_signatures == fresh.verified.expression_scope_signatures &&
