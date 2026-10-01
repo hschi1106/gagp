@@ -6,23 +6,23 @@ Median remains fixed-overhead workload. Do not resume retired CPU fragment route
 
 ## Current best and active experiment
 
-Best source `36af0f0` (selected-site runtime plus CPU Slice bounds safety), with
+Best source `d72b5f4` (immutable scalar native preparation), with
 locally extracted jemalloc 5.2.1-4ubuntu1. Use `round2.py` FLAGS and process env:
 ```
 LD_PRELOAD=$PWD/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2
 MALLOC_CONF=background_thread:false,narenas:1
 ```
 No system installation; allocator confirms no background workers and one arena.
-Nine-repeat full-generation medians Sum327.337 / House345.025 / Median334.239ms;
-same-binary default allocator controls385.951 /411.821 /401.731ms.
-Frozen headline5.625x Sum /3.716x House, not30x. All3072 snapshots,3 seeds x4/32
-generation results and final ASTs match. All5 native mode non-time fields match.
-All120 native tests pass with best flags/allocator; scaling still pending.
-Archive/repeats/commands `logs/optimization/native-allocator-validation/`, matching
-long controls `native-allocator-long-controls/`; [validation](results/native-allocator-validation.json).
+Nine-repeat full-generation medians Sum279.706 / House295.679 / Median288.718ms;
+same-round allocator controls329.388 /348.488 /339.451ms.
+Frozen headline6.583x Sum /4.336x House, not30x. All3072 snapshots,3 seeds x4/32
+generation results and final ASTs match. Four focused native/safety tests pass.
+Full regression passed120 tests before N; current candidate full regression and
+scaling still pending. Use `round2.py` flags including `GAGP_OWNED_PREPARATION=1`.
+Archive/repeats/commands `logs/optimization/native-owned-validation/`;
+[validation](results/native-owned-validation.json).
 Dependency hashes at `logs/optimization/native-allocator/dependency.json`.
-Earlier selected-site source-only results remain in
-[validation](results/native-selected-sites-validation.json).
+Earlier allocator and selected-site results remain in their historical manifests.
 
 K selects logical sites before materializing contracts and uses owned scalar
 parent continuations. Full fallback for multiple root requests, projected
@@ -47,7 +47,7 @@ New Median NVTX diagnostic (373ms profiled vs334ms unprofiled):13,915 runtime
 identities92.5ms; membership Matcher21.5ms self, witness22.0ms self;
 2 decode passes128.4ms inclusive; selected analysis63.4ms inclusive.
 Raw timeline/attribution: `logs/optimization/native-selected-profile/`.
-Candidate N (isolated `GAGP_OWNED_PREPARATION=1`, validation running): an owned immutable scalar population can share its admission
+Retained N (`d72b5f4`, `GAGP_OWNED_PREPARATION=1`): an owned immutable scalar population can share its admission
 witness/VerifiedAst/identity through native preprocess/pack, avoiding repeated
 serialization and proof copies while preserving public input checks. Keep GPU
 operators, RNG, membership and both copybacks unchanged for this experiment.
@@ -55,9 +55,15 @@ Quick paired full generation: Sum325.464->284.576 /House350.142->297.930 /
 Median330.887->289.507ms. Four focused tests pass (including owner/input mutation,
 request/domain/payload/index/lifetime checks). Raw `logs/optimization/native-owned-preparation/`;
 9-repeat, fixed snapshot and3-seed4/32-gen validation `native-owned-validation/`.
-Not yet promoted. Next independent CPU experiment: invocation-local IntList views
+Formal9-repeat and3-seed4/32-gen comparisons pass; retained.
+Candidate O (`GAGP_CPU_REGION_VIEWS=1`): invocation-local IntList views
 for statically proved region phases, eliminating intermediate Slice registry
 hash/copy work; original CPU VM/region control flow and numeric/fuel remain.
+5 focused parity/region/session tests pass. Quick P1024 CPU full generations and
+3072 GPU+CPU snapshots running in `logs/optimization/native-cpu-views/`.
+No CPU workers, no view escape into root code; memo list states unsupported.
+Temporary slice registry contents are intentionally not materialized in this
+profile (same scalar-content aim as GPU views); no claimed speedup yet.
 
 ## Current fair baseline
 

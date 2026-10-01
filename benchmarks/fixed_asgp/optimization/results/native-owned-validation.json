@@ -1,0 +1,301 @@
+{
+  "formal": {
+    "sum_of_elements": {
+      "before": {
+        "samples_ms": [
+          327.217466,
+          324.468254,
+          325.547043,
+          338.013654,
+          339.289654,
+          340.058493,
+          330.071753,
+          329.388135,
+          329.082312
+        ],
+        "median_ms": 329.388135,
+        "min_ms": 324.468254,
+        "max_ms": 340.058493
+      },
+      "after": {
+        "samples_ms": [
+          278.71331,
+          276.009819,
+          276.34609,
+          279.706342,
+          280.268052,
+          278.165042,
+          282.64382,
+          280.393845,
+          280.177146
+        ],
+        "median_ms": 279.706342,
+        "min_ms": 276.009819,
+        "max_ms": 282.64382
+      }
+    },
+    "house_robber": {
+      "before": {
+        "samples_ms": [
+          351.774694,
+          348.380141,
+          348.345823,
+          342.818473,
+          340.96618,
+          348.487913,
+          355.058492,
+          353.82531,
+          352.632763
+        ],
+        "median_ms": 348.487913,
+        "min_ms": 340.96618,
+        "max_ms": 355.058492
+      },
+      "after": {
+        "samples_ms": [
+          297.774023,
+          298.716554,
+          295.314317,
+          295.678742,
+          294.438647,
+          300.198244,
+          296.785504,
+          295.243587,
+          294.796075
+        ],
+        "median_ms": 295.678742,
+        "min_ms": 294.438647,
+        "max_ms": 300.198244
+      }
+    },
+    "median": {
+      "before": {
+        "samples_ms": [
+          343.912469,
+          345.234206,
+          344.46042,
+          333.977806,
+          334.955963,
+          332.946559,
+          346.66877,
+          337.113726,
+          339.451432
+        ],
+        "median_ms": 339.451432,
+        "min_ms": 332.946559,
+        "max_ms": 346.66877
+      },
+      "after": {
+        "samples_ms": [
+          296.06781,
+          294.290898,
+          296.626332,
+          285.499253,
+          285.971546,
+          288.275835,
+          291.004033,
+          288.718374,
+          286.52542
+        ],
+        "median_ms": 288.718374,
+        "min_ms": 285.499253,
+        "max_ms": 296.626332
+      }
+    }
+  },
+  "snapshots": {
+    "sum_of_elements": {
+      "programs": 1024,
+      "all_fields_match": true
+    },
+    "house_robber": {
+      "programs": 1024,
+      "all_fields_match": true
+    },
+    "median": {
+      "programs": 1024,
+      "all_fields_match": true
+    }
+  },
+  "quality": [
+    {
+      "task": "sum_of_elements",
+      "seed": 0,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1388.144583,
+      "after_evolve_ms": 1289.588487
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 1,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1392.903899,
+      "after_evolve_ms": 1278.030005
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 2,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1375.407253,
+      "after_evolve_ms": 1267.118953
+    },
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1357.418531,
+      "after_evolve_ms": 1199.130413
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1330.588334,
+      "after_evolve_ms": 1189.468977
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1320.08394,
+      "after_evolve_ms": 1171.375633
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1529.130941,
+      "after_evolve_ms": 1359.92648
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1514.160776,
+      "after_evolve_ms": 1345.624296
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1533.998755,
+      "after_evolve_ms": 1348.188705
+    }
+  ],
+  "long_quality": [
+    {
+      "task": "sum_of_elements",
+      "seed": 0,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 11735.805486,
+      "after_wall_ms": 10724.598569,
+      "resources": {
+        "before": "rss_kb=1338848\nwall_seconds=13.27\n",
+        "after": "rss_kb=1345160\nwall_seconds=12.28\n"
+      }
+    },
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 12351.13182,
+      "after_wall_ms": 10580.301701,
+      "resources": {
+        "before": "rss_kb=1340812\nwall_seconds=13.71\n",
+        "after": "rss_kb=1340312\nwall_seconds=11.95\n"
+      }
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 13788.27785,
+      "after_wall_ms": 11800.757459,
+      "resources": {
+        "before": "rss_kb=1439216\nwall_seconds=15.13\n",
+        "after": "rss_kb=1439644\nwall_seconds=13.13\n"
+      }
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 1,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 12699.870126,
+      "after_wall_ms": 11676.248123,
+      "resources": {
+        "before": "rss_kb=1292528\nwall_seconds=14.25\n",
+        "after": "rss_kb=1304740\nwall_seconds=13.21\n"
+      }
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 10084.492661,
+      "after_wall_ms": 8991.656961,
+      "resources": {
+        "before": "rss_kb=1158708\nwall_seconds=11.33\n",
+        "after": "rss_kb=1155968\nwall_seconds=10.26\n"
+      }
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 13492.440284,
+      "after_wall_ms": 11494.505881,
+      "resources": {
+        "before": "rss_kb=1346692\nwall_seconds=14.70\n",
+        "after": "rss_kb=1351492\nwall_seconds=12.71\n"
+      }
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 2,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 11573.216688,
+      "after_wall_ms": 10336.365772,
+      "resources": {
+        "before": "rss_kb=1330692\nwall_seconds=13.06\n",
+        "after": "rss_kb=1333004\nwall_seconds=11.83\n"
+      }
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 10218.580699,
+      "after_wall_ms": 8868.726068,
+      "resources": {
+        "before": "rss_kb=1170064\nwall_seconds=11.40\n",
+        "after": "rss_kb=1170468\nwall_seconds=10.05\n"
+      }
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 14296.467976,
+      "after_wall_ms": 12258.420483,
+      "resources": {
+        "before": "rss_kb=1418540\nwall_seconds=15.61\n",
+        "after": "rss_kb=1421352\nwall_seconds=13.56\n"
+      }
+    }
+  ],
+  "source": "d72b5f4",
+  "manifest": "logs/optimization/native-owned-validation/manifest.json",
+  "contract": "Same native GPU operators/RNG/canonical admission/cases; private immutable scalar preparation, no application worker threads",
+  "flags_added": {
+    "GAGP_OWNED_PREPARATION": "1"
+  }
+}
