@@ -1,0 +1,821 @@
+[
+  {
+    "task": "sum_of_elements",
+    "seed": 0,
+    "mode": "native",
+    "threshold": 0,
+    "generations": 32,
+    "search_total_ms": 8011.064648,
+    "cold_charged_ms": 145.63376600000043,
+    "budget_prefix": {
+      "1000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": false,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1021,
+    "first_16_gen_median_ms": 187.229921,
+    "last_16_gen_median_ms": 284.5054425,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.029173851013183594
+  },
+  {
+    "task": "sum_of_elements",
+    "seed": 0,
+    "mode": "fragments",
+    "threshold": 0,
+    "generations": 128,
+    "search_total_ms": 20818.838681,
+    "cold_charged_ms": 183.0101799999975,
+    "budget_prefix": {
+      "1000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1021,
+    "first_16_gen_median_ms": 69.3501645,
+    "last_16_gen_median_ms": 235.1364115,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.021724700927734375,
+    "live_fragments_quarters": [
+      2328,
+      2161,
+      2190,
+      2213
+    ],
+    "rss_mib_quarters": [
+      997.671875,
+      1057.31640625,
+      1156.109375,
+      1250.91796875
+    ],
+    "changed_fraction_last16": 0.9168499511241446
+  },
+  {
+    "task": "sum_of_elements",
+    "seed": 1,
+    "mode": "native",
+    "threshold": 0,
+    "generations": 32,
+    "search_total_ms": 9141.444418,
+    "cold_charged_ms": 147.75645799999947,
+    "budget_prefix": {
+      "1000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": false,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1023,
+    "first_16_gen_median_ms": 195.584699,
+    "last_16_gen_median_ms": 329.3463195,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.01853656768798828
+  },
+  {
+    "task": "sum_of_elements",
+    "seed": 1,
+    "mode": "fragments",
+    "threshold": 0,
+    "generations": 128,
+    "search_total_ms": 20039.659157,
+    "cold_charged_ms": 182.03476900000896,
+    "budget_prefix": {
+      "1000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1017,
+    "first_16_gen_median_ms": 73.5506845,
+    "last_16_gen_median_ms": 237.207721,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.015611648559570312,
+    "live_fragments_quarters": [
+      2338,
+      2189,
+      2203,
+      2213
+    ],
+    "rss_mib_quarters": [
+      1020.23046875,
+      1099.88671875,
+      1179.00390625,
+      1275.2578125
+    ],
+    "changed_fraction_last16": 0.9151392961876832
+  },
+  {
+    "task": "sum_of_elements",
+    "seed": 2,
+    "mode": "native",
+    "threshold": 0,
+    "generations": 32,
+    "search_total_ms": 7754.426636,
+    "cold_charged_ms": 148.12661700000237,
+    "budget_prefix": {
+      "1000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": false,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1022,
+    "first_16_gen_median_ms": 190.1188445,
+    "last_16_gen_median_ms": 271.240256,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.009765625
+  },
+  {
+    "task": "sum_of_elements",
+    "seed": 2,
+    "mode": "fragments",
+    "threshold": 0,
+    "generations": 128,
+    "search_total_ms": 20172.967696,
+    "cold_charged_ms": 193.1825669999962,
+    "budget_prefix": {
+      "1000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1019,
+    "first_16_gen_median_ms": 73.9330775,
+    "last_16_gen_median_ms": 234.0372795,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.015501022338867188,
+    "live_fragments_quarters": [
+      2286,
+      2160,
+      2195,
+      2210
+    ],
+    "rss_mib_quarters": [
+      1005.6875,
+      1067.9296875,
+      1157.72265625,
+      1228.5546875
+    ],
+    "changed_fraction_last16": 0.9057306940371457
+  },
+  {
+    "task": "house_robber",
+    "seed": 0,
+    "mode": "native",
+    "threshold": -7500,
+    "generations": 32,
+    "search_total_ms": 7577.104805,
+    "cold_charged_ms": 137.87509599999916,
+    "budget_prefix": {
+      "1000": {
+        "best": -8479,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -7570,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "5000": {
+        "best": -7570,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "10000": {
+        "best": -7570,
+        "covered": false,
+        "threshold_hit": false
+      }
+    },
+    "final_best": -8298,
+    "unique_genotypes": 1014,
+    "first_16_gen_median_ms": 159.6997725,
+    "last_16_gen_median_ms": 282.756572,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0
+  },
+  {
+    "task": "house_robber",
+    "seed": 0,
+    "mode": "fragments",
+    "threshold": -7500,
+    "generations": 128,
+    "search_total_ms": 15313.870741,
+    "cold_charged_ms": 193.63835900000595,
+    "budget_prefix": {
+      "1000": {
+        "best": -7376,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": -7250,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -3236,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -3031,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -3010,
+    "unique_genotypes": 1017,
+    "first_16_gen_median_ms": 47.748262499999996,
+    "last_16_gen_median_ms": 192.798284,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0,
+    "live_fragments_quarters": [
+      1754,
+      1658,
+      1693,
+      1673
+    ],
+    "rss_mib_quarters": [
+      880.46875,
+      964.3046875,
+      1214.3046875,
+      1259.6640625
+    ],
+    "changed_fraction_last16": 0.9265029325513197
+  },
+  {
+    "task": "house_robber",
+    "seed": 1,
+    "mode": "native",
+    "threshold": -7500,
+    "generations": 32,
+    "search_total_ms": 6039.837853,
+    "cold_charged_ms": 138.38232000000053,
+    "budget_prefix": {
+      "1000": {
+        "best": -8503,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -7465,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -7465,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -7418,
+        "covered": false,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -7418,
+    "unique_genotypes": 1011,
+    "first_16_gen_median_ms": 146.000991,
+    "last_16_gen_median_ms": 206.4308345,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0
+  },
+  {
+    "task": "house_robber",
+    "seed": 1,
+    "mode": "fragments",
+    "threshold": -7500,
+    "generations": 128,
+    "search_total_ms": 19629.933841,
+    "cold_charged_ms": 194.66436599999724,
+    "budget_prefix": {
+      "1000": {
+        "best": -7500,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": -4477,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1018,
+    "first_16_gen_median_ms": 51.971976999999995,
+    "last_16_gen_median_ms": 305.0237105,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0,
+    "live_fragments_quarters": [
+      1713,
+      1649,
+      1729,
+      1731
+    ],
+    "rss_mib_quarters": [
+      1012.25,
+      1065.61328125,
+      1119.48046875,
+      1320.94921875
+    ],
+    "changed_fraction_last16": 0.927480449657869
+  },
+  {
+    "task": "house_robber",
+    "seed": 2,
+    "mode": "native",
+    "threshold": -7500,
+    "generations": 32,
+    "search_total_ms": 6218.044149,
+    "cold_charged_ms": 139.29786200000086,
+    "budget_prefix": {
+      "1000": {
+        "best": -8479,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -8066,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "5000": {
+        "best": -7570,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "10000": {
+        "best": -7534,
+        "covered": false,
+        "threshold_hit": false
+      }
+    },
+    "final_best": -7570,
+    "unique_genotypes": 1020,
+    "first_16_gen_median_ms": 151.464362,
+    "last_16_gen_median_ms": 209.857391,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0
+  },
+  {
+    "task": "house_robber",
+    "seed": 2,
+    "mode": "fragments",
+    "threshold": -7500,
+    "generations": 128,
+    "search_total_ms": 16260.834151,
+    "cold_charged_ms": 194.15139099999578,
+    "budget_prefix": {
+      "1000": {
+        "best": -7340,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": -5104,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -1344,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1018,
+    "first_16_gen_median_ms": 52.172097,
+    "last_16_gen_median_ms": 246.5033435,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0,
+    "live_fragments_quarters": [
+      1733,
+      1668,
+      1690,
+      1723
+    ],
+    "rss_mib_quarters": [
+      882.828125,
+      1020.65234375,
+      1051.25,
+      1221.0625
+    ],
+    "changed_fraction_last16": 0.926747311827957
+  },
+  {
+    "task": "median",
+    "seed": 0,
+    "mode": "native",
+    "threshold": -25000,
+    "generations": 32,
+    "search_total_ms": 7750.472299,
+    "cold_charged_ms": 136.73997799999933,
+    "budget_prefix": {
+      "1000": {
+        "best": -31025,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -28478,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "5000": {
+        "best": -25642,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "10000": {
+        "best": -23674,
+        "covered": false,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -23674,
+    "unique_genotypes": 1023,
+    "first_16_gen_median_ms": 202.56318750000003,
+    "last_16_gen_median_ms": 244.6046705,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.033835411071777344
+  },
+  {
+    "task": "median",
+    "seed": 0,
+    "mode": "fragments",
+    "threshold": -25000,
+    "generations": 128,
+    "search_total_ms": 7323.58005,
+    "cold_charged_ms": 192.4402909999999,
+    "budget_prefix": {
+      "1000": {
+        "best": -24880,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": -17259,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -15978,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -14775,
+        "covered": false,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -14755,
+    "unique_genotypes": 1017,
+    "first_16_gen_median_ms": 36.198924,
+    "last_16_gen_median_ms": 83.147618,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.03700447082519531,
+    "live_fragments_quarters": [
+      2314,
+      1914,
+      1935,
+      1957
+    ],
+    "rss_mib_quarters": [
+      1079.0390625,
+      1080.1484375,
+      1104.375,
+      1155.02734375
+    ],
+    "changed_fraction_last16": 0.8943670576735092
+  },
+  {
+    "task": "median",
+    "seed": 1,
+    "mode": "native",
+    "threshold": -25000,
+    "generations": 32,
+    "search_total_ms": 7543.418174,
+    "cold_charged_ms": 137.68914800000124,
+    "budget_prefix": {
+      "1000": {
+        "best": -31025,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -28559,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "5000": {
+        "best": -24925,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -24897,
+        "covered": false,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -24897,
+    "unique_genotypes": 1023,
+    "first_16_gen_median_ms": 198.4785345,
+    "last_16_gen_median_ms": 265.9040525,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.028618812561035156
+  },
+  {
+    "task": "median",
+    "seed": 1,
+    "mode": "fragments",
+    "threshold": -25000,
+    "generations": 128,
+    "search_total_ms": 5832.782118,
+    "cold_charged_ms": 189.74268799999845,
+    "budget_prefix": {
+      "1000": {
+        "best": -25397,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -23206,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -15358,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -14837,
+        "covered": false,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -14837,
+    "unique_genotypes": 1014,
+    "first_16_gen_median_ms": 31.175121,
+    "last_16_gen_median_ms": 61.59553,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.036224365234375,
+    "live_fragments_quarters": [
+      2350,
+      1937,
+      1926,
+      1905
+    ],
+    "rss_mib_quarters": [
+      1011.421875,
+      1019.84375,
+      1038.8671875,
+      1073.50390625
+    ],
+    "changed_fraction_last16": 0.8987658846529814
+  },
+  {
+    "task": "median",
+    "seed": 2,
+    "mode": "native",
+    "threshold": -25000,
+    "generations": 32,
+    "search_total_ms": 7978.523244,
+    "cold_charged_ms": 140.6830090000015,
+    "budget_prefix": {
+      "1000": {
+        "best": -28478,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -28478,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "5000": {
+        "best": -24467,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -22288,
+        "covered": false,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -22288,
+    "unique_genotypes": 1023,
+    "first_16_gen_median_ms": 197.9591915,
+    "last_16_gen_median_ms": 296.646763,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.024847030639648438
+  },
+  {
+    "task": "median",
+    "seed": 2,
+    "mode": "fragments",
+    "threshold": -25000,
+    "generations": 128,
+    "search_total_ms": 6045.832398,
+    "cold_charged_ms": 198.4433570000001,
+    "budget_prefix": {
+      "1000": {
+        "best": -25900,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -17267,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -16630,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -15902,
+        "covered": false,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -15849,
+    "unique_genotypes": 1012,
+    "first_16_gen_median_ms": 27.286969,
+    "last_16_gen_median_ms": 63.061394,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.05686378479003906,
+    "live_fragments_quarters": [
+      2333,
+      1994,
+      2021,
+      1963
+    ],
+    "rss_mib_quarters": [
+      1001.23828125,
+      1044.95703125,
+      1060.06640625,
+      1089.16015625
+    ],
+    "changed_fraction_last16": 0.8872800586510263
+  }
+]

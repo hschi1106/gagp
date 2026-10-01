@@ -1,0 +1,464 @@
+{
+  "measurements": [
+    {
+      "task": "sum_of_elements",
+      "label": "cold_application_eval",
+      "skip_matching": 0,
+      "launches_per_generation": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metrics": [
+        {
+          "Metric Name": "dram__bytes_read.avg",
+          "Metric Unit": "Mbyte",
+          "Metric Value": "674.712768"
+        },
+        {
+          "Metric Name": "dram__bytes_read.max",
+          "Metric Unit": "Mbyte",
+          "Metric Value": "694.790784"
+        },
+        {
+          "Metric Name": "dram__bytes_read.min",
+          "Metric Unit": "Mbyte",
+          "Metric Value": "658.138752"
+        },
+        {
+          "Metric Name": "dram__bytes_read.sum",
+          "Metric Unit": "Gbyte",
+          "Metric Value": "8.096553"
+        },
+        {
+          "Metric Name": "gpu__time_duration.sum",
+          "Metric Unit": "ms",
+          "Metric Value": "40.665216"
+        },
+        {
+          "Metric Name": "l1tex__t_sector_hit_rate.pct",
+          "Metric Unit": "%",
+          "Metric Value": "72.579516"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.avg",
+          "Metric Unit": "sector",
+          "Metric Value": "8447072.048780"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.max",
+          "Metric Unit": "sector",
+          "Metric Value": "15513433.000000"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.min",
+          "Metric Unit": "sector",
+          "Metric Value": "4338532.000000"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum",
+          "Metric Unit": "sector",
+          "Metric Value": "692659908.000000"
+        },
+        {
+          "Metric Name": "smsp__issue_active.avg.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "15.482647"
+        },
+        {
+          "Metric Name": "smsp__issue_active.max.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "26.638585"
+        },
+        {
+          "Metric Name": "smsp__issue_active.min.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "10.629021"
+        },
+        {
+          "Metric Name": "smsp__issue_active.sum.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "15.482647"
+        },
+        {
+          "Metric Name": "smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct",
+          "Metric Unit": "%",
+          "Metric Value": "59.722700"
+        },
+        {
+          "Metric Name": "smsp__warp_issue_stalled_short_scoreboard_per_warp_active.pct",
+          "Metric Unit": "%",
+          "Metric Value": "2.273644"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.avg.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "0.179114"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.max.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "0.483218"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.min.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "0.115118"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.sum.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "58.749230"
+        }
+      ]
+    },
+    {
+      "task": "sum_of_elements",
+      "label": "warm_application_eval",
+      "skip_matching": 1,
+      "launches_per_generation": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metrics": [
+        {
+          "Metric Name": "dram__bytes_read.avg",
+          "Metric Unit": "Mbyte",
+          "Metric Value": "675.957984"
+        },
+        {
+          "Metric Name": "dram__bytes_read.max",
+          "Metric Unit": "Mbyte",
+          "Metric Value": "699.292800"
+        },
+        {
+          "Metric Name": "dram__bytes_read.min",
+          "Metric Unit": "Mbyte",
+          "Metric Value": "660.559872"
+        },
+        {
+          "Metric Name": "dram__bytes_read.sum",
+          "Metric Unit": "Gbyte",
+          "Metric Value": "8.111496"
+        },
+        {
+          "Metric Name": "gpu__time_duration.sum",
+          "Metric Unit": "ms",
+          "Metric Value": "41.452416"
+        },
+        {
+          "Metric Name": "l1tex__t_sector_hit_rate.pct",
+          "Metric Unit": "%",
+          "Metric Value": "72.536351"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.avg",
+          "Metric Unit": "sector",
+          "Metric Value": "8447073.682927"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.max",
+          "Metric Unit": "sector",
+          "Metric Value": "14058952.000000"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.min",
+          "Metric Unit": "sector",
+          "Metric Value": "4797196.000000"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum",
+          "Metric Unit": "sector",
+          "Metric Value": "692660042.000000"
+        },
+        {
+          "Metric Name": "smsp__issue_active.avg.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "15.411848"
+        },
+        {
+          "Metric Name": "smsp__issue_active.max.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "25.902465"
+        },
+        {
+          "Metric Name": "smsp__issue_active.min.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "10.830546"
+        },
+        {
+          "Metric Name": "smsp__issue_active.sum.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "15.411848"
+        },
+        {
+          "Metric Name": "smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct",
+          "Metric Unit": "%",
+          "Metric Value": "59.902094"
+        },
+        {
+          "Metric Name": "smsp__warp_issue_stalled_short_scoreboard_per_warp_active.pct",
+          "Metric Unit": "%",
+          "Metric Value": "2.268159"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.avg.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "0.177825"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.max.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "0.335115"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.min.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "0.114388"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.sum.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "58.326751"
+        }
+      ]
+    },
+    {
+      "task": "house_robber",
+      "label": "cold_application_eval",
+      "skip_matching": 0,
+      "launches_per_generation": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metrics": [
+        {
+          "Metric Name": "dram__bytes_read.avg",
+          "Metric Unit": "Mbyte",
+          "Metric Value": "649.476949"
+        },
+        {
+          "Metric Name": "dram__bytes_read.max",
+          "Metric Unit": "Mbyte",
+          "Metric Value": "669.395328"
+        },
+        {
+          "Metric Name": "dram__bytes_read.min",
+          "Metric Unit": "Mbyte",
+          "Metric Value": "638.794880"
+        },
+        {
+          "Metric Name": "dram__bytes_read.sum",
+          "Metric Unit": "Gbyte",
+          "Metric Value": "7.793723"
+        },
+        {
+          "Metric Name": "gpu__time_duration.sum",
+          "Metric Unit": "ms",
+          "Metric Value": "32.860832"
+        },
+        {
+          "Metric Name": "l1tex__t_sector_hit_rate.pct",
+          "Metric Unit": "%",
+          "Metric Value": "70.915125"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.avg",
+          "Metric Unit": "sector",
+          "Metric Value": "8045036.597561"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.max",
+          "Metric Unit": "sector",
+          "Metric Value": "11818639.000000"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.min",
+          "Metric Unit": "sector",
+          "Metric Value": "5174479.000000"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum",
+          "Metric Unit": "sector",
+          "Metric Value": "659693001.000000"
+        },
+        {
+          "Metric Name": "smsp__issue_active.avg.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "18.196013"
+        },
+        {
+          "Metric Name": "smsp__issue_active.max.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "24.943958"
+        },
+        {
+          "Metric Name": "smsp__issue_active.min.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "13.231926"
+        },
+        {
+          "Metric Name": "smsp__issue_active.sum.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "18.196013"
+        },
+        {
+          "Metric Name": "smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct",
+          "Metric Unit": "%",
+          "Metric Value": "49.548120"
+        },
+        {
+          "Metric Name": "smsp__warp_issue_stalled_short_scoreboard_per_warp_active.pct",
+          "Metric Unit": "%",
+          "Metric Value": "3.062464"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.avg.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "0.214895"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.max.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "0.332567"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.min.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "0.152171"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.sum.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "70.485570"
+        }
+      ]
+    },
+    {
+      "task": "house_robber",
+      "label": "warm_application_eval",
+      "skip_matching": 1,
+      "launches_per_generation": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metrics": [
+        {
+          "Metric Name": "dram__bytes_read.avg",
+          "Metric Unit": "Mbyte",
+          "Metric Value": "650.575819"
+        },
+        {
+          "Metric Name": "dram__bytes_read.max",
+          "Metric Unit": "Mbyte",
+          "Metric Value": "669.433984"
+        },
+        {
+          "Metric Name": "dram__bytes_read.min",
+          "Metric Unit": "Mbyte",
+          "Metric Value": "640.446592"
+        },
+        {
+          "Metric Name": "dram__bytes_read.sum",
+          "Metric Unit": "Gbyte",
+          "Metric Value": "7.806910"
+        },
+        {
+          "Metric Name": "gpu__time_duration.sum",
+          "Metric Unit": "ms",
+          "Metric Value": "31.875744"
+        },
+        {
+          "Metric Name": "l1tex__t_sector_hit_rate.pct",
+          "Metric Unit": "%",
+          "Metric Value": "70.960596"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.avg",
+          "Metric Unit": "sector",
+          "Metric Value": "8045031.500000"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.max",
+          "Metric Unit": "sector",
+          "Metric Value": "10824102.000000"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.min",
+          "Metric Unit": "sector",
+          "Metric Value": "5048525.000000"
+        },
+        {
+          "Metric Name": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum",
+          "Metric Unit": "sector",
+          "Metric Value": "659692583.000000"
+        },
+        {
+          "Metric Name": "smsp__issue_active.avg.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "18.170338"
+        },
+        {
+          "Metric Name": "smsp__issue_active.max.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "24.138279"
+        },
+        {
+          "Metric Name": "smsp__issue_active.min.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "12.644194"
+        },
+        {
+          "Metric Name": "smsp__issue_active.sum.pct_of_peak_sustained_active",
+          "Metric Unit": "%",
+          "Metric Value": "18.170338"
+        },
+        {
+          "Metric Name": "smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct",
+          "Metric Unit": "%",
+          "Metric Value": "49.484570"
+        },
+        {
+          "Metric Name": "smsp__warp_issue_stalled_short_scoreboard_per_warp_active.pct",
+          "Metric Unit": "%",
+          "Metric Value": "3.057366"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.avg.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "0.214224"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.max.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "0.326754"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.min.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "0.155698"
+        },
+        {
+          "Metric Name": "smsp__warps_eligible.sum.per_cycle_active",
+          "Metric Unit": "warp",
+          "Metric Value": "70.265485"
+        }
+      ]
+    }
+  ],
+  "scope": "One grid-stride kernel covers the whole population. NSYS confirms one eval launch per generation, so skip1 selects the next generation. An intermediate claim that skip1 meant another chunk was wrong and withdrawn; historical warm labels are valid. Application-first/next eval, not forced cold/hot caches. Uncontrolled clocks/caches, optimized lineinfo, seven counters.",
+  "resource_report": {
+    "entry_registers": 64,
+    "entry_stack_bytes": 992,
+    "entry_spill_stores_bytes": 216,
+    "entry_spill_loads_bytes": 88,
+    "note": "ptxas static entry-function report, not dynamic traffic. Other callees have their own resource reports."
+  }
+}

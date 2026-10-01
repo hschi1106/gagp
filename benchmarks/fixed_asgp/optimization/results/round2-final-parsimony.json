@@ -1,0 +1,542 @@
+[
+  {
+    "task": "sum_of_elements",
+    "seed": 0,
+    "mode": "fragments",
+    "threshold": 0,
+    "generations": 256,
+    "search_total_ms": 15172.016337,
+    "cold_charged_ms": 218.74986700000227,
+    "budget_prefix": {
+      "1000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 506,
+    "first_16_gen_median_ms": 68.235877,
+    "last_16_gen_median_ms": 56.543786,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.013668060302734375,
+    "live_fragments_quarters": [
+      2337,
+      1742,
+      1447,
+      1297,
+      1287,
+      1245,
+      1288,
+      1321
+    ],
+    "rss_mib_quarters": [
+      987.765625,
+      987.765625,
+      987.765625,
+      987.765625,
+      987.765625,
+      987.77734375,
+      987.77734375,
+      987.77734375
+    ],
+    "changed_fraction_last16": 0.5753910068426198
+  },
+  {
+    "task": "sum_of_elements",
+    "seed": 1,
+    "mode": "fragments",
+    "threshold": 0,
+    "generations": 256,
+    "search_total_ms": 15166.425128,
+    "cold_charged_ms": 191.89426499999718,
+    "budget_prefix": {
+      "1000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 438,
+    "first_16_gen_median_ms": 72.595173,
+    "last_16_gen_median_ms": 56.7010825,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.011341094970703125,
+    "live_fragments_quarters": [
+      2330,
+      1657,
+      1347,
+      1293,
+      1275,
+      1324,
+      1328,
+      1262
+    ],
+    "rss_mib_quarters": [
+      987.99609375,
+      988.015625,
+      988.01953125,
+      988.01953125,
+      988.03125,
+      988.0390625,
+      988.0390625,
+      988.0390625
+    ],
+    "changed_fraction_last16": 0.5651270772238515
+  },
+  {
+    "task": "sum_of_elements",
+    "seed": 2,
+    "mode": "fragments",
+    "threshold": 0,
+    "generations": 256,
+    "search_total_ms": 15068.904507,
+    "cold_charged_ms": 193.44432600000619,
+    "budget_prefix": {
+      "1000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 473,
+    "first_16_gen_median_ms": 72.22480999999999,
+    "last_16_gen_median_ms": 56.388936,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.01811695098876953,
+    "live_fragments_quarters": [
+      2293,
+      1710,
+      1367,
+      1303,
+      1251,
+      1215,
+      1283,
+      1293
+    ],
+    "rss_mib_quarters": [
+      988.8359375,
+      988.83984375,
+      988.8515625,
+      988.8515625,
+      988.8515625,
+      988.8515625,
+      988.8515625,
+      988.85546875
+    ],
+    "changed_fraction_last16": 0.5689760508308895
+  },
+  {
+    "task": "house_robber",
+    "seed": 0,
+    "mode": "fragments",
+    "threshold": -7500,
+    "generations": 256,
+    "search_total_ms": 24570.251252,
+    "cold_charged_ms": 212.09920899999634,
+    "budget_prefix": {
+      "1000": {
+        "best": -7376,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": -6422,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -3279,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -1760,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1014,
+    "first_16_gen_median_ms": 48.37006,
+    "last_16_gen_median_ms": 71.52061900000001,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0,
+    "live_fragments_quarters": [
+      1755,
+      1661,
+      1677,
+      1666,
+      1654,
+      1668,
+      1661,
+      1648
+    ],
+    "rss_mib_quarters": [
+      884.203125,
+      952.609375,
+      1020.07421875,
+      1171.88671875,
+      1172.14453125,
+      1172.14453125,
+      1172.14453125,
+      1172.14453125
+    ],
+    "changed_fraction_last16": 0.908541055718475
+  },
+  {
+    "task": "house_robber",
+    "seed": 1,
+    "mode": "fragments",
+    "threshold": -7500,
+    "generations": 256,
+    "search_total_ms": 33520.440253,
+    "cold_charged_ms": 211.14495899999747,
+    "budget_prefix": {
+      "1000": {
+        "best": -7361,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": -7210,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -5516,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -1480,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1020,
+    "first_16_gen_median_ms": 53.453735,
+    "last_16_gen_median_ms": 91.94696400000001,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0,
+    "live_fragments_quarters": [
+      1717,
+      1672,
+      1665,
+      1658,
+      1667,
+      1660,
+      1639,
+      1644
+    ],
+    "rss_mib_quarters": [
+      898.04296875,
+      1035.44140625,
+      1153.62109375,
+      1206.6171875,
+      1206.65625,
+      1206.65625,
+      1206.65625,
+      1206.65625
+    ],
+    "changed_fraction_last16": 0.8996212121212122
+  },
+  {
+    "task": "house_robber",
+    "seed": 2,
+    "mode": "fragments",
+    "threshold": -7500,
+    "generations": 256,
+    "search_total_ms": 19868.612822,
+    "cold_charged_ms": 205.32126399998742,
+    "budget_prefix": {
+      "1000": {
+        "best": -7340,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": -7145,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -1836,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1010,
+    "first_16_gen_median_ms": 52.26878000000001,
+    "last_16_gen_median_ms": 62.301415,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0,
+    "live_fragments_quarters": [
+      1732,
+      1648,
+      1660,
+      1653,
+      1643,
+      1633,
+      1651,
+      1643
+    ],
+    "rss_mib_quarters": [
+      886.68359375,
+      969.15234375,
+      1055.59765625,
+      1055.6796875,
+      1055.6796875,
+      1055.6796875,
+      1055.6796875,
+      1055.6796875
+    ],
+    "changed_fraction_last16": 0.8903347996089932
+  },
+  {
+    "task": "median",
+    "seed": 0,
+    "mode": "fragments",
+    "threshold": -25000,
+    "generations": 256,
+    "search_total_ms": 14613.643232,
+    "cold_charged_ms": 206.33526099999835,
+    "budget_prefix": {
+      "1000": {
+        "best": -23961,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": -18796,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -16048,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -15533,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -15379,
+    "unique_genotypes": 1013,
+    "first_16_gen_median_ms": 30.074015,
+    "last_16_gen_median_ms": 101.15679499999999,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.04999542236328125,
+    "live_fragments_quarters": [
+      2323,
+      1905,
+      1906,
+      1905,
+      1898,
+      1908,
+      1890,
+      1875
+    ],
+    "rss_mib_quarters": [
+      1003.0234375,
+      1011.5546875,
+      1012.421875,
+      1014.98828125,
+      1032.8984375,
+      1102.97265625,
+      1236.3125,
+      1254.2578125
+    ],
+    "changed_fraction_last16": 0.8751221896383187
+  },
+  {
+    "task": "median",
+    "seed": 1,
+    "mode": "fragments",
+    "threshold": -25000,
+    "generations": 256,
+    "search_total_ms": 13108.607292,
+    "cold_charged_ms": 218.0662729999858,
+    "budget_prefix": {
+      "1000": {
+        "best": -29143,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -19731,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -9365,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -8217,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -7729,
+    "unique_genotypes": 1018,
+    "first_16_gen_median_ms": 27.470333500000002,
+    "last_16_gen_median_ms": 87.306655,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0216522216796875,
+    "live_fragments_quarters": [
+      2343,
+      1916,
+      1898,
+      1880,
+      1879,
+      1861,
+      1939,
+      1923
+    ],
+    "rss_mib_quarters": [
+      988.6640625,
+      995.234375,
+      1018.41796875,
+      1029.37109375,
+      1045.234375,
+      1061.04296875,
+      1125.99609375,
+      1179.921875
+    ],
+    "changed_fraction_last16": 0.8927785923753666
+  },
+  {
+    "task": "median",
+    "seed": 2,
+    "mode": "fragments",
+    "threshold": -25000,
+    "generations": 256,
+    "search_total_ms": 11776.665424,
+    "cold_charged_ms": 202.46216800000911,
+    "budget_prefix": {
+      "1000": {
+        "best": -17267,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": -14770,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -11951,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -11788,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -11778,
+    "unique_genotypes": 1002,
+    "first_16_gen_median_ms": 22.8421945,
+    "last_16_gen_median_ms": 64.05356,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.04973125457763672,
+    "live_fragments_quarters": [
+      2338,
+      1898,
+      1889,
+      1915,
+      1837,
+      1878,
+      1894,
+      1888
+    ],
+    "rss_mib_quarters": [
+      987.12109375,
+      988.48046875,
+      1001.48828125,
+      1018.734375,
+      1018.85546875,
+      1034.07421875,
+      1117.140625,
+      1125.65234375
+    ],
+    "changed_fraction_last16": 0.8505620723362659
+  }
+]

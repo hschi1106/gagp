@@ -1,0 +1,35 @@
+{
+  "scope": "Short NSYS traces, cuda allocation events for device memory only. Excludes context/internal local-memory backing and device-static allocations. Not a long-run device-RSS measurement. Long runs bound workspace but have no sampled total device-memory series.",
+  "rows": [
+    {
+      "trace": "house_robber.fragments.sqlite",
+      "peak_device_allocation_bytes": 542963136,
+      "unreleased_tracked_device_bytes": 0
+    },
+    {
+      "trace": "house_robber.gpu_overlap.sqlite",
+      "peak_device_allocation_bytes": 588312344,
+      "unreleased_tracked_device_bytes": 0
+    },
+    {
+      "trace": "median.fragments.sqlite",
+      "peak_device_allocation_bytes": 541739664,
+      "unreleased_tracked_device_bytes": 0
+    },
+    {
+      "trace": "median.gpu_overlap.sqlite",
+      "peak_device_allocation_bytes": 587298400,
+      "unreleased_tracked_device_bytes": 0
+    },
+    {
+      "trace": "sum_of_elements.fragments.sqlite",
+      "peak_device_allocation_bytes": 542029936,
+      "unreleased_tracked_device_bytes": 0
+    },
+    {
+      "trace": "sum_of_elements.gpu_overlap.sqlite",
+      "peak_device_allocation_bytes": 590862560,
+      "unreleased_tracked_device_bytes": 0
+    }
+  ]
+}

@@ -1,0 +1,200 @@
+{
+  "note": "Runtime case_counts fallback counts fallback-token results, NOT backend/profile selection. These profile rows separately show whole-population demotion to the larger phase VM.",
+  "searches": [
+    {
+      "mode": "fragments",
+      "task": "sum_of_elements",
+      "seed": 0,
+      "generations": 128,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root-window-unboxed-bound-add": 46,
+        "int-list-views-typed-sorted": 82
+      },
+      "without_direct_small_phase": 82
+    },
+    {
+      "mode": "fragments",
+      "task": "sum_of_elements",
+      "seed": 1,
+      "generations": 128,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root-window-unboxed-bound-add": 59,
+        "int-list-views-typed-sorted": 69
+      },
+      "without_direct_small_phase": 69
+    },
+    {
+      "mode": "fragments",
+      "task": "sum_of_elements",
+      "seed": 2,
+      "generations": 128,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root-window-unboxed-bound-add": 55,
+        "int-list-views-typed-sorted": 73
+      },
+      "without_direct_small_phase": 73
+    },
+    {
+      "mode": "fragments",
+      "task": "house_robber",
+      "seed": 0,
+      "generations": 128,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root": 41,
+        "int-list-views-typed-sorted": 87
+      },
+      "without_direct_small_phase": 87
+    },
+    {
+      "mode": "fragments",
+      "task": "house_robber",
+      "seed": 1,
+      "generations": 128,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root": 57,
+        "int-list-views-typed-sorted": 71
+      },
+      "without_direct_small_phase": 71
+    },
+    {
+      "mode": "fragments",
+      "task": "house_robber",
+      "seed": 2,
+      "generations": 128,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root": 27,
+        "int-list-views-typed-sorted": 101
+      },
+      "without_direct_small_phase": 101
+    },
+    {
+      "mode": "fragments",
+      "task": "median",
+      "seed": 0,
+      "generations": 128,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root-window-unboxed-bound-add": 44,
+        "int-list-views-typed-sorted": 84
+      },
+      "without_direct_small_phase": 84
+    },
+    {
+      "mode": "fragments",
+      "task": "median",
+      "seed": 1,
+      "generations": 128,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root-window-unboxed-bound-add": 74,
+        "int-list-views-typed-sorted": 54
+      },
+      "without_direct_small_phase": 54
+    },
+    {
+      "mode": "fragments",
+      "task": "median",
+      "seed": 2,
+      "generations": 128,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root-window-unboxed-bound-add": 68,
+        "int-list-views-typed-sorted": 60
+      },
+      "without_direct_small_phase": 60
+    },
+    {
+      "mode": "parsimony",
+      "task": "sum_of_elements",
+      "seed": 0,
+      "generations": 256,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root-window-unboxed-bound-add": 256
+      },
+      "without_direct_small_phase": 0
+    },
+    {
+      "mode": "parsimony",
+      "task": "sum_of_elements",
+      "seed": 1,
+      "generations": 256,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root-window-unboxed-bound-add": 256
+      },
+      "without_direct_small_phase": 0
+    },
+    {
+      "mode": "parsimony",
+      "task": "sum_of_elements",
+      "seed": 2,
+      "generations": 256,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root-window-unboxed-bound-add": 256
+      },
+      "without_direct_small_phase": 0
+    },
+    {
+      "mode": "parsimony",
+      "task": "house_robber",
+      "seed": 0,
+      "generations": 256,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root": 178,
+        "int-list-views-typed-sorted": 78
+      },
+      "without_direct_small_phase": 78
+    },
+    {
+      "mode": "parsimony",
+      "task": "house_robber",
+      "seed": 1,
+      "generations": 256,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root": 43,
+        "int-list-views-typed-sorted": 213
+      },
+      "without_direct_small_phase": 213
+    },
+    {
+      "mode": "parsimony",
+      "task": "house_robber",
+      "seed": 2,
+      "generations": 256,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root": 184,
+        "int-list-views-typed-sorted": 72
+      },
+      "without_direct_small_phase": 72
+    },
+    {
+      "mode": "parsimony",
+      "task": "median",
+      "seed": 0,
+      "generations": 256,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root-window-unboxed-bound-add": 66,
+        "int-list-views-typed-sorted": 190
+      },
+      "without_direct_small_phase": 190
+    },
+    {
+      "mode": "parsimony",
+      "task": "median",
+      "seed": 1,
+      "generations": 256,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root-window-unboxed-bound-add": 163,
+        "int-list-views-typed-sorted": 93
+      },
+      "without_direct_small_phase": 93
+    },
+    {
+      "mode": "parsimony",
+      "task": "median",
+      "seed": 2,
+      "generations": 256,
+      "profiles": {
+        "int-list-views-typed-sorted-direct-root-window-unboxed-bound-add": 63,
+        "int-list-views-typed-sorted": 193
+      },
+      "without_direct_small_phase": 193
+    }
+  ]
+}

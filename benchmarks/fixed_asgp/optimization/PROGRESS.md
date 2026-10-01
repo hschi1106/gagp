@@ -36,7 +36,7 @@ python3 benchmarks/fixed_asgp/optimization/round2.py scaling NEW_DIR --binary lo
 Run serially; every output directory must be new. No performance runs alongside
 builds or other GPU tests. Build: Release CUDA arch 86, `-lineinfo --ptxas-options=-v`.
 
-## Formal result so far
+## Formal common-configuration result
 
 P=1024, all 1024 cases; three processes, one warmup and three samples each.
 Unprofiled complete-generation medians, ms:
@@ -65,20 +65,22 @@ the <60 ms stage target with explicit support/search restrictions.
 | Dense coordinate memo | Preserved lazy order/fuel/capacity; House kernel regressed ~32.3→34.4 ms. Rejected (`R2-F2`). |
 | Cache top two VM stack values | Sum ~64→77, House ~31→37 ms kernel. Rejected (`R2-top`). |
 | Actual one/two-state window executor | First one-state prototype did NOT cover frozen Sum/Median. Corrected carried-Int shape: Sum kernel ~66→58 ms. Retained (`R2-window-pair`). |
-| Unboxed window frames | Preserve private list-view bit; frame 88→56 B for paired state, Sum kernel ~45 ms, includes changed workspace batching. Retained (`R2-unboxed-window`). |
+| Unboxed window frames | Preserve private list-view bit; frame 88→56 B for paired state, Sum kernel ~45 ms, increases concurrent workspace blocks. Retained (`R2-unboxed-window`). |
 | Bound scalar Load/Load/Add | Supports implicit/explicit Return with exact instruction fuel/double conversion. Sum kernel ~41–43 ms. Retained (`R2-bound-add`). |
 | Cohort eval/variation pipeline | Complete-case 256/512 cohorts; Sum ~97/84 vs76 ms, House ~81/70 vs65. Rejected; patch/binary archived (`R2-pipeline`). |
 | Eager per-generation phase JIT | Optimistic NVRTC compile-only screen: 387 newly observed expressions take ~1.65 s, omitting real fuel/error code. No executor/parity claim; reject eager route (`R2-jit-screen`). |
-| Fitness-tie parsimony | Changes search selection, reduces neutral growth in 128-gen screen. Separate 256-gen validation pending. |
+| Fitness-tie parsimony | Changes search selection, reduces neutral growth in 128-gen screen. Validated 3 seeds ×256 generations; Sum/House growth reduced, Median still grows. Separate mode. |
 | Payload registry overhaul | Measured transaction/read-set costs too small to justify broad rewrite before representation work (`R2-host`). |
 
-**NCU correction:** earlier `R2-A` and `R2-validation/ncu` files named `.warm`
-used `--launch-skip 1`. Evaluation is workspace-batched, so this is a second chunk
-of the same generation, NOT a warmed repeat of the first chunk. A/B comparisons
-at the same skip remain meaningful; cold/warm interpretations are withdrawn.
-Final profiling will use NSYS-counted launches per generation to choose the same
-first chunk in the next generation. Local sectors are not DRAM bytes or evidence
-of spilling by themselves; active and eligible warps are distinct.
+**NCU launch interpretation, verified:** current NSYS traces show exactly one
+fitness launch per generation (Sum/Median grid374, House416); `kernels.cuh` uses
+`prog_idx += gridDim.x` inside the kernel. All1024 programs are covered by that
+single launch. This also exists at checkpoint6f18efc. The earlier note claiming
+that skip1 was another chunk was incorrect and is withdrawn: old `.warm` labels
+DO select the next generation. Workspace changes concurrent blocks, not number
+of eval launches. Final counters use the trace-confirmed skip and report whole
+evaluation scope; clocks/caches remain uncontrolled. Local sectors are not DRAM
+bytes or spilling proof; active and eligible warps are distinct.
 
 ## Validation / active work
 
@@ -96,32 +98,58 @@ Final 32-gen native /128-gen fragments and 256-gen parsimony completed under
 `R2-final/quality` and `R2-final/parsimony256`. All cases scored, zero timeouts/
 unscored/fallbacks, top16 CPU/GPU equal. These predate API hardening/cold grammar
 copy: CUDA SASS remains identical; 72 four-generation searches on the hardened
-binary preserve initial/final populations and CPU audits. Cold copy costs measured.
+binary preserve initial/final fitness/node rows and CPU audits. Cold copy costs measured.
 
-Active serial queue (shell PID 728484, tool session 37062): fresh 72-cell matrix
-`R2-release/scaling-complete` → `R2-final-profiler/run.py` → corrected NCU →
-`R2-final/heldout.py` (also behavior probes, parsimony repeats and native128 Median
-import audit). Original failed matrix under `R2-release/scaling` was a driver
-path mistake, preserved. Fixed driver **1b44fea** follows the existing P8192 frozen
-prefix contract; all three P1024 prefixes were verified equal. No prepare run.
+Completed fresh 72-cell matrix (2413.32 s), NSYS, NCU, 27 held-out audits and
+32-case behavioral-diversity probes. Newer native128 Median top16 programs all
+imported, including seed-best fitness -10554/-16120/-14170. These show expression
+coverage, not equivalent search behavior. Held-out draws use a simpler uniform
+within-range distribution, not ASGP's full edge-case generator.
 
-**New evidence / next experiment:** many later populations demote all programs
-when one phase exceeds small-VM bounds (Sum seed0:82/128 generations; House87;
-Median84). Opt-in two-bucket prototype `GAGP_BUCKET_SMALL_PHASES` is currently
-uncommitted, isolated to owned executable evaluation. It retains all work and
-scatter order, charges extra materialization/layout changes, and has mixed/fuel
-regression coverage pending build. `R2-buckets/run.py` (tool session33298) waits
-for the entire above queue, then builds, tests and compares late frozen P1024
-populations before/after. Source patch and hypothesis under `R2-buckets/`.
-Do not build or start another GPU job concurrently. If the upstream queue fails,
-inspect its last manifest/log; do not overwrite completed experiment files.
+Formal results and original-file/frozen-input audit are now in
+[round2-final.json](results/round2-final.json), with separate raw repeats, cold
+costs, scaling, profile, counters, quality and memory CSV/JSON files alongside it.
+Every full search generation scored 1,048,576 pairs. Zero timeouts, unscored and
+fallback-token outputs; runtime errors are NOT zero (final pair error fraction
+up to 5.69% in ordinary fragments, 5.00% in parsimony, 3.38% in native32).
+Fallback-token counts do not measure profile demotion; see profile-coverage JSON.
+No convergence-equivalence claim. RSS remains sensitive to program bloat despite
+bounded live fragment counts. NSYS allocation peaks (~517–564 MiB) exclude CUDA
+context/local backing and are short traces, not long-run total device RSS.
 
-After these results: accept/reject bucketing, final report script
-`R2-release/report.py`, original/frozen hash audit, affected docs and checkpoint.
-No push authorized this round.
+## Active checkpoint / resume
+
+**d1faa9b** adds opt-in `GAGP_BUCKET_SMALL_PHASES` (driver `--buckets`) and owned
+snapshot diagnostics. Common best settings above do NOT enable buckets.
+Archived binary `logs/optimization/R2-buckets2/bench`, source patch and pilot
+under `R2-buckets2/`. It partitions certified stack/local capacities, moves the
+existing code/proof pairs, reuses the immediately preceding immutable view proof,
+and scatters all results to original indices. No search or execution change.
+Mixed-capacity/fuel test passed. Pilot late generation snapshots match per-program
+fitness/case counters and exported offspring AST exactly:
+
+| Late frozen population | Off ms | On ms |
+|---|---:|---:|
+| Sum | 233.639 | 197.846 |
+| House | 162.041 | 160.410 |
+| Median | 79.745 | 83.361 |
+
+First bucket prototype repeated copies/proofs and regressed House by ~22 ms;
+archived `R2-buckets/`, superseded. Second version remains opt-in: Sum improves,
+House pilot is inconclusive, Median regresses. Neither changes headline inputs.
+
+Active serial queue: `logs/optimization/R2-buckets-validation/run.py`, tool
+session56077. Nine initial/late A/B repeats → 3 seeds ×128 bucket generations
+(with exact exported AST comparison) → 12 fragment scaling cells. Manifest/log
+written after each cell. No other GPU job or build until this queue finishes.
+Then read summaries, finish focused checks/diagnostic attribution and checkpoint.
+Previously failed matrix/NCU diagnostic attempts remain archived; current drivers
+follow P8192 frozen-prefix scaling and one-launch grid-stride evaluation. Never
+rerun prepare. No push authorized this round.
 
 Remaining architecture limits: fixed admitted root skeleton, independent phase
-holes and closed scalar phases; no generic derivation-first backend, mixed
-capability buckets or asynchronous hot-phase JIT. Bytecode copies, type-flow
-packing, changed-phase AST admission and dynamic interpreter work remain. Live
-fragment counts are bounded, but program bloat can grow RSS/runtime; report both.
+holes and closed scalar phases; no generic derivation-first backend or asynchronous
+hot-phase JIT. Bytecode copies, type-flow packing, changed-phase AST admission and
+dynamic interpreter work remain. Bucket launch/layout overhead matters on cheap
+work; no supported adaptive policy yet. A next experiment must eliminate remaining
+work, not merely add another cache around mutable ASTs.

@@ -160,11 +160,13 @@ Programs are still classifiable into four fine-grained payload flavors in `cpp/s
 - `ListOnly`
 - `Mixed`
 
-The current GPU fitness path selects one execution profile for the population,
-then may issue multiple workspace-limited launches to cover it. A single launch
-is not an architectural requirement. Capability buckets may use separate kernels
-provided every program/case pair is evaluated and results retain original
-population indices; bucket dispatch is not implemented in the current candidate.
+The current GPU fitness path selects one execution profile for the population.
+One grid-stride kernel covers all programs; workspace limits concurrent blocks,
+not evaluation coverage. A single launch is not an architectural requirement.
+The experimental owned-executable capacity partition may use separate kernels;
+every program/case pair is evaluated and results retain original population
+indices. Raw bytecode and the default owned path still use one profile. See
+[the bucket contract](../guides/fixed-asgp-benchmark.md#owned-fragment-prototype).
 An opt-in, structurally proven integer/list view profile is described below.
 
 The finer `StringOnly` / `ListOnly` labels are kept for experiment tooling and offline bucket studies rather than the production eval dispatch tree.
