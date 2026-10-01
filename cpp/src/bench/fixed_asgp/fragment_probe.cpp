@@ -62,21 +62,22 @@ void fragment_probe(const std::vector<gagp::evo::ProgramGenome>& population,
   std::vector<Json> rows,initial;
   for(int generation=0;generation<generations;++generation) {
     const auto begin=Clock::now();
+    FitnessEvalResult fit;std::size_t best=0,changed=0,rejected=0;double reproduction_ms=0;
+    {
     std::vector<BytecodeProgram> programs;programs.reserve(current.size());
     std::vector<RegionExecutable> executables;
     if(owned) {executables.reserve(current.size());for(const auto& g:current)executables.push_back(arena.owned_executable(g));}
     else for(const auto& g:current)programs.push_back(arena.executable(g));
-    const auto fit=owned ? session.eval_executables(executables,std::getenv("GAGP_GPU_DIAGNOSTICS")!=nullptr) :
+    fit=owned ? session.eval_executables(executables,std::getenv("GAGP_GPU_DIAGNOSTICS")!=nullptr) :
         session.eval_programs(programs,std::getenv("GAGP_GPU_DIAGNOSTICS")!=nullptr);
     if(!fit.ok)throw std::runtime_error(fit.err.message);
-    if(generation==0)for(auto f:fit.fitness)initial.push_back(number(f));
     std::vector<std::size_t> sizes;
     if(parsimony)for(const auto& g:current)sizes.push_back(arena.nodes(g));
     const auto better=[&](std::size_t a,std::size_t b) {
       return fit.fitness[a]>fit.fitness[b] || (fit.fitness[a]==fit.fitness[b] &&
           (!parsimony || sizes[a]<=sizes[b]));
     };
-    std::size_t best=0;
+    best=0;
     for(std::size_t i=1;i<current.size();++i)
       if(fit.fitness[i]>fit.fitness[best] || (parsimony && fit.fitness[i]==fit.fitness[best] && sizes[i]<sizes[best]))best=i;
     const auto repro=Clock::now();
@@ -85,13 +86,17 @@ void fragment_probe(const std::vector<gagp::evo::ProgramGenome>& population,
     std::vector<Job> jobs;for(std::size_t i=1;i<current.size();++i)jobs.push_back({pick(),pick(),random.next(),random.bounded(1000000)<300000});
     std::vector<gg::ExecutableFragments::Change> children(current.size());children[0].genome=current[best];next=0;
     workers.run([&]{for(;;){auto j=next.fetch_add(1);if(j>=jobs.size())break;const auto& job=jobs[j];children[j+1]=arena.vary(current[job.parent],current[job.donor],job.seed,job.mutation);}});
-    std::size_t changed=0,rejected=0; for(std::size_t i=0;i<current.size();++i){changed+=children[i].changed;rejected+=children[i].rejected;current[i]=std::move(children[i].genome);}
+    for(std::size_t i=0;i<current.size();++i){changed+=children[i].changed;rejected+=children[i].rejected;current[i]=std::move(children[i].genome);}
     // Destruction of retired fragments occurs before this timer closes.
     programs.clear();executables.clear();
-    const double reproduction_ms=ms(repro), generation_ms=ms(begin);
+    reproduction_ms=ms(repro);
+    }
+    if(generation==0)for(auto f:fit.fitness)initial.push_back(number(f));
+    const double generation_ms=ms(begin);
     std::array<std::uint64_t,5> counts{};for(const auto& c:fit.case_counts)for(int k=0;k<5;++k)counts[k]+=c[k];
     double mean_nodes=0;for(const auto& g:current)mean_nodes+=arena.nodes(g);
     rows.push_back(object({{"generation",number(generation)},{"generation_ms",number(generation_ms)},
+      {"eval_profile",string(fit.execution_profile)},
       {"eval_ms",number(fit.timing.total_ms)},{"pack_ms",number(fit.timing.pack_ms)},{"kernel_ms",number(fit.timing.kernel_ms)},
       {"repro_ms",number(reproduction_ms)},{"best",number(fit.fitness[best])},{"mean",number(std::accumulate(fit.fitness.begin(),fit.fitness.end(),0.)/fit.fitness.size())},
       {"changed_final_offspring",number(changed)},{"rejected",number(rejected)},{"unchanged",number(current.size()-1-changed)},

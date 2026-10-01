@@ -757,6 +757,8 @@ FitnessEvalResult FitnessSessionGpu::eval_impl(const std::vector<BytecodeProgram
     if (direct_root) out.execution_profile += "-root";
     if (region_workspace.window_executor) out.execution_profile += "-window";
     if (region_workspace.unboxed_window_frames) out.execution_profile += "-unboxed";
+    if(direct_phases && std::any_of(packed.region_phases.begin(),packed.region_phases.end(),
+        [](const auto& p){return p.program.add_left_binding>=0;}))out.execution_profile+="-bound-add";
     out.fitness = std::move(host_fitness);
     out.timing.pack_ms = ms_between(pack_t0, pack_t1);
     out.timing.launch_prep_ms = ms_between(launch_prep_t0, launch_prep_t1);

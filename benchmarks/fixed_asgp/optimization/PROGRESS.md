@@ -281,3 +281,19 @@ Focused boundary tests and all 3×1024 full-case snapshots now equal. Initial Su
 kernel 44.7–45.6 ms (window tagged ~57.6), complete native generation ~211 ms;
 Median kernel ~2.1 ms, House unchanged path. Retained as opt-in candidate pending
 formal combined repeats. Logs include failed first run and corrected build/test.
+
+R2-JIT-screen: extract actual first/second-generation phase expressions; 387
+second-generation expressions absent from the initial+first-generation union.
+Optimistic NVRTC source omits fuel/tag/error machinery and is NOT an executable
+backend/parity claim. Native cubin compile alone: 1/16/128/387 phases took
+91/128/481/1646 ms. Reject eager per-generation NVRTC; asynchronous hot-phase JIT
+is untested. Scripts, generated sources/cubins and logs in `R2-jit-screen/`.
+R2-bound-add: direct bound scalar LOAD/LOAD/ADD (+ optional RETURN), exact fuel
+and existing double-conversion arithmetic. First version missed implicit return
+and did not cover frozen phases; corrected and profile selection asserted.
+Full snapshots/tests equal, Sum kernel ~41–43 ms vs ~45 ms; pending final repeats.
+R2-pipeline: real complete-case cohorts and one bounded async variation future;
+256/512 random mating cohorts regress Sum/House (~97/84 vs 76 ms, ~81/70 vs 65).
+Initial per-program fitness/case counts match; final independent admission passes.
+Removed (including changed selection rules), prototype archived. No throughput
+claim from overlapping counters. Proceed to final combined validation/scaling.

@@ -172,3 +172,12 @@ bounded-region invocation and RETURN. It reads immutable case locals in place
 and uses only region operands, removing the general root VM stack/local copies.
 Root arithmetic/control and other shapes retain the reference interpreter. Fuel
 checks remain at the same instructions; the selected profile adds `-root`.
+
+
+Experimental window execution continues through `window_execution_device.cuh`
+after a host capability proof in `fitness_gpu.cu`. It can use unboxed window
+frames; list view state remains stored even when Value tags are structural.
+`host_pack_gpu.cu` also recognizes bound scalar Add phases, mapping loads to
+initialized frame slots. Both retain generic fallback and original fuel. The
+current opt-in settings and support limits are recorded with the
+[experimental benchmark profiles](../guides/fixed-asgp-benchmark.md#owned-fragment-prototype).

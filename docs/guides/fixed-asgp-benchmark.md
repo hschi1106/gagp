@@ -308,3 +308,9 @@ must show the `-window` profile before attributing timings to this experiment.
 integers without redundant per-slot tags. The list's private view/non-view bit is
 retained. It requires the window executor proof and preserves resource limits,
 phase order, numeric operations and fuel. Unsupported shapes keep tagged frames.
+
+
+`GAGP_BOUND_ADD_PHASE=1` recognizes a verified typed phase consisting of two
+bound scalar loads, Add and optional Return, with no unused or parameter binding.
+It reads proved initialized slots directly, preserving per-instruction fuel and
+the existing double-conversion/wrapping arithmetic. Other phases retain the VM.

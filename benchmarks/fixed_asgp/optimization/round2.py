@@ -11,7 +11,8 @@ ROOT = Path(__file__).resolve().parents[3]
 TASKS = ('sum_of_elements', 'house_robber', 'median')
 FLAGS = {k: '1' for k in ('GAGP_VIEW_PROFILE', 'GAGP_TYPED_VIEW_PHASE',
     'GAGP_SORT_CASES', 'GAGP_COMPACT_FRAMES', 'GAGP_CONSTANT_PHASE',
-    'GAGP_POPULATION_HANDOFF', 'GAGP_DIRECT_PHASE', 'GAGP_DIRECT_ROOT')}
+    'GAGP_POPULATION_HANDOFF', 'GAGP_DIRECT_PHASE', 'GAGP_DIRECT_ROOT',
+    'GAGP_WINDOW_EXECUTOR', 'GAGP_UNBOXED_WINDOW_FRAMES', 'GAGP_BOUND_ADD_PHASE')}
 FLAGS['GAGP_CUDA_DEVICE'] = '0'
 
 
@@ -26,6 +27,9 @@ def main():
     parser.add_argument('--binary', type=Path, required=True)
     parser.add_argument('--baseline', type=Path)
     parser.add_argument('--generations', type=int, default=128)
+    parser.add_argument('--native-generations', type=int)
+    parser.add_argument('--only', choices=('all','native','fragments'), default='all')
+    parser.add_argument('--parsimony', action='store_true')
     args = parser.parse_args()
     os.chdir(ROOT)
     out = args.out.resolve(); out.mkdir(parents=True, exist_ok=False)
@@ -56,31 +60,32 @@ def main():
             raise RuntimeError(f'failed cell: {target}')
 
     fragment = dict(FLAGS, GAGP_LOCAL_FRAGMENT_ADMISSION='1', GAGP_OWNED_EXECUTABLE='1')
+    if args.parsimony: fragment['GAGP_FRAGMENT_PARSIMONY']='1'
     if args.stage == 'formal':
         for process in range(3):
             for task in TASKS:
                 order = ['baseline', 'native'] if process % 2 == 0 else ['native', 'baseline']
-                for kind in order:
+                for kind in (order if args.only != 'fragments' else []):
                     if kind == 'baseline' and args.baseline:
-                        old = {k: v for k, v in FLAGS.items() if k not in ('GAGP_DIRECT_PHASE', 'GAGP_DIRECT_ROOT')}
+                        old = {k: v for k, v in FLAGS.items() if k not in ('GAGP_DIRECT_PHASE', 'GAGP_DIRECT_ROOT', 'GAGP_WINDOW_EXECUTOR', 'GAGP_UNBOXED_WINDOW_FRAMES', 'GAGP_BOUND_ADD_PHASE')}
                         run(task, 'gpu_overlap', f'baseline.p{process}', old, executable=args.baseline.resolve())
                     elif kind == 'native':
                         run(task, 'gpu_overlap', f'native.p{process}', FLAGS)
                 # Each process warms a complete four-generation trajectory once,
                 # then repeats it three times with fresh owners and the same seed.
                 kinds = [False, True] if process % 2 == 0 else [True, False]
-                for owned in kinds:
+                for owned in ([] if args.only=='native' else [True] if args.parsimony else kinds):
                     flags = dict(fragment, GAGP_FRAGMENT_GENERATIONS='4')
                     if not owned: flags.pop('GAGP_OWNED_EXECUTABLE')
                     run(task, 'fragments_repeat', f'fragments-owned{int(owned)}.p{process}', flags)
     elif args.stage == 'quality':
         for seed in range(3):
             for task in TASKS:
-                for kind in ('native', 'fragments'):
+                for kind in (('native', 'fragments') if args.only=='all' else (args.only,)):
                     flags = dict(FLAGS if kind == 'native' else fragment,
                         GAGP_BM_SEED=str(seed), GAGP_GPU_DIAGNOSTICS='1')
                     key = 'GAGP_SEARCH_GENERATIONS' if kind == 'native' else 'GAGP_FRAGMENT_GENERATIONS'
-                    flags[key] = str(args.generations)
+                    flags[key] = str(args.native_generations if kind=='native' and args.native_generations else args.generations)
                     export_key = 'GAGP_SEARCH_EXPORT' if kind == 'native' else 'GAGP_FRAGMENT_EXPORT'
                     flags[export_key] = str(out / f'{kind}.s{seed}.{task}.asts.json')
                     run(task, 'search' if kind == 'native' else 'fragments', f'{kind}.s{seed}', flags)

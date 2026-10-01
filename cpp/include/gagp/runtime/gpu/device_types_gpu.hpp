@@ -33,6 +33,8 @@ struct DPhaseMeta {
   int n_locals = 0;
   int scalar_constant_index = -1;
   unsigned scalar_constant_fuel = 0;
+  int add_left_binding = -1;
+  int add_right_binding = -1;
 };
 
 struct DProgramMeta {

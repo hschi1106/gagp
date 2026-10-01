@@ -133,6 +133,34 @@ __device__ DResult d_region_phase(
   }
   if constexpr (Flavor == DPayloadFlavor::BoundIntListViews) {
     const auto& phase = tables.region_phases[phase_index];
+    if(expected==ValueTag::Int && phase.program.add_left_binding>=0) {
+      const auto read=[&](int index) {
+        const auto& binding=tables.region_bindings[index];
+        switch(binding.bank) {
+          case RegionSlotBank::State:return static_cast<Value>(frame.state[binding.slot]).i;
+          case RegionSlotBank::Prepared:return frame.prepared[binding.slot].i;
+          case RegionSlotBank::Result:return frame.results[binding.slot].i;
+          case RegionSlotBank::Measure:return static_cast<std::int64_t>(Value::container_len(frame.state[segment.sequence_state]));
+          default:return std::int64_t{0}; // parameter bindings are excluded by the pack proof
+        }
+      };
+      const auto* code=tables.phase_code+phase.program.code_offset;
+      // Every input is an initialized non-parameter scalar. Exact instruction
+      // charges remain ordered; no expression or fuel is memoized.
+      if(fuel<0 || code[0].fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
+      fuel-=code[0].fuel;const auto left=read(phase.program.add_left_binding);
+      if(fuel<0 || code[1].fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
+      fuel-=code[1].fuel;const auto right=read(phase.program.add_right_binding);
+      if(fuel<0 || code[2].fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
+      fuel-=code[2].fuel;
+      const auto value=vm_semantics::wrap_int_add(static_cast<long long>(static_cast<double>(left)),
+          static_cast<long long>(static_cast<double>(right)));
+      if(phase.program.code_len==4) {
+        if(fuel<0 || code[3].fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
+        fuel-=code[3].fuel;
+      }
+      return d_ok(Value::from_int(value));
+    }
     if (!phase.program.typed_view || phase.program.n_locals > 8 ||
         phase.program.verified_stack_bound > 16) return d_error(ErrCode::Value);
     DCodeView view;

@@ -916,6 +916,34 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
       }
     }
   }
+  if(direct) {
+    Environment add_mode("GAGP_BOUND_ADD_PHASE");
+    for(bool explicit_return:{false,true}) {
+      auto segment=unary_segment(Value::from_int(0));segment.plan.memoized=false;segment.plan.limits.cells=0;segment.plan.state_types.push_back(ValueTag::Int);
+      for(auto& request:segment.plan.requests) {
+        RegionStateTransition copy;copy.kind=RegionTransitionKind::CopyState;copy.source_state=1;
+        request.states.push_back(copy);
+      }
+      segment.base_body=phase({}, {ins_a(Opcode::Load,0),ins_a(Opcode::Load,0),ins(Opcode::Add)},
+          {{slot(RegionSlotBank::State,1),0}},1);
+      segment.base_body.program.instruction_fuel={2,3,5};
+      if(explicit_return){segment.base_body.program.code.push_back(ins(Opcode::Return));segment.base_body.program.instruction_fuel.push_back(7);}
+      const auto program=invocation(segment,{Value::from_int(0),Value::from_int((INT64_C(1)<<53)+9)});
+      if(!verify_fixture(program,"bound add large-number fixture"))return false;
+      for(int fuel=0;fuel<35;++fuel) {
+        FitnessSessionGpu session;const auto expected=Value::from_int((INT64_C(1)<<54)+16);
+        if(!check(session.init({{}},{expected},fuel,32,7).ok,"bound add init"))return false;
+        const auto gpu=session.eval_programs({program},true);
+        const auto cpu=eval_fitness_cpu({program},{{}},{expected},fuel,7,32);
+        const auto execution=execute_bytecode_cpu(program,{},fuel);
+        const bool matches=gpu.ok && gpu.execution_profile.find("-bound-add")!=std::string::npos && gpu.fitness==cpu &&
+            gpu.case_counts[0][2]==static_cast<unsigned>(execution.is_error && execution.err.code==ErrCode::Timeout);
+        if(!matches)std::cerr<<"bound add detail fuel="<<fuel<<" explicit="<<explicit_return<<" profile="<<gpu.execution_profile
+            <<" ok="<<gpu.ok<<" error="<<gpu.err.message<<" gpu="<<(gpu.fitness.empty()?0:gpu.fitness[0])<<" cpu="<<cpu[0]<<"\n";
+        if(!check(matches,"bound add preserves large-number rounding and explicit/implicit return fuel"))return false;
+      }
+    }
+  }
   const auto numeric = [&](BuiltinId id, std::vector<Value> constants, Value answer, const std::string& label) {
     auto segment=unary_segment(Value::from_int(0));
     std::vector<Instr> code;
