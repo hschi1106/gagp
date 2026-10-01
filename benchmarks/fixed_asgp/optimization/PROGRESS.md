@@ -6,14 +6,17 @@ Median remains fixed-overhead workload. Do not resume retired CPU fragment route
 
 ## Active experiment
 
-Candidate I: constexpr descriptor index replaces two linear descriptor scans;
+Best runtime `a5562f8`: constexpr descriptor index replaces two linear scans;
 reserved/negative/out-of-range kinds retain rejection. Three focused tests pass.
-Quick full-generation Sum407.016 / House422.699 / Median430.516 ms, identical
-non-timing fields. Nine-repeat interleaved runs complete with consistent gains;
-full snapshots and changing-search comparisons still running before promotion.
-Raw binary/repeats/commands: `logs/optimization/native-node-index-validation/`.
-No interface/navigation change. Next: avoid constructing unused variation sites
-at final GPU mutation admission while preserving full membership/lowering.
+Formal nine-repeat medians Sum415.657 / House430.558 / Median437.677 ms versus
+same-round controls467.184 /499.694 /494.865. All3072 full-case snapshot records,
+nine short searches (3 seeds ×4 generations) and exported ASTs match exactly.
+Raw binary/repeats/commands: `logs/optimization/native-node-index-validation/`;
+summary [descriptor validation](results/native-node-index-validation.json).
+Flags unchanged from E+F, CPU1T. No interface/navigation change.
+Candidate J underway: omit unused future sites at final GPU mutation admission,
+keeping canonical membership/lowering, compaction and budgets. Raw
+`logs/optimization/native-final-admission/`. Not promoted yet.
 
 ## Current fair baseline
 

@@ -1,0 +1,188 @@
+{
+  "formal": {
+    "sum_of_elements": {
+      "before": {
+        "samples_ms": [
+          466.441215,
+          467.367744,
+          466.991525,
+          467.884126,
+          467.793735,
+          467.184467,
+          469.181047,
+          458.362588,
+          460.911489
+        ],
+        "median_ms": 467.184467,
+        "min_ms": 458.362588,
+        "max_ms": 469.181047
+      },
+      "after": {
+        "samples_ms": [
+          418.56247,
+          422.485643,
+          410.225027,
+          416.038795,
+          415.656765,
+          416.900772,
+          408.418813,
+          409.483082,
+          413.698946
+        ],
+        "median_ms": 415.656765,
+        "min_ms": 408.418813,
+        "max_ms": 422.485643
+      }
+    },
+    "house_robber": {
+      "before": {
+        "samples_ms": [
+          499.197522,
+          491.982029,
+          495.951088,
+          510.199046,
+          503.727439,
+          503.181746,
+          505.698359,
+          499.694154,
+          496.236793
+        ],
+        "median_ms": 499.694154,
+        "min_ms": 491.982029,
+        "max_ms": 510.199046
+      },
+      "after": {
+        "samples_ms": [
+          444.815971,
+          429.220006,
+          424.240305,
+          434.04601,
+          430.420947,
+          440.3627,
+          440.467602,
+          430.558407,
+          426.407072
+        ],
+        "median_ms": 430.558407,
+        "min_ms": 424.240305,
+        "max_ms": 444.815971
+      }
+    },
+    "median": {
+      "before": {
+        "samples_ms": [
+          490.769338,
+          488.044417,
+          492.99729,
+          489.698889,
+          494.864547,
+          496.188078,
+          499.761356,
+          496.720038,
+          496.206038
+        ],
+        "median_ms": 494.864547,
+        "min_ms": 488.044417,
+        "max_ms": 499.761356
+      },
+      "after": {
+        "samples_ms": [
+          437.676854,
+          439.181555,
+          433.128457,
+          441.985271,
+          440.014398,
+          439.772017,
+          417.367989,
+          417.863726,
+          415.647821
+        ],
+        "median_ms": 437.676854,
+        "min_ms": 415.647821,
+        "max_ms": 441.985271
+      }
+    }
+  },
+  "snapshots": {
+    "sum_of_elements": {
+      "programs": 1024,
+      "all_fields_match": true
+    },
+    "house_robber": {
+      "programs": 1024,
+      "all_fields_match": true
+    },
+    "median": {
+      "programs": 1024,
+      "all_fields_match": true
+    }
+  },
+  "quality": [
+    {
+      "task": "sum_of_elements",
+      "seed": 0,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1849.376244,
+      "after_evolve_ms": 1727.487264
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 1,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1827.375647,
+      "after_evolve_ms": 1668.556224
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 2,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1876.272912,
+      "after_evolve_ms": 1720.89683
+    },
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1805.142479,
+      "after_evolve_ms": 1619.71352
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1751.503723,
+      "after_evolve_ms": 1559.043419
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1777.809299,
+      "after_evolve_ms": 1603.089614
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 2313.171281,
+      "after_evolve_ms": 2040.928794
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 2261.228936,
+      "after_evolve_ms": 2010.283426
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 2276.455546,
+      "after_evolve_ms": 2056.550595
+    }
+  ],
+  "runtime_commit": "a5562f8",
+  "raw_manifest": "logs/optimization/native-node-index-validation/manifest.json",
+  "limitation": "Short quality screens, not convergence equivalence; scaling and long-run validation pending."
+}
