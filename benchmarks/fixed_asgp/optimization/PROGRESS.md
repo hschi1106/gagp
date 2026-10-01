@@ -79,13 +79,20 @@ E+F formal interleaved controls/snapshots/search underway in
 `logs/optimization/native-contract-verifier-validation/`; do not promote until
 its comparisons complete.
 
-Current best checkpoint `c4453a3`, archived binary and full commands in
-`logs/optimization/native-checkpoint-validation/manifest.json`. Enable all native
-flags below plus `GAGP_HOST_THREADS=1 GAGP_REUSE_ADMISSION_COMPILE=1`.
-The round2 runner now enables this verified candidate flag. Next diagnostic:
-`logs/optimization/native-host-detail/` splits site construction/key/closure work.
-CPU perf sampling currently blocked by perf_event_paranoid=4; optional user
-request pending. Continue using existing stage timers; no system settings changed.
+Current best runtime `ed19fde`, archived binary/flags/commands in
+`logs/optimization/native-contract-verifier-validation/manifest.json`.
+Enable retained flags plus `GAGP_HOST_THREADS=1 GAGP_REUSE_ADMISSION_COMPILE=1
+GAGP_REUSE_SITE_CONTRACTS=1`; round2 runner supplies these.
+Formal nine-repeat Sum465.603 /House505.974 /Median499.036 ms versus same-round
+controls562.207 /650.451 /590.818. Every snapshot/non-timing search field and
+exported AST matches across 3 seeds ×4 generations. All120 native tests pass
+across full run and repository rerun (admission contract's freeze hash updated).
+[Raw-repeat summary](results/native-contract-verifier-validation.json).
+Next: reprofile, then retain certified site analysis across actual generations.
+Do not merely persist the compatibility registry: its numeric IDs are local and
+its 65536-key bound must not become a long-run cumulative admission restriction.
+CPU perf sampling remains blocked by perf_event_paranoid=4; optional request
+pending. No system settings changed.
 
 ---
 

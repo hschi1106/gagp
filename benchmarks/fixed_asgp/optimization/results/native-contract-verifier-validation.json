@@ -1,0 +1,188 @@
+{
+  "formal": {
+    "sum_of_elements": {
+      "before": {
+        "samples_ms": [
+          569.453409,
+          579.425176,
+          569.662944,
+          558.123127,
+          573.453574,
+          557.925915,
+          562.207276,
+          558.776111,
+          559.222277
+        ],
+        "median_ms": 562.207276,
+        "min_ms": 557.925915,
+        "max_ms": 579.425176
+      },
+      "after": {
+        "samples_ms": [
+          473.527783,
+          471.168517,
+          465.010575,
+          467.192186,
+          467.626379,
+          465.603417,
+          458.342543,
+          458.545933,
+          459.151155
+        ],
+        "median_ms": 465.603417,
+        "min_ms": 458.342543,
+        "max_ms": 473.527783
+      }
+    },
+    "house_robber": {
+      "before": {
+        "samples_ms": [
+          653.678023,
+          650.483535,
+          635.320465,
+          657.502599,
+          646.932015,
+          647.404273,
+          665.657071,
+          650.450504,
+          647.551762
+        ],
+        "median_ms": 650.450504,
+        "min_ms": 635.320465,
+        "max_ms": 665.657071
+      },
+      "after": {
+        "samples_ms": [
+          511.142053,
+          509.025718,
+          503.458178,
+          505.974149,
+          500.055798,
+          499.305323,
+          519.772441,
+          503.014307,
+          507.488532
+        ],
+        "median_ms": 505.974149,
+        "min_ms": 499.305323,
+        "max_ms": 519.772441
+      }
+    },
+    "median": {
+      "before": {
+        "samples_ms": [
+          611.472037,
+          606.177058,
+          605.63874,
+          600.135962,
+          590.817945,
+          590.583624,
+          590.76088,
+          585.447433,
+          590.328416
+        ],
+        "median_ms": 590.817945,
+        "min_ms": 585.447433,
+        "max_ms": 611.472037
+      },
+      "after": {
+        "samples_ms": [
+          499.281696,
+          494.540776,
+          491.421847,
+          498.967144,
+          499.036331,
+          501.247616,
+          499.951741,
+          499.223231,
+          493.220784
+        ],
+        "median_ms": 499.036331,
+        "min_ms": 491.421847,
+        "max_ms": 501.247616
+      }
+    }
+  },
+  "snapshots": {
+    "sum_of_elements": {
+      "programs": 1024,
+      "all_fields_match": true
+    },
+    "house_robber": {
+      "programs": 1024,
+      "all_fields_match": true
+    },
+    "median": {
+      "programs": 1024,
+      "all_fields_match": true
+    }
+  },
+  "quality": [
+    {
+      "task": "sum_of_elements",
+      "seed": 0,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 2169.101053,
+      "after_evolve_ms": 1891.535625
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 1,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 2093.822471,
+      "after_evolve_ms": 1841.329523
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 2,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 2218.760477,
+      "after_evolve_ms": 1878.253055
+    },
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 2230.808951,
+      "after_evolve_ms": 1836.530163
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 2093.426446,
+      "after_evolve_ms": 1762.451407
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 2152.988,
+      "after_evolve_ms": 1777.555441
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 2710.161977,
+      "after_evolve_ms": 2329.585751
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 2648.325729,
+      "after_evolve_ms": 2280.298828
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 2728.071171,
+      "after_evolve_ms": 2255.558045
+    }
+  ],
+  "source_commit": "ed19fde",
+  "archive": "logs/optimization/native-contract-verifier-validation/manifest.json",
+  "validation": "120 native tests passed across full run and repository rerun; updated hash manifest for the previously added admission reuse contract, no test removed"
+}

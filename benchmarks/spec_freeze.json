@@ -41,7 +41,7 @@
     },
     {
       "path": "spec/grammar_definition.md",
-      "sha256": "1c947a8dffd49b6757377c2b359b25e60d3ea766c1adb5e445867f1d33308a39"
+      "sha256": "0d8e354d32cb5db0fa82e052864a3b97f263ab4d6d90fd704d1994bbf31ed0ed"
     }
   ],
   "status": "frozen"
