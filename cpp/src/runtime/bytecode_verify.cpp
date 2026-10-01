@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <deque>
 #include <optional>
+#include <memory>
 #include <set>
 #include <stdexcept>
 #include <unordered_map>
@@ -55,10 +56,22 @@ enum class AbstractType : std::uint8_t {
   StringList,
 };
 
-struct AbstractState {
-  std::vector<AbstractType> stack;
+struct AbstractLocals {
   std::unordered_map<int, AbstractType> known_locals;
   std::set<int> initialized_locals;
+};
+
+struct AbstractState {
+  std::vector<AbstractType> stack;
+  // Only reached states own locals. Instruction propagation shares the immutable
+  // environment; Store and joins detach before mutation, including loop backedges.
+  std::shared_ptr<AbstractLocals> locals;
+
+  AbstractLocals& mutable_locals() {
+    if (!locals) locals = std::make_shared<AbstractLocals>();
+    else if (!locals.unique()) locals = std::make_shared<AbstractLocals>(*locals);
+    return *locals;
+  }
 };
 
 struct CodeSummary {
@@ -418,39 +431,42 @@ class Verifier {
                   code_path + "[" + std::to_string(ip) + "]",
                   "control-flow join has inconsistent stack types");
     }
+    if (existing.locals == incoming.locals) return true;
+    auto& destination = existing.mutable_locals();
+    const auto& source = *incoming.locals;
     if (!track_initialization) {
-      for (auto it = existing.known_locals.begin();
-           it != existing.known_locals.end();) {
-        const auto incoming_it = incoming.known_locals.find(it->first);
-        if (incoming_it == incoming.known_locals.end() ||
+      for (auto it = destination.known_locals.begin();
+           it != destination.known_locals.end();) {
+        const auto incoming_it = source.known_locals.find(it->first);
+        if (incoming_it == source.known_locals.end() ||
             incoming_it->second != it->second) {
-          it = existing.known_locals.erase(it);
+          it = destination.known_locals.erase(it);
           *changed = true;
         } else {
           ++it;
         }
       }
     } else {
-      for (int local : incoming.initialized_locals) {
+      for (int local : source.initialized_locals) {
         const bool already_initialized =
-            existing.initialized_locals.count(local) != 0;
+            destination.initialized_locals.count(local) != 0;
         if (!already_initialized) {
-          existing.initialized_locals.insert(local);
-          const auto incoming_type = incoming.known_locals.find(local);
-          if (incoming_type != incoming.known_locals.end()) {
-            existing.known_locals[local] = incoming_type->second;
+          destination.initialized_locals.insert(local);
+          const auto incoming_type = source.known_locals.find(local);
+          if (incoming_type != source.known_locals.end()) {
+            destination.known_locals[local] = incoming_type->second;
           } else {
-            existing.known_locals.erase(local);
+            destination.known_locals.erase(local);
           }
           *changed = true;
           continue;
         }
-        const auto existing_type = existing.known_locals.find(local);
-        const auto incoming_type = incoming.known_locals.find(local);
-        if (existing_type != existing.known_locals.end() &&
-            (incoming_type == incoming.known_locals.end() ||
+        const auto existing_type = destination.known_locals.find(local);
+        const auto incoming_type = source.known_locals.find(local);
+        if (existing_type != destination.known_locals.end() &&
+            (incoming_type == source.known_locals.end() ||
              incoming_type->second != existing_type->second)) {
-          existing.known_locals.erase(existing_type);
+          destination.known_locals.erase(existing_type);
           *changed = true;
         }
       }
@@ -513,13 +529,14 @@ class Verifier {
     std::vector<bool> seen(code.size() + 1, false);
     std::deque<std::size_t> work;
     AbstractState start;
+    auto& start_locals = start.mutable_locals();
     for (const auto& item : initial_locals) {
       if (item.first < 0 || item.first >= n_locals) {
         return fail(BytecodeVerifyCode::InvalidBinderLocal, 0, owner_path + ".binder_locals",
                     "preset binder local is out of range");
       }
-      if (expected_success_type) start.initialized_locals.insert(item.first);
-      if (item.second != AbstractType::Unknown) start.known_locals[item.first] = item.second;
+      if (expected_success_type) start_locals.initialized_locals.insert(item.first);
+      if (item.second != AbstractType::Unknown) start_locals.known_locals[item.first] = item.second;
     }
     states[0] = start;
     seen[0] = true;
@@ -566,23 +583,24 @@ class Verifier {
       if (op == Opcode::PushConst) {
         state.stack.push_back(abstract_type(consts[static_cast<std::size_t>(ins.a)].tag));
       } else if (op == Opcode::Load) {
-        if (expected_success_type && state.initialized_locals.count(ins.a) == 0) {
+        if (expected_success_type && state.locals->initialized_locals.count(ins.a) == 0) {
           guaranteed_runtime_error = true;
         }
-        const auto local = state.known_locals.find(ins.a);
+        const auto local = state.locals->known_locals.find(ins.a);
         if (!guaranteed_runtime_error) {
-          state.stack.push_back(local == state.known_locals.end()
+          state.stack.push_back(local == state.locals->known_locals.end()
                                     ? AbstractType::Unknown
                                     : local->second);
         }
       } else if (op == Opcode::Store) {
         if (!require_stack(1)) return false;
+        state.mutable_locals();
         if (state.stack.back() == AbstractType::Unknown) {
-          state.known_locals.erase(ins.a);
+          state.locals->known_locals.erase(ins.a);
         } else {
-          state.known_locals[ins.a] = state.stack.back();
+          state.locals->known_locals[ins.a] = state.stack.back();
         }
-        if (expected_success_type) state.initialized_locals.insert(ins.a);
+        if (expected_success_type) state.locals->initialized_locals.insert(ins.a);
         state.stack.pop_back();
       } else if (op == Opcode::CheckList || op == Opcode::CheckInt) {
         if (!require_stack(1)) return false;

@@ -68,6 +68,17 @@ identity90.2 ms, root/region bytecode verification91.8 ms. Instrumented timings
 are diagnosis only. Next: shared immutable verifier locals between instructions,
 copy on Store/merge; preserve traversal and admission/error semantics.
 
+Candidate F: verifier local environments share ownership between unchanged
+instruction states; Store and control-flow merge detach before mutation. CFG
+order, validation rules and diagnostics unchanged. Quick Sum455.695 /
+House498.343 /Median484.025 ms after E; all non-timing fields match. Four focused
+tests pass; independent old-source differential checks match all 100000 ordinary
+bytecode and 20000 bounded-region results including exact diagnostics and resource
+summaries. Full Release build passes. Raw `logs/optimization/native-verifier-locals/`.
+E+F formal interleaved controls/snapshots/search underway in
+`logs/optimization/native-contract-verifier-validation/`; do not promote until
+its comparisons complete.
+
 Current best checkpoint `c4453a3`, archived binary and full commands in
 `logs/optimization/native-checkpoint-validation/manifest.json`. Enable all native
 flags below plus `GAGP_HOST_THREADS=1 GAGP_REUSE_ADMISSION_COMPILE=1`.
