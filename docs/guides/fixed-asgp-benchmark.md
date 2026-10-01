@@ -219,3 +219,10 @@ fall back to normal compilation. GPU packing still verifies bytecode. Snapshot
 probes exercise this path and report `admission_compile_reuses`. Report cold
 admission, complete evolve-call and changing-generation costs alongside fixed
 measurements; reuse does not change grammar membership or variation operators.
+
+`GAGP_REUSE_SITE_CONTRACTS=1` is a candidate native host optimization: within
+one verified AST analysis, equal nonterminal/template/slot, scope, crossover
+group and closure contracts reuse their serialized compatibility key. Multi-
+occurrence logical holes retain complete scope intersection/key construction.
+It changes neither grammar membership nor operators; it is not a persistent
+identity cache. Formal validation status is tracked in the optimization index.

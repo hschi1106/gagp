@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -18,6 +19,30 @@ namespace {
 
 void check(bool condition, const char* message) {
   if (!condition) throw std::runtime_error(message);
+}
+
+// Differentially exercise repeated holes, lexical scopes, nonterminal groups,
+// resource budgets and imported/compacted tables using all existing fixtures.
+template<class... Args>
+VariationAnalysis checked_analysis(Args&&... args) {
+  struct Restore {
+    bool present = std::getenv("GAGP_REUSE_SITE_CONTRACTS") != nullptr;
+    std::string saved = present ? std::getenv("GAGP_REUSE_SITE_CONTRACTS") : "";
+    ~Restore() {
+      if (present) setenv("GAGP_REUSE_SITE_CONTRACTS", saved.c_str(), 1);
+      else unsetenv("GAGP_REUSE_SITE_CONTRACTS");
+    }
+  } restore;
+  unsetenv("GAGP_REUSE_SITE_CONTRACTS");
+  const auto reference = analyze_variation(args...);
+  setenv("GAGP_REUSE_SITE_CONTRACTS", "1", 1);
+  auto candidate = analyze_variation(args...);
+  check(reference.sites.size() == candidate.sites.size(), "contract reuse changed site count");
+  for (std::size_t i = 0; i < reference.sites.size(); ++i)
+    check(reference.sites[i].compatibility_key == candidate.sites[i].compatibility_key &&
+          reference.sites[i].compatibility_id == candidate.sites[i].compatibility_id,
+          "contract reuse changed exact scope/nonterminal/group compatibility");
+  return candidate;
 }
 
 CompiledGrammar compile(const std::string& text) {
@@ -91,7 +116,7 @@ void test_nonterminal_and_registry_compatibility() {
   const auto grammar = compile(split_rules);
   const auto genome = generate_derivation(grammar, 7).genome;
   CompatibilityRegistry shared;
-  const auto analysis = analyze_variation(grammar, genome, &shared);
+  const auto analysis = checked_analysis(grammar, genome, &shared);
   const auto& left = site_for(analysis, nonterminal(grammar, "Left"));
   const auto& right = site_for(analysis, nonterminal(grammar, "Right"));
   check(left.type == RType::Int && right.type == RType::Int,
@@ -104,9 +129,9 @@ void test_nonterminal_and_registry_compatibility() {
   CompatibilityRegistry right_registry;
   GenerationRequest left_request{nonterminal(grammar, "Left"), RType::Int, {}, {5, 4}};
   GenerationRequest right_request{nonterminal(grammar, "Right"), RType::Int, {}, {5, 4}};
-  const auto standalone_left = analyze_variation(
+  const auto standalone_left = checked_analysis(
       grammar, generate_derivation(grammar, 1, left_request).genome, left_request, &left_registry);
-  const auto standalone_right = analyze_variation(
+  const auto standalone_right = checked_analysis(
       grammar, generate_derivation(grammar, 2, right_request).genome, right_request, &right_registry);
   const auto& standalone_left_site = site_for(standalone_left, left_request.nonterminal);
   const auto& standalone_right_site = site_for(standalone_right, right_request.nonterminal);
@@ -119,8 +144,8 @@ void test_nonterminal_and_registry_compatibility() {
 void test_template_sites_occurrences_and_budgets() {
   const auto grammar = template_grammar();
   CompatibilityRegistry registry;
-  const auto first = analyze_variation(grammar, generate_derivation(grammar, 3).genome, &registry);
-  const auto second = analyze_variation(grammar, generate_derivation(grammar, 91).genome, &registry);
+  const auto first = checked_analysis(grammar, generate_derivation(grammar, 3).genome, &registry);
+  const auto second = checked_analysis(grammar, generate_derivation(grammar, 91).genome, &registry);
   const auto main = nonterminal(grammar, "Main");
   const auto value = nonterminal(grammar, "Value");
   const auto& root = site_for(first, main);
@@ -206,7 +231,7 @@ void test_asymmetric_forwarding_uses_physical_nesting() {
         "expression":{"template":"Outer","holes":{"outer":{"ref":"Value"}}}}]}
     ]
   })");
-  const auto analysis = analyze_variation(grammar, generate_derivation(grammar, 13).genome);
+  const auto analysis = checked_analysis(grammar, generate_derivation(grammar, 13).genome);
   const auto& site = site_for(analysis, nonterminal(grammar, "Value"));
   check(site.occurrences.size() == 2 &&
         site.occurrences[0].begin == 4 && site.occurrences[0].end == 5 &&
@@ -259,7 +284,7 @@ CompiledGrammar local_scope_grammar() {
 
 void test_exact_native_scope_and_request_identity() {
   const auto grammar = local_scope_grammar();
-  const auto analysis = analyze_variation(grammar, generate_derivation(grammar, 5).genome);
+  const auto analysis = checked_analysis(grammar, generate_derivation(grammar, 5).genome);
   const auto shared = nonterminal(grammar, "Shared");
   const auto local_x = nonterminal(grammar, "LocalX");
   const auto& before_x = site_for(analysis, shared, 0);
@@ -295,8 +320,8 @@ void test_exact_native_scope_and_request_identity() {
   GenerationRequest yx{scoped_nt, RType::Int,
       {{"y", RType::Bool}, {"x", RType::Int}, {"extra", RType::String}}, {5, 4}};
   const auto genome = generate_derivation(scoped, 8, xy).genome;
-  const auto xy_analysis = analyze_variation(scoped, genome, xy);
-  const auto yx_analysis = analyze_variation(scoped, genome, yx);
+  const auto xy_analysis = checked_analysis(scoped, genome, xy);
+  const auto yx_analysis = checked_analysis(scoped, genome, yx);
   const auto& xy_site = site_for(xy_analysis, scoped_nt);
   const auto& yx_site = site_for(yx_analysis, scoped_nt);
   check(same_bindings(xy_site.visible_environment, xy.visible_environment) &&
@@ -319,8 +344,8 @@ void test_compaction_and_untrusted_provenance() {
   imported.ast.names.push_back("unused");
   imported.ast.consts.push_back(Value::from_int(999));
   imported.meta = build_genome_meta(imported.ast);
-  const auto original = analyze_variation(grammar, imported);
-  const auto compacted = analyze_variation(grammar, repro::compact_genome_tables(imported));
+  const auto original = checked_analysis(grammar, imported);
+  const auto compacted = checked_analysis(grammar, repro::compact_genome_tables(imported));
   check(original.sites.size() == 1 && compacted.sites.size() == 1 &&
         original.sites[0].compatibility_key == compacted.sites[0].compatibility_key,
       "table compaction changed a normalized variation contract key");
@@ -331,7 +356,7 @@ void test_compaction_and_untrusted_provenance() {
   false_witness->seed_replayable = true;
   false_witness->choices.push_back({kNoGrammarId, kNoGrammarId, kNoGrammarId, 99, 100});
   stale.derivation = false_witness;
-  const auto reconstructed = analyze_variation(grammar, stale);
+  const auto reconstructed = checked_analysis(grammar, stale);
   check(!reconstructed.witness.seed_replayable &&
         reconstructed.witness.grammar_hash == grammar.content_hash() &&
         reconstructed.witness.choices.size() == 1 &&
@@ -357,7 +382,7 @@ void test_unbound_variation() {
     ]})";
   auto grammar = compile(text);
   auto program = generate_derivation(grammar, 1).genome;
-  auto analysis = analyze_variation(grammar, program);
+  auto analysis = checked_analysis(grammar, program);
   check(analysis.sites.size() == 1 && analysis.sites[0].nonterminal == nonterminal(grammar, "Literal"),
         "unbound policy retained a bound leaf or enclosing arithmetic site");
   auto document = parse_definition(text).document;
@@ -370,7 +395,7 @@ void test_unbound_variation() {
   policy.bool_v = false;
   grammar = compile(canonical_json(document));
   program = generate_derivation(grammar, 1).genome;
-  check(analyze_variation(grammar, program).sites.empty(), "disabled production still exposed a site");
+  check(checked_analysis(grammar, program).sites.empty(), "disabled production still exposed a site");
   policy.bool_v = true;
   auto& body = *std::find_if(rules.begin(), rules.end(), [](const auto& rule) {
     return rule.object_v.at("id").string_v == "Body";
@@ -385,7 +410,7 @@ void test_unbound_variation() {
   }])").parse();
   grammar = compile(canonical_json(document));
   program = generate_derivation(grammar, 1).genome;
-  check(analyze_variation(grammar, program).sites.size() == 2,
+  check(checked_analysis(grammar, program).sites.size() == 2,
         "fixed template binding incorrectly excluded a variation site");
 
 }
@@ -402,7 +427,7 @@ void test_metadata_only_bounded_capture_is_not_closed() {
   }
   const auto grammar = compile(canonical_json(document));
   const auto genome = generate_derivation(grammar, 1).genome;
-  const auto analysis = analyze_variation(grammar, genome);
+  const auto analysis = checked_analysis(grammar, genome);
   const auto& root = site_for(analysis, nonterminal(grammar, "Main"));
   const auto& recurrence = site_for(analysis, nonterminal(grammar, "Recurrence"));
   check(root.crossover_closed && !recurrence.crossover_closed &&

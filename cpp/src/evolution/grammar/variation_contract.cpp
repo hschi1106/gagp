@@ -7,6 +7,8 @@
 #include <set>
 #include <stdexcept>
 #include <tuple>
+#include <string_view>
+#include <cstdlib>
 
 namespace gagp::evo::grammar {
 namespace {
@@ -124,6 +126,13 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
   }
   using Group = std::tuple<std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t>;
   std::map<Group, std::size_t> groups;
+  // Within this verified AST/request, scope IDs identify exact locals and
+  // nonterminal IDs identify formal environments. The cache never escapes it.
+  using ContractShape = std::tuple<std::uint32_t, std::uint32_t, std::uint32_t,
+      std::uint32_t, bool, bool, std::string_view>;
+  std::vector<ContractShape> shapes;
+  std::map<ContractShape, std::string> contract_keys;
+  const bool reuse_contracts = std::getenv("GAGP_REUSE_SITE_CONTRACTS") != nullptr;
   for (std::size_t choice_index = 0; choice_index < witness.choices.size(); ++choice_index) {
     const auto& choice = witness.choices[choice_index];
     const auto& nt = grammar.nonterminals().at(choice.nonterminal);
@@ -172,6 +181,10 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
       site.replacement_budget = request.budget;
       site.remaining_template_nesting = 256;
       const auto id = result.sites.size();
+      if (reuse_contracts)
+        shapes.emplace_back(site.nonterminal, site.template_id, site.slot,
+            nt.category == NodeCategory::Program ? kNoGrammarId : verified.expression_scope_ids.at(choice.ast_begin),
+            materialized_scope, site.crossover_closed, std::string_view(production.crossover_group));
       result.sites.push_back(std::move(site)); found = groups.emplace(group, id).first;
     }
     auto& site = result.sites[found->second];
@@ -198,6 +211,7 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
     site.replacement_budget.max_depth = std::min(site.replacement_budget.max_depth,
         request.budget.max_depth - depths.at(choice.ast_begin) + 1);
   }
+  std::size_t site_index = 0;
   for (auto& site : result.sites) {
     if (local_projected_budget) {
       std::vector<std::size_t> roots;
@@ -237,7 +251,17 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
     if (site.crossover_closed)
       for (const auto& span : site.occurrences)
         site.crossover_closed = site.crossover_closed && lexically_closed(genome.ast, span);
-    site.compatibility_key = contract_key(grammar, site);
+    if (reuse_contracts && site.occurrences.size() == 1) {
+      auto shape = shapes.at(site_index);
+      std::get<5>(shape) = site.crossover_closed;
+      const auto cached = contract_keys.find(shape);
+      if (cached != contract_keys.end()) site.compatibility_key = cached->second;
+      else {
+        site.compatibility_key = contract_key(grammar, site);
+        contract_keys.emplace(shape, site.compatibility_key);
+      }
+    } else site.compatibility_key = contract_key(grammar, site);
+    ++site_index;
     if (registry) site.compatibility_id = registry->intern(site.compatibility_key);
   }
   return result;

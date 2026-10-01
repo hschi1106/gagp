@@ -57,6 +57,17 @@ by compaction. The implementation, flag and proposed spec change are reverted;
 the acceptance tests remain and pass on the retained implementation. Raw rejected
 patch/timings in `logs/optimization/native-compact-admission/`; no maintained entry.
 
+Candidate E: analysis-local site contract reuse (`GAGP_REUSE_SITE_CONTRACTS=1`).
+Same verified scope/nonterminal/template/group/closure reuses the exact key;
+repeated-hole intersections retain full construction. Quick Sum505.950 /
+House595.256 /Median542.493 ms, unchanged non-timing results. Differential
+contract fixtures plus reproduction/bounded variation pass. Formal repeats and
+changing-search checks pending. Raw `logs/optimization/native-site-contracts/`.
+Detailed Median NVTX: 141886 contract constructions (~94.7 ms self), runtime
+identity90.2 ms, root/region bytecode verification91.8 ms. Instrumented timings
+are diagnosis only. Next: shared immutable verifier locals between instructions,
+copy on Store/merge; preserve traversal and admission/error semantics.
+
 Current best checkpoint `c4453a3`, archived binary and full commands in
 `logs/optimization/native-checkpoint-validation/manifest.json`. Enable all native
 flags below plus `GAGP_HOST_THREADS=1 GAGP_REUSE_ADMISSION_COMPILE=1`.
