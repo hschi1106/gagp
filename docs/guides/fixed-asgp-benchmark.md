@@ -302,3 +302,9 @@ may be copied or computed by an evolved request-expression phase. Every phase
 and original fuel/capacity boundary remains active. Direct typed-phase proof is
 required; unsupported populations use the ordinary region executor. Diagnostics
 must show the `-window` profile before attributing timings to this experiment.
+
+
+`GAGP_UNBOXED_WINDOW_FRAMES=1` further stores proved window state/prepared/result
+integers without redundant per-slot tags. The list's private view/non-view bit is
+retained. It requires the window executor proof and preserves resource limits,
+phase order, numeric operations and fuel. Unsupported shapes keep tagged frames.

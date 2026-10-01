@@ -47,6 +47,38 @@ struct DCompactRegionFrameStorage {
 using DCompactRegionFrame = DCompactRegionFrameStorage<1>;
 using DCompactPairRegionFrame = DCompactRegionFrameStorage<2>;
 
+#ifdef __CUDACC__
+#define GAGP_REGION_HD __host__ __device__
+#else
+#define GAGP_REGION_HD
+#endif
+struct DWindowStateProxy {
+  std::int64_t& i;
+  ValueTag tag;
+  bool& view;
+  GAGP_REGION_HD operator Value() const {Value v;v.i=i;v.tag=tag;v.b=tag==ValueTag::IntList && view;return v;}
+  GAGP_REGION_HD DWindowStateProxy& operator=(Value v){i=v.i;if(tag==ValueTag::IntList)view=v.b;return *this;}
+};
+template<unsigned States> struct DWindowStates {
+  std::int64_t values[States];
+  bool view;
+  GAGP_REGION_HD DWindowStateProxy operator[](unsigned i){return {values[i],i?ValueTag::Int:ValueTag::IntList,view};}
+  GAGP_REGION_HD Value operator[](unsigned i) const {Value v;v.i=values[i];v.tag=i?ValueTag::Int:ValueTag::IntList;v.b=i==0 && view;return v;}
+};
+struct DWindowInt {
+  std::int64_t i;
+  static constexpr ValueTag tag=ValueTag::Int;
+  GAGP_REGION_HD operator Value() const{return Value::from_int(i);}
+  GAGP_REGION_HD DWindowInt& operator=(Value v){i=v.i;return *this;}
+};
+template<unsigned States> struct DUnboxedWindowFrame {
+  DWindowStates<States> state;
+  DWindowInt prepared[1];
+  DWindowInt results[2];
+  int next_request;
+};
+#undef GAGP_REGION_HD
+
 struct DRegionWorkspace {
   DRegionFrame* frames = nullptr;
   std::int64_t* memo_keys = nullptr;
@@ -57,6 +89,7 @@ struct DRegionWorkspace {
   bool compact_frames = false;
   bool two_state_frames = false;
   bool window_executor = false;
+  bool unboxed_window_frames = false;
 };
 
 static_assert(std::is_trivially_copyable<DRegionFrame>::value);

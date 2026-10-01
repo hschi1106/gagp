@@ -274,3 +274,10 @@ Parsimony128 three seeds: Sum 0/0/0, House -1/0/0, Median -16058/-9365/-12052.
 Sum average size ~21 and RSS ~987 MiB stable; unique genotypes fall to 484–517.
 House/Median retain ~1015 unique genotypes but can still grow. Separate search
 profile, not an identical-workload evaluator speedup. ASan/UBSan ownership tests pass.
+
+R2-unboxed-window: actual one/two-state window coverage. First unit run caught a
+lost private list-view bit; fixed storage retains it. Tests were not removed.
+Focused boundary tests and all 3×1024 full-case snapshots now equal. Initial Sum
+kernel 44.7–45.6 ms (window tagged ~57.6), complete native generation ~211 ms;
+Median kernel ~2.1 ms, House unchanged path. Retained as opt-in candidate pending
+formal combined repeats. Logs include failed first run and corrected build/test.

@@ -366,6 +366,12 @@ __device__ DResult d_run_bounded_region(
     const DExecutionTables& tables, int& fuel, DRegionWorkspace workspace) {
   if constexpr (Flavor == DPayloadFlavor::BoundIntListViews) {
     if(workspace.window_executor) {
+      if(workspace.unboxed_window_frames) {
+        if(workspace.two_state_frames)return d_run_window_region<DUnboxedWindowFrame<2>>(segment,operands,caller_locals,
+            caller_set,payload_tables,payload_state,tables,fuel,workspace);
+        return d_run_window_region<DUnboxedWindowFrame<1>>(segment,operands,caller_locals,
+            caller_set,payload_tables,payload_state,tables,fuel,workspace);
+      }
       if(workspace.two_state_frames)return d_run_window_region<DCompactPairRegionFrame>(segment,operands,caller_locals,
           caller_set,payload_tables,payload_state,tables,fuel,workspace);
       return d_run_window_region<DCompactRegionFrame>(segment,operands,caller_locals,

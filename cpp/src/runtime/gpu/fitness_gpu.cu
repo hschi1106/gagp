@@ -584,7 +584,9 @@ FitnessEvalResult FitnessSessionGpu::eval_impl(const std::vector<BytecodeProgram
             s.request_count==2 && s.requests[0][0].kind==RegionTransitionKind::SequenceWindow &&
             s.requests[1][0].kind==RegionTransitionKind::SequenceWindow;
       });
-  const std::size_t frame_size = !region_workspace.compact_frames ? sizeof(gpu_detail::DRegionFrame) :
+  region_workspace.unboxed_window_frames = region_workspace.window_executor && std::getenv("GAGP_UNBOXED_WINDOW_FRAMES");
+  const std::size_t frame_size = region_workspace.unboxed_window_frames ?
+      (region_workspace.two_state_frames ? sizeof(gpu_detail::DUnboxedWindowFrame<2>) : sizeof(gpu_detail::DUnboxedWindowFrame<1>)) : !region_workspace.compact_frames ? sizeof(gpu_detail::DRegionFrame) :
       (region_workspace.two_state_frames ? sizeof(gpu_detail::DCompactPairRegionFrame) :
        sizeof(gpu_detail::DCompactRegionFrame));
   for (const auto& segment : packed.region_segments) {
@@ -754,6 +756,7 @@ FitnessEvalResult FitnessSessionGpu::eval_impl(const std::vector<BytecodeProgram
     if (direct_phases) out.execution_profile += "-direct";
     if (direct_root) out.execution_profile += "-root";
     if (region_workspace.window_executor) out.execution_profile += "-window";
+    if (region_workspace.unboxed_window_frames) out.execution_profile += "-unboxed";
     out.fitness = std::move(host_fitness);
     out.timing.pack_ms = ms_between(pack_t0, pack_t1);
     out.timing.launch_prep_ms = ms_between(launch_prep_t0, launch_prep_t1);

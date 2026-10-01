@@ -39,7 +39,11 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     workspace.slot_stride = blockDim.x;
     if (workspace.frames) {
       const auto slot = block_base * workspace.frame_capacity + tid;
-      if (workspace.compact_frames) {
+      if(workspace.unboxed_window_frames) {
+        workspace.frames=reinterpret_cast<DRegionFrame*>(workspace.two_state_frames ?
+            reinterpret_cast<void*>(reinterpret_cast<DUnboxedWindowFrame<2>*>(workspace.frames)+slot) :
+            reinterpret_cast<void*>(reinterpret_cast<DUnboxedWindowFrame<1>*>(workspace.frames)+slot));
+      } else if (workspace.compact_frames) {
         if (workspace.two_state_frames)
           workspace.frames = reinterpret_cast<DRegionFrame*>(
               reinterpret_cast<DCompactPairRegionFrame*>(workspace.frames) + slot);
