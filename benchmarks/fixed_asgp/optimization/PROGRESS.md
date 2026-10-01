@@ -21,14 +21,26 @@ claim a performance improvement. Raw five-mode measurements and binary:
 Validation: complete Release build; all 120 native tests passed across full run
 and focused reruns after adapting two worker-count expectations. Explicit 4-worker
 resource/cache/parity tests also passed; tool tests 5, repository tests 24 passed.
-A strace clone/backtrace smoke records only CUDA driver thread creation, no GAGP
-host workers. Logs are alongside the baseline.
+A clone trace plus pthread_create interposer/backtrace smoke records three CUDA
+driver thread creations, no GAGP host workers. Logs are alongside the baseline.
 
-Next experiment hypothesis: membership already lowers admitted ASTs; retaining
-that existing bytecode in the opaque native derivation certificate can eliminate
-recompilation without changing AST/genotype or GPU reproduction. Start scalar
-constants only; mutable payload tokens must not be accidentally retained/reused.
-Measure evolve-call/cold cost as well as generation, and actual changing search.
+Candidate A (`GAGP_REUSE_ADMISSION_COMPILE=1`): retain admission's existing
+lowering in its opaque native certificate, scalar constants only. Exploratory
+Sum640.959 / House736.418 / Median699.902 ms; all non-timing fields equal to 1T
+baseline. Compile drops to 12.8–13.9 ms. Tests reject stale AST/constants/input
+layout/fuel and decline registry-dependent constants. Needs formal and changing
+search validation before promotion. Raw `logs/optimization/native-admission-compile`.
+
+NVTX diagnosis of candidate A, Median: site analysis self178.6 ms, runtime
+identity105.9 ms/11024 calls, bytecode+region verification96.7 ms; full profiled
+722.7 ms. Nested ranges are not additive. Raw source-only instrumentation and
+restored sources at `logs/optimization/native-1t-host-profile/`.
+
+Candidate B in progress: cache grammar-wide local-resource-charge eligibility
+once in immutable CompiledGrammar. Next potential direction: serial decode
+currently uses/discards per-batch worker analysis caches; use normal ordered
+admission on 1T so the run context retains analyses for mutation preparation.
+No change to variation kernels, admission rules, or AST representation.
 CPU perf sampling currently blocked by perf_event_paranoid=4; optional user
 request pending. Continue using existing stage timers; no system settings changed.
 

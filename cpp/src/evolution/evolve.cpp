@@ -98,6 +98,11 @@ CompiledPopulation compile_population(const std::vector<ProgramGenome>& populati
     return genome.derivation ? grammar::runtime_cache_identity(
         genome, input_names, static_cast<std::uint32_t>(fuel)) : genome.meta.program_key;
   };
+  const auto compile_one = [&](const ProgramGenome& genome) {
+    if (const auto admitted = grammar::admitted_bytecode_for_eval(
+            genome, input_names, static_cast<std::uint32_t>(fuel))) return *admitted;
+    return compile_for_eval(genome, input_names);
+  };
   std::unique_ptr<detail::BatchWorkers> team;
   if (parallel) team = std::make_unique<detail::BatchWorkers>(workers);
   for (std::size_t begin = 0; begin < population.size(); begin += batch_size) {
@@ -119,7 +124,7 @@ CompiledPopulation compile_population(const std::vector<ProgramGenome>& populati
               row.key_ready = true;
               if (cache->by_program.find(row.key) != cache->by_program.end()) continue;
               row.compile_begin = std::chrono::steady_clock::now();
-              row.bytecode = compile_for_eval(genome, input_names);
+              row.bytecode = compile_one(genome);
               row.compile_end = std::chrono::steady_clock::now();
             } catch (...) { row.error = std::current_exception(); }
           }
@@ -151,7 +156,7 @@ CompiledPopulation compile_population(const std::vector<ProgramGenome>& populati
                                   : prepared[i].compile_end;
       } else {
         const auto t0 = std::chrono::steady_clock::now();
-        bc = compile_for_eval(genome, input_names);
+        bc = compile_one(genome);
         out.compile_ms += std::chrono::duration<double, std::milli>(
             std::chrono::steady_clock::now() - t0).count();
       }

@@ -612,6 +612,17 @@ and weights that do not change the materialized program. Grammar or cache metada
 never selects a runtime evaluator by package name. These contracts must remain true
 when later stages add concrete artifact fields and acceptance checks.
 
+An optional admission-compilation reuse path may retain the bytecode already
+produced by canonical membership/lowering inside its opaque derivation certificate.
+Evaluation may reuse it only after checking current materialized runtime identity,
+including input order and fuel. Public provenance fields cannot authorize reuse.
+The first implementation supports only scalar constants: registry-dependent
+constants fall back to compilation, even if decoded content happens to match,
+because cached bytecode can refer to a different payload token lifetime. No
+membership, type, resource, or GPU packing validation is disabled. Retention is
+bounded by the lifetime of the existing certificate, not a global artifact cache.
+Admission/init and wider evolve-call costs must still be reported.
+
 Source shape validation runs before override resolution discards definitions; an overridden unknown key or malformed constant is still an error.
 
 ## Staged materialization policy

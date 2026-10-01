@@ -28,6 +28,7 @@ class DerivationCertificate {
   std::string identity;
   DerivationMetadata witness;
   VerifiedAst verified;
+  std::shared_ptr<const BytecodeProgram> executable;
   std::vector<std::vector<int>> environments;
 };
 namespace {
@@ -458,7 +459,8 @@ class WitnessBuilder {
     out_.execution_limits = grammar.execution_limits();
     out_.nodes.resize(genome.ast.nodes.size());
   }
-  DerivationMetadata run(bool validate_lowering = true, const ProjectedBudget* budget = nullptr) {
+  DerivationMetadata run(bool validate_lowering = true, const ProjectedBudget* budget = nullptr,
+      std::shared_ptr<const BytecodeProgram>* executable = nullptr) {
     if (choice_lexical_environments_out_) choice_lexical_environments_out_->clear();
     const auto nt = out_.request.nonterminal;
     const bool wrap = grammar_.nonterminals()[nt].category == NodeCategory::Expression;
@@ -479,7 +481,7 @@ class WitnessBuilder {
     // reconstruction still checks lowering at generation/acceptance boundaries.
     if (!validate_lowering || (budget && !budget->accepts(out_.resources->subtree())))
       return std::move(out_);
-    const auto lowered = [&] {
+    auto lowered = [&] {
       if (frame_) {
         auto projected = project_frame(grammar_, out_.request, *frame_, genome_.ast);
         auto projected_genome = genome_;
@@ -496,6 +498,7 @@ class WitnessBuilder {
     if (lowered_instructions > kGrammarMaxLoweredInstructions)
       throw std::invalid_argument("grammar witness exceeds 1048576 lowered instructions");
     out_.lowered_instructions = static_cast<std::uint32_t>(lowered_instructions);
+    if (executable) *executable = std::make_shared<const BytecodeProgram>(std::move(lowered));
     if (choice_lexical_environments_out_) {
       if (choice_lexical_environments_.size() != out_.choices.size())
         throw std::logic_error("grammar witness lexical sidecar lost choice alignment");
@@ -704,6 +707,20 @@ class WitnessBuilder {
 };
 }  // namespace
 
+std::shared_ptr<const BytecodeProgram> admitted_bytecode_for_eval(
+    const ProgramGenome& genome, const std::vector<std::string>& input_names,
+    std::uint32_t fuel) {
+  if (!certificates_enabled() || !std::getenv("GAGP_REUSE_ADMISSION_COMPILE") ||
+      !genome.derivation || !genome.derivation->certificate) return nullptr;
+  const auto& proof = *genome.derivation->certificate;
+  if (!proof.executable) return nullptr;
+  for (const auto& value : genome.ast.consts)
+    if (value.tag != ValueTag::Int && value.tag != ValueTag::Float &&
+        value.tag != ValueTag::Bool && value.tag != ValueTag::Char) return nullptr;
+  if (proof.identity != runtime_cache_identity(genome, input_names, fuel)) return nullptr;
+  return proof.executable;
+}
+
 void require_membership(const CompiledGrammar& grammar, const ProgramGenome& genome) {
   require_membership(grammar, genome, entry_request(grammar));
 }
@@ -748,13 +765,17 @@ DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const 
   Matcher matcher(grammar, genome.ast, request, cache || verified != nullptr);
   matcher.run();
   std::vector<std::vector<int>> environments;
+  std::shared_ptr<const BytecodeProgram> executable;
   auto witness = WitnessBuilder(grammar, genome, request, matcher, nullptr,
-      cache ? &environments : choice_lexical_environments).run();
+      cache ? &environments : choice_lexical_environments).run(true, nullptr,
+          cache && !registry_constants && std::getenv("GAGP_REUSE_ADMISSION_COMPILE")
+              ? &executable : nullptr);
   if (cache) {
     auto proof = std::make_shared<DerivationCertificate>();
     proof->identity = certificate_identity(grammar, genome);
     proof->witness = witness;
     proof->verified = matcher.verified();
+    proof->executable = std::move(executable);
     proof->environments = std::move(environments);
     if (choice_lexical_environments) *choice_lexical_environments = proof->environments;
     witness.certificate = std::move(proof);

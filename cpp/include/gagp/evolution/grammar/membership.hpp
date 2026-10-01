@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gagp/evolution/grammar/compiled.hpp"
+#include "gagp/core/bytecode.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/genome.hpp"
 #include "gagp/evolution/ast_verify.hpp"
@@ -8,6 +9,13 @@
 
 namespace gagp::evo::grammar {
 
+
+// Returns only an immutable executable sealed by canonical admission and matching
+// current AST/scalar constants/input order/fuel. Not a grammar-admission API.
+// Registry-dependent constants and stale/unsealed proofs return nullptr.
+std::shared_ptr<const BytecodeProgram> admitted_bytecode_for_eval(
+    const ProgramGenome& genome, const std::vector<std::string>& input_names,
+    std::uint32_t fuel);
 
 // Checks materialized membership independently of seed and provenance. Throws an
 // actionable invalid_argument on native, domain, template or budget violations.

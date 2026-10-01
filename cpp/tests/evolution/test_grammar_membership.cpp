@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstdlib>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -41,6 +42,7 @@ std::string constant_grammar(const std::string& type, const std::string& values)
 
 int main() {
   try {
+    setenv("GAGP_REUSE_ADMISSION_COMPILE", "1", 1);
     const auto scalar_doc = json(R"({"format_version":"grammar-definition-v2",
       "entry":{"nonterminal":"Expr","type":"Int"},
       "search_limits":{"max_nodes":40,"max_depth":12},"execution_limits":{"fuel":1000},
@@ -64,9 +66,28 @@ int main() {
     check(bool(sum.derivation->certificate), "membership must retain opaque proof");
     const auto reused = reconstruct_derivation(scalar, sum);
     check(reused.certificate == sum.derivation->certificate, "identical membership should reuse proof");
+    const auto executable = admitted_bytecode_for_eval(sum, {}, scalar.execution_limits().fuel);
+    check(bool(executable), "scalar admission must retain its existing lowering");
+    check(admitted_bytecode_for_eval(sum, {}, scalar.execution_limits().fuel) == executable,
+          "unchanged scalar executable lost its sealed identity");
+    check(!admitted_bytecode_for_eval(sum, {"wrong_input"}, scalar.execution_limits().fuel),
+          "wrong input layout reused executable");
+    check(!admitted_bytecode_for_eval(sum, {}, scalar.execution_limits().fuel + 1),
+          "wrong execution contract reused executable");
+    auto changed_executable = sum; changed_executable.ast.nodes[3].kind = NodeKind::SUB;
+    check(!admitted_bytecode_for_eval(changed_executable, {}, scalar.execution_limits().fuel),
+          "changed_executable AST reused stale executable");
+    changed_executable = sum; changed_executable.ast.consts.front() = Value::from_int(999);
+    check(!admitted_bytecode_for_eval(changed_executable, {}, scalar.execution_limits().fuel),
+          "changed_executable constant reused stale executable");
+    changed_executable = sum; changed_executable.derivation.reset();
+    check(!admitted_bytecode_for_eval(changed_executable, {}, scalar.execution_limits().fuel),
+          "unsealed AST obtained cached executable");
     auto forged_metadata = std::make_shared<DerivationMetadata>(*sum.derivation);
     forged_metadata->lowered_instructions = 0;
     auto forged = sum; forged.derivation = forged_metadata;
+    check(admitted_bytecode_for_eval(forged, {}, scalar.execution_limits().fuel) == executable,
+          "public annotations should not affect the sealed executable");
     check(reconstruct_derivation(scalar, forged).lowered_instructions == reused.lowered_instructions,
           "cached witness must not trust public provenance fields");
     auto stale = sum; stale.ast.nodes[3].kind = NodeKind::SUB;
@@ -127,6 +148,8 @@ int main() {
             payload::StagedPayloads::Scope scope(reads);
             genome.derivation=std::make_shared<const DerivationMetadata>(reconstruct_derivation(grammar,genome));
             check(bool(genome.derivation->certificate),"snapshot can retain a payload proof");
+            check(!admitted_bytecode_for_eval(genome, {}, grammar.execution_limits().fuel),
+                  "payload certificate must decline executable reuse");
             check(reconstruct_derivation(grammar,genome).certificate==genome.derivation->certificate,
                   "identical decoded payload proof should be reusable inside snapshot");
           }
