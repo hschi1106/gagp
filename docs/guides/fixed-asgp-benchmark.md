@@ -265,3 +265,16 @@ retain their validation. Certificates disabled, unsupported payloads, root
 requests or budgets retain the existing native path. GPU operators, canonical
 membership, RNG and copybacks do not change. This flag has no performance claim
 until its paired experiments pass.
+
+`GAGP_CPU_REGION_VIEWS=1` is a separate CPU evaluator prototype. After ordinary
+segment verification, the region must use SequenceWindows and forward type-flow
+must prove Int/Bool/IntList phases using
+only Len/Index/Slice for containers, scalar constants and a scalar region result.
+Memoized list-valued states are excluded. Each invocation owns copies of its
+registered IntList inputs; intermediate slices become checked offset/length
+views. Missing, malformed or oversized payloads use generic execution. Registry
+entries for temporary slices are not created; this profile does not preserve
+incidental intermediate registry contents/hash-collision side effects. Phase
+execution, arithmetic, fuel, lazy capture reads and region scheduling remain
+unchanged. No view escapes into root execution. Initialization and conversions
+occur inside the ordinary evaluator/generation timer.

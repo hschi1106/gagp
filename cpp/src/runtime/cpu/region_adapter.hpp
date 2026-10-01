@@ -8,6 +8,7 @@
 #include "gagp/core/bytecode.hpp"
 #include "gagp/runtime/cpu/builtins_cpu.hpp"
 #include "bounded_region.hpp"
+#include "list_views.hpp"
 
 namespace gagp::detail {
 
@@ -28,6 +29,7 @@ struct RegionAdapter {
   // The iterative driver invokes phases serially. Keep bounded binding storage
   // across visits instead of allocating it for every predicate/body evaluation.
   RegionPhaseScratch& scratch;
+  const CpuListViews* list_views = nullptr;
 
   ExecResult run(const RegionPhase& phase, ValueTag expected,
                  const RegionFrame& frame, int& fuel, bool result_phase = false) {
@@ -152,7 +154,8 @@ struct RegionAdapter {
           const auto window = resolve_sequence_window(transition.window,
               Value::container_len(source), cuts);
           const Value args[]{source, Value::from_int(window.first), Value::from_int(window.second)};
-          const auto result = builtin_call(BuiltinId::Slice, args, 3);
+          const auto result = list_views ? list_views->call(BuiltinId::Slice, args, 3)
+                                         : builtin_call(BuiltinId::Slice, args, 3);
           if (result.is_error) return {true, Value::invalid(), result.err};
           // Preserve the charged child-entry type check, including fallback tags.
           next[i] = result.value;

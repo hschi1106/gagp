@@ -17,8 +17,7 @@ Nine-repeat full-generation medians Sum279.706 / House295.679 / Median288.718ms;
 same-round allocator controls329.388 /348.488 /339.451ms.
 Frozen headline6.583x Sum /4.336x House, not30x. All3072 snapshots,3 seeds x4/32
 generation results and final ASTs match. Four focused native/safety tests pass.
-Full regression passed120 tests before N; current candidate full regression and
-scaling still pending. Use `round2.py` flags including `GAGP_OWNED_PREPARATION=1`.
+All120 tests pass with N and the O window-view candidate; scaling still pending. Use `round2.py` flags including `GAGP_OWNED_PREPARATION=1`.
 Archive/repeats/commands `logs/optimization/native-owned-validation/`;
 [validation](results/native-owned-validation.json).
 Dependency hashes at `logs/optimization/native-allocator/dependency.json`.
@@ -59,8 +58,14 @@ Formal9-repeat and3-seed4/32-gen comparisons pass; retained.
 Candidate O (`GAGP_CPU_REGION_VIEWS=1`): invocation-local IntList views
 for statically proved region phases, eliminating intermediate Slice registry
 hash/copy work; original CPU VM/region control flow and numeric/fuel remain.
-5 focused parity/region/session tests pass. Quick P1024 CPU full generations and
-3072 GPU+CPU snapshots running in `logs/optimization/native-cpu-views/`.
+5 focused parity/region/session tests and full120 suite pass. Initial P1024 CPU
+Sum16942.169->9241.978ms, House7806.760->7848.474, Median712.673->751.051.
+All CPU generation non-time fields and3072 CPU/GPU snapshots match.
+Coordinate views had no supported performance benefit; implementation is now
+restricted by `SequenceWindows` structure (not task name). Formal9 CPU repeats,
+full-case snapshots and5-mode quick controls running in
+`logs/optimization/native-cpu-window-validation/`. Initial all-region prototype
+binary/results retained in `logs/optimization/native-cpu-views/`.
 No CPU workers, no view escape into root code; memo list states unsupported.
 Temporary slice registry contents are intentionally not materialized in this
 profile (same scalar-content aim as GPU views); no claimed speedup yet.
@@ -251,3 +256,10 @@ All original-file hashes match. [Validation record](results/cpu-fragment-removal
 The cleaned binary is archived at
 `logs/optimization/cpu-fragment-removal-20261002/bench`.
 No new architecture or optimization experiment is part of this cleanup.
+
+Next high-value GPU question: can native GPU offspring be lowered directly into
+existing proven phase bytecode, without CPU AST reconstruction between passes?
+Start with a bounded prefix-phase lowering prototype and compare it against the
+existing compiler (code, constants, fuel, outputs). This is necessary groundwork,
+not a speedup claim or another reproduction backend. Grammar membership must
+remain a distinct proof; type-correct phase lowering alone does not establish it.

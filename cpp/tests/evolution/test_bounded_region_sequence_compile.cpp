@@ -1,3 +1,7 @@
+#include "../../src/runtime/cpu/list_views.hpp"
+#include "gagp/runtime/cpu/execution_session.hpp"
+#include <cstdlib>
+#include <limits>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -337,12 +341,91 @@ void check_lazy_capture_and_implicit_var_guard() {
           "structure-only compilation accepted an implicit phase VAR capture");
 }
 
+void check_cpu_region_views() {
+  struct Restore {
+    bool present = std::getenv("GAGP_CPU_REGION_VIEWS") != nullptr;
+    std::string value = present ? std::getenv("GAGP_CPU_REGION_VIEWS") : "";
+    ~Restore() { if (present) setenv("GAGP_CPU_REGION_VIEWS",value.c_str(),1); else unsetenv("GAGP_CPU_REGION_VIEWS"); }
+  } restore;
+  for (std::size_t length=0; length<=4; ++length) {
+    for (int variant=0; variant<3; ++variant) {
+      auto program = compile_checked(count_program(int_list(length)));
+      auto& segment = program.bounded_region_segments[0];
+      if (variant) {
+        auto& body = segment.base_body.program;
+        body.consts = {Value::from_int(std::numeric_limits<std::int64_t>::min()),
+                       Value::from_int(std::numeric_limits<std::int64_t>::max()), Value::from_int(-1)};
+        body.code = {{Opcode::Load,0,0,true,false}};
+        if (variant==2) {
+          body.code.push_back({Opcode::PushConst,0,0,true,false});
+          body.code.push_back({Opcode::PushConst,1,0,true,false});
+          body.code.push_back({Opcode::CallBuiltin,static_cast<int>(BuiltinId::Slice),3,true,true});
+        }
+        body.code.push_back({Opcode::PushConst,2,0,true,false});
+        body.code.push_back({Opcode::CallBuiltin,static_cast<int>(BuiltinId::Index),2,true,true});
+        body.code.push_back({Opcode::Return,0,0,false,false});
+        body.instruction_fuel.assign(body.code.size(),1);
+      }
+      require(detail::cpu_region_views_supported(segment), "scalar view fixture failed capability proof");
+      for (unsigned frames : {0u,1u,32u}) {
+        segment.plan.limits.frames = frames;
+        unsetenv("GAGP_CPU_REGION_VIEWS"); CpuExecutionSession reference(program);
+        std::vector<ExecResult> expected;
+        for (int fuel=0; fuel<=100; ++fuel) expected.push_back(reference.execute({},fuel));
+        setenv("GAGP_CPU_REGION_VIEWS","1",1); CpuExecutionSession candidate(program);
+        for (int fuel=0; fuel<=100; ++fuel) {
+          const auto actual = candidate.execute({},fuel); const auto& old = expected[fuel];
+          require(actual.is_error == old.is_error && (actual.is_error ? actual.err.code == old.err.code : exact_value(actual.value,old.value)),
+              "CPU list view changed scalar output/error/fuel/frame boundary");
+        }
+      }
+    }
+  }
+  // Unsupported result types and container-key memo keep the reference path.
+  auto unsupported = compile_checked(identity_program(int_list(4)));
+  require(!detail::cpu_region_views_supported(unsupported.bounded_region_segments[0]), "escaping list admitted as a private view");
+  auto memo = compile_checked(count_program(int_list(4))).bounded_region_segments[0];
+  memo.plan.memoized = true;
+  require(!detail::cpu_region_views_supported(memo), "list-valued memo state admitted");
+  detail::CpuListViews views; detail::RegionState state{};
+  state[0] = int_list(4); std::vector<std::optional<Value>> parameters;
+  require(views.prepare(state,1,parameters), "valid payload did not convert");
+  const Value bad[]{Value::from_int_list_hash_len(100,1),Value::from_int(0)};
+  require(views.call(BuiltinId::Index,bad,2).is_error,"out of storage view was dereferenced");
+  const auto mutable_token = Value::from_int_list_hash_len(1299182,1);
+  payload::register_list(mutable_token,{Value::from_int(7)});
+  state[0] = mutable_token;
+  require(views.prepare(state,1,parameters), "mutable source did not convert");
+  const Value lookup[]{state[0],Value::from_int(0)};
+  payload::register_list(mutable_token,{Value::from_int(11)});
+  require(views.call(BuiltinId::Index,lookup,2).value.i == 7,
+      "invocation view did not own its input snapshot");
+  state[0] = mutable_token;
+  require(views.prepare(state,1,parameters), "next invocation did not convert");
+  const Value refreshed[]{state[0],Value::from_int(0)};
+  require(views.call(BuiltinId::Index,refreshed,2).value.i == 11,
+      "invocation retained a stale registry snapshot");
+  const auto short_token = Value::from_int_list_hash_len(892731,4);
+  payload::register_list(short_token,{Value::from_int(1)});
+  state[0] = short_token;
+  require(!views.prepare(state,1,parameters),"short registered payload did not decline view conversion");
+  const auto missing = Value::from_int_list_hash_len(879872331,4);
+  state[0] = missing;
+  require(!views.prepare(state,1,parameters),"missing payload did not decline view conversion");
+  auto program = compile_checked(count_program(short_token));
+  unsetenv("GAGP_CPU_REGION_VIEWS"); const auto a=execute_bytecode_cpu(program,{},100);
+  setenv("GAGP_CPU_REGION_VIEWS","1",1); const auto b=execute_bytecode_cpu(program,{},100);
+  require(a.is_error == b.is_error && (a.is_error ? a.err.code==b.err.code : exact_value(a.value,b.value)),
+      "failed conversion did not restore generic region inputs");
+}
+
 }  // namespace
 
 int main() {
   try {
     payload::clear();
     check_identity_and_fuel();
+    check_cpu_region_views();
     check_lexical_ownership();
     check_lazy_capture_and_implicit_var_guard();
     std::cout << "gagp_test_bounded_region_sequence_compile: OK\n";
