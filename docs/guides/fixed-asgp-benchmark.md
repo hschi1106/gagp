@@ -249,3 +249,13 @@ GPU cost are recorded separately and included in `search_total_ms`. Final full
 export/admission, AST/handle GPU equality and CPU top-16 audit are separate.
 `GAGP_SEARCH_GENERATIONS` and `GAGP_SEARCH_EXPORT` allow native search controls
 and expression representability checks; ordinary defaults remain unchanged.
+
+`GAGP_LOCAL_FRAGMENT_ADMISSION=1` replaces temporary full-exemplar admission
+with exact membership reconstruction of the changed phase in its declared closed
+frame, followed by phase-only compilation. No ordinary implicit captures or
+nested scope metadata are admitted by this local path. Incoming template-hole
+identity, enclosing template budget and all repeated internal occurrences remain
+explicit. Physical replacement limits use the conservative exemplar hole budget;
+this can differ from reconstructing a whole child's canonical resource allowance.
+The local profile therefore has its own reproducible operator trajectory and is
+reported separately. Export still independently re-admits the complete program.

@@ -54,6 +54,10 @@ class Compiler {
     }
   }
 
+  RegionPhase build_phase(const AstProgram& fragment, const RegionAstPhase& bindings) {
+    return compile_bounded_phase(fragment, bindings, 0, fragment.nodes.size());
+  }
+
   BytecodeProgram build(const AstProgram& program) {
     if (program.version != k_ast_prefix_version_current) {
       throw std::runtime_error("unsupported ast prefix version");
@@ -958,6 +962,12 @@ BytecodeProgram compile_for_eval(const ProgramGenome& genome,
                                  const std::vector<std::string>& preset_locals) {
   Compiler compiler(&preset_locals, &verified);
   return compiler.build(genome.ast);
+}
+
+// Internal admission caller owns the verified expression and its scope.
+RegionPhase compile_owned_phase(const AstProgram& fragment, const RegionAstPhase& bindings) {
+  Compiler compiler;
+  return compiler.build_phase(fragment, bindings);
 }
 
 }  // namespace gagp::evo

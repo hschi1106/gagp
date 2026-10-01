@@ -36,6 +36,22 @@ void fragment_probe(const std::vector<gagp::evo::ProgramGenome>& population,
   std::vector<gg::ExecutableFragments::Genome> current(population.size());
   detail::BatchWorkers workers(20); std::atomic<std::size_t> next{0};
   workers.run([&]{for(;;){auto i=next.fetch_add(1);if(i>=current.size())break;current[i]=arena.import(population[i]);}});
+  std::vector<Json> import_audit;
+  if(const char* path=std::getenv("GAGP_FRAGMENT_IMPORT_AUDIT")) {
+    const auto document=read(path);std::size_t index=0;
+    for(const auto& ast:document.object_v.at("programs").array_v) {
+      ProgramGenome external;external.ast=gagp::cli_detail::decode_ast_json(ast);
+      try {
+        auto handle=arena.import(external);
+        auto direct=session.eval_programs({arena.executable(handle)},true);
+        auto reference=session.eval_programs({compile_for_eval(external,cs.input_names)},true);
+        if(!direct.ok || !reference.ok || direct.fitness!=reference.fitness || direct.case_counts!=reference.case_counts)
+          throw std::runtime_error("imported expression evaluation mismatch");
+        import_audit.push_back(object({{"index",number(index)},{"supported",number(1)},{"fitness",number(direct.fitness[0])}}));
+      }catch(const std::invalid_argument& e){import_audit.push_back(object({{"index",number(index)},{"supported",number(0)},{"reason",string(e.what())}}));}
+      ++index;
+    }
+  }
   const double setup_ms=ms(setup);
   const auto seed=std::getenv("GAGP_BM_SEED")?std::stoull(std::getenv("GAGP_BM_SEED")):0;
   gg::GrammarRandom random(seed);
@@ -86,7 +102,7 @@ void fragment_probe(const std::vector<gagp::evo::ProgramGenome>& population,
   for(std::size_t i=0;i<top.size();++i)top_rows.push_back(object({{"gpu",number(fit.fitness[order[i]])},{"cpu",number(cpu[i])}}));
   for(std::size_t i=0;i<current.size();++i)final.push_back(object({{"fitness",number(fit.fitness[i])},{"nodes",number(arena.nodes(current[i]))}}));
   write(output,object({{"profile",string("owned-independent-fragments-site-variation-v1")},{"seed",number(seed)},
-    {"init_ms",number(setup_ms)},{"gpu_init_ms",number(init.timing.total_ms)},{"search_total_ms",number(search_ms)},
+    {"import_audit",array(std::move(import_audit))},{"init_ms",number(setup_ms)},{"gpu_init_ms",number(init.timing.total_ms)},{"search_total_ms",number(search_ms)},
     {"generations",array(std::move(rows))},{"initial_fitness",array(std::move(initial))},{"final_population",array(std::move(final))},
     {"unique_final_genotypes",number(unique.size())},{"full_export_admission_ms",number(admission_ms)},
     {"final_and_export_eval_ms",number(final_ms)},{"top16_cpu_ms",number(ms(cpu_begin))},{"top16_cpu",array(std::move(top_rows))},

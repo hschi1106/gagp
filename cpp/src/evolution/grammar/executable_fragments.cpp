@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstdlib>
 #include <numeric>
 #include <stdexcept>
 #include <set>
@@ -14,6 +15,9 @@
 #include "gagp/evolution/node_descriptor.hpp"
 #include "gagp/evolution/grammar/values.hpp"
 
+namespace gagp::evo {
+RegionPhase compile_owned_phase(const AstProgram& fragment, const RegionAstPhase& bindings);
+}
 namespace gagp::evo::grammar {
 namespace {
 void require(bool value, const char* reason) {
@@ -111,7 +115,9 @@ AstProgram extract(const AstProgram& source, VariationSpan span) {
     out.fuel_specs.push_back(f); out.fuel_specs.back().node_index -= span.begin;
   }
   ProgramGenome compact; compact.ast = std::move(out);
-  return repro::compact_genome_tables(std::move(compact)).ast;
+  auto result = repro::compact_genome_tables(std::move(compact)).ast;
+  canonical_constants(result);
+  return result;
 }
 }  // namespace
 
@@ -177,6 +183,46 @@ struct ExecutableFragments::Impl {
     }
     return f;
   }
+  std::shared_ptr<const Fragment> admit_phase(AstProgram candidate, const Fragment& old, unsigned p) const {
+    ProgramGenome envelope;
+    envelope.ast = std::move(candidate);
+    envelope.ast.nodes.insert(envelope.ast.nodes.begin(), {{NodeKind::PROGRAM,0,0},
+        {NodeKind::BLOCK_CONS,0,0},{NodeKind::RETURN,0,0}});
+    envelope.ast.nodes.push_back({NodeKind::BLOCK_NIL,0,0});
+    for (auto& f : envelope.ast.fuel_specs) f.node_index += 3;
+    GenerationFrame frame; frame.binder_ids = old.contract.occurrence_binder_ids[0];
+    auto request = donor_request(layout.holes[p]);
+    auto analysis = analyze_closed_phase(*owner->grammar, envelope, request, frame);
+    require(std::uint64_t(analysis.witness.logical_steps) * (layout.holes.size() + 1) <= 1048576 &&
+        std::uint64_t(analysis.witness.lowered_instructions) * (layout.holes.size() + 1) <= 1048576,
+        "phase exceeds conservative construction capacity");
+    const auto span = VariationSpan{3, static_cast<unsigned>(envelope.ast.nodes.size()-1)};
+    auto f = std::make_shared<Fragment>(owner, p);
+    f->source = extract(envelope.ast, span);
+    f->code = compile_owned_phase(f->source, base.ast.bounded_region_specs[0].phases.at(layout.ordinals[p]));
+    bool found = false;
+    for (auto site : analysis.sites) {
+      if (site.occurrences.empty() || !std::all_of(site.occurrences.begin(),site.occurrences.end(),
+          [&](auto s){return s.begin>=span.begin && s.end<=span.end;})) continue;
+      const bool root = site.nonterminal == old.contract.nonterminal && site.occurrences.size() == 1 &&
+          site.occurrences[0].begin == span.begin && site.occurrences[0].end == span.end;
+      for (auto& s : site.occurrences) { s.begin-=3;s.end-=3; }
+      const auto enclosing = 256u - old.contract.remaining_template_nesting;
+      require(site.remaining_template_nesting >= enclosing, "phase exceeds enclosing template capacity");
+      site.remaining_template_nesting -= enclosing;
+      if (root) {
+        // Retain the incoming hole boundary; isolated reconstruction has no
+        // enclosing template instance. Its internal logical groups stay distinct.
+        site.template_id=old.contract.template_id;site.slot=old.contract.slot;
+        site.compatibility_key=old.contract.compatibility_key;
+        site.remaining_template_nesting=old.contract.remaining_template_nesting;
+        f->contract=site; found=true;
+      }
+      f->sites.push_back(std::move(site));
+    }
+    require(found,"closed phase lost incoming nonterminal contract");
+    return f;
+  }
   bool fits(const Genome& genome) const {
     std::size_t count = fixed_nodes;
     const auto request = entry_request(*owner->grammar);
@@ -227,7 +273,10 @@ ProgramGenome ExecutableFragments::export_ast(const Genome& genome) const {
     out.ast = variation_detail::splice(out.ast, impl_->layout.holes[p], f.source,
         f.contract.occurrences[0], f.contract.occurrence_binder_ids[0]);
   }
-  out.derivation.reset(); return repro::compact_genome_tables(std::move(out));
+  out.derivation.reset();
+  out = repro::compact_genome_tables(std::move(out));
+  canonical_constants(out.ast);
+  return out;
 }
 BytecodeProgram ExecutableFragments::executable(const Genome& genome) const {
   impl_->validate(genome); auto code = impl_->code; auto rows = phase_rows(code);
@@ -277,13 +326,18 @@ ExecutableFragments::Change ExecutableFragments::vary(const Genome& parent, cons
         selected->occurrences[0], selected->occurrence_binder_ids[0], site.crossover_closed);
   }
   try {
+    std::shared_ptr<const Fragment> replacement;
+    if (std::getenv("GAGP_LOCAL_FRAGMENT_ADMISSION")) {
+      replacement = impl_->admit_phase(std::move(candidate), f, p);
+    } else {
     auto materialized = impl_->hydrate(candidate, f.contract, p);
     auto layout = analyze(*impl_->owner->grammar, materialized);
     require(layout.ordinals == impl_->layout.ordinals, "new fragment changed layout");
     for (std::size_t q = 0; q < layout.holes.size(); ++q)
       require(compatible_sites(layout.holes[q], impl_->layout.holes[q]), "new fragment changed membership contract");
     auto compiled = compile_for_eval(materialized, layout.analysis.verified, impl_->inputs);
-    auto replacement = impl_->fragment(materialized, layout, compiled, p);
+    replacement = impl_->fragment(materialized, layout, compiled, p);
+    }
     // Persist only the new phase and its certified sites. Full analysis,
     // temporary source AST and every unused compiled phase die here.
     if (ast_cache_key(replacement->source) == ast_cache_key(f.source)) return out;
