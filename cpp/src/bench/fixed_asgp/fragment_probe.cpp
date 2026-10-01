@@ -94,6 +94,11 @@ void fragment_probe(const std::vector<gagp::evo::ProgramGenome>& population,
   workers.run([&]{for(;;){auto i=next.fetch_add(1);if(i>=current.size())break;exported[i]=arena.export_ast(current[i]);
     exported[i].derivation=std::make_shared<const gg::DerivationMetadata>(gg::reconstruct_derivation(*grammar,exported[i]));}});
   const double admission_ms=ms(audit);
+  if(const char* path=std::getenv("GAGP_FRAGMENT_EXPORT")) {
+    std::vector<Json> asts;
+    for(const auto& g:exported)asts.push_back(gagp::cli_detail::JsonParser(gagp::cli_detail::encode_ast_json(g.ast),{true,512}).parse());
+    write(path,object({{"programs",array(std::move(asts))}}));
+  }
   std::vector<BytecodeProgram> programs,external;
   std::set<std::string> unique;
   for(std::size_t i=0;i<current.size();++i){programs.push_back(arena.executable(current[i]));external.push_back(compile_for_eval(exported[i],cs.input_names));unique.insert(gg::runtime_cache_identity(exported[i],cs.input_names,2000000));}

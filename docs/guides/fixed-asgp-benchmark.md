@@ -271,3 +271,16 @@ and destroys ordinary packed bytecode inside timing, but skips repeated whole
 bytecode verification. Capability/type-flow detection and GPU packing still run.
 The added phase verification and cold owner creation are measured. Initial
 same-binary probes suggest a few milliseconds saved, pending repeat validation.
+
+
+Round-two reproduction: `benchmarks/fixed_asgp/optimization/round2.py` consumes
+existing frozen files and records binary hashes, input hashes, flags, command and
+process wall time in a fresh output directory. Stages `formal`, `quality`, and
+`scaling` execute serially. `fragments_repeat` performs one warmup trajectory and
+three measured fresh-owner trajectories per process; compare the same generation
+index across repeats, never different evolved populations. `formal` runs three
+processes per configuration. Input reading through reporting is separately saved
+in `.wall.json`; process startup/exit is additionally included by the driver.
+`search_total_ms` covers probe setup and evolution, excluding external input decode
+and final independent audit/export. Full process wall time includes those costs.
+`GAGP_FRAGMENT_EXPORT` writes independently admitted final ASTs for external audit.

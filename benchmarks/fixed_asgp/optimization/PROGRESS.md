@@ -228,3 +228,10 @@ add cost; repeat validation pending. Retired assembled programs are now explicit
 destroyed inside the generation timer in both probe paths (timing correction).
 Next: typed window frames to test whether redundant per-slot tags and frame
 bandwidth contribute materially to Sum's remaining evaluator cost.
+
+R2-typed-frame: inferred IntList window state + Int prepared/results, constant
+tags reduce compact frame storage. Full 3×1024-case snapshots and GPU tests pass,
+but Sum kernel ~65–67 ms versus ~64 ms reference; no complete-generation gain.
+Removed, patch and binary archived. Generic dynamic interpreter/frame access
+still dominates; smaller structures alone are insufficient. Stop micro-tuning
+this representation; validate retained architecture and quantify remaining gap.

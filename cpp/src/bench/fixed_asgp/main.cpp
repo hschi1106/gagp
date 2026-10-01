@@ -264,7 +264,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
 }
 void measure(const Json& source, const std::string& prepared_path, const std::string& grammar_path,
              int count, const std::string& mode, const std::string& output) {
-  const std::set<std::string> modes{"asgp_1t","gagp_cpu","gpu_eval","gpu_repro","gpu_overlap","snapshot","search","phase_bank","fragments"};
+  const std::set<std::string> modes{"asgp_1t","gagp_cpu","gpu_eval","gpu_repro","gpu_overlap","snapshot","search","phase_bank","fragments","fragments_repeat"};
   if (!modes.count(mode)) throw std::runtime_error("unknown mode");
   auto spec=task(source.object_v.at("task").string_v);
   std::vector<gagp::evo::EvalCase> cases;
@@ -285,6 +285,15 @@ void measure(const Json& source, const std::string& prepared_path, const std::st
       g.derivation=std::make_shared<gg::DerivationMetadata>(gg::reconstruct_derivation(*grammar,g));
       population.push_back(std::move(g));
     }
+  }
+  if (mode=="fragments_repeat") {
+    std::vector<Json> rows;
+    for(int rep=-1;rep<3;++rep) {
+      const auto path=output+".rep"+std::to_string(rep)+".json";
+      fragment_probe(population,cases,grammar,path);
+      auto row=read(path);row.object_v["rep"]=number(rep);rows.push_back(std::move(row));
+    }
+    write(output,object({{"repeats",array(std::move(rows))}}));return;
   }
   if (mode=="fragments") { fragment_probe(population,cases,grammar,output); return; }
   if (mode=="phase_bank") { phase_bank_probe(population,cases,grammar,output); return; }
@@ -307,7 +316,11 @@ int main(int argc,char** argv) try {
   if (argc==4 && std::string(argv[1])=="freeze") freeze(argv[2],argv[3]);
   else if (argc==6 && std::string(argv[1])=="prepare") prepare(read(argv[2]),argv[3],std::stoi(argv[4]),argv[5]);
   else if (argc==5 && std::string(argv[1])=="audit") audit(read(argv[2]),argv[3],argv[4]);
-  else if (argc==8 && std::string(argv[1])=="measure") measure(read(argv[2]),argv[3],argv[4],std::stoi(argv[5]),argv[6],argv[7]);
+  else if (argc==8 && std::string(argv[1])=="measure") {
+    const auto begin=Clock::now();
+    measure(read(argv[2]),argv[3],argv[4],std::stoi(argv[5]),argv[6],argv[7]);
+    write(std::string(argv[7])+".wall.json",object({{"input_through_report_ms",number(elapsed(begin))}}));
+  }
   else throw std::runtime_error("usage: freeze TASK OUT | prepare SOURCE GRAMMAR POP OUT | audit SOURCE GRAMMAR OUT | measure SOURCE PREPARED GRAMMAR POP MODE OUT");
   return 0;
 } catch (const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }
