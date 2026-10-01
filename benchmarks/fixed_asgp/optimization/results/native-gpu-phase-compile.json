@@ -1,0 +1,129 @@
+{
+  "binary_sha256": "df87550cf507e68feb331a8a030d6f830d00fbcf4a04cd3ae3946d79e39b610c",
+  "source_base": "0601f06 + isolated phase compiler prototype",
+  "commands": [
+    {
+      "task": "sum_of_elements",
+      "command": [
+        "logs/optimization/native-gpu-phase-compile/test",
+        "logs/fixed-asgp/artifacts/sum_of_elements.p1024.prepared.json",
+        "logs/fixed-asgp/artifacts/sum_of_elements.grammar.json"
+      ],
+      "returncode": 0
+    },
+    {
+      "task": "house_robber",
+      "command": [
+        "logs/optimization/native-gpu-phase-compile/test",
+        "logs/fixed-asgp/artifacts/house_robber.p1024.prepared.json",
+        "logs/fixed-asgp/artifacts/house_robber.grammar.json"
+      ],
+      "returncode": 0
+    },
+    {
+      "task": "median",
+      "command": [
+        "logs/optimization/native-gpu-phase-compile/test",
+        "logs/fixed-asgp/artifacts/median.p1024.prepared.json",
+        "logs/fixed-asgp/artifacts/median.grammar.json"
+      ],
+      "returncode": 0
+    }
+  ],
+  "files": {
+    "cpp/src/evolution/repro/gpu/device/phase_compile.cuh": "e9112704aa7d20050c888577fd2503816268312f787b29723a08f538e6e21727",
+    "cpp/tests/gpu/test_gpu_phase_compile.cu": "c52fef19fdb4282631246dbc7027295699dcf491aa0a2ac02fe73342491c5af1"
+  },
+  "measurements": {
+    "sum_of_elements": [
+      {
+        "host_admission_normalization_reference_compile_ms": 211.784,
+        "cuda_session_init_ms": 224.732,
+        "prototype_only": true
+      },
+      {
+        "phases": 5120,
+        "nodes": 83417,
+        "flatten_ms": 0.988212,
+        "allocation_ms": 0.14702,
+        "h2d_ms": 0.360574,
+        "cold_launch_ms": 2.92435,
+        "d2h_ms": 1.96945,
+        "warm_kernel_ms": [
+          0.613376,
+          0.626688,
+          0.611328,
+          0.630784,
+          0.60928,
+          0.626688,
+          0.610304,
+          0.628736,
+          0.612352,
+          0.62976
+        ],
+        "all_compiler_outputs_match": true
+      }
+    ],
+    "house_robber": [
+      {
+        "host_admission_normalization_reference_compile_ms": 230.09,
+        "cuda_session_init_ms": 118.603,
+        "prototype_only": true
+      },
+      {
+        "phases": 4096,
+        "nodes": 117936,
+        "flatten_ms": 1.18823,
+        "allocation_ms": 0.145651,
+        "h2d_ms": 0.397443,
+        "cold_launch_ms": 3.18286,
+        "d2h_ms": 2.53787,
+        "warm_kernel_ms": [
+          0.893952,
+          0.89088,
+          0.888832,
+          0.894976,
+          0.889952,
+          0.886784,
+          0.888896,
+          0.891904,
+          0.887808,
+          0.887808
+        ],
+        "all_compiler_outputs_match": true
+      }
+    ],
+    "median": [
+      {
+        "host_admission_normalization_reference_compile_ms": 211.988,
+        "cuda_session_init_ms": 117.641,
+        "prototype_only": true
+      },
+      {
+        "phases": 5120,
+        "nodes": 86213,
+        "flatten_ms": 1.03104,
+        "allocation_ms": 0.149151,
+        "h2d_ms": 0.358674,
+        "cold_launch_ms": 2.85827,
+        "d2h_ms": 2.00824,
+        "warm_kernel_ms": [
+          0.548864,
+          0.550912,
+          0.544768,
+          0.559104,
+          0.546816,
+          0.548864,
+          0.54272,
+          0.550912,
+          0.54272,
+          0.551936
+        ],
+        "all_compiler_outputs_match": true
+      }
+    ]
+  },
+  "generated_test": "512 independent compiler fixtures +8 negative/capacity cases pass",
+  "memcheck": "CUDA12.6 compute-sanitizer:0 errors; system /usr/bin tool could not locate its injection library",
+  "status": "isolated lowering foundation, no evolution integration or generation speedup claim"
+}

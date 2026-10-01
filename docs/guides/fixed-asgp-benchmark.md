@@ -278,3 +278,15 @@ incidental intermediate registry contents/hash-collision side effects. Phase
 execution, arithmetic, fuel, lazy capture reads and region scheduling remain
 unchanged. No view escapes into root execution. Initialization and conversions
 occur inside the ordinary evaluator/generation timer.
+
+The isolated `gagp_test_gpu_phase_compile` target tests bounded GPU lowering of
+prefix phase expressions against the existing native compiler. Its optional
+arguments are an existing prepared JSON and its grammar JSON; it reads them and
+independently checks source membership, without running prepare. The phase IR
+supports Int/Bool constants, typed local reads, forward conditional/boolean
+expressions and the admitted scalar/list observation primitives. Capacity and
+unsupported/type cases return explicit status. Lowering is not a grammar
+membership certificate. This prototype does not change native generation paths;
+its kernel timings are diagnostic only. Raw cold/transfer/repeat/memcheck records
+are indexed by `optimization/results/native-gpu-phase-compile.json` in the fixed
+benchmark directory.

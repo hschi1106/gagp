@@ -263,3 +263,26 @@ Start with a bounded prefix-phase lowering prototype and compare it against the
 existing compiler (code, constants, fuel, outputs). This is necessary groundwork,
 not a speedup claim or another reproduction backend. Grammar membership must
 remain a distinct proof; type-correct phase lowering alone does not establish it.
+
+P prototype: device prefix-phase lowering is now runnable in
+`cpp/build/release/gagp_test_gpu_phase_compile [PREPARED_JSON GRAMMAR_JSON]`.
+512 generated expressions (including branch/fuel cases) +8 negative cases pass;
+all14336 phases from3 frozen P1024 populations match CPU compiler instructions,
+constants and fuel. CUDA12.6 memcheck:0 errors. System `/usr/bin/compute-sanitizer`
+misses its injection library; use `/usr/local/cuda-12.6/bin/compute-sanitizer`.
+Warm batch medians ~0.62/0.89/0.55ms (Sum/House/Median); cold launch~2.9-3.2ms,
+H2D~0.36-0.40ms,D2H~2.0-2.5ms. Host diagnostic setup~212-230ms includes JSON,
+independent admission, reference CPU compilation and normalization; not a fair
+end-to-end replacement measurement.40 registers,2816-byte indexed stack,0 spills.
+[Raw manifest](results/native-gpu-phase-compile.json). Isolated test-only path;
+no grammar trust, operators, evaluator or generation timing changed. This is
+useful groundwork, not an adopted generation speedup.
+
+O status: nine CPU medians16777.673->9249.259 Sum;7784.637->8009.893 House;
+711.245->753.054 Median. All3072 snapshots and5-mode non-time fields match.
+GPU quick medians stay~278/292/282ms. Unwanted CPU generic regressions prevent
+promotion. Lazy scratch allocation alone did not fix it (`native-cpu-window-lazy/`).
+O3 uses compile-time separate generic/view VM instantiations; 3 focused tests
+pass, quick checks running `logs/optimization/native-cpu-window-specialized/`.
+Current binary includes O3; the formal best GPU binary remains archived in
+`native-owned-validation/bench`. O1 source checkpoint0601f06 remains opt-in.

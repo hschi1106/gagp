@@ -687,6 +687,11 @@ if(GAGP_HAS_CUDA)
   add_test(NAME gagp_test_compiled_variation_gpu COMMAND gagp_test_compiled_variation_gpu)
   set_tests_properties(gagp_test_compiled_variation_gpu PROPERTIES LABELS "contract;integration;gpu")
 
+  add_executable(gagp_test_gpu_phase_compile tests/gpu/test_gpu_phase_compile.cu)
+  target_link_libraries(gagp_test_gpu_phase_compile PRIVATE gagp_cli_support)
+  add_test(NAME gagp_test_gpu_phase_compile COMMAND gagp_test_gpu_phase_compile)
+  set_tests_properties(gagp_test_gpu_phase_compile PROPERTIES LABELS "contract;integration;gpu")
+
   add_executable(gagp_test_grammar_random_gpu tests/gpu/test_grammar_random_gpu.cu)
   target_link_libraries(gagp_test_grammar_random_gpu PRIVATE gagp_gpu gagp_evolution)
   add_test(NAME gagp_test_grammar_random_gpu COMMAND gagp_test_grammar_random_gpu)
