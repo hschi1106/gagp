@@ -706,6 +706,26 @@ void test_certification_compaction_boundaries() {
         "changed compaction failed to remap the referenced constant");
   check(context.analyze(compacted)->verified.return_type == RType::Int,
         "changed compaction retained a stale type certificate");
+  {
+    VariationContext admission(grammar);
+    const auto accepted = variation_detail::accept(padded.ast, original, admission);
+    check(ast_cache_key(accepted.ast) == ast_cache_key(original.ast) &&
+          admission.counters().acceptance_rejections == 0,
+          "internal compaction changed valid admission");
+    const auto rejected = [&](AstProgram ast, const char* reason) {
+      admission.counters() = {};
+      const auto child = variation_detail::accept(std::move(ast), original, admission);
+      check(admission.counters().acceptance_rejections == 1 &&
+            admission.counters().fallback_children == 1 &&
+            ast_cache_key(child.ast) == ast_cache_key(original.ast),
+            reason);
+    };
+    auto invalid = padded.ast; invalid.consts.push_back(Value::invalid()); rejected(invalid, "unused invalid constant");
+    invalid = padded.ast; invalid.names.push_back("unused"); rejected(invalid, "unused duplicate name");
+    invalid = padded.ast; invalid.nodes[3].i0 = 999; rejected(invalid, "bad index");
+    invalid = padded.ast; invalid.consts[invalid.nodes[3].i0] = Value::from_int(2); rejected(invalid, "domain violation");
+    invalid = padded.ast; invalid.consts.push_back(Value::from_string_hash_len(0xdeadbeef, 123)); rejected(invalid, "opaque unused payload");
+  }
   padded.ast.consts.push_back(Value::invalid());
   rejects_invalid_argument([&] { (void)variation_detail::certify(padded, context); },
       "compaction hid an invalid unused constant before validation");

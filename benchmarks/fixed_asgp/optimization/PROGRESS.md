@@ -51,10 +51,17 @@ House752.135 /Median697.685 ms versus candidate A640.959 /736.418 /699.902;
 no reliable gain. The cache change is reverted, raw data in
 `logs/optimization/native-static-charges/`.
 
-Next hypothesis: internal child admission currently builds full analysis/lowering
-before stable table compaction, then repeats it after compaction. Validate source
-structure and every original payload first, compact, then perform full canonical
-membership/lowering/site analysis once. Keep external parent admission strict.
+Rejected D: compact-before-admission. No performance gain (571.8/656.3/604.5 ms)
+and a new negative test caught unused duplicate-name validation being hidden
+by compaction. The implementation, flag and proposed spec change are reverted;
+the acceptance tests remain and pass on the retained implementation. Raw rejected
+patch/timings in `logs/optimization/native-compact-admission/`; no maintained entry.
+
+Current best checkpoint `c4453a3`, archived binary and full commands in
+`logs/optimization/native-checkpoint-validation/manifest.json`. Enable all native
+flags below plus `GAGP_HOST_THREADS=1 GAGP_REUSE_ADMISSION_COMPILE=1`.
+The round2 runner now enables this verified candidate flag. Next diagnostic:
+`logs/optimization/native-host-detail/` splits site construction/key/closure work.
 CPU perf sampling currently blocked by perf_event_paranoid=4; optional user
 request pending. Continue using existing stage timers; no system settings changed.
 

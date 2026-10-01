@@ -12,7 +12,8 @@ TASKS = ('sum_of_elements', 'house_robber', 'median')
 FLAGS = {k: '1' for k in ('GAGP_VIEW_PROFILE', 'GAGP_TYPED_VIEW_PHASE',
     'GAGP_SORT_CASES', 'GAGP_COMPACT_FRAMES', 'GAGP_CONSTANT_PHASE',
     'GAGP_POPULATION_HANDOFF', 'GAGP_DIRECT_PHASE', 'GAGP_DIRECT_ROOT',
-    'GAGP_WINDOW_EXECUTOR', 'GAGP_UNBOXED_WINDOW_FRAMES', 'GAGP_BOUND_ADD_PHASE')}
+    'GAGP_WINDOW_EXECUTOR', 'GAGP_UNBOXED_WINDOW_FRAMES', 'GAGP_BOUND_ADD_PHASE',
+    'GAGP_REUSE_ADMISSION_COMPILE')}
 FLAGS['GAGP_CUDA_DEVICE'] = '0'
 FLAGS['GAGP_HOST_THREADS'] = '1'
 
@@ -66,7 +67,8 @@ def main():
                 order = ['baseline', 'native'] if process % 2 == 0 else ['native', 'baseline']
                 for kind in order:
                     if kind == 'baseline' and args.baseline:
-                        old = {k: v for k, v in FLAGS.items() if k not in ('GAGP_DIRECT_PHASE', 'GAGP_DIRECT_ROOT', 'GAGP_WINDOW_EXECUTOR', 'GAGP_UNBOXED_WINDOW_FRAMES', 'GAGP_BOUND_ADD_PHASE')}
+                        old = {k: v for k, v in FLAGS.items() if k not in ('GAGP_DIRECT_PHASE', 'GAGP_DIRECT_ROOT', 'GAGP_WINDOW_EXECUTOR', 'GAGP_UNBOXED_WINDOW_FRAMES', 'GAGP_BOUND_ADD_PHASE',
+    'GAGP_REUSE_ADMISSION_COMPILE')}
                         run(task, 'gpu_overlap', f'baseline.p{process}', old, executable=args.baseline.resolve())
                     elif kind == 'native':
                         run(task, 'gpu_overlap', f'native.p{process}', FLAGS)
