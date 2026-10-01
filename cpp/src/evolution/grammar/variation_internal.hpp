@@ -20,6 +20,8 @@ VariationAnalysis remap_compacted_analysis(const CompiledGrammar& grammar,
 
 ProgramGenome certify(ProgramGenome genome, VariationContext& context);
 ProgramGenome certify_execution(ProgramGenome genome, VariationContext& context);
+ProgramGenome record_accepted(ProgramGenome child, const ProgramGenome& certified_parent,
+    VariationContext& context);
 ProgramGenome fallback(const ProgramGenome& certified_parent, VariationContext& context);
 // The optional root is private owned-source evidence. Its caller must validate
 // the parent certificate's payload snapshot before work and before publication.

@@ -374,3 +374,23 @@ Profile302.222ms (instrumented Median, not formal268.245ms): runtime identities
 witness22.347ms self; compile16.341ms self; constant streams5.209ms.
 Median fitness kernel2.113ms on final profiled generation. Remaining host proof
 work dominates. Full123 suite and3072 snapshot rows pass. Scaling pending.
+
+### S — incremental canonical crossover matcher prototype
+
+- `GAGP_TRANSPORT_CROSSOVER_PROOF=1` uses immutable parents plus actual copied
+  node/value correspondence to seed unchanged/donor subtree decisions. Affected
+  ancestors are removed and re-matched in declaration order. Native verification,
+  witness/resource construction and lowering remain; no RNG/language change.
+- Zero-node alias roots, noninjective scope maps, coupled occurrence sites and
+  inner-binder donors decline to ordinary admission. First disjoint-root profile
+  admitted0 benchmark children (`native-proof-transport/`), not an improvement.
+- Actual incremental matcher handles982/984/998 crossover children. Initial
+  table/AST copies cancelled savings; moving owned temporaries gives quick
+  paired271.820→262.111 /275.211→267.552 /266.850→263.308ms. Search4-generation
+  times mixed; **not promoted**, formal/long comparison pending. Raw
+  `native-incremental-matcher{,-move}/`.
+- Focused4 tests pass; added512-child canonical witness check includes ambiguous
+  ancestor alternatives and explicit alias fallback. Final ASTs remain exact.
+- Remaining eval candidate: bounded one-coordinate memo lookup currently scans
+  all occupied cells. Test direct indexing with a register validity bitmap,
+  keeping complete state, lazy execution, fuel/base/capacity order unchanged.

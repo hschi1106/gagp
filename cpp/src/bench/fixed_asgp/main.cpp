@@ -185,7 +185,7 @@ Json measure_gagp(const std::vector<gagp::evo::ProgramGenome>& population,
     {"repro_preprocess_ms",number(t.reproduction.preprocess_ms)}, {"repro_pack_ms",number(t.reproduction.pack_ms)},
     {"repro_upload_ms",number(t.reproduction.upload_ms)}, {"repro_kernel_ms",number(t.reproduction.kernel_ms)},
     {"repro_copyback_ms",number(t.reproduction.copyback_ms)}, {"repro_decode_ms",number(t.reproduction.decode_ms)},
-    {"changed_operator_outputs",number(v.changed_children)}, {"unchanged_operator_outputs",number(v.unchanged_children)},
+    {"transported_crossover_admissions",number(v.transported_crossover_admissions)}, {"changed_operator_outputs",number(v.changed_children)}, {"unchanged_operator_outputs",number(v.unchanged_children)},
     {"fallback_operator_outputs",number(v.fallback_children)}, {"contract_rejections",number(v.contract_rejections)},
     {"budget_rejections",number(v.budget_rejections)}, {"generation_rejections",number(v.generation_rejections)},
     {"acceptance_rejections",number(v.acceptance_rejections)},
@@ -274,7 +274,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
       {"fallbacks",number(e.eval_fallbacks)}, {"unscored",number(e.eval_unscored)},
       {"gpu_donor_generated",number(t.reproduction.gpu_donor_generated)}, {"gpu_donor_fallback",number(t.reproduction.gpu_donor_fallback)},
       {"gpu_donor_setup_ms",number(t.reproduction.gpu_donor_setup_ms)}, {"gpu_donor_device_bytes",number(t.reproduction.gpu_donor_device_bytes)},
-      {"changed",number(v.changed_children)}, {"unchanged",number(v.unchanged_children)},
+      {"transported_crossover_admissions",number(v.transported_crossover_admissions)}, {"changed",number(v.changed_children)}, {"unchanged",number(v.unchanged_children)},
       {"operator_fallbacks",number(v.fallback_children)}, {"rejected",number(v.acceptance_rejections)}}));
   }
   for (const auto& one:result.final_population)

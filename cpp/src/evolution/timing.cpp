@@ -39,6 +39,7 @@ void accumulate_timing(ReproductionTiming* total, const ReproductionTiming& valu
   total->teardown_ms += value.teardown_ms;
   total->selection_kernel_ms += value.selection_kernel_ms;
   total->variation_kernel_ms += value.variation_kernel_ms;
+  total->variation.transported_crossover_admissions += value.variation.transported_crossover_admissions;
   total->variation.crossover_attempts += value.variation.crossover_attempts;
   total->variation.mutation_attempts += value.variation.mutation_attempts;
   total->variation.contract_rejections += value.variation.contract_rejections;

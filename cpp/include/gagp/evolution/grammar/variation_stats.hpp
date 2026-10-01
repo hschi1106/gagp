@@ -5,6 +5,7 @@
 namespace gagp::evo::grammar {
 
 struct VariationCounters {
+  std::uint64_t transported_crossover_admissions = 0;
   std::uint64_t crossover_attempts = 0;
   std::uint64_t mutation_attempts = 0;
   std::uint64_t contract_rejections = 0;

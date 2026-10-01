@@ -2,6 +2,9 @@
 #include "../../src/evolution/repro/owned_overlap.hpp"
 #include "../../src/runtime/payload/staging.hpp"
 #include <algorithm>
+#include <cstdlib>
+#include <optional>
+#include <tuple>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -1424,10 +1427,74 @@ void test_overlap_preserves_unsorted_population_replay() {
             "overlap changed seeded final population replay");
 }
 
+void test_incremental_crossover_membership() {
+  struct Env {
+    std::string key; std::optional<std::string> before;
+    Env(const char* k, const char* value):key(k) {
+      if (const char* old = std::getenv(k)) before = old;
+      setenv(k,value,1);
+    }
+    ~Env(){if(before)setenv(key.c_str(),before->c_str(),1);else unsetenv(key.c_str());}
+  };
+  Env selected("GAGP_SELECTED_SITES","1"), owned("GAGP_OWNED_PREPARATION","1"),
+      reuse("GAGP_REUSE_ADMISSION_COMPILE","1"), threads("GAGP_HOST_THREADS","1"),
+      transport("GAGP_TRANSPORT_CROSSOVER_PROOF","1");
+  for (bool alias : {false,true}) {
+    const auto root = alias ? R"({"ref":"Leaf"})" : R"({"signature":"add(Int,Int)->Int","args":[{"ref":"Leaf"},{"constant":{"type":"Int","values":["0"]}}]})";
+    const auto grammar = std::make_shared<const CompiledGrammar>(gagp::evo::grammar::compile_grammar(
+        gagp::evo::grammar::parse_definition(std::string(R"({"format_version":"grammar-definition-v2",
+        "entry":{"nonterminal":"Expr","type":"Int"},"search_limits":{"max_nodes":32,"max_depth":12},
+        "execution_limits":{"fuel":100},"nonterminals":[{"id":"Expr","type":"Int","scope":[],"alternatives":[
+        {"id":"first","weight":1,"expression":)") + root + R"(},
+        {"id":"second","weight":4,"expression":{"signature":"add(Int,Int)->Int","args":[{"ref":"Leaf"},{"ref":"Leaf"}]}}]},
+        {"id":"Leaf","type":"Int","scope":[],"alternatives":[{"id":"value","weight":1,"expression":{"constant":{"type":"Int","values":["0","1","2"]}}}]}]})")));
+    auto config = compiled_config(grammar,64,0.0,1.0,true);
+    std::vector<ProgramGenome> population;
+    for (std::uint64_t i=0;i<64;++i) population.push_back(gagp::evo::grammar::generate_derivation(*grammar,i).genome);
+    const auto scored = score_manually(population);
+    std::uint64_t transported = 0;
+    for (std::uint64_t seed=0;seed<4;++seed) {
+      unsetenv("GAGP_TRANSPORT_CROSSOVER_PROOF");
+      std::mt19937_64 before(seed),after(seed);
+      const auto reference = gagp::evo::repro::run_gpu_repro_backend(scored,config,before);
+      setenv("GAGP_TRANSPORT_CROSSOVER_PROOF","1",1);
+      const auto result = gagp::evo::repro::run_gpu_repro_backend(scored,config,after);
+      require(same_population(reference.next_population,result.next_population) &&
+          same_counters(reference.stats.variation,result.stats.variation),
+          "incremental matcher changed canonical operator outcomes");
+      transported += result.stats.variation.transported_crossover_admissions;
+      for (auto child : result.next_population) {
+        const auto retained = child.derivation;
+        child.derivation.reset();
+        const auto fresh = gagp::evo::grammar::reconstruct_derivation(*grammar,child);
+        require(retained && fresh.logical_steps==retained->logical_steps && fresh.choices.size()==retained->choices.size() &&
+            fresh.nodes.size()==retained->nodes.size() && fresh.lowered_instructions==retained->lowered_instructions,
+            "incremental matcher published noncanonical witness shape");
+        for (std::size_t i=0;i<fresh.choices.size();++i) {
+          const auto& a=fresh.choices[i];const auto& b=retained->choices[i];
+          require(std::tie(a.nonterminal,a.production,a.parent,a.ast_begin,a.ast_end,a.template_instance,a.slot,a.enclosing_template_depth)==
+                  std::tie(b.nonterminal,b.production,b.parent,b.ast_begin,b.ast_end,b.template_instance,b.slot,b.enclosing_template_depth),
+                  "incremental matcher failed to re-match an ambiguous ancestor");
+        }
+        for (std::size_t i=0;i<fresh.nodes.size();++i) {
+          const auto& a=fresh.nodes[i];const auto& b=retained->nodes[i];
+          require(std::tie(a.expression,a.production,a.nonterminal,a.logical_instance,a.template_instance,a.slot,a.fixed,a.template_depth)==
+                  std::tie(b.expression,b.production,b.nonterminal,b.logical_instance,b.template_instance,b.slot,b.fixed,b.template_depth),
+                  "incremental matcher changed canonical node origins");
+        }
+      }
+    }
+    require(alias ? transported==0 : transported>0,
+            "incremental matcher eligibility/fallback was not exercised");
+  }
+}
+
+
 }  // namespace
 
 int main() {
   try {
+    test_incremental_crossover_membership();
     test_overlap_preserves_unsorted_population_replay();
     test_expanded_representation_capacity();
     test_prepared_replay_and_rejections();
