@@ -1,7 +1,7 @@
 # Autonomous optimization checkpoint
 
 - Workspace: `/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001`; branch `opt/gpu-generation-20261001`.
-- Best runtime: `9d862ed43e9c626b22775713a50897c7f5439c91`; all experiments finished, no jobs pending. Runtime profiles remain opt-in. Original worktree and its 41 copied uncommitted files are unchanged; all 15 frozen artifact hashes rechecked.
+- Previous-round best runtime: `9d862ed43e9c626b22775713a50897c7f5439c91`; all experiments finished, no jobs pending. Runtime profiles remain opt-in. Original worktree and its 41 copied uncommitted files are unchanged; all 15 frozen artifact hashes rechecked.
 - Baseline checkpoint: `edfcf0b6b6f2a8d868d920f45c4e750b05e5f1c9` contains the user's existing benchmark/profiler work. Baseline executable `logs/optimization/baseline_bench`; final executable `logs/optimization/final_bench`. Hashes, flags and evidence: [final.json](results/final.json). Historical `best_bench` means e26, not the final candidate; do not overwrite archived binaries or frozen inputs.
 - Main targets **not met**. The user confirmed that `medium` was a typo for **Median**; it is the third optimization target and was included in every final measurement and quality screen. No case sampling, precision narrowing, fuel/depth/list/memo limit reduction or native operator change was adopted.
 
@@ -139,3 +139,23 @@ ctest --test-dir cpp/build/release --output-on-failure
 Replace `gpu_overlap` with `snapshot` for full-case fixed-program diagnostics; `GAGP_SNAPSHOT_CPU=1` adds all-program CPU reference. Mode `search` runs four native generations plus final evaluation; add `GAGP_GPU_DIAGNOSTICS=1 GAGP_BM_SEED=0` (then 1/2). Mode `phase_bank` with `GAGP_BANK_FRESH_MUTATION=1` is the separately restricted prototype. Disable diagnostic counters for timing runs; never use their timings as headline results.
 
 Control commands and exact artifact/binary identities are preserved in raw manifests. `logs/optimization/summarize_final.py` reconstructs final evidence and checks original/frozen files; `profile_final.py` and `instrument_final.py` preserve the profiler procedure. They are experiment-local scripts, not a new benchmark framework. Reproduce traces in a new directory. Failed prototypes and binaries remain under `logs/optimization/E03`, `E08`, `E19`, `E20`, `E24` and other experiment directories; none are in the retained runtime path.
+
+## Round 2 — active
+
+Starting HEAD `6f18efc`, clean worktree; final binary and all frozen/original
+files verified in `logs/optimization/R2-A/start.json`. All six best flags enabled.
+A hypothesis: compiling the actual 512-thread view kernel with a 512 launch
+bound reduces forced spilling versus its historical 1024 bound. Compare resource
+reports, selected NCU metrics, identical snapshots and unprofiled generations.
+No performance result yet. Next: remove repeated host representation work.
+
+R2-A: isolated 512-bound prototype archived, not retained. Dedicated 512 build
+uses 64 registers, stack 6768 B, spill stores/loads 212/140 B versus 1024
+6784 B / 216/104 B (entry; device functions have separate spill reports).
+Same-round full generations ~251/217/177 ms versus ~255/216/175 ms:
+no compelling host-level benefit. Warm NCU eligible warps ~0.09/0.15 per
+scheduler-cycle and long-scoreboard stalls ~65/53% (Sum/House). Counters,
+units, cold/warm reports, lineinfo SASS and compile reports: `R2-A/`.
+R2-F1 hypothesis: statically exclude generic phase execution for proven small
+typed phases and initialize their unboxed locals directly, removing preset
+arrays and generic fallback call frames from that capability kernel.

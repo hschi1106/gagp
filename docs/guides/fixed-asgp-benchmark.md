@@ -199,3 +199,22 @@ remain separate from the primary fixed benchmark.
 Short searches can expose obvious degradation; they do not establish convergence
 or time-to-solution equivalence. The phase-bank prototype is isolated in the
 optional benchmark executable and does not change native CLI evolution.
+
+## Architecture experiments (2026-10-01, second round)
+
+Internal immutable executables and retained derivations may replace per-generation
+AST materialization, content identity reconstruction and repeated compilation.
+External input admission remains mandatory. Type safety alone is not grammar
+membership: nonterminal, scope, constant domain, linked holes, root and resources
+must be certified or explicitly fall back. A controlled internal object cannot
+be publicly marked trusted. Changed admission/resource or operator semantics must
+be named, tested and reported separately from legacy fixed-parent comparisons.
+RNG draw order and CPU/GPU trajectories are not universal architecture contracts;
+legacy parity tests continue to cover their explicitly selected legacy modes.
+
+Every new generation measurement includes complete evaluation, selection,
+variation and preparation of the next evaluable population. Charge initialization,
+compilation, verification, collection and fallback at their actual frequency.
+Preserve the historical fixed benchmark and frozen ASGP denominator. NCU and
+multiple capability kernels are permitted; profiling does not supply headline
+speedups. Shared representation never implies shared evaluation or reduced fuel.

@@ -72,8 +72,8 @@
   - edge cases around fuel/timeouts and numeric/type operations.
 
 ## Profiling Guidelines
-- GPU profiling must use `nsys` only.
-- Do not use `ncu` in this project environment.
+- Use `nsys` for timelines and `ncu` for focused hardware-counter diagnosis.
+- Profiled timings are diagnostic; report speedups from unprofiled runs.
 - GPU-capable C++ paths select the least-used visible CUDA device internally.
 - To force a specific visible-device index for a run, use `GAGP_CUDA_DEVICE=0` or `GAGP_CUDA_DEVICE=1`.
 

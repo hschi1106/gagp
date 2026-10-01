@@ -232,7 +232,8 @@ grammar derivations and generation/variation integration before activation.
 
 Stable performance invariants are:
 
-- one mixed GPU fitness kernel per accepted population;
+- complete evaluation of every accepted program/case pair; capability-proven
+  execution buckets may use multiple kernels with results restored to population order;
 - optional reproduction preparation/evaluation overlap;
 - lightweight scored references inside generations;
 - opt-in final-population retention;
