@@ -1,0 +1,212 @@
+{
+  "status": "rejected: small uncertain gain does not justify complexity",
+  "commit": "ed0448a",
+  "performance": {
+    "sum_of_elements": {
+      "before": {
+        "raw_ms": [
+          269.879899,
+          271.070122,
+          270.195582,
+          257.101059,
+          257.276098,
+          256.339816,
+          268.06312,
+          261.695204,
+          261.311899
+        ],
+        "median_ms": 261.695204,
+        "range_ms": [
+          256.339816,
+          271.070122
+        ]
+      },
+      "after": {
+        "raw_ms": [
+          257.183586,
+          261.260983,
+          260.687556,
+          263.602484,
+          259.326851,
+          259.932815,
+          265.137995,
+          265.010304,
+          264.266104
+        ],
+        "median_ms": 261.260983,
+        "range_ms": [
+          257.183586,
+          265.137995
+        ]
+      }
+    },
+    "house_robber": {
+      "before": {
+        "raw_ms": [
+          274.157456,
+          271.555245,
+          272.530642,
+          279.562364,
+          273.656315,
+          271.114075,
+          279.684424,
+          277.995176,
+          277.484657
+        ],
+        "median_ms": 274.157456,
+        "range_ms": [
+          271.114075,
+          279.684424
+        ]
+      },
+      "after": {
+        "raw_ms": [
+          270.870533,
+          270.098546,
+          270.095291,
+          270.559995,
+          269.926632,
+          268.406864,
+          285.776597,
+          278.981557,
+          279.306171
+        ],
+        "median_ms": 270.559995,
+        "range_ms": [
+          268.406864,
+          285.776597
+        ]
+      }
+    },
+    "median": {
+      "before": {
+        "raw_ms": [
+          271.99927,
+          272.448157,
+          272.442508,
+          272.679924,
+          271.565664,
+          271.305763,
+          279.486013,
+          277.250931,
+          277.583521
+        ],
+        "median_ms": 272.448157,
+        "range_ms": [
+          271.305763,
+          279.486013
+        ]
+      },
+      "after": {
+        "raw_ms": [
+          271.095552,
+          268.188393,
+          262.444331,
+          262.684956,
+          263.611657,
+          268.385679,
+          273.846103,
+          272.183579,
+          272.10099
+        ],
+        "median_ms": 268.385679,
+        "range_ms": [
+          262.444331,
+          273.846103
+        ]
+      }
+    }
+  },
+  "quality": [
+    {
+      "task": "sum_of_elements",
+      "seed": 0,
+      "fields_equal": true,
+      "asts_equal": true,
+      "wall_ms_before_after": [
+        10267.262767,
+        9938.674194
+      ]
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 1,
+      "fields_equal": true,
+      "asts_equal": true,
+      "wall_ms_before_after": [
+        10942.866008,
+        11007.053499
+      ]
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 2,
+      "fields_equal": true,
+      "asts_equal": true,
+      "wall_ms_before_after": [
+        9666.535428,
+        9595.839089
+      ]
+    },
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "fields_equal": true,
+      "asts_equal": true,
+      "wall_ms_before_after": [
+        9978.952451,
+        9899.958152
+      ]
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "fields_equal": true,
+      "asts_equal": true,
+      "wall_ms_before_after": [
+        8171.023519,
+        8199.618141
+      ]
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "fields_equal": true,
+      "asts_equal": true,
+      "wall_ms_before_after": [
+        8228.026032,
+        8209.463073
+      ]
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "fields_equal": true,
+      "asts_equal": true,
+      "wall_ms_before_after": [
+        10869.859165,
+        10701.116885
+      ]
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "fields_equal": true,
+      "asts_equal": true,
+      "wall_ms_before_after": [
+        10673.974441,
+        10535.995109
+      ]
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "fields_equal": true,
+      "asts_equal": true,
+      "wall_ms_before_after": [
+        11264.223045,
+        11067.6299
+      ]
+    }
+  ]
+}

@@ -10,9 +10,6 @@
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/core/semantic_fuel.hpp"
 #include "../region_plan_equal.hpp"
-#include "gagp/evolution/repro/types.hpp"
-#include "gagp/evolution/repro/pack.hpp"
-#include <cstring>
 
 #include <memory>
 #include "../../runtime/payload/staging.hpp"
@@ -56,31 +53,6 @@ std::string certificate_identity(const CompiledGrammar& grammar, const ProgramGe
 
 using MatchKey = std::tuple<std::uint32_t, std::size_t, std::vector<int>>;
 using ProductionDecisions = std::map<MatchKey, std::uint32_t>;
-
-bool permits_decision_transport(const CompiledGrammar& grammar) {
-  for (const auto& expression : grammar.expressions()) {
-    std::set<std::uint32_t> mapped;
-    for (auto slot : expression.scope_mapping)
-      if (!mapped.insert(slot).second) return false;
-  }
-  // Positive canonical decisions are independent of alias ancestry only when
-  // every production consumes a concrete node before entering another NT.
-  // Ambiguous materializing alternatives are allowed: affected ancestors are
-  // deliberately removed from the seeded table and matched again in order.
-  for (const auto& production : grammar.productions()) {
-    auto index = production.expression;
-    std::size_t steps = 0;
-    for (;;) {
-      if (++steps > grammar.expressions().size()) return false;
-      const auto& e = grammar.expressions().at(index);
-      if (e.kind == ExpressionKind::Reference) return false;
-      if (e.kind != ExpressionKind::Template && e.kind != ExpressionKind::Hole) break;
-      if (e.children.empty()) return false;
-      index = e.children.front();
-    }
-  }
-  return true;
-}
 
 // Scope maps are positions in compiled environments, not public AST binder IDs.
 struct LexicalScope {
@@ -139,7 +111,7 @@ class Matcher {
       const std::vector<GenerationRequest>* population_requests = nullptr)
       : grammar_(grammar), ast_(ast), request_(request),
         capture_exact_scopes_(capture_exact_scopes), frame_(frame), population_requests_(population_requests) {}
-  void run(ProductionDecisions* transported = nullptr) {
+  void run() {
     (void)validate_request(grammar_, request_);
     grammar_.require_executable(request_.nonterminal);
     if (ast_.nodes.empty() || ast_.nodes.size() > request_.budget.max_nodes)
@@ -192,7 +164,6 @@ class Matcher {
     }
     lexical_environment_ = frame_ ? frame_environment(grammar_, request_, *frame_) :
         std::vector<int>(entry.scope.size(), -1);
-    if (transported) decisions_ = std::move(*transported);
     if (!nonterminal(request_.nonterminal, start)) fail("AST cannot be derived from the grammar entry");
   }
   const GenerationRequest& request() const { return request_; }
@@ -748,8 +719,6 @@ std::shared_ptr<const OwnedScalarPopulation> OwnedScalarPopulation::create(
   auto owned = std::shared_ptr<OwnedScalarPopulation>(new OwnedScalarPopulation);
   owned->grammar_ = context.grammar_owner();
   owned->request_ = context.request();
-  owned->transport_decisions_ = std::getenv("GAGP_TRANSPORT_CROSSOVER_PROOF") &&
-      permits_decision_transport(context.grammar());
   owned->genomes_.reserve(input.size());
   owned->proofs_.reserve(input.size());
   for (const auto& source : input) {
@@ -774,8 +743,6 @@ std::shared_ptr<const OwnedScalarPopulation> OwnedScalarPopulation::adopt_decode
   auto owned = std::shared_ptr<OwnedScalarPopulation>(new OwnedScalarPopulation);
   owned->grammar_ = context.grammar_owner();
   owned->request_ = context.request();
-  owned->transport_decisions_ = std::getenv("GAGP_TRANSPORT_CROSSOVER_PROOF") &&
-      permits_decision_transport(context.grammar());
   owned->proofs_.reserve(input.size());
   for (const auto& genome : input) {
     if (!genome.derivation || !genome.derivation->certificate)
@@ -788,145 +755,6 @@ std::shared_ptr<const OwnedScalarPopulation> OwnedScalarPopulation::adopt_decode
   }
   owned->genomes_ = std::move(input);
   return owned;
-}
-std::optional<ProgramGenome> OwnedScalarPopulation::admit_crossover(
-    AstProgram& candidate, const repro::PackedHostData& packed,
-    const repro::PackedChildSplice& splice, VariationContext& context) const {
-  if (!transport_decisions_ || !matches(context) || splice.applied != 1 ||
-      packed.config.compiled_pass != repro::CompiledVariationPass::Crossover ||
-      splice.source_kind != repro::SpliceSourceKind::Parent || splice.occurrence_count != 1 ||
-      splice.base_parent < 0 || splice.source_index < 0 ||
-      static_cast<std::size_t>(splice.base_parent) >= genomes_.size() ||
-      static_cast<std::size_t>(splice.source_index) >= genomes_.size()) return std::nullopt;
-  const auto& base = genomes_[splice.base_parent];
-  const auto& source = genomes_[splice.source_index];
-  const auto candidate_at = [&](int parent, int index) -> const repro::CandidateRange* {
-    if (index < 0 || index >= packed.config.candidates_per_program ||
-        static_cast<std::size_t>(parent) >= packed.metas.size() ||
-        index >= packed.metas[parent].candidate_count) return nullptr;
-    const auto offset = static_cast<std::size_t>(parent) * packed.config.candidates_per_program + index;
-    return offset < packed.candidates.size() ? &packed.candidates[offset] : nullptr;
-  };
-  const auto* destination = candidate_at(splice.base_parent, splice.destination_candidate);
-  const auto* donor = candidate_at(splice.source_index, splice.source_candidate);
-  if (!destination || !donor || destination->occurrence_count != 1 || donor->occurrence_count != 1 ||
-      destination->start < 0 || destination->stop <= destination->start ||
-      donor->start < 0 || donor->stop <= donor->start ||
-      static_cast<std::size_t>(destination->stop) > base.ast.nodes.size() ||
-      static_cast<std::size_t>(donor->stop) > source.ast.nodes.size()) return std::nullopt;
-  const auto begin = static_cast<std::size_t>(destination->start), end = static_cast<std::size_t>(destination->stop);
-  const auto source_begin = static_cast<std::size_t>(donor->start), source_end = static_cast<std::size_t>(donor->stop);
-  const auto size = source_end - source_begin;
-  if (candidate.nodes.size() != base.ast.nodes.size() - (end - begin) + size) return std::nullopt;
-  // First version transports a binder-free expression subtree. Surrounding
-  // templates/regions remain intact; coupled occurrences and inner binders use
-  // the ordinary matcher. Selection contracts alone never grant membership.
-  for (auto i = source_begin; i < source_end; ++i) {
-    const auto& d = node_descriptor(source.ast.nodes[i].kind);
-    if (d.category != NodeCategory::Expression || d.metadata != NodeMetadataKind::None ||
-        d.i0_role == NodeIndexRole::Name || d.i1_role == NodeIndexRole::Name) return std::nullopt;
-  }
-  const auto& bw = witness(splice.base_parent);
-  const auto& sw = witness(splice.source_index);
-  const auto unique_choice = [](const DerivationMetadata& w, std::size_t first, std::size_t last) {
-    std::size_t selected = w.choices.size();
-    for (std::size_t i = 0; i < w.choices.size(); ++i)
-      if (w.choices[i].ast_begin == first && w.choices[i].ast_end == last) {
-        if (selected != w.choices.size()) return w.choices.size();
-        selected = i;
-      }
-    return selected;
-  };
-  const auto bi = unique_choice(bw, begin, end), si = unique_choice(sw, source_begin, source_end);
-  if (bi == bw.choices.size() || si == sw.choices.size() ||
-      bw.choices[bi].nonterminal != sw.choices[si].nonterminal) return std::nullopt;
-  const auto& be = environments(splice.base_parent);
-  const auto& se = environments(splice.source_index);
-  if (be.size() != bw.choices.size() || se.size() != sw.choices.size() || be[bi].size() != se[si].size()) return std::nullopt;
-  std::map<int,int> rename;
-  for (std::size_t i = 0; i < be[bi].size(); ++i) {
-    if (be[bi][i] < 0 || se[si][i] < 0) return std::nullopt;
-    if (!rename.emplace(se[si][i], be[bi][i]).second) return std::nullopt;
-  }
-  const auto same_value = [](const Value& a, const Value& b) {
-    if (a.tag != b.tag) return false;
-    if (a.tag == ValueTag::Float) return std::memcmp(&a.f, &b.f, sizeof(double)) == 0;
-    if (a.tag == ValueTag::Bool) return a.b == b.b;
-    return a.i == b.i;
-  };
-  // Verify the actual returned node/value stream against its owned splice
-  // sources. Metadata was rebuilt by this method's sole friend (the decoder)
-  // from those same immutable sources, never from device-authored sidecars.
-  for (std::size_t i = 0; i < candidate.nodes.size(); ++i) {
-    const bool inserted = i >= begin && i < begin + size;
-    const auto& ast = inserted ? source.ast : base.ast;
-    const auto index = inserted ? source_begin + i - begin : i < begin ? i : i - size + end - begin;
-    const auto& expected = ast.nodes[index]; const auto& actual = candidate.nodes[i];
-    if (actual.kind != expected.kind) return std::nullopt;
-    const auto& descriptor = node_descriptor(actual.kind);
-    const auto equal_operand = [&](NodeIndexRole role, int a, int b) {
-      if (role == NodeIndexRole::Constant)
-        return a >= 0 && b >= 0 && static_cast<std::size_t>(a) < candidate.consts.size() &&
-            static_cast<std::size_t>(b) < ast.consts.size() && same_value(candidate.consts[a], ast.consts[b]);
-      if (role == NodeIndexRole::Name)
-        return a >= 0 && b >= 0 && static_cast<std::size_t>(a) < candidate.names.size() &&
-            static_cast<std::size_t>(b) < ast.names.size() && candidate.names[a] == ast.names[b];
-      if (role == NodeIndexRole::BinderId && inserted) {
-        const auto found = rename.find(b); return found != rename.end() && a == found->second;
-      }
-      return a == b;
-    };
-    if (!equal_operand(descriptor.i0_role, actual.i0, expected.i0) ||
-        !equal_operand(descriptor.i1_role, actual.i1, expected.i1)) return std::nullopt;
-  }
-  ProductionDecisions decisions;
-  const auto shift = static_cast<std::int64_t>(size) - static_cast<std::int64_t>(end - begin);
-  for (std::size_t i = 0; i < bw.choices.size(); ++i) {
-    const auto& choice = bw.choices[i];
-    if ((choice.ast_begin >= begin && choice.ast_end <= end) ||
-        (choice.ast_begin <= begin && choice.ast_end >= end)) continue;
-    const auto start = choice.ast_begin >= end ? static_cast<std::size_t>(choice.ast_begin + shift) : choice.ast_begin;
-    if (!decisions.emplace(std::make_tuple(choice.nonterminal, start, be[i]), choice.production).second) return std::nullopt;
-  }
-  for (std::size_t i = 0; i < sw.choices.size(); ++i) {
-    const auto& choice = sw.choices[i];
-    if (choice.ast_begin < source_begin || choice.ast_end > source_end) continue;
-    auto environment = se[i];
-    for (auto& binding : environment) {
-      const auto found = rename.find(binding);
-      if (found == rename.end()) return std::nullopt;
-      binding = found->second;
-    }
-    if (!decisions.emplace(std::make_tuple(choice.nonterminal, begin + choice.ast_begin - source_begin,
-        std::move(environment)), choice.production).second) return std::nullopt;
-  }
-  ProgramGenome child; child.ast = std::move(candidate);
-  bool committed = false;
-  struct RestoreOnFailure {
-    AstProgram& source; AstProgram& destination; const bool& committed;
-    ~RestoreOnFailure() { if (!committed) destination = std::move(source); }
-  } restore{child.ast, candidate, committed};
-  Matcher matcher(*grammar_, child.ast, request_, true);
-  matcher.run(&decisions);  // Native structure/type/depth/domain decoding remain.
-  std::vector<std::vector<int>> child_environments;
-  std::shared_ptr<const BytecodeProgram> executable;
-  auto child_witness = WitnessBuilder(*grammar_, child, request_, matcher, nullptr,
-      &child_environments).run(true, nullptr, std::getenv("GAGP_REUSE_ADMISSION_COMPILE") ? &executable : nullptr);
-  auto proof = std::make_shared<DerivationCertificate>();
-  proof->identity = certificate_identity(*grammar_, child);
-  proof->witness = child_witness;
-  proof->verified = matcher.take_verified();
-  proof->executable = std::move(executable);
-  proof->environments = std::move(child_environments);
-  child_witness.certificate = std::move(proof);
-  child.derivation = std::make_shared<const DerivationMetadata>(std::move(child_witness));
-  const auto names = child.ast.names.size(), constants = child.ast.consts.size();
-  child = repro::compact_genome_tables(std::move(child));
-  if (child.ast.names.size() != names || child.ast.consts.size() != constants)
-    child = certify_execution(std::move(child), context);
-  ++context.counters().transported_crossover_admissions;
-  committed = true;
-  return child;
 }
 bool OwnedScalarPopulation::matches(const VariationContext& context) const {
   return grammar_ == context.grammar_owner() && context.requests().size() == 1 &&

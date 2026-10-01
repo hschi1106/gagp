@@ -59,4 +59,3 @@ maintenance, follow the rules in root `AGENTS.md`.
 
 - Private evaluation identity/executable lookup: `cpp/src/evolution/grammar/evaluation_identity.hpp`, implemented beside certificates in `membership.cpp`; regression coverage in `test_grammar_membership.cpp`.
 - Native immutable crossover continuation: `grammar/owned_population.hpp` (`from_gpu_pass`), `repro/compiled_decode.cpp`, `repro/gpu.cpp`; safety coverage in `cpp/tests/gpu/test_compiled_transport_gpu.cu`. Paths without `cpp/` are relative to `cpp/src/evolution/`.
-- Experimental incremental crossover matcher: private `OwnedScalarPopulation::admit_crossover` in `membership.cpp`, only invoked by the checked native decoder; canonical ambiguity and alias-fallback regression in `cpp/tests/gpu/test_compiled_backend_gpu.cpp`.

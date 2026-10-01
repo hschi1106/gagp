@@ -5,9 +5,6 @@ namespace gagp::evo::repro {
 struct PackedHostData;
 struct GpuReproChildView;
 struct PreparedParentCertificates;
-struct PackedChildSplice;
-std::vector<ProgramGenome> decode_compiled_pass(const PackedHostData&, const GpuReproChildView&,
-    grammar::VariationContext&, const PreparedParentCertificates*);
 }
 namespace gagp::evo::grammar::variation_detail {
 // Private native preparation owner. Construction copies and admits input before
@@ -30,12 +27,6 @@ class OwnedScalarPopulation final {
   const std::string& identity(std::size_t index) const;
  private:
   OwnedScalarPopulation() = default;
-  friend std::vector<ProgramGenome> repro::decode_compiled_pass(const repro::PackedHostData&,
-      const repro::GpuReproChildView&, gagp::evo::grammar::VariationContext&, const repro::PreparedParentCertificates*);
-  std::optional<ProgramGenome> admit_crossover(AstProgram& candidate,
-      const repro::PackedHostData& packed, const repro::PackedChildSplice& splice,
-      VariationContext& context) const;
-  bool transport_decisions_ = false;
   static std::shared_ptr<const OwnedScalarPopulation> adopt_decoded(
       std::vector<ProgramGenome> input, VariationContext& context);
   std::shared_ptr<const CompiledGrammar> grammar_;

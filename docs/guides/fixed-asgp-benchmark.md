@@ -353,17 +353,3 @@ constants and external mutable populations keep ordinary validation. Both GPU
 operator passes, copybacks, canonical changed-child admission and RNG stay the
 same. The owner is released after the mutation pass and never retains history.
 
-Experimental `GAGP_TRANSPORT_CROSSOVER_PROOF=1` transports canonical production
-decisions from immutable admitted parents for a single-occurrence, exact
-nonterminal, binder-free expression splice. Each production must consume a
-concrete node before another nonterminal, and scope maps must be injective.
-Unaffected subtree decisions seed the matcher; all affected ancestor decisions
-are removed and re-matched in declaration order, including ambiguous alternatives.
-Alias-root grammars, coupled occurrences, inner binders and unsupported cases
-use the ordinary matcher. The
-actual copied node/value stream must equal the owned splice sources under lexical
-renaming. Native verification, ancestor membership matching, witness/resource construction, lowering and final
-execution admission remain. Only the private checked GPU decoder can invoke the
-transport; public imports cannot submit trusted decisions. No RNG, grammar
-language, fuel or numeric semantics change is intended. This is a prototype
-pending correctness and timing evidence, not a promoted setting.

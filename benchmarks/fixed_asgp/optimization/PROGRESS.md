@@ -6,8 +6,7 @@ Median remains fixed-overhead workload. Do not resume retired CPU fragment route
 
 ## Current best and active experiment
 
-Best validated GPU source: Q+R checkpoint (immutable crossover handoff; commit
-listed in history), with
+Best validated GPU source: `5508a60` (Q+R immutable crossover handoff), with
 locally extracted jemalloc 5.2.1-4ubuntu1. Use `round2.py` FLAGS and process env:
 ```
 LD_PRELOAD=$PWD/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2
@@ -394,3 +393,29 @@ work dominates. Full123 suite and3072 snapshot rows pass. Scaling pending.
 - Remaining eval candidate: bounded one-coordinate memo lookup currently scans
   all occupied cells. Test direct indexing with a register validity bitmap,
   keeping complete state, lazy execution, fuel/base/capacity order unchanged.
+
+S decision: **rejected from active runtime**, reproducible source checkpoint
+`ed0448a`; patch/binary/raw in `native-incremental-matcher-validation/`. Nine
+paired medians R→S: Sum261.695204→261.260983, House274.157456→270.559995,
+Median272.448157→268.385679ms. Larger quick gains did not repeat. Sum gain0.2%,
+House/Median1–2% with overlapping ranges; insufficient for added proof transport
+complexity. Dedicated512-child ambiguity/alias witness tests passed, and the
+prototype remains useful evidence, not the recommended path. Removed its flag,
+private admission path, exclusive test and active guide/navigation entries.
+R remains best; T dense coordinate memo now awaiting serial build/evaluation.
+
+### T — dense coordinate memo: rejected
+
+- One-Int-state memo domain <=128 slots; direct indexing plus per-invocation
+  validity bitmap, with original fuel/base/capacity order. Three focused tests
+  pass, including raw values/errors/fuel and boundary checks; all1024 House
+  full-case CPU/GPU snapshot rows exact.
+- Two paired orders give House272.33→278.59 and275.00→284.09ms; flag-off
+  candidate272.46/276.44ms. Sum/Median changes are order-dependent noise.
+  No end-to-end benefit: removed active code/flag/exclusive tests and guide.
+  Patch, binary, raw JSON retained in `logs/optimization/native-dense-memo/`;
+  tracked summary `results/native-dense-memo.json`.
+- R remains best. Next hypothesis: table compaction after successful admission
+  need not repeat matching, witness building and lowering when only unused
+  scalar constants are removed and names/scopes are unchanged. Validate first,
+  then transform owned data and bind its proof before publication.

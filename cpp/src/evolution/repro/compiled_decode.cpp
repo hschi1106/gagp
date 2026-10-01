@@ -355,16 +355,7 @@ std::vector<ProgramGenome> decode_compiled_pass(
         total.unchanged_children += counts.unchanged_children;
         total.changed_children += counts.changed_children;
       } else {
-        std::optional<ProgramGenome> transported;
-        if (!mutation && certificates && certificates->owned_parents &&
-            certificates->sources == packed.compiled_sources && certificates->context.get() == &context &&
-            certificates->owned_parents->genomes().size() == parents.size() &&
-            std::getenv("GAGP_TRANSPORT_CROSSOVER_PROOF")) {
-          try { transported = certificates->owned_parents->admit_crossover(ast, packed, splice, context); }
-          catch (const std::invalid_argument&) { /* Ordinary admission retains fallback/counter behavior. */ }
-        }
-        child = transported ? grammar::variation_detail::record_accepted(std::move(*transported), base, context) :
-            grammar::variation_detail::accept(std::move(ast), base, context, std::nullopt, admission_use);
+        child = grammar::variation_detail::accept(std::move(ast), base, context, std::nullopt, admission_use);
       }
     }
     if (i < c.population_size) result.push_back(std::move(child));

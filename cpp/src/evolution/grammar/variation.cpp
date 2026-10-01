@@ -209,11 +209,6 @@ ProgramGenome accept(AstProgram candidate, const ProgramGenome& certified_parent
     ++context.counters().acceptance_rejections;
     return fallback(certified_parent, context);
   }
-  return record_accepted(std::move(child), certified_parent, context);
-}
-
-ProgramGenome record_accepted(ProgramGenome child, const ProgramGenome& certified_parent,
-    VariationContext& context) {
   // certify reconstructed this witness from the candidate AST. Never trust a
   // copied parent's resource index or generation's potentially ambiguous choice.
   if (context.offspring_budget() &&

@@ -1,0 +1,104 @@
+{
+  "decision": "rejected; two quick paired orders show House regression, no robust Sum/Median benefit",
+  "source_base": "5508a60",
+  "profile": "one Int coordinate, <=128 cells; unchanged language/fuel/capacity",
+  "tests": "3 focused CPU/GPU tests passed; raw fuel/output boundary comparisons",
+  "samples": {
+    "sum_of_elements": {
+      "quick.before": [
+        264.760535,
+        261.620301,
+        259.605639
+      ],
+      "quick.off": [
+        258.207897,
+        257.022475,
+        256.233943
+      ],
+      "quick.after": [
+        259.020878,
+        263.650815,
+        264.584027
+      ],
+      "reverse.before": [
+        258.280362,
+        255.63679,
+        257.438123
+      ],
+      "reverse.off": [
+        257.698423,
+        256.865748,
+        257.914868
+      ],
+      "reverse.after": [
+        257.641113,
+        255.710923,
+        255.315728
+      ]
+    },
+    "house_robber": {
+      "quick.before": [
+        276.814444,
+        272.327892,
+        271.184454
+      ],
+      "quick.off": [
+        273.098197,
+        272.46297,
+        270.761883
+      ],
+      "quick.after": [
+        281.024536,
+        278.59344,
+        276.861147
+      ],
+      "reverse.before": [
+        276.558791,
+        273.523785,
+        275.003431
+      ],
+      "reverse.off": [
+        273.553785,
+        281.46155,
+        276.436336
+      ],
+      "reverse.after": [
+        283.472017,
+        285.527268,
+        284.092999
+      ]
+    },
+    "median": {
+      "quick.before": [
+        268.196733,
+        268.46961,
+        268.354827
+      ],
+      "quick.off": [
+        264.095342,
+        260.547016,
+        261.80026
+      ],
+      "quick.after": [
+        276.006294,
+        278.631151,
+        275.648208
+      ],
+      "reverse.before": [
+        264.862597,
+        264.876449,
+        264.094764
+      ],
+      "reverse.off": [
+        262.161205,
+        261.52725,
+        261.879698
+      ],
+      "reverse.after": [
+        261.43731,
+        260.404365,
+        261.724828
+      ]
+    }
+  }
+}
