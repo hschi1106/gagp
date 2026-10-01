@@ -109,17 +109,19 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
     const GenerationRequest& initial_request, CompatibilityRegistry* registry,
     const ProjectedBudget* local_projected_budget, const std::vector<GenerationRequest>* requests,
     const variation_detail::SiteSelector* selector = nullptr,
-    std::vector<std::size_t>* selected_indices = nullptr, std::size_t* total_sites = nullptr) {
+    std::vector<std::size_t>* selected_indices = nullptr, std::size_t* total_sites = nullptr,
+    const variation_detail::OwnedScalarPopulation* owned = nullptr, std::size_t owned_index = 0) {
   VariationAnalysis result;
   if (local_projected_budget && !resource_charges_are_local(grammar))
     throw std::invalid_argument("projected candidate allowance requires context-independent resource charges");
   std::vector<std::vector<int>> choice_environments;
-  result.witness = requests ?
+  if (!owned) result.witness = requests ?
       reconstruct_population_derivation(grammar, genome, *requests, &result.verified, &choice_environments) :
       reconstruct_derivation(grammar, genome, initial_request, &result.verified, &choice_environments);
-  const auto& request = result.witness.request;
-  const auto& witness = result.witness;
-  const auto& verified = result.verified;
+  const auto& witness = owned ? owned->witness(owned_index) : result.witness;
+  const auto& request = witness.request;
+  const auto& verified = owned ? owned->verified(owned_index) : result.verified;
+  const auto& environments = owned ? owned->environments(owned_index) : choice_environments;
   std::vector<std::uint32_t> depths(genome.ast.nodes.size());
   std::vector<std::size_t> ends;
   for (std::size_t index = 0; index < depths.size(); ++index) {
@@ -191,7 +193,7 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
     // Complete Program and expression donors share the existing generation request
     // contract. Structural Block/Stmt fragments need their own contextual lowering.
     if (nt.category != NodeCategory::Expression && nt.category != NodeCategory::Program) continue;
-    const auto& environment = choice_environments.at(choice_index);
+    const auto& environment = environments.at(choice_index);
     if (environment.size() != nt.scope.size())
       throw std::logic_error("variation witness lexical scope arity differs from its nonterminal");
     if (!environment.empty()) {
@@ -214,7 +216,7 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
       site.context = nt.context; site.slot = choice.slot;
       if (choice.template_instance != kNoGrammarId)
         site.template_id = witness.templates.at(choice.template_instance).template_id;
-      const auto& ids = choice_environments.at(choice_index);
+      const auto& ids = environments.at(choice_index);
       const bool materialized_scope = !ids.empty() &&
           std::all_of(ids.begin(), ids.end(), [](int id) { return id >= 0; });
       site.visible_environment = materialized_scope ? nt.scope : request.visible_environment;
@@ -235,7 +237,7 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
       return span.begin == choice.ast_begin && span.end == choice.ast_end;
     })) continue;
     site.occurrences.push_back({choice.ast_begin, choice.ast_end});
-    site.occurrence_binder_ids.push_back(choice_environments.at(choice_index));
+    site.occurrence_binder_ids.push_back(environments.at(choice_index));
     site.remaining_template_nesting = std::min(site.remaining_template_nesting, 256 - choice.enclosing_template_depth);
     site.materialized_nodes = choice.ast_end - choice.ast_begin;
     site.projected_resources = witness.resources->subtree(choice.ast_begin);
@@ -359,6 +361,16 @@ bool donor_fits(const VariationSite& destination, const VariationSite& donor) {
 }
 
 namespace variation_detail {
+SelectedOwnedSites analyze_selected_owned(const OwnedScalarPopulation& owner,
+    std::size_t index, const SiteSelector& select, CompatibilityRegistry* registry) {
+  SelectedOwnedSites selected;
+  auto result = analyze_variation_impl(*owner.grammar_owner(), owner.genomes().at(index),
+      owner.witness(index).request, registry, nullptr, nullptr, &select,
+      &selected.original_indices, &selected.total_sites, &owner, index);
+  selected.sites = std::move(result.sites);
+  return selected;
+}
+
 SelectedVariationAnalysis analyze_selected_variation(const CompiledGrammar& grammar,
     const ProgramGenome& genome, const std::vector<GenerationRequest>& requests,
     const SiteSelector& select, CompatibilityRegistry* registry,

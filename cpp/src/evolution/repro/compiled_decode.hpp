@@ -1,4 +1,5 @@
 #pragma once
+#include "../grammar/owned_population.hpp"
 
 #include <vector>
 
@@ -17,6 +18,7 @@ struct PreparedParentCertificates {
   // Private scalar-only owned admission: tied to sources/context above, with no
   // mutable registry constants and no incomplete public variation analysis.
   std::vector<ProgramGenome> admitted_parents;
+  std::shared_ptr<const grammar::variation_detail::OwnedScalarPopulation> owned_parents;
 };
 
 // Accept a completed device operator pass. Metadata reconstruction and cached

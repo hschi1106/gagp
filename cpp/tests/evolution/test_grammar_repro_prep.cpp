@@ -281,6 +281,61 @@ void test_prefetched_parent_analysis_matches_sequential(bool capacity_split) {
   }
 }
 
+void test_owned_population_admission() {
+  using gagp::evo::grammar::variation_detail::OwnedScalarPopulation;
+  using namespace gagp::evo::repro;
+  const auto grammar = split_nonterminal_grammar();
+  VariationContext context(grammar);
+  auto source = std::vector<ProgramGenome>{generate_derivation(*grammar, 1).genome};
+  auto owned = OwnedScalarPopulation::create(source, context);
+  const auto identity = owned->identity(0);
+  auto config = compiled_config(*grammar, 1);
+  config.compiled_pass = CompiledVariationPass::Mutation;
+  config.mutation_ratio = 1.0; config.mutation_subtree_ratio = 1.0;
+  const auto expected = preprocess_selected_population(owned->genomes(), config, context, nullptr, true);
+  const auto result = preprocess_selected_population(owned->genomes(), config, context, nullptr, true, owned.get());
+  check(expected.population_identities == result.population_identities &&
+      expected.donor_identities == result.donor_identities &&
+      expected.compatibility_keys == result.compatibility_keys &&
+      expected.subtree_ends == result.subtree_ends, "owned preparation changed proof or donor schedule");
+  for (std::size_t i=0; i<result.candidates[0].size(); ++i)
+    check(same_candidate(expected.candidates[0][i], result.candidates[0][i]), "owned preparation changed candidate");
+  const auto packed = pack_owned_population(*owned, result, config);
+  const auto reference = pack_population(owned->genomes(), expected, config);
+  check(packed.program_name_ids == reference.program_name_ids &&
+      packed.donor_lens == reference.donor_lens && packed.compatibility_keys == reference.compatibility_keys,
+      "owned packing changed metadata");
+  // Imported certificate, constants and public metadata cannot authorize changes.
+  source[0].ast.consts[0] = Value::from_int(999);
+  rejects_invalid([&] { (void)OwnedScalarPopulation::create(source, context); },
+      "owned admission trusted a stale certificate or wrong constant domain");
+  check(owned->identity(0) == identity && owned->genomes()[0].ast.consts[0].i != 999,
+      "owned AST retained a mutable input alias");
+  auto copied = owned->genomes();
+  rejects_invalid([&] { (void)preprocess_selected_population(copied, config, context, nullptr, true, owned.get()); },
+      "owned preparation accepted another population address");
+  VariationContext other(split_nonterminal_grammar());
+  check(!owned->matches(other), "owned admission matched another grammar owner");
+  rejects_invalid([&] { (void)preprocess_selected_population(owned->genomes(), config, other, nullptr, true, owned.get()); },
+      "owned preparation accepted wrong grammar owner");
+  auto request = context.request(); --request.budget.max_nodes;
+  VariationContext other_request(grammar, request);
+  check(!owned->matches(other_request), "owned admission matched another request budget");
+  auto bad_prep = result; bad_prep.compiled_grammar = other.grammar_owner();
+  rejects_invalid([&] { (void)pack_owned_population(*owned, bad_prep, config); }, "owned pack accepted wrong owner");
+  bad_prep = result; bad_prep.population_identities[0] = "stale";
+  rejects_invalid([&] { (void)pack_owned_population(*owned, bad_prep, config); }, "owned pack accepted stale identity");
+  auto registry = owned->genomes(); registry[0].ast.consts.push_back(Value::from_string_hash_len(99,1));
+  rejects_invalid([&] { (void)OwnedScalarPopulation::create(registry, context); }, "owned admission accepted registry dependency");
+  bool bounds = false;
+  try { (void)owned->identity(1); } catch (const std::out_of_range&) { bounds = true; }
+  check(bounds, "owned proof index was unchecked");
+  // Shared ownership preserves the certificate after originals are destroyed.
+  auto retained = owned; owned.reset(); source.clear();
+  check(retained->identity(0) == identity && !retained->verified(0).subtree_end.empty(),
+      "owned proof lifetime ended with external input");
+}
+
 void test_warmed_population_handoff() {
   const auto grammar = split_nonterminal_grammar();
   const auto token = Value::from_string_hash_len(17823649, 5);
@@ -816,6 +871,7 @@ int main() {
     test_prefetched_parent_analysis_matches_sequential(false);
     test_prefetched_parent_analysis_matches_sequential(true);
     test_warmed_population_handoff();
+    test_owned_population_admission();
     test_gpu_run_resources_reject_oversized_search_space();
     test_exact_contracts_and_shared_occurrences();
     test_determinism_packing_ownership_and_guards();

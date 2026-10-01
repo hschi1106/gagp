@@ -47,10 +47,17 @@ New Median NVTX diagnostic (373ms profiled vs334ms unprofiled):13,915 runtime
 identities92.5ms; membership Matcher21.5ms self, witness22.0ms self;
 2 decode passes128.4ms inclusive; selected analysis63.4ms inclusive.
 Raw timeline/attribution: `logs/optimization/native-selected-profile/`.
-Next N hypothesis: an owned immutable scalar population can share its admission
+Candidate N (isolated `GAGP_OWNED_PREPARATION=1`, validation running): an owned immutable scalar population can share its admission
 witness/VerifiedAst/identity through native preprocess/pack, avoiding repeated
 serialization and proof copies while preserving public input checks. Keep GPU
 operators, RNG, membership and both copybacks unchanged for this experiment.
+Quick paired full generation: Sum325.464->284.576 /House350.142->297.930 /
+Median330.887->289.507ms. Four focused tests pass (including owner/input mutation,
+request/domain/payload/index/lifetime checks). Raw `logs/optimization/native-owned-preparation/`;
+9-repeat, fixed snapshot and3-seed4/32-gen validation `native-owned-validation/`.
+Not yet promoted. Next independent CPU experiment: invocation-local IntList views
+for statically proved region phases, eliminating intermediate Slice registry
+hash/copy work; original CPU VM/region control flow and numeric/fuel remain.
 
 ## Current fair baseline
 

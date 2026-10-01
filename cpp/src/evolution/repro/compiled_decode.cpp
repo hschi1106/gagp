@@ -95,7 +95,7 @@ std::vector<ProgramGenome> decode_compiled_pass(
   const bool mutation = c.compiled_pass == CompiledVariationPass::Mutation;
   require(mutation || c.compiled_pass == CompiledVariationPass::Crossover,
           "compiled copyback has an unknown operator pass");
-  const auto admission_use = certificates && !certificates->admitted_parents.empty()
+  const auto admission_use = certificates && (certificates->owned_parents || !certificates->admitted_parents.empty())
       ? grammar::variation_detail::AdmissionUse::Execution
       : grammar::variation_detail::AdmissionUse::Variation;
   const int physical_children = c.pair_count * 2;
@@ -115,6 +115,11 @@ std::vector<ProgramGenome> decode_compiled_pass(
       ProgramGenome source;
       source.ast = packed.compiled_sources->parents[index];
       if (certificates && certificates->sources == packed.compiled_sources &&
+          certificates->context.get() == &context && certificates->owned_parents &&
+          certificates->owned_parents->matches(context) &&
+          certificates->owned_parents->genomes().size() == parents.size()) {
+        cached = certificates->owned_parents->genomes()[index];
+      } else if (certificates && certificates->sources == packed.compiled_sources &&
           certificates->context.get() == &context && certificates->admitted_parents.size() == parents.size()) {
         cached = certificates->admitted_parents[index];
       } else if (certificates && certificates->sources == packed.compiled_sources &&

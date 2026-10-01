@@ -119,7 +119,10 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
                                        grammar::VariationContext& context,
                                        std::shared_ptr<const ConstantMutationDomains> domains,
                                        bool prepare_donors,
-                                       const std::vector<grammar::WarmPopulationMember>* handoff, bool selected_only = false) {
+                                       const std::vector<grammar::WarmPopulationMember>* handoff, bool selected_only = false,
+                                       const grammar::variation_detail::OwnedScalarPopulation* owned = nullptr) {
+  if (owned && (!selected_only || &population != &owned->genomes() || !owned->matches(context)))
+    throw std::invalid_argument("owned preparation population/context mismatch");
   if (config.population_size <= 0 || config.population_size > 65536 ||
       static_cast<std::size_t>(config.population_size) != population.size())
     throw std::invalid_argument("compiled grammar preprocessing population size mismatch");
@@ -278,7 +281,17 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
       saved.reads.reset();
     }
     std::optional<grammar::variation_detail::SelectedVariationAnalysis> selected;
-    if (selected_only) {
+    std::optional<grammar::variation_detail::SelectedOwnedSites> owned_sites;
+    const auto select_sites = [&](std::size_t count) {
+      auto indices = shuffled_site_indices(count, &random);
+      indices.resize(std::min(count, static_cast<std::size_t>(config.candidates_per_program)));
+      return indices;
+    };
+    if (owned) {
+      parent_identity = owned->identity(parent_index);
+      owned_sites = grammar::variation_detail::analyze_selected_owned(*owned, parent_index,
+          select_sites, &selected_registry);
+    } else if (selected_only) {
       parent_identity = grammar::runtime_cache_identity(parent, input_names,
           context.grammar().execution_limits().fuel);
       selected = grammar::variation_detail::analyze_selected_variation(context.grammar(), parent,
@@ -293,9 +306,9 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
         parent_identity = member->runtime_identity;
       } else analysis = context.analyze(parent, &parent_identity);
     }
-    const auto& witness = selected ? selected->witness : analysis->witness;
-    const auto& verified = selected ? selected->verified : analysis->verified;
-    const auto& sites = selected ? selected->sites : analysis->sites;
+    const auto& witness = owned ? owned->witness(parent_index) : selected ? selected->witness : analysis->witness;
+    const auto& verified = owned ? owned->verified(parent_index) : selected ? selected->verified : analysis->verified;
+    const auto& sites = owned_sites ? owned_sites->sites : selected ? selected->sites : analysis->sites;
     out.population_identities.push_back(std::move(parent_identity));
     out.parent_constant_streams.push_back(as_int(constants->streams.size(), "parent constant stream"));
     append_constant_mutation_stream(*constants, parent.ast, verified, witness);
@@ -314,7 +327,7 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
     donor_attempts += selected_donor_attempts;
 
     std::vector<std::size_t> site_indices;
-    if (selected) {
+    if (selected || owned_sites) {
       site_indices.resize(sites.size()); std::iota(site_indices.begin(), site_indices.end(), 0);
     } else site_indices = shuffled_site_indices(sites.size(), &random);
     site_indices.resize(selected_count);
@@ -425,10 +438,11 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
 
 PreprocessOutput preprocess_selected_population(const std::vector<ProgramGenome>& population,
     const GpuReproConfig& config, grammar::VariationContext& context,
-    std::shared_ptr<const ConstantMutationDomains> domains, bool prepare_donors) {
+    std::shared_ptr<const ConstantMutationDomains> domains, bool prepare_donors,
+    const grammar::variation_detail::OwnedScalarPopulation* owned) {
   if (context.offspring_budget() || context.requests().size() != 1 || gagp::host_thread_limit() != 1)
     throw std::logic_error("selected preparation requires its scalar single-root 1T admission path");
-  return preprocess_population_impl(population, config, context, std::move(domains), prepare_donors, nullptr, true);
+  return preprocess_population_impl(population, config, context, std::move(domains), prepare_donors, nullptr, true, owned);
 }
 
 PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& population,

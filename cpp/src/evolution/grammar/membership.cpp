@@ -1,3 +1,5 @@
+#include "owned_population.hpp"
+#include "variation_internal.hpp"
 #include "gagp/evolution/grammar/derivation_resources.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/grammar/values.hpp"
@@ -706,6 +708,42 @@ class WitnessBuilder {
   std::vector<std::vector<int>>* choice_lexical_environments_out_ = nullptr;
 };
 }  // namespace
+
+namespace variation_detail {
+std::shared_ptr<const OwnedScalarPopulation> OwnedScalarPopulation::create(
+    const std::vector<ProgramGenome>& input, VariationContext& context) {
+  if (!certificates_enabled() || context.requests().size() != 1 || context.offspring_budget() ||
+      payload::StagedPayloads::has_active_scope())
+    throw std::invalid_argument("owned preparation requires scalar single-root certificate admission");
+  auto owned = std::shared_ptr<OwnedScalarPopulation>(new OwnedScalarPopulation);
+  owned->grammar_ = context.grammar_owner();
+  owned->request_ = context.request();
+  owned->genomes_.reserve(input.size());
+  owned->proofs_.reserve(input.size());
+  for (const auto& source : input) {
+    for (const auto& value : source.ast.consts)
+      if (value.tag != ValueTag::Int && value.tag != ValueTag::Float &&
+          value.tag != ValueTag::Bool && value.tag != ValueTag::Char)
+        throw std::invalid_argument("owned preparation does not admit registry constants");
+    // Copies before admission; certify_execution validates before compaction and
+    // refreshes the certificate if table indices change. Its result is private.
+    auto admitted = certify_execution(source, context);
+    if (!admitted.derivation || !admitted.derivation->certificate)
+      throw std::logic_error("owned admission did not produce a certificate");
+    owned->proofs_.push_back(admitted.derivation->certificate);
+    owned->genomes_.push_back(std::move(admitted));
+  }
+  return owned;
+}
+bool OwnedScalarPopulation::matches(const VariationContext& context) const {
+  return grammar_ == context.grammar_owner() && context.requests().size() == 1 &&
+      !context.offspring_budget() && same_certificate_request(request_, context.request());
+}
+const DerivationMetadata& OwnedScalarPopulation::witness(std::size_t i) const { return proofs_.at(i)->witness; }
+const VerifiedAst& OwnedScalarPopulation::verified(std::size_t i) const { return proofs_.at(i)->verified; }
+const std::vector<std::vector<int>>& OwnedScalarPopulation::environments(std::size_t i) const { return proofs_.at(i)->environments; }
+const std::string& OwnedScalarPopulation::identity(std::size_t i) const { return proofs_.at(i)->identity; }
+}  // namespace variation_detail
 
 std::shared_ptr<const BytecodeProgram> admitted_bytecode_for_eval(
     const ProgramGenome& genome, const std::vector<std::string>& input_names,

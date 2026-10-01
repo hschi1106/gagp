@@ -71,7 +71,10 @@ std::uint64_t splice_source_bytes(const AstProgram& ast) {
 GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population,
                                     const PreprocessOutput& prep,
                                     GpuReproConfig config,
-                                    const std::vector<grammar::WarmPopulationMember>* warmed) {
+                                    const std::vector<grammar::WarmPopulationMember>* warmed,
+                                    const grammar::variation_detail::OwnedScalarPopulation* owned = nullptr) {
+  if (owned && (&population != &owned->genomes() || owned->grammar_owner() != prep.compiled_grammar))
+    throw std::invalid_argument("owned pack population/grammar mismatch");
   if (!prep.compiled_grammar || !prep.constant_mutation ||
       !prep.constant_mutation->grammar_domains ||
       prep.parent_constant_streams.size() != population.size() ||
@@ -156,7 +159,7 @@ GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population
       throw std::invalid_argument("compiled parent exceeds its request budget");
     const auto* row = warmed && warmed->size() == population.size() ? &(*warmed)[i] : nullptr;
     const bool reuse = row && row->analysis && row->reads && row->reads->read_snapshot_unchanged();
-    const auto identity = reuse ? row->runtime_identity :
+    const auto identity = owned ? owned->identity(i) : reuse ? row->runtime_identity :
         grammar::runtime_cache_identity(population[i], inputs, fuel);
     if (identity != prep.population_identities[i])
       throw std::invalid_argument("compiled pack preparation does not match parent identity");
@@ -327,8 +330,9 @@ std::vector<ProgramGenome> compact_population_tables(const std::vector<ProgramGe
 static PackedHostData pack_population_impl(const std::vector<ProgramGenome>& population,
                                const PreprocessOutput& prep,
                                const GpuReproConfig& input_config,
-                               const std::vector<grammar::WarmPopulationMember>* warmed) {
-  const auto config = compiled_pack_config(population, prep, input_config, warmed);
+                               const std::vector<grammar::WarmPopulationMember>* warmed,
+                                    const grammar::variation_detail::OwnedScalarPopulation* owned = nullptr) {
+  const auto config = compiled_pack_config(population, prep, input_config, warmed, owned);
   PackedHostData out;
   out.config = config;
   out.compiled_grammar = prep.compiled_grammar;
@@ -395,6 +399,11 @@ static PackedHostData pack_population_impl(const std::vector<ProgramGenome>& pop
 PackedHostData pack_population(const std::vector<ProgramGenome>& population,
     const PreprocessOutput& prep, const GpuReproConfig& config) {
   return pack_population_impl(population, prep, config, nullptr);
+}
+
+PackedHostData pack_owned_population(const grammar::variation_detail::OwnedScalarPopulation& owned,
+    const PreprocessOutput& prep, const GpuReproConfig& config) {
+  return pack_population_impl(owned.genomes(), prep, config, nullptr, &owned);
 }
 
 PackedHostData pack_warmed_population(const std::vector<ProgramGenome>& population,

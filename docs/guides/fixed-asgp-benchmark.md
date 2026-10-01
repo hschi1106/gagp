@@ -255,3 +255,13 @@ variables with the binary/flags. Default allocator controls and raw repetitions
 are retained in `optimization/results/native-allocator-validation.json` under
 the fixed benchmark directory. Do not substitute allocator-run ASGP controls
 for the frozen headline denominator.
+
+`GAGP_OWNED_PREPARATION=1` is an experimental continuation of selected-site
+preparation. A private scalar population copies and admits input, then exposes
+only const access to its ASTs and grammar-bound certificates. Site preparation
+borrows the witness/type/scope metadata; packing compares the stored identity
+instead of reserializing the same owned AST. External pack and admission APIs
+retain their validation. Certificates disabled, unsupported payloads, root
+requests or budgets retain the existing native path. GPU operators, canonical
+membership, RNG and copybacks do not change. This flag has no performance claim
+until its paired experiments pass.

@@ -438,6 +438,12 @@ void test_prepared_parent_certificates() {
       auto invalidated = std::make_shared<gagp::evo::repro::PreparedParentCertificates>(
           *certificates);
       if (boundary == 0) {
+        if (invalidated->owned_parents) {
+          auto short_population = invalidated->owned_parents->genomes();
+          short_population.pop_back();
+          invalidated->owned_parents = gagp::evo::grammar::variation_detail::OwnedScalarPopulation::create(
+              short_population, *invalidated->context);
+        }
         if (!invalidated->admitted_parents.empty()) invalidated->admitted_parents.pop_back();
         for (auto& row : invalidated->analyses)
           row.reads = std::make_shared<gagp::payload::StagedPayloads>();
@@ -553,7 +559,10 @@ void test_compacted_analysis_drops_unused_inputs() {
     require(compacted.ast.names.empty(), "fixture retained unused input names");
     const auto fresh = gagp::evo::grammar::analyze_population_variation(
         *grammar, compacted, saved.context->requests());
-    const auto admitted = saved.admitted_parents.empty()
+    const auto admitted = saved.owned_parents
+        ? std::optional<gagp::evo::grammar::VariationAnalysis>{gagp::evo::grammar::analyze_population_variation(
+            *grammar, saved.owned_parents->genomes().at(i), saved.context->requests())}
+        : saved.admitted_parents.empty()
         ? std::optional<gagp::evo::grammar::VariationAnalysis>{}
         : gagp::evo::grammar::analyze_population_variation(
             *grammar, saved.admitted_parents.at(i), saved.context->requests());

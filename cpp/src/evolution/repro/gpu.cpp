@@ -252,7 +252,11 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
         });
       });
   std::vector<ProgramGenome> execution_parents;
-  if (selected_sites) {
+  std::shared_ptr<const grammar::variation_detail::OwnedScalarPopulation> owned_parents;
+  if (selected_sites && std::getenv("GAGP_OWNED_PREPARATION") &&
+      !std::getenv("GAGP_NO_DERIVATION_CERTIFICATES")) {
+    owned_parents = grammar::variation_detail::OwnedScalarPopulation::create(population, *context);
+  } else if (selected_sites) {
     execution_parents.reserve(population.size());
     for (const auto& parent : population)
       execution_parents.push_back(grammar::variation_detail::certify_execution(parent, *context));
@@ -265,7 +269,7 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
   // Keep warming/revalidation above so registry changes remain observable.
   const auto compacted_population = selected_sites || pass == CompiledVariationPass::Mutation
       ? std::vector<ProgramGenome>{} : compact_prepared_population(population);
-  const auto& packed_population = selected_sites ? execution_parents : pass == CompiledVariationPass::Mutation
+  const auto& packed_population = owned_parents ? owned_parents->genomes() : selected_sites ? execution_parents : pass == CompiledVariationPass::Mutation
       ? population : compacted_population;
   // Compaction changes exact cache identities when unused table entries are
   // removed. Keep the original validation above (including unused payloads),
@@ -313,7 +317,7 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
   }
   const PreprocessOutput prep = selected_sites ?
       preprocess_selected_population(packed_population, out.config, *context, domains,
-          pass == CompiledVariationPass::Mutation) :
+          pass == CompiledVariationPass::Mutation, owned_parents.get()) :
       preprocess_warmed_population(packed_population, out.config, *context, domains,
           pass == CompiledVariationPass::Mutation, warmed_members);
   const auto prep_t1 = std::chrono::steady_clock::now();
@@ -322,13 +326,14 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
   }
 
   const auto pack_t0 = std::chrono::steady_clock::now();
-  out.packed = selected_sites ? pack_population(packed_population, prep, out.config) :
+  out.packed = owned_parents ? pack_owned_population(*owned_parents, prep, out.config) : selected_sites ? pack_population(packed_population, prep, out.config) :
       pack_warmed_population(packed_population, prep, out.config, warmed_members);
   if (selected_sites) {
     auto certificates = std::make_shared<PreparedParentCertificates>();
     certificates->sources = out.packed.compiled_sources;
     certificates->context = context;
     certificates->admitted_parents = std::move(execution_parents);
+    certificates->owned_parents = std::move(owned_parents);
     out.parent_certificates = std::move(certificates);
   }
   if (!selected_sites && warmed_members.size() == packed_population.size()) {
