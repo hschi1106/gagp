@@ -1,5 +1,17 @@
 # Autonomous optimization checkpoint
 
+## Round two — in progress
+
+Current native runtime checkpoint: `3107a4e`; repeat driver `138a4e9`; spec fingerprints `8646995`. Archived measured executable: `logs/optimization/R2-validation/bench` (manifest SHA in `R2-validation/formal/manifest.json`). Best native flags are the previous six plus `GAGP_DIRECT_PHASE=1 GAGP_DIRECT_ROOT=1`; restricted fragment mode also uses `GAGP_LOCAL_FRAGMENT_ADMISSION=1 GAGP_OWNED_EXECUTABLE=1`.
+
+Nine unprofiled measurements: native Sum/House/Median 229.644/205.779/176.596 ms. Restricted fragment first generation 94.291/61.792/33.570 ms; later generations are a different workload. Repeats and cold costs: `R2-validation/formal-summary.json`, `formal-repeats.csv`. Owned packing saves a few ms; full bytecode assembly and type-flow proofs remain.
+
+Active validation: serial 3 seeds × 128 generations, native + fragments, under `R2-validation/quality128/`. Resume from manifest, never overwrite completed outputs. First seed exhibits neutral size growth despite bounded live fragments; separately testing fitness-tie parsimony is the next experiment. Current uncommitted benchmark-only additions are optional behavior audit and parsimony. No runtime hot-path changes since measured binary.
+
+Reproduce: `python3 benchmarks/fixed_asgp/optimization/round2.py formal NEW_DIR --binary logs/optimization/R2-validation/bench --baseline logs/optimization/final_bench`; replace `formal` with `quality` or `scaling` for those stages. GPU runs serially. Profiling source copy prepared under `logs/optimization/R2-profiler/`; do not build during timing. Latest full test run: 119 tests passed; spec fingerprint failure repaired and repository check passed; opt-in focused suite passed.
+
+## Previous round (historical)
+
 - Workspace: `/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001`; branch `opt/gpu-generation-20261001`.
 - Previous-round best runtime: `9d862ed43e9c626b22775713a50897c7f5439c91`; all experiments finished, no jobs pending. Runtime profiles remain opt-in. Original worktree and its 41 copied uncommitted files are unchanged; all 15 frozen artifact hashes rechecked.
 - Baseline checkpoint: `edfcf0b6b6f2a8d868d920f45c4e750b05e5f1c9` contains the user's existing benchmark/profiler work. Baseline executable `logs/optimization/baseline_bench`; final executable `logs/optimization/final_bench`. Hashes, flags and evidence: [final.json](results/final.json). Historical `best_bench` means e26, not the final candidate; do not overwrite archived binaries or frozen inputs.
@@ -235,3 +247,30 @@ but Sum kernel ~65–67 ms versus ~64 ms reference; no complete-generation gain.
 Removed, patch and binary archived. Generic dynamic interpreter/frame access
 still dominates; smaller structures alone are insufficient. Stop micro-tuning
 this representation; validate retained architecture and quantify remaining gap.
+
+R2-window-executor: a separate two-request window recurrence executor removes
+coordinate/memo/state-transition dispatch. Snapshot equality and exact empty,
+singleton, fuel and frame-capacity tests pass. Sum kernel ~64.2 ms versus the
+retained native median 64.7 ms (range 63.8–67.1); full generation ~229 ms.
+No convincing gain; removed and archived under `R2-window-executor/`.
+128-generation native/fragment comparisons finished for three seeds. Full exports
+admit and rescore, CPU top16 agrees; no timeouts. Fragment memory grows with
+program size despite bounded live fragments. Parsimony remains a separate probe.
+
+**Correction to R2-typed-frame and first R2-window-executor interpretation:**
+those proofs accepted only one-state windows. Frozen Sum/Median carry a second
+Int state, so those snapshots tested safe fallback, not the proposed specialized
+kernel. Their unchanged timings do not reject typed frames/structural execution
+for these populations. Extending the window proof/executor to the actual carried
+state, with profile-selection assertions before performance interpretation.
+
+R2-window-pair (actual coverage): list + carried Int state, typed phase calls,
+copy/expression transitions. Sum and Median snapshots explicitly select `-window`;
+House explicitly uses the ordinary direct-root path. All per-program results and
+boundary tests equal. Interleaved 3-process × 3 measured repeats: Sum full generation
+230.864→222.961 ms, kernel 66.040→57.609 ms; House 207.994→207.576 ms; Median
+177.147→177.177 ms. Retain `GAGP_WINDOW_EXECUTOR=1`. Frozen ASGP targets still unmet.
+Parsimony128 three seeds: Sum 0/0/0, House -1/0/0, Median -16058/-9365/-12052.
+Sum average size ~21 and RSS ~987 MiB stable; unique genotypes fall to 484–517.
+House/Median retain ~1015 unique genotypes but can still grow. Separate search
+profile, not an identical-workload evaluator speedup. ASan/UBSan ownership tests pass.

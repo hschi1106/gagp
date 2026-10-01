@@ -877,6 +877,45 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
   if (direct) direct_env = std::make_unique<Environment>("GAGP_DIRECT_PHASE");
   std::unique_ptr<Environment> root_env;
   if (root) root_env = std::make_unique<Environment>("GAGP_DIRECT_ROOT");
+  if(direct) {
+    Environment window_mode("GAGP_WINDOW_EXECUTOR");
+    auto segment=sequence_segment(ValueTag::IntList);
+    segment.plan.result_type=ValueTag::Int;segment.plan.preparations.resize(1);
+    segment.preparations.resize(1);segment.plan.requests.resize(2);
+    segment.plan.requests[1].states[0]=window(0,endpoint(WindowEndpointKind::InteriorCut,0),endpoint(WindowEndpointKind::End));
+    segment.base_body=constant_phase(Value::from_int(7));
+    segment.combine=phase({}, {ins_a(Opcode::Load,0),ins_a(Opcode::Load,1),ins(Opcode::Add),ins(Opcode::Return)},
+        {{slot(RegionSlotBank::Result,0),0},{slot(RegionSlotBank::Result,1),1}},2);
+    for(unsigned capacity:{0u,1u,2u,32u})for(unsigned length:{0u,1u,4u})for(bool carried:{false,true}) {
+      segment.plan.limits.frames=capacity;
+      std::vector<Value> elements(length,Value::from_int(3));
+      auto candidate=segment;
+      std::vector<Value> operands{payload::make_int_list_value(elements)};
+      if(carried) {
+        candidate.plan.state_types.push_back(ValueTag::Int);operands.push_back(Value::from_int(0));
+        RegionStateTransition copy;copy.kind=RegionTransitionKind::CopyState;copy.source_state=1;
+        candidate.plan.requests[0].states.push_back(copy);
+        RegionStateTransition expression;expression.kind=RegionTransitionKind::Expression;expression.expression=0;
+        candidate.plan.requests[1].states.push_back(expression);
+        candidate.plan.request_expression_types={ValueTag::Int};
+        candidate.request_expressions={phase({}, {ins_a(Opcode::Load,0),ins_a(Opcode::Load,1),ins(Opcode::Add),ins(Opcode::Return)},
+            {{slot(RegionSlotBank::State,1),0},{slot(RegionSlotBank::Prepared,0),1}},2)};
+        candidate.base_body=load_phase(RegionSlotBank::State,1);
+      }
+      auto program=invocation(candidate,std::move(operands));
+      for(int fuel:{0,1,3,8,16,32,80,200}) {
+        FitnessSessionGpu session;const auto expected=Value::from_int(carried?length*(length?length-1:0)/2:std::max(1u,length)*7);
+        if(!check(session.init({{}},{expected},fuel,32,7).ok,"window specialization init"))return false;
+        const auto gpu=session.eval_programs({program},true);
+        const auto cpu=eval_fitness_cpu({program},{{}},{expected},fuel,7,32);
+        const auto execution=execute_bytecode_cpu(program,{},fuel);
+        if(!check(gpu.ok && gpu.execution_profile.find("-window")!=std::string::npos && gpu.fitness==cpu &&
+            gpu.case_counts[0][1]==static_cast<unsigned>(execution.is_error) &&
+            gpu.case_counts[0][2]==static_cast<unsigned>(execution.is_error && execution.err.code==ErrCode::Timeout),
+            "window specialization preserves empty/singleton/cut/capacity/fuel behavior"))return false;
+      }
+    }
+  }
   const auto numeric = [&](BuiltinId id, std::vector<Value> constants, Value answer, const std::string& label) {
     auto segment=unary_segment(Value::from_int(0));
     std::vector<Instr> code;

@@ -32,6 +32,7 @@ void fragment_probe(const std::vector<gagp::evo::ProgramGenome>& population,
   auto init=session.init(cs.bindings,cs.expected_values,2000000,512,1000);
   if(!init.ok)throw std::runtime_error(init.err.message);
   const bool owned=std::getenv("GAGP_OWNED_EXECUTABLE")!=nullptr;
+  const bool parsimony=std::getenv("GAGP_FRAGMENT_PARSIMONY")!=nullptr;
   const auto setup=Clock::now();
   gg::ExecutableFragments arena(grammar,population.at(0),cs.input_names);
   std::vector<gg::ExecutableFragments::Genome> current(population.size());
@@ -69,9 +70,17 @@ void fragment_probe(const std::vector<gagp::evo::ProgramGenome>& population,
         session.eval_programs(programs,std::getenv("GAGP_GPU_DIAGNOSTICS")!=nullptr);
     if(!fit.ok)throw std::runtime_error(fit.err.message);
     if(generation==0)for(auto f:fit.fitness)initial.push_back(number(f));
-    const auto best=std::distance(fit.fitness.begin(),std::max_element(fit.fitness.begin(),fit.fitness.end()));
+    std::vector<std::size_t> sizes;
+    if(parsimony)for(const auto& g:current)sizes.push_back(arena.nodes(g));
+    const auto better=[&](std::size_t a,std::size_t b) {
+      return fit.fitness[a]>fit.fitness[b] || (fit.fitness[a]==fit.fitness[b] &&
+          (!parsimony || sizes[a]<=sizes[b]));
+    };
+    std::size_t best=0;
+    for(std::size_t i=1;i<current.size();++i)
+      if(fit.fitness[i]>fit.fitness[best] || (parsimony && fit.fitness[i]==fit.fitness[best] && sizes[i]<sizes[best]))best=i;
     const auto repro=Clock::now();
-    const auto pick=[&]{auto a=random.bounded(current.size()),b=random.bounded(current.size());return fit.fitness[a]>=fit.fitness[b]?a:b;};
+    const auto pick=[&]{auto a=random.bounded(current.size()),b=random.bounded(current.size());return better(a,b)?a:b;};
     struct Job{std::size_t parent,donor;std::uint64_t seed;bool mutation;};
     std::vector<Job> jobs;for(std::size_t i=1;i<current.size();++i)jobs.push_back({pick(),pick(),random.next(),random.bounded(1000000)<300000});
     std::vector<gg::ExecutableFragments::Change> children(current.size());children[0].genome=current[best];next=0;
@@ -111,7 +120,7 @@ void fragment_probe(const std::vector<gagp::evo::ProgramGenome>& population,
   std::vector<Json> top_rows,final;
   for(std::size_t i=0;i<top.size();++i)top_rows.push_back(object({{"gpu",number(fit.fitness[order[i]])},{"cpu",number(cpu[i])}}));
   for(std::size_t i=0;i<current.size();++i)final.push_back(object({{"fitness",number(fit.fitness[i])},{"nodes",number(arena.nodes(current[i]))}}));
-  write(output,object({{"profile",string("owned-independent-fragments-site-variation-v1")},{"seed",number(seed)},
+  write(output,object({{"profile",string("owned-independent-fragments-site-variation-v1")},{"tie_parsimony",number(parsimony)},{"seed",number(seed)},
     {"import_audit",array(std::move(import_audit))},{"init_ms",number(setup_ms)},{"gpu_init_ms",number(init.timing.total_ms)},{"search_total_ms",number(search_ms)},
     {"generations",array(std::move(rows))},{"initial_fitness",array(std::move(initial))},{"final_population",array(std::move(final))},
     {"unique_final_genotypes",number(unique.size())},{"full_export_admission_ms",number(admission_ms)},

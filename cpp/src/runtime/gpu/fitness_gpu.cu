@@ -569,6 +569,21 @@ FitnessEvalResult FitnessSessionGpu::eval_impl(const std::vector<BytecodeProgram
       std::any_of(packed.region_segments.begin(), packed.region_segments.end(), [](const auto& segment) {
         return segment.state_count > 1;
       });
+  region_workspace.window_executor = direct_phases && std::getenv("GAGP_WINDOW_EXECUTOR") &&
+      region_workspace.compact_frames &&
+      std::all_of(packed.region_segments.begin(),packed.region_segments.end(),[](const auto& s) {
+        return s.progress==RegionProgressKind::SequenceWindows && (s.state_count==1 ||
+            (s.state_count==2 && s.state_types[1]==ValueTag::Int &&
+             (s.requests[0][1].kind==RegionTransitionKind::Expression ||
+              (s.requests[0][1].kind==RegionTransitionKind::CopyState && s.requests[0][1].source_state==1)) &&
+             (s.requests[1][1].kind==RegionTransitionKind::Expression ||
+              (s.requests[1][1].kind==RegionTransitionKind::CopyState && s.requests[1][1].source_state==1)))) &&
+            s.state_types[0]==ValueTag::IntList && s.result_type==ValueTag::Int &&
+            !s.memoized && s.bound_operand_count==0 && s.preparation_count==1 &&
+            s.preparation_kinds[0]==RegionPreparationKind::InteriorCut && s.preparation_types[0]==ValueTag::Int &&
+            s.request_count==2 && s.requests[0][0].kind==RegionTransitionKind::SequenceWindow &&
+            s.requests[1][0].kind==RegionTransitionKind::SequenceWindow;
+      });
   const std::size_t frame_size = !region_workspace.compact_frames ? sizeof(gpu_detail::DRegionFrame) :
       (region_workspace.two_state_frames ? sizeof(gpu_detail::DCompactPairRegionFrame) :
        sizeof(gpu_detail::DCompactRegionFrame));
@@ -738,6 +753,7 @@ FitnessEvalResult FitnessSessionGpu::eval_impl(const std::vector<BytecodeProgram
     if (use_views && impl_->d_case_order) out.execution_profile += "-sorted";
     if (direct_phases) out.execution_profile += "-direct";
     if (direct_root) out.execution_profile += "-root";
+    if (region_workspace.window_executor) out.execution_profile += "-window";
     out.fitness = std::move(host_fitness);
     out.timing.pack_ms = ms_between(pack_t0, pack_t1);
     out.timing.launch_prep_ms = ms_between(launch_prep_t0, launch_prep_t1);

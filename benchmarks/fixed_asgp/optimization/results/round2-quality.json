@@ -1,0 +1,821 @@
+[
+  {
+    "task": "sum_of_elements",
+    "seed": 0,
+    "mode": "native",
+    "threshold": 0,
+    "generations": 128,
+    "search_total_ms": 89207.394344,
+    "cold_charged_ms": 144.39636700001148,
+    "budget_prefix": {
+      "1000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1021,
+    "first_16_gen_median_ms": 216.0341275,
+    "last_16_gen_median_ms": 1089.1287874999998,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0
+  },
+  {
+    "task": "sum_of_elements",
+    "seed": 0,
+    "mode": "fragments",
+    "threshold": 0,
+    "generations": 128,
+    "search_total_ms": 22182.615591,
+    "cold_charged_ms": 196.2401260000006,
+    "budget_prefix": {
+      "1000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1021,
+    "first_16_gen_median_ms": 99.2438225,
+    "last_16_gen_median_ms": 234.7810745,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.021724700927734375,
+    "live_fragments_quarters": [
+      2328,
+      2161,
+      2190,
+      2213
+    ],
+    "rss_mib_quarters": [
+      992.87890625,
+      1053.03125,
+      1165.42578125,
+      1254.09375
+    ],
+    "changed_fraction_last16": 0.9168499511241446
+  },
+  {
+    "task": "sum_of_elements",
+    "seed": 1,
+    "mode": "native",
+    "threshold": 0,
+    "generations": 128,
+    "search_total_ms": 77913.240228,
+    "cold_charged_ms": 145.6753130000094,
+    "budget_prefix": {
+      "1000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1013,
+    "first_16_gen_median_ms": 219.3282645,
+    "last_16_gen_median_ms": 983.767713,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0011749267578125
+  },
+  {
+    "task": "sum_of_elements",
+    "seed": 1,
+    "mode": "fragments",
+    "threshold": 0,
+    "generations": 128,
+    "search_total_ms": 21985.828265,
+    "cold_charged_ms": 200.85370200001125,
+    "budget_prefix": {
+      "1000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1017,
+    "first_16_gen_median_ms": 101.371359,
+    "last_16_gen_median_ms": 237.17297100000002,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.015611648559570312,
+    "live_fragments_quarters": [
+      2338,
+      2189,
+      2203,
+      2213
+    ],
+    "rss_mib_quarters": [
+      1017.59375,
+      1097.83203125,
+      1175.80859375,
+      1275.76171875
+    ],
+    "changed_fraction_last16": 0.9151392961876832
+  },
+  {
+    "task": "sum_of_elements",
+    "seed": 2,
+    "mode": "native",
+    "threshold": 0,
+    "generations": 128,
+    "search_total_ms": 79338.34052,
+    "cold_charged_ms": 146.76176000004324,
+    "budget_prefix": {
+      "1000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1023,
+    "first_16_gen_median_ms": 222.65982250000002,
+    "last_16_gen_median_ms": 957.4842765,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.001953125
+  },
+  {
+    "task": "sum_of_elements",
+    "seed": 2,
+    "mode": "fragments",
+    "threshold": 0,
+    "generations": 128,
+    "search_total_ms": 21706.368089,
+    "cold_charged_ms": 199.05547399998977,
+    "budget_prefix": {
+      "1000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1019,
+    "first_16_gen_median_ms": 100.8724805,
+    "last_16_gen_median_ms": 234.3726315,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.015501022338867188,
+    "live_fragments_quarters": [
+      2286,
+      2160,
+      2195,
+      2210
+    ],
+    "rss_mib_quarters": [
+      1003.19921875,
+      1065.6796875,
+      1151.578125,
+      1236.60546875
+    ],
+    "changed_fraction_last16": 0.9057306940371457
+  },
+  {
+    "task": "house_robber",
+    "seed": 0,
+    "mode": "native",
+    "threshold": -7500,
+    "generations": 128,
+    "search_total_ms": 70298.055553,
+    "cold_charged_ms": 141.56824800000132,
+    "budget_prefix": {
+      "1000": {
+        "best": -8479,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -7570,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "5000": {
+        "best": -7570,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "10000": {
+        "best": -7570,
+        "covered": true,
+        "threshold_hit": false
+      }
+    },
+    "final_best": -6667,
+    "unique_genotypes": 1021,
+    "first_16_gen_median_ms": 170.286835,
+    "last_16_gen_median_ms": 900.80771,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0
+  },
+  {
+    "task": "house_robber",
+    "seed": 0,
+    "mode": "fragments",
+    "threshold": -7500,
+    "generations": 128,
+    "search_total_ms": 15762.801383,
+    "cold_charged_ms": 205.26411300000655,
+    "budget_prefix": {
+      "1000": {
+        "best": -7376,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": -7250,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -3236,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -3065,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -3010,
+    "unique_genotypes": 1017,
+    "first_16_gen_median_ms": 47.580107,
+    "last_16_gen_median_ms": 200.54981650000002,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0,
+    "live_fragments_quarters": [
+      1754,
+      1658,
+      1693,
+      1673
+    ],
+    "rss_mib_quarters": [
+      880.75390625,
+      964.890625,
+      1211.23828125,
+      1252.11328125
+    ],
+    "changed_fraction_last16": 0.9265029325513197
+  },
+  {
+    "task": "house_robber",
+    "seed": 1,
+    "mode": "native",
+    "threshold": -7500,
+    "generations": 128,
+    "search_total_ms": 75620.183609,
+    "cold_charged_ms": 138.46159199997473,
+    "budget_prefix": {
+      "1000": {
+        "best": -8503,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -7465,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -7465,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -6367,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -505,
+    "unique_genotypes": 1022,
+    "first_16_gen_median_ms": 145.4360325,
+    "last_16_gen_median_ms": 896.3436684999999,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0
+  },
+  {
+    "task": "house_robber",
+    "seed": 1,
+    "mode": "fragments",
+    "threshold": -7500,
+    "generations": 128,
+    "search_total_ms": 19720.781729,
+    "cold_charged_ms": 200.43741299999238,
+    "budget_prefix": {
+      "1000": {
+        "best": -7500,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": -4477,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1018,
+    "first_16_gen_median_ms": 50.217126,
+    "last_16_gen_median_ms": 305.178892,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0,
+    "live_fragments_quarters": [
+      1713,
+      1649,
+      1729,
+      1731
+    ],
+    "rss_mib_quarters": [
+      1012.41796875,
+      1068.31640625,
+      1127.53515625,
+      1311.55078125
+    ],
+    "changed_fraction_last16": 0.927480449657869
+  },
+  {
+    "task": "house_robber",
+    "seed": 2,
+    "mode": "native",
+    "threshold": -7500,
+    "generations": 128,
+    "search_total_ms": 58924.589849,
+    "cold_charged_ms": 142.09795300000224,
+    "budget_prefix": {
+      "1000": {
+        "best": -8479,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -8066,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "5000": {
+        "best": -7570,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "10000": {
+        "best": -7340,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -5961,
+    "unique_genotypes": 1021,
+    "first_16_gen_median_ms": 149.20575200000002,
+    "last_16_gen_median_ms": 681.018124,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0
+  },
+  {
+    "task": "house_robber",
+    "seed": 2,
+    "mode": "fragments",
+    "threshold": -7500,
+    "generations": 128,
+    "search_total_ms": 16559.032171,
+    "cold_charged_ms": 200.4534829999975,
+    "budget_prefix": {
+      "1000": {
+        "best": -7340,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": -5104,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -1344,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": 0,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": 0,
+    "unique_genotypes": 1018,
+    "first_16_gen_median_ms": 50.770323,
+    "last_16_gen_median_ms": 254.1567005,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.0,
+    "live_fragments_quarters": [
+      1733,
+      1668,
+      1690,
+      1723
+    ],
+    "rss_mib_quarters": [
+      879.625,
+      1017.40234375,
+      1043.625,
+      1217.03125
+    ],
+    "changed_fraction_last16": 0.926747311827957
+  },
+  {
+    "task": "median",
+    "seed": 0,
+    "mode": "native",
+    "threshold": -25000,
+    "generations": 128,
+    "search_total_ms": 75796.868819,
+    "cold_charged_ms": 145.62967200001555,
+    "budget_prefix": {
+      "1000": {
+        "best": -31025,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -28478,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "5000": {
+        "best": -25642,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "10000": {
+        "best": -20934,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -10554,
+    "unique_genotypes": 1024,
+    "first_16_gen_median_ms": 200.46155549999997,
+    "last_16_gen_median_ms": 1075.5793924999998,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.026808738708496094
+  },
+  {
+    "task": "median",
+    "seed": 0,
+    "mode": "fragments",
+    "threshold": -25000,
+    "generations": 128,
+    "search_total_ms": 7370.943886,
+    "cold_charged_ms": 197.11625499999718,
+    "budget_prefix": {
+      "1000": {
+        "best": -24880,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "2000": {
+        "best": -17259,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -16035,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -14775,
+        "covered": false,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -14755,
+    "unique_genotypes": 1017,
+    "first_16_gen_median_ms": 35.699088,
+    "last_16_gen_median_ms": 83.1002115,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.03700447082519531,
+    "live_fragments_quarters": [
+      2314,
+      1914,
+      1935,
+      1957
+    ],
+    "rss_mib_quarters": [
+      1082.203125,
+      1083.5,
+      1109.08203125,
+      1159.17578125
+    ],
+    "changed_fraction_last16": 0.8943670576735092
+  },
+  {
+    "task": "median",
+    "seed": 1,
+    "mode": "native",
+    "threshold": -25000,
+    "generations": 128,
+    "search_total_ms": 61216.740065,
+    "cold_charged_ms": 136.4118889999831,
+    "budget_prefix": {
+      "1000": {
+        "best": -31025,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -28559,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "5000": {
+        "best": -24925,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -17267,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -16120,
+    "unique_genotypes": 1023,
+    "first_16_gen_median_ms": 195.7467175,
+    "last_16_gen_median_ms": 720.1021755,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.015011787414550781
+  },
+  {
+    "task": "median",
+    "seed": 1,
+    "mode": "fragments",
+    "threshold": -25000,
+    "generations": 128,
+    "search_total_ms": 5788.586782,
+    "cold_charged_ms": 194.7600599999978,
+    "budget_prefix": {
+      "1000": {
+        "best": -25397,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -23206,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -15358,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -14837,
+        "covered": false,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -14837,
+    "unique_genotypes": 1014,
+    "first_16_gen_median_ms": 30.90122,
+    "last_16_gen_median_ms": 61.180144,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.036224365234375,
+    "live_fragments_quarters": [
+      2350,
+      1937,
+      1926,
+      1905
+    ],
+    "rss_mib_quarters": [
+      1009.796875,
+      1016.57421875,
+      1033.69140625,
+      1073.97265625
+    ],
+    "changed_fraction_last16": 0.8987658846529814
+  },
+  {
+    "task": "median",
+    "seed": 2,
+    "mode": "native",
+    "threshold": -25000,
+    "generations": 128,
+    "search_total_ms": 79584.917311,
+    "cold_charged_ms": 138.74197799998967,
+    "budget_prefix": {
+      "1000": {
+        "best": -28478,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -28478,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "5000": {
+        "best": -24467,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -21296,
+        "covered": true,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -14170,
+    "unique_genotypes": 1020,
+    "first_16_gen_median_ms": 200.868814,
+    "last_16_gen_median_ms": 1198.4931535,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.03849315643310547
+  },
+  {
+    "task": "median",
+    "seed": 2,
+    "mode": "fragments",
+    "threshold": -25000,
+    "generations": 128,
+    "search_total_ms": 6182.271426,
+    "cold_charged_ms": 199.26999900000192,
+    "budget_prefix": {
+      "1000": {
+        "best": -25900,
+        "covered": true,
+        "threshold_hit": false
+      },
+      "2000": {
+        "best": -17267,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "5000": {
+        "best": -16642,
+        "covered": true,
+        "threshold_hit": true
+      },
+      "10000": {
+        "best": -15902,
+        "covered": false,
+        "threshold_hit": true
+      }
+    },
+    "final_best": -15849,
+    "unique_genotypes": 1012,
+    "first_16_gen_median_ms": 27.814512999999998,
+    "last_16_gen_median_ms": 64.9639105,
+    "timeouts": 0,
+    "unscored": 0,
+    "fallbacks": 0,
+    "last_error_fraction": 0.05686378479003906,
+    "live_fragments_quarters": [
+      2333,
+      1994,
+      2021,
+      1963
+    ],
+    "rss_mib_quarters": [
+      1000.8515625,
+      1045.421875,
+      1059.86328125,
+      1088.90234375
+    ],
+    "changed_fraction_last16": 0.8872800586510263
+  }
+]

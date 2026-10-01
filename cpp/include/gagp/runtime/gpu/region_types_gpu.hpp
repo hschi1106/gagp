@@ -56,6 +56,7 @@ struct DRegionWorkspace {
   std::uint32_t slot_stride = 1;
   bool compact_frames = false;
   bool two_state_frames = false;
+  bool window_executor = false;
 };
 
 static_assert(std::is_trivially_copyable<DRegionFrame>::value);

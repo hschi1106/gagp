@@ -284,3 +284,21 @@ in `.wall.json`; process startup/exit is additionally included by the driver.
 `search_total_ms` covers probe setup and evolution, excluding external input decode
 and final independent audit/export. Full process wall time includes those costs.
 `GAGP_FRAGMENT_EXPORT` writes independently admitted final ASTs for external audit.
+
+
+`GAGP_FRAGMENT_PARSIMONY=1` is a separate search-rule experiment: tournament
+fitness ties and elite fitness ties prefer fewer retained physical AST nodes;
+remaining ties preserve the existing choice order. Fitness, numerical semantics,
+cases and resource limits are unchanged. Its populations and quality must be
+compared separately, including the cost of obtaining current size summaries.
+This targets neutral program growth observed after dozens of generations; it is
+not an evaluator optimization or an identical-workload speedup.
+
+
+`GAGP_WINDOW_EXECUTOR=1` currently tests verified IntList window regions with an
+optional carried Int state, two sequence-window requests, one InteriorCut Int
+preparation and Int results, without memo or bound operands. The carried state
+may be copied or computed by an evolved request-expression phase. Every phase
+and original fuel/capacity boundary remains active. Direct typed-phase proof is
+required; unsupported populations use the ordinary region executor. Diagnostics
+must show the `-window` profile before attributing timings to this experiment.

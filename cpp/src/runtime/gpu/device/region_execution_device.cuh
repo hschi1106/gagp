@@ -170,6 +170,8 @@ __device__ inline bool d_region_endpoint(
   return out > 0 && out < static_cast<std::int64_t>(length);
 }
 
+#include "window_execution_device.cuh"
+
 template <DPayloadFlavor Flavor, class Frame>
 __device__ __noinline__ DResult d_run_bounded_region_impl(
     const DRegionSegment& segment, const Value* operands,
@@ -362,6 +364,14 @@ __device__ DResult d_run_bounded_region(
     const DPayloadTables& payload_tables,
     typename DPayloadFlavorTraits<Flavor>::State& payload_state,
     const DExecutionTables& tables, int& fuel, DRegionWorkspace workspace) {
+  if constexpr (Flavor == DPayloadFlavor::BoundIntListViews) {
+    if(workspace.window_executor) {
+      if(workspace.two_state_frames)return d_run_window_region<DCompactPairRegionFrame>(segment,operands,caller_locals,
+          caller_set,payload_tables,payload_state,tables,fuel,workspace);
+      return d_run_window_region<DCompactRegionFrame>(segment,operands,caller_locals,
+          caller_set,payload_tables,payload_state,tables,fuel,workspace);
+    }
+  }
   if (workspace.compact_frames) {
     if (segment.state_count > (workspace.two_state_frames ? 2u : 1u) || segment.preparation_count > 1 || segment.request_count > 2)
       return d_error(ErrCode::Value);

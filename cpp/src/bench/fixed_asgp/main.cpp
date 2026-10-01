@@ -7,6 +7,8 @@
 #include <fstream>
 #include <iostream>
 #include <set>
+#include <cstring>
+#include "gagp/runtime/cpu/execution_session.hpp"
 #include <stdexcept>
 #include "gp/operators.h"
 #include "gp/fitness.h"
@@ -202,6 +204,28 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
   std::vector<double> cpu;
   if (std::getenv("GAGP_SNAPSHOT_CPU"))
     cpu=gagp::eval_fitness_cpu(programs,cs.bindings,cs.expected_values,2000000,1000,512);
+  std::set<std::string> behaviors;
+  const bool behavior_probe=std::getenv("GAGP_SNAPSHOT_BEHAVIOR")!=nullptr;
+  if(behavior_probe) for(const auto& program:programs) {
+    gagp::CpuExecutionSession cpu_session(program);std::string signature;
+    for(std::size_t c=0;c<std::min<std::size_t>(32,cs.bindings.size());++c) {
+      std::vector<std::pair<int,gagp::Value>> inputs;
+      for(const auto& b:cs.bindings[c])inputs.emplace_back(b.idx,b.value);
+      const auto value=cpu_session.execute(inputs,2000000);
+      if(value.is_error)signature+="E"+std::to_string(static_cast<int>(value.err.code))+";";
+      else {
+        std::uint64_t bits=0;
+        switch(value.value.tag) {
+          case gagp::ValueTag::Int:case gagp::ValueTag::Char:bits=value.value.i;break;
+          case gagp::ValueTag::Bool:bits=value.value.b;break;
+          case gagp::ValueTag::Float:std::memcpy(&bits,&value.value.f,sizeof(bits));break;
+          default:throw std::runtime_error("scalar behavior audit received non-scalar output");
+        }
+        signature+=std::to_string(static_cast<int>(value.value.tag))+":"+std::to_string(bits)+";";
+      }
+    }
+    behaviors.insert(std::move(signature));
+  }
   std::vector<Json> rows;
   for (std::size_t i=0;i<programs.size();++i) {
     const auto& n=result.case_counts.at(i);
@@ -213,7 +237,9 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
   }
   write(output,object({{"compile_ms",number(compile_ms)}, {"gpu_init_ms",number(init.timing.total_ms)},
     {"eval_ms",number(result.timing.total_ms)}, {"kernel_ms",number(result.timing.kernel_ms)},
-    {"execution_profile",string(result.execution_profile)}, {"diagnostic_only",number(1)}, {"programs",array(std::move(rows))}}));
+    {"execution_profile",string(result.execution_profile)}, {"diagnostic_only",number(1)},
+    {"cpu_behavior_probe_cases",number(behavior_probe?std::min<std::size_t>(32,cs.bindings.size()):0)},
+    {"unique_cpu_behavior_probes",number(behaviors.size())}, {"programs",array(std::move(rows))}}));
 }
 void search(const std::vector<gagp::evo::ProgramGenome>& population,
             const std::vector<gagp::evo::EvalCase>& cases,
