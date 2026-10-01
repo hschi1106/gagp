@@ -41,8 +41,11 @@ def main():
 
     def run(task, mode, tag, flags, pop=1024, executable=binary):
         target = out / (tag + '.' + task + '.json')
+        # The historical scaling contract takes prefixes of the frozen P8192
+        # archive; no separate P2048/P4096 preparation exists or is needed.
+        prepared_pop = 8192 if args.stage == 'scaling' else pop
         command = [str(executable), 'measure', str(art / (task + '.source.json')),
-            str(art / f'{task}.p{pop}.prepared.json'), str(art / (task + '.grammar.json')),
+            str(art / f'{task}.p{prepared_pop}.prepared.json'), str(art / (task + '.grammar.json')),
             str(pop), mode, str(target)]
         env = {k: v for k, v in os.environ.items() if not k.startswith('GAGP_')}
         env.update(flags)
