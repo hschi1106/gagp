@@ -71,6 +71,13 @@ int main() {
  try {
   const auto grammar=fixture();auto a=generate_derivation(*grammar,0).genome;
   ExecutableFragments arena(grammar,a,{"seed"}),other(grammar,a,{"seed"});
+  // Import must remain bound to the admitted grammar even when the caller
+  // replaces a mutable object originally passed through a const shared_ptr.
+  auto mutable_grammar=std::make_shared<CompiledGrammar>(*grammar);
+  ExecutableFragments frozen(mutable_grammar,a,{"seed"});
+  *mutable_grammar=compile_grammar(parse_definition(test::bounded_capture_definition()));
+  auto frozen_handle=frozen.import(a);
+  require_membership(*grammar,frozen.export_ast(frozen_handle));
   rejects([&]{arena.executable({});});
   rejects([&]{arena.executable(other.import(a));});
   auto reordered=a;

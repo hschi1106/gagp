@@ -253,7 +253,11 @@ ExecutableFragments::ExecutableFragments(std::shared_ptr<const CompiledGrammar> 
   for (const auto& domain : grammar->constants())
     require(domain.type == RType::Int || domain.type == RType::Bool || domain.type == RType::Float ||
         domain.type == RType::Char, "registry-dependent constants require generic evolution");
-  impl_->owner->grammar = std::move(grammar); impl_->inputs = std::move(inputs);
+  // A const shared_ptr may still alias a caller-owned mutable CompiledGrammar.
+  // Freeze its value once at admission; shared internal certificate caches are
+  // content-bound and remain valid for this immutable copy.
+  impl_->owner->grammar = std::make_shared<const CompiledGrammar>(*grammar);
+  impl_->inputs = std::move(inputs);
   impl_->base = exemplar; impl_->base.derivation.reset();
   impl_->layout = analyze(*impl_->owner->grammar, impl_->base);
   impl_->code = compile_for_eval(impl_->base, impl_->layout.analysis.verified, impl_->inputs);
