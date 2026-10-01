@@ -1,10 +1,11 @@
 # Optimization checkpoint — round two
 
 Worktree `/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001`, branch
-`opt/gpu-generation-20261001`. Runtime checkpoint **b4ca289**; test contract fix
-**1b4f4bb**. Archived final candidate `logs/optimization/R2-final/bench`;
+`opt/gpu-generation-20261001`. Best validated runtime checkpoint **9fcb8c3** (proof objects cannot be copied or
+assigned; grammar is snapshotted at admission). Archived candidate
+`logs/optimization/R2-release/bench`;
 its source, binary hash, flags and frozen input hashes are recorded in
-`R2-final/formal/manifest.json`. Do not replace this binary or prepare frozen inputs.
+`R2-release/formal/manifest.json`. Do not replace this binary or prepare frozen inputs.
 
 Previous best: `logs/optimization/final_bench`, six flags, [results](results/final.json).
 Original baseline: `edfcf0b`; original worktree and 41 user-modified files protected.
@@ -27,10 +28,10 @@ search-rule variant, not the native backend. Support/semantics are authoritative
 in [the benchmark guide](../../../docs/guides/fixed-asgp-benchmark.md#owned-fragment-prototype).
 
 ```
-python3 benchmarks/fixed_asgp/optimization/round2.py formal NEW_DIR --binary logs/optimization/R2-final/bench --baseline logs/optimization/final_bench
-python3 benchmarks/fixed_asgp/optimization/round2.py quality NEW_DIR --binary logs/optimization/R2-final/bench --native-generations 32 --generations 128
-python3 benchmarks/fixed_asgp/optimization/round2.py quality NEW_DIR --binary logs/optimization/R2-final/bench --only fragments --parsimony --generations 256
-python3 benchmarks/fixed_asgp/optimization/round2.py scaling NEW_DIR --binary logs/optimization/R2-final/bench
+python3 benchmarks/fixed_asgp/optimization/round2.py formal NEW_DIR --binary logs/optimization/R2-release/bench --baseline logs/optimization/final_bench
+python3 benchmarks/fixed_asgp/optimization/round2.py quality NEW_DIR --binary logs/optimization/R2-release/bench --native-generations 32 --generations 128
+python3 benchmarks/fixed_asgp/optimization/round2.py quality NEW_DIR --binary logs/optimization/R2-release/bench --only fragments --parsimony --generations 256
+python3 benchmarks/fixed_asgp/optimization/round2.py scaling NEW_DIR --binary logs/optimization/R2-release/bench
 ```
 Run serially; every output directory must be new. No performance runs alongside
 builds or other GPU tests. Build: Release CUDA arch 86, `-lineinfo --ptxas-options=-v`.
@@ -42,14 +43,14 @@ Unprofiled complete-generation medians, ms:
 
 | Path | Sum | House | Median |
 |---|---:|---:|---:|
-| Same-round previous-best control | 249.304 | 216.949 | 174.955 |
-| New native fixed-parent | 204.420 | 207.321 | 178.958 |
-| Owned fragments, first generation | 70.453 | 62.947 | 32.794 |
+| Same-round previous-best control | 250.679 | 216.210 | 176.267 |
+| New native fixed-parent | 205.448 | 207.503 | 178.636 |
+| Owned fragments, first generation | 71.089 | 63.521 | 32.278 |
 
 Native and fragment operator contracts differ. Later fragment generations contain
 different programs and are never identical-workload speedups. Full raw nine
-samples, cold owner/GPU setup and search totals: `R2-final/formal-summary.json`,
-`R2-final/formal-repeats.csv`, `R2-final/formal/`. Targets Sum <46.029 and House
+samples, cold owner/GPU setup and search totals: `R2-release/formal-summary.json`,
+`R2-release/formal-repeats.csv`, `R2-release/formal/`. Targets Sum <46.029 and House
 <32.050 ms are **not met**. Native Median has not improved; fragment Median meets
 the <60 ms stage target with explicit support/search restrictions.
 
@@ -81,7 +82,8 @@ of spilling by themselves; active and eligible warps are distinct.
 
 ## Validation / active work
 
-Native 120 tests passed in aggregate (119 full-suite + corrected handoff test);
+Native 120 tests passed together with every native flag, local admission and
+owned certificates enabled (`R2-release/ctest.log`);
 89 tool tests (4 optional skips), 24 repository checks passed. ASan/UBSan fragment
 ownership/lifetime check passed (`R2-validation/asan-test.log`). Snapshot equality
 and targeted window/fuel/binding tests: `R2-bound-add/snapshots2`, `R2-final/focused3.log`.
@@ -90,11 +92,33 @@ export/admission and CPU top16, plus held-out 1024-case audits; recorded in
 [quality summary](results/round2-quality.json). Native Median top16 including
 best -28478 was importable; this is not support for every native skeleton.
 
-Currently running final 32-gen native /128-gen fragments and 256-gen parsimony
-under `R2-final/quality` and `R2-final/parsimony256`. Next: final NSYS/NCU, held-out
-and behavioral diversity audit, complete P=1024/2048/4096/8192 scaling (rerun shared
-CPU controls), final manifest and original/frozen hash audit. Resume from manifests;
-never rerun into existing output directories. No push authorized this round.
+Final 32-gen native /128-gen fragments and 256-gen parsimony completed under
+`R2-final/quality` and `R2-final/parsimony256`. All cases scored, zero timeouts/
+unscored/fallbacks, top16 CPU/GPU equal. These predate API hardening/cold grammar
+copy: CUDA SASS remains identical; 72 four-generation searches on the hardened
+binary preserve initial/final populations and CPU audits. Cold copy costs measured.
+
+Active serial queue (shell PID 728484, tool session 37062): fresh 72-cell matrix
+`R2-release/scaling-complete` → `R2-final-profiler/run.py` → corrected NCU →
+`R2-final/heldout.py` (also behavior probes, parsimony repeats and native128 Median
+import audit). Original failed matrix under `R2-release/scaling` was a driver
+path mistake, preserved. Fixed driver **1b44fea** follows the existing P8192 frozen
+prefix contract; all three P1024 prefixes were verified equal. No prepare run.
+
+**New evidence / next experiment:** many later populations demote all programs
+when one phase exceeds small-VM bounds (Sum seed0:82/128 generations; House87;
+Median84). Opt-in two-bucket prototype `GAGP_BUCKET_SMALL_PHASES` is currently
+uncommitted, isolated to owned executable evaluation. It retains all work and
+scatter order, charges extra materialization/layout changes, and has mixed/fuel
+regression coverage pending build. `R2-buckets/run.py` (tool session33298) waits
+for the entire above queue, then builds, tests and compares late frozen P1024
+populations before/after. Source patch and hypothesis under `R2-buckets/`.
+Do not build or start another GPU job concurrently. If the upstream queue fails,
+inspect its last manifest/log; do not overwrite completed experiment files.
+
+After these results: accept/reject bucketing, final report script
+`R2-release/report.py`, original/frozen hash audit, affected docs and checkpoint.
+No push authorized this round.
 
 Remaining architecture limits: fixed admitted root skeleton, independent phase
 holes and closed scalar phases; no generic derivation-first backend, mixed
