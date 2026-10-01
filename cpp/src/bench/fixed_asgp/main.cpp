@@ -219,7 +219,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
             const std::vector<gagp::evo::EvalCase>& cases,
             const std::shared_ptr<const gg::CompiledGrammar>& grammar, const std::string& output) {
   gagp::evo::EvolutionConfig cfg;
-  cfg.population_size=population.size(); cfg.generations=4;
+  cfg.population_size=population.size(); cfg.generations=std::getenv("GAGP_SEARCH_GENERATIONS") ? std::stoi(std::getenv("GAGP_SEARCH_GENERATIONS")) : 4;
   cfg.seed=std::getenv("GAGP_BM_SEED") ? std::stoull(std::getenv("GAGP_BM_SEED")) : 0;
   cfg.eval_engine=gagp::evo::EvalEngine::GPU; cfg.reproduction_backend=gagp::evo::repro::ReproductionBackend::Gpu;
   cfg.repro_overlap=true; cfg.compiled_grammar=grammar; cfg.generation_request=gg::entry_request(*grammar);
@@ -238,6 +238,12 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   }
   for (const auto& one:result.final_population)
     final.push_back(object({{"fitness",number(one.fitness)}, {"nodes",number(one.genome.ast.nodes.size())}}));
+  if (const char* path = std::getenv("GAGP_SEARCH_EXPORT")) {
+    std::vector<Json> asts;
+    for (const auto& one : result.final_population)
+      asts.push_back(gagp::cli_detail::JsonParser(gagp::cli_detail::encode_ast_json(one.genome.ast),{true,512}).parse());
+    write(path,object({{"programs",array(std::move(asts))}}));
+  }
   const auto audit_begin=Clock::now();
   const auto cs=gagp::evo::prepare_case_set(cases);
   std::vector<gagp::BytecodeProgram> top;
@@ -258,7 +264,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
 }
 void measure(const Json& source, const std::string& prepared_path, const std::string& grammar_path,
              int count, const std::string& mode, const std::string& output) {
-  const std::set<std::string> modes{"asgp_1t","gagp_cpu","gpu_eval","gpu_repro","gpu_overlap","snapshot","search","phase_bank"};
+  const std::set<std::string> modes{"asgp_1t","gagp_cpu","gpu_eval","gpu_repro","gpu_overlap","snapshot","search","phase_bank","fragments"};
   if (!modes.count(mode)) throw std::runtime_error("unknown mode");
   auto spec=task(source.object_v.at("task").string_v);
   std::vector<gagp::evo::EvalCase> cases;
@@ -280,6 +286,7 @@ void measure(const Json& source, const std::string& prepared_path, const std::st
       population.push_back(std::move(g));
     }
   }
+  if (mode=="fragments") { fragment_probe(population,cases,grammar,output); return; }
   if (mode=="phase_bank") { phase_bank_probe(population,cases,grammar,output); return; }
   if (mode=="snapshot") { snapshot(population,cases,output); return; }
   if (mode=="search") { search(population,cases,grammar,output); return; }

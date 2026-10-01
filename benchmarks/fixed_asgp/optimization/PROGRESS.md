@@ -166,3 +166,29 @@ R2-F1 first probe: full generation ~229/208/177 ms; Sum/House launch+wait
 locals from region bindings without tagged presets. Opt-in `GAGP_DIRECT_PHASE`.
 This removes work, without reducing cases/fuel or changing operators. Snapshot
 and focused-test evidence in `logs/optimization/R2-F1/`; formal repeats pending.
+
+R2-F2: dense coordinate memo lookup retained lazy execution/fuel and all
+varying state axes; bounded whole-domain maps reused existing memo-key storage.
+Focused memo/capacity tests and all three 1024-program snapshots equal. House
+launch+wait ~34.4 ms versus F1 ~32.3 ms; complete generation ~210 versus 208 ms.
+No useful benefit; removed. Patch and binary preserved under `R2-F2/`.
+
+R2-host instrumentation (thread-time sums, overlapping/nested; not wall attribution):
+~9.8–10k runtime identities, 3.1–3.3k variation analyses, 3.4–3.5k compiler
+entries, 1024 bytecode verifications per generation. Commit transactions ~0.3 ms
+cumulative; read-set checks ~2–6 ms. Membership-overload counter missed the
+active overload and is not usable. Original sources restored; raw logs/patch
+under `R2-host/`. Focus on proof/representation, not registry rewrites.
+
+R2-fragments prototype: run-owned opaque immutable phase handles with local
+grammar-site crossover/fresh mutation, immediate last-owner reclamation, and no
+per-generation AST population. New phases still use temporary full exemplar
+admission/compile; bytecode assembly/packing still repeats. Independent-root-hole
+restriction explicit. Initial diagnostic four generations: Median ~34–49 ms,
+House ~49–81 ms, Sum ~103–109 ms; not identical evolved populations. Full initial
+fitness, final independent admission, AST/handle equality and CPU audits recorded.
+40-generation small non-benchmark grammar test covers owner/scope/domain errors,
+repeated holes, fuel and bounded live sources. Native Median representability
+check initially exposed constant-pool order/alias identity being too strict;
+import now canonicalizes scalar pool content (only at import), with a regression
+test. Multi-seed 24-generation screen in progress.

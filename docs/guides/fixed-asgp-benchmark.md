@@ -218,3 +218,34 @@ compilation, verification, collection and fallback at their actual frequency.
 Preserve the historical fixed benchmark and frozen ASGP denominator. NCU and
 multiple capability kernels are permitted; profiling does not supply headline
 speedups. Shared representation never implies shared evaluation or reduced fuel.
+
+### Owned fragment prototype
+
+The `fragments` probe uses a native `ExecutableFragments` owner with immutable
+phase sources, certified local sites and compiled phases. Handles cannot be
+forged or reused across owners; imported metadata is not authority. Only scalar
+constant domains, one root region, a fixed admitted skeleton and independent
+whole-phase grammar holes are supported initially. Nested lexical/traversal/region
+phase syntax and cross-phase coupled holes require legacy evolution; the probe
+reports unsupported inputs explicitly. Repeated holes entirely inside a phase
+are replaced atomically from retained grammar sites. Type equivalence is never
+used as a membership proof.
+
+This mode changes operators: tournament-2, one elite, then each child receives
+one site crossover (70%) or fresh site mutation (30%). It samples a phase and a
+local logical site; this is not legacy pair-uniform crossover. Every new phase
+still has full admission and compilation in a temporary exemplar; only the phase
+is retained. Unchanged executable phases and proofs are shared. Current packing
+still materializes bytecode programs and verifies them each evaluation; these
+costs are measured and are candidates for a later immutable pack boundary.
+Root combination budgets are conservative; unsupported combinations reject.
+No numeric/fuel/case limits change. This is a restricted architecture experiment,
+not a replacement for the fixed benchmark or a grammar-wide backend.
+
+`GAGP_FRAGMENT_GENERATIONS` sets 1–65536 generations (default 4). Last-owner
+release reclaims each retired phase within generation timing; no source bank,
+unbounded interning table or 16-generation lifetime limit exists. Init and cold
+GPU cost are recorded separately and included in `search_total_ms`. Final full
+export/admission, AST/handle GPU equality and CPU top-16 audit are separate.
+`GAGP_SEARCH_GENERATIONS` and `GAGP_SEARCH_EXPORT` allow native search controls
+and expression representability checks; ordinary defaults remain unchanged.
