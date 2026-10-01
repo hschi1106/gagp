@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -363,10 +364,26 @@ void test_warmed_population_handoff() {
       rejects_invalid([&] { (void)gagp::evo::repro::pack_warmed_population(
           population, forged, config, handoff); }, "warm packing accepted expired payload identity");
     }
-    // Retention is bounded even when the population exceeds cache capacity.
+    // Legacy retention follows cache capacity. The explicit continuation mode
+    // instead owns one generation's analyses, even after FIFO eviction.
     population.push_back(member);
+    struct RestoreHandoffEnv {
+      bool present = std::getenv("GAGP_POPULATION_HANDOFF") != nullptr;
+      std::string value = present ? std::getenv("GAGP_POPULATION_HANDOFF") : "";
+      ~RestoreHandoffEnv() {
+        if (present) setenv("GAGP_POPULATION_HANDOFF", value.c_str(), 1);
+        else unsetenv("GAGP_POPULATION_HANDOFF");
+      }
+    } restore;
+    unsetenv("GAGP_POPULATION_HANDOFF");
     context.cache().warm_population(population, context.requests(), 8, &handoff);
-    check(handoff.empty(), "warm handoff exceeded cache retention bound");
+    check(handoff.empty(), "legacy warm handoff exceeded cache retention bound");
+    setenv("GAGP_POPULATION_HANDOFF", "1", 1);
+    context.cache().warm_population(population, context.requests(), 8, &handoff);
+    check(handoff.size() == population.size(), "generation handoff lost rows after FIFO eviction");
+    for (const auto& row : handoff)
+      check(row.analysis && !row.runtime_identity.empty(),
+            "generation handoff lost owned analysis or identity");
   }
 }
 
