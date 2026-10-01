@@ -218,7 +218,8 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
                                                       ReproductionStats* stats,
                                                       std::shared_ptr<grammar::VariationContext> context = nullptr,
                                                       std::shared_ptr<GpuReproRunResources> resources = nullptr,
-                                                      CompiledVariationPass pass = CompiledVariationPass::Crossover) {
+                                                      CompiledVariationPass pass = CompiledVariationPass::Crossover,
+                                                      std::shared_ptr<const grammar::variation_detail::OwnedScalarPopulation> continuation = nullptr) {
   require_reproduction_mode_supported(cfg, true);
   GpuReproPreparedData out;
   const auto prepare_t0 = std::chrono::steady_clock::now();
@@ -256,7 +257,13 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
   std::shared_ptr<const grammar::variation_detail::OwnedScalarPopulation> owned_parents;
   if (selected_sites && std::getenv("GAGP_OWNED_PREPARATION") &&
       !std::getenv("GAGP_NO_DERIVATION_CERTIFICATES")) {
-    owned_parents = grammar::variation_detail::OwnedScalarPopulation::create(population, *context);
+    if (continuation) {
+      if (&population != &continuation->genomes() || !continuation->matches(*context))
+        throw std::invalid_argument("mutation preparation ownership mismatch");
+      owned_parents = std::move(continuation);
+    } else {
+      owned_parents = grammar::variation_detail::OwnedScalarPopulation::create(population, *context);
+    }
   } else if (selected_sites) {
     execution_parents.reserve(population.size());
     for (const auto& parent : population)
@@ -455,7 +462,13 @@ ReproductionResult run_compiled_prepared(const std::vector<ScoredGenomeRef>& sco
   if (stats) out.stats = *stats;
   auto& context = *prepared.compiled_context;
   context.counters() = prepared.preparation_counters;
-  const auto run_pass = [&](const GpuReproPreparedData& pass, const std::vector<double>& fitness) {
+  struct PassResult {
+    std::vector<ProgramGenome> children;
+    std::shared_ptr<const grammar::variation_detail::OwnedScalarPopulation> owned;
+    const std::vector<ProgramGenome>& population() const { return owned ? owned->genomes() : children; }
+  };
+  const auto run_pass = [&](const GpuReproPreparedData& pass, const std::vector<double>& fitness,
+                            bool retain_owned = false) {
     std::string message;
     const auto setup_start = std::chrono::steady_clock::now();
     if (!ensure_gpu_repro_arena_capacity(&cache.arena, pass.config, &message) ||
@@ -470,20 +483,31 @@ ReproductionResult run_compiled_prepared(const std::vector<ScoredGenomeRef>& sco
     if (!copyback_gpu_repro_children(cache.arena, pass.config, &cache.staging, &view, &out.stats, &message))
       throw std::runtime_error(message);
     const auto decode_start = std::chrono::steady_clock::now();
-    auto children = decode_compiled_pass(pass.packed, view, context, pass.parent_certificates.get());
+    PassResult children;
+    const auto* cert = pass.parent_certificates.get();
+    if (retain_owned && std::getenv("GAGP_OWNED_CROSSOVER_HANDOFF") && cert && cert->owned_parents &&
+        cert->sources == pass.packed.compiled_sources && cert->context.get() == &context &&
+        cert->owned_parents->matches(context) &&
+        cert->owned_parents->genomes().size() == static_cast<std::size_t>(pass.config.population_size) &&
+        !payload::StagedPayloads::has_active_scope() && !std::getenv("GAGP_NO_DERIVATION_CERTIFICATES")) {
+      children.owned = grammar::variation_detail::OwnedScalarPopulation::from_gpu_pass(
+          pass.packed, view, context, *cert);
+    } else {
+      children.children = decode_compiled_pass(pass.packed, view, context, cert);
+    }
     out.stats.decode_ms += std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - decode_start).count();
     return children;
   };
-  auto crossed = run_pass(prepared, extract_fitness(scored));
+  auto crossed = run_pass(prepared, extract_fitness(scored), cfg.mutation_rate > 0.0);
   if (cfg.mutation_rate == 0.0) {
-    out.next_population = std::move(crossed);
+    out.next_population = std::move(crossed.children);
   } else {
     grammar::GrammarRandom random(prepared.config.seed ^ UINT64_C(0xa0761d6478bd642f));
-    auto mutation = prepare_backend_inputs(crossed, cfg, random.next(), &out.stats,
+    auto mutation = prepare_backend_inputs(crossed.population(), cfg, random.next(), &out.stats,
                                            prepared.compiled_context, prepared.run_resources,
-                                           CompiledVariationPass::Mutation);
-    out.next_population = run_pass(mutation, std::vector<double>(crossed.size(), 0.0));
+                                           CompiledVariationPass::Mutation, crossed.owned);
+    out.next_population = run_pass(mutation, std::vector<double>(crossed.population().size(), 0.0)).children;
   }
   out.stats.variation = context.counters();
   return out;

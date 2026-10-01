@@ -409,6 +409,42 @@ std::vector<ProgramGenome> crossover_children(
     require(context.cache().analyze(child) != nullptr,
             "compiled crossover child was not reusable through the shared cache");
   }
+  // Sealing is reachable only through the same checked decode operation.
+  // Exercise repeated-hole/capture grammar, wrong continuations and storage
+  // lifetime independently of the optional production handoff switch.
+  const auto saved_counters = context.counters();
+  PreparedParentCertificates certificates;
+  certificates.sources = packed.compiled_sources;
+  certificates.context = std::shared_ptr<grammar::VariationContext>(&context, [](auto*) {});
+  certificates.owned_parents = grammar::variation_detail::OwnedScalarPopulation::create(population, context);
+  const auto sealed = grammar::variation_detail::OwnedScalarPopulation::from_gpu_pass(
+      packed, copyback, context, certificates);
+  require(sealed->genomes().size() == children.size(), "sealed decode lost children");
+  for (std::size_t i = 0; i < children.size(); ++i) {
+    require(ast_cache_key(sealed->genomes()[i].ast) == ast_cache_key(children[i].ast),
+            "owned decode changed admitted offspring");
+    grammar::require_membership(*grammar, sealed->genomes()[i]);
+  }
+  for (int boundary = 0; boundary < 3; ++boundary) {
+    auto bad = certificates;
+    if (boundary == 0) bad.sources = std::make_shared<const CompiledSpliceSources>(*certificates.sources);
+    if (boundary == 1) bad.context = std::make_shared<grammar::VariationContext>(grammar, context.requests());
+    if (boundary == 2) bad.owned_parents.reset();
+    bool rejected = false;
+    try { (void)grammar::variation_detail::OwnedScalarPopulation::from_gpu_pass(packed, copyback, context, bad); }
+    catch (const std::invalid_argument&) { rejected = true; }
+    require(rejected, "owned decode accepted a mismatched continuation");
+  }
+  auto corrupted = copyback;
+  std::vector<int> lengths(copyback.child_used_len, copyback.child_used_len + packed.config.pair_count * 2);
+  lengths[0] = 0; corrupted.child_used_len = lengths.data();
+  bool rejected = false;
+  try { (void)grammar::variation_detail::OwnedScalarPopulation::from_gpu_pass(packed, corrupted, context, certificates); }
+  catch (const std::invalid_argument&) { rejected = true; }
+  require(rejected, "owned decode bypassed malformed device output checks");
+  population.clear(); certificates.owned_parents.reset();
+  for (const auto& child : sealed->genomes()) grammar::require_membership(*grammar, child);
+  context.counters() = saved_counters;
   return children;
 }
 

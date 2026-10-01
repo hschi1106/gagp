@@ -6,14 +6,15 @@ Median remains fixed-overhead workload. Do not resume retired CPU fragment route
 
 ## Current best and active experiment
 
-Best source `d72b5f4` (immutable scalar native preparation), with
+Best validated GPU source: Q+R checkpoint (immutable crossover handoff; commit
+listed in history), with
 locally extracted jemalloc 5.2.1-4ubuntu1. Use `round2.py` FLAGS and process env:
 ```
 LD_PRELOAD=$PWD/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2
 MALLOC_CONF=background_thread:false,narenas:1
 ```
 No system installation; allocator confirms no background workers and one arena.
-Nine-repeat full-generation medians Sum279.706 / House295.679 / Median288.718ms;
+Previous N (`d72b5f4`) nine-repeat medians Sum279.706 / House295.679 / Median288.718ms;
 same-round allocator controls329.388 /348.488 /339.451ms.
 Frozen headline6.583x Sum /4.336x House, not30x. All3072 snapshots,3 seeds x4/32
 generation results and final ASTs match. Four focused native/safety tests pass.
@@ -348,3 +349,28 @@ these annotated/overlapped times from formal totals.
   results: `logs/optimization/native-single-identity{,-formal}/`.
 - Next: preserve ownership between the already-admitted GPU crossover output
   and mutation preparation; no admission deletion at external boundaries.
+
+### R — immutable crossover-to-mutation handoff
+
+- `GAGP_OWNED_CROSSOVER_HANDOFF=1`, with Q, removes repeated certification/copy
+  of the private, just-admitted crossover population. Both GPU operator passes,
+  AST decodes and final canonical admission remain. No RNG/language change.
+- Nine repeats vs N: Sum281.756493→269.700719, House297.769050→278.160918,
+  Median288.717111→268.244850 ms. All three seeds ×32 generations match every
+  non-time search field and final exported AST, including top16 CPU reevaluation.
+  Search wall improves about5–8%; raw `native-owned-handoff-validation/`.
+- Four focused tests pass, including repeated-hole/capture, wrong source/context,
+  invalid output and destroyed-parent lifetime. Full123 suite passes; all3072
+  complete-case CPU/GPU snapshot rows match N.
+- Updated host/CUDA diagnostic underway in `native-owned-handoff-profile/`.
+- P2 GPU donor32-generation tests did not justify promotion: most whole searches
+  slower with larger programs despite fixed-parent gain. Keep it off the best
+  flags; it is a GPU construction experiment, not a headline performance claim.
+
+Q+R activation: N flags plus `GAGP_SINGLE_EVAL_IDENTITY=1` and
+`GAGP_OWNED_CROSSOVER_HANDOFF=1`; keep GPU_DONORS and CPU_REGION_VIEWS unset.
+Profile302.222ms (instrumented Median, not formal268.245ms): runtime identities
+5736calls/34.001ms; decode2calls/128.005ms inclusive; matcher21.762ms self;
+witness22.347ms self; compile16.341ms self; constant streams5.209ms.
+Median fitness kernel2.113ms on final profiled generation. Remaining host proof
+work dominates. Full123 suite and3072 snapshot rows pass. Scaling pending.

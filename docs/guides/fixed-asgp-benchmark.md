@@ -343,3 +343,12 @@ sealed-executable lookup in one synchronous read. The helper computes the key
 itself; callers cannot supply an unchecked identity. Mutable imports still need
 identity validation, and registry constants keep their existing path. It does
 not change grammar admission, operator choices or evaluator semantics.
+
+`GAGP_OWNED_CROSSOVER_HANDOFF=1` retains the private immutable scalar population
+produced by the fully checked GPU crossover decoder. Mutation preparation uses
+that same owner instead of copying and certifying it again. The constructor runs
+the decoder itself; it does not accept a caller's vector with a claimed proof.
+Source/context/grammar and population size must match, registry-dependent
+constants and external mutable populations keep ordinary validation. Both GPU
+operator passes, copybacks, canonical changed-child admission and RNG stay the
+same. The owner is released after the mutation pass and never retains history.

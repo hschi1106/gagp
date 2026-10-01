@@ -1,0 +1,236 @@
+{
+  "performance": {
+    "sum_of_elements": {
+      "before": {
+        "raw_ms": [
+          283.50093,
+          278.570705,
+          279.353054,
+          282.587121,
+          280.105955,
+          280.774396,
+          281.756493,
+          282.174217,
+          282.61833
+        ],
+        "median_ms": 281.756493,
+        "range_ms": [
+          278.570705,
+          283.50093
+        ]
+      },
+      "after": {
+        "raw_ms": [
+          272.679172,
+          268.402842,
+          268.863247,
+          270.095374,
+          269.700719,
+          278.79374,
+          270.554644,
+          268.223228,
+          268.343153
+        ],
+        "median_ms": 269.700719,
+        "range_ms": [
+          268.223228,
+          278.79374
+        ]
+      }
+    },
+    "house_robber": {
+      "before": {
+        "raw_ms": [
+          292.416161,
+          289.871022,
+          291.209606,
+          300.426989,
+          297.76905,
+          299.837282,
+          299.794509,
+          299.11522,
+          296.499775
+        ],
+        "median_ms": 297.76905,
+        "range_ms": [
+          289.871022,
+          300.426989
+        ]
+      },
+      "after": {
+        "raw_ms": [
+          272.41756,
+          271.678216,
+          272.853284,
+          278.160918,
+          278.516673,
+          276.537822,
+          281.783635,
+          284.540137,
+          284.864512
+        ],
+        "median_ms": 278.160918,
+        "range_ms": [
+          271.678216,
+          284.864512
+        ]
+      }
+    },
+    "median": {
+      "before": {
+        "raw_ms": [
+          288.717111,
+          286.695245,
+          294.099424,
+          289.866416,
+          286.633415,
+          288.13253,
+          294.114293,
+          293.890269,
+          285.7505
+        ],
+        "median_ms": 288.717111,
+        "range_ms": [
+          285.7505,
+          294.114293
+        ]
+      },
+      "after": {
+        "raw_ms": [
+          267.387868,
+          265.037232,
+          266.000201,
+          271.918177,
+          266.548819,
+          273.7757,
+          274.997233,
+          270.604895,
+          268.24485
+        ],
+        "median_ms": 268.24485,
+        "range_ms": [
+          265.037232,
+          274.997233
+        ]
+      }
+    }
+  },
+  "quality": [
+    {
+      "task": "sum_of_elements",
+      "seed": 0,
+      "generations": 32,
+      "all_nontime_fields_equal": true,
+      "final_asts_equal": true,
+      "evolve_wall_ms_before_after": [
+        10667.908893,
+        10084.256698
+      ],
+      "top16_cpu_exact": true
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 1,
+      "generations": 32,
+      "all_nontime_fields_equal": true,
+      "final_asts_equal": true,
+      "evolve_wall_ms_before_after": [
+        11729.347551,
+        11146.962441
+      ],
+      "top16_cpu_exact": true
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 2,
+      "generations": 32,
+      "all_nontime_fields_equal": true,
+      "final_asts_equal": true,
+      "evolve_wall_ms_before_after": [
+        10312.113839,
+        9768.610256
+      ],
+      "top16_cpu_exact": true
+    },
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "generations": 32,
+      "all_nontime_fields_equal": true,
+      "final_asts_equal": true,
+      "evolve_wall_ms_before_after": [
+        10693.425796,
+        9967.720592
+      ],
+      "top16_cpu_exact": true
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "generations": 32,
+      "all_nontime_fields_equal": true,
+      "final_asts_equal": true,
+      "evolve_wall_ms_before_after": [
+        8801.174713,
+        8362.996356
+      ],
+      "top16_cpu_exact": true
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "generations": 32,
+      "all_nontime_fields_equal": true,
+      "final_asts_equal": true,
+      "evolve_wall_ms_before_after": [
+        8815.272882,
+        8330.567288
+      ],
+      "top16_cpu_exact": true
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "generations": 32,
+      "all_nontime_fields_equal": true,
+      "final_asts_equal": true,
+      "evolve_wall_ms_before_after": [
+        11778.519292,
+        10888.428635
+      ],
+      "top16_cpu_exact": true
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "generations": 32,
+      "all_nontime_fields_equal": true,
+      "final_asts_equal": true,
+      "evolve_wall_ms_before_after": [
+        11412.208626,
+        10739.518849
+      ],
+      "top16_cpu_exact": true
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "generations": 32,
+      "all_nontime_fields_equal": true,
+      "final_asts_equal": true,
+      "evolve_wall_ms_before_after": [
+        12039.965888,
+        11195.436351
+      ],
+      "top16_cpu_exact": true
+    }
+  ],
+  "status": "validated GPU candidate; scaling pending; CPU view prototype remains off",
+  "raw_directory": "logs/optimization/native-owned-handoff-validation",
+  "extra_flags": {
+    "GAGP_SINGLE_EVAL_IDENTITY": "1",
+    "GAGP_OWNED_CROSSOVER_HANDOFF": "1"
+  },
+  "full_suite": "123 tests passed",
+  "snapshot": "3072 full-case GPU/CPU program rows exact against N"
+}

@@ -736,6 +736,26 @@ std::shared_ptr<const OwnedScalarPopulation> OwnedScalarPopulation::create(
   }
   return owned;
 }
+std::shared_ptr<const OwnedScalarPopulation> OwnedScalarPopulation::adopt_decoded(
+    std::vector<ProgramGenome> input, VariationContext& context) {
+  // Only from_gpu_pass can call this, after decode's full ordered admission.
+  // Moving its fresh vector leaves no external mutable aliases to AST storage.
+  auto owned = std::shared_ptr<OwnedScalarPopulation>(new OwnedScalarPopulation);
+  owned->grammar_ = context.grammar_owner();
+  owned->request_ = context.request();
+  owned->proofs_.reserve(input.size());
+  for (const auto& genome : input) {
+    if (!genome.derivation || !genome.derivation->certificate)
+      throw std::logic_error("decoded scalar population lost admission certificate");
+    for (const auto& value : genome.ast.consts)
+      if (value.tag != ValueTag::Int && value.tag != ValueTag::Float &&
+          value.tag != ValueTag::Bool && value.tag != ValueTag::Char)
+        throw std::logic_error("decoded scalar population acquired registry constants");
+    owned->proofs_.push_back(genome.derivation->certificate);
+  }
+  owned->genomes_ = std::move(input);
+  return owned;
+}
 bool OwnedScalarPopulation::matches(const VariationContext& context) const {
   return grammar_ == context.grammar_owner() && context.requests().size() == 1 &&
       !context.offspring_budget() && same_certificate_request(request_, context.request());
