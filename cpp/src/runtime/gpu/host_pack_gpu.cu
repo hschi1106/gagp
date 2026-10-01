@@ -1,3 +1,4 @@
+#include "gagp/core/host_threads.hpp"
 #include "gagp/core/semantic_fuel.hpp"
 #include "gagp/core/bytecode_verify.hpp"
 #include <limits>
@@ -327,7 +328,7 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
   std::vector<int> verified_stack_bounds(programs.size(), MAX_STACK);
   if (parallel_verify) {
     std::atomic<std::size_t> next{0};
-    const auto count = std::min<unsigned>(20, std::max(1u, std::thread::hardware_concurrency()));
+    const auto count = std::min<unsigned>(20, gagp::host_thread_limit());
     auto verify_next = [&] {
       for (;;) {
         const auto p = next.fetch_add(1, std::memory_order_relaxed);
@@ -339,7 +340,7 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
     };
     std::vector<std::future<void>> workers;
     for (unsigned i = 1; i < count; ++i)
-      workers.emplace_back(std::async(std::launch::async, verify_next));
+      workers.emplace_back(std::async(gagp::host_launch_policy(), verify_next));
     verify_next();
     for (auto& worker : workers) worker.get();
   }

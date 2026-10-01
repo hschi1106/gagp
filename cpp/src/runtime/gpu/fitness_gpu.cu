@@ -474,7 +474,8 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   return out;
 }
 
-FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodeProgram>& programs, bool capture_case_counts) const {
+FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodeProgram>& programs, bool capture_case_counts,
+    const std::function<void()>& while_gpu_runs) const {
   if (!impl_ || !impl_->ready) {
     return fitness_eval_single_error(ErrCode::Value, "gpu fitness session is not initialized");
   }
@@ -640,6 +641,19 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
     }
     const auto upload_t1 = std::chrono::steady_clock::now();
 
+    struct KernelEvents {
+      cudaEvent_t start = nullptr, end = nullptr;
+      ~KernelEvents() {
+        if (start) cudaEventDestroy(start);
+        if (end) cudaEventDestroy(end);
+      }
+    } events;
+    if (while_gpu_runs) {
+      if (cudaEventCreate(&events.start) != cudaSuccess ||
+          cudaEventCreate(&events.end) != cudaSuccess ||
+          cudaEventRecord(events.start) != cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value, "cuda overlap timing failure");
+    }
     const auto kernel_t0 = std::chrono::steady_clock::now();
     if (direct_root) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::BoundIntListViews, true, true>
@@ -700,6 +714,14 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
               impl_->fuel, impl_->penalty, dev.d_fitness, nullptr, 0, nullptr, 0, nullptr, 0, {}, dev.d_case_counts);
     }
     const cudaError_t launch_err = cudaGetLastError();
+    if (while_gpu_runs && launch_err == cudaSuccess) {
+      if (cudaEventRecord(events.end) != cudaSuccess) {
+        cudaDeviceSynchronize();
+        return fitness_eval_single_error(ErrCode::Value, "cuda overlap timing failure");
+      }
+      try { while_gpu_runs(); }
+      catch (...) { cudaDeviceSynchronize(); throw; }
+    }
     const cudaError_t sync_err = cudaDeviceSynchronize();
     if (launch_err != cudaSuccess || sync_err != cudaSuccess) {
       std::string msg = "cuda kernel execution failure";
@@ -744,6 +766,12 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
     out.timing.launch_prep_ms = ms_between(launch_prep_t0, launch_prep_t1);
     out.timing.upload_ms = ms_between(upload_t0, upload_t1);
     out.timing.kernel_ms = ms_between(kernel_t0, kernel_t1);
+    if (while_gpu_runs) {
+      float elapsed = 0;
+      if (cudaEventElapsedTime(&elapsed, events.start, events.end) != cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value, "cuda overlap timing failure");
+      out.timing.kernel_ms = elapsed;
+    }
     out.timing.copyback_ms = ms_between(copy_t0, copy_t1);
     out.err = Err{ErrCode::Value, ""};
     teardown_t0 = std::chrono::steady_clock::now();

@@ -1,3 +1,4 @@
+#include "gagp/core/host_threads.hpp"
 #include "../batch_workers.hpp"
 #include "gagp/evolution/grammar/variation_cache.hpp"
 
@@ -152,7 +153,7 @@ void VariationAnalysisCache::prepare_population(const std::vector<ProgramGenome>
   validate_population_requests(*grammar_, requests);
   if (!max_workers) throw std::invalid_argument("analysis worker limit must be positive");
   const auto workers = std::min<std::size_t>(max_workers,
-      std::max(1u, std::thread::hardware_concurrency()));
+      gagp::host_thread_limit());
   if (deferred) prepared_.clear();
   // Worker threads cannot see an enclosing thread's uncommitted payloads.
   // Deferred warming is optional; ordinary warming uses the active view in order.
@@ -161,7 +162,7 @@ void VariationAnalysisCache::prepare_population(const std::vector<ProgramGenome>
       for (const auto& genome : population) (void)analyze_member(genome, requests);
     return;
   }
-  if (!deferred && (workers == 1 || population.size() < 32)) {
+  if (!handoff && !deferred && (workers == 1 || population.size() < 32)) {
     for (const auto& genome : population) (void)analyze_member(genome, requests);
     return;
   }

@@ -76,6 +76,8 @@
   validation may be simplified, but do not replace core reproduction with a CPU
   worker backend and report that architecture as the mainline GPU speedup.
 - Preserve the five native fixed-benchmark modes and their CPU controls.
+- Default to CPU 1T plus GPU. Host workers require explicit `GAGP_HOST_THREADS`
+  opt-in; the fair ASGP-1T comparison uses `GAGP_HOST_THREADS=1`.
 - Historical CPU fragment/phase-bank measurements are retired records, not
   maintained implementation paths or recommended optimization entry points.
 

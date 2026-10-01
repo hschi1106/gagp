@@ -1,4 +1,38 @@
-# Native GPU optimization checkpoint — 2026-10-02
+# Native 1T optimization checkpoint — 2026-10-02
+
+Active objective: preserve CPU / GPU-e / GPU-er / GPU-er-o architecture, use
+CPU 1T + GPU, target fastest native GPU >30× frozen ASGP-1T on Sum/House;
+Median remains fixed-overhead workload. Do not resume retired CPU fragment route.
+
+## Current fair baseline
+
+Source parent `9ce96a9`; thread-policy checkpoint follows. `GAGP_HOST_THREADS=1`
+is now the default; `2..20` is optional host parallelism, excluded from fair
+headlines. One-thread overlap runs preparation on the calling thread after GPU
+launch, before synchronization. Existing native fast-profile flags below remain.
+
+Exploratory P1024/full1024 baseline (one process, 1 warmup + 3 repeats):
+Sum GPU-overlap 724.686 ms, House 853.414 ms, Median 792.708 ms.
+These supersede historical multiworker times **for the 1T contract**; they do not
+claim a performance improvement. Raw five-mode measurements and binary:
+`logs/optimization/native-1t-20261002/`; compact manifest:
+[1T baseline](results/native-1t-baseline.json).
+
+Validation: complete Release build; all 120 native tests passed across full run
+and focused reruns after adapting two worker-count expectations. Explicit 4-worker
+resource/cache/parity tests also passed; tool tests 5, repository tests 24 passed.
+A strace clone/backtrace smoke records only CUDA driver thread creation, no GAGP
+host workers. Logs are alongside the baseline.
+
+Next experiment hypothesis: membership already lowers admitted ASTs; retaining
+that existing bytecode in the opaque native derivation certificate can eliminate
+recompilation without changing AST/genotype or GPU reproduction. Start scalar
+constants only; mutable payload tokens must not be accidentally retained/reused.
+Measure evolve-call/cold cost as well as generation, and actual changing search.
+CPU perf sampling currently blocked by perf_event_paranoid=4; optional user
+request pending. Continue using existing stage timers; no system settings changed.
+
+---
 
 Worktree `/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001`, branch
 `opt/gpu-generation-20261001`. The maintained mainline is GPU evaluation plus

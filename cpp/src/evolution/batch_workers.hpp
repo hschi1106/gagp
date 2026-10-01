@@ -1,5 +1,6 @@
 #pragma once
 
+#include "gagp/core/host_threads.hpp"
 #include <condition_variable>
 #include <exception>
 #include <functional>
@@ -14,7 +15,10 @@ namespace gagp::evo::detail {
 // thread-local payload scope survives an individual callback.
 class BatchWorkers {
  public:
-  explicit BatchWorkers(std::size_t count) : errors_(count) {
+  explicit BatchWorkers(std::size_t count) {
+    count = std::min<std::size_t>(count, gagp::host_thread_limit());
+    if (count <= 1) return;
+    errors_.resize(count);
     try {
       for (std::size_t i = 0; i < count; ++i)
         threads_.emplace_back([this, i] { worker(i); });

@@ -1,3 +1,4 @@
+#include "gagp/core/host_threads.hpp"
 #include "../batch_workers.hpp"
 #include "compiled_decode.hpp"
 #include "../../runtime/payload/staging.hpp"
@@ -200,7 +201,7 @@ std::vector<ProgramGenome> decode_compiled_pass(
           certificates->context.get() == &context &&
           !payload::StagedPayloads::has_active_scope()) {
         if (!team) team = std::make_unique<detail::BatchWorkers>(
-            std::min(20u, std::max(1u, std::thread::hardware_concurrency())));
+            gagp::host_thread_limit());
         std::atomic<int> next{0};
         team->run([&] {
           for (;;) {
@@ -248,7 +249,7 @@ std::vector<ProgramGenome> decode_compiled_pass(
       if (parallel_admission) {
         std::atomic<int> next{0};
         if (!team) team = std::make_unique<detail::BatchWorkers>(
-            std::min(20u, std::max(1u, std::thread::hardware_concurrency())));
+            gagp::host_thread_limit());
         team->run([&] {
             grammar::VariationContext local(context.grammar_owner(), context.requests(),
                 128, context.offspring_budget());

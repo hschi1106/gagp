@@ -1,3 +1,4 @@
+#include "gagp/core/host_threads.hpp"
 #include <iostream>
 #include <future>
 #include <memory>
@@ -614,7 +615,8 @@ void test_independent_donor_pool_batch() {
   for (std::size_t i = 0; i < parents.size(); ++i)
     jobs.push_back({&parents[i], context.analyze(parents[i])->sites.front(), {i * 4, i * 4 + 1, i * 4 + 2, i * 4 + 3}});
   const auto batch = try_generate_donor_pools(context, jobs, 4);
-  if (std::thread::hardware_concurrency() > 1) {
+  if (gagp::host_thread_limit() == 1) check(!batch, "1T must decline optional parallel donor batching");
+  if (gagp::host_thread_limit() > 1) {
     check(bool(batch), "independent scalar donor batch unexpectedly declined");
     check(batch->size() == jobs.size(), "donor batch changed pool count");
     std::vector<WarmPopulationMember> proofs;
@@ -693,7 +695,8 @@ void test_payload_pool_conflict_replay() {
   payload::clear();
   (void)payload::make_string_value("b");  // Keep the destination valid; "a" must be newly committed.
   const auto batch = try_generate_donor_pools(context, jobs, 4);
-  if (std::thread::hardware_concurrency() > 1) {
+  if (gagp::host_thread_limit() == 1) check(!batch, "1T must decline optional parallel donor batching");
+  if (gagp::host_thread_limit() > 1) {
     check(bool(batch), "nonconflicting payload batch declined");
     for (const auto& result : *batch) for (std::size_t i = 0; i < result.size(); ++i) {
       std::string text;

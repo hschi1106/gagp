@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <functional>
 #include <array>
 #include <cstdint>
 #include <utility>
@@ -31,6 +32,7 @@ struct FitnessEvalTiming {
   double pack_ms = 0.0;
   double launch_prep_ms = 0.0;
   double upload_ms = 0.0;
+  // CUDA event time when a host overlap callback is supplied; otherwise launch/wait wall time.
   double kernel_ms = 0.0;
   double copyback_ms = 0.0;
   double teardown_ms = 0.0;
@@ -62,7 +64,8 @@ class FitnessSessionGpu {
                                 int fuel = 10000,
                                 int blocksize = 1024,
                                 double penalty = 1.0);
-  FitnessEvalResult eval_programs(const std::vector<BytecodeProgram>& programs, bool capture_case_counts = false) const;
+  FitnessEvalResult eval_programs(const std::vector<BytecodeProgram>& programs, bool capture_case_counts = false,
+      const std::function<void()>& while_gpu_runs = {}) const;
   bool is_ready() const;
 
  private:

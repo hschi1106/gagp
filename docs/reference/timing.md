@@ -51,7 +51,10 @@ Produced by `FitnessSessionGpu::eval_programs(...)`.
 - `pack_ms`: host packing of bytecode programs, bounded bytecode verification, and payload token lookup
 - `launch_prep_ms`: launch-shape preparation and host-side eval setup after packing
 - `upload_ms`: per-eval device allocation, upload, and fitness buffer initialization
-- `kernel_ms`: eval kernel launch plus synchronization
+- `kernel_ms`: eval kernel launch plus synchronization; with a host overlap
+  callback this uses CUDA events enclosing the kernel, excluding CPU callback
+  work. The full callback remains inside `total_ms` and generation wall time.
+  Overlapping reproduction preparation ranges must not be added to eval time.
 - `copyback_ms`: device-to-host fitness copyback
 - `teardown_ms`: teardown of temporary eval allocations after copyback
 - `total_ms`: full `eval_programs(...)` wall-clock, including teardown

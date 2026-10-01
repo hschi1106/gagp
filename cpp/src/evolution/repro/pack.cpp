@@ -1,3 +1,4 @@
+#include "gagp/core/host_threads.hpp"
 #include "pack_internal.hpp"
 #include "../../runtime/payload/staging.hpp"
 #include "../batch_workers.hpp"
@@ -134,7 +135,7 @@ GpuReproConfig compiled_pack_config(const std::vector<ProgramGenome>& population
     donor_errors.resize(prep.donor_pool.size());
     std::atomic<std::size_t> next{0};
     detail::BatchWorkers workers(std::min<std::size_t>(20,
-        std::max(1u, std::thread::hardware_concurrency())));
+        gagp::host_thread_limit()));
     workers.run([&] {
       for (;;) {
         const auto begin = next.fetch_add(16);

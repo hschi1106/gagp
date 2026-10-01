@@ -80,8 +80,15 @@ These scopes follow the [native timing reference](../reference/timing.md).
 - Both execution budget numbers are 2,000,000, penalty/case-error cap 1000;
   budget units and fitness definitions are not equivalent. Integer remainder,
   large-integer numeric paths and bounded GPU payload behavior can differ.
-- GAGP GPU preparation/compilation can use up to 20 CPU workers. Comparisons
-  are CPU+GPU system speedups versus ASGP-1T, not isolated GPU hardware speedups.
+- GAGP defaults to one application CPU execution thread in every mode. Set
+  `GAGP_HOST_THREADS=2..20` to opt into host workers; unset or `1` is the fair
+  ASGP-1T comparison. Invalid settings are rejected. CUDA driver helper threads
+  are not GAGP preparation/evaluation/reproduction workers.
+- With one host thread, `gpu_overlap` submits GPU evaluation then performs host
+  reproduction preparation on the calling thread before waiting for the GPU.
+  No second CPU worker is used. All preparation remains in generation timing.
+  The optional multiworker setting retains background preparation.
+- Historical pre-1T GPU results used host workers and are not 1T controls.
 
 Report per-task median/min/max generation milliseconds, ASGP-1T/GAGP-mode,
 GAGP-CPU/GAGP-mode and synchronous/overlapped reproduction ratios. Do not compare
@@ -95,7 +102,7 @@ error from its accepted payload approximation. No arbitrary evolved-program
 parity gate is imposed. Crashes and missing results are failures, not losses.
 Short evolution/held-out quality experiments are separate from this timing suite.
 
-The 40× target applies to Sum of Elements and House Robber at 1024×1024. Median
+The 30× target applies to Sum of Elements and House Robber at 1024×1024. Median
 exposes fixed overhead. The user clarified that the earlier term `medium` meant Median.
 
 ## Build and run

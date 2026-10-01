@@ -1,3 +1,4 @@
+#include "gagp/core/host_threads.hpp"
 #include "gagp/evolution/grammar/donor.hpp"
 
 #include <algorithm>
@@ -296,7 +297,7 @@ std::vector<std::optional<ContextualDonor>> generate_donor_pool(VariationContext
   const auto* entry = site.nonterminal < context.grammar().nonterminals().size() ?
       &context.grammar().nonterminals()[site.nonterminal] : nullptr;
   const auto root = entry ? (entry->mutation_entry == kNoGrammarId ? entry->id : entry->mutation_entry) : kNoGrammarId;
-  const auto hardware_workers = std::thread::hardware_concurrency();
+  const auto hardware_workers = gagp::host_thread_limit();
   if (seeds.size() > 1 && entry && hardware_workers > 1 &&
       !payload::StagedPayloads::has_active_scope()) {
     const bool writes_payload = context.grammar().generates_payload(root);
@@ -318,7 +319,7 @@ std::vector<std::optional<ContextualDonor>> generate_donor_pool(VariationContext
     for (std::size_t begin = 0; begin < seeds.size(); begin += max_workers) {
       std::vector<std::future<PreparedSeed>> pending;
       for (auto i = begin; i < std::min(seeds.size(), begin + max_workers); ++i)
-        pending.push_back(std::async(std::launch::async, [&, seed = seeds[i]] {
+        pending.push_back(std::async(gagp::host_launch_policy(), [&, seed = seeds[i]] {
           VariationContext worker(context.grammar_owner(), context.requests(), 128,
               context.offspring_budget());
           PreparedSeed result;
@@ -376,7 +377,7 @@ static std::optional<std::vector<DonorPool>> generate_donor_pools_impl(Variation
   // Parallel workers cannot observe the caller's uncommitted payload view,
   // and their transactions cannot commit inside that enclosing scope.
   if (payload::StagedPayloads::has_active_scope()) return std::nullopt;
-  const auto workers = std::min<std::size_t>({20, std::thread::hardware_concurrency(), jobs.size()});
+  const auto workers = std::min<std::size_t>({20, gagp::host_thread_limit(), jobs.size()});
   // The old single-seed path retains analyses in the caller's registry. Keep it
   // on that path instead of changing observable preparation identities.
   if (workers < 2 || jobs.size() > 1024 ||
@@ -406,7 +407,7 @@ static std::optional<std::vector<DonorPool>> generate_donor_pools_impl(Variation
   std::atomic<std::size_t> next{0};
   std::vector<std::future<void>> pending;
   for (std::size_t worker_index = 0; worker_index < workers; ++worker_index)
-    pending.push_back(std::async(std::launch::async, [&] {
+    pending.push_back(std::async(gagp::host_launch_policy(), [&] {
       VariationContext worker(context.grammar_owner(), context.requests(), 128, context.offspring_budget());
       for (;;) {
         const auto index = next.fetch_add(1, std::memory_order_relaxed);

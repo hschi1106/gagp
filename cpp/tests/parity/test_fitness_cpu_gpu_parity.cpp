@@ -1,4 +1,6 @@
 #include <climits>
+#include <thread>
+#include <stdexcept>
 #include <cmath>
 #include <limits>
 #include <iostream>
@@ -548,7 +550,19 @@ gagp::FitnessEvalResult eval_gpu_via_session(const std::vector<BytecodeProgram>&
     out.err = init.err;
     return out;
   }
-  return session.eval_programs(programs);
+  const auto caller = std::this_thread::get_id();
+  unsigned callbacks = 0;
+  auto overlapped = session.eval_programs(programs, false, [&] {
+    if (std::this_thread::get_id() != caller)
+      throw std::runtime_error("GPU overlap callback left the calling CPU thread");
+    ++callbacks;
+  });
+  if (overlapped.ok && callbacks != 1)
+    throw std::runtime_error("GPU overlap callback was not invoked exactly once");
+  const auto ordinary = session.eval_programs(programs);
+  if (overlapped.ok != ordinary.ok || overlapped.fitness != ordinary.fitness)
+    throw std::runtime_error("GPU overlap callback changed fitness");
+  return overlapped;
 }
 
 bool check_single_cpu_gpu_exact(const BytecodeProgram& program,

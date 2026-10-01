@@ -1,3 +1,4 @@
+#include "gagp/core/host_threads.hpp"
 #include "prep_internal.hpp"
 #include "../../runtime/payload/staging.hpp"
 #include "gagp/evolution/repro/mutation_schedule.hpp"
@@ -185,7 +186,7 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
     planned_jobs.clear(); planned_sites.clear(); planned_pools.reset(); planned_cursor = 0;
     preview_analyses.clear();
     if (!prepare_donors || config.compiled_pass != CompiledVariationPass::Mutation ||
-        config.mutation_ratio <= 0.0 || std::thread::hardware_concurrency() < 2 ||
+        config.mutation_ratio <= 0.0 || gagp::host_thread_limit() < 2 ||
         config.donor_pool_size_per_site < 2 || population.size() < pool_window) return;
     // Stop before the next selected parent would exceed the batch API's donor
     // storage bound. Sparse mutation schedules can use the full window; dense

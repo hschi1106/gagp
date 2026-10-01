@@ -35,6 +35,7 @@ void rejects(const std::function<void()>& action, const char* message) {
 }
 
 void test_batch_worker_barrier() {
+  const unsigned workers = std::min(4u, gagp::host_thread_limit());
   detail::BatchWorkers team(4);
   for (unsigned batch = 0; batch < 8; ++batch) {
     std::atomic<unsigned> completed{0};
@@ -52,7 +53,7 @@ void test_batch_worker_barrier() {
       });
     } catch (const std::invalid_argument&) { failed = true; }
     check(failed == bool(batch % 2), "worker exception was lost or crossed batches");
-    check(started == 4 && completed == (batch % 2 ? 3 : 4),
+    check(started == workers && completed == workers - (batch % 2),
           "batch returned before every worker finished");
   }
 }

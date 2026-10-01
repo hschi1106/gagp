@@ -34,6 +34,11 @@ enabled; `gagp_cli_support` composes evolution with the JSON/CLI codecs.
 
 ## Validation selection
 
+Host parallelism defaults to one application CPU thread; owner is
+`cpp/include/gagp/core/host_threads.hpp`. `GAGP_HOST_THREADS=2..20` opts into
+workers. Single-thread GPU overlap uses the evaluator post-launch callback;
+fair ASGP comparisons explicitly use `GAGP_HOST_THREADS=1`.
+
 - Native focused checks: `ctest --test-dir cpp/build -R '<test-name-regex>' --output-on-failure`.
 - Python tools and repository checks: use the two `unittest discover` commands
   in root `AGENTS.md`; narrow discovery to the affected test when practical.

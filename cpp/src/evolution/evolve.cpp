@@ -1,3 +1,4 @@
+#include "gagp/core/host_threads.hpp"
 #include "batch_workers.hpp"
 #include "repro/owned_overlap.hpp"
 #include "gagp/evolution/evolve.hpp"
@@ -82,7 +83,7 @@ CompiledPopulation compile_population(const std::vector<ProgramGenome>& populati
   CompileCache local_cache;
   CompileCache* cache = (compile_cache != nullptr) ? compile_cache : &local_cache;
   constexpr std::size_t batch_size = 128;
-  const auto workers = parallel_allowed ? std::min(20u, std::thread::hardware_concurrency()) : 1u;
+  const auto workers = parallel_allowed ? gagp::host_thread_limit() : 1u;
   const bool parallel = population.size() >= 32 && workers > 1 &&
       !payload::StagedPayloads::has_active_scope();
   struct PreparedCompile {
@@ -225,9 +226,9 @@ std::vector<ScoredGenomeRef> score_population_gpu_refs(
     GenerationTiming* generation_timing,
     double* fitness_sum_out,
     std::vector<double>* raw_fitness_out,
-    bool sort_output) {
+    bool sort_output, const std::function<void()>& while_gpu_runs = {}) {
   const CompiledPopulation compiled = compile_population(population, input_names, compile_cache, fuel, true);
-  FitnessEvalResult fit = session->eval_programs(compiled.programs, std::getenv("GAGP_GPU_DIAGNOSTICS") != nullptr);
+  FitnessEvalResult fit = session->eval_programs(compiled.programs, std::getenv("GAGP_GPU_DIAGNOSTICS") != nullptr, while_gpu_runs);
   if (!fit.ok) {
     throw std::runtime_error("gpu fitness evaluation failed: " + fit.err.message);
   }
@@ -350,7 +351,10 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
 #ifdef GAGP_HAS_CUDA
       scored = score_population_gpu_refs(evaluated_population, case_set.input_names, &gpu_session, cfg.fuel, nullptr,
                                          &result, &generation_timing, &fitness_sum,
-                                         gpu_repro_resources ? &raw_fitness : nullptr, true);
+                                         gpu_repro_resources ? &raw_fitness : nullptr, true,
+                                         overlap_gpu && gagp::host_thread_limit() == 1
+                                             ? std::function<void()>([&] { overlap.completion.wait(); })
+                                             : std::function<void()>{});
 #else
       throw std::runtime_error("gpu evaluation requested but CUDA is unavailable in this build");
 #endif
