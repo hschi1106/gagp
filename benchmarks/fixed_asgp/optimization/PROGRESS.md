@@ -61,6 +61,19 @@ Fresh-phase mutation gives Sum best 0 for all three seeds and House -8479/-8479/
 - Stop after testing distinct host-proof, allocation, VM, memory-layout, scheduling, case-layout, precision, dispatch and representation directions. Several remaining instruction/worker tweaks have plateaued or regressed. The radical phase-bank route reduces host work but has a demonstrated quality limitation; no measured candidate supports promoting it to the general backend. The Sum/House 40× goal remains unfinished. Median improves by 1.50×, but its 0.35× ASGP ratio still leaves substantial host overhead.
 - If resumed, start from this runtime and frozen snapshots. The next unresolved architecture question is whether a general grammar-proof-carrying phase/IR representation can avoid AST round trips **without** the independent-hole restriction and quality loss. A small prototype must first establish admissible variation, effective fresh offspring and complete-generation cost, before GPU-resident evolution or a broad rewrite. Existing evidence does not establish its performance or justify treating it as an achieved optimization. For Sum, it must also address bounded-region evaluation; host removal alone has not demonstrated the target.
 
+## Counter access follow-up
+
+After the user enabled driver performance-counter access, `RmProfilingAdminOnly=0` and NCU 2024.3.2 successfully collected four metrics on the final binary. [Raw metric summary and exact commands](results/NCU-enabled.json); original CSV/logs in `logs/optimization/NCU-enabled/`. No new installation or runtime change was needed.
+
+| First matching eval launch | Sum | House |
+| --- | ---: | ---: |
+| Active warp occupancy | 63.61% | 64.65% |
+| SM throughput / sustained peak | 10.68% | 14.92% |
+| DRAM throughput / sustained peak | 50.75% | 54.33% |
+| Local-load sectors | 879,171,063 | 706,170,699 |
+
+These are single-launch diagnostics, not all-generation totals, and clocks/caches were left uncontrolled. Local-load sectors are not DRAM bytes and do not by themselves prove register spilling. Access is now unblocked: the next focused experiment can distinguish local-array traffic from spills and dependency stalls using source/SASS attribution and selected stall/cache metrics. The observed occupancy does not support assuming low occupancy alone explains the remaining eval cost. This is a new investigation lead, not a demonstrated optimization or a change to the final benchmark results.
+
 ## Experiments
 
 Historical single-batch numbers below locate decisions; use the repeated final measurements above for headline results.

@@ -1,0 +1,127 @@
+{
+  "note": "After user enabled NVIDIA counters; RmProfilingAdminOnly=0. One first matching eval launch per task, final_bench, full fixed inputs. Diagnostic only, not whole-generation timing or a repeated performance estimate. GPU clocks/caches left uncontrolled. Local load sectors are not DRAM bytes and do not establish register spilling by themselves.",
+  "manifest": {
+    "binary_sha256": "19e6f5aab5fdc5354c44722717758f35b4a2103ca57cb1d423dd1adfe2952644",
+    "environment": {
+      "GAGP_VIEW_PROFILE": "1",
+      "GAGP_TYPED_VIEW_PHASE": "1",
+      "GAGP_SORT_CASES": "1",
+      "GAGP_COMPACT_FRAMES": "1",
+      "GAGP_CONSTANT_PHASE": "1",
+      "GAGP_POPULATION_HANDOFF": "1",
+      "GAGP_CUDA_DEVICE": "0"
+    },
+    "cells": [
+      {
+        "task": "sum_of_elements",
+        "command": [
+          "/usr/local/cuda-12.6/bin/ncu",
+          "--target-processes",
+          "all",
+          "--kernel-name",
+          "regex:evaluate_fitness",
+          "--launch-count",
+          "1",
+          "--metrics",
+          "sm__throughput.avg.pct_of_peak_sustained_elapsed,dram__throughput.avg.pct_of_peak_sustained_elapsed,sm__warps_active.avg.pct_of_peak_sustained_active,l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum",
+          "--clock-control",
+          "none",
+          "--cache-control",
+          "none",
+          "--csv",
+          "--log-file",
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/NCU-enabled/sum_of_elements.csv",
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/final_bench",
+          "measure",
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/sum_of_elements.source.json",
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/sum_of_elements.p1024.prepared.json",
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/sum_of_elements.grammar.json",
+          "1024",
+          "gpu_overlap",
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/NCU-enabled/sum_of_elements.jsonl"
+        ],
+        "returncode": 0,
+        "seconds": 3.973378773999997
+      },
+      {
+        "task": "house_robber",
+        "command": [
+          "/usr/local/cuda-12.6/bin/ncu",
+          "--target-processes",
+          "all",
+          "--kernel-name",
+          "regex:evaluate_fitness",
+          "--launch-count",
+          "1",
+          "--metrics",
+          "sm__throughput.avg.pct_of_peak_sustained_elapsed,dram__throughput.avg.pct_of_peak_sustained_elapsed,sm__warps_active.avg.pct_of_peak_sustained_active,l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum",
+          "--clock-control",
+          "none",
+          "--cache-control",
+          "none",
+          "--csv",
+          "--log-file",
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/NCU-enabled/house_robber.csv",
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/final_bench",
+          "measure",
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/house_robber.source.json",
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/house_robber.p1024.prepared.json",
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/house_robber.grammar.json",
+          "1024",
+          "gpu_overlap",
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/NCU-enabled/house_robber.jsonl"
+        ],
+        "returncode": 0,
+        "seconds": 3.221884225999986
+      }
+    ]
+  },
+  "results": [
+    {
+      "task": "sum_of_elements",
+      "block": "(512, 1, 1)",
+      "grid": "(238, 1, 1)",
+      "metrics": {
+        "dram__throughput.avg.pct_of_peak_sustained_elapsed": {
+          "value": 50.75,
+          "unit": "%"
+        },
+        "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum": {
+          "value": 879171063.0,
+          "unit": "sector"
+        },
+        "sm__throughput.avg.pct_of_peak_sustained_elapsed": {
+          "value": 10.68,
+          "unit": "%"
+        },
+        "sm__warps_active.avg.pct_of_peak_sustained_active": {
+          "value": 63.61,
+          "unit": "%"
+        }
+      }
+    },
+    {
+      "task": "house_robber",
+      "block": "(512, 1, 1)",
+      "grid": "(416, 1, 1)",
+      "metrics": {
+        "dram__throughput.avg.pct_of_peak_sustained_elapsed": {
+          "value": 54.33,
+          "unit": "%"
+        },
+        "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum": {
+          "value": 706170699.0,
+          "unit": "sector"
+        },
+        "sm__throughput.avg.pct_of_peak_sustained_elapsed": {
+          "value": 14.92,
+          "unit": "%"
+        },
+        "sm__warps_active.avg.pct_of_peak_sustained_active": {
+          "value": 64.65,
+          "unit": "%"
+        }
+      }
+    }
+  ]
+}
