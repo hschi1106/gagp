@@ -919,17 +919,3 @@ reference. Fixed references in template implementation bodies do not count;
 references supplied through holes do. Membership reconstruction, not imported
 provenance, determines fixed origins. This policy controls both subtree mutation
 and crossover candidate enumeration, and leaves constant perturbation unchanged.
-
-## Experimental internal evolution profiles
-
-An explicitly selected experimental evolution profile may retain immutable
-derivations or executable fragments instead of materializing complete ASTs after
-each operator. Legacy operator sampling and RNG draw order apply to the legacy
-mode; they are not mandatory internal representation choices. Such profiles must
-state their grammar/shape support, operator distribution, resource admission and
-fallback boundaries. Type compatibility alone never proves nonterminal membership.
-Scope, constant domain, logical repeated holes, root contract and construction
-bounds remain required. Import/checkpoint metadata is untrusted; live in-process
-proof reuse requires immutable ownership and a controlled construction boundary.
-The restricted executable-fragment experiment is defined in
-[the fixed benchmark guide](../docs/guides/fixed-asgp-benchmark.md#owned-fragment-prototype).

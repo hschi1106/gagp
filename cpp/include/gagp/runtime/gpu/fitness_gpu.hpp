@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "gagp/core/bytecode.hpp"
-#include "gagp/core/region_executable.hpp"
 #include "gagp/core/errors.hpp"
 #include "gagp/core/value.hpp"
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
@@ -64,12 +63,9 @@ class FitnessSessionGpu {
                                 int blocksize = 1024,
                                 double penalty = 1.0);
   FitnessEvalResult eval_programs(const std::vector<BytecodeProgram>& programs, bool capture_case_counts = false) const;
-  FitnessEvalResult eval_executables(const std::vector<RegionExecutable>& programs, bool capture_case_counts = false) const;
   bool is_ready() const;
 
  private:
-  FitnessEvalResult eval_impl(const std::vector<BytecodeProgram>& programs, bool capture_case_counts,
-      const RegionExecutableBatch* owned, bool view_code_proven = false) const;
   struct Impl;
   std::unique_ptr<Impl> impl_;
 };

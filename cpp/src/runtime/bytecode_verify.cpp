@@ -265,20 +265,6 @@ class Verifier {
     return result_;
   }
 
-  BytecodeVerifyResult run_phase(const RegionPhase& phase, const RegionPlan& plan, std::size_t ordinal) {
-    try {
-      validate_region_plan(plan);
-      const auto kind=bounded_region_phase_kind(plan,ordinal);
-      const auto type=bounded_region_phase_type(plan,ordinal);
-      const auto preparation=kind==RegionPhaseKind::Preparation ? bounded_region_preparation_ordinal(plan,ordinal) : 0;
-      if (!verify_region_phase(phase,plan,kind,preparation,type,"$.phase")) return result_;
-      result_.ok=true;result_.diagnostic=BytecodeVerifyDiagnostic{};
-    } catch(const std::invalid_argument& error) {
-      fail(BytecodeVerifyCode::InvalidSegmentMetadata,0,"$.phase",error.what());
-    }
-    return result_;
-  }
-
  private:
   bool fail(BytecodeVerifyCode code, std::size_t instruction_index,
             std::string path, std::string message) {
@@ -949,12 +935,6 @@ BytecodeVerifyResult verify_bounded_region_segment(
   static const BytecodeProgram empty_program;
   return Verifier(empty_program, options).run_bounded_segment(
       segment, caller_n_locals);
-}
-
-BytecodeVerifyResult verify_bounded_region_phase(const RegionPhase& phase,
-    const RegionPlan& plan, std::size_t ordinal, const BytecodeVerifyOptions& options) {
-  static const BytecodeProgram empty_program;
-  return Verifier(empty_program,options).run_phase(phase,plan,ordinal);
 }
 
 }  // namespace gagp

@@ -155,7 +155,7 @@ programs. The continuing optimization record, controls, rejected experiments and
 resume commands are in [the progress index](../../benchmarks/fixed_asgp/optimization/PROGRESS.md).
 
 The native `measure SOURCE PREPARED GRAMMAR POP MODE OUT` entry also supports
-`snapshot`, `search` and `phase_bank`. They write diagnostic JSON and are separate
+`snapshot` and `search`. They write diagnostic JSON and are separate
 from the five modes above:
 
 - `snapshot`: identical frozen programs and all cases, per-program fitness/error/
@@ -164,52 +164,19 @@ from the five modes above:
   top-16 full-case CPU reevaluation. Set `GAGP_GPU_DIAGNOSTICS=1` for per-generation
   counters and `GAGP_BM_SEED=0/1/2` for the short quality screen. Final population
   sizes and exact decoded genome diversity are recorded.
-- `phase_bank`: experimental finite independent-phase profile. Capability
-  detection receives grammar/program structure, not task identifiers. It requires
-  one fixed bounded-region skeleton and independent compatible template holes;
-  unsupported structures fail explicitly. Initial compilation, membership/site
-  analysis, skeleton proof and phase interning are timed as `bank_init_ms`, added
-  to the first complete generation in `first_generation_with_bank_ms`. Subsequent
-  generations materialize bytecode references, fully verify/pack and evaluate all
-  cases. No fitness cache is used.
+## Native GPU execution profiles
 
-Phase-bank reproduction uses tournament 2, elite 1, one whole-phase crossover and
-0.3 mutation by sampling an admitted source phase. It cannot invent new phase
-shapes/constants and is **not the full grammar search space**. Fuel, precision,
-case count and execution limits remain unchanged. Phase identities are interned
-before reporting changed children/diversity. Conservative grammar/node/depth
-bounds cover combinations. Every final child is independently exported and
-re-admitted to the original grammar; exported AST and handle fitness/counters
-must match. Export, final evaluation and top-16 CPU checks are separately timed.
-`GAGP_BANK_GENERATIONS` controls only this probe (default 4, maximum 256).
-Report cold first generation and subsequent generation times separately; do not
-substitute amortized bank timings for the original fixed benchmark.
+The optimization mainline is GPU evaluation plus GPU reproduction. CPU work for
+preparation, decoding and validation may be simplified without replacing the core
+reproduction backend with CPU worker threads. The original CPU control remains.
+External admission, grammar membership, scope, resource and memory safety remain
+required; type correctness alone is not grammar membership.
 
-Setting `GAGP_BANK_FRESH_MUTATION=1` replaces finite-bank mutation with fresh
-whole-phase donors from the authored grammar. Each donor is fully admitted,
-compiled and interned during the generation; failures and effective changes are
-reported. This variant requires registry-independent constant domains and limits
-the probe to 16 generations because it retains complete proof sources. It still
-fixes the region skeleton and varies only independent whole phases. Three variation seeds with the same frozen parents
-matched or improved the observed House best and preserved Sum, but Median remained at its initial
-best: it is not a substitute for native variation quality. Both bank variants
-remain separate from the primary fixed benchmark.
-
-Short searches can expose obvious degradation; they do not establish convergence
-or time-to-solution equivalence. The phase-bank prototype is isolated in the
-optional benchmark executable and does not change native CLI evolution.
-
-## Architecture experiments (2026-10-01, second round)
-
-Internal immutable executables and retained derivations may replace per-generation
-AST materialization, content identity reconstruction and repeated compilation.
-External input admission remains mandatory. Type safety alone is not grammar
-membership: nonterminal, scope, constant domain, linked holes, root and resources
-must be certified or explicitly fall back. A controlled internal object cannot
-be publicly marked trusted. Changed admission/resource or operator semantics must
-be named, tested and reported separately from legacy fixed-parent comparisons.
-RNG draw order and CPU/GPU trajectories are not universal architecture contracts;
-legacy parity tests continue to cover their explicitly selected legacy modes.
+`GAGP_SEARCH_GENERATIONS` and `GAGP_SEARCH_EXPORT` configure native search
+length and final AST export. `benchmarks/fixed_asgp/optimization/round2.py` runs
+native `formal`, `quality` and five-mode `scaling` stages on existing frozen
+inputs. It records process wall time, flags and input/binary hashes; each output
+directory must be new.
 
 Every new generation measurement includes complete evaluation, selection,
 variation and preparation of the next evaluable population. Charge initialization,
@@ -217,84 +184,6 @@ compilation, verification, collection and fallback at their actual frequency.
 Preserve the historical fixed benchmark and frozen ASGP denominator. NCU and
 multiple capability kernels are permitted; profiling does not supply headline
 speedups. Shared representation never implies shared evaluation or reduced fuel.
-
-### Owned fragment prototype
-
-The `fragments` probe uses a native `ExecutableFragments` owner with immutable
-phase sources, certified local sites and compiled phases. Handles cannot be
-forged or reused across owners; imported metadata is not authority. Only scalar
-constant domains, one root region, a fixed admitted skeleton and independent
-whole-phase grammar holes are supported initially. Nested lexical/traversal/region
-phase syntax and cross-phase coupled holes require legacy evolution; the probe
-reports unsupported inputs explicitly. Repeated holes entirely inside a phase
-are replaced atomically from retained grammar sites. Type equivalence is never
-used as a membership proof.
-
-This mode changes operators: tournament-2, one elite, then each child receives
-one site crossover (70%) or fresh site mutation (30%). It samples a phase and a
-local logical site; this is not legacy pair-uniform crossover. Without the opt-ins below, new phases use full admission and compilation in a
-temporary exemplar, and packing verifies materialized bytecode each evaluation.
-The measured candidate enables local phase admission and owned executable
-certificates: unchanged executable phases and proofs are shared, changed phases
-are admitted and compiled locally, and whole-program bytecode verification is
-not repeated. Bytecode assembly and capability analysis still occur each evaluation.
-Root combination budgets are conservative; unsupported combinations reject.
-No numeric/fuel/case limits change. This is a restricted architecture experiment,
-not a replacement for the fixed benchmark or a grammar-wide backend.
-
-`GAGP_FRAGMENT_GENERATIONS` sets 1–65536 generations (default 4). Last-owner
-release reclaims each retired phase within generation timing; no source bank,
-unbounded interning table or 16-generation lifetime limit exists. Init and cold
-GPU cost are recorded separately and included in `search_total_ms`. Final full
-export/admission, AST/handle GPU equality and CPU top-16 audit are separate.
-`GAGP_SEARCH_GENERATIONS` and `GAGP_SEARCH_EXPORT` allow native search controls
-and expression representability checks; ordinary defaults remain unchanged.
-
-`GAGP_LOCAL_FRAGMENT_ADMISSION=1` replaces temporary full-exemplar admission
-with exact membership reconstruction of the changed phase in its declared closed
-frame, followed by phase-only compilation. No ordinary implicit captures or
-nested scope metadata are admitted by this local path. Incoming template-hole
-identity, enclosing template budget and all repeated internal occurrences remain
-explicit. Physical replacement limits use the conservative exemplar hole budget;
-this can differ from reconstructing a whole child's canonical resource allowance.
-The local profile therefore has its own reproducible operator trajectory and is
-reported separately. Export still independently re-admits the complete program.
-
-
-`GAGP_OWNED_EXECUTABLE=1` is an experimental compositional bytecode certificate
-boundary for the fragment probe. Admission copies and verifies an immutable
-single-region layout; each replacement phase is verified once in its exact plan
-and ordinal. Composition requires the same live layout owner and slot. This is
-bytecode safety, **not grammar membership**; the fragment owner separately proves
-membership. Registry-dependent constants and oversized GPU region capacities are
-rejected. External raw bytecode still uses full verification. Evaluation assembles
-and destroys ordinary packed bytecode inside timing, but skips repeated whole
-bytecode verification. Capability/type-flow detection and GPU packing still run.
-The added phase verification and cold owner creation are measured. Three-process repeated measurements show only a few milliseconds saved by this
-certificate boundary; most host savings come from the fragment representation.
-
-
-Round-two reproduction: `benchmarks/fixed_asgp/optimization/round2.py` consumes
-existing frozen files and records binary hashes, input hashes, flags, command and
-process wall time in a fresh output directory. Stages `formal`, `quality`, and
-`scaling` execute serially. `fragments_repeat` performs one warmup trajectory and
-three measured fresh-owner trajectories per process; compare the same generation
-index across repeats, never different evolved populations. `formal` runs three
-processes per configuration. Input reading through reporting is separately saved
-in `.wall.json`; process startup/exit is additionally included by the driver.
-`search_total_ms` covers probe setup and evolution, excluding external input decode
-and final independent audit/export. Full process wall time includes those costs.
-`GAGP_FRAGMENT_EXPORT` writes independently admitted final ASTs for external audit.
-
-
-`GAGP_FRAGMENT_PARSIMONY=1` is a separate search-rule experiment: tournament
-fitness ties and elite fitness ties prefer fewer retained physical AST nodes;
-remaining ties preserve the existing choice order. Fitness, numerical semantics,
-cases and resource limits are unchanged. Its populations and quality must be
-compared separately, including the cost of obtaining current size summaries.
-This targets neutral program growth observed after dozens of generations; it is
-not an evaluator optimization or an identical-workload speedup.
-
 
 `GAGP_WINDOW_EXECUTOR=1` currently tests verified IntList window regions with an
 optional carried Int state, two sequence-window requests, one InteriorCut Int
@@ -315,24 +204,3 @@ phase order, numeric operations and fuel. Unsupported shapes keep tagged frames.
 bound scalar loads, Add and optional Return, with no unused or parameter binding.
 It reads proved initialized slots directly, preserving per-instruction fuel and
 the existing double-conversion/wrapping arithmetic. Other phases retain the VM.
-
-
-`GAGP_BUCKET_SMALL_PHASES=1` is an isolated owned-executable experiment (driver
-`--buckets`), disabled in the common best configuration. Splitting can regress
-cheap populations; it is not a universal speedup. With
-`GAGP_DIRECT_PHASE`, it partitions a mixed-capacity, wholly view-capable population by certified stack bound
-(up to 16) and phase-local capacity (up to 8), then runs the existing capability
-checks separately for each bucket. Unsupported payload/shape profiles still use
-the ordinary evaluator. It does not change grammar admission, selection order,
-precision, fuel or limits; every result is scattered back to its original index.
-Homogeneous populations use one ordinary evaluation call. A private consuming
-partition moves each immutable bytecode/bound pair; the immediately preceding
-whole-batch view proof is reused only for its subsets in that same session call.
-Payload availability and all other capability/capacity checks still run. There is
-no public trusted flag or persistent proof cache. Classification, launches,
-workspace layout changes and scatter remain inside evaluation timing. Raw mutable
-bytecode dispatch is unchanged.
-
-`GAGP_SNAPSHOT_OWNED=1` applies the strictly admitted immutable bytecode path to
-an evaluator snapshot. Certificate construction is included in its `compile_ms`;
-this remains a diagnostic snapshot, not a complete-generation timing.

@@ -70,10 +70,4 @@ BytecodeVerifyResult verify_bounded_region_segment(
     const BoundedRegionSegment& segment, int caller_n_locals,
     const BytecodeVerifyOptions& options = BytecodeVerifyOptions{});
 
-// Validates the plan and one phase at its canonical flat ordinal, including
-// visible banks, exact result type, stack/local/index and semantic fuel bounds.
-BytecodeVerifyResult verify_bounded_region_phase(const RegionPhase& phase,
-    const RegionPlan& plan, std::size_t ordinal,
-    const BytecodeVerifyOptions& options = BytecodeVerifyOptions{});
-
 }  // namespace gagp

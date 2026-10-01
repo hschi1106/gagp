@@ -60,7 +60,6 @@ add_library(gagp_core
   src/runtime/recurrence_rank.cpp
   src/runtime/sequence_rank.cpp
   src/runtime/semantic_fuel.cpp
-  src/runtime/region_executable.cpp
   src/runtime/bytecode_verify.cpp
 )
 target_include_directories(gagp_core PUBLIC include)
@@ -150,13 +149,9 @@ target_sources(gagp_evolution PRIVATE
   src/evolution/grammar/crossover.cpp
   src/evolution/grammar/mutation.cpp
   src/evolution/grammar/variation_contract.cpp
-  src/evolution/grammar/executable_fragments.cpp
   src/evolution/grammar/variation_cache.cpp
 )
 target_link_libraries(gagp_evolution PUBLIC gagp_grammar)
-add_executable(gagp_test_executable_fragments tests/evolution/test_executable_fragments.cpp)
-target_link_libraries(gagp_test_executable_fragments PRIVATE gagp_evolution)
-add_test(NAME gagp_test_executable_fragments COMMAND gagp_test_executable_fragments)
 
 
 add_executable(gagp_test_grammar_cache tests/evolution/test_grammar_cache.cpp)
@@ -833,9 +828,7 @@ if(GAGP_BUILD_BENCHMARKS)
     target_compile_features(asgp_core PUBLIC cxx_std_20)
     add_executable(gagp_fixed_asgp_bench
       src/bench/fixed_asgp/main.cpp
-      src/bench/fixed_asgp/adapter.cpp
-      src/bench/fixed_asgp/phase_bank.cpp
-      src/bench/fixed_asgp/fragment_probe.cpp)
+      src/bench/fixed_asgp/adapter.cpp)
     target_compile_features(gagp_fixed_asgp_bench PRIVATE cxx_std_20)
     target_link_libraries(gagp_fixed_asgp_bench PRIVATE gagp_cli_support gagp_gpu asgp_core)
   endif()

@@ -188,17 +188,3 @@ runtime error set from the ISA. Fixtures are verified before execution.
 Release-1 bytecode is deliberately not migratable. Recompile a migrated source
 AST so type/scope and general-region metadata are regenerated and verified.
 Normal codecs issue this instruction when they see a release-1 identifier.
-
-
-### Immutable region executable certificates
-
-An internal `RegionExecutableLayout` may own a fully verified, immutable
-single-region program with scalar constants. A replacement phase is independently
-verified against that layout's region plan, phase ordinal, binding visibility,
-result type and stack/local limits. `RegionExecutable::compose` accepts only
-phase handles from the same live owner and exact ordinal. An immutable batch
-materializes copies together with their compositional stack bounds; only this
-batch can bypass repeated full verification during GPU packing. Mutable raw
-bytecode, external input and unrelated owners never inherit this authority.
-The certificate proves bytecode safety and resource bounds, not grammar membership.
-No instruction, numerical, error or fuel semantics change.

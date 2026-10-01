@@ -475,78 +475,6 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
 }
 
 FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodeProgram>& programs, bool capture_case_counts) const {
-  return eval_impl(programs,capture_case_counts,nullptr);
-}
-FitnessEvalResult FitnessSessionGpu::eval_executables(const std::vector<RegionExecutable>& programs, bool capture_case_counts) const {
-  const auto start=std::chrono::steady_clock::now();
-  try {
-    FitnessEvalResult result;
-    {
-      RegionExecutableBatch batch(programs);
-      std::array<std::vector<std::size_t>,2> buckets;
-      std::vector<unsigned char> routes;
-      if (std::getenv("GAGP_BUCKET_SMALL_PHASES") && std::getenv("GAGP_DIRECT_PHASE") && std::getenv("GAGP_VIEW_PROFILE")) {
-        // A capacity partition is not a new type/membership proof. Each bucket
-        // still runs the existing payload/shape capability checks and fallback.
-        const auto small = [](const BytecodeProgram& program) {
-          const auto phase_ok=[](const RegionPhase& phase){return phase.program.n_locals<=8;};
-          for(const auto& segment:program.bounded_region_segments) {
-            if(!phase_ok(segment.base_predicate) || !phase_ok(segment.base_body) || !phase_ok(segment.combine) ||
-                (segment.boundary && !phase_ok(*segment.boundary)))return false;
-            for(const auto& phase:segment.preparations)if(!phase_ok(phase))return false;
-            for(const auto& phase:segment.request_expressions)if(!phase_ok(phase))return false;
-          }
-          return true;
-        };
-        routes.reserve(programs.size());
-        for(std::size_t i=0;i<programs.size();++i) {
-          const unsigned char route=batch.stack_bounds()[i]<=16 && small(batch.programs()[i]) ? 0 : 1;
-          routes.push_back(route);buckets[route].push_back(i);
-        }
-      }
-      const bool split = !buckets[0].empty() && !buckets[1].empty() && impl_ && impl_->ready &&
-          std::all_of(batch.programs().begin(),batch.programs().end(),[&](const auto& program) {
-            return gpu_detail::view_program_supported(program,impl_->shared_input_types);
-          });
-      // Do not change a mixed payload population's existing view eligibility.
-      // This first experiment isolates capacity demotion within view-capable code.
-      if(!split) {
-        result=eval_impl(batch.programs(),capture_case_counts,&batch);
-      } else {
-        result.ok=true;result.fitness.resize(programs.size());
-        if(capture_case_counts)result.case_counts.resize(programs.size());
-        result.execution_profile="small-phase-buckets[";
-        auto parts=std::move(batch).partition(routes);
-        for(std::size_t b=0;b<parts.size();++b) {
-          const auto& indices=buckets[b];const auto& part=parts[b];
-          // Same immutable code and session input types as the immediately
-          // preceding whole-batch proof; no public trusted flag or cache key.
-          auto evaluated=eval_impl(part.programs(),capture_case_counts,&part,true);
-          if(!evaluated.ok)return evaluated;
-          result.execution_profile+=std::to_string(indices.size())+":"+evaluated.execution_profile+";";
-          for(std::size_t j=0;j<indices.size();++j) {
-            result.fitness[indices[j]]=evaluated.fitness[j];
-            if(capture_case_counts)result.case_counts[indices[j]]=evaluated.case_counts[j];
-          }
-          result.timing.pack_ms+=evaluated.timing.pack_ms;
-          result.timing.launch_prep_ms+=evaluated.timing.launch_prep_ms;
-          result.timing.upload_ms+=evaluated.timing.upload_ms;
-          result.timing.kernel_ms+=evaluated.timing.kernel_ms;
-          result.timing.copyback_ms+=evaluated.timing.copyback_ms;
-          result.timing.teardown_ms+=evaluated.timing.teardown_ms;
-          result.timing.total_ms+=evaluated.timing.total_ms;
-        }
-        result.execution_profile+="]";
-      }
-    }
-    const auto elapsed=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count();
-    result.timing.pack_ms += elapsed-result.timing.total_ms;
-    result.timing.total_ms=elapsed;
-    return result;
-  } catch(const std::invalid_argument& error) { return fitness_eval_single_error(ErrCode::Value,error.what()); }
-}
-FitnessEvalResult FitnessSessionGpu::eval_impl(const std::vector<BytecodeProgram>& programs, bool capture_case_counts,
-    const RegionExecutableBatch* owned, bool view_code_proven) const {
   if (!impl_ || !impl_->ready) {
     return fitness_eval_single_error(ErrCode::Value, "gpu fitness session is not initialized");
   }
@@ -561,9 +489,7 @@ FitnessEvalResult FitnessSessionGpu::eval_impl(const std::vector<BytecodeProgram
   const auto pack_t0 = std::chrono::steady_clock::now();
   gpu_detail::PackResult packed;
   try {
-    packed = owned ? gpu_detail::pack_programs_with_shared_case_count(
-        *owned, impl_->shared_case_count, impl_->shared_input_payload_mask) :
-        gpu_detail::pack_programs_with_shared_case_count(
+    packed = gpu_detail::pack_programs_with_shared_case_count(
         programs, impl_->shared_case_count, impl_->shared_input_payload_mask);
   } catch (const std::invalid_argument& error) {
     return fitness_eval_single_error(ErrCode::Value, error.what());
@@ -589,9 +515,9 @@ FitnessEvalResult FitnessSessionGpu::eval_impl(const std::vector<BytecodeProgram
       payload_pack.list_entries.size() == required_list_count &&
       std::all_of(payload_pack.list_entries.begin(), payload_pack.list_entries.end(), [](const auto& entry) { return entry.tag == ValueTag::IntList; }) &&
       std::all_of(payload_pack.list_values.begin(), payload_pack.list_values.end(), [](const auto& value) { return value.tag == ValueTag::Int; }) &&
-      ((owned && view_code_proven) || std::all_of(programs.begin(), programs.end(), [&](const auto& program) {
+      std::all_of(programs.begin(), programs.end(), [&](const auto& program) {
         return gpu_detail::view_program_supported(program, impl_->shared_input_types);
-      }));
+      });
   if (use_views) {
     if (std::getenv("GAGP_TYPED_VIEW_PHASE"))
       for (auto& phase : packed.region_phases) phase.program.typed_view = true;

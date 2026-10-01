@@ -1,0 +1,141 @@
+{
+  "status": "CPU fragment reproduction and all exclusive implementation/entrypoints removed; historical data retained only",
+  "source_parent": "2ddd77818bb16c9269ba1aa16fbf318152aa9f88",
+  "binary": "logs/optimization/cpu-fragment-removal-20261002/bench",
+  "binary_sha256": "d411892a9dd9b288e285ab68323f157d8d857fee1a23890f37dca8ec3d24bdf9",
+  "native_flags": {
+    "GAGP_VIEW_PROFILE": "1",
+    "GAGP_TYPED_VIEW_PHASE": "1",
+    "GAGP_SORT_CASES": "1",
+    "GAGP_COMPACT_FRAMES": "1",
+    "GAGP_CONSTANT_PHASE": "1",
+    "GAGP_POPULATION_HANDOFF": "1",
+    "GAGP_DIRECT_PHASE": "1",
+    "GAGP_DIRECT_ROOT": "1",
+    "GAGP_WINDOW_EXECUTOR": "1",
+    "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+    "GAGP_BOUND_ADD_PHASE": "1",
+    "GAGP_CUDA_DEVICE": "0"
+  },
+  "build": "Complete Release build, exit 0",
+  "tests": {
+    "native": {
+      "passed": 119,
+      "failed": 0
+    },
+    "tools": {
+      "run": 89,
+      "optional_skipped": 4,
+      "failed": 0
+    },
+    "repository": {
+      "passed": 24,
+      "failed": 0
+    },
+    "native_quality_summary_rows": 9
+  },
+  "smoke": {
+    "tasks": [
+      "sum_of_elements",
+      "house_robber",
+      "median"
+    ],
+    "modes": [
+      "asgp_1t",
+      "gagp_cpu",
+      "gpu_eval",
+      "gpu_repro",
+      "gpu_overlap"
+    ],
+    "population": 32,
+    "cases": 1024,
+    "warmups_per_cell": 1,
+    "measured_repeats_per_cell": 3,
+    "candidate_cells": 15,
+    "before_control_cells": 15,
+    "non_timing_fields_equal_in_all_60_pairs": true,
+    "before_binary_sha256": "327a76322d4556b50a4929e1b27844aa3325dacf05b9bf75f3681e0d8929fc05",
+    "not_a_performance_baseline": true
+  },
+  "removed_modes_rejected": {
+    "modes": [
+      "fragments",
+      "fragments_repeat",
+      "phase_bank"
+    ],
+    "all_rejected": true
+  },
+  "dependency_audit": {
+    "removed_exclusive": [
+      "ExecutableFragments owner and local variation",
+      "RegionExecutable layout/phase/batch and owned GPU packing/bucketing",
+      "CPU phase-bank and fragment probes",
+      "closed-phase variation/compiler/bytecode-verifier entrypoints"
+    ],
+    "retained_shared": [
+      "Native derivation certificates and analysis cache",
+      "Frame membership and region phase helpers used by native compiler, admission and donor preparation",
+      "Native CPU controls and GPU reproduction",
+      "Full bytecode verifier and common safety tests"
+    ],
+    "source_entrypoint_matches": 0,
+    "linked_removed_symbols": 0,
+    "retained_native_paths_byte_identical": [
+      "cpp/src/runtime/gpu/device/arith_device.cuh",
+      "cpp/src/runtime/gpu/device/builtins_device.cuh",
+      "cpp/src/runtime/gpu/device/execute_bytecode_device.cuh",
+      "cpp/src/runtime/gpu/device/kernels.cuh",
+      "cpp/src/runtime/gpu/device/region_execution_device.cuh",
+      "cpp/src/runtime/gpu/device/view_phase_device.cuh",
+      "cpp/src/runtime/gpu/device/window_execution_device.cuh",
+      "cpp/src/evolution/repro/backend.cpp",
+      "cpp/src/evolution/repro/compiled_decode.cpp",
+      "cpp/src/evolution/repro/compiled_decode.hpp",
+      "cpp/src/evolution/repro/constant_prep.cpp",
+      "cpp/src/evolution/repro/constant_prep.hpp",
+      "cpp/src/evolution/repro/gpu.cpp",
+      "cpp/src/evolution/repro/gpu/arena.cu",
+      "cpp/src/evolution/repro/gpu/copyback.cu",
+      "cpp/src/evolution/repro/gpu/device/atomic_splice.cuh",
+      "cpp/src/evolution/repro/gpu/device/compiled_mutation.cuh",
+      "cpp/src/evolution/repro/gpu/device/compiled_splice.cuh",
+      "cpp/src/evolution/repro/gpu/device/compiled_variation.cuh",
+      "cpp/src/evolution/repro/gpu/device/constant_mutation.cuh",
+      "cpp/src/evolution/repro/gpu/device/grammar_random.cuh",
+      "cpp/src/evolution/repro/gpu/device/pack_types.cuh",
+      "cpp/src/evolution/repro/gpu/device/random_device.cuh",
+      "cpp/src/evolution/repro/gpu/device/selection_kernels.cuh",
+      "cpp/src/evolution/repro/gpu/device/variation_kernels.cuh",
+      "cpp/src/evolution/repro/gpu/internal.hpp",
+      "cpp/src/evolution/repro/gpu/launch.cu",
+      "cpp/src/evolution/repro/grammar_prep.cpp",
+      "cpp/src/evolution/repro/owned_overlap.hpp",
+      "cpp/src/evolution/repro/pack.cpp",
+      "cpp/src/evolution/repro/pack_internal.hpp",
+      "cpp/src/evolution/repro/prep.cpp",
+      "cpp/src/evolution/repro/prep_internal.hpp",
+      "cpp/src/evolution/repro/splice_metadata.cpp",
+      "cpp/src/evolution/repro/splice_metadata.hpp",
+      "cpp/src/runtime/gpu/view_profile.hpp",
+      "cpp/src/evolution/evolve.cpp",
+      "cpp/src/evolution/grammar/cache.cpp",
+      "cpp/src/evolution/grammar/variation_cache.cpp"
+    ]
+  },
+  "protection": {
+    "files_checked": 111,
+    "original_user_modified_paths": 41,
+    "original_worktree_head_unchanged": true,
+    "all_original_hashes_equal": true
+  },
+  "raw_logs": "logs/optimization/cpu-fragment-removal-20261002",
+  "historical_results_status": "README.md",
+  "checksums": {
+    "build.log": "a53fcd7a2c95747581387c76e42b9723c743a0ac48777a9ba557153de6110124",
+    "ctest.log": "b072c29651c48c82823e6747aa705c4d728c02fd3b7745e25b74efcc869e3dbe",
+    "tools-tests.log": "398d41e1ba0b2ebcadcf9170938b50264ba5fe98cf95de0c2c2e6c6e92e41ad4",
+    "repository-tests.log": "51ed056f2593d278317579ec6152309a4b16a3c840c88bb67a7d078eac90bc22",
+    "smoke.json": "6fcd40be71c1fd66772005951ea900facb450dcc7225d59ee29e6e7d99ca6073",
+    "protected.json": "5ea1f69d5c3df2a35fd095d9296509b98e5fd8ec57c59cf57c10c172097a747e"
+  }
+}

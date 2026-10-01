@@ -4,11 +4,6 @@
 
 #include "gagp/evolution/grammar/variation.hpp"
 
-namespace gagp::evo::grammar {
-VariationAnalysis analyze_closed_phase(const CompiledGrammar& grammar, const ProgramGenome& genome,
-    const GenerationRequest& request, const GenerationFrame& frame);
-}
-
 namespace gagp::evo::grammar::variation_detail {
 
 // Optional owned copies preserve the original-parent coordinates for coupled

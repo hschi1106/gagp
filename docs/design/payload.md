@@ -163,10 +163,6 @@ Programs are still classifiable into four fine-grained payload flavors in `cpp/s
 The current GPU fitness path selects one execution profile for the population.
 One grid-stride kernel covers all programs; workspace limits concurrent blocks,
 not evaluation coverage. A single launch is not an architectural requirement.
-The experimental owned-executable capacity partition may use separate kernels;
-every program/case pair is evaluated and results retain original population
-indices. Raw bytecode and the default owned path still use one profile. See
-[the bucket contract](../guides/fixed-asgp-benchmark.md#owned-fragment-prototype).
 An opt-in, structurally proven integer/list view profile is described below.
 
 The finer `StringOnly` / `ListOnly` labels are kept for experiment tooling and offline bucket studies rather than the production eval dispatch tree.
@@ -179,7 +175,7 @@ uses `Mixed` or the proven view profile, and evaluates every program/case pair.
 ### Proven integer/list execution profile
 
 `cpp/src/runtime/gpu/view_profile.hpp` checks forward type flow after ordinary
-bytecode verification or an immutable compositional bytecode safety certificate. With `GAGP_VIEW_PROFILE=1`, a population containing bounded
+bytecode verification. With `GAGP_VIEW_PROFILE=1`, a population containing bounded
 regions can use `IntListViews` only when every root/phase is supported, all required
 list payloads are present and contain integers, and final outputs are scalar.
 Supported observations are Len/Index/Slice; list equality/output, other containers,

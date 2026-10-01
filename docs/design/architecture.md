@@ -40,11 +40,9 @@ or target-specific DP primitive.
 
 `gagp_evolution` owns materialization, membership reconstruction, verified
 ASTs, lowering, selection, compiled variation, and lifecycle orchestration.
-The legacy native backend materializes each generated or accepted child as a
+The native backend currently materializes each generated or accepted child as a
 release-2 AST and certifies it against the active compiled definition.
-Experimental immutable fragment profiles may retain internal executables and
-materialize ASTs only at export/admission boundaries; their support and operator
-contracts are explicit. Reconstructed witnesses certify membership but set
+Reconstructed witnesses certify membership but set
 `seed_replayable=false`.
 
 `gagp_core` owns values, opcodes, bytecode verification, general region plans,
@@ -69,8 +67,7 @@ declares a 1024-thread launch bound so its supported maximum block size does not
 depend on an external compiler register cap.
 Packing reserves the known root instruction and constant table capacities before
 appending entries. Capacity checks remain in place. External bytecode is verified on every import;
-controlled immutable executables may reuse their compositional safety certificate
-as defined in `spec/bytecode_format.md`.
+GPU packing independently verifies bounded programs.
 The reference phase executor uses a smaller preset array for at most four
 bindings; larger phases retain the full descriptor capacity. Both paths use the same binding,
 lazy capture checking, bytecode execution, result checking, and fuel rules.

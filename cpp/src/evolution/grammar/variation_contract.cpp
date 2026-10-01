@@ -104,14 +104,12 @@ VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const Progra
 
 static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, const ProgramGenome& genome,
     const GenerationRequest& initial_request, CompatibilityRegistry* registry,
-    const ProjectedBudget* local_projected_budget, const std::vector<GenerationRequest>* requests,
-    const GenerationFrame* frame = nullptr) {
+    const ProjectedBudget* local_projected_budget, const std::vector<GenerationRequest>* requests) {
   VariationAnalysis result;
   if (local_projected_budget && !resource_charges_are_local(grammar))
     throw std::invalid_argument("projected candidate allowance requires context-independent resource charges");
   std::vector<std::vector<int>> choice_environments;
-  result.witness = frame ? reconstruct_derivation_in_frame(grammar, genome, initial_request, *frame,
-      &result.verified, &choice_environments) : requests ?
+  result.witness = requests ?
       reconstruct_population_derivation(grammar, genome, *requests, &result.verified, &choice_environments) :
       reconstruct_derivation(grammar, genome, initial_request, &result.verified, &choice_environments);
   const auto& request = result.witness.request;
@@ -151,8 +149,7 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
       for (std::size_t i = 0; i < environment.size(); ++i) {
         if (environment[i] < 0) continue;  // Unconsumed external request binding.
         const auto binding = std::make_pair(-environment[i] - 1, nt.scope[i].type);
-        const bool external = frame && std::find(frame->binder_ids.begin(), frame->binder_ids.end(), environment[i]) != frame->binder_ids.end();
-        if (!external && std::find(scope.binders.begin(), scope.binders.end(), binding) == scope.binders.end())
+        if (std::find(scope.binders.begin(), scope.binders.end(), binding) == scope.binders.end())
           throw std::logic_error("variation witness lexical binding is unavailable at its occurrence");
       }
     }
@@ -171,7 +168,7 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
       const bool materialized_scope = !ids.empty() &&
           std::all_of(ids.begin(), ids.end(), [](int id) { return id >= 0; });
       site.visible_environment = materialized_scope ? nt.scope : request.visible_environment;
-      site.available_locals = frame ? std::vector<RegionBinding>{} : native_scope(grammar, genome, verified, choice.ast_begin, nt.category);
+      site.available_locals = native_scope(grammar, genome, verified, choice.ast_begin, nt.category);
       site.replacement_budget = request.budget;
       site.remaining_template_nesting = 256;
       const auto id = result.sites.size();
@@ -196,7 +193,7 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
     }
     // The first occurrence initialized available_locals when the site was created.
     // Only linked later occurrences need another scope lookup and intersection.
-    if (!frame && site.occurrences.size() > 1)
+    if (site.occurrences.size() > 1)
       intersect(site.available_locals, native_scope(grammar, genome, verified, choice.ast_begin, nt.category));
     site.replacement_budget.max_depth = std::min(site.replacement_budget.max_depth,
         request.budget.max_depth - depths.at(choice.ast_begin) + 1);
@@ -244,20 +241,6 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
     if (registry) site.compatibility_id = registry->intern(site.compatibility_key);
   }
   return result;
-}
-
-// Internal phase admission: no ordinary locals or nested declarations. Captures
-// are admitted in the exact formal frame by the membership matcher; the native
-// verifier sees their projected input names. They are not free ordinary locals.
-VariationAnalysis analyze_closed_phase(const CompiledGrammar& grammar, const ProgramGenome& genome,
-    const GenerationRequest& request, const GenerationFrame& frame) {
-  if (!frame.locals.empty() || !genome.ast.lexical_regions.empty() ||
-      !genome.ast.traversal_specs.empty() || !genome.ast.bounded_region_specs.empty())
-    throw std::invalid_argument("closed phase does not support nested scope/region metadata");
-  for (const auto& node : genome.ast.nodes)
-    if (node.kind == NodeKind::VAR)
-      throw std::invalid_argument("closed phase forbids implicit ordinary captures");
-  return analyze_variation_impl(grammar, genome, request, nullptr, nullptr, nullptr, &frame);
 }
 
 VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const ProgramGenome& genome,

@@ -148,12 +148,6 @@ in original program order. `GAGP_SERIAL_PACK_VERIFY=1` selects serial checks.
 The verifier supplies stack bounds for the execution storage choices described
 in [payload execution profiles](payload.md#proven-integerlist-execution-profile).
 
-The optional benchmark-only phase-bank prototype replaces AST evolution with
-immutable compatible phase references. Its restricted search space, initialization
-cost and export audit are described in the
-[fixed benchmark guide](../guides/fixed-asgp-benchmark.md#optimization-and-diagnostic-probes).
-It is not part of `evolve_population` or the default reproduction backend.
-
 ### Direct typed phase execution
 
 `GAGP_DIRECT_PHASE=1` adds a capability kernel to the existing opt-in IntList
@@ -180,4 +174,4 @@ frames; list view state remains stored even when Value tags are structural.
 `host_pack_gpu.cu` also recognizes bound scalar Add phases, mapping loads to
 initialized frame slots. Both retain generic fallback and original fuel. The
 current opt-in settings and support limits are recorded with the
-[experimental benchmark profiles](../guides/fixed-asgp-benchmark.md#owned-fragment-prototype).
+[native GPU execution profiles](../guides/fixed-asgp-benchmark.md#native-gpu-execution-profiles).

@@ -71,6 +71,14 @@
   - compiled grammar-definition and generation-request behavior when touching generation, mutation, reproduction, or replay,
   - edge cases around fuel/timeouts and numeric/type operations.
 
+## Optimization Mainline
+- Optimize GPU evaluation plus GPU reproduction. CPU preparation, decoding, and
+  validation may be simplified, but do not replace core reproduction with a CPU
+  worker backend and report that architecture as the mainline GPU speedup.
+- Preserve the five native fixed-benchmark modes and their CPU controls.
+- Historical CPU fragment/phase-bank measurements are retired records, not
+  maintained implementation paths or recommended optimization entry points.
+
 ## Profiling Guidelines
 - Use `nsys` for timelines and `ncu` for focused hardware-counter diagnosis.
 - Profiled timings are diagnostic; report speedups from unprofiled runs.

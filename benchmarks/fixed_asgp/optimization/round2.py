@@ -1,4 +1,4 @@
-"""Serial round-two experiments; consumes frozen inputs, never prepares them."""
+"""Serial native GPU evolution experiments; consumes frozen inputs, never prepares them."""
 from pathlib import Path
 import argparse
 import hashlib
@@ -27,10 +27,6 @@ def main():
     parser.add_argument('--binary', type=Path, required=True)
     parser.add_argument('--baseline', type=Path)
     parser.add_argument('--generations', type=int, default=128)
-    parser.add_argument('--native-generations', type=int)
-    parser.add_argument('--only', choices=('all','native','fragments'), default='all')
-    parser.add_argument('--parsimony', action='store_true')
-    parser.add_argument('--buckets', action='store_true', help='experimental owned capacity buckets; may regress cheap populations')
     args = parser.parse_args()
     os.chdir(ROOT)
     out = args.out.resolve(); out.mkdir(parents=True, exist_ok=False)
@@ -63,43 +59,28 @@ def main():
         if result.returncode:
             raise RuntimeError(f'failed cell: {target}')
 
-    fragment = dict(FLAGS, GAGP_LOCAL_FRAGMENT_ADMISSION='1', GAGP_OWNED_EXECUTABLE='1')
-    if args.parsimony: fragment['GAGP_FRAGMENT_PARSIMONY']='1'
-    if args.buckets: fragment['GAGP_BUCKET_SMALL_PHASES']='1'
     if args.stage == 'formal':
         for process in range(3):
             for task in TASKS:
                 order = ['baseline', 'native'] if process % 2 == 0 else ['native', 'baseline']
-                for kind in (order if args.only != 'fragments' else []):
+                for kind in order:
                     if kind == 'baseline' and args.baseline:
                         old = {k: v for k, v in FLAGS.items() if k not in ('GAGP_DIRECT_PHASE', 'GAGP_DIRECT_ROOT', 'GAGP_WINDOW_EXECUTOR', 'GAGP_UNBOXED_WINDOW_FRAMES', 'GAGP_BOUND_ADD_PHASE')}
                         run(task, 'gpu_overlap', f'baseline.p{process}', old, executable=args.baseline.resolve())
                     elif kind == 'native':
                         run(task, 'gpu_overlap', f'native.p{process}', FLAGS)
-                # Each process warms a complete four-generation trajectory once,
-                # then repeats it three times with fresh owners and the same seed.
-                kinds = [False, True] if process % 2 == 0 else [True, False]
-                for owned in ([] if args.only=='native' else [True] if args.parsimony else kinds):
-                    flags = dict(fragment, GAGP_FRAGMENT_GENERATIONS='4')
-                    if not owned: flags.pop('GAGP_OWNED_EXECUTABLE')
-                    run(task, 'fragments_repeat', f'fragments-owned{int(owned)}.p{process}', flags)
     elif args.stage == 'quality':
         for seed in range(3):
             for task in TASKS:
-                for kind in (('native', 'fragments') if args.only=='all' else (args.only,)):
-                    flags = dict(FLAGS if kind == 'native' else fragment,
-                        GAGP_BM_SEED=str(seed), GAGP_GPU_DIAGNOSTICS='1')
-                    key = 'GAGP_SEARCH_GENERATIONS' if kind == 'native' else 'GAGP_FRAGMENT_GENERATIONS'
-                    flags[key] = str(args.native_generations if kind=='native' and args.native_generations else args.generations)
-                    export_key = 'GAGP_SEARCH_EXPORT' if kind == 'native' else 'GAGP_FRAGMENT_EXPORT'
-                    flags[export_key] = str(out / f'{kind}.s{seed}.{task}.asts.json')
-                    run(task, 'search' if kind == 'native' else 'fragments', f'{kind}.s{seed}', flags)
+                flags = dict(FLAGS, GAGP_BM_SEED=str(seed), GAGP_GPU_DIAGNOSTICS='1',
+                    GAGP_SEARCH_GENERATIONS=str(args.generations),
+                    GAGP_SEARCH_EXPORT=str(out / f'native.s{seed}.{task}.asts.json'))
+                run(task, 'search', f'native.s{seed}', flags)
     else:
         for task in TASKS:
             for pop in (1024, 2048, 4096, 8192):
                 for mode in ('asgp_1t', 'gagp_cpu', 'gpu_eval', 'gpu_repro', 'gpu_overlap'):
                     run(task, mode, f'{mode}.p{pop}', FLAGS, pop)
-                run(task, 'fragments_repeat', f'fragments.p{pop}', dict(fragment, GAGP_FRAGMENT_GENERATIONS='4'), pop)
 
 
 if __name__ == '__main__':

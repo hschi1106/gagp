@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "gagp/core/bytecode.hpp"
-#include "gagp/core/region_executable.hpp"
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 #include "gagp/runtime/gpu/device_types_gpu.hpp"
 #include "gagp/runtime/gpu/region_types_gpu.hpp"
@@ -31,8 +30,6 @@ struct PackResult {
 PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgram>& programs,
                                                 int shared_case_count,
                                                 unsigned shared_input_payload_mask);
-PackResult pack_programs_with_shared_case_count(const RegionExecutableBatch& programs,
-    int shared_case_count, unsigned shared_input_payload_mask);
 void pack_shared_cases_only(const std::vector<CaseBindings>& shared_cases,
                             std::vector<Value>* packed_case_local_vals,
                             std::vector<unsigned char>* packed_case_local_set);
