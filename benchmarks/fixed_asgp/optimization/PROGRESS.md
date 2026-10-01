@@ -4,6 +4,17 @@ Active objective: preserve CPU / GPU-e / GPU-er / GPU-er-o architecture, use
 CPU 1T + GPU, target fastest native GPU >30× frozen ASGP-1T on Sum/House;
 Median remains fixed-overhead workload. Do not resume retired CPU fragment route.
 
+## Active experiment
+
+Candidate I: constexpr descriptor index replaces two linear descriptor scans;
+reserved/negative/out-of-range kinds retain rejection. Three focused tests pass.
+Quick full-generation Sum407.016 / House422.699 / Median430.516 ms, identical
+non-timing fields. Nine-repeat interleaved runs complete with consistent gains;
+full snapshots and changing-search comparisons still running before promotion.
+Raw binary/repeats/commands: `logs/optimization/native-node-index-validation/`.
+No interface/navigation change. Next: avoid constructing unused variation sites
+at final GPU mutation admission while preserving full membership/lowering.
+
 ## Current fair baseline
 
 Source parent `9ce96a9`; thread-policy checkpoint follows. `GAGP_HOST_THREADS=1`
@@ -84,13 +95,14 @@ Rejected G: retaining full sites in native certificates. Fixed generation slowed
 and32-generation fields/exports matched, but copying/retaining sites lost.
 Implementation/flag/exclusive tests removed; raw rejected patch and evidence:
 `logs/optimization/native-certified-sites/`. Best runtime unchanged.
-Candidate H: bounded run-context reuse only for statically finite contract keys.
-Original4P and2P tests have identical short/32-generation populations but mixed
-whole-process gains (Sum regresses, House/Median modest gains). Their fixed-gen
-reductions are INVALID: cache destruction moved beyond internal timers. Raw dirs
-`native-run-analysis` and `native-run-analysis-2p` have timing notices. Corrected
-candidate drains final cache inside last generation; testing in
-`logs/optimization/native-run-analysis-accounted/`. Not promoted.
+Rejected H: retain the run analysis context (also tested a smaller2P capacity).
+All short and32-generation results/ASTs matched. After correctly charging final
+cache destruction, fixed-gen changes were only ~1–3%, and32-generation process
+wall Sum18.78→19.90s, House17.69→17.32s, Median20.53→19.63s. Mixed/small benefit
+and Sum regression do not justify this extra lifetime policy. Implementation,
+flags, exclusive eligibility/ownership tests and guide removed. Raw corrected
+patch/results `logs/optimization/native-run-analysis-accounted/`; earlier timing
+notices remain in `native-run-analysis` and `native-run-analysis-2p`.
 
 Timing audit adds `evolve_wall_ms` outside the actual evolve call. Historical
 `evolve_call_ms` is an internal timer excluding function-local destructors.

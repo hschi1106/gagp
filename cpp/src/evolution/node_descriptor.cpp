@@ -115,6 +115,14 @@ constexpr bool descriptors_complete() {
 static_assert(descriptors_complete(),
               "every current NodeKind must have one complete descriptor");
 
+constexpr auto descriptor_index() {
+  std::array<const NodeDescriptor*, static_cast<std::size_t>(NodeKind::COUNT)> result{};
+  for (const auto& descriptor : k_descriptors)
+    result[static_cast<std::size_t>(descriptor.kind)] = &descriptor;
+  return result;
+}
+constexpr auto k_by_kind = descriptor_index();
+
 }  // namespace
 
 const std::array<NodeDescriptor, k_node_kind_count>& all_node_descriptors() noexcept {
@@ -123,18 +131,14 @@ const std::array<NodeDescriptor, k_node_kind_count>& all_node_descriptors() noex
 
 const NodeDescriptor& node_descriptor(NodeKind kind) {
   const int value = static_cast<int>(kind);
-  if (!is_known_node_kind(value)) {
-    throw std::out_of_range("unknown NodeKind descriptor");
-  }
-  for (const NodeDescriptor& descriptor : k_descriptors)
-    if (static_cast<int>(descriptor.kind) == value) return descriptor;
+  if (value >= 0 && static_cast<std::size_t>(value) < k_by_kind.size())
+    if (const auto* descriptor = k_by_kind[static_cast<std::size_t>(value)]) return *descriptor;
   throw std::out_of_range("unknown NodeKind descriptor");
 }
 
 bool is_known_node_kind(int value) noexcept {
-  for (const NodeDescriptor& descriptor : k_descriptors)
-    if (static_cast<int>(descriptor.kind) == value) return true;
-  return false;
+  return value >= 0 && static_cast<std::size_t>(value) < k_by_kind.size() &&
+      k_by_kind[static_cast<std::size_t>(value)] != nullptr;
 }
 
 }  // namespace gagp::evo

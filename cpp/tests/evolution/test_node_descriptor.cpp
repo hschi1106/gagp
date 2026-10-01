@@ -1,4 +1,8 @@
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <cassert>
+#include <limits>
 #include <cstddef>
 #include <set>
 #include <stdexcept>
@@ -50,6 +54,14 @@ int main() {
     assert(!is_known_node_kind(legacy_kind));
   }
 
+  for (const auto unknown : {std::numeric_limits<int>::min(), -1,
+         static_cast<int>(NodeKind::COUNT), std::numeric_limits<int>::max(), 53, 70}) {
+    assert(!is_known_node_kind(unknown));
+    bool rejected = false;
+    try { (void)node_descriptor(static_cast<NodeKind>(unknown)); }
+    catch (const std::out_of_range&) { rejected = true; }
+    assert(rejected);
+  }
   assert(!is_known_node_kind(-1));
   assert(!is_known_node_kind(static_cast<int>(NodeKind::COUNT)));
   bool rejected = false;
