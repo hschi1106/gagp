@@ -1,299 +1,103 @@
-# Autonomous optimization checkpoint
+# Optimization checkpoint — round two
 
-## Round two — in progress
+Worktree `/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001`, branch
+`opt/gpu-generation-20261001`. Runtime checkpoint **b4ca289**; test contract fix
+**1b4f4bb**. Archived final candidate `logs/optimization/R2-final/bench`;
+its source, binary hash, flags and frozen input hashes are recorded in
+`R2-final/formal/manifest.json`. Do not replace this binary or prepare frozen inputs.
 
-Current native runtime checkpoint: `3107a4e`; repeat driver `138a4e9`; spec fingerprints `8646995`. Archived measured executable: `logs/optimization/R2-validation/bench` (manifest SHA in `R2-validation/formal/manifest.json`). Best native flags are the previous six plus `GAGP_DIRECT_PHASE=1 GAGP_DIRECT_ROOT=1`; restricted fragment mode also uses `GAGP_LOCAL_FRAGMENT_ADMISSION=1 GAGP_OWNED_EXECUTABLE=1`.
+Previous best: `logs/optimization/final_bench`, six flags, [results](results/final.json).
+Original baseline: `edfcf0b`; original worktree and 41 user-modified files protected.
+Old experiment narrative remains in this file at commit `1b4f4bb`; raw logs remain
+under `logs/optimization/`. Historical `best_bench` is not the final candidate.
 
-Nine unprofiled measurements: native Sum/House/Median 229.644/205.779/176.596 ms. Restricted fragment first generation 94.291/61.792/33.570 ms; later generations are a different workload. Repeats and cold costs: `R2-validation/formal-summary.json`, `formal-repeats.csv`. Owned packing saves a few ms; full bytecode assembly and type-flow proofs remain.
+## Current candidate and commands
 
-Active validation: serial 3 seeds × 128 generations, native + fragments, under `R2-validation/quality128/`. Resume from manifest, never overwrite completed outputs. First seed exhibits neutral size growth despite bounded live fragments; separately testing fitness-tie parsimony is the next experiment. Current uncommitted benchmark-only additions are optional behavior audit and parsimony. No runtime hot-path changes since measured binary.
-
-Reproduce: `python3 benchmarks/fixed_asgp/optimization/round2.py formal NEW_DIR --binary logs/optimization/R2-validation/bench --baseline logs/optimization/final_bench`; replace `formal` with `quality` or `scaling` for those stages. GPU runs serially. Profiling source copy prepared under `logs/optimization/R2-profiler/`; do not build during timing. Latest full test run: 119 tests passed; spec fingerprint failure repaired and repository check passed; opt-in focused suite passed.
-
-## Previous round (historical)
-
-- Workspace: `/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001`; branch `opt/gpu-generation-20261001`.
-- Previous-round best runtime: `9d862ed43e9c626b22775713a50897c7f5439c91`; all experiments finished, no jobs pending. Runtime profiles remain opt-in. Original worktree and its 41 copied uncommitted files are unchanged; all 15 frozen artifact hashes rechecked.
-- Baseline checkpoint: `edfcf0b6b6f2a8d868d920f45c4e750b05e5f1c9` contains the user's existing benchmark/profiler work. Baseline executable `logs/optimization/baseline_bench`; final executable `logs/optimization/final_bench`. Hashes, flags and evidence: [final.json](results/final.json). Historical `best_bench` means e26, not the final candidate; do not overwrite archived binaries or frozen inputs.
-- Main targets **not met**. The user confirmed that `medium` was a typo for **Median**; it is the third optimization target and was included in every final measurement and quality screen. No case sampling, precision narrowing, fuel/depth/list/memo limit reduction or native operator change was adopted.
-
-## Final measurements
-
-Unprofiled full fixed-parent generation, P=1024, cases=1024, GPU evaluation + GPU reproduction + overlap. Each final median has nine measured samples from three isolated processes, one warmup per process. ASGP denominators stay fixed at the archived unprofiled baseline.
-
-| Task | Original GAGP ms | Final median ms (range) | Improvement over GAGP | ASGP 1T speedup | 40× target ms |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Sum of Elements | 805.996 | 250.318 (242.954–254.208) | 3.22× | 7.36× | <46.029 |
-| House Robber | 761.333 | 217.495 (215.009–221.310) | 3.50× | 5.89× | <32.050 |
-| Median | 265.242 | 176.443 (173.863–178.349) | 1.50× | 0.35× | — |
-
-Sum/House still require another 5.44×/6.79× reduction in complete generation time to reach 40×. These calculations use only unprofiled times. Exact raw repeats and alternating constant-shortcut controls: `logs/optimization/E23-repeats/`. E23 helps Sum modestly (254.412→250.318 ms); House/Median differences are within noise.
-
-The [final scaling CSV](results/final-scaling.csv) covers all five modes and P=1024/2048/4096/8192. The complete e26 matrix ran 60 cells in 2435.98 s; the final candidate reran all 36 GPU cells in 291.68 s and explicitly reused the 24 unchanged ASGP/CPU controls. Source manifests, environment and hashes are in `logs/optimization/scaling-candidate/`; its ratios use that matrix's controls, not the fixed headline denominators. It is not a fresh 60-cell timing invocation.
-
-| Overlap generation ms | P1024 | P2048 | P4096 | P8192 |
-| --- | ---: | ---: | ---: | ---: |
-| Sum | 249.173 | 473.493 | 966.235 | 1820.173 |
-| House | 216.796 | 421.975 | 839.672 | 1593.075 |
-| Median | 178.317 | 341.595 | 685.640 | 1312.121 |
-
-Generation-owned analysis handoffs remove the >4096-entry cache cliff. Repeated P8192 controls showed 6228→2000 / 6613→1571 / 6814→1305 ms before the final Sum frame improvement. Peak host RSS increases by approximately 0.74/0.33/0.76 GiB, respectively; see `logs/optimization/E21-rss/`.
-
-## Final attribution and adoption limits
-
-The [profile CSV](results/final-profile.csv) uses one representative nsys generation per task/mode with additive wall attribution. Values below are **profiled diagnostic milliseconds**, not the formal benchmark. Overlapping work is attributed once; host work hidden under a kernel is not added again.
-
-| Component, overlap | Sum | House | Median |
-| --- | ---: | ---: | ---: |
-| Compile | 26.34 | 32.49 | 27.59 |
-| Packing | 13.56 | 12.88 | 13.27 |
-| H2D | 3.94 | 3.73 | 3.69 |
-| Eval kernel | 87.67 | 43.61 | 3.91 |
-| Selection, host + GPU | 1.29 | 1.21 | 1.52 |
-| Reproduction, host + GPU | 70.43 | 70.50 | 80.98 |
-| D2H | 0.19 | 0.28 | 0.21 |
-| Verification / analysis | 58.90 | 69.05 | 59.23 |
-| Exposed sync | 0.09 | 0.09 | 0.08 |
-| Allocation / other | 6.89 | 6.61 | 7.26 |
-| Profiled generation total | 269.29 | 240.46 | 197.75 |
-
-GPU reproduction itself is only about 1 ms. Raw CUDA wait overlaps evaluation; adding it to kernel time would double-count. Final actual CUDA eval medians are 85.56/43.15/3.91 ms. Six traces, the isolated NVTX source patch, source hashes, semantic-output checks and full analysis are in `logs/optimization/final-profiler/`. NCU 2024.3 counters were denied (`ERR_NVGPUCTRPERM`); no system setting changed. Do not derive unprofiled speedup ceilings from this table.
-
-The retained native path removes repeated membership proof work, reuses pinned capacity, uses verified typed phase storage and read-only list views, sorts all eligible cases, and compacts structurally bounded frames. Strict compilation remains inside every generation. Unsupported bytecode uses the generic backend. List views remove bounded copy-pool losses: initial Sum error cases fall 453208→318332, with 192 fitness rows changed and closer CPU agreement. This is disclosed behavior improvement, not identical-workload evidence for that step; subsequent fixed snapshots match E09 exactly. No new numerical loss is retained.
-
-The isolated fresh-phase bank tests a more radical representation: immutable compiled phases, chromosome handles and whole-phase variation. It preserves full cases/fuel/precision but fixes the region skeleton and restricts operators/search space. Cold unprofiled first generations including bank setup are 136.25/93.42/53.49 ms; subsequent medians 122.59/51.88/18.86 ms. Cold GPU initialization is separately 110.94/111.81/125.05 ms; per-run combined and four-generation amortized costs are in `final.json`. Initial analysis/compile/interning and fresh donor admission/compilation are measured at their actual frequency. Final export/admission, evaluation and CPU audits are also separately recorded. Later generations contain different programs, so these are not identical-snapshot speedups or main 40× results.
-
-Fresh-phase mutation gives Sum best 0 for all three seeds and House -8479/-8479/-8443. Median stays at -31025 for all seeds while native reaches -28478 in two seeds. Therefore the bank remains a benchmark-only prototype, not a replacement for general native evolution. It rejects unsupported skeletons explicitly; fresh donors require registry-independent constants and this probe is capped at 16 generations because proof-source retention grows. See [the benchmark guide](../../../docs/guides/fixed-asgp-benchmark.md#optimization-and-diagnostic-probes) for its contract.
-
-## Validation and continuation
-
-- Full native suite: 119 passed. All final profile flags enabled: 20 GPU tests passed. Tool suite: 89 run, 4 optional skips, no failures. Repository checks: 24 passed. Logs are listed in `results/final.json`.
-- Fixed snapshots: all 1024 per-program fitness/error/timeout/fallback/node rows equal E09 for every task. Native short search: three variation seeds × three tasks × four generations; final rows and CPU top-16 match previous optimized runs. Fresh-bank final chromosomes match E18; every final AST is exported, independently re-admitted and rescored with AST/handle equality.
-- Every diagnostic generation scores 1,048,576 program/case pairs, with zero timeouts and unscored cases. Native runtime-error fractions are 11.35%/0%/9.89%; changed operator-output fractions are 88.51%/90.59%/90.92% (not final unique offspring). Final genome diversity is 887–1021 of 1024. This is a short screen with the same frozen initial parents, not proof of convergence equivalence. Per-task/seeds fitness, size, counters and limitations are in `results/final.json`; raw results in `logs/optimization/candidate-validation/`.
-- Stop after testing distinct host-proof, allocation, VM, memory-layout, scheduling, case-layout, precision, dispatch and representation directions. Several remaining instruction/worker tweaks have plateaued or regressed. The radical phase-bank route reduces host work but has a demonstrated quality limitation; no measured candidate supports promoting it to the general backend. The Sum/House 40× goal remains unfinished. Median improves by 1.50×, but its 0.35× ASGP ratio still leaves substantial host overhead.
-- If resumed, start from this runtime and frozen snapshots. The next unresolved architecture question is whether a general grammar-proof-carrying phase/IR representation can avoid AST round trips **without** the independent-hole restriction and quality loss. A small prototype must first establish admissible variation, effective fresh offspring and complete-generation cost, before GPU-resident evolution or a broad rewrite. Existing evidence does not establish its performance or justify treating it as an achieved optimization. For Sum, it must also address bounded-region evaluation; host removal alone has not demonstrated the target.
-
-## Counter access follow-up
-
-After the user enabled driver performance-counter access, `RmProfilingAdminOnly=0` and NCU 2024.3.2 successfully collected four metrics on the final binary. [Raw metric summary and exact commands](results/NCU-enabled.json); original CSV/logs in `logs/optimization/NCU-enabled/`. No new installation or runtime change was needed.
-
-| First matching eval launch | Sum | House |
-| --- | ---: | ---: |
-| Active warp occupancy | 63.61% | 64.65% |
-| SM throughput / sustained peak | 10.68% | 14.92% |
-| DRAM throughput / sustained peak | 50.75% | 54.33% |
-| Local-load sectors | 879,171,063 | 706,170,699 |
-
-These are single-launch diagnostics, not all-generation totals, and clocks/caches were left uncontrolled. Local-load sectors are not DRAM bytes and do not by themselves prove register spilling. Access is now unblocked: the next focused experiment can distinguish local-array traffic from spills and dependency stalls using source/SASS attribution and selected stall/cache metrics. The observed occupancy does not support assuming low occupancy alone explains the remaining eval cost. This is a new investigation lead, not a demonstrated optimization or a change to the final benchmark results.
-
-## Experiments
-
-Historical single-batch numbers below locate decisions; use the repeated final measurements above for headline results.
-
-| ID | Hypothesis / change | Result | Decision |
-| --- | --- | --- | --- |
-| E00 | Preserved binary controls | Sum 805.0 / House 765.1 / Median 263.3 ms | reproduced |
-| E01 | Parallel bounded verification + staging capacity reuse | First run exposed a second capacity guard in copyback; fixed consistently | superseded by E01b |
-| E01b | Same checks in parallel, staging allocation dimensions only | 742.3 / 681.5 / 207.1 ms; all non-timing outputs identical; parity + bounded-region tests pass | retain; final validation passed |
-| E02 | Verifier-proven phase stack <=16 and locals <=8 use smaller interpreter storage; generic fallback otherwise | 532.7 / 554.9 / 210.2 ms; kernel 357.6 / 354.1 / 9.3 ms; non-timing fields identical; bounded-region and parity pass | retain; final per-program gate passed |
-| E03 | Transpose generic region frame fields across lanes | Sum unchanged; House 655.6 ms (kernel 451.6 vs 354.1), clear regression; parity passed | REJECTED; patch saved in logs/optimization/E03/prototype.patch |
-| Diagnostic | NCU 2022.3 minimal four metrics | Driver reports unsupported API on kernel launch; no metrics collected, no system changes | use nsys and targeted A/B |
-| E04 | Opaque membership/verified-AST certificate plus reuse of admission bytecode | 511.4 / 515.4 / 173.6 ms; all output fields identical | superseded: primary BM keeps per-generation compilation explicitly |
-| E04b | Keep membership proof only; exact AST/payload identity, grammar/request validation; full compile each generation | 518.8 / 531.4 / 177.3 ms; stale AST/constant/request and forged provenance tests + payload evolution pass | retain; final validation passed |
-| D01 | Fixed-program snapshot evaluator with optional per-case counters; 4-generation search diagnostics | All 1024 per-program fitness/count rows equal between generic and small VM, all 1024 cases each. Sum errors 453208; House 0; Median 275609; all timeouts/fallback tokens 0 | diagnostic gate; no speedup claimed |
-| E05 | Opt-in read-only IntList views, proven by forward type analysis, generic fallback otherwise | 472.5 / 481.6 / 180.4 ms; kernels 310.7 / 304.2 / 4.2. Sum errors decrease 453208→318332, 192 program fitness changes; House/Median exact per-program agreement. Full CPU comparison and known solutions recorded | retain opt-in; final quality screen passed |
-| E06 | Type-proven phase VM with unboxed payloads; ordinary integer conversion semantics/fuel retained | 379.1 / 346.1 / 179.3 ms; kernels 213.4 / 168.7 / 3.8. All per-program fitness and diagnostic counts match E05; refreshed nsys Sum/House recorded | retain prototype; host now roughly half of Sum/House |
-| E07 | Stable length ordering of all cases, only type-proven integer fitness with exact bounded sum; setup included in session initialization | 282.7 / 243.6 / 177.0 ms; kernels 118.2 / 70.7 / 4.0; all 1024 per-program rows exactly equal to E06 | retain opt-in; host now dominant |
-| E08 | Carry complete variation analyses across decode/preparation, exact identity and budget checks | 284.8 / 249.0 / 181.9 ms; no end-to-end gain, extra copy/key retention cost | REJECTED; patch and binary saved |
-| E09 | Structurally bounded 1-state/1-preparation/2-request frames (72 vs 264 bytes), same frame/memo limits | 286.3 / 223.7 / 176.3 ms; House kernel 49.3 vs 70.7; Sum unchanged; fixed rows equal | retain opt-in `GAGP_COMPACT_FRAMES=1` |
-| E10 | Delay overlap preparation until compilation finishes | 280.6 / 219.9 / 184.7 ms; Sum/House changes small, Median regresses | REJECTED; preserve original overlap scheduling |
-| E11 | Cap worker teams at 2/4/8/10 vs original 20 | Every cap slows all workloads; 2 workers about 458/430/366 ms | REJECTED; CPU computation, not oversubscription alone, dominates |
-| E12c | Immutable whole-phase bank; grammar-compatible independent holes; tournament, phase crossover and 0.3 finite-bank mutation; all cases, full pack verification | Setup 31–36 ms; reproduction ~0.3 ms; initial fitness exactly matches E09. Four-generation outputs all re-admitted and AST/handle fitness equal. Effective changes ~957–1002/1023; no timeout/fallback. Timings diagnostic only | retain isolated prototype; final repeats/quality below, not a 40× claim |
-| E13 | Force-inline typed phase interpreter | 285.6 / 223.9 / 177.6 ms; no gain | REJECTED |
-| E14 | Fuel-preserving constant-only phase folding, bounded integer domain | 282.4 / 223.5 / 176.4 ms; compile overhead offsets tiny kernel gain | REJECTED |
-| E15 | Strided traversal of sorted full cases; 512/256/128/64 thread sweep | 512 best Sum/House: 271.0/213.8 ms, kernels 109.1/42.1. Smaller blocks regress; Median difference negligible in full generation | retain strided traversal; remove thread override prototype |
-| E16 | Binary exact phase identities and hash interning; phase-bank startup attribution | Startup 25.2/27.3/25.8 ms vs 31–36 ms. Analysis+compile 18–20 ms, skeleton ~2 ms, interning ~5 ms | retain in isolated phase-bank prototype; no primary benchmark speedup claim |
-| E17 | NCU 2024.3 minimal metrics | Launcher works, but ERR_NVGPUCTRPERM blocks hardware counters | no system changes; nsys and targeted A/B continue |
-| E21 | Generation-owned analysis handoff independent of the 4096-entry FIFO capacity | P8192 overlap 2012/1586/1319 ms versus 6307/6596/6852 ms; every non-timing field equal; capacity-3 ownership/eviction test passes | retain opt-in; repeated controls agree; peak RSS increases by ~0.74/0.33/0.76 GiB (Sum/House/Median) |
-| E18 | Fresh grammar-generated whole-phase mutation | Reproduction ~5 ms/generation, 70–145 novel phases; all cases, final AST export/fitness audit passes. Three seeds: Sum best 0; House -8479/-8479/-8443; Median stays -31025. No timeout/unscored/failed mutation | retain isolated prototype; Median quality limitation persists |
-| E19 | Verifier-proven smaller root VM, 16 stack / 8 locals | 276.9/219.4/176.1 ms; no meaningful end-to-end improvement; targeted GPU tests pass | REJECTED; patch/binary saved |
-| E20 | Explicit Int32 phase arithmetic, same fuel and full cases | Kernel ~94/41/4 ms, no gain; 21 Sum and 36 House program fitness rows change; no timeout increase or false-perfect programs vs full CPU snapshot | REJECTED; overflow/division/list-cast/fuel tests passed; patch/binary preserved |
-| E22c | Compact two-state frames (88 bytes), retaining one-state 72-byte layout | Sum ~261 ms / kernel 93 ms; House ~218 ms. All 1024 per-program fitness/counters identical to E09; 2D memo and GPU parity tests pass | retain; final repeats/scaling passed |
-| E23b | Proven scalar constant phases bypass interpreter, preserving explicit/implicit return fuel | Sum kernel ~86 ms vs ~91 ms; full generation ~248 ms; House/Median near noise | retain opt-in; nine-sample median 250.318/217.495/176.443 ms; Sum improves 254.412→250.318 ms; others within noise |
-| E24 | Fuse typed-VM operand load with arithmetic/comparison, preserving both fuel checks and jump targets | Sum kernel ~90 ms vs ~91 ms; combined result attributable to E23; no material generation gain | REJECTED; patch/binary saved |
-
-## Reproduction
-
-Run from the experimental worktree. Preserved original inputs are a read-only-by-convention symlink into the original worktree; never run `prepare` over them. Use a new output directory for each measurement. GPU work must run serially.
-
-```sh
-cmake -S cpp -B cpp/build/release -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_CUDA_COMPILER=/usr/local/cuda-12.6/bin/nvcc \
-  -DCMAKE_CUDA_ARCHITECTURES=86 -DGAGP_BUILD_BENCHMARKS=ON \
-  -DGAGP_ASGP_SOURCE_DIR=/home/hschi1106/r13921069
-cmake --build cpp/build/release -j10
-
-export GAGP_VIEW_PROFILE=1 GAGP_TYPED_VIEW_PHASE=1 GAGP_SORT_CASES=1
-export GAGP_COMPACT_FRAMES=1 GAGP_CONSTANT_PHASE=1 GAGP_POPULATION_HANDOFF=1
-export GAGP_CUDA_DEVICE=0
-cpp/build/release/gagp_fixed_asgp_bench measure \
-  logs/fixed-asgp/artifacts/sum_of_elements.source.json \
-  logs/fixed-asgp/artifacts/sum_of_elements.p1024.prepared.json \
-  logs/fixed-asgp/artifacts/sum_of_elements.grammar.json \
-  1024 gpu_overlap /tmp/gagp-sum-new-run.jsonl
-
-PYTHONPATH=tools python3 -m gagp_tools benchmark fixed-asgp run \
-  --suite daily --out logs/fixed-asgp/new-daily
-# Change daily to scaling for a fresh complete 60-cell matrix.
-ctest --test-dir cpp/build/release --output-on-failure
+Native flags (presence enables each flag, including a value of `0`):
 ```
+GAGP_CUDA_DEVICE=0
+GAGP_VIEW_PROFILE=1 GAGP_TYPED_VIEW_PHASE=1 GAGP_SORT_CASES=1
+GAGP_COMPACT_FRAMES=1 GAGP_CONSTANT_PHASE=1 GAGP_POPULATION_HANDOFF=1
+GAGP_DIRECT_PHASE=1 GAGP_DIRECT_ROOT=1 GAGP_WINDOW_EXECUTOR=1
+GAGP_UNBOXED_WINDOW_FRAMES=1 GAGP_BOUND_ADD_PHASE=1
+```
+Fragment probe additionally enables `GAGP_LOCAL_FRAGMENT_ADMISSION=1` and
+`GAGP_OWNED_EXECUTABLE=1`. `GAGP_FRAGMENT_PARSIMONY=1` is a separately reported
+search-rule variant, not the native backend. Support/semantics are authoritative
+in [the benchmark guide](../../../docs/guides/fixed-asgp-benchmark.md#owned-fragment-prototype).
 
-Replace `gpu_overlap` with `snapshot` for full-case fixed-program diagnostics; `GAGP_SNAPSHOT_CPU=1` adds all-program CPU reference. Mode `search` runs four native generations plus final evaluation; add `GAGP_GPU_DIAGNOSTICS=1 GAGP_BM_SEED=0` (then 1/2). Mode `phase_bank` with `GAGP_BANK_FRESH_MUTATION=1` is the separately restricted prototype. Disable diagnostic counters for timing runs; never use their timings as headline results.
+```
+python3 benchmarks/fixed_asgp/optimization/round2.py formal NEW_DIR --binary logs/optimization/R2-final/bench --baseline logs/optimization/final_bench
+python3 benchmarks/fixed_asgp/optimization/round2.py quality NEW_DIR --binary logs/optimization/R2-final/bench --native-generations 32 --generations 128
+python3 benchmarks/fixed_asgp/optimization/round2.py quality NEW_DIR --binary logs/optimization/R2-final/bench --only fragments --parsimony --generations 256
+python3 benchmarks/fixed_asgp/optimization/round2.py scaling NEW_DIR --binary logs/optimization/R2-final/bench
+```
+Run serially; every output directory must be new. No performance runs alongside
+builds or other GPU tests. Build: Release CUDA arch 86, `-lineinfo --ptxas-options=-v`.
 
-Control commands and exact artifact/binary identities are preserved in raw manifests. `logs/optimization/summarize_final.py` reconstructs final evidence and checks original/frozen files; `profile_final.py` and `instrument_final.py` preserve the profiler procedure. They are experiment-local scripts, not a new benchmark framework. Reproduce traces in a new directory. Failed prototypes and binaries remain under `logs/optimization/E03`, `E08`, `E19`, `E20`, `E24` and other experiment directories; none are in the retained runtime path.
+## Formal result so far
 
-## Round 2 — active
+P=1024, all 1024 cases; three processes, one warmup and three samples each.
+Unprofiled complete-generation medians, ms:
 
-Starting HEAD `6f18efc`, clean worktree; final binary and all frozen/original
-files verified in `logs/optimization/R2-A/start.json`. All six best flags enabled.
-A hypothesis: compiling the actual 512-thread view kernel with a 512 launch
-bound reduces forced spilling versus its historical 1024 bound. Compare resource
-reports, selected NCU metrics, identical snapshots and unprofiled generations.
-No performance result yet. Next: remove repeated host representation work.
+| Path | Sum | House | Median |
+|---|---:|---:|---:|
+| Same-round previous-best control | 249.304 | 216.949 | 174.955 |
+| New native fixed-parent | 204.420 | 207.321 | 178.958 |
+| Owned fragments, first generation | 70.453 | 62.947 | 32.794 |
 
-R2-A: isolated 512-bound prototype archived, not retained. Dedicated 512 build
-uses 64 registers, stack 6768 B, spill stores/loads 212/140 B versus 1024
-6784 B / 216/104 B (entry; device functions have separate spill reports).
-Same-round full generations ~251/217/177 ms versus ~255/216/175 ms:
-no compelling host-level benefit. Warm NCU eligible warps ~0.09/0.15 per
-scheduler-cycle and long-scoreboard stalls ~65/53% (Sum/House). Counters,
-units, cold/warm reports, lineinfo SASS and compile reports: `R2-A/`.
-R2-F1 hypothesis: statically exclude generic phase execution for proven small
-typed phases and initialize their unboxed locals directly, removing preset
-arrays and generic fallback call frames from that capability kernel.
+Native and fragment operator contracts differ. Later fragment generations contain
+different programs and are never identical-workload speedups. Full raw nine
+samples, cold owner/GPU setup and search totals: `R2-final/formal-summary.json`,
+`R2-final/formal-repeats.csv`, `R2-final/formal/`. Targets Sum <46.029 and House
+<32.050 ms are **not met**. Native Median has not improved; fragment Median meets
+the <60 ms stage target with explicit support/search restrictions.
 
-R2-F1 first probe: full generation ~229/208/177 ms; Sum/House launch+wait
-~66/32 ms. Kernel cumulative stack falls 6784→3136 bytes, registers remain
-64. Dedicated profile excludes generic phase calls and initializes unboxed
-locals from region bindings without tagged presets. Opt-in `GAGP_DIRECT_PHASE`.
-This removes work, without reducing cases/fuel or changing operators. Snapshot
-and focused-test evidence in `logs/optimization/R2-F1/`; formal repeats pending.
+## Experiments retained / rejected
 
-R2-F2: dense coordinate memo lookup retained lazy execution/fuel and all
-varying state axes; bounded whole-domain maps reused existing memo-key storage.
-Focused memo/capacity tests and all three 1024-program snapshots equal. House
-launch+wait ~34.4 ms versus F1 ~32.3 ms; complete generation ~210 versus 208 ms.
-No useful benefit; removed. Patch and binary preserved under `R2-F2/`.
+| Direction | Evidence and decision |
+|---|---|
+| 512 launch bound vs 1024 at block 512 | Same 64 registers; different spill/stack allocation, no full-generation gain. Rejected (`R2-A`). |
+| Direct typed phases/root | Removes tagged presets/general root VM storage; stack 6784→3136→896 B. Retained (`R2-F1`, `R2-root`). |
+| Immutable fragments / local admission | Shares unchanged phases; no population AST or crossover→mutation AST round trip. Changed phases still use local AST/membership/compile. Retained as restricted probe (`R2-fragments`, `R2-local`). |
+| Owned bytecode certificates | Private owner/slot-bound immutable proofs; removes repeated whole-bytecode verification, not assembly/type flow. A few ms saved in repeats (`R2-owned-pack`, `R2-final/formal`). |
+| Dense coordinate memo | Preserved lazy order/fuel/capacity; House kernel regressed ~32.3→34.4 ms. Rejected (`R2-F2`). |
+| Cache top two VM stack values | Sum ~64→77, House ~31→37 ms kernel. Rejected (`R2-top`). |
+| Actual one/two-state window executor | First one-state prototype did NOT cover frozen Sum/Median. Corrected carried-Int shape: Sum kernel ~66→58 ms. Retained (`R2-window-pair`). |
+| Unboxed window frames | Preserve private list-view bit; frame 88→56 B for paired state, Sum kernel ~45 ms, includes changed workspace batching. Retained (`R2-unboxed-window`). |
+| Bound scalar Load/Load/Add | Supports implicit/explicit Return with exact instruction fuel/double conversion. Sum kernel ~41–43 ms. Retained (`R2-bound-add`). |
+| Cohort eval/variation pipeline | Complete-case 256/512 cohorts; Sum ~97/84 vs76 ms, House ~81/70 vs65. Rejected; patch/binary archived (`R2-pipeline`). |
+| Eager per-generation phase JIT | Optimistic NVRTC compile-only screen: 387 newly observed expressions take ~1.65 s, omitting real fuel/error code. No executor/parity claim; reject eager route (`R2-jit-screen`). |
+| Fitness-tie parsimony | Changes search selection, reduces neutral growth in 128-gen screen. Separate 256-gen validation pending. |
+| Payload registry overhaul | Measured transaction/read-set costs too small to justify broad rewrite before representation work (`R2-host`). |
 
-R2-host instrumentation (thread-time sums, overlapping/nested; not wall attribution):
-~9.8–10k runtime identities, 3.1–3.3k variation analyses, 3.4–3.5k compiler
-entries, 1024 bytecode verifications per generation. Commit transactions ~0.3 ms
-cumulative; read-set checks ~2–6 ms. Membership-overload counter missed the
-active overload and is not usable. Original sources restored; raw logs/patch
-under `R2-host/`. Focus on proof/representation, not registry rewrites.
+**NCU correction:** earlier `R2-A` and `R2-validation/ncu` files named `.warm`
+used `--launch-skip 1`. Evaluation is workspace-batched, so this is a second chunk
+of the same generation, NOT a warmed repeat of the first chunk. A/B comparisons
+at the same skip remain meaningful; cold/warm interpretations are withdrawn.
+Final profiling will use NSYS-counted launches per generation to choose the same
+first chunk in the next generation. Local sectors are not DRAM bytes or evidence
+of spilling by themselves; active and eligible warps are distinct.
 
-R2-fragments prototype: run-owned opaque immutable phase handles with local
-grammar-site crossover/fresh mutation, immediate last-owner reclamation, and no
-per-generation AST population. New phases still use temporary full exemplar
-admission/compile; bytecode assembly/packing still repeats. Independent-root-hole
-restriction explicit. Initial diagnostic four generations: Median ~34–49 ms,
-House ~49–81 ms, Sum ~103–109 ms; not identical evolved populations. Full initial
-fitness, final independent admission, AST/handle equality and CPU audits recorded.
-40-generation small non-benchmark grammar test covers owner/scope/domain errors,
-repeated holes, fuel and bounded live sources. Native Median representability
-check initially exposed constant-pool order/alias identity being too strict;
-import now canonicalizes scalar pool content (only at import), with a regression
-test. Multi-seed 24-generation screen in progress.
+## Validation / active work
 
-R2-root: direct region invocation root proof removes generic root VM storage;
-stack 3136→896 B. All 1024-program snapshots and focused GPU tests pass.
-First fixed-parent probe ~228/205/176 ms, kernels ~64/31/2.46 ms; benefit small
-relative to F1, especially Sum. Opt-in `GAGP_DIRECT_ROOT`, explicit fallback for
-non-invocation roots. Raw builds/tests/snapshots under `R2-root/`.
-Native Median best -28478 and all top16 import into the frozen fragment owner
-and evaluate identically (`R2-fragments/import-audit.json`). Some other native
-individuals differ in skeleton, so whole-population representation is not claimed.
-24-generation, three-seed fragment results: Median -25512/-29187/-20755,
-House -7289/-7258/-5541, Sum 0/0/0. No timeouts; live fragment counts stabilize.
-This shows the earlier four-generation phase-bank stagnation is not an
-expressibility proof. Equal-wall-clock quality controls remain to be run.
+Native 120 tests passed in aggregate (119 full-suite + corrected handoff test);
+89 tool tests (4 optional skips), 24 repository checks passed. ASan/UBSan fragment
+ownership/lifetime check passed (`R2-validation/asan-test.log`). Snapshot equality
+and targeted window/fuel/binding tests: `R2-bound-add/snapshots2`, `R2-final/focused3.log`.
+Earlier F1/root candidate: 3 seeds ×128 generations native and fragments, full
+export/admission and CPU top16, plus held-out 1024-case audits; recorded in
+[quality summary](results/round2-quality.json). Native Median top16 including
+best -28478 was importable; this is not support for every native skeleton.
 
-R2-local: `GAGP_LOCAL_FRAGMENT_ADMISSION` gives exact framed nonterminal
-membership plus phase-only compilation. No full exemplar construction on changed
-phases. Initial diagnostic Median ~22–34 ms (formerly ~34–49); changed operator
-trajectory due to conservative phase-local budgets is explicitly separate.
-24-generation three-seed best: Sum 0/0/0; House -7333/-5469/-6308; Median
--23860/-25397/-25900. All final programs independently admitted and rescored;
-no timeouts. Live fragments stay bounded; longer RSS plateau check pending.
-R2-top: cache top two typed-VM stack values in scalar temporaries, retaining
-bounded tail storage. Snapshot equality passes, but kernels regress Sum ~64→77
-ms, House ~31→37 ms. Removed; patch/binary under `R2-top/`.
-Next: immutable bytecode phase certificates at the GPU pack boundary, to remove
-per-generation re-verification of composed unchanged phases. Packing/bytecode
-assembly remains measured; no public trusted flag or mutable identity cache.
+Currently running final 32-gen native /128-gen fragments and 256-gen parsimony
+under `R2-final/quality` and `R2-final/parsimony256`. Next: final NSYS/NCU, held-out
+and behavioral diversity audit, complete P=1024/2048/4096/8192 scaling (rerun shared
+CPU controls), final manifest and original/frozen hash audit. Resume from manifests;
+never rerun into existing output directories. No push authorized this round.
 
-R2-owned-pack: opaque immutable layout/phase bytecode certificates, strict raw
-fallback; focused ownership/capacity/fuel tests pass. Same-binary four-generation
-probe saves roughly 1–5 ms, not the large host reduction achieved by fragments.
-Whole bytecode materialization and capability proofs remain. New phase checks
-add cost; repeat validation pending. Retired assembled programs are now explicitly
-destroyed inside the generation timer in both probe paths (timing correction).
-Next: typed window frames to test whether redundant per-slot tags and frame
-bandwidth contribute materially to Sum's remaining evaluator cost.
-
-R2-typed-frame: inferred IntList window state + Int prepared/results, constant
-tags reduce compact frame storage. Full 3×1024-case snapshots and GPU tests pass,
-but Sum kernel ~65–67 ms versus ~64 ms reference; no complete-generation gain.
-Removed, patch and binary archived. Generic dynamic interpreter/frame access
-still dominates; smaller structures alone are insufficient. Stop micro-tuning
-this representation; validate retained architecture and quantify remaining gap.
-
-R2-window-executor: a separate two-request window recurrence executor removes
-coordinate/memo/state-transition dispatch. Snapshot equality and exact empty,
-singleton, fuel and frame-capacity tests pass. Sum kernel ~64.2 ms versus the
-retained native median 64.7 ms (range 63.8–67.1); full generation ~229 ms.
-No convincing gain; removed and archived under `R2-window-executor/`.
-128-generation native/fragment comparisons finished for three seeds. Full exports
-admit and rescore, CPU top16 agrees; no timeouts. Fragment memory grows with
-program size despite bounded live fragments. Parsimony remains a separate probe.
-
-**Correction to R2-typed-frame and first R2-window-executor interpretation:**
-those proofs accepted only one-state windows. Frozen Sum/Median carry a second
-Int state, so those snapshots tested safe fallback, not the proposed specialized
-kernel. Their unchanged timings do not reject typed frames/structural execution
-for these populations. Extending the window proof/executor to the actual carried
-state, with profile-selection assertions before performance interpretation.
-
-R2-window-pair (actual coverage): list + carried Int state, typed phase calls,
-copy/expression transitions. Sum and Median snapshots explicitly select `-window`;
-House explicitly uses the ordinary direct-root path. All per-program results and
-boundary tests equal. Interleaved 3-process × 3 measured repeats: Sum full generation
-230.864→222.961 ms, kernel 66.040→57.609 ms; House 207.994→207.576 ms; Median
-177.147→177.177 ms. Retain `GAGP_WINDOW_EXECUTOR=1`. Frozen ASGP targets still unmet.
-Parsimony128 three seeds: Sum 0/0/0, House -1/0/0, Median -16058/-9365/-12052.
-Sum average size ~21 and RSS ~987 MiB stable; unique genotypes fall to 484–517.
-House/Median retain ~1015 unique genotypes but can still grow. Separate search
-profile, not an identical-workload evaluator speedup. ASan/UBSan ownership tests pass.
-
-R2-unboxed-window: actual one/two-state window coverage. First unit run caught a
-lost private list-view bit; fixed storage retains it. Tests were not removed.
-Focused boundary tests and all 3×1024 full-case snapshots now equal. Initial Sum
-kernel 44.7–45.6 ms (window tagged ~57.6), complete native generation ~211 ms;
-Median kernel ~2.1 ms, House unchanged path. Retained as opt-in candidate pending
-formal combined repeats. Logs include failed first run and corrected build/test.
-
-R2-JIT-screen: extract actual first/second-generation phase expressions; 387
-second-generation expressions absent from the initial+first-generation union.
-Optimistic NVRTC source omits fuel/tag/error machinery and is NOT an executable
-backend/parity claim. Native cubin compile alone: 1/16/128/387 phases took
-91/128/481/1646 ms. Reject eager per-generation NVRTC; asynchronous hot-phase JIT
-is untested. Scripts, generated sources/cubins and logs in `R2-jit-screen/`.
-R2-bound-add: direct bound scalar LOAD/LOAD/ADD (+ optional RETURN), exact fuel
-and existing double-conversion arithmetic. First version missed implicit return
-and did not cover frozen phases; corrected and profile selection asserted.
-Full snapshots/tests equal, Sum kernel ~41–43 ms vs ~45 ms; pending final repeats.
-R2-pipeline: real complete-case cohorts and one bounded async variation future;
-256/512 random mating cohorts regress Sum/House (~97/84 vs 76 ms, ~81/70 vs 65).
-Initial per-program fitness/case counts match; final independent admission passes.
-Removed (including changed selection rules), prototype archived. No throughput
-claim from overlapping counters. Proceed to final combined validation/scaling.
+Remaining architecture limits: fixed admitted root skeleton, independent phase
+holes and closed scalar phases; no generic derivation-first backend, mixed
+capability buckets or asynchronous hot-phase JIT. Bytecode copies, type-flow
+packing, changed-phase AST admission and dynamic interpreter work remain. Live
+fragment counts are bounded, but program bloat can grow RSS/runtime; report both.

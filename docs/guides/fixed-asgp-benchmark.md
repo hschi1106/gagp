@@ -232,11 +232,12 @@ used as a membership proof.
 
 This mode changes operators: tournament-2, one elite, then each child receives
 one site crossover (70%) or fresh site mutation (30%). It samples a phase and a
-local logical site; this is not legacy pair-uniform crossover. Every new phase
-still has full admission and compilation in a temporary exemplar; only the phase
-is retained. Unchanged executable phases and proofs are shared. Current packing
-still materializes bytecode programs and verifies them each evaluation; these
-costs are measured and are candidates for a later immutable pack boundary.
+local logical site; this is not legacy pair-uniform crossover. Without the opt-ins below, new phases use full admission and compilation in a
+temporary exemplar, and packing verifies materialized bytecode each evaluation.
+The measured candidate enables local phase admission and owned executable
+certificates: unchanged executable phases and proofs are shared, changed phases
+are admitted and compiled locally, and whole-program bytecode verification is
+not repeated. Bytecode assembly and capability analysis still occur each evaluation.
 Root combination budgets are conservative; unsupported combinations reject.
 No numeric/fuel/case limits change. This is a restricted architecture experiment,
 not a replacement for the fixed benchmark or a grammar-wide backend.
@@ -269,8 +270,8 @@ membership. Registry-dependent constants and oversized GPU region capacities are
 rejected. External raw bytecode still uses full verification. Evaluation assembles
 and destroys ordinary packed bytecode inside timing, but skips repeated whole
 bytecode verification. Capability/type-flow detection and GPU packing still run.
-The added phase verification and cold owner creation are measured. Initial
-same-binary probes suggest a few milliseconds saved, pending repeat validation.
+The added phase verification and cold owner creation are measured. Three-process repeated measurements show only a few milliseconds saved by this
+certificate boundary; most host savings come from the fragment representation.
 
 
 Round-two reproduction: `benchmarks/fixed_asgp/optimization/round2.py` consumes

@@ -10,6 +10,18 @@
 #include <algorithm>
 #include <stdexcept>
 #include <set>
+#include <type_traits>
+
+// A caller must not create a mutable certificate copy and replace its contents
+// after composition. Sharing const handles is the only supported ownership.
+static_assert(!std::is_copy_constructible_v<gagp::RegionExecutableLayout>);
+static_assert(!std::is_copy_assignable_v<gagp::RegionExecutableLayout>);
+static_assert(!std::is_move_constructible_v<gagp::RegionExecutableLayout>);
+static_assert(!std::is_move_assignable_v<gagp::RegionExecutableLayout>);
+static_assert(!std::is_copy_constructible_v<gagp::RegionExecutablePhase>);
+static_assert(!std::is_copy_assignable_v<gagp::RegionExecutablePhase>);
+static_assert(!std::is_move_constructible_v<gagp::RegionExecutablePhase>);
+static_assert(!std::is_move_assignable_v<gagp::RegionExecutablePhase>);
 
 using namespace gagp;
 using namespace gagp::evo;

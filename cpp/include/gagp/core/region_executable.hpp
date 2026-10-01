@@ -7,6 +7,8 @@ class RegionExecutable;
 class RegionExecutableLayout;
 class RegionExecutablePhase final {
  public:
+  RegionExecutablePhase(const RegionExecutablePhase&) = delete;
+  RegionExecutablePhase& operator=(const RegionExecutablePhase&) = delete;
   const RegionPhase& code() const { return code_; }
  private:
   std::shared_ptr<const RegionExecutableLayout> owner_;
@@ -22,6 +24,8 @@ class RegionExecutablePhase final {
 class RegionExecutableLayout final : public std::enable_shared_from_this<RegionExecutableLayout> {
  public:
   using Phase = std::shared_ptr<const RegionExecutablePhase>;
+  RegionExecutableLayout(const RegionExecutableLayout&) = delete;
+  RegionExecutableLayout& operator=(const RegionExecutableLayout&) = delete;
   static std::shared_ptr<const RegionExecutableLayout> admit(BytecodeProgram source);
   Phase initial_phase(std::size_t slot) const;
   Phase admit_phase(std::size_t slot, RegionPhase source) const;
