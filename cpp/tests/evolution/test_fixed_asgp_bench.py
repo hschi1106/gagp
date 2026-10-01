@@ -57,6 +57,8 @@ class TestFixedAsgpNative(unittest.TestCase):
                         self.assertEqual([r["rep"] for r in rows], [-1, 0, 1, 2])
                         self.assertTrue(all(r["cases"] == 1024 and r["population"] == 8 for r in rows))
                         self.assertTrue(all(r["generation_ms"] > 0 for r in rows))
+                        if mode != "asgp_1t":
+                            self.assertTrue(all(r["evolve_wall_ms"] >= r["evolve_call_ms"] for r in rows))
 
 
 

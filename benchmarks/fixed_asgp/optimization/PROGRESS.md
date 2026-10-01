@@ -79,6 +79,33 @@ E+F formal interleaved controls/snapshots/search underway in
 `logs/optimization/native-contract-verifier-validation/`; do not promote until
 its comparisons complete.
 
+Rejected G: retaining full sites in native certificates. Fixed generation slowed
+~30–47 ms, and 32-generation searches slowed3–4% with RSS+120–140 MB. All short
+and32-generation fields/exports matched, but copying/retaining sites lost.
+Implementation/flag/exclusive tests removed; raw rejected patch and evidence:
+`logs/optimization/native-certified-sites/`. Best runtime unchanged.
+Candidate H: bounded run-context reuse only for statically finite contract keys.
+Original4P and2P tests have identical short/32-generation populations but mixed
+whole-process gains (Sum regresses, House/Median modest gains). Their fixed-gen
+reductions are INVALID: cache destruction moved beyond internal timers. Raw dirs
+`native-run-analysis` and `native-run-analysis-2p` have timing notices. Corrected
+candidate drains final cache inside last generation; testing in
+`logs/optimization/native-run-analysis-accounted/`. Not promoted.
+
+Timing audit adds `evolve_wall_ms` outside the actual evolve call. Historical
+`evolve_call_ms` is an internal timer excluding function-local destructors.
+Keep both and original generation boundaries. Fixed benchmark smoke covers it.
+
+Latest best-version NVTX: Median profiled563.5 ms, identity89.4, site build92.7,
+key construction9.3, root/region verifier39.8 ms. Separate scopes are nested.
+Raw `logs/optimization/native-refreshed-profile/`. Process-local SIGPROF PC samples
+(no workers/system settings) in `logs/optimization/native-cpu-pc-profile/` show
+allocation/free pressure and repeated linear descriptor lookups; CPU Sum also
+spends substantial samples hashing/registering list slices. Full-process samples
+include setup, not a precise per-generation attribution. Next independent minimum:
+constexpr descriptor index, preserve all invalid/reserved enum checks. Source
+prototype pending build after the ongoing sequential GPU experiment.
+
 Current best runtime `ed19fde`, archived binary/flags/commands in
 `logs/optimization/native-contract-verifier-validation/manifest.json`.
 Enable retained flags plus `GAGP_HOST_THREADS=1 GAGP_REUSE_ADMISSION_COMPILE=1

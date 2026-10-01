@@ -226,3 +226,11 @@ group and closure contracts reuse their serialized compatibility key. Multi-
 occurrence logical holes retain complete scope intersection/key construction.
 It changes neither grammar membership nor operators; it is not a persistent
 identity cache. Formal validation status is tracked in the optimization index.
+
+Timing audit: the historical `evolve_call_ms` field is `EvolutionTiming.total_ms`,
+an internal timer stopped before function-local destructors. New records also
+include `evolve_wall_ms`, measured outside the complete call. This distinction
+does not change the fixed generation boundary. Any newly retained run analysis
+must be released within the last generation timer; deferred destruction cannot
+be claimed as fixed-generation speedup. Cold/process wall and search total remain
+separate evidence.

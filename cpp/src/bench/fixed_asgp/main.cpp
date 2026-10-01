@@ -167,11 +167,14 @@ Json measure_gagp(const std::vector<gagp::evo::ProgramGenome>& population,
   cfg.selection_pressure=2;
   cfg.mutation_rate=.3; cfg.mutation_subtree_prob=1;
   cfg.skip_final_eval=true; cfg.retain_final_population=false;
+  const auto call_begin=std::chrono::steady_clock::now();
   const auto result=gagp::evo::evolve_population(cases,cfg,&population);
+  const double evolve_wall_ms=std::chrono::duration<double,std::milli>(
+      std::chrono::steady_clock::now()-call_begin).count();
   const auto& t=result.timing.generations.at(0);
   const auto& v=t.reproduction.variation;
   return object({{"generation_ms",number(t.total_ms)}, {"eval_ms",number(t.eval_ms)}, {"repro_ms",number(t.repro_ms)},
-    {"evolve_call_ms",number(result.timing.total_ms)}, {"gpu_init_ms",number(result.timing.gpu_eval_init_ms)},
+    {"evolve_wall_ms",number(evolve_wall_ms)}, {"evolve_call_ms",number(result.timing.total_ms)}, {"gpu_init_ms",number(result.timing.gpu_eval_init_ms)},
     {"compile_ms",number(t.evaluation.cpu_compile_ms+t.evaluation.gpu_compile_ms)},
     {"gpu_eval_call_ms",number(t.evaluation.gpu_eval_call_ms)}, {"gpu_kernel_ms",number(t.evaluation.gpu_eval_kernel_ms)},
     {"gpu_pack_ms",number(t.evaluation.gpu_eval_pack_ms)}, {"gpu_upload_ms",number(t.evaluation.gpu_eval_upload_ms)},
@@ -256,7 +259,10 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   cfg.repro_overlap=true; cfg.compiled_grammar=grammar; cfg.generation_request=gg::entry_request(*grammar);
   cfg.fuel=2000000; cfg.penalty=1000; cfg.gpu_blocksize=512; cfg.selection_pressure=2;
   cfg.mutation_rate=.3; cfg.mutation_subtree_prob=1; cfg.skip_final_eval=false; cfg.retain_final_population=true;
+  const auto call_begin=std::chrono::steady_clock::now();
   const auto result=gagp::evo::evolve_population(cases,cfg,&population);
+  const double evolve_wall_ms=std::chrono::duration<double,std::milli>(
+      std::chrono::steady_clock::now()-call_begin).count();
   std::vector<Json> rows,final;
   for (std::size_t i=0;i<result.timing.generations.size();++i) {
     const auto& t=result.timing.generations[i]; const auto& e=t.evaluation; const auto& v=t.reproduction.variation;
@@ -290,7 +296,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
     top_rows.push_back(object({{"gpu",number(result.final_population[i].fitness)},{"cpu",number(cpu[i])}}));
   write(output,object({{"top16_cpu",array(std::move(top_rows))},{"cpu_audit_ms",number(elapsed(audit_begin))},
     {"unique_final_genomes",number(unique.size())},{"seed",number(cfg.seed)}, {"generations",array(std::move(rows))},
-    {"final_population",array(std::move(final))}, {"evolve_call_ms",number(result.timing.total_ms)},
+    {"final_population",array(std::move(final))}, {"evolve_wall_ms",number(evolve_wall_ms)}, {"evolve_call_ms",number(result.timing.total_ms)},
     {"initial_admission_ms",number(result.timing.init_population_ms)}, {"final_eval_ms",number(result.timing.final_eval_ms)}}));
 }
 void measure(const Json& source, const std::string& prepared_path, const std::string& grammar_path,
