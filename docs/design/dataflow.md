@@ -153,3 +153,15 @@ immutable compatible phase references. Its restricted search space, initializati
 cost and export audit are described in the
 [fixed benchmark guide](../guides/fixed-asgp-benchmark.md#optimization-and-diagnostic-probes).
 It is not part of `evolve_population` or the default reproduction backend.
+
+### Direct typed phase execution
+
+`GAGP_DIRECT_PHASE=1` adds a capability kernel to the existing opt-in IntList
+view profile. Ordinary bytecode verification and type-flow proofs remain the
+admission boundary. All phases must have at most eight locals and a verified
+stack bound of sixteen. Typed binding initialization writes the phase's own
+unboxed locals directly; it does not build tagged preset arrays or call a
+generic phase interpreter. Each phase still has independent local initialization,
+all instruction fuel and original arithmetic. Unsupported populations use the
+previous view or mixed path. This is execution specialization, not grammar
+membership evidence. The result profile has a `-direct` suffix.

@@ -72,6 +72,10 @@ struct DPayloadFlavorTraits<DPayloadFlavor::IntListViews> {
 };
 
 template <>
+struct DPayloadFlavorTraits<DPayloadFlavor::BoundIntListViews>
+    : DPayloadFlavorTraits<DPayloadFlavor::IntListViews> {};
+
+template <>
 struct DPayloadFlavorTraits<DPayloadFlavor::Mixed> {
   using State = DMixedPayloadState;
   static constexpr bool kHasString = true;
@@ -411,7 +415,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
                                       ErrCode& err) {
   using PayloadTraits = DPayloadFlavorTraits<Flavor>;
 
-  if constexpr (Flavor == DPayloadFlavor::IntListViews) {
+  if constexpr ((Flavor == DPayloadFlavor::IntListViews || Flavor == DPayloadFlavor::BoundIntListViews)) {
     if (bid == BuiltinId::Index || bid == BuiltinId::Slice) {
       if (argc != (bid == BuiltinId::Index ? 2 : 3) || args[0].tag != ValueTag::IntList ||
           args[1].tag != ValueTag::Int || (argc == 3 && args[2].tag != ValueTag::Int)) {

@@ -3,19 +3,31 @@
 // Host type-flow proof guarantees the instruction/type subset and stack bounds.
 // Keep ordinary numeric conversion, protected arithmetic, and every fuel charge.
 // This execution representation stores proven scalar/view payloads without tags.
-__device__ __noinline__ DResult d_run_view_phase(
-    const DCodeView& view, const DLocalPreset* presets, int preset_count,
-    const DPayloadTables& tables, int& fuel, ValueTag expected) {
-  long long stack[16], locals[8];
-  unsigned local_set = 0;
+struct DViewPresets {
+  const DLocalPreset* presets;
+  int preset_count;
+  __device__ ErrCode init(long long* locals, unsigned& local_set,
+      const DPayloadTables& tables) const {
   for (int i = 0; i < preset_count; ++i) {
     const int local = presets[i].local;
-    if (local < 0 || local >= 8) return d_error(ErrCode::Name);
+    if (local < 0 || local >= 8) return ErrCode::Name;
     Value value = presets[i].value;
-    if (!d_convert_list_view(value, tables)) return d_error(ErrCode::Value);
+    if (!d_convert_list_view(value, tables)) return ErrCode::Value;
     locals[local] = value.tag == ValueTag::Bool ? value.b : value.i;
     local_set |= 1u << local;
   }
+    return static_cast<ErrCode>(-1);
+  }
+};
+
+template <class Binder>
+__device__ __noinline__ DResult d_run_bound_view_phase(
+    const DCodeView& view, Binder binder,
+    const DPayloadTables& tables, int& fuel, ValueTag expected) {
+  long long stack[16], locals[8];
+  unsigned local_set = 0;
+  const auto error = binder.init(locals, local_set, tables);
+  if (static_cast<int>(error) != -1) return d_error(error);
   int sp = 0, ip = 0;
   while (ip < view.code_len) {
     const auto ins = view.code[ip++];
@@ -103,4 +115,10 @@ __device__ __noinline__ DResult d_run_view_phase(
     value.b = true; return d_ok(value);
   }
   return d_ok(Value::from_int(stack[sp - 1]));
+}
+
+__device__ inline DResult d_run_view_phase(const DCodeView& view,
+    const DLocalPreset* presets, int preset_count, const DPayloadTables& tables,
+    int& fuel, ValueTag expected) {
+  return d_run_bound_view_phase(view, DViewPresets{presets, preset_count}, tables, fuel, expected);
 }

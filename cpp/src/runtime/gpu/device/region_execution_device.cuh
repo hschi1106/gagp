@@ -8,6 +8,45 @@ __device__ inline bool d_region_addable(std::int64_t value, std::int64_t offset)
            (offset < 0 && value < INT64_MIN - offset));
 }
 
+// Only selected after type-flow and per-phase stack/local proofs. No generic
+// phase VM or tagged preset array is reachable from this capability profile.
+template <class Frame>
+struct DViewRegionBindings {
+  const DRegionSegment& segment;
+  const DRegionPhase& phase;
+  const Frame& frame;
+  const Value* caller_locals;
+  std::uint64_t caller_set;
+  const DExecutionTables& execution;
+  __device__ ErrCode init(long long* locals, unsigned& local_set,
+      const DPayloadTables& tables) const {
+    if (phase.binding_offset < 0 || phase.binding_count < 0 ||
+        phase.binding_count > execution.region_binding_count - phase.binding_offset)
+      return ErrCode::Value;
+    for (int i = 0; i < phase.binding_count; ++i) {
+      const auto& b = execution.region_bindings[phase.binding_offset + i];
+      if (b.local < 0 || b.local >= 8) return ErrCode::Name;
+      Value value;
+      switch (b.bank) {
+        case RegionSlotBank::State: value = frame.state[b.slot]; break;
+        case RegionSlotBank::Prepared: value = frame.prepared[b.slot]; break;
+        case RegionSlotBank::Result: value = frame.results[b.slot]; break;
+        case RegionSlotBank::Measure:
+          value = Value::from_int(Value::container_len(frame.state[segment.sequence_state])); break;
+        case RegionSlotBank::Parameter: {
+          const int local = segment.parameter_caller_locals[b.slot];
+          if (!(caller_set & (std::uint64_t{1} << local))) continue;
+          value = caller_locals[local]; break;
+        }
+      }
+      if (!d_convert_list_view(value, tables)) return ErrCode::Value;
+      locals[b.local] = value.tag == ValueTag::Bool ? value.b : value.i;
+      local_set |= 1u << b.local;
+    }
+    return static_cast<ErrCode>(-1);
+  }
+};
+
 template <DPayloadFlavor Flavor, int BindingCapacity, class Frame>
 __device__ DResult d_region_phase_impl(
     const DRegionSegment& segment, int phase_index, ValueTag expected,
@@ -92,6 +131,20 @@ __device__ DResult d_region_phase(
     if (value.tag != expected) return d_error(ErrCode::Type);
     return d_ok(value);
   }
+  if constexpr (Flavor == DPayloadFlavor::BoundIntListViews) {
+    const auto& phase = tables.region_phases[phase_index];
+    if (!phase.program.typed_view || phase.program.n_locals > 8 ||
+        phase.program.verified_stack_bound > 16) return d_error(ErrCode::Value);
+    DCodeView view;
+    view.code = tables.phase_code + phase.program.code_offset;
+    view.code_len = phase.program.code_len;
+    view.consts = tables.phase_consts ? tables.phase_consts + phase.program.const_offset : nullptr;
+    view.const_len = phase.program.const_len;
+    view.n_locals = phase.program.n_locals;
+    return d_run_bound_view_phase(view,
+        DViewRegionBindings<Frame>{segment, phase, frame, caller_locals, caller_set, tables},
+        payload_tables, fuel, expected);
+  } else {
   // Most phases bind only a few slots. Avoid constructing the maximum-size
   // preset array on every phase invocation while retaining the full capacity.
   if (tables.region_phases[phase_index].binding_count <= 4) {
@@ -104,6 +157,7 @@ __device__ DResult d_region_phase(
   return d_region_phase_impl<Flavor, kBindings>(
       segment, phase_index, expected, frame, caller_locals, caller_set,
       payload_tables, payload_state, tables, fuel, result_phase);
+  }
 }
 
 template <class Frame>

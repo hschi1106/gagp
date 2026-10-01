@@ -159,3 +159,10 @@ units, cold/warm reports, lineinfo SASS and compile reports: `R2-A/`.
 R2-F1 hypothesis: statically exclude generic phase execution for proven small
 typed phases and initialize their unboxed locals directly, removing preset
 arrays and generic fallback call frames from that capability kernel.
+
+R2-F1 first probe: full generation ~229/208/177 ms; Sum/House launch+wait
+~66/32 ms. Kernel cumulative stack falls 6784→3136 bytes, registers remain
+64. Dedicated profile excludes generic phase calls and initializes unboxed
+locals from region bindings without tagged presets. Opt-in `GAGP_DIRECT_PHASE`.
+This removes work, without reducing cases/fuel or changing operators. Snapshot
+and focused-test evidence in `logs/optimization/R2-F1/`; formal repeats pending.
