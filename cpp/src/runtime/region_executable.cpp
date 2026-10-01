@@ -76,6 +76,19 @@ int RegionExecutable::stack_bound() const {
   require(bool(layout_),"empty or stale executable");int bound=layout_->original_stack_bound_;
   for(const auto& phase:phases_)bound=std::max(bound,phase->stack_bound_);return bound;
 }
+std::array<RegionExecutableBatch,2> RegionExecutableBatch::partition(
+    const std::vector<unsigned char>& routes) && {
+  require(routes.size()==programs_.size(),"partition size mismatch");
+  std::array<std::size_t,2> counts{};
+  for(auto route:routes){require(route<2,"invalid partition route");++counts[route];}
+  std::array<RegionExecutableBatch,2> result{RegionExecutableBatch{}, RegionExecutableBatch{}};
+  for(std::size_t b=0;b<2;++b){result[b].programs_.reserve(counts[b]);result[b].stack_bounds_.reserve(counts[b]);}
+  for(std::size_t i=0;i<routes.size();++i) {
+    auto& part=result[routes[i]];
+    part.programs_.push_back(std::move(programs_[i]));part.stack_bounds_.push_back(stack_bounds_[i]);
+  }
+  programs_.clear();stack_bounds_.clear();return result;
+}
 RegionExecutableBatch::RegionExecutableBatch(const std::vector<RegionExecutable>& programs) {
   programs_.reserve(programs.size());stack_bounds_.reserve(programs.size());
   for(const auto& program:programs){programs_.push_back(program.materialize());stack_bounds_.push_back(program.stack_bound());}

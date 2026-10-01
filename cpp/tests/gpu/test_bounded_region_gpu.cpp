@@ -862,6 +862,39 @@ bool test_owned_region_executables() {
         "owned and independent raw verification preserve results/fuel"))return false;
     if(!check(!session.eval_executables({RegionExecutable{}}).ok,"empty executable reported explicitly"))return false;
   }
+  {
+    struct Env {
+      const char* key;bool had;std::string old;
+      explicit Env(const char* k):key(k),had(std::getenv(k)!=nullptr),old(had?std::getenv(k):""){setenv(key,"1",1);}
+      ~Env(){if(had)setenv(key,old.c_str(),1);else unsetenv(key);}
+    } bucket("GAGP_BUCKET_SMALL_PHASES"),view("GAGP_VIEW_PROFILE"),typed("GAGP_TYPED_VIEW_PHASE"),
+        direct("GAGP_DIRECT_PHASE"),root("GAGP_DIRECT_ROOT");
+    auto wide=source.bounded_region_segments[0].base_body;
+    wide.program.n_locals=9;wide.program.consts[0]=Value::from_int(31);
+    auto wide_phases=phases;wide_phases[1]=layout->admit_phase(1,wide);
+    const auto large=RegionExecutable::compose(layout,wide_phases);
+    auto deep=source.bounded_region_segments[0].base_body;
+    deep.program.code.clear();deep.program.instruction_fuel.clear();
+    for(int i=0;i<17;++i)deep.program.code.push_back(ins_a(Opcode::PushConst,0));
+    for(int i=1;i<17;++i)deep.program.code.push_back(ins(Opcode::Add));
+    deep.program.code.push_back(ins(Opcode::Return));
+    auto deep_phases=phases;deep_phases[1]=layout->admit_phase(1,deep);
+    const auto large_stack=RegionExecutable::compose(layout,deep_phases);
+    const std::vector<RegionExecutable> mixed{large,moved,changed,large_stack,moved};
+    std::vector<BytecodeProgram> raw;for(const auto& p:mixed)raw.push_back(p.materialize());
+    for(int fuel:{0,1,3,100}) {
+      FitnessSessionGpu session;
+      if(!check(session.init({{},{}},{Value::from_int(7),Value::from_int(19)},fuel,32,7).ok,"bucket init"))return false;
+      const auto split=session.eval_executables(mixed,true);const auto reference=session.eval_programs(raw,true);
+      const auto cpu=eval_fitness_cpu(raw,{{},{}},{Value::from_int(7),Value::from_int(19)},fuel,7,32);
+      if(!check(split.ok && reference.ok && split.execution_profile.find("small-phase-buckets[3:")==0 &&
+          split.fitness==reference.fitness && split.fitness==cpu && split.case_counts==reference.case_counts,
+          "small/large phase buckets preserve scatter order, cases, errors and fuel"))return false;
+      const auto homogeneous=session.eval_executables({large,large},true);
+      if(!check(homogeneous.ok && homogeneous.execution_profile.find("small-phase-buckets")==std::string::npos,
+          "homogeneous large phases avoid partition launches"))return false;
+    }
+  }
   return true;
 }
 

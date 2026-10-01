@@ -195,11 +195,18 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
   const auto begin=Clock::now();
   std::vector<gagp::BytecodeProgram> programs;
   for (const auto& g:population) programs.push_back(gagp::evo::compile_for_eval(g,cs.input_names));
+  std::vector<gagp::RegionExecutable> owned;
+  if(std::getenv("GAGP_SNAPSHOT_OWNED"))for(const auto& program:programs) {
+    const auto layout=gagp::RegionExecutableLayout::admit(program);
+    std::vector<gagp::RegionExecutableLayout::Phase> phases;
+    for(std::size_t i=0;i<layout->phase_count();++i)phases.push_back(layout->initial_phase(i));
+    owned.push_back(gagp::RegionExecutable::compose(layout,std::move(phases)));
+  }
   const auto compile_ms=elapsed(begin);
   gagp::FitnessSessionGpu session;
   const auto init=session.init(cs.bindings,cs.expected_values,2000000,512,1000);
   if (!init.ok) throw std::runtime_error(init.err.message);
-  const auto result=session.eval_programs(programs,true);
+  const auto result=owned.empty()?session.eval_programs(programs,true):session.eval_executables(owned,true);
   if (!result.ok) throw std::runtime_error(result.err.message);
   std::vector<double> cpu;
   if (std::getenv("GAGP_SNAPSHOT_CPU"))

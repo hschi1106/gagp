@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <array>
 #include "gagp/core/bytecode.hpp"
 
 namespace gagp {
@@ -55,7 +56,12 @@ class RegionExecutableBatch final {
   const std::vector<BytecodeProgram>& programs() const { return programs_; }
   const std::vector<int>& stack_bounds() const { return stack_bounds_; }
  private:
+  RegionExecutableBatch() = default;
+  // Consumes a local immutable snapshot while retaining each code/bound pair.
+  // No caller can manufacture proof metadata or observe partial partitioning.
+  std::array<RegionExecutableBatch,2> partition(const std::vector<unsigned char>& routes) &&;
   std::vector<BytecodeProgram> programs_;
   std::vector<int> stack_bounds_;
+  friend class FitnessSessionGpu;
 };
 }  // namespace gagp

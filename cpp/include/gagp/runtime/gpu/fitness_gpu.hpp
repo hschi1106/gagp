@@ -69,7 +69,7 @@ class FitnessSessionGpu {
 
  private:
   FitnessEvalResult eval_impl(const std::vector<BytecodeProgram>& programs, bool capture_case_counts,
-      const RegionExecutableBatch* owned) const;
+      const RegionExecutableBatch* owned, bool view_code_proven = false) const;
   struct Impl;
   std::unique_ptr<Impl> impl_;
 };

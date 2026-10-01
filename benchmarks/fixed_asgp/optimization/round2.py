@@ -30,6 +30,7 @@ def main():
     parser.add_argument('--native-generations', type=int)
     parser.add_argument('--only', choices=('all','native','fragments'), default='all')
     parser.add_argument('--parsimony', action='store_true')
+    parser.add_argument('--buckets', action='store_true', help='experimental owned capacity buckets; may regress cheap populations')
     args = parser.parse_args()
     os.chdir(ROOT)
     out = args.out.resolve(); out.mkdir(parents=True, exist_ok=False)
@@ -64,6 +65,7 @@ def main():
 
     fragment = dict(FLAGS, GAGP_LOCAL_FRAGMENT_ADMISSION='1', GAGP_OWNED_EXECUTABLE='1')
     if args.parsimony: fragment['GAGP_FRAGMENT_PARSIMONY']='1'
+    if args.buckets: fragment['GAGP_BUCKET_SMALL_PHASES']='1'
     if args.stage == 'formal':
         for process in range(3):
             for task in TASKS:

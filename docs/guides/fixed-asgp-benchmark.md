@@ -315,3 +315,24 @@ phase order, numeric operations and fuel. Unsupported shapes keep tagged frames.
 bound scalar loads, Add and optional Return, with no unused or parameter binding.
 It reads proved initialized slots directly, preserving per-instruction fuel and
 the existing double-conversion/wrapping arithmetic. Other phases retain the VM.
+
+
+`GAGP_BUCKET_SMALL_PHASES=1` is an isolated owned-executable experiment (driver
+`--buckets`), disabled in the common best configuration. Splitting can regress
+cheap populations; it is not a universal speedup. With
+`GAGP_DIRECT_PHASE`, it partitions a mixed-capacity, wholly view-capable population by certified stack bound
+(up to 16) and phase-local capacity (up to 8), then runs the existing capability
+checks separately for each bucket. Unsupported payload/shape profiles still use
+the ordinary evaluator. It does not change grammar admission, selection order,
+precision, fuel or limits; every result is scattered back to its original index.
+Homogeneous populations use one ordinary evaluation call. A private consuming
+partition moves each immutable bytecode/bound pair; the immediately preceding
+whole-batch view proof is reused only for its subsets in that same session call.
+Payload availability and all other capability/capacity checks still run. There is
+no public trusted flag or persistent proof cache. Classification, launches,
+workspace layout changes and scatter remain inside evaluation timing. Raw mutable
+bytecode dispatch is unchanged.
+
+`GAGP_SNAPSHOT_OWNED=1` applies the strictly admitted immutable bytecode path to
+an evaluator snapshot. Certificate construction is included in its `compile_ms`;
+this remains a diagnostic snapshot, not a complete-generation timing.
