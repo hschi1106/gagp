@@ -1,0 +1,7 @@
+task,mode,timing_kind,compile_ms,packing_ms,h2d_ms,eval_kernel_ms,selection_ms,repro_ms,d2h_ms,verification_ms,sync_exposed_ms,other_ms,total_ms
+sum_of_elements,gpu_overlap,nsys_profiled_single_representative_wall_partition,26.341634,13.558541,3.935307,87.670347,1.2859150000000001,70.432732,0.19453,58.897754,0.085799,6.887774999999999,269.29033400000003
+sum_of_elements,gpu_repro,nsys_profiled_single_representative_wall_partition,16.533886,15.733641,4.063497,85.920266,1.285412,82.310532,0.194625,77.705901,0.097284,6.328352000000001,290.17339599999997
+house_robber,gpu_overlap,nsys_profiled_single_representative_wall_partition,32.492423,12.882489,3.732163,43.612564,1.208771,70.502044,0.278656,69.049076,0.086472,6.6109279999999995,240.45558599999998
+house_robber,gpu_repro,nsys_profiled_single_representative_wall_partition,23.10786,16.107593,3.664771,42.989107,1.191518,82.59584699999999,0.2496,85.75883,0.099588,6.753056000000001,262.51777
+median,gpu_overlap,nsys_profiled_single_representative_wall_partition,27.59305,13.274726,3.689412,3.910437,1.519409,80.982768,0.206624,59.225246,0.081283,7.262339,197.745294
+median,gpu_repro,nsys_profiled_single_representative_wall_partition,19.578419,15.447235,3.700929,3.925156,1.5148220000000001,83.950021,0.207461,76.37706,0.099535,6.762155,211.56279300000003

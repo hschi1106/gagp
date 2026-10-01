@@ -1,0 +1,359 @@
+{
+  "runtime_commit": "9d862ed43e9c626b22775713a50897c7f5439c91",
+  "branch": "opt/gpu-generation-20261001",
+  "candidate_binary": "logs/optimization/final_bench",
+  "candidate_binary_sha256": "19e6f5aab5fdc5354c44722717758f35b4a2103ca57cb1d423dd1adfe2952644",
+  "baseline_binary_sha256": "07e9676d30d48f1464ca5b9a9b5f83d01cda4a625df99eb601336905e5785387",
+  "hardware": "RTX 3090 24 GiB (82 SM), i9-10900K, CUDA 12.6, driver 560.35.05",
+  "flags": {
+    "GAGP_CUDA_DEVICE": "0",
+    "GAGP_VIEW_PROFILE": "1",
+    "GAGP_TYPED_VIEW_PHASE": "1",
+    "GAGP_SORT_CASES": "1",
+    "GAGP_COMPACT_FRAMES": "1",
+    "GAGP_POPULATION_HANDOFF": "1",
+    "GAGP_CONSTANT_PHASE": "1"
+  },
+  "timing_contract": "fixed-asgp-v1; full generation; unprofiled; unchanged 1024 programs and 1024 cases; original session initialization boundary preserved, session costs separately recorded",
+  "primary": [
+    {
+      "task": "sum_of_elements",
+      "population": 1024,
+      "cases": 1024,
+      "mode": "gpu_overlap",
+      "samples": 9,
+      "processes": 3,
+      "warmups_per_process": 1,
+      "generation_ms": {
+        "median": 250.317705,
+        "min": 242.95385,
+        "max": 254.207545,
+        "samples": [
+          254.207545,
+          242.95385,
+          247.556188,
+          249.053688,
+          253.796599,
+          249.872201,
+          252.910674,
+          250.317705,
+          250.676404
+        ]
+      },
+      "asgp_1t_fixed_ms": 1841.160175,
+      "original_gagp_ms": 805.996254,
+      "speedup_asgp_1t": 7.355293445982976,
+      "speedup_original_gagp": 3.219893111436125,
+      "target_40x_ms": 46.029004375,
+      "remaining_time_factor_to_40x": 5.438260253483921,
+      "session_gpu_init_ms_measured_rows_median": 3.59843,
+      "evolve_call_ms_measured_rows_median": 275.761139,
+      "gpu_kernel_ms_note": "native host launch+wait timing; not pure CUDA duration"
+    },
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "cases": 1024,
+      "mode": "gpu_overlap",
+      "samples": 9,
+      "processes": 3,
+      "warmups_per_process": 1,
+      "generation_ms": {
+        "median": 217.49477,
+        "min": 215.009308,
+        "max": 221.309967,
+        "samples": [
+          216.519653,
+          217.923236,
+          215.009308,
+          216.346053,
+          216.677578,
+          218.203275,
+          221.309967,
+          217.49477,
+          218.360843
+        ]
+      },
+      "asgp_1t_fixed_ms": 1282.011816,
+      "original_gagp_ms": 761.333017,
+      "speedup_asgp_1t": 5.894448937783653,
+      "speedup_original_gagp": 3.5004658594779086,
+      "target_40x_ms": 32.050295399999996,
+      "remaining_time_factor_to_40x": 6.786045722374216,
+      "session_gpu_init_ms_measured_rows_median": 3.673988,
+      "evolve_call_ms_measured_rows_median": 244.41733,
+      "gpu_kernel_ms_note": "native host launch+wait timing; not pure CUDA duration"
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "cases": 1024,
+      "mode": "gpu_overlap",
+      "samples": 9,
+      "processes": 3,
+      "warmups_per_process": 1,
+      "generation_ms": {
+        "median": 176.443262,
+        "min": 173.8628,
+        "max": 178.348542,
+        "samples": [
+          177.703328,
+          178.348542,
+          174.840782,
+          177.006662,
+          173.8628,
+          176.443262,
+          177.648639,
+          175.099216,
+          174.971977
+        ]
+      },
+      "asgp_1t_fixed_ms": 61.777141,
+      "original_gagp_ms": 265.242088,
+      "speedup_asgp_1t": 0.3501246820068425,
+      "speedup_original_gagp": 1.5032712782197375,
+      "target_40x_ms": null,
+      "remaining_time_factor_to_40x": null,
+      "session_gpu_init_ms_measured_rows_median": 3.64646,
+      "evolve_call_ms_measured_rows_median": 201.731081,
+      "gpu_kernel_ms_note": "native host launch+wait timing; not pure CUDA duration"
+    }
+  ],
+  "primary_targets_met": false,
+  "medium": "User confirmed medium was a typo for Median. Median is the third optimization target and is included in all final measurements.",
+  "quality": [
+    {
+      "task": "sum_of_elements",
+      "variation_seeds": [
+        0,
+        1,
+        2
+      ],
+      "generations_per_seed": 4,
+      "same_frozen_initial_population": true,
+      "fixed_snapshot_equal_to_E09": true,
+      "final_rows_and_cpu_audit_equal_to_previous_optimized": true,
+      "best_final": [
+        0,
+        0,
+        0
+      ],
+      "unique_final_genomes": [
+        1004,
+        1000,
+        1012
+      ],
+      "mean_final_nodes": 35.917643229166664,
+      "counters": {
+        "cases": 12582912,
+        "errors": 1428517,
+        "timeouts": 0,
+        "fallbacks": 0,
+        "unscored": 0,
+        "changed": 14097,
+        "unchanged": 1830,
+        "rejected": 0,
+        "operator_fallbacks": 0
+      },
+      "error_fraction": 0.11352833112080891,
+      "changed_operator_output_fraction": 0.8851007722734978,
+      "counter_note": "changed/unchanged count operator outputs, not final unique offspring; error cases include runtime-invalid program behavior, not admission rejection"
+    },
+    {
+      "task": "house_robber",
+      "variation_seeds": [
+        0,
+        1,
+        2
+      ],
+      "generations_per_seed": 4,
+      "same_frozen_initial_population": true,
+      "fixed_snapshot_equal_to_E09": true,
+      "final_rows_and_cpu_audit_equal_to_previous_optimized": true,
+      "best_final": [
+        -8479,
+        -8503,
+        -8479
+      ],
+      "unique_final_genomes": [
+        900,
+        887,
+        898
+      ],
+      "mean_final_nodes": 34.747721354166664,
+      "counters": {
+        "cases": 12582912,
+        "errors": 0,
+        "timeouts": 0,
+        "fallbacks": 0,
+        "unscored": 0,
+        "changed": 14430,
+        "unchanged": 1497,
+        "rejected": 0,
+        "operator_fallbacks": 2
+      },
+      "error_fraction": 0.0,
+      "changed_operator_output_fraction": 0.906008664531927,
+      "counter_note": "changed/unchanged count operator outputs, not final unique offspring; error cases include runtime-invalid program behavior, not admission rejection"
+    },
+    {
+      "task": "median",
+      "variation_seeds": [
+        0,
+        1,
+        2
+      ],
+      "generations_per_seed": 4,
+      "same_frozen_initial_population": true,
+      "fixed_snapshot_equal_to_E09": true,
+      "final_rows_and_cpu_audit_equal_to_previous_optimized": true,
+      "best_final": [
+        -28478,
+        -31025,
+        -28478
+      ],
+      "unique_final_genomes": [
+        1018,
+        1014,
+        1021
+      ],
+      "mean_final_nodes": 83.95768229166667,
+      "counters": {
+        "cases": 12582912,
+        "errors": 1244097,
+        "timeouts": 0,
+        "fallbacks": 0,
+        "unscored": 0,
+        "changed": 14486,
+        "unchanged": 1441,
+        "rejected": 0,
+        "operator_fallbacks": 6
+      },
+      "error_fraction": 0.09887194633483887,
+      "changed_operator_output_fraction": 0.9095247064732843,
+      "counter_note": "changed/unchanged count operator outputs, not final unique offspring; error cases include runtime-invalid program behavior, not admission rejection"
+    }
+  ],
+  "quality_limit": "Three variation seeds reuse the same frozen initial parents. Four generations only screen for obvious regression, not convergence equivalence. View profile removes bounded list copy-pool losses; compare CPU audit and E05 evidence. No numeric narrowing, fuel/depth/list/memo capacity reduction or native operator change is retained.",
+  "phase_bank": {
+    "track": "isolated independent-phase prototype; fixed skeleton and changed operators/search space, not primary fixed benchmark",
+    "timing": "cold unprofiled measurements; later generations contain different programs; initialization and audits separately shown; cold timings disable counters, use diagnostic seed runs for counters",
+    "restrictions": "whole independent phases; finite admitted bank by default, fresh grammar donors optional with registry-independent constants; fresh maximum 16 generations due to retained proof sources",
+    "limitation": "Median stagnates at -31025 for all seeds; native improves to -28478 in two seeds. Do not adopt as quality-equivalent native backend.",
+    "results": [
+      {
+        "task": "sum_of_elements",
+        "cold_processes": 3,
+        "first_generation_including_bank_init_ms": 136.25462100000001,
+        "bank_init_ms": 27.410602,
+        "gpu_init_ms_separate": 110.93671,
+        "first_generation_plus_gpu_init_ms": 247.19133100000002,
+        "subsequent_generation_ms": 122.593096,
+        "first_four_generations_with_bank_and_gpu_init_ms_per_generation": 152.70875775,
+        "final_export_admission_ms_separate": 9.250177,
+        "final_eval_ms_separate": 116.523513,
+        "top16_cpu_ms_separate": 331.327049,
+        "best_final_3seeds": [
+          0,
+          0,
+          0
+        ],
+        "full_export_admission_and_ast_fitness_audit_pass": true,
+        "final_rows_equal_to_E18": true
+      },
+      {
+        "task": "house_robber",
+        "cold_processes": 3,
+        "first_generation_including_bank_init_ms": 93.41947,
+        "bank_init_ms": 29.117664,
+        "gpu_init_ms_separate": 111.80595,
+        "first_generation_plus_gpu_init_ms": 205.22541999999999,
+        "subsequent_generation_ms": 51.880793,
+        "first_four_generations_with_bank_and_gpu_init_ms_per_generation": 90.79352175,
+        "final_export_admission_ms_separate": 8.929607,
+        "final_eval_ms_separate": 40.770681,
+        "top16_cpu_ms_separate": 58.096857,
+        "best_final_3seeds": [
+          -8479,
+          -8479,
+          -8443
+        ],
+        "full_export_admission_and_ast_fitness_audit_pass": true,
+        "final_rows_equal_to_E18": true
+      },
+      {
+        "task": "median",
+        "cold_processes": 3,
+        "first_generation_including_bank_init_ms": 53.487615000000005,
+        "bank_init_ms": 27.893882,
+        "gpu_init_ms_separate": 125.045957,
+        "first_generation_plus_gpu_init_ms": 178.351798,
+        "subsequent_generation_ms": 18.85764,
+        "first_four_generations_with_bank_and_gpu_init_ms_per_generation": 58.5852575,
+        "final_export_admission_ms_separate": 12.302607,
+        "final_eval_ms_separate": 10.724232,
+        "top16_cpu_ms_separate": 7.343542,
+        "best_final_3seeds": [
+          -31025,
+          -31025,
+          -31025
+        ],
+        "full_export_admission_and_ast_fitness_audit_pass": true,
+        "final_rows_equal_to_E18": true
+      }
+    ]
+  },
+  "scaling": {
+    "cells": 60,
+    "gpu_cells_rerun": 36,
+    "unchanged_cpu_asgp_controls_reused": 24,
+    "source": "logs/optimization/scaling-candidate",
+    "gpu_rerun_seconds": 291.6776730129495,
+    "previous_full_60cell_seconds": 2435.9812495876104,
+    "note": "36 GPU cells rerun on final candidate. The 24 unchanged ASGP/GAGP CPU control cells are explicitly reused from the earlier complete 60-cell matrix; this is not a newly timed single 60-cell invocation.",
+    "handoff_peak_rss_extra_GiB_approx": {
+      "sum_of_elements": 0.74,
+      "house_robber": 0.33,
+      "median": 0.76
+    }
+  },
+  "profiler": {
+    "source": "logs/optimization/final-profiler",
+    "summary": "final-profile.csv",
+    "note": "Diagnostic nsys wall partition only; overlap attributed once with GPU priority. Raw CUDA sync wait overlaps kernels; only exposed sync appears in partition. Never combine profiled component times with unprofiled ASGP speedup denominator.",
+    "ncu_limit": "2024.3 ERR_NVGPUCTRPERM; no counters collected; no system settings changed"
+  },
+  "tests": {
+    "native_passed": 119,
+    "optimized_gpu_passed": 20,
+    "tool_tests_run": 89,
+    "tool_tests_skipped_optional": 4,
+    "repository_passed": 24,
+    "logs": [
+      "logs/optimization/ctest-candidate-final.log",
+      "logs/optimization/ctest-candidate-optimized.log",
+      "logs/optimization/tool-tests-final.log",
+      "logs/optimization/repository-tests-final.log"
+    ]
+  },
+  "original_worktree_audit": {
+    "checkpoint": "edfcf0b6b6f2a8d868d920f45c4e750b05e5f1c9",
+    "checked_paths": 41,
+    "mismatches": [],
+    "original_head_now": "02aec6fccfdbf54596a5c7179ddd3217904bf81b",
+    "frozen_artifact_manifest_sha256": "68b2f4d0c331b7d89abd245b68d961409406018a9f76cf4856e454c214fcf98e",
+    "frozen_files_checked": 15
+  },
+  "raw_provenance_sha256": {
+    "logs/optimization/E23-repeats/manifest.json": "c255b74bb5e58acb6686ea87cbdea4d63aafe6d3a3e35114707f3647189fbe18",
+    "logs/optimization/candidate-validation/manifest.json": "dc960d9b3faf77d7d006470ca39ad29c0bccc7ca74521f27fe4b217ab2c5b50d",
+    "logs/optimization/scaling-candidate/manifest.json": "bfaa901c999c6f19d85edc5c579931ee376149e144055ba8ec1a6a12ec2df958",
+    "logs/optimization/scaling-candidate/environment.json": "da77850bebc5b1dc666db22efd91c553d56acfa57a85d903112a0f84301c9a0a",
+    "logs/optimization/scaling-final/manifest.json": "df65b23b0c64c488c35ad5fde73fd90d45a391e285443c5eb261528246b2a219",
+    "logs/optimization/final-profiler/manifest.json": "bef30ee140110d1a6e80af80d0e2796147dcfcd2164d1fcff3563515cbf1f2ec",
+    "logs/optimization/final-profiler/analysis.json": "326228055198fcaad08a360d3aa35d55375f476c42c5a511e54b2c44a948c2c6",
+    "logs/optimization/final-profiler/source_identity.json": "cfa99c7c1c0dbecca7146aa179e7fb8bc47e2bbbd0bcc5fa45da07830a5ef4e5",
+    "logs/optimization/final-profiler/instrumentation.patch": "91bc001c85014f48791415fd4f69f7adcbc87b6c897fbbec4ad5dc975c27a30d"
+  },
+  "stop_reason": "Multiple distinct host, representation, memory-layout, interpreter and search-space directions tested. Current native path still far from 40x; isolated phase-bank demonstrates host savings but fails the Median quality screen. No remaining measured candidate supports adoption; general proof-carrying IR or GPU-resident evolution remains unvalidated architecture work."
+}

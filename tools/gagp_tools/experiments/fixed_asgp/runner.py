@@ -211,7 +211,7 @@ def report(folder: Path, manifest: dict) -> None:
                          f"{row['min_ms']:.3f}–{row['max_ms']:.3f} | {ratios[0]} | {ratios[1]} |")
     lines += ["", "Full commands, samples, status and artifact identities: [manifest.json](manifest.json).",
               "Hardware/build: [environment.json](environment.json). Phase attribution: [summary.json](summary.json).",
-              "", "Variation counters classify operator outputs, not final offspring. Native fitness APIs do not expose per-case error/timeout counts; these are not inferred from fitness penalties."]
+              "", "Variation counters classify operator outputs, not final offspring. Fixed timing runs do not collect per-case error/timeout counts; use the separate snapshot/search diagnostics. These counts are not inferred from fitness penalties."]
     (folder / "report.md").write_text("\n".join(lines) + "\n")
 
 
