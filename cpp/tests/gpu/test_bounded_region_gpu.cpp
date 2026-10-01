@@ -893,6 +893,21 @@ bool test_owned_region_executables() {
       const auto homogeneous=session.eval_executables({large,large},true);
       if(!check(homogeneous.ok && homogeneous.execution_profile.find("small-phase-buckets")==std::string::npos,
           "homogeneous large phases avoid partition launches"))return false;
+      // An immutable certificate proves safety, not view capability. An unused
+      // Float constant intentionally defeats the conservative view proof.
+      auto unsupported_source=source;
+      unsupported_source.consts.push_back(Value::from_float(0.5));
+      auto unsupported_layout=RegionExecutableLayout::admit(unsupported_source);
+      std::vector<RegionExecutableLayout::Phase> unsupported_phases;
+      for(std::size_t i=0;i<unsupported_layout->phase_count();++i)
+        unsupported_phases.push_back(unsupported_layout->initial_phase(i));
+      const auto unsupported=RegionExecutable::compose(unsupported_layout,unsupported_phases);
+      const auto fallback=session.eval_executables({large,unsupported,moved},true);
+      const auto fallback_reference=session.eval_programs({large.materialize(),unsupported_source,moved.materialize()},true);
+      if(!check(fallback.ok && fallback_reference.ok &&
+          fallback.execution_profile.find("small-phase-buckets")==std::string::npos &&
+          fallback.fitness==fallback_reference.fitness && fallback.case_counts==fallback_reference.case_counts,
+          "view-ineligible owned program explicitly retains whole-population generic fallback"))return false;
     }
   }
   return true;

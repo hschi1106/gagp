@@ -117,7 +117,7 @@ No convergence-equivalence claim. RSS remains sensitive to program bloat despite
 bounded live fragment counts. NSYS allocation peaks (~517–564 MiB) exclude CUDA
 context/local backing and are short traces, not long-run total device RSS.
 
-## Active checkpoint / resume
+## Final optional checkpoint / resume
 
 **d1faa9b** adds opt-in `GAGP_BUCKET_SMALL_PHASES` (driver `--buckets`) and owned
 snapshot diagnostics. Common best settings above do NOT enable buckets.
@@ -125,27 +125,63 @@ Archived binary `logs/optimization/R2-buckets2/bench`, source patch and pilot
 under `R2-buckets2/`. It partitions certified stack/local capacities, moves the
 existing code/proof pairs, reuses the immediately preceding immutable view proof,
 and scatters all results to original indices. No search or execution change.
-Mixed-capacity/fuel test passed. Pilot late generation snapshots match per-program
-fitness/case counters and exported offspring AST exactly:
+Mixed-capacity/fuel, view-ineligible fallback, immutable lifetime and payload
+regressions passed after re-linking five affected tests; repository checks 24/24.
+No failed test removed. Formal buckets: three processes × one warmup + three
+measurements, including all outliers, full cases and identical input population:
 
-| Late frozen population | Off ms | On ms |
+| Late frozen population | Off median ms | On median ms |
 |---|---:|---:|
-| Sum | 233.639 | 197.846 |
-| House | 162.041 | 160.410 |
-| Median | 79.745 | 83.361 |
+| Sum | 239.316 | 192.724 |
+| House | 161.394 | 163.575 |
+| Median | 81.463 | 79.716 |
 
-First bucket prototype repeated copies/proofs and regressed House by ~22 ms;
-archived `R2-buckets/`, superseded. Second version remains opt-in: Sum improves,
-House pilot is inconclusive, Median regresses. Neither changes headline inputs.
+Sum improves 19.5%; House/Median do not establish a robust benefit. Initial
+population medians off/on: Sum71.147/71.021, House63.315/62.929,
+Median33.812/33.307 ms. Do not substitute these later populations into headline.
+[Bucket results](results/round2-buckets.json),
+[nine raw repeats](results/round2-buckets-repeats.csv),
+[scaling](results/round2-buckets-scaling.csv).
+First prototype repeated copies/proofs and regressed House by ~22 ms;
+archived `R2-buckets/`, superseded by the private consuming partition.
 
-Active serial queue: `logs/optimization/R2-buckets-validation/run.py`, tool
-session56077. Nine initial/late A/B repeats → 3 seeds ×128 bucket generations
-(with exact exported AST comparison) → 12 fragment scaling cells. Manifest/log
-written after each cell. No other GPU job or build until this queue finishes.
-Then read summaries, finish focused checks/diagnostic attribution and checkpoint.
-Previously failed matrix/NCU diagnostic attempts remain archived; current drivers
-follow P8192 frozen-prefix scaling and one-launch grid-stride evaluation. Never
-rerun prepare. No push authorized this round.
+**All queues finished.** `R2-buckets-validation/`: nine initial/late A/B repeats,
+3 seeds ×128 bucket generations, all per-generation semantic counters and final
+exported ASTs exactly equal to the preceding path; 12 additional fragment scaling
+cells; NSYS timeline and five re-linked tests. Scaling explicitly reuses unchanged
+archived ASGP/native controls from the 72-cell matrix. Fresh bucket-off initial
+controls check environment drift. `post-v2.py` excludes the two trailing raw
+final/export audit launches from each one-generation trace; original failed
+parser assertion is archived. Common-configuration NVTX attribution is separate.
+
+Resume commands: the four commands above reproduce the common candidate. Add
+`--buckets --binary logs/optimization/R2-buckets2/bench` for the optional path;
+use fresh output directories. Late A/B and its frozen late-input hashes are in
+`R2-buckets-validation/{run.py,manifest.json,summarize.py}`. Common reporting:
+`R2-release/report.py`. Original worktree/41 modified files and all frozen inputs
+rechecked unchanged. No prepare, push, system changes or background jobs left.
+
+## Bottlenecks and limits
+
+Profiled initial fragment generation: Sum79.54, House69.57, Median40.22 ms.
+CUDA eval41.18/32.52/2.12; host reproduction21.56/24.79/22.86;
+packing5.15/5.15/5.07 ms. Changed-phase compile/admission/verification unions are
+nested inside host reproduction, not additive wall costs. See
+[attribution](results/round2-final-profile.csv). No subtraction from unprofiled
+headline. Late bucket Sum CUDA eval ~150→101 ms; House ~53→47, Median~7.8→7.4;
+extra host/layout work explains why cheaper populations gain little.
+NCU Sum: eligible warps0.178, issue15.4%, long-scoreboard59.9%; indexed local
+loads and static spills both exist. No claim that every local load is a spill,
+or that local sectors equal DRAM bytes. Final compiler entry report64 registers,
+992 B stack,216/88 B spill stores/loads is static resource evidence.
+
+Warm fresh-owner four-generation search totals (including setup):
+321.241/258.820/152.322 ms; cold first process search434.505/381.775/277.459.
+Full parse/diagnostic process costs and raw cold values are separately recorded.
+Five-second quality thresholds: native House1/3, Median2/3; ordinary fragments
+and parsimony both3/3. Three seeds, diagnostic timing and simplified held-out
+sampling do not prove convergence equivalence. Parsimony remains a separate
+search change, not required for performance headline; Median still grows.
 
 Remaining architecture limits: fixed admitted root skeleton, independent phase
 holes and closed scalar phases; no generic derivation-first backend or asynchronous
@@ -153,3 +189,11 @@ hot-phase JIT. Bytecode copies, type-flow packing, changed-phase AST admission a
 dynamic interpreter work remain. Bucket launch/layout overhead matters on cheap
 work; no supported adaptive policy yet. A next experiment must eliminate remaining
 work, not merely add another cache around mutable ASTs.
+
+Completed decision: retain the measured executor/ownership simplifications and
+isolated capacity buckets, reject the measured regressions. Sum/House40× and
+Median10–20 ms remain unmet. Further dynamic interpreter or subphase compiler
+work needs a new bounded prototype; eager JIT and stack reshuffling did not
+support pursuing a broad rewrite. Next entry is changed-phase direct derivation
+compilation with explicit grammar/scope/resource proof, measured against local
+admission+compile worker cost. It is not implemented or claimed as a gain here.
