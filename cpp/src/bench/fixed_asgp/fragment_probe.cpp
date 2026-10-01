@@ -31,6 +31,7 @@ void fragment_probe(const std::vector<gagp::evo::ProgramGenome>& population,
   FitnessSessionGpu session;
   auto init=session.init(cs.bindings,cs.expected_values,2000000,512,1000);
   if(!init.ok)throw std::runtime_error(init.err.message);
+  const bool owned=std::getenv("GAGP_OWNED_EXECUTABLE")!=nullptr;
   const auto setup=Clock::now();
   gg::ExecutableFragments arena(grammar,population.at(0),cs.input_names);
   std::vector<gg::ExecutableFragments::Genome> current(population.size());
@@ -61,8 +62,11 @@ void fragment_probe(const std::vector<gagp::evo::ProgramGenome>& population,
   for(int generation=0;generation<generations;++generation) {
     const auto begin=Clock::now();
     std::vector<BytecodeProgram> programs;programs.reserve(current.size());
-    for(const auto& g:current)programs.push_back(arena.executable(g));
-    const auto fit=session.eval_programs(programs,std::getenv("GAGP_GPU_DIAGNOSTICS")!=nullptr);
+    std::vector<RegionExecutable> executables;
+    if(owned) {executables.reserve(current.size());for(const auto& g:current)executables.push_back(arena.owned_executable(g));}
+    else for(const auto& g:current)programs.push_back(arena.executable(g));
+    const auto fit=owned ? session.eval_executables(executables,std::getenv("GAGP_GPU_DIAGNOSTICS")!=nullptr) :
+        session.eval_programs(programs,std::getenv("GAGP_GPU_DIAGNOSTICS")!=nullptr);
     if(!fit.ok)throw std::runtime_error(fit.err.message);
     if(generation==0)for(auto f:fit.fitness)initial.push_back(number(f));
     const auto best=std::distance(fit.fitness.begin(),std::max_element(fit.fitness.begin(),fit.fitness.end()));
@@ -74,6 +78,7 @@ void fragment_probe(const std::vector<gagp::evo::ProgramGenome>& population,
     workers.run([&]{for(;;){auto j=next.fetch_add(1);if(j>=jobs.size())break;const auto& job=jobs[j];children[j+1]=arena.vary(current[job.parent],current[job.donor],job.seed,job.mutation);}});
     std::size_t changed=0,rejected=0; for(std::size_t i=0;i<current.size();++i){changed+=children[i].changed;rejected+=children[i].rejected;current[i]=std::move(children[i].genome);}
     // Destruction of retired fragments occurs before this timer closes.
+    programs.clear();executables.clear();
     const double reproduction_ms=ms(repro), generation_ms=ms(begin);
     std::array<std::uint64_t,5> counts{};for(const auto& c:fit.case_counts)for(int k=0;k<5;++k)counts[k]+=c[k];
     double mean_nodes=0;for(const auto& g:current)mean_nodes+=arena.nodes(g);

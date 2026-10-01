@@ -4,6 +4,7 @@
 #include <vector>
 #include "gagp/evolution/grammar/variation.hpp"
 #include "gagp/core/bytecode.hpp"
+#include "gagp/core/region_executable.hpp"
 
 namespace gagp::evo::grammar {
 
@@ -30,6 +31,7 @@ class ExecutableFragments {
   Genome import(const ProgramGenome& external) const;
   ProgramGenome export_ast(const Genome& genome) const;
   BytecodeProgram executable(const Genome& genome) const;
+  RegionExecutable owned_executable(const Genome& genome) const;
   // Exactly one variation operator. Mutation generates a fresh grammar donor;
   // crossover chooses compatible sites inside a phase, not only whole phases.
   Change vary(const Genome& parent, const Genome& donor, std::uint64_t seed,

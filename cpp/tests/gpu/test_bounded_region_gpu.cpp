@@ -826,6 +826,45 @@ bool test_production_capability_dispatch_sequence() {
          compare_population({memo_b}, "shrink workspace after ordinary dispatch");
 }
 
+bool test_owned_region_executables() {
+  const auto rejects=[](auto fn) {try {fn();return false;}catch(const std::invalid_argument&) {return true;}};
+  auto source=invocation(unary_segment(Value::from_int(7)),{Value::from_int(1)});
+  auto layout=RegionExecutableLayout::admit(source);
+  std::vector<RegionExecutableLayout::Phase> phases;
+  for(std::size_t i=0;i<layout->phase_count();++i)phases.push_back(layout->initial_phase(i));
+  auto original=RegionExecutable::compose(layout,phases);
+  auto replacement=source.bounded_region_segments[0].base_body;
+  replacement.program.consts[0]=Value::from_int(19);
+  phases[1]=layout->admit_phase(1,replacement);
+  auto changed=RegionExecutable::compose(layout,phases);
+  replacement.program.consts[0]=Value::from_int(999); // admitted content is owned
+  auto foreign=RegionExecutableLayout::admit(source);
+  auto bad=phases;bad[1]=foreign->initial_phase(1);
+  if(!check(rejects([&]{RegionExecutable::compose(layout,bad);}),"foreign phase owner rejected"))return false;
+  bad=phases;std::swap(bad[0],bad[1]);
+  if(!check(rejects([&]{RegionExecutable::compose(layout,bad);}),"wrong phase slot rejected"))return false;
+  auto invalid=source.bounded_region_segments[0].base_body;
+  invalid.program.code[0].a=999;
+  if(!check(rejects([&]{layout->admit_phase(1,invalid);}),"untrusted phase index verified"))return false;
+  invalid=source.bounded_region_segments[0].base_body;
+  if(!check(rejects([&]{layout->admit_phase(0,invalid);}),"Int is not a predicate proof"))return false;
+  auto too_large=source;too_large.bounded_region_segments[0].plan.limits.frames=129;
+  if(!check(rejects([&]{RegionExecutableLayout::admit(too_large);}),"owned GPU frame capacity checked"))return false;
+  auto moved=std::move(original);
+  if(!check(rejects([&]{original.materialize();}),"moved handle cannot refer to reused identity"))return false;
+  for(int fuel:{0,1,2,3,4,10,100}) {
+    FitnessSessionGpu session;
+    if(!check(session.init({{},{}},{Value::from_int(7),Value::from_int(19)},fuel,32,7).ok,"owned init"))return false;
+    const std::vector<RegionExecutable> programs{moved,changed};
+    const auto trusted=session.eval_executables(programs,true);
+    const auto checked=session.eval_programs({moved.materialize(),changed.materialize()},true);
+    if(!check(trusted.ok && checked.ok && trusted.fitness==checked.fitness && trusted.case_counts==checked.case_counts,
+        "owned and independent raw verification preserve results/fuel"))return false;
+    if(!check(!session.eval_executables({RegionExecutable{}}).ok,"empty executable reported explicitly"))return false;
+  }
+  return true;
+}
+
 bool test_verified_view_profile(bool direct = false, bool root = false) {
   struct Environment {
     const char* key; std::string old; bool had;
@@ -905,6 +944,7 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
 
 int main() {
   payload::clear();
+  if (!test_owned_region_executables()) return 1;
   if (!test_verified_view_profile() || !test_verified_view_profile(true) || !test_verified_view_profile(true, true)) return 1;
   if (!test_workspace_thread_isolation()) return 1;
   if (!test_phase_binding_capacities()) return 1;

@@ -205,3 +205,26 @@ individuals differ in skeleton, so whole-population representation is not claime
 House -7289/-7258/-5541, Sum 0/0/0. No timeouts; live fragment counts stabilize.
 This shows the earlier four-generation phase-bank stagnation is not an
 expressibility proof. Equal-wall-clock quality controls remain to be run.
+
+R2-local: `GAGP_LOCAL_FRAGMENT_ADMISSION` gives exact framed nonterminal
+membership plus phase-only compilation. No full exemplar construction on changed
+phases. Initial diagnostic Median ~22–34 ms (formerly ~34–49); changed operator
+trajectory due to conservative phase-local budgets is explicitly separate.
+24-generation three-seed best: Sum 0/0/0; House -7333/-5469/-6308; Median
+-23860/-25397/-25900. All final programs independently admitted and rescored;
+no timeouts. Live fragments stay bounded; longer RSS plateau check pending.
+R2-top: cache top two typed-VM stack values in scalar temporaries, retaining
+bounded tail storage. Snapshot equality passes, but kernels regress Sum ~64→77
+ms, House ~31→37 ms. Removed; patch/binary under `R2-top/`.
+Next: immutable bytecode phase certificates at the GPU pack boundary, to remove
+per-generation re-verification of composed unchanged phases. Packing/bytecode
+assembly remains measured; no public trusted flag or mutable identity cache.
+
+R2-owned-pack: opaque immutable layout/phase bytecode certificates, strict raw
+fallback; focused ownership/capacity/fuel tests pass. Same-binary four-generation
+probe saves roughly 1–5 ms, not the large host reduction achieved by fragments.
+Whole bytecode materialization and capability proofs remain. New phase checks
+add cost; repeat validation pending. Retired assembled programs are now explicitly
+destroyed inside the generation timer in both probe paths (timing correction).
+Next: typed window frames to test whether redundant per-slot tags and frame
+bandwidth contribute materially to Sum's remaining evaluator cost.

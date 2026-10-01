@@ -298,9 +298,9 @@ DPayloadFlavor classify_payload_flavor_for_program(const BytecodeProgram& prog, 
   return classify_payload_flavor(prog, shared_input_payload_mask);
 }
 
-PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgram>& programs,
+static PackResult pack_programs_impl(const std::vector<BytecodeProgram>& programs,
                                                 int shared_case_count,
-                                                unsigned shared_input_payload_mask) {
+                                                unsigned shared_input_payload_mask, const std::vector<int>* owned_bounds) {
   PackResult out;
   if (shared_case_count < 0) {
     throw std::invalid_argument("shared case count must be non-negative");
@@ -321,10 +321,11 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
   // The verifier only reads bytecode. Keep every check in this packing call,
   // but verify independent programs concurrently. Retain per-program errors
   // so the ordinary pack loop still reports the first invalid input in order.
-  const bool parallel_verify = programs.size() >= 32 &&
+  const bool parallel_verify = !owned_bounds && programs.size() >= 32 &&
       std::getenv("GAGP_SERIAL_PACK_VERIFY") == nullptr;
   std::vector<std::exception_ptr> verification_errors(programs.size());
   std::vector<int> verified_stack_bounds(programs.size(), MAX_STACK);
+  if (owned_bounds) verified_stack_bounds = *owned_bounds;
   if (parallel_verify) {
     std::atomic<std::size_t> next{0};
     const auto count = std::min<unsigned>(20, std::max(1u, std::thread::hardware_concurrency()));
@@ -347,7 +348,7 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
   for (std::size_t p = 0; p < programs.size(); ++p) {
     const BytecodeProgram& prog = programs[p];
     const bool bounded = has_bounded_region(prog);
-    if (bounded) {
+    if (bounded && !owned_bounds) {
       if (!parallel_verify) verified_stack_bounds[p] = verify_bounded_program_or_throw(prog);
       else if (verification_errors[p]) std::rethrow_exception(verification_errors[p]);
     }
@@ -429,6 +430,15 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
   }
 
   return out;
+}
+
+PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgram>& programs,
+    int cases, unsigned input_mask) {
+  return pack_programs_impl(programs,cases,input_mask,nullptr);
+}
+PackResult pack_programs_with_shared_case_count(const RegionExecutableBatch& batch,
+    int cases, unsigned input_mask) {
+  return pack_programs_impl(batch.programs(),cases,input_mask,&batch.stack_bounds());
 }
 
 void pack_shared_cases_only(const std::vector<CaseBindings>& shared_cases,

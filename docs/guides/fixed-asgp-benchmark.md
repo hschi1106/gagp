@@ -96,8 +96,7 @@ parity gate is imposed. Crashes and missing results are failures, not losses.
 Short evolution/held-out quality experiments are separate from this timing suite.
 
 The 40× target applies to Sum of Elements and House Robber at 1024×1024. Median
-exposes fixed overhead. The conversational term `medium` has no confirmed workload
-mapping; do not treat Median results as satisfying an unidentified medium target.
+exposes fixed overhead. The user clarified that the earlier term `medium` meant Median.
 
 ## Build and run
 
@@ -259,3 +258,16 @@ explicit. Physical replacement limits use the conservative exemplar hole budget;
 this can differ from reconstructing a whole child's canonical resource allowance.
 The local profile therefore has its own reproducible operator trajectory and is
 reported separately. Export still independently re-admits the complete program.
+
+
+`GAGP_OWNED_EXECUTABLE=1` is an experimental compositional bytecode certificate
+boundary for the fragment probe. Admission copies and verifies an immutable
+single-region layout; each replacement phase is verified once in its exact plan
+and ordinal. Composition requires the same live layout owner and slot. This is
+bytecode safety, **not grammar membership**; the fragment owner separately proves
+membership. Registry-dependent constants and oversized GPU region capacities are
+rejected. External raw bytecode still uses full verification. Evaluation assembles
+and destroys ordinary packed bytecode inside timing, but skips repeated whole
+bytecode verification. Capability/type-flow detection and GPU packing still run.
+The added phase verification and cold owner creation are measured. Initial
+same-binary probes suggest a few milliseconds saved, pending repeat validation.

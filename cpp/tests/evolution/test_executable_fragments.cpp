@@ -1,5 +1,7 @@
 #include "../../src/evolution/grammar/executable_fragments.hpp"
 #include "gagp/evolution/compiler.hpp"
+#include "gagp/core/bytecode_verify.hpp"
+#include <cstdlib>
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
 #include "gagp/serialization/region_plan_json.hpp"
@@ -79,6 +81,11 @@ int main() {
       require_membership(*grammar,ast); // catches a split logical hole independently
       genotypes.insert(ast_cache_key(ast.ast));
       auto from_ast=compile_for_eval(ast,{"seed"});auto from_handle=arena.executable(population[i]);
+      if(std::getenv("GAGP_OWNED_EXECUTABLE")) {
+        const auto owned=arena.owned_executable(population[i]);
+        const auto validated=verify_bytecode(owned.materialize());
+        require(validated.ok && owned.stack_bound()>=validated.verified.max_stack_depth,"composed verification bound invalid");
+      }
       for(int fuel:{0,1,4,20,1000})for(int input:{2,7}) {
         auto x=execute_bytecode_cpu(from_ast,{{0,Value::from_int(input)}},fuel);
         auto y=execute_bytecode_cpu(from_handle,{{0,Value::from_int(input)}},fuel);

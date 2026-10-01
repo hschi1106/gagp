@@ -475,6 +475,24 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
 }
 
 FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodeProgram>& programs, bool capture_case_counts) const {
+  return eval_impl(programs,capture_case_counts,nullptr);
+}
+FitnessEvalResult FitnessSessionGpu::eval_executables(const std::vector<RegionExecutable>& programs, bool capture_case_counts) const {
+  const auto start=std::chrono::steady_clock::now();
+  try {
+    FitnessEvalResult result;
+    {
+      RegionExecutableBatch batch(programs);
+      result=eval_impl(batch.programs(),capture_case_counts,&batch);
+    }
+    const auto elapsed=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count();
+    result.timing.pack_ms += elapsed-result.timing.total_ms;
+    result.timing.total_ms=elapsed;
+    return result;
+  } catch(const std::invalid_argument& error) { return fitness_eval_single_error(ErrCode::Value,error.what()); }
+}
+FitnessEvalResult FitnessSessionGpu::eval_impl(const std::vector<BytecodeProgram>& programs, bool capture_case_counts,
+    const RegionExecutableBatch* owned) const {
   if (!impl_ || !impl_->ready) {
     return fitness_eval_single_error(ErrCode::Value, "gpu fitness session is not initialized");
   }
@@ -489,7 +507,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
   const auto pack_t0 = std::chrono::steady_clock::now();
   gpu_detail::PackResult packed;
   try {
-    packed = gpu_detail::pack_programs_with_shared_case_count(
+    packed = owned ? gpu_detail::pack_programs_with_shared_case_count(
+        *owned, impl_->shared_case_count, impl_->shared_input_payload_mask) :
+        gpu_detail::pack_programs_with_shared_case_count(
         programs, impl_->shared_case_count, impl_->shared_input_payload_mask);
   } catch (const std::invalid_argument& error) {
     return fitness_eval_single_error(ErrCode::Value, error.what());

@@ -127,6 +127,8 @@ struct ExecutableFragments::Fragment {
   unsigned slot;
   AstProgram source;  // only this phase, never its full source program/history
   RegionPhase code;
+  RegionExecutableLayout::Phase gpu_phase;
+  const RegionPhase& bytecode() const { return gpu_phase ? gpu_phase->code() : code; }
   VariationSite contract;
   std::vector<VariationSite> sites; // certified relative logical-hole groups
   Fragment(std::shared_ptr<Owner> o, unsigned s) : owner(std::move(o)),
@@ -137,6 +139,8 @@ struct ExecutableFragments::Impl {
   std::shared_ptr<Owner> owner = std::make_shared<Owner>();
   ProgramGenome base;
   BytecodeProgram code;
+  std::shared_ptr<const RegionExecutableLayout> gpu_layout;
+  std::vector<RegionExecutableLayout::Phase> gpu_fixed_phases;
   Layout layout;
   std::vector<std::string> inputs;
   std::string skeleton;
@@ -170,6 +174,7 @@ struct ExecutableFragments::Impl {
     auto f = std::make_shared<Fragment>(owner, p);
     f->source = extract(genome.ast, span);
     f->code = *phase_rows(compiled).at(source.ordinals[p]);
+    if (gpu_layout) f->gpu_phase = gpu_layout->admit_phase(source.ordinals[p], std::move(f->code));
     f->contract = hole;
     f->contract.occurrences = {{0, static_cast<unsigned>(f->source.nodes.size())}};
     for (const auto& site : source.analysis.sites) {
@@ -200,6 +205,7 @@ struct ExecutableFragments::Impl {
     auto f = std::make_shared<Fragment>(owner, p);
     f->source = extract(envelope.ast, span);
     f->code = compile_owned_phase(f->source, base.ast.bounded_region_specs[0].phases.at(layout.ordinals[p]));
+    if (gpu_layout) f->gpu_phase = gpu_layout->admit_phase(layout.ordinals[p], std::move(f->code));
     bool found = false;
     for (auto site : analysis.sites) {
       if (site.occurrences.empty() || !std::all_of(site.occurrences.begin(),site.occurrences.end(),
@@ -251,6 +257,11 @@ ExecutableFragments::ExecutableFragments(std::shared_ptr<const CompiledGrammar> 
   impl_->base = exemplar; impl_->base.derivation.reset();
   impl_->layout = analyze(*impl_->owner->grammar, impl_->base);
   impl_->code = compile_for_eval(impl_->base, impl_->layout.analysis.verified, impl_->inputs);
+  if (std::getenv("GAGP_OWNED_EXECUTABLE")) {
+    impl_->gpu_layout = RegionExecutableLayout::admit(impl_->code);
+    for (std::size_t p=0;p<impl_->gpu_layout->phase_count();++p)
+      impl_->gpu_fixed_phases.push_back(impl_->gpu_layout->initial_phase(p));
+  }
   impl_->skeleton = impl_->normalized(impl_->base, impl_->layout);
   impl_->fixed_nodes = impl_->base.ast.nodes.size();
   for (const auto& site : impl_->layout.holes) impl_->fixed_nodes -= site.materialized_nodes;
@@ -281,8 +292,15 @@ ProgramGenome ExecutableFragments::export_ast(const Genome& genome) const {
 BytecodeProgram ExecutableFragments::executable(const Genome& genome) const {
   impl_->validate(genome); auto code = impl_->code; auto rows = phase_rows(code);
   for (std::size_t p = 0; p < genome.phases_.size(); ++p)
-    *rows.at(impl_->layout.ordinals[p]) = genome.phases_[p]->code;
+    *rows.at(impl_->layout.ordinals[p]) = genome.phases_[p]->bytecode();
   return code;
+}
+RegionExecutable ExecutableFragments::owned_executable(const Genome& genome) const {
+  impl_->validate(genome);
+  require(bool(impl_->gpu_layout),"owned executable profile was not enabled at owner construction");
+  auto phases=impl_->gpu_fixed_phases;
+  for(std::size_t p=0;p<genome.phases_.size();++p)phases[impl_->layout.ordinals[p]]=genome.phases_[p]->gpu_phase;
+  return RegionExecutable::compose(impl_->gpu_layout,std::move(phases));
 }
 std::size_t ExecutableFragments::nodes(const Genome& genome) const {
   impl_->validate(genome); std::size_t n = impl_->fixed_nodes;

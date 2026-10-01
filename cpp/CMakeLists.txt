@@ -60,6 +60,7 @@ add_library(gagp_core
   src/runtime/recurrence_rank.cpp
   src/runtime/sequence_rank.cpp
   src/runtime/semantic_fuel.cpp
+  src/runtime/region_executable.cpp
   src/runtime/bytecode_verify.cpp
 )
 target_include_directories(gagp_core PUBLIC include)
