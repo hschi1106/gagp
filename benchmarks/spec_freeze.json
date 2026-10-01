@@ -17,7 +17,7 @@
     },
     {
       "path": "spec/bytecode_format.md",
-      "sha256": "19ebb58be4e42fe33ddd9ffd49a97bd39651fb0a7024533056862918a30b3c38"
+      "sha256": "b26a9fad6dc6c6224d7ca53999c08d7f2d91715d471d189ea7a982ef814c465b"
     },
     {
       "path": "spec/builtins_base.md",
@@ -41,7 +41,7 @@
     },
     {
       "path": "spec/grammar_definition.md",
-      "sha256": "1c947a8dffd49b6757377c2b359b25e60d3ea766c1adb5e445867f1d33308a39"
+      "sha256": "af48ce085c94a7bce1a0fe8788a5f64989ee6e2304b0d7860860513827af7d2e"
     }
   ],
   "status": "frozen"
