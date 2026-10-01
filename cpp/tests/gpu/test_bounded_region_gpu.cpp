@@ -826,7 +826,7 @@ bool test_production_capability_dispatch_sequence() {
          compare_population({memo_b}, "shrink workspace after ordinary dispatch");
 }
 
-bool test_verified_view_profile(bool direct = false) {
+bool test_verified_view_profile(bool direct = false, bool root = false) {
   struct Environment {
     const char* key; std::string old; bool had;
     explicit Environment(const char* name) : key(name), had(std::getenv(name)!=nullptr) {
@@ -836,6 +836,8 @@ bool test_verified_view_profile(bool direct = false) {
   } view("GAGP_VIEW_PROFILE"), typed("GAGP_TYPED_VIEW_PHASE"), sorted("GAGP_SORT_CASES"), compact("GAGP_COMPACT_FRAMES"), constant("GAGP_CONSTANT_PHASE");
   std::unique_ptr<Environment> direct_env;
   if (direct) direct_env = std::make_unique<Environment>("GAGP_DIRECT_PHASE");
+  std::unique_ptr<Environment> root_env;
+  if (root) root_env = std::make_unique<Environment>("GAGP_DIRECT_ROOT");
   const auto numeric = [&](BuiltinId id, std::vector<Value> constants, Value answer, const std::string& label) {
     auto segment=unary_segment(Value::from_int(0));
     std::vector<Instr> code;
@@ -847,7 +849,7 @@ bool test_verified_view_profile(bool direct = false) {
     FitnessSessionGpu session;
     if(!check(session.init({{}},{answer},100,32,7).ok,label+" init"))return false;
     const auto fit=session.eval_programs({program},true);
-    return check(fit.ok && fit.execution_profile==(std::getenv("GAGP_DIRECT_PHASE") ? "int-list-views-typed-sorted-direct" : "int-list-views-typed-sorted"),label+" selects proven profile") &&
+    return check(fit.ok && fit.execution_profile==(std::string("int-list-views-typed-sorted") + (std::getenv("GAGP_DIRECT_PHASE") ? (std::getenv("GAGP_DIRECT_ROOT") ? "-direct-root" : "-direct") : "")),label+" selects proven profile") &&
         compare_fitness(program,{{{},answer,ErrCode::Value,true}},100,label);
   };
   constexpr auto low=std::numeric_limits<std::int64_t>::min();
@@ -875,6 +877,11 @@ bool test_verified_view_profile(bool direct = false) {
           "constant phase keeps explicit and implicit return fuel boundaries"))return false;
     }
   }
+  auto arithmetic_root=invocation(unary_segment(Value::from_int(7)),{Value::from_int(0)});
+  arithmetic_root.code.insert(arithmetic_root.code.begin()+1,{ins_a(Opcode::PushConst,0),ins(Opcode::Add)});
+  arithmetic_root.instruction_fuel.insert(arithmetic_root.instruction_fuel.begin()+1,{0,0});
+  if(!check(!gpu_detail::direct_region_root_supported(arithmetic_root),"root arithmetic declines invocation specialization") ||
+      !compare_fitness(arithmetic_root,{{{},Value::from_int(7),ErrCode::Value,true}},100,"arithmetic root fallback"))return false;
   const auto list=payload::make_int_list_value({Value::from_int(2),Value::from_int(3)});
   auto returns_list=invocation(unary_segment(list),{Value::from_int(0)});
   FitnessSessionGpu fallback;
@@ -898,7 +905,7 @@ bool test_verified_view_profile(bool direct = false) {
 
 int main() {
   payload::clear();
-  if (!test_verified_view_profile() || !test_verified_view_profile(true)) return 1;
+  if (!test_verified_view_profile() || !test_verified_view_profile(true) || !test_verified_view_profile(true, true)) return 1;
   if (!test_workspace_thread_isolation()) return 1;
   if (!test_phase_binding_capacities()) return 1;
   if (!test_leaf_phase_types_and_fuel()) return 1;

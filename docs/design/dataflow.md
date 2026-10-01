@@ -165,3 +165,10 @@ generic phase interpreter. Each phase still has independent local initialization
 all instruction fuel and original arithmetic. Unsupported populations use the
 previous view or mixed path. This is execution specialization, not grammar
 membership evidence. The result profile has a `-direct` suffix.
+
+`GAGP_DIRECT_ROOT=1`, together with direct phases, recognizes a verified root
+consisting of operand loads/constants, optional list length/type checks, one
+bounded-region invocation and RETURN. It reads immutable case locals in place
+and uses only region operands, removing the general root VM stack/local copies.
+Root arithmetic/control and other shapes retain the reference interpreter. Fuel
+checks remain at the same instructions; the selected profile adds `-root`.

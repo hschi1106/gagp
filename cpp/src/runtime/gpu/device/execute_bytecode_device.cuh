@@ -515,4 +515,64 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
                                             payload_state_storage.ref(), execution_tables, fuel_left, true, workspace);
 }
 
+// The host proves this root has exactly operand loads, one region invocation and
+// RETURN. Input cases remain immutable global storage; no 64-slot local copy or
+// general root operand stack is needed. All instruction charges remain ordered.
+__device__ __noinline__ DResult d_execute_region_root(const DProgramMeta& meta,
+    const DInstr* code, const Value* constants, const Value* case_values,
+    const unsigned char* case_set, const DPayloadTables& payload,
+    const DExecutionTables& execution, int local_case, int fuel,
+    DRegionWorkspace workspace) {
+  if (!meta.is_valid) return d_error(meta.err_code);
+  if (meta.region_count != 1 || meta.region_offset < 0 ||
+      meta.region_offset >= execution.region_segment_count) return d_error(ErrCode::Value);
+  const auto& segment = execution.region_segments[meta.region_offset];
+  const auto count = segment.state_count + segment.bound_operand_count;
+  if (count > DMAX_REGION_STATES + DMAX_REGION_BOUND_OPERANDS || meta.code_len < count + 2)
+    return d_error(ErrCode::Value);
+  Value operands[DMAX_REGION_STATES + DMAX_REGION_BOUND_OPERANDS];
+  const auto* inputs = case_values + static_cast<std::size_t>(local_case) * MAX_LOCALS;
+  const auto* present = case_set + static_cast<std::size_t>(local_case) * MAX_LOCALS;
+  std::uint64_t mask = 0;
+  for (int local = 0; local < meta.n_locals; ++local) if (present[local]) mask |= std::uint64_t{1} << local;
+  unsigned sp = 0;
+  const auto invocation = meta.code_len - 2;
+  for (int i = 0; i < invocation; ++i) {
+    const auto ins = code[i];
+    if (fuel < 0 || ins.fuel > static_cast<unsigned>(fuel)) return d_error(ErrCode::Timeout);
+    fuel -= static_cast<int>(ins.fuel);
+    if (ins.op == OP_CALL_BUILTIN || ins.op == OP_CHECK_LIST || ins.op == OP_CHECK_INT) {
+      if (sp == 0) return d_error(ErrCode::Value);
+      if (ins.op == OP_CHECK_INT) {
+        if (operands[sp - 1].tag != ValueTag::Int) return d_error(ErrCode::Type);
+      } else {
+        if (operands[sp - 1].tag != ValueTag::IntList) return d_error(ErrCode::Type);
+        if (ins.op == OP_CALL_BUILTIN)
+          operands[sp - 1] = Value::from_int(Value::container_len(operands[sp - 1]));
+      }
+      continue;
+    }
+    if (sp >= DMAX_REGION_STATES + DMAX_REGION_BOUND_OPERANDS) return d_error(ErrCode::Value);
+    Value value;
+    if (ins.op == OP_LOAD) {
+      if (ins.a < 0 || ins.a >= meta.n_locals || !present[ins.a]) return d_error(ErrCode::Name);
+      value = inputs[ins.a];
+    } else {
+      if (ins.op != OP_PUSH_CONST || ins.a < 0 || ins.a >= meta.const_len) return d_error(ErrCode::Value);
+      value = constants[meta.const_offset + ins.a];
+    }
+    if (!d_convert_list_view(value, payload)) return d_error(ErrCode::Value);
+    operands[sp++] = value;
+  }
+  if (sp != count) return d_error(ErrCode::Value);
+  if (fuel < 0 || code[invocation].fuel > static_cast<unsigned>(fuel)) return d_error(ErrCode::Timeout);
+  fuel -= static_cast<int>(code[invocation].fuel);
+  DNoPayloadState state{};
+  auto result = d_run_bounded_region<DPayloadFlavor::BoundIntListViews>(segment,
+      operands, inputs, mask, payload, state, execution, fuel, workspace);
+  if (result.is_error) return result;
+  if (fuel < 0 || code[invocation + 1].fuel > static_cast<unsigned>(fuel)) return d_error(ErrCode::Timeout);
+  return result;
+}
+
 }  // namespace gagp::gpu_detail

@@ -192,3 +192,16 @@ repeated holes, fuel and bounded live sources. Native Median representability
 check initially exposed constant-pool order/alias identity being too strict;
 import now canonicalizes scalar pool content (only at import), with a regression
 test. Multi-seed 24-generation screen in progress.
+
+R2-root: direct region invocation root proof removes generic root VM storage;
+stack 3136→896 B. All 1024-program snapshots and focused GPU tests pass.
+First fixed-parent probe ~228/205/176 ms, kernels ~64/31/2.46 ms; benefit small
+relative to F1, especially Sum. Opt-in `GAGP_DIRECT_ROOT`, explicit fallback for
+non-invocation roots. Raw builds/tests/snapshots under `R2-root/`.
+Native Median best -28478 and all top16 import into the frozen fragment owner
+and evaluate identically (`R2-fragments/import-audit.json`). Some other native
+individuals differ in skeleton, so whole-population representation is not claimed.
+24-generation, three-seed fragment results: Median -25512/-29187/-20755,
+House -7289/-7258/-5541, Sum 0/0/0. No timeouts; live fragment counts stabilize.
+This shows the earlier four-generation phase-bank stagnation is not an
+expressibility proof. Equal-wall-clock quality controls remain to be run.

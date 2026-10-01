@@ -16,7 +16,7 @@ __device__ inline double d_canonicalize_fitness_accumulator(double value) {
   return ldexp(static_cast<double>(quantized_mantissa), exponent - kMantissaBits);
 }
 
-template <DPayloadFlavor Flavor, bool EnableRegions = false>
+template <DPayloadFlavor Flavor, bool EnableRegions = false, bool DirectRoot = false>
 __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     int program_count,
     const Value* all_consts, const DInstr* all_code, const DProgramMeta* metas,
@@ -100,9 +100,15 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     int input_case = local_case;
     if constexpr ((Flavor == DPayloadFlavor::IntListViews || Flavor == DPayloadFlavor::BoundIntListViews))
       if (case_order) input_case = case_order[local_case];
-    const DResult result = d_execute_bytecode_impl<Flavor, EnableRegions>(
+    DResult result;
+    if constexpr (DirectRoot) {
+      result = d_execute_region_root(meta, shared_code, all_consts, shared_case_local_vals,
+          shared_case_local_set, payload_tables, execution_tables, input_case, fuel, workspace);
+    } else {
+    result = d_execute_bytecode_impl<Flavor, EnableRegions>(
         meta, shared_code, all_consts, shared_case_local_vals, shared_case_local_set,
         payload_tables, execution_tables, input_case, fuel, workspace);
+    }
     unsigned int* counts = case_counts ? case_counts + prog_idx * 5 : nullptr;
     if (counts) atomicAdd(counts, 1u);
     if (result.is_error) {

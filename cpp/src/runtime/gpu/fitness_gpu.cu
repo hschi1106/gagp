@@ -529,6 +529,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
         return phase.program.typed_view && phase.program.n_locals <= 8 &&
             phase.program.verified_stack_bound <= 16;
       });
+  const bool direct_root = direct_phases && std::getenv("GAGP_DIRECT_ROOT") &&
+      std::all_of(programs.begin(), programs.end(), gpu_detail::direct_region_root_supported);
   const auto pack_t1 = std::chrono::steady_clock::now();
 
   const auto launch_prep_t0 = std::chrono::steady_clock::now();
@@ -622,7 +624,19 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
     const auto upload_t1 = std::chrono::steady_clock::now();
 
     const auto kernel_t0 = std::chrono::steady_clock::now();
-    if (direct_phases) {
+    if (direct_root) {
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::BoundIntListViews, true, true>
+          <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
+              static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
+              impl_->d_shared_case_local_vals, impl_->d_shared_case_local_set, impl_->d_expected,
+              dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
+              dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
+              dev.d_phase_code, dev.d_phase_consts,
+              impl_->fuel, impl_->penalty, dev.d_fitness,
+              dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
+              dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
+              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, impl_->d_case_order);
+    } else if (direct_phases) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::BoundIntListViews, true>
           <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
               static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
@@ -703,6 +717,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : "mixed";
     if (use_views && impl_->d_case_order) out.execution_profile += "-sorted";
     if (direct_phases) out.execution_profile += "-direct";
+    if (direct_root) out.execution_profile += "-root";
     out.fitness = std::move(host_fitness);
     out.timing.pack_ms = ms_between(pack_t0, pack_t1);
     out.timing.launch_prep_ms = ms_between(launch_prep_t0, launch_prep_t1);
