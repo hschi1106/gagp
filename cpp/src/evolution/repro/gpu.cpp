@@ -96,6 +96,7 @@ struct GpuReproRunResources {
   std::optional<grammar::ProjectedBudget> offspring_budget;
   std::mutex mutex;
   std::shared_ptr<const ConstantMutationDomains> domains;
+  std::shared_ptr<GpuPhaseDonorSession> phase_donors;
   std::vector<std::weak_ptr<const ConstantMutationDomains>> proposal_domains;
 };
 
@@ -315,14 +316,24 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
       live.push_back(domains);
     }
   }
+#ifdef GAGP_HAS_CUDA
+  if (selected_sites && owned_parents && pass == CompiledVariationPass::Mutation &&
+      std::getenv("GAGP_GPU_DONORS") && !resources->phase_donors)
+    resources->phase_donors = make_gpu_phase_donor_session(context->grammar_owner());
+#endif
   const PreprocessOutput prep = selected_sites ?
       preprocess_selected_population(packed_population, out.config, *context, domains,
-          pass == CompiledVariationPass::Mutation, owned_parents.get()) :
+          pass == CompiledVariationPass::Mutation, owned_parents.get(),
+          pass == CompiledVariationPass::Mutation ? resources->phase_donors.get() : nullptr) :
       preprocess_warmed_population(packed_population, out.config, *context, domains,
           pass == CompiledVariationPass::Mutation, warmed_members);
   const auto prep_t1 = std::chrono::steady_clock::now();
   if (stats != nullptr) {
     stats->preprocess_ms += std::chrono::duration<double, std::milli>(prep_t1 - prep_t0).count();
+    stats->gpu_donor_generated += prep.gpu_donor_generated;
+    stats->gpu_donor_fallback += prep.gpu_donor_fallback;
+    stats->gpu_donor_setup_ms += prep.gpu_donor_setup_ms;
+    stats->gpu_donor_device_bytes = std::max(stats->gpu_donor_device_bytes,prep.gpu_donor_device_bytes);
   }
 
   const auto pack_t0 = std::chrono::steady_clock::now();

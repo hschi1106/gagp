@@ -1,3 +1,4 @@
+#include "list_views.hpp"
 #include "gagp/runtime/cpu/builtins_cpu.hpp"
 
 #include <algorithm>
@@ -9,6 +10,7 @@
 #include "gagp/runtime/payload/payload.hpp"
 
 namespace gagp {
+namespace detail { thread_local const CpuListViews* active_cpu_list_views = nullptr; }
 
 namespace {
 
@@ -221,6 +223,8 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       return fail(ErrCode::Type, "len expects 1 argument");
     }
     const Value& x = args[0];
+    if (x.tag == ValueTag::IntList && x.b && detail::active_cpu_list_views)
+      return detail::active_cpu_list_views->call(id, args, argc);
     if (!is_container(x)) {
       return fail(ErrCode::Type, "len expects string/typed-list argument");
     }
@@ -271,6 +275,8 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       return fail(ErrCode::Type, "slice expects 3 arguments: slice(x, lo, hi)");
     }
     const Value& x = args[0];
+    if (x.tag == ValueTag::IntList && x.b && detail::active_cpu_list_views)
+      return detail::active_cpu_list_views->call(id, args, argc);
     const Value& lo = args[1];
     const Value& hi = args[2];
     if (!is_container(x)) {
@@ -326,6 +332,8 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       return fail(ErrCode::Type, "index expects 2 arguments: index(x, i)");
     }
     const Value& x = args[0];
+    if (x.tag == ValueTag::IntList && x.b && detail::active_cpu_list_views)
+      return detail::active_cpu_list_views->call(id, args, argc);
     const Value& i = args[1];
     if (!is_container(x)) {
       return fail(ErrCode::Type, "index expects string/typed-list as first argument");

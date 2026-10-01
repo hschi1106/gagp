@@ -388,6 +388,7 @@ add_test(
 )
 set_tests_properties(gagp_test_evolve_cli_contract PROPERTIES LABELS "contract;integration")
 if(GAGP_HAS_CUDA)
+  target_sources(gagp_evolution PRIVATE src/evolution/repro/gpu/phase_donors.cu)
   add_library(gagp_gpu
     src/runtime/gpu/fitness_gpu.cu
     src/runtime/gpu/opcode_map_gpu.cpp
@@ -687,6 +688,13 @@ if(GAGP_HAS_CUDA)
   add_test(NAME gagp_test_compiled_variation_gpu COMMAND gagp_test_compiled_variation_gpu)
   set_tests_properties(gagp_test_compiled_variation_gpu PROPERTIES LABELS "contract;integration;gpu")
 
+  add_executable(gagp_test_gpu_phase_generate tests/gpu/test_gpu_phase_generate.cu)
+  target_link_libraries(gagp_test_gpu_phase_generate PRIVATE gagp_cli_support)
+  add_test(NAME gagp_test_gpu_phase_generate COMMAND gagp_test_gpu_phase_generate)
+  set_tests_properties(gagp_test_gpu_phase_generate PROPERTIES LABELS "contract;integration;gpu")
+  add_test(NAME gagp_test_gpu_phase_generate_scope COMMAND gagp_test_gpu_phase_generate
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/phase_donor_scope.json 3)
+  set_tests_properties(gagp_test_gpu_phase_generate_scope PROPERTIES LABELS "contract;integration;gpu")
   add_executable(gagp_test_gpu_phase_compile tests/gpu/test_gpu_phase_compile.cu)
   target_link_libraries(gagp_test_gpu_phase_compile PRIVATE gagp_cli_support)
   add_test(NAME gagp_test_gpu_phase_compile COMMAND gagp_test_gpu_phase_compile)

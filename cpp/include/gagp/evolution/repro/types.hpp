@@ -89,6 +89,11 @@ struct DonorProgram {
 };
 
 struct PreprocessOutput {
+  std::uint64_t gpu_donor_generated = 0;
+  std::uint64_t gpu_donor_fallback = 0;
+  std::uint64_t gpu_donor_device_bytes = 0;
+  double gpu_donor_setup_ms = 0;
+
   int prepared_max_nodes = 0;
   int prepared_max_depth = 0;
   std::shared_ptr<const grammar::CompiledGrammar> compiled_grammar;

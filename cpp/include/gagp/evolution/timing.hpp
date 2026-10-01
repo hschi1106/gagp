@@ -26,6 +26,11 @@ struct EvaluationTiming {
 };
 
 struct ReproductionTiming {
+  std::uint64_t gpu_donor_generated = 0;
+  std::uint64_t gpu_donor_fallback = 0;
+  std::uint64_t gpu_donor_device_bytes = 0;
+  double gpu_donor_setup_ms = 0;
+
   double selection_ms = 0.0;
   double crossover_ms = 0.0;
   double mutation_ms = 0.0;

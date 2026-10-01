@@ -267,7 +267,8 @@ membership, RNG and copybacks do not change. This flag has no performance claim
 until its paired experiments pass.
 
 `GAGP_CPU_REGION_VIEWS=1` is a separate CPU evaluator prototype. After ordinary
-segment verification, the region must use SequenceWindows and forward type-flow
+segment verification, the region must use SequenceWindows with a constant-false
+base predicate (so snapshot setup is reserved for recursive work), and forward type-flow
 must prove Int/Bool/IntList phases using
 only Len/Index/Slice for containers, scalar constants and a scalar region result.
 Memoized list-valued states are excluded. Each invocation owns copies of its
@@ -290,3 +291,49 @@ membership certificate. This prototype does not change native generation paths;
 its kernel timings are diagnostic only. Raw cold/transfer/repeat/memcheck records
 are indexed by `optimization/results/native-gpu-phase-compile.json` in the fixed
 benchmark directory.
+
+The isolated `gagp_test_gpu_phase_generate [GRAMMAR_JSON]` prototype constructs
+fresh phase donors on the GPU from tables compiled from the actual grammar.
+The test exercises construction independently; the opt-in native integration
+described below uses the same constructor. Standalone kernel time is not a
+generation speedup claim.
+It supports Int/Bool/IntList expression nonterminals, up to eight formal lexical
+bindings, scalar Int/Bool domains, and the phase-lowering primitive set. Every
+reachable alternative is checked; templates/repeated holes, local/input names,
+inner binders/regions, root aliases, sampling-domain overrides and other payloads
+decline that requested profile explicitly. Different nonterminals remain distinct
+regardless of type. Reference scope permutations and finite/range constant domains
+are retained. Construction uses mutation-stage productions and depth-indexed
+minimum costs; a bounded lane owns each output. A maximum of 1024 physical nodes,
+64 expression levels and 8192 expansion steps is a prototype capacity, not an
+implicit reduction of native budgets. Callers must fall back when inapplicable.
+
+Production sampling uses the existing SplitMix generator with a new stream and
+budget allocation order, so generated donors are not seed-for-seed native donor
+replays. This has not yet been adopted as a search rule. Tests export each donor
+with its fuel annotations and use independent CPU grammar membership and lowering
+in its lexical frame. This construction proof is separate from typed phase
+lowering. Kernel timings exclude grammar setup, upload, output reconstruction and
+validation; they cannot serve as complete-generation benchmark results.
+
+`GAGP_GPU_DONORS=1` is the opt-in native integration experiment for that
+constructor. It requires the owned selected-site 1T path and only changes subtree
+donor construction during the existing GPU mutation pass. Selection, crossover,
+mutation application, complete evaluation, final canonical offspring admission
+and both GPU copybacks remain. Donors for unsupported nonterminals/scopes,
+mutation-entry overrides, projected budgets or transport capacities use the
+native donor generator. No reproduction moves to CPU workers. Grammar tables
+are compiled/uploaded lazily during timed preparation, retained by the run's
+grammar owner and freed with it. First-generation setup is included; repeated
+search generations reuse those tables. Diagnostic rows expose generated/fallback
+donor counts, table setup time and donor-owned device bytes. This experiment is
+not in the best-version flags until full-generation and quality measurements pass.
+
+Constructed donor origins are explicitly construction metadata, separate from
+canonical witness/certificate objects. Template or repeated-hole construction
+is not supported by this constructor; existing native atomic replacement at a
+certified destination remains responsible for coupled occurrences. Independent
+canonical admission still validates each changed final offspring. The new donor
+RNG trajectory/allocation policy is an experimental search-rule difference;
+identical frozen-parent evaluator work can be compared, but later populations
+must be evaluated as different searches.

@@ -64,6 +64,10 @@ ReproductionTiming reproduction_timing_from_stats(
   timing.prepare_inputs_ms = stats.prepare_inputs_ms;
   timing.setup_ms = stats.setup_ms;
   timing.preprocess_ms = stats.preprocess_ms;
+  timing.gpu_donor_generated = stats.gpu_donor_generated;
+  timing.gpu_donor_fallback = stats.gpu_donor_fallback;
+  timing.gpu_donor_setup_ms = stats.gpu_donor_setup_ms;
+  timing.gpu_donor_device_bytes = stats.gpu_donor_device_bytes;
   timing.pack_ms = stats.pack_ms;
   timing.upload_ms = stats.upload_ms;
   timing.kernel_ms = stats.kernel_ms;

@@ -1,0 +1,20 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "Root", "type": "Int"},
+  "search_limits": {"max_nodes": 132, "max_depth": 20},
+  "execution_limits": {"fuel": 10000},
+  "nonterminals": [
+    {"id": "Root", "type": "Int", "scope": [], "alternatives": [
+      {"id": "finite", "weight": 1, "expression": {"constant": {"type": "Int", "values": ["-9", "7"]}}}
+    ]},
+    {"id": "AB", "type": "Int", "scope": [{"name": "a", "type": "Int"}, {"name": "b", "type": "Int"}], "alternatives": [
+      {"id": "permuted", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"ref": "BA"}, {"bound": "a"}]}}
+    ]},
+    {"id": "BA", "type": "Int", "scope": [{"name": "b", "type": "Int"}, {"name": "a", "type": "Int"}], "alternatives": [
+      {"id": "difference", "weight": 1, "expression": {"signature": "sub(Int,Int)->Int", "args": [{"bound": "b"}, {"bound": "a"}]}}
+    ]},
+    {"id": "FloatFallback", "type": "Float", "scope": [], "alternatives": [
+      {"id": "float", "weight": 1, "expression": {"constant": {"type": "Float", "values": [0.5]}}}
+    ]}
+  ]
+}

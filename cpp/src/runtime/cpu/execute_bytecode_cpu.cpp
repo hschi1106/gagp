@@ -2,7 +2,6 @@
 #include "gagp/runtime/cpu/execution_session.hpp"
 
 #include <cstddef>
-#include <cstdlib>
 #include <cstdint>
 #include <array>
 #include <limits>
@@ -15,6 +14,8 @@
 #include "gagp/core/builtin.hpp"
 #include "gagp/core/bytecode_verify.hpp"
 #include "region_adapter.hpp"
+#include "list_views.hpp"
+#include <cstdlib>
 #include "gagp/core/opcode.hpp"
 #include "gagp/core/value_semantics.hpp"
 #include "gagp/runtime/cpu/builtins_cpu.hpp"
@@ -103,7 +104,6 @@ struct RegionInvocationBuffers {
   std::vector<CoordinateDomain> domains;
   std::vector<std::optional<Value>> parameters;
   detail::RegionPhaseScratch phases;
-  detail::CpuListViews list_views;
 };
 
 struct RegionRunContext {
@@ -115,6 +115,7 @@ struct RegionRunContext {
   std::vector<Validation> validations;
   detail::RegionScratch scratch;
   RegionInvocationBuffers buffers;
+  std::unique_ptr<detail::CpuListViews> list_views;
 
   const BytecodeVerifyResult& validate(std::size_t index,
                                       const BoundedRegionSegment& segment,
@@ -138,7 +139,6 @@ struct CodeView {
   const std::vector<std::uint32_t>& instruction_fuel;
   const std::vector<std::pair<int, ValueTag>>* preset_types = nullptr;
   RegionRunContext* region_context = nullptr;
-  const detail::CpuListViews* list_views = nullptr;
 };
 
 ExecResult run_code(const CodeView& view,
@@ -443,8 +443,7 @@ ExecResult run_code_impl(const CodeView& view,
         // Builtins borrow operands for this call and cannot mutate the VM stack.
         // Keep the values alive until the call returns, then consume the range.
         const Value* args = argc == 0 ? nullptr : stack.data() + start;
-        BuiltinResult out = view.list_views ? view.list_views->call(builtin_id, args, static_cast<std::size_t>(argc))
-                                            : builtin_call(builtin_id, args, static_cast<std::size_t>(argc));
+        BuiltinResult out = builtin_call(builtin_id, args, static_cast<std::size_t>(argc));
         stack.truncate(start);
         if (out.is_error) {
           return ExecResult{true, Value::invalid(), out.err};
@@ -524,28 +523,14 @@ ExecResult run_code_impl(const CodeView& view,
           }
           detail::RegionState initial{};
           for (std::size_t i = 0; i < plan.state_types.size(); ++i) initial[i] = operands[i];
-          const detail::CpuListViews* list_views = nullptr;
-          const bool use_views = view.region_context
-              ? view.region_context->validations[ins.a].views_supported
-              : std::getenv("GAGP_CPU_REGION_VIEWS") && detail::cpu_region_views_supported(segment);
-          if (use_views) {
-            // A failed conversion must not leak offsets into generic execution.
-            const auto original_parameters = parameters;
-            if (buffers.list_views.prepare(initial, plan.state_types.size(), parameters))
-              list_views = &buffers.list_views;
-            else {
-              for (std::size_t i=0; i<plan.state_types.size(); ++i) initial[i] = operands[i];
-              parameters = original_parameters;
-            }
-          }
-          auto phase_runner = [list_views](const PhaseProgram& phase,
+          auto phase_runner = [](const PhaseProgram& phase,
                                  const std::vector<std::pair<int, Value>>& presets,
                                  const std::vector<std::pair<int, ValueTag>>& types, int& remaining) {
             return run_code(CodeView{phase.consts, phase.code, phase.n_locals, phase.var2idx,
-                                     phase.instruction_fuel, &types, nullptr, list_views}, {}, presets, remaining, false, nullptr);
+                                     phase.instruction_fuel, &types}, {}, presets, remaining, false, nullptr);
           };
           detail::RegionAdapter<decltype(phase_runner)> adapter{
-              segment, parameters, domains, phase_runner, buffers.phases, list_views};
+              segment, parameters, domains, phase_runner, buffers.phases};
           detail::RegionExecutionLayout layout;
           layout.state_count = static_cast<std::uint32_t>(plan.state_types.size());
           layout.request_count = static_cast<std::uint32_t>(plan.requests.size());
@@ -555,7 +540,12 @@ ExecResult run_code_impl(const CodeView& view,
           layout.memoized = plan.memoized;
           detail::RegionScratch one_shot_scratch;
           auto& scratch = view.region_context ? view.region_context->scratch : one_shot_scratch;
-          auto result = detail::execute_bounded_region(layout, initial, adapter, scratch, fuel);
+          const bool use_views = view.region_context ? view.region_context->validations[ins.a].views_supported :
+              std::getenv("GAGP_CPU_REGION_VIEWS") && detail::cpu_region_views_supported(segment);
+          auto result = use_views
+              ? detail::execute_with_cpu_views(layout, initial, adapter, scratch, fuel,
+                    parameters, view.region_context ? &view.region_context->list_views : nullptr)
+              : detail::execute_bounded_region(layout, initial, adapter, scratch, fuel);
           if (result.is_error) return result;
           stack.push_back(result.value);
         } catch (const std::exception& error) {

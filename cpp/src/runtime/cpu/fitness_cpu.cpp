@@ -40,6 +40,15 @@ std::vector<double> eval_fitness_cpu(
     return {};
   }
 
+  // Case indices/values are shared across the population. Packing them per
+  // program/case used to allocate the identical input vector P*C times.
+  std::vector<std::vector<std::pair<int, Value>>> case_inputs(shared_cases.size());
+  for (std::size_t c = 0; c < shared_cases.size(); ++c) {
+    auto& inputs = case_inputs[c];
+    inputs.reserve(shared_cases[c].size());
+    for (const InputBinding& binding : shared_cases[c])
+      inputs.emplace_back(binding.idx, binding.value);
+  }
   std::vector<double> fitness(programs.size(), 0.0);
   const int lanes = std::max(1, reduction_lanes);
   for (std::size_t p = 0; p < programs.size(); ++p) {
@@ -54,11 +63,7 @@ std::vector<double> eval_fitness_cpu(
           (shared_cases.size() * static_cast<std::size_t>(lane + 1)) / static_cast<std::size_t>(lanes);
       double local_score = 0.0;
       for (std::size_t c = chunk_start; c < chunk_end; ++c) {
-        std::vector<std::pair<int, Value>> inputs;
-        inputs.reserve(shared_cases[c].size());
-        for (const InputBinding& binding : shared_cases[c]) {
-          inputs.push_back({binding.idx, binding.value});
-        }
+        const auto& inputs = case_inputs[c];
         const ExecResult out = session ? session->execute(inputs, fuel)
                                       : execute_bytecode_cpu(programs[p], inputs, fuel);
         if (out.is_error) {

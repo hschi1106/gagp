@@ -247,13 +247,13 @@ std::size_t constant_mutation_table_bytes(
   return checked_table_bytes(table);
 }
 
-void append_constant_mutation_stream(ConstantMutationTable& table,
+void append_constructed_constant_mutation_stream(ConstantMutationTable& table,
                                      const AstProgram& ast,
-                                     const grammar::DerivationMetadata& witness) {
+                                     const std::vector<grammar::NodeOrigin>& origins) {
   const std::size_t node_count = ast.nodes.size();
   (void)checked_table_bytes(table);
   require_count(node_count, "constant stream node count");
-  if (witness.nodes.size() != node_count)
+  if (origins.size() != node_count)
     throw std::invalid_argument(
         "constant mutation stream requires an exact witness node length");
 
@@ -268,7 +268,7 @@ void append_constant_mutation_stream(ConstantMutationTable& table,
       throw std::invalid_argument(
           "constant mutation stream has an invalid AST constant index");
 
-    const auto& origin = witness.nodes[i];
+    const auto& origin = origins[i];
     if (origin.fixed || origin.expression == grammar::kNoGrammarId ||
         node.kind != NodeKind::CONST)
       continue;
@@ -340,6 +340,11 @@ void append_constant_mutation_stream(ConstantMutationTable& table,
       group_offset, as_int(pending.size(), "constant stream group count"),
       metadata_root_offset,
       as_int(metadata_roots.size(), "constant stream metadata root count")});
+}
+
+void append_constant_mutation_stream(ConstantMutationTable& table,
+    const AstProgram& ast, const grammar::DerivationMetadata& witness) {
+  append_constructed_constant_mutation_stream(table, ast, witness.nodes);
 }
 
 void append_constant_mutation_stream(ConstantMutationTable& table,

@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <optional>
+#include <memory>
 #include <vector>
 #include "gagp/runtime/cpu/builtins_cpu.hpp"
 #include "gagp/runtime/payload/payload.hpp"
@@ -11,6 +12,15 @@ namespace gagp::detail {
 inline bool cpu_region_views_supported(const BoundedRegionSegment& segment) {
   const auto& plan = segment.plan;
   if (plan.progress != RegionProgressKind::SequenceWindows) return false;
+  // Snapshot setup pays off on proven recursive windows. Arbitrary predicates
+  // may terminate at the root, where eager payload copying is needless work.
+  const auto& predicate = segment.base_predicate.program;
+  if ((predicate.code.size() != 1 &&
+       !(predicate.code.size() == 2 && predicate.code[1].op == Opcode::Return)) ||
+      predicate.code[0].op != Opcode::PushConst || predicate.code[0].a < 0 ||
+      static_cast<std::size_t>(predicate.code[0].a) >= predicate.consts.size()) return false;
+  const auto& condition = predicate.consts[predicate.code[0].a];
+  if (condition.tag != ValueTag::Bool || condition.b) return false;
   if (plan.result_type != ValueTag::Int && plan.result_type != ValueTag::Bool) return false;
   // Memo keys containing lists depend on content identity, not view offsets.
   if (plan.memoized && std::find(plan.state_types.begin(), plan.state_types.end(),
@@ -49,7 +59,8 @@ struct CpuListViews {
     constexpr std::size_t limit = 1024 * 1024; // Unsupported invocation safely falls back.
     if (lookup_scratch.size() > limit - values.size()) return false;
     const auto original = value.i;
-    const auto view = Value::from_int_list_hash_len(values.size(), lookup_scratch.size());
+    auto view = Value::from_int_list_hash_len(values.size(), lookup_scratch.size());
+    view.b = true;
     values.insert(values.end(), lookup_scratch.begin(), lookup_scratch.end());
     sources.emplace_back(original, view); value = view;
     return true;
@@ -92,7 +103,44 @@ struct CpuListViews {
       return {false, values[offset + index], {ErrCode::Value, ""}};
     }
     const auto lo = slice_index(args[1].i, length), hi = slice_index(args[2].i, length);
-    return {false, Value::from_int_list_hash_len(offset + lo, hi > lo ? hi-lo : 0), {ErrCode::Value, ""}};
+    auto result = Value::from_int_list_hash_len(offset + lo, hi > lo ? hi-lo : 0);
+    result.b = true;
+    return {false, result, {ErrCode::Value, ""}};
   }
 };
+// Private, synchronous interpreter scope; thread-local storage creates no
+// workers. Only proven region invocations install a view owner, and only marked
+// view values can use it. The ordinary VM and root values remain unchanged.
+extern thread_local const CpuListViews* active_cpu_list_views;
+class CpuListViewScope {
+ public:
+  explicit CpuListViewScope(const CpuListViews& owner) : previous_(active_cpu_list_views) {
+    active_cpu_list_views = &owner;
+  }
+  ~CpuListViewScope() { active_cpu_list_views = previous_; }
+  CpuListViewScope(const CpuListViewScope&) = delete;
+  CpuListViewScope& operator=(const CpuListViewScope&) = delete;
+ private:
+  const CpuListViews* previous_;
+};
+// Keep view ownership and exception cleanup out of the ordinary VM stack frame.
+// Adapter's parameter reference observes the transactionally converted values.
+template <class Adapter>
+__attribute__((noinline)) ExecResult execute_with_cpu_views(
+    const RegionExecutionLayout& layout, RegionState initial, Adapter& adapter,
+    RegionScratch& scratch, int& fuel,
+    std::vector<std::optional<Value>>& parameters,
+    std::unique_ptr<CpuListViews>* persistent) {
+  std::unique_ptr<CpuListViews> local;
+  auto& storage = persistent ? *persistent : local;
+  if (!storage) storage = std::make_unique<CpuListViews>();
+  const auto saved_state = initial;
+  const auto saved_parameters = parameters;
+  if (!storage->prepare(initial, layout.state_count, parameters)) {
+    parameters = saved_parameters;
+    return execute_bounded_region(layout, saved_state, adapter, scratch, fuel);
+  }
+  CpuListViewScope scope(*storage);
+  return execute_bounded_region(layout, initial, adapter, scratch, fuel);
+}
 }  // namespace gagp::detail

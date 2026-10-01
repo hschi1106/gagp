@@ -278,11 +278,62 @@ end-to-end replacement measurement.40 registers,2816-byte indexed stack,0 spills
 no grammar trust, operators, evaluator or generation timing changed. This is
 useful groundwork, not an adopted generation speedup.
 
-O status: nine CPU medians16777.673->9249.259 Sum;7784.637->8009.893 House;
-711.245->753.054 Median. All3072 snapshots and5-mode non-time fields match.
-GPU quick medians stay~278/292/282ms. Unwanted CPU generic regressions prevent
-promotion. Lazy scratch allocation alone did not fix it (`native-cpu-window-lazy/`).
-O3 uses compile-time separate generic/view VM instantiations; 3 focused tests
-pass, quick checks running `logs/optimization/native-cpu-window-specialized/`.
-Current binary includes O3; the formal best GPU binary remains archived in
-`native-owned-validation/bench`. O1 source checkpoint0601f06 remains opt-in.
+O CPU window candidate follow-up: O2 lazy allocation and O3 separate VM
+instantiations did not remove generic regressions. O4 moved private view handling
+to scoped builtins; O5 delayed conversion but slowed recursive execution. O6
+restricted eager setup to proven constant-false window predicates; O7 outlined
+ownership/cleanup from the ordinary VM. O7 nine repeats: Sum16877.975->9520.944ms,
+House7789.829->7982.784ms (+2.5%), Median707.697->714.291ms (+0.9%). GPU controls
+remain ~280/292/284ms. This CPU candidate is NOT promoted; artifacts, all nine
+raw repeats and source experiments are under `native-cpu-window-final-check/`
+and preceding `native-cpu-window-*` directories. Current source also packs shared
+CPU case bindings once per evaluator call (focused parity passed; separate timing
+pending). No application workers were added.
+
+P2 GPU donor construction: current opt-in `GAGP_GPU_DONORS=1` extends owned
+selected-site native GPU mutation. Production/scope/domain tables build lazily
+inside timed preparation; GPU makes fresh donors, native GPU applies mutation,
+final canonical child admission remains. Unsupported jobs use native donors;
+new donor RNG/budget-allocation trajectory is explicit, not canonical replay.
+All4096 phase donors from3 frozen grammars independently admit/lower; default
+and scope-permutation fixtures plus native deferred-preparation regression pass.
+Current prototype source is not promoted and still needs full quality/scaling.
+
+INVALID experiment `logs/optimization/native-gpu-donors-integration/`: a misplaced
+deferred-batch loop produced no donors, so296 mutations fell back. The203/214/206ms
+numbers were retracted; INVALID.txt preserves the reason. Accounting invariant
+and actual native preparation test now prevent this failure. Corrected quick run
+`native-gpu-donors-corrected/`: Sum280.360->288.195, House293.288->292.745,
+Median292.184->281.072ms;1092/1064/1112 GPU donors,92/120/72 native fallback donors,
+zero offspring fallback, generation or admission rejection. Not a stable overall
+improvement. P2b packs lexical scope maps into24 bits (8 slots), reducing compiler
+local stack8624->3168 bytes, zero spills; active A/B and selective batch trace:
+`logs/optimization/native-gpu-donors-compact/`.
+
+Refreshed N NVTX diagnostic: `native-owned-profile/`,323.803ms profiled versus
+~289ms unprofiled Median.7771 identities49.172ms;2 decode passes129.812ms inclusive;
+1320 admissions116.728ms inclusive;Matcher21.642ms self,Witness22.223ms self;
+compile39.889ms inclusive, selected analysis41.973ms inclusive. Do not subtract
+these annotated/overlapped times from formal totals.
+
+### P2c checkpoint — GPU grammar donors, compact output
+
+- Native GPU selection/crossover/mutation remain; opt-in `GAGP_GPU_DONORS=1`
+  constructs supported fresh donors on GPU, then uses existing native splicing
+  and canonical final admission. No CPU workers. Unsupported requests explicitly
+  use the native donor preparation. New production/budget RNG trajectory.
+- Nine unprofiled repeats against N, interleaved 3 processes × warm + 3:
+  Sum 278.274330 → 262.496018 ms; House 292.987050 → 270.175429 ms;
+  Median 283.401071 → 263.846364 ms. Raw/manifest/summary:
+  `logs/optimization/native-gpu-donors-validation/`.
+- Full 123-test suite passed. Three seeds × four generations: complete 1,048,576
+  pairs/generation, zero timeouts/unscored, top-16 CPU fitness exact. New trajectories
+  retain diversity but Sum grows larger programs and total search is slower;
+  **not promoted**. 32-generation comparison underway in `native-gpu-donors-long/`.
+- Compact output removes unused-capacity D2H/host allocation, not evaluated work.
+  Earlier `native-gpu-donors-integration/` timings are INVALID (deferred batch was
+  misplaced; mutation fallback); accounting invariant and 128-donor regression
+  now exercise actual construction. Never cite that directory as a speedup.
+- Next hypothesis: compile_population serializes each admitted AST for the cache
+  key and again to validate its executable; one private combined lookup should
+  eliminate the duplicate while retaining mutation/input/fuel validation.

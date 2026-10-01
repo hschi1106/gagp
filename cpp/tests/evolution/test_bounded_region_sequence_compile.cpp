@@ -381,6 +381,16 @@ void check_cpu_region_views() {
       }
     }
   }
+  auto terminal = compile_checked(count_program(int_list(4)));
+  auto& predicate = terminal.bounded_region_segments[0].base_predicate.program;
+  predicate.consts[predicate.code[0].a] = Value::from_bool(true);
+  require(!detail::cpu_region_views_supported(terminal.bounded_region_segments[0]),
+      "terminal predicate should not pay eager view setup");
+  unsetenv("GAGP_CPU_REGION_VIEWS");const auto terminal_reference=execute_bytecode_cpu(terminal,{},100);
+  setenv("GAGP_CPU_REGION_VIEWS","1",1);const auto terminal_actual=execute_bytecode_cpu(terminal,{},100);
+  require(terminal_reference.is_error==terminal_actual.is_error &&
+      (terminal_reference.is_error ? terminal_reference.err.code==terminal_actual.err.code : exact_value(terminal_reference.value,terminal_actual.value)),
+      "terminal profile fallback changed execution");
   // Unsupported result types and container-key memo keep the reference path.
   auto unsupported = compile_checked(identity_program(int_list(4)));
   require(!detail::cpu_region_views_supported(unsupported.bounded_region_segments[0]), "escaping list admitted as a private view");
@@ -405,6 +415,26 @@ void check_cpu_region_views() {
   const Value refreshed[]{state[0],Value::from_int(0)};
   require(views.call(BuiltinId::Index,refreshed,2).value.i == 11,
       "invocation retained a stale registry snapshot");
+  require(detail::active_cpu_list_views == nullptr, "view owner leaked from execution");
+  auto marked_external = mutable_token; marked_external.b = true;
+  const Value external_args[]{marked_external,Value::from_int(0)};
+  require(builtin_call(BuiltinId::Index,external_args,2).value.i == 11,
+      "marked external value was interpreted as a view without an owner");
+  {
+    detail::CpuListViewScope outer(views);
+    require(builtin_call(BuiltinId::Index,refreshed,2).value.i == 11,
+        "scoped builtin did not read the invocation view");
+    detail::CpuListViews nested;
+    try {
+      detail::CpuListViewScope inner(nested);
+      require(builtin_call(BuiltinId::Index,refreshed,2).is_error,
+          "view outside active owner's storage was dereferenced");
+      throw 1;
+    } catch (int) {}
+    require(detail::active_cpu_list_views == &views,
+        "nested scope did not restore owner after unwinding");
+  }
+  require(detail::active_cpu_list_views == nullptr, "view scope did not restore generic builtins");
   const auto short_token = Value::from_int_list_hash_len(892731,4);
   payload::register_list(short_token,{Value::from_int(1)});
   state[0] = short_token;

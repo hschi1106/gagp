@@ -120,7 +120,8 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
                                        std::shared_ptr<const ConstantMutationDomains> domains,
                                        bool prepare_donors,
                                        const std::vector<grammar::WarmPopulationMember>* handoff, bool selected_only = false,
-                                       const grammar::variation_detail::OwnedScalarPopulation* owned = nullptr) {
+                                       const grammar::variation_detail::OwnedScalarPopulation* owned = nullptr,
+                                       GpuPhaseDonorSession* phase_donors = nullptr) {
   if (owned && (!selected_only || &population != &owned->genomes() || !owned->matches(context)))
     throw std::invalid_argument("owned preparation population/context mismatch");
   if (config.population_size <= 0 || config.population_size > 65536 ||
@@ -259,6 +260,49 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
       planned_pools.reset();
     }
   };
+  const auto append_native_donors = [&](grammar::DonorPool donor_pool,
+      const grammar::VariationSite& site, CandidateRange& candidate) {
+      for (auto& prepared_donor : donor_pool) {
+        if (!prepared_donor) {
+          ++context.counters().generation_rejections;
+          continue;
+        }
+        auto& donor = *prepared_donor;
+        require_room(out.donor_pool.size(), 1, "compiled grammar donor count");
+        if (!donor.frame.binder_ids.empty() &&
+            donor.frame.binder_ids != site.occurrence_binder_ids.front())
+          throw std::logic_error(
+              "compiled donor formal binder IDs differ from its source occurrence");
+        const auto& donor_binder_ids = site.occurrence_binder_ids.front();
+        require_room(out.donor_binder_ids.size(), donor_binder_ids.size(),
+                     "compiled grammar donor binder count");
+        ProgramGenome fragment = extract_donor_fragment(donor);
+        if (!donor.genome.derivation || donor.payload.end > donor.genome.derivation->nodes.size())
+          throw std::logic_error("compiled donor lost its verified constant witness");
+        grammar::DerivationMetadata fragment_witness;
+        fragment_witness.nodes.assign(
+            donor.genome.derivation->nodes.begin() + donor.payload.begin,
+            donor.genome.derivation->nodes.begin() + donor.payload.end);
+        out.donor_constant_streams.push_back(as_int(constants->streams.size(), "donor constant stream"));
+        append_constant_mutation_stream(*constants, fragment.ast, fragment_witness);
+        std::string donor_identity = grammar::runtime_cache_identity(
+            fragment, input_names, context.grammar().execution_limits().fuel);
+        out.donor_pool.push_back(DonorProgram{std::move(fragment.ast), site.type});
+        out.donor_contracts.push_back(DonorContract{
+            site.compatibility_id,
+            as_int(donor.nodes, "donor materialized nodes"),
+            as_int(donor.depth, "donor materialized depth"),
+            as_int(donor.template_nesting, "donor template nesting"),
+            as_int(out.donor_binder_ids.size(), "donor binder offset"),
+            as_int(donor_binder_ids.size(), "donor binder count")});
+        out.donor_binder_ids.insert(
+            out.donor_binder_ids.end(), donor_binder_ids.begin(), donor_binder_ids.end());
+        out.donor_identities.push_back(std::move(donor_identity));
+        ++candidate.donor_count;
+      }
+  };
+  std::vector<grammar::DonorPoolJob> deferred_jobs;
+  std::vector<std::pair<std::size_t,std::size_t>> deferred_sites;
   for (std::size_t parent_index = 0; parent_index < population.size(); ++parent_index) {
     if (parent_index == preview_end) {
       if (planned_pools && planned_cursor != planned_pools->size())
@@ -380,6 +424,12 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
         const auto donor_seed = random.next();
         if (needs_donors) donor_seeds.push_back(donor_seed);
       }
+      if (phase_donors && !donor_seeds.empty()) {
+        deferred_jobs.push_back({&parent,site,std::move(donor_seeds)});
+        deferred_sites.emplace_back(parent_index,out.candidates[parent_index].size());
+        out.candidates[parent_index].push_back(candidate);
+        continue;
+      }
       grammar::DonorPool donor_pool;
       if (planned_pools && needs_donors) {
         if (planned_cursor >= planned_pools->size() ||
@@ -388,50 +438,58 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
           throw std::logic_error("prefetched donor schedule differs from sequential generation");
         donor_pool = std::move((*planned_pools)[planned_cursor++]);
       } else donor_pool = grammar::generate_donor_pool(context, donor_seeds, site, parent);
-      for (auto& prepared_donor : donor_pool) {
-        if (!prepared_donor) {
-          ++context.counters().generation_rejections;
-          continue;
-        }
-        auto& donor = *prepared_donor;
-        require_room(out.donor_pool.size(), 1, "compiled grammar donor count");
-        if (!donor.frame.binder_ids.empty() &&
-            donor.frame.binder_ids != site.occurrence_binder_ids.front())
-          throw std::logic_error(
-              "compiled donor formal binder IDs differ from its source occurrence");
-        const auto& donor_binder_ids = site.occurrence_binder_ids.front();
-        require_room(out.donor_binder_ids.size(), donor_binder_ids.size(),
-                     "compiled grammar donor binder count");
-        ProgramGenome fragment = extract_donor_fragment(donor);
-        if (!donor.genome.derivation || donor.payload.end > donor.genome.derivation->nodes.size())
-          throw std::logic_error("compiled donor lost its verified constant witness");
-        grammar::DerivationMetadata fragment_witness;
-        fragment_witness.nodes.assign(
-            donor.genome.derivation->nodes.begin() + donor.payload.begin,
-            donor.genome.derivation->nodes.begin() + donor.payload.end);
-        out.donor_constant_streams.push_back(as_int(constants->streams.size(), "donor constant stream"));
-        append_constant_mutation_stream(*constants, fragment.ast, fragment_witness);
-        std::string donor_identity = grammar::runtime_cache_identity(
-            fragment, input_names, context.grammar().execution_limits().fuel);
-        out.donor_pool.push_back(DonorProgram{std::move(fragment.ast), site.type});
-        out.donor_contracts.push_back(DonorContract{
-            site.compatibility_id,
-            as_int(donor.nodes, "donor materialized nodes"),
-            as_int(donor.depth, "donor materialized depth"),
-            as_int(donor.template_nesting, "donor template nesting"),
-            as_int(out.donor_binder_ids.size(), "donor binder offset"),
-            as_int(donor_binder_ids.size(), "donor binder count")});
-        out.donor_binder_ids.insert(
-            out.donor_binder_ids.end(), donor_binder_ids.begin(), donor_binder_ids.end());
-        out.donor_identities.push_back(std::move(donor_identity));
-        ++candidate.donor_count;
-      }
+      append_native_donors(std::move(donor_pool), site, candidate);
       out.candidates[parent_index].push_back(candidate);
     }
   }
 
+  if (!deferred_jobs.empty()) {
+#ifdef GAGP_HAS_CUDA
+    GpuPhaseDonorMetrics metrics;
+    const auto constructed = construct_gpu_phase_donors(*phase_donors,context.grammar(),deferred_jobs,&metrics);
+    out.gpu_donor_setup_ms=metrics.setup_ms;out.gpu_donor_device_bytes=metrics.device_bytes;
+    for (std::size_t i=0;i<deferred_jobs.size();++i) {
+      const auto& job=deferred_jobs[i];
+      auto& candidate=out.candidates[deferred_sites[i].first][deferred_sites[i].second];
+      candidate.donor_offset=as_int(out.donor_pool.size(),"deferred donor offset");
+      // Constant-pool transport has its own limit; preserve the existing native
+      // donor fallback if this GPU construction cannot fit that representation.
+      const bool supported=constructed[i] && std::all_of(constructed[i]->begin(),constructed[i]->end(),[](const auto& donor) {
+        return donor.fragment.consts.size()<=kGpuReproMaxConsts;
+      });
+      if (!supported) {
+        out.gpu_donor_fallback += job.seeds.size();
+        append_native_donors(grammar::generate_donor_pool(context,job.seeds,job.site,*job.destination),job.site,candidate);
+        continue;
+      }
+      out.gpu_donor_generated += constructed[i]->size();
+      for (const auto& donor:*constructed[i]) {
+        const auto& binders=job.site.occurrence_binder_ids.front();
+        require_room(out.donor_pool.size(),1,"GPU constructed donor count");
+        require_room(out.donor_binder_ids.size(),binders.size(),"GPU constructed donor binders");
+        out.donor_constant_streams.push_back(as_int(constants->streams.size(),"GPU donor constant stream"));
+        append_constructed_constant_mutation_stream(*constants,donor.fragment,donor.origins);
+        out.donor_identities.push_back(grammar::runtime_cache_identity(donor.fragment,input_names,context.grammar().execution_limits().fuel));
+        out.donor_pool.push_back({donor.fragment,job.site.type});
+        out.donor_contracts.push_back({job.site.compatibility_id,as_int(donor.fragment.nodes.size(),"GPU donor nodes"),
+            as_int(donor.depth,"GPU donor depth"),0,as_int(out.donor_binder_ids.size(),"GPU donor binder offset"),as_int(binders.size(),"GPU donor binder count")});
+        out.donor_binder_ids.insert(out.donor_binder_ids.end(),binders.begin(),binders.end());
+        ++candidate.donor_count;
+      }
+    }
+#else
+    throw std::logic_error("GPU donor construction requires a CUDA build");
+#endif
+  }
+
   if (planned_pools && planned_cursor != planned_pools->size())
     throw std::logic_error("prefetched donor schedule has unconsumed pools");
+  if (phase_donors) {
+    std::size_t requested=0;
+    for (const auto& job:deferred_jobs) requested+=job.seeds.size();
+    if (out.gpu_donor_generated+out.gpu_donor_fallback!=requested)
+      throw std::logic_error("GPU donor preparation left deferred requests unprocessed");
+  }
   out.compatibility_keys = selected_only ? selected_registry.keys() : context.cache().registry().keys();
   return out;
 }
@@ -439,10 +497,10 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
 PreprocessOutput preprocess_selected_population(const std::vector<ProgramGenome>& population,
     const GpuReproConfig& config, grammar::VariationContext& context,
     std::shared_ptr<const ConstantMutationDomains> domains, bool prepare_donors,
-    const grammar::variation_detail::OwnedScalarPopulation* owned) {
+    const grammar::variation_detail::OwnedScalarPopulation* owned, GpuPhaseDonorSession* phase_donors) {
   if (context.offspring_budget() || context.requests().size() != 1 || gagp::host_thread_limit() != 1)
     throw std::logic_error("selected preparation requires its scalar single-root 1T admission path");
-  return preprocess_population_impl(population, config, context, std::move(domains), prepare_donors, nullptr, true, owned);
+  return preprocess_population_impl(population, config, context, std::move(domains), prepare_donors, nullptr, true, owned, phase_donors);
 }
 
 PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& population,

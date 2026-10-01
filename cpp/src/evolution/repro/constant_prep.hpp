@@ -58,6 +58,12 @@ void append_constant_mutation_stream(ConstantMutationTable& table,
                                      const AstProgram& ast,
                                      const grammar::DerivationMetadata& witness);
 
+// Private GPU grammar construction path: each origin is an independently
+// constructed scalar expression, with no template/repeated-hole grouping.
+// This is a stream layout operation, not canonical grammar admission.
+void append_constructed_constant_mutation_stream(ConstantMutationTable& table,
+    const AstProgram& ast, const std::vector<grammar::NodeOrigin>& origins);
+
 // Full-program convenience overload which also checks the native verifier
 // sidecar length. Fragments verified in a larger frame use the core overload.
 void append_constant_mutation_stream(ConstantMutationTable& table,
