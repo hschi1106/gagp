@@ -40,9 +40,12 @@ or target-specific DP primitive.
 
 `gagp_evolution` owns materialization, membership reconstruction, verified
 ASTs, lowering, selection, compiled variation, and lifecycle orchestration.
-Every generated or accepted child is a release-2 native AST and is certified
-against the active compiled definition. Reconstructed witnesses certify
-membership but set `seed_replayable=false`.
+The legacy native backend materializes each generated or accepted child as a
+release-2 AST and certifies it against the active compiled definition.
+Experimental immutable fragment profiles may retain internal executables and
+materialize ASTs only at export/admission boundaries; their support and operator
+contracts are explicit. Reconstructed witnesses certify membership but set
+`seed_replayable=false`.
 
 `gagp_core` owns values, opcodes, bytecode verification, general region plans,
 and progress proofs. Opcode values 25–27 remain holes; only
@@ -65,9 +68,11 @@ result probe uses the same interpreter with stride one. The fitness kernel
 declares a 1024-thread launch bound so its supported maximum block size does not
 depend on an external compiler register cap.
 Packing reserves the known root instruction and constant table capacities before
-appending entries. Capacity checks and per-call validation remain in place.
-Region phases with at most four bindings use a smaller preset array; larger
-phases retain the full descriptor capacity. Both paths use the same binding,
+appending entries. Capacity checks remain in place. External bytecode is verified on every import;
+controlled immutable executables may reuse their compositional safety certificate
+as defined in `spec/bytecode_format.md`.
+The reference phase executor uses a smaller preset array for at most four
+bindings; larger phases retain the full descriptor capacity. Both paths use the same binding,
 lazy capture checking, bytecode execution, result checking, and fuel rules.
 Each phase invocation owns its operand stack and locals, with fresh stack depth
 and local validity/type masks. The phase interpreter cannot reenter bounded
