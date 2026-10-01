@@ -305,6 +305,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       if (payload::lookup_list(x, &lx)) {
         const std::size_t ls = static_cast<std::size_t>(l);
         const std::size_t hs = static_cast<std::size_t>(h);
+        if (hs > ls && hs > lx.size()) return fail(ErrCode::Value, "slice exceeds registered list payload");
         std::vector<Value> out_elems;
         out_elems.reserve(hs > ls ? (hs - ls) : 0U);
         for (std::size_t k = ls; k < hs; ++k) {

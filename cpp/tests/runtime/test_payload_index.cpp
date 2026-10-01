@@ -4,6 +4,7 @@
 #include <string>
 
 #include "gagp/core/value.hpp"
+#include "gagp/runtime/cpu/builtins_cpu.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 
 namespace {
@@ -86,6 +87,16 @@ bool test_raw_values_and_malformed_registration() {
                "lookup bounds-checks the registered payload, not packed length");
 }
 
+bool test_slice_rejects_short_registered_payload() {
+  gagp::payload::clear();
+  const auto key=Value::from_int_list_hash_len(0x123456U,3);
+  gagp::payload::register_list(key,{Value::from_int(1)});
+  const Value args[]{key,Value::from_int(0),Value::from_int(3)};
+  const auto result=gagp::builtin_call(gagp::BuiltinId::Slice,args,3);
+  return check(result.is_error && result.err.code==gagp::ErrCode::Value,
+      "Slice must bounds-check registered payload instead of trusting packed length");
+}
+
 bool test_missing_clear_and_noncontainer() {
   gagp::payload::clear();
   const Value missing_string = Value::from_string_hash_len(0xabcU, 1U);
@@ -129,6 +140,7 @@ bool test_retain_only_keeps_indexed_payloads() {
 }  // namespace
 
 int main() {
+  if (!test_slice_rejects_short_registered_payload()) return 1;
   if (!test_string_bytes_and_bounds()) return 1;
   if (!test_all_typed_lists()) return 1;
   if (!test_raw_values_and_malformed_registration()) return 1;

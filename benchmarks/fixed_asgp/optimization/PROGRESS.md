@@ -26,12 +26,19 @@ GPU operators/RNG/cases/admission semantics unchanged. Two GPU copybacks/AST
 rebuilds remain. J's execution-only admission is incorporated as K's internal
 step; its standalone flag/entry is removed (small isolated benefit).
 
-Candidate L underway: `GAGP_CPU_SLICE_CACHE=1`, exact bounded65536-entry list
-slice memo. Replacement/pruning/clear invalidation; staged scopes use reference.
-CPU1T, no evaluation pairs skipped. Raw `logs/optimization/native-cpu-slice/`.
-Pending build/tests and CPU performance; not enabled in best settings.
-Next: CPU slice A/B, refresh host profile, then attack native intermediate
-preparation/admission costs. No CPU fragment route or application workers.
+Rejected L: exact CPU list-slice cache.64K entries: Sum17.441→22.109s,
+13.09M hits/23.47M misses,358 capacity clears, zero mutable-payload invalidations.
+524K diagnostic:35.24M hits/1.32M misses (96.4%), but snapshot process still17.88s
+versus ~18.5s reference with additional memory. High hit rate gives too little
+benefit to retain this mutable-registry memo policy. All3 tasks' CPU generation
+fields and3072 CPU/GPU snapshot records match; safety tests passed. Feature,
+flag, exclusive API/stats/tests removed; raw binaries/patch/counters retained in
+`logs/optimization/native-cpu-slice/`. Short registered-list Slice bounds fix and
+its negative test remain. Next CPU direction needs cheaper view execution, not
+another cache capacity sweep.
+Next: refresh K host profile and test allocator cost with a local, optional
+library if available; no system installation/settings or CPU workers. Native
+intermediate preparation/admission remains the main target.
 
 ## Current fair baseline
 
