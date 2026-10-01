@@ -271,6 +271,13 @@ charges; refinement uses each ordered child's set of reachable partition IDs.
 Only a fixed point is merged, preserving recursive languages and node costs.
 This reduces certificate startup work without changing donor admission rules.
 
+Application host work defaults to one CPU thread. `GAGP_HOST_THREADS=2..20`
+opts into the worker paths described below. On 1T, overlap preparation executes
+on the caller after GPU eval launch; decode admits children in source order in
+the run's existing VariationContext, so the following mutation preparation can
+reuse their analyses. It does not speculate into discarded worker contexts.
+Admission, payload validation and GPU variation kernels remain unchanged.
+
 GPU copyback prepares changed-child ASTs in bounded batches of 128. With at least
 32 proposals, an owned prepared-source/context continuation can perform complete
 child admission using at most 20 readers, capped by hardware concurrency. Workers

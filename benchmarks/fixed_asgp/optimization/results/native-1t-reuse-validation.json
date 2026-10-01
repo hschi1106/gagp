@@ -1,0 +1,182 @@
+{
+  "formal": {
+    "sum_of_elements": {
+      "before": {
+        "samples_ms": [
+          713.52594,
+          705.187302,
+          711.172755,
+          716.471694,
+          706.64881,
+          708.608725,
+          710.275693,
+          701.77831,
+          717.234226
+        ],
+        "median_ms": 710.275693,
+        "min_ms": 701.77831,
+        "max_ms": 717.234226
+      },
+      "after": {
+        "samples_ms": [
+          554.05309,
+          562.127918,
+          552.511127,
+          552.771226,
+          555.267676,
+          559.529861,
+          542.30195,
+          540.261626,
+          540.413072
+        ],
+        "median_ms": 552.771226,
+        "min_ms": 540.261626,
+        "max_ms": 562.127918
+      }
+    },
+    "house_robber": {
+      "before": {
+        "samples_ms": [
+          851.057716,
+          840.461986,
+          841.922959,
+          863.492961,
+          850.582675,
+          847.688517,
+          853.975319,
+          852.630249,
+          843.299678
+        ],
+        "median_ms": 850.582675,
+        "min_ms": 840.461986,
+        "max_ms": 863.492961
+      },
+      "after": {
+        "samples_ms": [
+          641.534107,
+          633.03914,
+          634.679228,
+          644.057143,
+          633.949598,
+          635.515456,
+          644.326677,
+          637.124086,
+          643.355175
+        ],
+        "median_ms": 637.124086,
+        "min_ms": 633.03914,
+        "max_ms": 644.326677
+      }
+    },
+    "median": {
+      "before": {
+        "samples_ms": [
+          748.194258,
+          747.631662,
+          748.444864,
+          766.346584,
+          765.294708,
+          765.214023,
+          750.035646,
+          748.211305,
+          742.068206
+        ],
+        "median_ms": 748.444864,
+        "min_ms": 742.068206,
+        "max_ms": 766.346584
+      },
+      "after": {
+        "samples_ms": [
+          580.562115,
+          582.520129,
+          590.219577,
+          592.576862,
+          587.249949,
+          589.145929,
+          593.440301,
+          596.494727,
+          590.419931
+        ],
+        "median_ms": 590.219577,
+        "min_ms": 580.562115,
+        "max_ms": 596.494727
+      }
+    }
+  },
+  "snapshots": {
+    "sum_of_elements": {
+      "all_program_records_equal": true,
+      "population": 1024,
+      "cases_per_program": 1024,
+      "admission_compile_reuses": 1024
+    },
+    "house_robber": {
+      "all_program_records_equal": true,
+      "population": 1024,
+      "cases_per_program": 1024,
+      "admission_compile_reuses": 1024
+    },
+    "median": {
+      "all_program_records_equal": true,
+      "population": 1024,
+      "cases_per_program": 1024,
+      "admission_compile_reuses": 1024
+    }
+  },
+  "quality": {
+    "sum_of_elements.0": {
+      "all_non_timing_fields_equal": true,
+      "exported_asts_equal": true,
+      "before_evolve_call_ms": 2624.300519,
+      "after_evolve_call_ms": 2116.284708
+    },
+    "sum_of_elements.1": {
+      "all_non_timing_fields_equal": true,
+      "exported_asts_equal": true,
+      "before_evolve_call_ms": 2476.089412,
+      "after_evolve_call_ms": 2089.831184
+    },
+    "sum_of_elements.2": {
+      "all_non_timing_fields_equal": true,
+      "exported_asts_equal": true,
+      "before_evolve_call_ms": 2580.017443,
+      "after_evolve_call_ms": 2131.354693
+    },
+    "house_robber.0": {
+      "all_non_timing_fields_equal": true,
+      "exported_asts_equal": true,
+      "before_evolve_call_ms": 2653.521018,
+      "after_evolve_call_ms": 2136.489577
+    },
+    "house_robber.1": {
+      "all_non_timing_fields_equal": true,
+      "exported_asts_equal": true,
+      "before_evolve_call_ms": 2565.001942,
+      "after_evolve_call_ms": 2095.715331
+    },
+    "house_robber.2": {
+      "all_non_timing_fields_equal": true,
+      "exported_asts_equal": true,
+      "before_evolve_call_ms": 2709.761348,
+      "after_evolve_call_ms": 2172.476276
+    },
+    "median.0": {
+      "all_non_timing_fields_equal": true,
+      "exported_asts_equal": true,
+      "before_evolve_call_ms": 3312.933597,
+      "after_evolve_call_ms": 2659.604833
+    },
+    "median.1": {
+      "all_non_timing_fields_equal": true,
+      "exported_asts_equal": true,
+      "before_evolve_call_ms": 3317.69466,
+      "after_evolve_call_ms": 2625.153273
+    },
+    "median.2": {
+      "all_non_timing_fields_equal": true,
+      "exported_asts_equal": true,
+      "before_evolve_call_ms": 3376.828183,
+      "after_evolve_call_ms": 2648.790097
+    }
+  }
+}

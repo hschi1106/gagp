@@ -193,7 +193,13 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
   auto cs=gagp::evo::prepare_case_set(cases);
   const auto begin=Clock::now();
   std::vector<gagp::BytecodeProgram> programs;
-  for (const auto& g:population) programs.push_back(gagp::evo::compile_for_eval(g,cs.input_names));
+  std::size_t admission_reuses = 0;
+  for (const auto& g:population) {
+    if (const auto cached = gg::admitted_bytecode_for_eval(g, cs.input_names, 2000000)) {
+      programs.push_back(*cached);
+      ++admission_reuses;
+    } else programs.push_back(gagp::evo::compile_for_eval(g,cs.input_names));
+  }
   const auto compile_ms=elapsed(begin);
   gagp::FitnessSessionGpu session;
   const auto init=session.init(cs.bindings,cs.expected_values,2000000,512,1000);
@@ -234,7 +240,7 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
     if (!cpu.empty()) row.object_v["cpu_fitness"]=number(cpu[i]);
     rows.push_back(std::move(row));
   }
-  write(output,object({{"compile_ms",number(compile_ms)}, {"gpu_init_ms",number(init.timing.total_ms)},
+  write(output,object({{"admission_compile_reuses",number(admission_reuses)}, {"compile_ms",number(compile_ms)}, {"gpu_init_ms",number(init.timing.total_ms)},
     {"eval_ms",number(result.timing.total_ms)}, {"kernel_ms",number(result.timing.kernel_ms)},
     {"execution_profile",string(result.execution_profile)}, {"diagnostic_only",number(1)},
     {"cpu_behavior_probe_cases",number(behavior_probe?std::min<std::size_t>(32,cs.bindings.size()):0)},

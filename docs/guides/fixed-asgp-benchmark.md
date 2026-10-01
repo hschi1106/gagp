@@ -211,3 +211,11 @@ phase order, numeric operations and fuel. Unsupported shapes keep tagged frames.
 bound scalar loads, Add and optional Return, with no unused or parameter binding.
 It reads proved initialized slots directly, preserving per-instruction fuel and
 the existing double-conversion/wrapping arithmetic. Other phases retain the VM.
+
+`GAGP_REUSE_ADMISSION_COMPILE=1` retains scalar-constant bytecode already produced
+by native grammar admission in the opaque derivation certificate. Current AST,
+input order and fuel are checked before reuse; payload constants and stale proofs
+fall back to normal compilation. GPU packing still verifies bytecode. Snapshot
+probes exercise this path and report `admission_compile_reuses`. Report cold
+admission, complete evolve-call and changing-generation costs alongside fixed
+measurements; reuse does not change grammar membership or variation operators.

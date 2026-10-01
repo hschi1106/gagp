@@ -36,11 +36,25 @@ identity105.9 ms/11024 calls, bytecode+region verification96.7 ms; full profiled
 722.7 ms. Nested ranges are not additive. Raw source-only instrumentation and
 restored sources at `logs/optimization/native-1t-host-profile/`.
 
-Candidate B in progress: cache grammar-wide local-resource-charge eligibility
-once in immutable CompiledGrammar. Next potential direction: serial decode
-currently uses/discards per-batch worker analysis caches; use normal ordered
-admission on 1T so the run context retains analyses for mutation preparation.
-No change to variation kernels, admission rules, or AST representation.
+Retained candidate C: 1T decode uses ordered admission in the owning run context;
+no discarded worker caches or speculative child warming. Formal 3 processes ×
+(1 warmup + 3 repeats), interleaved with 1T controls: Sum552.771 / House637.124 /
+Median590.220 ms, reductions22.2% /25.1% /21.1%. All 3072 snapshot program records
+match (full cases, GPU counts and CPU fitness); all nine 3-seed×4-generation
+search comparisons match non-timing fields and exported ASTs. Quality limits:
+short runs only, no convergence/long-run assertion. Raw commands/binaries/repeats:
+`logs/optimization/native-checkpoint-validation/`; summary
+[validation](results/native-1t-reuse-validation.json).
+
+Rejected B: grammar-wide local-resource eligibility cache. Sum657.988 /
+House752.135 /Median697.685 ms versus candidate A640.959 /736.418 /699.902;
+no reliable gain. The cache change is reverted, raw data in
+`logs/optimization/native-static-charges/`.
+
+Next hypothesis: internal child admission currently builds full analysis/lowering
+before stable table compaction, then repeats it after compaction. Validate source
+structure and every original payload first, compact, then perform full canonical
+membership/lowering/site analysis once. Keep external parent admission strict.
 CPU perf sampling currently blocked by perf_event_paranoid=4; optional user
 request pending. Continue using existing stage timers; no system settings changed.
 

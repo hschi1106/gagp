@@ -222,7 +222,7 @@ std::vector<ProgramGenome> decode_compiled_pass(
       admission_counts.assign(count, {});
       admission_reads.clear(); admission_reads.resize(count);
       parent_reads.assign(count, nullptr); parent_roots.assign(count, std::nullopt);
-      bool parallel_admission = staged.size() >= 32 && certificates &&
+      bool parallel_admission = gagp::host_thread_limit() > 1 && staged.size() >= 32 && certificates &&
           certificates->sources == packed.compiled_sources &&
           certificates->context.get() == &context &&
           !payload::StagedPayloads::has_active_scope();
@@ -277,7 +277,11 @@ std::vector<ProgramGenome> decode_compiled_pass(
           for (auto& child : admitted) child.reset();
       } else {
         try {
-          if (staged.size() >= 32) context.cache().warm_candidates(staged, context.requests());
+          // On 1T, ordered admission below owns the same cache used by the
+          // next mutation preparation. Speculatively admitting into throwaway
+          // worker contexts would discard that analysis and repeat it next pass.
+          if (gagp::host_thread_limit() > 1 && staged.size() >= 32)
+            context.cache().warm_candidates(staged, context.requests());
         } catch (const std::exception&) {}
       }
     }
