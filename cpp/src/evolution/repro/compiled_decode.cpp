@@ -8,7 +8,6 @@
 #include <future>
 #include <thread>
 #include <cstring>
-#include <cstdlib>
 #include <limits>
 #include <optional>
 #include <stdexcept>
@@ -96,8 +95,7 @@ std::vector<ProgramGenome> decode_compiled_pass(
   const bool mutation = c.compiled_pass == CompiledVariationPass::Mutation;
   require(mutation || c.compiled_pass == CompiledVariationPass::Crossover,
           "compiled copyback has an unknown operator pass");
-  const auto admission_use = (mutation && std::getenv("GAGP_FINAL_EXECUTION_ADMISSION")) ||
-      (certificates && !certificates->admitted_parents.empty())
+  const auto admission_use = certificates && !certificates->admitted_parents.empty()
       ? grammar::variation_detail::AdmissionUse::Execution
       : grammar::variation_detail::AdmissionUse::Variation;
   const int physical_children = c.pair_count * 2;

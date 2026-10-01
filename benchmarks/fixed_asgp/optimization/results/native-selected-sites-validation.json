@@ -1,0 +1,298 @@
+{
+  "formal": {
+    "sum_of_elements": {
+      "before": {
+        "samples_ms": [
+          428.107994,
+          421.948829,
+          418.089155,
+          409.789435,
+          418.058207,
+          420.797282,
+          413.191901,
+          403.603851,
+          410.354086
+        ],
+        "median_ms": 418.058207,
+        "min_ms": 403.603851,
+        "max_ms": 428.107994
+      },
+      "after": {
+        "samples_ms": [
+          381.720142,
+          379.704799,
+          377.390736,
+          381.968928,
+          380.855022,
+          382.889277,
+          397.373352,
+          397.996373,
+          396.847117
+        ],
+        "median_ms": 381.968928,
+        "min_ms": 377.390736,
+        "max_ms": 397.996373
+      }
+    },
+    "house_robber": {
+      "before": {
+        "samples_ms": [
+          437.353629,
+          432.634564,
+          437.785154,
+          428.188667,
+          419.663319,
+          425.660855,
+          441.803156,
+          428.467009,
+          422.279584
+        ],
+        "median_ms": 428.467009,
+        "min_ms": 419.663319,
+        "max_ms": 441.803156
+      },
+      "after": {
+        "samples_ms": [
+          408.344282,
+          403.79618,
+          431.388646,
+          403.807456,
+          403.27807,
+          404.046265,
+          419.63902,
+          409.965609,
+          406.175895
+        ],
+        "median_ms": 406.175895,
+        "min_ms": 403.27807,
+        "max_ms": 431.388646
+      }
+    },
+    "median": {
+      "before": {
+        "samples_ms": [
+          444.991749,
+          443.287457,
+          443.103743,
+          427.370897,
+          434.509928,
+          429.627747,
+          447.557759,
+          442.650171,
+          442.439283
+        ],
+        "median_ms": 442.650171,
+        "min_ms": 427.370897,
+        "max_ms": 447.557759
+      },
+      "after": {
+        "samples_ms": [
+          393.581401,
+          394.239943,
+          394.258073,
+          388.754685,
+          396.01606,
+          396.884968,
+          400.747038,
+          395.895421,
+          395.585491
+        ],
+        "median_ms": 395.585491,
+        "min_ms": 388.754685,
+        "max_ms": 400.747038
+      }
+    }
+  },
+  "snapshots": {
+    "sum_of_elements": {
+      "programs": 1024,
+      "all_fields_match": true
+    },
+    "house_robber": {
+      "programs": 1024,
+      "all_fields_match": true
+    },
+    "median": {
+      "programs": 1024,
+      "all_fields_match": true
+    }
+  },
+  "quality": [
+    {
+      "task": "sum_of_elements",
+      "seed": 0,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1765.874045,
+      "after_evolve_ms": 1646.059395
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 1,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1745.924569,
+      "after_evolve_ms": 1637.274604
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 2,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1752.652676,
+      "after_evolve_ms": 1679.604304
+    },
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1611.225848,
+      "after_evolve_ms": 1558.872416
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1613.796639,
+      "after_evolve_ms": 1562.475374
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 1617.71557,
+      "after_evolve_ms": 1573.283621
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 2074.156438,
+      "after_evolve_ms": 1888.956087
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 2073.725255,
+      "after_evolve_ms": 1929.029157
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "all_non_timing_fields_and_exported_asts_match": true,
+      "before_evolve_ms": 2088.182412,
+      "after_evolve_ms": 1888.117189
+    }
+  ],
+  "long_quality": [
+    {
+      "task": "sum_of_elements",
+      "seed": 0,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 15979.841859,
+      "after_wall_ms": 14543.473426,
+      "resources": {
+        "before": "rss_kb=1298008\nwall_seconds=17.55\n",
+        "after": "rss_kb=1215196\nwall_seconds=16.14\n"
+      }
+    },
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 17234.102087,
+      "after_wall_ms": 15572.161207,
+      "resources": {
+        "before": "rss_kb=1221648\nwall_seconds=18.62\n",
+        "after": "rss_kb=1203292\nwall_seconds=16.96\n"
+      }
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 19599.287638,
+      "after_wall_ms": 17234.80853,
+      "resources": {
+        "before": "rss_kb=1400340\nwall_seconds=20.93\n",
+        "after": "rss_kb=1296404\nwall_seconds=18.57\n"
+      }
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 1,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 15976.474767,
+      "after_wall_ms": 15105.188441,
+      "resources": {
+        "before": "rss_kb=1246844\nwall_seconds=17.50\n",
+        "after": "rss_kb=1181112\nwall_seconds=16.63\n"
+      }
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 13433.223883,
+      "after_wall_ms": 13014.876331,
+      "resources": {
+        "before": "rss_kb=1069428\nwall_seconds=14.66\n",
+        "after": "rss_kb=1048008\nwall_seconds=14.28\n"
+      }
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 19231.0457,
+      "after_wall_ms": 16998.618108,
+      "resources": {
+        "before": "rss_kb=1304080\nwall_seconds=20.44\n",
+        "after": "rss_kb=1215376\nwall_seconds=18.22\n"
+      }
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 2,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 16044.099935,
+      "after_wall_ms": 14490.280452,
+      "resources": {
+        "before": "rss_kb=1283744\nwall_seconds=17.57\n",
+        "after": "rss_kb=1201208\nwall_seconds=16.04\n"
+      }
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 14160.351054,
+      "after_wall_ms": 13050.069945,
+      "resources": {
+        "before": "rss_kb=1086760\nwall_seconds=15.37\n",
+        "after": "rss_kb=1055068\nwall_seconds=14.26\n"
+      }
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "generations": 32,
+      "all_fields_and_exported_asts_match": true,
+      "before_wall_ms": 20811.981221,
+      "after_wall_ms": 18115.695714,
+      "resources": {
+        "before": "rss_kb=1391216\nwall_seconds=22.11\n",
+        "after": "rss_kb=1277780\nwall_seconds=19.41\n"
+      }
+    }
+  ],
+  "runtime_commit": "8dbd765",
+  "raw_manifest": "logs/optimization/native-selected-sites-validation/manifest.json",
+  "limitations": "32-generation exact replay screens do not prove convergence quality equivalence or indefinite memory bounds. Scaling and full-suite regression pending."
+}

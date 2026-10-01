@@ -4,32 +4,34 @@ Active objective: preserve CPU / GPU-e / GPU-er / GPU-er-o architecture, use
 CPU 1T + GPU, target fastest native GPU >30× frozen ASGP-1T on Sum/House;
 Median remains fixed-overhead workload. Do not resume retired CPU fragment route.
 
-## Active experiment
+## Current best and active experiment
 
-Best runtime `a5562f8`: constexpr descriptor index replaces two linear scans;
-reserved/negative/out-of-range kinds retain rejection. Three focused tests pass.
-Formal nine-repeat medians Sum415.657 / House430.558 / Median437.677 ms versus
-same-round controls467.184 /499.694 /494.865. All3072 full-case snapshot records,
-nine short searches (3 seeds ×4 generations) and exported ASTs match exactly.
-Raw binary/repeats/commands: `logs/optimization/native-node-index-validation/`;
-summary [descriptor validation](results/native-node-index-validation.json).
-Flags unchanged from E+F, CPU1T. No interface/navigation change.
-Candidate J final execution-only admission: quick401.6/423.1/426.5 ms, too small
-to promote alone. Combined candidate K (`GAGP_SELECTED_SITES=1`) keeps GPU
-operators and canonical admission, selects logical sites before materializing
-contracts, and uses scalar private parent continuations. Full path fallback:
-multiple root requests, projected budgets, registry constants, staged payloads,
-or explicit multiple workers. Quick386.695/401.850/395.286 ms, all non-time fields
-match. Five focused tests pass, including full-vs-selected contract fields,
-repeated holes, scopes, invalid selector and source/context boundary checks.
-One test's legacy-only direct site access initially segfaulted; its original
-checks remain, now comparing both owned admission and full analysis against
-independent fresh analysis. No failed safety assertions were removed.
-Raw `logs/optimization/native-selected-sites/`; formal repeats, snapshots and
-3 seeds ×4/32-generation searches running in `native-selected-sites-validation`.
-This is a recoverable experiment, not yet the validated best (still `a5562f8`).
-Next: evaluate results, then profile remaining admission/identity work; two GPU
-copybacks/AST rebuilds remain. No CPU fragment path or application worker added.
+Best runtime `8dbd765`, scalar selected-site native GPU path. Use the flags in
+`round2.py` (including `GAGP_SELECTED_SITES=1`, CPU1T). Formal nine-repeat medians
+Sum381.969 / House406.176 / Median395.585 ms; same-round descriptor controls
+418.058 /428.467 /442.650. Frozen headline ~4.82×Sum/~3.16×House, not30×.
+Archive/repeats/commands: `logs/optimization/native-selected-sites-validation/`;
+[validation](results/native-selected-sites-validation.json).
+All3072 full-case snapshots,3 seeds ×4-generation searches and3 seeds ×32-generation
+searches match all non-time fields and exported ASTs. All nine longer searches
+also improve external evolve wall. Max RSS ~1.05–1.30GB across these candidate
+runs; these are process peaks, not proof of indefinitely bounded retention.
+Five focused tests cover selected-vs-full scopes/contracts/repeated holes and
+source/context/capacity boundaries. Scaling/full regression still pending.
+
+K selects logical sites before materializing contracts and uses owned scalar
+parent continuations. Full fallback for multiple root requests, projected
+budgets, registry constants, staged payloads or explicit multiple workers.
+GPU operators/RNG/cases/admission semantics unchanged. Two GPU copybacks/AST
+rebuilds remain. J's execution-only admission is incorporated as K's internal
+step; its standalone flag/entry is removed (small isolated benefit).
+
+Candidate L underway: `GAGP_CPU_SLICE_CACHE=1`, exact bounded65536-entry list
+slice memo. Replacement/pruning/clear invalidation; staged scopes use reference.
+CPU1T, no evaluation pairs skipped. Raw `logs/optimization/native-cpu-slice/`.
+Pending build/tests and CPU performance; not enabled in best settings.
+Next: CPU slice A/B, refresh host profile, then attack native intermediate
+preparation/admission costs. No CPU fragment route or application workers.
 
 ## Current fair baseline
 
@@ -102,9 +104,8 @@ House498.343 /Median484.025 ms after E; all non-timing fields match. Four focuse
 tests pass; independent old-source differential checks match all 100000 ordinary
 bytecode and 20000 bounded-region results including exact diagnostics and resource
 summaries. Full Release build passes. Raw `logs/optimization/native-verifier-locals/`.
-E+F formal interleaved controls/snapshots/search underway in
-`logs/optimization/native-contract-verifier-validation/`; do not promote until
-its comparisons complete.
+E+F formal validation passed; archived in
+`logs/optimization/native-contract-verifier-validation/`. Superseded by I then K.
 
 Rejected G: retaining full sites in native certificates. Fixed generation slowed
 ~30–47 ms, and 32-generation searches slowed3–4% with RSS+120–140 MB. All short
@@ -130,9 +131,8 @@ Raw `logs/optimization/native-refreshed-profile/`. Process-local SIGPROF PC samp
 (no workers/system settings) in `logs/optimization/native-cpu-pc-profile/` show
 allocation/free pressure and repeated linear descriptor lookups; CPU Sum also
 spends substantial samples hashing/registering list slices. Full-process samples
-include setup, not a precise per-generation attribution. Next independent minimum:
-constexpr descriptor index, preserve all invalid/reserved enum checks. Source
-prototype pending build after the ongoing sequential GPU experiment.
+include setup, not a precise per-generation attribution. Descriptor indexing (I) was subsequently validated:415.657/430.558/437.677 ms,
+all full snapshots and short searches match. Raw `native-node-index-validation`.
 
 Current best runtime `ed19fde`, archived binary/flags/commands in
 `logs/optimization/native-contract-verifier-validation/manifest.json`.
