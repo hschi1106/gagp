@@ -54,8 +54,21 @@ repository target rerun passes,24 repository and5 fixed-tool checks pass. No tes
 removed. Weighted/reset fixed skeletons explicitly decline profile. Negative tests
 confirm existing physical admission bounds, including zero-charge resources;
 no redundant runtime budget scan was added. Y construction-site code is removed.
-Next: finish paired CPU candidate repeats,adopt/reject; final5-mode scaling and
-latest nsys diagnostic (no NCU in this turn). CPU candidate still not promoted.
+CPU window view adopted opt-in after interleaved9 repeats: Sum16960.628->9465.923ms
+(1.792x); House7952.051->7957.459 (+0.068%),Median687.083->686.402ms. All non-time
+outputs match. Add `GAGP_CPU_REGION_VIEWS=1` to best flags; generic fallback remains.
+3072 evolved seed0 final programs (64/96/512 generations) independently admitted,
+full1024-case CPU(view enabled)/GPU reevaluation exact versus stored final fitness.
+32-case behavior-probe distinct counts27/205/76; these are not full-domain equivalence.
+CUDA12.6 memcheck of32-generation P16 full-case owner test:0 errors.
+Latest House nsys kernel means including warm/cold launches: eval29.827ms,
+mutation2.015,crossover including selection1.643,lowering1.367,offset scan0.531,
+final genotype compare0.323. Cold import annotation0.914 is initialization only.
+These are diagnostics, not unprofiled headline arithmetic. Raw profile/ files.
+Tracked evidence: results/native-counted-validation.json; full commands/raw logs
+remain in archive. Next: final5-mode scaling running serially via `run.py scaling`.
+P1024 CPU scaling reuses identical same-binary third-process CPU-view controls,
+explicitly tagged reused_from_tag; remaining controls freshly measured. No NCU.
 
 ### Historical exact-trajectory reference (R)
 
