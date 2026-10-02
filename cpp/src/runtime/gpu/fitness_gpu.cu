@@ -575,8 +575,20 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
             s.request_count==2 && s.requests[0][0].kind==RegionTransitionKind::SequenceWindow &&
             s.requests[1][0].kind==RegionTransitionKind::SequenceWindow;
       });
+  region_workspace.coordinate_executor = direct_phases && std::getenv("GAGP_COORDINATE_EXECUTOR") &&
+      std::all_of(packed.region_segments.begin(),packed.region_segments.end(),[](const auto& s) {
+        if(s.progress!=RegionProgressKind::Coordinates || s.state_count!=1 || s.state_types[0]!=ValueTag::Int ||
+            s.result_type!=ValueTag::Int || s.coordinate_count!=1 || s.coordinate_slots[0]!=0 ||
+            s.bound_operand_count!=0 || s.preparation_count!=0 || s.request_expression_count!=0 ||
+            s.request_count<1 || s.request_count>2 ||
+            s.coordinate_domains[0].lower.kind!=RegionBoundKind::Literal ||
+            s.coordinate_domains[0].upper.kind!=RegionBoundKind::Literal)return false;
+        for(unsigned r=0;r<s.request_count;++r)
+          if(s.requests[r][0].kind!=RegionTransitionKind::CoordinateOffset || s.requests[r][0].source_state!=0)return false;
+        return true;
+      });
   region_workspace.unboxed_window_frames = region_workspace.window_executor && std::getenv("GAGP_UNBOXED_WINDOW_FRAMES");
-  const std::size_t frame_size = region_workspace.unboxed_window_frames ?
+  const std::size_t frame_size = region_workspace.coordinate_executor ? sizeof(gpu_detail::DUnboxedCoordinateFrame) : region_workspace.unboxed_window_frames ?
       (region_workspace.two_state_frames ? sizeof(gpu_detail::DUnboxedWindowFrame<2>) : sizeof(gpu_detail::DUnboxedWindowFrame<1>)) : !region_workspace.compact_frames ? sizeof(gpu_detail::DRegionFrame) :
       (region_workspace.two_state_frames ? sizeof(gpu_detail::DCompactPairRegionFrame) :
        sizeof(gpu_detail::DCompactRegionFrame));
@@ -767,6 +779,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if (use_views && impl_->d_case_order) out.execution_profile += "-sorted";
     if (direct_phases) out.execution_profile += "-direct";
     if (direct_root) out.execution_profile += "-root";
+    if (region_workspace.coordinate_executor) out.execution_profile += "-coordinate";
     if (region_workspace.window_executor) out.execution_profile += "-window";
     if (region_workspace.unboxed_window_frames) out.execution_profile += "-unboxed";
     if(direct_phases && std::any_of(packed.region_phases.begin(),packed.region_phases.end(),

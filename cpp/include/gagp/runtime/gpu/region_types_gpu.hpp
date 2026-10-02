@@ -77,6 +77,12 @@ template<unsigned States> struct DUnboxedWindowFrame {
   DWindowInt results[2];
   int next_request;
 };
+struct DUnboxedCoordinateFrame {
+  DWindowInt state[1];
+  DWindowInt prepared[1];
+  DWindowInt results[2];
+  int next_request;
+};
 #undef GAGP_REGION_HD
 
 struct DRegionWorkspace {
@@ -89,6 +95,7 @@ struct DRegionWorkspace {
   bool compact_frames = false;
   bool two_state_frames = false;
   bool window_executor = false;
+  bool coordinate_executor = false;
   bool unboxed_window_frames = false;
 };
 

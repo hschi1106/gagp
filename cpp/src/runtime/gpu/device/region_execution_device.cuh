@@ -199,6 +199,7 @@ __device__ inline bool d_region_endpoint(
 }
 
 #include "window_execution_device.cuh"
+#include "coordinate_execution_device.cuh"
 
 template <DPayloadFlavor Flavor, class Frame>
 __device__ __noinline__ DResult d_run_bounded_region_impl(
@@ -393,6 +394,8 @@ __device__ DResult d_run_bounded_region(
     typename DPayloadFlavorTraits<Flavor>::State& payload_state,
     const DExecutionTables& tables, int& fuel, DRegionWorkspace workspace) {
   if constexpr (Flavor == DPayloadFlavor::BoundIntListViews) {
+    if(workspace.coordinate_executor)return d_run_coordinate_region(segment,operands,caller_locals,
+        caller_set,payload_tables,payload_state,tables,fuel,workspace);
     if(workspace.window_executor) {
       if(workspace.unboxed_window_frames) {
         if(workspace.two_state_frames)return d_run_window_region<DUnboxedWindowFrame<2>>(segment,operands,caller_locals,

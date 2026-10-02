@@ -839,6 +839,46 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
   std::unique_ptr<Environment> root_env;
   if (root) root_env = std::make_unique<Environment>("GAGP_DIRECT_ROOT");
   if(direct) {
+    Environment coordinate_mode("GAGP_COORDINATE_EXECUTOR");
+    {
+      auto invalid=unary_segment(Value::from_int(7));invalid.plan.memoized=false;
+      FitnessSessionGpu session;
+      if(!check(session.init({{}},{Value::from_int(7)},100,32,7).ok,"coordinate invalid profile init"))return false;
+      const auto rejected=session.eval_programs({invocation(std::move(invalid),{Value::from_int(3)})});
+      if(!check(!rejected.ok,"nonmemoized positive cell limit must still fail ordinary admission"))return false;
+    }
+    {
+      std::vector<BytecodeProgram> programs;
+      for(int i=0;i<37;++i)programs.push_back(invocation(unary_segment(Value::from_int(i+7),true),{Value::from_int(i%9)}));
+      const std::vector<CaseBindings> cases(1024);
+      std::vector<Value> answers;for(int i=0;i<1024;++i)answers.push_back(Value::from_int(i%13));
+      FitnessSessionGpu session;
+      if(!check(session.init(cases,answers,1000,512,7).ok,"coordinate interleaved workspace init"))return false;
+      const auto fit=session.eval_programs(programs,true);
+      const auto cpu=eval_fitness_cpu(programs,cases,answers,1000,7,512);
+      if(!check(fit.ok && fit.execution_profile.find("-coordinate")!=std::string::npos && fit.fitness==cpu,
+          "coordinate unboxed workspace indexing across programs and full cases"))return false;
+      for(const auto& counts:fit.case_counts)if(!check(counts[0]==1024 && counts[1]==0,"coordinate missing cases or aliased frames"))return false;
+    }
+    for(bool duplicate:{false,true})for(bool inclusive:{false,true})for(bool memo:{false,true})
+      for(unsigned capacity:{0u,1u,16u})for(int start:{-1,0,3,8,9})for(int fuel:{0,1,4,16,80}) {
+        auto segment=unary_segment(Value::from_int(7),duplicate);
+        segment.plan.memoized=memo;segment.plan.limits.frames=capacity;segment.plan.limits.cells=memo?capacity:0;
+        segment.plan.coordinate_endpoint=inclusive?DomainEndpoint::Inclusive:DomainEndpoint::Exclusive;
+        const auto program=invocation(std::move(segment),{Value::from_int(start)});
+        FitnessSessionGpu session;
+        if(!check(session.init({{}},{Value::from_int(7)},fuel,32,7).ok,"coordinate executor init"))return false;
+        const auto fit=session.eval_programs({program},true);
+        const auto reference=execute_bytecode_cpu(program,{},fuel);
+        const auto cpu=eval_fitness_cpu({program},{{}},{Value::from_int(7)},fuel,7,32);
+        if(!check(fit.ok && fit.execution_profile.find("-coordinate")!=std::string::npos && fit.fitness==cpu &&
+            fit.case_counts[0][1]==unsigned(reference.is_error) &&
+            fit.case_counts[0][2]==unsigned(reference.is_error && reference.err.code==ErrCode::Timeout),
+            "coordinate executor boundary/memo/capacity/fuel parity duplicate="+std::to_string(duplicate)+" inclusive="+std::to_string(inclusive)+" memo="+std::to_string(memo)+" capacity="+std::to_string(capacity)+" start="+std::to_string(start)+" fuel="+std::to_string(fuel)+" error="+fit.err.message+" profile="+fit.execution_profile))return false;
+      }
+    if(!test_captured_locals_are_per_case_and_lazy() || !test_ordered_coordinate_memo())return false;
+  }
+  if(direct) {
     Environment window_mode("GAGP_WINDOW_EXECUTOR");
     auto segment=sequence_segment(ValueTag::IntList);
     segment.plan.result_type=ValueTag::Int;segment.plan.preparations.resize(1);

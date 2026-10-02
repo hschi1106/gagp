@@ -531,3 +531,32 @@ and native evaluator integration. No CPU reproduction. Best still R.
   multidimensional state/transition/frame loop while keeping original lazy
   recursion, linear memo lookup, phase expressions and fuel/error order. It is
   structurally selected, not task-selected. Do not retry rejected dense memo.
+
+V4 quality completed:3 seeds×32 generations. Seed0 all1024 final genomes per
+workload independently admitted and CPU reevaluated on full cases with0 fitness
+mismatches; other seeds top16 exact. Full1,048,576 pairs/gen,0 unscored.
+Search walls Sum5.419–6.175s,House2.624–2.818s,Median1.408–1.791s. Last-gen best
+Sum0 all seeds,House -7043/-8431/-7460,Median -28478/-19364/-26258. Not convergence
+or equal-wall equivalence. Sum mean final nodes217 versus R137 (seed0), and its
+late generation166.6ms: initial-snapshot speedup must not represent whole search.
+RSS1.29–1.62GB includes final population exports/audits; bounded-memory long run
+still pending. Raw `native-gpu-owned-pack/quality/` includes all exports/resources.
+
+### W — structural single-coordinate executor
+
+- `GAGP_COORDINATE_EXECUTOR=1`: one Int coordinate/result,literal bounds,1–2
+  offset requests,no preparations/bound operands. Unboxed frames; same lazy
+  phases,linear memo,fuel/boundary/capacity behavior. Generic fallback otherwise.
+- Initial full House test caught wrong frame byte stride in kernel slicing;
+  fixed separately from allocation and covered by37 distinct programs ×1024
+  cases. Initial failed binary/log retained under `native-coordinate-executor/`.
+  New focused matrix covers inclusive/exclusive bounds,duplicate requests,memo
+  on/off,zero/tight capacity and fuel,plus existing lazy-capture/2D fixtures.
+  Nonmemoized positive cell-limit test explicitly rejects malformed metadata.
+- Corrected v2 focused `gagp_test_bounded_region_gpu` passes. Same-binary flag-off/on
+  three processes each, warmup+3, interleaved House medians48.302→44.118ms.
+  Off range47.330–59.015,on43.190–44.915ms. ~29.1x frozen ASGP,not30x yet.
+  Sum/Median quick51.859/17.401ms. Raw/archive/9repeats
+  `native-coordinate-executor/v2/validation.json`; memcheck running.
+- Next: reuse typed-view capability proof from immutable root and checked GPU
+  phase compiler; retain actual case-type and payload checks. No public proof flag.

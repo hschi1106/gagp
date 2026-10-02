@@ -390,3 +390,10 @@ results. `initial_admission_ms` includes cold genotype import; use
 `evolve_wall_ms` and complete search results to assess amortization. All four GAGP
 modes and the ASGP 1T control remain available. No host reproduction workers are
 introduced. The prototype is not yet the validated default/best release.
+
+Within that profile, `GAGP_OWNED_PHASE_PACK=1` reuses private executable proofs.
+Independent evaluator flag `GAGP_COORDINATE_EXECUTOR=1` selects a verified
+single-coordinate region executor; unsupported structures use the existing
+executor. Record both flags with binary identity, cold initialization and raw
+unprofiled generation repeats. Historical default controls do not silently gain
+these opt-in settings.

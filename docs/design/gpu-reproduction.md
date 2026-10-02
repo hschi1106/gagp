@@ -509,3 +509,13 @@ Packing still checks transport capacities and semantic fuel. Ordinary external
 `eval_programs` always performs full native verification. No public boolean or
 serialized certificate bypasses that boundary. The conservative cold stack bound
 may overestimate later requirements; it cannot underestimate new phase stacks.
+
+Experimental evaluator `GAGP_COORDINATE_EXECUTOR=1` applies only after ordinary
+or owned executable verification and typed direct-phase capability proof. It
+requires one Int coordinate/result, literal inclusive/exclusive bounds, one or
+two coordinate-offset requests, and no preparations or bound operands. It uses
+unboxed Int frames but preserves lazy recursion, base predicate before memo
+lookup, linear memo keys, entry/instruction fuel, boundary phases, and original
+frame/cell capacity errors. Other structures use the existing generic executor.
+No task name, expected output or particular offset/domain size participates in
+selection. This is independent of reproduction representation.
