@@ -26,6 +26,8 @@
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 #ifdef GAGP_HAS_CUDA
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
+#include "repro/gpu/phase_population.hpp"
+#include <numeric>
 #endif
 
 namespace gagp::evo {
@@ -269,6 +271,83 @@ std::vector<ScoredGenomeRef> score_population_gpu_refs(
       population, std::move(evaluation), result, generation_timing,
       fitness_sum_out, raw_fitness_out, sort_output);
 }
+// Native evaluator and GPU operators, with a private persistent genotype owner.
+// Cold import is charged once; all changed-child lowering/integration is charged
+// before completing a generation. No host reproduction or hidden AST replay.
+bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& cases,
+    const std::vector<ProgramGenome>& population, FitnessSessionGpu& session,
+    EvolutionResult& result) {
+  if (!std::getenv("GAGP_GPU_PHASE_POPULATION") || cfg.eval_engine != EvalEngine::GPU ||
+      cfg.reproduction_backend != repro::ReproductionBackend::Gpu) return false;
+  const auto begin = std::chrono::steady_clock::now();
+  const auto elapsed = [](auto start) { return std::chrono::duration<double,std::milli>(
+      std::chrono::steady_clock::now()-start).count(); };
+  std::unique_ptr<repro::NativePhasePopulation> owner;
+  try {
+    const auto entry = grammar::entry_request(*cfg.compiled_grammar);
+    const auto request = cfg.generation_request.value_or(entry);
+    if (!cfg.additional_generation_requests.empty() || cfg.offspring_resource_budget ||
+        cfg.initial_resource_budget || cfg.mutation_subtree_prob != 1.0 ||
+        request.nonterminal != entry.nonterminal || request.type != entry.type ||
+        !request.visible_environment.empty() || request.budget.max_nodes != entry.budget.max_nodes ||
+        request.budget.max_depth != entry.budget.max_depth || request.stage != entry.stage)
+      throw std::invalid_argument("native GPU phase profile requires the exact entry request and default resource/variation policy");
+    owner = std::make_unique<repro::NativePhasePopulation>(cfg.compiled_grammar,population,cases.input_names);
+  } catch (const std::invalid_argument& error) {
+    result.reproduction_fallback_reason = error.what();
+    result.timing.init_population_ms += elapsed(begin);
+    return false;
+  }
+  result.timing.init_population_ms += elapsed(begin);
+  result.reproduction_profile = "native-gpu-phase-v1";
+  std::mt19937_64 rng(cfg.seed);
+  std::vector<double> fitness;
+  std::vector<std::size_t> ranking(population.size());
+  const auto evaluate = [&](EvaluationTiming& timing) {
+    auto fit = session.eval_programs(owner->programs(),std::getenv("GAGP_GPU_DIAGNOSTICS") != nullptr);
+    if (!fit.ok) throw std::runtime_error("native GPU phase fitness failed: " + fit.err.message);
+    fitness = std::move(fit.fitness);
+    if (fitness.size()!=population.size()) throw std::runtime_error("phase fitness size mismatch");
+    for (auto& f:fitness) f=canonicalize_fitness_for_ranking(f);
+    for (const auto& c:fit.case_counts) {
+      timing.program_cases+=c[0];timing.eval_errors+=c[1];timing.eval_timeouts+=c[2];
+      timing.eval_fallbacks+=c[3];timing.eval_unscored+=c[4];
+    }
+    timing.gpu_eval_call_ms=fit.timing.total_ms;timing.gpu_eval_pack_ms=fit.timing.pack_ms;
+    timing.gpu_eval_launch_prep_ms=fit.timing.launch_prep_ms;timing.gpu_eval_upload_ms=fit.timing.upload_ms;
+    timing.gpu_eval_kernel_ms=fit.timing.kernel_ms;timing.gpu_eval_copyback_ms=fit.timing.copyback_ms;
+    timing.gpu_eval_teardown_ms=fit.timing.teardown_ms;
+    accumulate_timing(&result.timing.evaluation_totals,timing);
+    std::iota(ranking.begin(),ranking.end(),0);
+    std::stable_sort(ranking.begin(),ranking.end(),[&](auto a,auto b){return fitness[a]>fitness[b];});
+  };
+  for (int gen=0;gen<cfg.generations;++gen) {
+    const auto start=std::chrono::steady_clock::now();GenerationTiming timing;
+    evaluate(timing.evaluation);timing.eval_ms=elapsed(start);
+    const auto best=ranking.front();
+    result.history_best.push_back({owner->export_member(best),fitness[best]});
+    result.history_best_fitness.push_back(fitness[best]);
+    long double sum=0;for(double f:fitness)sum+=f;
+    result.history_mean_fitness.push_back(static_cast<double>(sum/fitness.size()));
+    const auto repro_start=std::chrono::steady_clock::now();
+    timing.reproduction=reproduction_timing_from_stats(owner->reproduce(fitness,
+        std::clamp(cfg.selection_pressure,1,cfg.population_size),cfg.mutation_rate,rng()));
+    timing.repro_ms=elapsed(repro_start);
+    result.genotype_device_bytes=std::max<std::uint64_t>(result.genotype_device_bytes,owner->device_bytes());
+    accumulate_timing(&result.timing.reproduction_totals,timing.reproduction);
+    timing.total_ms=elapsed(start);result.timing.generations.push_back(timing);
+  }
+  if(cfg.skip_final_eval)result.final_eval_skipped=true;
+  else {
+    const auto start=std::chrono::steady_clock::now();EvaluationTiming timing;evaluate(timing);
+    result.best={owner->export_member(ranking.front()),fitness[ranking.front()]};
+    if(cfg.retain_final_population)for(auto i:ranking)
+      result.final_population.push_back({owner->export_member(i),fitness[i]});
+    result.timing.final_eval_ms=elapsed(start);
+  }
+  return true;
+}
+
 #endif
 
 }  // namespace
@@ -348,6 +427,15 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
       std::chrono::duration<double, std::milli>(init_t1 - init_t0).count();
 
   payload_lifetime.retain(population, result.history_best);
+#ifdef GAGP_HAS_CUDA
+  if (evolve_gpu_phase_population(cfg,case_set,population,gpu_session,result)) {
+    payload_lifetime.retain({},result.history_best,cfg.skip_final_eval ? nullptr : &result.best,
+        cfg.retain_final_population ? &result.final_population : nullptr);
+    result.timing.total_ms=std::chrono::duration<double,std::milli>(
+        std::chrono::steady_clock::now()-all_t0).count();
+    return result;
+  }
+#endif
 
   for (int gen = 0; gen < cfg.generations; ++gen) {
     GenerationTiming generation_timing;

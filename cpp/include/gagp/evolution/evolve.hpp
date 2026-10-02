@@ -63,6 +63,9 @@ struct EvolutionResult {
   std::vector<double> history_mean_fitness;
   std::vector<ScoredGenome> final_population;
   bool final_eval_skipped = false;
+  std::string reproduction_profile = "native-ast";
+  std::string reproduction_fallback_reason;
+  std::uint64_t genotype_device_bytes = 0;
   EvolutionTiming timing;
 };
 

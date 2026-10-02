@@ -464,3 +464,37 @@ again before publishing its result. Snapshot checks deliberately reject reuse
 inside an active scope; checking there would silently disable the optimization.
 Every child still receives membership, native/lowering and budget validation.
 Invalid parent evidence falls back to ordinary parent analysis.
+
+### Experimental native GPU phase population
+
+`GAGP_GPU_PHASE_POPULATION=1` requests a run-owned GPU genotype in the existing
+GPU evaluation + GPU reproduction modes. It uses one host thread. The default
+native AST backend remains the explicit fallback, with the reason recorded in
+`EvolutionResult`. This profile admits one fixed root region template with
+independent whole-phase holes and pure Int/Bool/IntList expressions, scalar
+Int/Bool constants, identity scopes and default local resource rules. Import
+independently checks grammar membership; type compatibility alone is insufficient.
+Repeated holes, lexical capture, nested templates, projected budgets and mixed
+root contracts decline this profile. Declared execution capacities are preserved.
+
+Selection, subtree crossover, fresh subtree mutation and phase lowering execute
+on GPU. Private double buffers retain site contracts across operators and
+successive generations. Only live compiled phase code returns to the native
+GPU evaluator; changed offspring do not undergo AST reconstruction between
+operators. Every program/case is evaluated. One history-best AST per generation
+and requested final exports still undergo independent admission inside their
+respective generation/final-output timing boundaries. Cold import, allocation
+and compilation are reported as initialization, and included in search wall time.
+
+This changes reproducible RNG streams and the variation distribution: tournaments
+sample with replacement; sites are expression nonterminal occurrences within
+phases; crossover tries at most eight compatible sites; mutation uses the actual
+remaining whole-program node and phase depth budget. Fixed root structure is not
+a variation site. Every accepted phase remains in its original nonterminal and
+scope. It does not change numeric, fuel or evaluator semantics. Changed/unchanged
+counts classify final children against their selected parent; crossover fallback
+counts may include children subsequently changed by mutation. Both overlap modes
+use the same dependency schedule here because host donor preparation is absent.
+Results must identify this profile and cannot be presented as identical evolving
+populations to legacy reproduction. GPU memory is bounded by live population and
+grammar capacities, without ancestral proof/source retention.

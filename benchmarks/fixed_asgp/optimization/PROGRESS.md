@@ -475,3 +475,36 @@ This proves representability (including native later Median), not search quality
 Next implementation: run-owned double-buffered GPU phase population, completed
 fitness-driven tournament/crossover/mutation, GPU lowering, timed code copyback
 and native evaluator integration. No CPU reproduction. Best still R.
+
+
+### V3 — native resident GPU generation, opt-in integration
+
+- `GAGP_GPU_PHASE_POPULATION=1` integrates V1/V2 into existing GPU eval/repro
+  modes. Selection/cross/fresh mutation/lowering all GPU, one host thread.
+  Between operators and generations no AST rebuild/reverse membership or CPU
+  compile; live bytecode copyback/integration remains. Existing native evaluator
+  still independently verifies/repacks bytecode each evaluation.
+- Explicit unsupported-profile fallback recorded; one admitted history-best
+  export/gen and requested final outputs timed. Bounded double buffers, no
+  ancestor storage. Default backend unchanged. Operator/RNG differences in
+  `docs/design/gpu-reproduction.md`; final changed-child counts not attempts.
+- Independent two-coordinate memo fixture:32 generations,P16,full1024cases,
+  every exported genome independently admitted/CPU reevaluated exactly;26 unique,
+  device storage5,249,984→5,251,568 bytes. Oversized declared capacity explicitly
+  rejected, separate authored128-cell variant succeeds. Input/export isolation,
+  input-name/index/incomplete-fitness guards, native evolution adapter and explicit
+  unsupported-policy fallback pass (`test-integration.log`).
+- One-process quick (warmup+3) full P1024 generation medians Sum64.918 /House61.889
+  /Median30.656ms; cold import/admission343.993/310.496/352.181ms. Whole-call walls
+  434.745/396.574/410.360ms. NOT promoted: formal repeats/longer quality pending.
+- Three seeds ×4 generations: full1,048,576 cases/gen,0 unscored, top16 full-case
+  CPU reevaluation exact. Final unique counts Sum964–982,House792–845,Median993–994.
+  Initial error distribution unchanged; subsequent errors fall. Raw/archive
+  `logs/optimization/native-gpu-phase-integration/` (manifest,quick,quality,ASTs).
+- Next: evaluator packing remains16–20ms. Hypothesis: a private owner-bound
+  certified bytecode view can reuse cold root/region verification plus checked GPU
+  phase compiler bounds, without a public verified flag or mutable external
+  metadata. Then measure and test31+ generations, wall-clock quality and scaling.
+  R remains historical validated best; V3 is a substantial unpromoted candidate.
+- V3 focused CTest3/3 pass; integrated32-generation fixture compute-sanitizer
+  memcheck0 errors. Raw `native-gpu-phase-integration/{ctest,memcheck}.log`.

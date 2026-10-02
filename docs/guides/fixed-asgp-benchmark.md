@@ -379,3 +379,14 @@ subtree mutation, with different RNG/site sampling and no whole-program-root
 variation. Any phase can still be replaced at its root by a newly generated
 expression; this is not a finite bank. This mode remains unconnected until its
 resource, lifetime, evaluator and complete-generation checks pass.
+
+
+Experimental `GAGP_GPU_PHASE_POPULATION=1` uses the existing GPU reproduction
+modes with a resident GPU genotype. Its contract is in
+[GPU reproduction](../design/gpu-reproduction.md#experimental-native-gpu-phase-population).
+Reports identify `reproduction_profile` and explicit fallback reasons; compare
+this altered operator distribution separately from identical-workload evaluator
+results. `initial_admission_ms` includes cold genotype import; use
+`evolve_wall_ms` and complete search results to assess amortization. All four GAGP
+modes and the ASGP 1T control remain available. No host reproduction workers are
+introduced. The prototype is not yet the validated default/best release.
