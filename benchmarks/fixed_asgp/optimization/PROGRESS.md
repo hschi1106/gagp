@@ -6,32 +6,56 @@ Median remains fixed-overhead workload. Do not resume retired CPU fragment route
 
 ## Current best and active experiment
 
-Current candidate Z: X plus `GAGP_COUNTED_SITE_DRAW=1` (GPU count/rank site
-sampling; same uniform candidate distribution, different RNG trajectory).
-Quick warmup+3 medians49.291/42.415/11.906ms; not yet formal/quality accepted.
-X reporting checkpoint `ce0e430` final9 medians50.237/43.634/15.674ms: House
-29.4x, so the earlier X30.54x result was not robust. Do not claim target met.
-Flags: R below plus `GAGP_GPU_PHASE_POPULATION=1 GAGP_OWNED_PHASE_PACK=1
+Current best candidate Z: `d1712a5`, X plus `GAGP_COUNTED_SITE_DRAW=1`.
+GPU count/rank site sampling retains uniform candidates but changes RNG trajectory.
+Interleaved3 processes x1 warm+3 measured repeats per setting:
+- Sum: uncounted50.603 -> counted48.884881ms (range48.580490–50.016281),37.66x.
+- House:42.306 ->40.384029ms (39.790332–42.125251),31.75x; all9 below42.734ms.
+- Median:15.565 ->12.213825ms (11.871306–12.702482),5.06x.
+Frozen denominators1841.160175/1282.011816/61.777141ms unchanged. These are full
+generations on frozen parents, not identical evolving populations or search-wall
+speedups. Cold owner admission363.6/333.0/369.8ms remains included in search wall.
+Base R flags below plus `GAGP_GPU_PHASE_POPULATION=1 GAGP_OWNED_PHASE_PACK=1
 GAGP_OWNED_PHASE_CAPS=1 GAGP_COORDINATE_EXECUTOR=1 GAGP_COUNTED_SITE_DRAW=1`.
 No CPU workers. Generic native fallback/all original modes remain.
-Z archive `logs/optimization/native-counted-sites/`; formal/quality runner and
-new binary manifest `logs/optimization/native-counted-validation/`.
-Reproduce from repo root: `python3 logs/optimization/native-counted-validation/run.py
-paired` (then `screen`, `quality`, `snapshot`, `scaling`). Each stage resumes
-registered cells only; never overwrites frozen inputs or earlier results.
+Archive/manifest/raw9 repeats: `logs/optimization/native-counted-validation/`.
+Runner from repo root: `python3 logs/optimization/native-counted-validation/run.py
+STAGE`, stages paired,screen,quality,snapshot,cpu-views,scaling. Registered cells
+resume; original inputs and historical results never overwritten. Archived bench
+SHA and frozen input SHA live in manifest; runtime is d1712a5 (later docs-only
+spec-freeze manifest correction does not change executable).
 
-Final X3072 frozen snapshot rows exactly match the historical allocator reference.
-House has4 inherited CPU/GPU fitness differences (indices347,359,622,766), already
-present in that reference; no new differences. Do not claim all3072 CPU/GPU equal.
-All full-case counts/errors/timeouts/fallbacks/unscored unchanged. Evidence in
-`native-phase-final/snapshot-validation-correction.txt` and snapshot JSON files.
-X full build127/127 native,5 tool,24 repository tests passed. Z focused GPU
-population/layout/variation tests pass;32 generations export/admit/CPU reevaluation.
-Physical budget checks already exist in canonical admission: no duplicate scan
-added. New negative tests pin this boundary even when authored zero charges fit;
-weighted/reset fixed skeleton policies now explicitly decline the GPU profile.
-Next: serial paired9,3-seed4-generation screen,5-second quality prefixes/long runs,
-then final scaling and latest profiler. Y construction-site experiment is removed.
+Validation done:3 seeds x4 generations; long3 seeds x64 Sum/96 House/512 Median.
+Common5-second completed prefixes including cold initialization:
+- Sum base/new best=[0,0,0]/[0,0,0].
+- House base[-7570,-7465,-7570],new[-5492,-4337,-5843].
+- Median base[-26620,-28478,-25038],new[-26445,-16159,-18062].
+All top16 final CPU audits exact; complete pairs,zero timeout/fallback/unscored.
+Runtime error rate at5s did not increase; they remain real penalized errors, not
+skipped pairs. Unique final genotypes generally>1000/1024. New long-run populations
+bloat: final means Sum~300+,House~550+,Median~800 nodes; late generation times
+are larger, so do not transfer frozen-parent headline to whole searches.
+Independent1024 heldout cases per task (same ASGP ranges,new seed,no exact
+training inputs):18 selected best programs all CPU/GPU exact,zero runtime errors;
+House/Median fitness advantages remain. Raw heldout/summary.json,quality-summary.json.
+A separate512-generation Median RSS diagnostic shows~1011MiB at5–15s increasing
+to~1075MiB at25–30s,peak1313MiB including final audit/report; GPU genotype857MiB.
+Owner buffers retain only live generations, but requested history-best AST/proofs
+still grow with generation count. This is a disclosed retained-output cost, not
+an assertion of constant total-process memory. Raw memory/rss.csv and manifest.
+
+All3072 frozen rows exactly match historical allocator reference. House retains
+4 inherited CPU/GPU differences (347,359,622,766), not new; don't claim all3072
+CPU/GPU equal. X reporting checkpoint ce0e430 had House43.634ms/29.4x; its earlier
+30.54x result was not robust. Z's final-source snapshots now also match reference.
+Full127-target suite with CPU view opt-in:126 passed; spec-freeze hash test caught
+changed grammar-definition contract doc. Corrected only its manifest hash; failed
+repository target rerun passes,24 repository and5 fixed-tool checks pass. No test
+removed. Weighted/reset fixed skeletons explicitly decline profile. Negative tests
+confirm existing physical admission bounds, including zero-charge resources;
+no redundant runtime budget scan was added. Y construction-site code is removed.
+Next: finish paired CPU candidate repeats,adopt/reject; final5-mode scaling and
+latest nsys diagnostic (no NCU in this turn). CPU candidate still not promoted.
 
 ### Historical exact-trajectory reference (R)
 
