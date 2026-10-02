@@ -60,6 +60,8 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   std::set<unsigned> holes;
   std::function<void(unsigned,bool)> inspect = [&](unsigned id, bool root) {
     const auto& e = grammar.expressions().at(id);
+    phase_layout_require(e.resource_charge.nodes <= 1 && e.resource_charge.depth <= 1 &&
+        !e.resource_charge.resets_depth, "weighted/reset skeleton resources require native fallback");
     if (e.kind == ExpressionKind::Template) phase_layout_require(root, "nested templates require fallback");
     if (e.kind == ExpressionKind::Hole) {
       phase_layout_require(holes.insert(e.target).second && e.children.size() == 1,
@@ -89,6 +91,7 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   for (std::size_t i = 0; i < region.phases.size(); ++i) {
     const auto end = verified.subtree_end.at(cursor); phases.emplace(cursor, std::make_pair(end,i)); cursor = end;
   }
+  // Cold canonical membership already checked physical node/depth budgets.
   std::vector<unsigned> depths(ast.nodes.size()); std::vector<int> pending{1};
   for (std::size_t i = 0; i < ast.nodes.size(); ++i) {
     while (!pending.empty() && !pending.back()) pending.pop_back();

@@ -6,17 +6,32 @@ Median remains fixed-overhead workload. Do not resume retired CPU fragment route
 
 ## Current best and active experiment
 
-Current candidate: X (`cfe1395`), native GPU phase genotype plus owned executable/
-capability proofs and coordinate executor. Formal9 medians50.127/41.976/15.702ms
-(Sum/House/Median), frozen ratios36.73/30.54/3.93x. House range crosses30x; final
-quality/scaling validation in progress. Base R flags plus:
-`GAGP_GPU_PHASE_POPULATION=1 GAGP_OWNED_PHASE_PACK=1 GAGP_OWNED_PHASE_CAPS=1
-GAGP_COORDINATE_EXECUTOR=1`. This is a disclosed restricted grammar/operator
-profile; generic native fallback and all original modes remain. No CPU workers.
-Y constructor-site prototype rejected and removed. Latest full build127/127
-native tests,5 fixed-tool checks,24 repository checks pass. Final validation
-directory `logs/optimization/native-phase-final/`; no original artifact rewritten.
-Next: freeze reporting checkpoint,serial formal/snapshot/5-second quality/scaling.
+Current candidate Z: X plus `GAGP_COUNTED_SITE_DRAW=1` (GPU count/rank site
+sampling; same uniform candidate distribution, different RNG trajectory).
+Quick warmup+3 medians49.291/42.415/11.906ms; not yet formal/quality accepted.
+X reporting checkpoint `ce0e430` final9 medians50.237/43.634/15.674ms: House
+29.4x, so the earlier X30.54x result was not robust. Do not claim target met.
+Flags: R below plus `GAGP_GPU_PHASE_POPULATION=1 GAGP_OWNED_PHASE_PACK=1
+GAGP_OWNED_PHASE_CAPS=1 GAGP_COORDINATE_EXECUTOR=1 GAGP_COUNTED_SITE_DRAW=1`.
+No CPU workers. Generic native fallback/all original modes remain.
+Z archive `logs/optimization/native-counted-sites/`; formal/quality runner and
+new binary manifest `logs/optimization/native-counted-validation/`.
+Reproduce from repo root: `python3 logs/optimization/native-counted-validation/run.py
+paired` (then `screen`, `quality`, `snapshot`, `scaling`). Each stage resumes
+registered cells only; never overwrites frozen inputs or earlier results.
+
+Final X3072 frozen snapshot rows exactly match the historical allocator reference.
+House has4 inherited CPU/GPU fitness differences (indices347,359,622,766), already
+present in that reference; no new differences. Do not claim all3072 CPU/GPU equal.
+All full-case counts/errors/timeouts/fallbacks/unscored unchanged. Evidence in
+`native-phase-final/snapshot-validation-correction.txt` and snapshot JSON files.
+X full build127/127 native,5 tool,24 repository tests passed. Z focused GPU
+population/layout/variation tests pass;32 generations export/admit/CPU reevaluation.
+Physical budget checks already exist in canonical admission: no duplicate scan
+added. New negative tests pin this boundary even when authored zero charges fit;
+weighted/reset fixed skeleton policies now explicitly decline the GPU profile.
+Next: serial paired9,3-seed4-generation screen,5-second quality prefixes/long runs,
+then final scaling and latest profiler. Y construction-site experiment is removed.
 
 ### Historical exact-trajectory reference (R)
 

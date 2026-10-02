@@ -472,7 +472,11 @@ GPU evaluation + GPU reproduction modes. It uses one host thread. The default
 native AST backend remains the explicit fallback, with the reason recorded in
 `EvolutionResult`. This profile admits one fixed root region template with
 independent whole-phase holes and pure Int/Bool/IntList expressions, scalar
-Int/Bool constants, identity scopes and default local resource rules. Import
+Int/Bool constants, identity scopes and unit variable-phase resource charges.
+Fixed skeleton charges must be at most one node/level without depth resets.
+The profile conservatively enforces physical whole-program node/depth budgets,
+including zero-charge administrative nodes; weighted/reset skeletons and inputs
+whose physical size exceeds those budgets explicitly fall back. Import
 independently checks grammar membership; type compatibility alone is insufficient.
 Repeated holes, lexical capture, nested templates, projected budgets and mixed
 root contracts decline this profile. Declared execution capacities are preserved.
@@ -529,3 +533,10 @@ case types must match the recorded input signature, and actual payload tables
 are still checked; a different case signature uses ordinary capability analysis.
 Stack/local thresholds remain checked each evaluation. This does not turn
 unsupported expressions or captures into admitted view programs.
+
+`GAGP_COUNTED_SITE_DRAW=1` counts eligible nonterminal/scope sites and draws a
+single uniform rank, instead of a reservoir RNG draw at each visited node. The
+site distribution remains uniform and filtering/capacities are unchanged; RNG
+consumption and therefore evolutionary trajectories differ. Selection and both
+variation operators still execute entirely on GPU. Quality comparisons must
+identify this setting.

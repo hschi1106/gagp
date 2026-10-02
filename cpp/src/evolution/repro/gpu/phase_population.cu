@@ -77,7 +77,26 @@ __device__ int tournament(const double* fitness,int population,int pressure,DGra
  return best;
 }
 struct Site {int row=-1,node=-1;};
-__device__ Site choose_site(TreePointers trees,int program,int slots,DGrammarRandom& random,int nt=-1,int scope=-1) {
+__device__ Site choose_site(TreePointers trees,int program,int slots,DGrammarRandom& random,bool counted,int nt=-1,int scope=-1) {
+ if(counted) {
+  unsigned count=0;
+  for(int k=0;k<slots;++k) {
+   const int row=program*slots+k;if(!valid(trees.lengths[row]))return {};
+   const auto tree=trees.view(row);
+   for(int i=0;i<tree.node_count;++i)if(tree.sites[i].nonterminal>=0 &&
+       (nt<0 || (tree.sites[i].nonterminal==nt && tree.sites[i].scope==scope)))++count;
+  }
+  if(!count)return {};
+  unsigned rank=random.bounded(count);
+  for(int k=0;k<slots;++k) {
+   const int row=program*slots+k;const auto tree=trees.view(row);
+   for(int i=0;i<tree.node_count;++i)if(tree.sites[i].nonterminal>=0 &&
+       (nt<0 || (tree.sites[i].nonterminal==nt && tree.sites[i].scope==scope))) {
+     if(rank==0)return {row,i};--rank;
+   }
+  }
+  return {};
+ }
  Site selected;unsigned count=0;
  for(int k=0;k<slots;++k) {
   const int row=program*slots+k;if(!valid(trees.lengths[row]))return {};
@@ -90,7 +109,7 @@ __device__ Site choose_site(TreePointers trees,int program,int slots,DGrammarRan
 }
 struct OperatorStats {int parent=-1,crossover=0,crossover_rejected=0,mutation=0,changed=0,error=0;};
 __global__ void crossover_population(TreePointers input,TreePointers output,const DeviceSlot* slots,
-    int slot_count,int population,int max_variable_nodes,const double* fitness,int pressure,std::uint64_t seed,OperatorStats* stats) {
+    int slot_count,int population,int max_variable_nodes,const double* fitness,int pressure,std::uint64_t seed,OperatorStats* stats,bool counted) {
  const int child=blockIdx.x*blockDim.x+threadIdx.x;if(child>=population)return;
  DGrammarRandom random(seed ^ (UINT64_C(0x617089e168) + child));auto& stat=stats[child];stat={};
  const int parent=tournament(fitness,population,pressure,random),donor=tournament(fitness,population,pressure,random);stat.parent=parent;
@@ -103,9 +122,9 @@ __global__ void crossover_population(TreePointers input,TreePointers output,cons
  // Bounded retry changes site sampling from the legacy compatible-pair policy.
  // Each rejection is explicit; fitness candidates and full evaluation stay intact.
  for(int attempt=0;attempt<8;++attempt) {
-  const auto destination=choose_site(input,parent,slot_count,random);if(destination.node<0){stat.error=2;return;}
+  const auto destination=choose_site(input,parent,slot_count,random,counted);if(destination.node<0){stat.error=2;return;}
   const auto a=input.view(destination.row);const auto contract=a.sites[destination.node];
-  const auto source=choose_site(input,donor,slot_count,random,contract.nonterminal,contract.scope);
+  const auto source=choose_site(input,donor,slot_count,random,counted,contract.nonterminal,contract.scope);
   if(source.node<0){++stat.crossover_rejected;continue;}
   const auto b=input.view(source.row);const int ae=phase_subtree_end(a,destination.node),be=phase_subtree_end(b,source.node);
   if(ae<0 || be<0){stat.error=3;return;}
@@ -119,13 +138,13 @@ __global__ void crossover_population(TreePointers input,TreePointers output,cons
  }
 }
 __global__ void mutate_population(TreePointers input,TreePointers output,TreePointers scratch,const DeviceSlot* slots,
-    int slot_count,int population,int max_variable_nodes,double probability,std::uint64_t seed,OperatorStats* stats) {
+    int slot_count,int population,int max_variable_nodes,double probability,std::uint64_t seed,OperatorStats* stats,bool counted) {
  const int child=blockIdx.x*blockDim.x+threadIdx.x;if(child>=population)return;auto& stat=stats[child];if(stat.error)return;
  int total=0;
  for(int k=0;k<slot_count;++k){const int row=child*slot_count+k;if(!valid(input.lengths[row])){stat.error=4;return;}total+=input.lengths[row].nodes;copy_tree(input,row,output,row);}
  DGrammarRandom random(seed ^ (UINT64_C(0x124ab512bf01)+child));
  if(static_cast<double>(random.next()>>11)*0x1.0p-53>=probability)return;
- const auto destination=choose_site(input,child,slot_count,random);if(destination.node<0){stat.error=5;return;}
+ const auto destination=choose_site(input,child,slot_count,random,counted);if(destination.node<0){stat.error=5;return;}
  const auto a=input.view(destination.row);const int end=phase_subtree_end(a,destination.node),depth=phase_node_depth(a,destination.node);
  if(end<0 || depth<0){stat.error=6;return;}
  const auto site=a.sites[destination.node];const auto& slot=slots[destination.row%slot_count];auto tmp=scratch.output(child);
@@ -202,6 +221,7 @@ std::string skeleton_key(const NativePhaseLayout& layout) {
 
 struct NativePhasePopulation::Impl {
  std::shared_ptr<const grammar::CompiledGrammar> grammar;
+ const bool counted_sites;
  NativePhaseLayout layout;int population=0,slot_count=0,device=-1;bool healthy=true;
  std::vector<std::unique_ptr<UploadedProfile>> profiles;Buffer<DeviceSlot> slots;
  std::unique_ptr<Trees> current,next,crossed,scratch;
@@ -211,7 +231,7 @@ struct NativePhasePopulation::Impl {
  std::vector<int> fixed_stack_bounds,stack_bounds;
  std::array<ValueTag,64> input_types;bool views_proven=true,direct_root_proven=true;
  std::vector<BytecodeProgram> programs;cudaEvent_t start=nullptr,stop=nullptr;
- explicit Impl(std::shared_ptr<const grammar::CompiledGrammar> g):grammar(std::move(g)){}
+ explicit Impl(std::shared_ptr<const grammar::CompiledGrammar> g):grammar(std::move(g)),counted_sites(std::getenv("GAGP_COUNTED_SITE_DRAW")!=nullptr){}
  ~Impl(){if(start)cudaEventDestroy(start);if(stop)cudaEventDestroy(stop);}
  void require_device()const{if(!healthy)throw std::logic_error("GPU genotype owner invalidated by a failed step");int now;checked(cudaGetDevice(&now));if(now!=device)throw std::logic_error("GPU genotype device/owner mismatch");}
  std::size_t bytes()const {
@@ -334,18 +354,20 @@ FitnessEvalResult NativePhasePopulation::evaluate(FitnessSessionGpu& session,boo
      capabilities?&impl_->input_types:nullptr,capabilities && impl_->direct_root_proven);
  return session.eval_owned_programs(owned,diagnostics);
 }
+const char* NativePhasePopulation::profile_name()const{return impl_->counted_sites?"native-gpu-phase-v2-counted":"native-gpu-phase-v1";}
 std::size_t NativePhasePopulation::device_bytes()const{return impl_->bytes();}
 ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& completed_fitness,int pressure,double probability,std::uint64_t seed) {
  impl_->require_device();phase_layout_require(completed_fitness.size()==std::size_t(impl_->population) && pressure>0 && pressure<=impl_->population &&
    std::isfinite(probability) && probability>=0 && probability<=1,"selection/mutation contract");
  for(double value:completed_fitness)phase_layout_require(!std::isnan(value),"uncanonical fitness");
  impl_->healthy=false;ReproductionStats timing;const auto upload=Clock::now();impl_->fitness.upload(completed_fitness);timing.upload_ms=elapsed(upload);
+ const bool counted=impl_->counted_sites;
  const int p=impl_->population,k=impl_->slot_count,available=impl_->layout.budget.max_nodes-impl_->layout.fixed_nodes;
  checked(cudaEventRecord(impl_->start));
  crossover_population<<<(p+63)/64,64>>>(pointers(*impl_->current),pointers(*impl_->crossed),impl_->slots.data,k,p,available,
-    impl_->fitness.data,pressure,seed,impl_->stats.data);checked(cudaGetLastError());
+    impl_->fitness.data,pressure,seed,impl_->stats.data,counted);checked(cudaGetLastError());
  mutate_population<<<(p+63)/64,64>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
-    probability,seed,impl_->stats.data);checked(cudaGetLastError());
+    probability,seed,impl_->stats.data,counted);checked(cudaGetLastError());
  compare_offspring<<<(p+63)/64,64>>>(pointers(*impl_->current),pointers(*impl_->next),p,k,impl_->stats.data);checked(cudaGetLastError());
  checked(cudaEventRecord(impl_->stop));checked(cudaEventSynchronize(impl_->stop));float ms;checked(cudaEventElapsedTime(&ms,impl_->start,impl_->stop));timing.kernel_ms=ms;
  const auto stats=impl_->stats.read(p);

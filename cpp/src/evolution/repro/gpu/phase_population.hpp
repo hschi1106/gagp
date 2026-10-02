@@ -21,6 +21,7 @@ class NativePhasePopulation final {
       int tournament_size, double mutation_probability, std::uint64_t seed);
   ProgramGenome export_member(std::size_t index) const;
   std::size_t device_bytes() const;
+  const char* profile_name() const;
   FitnessEvalResult evaluate(FitnessSessionGpu& session, bool diagnostics) const;
  private:
   struct Impl;

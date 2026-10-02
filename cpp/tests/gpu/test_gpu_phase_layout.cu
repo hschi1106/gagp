@@ -2,6 +2,7 @@
 #include <iostream>
 #include <stdexcept>
 #include "gagp/cli/commands.hpp"
+#include "gagp/evolution/grammar/derivation_resources.hpp"
 #include "../../src/evolution/repro/gpu/phase_layout.hpp"
 #include "../../src/evolution/region_plan_equal.hpp"
 #include "../fixtures/bounded_capture.hpp"
@@ -73,6 +74,52 @@ int main(int argc,char** argv) {try {
   const auto genome=grammar::generate_derivation(coupled,17).genome;bool rejected=false;
   try{(void)import_native_phase_layout(coupled,genome);}catch(const std::invalid_argument&){rejected=true;}
   require(rejected,"coupled/lexical region combination did not request native fallback");
+  std::ifstream source(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json");
+  const std::string fixture((std::istreambuf_iterator<char>(source)),{});
+  for (const auto* charge : {R"({"nodes":2,"depth":1,"resets_depth":false})",
+                            R"({"nodes":1,"depth":0,"resets_depth":true})"}) {
+    auto document=cli_detail::JsonParser(fixture).parse();
+    document.object_v.at("templates").array_v[0].object_v.at("body").object_v["resource_charge"]=
+        cli_detail::JsonParser(charge).parse();
+    const auto weighted=grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(document)));
+    auto member=grammar::generate_derivation(weighted,17).genome;
+    grammar::require_membership(weighted,member); // A valid grammar/member, not malformed input.
+    std::string reason;
+    try{(void)import_native_phase_layout(weighted,member);}catch(const std::invalid_argument& e){reason=e.what();}
+    require(reason.find("weighted/reset skeleton")!=std::string::npos,"weighted/reset skeleton did not explicitly decline");
+  }
+  for (const bool depth_limit : {false,true}) {
+    auto document=cli_detail::JsonParser(fixture).parse();
+    document.object_v.at("templates").array_v[0].object_v.at("body").object_v["resource_charge"]=
+        cli_detail::JsonParser(R"({"nodes":0,"depth":0,"resets_depth":false})").parse();
+    const auto initial=grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(document)));
+    auto member=grammar::generate_derivation(initial,17).genome;
+    std::uint64_t largest=0;
+    for(unsigned seed=0;seed<64;++seed) {
+      auto candidate=grammar::generate_derivation(initial,seed).genome;
+      VerifiedAst tree;
+      (void)grammar::reconstruct_derivation(initial,candidate,grammar::entry_request(initial),&tree);
+      grammar::ResourceProjection resources(tree.subtree_end);
+      const auto size=depth_limit?resources.subtree().peak():candidate.ast.nodes.size();
+      if(size>largest){largest=size;member=std::move(candidate);}
+    }
+    VerifiedAst physical;
+    (void)grammar::reconstruct_derivation(initial,member,grammar::entry_request(initial),&physical);
+    grammar::ResourceProjection physical_resources(physical.subtree_end);
+    const auto limit=depth_limit ? physical_resources.subtree().peak()-1 : member.ast.nodes.size()-1;
+    document.object_v.at("search_limits").object_v.at(depth_limit?"max_depth":"max_nodes").number_v=limit;
+    const auto bounded=grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(document)));
+    check_import(initial,member);
+    const auto projected=grammar::project_derivation_resources(initial,member);
+    require(grammar::ProjectedBudget{bounded.search_limits().max_nodes,bounded.search_limits().max_depth}.accepts(projected.subtree()),
+        "zero-charge fixture must fit authored budget");
+    member.derivation.reset();
+    std::string reason;
+    try{(void)import_native_phase_layout(bounded,member);}catch(const std::invalid_argument& e){reason=e.what();}
+    require(reason.find(depth_limit?"materialized depth budget":"materialized node budget")!=std::string::npos,
+        "physical budget overflow must decline before allowance subtraction");
+  }
+
  }
  std::cout<<"roundtrip_programs="<<population.size()<<" all_instructions_constants_fuel_bindings_plans_exact=true\n";
  return 0;

@@ -48,11 +48,12 @@ int main(){try {
  config.compiled_grammar=grammar;config.generation_request=grammar::entry_request(*grammar);
  config.eval_engine=EvalEngine::GPU;config.reproduction_backend=repro::ReproductionBackend::Gpu;
  config.mutation_subtree_prob=1;config.fuel=10000;config.penalty=1000;config.gpu_blocksize=512;
+ setenv("GAGP_COUNTED_SITE_DRAW","1",1);
  setenv("GAGP_OWNED_PHASE_CAPS","1",1);setenv("GAGP_VIEW_PROFILE","1",1);
  setenv("GAGP_TYPED_VIEW_PHASE","1",1);setenv("GAGP_DIRECT_PHASE","1",1);
  setenv("GAGP_OWNED_PHASE_PACK","1",1);setenv("GAGP_GPU_PHASE_POPULATION","1",1);setenv("GAGP_GPU_DIAGNOSTICS","1",1);
  const auto integrated=evolve_population(evolution_cases,config,&parents);
- require(integrated.reproduction_profile=="native-gpu-phase-v1" && integrated.reproduction_fallback_reason.empty(),"GPU genotype evolution adapter not used");
+ require(integrated.reproduction_profile=="native-gpu-phase-v2-counted" && integrated.reproduction_fallback_reason.empty(),"GPU genotype evolution adapter not used");
  require(integrated.timing.generations[0].elapsed_search_ms>=integrated.timing.init_population_ms+integrated.timing.gpu_eval_init_ms &&
      integrated.timing.generations[1].elapsed_search_ms>integrated.timing.generations[0].elapsed_search_ms,
      "search completion timestamps omit initialization or are not monotonic");

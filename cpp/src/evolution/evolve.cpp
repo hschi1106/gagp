@@ -300,7 +300,7 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
     return false;
   }
   result.timing.init_population_ms += elapsed(begin);
-  result.reproduction_profile = "native-gpu-phase-v1";
+  result.reproduction_profile = owner->profile_name();
   std::mt19937_64 rng(cfg.seed);
   std::vector<double> fitness;
   std::vector<std::size_t> ranking(population.size());

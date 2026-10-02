@@ -410,3 +410,8 @@ ASTs after the timed search. This permits equal-budget comparisons of completed
 prefixes of longer runs without changing operators or terminating evaluations.
 Archive serialization/independent CPU audits are separate from search time;
 required history construction and final population materialization remain timed.
+
+`GAGP_COUNTED_SITE_DRAW=1` selects the GPU profile
+`native-gpu-phase-v2-counted`: site counting plus one uniform rank draw replaces
+per-node reservoir RNG. Report this setting because trajectories differ from
+`native-gpu-phase-v1`; grammar admission, full cases and execution semantics remain.

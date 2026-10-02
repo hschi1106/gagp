@@ -131,7 +131,10 @@ a nonterminal may be unproductive in one or both generation stages. A generation
 request fails if its selected stage cannot fit the budget, even when the union
 would fit. Disabled alternatives never provide an alias exit or a template-hole
 minimum. Unrestricted grammars share their existing cost tables and retain their
-sampling order and RNG consumption.
+sampling order and RNG consumption in the reference backend. Explicitly selected
+experimental reproduction profiles may use different reproducible RNG streams and
+site sampling, with their support and operator contract declared separately in
+`docs/design/gpu-reproduction.md`; grammar membership is not relaxed by that choice.
 
 A scope is an ordered array of `{name,type}` bindings. Binding names match
 `[A-Za-z_][A-Za-z0-9_]*`; duplicates and lexical shadowing are rejected. A reference
