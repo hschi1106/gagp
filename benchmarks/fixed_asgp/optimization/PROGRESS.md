@@ -464,3 +464,14 @@ R remains best; T dense coordinate memo now awaiting serial build/evaluation.
 - Next: whole-program static skeleton admission, frozen import/export and resource
   accounting, then native GPU evaluator integration and actual selection/search.
   R remains validated best; this foundation is not promoted.
+
+V2 cold layout adapter: `gpu/phase_layout.hpp` independently admits inputs,
+extracts phase-aligned independent holes, and exports ASTs without carried proof.
+All3072 frozen parents and the full1024-member R seed2 Median32-generation final
+population roundtrip with exactly equal compiled instructions/constants/fuel,
+bindings and plans. A separate two-coordinate memo grammar fixture also passes;
+coupled/inner-lexical fixture explicitly declines. Raw `layout-*.log` alongsideV1.
+This proves representability (including native later Median), not search quality.
+Next implementation: run-owned double-buffered GPU phase population, completed
+fitness-driven tournament/crossover/mutation, GPU lowering, timed code copyback
+and native evaluator integration. No CPU reproduction. Best still R.

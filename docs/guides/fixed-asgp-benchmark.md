@@ -365,3 +365,17 @@ The original native backend remains available. This construction metadata is
 not a canonical witness or an external admission certificate. Whole-program
 resource admission, run ownership, executable integration and complete-generation
 quality/timing must be established before promotion.
+
+The next GPU genotype prototype imports one fixed root template containing one
+bounded region and independent holes that each cover an entire phase. Skeleton
+constants must be singletons; dynamic phases use the capability profile above.
+Cold import always performs independent canonical admission. Export is an AST
+serialization operation, not reproduction, and requires independent admission
+before external reuse. Node positions, exact lexical bindings, fuel and the full
+region plan are preserved; the prototype does not specialize by task name.
+Whole-program materialized node/depth budgets include the fixed skeleton.
+The planned operator profile retains GPU tournament selection, crossover then
+subtree mutation, with different RNG/site sampling and no whole-program-root
+variation. Any phase can still be replaced at its root by a newly generated
+expression; this is not a finite bank. This mode remains unconnected until its
+resource, lifetime, evaluator and complete-generation checks pass.

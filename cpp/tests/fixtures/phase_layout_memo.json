@@ -1,0 +1,364 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {
+    "nonterminal": "Memo",
+    "type": "Int"
+  },
+  "inputs": [
+    {
+      "name": "row",
+      "type": "Int"
+    },
+    {
+      "name": "column",
+      "type": "Int"
+    },
+    {
+      "name": "rows",
+      "type": "Int"
+    },
+    {
+      "name": "columns",
+      "type": "Int"
+    },
+    {
+      "name": "base_value",
+      "type": "Int"
+    }
+  ],
+  "search_limits": {
+    "max_nodes": 40,
+    "max_depth": 12
+  },
+  "execution_limits": {
+    "fuel": 10000
+  },
+  "nonterminals": [
+    {
+      "id": "Memo",
+      "type": "Int",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "two_dimensional",
+          "weight": 1,
+          "expression": {
+            "template": "MemoBody",
+            "holes": {
+              "base": {
+                "ref": "Expr"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Expr",
+      "type": "Int",
+      "scope": [
+        {
+          "name": "base",
+          "type": "Int"
+        }
+      ],
+      "alternatives": [
+        {
+          "id": "bound",
+          "weight": 1,
+          "expression": {
+            "bound": "base"
+          }
+        },
+        {
+          "id": "constant",
+          "weight": 1,
+          "expression": {
+            "constant": {
+              "type": "Int",
+              "range": [
+                "-2",
+                "5"
+              ]
+            }
+          }
+        },
+        {
+          "id": "add",
+          "weight": 2,
+          "expression": {
+            "signature": "add(Int,Int)->Int",
+            "args": [
+              {
+                "ref": "Expr"
+              },
+              {
+                "ref": "Expr"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "templates": [
+    {
+      "id": "MemoBody",
+      "type": "Int",
+      "scope": [],
+      "holes": [
+        {
+          "id": "base",
+          "type": "Int",
+          "scope": [
+            {
+              "name": "base",
+              "type": "Int"
+            }
+          ]
+        }
+      ],
+      "body": {
+        "structured": {
+          "family": "bounded",
+          "plan": {
+            "version": 1,
+            "state_types": [
+              "Int",
+              "Int"
+            ],
+            "result_type": "Int",
+            "parameter_types": [
+              "Int"
+            ],
+            "preparations": [],
+            "request_expression_types": [],
+            "bound_operand_count": 2,
+            "requests": [
+              {
+                "states": [
+                  {
+                    "kind": "coordinate_offset",
+                    "source_state": 0,
+                    "offset": "-1",
+                    "window": {
+                      "begin": {
+                        "kind": "begin",
+                        "cut": 0
+                      },
+                      "end": {
+                        "kind": "begin",
+                        "cut": 0
+                      }
+                    },
+                    "expression": 0
+                  },
+                  {
+                    "kind": "coordinate_offset",
+                    "source_state": 1,
+                    "offset": "1",
+                    "window": {
+                      "begin": {
+                        "kind": "begin",
+                        "cut": 0
+                      },
+                      "end": {
+                        "kind": "begin",
+                        "cut": 0
+                      }
+                    },
+                    "expression": 0
+                  }
+                ]
+              },
+              {
+                "states": [
+                  {
+                    "kind": "coordinate_offset",
+                    "source_state": 0,
+                    "offset": "0",
+                    "window": {
+                      "begin": {
+                        "kind": "begin",
+                        "cut": 0
+                      },
+                      "end": {
+                        "kind": "begin",
+                        "cut": 0
+                      }
+                    },
+                    "expression": 0
+                  },
+                  {
+                    "kind": "coordinate_offset",
+                    "source_state": 1,
+                    "offset": "-1",
+                    "window": {
+                      "begin": {
+                        "kind": "begin",
+                        "cut": 0
+                      },
+                      "end": {
+                        "kind": "begin",
+                        "cut": 0
+                      }
+                    },
+                    "expression": 0
+                  }
+                ]
+              }
+            ],
+            "limits": {
+              "frames": 128,
+              "cells": 1024,
+              "entry_fuel": 1
+            },
+            "memoized": true,
+            "duplicate_policy": "reject",
+            "progress": "coordinates",
+            "coordinate_slots": [
+              0,
+              1
+            ],
+            "coordinate_rank": [
+              {
+                "coordinate": 0,
+                "direction": 1
+              },
+              {
+                "coordinate": 1,
+                "direction": 1
+              }
+            ],
+            "coordinate_domains": [
+              {
+                "lower": {
+                  "kind": "literal",
+                  "literal": "0",
+                  "operand": 0
+                },
+                "upper": {
+                  "kind": "operand",
+                  "literal": "0",
+                  "operand": 2
+                }
+              },
+              {
+                "lower": {
+                  "kind": "literal",
+                  "literal": "0",
+                  "operand": 0
+                },
+                "upper": {
+                  "kind": "operand",
+                  "literal": "0",
+                  "operand": 3
+                }
+              }
+            ],
+            "coordinate_endpoint": "exclusive",
+            "sequence_state": 0
+          }
+        },
+        "captures": [
+          {
+            "input": "base_value"
+          }
+        ],
+        "phases": [
+          {
+            "argument": 4,
+            "bindings": [
+              {
+                "bank": "state",
+                "slot": 0,
+                "name": "current_row"
+              }
+            ]
+          },
+          {
+            "argument": 5,
+            "bindings": [
+              {
+                "bank": "parameter",
+                "slot": 0,
+                "name": "base"
+              }
+            ]
+          },
+          {
+            "argument": 6,
+            "bindings": [
+              {
+                "bank": "result",
+                "slot": 0,
+                "name": "diagonal"
+              },
+              {
+                "bank": "result",
+                "slot": 1,
+                "name": "previous"
+              }
+            ]
+          },
+          {
+            "argument": 7,
+            "bindings": []
+          }
+        ],
+        "args": [
+          {
+            "input": "row"
+          },
+          {
+            "input": "column"
+          },
+          {
+            "input": "rows"
+          },
+          {
+            "input": "columns"
+          },
+          {
+            "signature": "eq(Int,Int)->Bool",
+            "args": [
+              {
+                "bound": "current_row"
+              },
+              {
+                "constant": {
+                  "type": "Int",
+                  "values": [
+                    "0"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "hole": "base"
+          },
+          {
+            "signature": "add(Int,Int)->Int",
+            "args": [
+              {
+                "bound": "diagonal"
+              },
+              {
+                "bound": "previous"
+              }
+            ]
+          },
+          {
+            "constant": {
+              "type": "Int",
+              "values": [
+                "0"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

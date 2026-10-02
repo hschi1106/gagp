@@ -61,3 +61,4 @@ maintenance, follow the rules in root `AGENTS.md`.
 - Native immutable crossover continuation: `grammar/owned_population.hpp` (`from_gpu_pass`), `repro/compiled_decode.cpp`, `repro/gpu.cpp`; safety coverage in `cpp/tests/gpu/test_compiled_transport_gpu.cu`. Paths without `cpp/` are relative to `cpp/src/evolution/`.
 
 - Isolated GPU subtree variation primitive: `cpp/src/evolution/repro/gpu/device/phase_variation.cuh`, host capability check `gpu/phase_variation.hpp`, test `gagp_test_gpu_phase_variation`. It is not an evolution/benchmark mode; grammar-site construction metadata is distinct from canonical admission. Unsupported scope/variation/resource policies decline the profile.
+- Cold GPU genotype import/export adapter: `cpp/src/evolution/repro/gpu/phase_layout.hpp`, test `gagp_test_gpu_phase_layout`; no production benchmark/evolution entry yet.
