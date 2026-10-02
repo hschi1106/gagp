@@ -21,6 +21,10 @@ struct PhaseCompileResult {
   int constant_count = 0;
   int stack_bound = 0;
   ValueTag result_type = ValueTag::Invalid;
+  // The closed operation_type set, typed constants/locals and forward typed
+  // branches also prove the runtime view_code_supported capability. Any future
+  // extension must retain that proof or return false here.
+  bool typed_views_proven = false;
 };
 namespace phase_compile_detail {
 using gpu_detail::DInstr;
@@ -125,6 +129,7 @@ __device__ inline PhaseCompileResult compile_phase_tree(
       if (cursor!=node_count || out.stack!=1 || completed!=expected) return out.result;
       if (out.result.stack_bound>gpu_detail::MAX_STACK) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
       out.result.status=PhaseCompileStatus::Ok; out.result.result_type=completed;
+      out.result.typed_views_proven=true;
       return out.result;
     }
     auto& frame=frames[depth-1];

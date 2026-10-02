@@ -1095,6 +1095,10 @@ int gagp::cli_detail::run_evolve_command(const CliOptions& args) {
       }
     }
 
+    std::cout << "PROFILE reproduction=" << result.reproduction_profile
+              << " genotype_device_bytes=" << result.genotype_device_bytes;
+    if (!result.reproduction_fallback_reason.empty()) std::cout << " fallback=" << result.reproduction_fallback_reason;
+    std::cout << "\n";
     if (result.final_eval_skipped) {
       const HistoryRow& last = history_rows.back();
       std::cout << "FINAL skipped=true last_history_best=" << std::fixed << std::setprecision(6)
@@ -1267,6 +1271,9 @@ int gagp::cli_detail::run_evolve_command(const CliOptions& args) {
       out << "{\n";
       out << "  \"meta\": {\n";
       out << "    \"cases_path\": \"" << json_escape(args.cases_path) << "\",\n";
+      out << "    \"reproduction_profile\": \"" << json_escape(result.reproduction_profile) << "\",\n";
+      out << "    \"reproduction_fallback_reason\": \"" << json_escape(result.reproduction_fallback_reason) << "\",\n";
+      out << "    \"genotype_device_bytes\": " << result.genotype_device_bytes << ",\n";
       out << "    \"population_size\": " << cfg.population_size << ",\n";
       out << "    \"generations\": " << cfg.generations << ",\n";
       out << "    \"population_source\": \"" << population_source << "\",\n";

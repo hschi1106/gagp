@@ -1,4 +1,5 @@
 #include "../../../runtime/gpu/owned_programs.hpp"
+#include "../../../runtime/gpu/view_profile.hpp"
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
 #include "gagp/core/bytecode_verify.hpp"
 #include "phase_population.hpp"
@@ -208,6 +209,7 @@ struct NativePhasePopulation::Impl {
  Buffer<gpu_detail::DInstr> code,packed_code;Buffer<Value> constants,packed_constants;
  Buffer<PhaseCompileResult> compiled;Buffer<int> code_offsets,constant_offsets;
  std::vector<int> fixed_stack_bounds,stack_bounds;
+ std::array<ValueTag,64> input_types;bool views_proven=true,direct_root_proven=true;
  std::vector<BytecodeProgram> programs;cudaEvent_t start=nullptr,stop=nullptr;
  explicit Impl(std::shared_ptr<const grammar::CompiledGrammar> g):grammar(std::move(g)){}
  ~Impl(){if(start)cudaEventDestroy(start);if(stop)cudaEventDestroy(stop);}
@@ -242,6 +244,7 @@ struct NativePhasePopulation::Impl {
    if(certificates[row].status!=PhaseCompileStatus::Ok || certificates[row].stack_bound<1 || certificates[row].stack_bound>gpu_detail::MAX_STACK)
      throw std::runtime_error("GPU phase compiler certificate invalid");
    stack_bounds[p]=std::max(stack_bounds[p],certificates[row].stack_bound);
+   views_proven=views_proven && certificates[row].typed_views_proven;
    auto& program=phase_at(programs[p].bounded_region_segments[0],layout.slots[k].ordinal).program;
    program.code.clear();program.instruction_fuel.clear();program.code.reserve(offsets[row+1]-offsets[row]);program.instruction_fuel.reserve(offsets[row+1]-offsets[row]);
    for(int i=offsets[row];i<offsets[row+1];++i){const auto x=compacted_code[i];program.code.push_back({static_cast<Opcode>(x.op),x.a,x.b,bool(x.flags&1),bool(x.flags&2)});program.instruction_fuel.push_back(x.fuel);}
@@ -257,6 +260,14 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  std::set<std::string> expected_names,actual_names(input_names.begin(),input_names.end());
  for(const auto& binding:impl_->grammar->inputs())expected_names.insert(binding.name);
  phase_layout_require(actual_names==expected_names && actual_names.size()==input_names.size(),"input names must exactly cover grammar inputs");
+ phase_layout_require(input_names.size()<=64,"input local capacity");
+ impl_->input_types.fill(ValueTag::Invalid);
+ for(const auto& binding:impl_->grammar->inputs()) {
+  const auto index=std::find(input_names.begin(),input_names.end(),binding.name)-input_names.begin();
+  const auto type=binding.type==RType::Int?ValueTag::Int:binding.type==RType::Bool?ValueTag::Bool:
+      binding.type==RType::IntList?ValueTag::IntList:ValueTag::Invalid;
+  impl_->input_types[index]=type;if(type==ValueTag::Invalid)impl_->views_proven=false;
+ }
  std::string error;if(!initialize_gpu_repro_runtime(&error))throw std::runtime_error(error);checked(cudaGetDevice(&impl_->device));
  impl_->population=input.size();impl_->layout=import_native_phase_layout(*impl_->grammar,input.front());
  const auto capability=gpu_detail::pack_programs_with_shared_case_count({impl_->layout.executable},0,0);
@@ -298,6 +309,8 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   const auto verified=verify_bytecode(impl_->programs.back(),options);
   phase_layout_require(bool(verified),"cold GPU executable verification failed");
   impl_->fixed_stack_bounds.push_back(verified.verified.max_stack_depth);
+  impl_->views_proven=impl_->views_proven && gpu_detail::view_program_supported(impl_->programs.back(),impl_->input_types);
+  impl_->direct_root_proven=impl_->direct_root_proven && gpu_detail::direct_region_root_supported(impl_->programs.back());
  }
  impl_->stack_bounds=impl_->fixed_stack_bounds;
  impl_->current->lengths.upload(lengths);
@@ -316,7 +329,9 @@ const std::vector<BytecodeProgram>& NativePhasePopulation::programs()const{impl_
 FitnessEvalResult NativePhasePopulation::evaluate(FitnessSessionGpu& session,bool diagnostics)const {
  impl_->require_device();
  if(!std::getenv("GAGP_OWNED_PHASE_PACK"))return session.eval_programs(impl_->programs,diagnostics);
- const gpu_detail::OwnedGpuPrograms owned(impl_->programs,impl_->stack_bounds);
+ const bool capabilities=std::getenv("GAGP_OWNED_PHASE_CAPS") && impl_->views_proven;
+ const gpu_detail::OwnedGpuPrograms owned(impl_->programs,impl_->stack_bounds,
+     capabilities?&impl_->input_types:nullptr,capabilities && impl_->direct_root_proven);
  return session.eval_owned_programs(owned,diagnostics);
 }
 std::size_t NativePhasePopulation::device_bytes()const{return impl_->bytes();}

@@ -48,6 +48,8 @@ int main(){try {
  config.compiled_grammar=grammar;config.generation_request=grammar::entry_request(*grammar);
  config.eval_engine=EvalEngine::GPU;config.reproduction_backend=repro::ReproductionBackend::Gpu;
  config.mutation_subtree_prob=1;config.fuel=10000;config.penalty=1000;config.gpu_blocksize=512;
+ setenv("GAGP_OWNED_PHASE_CAPS","1",1);setenv("GAGP_VIEW_PROFILE","1",1);
+ setenv("GAGP_TYPED_VIEW_PHASE","1",1);setenv("GAGP_DIRECT_PHASE","1",1);
  setenv("GAGP_OWNED_PHASE_PACK","1",1);setenv("GAGP_GPU_PHASE_POPULATION","1",1);setenv("GAGP_GPU_DIAGNOSTICS","1",1);
  const auto integrated=evolve_population(evolution_cases,config,&parents);
  require(integrated.reproduction_profile=="native-gpu-phase-v1" && integrated.reproduction_fallback_reason.empty(),"GPU genotype evolution adapter not used");
@@ -87,6 +89,14 @@ int main(){try {
  require(seen.size()>population,"resident search did not generate new programs");
  // Buffers may grow to a larger live code maximum, but never retain history.
  require(owner.device_bytes()<initial_memory+population*1024*128,"resident storage exceeded fixed live-capacity allowance");
+ {
+  auto wrong=cases;
+  for(std::size_t j=0;j<names.size();++j)if(names[j]=="row")wrong[0][j].value=Value::from_float(1.5);
+  FitnessSessionGpu different;require(different.init(wrong,answers,10000,512,1000).ok,"different input-type session init");
+  const auto ordinary=different.eval_programs(owner.programs(),true),owned=owner.evaluate(different,true);
+  require(ordinary.ok && owned.ok && ordinary.fitness==owned.fitness && ordinary.case_counts==owned.case_counts &&
+      owned.execution_profile=="mixed","owner capability proof applied to different case types");
+ }
  bool rejected=false;
  try{(void)owner.export_member(population);}catch(const std::invalid_argument&){rejected=true;}
  require(rejected,"out-of-range genotype export accepted");

@@ -560,3 +560,24 @@ still pending. Raw `native-gpu-owned-pack/quality/` includes all exports/resourc
   `native-coordinate-executor/v2/validation.json`; memcheck running.
 - Next: reuse typed-view capability proof from immutable root and checked GPU
   phase compiler; retain actual case-type and payload checks. No public proof flag.
+
+W full `gagp_test_bounded_region_gpu` compute-sanitizer memcheck:0 errors.
+
+### X — private typed-view capability reuse
+
+- `GAGP_OWNED_PHASE_CAPS=1`: cold immutable root/phase capability proof is tied
+  to ordered grammar input types. Checked GPU phase compiler proves its closed
+  typed operation/forward-branch subset; runtime still checks actual case-type
+  signature,payload contents,stack/local thresholds. Different case types fall
+  back to ordinary analysis.32-gen owned/ordinary/CPU fixture passes including
+  a mismatched case-type session, which must use mixed fallback.
+- Three independent processes,warmup+3 each, P1024/full1024 cases: Sum50.126518ms
+  (49.546908–52.783495),House41.976280 (41.468189–43.851836),Median15.701990
+  (15.545705–16.123876). Frozen headline medians~36.73x/~30.54x/~3.93x.
+  House tail still crosses30x threshold. Raw9 repeats and immutable binary in
+  `native-owned-capabilities/{formal.json,manifest.json}`. Cold/whole-call costs
+  separately present in every row; not an equivalent full-search speedup.
+- Next: GPU mutation currently generates construction origins then traverses the
+  new tree again to annotate grammar sites. Record those sites at construction
+  and independently audit them; preserve RNG/operator outputs, remove this work.
+  Final whole-suite/scaling/equal-wall quality still required before promotion.

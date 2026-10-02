@@ -490,7 +490,8 @@ This changes reproducible RNG streams and the variation distribution: tournament
 sample with replacement; sites are expression nonterminal occurrences within
 phases; crossover tries at most eight compatible sites; mutation uses the actual
 remaining whole-program node and phase depth budget. Fixed root structure is not
-a variation site. Every accepted phase remains in its original nonterminal and
+a variation site. Fitness ties use source order/candidate draw instead of a
+serialized program key. Every accepted phase remains in its original nonterminal and
 scope. It does not change numeric, fuel or evaluator semantics. Changed/unchanged
 counts classify final children against their selected parent; crossover fallback
 counts may include children subsequently changed by mutation. Both overlap modes
@@ -519,3 +520,12 @@ lookup, linear memo keys, entry/instruction fuel, boundary phases, and original
 frame/cell capacity errors. Other structures use the existing generic executor.
 No task name, expected output or particular offset/domain size participates in
 selection. This is independent of reproduction representation.
+
+`GAGP_OWNED_PHASE_CAPS=1` reuses typed-view/root capability in that same private
+owner. Cold bytecode analysis proves the fixed pieces for the grammar's ordered
+input types. The GPU phase compiler's closed, typed operation/forward-branch
+construction proves the corresponding capability for every new phase. Runtime
+case types must match the recorded input signature, and actual payload tables
+are still checked; a different case signature uses ordinary capability analysis.
+Stack/local thresholds remain checked each evaluation. This does not turn
+unsupported expressions or captures into admitted view programs.

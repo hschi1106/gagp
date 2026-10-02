@@ -526,9 +526,10 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       payload_pack.list_entries.size() == required_list_count &&
       std::all_of(payload_pack.list_entries.begin(), payload_pack.list_entries.end(), [](const auto& entry) { return entry.tag == ValueTag::IntList; }) &&
       std::all_of(payload_pack.list_values.begin(), payload_pack.list_values.end(), [](const auto& value) { return value.tag == ValueTag::Int; }) &&
-      std::all_of(programs.begin(), programs.end(), [&](const auto& program) {
-        return gpu_detail::view_program_supported(program, impl_->shared_input_types);
-      });
+      ((owned && owned->views_supported_for(impl_->shared_input_types)) ||
+       std::all_of(programs.begin(), programs.end(), [&](const auto& program) {
+         return gpu_detail::view_program_supported(program, impl_->shared_input_types);
+       }));
   if (use_views) {
     if (std::getenv("GAGP_TYPED_VIEW_PHASE"))
       for (auto& phase : packed.region_phases) phase.program.typed_view = true;
@@ -541,7 +542,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
             phase.program.verified_stack_bound <= 16;
       });
   const bool direct_root = direct_phases && std::getenv("GAGP_DIRECT_ROOT") &&
-      std::all_of(programs.begin(), programs.end(), gpu_detail::direct_region_root_supported);
+      ((owned && owned->direct_root_supported()) || std::all_of(programs.begin(), programs.end(), gpu_detail::direct_region_root_supported));
   const auto pack_t1 = std::chrono::steady_clock::now();
 
   const auto launch_prep_t0 = std::chrono::steady_clock::now();

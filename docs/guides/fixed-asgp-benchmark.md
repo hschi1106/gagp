@@ -397,3 +397,7 @@ single-coordinate region executor; unsupported structures use the existing
 executor. Record both flags with binary identity, cold initialization and raw
 unprofiled generation repeats. Historical default controls do not silently gain
 these opt-in settings.
+
+`GAGP_OWNED_PHASE_CAPS=1` also reuses owner-bound typed-view capability after
+matching actual case types. CLI JSON/stdout report the reproduction profile,
+fallback reason and resident genotype bytes.
