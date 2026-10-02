@@ -1,3 +1,4 @@
+#include "owned_programs.hpp"
 #include "gagp/core/host_threads.hpp"
 #include "gagp/core/semantic_fuel.hpp"
 #include "gagp/core/bytecode_verify.hpp"
@@ -299,9 +300,8 @@ DPayloadFlavor classify_payload_flavor_for_program(const BytecodeProgram& prog, 
   return classify_payload_flavor(prog, shared_input_payload_mask);
 }
 
-PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgram>& programs,
-                                                int shared_case_count,
-                                                unsigned shared_input_payload_mask) {
+static PackResult pack_programs_impl(const std::vector<BytecodeProgram>& programs,
+    int shared_case_count,unsigned shared_input_payload_mask,const std::vector<int>* owned_bounds) {
   PackResult out;
   if (shared_case_count < 0) {
     throw std::invalid_argument("shared case count must be non-negative");
@@ -322,10 +322,16 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
   // The verifier only reads bytecode. Keep every check in this packing call,
   // but verify independent programs concurrently. Retain per-program errors
   // so the ordinary pack loop still reports the first invalid input in order.
-  const bool parallel_verify = programs.size() >= 32 &&
+  const bool parallel_verify = !owned_bounds && programs.size() >= 32 &&
       std::getenv("GAGP_SERIAL_PACK_VERIFY") == nullptr;
   std::vector<std::exception_ptr> verification_errors(programs.size());
   std::vector<int> verified_stack_bounds(programs.size(), MAX_STACK);
+  if (owned_bounds) {
+    if (owned_bounds->size()!=programs.size()) throw std::logic_error("owned GPU program bound count mismatch");
+    verified_stack_bounds=*owned_bounds;
+    for(int bound:verified_stack_bounds)if(bound<1 || bound>MAX_STACK)
+      throw std::logic_error("owned GPU program stack bound invalid");
+  }
   if (parallel_verify) {
     std::atomic<std::size_t> next{0};
     const auto count = std::min<unsigned>(20, gagp::host_thread_limit());
@@ -348,7 +354,7 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
   for (std::size_t p = 0; p < programs.size(); ++p) {
     const BytecodeProgram& prog = programs[p];
     const bool bounded = has_bounded_region(prog);
-    if (bounded) {
+    if (bounded && !owned_bounds) {
       if (!parallel_verify) verified_stack_bounds[p] = verify_bounded_program_or_throw(prog);
       else if (verification_errors[p]) std::rethrow_exception(verification_errors[p]);
     }
@@ -445,6 +451,14 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
   }
 
   return out;
+}
+
+PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgram>& programs,
+    int shared_case_count,unsigned shared_input_payload_mask) {
+  return pack_programs_impl(programs,shared_case_count,shared_input_payload_mask,nullptr);
+}
+PackResult pack_owned_programs(const OwnedGpuPrograms& owned,int shared_case_count,unsigned shared_input_payload_mask) {
+  return pack_programs_impl(owned.programs(),shared_case_count,shared_input_payload_mask,&owned.stack_bounds());
 }
 
 void pack_shared_cases_only(const std::vector<CaseBindings>& shared_cases,

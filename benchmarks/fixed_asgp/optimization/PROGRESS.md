@@ -508,3 +508,26 @@ and native evaluator integration. No CPU reproduction. Best still R.
   R remains historical validated best; V3 is a substantial unpromoted candidate.
 - V3 focused CTest3/3 pass; integrated32-generation fixture compute-sanitizer
   memcheck0 errors. Raw `native-gpu-phase-integration/{ctest,memcheck}.log`.
+
+### V4 — private executable proof reuse, candidate
+
+- `GAGP_OWNED_PHASE_PACK=1` in the GPU genotype owner uses a private synchronous
+  borrowed view. Cold native verification covers immutable root/plan/bindings;
+  checked GPU lowering supplies new phase type/instruction/stack proofs. No
+  public verified flag; external `eval_programs` still verifies fully. Packing
+  retains fuel and transport checks, and view capability analysis still runs.
+- 32-generation independent fixture: owned GPU fitness and case counts exactly
+  equal ordinary verified packing and independent exported CPU programs.
+- Quick warmup+3 medians Sum51.961 /House47.949 /Median17.354ms;
+  packing4.004/4.296/4.020ms (V3~16–20ms). Init359/325/364ms; whole-call436/398/409ms.
+  Sum~35.4x,House~26.7x frozen denominator; not a formal target claim yet.
+- House nsys kernel diagnostic averages (includes cold/warm launches): eval32.234,
+  mutation3.297,crossover2.266,lowering1.329,serial offsets0.521,comparison0.355ms.
+  Raw `native-gpu-owned-pack/profile/`; these are not headline times.
+- `native-gpu-owned-pack/quality/run.py` running3 seeds×32gens, full1024-case
+  diagnostics and all1024 final CPU re-evals for seed0,top16 for others. Audit
+  fields explicitly record count/mismatches; output remains the original top16.
+- Next hypothesis: a one-coordinate structural executor can avoid the generic
+  multidimensional state/transition/frame loop while keeping original lazy
+  recursion, linear memo lookup, phase expressions and fuel/error order. It is
+  structurally selected, not task-selected. Do not retry rejected dense memo.

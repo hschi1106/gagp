@@ -304,7 +304,7 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
   std::vector<double> fitness;
   std::vector<std::size_t> ranking(population.size());
   const auto evaluate = [&](EvaluationTiming& timing) {
-    auto fit = session.eval_programs(owner->programs(),std::getenv("GAGP_GPU_DIAGNOSTICS") != nullptr);
+    auto fit = owner->evaluate(session,std::getenv("GAGP_GPU_DIAGNOSTICS") != nullptr);
     if (!fit.ok) throw std::runtime_error("native GPU phase fitness failed: " + fit.err.message);
     fitness = std::move(fit.fitness);
     if (fitness.size()!=population.size()) throw std::runtime_error("phase fitness size mismatch");

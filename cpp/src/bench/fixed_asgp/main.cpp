@@ -293,14 +293,16 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   for(std::size_t i=0;i<result.final_population.size();++i) {
     const auto& one=result.final_population[i];
     unique.insert(gg::runtime_cache_identity(one.genome,cs.input_names,cfg.fuel));
-    if(i<16)top.push_back(gagp::evo::compile_for_eval(one.genome,cs.input_names));
+    if(i<16 || std::getenv("GAGP_SEARCH_CPU_ALL"))top.push_back(gagp::evo::compile_for_eval(one.genome,cs.input_names));
   }
   auto cpu=gagp::eval_fitness_cpu(top,cs.bindings,cs.expected_values,cfg.fuel,cfg.penalty,512);
   std::vector<Json> top_rows;
-  for(std::size_t i=0;i<cpu.size();++i)
+  std::size_t audit_mismatches=0;
+  for(std::size_t i=0;i<cpu.size();++i)if(gagp::evo::canonicalize_fitness_for_ranking(cpu[i])!=result.final_population[i].fitness)++audit_mismatches;
+  for(std::size_t i=0;i<std::min<std::size_t>(16,cpu.size());++i)
     top_rows.push_back(object({{"gpu",number(result.final_population[i].fitness)},{"cpu",number(cpu[i])}}));
   write(output,object({{"reproduction_profile",string(result.reproduction_profile)}, {"reproduction_fallback_reason",string(result.reproduction_fallback_reason)},
-    {"genotype_device_bytes",number(result.genotype_device_bytes)}, {"top16_cpu",array(std::move(top_rows))},{"cpu_audit_ms",number(elapsed(audit_begin))},
+    {"genotype_device_bytes",number(result.genotype_device_bytes)}, {"top16_cpu",array(std::move(top_rows))},{"cpu_audit_ms",number(elapsed(audit_begin))},{"cpu_audit_program_count",number(cpu.size())},{"cpu_audit_mismatches",number(audit_mismatches)},
     {"unique_final_genomes",number(unique.size())},{"seed",number(cfg.seed)}, {"generations",array(std::move(rows))},
     {"final_population",array(std::move(final))}, {"evolve_wall_ms",number(evolve_wall_ms)}, {"evolve_call_ms",number(result.timing.total_ms)},
     {"initial_admission_ms",number(result.timing.init_population_ms)}, {"final_eval_ms",number(result.timing.final_eval_ms)}}));

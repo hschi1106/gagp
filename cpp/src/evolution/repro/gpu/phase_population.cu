@@ -1,3 +1,6 @@
+#include "../../../runtime/gpu/owned_programs.hpp"
+#include "gagp/runtime/gpu/fitness_gpu.hpp"
+#include "gagp/core/bytecode_verify.hpp"
 #include "phase_population.hpp"
 #include "phase_layout.hpp"
 #include "internal.hpp"
@@ -204,6 +207,7 @@ struct NativePhasePopulation::Impl {
  Buffer<double> fitness;Buffer<OperatorStats> stats;
  Buffer<gpu_detail::DInstr> code,packed_code;Buffer<Value> constants,packed_constants;
  Buffer<PhaseCompileResult> compiled;Buffer<int> code_offsets,constant_offsets;
+ std::vector<int> fixed_stack_bounds,stack_bounds;
  std::vector<BytecodeProgram> programs;cudaEvent_t start=nullptr,stop=nullptr;
  explicit Impl(std::shared_ptr<const grammar::CompiledGrammar> g):grammar(std::move(g)){}
  ~Impl(){if(start)cudaEventDestroy(start);if(stop)cudaEventDestroy(stop);}
@@ -220,6 +224,7 @@ struct NativePhasePopulation::Impl {
   checked(cudaEventRecord(stop));checked(cudaEventSynchronize(stop));float ms;checked(cudaEventElapsedTime(&ms,start,stop));
   if(timing)timing->kernel_ms+=ms;
   const auto begin=Clock::now();auto offsets=code_offsets.read(rows+1),values=constant_offsets.read(rows+1);
+  const auto certificates=compiled.read(rows);
   if(timing)timing->copyback_ms+=elapsed(begin);
   if(offsets.back()<0 || values.back()<0)throw std::runtime_error("GPU genotype lowering rejected a constructed program");
   phase_layout_require(offsets.back()<=population*capacity*4 && values.back()<=population*capacity,"whole-program compiled capacity");
@@ -231,8 +236,13 @@ struct NativePhasePopulation::Impl {
   const auto copy=Clock::now();const auto compacted_code=packed_code.read(offsets.back());const auto compacted_constants=packed_constants.read(values.back());
   if(timing)timing->copyback_ms+=elapsed(copy);
   const auto integrate=Clock::now();
+  stack_bounds=fixed_stack_bounds;
   for(int p=0;p<population;++p)for(int k=0;k<slot_count;++k) {
-   const int row=p*slot_count+k;auto& program=phase_at(programs[p].bounded_region_segments[0],layout.slots[k].ordinal).program;
+   const int row=p*slot_count+k;
+   if(certificates[row].status!=PhaseCompileStatus::Ok || certificates[row].stack_bound<1 || certificates[row].stack_bound>gpu_detail::MAX_STACK)
+     throw std::runtime_error("GPU phase compiler certificate invalid");
+   stack_bounds[p]=std::max(stack_bounds[p],certificates[row].stack_bound);
+   auto& program=phase_at(programs[p].bounded_region_segments[0],layout.slots[k].ordinal).program;
    program.code.clear();program.instruction_fuel.clear();program.code.reserve(offsets[row+1]-offsets[row]);program.instruction_fuel.reserve(offsets[row+1]-offsets[row]);
    for(int i=offsets[row];i<offsets[row+1];++i){const auto x=compacted_code[i];program.code.push_back({static_cast<Opcode>(x.op),x.a,x.b,bool(x.flags&1),bool(x.flags&2)});program.instruction_fuel.push_back(x.fuel);}
    program.consts.assign(compacted_constants.begin()+values[row],compacted_constants.begin()+values[row+1]);
@@ -284,7 +294,12 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   }
   // Bind root and capture locals to the actual evaluator input order.
   impl_->programs.push_back(compile_for_eval(input[p],input_names));
+  BytecodeVerifyOptions options;options.max_locals_per_code=gpu_detail::MAX_LOCALS;options.max_stack_depth=gpu_detail::MAX_STACK;
+  const auto verified=verify_bytecode(impl_->programs.back(),options);
+  phase_layout_require(bool(verified),"cold GPU executable verification failed");
+  impl_->fixed_stack_bounds.push_back(verified.verified.max_stack_depth);
  }
+ impl_->stack_bounds=impl_->fixed_stack_bounds;
  impl_->current->lengths.upload(lengths);
  annotate_import<<<(rows+63)/64,64>>>(pointers(*impl_->current),impl_->slots.data,rows,impl_->slot_count);checked(cudaGetLastError());
  for(const auto& r:impl_->current->lengths.read(rows))phase_layout_require(valid(r),"import site annotation failed");
@@ -298,6 +313,12 @@ NativePhasePopulation::~NativePhasePopulation() {
  impl_.reset();if(known && previous>=0)cudaSetDevice(previous);
 }
 const std::vector<BytecodeProgram>& NativePhasePopulation::programs()const{impl_->require_device();return impl_->programs;}
+FitnessEvalResult NativePhasePopulation::evaluate(FitnessSessionGpu& session,bool diagnostics)const {
+ impl_->require_device();
+ if(!std::getenv("GAGP_OWNED_PHASE_PACK"))return session.eval_programs(impl_->programs,diagnostics);
+ const gpu_detail::OwnedGpuPrograms owned(impl_->programs,impl_->stack_bounds);
+ return session.eval_owned_programs(owned,diagnostics);
+}
 std::size_t NativePhasePopulation::device_bytes()const{return impl_->bytes();}
 ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& completed_fitness,int pressure,double probability,std::uint64_t seed) {
  impl_->require_device();phase_layout_require(completed_fitness.size()==std::size_t(impl_->population) && pressure>0 && pressure<=impl_->population &&

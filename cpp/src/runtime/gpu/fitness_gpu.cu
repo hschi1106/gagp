@@ -1,3 +1,4 @@
+#include "owned_programs.hpp"
 #include "gagp/core/semantic_fuel.hpp"
 
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
@@ -476,6 +477,15 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
 
 FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodeProgram>& programs, bool capture_case_counts,
     const std::function<void()>& while_gpu_runs) const {
+  return eval_programs_impl(programs,capture_case_counts,while_gpu_runs,nullptr);
+}
+FitnessEvalResult FitnessSessionGpu::eval_owned_programs(const gpu_detail::OwnedGpuPrograms& owned,
+    bool capture_case_counts) const {
+  return eval_programs_impl(owned.programs(),capture_case_counts,{},&owned);
+}
+FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<BytecodeProgram>& programs,
+    bool capture_case_counts,const std::function<void()>& while_gpu_runs,
+    const gpu_detail::OwnedGpuPrograms* owned) const {
   if (!impl_ || !impl_->ready) {
     return fitness_eval_single_error(ErrCode::Value, "gpu fitness session is not initialized");
   }
@@ -490,8 +500,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodePro
   const auto pack_t0 = std::chrono::steady_clock::now();
   gpu_detail::PackResult packed;
   try {
-    packed = gpu_detail::pack_programs_with_shared_case_count(
-        programs, impl_->shared_case_count, impl_->shared_input_payload_mask);
+    packed = owned ? gpu_detail::pack_owned_programs(*owned,impl_->shared_case_count,impl_->shared_input_payload_mask)
+        : gpu_detail::pack_programs_with_shared_case_count(programs,impl_->shared_case_count,impl_->shared_input_payload_mask);
   } catch (const std::invalid_argument& error) {
     return fitness_eval_single_error(ErrCode::Value, error.what());
   }

@@ -498,3 +498,14 @@ use the same dependency schedule here because host donor preparation is absent.
 Results must identify this profile and cannot be presented as identical evolving
 populations to legacy reproduction. GPU memory is bounded by live population and
 grammar capacities, without ancestral proof/source retention.
+
+`GAGP_OWNED_PHASE_PACK=1` additionally reuses executable verification in that
+private owner. A nonconstructible borrowed view is valid only for a synchronous
+owner evaluation. Cold native verification certifies the unchanged root, plan,
+bindings and fixed phases; the checked device phase compiler certifies each new
+phase's instruction construction, local types, result type and stack capacity.
+The owner incorporates those bounds before publishing a new executable population.
+Packing still checks transport capacities and semantic fuel. Ordinary external
+`eval_programs` always performs full native verification. No public boolean or
+serialized certificate bypasses that boundary. The conservative cold stack bound
+may overestimate later requirements; it cannot underestimate new phase stacks.

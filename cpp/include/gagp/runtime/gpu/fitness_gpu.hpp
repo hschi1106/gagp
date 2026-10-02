@@ -12,6 +12,9 @@
 #include "gagp/core/value.hpp"
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 
+namespace gagp::gpu_detail { class OwnedGpuPrograms; }
+namespace gagp::evo::repro { class NativePhasePopulation; }
+
 namespace gagp {
 
 struct FitnessSessionInitTiming {
@@ -69,6 +72,10 @@ class FitnessSessionGpu {
   bool is_ready() const;
 
  private:
+  friend class evo::repro::NativePhasePopulation;
+  FitnessEvalResult eval_owned_programs(const gpu_detail::OwnedGpuPrograms&, bool capture_case_counts) const;
+  FitnessEvalResult eval_programs_impl(const std::vector<BytecodeProgram>&, bool,
+      const std::function<void()>&, const gpu_detail::OwnedGpuPrograms*) const;
   struct Impl;
   std::unique_ptr<Impl> impl_;
 };

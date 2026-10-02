@@ -48,7 +48,7 @@ int main(){try {
  config.compiled_grammar=grammar;config.generation_request=grammar::entry_request(*grammar);
  config.eval_engine=EvalEngine::GPU;config.reproduction_backend=repro::ReproductionBackend::Gpu;
  config.mutation_subtree_prob=1;config.fuel=10000;config.penalty=1000;config.gpu_blocksize=512;
- setenv("GAGP_GPU_PHASE_POPULATION","1",1);setenv("GAGP_GPU_DIAGNOSTICS","1",1);
+ setenv("GAGP_OWNED_PHASE_PACK","1",1);setenv("GAGP_GPU_PHASE_POPULATION","1",1);setenv("GAGP_GPU_DIAGNOSTICS","1",1);
  const auto integrated=evolve_population(evolution_cases,config,&parents);
  require(integrated.reproduction_profile=="native-gpu-phase-v1" && integrated.reproduction_fallback_reason.empty(),"GPU genotype evolution adapter not used");
  require(integrated.final_population.size()==population && integrated.history_best.size()==2,"phase evolution omitted output/history");
@@ -74,6 +74,8 @@ int main(){try {
    independent.push_back(compile_for_eval(genome,names));
    require(gpu.case_counts.at(i)[0]==1024,"not all cases evaluated");
   }
+  const auto owned=owner.evaluate(session,true);
+  require(owned.ok && owned.fitness==gpu.fitness && owned.case_counts==gpu.case_counts,"owned packing differs from independent full verification");
   const auto cpu=eval_fitness_cpu(independent,cases,answers,10000,1000,512);
   require(cpu==gpu.fitness,"resident GPU offspring differs from independently exported CPU programs");
   if(generation==32)break;

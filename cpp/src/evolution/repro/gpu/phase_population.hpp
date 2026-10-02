@@ -4,6 +4,7 @@
 #include "gagp/evolution/genome.hpp"
 #include "gagp/evolution/grammar/compiled.hpp"
 #include "gagp/evolution/repro/stats.hpp"
+namespace gagp { class FitnessSessionGpu; struct FitnessEvalResult; }
 namespace gagp::evo::repro {
 // Private run owner for the experimental native GPU genotype. Import performs
 // complete admission; no mutable program, device pointer or certificate escapes.
@@ -20,6 +21,7 @@ class NativePhasePopulation final {
       int tournament_size, double mutation_probability, std::uint64_t seed);
   ProgramGenome export_member(std::size_t index) const;
   std::size_t device_bytes() const;
+  FitnessEvalResult evaluate(FitnessSessionGpu& session, bool diagnostics) const;
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
