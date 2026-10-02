@@ -401,3 +401,12 @@ these opt-in settings.
 `GAGP_OWNED_PHASE_CAPS=1` also reuses owner-bound typed-view capability after
 matching actual case types. CLI JSON/stdout report the reproduction profile,
 fallback reason and resident genotype bytes.
+
+
+Search diagnostics record each completed generation's `elapsed_search_ms` from
+actual search entry, including initialization, plus its evaluator execution
+profile. `GAGP_SEARCH_HISTORY_EXPORT=PATH` archives the already-retained history
+ASTs after the timed search. This permits equal-budget comparisons of completed
+prefixes of longer runs without changing operators or terminating evaluations.
+Archive serialization/independent CPU audits are separate from search time;
+required history construction and final population materialization remain timed.

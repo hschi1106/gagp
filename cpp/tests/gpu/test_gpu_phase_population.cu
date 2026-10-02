@@ -53,6 +53,9 @@ int main(){try {
  setenv("GAGP_OWNED_PHASE_PACK","1",1);setenv("GAGP_GPU_PHASE_POPULATION","1",1);setenv("GAGP_GPU_DIAGNOSTICS","1",1);
  const auto integrated=evolve_population(evolution_cases,config,&parents);
  require(integrated.reproduction_profile=="native-gpu-phase-v1" && integrated.reproduction_fallback_reason.empty(),"GPU genotype evolution adapter not used");
+ require(integrated.timing.generations[0].elapsed_search_ms>=integrated.timing.init_population_ms+integrated.timing.gpu_eval_init_ms &&
+     integrated.timing.generations[1].elapsed_search_ms>integrated.timing.generations[0].elapsed_search_ms,
+     "search completion timestamps omit initialization or are not monotonic");
  require(integrated.final_population.size()==population && integrated.history_best.size()==2,"phase evolution omitted output/history");
  require(integrated.timing.generations[0].evaluation.program_cases==population*1024,"phase evolution incomplete cases");
  for(std::size_t i=1;i<integrated.final_population.size();++i)

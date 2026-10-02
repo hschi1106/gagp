@@ -6,6 +6,20 @@ Median remains fixed-overhead workload. Do not resume retired CPU fragment route
 
 ## Current best and active experiment
 
+Current candidate: X (`cfe1395`), native GPU phase genotype plus owned executable/
+capability proofs and coordinate executor. Formal9 medians50.127/41.976/15.702ms
+(Sum/House/Median), frozen ratios36.73/30.54/3.93x. House range crosses30x; final
+quality/scaling validation in progress. Base R flags plus:
+`GAGP_GPU_PHASE_POPULATION=1 GAGP_OWNED_PHASE_PACK=1 GAGP_OWNED_PHASE_CAPS=1
+GAGP_COORDINATE_EXECUTOR=1`. This is a disclosed restricted grammar/operator
+profile; generic native fallback and all original modes remain. No CPU workers.
+Y constructor-site prototype rejected and removed. Latest full build127/127
+native tests,5 fixed-tool checks,24 repository checks pass. Final validation
+directory `logs/optimization/native-phase-final/`; no original artifact rewritten.
+Next: freeze reporting checkpoint,serial formal/snapshot/5-second quality/scaling.
+
+### Historical exact-trajectory reference (R)
+
 Best validated GPU source: `5508a60` (Q+R immutable crossover handoff), with
 locally extracted jemalloc 5.2.1-4ubuntu1. Use `round2.py` FLAGS and process env:
 ```
@@ -581,3 +595,22 @@ W full `gagp_test_bounded_region_gpu` compute-sanitizer memcheck:0 errors.
   new tree again to annotate grammar sites. Record those sites at construction
   and independently audit them; preserve RNG/operator outputs, remove this work.
   Final whole-suite/scaling/equal-wall quality still required before promotion.
+
+### Y — constructor-emitted site metadata: rejected
+
+- GPU constructor recorded sites while generating donors, eliminating later
+  annotation. Independent site reconstruction and32-gen CPU reevaluation pass.
+  CUDA resources decreased from4784B/80 registers to3248B/76 registers,no spills.
+- Same-binary flag A/B,3 processes each,warmup+3: House42.026227→43.539508ms;
+  ranges41.422101–42.780943 vs43.086235–44.247228. Both evaluator and reproduction
+  GPU times shifted, so no defensible instruction-level causal speedup claim.
+- Rejected: restored X implementation and tests, removed active experimental
+  switch. Patch,immutable binary,all raw repeats retained under
+  `native-construction-sites/`. X remains candidate. Do not retry merely because
+  the compiler resource report looks smaller.
+- Freeze candidate for final validation. Add actual generation-completion times
+  including cold initialization, and optional already-retained history exports,
+  to compare completed prefixes at an identical5-second search budget. Longer
+  fixed-generation runs preserve operators and all cases; no early-stop shortcut.
+  Predeclared screening thresholds for this run:Sum fitness0,House>=-8000,
+  Median>=-25000. Three seeds only; not convergence equivalence.

@@ -17,6 +17,7 @@
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
 #include "../../src/evolution/repro/gpu/device/phase_compile.cuh"
+#include "../../src/runtime/view_profile.hpp"
 
 namespace {
 using namespace gagp;
@@ -201,6 +202,10 @@ void run(const std::vector<Fixture>& fixtures) {
     const auto& f=fixtures[i];const auto r=results[i];const auto row=rows[i];
     require(r.status==f.status,"status mismatch fixture "+std::to_string(i)+" got "+std::to_string(int(r.status)));
     if(f.status!=PhaseCompileStatus::Ok)continue;
+    std::array<ValueTag,64> view_inputs;view_inputs.fill(ValueTag::Invalid);
+    std::copy(f.locals.begin(),f.locals.end(),view_inputs.begin());
+    require(r.typed_views_proven && detail::view_code_supported(f.reference.code,f.reference.consts,
+        f.reference.n_locals,view_inputs,f.result),"GPU capability proof disagrees with independent runtime analysis");
     require(r.code_count==int(f.reference.code.size()) && r.constant_count==int(f.reference.consts.size()),"lowering shape mismatch fixture "+std::to_string(i));
     for(int j=0;j<r.code_count;++j) {
       const auto& x=code[row.code_offset+j];const auto& y=f.reference.code[j];

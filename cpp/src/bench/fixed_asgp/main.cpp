@@ -173,7 +173,7 @@ Json measure_gagp(const std::vector<gagp::evo::ProgramGenome>& population,
       std::chrono::steady_clock::now()-call_begin).count();
   const auto& t=result.timing.generations.at(0);
   const auto& v=t.reproduction.variation;
-  return object({{"reproduction_profile",string(result.reproduction_profile)}, {"reproduction_fallback_reason",string(result.reproduction_fallback_reason)},
+  return object({{"execution_profile",string(t.evaluation.execution_profile)}, {"reproduction_profile",string(result.reproduction_profile)}, {"reproduction_fallback_reason",string(result.reproduction_fallback_reason)},
     {"initial_admission_ms",number(result.timing.init_population_ms)}, {"genotype_device_bytes",number(result.genotype_device_bytes)}, {"generation_ms",number(t.total_ms)}, {"eval_ms",number(t.eval_ms)}, {"repro_ms",number(t.repro_ms)},
     {"evolve_wall_ms",number(evolve_wall_ms)}, {"evolve_call_ms",number(result.timing.total_ms)}, {"gpu_init_ms",number(result.timing.gpu_eval_init_ms)},
     {"compile_ms",number(t.evaluation.cpu_compile_ms+t.evaluation.gpu_compile_ms)},
@@ -270,6 +270,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   for (std::size_t i=0;i<result.timing.generations.size();++i) {
     const auto& t=result.timing.generations[i]; const auto& e=t.evaluation; const auto& v=t.reproduction.variation;
     rows.push_back(object({{"generation",number(i)}, {"generation_ms",number(t.total_ms)},
+      {"elapsed_search_ms",number(t.elapsed_search_ms)}, {"execution_profile",string(e.execution_profile)},
       {"best",number(result.history_best_fitness[i])}, {"mean",number(result.history_mean_fitness[i])},
       {"cases",number(e.program_cases)}, {"errors",number(e.eval_errors)}, {"timeouts",number(e.eval_timeouts)},
       {"fallbacks",number(e.eval_fallbacks)}, {"unscored",number(e.eval_unscored)},
@@ -285,6 +286,14 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
     for (const auto& one : result.final_population)
       asts.push_back(gagp::cli_detail::JsonParser(gagp::cli_detail::encode_ast_json(one.genome.ast),{true,512}).parse());
     write(path,object({{"programs",array(std::move(asts))}}));
+  }
+  if (const char* path=std::getenv("GAGP_SEARCH_HISTORY_EXPORT")) {
+    std::vector<Json> history;
+    for(std::size_t i=0;i<result.history_best.size();++i)history.push_back(object({
+      {"generation",number(i)}, {"elapsed_search_ms",number(result.timing.generations[i].elapsed_search_ms)},
+      {"fitness",number(result.history_best[i].fitness)},
+      {"ast",gagp::cli_detail::JsonParser(gagp::cli_detail::encode_ast_json(result.history_best[i].genome.ast),{true,512}).parse()}}));
+    write(path,object({{"history",array(std::move(history))}}));
   }
   const auto audit_begin=Clock::now();
   const auto cs=gagp::evo::prepare_case_set(cases);

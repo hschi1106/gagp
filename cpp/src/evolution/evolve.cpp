@@ -252,6 +252,7 @@ std::vector<ScoredGenomeRef> score_population_gpu_refs(
   }
   PopulationEvaluation evaluation;
   evaluation.fitness = std::move(fit.fitness);
+  evaluation.timing.execution_profile=fit.execution_profile;
   for (const auto& counts : fit.case_counts) {
     evaluation.timing.program_cases += counts[0];
     evaluation.timing.eval_errors += counts[1];
@@ -276,7 +277,7 @@ std::vector<ScoredGenomeRef> score_population_gpu_refs(
 // before completing a generation. No host reproduction or hidden AST replay.
 bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& cases,
     const std::vector<ProgramGenome>& population, FitnessSessionGpu& session,
-    EvolutionResult& result) {
+    EvolutionResult& result, std::chrono::steady_clock::time_point search_start) {
   if (!std::getenv("GAGP_GPU_PHASE_POPULATION") || cfg.eval_engine != EvalEngine::GPU ||
       cfg.reproduction_backend != repro::ReproductionBackend::Gpu) return false;
   const auto begin = std::chrono::steady_clock::now();
@@ -306,6 +307,7 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
   const auto evaluate = [&](EvaluationTiming& timing) {
     auto fit = owner->evaluate(session,std::getenv("GAGP_GPU_DIAGNOSTICS") != nullptr);
     if (!fit.ok) throw std::runtime_error("native GPU phase fitness failed: " + fit.err.message);
+    timing.execution_profile=fit.execution_profile;
     fitness = std::move(fit.fitness);
     if (fitness.size()!=population.size()) throw std::runtime_error("phase fitness size mismatch");
     for (auto& f:fitness) f=canonicalize_fitness_for_ranking(f);
@@ -335,7 +337,10 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
     timing.repro_ms=elapsed(repro_start);
     result.genotype_device_bytes=std::max<std::uint64_t>(result.genotype_device_bytes,owner->device_bytes());
     accumulate_timing(&result.timing.reproduction_totals,timing.reproduction);
-    timing.total_ms=elapsed(start);result.timing.generations.push_back(timing);
+    const auto finish=std::chrono::steady_clock::now();
+    timing.total_ms=std::chrono::duration<double,std::milli>(finish-start).count();
+    timing.elapsed_search_ms=std::chrono::duration<double,std::milli>(finish-search_start).count();
+    result.timing.generations.push_back(timing);
   }
   if(cfg.skip_final_eval)result.final_eval_skipped=true;
   else {
@@ -428,7 +433,7 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
 
   payload_lifetime.retain(population, result.history_best);
 #ifdef GAGP_HAS_CUDA
-  if (evolve_gpu_phase_population(cfg,case_set,population,gpu_session,result)) {
+  if (evolve_gpu_phase_population(cfg,case_set,population,gpu_session,result,all_t0)) {
     payload_lifetime.retain({},result.history_best,cfg.skip_final_eval ? nullptr : &result.best,
         cfg.retain_final_population ? &result.final_population : nullptr);
     result.timing.total_ms=std::chrono::duration<double,std::milli>(
@@ -504,6 +509,7 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
         std::chrono::duration<double, std::milli>(eval_t1 - eval_t0).count();
     generation_timing.repro_ms =
         std::chrono::duration<double, std::milli>(repro_t1 - repro_t0).count();
+    generation_timing.elapsed_search_ms=std::chrono::duration<double,std::milli>(gen_t1-all_t0).count();
     generation_timing.total_ms =
         std::chrono::duration<double, std::milli>(gen_t1 - gen_t0).count();
     result.timing.generations.push_back(generation_timing);

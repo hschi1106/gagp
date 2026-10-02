@@ -1,12 +1,14 @@
 #pragma once
 
 #include <vector>
+#include <string>
 
 #include "gagp/evolution/grammar/variation_stats.hpp"
 
 namespace gagp::evo {
 
 struct EvaluationTiming {
+  std::string execution_profile;
   // Only populated by opt-in diagnostic runs; not timing estimates.
   std::uint64_t program_cases = 0, eval_errors = 0, eval_timeouts = 0,
                 eval_fallbacks = 0, eval_unscored = 0;
@@ -49,6 +51,8 @@ struct ReproductionTiming {
 };
 
 struct GenerationTiming {
+  // Actual completion timestamp relative to search start, including initialization.
+  double elapsed_search_ms = 0.0;
   double eval_ms = 0.0;
   double repro_ms = 0.0;
   double total_ms = 0.0;
