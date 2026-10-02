@@ -695,6 +695,13 @@ if(GAGP_HAS_CUDA)
   add_test(NAME gagp_test_gpu_phase_generate_scope COMMAND gagp_test_gpu_phase_generate
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/phase_donor_scope.json 3)
   set_tests_properties(gagp_test_gpu_phase_generate_scope PROPERTIES LABELS "contract;integration;gpu")
+  add_executable(gagp_test_gpu_phase_variation tests/gpu/test_gpu_phase_variation.cu)
+  target_link_libraries(gagp_test_gpu_phase_variation PRIVATE gagp_cli_support)
+  add_test(NAME gagp_test_gpu_phase_variation COMMAND gagp_test_gpu_phase_variation)
+  set_tests_properties(gagp_test_gpu_phase_variation PROPERTIES LABELS "contract;integration;gpu")
+  add_test(NAME gagp_test_gpu_phase_variation_scope COMMAND gagp_test_gpu_phase_variation
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/phase_donor_scope.json 2)
+  set_tests_properties(gagp_test_gpu_phase_variation_scope PROPERTIES LABELS "contract;integration;gpu")
   add_executable(gagp_test_gpu_phase_compile tests/gpu/test_gpu_phase_compile.cu)
   target_link_libraries(gagp_test_gpu_phase_compile PRIVATE gagp_cli_support)
   add_test(NAME gagp_test_gpu_phase_compile COMMAND gagp_test_gpu_phase_compile)

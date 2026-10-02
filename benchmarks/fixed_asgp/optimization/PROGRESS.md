@@ -419,3 +419,48 @@ R remains best; T dense coordinate memo now awaiting serial build/evaluation.
   need not repeat matching, witness building and lowering when only unused
   scalar constants are removed and names/scopes are unchanged. Validate first,
   then transform owned data and bind its proof before publication.
+
+### U — post-admission constant compaction: rejected
+
+- Minimal owned path retains proof after full original-input validation, only
+  remapping scalar constant indices; changed names use full readmission.
+  Focused membership/reproduction tests pass including malformed unused entries,
+  canonical witness comparison and stale public certificate rejection.
+- Quick medians R→U:262.10→264.00 /268.41→274.96 /263.29→267.04ms.
+  Diagnostic5280/5280 admissions have already compact constant/name tables:
+  native GPU copyback already eliminates this work. No gain; source/flag and
+  exclusive tests removed. Existing shared compaction safety tests retained.
+- Corrected attribution: R Median1320 matcher/lowering calls under actual
+  offspring decode; other1184 calls belong to donor preparation. This is not
+  evidence of duplicate full offspring admission.
+- Raw `native-admitted-compaction/`. Diagnostic runner overwrote its own quick
+  archived binary (quick original SHA remains in manifest); diagnostic source
+  patch retained. Quick timing is rejected evidence, not a reproducible best.
+
+### V1 — GPU expression subtree variation foundation
+
+- Device-owned prefix trees carry distinct nonterminal sites (not type-only
+  tags). GPU crossover copies site metadata; new GPU mutation donors annotate
+  construction once. No reannotation of existing offspring in operators.
+  Independent diagnostic reconstruction checks every transported site separately.
+- Prototype profile: pure Int/Bool/IntList expressions, scalar Int/Bool constants,
+  identity scope maps, default variation/resource policy, no aliases/inner
+  binders/templates/repeated holes inside phases. Unsupported combinations
+  explicitly decline. This is NOT CPU fragment reproduction, a finite phase bank,
+  a native benchmark mode, or a complete-generation performance claim.
+- 1024 phases ×32 operator rounds for all16 three-task expression nonterminals;
+ 5120 independently admitted exports per root, first/final1024 GPU bytecodes
+  exactly match CPU instructions/constants/fuel. Fresh mutation uses destination
+  remaining node/depth budget:32768/32768 admitted per root. Crossover capacity
+  rejections explicit. Distinct audited/final genotypes recorded separately.
+- Cross+fresh-mutation+lowering warm CUDA-event medians0.95–2.43ms per1024 phases
+  on these profiles. No selection fitness/evaluation/setup/export included, so
+  not a generation speedup. Raw `native-gpu-phase-variation/{sum,house,median}-v3.log`.
+- Scalar recursive fixture: memory sanitizer0 errors, node/index/NT/scope/capacity
+  guards, exact transported metadata checked. Finite-language scope fixture
+  exposed an overly broad diversity assertion; assertion retained for recursive
+  built-in fixture, finite languages report actual uniqueness and validate all
+  members. Scope fixture supports BA/Root, declines permutation AB and Float.
+- Next: whole-program static skeleton admission, frozen import/export and resource
+  accounting, then native GPU evaluator integration and actual selection/search.
+  R remains validated best; this foundation is not promoted.

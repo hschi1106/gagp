@@ -353,3 +353,15 @@ constants and external mutable populations keep ordinary validation. Both GPU
 operator passes, copybacks, canonical changed-child admission and RNG stay the
 same. The owner is released after the mutation pass and never retains history.
 
+
+GPU phase variation is an isolated device primitive under
+`repro/gpu/device/phase_variation.cuh`, not a benchmark mode or a new speedup
+claim. It keeps a nonterminal site at each distinct construction occurrence and
+uses GPU subtree splicing; new mutation donors still come from the GPU grammar
+constructor. Its first profile permits only identity reference scope maps,
+no zero-node aliases, no inner binders, templates or repeated holes inside a
+phase. Unsupported grammar combinations must decline the profile as a whole.
+The original native backend remains available. This construction metadata is
+not a canonical witness or an external admission certificate. Whole-program
+resource admission, run ownership, executable integration and complete-generation
+quality/timing must be established before promotion.
