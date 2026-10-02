@@ -1,5 +1,5 @@
 {
-  "status": "validation complete except final scaling in progress",
+  "status": "Validated opt-in candidate: Sum and House exceed30x frozen ASGP1T at P1024/C1024; all60 scaling cells complete.",
   "runtime_commit": "d1712a5",
   "checkpoint_commit": "db635fe",
   "binary": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-counted-validation/bench",
@@ -1254,5 +1254,215 @@
     "Four inherited frozen House CPU/GPU fitness differences unchanged; all3072 evolved seed0 final programs match.",
     "Three-seed short budget quality excludes proof of convergence equivalence; late programs bloat.",
     "Owner live buffers bounded; retained per-generation history AST/proofs grow with requested generation count."
-  ]
+  ],
+  "scaling": [
+    {
+      "population": 1024,
+      "task": "sum_of_elements",
+      "asgp_1t": 1846.611454,
+      "gagp_cpu": 9463.717779,
+      "gpu_eval": 392.870088,
+      "gpu_repro": 48.986868,
+      "gpu_overlap": 48.892934,
+      "fastest_gpu_mode": "gpu_overlap",
+      "ratio_same_round": 37.76847292494249
+    },
+    {
+      "population": 1024,
+      "task": "house_robber",
+      "asgp_1t": 1337.34735,
+      "gagp_cpu": 7909.962625,
+      "gpu_eval": 399.659117,
+      "gpu_repro": 41.221848,
+      "gpu_overlap": 40.603641,
+      "fastest_gpu_mode": "gpu_overlap",
+      "ratio_same_round": 32.936636150437835
+    },
+    {
+      "population": 1024,
+      "task": "median",
+      "asgp_1t": 59.112752,
+      "gagp_cpu": 684.35455,
+      "gpu_eval": 377.889714,
+      "gpu_repro": 11.853604,
+      "gpu_overlap": 12.22296,
+      "fastest_gpu_mode": "gpu_repro",
+      "ratio_same_round": 4.986901198993993
+    },
+    {
+      "population": 2048,
+      "task": "sum_of_elements",
+      "asgp_1t": 3742.525576,
+      "gagp_cpu": 19300.005314,
+      "gpu_eval": 791.594864,
+      "gpu_repro": 94.025537,
+      "gpu_overlap": 94.565232,
+      "fastest_gpu_mode": "gpu_repro",
+      "ratio_same_round": 39.803288504483625
+    },
+    {
+      "population": 2048,
+      "task": "house_robber",
+      "asgp_1t": 2668.222714,
+      "gagp_cpu": 16010.939663,
+      "gpu_eval": 750.241886,
+      "gpu_repro": 72.54776,
+      "gpu_overlap": 72.361288,
+      "fastest_gpu_mode": "gpu_overlap",
+      "ratio_same_round": 36.87362107208484
+    },
+    {
+      "population": 2048,
+      "task": "median",
+      "asgp_1t": 116.100205,
+      "gagp_cpu": 1358.792451,
+      "gpu_eval": 740.768434,
+      "gpu_repro": 27.021182,
+      "gpu_overlap": 26.381399,
+      "fastest_gpu_mode": "gpu_overlap",
+      "ratio_same_round": 4.400835793431577
+    },
+    {
+      "population": 4096,
+      "task": "sum_of_elements",
+      "asgp_1t": 8162.754013,
+      "gagp_cpu": 40361.432988,
+      "gpu_eval": 1586.747423,
+      "gpu_repro": 184.022502,
+      "gpu_overlap": 182.511524,
+      "fastest_gpu_mode": "gpu_overlap",
+      "ratio_same_round": 44.72459510556714
+    },
+    {
+      "population": 4096,
+      "task": "house_robber",
+      "asgp_1t": 5249.227223,
+      "gagp_cpu": 32305.824282,
+      "gpu_eval": 1541.254872,
+      "gpu_repro": 130.104932,
+      "gpu_overlap": 132.620778,
+      "fastest_gpu_mode": "gpu_repro",
+      "ratio_same_round": 40.3461048117684
+    },
+    {
+      "population": 4096,
+      "task": "median",
+      "asgp_1t": 230.306819,
+      "gagp_cpu": 2855.963967,
+      "gpu_eval": 1509.054459,
+      "gpu_repro": 40.722054,
+      "gpu_overlap": 40.194978,
+      "fastest_gpu_mode": "gpu_overlap",
+      "ratio_same_round": 5.7297411383083725
+    },
+    {
+      "population": 8192,
+      "task": "sum_of_elements",
+      "asgp_1t": 17135.017145,
+      "gagp_cpu": 82281.561435,
+      "gpu_eval": 3305.760802,
+      "gpu_repro": 356.280963,
+      "gpu_overlap": 351.066381,
+      "fastest_gpu_mode": "gpu_overlap",
+      "ratio_same_round": 48.80848202038464
+    },
+    {
+      "population": 8192,
+      "task": "house_robber",
+      "asgp_1t": 10546.576223,
+      "gagp_cpu": 64500.284249,
+      "gpu_eval": 3047.227779,
+      "gpu_repro": 269.041962,
+      "gpu_overlap": 264.245521,
+      "fastest_gpu_mode": "gpu_overlap",
+      "ratio_same_round": 39.9120340170307
+    },
+    {
+      "population": 8192,
+      "task": "median",
+      "asgp_1t": 466.694828,
+      "gagp_cpu": 5590.327318,
+      "gpu_eval": 3016.390838,
+      "gpu_repro": 88.3726,
+      "gpu_overlap": 85.497469,
+      "fastest_gpu_mode": "gpu_overlap",
+      "ratio_same_round": 5.4585806276908615
+    }
+  ],
+  "scaling_raw_csv": "logs/optimization/native-counted-validation/scaling-raw.csv",
+  "scaling_controls_note": "Fresh same-binary controls, except P1024 CPU explicitly reuses the third same-round CPU-view process. No frozen headline denominator used in this table.",
+  "source_artifact_manifest_sha256": "c9707c5414905ddfd6050184bd93ab6ece1f491a8d7b567d975e3e0a80401015",
+  "predeclared_5s_thresholds": {
+    "sum_of_elements": 0,
+    "house_robber": -8000,
+    "median": -25000
+  },
+  "threshold_hits": {
+    "sum_of_elements": {
+      "base": 3,
+      "fast": 3
+    },
+    "house_robber": {
+      "base": 3,
+      "fast": 3
+    },
+    "median": {
+      "base": 0,
+      "fast": 2
+    }
+  },
+  "tests": {
+    "final_full_suite": "127/127 passed with adopted evaluator/CPU-view flags; dedicated tests explicitly select altered GPU reproduction profile",
+    "tools": "5/5 fixed benchmark tests passed",
+    "repository": "24/24 passed",
+    "cuda_memcheck": "0 errors,32 generations,P16,C1024",
+    "regression_test_correction": "Numeric boundary test exact profile-name expectation now includes eligible coordinate executor; numeric/fuel/error assertions retained. Runtime and archived benchmark binary unchanged.",
+    "runner": "Checked-in runner resumes completed paired cells after binary/settings checks; manifest unchanged."
+  },
+  "scaling_units": "Full-generation milliseconds; ratio_same_round uses that population/task ASGP1T control.",
+  "actual_search_costs": {
+    "sum_of_elements": {
+      "generations": 64,
+      "evolve_wall_ms": [
+        14760.809702,
+        12606.948029,
+        11158.044114
+      ],
+      "cold_share_percent": [
+        2.4941656889602517,
+        2.9112333306660925,
+        3.2828238825512854
+      ],
+      "note": "Real changing populations, includes cold initialization and final materialization/evaluation; not an identical-workload speedup."
+    },
+    "house_robber": {
+      "generations": 96,
+      "evolve_wall_ms": [
+        9317.895827,
+        7891.318772,
+        7609.167651
+      ],
+      "cold_share_percent": [
+        3.5475182824234848,
+        4.36589947706145,
+        4.384308012403393
+      ],
+      "note": "Real changing populations, includes cold initialization and final materialization/evaluation; not an identical-workload speedup."
+    },
+    "median": {
+      "generations": 512,
+      "evolve_wall_ms": [
+        31620.475742,
+        29925.654341,
+        31688.905931
+      ],
+      "cold_share_percent": [
+        1.1659465594640073,
+        1.2618365122350794,
+        1.2083332155226498
+      ],
+      "note": "Real changing populations, includes cold initialization and final materialization/evaluation; not an identical-workload speedup."
+    }
+  },
+  "reproduce": "python3 benchmarks/fixed_asgp/optimization/native_candidate.py daily --out logs/optimization/native-daily-recheck"
 }

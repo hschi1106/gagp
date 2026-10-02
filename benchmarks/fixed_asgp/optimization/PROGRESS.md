@@ -6,7 +6,7 @@ Median remains fixed-overhead workload. Do not resume retired CPU fragment route
 
 ## Current best and active experiment
 
-Current best candidate Z: `d1712a5`, X plus `GAGP_COUNTED_SITE_DRAW=1`.
+Validated best opt-in runtime Z: `d1712a5`, X plus `GAGP_COUNTED_SITE_DRAW=1`.
 GPU count/rank site sampling retains uniform candidates but changes RNG trajectory.
 Interleaved3 processes x1 warm+3 measured repeats per setting:
 - Sum: uncounted50.603 -> counted48.884881ms (range48.580490–50.016281),37.66x.
@@ -66,7 +66,7 @@ mutation2.015,crossover including selection1.643,lowering1.367,offset scan0.531,
 final genotype compare0.323. Cold import annotation0.914 is initialization only.
 These are diagnostics, not unprofiled headline arithmetic. Raw profile/ files.
 Tracked evidence: results/native-counted-validation.json; full commands/raw logs
-remain in archive. Next: final5-mode scaling running serially via `run.py scaling`.
+remain in archive. Final5-mode scaling is complete:60/60 cells,full1024 cases,all four populations.
 P1024 CPU scaling reuses identical same-binary third-process CPU-view controls,
 explicitly tagged reused_from_tag; remaining controls freshly measured. No NCU.
 
@@ -666,3 +666,35 @@ W full `gagp_test_bounded_region_gpu` compute-sanitizer memcheck:0 errors.
   fixed-generation runs preserve operators and all cases; no early-stop shortcut.
   Predeclared screening thresholds for this run:Sum fitness0,House>=-8000,
   Median>=-25000. Three seeds only; not convergence equivalence.
+
+Final native rerun entry (same tested serial runner, parameterized output path):
+`python3 benchmarks/fixed_asgp/optimization/native_candidate.py daily --out
+logs/optimization/native-daily-check`. `paired` repeats three independent processes,
+`scaling` covers all populations. Existing archived experiment still resumes with
+its original `logs/optimization/native-counted-validation/run.py`; runtime binary
+unchanged across final scaling and the later test-only profile-name correction. No prepare/input overwrite.
+
+Final acceptance:
+- Full suite127/127 with adopted evaluator/CPU-view settings; the explicit GPU
+  genotype tests select their distinct operator profile.5 fixed-tool,24 repository
+  checks pass. Numeric boundary profile-name assertion was corrected to include
+  the eligible coordinate executor; exact values/fuel/errors were not relaxed.
+- Full60-cell matrix and240 warm/measured rows retained in
+  results/native-counted-scaling.csv and native-counted-scaling-raw.csv.
+  Same-round fastest GPU ratios for P1024/2048/4096/8192:
+  Sum37.77/39.80/44.73/48.81;House32.94/36.87/40.35/39.91;
+  Median4.99/4.40/5.73/5.46. These use matrix controls, not headline denominators.
+- P1024 headline remains9-repeat48.884881/40.384029/12.213825ms and frozen
+  ASGP ratios37.66/31.75/5.06. Cold import333–370ms is not included in those
+  generation rows; it is charged once per search, separately reported and
+  included in all equal-wall-clock comparisons. Real64/96/512-generation
+  searches took11.158–14.761 /7.609–9.318 /29.926–31.689s; initial admission
+  occupied2.49–3.28% /3.55–4.38% /1.17–1.26%. Do not infer30x whole searches.
+- Runtime/archived benchmark SHA unchanged after the full matrix. Parameterized
+  checked-in runner resume verified without changing manifest or outputs.
+- Objective reached for Sum/House; Median substantially improved. No further
+  runtime experiment pending. Remaining work, if a new round is requested:
+  reduce eval interpreter cost, CPU reproduction in GPU-e, padded GPU genotype
+  allocation/cold import, and retained-history proof memory. These are not
+  completed optimizations. Failed dense memo/construction-site/hash-only paths
+  remain rejected as recorded above. CPU fragment route remains removed.

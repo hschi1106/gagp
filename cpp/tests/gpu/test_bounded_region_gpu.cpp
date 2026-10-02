@@ -956,7 +956,15 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
     FitnessSessionGpu session;
     if(!check(session.init({{}},{answer},100,32,7).ok,label+" init"))return false;
     const auto fit=session.eval_programs({program},true);
-    return check(fit.ok && fit.execution_profile==(std::string("int-list-views-typed-sorted") + (std::getenv("GAGP_DIRECT_PHASE") ? (std::getenv("GAGP_DIRECT_ROOT") ? "-direct-root" : "-direct") : "")),label+" selects proven profile") &&
+    std::string expected_profile="int-list-views-typed-sorted";
+    if(std::getenv("GAGP_DIRECT_PHASE")) {
+      expected_profile+=std::getenv("GAGP_DIRECT_ROOT")?"-direct-root":"-direct";
+      // This fixture has one bounded Int coordinate and literal endpoints, so
+      // the adopted coordinate executor is eligible even for large constants.
+      if(std::getenv("GAGP_COORDINATE_EXECUTOR"))expected_profile+="-coordinate";
+    }
+    return check(fit.ok && fit.execution_profile==expected_profile,
+        label+" selects proven profile (actual="+fit.execution_profile+", expected="+expected_profile+")") &&
         compare_fitness(program,{{{},answer,ErrCode::Value,true}},100,label);
   };
   constexpr auto low=std::numeric_limits<std::int64_t>::min();

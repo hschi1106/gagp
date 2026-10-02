@@ -354,32 +354,11 @@ operator passes, copybacks, canonical changed-child admission and RNG stay the
 same. The owner is released after the mutation pass and never retains history.
 
 
-GPU phase variation is an isolated device primitive under
-`repro/gpu/device/phase_variation.cuh`, not a benchmark mode or a new speedup
-claim. It keeps a nonterminal site at each distinct construction occurrence and
-uses GPU subtree splicing; new mutation donors still come from the GPU grammar
-constructor. Its first profile permits only identity reference scope maps,
-no zero-node aliases, no inner binders, templates or repeated holes inside a
-phase. Unsupported grammar combinations must decline the profile as a whole.
-The original native backend remains available. This construction metadata is
-not a canonical witness or an external admission certificate. Whole-program
-resource admission, run ownership, executable integration and complete-generation
-quality/timing must be established before promotion.
-
-The next GPU genotype prototype imports one fixed root template containing one
-bounded region and independent holes that each cover an entire phase. Skeleton
-constants must be singletons; dynamic phases use the capability profile above.
-Cold import always performs independent canonical admission. Export is an AST
-serialization operation, not reproduction, and requires independent admission
-before external reuse. Node positions, exact lexical bindings, fuel and the full
-region plan are preserved; the prototype does not specialize by task name.
-Whole-program materialized node/depth budgets include the fixed skeleton.
-The planned operator profile retains GPU tournament selection, crossover then
-subtree mutation, with different RNG/site sampling and no whole-program-root
-variation. Any phase can still be replaced at its root by a newly generated
-expression; this is not a finite bank. This mode remains unconnected until its
-resource, lifetime, evaluator and complete-generation checks pass.
-
+GPU phase variation (`repro/gpu/device/phase_variation.cuh`) and cold root-layout
+import/export (`repro/gpu/phase_layout.hpp`) now back the resident profile below.
+They retain nonterminal/scope information per distinct construction occurrence;
+this internal metadata is not an external admission certificate. New subtree
+mutation uses the GPU grammar constructor, rather than a finite expression bank.
 
 Experimental `GAGP_GPU_PHASE_POPULATION=1` uses the existing GPU reproduction
 modes with a resident GPU genotype. Its contract is in
@@ -389,7 +368,13 @@ this altered operator distribution separately from identical-workload evaluator
 results. `initial_admission_ms` includes cold genotype import; use
 `evolve_wall_ms` and complete search results to assess amortization. All four GAGP
 modes and the ASGP 1T control remain available. No host reproduction workers are
-introduced. The prototype is not yet the validated default/best release.
+introduced. It remains opt-in. The current validated settings, exact binary/input
+identities, raw repeats and remaining limitations are indexed in
+[optimization progress](../../benchmarks/fixed_asgp/optimization/PROGRESS.md) and
+[checked results](../../benchmarks/fixed_asgp/optimization/results/native-counted-validation.json).
+`GAGP_CPU_REGION_VIEWS=1` is also part of the checked single-thread settings: it
+uses invocation-local views only for structurally proven recursive windows, with
+generic CPU fallback. It does not add CPU reproduction workers.
 
 Within that profile, `GAGP_OWNED_PHASE_PACK=1` reuses private executable proofs.
 Independent evaluator flag `GAGP_COORDINATE_EXECUTOR=1` selects a verified
@@ -415,3 +400,18 @@ required history construction and final population materialization remain timed.
 `native-gpu-phase-v2-counted`: site counting plus one uniform rank draw replaces
 per-node reservoir RNG. Report this setting because trajectories differ from
 `native-gpu-phase-v1`; grammar admission, full cases and execution semantics remain.
+
+Re-run the checked native candidate with the existing frozen inputs and a new
+output directory (one warmup plus three measurements per task/mode):
+
+```bash
+python3 benchmarks/fixed_asgp/optimization/native_candidate.py daily --out logs/optimization/native-daily-check
+```
+
+The thin runner invokes the existing native benchmark's five modes serially,
+records binary/input hashes and the full environment, and never runs `prepare`.
+It requires the locally archived jemalloc dependency recorded in the optimization
+index. `paired` performs three independent processes per GPU setting; `scaling`
+runs all four population sizes. An existing output manifest resumes completed
+cells only after binary/settings identity checks. Interrupted scaling attempts
+remain on disk; a retry uses a fresh output filename.
