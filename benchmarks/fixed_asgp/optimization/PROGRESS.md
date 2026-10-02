@@ -698,3 +698,26 @@ Final acceptance:
   allocation/cold import, and retained-history proof memory. These are not
   completed optimizations. Failed dense memo/construction-site/hash-only paths
   remain rejected as recorded above. CPU fragment route remains removed.
+
+## CPU perf access and focused diagnosis — 2026-10-02
+
+Host owner enabled perf_event_paranoid=1; own-process cycles:u sampling works.
+No installation, system change, worker thread or runtime change by this experiment.
+Best checkpoint remains beecdf5 / runtime d1712a5 with the recorded best flags.
+Archive: logs/optimization/native-perf-20261002 (commands, flags, binary SHA,
+raw perf.data, script, reports and summarizer). Tracked compact evidence:
+results/native-perf-20261002.json. All non-time benchmark fields match controls.
+
+Sum CPU whole-process self cycles: interpreter43.59%, region driver14.26%,
+phase binding11.18%, builtins8.94%, ValueStack push7.43%. This motivates
+precompiled phase bindings / less interpreter frame and Value movement.
+Median GPU-e deeper999Hz/32768-byte callchain capture:1296 reproduction samples
+out of2345; within recognized reproduction stacks inclusive variation analysis
+86.08%, certification72.40%, witness18.19%, runtime identity15.67%, serialization
+13.05%, compile11.45%. Inclusive percentages overlap; do not add or translate
+them directly into generation milliseconds. Unknown leaf14.76% remains within
+the reproduction subset; unwind coverage is incomplete. Initial shallow capture
+is retained as such, not used to claim precise per-generation attribution.
+Next host experiment should remove repeated analysis/certification inside existing
+native operators, preserving CPU1T, grammar admission and GPU-er/o reproduction.
+No speedup or new implementation is claimed by this diagnostic checkpoint.

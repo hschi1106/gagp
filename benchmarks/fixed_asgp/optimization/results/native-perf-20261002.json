@@ -1,0 +1,50 @@
+{
+  "checkpoint": "beecdf52ad4ae98d6e0b5247ffb6777c61df5fc4",
+  "binary_sha256": "32bbf36036566c7d34022121efef7c55fd174cbcaa3a97e6187f320af1fd0b5b",
+  "archive": "logs/optimization/native-perf-20261002",
+  "perf_event_paranoid": 1,
+  "cpu_host_threads": 1,
+  "runtime_changed": false,
+  "profiled_timings_are_not_speedup_evidence": true,
+  "non_timing_fields_match_archived_controls": true,
+  "sum_cpu": {
+    "scope": "Whole process, including input import and four generations; self user-cycle percentages",
+    "self_percent": {
+      "run_code_impl_true": 43.59,
+      "execute_bounded_region": 14.26,
+      "RegionAdapter_run": 11.18,
+      "builtin_call": 8.94,
+      "ValueStack_push_back": 7.43,
+      "CpuListViews_call": 2.3
+    },
+    "lost_samples": 0
+  },
+  "median_gpu_eval": {
+    "scope": "Only samples with run_cpu_backend_impl in captured callchain; inclusive percentages overlap",
+    "sampling_hz": 999,
+    "stack_capture_bytes": 32768,
+    "whole_process_samples": 2345,
+    "reproduction_samples": 1296,
+    "inclusive_percent": {
+      "VariationAnalysisCache_analyze": 86.08,
+      "certify": 72.4,
+      "analyze_variation_impl": 69.89,
+      "WitnessBuilder_run": 18.19,
+      "runtime_cache_identity": 15.67,
+      "canonical_cache_key_serialize": 13.05,
+      "compile_for_eval": 11.45,
+      "verify_ast": 7.55
+    },
+    "unknown_leaf_percent_within_reproduction": 14.76
+  },
+  "limitations": [
+    "Sampling is user-cycle weighted, not wall-clock attribution. GPU wait and kernel execution are not measured by these percentages.",
+    "Whole-process sample includes initialization; reproduction subset depends on unwind coverage and cannot recover truncated callchains.",
+    "Initial 199Hz/8192-byte GPU-e recording was shallow; 999Hz/32768-byte recording improves coverage but does not eliminate unknown frames.",
+    "No new runtime optimization or speedup claimed."
+  ],
+  "next_experiments": [
+    "CPU phase execution: precompute immutable binding layout and reduce interpreter frame/value movement while preserving lazy captures, isolation and fuel.",
+    "CPU/GPU-e reproduction: reduce repeated analysis/certification and content serialization inside existing native operators; preserve grammar membership, owner validity and CPU1T. GPU-er/o remain GPU reproduction."
+  ]
+}
