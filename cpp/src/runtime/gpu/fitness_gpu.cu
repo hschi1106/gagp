@@ -536,11 +536,26 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     for (auto& value : packed.all_consts) if (value.tag == ValueTag::IntList) value.b = false;
     for (auto& value : packed.all_phase_consts) if (value.tag == ValueTag::IntList) value.b = false;
   }
-  const bool direct_phases = use_views && std::getenv("GAGP_DIRECT_PHASE") &&
+  bool direct_phases = use_views && std::getenv("GAGP_DIRECT_PHASE") &&
       std::all_of(packed.region_phases.begin(), packed.region_phases.end(), [](const auto& phase) {
         return phase.program.typed_view && phase.program.n_locals <= 8 &&
             phase.program.verified_stack_bound <= 16;
       });
+  // Partition the owned population by its already-verified stack capability.
+  // Both kernels consume the same packed tables; indices restore the original
+  // fitness/diagnostic rows directly, without bytecode copies or repacking.
+  std::vector<int> compact_indices,generic_indices;
+  if (!direct_phases && owned && use_views && std::getenv("GAGP_DIRECT_PHASE") &&
+      std::getenv("GAGP_PHASE_CAP_BUCKETS") &&
+      std::all_of(packed.region_phases.begin(),packed.region_phases.end(),[](const auto& phase) {
+        return phase.program.typed_view && phase.program.n_locals<=8;
+      })) {
+    for(std::size_t p=0;p<programs.size();++p)
+      (owned->stack_bounds()[p]<=16?compact_indices:generic_indices).push_back(static_cast<int>(p));
+    if(compact_indices.empty() || generic_indices.empty()){compact_indices.clear();generic_indices.clear();}
+    else direct_phases=true;
+  }
+  const bool capability_buckets=!compact_indices.empty();
   const bool direct_root = direct_phases && std::getenv("GAGP_DIRECT_ROOT") &&
       ((owned && owned->direct_root_supported()) || std::all_of(programs.begin(), programs.end(), gpu_detail::direct_region_root_supported));
   const auto pack_t1 = std::chrono::steady_clock::now();
@@ -589,10 +604,15 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         return true;
       });
   region_workspace.unboxed_window_frames = region_workspace.window_executor && std::getenv("GAGP_UNBOXED_WINDOW_FRAMES");
-  const std::size_t frame_size = region_workspace.coordinate_executor ? sizeof(gpu_detail::DUnboxedCoordinateFrame) : region_workspace.unboxed_window_frames ?
+  std::size_t frame_size = region_workspace.coordinate_executor ? sizeof(gpu_detail::DUnboxedCoordinateFrame) : region_workspace.unboxed_window_frames ?
       (region_workspace.two_state_frames ? sizeof(gpu_detail::DUnboxedWindowFrame<2>) : sizeof(gpu_detail::DUnboxedWindowFrame<1>)) : !region_workspace.compact_frames ? sizeof(gpu_detail::DRegionFrame) :
       (region_workspace.two_state_frames ? sizeof(gpu_detail::DCompactPairRegionFrame) :
        sizeof(gpu_detail::DCompactRegionFrame));
+  if(capability_buckets) {
+    const auto generic_size=!region_workspace.compact_frames?sizeof(gpu_detail::DRegionFrame):
+        region_workspace.two_state_frames?sizeof(gpu_detail::DCompactPairRegionFrame):sizeof(gpu_detail::DCompactRegionFrame);
+    frame_size=std::max(frame_size,generic_size);
+  }
   for (const auto& segment : packed.region_segments) {
     region_workspace.frame_capacity =
         std::max(region_workspace.frame_capacity, segment.limits.frames);
@@ -622,7 +642,14 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   std::chrono::steady_clock::time_point teardown_t0;
   {
     gpu_detail::DeviceArena dev;
+    struct IndexBuffers {
+      int *compact=nullptr,*generic=nullptr;
+      ~IndexBuffers(){if(compact)cudaFree(compact);if(generic)cudaFree(generic);}
+    } indices;
     const auto upload_t0 = std::chrono::steady_clock::now();
+    if(capability_buckets && (!gpu_detail::cuda_alloc_and_copy_in(compact_indices,&indices.compact) ||
+        !gpu_detail::cuda_alloc_and_copy_in(generic_indices,&indices.generic)))
+      return fitness_eval_single_error(ErrCode::Value,"cuda capability index allocation failure");
     if (!gpu_detail::cuda_alloc_and_copy_in(packed.all_consts, &dev.d_consts) ||
         !gpu_detail::cuda_alloc_and_copy_in(packed.all_code, &dev.d_code) ||
         !gpu_detail::cuda_alloc_and_copy_in(packed.all_phase_consts, &dev.d_phase_consts) ||
@@ -681,7 +708,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if (direct_root) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::BoundIntListViews, true, true>
           <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
-              static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
+              static_cast<int>(capability_buckets?compact_indices.size():programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
               impl_->d_shared_case_local_vals, impl_->d_shared_case_local_set, impl_->d_expected,
               dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
               dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
@@ -689,11 +716,11 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               impl_->fuel, impl_->penalty, dev.d_fitness,
               dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
-              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, impl_->d_case_order);
+              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, impl_->d_case_order, indices.compact);
     } else if (direct_phases) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::BoundIntListViews, true>
           <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
-              static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
+              static_cast<int>(capability_buckets?compact_indices.size():programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
               impl_->d_shared_case_local_vals, impl_->d_shared_case_local_set, impl_->d_expected,
               dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
               dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
@@ -701,7 +728,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               impl_->fuel, impl_->penalty, dev.d_fitness,
               dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
-              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, impl_->d_case_order);
+              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, impl_->d_case_order, indices.compact);
     } else if (has_regions && use_views) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IntListViews, true>
           <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
@@ -735,6 +762,23 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
               dev.d_phase_code, dev.d_phase_consts,
               impl_->fuel, impl_->penalty, dev.d_fitness, nullptr, 0, nullptr, 0, nullptr, 0, {}, dev.d_case_counts);
+    }
+    if(capability_buckets) {
+      const auto first_error=cudaGetLastError();
+      if(first_error!=cudaSuccess){cudaDeviceSynchronize();return fitness_eval_single_error(ErrCode::Value,"compact bucket launch failure");}
+      auto generic_workspace=region_workspace;
+      generic_workspace.window_executor=false;generic_workspace.coordinate_executor=false;generic_workspace.unboxed_window_frames=false;
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IntListViews,true>
+          <<<static_cast<unsigned int>(std::min(region_blocks,generic_indices.size())),impl_->blocksize,shared_bytes>>>(
+              static_cast<int>(generic_indices.size()),dev.d_consts,dev.d_code,dev.d_metas,
+              impl_->d_shared_case_local_vals,impl_->d_shared_case_local_set,impl_->d_expected,
+              dev.d_string_payload_entries,static_cast<int>(payload_pack.string_entries.size()),dev.d_string_payload_bytes,
+              dev.d_list_payload_entries,static_cast<int>(payload_pack.list_entries.size()),dev.d_list_payload_values,
+              dev.d_phase_code,dev.d_phase_consts,impl_->fuel,impl_->penalty,dev.d_fitness,
+              dev.d_region_segments,static_cast<int>(packed.region_segments.size()),
+              dev.d_region_phases,static_cast<int>(packed.region_phases.size()),
+              dev.d_region_bindings,static_cast<int>(packed.region_bindings.size()),generic_workspace,
+              dev.d_case_counts,impl_->d_case_order,indices.generic);
     }
     const cudaError_t launch_err = cudaGetLastError();
     if (while_gpu_runs && launch_err == cudaSuccess) {
@@ -785,6 +829,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if (region_workspace.unboxed_window_frames) out.execution_profile += "-unboxed";
     if(direct_phases && std::any_of(packed.region_phases.begin(),packed.region_phases.end(),
         [](const auto& p){return p.program.add_left_binding>=0;}))out.execution_profile+="-bound-add";
+    if(capability_buckets)out.execution_profile+="-cap-buckets";
     out.fitness = std::move(host_fitness);
     out.timing.pack_ms = ms_between(pack_t0, pack_t1);
     out.timing.launch_prep_ms = ms_between(launch_prep_t0, launch_prep_t1);

@@ -32,7 +32,7 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     const DRegionSegment* region_segments = nullptr, int region_segment_count = 0,
     const DRegionPhase* region_phases = nullptr, int region_phase_count = 0,
     const DRegionPhaseBinding* region_bindings = nullptr, int region_binding_count = 0,
-    DRegionWorkspace workspace = {}, unsigned int* case_counts = nullptr, const int* case_order = nullptr) {
+    DRegionWorkspace workspace = {}, unsigned int* case_counts = nullptr, const int* case_order = nullptr, const int* program_indices = nullptr) {
   const int tid = static_cast<int>(threadIdx.x);
   if constexpr (EnableRegions) {
     const std::size_t block_base = static_cast<std::size_t>(blockIdx.x) * blockDim.x;
@@ -61,8 +61,9 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
 
   // Each block owns its workspace slices throughout the launch. Grid-stride
   // program traversal bounds scratch allocation independently of population size.
-  for (std::size_t prog_idx = blockIdx.x;
-       prog_idx < static_cast<std::size_t>(program_count); prog_idx += gridDim.x) {
+  for (std::size_t logical_idx = blockIdx.x;
+       logical_idx < static_cast<std::size_t>(program_count); logical_idx += gridDim.x) {
+  const std::size_t prog_idx = program_indices ? program_indices[logical_idx] : logical_idx;
 
   const DProgramMeta meta = metas[prog_idx];
   const DPayloadTables payload_tables{

@@ -810,3 +810,24 @@ compilation in an owner-bound cold cache. No admission/witness bypass. With
 batched I/O, House32 search repeats2049/2045/2074ms; Median64 1793/1855/1793ms.
 All traces and final ASTs exactly match original baseline. Focused owner/layout
 tests pass. Evidence `results/parallel-20261013/static-grammar-experiment.json`.
+### Parallel GPU exploration — 2026-10-13
+
+Worktree `parallel-gpu-20261013`, checkpoint base `9ddab1d`.
+Retained candidates: parallel lowering-offset scan; owner capability buckets
+sharing packed tables with index-mapped output; opt-in smaller reproduction
+blocks. No RNG/operator/numeric/fuel/language change. Copying subset bytecode
+prototype was removed: Median host regrouping outweighed kernel savings.
+Focused main House32/s0 and Median64/s2, P1024/full1024 cases: indexed buckets
+and 1-thread reproduction blocks give1870.241/1773.683ms search wall versus
+same-build prefix-only2189.835/1995.761ms (single process; formal confirmation
+pending). All10 candidate/control pairs retain identical per-generation quality,
+operator/error counters and final fitness/node rows. Full32-generation owner
+fixture and257-member mixed-stack fixture pass independent CPU reevaluation.
+NSYS Median16 diagnostic: offset scan0.821→0.0115ms; crossover1.758→0.636ms;
+mutation4.852→4.056ms; generic eval4.024ms becomes compact2.353 plus
+fallback0.248ms. Profiled components are not subtracted from unprofiled totals.
+Raw paths/hashes/timings: `results/parallel-gpu-20261013/experiments.json`;
+NSYS archives: worktree `logs/parallel-gpu/diagnostic{,-index}/`.
+Next: integrate with root cold-import/export changes, repeat combined candidate,
+then address remaining mutation and House evaluator cost. No benchmark controls
+or original inputs were modified.

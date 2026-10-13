@@ -197,10 +197,28 @@ __global__ void compile_population(TreePointers trees,const DeviceSlot* slots,in
  compiled[row]=compile_phase_tree(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.scope,slot.type,
      code+std::size_t(row)*code_capacity,code_capacity,constants+std::size_t(row)*capacity,capacity);
 }
+// One block scans all live rows in tiles. The former one-thread dependent
+// global loads/stores made this metadata step approach a millisecond at P=1024.
 __global__ void offsets_kernel(const PhaseCompileResult* compiled,int rows,int* code_offsets,int* constant_offsets) {
- if(blockIdx.x || threadIdx.x)return;code_offsets[0]=0;constant_offsets[0]=0;
- for(int i=0;i<rows;++i){const auto r=compiled[i];if(r.status!=PhaseCompileStatus::Ok){code_offsets[rows]=-1;constant_offsets[rows]=-1;return;}
-  code_offsets[i+1]=code_offsets[i]+r.code_count;constant_offsets[i+1]=constant_offsets[i]+r.constant_count;}
+ __shared__ int code_warps[8],constant_warps[8],invalid;
+ const int tid=threadIdx.x,lane=tid&31,warp=tid>>5;
+ if(tid==0){code_offsets[0]=0;constant_offsets[0]=0;invalid=0;}
+ __syncthreads();int code_base=0,constant_base=0;
+ for(int base=0;base<rows;base+=256) {
+  const int row=base+tid;int code=0,constants=0;
+  if(row<rows){const auto r=compiled[row];if(r.status!=PhaseCompileStatus::Ok)atomicExch(&invalid,1);
+   else {code=r.code_count;constants=r.constant_count;}}
+  for(int delta=1;delta<32;delta*=2){const int c=__shfl_up_sync(0xffffffffu,code,delta),v=__shfl_up_sync(0xffffffffu,constants,delta);
+   if(lane>=delta){code+=c;constants+=v;}}
+  if(lane==31){code_warps[warp]=code;constant_warps[warp]=constants;}
+  __syncthreads();
+  int prior_code=0,prior_constants=0;
+  for(int w=0;w<warp;++w){prior_code+=code_warps[w];prior_constants+=constant_warps[w];}
+  if(row<rows){code_offsets[row+1]=code_base+prior_code+code;constant_offsets[row+1]=constant_base+prior_constants+constants;}
+  for(int w=0;w<8;++w){code_base+=code_warps[w];constant_base+=constant_warps[w];}
+  __syncthreads();
+ }
+ if(tid==0 && invalid){code_offsets[rows]=-1;constant_offsets[rows]=-1;}
 }
 __global__ void compact_code(const gpu_detail::DInstr* source_code,const Value* source_constants,const int* code_offsets,
     const int* constant_offsets,int rows,gpu_detail::DInstr* code,Value* constants) {
@@ -259,7 +277,7 @@ struct NativePhasePopulation::Impl {
  void refresh_programs(ReproductionStats* timing) {
   const int rows=population*slot_count;checked(cudaEventRecord(start));
   compile_population<<<(rows+63)/64,64>>>(pointers(*current),slots.data,slot_count,rows,code.data,constants.data,compiled.data);checked(cudaGetLastError());
-  offsets_kernel<<<1,1>>>(compiled.data,rows,code_offsets.data,constant_offsets.data);checked(cudaGetLastError());
+  offsets_kernel<<<1,256>>>(compiled.data,rows,code_offsets.data,constant_offsets.data);checked(cudaGetLastError());
   checked(cudaEventRecord(stop));checked(cudaEventSynchronize(stop));float ms;checked(cudaEventElapsedTime(&ms,start,stop));
   if(timing)timing->kernel_ms+=ms;
   const auto begin=Clock::now();auto offsets=code_offsets.read(rows+1),values=constant_offsets.read(rows+1);
@@ -398,13 +416,15 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
  for(double value:completed_fitness)phase_layout_require(!std::isnan(value),"uncanonical fitness");
  impl_->healthy=false;ReproductionStats timing;const auto upload=Clock::now();impl_->fitness.upload(completed_fitness);timing.upload_ms=elapsed(upload);
  const bool counted=impl_->counted_sites;
+ int threads=64;
+ if(const char* setting=std::getenv("GAGP_PHASE_REPRO_THREADS")){threads=std::atoi(setting);phase_layout_require(threads==1 || threads==2 || threads==4 || threads==8 || threads==16 || threads==32 || threads==64 || threads==128,"phase reproduction block size");}
  const int p=impl_->population,k=impl_->slot_count,available=impl_->layout.budget.max_nodes-impl_->layout.fixed_nodes;
  checked(cudaEventRecord(impl_->start));
- crossover_population<<<(p+63)/64,64>>>(pointers(*impl_->current),pointers(*impl_->crossed),impl_->slots.data,k,p,available,
+ crossover_population<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->current),pointers(*impl_->crossed),impl_->slots.data,k,p,available,
     impl_->fitness.data,pressure,seed,impl_->stats.data,counted);checked(cudaGetLastError());
- mutate_population<<<(p+63)/64,64>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
+ mutate_population<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
     probability,seed,impl_->stats.data,counted);checked(cudaGetLastError());
- compare_offspring<<<(p+63)/64,64>>>(pointers(*impl_->current),pointers(*impl_->next),p,k,impl_->stats.data);checked(cudaGetLastError());
+ compare_offspring<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->current),pointers(*impl_->next),p,k,impl_->stats.data);checked(cudaGetLastError());
  checked(cudaEventRecord(impl_->stop));checked(cudaEventSynchronize(impl_->stop));float ms;checked(cudaEventElapsedTime(&ms,impl_->start,impl_->stop));timing.kernel_ms=ms;
  const auto stats=impl_->stats.read(p);
  for(const auto& one:stats) {

@@ -9,6 +9,7 @@
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
 #include "../../src/evolution/repro/gpu/phase_population.hpp"
+#include "../../src/evolution/repro/gpu/phase_layout.hpp"
 namespace {
 using namespace gagp;using namespace gagp::evo;
 void require(bool value,const char* message){if(!value)throw std::runtime_error(message);}
@@ -105,6 +106,53 @@ int main(){try {
   const auto ordinary=different.eval_programs(owner.programs(),true),owned=owner.evaluate(different,true);
   require(ordinary.ok && owned.ok && ordinary.fitness==owned.fitness && ordinary.case_counts==owned.case_counts &&
       owned.execution_profile=="mixed","owner capability proof applied to different case types");
+ }
+ // A large right-nested expression forces the compact stack capability to
+ // differ between two valid members. Every row must retain its original index.
+ {
+  auto wide_definition=definition;
+  wide_definition.document.object_v.at("search_limits").object_v.at("max_nodes").number_v=128;
+  wide_definition.document.object_v.at("search_limits").object_v.at("max_depth").number_v=40;
+  const auto wide=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+      grammar::parse_definition(grammar::canonical_json(wide_definition.document))));
+  const auto seed=grammar::generate_derivation(*wide,73).genome;
+  const auto layout=repro::import_native_phase_layout(*wide,seed);
+  require(layout.slots.size()==1,"mixed-stack fixture expected one evolving phase");
+  int add=-1,bound=-1;
+  const auto& expressions=layout.profiles[0].expressions;
+  for(std::size_t i=0;i<expressions.size();++i){const auto& e=expressions[i];
+   if(e.kind==repro::PhaseExpressionKind::Operation && e.node.opcode==Opcode::Add)add=i;
+   if(e.kind==repro::PhaseExpressionKind::Bound)bound=i;
+  }
+  require(add>=0 && bound>=0,"mixed-stack fixture operations missing");
+  auto make_gene=[&](int depth){repro::HostPhaseGene gene;
+   const auto append=[&](int id){auto node=expressions[id].node;if(id==bound)node.operand=expressions[id].target;
+    gene.nodes.push_back(node);gene.origins.push_back(id);};
+   for(int i=0;i<depth;++i){append(add);append(bound);}append(bound);return gene;};
+  std::vector<ProgramGenome> members;
+  for(int depth:{0,20,1,21}){
+   auto member=repro::export_native_phase_layout(*wide,layout,{make_gene(depth)});
+   grammar::require_membership(*wide,member);members.push_back(std::move(member));
+  }
+  // 257 rows exercises both a complete scan tile and a partial final tile.
+  const auto seeds=members;while(members.size()<257)members.push_back(seeds[members.size()%seeds.size()]);
+  repro::NativePhasePopulation mixed(wide,members,names);
+  unsetenv("GAGP_PHASE_CAP_BUCKETS");const auto ordinary=mixed.evaluate(session,true);
+  setenv("GAGP_PHASE_CAP_BUCKETS","1",1);const auto bucketed=mixed.evaluate(session,true);
+  require(bucketed.ok && bucketed.execution_profile.find("-cap-buckets")!=std::string::npos &&
+      bucketed.fitness==ordinary.fitness && bucketed.case_counts==ordinary.case_counts,
+      "mixed stack capability buckets changed cases, results or population ordering");
+  mixed.reproduce(bucketed.fitness,2,0,91);
+  const auto next_bucketed=mixed.evaluate(session,true);
+  const auto next_ordinary=session.eval_programs(mixed.programs(),true);
+  require(next_bucketed.ok && next_bucketed.fitness==next_ordinary.fitness &&
+      next_bucketed.case_counts==next_ordinary.case_counts,"partial-tile lowering offsets changed evaluation");
+  std::vector<BytecodeProgram> independently_compiled;
+  for(std::size_t i=0;i<members.size();++i){auto member=mixed.export_member(i);
+    grammar::require_membership(*wide,member);independently_compiled.push_back(compile_for_eval(member,names));}
+  require(eval_fitness_cpu(independently_compiled,cases,answers,10000,1000,512)==next_bucketed.fitness,
+      "mixed bucket offspring differs from independent CPU evaluation");
+  unsetenv("GAGP_PHASE_CAP_BUCKETS");
  }
  bool rejected=false;
  try{(void)owner.export_member(population);}catch(const std::invalid_argument&){rejected=true;}

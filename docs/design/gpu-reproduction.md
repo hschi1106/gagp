@@ -568,3 +568,18 @@ shares only grammar compilation, never AST witnesses or admission results; all
 external individuals still undergo full independent canonical admission and
 bytecode verification. The cache is released after import and cannot grow across
 generations. This does not change supported grammar combinations or operators.
+`GAGP_PHASE_CAP_BUCKETS=1` partitions an owner-verified population when only
+some programs meet the direct phase stack bound (16). It retains the existing
+input-type, payload, locals and root capability checks. Two launches share the
+same packed program tables and scatter fitness and counters directly to the
+original population indices. Large-stack members run the generic view kernel;
+no candidate or case is removed. Shared scratch is sized for the larger required
+frame layout and reused only after the preceding launch completes on the same
+stream. Index construction, upload and both launches remain inside evaluation.
+
+`GAGP_PHASE_REPRO_THREADS` selects 1, 2, 4, 8, 16, 32, 64 (default), or 128
+threads per native phase reproduction block. It changes scheduling only, not
+selection, RNG, variation or resource limits. Small blocks expose more independent
+program work on low populations; no CPU workers are created. The compiler offset
+scan uses one 256-thread tiled block, retaining bounded checked compiler results
+and the same compacted program layout.
