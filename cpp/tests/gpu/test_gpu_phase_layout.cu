@@ -59,8 +59,9 @@ void check_import(const grammar::CompiledGrammar& grammar,const ProgramGenome& g
 }
 int main(int argc,char** argv) {try {
  require(argc==1 || argc==3,"usage: test_gpu_phase_layout [PREPARED_JSON GRAMMAR_JSON]");
- const auto grammar=grammar::compile_grammar(grammar::load_definition(argc==3?argv[2]:
-     GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json"));
+ const auto grammar_owner=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(grammar::load_definition(argc==3?argv[2]:
+     GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json")));
+ const auto& grammar=*grammar_owner;
  std::vector<ProgramGenome> population;
  if(argc==3) {
   std::ifstream file(argv[1]);require(bool(file),"missing prepared input");
@@ -68,7 +69,20 @@ int main(int argc,char** argv) {try {
   const auto document=cli_detail::JsonParser(text,{true,512}).parse();
   for(const auto& row:document.object_v.at("programs").array_v) {ProgramGenome g;g.ast=cli_detail::decode_ast_json(row);population.push_back(std::move(g));}
  } else for(unsigned seed=0;seed<64;++seed)population.push_back(grammar::generate_derivation(grammar,seed).genome);
- for(const auto& genome:population)check_import(grammar,genome);
+ NativePhaseGrammarProfiles profiles(grammar_owner);
+ for(const auto& genome:population) {
+  check_import(grammar,genome);
+  const auto cached=import_native_phase_layout(grammar,genome,&profiles);
+  const auto uncached=import_native_phase_layout(grammar,genome);
+  same_bytecode(cached.executable,uncached.executable);
+  require(ast_cache_key(export_native_phase_layout(grammar,cached,cached.genes).ast)==
+      ast_cache_key(export_native_phase_layout(grammar,uncached,uncached.genes).ast),"cached grammar changed imported AST");
+ }
+ const auto foreign=grammar::compile_grammar(grammar::load_definition(argc==3?argv[2]:
+     GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json"));
+ bool wrong_owner=false;
+ try{(void)import_native_phase_layout(foreign,population.front(),&profiles);}catch(const std::invalid_argument& e){wrong_owner=std::string(e.what()).find("owner mismatch")!=std::string::npos;}
+ require(wrong_owner,"grammar profile cache accepted foreign owner");
  if(argc==1) {
   const auto coupled=grammar::compile_grammar(grammar::parse_definition(test::bounded_capture_definition()));
   const auto genome=grammar::generate_derivation(coupled,17).genome;bool rejected=false;

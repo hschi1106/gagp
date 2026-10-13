@@ -35,8 +35,25 @@ inline void phase_layout_require(bool condition, const char* reason) {
   if (!condition) throw std::invalid_argument(std::string("native GPU phase layout: ") + reason);
 }
 
+// Pure grammar compilation cache, bound to one immutable grammar owner. No AST
+// admission or per-program witness is cached here; every import is still checked.
+class NativePhaseGrammarProfiles final {
+ public:
+  explicit NativePhaseGrammarProfiles(std::shared_ptr<const grammar::CompiledGrammar> owner)
+      : owner_(std::move(owner)) { phase_layout_require(bool(owner_),"missing profile grammar owner"); }
+  const HostPhaseGrammar& get(const grammar::CompiledGrammar& grammar,unsigned nonterminal,unsigned depth) {
+    phase_layout_require(owner_.get()==&grammar,"phase profile grammar owner mismatch");
+    const auto key=std::make_pair(nonterminal,depth);const auto found=profiles_.find(key);
+    if(found!=profiles_.end())return found->second;
+    return profiles_.emplace(key,compile_phase_variation_grammar(grammar,nonterminal,depth)).first->second;
+  }
+ private:
+  std::shared_ptr<const grammar::CompiledGrammar> owner_;
+  std::map<std::pair<unsigned,unsigned>,HostPhaseGrammar> profiles_;
+};
+
 inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGrammar& grammar,
-    const ProgramGenome& external) {
+    const ProgramGenome& external, NativePhaseGrammarProfiles* profiles=nullptr) {
   using namespace grammar;
   NativePhaseLayout result;
   VerifiedAst verified; std::vector<std::vector<int>> environments;
@@ -128,7 +145,8 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
                        "GPU genotype capacity requires fallback");
   for (const auto& slot : result.slots) {
     result.fixed_nodes -= slot.end - slot.begin;
-    auto profile = compile_phase_variation_grammar(grammar, slot.nonterminal, result.budget.max_depth);
+    auto profile = profiles ? profiles->get(grammar,slot.nonterminal,result.budget.max_depth)
+                            : compile_phase_variation_grammar(grammar,slot.nonterminal,result.budget.max_depth);
     HostPhaseGene gene;
     for (auto i = slot.begin; i < slot.end; ++i) {
       const auto expression = witness.nodes.at(i).expression;

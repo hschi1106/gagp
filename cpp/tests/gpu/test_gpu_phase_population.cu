@@ -52,7 +52,7 @@ int main(){try {
  setenv("GAGP_OWNED_PHASE_CAPS","1",1);setenv("GAGP_VIEW_PROFILE","1",1);
  setenv("GAGP_TYPED_VIEW_PHASE","1",1);setenv("GAGP_DIRECT_PHASE","1",1);
  setenv("GAGP_OWNED_PHASE_PACK","1",1);setenv("GAGP_GPU_PHASE_POPULATION","1",1);setenv("GAGP_GPU_DIAGNOSTICS","1",1);
- setenv("GAGP_BATCH_PHASE_IMPORT","1",1);setenv("GAGP_BATCH_PHASE_EXPORT","1",1);
+ setenv("GAGP_REUSE_PHASE_GRAMMAR","1",1);setenv("GAGP_BATCH_PHASE_IMPORT","1",1);setenv("GAGP_BATCH_PHASE_EXPORT","1",1);
  const auto integrated=evolve_population(evolution_cases,config,&parents);
  require(integrated.reproduction_profile=="native-gpu-phase-v2-counted" && integrated.reproduction_fallback_reason.empty(),"GPU genotype evolution adapter not used");
  require(integrated.timing.generations[0].elapsed_search_ms>=integrated.timing.init_population_ms+integrated.timing.gpu_eval_init_ms &&

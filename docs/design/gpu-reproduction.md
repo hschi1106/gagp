@@ -560,3 +560,11 @@ original cold-initialization/final-result timing boundaries. Transient transport
 memory is bounded by live population capacities and released within the call;
 reported genotype device bytes include the transport allocation peak. Single
 member export and ordinary transport remain available for reference checks.
+
+`GAGP_REUSE_PHASE_GRAMMAR=1` compiles each immutable grammar/nonterminal/depth
+phase profile once per cold population importer. The local cache owns a
+`shared_ptr<const CompiledGrammar>` and rejects foreign grammar identity. It
+shares only grammar compilation, never AST witnesses or admission results; all
+external individuals still undergo full independent canonical admission and
+bytecode verification. The cache is released after import and cannot grow across
+generations. This does not change supported grammar combinations or operators.

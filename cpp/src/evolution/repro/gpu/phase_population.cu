@@ -306,7 +306,9 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   impl_->input_types[index]=type;if(type==ValueTag::Invalid)impl_->views_proven=false;
  }
  std::string error;if(!initialize_gpu_repro_runtime(&error))throw std::runtime_error(error);checked(cudaGetDevice(&impl_->device));
- impl_->population=input.size();impl_->layout=import_native_phase_layout(*impl_->grammar,input.front());
+ std::unique_ptr<NativePhaseGrammarProfiles> import_profiles;
+ if(std::getenv("GAGP_REUSE_PHASE_GRAMMAR"))import_profiles=std::make_unique<NativePhaseGrammarProfiles>(impl_->grammar);
+ impl_->population=input.size();impl_->layout=import_native_phase_layout(*impl_->grammar,input.front(),import_profiles.get());
  const auto capability=gpu_detail::pack_programs_with_shared_case_count({impl_->layout.executable},0,0);
  phase_layout_require(capability.metas.size()==1 && capability.metas.front().is_valid,"fixed executable requires GPU fallback");
  impl_->slot_count=impl_->layout.slots.size();phase_layout_require(impl_->slot_count>0 && impl_->slot_count<=8,"phase count capacity");
@@ -332,7 +334,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  std::vector<ImportOffset> import_offsets; if(batch_import)import_offsets.reserve(rows);
  // Upload live imports only, avoiding full-capacity host staging arrays.
  for(std::size_t p=0;p<input.size();++p) {
-  auto imported=p==0?impl_->layout:import_native_phase_layout(*impl_->grammar,input[p]);
+  auto imported=p==0?impl_->layout:import_native_phase_layout(*impl_->grammar,input[p],import_profiles.get());
   phase_layout_require(imported.slots.size()==impl_->layout.slots.size() && skeleton_key(imported)==key,"mixed fixed skeleton requires native fallback");
   for(int k=0;k<impl_->slot_count;++k) {
    const auto& a=imported.slots[k];const auto& b=impl_->layout.slots[k];

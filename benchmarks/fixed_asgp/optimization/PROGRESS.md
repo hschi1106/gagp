@@ -802,3 +802,11 @@ import-off,io-on,io-main}`; compact evidence `results/parallel-20261013/transpor
 Median CPU128 seed2 full population, champion-368, imports to GPU native profile
 without fallback and preserves initial full-case fitness; representation supports
 this known better solution. Probe is support evidence, not speed comparison.
+
+Static grammar candidate: perf cold trace identified repeated `compile_phase_grammar`
+inside each import (8.7% inclusive whole-process cycles in one diagnostic, not
+8.7% of search-wall). `GAGP_REUSE_PHASE_GRAMMAR=1` now reuses pure grammar
+compilation in an owner-bound cold cache. No admission/witness bypass. With
+batched I/O, House32 search repeats2049/2045/2074ms; Median64 1793/1855/1793ms.
+All traces and final ASTs exactly match original baseline. Focused owner/layout
+tests pass. Evidence `results/parallel-20261013/static-grammar-experiment.json`.
