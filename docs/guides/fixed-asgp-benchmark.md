@@ -485,3 +485,15 @@ output directory. `long_search_audit.py` independently admits and scores trainin
 selected checkpoint champions after all performance runs finish;
 `long_search_report.py` renders seed-resolved generation/time/size and held-out
 plots. See the [bounded long-search contract](../../benchmarks/fixed_asgp/optimization/results/long-search-20261013/CONTRACT.zh-TW.md).
+
+### Short changing-population optimization check
+
+`benchmarks/fixed_asgp/optimization/short_search.py` compares fresh processes on
+House Robber (32 generations, seed 0) and Median (64 generations, seed 2), with
+1024 programs and all 1024 cases. It verifies frozen input hashes, archives the
+binary, pins one host thread, records explicit settings and raw generation data,
+and serializes runs using a shared file lock. `--seeds 0 1 2` expands quality
+screening; `--generations 4` is only a focused diagnostic, not the main target.
+Primary search-wall includes cold evolution initialization and final evaluation;
+process wall additionally includes import and post-search audit/export. Neither
+metric should be mixed with frozen-parent single-generation ratios.

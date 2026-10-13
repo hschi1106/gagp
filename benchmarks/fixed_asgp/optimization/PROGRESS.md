@@ -766,3 +766,28 @@ is retained as such, not used to claim precise per-generation attribution.
 Next host experiment should remove repeated analysis/certification inside existing
 native operators, preserving CPU1T, grammar admission and GPU-er/o reproduction.
 No speedup or new implementation is claimed by this diagnostic checkpoint.
+
+## Parallel architecture-preserving optimization — 2026-10-13
+
+Checkpoint: runtime/experiment tree `9ddab1d`; chat worktree snapshot `75d7f83`.
+No push. Original frozen inputs and archives remain unchanged.
+Target: CPU1T approaches ASGP1T; native GPU-er-o search-wall House >30x,
+Median >5x. Historical frozen-generation ratios are not this target.
+Short comparison: House32/seed0, Median64/seed2, P1024/C1024; all five modes.
+Primary metric retains `evolve_wall_ms` (cold evolution init, every generation,
+final eval). Input import and post-search audit/export are outside this metric;
+process wall includes them and is reported separately. Flags and penalties match
+long-search manifest; House1000, Median1. No algorithm or evaluation changes.
+Runner: `python3 benchmarks/fixed_asgp/optimization/short_search.py --binary
+logs/optimization/long-search-20261013/bench --out logs/optimization/parallel-20261013/baseline`.
+Use fresh output directories; `--binary`, `--reference-root`, `--modes`,
+`--generations`, `--seeds`, `--flag` support focused comparisons. Every benchmark
+process takes `/tmp/gagp-parallel-20261013-benchmark.lock`; agents use the same
+lock for GPU tests/profiling. Initial baseline may overlap compilation; important
+candidates require quiet-machine interleaved confirmation.
+Worktrees/branches: `parallel-cpu-eval-20261013`, `parallel-cpu-repro-20261013`,
+`parallel-gpu-20261013`, under the existing worktrees directory and `opt/` branches.
+Hypotheses: direct CPU phase binding; deferred native CPU site analysis; GPU
+per-program compact execution / changed-phase lowering after cost attribution.
+No CPU fragment backend, CPU workers, reduced cases, or benchmark solver.
+Status: baseline in progress; no new runtime improvement claimed.
