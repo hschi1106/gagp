@@ -608,6 +608,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       (region_workspace.two_state_frames ? sizeof(gpu_detail::DUnboxedWindowFrame<2>) : sizeof(gpu_detail::DUnboxedWindowFrame<1>)) : !region_workspace.compact_frames ? sizeof(gpu_detail::DRegionFrame) :
       (region_workspace.two_state_frames ? sizeof(gpu_detail::DCompactPairRegionFrame) :
        sizeof(gpu_detail::DCompactRegionFrame));
+  const auto compact_frame_size=frame_size;
   if(capability_buckets) {
     const auto generic_size=!region_workspace.compact_frames?sizeof(gpu_detail::DRegionFrame):
         region_workspace.two_state_frames?sizeof(gpu_detail::DCompactPairRegionFrame):sizeof(gpu_detail::DCompactRegionFrame);
@@ -630,12 +631,37 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
           region_workspace.memo_capacity;
   const std::size_t workspace_bytes_per_block =
       workspace_bytes_per_thread * static_cast<std::size_t>(impl_->blocksize);
-  const std::size_t region_blocks = workspace_bytes_per_block == 0 ? programs.size() :
+  std::size_t region_blocks = workspace_bytes_per_block == 0 ? programs.size() :
       std::min(programs.size(), kRegionWorkspaceBudget / workspace_bytes_per_block);
   if (has_regions && region_blocks == 0) {
     return fitness_eval_single_error(ErrCode::Value, "GPU region workspace budget exceeded");
   }
-  const std::size_t workspace_threads = region_blocks * impl_->blocksize;
+  std::size_t generic_blocks=capability_buckets?std::min(region_blocks,generic_indices.size()):0;
+  std::size_t workspace_threads=region_blocks*impl_->blocksize;
+  std::size_t workspace_frame_bytes=workspace_threads*region_workspace.frame_capacity*frame_size;
+  const bool bucket_workspace=capability_buckets && std::getenv("GAGP_BUCKET_WORKSPACE");
+  if(bucket_workspace) {
+    const auto threads=static_cast<std::size_t>(impl_->blocksize);
+    const auto compact_frames=threads*region_workspace.frame_capacity*compact_frame_size;
+    const auto generic_frames=threads*region_workspace.frame_capacity*frame_size;
+    const auto memo=threads*region_workspace.memo_capacity*
+        (sizeof(std::int64_t)*gpu_detail::DMAX_REGION_STATES+sizeof(Value));
+    const auto required=[&](std::size_t c,std::size_t g) {
+      return std::max(c*compact_frames,g*generic_frames)+std::max(c,g)*memo;
+    };
+    auto c=std::min(compact_indices.size(),kRegionWorkspaceBudget/std::max<std::size_t>(1,compact_frames+memo));
+    // Sequential kernels reuse the same allocations, but their frame stride and
+    // grid size can differ. Reserve room for at least one generic block.
+    if(required(c,1)>kRegionWorkspaceBudget && memo)
+      c=std::min(c,(kRegionWorkspaceBudget-generic_frames)/memo);
+    if(!c || required(c,1)>kRegionWorkspaceBudget)
+      return fitness_eval_single_error(ErrCode::Value,"GPU bucket workspace budget exceeded");
+    std::size_t low=1,high=generic_indices.size();
+    while(low<high){const auto mid=low+(high-low+1)/2;
+      if(required(c,mid)<=kRegionWorkspaceBudget)low=mid;else high=mid-1;}
+    region_blocks=c;generic_blocks=low;workspace_threads=std::max(c,low)*threads;
+    workspace_frame_bytes=std::max(c*compact_frames,low*generic_frames);
+  }
   const auto launch_prep_t1 = std::chrono::steady_clock::now();
 
   FitnessEvalResult out;
@@ -677,8 +703,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       return fitness_eval_single_error(ErrCode::Value, "cuda memset failure");
     }
     if (has_regions) {
-      const std::size_t frame_bytes = workspace_threads * region_workspace.frame_capacity *
-                                      frame_size;
+      const std::size_t frame_bytes = workspace_frame_bytes;
       const std::size_t key_bytes = workspace_threads * region_workspace.memo_capacity *
                                     gpu_detail::DMAX_REGION_STATES * sizeof(std::int64_t);
       const std::size_t value_bytes = workspace_threads * region_workspace.memo_capacity * sizeof(Value);
@@ -769,7 +794,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       auto generic_workspace=region_workspace;
       generic_workspace.window_executor=false;generic_workspace.coordinate_executor=false;generic_workspace.unboxed_window_frames=false;
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IntListViews,true>
-          <<<static_cast<unsigned int>(std::min(region_blocks,generic_indices.size())),impl_->blocksize,shared_bytes>>>(
+          <<<static_cast<unsigned int>(generic_blocks),impl_->blocksize,shared_bytes>>>(
               static_cast<int>(generic_indices.size()),dev.d_consts,dev.d_code,dev.d_metas,
               impl_->d_shared_case_local_vals,impl_->d_shared_case_local_set,impl_->d_expected,
               dev.d_string_payload_entries,static_cast<int>(payload_pack.string_entries.size()),dev.d_string_payload_bytes,
@@ -830,6 +855,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if(direct_phases && std::any_of(packed.region_phases.begin(),packed.region_phases.end(),
         [](const auto& p){return p.program.add_left_binding>=0;}))out.execution_profile+="-bound-add";
     if(capability_buckets)out.execution_profile+="-cap-buckets";
+    if(bucket_workspace)out.execution_profile+="-bucket-workspace";
     out.fitness = std::move(host_fitness);
     out.timing.pack_ms = ms_between(pack_t0, pack_t1);
     out.timing.launch_prep_ms = ms_between(launch_prep_t0, launch_prep_t1);

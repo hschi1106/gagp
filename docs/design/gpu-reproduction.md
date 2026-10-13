@@ -593,3 +593,11 @@ the existing scan and division. This removes repeated maximum scans/divisions;
 it does not change selection weights, RNG draws, node/depth admission or grammar
 membership. Tests compare complete constructed nodes/constants across different
 budgets and depths, including the unproved fallback case.
+
+`GAGP_BUCKET_WORKSPACE=1` lets compact and generic capability buckets use
+separate grid sizes while sharing scratch sequentially. Frame allocation uses
+the larger required byte span, and memo storage uses the larger thread count.
+The planner reserves at least one generic block and constrains the sum of these
+allocations to the existing 512 MiB workspace ceiling. Declared per-program frame
+and memo capacities are unchanged. This removes a common worst-case frame
+stride from compact-bucket concurrency; it adds no program/case skipping.

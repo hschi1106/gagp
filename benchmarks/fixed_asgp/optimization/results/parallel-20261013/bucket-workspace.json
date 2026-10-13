@@ -1,0 +1,103 @@
+{
+  "contract": "Compact/generic capability buckets choose separate concurrency grids, reuse allocations sequentially and remain within512MiB workspace budget; no execution/search changes",
+  "decision": "retain optin GAGP_BUCKET_WORKSPACE",
+  "tests": "257-member mixed-stack and32generation fullcase CPU audit pass with flag; beforeafter traces/final populations exact",
+  "runs": [
+    {
+      "label": "workspace-control",
+      "task": "house_robber",
+      "seed": 0,
+      "search_ms": 1692.929346,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/workspace-control/house_robber.gpu_overlap.s0.r0.json",
+      "binary_sha256": "9c4f257ca6eaf7311fcbb977066fc9bc156fc83b45302201bd81ead418444ce2"
+    },
+    {
+      "label": "workspace-control",
+      "task": "median",
+      "seed": 2,
+      "search_ms": 1396.349431,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/workspace-control/median.gpu_overlap.s2.r0.json",
+      "binary_sha256": "9c4f257ca6eaf7311fcbb977066fc9bc156fc83b45302201bd81ead418444ce2"
+    },
+    {
+      "label": "workspace-control",
+      "task": "house_robber",
+      "seed": 0,
+      "search_ms": 1620.511563,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/workspace-control/house_robber.gpu_overlap.s0.r1.json",
+      "binary_sha256": "9c4f257ca6eaf7311fcbb977066fc9bc156fc83b45302201bd81ead418444ce2"
+    },
+    {
+      "label": "workspace-control",
+      "task": "median",
+      "seed": 2,
+      "search_ms": 1401.76744,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/workspace-control/median.gpu_overlap.s2.r1.json",
+      "binary_sha256": "9c4f257ca6eaf7311fcbb977066fc9bc156fc83b45302201bd81ead418444ce2"
+    },
+    {
+      "label": "workspace-control",
+      "task": "house_robber",
+      "seed": 0,
+      "search_ms": 1648.076106,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/workspace-control/house_robber.gpu_overlap.s0.r2.json",
+      "binary_sha256": "9c4f257ca6eaf7311fcbb977066fc9bc156fc83b45302201bd81ead418444ce2"
+    },
+    {
+      "label": "workspace-control",
+      "task": "median",
+      "seed": 2,
+      "search_ms": 1376.32641,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/workspace-control/median.gpu_overlap.s2.r2.json",
+      "binary_sha256": "9c4f257ca6eaf7311fcbb977066fc9bc156fc83b45302201bd81ead418444ce2"
+    },
+    {
+      "label": "workspace-main",
+      "task": "house_robber",
+      "seed": 0,
+      "search_ms": 1579.544052,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/workspace-main/house_robber.gpu_overlap.s0.r0.json",
+      "binary_sha256": "9c4f257ca6eaf7311fcbb977066fc9bc156fc83b45302201bd81ead418444ce2"
+    },
+    {
+      "label": "workspace-main",
+      "task": "median",
+      "seed": 2,
+      "search_ms": 1356.734654,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/workspace-main/median.gpu_overlap.s2.r0.json",
+      "binary_sha256": "9c4f257ca6eaf7311fcbb977066fc9bc156fc83b45302201bd81ead418444ce2"
+    },
+    {
+      "label": "workspace-main",
+      "task": "house_robber",
+      "seed": 0,
+      "search_ms": 1589.748736,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/workspace-main/house_robber.gpu_overlap.s0.r1.json",
+      "binary_sha256": "9c4f257ca6eaf7311fcbb977066fc9bc156fc83b45302201bd81ead418444ce2"
+    },
+    {
+      "label": "workspace-main",
+      "task": "median",
+      "seed": 2,
+      "search_ms": 1361.092852,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/workspace-main/median.gpu_overlap.s2.r1.json",
+      "binary_sha256": "9c4f257ca6eaf7311fcbb977066fc9bc156fc83b45302201bd81ead418444ce2"
+    },
+    {
+      "label": "workspace-main",
+      "task": "house_robber",
+      "seed": 0,
+      "search_ms": 1583.098239,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/workspace-main/house_robber.gpu_overlap.s0.r2.json",
+      "binary_sha256": "9c4f257ca6eaf7311fcbb977066fc9bc156fc83b45302201bd81ead418444ce2"
+    },
+    {
+      "label": "workspace-main",
+      "task": "median",
+      "seed": 2,
+      "search_ms": 1361.892235,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/workspace-main/median.gpu_overlap.s2.r2.json",
+      "binary_sha256": "9c4f257ca6eaf7311fcbb977066fc9bc156fc83b45302201bd81ead418444ce2"
+    }
+  ]
+}

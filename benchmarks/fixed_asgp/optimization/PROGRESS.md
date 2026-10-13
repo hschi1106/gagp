@@ -852,3 +852,10 @@ matrix across depths/capacities passes exact node/origin/constant comparisons;
 RNG or resource-limit change. Remaining House kernel cost is dominant; focused
 NCU reports low eligible warps and substantial dynamically indexed local memory,
 so a separate shared operand-stack prototype is being evaluated, not yet adopted.
+
+Bucket workspace candidate: compact/generic grids planned independently under
+the same512MiB sharedscratchceiling. Samebinary3process medians House1648→1583ms,
+Median1396→1361ms; unchanged traces/finalpopulation. Mixed257program/32generation
+CPUaudit test passes. Setting`GAGP_BUCKET_WORKSPACE=1`; evidence
+`results/parallel-20261013/bucket-workspace.json`. Improvement modest, supports
+capability-dependent concurrency without reducing execution limits.
