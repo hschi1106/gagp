@@ -314,5 +314,49 @@
     ]
   },
   "quality": "3 seeds x 4 generations match archived reference best/mean/best_nodes and variation counters. Seed0 full final AST population matches reference for both tasks; incumbent history matches after excluding elapsed_search_ms.",
-  "rejected": "Direct optional result construction: House14.269\u219214.340s, Median3.363\u21923.306s, no stable gain; removed."
+  "rejected": "Direct optional result construction: House14.269\u219214.340s, Median3.363\u21923.306s, no stable gain; removed. Whole-phase short comparison: House14.269\u219214.150s (<1%, no compelling effect), removed CPU prototype.",
+  "late_median": {
+    "binary_sha256": "0356569a90c40904794404fb686838e3b3638fcebb9c37000632e0f92b4537d9",
+    "source_manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/late-median/manifest.json",
+    "runs": [
+      {
+        "scalar_views": false,
+        "process_wall_s": 12.0707824958954,
+        "evolve_wall_ms": 10485.629378,
+        "eval_ms": 2792.535972,
+        "repro_ms": 4718.963662,
+        "fitness": -368,
+        "output": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/late-scalar-ab/0.json"
+      },
+      {
+        "scalar_views": true,
+        "process_wall_s": 8.723583492916077,
+        "evolve_wall_ms": 7158.685591,
+        "eval_ms": 1171.016013,
+        "repro_ms": 4717.411785,
+        "fitness": -368,
+        "output": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/late-scalar-ab/1.json"
+      },
+      {
+        "scalar_views": false,
+        "process_wall_s": 11.99426601617597,
+        "evolve_wall_ms": 10438.032894,
+        "eval_ms": 2777.048536,
+        "repro_ms": 4741.632582,
+        "fitness": -368,
+        "output": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/late-scalar-ab/2.json"
+      },
+      {
+        "scalar_views": true,
+        "process_wall_s": 8.712264979956672,
+        "evolve_wall_ms": 7145.509513,
+        "eval_ms": 1175.838676,
+        "repro_ms": 4689.708945,
+        "fitness": -368,
+        "output": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/late-scalar-ab/3.json"
+      }
+    ],
+    "exact_full_final_fitness_and_nodes": true,
+    "contract": "Same frozen GAGP CPU generation128 seed2 population. Within-mode comparison only; not an ASGP ratio. One measured generation plus cold evolution initialization and final full evaluation; four interleaved independent processes off/on/off/on."
+  }
 }

@@ -20,11 +20,12 @@ inline bool cpu_region_views_supported(const BoundedRegionSegment& segment) {
   // Snapshot setup pays off on proven recursive windows. Arbitrary predicates
   // may terminate at the root, where eager payload copying is needless work.
   const auto& predicate = segment.base_predicate.program;
-  if (!coordinate_views && ((predicate.code.size() != 1 &&
+  const bool scalar_views = std::getenv("GAGP_CPU_SCALAR_VIEWS") != nullptr;
+  if (!coordinate_views && !scalar_views && ((predicate.code.size() != 1 &&
        !(predicate.code.size() == 2 && predicate.code[1].op == Opcode::Return)) ||
       predicate.code[0].op != Opcode::PushConst || predicate.code[0].a < 0 ||
       static_cast<std::size_t>(predicate.code[0].a) >= predicate.consts.size())) return false;
-  if (!coordinate_views) {
+  if (!coordinate_views && !scalar_views) {
     const auto& condition = predicate.consts[predicate.code[0].a];
     if (condition.tag != ValueTag::Bool || condition.b) return false;
   }

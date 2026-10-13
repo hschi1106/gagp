@@ -385,6 +385,11 @@ Additional independent CPU evaluator opt-ins (all stay CPU 1T):
   extend the same validated scalar-returning list-view capability to coordinate
   regions with captured IntLists. Each invocation snapshots payload contents;
   unsupported or missing payloads fall back to the original values/interpreter.
+- `GAGP_CPU_SCALAR_VIEWS=1` together with `GAGP_CPU_REGION_VIEWS=1`:
+  admit proven scalar-returning windows with arbitrary base predicates, including
+  terminal-at-root invocations. This extends an old performance heuristic; the
+  same non-escaping-list proof and invocation snapshot remain mandatory. It is
+  useful when a larger phase can amortize conversion through typed execution.
 - `GAGP_CPU_TYPED_PHASE=1` (implies bound phases): existing forward type-flow
   proof admits Int/Bool and invocation-local IntList operations with stack<=64.
   A compact int64 stack executes the evolved bytecode, including every original
