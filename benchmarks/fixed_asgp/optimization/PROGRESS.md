@@ -1,16 +1,20 @@
-# Parallel worktree optimization — 2026-10-13 (final validation running)
+# Parallel worktree optimization — 2026-10-13 (validated checkpoint, bounded follow-ups)
 
 - Protected original workspace checkpoint: `75d7f83`; optimization input checkpoint: `9ddab1d`.
 - Integrated runtime candidate: `b60a336`, branch `opt/gpu-generation-20261001`.
 - Current settings/binary/frozen identities: `logs/optimization/parallel-20261013/final-main/manifest.json`.
 - Primary short-search contract: House32/seed0 and Median64/seed2, P1024/full1024 cases, CPU1T; cold initialization, final evaluation and final AST export included in search wall. Process wall additionally includes input import and independent audit/output serialization.
-- All three exploration worktrees have stopped builds/performance runs. Final search repeats are serial and quiet: final-main (3 all-mode processes/task), final-gpu-extra (6 additional GPU-o processes/task). These are cold searches, not in-process warmed single generations.
+- Quiet repeated search completed: final-main (3 all-mode processes/task), final-gpu-extra (6 additional GPU-o processes/task). These are cold searches, not in-process warmed single generations. GPU-o medians House1349.259ms / Median1161.959ms, ratios20.476x /5.124x against same-round ASGP controls. CPU84327.890/45486.906ms remains3.052x/7.640x slower than ASGP.
+- Fixed-parent formal9 medians32.979800/7.342773ms, historical frozen ratios38.873x/8.413x. Do not substitute these for changing-search ratios.
 - Retained native CPU changes: lazy analysis/selected parents/selected mutation; typed phases/views/memo and compact coordinate driver; optional counted feasible-pair RNG profile (same uniform law, changed trajectories).
 - Retained native GPU changes: batched import/export, immutable grammar/executable cold reuse, indexed capability buckets/workspace planning, compact repro launch, static weights, proven scalar comparisons/ring memo, private packed executable, per-child mutation scratch, compact generator tasks.
 - Rejected runtime prototypes are removed, including size ties, sampled CPU sites, early compaction, single-hole copy elision, static root filter, shared/cached-top/register-bank stacks, fuel-bound and diagnostic atomic variants. Raw patches/results are historical evidence only.
 - Integrated pre-final validation: 127/127 native tests; 24 repository tests; 89 tool tests (4 skipped); focused CPU ASan/UBSan and GPU memcheck reported in the candidate evidence. Final generator focused regression remains to rerun after integration.
 - Do not claim targets from frozen-parent ratios: changing-search House30x and Median5x are evaluated separately. House remained below30x in intermediate tests; CPU still trails ASGP.
-- Pending: final repeated all-mode results, latest focused tests/profile, long-run memory/quality check, fixed/scaling matrix, summary and final checkpoint. No push authorized.
+- Final Task integration focused6 tests and fixed snapshots passed; latest four-generation NSYS confirms House evaluator dominance and Median mutation/lowering cost. P1024/2048/4096 and House8192 all five modes passed; remaining scaling/long validation running.
+- Median512 diagnostic: complete pairs, zero timeout/fallback/unscored, top16 CPU audit exact; search17.160s, final best-418, unique1018. Requested history/report output remains a growing retained cost; no constant-total-memory claim.
+- Bounded follow-ups under review in independent worktrees: exact all-fit CPU crossover group bound; selected-parent per-slot GPU executable reuse. No builds/perf during queued validation. Current validated runtime remains b60a336 until evidence justifies adoption.
+- Pending: remaining scaling/long validation, bounded follow-up decisions, summary and final checkpoint. No push authorized.
 
 ---
 
