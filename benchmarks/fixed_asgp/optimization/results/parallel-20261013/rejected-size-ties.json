@@ -1,0 +1,139 @@
+{
+  "hypothesis": "Fitness tie-break toward smaller programs reduces neutral bloat without severe search regression",
+  "decision": "rejected: Medianseed0 best -497 to -642, all3 seeds converge around20nodes, uniquegenotypes fall~1000to427-448; House2/3seeds worse and1slower",
+  "contract_difference": "Selectiontie rule changed; fullcase evaluation, original grammar/numerics/fuel/caps retained. No same-workload speedup claim.",
+  "runs": [
+    {
+      "label": "size-control",
+      "task": "house_robber",
+      "seed": 0,
+      "search_ms": 1691.126998,
+      "fitness": -7146,
+      "unique": 1018,
+      "mean_nodes": 169.1669921875,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/size-control/house_robber.gpu_overlap.s0.r0.json",
+      "binary_sha256": "d7848379e3dd4c95c6caf4c4f7f5dc1e392e93be8fbbf151e3d1d50e8d351fa3"
+    },
+    {
+      "label": "size-control",
+      "task": "house_robber",
+      "seed": 1,
+      "search_ms": 1845.517946,
+      "fitness": -5571,
+      "unique": 1011,
+      "mean_nodes": 154.9931640625,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/size-control/house_robber.gpu_overlap.s1.r0.json",
+      "binary_sha256": "d7848379e3dd4c95c6caf4c4f7f5dc1e392e93be8fbbf151e3d1d50e8d351fa3"
+    },
+    {
+      "label": "size-control",
+      "task": "house_robber",
+      "seed": 2,
+      "search_ms": 1778.243398,
+      "fitness": -8270,
+      "unique": 1011,
+      "mean_nodes": 217.515625,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/size-control/house_robber.gpu_overlap.s2.r0.json",
+      "binary_sha256": "d7848379e3dd4c95c6caf4c4f7f5dc1e392e93be8fbbf151e3d1d50e8d351fa3"
+    },
+    {
+      "label": "size-control",
+      "task": "median",
+      "seed": 0,
+      "search_ms": 2888.899809,
+      "fitness": -497,
+      "unique": 1018,
+      "mean_nodes": 664.279296875,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/size-control/median.gpu_overlap.s0.r0.json",
+      "binary_sha256": "d7848379e3dd4c95c6caf4c4f7f5dc1e392e93be8fbbf151e3d1d50e8d351fa3"
+    },
+    {
+      "label": "size-control",
+      "task": "median",
+      "seed": 1,
+      "search_ms": 1531.24894,
+      "fitness": -642,
+      "unique": 1001,
+      "mean_nodes": 135.23828125,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/size-control/median.gpu_overlap.s1.r0.json",
+      "binary_sha256": "d7848379e3dd4c95c6caf4c4f7f5dc1e392e93be8fbbf151e3d1d50e8d351fa3"
+    },
+    {
+      "label": "size-control",
+      "task": "median",
+      "seed": 2,
+      "search_ms": 1511.409933,
+      "fitness": -642,
+      "unique": 978,
+      "mean_nodes": 108.361328125,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/size-control/median.gpu_overlap.s2.r0.json",
+      "binary_sha256": "d7848379e3dd4c95c6caf4c4f7f5dc1e392e93be8fbbf151e3d1d50e8d351fa3"
+    },
+    {
+      "label": "size-main",
+      "task": "house_robber",
+      "seed": 0,
+      "search_ms": 1558.046966,
+      "fitness": -8450,
+      "unique": 989,
+      "mean_nodes": 82.908203125,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/size-main/house_robber.gpu_overlap.s0.r0.json",
+      "binary_sha256": "2edac31f1a05e49f6337f513931128e0999ef676942eb8d8b41551698089b6a2"
+    },
+    {
+      "label": "size-main",
+      "task": "house_robber",
+      "seed": 1,
+      "search_ms": 2107.35901,
+      "fitness": -8333,
+      "unique": 1021,
+      "mean_nodes": 326.6708984375,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/size-main/house_robber.gpu_overlap.s1.r0.json",
+      "binary_sha256": "2edac31f1a05e49f6337f513931128e0999ef676942eb8d8b41551698089b6a2"
+    },
+    {
+      "label": "size-main",
+      "task": "house_robber",
+      "seed": 2,
+      "search_ms": 1679.041851,
+      "fitness": -7101,
+      "unique": 1018,
+      "mean_nodes": 141.5302734375,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/size-main/house_robber.gpu_overlap.s2.r0.json",
+      "binary_sha256": "2edac31f1a05e49f6337f513931128e0999ef676942eb8d8b41551698089b6a2"
+    },
+    {
+      "label": "size-main",
+      "task": "median",
+      "seed": 0,
+      "search_ms": 1078.326756,
+      "fitness": -642,
+      "unique": 448,
+      "mean_nodes": 20.2470703125,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/size-main/median.gpu_overlap.s0.r0.json",
+      "binary_sha256": "2edac31f1a05e49f6337f513931128e0999ef676942eb8d8b41551698089b6a2"
+    },
+    {
+      "label": "size-main",
+      "task": "median",
+      "seed": 1,
+      "search_ms": 1061.622251,
+      "fitness": -642,
+      "unique": 427,
+      "mean_nodes": 20.6318359375,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/size-main/median.gpu_overlap.s1.r0.json",
+      "binary_sha256": "2edac31f1a05e49f6337f513931128e0999ef676942eb8d8b41551698089b6a2"
+    },
+    {
+      "label": "size-main",
+      "task": "median",
+      "seed": 2,
+      "search_ms": 1031.464965,
+      "fitness": -642,
+      "unique": 436,
+      "mean_nodes": 21.220703125,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/size-main/median.gpu_overlap.s2.r0.json",
+      "binary_sha256": "2edac31f1a05e49f6337f513931128e0999ef676942eb8d8b41551698089b6a2"
+    }
+  ]
+}

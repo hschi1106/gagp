@@ -831,3 +831,12 @@ NSYS archives: worktree `logs/parallel-gpu/diagnostic{,-index}/`.
 Next: integrate with root cold-import/export changes, repeat combined candidate,
 then address remaining mutation and House evaluator cost. No benchmark controls
 or original inputs were modified.
+
+Rejected semantic experiment: fitness ties prefer smaller GPU genotype. Full
+cases kept, but Median3seeds all end-642/mean~20nodes and427–448unique, whereas
+control seed0 reaches-497 and~1000unique. House2/3seeds worse andseed1slower.
+Median~1.03s is not accepted as5x goal evidence. Code/flag/docs removed; archived
+binaries/raw outputs retained only as historical evidence. Record:
+`results/parallel-20261013/rejected-size-ties.json`.
+Combined exact-behavior GPU main3repeats: House median1662ms, Median1484ms;
+raw `logs/optimization/parallel-20261013/combined-gpu-main`. Goals still unmet.
