@@ -1,0 +1,132 @@
+[
+  {
+    "task": "house_robber",
+    "results": {
+      "control": {
+        "runs": [
+          {
+            "raw": "logs/parallel-gpu/compact-task-control-repeat/house_robber.gpu_overlap.s0.r0.json",
+            "evolve_wall_ms": 1361.462672,
+            "repro_kernel_median_ms": 3.6264960849657655,
+            "generation_median_ms": 25.529254,
+            "exact_trace": true,
+            "final_ast_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          },
+          {
+            "raw": "logs/parallel-gpu/compact-task-control-repeat/house_robber.gpu_overlap.s0.r1.json",
+            "evolve_wall_ms": 1382.897537,
+            "repro_kernel_median_ms": 3.6191360712982714,
+            "generation_median_ms": 25.7712175,
+            "exact_trace": true,
+            "final_ast_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          },
+          {
+            "raw": "logs/parallel-gpu/compact-task-control-repeat/house_robber.gpu_overlap.s0.r2.json",
+            "evolve_wall_ms": 1361.141232,
+            "repro_kernel_median_ms": 3.6189600126817822,
+            "generation_median_ms": 25.3921855,
+            "exact_trace": true,
+            "final_ast_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          }
+        ],
+        "median_ms": 1361.462672,
+        "median_repro_kernel_ms": 3.6191360712982714
+      },
+      "candidate": {
+        "runs": [
+          {
+            "raw": "logs/parallel-gpu/compact-task-candidate-repeat/house_robber.gpu_overlap.s0.r0.json",
+            "evolve_wall_ms": 1367.503269,
+            "repro_kernel_median_ms": 3.512335970066488,
+            "generation_median_ms": 25.37155,
+            "exact_trace": true,
+            "final_ast_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          },
+          {
+            "raw": "logs/parallel-gpu/compact-task-candidate-repeat/house_robber.gpu_overlap.s0.r1.json",
+            "evolve_wall_ms": 1372.472309,
+            "repro_kernel_median_ms": 3.4981280053034425,
+            "generation_median_ms": 25.302292,
+            "exact_trace": true,
+            "final_ast_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          },
+          {
+            "raw": "logs/parallel-gpu/compact-task-candidate-repeat/house_robber.gpu_overlap.s0.r2.json",
+            "evolve_wall_ms": 1359.990784,
+            "repro_kernel_median_ms": 3.514415940269828,
+            "generation_median_ms": 25.4143865,
+            "exact_trace": true,
+            "final_ast_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          }
+        ],
+        "median_ms": 1367.503269,
+        "median_repro_kernel_ms": 3.512335970066488
+      }
+    }
+  },
+  {
+    "task": "median",
+    "results": {
+      "control": {
+        "runs": [
+          {
+            "raw": "logs/parallel-gpu/compact-task-control-repeat/median.gpu_overlap.s2.r0.json",
+            "evolve_wall_ms": 1177.66433,
+            "repro_kernel_median_ms": 5.200063940603286,
+            "generation_median_ms": 10.762433,
+            "exact_trace": true,
+            "final_ast_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          },
+          {
+            "raw": "logs/parallel-gpu/compact-task-control-repeat/median.gpu_overlap.s2.r1.json",
+            "evolve_wall_ms": 1201.404782,
+            "repro_kernel_median_ms": 5.186832041013986,
+            "generation_median_ms": 11.111450000000001,
+            "exact_trace": true,
+            "final_ast_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          },
+          {
+            "raw": "logs/parallel-gpu/compact-task-control-repeat/median.gpu_overlap.s2.r2.json",
+            "evolve_wall_ms": 1177.708596,
+            "repro_kernel_median_ms": 5.202256013639271,
+            "generation_median_ms": 10.899788999999998,
+            "exact_trace": true,
+            "final_ast_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          }
+        ],
+        "median_ms": 1177.708596,
+        "median_repro_kernel_ms": 5.200063940603286
+      },
+      "candidate": {
+        "runs": [
+          {
+            "raw": "logs/parallel-gpu/compact-task-candidate-repeat/median.gpu_overlap.s2.r0.json",
+            "evolve_wall_ms": 1160.405637,
+            "repro_kernel_median_ms": 5.037151928991079,
+            "generation_median_ms": 10.651418,
+            "exact_trace": true,
+            "final_ast_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          },
+          {
+            "raw": "logs/parallel-gpu/compact-task-candidate-repeat/median.gpu_overlap.s2.r1.json",
+            "evolve_wall_ms": 1165.41012,
+            "repro_kernel_median_ms": 5.057360153179616,
+            "generation_median_ms": 10.560512500000002,
+            "exact_trace": true,
+            "final_ast_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          },
+          {
+            "raw": "logs/parallel-gpu/compact-task-candidate-repeat/median.gpu_overlap.s2.r2.json",
+            "evolve_wall_ms": 1150.415388,
+            "repro_kernel_median_ms": 5.051855945028365,
+            "generation_median_ms": 10.5965345,
+            "exact_trace": true,
+            "final_ast_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          }
+        ],
+        "median_ms": 1160.405637,
+        "median_repro_kernel_ms": 5.051855945028365
+      }
+    }
+  }
+]

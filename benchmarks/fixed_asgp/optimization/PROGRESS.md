@@ -930,3 +930,18 @@ remain; this is host-work elimination, not a resident executable claim. Focused
 32-generation CPU/admission, mixed257-member, wrong-type fallback and pattern
 invalidation tests cover the changed path. Next integrated bottleneck is House
 evaluation; root independently explores a scalar operand-bank prototype.
+
+Exact compact GPU generator tasks retained: pending entries16→8bytes using
+existing expression/depth/scope bounds, with explicit pre-assignment ID and
+reservation checks. No new runtime switch or grammar/RNG/operator change.
+Three-process House1361.463→1367.503ms is neutral; Median1177.709→1160.406ms
+improves1.47%, non-overlapping ranges. Reproduction-kernel medians improve about3%;
+mutation registers86→84, peaklocalframe remains4784B and spills remainzero.
+`results/parallel-gpu-20261013/compact-generator-task.json` records all repeats
+and identical finalAST hashes. Reference-task differential tests cover scalar
+and scoped grammar roots, maxdepth64, expressionID65536, eight-slot permutations,
+invalid IDs/counts and complete generated-node/fuel/constant/status equality.
+32-generation independent CPU/grammar checks pass. Packed-carrier quickquality
+3seeds×4generations also completed (`logs/parallel-gpu/packed-quality`). All
+subagent builds/performance runs are now stopped for root's quiet integrated
+validation; no additional direction is queued on this branch.

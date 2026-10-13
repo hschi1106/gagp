@@ -648,3 +648,16 @@ retain their bounded live high-water capacity, never ancestral code or ASTs.
 Tests compare each generation against independently verified GPU and CPU
 execution, exercise changed-input fallback before reference materialization,
 and check stale optimization hints across growth, shrink and constant changes.
+
+The native GPU grammar generator stores each pending task in eight bytes using
+exact17-bit expression,7-bit depth,4-bit scope-count and24-bit scope-map fields.
+These cover existing admitted limits (at most65536 source expressions plus an
+entry wrapper, depth64, eight lexical slots); this does not narrow supported
+grammars or change RNG/operator semantics. Invalid expression IDs are rejected
+before assignment, and reservation subtraction is checked before unsigned
+arithmetic. The16-byte task layout is instantiated only by differential tests,
+not exposed as a runtime experiment setting. Test coverage includes complete
+node/origin/constant/fuel/status/step equality, large expression IDs, maximum
+depth and lexical permutations. This reduces pending-array traffic, not the
+kernel's reported maximum local frame: other native operations still require
+that frame. Measured improvement is modest and concentrated in reproduction.

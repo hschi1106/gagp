@@ -25,9 +25,46 @@ template<class T> struct Device {
  std::vector<T> read(){std::vector<T>x(count);if(count)check(cudaMemcpy(x.data(),data,sizeof(T)*count,cudaMemcpyDeviceToHost));return x;}
 };
 __global__ void generate_many(PhaseGrammarView g,int root,int scope,int depth,int capacity,int count,
- PhaseTreeNode* nodes,int* origins,Value* values,PhaseGenerationResult* results) {
+ PhaseTreeNode* nodes,int* origins,Value* values,PhaseGenerationResult* results,bool compact_tasks) {
  const int i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
- results[i]=generate_phase(g,root,scope,depth,capacity,UINT64_C(1982371)+i,nodes+i*capacity,origins+i*capacity,values+i*capacity);
+ if(compact_tasks)results[i]=generate_phase(g,root,scope,depth,capacity,UINT64_C(1982371)+i,nodes+i*capacity,origins+i*capacity,values+i*capacity);
+ else results[i]=generate_phase<false>(g,root,scope,depth,capacity,UINT64_C(1982371)+i,nodes+i*capacity,origins+i*capacity,values+i*capacity);
+}
+void check_generation_task_limits() {
+ constexpr int root=65536,depth_count=65;
+ std::vector<PhaseExpression> expressions(root+1);
+ expressions[0].kind=PhaseExpressionKind::Bound;expressions[0].target=0;
+ expressions[0].node.kind=PhaseTreeKind::Local;expressions[0].node.opcode=Opcode::Load;
+ auto& entry=expressions[root];entry.kind=PhaseExpressionKind::Reference;entry.target=0;entry.scope_count=8;
+ for(int i=0;i<8;++i)entry.scope[i]=7-i;
+ std::vector<unsigned> minimum(std::size_t(root+1)*depth_count,0xffffffffu);
+ minimum[64]=1;minimum[std::size_t(root)*depth_count+64]=1;
+ Device<PhaseExpression> e(expressions.size());e.upload(expressions);
+ Device<unsigned> m(minimum.size());m.upload(minimum);
+ Device<PhaseProduction> p(1);p.upload({{0,1.0}});
+ Device<PhaseNonterminal> n(1);n.upload({{0,1,8,false}});
+ Device<PhaseTreeNode> nodes(1);Device<int> origins(1);Device<Value> values(1);Device<PhaseGenerationResult> results(1);
+ PhaseGrammarView view{e.data,int(e.count),p.data,1,n.data,1,nullptr,0,nullptr,0,m.data,depth_count};
+ for(bool compact:{false,true}) {
+  p.upload({{0,1.0}});
+  generate_many<<<1,1>>>(view,root,8,64,1,1,nodes.data,origins.data,values.data,results.data,compact);
+  check(cudaGetLastError());check(cudaDeviceSynchronize());const auto r=results.read()[0];
+  require(r.status==PhaseCompileStatus::Ok && r.nodes==1 && r.steps==2 && nodes.read()[0].operand==7 && origins.read()[0]==0,
+      "generator task truncated 17-bit expression/depth64/eight-slot permutation");
+  auto invalid=view;invalid.expression_count=131072;
+  generate_many<<<1,1>>>(invalid,root,8,64,1,1,nodes.data,origins.data,values.data,results.data,compact);
+  check(cudaGetLastError());check(cudaDeviceSynchronize());
+  require(results.read()[0].status==PhaseCompileStatus::Invalid,"generator task index bound accepted oversized private table");
+  for(int bad_root:{-1,root+1}) {
+   generate_many<<<1,1>>>(view,bad_root,8,64,1,1,nodes.data,origins.data,values.data,results.data,compact);
+   check(cudaGetLastError());check(cudaDeviceSynchronize());
+   require(results.read()[0].status==PhaseCompileStatus::Invalid,"invalid root reached compact task storage");
+  }
+  p.upload({{-1,1.0}});
+  generate_many<<<1,1>>>(view,root,8,64,1,1,nodes.data,origins.data,values.data,results.data,compact);
+  check(cudaGetLastError());check(cudaDeviceSynchronize());
+  require(results.read()[0].status!=PhaseCompileStatus::Ok,"invalid production expression was masked into compact task");
+ }
 }
 std::string scalar_definition(){return R"({"format_version":"grammar-definition-v2",
  "entry":{"nonterminal":"Int","type":"Int"},"search_limits":{"max_nodes":132,"max_depth":20},"execution_limits":{"fuel":10000},
@@ -67,7 +104,7 @@ void run_root(const std::shared_ptr<const grammar::CompiledGrammar>& owner,unsig
  Device<PhaseTreeNode> nodes(count*capacity);Device<int> origins(count*capacity);Device<Value> values(count*capacity);Device<PhaseGenerationResult> results(count);
  e.upload(host.expressions);p.upload(host.productions);n.upload(host.nonterminals);d.upload(host.domains);v.upload(host.values);m.upload(host.minimum);
  PhaseGrammarView view{e.data,int(e.count),p.data,int(p.count),n.data,int(n.count),d.data,int(d.count),v.data,int(v.count),m.data,host.depth_count};
- auto launch=[&](int scope,int limit_depth,int limit_capacity){generate_many<<<(count+63)/64,64>>>(view,host.root_expression,scope,limit_depth,limit_capacity,count,nodes.data,origins.data,values.data,results.data);check(cudaGetLastError());check(cudaDeviceSynchronize());};
+ auto launch=[&](int scope,int limit_depth,int limit_capacity,bool compact_tasks=true){generate_many<<<(count+63)/64,64>>>(view,host.root_expression,scope,limit_depth,limit_capacity,count,nodes.data,origins.data,values.data,results.data,compact_tasks);check(cudaGetLastError());check(cudaDeviceSynchronize());};
  const auto begin=std::chrono::steady_clock::now();launch(nt.scope.size(),depth,capacity);
  const double cold_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count();
  cudaEvent_t start,stop;check(cudaEventCreate(&start));check(cudaEventCreate(&stop));std::vector<float> warm;
@@ -79,17 +116,20 @@ void run_root(const std::shared_ptr<const grammar::CompiledGrammar>& owner,unsig
  auto normalized_nt=host.nonterminals;auto normalized_p=host.productions;
  normalize_static_phase_weights(host,normalized_nt,normalized_p);
  for(int test_depth:{1,4,depth})for(int test_capacity:{1,4,capacity}) {
-  n.upload(host.nonterminals);p.upload(host.productions);launch(nt.scope.size(),test_depth,test_capacity);
+  n.upload(host.nonterminals);p.upload(host.productions);launch(nt.scope.size(),test_depth,test_capacity,false);
   const auto old_results=results.read();const auto old_nodes=nodes.read();const auto old_origins=origins.read();const auto old_values=values.read();
-  n.upload(normalized_nt);p.upload(normalized_p);launch(nt.scope.size(),test_depth,test_capacity);
+  for(bool normalize:{false,true}) {
+  if(normalize){n.upload(normalized_nt);p.upload(normalized_p);}
+  launch(nt.scope.size(),test_depth,test_capacity,true);
   const auto new_results=results.read();const auto new_nodes=nodes.read();const auto new_origins=origins.read();const auto new_values=values.read();
   for(int i=0;i<count;++i){const auto a=old_results[i],b=new_results[i];
-   require(a.status==b.status && a.nodes==b.nodes && a.constants==b.constants && a.steps==b.steps,"static weights changed generation result");
+   require(a.status==b.status && a.nodes==b.nodes && a.constants==b.constants && a.steps==b.steps,"compact tasks/static weights changed generation result");
    for(int j=0;j<a.nodes;++j){const int index=i*test_capacity+j;const auto x=old_nodes[index],y=new_nodes[index];
     require(x.kind==y.kind && x.opcode==y.opcode && x.operand==y.operand && x.arity==y.arity && x.fuel==y.fuel && x.merge_fuel==y.merge_fuel &&
-      old_origins[index]==new_origins[index],"static weights changed generated node/RNG trajectory");}
+      old_origins[index]==new_origins[index],"compact tasks/static weights changed generated node/RNG trajectory");}
    for(int j=0;j<a.constants;++j){const auto x=old_values[i*test_capacity+j],y=new_values[i*test_capacity+j];
-    require(x.tag==y.tag && (x.tag==ValueTag::Bool?x.b==y.b:x.i==y.i),"static weights changed constant RNG trajectory");}
+    require(x.tag==y.tag && (x.tag==ValueTag::Bool?x.b==y.b:x.i==y.i),"compact tasks/static weights changed constant RNG trajectory");}
+  }
   }
  }
  n.upload(host.nonterminals);p.upload(host.productions);
@@ -163,6 +203,7 @@ int main(int argc,char** argv){try{
  const auto owner=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(definition));
  const auto& grammar=*owner;
  FitnessSessionGpu session;require(session.init({{}},{Value::from_int(0)},1,1,1.0).ok,"CUDA initialization");
+ check_generation_task_limits();
  check_native_preparation();
  int admitted=0,unsupported=0;
  for(const auto& nt:grammar.nonterminals()) {

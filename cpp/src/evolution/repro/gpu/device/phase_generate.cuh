@@ -1,6 +1,7 @@
 #pragma once
 #include "phase_compile.cuh"
 #include "grammar_random.cuh"
+#include <type_traits>
 
 namespace gagp::evo::repro {
 // Private uploaded grammar tables. The host compiler admits every reachable
@@ -31,6 +32,7 @@ struct PhaseGenerationResult { PhaseCompileStatus status=PhaseCompileStatus::Inv
 // This constructs grammar expressions, not merely type-compatible trees. Scope
 // maps and constant domains come from the admitted immutable grammar upload.
 // Each lane owns its bounded output; no CPU reproduction or device allocation.
+template<bool CompactTasks=true>
 __device__ inline PhaseGenerationResult generate_phase(
     const PhaseGrammarView& grammar, int root_expression, int scope_count,
     int depth, int capacity, std::uint64_t seed,
@@ -39,14 +41,32 @@ __device__ inline PhaseGenerationResult generate_phase(
   if (!grammar.expressions || !grammar.minimum || !nodes || !origins || !constants ||
       root_expression<0 || root_expression>=grammar.expression_count ||
       scope_count<0 || scope_count>8 || depth<=0 || depth>=grammar.depth_count ||
-      depth>64 || capacity<=0 || capacity>1024) return result;
+      depth>64 || capacity<=0 || capacity>1024 || grammar.expression_count>131071) return result;
   const auto minimum=[&](int expression,int d)->unsigned {
     return expression<0 || expression>=grammar.expression_count || d<0 || d>=grammar.depth_count
         ? 0xffffffffU : grammar.minimum[static_cast<std::size_t>(expression)*grammar.depth_count+d];
   };
-  struct Task { int expression,depth,scope_count; unsigned scope; };
+  // Host grammar admission caps source expressions at65536, plus one entry
+  // expression. Depth<=64 and scope<=8; eight lexical indices occupy24bits.
+  // Exact field packing halves dynamically indexed local pending storage.
+  constexpr unsigned unselected=131071;
+  struct CompactTask {
+    unsigned expression:17;
+    unsigned depth:7;
+    unsigned scope_count:4;
+    unsigned scope:24;
+    CompactTask()=default;
+    __device__ CompactTask(unsigned e,unsigned d,unsigned n,unsigned s):expression(e),depth(d),scope_count(n),scope(s){}
+  };
+  struct ReferenceTask {
+    int expression,depth,scope_count;unsigned scope;
+    ReferenceTask()=default;
+    __device__ ReferenceTask(unsigned e,unsigned d,unsigned n,unsigned s):expression(e),depth(d),scope_count(n),scope(s){}
+  };
+  static_assert(sizeof(CompactTask)==8 && sizeof(ReferenceTask)==16,"generation task layouts");
+  using Task=std::conditional_t<CompactTasks,CompactTask,ReferenceTask>;
   Task pending[192]; int count=1;
-  pending[0]={root_expression,depth,scope_count,0};
+  pending[0]={static_cast<unsigned>(root_expression),static_cast<unsigned>(depth),static_cast<unsigned>(scope_count),0};
   for(int i=0;i<scope_count;++i)pending[0].scope |= static_cast<unsigned>(i) << (3*i);
   unsigned reserved=minimum(root_expression,depth);
   if(reserved>static_cast<unsigned>(capacity)) {result.status=PhaseCompileStatus::Capacity;return result;}
@@ -64,11 +84,12 @@ __device__ inline PhaseGenerationResult generate_phase(
       const auto nt=grammar.nonterminals[expression.target];
       if(nt.scope_count!=expression.scope_count || nt.production_offset<0 || nt.production_count<=0 ||
           nt.production_offset>grammar.production_count || nt.production_count>grammar.production_count-nt.production_offset)return result;
-      Task next{-1,task.depth,expression.scope_count,0};
+      Task next{unselected,static_cast<unsigned>(task.depth),static_cast<unsigned>(expression.scope_count),0};
       for(int i=0;i<next.scope_count;++i) {
         if(expression.scope[i]<0 || expression.scope[i]>=task.scope_count)return result;
         next.scope |= ((task.scope >> (3*expression.scope[i])) & 7U) << (3*i);
       }
+      if(reserved>static_cast<unsigned>(capacity-result.nodes)) {result.status=PhaseCompileStatus::Capacity;return result;}
       const unsigned available=static_cast<unsigned>(capacity-result.nodes)-reserved;
       double maximum=nt.normalized_weights?1:0,total=0;
       if(!nt.normalized_weights)for(int i=0;i<nt.production_count;++i) {
@@ -84,9 +105,10 @@ __device__ inline PhaseGenerationResult generate_phase(
       for(int i=0;i<nt.production_count;++i) {
         const auto p=grammar.productions[nt.production_offset+i];
         if(minimum(p.expression,task.depth)>available)continue;
+        if(p.expression<0 || p.expression>=grammar.expression_count)return result;
         next.expression=p.expression; choice-=nt.normalized_weights?p.weight:p.weight/maximum; if(choice<0)break;
       }
-      if(next.expression<0 || count>=192)return result;
+      if(next.expression==unselected || count>=192)return result;
       reserved+=minimum(next.expression,next.depth);pending[count++]=next;continue;
     }
     if(task.depth<=0 || result.nodes>=capacity) {result.status=PhaseCompileStatus::Capacity;return result;}
