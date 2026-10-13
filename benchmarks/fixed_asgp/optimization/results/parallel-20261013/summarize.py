@@ -1,4 +1,5 @@
 """Summarize this checked experiment; reads archived results, runs no benchmarks."""
+import argparse
 import csv
 import hashlib
 import json
@@ -7,7 +8,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[5]
 RAW = ROOT / 'logs/optimization/parallel-20261013'
-OUT = Path(__file__).resolve().parent
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--followup', action='store_true', help='Summarize the final exact all-fit integration into latest/, preserving the initial checkpoint')
+args = parser.parse_args()
+OUT = Path(__file__).resolve().parent / ('latest' if args.followup else '')
+OUT.mkdir(exist_ok=True)
+MAIN = 'followup-main' if args.followup else 'final-main'
+EXTRA = 'followup-extra' if args.followup else 'final-gpu-extra'
+FIXED = 'followup-fixed' if args.followup else 'final-fixed'
 MODES = ['asgp_1t', 'gagp_cpu', 'gpu_eval', 'gpu_repro', 'gpu_overlap']
 TASKS = ['house_robber', 'median']
 def read(p): return json.loads(p.read_text())
@@ -18,15 +26,15 @@ def csv_write(name, rows):
     with (OUT / name).open('w') as f:
         w = csv.DictWriter(f, fieldnames=keys); w.writeheader(); w.writerows(rows)
 
-main = read(RAW/'final-main/manifest.json')
-extra = read(RAW/'final-gpu-extra/manifest.json')
+main = read(RAW/MAIN/'manifest.json')
+extra = read(RAW/EXTRA/'manifest.json')
 baseline = read(RAW/'baseline/manifest.json')
 repeats, generations, summary = [], [], []
 for task in TASKS:
     den = median([c['evolve_wall_ms'] for c in main['cells'] if c['task']==task and c['mode']=='asgp_1t'])
     procden = median([c['process_wall_s'] for c in main['cells'] if c['task']==task and c['mode']=='asgp_1t'])
     for mode in MODES:
-        cells = [(name,c) for name,m in [('final-main',main),('final-gpu-extra',extra)] for c in m['cells'] if c['task']==task and c['mode']==mode]
+        cells = [(name,c) for name,m in [(MAIN,main),(EXTRA,extra)] for c in m['cells'] if c['task']==task and c['mode']==mode]
         vals=[]; procs=[]; stages=[]
         for name,c in cells:
             r=read(Path(c['output'])); gs=r['generations']; vals.append(c['evolve_wall_ms']);procs.append(c['process_wall_s'])
@@ -41,7 +49,7 @@ for task in TASKS:
         old=next(c['evolve_wall_ms'] for c in baseline['cells'] if c['task']==task and c['mode']==mode)
         summary.append(dict(task=task,mode=mode,n=len(vals),search_median_ms=median(vals),search_range_ms=[min(vals),max(vals)],search_raw_ms=vals,asgp_search_ratio=den/median(vals),process_median_s=median(procs),asgp_process_ratio=procden/median(procs),initial_control_search_ms=old,change_ratio=old/median(vals),stage_medians_ms={p:{k:median([v[p][k] for v in stages]) for k in stages[0][p]} for p in stages[0]}))
 csv_write('search-repeats.csv',repeats);csv_write('generations.csv',generations)
-fixed = read(RAW/'final-fixed/manifest.json'); scaling=[]; formals=[]
+fixed = read(RAW/FIXED/'manifest.json'); scaling=[]; formals=[]
 for c in fixed['cells']:
     if c['tag'].startswith('scaling.'):
         scaling.append(dict(task=c['task'],population=c['population'],mode=c['mode'],median_ms=c['median_ms'],raw_ms=json.dumps([r['generation_ms'] for r in c['rows'] if r['rep']>=0]),raw=c['output']))
@@ -64,6 +72,6 @@ for c in main['cells']:
     old=RAW/'combined2-main'/(c['tag'].replace('.r1','.r0').replace('.r2','.r0')+'.final.json')
     new=Path(c['output']).with_suffix('.final.json')
     if old.exists() and new.exists():exact.append(dict(tag=c['tag'],same_final_export=read(old)==read(new)))
-report=dict(runtime_commit='b60a3367b37727bcf897be9cd66c27038da4d774',manifest_source_head=main['source_head'],binary_sha256=main['binary_sha256'],settings=main['flags'],frozen_sha256=main['frozen_sha256'],contract=main['contract'],timing=main['timing'],search=summary,fixed=formals,scaling=scaling,long_search=long,export_match_to_audited_candidate=exact,raw_root=str(RAW))
+report=dict(runtime_commit=('2d7dac3' if args.followup else 'b60a3367b37727bcf897be9cd66c27038da4d774'),manifest_source_head=main['source_head'],binary_sha256=main['binary_sha256'],settings=main['flags'],frozen_sha256=main['frozen_sha256'],contract=main['contract'],timing=main['timing'],search=summary,fixed=formals,scaling=scaling,long_search=long,long_search_runtime='b60a336 (GPU runtime unchanged by CPU-only all-fit integration)',profile_runtime='b60a336 (diagnostic)',export_match_to_audited_candidate=exact,raw_root=str(RAW))
 (OUT/'final.json').write_text(json.dumps(report,indent=2)+'\n')
 for r in summary:print(r['task'],r['mode'],round(r['search_median_ms'],3),round(r['asgp_search_ratio'],3))

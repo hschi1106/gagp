@@ -1,6 +1,36 @@
 # 平行 worktree 優化結果（2026-10-13）
 
-此為已驗證的 `b60a336` checkpoint；最後一批受控 follow-up 的採用決定會另列，不把未量測原型當成最佳版本。
+## 最終整合版 `2d7dac3`
+
+最佳設定包含 `GAGP_CPU_ALL_FIT_PAIRS=1`，完整設定／binary SHA／input hashes在 [latest/final.json](latest/final.json)。五模式三個獨立process，GPU-er-o再加六個、共九次；原始 [repeats](latest/search-repeats.csv)、[每代資料](latest/generations.csv)。House32/seed0、Median64/seed2、P1024/C1024，CPU1T。
+
+|模式|House搜尋秒|ASGP/本模式|Median搜尋秒|ASGP/本模式|
+|---|---:|---:|---:|---:|
+|asgp_1t|27.687|1.000×|5.865|1.000×|
+|gagp_cpu|84.247|0.329×|44.762|0.131×|
+|gpu_eval|9.698|2.855×|26.911|0.218×|
+|gpu_repro|1.353|20.469×|1.166|5.031×|
+|gpu_overlap|1.317|21.022×|1.136|5.161×|
+
+House30×仍未達：本輪分母推導的門檻為922.912ms，尚需把1317.052ms降低約30%。Median5×門檻1172.983ms，九次皆通過，但最慢1169.326ms的餘裕很小，不保證未來每次都超過5×。CPU仍慢於ASGP3.04×／7.63×。搜尋計時包含初始化、最後evaluation與AST匯出／admission；完整process另外包含輸入解析、JSON輸出與獨立稽核。
+
+完整process的GPU-o中位數House2.599s／Median2.354s，相對ASGP為10.822×／2.722×；不可與搜尋比值混稱。
+
+既有native phase-owner profile沒有host donor preparation，GPU-er與-o共用相同dependency schedule（[契約](../../../../../docs/design/gpu-reproduction.md#experimental-native-gpu-phase-population)）。兩欄不同樣本數與環境下的時間差，不能解讀成overlap收益；本輪未改此既有排程。
+
+新版本30個主run的final AST export全部與已稽核checkpoint一致。CPU all-fit無額外RNG／搜尋語意改動；GPU runtime沒有改動。此輪GPU時間稍低，同時其他使用者GPU工作自行結束釋放顯存，不能把變快歸因於CPU-only patch。其配對收益另見最後一節。
+
+固定單代九次中位House32.926999ms／Median7.277462ms，歷史frozen分母下38.935×／8.489×。[原始repeats](latest/fixed-repeats.csv)。此比值不能替代跨代搜尋。
+
+以最終binary重現：使用本文末的完整命令；摘要重建加 `--followup`。原始b60a336 checkpoint保持不變。
+
+最終scaling **40/40格全部成功**，兩題×P1024/2048/4096/8192×五模式，控制組皆重跑；[原始scaling](latest/scaling.csv)。其他使用者工作自行釋放顯存後，Median8192也成功，先前OOM紀錄仍保留。Sum五模式smoke成功。[最後整合驗證](latest/validation.json)；[30個run逐代非時間欄位／finalfitness與size完全一致](latest/exact-traces.json)。
+
+最新整合版stage timer：house_robber CPU末8代的跨process中位：eval 2523.7ms、repro 357.3ms；median CPU末8代的跨process中位：eval 320.1ms、repro 334.3ms。這些診斷支持House仍以CPU evaluator為主、Median兩段都昂貴；不是從profiled時間扣除正式總時間。
+
+## 以下保留 b60a336 checkpoint 的完整分析與驗證
+
+本表先保留已驗證的 `b60a336` checkpoint；最終CPU all-fit整合版 `2d7dac3` 另存 latest/，不覆蓋這批歷史原始結果。
 
 ## 結果與計時契約
 
@@ -98,15 +128,15 @@ CPU House主要仍是evaluator；Median evaluator和canonical reproduction都重
 
 原始workspace checkpoint `75d7f83`，實驗起點 `9ddab1d`，runtime最佳 `b60a3367b37727bcf897be9cd66c27038da4d774`。Worktree `/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001`；branch `opt/gpu-generation-20261001`。原始workspace／frozeninputs未更動，沒有push。Binary SHA256：`9962848fae0aec713e246bd3c106bcfe04bb0e91b380ce70140f586aa256b2e8`。
 
-完整flags、input hashes、raw locations見 [final.json](final.json)。CPU1T、jemalloc background_thread關閉。於主worktree重現五模式一次：
+完整flags、input hashes、raw locations見 [final.json](final.json)。CPU1T、jemalloc background_thread關閉。於主worktree重現目前最終整合版五模式一次：
 
 ```bash
 python3 - <<'PY'
 import json, subprocess
 from pathlib import Path
-d = json.loads(Path('benchmarks/fixed_asgp/optimization/results/parallel-20261013/final.json').read_text())
+d = json.loads(Path('benchmarks/fixed_asgp/optimization/results/parallel-20261013/latest/final.json').read_text())
 cmd = ['python3', 'benchmarks/fixed_asgp/optimization/short_search.py',
-       '--binary', 'logs/optimization/parallel-20261013/final-main/bench',
+       '--binary', 'logs/optimization/parallel-20261013/followup-main/bench',
        '--out', 'logs/optimization/parallel-20261013/reproduce-new', '--repeats', '1']
 for k, v in d['settings'].items():
     if k.startswith('GAGP_'): cmd += ['--flag', k + '=' + v]
@@ -114,4 +144,14 @@ subprocess.run(cmd, check=True)
 PY
 ```
 
-必須使用新outputdir。只看GPU-o加`--modes gpu_overlap`；正式GPU重複改9。重建摘要：`python3 benchmarks/fixed_asgp/optimization/results/parallel-20261013/summarize.py`。Raw logs與archived binaries保留在 `logs/optimization/parallel-20261013/`。
+必須使用新outputdir。只看GPU-o加`--modes gpu_overlap`；正式GPU重複改9。重建最終摘要：`python3 benchmarks/fixed_asgp/optimization/results/parallel-20261013/summarize.py --followup`；不加參數則重建b60a336歷史checkpoint。Raw logs與archived binaries保留在 `logs/optimization/parallel-20261013/`。
+
+## 最後一批受控實驗
+
+- **保留 CPU all-fit compatible groups**（整合`2d7dac3`）：在exact counted-pair模式下以群組最大donor需求／最小receiver allowance證明雙向全部合法，直接計數與取rank；否則保留逐pair檢查。Projected allowances全部保留原掃描。三個paired processes GPU-e中位House9799.642→9602.729ms，Median27446.501→26525.440ms；較大late population無改善。RNG、全部fitness/variation counters/finalAST相同。新設定`GAGP_CPU_ALL_FIT_PAIRS=1`，不是另一條CPU reproduction架構。[原始證據](../parallel-cpu-all-fit-pairs-20261013.json)。
+- **淘汰 lazy typed LOAD binding**：House4搜尋12.592→12.768s，late Median evaluator1.200→1.233s；重複LOAD取binding抵銷prebinding消除的工作。程式碼與開關已移除。[證據](../cpu-lazy-load-rejected-20261013.json)。
+- **淘汰GPU per-slot executable reuse**：private owner lineage、double-buffer certificate、edit時invalidate，40代正確性對照通過。三process House改善0.63%、Median0.69%，範圍重疊；實際減少部分GPUcompile卻未建立有價值E2E收益。整個prototype/flag移除，raw patch保留為歷史紀錄。[證據](../parallel-gpu-20261013/rejected-executable-reuse.json)。
+
+三個探索worktree：`parallel-cpu-eval-20261013`、`parallel-cpu-repro-20261013`、`parallel-gpu-20261013`（均位於主worktree同一父目錄）；最後統一在主worktree驗證。CPU1T不是禁止平行開發，但所有性能run與build均以同一lock序列化。
+
+目前沒有證據支持繼續堆疊這些小型cache／binding／stack變體。House30×與CPU接近ASGP仍未完成：下一個值得重新建立證據的方向是static typed phase execution plan，必須先證明比既有typed VM快，且把每代新phase建構成本算入；不能直接假定JIT/codegen會贏。Median後期則仍需處理canonical admission與population bloat，但已淘汰的size tie-break會使搜尋退化，不能原樣重用。

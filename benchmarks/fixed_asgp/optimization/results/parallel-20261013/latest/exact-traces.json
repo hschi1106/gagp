@@ -1,0 +1,152 @@
+[
+  {
+    "tag": "house_robber.asgp_1t.s0.r0",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "house_robber.gagp_cpu.s0.r0",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "house_robber.gpu_eval.s0.r0",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "house_robber.gpu_repro.s0.r0",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "house_robber.gpu_overlap.s0.r0",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "median.asgp_1t.s2.r0",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "median.gagp_cpu.s2.r0",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "median.gpu_eval.s2.r0",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "median.gpu_repro.s2.r0",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "median.gpu_overlap.s2.r0",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "house_robber.asgp_1t.s0.r1",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "house_robber.gagp_cpu.s0.r1",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "house_robber.gpu_eval.s0.r1",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "house_robber.gpu_repro.s0.r1",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "house_robber.gpu_overlap.s0.r1",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "median.asgp_1t.s2.r1",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "median.gagp_cpu.s2.r1",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "median.gpu_eval.s2.r1",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "median.gpu_repro.s2.r1",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "median.gpu_overlap.s2.r1",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "house_robber.asgp_1t.s0.r2",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "house_robber.gagp_cpu.s0.r2",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "house_robber.gpu_eval.s0.r2",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "house_robber.gpu_repro.s0.r2",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "house_robber.gpu_overlap.s0.r2",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "median.asgp_1t.s2.r2",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "median.gagp_cpu.s2.r2",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "median.gpu_eval.s2.r2",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "median.gpu_repro.s2.r2",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  },
+  {
+    "tag": "median.gpu_overlap.s2.r2",
+    "all_non_timing_generation_fields_identical": true,
+    "final_fitness_and_size_identical": true
+  }
+]

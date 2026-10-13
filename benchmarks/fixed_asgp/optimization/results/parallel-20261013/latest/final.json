@@ -1,0 +1,1181 @@
+{
+  "runtime_commit": "2d7dac3",
+  "manifest_source_head": "2d7dac3610f546469378cc98788c40aea54d7131",
+  "binary_sha256": "0636a67ef2e1f5460b337973d3cd8537a97e1f50ac94eebc693d8e541c6c7644",
+  "settings": {
+    "GAGP_VIEW_PROFILE": "1",
+    "GAGP_TYPED_VIEW_PHASE": "1",
+    "GAGP_SORT_CASES": "1",
+    "GAGP_COMPACT_FRAMES": "1",
+    "GAGP_CONSTANT_PHASE": "1",
+    "GAGP_POPULATION_HANDOFF": "1",
+    "GAGP_DIRECT_PHASE": "1",
+    "GAGP_DIRECT_ROOT": "1",
+    "GAGP_WINDOW_EXECUTOR": "1",
+    "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+    "GAGP_BOUND_ADD_PHASE": "1",
+    "GAGP_REUSE_ADMISSION_COMPILE": "1",
+    "GAGP_REUSE_SITE_CONTRACTS": "1",
+    "GAGP_SELECTED_SITES": "1",
+    "GAGP_OWNED_PREPARATION": "1",
+    "GAGP_CUDA_DEVICE": "0",
+    "GAGP_HOST_THREADS": "1",
+    "GAGP_SINGLE_EVAL_IDENTITY": "1",
+    "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+    "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+    "MALLOC_CONF": "background_thread:false,narenas:1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "GAGP_GPU_PHASE_POPULATION": "1",
+    "GAGP_OWNED_PHASE_PACK": "1",
+    "GAGP_OWNED_PHASE_CAPS": "1",
+    "GAGP_COORDINATE_EXECUTOR": "1",
+    "GAGP_COUNTED_SITE_DRAW": "1",
+    "GAGP_CPU_REGION_VIEWS": "1",
+    "GAGP_GPU_DIAGNOSTICS": "1",
+    "GAGP_SEARCH_TRACE": "1",
+    "GAGP_BATCH_PHASE_IMPORT": "1",
+    "GAGP_BATCH_PHASE_EXPORT": "1",
+    "GAGP_REUSE_PHASE_GRAMMAR": "1",
+    "GAGP_PHASE_CAP_BUCKETS": "1",
+    "GAGP_PHASE_REPRO_THREADS": "1",
+    "GAGP_GPU_STATIC_WEIGHTS": "1",
+    "GAGP_BUCKET_WORKSPACE": "1",
+    "GAGP_BOUND_COMPARE_PHASE": "1",
+    "GAGP_COORDINATE_RING_MEMO": "1",
+    "GAGP_CPU_LAZY_ANALYSIS": "1",
+    "GAGP_CPU_SELECTED_PARENTS": "1",
+    "GAGP_CPU_SELECTED_MUTATION": "1",
+    "GAGP_CPU_BOUND_PHASE": "1",
+    "GAGP_CPU_COORDINATE_VIEWS": "1",
+    "GAGP_CPU_TYPED_PHASE": "1",
+    "GAGP_CPU_DENSE_MEMO": "1",
+    "GAGP_CPU_SCALAR_VIEWS": "1",
+    "GAGP_CPU_COUNTED_PAIRS": "1",
+    "GAGP_CPU_COORDINATE_DRIVER": "1",
+    "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+    "GAGP_GPU_INPLACE_MUTATION": "1",
+    "GAGP_OWNED_PHASE_PACKED": "1",
+    "GAGP_CPU_ALL_FIT_PAIRS": "1"
+  },
+  "frozen_sha256": {
+    "house_robber.source.json": "2c1eccd448fd813c444741d26df6e3021b55ffff0dd7a41f4fdc4508a81efd79",
+    "house_robber.grammar.json": "4aaa81fdf946a750842bf36bee0d6bf8ff7dcc465c7bdaf21194ac85b69e07ae",
+    "house_robber.p1024.prepared.json": "fb9c3e6d3a4741056fca1a58c0def1335127c65fe8eaa3d98772b60ce13a2ebd",
+    "median.source.json": "772c38045baf963050c1689f247a953b9346889ef58ddeaefac452818dcb5d74",
+    "median.grammar.json": "156eafd9aab2f22d0da2ea97b13476e65fdbe5994227eb12c4bf6a5e03c725d1",
+    "median.p1024.prepared.json": "f90c7bbc8c198cbb2fa6074f9466d8ed4061d7db1ed1dcb06170cf79c0c4d03f"
+  },
+  "contract": "P1024/C1024 all pairs; CPU1T; unchanged native modes; changing populations; fresh process per repeat",
+  "timing": "Primary evolve_wall_ms: cold evolution initialization + complete generations + final evaluation; excludes input import and post-search audit/export. process_wall_s includes those costs. Lock waiting excluded.",
+  "search": [
+    {
+      "task": "house_robber",
+      "mode": "asgp_1t",
+      "n": 3,
+      "search_median_ms": 27687.368225,
+      "search_range_ms": [
+        27606.241305,
+        27743.405092
+      ],
+      "search_raw_ms": [
+        27687.368225,
+        27743.405092,
+        27606.241305
+      ],
+      "asgp_search_ratio": 1.0,
+      "process_median_s": 28.124795082956553,
+      "asgp_process_ratio": 1.0,
+      "initial_control_search_ms": 27735.811782,
+      "change_ratio": 1.0017496627561828,
+      "stage_medians_ms": {
+        "early8": {
+          "generation_ms": 686.4114505,
+          "eval_ms": 685.967081,
+          "repro_ms": 0.42469999999999997
+        },
+        "late8": {
+          "generation_ms": 875.1827014999999,
+          "eval_ms": 874.5731705000001,
+          "repro_ms": 0.5484720000000001
+        }
+      }
+    },
+    {
+      "task": "house_robber",
+      "mode": "gagp_cpu",
+      "n": 3,
+      "search_median_ms": 84247.491347,
+      "search_range_ms": [
+        84230.520823,
+        84443.591933
+      ],
+      "search_raw_ms": [
+        84230.520823,
+        84443.591933,
+        84247.491347
+      ],
+      "asgp_search_ratio": 0.3286432365203706,
+      "process_median_s": 85.46939563704655,
+      "asgp_process_ratio": 0.32906275835143395,
+      "initial_control_search_ms": 186021.962683,
+      "change_ratio": 2.208041565496705,
+      "stage_medians_ms": {
+        "early8": {
+          "generation_ms": 2120.36019,
+          "eval_ms": 1964.344963,
+          "repro_ms": 155.968276,
+          "compile_ms": 0.9339999999999993,
+          "pack_ms": 0.0,
+          "eval_kernel_ms": 0.0,
+          "repro_kernel_ms": 0.0,
+          "repro_decode_ms": 0.0,
+          "upload_ms": 0.0
+        },
+        "late8": {
+          "generation_ms": 2885.321094,
+          "eval_ms": 2523.66654,
+          "repro_ms": 357.3176195,
+          "compile_ms": 1.6321790000000007,
+          "pack_ms": 0.0,
+          "eval_kernel_ms": 0.0,
+          "repro_kernel_ms": 0.0,
+          "repro_decode_ms": 0.0,
+          "upload_ms": 0.0
+        }
+      }
+    },
+    {
+      "task": "house_robber",
+      "mode": "gpu_eval",
+      "n": 3,
+      "search_median_ms": 9698.216895,
+      "search_range_ms": [
+        9571.992603,
+        9731.194255
+      ],
+      "search_raw_ms": [
+        9571.992603,
+        9731.194255,
+        9698.216895
+      ],
+      "asgp_search_ratio": 2.8548926596263757,
+      "process_median_s": 10.989521556999534,
+      "asgp_process_ratio": 2.5592374460599774,
+      "initial_control_search_ms": 19082.88954,
+      "change_ratio": 1.9676699074278645,
+      "stage_medians_ms": {
+        "early8": {
+          "generation_ms": 195.3905145,
+          "eval_ms": 37.586552,
+          "repro_ms": 155.3218995,
+          "compile_ms": 0.9917374999999997,
+          "pack_ms": 9.1693395,
+          "eval_kernel_ms": 18.0019955,
+          "repro_kernel_ms": 0.0,
+          "repro_decode_ms": 0.0,
+          "upload_ms": 0.5867175
+        },
+        "late8": {
+          "generation_ms": 434.23724100000004,
+          "eval_ms": 83.06883450000001,
+          "repro_ms": 346.893896,
+          "compile_ms": 1.5701469999999982,
+          "pack_ms": 24.7997235,
+          "eval_kernel_ms": 41.0583715,
+          "repro_kernel_ms": 0.0,
+          "repro_decode_ms": 0.0,
+          "upload_ms": 0.877877
+        }
+      }
+    },
+    {
+      "task": "house_robber",
+      "mode": "gpu_repro",
+      "n": 3,
+      "search_median_ms": 1352.666497,
+      "search_range_ms": [
+        1339.460394,
+        1377.184606
+      ],
+      "search_raw_ms": [
+        1352.666497,
+        1377.184606,
+        1339.460394
+      ],
+      "asgp_search_ratio": 20.468732157117955,
+      "process_median_s": 2.654383105924353,
+      "asgp_process_ratio": 10.595605065517653,
+      "initial_control_search_ms": 2252.629627,
+      "change_ratio": 1.6653252165230494,
+      "stage_medians_ms": {
+        "early8": {
+          "generation_ms": 23.575708499999998,
+          "eval_ms": 19.90732,
+          "repro_ms": 3.982116,
+          "compile_ms": 0.0,
+          "pack_ms": 0.2762445,
+          "eval_kernel_ms": 18.185885,
+          "repro_kernel_ms": 3.1292479424737394,
+          "repro_decode_ms": 0.6942675,
+          "upload_ms": 0.4555175
+        },
+        "late8": {
+          "generation_ms": 30.5978855,
+          "eval_ms": 24.057978,
+          "repro_ms": 6.3175935,
+          "compile_ms": 0.0,
+          "pack_ms": 0.5317145,
+          "eval_kernel_ms": 22.496068,
+          "repro_kernel_ms": 4.550655925646424,
+          "repro_decode_ms": 0.9202185,
+          "upload_ms": 0.7135385000000001
+        }
+      }
+    },
+    {
+      "task": "house_robber",
+      "mode": "gpu_overlap",
+      "n": 9,
+      "search_median_ms": 1317.052337,
+      "search_range_ms": [
+        1302.121613,
+        1384.564768
+      ],
+      "search_raw_ms": [
+        1364.408136,
+        1384.564768,
+        1327.073961,
+        1317.052337,
+        1308.606019,
+        1308.368101,
+        1302.121613,
+        1311.682771,
+        1324.697434
+      ],
+      "asgp_search_ratio": 21.0222232231611,
+      "process_median_s": 2.598748135846108,
+      "asgp_process_ratio": 10.822439733583339,
+      "initial_control_search_ms": 2245.12952,
+      "change_ratio": 1.704662340992452,
+      "stage_medians_ms": {
+        "early8": {
+          "generation_ms": 22.6003305,
+          "eval_ms": 19.234187,
+          "repro_ms": 3.6479345,
+          "compile_ms": 0.0,
+          "pack_ms": 0.262246,
+          "eval_kernel_ms": 16.9908345,
+          "repro_kernel_ms": 2.7789439763873816,
+          "repro_decode_ms": 0.657345,
+          "upload_ms": 0.455082
+        },
+        "late8": {
+          "generation_ms": 28.5110915,
+          "eval_ms": 22.663002499999997,
+          "repro_ms": 5.9343,
+          "compile_ms": 0.0,
+          "pack_ms": 0.4772305,
+          "eval_kernel_ms": 21.2218245,
+          "repro_kernel_ms": 4.051215998828411,
+          "repro_decode_ms": 0.954301,
+          "upload_ms": 0.6997735
+        }
+      }
+    },
+    {
+      "task": "median",
+      "mode": "asgp_1t",
+      "n": 3,
+      "search_median_ms": 5864.915193,
+      "search_range_ms": [
+        5832.900955,
+        5995.4967
+      ],
+      "search_raw_ms": [
+        5864.915193,
+        5995.4967,
+        5832.900955
+      ],
+      "asgp_search_ratio": 1.0,
+      "process_median_s": 6.4060475449077785,
+      "asgp_process_ratio": 1.0,
+      "initial_control_search_ms": 6019.578558,
+      "change_ratio": 1.0263709465372317,
+      "stage_medians_ms": {
+        "early8": {
+          "generation_ms": 48.0141415,
+          "eval_ms": 47.544877,
+          "repro_ms": 0.41362699999999997
+        },
+        "late8": {
+          "generation_ms": 145.28840250000002,
+          "eval_ms": 144.72658,
+          "repro_ms": 0.5235105
+        }
+      }
+    },
+    {
+      "task": "median",
+      "mode": "gagp_cpu",
+      "n": 3,
+      "search_median_ms": 44762.426797,
+      "search_range_ms": [
+        44195.316795,
+        44923.26529
+      ],
+      "search_raw_ms": [
+        44762.426797,
+        44923.26529,
+        44195.316795
+      ],
+      "asgp_search_ratio": 0.13102317306426892,
+      "process_median_s": 45.94234777218662,
+      "asgp_process_ratio": 0.13943666041346678,
+      "initial_control_search_ms": 88834.443471,
+      "change_ratio": 1.9845761239413797,
+      "stage_medians_ms": {
+        "early8": {
+          "generation_ms": 639.234878,
+          "eval_ms": 327.694001,
+          "repro_ms": 313.29600600000003,
+          "compile_ms": 1.527820000000001,
+          "pack_ms": 0.0,
+          "eval_kernel_ms": 0.0,
+          "repro_kernel_ms": 0.0,
+          "repro_decode_ms": 0.0,
+          "upload_ms": 0.0
+        },
+        "late8": {
+          "generation_ms": 659.4236185,
+          "eval_ms": 320.1278575,
+          "repro_ms": 334.329975,
+          "compile_ms": 1.8553260000000011,
+          "pack_ms": 0.0,
+          "eval_kernel_ms": 0.0,
+          "repro_kernel_ms": 0.0,
+          "repro_decode_ms": 0.0,
+          "upload_ms": 0.0
+        }
+      }
+    },
+    {
+      "task": "median",
+      "mode": "gpu_eval",
+      "n": 3,
+      "search_median_ms": 26911.351647,
+      "search_range_ms": [
+        26493.670054,
+        27038.312003
+      ],
+      "search_raw_ms": [
+        26911.351647,
+        27038.312003,
+        26493.670054
+      ],
+      "asgp_search_ratio": 0.21793461993031493,
+      "process_median_s": 28.184582450892776,
+      "asgp_process_ratio": 0.22728907040114268,
+      "initial_control_search_ms": 50688.069948,
+      "change_ratio": 1.8835200332143316,
+      "stage_medians_ms": {
+        "early8": {
+          "generation_ms": 353.002424,
+          "eval_ms": 40.720279500000004,
+          "repro_ms": 312.5067575,
+          "compile_ms": 1.620796,
+          "pack_ms": 20.030798,
+          "eval_kernel_ms": 2.0798535,
+          "repro_kernel_ms": 0.0,
+          "repro_decode_ms": 0.0,
+          "upload_ms": 0.782689
+        },
+        "late8": {
+          "generation_ms": 380.8046265,
+          "eval_ms": 43.8183855,
+          "repro_ms": 331.3951285,
+          "compile_ms": 1.7575474999999987,
+          "pack_ms": 23.509824000000002,
+          "eval_kernel_ms": 2.0552155,
+          "repro_kernel_ms": 0.0,
+          "repro_decode_ms": 0.0,
+          "upload_ms": 0.857374
+        }
+      }
+    },
+    {
+      "task": "median",
+      "mode": "gpu_repro",
+      "n": 3,
+      "search_median_ms": 1165.666129,
+      "search_range_ms": [
+        1146.581254,
+        1208.801666
+      ],
+      "search_raw_ms": [
+        1208.801666,
+        1165.666129,
+        1146.581254
+      ],
+      "asgp_search_ratio": 5.031385099978315,
+      "process_median_s": 2.3959303279407322,
+      "asgp_process_ratio": 2.673720295703959,
+      "initial_control_search_ms": 2123.191469,
+      "change_ratio": 1.8214404761176688,
+      "stage_medians_ms": {
+        "early8": {
+          "generation_ms": 9.5497735,
+          "eval_ms": 3.9390270000000003,
+          "repro_ms": 5.258532499999999,
+          "compile_ms": 0.0,
+          "pack_ms": 0.3841375,
+          "eval_kernel_ms": 2.3148115,
+          "repro_kernel_ms": 3.821168076246977,
+          "repro_decode_ms": 0.9151875,
+          "upload_ms": 0.6528700000000001
+        },
+        "late8": {
+          "generation_ms": 10.0999995,
+          "eval_ms": 3.514567,
+          "repro_ms": 6.2722385,
+          "compile_ms": 0.0,
+          "pack_ms": 0.37032849999999995,
+          "eval_kernel_ms": 2.2610615000000003,
+          "repro_kernel_ms": 4.704560044687241,
+          "repro_decode_ms": 0.9223385,
+          "upload_ms": 0.659833
+        }
+      }
+    },
+    {
+      "task": "median",
+      "mode": "gpu_overlap",
+      "n": 9,
+      "search_median_ms": 1136.318605,
+      "search_range_ms": [
+        1123.502325,
+        1169.326486
+      ],
+      "search_raw_ms": [
+        1169.326486,
+        1160.063884,
+        1128.718813,
+        1140.462298,
+        1136.318605,
+        1123.502325,
+        1130.820981,
+        1142.592063,
+        1128.119176
+      ],
+      "asgp_search_ratio": 5.161329900956783,
+      "process_median_s": 2.353782698046416,
+      "asgp_process_ratio": 2.721596836540878,
+      "initial_control_search_ms": 2058.254315,
+      "change_ratio": 1.811335576081675,
+      "stage_medians_ms": {
+        "early8": {
+          "generation_ms": 9.5747775,
+          "eval_ms": 3.940434,
+          "repro_ms": 5.2849889999999995,
+          "compile_ms": 0.0,
+          "pack_ms": 0.37586699999999995,
+          "eval_kernel_ms": 2.3032415,
+          "repro_kernel_ms": 3.824031920172274,
+          "repro_decode_ms": 0.9250320000000001,
+          "upload_ms": 0.651292
+        },
+        "late8": {
+          "generation_ms": 10.0795325,
+          "eval_ms": 3.5276285,
+          "repro_ms": 6.240425999999999,
+          "compile_ms": 0.0,
+          "pack_ms": 0.36767950000000005,
+          "eval_kernel_ms": 2.2568225,
+          "repro_kernel_ms": 4.684144053142518,
+          "repro_decode_ms": 0.9306765,
+          "upload_ms": 0.6550725
+        }
+      }
+    }
+  ],
+  "fixed": [
+    {
+      "task": "house_robber",
+      "process": "formal0.house_robber",
+      "repeat": 0,
+      "generation_ms": 33.355723
+    },
+    {
+      "task": "house_robber",
+      "process": "formal0.house_robber",
+      "repeat": 1,
+      "generation_ms": 32.926999
+    },
+    {
+      "task": "house_robber",
+      "process": "formal0.house_robber",
+      "repeat": 2,
+      "generation_ms": 33.225437
+    },
+    {
+      "task": "median",
+      "process": "formal0.median",
+      "repeat": 0,
+      "generation_ms": 7.255669
+    },
+    {
+      "task": "median",
+      "process": "formal0.median",
+      "repeat": 1,
+      "generation_ms": 7.18325
+    },
+    {
+      "task": "median",
+      "process": "formal0.median",
+      "repeat": 2,
+      "generation_ms": 7.277462
+    },
+    {
+      "task": "house_robber",
+      "process": "formal1.house_robber",
+      "repeat": 0,
+      "generation_ms": 33.422515
+    },
+    {
+      "task": "house_robber",
+      "process": "formal1.house_robber",
+      "repeat": 1,
+      "generation_ms": 33.017201
+    },
+    {
+      "task": "house_robber",
+      "process": "formal1.house_robber",
+      "repeat": 2,
+      "generation_ms": 32.403067
+    },
+    {
+      "task": "median",
+      "process": "formal1.median",
+      "repeat": 0,
+      "generation_ms": 7.475755
+    },
+    {
+      "task": "median",
+      "process": "formal1.median",
+      "repeat": 1,
+      "generation_ms": 7.340324
+    },
+    {
+      "task": "median",
+      "process": "formal1.median",
+      "repeat": 2,
+      "generation_ms": 7.35122
+    },
+    {
+      "task": "house_robber",
+      "process": "formal2.house_robber",
+      "repeat": 0,
+      "generation_ms": 32.711453
+    },
+    {
+      "task": "house_robber",
+      "process": "formal2.house_robber",
+      "repeat": 1,
+      "generation_ms": 32.716647
+    },
+    {
+      "task": "house_robber",
+      "process": "formal2.house_robber",
+      "repeat": 2,
+      "generation_ms": 32.791663
+    },
+    {
+      "task": "median",
+      "process": "formal2.median",
+      "repeat": 0,
+      "generation_ms": 7.334245
+    },
+    {
+      "task": "median",
+      "process": "formal2.median",
+      "repeat": 1,
+      "generation_ms": 7.217847
+    },
+    {
+      "task": "median",
+      "process": "formal2.median",
+      "repeat": 2,
+      "generation_ms": 7.200328
+    }
+  ],
+  "scaling": [
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "mode": "asgp_1t",
+      "median_ms": 1318.288201,
+      "raw_ms": "[1318.288201, 1300.679051, 1323.533527]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p1024.house_robber.asgp_1t.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "mode": "gagp_cpu",
+      "median_ms": 3356.959215,
+      "raw_ms": "[3356.959215, 3398.160205, 3345.591542]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p1024.house_robber.gagp_cpu.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "mode": "gpu_eval",
+      "median_ms": 284.679115,
+      "raw_ms": "[284.679115, 283.951311, 285.940257]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p1024.house_robber.gpu_eval.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "mode": "gpu_repro",
+      "median_ms": 32.811645,
+      "raw_ms": "[34.540985, 32.811645, 32.663669]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p1024.house_robber.gpu_repro.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "mode": "gpu_overlap",
+      "median_ms": 33.899771,
+      "raw_ms": "[33.899771, 33.597918, 34.264486]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p1024.house_robber.gpu_overlap.json"
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "mode": "asgp_1t",
+      "median_ms": 56.633123,
+      "raw_ms": "[56.272467, 57.255027, 56.633123]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p1024.median.asgp_1t.json"
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "mode": "gagp_cpu",
+      "median_ms": 553.224731,
+      "raw_ms": "[551.16801, 553.224731, 558.479046]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p1024.median.gagp_cpu.json"
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "mode": "gpu_eval",
+      "median_ms": 254.054773,
+      "raw_ms": "[256.339894, 254.054773, 253.465981]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p1024.median.gpu_eval.json"
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "mode": "gpu_repro",
+      "median_ms": 7.158346,
+      "raw_ms": "[7.309098, 7.158346, 7.10574]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p1024.median.gpu_repro.json"
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "mode": "gpu_overlap",
+      "median_ms": 7.299958,
+      "raw_ms": "[7.299958, 7.483041, 7.267765]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p1024.median.gpu_overlap.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 2048,
+      "mode": "asgp_1t",
+      "median_ms": 2680.37752,
+      "raw_ms": "[2630.372415, 2680.37752, 2690.266291]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p2048.house_robber.asgp_1t.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 2048,
+      "mode": "gagp_cpu",
+      "median_ms": 6834.019507,
+      "raw_ms": "[6834.019507, 6780.822932, 6853.57349]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p2048.house_robber.gagp_cpu.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 2048,
+      "mode": "gpu_eval",
+      "median_ms": 524.954165,
+      "raw_ms": "[520.74824, 524.954165, 534.785794]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p2048.house_robber.gpu_eval.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 2048,
+      "mode": "gpu_repro",
+      "median_ms": 54.637084,
+      "raw_ms": "[54.968818, 54.637084, 54.632169]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p2048.house_robber.gpu_repro.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 2048,
+      "mode": "gpu_overlap",
+      "median_ms": 54.904305,
+      "raw_ms": "[55.772353, 54.46413, 54.904305]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p2048.house_robber.gpu_overlap.json"
+    },
+    {
+      "task": "median",
+      "population": 2048,
+      "mode": "asgp_1t",
+      "median_ms": 113.691577,
+      "raw_ms": "[116.051398, 113.691577, 113.201969]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p2048.median.asgp_1t.json"
+    },
+    {
+      "task": "median",
+      "population": 2048,
+      "mode": "gagp_cpu",
+      "median_ms": 1107.761247,
+      "raw_ms": "[1107.761247, 1106.377901, 1108.536687]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p2048.median.gagp_cpu.json"
+    },
+    {
+      "task": "median",
+      "population": 2048,
+      "mode": "gpu_eval",
+      "median_ms": 506.675401,
+      "raw_ms": "[506.675401, 507.394301, 502.192618]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p2048.median.gpu_eval.json"
+    },
+    {
+      "task": "median",
+      "population": 2048,
+      "mode": "gpu_repro",
+      "median_ms": 15.493369,
+      "raw_ms": "[15.493369, 15.415633, 15.71978]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p2048.median.gpu_repro.json"
+    },
+    {
+      "task": "median",
+      "population": 2048,
+      "mode": "gpu_overlap",
+      "median_ms": 15.338752,
+      "raw_ms": "[15.209406, 15.56159, 15.338752]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p2048.median.gpu_overlap.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 4096,
+      "mode": "asgp_1t",
+      "median_ms": 5267.044301,
+      "raw_ms": "[5267.044301, 5236.492998, 5291.326385]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p4096.house_robber.asgp_1t.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 4096,
+      "mode": "gagp_cpu",
+      "median_ms": 13582.72629,
+      "raw_ms": "[13582.72629, 13724.54386, 13331.383497]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p4096.house_robber.gagp_cpu.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 4096,
+      "mode": "gpu_eval",
+      "median_ms": 1113.085821,
+      "raw_ms": "[1125.596923, 1101.583084, 1113.085821]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p4096.house_robber.gpu_eval.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 4096,
+      "mode": "gpu_repro",
+      "median_ms": 101.462606,
+      "raw_ms": "[101.462606, 102.797457, 99.48298]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p4096.house_robber.gpu_repro.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 4096,
+      "mode": "gpu_overlap",
+      "median_ms": 101.946723,
+      "raw_ms": "[101.946723, 102.705227, 99.863936]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p4096.house_robber.gpu_overlap.json"
+    },
+    {
+      "task": "median",
+      "population": 4096,
+      "mode": "asgp_1t",
+      "median_ms": 230.971683,
+      "raw_ms": "[230.971683, 227.876385, 233.017731]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p4096.median.asgp_1t.json"
+    },
+    {
+      "task": "median",
+      "population": 4096,
+      "mode": "gagp_cpu",
+      "median_ms": 2265.070937,
+      "raw_ms": "[2298.217936, 2213.180568, 2265.070937]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p4096.median.gagp_cpu.json"
+    },
+    {
+      "task": "median",
+      "population": 4096,
+      "mode": "gpu_eval",
+      "median_ms": 1038.251938,
+      "raw_ms": "[1032.64844, 1038.251938, 1053.026579]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p4096.median.gpu_eval.json"
+    },
+    {
+      "task": "median",
+      "population": 4096,
+      "mode": "gpu_repro",
+      "median_ms": 23.82211,
+      "raw_ms": "[23.82211, 23.930352, 22.791009]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p4096.median.gpu_repro.json"
+    },
+    {
+      "task": "median",
+      "population": 4096,
+      "mode": "gpu_overlap",
+      "median_ms": 24.015643,
+      "raw_ms": "[23.834329, 24.015643, 25.442124]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p4096.median.gpu_overlap.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 8192,
+      "mode": "asgp_1t",
+      "median_ms": 10590.617377,
+      "raw_ms": "[10660.99518, 10516.986055, 10590.617377]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p8192.house_robber.asgp_1t.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 8192,
+      "mode": "gagp_cpu",
+      "median_ms": 27425.371083,
+      "raw_ms": "[27700.783817, 27425.371083, 27240.749103]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p8192.house_robber.gagp_cpu.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 8192,
+      "mode": "gpu_eval",
+      "median_ms": 2191.629957,
+      "raw_ms": "[2164.843271, 2205.879816, 2191.629957]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p8192.house_robber.gpu_eval.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 8192,
+      "mode": "gpu_repro",
+      "median_ms": 195.932917,
+      "raw_ms": "[198.172328, 193.974709, 195.932917]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p8192.house_robber.gpu_repro.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 8192,
+      "mode": "gpu_overlap",
+      "median_ms": 195.941998,
+      "raw_ms": "[197.481051, 195.941998, 195.237299]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p8192.house_robber.gpu_overlap.json"
+    },
+    {
+      "task": "median",
+      "population": 8192,
+      "mode": "asgp_1t",
+      "median_ms": 462.617633,
+      "raw_ms": "[462.617633, 472.491073, 457.078914]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p8192.median.asgp_1t.json"
+    },
+    {
+      "task": "median",
+      "population": 8192,
+      "mode": "gagp_cpu",
+      "median_ms": 4640.671162,
+      "raw_ms": "[4586.090882, 4642.562509, 4640.671162]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p8192.median.gagp_cpu.json"
+    },
+    {
+      "task": "median",
+      "population": 8192,
+      "mode": "gpu_eval",
+      "median_ms": 2243.022535,
+      "raw_ms": "[2085.209231, 2243.022535, 2250.193522]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p8192.median.gpu_eval.json"
+    },
+    {
+      "task": "median",
+      "population": 8192,
+      "mode": "gpu_repro",
+      "median_ms": 49.173805,
+      "raw_ms": "[49.173805, 47.765501, 49.381544]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p8192.median.gpu_repro.json"
+    },
+    {
+      "task": "median",
+      "population": 8192,
+      "mode": "gpu_overlap",
+      "median_ms": 48.683397,
+      "raw_ms": "[48.683397, 48.617355, 48.69698]",
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-fixed/scaling.p8192.median.gpu_overlap.json"
+    }
+  ],
+  "long_search": [
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "generations": 128,
+      "search_ms": 12627.928837,
+      "best_seen": -4427,
+      "final_best": -4427,
+      "unique_final": 1022,
+      "mean_nodes": 749.736328125,
+      "genotype_device_bytes": 586294144,
+      "errors": 0,
+      "timeouts": 0,
+      "fallbacks": 0,
+      "unscored": 0,
+      "operator_fallbacks": 0,
+      "audit_mismatches": 0,
+      "first8_ms": 24.043902000000003,
+      "last8_ms": 176.417633,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/final-long/house_robber.gpu_overlap.s0.r0.json"
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "generations": 128,
+      "search_ms": 7629.888646,
+      "best_seen": -768,
+      "final_best": -865,
+      "unique_final": 1022,
+      "mean_nodes": 704.1533203125,
+      "genotype_device_bytes": 583625060,
+      "errors": 0,
+      "timeouts": 0,
+      "fallbacks": 0,
+      "unscored": 0,
+      "operator_fallbacks": 0,
+      "audit_mismatches": 0,
+      "first8_ms": 26.919489499999997,
+      "last8_ms": 75.2496515,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/final-long/house_robber.gpu_overlap.s1.r0.json"
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "generations": 128,
+      "search_ms": 8235.004795,
+      "best_seen": -4535,
+      "final_best": -4535,
+      "unique_final": 1022,
+      "mean_nodes": 603.8095703125,
+      "genotype_device_bytes": 578614628,
+      "errors": 0,
+      "timeouts": 0,
+      "fallbacks": 0,
+      "unscored": 0,
+      "operator_fallbacks": 0,
+      "audit_mismatches": 0,
+      "first8_ms": 24.038694,
+      "last8_ms": 104.303664,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/final-long/house_robber.gpu_overlap.s2.r0.json"
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "generations": 128,
+      "search_ms": 3955.365358,
+      "best_seen": -478,
+      "final_best": -478,
+      "unique_final": 1019,
+      "mean_nodes": 782.6064453125,
+      "genotype_device_bytes": 797993060,
+      "errors": 3657603,
+      "timeouts": 0,
+      "fallbacks": 0,
+      "unscored": 0,
+      "operator_fallbacks": 0,
+      "audit_mismatches": 0,
+      "first8_ms": 12.373309500000001,
+      "last8_ms": 30.520276,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/final-long/median.gpu_overlap.s0.r0.json"
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "generations": 128,
+      "search_ms": 1986.987069,
+      "best_seen": -642,
+      "final_best": -642,
+      "unique_final": 957,
+      "mean_nodes": 121.744140625,
+      "genotype_device_bytes": 762173472,
+      "errors": 1099800,
+      "timeouts": 0,
+      "fallbacks": 0,
+      "unscored": 0,
+      "operator_fallbacks": 0,
+      "audit_mismatches": 0,
+      "first8_ms": 12.0172335,
+      "last8_ms": 12.004034,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/final-long/median.gpu_overlap.s1.r0.json"
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "generations": 128,
+      "search_ms": 2060.335047,
+      "best_seen": -642,
+      "final_best": -642,
+      "unique_final": 999,
+      "mean_nodes": 174.4765625,
+      "genotype_device_bytes": 764892808,
+      "errors": 1051331,
+      "timeouts": 0,
+      "fallbacks": 0,
+      "unscored": 0,
+      "operator_fallbacks": 0,
+      "audit_mismatches": 0,
+      "first8_ms": 9.7019895,
+      "last8_ms": 13.971560499999999,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/final-long/median.gpu_overlap.s2.r0.json"
+    }
+  ],
+  "long_search_runtime": "b60a336 (GPU runtime unchanged by CPU-only all-fit integration)",
+  "profile_runtime": "b60a336 (diagnostic)",
+  "export_match_to_audited_candidate": [
+    {
+      "tag": "house_robber.asgp_1t.s0.r0",
+      "same_final_export": true
+    },
+    {
+      "tag": "house_robber.gagp_cpu.s0.r0",
+      "same_final_export": true
+    },
+    {
+      "tag": "house_robber.gpu_eval.s0.r0",
+      "same_final_export": true
+    },
+    {
+      "tag": "house_robber.gpu_repro.s0.r0",
+      "same_final_export": true
+    },
+    {
+      "tag": "house_robber.gpu_overlap.s0.r0",
+      "same_final_export": true
+    },
+    {
+      "tag": "median.asgp_1t.s2.r0",
+      "same_final_export": true
+    },
+    {
+      "tag": "median.gagp_cpu.s2.r0",
+      "same_final_export": true
+    },
+    {
+      "tag": "median.gpu_eval.s2.r0",
+      "same_final_export": true
+    },
+    {
+      "tag": "median.gpu_repro.s2.r0",
+      "same_final_export": true
+    },
+    {
+      "tag": "median.gpu_overlap.s2.r0",
+      "same_final_export": true
+    },
+    {
+      "tag": "house_robber.asgp_1t.s0.r1",
+      "same_final_export": true
+    },
+    {
+      "tag": "house_robber.gagp_cpu.s0.r1",
+      "same_final_export": true
+    },
+    {
+      "tag": "house_robber.gpu_eval.s0.r1",
+      "same_final_export": true
+    },
+    {
+      "tag": "house_robber.gpu_repro.s0.r1",
+      "same_final_export": true
+    },
+    {
+      "tag": "house_robber.gpu_overlap.s0.r1",
+      "same_final_export": true
+    },
+    {
+      "tag": "median.asgp_1t.s2.r1",
+      "same_final_export": true
+    },
+    {
+      "tag": "median.gagp_cpu.s2.r1",
+      "same_final_export": true
+    },
+    {
+      "tag": "median.gpu_eval.s2.r1",
+      "same_final_export": true
+    },
+    {
+      "tag": "median.gpu_repro.s2.r1",
+      "same_final_export": true
+    },
+    {
+      "tag": "median.gpu_overlap.s2.r1",
+      "same_final_export": true
+    },
+    {
+      "tag": "house_robber.asgp_1t.s0.r2",
+      "same_final_export": true
+    },
+    {
+      "tag": "house_robber.gagp_cpu.s0.r2",
+      "same_final_export": true
+    },
+    {
+      "tag": "house_robber.gpu_eval.s0.r2",
+      "same_final_export": true
+    },
+    {
+      "tag": "house_robber.gpu_repro.s0.r2",
+      "same_final_export": true
+    },
+    {
+      "tag": "house_robber.gpu_overlap.s0.r2",
+      "same_final_export": true
+    },
+    {
+      "tag": "median.asgp_1t.s2.r2",
+      "same_final_export": true
+    },
+    {
+      "tag": "median.gagp_cpu.s2.r2",
+      "same_final_export": true
+    },
+    {
+      "tag": "median.gpu_eval.s2.r2",
+      "same_final_export": true
+    },
+    {
+      "tag": "median.gpu_repro.s2.r2",
+      "same_final_export": true
+    },
+    {
+      "tag": "median.gpu_overlap.s2.r2",
+      "same_final_export": true
+    }
+  ],
+  "raw_root": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013"
+}

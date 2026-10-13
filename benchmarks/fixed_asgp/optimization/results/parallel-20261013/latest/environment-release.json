@@ -1,0 +1,5 @@
+{
+  "observed_utc": "2026-10-13T09:23:03.885959+00:00",
+  "gpu": "259 MiB, 23887 MiB, 0 %, 1935 MHz\n",
+  "note": "Other workload released GPU memory without any action from this experiment. Earlier Median8192 OOM preserved; followup scaling will retry."
+}
