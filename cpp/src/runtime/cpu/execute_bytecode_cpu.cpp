@@ -564,7 +564,8 @@ ExecResult run_code_impl(const CodeView& view,
                                      phase.instruction_fuel, &types, nullptr, bound}, {}, presets, remaining, false, nullptr);
           };
           detail::RegionAdapter<decltype(phase_runner)> adapter{
-              segment, parameters, domains, phase_runner, buffers.phases};
+              segment, parameters, domains, phase_runner, buffers.phases,
+              buffers.phases.select_segment(segment)};
           detail::RegionExecutionLayout layout;
           layout.state_count = static_cast<std::uint32_t>(plan.state_types.size());
           layout.request_count = static_cast<std::uint32_t>(plan.requests.size());

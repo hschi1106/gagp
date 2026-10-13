@@ -295,5 +295,24 @@
     "region_driver_self_percent": 12.72
   },
   "tests": "4 focused runtime/parity tests plus recurrence memo and extended execution-session tests passed; late numeric replay restores original fuel",
-  "caveats": "Early runs overlapped other agents builds, though benchmark processes serialized. Do not claim formal speedups from these samples. Dense step per-case environment lookup caused Median regression; moved to session construction in typed-cached. All completed seed0 candidates match baseline full final fitness/nodes and per-generation best/mean/best_nodes."
+  "caveats": "Directional serialized timings with possible parallel compilation; repeated main BM run by integration owner. Initial dense/typed Median regression was unconditional construction of unused one-shot buffers (repeated getenv), fixed via lazy one-shot construction.",
+  "latest": {
+    "binary_sha256": "c4c086ccff6e1278fd6b0e5ea53cc6cbd500dd7d54025d3f1b35e15f5de02505",
+    "cells": [
+      {
+        "task": "house_robber",
+        "evolve_wall_ms": 14268.784627,
+        "process_wall_s": 15.13648290000856,
+        "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/typed-table-4/house_robber.gagp_cpu.s0.r0.json"
+      },
+      {
+        "task": "median",
+        "evolve_wall_ms": 3362.801776,
+        "process_wall_s": 4.465376661159098,
+        "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/typed-table-4/median.gagp_cpu.s0.r0.json"
+      }
+    ]
+  },
+  "quality": "3 seeds x 4 generations match archived reference best/mean/best_nodes and variation counters. Seed0 full final AST population matches reference for both tasks; incumbent history matches after excluding elapsed_search_ms.",
+  "rejected": "Direct optional result construction: House14.269\u219214.340s, Median3.363\u21923.306s, no stable gain; removed."
 }

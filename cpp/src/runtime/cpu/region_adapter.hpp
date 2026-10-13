@@ -15,6 +15,7 @@
 namespace gagp::detail {
 
 struct DirectPhaseBindings {
+  bool initialized = false;
   bool supported = false;
   bool typed = false;
   ValueTag result_type = ValueTag::Invalid;
@@ -33,12 +34,20 @@ struct RegionPhaseScratch {
   bool dense_enabled = std::getenv("GAGP_CPU_DENSE_MEMO") != nullptr;
   bool typed_enabled = std::getenv("GAGP_CPU_TYPED_PHASE") != nullptr;
   bool direct_enabled = typed_enabled || std::getenv("GAGP_CPU_BOUND_PHASE") != nullptr;
-  std::unordered_map<const RegionPhase*, DirectPhaseBindings> direct;
+  struct SegmentBindings { std::vector<DirectPhaseBindings> phases; };
+  std::unordered_map<const BoundedRegionSegment*, SegmentBindings> segments;
+  SegmentBindings* select_segment(const BoundedRegionSegment& segment) {
+    if (!direct_enabled) return nullptr;
+    auto [it, inserted] = segments.try_emplace(&segment);
+    if (inserted) it->second.phases.resize(4 + segment.preparations.size() +
+                                         segment.request_expressions.size());
+    return &it->second;
+  }
 
-  const DirectPhaseBindings& bindings(const RegionPhase& phase, const RegionPlan& plan, ValueTag expected) {
-    auto [it, inserted] = direct.try_emplace(&phase);
-    if (inserted) {
-      auto& result = it->second;
+  const DirectPhaseBindings& bindings(DirectPhaseBindings& result, const RegionPhase& phase,
+                                      const RegionPlan& plan, ValueTag expected) {
+    if (!result.initialized) {
+      result.initialized = true;
       result.supported = std::none_of(phase.program.code.begin(), phase.program.code.end(),
           [](const Instr& instruction) { return instruction.op == Opcode::Store; });
       if (result.supported) {
@@ -64,7 +73,7 @@ struct RegionPhaseScratch {
         }
       }
     }
-    return it->second;
+    return result;
   }
   std::vector<std::pair<int, Value>> presets;
   std::vector<std::pair<int, ValueTag>> types;
@@ -82,9 +91,11 @@ struct RegionAdapter {
   // The iterative driver invokes phases serially. Keep bounded binding storage
   // across visits instead of allocating it for every predicate/body evaluation.
   RegionPhaseScratch& scratch;
+  RegionPhaseScratch::SegmentBindings* profiles;
 
   ExecResult run(const RegionPhase& phase, ValueTag expected,
-                 const RegionFrame& frame, int& fuel, bool result_phase = false) {
+                 const RegionFrame& frame, int& fuel, bool result_phase = false,
+                 std::size_t binding_index = 0) {
     const auto& program = phase.program;
     // Verified constant phases have no observable local reads. Avoid building
     // bindings and an interpreter frame, preserving the full instruction charge
@@ -106,7 +117,7 @@ struct RegionAdapter {
       return {false, value, {ErrCode::Value, ""}};
     }
     if (scratch.direct_enabled) {
-      const auto& bindings = scratch.bindings(phase, segment.plan, expected);
+      const auto& bindings = scratch.bindings(profiles->phases[binding_index], phase, segment.plan, expected);
       if (bindings.supported) {
         const BoundPhaseInputs inputs{bindings, frame, parameters, segment.plan};
         auto result = phase_runner(phase.program, {}, {}, fuel, &inputs);
@@ -162,19 +173,19 @@ struct RegionAdapter {
           return {true, run(*segment.boundary, plan.result_type, frame, fuel, true)};
       }
     } else if (Value::container_len(frame.state[plan.sequence_state]) <= 1) {
-      return {true, run(segment.base_body, plan.result_type, frame, fuel, true)};
+      return {true, run(segment.base_body, plan.result_type, frame, fuel, true, 2)};
     }
-    auto predicate = run(segment.base_predicate, ValueTag::Bool, frame, fuel);
+    auto predicate = run(segment.base_predicate, ValueTag::Bool, frame, fuel, false, 1);
     if (predicate.is_error) return {false, predicate};
     if (predicate.value.b)
-      return {true, run(segment.base_body, plan.result_type, frame, fuel, true)};
+      return {true, run(segment.base_body, plan.result_type, frame, fuel, true, 2)};
     return {};
   }
 
   ExecResult prepare(RegionFrame& frame, int& fuel) {
     for (std::size_t i = 0; i < segment.preparations.size(); ++i) {
       const auto& preparation = segment.plan.preparations[i];
-      auto result = run(segment.preparations[i], preparation.type, frame, fuel);
+      auto result = run(segment.preparations[i], preparation.type, frame, fuel, false, 4 + i);
       if (result.is_error) return result;
       if (preparation.kind == RegionPreparationKind::InteriorCut)
         result.value = Value::from_int(clamp_interior_cut(result.value.i,
@@ -225,7 +236,8 @@ struct RegionAdapter {
         }
         case RegionTransitionKind::Expression: {
           auto result = run(segment.request_expressions[transition.expression],
-                            plan.state_types[i], frame, fuel);
+                            plan.state_types[i], frame, fuel, false,
+                            4 + segment.preparations.size() + transition.expression);
           if (result.is_error) return result;
           next[i] = result.value;
           break;
@@ -241,7 +253,7 @@ struct RegionAdapter {
            frame.results[i].tag != ValueTag::FallbackToken) ||
           frame.results[i].tag != frame.results[0].tag)
         return region_failure(ErrCode::Type, "bounded region child result type mismatch");
-    auto result = run(segment.combine, segment.plan.result_type, frame, fuel, true);
+    auto result = run(segment.combine, segment.plan.result_type, frame, fuel, true, 3);
     if (!result.is_error && result.value.tag != frame.results[0].tag)
       return region_failure(ErrCode::Type, "bounded region combine result type mismatch");
     return result;
