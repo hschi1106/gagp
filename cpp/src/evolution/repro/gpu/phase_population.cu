@@ -71,6 +71,22 @@ __global__ void annotate_import(TreePointers trees,const DeviceSlot* slots,int r
  const int row=blockIdx.x*blockDim.x+threadIdx.x;if(row>=rows)return;const auto& s=slots[row%slot_count];const auto t=trees.view(row);
  if(!valid(trees.lengths[row]) || !annotate_phase_tree(s.grammar,s.root,s.scope,t.nodes,t.origins,t.node_count,trees.output(row).sites))trees.lengths[row].status=PhaseCompileStatus::Invalid;
 }
+// Compact cold transport: offsets and lengths are host-validated before launch.
+struct ImportOffset { std::size_t nodes, constants; };
+__global__ void scatter_import(TreePointers trees, const ImportOffset* offsets,
+    const PhaseTreeNode* nodes, const int* origins, const Value* constants) {
+ const int row=blockIdx.x;const auto r=trees.lengths[row];const auto offset=offsets[row];
+ const auto out=trees.output(row);
+ for(int i=threadIdx.x;i<r.nodes;i+=blockDim.x){out.nodes[i]=nodes[offset.nodes+i];out.origins[i]=origins[offset.nodes+i];}
+ for(int i=threadIdx.x;i<r.constants;i+=blockDim.x)out.constants[i]=constants[offset.constants+i];
+}
+__global__ void gather_export(TreePointers trees,const ImportOffset* offsets,
+    PhaseTreeNode* nodes,int* origins,Value* constants) {
+ const int row=blockIdx.x;const auto r=trees.lengths[row];const auto offset=offsets[row];
+ const auto input=trees.view(row);
+ for(int i=threadIdx.x;i<r.nodes;i+=blockDim.x){nodes[offset.nodes+i]=input.nodes[i];origins[offset.nodes+i]=input.origins[i];}
+ for(int i=threadIdx.x;i<r.constants;i+=blockDim.x)constants[offset.constants+i]=input.constants[i];
+}
 __device__ int tournament(const double* fitness,int population,int pressure,DGrammarRandom& random) {
  int best=random.bounded(population);
  for(int i=1;i<pressure;++i){const int candidate=random.bounded(population);if(fitness[candidate]>fitness[best])best=candidate;}
@@ -222,6 +238,7 @@ std::string skeleton_key(const NativePhaseLayout& layout) {
 struct NativePhasePopulation::Impl {
  std::shared_ptr<const grammar::CompiledGrammar> grammar;
  const bool counted_sites;
+ std::size_t peak_transport_bytes=0;
  NativePhaseLayout layout;int population=0,slot_count=0,device=-1;bool healthy=true;
  std::vector<std::unique_ptr<UploadedProfile>> profiles;Buffer<DeviceSlot> slots;
  std::unique_ptr<Trees> current,next,crossed,scratch;
@@ -310,6 +327,9 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   slot.type=tag(nt.type);for(int j=0;j<slot.scope;++j)slot.locals[j]=tag(nt.scope[j].type);slots.push_back(slot);
  }
  impl_->slots.upload(slots);std::vector<PhaseGenerationResult> lengths(rows);
+ const bool batch_import=std::getenv("GAGP_BATCH_PHASE_IMPORT")!=nullptr;
+ std::vector<PhaseTreeNode> import_nodes;std::vector<int> import_origins;std::vector<Value> import_constants;
+ std::vector<ImportOffset> import_offsets; if(batch_import)import_offsets.reserve(rows);
  // Upload live imports only, avoiding full-capacity host staging arrays.
  for(std::size_t p=0;p<input.size();++p) {
   auto imported=p==0?impl_->layout:import_native_phase_layout(*impl_->grammar,input[p]);
@@ -319,9 +339,16 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
    phase_layout_require(a.nonterminal==b.nonterminal && a.ordinal==b.ordinal && a.binders==b.binders && a.max_depth==b.max_depth,"mixed phase contract requires fallback");
    const int row=p*impl_->slot_count+k;const auto& gene=imported.genes[k];auto& l=lengths[row];l.status=PhaseCompileStatus::Ok;l.nodes=gene.nodes.size();l.constants=gene.constants.size();
    phase_layout_require(l.nodes>0 && l.nodes<=capacity && l.constants<=l.nodes,"imported phase capacity");
+   if(batch_import) {
+    import_offsets.push_back({import_nodes.size(),import_constants.size()});
+    import_nodes.insert(import_nodes.end(),gene.nodes.begin(),gene.nodes.end());
+    import_origins.insert(import_origins.end(),gene.origins.begin(),gene.origins.end());
+    import_constants.insert(import_constants.end(),gene.constants.begin(),gene.constants.end());
+   } else {
    checked(cudaMemcpy(impl_->current->nodes.data+std::size_t(row)*capacity,gene.nodes.data(),gene.nodes.size()*sizeof(PhaseTreeNode),cudaMemcpyHostToDevice));
    checked(cudaMemcpy(impl_->current->origins.data+std::size_t(row)*capacity,gene.origins.data(),gene.origins.size()*sizeof(int),cudaMemcpyHostToDevice));
    if(!gene.constants.empty())checked(cudaMemcpy(impl_->current->constants.data+std::size_t(row)*capacity,gene.constants.data(),gene.constants.size()*sizeof(Value),cudaMemcpyHostToDevice));
+   }
   }
   // Bind root and capture locals to the actual evaluator input order.
   impl_->programs.push_back(compile_for_eval(input[p],input_names));
@@ -334,6 +361,13 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  }
  impl_->stack_bounds=impl_->fixed_stack_bounds;
  impl_->current->lengths.upload(lengths);
+ if(batch_import) {
+  Buffer<PhaseTreeNode> nodes;Buffer<int> origins;Buffer<Value> values;Buffer<ImportOffset> offsets;
+  nodes.upload(import_nodes);origins.upload(import_origins);values.upload(import_constants);offsets.upload(import_offsets);
+  impl_->peak_transport_bytes=std::max(impl_->peak_transport_bytes,impl_->bytes()+nodes.bytes()+origins.bytes()+values.bytes()+offsets.bytes());
+  scatter_import<<<rows,128>>>(pointers(*impl_->current),offsets.data,nodes.data,origins.data,values.data);
+  checked(cudaGetLastError());checked(cudaDeviceSynchronize());
+ }
  annotate_import<<<(rows+63)/64,64>>>(pointers(*impl_->current),impl_->slots.data,rows,impl_->slot_count);checked(cudaGetLastError());
  for(const auto& r:impl_->current->lengths.read(rows))phase_layout_require(valid(r),"import site annotation failed");
  impl_->fitness.reserve(input.size());impl_->stats.reserve(input.size());impl_->code.reserve(rows*code_capacity);impl_->constants.reserve(rows*capacity);
@@ -355,7 +389,7 @@ FitnessEvalResult NativePhasePopulation::evaluate(FitnessSessionGpu& session,boo
  return session.eval_owned_programs(owned,diagnostics);
 }
 const char* NativePhasePopulation::profile_name()const{return impl_->counted_sites?"native-gpu-phase-v2-counted":"native-gpu-phase-v1";}
-std::size_t NativePhasePopulation::device_bytes()const{return impl_->bytes();}
+std::size_t NativePhasePopulation::device_bytes()const{return std::max(impl_->bytes(),impl_->peak_transport_bytes);}
 ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& completed_fitness,int pressure,double probability,std::uint64_t seed) {
  impl_->require_device();phase_layout_require(completed_fitness.size()==std::size_t(impl_->population) && pressure>0 && pressure<=impl_->population &&
    std::isfinite(probability) && probability>=0 && probability<=1,"selection/mutation contract");
@@ -379,6 +413,39 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
   timing.variation.fallback_children+=!one.crossover;
  }
  impl_->current.swap(impl_->next);impl_->refresh_programs(&timing);impl_->healthy=true;return timing;
+}
+std::vector<ProgramGenome> NativePhasePopulation::export_population()const {
+ impl_->require_device();
+ const std::size_t rows=std::size_t(impl_->population)*impl_->slot_count;
+ const auto lengths=impl_->current->lengths.read(rows);std::vector<ImportOffset> host_offsets;
+ host_offsets.reserve(rows);std::size_t node_count=0,constant_count=0;
+ for(const auto& r:lengths) {
+  phase_layout_require(valid(r),"invalid bulk export lengths");
+  host_offsets.push_back({node_count,constant_count});node_count+=r.nodes;constant_count+=r.constants;
+ }
+ // Capacity/population are checked on owner construction. Packed live counts
+ // cannot exceed those allocations; temporaries do not outlive this call.
+ Buffer<ImportOffset> offsets;offsets.upload(host_offsets);
+ Buffer<PhaseTreeNode> nodes;Buffer<int> origins;Buffer<Value> values;
+ nodes.reserve(node_count);origins.reserve(node_count);values.reserve(constant_count);
+ impl_->peak_transport_bytes=std::max(impl_->peak_transport_bytes,impl_->bytes()+offsets.bytes()+nodes.bytes()+origins.bytes()+values.bytes());
+ gather_export<<<rows,128>>>(pointers(*impl_->current),offsets.data,nodes.data,origins.data,values.data);
+ checked(cudaGetLastError());
+ const auto host_nodes=nodes.read(node_count);const auto host_origins=origins.read(node_count);const auto host_values=values.read(constant_count);
+ std::vector<ProgramGenome> result;result.reserve(impl_->population);
+ for(int p=0;p<impl_->population;++p) {
+  std::vector<HostPhaseGene> genes(impl_->slot_count);
+  for(int k=0;k<impl_->slot_count;++k) {
+   const std::size_t row=std::size_t(p)*impl_->slot_count+k;const auto r=lengths[row];const auto offset=host_offsets[row];auto& gene=genes[k];
+   gene.nodes.assign(host_nodes.begin()+offset.nodes,host_nodes.begin()+offset.nodes+r.nodes);
+   gene.origins.assign(host_origins.begin()+offset.nodes,host_origins.begin()+offset.nodes+r.nodes);
+   gene.constants.assign(host_values.begin()+offset.constants,host_values.begin()+offset.constants+r.constants);
+  }
+  auto genome=export_native_phase_layout(*impl_->grammar,impl_->layout,genes);
+  genome.derivation=std::make_shared<const grammar::DerivationMetadata>(grammar::reconstruct_derivation(*impl_->grammar,genome));
+  result.push_back(std::move(genome));
+ }
+ return result;
 }
 ProgramGenome NativePhasePopulation::export_member(std::size_t index)const {
  impl_->require_device();phase_layout_require(index<std::size_t(impl_->population),"export index");

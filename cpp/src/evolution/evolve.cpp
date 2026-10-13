@@ -357,9 +357,16 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
   if(cfg.skip_final_eval)result.final_eval_skipped=true;
   else {
     const auto start=std::chrono::steady_clock::now();EvaluationTiming timing;evaluate(timing);
-    result.best={owner->export_member(ranking.front()),fitness[ranking.front()]};
-    if(cfg.retain_final_population)for(auto i:ranking)
-      result.final_population.push_back({owner->export_member(i),fitness[i]});
+    if(cfg.retain_final_population && std::getenv("GAGP_BATCH_PHASE_EXPORT")) {
+      auto exported=owner->export_population();
+      result.best={exported.at(ranking.front()),fitness[ranking.front()]};
+      for(auto i:ranking)result.final_population.push_back({std::move(exported.at(i)),fitness[i]});
+    } else {
+      result.best={owner->export_member(ranking.front()),fitness[ranking.front()]};
+      if(cfg.retain_final_population)for(auto i:ranking)
+        result.final_population.push_back({owner->export_member(i),fitness[i]});
+    }
+    result.genotype_device_bytes=std::max<std::uint64_t>(result.genotype_device_bytes,owner->device_bytes());
     result.timing.final_eval_ms=elapsed(start);
   }
   return true;

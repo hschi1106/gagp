@@ -791,3 +791,14 @@ Hypotheses: direct CPU phase binding; deferred native CPU site analysis; GPU
 per-program compact execution / changed-phase lowering after cost attribution.
 No CPU fragment backend, CPU workers, reduced cases, or benchmark solver.
 Status: baseline in progress; no new runtime improvement claimed.
+
+Transport candidate: `GAGP_BATCH_PHASE_IMPORT=1 GAGP_BATCH_PHASE_EXPORT=1`.
+Cold/final compact transport preserves exact 4-generation traces/final ASTs;
+32-generation full-case owner test also compares bulk/per-member export.
+House4 median search752→662ms; Median4 797→~644ms (early exploratory).
+Main House32 2245→2144ms; Median64 2058→1986ms, single runs; modest gain,
+not target achievement. Raw: `logs/optimization/parallel-20261013/{import-on,
+import-off,io-on,io-main}`; compact evidence `results/parallel-20261013/transport-experiment.json`.
+Median CPU128 seed2 full population, champion-368, imports to GPU native profile
+without fallback and preserves initial full-case fitness; representation supports
+this known better solution. Probe is support evidence, not speed comparison.

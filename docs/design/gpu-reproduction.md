@@ -546,3 +546,17 @@ site distribution remains uniform and filtering/capacities are unchanged; RNG
 consumption and therefore evolutionary trajectories differ. Selection and both
 variation operators still execute entirely on GPU. Quality comparisons must
 identify this setting.
+
+#### Optional batched native GPU import/export transport
+
+`GAGP_BATCH_PHASE_IMPORT=1` flattens admitted live genes once, uploads compact
+arrays, and scatters them into the existing fixed-capacity device owner. The
+external grammar admission, skeleton checks, bytecode checks, and device site
+annotation remain required. `GAGP_BATCH_PHASE_EXPORT=1` gathers the final live
+population once before independent host AST reconstruction and canonical grammar
+admission. History still exports its selected individual normally. No execution,
+selection, RNG, or variation rule changes. Both operations stay within their
+original cold-initialization/final-result timing boundaries. Transient transport
+memory is bounded by live population capacities and released within the call;
+reported genotype device bytes include the transport allocation peak. Single
+member export and ordinary transport remain available for reference checks.

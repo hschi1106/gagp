@@ -52,6 +52,7 @@ int main(){try {
  setenv("GAGP_OWNED_PHASE_CAPS","1",1);setenv("GAGP_VIEW_PROFILE","1",1);
  setenv("GAGP_TYPED_VIEW_PHASE","1",1);setenv("GAGP_DIRECT_PHASE","1",1);
  setenv("GAGP_OWNED_PHASE_PACK","1",1);setenv("GAGP_GPU_PHASE_POPULATION","1",1);setenv("GAGP_GPU_DIAGNOSTICS","1",1);
+ setenv("GAGP_BATCH_PHASE_IMPORT","1",1);setenv("GAGP_BATCH_PHASE_EXPORT","1",1);
  const auto integrated=evolve_population(evolution_cases,config,&parents);
  require(integrated.reproduction_profile=="native-gpu-phase-v2-counted" && integrated.reproduction_fallback_reason.empty(),"GPU genotype evolution adapter not used");
  require(integrated.timing.generations[0].elapsed_search_ms>=integrated.timing.init_population_ms+integrated.timing.gpu_eval_init_ms &&
@@ -75,8 +76,12 @@ int main(){try {
  for(int generation=0;generation<=32;++generation) {
   const auto gpu=session.eval_programs(owner.programs(),true);if(!gpu.ok)throw std::runtime_error("GPU phase population evaluation failed at generation "+std::to_string(generation)+": "+gpu.err.message);
   std::vector<BytecodeProgram> independent;
+  auto all_exported=owner.export_population();
+  require(all_exported.size()==population,"bulk export count");
   for(int i=0;i<population;++i) {
-   const auto genome=owner.export_member(i);grammar::require_membership(*grammar,genome);seen.insert(ast_cache_key(genome.ast));
+   const auto genome=owner.export_member(i);
+   require(ast_cache_key(genome.ast)==ast_cache_key(all_exported.at(i).ast),"bulk export differs from member export");
+   grammar::require_membership(*grammar,genome);seen.insert(ast_cache_key(genome.ast));
    independent.push_back(compile_for_eval(genome,names));
    require(gpu.case_counts.at(i)[0]==1024,"not all cases evaluated");
   }

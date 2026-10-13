@@ -19,6 +19,7 @@ class NativePhasePopulation final {
   const std::vector<BytecodeProgram>& programs() const;
   ReproductionStats reproduce(const std::vector<double>& completed_fitness,
       int tournament_size, double mutation_probability, std::uint64_t seed);
+  std::vector<ProgramGenome> export_population() const;
   ProgramGenome export_member(std::size_t index) const;
   std::size_t device_bytes() const;
   const char* profile_name() const;
