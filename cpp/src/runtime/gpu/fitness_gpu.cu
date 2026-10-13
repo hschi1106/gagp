@@ -603,6 +603,21 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
           if(s.requests[r][0].kind!=RegionTransitionKind::CoordinateOffset || s.requests[r][0].source_state!=0)return false;
         return true;
       });
+  region_workspace.coordinate_ring_memo=region_workspace.coordinate_executor && std::getenv("GAGP_COORDINATE_RING_MEMO") &&
+      std::all_of(packed.region_segments.begin(),packed.region_segments.end(),[&](const auto& s) {
+        if(!s.memoized || s.requests[0][0].offset!=-1)return false;
+        for(unsigned r=0;r<s.request_count;++r)if(s.requests[r][0].offset>=0 || s.requests[r][0].offset < -4)return false;
+        const auto& phase=packed.region_phases[s.base_predicate_phase];
+        if(phase.program.compare_binding<0)return false;
+        const auto& binding=packed.region_bindings[phase.program.compare_binding];
+        if(binding.bank!=RegionSlotBank::State || binding.slot!=0)return false;
+        const auto* code=packed.all_phase_code.data()+phase.program.code_offset;
+        // A lower base interval ensures the first -1 request completes every
+        // nonbase coordinate in order; later requests need at most four values.
+        return code[0].op==gpu_detail::OP_LOAD ?
+            (code[2].op==gpu_detail::OP_LT || code[2].op==gpu_detail::OP_LE) :
+            (code[2].op==gpu_detail::OP_GT || code[2].op==gpu_detail::OP_GE);
+      });
   region_workspace.unboxed_window_frames = region_workspace.window_executor && std::getenv("GAGP_UNBOXED_WINDOW_FRAMES");
   std::size_t frame_size = region_workspace.coordinate_executor ? sizeof(gpu_detail::DUnboxedCoordinateFrame) : region_workspace.unboxed_window_frames ?
       (region_workspace.two_state_frames ? sizeof(gpu_detail::DUnboxedWindowFrame<2>) : sizeof(gpu_detail::DUnboxedWindowFrame<1>)) : !region_workspace.compact_frames ? sizeof(gpu_detail::DRegionFrame) :
@@ -856,6 +871,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         [](const auto& p){return p.program.add_left_binding>=0;}))out.execution_profile+="-bound-add";
     if(capability_buckets)out.execution_profile+="-cap-buckets";
     if(bucket_workspace)out.execution_profile+="-bucket-workspace";
+    if(region_workspace.coordinate_ring_memo)out.execution_profile+="-ring4";
     out.fitness = std::move(host_fitness);
     out.timing.pack_ms = ms_between(pack_t0, pack_t1);
     out.timing.launch_prep_ms = ms_between(launch_prep_t0, launch_prep_t1);

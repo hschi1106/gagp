@@ -1,0 +1,107 @@
+{
+  "contract": "Single Int coordinate; memoized; first request -1, all offsets -1..-4; lower-interval scalar comparison base predicate. Four scalar slots replace linear lookup; all entry/base/fuel/frame/insertion-capacity checks and evaluations unchanged. Unsupported shapes use original lookup. Global workspace allocation unchanged.",
+  "decision": "retain opt-in; approximately2% search-wall /7% diagnostic evaluator improvement, not a major E2E gain",
+  "tests": [
+    "focused bounded-region GPU CPU parity with offset/domain/capacity/fuel variants and >2^53 thresholds",
+    "exact full final AST and all non-timing generation fields in House32 seed0",
+    "independent read-only eligibility proof review"
+  ],
+  "runs": [
+    {
+      "label": "ring-on",
+      "enabled": true,
+      "search_ms": 1507.075121,
+      "kernel_diagnostic_mean_ms": 19.3200195,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/ring-on/house_robber.gpu_overlap.s0.r0.json",
+      "binary_sha256": "7e5dd60a8d1820ab52400fc44495663a90f26c66e0bf5f840e4949a2b17c8595"
+    },
+    {
+      "label": "ring-on",
+      "enabled": true,
+      "search_ms": 1499.294403,
+      "kernel_diagnostic_mean_ms": 19.26515925,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/ring-on/house_robber.gpu_overlap.s0.r1.json",
+      "binary_sha256": "7e5dd60a8d1820ab52400fc44495663a90f26c66e0bf5f840e4949a2b17c8595"
+    },
+    {
+      "label": "ring-on",
+      "enabled": true,
+      "search_ms": 1471.141101,
+      "kernel_diagnostic_mean_ms": 19.26315646875,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/ring-on/house_robber.gpu_overlap.s0.r2.json",
+      "binary_sha256": "7e5dd60a8d1820ab52400fc44495663a90f26c66e0bf5f840e4949a2b17c8595"
+    },
+    {
+      "label": "ring-off",
+      "enabled": false,
+      "search_ms": 1532.995472,
+      "kernel_diagnostic_mean_ms": 20.77272225,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/ring-off/house_robber.gpu_overlap.s0.r0.json",
+      "binary_sha256": "7e5dd60a8d1820ab52400fc44495663a90f26c66e0bf5f840e4949a2b17c8595"
+    },
+    {
+      "label": "ring-off",
+      "enabled": false,
+      "search_ms": 1526.0326,
+      "kernel_diagnostic_mean_ms": 20.760989125000002,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/ring-off/house_robber.gpu_overlap.s0.r1.json",
+      "binary_sha256": "7e5dd60a8d1820ab52400fc44495663a90f26c66e0bf5f840e4949a2b17c8595"
+    },
+    {
+      "label": "ring-off",
+      "enabled": false,
+      "search_ms": 1507.716533,
+      "kernel_diagnostic_mean_ms": 20.8044775625,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/ring-off/house_robber.gpu_overlap.s0.r2.json",
+      "binary_sha256": "7e5dd60a8d1820ab52400fc44495663a90f26c66e0bf5f840e4949a2b17c8595"
+    },
+    {
+      "label": "ring-off2",
+      "enabled": false,
+      "search_ms": 1506.304662,
+      "kernel_diagnostic_mean_ms": 20.7647340625,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/ring-off2/house_robber.gpu_overlap.s0.r0.json",
+      "binary_sha256": "7e5dd60a8d1820ab52400fc44495663a90f26c66e0bf5f840e4949a2b17c8595"
+    },
+    {
+      "label": "ring-off2",
+      "enabled": false,
+      "search_ms": 1499.840101,
+      "kernel_diagnostic_mean_ms": 20.77257615625,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/ring-off2/house_robber.gpu_overlap.s0.r1.json",
+      "binary_sha256": "7e5dd60a8d1820ab52400fc44495663a90f26c66e0bf5f840e4949a2b17c8595"
+    },
+    {
+      "label": "ring-off2",
+      "enabled": false,
+      "search_ms": 1529.498377,
+      "kernel_diagnostic_mean_ms": 20.7986190625,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/ring-off2/house_robber.gpu_overlap.s0.r2.json",
+      "binary_sha256": "7e5dd60a8d1820ab52400fc44495663a90f26c66e0bf5f840e4949a2b17c8595"
+    },
+    {
+      "label": "ring-on2",
+      "enabled": true,
+      "search_ms": 1507.597228,
+      "kernel_diagnostic_mean_ms": 19.27764278125,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/ring-on2/house_robber.gpu_overlap.s0.r0.json",
+      "binary_sha256": "7e5dd60a8d1820ab52400fc44495663a90f26c66e0bf5f840e4949a2b17c8595"
+    },
+    {
+      "label": "ring-on2",
+      "enabled": true,
+      "search_ms": 1470.925811,
+      "kernel_diagnostic_mean_ms": 19.27686790625,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/ring-on2/house_robber.gpu_overlap.s0.r1.json",
+      "binary_sha256": "7e5dd60a8d1820ab52400fc44495663a90f26c66e0bf5f840e4949a2b17c8595"
+    },
+    {
+      "label": "ring-on2",
+      "enabled": true,
+      "search_ms": 1477.300412,
+      "kernel_diagnostic_mean_ms": 19.29761071875,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/ring-on2/house_robber.gpu_overlap.s0.r2.json",
+      "binary_sha256": "7e5dd60a8d1820ab52400fc44495663a90f26c66e0bf5f840e4949a2b17c8595"
+    }
+  ]
+}

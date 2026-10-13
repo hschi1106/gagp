@@ -870,3 +870,13 @@ respectively (their disabled binaries also regressed). All prototype code and
 switches were removed; patches/binaries/results remain under `logs/parallel-gpu/`.
 They are not recommended paths. Next bounded experiment: phase-local fuel
 ownership, then a forward-only phase fuel upper bound if profiling supports it.
+
+Coordinate ring memo: `GAGP_COORDINATE_RING_MEMO=1` requires the typed coordinate
+executor, memoization, first offset -1, other offsets -1..-4, and a statically
+proved lower-interval base predicate. Four scalar values replace the linear
+lookup; original entry/base/fuel/frame/insertion-capacity behavior remains.
+Unsupported shapes keep generic lookup; workspace allocation is unchanged.
+Six same-binary search repeats per setting show about2% House32 search-wall
+and7% diagnostic kernel improvement. Exact final AST/trace comparison,
+independent proof review and exhaustive focused fuel/capacity tests pass.
+Evidence: `benchmarks/fixed_asgp/optimization/results/parallel-20261013/ring-memo.json`.

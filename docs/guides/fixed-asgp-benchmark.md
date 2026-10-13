@@ -551,3 +551,13 @@ selects the same logical group and preserves all repeated occurrences; complete
 parent/child admission still runs. Constant mutation and projected-budget donor
 preparation keep their existing path. This setting does not sample fitness cases
 or change the mutation distribution.
+
+Coordinate ring memo: `GAGP_COORDINATE_RING_MEMO=1` requires the typed coordinate
+executor, memoization, first offset -1, other offsets -1..-4, and a statically
+proved lower-interval base predicate. Four scalar values replace the linear
+lookup; original entry/base/fuel/frame/insertion-capacity behavior remains.
+Unsupported shapes keep generic lookup; workspace allocation is unchanged.
+Six same-binary search repeats per setting show about2% House32 search-wall
+and7% diagnostic kernel improvement. Exact final AST/trace comparison,
+independent proof review and exhaustive focused fuel/capacity tests pass.
+Evidence: `benchmarks/fixed_asgp/optimization/results/parallel-20261013/ring-memo.json`.

@@ -876,6 +876,76 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
             fit.case_counts[0][2]==unsigned(reference.is_error && reference.err.code==ErrCode::Timeout),
             "coordinate executor boundary/memo/capacity/fuel parity duplicate="+std::to_string(duplicate)+" inclusive="+std::to_string(inclusive)+" memo="+std::to_string(memo)+" capacity="+std::to_string(capacity)+" start="+std::to_string(start)+" fuel="+std::to_string(fuel)+" error="+fit.err.message+" profile="+fit.execution_profile))return false;
       }
+    {
+      Environment compare("GAGP_BOUND_COMPARE_PHASE"),ring("GAGP_COORDINATE_RING_MEMO");
+      for(int distance:{1,2,4,5})for(unsigned cells:{1u,4u,16u})for(int fuel:{0,8,32,128,1024}) {
+        std::vector<BytecodeProgram> programs;
+        for(int start:{-3,0,1,7,12}) {
+          auto segment=unary_segment(Value::from_int(1),true);
+          segment.plan.coordinate_domains[0]={literal(-4),literal(20)};
+          segment.plan.limits={32,cells,1};segment.plan.requests[1].states[0].offset=-distance;
+          segment.base_predicate.program.code[2]=ins(Opcode::Le);
+          segment.combine=phase({}, {ins_a(Opcode::Load,0),ins_a(Opcode::Load,1),ins(Opcode::Add),ins(Opcode::Return)},
+              {{slot(RegionSlotBank::Result,0),0},{slot(RegionSlotBank::Result,1),1}},2);
+          programs.push_back(invocation(std::move(segment),{Value::from_int(start)}));
+        }
+        const std::vector<CaseBindings> cases(8);const std::vector<Value> answers(8,Value::from_int(0));
+        FitnessSessionGpu session;
+        if(!check(session.init(cases,answers,fuel,32,7).ok,"ring memo session init"))return false;
+        const auto gpu=session.eval_programs(programs,true);const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,7,32);
+        if(!check(gpu.ok && gpu.fitness==cpu && (gpu.execution_profile.find("-ring4")!=std::string::npos)==(distance<=4),
+            "ring memo full results or unsupported-offset fallback"))return false;
+        for(std::size_t i=0;i<programs.size();++i) {
+          const auto execution=execute_bytecode_cpu(programs[i],{},fuel);
+          if(!check(gpu.case_counts[i][0]==8 && gpu.case_counts[i][1]==8*unsigned(execution.is_error) &&
+              gpu.case_counts[i][2]==8*unsigned(execution.is_error && execution.err.code==ErrCode::Timeout),
+              "ring memo capacity/entry/base/cache-hit/fuel boundary"))return false;
+        }
+      }
+      // Translation across negative and rounded Int->double comparison ranges
+      // cannot change the contiguous traversal proof. Capacity remains the
+      // original insertion limit, including zero and the exact endpoint.
+      for(std::int64_t threshold:{std::int64_t(-12), (std::int64_t(1)<<53)+1})
+        for(unsigned cells:{0u,1u,8u,9u}) {
+          auto segment=unary_segment(Value::from_int(1),true);
+          segment.plan.coordinate_domains[0]={literal(threshold-8),literal(threshold+16)};
+          segment.plan.requests[1].states[0].offset=-4;
+          segment.plan.limits={32,cells,1};
+          segment.base_predicate.program.consts[0]=Value::from_int(threshold);
+          segment.base_predicate.program.code[2]=ins(Opcode::Le);
+          segment.combine=phase({}, {ins_a(Opcode::Load,0),ins_a(Opcode::Load,1),ins(Opcode::Add),ins(Opcode::Return)},
+              {{slot(RegionSlotBank::Result,0),0},{slot(RegionSlotBank::Result,1),1}},2);
+          const auto program=invocation(std::move(segment),{Value::from_int(threshold+8)});
+          FitnessSessionGpu session;if(!session.init({{}},{Value::from_int(0)},1024,32,7).ok)return false;
+          const auto gpu=session.eval_programs({program},true);
+          const auto cpu=eval_fitness_cpu({program},{{}},{Value::from_int(0)},1024,7,32);
+          if(!check(gpu.ok && gpu.fitness==cpu && gpu.execution_profile.find("-ring4")!=std::string::npos,
+              "ring memo negative/rounded threshold and exact capacity"))return false;
+        }
+      // Exhaust entry/base/cache-hit/insertion fuel boundaries and reject
+      // noncontiguous traversal or an upper base interval explicitly.
+      for(int variant=0;variant<4;++variant)for(int fuel=0;fuel<=128;++fuel) {
+        auto segment=unary_segment(Value::from_int(1),true);
+        segment.base_predicate.program.code[2]=ins(Opcode::Le);
+        segment.plan.requests[1].states[0].offset=-2;
+        if(variant==1)segment.plan.requests[0].states[0].offset=-2;
+        if(variant==2)segment.base_predicate.program.code[2]=ins(Opcode::Ge);
+        if(variant==3) {
+          std::swap(segment.base_predicate.program.code[0],segment.base_predicate.program.code[1]);
+          segment.base_predicate.program.code[2]=ins(Opcode::Ge);
+        }
+        const auto program=invocation(std::move(segment),{Value::from_int(7)});
+        FitnessSessionGpu session;if(!session.init({{}},{Value::from_int(0)},fuel,32,7).ok)return false;
+        const auto gpu=session.eval_programs({program},true);
+        const auto cpu=eval_fitness_cpu({program},{{}},{Value::from_int(0)},fuel,7,32);
+        const auto execution=execute_bytecode_cpu(program,{},fuel);
+        if(!check(gpu.ok && gpu.fitness==cpu &&
+            (gpu.execution_profile.find("-ring4")!=std::string::npos)==(variant==0 || variant==3) &&
+            gpu.case_counts[0][1]==unsigned(execution.is_error) &&
+            gpu.case_counts[0][2]==unsigned(execution.is_error && execution.err.code==ErrCode::Timeout),
+            "ring memo orientation/fallback/exhaustive fuel boundary"))return false;
+      }
+    }
     if(!test_captured_locals_are_per_case_and_lazy() || !test_ordered_coordinate_memo())return false;
   }
   if(direct) {

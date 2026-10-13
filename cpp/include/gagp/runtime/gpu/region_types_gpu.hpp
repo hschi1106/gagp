@@ -96,6 +96,7 @@ struct DRegionWorkspace {
   bool two_state_frames = false;
   bool window_executor = false;
   bool coordinate_executor = false;
+  bool coordinate_ring_memo = false;
   bool unboxed_window_frames = false;
 };
 

@@ -31,6 +31,11 @@ __device__ __noinline__ DResult d_run_coordinate_region(
   }
   auto* frames=reinterpret_cast<DUnboxedCoordinateFrame*>(workspace.frames);
   const auto stride=workspace.slot_stride;
+  // Host proves a contiguous -1 first-child traversal and later offsets<=4.
+  // Scalars avoid dynamically indexed local arrays. Count still tracks every
+  // original memo insertion, preserving declared capacity and timeout order.
+  std::int64_t ring0=0,ring1=0,ring2=0,ring3=0;
+  const bool ring=workspace.coordinate_ring_memo;
   unsigned depth=1,memo_count=0;frames[0].state[0]=operands[0];frames[0].next_request=-1;
   for(;;) {
     auto& frame=frames[(depth-1)*stride];DResult result;bool completed=false;
@@ -50,7 +55,10 @@ __device__ __noinline__ DResult d_run_coordinate_region(
             frame,caller_locals,caller_set,payload_tables,payload_state,tables,fuel,true);
         if(result.is_error)return result;completed=true;
       } else {
-        if(segment.memoized)for(unsigned cell=0;cell<memo_count;++cell) {
+        if(segment.memoized && ring && memo_count) {
+          const auto slot=static_cast<std::uint64_t>(coordinate)&3;
+          result=d_ok(Value::from_int(slot==0?ring0:slot==1?ring1:slot==2?ring2:ring3));completed=true;
+        } else if(segment.memoized)for(unsigned cell=0;cell<memo_count;++cell) {
           if(workspace.memo_keys[cell*DMAX_REGION_STATES*stride]==coordinate) {
             result=d_ok(workspace.memo_values[cell*stride]);completed=true;break;
           }
@@ -72,8 +80,16 @@ __device__ __noinline__ DResult d_run_coordinate_region(
       if(result.is_error)return result;
       if(segment.memoized) {
         if(memo_count>=segment.limits.cells)return d_error(ErrCode::Timeout);
-        workspace.memo_keys[memo_count*DMAX_REGION_STATES*stride]=frame.state[0].i;
-        workspace.memo_values[memo_count*stride]=result.value;++memo_count;
+        if(ring) {
+          switch(static_cast<std::uint64_t>(frame.state[0].i)&3) {
+            case 0:ring0=result.value.i;break;case 1:ring1=result.value.i;break;
+            case 2:ring2=result.value.i;break;default:ring3=result.value.i;break;
+          }
+        } else {
+          workspace.memo_keys[memo_count*DMAX_REGION_STATES*stride]=frame.state[0].i;
+          workspace.memo_values[memo_count*stride]=result.value;
+        }
+        ++memo_count;
       }
     }
     if(--depth==0)return result;
