@@ -1,0 +1,96 @@
+[
+  {
+    "task": "house_robber",
+    "runs": {
+      "control": [
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/compare-control-repeat/house_robber.gpu_overlap.s0.r0.json",
+          "search_wall_ms": 1683.386621,
+          "eval_kernel_median_ms": 24.3717145,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/compare-control-repeat/house_robber.gpu_overlap.s0.r1.json",
+          "search_wall_ms": 1646.717574,
+          "eval_kernel_median_ms": 23.9920295,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/compare-control-repeat/house_robber.gpu_overlap.s0.r2.json",
+          "search_wall_ms": 1649.509147,
+          "eval_kernel_median_ms": 24.3769575,
+          "exact_quality_trace": true
+        }
+      ],
+      "candidate": [
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/compare-candidate-repeat/house_robber.gpu_overlap.s0.r0.json",
+          "search_wall_ms": 1531.645989,
+          "eval_kernel_median_ms": 20.179505,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/compare-candidate-repeat/house_robber.gpu_overlap.s0.r1.json",
+          "search_wall_ms": 1506.833746,
+          "eval_kernel_median_ms": 19.997625,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/compare-candidate-repeat/house_robber.gpu_overlap.s0.r2.json",
+          "search_wall_ms": 1508.215581,
+          "eval_kernel_median_ms": 19.9418835,
+          "exact_quality_trace": true
+        }
+      ]
+    },
+    "control_median_ms": 1649.509147,
+    "candidate_median_ms": 1508.215581
+  },
+  {
+    "task": "median",
+    "runs": {
+      "control": [
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/compare-control-repeat/median.gpu_overlap.s2.r0.json",
+          "search_wall_ms": 1397.367789,
+          "eval_kernel_median_ms": 2.6941555,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/compare-control-repeat/median.gpu_overlap.s2.r1.json",
+          "search_wall_ms": 1407.534268,
+          "eval_kernel_median_ms": 2.6934560000000003,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/compare-control-repeat/median.gpu_overlap.s2.r2.json",
+          "search_wall_ms": 1426.897595,
+          "eval_kernel_median_ms": 2.6945560000000004,
+          "exact_quality_trace": true
+        }
+      ],
+      "candidate": [
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/compare-candidate-repeat/median.gpu_overlap.s2.r0.json",
+          "search_wall_ms": 1450.383528,
+          "eval_kernel_median_ms": 2.578996,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/compare-candidate-repeat/median.gpu_overlap.s2.r1.json",
+          "search_wall_ms": 1403.012423,
+          "eval_kernel_median_ms": 2.5801865,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/compare-candidate-repeat/median.gpu_overlap.s2.r2.json",
+          "search_wall_ms": 1369.82409,
+          "eval_kernel_median_ms": 2.585914,
+          "exact_quality_trace": true
+        }
+      ]
+    },
+    "control_median_ms": 1407.534268,
+    "candidate_median_ms": 1403.012423
+  }
+]

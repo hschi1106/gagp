@@ -35,6 +35,7 @@ struct DPhaseMeta {
   unsigned scalar_constant_fuel = 0;
   int add_left_binding = -1;
   int add_right_binding = -1;
+  int compare_binding = -1;
 };
 
 struct DProgramMeta {

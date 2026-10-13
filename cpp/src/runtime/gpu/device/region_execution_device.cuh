@@ -133,6 +133,29 @@ __device__ DResult d_region_phase(
   }
   if constexpr (Flavor == DPayloadFlavor::BoundIntListViews) {
     const auto& phase = tables.region_phases[phase_index];
+    if(expected==ValueTag::Bool && phase.program.compare_binding>=0) {
+      const auto& binding=tables.region_bindings[phase.program.compare_binding];
+      std::int64_t bound=0;
+      switch(binding.bank) {
+        case RegionSlotBank::State:bound=static_cast<Value>(frame.state[binding.slot]).i;break;
+        case RegionSlotBank::Prepared:bound=frame.prepared[binding.slot].i;break;
+        case RegionSlotBank::Result:bound=frame.results[binding.slot].i;break;
+        case RegionSlotBank::Measure:bound=Value::container_len(frame.state[segment.sequence_state]);break;
+        default:return d_error(ErrCode::Value); // excluded by the packing proof
+      }
+      const auto* code=tables.phase_code+phase.program.code_offset;
+      // Both operands are total, initialized Int reads. Preserve each charge
+      // and the numeric comparison's double conversion without a phase VM call.
+      for(int i=0;i<phase.program.code_len;++i) {
+        if(fuel<0 || code[i].fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
+        fuel-=code[i].fuel;
+      }
+      const bool constant_first=code[0].op==OP_PUSH_CONST;
+      const auto constant=tables.phase_consts[phase.program.const_offset+code[constant_first?0:1].a].i;
+      const double a=constant_first?constant:bound,b=constant_first?bound:constant;
+      const bool answer=code[2].op==OP_LT?a<b:code[2].op==OP_LE?a<=b:code[2].op==OP_GT?a>b:a>=b;
+      return d_ok(Value::from_bool(answer));
+    }
     if(expected==ValueTag::Int && phase.program.add_left_binding>=0) {
       const auto read=[&](int index) {
         const auto& binding=tables.region_bindings[index];

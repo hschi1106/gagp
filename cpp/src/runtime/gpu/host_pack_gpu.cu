@@ -415,6 +415,22 @@ static PackResult pack_programs_impl(const std::vector<BytecodeProgram>& program
           if(only_used && left>=0 && right>=0){m.add_left_binding=left;m.add_right_binding=right;}
         }
       }
+      if(std::getenv("GAGP_BOUND_COMPARE_PHASE")) {
+        for(auto i=phase_begin;i<out.region_phases.size();++i) {
+          auto& phase=out.region_phases[i];auto& m=phase.program;
+          if((m.code_len!=3 && m.code_len!=4) || phase.binding_count!=1)continue;
+          const auto* code=out.all_phase_code.data()+m.code_offset;
+          if(m.code_len==4 && code[3].op!=OP_RETURN)continue;
+          if(code[2].op!=OP_LT && code[2].op!=OP_LE && code[2].op!=OP_GT && code[2].op!=OP_GE)continue;
+          const int load=code[0].op==OP_LOAD && code[1].op==OP_PUSH_CONST?0:
+              code[1].op==OP_LOAD && code[0].op==OP_PUSH_CONST?1:-1;
+          if(load<0 || code[1-load].a<0 || code[1-load].a>=m.const_len)continue;
+          if(out.all_phase_consts[m.const_offset+code[1-load].a].tag!=ValueTag::Int)continue;
+          const auto& b=out.region_bindings[phase.binding_offset];
+          if(b.bank==RegionSlotBank::Parameter || b.local!=code[load].a)continue;
+          m.compare_binding=phase.binding_offset;
+        }
+      }
       if (std::getenv("GAGP_CONSTANT_PHASE")) {
         for (auto i = phase_begin; i < out.region_phases.size(); ++i) {
           auto& phase = out.region_phases[i]; auto& m = phase.program;

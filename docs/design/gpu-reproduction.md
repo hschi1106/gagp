@@ -601,3 +601,11 @@ The planner reserves at least one generic block and constrains the sum of these
 allocations to the existing 512 MiB workspace ceiling. Declared per-program frame
 and memo capacities are unchanged. This removes a common worst-case frame
 stride from compact-bucket concurrency; it adds no program/case skipping.
+`GAGP_BOUND_COMPARE_PHASE=1` recognizes verified typed phases consisting of one
+non-parameter local load, one Int constant and an Int LT/LE/GT/GE comparison,
+with either operand order and optional Return. Exactly one matching binding is
+required; captures and extra bindings retain the interpreter. The direct phase
+uses the same double conversion and every original instruction fuel charge.
+The recognized form is a general bytecode condition, independent of task names,
+answers or particular comparison constants. Tests include operand reversal,
+large integer rounding and fuel/return boundaries against CPU execution.

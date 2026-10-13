@@ -859,3 +859,14 @@ Median1396→1361ms; unchanged traces/finalpopulation. Mixed257program/32generat
 CPUaudit test passes. Setting`GAGP_BUCKET_WORKSPACE=1`; evidence
 `results/parallel-20261013/bucket-workspace.json`. Improvement modest, supports
 capability-dependent concurrency without reducing execution limits.
+House scalar structural comparison: `GAGP_BOUND_COMPARE_PHASE=1` recognizes
+LOAD/Int CONST/comparison phases under typed proof and one non-parameter binding.
+Three-process full-search results and exact trace checks are recorded in
+`results/parallel-gpu-20261013/bound-comparison.json`; focused tests cover
+LT/LE/GT/GE, both operand orders, optional Return, >2^53 conversion and fuel.
+Shared-stack8 and cached-top interpreter prototypes were tested and rejected:
+House same-binary1637-scale controls became1767→2006ms and1961→2144ms,
+respectively (their disabled binaries also regressed). All prototype code and
+switches were removed; patches/binaries/results remain under `logs/parallel-gpu/`.
+They are not recommended paths. Next bounded experiment: phase-local fuel
+ownership, then a forward-only phase fuel upper bound if profiling supports it.

@@ -945,6 +945,30 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
       }
     }
   }
+  if(direct) {
+    Environment compare_mode("GAGP_BOUND_COMPARE_PHASE");
+    for(auto op:{Opcode::Lt,Opcode::Le,Opcode::Gt,Opcode::Ge})for(bool reversed:{false,true})for(bool explicit_return:{false,true}) {
+      constexpr std::int64_t big=(INT64_C(1)<<53)+9;
+      auto segment=unary_segment(Value::from_int(7));
+      segment.plan.coordinate_domains[0].upper=literal(big+2);
+      std::vector<Instr> code={ins_a(reversed?Opcode::PushConst:Opcode::Load,0),ins_a(reversed?Opcode::Load:Opcode::PushConst,0),ins(op)};
+      segment.base_predicate=phase({Value::from_int(big+1)},std::move(code),{{slot(RegionSlotBank::State,0),0}},1);
+      segment.base_predicate.program.instruction_fuel={2,3,5};
+      if(explicit_return){segment.base_predicate.program.code.push_back(ins(Opcode::Return));segment.base_predicate.program.instruction_fuel.push_back(7);}
+      const auto program=invocation(segment,{Value::from_int(big)});
+      if(!verify_fixture(program,"bound comparison fixture"))return false;
+      const auto packed=gpu_detail::pack_programs_with_shared_case_count({program},1,0);
+      const auto phase_index=packed.region_segments[0].base_predicate_phase;
+      if(!check(packed.region_phases[phase_index].program.compare_binding>=0,"bound comparison not recognized"))return false;
+      for(int fuel:{0,1,2,3,5,8,12,16,20,50,200}) {
+        FitnessSessionGpu session;if(!check(session.init({{}},{Value::from_int(7)},fuel,32,7).ok,"bound compare init"))return false;
+        const auto gpu=session.eval_programs({program},true);const auto cpu=eval_fitness_cpu({program},{{}},{Value::from_int(7)},fuel,7,32);
+        const auto execution=execute_bytecode_cpu(program,{},fuel);
+        if(!check(gpu.ok && gpu.fitness==cpu && gpu.case_counts[0][2]==static_cast<unsigned>(execution.is_error && execution.err.code==ErrCode::Timeout),
+            "bound compare preserves operand order, float rounding, return and fuel"))return false;
+      }
+    }
+  }
   const auto numeric = [&](BuiltinId id, std::vector<Value> constants, Value answer, const std::string& label) {
     auto segment=unary_segment(Value::from_int(0));
     std::vector<Instr> code;
