@@ -824,13 +824,18 @@ void test_certification_compaction_boundaries() {
 void test_counted_crossover_exact_feasible_pairs() {
   for (const auto& grammar : {repeated_hole_grammar(), local_grammar(), many_sites_grammar()}) {
     const auto population = generated_population(*grammar, 7, 107);
+    for (const auto budget : {std::optional<ProjectedBudget>{}, std::optional<ProjectedBudget>{{40, 12}}})
     for (std::uint64_t seed = 0; seed < 32; ++seed) {
       const auto& a = population[seed % population.size()];
       const auto& b = population[(seed + 1) % population.size()];
-      VariationContext reference(grammar), counted(grammar), replay(grammar);
+      VariationContext reference(grammar,128,budget), counted(grammar,128,budget), replay(grammar,128,budget);
       const auto ca = variation_detail::certify(a, reference);
       const auto cb = variation_detail::certify(b, reference);
       const auto aa = reference.analyze(ca), ab = reference.analyze(cb);
+      if (budget) for (const auto* analysis : {aa.get(), ab.get()})
+        check(std::all_of(analysis->sites.begin(), analysis->sites.end(),
+            [](const auto& site) { return site.has_projected_allowance; }),
+            "counted rank resource oracle requires local projected allowances");
       std::vector<std::pair<const VariationSite*, const VariationSite*>> feasible;
       for (const auto& sa : aa->sites) for (const auto& sb : ab->sites)
         if (compatible_sites(sa, sb) && donor_fits(sa, sb) && donor_fits(sb, sa))

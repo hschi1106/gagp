@@ -1,5 +1,6 @@
 #include "gagp/core/host_threads.hpp"
 #include <iostream>
+#include <cstdlib>
 #include <future>
 #include <memory>
 #include <thread>
@@ -307,6 +308,7 @@ void test_crossover_admission_matches_full_analysis() {
     "id":"recursive","weight":2,"expression":{"signature":"neg(Int)->Int",
     "args":[{"ref":"E"}]}})"));
   auto grammar = std::make_shared<const CompiledGrammar>(compile(document));
+  check(!resource_charges_are_local(*grammar), "reservoir fallback fixture must have nonlocal charges");
   for (std::uint64_t seed = 0; seed < 32; ++seed) {
     auto a = generate_derivation(*grammar, seed).genome;
     auto b = generate_derivation(*grammar, seed + 32).genome;
@@ -801,7 +803,17 @@ int main() {
         test_resource_invariance_certificate(); test_joint_tradeoffs(); test_projected_donor_retry_sequence();
     test_destination_resource_interpretation(); test_certified_donor_budget_rejection(); test_scalar_resource_pool();
     test_independent_donor_pool_batch(); test_payload_pool_conflict_replay(); test_donor_resource_flow(); test_projected_offspring_admission();
-        test_crossover_admission_matches_full_analysis(); test_projected_generation_and_initialization();
+        test_crossover_admission_matches_full_analysis();
+    {
+      const char* old = std::getenv("GAGP_CPU_COUNTED_PAIRS");
+      const std::optional<std::string> saved = old ? std::optional<std::string>{old} : std::nullopt;
+      setenv("GAGP_CPU_COUNTED_PAIRS", "1", 1);
+      // Nonlocal projected admission must retain the exact reservoir oracle.
+      test_crossover_admission_matches_full_analysis();
+      if (saved) setenv("GAGP_CPU_COUNTED_PAIRS", saved->c_str(), 1);
+      else unsetenv("GAGP_CPU_COUNTED_PAIRS");
+    }
+    test_projected_generation_and_initialization();
         test_shared_hole_tradeoffs(); test_recursive_frontier(); }
   catch (const std::exception& error) { std::cerr<<error.what()<<'\n'; return 1; }
   std::cout<<"certified derivation resource projection passed\n";
