@@ -1,0 +1,24 @@
+{
+  "status": "rejected; runtime flag/code and exclusive tests removed",
+  "hypothesis": "Typed phases have no STORE, so fetch each binding only at executed LOAD instead of constructing locals64 and local_set on every phase invocation. Wrong runtime tags restore phase-entry fuel before pure generic replay; missing bindings raise Name after LOAD charge.",
+  "result": "No gain in either representative workload; repeated LOAD binding dispatch/copies outweighed removed eager setup. No additional repeats warranted.",
+  "house4_seed0": {
+    "before_search_ms": 12592.278377,
+    "after_search_ms": 12768.235279,
+    "before_eval_including_final_ms": 11878.741998000001,
+    "after_eval_including_final_ms": 12061.164278999997,
+    "full_final_AST_and_fitness_exact": true
+  },
+  "late_median": {
+    "before_search_ms": 4100.758209,
+    "after_search_ms": 4192.149988,
+    "before_eval_ms": 1200.231574,
+    "after_eval_ms": 1232.63486,
+    "final_fitness_node_rows_and_quality_operator_trace_exact": true
+  },
+  "tests": "Focused CPU execution session passed, including missing/wrong-tag captures on taken/untaken lazy branches with fuel sweeps. Those prototype-exclusive additions are archived in patch, not retained as a feature entrance.",
+  "raw_root": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-lazy-load",
+  "source_patch": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-lazy-load/prototype.patch",
+  "binary": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-lazy-load/bench",
+  "timing": "Same binary OFF/ON, full P1024/C1024, CPU1T. Builds and measurements use exclusive lock. Current adopted settings; no RNG/operator change introduced by this prototype. Late parents are historical CPUgen128 snapshot, not comparable to ASGP headline."
+}
