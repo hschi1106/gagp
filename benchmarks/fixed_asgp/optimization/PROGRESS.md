@@ -1,3 +1,19 @@
+# Parallel worktree optimization — 2026-10-13 (final validation running)
+
+- Protected original workspace checkpoint: `75d7f83`; optimization input checkpoint: `9ddab1d`.
+- Integrated runtime candidate: `b60a336`, branch `opt/gpu-generation-20261001`.
+- Current settings/binary/frozen identities: `logs/optimization/parallel-20261013/final-main/manifest.json`.
+- Primary short-search contract: House32/seed0 and Median64/seed2, P1024/full1024 cases, CPU1T; cold initialization, final evaluation and final AST export included in search wall. Process wall additionally includes input import and independent audit/output serialization.
+- All three exploration worktrees have stopped builds/performance runs. Final search repeats are serial and quiet: final-main (3 all-mode processes/task), final-gpu-extra (6 additional GPU-o processes/task). These are cold searches, not in-process warmed single generations.
+- Retained native CPU changes: lazy analysis/selected parents/selected mutation; typed phases/views/memo and compact coordinate driver; optional counted feasible-pair RNG profile (same uniform law, changed trajectories).
+- Retained native GPU changes: batched import/export, immutable grammar/executable cold reuse, indexed capability buckets/workspace planning, compact repro launch, static weights, proven scalar comparisons/ring memo, private packed executable, per-child mutation scratch, compact generator tasks.
+- Rejected runtime prototypes are removed, including size ties, sampled CPU sites, early compaction, single-hole copy elision, static root filter, shared/cached-top/register-bank stacks, fuel-bound and diagnostic atomic variants. Raw patches/results are historical evidence only.
+- Integrated pre-final validation: 127/127 native tests; 24 repository tests; 89 tool tests (4 skipped); focused CPU ASan/UBSan and GPU memcheck reported in the candidate evidence. Final generator focused regression remains to rerun after integration.
+- Do not claim targets from frozen-parent ratios: changing-search House30x and Median5x are evaluated separately. House remained below30x in intermediate tests; CPU still trails ASGP.
+- Pending: final repeated all-mode results, latest focused tests/profile, long-run memory/quality check, fixed/scaling matrix, summary and final checkpoint. No push authorized.
+
+---
+
 # Native 1T optimization checkpoint — 2026-10-02
 
 Active objective: preserve CPU / GPU-e / GPU-er / GPU-er-o architecture, use
