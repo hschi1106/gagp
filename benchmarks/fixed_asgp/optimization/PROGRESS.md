@@ -910,3 +910,10 @@ and final fitness/node rows are exact. Existing32-generation CPU/grammar audit,
 mixed257-member test, and new reversed input-order test pass. No changed
 execution, grammar, RNG or operators. Next: eliminate repeated DInstr→Instr→DInstr
 conversion and static repacking through private owner-bound packed artifacts.
+
+Rejected full register-bank8 interpreter: compiler generated heavy spilling;
+House samebinaryOFF1832→ON1949ms and disabledbinary already regressed from
+~1404ms. Median1391→1373ms does not offset House loss. Focused parity/owner
+tests passed, but no code/flag is retained. Rawpatch/binary/compilerreports:
+`results/parallel-20261013/rejected-register-stack.json`. This differs from the
+previous cached-top/shared-stack tests and also fails to remove interpreter cost.

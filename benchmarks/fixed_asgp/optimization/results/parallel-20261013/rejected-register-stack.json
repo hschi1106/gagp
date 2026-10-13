@@ -1,0 +1,41 @@
+{
+  "hypothesis": "Explicit eight-scalar switch-indexed operand bank removes dynamic stack local storage for proven bounds<=8",
+  "decision": "reject; compiler creates substantial spilling and disabled binary also regresses House",
+  "contract": "Same typed/fuel semantics and full cases; no search changes",
+  "compiler": "Coordinate specialized phase reports 0 byte explicit stack frame but 2020 spill-store /2772 spill-load bytes in one compiled variant; this is compiler spill report, not measured DRAM bytes",
+  "tests": "Internal ctest changing into directory: /home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/build/release\nTest project /home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/build/release\n    Start 83: gagp_test_gpu_phase_population\n1/2 Test #83: gagp_test_gpu_phase_population ...   Passed    2.15 sec\n    Start 93: gagp_test_bounded_region_gpu\n2/2 Test #93: gagp_test_bounded_region_gpu .....   Passed    5.31 sec\n\n100% tests passed, 0 tests failed out of 2\n\nLabel Time Summary:\ncontract          =   7.46 sec*proc (2 tests)\ncpu_gpu_parity    =   5.31 sec*proc (1 test)\ngpu               =   7.46 sec*proc (2 tests)\nintegration       =   7.46 sec*proc (2 tests)\n\nTotal Test time (real) =   7.47 sec\n",
+  "runs": [
+    {
+      "enabled": false,
+      "task": "house_robber",
+      "search_ms": 1832.268324,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/register-stack-off/house_robber.gpu_overlap.s0.r0.json",
+      "binary_sha256": "a5d2482049773c33af1229652ba367ea3247e0f194f1da3c914dc6d242bd3ddd"
+    },
+    {
+      "enabled": false,
+      "task": "median",
+      "search_ms": 1390.609941,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/register-stack-off/median.gpu_overlap.s2.r0.json",
+      "binary_sha256": "a5d2482049773c33af1229652ba367ea3247e0f194f1da3c914dc6d242bd3ddd"
+    },
+    {
+      "enabled": true,
+      "task": "house_robber",
+      "search_ms": 1948.718022,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/register-stack-on/house_robber.gpu_overlap.s0.r0.json",
+      "binary_sha256": "a5d2482049773c33af1229652ba367ea3247e0f194f1da3c914dc6d242bd3ddd"
+    },
+    {
+      "enabled": true,
+      "task": "median",
+      "search_ms": 1373.348514,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/register-stack-on/median.gpu_overlap.s2.r0.json",
+      "binary_sha256": "a5d2482049773c33af1229652ba367ea3247e0f194f1da3c914dc6d242bd3ddd"
+    }
+  ],
+  "artifacts": [
+    "logs/optimization/parallel-20261013/register-stack-rejected.patch",
+    "logs/optimization/parallel-20261013/register-stack-build.log"
+  ]
+}
