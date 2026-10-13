@@ -77,3 +77,5 @@ maintenance, follow the rules in root `AGENTS.md`.
   the exact selected logical subtree site via `selected_variation.hpp`; ordinary
   constant/projected-budget paths remain. Differential RNG/site coverage is in
   `gagp_test_grammar_reproduction`.
+
+- Opt-in CPU compact phase execution: `runtime/cpu/typed_phase.hpp` and session-owned binding tables in `region_adapter.hpp`; `list_views.hpp` admits coordinate capture views, `recurrence_memo.hpp` owns bounded dense CPU memo slots. These are CPU evaluator optimizations, not reproduction backends. Validate `gagp_test_cpu_execution_session`, `gagp_test_recurrence_memo`, `gagp_test_region_execution`, `gagp_test_bounded_region_sequence_compile` and CPU/GPU fitness parity. Paths are relative to `cpp/src/`.

@@ -165,9 +165,37 @@ bool test_reset_and_all_key_axes() {
                "null output can perform a membership lookup safely");
 }
 
+bool test_dense_domain_keys_capacity_and_reset() {
+  RecurrenceMemo memo;
+  memo.set_dense_domain(-2, 2);
+  memo.reset(3);
+  if (!check(memo.insert({-2,0,0,0}, Value::from_int(10)), "dense signed key")) return false;
+  if (!check(memo.insert({-2,1,0,0}, Value::from_int(20)), "other axes use generic map")) return false;
+  if (!check(memo.insert({99,0,0,0}, Value::from_int(30)), "outside domain uses generic map")) return false;
+  if (!check(!memo.insert({0,0,0,0}, Value::from_int(40)), "combined dense/generic capacity")) return false;
+  if (!check(memo.insert({-2,0,0,0}, Value::from_int(11)), "existing dense update at capacity")) return false;
+  Value out;
+  if (!check(memo.find({-2,0,0,0}, &out) && out.i==11, "dense value independent")) return false;
+  if (!check(memo.find({-2,1,0,0}, &out) && out.i==20, "full key independent")) return false;
+  memo.disable_dense_domain(); memo.reset(2);
+  if (!check(!memo.find({-2,1,0,0}, &out), "generic reset after dense")) return false;
+  memo.set_dense_domain(std::numeric_limits<std::int64_t>::min(),
+                        std::numeric_limits<std::int64_t>::min()+1);
+  memo.reset(1);
+  if (!check(memo.insert({std::numeric_limits<std::int64_t>::min(),0,0,0}, Value::from_int(5)),
+             "dense index signed lower extreme")) return false;
+  memo.set_dense_domain(std::numeric_limits<std::int64_t>::min(),
+                        std::numeric_limits<std::int64_t>::max());
+  memo.reset(1);
+  return check(memo.insert({std::numeric_limits<std::int64_t>::max(),0,0,0}, Value::from_int(7)) &&
+      memo.find({std::numeric_limits<std::int64_t>::max(),0,0,0}, &out) && out.i==7,
+      "huge domain safely falls back");
+}
+
 }  // namespace
 
 int main() {
+  if (!test_dense_domain_keys_capacity_and_reset()) return 1;
   if (!test_collisions_and_growth()) return 1;
   if (!test_signed_extremes_and_all_value_tags()) return 1;
   if (!test_limits_and_existing_update()) return 1;

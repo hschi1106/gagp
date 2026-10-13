@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <cstdlib>
 #include <optional>
 #include <memory>
 #include <vector>
@@ -11,16 +12,22 @@
 namespace gagp::detail {
 inline bool cpu_region_views_supported(const BoundedRegionSegment& segment) {
   const auto& plan = segment.plan;
-  if (plan.progress != RegionProgressKind::SequenceWindows) return false;
+  const bool coordinate_views = std::getenv("GAGP_CPU_COORDINATE_VIEWS") &&
+      plan.progress == RegionProgressKind::Coordinates &&
+      std::find(plan.parameter_types.begin(), plan.parameter_types.end(), ValueTag::IntList) !=
+          plan.parameter_types.end();
+  if (!coordinate_views && plan.progress != RegionProgressKind::SequenceWindows) return false;
   // Snapshot setup pays off on proven recursive windows. Arbitrary predicates
   // may terminate at the root, where eager payload copying is needless work.
   const auto& predicate = segment.base_predicate.program;
-  if ((predicate.code.size() != 1 &&
+  if (!coordinate_views && ((predicate.code.size() != 1 &&
        !(predicate.code.size() == 2 && predicate.code[1].op == Opcode::Return)) ||
       predicate.code[0].op != Opcode::PushConst || predicate.code[0].a < 0 ||
-      static_cast<std::size_t>(predicate.code[0].a) >= predicate.consts.size()) return false;
-  const auto& condition = predicate.consts[predicate.code[0].a];
-  if (condition.tag != ValueTag::Bool || condition.b) return false;
+      static_cast<std::size_t>(predicate.code[0].a) >= predicate.consts.size())) return false;
+  if (!coordinate_views) {
+    const auto& condition = predicate.consts[predicate.code[0].a];
+    if (condition.tag != ValueTag::Bool || condition.b) return false;
+  }
   if (plan.result_type != ValueTag::Int && plan.result_type != ValueTag::Bool) return false;
   // Memo keys containing lists depend on content identity, not view offsets.
   if (plan.memoized && std::find(plan.state_types.begin(), plan.state_types.end(),

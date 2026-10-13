@@ -1,0 +1,299 @@
+{
+  "status": "directional checkpoint; formal repeated main benchmark pending",
+  "contract": "CPU 1T, full P1024/C1024, same evolution rules and inputs; search wall includes initialization/generations/final eval; excludes import and audit/export",
+  "experiments": [
+    {
+      "version": "off",
+      "task": "house_robber",
+      "seed": 0,
+      "generations": 4,
+      "binary_sha256": "f63184567efc2804827f52b9a5dabfd3374ee375ced616dbcf79bfc7cfc538da",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1"
+      },
+      "evolve_wall_ms": 28480.355585,
+      "process_wall_s": 29.40135305095464,
+      "eval_ms": 23362.76777,
+      "repro_ms": 962.208999,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/off-4/house_robber.gagp_cpu.s0.r0.json"
+    },
+    {
+      "version": "off",
+      "task": "median",
+      "seed": 0,
+      "generations": 4,
+      "binary_sha256": "f63184567efc2804827f52b9a5dabfd3374ee375ced616dbcf79bfc7cfc538da",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1"
+      },
+      "evolve_wall_ms": 3952.886181,
+      "process_wall_s": 5.06933336914517,
+      "eval_ms": 1818.4607700000001,
+      "repro_ms": 1624.058113,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/off-4/median.gagp_cpu.s0.r0.json"
+    },
+    {
+      "version": "on",
+      "task": "house_robber",
+      "seed": 0,
+      "generations": 4,
+      "binary_sha256": "f63184567efc2804827f52b9a5dabfd3374ee375ced616dbcf79bfc7cfc538da",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_CPU_BOUND_PHASE": "1"
+      },
+      "evolve_wall_ms": 26386.634676,
+      "process_wall_s": 27.2888418501243,
+      "eval_ms": 21940.57278,
+      "repro_ms": 1016.125392,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/on-4/house_robber.gagp_cpu.s0.r0.json"
+    },
+    {
+      "version": "on",
+      "task": "median",
+      "seed": 0,
+      "generations": 4,
+      "binary_sha256": "f63184567efc2804827f52b9a5dabfd3374ee375ced616dbcf79bfc7cfc538da",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_CPU_BOUND_PHASE": "1"
+      },
+      "evolve_wall_ms": 3760.391701,
+      "process_wall_s": 4.888552277116105,
+      "eval_ms": 1642.881471,
+      "repro_ms": 1657.8052899999998,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/on-4/median.gagp_cpu.s0.r0.json"
+    },
+    {
+      "version": "coordinate",
+      "task": "house_robber",
+      "seed": 0,
+      "generations": 4,
+      "binary_sha256": "42da34e3e6f3a0c79daf62114eb4ccbe6046a4b8495e6ba634ed84ecc4e50cb1",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1"
+      },
+      "evolve_wall_ms": 24978.468699,
+      "process_wall_s": 25.876394199207425,
+      "eval_ms": 20528.210474000003,
+      "repro_ms": 970.800922,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/coordinate-4/house_robber.gagp_cpu.s0.r0.json"
+    },
+    {
+      "version": "coordinate",
+      "task": "median",
+      "seed": 0,
+      "generations": 4,
+      "binary_sha256": "42da34e3e6f3a0c79daf62114eb4ccbe6046a4b8495e6ba634ed84ecc4e50cb1",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1"
+      },
+      "evolve_wall_ms": 3730.575069,
+      "process_wall_s": 4.888066621962935,
+      "eval_ms": 1637.8746019999999,
+      "repro_ms": 1633.170471,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/coordinate-4/median.gagp_cpu.s0.r0.json"
+    },
+    {
+      "version": "dense",
+      "task": "house_robber",
+      "seed": 0,
+      "generations": 4,
+      "binary_sha256": "dd0e95befd4f7ad7c47bea25ae8818c6a94735e437f88b31e13590862acf0619",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_DENSE_MEMO": "1"
+      },
+      "evolve_wall_ms": 23666.235061,
+      "process_wall_s": 24.5905057429336,
+      "eval_ms": 19509.123259,
+      "repro_ms": 974.911687,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/dense-4/house_robber.gagp_cpu.s0.r0.json"
+    },
+    {
+      "version": "dense",
+      "task": "median",
+      "seed": 0,
+      "generations": 4,
+      "binary_sha256": "dd0e95befd4f7ad7c47bea25ae8818c6a94735e437f88b31e13590862acf0619",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_DENSE_MEMO": "1"
+      },
+      "evolve_wall_ms": 4345.296987,
+      "process_wall_s": 5.484656700165942,
+      "eval_ms": 2118.9722709999996,
+      "repro_ms": 1643.311387,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/dense-4/median.gagp_cpu.s0.r0.json"
+    },
+    {
+      "version": "typed",
+      "task": "house_robber",
+      "seed": 0,
+      "generations": 4,
+      "binary_sha256": "ce5ca5752aceea509803d1ec98b5bffff60a64dce95705c8352317721f072f85",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1"
+      },
+      "evolve_wall_ms": 16601.57722,
+      "process_wall_s": 17.47259481716901,
+      "eval_ms": 12979.501498000001,
+      "repro_ms": 951.6881669999999,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/typed-4/house_robber.gagp_cpu.s0.r0.json"
+    },
+    {
+      "version": "typed",
+      "task": "median",
+      "seed": 0,
+      "generations": 4,
+      "binary_sha256": "ce5ca5752aceea509803d1ec98b5bffff60a64dce95705c8352317721f072f85",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1"
+      },
+      "evolve_wall_ms": 4346.079251,
+      "process_wall_s": 5.471289353910834,
+      "eval_ms": 2137.7278819999997,
+      "repro_ms": 1630.6833060000001,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/typed-4/median.gagp_cpu.s0.r0.json"
+    },
+    {
+      "version": "typed-cached",
+      "task": "house_robber",
+      "seed": 0,
+      "generations": 4,
+      "binary_sha256": "5799a4718fd4a90f8fb1b0c16a37fc3e6c2d8add634e26479870a38c24fc7086",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1"
+      },
+      "evolve_wall_ms": 16778.111088,
+      "process_wall_s": 17.64157457696274,
+      "eval_ms": 13105.990862000002,
+      "repro_ms": 954.1450150000001,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/typed-cached-4/house_robber.gagp_cpu.s0.r0.json"
+    },
+    {
+      "version": "typed-cached",
+      "task": "house_robber",
+      "seed": 1,
+      "generations": 4,
+      "binary_sha256": "5799a4718fd4a90f8fb1b0c16a37fc3e6c2d8add634e26479870a38c24fc7086",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1"
+      },
+      "evolve_wall_ms": 16912.464711,
+      "process_wall_s": 17.806421735091135,
+      "eval_ms": 13232.645645,
+      "repro_ms": 932.397294,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/typed-cached-4/house_robber.gagp_cpu.s1.r0.json"
+    },
+    {
+      "version": "typed-cached",
+      "task": "house_robber",
+      "seed": 2,
+      "generations": 4,
+      "binary_sha256": "5799a4718fd4a90f8fb1b0c16a37fc3e6c2d8add634e26479870a38c24fc7086",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1"
+      },
+      "evolve_wall_ms": 16799.924765,
+      "process_wall_s": 17.6939157131128,
+      "eval_ms": 13037.759367999999,
+      "repro_ms": 945.5809080000001,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/typed-cached-4/house_robber.gagp_cpu.s2.r0.json"
+    },
+    {
+      "version": "typed-cached",
+      "task": "median",
+      "seed": 0,
+      "generations": 4,
+      "binary_sha256": "5799a4718fd4a90f8fb1b0c16a37fc3e6c2d8add634e26479870a38c24fc7086",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1"
+      },
+      "evolve_wall_ms": 4312.214225,
+      "process_wall_s": 5.474789354018867,
+      "eval_ms": 2081.540005,
+      "repro_ms": 1651.690841,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/typed-cached-4/median.gagp_cpu.s0.r0.json"
+    },
+    {
+      "version": "typed-cached",
+      "task": "median",
+      "seed": 1,
+      "generations": 4,
+      "binary_sha256": "5799a4718fd4a90f8fb1b0c16a37fc3e6c2d8add634e26479870a38c24fc7086",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1"
+      },
+      "evolve_wall_ms": 4260.974507,
+      "process_wall_s": 5.373672496993095,
+      "eval_ms": 2075.426099,
+      "repro_ms": 1623.421593,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/typed-cached-4/median.gagp_cpu.s1.r0.json"
+    },
+    {
+      "version": "typed-cached",
+      "task": "median",
+      "seed": 2,
+      "generations": 4,
+      "binary_sha256": "5799a4718fd4a90f8fb1b0c16a37fc3e6c2d8add634e26479870a38c24fc7086",
+      "flags": {
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1"
+      },
+      "evolve_wall_ms": 4234.408797,
+      "process_wall_s": 5.328780791955069,
+      "eval_ms": 2060.324114,
+      "repro_ms": 1617.0059529999999,
+      "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/typed-cached-4/median.gagp_cpu.s2.r0.json"
+    }
+  ],
+  "perf": {
+    "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-eval-20261013/logs/optimization/cpu-bound-phase/perf",
+    "bound_interpreter_self_percent": 40.89,
+    "value_stack_push_self_percent": 9.83,
+    "builtin_self_percent": 11.24,
+    "region_driver_self_percent": 12.72
+  },
+  "tests": "4 focused runtime/parity tests plus recurrence memo and extended execution-session tests passed; late numeric replay restores original fuel",
+  "caveats": "Early runs overlapped other agents builds, though benchmark processes serialized. Do not claim formal speedups from these samples. Dense step per-case environment lookup caused Median regression; moved to session construction in typed-cached. All completed seed0 candidates match baseline full final fitness/nodes and per-generation best/mean/best_nodes."
+}

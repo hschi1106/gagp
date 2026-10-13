@@ -376,6 +376,35 @@ identities, raw repeats and remaining limitations are indexed in
 uses invocation-local views only for structurally proven recursive windows, with
 generic CPU fallback. It does not add CPU reproduction workers.
 
+Additional independent CPU evaluator opt-ins (all stay CPU 1T):
+- `GAGP_CPU_BOUND_PHASE=1`: immutable-session local-to-binding tables avoid
+  presets/type-vector/locals copies for read-only phases. Phases containing
+  `STORE` retain the ordinary interpreter. Absent or wrong-type captures still
+  fail only at an executed `LOAD`, after its fuel charge.
+- `GAGP_CPU_COORDINATE_VIEWS=1` together with `GAGP_CPU_REGION_VIEWS=1`:
+  extend the same validated scalar-returning list-view capability to coordinate
+  regions with captured IntLists. Each invocation snapshots payload contents;
+  unsupported or missing payloads fall back to the original values/interpreter.
+- `GAGP_CPU_TYPED_PHASE=1` (implies bound phases): existing forward type-flow
+  proof admits Int/Bool and invocation-local IntList operations with stack<=64.
+  A compact int64 stack executes the evolved bytecode, including every original
+  fuel charge. Unsupported code or runtime values use the ordinary interpreter.
+  Numeric arithmetic preserves the reference double round-trip. If a round-trip
+  approaches an out-of-range signed conversion, the pure phase restores fuel
+  and replays generically; no registry writes, allocation, memo updates or
+  externally visible locals occur before that replay.
+- `GAGP_CPU_DENSE_MEMO=1`: one Int state coordinate and a domain of at most 4096
+  cells use direct memo slots; other keys/domains retain the generic hash map.
+  All state-key components, lazy top-down order, fuel and logical cell capacity
+  remain unchanged. Allocation and clearing are included in evaluation time.
+
+These are execution capabilities, not grammar membership certificates or changes
+in grammar/operator/RNG semantics. Their one-time capability construction and
+per-invocation storage are inside measured CPU fitness execution. Tests include
+lazy captures, STORE fallback, signed/numeric boundaries, fuel, memo capacity,
+full multi-axis keys and session lifetime. Candidate experiment evidence lives
+under `benchmarks/fixed_asgp/optimization/results/cpu-evaluator-20261013.json`.
+
 Within that profile, `GAGP_OWNED_PHASE_PACK=1` reuses private executable proofs.
 Independent evaluator flag `GAGP_COORDINATE_EXECUTOR=1` selects a verified
 single-coordinate region executor; unsupported structures use the existing

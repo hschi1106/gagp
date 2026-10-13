@@ -1,6 +1,8 @@
 #include <cstddef>
+#include <cstdlib>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -12,6 +14,8 @@
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
 #include "gagp/runtime/cpu/execution_session.hpp"
+#include "gagp/runtime/payload/payload.hpp"
+#include "gagp/core/builtin.hpp"
 
 namespace {
 
@@ -28,7 +32,8 @@ bool check(bool condition, const std::string& message) {
 bool same_result(const ExecResult& left, const ExecResult& right) {
   if (left.is_error != right.is_error) return false;
   if (left.is_error) return left.err.code == right.err.code;
-  return left.value.tag == right.value.tag && left.value.i == right.value.i;
+  return left.value.tag == right.value.tag && left.value.i == right.value.i &&
+         left.value.b == right.value.b;
 }
 
 RegionValueSlot slot(RegionSlotBank bank, std::uint32_t index) {
@@ -130,7 +135,14 @@ bool compare_range(CpuExecutionSession* session,
                    const std::vector<std::pair<int, Value>>& inputs,
                    int maximum, const std::string& label) {
   for (int fuel = 0; fuel <= maximum; ++fuel) {
+    std::vector<std::pair<std::string, std::string>> flags;
+    for (const char* name : {"GAGP_CPU_BOUND_PHASE", "GAGP_CPU_REGION_VIEWS",
+                             "GAGP_CPU_COORDINATE_VIEWS", "GAGP_CPU_TYPED_PHASE", "GAGP_CPU_DENSE_MEMO"}) {
+      if (const char* value = std::getenv(name)) flags.emplace_back(name, value);
+      unsetenv(name);
+    }
     const ExecResult expected = execute_bytecode_cpu(program, inputs, fuel);
+    for (const auto& flag : flags) setenv(flag.first.c_str(), flag.second.c_str(), 1);
     const ExecResult actual = session->execute(inputs, fuel);
     if (!check(same_result(expected, actual),
                label + " differs at fuel " + std::to_string(fuel))) {
@@ -338,17 +350,100 @@ bool test_two_segments_share_no_invocation_state() {
                "two-segment session retained invocation state across runs");
 }
 
+bool test_typed_numeric_boundaries_and_replay() {
+  for (const auto op : {Opcode::Add, Opcode::Sub, Opcode::Mul, Opcode::Mod}) {
+    for (const auto a : {std::int64_t(0), std::int64_t(9007199254740993LL),
+                         std::numeric_limits<std::int64_t>::min(),
+                         std::numeric_limits<std::int64_t>::max()}) {
+      auto program = counter_program();
+      auto& body=program.bounded_region_segments[0].base_body.program;
+      // The first arithmetic operation executes/charges before the late large
+      // operand. Replay must restore the entire phase fuel and preserve errors.
+      body.consts={Value::from_int(1),Value::from_int(2),Value::from_int(a)};
+      body.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),ins(Opcode::Add),
+                 ins_a(Opcode::PushConst,2),ins(op),ins(Opcode::Return)};
+      body.instruction_fuel={1,0,2,1,2,0};
+      CpuExecutionSession session(program);
+      if(!compare_range(&session,program,{{0,Value::from_int(0)}},30,"typed numeric replay")) return false;
+    }
+  }
+  return true;
+}
+
+bool test_coordinate_capture_views() {
+  setenv("GAGP_CPU_REGION_VIEWS", "1", 1);
+  setenv("GAGP_CPU_COORDINATE_VIEWS", "1", 1);
+  auto program = counter_program();
+  auto& segment = program.bounded_region_segments[0];
+  segment.plan.parameter_types = {ValueTag::IntList};
+  segment.base_body = phase({Value::from_int(-1)},
+      {ins_a(Opcode::Load, 0), ins_a(Opcode::PushConst, 0),
+       {Opcode::CallBuiltin, static_cast<int>(BuiltinId::Index), 2, true, true}, ins(Opcode::Return)},
+      {{slot(RegionSlotBank::Parameter, 0), 0}}, 1);
+  const auto list = payload::make_int_list_value({Value::from_int(10), Value::from_int(20)});
+  const auto missing = Value::from_int_list_hash_len(987652314, 2);
+  for (unsigned frames : {0u, 1u, 16u}) {
+    for (unsigned cells : {0u, 16u}) {
+      segment.plan.limits.frames = frames;
+      segment.plan.limits.cells = cells;
+      CpuExecutionSession session(program);
+      for (const auto& inputs : std::vector<std::vector<std::pair<int, Value>>>{
+               {{0, Value::from_int(2)}, {1, list}},
+               {{0, Value::from_int(6)}}, // boundary does not read missing capture
+               {{0, Value::from_int(0)}},
+               {{0, Value::from_int(0)}, {1, Value::from_bool(true)}},
+               {{0, Value::from_int(0)}, {1, missing}}}) {
+        if (!compare_range(&session, program, inputs, 30, "coordinate captured views")) return false;
+      }
+    }
+  }
+  unsetenv("GAGP_CPU_COORDINATE_VIEWS");
+  unsetenv("GAGP_CPU_REGION_VIEWS");
+  return true;
+}
+
+bool test_bound_store_fallback_and_semantic_fuel() {
+  auto program = counter_program();
+  auto& body = program.bounded_region_segments[0].base_body.program;
+  body.consts = {Value::from_int(42)};
+  body.code = {ins_a(Opcode::PushConst, 0), ins_a(Opcode::Store, 0),
+               ins_a(Opcode::Load, 0), ins(Opcode::Return)};
+  body.instruction_fuel = {2, 0, 1, 0};
+  CpuExecutionSession session(program);
+  // STORE overwrites an absent or wrong-type capture before LOAD; a direct
+  // binding implementation must use the general VM rather than read capture.
+  for (const auto& inputs : std::vector<std::vector<std::pair<int, Value>>>{
+           {{0, Value::from_int(0)}},
+           {{0, Value::from_int(0)}, {1, Value::from_bool(true)}}}) {
+    if (!compare_range(&session, program, inputs, 20, "bound STORE fallback")) return false;
+    auto result = session.execute(inputs, 100);
+    if (!check(!result.is_error && result.value.i == 42, "STORE fallback result")) return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 int main() {
   try {
-    if (!test_reuse_inputs_memo_and_capture_errors() ||
+    for (int direct = 0; direct < 3; ++direct) {
+      if (direct == 2) {
+        setenv("GAGP_CPU_TYPED_PHASE", "1", 1);
+        setenv("GAGP_CPU_DENSE_MEMO", "1", 1);
+      }
+      if (direct) setenv("GAGP_CPU_BOUND_PHASE", "1", 1);
+      else unsetenv("GAGP_CPU_BOUND_PHASE");
+    if (!test_typed_numeric_boundaries_and_replay() ||
+        !test_coordinate_capture_views() ||
+        !test_bound_store_fallback_and_semantic_fuel() ||
+        !test_reuse_inputs_memo_and_capture_errors() ||
         !test_immutable_snapshot_and_independent_sessions() ||
         !test_deferred_invalid_segment_validation() ||
         !test_move_lifetime_and_retained_storage() ||
         !test_fitness_batch_reuses_without_state_leaks() ||
         !test_two_segments_share_no_invocation_state()) {
       return 1;
+    }
     }
     return 0;
   } catch (const std::exception& error) {

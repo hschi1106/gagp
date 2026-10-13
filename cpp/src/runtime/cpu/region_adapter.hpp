@@ -1,6 +1,8 @@
 #pragma once
 
 #include <limits>
+#include <cstdlib>
+#include <unordered_map>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -8,10 +10,62 @@
 #include "gagp/core/bytecode.hpp"
 #include "gagp/runtime/cpu/builtins_cpu.hpp"
 #include "bounded_region.hpp"
+#include "../view_profile.hpp"
 
 namespace gagp::detail {
 
+struct DirectPhaseBindings {
+  bool supported = false;
+  bool typed = false;
+  ValueTag result_type = ValueTag::Invalid;
+  std::array<ValueTag, 64> types{};
+  std::vector<const RegionPhaseBinding*> locals;
+};
+
+struct BoundPhaseInputs {
+  const DirectPhaseBindings& bindings;
+  const RegionFrame& frame;
+  const std::vector<std::optional<Value>>& parameters;
+  const RegionPlan& plan;
+};
+
 struct RegionPhaseScratch {
+  bool dense_enabled = std::getenv("GAGP_CPU_DENSE_MEMO") != nullptr;
+  bool typed_enabled = std::getenv("GAGP_CPU_TYPED_PHASE") != nullptr;
+  bool direct_enabled = typed_enabled || std::getenv("GAGP_CPU_BOUND_PHASE") != nullptr;
+  std::unordered_map<const RegionPhase*, DirectPhaseBindings> direct;
+
+  const DirectPhaseBindings& bindings(const RegionPhase& phase, const RegionPlan& plan, ValueTag expected) {
+    auto [it, inserted] = direct.try_emplace(&phase);
+    if (inserted) {
+      auto& result = it->second;
+      result.supported = std::none_of(phase.program.code.begin(), phase.program.code.end(),
+          [](const Instr& instruction) { return instruction.op == Opcode::Store; });
+      if (result.supported) {
+        result.locals.resize(phase.program.n_locals, nullptr);
+        for (const auto& binding : phase.bindings) result.locals[binding.local] = &binding;
+        if (typed_enabled && phase.program.n_locals <= 64) {
+          result.types.fill(ValueTag::Invalid);
+          for (const auto& binding : phase.bindings) {
+            const auto slot = binding.source.slot;
+            switch (binding.source.bank) {
+              case RegionSlotBank::State: result.types[binding.local] = plan.state_types[slot]; break;
+              case RegionSlotBank::Parameter: result.types[binding.local] = plan.parameter_types[slot]; break;
+              case RegionSlotBank::Prepared: result.types[binding.local] = plan.preparations[slot].type; break;
+              case RegionSlotBank::Result: result.types[binding.local] = plan.result_type; break;
+              case RegionSlotBank::Measure: result.types[binding.local] = ValueTag::Int; break;
+            }
+          }
+          result.result_type = expected;
+          result.typed = std::all_of(phase.program.consts.begin(), phase.program.consts.end(),
+              [](const Value& value) { return value.tag == ValueTag::Int || value.tag == ValueTag::Bool; }) &&
+              view_code_supported(phase.program.code, phase.program.consts, phase.program.n_locals,
+                                  result.types, expected);
+        }
+      }
+    }
+    return it->second;
+  }
   std::vector<std::pair<int, Value>> presets;
   std::vector<std::pair<int, ValueTag>> types;
   std::vector<std::int64_t> cuts;
@@ -51,6 +105,17 @@ struct RegionAdapter {
         return region_failure(ErrCode::Type, "bounded region phase result type mismatch");
       return {false, value, {ErrCode::Value, ""}};
     }
+    if (scratch.direct_enabled) {
+      const auto& bindings = scratch.bindings(phase, segment.plan, expected);
+      if (bindings.supported) {
+        const BoundPhaseInputs inputs{bindings, frame, parameters, segment.plan};
+        auto result = phase_runner(phase.program, {}, {}, fuel, &inputs);
+        if (!result.is_error && result.value.tag != expected &&
+            !(result_phase && result.value.tag == ValueTag::FallbackToken))
+          return region_failure(ErrCode::Type, "bounded region phase result type mismatch");
+        return result;
+      }
+    }
     auto& presets = scratch.presets;
     auto& types = scratch.types;
     presets.clear();
@@ -76,7 +141,7 @@ struct RegionAdapter {
       }
       presets.emplace_back(binding.local, value);
     }
-    auto result = phase_runner(phase.program, presets, types, fuel);
+    auto result = phase_runner(phase.program, presets, types, fuel, nullptr);
     if (!result.is_error && result.value.tag != expected &&
         !(result_phase && result.value.tag == ValueTag::FallbackToken))
       return region_failure(ErrCode::Type, "bounded region phase result type mismatch");

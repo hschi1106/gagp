@@ -17,6 +17,20 @@ using RecurrenceKey = std::array<std::int64_t, 4>;
 
 class RecurrenceMemo {
  public:
+  // Only a small proven coordinate domain is admitted. Uncovered keys still
+  // use the generic map, so enabling this cache never changes key identity.
+  void set_dense_domain(std::int64_t lower, std::int64_t upper) {
+    dense_active_ = upper >= lower &&
+        static_cast<std::uint64_t>(upper) - static_cast<std::uint64_t>(lower) < 4096;
+    if (!dense_active_) return;
+    dense_lower_ = lower;
+    const auto count = static_cast<std::uint64_t>(upper) -
+                       static_cast<std::uint64_t>(lower) + 1;
+    dense_values_.resize(count);
+    dense_used_.resize(count);
+  }
+  void disable_dense_domain() { dense_active_ = false; }
+
   static bool supports_limit(std::uint32_t cell_limit) {
     if (cell_limit == 0) return true;
     const std::size_t maximum = maximum_bucket_count();
@@ -37,9 +51,16 @@ class RecurrenceMemo {
     cell_limit_ = cell_limit;
     size_ = 0;
     for (Bucket& bucket : buckets_) bucket.occupied = false;
+    if (dense_active_) std::fill(dense_used_.begin(), dense_used_.end(), false);
   }
 
   bool find(const RecurrenceKey& key, Value* out) const {
+    const auto index = dense_index(key);
+    if (index < dense_used_.size()) {
+      if (!dense_used_[index]) return false;
+      if (out) *out = dense_values_[index];
+      return true;
+    }
     const Bucket* bucket = find_bucket(key);
     if (bucket == nullptr) return false;
     if (out != nullptr) *out = bucket->value;
@@ -47,6 +68,16 @@ class RecurrenceMemo {
   }
 
   bool insert(const RecurrenceKey& key, Value value) {
+    const auto index = dense_index(key);
+    if (index < dense_used_.size()) {
+      if (!dense_used_[index]) {
+        if (size_ >= cell_limit_) return false;
+        dense_used_[index] = true;
+        ++size_;
+      }
+      dense_values_[index] = value;
+      return true;
+    }
     if (Bucket* bucket = find_bucket(key); bucket != nullptr) {
       bucket->value = value;
       return true;
@@ -62,10 +93,24 @@ class RecurrenceMemo {
   std::size_t size() const { return size_; }
 
   std::size_t storage_bytes() const {
-    return buckets_.capacity() * sizeof(Bucket);
+    return buckets_.capacity() * sizeof(Bucket) + dense_values_.capacity() * sizeof(Value) +
+           dense_used_.capacity() * sizeof(std::uint8_t);
   }
 
  private:
+  std::size_t dense_index(const RecurrenceKey& key) const {
+    if (!dense_active_ || key[1] || key[2] || key[3] || key[0] < dense_lower_)
+      return std::numeric_limits<std::size_t>::max();
+    const auto index = static_cast<std::uint64_t>(key[0]) -
+                       static_cast<std::uint64_t>(dense_lower_);
+    return index < dense_values_.size() ? static_cast<std::size_t>(index) :
+        std::numeric_limits<std::size_t>::max();
+  }
+  bool dense_active_ = false;
+  std::int64_t dense_lower_ = 0;
+  std::vector<Value> dense_values_;
+  std::vector<std::uint8_t> dense_used_;
+
   struct Bucket {
     RecurrenceKey key{};
     Value value = Value::invalid();

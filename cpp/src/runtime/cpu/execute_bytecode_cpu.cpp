@@ -15,6 +15,7 @@
 #include "gagp/core/bytecode_verify.hpp"
 #include "region_adapter.hpp"
 #include "list_views.hpp"
+#include "typed_phase.hpp"
 #include <cstdlib>
 #include "gagp/core/opcode.hpp"
 #include "gagp/core/value_semantics.hpp"
@@ -139,6 +140,7 @@ struct CodeView {
   const std::vector<std::uint32_t>& instruction_fuel;
   const std::vector<std::pair<int, ValueTag>>* preset_types = nullptr;
   RegionRunContext* region_context = nullptr;
+  const detail::BoundPhaseInputs* bound_inputs = nullptr;
 };
 
 ExecResult run_code(const CodeView& view,
@@ -148,7 +150,7 @@ ExecResult run_code(const CodeView& view,
                     bool require_return,
                     const BytecodeProgram* root_program);
 
-template <bool SemanticFuel>
+template <bool SemanticFuel, bool BoundPhase = false>
 ExecResult run_code_impl(const CodeView& view,
                     const std::vector<std::pair<int, Value>>& inputs,
                     const std::vector<std::pair<int, Value>>& preset_locals,
@@ -156,33 +158,35 @@ ExecResult run_code_impl(const CodeView& view,
                     bool require_return,
                     const BytecodeProgram* root_program) {
   detail::ValueStack stack;
-  std::array<LocalSlot, 16> inline_locals;
+  std::array<LocalSlot, BoundPhase ? 0 : 16> inline_locals;
   std::vector<LocalSlot> heap_locals;
   LocalSlot* locals = inline_locals.data();
-  if (static_cast<std::size_t>(view.n_locals) > inline_locals.size()) {
-    heap_locals.resize(static_cast<std::size_t>(view.n_locals));
-    locals = heap_locals.data();
-  }
+  if constexpr (!BoundPhase) {
+    if (static_cast<std::size_t>(view.n_locals) > inline_locals.size()) {
+      heap_locals.resize(static_cast<std::size_t>(view.n_locals));
+      locals = heap_locals.data();
+    }
 
-  for (const auto& item : inputs) {
-    const int idx = item.first;
-    if (idx >= 0 && idx < view.n_locals) {
+    for (const auto& item : inputs) {
+      const int idx = item.first;
+      if (idx >= 0 && idx < view.n_locals) {
+        locals[static_cast<std::size_t>(idx)].is_set = true;
+        locals[static_cast<std::size_t>(idx)].value = item.second;
+      }
+    }
+    for (const auto& item : preset_locals) {
+      const int idx = item.first;
+      if (idx < 0 || idx >= view.n_locals) {
+        return fail(ErrCode::Name, "local index out of range");
+      }
       locals[static_cast<std::size_t>(idx)].is_set = true;
       locals[static_cast<std::size_t>(idx)].value = item.second;
     }
-  }
-  for (const auto& item : preset_locals) {
-    const int idx = item.first;
-    if (idx < 0 || idx >= view.n_locals) {
-      return fail(ErrCode::Name, "local index out of range");
-    }
-    locals[static_cast<std::size_t>(idx)].is_set = true;
-    locals[static_cast<std::size_t>(idx)].value = item.second;
-  }
 
-  if (view.preset_types)
-    for (const auto& item : *view.preset_types) locals[item.first].expected = item.second;
+    if (view.preset_types)
+      for (const auto& item : *view.preset_types) locals[item.first].expected = item.second;
 
+  } // Ordinary local initialization is absent from read-only bound phases.
   if constexpr (SemanticFuel) {
     if (view.instruction_fuel.size() != view.code.size())
       return fail(ErrCode::Value, "instruction fuel schedule size mismatch");
@@ -224,6 +228,29 @@ ExecResult run_code_impl(const CodeView& view,
         if (!ins.has_a || ins.a < 0 || ins.a >= view.n_locals) {
           return fail(ErrCode::Name, "local index out of range");
         }
+        if constexpr (BoundPhase) {
+          const auto& bound = *view.bound_inputs;
+          const auto* binding = bound.bindings.locals[ins.a];
+          if (!binding) return fail(ErrCode::Name, "read of uninitialized local");
+          const auto slot = binding->source.slot;
+          Value value;
+          switch (binding->source.bank) {
+            case RegionSlotBank::State: value = bound.frame.state[slot]; break;
+            case RegionSlotBank::Prepared: value = bound.frame.prepared[slot]; break;
+            case RegionSlotBank::Result: value = bound.frame.results[slot]; break;
+            case RegionSlotBank::Measure:
+              value = Value::from_int(Value::container_len(bound.frame.state[bound.plan.sequence_state]));
+              break;
+            case RegionSlotBank::Parameter:
+              if (!bound.parameters[slot]) return fail(ErrCode::Name, "read of uninitialized local");
+              value = *bound.parameters[slot];
+              if (value.tag != bound.plan.parameter_types[slot])
+                return fail(ErrCode::Type, "bounded region binding type mismatch");
+              break;
+          }
+          stack.push_back(value);
+          continue;
+        }
         const LocalSlot& slot = locals[static_cast<std::size_t>(ins.a)];
         if (!slot.is_set) {
           return fail(ErrCode::Name, "read of uninitialized local");
@@ -235,6 +262,7 @@ ExecResult run_code_impl(const CodeView& view,
       }
 
       case Opcode::Store: {
+        if constexpr (BoundPhase) return fail(ErrCode::Value, "STORE in read-only bound phase");
         if (!ins.has_a || ins.a < 0 || ins.a >= view.n_locals) {
           return fail(ErrCode::Name, "local index out of range");
         }
@@ -471,8 +499,9 @@ ExecResult run_code_impl(const CodeView& view,
           const auto& plan = segment.plan;
           const auto count = plan.state_types.size() + plan.bound_operand_count;
           if (stack.size() < count) return fail(ErrCode::Value, "stack underflow");
-          RegionInvocationBuffers one_shot_buffers;
-          auto& buffers = view.region_context ? view.region_context->buffers : one_shot_buffers;
+          std::optional<RegionInvocationBuffers> one_shot_buffers;
+          if (!view.region_context) one_shot_buffers.emplace();
+          auto& buffers = view.region_context ? view.region_context->buffers : *one_shot_buffers;
           auto& operands = buffers.operands;
           operands.resize(count);
           for (std::size_t i = count; i > 0; --i) {
@@ -525,9 +554,14 @@ ExecResult run_code_impl(const CodeView& view,
           for (std::size_t i = 0; i < plan.state_types.size(); ++i) initial[i] = operands[i];
           auto phase_runner = [](const PhaseProgram& phase,
                                  const std::vector<std::pair<int, Value>>& presets,
-                                 const std::vector<std::pair<int, ValueTag>>& types, int& remaining) {
+                                 const std::vector<std::pair<int, ValueTag>>& types, int& remaining,
+                                 const detail::BoundPhaseInputs* bound) {
+            if (bound) {
+              const auto result = detail::run_typed_phase(phase, *bound, remaining);
+              if (result) return *result;
+            }
             return run_code(CodeView{phase.consts, phase.code, phase.n_locals, phase.var2idx,
-                                     phase.instruction_fuel, &types}, {}, presets, remaining, false, nullptr);
+                                     phase.instruction_fuel, &types, nullptr, bound}, {}, presets, remaining, false, nullptr);
           };
           detail::RegionAdapter<decltype(phase_runner)> adapter{
               segment, parameters, domains, phase_runner, buffers.phases};
@@ -540,6 +574,17 @@ ExecResult run_code_impl(const CodeView& view,
           layout.memoized = plan.memoized;
           detail::RegionScratch one_shot_scratch;
           auto& scratch = view.region_context ? view.region_context->scratch : one_shot_scratch;
+          scratch.memo.disable_dense_domain();
+          if (buffers.phases.dense_enabled && plan.memoized &&
+              plan.progress == RegionProgressKind::Coordinates &&
+              plan.state_types.size() == 1 && plan.state_types[0] == ValueTag::Int &&
+              domains.size() == 1 && plan.coordinate_slots[0] == 0) {
+            const auto lower = domains[0].lower, upper = domains[0].upper;
+            if (plan.coordinate_endpoint == DomainEndpoint::Inclusive)
+              scratch.memo.set_dense_domain(lower, upper);
+            else if (lower < upper)
+              scratch.memo.set_dense_domain(lower, upper - 1);
+          }
           const bool use_views = view.region_context ? view.region_context->validations[ins.a].views_supported :
               std::getenv("GAGP_CPU_REGION_VIEWS") && detail::cpu_region_views_supported(segment);
           auto result = use_views
@@ -583,6 +628,11 @@ ExecResult run_code(const CodeView& view,
     const std::vector<std::pair<int, Value>>& inputs,
     const std::vector<std::pair<int, Value>>& preset_locals,
     int& fuel, bool require_return, const BytecodeProgram* root_program) {
+  if (view.bound_inputs) {
+    if (view.instruction_fuel.empty())
+      return run_code_impl<false, true>(view, inputs, preset_locals, fuel, require_return, root_program);
+    return run_code_impl<true, true>(view, inputs, preset_locals, fuel, require_return, root_program);
+  }
   if (view.instruction_fuel.empty())
     return run_code_impl<false>(view, inputs, preset_locals, fuel, require_return, root_program);
   return run_code_impl<true>(view, inputs, preset_locals, fuel, require_return, root_program);
