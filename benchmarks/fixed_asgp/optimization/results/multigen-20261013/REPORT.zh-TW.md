@@ -1,5 +1,9 @@
 # 多世代演化比較：CPU 1T＋GPU
 
+[全部五模式的六張比較圖（英文）](all-mode-comparison/README.md)：fitness、每代／長跑成本，以及四種GAGP模式逐代加速比。
+
+**先看 [ASGP vs GAGP 總體比較](OVERVIEW.zh-TW.md)**：固定同一 GAGP 模式，分開呈現速度、同代數品質與同時間品質。
+
 ## 本輪結論
 
 **新 GPU reproduction 能以速度換取更多搜尋，但不能宣稱多世代品質全面勝過 ASGP，也不能把 frozen-parent 的30×直接套到整趟搜尋。** 90次搜尋 process wall 合計約40.6分鐘；加上設計、build等間隔，性能實驗約50分鐘完成。事後重評與出圖另計。

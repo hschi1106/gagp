@@ -1,0 +1,157 @@
+{
+  "runs": 39,
+  "main_runs": 30,
+  "extensions": 9,
+  "total_generations": 5184,
+  "full_dimensions": true,
+  "cpu_1t": true,
+  "original_input_hashes_unchanged": true,
+  "archived_binary_hash_match": true,
+  "old_16gen_prefix_match": true,
+  "extension_128gen_prefix_match": true,
+  "extension_final128_fitness_match": true,
+  "checkpoint_records": 150,
+  "unique_audited_programs": 39,
+  "native_training_reproduced": true,
+  "gagp_cpu_gpu_checkpoint_match": true,
+  "gpu_counters": {
+    "cases": 3690987520,
+    "errors": 41613083,
+    "timeouts": 0,
+    "fallbacks": 0,
+    "unscored": 0
+  },
+  "native_mode_trajectory_checks": [
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "modes": [
+        "gagp_cpu",
+        "gpu_eval"
+      ],
+      "different_best": 0,
+      "different_mean": 1
+    },
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "modes": [
+        "gpu_repro",
+        "gpu_overlap"
+      ],
+      "different_best": 0,
+      "different_mean": 0
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "modes": [
+        "gagp_cpu",
+        "gpu_eval"
+      ],
+      "different_best": 0,
+      "different_mean": 4
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "modes": [
+        "gpu_repro",
+        "gpu_overlap"
+      ],
+      "different_best": 0,
+      "different_mean": 0
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "modes": [
+        "gagp_cpu",
+        "gpu_eval"
+      ],
+      "different_best": 0,
+      "different_mean": 5
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "modes": [
+        "gpu_repro",
+        "gpu_overlap"
+      ],
+      "different_best": 0,
+      "different_mean": 0
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "modes": [
+        "gagp_cpu",
+        "gpu_eval"
+      ],
+      "different_best": 0,
+      "different_mean": 0
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "modes": [
+        "gpu_repro",
+        "gpu_overlap"
+      ],
+      "different_best": 0,
+      "different_mean": 0
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "modes": [
+        "gagp_cpu",
+        "gpu_eval"
+      ],
+      "different_best": 0,
+      "different_mean": 0
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "modes": [
+        "gpu_repro",
+        "gpu_overlap"
+      ],
+      "different_best": 0,
+      "different_mean": 0
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "modes": [
+        "gagp_cpu",
+        "gpu_eval"
+      ],
+      "different_best": 0,
+      "different_mean": 0
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "modes": [
+        "gpu_repro",
+        "gpu_overlap"
+      ],
+      "different_best": 0,
+      "different_mean": 0
+    }
+  ],
+  "figure_pairs": 6,
+  "figure_language": "English",
+  "source_head": "0c9a787c65d35508260303629e218102bcea9fff",
+  "runtime_diff": "",
+  "limitations": [
+    "3 reproduction seeds, one frozen initialization",
+    "No full-population independent audit per generation",
+    "GAGP per-generation mean node count unavailable",
+    "CPU/ASGP per-case counters unavailable",
+    "Extension allocation is time-dependent; 256-generation matrix is incomplete"
+  ]
+}

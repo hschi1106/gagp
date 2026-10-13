@@ -477,4 +477,11 @@ archived separately from timed binaries. Reports consume this augmentation:
 ASGP-to-GAGP translation is not an execution-equivalence proof (for example,
 ASGP rejects negative indices whereas GAGP normalizes them). Ported scores remain
 explicit diagnostics and never replace native ASGP search quality. See the
-[2026-10-13 report](../../benchmarks/fixed_asgp/optimization/results/multigen-20261013/REPORT.zh-TW.md).
+[ASGP vs GAGP overview](../../benchmarks/fixed_asgp/optimization/results/multigen-20261013/OVERVIEW.zh-TW.md)
+and [2026-10-13 detailed report](../../benchmarks/fixed_asgp/optimization/results/multigen-20261013/REPORT.zh-TW.md).
+
+Long-search follow-up uses `long_search.py` with an archived binary and a new
+output directory. `long_search_audit.py` independently admits and scores training-
+selected checkpoint champions after all performance runs finish;
+`long_search_report.py` renders seed-resolved generation/time/size and held-out
+plots. See the [bounded long-search contract](../../benchmarks/fixed_asgp/optimization/results/long-search-20261013/CONTRACT.zh-TW.md).

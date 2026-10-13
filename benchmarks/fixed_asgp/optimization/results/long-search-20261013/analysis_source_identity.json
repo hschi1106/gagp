@@ -1,0 +1,5 @@
+{
+  "benchmarks/fixed_asgp/optimization/long_search.py": "db8f14da322f27da69d1da69b6f52ba5a0e4238c8484831f309fbb063ddd9981",
+  "benchmarks/fixed_asgp/optimization/long_search_audit.py": "35ccfc99d0f984446fd8ea0c039be7b6b89da784f412bc2d45bc258e7f87d5e7",
+  "benchmarks/fixed_asgp/optimization/long_search_report.py": "9ba2ff8017a819623fc5c042a57b2cb704b25a0d72329086efe8ec66c842201f"
+}

@@ -467,6 +467,10 @@ Invalid parent evidence falls back to ordinary parent analysis.
 
 ### Experimental native GPU phase population
 
+For a checkpoint-specific Chinese explanation with old/new examples and evidence
+limits, see [GPU phase variation comparison](gpu-phase-variation-comparison.zh-TW.md).
+This section remains the owning implementation contract.
+
 `GAGP_GPU_PHASE_POPULATION=1` requests a run-owned GPU genotype in the existing
 GPU evaluation + GPU reproduction modes. It uses one host thread. The default
 native AST backend remains the explicit fallback, with the reason recorded in
@@ -494,8 +498,10 @@ This changes reproducible RNG streams and the variation distribution: tournament
 sample with replacement; sites are expression nonterminal occurrences within
 phases; crossover tries at most eight compatible sites; mutation uses the actual
 remaining whole-program node and phase depth budget. Fixed root structure is not
-a variation site. Fitness ties use source order/candidate draw instead of a
-serialized program key. Every accepted phase remains in its original nonterminal and
+a variation site. History-best ranking retains source order on fitness ties,
+instead of the reference ranking's serialized program key; tournaments retain
+the first drawn candidate on ties, as the legacy GPU tournament already did.
+Every accepted phase remains in its original nonterminal and
 scope. It does not change numeric, fuel or evaluator semantics. Changed/unchanged
 counts classify final children against their selected parent; crossover fallback
 counts may include children subsequently changed by mutation. Both overlap modes

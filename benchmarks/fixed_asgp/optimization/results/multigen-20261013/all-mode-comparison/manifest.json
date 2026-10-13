@@ -1,0 +1,33 @@
+{
+  "source": "../generations.csv",
+  "source_sha256": "133ee851b9bc8e620248ec9578cec0a2389f39269ef1b1448152f1b2bded0015",
+  "generation_range": [
+    0,
+    15
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "fitness": "median current-generation native best / 1024",
+  "speedup": "ratio of generation-time medians, not median of seed ratios",
+  "long_run_seed": 0,
+  "long_run_generations": {
+    "sum_of_elements/asgp_1t": 16,
+    "sum_of_elements/gagp_cpu": 16,
+    "sum_of_elements/gpu_eval": 32,
+    "sum_of_elements/gpu_repro": 128,
+    "sum_of_elements/gpu_overlap": 128,
+    "house_robber/asgp_1t": 16,
+    "house_robber/gagp_cpu": 16,
+    "house_robber/gpu_eval": 64,
+    "house_robber/gpu_repro": 512,
+    "house_robber/gpu_overlap": 512,
+    "median/asgp_1t": 512,
+    "median/gagp_cpu": 16,
+    "median/gpu_eval": 32,
+    "median/gpu_repro": 512,
+    "median/gpu_overlap": 512
+  }
+}

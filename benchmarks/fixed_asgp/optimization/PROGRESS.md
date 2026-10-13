@@ -4,9 +4,34 @@ Active objective: preserve CPU / GPU-e / GPU-er / GPU-er-o architecture, use
 CPU 1T + GPU, target fastest native GPU >30× frozen ASGP-1T on Sum/House;
 Median remains fixed-overhead workload. Do not resume retired CPU fragment route.
 
+## Long-search follow-up — 2026-10-13 (complete)
+
+House64 / Median128, all5 modes, seeds0/1/2, P1024/C1024; then timing-budgeted
+Median256 reruns. Unchanged archived binary and flags, CPU1T. No runtime edits.
+39 runs complete in54.16min, 5184 generations; all30 primary plus9 Median256
+extensions. 150 checkpoint records /39 unique programs independently rechecked,
+native scores reproduce and GAGP CPU/GPU match. Historical16-gen and extension
+128-gen prefixes match; full CPU/e population parity is not claimed.
+[Results and figures](results/long-search-20261013/REPORT.zh-TW.md): House64
+fastest GPU13.27x, Median128 1.49x search-wall. Quality is seed-dependent: House
+ASGP seed0 solves atgen37; Median CPU/e seed2 held-out61.13% vs ER/o33.40%.
+Raw checkpoint: logs/optimization/long-search-20261013/manifest.json.
+[Contract](results/long-search-20261013/CONTRACT.zh-TW.md). Runner long_search.py;
+post-run checkpoint audits long_search_audit.py; plots long_search_report.py.
+Runner refuses to overwrite its output; reproduce into a fresh directory.
+No runtime modifications; source/binary/input identities and validation archived.
+
 ## Multi-generation validation — 2026-10-13
 
+[Six all-mode comparison figures](results/multigen-20261013/all-mode-comparison/README.md):
+English labels, common-generation fitness/time and four ASGP speedup bar charts;
+long-run timing uses seed 0 only. Reproducer: multigen_comparison_plots.py --results
+benchmarks/fixed_asgp/optimization/results/multigen-20261013.
+
 Runtime Z/settings unchanged; benchmark adds five search entries and opt-in trace.
+[ASGP vs GAGP overview](results/multigen-20261013/OVERVIEW.zh-TW.md) fixes GPU-er-o
+as the primary comparator; regenerate with multigen_overview.py --results
+benchmarks/fixed_asgp/optimization/results/multigen-20261013. Archived CSV unchanged.
 [Report, plots and CSV](results/multigen-20261013/REPORT.zh-TW.md): P1024/C1024,
 3 seeds,16 generations+final,45 aligned primary runs,15 original Median controls,
 30 timing-selected extensions (up to1024 generations);90 processes ~40.6min total.

@@ -1,0 +1,158 @@
+[
+  {
+    "tag": "main.house_robber.asgp_1t.s0",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.house_robber.gagp_cpu.s0",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.house_robber.gpu_eval.s0",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.house_robber.gpu_repro.s0",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.house_robber.gpu_overlap.s0",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.median.asgp_1t.s0",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.median.gagp_cpu.s0",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.median.gpu_eval.s0",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.median.gpu_repro.s0",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.median.gpu_overlap.s0",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.house_robber.gagp_cpu.s1",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.house_robber.gpu_eval.s1",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.house_robber.gpu_repro.s1",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.house_robber.gpu_overlap.s1",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.house_robber.asgp_1t.s1",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.median.gagp_cpu.s1",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.median.gpu_eval.s1",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.median.gpu_repro.s1",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.median.gpu_overlap.s1",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.median.asgp_1t.s1",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.house_robber.gpu_eval.s2",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.house_robber.gpu_repro.s2",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.house_robber.gpu_overlap.s2",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.house_robber.asgp_1t.s2",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.house_robber.gagp_cpu.s2",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.median.gpu_eval.s2",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.median.gpu_repro.s2",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.median.gpu_overlap.s2",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.median.asgp_1t.s2",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "main.median.gagp_cpu.s2",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "extended.median.asgp_1t.s0",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "extended.median.gpu_repro.s0",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "extended.median.gpu_overlap.s0",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "extended.median.gpu_eval.s1",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "extended.median.gpu_repro.s1",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "extended.median.gpu_overlap.s1",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "extended.median.asgp_1t.s1",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "extended.median.gpu_repro.s2",
+    "old_16gen_differences": []
+  },
+  {
+    "tag": "extended.median.gpu_overlap.s2",
+    "old_16gen_differences": []
+  }
+]

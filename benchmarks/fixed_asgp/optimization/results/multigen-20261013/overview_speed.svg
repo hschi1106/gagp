@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="972pt" height="338.4pt" viewBox="0 0 972 338.4" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-10-13T13:17:18.973966</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.10.9, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 338.4
+L 972 338.4
+L 972 0
+L 0 0
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 126.36 274.104
+L 324.965769 274.104
+L 324.965769 108.288
+L 126.36 108.288
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1">
+      <path d="M 126.36 274.104
+L 126.36 108.288
+" clip-path="url(#p7352194ed6)" style="fill: none; stroke: #b0b0b0; stroke-opacity: 0.15; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_2">
+      <defs>
+       <path id="m38806820d1" d="M 0 0
+L 0 3.5
+" style="stroke: #000000; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#m38806820d1" x="126.36" y="274.104" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: middle" x="126.36" y="290.65525" transform="rotate(-0 126.36 290.65525)">0</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_3">
+      <path d="M 193.350049 274.104
+L 193.350049 108.288
+" clip-path="url(#p7352194ed6)" style="fill: none; stroke: #b0b0b0; stroke-opacity: 0.15; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_4">
+      <g>
+       <use xlink:href="#m38806820d1" x="193.350049" y="274.104" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: middle" x="193.350049" y="290.65525" transform="rotate(-0 193.350049 290.65525)">15</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_5">
+      <path d="M 260.340097 274.104
+L 260.340097 108.288
+" clip-path="url(#p7352194ed6)" style="fill: none; stroke: #b0b0b0; stroke-opacity: 0.15; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_6">
+      <g>
+       <use xlink:href="#m38806820d1" x="260.340097" y="274.104" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <text style="font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: middle" x="260.340097" y="290.65525" transform="rotate(-0 260.340097 290.65525)">30</text>
+     </g>
+    </g>
+    <g id="text_4">
+     <text style="font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: middle; fill: #344054" x="225.662885" y="306.95525" transform="rotate(-0 225.662885 306.95525)">完整搜尋時間（秒）</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_7"/>
+     <g id="text_5">
+      <text style="font-size: 11px; font-family: 'Noto Sans CJK JP'; text-anchor: end" x="122.86" y="159.5267" transform="rotate(-0 122.86 159.5267)">ASGP 1T</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_8"/>
+     <g id="text_6">
+      <text style="font-size: 11px; font-family: 'Noto Sans CJK JP'; text-anchor: end" x="122.86" y="231.620613" transform="rotate(-0 122.86 231.620613)">GAGP GPU-er-o</text>
+     </g>
+    </g>
+   </g>
+   <g id="patch_3">
+    <path d="M 126.36 171.009704
+L 266.223218 171.009704
+L 266.223218 139.288383
+L 126.36 139.288383
+z
+" clip-path="url(#p7352194ed6)" style="fill: #2463aa"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 126.36 243.103617
+L 140.391235 243.103617
+L 140.391235 211.382296
+L 126.36 211.382296
+z
+" clip-path="url(#p7352194ed6)" style="fill: #d96524"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 126.36 274.104
+L 324.965769 274.104
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_7">
+    <text style="font-weight: 700; font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: start; fill: #172b43" x="271.11843" y="158.646856" transform="rotate(-0 271.11843 158.646856)">31.317 s</text>
+   </g>
+   <g id="text_8">
+    <text style="font-weight: 700; font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: start; fill: #172b43" x="145.286447" y="230.740769" transform="rotate(-0 145.286447 230.740769)">3.142 s</text>
+   </g>
+   <g id="text_9">
+    <text style="font-weight: 700; font-size: 15px; font-family: 'Noto Sans CJK JP'; fill: #172b43" transform="translate(126.36 72.699563)">Sum of Elements</text>
+    <text style="font-weight: 700; font-size: 15px; font-family: 'Noto Sans CJK JP'; fill: #172b43" transform="translate(126.36 90.288)">GAGP 快 9.97 倍</text>
+   </g>
+  </g>
+  <g id="axes_2">
+   <g id="patch_6">
+    <path d="M 440.157115 274.104
+L 638.762885 274.104
+L 638.762885 108.288
+L 440.157115 108.288
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="matplotlib.axis_3">
+    <g id="xtick_4">
+     <g id="line2d_9">
+      <path d="M 440.157115 274.104
+L 440.157115 108.288
+" clip-path="url(#p9b55609b72)" style="fill: none; stroke: #b0b0b0; stroke-opacity: 0.15; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#m38806820d1" x="440.157115" y="274.104" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_10">
+      <text style="font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: middle" x="440.157115" y="290.65525" transform="rotate(-0 440.157115 290.65525)">0</text>
+     </g>
+    </g>
+    <g id="xtick_5">
+     <g id="line2d_11">
+      <path d="M 521.341228 274.104
+L 521.341228 108.288
+" clip-path="url(#p9b55609b72)" style="fill: none; stroke: #b0b0b0; stroke-opacity: 0.15; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#m38806820d1" x="521.341228" y="274.104" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_11">
+      <text style="font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: middle" x="521.341228" y="290.65525" transform="rotate(-0 521.341228 290.65525)">8</text>
+     </g>
+    </g>
+    <g id="xtick_6">
+     <g id="line2d_13">
+      <path d="M 602.525341 274.104
+L 602.525341 108.288
+" clip-path="url(#p9b55609b72)" style="fill: none; stroke: #b0b0b0; stroke-opacity: 0.15; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_14">
+      <g>
+       <use xlink:href="#m38806820d1" x="602.525341" y="274.104" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_12">
+      <text style="font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: middle" x="602.525341" y="290.65525" transform="rotate(-0 602.525341 290.65525)">16</text>
+     </g>
+    </g>
+    <g id="text_13">
+     <text style="font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: middle; fill: #344054" x="539.46" y="306.95525" transform="rotate(-0 539.46 306.95525)">完整搜尋時間（秒）</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_4">
+    <g id="ytick_3">
+     <g id="line2d_15"/>
+     <g id="text_14">
+      <text style="font-size: 11px; font-family: 'Noto Sans CJK JP'; text-anchor: end" x="436.657115" y="159.5267" transform="rotate(-0 436.657115 159.5267)">ASGP 1T</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_16"/>
+     <g id="text_15">
+      <text style="font-size: 11px; font-family: 'Noto Sans CJK JP'; text-anchor: end" x="436.657115" y="231.620613" transform="rotate(-0 436.657115 231.620613)">GAGP GPU-er-o</text>
+     </g>
+    </g>
+   </g>
+   <g id="patch_7">
+    <path d="M 440.157115 171.009704
+L 580.020333 171.009704
+L 580.020333 139.288383
+L 440.157115 139.288383
+z
+" clip-path="url(#p9b55609b72)" style="fill: #2463aa"/>
+   </g>
+   <g id="patch_8">
+    <path d="M 440.157115 243.103617
+L 453.136184 243.103617
+L 453.136184 211.382296
+L 440.157115 211.382296
+z
+" clip-path="url(#p9b55609b72)" style="fill: #d96524"/>
+   </g>
+   <g id="patch_9">
+    <path d="M 440.157115 274.104
+L 638.762885 274.104
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_16">
+    <text style="font-weight: 700; font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: start; fill: #172b43" x="584.915546" y="158.646856" transform="rotate(-0 584.915546 158.646856)">13.782 s</text>
+   </g>
+   <g id="text_17">
+    <text style="font-weight: 700; font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: start; fill: #172b43" x="458.031397" y="230.740769" transform="rotate(-0 458.031397 230.740769)">1.279 s</text>
+   </g>
+   <g id="text_18">
+    <text style="font-weight: 700; font-size: 15px; font-family: 'Noto Sans CJK JP'; fill: #172b43" transform="translate(440.157115 72.699563)">House Robber</text>
+    <text style="font-weight: 700; font-size: 15px; font-family: 'Noto Sans CJK JP'; fill: #172b43" transform="translate(440.157115 90.288)">GAGP 快 10.78 倍</text>
+   </g>
+  </g>
+  <g id="axes_3">
+   <g id="patch_10">
+    <path d="M 753.954231 274.104
+L 952.56 274.104
+L 952.56 108.288
+L 753.954231 108.288
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="matplotlib.axis_5">
+    <g id="xtick_7">
+     <g id="line2d_17">
+      <path d="M 753.954231 274.104
+L 753.954231 108.288
+" clip-path="url(#p62c332eab5)" style="fill: none; stroke: #b0b0b0; stroke-opacity: 0.15; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_18">
+      <g>
+       <use xlink:href="#m38806820d1" x="753.954231" y="274.104" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_19">
+      <text style="font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: middle" x="753.954231" y="290.65525" transform="rotate(-0 753.954231 290.65525)">0.0</text>
+     </g>
+    </g>
+    <g id="xtick_8">
+     <g id="line2d_19">
+      <path d="M 821.9871 274.104
+L 821.9871 108.288
+" clip-path="url(#p62c332eab5)" style="fill: none; stroke: #b0b0b0; stroke-opacity: 0.15; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_20">
+      <g>
+       <use xlink:href="#m38806820d1" x="821.9871" y="274.104" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_20">
+      <text style="font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: middle" x="821.9871" y="290.65525" transform="rotate(-0 821.9871 290.65525)">0.5</text>
+     </g>
+    </g>
+    <g id="xtick_9">
+     <g id="line2d_21">
+      <path d="M 890.01997 274.104
+L 890.01997 108.288
+" clip-path="url(#p62c332eab5)" style="fill: none; stroke: #b0b0b0; stroke-opacity: 0.15; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_22">
+      <g>
+       <use xlink:href="#m38806820d1" x="890.01997" y="274.104" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_21">
+      <text style="font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: middle" x="890.01997" y="290.65525" transform="rotate(-0 890.01997 290.65525)">1.0</text>
+     </g>
+    </g>
+    <g id="text_22">
+     <text style="font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: middle; fill: #344054" x="853.257115" y="306.95525" transform="rotate(-0 853.257115 306.95525)">完整搜尋時間（秒）</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_6">
+    <g id="ytick_5">
+     <g id="line2d_23"/>
+     <g id="text_23">
+      <text style="font-size: 11px; font-family: 'Noto Sans CJK JP'; text-anchor: end" x="750.454231" y="159.5267" transform="rotate(-0 750.454231 159.5267)">ASGP 1T</text>
+     </g>
+    </g>
+    <g id="ytick_6">
+     <g id="line2d_24"/>
+     <g id="text_24">
+      <text style="font-size: 11px; font-family: 'Noto Sans CJK JP'; text-anchor: end" x="750.454231" y="231.620613" transform="rotate(-0 750.454231 231.620613)">GAGP GPU-er-o</text>
+     </g>
+    </g>
+   </g>
+   <g id="patch_11">
+    <path d="M 753.954231 171.009704
+L 859.547304 171.009704
+L 859.547304 139.288383
+L 753.954231 139.288383
+z
+" clip-path="url(#p62c332eab5)" style="fill: #2463aa"/>
+   </g>
+   <g id="patch_12">
+    <path d="M 753.954231 243.103617
+L 893.817449 243.103617
+L 893.817449 211.382296
+L 753.954231 211.382296
+z
+" clip-path="url(#p62c332eab5)" style="fill: #d96524"/>
+   </g>
+   <g id="patch_13">
+    <path d="M 753.954231 274.104
+L 952.56 274.104
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_25">
+    <text style="font-weight: 700; font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: start; fill: #172b43" x="864.442517" y="158.646856" transform="rotate(-0 864.442517 158.646856)">0.776 s</text>
+   </g>
+   <g id="text_26">
+    <text style="font-weight: 700; font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: start; fill: #172b43" x="898.712661" y="230.740769" transform="rotate(-0 898.712661 230.740769)">1.028 s</text>
+   </g>
+   <g id="text_27">
+    <text style="font-weight: 700; font-size: 15px; font-family: 'Noto Sans CJK JP'; fill: #172b43" transform="translate(753.954231 72.699563)">Median</text>
+    <text style="font-weight: 700; font-size: 15px; font-family: 'Noto Sans CJK JP'; fill: #172b43" transform="translate(753.954231 90.288)">ASGP 快 1.32 倍</text>
+   </g>
+  </g>
+  <g id="text_28">
+   <text style="font-size: 21px; font-family: 'Noto Sans CJK JP'; text-anchor: start; fill: #172b43" x="48.6" y="26.866687" transform="rotate(-0 48.6 26.866687)">ASGP vs GAGP：完成同樣 16 代，需要多久？</text>
+  </g>
+  <g id="text_29">
+   <text style="font-size: 12px; font-family: 'Noto Sans CJK JP'; text-anchor: start; fill: #172b43" x="48.6" y="42.3" transform="rotate(-0 48.6 42.3)">P = 1024 · 完整 1024 cases · CPU 1T + GPU · 3 seeds 中位數 · 越短越快</text>
+  </g>
+  <g id="text_30">
+   <text style="font-size: 10px; font-family: 'Noto Sans CJK JP'; text-anchor: start; fill: #667085" x="48.6" y="326.556" transform="rotate(-0 48.6 326.556)">包含冷啟動、16 次完整 generation 與 final evaluation；不含事後封存／audit。各題橫軸尺度不同。</text>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p7352194ed6">
+   <rect x="126.36" y="108.288" width="198.605769" height="165.816"/>
+  </clipPath>
+  <clipPath id="p9b55609b72">
+   <rect x="440.157115" y="108.288" width="198.605769" height="165.816"/>
+  </clipPath>
+  <clipPath id="p62c332eab5">
+   <rect x="753.954231" y="108.288" width="198.605769" height="165.816"/>
+  </clipPath>
+ </defs>
+</svg>

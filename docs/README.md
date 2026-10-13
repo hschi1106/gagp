@@ -26,6 +26,7 @@ installation instructions or prerequisites for normal use.
 | [`design/dataflow.md`](design/dataflow.md) | End-to-end execution and evolution dataflow |
 | [`design/payload.md`](design/payload.md) | Host/device payload transport implementation |
 | [`design/gpu-reproduction.md`](design/gpu-reproduction.md) | GPU reproduction pipeline and overlap design |
+| [`design/gpu-phase-variation-comparison.zh-TW.md`](design/gpu-phase-variation-comparison.zh-TW.md) | 中文版本限定解說：native GPU phase profile 的 RNG、variation 新舊比較、範例與證據限制；契約仍由 GPU reproduction design 定義 |
 | [`guides/getting-started.md`](guides/getting-started.md) | New-user CPU/CUDA installation and end-to-end custom-grammar tutorial |
 | [`guides/troubleshooting.md`](guides/troubleshooting.md) | Setup, grammar, artifact and GPU failure recovery |
 | [`guides/development.md`](guides/development.md) | Build, test, CLI, and local development workflows |
