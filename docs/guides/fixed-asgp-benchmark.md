@@ -605,3 +605,15 @@ warmup/three-repeat and scaling modes. Defaults and timing boundaries are
 unchanged; explicit flags are recorded for controls and candidate, CPU1T is
 required, and inputs remain the frozen artifacts. Run it under the shared
 benchmark lock when other worktrees are active.
+
+`GAGP_CPU_ALL_FIT_PAIRS=1` is an exact optimization inside the counted-pair
+profile. Each exact compatibility group summarizes maximum donor node/depth/
+template requirements and minimum destination allowances. When both directional
+resource conditions hold for the entire group, its row count and selected donor
+index are computed directly. Otherwise the original pair scan runs. Projected
+allowances always keep the scan, and nonlocal projected budgets still use the
+legacy fallback. Group order, RNG draws, feasible-pair distribution, offspring,
+and rejection counters remain identical to counted pairs without this setting.
+These summaries certify only resource fits; scope/domain/membership contracts
+still come from admitted variation sites and final canonical child admission.
+The setting has no effect on GPU reproduction or CPU worker count.

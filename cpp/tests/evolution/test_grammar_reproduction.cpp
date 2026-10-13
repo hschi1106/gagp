@@ -821,6 +821,35 @@ void test_certification_compaction_boundaries() {
       "compaction hid an invalid unused constant before validation");
 }
 
+void test_crossover_group_bounds() {
+  using namespace gagp::evo::grammar;
+  VariationSite a, b;
+  a.materialized_nodes = b.materialized_nodes = 3;
+  a.materialized_depth = b.materialized_depth = 2;
+  a.template_nesting = b.template_nesting = 1;
+  a.replacement_budget.max_nodes = b.replacement_budget.max_nodes = 20;
+  a.replacement_budget.max_depth = b.replacement_budget.max_depth = 10;
+  a.remaining_template_nesting = b.remaining_template_nesting = 5;
+  variation_detail::CrossoverGroupBounds empty;
+  check(!empty.all_fit(a), "empty crossover group cannot prove fits");
+  for (int scenario = 0; scenario < 7; ++scenario) {
+    auto c = b;
+    if (scenario == 1) c.materialized_nodes = 21;
+    if (scenario == 2) c.replacement_budget.max_depth = 1;
+    if (scenario == 3) c.template_nesting = 6;
+    if (scenario == 4) c.has_projected_allowance = true;
+    if (scenario == 5) c.materialized_nodes = 0;
+    if (scenario == 6) c.remaining_template_nesting = 0;
+    variation_detail::CrossoverGroupBounds bounds;
+    bounds.include(b); bounds.include(c);
+    check(bounds.all_fit(a) == (scenario == 0), "group bounds accepted a mixed/nonordinary group");
+    if (bounds.all_fit(a)) for (const auto* donor : {&b, &c})
+      check(donor_fits(a, *donor) && donor_fits(*donor, a), "group bound disagrees with pair oracle");
+    auto projected = a; projected.has_projected_allowance = true;
+    check(!bounds.all_fit(projected), "projected receiver must use exact pair checks");
+  }
+}
+
 void test_counted_crossover_exact_feasible_pairs() {
   for (const auto& grammar : {repeated_hole_grammar(), local_grammar(), many_sites_grammar()}) {
     const auto population = generated_population(*grammar, 7, 107);
@@ -844,11 +873,14 @@ void test_counted_crossover_exact_feasible_pairs() {
       (void)variation_detail::crossover_with_sites(a, b, seed, reference, nullptr);
       setenv("GAGP_CPU_COUNTED_PAIRS", "1", 1);
       variation_detail::SelectedCrossoverSites selected;
+      unsetenv("GAGP_CPU_ALL_FIT_PAIRS");
       const auto children = variation_detail::crossover_with_sites(a, b, seed, counted, &selected);
+      setenv("GAGP_CPU_ALL_FIT_PAIRS", "1", 1);
       const auto again = variation_detail::crossover_with_sites(a, b, seed, replay, nullptr);
       check(ast_cache_key(children.first.ast) == ast_cache_key(again.first.ast) &&
             ast_cache_key(children.second.ast) == ast_cache_key(again.second.ast),
-            "counted crossover is not deterministic");
+            "all-fit shortcut changed counted crossover offspring");
+      check_same_counters(counted.counters(), replay.counters(), "all-fit shortcut changed counters");
       check(counted.counters().contract_rejections == reference.counters().contract_rejections &&
             counted.counters().budget_rejections == reference.counters().budget_rejections,
             "counted crossover changed feasible-pair rejection accounting");
@@ -877,10 +909,12 @@ void test_counted_crossover_exact_feasible_pairs() {
     }
   }
   unsetenv("GAGP_CPU_COUNTED_PAIRS");
+  unsetenv("GAGP_CPU_ALL_FIT_PAIRS");
 }
 
 int main() {
   try {
+    test_crossover_group_bounds();
     test_counted_crossover_exact_feasible_pairs();
     test_certification_compaction_boundaries();
     test_nonterminal_variation_policy();

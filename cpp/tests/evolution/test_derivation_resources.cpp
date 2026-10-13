@@ -808,8 +808,13 @@ int main() {
       const char* old = std::getenv("GAGP_CPU_COUNTED_PAIRS");
       const std::optional<std::string> saved = old ? std::optional<std::string>{old} : std::nullopt;
       setenv("GAGP_CPU_COUNTED_PAIRS", "1", 1);
+      const char* old_fit = std::getenv("GAGP_CPU_ALL_FIT_PAIRS");
+      const std::optional<std::string> saved_fit = old_fit ? std::optional<std::string>{old_fit} : std::nullopt;
+      setenv("GAGP_CPU_ALL_FIT_PAIRS", "1", 1);
       // Nonlocal projected admission must retain the exact reservoir oracle.
       test_crossover_admission_matches_full_analysis();
+      if (saved_fit) setenv("GAGP_CPU_ALL_FIT_PAIRS", saved_fit->c_str(), 1);
+      else unsetenv("GAGP_CPU_ALL_FIT_PAIRS");
       if (saved) setenv("GAGP_CPU_COUNTED_PAIRS", saved->c_str(), 1);
       else unsetenv("GAGP_CPU_COUNTED_PAIRS");
     }

@@ -6,6 +6,16 @@
 
 namespace gagp::evo::grammar::variation_detail {
 
+// Resource-only sufficient condition for a whole exact compatibility group.
+// Projected allowances deliberately decline; this never proves membership.
+struct CrossoverGroupBounds {
+  std::uint32_t max_nodes = 0, max_depth = 0, max_nesting = 0;
+  std::uint32_t min_nodes = 0, min_depth = 0, min_nesting = 0;
+  bool initialized = false, ordinary = true;
+  void include(const VariationSite& site);
+  bool all_fit(const VariationSite& site) const;
+};
+
 // Optional owned copies preserve the original-parent coordinates for coupled
 // mutation after crossover. Normal crossover does not copy this metadata.
 using SelectedCrossoverSites = std::optional<std::pair<VariationSite, VariationSite>>;

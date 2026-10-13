@@ -12,6 +12,26 @@
 
 namespace gagp::evo::grammar::variation_detail {
 
+void CrossoverGroupBounds::include(const VariationSite& site) {
+  ordinary = ordinary && !site.has_projected_allowance &&
+      site.materialized_nodes > 0 && site.materialized_depth > 0;
+  max_nodes = std::max(max_nodes, site.materialized_nodes);
+  max_depth = std::max(max_depth, site.materialized_depth);
+  max_nesting = std::max(max_nesting, site.template_nesting);
+  min_nodes = initialized ? std::min(min_nodes, site.replacement_budget.max_nodes) : site.replacement_budget.max_nodes;
+  min_depth = initialized ? std::min(min_depth, site.replacement_budget.max_depth) : site.replacement_budget.max_depth;
+  min_nesting = initialized ? std::min(min_nesting, site.remaining_template_nesting) : site.remaining_template_nesting;
+  initialized = true;
+}
+
+bool CrossoverGroupBounds::all_fit(const VariationSite& site) const {
+  return initialized && ordinary && !site.has_projected_allowance &&
+      donor_fits(site, max_nodes, max_depth, max_nesting) &&
+      site.materialized_nodes > 0 && site.materialized_depth > 0 &&
+      site.materialized_nodes <= min_nodes && site.materialized_depth <= min_depth &&
+      site.template_nesting <= min_nesting;
+}
+
 namespace {
 std::pair<ProgramGenome, ProgramGenome> crossover_analyzed(const ProgramGenome& a,
     const ProgramGenome& b, const std::shared_ptr<const VariationAnalysis>& analysis_a,
@@ -33,10 +53,20 @@ std::pair<ProgramGenome, ProgramGenome> crossover_analyzed(const ProgramGenome& 
         std::all_of(analysis_b->sites.begin(), analysis_b->sites.end(),
             [](const auto& site) { return site.has_projected_allowance; })));
   if (counted) {
-    std::unordered_map<std::string, std::vector<const VariationSite*>> groups;
+    const bool use_all_fit = std::getenv("GAGP_CPU_ALL_FIT_PAIRS");
+    struct Group {
+      std::vector<const VariationSite*> sites;
+      CrossoverGroupBounds bounds;
+    };
+    std::unordered_map<std::string, Group> groups;
     for (const auto& site : analysis_b->sites)
-      if (!site.compatibility_key.empty()) groups[site.compatibility_key].push_back(&site);
+      if (!site.compatibility_key.empty()) {
+        auto& group = groups[site.compatibility_key];
+        group.sites.push_back(&site);
+        if (use_all_fit) group.bounds.include(site);
+      }
     std::vector<std::uint64_t> row_counts(analysis_a->sites.size(), 0);
+    std::vector<bool> all_fit(analysis_a->sites.size(), false);
     const auto fits = [](const auto& a, const auto& b) {
       return donor_fits(a, b) && donor_fits(b, a);
     };
@@ -44,9 +74,11 @@ std::pair<ProgramGenome, ProgramGenome> crossover_analyzed(const ProgramGenome& 
       const auto& site = analysis_a->sites[row];
       const auto group = groups.find(site.compatibility_key);
       context.counters().contract_rejections += analysis_b->sites.size() -
-          (group == groups.end() ? 0 : group->second.size());
+          (group == groups.end() ? 0 : group->second.sites.size());
       if (group == groups.end()) continue;
-      for (const auto* donor : group->second) {
+      all_fit[row] = use_all_fit && group->second.bounds.all_fit(site);
+      if (all_fit[row]) row_counts[row] = group->second.sites.size();
+      else for (const auto* donor : group->second.sites) {
         if (fits(site, *donor)) ++row_counts[row];
         else ++context.counters().budget_rejections;
       }
@@ -59,7 +91,9 @@ std::pair<ProgramGenome, ProgramGenome> crossover_analyzed(const ProgramGenome& 
       for (std::size_t row = 0; row < row_counts.size(); ++row) {
         if (rank >= row_counts[row]) { rank -= row_counts[row]; continue; }
         selected_a = &analysis_a->sites[row];
-        for (const auto* donor : groups.at(selected_a->compatibility_key)) {
+        const auto& group = groups.at(selected_a->compatibility_key).sites;
+        if (all_fit[row]) selected_b = group[rank];
+        else for (const auto* donor : group) {
           if (!fits(*selected_a, *donor)) continue;
           if (rank == 0) { selected_b = donor; break; }
           --rank;

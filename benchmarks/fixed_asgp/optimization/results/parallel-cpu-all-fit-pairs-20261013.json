@@ -1,0 +1,219 @@
+{
+  "candidate": "Exact all-fit compatibility-group resource shortcut",
+  "status": "retained opt-in",
+  "flag": "GAGP_CPU_ALL_FIT_PAIRS=1 with GAGP_CPU_COUNTED_PAIRS=1",
+  "contract": "Existing native CPU reproduction only (gagp_cpu/gpu_eval), CPU1T. Same exact compatibility groups, pair ranking, RNG, offspring and counters as counted profile; no projected allowance shortcut. Full P1024/C1024, House32 seed0/Median64 seed2, changing populations; cold admission included in search wall. Final exported ASTs byte-identical and per-generation fitness/error/timeout/rejection/change counts equal across on/off for all repeats. Final independent CPU audits have zero mismatches.",
+  "allocator": "Main reference jemalloc, background_thread:false,narenas:1; late diagnostic glibc. Do not mix these absolute times.",
+  "tests": [
+    "gagp_test_grammar_reproduction passed (group extrema all-fit/mixed/invalid/projected oracle, exact off/on counted rank offspring/counters, repeated holes/scope/changing populations)",
+    "gagp_test_derivation_resources passed (nonlocal projected reservoir fallback with both flags enabled)",
+    "independent cpu_eval code review found no correctness issue"
+  ],
+  "main": {
+    "house_robber": {
+      "off": {
+        "median_ms": 9799.641921,
+        "range_ms": [
+          9705.854999,
+          9841.949605
+        ],
+        "repeats": [
+          {
+            "raw_manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-all-fit-main-off/manifest.json",
+            "binary_sha256": "e5261100b8b2782e0bd20eb4cd2d4268e0885b57c785fc1b4412a5caa3606363",
+            "evolve_wall_ms": 9705.854999,
+            "process_wall_s": 11.032355293165892,
+            "initial_admission_ms": 16.456489,
+            "eval_sum_ms": 1790.086297,
+            "repro_sum_ms": 7565.930488999999,
+            "last4_repro_mean_ms": 388.56297825,
+            "final_best": -6544,
+            "cpu_audit_mismatches": 0
+          },
+          {
+            "raw_manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-all-fit-main-off-r1/manifest.json",
+            "binary_sha256": "e5261100b8b2782e0bd20eb4cd2d4268e0885b57c785fc1b4412a5caa3606363",
+            "evolve_wall_ms": 9799.641921,
+            "process_wall_s": 11.103439011843875,
+            "initial_admission_ms": 16.315416,
+            "eval_sum_ms": 1789.644312,
+            "repro_sum_ms": 7675.012532000001,
+            "last4_repro_mean_ms": 391.62739775,
+            "final_best": -6544,
+            "cpu_audit_mismatches": 0
+          },
+          {
+            "raw_manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-all-fit-main-off-r2/manifest.json",
+            "binary_sha256": "e5261100b8b2782e0bd20eb4cd2d4268e0885b57c785fc1b4412a5caa3606363",
+            "evolve_wall_ms": 9841.949605,
+            "process_wall_s": 11.136290648952127,
+            "initial_admission_ms": 16.717667,
+            "eval_sum_ms": 1791.017073,
+            "repro_sum_ms": 7721.862465000002,
+            "last4_repro_mean_ms": 395.55740975000003,
+            "final_best": -6544,
+            "cpu_audit_mismatches": 0
+          }
+        ]
+      },
+      "on": {
+        "median_ms": 9602.729474,
+        "range_ms": [
+          9586.877333,
+          9629.25733
+        ],
+        "repeats": [
+          {
+            "raw_manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-all-fit-main-on/manifest.json",
+            "binary_sha256": "e5261100b8b2782e0bd20eb4cd2d4268e0885b57c785fc1b4412a5caa3606363",
+            "evolve_wall_ms": 9602.729474,
+            "process_wall_s": 10.895192006835714,
+            "initial_admission_ms": 16.822377,
+            "eval_sum_ms": 1788.134728,
+            "repro_sum_ms": 7465.886486999999,
+            "last4_repro_mean_ms": 378.50245674999996,
+            "final_best": -6544,
+            "cpu_audit_mismatches": 0
+          },
+          {
+            "raw_manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-all-fit-main-on-r1/manifest.json",
+            "binary_sha256": "e5261100b8b2782e0bd20eb4cd2d4268e0885b57c785fc1b4412a5caa3606363",
+            "evolve_wall_ms": 9629.25733,
+            "process_wall_s": 10.920224381843582,
+            "initial_admission_ms": 16.251701,
+            "eval_sum_ms": 1784.961615,
+            "repro_sum_ms": 7493.6110069999995,
+            "last4_repro_mean_ms": 378.08922,
+            "final_best": -6544,
+            "cpu_audit_mismatches": 0
+          },
+          {
+            "raw_manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-all-fit-main-on-r2/manifest.json",
+            "binary_sha256": "e5261100b8b2782e0bd20eb4cd2d4268e0885b57c785fc1b4412a5caa3606363",
+            "evolve_wall_ms": 9586.877333,
+            "process_wall_s": 10.875995576148853,
+            "initial_admission_ms": 16.171326,
+            "eval_sum_ms": 1783.0372009999996,
+            "repro_sum_ms": 7476.038085,
+            "last4_repro_mean_ms": 377.35239149999995,
+            "final_best": -6544,
+            "cpu_audit_mismatches": 0
+          }
+        ]
+      },
+      "speedup": 1.0205058829922422
+    },
+    "median": {
+      "off": {
+        "median_ms": 27446.500525,
+        "range_ms": [
+          27405.240186,
+          27952.224743
+        ],
+        "repeats": [
+          {
+            "raw_manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-all-fit-main-off/manifest.json",
+            "binary_sha256": "e5261100b8b2782e0bd20eb4cd2d4268e0885b57c785fc1b4412a5caa3606363",
+            "evolve_wall_ms": 27952.224743,
+            "process_wall_s": 29.171277296962216,
+            "initial_admission_ms": 15.833655,
+            "eval_sum_ms": 3159.430182999999,
+            "repro_sum_ms": 24284.05512300001,
+            "last4_repro_mean_ms": 348.14787075,
+            "final_best": -642,
+            "cpu_audit_mismatches": 0
+          },
+          {
+            "raw_manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-all-fit-main-off-r1/manifest.json",
+            "binary_sha256": "e5261100b8b2782e0bd20eb4cd2d4268e0885b57c785fc1b4412a5caa3606363",
+            "evolve_wall_ms": 27446.500525,
+            "process_wall_s": 28.68799034296535,
+            "initial_admission_ms": 15.257938,
+            "eval_sum_ms": 3100.840076000001,
+            "repro_sum_ms": 23843.739198999996,
+            "last4_repro_mean_ms": 349.55975524999997,
+            "final_best": -642,
+            "cpu_audit_mismatches": 0
+          },
+          {
+            "raw_manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-all-fit-main-off-r2/manifest.json",
+            "binary_sha256": "e5261100b8b2782e0bd20eb4cd2d4268e0885b57c785fc1b4412a5caa3606363",
+            "evolve_wall_ms": 27405.240186,
+            "process_wall_s": 28.620067375944927,
+            "initial_admission_ms": 15.517614,
+            "eval_sum_ms": 3102.624973000001,
+            "repro_sum_ms": 23795.645292999994,
+            "last4_repro_mean_ms": 343.97823525,
+            "final_best": -642,
+            "cpu_audit_mismatches": 0
+          }
+        ]
+      },
+      "on": {
+        "median_ms": 26525.440436,
+        "range_ms": [
+          26422.299506,
+          26838.071855
+        ],
+        "repeats": [
+          {
+            "raw_manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-all-fit-main-on/manifest.json",
+            "binary_sha256": "e5261100b8b2782e0bd20eb4cd2d4268e0885b57c785fc1b4412a5caa3606363",
+            "evolve_wall_ms": 26422.299506,
+            "process_wall_s": 27.64407092286274,
+            "initial_admission_ms": 14.748459,
+            "eval_sum_ms": 3083.880369,
+            "repro_sum_ms": 22819.918152,
+            "last4_repro_mean_ms": 327.05698975,
+            "final_best": -642,
+            "cpu_audit_mismatches": 0
+          },
+          {
+            "raw_manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-all-fit-main-on-r1/manifest.json",
+            "binary_sha256": "e5261100b8b2782e0bd20eb4cd2d4268e0885b57c785fc1b4412a5caa3606363",
+            "evolve_wall_ms": 26525.440436,
+            "process_wall_s": 27.7519922060892,
+            "initial_admission_ms": 15.749634,
+            "eval_sum_ms": 3122.6219020000003,
+            "repro_sum_ms": 22881.575836999997,
+            "last4_repro_mean_ms": 336.64349,
+            "final_best": -642,
+            "cpu_audit_mismatches": 0
+          },
+          {
+            "raw_manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-all-fit-main-on-r2/manifest.json",
+            "binary_sha256": "e5261100b8b2782e0bd20eb4cd2d4268e0885b57c785fc1b4412a5caa3606363",
+            "evolve_wall_ms": 26838.071855,
+            "process_wall_s": 28.055911590112373,
+            "initial_admission_ms": 15.617807,
+            "eval_sum_ms": 3090.0033439999993,
+            "repro_sum_ms": 23246.352213000006,
+            "last4_repro_mean_ms": 337.489207,
+            "final_best": -642,
+            "cpu_audit_mismatches": 0
+          }
+        ]
+      },
+      "speedup": 1.0347236492160163
+    }
+  },
+  "late": {
+    "raw_manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-all-fit-late/manifest.json",
+    "binary_sha256": "e5261100b8b2782e0bd20eb4cd2d4268e0885b57c785fc1b4412a5caa3606363",
+    "rows": [
+      {
+        "tag": "scanned0",
+        "evolve_wall_ms": 2426.371903,
+        "repro_ms": 1786.010661,
+        "process_wall_s": 4.185422095004469
+      },
+      {
+        "tag": "allfit0",
+        "evolve_wall_ms": 2467.188992,
+        "repro_ms": 1816.22253,
+        "process_wall_s": 4.221818016143516
+      }
+    ]
+  },
+  "limitations": "Three independent processes per setting, one complete search each, no claim of nine warmed repeats. Same semantics, therefore no new convergence-equivalence claim. Late large Median population showed no improvement; aggregate bounds deliberately decline mixed/projected rows, so this does not remove all donor_fits cost or canonical admission."
+}
