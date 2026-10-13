@@ -422,7 +422,8 @@
   "tests": [
     "8 grammar-focused ctests passed, including new feasible-rank enumeration oracle and 8gen repeated-hole/local-scope cases",
     "With counted flag: existing region_variation, bounded_variation, derivation_resources passed (includes ambiguous nonlocal projected fallback)",
-    "Full1024cases, early4gen3seeds and House32/Median64 three seeds, CPU audit mismatches0"
+    "Full1024cases, early4gen3seeds and House32/Median64 three seeds, CPU audit mismatches0",
+    "Explicit projected-resource tests added: local allowance uniform rank oracle and nonlocal charged grammar exact reservoir fallback oracle under counted flag."
   ],
   "rejected_directions": [
     {
@@ -439,6 +440,11 @@
       "name": "single-hole witness proof",
       "reason": "Extra-vector variant regressed; proof-bit variant <1% main gain within noise. Reverted both.",
       "archive": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-single-hole-prototype"
+    },
+    {
+      "name": "static native-root membership filter",
+      "reason": "First late Median full-parent A/B shows no gain:2468.561\u21922505.446ms complete1gen; repro1805.665\u21921834.203ms. Removed extra compiled masks, filter flag and exclusive tests after9focused tests and independent review. One pair cannot quantify small effect; no large benefit supported further investment.",
+      "archive": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-root-filter-prototype"
     }
   ]
 }
