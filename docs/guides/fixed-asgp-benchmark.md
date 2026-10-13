@@ -372,6 +372,18 @@ introduced. It remains opt-in. The current validated settings, exact binary/inpu
 identities, raw repeats and remaining limitations are indexed in
 [optimization progress](../../benchmarks/fixed_asgp/optimization/PROGRESS.md) and
 [checked results](../../benchmarks/fixed_asgp/optimization/results/native-counted-validation.json).
+`GAGP_GPU_INPLACE_MUTATION=1` reduces native GPU genotype workspace without
+changing operators or RNG. Mutation reads the crossed population, generates its
+donor in the existing per-child scratch, and splices into a separate per-child
+temporary. Only a successful splice is copied back to its crossed phase; there
+is no aliased splice. The temporary has population rows instead of population ×
+evolving-phase rows. Current/crossed owners exchange only after variation checks;
+errors invalidate the owner as before. This saves memory for multi-phase programs
+and eliminates the unconditional second population copy. Publishing the changed
+phase adds a copy, so kernel speedup is not guaranteed; report memory, cold-start,
+and end-to-end timings separately. The 32-generation owner test compares exact
+exported ASTs, operator counters and full-case fitness against the original path.
+
 `GAGP_CPU_REGION_VIEWS=1` is also part of the checked single-thread settings: it
 uses invocation-local views only for structurally proven recursive windows, with
 generic CPU fallback. It does not add CPU reproduction workers.

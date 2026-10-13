@@ -14,6 +14,36 @@
 namespace {
 using namespace gagp;using namespace gagp::evo;
 void require(bool value,const char* message){if(!value)throw std::runtime_error(message);}
+void check_inplace_mutation(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
+    const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
+    FitnessSessionGpu& session) {
+ const char* setting=std::getenv("GAGP_GPU_INPLACE_MUTATION");
+ const bool enabled=setting!=nullptr;const std::string saved=setting?setting:"";
+ unsetenv("GAGP_GPU_INPLACE_MUTATION");repro::NativePhasePopulation reference(grammar,parents,names);
+ setenv("GAGP_GPU_INPLACE_MUTATION","1",1);repro::NativePhasePopulation candidate(grammar,parents,names);
+ if(enabled)setenv("GAGP_GPU_INPLACE_MUTATION",saved.c_str(),1);else unsetenv("GAGP_GPU_INPLACE_MUTATION");
+ require(candidate.device_bytes()<=reference.device_bytes(),"in-place mutation increased persistent capacity");
+ for(int generation=0;generation<=32;++generation) {
+  const auto before=reference.evaluate(session,true),after=candidate.evaluate(session,true);
+  require(before.ok && after.ok && before.fitness==after.fitness && before.case_counts==after.case_counts,
+      "in-place mutation changed full-case evaluation");
+  const auto a=reference.export_population(),b=candidate.export_population();
+  require(a.size()==b.size(),"in-place mutation lost an offspring");
+  for(std::size_t i=0;i<a.size();++i)
+   require(ast_cache_key(a[i].ast)==ast_cache_key(b[i].ast),"in-place mutation changed exact genotype");
+  if(generation==32)break;
+  const double probability=generation%3==0?0:generation%3==1?.3:1;
+  const auto x=reference.reproduce(before.fitness,2,probability,UINT64_C(0x16653)+generation);
+  const auto y=candidate.reproduce(after.fitness,2,probability,UINT64_C(0x16653)+generation);
+  require(x.variation.crossover_attempts==y.variation.crossover_attempts &&
+      x.variation.mutation_attempts==y.variation.mutation_attempts &&
+      x.variation.contract_rejections==y.variation.contract_rejections &&
+      x.variation.changed_children==y.variation.changed_children &&
+      x.variation.unchanged_children==y.variation.unchanged_children &&
+      x.variation.fallback_children==y.variation.fallback_children,
+      "in-place mutation changed operator accounting");
+ }
+}
 }
 int main(){try {
  auto definition=grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json");
@@ -69,6 +99,7 @@ int main(){try {
  require(fallback.reproduction_profile=="native-ast" && !fallback.reproduction_fallback_reason.empty(),"unsupported policy lacks explicit fallback");
  unsetenv("GAGP_GPU_PHASE_POPULATION");unsetenv("GAGP_GPU_DIAGNOSTICS");
  FitnessSessionGpu session;require(session.init(cases,answers,10000,512,1000).ok,"GPU session init");
+ check_inplace_mutation(grammar,parents,names,session);
  repro::NativePhasePopulation owner(grammar,parents,names);
  {
   auto reversed_names=names;std::reverse(reversed_names.begin(),reversed_names.end());

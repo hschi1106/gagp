@@ -84,3 +84,5 @@ maintenance, follow the rules in root `AGENTS.md`.
   This changes RNG trajectories, not the feasible-pair distribution. Nonlocal
   projected-resource trial paths stay reservoir-based. Oracle/replay coverage
   is in `gagp_test_grammar_reproduction` and `gagp_test_derivation_resources`.
+
+- `GAGP_GPU_INPLACE_MUTATION`: `repro/gpu/phase_population.cu` splices GPU mutation into a per-child temporary, then publishes only the changed phase to the crossed population. No input/output splice aliasing or RNG changes; `gagp_test_gpu_phase_population` compares both paths for 32 generations and full-case CPU audit.

@@ -157,11 +157,12 @@ __global__ void crossover_population(TreePointers input,TreePointers output,cons
   copy_tree(input,destination.row,output,target);++stat.crossover_rejected;
  }
 }
+template<bool InPlace>
 __global__ void mutate_population(TreePointers input,TreePointers output,TreePointers scratch,const DeviceSlot* slots,
     int slot_count,int population,int max_variable_nodes,double probability,std::uint64_t seed,OperatorStats* stats,bool counted) {
  const int child=blockIdx.x*blockDim.x+threadIdx.x;if(child>=population)return;auto& stat=stats[child];if(stat.error)return;
  int total=0;
- for(int k=0;k<slot_count;++k){const int row=child*slot_count+k;if(!valid(input.lengths[row])){stat.error=4;return;}total+=input.lengths[row].nodes;copy_tree(input,row,output,row);}
+ for(int k=0;k<slot_count;++k){const int row=child*slot_count+k;if(!valid(input.lengths[row])){stat.error=4;return;}total+=input.lengths[row].nodes;if constexpr(!InPlace)copy_tree(input,row,output,row);}
  DGrammarRandom random(seed ^ (UINT64_C(0x124ab512bf01)+child));
  if(static_cast<double>(random.next()>>11)*0x1.0p-53>=probability)return;
  const auto destination=choose_site(input,child,slot_count,random,counted);if(destination.node<0){stat.error=5;return;}
@@ -174,9 +175,14 @@ __global__ void mutate_population(TreePointers input,TreePointers output,TreePoi
  if(generated.status!=PhaseCompileStatus::Ok || !annotate_phase_tree(slot.grammar,site.entry_expression,site.parent_scope,
        tmp.nodes,tmp.origins,generated.nodes,tmp.sites)){stat.error=7;return;}
  scratch.lengths[child]=generated;
- auto r=splice_phase_tree(a,destination.node,scratch.view(child),0,output.output(destination.row),slot.max_depth);
+ // Splicing may partially write on failure, so its destination must never
+ // alias the crossed input. Each child owns a separate temporary row.
+ const int target=InPlace?child:destination.row;
+ auto r=splice_phase_tree(a,destination.node,scratch.view(child),0,output.output(target),slot.max_depth);
  if(r.status!=PhaseCompileStatus::Ok){stat.error=8;return;}
- output.lengths[destination.row]=r;stat.mutation=1;
+ output.lengths[target]=r;
+ if constexpr(InPlace)copy_tree(output,target,input,destination.row);
+ stat.mutation=1;
 }
 __global__ void compare_offspring(TreePointers parents,TreePointers children,int population,int slot_count,OperatorStats* stats) {
  const int child=blockIdx.x*blockDim.x+threadIdx.x;if(child>=population || stats[child].error)return;
@@ -260,6 +266,7 @@ std::string skeleton_key(const NativePhaseLayout& layout) {
 struct NativePhasePopulation::Impl {
  std::shared_ptr<const grammar::CompiledGrammar> grammar;
  const bool counted_sites;
+ const bool inplace_mutation;
  std::size_t peak_transport_bytes=0;
  NativePhaseLayout layout;int population=0,slot_count=0,device=-1;bool healthy=true;
  std::vector<std::unique_ptr<UploadedProfile>> profiles;Buffer<DeviceSlot> slots;
@@ -270,7 +277,8 @@ struct NativePhasePopulation::Impl {
  std::vector<int> fixed_stack_bounds,stack_bounds;
  std::array<ValueTag,64> input_types;bool views_proven=true,direct_root_proven=true;
  std::vector<BytecodeProgram> programs;cudaEvent_t start=nullptr,stop=nullptr;
- explicit Impl(std::shared_ptr<const grammar::CompiledGrammar> g):grammar(std::move(g)),counted_sites(std::getenv("GAGP_COUNTED_SITE_DRAW")!=nullptr){}
+ explicit Impl(std::shared_ptr<const grammar::CompiledGrammar> g):grammar(std::move(g)),counted_sites(std::getenv("GAGP_COUNTED_SITE_DRAW")!=nullptr),
+     inplace_mutation(std::getenv("GAGP_GPU_INPLACE_MUTATION")!=nullptr){}
  ~Impl(){if(start)cudaEventDestroy(start);if(stop)cudaEventDestroy(stop);}
  void require_device()const{if(!healthy)throw std::logic_error("GPU genotype owner invalidated by a failed step");int now;checked(cudaGetDevice(&now));if(now!=device)throw std::logic_error("GPU genotype device/owner mismatch");}
  std::size_t bytes()const {
@@ -338,11 +346,12 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  impl_->slot_count=impl_->layout.slots.size();phase_layout_require(impl_->slot_count>0 && impl_->slot_count<=8,"phase count capacity");
  const auto key=skeleton_key(impl_->layout);const std::size_t rows=input.size()*impl_->slot_count;
  const std::size_t tree_bytes=capacity*(sizeof(PhaseTreeNode)+sizeof(int)+sizeof(PhaseGeneSite)+sizeof(Value))+sizeof(PhaseGenerationResult);
- const std::size_t estimated=(3*rows+input.size())*tree_bytes+rows*(code_capacity*sizeof(gpu_detail::DInstr)+capacity*sizeof(Value));
+ const auto mutation_rows=impl_->inplace_mutation?input.size():rows;
+ const std::size_t estimated=(2*rows+mutation_rows+input.size())*tree_bytes+rows*(code_capacity*sizeof(gpu_detail::DInstr)+capacity*sizeof(Value));
  phase_layout_require(estimated<=std::size_t(12)*1024*1024*1024,"resident genotype workspace capacity requires native fallback");
  // Persistent buffers are bounded by population × grammar capacity; no retained
  // ancestral ASTs, intern tables or generation history exist in this owner.
- impl_->current=std::make_unique<Trees>(rows);impl_->next=std::make_unique<Trees>(rows);impl_->crossed=std::make_unique<Trees>(rows);impl_->scratch=std::make_unique<Trees>(input.size());
+ impl_->current=std::make_unique<Trees>(rows);impl_->next=std::make_unique<Trees>(mutation_rows);impl_->crossed=std::make_unique<Trees>(rows);impl_->scratch=std::make_unique<Trees>(input.size());
  std::vector<DeviceSlot> slots;
  for(int k=0;k<impl_->slot_count;++k) {
   const auto& profile=impl_->layout.profiles[k];const auto& layout=impl_->layout.slots[k];
@@ -430,9 +439,15 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
  checked(cudaEventRecord(impl_->start));
  crossover_population<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->current),pointers(*impl_->crossed),impl_->slots.data,k,p,available,
     impl_->fitness.data,pressure,seed,impl_->stats.data,counted);checked(cudaGetLastError());
- mutate_population<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
-    probability,seed,impl_->stats.data,counted);checked(cudaGetLastError());
- compare_offspring<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->current),pointers(*impl_->next),p,k,impl_->stats.data);checked(cudaGetLastError());
+ if(impl_->inplace_mutation)
+  mutate_population<true><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
+      probability,seed,impl_->stats.data,counted);
+ else
+  mutate_population<false><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
+      probability,seed,impl_->stats.data,counted);
+ checked(cudaGetLastError());
+ auto& offspring=impl_->inplace_mutation?impl_->crossed:impl_->next;
+ compare_offspring<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->current),pointers(*offspring),p,k,impl_->stats.data);checked(cudaGetLastError());
  checked(cudaEventRecord(impl_->stop));checked(cudaEventSynchronize(impl_->stop));float ms;checked(cudaEventElapsedTime(&ms,impl_->start,impl_->stop));timing.kernel_ms=ms;
  const auto stats=impl_->stats.read(p);
  for(const auto& one:stats) {
@@ -442,7 +457,7 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
   timing.variation.changed_children+=one.changed;timing.variation.unchanged_children+=!one.changed;
   timing.variation.fallback_children+=!one.crossover;
  }
- impl_->current.swap(impl_->next);impl_->refresh_programs(&timing);impl_->healthy=true;return timing;
+ impl_->current.swap(offspring);impl_->refresh_programs(&timing);impl_->healthy=true;return timing;
 }
 std::vector<ProgramGenome> NativePhasePopulation::export_population()const {
  impl_->require_device();
