@@ -598,3 +598,10 @@ rejection accounting, deterministic replay, repeated holes, scopes, and
 changing populations in `gagp_test_grammar_reproduction`; run
 `GAGP_CPU_COUNTED_PAIRS=1 cpp/build/release/gagp_test_derivation_resources`
 for local/nonlocal projected-resource coverage.
+
+The archived native validator also accepts `--flag GAGP_NAME=VALUE`, `--tasks`
+and `--populations` to reproduce a checked candidate through the existing fixed
+warmup/three-repeat and scaling modes. Defaults and timing boundaries are
+unchanged; explicit flags are recorded for controls and candidate, CPU1T is
+required, and inputs remain the frozen artifacts. Run it under the shared
+benchmark lock when other worktrees are active.

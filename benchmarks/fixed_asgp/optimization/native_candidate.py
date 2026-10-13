@@ -4,14 +4,25 @@ import argparse,hashlib,json,os,runpy,statistics,subprocess,time
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('stage',choices=('daily','formal','paired','screen','snapshot','quality','scaling','cpu-views'))
 parser.add_argument('--out',type=Path,required=True,help='New result directory, or an existing manifest to resume')
+parser.add_argument('--flag',action='append',default=[],help='Recorded GAGP_NAME=VALUE override for both native controls and candidate')
+parser.add_argument('--tasks',nargs='+',choices=('sum_of_elements','house_robber','median'),default=['sum_of_elements','house_robber','median'])
+parser.add_argument('--populations',nargs='+',type=int,choices=(1024,2048,4096,8192),default=[1024,2048,4096,8192])
 args=parser.parse_args()
 root=Path.cwd();out=root/args.out;out.mkdir(parents=True,exist_ok=True)
 a=root/'logs/fixed-asgp/artifacts';manifest_path=out/'manifest.json' 
-TASKS=('sum_of_elements','house_robber','median');MODES=('asgp_1t','gagp_cpu','gpu_eval','gpu_repro','gpu_overlap')
+TASKS=tuple(args.tasks);MODES=('asgp_1t','gagp_cpu','gpu_eval','gpu_repro','gpu_overlap')
 def digest(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 base=runpy.run_path('benchmarks/fixed_asgp/optimization/round2.py')['FLAGS']
 base.update(GAGP_SINGLE_EVAL_IDENTITY='1',GAGP_OWNED_CROSSOVER_HANDOFF='1',LD_PRELOAD=str(root/'logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2'),MALLOC_CONF='background_thread:false,narenas:1',OMP_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',MKL_NUM_THREADS='1')
+overrides={}
+for override in args.flag:
+ key,value=override.split('=',1)
+ if not key.startswith('GAGP_'):parser.error('Overrides must be GAGP settings')
+ overrides[key]=value
+base.update(overrides)
+if base.get('GAGP_HOST_THREADS','1')!='1':parser.error('Fixed comparison requires CPU1T')
 fast=dict(base,GAGP_GPU_PHASE_POPULATION='1',GAGP_OWNED_PHASE_PACK='1',GAGP_OWNED_PHASE_CAPS='1',GAGP_COORDINATE_EXECUTOR='1',GAGP_COUNTED_SITE_DRAW='1')
+fast.update(overrides)
 # The existing optional CPU window profile is measured separately before any adoption.
 if not Path(base['LD_PRELOAD']).is_file():raise FileNotFoundError('Required archived jemalloc dependency: '+base['LD_PRELOAD'])
 if manifest_path.exists():
@@ -87,7 +98,7 @@ elif args.stage=='quality':
     run(t,1024,'search',tag,kind,{'GAGP_BM_SEED':str(seed),'GAGP_SEARCH_GENERATIONS':str(gens),'GAGP_GPU_DIAGNOSTICS':'1','GAGP_SEARCH_EXPORT':str(out/f'{tag}.asts.json'),'GAGP_SEARCH_HISTORY_EXPORT':str(out/f'{tag}.history.json')})
 elif args.stage=='scaling':
  m['scaling_flags']=dict(fast,GAGP_CPU_REGION_VIEWS='1')
- for p in (1024,2048,4096,8192):
+ for p in args.populations:
   for t in TASKS:
    for mode in MODES:
     tag=f'scaling.p{p}.{t}.{mode}'
