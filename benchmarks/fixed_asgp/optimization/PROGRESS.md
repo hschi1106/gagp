@@ -880,3 +880,21 @@ Six same-binary search repeats per setting show about2% House32 search-wall
 and7% diagnostic kernel improvement. Exact final AST/trace comparison,
 independent proof review and exhaustive focused fuel/capacity tests pass.
 Evidence: `benchmarks/fixed_asgp/optimization/results/parallel-20261013/ring-memo.json`.
+Bucket workspace candidate: compact/generic grids planned independently under
+the same512MiB sharedscratchceiling. Samebinary3process medians House1648→1583ms,
+Median1396→1361ms; unchanged traces/finalpopulation. Mixed257program/32generation
+CPUaudit test passes. Setting`GAGP_BUCKET_WORKSPACE=1`; evidence
+`results/parallel-20261013/bucket-workspace.json`. Improvement modest, supports
+capability-dependent concurrency without reducing execution limits.
+
+GPU follow-ups rejected (2026-10-13): phase-local fuel ownership plus a
+forward-only phase fuel upper bound passed existing fuel/CPU-audit tests but
+three-process House medians1471.377→1461.782ms overlapped, Median1398.421→1411.805ms
+regressed. Per-warp diagnostic-count aggregation preserved all trace counters
+and passed bounded-region tests, but House1471.947→1450.040ms and
+Median1366.080→1377.148ms did not establish a useful total-time gain; kernel
+differences were below1%. Both prototypes and switches were removed, patches
+and raw outputs archived in `logs/parallel-gpu/`. Recorded results:
+`results/parallel-gpu-20261013/rejected-followups.json`. Next: inspect remaining
+cold native import/final export cost; root separately tests structurally proved
+coordinate memo storage. No phase semantics, counters, or operator changes adopted.

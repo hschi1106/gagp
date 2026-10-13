@@ -1,0 +1,154 @@
+[
+  {
+    "experiment": "fuelbound",
+    "decision": "rejected; prototype removed",
+    "rows": [
+      {
+        "task": "house_robber",
+        "results": {
+          "control": {
+            "runs": [
+              {
+                "raw": "logs/parallel-gpu/fuelbound-control-repeat/house_robber.gpu_overlap.s0.r0.json",
+                "evolve_wall_ms": 1485.031383,
+                "eval_kernel_median_ms": 19.6052315
+              },
+              {
+                "raw": "logs/parallel-gpu/fuelbound-control-repeat/house_robber.gpu_overlap.s0.r1.json",
+                "evolve_wall_ms": 1460.267382,
+                "eval_kernel_median_ms": 19.693675
+              },
+              {
+                "raw": "logs/parallel-gpu/fuelbound-control-repeat/house_robber.gpu_overlap.s0.r2.json",
+                "evolve_wall_ms": 1471.3768,
+                "eval_kernel_median_ms": 19.5485775
+              }
+            ],
+            "median_ms": 1471.3768
+          },
+          "candidate": {
+            "runs": [
+              {
+                "raw": "logs/parallel-gpu/fuelbound-candidate-repeat/house_robber.gpu_overlap.s0.r0.json",
+                "evolve_wall_ms": 1450.459597,
+                "eval_kernel_median_ms": 19.4853095
+              },
+              {
+                "raw": "logs/parallel-gpu/fuelbound-candidate-repeat/house_robber.gpu_overlap.s0.r1.json",
+                "evolve_wall_ms": 1467.842023,
+                "eval_kernel_median_ms": 19.3339955
+              },
+              {
+                "raw": "logs/parallel-gpu/fuelbound-candidate-repeat/house_robber.gpu_overlap.s0.r2.json",
+                "evolve_wall_ms": 1461.782155,
+                "eval_kernel_median_ms": 19.315736
+              }
+            ],
+            "median_ms": 1461.782155
+          }
+        }
+      },
+      {
+        "task": "median",
+        "results": {
+          "control": {
+            "runs": [
+              {
+                "raw": "logs/parallel-gpu/fuelbound-control-repeat/median.gpu_overlap.s2.r0.json",
+                "evolve_wall_ms": 1398.420664,
+                "eval_kernel_median_ms": 2.4281395
+              },
+              {
+                "raw": "logs/parallel-gpu/fuelbound-control-repeat/median.gpu_overlap.s2.r1.json",
+                "evolve_wall_ms": 1393.627174,
+                "eval_kernel_median_ms": 2.4082049999999997
+              },
+              {
+                "raw": "logs/parallel-gpu/fuelbound-control-repeat/median.gpu_overlap.s2.r2.json",
+                "evolve_wall_ms": 1406.462696,
+                "eval_kernel_median_ms": 2.4573840000000002
+              }
+            ],
+            "median_ms": 1398.420664
+          },
+          "candidate": {
+            "runs": [
+              {
+                "raw": "logs/parallel-gpu/fuelbound-candidate-repeat/median.gpu_overlap.s2.r0.json",
+                "evolve_wall_ms": 1404.141409,
+                "eval_kernel_median_ms": 2.4334705000000003
+              },
+              {
+                "raw": "logs/parallel-gpu/fuelbound-candidate-repeat/median.gpu_overlap.s2.r1.json",
+                "evolve_wall_ms": 1414.611738,
+                "eval_kernel_median_ms": 2.4234075
+              },
+              {
+                "raw": "logs/parallel-gpu/fuelbound-candidate-repeat/median.gpu_overlap.s2.r2.json",
+                "evolve_wall_ms": 1411.804624,
+                "eval_kernel_median_ms": 2.4219945000000003
+              }
+            ],
+            "median_ms": 1411.804624
+          }
+        }
+      }
+    ]
+  },
+  {
+    "experiment": "counter",
+    "decision": "rejected; prototype removed",
+    "rows": [
+      {
+        "task": "house_robber",
+        "results": {
+          "control": {
+            "runs": [
+              {
+                "raw": "logs/parallel-gpu/counter-control/house_robber.gpu_overlap.s0.r0.json",
+                "evolve_wall_ms": 1471.947206,
+                "eval_kernel_median_ms": 19.3343585
+              }
+            ],
+            "median_ms": 1471.947206
+          },
+          "candidate": {
+            "runs": [
+              {
+                "raw": "logs/parallel-gpu/counter-candidate/house_robber.gpu_overlap.s0.r0.json",
+                "evolve_wall_ms": 1450.040188,
+                "eval_kernel_median_ms": 19.211571
+              }
+            ],
+            "median_ms": 1450.040188
+          }
+        }
+      },
+      {
+        "task": "median",
+        "results": {
+          "control": {
+            "runs": [
+              {
+                "raw": "logs/parallel-gpu/counter-control/median.gpu_overlap.s2.r0.json",
+                "evolve_wall_ms": 1366.080097,
+                "eval_kernel_median_ms": 2.3781775
+              }
+            ],
+            "median_ms": 1366.080097
+          },
+          "candidate": {
+            "runs": [
+              {
+                "raw": "logs/parallel-gpu/counter-candidate/median.gpu_overlap.s2.r0.json",
+                "evolve_wall_ms": 1377.148107,
+                "eval_kernel_median_ms": 2.3554735
+              }
+            ],
+            "median_ms": 1377.148107
+          }
+        }
+      }
+    ]
+  }
+]
