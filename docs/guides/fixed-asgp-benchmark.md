@@ -510,3 +510,10 @@ CPU ablation modes retain their ordinary preparation. External mutable parents
 are always admitted, including unselected invalid parents. Focused regression:
 `gagp_test_grammar_reproduction` plus crossover, mutation, membership and variation
 contract/cache/region tests. Archived benchmark manifests must record their use.
+
+`GAGP_CPU_SELECTED_MUTATION=1` also materializes just the chosen logical site
+for a subtree mutation without projected offspring budgets. The same RNG draw
+selects the same logical group and preserves all repeated occurrences; complete
+parent/child admission still runs. Constant mutation and projected-budget donor
+preparation keep their existing path. This setting does not sample fitness cases
+or change the mutation distribution.

@@ -313,6 +313,31 @@ void test_deferred_site_analysis_matches_eager() {
   else unsetenv("GAGP_CPU_SELECTED_PARENTS");
 }
 
+void test_selected_mutation_matches_eager() {
+  const char* previous = std::getenv("GAGP_CPU_SELECTED_MUTATION");
+  const std::optional<std::string> saved = previous
+      ? std::optional<std::string>(previous) : std::nullopt;
+  for (const auto& grammar : {repeated_hole_grammar(), local_grammar(), many_sites_grammar()}) {
+    auto parent = generate_derivation(*grammar, 32).genome;
+    for (double probability : {0.0, 0.3, 1.0}) {
+      for (std::uint64_t seed = 0; seed < 32; ++seed) {
+        VariationContext eager_context(grammar), selected_context(grammar);
+        unsetenv("GAGP_CPU_SELECTED_MUTATION");
+        const auto eager = mutate(parent, seed, eager_context, probability);
+        setenv("GAGP_CPU_SELECTED_MUTATION", "1", 1);
+        const auto selected = mutate(parent, seed, selected_context, probability);
+        check_same_population({eager}, {selected}, "selected mutation changed the logical site/RNG");
+        check_same_counters(eager_context.counters(), selected_context.counters(),
+            "selected mutation changed counters");
+        require_membership(*grammar, selected);
+        parent = selected;
+      }
+    }
+  }
+  if (saved) setenv("GAGP_CPU_SELECTED_MUTATION", saved->c_str(), 1);
+  else unsetenv("GAGP_CPU_SELECTED_MUTATION");
+}
+
 void test_selected_parent_ownership() {
   const auto grammar = repeated_hole_grammar();
   auto original = generate_derivation(*grammar, 42).genome;
@@ -803,6 +828,7 @@ int main() {
     test_manual_selection_crossover_mutation_replay();
     test_deferred_site_analysis_matches_eager();
     test_selected_parent_ownership();
+    test_selected_mutation_matches_eager();
     test_repeated_holes_and_local_children_remain_members();
     test_all_parents_are_validated_before_selection();
     test_prepared_ablation(repro::CpuReproAblation::GpuCandidates);

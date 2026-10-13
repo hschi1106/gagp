@@ -72,3 +72,8 @@ maintenance, follow the rules in root `AGENTS.md`.
   `GAGP_CPU_SELECTED_PARENTS`, tests `gagp_test_grammar_reproduction`.
   Scalar-only ownership cannot cross reproduction calls; mutable/registry-backed
   inputs keep full admission. This is the native CPU control path, not GPU repro.
+
+- `GAGP_CPU_SELECTED_MUTATION`: native `grammar/mutation.cpp` constructs just
+  the exact selected logical subtree site via `selected_variation.hpp`; ordinary
+  constant/projected-budget paths remain. Differential RNG/site coverage is in
+  `gagp_test_grammar_reproduction`.

@@ -3,7 +3,8 @@
   "architecture": "Unchanged native AST CPU reproduction for gagp_cpu/gpu_eval; GPU-er/o reproduction remains GPU. CPU1T.",
   "flags": {
     "GAGP_CPU_LAZY_ANALYSIS": "1",
-    "GAGP_CPU_SELECTED_PARENTS": "1"
+    "GAGP_CPU_SELECTED_PARENTS": "1",
+    "GAGP_CPU_SELECTED_MUTATION": "1"
   },
   "semantics": "No intended changes to grammar, numeric/fuel behavior, operator distribution, RNG consumption or capacity. Registry-dependent constant pools use ordinary certified crossover. No ownership persists across generations.",
   "stages": {
@@ -322,6 +323,98 @@
           "final_best": -462
         }
       ]
+    },
+    "cpu-selected-mutation4": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-selected-mutation4",
+      "binary_sha256": "786be4b18549dd1662a538d6380aab10ead295b1c67185c382125c9d3e36cf48",
+      "rows": [
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 0,
+          "generations": 4,
+          "evolve_wall_ms": 1094.242897,
+          "process_wall_s": 2.0109589390922338,
+          "reproduction_sum_ms": 684.4688940000001,
+          "final_best": -8503
+        },
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 1,
+          "generations": 4,
+          "evolve_wall_ms": 1043.986895,
+          "process_wall_s": 1.9794935761019588,
+          "reproduction_sum_ms": 657.194629,
+          "final_best": -8254
+        },
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 2,
+          "generations": 4,
+          "evolve_wall_ms": 1069.490295,
+          "process_wall_s": 2.001946749864146,
+          "reproduction_sum_ms": 673.549059,
+          "final_best": -8503
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 0,
+          "generations": 4,
+          "evolve_wall_ms": 1429.436699,
+          "process_wall_s": 2.5686200950294733,
+          "reproduction_sum_ms": 1114.1158639999999,
+          "final_best": -642
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 1,
+          "generations": 4,
+          "evolve_wall_ms": 1379.440632,
+          "process_wall_s": 2.517845950089395,
+          "reproduction_sum_ms": 1072.752514,
+          "final_best": -642
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 2,
+          "generations": 4,
+          "evolve_wall_ms": 1394.942735,
+          "process_wall_s": 2.549090839922428,
+          "reproduction_sum_ms": 1087.678719,
+          "final_best": -642
+        }
+      ]
+    },
+    "cpu-selected-mutation-main": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-selected-mutation-main",
+      "binary_sha256": "786be4b18549dd1662a538d6380aab10ead295b1c67185c382125c9d3e36cf48",
+      "rows": [
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 0,
+          "generations": 32,
+          "evolve_wall_ms": 12845.259987,
+          "process_wall_s": 14.330914612160996,
+          "reproduction_sum_ms": 10391.278432000001,
+          "final_best": -8380
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 2,
+          "generations": 64,
+          "evolve_wall_ms": 33342.277743,
+          "process_wall_s": 34.86295634997077,
+          "reproduction_sum_ms": 29481.052666999996,
+          "final_best": -462
+        }
+      ]
     }
   },
   "tests": "8 focused grammar tests passed; 8-gen exact replay on repeated holes, lexical locals and many sites; immutable-source, foreign-context, invalid constant domain checks.",
@@ -346,6 +439,15 @@
     "cpu-selected4/median.gpu_eval.s1.r0.json",
     "cpu-selected4/median.gpu_eval.s2.r0.json",
     "cpu-selected-main/house_robber.gpu_eval.s0.r0.json",
-    "cpu-selected-main/median.gpu_eval.s2.r0.json"
-  ]
+    "cpu-selected-main/median.gpu_eval.s2.r0.json",
+    "cpu-selected-mutation4/house_robber.gpu_eval.s0.r0.json (result only; exports not compared for this stage)",
+    "cpu-selected-mutation4/house_robber.gpu_eval.s1.r0.json (result only; exports not compared for this stage)",
+    "cpu-selected-mutation4/house_robber.gpu_eval.s2.r0.json (result only; exports not compared for this stage)",
+    "cpu-selected-mutation4/median.gpu_eval.s0.r0.json (result only; exports not compared for this stage)",
+    "cpu-selected-mutation4/median.gpu_eval.s1.r0.json (result only; exports not compared for this stage)",
+    "cpu-selected-mutation4/median.gpu_eval.s2.r0.json (result only; exports not compared for this stage)",
+    "cpu-selected-mutation-main/house_robber.gpu_eval.s0.r0.json (result only; exports not compared for this stage)",
+    "cpu-selected-mutation-main/median.gpu_eval.s2.r0.json (result only; exports not compared for this stage)"
+  ],
+  "selected_mutation_contract": "Only materialize the one selected logical subtree mutation site; same RNG/index/order. Constant mutation and projected-offspring-budget paths remain ordinary. 288 differential mutation cases across3grammars/3probabilities/32seeds plus3seed4gen and32/64gen exact results."
 }
