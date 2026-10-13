@@ -17,6 +17,7 @@
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/grammar/request.hpp"
+#include "gagp/evolution/grammar/random.hpp"
 #include "gagp/evolution/grammar/variation.hpp"
 #include "gagp/evolution/mutation.hpp"
 #include "gagp/evolution/population_init.hpp"
@@ -820,8 +821,62 @@ void test_certification_compaction_boundaries() {
       "compaction hid an invalid unused constant before validation");
 }
 
+void test_counted_crossover_exact_feasible_pairs() {
+  for (const auto& grammar : {repeated_hole_grammar(), local_grammar(), many_sites_grammar()}) {
+    const auto population = generated_population(*grammar, 7, 107);
+    for (std::uint64_t seed = 0; seed < 32; ++seed) {
+      const auto& a = population[seed % population.size()];
+      const auto& b = population[(seed + 1) % population.size()];
+      VariationContext reference(grammar), counted(grammar), replay(grammar);
+      const auto ca = variation_detail::certify(a, reference);
+      const auto cb = variation_detail::certify(b, reference);
+      const auto aa = reference.analyze(ca), ab = reference.analyze(cb);
+      std::vector<std::pair<const VariationSite*, const VariationSite*>> feasible;
+      for (const auto& sa : aa->sites) for (const auto& sb : ab->sites)
+        if (compatible_sites(sa, sb) && donor_fits(sa, sb) && donor_fits(sb, sa))
+          feasible.emplace_back(&sa, &sb);
+      unsetenv("GAGP_CPU_COUNTED_PAIRS");
+      (void)variation_detail::crossover_with_sites(a, b, seed, reference, nullptr);
+      setenv("GAGP_CPU_COUNTED_PAIRS", "1", 1);
+      variation_detail::SelectedCrossoverSites selected;
+      const auto children = variation_detail::crossover_with_sites(a, b, seed, counted, &selected);
+      const auto again = variation_detail::crossover_with_sites(a, b, seed, replay, nullptr);
+      check(ast_cache_key(children.first.ast) == ast_cache_key(again.first.ast) &&
+            ast_cache_key(children.second.ast) == ast_cache_key(again.second.ast),
+            "counted crossover is not deterministic");
+      check(counted.counters().contract_rejections == reference.counters().contract_rejections &&
+            counted.counters().budget_rejections == reference.counters().budget_rejections,
+            "counted crossover changed feasible-pair rejection accounting");
+      check(bool(selected) == !feasible.empty(), "counted crossover lost feasible pairs");
+      if (selected) {
+        GrammarRandom random(seed);
+        const auto expected = feasible[random.bounded(feasible.size())];
+        const auto same_spans = [](const auto& a, const auto& b) {
+          return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(),
+              [](const auto& x, const auto& y) { return x.begin == y.begin && x.end == y.end; });
+        };
+        check(same_spans(selected->first.occurrences, expected.first->occurrences) &&
+              same_spans(selected->second.occurrences, expected.second->occurrences) &&
+              selected->first.compatibility_key == expected.first->compatibility_key &&
+              selected->second.compatibility_key == expected.second->compatibility_key,
+              "counted crossover selected wrong uniform feasible rank");
+      }
+      require_population_membership(*grammar, {children.first, children.second});
+    }
+    auto current = population;
+    auto cfg = compiled_config(grammar, current.size());
+    std::mt19937_64 rng(109);
+    for (int generation = 0; generation < 8; ++generation) {
+      current = repro::run_reproduction_backend(score_owned(current), cfg, rng).next_population;
+      require_population_membership(*grammar, current);
+    }
+  }
+  unsetenv("GAGP_CPU_COUNTED_PAIRS");
+}
+
 int main() {
   try {
+    test_counted_crossover_exact_feasible_pairs();
     test_certification_compaction_boundaries();
     test_nonterminal_variation_policy();
     test_backend_replay_and_owned_ref_parity();

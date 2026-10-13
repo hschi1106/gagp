@@ -199,6 +199,13 @@ replay admission; it can retain a source profile's different initial depth rule.
 Budgeted generation records the accepted attempt seed for ordinary artifact replay.
 Certified source profiles remain further integration work; these generic budget
 controls alone are not source-search equivalence.
+Native CPU crossover optionally uses `GAGP_CPU_COUNTED_PAIRS=1` to group exact
+compatibility keys and make one uniform rank draw over all pairs that pass both
+directional local resource checks. This preserves the conditional feasible-pair
+distribution but changes deterministic RNG trajectories. It retains complete
+child admission and falls back to reservoir selection when projected resource
+admission cannot be reduced to local allowances; no candidate subset is used.
+
 When charges cannot be certified local, CPU crossover checks both complete canonical children against the optional budget
 before reservoir selection. Trial-child checks reconstruct the canonical derivation,
 including native verification and bytecode lowering, without enumerating the child's

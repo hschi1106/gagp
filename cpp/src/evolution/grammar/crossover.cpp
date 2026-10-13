@@ -1,6 +1,10 @@
 #include "gagp/evolution/crossover.hpp"
 
+#include <algorithm>
+#include <cstdlib>
+#include <limits>
 #include <stdexcept>
+#include <unordered_map>
 
 #include "gagp/evolution/grammar/variation.hpp"
 #include "gagp/evolution/grammar/random.hpp"
@@ -19,7 +23,52 @@ std::pair<ProgramGenome, ProgramGenome> crossover_analyzed(const ProgramGenome& 
   const VariationSite* selected_a = nullptr;
   const VariationSite* selected_b = nullptr;
   std::uint64_t eligible = 0;
-  for (const auto& site_a : analysis_a->sites) {
+  // Same uniform distribution over every feasible pair, but one rank draw
+  // instead of one reservoir draw per pair. The deterministic RNG trajectory
+  // is deliberately distinct. Nonlocal projected-resource trials retain legacy.
+  const bool counted = std::getenv("GAGP_CPU_COUNTED_PAIRS") &&
+      (!context.offspring_budget() ||
+       (std::all_of(analysis_a->sites.begin(), analysis_a->sites.end(),
+            [](const auto& site) { return site.has_projected_allowance; }) &&
+        std::all_of(analysis_b->sites.begin(), analysis_b->sites.end(),
+            [](const auto& site) { return site.has_projected_allowance; })));
+  if (counted) {
+    std::unordered_map<std::string, std::vector<const VariationSite*>> groups;
+    for (const auto& site : analysis_b->sites)
+      if (!site.compatibility_key.empty()) groups[site.compatibility_key].push_back(&site);
+    std::vector<std::uint64_t> row_counts(analysis_a->sites.size(), 0);
+    const auto fits = [](const auto& a, const auto& b) {
+      return donor_fits(a, b) && donor_fits(b, a);
+    };
+    for (std::size_t row = 0; row < analysis_a->sites.size(); ++row) {
+      const auto& site = analysis_a->sites[row];
+      const auto group = groups.find(site.compatibility_key);
+      context.counters().contract_rejections += analysis_b->sites.size() -
+          (group == groups.end() ? 0 : group->second.size());
+      if (group == groups.end()) continue;
+      for (const auto* donor : group->second) {
+        if (fits(site, *donor)) ++row_counts[row];
+        else ++context.counters().budget_rejections;
+      }
+      if (row_counts[row] > std::numeric_limits<std::uint64_t>::max() - eligible)
+        throw std::overflow_error("crossover feasible pair count overflow");
+      eligible += row_counts[row];
+    }
+    if (eligible) {
+      auto rank = random.bounded(eligible);
+      for (std::size_t row = 0; row < row_counts.size(); ++row) {
+        if (rank >= row_counts[row]) { rank -= row_counts[row]; continue; }
+        selected_a = &analysis_a->sites[row];
+        for (const auto* donor : groups.at(selected_a->compatibility_key)) {
+          if (!fits(*selected_a, *donor)) continue;
+          if (rank == 0) { selected_b = donor; break; }
+          --rank;
+        }
+        break;
+      }
+      if (!selected_a || !selected_b) throw std::logic_error("counted crossover lost feasible rank");
+    }
+  } else for (const auto& site_a : analysis_a->sites) {
     for (const auto& site_b : analysis_b->sites) {
       if (!compatible_sites(site_a, site_b)) {
         ++context.counters().contract_rejections;

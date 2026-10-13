@@ -561,3 +561,21 @@ Six same-binary search repeats per setting show about2% House32 search-wall
 and7% diagnostic kernel improvement. Exact final AST/trace comparison,
 independent proof review and exhaustive focused fuel/capacity tests pass.
 Evidence: `benchmarks/fixed_asgp/optimization/results/parallel-20261013/ring-memo.json`.
+`GAGP_CPU_COUNTED_PAIRS=1` is a separate native CPU crossover RNG profile.
+It groups donor sites by their exact compatibility contract, counts every pair
+passing both directional resource checks, and draws one unbiased uniform rank.
+The ordinary path instead makes one reservoir draw per feasible pair. These
+have the same uniform conditional pair distribution but different seeded
+trajectories; report multi-seed fitness and equal-wall quality separately from
+fixed-parent execution cost. No sites, cases, operators, or admission checks
+are removed. Nonlocal projected resource charges without complete local
+allowances retain the original trial-child/reservoir path. Exact-key equality
+resolves hash collisions; total pair counts are checked for overflow.
+
+This flag changes the existing CPU reproduction in `gagp_cpu` and `gpu_eval`;
+GPU reproduction and CPU thread count are unchanged. It has no persistent
+population/grammar cache. Tests cover enumerated feasible-rank selection,
+rejection accounting, deterministic replay, repeated holes, scopes, and
+changing populations in `gagp_test_grammar_reproduction`; run
+`GAGP_CPU_COUNTED_PAIRS=1 cpp/build/release/gagp_test_derivation_resources`
+for local/nonlocal projected-resource coverage.
