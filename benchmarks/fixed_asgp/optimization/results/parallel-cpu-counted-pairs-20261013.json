@@ -444,7 +444,28 @@
     {
       "name": "static native-root membership filter",
       "reason": "First late Median full-parent A/B shows no gain:2468.561\u21922505.446ms complete1gen; repro1805.665\u21921834.203ms. Removed extra compiled masks, filter flag and exclusive tests after9focused tests and independent review. One pair cannot quantify small effect; no large benefit supported further investment.",
-      "archive": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-root-filter-prototype"
+      "archive": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-root-filter-prototype",
+      "source_head": "4a307d910ffe48170a43c88e840e26e199e4aaba",
+      "binary_sha256": "93f7950ea76eb605d249e8a35739f4c5ea1f45d77940d7f3e6958d5117edad64",
+      "raw_manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-root-filter-late/manifest.json",
+      "allocator": "glibc, no LD_PRELOAD; identical for control/candidate; distinct from main jemalloc",
+      "population": 1024,
+      "cases": 1024,
+      "initial_population": "Median gen128 seed2 snapshot; frozen SHA and full command/flags/source patch retained in raw manifest",
+      "repeats": [
+        {
+          "tag": "unfiltered0",
+          "evolve_wall_ms": 2468.56122,
+          "process_wall_s": 4.254968225955963,
+          "reproduction_ms": 1805.664529
+        },
+        {
+          "tag": "filter0",
+          "evolve_wall_ms": 2505.446203,
+          "process_wall_s": 4.280638880096376,
+          "reproduction_ms": 1834.203343
+        }
+      ]
     }
   ]
 }
