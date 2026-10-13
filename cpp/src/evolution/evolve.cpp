@@ -5,6 +5,8 @@
 #include "gagp/evolution/evolve.hpp"
 
 #include <chrono>
+#include <iostream>
+#include <iomanip>
 #include <cstdlib>
 #include <atomic>
 #include <algorithm>
@@ -33,6 +35,15 @@
 namespace gagp::evo {
 
 namespace {
+void trace_search_generation(const EvolutionResult& result) {
+  if(!std::getenv("GAGP_SEARCH_TRACE")) return;
+  const auto& t=result.timing.generations.back();
+  std::cerr<<std::setprecision(12)<<"generation="<<result.timing.generations.size()-1
+    <<" best="<<result.history_best_fitness.back()<<" mean="<<result.history_mean_fitness.back()
+    <<" generation_ms="<<t.total_ms<<" eval_ms="<<t.eval_ms<<" repro_ms="<<t.repro_ms
+    <<" elapsed_ms="<<t.elapsed_search_ms<<'\n';
+}
+
 
 CaseSet evolution_case_set(const std::vector<EvalCase>& cases, const EvolutionConfig& cfg) {
   auto result = prepare_case_set(cases);
@@ -341,6 +352,7 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
     timing.total_ms=std::chrono::duration<double,std::milli>(finish-start).count();
     timing.elapsed_search_ms=std::chrono::duration<double,std::milli>(finish-search_start).count();
     result.timing.generations.push_back(timing);
+    trace_search_generation(result);
   }
   if(cfg.skip_final_eval)result.final_eval_skipped=true;
   else {
@@ -513,6 +525,7 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
     generation_timing.total_ms =
         std::chrono::duration<double, std::milli>(gen_t1 - gen_t0).count();
     result.timing.generations.push_back(generation_timing);
+    trace_search_generation(result);
     (void)gen;
   }
 

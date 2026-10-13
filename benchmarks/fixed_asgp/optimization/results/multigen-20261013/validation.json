@@ -1,0 +1,24 @@
+{
+  "successful_searches": 90,
+  "failed_searches": 0,
+  "native_integration": {
+    "command": "ctest --test-dir cpp/build/release -R '^gagp_test_fixed_asgp_bench$' --output-on-failure",
+    "passed": true,
+    "seconds": 24.41
+  },
+  "python_fixed_tool_tests": 5,
+  "repository_tests": 24,
+  "negative_index_diagnostic": {
+    "cases": "1024 repetitions of [-100,20,-50], expected -50; diagnostic only",
+    "asgp_fitness": -1024,
+    "gagp_cpu_fitness": 0,
+    "gagp_gpu_fitness": 0,
+    "raw": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/negative-index-diagnostic"
+  },
+  "scripts_sha256": {
+    "multigen_report.py": "ff412b6a3c3e42a44b4b054b021a2ecfc51337a73d370d3369362c1d6373ee13",
+    "multigen_native_audit.py": "7d6e961859ae8203e77f319b27199254b30cb626a887d9fd152aea31c53e6712",
+    "multigen.py": "f9fcdf82e049cc012fb535d754325aeaafd2d6eb2f36b5b380b2a55b5c0fcd40",
+    "multigen_audit.py": "7aaf58bf20ef1de5123b71df0ee2299b8351f67fdb1ad8bd1ddf1ddd34d11110"
+  }
+}

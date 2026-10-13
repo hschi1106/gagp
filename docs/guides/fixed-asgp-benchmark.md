@@ -415,3 +415,66 @@ index. `paired` performs three independent processes per GPU setting; `scaling`
 runs all four population sizes. An existing output manifest resumes completed
 cells only after binary/settings identity checks. Interrupted scaling attempts
 remain on disk; a retry uses a fresh output filename.
+
+
+## Multi-generation comparison and fitness configuration
+
+`gagp_fixed_asgp_bench measure` accepts `search_asgp_1t`, `search_gagp_cpu`,
+`search_gpu_eval`, `search_gpu_repro`, and `search_gpu_overlap`. The original
+five frozen-parent modes are unchanged; `search` remains the GPU-overlap alias.
+`GAGP_SEARCH_GENERATIONS` and `GAGP_BM_SEED` select search length and reproduction
+seed. `GAGP_SEARCH_TRACE=1` emits completed-generation progress on stderr. This
+I/O is included in search wall time, outside each generation timer.
+
+`GAGP_SEARCH_PENALTY` configures the existing GAGP numeric error cap and runtime
+error penalty for these search entries (positive finite value, default1000).
+`GAGP_SNAPSHOT_PENALTY` configures the independent snapshot audit, with the same
+validation/default. Neither changes the original frozen-parent benchmark.
+These are benchmark configuration options, not a general custom-scoring API.
+
+ASGP's Median task uses exact-error count; Sum/House use capped absolute error.
+For the admitted integer-output Median grammar and integer targets, penalty1
+makes the GAGP numeric score equal negative wrong-case count. This equivalence
+does not apply to arbitrary Float results or GAGP's type-selected exact scoring
+for nonnumeric values. Runtime/type failures contribute negative penalty.
+Record the chosen objective, cap, error penalty and direction with each run;
+changing an objective changes selection, even when programs/operators are fixed.
+
+The serial runner `benchmarks/fixed_asgp/optimization/multigen.py` archives a
+binary, source patch, frozen hashes, full settings, per-generation logs and final
+populations. Main runs use P1024/C1024, seeds0/1/2 and16 complete generations plus
+final evaluation. `--tasks` selects tasks and `--case-penalty` sets the search
+option. `--stage extended` chooses lengths using timing only, to cover10seconds;
+inspect coverage instead of extrapolating. If bloat invalidates a generation16
+projection, `--extension-observed-timing` uses already completed longer runs
+of the same task/mode to estimate time-to14s instead; it never uses fitness.
+Completed runs are retained, and retries use separate attempt filenames.
+Use new output directories. CPU1T
+and the best native GPU profile come from the checked candidate manifest.
+
+`multigen_audit.py` translates/admit-checks ASGP champions, independently scores
+all recorded champions on full training cases, and checks selected best-so-far
+champions on existing independent held-out cases. Deduplication is only for
+post-search audits. Its optional `--base` and `--aligned-median` arguments merge
+separate archives without overwriting them; earlier Median L1 runs are indexed
+as `legacy_main`. `multigen_report.py` produces CSV, JSON, PNG/SVG and a Chinese
+report. Search wall, input-through-report and process wall are distinct. Never
+mix their denominators with frozen-parent single-generation claims.
+
+A future general fitness configuration should select a named metric independently
+of expected-value type (`absolute`, `exact`, and explicitly supported sequence
+metrics), separate distance cap from execution-error penalty, and define numeric
+tolerance/type compatibility. CPU and GPU must implement the same validated
+configuration. Default behavior stays under `spec/fitness.md`; new scoring
+profiles need explicit opt-in and parity tests. Arbitrary Python/host callbacks
+per program/case would force transfers/synchronization and are not an appropriate
+GPU fitness extension point. This interface is a proposal, not implemented here.
+
+`asgp_snapshot` independently evaluates imported ASGP programs on all supplied
+cases without reproduction. `multigen_native_audit.py` uses it to check ASGP
+training records and held-out quality in ASGP's own runtime. Its audit binary is
+archived separately from timed binaries. Reports consume this augmentation:
+ASGP-to-GAGP translation is not an execution-equivalence proof (for example,
+ASGP rejects negative indices whereas GAGP normalizes them). Ported scores remain
+explicit diagnostics and never replace native ASGP search quality. See the
+[2026-10-13 report](../../benchmarks/fixed_asgp/optimization/results/multigen-20261013/REPORT.zh-TW.md).

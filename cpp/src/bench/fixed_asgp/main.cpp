@@ -7,6 +7,7 @@
 #include <iostream>
 #include <set>
 #include <cstring>
+#include <cmath>
 #include "gagp/runtime/cpu/execution_session.hpp"
 #include <stdexcept>
 #include "gp/operators.h"
@@ -196,6 +197,8 @@ Json measure_gagp(const std::vector<gagp::evo::ProgramGenome>& population,
 // timing runs. CPU reference, when requested, evaluates every program/case.
 void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
               const std::vector<gagp::evo::EvalCase>& cases, const std::string& output) {
+  const double penalty=std::getenv("GAGP_SNAPSHOT_PENALTY") ? std::stod(std::getenv("GAGP_SNAPSHOT_PENALTY")) : 1000;
+  if(!std::isfinite(penalty) || penalty<=0)throw std::invalid_argument("snapshot penalty must be finite and positive");
   auto cs=gagp::evo::prepare_case_set(cases);
   const auto begin=Clock::now();
   std::vector<gagp::BytecodeProgram> programs;
@@ -208,13 +211,13 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
   }
   const auto compile_ms=elapsed(begin);
   gagp::FitnessSessionGpu session;
-  const auto init=session.init(cs.bindings,cs.expected_values,2000000,512,1000);
+  const auto init=session.init(cs.bindings,cs.expected_values,2000000,512,penalty);
   if (!init.ok) throw std::runtime_error(init.err.message);
   const auto result=session.eval_programs(programs,true);
   if (!result.ok) throw std::runtime_error(result.err.message);
   std::vector<double> cpu;
   if (std::getenv("GAGP_SNAPSHOT_CPU"))
-    cpu=gagp::eval_fitness_cpu(programs,cs.bindings,cs.expected_values,2000000,1000,512);
+    cpu=gagp::eval_fitness_cpu(programs,cs.bindings,cs.expected_values,2000000,penalty,512);
   std::set<std::string> behaviors;
   const bool behavior_probe=std::getenv("GAGP_SNAPSHOT_BEHAVIOR")!=nullptr;
   if(behavior_probe) for(const auto& program:programs) {
@@ -252,15 +255,81 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
     {"cpu_behavior_probe_cases",number(behavior_probe?std::min<std::size_t>(32,cs.bindings.size()):0)},
     {"unique_cpu_behavior_probes",number(behaviors.size())}, {"programs",array(std::move(rows))}}));
 }
+void search_asgp(const std::vector<asgp::Individual>& parents, const asgp::TaskSpec& spec,
+                 const std::string& output) {
+  const auto start=Clock::now();
+  auto work=parents;
+  const auto grammar=asgp::SchemeGrammar::Build(spec.Grammar());
+  asgp::FitnessScratch scratch; asgp::VariationScratch variation;
+  const auto config=fitness_config();
+  const auto seed=std::getenv("GAGP_BM_SEED") ? std::stoull(std::getenv("GAGP_BM_SEED")) : 0;
+  const int generations=std::getenv("GAGP_SEARCH_GENERATIONS") ? std::stoi(std::getenv("GAGP_SEARCH_GENERATIONS")) : 4;
+  if(generations<=0 || work.empty())throw std::invalid_argument("invalid search dimensions");
+  asgp::Rng rng(seed); std::vector<Json> rows,history;
+  const double init_ms=elapsed(start);
+  const auto evaluate=[&]() {
+    for(auto& one:work)one.fitness=asgp::Score(one,spec,spec.train,config,scratch);
+  };
+  const auto best_index=[&]() {
+    return std::min_element(work.begin(),work.end(),[](const auto& a,const auto& b){return asgp::Better(a.fitness,b.fitness);})-work.begin();
+  };
+  for(int gen=0;gen<generations;++gen) {
+    const auto begin=Clock::now();evaluate();const double eval_ms=elapsed(begin);
+    const auto best=best_index();double mean=0,nodes=0;
+    for(const auto& one:work){mean-=one.fitness.error;nodes+=one.NodeCount();}
+    // Keep the historical best available for held-out evaluation after search.
+    history.push_back(object({{"generation",number(gen)}, {"fitness",number(-work[best].fitness.error)},
+                              {"program",encode(work[best],grammar.count)}}));
+    const auto repro_begin=Clock::now();
+    const auto pick=[&]() -> const asgp::Individual& {
+      const auto& a=work[rng.Index(work.size())];const auto& b=work[rng.Index(work.size())];
+      return asgp::Better(a.fitness,b.fitness)?a:b;
+    };
+    std::vector<asgp::Individual> children;children.reserve(work.size());children.push_back(work[best]);
+    while(children.size()<work.size()) {
+      const auto& a=pick();const auto& b=pick();
+      children.push_back(asgp::CrossoverByPhase(a,b,grammar.count,.7,asgp::Reach::kOnePhase,7,rng,variation));
+      asgp::MutateByPhase(children.back(),grammar,.3,asgp::Reach::kOnePhase,7,rng,variation);
+    }
+    const double repro_ms=elapsed(repro_begin),total_ms=elapsed(begin),wall_ms=elapsed(start);
+    rows.push_back(object({{"generation",number(gen)}, {"generation_ms",number(total_ms)},
+      {"elapsed_search_ms",number(wall_ms)}, {"eval_ms",number(eval_ms)}, {"repro_ms",number(repro_ms)},
+      {"best",number(-work[best].fitness.error)}, {"mean",number(mean/work.size())},
+      {"best_nodes",number(work[best].NodeCount())}, {"mean_nodes",number(nodes/work.size())},
+      {"best_wrong",number(work[best].fitness.wrong)}, {"case_counters_available",number(0)},
+      {"expected_program_cases",number(work.size()*spec.train.size())}}));
+    work=std::move(children);
+    // Include parent retirement and next-generation installation in generation time.
+    const double complete_ms=elapsed(begin),complete_wall_ms=elapsed(start);
+    rows.back().object_v["generation_ms"]=number(complete_ms);
+    rows.back().object_v["elapsed_search_ms"]=number(complete_wall_ms);
+    history.back().object_v["elapsed_search_ms"]=number(complete_wall_ms);
+    if(std::getenv("GAGP_SEARCH_TRACE"))std::cerr<<"generation="<<gen<<" best="<<rows.back().object_v.at("best").number_v<<" generation_ms="<<complete_ms<<" elapsed_ms="<<complete_wall_ms<<'\n';
+  }
+  const auto final_begin=Clock::now();evaluate();const double final_ms=elapsed(final_begin);
+  const auto best=best_index();const double wall_ms=elapsed(start);
+  std::vector<Json> final;std::set<std::string> unique;
+  for(const auto& one:work){final.push_back(object({{"fitness",number(-one.fitness.error)},{"nodes",number(one.NodeCount())}}));unique.insert(gg::canonical_json(encode(one,grammar.count)));}
+  if(const char* path=std::getenv("GAGP_SEARCH_HISTORY_EXPORT"))write(path,object({{"history",array(std::move(history))}}));
+  if(const char* path=std::getenv("GAGP_SEARCH_EXPORT"))write(path,object({{"task",string(spec.id)},{"best_program",encode(work[best],grammar.count)}}));
+  write(output,object({{"mode",string("asgp_1t")},{"population",number(work.size())},{"cases",number(spec.train.size())},
+    {"seed",number(seed)},{"generations",array(std::move(rows))},{"final_population",array(std::move(final))},
+    {"final_best",number(-work[best].fitness.error)},{"unique_final_genomes",number(unique.size())},
+    {"evolve_wall_ms",number(wall_ms)},{"initial_admission_ms",number(init_ms)},{"final_eval_ms",number(final_ms)},
+    {"reproduction_profile",string("asgp-fixed-native-elite1")}}));
+}
 void search(const std::vector<gagp::evo::ProgramGenome>& population,
             const std::vector<gagp::evo::EvalCase>& cases,
-            const std::shared_ptr<const gg::CompiledGrammar>& grammar, const std::string& output) {
+            const std::shared_ptr<const gg::CompiledGrammar>& grammar, const std::string& output,
+            const std::string& mode = "gpu_overlap") {
   gagp::evo::EvolutionConfig cfg;
   cfg.population_size=population.size(); cfg.generations=std::getenv("GAGP_SEARCH_GENERATIONS") ? std::stoi(std::getenv("GAGP_SEARCH_GENERATIONS")) : 4;
   cfg.seed=std::getenv("GAGP_BM_SEED") ? std::stoull(std::getenv("GAGP_BM_SEED")) : 0;
-  cfg.eval_engine=gagp::evo::EvalEngine::GPU; cfg.reproduction_backend=gagp::evo::repro::ReproductionBackend::Gpu;
-  cfg.repro_overlap=true; cfg.compiled_grammar=grammar; cfg.generation_request=gg::entry_request(*grammar);
-  cfg.fuel=2000000; cfg.penalty=1000; cfg.gpu_blocksize=512; cfg.selection_pressure=2;
+  cfg.eval_engine=mode=="gagp_cpu" ? gagp::evo::EvalEngine::CPU : gagp::evo::EvalEngine::GPU;
+  cfg.reproduction_backend=(mode=="gpu_repro" || mode=="gpu_overlap") ? gagp::evo::repro::ReproductionBackend::Gpu : gagp::evo::repro::ReproductionBackend::Cpu;
+  cfg.repro_overlap=mode=="gpu_overlap"; cfg.compiled_grammar=grammar; cfg.generation_request=gg::entry_request(*grammar);
+  cfg.fuel=2000000; cfg.penalty=std::getenv("GAGP_SEARCH_PENALTY") ? std::stod(std::getenv("GAGP_SEARCH_PENALTY")) : 1000;
+  if(!std::isfinite(cfg.penalty) || cfg.penalty<=0)throw std::invalid_argument("search penalty must be finite and positive"); cfg.gpu_blocksize=512; cfg.selection_pressure=2;
   cfg.mutation_rate=.3; cfg.mutation_subtree_prob=1; cfg.skip_final_eval=false; cfg.retain_final_population=true;
   const auto call_begin=std::chrono::steady_clock::now();
   const auto result=gagp::evo::evolve_population(cases,cfg,&population);
@@ -271,13 +340,23 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
     const auto& t=result.timing.generations[i]; const auto& e=t.evaluation; const auto& v=t.reproduction.variation;
     rows.push_back(object({{"generation",number(i)}, {"generation_ms",number(t.total_ms)},
       {"elapsed_search_ms",number(t.elapsed_search_ms)}, {"execution_profile",string(e.execution_profile)},
+      {"eval_ms",number(t.eval_ms)}, {"repro_ms",number(t.repro_ms)},
+      {"compile_ms",number(e.cpu_compile_ms+e.gpu_compile_ms)}, {"eval_kernel_ms",number(e.gpu_eval_kernel_ms)},
+      {"pack_ms",number(e.gpu_eval_pack_ms)}, {"upload_ms",number(e.gpu_eval_upload_ms)},
+      {"repro_kernel_ms",number(t.reproduction.kernel_ms)}, {"repro_decode_ms",number(t.reproduction.decode_ms)},
+      {"repro_prepare_ms",number(t.reproduction.prepare_inputs_ms)},
+      {"best_nodes",number(result.history_best[i].genome.ast.nodes.size())},
+      {"expected_program_cases",number(population.size()*cases.size())},
+      {"case_counters_available",number(mode!="gagp_cpu" && std::getenv("GAGP_GPU_DIAGNOSTICS")!=nullptr)},
       {"best",number(result.history_best_fitness[i])}, {"mean",number(result.history_mean_fitness[i])},
       {"cases",number(e.program_cases)}, {"errors",number(e.eval_errors)}, {"timeouts",number(e.eval_timeouts)},
       {"fallbacks",number(e.eval_fallbacks)}, {"unscored",number(e.eval_unscored)},
       {"gpu_donor_generated",number(t.reproduction.gpu_donor_generated)}, {"gpu_donor_fallback",number(t.reproduction.gpu_donor_fallback)},
       {"gpu_donor_setup_ms",number(t.reproduction.gpu_donor_setup_ms)}, {"gpu_donor_device_bytes",number(t.reproduction.gpu_donor_device_bytes)},
       {"changed",number(v.changed_children)}, {"unchanged",number(v.unchanged_children)},
-      {"operator_fallbacks",number(v.fallback_children)}, {"rejected",number(v.acceptance_rejections)}}));
+      {"operator_fallbacks",number(v.fallback_children)}, {"rejected",number(v.acceptance_rejections)},
+      {"contract_rejections",number(v.contract_rejections)}, {"budget_rejections",number(v.budget_rejections)},
+      {"generation_rejections",number(v.generation_rejections)}}));
   }
   for (const auto& one:result.final_population)
     final.push_back(object({{"fitness",number(one.fitness)}, {"nodes",number(one.genome.ast.nodes.size())}}));
@@ -310,7 +389,9 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   for(std::size_t i=0;i<cpu.size();++i)if(gagp::evo::canonicalize_fitness_for_ranking(cpu[i])!=result.final_population[i].fitness)++audit_mismatches;
   for(std::size_t i=0;i<std::min<std::size_t>(16,cpu.size());++i)
     top_rows.push_back(object({{"gpu",number(result.final_population[i].fitness)},{"cpu",number(cpu[i])}}));
-  write(output,object({{"reproduction_profile",string(result.reproduction_profile)}, {"reproduction_fallback_reason",string(result.reproduction_fallback_reason)},
+  write(output,object({{"mode",string(mode)}, {"case_penalty",number(cfg.penalty)}, {"population",number(population.size())}, {"cases",number(cases.size())},
+    {"final_best",number(result.final_population.front().fitness)},
+    {"reproduction_profile",string(result.reproduction_profile)}, {"reproduction_fallback_reason",string(result.reproduction_fallback_reason)},
     {"genotype_device_bytes",number(result.genotype_device_bytes)}, {"top16_cpu",array(std::move(top_rows))},{"cpu_audit_ms",number(elapsed(audit_begin))},{"cpu_audit_program_count",number(cpu.size())},{"cpu_audit_mismatches",number(audit_mismatches)},
     {"unique_final_genomes",number(unique.size())},{"seed",number(cfg.seed)}, {"generations",array(std::move(rows))},
     {"final_population",array(std::move(final))}, {"evolve_wall_ms",number(evolve_wall_ms)}, {"evolve_call_ms",number(result.timing.total_ms)},
@@ -318,7 +399,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
 }
 void measure(const Json& source, const std::string& prepared_path, const std::string& grammar_path,
              int count, const std::string& mode, const std::string& output) {
-  const std::set<std::string> modes{"asgp_1t","gagp_cpu","gpu_eval","gpu_repro","gpu_overlap","snapshot","search"};
+  const std::set<std::string> modes{"asgp_1t","gagp_cpu","gpu_eval","gpu_repro","gpu_overlap","snapshot","asgp_snapshot","search","search_asgp_1t","search_gagp_cpu","search_gpu_eval","search_gpu_repro","search_gpu_overlap"};
   if (!modes.count(mode)) throw std::runtime_error("unknown mode");
   auto spec=task(source.object_v.at("task").string_v);
   std::vector<gagp::evo::EvalCase> cases;
@@ -327,7 +408,7 @@ void measure(const Json& source, const std::string& prepared_path, const std::st
   for (int i=0; i<count; ++i) parents.push_back(decode(source.object_v.at("population").array_v.at(i)));
   std::shared_ptr<const gg::CompiledGrammar> grammar;
   std::vector<gagp::evo::ProgramGenome> population;
-  if (mode!="asgp_1t") {
+  if (mode!="asgp_1t" && mode!="search_asgp_1t" && mode!="asgp_snapshot") {
     grammar=std::make_shared<gg::CompiledGrammar>(gg::compile_grammar(gg::load_definition(grammar_path)));
     auto prepared=read(prepared_path);
     if (prepared.object_v.at("grammar_hash").string_v!=grammar->content_hash() ||
@@ -340,6 +421,16 @@ void measure(const Json& source, const std::string& prepared_path, const std::st
       population.push_back(std::move(g));
     }
   }
+  if (mode=="asgp_snapshot") {
+    asgp::FitnessScratch scratch; const auto config=fitness_config(); std::vector<Json> rows;
+    for(const auto& one:parents) {
+      const auto score=asgp::Score(one,spec,spec.train,config,scratch);
+      rows.push_back(object({{"fitness",number(-score.error)},{"wrong",number(score.wrong)},{"nodes",number(score.nodes)},{"cases",number(spec.train.size())}}));
+    }
+    write(output,object({{"programs",array(std::move(rows))}})); return;
+  }
+  if (mode=="search_asgp_1t") { search_asgp(parents,spec,output); return; }
+  if (mode.starts_with("search_")) { search(population,cases,grammar,output,mode.substr(7)); return; }
   if (mode=="snapshot") { snapshot(population,cases,output); return; }
   if (mode=="search") { search(population,cases,grammar,output); return; }
   std::ofstream log(output);

@@ -1,0 +1,67 @@
+{
+  "binary": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/bench",
+  "sha256": "de15afa162d409735fecc2afbef15b64bb94ce523fb4feb81fafab58ddd9e958",
+  "commands": [
+    [
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/bench",
+      "measure",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/sum_of_elements.train.source.json",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/audit/sum_of_elements.asgp.prepared.json",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/sum_of_elements.grammar.json",
+      "3",
+      "asgp_snapshot",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/sum_of_elements.train.json"
+    ],
+    [
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/bench",
+      "measure",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/sum_of_elements.heldout.source.json",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/audit/sum_of_elements.asgp.prepared.json",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/sum_of_elements.grammar.json",
+      "3",
+      "asgp_snapshot",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/sum_of_elements.heldout.json"
+    ],
+    [
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/bench",
+      "measure",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/house_robber.train.source.json",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/audit/house_robber.asgp.prepared.json",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/house_robber.grammar.json",
+      "20",
+      "asgp_snapshot",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/house_robber.train.json"
+    ],
+    [
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/bench",
+      "measure",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/house_robber.heldout.source.json",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/audit/house_robber.asgp.prepared.json",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/house_robber.grammar.json",
+      "20",
+      "asgp_snapshot",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/house_robber.heldout.json"
+    ],
+    [
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/bench",
+      "measure",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/median.train.source.json",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/audit/median.asgp.prepared.json",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/median.grammar.json",
+      "97",
+      "asgp_snapshot",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/median.train.json"
+    ],
+    [
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/bench",
+      "measure",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/median.heldout.source.json",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/audit/median.asgp.prepared.json",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/median.grammar.json",
+      "97",
+      "asgp_snapshot",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/multigen-20261013-analysis/native-asgp-audit/median.heldout.json"
+    ]
+  ],
+  "note": "Post-search audit only; formal timed binaries unchanged."
+}

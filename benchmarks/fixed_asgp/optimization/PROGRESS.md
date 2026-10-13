@@ -4,6 +4,26 @@ Active objective: preserve CPU / GPU-e / GPU-er / GPU-er-o architecture, use
 CPU 1T + GPU, target fastest native GPU >30× frozen ASGP-1T on Sum/House;
 Median remains fixed-overhead workload. Do not resume retired CPU fragment route.
 
+## Multi-generation validation — 2026-10-13
+
+Runtime Z/settings unchanged; benchmark adds five search entries and opt-in trace.
+[Report, plots and CSV](results/multigen-20261013/REPORT.zh-TW.md): P1024/C1024,
+3 seeds,16 generations+final,45 aligned primary runs,15 original Median controls,
+30 timing-selected extensions (up to1024 generations);90 processes ~40.6min total.
+Median scoring aligned to ASGP exact using cap1 for admitted Int output only.
+Search-wall fastest GPU: Sum3.142s/9.97x,House1.279s/10.78x,Median1.022s/0.76x.
+These are changing-population search results, not the frozen30x headline.
+House improves in all3seeds at10s; Median is variable. Long House seed0 generation
+cost grows11.51x. ASGP translated Median has76 distinct semantic mismatches;
+negative-index behavior confirmed. Native ASGP quality/heldout used, not ported
+scores. GAGP CPU/e mean differs in10 generation records; no full parity claim.
+4109 unique recorded champions pass GAGP CPU/GPU full-case audit; native ASGP
+snapshots reproduce search scores. Focused native integration,5tool/24repo checks pass.
+Raw/binaries/commands: logs/optimization/multigen-20261013-v2/,
+multigen-20261013-exact/,multigen-20261013-analysis/. Runner multigen.py; independent
+ported/native audits and report scripts alongside it. No runtime optimization
+or operator change in this validation. Custom metric/ranking API remains proposed.
+
 ## Current best and active experiment
 
 Validated best opt-in runtime Z: `d1712a5`, X plus `GAGP_COUNTED_SITE_DRAW=1`.

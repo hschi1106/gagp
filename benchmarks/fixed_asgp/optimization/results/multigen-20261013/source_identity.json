@@ -1,0 +1,10 @@
+{
+  "asgp_source_root": "/home/hschi1106/r13921069",
+  "asgp_source_git": "not a git checkout",
+  "asgp_source_files": 45,
+  "asgp_source_tree_sha256": "5a695a29b16901b5673cd61cd9f72b2156948fb48ac28dbdbaeba35930ffdba8",
+  "asgp_source_definition": "Sorted src/include .cc/.cpp/.h/.hpp relative paths followed by file bytes",
+  "gagp_source_head": "e3ed4df",
+  "runtime_base": "d1712a5",
+  "notes": "External source not modified; benchmark binaries and source patches individually archived. Current task modifies benchmark entrypoints and opt-in stderr trace, not reproduction/execution semantics."
+}
