@@ -136,7 +136,7 @@ bool compare_range(CpuExecutionSession* session,
                    int maximum, const std::string& label) {
   for (int fuel = 0; fuel <= maximum; ++fuel) {
     std::vector<std::pair<std::string, std::string>> flags;
-    for (const char* name : {"GAGP_CPU_BOUND_PHASE", "GAGP_CPU_REGION_VIEWS",
+    for (const char* name : {"GAGP_CPU_COORDINATE_DRIVER", "GAGP_CPU_BOUND_PHASE", "GAGP_CPU_REGION_VIEWS",
                              "GAGP_CPU_COORDINATE_VIEWS", "GAGP_CPU_TYPED_PHASE", "GAGP_CPU_DENSE_MEMO"}) {
       if (const char* value = std::getenv(name)) flags.emplace_back(name, value);
       unsetenv(name);
@@ -162,6 +162,7 @@ bool test_reuse_inputs_memo_and_capture_errors() {
       {{0, Value::from_int(2)}},
       {{0, Value::from_int(2)}, {1, Value::from_bool(true)}},
       {{0, Value::from_int(6)}},
+      {{0, Value::from_bool(true)}, {1, Value::from_int(10)}},
   };
   for (std::size_t i = 0; i < cases.size(); ++i) {
     if (!compare_range(&session, program, cases[i], 14,
@@ -389,7 +390,8 @@ bool test_coordinate_capture_views() {
       CpuExecutionSession session(program);
       for (const auto& inputs : std::vector<std::vector<std::pair<int, Value>>>{
                {{0, Value::from_int(2)}, {1, list}},
-               {{0, Value::from_int(6)}}, // boundary does not read missing capture
+               {{0, Value::from_int(6)}},
+      {{0, Value::from_bool(true)}, {1, Value::from_int(10)}}, // boundary does not read missing capture
                {{0, Value::from_int(0)}},
                {{0, Value::from_int(0)}, {1, Value::from_bool(true)}},
                {{0, Value::from_int(0)}, {1, missing}}}) {
@@ -424,16 +426,54 @@ bool test_bound_store_fallback_and_semantic_fuel() {
 
 }  // namespace
 
+bool test_compact_coordinate_branches() {
+  for (const bool memoized : {false, true}) {
+    for (const unsigned frames : {0u, 1u, 3u, 16u}) {
+      for (const unsigned cells : {0u, 1u, 16u}) {
+        auto program = counter_program();
+        auto& segment = program.bounded_region_segments[0];
+        auto second = decrement(); second.offset = -2;
+        segment.plan.requests.push_back({{second}});
+        segment.plan.coordinate_domains[0].lower = literal(-4);
+        segment.plan.memoized = memoized;
+        segment.plan.limits.frames = frames;
+        segment.plan.limits.cells = cells;
+        segment.base_predicate.program.code[2].op = Opcode::Le;
+        segment.combine = phase({},
+            {ins_a(Opcode::Load, 0), ins_a(Opcode::Load, 1), ins(Opcode::Add), ins(Opcode::Return)},
+            {{slot(RegionSlotBank::Result, 0), 0}, {slot(RegionSlotBank::Result, 1), 1}}, 2);
+        segment.combine.program.instruction_fuel = {1, 2, 1, 0};
+        CpuExecutionSession session(program);
+        if (!compare_range(&session, program,
+            {{0, Value::from_int(5)}, {1, Value::from_int(7)}}, 80, "compact two-request limits")) return false;
+        if (!compare_range(&session, program,
+            {{0, Value::from_int(-3)}}, 8, "compact lazy missing capture")) return false;
+        segment.combine = phase({Value::from_int(0)},
+            {ins_a(Opcode::Load, 0), ins_a(Opcode::PushConst, 0), ins(Opcode::Mod), ins(Opcode::Return)},
+            {{slot(RegionSlotBank::Result, 0), 0}}, 1);
+        segment.combine.program.instruction_fuel = {1, 2, 1, 0};
+        CpuExecutionSession error_session(program);
+        if (!compare_range(&error_session, program,
+            {{0, Value::from_int(5)}, {1, Value::from_int(7)}}, 80,
+            "compact combine error before cell capacity")) return false;
+      }
+    }
+  }
+  return true;
+}
+
 int main() {
   try {
-    for (int direct = 0; direct < 3; ++direct) {
+    for (int direct = 0; direct < 4; ++direct) {
+      if (direct == 3) setenv("GAGP_CPU_COORDINATE_DRIVER", "1", 1);
       if (direct == 2) {
         setenv("GAGP_CPU_TYPED_PHASE", "1", 1);
         setenv("GAGP_CPU_DENSE_MEMO", "1", 1);
       }
       if (direct) setenv("GAGP_CPU_BOUND_PHASE", "1", 1);
       else unsetenv("GAGP_CPU_BOUND_PHASE");
-    if (!test_typed_numeric_boundaries_and_replay() ||
+    if (!test_compact_coordinate_branches() ||
+        !test_typed_numeric_boundaries_and_replay() ||
         !test_coordinate_capture_views() ||
         !test_bound_store_fallback_and_semantic_fuel() ||
         !test_reuse_inputs_memo_and_capture_errors() ||

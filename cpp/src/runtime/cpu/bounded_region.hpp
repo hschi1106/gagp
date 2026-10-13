@@ -46,14 +46,22 @@ struct RegionEntry {
   ExecResult result;
 };
 
+struct CoordinateFrame {
+  std::int64_t coordinate = 0;
+  std::array<Value, 2> results{};
+  int next_request = -1;
+};
+
 struct RegionScratch {
+  std::vector<CoordinateFrame> coordinate_frames;
   std::vector<RegionFrame> frames;
   RecurrenceMemo memo;
   std::size_t peak_frames = 0;
   std::size_t peak_cells = 0;
 
   std::size_t storage_bytes() const {
-    return frames.capacity() * sizeof(RegionFrame) + memo.storage_bytes();
+    return frames.capacity() * sizeof(RegionFrame) +
+        coordinate_frames.capacity() * sizeof(CoordinateFrame) + memo.storage_bytes();
   }
 };
 

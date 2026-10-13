@@ -398,6 +398,13 @@ Additional independent CPU evaluator opt-ins (all stay CPU 1T):
   approaches an out-of-range signed conversion, the pure phase restores fuel
   and replays generically; no registry writes, allocation, memo updates or
   externally visible locals occur before that replay.
+- `GAGP_CPU_COORDINATE_DRIVER=1` with bound/typed phases: one Int coordinate,
+  Int results, at most two fixed-offset requests and no preparations use compact
+  persistent frames. One transient binding frame feeds the same phase executor.
+  Dynamic coordinate domains are resolved and validated by the existing entry
+  boundary. Tagged child values, captures, memo keys/capacity, every fuel charge
+  and error order are preserved; other verified region shapes retain the generic
+  driver. This does not change reproduction or introduce CPU workers.
 - `GAGP_CPU_DENSE_MEMO=1`: one Int state coordinate and a domain of at most 4096
   cells use direct memo slots; other keys/domains retain the generic hash map.
   All state-key components, lazy top-down order, fuel and logical cell capacity

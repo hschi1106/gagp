@@ -31,16 +31,32 @@ struct BoundPhaseInputs {
 };
 
 struct RegionPhaseScratch {
+  bool coordinate_enabled = std::getenv("GAGP_CPU_COORDINATE_DRIVER") != nullptr;
   bool dense_enabled = std::getenv("GAGP_CPU_DENSE_MEMO") != nullptr;
   bool typed_enabled = std::getenv("GAGP_CPU_TYPED_PHASE") != nullptr;
   bool direct_enabled = typed_enabled || std::getenv("GAGP_CPU_BOUND_PHASE") != nullptr;
-  struct SegmentBindings { std::vector<DirectPhaseBindings> phases; };
+  struct SegmentBindings {
+    std::vector<DirectPhaseBindings> phases;
+    bool coordinate = false;
+  };
   std::unordered_map<const BoundedRegionSegment*, SegmentBindings> segments;
   SegmentBindings* select_segment(const BoundedRegionSegment& segment) {
     if (!direct_enabled) return nullptr;
     auto [it, inserted] = segments.try_emplace(&segment);
-    if (inserted) it->second.phases.resize(4 + segment.preparations.size() +
-                                         segment.request_expressions.size());
+    if (inserted) {
+      it->second.phases.resize(4 + segment.preparations.size() + segment.request_expressions.size());
+      const auto& p = segment.plan;
+      it->second.coordinate = coordinate_enabled && p.progress == RegionProgressKind::Coordinates &&
+          p.state_types.size() == 1 && p.state_types[0] == ValueTag::Int &&
+          p.result_type == ValueTag::Int && p.coordinate_slots.size() == 1 &&
+          p.coordinate_slots[0] == 0 && p.coordinate_domains.size() == 1 &&
+          p.preparations.empty() && segment.request_expressions.empty() &&
+          !p.requests.empty() && p.requests.size() <= 2 &&
+          std::all_of(p.requests.begin(), p.requests.end(), [](const auto& r) {
+            return r.states.size() == 1 && r.states[0].kind == RegionTransitionKind::CoordinateOffset &&
+                r.states[0].source_state == 0;
+          });
+    }
     return &it->second;
   }
 

@@ -591,7 +591,7 @@ ExecResult run_code_impl(const CodeView& view,
           auto result = use_views
               ? detail::execute_with_cpu_views(layout, initial, adapter, scratch, fuel,
                     parameters, view.region_context ? &view.region_context->list_views : nullptr)
-              : detail::execute_bounded_region(layout, initial, adapter, scratch, fuel);
+              : detail::execute_selected_region(layout, initial, adapter, scratch, fuel);
           if (result.is_error) return result;
           stack.push_back(result.value);
         } catch (const std::exception& error) {

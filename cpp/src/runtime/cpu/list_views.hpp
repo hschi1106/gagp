@@ -1,4 +1,5 @@
 #pragma once
+#include "coordinate_region.hpp"
 #include <algorithm>
 #include <cstdlib>
 #include <optional>
@@ -146,9 +147,9 @@ __attribute__((noinline)) ExecResult execute_with_cpu_views(
   const auto saved_parameters = parameters;
   if (!storage->prepare(initial, layout.state_count, parameters)) {
     parameters = saved_parameters;
-    return execute_bounded_region(layout, saved_state, adapter, scratch, fuel);
+    return execute_selected_region(layout, saved_state, adapter, scratch, fuel);
   }
   CpuListViewScope scope(*storage);
-  return execute_bounded_region(layout, initial, adapter, scratch, fuel);
+  return execute_selected_region(layout, initial, adapter, scratch, fuel);
 }
 }  // namespace gagp::detail
