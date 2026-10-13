@@ -390,7 +390,8 @@
         "budget_rejections": 8666856,
         "final_best": -368
       }
-    ]
+    ],
+    "allocator": "Ordinary process allocator (glibc, no LD_PRELOAD); both interleaved profiles match. Main/early runs use common reference jemalloc configuration. Late timings are diagnostic within-pair comparisons, not interchangeable with main timings."
   },
   "profiling": {
     "path": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-counted-late-perf",
@@ -415,7 +416,8 @@
         "reconstruct_derivation": 152
       }
     },
-    "interpretation": "Inclusive samples overlap; not milliseconds or speedup denominators. File import/JSON allocations excluded by requiring run_cpu_backend_impl in stack. No RNG bounded samples; remaining canonical reconstruction and pair resource checks dominate."
+    "interpretation": "Inclusive samples overlap; not milliseconds or speedup denominators. File import/JSON allocations excluded by requiring run_cpu_backend_impl in stack. No RNG bounded samples; remaining canonical reconstruction and pair resource checks dominate.",
+    "allocator": "glibc; same as late-parent A/B, distinct from jemalloc used in main"
   },
   "tests": [
     "8 grammar-focused ctests passed, including new feasible-rank enumeration oracle and 8gen repeated-hole/local-scope cases",
