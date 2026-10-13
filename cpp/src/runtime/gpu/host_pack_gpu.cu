@@ -300,6 +300,62 @@ DPayloadFlavor classify_payload_flavor_for_program(const BytecodeProgram& prog, 
   return classify_payload_flavor(prog, shared_input_payload_mask);
 }
 
+void refresh_owned_phase_patterns(PackResult& out,std::size_t phase_begin,std::size_t phase_end) {
+  if(phase_begin>phase_end || phase_end>out.region_phases.size())throw std::logic_error("owned phase pattern range");
+  for(auto i=phase_begin;i<phase_end;++i) {
+    auto& m=out.region_phases[i].program;
+    m.scalar_constant_index=-1;m.scalar_constant_fuel=0;
+    m.add_left_binding=-1;m.add_right_binding=-1;m.compare_binding=-1;
+  }
+  if (std::getenv("GAGP_BOUND_ADD_PHASE")) {
+    for(auto i=phase_begin;i<phase_end;++i) {
+      auto& phase=out.region_phases[i];auto& m=phase.program;
+      if((m.code_len!=3 && m.code_len!=4) || phase.binding_count<1 || phase.binding_count>2)continue;
+      const auto* code=out.all_phase_code.data()+m.code_offset;
+      if(code[0].op!=OP_LOAD || code[1].op!=OP_LOAD || code[2].op!=OP_ADD || (m.code_len==4 && code[3].op!=OP_RETURN))continue;
+      int left=-1,right=-1;bool only_used=true;
+      for(int j=0;j<phase.binding_count;++j) {
+        const auto index=phase.binding_offset+j;const auto& b=out.region_bindings[index];
+        if(b.bank==RegionSlotBank::Parameter || (b.local!=code[0].a && b.local!=code[1].a))only_used=false;
+        if(b.local==code[0].a)left=index;if(b.local==code[1].a)right=index;
+      }
+      if(only_used && left>=0 && right>=0){m.add_left_binding=left;m.add_right_binding=right;}
+    }
+  }
+  if(std::getenv("GAGP_BOUND_COMPARE_PHASE")) {
+    for(auto i=phase_begin;i<phase_end;++i) {
+      auto& phase=out.region_phases[i];auto& m=phase.program;
+      if((m.code_len!=3 && m.code_len!=4) || phase.binding_count!=1)continue;
+      const auto* code=out.all_phase_code.data()+m.code_offset;
+      if(m.code_len==4 && code[3].op!=OP_RETURN)continue;
+      if(code[2].op!=OP_LT && code[2].op!=OP_LE && code[2].op!=OP_GT && code[2].op!=OP_GE)continue;
+      const int load=code[0].op==OP_LOAD && code[1].op==OP_PUSH_CONST?0:
+          code[1].op==OP_LOAD && code[0].op==OP_PUSH_CONST?1:-1;
+      if(load<0 || code[1-load].a<0 || code[1-load].a>=m.const_len)continue;
+      if(out.all_phase_consts[m.const_offset+code[1-load].a].tag!=ValueTag::Int)continue;
+      const auto& b=out.region_bindings[phase.binding_offset];
+      if(b.bank==RegionSlotBank::Parameter || b.local!=code[load].a)continue;
+      m.compare_binding=phase.binding_offset;
+    }
+  }
+  if (std::getenv("GAGP_CONSTANT_PHASE")) {
+    for (auto i = phase_begin; i < phase_end; ++i) {
+      auto& phase = out.region_phases[i]; auto& m = phase.program;
+      if (phase.binding_count != 0 || m.n_locals != 0 || (m.code_len != 1 && m.code_len != 2)) continue;
+      const auto& a = out.all_phase_code[m.code_offset];
+      if (a.op != OP_PUSH_CONST || a.a < 0 || a.a >= m.const_len) continue;
+      if (m.code_len == 2 && out.all_phase_code[m.code_offset + 1].op != OP_RETURN) continue;
+      const auto tag = out.all_phase_consts[m.const_offset + a.a].tag;
+      if (tag != ValueTag::Int && tag != ValueTag::Bool && tag != ValueTag::Float && tag != ValueTag::Char) continue;
+      const auto charge = static_cast<std::uint64_t>(a.fuel) +
+          (m.code_len == 2 ? out.all_phase_code[m.code_offset + 1].fuel : 0);
+      if (charge > static_cast<std::uint64_t>(INT_MAX)) continue;
+      m.scalar_constant_index = m.const_offset + a.a;
+      m.scalar_constant_fuel = static_cast<unsigned>(charge);
+    }
+  }
+}
+
 static PackResult pack_programs_impl(const std::vector<BytecodeProgram>& programs,
     int shared_case_count,unsigned shared_input_payload_mask,const std::vector<int>* owned_bounds) {
   PackResult out;
@@ -400,53 +456,7 @@ static PackResult pack_programs_impl(const std::vector<BytecodeProgram>& program
       if (std::getenv("GAGP_GENERIC_PHASE_VM") == nullptr)
         for (auto i = phase_begin; i < out.region_phases.size(); ++i)
           out.region_phases[i].program.verified_stack_bound = verified_stack_bounds[p];
-      if (std::getenv("GAGP_BOUND_ADD_PHASE")) {
-        for(auto i=phase_begin;i<out.region_phases.size();++i) {
-          auto& phase=out.region_phases[i];auto& m=phase.program;
-          if((m.code_len!=3 && m.code_len!=4) || phase.binding_count<1 || phase.binding_count>2)continue;
-          const auto* code=out.all_phase_code.data()+m.code_offset;
-          if(code[0].op!=OP_LOAD || code[1].op!=OP_LOAD || code[2].op!=OP_ADD || (m.code_len==4 && code[3].op!=OP_RETURN))continue;
-          int left=-1,right=-1;bool only_used=true;
-          for(int j=0;j<phase.binding_count;++j) {
-            const auto index=phase.binding_offset+j;const auto& b=out.region_bindings[index];
-            if(b.bank==RegionSlotBank::Parameter || (b.local!=code[0].a && b.local!=code[1].a))only_used=false;
-            if(b.local==code[0].a)left=index;if(b.local==code[1].a)right=index;
-          }
-          if(only_used && left>=0 && right>=0){m.add_left_binding=left;m.add_right_binding=right;}
-        }
-      }
-      if(std::getenv("GAGP_BOUND_COMPARE_PHASE")) {
-        for(auto i=phase_begin;i<out.region_phases.size();++i) {
-          auto& phase=out.region_phases[i];auto& m=phase.program;
-          if((m.code_len!=3 && m.code_len!=4) || phase.binding_count!=1)continue;
-          const auto* code=out.all_phase_code.data()+m.code_offset;
-          if(m.code_len==4 && code[3].op!=OP_RETURN)continue;
-          if(code[2].op!=OP_LT && code[2].op!=OP_LE && code[2].op!=OP_GT && code[2].op!=OP_GE)continue;
-          const int load=code[0].op==OP_LOAD && code[1].op==OP_PUSH_CONST?0:
-              code[1].op==OP_LOAD && code[0].op==OP_PUSH_CONST?1:-1;
-          if(load<0 || code[1-load].a<0 || code[1-load].a>=m.const_len)continue;
-          if(out.all_phase_consts[m.const_offset+code[1-load].a].tag!=ValueTag::Int)continue;
-          const auto& b=out.region_bindings[phase.binding_offset];
-          if(b.bank==RegionSlotBank::Parameter || b.local!=code[load].a)continue;
-          m.compare_binding=phase.binding_offset;
-        }
-      }
-      if (std::getenv("GAGP_CONSTANT_PHASE")) {
-        for (auto i = phase_begin; i < out.region_phases.size(); ++i) {
-          auto& phase = out.region_phases[i]; auto& m = phase.program;
-          if (phase.binding_count != 0 || m.n_locals != 0 || (m.code_len != 1 && m.code_len != 2)) continue;
-          const auto& a = out.all_phase_code[m.code_offset];
-          if (a.op != OP_PUSH_CONST || a.a < 0 || a.a >= m.const_len) continue;
-          if (m.code_len == 2 && out.all_phase_code[m.code_offset + 1].op != OP_RETURN) continue;
-          const auto tag = out.all_phase_consts[m.const_offset + a.a].tag;
-          if (tag != ValueTag::Int && tag != ValueTag::Bool && tag != ValueTag::Float && tag != ValueTag::Char) continue;
-          const auto charge = static_cast<std::uint64_t>(a.fuel) +
-              (m.code_len == 2 ? out.all_phase_code[m.code_offset + 1].fuel : 0);
-          if (charge > static_cast<std::uint64_t>(INT_MAX)) continue;
-          m.scalar_constant_index = m.const_offset + a.a;
-          m.scalar_constant_fuel = static_cast<unsigned>(charge);
-        }
-      }
+      refresh_owned_phase_patterns(out,phase_begin,out.region_phases.size());
     }
     meta.region_count = checked_index(prog.bounded_region_segments.size(),
                                       "region segment count");
@@ -474,6 +484,17 @@ PackResult pack_programs_with_shared_case_count(const std::vector<BytecodeProgra
   return pack_programs_impl(programs,shared_case_count,shared_input_payload_mask,nullptr);
 }
 PackResult pack_owned_programs(const OwnedGpuPrograms& owned,int shared_case_count,unsigned shared_input_payload_mask) {
+  if (const auto* cached=owned.prepacked()) {
+    if(shared_case_count<0 || cached->metas.size()>std::size_t(INT_MAX)/std::max(1,shared_case_count))
+      throw std::invalid_argument("owned packed case index capacity");
+    auto out=*cached;
+    out.total_cases=out.metas.size()*static_cast<std::size_t>(shared_case_count);
+    for(std::size_t p=0;p<out.metas.size();++p) {
+      auto& meta=out.metas[p];meta.case_count=shared_case_count;meta.case_offset=p*shared_case_count;
+      meta.payload_flavor=classify_payload_flavor(owned.programs()[p],shared_input_payload_mask);
+    }
+    return out;
+  }
   return pack_programs_impl(owned.programs(),shared_case_count,shared_input_payload_mask,&owned.stack_bounds());
 }
 

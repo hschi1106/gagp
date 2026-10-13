@@ -2,8 +2,10 @@
 #include "gagp/core/bytecode.hpp"
 #include <vector>
 #include <array>
+#include <functional>
 namespace gagp::evo::repro { class NativePhasePopulation; }
 namespace gagp::gpu_detail {
+struct PackResult;
 // Borrowed only during a synchronous evaluation. The only producer owns both
 // vectors privately: cold native verification plus checked GPU phase lowering.
 // No public factory, mutable accessor, serialized token or verified=true flag.
@@ -13,17 +15,23 @@ class OwnedGpuPrograms final {
   const std::vector<BytecodeProgram>& programs() const { return programs_; }
   const std::vector<int>& stack_bounds() const { return stack_bounds_; }
   bool views_supported_for(const std::array<ValueTag,64>& types) const { return input_types_ && *input_types_==types; }
+  const PackResult* prepacked() const { return prepacked_; }
+  void materialize_reference() const { if(materialize_) materialize_(); }
   bool direct_root_supported() const { return input_types_ && direct_root_; }
  private:
   friend class gagp::evo::repro::NativePhasePopulation;
   OwnedGpuPrograms(const std::vector<BytecodeProgram>& programs,const std::vector<int>& bounds,
-      const std::array<ValueTag,64>* input_types=nullptr,bool direct_root=false)
-      : programs_(programs),stack_bounds_(bounds),input_types_(input_types),direct_root_(direct_root) {}
+      const std::array<ValueTag,64>* input_types=nullptr,bool direct_root=false,
+      const PackResult* prepacked=nullptr,std::function<void()> materialize={})
+      : programs_(programs),stack_bounds_(bounds),input_types_(input_types),direct_root_(direct_root),prepacked_(prepacked),materialize_(std::move(materialize)) {}
   const std::vector<BytecodeProgram>& programs_;
   const std::vector<int>& stack_bounds_;
   const std::array<ValueTag,64>* input_types_;
   bool direct_root_;
+  const PackResult* prepacked_;
+  std::function<void()> materialize_;
 };
 struct PackResult;
+void refresh_owned_phase_patterns(PackResult& packed,std::size_t begin,std::size_t end);
 PackResult pack_owned_programs(const OwnedGpuPrograms& owned,int case_count,unsigned input_payload_mask);
 } // namespace gagp::gpu_detail

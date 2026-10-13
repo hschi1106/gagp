@@ -16,6 +16,7 @@ class NativePhasePopulation final {
   ~NativePhasePopulation();
   NativePhasePopulation(const NativePhasePopulation&) = delete;
   NativePhasePopulation& operator=(const NativePhasePopulation&) = delete;
+  // Materialized reference view; callers must request it again after reproduction.
   const std::vector<BytecodeProgram>& programs() const;
   ReproductionStats reproduce(const std::vector<double>& completed_fitness,
       int tournament_size, double mutation_probability, std::uint64_t seed);

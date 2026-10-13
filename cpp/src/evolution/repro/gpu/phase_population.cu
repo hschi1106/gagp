@@ -277,6 +277,61 @@ struct NativePhasePopulation::Impl {
  std::vector<int> fixed_stack_bounds,stack_bounds;
  std::array<ValueTag,64> input_types;bool views_proven=true,direct_root_proven=true;
  std::vector<BytecodeProgram> programs;cudaEvent_t start=nullptr,stop=nullptr;
+ std::unique_ptr<gpu_detail::PackResult> host_packed;
+ std::vector<int> packed_phase_indices;
+ std::size_t fixed_phase_code=0,fixed_phase_constants=0;
+ bool programs_current=true;
+ void initialize_host_packed() {
+  host_packed=std::make_unique<gpu_detail::PackResult>(gpu_detail::pack_programs_with_shared_case_count(programs,0,0));
+  auto& out=*host_packed;std::vector<bool> dynamic(out.region_phases.size(),false);
+  for(int p=0;p<population;++p) {
+   const auto& segment=out.region_segments.at(out.metas.at(p).region_offset);
+   const auto& plan=programs[p].bounded_region_segments[0].plan;
+   for(const auto& slot:layout.slots) {
+    int index=-1;
+    switch(bounded_region_phase_kind(plan,slot.ordinal)) {
+     case RegionPhaseKind::BasePredicate:index=segment.base_predicate_phase;break;
+     case RegionPhaseKind::BaseBody:index=segment.base_body_phase;break;
+     case RegionPhaseKind::Combine:index=segment.combine_phase;break;
+     case RegionPhaseKind::Boundary:index=segment.boundary_phase;break;
+     case RegionPhaseKind::Preparation:index=segment.preparation_phases[bounded_region_preparation_ordinal(plan,slot.ordinal)];break;
+     case RegionPhaseKind::Request:index=segment.request_expression_phases[slot.ordinal-2-plan.preparations.size()];break;
+    }
+    phase_layout_require(index>=0 && std::size_t(index)<dynamic.size() && !dynamic[index],"owned packed phase mapping");
+    dynamic[index]=true;packed_phase_indices.push_back(index);
+   }
+  }
+  // Fixed phase storage is copied once. Current variable phases follow it, so
+  // replacement never retains old-generation code or invalidates fixed offsets.
+  auto code=std::move(out.all_phase_code);auto values=std::move(out.all_phase_consts);
+  out.all_phase_code.clear();out.all_phase_consts.clear();
+  out.all_phase_code.reserve(code.size());out.all_phase_consts.reserve(values.size());
+  for(bool variable:{false,true}) {
+   for(std::size_t i=0;i<out.region_phases.size();++i)if(dynamic[i]==variable) {
+    auto& m=out.region_phases[i].program;const auto old_code=m.code_offset,old_const=m.const_offset;
+    m.code_offset=out.all_phase_code.size();m.const_offset=out.all_phase_consts.size();
+    out.all_phase_code.insert(out.all_phase_code.end(),code.begin()+old_code,code.begin()+old_code+m.code_len);
+    out.all_phase_consts.insert(out.all_phase_consts.end(),values.begin()+old_const,values.begin()+old_const+m.const_len);
+   }
+   if(!variable){fixed_phase_code=out.all_phase_code.size();fixed_phase_constants=out.all_phase_consts.size();}
+  }
+  gpu_detail::refresh_owned_phase_patterns(out,0,out.region_phases.size());
+ }
+ void materialize_programs() {
+  if(programs_current)return;
+  phase_layout_require(bool(host_packed),"missing owned packed executable");
+  const auto& out=*host_packed;
+  for(int p=0;p<population;++p)for(int k=0;k<slot_count;++k) {
+   const auto& m=out.region_phases.at(packed_phase_indices[p*slot_count+k]).program;
+   auto& program=phase_at(programs[p].bounded_region_segments[0],layout.slots[k].ordinal).program;
+   program.code.clear();program.instruction_fuel.clear();program.code.reserve(m.code_len);program.instruction_fuel.reserve(m.code_len);
+   for(int i=m.code_offset;i<m.code_offset+m.code_len;++i) {
+    const auto x=out.all_phase_code[i];program.code.push_back({static_cast<Opcode>(x.op),x.a,x.b,bool(x.flags&1),bool(x.flags&2)});program.instruction_fuel.push_back(x.fuel);
+   }
+   program.consts.assign(out.all_phase_consts.begin()+m.const_offset,out.all_phase_consts.begin()+m.const_offset+m.const_len);
+  }
+  programs_current=true;
+ }
  explicit Impl(std::shared_ptr<const grammar::CompiledGrammar> g):grammar(std::move(g)),counted_sites(std::getenv("GAGP_COUNTED_SITE_DRAW")!=nullptr),
      inplace_mutation(std::getenv("GAGP_GPU_INPLACE_MUTATION")!=nullptr){}
  ~Impl(){if(start)cudaEventDestroy(start);if(stop)cudaEventDestroy(stop);}
@@ -312,10 +367,33 @@ struct NativePhasePopulation::Impl {
      throw std::runtime_error("GPU phase compiler certificate invalid");
    stack_bounds[p]=std::max(stack_bounds[p],certificates[row].stack_bound);
    views_proven=views_proven && certificates[row].typed_views_proven;
+   if(host_packed)continue;
    auto& program=phase_at(programs[p].bounded_region_segments[0],layout.slots[k].ordinal).program;
    program.code.clear();program.instruction_fuel.clear();program.code.reserve(offsets[row+1]-offsets[row]);program.instruction_fuel.reserve(offsets[row+1]-offsets[row]);
    for(int i=offsets[row];i<offsets[row+1];++i){const auto x=compacted_code[i];program.code.push_back({static_cast<Opcode>(x.op),x.a,x.b,bool(x.flags&1),bool(x.flags&2)});program.instruction_fuel.push_back(x.fuel);}
    program.consts.assign(compacted_constants.begin()+values[row],compacted_constants.begin()+values[row+1]);
+  }
+  if(host_packed) {
+   auto& out=*host_packed;
+   out.all_phase_code.resize(fixed_phase_code);out.all_phase_consts.resize(fixed_phase_constants);
+   out.all_phase_code.insert(out.all_phase_code.end(),compacted_code.begin(),compacted_code.end());
+   out.all_phase_consts.insert(out.all_phase_consts.end(),compacted_constants.begin(),compacted_constants.end());
+   for(int row=0;row<rows;++row) {
+    phase_layout_require(offsets[row]>=0 && offsets[row+1]>=offsets[row] && offsets[row+1]<=offsets.back() &&
+        values[row]>=0 && values[row+1]>=values[row] && values[row+1]<=values.back(),"owned packed compiler offsets");
+    auto& m=out.region_phases.at(packed_phase_indices[row]).program;
+    m.code_offset=fixed_phase_code+offsets[row];m.code_len=offsets[row+1]-offsets[row];
+    m.const_offset=fixed_phase_constants+values[row];m.const_len=values[row+1]-values[row];
+   }
+   // The original packer conservatively assigns the whole-program bound to all
+   // phases. Preserve that capability contract, including fixed phases.
+   phase_layout_require(out.region_phases.size()%population==0,"owned packed phase partition");
+   const auto phases_per_program=out.region_phases.size()/population;
+   for(int p=0;p<population;++p)for(std::size_t k=0;k<phases_per_program;++k)
+    out.region_phases[p*phases_per_program+k].program.verified_stack_bound=
+        std::getenv("GAGP_GENERIC_PHASE_VM")?gpu_detail::MAX_STACK:stack_bounds[p];
+   gpu_detail::refresh_owned_phase_patterns(out,0,out.region_phases.size());
+   programs_current=false;
   }
   if(timing)timing->decode_ms+=elapsed(integrate); // bytecode integration only, no AST/membership decode
  }
@@ -409,6 +487,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  for(const auto& r:impl_->current->lengths.read(rows))phase_layout_require(valid(r),"import site annotation failed");
  impl_->fitness.reserve(input.size());impl_->stats.reserve(input.size());impl_->code.reserve(rows*code_capacity);impl_->constants.reserve(rows*capacity);
  impl_->compiled.reserve(rows);impl_->code_offsets.reserve(rows+1);impl_->constant_offsets.reserve(rows+1);
+ if(std::getenv("GAGP_OWNED_PHASE_PACKED"))impl_->initialize_host_packed();
  checked(cudaEventCreate(&impl_->start));checked(cudaEventCreate(&impl_->stop));
 }
 NativePhasePopulation::~NativePhasePopulation() {
@@ -416,13 +495,14 @@ NativePhasePopulation::~NativePhasePopulation() {
  if(known && impl_->device>=0 && previous!=impl_->device)cudaSetDevice(impl_->device);
  impl_.reset();if(known && previous>=0)cudaSetDevice(previous);
 }
-const std::vector<BytecodeProgram>& NativePhasePopulation::programs()const{impl_->require_device();return impl_->programs;}
+const std::vector<BytecodeProgram>& NativePhasePopulation::programs()const{impl_->require_device();impl_->materialize_programs();return impl_->programs;}
 FitnessEvalResult NativePhasePopulation::evaluate(FitnessSessionGpu& session,bool diagnostics)const {
  impl_->require_device();
- if(!std::getenv("GAGP_OWNED_PHASE_PACK"))return session.eval_programs(impl_->programs,diagnostics);
+ if(!std::getenv("GAGP_OWNED_PHASE_PACK"))return session.eval_programs(programs(),diagnostics);
  const bool capabilities=std::getenv("GAGP_OWNED_PHASE_CAPS") && impl_->views_proven;
  const gpu_detail::OwnedGpuPrograms owned(impl_->programs,impl_->stack_bounds,
-     capabilities?&impl_->input_types:nullptr,capabilities && impl_->direct_root_proven);
+     capabilities?&impl_->input_types:nullptr,capabilities && impl_->direct_root_proven,
+     impl_->host_packed.get(),[this]{impl_->materialize_programs();});
  return session.eval_owned_programs(owned,diagnostics);
 }
 const char* NativePhasePopulation::profile_name()const{return impl_->counted_sites?"native-gpu-phase-v2-counted":"native-gpu-phase-v1";}

@@ -917,3 +917,16 @@ House samebinaryOFF1832→ON1949ms and disabledbinary already regressed from
 tests passed, but no code/flag is retained. Rawpatch/binary/compilerreports:
 `results/parallel-20261013/rejected-register-stack.json`. This differs from the
 previous cached-top/shared-stack tests and also fails to remove interpreter cost.
+Private packed carrier: `GAGP_OWNED_PHASE_PACKED=1` eliminates the per-generation
+DInstr→Instr/fuel→DInstr round trip and static structure repacking. Checked GPU
+compiler outputs update private phase ranges and refreshed optimization hints;
+reference bytecode is materialized on demand, including different-input-type
+fallback before capability analysis. Three-process House1460.209→1397.288ms,
+Median1410.296→1212.252ms; initialization adds about21ms and remains counted.
+Raw repeats, per-stage medians, RSS/device bytes and identical final AST hashes:
+`results/parallel-gpu-20261013/owned-packed.json`. No RNG, operator, grammar,
+numeric, fuel or capacity changes. Transfers and a per-evaluation carrier copy
+remain; this is host-work elimination, not a resident executable claim. Focused
+32-generation CPU/admission, mixed257-member, wrong-type fallback and pattern
+invalidation tests cover the changed path. Next integrated bottleneck is House
+evaluation; root independently explores a scalar operand-bank prototype.

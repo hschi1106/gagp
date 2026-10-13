@@ -1,0 +1,204 @@
+[
+  {
+    "task": "house_robber",
+    "results": {
+      "control": {
+        "runs": [
+          {
+            "raw": "logs/parallel-gpu/packed-control-repeat/house_robber.gpu_overlap.s0.r0.json",
+            "evolve_wall_ms": 1476.03134,
+            "cold_prefix_ms": 319.741768,
+            "final_eval_ms": 197.071382,
+            "generation_median_ms": 28.280564499999997,
+            "pack_median_ms": 2.4790785,
+            "integration_median_ms": 0.829083,
+            "eval_kernel_median_ms": 19.2914615,
+            "peak_rss_kib": 1210128,
+            "genotype_device_bytes": 617184124,
+            "exact_trace": true,
+            "final_ast_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          },
+          {
+            "raw": "logs/parallel-gpu/packed-control-repeat/house_robber.gpu_overlap.s0.r1.json",
+            "evolve_wall_ms": 1460.208962,
+            "cold_prefix_ms": 297.883346,
+            "final_eval_ms": 196.659799,
+            "generation_median_ms": 27.948193500000002,
+            "pack_median_ms": 2.6347069999999997,
+            "integration_median_ms": 0.870314,
+            "eval_kernel_median_ms": 19.187571,
+            "peak_rss_kib": 1210352,
+            "genotype_device_bytes": 617184124,
+            "exact_trace": true,
+            "final_ast_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          },
+          {
+            "raw": "logs/parallel-gpu/packed-control-repeat/house_robber.gpu_overlap.s0.r2.json",
+            "evolve_wall_ms": 1451.537181,
+            "cold_prefix_ms": 296.355106,
+            "final_eval_ms": 192.414987,
+            "generation_median_ms": 28.012340000000002,
+            "pack_median_ms": 2.633037,
+            "integration_median_ms": 0.8744685,
+            "eval_kernel_median_ms": 19.279574500000003,
+            "peak_rss_kib": 1210120,
+            "genotype_device_bytes": 617184124,
+            "exact_trace": true,
+            "final_ast_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          }
+        ],
+        "median_ms": 1460.208962,
+        "cold_prefix_median_ms": 297.883346
+      },
+      "candidate": {
+        "runs": [
+          {
+            "raw": "logs/parallel-gpu/packed-candidate-repeat/house_robber.gpu_overlap.s0.r0.json",
+            "evolve_wall_ms": 1400.300837,
+            "cold_prefix_ms": 325.55087799999995,
+            "final_eval_ms": 195.497236,
+            "generation_median_ms": 26.043142000000003,
+            "pack_median_ms": 0.556297,
+            "integration_median_ms": 0.7245425000000001,
+            "eval_kernel_median_ms": 19.310296,
+            "peak_rss_kib": 1211552,
+            "genotype_device_bytes": 617184124,
+            "exact_trace": true,
+            "final_ast_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          },
+          {
+            "raw": "logs/parallel-gpu/packed-candidate-repeat/house_robber.gpu_overlap.s0.r1.json",
+            "evolve_wall_ms": 1397.288166,
+            "cold_prefix_ms": 319.37730799999997,
+            "final_eval_ms": 198.153534,
+            "generation_median_ms": 26.0725105,
+            "pack_median_ms": 0.583898,
+            "integration_median_ms": 0.729012,
+            "eval_kernel_median_ms": 19.298217,
+            "peak_rss_kib": 1203596,
+            "genotype_device_bytes": 617184124,
+            "exact_trace": true,
+            "final_ast_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          },
+          {
+            "raw": "logs/parallel-gpu/packed-candidate-repeat/house_robber.gpu_overlap.s0.r2.json",
+            "evolve_wall_ms": 1387.460223,
+            "cold_prefix_ms": 311.98519400000004,
+            "final_eval_ms": 195.783274,
+            "generation_median_ms": 26.0086995,
+            "pack_median_ms": 0.596958,
+            "integration_median_ms": 0.7408895,
+            "eval_kernel_median_ms": 19.209982,
+            "peak_rss_kib": 1211240,
+            "genotype_device_bytes": 617184124,
+            "exact_trace": true,
+            "final_ast_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          }
+        ],
+        "median_ms": 1397.288166,
+        "cold_prefix_median_ms": 319.37730799999997
+      }
+    }
+  },
+  {
+    "task": "median",
+    "results": {
+      "control": {
+        "runs": [
+          {
+            "raw": "logs/parallel-gpu/packed-control-repeat/median.gpu_overlap.s2.r0.json",
+            "evolve_wall_ms": 1410.296349,
+            "cold_prefix_ms": 286.928863,
+            "final_eval_ms": 141.318483,
+            "generation_median_ms": 14.9723595,
+            "pack_median_ms": 3.487012,
+            "integration_median_ms": 1.3846635,
+            "eval_kernel_median_ms": 2.3844515,
+            "peak_rss_kib": 1237504,
+            "genotype_device_bytes": 887192656,
+            "exact_trace": true,
+            "final_ast_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          },
+          {
+            "raw": "logs/parallel-gpu/packed-control-repeat/median.gpu_overlap.s2.r1.json",
+            "evolve_wall_ms": 1374.677194,
+            "cold_prefix_ms": 284.05932,
+            "final_eval_ms": 139.499488,
+            "generation_median_ms": 14.2757695,
+            "pack_median_ms": 3.263124,
+            "integration_median_ms": 1.322141,
+            "eval_kernel_median_ms": 2.369458,
+            "peak_rss_kib": 1235864,
+            "genotype_device_bytes": 887192656,
+            "exact_trace": true,
+            "final_ast_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          },
+          {
+            "raw": "logs/parallel-gpu/packed-control-repeat/median.gpu_overlap.s2.r2.json",
+            "evolve_wall_ms": 1427.340753,
+            "cold_prefix_ms": 295.365433,
+            "final_eval_ms": 144.077031,
+            "generation_median_ms": 14.9925745,
+            "pack_median_ms": 3.5072590000000003,
+            "integration_median_ms": 1.4173075,
+            "eval_kernel_median_ms": 2.3804995,
+            "peak_rss_kib": 1237304,
+            "genotype_device_bytes": 887192656,
+            "exact_trace": true,
+            "final_ast_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          }
+        ],
+        "median_ms": 1410.296349,
+        "cold_prefix_median_ms": 286.928863
+      },
+      "candidate": {
+        "runs": [
+          {
+            "raw": "logs/parallel-gpu/packed-candidate-repeat/median.gpu_overlap.s2.r0.json",
+            "evolve_wall_ms": 1202.766813,
+            "cold_prefix_ms": 307.102586,
+            "final_eval_ms": 144.107636,
+            "generation_median_ms": 11.149694,
+            "pack_median_ms": 0.5562659999999999,
+            "integration_median_ms": 0.95133,
+            "eval_kernel_median_ms": 2.362162,
+            "peak_rss_kib": 1231316,
+            "genotype_device_bytes": 887192656,
+            "exact_trace": true,
+            "final_ast_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          },
+          {
+            "raw": "logs/parallel-gpu/packed-candidate-repeat/median.gpu_overlap.s2.r1.json",
+            "evolve_wall_ms": 1212.252433,
+            "cold_prefix_ms": 298.747975,
+            "final_eval_ms": 141.565454,
+            "generation_median_ms": 11.442758,
+            "pack_median_ms": 0.671996,
+            "integration_median_ms": 0.9890840000000001,
+            "eval_kernel_median_ms": 2.4035945,
+            "peak_rss_kib": 1231540,
+            "genotype_device_bytes": 887192656,
+            "exact_trace": true,
+            "final_ast_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          },
+          {
+            "raw": "logs/parallel-gpu/packed-candidate-repeat/median.gpu_overlap.s2.r2.json",
+            "evolve_wall_ms": 1227.791133,
+            "cold_prefix_ms": 308.927606,
+            "final_eval_ms": 140.795329,
+            "generation_median_ms": 11.63678,
+            "pack_median_ms": 0.6869974999999999,
+            "integration_median_ms": 0.9862569999999999,
+            "eval_kernel_median_ms": 2.3721725,
+            "peak_rss_kib": 1232036,
+            "genotype_device_bytes": 887192656,
+            "exact_trace": true,
+            "final_ast_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          }
+        ],
+        "median_ms": 1212.252433,
+        "cold_prefix_median_ms": 307.102586
+      }
+    }
+  }
+]

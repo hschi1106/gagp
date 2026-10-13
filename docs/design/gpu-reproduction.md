@@ -619,3 +619,32 @@ uses the same double conversion and every original instruction fuel charge.
 The recognized form is a general bytecode condition, independent of task names,
 answers or particular comparison constants. Tests include operand reversal,
 large integer rounding and fuel/return boundaries against CPU execution.
+#### Owner-bound packed executable carrier
+
+`GAGP_OWNED_PHASE_PACKED=1` retains one private packed root/region/binding
+layout inside `NativePhasePopulation`. Cold admission still verifies every
+external AST and bytecode. A checked unique slot-to-phase map binds each GPU
+compiler result to its original phase. Each generation preserves fixed phase
+storage and replaces current variable `DInstr`/constant ranges directly; it no
+longer expands them into `Instr` plus a separate fuel vector merely to pack
+those values back into `DInstr`. Stack bounds and scalar/add/comparison hints
+are refreshed after replacement, with stale fields cleared first. Static
+structure, original fuel costs, limits and full population/case evaluation remain.
+
+`OwnedGpuPrograms` can borrow this carrier only from the private run owner for
+a synchronous evaluation. No mutable pointer, public certificate constructor or
+serialized admission shortcut is added. Native bytecode is materialized on
+`programs()` access or before fallback capability analysis for a session whose
+input types differ from the owner's proof. A returned reference view must be
+requested again after reproduction. External packing continues full validation.
+Specialization switches are fixed for an owner's lifetime; instantiate a new
+owner when changing constant/add/comparison or generic-phase configuration.
+
+Cold packing is charged to initialization; current-generation integration and
+per-evaluation carrier copying/upload remain charged normally. This path retains
+D2H/H2D transfers and host metadata; it is not device-resident executable reuse.
+Storage contains the fixed prefix and current variable phases only. Buffers may
+retain their bounded live high-water capacity, never ancestral code or ASTs.
+Tests compare each generation against independently verified GPU and CPU
+execution, exercise changed-input fallback before reference materialization,
+and check stale optimization hints across growth, shrink and constant changes.

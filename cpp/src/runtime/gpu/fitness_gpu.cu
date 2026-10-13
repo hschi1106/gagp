@@ -498,6 +498,11 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
 
   const auto all_t0 = std::chrono::steady_clock::now();
   const auto pack_t0 = std::chrono::steady_clock::now();
+  // The private packed carrier keeps a native reference on demand. A session
+  // with different input types must perform its ordinary capability analysis
+  // on current phase bytecode, not the owner's cold import snapshot.
+  if(owned && owned->prepacked() && !owned->views_supported_for(impl_->shared_input_types))
+    owned->materialize_reference();
   gpu_detail::PackResult packed;
   try {
     packed = owned ? gpu_detail::pack_owned_programs(*owned,impl_->shared_case_count,impl_->shared_input_payload_mask)

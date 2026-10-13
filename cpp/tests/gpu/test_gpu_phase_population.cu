@@ -9,6 +9,8 @@
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
+#include "gagp/runtime/gpu/host_pack_gpu.hpp"
+#include "../../src/runtime/gpu/owned_programs.hpp"
 #include "../../src/evolution/repro/gpu/phase_population.hpp"
 #include "../../src/evolution/repro/gpu/phase_layout.hpp"
 namespace {
@@ -44,8 +46,36 @@ void check_inplace_mutation(const std::shared_ptr<const grammar::CompiledGrammar
       "in-place mutation changed operator accounting");
  }
 }
+
+void test_packed_pattern_refresh() {
+ using namespace gpu_detail;
+ setenv("GAGP_CONSTANT_PHASE","1",1);setenv("GAGP_BOUND_ADD_PHASE","1",1);setenv("GAGP_BOUND_COMPARE_PHASE","1",1);
+ PackResult pack;pack.region_phases.resize(1);auto& phase=pack.region_phases[0];auto& m=phase.program;
+ const auto instruction=[](unsigned char op,int a=0,unsigned fuel=1) { DInstr i;i.op=op;i.a=a;i.flags=DINSTR_HAS_A;i.fuel=fuel;return i; };
+ pack.all_phase_code={instruction(OP_RETURN),instruction(OP_PUSH_CONST,0,3),instruction(OP_RETURN,0,2)};
+ pack.all_phase_consts={Value::from_int(99),Value::from_int(7)};
+ m.code_offset=1;m.code_len=2;m.const_offset=1;m.const_len=1;
+ refresh_owned_phase_patterns(pack,0,1);
+ require(m.scalar_constant_index==1 && m.scalar_constant_fuel==5,"packed constant offset/fuel recognition");
+ pack.all_phase_code={instruction(OP_LOAD,0),instruction(OP_LOAD,1),instruction(OP_ADD),instruction(OP_RETURN)};
+ m.code_offset=0;m.code_len=4;m.n_locals=2;
+ pack.region_bindings={{RegionSlotBank::State,0,0},{RegionSlotBank::State,1,1}};phase.binding_count=2;
+ refresh_owned_phase_patterns(pack,0,1);
+ require(m.scalar_constant_index==-1 && m.scalar_constant_fuel==0 && m.add_left_binding==0 && m.add_right_binding==1,"constant hint survived phase growth into addition");
+ pack.all_phase_code={instruction(OP_RETURN),instruction(OP_LOAD,0),instruction(OP_PUSH_CONST),instruction(OP_LE)};
+ m.code_offset=1;m.code_len=3;phase.binding_count=1;
+ refresh_owned_phase_patterns(pack,0,1);
+ require(m.add_left_binding==-1 && m.add_right_binding==-1 && m.compare_binding==0,"add hint survived comparison replacement");
+ pack.all_phase_consts[1]=Value::from_float(1.5);
+ refresh_owned_phase_patterns(pack,0,1);
+ require(m.compare_binding==-1,"comparison hint survived incompatible constant replacement");
+ pack.all_phase_code={instruction(OP_RETURN)};m.code_offset=0;m.code_len=1;
+ refresh_owned_phase_patterns(pack,0,1);
+ require(m.scalar_constant_index==-1 && m.add_left_binding==-1 && m.compare_binding==-1,"phase shrink retained stale pattern metadata");
+}
 }
 int main(){try {
+ test_packed_pattern_refresh();
  auto definition=grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json");
  // Keep the original oversized fixture as a required explicit rejection.
  // The positive fixture is a separately authored GPU-capacity contract.
@@ -83,7 +113,7 @@ int main(){try {
  setenv("GAGP_COUNTED_SITE_DRAW","1",1);
  setenv("GAGP_OWNED_PHASE_CAPS","1",1);setenv("GAGP_VIEW_PROFILE","1",1);
  setenv("GAGP_TYPED_VIEW_PHASE","1",1);setenv("GAGP_DIRECT_PHASE","1",1);
- setenv("GAGP_OWNED_PHASE_PACK","1",1);setenv("GAGP_GPU_PHASE_POPULATION","1",1);setenv("GAGP_GPU_DIAGNOSTICS","1",1);
+ setenv("GAGP_OWNED_PHASE_PACKED","1",1);setenv("GAGP_OWNED_PHASE_PACK","1",1);setenv("GAGP_GPU_PHASE_POPULATION","1",1);setenv("GAGP_GPU_DIAGNOSTICS","1",1);
  setenv("GAGP_REUSE_IMPORTED_EXECUTABLE","1",1);setenv("GAGP_REUSE_PHASE_GRAMMAR","1",1);setenv("GAGP_BATCH_PHASE_IMPORT","1",1);setenv("GAGP_BATCH_PHASE_EXPORT","1",1);
  const auto integrated=evolve_population(evolution_cases,config,&parents);
  require(integrated.reproduction_profile=="native-gpu-phase-v2-counted" && integrated.reproduction_fallback_reason.empty(),"GPU genotype evolution adapter not used");
@@ -119,6 +149,7 @@ int main(){try {
  exported.ast.nodes.clear();require(ast_cache_key(owner.export_member(0).ast)==original,"external export aliases private genotype");
  const auto initial_memory=owner.device_bytes();std::size_t stable_memory=0;std::set<std::string> seen;
  for(int generation=0;generation<=32;++generation) {
+  const auto owned=owner.evaluate(session,true); // exercise packed current generation before lazy reference materialization
   const auto gpu=session.eval_programs(owner.programs(),true);if(!gpu.ok)throw std::runtime_error("GPU phase population evaluation failed at generation "+std::to_string(generation)+": "+gpu.err.message);
   std::vector<BytecodeProgram> independent;
   auto all_exported=owner.export_population();
@@ -130,7 +161,6 @@ int main(){try {
    independent.push_back(compile_for_eval(genome,names));
    require(gpu.case_counts.at(i)[0]==1024,"not all cases evaluated");
   }
-  const auto owned=owner.evaluate(session,true);
   require(owned.ok && owned.fitness==gpu.fitness && owned.case_counts==gpu.case_counts,"owned packing differs from independent full verification");
   const auto cpu=eval_fitness_cpu(independent,cases,answers,10000,1000,512);
   require(cpu==gpu.fitness,"resident GPU offspring differs from independently exported CPU programs");
@@ -147,7 +177,11 @@ int main(){try {
   auto wrong=cases;
   for(std::size_t j=0;j<names.size();++j)if(names[j]=="row")wrong[0][j].value=Value::from_float(1.5);
   FitnessSessionGpu different;require(different.init(wrong,answers,10000,512,1000).ok,"different input-type session init");
-  const auto ordinary=different.eval_programs(owner.programs(),true),owned=owner.evaluate(different,true);
+  repro::NativePhasePopulation fallback_owner(grammar,owner.export_population(),names);
+  const auto original=fallback_owner.evaluate(session,true);require(original.ok,"fallback owner initial eval");
+  fallback_owner.reproduce(original.fitness,2,.3,UINT64_C(991));
+  const auto owned=fallback_owner.evaluate(different,true); // wrong-type fallback before programs() materializes
+  const auto ordinary=different.eval_programs(fallback_owner.programs(),true);
   require(ordinary.ok && owned.ok && ordinary.fitness==owned.fitness && ordinary.case_counts==owned.case_counts &&
       owned.execution_profile=="mixed","owner capability proof applied to different case types");
  }
