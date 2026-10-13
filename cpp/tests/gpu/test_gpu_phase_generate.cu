@@ -74,6 +74,25 @@ void run_root(const std::shared_ptr<const grammar::CompiledGrammar>& owner,unsig
  for(int i=0;i<3;++i){check(cudaEventRecord(start));launch(nt.scope.size(),depth,capacity);check(cudaEventRecord(stop));check(cudaEventSynchronize(stop));float ms;check(cudaEventElapsedTime(&ms,start,stop));warm.push_back(ms);}
  cudaEventDestroy(start);cudaEventDestroy(stop);
  const auto output=results.read();const auto tree=nodes.read();const auto origin=origins.read();const auto constants=values.read();
+ // Compare old and statically normalized selection across varying admission
+ // budgets, including grammars where the maximum-weight branch is unavailable.
+ auto normalized_nt=host.nonterminals;auto normalized_p=host.productions;
+ normalize_static_phase_weights(host,normalized_nt,normalized_p);
+ for(int test_depth:{1,4,depth})for(int test_capacity:{1,4,capacity}) {
+  n.upload(host.nonterminals);p.upload(host.productions);launch(nt.scope.size(),test_depth,test_capacity);
+  const auto old_results=results.read();const auto old_nodes=nodes.read();const auto old_origins=origins.read();const auto old_values=values.read();
+  n.upload(normalized_nt);p.upload(normalized_p);launch(nt.scope.size(),test_depth,test_capacity);
+  const auto new_results=results.read();const auto new_nodes=nodes.read();const auto new_origins=origins.read();const auto new_values=values.read();
+  for(int i=0;i<count;++i){const auto a=old_results[i],b=new_results[i];
+   require(a.status==b.status && a.nodes==b.nodes && a.constants==b.constants && a.steps==b.steps,"static weights changed generation result");
+   for(int j=0;j<a.nodes;++j){const int index=i*test_capacity+j;const auto x=old_nodes[index],y=new_nodes[index];
+    require(x.kind==y.kind && x.opcode==y.opcode && x.operand==y.operand && x.arity==y.arity && x.fuel==y.fuel && x.merge_fuel==y.merge_fuel &&
+      old_origins[index]==new_origins[index],"static weights changed generated node/RNG trajectory");}
+   for(int j=0;j<a.constants;++j){const auto x=old_values[i*test_capacity+j],y=new_values[i*test_capacity+j];
+    require(x.tag==y.tag && (x.tag==ValueTag::Bool?x.b==y.b:x.i==y.i),"static weights changed constant RNG trajectory");}
+  }
+ }
+ n.upload(host.nonterminals);p.upload(host.productions);
  grammar::GenerationRequest request{root,nt.type,nt.scope,grammar.search_limits(),grammar::GenerationStage::Mutation};
  grammar::GenerationFrame frame;for(std::size_t i=0;i<nt.scope.size();++i)frame.binder_ids.push_back(100+int(i));
  std::set<std::string> unique;std::size_t node_total=0;

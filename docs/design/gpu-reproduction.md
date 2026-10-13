@@ -583,3 +583,13 @@ selection, RNG, variation or resource limits. Small blocks expose more independe
 program work on low populations; no CPU workers are created. The compiler offset
 scan uses one 256-thread tiled block, retaining bounded checked compiler results
 and the same compacted program layout.
+
+`GAGP_GPU_STATIC_WEIGHTS=1` pre-normalizes mutation production weights only
+when a grammar-table proof shows that a maximum-weight alternative has the
+minimum required node cost at every supported depth. Such an alternative is
+feasible whenever any alternative is feasible, so its dynamic normalization
+factor cannot change with the remaining node budget. Unsupported tables retain
+the existing scan and division. This removes repeated maximum scans/divisions;
+it does not change selection weights, RNG draws, node/depth admission or grammar
+membership. Tests compare complete constructed nodes/constants across different
+budgets and depths, including the unproved fallback case.

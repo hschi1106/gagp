@@ -20,6 +20,29 @@ struct HostPhaseGrammar {
   std::vector<unsigned> minimum;
   int root_expression=-1,depth_count=0;
 };
+// Prove that an alternative with maximum weight is feasible whenever any
+// alternative is feasible at the same depth/capacity. Only then is the dynamic
+// normalizing maximum invariant; division and the first scan can move to import.
+inline void normalize_static_phase_weights(const HostPhaseGrammar& host,
+    std::vector<PhaseNonterminal>& nonterminals,std::vector<PhaseProduction>& productions) {
+  for(auto& nt:nonterminals) {
+    if(!nt.production_count)continue;
+    double maximum=0;for(int i=0;i<nt.production_count;++i)
+      maximum=std::max(maximum,productions.at(nt.production_offset+i).weight);
+    bool proven=maximum>0;
+    for(int depth=0;depth<host.depth_count && proven;++depth) {
+      unsigned cheapest=0xffffffffu,max_weight_cheapest=0xffffffffu;
+      for(int i=0;i<nt.production_count;++i){const auto& p=productions.at(nt.production_offset+i);
+        const auto cost=host.minimum.at(std::size_t(p.expression)*host.depth_count+depth);
+        cheapest=std::min(cheapest,cost);if(p.weight==maximum)max_weight_cheapest=std::min(max_weight_cheapest,cost);
+      }
+      proven=cheapest==max_weight_cheapest;
+    }
+    if(!proven)continue;
+    for(int i=0;i<nt.production_count;++i)productions.at(nt.production_offset+i).weight/=maximum;
+    nt.normalized_weights=true;
+  }
+}
 inline Opcode phase_opcode(NodeKind kind) {
   switch(kind) {
     case NodeKind::ADD:return Opcode::Add;case NodeKind::SUB:return Opcode::Sub;

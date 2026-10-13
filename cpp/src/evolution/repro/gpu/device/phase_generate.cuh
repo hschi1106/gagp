@@ -16,7 +16,7 @@ struct PhaseExpression {
   int scope[8]{};
 };
 struct PhaseProduction { int expression; double weight; };
-struct PhaseNonterminal { int production_offset=0, production_count=0, scope_count=0; };
+struct PhaseNonterminal { int production_offset=0, production_count=0, scope_count=0; bool normalized_weights=false; };
 struct PhaseDomain { int value_offset=0, value_count=0; bool integer_range=false; std::int64_t minimum=0, maximum=0; };
 struct PhaseGrammarView {
   const PhaseExpression* expressions=nullptr; int expression_count=0;
@@ -70,21 +70,21 @@ __device__ inline PhaseGenerationResult generate_phase(
         next.scope |= ((task.scope >> (3*expression.scope[i])) & 7U) << (3*i);
       }
       const unsigned available=static_cast<unsigned>(capacity-result.nodes)-reserved;
-      double maximum=0,total=0;
-      for(int i=0;i<nt.production_count;++i) {
+      double maximum=nt.normalized_weights?1:0,total=0;
+      if(!nt.normalized_weights)for(int i=0;i<nt.production_count;++i) {
         const auto p=grammar.productions[nt.production_offset+i];
         if(minimum(p.expression,task.depth)<=available && p.weight>maximum) maximum=p.weight;
       }
       if(!(maximum>0)) {result.status=PhaseCompileStatus::Capacity;return result;}
       for(int i=0;i<nt.production_count;++i) {
         const auto p=grammar.productions[nt.production_offset+i];
-        if(minimum(p.expression,task.depth)<=available)total+=p.weight/maximum;
+        if(minimum(p.expression,task.depth)<=available)total+=nt.normalized_weights?p.weight:p.weight/maximum;
       }
       double choice=static_cast<double>(random.next()>>11)*0x1.0p-53*total;
       for(int i=0;i<nt.production_count;++i) {
         const auto p=grammar.productions[nt.production_offset+i];
         if(minimum(p.expression,task.depth)>available)continue;
-        next.expression=p.expression; choice-=p.weight/maximum; if(choice<0)break;
+        next.expression=p.expression; choice-=nt.normalized_weights?p.weight:p.weight/maximum; if(choice<0)break;
       }
       if(next.expression<0 || count>=192)return result;
       reserved+=minimum(next.expression,next.depth);pending[count++]=next;continue;

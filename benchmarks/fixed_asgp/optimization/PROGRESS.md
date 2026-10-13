@@ -840,3 +840,15 @@ binaries/raw outputs retained only as historical evidence. Record:
 `results/parallel-20261013/rejected-size-ties.json`.
 Combined exact-behavior GPU main3repeats: House median1662ms, Median1484ms;
 raw `logs/optimization/parallel-20261013/combined-gpu-main`. Goals still unmet.
+
+GPU static donor weights: `GAGP_GPU_STATIC_WEIGHTS=1` proves depth/capacity-
+independent normalizing maxima at grammar import and pre-divides weights.
+Compared with the combined capability-bucket/transport/grammar-cache candidate,
+three independent complete-search repeats retain exact quality/operator/error
+traces and final fitness/node rows. Raw repeats and medians are in
+`results/parallel-gpu-20261013/static-weights.json`. The device construction
+matrix across depths/capacities passes exact node/origin/constant comparisons;
+32-generation independent CPU reevaluation also passes. No language, operator,
+RNG or resource-limit change. Remaining House kernel cost is dominant; focused
+NCU reports low eligible warps and substantial dynamically indexed local memory,
+so a separate shared operand-stack prototype is being evaluated, not yet adopted.

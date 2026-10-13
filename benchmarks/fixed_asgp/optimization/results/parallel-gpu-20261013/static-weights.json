@@ -1,0 +1,96 @@
+[
+  {
+    "task": "house_robber",
+    "runs": {
+      "control": [
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/weights-control-repeat/house_robber.gpu_overlap.s0.r0.json",
+          "search_wall_ms": 1669.914353,
+          "repro_kernel_median_ms": 4.769263947848231,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/weights-control-repeat/house_robber.gpu_overlap.s0.r1.json",
+          "search_wall_ms": 1668.579604,
+          "repro_kernel_median_ms": 4.767840056214482,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/weights-control-repeat/house_robber.gpu_overlap.s0.r2.json",
+          "search_wall_ms": 1655.603137,
+          "repro_kernel_median_ms": 4.756991966627538,
+          "exact_quality_trace": true
+        }
+      ],
+      "candidate": [
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/weights-candidate-repeat/house_robber.gpu_overlap.s0.r0.json",
+          "search_wall_ms": 1645.364849,
+          "repro_kernel_median_ms": 3.6146559971384704,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/weights-candidate-repeat/house_robber.gpu_overlap.s0.r1.json",
+          "search_wall_ms": 1626.216565,
+          "repro_kernel_median_ms": 3.61438390891999,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/weights-candidate-repeat/house_robber.gpu_overlap.s0.r2.json",
+          "search_wall_ms": 1621.666811,
+          "repro_kernel_median_ms": 3.610271948389709,
+          "exact_quality_trace": true
+        }
+      ]
+    },
+    "control_median_ms": 1668.579604,
+    "candidate_median_ms": 1626.216565
+  },
+  {
+    "task": "median",
+    "runs": {
+      "control": [
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/weights-control-repeat/median.gpu_overlap.s2.r0.json",
+          "search_wall_ms": 1505.167344,
+          "repro_kernel_median_ms": 6.826736134942621,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/weights-control-repeat/median.gpu_overlap.s2.r1.json",
+          "search_wall_ms": 1495.657544,
+          "repro_kernel_median_ms": 6.8145439312793314,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/weights-control-repeat/median.gpu_overlap.s2.r2.json",
+          "search_wall_ms": 1480.787403,
+          "repro_kernel_median_ms": 6.824112012051046,
+          "exact_quality_trace": true
+        }
+      ],
+      "candidate": [
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/weights-candidate-repeat/median.gpu_overlap.s2.r0.json",
+          "search_wall_ms": 1373.084098,
+          "repro_kernel_median_ms": 5.189888019580394,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/weights-candidate-repeat/median.gpu_overlap.s2.r1.json",
+          "search_wall_ms": 1374.257955,
+          "repro_kernel_median_ms": 5.19358401093632,
+          "exact_quality_trace": true
+        },
+        {
+          "raw": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/weights-candidate-repeat/median.gpu_overlap.s2.r2.json",
+          "search_wall_ms": 1390.285253,
+          "repro_kernel_median_ms": 5.189231929834932,
+          "exact_quality_trace": true
+        }
+      ]
+    },
+    "control_median_ms": 1495.657544,
+    "candidate_median_ms": 1374.257955
+  }
+]

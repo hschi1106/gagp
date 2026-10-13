@@ -38,7 +38,11 @@ struct UploadedProfile {
  Buffer<PhaseExpression> expressions;Buffer<PhaseProduction> productions;Buffer<PhaseNonterminal> nonterminals;
  Buffer<PhaseDomain> domains;Buffer<Value> values;Buffer<unsigned> minimum;
  explicit UploadedProfile(const HostPhaseGrammar& h) {
-  expressions.upload(h.expressions);productions.upload(h.productions);nonterminals.upload(h.nonterminals);
+  expressions.upload(h.expressions);
+  if(std::getenv("GAGP_GPU_STATIC_WEIGHTS")) {
+   auto weights=h.productions;auto nts=h.nonterminals;normalize_static_phase_weights(h,nts,weights);
+   productions.upload(weights);nonterminals.upload(nts);
+  } else {productions.upload(h.productions);nonterminals.upload(h.nonterminals);}
   domains.upload(h.domains);values.upload(h.values);minimum.upload(h.minimum);
  }
  PhaseGrammarView view(const HostPhaseGrammar& h)const{return {expressions.data,int(h.expressions.size()),productions.data,int(h.productions.size()),
