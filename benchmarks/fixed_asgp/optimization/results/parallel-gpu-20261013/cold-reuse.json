@@ -1,0 +1,120 @@
+[
+  {
+    "task": "house_robber",
+    "results": {
+      "control": {
+        "runs": [
+          {
+            "raw": "logs/parallel-gpu/import-reuse-combined-control/house_robber.gpu_overlap.s0.r0.json",
+            "evolve_wall_ms": 1515.20264,
+            "cold_prefix_ms": 350.832756,
+            "final_eval_ms": 194.283229,
+            "exact_quality_trace": true
+          },
+          {
+            "raw": "logs/parallel-gpu/import-reuse-combined-control/house_robber.gpu_overlap.s0.r1.json",
+            "evolve_wall_ms": 1478.364243,
+            "cold_prefix_ms": 353.067601,
+            "final_eval_ms": 193.243568,
+            "exact_quality_trace": true
+          },
+          {
+            "raw": "logs/parallel-gpu/import-reuse-combined-control/house_robber.gpu_overlap.s0.r2.json",
+            "evolve_wall_ms": 1470.752481,
+            "cold_prefix_ms": 346.995492,
+            "final_eval_ms": 194.43995,
+            "exact_quality_trace": true
+          }
+        ],
+        "median_ms": 1478.364243,
+        "median_cold_prefix_ms": 350.832756
+      },
+      "candidate": {
+        "runs": [
+          {
+            "raw": "logs/parallel-gpu/import-reuse-combined-candidate/house_robber.gpu_overlap.s0.r0.json",
+            "evolve_wall_ms": 1397.627307,
+            "cold_prefix_ms": 285.307259,
+            "final_eval_ms": 190.777128,
+            "exact_quality_trace": true
+          },
+          {
+            "raw": "logs/parallel-gpu/import-reuse-combined-candidate/house_robber.gpu_overlap.s0.r1.json",
+            "evolve_wall_ms": 1408.28106,
+            "cold_prefix_ms": 292.503535,
+            "final_eval_ms": 193.639778,
+            "exact_quality_trace": true
+          },
+          {
+            "raw": "logs/parallel-gpu/import-reuse-combined-candidate/house_robber.gpu_overlap.s0.r2.json",
+            "evolve_wall_ms": 1425.762887,
+            "cold_prefix_ms": 291.89826400000004,
+            "final_eval_ms": 198.900391,
+            "exact_quality_trace": true
+          }
+        ],
+        "median_ms": 1408.28106,
+        "median_cold_prefix_ms": 291.89826400000004
+      }
+    }
+  },
+  {
+    "task": "median",
+    "results": {
+      "control": {
+        "runs": [
+          {
+            "raw": "logs/parallel-gpu/import-reuse-combined-control/median.gpu_overlap.s2.r0.json",
+            "evolve_wall_ms": 1394.884458,
+            "cold_prefix_ms": 344.356329,
+            "final_eval_ms": 141.34429,
+            "exact_quality_trace": true
+          },
+          {
+            "raw": "logs/parallel-gpu/import-reuse-combined-control/median.gpu_overlap.s2.r1.json",
+            "evolve_wall_ms": 1396.799773,
+            "cold_prefix_ms": 347.841025,
+            "final_eval_ms": 136.169702,
+            "exact_quality_trace": true
+          },
+          {
+            "raw": "logs/parallel-gpu/import-reuse-combined-control/median.gpu_overlap.s2.r2.json",
+            "evolve_wall_ms": 1394.799586,
+            "cold_prefix_ms": 350.342445,
+            "final_eval_ms": 139.278984,
+            "exact_quality_trace": true
+          }
+        ],
+        "median_ms": 1394.884458,
+        "median_cold_prefix_ms": 347.841025
+      },
+      "candidate": {
+        "runs": [
+          {
+            "raw": "logs/parallel-gpu/import-reuse-combined-candidate/median.gpu_overlap.s2.r0.json",
+            "evolve_wall_ms": 1334.712711,
+            "cold_prefix_ms": 280.807446,
+            "final_eval_ms": 137.550184,
+            "exact_quality_trace": true
+          },
+          {
+            "raw": "logs/parallel-gpu/import-reuse-combined-candidate/median.gpu_overlap.s2.r1.json",
+            "evolve_wall_ms": 1347.83732,
+            "cold_prefix_ms": 290.76179,
+            "final_eval_ms": 138.965573,
+            "exact_quality_trace": true
+          },
+          {
+            "raw": "logs/parallel-gpu/import-reuse-combined-candidate/median.gpu_overlap.s2.r2.json",
+            "evolve_wall_ms": 1340.333062,
+            "cold_prefix_ms": 282.123432,
+            "final_eval_ms": 139.250152,
+            "exact_quality_trace": true
+          }
+        ],
+        "median_ms": 1340.333062,
+        "median_cold_prefix_ms": 282.123432
+      }
+    }
+  }
+]

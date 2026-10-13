@@ -898,3 +898,15 @@ and raw outputs archived in `logs/parallel-gpu/`. Recorded results:
 `results/parallel-gpu-20261013/rejected-followups.json`. Next: inspect remaining
 cold native import/final export cost; root separately tests structurally proved
 coordinate memo storage. No phase semantics, counters, or operator changes adopted.
+
+Cold import reuse: `GAGP_REUSE_IMPORTED_EXECUTABLE=1` eliminates the second
+AST verification/lowering after fresh grammar admission, using the evaluator's
+actual input order. Secondary imports no longer copy already cached immutable
+profile tables only to discard them. All input admission, GPU bytecode checks
+and output membership checks remain. Three-process House1478.364→1408.281ms,
+Median1394.884→1340.333ms; raw repeats and cold-prefix times:
+`results/parallel-gpu-20261013/cold-reuse.json`. All quality/operator/error traces
+and final fitness/node rows are exact. Existing32-generation CPU/grammar audit,
+mixed257-member test, and new reversed input-order test pass. No changed
+execution, grammar, RNG or operators. Next: eliminate repeated DInstr→Instr→DInstr
+conversion and static repacking through private owner-bound packed artifacts.

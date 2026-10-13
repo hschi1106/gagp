@@ -584,6 +584,16 @@ program work on low populations; no CPU workers are created. The compiler offset
 scan uses one 256-thread tiled block, retaining bounded checked compiler results
 and the same compacted program layout.
 
+`GAGP_REUSE_IMPORTED_EXECUTABLE=1` supplies the evaluator's actual input order
+when each external individual is admitted and compiled. The cold GPU owner
+moves that already compiled executable into its population instead of verifying
+and compiling the same AST a second time. GPU bytecode verification, skeleton
+checks, capability proofs and independent output admission remain required.
+Secondary imports read cached grammar profiles by const reference and omit
+copies that would immediately be discarded; the first import retains the full
+profile tables needed by the owner and export adapter. This changes neither
+execution nor variation semantics and does not cache external admission.
+
 `GAGP_GPU_STATIC_WEIGHTS=1` pre-normalizes mutation production weights only
 when a grammar-table proof shows that a maximum-weight alternative has the
 minimum required node cost at every supported depth. Such an alternative is

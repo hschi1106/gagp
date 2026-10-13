@@ -52,8 +52,12 @@ class NativePhaseGrammarProfiles final {
   std::map<std::pair<unsigned,unsigned>,HostPhaseGrammar> profiles_;
 };
 
+// A secondary population import may omit duplicate profile storage: it is used
+// only as transport and must not itself serve as an export template. Admission
+// and compilation still run against its own freshly reconstructed AST witness.
 inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGrammar& grammar,
-    const ProgramGenome& external, NativePhaseGrammarProfiles* profiles=nullptr) {
+    const ProgramGenome& external, NativePhaseGrammarProfiles* profiles=nullptr,
+    const std::vector<std::string>* evaluator_inputs=nullptr, bool retain_profiles=true) {
   using namespace grammar;
   NativePhaseLayout result;
   VerifiedAst verified; std::vector<std::vector<int>> environments;
@@ -145,8 +149,10 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
                        "GPU genotype capacity requires fallback");
   for (const auto& slot : result.slots) {
     result.fixed_nodes -= slot.end - slot.begin;
-    auto profile = profiles ? profiles->get(grammar,slot.nonterminal,result.budget.max_depth)
-                            : compile_phase_variation_grammar(grammar,slot.nonterminal,result.budget.max_depth);
+    HostPhaseGrammar uncached_profile;
+    if (!profiles) uncached_profile = compile_phase_variation_grammar(grammar,slot.nonterminal,result.budget.max_depth);
+    const auto& profile = profiles ? profiles->get(grammar,slot.nonterminal,result.budget.max_depth)
+                                   : uncached_profile;
     HostPhaseGene gene;
     for (auto i = slot.begin; i < slot.end; ++i) {
       const auto expression = witness.nodes.at(i).expression;
@@ -163,10 +169,14 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
       }
       gene.nodes.push_back(node); gene.origins.push_back(expression);
     }
-    result.profiles.push_back(std::move(profile)); result.genes.push_back(std::move(gene));
+    if (retain_profiles) {
+      if (profiles) result.profiles.push_back(profile);
+      else result.profiles.push_back(std::move(uncached_profile));
+    }
+    result.genes.push_back(std::move(gene));
   }
   std::vector<std::string> inputs; for (const auto& input : grammar.inputs()) inputs.push_back(input.name);
-  result.executable = compile_for_eval(source, verified, inputs);
+  result.executable = compile_for_eval(source, verified, evaluator_inputs ? *evaluator_inputs : inputs);
   result.prototype = std::move(source.ast);
   return result;
 }

@@ -330,7 +330,9 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  std::string error;if(!initialize_gpu_repro_runtime(&error))throw std::runtime_error(error);checked(cudaGetDevice(&impl_->device));
  std::unique_ptr<NativePhaseGrammarProfiles> import_profiles;
  if(std::getenv("GAGP_REUSE_PHASE_GRAMMAR"))import_profiles=std::make_unique<NativePhaseGrammarProfiles>(impl_->grammar);
- impl_->population=input.size();impl_->layout=import_native_phase_layout(*impl_->grammar,input.front(),import_profiles.get());
+ const bool reuse_import=std::getenv("GAGP_REUSE_IMPORTED_EXECUTABLE")!=nullptr;
+ const auto* evaluator_inputs=reuse_import?&input_names:nullptr;
+ impl_->population=input.size();impl_->layout=import_native_phase_layout(*impl_->grammar,input.front(),import_profiles.get(),evaluator_inputs);
  const auto capability=gpu_detail::pack_programs_with_shared_case_count({impl_->layout.executable},0,0);
  phase_layout_require(capability.metas.size()==1 && capability.metas.front().is_valid,"fixed executable requires GPU fallback");
  impl_->slot_count=impl_->layout.slots.size();phase_layout_require(impl_->slot_count>0 && impl_->slot_count<=8,"phase count capacity");
@@ -356,7 +358,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  std::vector<ImportOffset> import_offsets; if(batch_import)import_offsets.reserve(rows);
  // Upload live imports only, avoiding full-capacity host staging arrays.
  for(std::size_t p=0;p<input.size();++p) {
-  auto imported=p==0?impl_->layout:import_native_phase_layout(*impl_->grammar,input[p],import_profiles.get());
+  auto imported=p==0?impl_->layout:import_native_phase_layout(*impl_->grammar,input[p],import_profiles.get(),evaluator_inputs,!reuse_import);
   phase_layout_require(imported.slots.size()==impl_->layout.slots.size() && skeleton_key(imported)==key,"mixed fixed skeleton requires native fallback");
   for(int k=0;k<impl_->slot_count;++k) {
    const auto& a=imported.slots[k];const auto& b=impl_->layout.slots[k];
@@ -374,8 +376,10 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
    if(!gene.constants.empty())checked(cudaMemcpy(impl_->current->constants.data+std::size_t(row)*capacity,gene.constants.data(),gene.constants.size()*sizeof(Value),cudaMemcpyHostToDevice));
    }
   }
-  // Bind root and capture locals to the actual evaluator input order.
-  impl_->programs.push_back(compile_for_eval(input[p],input_names));
+  // The importer already compiled its freshly admitted immutable snapshot. With
+  // the actual evaluator input order supplied, that executable needs no second
+  // AST verification/lowering; GPU capacity/type checks below still apply.
+  impl_->programs.push_back(reuse_import?std::move(imported.executable):compile_for_eval(input[p],input_names));
   BytecodeVerifyOptions options;options.max_locals_per_code=gpu_detail::MAX_LOCALS;options.max_stack_depth=gpu_detail::MAX_STACK;
   const auto verified=verify_bytecode(impl_->programs.back(),options);
   phase_layout_require(bool(verified),"cold GPU executable verification failed");

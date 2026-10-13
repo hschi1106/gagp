@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include "gagp/evolution/evolve.hpp"
@@ -53,7 +54,7 @@ int main(){try {
  setenv("GAGP_OWNED_PHASE_CAPS","1",1);setenv("GAGP_VIEW_PROFILE","1",1);
  setenv("GAGP_TYPED_VIEW_PHASE","1",1);setenv("GAGP_DIRECT_PHASE","1",1);
  setenv("GAGP_OWNED_PHASE_PACK","1",1);setenv("GAGP_GPU_PHASE_POPULATION","1",1);setenv("GAGP_GPU_DIAGNOSTICS","1",1);
- setenv("GAGP_REUSE_PHASE_GRAMMAR","1",1);setenv("GAGP_BATCH_PHASE_IMPORT","1",1);setenv("GAGP_BATCH_PHASE_EXPORT","1",1);
+ setenv("GAGP_REUSE_IMPORTED_EXECUTABLE","1",1);setenv("GAGP_REUSE_PHASE_GRAMMAR","1",1);setenv("GAGP_BATCH_PHASE_IMPORT","1",1);setenv("GAGP_BATCH_PHASE_EXPORT","1",1);
  const auto integrated=evolve_population(evolution_cases,config,&parents);
  require(integrated.reproduction_profile=="native-gpu-phase-v2-counted" && integrated.reproduction_fallback_reason.empty(),"GPU genotype evolution adapter not used");
  require(integrated.timing.generations[0].elapsed_search_ms>=integrated.timing.init_population_ms+integrated.timing.gpu_eval_init_ms &&
@@ -69,6 +70,18 @@ int main(){try {
  unsetenv("GAGP_GPU_PHASE_POPULATION");unsetenv("GAGP_GPU_DIAGNOSTICS");
  FitnessSessionGpu session;require(session.init(cases,answers,10000,512,1000).ok,"GPU session init");
  repro::NativePhasePopulation owner(grammar,parents,names);
+ {
+  auto reversed_names=names;std::reverse(reversed_names.begin(),reversed_names.end());
+  auto reversed_cases=cases;
+  for(auto& bindings:reversed_cases)for(auto& binding:bindings)binding.idx=names.size()-1-binding.idx;
+  repro::NativePhasePopulation reordered(grammar,parents,reversed_names);
+  FitnessSessionGpu reordered_session;
+  require(reordered_session.init(reversed_cases,answers,10000,512,1000).ok,"reordered import session");
+  const auto normal=owner.evaluate(session,true), reversed=reordered.evaluate(reordered_session,true);
+  require(normal.ok && reversed.ok && normal.fitness==reversed.fitness && normal.case_counts==reversed.case_counts,
+      "reused admitted executable lost actual evaluator input order");
+ }
+
  // The run owns its copies; mutating/destroying imported ASTs cannot change it.
  for(auto& p:parents){p.ast.nodes.clear();p.ast.consts.clear();}parents.clear();
  auto exported=owner.export_member(0);const auto original=ast_cache_key(exported.ast);
