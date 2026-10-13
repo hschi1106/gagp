@@ -1,0 +1,377 @@
+{
+  "status": "rejected; runtime flag and exclusive tests removed",
+  "source_base": "b60a3367b37727bcf897be9cd66c27038da4d774",
+  "hypothesis": "Reuse immutable previous same-owner/same-slot selected-parent bytecode and certificates for unedited final offspring slots. No intermediate crossover bytecode compile exists.",
+  "contract": "CPU1T + native GPU selection/crossover/mutation, P1024 complete1024 cases, unchanged RNG/operators; search wall includes cold evolution init and final evaluation/materialization.",
+  "flag": "GAGP_REUSE_PHASE_EXECUTABLES (removed)",
+  "source_patch": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-rejected.patch",
+  "source_patch_sha256": "1a0e6e1157b38f746e57823fd67e58e0680d14b9672ee699c1feb8c04279643d",
+  "correctness": "40-generation two-slot differential in both mutation-buffer modes; exact per-generation AST/fitness/operators, independent CPU exports every8 generations; strong duplicated-parent selection; rejected mutation request; existing32-generation export/admission/CPU audit and mixed257-member fixtures pass. CPU-repro independent safety review passed.",
+  "ptxas": {
+    "reuse_off_and_on": {
+      "registers": 40,
+      "stack_bytes": 2816,
+      "spill_load_bytes": 0,
+      "spill_store_bytes": 0
+    }
+  },
+  "tasks": {
+    "house_robber": {
+      "original": {
+        "samples": [
+          {
+            "search_ms": 1362.134345,
+            "process_wall_s": 2.616283751791343,
+            "final_best": -7146,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-original/house_robber.gpu_overlap.s0.r0.json",
+            "final_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          }
+        ],
+        "median_search_ms": 1362.134345,
+        "range_search_ms": [
+          1362.134345,
+          1362.134345
+        ],
+        "binary_sha256": "9962848fae0aec713e246bd3c106bcfe04bb0e91b380ce70140f586aa256b2e8",
+        "manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-original/manifest.json"
+      },
+      "off": {
+        "samples": [
+          {
+            "search_ms": 1342.253598,
+            "process_wall_s": 2.5849369859788567,
+            "final_best": -7146,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-off/house_robber.gpu_overlap.s0.r0.json",
+            "final_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          }
+        ],
+        "median_search_ms": 1342.253598,
+        "range_search_ms": [
+          1342.253598,
+          1342.253598
+        ],
+        "binary_sha256": "361057c8cd44a8c49c9f931182ff7bc3328d5f104b011779f3988f36e4aaadc7",
+        "manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-off/manifest.json"
+      },
+      "on": {
+        "samples": [
+          {
+            "search_ms": 1347.405139,
+            "process_wall_s": 2.5712712390813977,
+            "final_best": -7146,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-on/house_robber.gpu_overlap.s0.r0.json",
+            "final_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          }
+        ],
+        "median_search_ms": 1347.405139,
+        "range_search_ms": [
+          1347.405139,
+          1347.405139
+        ],
+        "binary_sha256": "361057c8cd44a8c49c9f931182ff7bc3328d5f104b011779f3988f36e4aaadc7",
+        "manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-on/manifest.json"
+      },
+      "off-repeat": {
+        "samples": [
+          {
+            "search_ms": 1360.774429,
+            "process_wall_s": 2.60092491004616,
+            "final_best": -7146,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-off-repeat/house_robber.gpu_overlap.s0.r0.json",
+            "final_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          },
+          {
+            "search_ms": 1367.451737,
+            "process_wall_s": 2.6453790289815515,
+            "final_best": -7146,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-off-repeat/house_robber.gpu_overlap.s0.r1.json",
+            "final_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          },
+          {
+            "search_ms": 1361.168262,
+            "process_wall_s": 2.599193054018542,
+            "final_best": -7146,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-off-repeat/house_robber.gpu_overlap.s0.r2.json",
+            "final_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          }
+        ],
+        "median_search_ms": 1361.168262,
+        "range_search_ms": [
+          1360.774429,
+          1367.451737
+        ],
+        "binary_sha256": "361057c8cd44a8c49c9f931182ff7bc3328d5f104b011779f3988f36e4aaadc7",
+        "manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-off-repeat/manifest.json"
+      },
+      "on-repeat": {
+        "samples": [
+          {
+            "search_ms": 1368.805478,
+            "process_wall_s": 2.5890701019670814,
+            "final_best": -7146,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-on-repeat/house_robber.gpu_overlap.s0.r0.json",
+            "final_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          },
+          {
+            "search_ms": 1352.552315,
+            "process_wall_s": 2.579287705011666,
+            "final_best": -7146,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-on-repeat/house_robber.gpu_overlap.s0.r1.json",
+            "final_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          },
+          {
+            "search_ms": 1351.0533,
+            "process_wall_s": 2.598970284918323,
+            "final_best": -7146,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-on-repeat/house_robber.gpu_overlap.s0.r2.json",
+            "final_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211"
+          }
+        ],
+        "median_search_ms": 1352.552315,
+        "range_search_ms": [
+          1351.0533,
+          1368.805478
+        ],
+        "binary_sha256": "361057c8cd44a8c49c9f931182ff7bc3328d5f104b011779f3988f36e4aaadc7",
+        "manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-on-repeat/manifest.json"
+      },
+      "all_final_exports_identical": true,
+      "profile_diagnostic_only": {
+        "off": {
+          "four_gen_compile_total_ms": 4.064331,
+          "rows": [
+            {
+              "Time (%)": "3.7",
+              "Total Time (ns)": "4064331",
+              "Instances": "4",
+              "Avg (ns)": "1016082.8",
+              "Med (ns)": "1073051.0",
+              "Min (ns)": "480646",
+              "Max (ns)": "1437583",
+              "StdDev (ns)": "481818.9",
+              "Name": "void gagp::evo::repro::<unnamed>::compile_population<(bool)0>(gagp::evo::repro::<unnamed>::TreePointers, const gagp::evo::repro::<unnamed>::DeviceSlot *, int, int, gagp::gpu_detail::DInstr *, gagp::Value *, gagp::evo::repro::PhaseCompileResult *, const int *, const gagp::evo::repro::PhaseCompileResult *, const gagp::gpu_detail::DInstr *, const gagp::Value *, const int *, const int *, int, int)"
+            }
+          ],
+          "csv": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-profile/house_robber-off_cuda_gpu_kern_sum.csv"
+        },
+        "on": {
+          "four_gen_compile_total_ms": 3.481798,
+          "rows": [
+            {
+              "Time (%)": "1.9",
+              "Total Time (ns)": "2053079",
+              "Instances": "3",
+              "Avg (ns)": "684359.7",
+              "Med (ns)": "539046.0",
+              "Min (ns)": "505094",
+              "Max (ns)": "1008939",
+              "StdDev (ns)": "281606.1",
+              "Name": "void gagp::evo::repro::<unnamed>::compile_population<(bool)1>(gagp::evo::repro::<unnamed>::TreePointers, const gagp::evo::repro::<unnamed>::DeviceSlot *, int, int, gagp::gpu_detail::DInstr *, gagp::Value *, gagp::evo::repro::PhaseCompileResult *, const int *, const gagp::evo::repro::PhaseCompileResult *, const gagp::gpu_detail::DInstr *, const gagp::Value *, const int *, const int *, int, int)"
+            },
+            {
+              "Time (%)": "1.3",
+              "Total Time (ns)": "1428719",
+              "Instances": "1",
+              "Avg (ns)": "1428719.0",
+              "Med (ns)": "1428719.0",
+              "Min (ns)": "1428719",
+              "Max (ns)": "1428719",
+              "StdDev (ns)": "0.0",
+              "Name": "void gagp::evo::repro::<unnamed>::compile_population<(bool)0>(gagp::evo::repro::<unnamed>::TreePointers, const gagp::evo::repro::<unnamed>::DeviceSlot *, int, int, gagp::gpu_detail::DInstr *, gagp::Value *, gagp::evo::repro::PhaseCompileResult *, const int *, const gagp::evo::repro::PhaseCompileResult *, const gagp::gpu_detail::DInstr *, const gagp::Value *, const int *, const int *, int, int)"
+            }
+          ],
+          "csv": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-profile/house_robber-on_cuda_gpu_kern_sum.csv"
+        }
+      },
+      "repeat_improvement_percent": 0.6329817731233534
+    },
+    "median": {
+      "original": {
+        "samples": [
+          {
+            "search_ms": 1164.54055,
+            "process_wall_s": 2.3662912738509476,
+            "final_best": -642,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-original/median.gpu_overlap.s2.r0.json",
+            "final_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          }
+        ],
+        "median_search_ms": 1164.54055,
+        "range_search_ms": [
+          1164.54055,
+          1164.54055
+        ],
+        "binary_sha256": "9962848fae0aec713e246bd3c106bcfe04bb0e91b380ce70140f586aa256b2e8",
+        "manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-original/manifest.json"
+      },
+      "off": {
+        "samples": [
+          {
+            "search_ms": 1170.214818,
+            "process_wall_s": 2.343465420883149,
+            "final_best": -642,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-off/median.gpu_overlap.s2.r0.json",
+            "final_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          }
+        ],
+        "median_search_ms": 1170.214818,
+        "range_search_ms": [
+          1170.214818,
+          1170.214818
+        ],
+        "binary_sha256": "361057c8cd44a8c49c9f931182ff7bc3328d5f104b011779f3988f36e4aaadc7",
+        "manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-off/manifest.json"
+      },
+      "on": {
+        "samples": [
+          {
+            "search_ms": 1156.516985,
+            "process_wall_s": 2.317174713127315,
+            "final_best": -642,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-on/median.gpu_overlap.s2.r0.json",
+            "final_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          }
+        ],
+        "median_search_ms": 1156.516985,
+        "range_search_ms": [
+          1156.516985,
+          1156.516985
+        ],
+        "binary_sha256": "361057c8cd44a8c49c9f931182ff7bc3328d5f104b011779f3988f36e4aaadc7",
+        "manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-on/manifest.json"
+      },
+      "off-repeat": {
+        "samples": [
+          {
+            "search_ms": 1168.505093,
+            "process_wall_s": 2.4128678548149765,
+            "final_best": -642,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-off-repeat/median.gpu_overlap.s2.r0.json",
+            "final_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          },
+          {
+            "search_ms": 1179.12659,
+            "process_wall_s": 2.361270605120808,
+            "final_best": -642,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-off-repeat/median.gpu_overlap.s2.r1.json",
+            "final_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          },
+          {
+            "search_ms": 1160.881923,
+            "process_wall_s": 2.301394571084529,
+            "final_best": -642,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-off-repeat/median.gpu_overlap.s2.r2.json",
+            "final_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          }
+        ],
+        "median_search_ms": 1168.505093,
+        "range_search_ms": [
+          1160.881923,
+          1179.12659
+        ],
+        "binary_sha256": "361057c8cd44a8c49c9f931182ff7bc3328d5f104b011779f3988f36e4aaadc7",
+        "manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-off-repeat/manifest.json"
+      },
+      "on-repeat": {
+        "samples": [
+          {
+            "search_ms": 1150.807351,
+            "process_wall_s": 2.3160437080077827,
+            "final_best": -642,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-on-repeat/median.gpu_overlap.s2.r0.json",
+            "final_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          },
+          {
+            "search_ms": 1166.823328,
+            "process_wall_s": 2.35025308909826,
+            "final_best": -642,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-on-repeat/median.gpu_overlap.s2.r1.json",
+            "final_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          },
+          {
+            "search_ms": 1160.47585,
+            "process_wall_s": 2.3340649141464382,
+            "final_best": -642,
+            "cpu_audit_mismatches": 0,
+            "json": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-on-repeat/median.gpu_overlap.s2.r2.json",
+            "final_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280"
+          }
+        ],
+        "median_search_ms": 1160.47585,
+        "range_search_ms": [
+          1150.807351,
+          1166.823328
+        ],
+        "binary_sha256": "361057c8cd44a8c49c9f931182ff7bc3328d5f104b011779f3988f36e4aaadc7",
+        "manifest": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-on-repeat/manifest.json"
+      },
+      "all_final_exports_identical": true,
+      "profile_diagnostic_only": {
+        "off": {
+          "four_gen_compile_total_ms": 3.614407,
+          "rows": [
+            {
+              "Time (%)": "13.3",
+              "Total Time (ns)": "3614407",
+              "Instances": "4",
+              "Avg (ns)": "903601.8",
+              "Med (ns)": "904473.5",
+              "Min (ns)": "810057",
+              "Max (ns)": "995403",
+              "StdDev (ns)": "80295.0",
+              "Name": "void gagp::evo::repro::<unnamed>::compile_population<(bool)0>(gagp::evo::repro::<unnamed>::TreePointers, const gagp::evo::repro::<unnamed>::DeviceSlot *, int, int, gagp::gpu_detail::DInstr *, gagp::Value *, gagp::evo::repro::PhaseCompileResult *, const int *, const gagp::evo::repro::PhaseCompileResult *, const gagp::gpu_detail::DInstr *, const gagp::Value *, const int *, const int *, int, int)"
+            }
+          ],
+          "csv": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-profile/median-off_cuda_gpu_kern_sum.csv"
+        },
+        "on": {
+          "four_gen_compile_total_ms": 3.303777,
+          "rows": [
+            {
+              "Time (%)": "9.1",
+              "Total Time (ns)": "2427896",
+              "Instances": "3",
+              "Avg (ns)": "809298.7",
+              "Med (ns)": "824361.0",
+              "Min (ns)": "636166",
+              "Max (ns)": "967369",
+              "StdDev (ns)": "166114.5",
+              "Name": "void gagp::evo::repro::<unnamed>::compile_population<(bool)1>(gagp::evo::repro::<unnamed>::TreePointers, const gagp::evo::repro::<unnamed>::DeviceSlot *, int, int, gagp::gpu_detail::DInstr *, gagp::Value *, gagp::evo::repro::PhaseCompileResult *, const int *, const gagp::evo::repro::PhaseCompileResult *, const gagp::gpu_detail::DInstr *, const gagp::Value *, const int *, const int *, int, int)"
+            },
+            {
+              "Time (%)": "3.3",
+              "Total Time (ns)": "875881",
+              "Instances": "1",
+              "Avg (ns)": "875881.0",
+              "Med (ns)": "875881.0",
+              "Min (ns)": "875881",
+              "Max (ns)": "875881",
+              "StdDev (ns)": "0.0",
+              "Name": "void gagp::evo::repro::<unnamed>::compile_population<(bool)0>(gagp::evo::repro::<unnamed>::TreePointers, const gagp::evo::repro::<unnamed>::DeviceSlot *, int, int, gagp::gpu_detail::DInstr *, gagp::Value *, gagp::evo::repro::PhaseCompileResult *, const int *, const gagp::evo::repro::PhaseCompileResult *, const gagp::gpu_detail::DInstr *, const gagp::Value *, const int *, const int *, int, int)"
+            }
+          ],
+          "csv": "/home/hschi1106/.t3/worktrees/gagp/parallel-gpu-20261013/logs/parallel-gpu/reuse-executable-profile/median-on_cuda_gpu_kern_sum.csv"
+        }
+      },
+      "repeat_improvement_percent": 0.6871380405699234
+    }
+  },
+  "decision": "Reject: compile kernel work decreased but full-search medians only improve0.63%House/0.69%Median with overlapping process ranges and archived best binary already comparable. Dirty queue/extra lineage framework not justified by current end-to-end evidence."
+}

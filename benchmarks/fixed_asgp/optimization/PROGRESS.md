@@ -965,3 +965,25 @@ invalid IDs/counts and complete generated-node/fuel/constant/status equality.
 3seeds×4generations also completed (`logs/parallel-gpu/packed-quality`). All
 subagent builds/performance runs are now stopped for root's quiet integrated
 validation; no additional direction is queued on this branch.
+
+2026-10-13 follow-up: same-slot GPU executable reuse rejected. Based on integrated
+runtime `b60a336`, the minimal prototype retained only previous compact code and
+constants, double-buffered certificates, and selected-parent slot lineage. Edits
+invalidated that slot; first generation compiled fully. There was already no
+crossover-intermediate bytecode compile to remove. The 40-generation, two-slot
+exact differential passed with both mutation-buffer modes, repeated selected
+parents, rejected mutation input, independent CPU export checks and existing
+regressions. Three-process full-search medians OFF→ON: House1361.168→1352.552ms
+(0.63%), Median1168.505→1160.476ms (0.69%); ranges overlap. Same-window archived
+`b60a336` measured1362.134/1164.541ms, also comparable. Four-generation NSYS compile
+totals fell4.064→3.482ms /3.614→3.304ms, but this diagnostic reduction did not
+establish useful full-search improvement. Do not subtract it from unprofiled
+search times. Both compiler variants used40registers,2816Bstack, zero spills.
+
+The prototype, flag and exclusive tests are removed; no runtime/settings changes
+remain. Evidence: `results/parallel-gpu-20261013/rejected-executable-reuse.json`.
+Archived binaries, raw repeats, profiler CSVs, test log and rejected patch remain
+under the GPU agent worktree's `logs/parallel-gpu/reuse-executable-*`. Its local
+build contains the archived rejected experiment until rebuilt; the root's
+validated runtime binary is unaffected. No dirty-work-queue extension is planned:
+its additional complexity is unsupported by this full-search result.
