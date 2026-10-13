@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <random>
 #include <stdexcept>
 #include <string>
@@ -192,9 +193,15 @@ ReproductionResult run_cpu_backend_impl(const std::vector<ScoredGenomeRef>& scor
   const auto prepare_t0 = std::chrono::steady_clock::now();
   grammar::VariationContext context(cfg.compiled_grammar, population_requests(cfg), 128,
       cfg.offspring_resource_budget);
+  const bool lazy_analysis = std::getenv("GAGP_CPU_LAZY_ANALYSIS") != nullptr;
+  context.defer_offspring_site_analysis(lazy_analysis);
   for (const auto& parent : scored) {
     if (!parent.genome) throw std::invalid_argument("compiled reproduction has a null parent");
-    (void)context.analyze(*parent.genome);
+    if (lazy_analysis)
+      (void)grammar::reconstruct_population_derivation(
+          context.grammar(), *parent.genome, context.requests());
+    else
+      (void)context.analyze(*parent.genome);
   }
   std::vector<std::vector<grammar::VariationSite>> candidates;
   std::optional<PreprocessOutput> prepared;
@@ -257,6 +264,15 @@ ReproductionResult run_cpu_backend_impl(const std::vector<ScoredGenomeRef>& scor
   out.stats.selection_ms = std::chrono::duration<double, std::milli>(
       std::chrono::steady_clock::now() - selection_t0).count();
 
+  const bool selected_parent_reuse = std::getenv("GAGP_CPU_SELECTED_PARENTS") != nullptr &&
+      cfg.cpu_repro_ablation == CpuReproAblation::None;
+  std::vector<std::unique_ptr<const grammar::variation_detail::CertifiedCrossoverParent>> parents(
+      selected_parent_reuse ? scored.size() : 0);
+  const auto prepare_selected = [&](std::size_t index) {
+    if (selected_parent_reuse && !parents[index])
+      parents[index] = grammar::variation_detail::CertifiedCrossoverParent::create_scalar(
+          *scored[index].genome, context);
+  };
   std::uniform_real_distribution<double> probability(0.0, 1.0);
   std::uniform_int_distribution<std::uint64_t> seeds(0, UINT64_C(2000000000));
   for (std::size_t i = 0; i + 1 < selected.size() &&
@@ -266,7 +282,12 @@ ReproductionResult run_cpu_backend_impl(const std::vector<ScoredGenomeRef>& scor
     const auto crossover_t0 = std::chrono::steady_clock::now();
     const auto crossover_seed = seeds(rng);
     grammar::variation_detail::SelectedCrossoverSites coupled_sites;
-    auto children = cfg.cpu_repro_ablation == CpuReproAblation::GpuCandidates
+    prepare_selected(selected[i]);
+    prepare_selected(selected[i + 1]);
+    auto children = selected_parent_reuse && parents[selected[i]] && parents[selected[i + 1]]
+        ? grammar::variation_detail::crossover_certified(*parents[selected[i]],
+            *parents[selected[i + 1]], crossover_seed, context)
+        : cfg.cpu_repro_ablation == CpuReproAblation::GpuCandidates
         ? candidate_crossover(parent_a, parent_b, candidates.at(selected[i]),
             candidates.at(selected[i + 1]), crossover_seed, context)
         : coupled

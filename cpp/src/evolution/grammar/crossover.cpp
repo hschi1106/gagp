@@ -8,18 +8,13 @@
 
 namespace gagp::evo::grammar::variation_detail {
 
-std::pair<ProgramGenome, ProgramGenome> crossover_with_sites(const ProgramGenome& parent_a,
-    const ProgramGenome& parent_b, std::uint64_t seed, VariationContext& context,
-    SelectedCrossoverSites* selected) {
+namespace {
+std::pair<ProgramGenome, ProgramGenome> crossover_analyzed(const ProgramGenome& a,
+    const ProgramGenome& b, const std::shared_ptr<const VariationAnalysis>& analysis_a,
+    const std::shared_ptr<const VariationAnalysis>& analysis_b,
+    std::uint64_t seed, VariationContext& context, SelectedCrossoverSites* selected) {
   if (selected) selected->reset();
   using namespace grammar;
-  ++context.counters().crossover_attempts;
-  // Invalid parents are errors, never fallback candidates. Supplied provenance
-  // is ignored, including on a reproduction attempt with no compatible pair.
-  auto a = variation_detail::certify(parent_a, context);
-  auto b = variation_detail::certify(parent_b, context);
-  const auto analysis_a = context.analyze(a);
-  const auto analysis_b = context.analyze(b);
   GrammarRandom random(seed);
   const VariationSite* selected_a = nullptr;
   const VariationSite* selected_b = nullptr;
@@ -77,6 +72,41 @@ std::pair<ProgramGenome, ProgramGenome> crossover_with_sites(const ProgramGenome
   auto child_b = variation_detail::splice(b.ast, *selected_b, a.ast, selected_a->occurrences.front(), selected_a->occurrence_binder_ids.front(), selected_b->crossover_closed);
   return {variation_detail::accept(std::move(child_a), a, context),
       variation_detail::accept(std::move(child_b), b, context)};
+}
+
+}  // namespace
+
+std::pair<ProgramGenome, ProgramGenome> crossover_with_sites(const ProgramGenome& parent_a,
+    const ProgramGenome& parent_b, std::uint64_t seed, VariationContext& context,
+    SelectedCrossoverSites* selected) {
+  ++context.counters().crossover_attempts;
+  if (selected) selected->reset();
+  // Public mutable inputs always undergo complete admission before site use.
+  std::shared_ptr<const VariationAnalysis> analysis_a, analysis_b;
+  auto a = certify(parent_a, context, &analysis_a);
+  auto b = certify(parent_b, context, &analysis_b);
+  return crossover_analyzed(a, b, analysis_a, analysis_b, seed, context, selected);
+}
+
+std::unique_ptr<const CertifiedCrossoverParent> CertifiedCrossoverParent::create_scalar(
+    const ProgramGenome& parent, VariationContext& context) {
+  for (const auto& value : parent.ast.consts)
+    if (value.tag != ValueTag::Int && value.tag != ValueTag::Float && value.tag != ValueTag::Bool)
+      return nullptr;
+  auto owned = std::unique_ptr<CertifiedCrossoverParent>(new CertifiedCrossoverParent);
+  owned->genome_ = certify(parent, context, &owned->analysis_);
+  owned->context_ = &context;
+  return owned;
+}
+
+std::pair<ProgramGenome, ProgramGenome> crossover_certified(
+    const CertifiedCrossoverParent& a, const CertifiedCrossoverParent& b,
+    std::uint64_t seed, VariationContext& context) {
+  if (a.context_ != &context || b.context_ != &context)
+    throw std::invalid_argument("certified crossover parents belong to another context");
+  ++context.counters().crossover_attempts;
+  return crossover_analyzed(a.genome_, b.genome_, a.analysis_, b.analysis_,
+      seed, context, nullptr);
 }
 
 }  // namespace gagp::evo::grammar::variation_detail

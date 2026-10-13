@@ -65,3 +65,10 @@ maintenance, follow the rules in root `AGENTS.md`.
 - GPU owner-only executable packing proof: `cpp/src/runtime/gpu/owned_programs.hpp`; only `NativePhasePopulation` constructs a borrowed view. `FitnessSessionGpu` and `host_pack_gpu.cu` consume it synchronously. External bytecode packing remains fully verified; `gagp_test_gpu_phase_population` compares owned, ordinary GPU and independent CPU evaluation every generation.
 - Opt-in single-coordinate executor: `gpu/device/coordinate_execution_device.cuh`, capability selection in `fitness_gpu.cu`, frame slicing in `device/kernels.cuh`; regression matrix and full-case multi-program isolation in `gagp_test_bounded_region_gpu`. Shape fallback and original fuel/memo capacity semantics remain required.
 - Owned compact/generic capability buckets use index-mapped launches in `gpu/fitness_gpu.cu` and `device/kernels.cuh`, enabled by `GAGP_PHASE_CAP_BUCKETS`; native reproduction block scheduling uses `GAGP_PHASE_REPRO_THREADS` in `repro/gpu/phase_population.cu`. `gagp_test_gpu_phase_population` covers mixed stack bounds, original output ordering, partial offset-scan tiles, and independent CPU reevaluation. These settings do not alter the search rules.
+
+- Optional native CPU deferred site analysis and reproduction-call-local selected
+  parent ownership: `repro/backend.cpp`, `grammar/crossover.cpp`,
+  `grammar/variation_internal.hpp`; flags `GAGP_CPU_LAZY_ANALYSIS` and
+  `GAGP_CPU_SELECTED_PARENTS`, tests `gagp_test_grammar_reproduction`.
+  Scalar-only ownership cannot cross reproduction calls; mutable/registry-backed
+  inputs keep full admission. This is the native CPU control path, not GPU repro.

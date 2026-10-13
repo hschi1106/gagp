@@ -13,12 +13,35 @@ std::pair<ProgramGenome, ProgramGenome> crossover_with_sites(
     const ProgramGenome& parent_a, const ProgramGenome& parent_b,
     std::uint64_t seed, VariationContext& context, SelectedCrossoverSites* selected);
 
+// Reproduction-call-local immutable native AST, not a new genotype/backend.
+// Scalar constants make admission independent of mutable payload registry state.
+// The owning VariationContext must outlive this object; no cross-generation use.
+class CertifiedCrossoverParent final {
+ public:
+  static std::unique_ptr<const CertifiedCrossoverParent> create_scalar(
+      const ProgramGenome& parent, VariationContext& context);
+ private:
+  CertifiedCrossoverParent() = default;
+  ProgramGenome genome_;
+  std::shared_ptr<const VariationAnalysis> analysis_;
+  const VariationContext* context_ = nullptr;
+  friend std::pair<ProgramGenome, ProgramGenome> crossover_certified(
+      const CertifiedCrossoverParent&, const CertifiedCrossoverParent&,
+      std::uint64_t, VariationContext&);
+};
+std::pair<ProgramGenome, ProgramGenome> crossover_certified(
+    const CertifiedCrossoverParent& a, const CertifiedCrossoverParent& b,
+    std::uint64_t seed, VariationContext& context);
+
 // Internal stable-table compaction continuation; the caller owns the exact
 // validated source and compacted AST and validates their payload snapshots.
 VariationAnalysis remap_compacted_analysis(const CompiledGrammar& grammar,
     const VariationAnalysis& source, const AstProgram& before, const AstProgram& after);
 
-ProgramGenome certify(ProgramGenome genome, VariationContext& context);
+// Optional synchronous handoff is bound to the returned owned, compacted AST.
+// It is not a cache key or proof for any subsequently mutated object.
+ProgramGenome certify(ProgramGenome genome, VariationContext& context,
+    std::shared_ptr<const VariationAnalysis>* analysis = nullptr);
 ProgramGenome certify_execution(ProgramGenome genome, VariationContext& context);
 ProgramGenome fallback(const ProgramGenome& certified_parent, VariationContext& context);
 // The optional root is private owned-source evidence. Its caller must validate

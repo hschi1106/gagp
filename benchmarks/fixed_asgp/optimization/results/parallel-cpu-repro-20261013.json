@@ -1,0 +1,351 @@
+{
+  "hypothesis": "Build variation-site metadata only at consumption, pass certification analysis directly, and reuse scalar selected parent owners within one native CPU reproduction call.",
+  "architecture": "Unchanged native AST CPU reproduction for gagp_cpu/gpu_eval; GPU-er/o reproduction remains GPU. CPU1T.",
+  "flags": {
+    "GAGP_CPU_LAZY_ANALYSIS": "1",
+    "GAGP_CPU_SELECTED_PARENTS": "1"
+  },
+  "semantics": "No intended changes to grammar, numeric/fuel behavior, operator distribution, RNG consumption or capacity. Registry-dependent constant pools use ordinary certified crossover. No ownership persists across generations.",
+  "stages": {
+    "cpu-lazy-control4": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-lazy-control4",
+      "binary_sha256": "fa177377f0b0cffb8e74a26f887e01eecf0361286371394182a3ce945dfca0a1",
+      "rows": [
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 0,
+          "generations": 4,
+          "evolve_wall_ms": 1419.169451,
+          "process_wall_s": 2.4352570071350783,
+          "reproduction_sum_ms": 1012.9150520000001,
+          "final_best": -8503
+        },
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 1,
+          "generations": 4,
+          "evolve_wall_ms": 1382.542527,
+          "process_wall_s": 2.352977706119418,
+          "reproduction_sum_ms": 977.74272,
+          "final_best": -8254
+        },
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 2,
+          "generations": 4,
+          "evolve_wall_ms": 1384.662611,
+          "process_wall_s": 2.3558161368127912,
+          "reproduction_sum_ms": 981.999291,
+          "final_best": -8503
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 0,
+          "generations": 4,
+          "evolve_wall_ms": 2129.680354,
+          "process_wall_s": 3.309339248109609,
+          "reproduction_sum_ms": 1779.071382,
+          "final_best": -642
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 1,
+          "generations": 4,
+          "evolve_wall_ms": 1966.756096,
+          "process_wall_s": 3.1879194311331958,
+          "reproduction_sum_ms": 1633.055175,
+          "final_best": -642
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 2,
+          "generations": 4,
+          "evolve_wall_ms": 2034.799017,
+          "process_wall_s": 3.225103934062645,
+          "reproduction_sum_ms": 1711.666716,
+          "final_best": -642
+        }
+      ]
+    },
+    "cpu-lazy-candidate4": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-lazy-candidate4",
+      "binary_sha256": "7dc140681dce7af2ea76e9cb0ed123584604f33869caec9afa3cbba9fe28bbf1",
+      "rows": [
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 0,
+          "generations": 4,
+          "evolve_wall_ms": 1132.431618,
+          "process_wall_s": 2.0529266411904246,
+          "reproduction_sum_ms": 748.041513,
+          "final_best": -8503
+        },
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 1,
+          "generations": 4,
+          "evolve_wall_ms": 1166.836582,
+          "process_wall_s": 2.1485030150506645,
+          "reproduction_sum_ms": 766.8434440000001,
+          "final_best": -8254
+        },
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 2,
+          "generations": 4,
+          "evolve_wall_ms": 1163.440066,
+          "process_wall_s": 2.1317525999620557,
+          "reproduction_sum_ms": 766.461276,
+          "final_best": -8503
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 0,
+          "generations": 4,
+          "evolve_wall_ms": 1548.386659,
+          "process_wall_s": 2.718023391906172,
+          "reproduction_sum_ms": 1238.863339,
+          "final_best": -642
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 1,
+          "generations": 4,
+          "evolve_wall_ms": 1570.5697,
+          "process_wall_s": 2.7328293630853295,
+          "reproduction_sum_ms": 1254.220265,
+          "final_best": -642
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 2,
+          "generations": 4,
+          "evolve_wall_ms": 1617.361772,
+          "process_wall_s": 2.7806127378717065,
+          "reproduction_sum_ms": 1292.038591,
+          "final_best": -642
+        }
+      ]
+    },
+    "cpu-lazy-handoff4": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-lazy-handoff4",
+      "binary_sha256": "5539977ed139ba7cd75bedf9748c3f5095afb828a99ccb93e1c36e27b41455a7",
+      "rows": [
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 0,
+          "generations": 4,
+          "evolve_wall_ms": 1108.446723,
+          "process_wall_s": 2.0060856558848172,
+          "reproduction_sum_ms": 726.6071729999999,
+          "final_best": -8503
+        },
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 1,
+          "generations": 4,
+          "evolve_wall_ms": 1081.03206,
+          "process_wall_s": 2.0213374698068947,
+          "reproduction_sum_ms": 695.881439,
+          "final_best": -8254
+        },
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 2,
+          "generations": 4,
+          "evolve_wall_ms": 1126.077419,
+          "process_wall_s": 2.0734059321694076,
+          "reproduction_sum_ms": 715.310831,
+          "final_best": -8503
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 0,
+          "generations": 4,
+          "evolve_wall_ms": 1544.106553,
+          "process_wall_s": 2.7039067370351404,
+          "reproduction_sum_ms": 1232.127878,
+          "final_best": -642
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 1,
+          "generations": 4,
+          "evolve_wall_ms": 1488.486757,
+          "process_wall_s": 2.6285677598789334,
+          "reproduction_sum_ms": 1181.678429,
+          "final_best": -642
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 2,
+          "generations": 4,
+          "evolve_wall_ms": 1557.153841,
+          "process_wall_s": 2.733578121988103,
+          "reproduction_sum_ms": 1238.5355570000002,
+          "final_best": -642
+        }
+      ]
+    },
+    "cpu-selected4": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-selected4",
+      "binary_sha256": "f616c8455842bb94df5097c81a7f3f93f5e018a7b535cce82c544489f32067c0",
+      "rows": [
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 0,
+          "generations": 4,
+          "evolve_wall_ms": 1142.950329,
+          "process_wall_s": 2.101596111897379,
+          "reproduction_sum_ms": 725.548812,
+          "final_best": -8503
+        },
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 1,
+          "generations": 4,
+          "evolve_wall_ms": 1079.480297,
+          "process_wall_s": 2.042260372079909,
+          "reproduction_sum_ms": 686.709699,
+          "final_best": -8254
+        },
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 2,
+          "generations": 4,
+          "evolve_wall_ms": 1094.07702,
+          "process_wall_s": 2.056802981067449,
+          "reproduction_sum_ms": 699.407845,
+          "final_best": -8503
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 0,
+          "generations": 4,
+          "evolve_wall_ms": 1507.811508,
+          "process_wall_s": 2.698399556800723,
+          "reproduction_sum_ms": 1175.315001,
+          "final_best": -642
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 1,
+          "generations": 4,
+          "evolve_wall_ms": 1475.087425,
+          "process_wall_s": 2.67012733197771,
+          "reproduction_sum_ms": 1154.014138,
+          "final_best": -642
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 2,
+          "generations": 4,
+          "evolve_wall_ms": 1480.464491,
+          "process_wall_s": 2.67357445997186,
+          "reproduction_sum_ms": 1163.457893,
+          "final_best": -642
+        }
+      ]
+    },
+    "cpu-handoff-main": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-handoff-main",
+      "binary_sha256": "5539977ed139ba7cd75bedf9748c3f5095afb828a99ccb93e1c36e27b41455a7",
+      "rows": [
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 0,
+          "generations": 32,
+          "evolve_wall_ms": 14101.787142,
+          "process_wall_s": 15.661916399840266,
+          "reproduction_sum_ms": 11598.977485000001,
+          "final_best": -8380
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 2,
+          "generations": 64,
+          "evolve_wall_ms": 37936.882978,
+          "process_wall_s": 39.502383013954386,
+          "reproduction_sum_ms": 33970.416298000004,
+          "final_best": -462
+        }
+      ]
+    },
+    "cpu-selected-main": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/parallel-cpu-repro-20261013/logs/optimization/cpu-selected-main",
+      "binary_sha256": "f616c8455842bb94df5097c81a7f3f93f5e018a7b535cce82c544489f32067c0",
+      "rows": [
+        {
+          "task": "house_robber",
+          "mode": "gpu_eval",
+          "seed": 0,
+          "generations": 32,
+          "evolve_wall_ms": 13440.653913,
+          "process_wall_s": 14.94777485798113,
+          "reproduction_sum_ms": 10973.597284000003,
+          "final_best": -8380
+        },
+        {
+          "task": "median",
+          "mode": "gpu_eval",
+          "seed": 2,
+          "generations": 64,
+          "evolve_wall_ms": 35286.888863,
+          "process_wall_s": 36.78514959104359,
+          "reproduction_sum_ms": 31317.910834000002,
+          "final_best": -462
+        }
+      ]
+    }
+  },
+  "tests": "8 focused grammar tests passed; 8-gen exact replay on repeated holes, lexical locals and many sites; immutable-source, foreign-context, invalid constant domain checks.",
+  "limitations": "Main comparisons currently single process per stage; short3seed screen and exact32/64-generation replay do not prove convergence equivalence or final performance significance. Formal repeats pending integration.",
+  "exact_non_time_result_and_exports_checks": [
+    "cpu-lazy-candidate4/house_robber.gpu_eval.s0.r0.json",
+    "cpu-lazy-candidate4/house_robber.gpu_eval.s1.r0.json",
+    "cpu-lazy-candidate4/house_robber.gpu_eval.s2.r0.json",
+    "cpu-lazy-candidate4/median.gpu_eval.s0.r0.json",
+    "cpu-lazy-candidate4/median.gpu_eval.s1.r0.json",
+    "cpu-lazy-candidate4/median.gpu_eval.s2.r0.json",
+    "cpu-lazy-handoff4/house_robber.gpu_eval.s0.r0.json",
+    "cpu-lazy-handoff4/house_robber.gpu_eval.s1.r0.json",
+    "cpu-lazy-handoff4/house_robber.gpu_eval.s2.r0.json",
+    "cpu-lazy-handoff4/median.gpu_eval.s0.r0.json",
+    "cpu-lazy-handoff4/median.gpu_eval.s1.r0.json",
+    "cpu-lazy-handoff4/median.gpu_eval.s2.r0.json",
+    "cpu-selected4/house_robber.gpu_eval.s0.r0.json",
+    "cpu-selected4/house_robber.gpu_eval.s1.r0.json",
+    "cpu-selected4/house_robber.gpu_eval.s2.r0.json",
+    "cpu-selected4/median.gpu_eval.s0.r0.json",
+    "cpu-selected4/median.gpu_eval.s1.r0.json",
+    "cpu-selected4/median.gpu_eval.s2.r0.json",
+    "cpu-selected-main/house_robber.gpu_eval.s0.r0.json",
+    "cpu-selected-main/median.gpu_eval.s2.r0.json"
+  ]
+}

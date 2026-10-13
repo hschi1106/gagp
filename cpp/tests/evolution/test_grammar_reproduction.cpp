@@ -1,5 +1,7 @@
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
+#include <optional>
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -272,6 +274,68 @@ void test_backend_replay_and_owned_ref_parity() {
   check_same_counters(referenced.stats.variation, owned_a.stats.variation,
       "owned and referenced backend overloads changed variation counters");
   require_population_membership(*grammar, referenced.next_population);
+}
+
+void test_deferred_site_analysis_matches_eager() {
+  const char* previous_selected = std::getenv("GAGP_CPU_SELECTED_PARENTS");
+  const std::optional<std::string> saved_selected = previous_selected
+      ? std::optional<std::string>(previous_selected) : std::nullopt;
+  const char* previous = std::getenv("GAGP_CPU_LAZY_ANALYSIS");
+  const std::optional<std::string> saved = previous
+      ? std::optional<std::string>(previous) : std::nullopt;
+  for (const auto& grammar : {repeated_hole_grammar(), local_grammar(), many_sites_grammar()}) {
+    for (double mutation_rate : {0.0, 0.3, 1.0}) {
+      auto population = generated_population(*grammar, 7, 819);
+      auto cfg = compiled_config(grammar, 7);
+      cfg.mutation_rate = mutation_rate;
+      std::mt19937_64 eager_rng(749), lazy_rng(749);
+      for (int generation = 0; generation < 8; ++generation) {
+        const auto scored = score_owned(population);
+        unsetenv("GAGP_CPU_LAZY_ANALYSIS");
+        unsetenv("GAGP_CPU_SELECTED_PARENTS");
+        const auto eager = repro::run_reproduction_backend(scored, cfg, eager_rng);
+        setenv("GAGP_CPU_LAZY_ANALYSIS", "1", 1);
+        setenv("GAGP_CPU_SELECTED_PARENTS", "1", 1);
+        const auto lazy = repro::run_reproduction_backend(scored, cfg, lazy_rng);
+        check_same_population(eager.next_population, lazy.next_population,
+            "deferred site analysis changed offspring across generations");
+        check_same_counters(eager.stats.variation, lazy.stats.variation,
+            "deferred site analysis changed variation accounting");
+        check(eager_rng == lazy_rng, "deferred site analysis changed RNG consumption");
+        require_population_membership(*grammar, lazy.next_population);
+        population = lazy.next_population;
+      }
+    }
+  }
+  if (saved) setenv("GAGP_CPU_LAZY_ANALYSIS", saved->c_str(), 1);
+  else unsetenv("GAGP_CPU_LAZY_ANALYSIS");
+  if (saved_selected) setenv("GAGP_CPU_SELECTED_PARENTS", saved_selected->c_str(), 1);
+  else unsetenv("GAGP_CPU_SELECTED_PARENTS");
+}
+
+void test_selected_parent_ownership() {
+  const auto grammar = repeated_hole_grammar();
+  auto original = generate_derivation(*grammar, 42).genome;
+  VariationContext context(grammar), other(grammar);
+  const auto left = variation_detail::CertifiedCrossoverParent::create_scalar(original, context);
+  const auto right = variation_detail::CertifiedCrossoverParent::create_scalar(original, context);
+  check(left && right, "scalar parent owner unexpectedly declined");
+  const auto before = variation_detail::crossover_certified(*left, *right, 12, context);
+  original.ast.consts[first_constant_node(original).i0] = Value::from_int(999);
+  original.derivation.reset();
+  const auto after = variation_detail::crossover_certified(*left, *right, 12, context);
+  check_same_population({before.first, before.second}, {after.first, after.second},
+      "external AST mutation changed the reproduction-local immutable parent");
+  require_population_membership(*grammar, {after.first, after.second});
+  rejects_invalid_argument([&] {
+    (void)variation_detail::crossover_certified(*left, *right, 12, other);
+  }, "crossover consumed an owner from another variation context");
+  rejects_invalid_argument([&] {
+    (void)variation_detail::CertifiedCrossoverParent::create_scalar(original, context);
+  }, "owner import accepted an out-of-domain mutated parent");
+  original.ast.consts.push_back(Value::from_string_hash_len(1, 1));
+  check(!variation_detail::CertifiedCrossoverParent::create_scalar(original, context),
+      "registry-dependent constants entered scalar parent reuse");
 }
 
 void test_manual_selection_crossover_mutation_replay() {
@@ -737,6 +801,8 @@ int main() {
     test_nonterminal_variation_policy();
     test_backend_replay_and_owned_ref_parity();
     test_manual_selection_crossover_mutation_replay();
+    test_deferred_site_analysis_matches_eager();
+    test_selected_parent_ownership();
     test_repeated_holes_and_local_children_remain_members();
     test_all_parents_are_validated_before_selection();
     test_prepared_ablation(repro::CpuReproAblation::GpuCandidates);

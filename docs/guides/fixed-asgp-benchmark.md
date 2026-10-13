@@ -497,3 +497,16 @@ screening; `--generations 4` is only a focused diagnostic, not the main target.
 Primary search-wall includes cold evolution initialization and final evaluation;
 process wall additionally includes import and post-search audit/export. Neither
 metric should be mixed with frozen-parent single-generation ratios.
+Native CPU reproduction can opt into `GAGP_CPU_LAZY_ANALYSIS=1`: every input
+still receives canonical grammar admission before selection, and every changed
+child receives membership/lowering/resource admission. Future variation sites
+are built only when an operator needs them, rather than during every child
+acceptance. `GAGP_CPU_SELECTED_PARENTS=1` additionally keeps immutable scalar
+parent ASTs and their certified site analysis for one reproduction call. It
+copies/admit-checks selected parents once, declines registry-dependent constants,
+and releases owners before the generation ends. It does not add CPU workers or
+change GPU reproduction. Both settings preserve native CPU operator/RNG behavior;
+CPU ablation modes retain their ordinary preparation. External mutable parents
+are always admitted, including unselected invalid parents. Focused regression:
+`gagp_test_grammar_reproduction` plus crossover, mutation, membership and variation
+contract/cache/region tests. Archived benchmark manifests must record their use.

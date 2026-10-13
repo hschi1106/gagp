@@ -19,8 +19,8 @@ ProgramGenome mutate(const ProgramGenome& genome, std::uint64_t seed,
   if (!std::isfinite(mutation_subtree_prob) || mutation_subtree_prob < 0 || mutation_subtree_prob > 1)
     throw std::invalid_argument("compiled mutation subtree probability must be in [0,1]");
   ++context.counters().mutation_attempts;
-  auto parent = variation_detail::certify(genome, context);
-  const auto analysis = context.analyze(parent);
+  std::shared_ptr<const VariationAnalysis> analysis;
+  auto parent = variation_detail::certify(genome, context, &analysis);
   GrammarRandom random(seed);
   const double draw = static_cast<double>(random.next() >> 11) * 0x1.0p-53;
   if (draw >= mutation_subtree_prob) {

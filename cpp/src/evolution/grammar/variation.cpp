@@ -158,7 +158,8 @@ bool same_materialized_program(const AstProgram& a, const AstProgram& b) {
 }
 }  // namespace
 
-ProgramGenome certify(ProgramGenome genome, VariationContext& context) {
+ProgramGenome certify(ProgramGenome genome, VariationContext& context,
+    std::shared_ptr<const VariationAnalysis>* handoff) {
   // Validate before compaction so malformed imports cannot reach table remapping.
   auto analysis = context.analyze(genome);
   const auto names = genome.ast.names.size();
@@ -170,6 +171,7 @@ ProgramGenome certify(ProgramGenome genome, VariationContext& context) {
     analysis = context.analyze(genome);
   // compact_genome_tables already refreshed the native metadata.
   genome.derivation = std::make_shared<const DerivationMetadata>(analysis->witness);
+  if (handoff) *handoff = std::move(analysis);
   return genome;
 }
 
@@ -199,7 +201,8 @@ ProgramGenome accept(AstProgram candidate, const ProgramGenome& certified_parent
   ProgramGenome child;
   child.ast = std::move(candidate);
   try {
-    child = use == AdmissionUse::Execution ? certify_execution(std::move(child), context)
+    child = (use == AdmissionUse::Execution || context.offspring_site_analysis_deferred())
+        ? certify_execution(std::move(child), context)
                                           : certify(std::move(child), context);
     if (context.requests().size() > 1 && child.derivation->request.nonterminal !=
         (owned_parent_root ? *owned_parent_root :

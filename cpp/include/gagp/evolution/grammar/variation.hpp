@@ -42,6 +42,9 @@ class VariationContext {
   const CompiledGrammar& grammar() const { return *grammar_; }
   const std::shared_ptr<const CompiledGrammar>& grammar_owner() const { return grammar_; }
   const GenerationRequest& request() const { return request_; }
+  // Defer optional future-site metadata, never membership/lowering/resource admission.
+  void defer_offspring_site_analysis(bool enabled) { defer_offspring_sites_ = enabled; }
+  bool offspring_site_analysis_deferred() const { return defer_offspring_sites_; }
   VariationAnalysisCache& cache() { return cache_; }
   VariationCounters& counters() { return counters_; }
   const VariationCounters& counters() const { return counters_; }
@@ -67,6 +70,7 @@ class VariationContext {
   std::vector<GenerationRequest> requests_;
   VariationAnalysisCache cache_;
   VariationCounters counters_;
+  bool defer_offspring_sites_ = false;
   std::optional<ProjectedBudget> offspring_budget_;
   std::size_t frame_cost_cache_capacity_ = 0;
   ContextualFrameCostCacheCounters frame_cost_cache_counters_;
