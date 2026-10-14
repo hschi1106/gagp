@@ -25,6 +25,8 @@ UNMEASURED = {
 MODES = ('asgp_1t', 'gagp_cpu', 'gpu_eval', 'gpu_repro', 'gpu_overlap')
 LABELS = ('ASGP 1T', 'GAGP CPU 1T', 'GPU evaluation', 'GPU eval + reproduction', 'GPU overlap')
 SEEDS = (0, 1, 2)
+QUALIFICATION_SCOPE = ('Known-solution reference checks and GPU final sampled-population CPU fitness audit only; '
+    'not exact full-population or per-case parity. Initial full-population differences are reported separately.')
 
 
 def read(path):
@@ -108,6 +110,7 @@ def summarize(study: Path, allow_incomplete=False):
                     errors=sum(r.get('errors', 0) for r in rows) if gpu else None,
                     timeouts=sum(r.get('timeouts', 0) for r in rows) if gpu else None,
                     qualified=not reasons, qualification_reason=';'.join(reasons),
+                    qualification_scope=QUALIFICATION_SCOPE,
                     reproduction_profile=data['reproduction_profile'],
                     reproduction_fallback_reason=data.get('reproduction_fallback_reason', ''))
                 curves[key] = [normal_fitness(task, mode, r['best']) for r in rows]
@@ -154,6 +157,7 @@ def summarize(study: Path, allow_incomplete=False):
                 generations=manifest['generations'][task],
                 qualified=bool(group) and all(r['qualified'] for r in group),
                 qualification_reason=';'.join(sorted({r['qualification_reason'] for r in group if r['qualification_reason']})),
+                qualification_scope=QUALIFICATION_SCOPE,
                 reproduction_profiles=';'.join(sorted({r['reproduction_profile'] for r in group})))
             for field in numeric:
                 values = [r.get(field) for r in group]
@@ -175,6 +179,57 @@ def write_csv(path, rows):
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
         writer.writerows(rows)
+
+
+def initial_snapshots(study, allow_incomplete=False):
+    """Compare ordered frozen programs, not independently evolved populations."""
+    summary, programs, missing = [], [], []
+    for task in TASKS:
+        source = study/'initial-snapshots'/f'{task}.asgp_snapshot.json'
+        target = study/'initial-snapshots'/f'{task}.snapshot.json'
+        if not source.is_file() or not target.is_file():
+            missing.append(f'initial-snapshot:{task}')
+            continue
+        asgp, gpu = read(source)['programs'], read(target)['programs']
+        if len(asgp) != 1024 or len(gpu) != 1024:
+            raise ValueError(f'initial snapshot must contain all 1024 programs: {task}')
+        local = []
+        for i, (a, g) in enumerate(zip(asgp, gpu)):
+            if a['cases'] != 1024 or g['cases'] != 1024 or g['program'] != i:
+                raise ValueError(f'initial snapshot order/case count mismatch: {task}/{i}')
+            row = dict(task=task, program=i, cases=1024, asgp_fitness=a['fitness'],
+                cpu_fitness=g['cpu_fitness'], gpu_fitness=g['fitness'],
+                asgp_cpu_abs_difference=abs(a['fitness']-g['cpu_fitness']),
+                cpu_gpu_abs_difference=abs(g['cpu_fitness']-g['fitness']),
+                gpu_errors=g['errors'], gpu_timeouts=g['timeouts'],
+                gpu_fallbacks=g['fallbacks'], gpu_unscored=g['unscored'])
+            local.append(row)
+        programs.extend(local)
+        summary.append(dict(task=task, programs=1024, cases_per_program=1024,
+            asgp_cpu_differing_programs=sum(r['asgp_cpu_abs_difference'] != 0 for r in local),
+            asgp_cpu_max_abs_difference=max(r['asgp_cpu_abs_difference'] for r in local),
+            cpu_gpu_differing_programs=sum(r['cpu_gpu_abs_difference'] != 0 for r in local),
+            cpu_gpu_max_abs_difference=max(r['cpu_gpu_abs_difference'] for r in local),
+            **{key:sum(r[key] for r in local) for key in ('gpu_errors','gpu_timeouts','gpu_fallbacks','gpu_unscored')},
+            scope='Full frozen initial population aggregate fitness; not per-case output parity or evolving-population parity',
+            metric_provenance='Snapshot JSON omits settings; verify common fitness from recorded invocation',
+            asgp_source=str(source), gagp_source=str(target)))
+    if missing and not allow_incomplete:
+        raise ValueError('Missing initial snapshots: '+', '.join(missing))
+    return summary, programs, missing
+
+
+def generation_rows(study, records):
+    accepted = {(r['task'],r['mode'],r['seed']) for r in records}
+    output = []
+    for cell in read(study/'formal/manifest.json')['cells']:
+        key = cell.get('task'), cell.get('mode'), cell.get('seed')
+        if key not in accepted:
+            continue
+        for row in read(cell['output'])['generations']:
+            output.append(dict(row, task=key[0], mode=key[1], seed=key[2],
+                best_common_fitness=normal_fitness(key[0], key[1], row['best'])))
+    return output
 
 
 def native_controls(study):
@@ -251,6 +306,8 @@ def main():
     parser.add_argument('--allow-incomplete', action='store_true')
     args = parser.parse_args()
     summary, records, curves, quality, missing = summarize(args.study.resolve(), args.allow_incomplete)
+    snapshots, snapshot_programs, snapshot_missing = initial_snapshots(args.study.resolve(), args.allow_incomplete)
+    missing.extend(snapshot_missing)
     out = args.out.resolve()
     if out == args.study.resolve() or out in [args.study.resolve()/p for p in ('artifacts', 'formal', 'quality', 'pilot', 'native-controls')]:
         raise ValueError('Output must be a separate summary directory')
@@ -258,13 +315,18 @@ def main():
     write_csv(out/'summary.csv', summary)
     write_csv(out/'per-seed.csv', records)
     write_csv(out/'quality.csv', quality)
+    write_csv(out/'generations.csv', generation_rows(args.study.resolve(), records))
+    write_csv(out/'initial-snapshot-summary.csv', snapshots)
+    write_csv(out/'initial-snapshot-programs.csv', snapshot_programs)
     write_csv(out/'native-controls.csv', native_controls(args.study.resolve()))
     (out/'status.json').write_text(json.dumps(dict(missing=missing,
         complete=not missing, measured_tasks=list(TASKS), expected_formal_cells=30, expected_quality_cells=30,
         unmeasured_tasks=UNMEASURED,
         pilot_policy='pilot/ preserves the interrupted original attempt; pilot-supported/ is the two-task pilot.',
         seed_policy='Three independent searches; ranges describe seed variability, not repeated identical workloads.',
-        ratios='Median of seed-matched ASGP ratios; measured ratios are descriptive only when correctness fails.',
+        ratios='Median of seed-matched ASGP ratios; measured ratios are descriptive only when scoped correctness checks fail.',
+        qualification_scope=QUALIFICATION_SCOPE,
+        initial_snapshot_policy='Initial aggregate-fitness differences are reported, not used to discard timings; successful limited checks do not establish exact parity.',
         quality='Same independent local ASGP test split, 1024 cases per checkpoint; not official PSB. Natural duplicates and possible training overlap retained.',
         list_fitness='Common exact metric: ASGP negative error + 1024; GAGP correct count. Native-policy controls must not use this conversion.',
         stock_probe='benchmarks/fixed_asgp/optimization/stock_capability.cpp'), indent=2)+'\n')
