@@ -1,0 +1,51 @@
+{
+  "status": "rejected: no kernel or complete-search improvement over leaf-direct; runtime code removed",
+  "hypothesis": "Enter child locally through ordered entry charge, predicate and base/preparation; persist nonterminal frames only",
+  "rows": [
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/sum25-window-20261014/logs/entry-off0",
+      "binary_sha256": "80e455efc6988609696a5c1f332f1b01f7e032c6ec98b161e137509d116e74b5",
+      "search_ms": 4320.110235,
+      "kernel_ms": 3500.6927480000004,
+      "semantic_sha": "abfbc9744372d363d1e51626df41b5f3dbbe86bb7312387bbba95557548d2418",
+      "final_sha": "9f7468cfa4fafd96668248a8baa938269f8722b1c29dcf3aa9243a45349f452e",
+      "history_sha": "159aa1633b2bca2f323c7f52f7873ba7eb02e40b65a41c487cdb5ebeab158c94"
+    },
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/sum25-window-20261014/logs/entry-on0",
+      "binary_sha256": "80e455efc6988609696a5c1f332f1b01f7e032c6ec98b161e137509d116e74b5",
+      "search_ms": 4261.142939,
+      "kernel_ms": 3518.0344089999994,
+      "semantic_sha": "abfbc9744372d363d1e51626df41b5f3dbbe86bb7312387bbba95557548d2418",
+      "final_sha": "9f7468cfa4fafd96668248a8baa938269f8722b1c29dcf3aa9243a45349f452e",
+      "history_sha": "159aa1633b2bca2f323c7f52f7873ba7eb02e40b65a41c487cdb5ebeab158c94"
+    },
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/sum25-window-20261014/logs/entry-on1",
+      "binary_sha256": "80e455efc6988609696a5c1f332f1b01f7e032c6ec98b161e137509d116e74b5",
+      "search_ms": 4331.582014,
+      "kernel_ms": 3520.2015970000007,
+      "semantic_sha": "abfbc9744372d363d1e51626df41b5f3dbbe86bb7312387bbba95557548d2418",
+      "final_sha": "9f7468cfa4fafd96668248a8baa938269f8722b1c29dcf3aa9243a45349f452e",
+      "history_sha": "159aa1633b2bca2f323c7f52f7873ba7eb02e40b65a41c487cdb5ebeab158c94"
+    },
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/sum25-window-20261014/logs/entry-off1",
+      "binary_sha256": "80e455efc6988609696a5c1f332f1b01f7e032c6ec98b161e137509d116e74b5",
+      "search_ms": 4260.37844,
+      "kernel_ms": 3512.848779,
+      "semantic_sha": "abfbc9744372d363d1e51626df41b5f3dbbe86bb7312387bbba95557548d2418",
+      "final_sha": "9f7468cfa4fafd96668248a8baa938269f8722b1c29dcf3aa9243a45349f452e",
+      "history_sha": "159aa1633b2bca2f323c7f52f7873ba7eb02e40b65a41c487cdb5ebeab158c94"
+    }
+  ],
+  "reference_leaf": {
+    "off": 4379.080809,
+    "on": 4228.963715
+  },
+  "tests": "/home/hschi1106/.t3/worktrees/gagp/sum25-window-20261014/logs/test-entry.log",
+  "patch": "/home/hschi1106/.t3/worktrees/gagp/sum25-window-20261014/logs/rejected-entry-only.patch",
+  "resource_log": "/home/hschi1106/.t3/worktrees/gagp/sum25-window-20261014/logs/build-entry.log",
+  "semantics": "All semantic rows and complete final/history ASTs exact; expanded CPU/GPU window test covers evolved early-base predicates, capacity, fuel and one/two-state windows.",
+  "reason": "Two-pair OFF(withleaf)4290.244ms vs ON4296.362ms; kernel3506.771ms vs3519.118ms. Added code provides no useful benefit and standalone leaf median4228.964ms is lower."
+}
