@@ -1,0 +1,289 @@
+{
+  "format": "expanded-numeric-diagnosis-v1",
+  "scope": "Read-only CPU diagnosis; no runtime or frozen input changes; no GPU execution during diagnosis.",
+  "last_index_of_zero": {
+    "parent_index": 0,
+    "program": {
+      "solve": "index(xs,0)",
+      "divide": "n; clamped to n-1",
+      "combine": "left * left"
+    },
+    "cause": "ASGP performs wrapping integer arithmetic directly. GAGP generic arithmetic converts Int operands to double and back to signed integer before wrapping multiplication. Repeated squaring loses low bits above 2^53. This is an existing runtime numeric difference, not a HeadIndex translation error.",
+    "source_locations": [
+      {
+        "path": "/home/hschi1106/r13921069/src/eval/interpreter.cc",
+        "lines": "25-39"
+      },
+      {
+        "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/src/runtime/cpu/execute_bytecode_cpu.cpp",
+        "lines": "362-392"
+      },
+      {
+        "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/src/runtime/gpu/device/execute_bytecode_device.cuh",
+        "lines": "259-281"
+      }
+    ],
+    "training": {
+      "asgp_capped_l1_sum": 361146,
+      "gagp_cpu_capped_l1_sum": 66976,
+      "gagp_gpu_capped_l1_sum": 66976,
+      "different_case_losses": 301,
+      "first8_mean_gap": 36771.25,
+      "example": {
+        "case_index": 6,
+        "case": {
+          "expected": "3",
+          "extent": 0,
+          "input": [
+            "7",
+            "9",
+            "3",
+            "0",
+            "7",
+            "5",
+            "8",
+            "10",
+            "6",
+            "3",
+            "1",
+            "1",
+            "4",
+            "8",
+            "4",
+            "2"
+          ],
+          "start": 0
+        },
+        "asgp_output": "5478889252096573441",
+        "gagp_generic_output": "0",
+        "asgp_loss": 1000,
+        "gagp_loss": 3
+      }
+    },
+    "independent_model": "Start with input[0]; repeat len(input)-1 times: x = signed_int64_wrap(x*x). GAGP model first converts x through double then int64 before each multiplication. Summed capped losses exactly reproduce stored native snapshot totals.",
+    "heldout": [
+      {
+        "parent_index": 0,
+        "asgp": {
+          "exact": 58,
+          "runtime_errors": 0,
+          "capped_l1_sum": 386605,
+          "raw_path": "/tmp/expanded-diagnosis/0a.quality.json",
+          "raw_sha256": "5cc926abc313106d93a836089427512c83fcaa09c630c36ee0a1d7e9722cc044"
+        },
+        "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
+        "gagp_cpu": {
+          "exact": 58,
+          "runtime_errors": 0,
+          "capped_l1_sum": 81682,
+          "raw_path": "/tmp/expanded-diagnosis/0g.quality.json",
+          "raw_sha256": "986e6e296601d93419e48fbdde8829c4d7443ae2e4026cd5d146dfad2b688a41"
+        }
+      },
+      {
+        "parent_index": 1,
+        "asgp": {
+          "exact": 51,
+          "runtime_errors": 0,
+          "capped_l1_sum": 19993,
+          "raw_path": "/tmp/expanded-diagnosis/1a.quality.json",
+          "raw_sha256": "0603aaae5c386d0217260e95e6722da9a03e07be6d24236d0328876f63a5d7d6"
+        },
+        "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
+        "gagp_cpu": {
+          "exact": 51,
+          "runtime_errors": 0,
+          "capped_l1_sum": 19993,
+          "raw_path": "/tmp/expanded-diagnosis/1g.quality.json",
+          "raw_sha256": "18505f09b21589f4b56e9a80d4915f600378e5ddf8690e05a148d412c5e655ec"
+        }
+      },
+      {
+        "parent_index": 2,
+        "asgp": {
+          "exact": 44,
+          "runtime_errors": 0,
+          "capped_l1_sum": 19071,
+          "raw_path": "/tmp/expanded-diagnosis/2a.quality.json",
+          "raw_sha256": "1694f83116ae4d539b6523fcd6dd6e031a5b615ced592cf7ff009960aaf39d7c"
+        },
+        "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
+        "gagp_cpu": {
+          "exact": 44,
+          "runtime_errors": 0,
+          "capped_l1_sum": 19071,
+          "raw_path": "/tmp/expanded-diagnosis/2g.quality.json",
+          "raw_sha256": "096ba9acb739667c51d17aed25e5398e5820685a4cbb2a7595b03d19cb294480"
+        }
+      },
+      {
+        "parent_index": 3,
+        "asgp": {
+          "exact": 51,
+          "runtime_errors": 0,
+          "capped_l1_sum": 19993,
+          "raw_path": "/tmp/expanded-diagnosis/3a.quality.json",
+          "raw_sha256": "c0c232ea0e5d03435f67edd6dddff30b4944bcf4231a7e4c157ae6f7054b1c03"
+        },
+        "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
+        "gagp_cpu": {
+          "exact": 51,
+          "runtime_errors": 0,
+          "capped_l1_sum": 19993,
+          "raw_path": "/tmp/expanded-diagnosis/3g.quality.json",
+          "raw_sha256": "2ae8ef8a02fc5e37febd0aded65726a58375255cd685259a2c8194dbbbe6c423"
+        }
+      },
+      {
+        "parent_index": 4,
+        "asgp": {
+          "exact": 51,
+          "runtime_errors": 0,
+          "capped_l1_sum": 19993,
+          "raw_path": "/tmp/expanded-diagnosis/4a.quality.json",
+          "raw_sha256": "93084a500049f304b58d97c3d33cf1fdd4fa0f5245fd59c992bafd79a6901056"
+        },
+        "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
+        "gagp_cpu": {
+          "exact": 51,
+          "runtime_errors": 0,
+          "capped_l1_sum": 19993,
+          "raw_path": "/tmp/expanded-diagnosis/4g.quality.json",
+          "raw_sha256": "257f303f986d1c22f539bc85ad2d78eeb851842ea00b4c318df430986f68ba1b"
+        }
+      },
+      {
+        "parent_index": 5,
+        "asgp": {
+          "exact": 33,
+          "runtime_errors": 0,
+          "capped_l1_sum": 20011,
+          "raw_path": "/tmp/expanded-diagnosis/5a.quality.json",
+          "raw_sha256": "ff854d544ae1625743f093b0b31b2da227b47dead3528f02d20c06bbe67a4ead"
+        },
+        "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
+        "gagp_cpu": {
+          "exact": 33,
+          "runtime_errors": 0,
+          "capped_l1_sum": 20011,
+          "raw_path": "/tmp/expanded-diagnosis/5g.quality.json",
+          "raw_sha256": "954a4ff7f781bff66c957b5fed0a27a7eaea69ea5910088c3ac47c229bd12a88"
+        }
+      },
+      {
+        "parent_index": 6,
+        "asgp": {
+          "exact": 20,
+          "runtime_errors": 0,
+          "capped_l1_sum": 139275,
+          "raw_path": "/tmp/expanded-diagnosis/6a.quality.json",
+          "raw_sha256": "0567fb0129bb7eaf4a19efe68c4e0e1cc88c92ba1e715311f3cc68e1f06ef541"
+        },
+        "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
+        "gagp_cpu": {
+          "exact": 20,
+          "runtime_errors": 0,
+          "capped_l1_sum": 139275,
+          "raw_path": "/tmp/expanded-diagnosis/6g.quality.json",
+          "raw_sha256": "44682abd1297537babfa3ee31384e6d077a08daa67b1b8f4dc5061eec42172be"
+        }
+      },
+      {
+        "parent_index": 7,
+        "asgp": {
+          "exact": 51,
+          "runtime_errors": 0,
+          "capped_l1_sum": 19993,
+          "raw_path": "/tmp/expanded-diagnosis/7a.quality.json",
+          "raw_sha256": "b3d2798e82cc141a7c379b7ae64870926dbda99c99ca18957adf940ec2b9b5d4"
+        },
+        "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
+        "gagp_cpu": {
+          "exact": 51,
+          "runtime_errors": 0,
+          "capped_l1_sum": 19993,
+          "raw_path": "/tmp/expanded-diagnosis/7g.quality.json",
+          "raw_sha256": "e835ac2bd3fb9ddfa49a72a7608d9067ac530a59126c25925355af89a1321706"
+        }
+      }
+    ]
+  },
+  "count_odds": {
+    "parent_index": 992,
+    "asgp_fitness": -1000944,
+    "gagp_cpu_fitness": -820262,
+    "gagp_gpu_fitness": -824198,
+    "gpu_profile": "int-list-views-typed-sorted-direct-root-hybrid-measure-cache-window-unboxed-bound-add",
+    "status": "Stored CPU/GPU mismatch confirmed, precise path not isolated; do not treat hypothesis as established cause.",
+    "hypothesis": "Arithmetic-heavy Combine includes multiplication of large intermediate results. Generic CPU arithmetic and typed int64 arithmetic differ; generic out-of-range floating-to-int conversions can also vary between CPU/GPU. Further per-case execution/path instrumentation is needed.",
+    "source_locations": [
+      {
+        "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/src/runtime/cpu/typed_phase.hpp",
+        "lines": "61-72"
+      },
+      {
+        "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/src/runtime/gpu/device/view_phase_device.cuh",
+        "lines": "48-56"
+      }
+    ]
+  },
+  "interpretation": "Same frozen AST source and cases do not imply identical arithmetic semantics. Known-solution or top16 checks cannot establish full-population ASGP/GAGP or CPU/GPU equivalence.",
+  "source_hashes": [
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/src/runtime/cpu/execute_bytecode_cpu.cpp",
+      "sha256": "863f6d6ba6324023079beca503626533350b789a0f0655d36f6bb9b726287d59"
+    },
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/src/runtime/gpu/device/execute_bytecode_device.cuh",
+      "sha256": "b1d957e9f66347a5a0bfb16c95d46f742bce93e0c38121ac24bad23a9c7e51f2"
+    },
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/src/runtime/cpu/typed_phase.hpp",
+      "sha256": "00cf7dd339244078ac121e50be8adba09b7fef4447335065ea1147cd505167de"
+    },
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/src/runtime/gpu/device/view_phase_device.cuh",
+      "sha256": "afc56e74f8d29328e91cb3326239b781e03e1d8600c9613f60e3bfc90198dec7"
+    },
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/src/bench/fixed_asgp/adapter.cpp",
+      "sha256": "09d88cd695ab8f8c54a4a60894d61440206776689e0cbb0a5b553bc565ff693b"
+    },
+    {
+      "path": "/home/hschi1106/r13921069/src/eval/interpreter.cc",
+      "sha256": "99fccaad507383ab07f1f7e54ae60569d4d94f81456e34730e46cf6c0a9d3d6b"
+    },
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/expanded-20261014/artifacts/last_index_of_zero.source.json",
+      "sha256": "e300a81f90a6d0eb2b75e195e2c23c97ec14201218f72cf464c3867d649a4782"
+    },
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/expanded-20261014/artifacts/last_index_of_zero.p1024.prepared.json",
+      "sha256": "94121f7c7b4eae1712fb8d06de960783aeb8a47da0df24637be1dcfa1b5fadcc"
+    },
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/expanded-20261014/initial-snapshots/last_index_of_zero.asgp_snapshot.json",
+      "sha256": "159f5215c30b826338f712499386f8282cbc27f92bfb9e4730ae83aebfdeb15f"
+    },
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/expanded-20261014/initial-snapshots/last_index_of_zero.snapshot.json",
+      "sha256": "8fd2e7da703724c3d20b2b7cce61d93cc4df264892d97e110affe7fc9bcfb5a7"
+    },
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/expanded-20261014/artifacts/count_odds.source.json",
+      "sha256": "f91cbc862d32d45752b8014103ff9845ccde46fd5470f3f11584a21b254227ea"
+    },
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/expanded-20261014/artifacts/count_odds.p1024.prepared.json",
+      "sha256": "cbf50146f3532a9a057e384af8ddc55f7b5dae01ca647aec6d0cbb2b99a8ff35"
+    },
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/expanded-20261014/initial-snapshots/count_odds.asgp_snapshot.json",
+      "sha256": "2e1d1afa66e8e21f178047afed4129344314110439dd6c8d2649c1bbb65d350b"
+    },
+    {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/expanded-20261014/initial-snapshots/count_odds.snapshot.json",
+      "sha256": "04ad16451073dab911c6c39042bbc9c979359ee5312587b0353e74c1af8a39fe"
+    }
+  ]
+}
