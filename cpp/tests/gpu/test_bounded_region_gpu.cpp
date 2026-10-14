@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <cuda_runtime.h>
 #include <cstdlib>
 #include <limits>
 #include "../../src/runtime/gpu/view_profile.hpp"
@@ -1069,6 +1070,42 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
                      on.execution_profile.find("int-list-views") != std::string::npos &&
                      on.execution_profile.find("-direct") == std::string::npos,
                  "measure cache mixed generic/typed/impure production fitness and counters")) return false;
+    }
+  }
+  if (root) {
+    // Queue support must not reduce the original dynamic shared-memory limit,
+    // including when the optional measure cache cannot fit and falls back.
+    Environment queue("GAGP_DYNAMIC_PROGRAM_QUEUE"), cache("GAGP_MEASURE_PHASE_CACHE");
+    FitnessSessionGpu session;
+    if (!check(session.init({{}}, {Value::from_int(7)}, 100, 32, 7).ok,
+               "shared capacity session init")) return false;
+    int device = 0; cudaDeviceProp properties{};
+    if (!check(cudaGetDevice(&device) == cudaSuccess &&
+                   cudaGetDeviceProperties(&properties, device) == cudaSuccess,
+               "shared capacity device properties")) return false;
+    const auto shared_limit = static_cast<std::size_t>(properties.sharedMemPerBlock);
+    const auto root_length = (shared_limit - 32 * sizeof(double)) / sizeof(gpu_detail::DInstr);
+    auto program = invocation(unary_segment(Value::from_int(7)), {Value::from_int(0)});
+    program.n_locals = 1;
+    // A no-op Int check makes the initial root length even. Each added
+    // PushConst/Store pair is valid and leaves the bounded call's stack intact.
+    program.code.insert(program.code.end() - 1, ins(Opcode::CheckInt));
+    while (program.code.size() < root_length) {
+      program.code.insert(program.code.begin(), {ins_a(Opcode::PushConst, 0), ins_a(Opcode::Store, 0)});
+    }
+    program.instruction_fuel.assign(program.code.size(), 0);
+    if (!check(program.code.size() == root_length &&
+                   root_length * sizeof(gpu_detail::DInstr) + 32 * sizeof(double) == shared_limit,
+               "shared capacity fixture reaches exact limit") ||
+        !verify_fixture(program, "shared capacity boundary root")) return false;
+    for (bool enabled : {false, true}) {
+      if (enabled) setenv("GAGP_DYNAMIC_PROGRAM_QUEUE", "1", 1);
+      else unsetenv("GAGP_DYNAMIC_PROGRAM_QUEUE");
+      const auto gpu = session.eval_programs({program}, true);
+      if (!check(gpu.ok && gpu.fitness == std::vector<double>{0} &&
+                     gpu.case_counts[0][0] == 1 && gpu.case_counts[0][1] == 0 &&
+                     gpu.execution_profile.find("-measure-cache") == std::string::npos,
+                 "queue exact shared capacity and cache fallback")) return false;
     }
   }
   if(direct) {

@@ -592,7 +592,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   const auto launch_prep_t0 = std::chrono::steady_clock::now();
   const bool has_regions = !packed.region_segments.empty();
   std::size_t shared_bytes = kernel_shared_bytes(packed.max_code_len, impl_->blocksize);
-  if (shared_bytes + (has_regions ? 16u : 0u) > static_cast<std::size_t>(impl_->props.sharedMemPerBlock)) {
+  if (shared_bytes > static_cast<std::size_t>(impl_->props.sharedMemPerBlock)) {
     return fitness_eval_single_error(ErrCode::Value, "shared memory requirement exceeded");
   }
   // Keep generic frame/memo storage out of ordinary kernel call graphs.
@@ -653,7 +653,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       (gpu_detail::DMEASURE_CACHE_MAX + 1) + sizeof(int);
   region_workspace.measure_phase_cache = use_views && has_regions &&
       std::getenv("GAGP_MEASURE_PHASE_CACHE") &&
-      shared_bytes + measure_bytes + 16u <= static_cast<std::size_t>(impl_->props.sharedMemPerBlock);
+      shared_bytes + measure_bytes <= static_cast<std::size_t>(impl_->props.sharedMemPerBlock);
   if (region_workspace.measure_phase_cache) shared_bytes += measure_bytes;
   region_workspace.window_leaf_direct = std::getenv("GAGP_GPU_WINDOW_LEAF_DIRECT") &&
       std::string(std::getenv("GAGP_GPU_WINDOW_LEAF_DIRECT")) != "0";

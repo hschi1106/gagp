@@ -261,11 +261,15 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
   if constexpr (!EnableRegions) break;
   // Thread 0 must finish consuming the reduction before shared code is reused.
   // Workspace remains owned by the physical block when it takes another row.
-  __shared__ int next_row;
   if (next_program) {
-    if (tid == 0) next_row = atomicAdd(next_program, 1);
+    // Reduction is complete and every signed queue index is exact in double.
+    // Reuse its existing slot so queue support adds no static shared capacity.
+    if (tid == 0) partial_scores[0] = static_cast<double>(atomicAdd(next_program, 1));
     __syncthreads();
-    logical_idx = static_cast<std::size_t>(next_row);
+    logical_idx = static_cast<std::size_t>(static_cast<int>(partial_scores[0]));
+    // All lanes must consume the broadcast before the next root-code upload
+    // can overlap this program's old partial-score storage.
+    __syncthreads();
   } else {
     logical_idx += gridDim.x;
     __syncthreads();
