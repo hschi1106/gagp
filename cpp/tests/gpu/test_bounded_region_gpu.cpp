@@ -838,6 +838,39 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
   if (direct) direct_env = std::make_unique<Environment>("GAGP_DIRECT_PHASE");
   std::unique_ptr<Environment> root_env;
   if (root) root_env = std::make_unique<Environment>("GAGP_DIRECT_ROOT");
+  {
+    Environment prepared("GAGP_PREPARED_CASE_VIEWS");
+    auto program = captured_counter_program();
+    auto& segment = program.bounded_region_segments[0];
+    segment.plan.parameter_types = {ValueTag::IntList};
+    segment.base_body = phase({}, {ins_a(Opcode::Load, 0),
+        ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Len), 1), ins(Opcode::Return)},
+        {{slot(RegionSlotBank::Parameter, 0), 0}}, 1);
+    const auto empty = payload::make_int_list_value({});
+    auto list = payload::make_int_list_value({Value::from_int(2), Value::from_int(3)});
+    list.b = true; // Public container b is not a trusted private offset marker.
+    const std::vector<CaseBindings> cases{
+        {{0,Value::from_int(3)},{1,list}}, {{0,Value::from_int(0)},{1,empty}}};
+    const std::vector<Value> answers{Value::from_int(5),Value::from_int(0)};
+    auto shifted = program;
+    for (int i=0;i<20;++i)
+      shifted.consts.push_back(payload::make_int_list_value({Value::from_int(i)}));
+    for (int fuel : {0,2,100}) {
+      FitnessSessionGpu session;
+      if (!check(session.init(cases,answers,fuel,32,7).ok,"prepared captures init")) return false;
+      // Reusing a session with changing constant payloads changes table offsets.
+      for (const auto* current : {&program,&shifted,&program}) {
+        const auto cpu=eval_fitness_cpu({*current},cases,answers,fuel,7,32);
+        const auto gpu=session.eval_programs({*current},true);
+        if (!check(gpu.ok && gpu.fitness==cpu,"prepared capture length/marker/table/fuel parity")) return false;
+      }
+    }
+    if (!compare_fitness(program,
+        {{{{0,Value::from_int(9)}},Value::from_int(-1),ErrCode::Value,true},
+         {{{0,Value::from_int(0)}},Value::from_int(0),ErrCode::Name,false},
+         {{{0,Value::from_int(0)},{1,Value::from_bool(true)}},Value::from_int(0),ErrCode::Type,false}},
+        100,"prepared capture lazy generic fallback")) return false;
+  }
   if(direct) {
     Environment coordinate_mode("GAGP_COORDINATE_EXECUTOR");
     {

@@ -1086,3 +1086,28 @@ populations additionally pass archived-runtime strict grammar import without
 certificates and fullC1024 CPU/GPU evaluation, matching every search fitness.
 Evidence: `results/parallel-astra-20261014/constructive-export.json`. Root's
 separate import-certificate reuse and integrated timing are not conflated here.
+
+2026-10-14 prepared immutable GPU IntList parameter views retained opt-in:
+`GAGP_PREPARED_CASE_VIEWS=1` prepares a separate case table after the existing
+complete-payload/type-flow proof, and only if a packed region declares an IntList
+parameter. Offsets are rebuilt for each evaluation's payload table; original
+lengths/presence masks and lazy fallback remain. No device VM, fuel, search rule,
+reproduction backend or task dispatch changes. Build/pack/upload costs remain timed.
+
+Alternating OFF/ON, ON/OFF, OFF/ON three-pair House32 medians1192.607→1172.735ms
+(1.67% improvement), Median64 1008.864→1020.615ms (1.16% regression). House summed
+eval kernel617.187→576.899ms; generation804.596→780.143ms, with extra host packing
+and upload. All6 paired final AST and semantic/operator/error traces are exact.
+The larger grouped-run apparent win is not attributed to this optimization.
+Pre-experiment archived control in the same broader window was1211.302/1026.301ms.
+
+Earlier unconditional and shared-list-presence-only stages are rejected: Median
+DOES have a shared list input, but carries it as already-converted state and has
+no parameter captures. Its extra table preparation therefore had no kernel benefit.
+The final gate inspects packed region parameter types, never benchmark names.
+Focused fitness/bounded-region parity passes; final captured-list tests pass
+CUDA12.6 compute-sanitizer with0errors. Coverage includes private marker sanitization,
+empty/list lengths, shifted constant-payload tables, fuel, missing/wrong captures,
+and existing state-only sequence paths. Evidence:
+`results/parallel-astra-20261014/prepared-case-views.json`. Root's combined nine-cell
+and scaling runs determine final adoption; no further candidate directions planned.

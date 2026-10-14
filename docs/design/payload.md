@@ -188,6 +188,18 @@ launch payload array. The descriptor never escapes the evaluator. Slices need no
 copy or hash, removing copy-pool losses for this subset. The public Value and
 serialized payload representations stay the same.
 
+`GAGP_PREPARED_CASE_VIEWS=1` additionally prepares immutable captured list
+inputs once per evaluation. After the same complete-payload/type-flow proof,
+`FitnessSessionGpu` maps case IntList tokens to this launch's offsets while
+preserving their packed lengths. It uploads this separate table only when a
+region declares an IntList parameter; list state alone does not need it. Repeated
+phase bindings then use the existing idempotent view conversion. Original case
+values and presence masks remain available for ordinary kernels. Public container
+markers are cleared during session initialization, missing or unproved captures
+retain ordinary lazy errors, and prepared descriptors never escape the evaluator.
+Table construction is included in `pack_ms`, allocation/upload in `upload_ms`;
+changing constant payloads rebuilds offsets on the next evaluation.
+
 `GAGP_TYPED_VIEW_PHASE=1` uses unboxed int64/view payloads for proven phases with
 at most 8 locals and verified stack bound 16. It retains ordinary numeric
 conversions, protected division, checks and every semantic fuel charge. Larger
