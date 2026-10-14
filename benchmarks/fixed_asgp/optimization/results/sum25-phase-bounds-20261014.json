@@ -1,0 +1,46 @@
+{
+  "candidate": "GAGP_PER_PHASE_STACK_BOUND=1",
+  "status": "one-pair isolated metadata screen; root cache combination pending",
+  "contract": "P1024/C1024 Sum32 seed0 CPU1T native GPU overlap; complete fitness/evolution; same binary OFF2 and ON",
+  "rows": [
+    {
+      "name": "bound-off",
+      "evolve_wall_ms": 4404.211609,
+      "eval_kernel_ms": 3589.091369,
+      "checks": {
+        "trace": true,
+        "final": true,
+        "history": true
+      },
+      "binary_sha256": "944e567edf41a78a98fd02a4b5c7726df5be598f66f1013feff7f6c5e5a0139a",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs/bound-off/manifest.json"
+    },
+    {
+      "name": "bound-off2",
+      "evolve_wall_ms": 4345.324616,
+      "eval_kernel_ms": 3594.4978549999996,
+      "checks": {
+        "trace": true,
+        "final": true,
+        "history": true
+      },
+      "binary_sha256": "69bf114c0ae0b97a93949b42ec39252dce1cb579351182ffa15495a5f5720548",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs/bound-off2/manifest.json"
+    },
+    {
+      "name": "bound-on",
+      "evolve_wall_ms": 3755.087704,
+      "eval_kernel_ms": 3042.660044,
+      "checks": {
+        "trace": true,
+        "final": true,
+        "history": true
+      },
+      "binary_sha256": "69bf114c0ae0b97a93949b42ec39252dce1cb579351182ffa15495a5f5720548",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs/bound-on/manifest.json"
+    }
+  ],
+  "proof": "Dynamic packed_phase_indices map each compiler certificate to the copied executable row. Fixed phases retain original cold verified conservative bounds. Whole-program bucket bounds unchanged. GAGP_GENERIC_PHASE_VM overrides all phase bounds.",
+  "validation": "gagp_test_gpu_phase_population passed2.92s including257row mixed-stack certificates, conservative-owner equality, independentCPU fitness, and next-generation forced genericVM override",
+  "artifacts_root": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs"
+}

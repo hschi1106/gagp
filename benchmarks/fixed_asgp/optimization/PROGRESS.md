@@ -1191,9 +1191,37 @@ OFF/queue/SoA/both screens4395.224/4268.687/4296.499/4172.046 ms.
 Every final/history AST and semantic/operator/error row matches across all11runs.
 This is a small candidate improvement, not attainment of25x or cross-task evidence.
 
-Focused bounded-region CPU/GPU parity passes, including new17-program/65-case
-coverage at32/1024threads and4096framecapacity that forces queued block reuse.
-CUDA12.6 compute-sanitizer memcheck reports0errors. The final host guard reserves
-16bytes for queue shared state; archived timing binaries precede that guard-only
-change. Raw patches/binaries/manifests remain in the scheduling worktree's logs;
-tracked evidence: `results/sum25-scheduling-20261014.json`.
+Validation correction: the reported new17-program/65-case forced-queue fixture
+coverage was invalid. Its source was edited during compilation; the old-source
+object completed after the edit, preventing subsequent timestamp-based rebuilds.
+The resulting test binary lacked the new assertion strings. Existing tests in
+that binary passed and memcheck reported0errors, but neither establishes coverage
+of the new queue/SoA fixture. Its4096-frame limit also violates the existing GPU
+capacity128. Root is replacing it with97programs×65cases and128legalframes,
+then rebuilding and running fresh memcheck. Production capacity must not change.
+Full-search benchmark binaries and all11exact trace/AST comparisons are unaffected.
+The final host guard reserves16bytes for queue shared state; archived timing
+binaries precede that guard-only change. Raw patches/binaries/manifests remain in
+the scheduling worktree's logs; tracked evidence:
+`results/sum25-scheduling-20261014.json`.
+
+
+2026-10-14 per-phase compiler-bound metadata candidate:
+`GAGP_PER_PHASE_STACK_BOUND=1` retains each dynamic phase's actual checked GPU
+compiler stack certificate, using the existing packed-phase row mapping. Fixed
+phases retain their original conservative cold verified bounds; whole-program
+bounds and capability bucket admission stay unchanged. This lets small phases
+within a generic bucket use the existing typed phase VM. No executable, fuel,
+operator, RNG or architecture changes. `GAGP_GENERIC_PHASE_VM` remains dominant.
+
+One isolated same-binary full Sum32/seed0 pair: OFF4345.325 -> ON3755.088ms
+(13.58%); summed kernels3594.498 ->3042.660ms. Final/history AST and all semantic,
+operator and error rows are exact. Root's measure cache/hybrid combinations and
+repeated three-task timing are separate pending work, not part of this claim.
+
+The257-row mixed-stack regression compares fresh compiler metadata against a
+conservative owner, independentCPU fitness and a second forced-generic generation.
+It exposed an existing debug-override bug: capability rebucketing ignored the
+forced generic phase bound and could launch the compact interpreter. The bucket
+gate now honors `GAGP_GENERIC_PHASE_VM`; the focused native population test passes.
+Evidence: `results/sum25-phase-bounds-20261014.json`.

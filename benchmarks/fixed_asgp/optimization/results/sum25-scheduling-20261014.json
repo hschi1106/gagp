@@ -195,8 +195,8 @@
     "GAGP_GPU_COMPACT_COMPILE_FRAMES": "1"
   },
   "tests": [
-    "gagp_test_bounded_region_gpu passed",
-    "CUDA12.6 compute-sanitizer memcheck 0errors"
+    "Existing bounded-region tests passed; new forced-queue fixture was absent from stale compiled object.",
+    "CUDA12.6 compute-sanitizer reported0errors for the stale test binary; this does NOT establish new queue/SoA fixture coverage."
   ],
   "candidate": "GAGP_DYNAMIC_PROGRAM_QUEUE=1 plus GAGP_WINDOW_SOA=1",
   "status": "opt-in candidate; root integration and other task/scaling validation pending",
@@ -214,5 +214,14 @@
     "Generic capability bucket retains its original frame layout; only compact window bucket uses SoA.",
     "Final host shared-memory guard reserves16bytes for queue shared variable; benchmark binaries precede guard-only change."
   ],
-  "artifacts_root": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs"
+  "artifacts_root": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs",
+  "validation_correction": {
+    "reason": "The new test source was edited while its translation unit was already compiling. The old-source object finished after the edit and its newer mtime prevented subsequent rebuilds. Binary/object strings lack both new assertion messages.",
+    "source_mtime": "2026-10-14 17:15:51.859413970 +0800",
+    "stale_object_mtime": "2026-10-14 17:15:54.255405586 +0800",
+    "retracted": "New17-program/65-case forced-queue coverage and corresponding queue/SoA memcheck coverage.",
+    "fixture_error": "4096frames exceeds GPUcapacity128; productioncapacitymustnotchange.",
+    "replacement": "Root is building97programs\u00d765cases withlegal128frames, followed by fresh memcheck.",
+    "unaffected": "Fullchanging-population benchmark binary identity and all11run exacttrace/final/history comparisons; existing tests actually present in the stale binary."
+  }
 }
