@@ -782,3 +782,30 @@ VM, with the same binding, fuel, error and result checks. Other phases and regio
 frames can remain compact. This does not reduce a resource limit or alter a
 program. The normal generic backend remains available when the existing type,
 payload, local-capacity or structural proof fails.
+
+`GAGP_PER_PHASE_STACK_BOUND` preserves the private GPU compiler's bound for each
+changed phase. Fixed phases retain their validated cold-import bound. The owner
+still keeps the whole-program maximum for population admission; no public
+metadata is trusted and no declared stack capacity is reduced. The diagnostic
+`GAGP_GENERIC_PHASE_VM` override takes precedence over compact admission.
+
+Three optional evaluator changes compose with those proofs:
+
+- `GAGP_GPU_WINDOW_LEAF_DIRECT=1` executes the evolved base phase of an intrinsic
+  zero/singleton child without writing and rereading its global frame. Carried
+  state evaluation, the child depth check, entry fuel and base errors keep their
+  original order. It does not replace the base expression.
+- `GAGP_WINDOW_SOA=1` stores unboxed window-frame fields in planes across case
+  lanes. The allocated bytes, frame limits and logical frame contents are
+  unchanged; generic regions keep their existing representation.
+- `GAGP_DYNAMIC_PROGRAM_QUEUE=1` lets an idle physical block claim the next
+  complete program. That block retains its workspace until its program ends;
+  results use original population indices. Every case and the original fitness
+  reduction order are retained. Queue allocation and initialization are timed.
+
+These options change execution and storage only. Native selection, crossover,
+mutation, RNG draws, grammar membership, population, cases and numeric/fuel
+semantics remain unchanged. The fixed benchmark's complete-search timing is
+`evolve_wall_ms` (cold evolution setup, all generations and final evaluation);
+input parsing and post-search CPU audit/export remain visible separately in
+process wall time, as in the existing comparison contract.

@@ -1,0 +1,110 @@
+[
+  {
+    "arm": "hybrid-all",
+    "task": "sum_of_elements",
+    "ms": 2260.480073,
+    "kernel_ms": 1566.7035070000004,
+    "exact_semantics": true,
+    "diagnostic_profile_diff": [
+      "execution_profile"
+    ]
+  },
+  {
+    "arm": "hybrid-all",
+    "task": "house_robber",
+    "ms": 1093.983895,
+    "kernel_ms": 579.399098,
+    "exact_semantics": true,
+    "diagnostic_profile_diff": [
+      "execution_profile"
+    ]
+  },
+  {
+    "arm": "hybrid-all",
+    "task": "median",
+    "ms": 859.628389,
+    "kernel_ms": 156.41612700000002,
+    "exact_semantics": true,
+    "diagnostic_profile_diff": [
+      "execution_profile"
+    ]
+  },
+  {
+    "arm": "hybrid-cache-metadata",
+    "task": "sum_of_elements",
+    "ms": 2579.498011,
+    "kernel_ms": 1944.0348839999997,
+    "exact_semantics": true,
+    "diagnostic_profile_diff": []
+  },
+  {
+    "arm": "hybrid-cache-metadata",
+    "task": "house_robber",
+    "ms": 1114.806406,
+    "kernel_ms": 646.291981,
+    "exact_semantics": true,
+    "diagnostic_profile_diff": []
+  },
+  {
+    "arm": "hybrid-cache-metadata",
+    "task": "median",
+    "ms": 902.435514,
+    "kernel_ms": 186.930947,
+    "exact_semantics": true,
+    "diagnostic_profile_diff": []
+  },
+  {
+    "arm": "hybrid-metadata-hybrid",
+    "task": "sum_of_elements",
+    "ms": 3423.672483,
+    "kernel_ms": 2744.4725149999995,
+    "exact_semantics": true,
+    "diagnostic_profile_diff": [
+      "execution_profile"
+    ]
+  },
+  {
+    "arm": "hybrid-metadata-hybrid",
+    "task": "house_robber",
+    "ms": 1042.468307,
+    "kernel_ms": 579.4835360000002,
+    "exact_semantics": true,
+    "diagnostic_profile_diff": [
+      "execution_profile"
+    ]
+  },
+  {
+    "arm": "hybrid-metadata-hybrid",
+    "task": "median",
+    "ms": 843.210473,
+    "kernel_ms": 149.99368600000003,
+    "exact_semantics": true,
+    "diagnostic_profile_diff": [
+      "execution_profile"
+    ]
+  },
+  {
+    "arm": "hybrid-off",
+    "task": "sum_of_elements",
+    "ms": 4620.986992,
+    "kernel_ms": 3867.9846150000008,
+    "exact_semantics": true,
+    "diagnostic_profile_diff": []
+  },
+  {
+    "arm": "hybrid-off",
+    "task": "house_robber",
+    "ms": 1137.733513,
+    "kernel_ms": 663.2531870000003,
+    "exact_semantics": true,
+    "diagnostic_profile_diff": []
+  },
+  {
+    "arm": "hybrid-off",
+    "task": "median",
+    "ms": 885.399407,
+    "kernel_ms": 174.37698099999997,
+    "exact_semantics": true,
+    "diagnostic_profile_diff": []
+  }
+]

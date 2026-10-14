@@ -1075,11 +1075,11 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
     Environment window_mode("GAGP_WINDOW_EXECUTOR"), unboxed("GAGP_UNBOXED_WINDOW_FRAMES"),
         soa("GAGP_WINDOW_SOA"), queue("GAGP_DYNAMIC_PROGRAM_QUEUE");
     std::vector<BytecodeProgram> programs;
-    for(unsigned p=0;p<17;++p) {
+    for(unsigned p=0;p<97;++p) {
       auto segment=sequence_segment(ValueTag::IntList);
       segment.plan.result_type=ValueTag::Int;segment.plan.preparations.resize(1);
       segment.preparations.resize(1);segment.plan.requests.resize(2);
-      segment.plan.limits.frames=4096;
+      segment.plan.limits.frames=gpu_detail::DMAX_REGION_FRAMES;
       segment.plan.requests[1].states[0]=window(0,endpoint(WindowEndpointKind::InteriorCut,0),endpoint(WindowEndpointKind::End));
       segment.base_body=constant_phase(Value::from_int(p+1));
       segment.combine=phase({}, {ins_a(Opcode::Load,0),ins_a(Opcode::Load,1),ins(Opcode::Add),ins(Opcode::Return)},
@@ -1092,7 +1092,13 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
       FitnessSessionGpu session;if(!session.init(cases,answers,10000,block,7).ok)return false;
       const auto gpu=session.eval_programs(programs,true);
       const auto cpu=eval_fitness_cpu(programs,cases,answers,10000,7,block);
-      if(!check(gpu.ok && gpu.fitness==cpu,"SoA planes and queued program rows preserve fitness"))return false;
+      if(!check(gpu.ok && gpu.fitness==cpu,"SoA planes and queued program rows preserve fitness")) {
+        std::cerr << "block=" << block << " direct=" << direct << " root=" << root
+                  << " ok=" << gpu.ok << " profile=" << gpu.execution_profile << " message=" << gpu.err.message << '\n';
+        for(std::size_t i=0;i<gpu.fitness.size();++i)if(gpu.fitness[i]!=cpu[i])
+          std::cerr << "row=" << i << " gpu=" << gpu.fitness[i] << " cpu=" << cpu[i] << '\n';
+        return false;
+      }
       for(const auto& counts:gpu.case_counts)
         if(!check(counts[0]==65 && counts[1]==0,"queued SoA rows must visit every case once"))return false;
     }

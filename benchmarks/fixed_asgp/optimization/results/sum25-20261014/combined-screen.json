@@ -1,0 +1,86 @@
+[
+  {
+    "arm": "combined-all",
+    "task": "sum_of_elements",
+    "ms": 1803.577923,
+    "kernel_ms": 1178.2111020000002,
+    "exact_semantics": true
+  },
+  {
+    "arm": "combined-all",
+    "task": "house_robber",
+    "ms": 1033.252632,
+    "kernel_ms": 573.141597,
+    "exact_semantics": true
+  },
+  {
+    "arm": "combined-all",
+    "task": "median",
+    "ms": 863.329578,
+    "kernel_ms": 148.73847200000003,
+    "exact_semantics": true
+  },
+  {
+    "arm": "combined-leaf",
+    "task": "sum_of_elements",
+    "ms": 1957.053503,
+    "kernel_ms": 1339.6710269999996,
+    "exact_semantics": true
+  },
+  {
+    "arm": "combined-leaf",
+    "task": "house_robber",
+    "ms": 1039.376426,
+    "kernel_ms": 578.0973269999998,
+    "exact_semantics": true
+  },
+  {
+    "arm": "combined-leaf",
+    "task": "median",
+    "ms": 859.415309,
+    "kernel_ms": 158.440044,
+    "exact_semantics": true
+  },
+  {
+    "arm": "combined-schedule",
+    "task": "sum_of_elements",
+    "ms": 2001.652354,
+    "kernel_ms": 1383.5318149999998,
+    "exact_semantics": true
+  },
+  {
+    "arm": "combined-schedule",
+    "task": "house_robber",
+    "ms": 1027.806238,
+    "kernel_ms": 572.85416,
+    "exact_semantics": true
+  },
+  {
+    "arm": "combined-schedule",
+    "task": "median",
+    "ms": 860.494081,
+    "kernel_ms": 148.49145099999998,
+    "exact_semantics": true
+  },
+  {
+    "arm": "combined-base",
+    "task": "sum_of_elements",
+    "ms": 2226.385865,
+    "kernel_ms": 1608.180088,
+    "exact_semantics": true
+  },
+  {
+    "arm": "combined-base",
+    "task": "house_robber",
+    "ms": 1042.896738,
+    "kernel_ms": 578.014172,
+    "exact_semantics": true
+  },
+  {
+    "arm": "combined-base",
+    "task": "median",
+    "ms": 860.579449,
+    "kernel_ms": 158.16017299999996,
+    "exact_semantics": true
+  }
+]
