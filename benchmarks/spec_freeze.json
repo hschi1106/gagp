@@ -1,10 +1,11 @@
 {
   "authoritative_entrypoint": "spec/grammar.md",
   "format_version": "spec-freeze",
-  "generated_at": "2026-10-01",
+  "generated_at": "2026-10-14",
   "notes": [
     "This manifest records the release 2.0.0 normative spec set after the compiled-grammar production cutover and v2 AST/bytecode/artifact version boundary.",
-    "The hash gate is intentionally mechanical: if a listed spec changes, update this manifest in the same semantic change."
+    "The hash gate is intentionally mechanical: if a listed spec changes, update this manifest in the same semantic change.",
+    "2026-10-14: document opt-in fused witness admission and its explicit speculative matcher-work accounting; strict membership and materialized execution semantics remain unchanged."
   ],
   "specs": [
     {
@@ -41,7 +42,7 @@
     },
     {
       "path": "spec/grammar_definition.md",
-      "sha256": "20ac8a43973c0d81d32a4a5e4c9be9ceb1f99e419462226ef0a488d034ff6794"
+      "sha256": "db53290ac9ba44aed60087a6bf54d55e9cb1d4464799e45d9c6c69db6dd79864"
     }
   ],
   "status": "frozen"
