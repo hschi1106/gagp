@@ -1,0 +1,39 @@
+{
+  "rows": [
+    {
+      "label": "archive",
+      "search_ms": 4417.019738,
+      "process_s": 6.194648138945922,
+      "kernel_ms": 3597.7662809999997,
+      "binary_sha256": "764ab8df9dbea4b2cb9e439a8e2608f7b1bd7fd9aa9f7ecd8bf4c4a6e09b53a0",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-phase-20261014/logs/phase/archive/manifest.json"
+    },
+    {
+      "label": "off",
+      "search_ms": 4560.490386,
+      "process_s": 6.363208764931187,
+      "kernel_ms": 3775.5067870000007,
+      "binary_sha256": "21faebba1ecb5833a1d229aa0152fe02cb1e94d6b9293e17619ec473e91f0973",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-phase-20261014/logs/phase/off/manifest.json"
+    },
+    {
+      "label": "on",
+      "search_ms": 4711.055816,
+      "process_s": 6.482704526977614,
+      "kernel_ms": 3853.9176070000003,
+      "binary_sha256": "21faebba1ecb5833a1d229aa0152fe02cb1e94d6b9293e17619ec473e91f0973",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-phase-20261014/logs/phase/on/manifest.json"
+    }
+  ],
+  "all_semantic_operator_error_traces_and_final_history_AST_exact": true,
+  "decision": "reject; prototype runtime removed, no flag adopted",
+  "hypothesis": "One scalar operand-top cache with ordinary indexed lower stack, tested specifically on Sum32 bloated measure phases after prior House rejection.",
+  "contract": "P1024/C1024 complete cold Sum32 seed0; CPU1T; all64 archived flags; execution only; no pipeline/grammar/RNG/fuel changes.",
+  "validation": "GAGP_PHASE_CACHE_TOP=1 focused bounded-region GPU and native GPU population tests:2/2passed8.21s. No adoption-level expanded test matrix after rejection.",
+  "raw_directory": "/home/hschi1106/.t3/worktrees/gagp/sum25-phase-20261014/logs/phase",
+  "prototype_patch": "/home/hschi1106/.t3/worktrees/gagp/sum25-phase-20261014/logs/phase/rejected-top-cache.patch",
+  "prototype_patch_sha256": "ed57e71eabf77f8111b0da29fc3ec6bbfaa8a879200957f1fb8ba7cc0535e457",
+  "reproduce": "/home/hschi1106/.t3/worktrees/gagp/sum25-phase-20261014/logs/phase/run_screen.py",
+  "limitation": "One fresh process per archive/OFF/ON screen. Both candidate settings regress; no repeated speedup claim. Existing focusedtests plus exact search trace do not constitute new semanticrelaxation or quality evidence.",
+  "interpretation": "Enabling cache regresses samebinary search3.30%; candidateOFF itself regresses archivedsearch3.25%. No reason to retain this variant or extend already-rejected register-stack variants."
+}
