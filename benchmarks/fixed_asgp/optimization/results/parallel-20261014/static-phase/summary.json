@@ -1,0 +1,1431 @@
+{
+  "source_base": "ce0d8119bc0927f758dcdaac4904b1019dce35dd",
+  "authoritative_manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-main/manifest.json",
+  "authoritative_binary_sha256": "0636a67ef2e1f5460b337973d3cd8537a97e1f50ac94eebc693d8e541c6c7644",
+  "contract": "CPU1T, P1024/full1024 cases, native evaluation/reproduction modes, frozen inputs never prepared again; every build/test/performance run serialized with /tmp/gagp-parallel-20261013-benchmark.lock",
+  "timing": "Search wall is evolve_wall_ms including cold evolution initialization, complete generations, and final evaluation; excludes input import and post-search audit/export. GPU kernel and decode sums cover recorded generations only. Diagnostic runs excluded from formal timing.",
+  "disposition": "All four experiment families rejected; all runtime, settings, and test changes removed. Evidence only.",
+  "experiments": [
+    {
+      "flag": "GAGP_STATIC_TYPED_PHASE",
+      "retained": false,
+      "raw_root": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed",
+      "tasks": {
+        "house_robber": {
+          "off": {
+            "records": [
+              {
+                "search_ms": 1382.129396,
+                "generation_eval_kernel_sum_ms": 618.150875,
+                "generation_repro_decode_sum_ms": 26.387121,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/fused-0-r0/house_robber.gpu_overlap.s0.r0.json"
+              },
+              {
+                "search_ms": 1443.091304,
+                "generation_eval_kernel_sum_ms": 620.807313,
+                "generation_repro_decode_sum_ms": 25.031708,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/fused-0-r1/house_robber.gpu_overlap.s0.r0.json"
+              },
+              {
+                "search_ms": 1373.283265,
+                "generation_eval_kernel_sum_ms": 620.141257,
+                "generation_repro_decode_sum_ms": 25.108968,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/fused-0-r2/house_robber.gpu_overlap.s0.r0.json"
+              },
+              {
+                "search_ms": 1382.816695,
+                "generation_eval_kernel_sum_ms": 620.143698,
+                "generation_repro_decode_sum_ms": 25.608641,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/fused-0-r3/house_robber.gpu_overlap.s0.r0.json"
+              }
+            ],
+            "search_median_ms": 1382.4730455,
+            "generation_eval_kernel_sum_median_ms": 620.1424775,
+            "generation_repro_decode_sum_median_ms": 25.358804499999998
+          },
+          "on": {
+            "records": [
+              {
+                "search_ms": 1364.676058,
+                "generation_eval_kernel_sum_ms": 597.002892,
+                "generation_repro_decode_sum_ms": 37.283770000000004,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/fused-1-r1/house_robber.gpu_overlap.s0.r0.json"
+              },
+              {
+                "search_ms": 1358.095622,
+                "generation_eval_kernel_sum_ms": 597.388646,
+                "generation_repro_decode_sum_ms": 35.919667000000004,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/fused-1-r2/house_robber.gpu_overlap.s0.r0.json"
+              },
+              {
+                "search_ms": 1366.246889,
+                "generation_eval_kernel_sum_ms": 599.00576,
+                "generation_repro_decode_sum_ms": 36.096054999999986,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/fused-1-r3/house_robber.gpu_overlap.s0.r0.json"
+              }
+            ],
+            "search_median_ms": 1364.676058,
+            "generation_eval_kernel_sum_median_ms": 597.388646,
+            "generation_repro_decode_sum_median_ms": 36.096054999999986
+          },
+          "final_exports_identical": true,
+          "semantic_generation_traces_identical": true
+        },
+        "median": {
+          "off": {
+            "records": [
+              {
+                "search_ms": 1178.442599,
+                "generation_eval_kernel_sum_ms": 161.09599300000002,
+                "generation_repro_decode_sum_ms": 61.415321000000006,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/fused-0-r0/median.gpu_overlap.s2.r0.json"
+              },
+              {
+                "search_ms": 1226.6777,
+                "generation_eval_kernel_sum_ms": 161.759599,
+                "generation_repro_decode_sum_ms": 61.908334999999994,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/fused-0-r1/median.gpu_overlap.s2.r0.json"
+              },
+              {
+                "search_ms": 1192.475381,
+                "generation_eval_kernel_sum_ms": 161.05572299999997,
+                "generation_repro_decode_sum_ms": 62.377693000000015,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/fused-0-r2/median.gpu_overlap.s2.r0.json"
+              },
+              {
+                "search_ms": 1188.715971,
+                "generation_eval_kernel_sum_ms": 161.00200200000003,
+                "generation_repro_decode_sum_ms": 61.50209400000001,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/fused-0-r3/median.gpu_overlap.s2.r0.json"
+              }
+            ],
+            "search_median_ms": 1190.595676,
+            "generation_eval_kernel_sum_median_ms": 161.07585799999998,
+            "generation_repro_decode_sum_median_ms": 61.7052145
+          },
+          "on": {
+            "records": [
+              {
+                "search_ms": 1224.184769,
+                "generation_eval_kernel_sum_ms": 161.087311,
+                "generation_repro_decode_sum_ms": 99.33281300000002,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/fused-1-r1/median.gpu_overlap.s2.r0.json"
+              },
+              {
+                "search_ms": 1226.444328,
+                "generation_eval_kernel_sum_ms": 161.87256199999996,
+                "generation_repro_decode_sum_ms": 101.35255099999999,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/fused-1-r2/median.gpu_overlap.s2.r0.json"
+              },
+              {
+                "search_ms": 1231.069462,
+                "generation_eval_kernel_sum_ms": 161.26682000000002,
+                "generation_repro_decode_sum_ms": 100.47120600000002,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/fused-1-r3/median.gpu_overlap.s2.r0.json"
+              }
+            ],
+            "search_median_ms": 1226.444328,
+            "generation_eval_kernel_sum_median_ms": 161.26682000000002,
+            "generation_repro_decode_sum_median_ms": 100.47120600000002
+          },
+          "final_exports_identical": true,
+          "semantic_generation_traces_identical": true
+        }
+      },
+      "hypothesis": "Private canonical-instruction annotations fuse scalar leaf/leaf/binary and leaf/binary groups inside the typed GPU interpreter.",
+      "reason": "House gain versus same-binary OFF is small; Median regresses from per-generation host annotation/decode cost. Archived control removes almost all apparent House advantage.",
+      "static_house_dispatch_elimination_fraction": 0.3463416595622394,
+      "kernel_resources": {
+        "registers_before": 64,
+        "registers_after": 64,
+        "stack_bytes_before": 1056,
+        "stack_bytes_after": 1072
+      },
+      "tests": [
+        "logs/static-typed/tests.log: 2/2 pass, bounded region CPU/GPU and native GPU phase population",
+        "logs/static-typed/extra-tests.log: branch entry and missing LOAD/error/fuel matrix pass"
+      ],
+      "diagnostic_exclusion": "fused-1-r0 contains per-phase fprintf diagnostics and is excluded from ON formal results"
+    },
+    {
+      "flag": "GAGP_STATIC_POW2_DIVISOR",
+      "retained": false,
+      "raw_root": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-pow2",
+      "tasks": {
+        "house_robber": {
+          "off": {
+            "records": [
+              {
+                "search_ms": 1387.24717,
+                "generation_eval_kernel_sum_ms": 620.2565669999999,
+                "generation_repro_decode_sum_ms": 26.118251,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-pow2/enabled-0-r0/house_robber.gpu_overlap.s0.r0.json"
+              },
+              {
+                "search_ms": 1387.944903,
+                "generation_eval_kernel_sum_ms": 620.4494790000001,
+                "generation_repro_decode_sum_ms": 25.261214000000006,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-pow2/enabled-0-r1/house_robber.gpu_overlap.s0.r0.json"
+              },
+              {
+                "search_ms": 1446.536115,
+                "generation_eval_kernel_sum_ms": 620.253981,
+                "generation_repro_decode_sum_ms": 24.989851,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-pow2/enabled-0-r2/house_robber.gpu_overlap.s0.r0.json"
+              }
+            ],
+            "search_median_ms": 1387.944903,
+            "generation_eval_kernel_sum_median_ms": 620.2565669999999,
+            "generation_repro_decode_sum_median_ms": 25.261214000000006
+          },
+          "on": {
+            "records": [
+              {
+                "search_ms": 1381.830626,
+                "generation_eval_kernel_sum_ms": 618.40368,
+                "generation_repro_decode_sum_ms": 35.10955299999999,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-pow2/enabled-1-r0/house_robber.gpu_overlap.s0.r0.json"
+              },
+              {
+                "search_ms": 1387.167952,
+                "generation_eval_kernel_sum_ms": 620.4411049999999,
+                "generation_repro_decode_sum_ms": 35.245661000000005,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-pow2/enabled-1-r1/house_robber.gpu_overlap.s0.r0.json"
+              },
+              {
+                "search_ms": 1450.466532,
+                "generation_eval_kernel_sum_ms": 620.9456040000001,
+                "generation_repro_decode_sum_ms": 33.84149099999999,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-pow2/enabled-1-r2/house_robber.gpu_overlap.s0.r0.json"
+              }
+            ],
+            "search_median_ms": 1387.167952,
+            "generation_eval_kernel_sum_median_ms": 620.4411049999999,
+            "generation_repro_decode_sum_median_ms": 35.10955299999999
+          },
+          "final_exports_identical": true,
+          "semantic_generation_traces_identical": true
+        },
+        "median": {
+          "off": {
+            "records": [
+              {
+                "search_ms": 1183.918685,
+                "generation_eval_kernel_sum_ms": 159.477039,
+                "generation_repro_decode_sum_ms": 61.78375400000001,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-pow2/enabled-0-r0/median.gpu_overlap.s2.r0.json"
+              },
+              {
+                "search_ms": 1200.192038,
+                "generation_eval_kernel_sum_ms": 159.61170799999996,
+                "generation_repro_decode_sum_ms": 63.629764000000016,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-pow2/enabled-0-r1/median.gpu_overlap.s2.r0.json"
+              },
+              {
+                "search_ms": 1259.613156,
+                "generation_eval_kernel_sum_ms": 160.1829309999999,
+                "generation_repro_decode_sum_ms": 62.641087,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-pow2/enabled-0-r2/median.gpu_overlap.s2.r0.json"
+              }
+            ],
+            "search_median_ms": 1200.192038,
+            "generation_eval_kernel_sum_median_ms": 159.61170799999996,
+            "generation_repro_decode_sum_median_ms": 62.641087
+          },
+          "on": {
+            "records": [
+              {
+                "search_ms": 1200.259518,
+                "generation_eval_kernel_sum_ms": 159.41400399999998,
+                "generation_repro_decode_sum_ms": 86.874913,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-pow2/enabled-1-r0/median.gpu_overlap.s2.r0.json"
+              },
+              {
+                "search_ms": 1203.745656,
+                "generation_eval_kernel_sum_ms": 159.891771,
+                "generation_repro_decode_sum_ms": 87.23047899999997,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-pow2/enabled-1-r1/median.gpu_overlap.s2.r0.json"
+              },
+              {
+                "search_ms": 1283.387814,
+                "generation_eval_kernel_sum_ms": 160.26524200000003,
+                "generation_repro_decode_sum_ms": 87.914196,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-pow2/enabled-1-r2/median.gpu_overlap.s2.r0.json"
+              }
+            ],
+            "search_median_ms": 1203.745656,
+            "generation_eval_kernel_sum_median_ms": 159.891771,
+            "generation_repro_decode_sum_median_ms": 87.23047899999997
+          },
+          "final_exports_identical": true,
+          "semantic_generation_traces_identical": true
+        }
+      },
+      "hypothesis": "Statically classify constant power-of-two RHS for protected IDiv0/IMod0; exact unsigned-magnitude shifts/masks, all shifts 0..63. Reject branch entry bypassing the constant. OP_MOD unchanged.",
+      "reason": "Low static coverage and no repeatable House GPU kernel benefit; annotation adds CPU decode cost.",
+      "static_division_coverage": {
+        "house_robber": 0.057005421345637415,
+        "median": 0.10055284331569905
+      },
+      "kernel_resources": {
+        "registers_before": 64,
+        "registers_after": 64,
+        "stack_bytes_before": 1056,
+        "stack_bytes_after": 1056
+      },
+      "tests": [
+        "logs/static-pow2/tests.log: GPU phase population passes; initial numeric oracle fixture lacked root Return",
+        "logs/static-pow2/tests-fixed.log: corrected exact-result/fuel matrix passes; 1820 programs include MIN/MAX, signs, zero, all power-of-two widths, >2^53, branch bypass"
+      ]
+    },
+    {
+      "flag": "GAGP_TYPED_DIV32",
+      "retained": false,
+      "raw_root": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/typed-div32",
+      "tasks": {
+        "house_robber": {
+          "off": {
+            "records": [
+              {
+                "search_ms": 1446.899973,
+                "generation_eval_kernel_sum_ms": 626.041698,
+                "generation_repro_decode_sum_ms": 25.281294000000003,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/typed-div32/enabled-0-r0/house_robber.gpu_overlap.s0.r0.json"
+              },
+              {
+                "search_ms": 1409.3182,
+                "generation_eval_kernel_sum_ms": 627.295454,
+                "generation_repro_decode_sum_ms": 24.615903000000003,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/typed-div32/enabled-0-r1/house_robber.gpu_overlap.s0.r0.json"
+              },
+              {
+                "search_ms": 1403.27218,
+                "generation_eval_kernel_sum_ms": 625.4893920000001,
+                "generation_repro_decode_sum_ms": 25.082165999999997,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/typed-div32/enabled-0-r2/house_robber.gpu_overlap.s0.r0.json"
+              }
+            ],
+            "search_median_ms": 1409.3182,
+            "generation_eval_kernel_sum_median_ms": 626.041698,
+            "generation_repro_decode_sum_median_ms": 25.082165999999997
+          },
+          "on": {
+            "records": [
+              {
+                "search_ms": 1409.320434,
+                "generation_eval_kernel_sum_ms": 625.03833,
+                "generation_repro_decode_sum_ms": 25.681037,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/typed-div32/enabled-1-r0/house_robber.gpu_overlap.s0.r0.json"
+              },
+              {
+                "search_ms": 1444.700245,
+                "generation_eval_kernel_sum_ms": 626.4971259999998,
+                "generation_repro_decode_sum_ms": 24.839591000000006,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/typed-div32/enabled-1-r1/house_robber.gpu_overlap.s0.r0.json"
+              },
+              {
+                "search_ms": 1405.541482,
+                "generation_eval_kernel_sum_ms": 627.484704,
+                "generation_repro_decode_sum_ms": 25.018973,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/typed-div32/enabled-1-r2/house_robber.gpu_overlap.s0.r0.json"
+              }
+            ],
+            "search_median_ms": 1409.320434,
+            "generation_eval_kernel_sum_median_ms": 626.4971259999998,
+            "generation_repro_decode_sum_median_ms": 25.018973
+          },
+          "final_exports_identical": true,
+          "semantic_generation_traces_identical": true
+        },
+        "median": {
+          "off": {
+            "records": [
+              {
+                "search_ms": 1258.179904,
+                "generation_eval_kernel_sum_ms": 160.67067799999998,
+                "generation_repro_decode_sum_ms": 61.885978999999985,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/typed-div32/enabled-0-r0/median.gpu_overlap.s2.r0.json"
+              },
+              {
+                "search_ms": 1252.996474,
+                "generation_eval_kernel_sum_ms": 160.73078600000002,
+                "generation_repro_decode_sum_ms": 61.677101000000015,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/typed-div32/enabled-0-r1/median.gpu_overlap.s2.r0.json"
+              },
+              {
+                "search_ms": 1218.500573,
+                "generation_eval_kernel_sum_ms": 160.35109599999996,
+                "generation_repro_decode_sum_ms": 62.215443000000015,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/typed-div32/enabled-0-r2/median.gpu_overlap.s2.r0.json"
+              }
+            ],
+            "search_median_ms": 1252.996474,
+            "generation_eval_kernel_sum_median_ms": 160.67067799999998,
+            "generation_repro_decode_sum_median_ms": 61.885978999999985
+          },
+          "on": {
+            "records": [
+              {
+                "search_ms": 1233.647725,
+                "generation_eval_kernel_sum_ms": 160.535815,
+                "generation_repro_decode_sum_ms": 61.44237,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/typed-div32/enabled-1-r0/median.gpu_overlap.s2.r0.json"
+              },
+              {
+                "search_ms": 1255.585636,
+                "generation_eval_kernel_sum_ms": 159.78732,
+                "generation_repro_decode_sum_ms": 62.24815299999999,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/typed-div32/enabled-1-r1/median.gpu_overlap.s2.r0.json"
+              },
+              {
+                "search_ms": 1185.789725,
+                "generation_eval_kernel_sum_ms": 159.88886399999998,
+                "generation_repro_decode_sum_ms": 61.78543699999999,
+                "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/typed-div32/enabled-1-r2/median.gpu_overlap.s2.r0.json"
+              }
+            ],
+            "search_median_ms": 1233.647725,
+            "generation_eval_kernel_sum_median_ms": 159.88886399999998,
+            "generation_repro_decode_sum_median_ms": 61.78543699999999
+          },
+          "final_exports_identical": true,
+          "semantic_generation_traces_identical": true
+        }
+      },
+      "hypothesis": "Exact runtime int32 round-trip guards for both operands within typed GPU IDiv0/IMod0, excluding divisor -1; ordinary int64 fallback. No per-instruction host analysis.",
+      "reason": "House search median is identical and generation GPU kernel sums are unchanged. Median wall variation is not supported by meaningful kernel reduction.",
+      "historical_distinction": "Previous archived int32 phase prototype truncated all values/operations. This prototype retained exact int64 semantics with local range guards.",
+      "kernel_resources": {
+        "registers_before": 64,
+        "registers_after": 64,
+        "stack_bytes_before": 1056,
+        "stack_bytes_after": 1056
+      },
+      "struct_sizes": {
+        "DPhaseMeta_before": 48,
+        "DPhaseMeta_after": 48,
+        "DCodeView_before": 40,
+        "DCodeView_after": 40
+      },
+      "tests": [
+        "logs/typed-div32/tests.log: 2/2 pass, 3458 exact-result cases with fuel thresholds plus mixed runtime operand lanes, and native phase population",
+        "logs/typed-div32/sizeof.cpp and sizeof.log: source-declaration size checks"
+      ]
+    },
+    {
+      "flag": "GAGP_CPU_STATIC_PHASE",
+      "retained": false,
+      "hypothesis": "Session-owned cached scalar leaf/leaf/binary and leaf/binary grouping inside CPU typed phases, generated once during capability validation and reused across cases/recursive visits. Canonical bytecode unchanged.",
+      "contract": "House/Median4 generations, full P1024/C1024; CPU1T and GPU-e control. Separate frozen parents with warmup +3 measured repeats.",
+      "reason": "Dynamic dispatch OFF regresses ~10%; ON merely recovers archived baseline. Compile-time Fused variants remove the inner OFF check but still do not beat archived production. The apparent ON/OFF speedup is not a production gain.",
+      "raw_roots": [
+        "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/cpu-static",
+        "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/cpu-static-specialized"
+      ],
+      "tasks": {
+        "house_robber": {
+          "dynamic": [
+            {
+              "enabled": 0,
+              "search_ms": [
+                13775.088555,
+                13664.525325,
+                14961.959693
+              ],
+              "median_ms": 13775.088555,
+              "eval_sum_ms": [
+                10967.632866,
+                10898.998323,
+                11943.000731000002
+              ],
+              "final_export_matches_archive": [
+                true,
+                true,
+                true
+              ]
+            },
+            {
+              "enabled": 1,
+              "search_ms": [
+                12467.518333,
+                12467.421745,
+                12739.556871
+              ],
+              "median_ms": 12467.518333,
+              "eval_sum_ms": [
+                9856.337252000001,
+                9814.776145,
+                10038.596492
+              ],
+              "final_export_matches_archive": [
+                true,
+                true,
+                true
+              ]
+            }
+          ],
+          "specialized": [
+            {
+              "enabled": 0,
+              "search_ms": [
+                13036.968576
+              ],
+              "median_ms": 13036.968576,
+              "eval_sum_ms": [
+                10323.976046
+              ],
+              "final_export_matches_archive": [
+                true
+              ]
+            },
+            {
+              "enabled": 1,
+              "search_ms": [
+                12672.304787
+              ],
+              "median_ms": 12672.304787,
+              "eval_sum_ms": [
+                10011.8504
+              ],
+              "final_export_matches_archive": [
+                true
+              ]
+            }
+          ],
+          "archived_control": {
+            "search_ms": 12443.080586,
+            "eval_sum_ms": 9874.068879
+          }
+        },
+        "median": {
+          "dynamic": [
+            {
+              "enabled": 0,
+              "search_ms": [
+                2701.691468,
+                2710.671863,
+                2668.226052
+              ],
+              "median_ms": 2701.691468,
+              "eval_sum_ms": [
+                1345.552941,
+                1337.660879,
+                1311.274431
+              ],
+              "final_export_matches_archive": [
+                true,
+                true,
+                true
+              ]
+            },
+            {
+              "enabled": 1,
+              "search_ms": [
+                2682.799857,
+                2712.684821,
+                2678.781582
+              ],
+              "median_ms": 2682.799857,
+              "eval_sum_ms": [
+                1323.494977,
+                1342.0748899999999,
+                1310.351289
+              ],
+              "final_export_matches_archive": [
+                true,
+                true,
+                true
+              ]
+            }
+          ],
+          "specialized": [
+            {
+              "enabled": 0,
+              "search_ms": [
+                2587.933235
+              ],
+              "median_ms": 2587.933235,
+              "eval_sum_ms": [
+                1279.9454540000002
+              ],
+              "final_export_matches_archive": [
+                true
+              ]
+            },
+            {
+              "enabled": 1,
+              "search_ms": [
+                2689.30172
+              ],
+              "median_ms": 2689.30172,
+              "eval_sum_ms": [
+                1333.401499
+              ],
+              "final_export_matches_archive": [
+                true
+              ]
+            }
+          ],
+          "archived_control": {
+            "search_ms": 2675.147511,
+            "eval_sum_ms": 1308.113209
+          }
+        }
+      },
+      "frozen": [
+        {
+          "task": "house_robber",
+          "enabled": 0,
+          "command": [
+            "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/cpu-static/frozen/bench",
+            "measure",
+            "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/house_robber.source.json",
+            "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/house_robber.p1024.prepared.json",
+            "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/house_robber.grammar.json",
+            "1024",
+            "gagp_cpu",
+            "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/cpu-static/frozen/house_robber.0.json"
+          ],
+          "rows": [
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -8503,
+              "budget_rejections": 749,
+              "cases": 1024,
+              "changed_operator_outputs": 1259,
+              "compile_ms": 1.2775620000000019,
+              "contract_rejections": 648216,
+              "eval_ms": 3475.513009,
+              "evolve_call_ms": 3716.564152,
+              "evolve_wall_ms": 3719.444487,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 3699.609026,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 16.275667,
+              "mean_native_fitness": -117295.8818359375,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": -1,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 223.21924,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 9.897592,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "house_robber",
+              "unchanged_operator_outputs": 95
+            },
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -8503,
+              "budget_rejections": 749,
+              "cases": 1024,
+              "changed_operator_outputs": 1259,
+              "compile_ms": 1.1757289999999994,
+              "contract_rejections": 648216,
+              "eval_ms": 3485.90563,
+              "evolve_call_ms": 3737.738378,
+              "evolve_wall_ms": 3740.626884,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 3719.988159,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 17.28406,
+              "mean_native_fitness": -117295.8818359375,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": 0,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 233.262164,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 9.951631,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "house_robber",
+              "unchanged_operator_outputs": 95
+            },
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -8503,
+              "budget_rejections": 749,
+              "cases": 1024,
+              "changed_operator_outputs": 1259,
+              "compile_ms": 1.2110240000000003,
+              "contract_rejections": 648216,
+              "eval_ms": 3488.638538,
+              "evolve_call_ms": 3745.102909,
+              "evolve_wall_ms": 3748.229787,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 3728.414964,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 16.315504,
+              "mean_native_fitness": -117295.8818359375,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": 1,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 238.918431,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 10.02944,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "house_robber",
+              "unchanged_operator_outputs": 95
+            },
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -8503,
+              "budget_rejections": 749,
+              "cases": 1024,
+              "changed_operator_outputs": 1259,
+              "compile_ms": 1.1181380000000003,
+              "contract_rejections": 648216,
+              "eval_ms": 3499.370189,
+              "evolve_call_ms": 3752.706477,
+              "evolve_wall_ms": 3755.742393,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 3735.614366,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 16.709686,
+              "mean_native_fitness": -117295.8818359375,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": 2,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 235.295887,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 10.006573,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "house_robber",
+              "unchanged_operator_outputs": 95
+            }
+          ],
+          "process_wall_s": 15.61580715002492
+        },
+        {
+          "task": "median",
+          "enabled": 0,
+          "command": [
+            "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/cpu-static/frozen/bench",
+            "measure",
+            "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/median.source.json",
+            "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/median.p1024.prepared.json",
+            "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/median.grammar.json",
+            "1024",
+            "gagp_cpu",
+            "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/cpu-static/frozen/median.0.json"
+          ],
+          "rows": [
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -31025,
+              "budget_rejections": 0,
+              "cases": 1024,
+              "changed_operator_outputs": 1219,
+              "compile_ms": 1.400953,
+              "contract_rejections": 908333,
+              "eval_ms": 341.81416,
+              "evolve_call_ms": 575.273295,
+              "evolve_wall_ms": 578.497319,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 559.260135,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 15.387971,
+              "mean_native_fitness": -304667.439453125,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": -1,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 216.63458,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 9.16301,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "median",
+              "unchanged_operator_outputs": 135
+            },
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -31025,
+              "budget_rejections": 0,
+              "cases": 1024,
+              "changed_operator_outputs": 1219,
+              "compile_ms": 1.3398819999999998,
+              "contract_rejections": 908333,
+              "eval_ms": 340.324319,
+              "evolve_call_ms": 571.161608,
+              "evolve_wall_ms": 574.294584,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 555.734331,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 15.097753,
+              "mean_native_fitness": -304667.439453125,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": 0,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 214.522937,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 9.258851,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "median",
+              "unchanged_operator_outputs": 135
+            },
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -31025,
+              "budget_rejections": 0,
+              "cases": 1024,
+              "changed_operator_outputs": 1219,
+              "compile_ms": 1.294739999999999,
+              "contract_rejections": 908333,
+              "eval_ms": 339.233511,
+              "evolve_call_ms": 570.773566,
+              "evolve_wall_ms": 574.028302,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 555.309167,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 15.133685,
+              "mean_native_fitness": -304667.439453125,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": 1,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 215.185967,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 8.995856,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "median",
+              "unchanged_operator_outputs": 135
+            },
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -31025,
+              "budget_rejections": 0,
+              "cases": 1024,
+              "changed_operator_outputs": 1219,
+              "compile_ms": 1.289548999999999,
+              "contract_rejections": 908333,
+              "eval_ms": 338.236802,
+              "evolve_call_ms": 566.606188,
+              "evolve_wall_ms": 570.240183,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 551.33026,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 14.979946,
+              "mean_native_fitness": -304667.439453125,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": 2,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 212.292136,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 9.018764,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "median",
+              "unchanged_operator_outputs": 135
+            }
+          ],
+          "process_wall_s": 3.0513674030080438
+        },
+        {
+          "task": "house_robber",
+          "enabled": 1,
+          "command": [
+            "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/cpu-static/frozen/bench",
+            "measure",
+            "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/house_robber.source.json",
+            "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/house_robber.p1024.prepared.json",
+            "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/house_robber.grammar.json",
+            "1024",
+            "gagp_cpu",
+            "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/cpu-static/frozen/house_robber.1.json"
+          ],
+          "rows": [
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -8503,
+              "budget_rejections": 749,
+              "cases": 1024,
+              "changed_operator_outputs": 1259,
+              "compile_ms": 1.347600000000001,
+              "contract_rejections": 648216,
+              "eval_ms": 3121.261572,
+              "evolve_call_ms": 3364.482595,
+              "evolve_wall_ms": 3367.613148,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 3347.019442,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 16.730695,
+              "mean_native_fitness": -117295.8818359375,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": -1,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 224.892174,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 9.772977,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "house_robber",
+              "unchanged_operator_outputs": 95
+            },
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -8503,
+              "budget_rejections": 749,
+              "cases": 1024,
+              "changed_operator_outputs": 1259,
+              "compile_ms": 1.2287040000000007,
+              "contract_rejections": 648216,
+              "eval_ms": 3213.04595,
+              "evolve_call_ms": 3461.999612,
+              "evolve_wall_ms": 3464.870136,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 3444.638066,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 16.95646,
+              "mean_native_fitness": -117295.8818359375,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": 0,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 230.765758,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 9.728596,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "house_robber",
+              "unchanged_operator_outputs": 95
+            },
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -8503,
+              "budget_rejections": 749,
+              "cases": 1024,
+              "changed_operator_outputs": 1259,
+              "compile_ms": 1.1789759999999991,
+              "contract_rejections": 648216,
+              "eval_ms": 3138.176655,
+              "evolve_call_ms": 3394.214572,
+              "evolve_wall_ms": 3397.782678,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 3377.611457,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 16.188545,
+              "mean_native_fitness": -117295.8818359375,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": 1,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 238.609939,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 9.942556,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "house_robber",
+              "unchanged_operator_outputs": 95
+            },
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -8503,
+              "budget_rejections": 749,
+              "cases": 1024,
+              "changed_operator_outputs": 1259,
+              "compile_ms": 1.1779849999999996,
+              "contract_rejections": 648216,
+              "eval_ms": 3177.072862,
+              "evolve_call_ms": 3438.100837,
+              "evolve_wall_ms": 3441.743703,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 3421.60023,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 16.113269,
+              "mean_native_fitness": -117295.8818359375,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": 2,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 243.628211,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 10.016863,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "house_robber",
+              "unchanged_operator_outputs": 95
+            }
+          ],
+          "process_wall_s": 14.329217029036954
+        },
+        {
+          "task": "median",
+          "enabled": 1,
+          "command": [
+            "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/cpu-static/frozen/bench",
+            "measure",
+            "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/median.source.json",
+            "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/median.p1024.prepared.json",
+            "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/median.grammar.json",
+            "1024",
+            "gagp_cpu",
+            "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/cpu-static/frozen/median.1.json"
+          ],
+          "rows": [
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -31025,
+              "budget_rejections": 0,
+              "cases": 1024,
+              "changed_operator_outputs": 1219,
+              "compile_ms": 1.4235089999999995,
+              "contract_rejections": 908333,
+              "eval_ms": 339.394199,
+              "evolve_call_ms": 585.892247,
+              "evolve_wall_ms": 589.162945,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 569.971875,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 15.235528,
+              "mean_native_fitness": -304667.439453125,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": -1,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 229.800888,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 9.18111,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "median",
+              "unchanged_operator_outputs": 135
+            },
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -31025,
+              "budget_rejections": 0,
+              "cases": 1024,
+              "changed_operator_outputs": 1219,
+              "compile_ms": 1.2345629999999976,
+              "contract_rejections": 908333,
+              "eval_ms": 346.242611,
+              "evolve_call_ms": 586.524261,
+              "evolve_wall_ms": 589.934954,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 570.863301,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 15.305863,
+              "mean_native_fitness": -304667.439453125,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": 0,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 223.814109,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 9.367455,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "median",
+              "unchanged_operator_outputs": 135
+            },
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -31025,
+              "budget_rejections": 0,
+              "cases": 1024,
+              "changed_operator_outputs": 1219,
+              "compile_ms": 1.3012789999999994,
+              "contract_rejections": 908333,
+              "eval_ms": 343.841232,
+              "evolve_call_ms": 584.338222,
+              "evolve_wall_ms": 587.747016,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 568.228786,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 15.392087,
+              "mean_native_fitness": -304667.439453125,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": 1,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 223.495604,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 9.194534,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "median",
+              "unchanged_operator_outputs": 135
+            },
+            {
+              "acceptance_rejections": 0,
+              "best_native_fitness": -31025,
+              "budget_rejections": 0,
+              "cases": 1024,
+              "changed_operator_outputs": 1219,
+              "compile_ms": 1.3074650000000008,
+              "contract_rejections": 908333,
+              "eval_ms": 345.443035,
+              "evolve_call_ms": 582.54403,
+              "evolve_wall_ms": 585.907512,
+              "execution_profile": "",
+              "fallback_operator_outputs": 0,
+              "generation_ms": 566.718905,
+              "generation_rejections": 0,
+              "genotype_device_bytes": 0,
+              "gpu_copyback_ms": 0,
+              "gpu_donor_device_bytes": 0,
+              "gpu_donor_fallback": 0,
+              "gpu_donor_generated": 0,
+              "gpu_donor_setup_ms": 0,
+              "gpu_eval_call_ms": 0,
+              "gpu_init_ms": 0,
+              "gpu_kernel_ms": 0,
+              "gpu_pack_ms": 0,
+              "gpu_upload_ms": 0,
+              "initial_admission_ms": 15.497333,
+              "mean_native_fitness": -304667.439453125,
+              "mode": "gagp_cpu",
+              "population": 1024,
+              "rep": 2,
+              "repro_copyback_ms": 0,
+              "repro_decode_ms": 0,
+              "repro_kernel_ms": 0,
+              "repro_ms": 220.45171,
+              "repro_pack_ms": 0,
+              "repro_prepare_ms": 0,
+              "repro_preprocess_ms": 9.910934,
+              "repro_setup_ms": 0,
+              "repro_upload_ms": 0,
+              "reproduction_fallback_reason": "",
+              "reproduction_profile": "native-ast",
+              "task": "median",
+              "unchanged_operator_outputs": 135
+            }
+          ],
+          "process_wall_s": 3.1257549710571766
+        }
+      ],
+      "tests": [
+        "logs/cpu-static/tests.log: 3/3 CPU session, recurrence, region tests pass",
+        "logs/cpu-static-specialized/tests.log: same 3/3 pass; generic CPU oracle disables all optimized flags, covers large-number replay, every fuel threshold, branch entry, missing/wrong-type capture, session reuse"
+      ],
+      "code_size_bytes": {
+        "archived_typed_executor": 3357,
+        "specialized_false_executor": 3357,
+        "specialized_true_executor": 5098
+      }
+    }
+  ],
+  "archived_gpu_control": {
+    "house_robber": {
+      "raw_search_ms": [
+        1372.164819,
+        1381.445107,
+        1371.034421
+      ],
+      "median_ms": 1372.164819
+    },
+    "median": {
+      "raw_search_ms": [
+        1192.743606,
+        1197.185084,
+        1176.079594
+      ],
+      "median_ms": 1192.743606
+    }
+  },
+  "rejected_artifacts": [
+    {
+      "patch": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/rejected-fusion.patch",
+      "patch_sha256": "fb4e634371f4d66a8ef32f24c549fb1d214ac69a97cf7b1020defb700604db30",
+      "binary": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-typed/fusion-bench",
+      "binary_sha256": "b380002bdb8636c41a635800d1038de74d03b880bdd70d8a280ca1ec1319b7e5",
+      "committed_patch": "rejected-patches/rejected-fusion.patch"
+    },
+    {
+      "patch": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-pow2/rejected-pow2.patch",
+      "patch_sha256": "ee4b5c95e7e8cdc652ea6a5289ddc2f70279acae673054e846873b57bb9d974c",
+      "binary": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/static-pow2/pow2-bench",
+      "binary_sha256": "95744903d666928b98e168bf3945a577b9ba92a5317e315ad97a9e16bd3104bb",
+      "committed_patch": "rejected-patches/rejected-pow2.patch"
+    },
+    {
+      "patch": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/typed-div32/rejected-div32.patch",
+      "patch_sha256": "9538fb7dca3a280dd5fbb4eaa2f008710a849bf3b1af49797b82c9bf9a76e7f9",
+      "binary": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/typed-div32/div32-bench",
+      "binary_sha256": "ac7dd0e5d054ec7bf12d475139a6ba9fd5fd7f432c0a50cb12df6138f979d3c0",
+      "committed_patch": "rejected-patches/rejected-div32.patch"
+    },
+    {
+      "patch": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/cpu-static/dynamic-fusion.patch",
+      "patch_sha256": "b6d3d67ba4bd7bec3c0604274ebdc14bd7779e521c1205496645eb19d44f1872",
+      "binary": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/cpu-static/dynamic-fusion-bench",
+      "binary_sha256": "1c47168206b97d4976b5de5d1f946cc4b989a0f54052a2708b61e739af1fe4a6",
+      "committed_patch": "rejected-patches/dynamic-fusion.patch"
+    },
+    {
+      "patch": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/cpu-static-specialized/fusion-specialized.patch",
+      "patch_sha256": "f4a24dfe69ea05844782f351d28d872ed637879cd17dbe684e499ea9d85a2f38",
+      "binary": "/home/hschi1106/.t3/worktrees/gagp/astra-static-20261014/logs/cpu-static-specialized/fusion-specialized-bench",
+      "binary_sha256": "4a1807a95c794eea1ed0c383ad7e247eb3cc2f81c52e6e95603e783ee4fe4c9f",
+      "committed_patch": "rejected-patches/fusion-specialized.patch"
+    }
+  ]
+}

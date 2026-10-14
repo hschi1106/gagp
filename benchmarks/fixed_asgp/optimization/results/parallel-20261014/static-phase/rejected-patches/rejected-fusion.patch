@@ -1,0 +1,206 @@
+diff --git a/cpp/src/runtime/gpu/device/view_phase_device.cuh b/cpp/src/runtime/gpu/device/view_phase_device.cuh
+index 1324578..c900833 100644
+--- a/cpp/src/runtime/gpu/device/view_phase_device.cuh
++++ b/cpp/src/runtime/gpu/device/view_phase_device.cuh
+@@ -33,6 +33,54 @@ __device__ __noinline__ DResult d_run_bound_view_phase(
+     const auto ins = view.code[ip++];
+     if (fuel < 0 || ins.fuel > static_cast<unsigned>(fuel)) return d_error(ErrCode::Timeout);
+     fuel -= static_cast<int>(ins.fuel);
++    if (ins.flags & 0xc0) {
++      // A structural packing proof identifies two or three scalar instructions.
++      // Reads and each charge retain their original ordering, including failures.
++      long long a, b;
++      const auto read=[&](const DInstr& x, long long& value) {
++        if(x.op==OP_LOAD) {
++          if(!(local_set & (1u<<x.a))) return false;
++          value=locals[x.a];
++        } else {
++          const auto v=view.consts[x.a];value=v.tag==ValueTag::Bool?v.b:v.i;
++        }
++        return true;
++      };
++      if(ins.flags & 0x80) {
++        if(!read(ins,a))return d_error(ErrCode::Name);
++        const auto right=view.code[ip++];
++        if(fuel<0 || right.fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
++        fuel-=right.fuel;
++        if(!read(right,b))return d_error(ErrCode::Name);
++      } else {
++        a=stack[sp-1];
++        if(!read(ins,b))return d_error(ErrCode::Name);
++      }
++      const auto op=view.code[ip++];
++      if(fuel<0 || op.fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
++      fuel-=op.fuel;
++      long long result;
++      if(op.op==OP_ADD || op.op==OP_SUB || op.op==OP_MUL || op.op==OP_MOD) {
++        const auto x=static_cast<long long>(static_cast<double>(a));
++        const auto y=static_cast<long long>(static_cast<double>(b));
++        if(op.op==OP_ADD)result=vm_semantics::wrap_int_add(x,y);
++        else if(op.op==OP_SUB)result=vm_semantics::wrap_int_sub(x,y);
++        else if(op.op==OP_MUL)result=vm_semantics::wrap_int_mul(x,y);
++        else {if(b==0)return d_error(ErrCode::ZeroDiv);result=vm_semantics::py_int_mod(x,y);}
++      } else if(op.op==OP_CALL_BUILTIN) {
++        const auto bid=static_cast<BuiltinId>(op.a);
++        if(bid==BuiltinId::IDiv0)result=b==0?0:vm_semantics::wrap_int_div(a,b);
++        else if(bid==BuiltinId::IMod0)result=b==0?0:vm_semantics::py_int_mod(a,b);
++        else {const double x=a,y=b;result=static_cast<long long>(bid==BuiltinId::Min?(x<=y?x:y):(x>=y?x:y));}
++      } else if(op.op==OP_EQ)result=a==b;
++      else if(op.op==OP_NE)result=a!=b;
++      else if(op.op==OP_LT)result=static_cast<double>(a)<static_cast<double>(b);
++      else if(op.op==OP_LE)result=static_cast<double>(a)<=static_cast<double>(b);
++      else if(op.op==OP_GT)result=static_cast<double>(a)>static_cast<double>(b);
++      else result=static_cast<double>(a)>=static_cast<double>(b);
++      if(ins.flags & 0x80) stack[sp++]=result; else stack[sp-1]=result;
++      continue;
++    }
+     switch (ins.op) {
+       case OP_PUSH_CONST: {
+         Value value = view.consts[ins.a];
+diff --git a/cpp/src/runtime/gpu/host_pack_gpu.cu b/cpp/src/runtime/gpu/host_pack_gpu.cu
+index b8bfb6d..447079f 100644
+--- a/cpp/src/runtime/gpu/host_pack_gpu.cu
++++ b/cpp/src/runtime/gpu/host_pack_gpu.cu
+@@ -6,6 +6,7 @@
+ #include <algorithm>
+ #include <atomic>
+ #include <cstdlib>
++#include <cstdio>
+ #include <exception>
+ #include <future>
+ #include <thread>
+@@ -307,6 +308,36 @@ void refresh_owned_phase_patterns(PackResult& out,std::size_t phase_begin,std::s
+     m.scalar_constant_index=-1;m.scalar_constant_fuel=0;
+     m.add_left_binding=-1;m.add_right_binding=-1;m.compare_binding=-1;
+   }
++  if (const auto* enabled=std::getenv("GAGP_STATIC_TYPED_PHASE"); enabled && enabled[0]!='0') {
++    std::size_t total=0,eliminated=0,triples=0,pairs=0;
++    for(auto i=phase_begin;i<phase_end;++i) {
++      const auto& m=out.region_phases[i].program;
++      total+=m.code_len;
++      auto* code=out.all_phase_code.data()+m.code_offset;
++      const auto leaf=[&](const DInstr& x) {
++        return x.op==OP_LOAD || (x.op==OP_PUSH_CONST && x.a>=0 && x.a<m.const_len &&
++            (out.all_phase_consts[m.const_offset+x.a].tag==ValueTag::Int ||
++             out.all_phase_consts[m.const_offset+x.a].tag==ValueTag::Bool));
++      };
++      const auto binary=[](const DInstr& x) {
++        return x.op==OP_ADD || x.op==OP_SUB || x.op==OP_MUL || x.op==OP_MOD ||
++            x.op==OP_EQ || x.op==OP_NE || x.op==OP_LT || x.op==OP_LE || x.op==OP_GT || x.op==OP_GE ||
++            (x.op==OP_CALL_BUILTIN && (x.a==static_cast<int>(BuiltinId::Min) ||
++             x.a==static_cast<int>(BuiltinId::Max) || x.a==static_cast<int>(BuiltinId::IDiv0) ||
++             x.a==static_cast<int>(BuiltinId::IMod0)));
++      };
++      // Private execution annotations never replace canonical instructions.
++      // Branches entering the middle still execute the original suffix normally.
++      for(int j=0;j<m.code_len;++j) code[j].flags &= 0x3f;
++      for(int j=0;j+1<m.code_len;++j) if(leaf(code[j])) {
++        if(j+2<m.code_len && leaf(code[j+1]) && binary(code[j+2])) {
++          code[j].flags|=0x80; j+=2; eliminated+=2; ++triples;
++        } else if(binary(code[j+1])) {code[j].flags|=0x40; ++j; ++eliminated; ++pairs;}
++      }
++    }
++    if(std::getenv("GAGP_STATIC_TYPED_DIAGNOSTICS"))
++      std::fprintf(stderr,"static_typed total=%zu eliminated=%zu triples=%zu pairs=%zu\n",total,eliminated,triples,pairs);
++  }
+   if (std::getenv("GAGP_BOUND_ADD_PHASE")) {
+     for(auto i=phase_begin;i<phase_end;++i) {
+       auto& phase=out.region_phases[i];auto& m=phase.program;
+diff --git a/cpp/tests/gpu/test_bounded_region_gpu.cpp b/cpp/tests/gpu/test_bounded_region_gpu.cpp
+index ee32440..c2d4ada 100644
+--- a/cpp/tests/gpu/test_bounded_region_gpu.cpp
++++ b/cpp/tests/gpu/test_bounded_region_gpu.cpp
+@@ -826,7 +826,7 @@ bool test_production_capability_dispatch_sequence() {
+          compare_population({memo_b}, "shrink workspace after ordinary dispatch");
+ }
+ 
+-bool test_verified_view_profile(bool direct = false, bool root = false) {
++bool test_verified_view_profile(bool direct = false, bool root = false, bool fused = false) {
+   struct Environment {
+     const char* key; std::string old; bool had;
+     explicit Environment(const char* name) : key(name), had(std::getenv(name)!=nullptr) {
+@@ -834,6 +834,8 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
+     }
+     ~Environment(){if(had)setenv(key,old.c_str(),1);else unsetenv(key);}
+   } view("GAGP_VIEW_PROFILE"), typed("GAGP_TYPED_VIEW_PHASE"), sorted("GAGP_SORT_CASES"), compact("GAGP_COMPACT_FRAMES"), constant("GAGP_CONSTANT_PHASE");
++  std::unique_ptr<Environment> fused_env;
++  if(fused) fused_env=std::make_unique<Environment>("GAGP_STATIC_TYPED_PHASE");
+   std::unique_ptr<Environment> direct_env;
+   if (direct) direct_env = std::make_unique<Environment>("GAGP_DIRECT_PHASE");
+   std::unique_ptr<Environment> root_env;
+@@ -1039,6 +1041,67 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
+       }
+     }
+   }
++  if(fused) {
++    for(bool take:{false,true}) {
++      auto segment=unary_segment(Value::from_int(0));
++      segment.base_body=phase({Value::from_int(17),Value::from_bool(take),Value::from_int(2),Value::from_int(3)},
++          {ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),ins_a(Opcode::JmpIfTrue,5),
++           ins_a(Opcode::Store,0),ins_a(Opcode::PushConst,2),ins_a(Opcode::PushConst,3),ins(Opcode::Add),ins(Opcode::Return)}, {},1);
++      segment.base_body.program.instruction_fuel={2,3,5,7,11,13,17,19};
++      const auto program=invocation(segment,{Value::from_int(0)});
++      if(!verify_fixture(program,"jump into fused suffix"))return false;
++      for(int fuel=0;fuel<90;++fuel) {
++        FitnessSessionGpu session;const auto answer=Value::from_int(take?20:5);
++        if(!check(session.init({{}},{answer},fuel,32,7).ok,"typed fused branch init"))return false;
++        const auto gpu=session.eval_programs({program},true);
++        const auto cpu=eval_fitness_cpu({program},{{}},{answer},fuel,7,32);
++        if(!check(gpu.ok && gpu.fitness==cpu,"branch enters original unfused suffix with exact fuel"))return false;
++      }
++    }
++    {
++      auto segment=unary_segment(Value::from_int(0));
++      segment.plan.parameter_types={ValueTag::Int};segment.parameter_locals={0};
++      segment.base_body=phase({Value::from_int(2)},
++          {ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,0),ins(Opcode::Add),ins(Opcode::Return)},
++          {{slot(RegionSlotBank::Parameter,0),0}},1);
++      segment.base_body.program.instruction_fuel={2,3,5,7};
++      const auto program=invocation(segment,{Value::from_int(0)},1);
++      const std::vector<CaseBindings> cases{{{0,Value::from_int(3)}},{}};
++      for(int fuel=0;fuel<30;++fuel) {
++        FitnessSessionGpu session;
++        if(!check(session.init(cases,{Value::from_int(5),Value::from_int(5)},fuel,32,7).ok,"typed missing fused load init"))return false;
++        const auto gpu=session.eval_programs({program},true);
++        const auto cpu=eval_fitness_cpu({program},cases,{Value::from_int(5),Value::from_int(5)},fuel,7,32);
++        unsigned timeouts=0;
++        for(const auto& c:cases){std::vector<std::pair<int,Value>> bindings;for(const auto& b:c)bindings.push_back({b.idx,b.value});const auto result=execute_bytecode_cpu(program,bindings,fuel);timeouts+=result.is_error && result.err.code==ErrCode::Timeout;}
++        if(!check(gpu.ok && gpu.fitness==cpu && gpu.case_counts[0][2]==timeouts,"fused missing LOAD preserves Name versus Timeout priority"))return false;
++      }
++    }
++  }
++  if(fused) {
++    for(std::int64_t divisor:{INT64_C(0),INT64_C(5),INT64_C(-5)}) {
++      auto segment=unary_segment(Value::from_int(0));
++      segment.base_body=phase({Value::from_int(-19),Value::from_int(2),Value::from_int(divisor)},
++          {ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),ins(Opcode::Add),
++           ins_a(Opcode::PushConst,2),ins(Opcode::Mod),ins(Opcode::Return)});
++      segment.base_body.program.instruction_fuel={2,3,5,7,11,13};
++      const auto program=invocation(segment,{Value::from_int(0)});
++      const auto packed=gpu_detail::pack_programs_with_shared_case_count({program},1,0);
++      const auto& phase_meta=packed.region_phases[packed.region_segments[0].base_body_phase].program;
++      if(!check((packed.all_phase_code[phase_meta.code_offset].flags&0x80) &&
++          (packed.all_phase_code[phase_meta.code_offset+3].flags&0x40),"typed structural triple and pair annotated"))return false;
++      for(int fuel=0;fuel<55;++fuel) {
++        FitnessSessionGpu session;const auto answer=Value::from_int(divisor>0?3:-2);
++        if(!check(session.init({{}},{answer},fuel,32,7).ok,"typed fused fuel init"))return false;
++        const auto gpu=session.eval_programs({program},true);
++        const auto cpu=eval_fitness_cpu({program},{{}},{answer},fuel,7,32);
++        const auto execution=execute_bytecode_cpu(program,{},fuel);
++        if(!check(gpu.ok && gpu.fitness==cpu && gpu.case_counts[0][1]==static_cast<unsigned>(execution.is_error) &&
++            gpu.case_counts[0][2]==static_cast<unsigned>(execution.is_error && execution.err.code==ErrCode::Timeout),
++            "typed scalar fusion preserves every fuel boundary and zero-divisor error"))return false;
++      }
++    }
++  }
+   const auto numeric = [&](BuiltinId id, std::vector<Value> constants, Value answer, const std::string& label) {
+     auto segment=unary_segment(Value::from_int(0));
+     std::vector<Instr> code;
+@@ -1115,6 +1178,7 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
+ int main() {
+   payload::clear();
+   if (!test_verified_view_profile() || !test_verified_view_profile(true) || !test_verified_view_profile(true, true)) return 1;
++  if (!test_verified_view_profile(true,true,true)) return 1;
+   if (!test_workspace_thread_isolation()) return 1;
+   if (!test_phase_binding_capacities()) return 1;
+   if (!test_leaf_phase_types_and_fuel()) return 1;

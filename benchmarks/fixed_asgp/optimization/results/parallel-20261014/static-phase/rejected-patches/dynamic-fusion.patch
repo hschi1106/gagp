@@ -1,0 +1,159 @@
+diff --git a/cpp/src/runtime/cpu/region_adapter.hpp b/cpp/src/runtime/cpu/region_adapter.hpp
+index eb31175..663f4a8 100644
+--- a/cpp/src/runtime/cpu/region_adapter.hpp
++++ b/cpp/src/runtime/cpu/region_adapter.hpp
+@@ -21,6 +21,7 @@ struct DirectPhaseBindings {
+   ValueTag result_type = ValueTag::Invalid;
+   std::array<ValueTag, 64> types{};
+   std::vector<const RegionPhaseBinding*> locals;
++  std::vector<std::uint8_t> fused;
+ };
+ 
+ struct BoundPhaseInputs {
+@@ -33,6 +34,7 @@ struct BoundPhaseInputs {
+ struct RegionPhaseScratch {
+   bool coordinate_enabled = std::getenv("GAGP_CPU_COORDINATE_DRIVER") != nullptr;
+   bool dense_enabled = std::getenv("GAGP_CPU_DENSE_MEMO") != nullptr;
++  bool static_phase_enabled = std::getenv("GAGP_CPU_STATIC_PHASE") && std::getenv("GAGP_CPU_STATIC_PHASE")[0]!='0';
+   bool typed_enabled = std::getenv("GAGP_CPU_TYPED_PHASE") != nullptr;
+   bool direct_enabled = typed_enabled || std::getenv("GAGP_CPU_BOUND_PHASE") != nullptr;
+   struct SegmentBindings {
+@@ -86,6 +88,25 @@ struct RegionPhaseScratch {
+               [](const Value& value) { return value.tag == ValueTag::Int || value.tag == ValueTag::Bool; }) &&
+               view_code_supported(phase.program.code, phase.program.consts, phase.program.n_locals,
+                                   result.types, expected);
++          if(result.typed && static_phase_enabled) {
++            const auto& code=phase.program.code;
++            const auto leaf=[](const Instr& instruction) {
++              return instruction.op==Opcode::Load || instruction.op==Opcode::PushConst;
++            };
++            const auto binary=[](const Instr& instruction) {
++              const auto op=instruction.op;
++              return op==Opcode::Add || op==Opcode::Sub || op==Opcode::Mul || op==Opcode::Mod ||
++                  op==Opcode::Eq || op==Opcode::Ne || op==Opcode::Lt || op==Opcode::Le || op==Opcode::Gt || op==Opcode::Ge ||
++                  (op==Opcode::CallBuiltin && (instruction.a==static_cast<int>(BuiltinId::Min) ||
++                   instruction.a==static_cast<int>(BuiltinId::Max) || instruction.a==static_cast<int>(BuiltinId::IDiv0) ||
++                   instruction.a==static_cast<int>(BuiltinId::IMod0)));
++            };
++            result.fused.assign(code.size(),0);
++            for(std::size_t j=0;j+1<code.size();++j) if(leaf(code[j])) {
++              if(j+2<code.size() && leaf(code[j+1]) && binary(code[j+2])) {result.fused[j]=3;j+=2;}
++              else if(binary(code[j+1])) {result.fused[j]=2;++j;}
++            }
++          }
+         }
+       }
+     }
+diff --git a/cpp/src/runtime/cpu/typed_phase.hpp b/cpp/src/runtime/cpu/typed_phase.hpp
+index a41fc9f..4175d01 100644
+--- a/cpp/src/runtime/cpu/typed_phase.hpp
++++ b/cpp/src/runtime/cpu/typed_phase.hpp
+@@ -46,6 +46,60 @@ inline std::optional<ExecResult> run_typed_phase(const PhaseProgram& program,
+       return region_failure(ErrCode::Timeout, "out of fuel");
+     fuel -= static_cast<int>(charge);
+     const auto& ins = program.code[ip++];
++    const auto fused=bound.bindings.fused.empty()?0:bound.bindings.fused[ip-1];
++    if(fused) {
++      const auto read=[&](const Instr& instruction,std::int64_t& value) {
++        if(instruction.op==Opcode::Load) {
++          if(!(local_set & (UINT64_C(1)<<instruction.a)))return false;
++          value=locals[instruction.a];
++        } else {const auto v=program.consts[instruction.a];value=v.tag==ValueTag::Bool?v.b:v.i;}
++        return true;
++      };
++      const auto charge_next=[&]() {
++        const auto cost=program.instruction_fuel.empty()?1u:program.instruction_fuel[ip];
++        if(fuel<0 || cost>static_cast<unsigned>(fuel))return false;
++        fuel-=static_cast<int>(cost);return true;
++      };
++      std::int64_t a,b;
++      if(fused==3) {
++        if(!read(ins,a))return region_failure(ErrCode::Name,"read of uninitialized local");
++        if(!charge_next())return region_failure(ErrCode::Timeout,"out of fuel");
++        if(!read(program.code[ip++],b))return region_failure(ErrCode::Name,"read of uninitialized local");
++      } else {
++        a=stack[sp-1];
++        if(!read(ins,b))return region_failure(ErrCode::Name,"read of uninitialized local");
++      }
++      if(!charge_next())return region_failure(ErrCode::Timeout,"out of fuel");
++      const auto& operation=program.code[ip++];
++      const auto op=operation.op;
++      std::int64_t result;
++      if(op==Opcode::Add || op==Opcode::Sub || op==Opcode::Mul || op==Opcode::Mod) {
++        if(static_cast<double>(a)>=0x1p63 || static_cast<double>(b)>=0x1p63) {
++          fuel=original_fuel;return std::nullopt;
++        }
++        const auto x=static_cast<long long>(static_cast<double>(a)),y=static_cast<long long>(static_cast<double>(b));
++        if(op==Opcode::Add)result=vm_semantics::wrap_int_add(x,y);
++        else if(op==Opcode::Sub)result=vm_semantics::wrap_int_sub(x,y);
++        else if(op==Opcode::Mul)result=vm_semantics::wrap_int_mul(x,y);
++        else {if(!b)return region_failure(ErrCode::ZeroDiv,"modulo by zero");result=vm_semantics::py_int_mod(x,y);}
++      } else if(op==Opcode::CallBuiltin) {
++        const auto id=static_cast<BuiltinId>(operation.a);
++        if(id==BuiltinId::IDiv0)result=b?vm_semantics::wrap_int_div(a,b):0;
++        else if(id==BuiltinId::IMod0)result=b?vm_semantics::py_int_mod(a,b):0;
++        else {
++          const double x=a,y=b,picked=id==BuiltinId::Min?(x<=y?x:y):(x>=y?x:y);
++          if(picked>=0x1p63){fuel=original_fuel;return std::nullopt;}
++          result=static_cast<long long>(picked);
++        }
++      } else if(op==Opcode::Eq)result=a==b;
++      else if(op==Opcode::Ne)result=a!=b;
++      else if(op==Opcode::Lt)result=static_cast<double>(a)<static_cast<double>(b);
++      else if(op==Opcode::Le)result=static_cast<double>(a)<=static_cast<double>(b);
++      else if(op==Opcode::Gt)result=static_cast<double>(a)>static_cast<double>(b);
++      else result=static_cast<double>(a)>=static_cast<double>(b);
++      if(fused==3)stack[sp++]=result;else stack[sp-1]=result;
++      continue;
++    }
+     switch (ins.op) {
+       case Opcode::PushConst: {
+         const auto value = program.consts[ins.a];
+diff --git a/cpp/tests/runtime/test_cpu_execution_session.cpp b/cpp/tests/runtime/test_cpu_execution_session.cpp
+index ac31cdd..c062d64 100644
+--- a/cpp/tests/runtime/test_cpu_execution_session.cpp
++++ b/cpp/tests/runtime/test_cpu_execution_session.cpp
+@@ -137,7 +137,7 @@ bool compare_range(CpuExecutionSession* session,
+   for (int fuel = 0; fuel <= maximum; ++fuel) {
+     std::vector<std::pair<std::string, std::string>> flags;
+     for (const char* name : {"GAGP_CPU_COORDINATE_DRIVER", "GAGP_CPU_BOUND_PHASE", "GAGP_CPU_REGION_VIEWS",
+-                             "GAGP_CPU_COORDINATE_VIEWS", "GAGP_CPU_TYPED_PHASE", "GAGP_CPU_DENSE_MEMO"}) {
++                             "GAGP_CPU_COORDINATE_VIEWS", "GAGP_CPU_TYPED_PHASE", "GAGP_CPU_DENSE_MEMO", "GAGP_CPU_STATIC_PHASE"}) {
+       if (const char* value = std::getenv(name)) flags.emplace_back(name, value);
+       unsetenv(name);
+     }
+@@ -352,6 +352,24 @@ bool test_two_segments_share_no_invocation_state() {
+ }
+ 
+ bool test_typed_numeric_boundaries_and_replay() {
++  for(bool taken:{false,true}) {
++    auto program=counter_program();auto& body=program.bounded_region_segments[0].base_body.program;
++    body.consts={Value::from_bool(taken),Value::from_int(17),Value::from_int(3),Value::from_int(2),Value::from_int(5)};
++    body.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::JmpIfTrue,5),ins_a(Opcode::PushConst,1),ins_a(Opcode::PushConst,2),
++        ins_a(Opcode::Jmp,7),ins_a(Opcode::PushConst,3),ins_a(Opcode::PushConst,4),ins(Opcode::Add),ins(Opcode::Return)};
++    body.instruction_fuel={2,3,5,7,11,13,17,19,23};
++    CpuExecutionSession session(program);
++    if(!compare_range(&session,program,{{0,Value::from_int(0)}},110,"cached fusion branch enters binary suffix"))return false;
++  }
++  {
++    auto program=counter_program();auto& body=program.bounded_region_segments[0].base_body.program;
++    body.consts={Value::from_int(2)};
++    body.code={ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,0),ins(Opcode::Add),ins(Opcode::Return)};
++    body.instruction_fuel={2,3,5,7};
++    CpuExecutionSession session(program);
++    for(const auto& inputs:std::vector<std::vector<std::pair<int,Value>>>{{{0,Value::from_int(0)}},{{0,Value::from_int(0)},{1,Value::from_int(9)}},{{0,Value::from_int(0)},{1,Value::from_bool(true)}}})
++      if(!compare_range(&session,program,inputs,35,"cached fusion missing or wrong-type capture"))return false;
++  }
+   for (const auto op : {Opcode::Add, Opcode::Sub, Opcode::Mul, Opcode::Mod}) {
+     for (const auto a : {std::int64_t(0), std::int64_t(9007199254740993LL),
+                          std::numeric_limits<std::int64_t>::min(),
+@@ -464,7 +482,8 @@ bool test_compact_coordinate_branches() {
+ 
+ int main() {
+   try {
+-    for (int direct = 0; direct < 4; ++direct) {
++    for (int direct = 0; direct < 5; ++direct) {
++      if (direct == 4)setenv("GAGP_CPU_STATIC_PHASE","1",1);
+       if (direct == 3) setenv("GAGP_CPU_COORDINATE_DRIVER", "1", 1);
+       if (direct == 2) {
+         setenv("GAGP_CPU_TYPED_PHASE", "1", 1);

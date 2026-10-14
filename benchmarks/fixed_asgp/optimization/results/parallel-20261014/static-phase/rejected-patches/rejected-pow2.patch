@@ -1,0 +1,163 @@
+diff --git a/cpp/src/runtime/gpu/device/view_phase_device.cuh b/cpp/src/runtime/gpu/device/view_phase_device.cuh
+index 1324578..8c65c0c 100644
+--- a/cpp/src/runtime/gpu/device/view_phase_device.cuh
++++ b/cpp/src/runtime/gpu/device/view_phase_device.cuh
+@@ -20,6 +20,21 @@ struct DViewPresets {
+   }
+ };
+ 
++// Only selected for a statically proven nonzero signed power-of-two divisor.
++// Unsigned magnitudes also cover INT64_MIN and the protected MIN / -1 wrap.
++__device__ inline long long d_static_pow2_divmod(long long a,long long b,bool modulo) {
++  const auto numerator=a<0?0ULL-static_cast<unsigned long long>(a):static_cast<unsigned long long>(a);
++  const auto divisor=b<0?0ULL-static_cast<unsigned long long>(b):static_cast<unsigned long long>(b);
++  if(!modulo) {
++    const auto quotient=numerator >> (__ffsll(static_cast<long long>(divisor))-1);
++    return static_cast<long long>((a<0)!=(b<0)?0ULL-quotient:quotient);
++  }
++  const auto magnitude=numerator&(divisor-1);
++  auto remainder=static_cast<long long>(a<0?0ULL-magnitude:magnitude);
++  if(remainder && (a<0)!=(b<0))remainder=vm_semantics::wrap_int_add(remainder,b);
++  return remainder;
++}
++
+ template <class Binder>
+ __device__ __noinline__ DResult d_run_bound_view_phase(
+     const DCodeView& view, Binder binder,
+@@ -94,7 +109,8 @@ __device__ __noinline__ DResult d_run_bound_view_phase(
+           stack[sp - 1] = lower < hi ? lower : hi;
+         } else {
+           const auto b = stack[--sp], a = stack[sp - 1];
+-          if (bid == BuiltinId::IDiv0) stack[sp - 1] = b == 0 ? 0 : vm_semantics::wrap_int_div(a, b);
++          if(ins.flags & 4) stack[sp - 1]=d_static_pow2_divmod(a,b,bid==BuiltinId::IMod0);
++          else if (bid == BuiltinId::IDiv0) stack[sp - 1] = b == 0 ? 0 : vm_semantics::wrap_int_div(a, b);
+           else if (bid == BuiltinId::IMod0) stack[sp - 1] = b == 0 ? 0 : vm_semantics::py_int_mod(a, b);
+           else {
+             const double x = a, y = b;
+diff --git a/cpp/src/runtime/gpu/host_pack_gpu.cu b/cpp/src/runtime/gpu/host_pack_gpu.cu
+index b8bfb6d..9b3329d 100644
+--- a/cpp/src/runtime/gpu/host_pack_gpu.cu
++++ b/cpp/src/runtime/gpu/host_pack_gpu.cu
+@@ -6,6 +6,7 @@
+ #include <algorithm>
+ #include <atomic>
+ #include <cstdlib>
++#include <cstdio>
+ #include <exception>
+ #include <future>
+ #include <thread>
+@@ -307,6 +308,32 @@ void refresh_owned_phase_patterns(PackResult& out,std::size_t phase_begin,std::s
+     m.scalar_constant_index=-1;m.scalar_constant_fuel=0;
+     m.add_left_binding=-1;m.add_right_binding=-1;m.compare_binding=-1;
+   }
++  if (const auto* enabled=std::getenv("GAGP_STATIC_POW2_DIVISOR"); enabled && enabled[0]!='0') {
++    std::size_t divisions=0,specialized=0;
++    std::vector<unsigned char> branch_targets;
++    for(auto i=phase_begin;i<phase_end;++i) {
++      const auto& m=out.region_phases[i].program;
++      auto* code=out.all_phase_code.data()+m.code_offset;
++      branch_targets.assign(m.code_len,0);
++      for(int j=0;j<m.code_len;++j) if(code[j].op==OP_JMP || code[j].op==OP_JMP_IF_TRUE || code[j].op==OP_JMP_IF_FALSE) {
++        if(code[j].a>=0 && code[j].a<m.code_len)branch_targets[code[j].a]=1;
++      }
++      for(int j=0;j<m.code_len;++j) {
++        code[j].flags &= ~std::uint8_t{4};
++        if(code[j].op!=OP_CALL_BUILTIN ||
++            (code[j].a!=static_cast<int>(BuiltinId::IDiv0) && code[j].a!=static_cast<int>(BuiltinId::IMod0)))continue;
++        ++divisions;
++        if(j==0 || branch_targets[j] || code[j-1].op!=OP_PUSH_CONST || code[j-1].a<0 || code[j-1].a>=m.const_len)continue;
++        const auto value=out.all_phase_consts[m.const_offset+code[j-1].a];
++        if(value.tag!=ValueTag::Int)continue;
++        const auto bits=static_cast<std::uint64_t>(value.i);
++        const auto magnitude=value.i<0?std::uint64_t{0}-bits:bits;
++        if(magnitude && !(magnitude&(magnitude-1))) {code[j].flags|=4;++specialized;}
++      }
++    }
++    if(std::getenv("GAGP_STATIC_POW2_DIAGNOSTICS"))
++      std::fprintf(stderr,"static_pow2 divisions=%zu specialized=%zu\n",divisions,specialized);
++  }
+   if (std::getenv("GAGP_BOUND_ADD_PHASE")) {
+     for(auto i=phase_begin;i<phase_end;++i) {
+       auto& phase=out.region_phases[i];auto& m=phase.program;
+diff --git a/cpp/tests/gpu/test_bounded_region_gpu.cpp b/cpp/tests/gpu/test_bounded_region_gpu.cpp
+index ee32440..b3bfdf0 100644
+--- a/cpp/tests/gpu/test_bounded_region_gpu.cpp
++++ b/cpp/tests/gpu/test_bounded_region_gpu.cpp
+@@ -826,7 +826,7 @@ bool test_production_capability_dispatch_sequence() {
+          compare_population({memo_b}, "shrink workspace after ordinary dispatch");
+ }
+ 
+-bool test_verified_view_profile(bool direct = false, bool root = false) {
++bool test_verified_view_profile(bool direct = false, bool root = false, bool pow2 = false) {
+   struct Environment {
+     const char* key; std::string old; bool had;
+     explicit Environment(const char* name) : key(name), had(std::getenv(name)!=nullptr) {
+@@ -834,6 +834,8 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
+     }
+     ~Environment(){if(had)setenv(key,old.c_str(),1);else unsetenv(key);}
+   } view("GAGP_VIEW_PROFILE"), typed("GAGP_TYPED_VIEW_PHASE"), sorted("GAGP_SORT_CASES"), compact("GAGP_COMPACT_FRAMES"), constant("GAGP_CONSTANT_PHASE");
++  std::unique_ptr<Environment> pow2_env;
++  if(pow2)pow2_env=std::make_unique<Environment>("GAGP_STATIC_POW2_DIVISOR");
+   std::unique_ptr<Environment> direct_env;
+   if (direct) direct_env = std::make_unique<Environment>("GAGP_DIRECT_PHASE");
+   std::unique_ptr<Environment> root_env;
+@@ -1039,6 +1041,51 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
+       }
+     }
+   }
++  if(pow2) {
++    std::vector<BytecodeProgram> population;
++    std::vector<std::int64_t> divisors{0,3,-3};
++    for(unsigned shift=0;shift<64;++shift) {
++      const auto bits=UINT64_C(1)<<shift;
++      if(shift<63)divisors.push_back(static_cast<std::int64_t>(bits));
++      divisors.push_back(static_cast<std::int64_t>(std::uint64_t{0}-bits));
++    }
++    for(auto id:{BuiltinId::IDiv0,BuiltinId::IMod0})for(auto divisor:divisors)
++        for(std::int64_t numerator:{INT64_MIN,INT64_MAX,INT64_C(-17),INT64_C(0),INT64_C(17),(INT64_C(1)<<53)+9,-(INT64_C(1)<<53)-9}) {
++      BytecodeProgram scalar;
++      scalar.consts={Value::from_int(numerator),Value::from_int(divisor)};
++      scalar.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),ins_ab(Opcode::CallBuiltin,static_cast<int>(id),2),ins(Opcode::Return)};
++      const auto expected=execute_bytecode_cpu(scalar,{},100);
++      if(!check(!expected.is_error,"reference protected division total"))return false;
++      scalar.code.pop_back();
++      scalar.consts.push_back(expected.value);
++      scalar.code.push_back(ins_a(Opcode::PushConst,2));scalar.code.push_back(ins(Opcode::Eq));scalar.code.push_back(ins(Opcode::Return));
++      scalar.instruction_fuel={2,3,5,7,11,13};
++      auto segment=unary_segment(Value::from_bool(false));
++      segment.base_body.program.code=scalar.code;segment.base_body.program.consts=scalar.consts;
++      segment.base_body.program.instruction_fuel=scalar.instruction_fuel;
++      population.push_back(invocation(segment,{Value::from_int(0)}));
++    }
++    // Branch entry at the division bypasses the adjacent constant. The RHS is
++    // three on that path, so the ordinary division must remain reachable.
++    {
++      auto segment=unary_segment(Value::from_int(0));
++      segment.base_body=phase({Value::from_int(17),Value::from_int(3),Value::from_bool(true),Value::from_int(2)},
++          {ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),ins_a(Opcode::PushConst,2),ins_a(Opcode::JmpIfTrue,6),
++           ins_a(Opcode::Store,0),ins_a(Opcode::PushConst,3),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::IDiv0),2),ins(Opcode::Return)}, {},1);
++      const auto program=invocation(segment,{Value::from_int(0)});
++      const auto packed=gpu_detail::pack_programs_with_shared_case_count({program},1,0);
++      const auto& meta=packed.region_phases[packed.region_segments[0].base_body_phase].program;
++      if(!check(!(packed.all_phase_code[meta.code_offset+6].flags&4),"branch-entered divisor remains generic") ||
++          !compare_fitness(program,{{{},Value::from_int(5),ErrCode::Value,true}},100,"branch bypasses power-of-two literal"))return false;
++    }
++    for(int fuel:{0,1,2,3,5,7,10,11,12,15,20,25,30,40,45,50,100}) {
++      FitnessSessionGpu session;
++      if(!check(session.init({{}},{Value::from_bool(true)},fuel,32,7).ok,"static divisor matrix init"))return false;
++      const auto gpu=session.eval_programs(population,true);
++      const auto cpu=eval_fitness_cpu(population,{{}},{Value::from_bool(true)},fuel,7,32);
++      if(!check(gpu.ok && gpu.fitness==cpu,"static divisor exact bits and fuel across all signed shifts"))return false;
++    }
++  }
+   const auto numeric = [&](BuiltinId id, std::vector<Value> constants, Value answer, const std::string& label) {
+     auto segment=unary_segment(Value::from_int(0));
+     std::vector<Instr> code;
+@@ -1115,6 +1162,7 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
+ int main() {
+   payload::clear();
+   if (!test_verified_view_profile() || !test_verified_view_profile(true) || !test_verified_view_profile(true, true)) return 1;
++  if (!test_verified_view_profile(true,true,true)) return 1;
+   if (!test_workspace_thread_isolation()) return 1;
+   if (!test_phase_binding_capacities()) return 1;
+   if (!test_leaf_phase_types_and_fuel()) return 1;
