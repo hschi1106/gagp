@@ -1097,6 +1097,91 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
         if(!check(counts[0]==65 && counts[1]==0,"queued SoA rows must visit every case once"))return false;
     }
   }
+  if(direct && root) {
+    Environment hybrid("GAGP_HYBRID_PHASE_EXECUTOR"), window_mode("GAGP_WINDOW_EXECUTOR"),
+        unboxed("GAGP_UNBOXED_WINDOW_FRAMES"), leaf("GAGP_GPU_WINDOW_LEAF_DIRECT");
+    // One deep phase must use the tagged view VM while its sibling phases and
+    // window continuations remain compact. Thirty-three distinct cases cover
+    // a partial second warp and per-case captured indices on private slices.
+    for(bool carried:{false,true}) {
+      auto segment=sequence_segment(ValueTag::IntList);
+      segment.plan.result_type=ValueTag::Int;
+      segment.plan.preparations.resize(1);segment.preparations.resize(1);
+      segment.plan.requests.resize(2);
+      segment.plan.requests[1].states[0]=window(0,endpoint(WindowEndpointKind::InteriorCut,0),endpoint(WindowEndpointKind::End));
+      segment.plan.parameter_types={ValueTag::Int};segment.parameter_locals={1};
+      std::vector<Instr> deep(18,ins_a(Opcode::PushConst,0));
+      deep.insert(deep.end(),{ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),
+          ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Slice),3),ins_a(Opcode::Load,1),
+          ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Index),2)});
+      deep.insert(deep.end(),18,ins(Opcode::Add));
+      std::vector<RegionPhaseBinding> bindings{{slot(RegionSlotBank::State,0),0},{slot(RegionSlotBank::Parameter,0),1}};
+      if(carried) {
+        segment.plan.state_types.push_back(ValueTag::Int);
+        RegionStateTransition copy;copy.kind=RegionTransitionKind::CopyState;copy.source_state=1;
+        segment.plan.requests[0].states.push_back(copy);segment.plan.requests[1].states.push_back(copy);
+        bindings.push_back({slot(RegionSlotBank::State,1),2});
+        deep.push_back(ins_a(Opcode::Load,2));deep.push_back(ins(Opcode::Add));
+      }
+      deep.push_back(ins(Opcode::Return));
+      segment.base_body=phase({Value::from_int(0),Value::from_int(1)},deep,bindings,carried?3:2);
+      for(std::size_t i=0;i<deep.size();++i)segment.base_body.program.instruction_fuel[i]=(i%3==0?2:1);
+      segment.combine=phase({}, {ins_a(Opcode::Load,0),ins_a(Opcode::Load,1),ins(Opcode::Add),ins(Opcode::Return)},
+          {{slot(RegionSlotBank::Result,0),0},{slot(RegionSlotBank::Result,1),1}},2);
+      std::vector<Value> operands{payload::make_int_list_value({Value::from_int(0)})};
+      if(carried)operands.push_back(Value::from_int(-3));
+      auto program=invocation(segment,operands,2);program.code[0]=ins_a(Opcode::Load,0);
+      if(!verify_fixture(program,"hybrid deep-window phase"))return false;
+      auto shallow=program;
+      auto& shallow_phase=shallow.bounded_region_segments[0].base_body.program;
+      shallow_phase.code.erase(shallow_phase.code.begin(),shallow_phase.code.begin()+18);
+      shallow_phase.code.erase(shallow_phase.code.begin()+6,shallow_phase.code.begin()+24);
+      shallow_phase.code.insert(shallow_phase.code.begin()+6,{ins_a(Opcode::PushConst,0),ins(Opcode::Add)});
+      shallow_phase.instruction_fuel.assign(shallow_phase.code.size(),1);
+      const std::vector<BytecodeProgram> programs{program,shallow};
+      const auto packed=gpu_detail::pack_programs_with_shared_case_count(programs,33,0);
+      if(!check(std::any_of(packed.region_phases.begin(),packed.region_phases.end(),[](const auto& p){return p.program.verified_stack_bound<=16;}) &&
+          std::any_of(packed.region_phases.begin(),packed.region_phases.end(),[](const auto& p){return p.program.verified_stack_bound>16;}),
+          "hybrid fixture must exceed compact operand stack"))return false;
+      std::vector<CaseBindings> cases;std::vector<Value> answers;
+      std::vector<int> budgets{0,1,2,3,40,60,80,1000};
+      for(int c=0;c<33;++c) {
+        std::vector<Value> values;
+        for(int j=0;j<c%6;++j)values.push_back(Value::from_int((c%2?-(j+7):9007199254740993LL+j)));
+        const auto list=payload::make_int_list_value(values);
+        const auto index=Value::from_int(c%3==0?9:c%3==1?-1:0);
+        cases.push_back({{0,list},{1,index}});
+        const std::vector<std::pair<int,Value>> inputs{{0,list},{1,index}};
+        const auto result=execute_bytecode_cpu(program,inputs,1000);
+        answers.push_back(result.is_error?Value::from_int(0):result.value);
+        if(!result.is_error) {
+          int lo=0,hi=1000;
+          while(lo<hi){const int mid=(lo+hi)/2;if(execute_bytecode_cpu(program,inputs,mid).is_error)lo=mid+1;else hi=mid;}
+          budgets.insert(budgets.end(),{lo-1,lo,lo+1});
+        }
+      }
+      std::sort(budgets.begin(),budgets.end());budgets.erase(std::unique(budgets.begin(),budgets.end()),budgets.end());
+      for(int fuel:budgets) {
+        FitnessSessionGpu session;
+        if(!check(session.init(cases,answers,fuel,32,7).ok,"hybrid window cases init"))return false;
+        unsetenv("GAGP_HYBRID_PHASE_EXECUTOR");const auto generic=session.eval_programs(programs,true);
+        setenv("GAGP_HYBRID_PHASE_EXECUTOR","1",1);const auto specialized=session.eval_programs(programs,true);
+        const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,7,32);
+        unsigned errors=0,timeouts=0;
+        for(const auto& bindings:cases) {
+          std::vector<std::pair<int,Value>> inputs;for(const auto& b:bindings)inputs.emplace_back(b.idx,b.value);
+          const auto result=execute_bytecode_cpu(program,inputs,fuel);
+          errors+=result.is_error;timeouts+=result.is_error && result.err.code==ErrCode::Timeout;
+        }
+        if(!check(generic.ok && specialized.ok && generic.execution_profile.find("-window")==std::string::npos &&
+            specialized.execution_profile.find("-direct-root-hybrid")!=std::string::npos &&
+            specialized.execution_profile.find("-window-unboxed")!=std::string::npos &&
+            specialized.fitness==generic.fitness && specialized.fitness==cpu && specialized.case_counts==generic.case_counts &&
+            specialized.case_counts[0][1]==errors && specialized.case_counts[0][2]==timeouts,
+            "hybrid deep phase preserves private views, large-number rounding, captures and exact fuel/error boundaries"))return false;
+      }
+    }
+  }
   if(direct) {
     Environment add_mode("GAGP_BOUND_ADD_PHASE");
     for(bool explicit_return:{false,true}) {
