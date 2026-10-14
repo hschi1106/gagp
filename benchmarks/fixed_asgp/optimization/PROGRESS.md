@@ -1126,3 +1126,27 @@ empty/list lengths, shifted constant-payload tables, fuel, missing/wrong capture
 and existing state-only sequence paths. Evidence:
 `results/parallel-astra-20261014/prepared-case-views.json`. Root's combined nine-cell
 and scaling runs determine final adoption; no further candidate directions planned.
+
+2026-10-14 ring workspace liveness experiments rejected:
+The proven four-register coordinate memo ring never reads global memo history,
+while generic capability buckets still require that history. Removing dead
+backing was correct, but exact-sized workspace allocation changed whenever the
+live generic bucket count changed. Fixed-grid three-pair House32 median
+1063.828 -> 1146.781 ms; summed upload/allocation roughly 29 -> 105 ms with neutral
+kernel time. The original expanded-grid variant's regression was also dominated
+by this allocation churn, not evidence of a large concurrency-only penalty.
+
+A bounded geometric-capacity reuse variant preserved the original grid and
+512 MiB total allocation ceiling, freeing the old layout before replacement.
+Its three-pair House32 median 1074.895 -> 1092.077 ms; kernel 573.176 -> 572.886 ms,
+upload 29.457 -> 48.462 ms. Median64 uses the window executor, so its apparent
+922.079 ->911.414 ms change is control drift, not a live-ring benefit.
+No runtime flag/code or test-only fixture is retained. All three rejected
+patches and binaries remain archived under the liveness worktree's logs.
+
+All paired full population/history ASTs and semantic/operator/error rows match.
+Focused fitness/bounded-region/native population parity passes; a temporary
+257-member mixed compact/generic unary-ring fixture checks full 1024-case parity
+and reproduced offspring against independent CPU execution. CUDA 12.6
+compute-sanitizer reports 0 errors. Structured results, raw paths, binary hashes,
+and original archived controls: `results/bloat-liveness-20261014.json`.

@@ -1,0 +1,284 @@
+{
+  "liveness-fixed-grid": {
+    "binary_sha256": "4957987a6f8c76a4c46b89cc71ba80f781380bef610bf39e52d1e9e30b571779",
+    "raw_root": "/home/hschi1106/.t3/worktrees/gagp/bloat-liveness-20261014/logs/liveness-fixed-grid",
+    "tasks": {
+      "house_robber": {
+        "off": {
+          "repeats_ms": [
+            1069.955912,
+            1062.035192,
+            1063.828136
+          ],
+          "median_ms": 1063.828136,
+          "stage_medians_ms": {
+            "eval_kernel_ms": 575.6660320000001,
+            "upload_ms": 28.898308999999998,
+            "eval_ms": 632.0738680000002,
+            "repro_ms": 145.90784900000003
+          }
+        },
+        "live": {
+          "repeats_ms": [
+            1146.78133,
+            1145.358604,
+            1149.166688
+          ],
+          "median_ms": 1146.78133,
+          "stage_medians_ms": {
+            "eval_kernel_ms": 575.9752300000001,
+            "upload_ms": 105.49384899999998,
+            "eval_ms": 709.8136440000002,
+            "repro_ms": 146.03526900000003
+          }
+        },
+        "exact_semantic_final_history_parity": true
+      },
+      "median": {
+        "off": {
+          "repeats_ms": [
+            910.896571,
+            910.604323,
+            914.157729
+          ],
+          "median_ms": 910.896571,
+          "stage_medians_ms": {
+            "eval_kernel_ms": 157.50338,
+            "upload_ms": 46.938747000000006,
+            "eval_ms": 246.12522199999998,
+            "repro_ms": 404.11663199999987
+          }
+        },
+        "live": {
+          "repeats_ms": [
+            913.256085,
+            916.742455,
+            921.025006
+          ],
+          "median_ms": 916.742455,
+          "stage_medians_ms": {
+            "eval_kernel_ms": 157.898992,
+            "upload_ms": 47.64005,
+            "eval_ms": 248.71396299999998,
+            "repro_ms": 405.9964649999999
+          }
+        },
+        "exact_semantic_final_history_parity": true
+      }
+    }
+  },
+  "liveness-amortized": {
+    "binary_sha256": "d17b593d265b79a3e4a4e26317363d89bfd09e053f5c8fb534306e09ead862e8",
+    "raw_root": "/home/hschi1106/.t3/worktrees/gagp/bloat-liveness-20261014/logs/liveness-amortized",
+    "tasks": {
+      "house_robber": {
+        "off": {
+          "repeats_ms": [
+            1129.990738,
+            1065.06089,
+            1074.894921
+          ],
+          "median_ms": 1074.894921,
+          "stage_medians_ms": {
+            "eval_kernel_ms": 573.176262,
+            "upload_ms": 29.456867,
+            "eval_ms": 631.5156700000001,
+            "repro_ms": 146.92668499999996
+          }
+        },
+        "live": {
+          "repeats_ms": [
+            1092.07696,
+            1106.239227,
+            1072.051615
+          ],
+          "median_ms": 1092.07696,
+          "stage_medians_ms": {
+            "eval_kernel_ms": 572.886106,
+            "upload_ms": 48.46157899999999,
+            "eval_ms": 653.58298,
+            "repro_ms": 149.608131
+          }
+        },
+        "exact_semantic_final_history_parity": true
+      },
+      "median": {
+        "off": {
+          "repeats_ms": [
+            980.622029,
+            922.079357,
+            906.639726
+          ],
+          "median_ms": 922.079357,
+          "stage_medians_ms": {
+            "eval_kernel_ms": 155.64879800000006,
+            "upload_ms": 47.122229999999995,
+            "eval_ms": 242.4722890000001,
+            "repro_ms": 405.98308199999997
+          }
+        },
+        "live": {
+          "repeats_ms": [
+            923.91363,
+            907.682176,
+            911.413525
+          ],
+          "median_ms": 911.413525,
+          "stage_medians_ms": {
+            "eval_kernel_ms": 155.697741,
+            "upload_ms": 46.28029300000001,
+            "eval_ms": 243.02332400000003,
+            "repro_ms": 408.1663460000001
+          }
+        },
+        "exact_semantic_final_history_parity": true
+      }
+    }
+  },
+  "decision": "Reject both fixed-grid and amortized live-ring workspace runtime paths; no reliable search speedup.",
+  "hypothesis": "The proven four-scalar register ring makes global memo history dead for compact coordinate executor, but generic buckets still need full logical memo backing.",
+  "architecture": {
+    "preserved": [
+      "Native GPU reproduction",
+      "P1024/C1024 all pairs",
+      "CPU1T",
+      "logical frame/memo limits",
+      "fuel and errors",
+      "genotype/operator/RNG",
+      "original grid geometry"
+    ],
+    "fixed_grid": "Omit unused compact ring history allocation; generic bucket backing uses generic grid count.",
+    "amortized": "Reuse sufficient retained capacities; geometrically grow memo keys/values subject to combined512MiB ceiling; release old storage before allocating new."
+  },
+  "validation": {
+    "focused_tests": [
+      "gagp_test_fitness_cpu_gpu_parity",
+      "gagp_test_bounded_region_gpu",
+      "gagp_test_gpu_phase_population"
+    ],
+    "mixed_test": "Added temporary unary coordinate(-1,-2) mixed compact/generic257-member native fixture, LIVE/OFF exact full1024-case parity, reproduced offspring independently CPU-evaluated.",
+    "memcheck": "CUDA12.6 compute-sanitizer mixed/native phase population0errors",
+    "raw_logs": [
+      "logs/liveness-fixed-grid/tests.log",
+      "logs/liveness-fixed-grid/tests-amortized.log (first fixture construction failed; corrected before final test)",
+      "logs/liveness-amortized/test-mixed.log",
+      "logs/liveness-amortized/memcheck.log"
+    ]
+  },
+  "interpretation": {
+    "fixed_grid": "House upload allocation stage regresses\u224829\u2192105ms with neutral kernel; changing generic bucket counts force exact-layout reallocation.",
+    "amortized": "Geometric growth reduces House upload stage to48.462ms, still19.005ms above OFF; neutral kernel. Median uses window executor, so its apparent gain is control drift and cannot be credited.",
+    "memory": "Dead memo backing is structurally removed; no standalone peak-memory measurement was taken; no quantitative memory improvement claim.",
+    "expanded_grid": "Root original enlarged-grid run had House kernel roughly582ms versus575ms, but most regression was upload/allocation roughly107ms versus29ms; the claim that larger grid alone caused9% regression is unsupported."
+  },
+  "controls": {
+    "frozen_asgp_ms": {
+      "house_robber": 27687.368225,
+      "median": 5864.915193
+    },
+    "archived_root": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine",
+    "root_same_window_archived_median_ms": {
+      "house_robber": 1057.121,
+      "median": 909.89
+    },
+    "root_original_enlarged_grid_screen_median_ms": {
+      "house_robber": 1156.533,
+      "median": 913.491
+    }
+  },
+  "rejected_patch": {
+    "path": "/home/hschi1106/.t3/worktrees/gagp/bloat-liveness-20261014/logs/liveness-amortized/rejected-runtime.patch",
+    "sha256": "6541e0c27a3e84d28af1219453ac826f615bc36e0b09eb09b9aec1f6da59fe10"
+  },
+  "variant_patches": [
+    "/home/hschi1106/.t3/worktrees/gagp/bloat-liveness-20261014/logs/liveness-amortized/rejected-expanded-grid.patch",
+    "/home/hschi1106/.t3/worktrees/gagp/bloat-liveness-20261014/logs/liveness-amortized/rejected-fixed-grid.patch",
+    "/home/hschi1106/.t3/worktrees/gagp/bloat-liveness-20261014/logs/liveness-amortized/rejected-runtime.patch"
+  ],
+  "original_expanded_grid_root_screen": {
+    "baseline": {
+      "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/baseline/manifest.json",
+      "tasks": {
+        "house_robber": {
+          "repeats_ms": [
+            1134.932572,
+            1055.723189,
+            1057.12073
+          ],
+          "stage_medians_ms": {
+            "eval_kernel_ms": 577.8024070000001,
+            "upload_ms": 27.777123999999993
+          }
+        },
+        "median": {
+          "repeats_ms": [
+            900.416288,
+            910.499351,
+            909.889956
+          ],
+          "stage_medians_ms": {
+            "eval_kernel_ms": 157.54455699999997,
+            "upload_ms": 46.57060099999998
+          }
+        }
+      }
+    },
+    "off": {
+      "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/off/manifest.json",
+      "tasks": {
+        "house_robber": {
+          "repeats_ms": [
+            1148.954121,
+            1059.765718,
+            1058.985398
+          ],
+          "stage_medians_ms": {
+            "eval_kernel_ms": 575.245359,
+            "upload_ms": 28.533212000000006
+          }
+        },
+        "median": {
+          "repeats_ms": [
+            910.045748,
+            909.52423,
+            911.064915
+          ],
+          "stage_medians_ms": {
+            "eval_kernel_ms": 157.83301600000001,
+            "upload_ms": 46.870727
+          }
+        }
+      }
+    },
+    "live": {
+      "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/live/manifest.json",
+      "tasks": {
+        "house_robber": {
+          "repeats_ms": [
+            1154.310814,
+            1164.583711,
+            1156.533184
+          ],
+          "stage_medians_ms": {
+            "eval_kernel_ms": 581.901608,
+            "upload_ms": 107.359205
+          }
+        },
+        "median": {
+          "repeats_ms": [
+            918.349332,
+            912.635163,
+            913.490835
+          ],
+          "stage_medians_ms": {
+            "eval_kernel_ms": 157.79667799999999,
+            "upload_ms": 47.12035200000001
+          }
+        }
+      }
+    }
+  }
+}
