@@ -448,10 +448,12 @@ ASTs after the timed search. This permits equal-budget comparisons of completed
 prefixes of longer runs without changing operators or terminating evaluations.
 Archive serialization/independent CPU audits are separate from search time;
 required history construction and final population materialization remain timed.
-Search JSON also exposes the existing `gpu_init_ms` timer (zero for CPU mode),
+Search JSON also exposes the existing GPU fitness-session `gpu_init_ms` timer (zero for CPU mode),
 separately from `initial_admission_ms` and `final_eval_ms`. It is included in
 `evolve_wall_ms`; this diagnostic field does not move initialization outside
-the benchmark boundary. Older artifacts omit this field.
+the benchmark boundary. Earlier GPU reproduction device preflight is also
+inside search wall but outside this narrower fitness-session timer. Older
+artifacts omit this field.
 
 `GAGP_COUNTED_SITE_DRAW=1` selects the GPU profile
 `native-gpu-phase-v2-counted`: site counting plus one uniform rank draw replaces
