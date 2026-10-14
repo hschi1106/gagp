@@ -692,7 +692,9 @@ validity bit or issue an admission certificate.
 Cold import admits the immutable fixed skeleton, phase contracts and initial
 members. The admitted GPU generator samples grammar productions and constant
 domains. Crossover and mutation preserve exact nonterminal/identity-scope sites;
-physical node/depth checks conservatively enforce the active grammar budgets.
+physical node/depth checks enforce the materialized search limits. This owner
+does not support a separate projected offspring budget; authored projected
+resource charges are not interchangeable with these materialized limits.
 Only these checked operators write the private live genotype. Export still
 performs every `export_native_phase_layout` expression-origin/opcode/arity/fuel,
 constant-index, lexical-index and fixed-skeleton transport check and metadata
@@ -707,3 +709,17 @@ frozen-population snapshots are independently decoded, admitted and evaluated
 on CPU/GPU by an archived runtime with certificates disabled. Report process
 wall and post-search audit cost as well as search wall: callers that explicitly
 need a canonical witness or an executable cache still pay to construct it.
+
+### Identity-checked import reuse
+
+`GAGP_REUSE_IMPORT_CERTIFICATE=1` lets native phase import retain an existing
+private admission certificate. Import still calls `reconstruct_derivation`,
+which checks grammar, request and full runtime identity before using the sealed
+witness/VerifiedAst; public derivation fields cannot authorize an import. A
+missing or stale certificate runs ordinary admission. The bytecode reuse lookup
+also checks actual evaluator input order and fuel; on a miss it lowers normally.
+Registry-dependent constants do not qualify for this scalar executable reuse.
+This removes duplicate cold admission/lowering after population initialization,
+not the external validation boundary, phase-profile checks or GPU packing checks.
+The phase-layout test covers forged public witness fields, changed AST constants,
+changed grammar limits and reordered evaluator inputs.

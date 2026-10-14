@@ -7,6 +7,7 @@
 #include "gagp/evolution/repro/pack.hpp"
 #include <map>
 #include <set>
+#include <cstdlib>
 
 namespace gagp::evo::repro {
 // Cold import/export adapter for the GPU genotype prototype. These host buffers
@@ -54,15 +55,20 @@ class NativePhaseGrammarProfiles final {
 
 // A secondary population import may omit duplicate profile storage: it is used
 // only as transport and must not itself serve as an export template. Admission
-// and compilation still run against its own freshly reconstructed AST witness.
+// still runs against its own AST. A matching private certificate may reuse the
+// witness and executable; otherwise ordinary reconstruction/lowering applies.
 inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGrammar& grammar,
     const ProgramGenome& external, NativePhaseGrammarProfiles* profiles=nullptr,
     const std::vector<std::string>* evaluator_inputs=nullptr, bool retain_profiles=true) {
   using namespace grammar;
   NativePhaseLayout result;
   VerifiedAst verified; std::vector<std::vector<int>> environments;
-  // External provenance is not an import certificate: drop it explicitly.
-  auto source = external; source.derivation.reset();
+  // Public provenance is never trusted. The optional reuse still enters the
+  // membership boundary: it checks a private certificate's grammar, request and
+  // complete runtime identity, and reconstructs on a miss. Population
+  // initialization has already created such certificates for unchanged inputs.
+  auto source = external;
+  if (!std::getenv("GAGP_REUSE_IMPORT_CERTIFICATE")) source.derivation.reset();
   const auto witness = reconstruct_derivation(grammar, source, entry_request(grammar), &verified, &environments);
   const auto& ast = source.ast;
   phase_layout_require(ast.bounded_region_specs.size() == 1 && ast.lexical_regions.empty() &&
@@ -176,7 +182,13 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
     result.genes.push_back(std::move(gene));
   }
   std::vector<std::string> inputs; for (const auto& input : grammar.inputs()) inputs.push_back(input.name);
-  result.executable = compile_for_eval(source, verified, evaluator_inputs ? *evaluator_inputs : inputs);
+  const auto& execution_inputs = evaluator_inputs ? *evaluator_inputs : inputs;
+  // Admission above still checks this grammar/request. Executable reuse adds
+  // its own exact AST, scalar-constant, input-order and fuel identity check.
+  const auto executable = std::getenv("GAGP_REUSE_IMPORT_CERTIFICATE")
+      ? admitted_bytecode_for_eval(source, execution_inputs, grammar.execution_limits().fuel)
+      : nullptr;
+  result.executable = executable ? *executable : compile_for_eval(source, verified, execution_inputs);
   result.prototype = std::move(source.ast);
   return result;
 }

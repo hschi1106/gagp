@@ -1,6 +1,7 @@
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <optional>
 #include "gagp/cli/commands.hpp"
 #include "gagp/evolution/grammar/derivation_resources.hpp"
 #include "../../src/evolution/repro/gpu/phase_layout.hpp"
@@ -38,7 +39,8 @@ void same_bytecode(const BytecodeProgram& a,const BytecodeProgram& b) {
  }
 }
 void check_import(const grammar::CompiledGrammar& grammar,const ProgramGenome& genome) {
- const auto layout=import_native_phase_layout(grammar,genome);
+ auto fresh=genome;fresh.derivation.reset();
+ const auto layout=import_native_phase_layout(grammar,fresh);
  const auto restored=export_native_phase_layout(grammar,layout,layout.genes);
  // Independent canonical admission, with no carried provenance/certificate.
  require(!restored.derivation,"export accidentally attached a trusted proof");
@@ -55,6 +57,28 @@ void check_import(const grammar::CompiledGrammar& grammar,const ProgramGenome& g
  auto stale=genome;stale.ast.consts.push_back(Value::invalid());bool rejected=false;
  try{(void)import_native_phase_layout(grammar,stale);}catch(const std::invalid_argument&){rejected=true;}
  require(rejected,"cold import ignored malformed unused constants");
+ const char* prior=std::getenv("GAGP_REUSE_IMPORT_CERTIFICATE");
+ const std::optional<std::string> saved=prior?std::optional<std::string>(prior):std::nullopt;
+ setenv("GAGP_REUSE_IMPORT_CERTIFICATE","1",1);
+ auto admitted=genome;
+ admitted.derivation=std::make_shared<const grammar::DerivationMetadata>(grammar::reconstruct_derivation(grammar,admitted));
+ require(bool(admitted.derivation->certificate),"import reuse fixture needs private admission");
+ same_bytecode(layout.executable,import_native_phase_layout(grammar,admitted).executable);
+ // A different evaluator order must lower for that order, not reuse the
+ // canonical grammar-input executable. The fixture has multiple inputs.
+ auto reordered=inputs;std::reverse(reordered.begin(),reordered.end());
+ same_bytecode(compile_for_eval(admitted,reordered),
+     import_native_phase_layout(grammar,admitted,nullptr,&reordered).executable);
+ // The public witness may be stale or forged; only the identity-checked private
+ // certificate supplies a witness. It must not authorize a changed AST.
+ auto forged=std::make_shared<grammar::DerivationMetadata>(*admitted.derivation);
+ forged->nodes.clear();forged->choices.clear();admitted.derivation=forged;
+ same_bytecode(layout.executable,import_native_phase_layout(grammar,admitted).executable);
+ admitted.ast.consts.push_back(Value::invalid());rejected=false;
+ try{(void)import_native_phase_layout(grammar,admitted);}catch(const std::invalid_argument&){rejected=true;}
+ require(rejected,"import reused a private certificate after AST mutation");
+ if(saved)setenv("GAGP_REUSE_IMPORT_CERTIFICATE",saved->c_str(),1);
+ else unsetenv("GAGP_REUSE_IMPORT_CERTIFICATE");
 }
 }
 int main(int argc,char** argv) {try {
@@ -127,7 +151,8 @@ int main(int argc,char** argv) {try {
     const auto projected=grammar::project_derivation_resources(initial,member);
     require(grammar::ProjectedBudget{bounded.search_limits().max_nodes,bounded.search_limits().max_depth}.accepts(projected.subtree()),
         "zero-charge fixture must fit authored budget");
-    member.derivation.reset();
+    member.derivation=std::make_shared<const grammar::DerivationMetadata>(grammar::reconstruct_derivation(initial,member));
+    setenv("GAGP_REUSE_IMPORT_CERTIFICATE","1",1);
     std::string reason;
     try{(void)import_native_phase_layout(bounded,member);}catch(const std::invalid_argument& e){reason=e.what();}
     require(reason.find(depth_limit?"materialized depth budget":"materialized node budget")!=std::string::npos,

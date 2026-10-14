@@ -1,0 +1,118 @@
+{
+  "contract": "P1024/full1024, changing House32/Median64; original search boundary; private identity-checked certificate reuse only; executable reuse NOT yet enabled",
+  "binary_provenance": "logs/optimization/astra-20261014/import-reuse/on-screen/manifest.json",
+  "tasks": {
+    "house_robber": {
+      "off": {
+        "raw": [
+          {
+            "evolve_wall_ms": 1428.096958,
+            "initial_admission_ms": 212.02084499999998,
+            "final_eval_ms": 187.206836,
+            "process_wall_s": 2.684103701962158
+          },
+          {
+            "evolve_wall_ms": 1422.65194,
+            "initial_admission_ms": 208.314998,
+            "final_eval_ms": 187.687309,
+            "process_wall_s": 2.69017492281273
+          },
+          {
+            "evolve_wall_ms": 1360.630994,
+            "initial_admission_ms": 210.690346,
+            "final_eval_ms": 192.455841,
+            "process_wall_s": 2.6563405729830265
+          }
+        ],
+        "median_ms": 1422.65194,
+        "range_ms": [
+          1360.630994,
+          1428.096958
+        ]
+      },
+      "on": {
+        "raw": [
+          {
+            "evolve_wall_ms": 1360.783873,
+            "initial_admission_ms": 130.782771,
+            "final_eval_ms": 195.446361,
+            "process_wall_s": 2.6406737139914185
+          },
+          {
+            "evolve_wall_ms": 1286.017704,
+            "initial_admission_ms": 130.060578,
+            "final_eval_ms": 195.076463,
+            "process_wall_s": 2.5536591929849237
+          },
+          {
+            "evolve_wall_ms": 1342.903661,
+            "initial_admission_ms": 126.989124,
+            "final_eval_ms": 189.833308,
+            "process_wall_s": 2.6059498619288206
+          }
+        ],
+        "median_ms": 1342.903661,
+        "range_ms": [
+          1286.017704,
+          1360.783873
+        ]
+      }
+    },
+    "median": {
+      "off": {
+        "raw": [
+          {
+            "evolve_wall_ms": 1177.962918,
+            "initial_admission_ms": 200.08484600000003,
+            "final_eval_ms": 137.692837,
+            "process_wall_s": 2.3840493268799037
+          },
+          {
+            "evolve_wall_ms": 1140.205782,
+            "initial_admission_ms": 196.208746,
+            "final_eval_ms": 138.494742,
+            "process_wall_s": 2.3393983819987625
+          },
+          {
+            "evolve_wall_ms": 1160.193127,
+            "initial_admission_ms": 205.781455,
+            "final_eval_ms": 140.469674,
+            "process_wall_s": 2.3833338681142777
+          }
+        ],
+        "median_ms": 1160.193127,
+        "range_ms": [
+          1140.205782,
+          1177.962918
+        ]
+      },
+      "on": {
+        "raw": [
+          {
+            "evolve_wall_ms": 1104.208885,
+            "initial_admission_ms": 120.55007699999999,
+            "final_eval_ms": 138.987132,
+            "process_wall_s": 2.305290726944804
+          },
+          {
+            "evolve_wall_ms": 1062.141443,
+            "initial_admission_ms": 115.758429,
+            "final_eval_ms": 140.768981,
+            "process_wall_s": 2.271368355024606
+          },
+          {
+            "evolve_wall_ms": 1071.67318,
+            "initial_admission_ms": 118.68055000000001,
+            "final_eval_ms": 140.544367,
+            "process_wall_s": 2.2796872220933437
+          }
+        ],
+        "median_ms": 1071.67318,
+        "range_ms": [
+          1062.141443,
+          1104.208885
+        ]
+      }
+    }
+  }
+}
