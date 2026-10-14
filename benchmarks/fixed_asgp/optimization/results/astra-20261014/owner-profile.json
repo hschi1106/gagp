@@ -1,0 +1,22 @@
+{
+  "source_commit": "92941bf",
+  "raw": "logs/optimization/astra-20261014/owner-profile",
+  "sampling": "perf record -F 499 --call-graph dwarf; cycles:P",
+  "samples": 1033,
+  "lost_samples": 0,
+  "scope": "Whole process, House32 seed0 CPU1T+GPU, fused donor sites enabled",
+  "inclusive_process_percent": {
+    "NativePhasePopulation_constructor": 3.98,
+    "import_native_phase_layout": 1.85,
+    "reconstruct_under_import": 1.17,
+    "export_population": 3.7,
+    "reconstruct_under_export": 2.93
+  },
+  "limitations": [
+    "Inclusive shares overlap and include cold process/input work.",
+    "CUDA synchronization busy-polling appears as CPU cycles; it is not independent host work.",
+    "Small sample count supports attribution, not precise stage milliseconds.",
+    "Kernel symbols unavailable under current kptr restriction; user-space call stacks resolved. No permission changes requested or made.",
+    "Do not subtract these shares from unprofiled elapsed time."
+  ]
+}
