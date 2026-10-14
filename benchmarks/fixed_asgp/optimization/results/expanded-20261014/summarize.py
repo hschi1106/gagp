@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import statistics
 from pathlib import Path
@@ -25,8 +26,9 @@ UNMEASURED = {
 MODES = ('asgp_1t', 'gagp_cpu', 'gpu_eval', 'gpu_repro', 'gpu_overlap')
 LABELS = ('ASGP 1T', 'GAGP CPU 1T', 'GPU evaluation', 'GPU eval + reproduction', 'GPU overlap')
 SEEDS = (0, 1, 2)
-QUALIFICATION_SCOPE = ('Known-solution reference checks and GPU final sampled-population CPU fitness audit only; '
-    'not exact full-population or per-case parity. Initial full-population differences are reported separately.')
+QUALIFICATION_SCOPE = ('Qualified means passes known-solution checks and final top-16 CPU audit for GPU modes; '
+    'not exact full-population or per-case parity. See cpu_audit_program_count for actual sample size. '
+    'Initial full-population differences are reported separately.')
 
 
 def read(path):
@@ -184,12 +186,23 @@ def write_csv(path, rows):
 def initial_snapshots(study, allow_incomplete=False):
     """Compare ordered frozen programs, not independently evolved populations."""
     summary, programs, missing = [], [], []
+    provenance_path = study/'initial-snapshots/manifest.json'
+    if not provenance_path.is_file():
+        if not allow_incomplete:
+            raise ValueError('Missing initial snapshot provenance manifest')
+        return [], [], ['initial-snapshot:manifest']
+    provenance = read(provenance_path)
+    if provenance['flags'].get('GAGP_BM_COMMON_FITNESS') != '1' or provenance['population'] != 1024 or provenance['cases'] != 1024:
+        raise ValueError('Initial snapshots require recorded common-fitness P1024/C1024 settings')
     for task in TASKS:
         source = study/'initial-snapshots'/f'{task}.asgp_snapshot.json'
         target = study/'initial-snapshots'/f'{task}.snapshot.json'
         if not source.is_file() or not target.is_file():
             missing.append(f'initial-snapshot:{task}')
             continue
+        for path in (source, target):
+            if hashlib.sha256(path.read_bytes()).hexdigest() != provenance['outputs_sha256'].get(path.name):
+                raise ValueError(f'Initial snapshot hash mismatch: {path}')
         asgp, gpu = read(source)['programs'], read(target)['programs']
         if len(asgp) != 1024 or len(gpu) != 1024:
             raise ValueError(f'initial snapshot must contain all 1024 programs: {task}')
@@ -212,7 +225,8 @@ def initial_snapshots(study, allow_incomplete=False):
             cpu_gpu_max_abs_difference=max(r['cpu_gpu_abs_difference'] for r in local),
             **{key:sum(r[key] for r in local) for key in ('gpu_errors','gpu_timeouts','gpu_fallbacks','gpu_unscored')},
             scope='Full frozen initial population aggregate fitness; not per-case output parity or evolving-population parity',
-            metric_provenance='Snapshot JSON omits settings; verify common fitness from recorded invocation',
+            metric_provenance='Common fitness confirmed by snapshot manifest; output SHA256 verified',
+            binary_sha256=provenance['binary_sha256'], manifest=str(provenance_path),
             asgp_source=str(source), gagp_source=str(target)))
     if missing and not allow_incomplete:
         raise ValueError('Missing initial snapshots: '+', '.join(missing))
@@ -327,6 +341,7 @@ def main():
         ratios='Median of seed-matched ASGP ratios; measured ratios are descriptive only when scoped correctness checks fail.',
         qualification_scope=QUALIFICATION_SCOPE,
         initial_snapshot_policy='Initial aggregate-fitness differences are reported, not used to discard timings; successful limited checks do not establish exact parity.',
+        initial_snapshot_summary=snapshots,
         quality='Same independent local ASGP test split, 1024 cases per checkpoint; not official PSB. Natural duplicates and possible training overlap retained.',
         list_fitness='Common exact metric: ASGP negative error + 1024; GAGP correct count. Native-policy controls must not use this conversion.',
         stock_probe='benchmarks/fixed_asgp/optimization/stock_capability.cpp'), indent=2)+'\n')
