@@ -1,3 +1,14 @@
+# Bloat cost optimization — 2026-10-14 (active)
+
+- Protected checkpoint `checkpoint/pre-bloat-cost-20261014` = `71dc916`; prior best pushed before this round. Worktree `gagp-opt-20261001`; CPU1T, native GPU reproduction, full P1024/C1024. No search-rule or genotype changes intended.
+- Target unchanged: House32/seed0 >30x (search <922.912274ms); Median64/seed2 >5x (<1172.983039ms). Frozen ASGP denominators27687.368225/5864.915193ms. Previous verified search1064.776693/909.163542ms. CLI process separately reported.
+- Three Astra-medium agents in independent `bloat-executable-20261014`, `bloat-incremental-20261014`, `bloat-liveness-20261014` worktrees. Four hypotheses: executable-only simplification; changed-subtree incremental work; physical storage sharing preserving logical occurrences; live-value execution storage. Incremental/sharing share one owner. All builds/GPU tests serialize via existing benchmark lock.
+- Original inputs/binaries/results untouched. New raw root `logs/optimization/bloat-cost-20261014/`; baseline flags and fresh3 controls are recorded there. No original input prepare.
+- Adoption requires real changing generations with all required compilation/packing/initialization included, exact semantic/AST replay and safety checks; important candidate repeated timing, 3seed long search, relevant regressions/scaling. No benchmark-specific solver, CPU workers, evaluation skipping, or retired CPU fragment route.
+- Next: agents measure coverage/cost and implement minimal prototypes; root independently reviews contracts and combines only demonstrated improvements. This checkpoint is in progress, not a performance claim.
+
+---
+
 # Astra parallel optimization — 2026-10-14 (complete)
 
 - Best runtime `5a3be05`, branch `opt/gpu-generation-20261001`, worktree `/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001`. Protected start `ce0d811`; original workspace, frozen inputs and historical binaries untouched. No push.
