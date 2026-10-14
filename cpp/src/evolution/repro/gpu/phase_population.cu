@@ -270,6 +270,7 @@ struct NativePhasePopulation::Impl {
  std::shared_ptr<const grammar::CompiledGrammar> grammar;
  const bool counted_sites;
  const bool inplace_mutation;
+ const bool constructive_export;
  std::size_t peak_transport_bytes=0;
  NativePhaseLayout layout;int population=0,slot_count=0,device=-1;bool healthy=true;
  std::vector<std::unique_ptr<UploadedProfile>> profiles;Buffer<DeviceSlot> slots;
@@ -336,7 +337,20 @@ struct NativePhasePopulation::Impl {
   programs_current=true;
  }
  explicit Impl(std::shared_ptr<const grammar::CompiledGrammar> g):grammar(std::move(g)),counted_sites(std::getenv("GAGP_COUNTED_SITE_DRAW")!=nullptr),
-     inplace_mutation(std::getenv("GAGP_GPU_INPLACE_MUTATION")!=nullptr){}
+     inplace_mutation(std::getenv("GAGP_GPU_INPLACE_MUTATION")!=nullptr),
+     constructive_export(std::getenv("GAGP_GPU_CONSTRUCTIVE_EXPORT")!=nullptr){}
+ // Only this live owner can publish construction-derived members. Cold import
+ // admits the fixed skeleton and all initial phases. GPU generation samples the
+ // admitted grammar/domains; same-nonterminal/scope splices preserve membership,
+ // and checked physical node/depth bounds imply the admitted grammar budgets.
+ // export_native_phase_layout still validates node/origin/fuel/index transport.
+ // A canonical reverse-parsed witness is optional cache data, not this proof.
+ ProgramGenome finish_export(ProgramGenome genome) const {
+  require_device();
+  if(!constructive_export)
+   genome.derivation=std::make_shared<const grammar::DerivationMetadata>(grammar::reconstruct_derivation(*grammar,genome));
+  return genome; // no public certificate or trusted bit escapes with the AST
+ }
  ~Impl(){if(start)cudaEventDestroy(start);if(stop)cudaEventDestroy(stop);}
  void require_device()const{if(!healthy)throw std::logic_error("GPU genotype owner invalidated by a failed step");int now;checked(cudaGetDevice(&now));if(now!=device)throw std::logic_error("GPU genotype device/owner mismatch");}
  std::size_t bytes()const {
@@ -575,9 +589,7 @@ std::vector<ProgramGenome> NativePhasePopulation::export_population()const {
    gene.origins.assign(host_origins.begin()+offset.nodes,host_origins.begin()+offset.nodes+r.nodes);
    gene.constants.assign(host_values.begin()+offset.constants,host_values.begin()+offset.constants+r.constants);
   }
-  auto genome=export_native_phase_layout(*impl_->grammar,impl_->layout,genes);
-  genome.derivation=std::make_shared<const grammar::DerivationMetadata>(grammar::reconstruct_derivation(*impl_->grammar,genome));
-  result.push_back(std::move(genome));
+  result.push_back(impl_->finish_export(export_native_phase_layout(*impl_->grammar,impl_->layout,genes)));
  }
  return result;
 }
@@ -592,8 +604,6 @@ ProgramGenome NativePhasePopulation::export_member(std::size_t index)const {
   checked(cudaMemcpy(gene.origins.data(),impl_->current->origins.data+row*capacity,r.nodes*sizeof(int),cudaMemcpyDeviceToHost));
   if(r.constants)checked(cudaMemcpy(gene.constants.data(),impl_->current->constants.data+row*capacity,r.constants*sizeof(Value),cudaMemcpyDeviceToHost));
  }
- auto result=export_native_phase_layout(*impl_->grammar,impl_->layout,genes);
- result.derivation=std::make_shared<const grammar::DerivationMetadata>(grammar::reconstruct_derivation(*impl_->grammar,result));
- return result;
+ return impl_->finish_export(export_native_phase_layout(*impl_->grammar,impl_->layout,genes));
 }
 } // namespace gagp::evo::repro

@@ -20,6 +20,9 @@ class NativePhasePopulation final {
   const std::vector<BytecodeProgram>& programs() const;
   ReproductionStats reproduce(const std::vector<double>& completed_fitness,
       int tournament_size, double mutation_probability, std::uint64_t seed);
+  // Return independent member ASTs from the private construction invariant.
+  // The optional canonical derivation cache may be absent; subsequent external
+  // import/admission must validate these like any other supplied AST.
   std::vector<ProgramGenome> export_population() const;
   ProgramGenome export_member(std::size_t index) const;
   std::size_t device_bytes() const;

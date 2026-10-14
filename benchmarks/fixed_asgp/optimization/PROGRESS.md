@@ -1066,3 +1066,22 @@ full 1024-case CPU/GPU audit pass all 1056 House and 1088 Median final/history
 programs; combined exports are structurally identical to those audited artifacts.
 Raw preserved binaries/manifests/profiles/resources live in the admission worktree's
 `logs/local-admission/`; tracked evidence is `results/compact-admission-20261014.json`.
+
+2026-10-14 private constructive export retained opt-in:
+`GAGP_GPU_CONSTRUCTIVE_EXPORT=1` returns the owner-constructed AST without an
+optional reverse-parsed canonical derivation/compiled cache. Cold admission,
+private grammar/domain generation, exact nonterminal/scope splices and physical
+resource checks establish membership; existing export origin/opcode/fuel/index
+validation and metadata compaction remain. No external trusted bit/certificate
+or generic import shortcut is introduced. `ProgramGenome::derivation` is optional.
+
+Same-binary3-process House32 search1377.520→1228.279ms (10.83%), Median64
+1186.501→1057.472ms (10.87%); process2.636→2.480s /2.393→2.245s.
+Final-evaluation/materialization medians190.052→39.112ms /138.506→14.714ms.
+All6 OFF/ON finalAST exports and semantic/operator/error traces are exact.
+The32-generation all-member CPU/grammar test runs with certificates disabled;
+new cache/no-cache and modified external replay tests pass. Both fullP1024 final
+populations additionally pass archived-runtime strict grammar import without
+certificates and fullC1024 CPU/GPU evaluation, matching every search fitness.
+Evidence: `results/parallel-astra-20261014/constructive-export.json`. Root's
+separate import-certificate reuse and integrated timing are not conflated here.

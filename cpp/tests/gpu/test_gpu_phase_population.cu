@@ -47,6 +47,35 @@ void check_inplace_mutation(const std::shared_ptr<const grammar::CompiledGrammar
  }
 }
 
+void check_constructive_export(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
+    const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
+    FitnessSessionGpu& session) {
+ const char* setting=std::getenv("GAGP_GPU_CONSTRUCTIVE_EXPORT");
+ const bool enabled=setting!=nullptr;const std::string saved=setting?setting:"";
+ unsetenv("GAGP_GPU_CONSTRUCTIVE_EXPORT");repro::NativePhasePopulation reference(grammar,parents,names);
+ setenv("GAGP_GPU_CONSTRUCTIVE_EXPORT","1",1);repro::NativePhasePopulation candidate(grammar,parents,names);
+ unsetenv("GAGP_GPU_CONSTRUCTIVE_EXPORT"); // policy belongs to the original owner
+ for(int generation=0;generation<8;++generation) {
+  const auto a=reference.export_population(),b=candidate.export_population();
+  require(a.size()==b.size(),"constructive export population length changed");
+  for(std::size_t i=0;i<a.size();++i) {
+   require(a[i].derivation && !b[i].derivation,"constructive owner policy did not control optional canonical cache");
+   require(ast_cache_key(a[i].ast)==ast_cache_key(b[i].ast) && a[i].meta.program_key==b[i].meta.program_key,
+       "constructive export changed AST or metadata");
+   require(!candidate.export_member(i).derivation,"member export unexpectedly retains canonical cache");
+   grammar::require_membership(*grammar,b[i]); // independent, no supplied witness
+  }
+  const auto x=reference.evaluate(session,true),y=candidate.evaluate(session,true);
+  require(x.ok && y.ok && x.fitness==y.fitness && x.case_counts==y.case_counts,"constructive export changed full-case GPU results");
+  reference.reproduce(x.fitness,2,generation%2?.3:1,UINT64_C(0x16754)+generation);
+  candidate.reproduce(y.fitness,2,generation%2?.3:1,UINT64_C(0x16754)+generation);
+ }
+ auto external=candidate.export_member(0);external.ast.nodes.clear();
+ bool rejected=false;try{repro::NativePhasePopulation invalid(grammar,{external},names);}catch(const std::invalid_argument&){rejected=true;}
+ require(rejected,"constructive export granted authority to an externally modified AST");
+ if(enabled)setenv("GAGP_GPU_CONSTRUCTIVE_EXPORT",saved.c_str(),1);
+}
+
 void test_packed_pattern_refresh() {
  using namespace gpu_detail;
  setenv("GAGP_CONSTANT_PHASE","1",1);setenv("GAGP_BOUND_ADD_PHASE","1",1);setenv("GAGP_BOUND_COMPARE_PHASE","1",1);
@@ -130,6 +159,7 @@ int main(){try {
  unsetenv("GAGP_GPU_PHASE_POPULATION");unsetenv("GAGP_GPU_DIAGNOSTICS");
  FitnessSessionGpu session;require(session.init(cases,answers,10000,512,1000).ok,"GPU session init");
  check_inplace_mutation(grammar,parents,names,session);
+ check_constructive_export(grammar,parents,names,session);
  repro::NativePhasePopulation owner(grammar,parents,names);
  {
   auto reversed_names=names;std::reverse(reversed_names.begin(),reversed_names.end());
@@ -155,8 +185,9 @@ int main(){try {
   auto all_exported=owner.export_population();
   require(all_exported.size()==population,"bulk export count");
   for(int i=0;i<population;++i) {
-   const auto genome=owner.export_member(i);
+   auto genome=owner.export_member(i);
    require(ast_cache_key(genome.ast)==ast_cache_key(all_exported.at(i).ast),"bulk export differs from member export");
+   genome.derivation.reset(); // force independent membership, including reference-cache mode
    grammar::require_membership(*grammar,genome);seen.insert(ast_cache_key(genome.ast));
    independent.push_back(compile_for_eval(genome,names));
    require(gpu.case_counts.at(i)[0]==1024,"not all cases evaluated");

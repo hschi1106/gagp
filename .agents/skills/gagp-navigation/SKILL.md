@@ -101,3 +101,5 @@ maintenance, follow the rules in root `AGENTS.md`.
   changed name tables rerun ordinary reconstruction. Fresh scalar single-root
   inputs only; proof is sealed against the final AST. Tests:
   `gagp_test_grammar_membership`, `gagp_test_grammar_reproduction`.
+
+- `GAGP_GPU_CONSTRUCTIVE_EXPORT`: private `NativePhasePopulation::Impl::finish_export` in `gpu/phase_population.cu` omits optional canonical export caches using the live grammar-construction invariant. External import stays strict. `gagp_test_gpu_phase_population` clears supplied derivations for all-member grammar/CPU validation and checks owner lifetime, exact AST replay and modified-export rejection.

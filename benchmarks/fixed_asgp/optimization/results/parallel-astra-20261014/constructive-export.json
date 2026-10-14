@@ -1,0 +1,317 @@
+{
+  "experiment": "Private native GPU constructive export without optional canonical cache",
+  "base_commit": "34d161a",
+  "decision": "retain opt-in",
+  "contract": "P1024/C1024, CPU1T, native GPU reproduction, unchanged search/RNG/AST, same binary OFF/ON",
+  "settings": {
+    "off": {
+      "binary_sha256": "0fdf88514407ccba442cb6c83806d092d05f6b881c71bd2331c9cbd3025f19d0",
+      "flags": {
+        "GAGP_VIEW_PROFILE": "1",
+        "GAGP_TYPED_VIEW_PHASE": "1",
+        "GAGP_SORT_CASES": "1",
+        "GAGP_COMPACT_FRAMES": "1",
+        "GAGP_CONSTANT_PHASE": "1",
+        "GAGP_POPULATION_HANDOFF": "1",
+        "GAGP_DIRECT_PHASE": "1",
+        "GAGP_DIRECT_ROOT": "1",
+        "GAGP_WINDOW_EXECUTOR": "1",
+        "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+        "GAGP_BOUND_ADD_PHASE": "1",
+        "GAGP_REUSE_ADMISSION_COMPILE": "1",
+        "GAGP_REUSE_SITE_CONTRACTS": "1",
+        "GAGP_SELECTED_SITES": "1",
+        "GAGP_OWNED_PREPARATION": "1",
+        "GAGP_CUDA_DEVICE": "0",
+        "GAGP_HOST_THREADS": "1",
+        "GAGP_SINGLE_EVAL_IDENTITY": "1",
+        "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+        "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+        "MALLOC_CONF": "background_thread:false,narenas:1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GAGP_GPU_PHASE_POPULATION": "1",
+        "GAGP_OWNED_PHASE_PACK": "1",
+        "GAGP_OWNED_PHASE_CAPS": "1",
+        "GAGP_COORDINATE_EXECUTOR": "1",
+        "GAGP_COUNTED_SITE_DRAW": "1",
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_GPU_DIAGNOSTICS": "1",
+        "GAGP_SEARCH_TRACE": "1",
+        "GAGP_BATCH_PHASE_IMPORT": "1",
+        "GAGP_BATCH_PHASE_EXPORT": "1",
+        "GAGP_REUSE_PHASE_GRAMMAR": "1",
+        "GAGP_PHASE_CAP_BUCKETS": "1",
+        "GAGP_PHASE_REPRO_THREADS": "1",
+        "GAGP_GPU_STATIC_WEIGHTS": "1",
+        "GAGP_BUCKET_WORKSPACE": "1",
+        "GAGP_BOUND_COMPARE_PHASE": "1",
+        "GAGP_COORDINATE_RING_MEMO": "1",
+        "GAGP_CPU_LAZY_ANALYSIS": "1",
+        "GAGP_CPU_SELECTED_PARENTS": "1",
+        "GAGP_CPU_SELECTED_MUTATION": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1",
+        "GAGP_CPU_SCALAR_VIEWS": "1",
+        "GAGP_CPU_COUNTED_PAIRS": "1",
+        "GAGP_CPU_COORDINATE_DRIVER": "1",
+        "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+        "GAGP_GPU_INPLACE_MUTATION": "1",
+        "GAGP_OWNED_PHASE_PACKED": "1",
+        "GAGP_CPU_ALL_FIT_PAIRS": "1"
+      },
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/astra-donor-20261014/logs/export/off/manifest.json"
+    },
+    "on": {
+      "binary_sha256": "0fdf88514407ccba442cb6c83806d092d05f6b881c71bd2331c9cbd3025f19d0",
+      "flags": {
+        "GAGP_VIEW_PROFILE": "1",
+        "GAGP_TYPED_VIEW_PHASE": "1",
+        "GAGP_SORT_CASES": "1",
+        "GAGP_COMPACT_FRAMES": "1",
+        "GAGP_CONSTANT_PHASE": "1",
+        "GAGP_POPULATION_HANDOFF": "1",
+        "GAGP_DIRECT_PHASE": "1",
+        "GAGP_DIRECT_ROOT": "1",
+        "GAGP_WINDOW_EXECUTOR": "1",
+        "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+        "GAGP_BOUND_ADD_PHASE": "1",
+        "GAGP_REUSE_ADMISSION_COMPILE": "1",
+        "GAGP_REUSE_SITE_CONTRACTS": "1",
+        "GAGP_SELECTED_SITES": "1",
+        "GAGP_OWNED_PREPARATION": "1",
+        "GAGP_CUDA_DEVICE": "0",
+        "GAGP_HOST_THREADS": "1",
+        "GAGP_SINGLE_EVAL_IDENTITY": "1",
+        "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+        "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+        "MALLOC_CONF": "background_thread:false,narenas:1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GAGP_GPU_PHASE_POPULATION": "1",
+        "GAGP_OWNED_PHASE_PACK": "1",
+        "GAGP_OWNED_PHASE_CAPS": "1",
+        "GAGP_COORDINATE_EXECUTOR": "1",
+        "GAGP_COUNTED_SITE_DRAW": "1",
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_GPU_DIAGNOSTICS": "1",
+        "GAGP_SEARCH_TRACE": "1",
+        "GAGP_BATCH_PHASE_IMPORT": "1",
+        "GAGP_BATCH_PHASE_EXPORT": "1",
+        "GAGP_REUSE_PHASE_GRAMMAR": "1",
+        "GAGP_PHASE_CAP_BUCKETS": "1",
+        "GAGP_PHASE_REPRO_THREADS": "1",
+        "GAGP_GPU_STATIC_WEIGHTS": "1",
+        "GAGP_BUCKET_WORKSPACE": "1",
+        "GAGP_BOUND_COMPARE_PHASE": "1",
+        "GAGP_COORDINATE_RING_MEMO": "1",
+        "GAGP_CPU_LAZY_ANALYSIS": "1",
+        "GAGP_CPU_SELECTED_PARENTS": "1",
+        "GAGP_CPU_SELECTED_MUTATION": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1",
+        "GAGP_CPU_SCALAR_VIEWS": "1",
+        "GAGP_CPU_COUNTED_PAIRS": "1",
+        "GAGP_CPU_COORDINATE_DRIVER": "1",
+        "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+        "GAGP_GPU_INPLACE_MUTATION": "1",
+        "GAGP_OWNED_PHASE_PACKED": "1",
+        "GAGP_CPU_ALL_FIT_PAIRS": "1",
+        "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1"
+      },
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/astra-donor-20261014/logs/export/on/manifest.json"
+    }
+  },
+  "results": {
+    "off": {
+      "house_robber": {
+        "search_raw_ms": [
+          1377.519599,
+          1380.121547,
+          1372.243961
+        ],
+        "search_median_ms": 1377.519599,
+        "process_raw_s": [
+          2.635501588927582,
+          2.649707085918635,
+          2.623229952994734
+        ],
+        "process_median_s": 2.635501588927582,
+        "final_eval_raw_ms": [
+          185.739159,
+          190.051575,
+          190.754347
+        ],
+        "final_eval_median_ms": 190.051575,
+        "cpu_audit_raw_ms": [
+          61.610384,
+          65.586329,
+          65.947874
+        ],
+        "genotype_device_bytes": [
+          554253180,
+          554253180,
+          554253180
+        ],
+        "cpu_audit_mismatches": [
+          0,
+          0,
+          0
+        ]
+      },
+      "median": {
+        "search_raw_ms": [
+          1187.809439,
+          1186.500535,
+          1180.61299
+        ],
+        "search_median_ms": 1186.500535,
+        "process_raw_s": [
+          2.4050975050777197,
+          2.392746608937159,
+          2.3623938548844308
+        ],
+        "process_median_s": 2.392746608937159,
+        "final_eval_raw_ms": [
+          136.978926,
+          138.799332,
+          138.505616
+        ],
+        "final_eval_median_ms": 138.505616,
+        "cpu_audit_raw_ms": [
+          17.454523,
+          18.280656,
+          17.164364
+        ],
+        "genotype_device_bytes": [
+          761330768,
+          761330768,
+          761330768
+        ],
+        "cpu_audit_mismatches": [
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "on": {
+      "house_robber": {
+        "search_raw_ms": [
+          1224.286921,
+          1228.279033,
+          1289.924831
+        ],
+        "search_median_ms": 1228.279033,
+        "process_raw_s": [
+          2.4688922939822078,
+          2.480120537802577,
+          2.5382919078692794
+        ],
+        "process_median_s": 2.480120537802577,
+        "final_eval_raw_ms": [
+          39.112132,
+          39.127901,
+          38.121241
+        ],
+        "final_eval_median_ms": 39.112132,
+        "cpu_audit_raw_ms": [
+          65.282322,
+          63.893572,
+          65.095856
+        ],
+        "genotype_device_bytes": [
+          554253180,
+          554253180,
+          554253180
+        ],
+        "cpu_audit_mismatches": [
+          0,
+          0,
+          0
+        ]
+      },
+      "median": {
+        "search_raw_ms": [
+          1047.291322,
+          1057.472425,
+          1084.36369
+        ],
+        "search_median_ms": 1057.472425,
+        "process_raw_s": [
+          2.2019484990742058,
+          2.2448407078627497,
+          2.2573068428318948
+        ],
+        "process_median_s": 2.2448407078627497,
+        "final_eval_raw_ms": [
+          14.714408,
+          14.445304,
+          14.88736
+        ],
+        "final_eval_median_ms": 14.714408,
+        "cpu_audit_raw_ms": [
+          18.701071,
+          16.344401,
+          18.943227
+        ],
+        "genotype_device_bytes": [
+          761330768,
+          761330768,
+          761330768
+        ],
+        "cpu_audit_mismatches": [
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  },
+  "exact_final": [
+    "house_robber.gpu_overlap.s0.r0",
+    "house_robber.gpu_overlap.s0.r1",
+    "house_robber.gpu_overlap.s0.r2",
+    "median.gpu_overlap.s2.r0",
+    "median.gpu_overlap.s2.r1",
+    "median.gpu_overlap.s2.r2"
+  ],
+  "exact_trace": [
+    "house_robber.gpu_overlap.s0.r0",
+    "house_robber.gpu_overlap.s0.r1",
+    "house_robber.gpu_overlap.s0.r2",
+    "median.gpu_overlap.s2.r0",
+    "median.gpu_overlap.s2.r1",
+    "median.gpu_overlap.s2.r2"
+  ],
+  "independent_all_population_audit": {
+    "manifest": "/home/hschi1106/.t3/worktrees/gagp/astra-donor-20261014/logs/export/independent-audit/manifest.json",
+    "binary_sha256": "0636a67ef2e1f5460b337973d3cd8537a97e1f50ac94eebc693d8e541c6c7644",
+    "tasks": [
+      {
+        "task": "house_robber",
+        "programs": 1024,
+        "cases_per_program": 1024,
+        "export_sha256": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+        "all_cpu_gpu_and_search_match": true
+      },
+      {
+        "task": "median",
+        "programs": 1024,
+        "cases_per_program": 1024,
+        "export_sha256": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+        "all_cpu_gpu_and_search_match": true
+      }
+    ],
+    "certificates_disabled": true,
+    "admission_compile_reuses": 0
+  },
+  "tests": "gagp_test_gpu_phase_population passed with constructive export and GAGP_NO_DERIVATION_CERTIFICATES=1 (2.28s); 8-generation exact cache/no-cache replay, owner policy lifetime, modified external replay rejection, 32-generation independent all-member grammar and CPU/GPU audit.",
+  "limits": "Three fresh processes per mode; ON third repeats slower but all ON search times below every OFF time. Root integrated repeated validation is separate. AST-only returns may require later explicit canonical witness/compile work; measured process wall and audit costs are included above."
+}

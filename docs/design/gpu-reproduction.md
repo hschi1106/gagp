@@ -490,8 +490,10 @@ on GPU. Private double buffers retain site contracts across operators and
 successive generations. Only live compiled phase code returns to the native
 GPU evaluator; changed offspring do not undergo AST reconstruction between
 operators. Every program/case is evaluated. One history-best AST per generation
-and requested final exports still undergo independent admission inside their
-respective generation/final-output timing boundaries. Cold import, allocation
+and requested final exports normally materialize a canonical derivation cache
+inside their respective generation/final-output timing boundaries. The optional
+construction-based export below retains the private owner membership invariant
+without materializing that reverse-parsed cache. Cold import, allocation
 and compilation are reported as initialization, and included in search wall time.
 
 This changes reproducible RNG streams and the variation distribution: tournaments
@@ -677,3 +679,31 @@ tests compare fused sites against the annotation oracle, every generated node,
 constant and RNG step, followed by 32 generations of scoped/unscoped variation and
 independent grammar/CPU validation. This switch changes neither the search
 profile, grammar support, random draws nor splice/resource validation.
+
+
+`GAGP_GPU_CONSTRUCTIVE_EXPORT=1` fixes an AST-only export policy for a native
+population owner's lifetime. `ProgramGenome::derivation` is optional cache data;
+this policy returns it empty rather than reverse-parsing an already constructed
+member solely to attach a canonical witness and optional compiled cache. The
+private `NativePhasePopulation::Impl::finish_export` is the only publication path
+that uses this ownership argument. It does not accept an externally asserted
+validity bit or issue an admission certificate.
+
+Cold import admits the immutable fixed skeleton, phase contracts and initial
+members. The admitted GPU generator samples grammar productions and constant
+domains. Crossover and mutation preserve exact nonterminal/identity-scope sites;
+physical node/depth checks conservatively enforce the active grammar budgets.
+Only these checked operators write the private live genotype. Export still
+performs every `export_native_phase_layout` expression-origin/opcode/arity/fuel,
+constant-index, lexical-index and fixed-skeleton transport check and metadata
+compaction. Thus membership follows from construction; this is distinct from a
+canonical derivation witness. External AST import and explicit membership APIs
+retain their ordinary strict validation, including on a modified export.
+
+Tests clear supplied derivation caches before independent all-member admission
+and CPU evaluation over 32 generations, compare member/bulk ASTs and metadata
+against canonical-cache export, and reject a modified external replay. Full
+frozen-population snapshots are independently decoded, admitted and evaluated
+on CPU/GPU by an archived runtime with certificates disabled. Report process
+wall and post-search audit cost as well as search wall: callers that explicitly
+need a canonical witness or an executable cache still pay to construct it.
