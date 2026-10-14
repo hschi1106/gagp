@@ -714,5 +714,9 @@ they do not prove convergence equivalence. Known solutions are audit-only.
 
 Validation: `ctest -R gagp_test_fixed_asgp_bench`, operational
 `test_fixed_asgp*.py`, and the study's `test_summarize.py`. The list GPU
-correctness assertion is an explicit expected failure; unsafe random list
-evolution is explicitly skipped, not reported as supported.
+correctness assertion and ASGP/GAGP overflowing-integer parity assertion are
+explicit expected failures; unsafe random list evolution is explicitly skipped,
+not reported as supported. Full initial snapshots quantify existing numerical
+differences separately from known-solution and final-top16 audit qualification.
+CLI process timings use GNU `time` resource files (10ms resolution); the
+watchdog monitor duration includes polling delay and is retained separately.

@@ -40,7 +40,7 @@
   "formal_generation_rule": "Before formal runs, select largest G in32/16/8/4 such that sum(all5 pilot process times/4)*G*3<=900seconds per task; use identical G for every mode/seed. One process per seed, not same-workload timing repeats.",
   "qualification": "Do not claim a qualified GPU speedup when the known correct solution fails full-case GPU audit or final top16 CPU audit disagrees. Keep raw diagnostic timing/errors visible.",
   "stock_status": "unsupported exact clamped memo-coordinate transitions; actual validator positive/negative probes archived; no nonmemoized substitute",
-  "timing": "Existing evolve_wall_ms cold evolution through final evaluation; CLI input parsing/independent CPU audit/export additionally reported by process wall. Lock waiting excluded.",
+  "timing": "Existing evolve_wall_ms cold evolution through final evaluation; CLI input parsing/independent CPU audit/export additionally reported by process wall. Lock waiting excluded. CLI process time comes from GNU time resource files (10ms resolution); monitor wall includes polling tail and is retained separately.",
   "quality": "Final champion plus gen0/middle/last independently CPU evaluated on1024 heldout local-domain cases; GAGP grammar admitted. Three seeds are screening, not convergence equivalence. Natural overlap/duplicates retained.",
   "runtime_changes": "none; new benchmark adapters, study policy, audit/reporting only",
   "formal_tasks": [
@@ -48,5 +48,6 @@
     "last_index_of_zero"
   ],
   "negative_status": "Excluded from formal study: full-case GPU known solution incorrect; random CPU P8 preflight stopped at 99,987,640 KiB RSS (95.36 GiB), one thread. No complete P1024 timing or ratio.",
-  "resource_guard": "New runner stops only own process group at16GiB RSS; stopped/incomplete searches excluded, not timed as completed work"
+  "resource_guard": "New runner stops only own process group at16GiB RSS; stopped/incomplete searches excluded, not timed as completed work",
+  "initial_snapshot": "Full1024programs x1024cases. ASGP/CPU fitness differs66 Count,21 Last; GAGP CPU/GPU differs1 Count,0 Last. Existing numerical semantics, not identical-execution benchmark. See numeric-diagnosis.json."
 }
