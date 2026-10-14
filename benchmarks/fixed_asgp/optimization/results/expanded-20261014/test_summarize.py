@@ -19,7 +19,7 @@ def fixture(root):
     cells, quality = [], []
     for task in summary.TASKS:
         save(root/'artifacts'/f'{task}.audit.json', dict(known_solution_cpu_mismatches=0,
-            known_solution_asgp_wrong=0, known_solution_gpu_fitness=-1 if task=='negative_to_zero' else 0))
+            known_solution_asgp_wrong=0, known_solution_gpu_fitness=-1 if task=='last_index_of_zero' else 0))
         for mode in summary.MODES:
             for seed in summary.SEEDS:
                 tag = f'{task}.{mode}.{seed}'
@@ -48,16 +48,27 @@ class TestSummary(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp); fixture(root)
             aggregate, records, curves, quality, missing=summary.summarize(root)
-            self.assertEqual((len(records),len(quality),missing), (45,180,[]))
-            row=next(r for r in aggregate if r['task']=='negative_to_zero' and r['mode']=='gpu_repro')
+            self.assertEqual((len(records),len(quality),missing), (30,120,[]))
+            row=next(r for r in aggregate if r['task']=='last_index_of_zero' and r['mode']=='gpu_repro')
             self.assertEqual(row['measured_search_ms_ratio_median'],2)
             self.assertIsNone(row['qualified_search_ms_speedup_median'])
             self.assertIn('GPU_evaluation_failure',row['qualification_reason'])
             self.assertEqual(row['reproduction_profiles'],'generic_gpu')
-            self.assertEqual(curves['negative_to_zero','asgp_1t',0][0],924)
+            self.assertEqual(summary.normal_fitness('negative_to_zero','asgp_1t',-100),924)
+            self.assertNotIn('negative_to_zero', summary.TASKS)
+            self.assertIn('negative_to_zero', summary.UNMEASURED)
+            self.assertIn('stock_with_cooldown', summary.UNMEASURED)
             cpu=next(r for r in aggregate if r['task']=='count_odds' and r['mode']=='gagp_cpu')
             self.assertEqual(cpu['qualified_search_ms_speedup_median'],2)
             self.assertIsNone(cpu['errors_median'])
+
+    def test_unmeasured_task_cannot_enter_formal_ratios(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); fixture(root)
+            path=root/'formal/manifest.json'
+            data=summary.read(path);data['cells'][0]['task']='negative_to_zero';save(path,data)
+            with self.assertRaisesRegex(ValueError,'out-of-scope formal cell'):
+                summary.summarize(root)
 
     def test_missing_quality_requires_explicit_partial(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -65,7 +76,7 @@ class TestSummary(unittest.TestCase):
             save(root/'quality/manifest.json', {'cells':[]})
             with self.assertRaisesRegex(ValueError,'Missing cells'):
                 summary.summarize(root)
-            self.assertEqual(len(summary.summarize(root,True)[-1]),45)
+            self.assertEqual(len(summary.summarize(root,True)[-1]),30)
 
     def test_incomplete_case_audit_and_cpu_fallback_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -7,7 +7,21 @@ import json
 import statistics
 from pathlib import Path
 
-TASKS = ('count_odds', 'last_index_of_zero', 'negative_to_zero')
+TASKS = ('count_odds', 'last_index_of_zero')
+# Representation support alone does not qualify a workload for timed comparison.
+UNMEASURED = {
+    'negative_to_zero': {
+        'status': 'unmeasured_memory_safety_and_GPU_evaluation_failure',
+        'reason': 'CPU P8 two-generation random-list preflight exceeded 70 GiB RSS and was stopped; GPU known-solution audit failed. No trustworthy P1024 timing or qualified speedup.',
+        'reproduction': 'Generic GPU reproduction is available; this does not establish GPU evaluation correctness or safe CPU execution.',
+        'evidence': ['negative-cpu-memory-stop.json', 'artifacts/negative_to_zero.audit.json'],
+    },
+    'stock_with_cooldown': {
+        'status': 'unsupported_exact_clamped_memo_transitions',
+        'reason': 'Existing memoized coordinate transitions cannot express ASGP clamped dependencies exactly.',
+        'evidence': ['benchmarks/fixed_asgp/optimization/stock_capability.cpp'],
+    },
+}
 MODES = ('asgp_1t', 'gagp_cpu', 'gpu_eval', 'gpu_repro', 'gpu_overlap')
 LABELS = ('ASGP 1T', 'GAGP CPU 1T', 'GPU evaluation', 'GPU eval + reproduction', 'GPU overlap')
 SEEDS = (0, 1, 2)
@@ -36,6 +50,8 @@ def summarize(study: Path, allow_incomplete=False):
     for cell in manifest['cells']:
         if all(k in cell for k in ('task', 'mode', 'seed')):
             key = cell['task'], cell['mode'], cell['seed']
+            if key[0] not in TASKS or key[1] not in MODES or key[2] not in SEEDS:
+                raise ValueError(f'out-of-scope formal cell: {key}')
             if key in indexed:
                 raise ValueError(f'duplicate formal cell: {key}')
             indexed[key] = cell
@@ -183,7 +199,7 @@ def plots(out, summary, curves):
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     colors = plt.get_cmap('tab10').colors
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    fig, axes = plt.subplots(1, len(TASKS), figsize=(11, 5))
     for ax, task in zip(axes, TASKS):
         group = [r for r in summary if r['task'] == task]
         for i, row in enumerate(group):
@@ -200,12 +216,12 @@ def plots(out, summary, curves):
     partial = any(r['seeds'] != 3 for r in summary)
     prefix = 'PARTIAL — ' if partial else ''
     fig.suptitle(prefix + 'P1024 / C1024: median and range across independent search seeds')
-    fig.text(.5, .01, 'Hatched bars: evaluation correctness failed; measured time is not a qualified speedup.', ha='center', fontsize=9)
+    fig.text(.5, .01, 'Hatched: correctness failed. Negative to Zero and Stock excluded with explicit reasons in status.json.', ha='center', fontsize=9)
     fig.tight_layout(rect=(0, .06, 1, .94))
     fig.savefig(out / 'complete-search-time.png', dpi=180)
     fig.savefig(out / 'complete-search-time.svg')
     plt.close(fig)
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4.5))
+    fig, axes = plt.subplots(1, len(TASKS), figsize=(11, 4.5))
     for ax, task in zip(axes, TASKS):
         for i, mode in enumerate(MODES):
             values = [curves[(task, mode, s)] for s in SEEDS if (task, mode, s) in curves]
@@ -221,7 +237,7 @@ def plots(out, summary, curves):
         ax.grid(alpha=.2)
     axes[0].legend(fontsize=8)
     fig.suptitle(prefix + 'Search-reported fitness: seed median and min–max band (not independent CPU quality)')
-    fig.text(.5, .01, 'GPU evaluation may be lossy. See quality.csv for full 1024-case independent CPU audits.', ha='center', fontsize=9)
+    fig.text(.5, .01, 'Full 1024-case independent CPU audits: quality.csv. Two unmeasured task limitations: status.json.', ha='center', fontsize=9)
     fig.tight_layout(rect=(0, .06, 1, .94))
     fig.savefig(out / 'fitness-by-generation.png', dpi=180)
     fig.savefig(out / 'fitness-by-generation.svg')
@@ -244,7 +260,9 @@ def main():
     write_csv(out/'quality.csv', quality)
     write_csv(out/'native-controls.csv', native_controls(args.study.resolve()))
     (out/'status.json').write_text(json.dumps(dict(missing=missing,
-        complete=not missing, stock_with_cooldown='unsupported_exact_clamped_memo_transitions',
+        complete=not missing, measured_tasks=list(TASKS), expected_formal_cells=30, expected_quality_cells=30,
+        unmeasured_tasks=UNMEASURED,
+        pilot_policy='pilot/ preserves the interrupted original attempt; pilot-supported/ is the two-task pilot.',
         seed_policy='Three independent searches; ranges describe seed variability, not repeated identical workloads.',
         ratios='Median of seed-matched ASGP ratios; measured ratios are descriptive only when correctness fails.',
         quality='Same independent local ASGP test split, 1024 cases per checkpoint; not official PSB. Natural duplicates and possible training overlap retained.',
