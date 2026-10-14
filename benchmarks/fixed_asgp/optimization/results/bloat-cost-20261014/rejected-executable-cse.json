@@ -1,0 +1,502 @@
+{
+  "decision": "rejected; all prototype runtime/test code removed; no setting adopted",
+  "base_commit": "71dc916",
+  "candidate_binary_sha256": "d7fa6160e7f7ee2c690ac010613ff9d4f12eea249b03f9a84a11db9d64af001c",
+  "archived_control_binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+  "raw_directory": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable",
+  "prototype_patch": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/candidate.patch",
+  "prototype_patch_sha256": "9a51357a958e9b3679d066465bda74584ba605ad89f171305becd670fea4ff62",
+  "prototype": [
+    "Execution-only one-entry common-subexpression cache per typed phase invocation; genotype, canonical bytecode, grammar, RNG and reproduction untouched.",
+    "Host stack-expression traversal selects one exact repeated contiguous subtree >=5 instructions; hashing only accelerates exact opcode/constant/fuel equality.",
+    "Requires existing typed-view capability, stack<=16 and locals<=8; STORE anywhere declines; control-flow barriers and target resets disallow a jump into a cached span interior.",
+    "Private packed instruction high bits mark span start/end. The original binder executes. Cache fills only after a successful span; matching later starts reuse value and charge exact total original fuel only when enough fuel remains; insufficient fuel runs original instructions.",
+    "Original numeric operations and first errors run unchanged. Read-only deterministic Int/Bool/list-view operations admitted. Generic executors ignore private annotation."
+  ],
+  "measurement": {
+    "contract": "CPU1T; P1024/C1024 complete coverage; native GPU evaluation and native GPU reproduction; immutable frozen inputs; no preparation; all GPU tests/benchmarks/heavy builds serialized with flock /tmp/gagp-parallel-20261013-benchmark.lock",
+    "short": "House32 seed0 and Median64 seed2; two fresh processes per archived/OFF/ON cell. Grouped order, screening evidence not precision speedup estimate.",
+    "long": "Both tasks128 generations seed0; one fresh process per archived/OFF/ON cell. Diagnostic screen, not a repeated formal result.",
+    "primary": "evolve_wall_ms includes cold initialization, all generations and final evaluation; excludes artifact import/post-search audit/export as in existing short_search.py contract. Process wall retained in manifests.",
+    "stage_fields": "pack_ms, eval_kernel_ms, upload_ms, eval_ms and repro_ms are sums over generations, excluding initialization/final evaluation.",
+    "fixed_snapshot": "Immutable original P1024 population, one cold GPU snapshot per archived/OFF/ON cell. No CPU snapshot audit here; does not claim zero full-population CPU/GPU mismatches. Known archived House CPU/GPU differences are outside this equality check."
+  },
+  "results": [
+    {
+      "label": "archive",
+      "task": "house_robber",
+      "search_ms": [
+        1062.536912,
+        1089.135366
+      ],
+      "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/archive/manifest.json",
+      "pack_ms": [
+        16.086805,
+        25.169809000000004
+      ],
+      "eval_kernel_ms": [
+        577.5742529999999,
+        578.2778159999999
+      ],
+      "upload_ms": [
+        28.081106,
+        30.81425699999999
+      ],
+      "eval_ms": [
+        632.7302310000001,
+        647.0824849999998
+      ],
+      "repro_ms": [
+        145.714161,
+        149.65357100000003
+      ],
+      "median_search_ms": 1075.836139,
+      "frozen_asgp_ratio": 25.735674069041472
+    },
+    {
+      "label": "archive",
+      "task": "median",
+      "search_ms": [
+        925.992922,
+        929.79187
+      ],
+      "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/archive/manifest.json",
+      "pack_ms": [
+        28.05315,
+        27.01734800000001
+      ],
+      "eval_kernel_ms": [
+        157.47194100000004,
+        157.63329999999996
+      ],
+      "upload_ms": [
+        46.62259299999997,
+        47.403713999999994
+      ],
+      "eval_ms": [
+        248.68858500000002,
+        248.86329099999992
+      ],
+      "repro_ms": [
+        406.08663900000005,
+        408.1248770000001
+      ],
+      "median_search_ms": 927.892396,
+      "frozen_asgp_ratio": 6.320684616322688
+    },
+    {
+      "label": "off",
+      "task": "house_robber",
+      "search_ms": [
+        1133.023854,
+        1130.940727
+      ],
+      "binary_sha256": "d7fa6160e7f7ee2c690ac010613ff9d4f12eea249b03f9a84a11db9d64af001c",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/off/manifest.json",
+      "pack_ms": [
+        16.060797,
+        16.148131
+      ],
+      "eval_kernel_ms": [
+        636.386461,
+        637.365308
+      ],
+      "upload_ms": [
+        28.342357999999994,
+        28.65501
+      ],
+      "eval_ms": [
+        691.91419,
+        693.237194
+      ],
+      "repro_ms": [
+        147.585997,
+        146.27055000000001
+      ],
+      "median_search_ms": 1131.9822905,
+      "frozen_asgp_ratio": 24.459188502649102
+    },
+    {
+      "label": "off",
+      "task": "median",
+      "search_ms": [
+        922.320353,
+        916.467893
+      ],
+      "binary_sha256": "d7fa6160e7f7ee2c690ac010613ff9d4f12eea249b03f9a84a11db9d64af001c",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/off/manifest.json",
+      "pack_ms": [
+        25.618817999999994,
+        24.316575
+      ],
+      "eval_kernel_ms": [
+        165.891761,
+        165.700332
+      ],
+      "upload_ms": [
+        46.93290200000001,
+        46.914348999999994
+      ],
+      "eval_ms": [
+        254.5892109999999,
+        253.04873899999998
+      ],
+      "repro_ms": [
+        405.783501,
+        404.276685
+      ],
+      "median_search_ms": 919.394123,
+      "frozen_asgp_ratio": 6.3791088568879175
+    },
+    {
+      "label": "on",
+      "task": "house_robber",
+      "search_ms": [
+        1173.695451,
+        1178.730276
+      ],
+      "binary_sha256": "d7fa6160e7f7ee2c690ac010613ff9d4f12eea249b03f9a84a11db9d64af001c",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/on/manifest.json",
+      "pack_ms": [
+        76.17831699999999,
+        75.65813
+      ],
+      "eval_kernel_ms": [
+        617.3187,
+        617.0821720000001
+      ],
+      "upload_ms": [
+        29.060028999999993,
+        28.36072100000001
+      ],
+      "eval_ms": [
+        733.9823240000002,
+        732.675384
+      ],
+      "repro_ms": [
+        148.792582,
+        147.19759599999998
+      ],
+      "median_search_ms": 1176.2128635,
+      "frozen_asgp_ratio": 23.539419678349745
+    },
+    {
+      "label": "on",
+      "task": "median",
+      "search_ms": [
+        1061.249289,
+        1042.902515
+      ],
+      "binary_sha256": "d7fa6160e7f7ee2c690ac010613ff9d4f12eea249b03f9a84a11db9d64af001c",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/on/manifest.json",
+      "pack_ms": [
+        152.42201899999992,
+        141.846274
+      ],
+      "eval_kernel_ms": [
+        166.250731,
+        165.69512899999995
+      ],
+      "upload_ms": [
+        48.710117999999994,
+        46.60975399999998
+      ],
+      "eval_ms": [
+        384.3665220000001,
+        370.70225
+      ],
+      "repro_ms": [
+        410.6756889999998,
+        407.291722
+      ],
+      "median_search_ms": 1052.075902,
+      "frozen_asgp_ratio": 5.574612232682808
+    },
+    {
+      "label": "late-archive",
+      "task": "house_robber",
+      "search_ms": [
+        11888.183057
+      ],
+      "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/late-archive/manifest.json",
+      "pack_ms": [
+        297.44075199999986
+      ],
+      "eval_kernel_ms": [
+        8969.792802
+      ],
+      "upload_ms": [
+        412.85696299999984
+      ],
+      "eval_ms": [
+        9786.496886000003
+      ],
+      "repro_ms": [
+        1610.68356
+      ],
+      "median_search_ms": 11888.183057
+    },
+    {
+      "label": "late-archive",
+      "task": "median",
+      "search_ms": [
+        3083.145287
+      ],
+      "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/late-archive/manifest.json",
+      "pack_ms": [
+        368.15292500000015
+      ],
+      "eval_kernel_ms": [
+        424.3602839999999
+      ],
+      "upload_ms": [
+        199.587626
+      ],
+      "eval_ms": [
+        1091.0917779999997
+      ],
+      "repro_ms": [
+        1651.4669530000003
+      ],
+      "median_search_ms": 3083.145287
+    },
+    {
+      "label": "late-off",
+      "task": "house_robber",
+      "search_ms": [
+        11989.209766
+      ],
+      "binary_sha256": "d7fa6160e7f7ee2c690ac010613ff9d4f12eea249b03f9a84a11db9d64af001c",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/late-off/manifest.json",
+      "pack_ms": [
+        280.305574
+      ],
+      "eval_kernel_ms": [
+        9128.042961999998
+      ],
+      "upload_ms": [
+        400.0714049999999
+      ],
+      "eval_ms": [
+        9904.057863
+      ],
+      "repro_ms": [
+        1579.6256039999996
+      ],
+      "median_search_ms": 11989.209766
+    },
+    {
+      "label": "late-off",
+      "task": "median",
+      "search_ms": [
+        3142.022141
+      ],
+      "binary_sha256": "d7fa6160e7f7ee2c690ac010613ff9d4f12eea249b03f9a84a11db9d64af001c",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/late-off/manifest.json",
+      "pack_ms": [
+        377.8261979999998
+      ],
+      "eval_kernel_ms": [
+        439.807668
+      ],
+      "upload_ms": [
+        206.29173700000007
+      ],
+      "eval_ms": [
+        1126.5449589999996
+      ],
+      "repro_ms": [
+        1672.766785999999
+      ],
+      "median_search_ms": 3142.022141
+    },
+    {
+      "label": "late-on",
+      "task": "house_robber",
+      "search_ms": [
+        12105.227143
+      ],
+      "binary_sha256": "d7fa6160e7f7ee2c690ac010613ff9d4f12eea249b03f9a84a11db9d64af001c",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/late-on/manifest.json",
+      "pack_ms": [
+        773.311037
+      ],
+      "eval_kernel_ms": [
+        8736.506828
+      ],
+      "upload_ms": [
+        423.594306
+      ],
+      "eval_ms": [
+        10028.186455999998
+      ],
+      "repro_ms": [
+        1589.6828290000003
+      ],
+      "median_search_ms": 12105.227143
+    },
+    {
+      "label": "late-on",
+      "task": "median",
+      "search_ms": [
+        4124.595106
+      ],
+      "binary_sha256": "d7fa6160e7f7ee2c690ac010613ff9d4f12eea249b03f9a84a11db9d64af001c",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/late-on/manifest.json",
+      "pack_ms": [
+        1376.678083
+      ],
+      "eval_kernel_ms": [
+        441.136838
+      ],
+      "upload_ms": [
+        204.51385699999997
+      ],
+      "eval_ms": [
+        2124.7895040000003
+      ],
+      "repro_ms": [
+        1651.8140599999997
+      ],
+      "median_search_ms": 4124.595106
+    }
+  ],
+  "fixed_snapshots": [
+    {
+      "task": "house_robber",
+      "programs": 1024,
+      "cases_per_program": 1024,
+      "exact_gpu_per_program_fitness_errors_timeouts_fallbacks": true,
+      "labels": [
+        "archive",
+        "off",
+        "on"
+      ],
+      "eval_ms": [
+        51.84998,
+        53.490815,
+        49.804871
+      ],
+      "kernel_ms": [
+        29.236689,
+        30.752172,
+        23.35125
+      ]
+    },
+    {
+      "task": "median",
+      "programs": 1024,
+      "cases_per_program": 1024,
+      "exact_gpu_per_program_fitness_errors_timeouts_fallbacks": true,
+      "labels": [
+        "archive",
+        "off",
+        "on"
+      ],
+      "eval_ms": [
+        27.336804,
+        26.856157,
+        28.426159
+      ],
+      "kernel_ms": [
+        6.343597,
+        4.940481,
+        5.924303
+      ]
+    }
+  ],
+  "trajectory_checks": [
+    {
+      "tag": "house_robber.gpu_overlap.s0.r0",
+      "labels": [
+        "archive",
+        "off",
+        "on"
+      ],
+      "all_semantic_operator_error_rows_and_final_history_AST_exact": true
+    },
+    {
+      "tag": "median.gpu_overlap.s2.r0",
+      "labels": [
+        "archive",
+        "off",
+        "on"
+      ],
+      "all_semantic_operator_error_rows_and_final_history_AST_exact": true
+    },
+    {
+      "tag": "house_robber.gpu_overlap.s0.r1",
+      "labels": [
+        "archive",
+        "off",
+        "on"
+      ],
+      "all_semantic_operator_error_rows_and_final_history_AST_exact": true
+    },
+    {
+      "tag": "median.gpu_overlap.s2.r1",
+      "labels": [
+        "archive",
+        "off",
+        "on"
+      ],
+      "all_semantic_operator_error_rows_and_final_history_AST_exact": true
+    },
+    {
+      "tag": "house_robber.gpu_overlap.s0.r0",
+      "labels": [
+        "late-archive",
+        "late-off",
+        "late-on"
+      ],
+      "all_semantic_operator_error_rows_and_final_history_AST_exact": true
+    },
+    {
+      "tag": "median.gpu_overlap.s0.r0",
+      "labels": [
+        "late-archive",
+        "late-off",
+        "late-on"
+      ],
+      "all_semantic_operator_error_rows_and_final_history_AST_exact": true
+    }
+  ],
+  "validation": [
+    {
+      "command": "flock /tmp/gagp-parallel-20261013-benchmark.lock env GAGP_PHASE_CSE=1 ctest --test-dir cpp/build/release -R \"gagp_test_bounded_region_gpu$|gagp_test_gpu_phase_population$\" --output-on-failure",
+      "result": "2/2 passed in8.08s; includes native32-generation CPU/grammar audit and new fuel0..105 fixture with first ZeroDiv and >2^53 arithmetic",
+      "log": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/tests.log"
+    },
+    {
+      "command": "g++ -std=c++17 -O2 -Icpp -Icpp/include -I/usr/local/cuda-12.6/include logs/executable/test_annotation.cpp -o logs/executable/test_annotation && logs/executable/test_annotation",
+      "result": "semantic constant equality across different constant indices, unequal constants/fuel decline, STORE decline, interior branch target decline, missing typed proof and stack bound decline passed",
+      "log": "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/annotation-tests.log"
+    },
+    {
+      "limitation": "Runtime branch-first-occurrence-skipped, per-invocation reset and annotation refresh regression tests were identified by review but not added after performance rejection. No adoption-level validation claim."
+    }
+  ],
+  "interpretation": [
+    "House short generation kernel saves about19.7ms against same-binary OFF, but annotation raises packing by about59.8ms. Median short kernel has no material gain while packing rises about122.2ms.",
+    "House128 kernel saves391.5ms but packing adds493.0ms; Median128 packing adds998.9ms with no kernel gain. No end-to-end improvement for either short task or the bloated long search.",
+    "The candidate OFF binary has worse House kernel timing than the archived executable; runtime dispatch/metadata/code generation cost is a possible contributor, not an isolated causal attribution.",
+    "Fixed initial House snapshot kernel improves30.75\u219223.35ms in this single screen, yet changing-population searches regress. Static repeated-node counts and fixed snapshots are not dynamic speedup bounds.",
+    "A future design would need substantially cheaper/amortized annotation and avoid generic-path cost; this experiment does not justify a broader executable DAG or compiler rewrite."
+  ],
+  "reproduction_scripts": [
+    "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/run_screen.py",
+    "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/run_late.py",
+    "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/run_snapshots.py",
+    "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/summarize.py",
+    "/home/hschi1106/.t3/worktrees/gagp/bloat-executable-20261014/logs/executable/check_semantics.py"
+  ],
+  "build_command": "cmake -S cpp -B cpp/build/release -DCMAKE_BUILD_TYPE=Release -DGAGP_BUILD_BENCHMARKS=ON -DGAGP_ASGP_SOURCE_DIR=/home/hschi1106/r13921069 -DCMAKE_CUDA_ARCHITECTURES=86 -DCMAKE_CUDA_COMPILER=/usr/local/cuda-12.6/bin/nvcc; flock /tmp/gagp-parallel-20261013-benchmark.lock cmake --build cpp/build/release --target gagp_fixed_asgp_bench gagp_test_bounded_region_gpu gagp_test_gpu_phase_population -j3",
+  "frozen_search_asgp_ms": {
+    "house_robber": 27687.368225,
+    "median": 5864.915193
+  }
+}
