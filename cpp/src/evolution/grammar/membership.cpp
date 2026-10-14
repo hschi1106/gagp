@@ -1,5 +1,6 @@
 #include "owned_population.hpp"
 #include "evaluation_identity.hpp"
+#include "gagp/evolution/repro/pack.hpp"
 #include "variation_internal.hpp"
 #include "gagp/evolution/grammar/derivation_resources.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
@@ -873,9 +874,10 @@ DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const 
   return reconstruct_derivation(grammar, genome, request, nullptr, nullptr);
 }
 
-DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const ProgramGenome& genome,
-    const GenerationRequest& request, VerifiedAst* verified,
-    std::vector<std::vector<int>>* choice_lexical_environments) {
+static DerivationMetadata reconstruct_derivation_impl(const CompiledGrammar& grammar,
+    const ProgramGenome& genome, const GenerationRequest& request, VerifiedAst* verified,
+    std::vector<std::vector<int>>* choice_lexical_environments,
+    ProgramGenome* compact_owned = nullptr) {
   // A public caller without a read snapshot cannot bind mutable registry
   // contents to one consistent proof. Scalar-only ASTs have no such dependency.
   const bool registry_constants = std::any_of(genome.ast.consts.begin(), genome.ast.consts.end(), [](const auto& value) {
@@ -884,7 +886,7 @@ DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const 
   });
   const bool cache = certificates_enabled() &&
       (!registry_constants || payload::StagedPayloads::has_active_scope());
-  if (cache && genome.derivation && genome.derivation->certificate) {
+  if (cache && !compact_owned && genome.derivation && genome.derivation->certificate) {
     const auto& proof = *genome.derivation->certificate;
     if (proof.witness.grammar_hash == grammar.content_hash() &&
         same_certificate_request(proof.witness.request, request) &&
@@ -904,6 +906,20 @@ DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const 
       cache ? &environments : choice_lexical_environments).run(true, nullptr,
           cache && !registry_constants && std::getenv("GAGP_REUSE_ADMISSION_COMPILE")
               ? &executable : nullptr);
+  if (compact_owned) {
+    // Original tables, including unused entries, have already passed full
+    // verification, canonical membership and lowering. Only this synchronous
+    // owner can mutate the AST before the new certificate is published.
+    const auto names = genome.ast.names.size();
+    *compact_owned = repro::compact_genome_tables(std::move(*compact_owned));
+    if (genome.ast.names.size() != names)
+      return reconstruct_derivation_impl(grammar, genome, request, verified,
+          choice_lexical_environments);
+    // Stable constant-only compaction preserves all referenced decoded values,
+    // node coordinates, exact scopes, canonical choices and resource charges.
+    // Native lowering copies referenced values in traversal order; it does not
+    // retain AST table indices or pointers into the original constant table.
+  }
   if (cache) {
     auto proof = std::make_shared<DerivationCertificate>();
     proof->identity = certificate_identity(grammar, genome);
@@ -916,6 +932,28 @@ DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const 
   }
   if (verified) *verified = matcher.take_verified();
   return witness;
+}
+
+DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar,
+    const ProgramGenome& genome, const GenerationRequest& request, VerifiedAst* verified,
+    std::vector<std::vector<int>>* choice_lexical_environments) {
+  return reconstruct_derivation_impl(grammar, genome, request, verified,
+      choice_lexical_environments);
+}
+
+ProgramGenome variation_detail::admit_and_compact_execution(
+    ProgramGenome genome, VariationContext& context) {
+  if (context.requests().size() != 1 ||
+      std::any_of(genome.ast.consts.begin(), genome.ast.consts.end(), [](const Value& value) {
+        return value.tag != ValueTag::Int && value.tag != ValueTag::Float &&
+            value.tag != ValueTag::Bool && value.tag != ValueTag::Char;
+      }))
+    throw std::invalid_argument("owned compaction requires a scalar single-root input");
+  // Admission is performed here, not supplied as mutable provenance by callers.
+  auto witness = reconstruct_derivation_impl(context.grammar(), genome,
+      context.request(), nullptr, nullptr, &genome);
+  genome.derivation = std::make_shared<const DerivationMetadata>(std::move(witness));
+  return genome;
 }
 
 DerivationMetadata reconstruct_population_derivation(const CompiledGrammar& grammar,

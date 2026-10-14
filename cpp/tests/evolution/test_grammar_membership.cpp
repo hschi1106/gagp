@@ -9,8 +9,11 @@
 #include <vector>
 
 #include "gagp/evolution/ast_verify.hpp"
+#include "gagp/evolution/compiler.hpp"
+#include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
 #include "../../src/runtime/payload/staging.hpp"
 #include "../../src/evolution/grammar/evaluation_identity.hpp"
+#include "../../src/evolution/grammar/variation_internal.hpp"
 #include "gagp/evolution/grammar/cache.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
@@ -192,6 +195,65 @@ int main() {
     changed.ast.consts.push_back(Value::from_int(999));
     require_membership(scalar, changed);
     require_membership(scalar, repro::compact_genome_tables(changed));
+
+    // Removing unused constants after full admission must preserve canonical
+    // choices and executable values. A stale external proof cannot authorize it.
+    VariationContext compact_context(std::make_shared<const CompiledGrammar>(scalar));
+    for (bool remove_name : {false, true}) {
+      auto padded = sum;
+      padded.ast.consts.insert(padded.ast.consts.begin(), Value::from_bool(false));
+      for (auto& node : padded.ast.nodes) if (node.kind == NodeKind::CONST) ++node.i0;
+      padded.ast.consts.push_back(Value::from_int(999));
+      if (remove_name) padded.ast.names.push_back("unused_compaction_name");
+      auto compacted = variation_detail::admit_and_compact_execution(padded, compact_context);
+      auto independent = compacted; independent.derivation.reset();
+      VerifiedAst independently_verified;
+      auto proof = reconstruct_derivation(scalar, independent, entry_request(scalar),
+                                         &independently_verified, nullptr);
+      check(ast_cache_key(compacted.ast) == ast_cache_key(repro::compact_genome_tables(padded).ast),
+            "owned compaction changed referenced values");
+      check(compacted.derivation->choices.size() == proof.choices.size() &&
+            compacted.derivation->logical_steps == proof.logical_steps &&
+            compacted.derivation->lowered_instructions == proof.lowered_instructions,
+            "compaction transported a different canonical witness");
+      for (std::size_t i = 0; i < proof.choices.size(); ++i) {
+        const auto& x = compacted.derivation->choices[i]; const auto& y = proof.choices[i];
+        check(x.nonterminal == y.nonterminal && x.production == y.production &&
+              x.parent == y.parent && x.ast_begin == y.ast_begin && x.ast_end == y.ast_end &&
+              x.template_instance == y.template_instance && x.slot == y.slot,
+              "compaction changed canonical production choices");
+      }
+      const auto reused_code = admitted_bytecode_for_eval(compacted, {}, scalar.execution_limits().fuel);
+      check(bool(reused_code), "compacted proof was not bound to its actual runtime identity");
+      const auto independently_lowered = compile_for_eval(independent);
+      for (int fuel = 0; fuel <= 1000; ++fuel) {
+        const auto retained = execute_bytecode_cpu(*reused_code, {}, fuel);
+        const auto rebuilt = execute_bytecode_cpu(independently_lowered, {}, fuel);
+        check(retained.is_error == rebuilt.is_error &&
+            (retained.is_error ? retained.err.code == rebuilt.err.code :
+                retained.value.tag == rebuilt.value.tag && retained.value.i == rebuilt.value.i),
+            "compacted executable changed output, errors or fuel exhaustion");
+      }
+      auto bad_constant = padded;
+      bad_constant.derivation.reset();
+      bad_constant.ast.consts.push_back(Value::invalid());
+      bool bad_constant_rejected = false;
+      try { (void)variation_detail::certify_execution(bad_constant, compact_context); }
+      catch (const std::invalid_argument&) { bad_constant_rejected = true; }
+      check(bad_constant_rejected, "compaction hid an unused invalid constant tag");
+      compacted.ast.consts.front() = Value::from_int(999);
+      check(!admitted_bytecode_for_eval(compacted, {}, scalar.execution_limits().fuel),
+            "compacted certificate permitted subsequent mutable changes");
+      bool invalid_rejected = false;
+      try { (void)variation_detail::admit_and_compact_execution(compacted, compact_context); }
+      catch (const std::invalid_argument&) { invalid_rejected = true; }
+      check(invalid_rejected, "owned compaction trusted stale external admission");
+      padded.ast.names = {"duplicate", "duplicate"};
+      invalid_rejected = false;
+      try { (void)variation_detail::admit_and_compact_execution(padded, compact_context); }
+      catch (const std::invalid_argument&) { invalid_rejected = true; }
+      check(invalid_rejected, "owned compaction hid malformed unused names");
+    }
 
     auto tight = scalar_doc;
     tight.object_v.at("search_limits").object_v.at("max_nodes").number_v = 5;

@@ -53,6 +53,8 @@ VariationAnalysis remap_compacted_analysis(const CompiledGrammar& grammar,
 ProgramGenome certify(ProgramGenome genome, VariationContext& context,
     std::shared_ptr<const VariationAnalysis>* analysis = nullptr);
 ProgramGenome certify_execution(ProgramGenome genome, VariationContext& context);
+// Full admission precedes private scalar compaction and proof publication.
+ProgramGenome admit_and_compact_execution(ProgramGenome genome, VariationContext& context);
 ProgramGenome fallback(const ProgramGenome& certified_parent, VariationContext& context);
 // The optional root is private owned-source evidence. Its caller must validate
 // the parent certificate's payload snapshot before work and before publication.

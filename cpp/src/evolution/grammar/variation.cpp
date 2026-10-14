@@ -2,6 +2,7 @@
 #include "gagp/evolution/grammar/variation.hpp"
 
 #include <stdexcept>
+#include <cstdlib>
 #include <algorithm>
 #include <map>
 #include <set>
@@ -176,6 +177,13 @@ ProgramGenome certify(ProgramGenome genome, VariationContext& context,
 }
 
 ProgramGenome certify_execution(ProgramGenome genome, VariationContext& context) {
+  if (std::getenv("GAGP_CPU_COMPACT_ADMISSION") && context.requests().size() == 1 &&
+      !genome.derivation && std::all_of(genome.ast.consts.begin(), genome.ast.consts.end(),
+          [](const Value& value) {
+            return value.tag == ValueTag::Int || value.tag == ValueTag::Float ||
+                value.tag == ValueTag::Bool || value.tag == ValueTag::Char;
+          }))
+    return admit_and_compact_execution(std::move(genome), context);
   const auto reconstruct = [&] {
     return reconstruct_population_derivation(context.grammar(), genome, context.requests());
   };

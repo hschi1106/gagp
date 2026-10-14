@@ -1031,3 +1031,38 @@ Patch/binary/full raw traces and novelty exports remain in the donor worktree's
 `logs/bloat/`; evidence is `results/parallel-astra-20261014/rejected-size-near.json`.
 Root supplies supplemental preregistered equal-wallclock/heldout analysis. Fused
 construction-site optimization is independent and remains retained.
+2026-10-14 native CPU admission follow-up: two independent opt-in candidates.
+`GAGP_CPU_FUSED_ADMISSION=1` fuses unique exact-head membership into witness
+construction; ambiguous/alias heads retain recursive matching and repeated-hole
+checks remain. Three-process full GPU-e House32/Median64 medians 9613.752 → 9348.258 /
+26767.027 → 25443.351 ms. The speculative matching-work guard accounting changes
+explicitly, including public unframed single-root reconstruction; strict
+`require_membership` is unchanged. Evidence: `results/fused-admission-20261014.json`.
+
+`GAGP_CPU_COMPACT_ADMISSION=1` instead validates/lowers fresh scalar single-root
+inputs before stable compaction, then seals the same canonical witness to the
+compacted AST when names are unchanged. Name-table changes rerun admission;
+registry-backed constants, attached provenance and multiple roots keep the
+ordinary path. No guard/RNG/grammar/resource/execution changes for this flag.
+The old rejected GPU compaction experiment had zero hits; CPU splice output has
+3045/13244 House and 2605/13122 Median constant compactions in 8 generations,
+with zero name changes. This removes actual second reconstruction/verification.
+
+Same-binary three-process GPU-e medians OFF/compact/both:
+House 9746.720/8594.850/8287.609 ms; Median 26804.613/25124.282/23868.246 ms.
+Every final/history AST, fitness/operator/error row is exact. Frozen CPU1T
+three-process warmup+3 total medians OFF→both House 3370.624 → 3379.262 ms (neutral),
+Median 549.086 → 531.677 ms; reproduction 235.714 → 211.529 / 217.208 → 193.454 ms.
+One combined full CPU validation takes 82.929/41.725 s versus archived medians
+84.247/44.762 s, not a paired full-CPU speedup claim. Native GPU-overlap three-process
+medians 1379.315 → 1356.892 / 1188.305 → 1167.503 ms; cold admission saves only 7.64/6.50 ms.
+Targets remain unmet: House CPU is evaluator-dominated and the GPU whole-search
+improvement is small. No default or best-settings adoption is made here.
+
+Eight focused native tests pass. Extra compaction coverage compares retained
+versus independent lowering for every fuel 0..1000, checks invalid unused entries,
+stale proofs and name fallback. Archived-binary strict admission and independent
+full 1024-case CPU/GPU audit pass all 1056 House and 1088 Median final/history
+programs; combined exports are structurally identical to those audited artifacts.
+Raw preserved binaries/manifests/profiles/resources live in the admission worktree's
+`logs/local-admission/`; tracked evidence is `results/compact-admission-20261014.json`.

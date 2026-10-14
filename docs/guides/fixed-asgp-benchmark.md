@@ -640,3 +640,20 @@ check for exported populations. Differential reconstruction coverage lives in
 `gagp_test_grammar_membership`; native CPU reproduction and authored resources
 are covered by `gagp_test_grammar_reproduction` and
 `gagp_test_derivation_resources`.
+
+`GAGP_CPU_COMPACT_ADMISSION=1` removes a second reconstruction when native CPU
+splicing leaves unused scalar constants. The private `admit_and_compact_execution`
+continuation owns a fresh single-root AST, fully verifies and lowers its original
+uncompacted contents (including unused entries), then compacts before publishing
+its certificate. Stable constant-only compaction preserves decoded referenced
+values, node positions, canonical choices, exact scopes and resource charges;
+the retained bytecode owns its values. The certificate binds the final compacted
+AST identity. A changed name table triggers ordinary reconstruction after
+compaction; registry-backed constants, multiple roots and inputs with attached
+provenance keep the ordinary path. This flag changes no admission work limits,
+grammar, RNG, resource or execution semantics. It is independent of fused
+admission. Unlike the historical rejected GPU compaction experiment, CPU splice
+outputs measurably contain dead constants; the diagnostic counts and separate
+CPU/GPU-e controls must establish that premise. Membership regressions cover
+invalid unused entries, stale proofs, name fallback, nontrivial constant-index
+remapping and retained-versus-independent bytecode outputs/errors/fuel limits.

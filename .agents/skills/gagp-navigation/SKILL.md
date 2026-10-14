@@ -94,3 +94,10 @@ maintenance, follow the rules in root `AGENTS.md`.
   It also affects public reconstruction and GPU imports; speculative work guard
   accounting differs. Contract: `spec/grammar_definition.md`; differential tests
   in `gagp_test_grammar_membership`, reproduction/resources tests above.
+
+- Private scalar admission/compaction continuation: `grammar/membership.cpp`
+  (`admit_and_compact_execution`), reached from `grammar/variation.cpp` through
+  `GAGP_CPU_COMPACT_ADMISSION`. Original input is admitted before compaction;
+  changed name tables rerun ordinary reconstruction. Fresh scalar single-root
+  inputs only; proof is sealed against the final AST. Tests:
+  `gagp_test_grammar_membership`, `gagp_test_grammar_reproduction`.

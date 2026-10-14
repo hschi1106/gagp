@@ -1,0 +1,590 @@
+{
+  "experiment": "owned scalar admission followed by constant compaction; standalone and fused combinations",
+  "base_commit": "ce0d811",
+  "fused_commit": "efa099e",
+  "adoption": "Root decides; no default or best-manifest changes.",
+  "runtime_binary_sha256": "69bd0a3d3fcae8a2f55cab0b311748af4c1ca52c6dc8c1b72759aa9c55c7c373",
+  "flags": {
+    "GAGP_VIEW_PROFILE": "1",
+    "GAGP_TYPED_VIEW_PHASE": "1",
+    "GAGP_SORT_CASES": "1",
+    "GAGP_COMPACT_FRAMES": "1",
+    "GAGP_CONSTANT_PHASE": "1",
+    "GAGP_POPULATION_HANDOFF": "1",
+    "GAGP_DIRECT_PHASE": "1",
+    "GAGP_DIRECT_ROOT": "1",
+    "GAGP_WINDOW_EXECUTOR": "1",
+    "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+    "GAGP_BOUND_ADD_PHASE": "1",
+    "GAGP_REUSE_ADMISSION_COMPILE": "1",
+    "GAGP_REUSE_SITE_CONTRACTS": "1",
+    "GAGP_SELECTED_SITES": "1",
+    "GAGP_OWNED_PREPARATION": "1",
+    "GAGP_CUDA_DEVICE": "0",
+    "GAGP_HOST_THREADS": "1",
+    "GAGP_SINGLE_EVAL_IDENTITY": "1",
+    "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+    "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+    "MALLOC_CONF": "background_thread:false,narenas:1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "GAGP_GPU_PHASE_POPULATION": "1",
+    "GAGP_OWNED_PHASE_PACK": "1",
+    "GAGP_OWNED_PHASE_CAPS": "1",
+    "GAGP_COORDINATE_EXECUTOR": "1",
+    "GAGP_COUNTED_SITE_DRAW": "1",
+    "GAGP_CPU_REGION_VIEWS": "1",
+    "GAGP_GPU_DIAGNOSTICS": "1",
+    "GAGP_SEARCH_TRACE": "1",
+    "GAGP_BATCH_PHASE_IMPORT": "1",
+    "GAGP_BATCH_PHASE_EXPORT": "1",
+    "GAGP_REUSE_PHASE_GRAMMAR": "1",
+    "GAGP_PHASE_CAP_BUCKETS": "1",
+    "GAGP_PHASE_REPRO_THREADS": "1",
+    "GAGP_GPU_STATIC_WEIGHTS": "1",
+    "GAGP_BUCKET_WORKSPACE": "1",
+    "GAGP_BOUND_COMPARE_PHASE": "1",
+    "GAGP_COORDINATE_RING_MEMO": "1",
+    "GAGP_CPU_LAZY_ANALYSIS": "1",
+    "GAGP_CPU_SELECTED_PARENTS": "1",
+    "GAGP_CPU_SELECTED_MUTATION": "1",
+    "GAGP_CPU_BOUND_PHASE": "1",
+    "GAGP_CPU_COORDINATE_VIEWS": "1",
+    "GAGP_CPU_TYPED_PHASE": "1",
+    "GAGP_CPU_DENSE_MEMO": "1",
+    "GAGP_CPU_SCALAR_VIEWS": "1",
+    "GAGP_CPU_COUNTED_PAIRS": "1",
+    "GAGP_CPU_COORDINATE_DRIVER": "1",
+    "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+    "GAGP_GPU_INPLACE_MUTATION": "1",
+    "GAGP_OWNED_PHASE_PACKED": "1",
+    "GAGP_CPU_ALL_FIT_PAIRS": "1",
+    "GAGP_CPU_COMPACT_ADMISSION": "1",
+    "GAGP_CPU_FUSED_ADMISSION": "1"
+  },
+  "frozen_sha256": {
+    "house_robber.source.json": "2c1eccd448fd813c444741d26df6e3021b55ffff0dd7a41f4fdc4508a81efd79",
+    "house_robber.grammar.json": "4aaa81fdf946a750842bf36bee0d6bf8ff7dcc465c7bdaf21194ac85b69e07ae",
+    "house_robber.p1024.prepared.json": "fb9c3e6d3a4741056fca1a58c0def1335127c65fe8eaa3d98772b60ce13a2ebd",
+    "median.source.json": "772c38045baf963050c1689f247a953b9346889ef58ddeaefac452818dcb5d74",
+    "median.grammar.json": "156eafd9aab2f22d0da2ea97b13476e65fdbe5994227eb12c4bf6a5e03c725d1",
+    "median.p1024.prepared.json": "f90c7bbc8c198cbb2fa6074f9466d8ed4061d7db1ed1dcb06170cf79c0c4d03f"
+  },
+  "contract": {
+    "architecture": "native prefix-AST CPU reproduction, CPU1T; native GPU modes unchanged",
+    "proof": "Original uncompacted input is fully verified, canonically matched and lowered before synchronous stable scalar compaction. Same-size name table proves name indices unchanged; canonical witness/resources/executable are then sealed to final AST identity. Changed names rerun reconstruction.",
+    "unsupported": "Multiple roots, registry-backed constants and attached provenance use ordinary certify_execution. Private helper independently admits its owned input; it does not trust supplied provenance.",
+    "semantics": "Compact flag alone preserves original guards, grammar, scope, repeated-hole identity, root, resources, RNG, fuel and operator semantics. Optional fused flag retains its separately documented speculative matching-work accounting change."
+  },
+  "diagnostic_eight_generation_counts": {
+    "house_robber": {
+      "execution_admissions": 13244,
+      "constant_compactions": 3045,
+      "name_compactions": 0
+    },
+    "median": {
+      "execution_admissions": 13122,
+      "constant_compactions": 2605,
+      "name_compactions": 0
+    }
+  },
+  "gpu_eval_full_three_process": [
+    {
+      "task": "house_robber",
+      "variants": {
+        "off": {
+          "cells": [
+            {
+              "wall_ms": 9762.948924,
+              "repro_ms": 7692.410250000001,
+              "initial_admission_ms": 17.223747,
+              "best": -6544
+            },
+            {
+              "wall_ms": 9716.068509,
+              "repro_ms": 7650.993956,
+              "initial_admission_ms": 16.72817,
+              "best": -6544
+            },
+            {
+              "wall_ms": 9746.720167,
+              "repro_ms": 7610.860873999999,
+              "initial_admission_ms": 17.045437,
+              "best": -6544
+            }
+          ],
+          "medians": {
+            "wall_ms": 9746.720167,
+            "repro_ms": 7650.993956,
+            "initial_admission_ms": 17.045437,
+            "best": -6544
+          },
+          "exact_AST_and_quality": true
+        },
+        "compact": {
+          "cells": [
+            {
+              "wall_ms": 8719.583049,
+              "repro_ms": 6648.808995,
+              "initial_admission_ms": 17.202198,
+              "best": -6544
+            },
+            {
+              "wall_ms": 8594.849844,
+              "repro_ms": 6475.753074,
+              "initial_admission_ms": 17.309228,
+              "best": -6544
+            },
+            {
+              "wall_ms": 8574.447098,
+              "repro_ms": 6516.0829570000005,
+              "initial_admission_ms": 16.970546,
+              "best": -6544
+            }
+          ],
+          "medians": {
+            "wall_ms": 8594.849844,
+            "repro_ms": 6516.0829570000005,
+            "initial_admission_ms": 17.202198,
+            "best": -6544
+          },
+          "exact_AST_and_quality": true
+        },
+        "both": {
+          "cells": [
+            {
+              "wall_ms": 8510.979461,
+              "repro_ms": 6379.0949709999995,
+              "initial_admission_ms": 17.320728,
+              "best": -6544
+            },
+            {
+              "wall_ms": 8287.608913,
+              "repro_ms": 6245.443501000001,
+              "initial_admission_ms": 16.586549,
+              "best": -6544
+            },
+            {
+              "wall_ms": 8280.880599,
+              "repro_ms": 6232.821325,
+              "initial_admission_ms": 16.402308,
+              "best": -6544
+            }
+          ],
+          "medians": {
+            "wall_ms": 8287.608913,
+            "repro_ms": 6245.443501000001,
+            "initial_admission_ms": 16.586549,
+            "best": -6544
+          },
+          "exact_AST_and_quality": true
+        }
+      }
+    },
+    {
+      "task": "median",
+      "variants": {
+        "off": {
+          "cells": [
+            {
+              "wall_ms": 26804.612782,
+              "repro_ms": 23128.162182000007,
+              "initial_admission_ms": 15.626871,
+              "best": -642
+            },
+            {
+              "wall_ms": 26712.645351,
+              "repro_ms": 23051.851693,
+              "initial_admission_ms": 15.637986,
+              "best": -642
+            },
+            {
+              "wall_ms": 26882.089689,
+              "repro_ms": 23195.148180000004,
+              "initial_admission_ms": 15.673718,
+              "best": -642
+            }
+          ],
+          "medians": {
+            "wall_ms": 26804.612782,
+            "repro_ms": 23128.162182000007,
+            "initial_admission_ms": 15.637986,
+            "best": -642
+          },
+          "exact_AST_and_quality": true
+        },
+        "compact": {
+          "cells": [
+            {
+              "wall_ms": 25321.562044,
+              "repro_ms": 21669.818064000003,
+              "initial_admission_ms": 16.074493,
+              "best": -642
+            },
+            {
+              "wall_ms": 25124.282113,
+              "repro_ms": 21454.444928999998,
+              "initial_admission_ms": 15.378694,
+              "best": -642
+            },
+            {
+              "wall_ms": 25113.432773,
+              "repro_ms": 21506.026581000006,
+              "initial_admission_ms": 15.558095,
+              "best": -642
+            }
+          ],
+          "medians": {
+            "wall_ms": 25124.282113,
+            "repro_ms": 21506.026581000006,
+            "initial_admission_ms": 15.558095,
+            "best": -642
+          },
+          "exact_AST_and_quality": true
+        },
+        "both": {
+          "cells": [
+            {
+              "wall_ms": 23868.245695,
+              "repro_ms": 20230.488693000003,
+              "initial_admission_ms": 15.987626,
+              "best": -642
+            },
+            {
+              "wall_ms": 23860.864404,
+              "repro_ms": 20244.275582999995,
+              "initial_admission_ms": 15.271708,
+              "best": -642
+            },
+            {
+              "wall_ms": 24131.437183,
+              "repro_ms": 20452.855245000006,
+              "initial_admission_ms": 15.950154,
+              "best": -642
+            }
+          ],
+          "medians": {
+            "wall_ms": 23868.245695,
+            "repro_ms": 20244.275582999995,
+            "initial_admission_ms": 15.950154,
+            "best": -642
+          },
+          "exact_AST_and_quality": true
+        }
+      }
+    }
+  ],
+  "frozen_cpu_three_process_warmup_plus_three": [
+    {
+      "task": "house_robber",
+      "variants": {
+        "off": {
+          "process_median_ms": [
+            3377.633355,
+            3336.884443,
+            3370.624433
+          ],
+          "median_ms": 3370.624433,
+          "process_repro_median_ms": [
+            235.308565,
+            235.714187,
+            239.065171
+          ],
+          "repro_median_ms": 235.714187,
+          "exact_nontiming_fields": true
+        },
+        "compact": {
+          "process_median_ms": [
+            3405.569798,
+            3311.126589,
+            3366.69962
+          ],
+          "median_ms": 3366.69962,
+          "process_repro_median_ms": [
+            219.427909,
+            218.478038,
+            222.795483
+          ],
+          "repro_median_ms": 219.427909,
+          "exact_nontiming_fields": true
+        },
+        "both": {
+          "process_median_ms": [
+            3379.262244,
+            3409.695697,
+            3345.763995
+          ],
+          "median_ms": 3379.262244,
+          "process_repro_median_ms": [
+            214.886619,
+            211.528726,
+            211.17053
+          ],
+          "repro_median_ms": 211.528726,
+          "exact_nontiming_fields": true
+        }
+      }
+    },
+    {
+      "task": "median",
+      "variants": {
+        "off": {
+          "process_median_ms": [
+            536.551735,
+            549.085523,
+            553.926616
+          ],
+          "median_ms": 549.085523,
+          "process_repro_median_ms": [
+            211.115254,
+            217.208169,
+            219.3861
+          ],
+          "repro_median_ms": 217.208169,
+          "exact_nontiming_fields": true
+        },
+        "compact": {
+          "process_median_ms": [
+            538.34553,
+            531.769968,
+            543.524099
+          ],
+          "median_ms": 538.34553,
+          "process_repro_median_ms": [
+            199.142703,
+            200.131574,
+            200.445869
+          ],
+          "repro_median_ms": 200.131574,
+          "exact_nontiming_fields": true
+        },
+        "both": {
+          "process_median_ms": [
+            519.019388,
+            532.82122,
+            531.676925
+          ],
+          "median_ms": 531.676925,
+          "process_repro_median_ms": [
+            187.558977,
+            195.512874,
+            193.453738
+          ],
+          "repro_median_ms": 193.453738,
+          "exact_nontiming_fields": true
+        }
+      }
+    }
+  ],
+  "full_cpu_single_candidate_vs_archived": [
+    {
+      "task": "house_robber",
+      "archived_reference_ms": [
+        84230.520823,
+        84443.591933,
+        84247.491347
+      ],
+      "archived_reference_median_ms": 84247.491347,
+      "candidate_single_ms": 82928.785709,
+      "candidate_repro_sum_ms": 6450.105312,
+      "candidate_eval_sum_ms": 73206.42436399999,
+      "exact_ast_history_quality": true,
+      "limitation": "One candidate process versus prior archived controls, not paired same-window full CPU speedup evidence."
+    },
+    {
+      "task": "median",
+      "archived_reference_ms": [
+        44762.426797,
+        44923.26529,
+        44195.316795
+      ],
+      "archived_reference_median_ms": 44762.426797,
+      "candidate_single_ms": 41725.391546,
+      "candidate_repro_sum_ms": 20200.186784999998,
+      "candidate_eval_sum_ms": 20853.761242,
+      "exact_ast_history_quality": true,
+      "limitation": "One candidate process versus prior archived controls, not paired same-window full CPU speedup evidence."
+    }
+  ],
+  "gpu_overlap_three_process": [
+    {
+      "task": "house_robber",
+      "cells": [
+        {
+          "off_ms": 1371.635455,
+          "on_ms": 1356.89155,
+          "off_init_ms": 211.61283400000002,
+          "on_init_ms": 203.97315,
+          "off_repro_ms": 156.85820099999998,
+          "on_repro_ms": 156.77781199999998,
+          "best": -7146
+        },
+        {
+          "off_ms": 1379.314599,
+          "on_ms": 1350.942417,
+          "off_init_ms": 210.63032,
+          "on_init_ms": 200.20771000000002,
+          "off_repro_ms": 156.993322,
+          "on_repro_ms": 156.45874,
+          "best": -7146
+        },
+        {
+          "off_ms": 1385.615259,
+          "on_ms": 1368.309656,
+          "off_init_ms": 218.810299,
+          "on_init_ms": 204.759805,
+          "off_repro_ms": 155.50766599999997,
+          "on_repro_ms": 158.77518799999999,
+          "best": -7146
+        }
+      ],
+      "exact_quality_ast_and_history": true,
+      "off_ms": 1379.314599,
+      "on_ms": 1356.89155,
+      "off_init_ms": 211.61283400000002,
+      "on_init_ms": 203.97315,
+      "off_repro_ms": 156.85820099999998,
+      "on_repro_ms": 156.77781199999998,
+      "best": -7146
+    },
+    {
+      "task": "median",
+      "cells": [
+        {
+          "off_ms": 1178.841327,
+          "on_ms": 1167.503259,
+          "off_init_ms": 201.5234,
+          "on_init_ms": 191.329991,
+          "off_repro_ms": 428.8558579999999,
+          "on_repro_ms": 430.90310299999993,
+          "best": -642
+        },
+        {
+          "off_ms": 1188.304797,
+          "on_ms": 1167.459946,
+          "off_init_ms": 203.917603,
+          "on_init_ms": 196.57048600000002,
+          "off_repro_ms": 430.08247700000015,
+          "on_repro_ms": 429.95847999999995,
+          "best": -642
+        },
+        {
+          "off_ms": 1197.364218,
+          "on_ms": 1169.516866,
+          "off_init_ms": 203.06878300000002,
+          "on_init_ms": 197.099147,
+          "off_repro_ms": 430.3522939999999,
+          "on_repro_ms": 430.96352499999995,
+          "best": -642
+        }
+      ],
+      "exact_quality_ast_and_history": true,
+      "off_ms": 1188.304797,
+      "on_ms": 1167.503259,
+      "off_init_ms": 203.06878300000002,
+      "on_init_ms": 196.57048600000002,
+      "off_repro_ms": 430.08247700000015,
+      "on_repro_ms": 430.90310299999993,
+      "best": -642
+    }
+  ],
+  "independent_audit": {
+    "record": "fused-admission-20261014.json",
+    "raw": "/home/hschi1106/.t3/worktrees/gagp/astra-admission-20261014/logs/local-admission/audit/summary.json",
+    "programs": 2144,
+    "cases_each": 1024,
+    "mismatches": 0,
+    "combined_artifact_identity": [
+      {
+        "task": "house_robber",
+        "artifact": "final",
+        "independent_audit_reused": "audit/summary.json",
+        "exact_structural_equality": true
+      },
+      {
+        "task": "house_robber",
+        "artifact": "history",
+        "independent_audit_reused": "audit/summary.json",
+        "exact_structural_equality": true
+      },
+      {
+        "task": "median",
+        "artifact": "final",
+        "independent_audit_reused": "audit/summary.json",
+        "exact_structural_equality": true
+      },
+      {
+        "task": "median",
+        "artifact": "history",
+        "independent_audit_reused": "audit/summary.json",
+        "exact_structural_equality": true
+      }
+    ]
+  },
+  "tests": {
+    "passed": [
+      "gagp_test_grammar_membership",
+      "gagp_test_grammar_generation",
+      "gagp_test_grammar_variation_contract",
+      "gagp_test_grammar_crossover",
+      "gagp_test_grammar_mutation",
+      "gagp_test_grammar_reproduction",
+      "gagp_test_grammar_bounded_membership",
+      "gagp_test_derivation_resources"
+    ],
+    "extra": "Membership test additionally compares retained and independently lowered executions for every fuel0..1000 after nontrivial constant remapping, rejects malformed unused constant tags/duplicate names and stale certificates, and covers name-table fallback.",
+    "logs": [
+      "/home/hschi1106/.t3/worktrees/gagp/astra-admission-20261014/logs/local-admission/extended-tests.log",
+      "/home/hschi1106/.t3/worktrees/gagp/astra-admission-20261014/logs/local-admission/compact-extra-tests.log"
+    ]
+  },
+  "resources": {
+    "compact-full-off": {
+      "median.gpu_eval.s2.r1": "peak_rss_kib=1337796\nprocess_wall_s=27.94",
+      "house_robber.gpu_eval.s0.r0": "peak_rss_kib=1274384\nprocess_wall_s=11.06",
+      "house_robber.gpu_eval.s0.r2": "peak_rss_kib=1260676\nprocess_wall_s=11.00",
+      "house_robber.gpu_eval.s0.r1": "peak_rss_kib=1272532\nprocess_wall_s=10.99",
+      "median.gpu_eval.s2.r2": "peak_rss_kib=1337348\nprocess_wall_s=28.13",
+      "median.gpu_eval.s2.r0": "peak_rss_kib=1335232\nprocess_wall_s=28.06"
+    },
+    "compact-full-compact": {
+      "median.gpu_eval.s2.r1": "peak_rss_kib=1337364\nprocess_wall_s=26.35",
+      "house_robber.gpu_eval.s0.r0": "peak_rss_kib=1260684\nprocess_wall_s=10.01",
+      "house_robber.gpu_eval.s0.r2": "peak_rss_kib=1260732\nprocess_wall_s=9.83",
+      "house_robber.gpu_eval.s0.r1": "peak_rss_kib=1260660\nprocess_wall_s=9.87",
+      "median.gpu_eval.s2.r2": "peak_rss_kib=1334580\nprocess_wall_s=26.34",
+      "median.gpu_eval.s2.r0": "peak_rss_kib=1337888\nprocess_wall_s=26.54"
+    },
+    "compact-full-both": {
+      "median.gpu_eval.s2.r1": "peak_rss_kib=1339376\nprocess_wall_s=25.08",
+      "house_robber.gpu_eval.s0.r0": "peak_rss_kib=1261024\nprocess_wall_s=9.76",
+      "house_robber.gpu_eval.s0.r2": "peak_rss_kib=1260572\nprocess_wall_s=9.52",
+      "house_robber.gpu_eval.s0.r1": "peak_rss_kib=1258924\nprocess_wall_s=9.52",
+      "median.gpu_eval.s2.r2": "peak_rss_kib=1335024\nprocess_wall_s=25.36",
+      "median.gpu_eval.s2.r0": "peak_rss_kib=1332972\nprocess_wall_s=25.09"
+    },
+    "combined-cpu-on": {
+      "house_robber.gagp_cpu.s0.r0": "peak_rss_kib=1133684\nprocess_wall_s=84.12",
+      "median.gagp_cpu.s2.r0": "peak_rss_kib=1216484\nprocess_wall_s=42.89"
+    },
+    "combined-overlap-off": {
+      "median.gpu_overlap.s2.r2": "peak_rss_kib=1232684\nprocess_wall_s=2.39",
+      "median.gpu_overlap.s2.r0": "peak_rss_kib=1231804\nprocess_wall_s=2.36",
+      "median.gpu_overlap.s2.r1": "peak_rss_kib=1232216\nprocess_wall_s=2.40",
+      "house_robber.gpu_overlap.s0.r2": "peak_rss_kib=1208624\nprocess_wall_s=2.66",
+      "house_robber.gpu_overlap.s0.r1": "peak_rss_kib=1203584\nprocess_wall_s=2.64",
+      "house_robber.gpu_overlap.s0.r0": "peak_rss_kib=1203776\nprocess_wall_s=2.62"
+    },
+    "combined-overlap-on": {
+      "median.gpu_overlap.s2.r2": "peak_rss_kib=1230708\nprocess_wall_s=2.38",
+      "median.gpu_overlap.s2.r0": "peak_rss_kib=1230400\nprocess_wall_s=2.33",
+      "median.gpu_overlap.s2.r1": "peak_rss_kib=1231996\nprocess_wall_s=2.34",
+      "house_robber.gpu_overlap.s0.r2": "peak_rss_kib=1208156\nprocess_wall_s=2.62",
+      "house_robber.gpu_overlap.s0.r1": "peak_rss_kib=1202160\nprocess_wall_s=2.59",
+      "house_robber.gpu_overlap.s0.r0": "peak_rss_kib=1208548\nprocess_wall_s=2.60"
+    }
+  },
+  "raw_root": "/home/hschi1106/.t3/worktrees/gagp/astra-admission-20261014/logs/local-admission",
+  "limits": "Frozen House CPU total is neutral despite lower reproduction; full CPU candidate is one process. CPU near-ASGP and House native GPU30x whole-search targets remain unmet. GPU overlap gain is only ~1.6-1.8%. Profile percentages are diagnostic overlapping callchain shares, not speedups."
+}
