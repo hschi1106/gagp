@@ -665,3 +665,26 @@ outputs measurably contain dead constants; the diagnostic counts and separate
 CPU/GPU-e controls must establish that premise. Membership regressions cover
 invalid unused entries, stale proofs, name fallback, nontrivial constant-index
 remapping and retained-versus-independent bytecode outputs/errors/fuel limits.
+
+The Sum25/House25/Median5 validation uses the unchanged P1024/C1024 changing
+searches (Sum32 seed0, House32 seed0, Median64 seed2). Its frozen denominators and
+complete starting settings are in
+[`sum25-20261014/contract.json`](../../benchmarks/fixed_asgp/optimization/results/sum25-20261014/contract.json).
+The evaluator-only options and fallback contracts are documented in
+[`gpu-reproduction.md`](../design/gpu-reproduction.md#experimental-pure-measure-evaluation-reuse).
+They do not change native CPU/GPU modes, reproduction operators or CPU1T.
+
+Reproduce each stage into a new directory from the experiment worktree:
+
+```bash
+python3 benchmarks/fixed_asgp/optimization/results/sum25-20261014/run_validation.py timing --out logs/optimization/sum25-rerun/timing
+```
+
+The same entry point accepts `quality` (three seeds × 128 generations, archived
+before and current after), `other-modes`, `snapshot`, and `scaling`. It uses the
+existing runners and serial lock, never prepares or rewrites frozen inputs.
+Timing records nine fresh cold searches per task plus interleaved controls;
+scaling separately retains the original fixed-parent warmup/three-sample
+contract. These are different workloads and their speedup denominators must
+remain separate. The adjacent `summarize.py` refuses incomplete validation by
+default and writes only to a new report directory.
