@@ -28,3 +28,12 @@ Performance execution and builds are serialized with
 `/tmp/gagp-parallel-20261013-benchmark.lock`. Existing frozen inputs are never
 prepared again. Initial baseline is only an environment check; important
 candidates require repeated same-round controls and final five-mode validation.
+
+Size-fair crossover quality screen is preregistered at seeds 0/1/2 and 128
+generations per task/variant. Equal-time checkpoints are 1, 2 and 5 seconds of
+search wall, using only already-completed generation champions and only when
+both traces span the budget. These are ongoing-search checkpoints, not total
+completed-process times. Training selects the champion; held-out full1024 cases
+are only evaluated afterward. Descriptive training thresholds are House >=-5000
+and Median >=-600; report all per-seed scores, not only hit rates. Three seeds
+can reveal collapse but cannot demonstrate convergence equivalence.
