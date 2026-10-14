@@ -46,6 +46,10 @@ Json expression(const asgp::Expr& expr, std::size_t& at, bool dp) {
     case K::kIntConst: return constant(node.value);
     case K::kBoolConst: return bool_constant(node.value);
     case K::kInputList: return bound("xs");
+    case K::kEmptyList:
+      return object({{"constant", object({{"type", string("IntList")}, {"values", array({array({})})}})}});
+    case K::kSingleton: return call("singleton(Int)->IntList", args);
+    case K::kConcat: return call("concat(IntList,IntList)->IntList", args);
     case K::kInputSize: case K::kStateA: return bound("n");
     case K::kStateValue:
       // The fixed DP domain already guarantees n <= len(xs) <= 20.
@@ -71,7 +75,9 @@ Json expression(const asgp::Expr& expr, std::size_t& at, bool dp) {
     case K::kLogicOp:
       return node.op == 0 ? call("if(Bool,Bool,Bool)->Bool", {args[0], args[1], bool_constant(false)})
                           : call("if(Bool,Bool,Bool)->Bool", {args[0], bool_constant(true), args[1]});
-    case K::kIf: return call("if(Bool,Int,Int)->Int", args);
+    case K::kIf:
+      return call(node.type == asgp::Type::kIntList ? "if(Bool,IntList,IntList)->IntList"
+                                                  : "if(Bool,Int,Int)->Int", args);
     default: throw std::runtime_error("unmapped ASGP node " + std::to_string(int(node.kind)));
   }
 }
@@ -106,13 +112,15 @@ asgp::Individual decode(const Json& value) {
 }
 asgp::TaskSpec task(const std::string& name) {
   if (name != "sum_of_elements" && name != "median" && name != "house_robber" &&
-      name != "count_odds" && name != "last_index_of_zero" && name != "stock_with_cooldown")
+      name != "count_odds" && name != "last_index_of_zero" && name != "stock_with_cooldown" && name != "negative_to_zero")
     throw std::runtime_error("unknown fixed task " + name);
   asgp::DataConfig cfg; cfg.train=1024; cfg.test=1; cfg.seed=20260626; cfg.legacy_finite=false;
   auto spec = *asgp::BuildTask(name, cfg);
   // Explicit study policy; historical tasks and default ASGP scoring stay intact.
   if (std::getenv("GAGP_BM_COMMON_FITNESS") && name == "last_index_of_zero")
     spec.proximity = asgp::Proximity::kRewarded;
+  if (std::getenv("GAGP_BM_COMMON_FITNESS") && name == "negative_to_zero")
+    spec.metric = asgp::Metric::kExact;
   return spec;
 }
 Json translated_root(const asgp::Individual& individual, const std::string& name) {
@@ -126,7 +134,8 @@ Json translated_root(const asgp::Individual& individual, const std::string& name
     holes.object_v[names[p]]=expression(individual.phases[p], at, dp);
     if (at != individual.phases[p].size()) throw std::runtime_error("trailing ASGP nodes");
   }
-  return object({{"template", string(dp ? "Fixed.HouseRobber" : "Package.DC.IntList.Int")}, {"holes", holes}});
+  return object({{"template", string(dp ? "Fixed.HouseRobber" :
+      name == "negative_to_zero" ? "Package.DC.IntList.IntList" : "Package.DC.IntList.Int")}, {"holes", holes}});
 }
 gagp::evo::ProgramGenome translate(const asgp::Individual& individual, const std::string& name,
                                   const gg::ResolvedDefinition& definition,
@@ -180,7 +189,12 @@ asgp::Individual solution(const std::string& name) {
     out.phases[1]=choose(lt(result(0),sum),sum,result(0));
   } else {
     out.phases[1]=lit(1); out.phases[2]=add(result(0),result(1));
-    if (name == "sum_of_elements") out.phases[0]=index(0);
+    if (name == "negative_to_zero") {
+      out.phases[1]=lit(0);
+      out.phases[0]=expr(K::kSingleton,T::kIntList,0,0,{choose(lt(index(0),lit(0)),lit(0),index(0))});
+      out.phases[2]=expr(K::kConcat,T::kIntList,0,0,
+          {expr(K::kResult,T::kIntList,0,0),expr(K::kResult,T::kIntList,1,0)});
+    } else if (name == "sum_of_elements") out.phases[0]=index(0);
     else if (name == "count_odds") {
       auto rem=expr(K::kIntOp,T::kInt,4,0,{index(0),lit(2)});
       auto odd=expr(K::kBoolOp,T::kBool,5,0,{rem,lit(0)});
