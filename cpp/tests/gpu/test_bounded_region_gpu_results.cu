@@ -760,6 +760,139 @@ bool test_stack_top_survives_operand_transitions() {
 
 }  // namespace
 
+namespace measure_cache_test {
+using namespace gagp;
+
+// Exercise the private cache against the ordinary device phase evaluator. These
+// synthetic tables isolate exact result/error/fuel behavior from fitness scores.
+__global__ void inspect_measure_phase_cache(int* observations) {
+  using namespace gagp::gpu_detail;
+  if (threadIdx.x || blockIdx.x) return;
+  int checks = 0, failures = 0;
+  const auto verify = [&](bool pass) { ++checks; if (!pass) ++failures; };
+  for (int scenario = 0; scenario < 5; ++scenario) {
+    DInstr code[16]{};
+    Value constants[]{Value::from_int(3), Value::from_int(7), Value::from_int(0),
+        Value::from_int((INT64_C(1) << 53) + 9), Value::from_int(1)};
+    DRegionPhaseBinding bindings[2]{};
+    bindings[0].bank = RegionSlotBank::Measure;
+    bindings[0].slot = 0; bindings[0].local = 0;
+    DRegionPhase phase{};
+    phase.binding_count = 1;
+    phase.program.typed_view = true;
+    phase.program.n_locals = 2;
+    phase.program.verified_stack_bound = 2;
+    phase.program.const_len = 5;
+    int count = 0;
+    const auto emit = [&](unsigned char op, int a = 0, unsigned charge = 2) {
+      code[count].op = op; code[count].a = a; code[count].fuel = charge; ++count;
+    };
+    if (scenario == 0) {
+      emit(OP_LOAD); emit(OP_PUSH_CONST, 3); emit(OP_ADD); emit(OP_RETURN);
+    } else if (scenario == 1) {
+      emit(OP_LOAD); emit(OP_PUSH_CONST); emit(OP_LT); emit(OP_JMP_IF_FALSE, 8);
+      emit(OP_PUSH_CONST, 1); emit(OP_PUSH_CONST, 2); emit(OP_MOD); emit(OP_RETURN);
+      emit(OP_PUSH_CONST, 3); emit(OP_PUSH_CONST, 4); emit(OP_ADD); emit(OP_RETURN);
+    } else if (scenario == 2) {
+      emit(OP_PUSH_CONST, 1, 0); emit(OP_PUSH_CONST, 2, 0); emit(OP_MOD, 0, 0);
+      emit(OP_RETURN, 0, 1000);
+    } else if (scenario == 3) {
+      emit(OP_LOAD, 1); emit(OP_RETURN);
+    } else {
+      emit(OP_LOAD); emit(OP_STORE, 1); emit(OP_LOAD, 1);
+      emit(OP_PUSH_CONST, 3); emit(OP_ADD); emit(OP_RETURN);
+    }
+    phase.program.code_len = count;
+    DExecutionTables tables{};
+    tables.phase_code = code; tables.phase_consts = constants;
+    tables.region_phases = &phase; tables.region_phase_count = 1;
+    tables.region_bindings = bindings; tables.region_binding_count = 2;
+    verify(d_measure_cache_eligible(phase, tables));
+    // Unused declarations still matter because original binding is eager.
+    phase.binding_count = 2; bindings[1].bank = RegionSlotBank::State; bindings[1].local = 1;
+    verify(!d_measure_cache_eligible(phase, tables)); phase.binding_count = 1;
+    const auto saved_constant = constants[0];
+    constants[0] = Value::from_int_list_hash_len(0, 0);
+    verify(!d_measure_cache_eligible(phase, tables)); constants[0] = saved_constant;
+    const auto saved_instruction = code[0];
+    code[0].op = OP_JMP; code[0].a = 0;
+    verify(!d_measure_cache_eligible(phase, tables));
+    code[0].op = OP_CALL_BUILTIN; code[0].a = static_cast<int>(BuiltinId::Len);
+    verify(!d_measure_cache_eligible(phase, tables)); code[0] = saved_instruction;
+    DPayloadTables payloads{};
+    DPayloadFlavorTraits<DPayloadFlavor::BoundIntListViews>::State state{};
+    DRegionSegment segment{}; segment.sequence_state = 0;
+    DRegionFrame frame{};
+    DCodeView view{}; view.code = code; view.code_len = count;
+    view.consts = constants; view.const_len = 5; view.n_locals = 2;
+    DMeasurePhaseCacheEntry cache[DMEASURE_CACHE_MAX + 1];
+    for (int budget : {0, 5, 100}) {
+      for (int length = 0; length <= DMEASURE_CACHE_MAX; ++length) {
+        cache[length] = {123456, 0, -2};
+        if (length < 2) continue;
+        int remaining = budget;
+        const auto evaluated = d_run_bound_view_phase(view,
+            DMeasureBindings{phase, tables, length}, payloads, remaining, ValueTag::Int);
+        if (!(evaluated.is_error && evaluated.err_code == ErrCode::Timeout)) {
+          cache[length].spent_fuel = budget - remaining;
+          cache[length].error = evaluated.is_error ? static_cast<int>(evaluated.err_code) : -1;
+          cache[length].value = evaluated.is_error ? 0 : evaluated.value.i;
+        }
+      }
+      // A poison valid entry at length 1 must never be consumed.
+      cache[1] = {123456, 0, -1};
+      for (int length : {1, 2, 3, 64, 65}) {
+        frame.state[0] = Value::from_int_list_hash_len(0, length);
+        for (int fuel = -1; fuel <= 40; ++fuel) {
+          int ordinary_fuel = fuel, cached_fuel = fuel;
+          tables.measure_cache = nullptr; tables.measure_cached_phase = -1;
+          const auto ordinary = d_region_phase<DPayloadFlavor::BoundIntListViews>(
+              segment, 0, ValueTag::Int, frame, nullptr, 0, payloads, state, tables, ordinary_fuel);
+          tables.measure_cache = cache; tables.measure_cached_phase = 0;
+          const auto cached = d_region_phase<DPayloadFlavor::BoundIntListViews>(
+              segment, 0, ValueTag::Int, frame, nullptr, 0, payloads, state, tables, cached_fuel);
+          verify(ordinary_fuel == cached_fuel && ordinary.is_error == cached.is_error &&
+              (ordinary.is_error ? ordinary.err_code == cached.err_code :
+               ordinary.value.tag == cached.value.tag && ordinary.value.i == cached.value.i));
+        }
+      }
+    }
+    // Assert that an eligible in-range entry is actually consumed; parity alone
+    // would also pass if an implementation silently disabled all cache hits.
+    frame.state[0] = Value::from_int_list_hash_len(0, 2);
+    tables.measure_cache = cache; tables.measure_cached_phase = 0;
+    cache[2] = {4321, 3, -1};
+    int hit_fuel = 10;
+    const auto hit = d_region_phase<DPayloadFlavor::BoundIntListViews>(
+        segment, 0, ValueTag::Int, frame, nullptr, 0, payloads, state, tables, hit_fuel);
+    verify(!hit.is_error && hit.value.i == 4321 && hit_fuel == 7);
+    cache[2] = {0, 0, static_cast<int>(ErrCode::ZeroDiv)};
+    hit_fuel = 0;
+    const auto error_hit = d_region_phase<DPayloadFlavor::BoundIntListViews>(
+        segment, 0, ValueTag::Int, frame, nullptr, 0, payloads, state, tables, hit_fuel);
+    verify(error_hit.is_error && error_hit.err_code == ErrCode::ZeroDiv && hit_fuel == 0);
+  }
+  observations[0] = checks; observations[1] = failures;
+}
+
+bool test_measure_phase_cache_contract() {
+  int* observations = nullptr;
+  if (!check(cudaMallocManaged(&observations, 2 * sizeof(int)) == cudaSuccess,
+             "allocate measure cache observations")) return false;
+  inspect_measure_phase_cache<<<1, 1>>>(observations);
+  const auto launched = cudaGetLastError();
+  const auto completed = cudaDeviceSynchronize();
+  const bool ok = check(launched == cudaSuccess && completed == cudaSuccess,
+      "measure cache probe kernel failed") &&
+      check(observations[0] == 3185 && observations[1] == 0,
+          "measure cache exact result/error/fuel or eligibility failed: checks=" +
+          std::to_string(observations[0]) + " failures=" + std::to_string(observations[1]));
+  cudaFree(observations);
+  return ok;
+}
+
+}  // namespace
+
 int main() {
   payload::clear();
   cudaDeviceProp properties{};
@@ -768,6 +901,7 @@ int main() {
              "GPU selection failed: " + device_error)) {
     return 1;
   }
+  if (!measure_cache_test::test_measure_phase_cache_contract()) return 1;
   if (!test_phase_vm_masks_are_fresh()) return 1;
   if (!test_stack_top_survives_operand_transitions()) return 1;
   if (!test_public_capture_decoder()) return 1;
