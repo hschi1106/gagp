@@ -285,9 +285,18 @@ int main(){try {
   require(bucketed.ok && bucketed.execution_profile.find("-cap-buckets")!=std::string::npos &&
       bucketed.fitness==ordinary.fitness && bucketed.case_counts==ordinary.case_counts,
       "mixed stack capability buckets changed cases, results or population ordering");
+  // A fresh owner is the conservative whole-program-bound control. Both
+  // refresh exactly the same compiled offspring rows under different settings.
+  repro::NativePhasePopulation conservative(wide,members,names);
+  unsetenv("GAGP_PER_PHASE_STACK_BOUND");
+  conservative.reproduce(bucketed.fitness,2,0,91);
+  setenv("GAGP_PER_PHASE_STACK_BOUND","1",1);
   mixed.reproduce(bucketed.fitness,2,0,91);
+  const auto conservative_result=conservative.evaluate(session,true);
   const auto next_bucketed=mixed.evaluate(session,true);
   const auto next_ordinary=session.eval_programs(mixed.programs(),true);
+  require(conservative_result.ok && conservative_result.fitness==next_bucketed.fitness &&
+      conservative_result.case_counts==next_bucketed.case_counts,"per-phase compiler certificates changed mixed-stack fitness");
   require(next_bucketed.ok && next_bucketed.fitness==next_ordinary.fitness &&
       next_bucketed.case_counts==next_ordinary.case_counts,"partial-tile lowering offsets changed evaluation");
   std::vector<BytecodeProgram> independently_compiled;
@@ -295,6 +304,13 @@ int main(){try {
     grammar::require_membership(*wide,member);independently_compiled.push_back(compile_for_eval(member,names));}
   require(eval_fitness_cpu(independently_compiled,cases,answers,10000,1000,512)==next_bucketed.fitness,
       "mixed bucket offspring differs from independent CPU evaluation");
+  setenv("GAGP_GENERIC_PHASE_VM","1",1);
+  mixed.reproduce(next_bucketed.fitness,2,0,93);
+  const auto forced_generic=mixed.evaluate(session,true);
+  const auto forced_reference=session.eval_programs(mixed.programs(),true);
+  require(forced_generic.ok && forced_generic.fitness==forced_reference.fitness &&
+      forced_generic.case_counts==forced_reference.case_counts,"generic VM override lost mixed-stack certificate safety");
+  unsetenv("GAGP_GENERIC_PHASE_VM");unsetenv("GAGP_PER_PHASE_STACK_BOUND");
   unsetenv("GAGP_PHASE_CAP_BUCKETS");
  }
  bool rejected=false;

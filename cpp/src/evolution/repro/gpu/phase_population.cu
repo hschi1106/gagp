@@ -293,12 +293,13 @@ struct NativePhasePopulation::Impl {
  std::array<ValueTag,64> input_types;bool views_proven=true,direct_root_proven=true;
  std::vector<BytecodeProgram> programs;cudaEvent_t start=nullptr,stop=nullptr;
  std::unique_ptr<gpu_detail::PackResult> host_packed;
- std::vector<int> packed_phase_indices;
+ std::vector<int> packed_phase_indices,initial_phase_stack_bounds;
  std::size_t fixed_phase_code=0,fixed_phase_constants=0;
  bool programs_current=true;
  void initialize_host_packed() {
   host_packed=std::make_unique<gpu_detail::PackResult>(gpu_detail::pack_programs_with_shared_case_count(programs,0,0));
   auto& out=*host_packed;std::vector<bool> dynamic(out.region_phases.size(),false);
+  for(const auto& phase:out.region_phases)initial_phase_stack_bounds.push_back(phase.program.verified_stack_bound);
   for(int p=0;p<population;++p) {
    const auto& segment=out.region_segments.at(out.metas.at(p).region_offset);
    const auto& plan=programs[p].bounded_region_segments[0].plan;
@@ -425,6 +426,16 @@ struct NativePhasePopulation::Impl {
    for(int p=0;p<population;++p)for(std::size_t k=0;k<phases_per_program;++k)
     out.region_phases[p*phases_per_program+k].program.verified_stack_bound=
         std::getenv("GAGP_GENERIC_PHASE_VM")?gpu_detail::MAX_STACK:stack_bounds[p];
+   if(std::getenv("GAGP_PER_PHASE_STACK_BOUND") && !std::getenv("GAGP_GENERIC_PHASE_VM")) {
+    // Fixed phases retain their cold verified upper bounds. Variable phases use
+    // certificates from the exact freshly compiled rows copied above; the owner
+    // still publishes the whole-program maximum for kernel bucket admission.
+    phase_layout_require(initial_phase_stack_bounds.size()==out.region_phases.size(),"owned initial phase bound count");
+    for(std::size_t i=0;i<out.region_phases.size();++i)
+     out.region_phases[i].program.verified_stack_bound=initial_phase_stack_bounds[i];
+    for(int row=0;row<rows;++row)
+     out.region_phases.at(packed_phase_indices[row]).program.verified_stack_bound=certificates[row].stack_bound;
+   }
    gpu_detail::refresh_owned_phase_patterns(out,0,out.region_phases.size());
    programs_current=false;
   }
