@@ -1012,3 +1012,22 @@ exact across archive/OFF/ON. Five scoped/unscoped generation, variation and
 32-generation population tests pass. Evidence:
 `results/parallel-astra-20261014/fused-donor-sites.json`. This changes construction
 work only; size-near crossover is a separate search-rule experiment.
+
+2026-10-14 size-near crossover rejected. The separate native GPU search profile
+kept parent/destination/source-A streams and, on an independent 50% gate, drew
+source B from the same compatible donor population, choosing nearer subtree size
+(ties A). No added rejection, cap, fitness tie-break, task dispatch or mutation
+change. Analytic sampler, scoped variation and32-generation CPU/grammar tests
+passed. Three fixed seeds at House32/Median64, then both tasks128 generations,
+retained fullP1024/C1024 coverage. House128 final fitness OFF→ON:
+-4427/-865/-4535→-8280/-8303/-5480; House32 timing did not materially improve.
+Median128 -478/-642/-642→-529/-642/-642. Actual untimed seed0/16-generation
+novelty remained high (House final unique1009→992, novel versus all parents936→888;
+Median1022→1017,943→929), so changed-child counts did not conceal the old small-tree
+collapse. This still failed search-quality requirements; no parameter sweep follows.
+
+All size-near runtime flags, exclusive probe/tests and documentation are removed.
+Patch/binary/full raw traces and novelty exports remain in the donor worktree's
+`logs/bloat/`; evidence is `results/parallel-astra-20261014/rejected-size-near.json`.
+Root supplies supplemental preregistered equal-wallclock/heldout analysis. Fused
+construction-site optimization is independent and remains retained.
