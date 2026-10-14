@@ -41,7 +41,7 @@
   "qualification": "Do not claim a qualified GPU speedup when the known correct solution fails full-case GPU audit or final top16 CPU audit disagrees. Keep raw diagnostic timing/errors visible.",
   "stock_status": "unsupported exact clamped memo-coordinate transitions; actual validator positive/negative probes archived; no nonmemoized substitute",
   "timing": "Existing evolve_wall_ms cold evolution through final evaluation; CLI input parsing/independent CPU audit/export additionally reported by process wall. Lock waiting excluded. CLI process time comes from GNU time resource files (10ms resolution); monitor wall includes polling tail and is retained separately.",
-  "quality": "Final champion plus gen0/middle/last independently CPU evaluated on1024 heldout local-domain cases; GAGP grammar admitted. Three seeds are screening, not convergence equivalence. Natural overlap/duplicates retained.",
+  "quality": "Final champion plus gen0/middle/last independently CPU evaluated on1024 heldout local-domain cases; GAGP grammar admitted. Three seeds are screening, not convergence equivalence. Natural overlap/duplicates retained. Also independently audit best training-fitness program over all saved generations and final population; final wins ties. This is post-search archival analysis, not an elite added to GAGP.",
   "runtime_changes": "none; new benchmark adapters, study policy, audit/reporting only",
   "formal_tasks": [
     "count_odds",
@@ -49,5 +49,7 @@
   ],
   "negative_status": "Excluded from formal study: full-case GPU known solution incorrect; random CPU P8 preflight stopped at 99,987,640 KiB RSS (95.36 GiB), one thread. No complete P1024 timing or ratio.",
   "resource_guard": "New runner stops only own process group at16GiB RSS; stopped/incomplete searches excluded, not timed as completed work",
-  "initial_snapshot": "Full1024programs x1024cases. ASGP/CPU fitness differs66 Count,21 Last; GAGP CPU/GPU differs1 Count,0 Last. Existing numerical semantics, not identical-execution benchmark. See numeric-diagnosis.json."
+  "initial_snapshot": "Full1024programs x1024cases. ASGP/CPU fitness differs66 Count,21 Last; GAGP CPU/GPU differs1 Count,0 Last. Existing numerical semantics, not identical-execution benchmark. See numeric-diagnosis.json.",
+  "selection_difference": "ASGP retains elite1; current GAGP replacement can lose best-so-far. Report generation-best curves, cumulative-best curves and independent final/best-ever quality separately.",
+  "settings": "settings.json freezes actual enabled best settings; binary/source/input identities in stage manifests"
 }

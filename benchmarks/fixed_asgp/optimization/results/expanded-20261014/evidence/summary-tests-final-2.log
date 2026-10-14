@@ -1,0 +1,11 @@
+test_complete_seed_pairs_and_correctness_gate (test_summarize.TestSummary) ... ok
+test_incomplete_case_audit_and_cpu_fallback_rejected (test_summarize.TestSummary) ... ok
+test_missing_quality_requires_explicit_partial (test_summarize.TestSummary) ... ok
+test_unmeasured_task_cannot_enter_formal_ratios (test_summarize.TestSummary) ... ok
+test_final_tie_must_select_final_and_missing_cells_fail (test_summarize_best.TestBest) ... ok
+test_lost_best_and_cumulative_archive (test_summarize_best.TestBest) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.134s
+
+OK

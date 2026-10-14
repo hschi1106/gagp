@@ -1,0 +1,48 @@
+Internal ctest changing into directory: /home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/build/release
+Test project /home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/build/release
+    Start 106: gagp_test_fixed_asgp_bench
+1/1 Test #106: gagp_test_fixed_asgp_bench .......***Failed   31.69 sec
+.
+======================================================================
+FAIL: test_expanded_common_policy_and_heldout_audit (__main__.TestFixedAsgpNative) (task='count_odds')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/tests/evolution/test_fixed_asgp_bench.py", line 130, in test_expanded_common_policy_and_heldout_audit
+    self.assertEqual(report["known_solution_gpu_fitness"],1024 if name=="negative_to_zero" else 0)
+AssertionError: -714000 != 0
+
+======================================================================
+FAIL: test_expanded_common_policy_and_heldout_audit (__main__.TestFixedAsgpNative) (task='last_index_of_zero')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/tests/evolution/test_fixed_asgp_bench.py", line 130, in test_expanded_common_policy_and_heldout_audit
+    self.assertEqual(report["known_solution_gpu_fitness"],1024 if name=="negative_to_zero" else 0)
+AssertionError: -720000 != 0
+
+======================================================================
+FAIL: test_expanded_common_policy_and_heldout_audit (__main__.TestFixedAsgpNative) (task='negative_to_zero')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/tests/evolution/test_fixed_asgp_bench.py", line 130, in test_expanded_common_policy_and_heldout_audit
+    self.assertEqual(report["known_solution_gpu_fitness"],1024 if name=="negative_to_zero" else 0)
+AssertionError: -789814 != 1024
+
+----------------------------------------------------------------------
+Ran 2 tests in 31.651s
+
+FAILED (failures=3)
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+benchmark      =  31.69 sec*proc (1 test)
+contract       =  31.69 sec*proc (1 test)
+gpu            =  31.69 sec*proc (1 test)
+integration    =  31.69 sec*proc (1 test)
+
+Total Test time (real) =  31.69 sec
+
+The following tests FAILED:
+	106 - gagp_test_fixed_asgp_bench (Failed)
+Errors while running CTest

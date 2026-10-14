@@ -1,0 +1,14 @@
+Internal ctest changing into directory: /home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/build/release
+Test project /home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/build/release
+    Start 106: gagp_test_fixed_asgp_bench
+1/1 Test #106: gagp_test_fixed_asgp_bench .......   Passed   44.24 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+benchmark      =  44.24 sec*proc (1 test)
+contract       =  44.24 sec*proc (1 test)
+gpu            =  44.24 sec*proc (1 test)
+integration    =  44.24 sec*proc (1 test)
+
+Total Test time (real) =  44.25 sec

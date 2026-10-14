@@ -24,14 +24,14 @@ def save(p, x): Path(p).write_text(json.dumps(x, indent=2)+'\n')
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('stage',choices=['prepare','pilot','formal','quality','native-controls'])
+    p.add_argument('stage',choices=['prepare','pilot','formal','quality','best-quality','native-controls'])
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--artifacts',type=Path)
     p.add_argument('--pilot',type=Path)
     p.add_argument('--runs',type=Path)
     p.add_argument('--binary',type=Path,default=ROOT/'cpp/build/release/gagp_fixed_asgp_bench')
     a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
-    flags=read(ROOT/'logs/optimization/sum25-20261014/validation/timing/after-0/manifest.json')['flags']
+    flags=read(Path(__file__).with_name('settings.json'))
     flags['GAGP_BM_COMMON_FITNESS']='1'
     assert flags['GAGP_HOST_THREADS']=='1'
     binary=out/'bench';shutil.copy2(a.binary.resolve(),binary)
@@ -97,13 +97,26 @@ def main():
             cell=command([binary,'audit',source,grammar,out/f'{task}.audit.json'],task+'.audit',env(task));assert cell['status']=='ok'
         m['frozen_sha256']={f.name:sha(f) for f in out.glob('*.json') if f.name!='manifest.json'}
         save(out/'manifest.json',m);return
-    if a.stage=='quality':
+    if a.stage in ('quality','best-quality'):
         study=read(a.runs/'manifest.json');artifacts=Path(study['artifacts']);m['runs_manifest']=str(a.runs/'manifest.json')
         for c in study['cells']:
             if c['status']!='ok' or not c.get('output'):continue
             task=c['task'];tag=c['tag'];target=out/(tag+'.quality.json')
-            cmd=[binary,'quality',task,a.runs/(tag+'.final.json'),artifacts/(task+'.grammar.json'),target,a.runs/(tag+'.history.json')]
-            cell=command(cmd,tag,env(task),180);cell['output']=str(target);cell['task']=task;cell['mode']=c['mode'];cell['seed']=c['seed'];save(out/'manifest.json',m)
+            exported=a.runs/(tag+'.final.json');history=a.runs/(tag+'.history.json')
+            selected={}
+            if a.stage=='best-quality':
+                result=read(c['output']);rows=read(history)['history'];best=max(rows,key=lambda r:r['fitness'])
+                generation='final';fitness=result['final_best']
+                if best['fitness']>fitness:
+                    generation=best['generation'];fitness=best['fitness']
+                    artifact={'task':task,'best_program':best['program']} if c['mode']=='asgp_1t' else {'programs':[best['ast']]}
+                else:artifact=read(exported)
+                exported=out/(tag+'.selected.json');save(exported,artifact)
+                selected={'selected_generation':generation,'selected_training_fitness':fitness,
+                          'selection':'max training fitness over saved generations and final; final wins ties; no test-case ranking'}
+            cmd=[binary,'quality',task,exported,artifacts/(task+'.grammar.json'),target]
+            if a.stage=='quality':cmd.append(history)
+            cell=command(cmd,tag,env(task),180);cell.update(output=str(target),task=task,mode=c['mode'],seed=c['seed'],**selected);save(out/'manifest.json',m)
         return
     artifacts=a.artifacts.resolve();am=read(artifacts/'manifest.json');m['artifacts']=str(artifacts);m['frozen_sha256']=am['frozen_sha256']
     for name,digest in am['frozen_sha256'].items():assert sha(artifacts/name)==digest,name

@@ -1,0 +1,13 @@
+[  0%] Built target gagp_json
+[  3%] Built target gagp_core
+[ 23%] Built target asgp_core
+[ 23%] Built target gagp_region_plan_json
+[ 30%] Built target gagp_runtime_cpu
+[ 36%] Built target gagp_gpu
+[ 50%] Built target gagp_grammar
+[ 86%] Built target gagp_evolution
+[ 96%] Built target gagp_cli_support
+[ 96%] Building CXX object CMakeFiles/gagp_fixed_asgp_bench.dir/src/bench/fixed_asgp/main.cpp.o
+[100%] Building CXX object CMakeFiles/gagp_fixed_asgp_bench.dir/src/bench/fixed_asgp/adapter.cpp.o
+[100%] Linking CXX executable gagp_fixed_asgp_bench
+[100%] Built target gagp_fixed_asgp_bench

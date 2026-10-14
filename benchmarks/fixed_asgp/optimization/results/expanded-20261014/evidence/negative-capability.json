@@ -1,0 +1,251 @@
+{
+  "contract": "negative-to-zero-capability-v1",
+  "task": "negative_to_zero",
+  "status": "native_objective_mismatch_generic_gpu_requires_validation",
+  "requested_workload": {
+    "population": 1024,
+    "cases": 1024,
+    "host_threads": 1
+  },
+  "evidence_kind": "reviewed_source_anchors_with_hashes",
+  "semantics": {
+    "input": "IntList, random length 1..50, elements -50..50",
+    "output": "IntList with each negative element replaced by zero",
+    "asgp_objective": "minimize summed capped Levenshtein distance",
+    "gagp_objective": "maximize summed exact list matches"
+  },
+  "ranking_counterexample": {
+    "expected": [
+      0,
+      0
+    ],
+    "candidates": [
+      [
+        1,
+        0
+      ],
+      [
+        1,
+        1
+      ]
+    ],
+    "asgp_distances": [
+      1,
+      2
+    ],
+    "gagp_scores": [
+      0,
+      0
+    ]
+  },
+  "limitations": [
+    "Existing native list fitness loses the ASGP distance ranking.",
+    "Fast GPU phase reproduction rejects empty list constants and list constructors.",
+    "Generic GPU reproduction supports typed lists; validate this task separately.",
+    "Generic GPU evaluation has a fixed 128-value/32-entry per-case list arena; exhausted concat uses synthetic hashes.",
+    "The view evaluator rejects Singleton/Concat, so existing view flags cannot admit the known solution."
+  ],
+  "common_policy": "Explicit ASGP Metric::kExact and GAGP penalty=0 align correct-case ranking; this changes the native ASGP objective.",
+  "modes": {
+    "asgp_1t": "not_measured",
+    "gagp_cpu": "not_measured",
+    "gpu_eval": "not_measured",
+    "gpu_repro": "not_measured",
+    "gpu_overlap": "not_measured"
+  },
+  "evidence": {
+    "asgp_task": {
+      "path": "/home/hschi1106/r13921069/src/task/problems.cc",
+      "sha256": "8cd80fb8aa39ebea9e5531b8c5a91e208c4df9df66ebd4ce29bda442be9f384d",
+      "anchors": [
+        {
+          "line": 205,
+          "text": "void NegativeToZero(TaskSpec& spec, ProblemData& data) {\n  spec.carrier = Type::kIntList;\n  spec.output = Type::kIntList;\n  spec.metric = Metric::kLevenshtein;"
+        },
+        {
+          "line": 32,
+          "text": "constexpr int kMinLen = 1;"
+        },
+        {
+          "line": 33,
+          "text": "constexpr int kMaxLen = 50;"
+        },
+        {
+          "line": 213,
+          "text": "RandomInts(rng, kMinLen, kMaxLen, -50, 50)"
+        },
+        {
+          "line": 217,
+          "text": "for (int64_t& value : mapped) value = value < 0 ? 0 : value;"
+        }
+      ]
+    },
+    "asgp_distance": {
+      "path": "/home/hschi1106/r13921069/src/task/task.cc",
+      "sha256": "f434712d2a45d80aef7f7e9cd96f7371df35d6acbe1d3c5f47104b337198630d",
+      "anchors": [
+        {
+          "line": 132,
+          "text": "if (metric == Metric::kLevenshtein && list) {\n    return EditDistance(produced.list, expected.list, scratch);"
+        }
+      ]
+    },
+    "asgp_defaults": {
+      "path": "/home/hschi1106/r13921069/src/task/task.h",
+      "sha256": "d2803b64045d7828e2716020748a8f14a77878aa4c381f63085e6b19272df392",
+      "anchors": [
+        {
+          "line": 86,
+          "text": "Scheme scheme = Scheme::kDivideConquer;"
+        },
+        {
+          "line": 99,
+          "text": "Proximity proximity = Proximity::kRewarded;"
+        },
+        {
+          "line": 105,
+          "text": "int base_size = 1;"
+        }
+      ]
+    },
+    "asgp_fitness": {
+      "path": "/home/hschi1106/r13921069/src/gp/fitness.cc",
+      "sha256": "3078bbf2527418e2836259a1141ad98b3223a1fa175bfff56926d0f54946acf7",
+      "anchors": [
+        {
+          "line": 98,
+          "text": "return std::min(score.error, config.max_case_error);"
+        }
+      ]
+    },
+    "asgp_list_language": {
+      "path": "/home/hschi1106/r13921069/src/lang/grammar.cc",
+      "sha256": "06428532d8d1cee9a2d0689a45a7e539f13f6e5c08284657b4c1ac121a98230a",
+      "anchors": [
+        {
+          "line": 116,
+          "text": "Leaf(NodeKind::kEmptyList, Type::kIntList)"
+        },
+        {
+          "line": 119,
+          "text": "Unary(NodeKind::kSingleton, Type::kIntList, Type::kInt)"
+        },
+        {
+          "line": 179,
+          "text": "Binary(NodeKind::kConcat, Type::kIntList, Type::kIntList,"
+        }
+      ]
+    },
+    "gagp_fitness": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/spec/fitness.md",
+      "sha256": "f8dfad796be13d934b520d26fc9fef09ab90a1f2f431a558b3e0de405c0a6e86",
+      "anchors": [
+        {
+          "line": 33,
+          "text": "- `IntList`"
+        },
+        {
+          "line": 83,
+          "text": "score_case(actual, expected) = 1 if actual == expected else 0"
+        }
+      ]
+    },
+    "gpu_list_constant_rejection": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/src/evolution/repro/gpu/phase_grammar.hpp",
+      "sha256": "70f01bb23eca2f1b4e3cc81dc21ded5bf9150aa8ea54d1fbff272c688200cc52",
+      "anchors": [
+        {
+          "line": 109,
+          "text": "(d.type!=RType::Int && d.type!=RType::Bool) || d.sampling || d.elements || d.float_range"
+        },
+        {
+          "line": 109,
+          "text": "fail(\"constant domain capability\")"
+        }
+      ]
+    },
+    "gpu_list_builtin_rejection": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/src/evolution/repro/gpu/phase_grammar.hpp",
+      "sha256": "70f01bb23eca2f1b4e3cc81dc21ded5bf9150aa8ea54d1fbff272c688200cc52",
+      "anchors": [
+        {
+          "line": 129,
+          "text": "case BuiltinId::Len:case BuiltinId::Index:case BuiltinId::Slice:break;\n          default:fail(\"builtin capability\");"
+        }
+      ]
+    },
+    "gpu_import_constant_rejection": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/src/evolution/repro/gpu/phase_layout.hpp",
+      "sha256": "aad378beeccaf5e0fd7789bd86913a9efed5b79c94242fd4c39403fa7f83ab12",
+      "anchors": [
+        {
+          "line": 78,
+          "text": "value.tag == ValueTag::Int || value.tag == ValueTag::Bool,\n                         \"registry/noninteger constants require native fallback\""
+        }
+      ]
+    },
+    "generic_gpu_list_transport": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/src/evolution/repro/gpu/device/constant_mutation.cuh",
+      "sha256": "43828442c6c11807e0d3ece16d6e1a8543ca4e903c8dd77d43a51ec37bc026e4",
+      "anchors": [
+        {
+          "line": 76,
+          "text": "case RType::IntList: *tag = ValueTag::IntList; return true;"
+        }
+      ]
+    },
+    "generic_gpu_list_test": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/tests/gpu/test_compiled_payload_evolution_gpu.cpp",
+      "sha256": "b09c7e0ba09eb0d0d35b6d1ad26aa50ca2a2e1d87ac2c1d1186fae800a8a49ed",
+      "anchors": [
+        {
+          "line": 113,
+          "text": "{\"IntList\", ValueTag::IntList,"
+        },
+        {
+          "line": 66,
+          "text": "config.reproduction_backend = mode <= 1 ? repro::ReproductionBackend::Cpu\n                                        : repro::ReproductionBackend::Gpu;"
+        }
+      ]
+    },
+    "generic_gpu_payload_capacity": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/include/gagp/runtime/gpu/constants_gpu.hpp",
+      "sha256": "82c1c32abffe2de536eb54bb7e6d6c50e86bb00e776b45cec12ae660246604e5",
+      "anchors": [
+        {
+          "line": 11,
+          "text": "constexpr int DMAX_THREAD_PAYLOAD_ENTRIES = 32;"
+        },
+        {
+          "line": 13,
+          "text": "constexpr int DMAX_THREAD_LIST_VALUES = 128;"
+        }
+      ]
+    },
+    "generic_gpu_concat_fallback": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/src/runtime/gpu/device/builtins_device.cuh",
+      "sha256": "1f0bf5d3a1af00c84f1e095d4d96c804e147086422204b2d3849b3870e8fe79c",
+      "anchors": [
+        {
+          "line": 589,
+          "text": "st.list_values_used + al + bl <= st.kMaxListValues"
+        },
+        {
+          "line": 601,
+          "text": "Value::combine_container_hash48(d_list_type_code(a), a, b)"
+        }
+      ]
+    },
+    "gpu_view_builtin_admission": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/src/runtime/view_profile.hpp",
+      "sha256": "00e86432065a809a421f7b90b3c3c96d71d570e169d74997a09017d1cf5e827c",
+      "anchors": [
+        {
+          "line": 97,
+          "text": "} else if (bid == BuiltinId::Slice) {\n          if (ins.b != 3 || !pop(ValueTag::Int) || !pop(ValueTag::Int) || !pop(ValueTag::IntList) || !push(ValueTag::IntList)) return false;\n        } else return false;"
+        }
+      ]
+    }
+  },
+  "gpu_execution": "not_run"
+}

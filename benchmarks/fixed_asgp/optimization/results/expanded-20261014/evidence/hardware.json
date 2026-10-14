@@ -1,0 +1,15 @@
+{
+  "cpu": {
+    "Architecture:": "x86_64",
+    "CPU(s):": "20",
+    "Model name:": "Intel(R) Core(TM) i9-10900K CPU @ 3.70GHz",
+    "Thread(s) per core:": "2",
+    "Core(s) per socket:": "10",
+    "Socket(s):": "1"
+  },
+  "gpu": "index, name, uuid, driver_version, memory.total [MiB]\n0, NVIDIA GeForce RTX 3090, GPU-9c69fabe-a876-c803-9278-b54b8ec52daf, 560.35.05, 24576 MiB\n",
+  "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.35",
+  "selected_visible_cuda_device": 0,
+  "application_host_threads": 1,
+  "gpu_job_lock": "/tmp/gagp-parallel-20261013-benchmark.lock"
+}

@@ -69,7 +69,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 386605,
           "raw_path": "/tmp/expanded-diagnosis/0a.quality.json",
-          "raw_sha256": "5cc926abc313106d93a836089427512c83fcaa09c630c36ee0a1d7e9722cc044"
+          "raw_sha256": "5cc926abc313106d93a836089427512c83fcaa09c630c36ee0a1d7e9722cc044",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/0a.quality.json"
         },
         "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
         "gagp_cpu": {
@@ -77,7 +78,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 81682,
           "raw_path": "/tmp/expanded-diagnosis/0g.quality.json",
-          "raw_sha256": "986e6e296601d93419e48fbdde8829c4d7443ae2e4026cd5d146dfad2b688a41"
+          "raw_sha256": "986e6e296601d93419e48fbdde8829c4d7443ae2e4026cd5d146dfad2b688a41",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/0g.quality.json"
         }
       },
       {
@@ -87,7 +89,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 19993,
           "raw_path": "/tmp/expanded-diagnosis/1a.quality.json",
-          "raw_sha256": "0603aaae5c386d0217260e95e6722da9a03e07be6d24236d0328876f63a5d7d6"
+          "raw_sha256": "0603aaae5c386d0217260e95e6722da9a03e07be6d24236d0328876f63a5d7d6",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/1a.quality.json"
         },
         "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
         "gagp_cpu": {
@@ -95,7 +98,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 19993,
           "raw_path": "/tmp/expanded-diagnosis/1g.quality.json",
-          "raw_sha256": "18505f09b21589f4b56e9a80d4915f600378e5ddf8690e05a148d412c5e655ec"
+          "raw_sha256": "18505f09b21589f4b56e9a80d4915f600378e5ddf8690e05a148d412c5e655ec",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/1g.quality.json"
         }
       },
       {
@@ -105,7 +109,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 19071,
           "raw_path": "/tmp/expanded-diagnosis/2a.quality.json",
-          "raw_sha256": "1694f83116ae4d539b6523fcd6dd6e031a5b615ced592cf7ff009960aaf39d7c"
+          "raw_sha256": "1694f83116ae4d539b6523fcd6dd6e031a5b615ced592cf7ff009960aaf39d7c",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/2a.quality.json"
         },
         "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
         "gagp_cpu": {
@@ -113,7 +118,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 19071,
           "raw_path": "/tmp/expanded-diagnosis/2g.quality.json",
-          "raw_sha256": "096ba9acb739667c51d17aed25e5398e5820685a4cbb2a7595b03d19cb294480"
+          "raw_sha256": "096ba9acb739667c51d17aed25e5398e5820685a4cbb2a7595b03d19cb294480",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/2g.quality.json"
         }
       },
       {
@@ -123,7 +129,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 19993,
           "raw_path": "/tmp/expanded-diagnosis/3a.quality.json",
-          "raw_sha256": "c0c232ea0e5d03435f67edd6dddff30b4944bcf4231a7e4c157ae6f7054b1c03"
+          "raw_sha256": "c0c232ea0e5d03435f67edd6dddff30b4944bcf4231a7e4c157ae6f7054b1c03",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/3a.quality.json"
         },
         "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
         "gagp_cpu": {
@@ -131,7 +138,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 19993,
           "raw_path": "/tmp/expanded-diagnosis/3g.quality.json",
-          "raw_sha256": "2ae8ef8a02fc5e37febd0aded65726a58375255cd685259a2c8194dbbbe6c423"
+          "raw_sha256": "2ae8ef8a02fc5e37febd0aded65726a58375255cd685259a2c8194dbbbe6c423",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/3g.quality.json"
         }
       },
       {
@@ -141,7 +149,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 19993,
           "raw_path": "/tmp/expanded-diagnosis/4a.quality.json",
-          "raw_sha256": "93084a500049f304b58d97c3d33cf1fdd4fa0f5245fd59c992bafd79a6901056"
+          "raw_sha256": "93084a500049f304b58d97c3d33cf1fdd4fa0f5245fd59c992bafd79a6901056",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/4a.quality.json"
         },
         "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
         "gagp_cpu": {
@@ -149,7 +158,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 19993,
           "raw_path": "/tmp/expanded-diagnosis/4g.quality.json",
-          "raw_sha256": "257f303f986d1c22f539bc85ad2d78eeb851842ea00b4c318df430986f68ba1b"
+          "raw_sha256": "257f303f986d1c22f539bc85ad2d78eeb851842ea00b4c318df430986f68ba1b",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/4g.quality.json"
         }
       },
       {
@@ -159,7 +169,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 20011,
           "raw_path": "/tmp/expanded-diagnosis/5a.quality.json",
-          "raw_sha256": "ff854d544ae1625743f093b0b31b2da227b47dead3528f02d20c06bbe67a4ead"
+          "raw_sha256": "ff854d544ae1625743f093b0b31b2da227b47dead3528f02d20c06bbe67a4ead",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/5a.quality.json"
         },
         "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
         "gagp_cpu": {
@@ -167,7 +178,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 20011,
           "raw_path": "/tmp/expanded-diagnosis/5g.quality.json",
-          "raw_sha256": "954a4ff7f781bff66c957b5fed0a27a7eaea69ea5910088c3ac47c229bd12a88"
+          "raw_sha256": "954a4ff7f781bff66c957b5fed0a27a7eaea69ea5910088c3ac47c229bd12a88",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/5g.quality.json"
         }
       },
       {
@@ -177,7 +189,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 139275,
           "raw_path": "/tmp/expanded-diagnosis/6a.quality.json",
-          "raw_sha256": "0567fb0129bb7eaf4a19efe68c4e0e1cc88c92ba1e715311f3cc68e1f06ef541"
+          "raw_sha256": "0567fb0129bb7eaf4a19efe68c4e0e1cc88c92ba1e715311f3cc68e1f06ef541",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/6a.quality.json"
         },
         "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
         "gagp_cpu": {
@@ -185,7 +198,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 139275,
           "raw_path": "/tmp/expanded-diagnosis/6g.quality.json",
-          "raw_sha256": "44682abd1297537babfa3ee31384e6d077a08daa67b1b8f4dc5061eec42172be"
+          "raw_sha256": "44682abd1297537babfa3ee31384e6d077a08daa67b1b8f4dc5061eec42172be",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/6g.quality.json"
         }
       },
       {
@@ -195,7 +209,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 19993,
           "raw_path": "/tmp/expanded-diagnosis/7a.quality.json",
-          "raw_sha256": "b3d2798e82cc141a7c379b7ae64870926dbda99c99ca18957adf940ec2b9b5d4"
+          "raw_sha256": "b3d2798e82cc141a7c379b7ae64870926dbda99c99ca18957adf940ec2b9b5d4",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/7a.quality.json"
         },
         "heldout_cases_sha256": "db42d1a630f510edcba86195d2a390a2bb84d234f6285a1d9773e0f8fc918764",
         "gagp_cpu": {
@@ -203,7 +218,8 @@
           "runtime_errors": 0,
           "capped_l1_sum": 19993,
           "raw_path": "/tmp/expanded-diagnosis/7g.quality.json",
-          "raw_sha256": "e835ac2bd3fb9ddfa49a72a7608d9067ac530a59126c25925355af89a1321706"
+          "raw_sha256": "e835ac2bd3fb9ddfa49a72a7608d9067ac530a59126c25925355af89a1321706",
+          "archived_raw_path": "logs/optimization/expanded-20261014/numeric-diagnosis/7g.quality.json"
         }
       }
     ]

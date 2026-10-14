@@ -1,0 +1,24 @@
+{
+  "cells": 30,
+  "post_search": true,
+  "timed": false,
+  "population_injection": false,
+  "interpretation": "Archive selection is not native elitism. ASGP native elite1 and GAGP search retention differ. Final quality remains the primary endpoint.",
+  "selection": "Maximum reported training fitness across history and final; final wins ties. Heldout results never select the archived program.",
+  "lost_best_by_task_mode": {
+    "count_odds": {
+      "asgp_1t": 0,
+      "gagp_cpu": 3,
+      "gpu_eval": 3,
+      "gpu_repro": 2,
+      "gpu_overlap": 2
+    },
+    "last_index_of_zero": {
+      "asgp_1t": 0,
+      "gagp_cpu": 0,
+      "gpu_eval": 0,
+      "gpu_repro": 2,
+      "gpu_overlap": 2
+    }
+  }
+}

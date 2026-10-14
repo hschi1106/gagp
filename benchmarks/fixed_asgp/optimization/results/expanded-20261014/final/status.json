@@ -1,0 +1,77 @@
+{
+  "missing": [],
+  "complete": true,
+  "measured_tasks": [
+    "count_odds",
+    "last_index_of_zero"
+  ],
+  "expected_formal_cells": 30,
+  "expected_quality_cells": 30,
+  "unmeasured_tasks": {
+    "negative_to_zero": {
+      "status": "unmeasured_resource_limit_and_GPU_evaluation_failure",
+      "reason": "CPU P8 two-generation random-list preflight reached 99,987,640 KiB RSS (about 95.36 GiB) and was stopped; GPU known-solution audit failed. No trustworthy P1024 timing or qualified speedup.",
+      "reproduction": "Generic GPU reproduction is available; this does not establish GPU evaluation correctness or bounded CPU resource use.",
+      "evidence": [
+        "negative-cpu-memory-stop.json",
+        "artifacts/negative_to_zero.audit.json"
+      ]
+    },
+    "stock_with_cooldown": {
+      "status": "unsupported_exact_clamped_memo_transitions",
+      "reason": "Existing memoized coordinate transitions cannot express ASGP clamped dependencies exactly.",
+      "evidence": [
+        "benchmarks/fixed_asgp/optimization/stock_capability.cpp"
+      ]
+    }
+  },
+  "pilot_policy": "pilot/ preserves the interrupted original attempt; pilot-supported/ is the two-task pilot.",
+  "seed_policy": "Three independent searches; ranges describe seed variability, not repeated identical workloads.",
+  "ratios": "Median of seed-matched ASGP ratios; measured ratios are descriptive only when scoped correctness checks fail.",
+  "process_time": "Tagged real runs require GNU /usr/bin/time resources process_wall_s (10 ms resolution). Monitor elapsed, including up to 500 ms polling tail, is retained separately. Untagged synthetic/legacy records explicitly fall back to a monitor estimate.",
+  "qualification_scope": "Qualified means passes known-solution checks and final top-16 CPU audit for GPU modes; not exact full-population or per-case parity. See cpu_audit_program_count for actual sample size. Initial full-population differences are reported separately.",
+  "initial_snapshot_policy": "Initial aggregate-fitness differences are reported, not used to discard timings; successful limited checks do not establish exact parity.",
+  "initial_snapshot_summary": [
+    {
+      "task": "count_odds",
+      "programs": 1024,
+      "cases_per_program": 1024,
+      "asgp_cpu_differing_programs": 66,
+      "asgp_cpu_max_abs_difference": 1006061,
+      "cpu_gpu_differing_programs": 1,
+      "cpu_gpu_max_abs_difference": 3936,
+      "gpu_errors": 286740,
+      "gpu_timeouts": 0,
+      "gpu_fallbacks": 0,
+      "gpu_unscored": 0,
+      "scope": "Full frozen initial population aggregate fitness; not per-case output parity or evolving-population parity",
+      "metric_provenance": "Common fitness confirmed by snapshot manifest; output SHA256 verified",
+      "binary_sha256": "b9952b911df5f22f1ed361472663a114994882278bcededfbe3f8efd3d3d7980",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/expanded-20261014/initial-snapshots/manifest.json",
+      "asgp_source": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/expanded-20261014/initial-snapshots/count_odds.asgp_snapshot.json",
+      "gagp_source": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/expanded-20261014/initial-snapshots/count_odds.snapshot.json"
+    },
+    {
+      "task": "last_index_of_zero",
+      "programs": 1024,
+      "cases_per_program": 1024,
+      "asgp_cpu_differing_programs": 21,
+      "asgp_cpu_max_abs_difference": 1004399,
+      "cpu_gpu_differing_programs": 0,
+      "cpu_gpu_max_abs_difference": 0,
+      "gpu_errors": 194193,
+      "gpu_timeouts": 0,
+      "gpu_fallbacks": 0,
+      "gpu_unscored": 0,
+      "scope": "Full frozen initial population aggregate fitness; not per-case output parity or evolving-population parity",
+      "metric_provenance": "Common fitness confirmed by snapshot manifest; output SHA256 verified",
+      "binary_sha256": "b9952b911df5f22f1ed361472663a114994882278bcededfbe3f8efd3d3d7980",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/expanded-20261014/initial-snapshots/manifest.json",
+      "asgp_source": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/expanded-20261014/initial-snapshots/last_index_of_zero.asgp_snapshot.json",
+      "gagp_source": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/expanded-20261014/initial-snapshots/last_index_of_zero.snapshot.json"
+    }
+  ],
+  "quality": "Same independent local ASGP test split, 1024 cases per checkpoint; not official PSB. Natural duplicates and possible training overlap retained.",
+  "list_fitness": "Common exact metric: ASGP negative error + 1024; GAGP correct count. Native-policy controls must not use this conversion.",
+  "stock_probe": "benchmarks/fixed_asgp/optimization/stock_capability.cpp"
+}

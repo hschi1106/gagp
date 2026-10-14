@@ -1,0 +1,37 @@
+{
+  "artifacts": {
+    "completed_cells": 10,
+    "child_process_seconds_sum": 16.990000000000002,
+    "monitor_seconds_sum": 17.223508313763887
+  },
+  "pilot-supported": {
+    "completed_cells": 10,
+    "child_process_seconds_sum": 99.65,
+    "monitor_seconds_sum": 102.32280753762461
+  },
+  "formal": {
+    "completed_cells": 30,
+    "child_process_seconds_sum": 969.5600000000001,
+    "monitor_seconds_sum": 978.2087666748557
+  },
+  "native-controls": {
+    "completed_cells": 3,
+    "child_process_seconds_sum": 80.87,
+    "monitor_seconds_sum": 81.93939141719602
+  },
+  "quality": {
+    "completed_cells": 30,
+    "child_process_seconds_sum": 4.429999999999998,
+    "monitor_seconds_sum": 15.777028172044083
+  },
+  "best-quality": {
+    "completed_cells": 30,
+    "child_process_seconds_sum": 2.3200000000000003,
+    "monitor_seconds_sum": 15.9483805866912
+  },
+  "native-quality": {
+    "completed_cells": 3,
+    "child_process_seconds_sum": 0.11,
+    "monitor_seconds_sum": 1.5518630978185683
+  }
+}

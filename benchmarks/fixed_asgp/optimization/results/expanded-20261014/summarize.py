@@ -57,6 +57,7 @@ def process_timing(directory, cell):
         if value <= 0:
             raise ValueError(f'Invalid GNU time process duration in {resources}')
         return dict(process_ms=value, monitor_process_wall_ms=monitor,
+            peak_rss_kib=int(entries['peak_rss_kib']) if 'peak_rss_kib' in entries else None,
             process_time_source='GNU /usr/bin/time resources; child execution wall time',
             process_time_resolution_ms=10, process_time_path=str(resources))
     # Explicitly preserve compatibility with synthetic/old records without tags.
@@ -171,7 +172,7 @@ def summarize(study: Path, allow_incomplete=False):
             ratio = baseline[metric] / r[metric] if baseline else None
             r['measured_' + metric + '_ratio'] = ratio
             r['qualified_' + metric + '_speedup'] = ratio if r['qualified'] and baseline and baseline['qualified'] else None
-    numeric = ('search_ms', 'process_ms', 'monitor_process_wall_ms', 'early_generation_ms', 'late_generation_ms', 'final_fitness',
+    numeric = ('search_ms', 'process_ms', 'peak_rss_kib', 'monitor_process_wall_ms', 'early_generation_ms', 'late_generation_ms', 'final_fitness',
         'cpu_audit_mismatches', 'cpu_audit_program_count', 'unique_genotypes', 'errors', 'timeouts',
         'heldout_exact_accuracy', 'measured_search_ms_ratio', 'measured_process_ms_ratio',
         'qualified_search_ms_speedup', 'qualified_process_ms_speedup')
@@ -204,7 +205,7 @@ def write_csv(path, rows):
         return
     fields = list(dict.fromkeys(k for row in rows for k in row))
     with path.open('w', newline='') as stream:
-        writer = csv.DictWriter(stream, fieldnames=fields)
+        writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 
@@ -324,7 +325,10 @@ def plots(out, summary, curves):
                 continue
             cols = list(zip(*values))
             x = list(range(len(cols)))
-            ax.plot(x, [statistics.median(c) for c in cols], color=colors[i], label=LABELS[i])
+            ax.plot(x, [statistics.median(c) for c in cols], color=colors[i], label=LABELS[i],
+                linestyle=('-', '--', '-', '--', '-')[i], marker=('o','s','o','D','o')[i],
+                markersize=(3,7,3,7,3)[i], markerfacecolor='none' if i in (1,3) else colors[i],
+                linewidth=1.7, markevery=2)
             ax.fill_between(x, [min(c) for c in cols], [max(c) for c in cols], color=colors[i], alpha=.12)
         ax.set_title(task.replace('_', ' ').title())
         ax.set_xlabel('Generation (pre-reproduction population)')
@@ -337,6 +341,49 @@ def plots(out, summary, curves):
     fig.savefig(out / 'fitness-by-generation.png', dpi=180)
     fig.savefig(out / 'fitness-by-generation.svg')
     plt.close(fig)
+    fig, axes = plt.subplots(1, len(TASKS), figsize=(11, 4.5))
+    for ax, task in zip(axes, TASKS):
+        group = [r for r in summary if r['task'] == task]
+        for i, row in enumerate(group):
+            y, low, high = (row['heldout_exact_accuracy_' + suffix] for suffix in ('median','min','max'))
+            if y is None:
+                continue
+            ax.errorbar(i, y*100, yerr=[[(y-low)*100],[(high-y)*100]],
+                color=colors[i], marker='o', capsize=5, markersize=7)
+            ax.annotate(f'{y*100:.1f}%', (i, high*100), xytext=(0,8), textcoords='offset points',
+                ha='center', fontsize=9)
+        ax.set_title(task.replace('_',' ').title())
+        ax.set_xticks(range(5), LABELS, rotation=30, ha='right', fontsize=8)
+        ax.set_ylim(0,100); ax.set_xlim(-.5,4.5)
+        ax.set_ylabel('Exact cases (%)'); ax.grid(axis='y',alpha=.2)
+    fig.suptitle(prefix + 'Independent CPU test: final champion, 1024 local-domain cases')
+    fig.text(.5,.01,'Three seeds: median and range. Separate RNG dataset; natural input overlap retained.',ha='center',fontsize=9)
+    fig.tight_layout(rect=(0,.06,1,.94))
+    fig.savefig(out/'heldout-quality.png',dpi=180)
+    fig.savefig(out/'heldout-quality.svg')
+    plt.close(fig)
+
+
+
+def generation_cost_plot(out, summary):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    fig,axes=plt.subplots(1,2,figsize=(11,4.7))
+    for ax,task in zip(axes,TASKS):
+        group=[r for r in summary if r['task']==task]
+        for offset,field,label,color in ((-.18,'early_generation_ms_median','First 4 generations','#4477aa'),(.18,'late_generation_ms_median','Last 4 generations','#ee8844')):
+            values=[float(r[field]) for r in group]
+            bars=ax.bar([i+offset for i in range(5)],values,.34,label=label,color=color)
+            ax.bar_label(bars,labels=[f'{v:.0f}' for v in values],padding=3,fontsize=8)
+        ax.set_title(task.replace('_',' ').title());ax.set_yscale('log')
+        ax.set_ylabel('Complete generation (ms, log scale)')
+        ax.set_xticks(range(5),LABELS,rotation=30,ha='right',fontsize=8)
+        ax.margins(y=.16);ax.legend(fontsize=8)
+    fig.suptitle('Early vs late generation cost: seed medians, P1024 / C1024')
+    fig.text(.5,.01,'Per-generation evaluate + reproduce + integration. Cold initialization and final evaluation are in search totals.',ha='center',fontsize=9)
+    fig.tight_layout(rect=(0,.06,1,.94))
+    fig.savefig(out/'generation-cost.png',dpi=180);fig.savefig(out/'generation-cost.svg');plt.close(fig)
 
 
 def main():
@@ -373,6 +420,9 @@ def main():
         list_fitness='Common exact metric: ASGP negative error + 1024; GAGP correct count. Native-policy controls must not use this conversion.',
         stock_probe='benchmarks/fixed_asgp/optimization/stock_capability.cpp'), indent=2)+'\n')
     plots(out, summary, curves)
+    generation_cost_plot(out, summary)
+    for svg in out.glob("*.svg"):
+        svg.write_text("\n".join(line.rstrip() for line in svg.read_text().splitlines()) + "\n")
 
 
 if __name__ == '__main__':

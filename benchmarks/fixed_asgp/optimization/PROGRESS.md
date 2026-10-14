@@ -1,15 +1,15 @@
-## Expanded benchmark checkpoint (2026-10-14)
+# Expanded native benchmark — 2026-10-14 (complete)
 
-Runtime remains db1dd55/2938d69 best settings; no runtime architecture changes.
-Study: `results/expanded-20261014/contract.json` and `run.py`.
-New raw inputs/logs: `logs/optimization/expanded-20261014/`.
-Count Odds and Last Index: ten pilot cells complete, known-solution and top16
-CPU audits pass. Prespecified budget chooses16generations ×3seeds ×5modes
-for each task. Formal/quality/native-policy controls pending.
-Stock exact clamped memo transitions unsupported. Negative CPU random P8
-preflight stopped at95.36GiB RSS; GPU full-case known solution also fails.
-Do not rerun random list evolution without addressing allocation bounds.
-Original inputs, original three tasks, native pipeline and CPU1T preserved.
+- Runtime unchanged from db1dd55/2938d69; source checkpoint41f2566, binary SHA b9952b911df5f22f1ed361472663a114994882278bcededfbe3f8efd3d3d7980. Original worktree/frozen inputs preserved; no push.
+- Count Odds / Last Index: P1024/C1024, CPU1T,16generations×3seeds×5native modes=30completed searches. Full-search medians ASGP31.352/24.826s, GPU-er-o1.005/1.017s →31.21x/24.41x. Complete CLI ratios13.57x/11.82x. New common-fitness denominators; original Last discounted control separately27.440s, not substituted.
+- Final independent exact accuracy ASGP19.43%/22.66%, GPU-er-o7.42%/15.33%. Additional archived-training-best audits12.60%/22.66%; no convergence equivalence. Native GAGP can lose best; ASGP elite1. Neither task solved in these16gens. Native pipeline/CPU1T retained; no solver or known-solution injection.
+- All30 formal +30 final/history quality +30 archived-best quality +3 native-policy +3 native-quality cells completed. Initial fullpopulation snapshots retain66/21ASGP-CPU mismatches and1/0CPU-GPU mismatch. Known-solutions and finaltop16GPU/CPU audits pass; scope not full exact parity. Last repeated-square numeric precision discrepancy independently reproduced; others not fully diagnosed.
+- Stock exact clamped memo transition capability probes reject both candidate encodings. Negative knownsolutionGPU fails; CPU randomP8 preflight stopped at95.36GiB RSS. No qualified ratios for either. No rerun of unsafe randomlist evolution. Explicit expected failures/skips preserved, not called support.
+- Release benchmark build; focused native CTest passes (2successes,2expected failures,1skip); tools7/repository24/report6 pass. Original3tasks/five modes smoke preserved. Formal processes16.16min; elapsedstage18.44min including shared-lock waits. No scaling or long-run claim this round.
+- [Report](results/expanded-20261014/REPORT.zh-TW.md), [settings](results/expanded-20261014/settings.json), [contract](results/expanded-20261014/contract.json), [all seed timings](results/expanded-20261014/final/per-seed.csv), [all480 generation rows](results/expanded-20261014/final/generations.csv), [quality](results/expanded-20261014/final/best-ever.csv). Rawlogs/artifacts `logs/optimization/expanded-20261014/`. Serial `run.py <pilot|formal|quality|best-quality|native-controls>`; `summarize.py` + `summarize_best.py` regenerate figures into a NEW directory. Exact commands in report; do not prepare old inputs.
+- Next work: loss of historical best / equal-wall-clock quality, explicit integer semantics, bounded list payload/GPU evaluation, clamped memo contracts. These are identified followups, not changes implemented here. All jobs complete.
+
+---
 
 # Sum25 / House25 / Median5 — 2026-10-14 (complete)
 

@@ -151,8 +151,12 @@ def main():
         raise ValueError('Refusing to overwrite existing archived-best outputs')
     out.mkdir(parents=True,exist_ok=True)
     with (out/'best-ever.csv').open('x',newline='') as stream:
-        writer=csv.DictWriter(stream,fieldnames=list(rows[0]));writer.writeheader();writer.writerows(rows)
+        writer=csv.DictWriter(stream,fieldnames=list(rows[0]),lineterminator="\n");writer.writeheader();writer.writerows(rows)
     plots(out,rows,curves)
+    for name in OUTPUTS:
+        if name.endswith(".svg"):
+            svg=out/name
+            svg.write_text("\n".join(line.rstrip() for line in svg.read_text().splitlines())+"\n")
     status=dict(cells=30, post_search=True, timed=False, population_injection=False,
         interpretation='Archive selection is not native elitism. ASGP native elite1 and GAGP search retention differ. Final quality remains the primary endpoint.',
         selection='Maximum reported training fitness across history and final; final wins ties. Heldout results never select the archived program.',

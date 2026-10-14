@@ -1,0 +1,13 @@
+{
+  "native": "CTest gagp_test_fixed_asgp_bench passed; 5 Python methods: 2 successful, 2 expected failures, 1 skipped",
+  "native_expected_failures": [
+    "inherited ASGP/GAGP overflowing-integer parity",
+    "Negative GPU long-list known-solution parity"
+  ],
+  "native_skipped": "Unsafe random Negative evolution (own P8 test stopped at95.36GiB RSS)",
+  "tools_passed": 7,
+  "repository_passed": 24,
+  "summarizer_passed": 6,
+  "runtime_source_changes": false,
+  "raw_failed_attempts_preserved": true
+}

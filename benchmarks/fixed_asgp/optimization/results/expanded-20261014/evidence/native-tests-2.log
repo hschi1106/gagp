@@ -1,0 +1,42 @@
+Internal ctest changing into directory: /home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/build/release
+Test project /home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/build/release
+    Start 106: gagp_test_fixed_asgp_bench
+1/1 Test #106: gagp_test_fixed_asgp_bench .......***Failed  152.33 sec
+x.
+======================================================================
+FAIL: test_expanded_common_policy_and_heldout_audit (__main__.TestFixedAsgpNative) (task='last_index_of_zero')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/tests/evolution/test_fixed_asgp_bench.py", line 152, in test_expanded_common_policy_and_heldout_audit
+    self.assertTrue(all(abs(x-initial[0])<1e-6 for x in initial),initial)
+AssertionError: False is not true : [-76635.25, -39864, -39864, -39864, -39864]
+
+======================================================================
+FAIL: test_expanded_common_policy_and_heldout_audit (__main__.TestFixedAsgpNative) (task='negative_to_zero')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/tests/evolution/test_fixed_asgp_bench.py", line 140, in test_expanded_common_policy_and_heldout_audit
+    self.call("measure",source,prepared,grammar,8,"search_"+mode,output,env=env)
+  File "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/cpp/tests/evolution/test_fixed_asgp_bench.py", line 21, in call
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+AssertionError: -15 != 0 : 
+
+----------------------------------------------------------------------
+Ran 3 tests in 152.296s
+
+FAILED (failures=2, expected failures=1)
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+benchmark      = 152.33 sec*proc (1 test)
+contract       = 152.33 sec*proc (1 test)
+gpu            = 152.33 sec*proc (1 test)
+integration    = 152.33 sec*proc (1 test)
+
+Total Test time (real) = 152.34 sec
+
+The following tests FAILED:
+	106 - gagp_test_fixed_asgp_bench (Failed)
+Errors while running CTest

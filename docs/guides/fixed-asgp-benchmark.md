@@ -693,7 +693,7 @@ default and writes only to a new report directory.
 
 The opt-in study under `benchmarks/fixed_asgp/optimization/results/expanded-20261014/`
 adds Count Odds and Last Index of Zero to the original five native modes.
-`run.py` stages `prepare`, `pilot`, `formal`, `quality`, and `native-controls`
+`run.py` stages `prepare`, `pilot`, `formal`, `quality`, `best-quality`, and `native-controls`
 use new output directories, full P1024/C1024, CPU1T, and serialized GPU jobs.
 Original default TASKS and frozen artifacts remain unchanged. The contract is
 `contract.json`; `summarize.py` requires all30 formal and30 quality cells.
@@ -720,3 +720,11 @@ not reported as supported. Full initial snapshots quantify existing numerical
 differences separately from known-solution and final-top16 audit qualification.
 CLI process timings use GNU `time` resource files (10ms resolution); the
 watchdog monitor duration includes polling delay and is retained separately.
+
+The completed [expanded report](../../benchmarks/fixed_asgp/optimization/results/expanded-20261014/REPORT.zh-TW.md)
+separates generation-best from archived training-best: ASGP retains elite1,
+while native GAGP replacement may lose its best. `best-quality` selects only by
+training fitness (final wins ties), then independently audits the saved program;
+this is post-search analysis, not elitism added to the measured pipeline.
+`summarize_best.py` requires30 paired final/archive audits and never replaces
+the final-quality result. Exact study flags are frozen in `settings.json`.

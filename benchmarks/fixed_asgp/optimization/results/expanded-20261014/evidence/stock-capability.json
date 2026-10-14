@@ -1,0 +1,13 @@
+{
+  "status": "unsupported_exact_clamped_memo_transitions",
+  "commit": "956140e",
+  "original_log": "/home/hschi1106/.t3/worktrees/gagp/gagp-expanded-stock-20261014/logs/optimization/expanded-20261014-stock-capability/result.txt",
+  "log": "raw_offsets_positive_control: accepted\nclamped_memo_coordinate: each projected coordinate must use its matching offset constructor\nclamped_auxiliary_memo_state: memoized region requires coordinates covering every state slot\nnonmemoized_control: accepted (excluded from fair DP benchmark)\nstock_with_cooldown: unsupported_exact_clamped_memo_transitions\n",
+  "log_sha256": "ad856c7640dcb7380f1bd659ec9225735c066e96a97fb4aef437e200324b21ee",
+  "probe": "benchmarks/fixed_asgp/optimization/stock_capability.cpp",
+  "runtime_sources": {
+    "cpp/src/runtime/region_plan.cpp": "1b3b776784c709b5b6406947ec22a2345771f5122cec4db0a4be2a97beee0443",
+    "cpp/src/runtime/recurrence_rank.cpp": "28a1fed6e54374bc5d5ef513854f2c8b3d9d07906d960f39757f34ae1a579af7",
+    "cpp/src/runtime/sequence_rank.cpp": "800a17dd535ae4717f3e0c10c964f59ed149aacdf43c973347a520910233904f"
+  }
+}

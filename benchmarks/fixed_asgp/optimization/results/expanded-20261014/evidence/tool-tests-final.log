@@ -1,0 +1,12 @@
+test_changed_asgp_baseline_rejected_before_measurement (test_fixed_asgp.TestFixedAsgp) ... ok
+test_failed_baseline_never_produces_ratio (test_fixed_asgp.TestFixedAsgp) ... ok
+test_incomplete_duplicate_or_wrong_workload_rejected (test_fixed_asgp.TestFixedAsgp) ... ok
+test_task_skeletons_have_distinct_required_behavior (test_fixed_asgp.TestFixedAsgp) ... ok
+test_warmup_excluded_and_ratios_use_medians (test_fixed_asgp.TestFixedAsgp) ... ok
+test_evidence_rejects_source_drift (test_fixed_asgp_list.TestFixedAsgpList) ... ok
+test_negative_language_keeps_typed_recursive_boundaries (test_fixed_asgp_list.TestFixedAsgpList) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.010s
+
+OK

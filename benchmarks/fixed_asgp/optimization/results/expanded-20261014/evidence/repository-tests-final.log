@@ -1,0 +1,29 @@
+test_requested_cuda_cannot_silently_become_cpu_only (test_build_configuration.TestBuildConfiguration) ... ok
+test_entrypoints_route_semantics_to_specs (test_docs_contract.TestDocsContract) ... ok
+test_gagp_identity_is_canonical (test_docs_contract.TestDocsContract) ... ok
+test_stale_default_language_does_not_reappear (test_docs_contract.TestDocsContract) ... ok
+test_all_relative_markdown_links_resolve (test_docs_structure.TestDocumentationStructure) ... ok
+test_cli_reference_matches_parser_fields_and_defaults (test_docs_structure.TestDocumentationStructure) ... ok
+test_cmake_presets_cover_release_gates (test_docs_structure.TestDocumentationStructure) ... ok
+test_document_indexes_cover_every_maintained_document (test_docs_structure.TestDocumentationStructure) ... ok
+test_experiment_protocol_has_one_maintained_location (test_docs_structure.TestDocumentationStructure) ... ok
+test_json_and_json_lines_examples_parse (test_docs_structure.TestDocumentationStructure) ... ok
+test_repository_layout_paths_exist (test_docs_structure.TestDocumentationStructure) ... ok
+test_retired_root_doc_paths_do_not_reappear (test_docs_structure.TestDocumentationStructure) ... ok
+test_current_presets_are_v2_definitions (test_goal09_core_guard.TestGoal09CoreGuard) ... ok
+test_native_test_sources_are_registered (test_goal09_core_guard.TestGoal09CoreGuard) ... ok
+test_numeric_holes_stay_reserved (test_goal09_core_guard.TestGoal09CoreGuard) ... ok
+test_production_targets_do_not_link_migration (test_goal09_core_guard.TestGoal09CoreGuard) ... ok
+test_retired_production_modules_are_absent (test_goal09_core_guard.TestGoal09CoreGuard) ... ok
+test_specialized_dispatch_is_absent_from_production (test_goal09_core_guard.TestGoal09CoreGuard) ... ok
+test_spec_freeze_hashes_match (test_spec_freeze.TestSpecFreeze) ... ok
+test_auxiliary_native_targets_are_opt_in (test_tool_inventory.TestToolInventory) ... ok
+test_every_top_level_tool_is_classified (test_tool_inventory.TestToolInventory) ... ok
+test_legacy_plot_surface_is_absent (test_tool_inventory.TestToolInventory) ... ok
+test_native_library_ownership_is_explicit (test_tool_inventory.TestToolInventory) ... ok
+test_tool_package_has_one_dependency_free_entrypoint (test_tool_inventory.TestToolInventory) ... ok
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.508s
+
+OK
