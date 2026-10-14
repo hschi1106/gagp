@@ -1,0 +1,1390 @@
+{
+  "source_checkpoint": "71dc916",
+  "frozen_asgp_ms": {
+    "house_robber": 27687.368225,
+    "median": 5864.915193
+  },
+  "timing": "evolve_wall_ms, complete cold changing search. Per-generation timers are nested diagnostics; never subtract from this wall total.",
+  "variants": [
+    {
+      "variant": "baseline",
+      "task": "house_robber",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/baseline/manifest.json",
+      "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+      "flags": {
+        "GAGP_VIEW_PROFILE": "1",
+        "GAGP_TYPED_VIEW_PHASE": "1",
+        "GAGP_SORT_CASES": "1",
+        "GAGP_COMPACT_FRAMES": "1",
+        "GAGP_CONSTANT_PHASE": "1",
+        "GAGP_POPULATION_HANDOFF": "1",
+        "GAGP_DIRECT_PHASE": "1",
+        "GAGP_DIRECT_ROOT": "1",
+        "GAGP_WINDOW_EXECUTOR": "1",
+        "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+        "GAGP_BOUND_ADD_PHASE": "1",
+        "GAGP_REUSE_ADMISSION_COMPILE": "1",
+        "GAGP_REUSE_SITE_CONTRACTS": "1",
+        "GAGP_SELECTED_SITES": "1",
+        "GAGP_OWNED_PREPARATION": "1",
+        "GAGP_CUDA_DEVICE": "0",
+        "GAGP_HOST_THREADS": "1",
+        "GAGP_SINGLE_EVAL_IDENTITY": "1",
+        "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+        "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+        "MALLOC_CONF": "background_thread:false,narenas:1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GAGP_GPU_PHASE_POPULATION": "1",
+        "GAGP_OWNED_PHASE_PACK": "1",
+        "GAGP_OWNED_PHASE_CAPS": "1",
+        "GAGP_COORDINATE_EXECUTOR": "1",
+        "GAGP_COUNTED_SITE_DRAW": "1",
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_GPU_DIAGNOSTICS": "1",
+        "GAGP_SEARCH_TRACE": "1",
+        "GAGP_BATCH_PHASE_IMPORT": "1",
+        "GAGP_BATCH_PHASE_EXPORT": "1",
+        "GAGP_REUSE_PHASE_GRAMMAR": "1",
+        "GAGP_PHASE_CAP_BUCKETS": "1",
+        "GAGP_PHASE_REPRO_THREADS": "1",
+        "GAGP_GPU_STATIC_WEIGHTS": "1",
+        "GAGP_BUCKET_WORKSPACE": "1",
+        "GAGP_BOUND_COMPARE_PHASE": "1",
+        "GAGP_COORDINATE_RING_MEMO": "1",
+        "GAGP_CPU_LAZY_ANALYSIS": "1",
+        "GAGP_CPU_SELECTED_PARENTS": "1",
+        "GAGP_CPU_SELECTED_MUTATION": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1",
+        "GAGP_CPU_SCALAR_VIEWS": "1",
+        "GAGP_CPU_COUNTED_PAIRS": "1",
+        "GAGP_CPU_COORDINATE_DRIVER": "1",
+        "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+        "GAGP_GPU_INPLACE_MUTATION": "1",
+        "GAGP_OWNED_PHASE_PACKED": "1",
+        "GAGP_CPU_ALL_FIT_PAIRS": "1",
+        "GAGP_GPU_FUSED_DONOR_SITES": "1",
+        "GAGP_CPU_FUSED_ADMISSION": "1",
+        "GAGP_CPU_COMPACT_ADMISSION": "1",
+        "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+        "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+        "GAGP_PREPARED_CASE_VIEWS": "1"
+      },
+      "raw_ms": [
+        1134.932572,
+        1055.723189,
+        1057.12073
+      ],
+      "median_ms": 1057.12073,
+      "range_ms": [
+        1055.723189,
+        1134.932572
+      ],
+      "search_ratio": 26.191301938615844,
+      "validation": [
+        {
+          "tag": "house_robber.gpu_overlap.s0.r0",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "756fa0235142a37950947dc9b137ebf78c2c9d750a1999b499a322766a82b1af"
+          }
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r1",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "96fb1ba61b3a35f2bdad6782208d96e673b5abad37fc9aafcf057fbcf19b0850"
+          }
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r2",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "f8e5a3cf36903f51b2a45a3284f75af48b11f0c435f2214264729aea4fd49e67"
+          }
+        }
+      ],
+      "stage_medians_ms": {
+        "eval_ms": 631.3169239999999,
+        "eval_kernel_ms": 577.8024070000001,
+        "repro_ms": 144.37312500000002,
+        "repro_kernel_ms": 104.32307284045964,
+        "pack_ms": 15.238941999999998,
+        "upload_ms": 27.777123999999993
+      }
+    },
+    {
+      "variant": "baseline",
+      "task": "median",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/baseline/manifest.json",
+      "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+      "flags": {
+        "GAGP_VIEW_PROFILE": "1",
+        "GAGP_TYPED_VIEW_PHASE": "1",
+        "GAGP_SORT_CASES": "1",
+        "GAGP_COMPACT_FRAMES": "1",
+        "GAGP_CONSTANT_PHASE": "1",
+        "GAGP_POPULATION_HANDOFF": "1",
+        "GAGP_DIRECT_PHASE": "1",
+        "GAGP_DIRECT_ROOT": "1",
+        "GAGP_WINDOW_EXECUTOR": "1",
+        "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+        "GAGP_BOUND_ADD_PHASE": "1",
+        "GAGP_REUSE_ADMISSION_COMPILE": "1",
+        "GAGP_REUSE_SITE_CONTRACTS": "1",
+        "GAGP_SELECTED_SITES": "1",
+        "GAGP_OWNED_PREPARATION": "1",
+        "GAGP_CUDA_DEVICE": "0",
+        "GAGP_HOST_THREADS": "1",
+        "GAGP_SINGLE_EVAL_IDENTITY": "1",
+        "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+        "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+        "MALLOC_CONF": "background_thread:false,narenas:1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GAGP_GPU_PHASE_POPULATION": "1",
+        "GAGP_OWNED_PHASE_PACK": "1",
+        "GAGP_OWNED_PHASE_CAPS": "1",
+        "GAGP_COORDINATE_EXECUTOR": "1",
+        "GAGP_COUNTED_SITE_DRAW": "1",
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_GPU_DIAGNOSTICS": "1",
+        "GAGP_SEARCH_TRACE": "1",
+        "GAGP_BATCH_PHASE_IMPORT": "1",
+        "GAGP_BATCH_PHASE_EXPORT": "1",
+        "GAGP_REUSE_PHASE_GRAMMAR": "1",
+        "GAGP_PHASE_CAP_BUCKETS": "1",
+        "GAGP_PHASE_REPRO_THREADS": "1",
+        "GAGP_GPU_STATIC_WEIGHTS": "1",
+        "GAGP_BUCKET_WORKSPACE": "1",
+        "GAGP_BOUND_COMPARE_PHASE": "1",
+        "GAGP_COORDINATE_RING_MEMO": "1",
+        "GAGP_CPU_LAZY_ANALYSIS": "1",
+        "GAGP_CPU_SELECTED_PARENTS": "1",
+        "GAGP_CPU_SELECTED_MUTATION": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1",
+        "GAGP_CPU_SCALAR_VIEWS": "1",
+        "GAGP_CPU_COUNTED_PAIRS": "1",
+        "GAGP_CPU_COORDINATE_DRIVER": "1",
+        "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+        "GAGP_GPU_INPLACE_MUTATION": "1",
+        "GAGP_OWNED_PHASE_PACKED": "1",
+        "GAGP_CPU_ALL_FIT_PAIRS": "1",
+        "GAGP_GPU_FUSED_DONOR_SITES": "1",
+        "GAGP_CPU_FUSED_ADMISSION": "1",
+        "GAGP_CPU_COMPACT_ADMISSION": "1",
+        "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+        "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+        "GAGP_PREPARED_CASE_VIEWS": "1"
+      },
+      "raw_ms": [
+        900.416288,
+        910.499351,
+        909.889956
+      ],
+      "median_ms": 909.889956,
+      "range_ms": [
+        900.416288,
+        910.499351
+      ],
+      "search_ratio": 6.445741217743478,
+      "validation": [
+        {
+          "tag": "median.gpu_overlap.s2.r0",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "8e3e3fc17ac4837dca2b729051d580febb2dbedaf113d8791acaf9b00145c457"
+          }
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r1",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "74d4350ba617cff6edb17b4621765b65570fa4204297427a10a6865103cc35a3"
+          }
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r2",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "ee901c9b9c82a1ed745f6394d515ad75b8d38b3b76282b848be507f74381a5ca"
+          }
+        }
+      ],
+      "stage_medians_ms": {
+        "eval_ms": 247.17479800000004,
+        "eval_kernel_ms": 157.54455699999997,
+        "repro_ms": 403.5582200000002,
+        "repro_kernel_ms": 301.7752332566306,
+        "pack_ms": 26.835339999999995,
+        "upload_ms": 46.57060099999998
+      }
+    },
+    {
+      "variant": "off",
+      "task": "house_robber",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/off/manifest.json",
+      "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+      "flags": {
+        "GAGP_VIEW_PROFILE": "1",
+        "GAGP_TYPED_VIEW_PHASE": "1",
+        "GAGP_SORT_CASES": "1",
+        "GAGP_COMPACT_FRAMES": "1",
+        "GAGP_CONSTANT_PHASE": "1",
+        "GAGP_POPULATION_HANDOFF": "1",
+        "GAGP_DIRECT_PHASE": "1",
+        "GAGP_DIRECT_ROOT": "1",
+        "GAGP_WINDOW_EXECUTOR": "1",
+        "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+        "GAGP_BOUND_ADD_PHASE": "1",
+        "GAGP_REUSE_ADMISSION_COMPILE": "1",
+        "GAGP_REUSE_SITE_CONTRACTS": "1",
+        "GAGP_SELECTED_SITES": "1",
+        "GAGP_OWNED_PREPARATION": "1",
+        "GAGP_CUDA_DEVICE": "0",
+        "GAGP_HOST_THREADS": "1",
+        "GAGP_SINGLE_EVAL_IDENTITY": "1",
+        "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+        "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+        "MALLOC_CONF": "background_thread:false,narenas:1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GAGP_GPU_PHASE_POPULATION": "1",
+        "GAGP_OWNED_PHASE_PACK": "1",
+        "GAGP_OWNED_PHASE_CAPS": "1",
+        "GAGP_COORDINATE_EXECUTOR": "1",
+        "GAGP_COUNTED_SITE_DRAW": "1",
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_GPU_DIAGNOSTICS": "1",
+        "GAGP_SEARCH_TRACE": "1",
+        "GAGP_BATCH_PHASE_IMPORT": "1",
+        "GAGP_BATCH_PHASE_EXPORT": "1",
+        "GAGP_REUSE_PHASE_GRAMMAR": "1",
+        "GAGP_PHASE_CAP_BUCKETS": "1",
+        "GAGP_PHASE_REPRO_THREADS": "1",
+        "GAGP_GPU_STATIC_WEIGHTS": "1",
+        "GAGP_BUCKET_WORKSPACE": "1",
+        "GAGP_BOUND_COMPARE_PHASE": "1",
+        "GAGP_COORDINATE_RING_MEMO": "1",
+        "GAGP_CPU_LAZY_ANALYSIS": "1",
+        "GAGP_CPU_SELECTED_PARENTS": "1",
+        "GAGP_CPU_SELECTED_MUTATION": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1",
+        "GAGP_CPU_SCALAR_VIEWS": "1",
+        "GAGP_CPU_COUNTED_PAIRS": "1",
+        "GAGP_CPU_COORDINATE_DRIVER": "1",
+        "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+        "GAGP_GPU_INPLACE_MUTATION": "1",
+        "GAGP_OWNED_PHASE_PACKED": "1",
+        "GAGP_CPU_ALL_FIT_PAIRS": "1",
+        "GAGP_GPU_FUSED_DONOR_SITES": "1",
+        "GAGP_CPU_FUSED_ADMISSION": "1",
+        "GAGP_CPU_COMPACT_ADMISSION": "1",
+        "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+        "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+        "GAGP_PREPARED_CASE_VIEWS": "1"
+      },
+      "raw_ms": [
+        1148.954121,
+        1059.765718,
+        1058.985398
+      ],
+      "median_ms": 1059.765718,
+      "range_ms": [
+        1058.985398,
+        1148.954121
+      ],
+      "search_ratio": 26.12593307627639,
+      "validation": [
+        {
+          "tag": "house_robber.gpu_overlap.s0.r0",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "001146637fc14f52740d0cef3893146867f6058ef2f4b6f669ae03adf725fcea"
+          }
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r1",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "b45dfbef86d9b70638748e97cdad7f1a7890865072f94496edba67d6b5f0d98b"
+          }
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r2",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "ff3f000b029cbfa22187cdb767a3bd727fb3c94985f79135b1a9280c7aac012d"
+          }
+        }
+      ],
+      "stage_medians_ms": {
+        "eval_ms": 631.097342,
+        "eval_kernel_ms": 575.245359,
+        "repro_ms": 144.959596,
+        "repro_kernel_ms": 103.85161588294432,
+        "pack_ms": 16.647733,
+        "upload_ms": 28.533212000000006
+      }
+    },
+    {
+      "variant": "off",
+      "task": "median",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/off/manifest.json",
+      "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+      "flags": {
+        "GAGP_VIEW_PROFILE": "1",
+        "GAGP_TYPED_VIEW_PHASE": "1",
+        "GAGP_SORT_CASES": "1",
+        "GAGP_COMPACT_FRAMES": "1",
+        "GAGP_CONSTANT_PHASE": "1",
+        "GAGP_POPULATION_HANDOFF": "1",
+        "GAGP_DIRECT_PHASE": "1",
+        "GAGP_DIRECT_ROOT": "1",
+        "GAGP_WINDOW_EXECUTOR": "1",
+        "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+        "GAGP_BOUND_ADD_PHASE": "1",
+        "GAGP_REUSE_ADMISSION_COMPILE": "1",
+        "GAGP_REUSE_SITE_CONTRACTS": "1",
+        "GAGP_SELECTED_SITES": "1",
+        "GAGP_OWNED_PREPARATION": "1",
+        "GAGP_CUDA_DEVICE": "0",
+        "GAGP_HOST_THREADS": "1",
+        "GAGP_SINGLE_EVAL_IDENTITY": "1",
+        "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+        "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+        "MALLOC_CONF": "background_thread:false,narenas:1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GAGP_GPU_PHASE_POPULATION": "1",
+        "GAGP_OWNED_PHASE_PACK": "1",
+        "GAGP_OWNED_PHASE_CAPS": "1",
+        "GAGP_COORDINATE_EXECUTOR": "1",
+        "GAGP_COUNTED_SITE_DRAW": "1",
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_GPU_DIAGNOSTICS": "1",
+        "GAGP_SEARCH_TRACE": "1",
+        "GAGP_BATCH_PHASE_IMPORT": "1",
+        "GAGP_BATCH_PHASE_EXPORT": "1",
+        "GAGP_REUSE_PHASE_GRAMMAR": "1",
+        "GAGP_PHASE_CAP_BUCKETS": "1",
+        "GAGP_PHASE_REPRO_THREADS": "1",
+        "GAGP_GPU_STATIC_WEIGHTS": "1",
+        "GAGP_BUCKET_WORKSPACE": "1",
+        "GAGP_BOUND_COMPARE_PHASE": "1",
+        "GAGP_COORDINATE_RING_MEMO": "1",
+        "GAGP_CPU_LAZY_ANALYSIS": "1",
+        "GAGP_CPU_SELECTED_PARENTS": "1",
+        "GAGP_CPU_SELECTED_MUTATION": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1",
+        "GAGP_CPU_SCALAR_VIEWS": "1",
+        "GAGP_CPU_COUNTED_PAIRS": "1",
+        "GAGP_CPU_COORDINATE_DRIVER": "1",
+        "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+        "GAGP_GPU_INPLACE_MUTATION": "1",
+        "GAGP_OWNED_PHASE_PACKED": "1",
+        "GAGP_CPU_ALL_FIT_PAIRS": "1",
+        "GAGP_GPU_FUSED_DONOR_SITES": "1",
+        "GAGP_CPU_FUSED_ADMISSION": "1",
+        "GAGP_CPU_COMPACT_ADMISSION": "1",
+        "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+        "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+        "GAGP_PREPARED_CASE_VIEWS": "1"
+      },
+      "raw_ms": [
+        910.045748,
+        909.52423,
+        911.064915
+      ],
+      "median_ms": 910.045748,
+      "range_ms": [
+        909.52423,
+        911.064915
+      ],
+      "search_ratio": 6.444637762320494,
+      "validation": [
+        {
+          "tag": "median.gpu_overlap.s2.r0",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "6341bf06c8d4da0a5a538d8a1e6197a3bf840d45c4de3aeb37c80f192db5ba96"
+          }
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r1",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "c971c88dd8438efacefca0d77cdd6880be723e3be455e64041811d2b5bdb6a75"
+          }
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r2",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "2de6b218575efdd7f9d808dffd8634dd69b31a3a52c9247845dcbb37aaabe95e"
+          }
+        }
+      ],
+      "stage_medians_ms": {
+        "eval_ms": 246.24847000000003,
+        "eval_kernel_ms": 157.83301600000001,
+        "repro_ms": 403.48657999999995,
+        "repro_kernel_ms": 301.0131518365815,
+        "pack_ms": 25.11109899999999,
+        "upload_ms": 46.870727
+      }
+    },
+    {
+      "variant": "depth",
+      "task": "house_robber",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/depth/manifest.json",
+      "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+      "flags": {
+        "GAGP_VIEW_PROFILE": "1",
+        "GAGP_TYPED_VIEW_PHASE": "1",
+        "GAGP_SORT_CASES": "1",
+        "GAGP_COMPACT_FRAMES": "1",
+        "GAGP_CONSTANT_PHASE": "1",
+        "GAGP_POPULATION_HANDOFF": "1",
+        "GAGP_DIRECT_PHASE": "1",
+        "GAGP_DIRECT_ROOT": "1",
+        "GAGP_WINDOW_EXECUTOR": "1",
+        "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+        "GAGP_BOUND_ADD_PHASE": "1",
+        "GAGP_REUSE_ADMISSION_COMPILE": "1",
+        "GAGP_REUSE_SITE_CONTRACTS": "1",
+        "GAGP_SELECTED_SITES": "1",
+        "GAGP_OWNED_PREPARATION": "1",
+        "GAGP_CUDA_DEVICE": "0",
+        "GAGP_HOST_THREADS": "1",
+        "GAGP_SINGLE_EVAL_IDENTITY": "1",
+        "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+        "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+        "MALLOC_CONF": "background_thread:false,narenas:1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GAGP_GPU_PHASE_POPULATION": "1",
+        "GAGP_OWNED_PHASE_PACK": "1",
+        "GAGP_OWNED_PHASE_CAPS": "1",
+        "GAGP_COORDINATE_EXECUTOR": "1",
+        "GAGP_COUNTED_SITE_DRAW": "1",
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_GPU_DIAGNOSTICS": "1",
+        "GAGP_SEARCH_TRACE": "1",
+        "GAGP_BATCH_PHASE_IMPORT": "1",
+        "GAGP_BATCH_PHASE_EXPORT": "1",
+        "GAGP_REUSE_PHASE_GRAMMAR": "1",
+        "GAGP_PHASE_CAP_BUCKETS": "1",
+        "GAGP_PHASE_REPRO_THREADS": "1",
+        "GAGP_GPU_STATIC_WEIGHTS": "1",
+        "GAGP_BUCKET_WORKSPACE": "1",
+        "GAGP_BOUND_COMPARE_PHASE": "1",
+        "GAGP_COORDINATE_RING_MEMO": "1",
+        "GAGP_CPU_LAZY_ANALYSIS": "1",
+        "GAGP_CPU_SELECTED_PARENTS": "1",
+        "GAGP_CPU_SELECTED_MUTATION": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1",
+        "GAGP_CPU_SCALAR_VIEWS": "1",
+        "GAGP_CPU_COUNTED_PAIRS": "1",
+        "GAGP_CPU_COORDINATE_DRIVER": "1",
+        "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+        "GAGP_GPU_INPLACE_MUTATION": "1",
+        "GAGP_OWNED_PHASE_PACKED": "1",
+        "GAGP_CPU_ALL_FIT_PAIRS": "1",
+        "GAGP_GPU_FUSED_DONOR_SITES": "1",
+        "GAGP_CPU_FUSED_ADMISSION": "1",
+        "GAGP_CPU_COMPACT_ADMISSION": "1",
+        "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+        "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+        "GAGP_PREPARED_CASE_VIEWS": "1",
+        "GAGP_GPU_FUSED_SPLICE_DEPTH": "1"
+      },
+      "raw_ms": [
+        1055.70235,
+        1055.308365,
+        1059.124299
+      ],
+      "median_ms": 1055.70235,
+      "range_ms": [
+        1055.308365,
+        1059.124299
+      ],
+      "search_ratio": 26.226491041722127,
+      "validation": [
+        {
+          "tag": "house_robber.gpu_overlap.s0.r0",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "63ba2c2d583f74876880631b0112f6eeb895fd2ebb446012cc11984ab5a23c18"
+          }
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r1",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "dd39d0c8ef5c9354c6ed34cf195fa8b7d489bb7eafe85e633e587d754c356976"
+          }
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r2",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "733ad7d58b100e0f7bd63b321b51787b1a3cb6e1ff8e5e21feabdc9a8c96132b"
+          }
+        }
+      ],
+      "stage_medians_ms": {
+        "eval_ms": 630.087255,
+        "eval_kernel_ms": 574.337234,
+        "repro_ms": 141.89999200000003,
+        "repro_kernel_ms": 100.16972828749567,
+        "pack_ms": 15.906559000000003,
+        "upload_ms": 28.885357000000003
+      }
+    },
+    {
+      "variant": "depth",
+      "task": "median",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/depth/manifest.json",
+      "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+      "flags": {
+        "GAGP_VIEW_PROFILE": "1",
+        "GAGP_TYPED_VIEW_PHASE": "1",
+        "GAGP_SORT_CASES": "1",
+        "GAGP_COMPACT_FRAMES": "1",
+        "GAGP_CONSTANT_PHASE": "1",
+        "GAGP_POPULATION_HANDOFF": "1",
+        "GAGP_DIRECT_PHASE": "1",
+        "GAGP_DIRECT_ROOT": "1",
+        "GAGP_WINDOW_EXECUTOR": "1",
+        "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+        "GAGP_BOUND_ADD_PHASE": "1",
+        "GAGP_REUSE_ADMISSION_COMPILE": "1",
+        "GAGP_REUSE_SITE_CONTRACTS": "1",
+        "GAGP_SELECTED_SITES": "1",
+        "GAGP_OWNED_PREPARATION": "1",
+        "GAGP_CUDA_DEVICE": "0",
+        "GAGP_HOST_THREADS": "1",
+        "GAGP_SINGLE_EVAL_IDENTITY": "1",
+        "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+        "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+        "MALLOC_CONF": "background_thread:false,narenas:1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GAGP_GPU_PHASE_POPULATION": "1",
+        "GAGP_OWNED_PHASE_PACK": "1",
+        "GAGP_OWNED_PHASE_CAPS": "1",
+        "GAGP_COORDINATE_EXECUTOR": "1",
+        "GAGP_COUNTED_SITE_DRAW": "1",
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_GPU_DIAGNOSTICS": "1",
+        "GAGP_SEARCH_TRACE": "1",
+        "GAGP_BATCH_PHASE_IMPORT": "1",
+        "GAGP_BATCH_PHASE_EXPORT": "1",
+        "GAGP_REUSE_PHASE_GRAMMAR": "1",
+        "GAGP_PHASE_CAP_BUCKETS": "1",
+        "GAGP_PHASE_REPRO_THREADS": "1",
+        "GAGP_GPU_STATIC_WEIGHTS": "1",
+        "GAGP_BUCKET_WORKSPACE": "1",
+        "GAGP_BOUND_COMPARE_PHASE": "1",
+        "GAGP_COORDINATE_RING_MEMO": "1",
+        "GAGP_CPU_LAZY_ANALYSIS": "1",
+        "GAGP_CPU_SELECTED_PARENTS": "1",
+        "GAGP_CPU_SELECTED_MUTATION": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1",
+        "GAGP_CPU_SCALAR_VIEWS": "1",
+        "GAGP_CPU_COUNTED_PAIRS": "1",
+        "GAGP_CPU_COORDINATE_DRIVER": "1",
+        "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+        "GAGP_GPU_INPLACE_MUTATION": "1",
+        "GAGP_OWNED_PHASE_PACKED": "1",
+        "GAGP_CPU_ALL_FIT_PAIRS": "1",
+        "GAGP_GPU_FUSED_DONOR_SITES": "1",
+        "GAGP_CPU_FUSED_ADMISSION": "1",
+        "GAGP_CPU_COMPACT_ADMISSION": "1",
+        "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+        "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+        "GAGP_PREPARED_CASE_VIEWS": "1",
+        "GAGP_GPU_FUSED_SPLICE_DEPTH": "1"
+      },
+      "raw_ms": [
+        902.844986,
+        908.60228,
+        896.294716
+      ],
+      "median_ms": 902.844986,
+      "range_ms": [
+        896.294716,
+        908.60228
+      ],
+      "search_ratio": 6.496037840320907,
+      "validation": [
+        {
+          "tag": "median.gpu_overlap.s2.r0",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "31bbe3383c7b7d07e2a0c4385164bf3deed70ec683af97328c51f4eeab8c0464"
+          }
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r1",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "866015966dde19fe3ec8a0dd6c557b70f4bd780c4428d62e8237b750c6998ac0"
+          }
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r2",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "b539e9112e10bd090437b45f4ad8c403d92465343dc767ef7c01fec8acb3f0bd"
+          }
+        }
+      ],
+      "stage_medians_ms": {
+        "eval_ms": 246.63090500000004,
+        "eval_kernel_ms": 157.529084,
+        "repro_ms": 393.5161359999999,
+        "repro_kernel_ms": 289.85071990359575,
+        "pack_ms": 26.456915,
+        "upload_ms": 46.69925700000001
+      }
+    },
+    {
+      "variant": "copy",
+      "task": "house_robber",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/copy/manifest.json",
+      "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+      "flags": {
+        "GAGP_VIEW_PROFILE": "1",
+        "GAGP_TYPED_VIEW_PHASE": "1",
+        "GAGP_SORT_CASES": "1",
+        "GAGP_COMPACT_FRAMES": "1",
+        "GAGP_CONSTANT_PHASE": "1",
+        "GAGP_POPULATION_HANDOFF": "1",
+        "GAGP_DIRECT_PHASE": "1",
+        "GAGP_DIRECT_ROOT": "1",
+        "GAGP_WINDOW_EXECUTOR": "1",
+        "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+        "GAGP_BOUND_ADD_PHASE": "1",
+        "GAGP_REUSE_ADMISSION_COMPILE": "1",
+        "GAGP_REUSE_SITE_CONTRACTS": "1",
+        "GAGP_SELECTED_SITES": "1",
+        "GAGP_OWNED_PREPARATION": "1",
+        "GAGP_CUDA_DEVICE": "0",
+        "GAGP_HOST_THREADS": "1",
+        "GAGP_SINGLE_EVAL_IDENTITY": "1",
+        "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+        "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+        "MALLOC_CONF": "background_thread:false,narenas:1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GAGP_GPU_PHASE_POPULATION": "1",
+        "GAGP_OWNED_PHASE_PACK": "1",
+        "GAGP_OWNED_PHASE_CAPS": "1",
+        "GAGP_COORDINATE_EXECUTOR": "1",
+        "GAGP_COUNTED_SITE_DRAW": "1",
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_GPU_DIAGNOSTICS": "1",
+        "GAGP_SEARCH_TRACE": "1",
+        "GAGP_BATCH_PHASE_IMPORT": "1",
+        "GAGP_BATCH_PHASE_EXPORT": "1",
+        "GAGP_REUSE_PHASE_GRAMMAR": "1",
+        "GAGP_PHASE_CAP_BUCKETS": "1",
+        "GAGP_PHASE_REPRO_THREADS": "1",
+        "GAGP_GPU_STATIC_WEIGHTS": "1",
+        "GAGP_BUCKET_WORKSPACE": "1",
+        "GAGP_BOUND_COMPARE_PHASE": "1",
+        "GAGP_COORDINATE_RING_MEMO": "1",
+        "GAGP_CPU_LAZY_ANALYSIS": "1",
+        "GAGP_CPU_SELECTED_PARENTS": "1",
+        "GAGP_CPU_SELECTED_MUTATION": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1",
+        "GAGP_CPU_SCALAR_VIEWS": "1",
+        "GAGP_CPU_COUNTED_PAIRS": "1",
+        "GAGP_CPU_COORDINATE_DRIVER": "1",
+        "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+        "GAGP_GPU_INPLACE_MUTATION": "1",
+        "GAGP_OWNED_PHASE_PACKED": "1",
+        "GAGP_CPU_ALL_FIT_PAIRS": "1",
+        "GAGP_GPU_FUSED_DONOR_SITES": "1",
+        "GAGP_CPU_FUSED_ADMISSION": "1",
+        "GAGP_CPU_COMPACT_ADMISSION": "1",
+        "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+        "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+        "GAGP_PREPARED_CASE_VIEWS": "1",
+        "GAGP_GPU_DEFERRED_CROSSOVER_COPY": "1"
+      },
+      "raw_ms": [
+        1057.481759,
+        1060.337394,
+        1062.465334
+      ],
+      "median_ms": 1060.337394,
+      "range_ms": [
+        1057.481759,
+        1062.465334
+      ],
+      "search_ratio": 26.111847400337936,
+      "validation": [
+        {
+          "tag": "house_robber.gpu_overlap.s0.r0",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "e1e7a79522b911bc628925c095a1dcd9f76ced3b4cc4bae483dc00a88be6b2d1"
+          }
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r1",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "eacc9ab259fab944ee130061ad5a0cc8c8aba0f5218f94f30ad475deb1723c47"
+          }
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r2",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "07dab77ee1fcd9b0f5ce042bc88236f21e41f27cd5012a9a3a54155cbca01567"
+          }
+        }
+      ],
+      "stage_medians_ms": {
+        "eval_ms": 630.311695,
+        "eval_kernel_ms": 573.4294359999999,
+        "repro_ms": 142.68723599999998,
+        "repro_kernel_ms": 101.1637761797756,
+        "pack_ms": 16.328449999999993,
+        "upload_ms": 28.966389999999993
+      }
+    },
+    {
+      "variant": "copy",
+      "task": "median",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/copy/manifest.json",
+      "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+      "flags": {
+        "GAGP_VIEW_PROFILE": "1",
+        "GAGP_TYPED_VIEW_PHASE": "1",
+        "GAGP_SORT_CASES": "1",
+        "GAGP_COMPACT_FRAMES": "1",
+        "GAGP_CONSTANT_PHASE": "1",
+        "GAGP_POPULATION_HANDOFF": "1",
+        "GAGP_DIRECT_PHASE": "1",
+        "GAGP_DIRECT_ROOT": "1",
+        "GAGP_WINDOW_EXECUTOR": "1",
+        "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+        "GAGP_BOUND_ADD_PHASE": "1",
+        "GAGP_REUSE_ADMISSION_COMPILE": "1",
+        "GAGP_REUSE_SITE_CONTRACTS": "1",
+        "GAGP_SELECTED_SITES": "1",
+        "GAGP_OWNED_PREPARATION": "1",
+        "GAGP_CUDA_DEVICE": "0",
+        "GAGP_HOST_THREADS": "1",
+        "GAGP_SINGLE_EVAL_IDENTITY": "1",
+        "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+        "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+        "MALLOC_CONF": "background_thread:false,narenas:1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GAGP_GPU_PHASE_POPULATION": "1",
+        "GAGP_OWNED_PHASE_PACK": "1",
+        "GAGP_OWNED_PHASE_CAPS": "1",
+        "GAGP_COORDINATE_EXECUTOR": "1",
+        "GAGP_COUNTED_SITE_DRAW": "1",
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_GPU_DIAGNOSTICS": "1",
+        "GAGP_SEARCH_TRACE": "1",
+        "GAGP_BATCH_PHASE_IMPORT": "1",
+        "GAGP_BATCH_PHASE_EXPORT": "1",
+        "GAGP_REUSE_PHASE_GRAMMAR": "1",
+        "GAGP_PHASE_CAP_BUCKETS": "1",
+        "GAGP_PHASE_REPRO_THREADS": "1",
+        "GAGP_GPU_STATIC_WEIGHTS": "1",
+        "GAGP_BUCKET_WORKSPACE": "1",
+        "GAGP_BOUND_COMPARE_PHASE": "1",
+        "GAGP_COORDINATE_RING_MEMO": "1",
+        "GAGP_CPU_LAZY_ANALYSIS": "1",
+        "GAGP_CPU_SELECTED_PARENTS": "1",
+        "GAGP_CPU_SELECTED_MUTATION": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1",
+        "GAGP_CPU_SCALAR_VIEWS": "1",
+        "GAGP_CPU_COUNTED_PAIRS": "1",
+        "GAGP_CPU_COORDINATE_DRIVER": "1",
+        "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+        "GAGP_GPU_INPLACE_MUTATION": "1",
+        "GAGP_OWNED_PHASE_PACKED": "1",
+        "GAGP_CPU_ALL_FIT_PAIRS": "1",
+        "GAGP_GPU_FUSED_DONOR_SITES": "1",
+        "GAGP_CPU_FUSED_ADMISSION": "1",
+        "GAGP_CPU_COMPACT_ADMISSION": "1",
+        "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+        "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+        "GAGP_PREPARED_CASE_VIEWS": "1",
+        "GAGP_GPU_DEFERRED_CROSSOVER_COPY": "1"
+      },
+      "raw_ms": [
+        904.671078,
+        895.836391,
+        904.144246
+      ],
+      "median_ms": 904.144246,
+      "range_ms": [
+        895.836391,
+        904.671078
+      ],
+      "search_ratio": 6.486703000043203,
+      "validation": [
+        {
+          "tag": "median.gpu_overlap.s2.r0",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "66ed847b1c31b2342f9a4f73f72a44172bc6b98b1bf3f850342807ecbc741a06"
+          }
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r1",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "0aea409a83d9c3f143dd6e91266cabf9c6504d55cfa8ca366e6e7e9462bc3b70"
+          }
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r2",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "40f3f688bd1f635bbafa93b52f216637ee5ce634e58dbdfed839ebf51a193709"
+          }
+        }
+      ],
+      "stage_medians_ms": {
+        "eval_ms": 246.35809400000005,
+        "eval_kernel_ms": 157.97028700000004,
+        "repro_ms": 395.29377300000004,
+        "repro_kernel_ms": 291.85526300407946,
+        "pack_ms": 25.018651999999992,
+        "upload_ms": 47.335574
+      }
+    },
+    {
+      "variant": "live",
+      "task": "house_robber",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/live/manifest.json",
+      "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+      "flags": {
+        "GAGP_VIEW_PROFILE": "1",
+        "GAGP_TYPED_VIEW_PHASE": "1",
+        "GAGP_SORT_CASES": "1",
+        "GAGP_COMPACT_FRAMES": "1",
+        "GAGP_CONSTANT_PHASE": "1",
+        "GAGP_POPULATION_HANDOFF": "1",
+        "GAGP_DIRECT_PHASE": "1",
+        "GAGP_DIRECT_ROOT": "1",
+        "GAGP_WINDOW_EXECUTOR": "1",
+        "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+        "GAGP_BOUND_ADD_PHASE": "1",
+        "GAGP_REUSE_ADMISSION_COMPILE": "1",
+        "GAGP_REUSE_SITE_CONTRACTS": "1",
+        "GAGP_SELECTED_SITES": "1",
+        "GAGP_OWNED_PREPARATION": "1",
+        "GAGP_CUDA_DEVICE": "0",
+        "GAGP_HOST_THREADS": "1",
+        "GAGP_SINGLE_EVAL_IDENTITY": "1",
+        "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+        "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+        "MALLOC_CONF": "background_thread:false,narenas:1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GAGP_GPU_PHASE_POPULATION": "1",
+        "GAGP_OWNED_PHASE_PACK": "1",
+        "GAGP_OWNED_PHASE_CAPS": "1",
+        "GAGP_COORDINATE_EXECUTOR": "1",
+        "GAGP_COUNTED_SITE_DRAW": "1",
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_GPU_DIAGNOSTICS": "1",
+        "GAGP_SEARCH_TRACE": "1",
+        "GAGP_BATCH_PHASE_IMPORT": "1",
+        "GAGP_BATCH_PHASE_EXPORT": "1",
+        "GAGP_REUSE_PHASE_GRAMMAR": "1",
+        "GAGP_PHASE_CAP_BUCKETS": "1",
+        "GAGP_PHASE_REPRO_THREADS": "1",
+        "GAGP_GPU_STATIC_WEIGHTS": "1",
+        "GAGP_BUCKET_WORKSPACE": "1",
+        "GAGP_BOUND_COMPARE_PHASE": "1",
+        "GAGP_COORDINATE_RING_MEMO": "1",
+        "GAGP_CPU_LAZY_ANALYSIS": "1",
+        "GAGP_CPU_SELECTED_PARENTS": "1",
+        "GAGP_CPU_SELECTED_MUTATION": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1",
+        "GAGP_CPU_SCALAR_VIEWS": "1",
+        "GAGP_CPU_COUNTED_PAIRS": "1",
+        "GAGP_CPU_COORDINATE_DRIVER": "1",
+        "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+        "GAGP_GPU_INPLACE_MUTATION": "1",
+        "GAGP_OWNED_PHASE_PACKED": "1",
+        "GAGP_CPU_ALL_FIT_PAIRS": "1",
+        "GAGP_GPU_FUSED_DONOR_SITES": "1",
+        "GAGP_CPU_FUSED_ADMISSION": "1",
+        "GAGP_CPU_COMPACT_ADMISSION": "1",
+        "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+        "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+        "GAGP_PREPARED_CASE_VIEWS": "1",
+        "GAGP_LIVE_RING_WORKSPACE": "1"
+      },
+      "raw_ms": [
+        1154.310814,
+        1164.583711,
+        1156.533184
+      ],
+      "median_ms": 1156.533184,
+      "range_ms": [
+        1154.310814,
+        1164.583711
+      ],
+      "search_ratio": 23.939968699592455,
+      "validation": [
+        {
+          "tag": "house_robber.gpu_overlap.s0.r0",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "5a7b26e37a8cca40af5e2be1d8e1048810b8372496df57e3f87f87b298d1c804"
+          }
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r1",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "1af19920c4aa8bcf9faeb9ec451d39ed4e32eb29a216158b35175ad23f5661da"
+          }
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r2",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "b161982e0e857ead38f0754d9ff81831fc78a40767402f9c2cb019e51cb54733"
+          }
+        }
+      ],
+      "stage_medians_ms": {
+        "eval_ms": 717.6684980000001,
+        "eval_kernel_ms": 581.901608,
+        "repro_ms": 145.284695,
+        "repro_kernel_ms": 103.82483174558729,
+        "pack_ms": 16.520930999999997,
+        "upload_ms": 107.359205
+      }
+    },
+    {
+      "variant": "live",
+      "task": "median",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/live/manifest.json",
+      "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+      "flags": {
+        "GAGP_VIEW_PROFILE": "1",
+        "GAGP_TYPED_VIEW_PHASE": "1",
+        "GAGP_SORT_CASES": "1",
+        "GAGP_COMPACT_FRAMES": "1",
+        "GAGP_CONSTANT_PHASE": "1",
+        "GAGP_POPULATION_HANDOFF": "1",
+        "GAGP_DIRECT_PHASE": "1",
+        "GAGP_DIRECT_ROOT": "1",
+        "GAGP_WINDOW_EXECUTOR": "1",
+        "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+        "GAGP_BOUND_ADD_PHASE": "1",
+        "GAGP_REUSE_ADMISSION_COMPILE": "1",
+        "GAGP_REUSE_SITE_CONTRACTS": "1",
+        "GAGP_SELECTED_SITES": "1",
+        "GAGP_OWNED_PREPARATION": "1",
+        "GAGP_CUDA_DEVICE": "0",
+        "GAGP_HOST_THREADS": "1",
+        "GAGP_SINGLE_EVAL_IDENTITY": "1",
+        "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+        "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+        "MALLOC_CONF": "background_thread:false,narenas:1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GAGP_GPU_PHASE_POPULATION": "1",
+        "GAGP_OWNED_PHASE_PACK": "1",
+        "GAGP_OWNED_PHASE_CAPS": "1",
+        "GAGP_COORDINATE_EXECUTOR": "1",
+        "GAGP_COUNTED_SITE_DRAW": "1",
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_GPU_DIAGNOSTICS": "1",
+        "GAGP_SEARCH_TRACE": "1",
+        "GAGP_BATCH_PHASE_IMPORT": "1",
+        "GAGP_BATCH_PHASE_EXPORT": "1",
+        "GAGP_REUSE_PHASE_GRAMMAR": "1",
+        "GAGP_PHASE_CAP_BUCKETS": "1",
+        "GAGP_PHASE_REPRO_THREADS": "1",
+        "GAGP_GPU_STATIC_WEIGHTS": "1",
+        "GAGP_BUCKET_WORKSPACE": "1",
+        "GAGP_BOUND_COMPARE_PHASE": "1",
+        "GAGP_COORDINATE_RING_MEMO": "1",
+        "GAGP_CPU_LAZY_ANALYSIS": "1",
+        "GAGP_CPU_SELECTED_PARENTS": "1",
+        "GAGP_CPU_SELECTED_MUTATION": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1",
+        "GAGP_CPU_SCALAR_VIEWS": "1",
+        "GAGP_CPU_COUNTED_PAIRS": "1",
+        "GAGP_CPU_COORDINATE_DRIVER": "1",
+        "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+        "GAGP_GPU_INPLACE_MUTATION": "1",
+        "GAGP_OWNED_PHASE_PACKED": "1",
+        "GAGP_CPU_ALL_FIT_PAIRS": "1",
+        "GAGP_GPU_FUSED_DONOR_SITES": "1",
+        "GAGP_CPU_FUSED_ADMISSION": "1",
+        "GAGP_CPU_COMPACT_ADMISSION": "1",
+        "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+        "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+        "GAGP_PREPARED_CASE_VIEWS": "1",
+        "GAGP_LIVE_RING_WORKSPACE": "1"
+      },
+      "raw_ms": [
+        918.349332,
+        912.635163,
+        913.490835
+      ],
+      "median_ms": 913.490835,
+      "range_ms": [
+        912.635163,
+        918.349332
+      ],
+      "search_ratio": 6.420332824685647,
+      "validation": [
+        {
+          "tag": "median.gpu_overlap.s2.r0",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "a27975ab5e0deb9e9a608c6593eee0ee4e85bdc8efaf9e28f214a90911cf7e99"
+          }
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r1",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "705ea3e842c95d61ccc1db126d1ff19c3f3bafceaa8c85d4603f7cadf559740c"
+          }
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r2",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "52234a83228ccf605add27cb0a961964e0df6e36f85eb3153a8c0eab02dcae79"
+          }
+        }
+      ],
+      "stage_medians_ms": {
+        "eval_ms": 247.544771,
+        "eval_kernel_ms": 157.79667799999999,
+        "repro_ms": 404.80601900000005,
+        "repro_kernel_ms": 300.85801620129496,
+        "pack_ms": 26.657545,
+        "upload_ms": 47.12035200000001
+      }
+    },
+    {
+      "variant": "all",
+      "task": "house_robber",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/all/manifest.json",
+      "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+      "flags": {
+        "GAGP_VIEW_PROFILE": "1",
+        "GAGP_TYPED_VIEW_PHASE": "1",
+        "GAGP_SORT_CASES": "1",
+        "GAGP_COMPACT_FRAMES": "1",
+        "GAGP_CONSTANT_PHASE": "1",
+        "GAGP_POPULATION_HANDOFF": "1",
+        "GAGP_DIRECT_PHASE": "1",
+        "GAGP_DIRECT_ROOT": "1",
+        "GAGP_WINDOW_EXECUTOR": "1",
+        "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+        "GAGP_BOUND_ADD_PHASE": "1",
+        "GAGP_REUSE_ADMISSION_COMPILE": "1",
+        "GAGP_REUSE_SITE_CONTRACTS": "1",
+        "GAGP_SELECTED_SITES": "1",
+        "GAGP_OWNED_PREPARATION": "1",
+        "GAGP_CUDA_DEVICE": "0",
+        "GAGP_HOST_THREADS": "1",
+        "GAGP_SINGLE_EVAL_IDENTITY": "1",
+        "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+        "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+        "MALLOC_CONF": "background_thread:false,narenas:1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GAGP_GPU_PHASE_POPULATION": "1",
+        "GAGP_OWNED_PHASE_PACK": "1",
+        "GAGP_OWNED_PHASE_CAPS": "1",
+        "GAGP_COORDINATE_EXECUTOR": "1",
+        "GAGP_COUNTED_SITE_DRAW": "1",
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_GPU_DIAGNOSTICS": "1",
+        "GAGP_SEARCH_TRACE": "1",
+        "GAGP_BATCH_PHASE_IMPORT": "1",
+        "GAGP_BATCH_PHASE_EXPORT": "1",
+        "GAGP_REUSE_PHASE_GRAMMAR": "1",
+        "GAGP_PHASE_CAP_BUCKETS": "1",
+        "GAGP_PHASE_REPRO_THREADS": "1",
+        "GAGP_GPU_STATIC_WEIGHTS": "1",
+        "GAGP_BUCKET_WORKSPACE": "1",
+        "GAGP_BOUND_COMPARE_PHASE": "1",
+        "GAGP_COORDINATE_RING_MEMO": "1",
+        "GAGP_CPU_LAZY_ANALYSIS": "1",
+        "GAGP_CPU_SELECTED_PARENTS": "1",
+        "GAGP_CPU_SELECTED_MUTATION": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1",
+        "GAGP_CPU_SCALAR_VIEWS": "1",
+        "GAGP_CPU_COUNTED_PAIRS": "1",
+        "GAGP_CPU_COORDINATE_DRIVER": "1",
+        "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+        "GAGP_GPU_INPLACE_MUTATION": "1",
+        "GAGP_OWNED_PHASE_PACKED": "1",
+        "GAGP_CPU_ALL_FIT_PAIRS": "1",
+        "GAGP_GPU_FUSED_DONOR_SITES": "1",
+        "GAGP_CPU_FUSED_ADMISSION": "1",
+        "GAGP_CPU_COMPACT_ADMISSION": "1",
+        "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+        "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+        "GAGP_PREPARED_CASE_VIEWS": "1",
+        "GAGP_GPU_FUSED_SPLICE_DEPTH": "1",
+        "GAGP_GPU_DEFERRED_CROSSOVER_COPY": "1",
+        "GAGP_LIVE_RING_WORKSPACE": "1"
+      },
+      "raw_ms": [
+        1152.344779,
+        1147.17408,
+        1155.656433
+      ],
+      "median_ms": 1152.344779,
+      "range_ms": [
+        1147.17408,
+        1155.656433
+      ],
+      "search_ratio": 24.02698283496974,
+      "validation": [
+        {
+          "tag": "house_robber.gpu_overlap.s0.r0",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "ab744d7d716b44e9af42522ca949fb19bcd5b9c77b455c02a7482c49a3e44fa2"
+          }
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r1",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "d83e690d69dbfb3f6c975d24ea59bd7977d3b50299bcd20223688089863106a9"
+          }
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r2",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "933e68fbba874cddb1b2302d6e36bc3dc81cf0919e2d5fb9b12b70a47fd7f211",
+            "history": "075b9793e6fe692620ee0be279ebffcd1dbc67710575c03af8ee129588709fb5"
+          }
+        }
+      ],
+      "stage_medians_ms": {
+        "eval_ms": 718.380561,
+        "eval_kernel_ms": 582.4711900000001,
+        "repro_ms": 139.673092,
+        "repro_kernel_ms": 97.0851842481643,
+        "pack_ms": 16.779304000000003,
+        "upload_ms": 107.89045900000002
+      }
+    },
+    {
+      "variant": "all",
+      "task": "median",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/all/manifest.json",
+      "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+      "flags": {
+        "GAGP_VIEW_PROFILE": "1",
+        "GAGP_TYPED_VIEW_PHASE": "1",
+        "GAGP_SORT_CASES": "1",
+        "GAGP_COMPACT_FRAMES": "1",
+        "GAGP_CONSTANT_PHASE": "1",
+        "GAGP_POPULATION_HANDOFF": "1",
+        "GAGP_DIRECT_PHASE": "1",
+        "GAGP_DIRECT_ROOT": "1",
+        "GAGP_WINDOW_EXECUTOR": "1",
+        "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+        "GAGP_BOUND_ADD_PHASE": "1",
+        "GAGP_REUSE_ADMISSION_COMPILE": "1",
+        "GAGP_REUSE_SITE_CONTRACTS": "1",
+        "GAGP_SELECTED_SITES": "1",
+        "GAGP_OWNED_PREPARATION": "1",
+        "GAGP_CUDA_DEVICE": "0",
+        "GAGP_HOST_THREADS": "1",
+        "GAGP_SINGLE_EVAL_IDENTITY": "1",
+        "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+        "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+        "MALLOC_CONF": "background_thread:false,narenas:1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GAGP_GPU_PHASE_POPULATION": "1",
+        "GAGP_OWNED_PHASE_PACK": "1",
+        "GAGP_OWNED_PHASE_CAPS": "1",
+        "GAGP_COORDINATE_EXECUTOR": "1",
+        "GAGP_COUNTED_SITE_DRAW": "1",
+        "GAGP_CPU_REGION_VIEWS": "1",
+        "GAGP_GPU_DIAGNOSTICS": "1",
+        "GAGP_SEARCH_TRACE": "1",
+        "GAGP_BATCH_PHASE_IMPORT": "1",
+        "GAGP_BATCH_PHASE_EXPORT": "1",
+        "GAGP_REUSE_PHASE_GRAMMAR": "1",
+        "GAGP_PHASE_CAP_BUCKETS": "1",
+        "GAGP_PHASE_REPRO_THREADS": "1",
+        "GAGP_GPU_STATIC_WEIGHTS": "1",
+        "GAGP_BUCKET_WORKSPACE": "1",
+        "GAGP_BOUND_COMPARE_PHASE": "1",
+        "GAGP_COORDINATE_RING_MEMO": "1",
+        "GAGP_CPU_LAZY_ANALYSIS": "1",
+        "GAGP_CPU_SELECTED_PARENTS": "1",
+        "GAGP_CPU_SELECTED_MUTATION": "1",
+        "GAGP_CPU_BOUND_PHASE": "1",
+        "GAGP_CPU_COORDINATE_VIEWS": "1",
+        "GAGP_CPU_TYPED_PHASE": "1",
+        "GAGP_CPU_DENSE_MEMO": "1",
+        "GAGP_CPU_SCALAR_VIEWS": "1",
+        "GAGP_CPU_COUNTED_PAIRS": "1",
+        "GAGP_CPU_COORDINATE_DRIVER": "1",
+        "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+        "GAGP_GPU_INPLACE_MUTATION": "1",
+        "GAGP_OWNED_PHASE_PACKED": "1",
+        "GAGP_CPU_ALL_FIT_PAIRS": "1",
+        "GAGP_GPU_FUSED_DONOR_SITES": "1",
+        "GAGP_CPU_FUSED_ADMISSION": "1",
+        "GAGP_CPU_COMPACT_ADMISSION": "1",
+        "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+        "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+        "GAGP_PREPARED_CASE_VIEWS": "1",
+        "GAGP_GPU_FUSED_SPLICE_DEPTH": "1",
+        "GAGP_GPU_DEFERRED_CROSSOVER_COPY": "1",
+        "GAGP_LIVE_RING_WORKSPACE": "1"
+      },
+      "raw_ms": [
+        889.250264,
+        899.438202,
+        897.889857
+      ],
+      "median_ms": 897.889857,
+      "range_ms": [
+        889.250264,
+        899.438202
+      ],
+      "search_ratio": 6.531887120983481,
+      "validation": [
+        {
+          "tag": "median.gpu_overlap.s2.r0",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "535ae0f94decef3b243b5743ccd4c4611675975c1a4460099ba620c3834b9eaf"
+          }
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r1",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "11c0294669c7a230eb8d146e413f7850eef7ee120bd3b7ba02d81cf6b6514a50"
+          }
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r2",
+          "exact_semantic_trace": true,
+          "sha256": {
+            "final": "739c79db93f4a69c1d27d782edfbf661c8ca1468d25edfff2694c19994342280",
+            "history": "473f80011682e278341dc9a73156dd757da31b896d72ae250dbe778a19f23920"
+          }
+        }
+      ],
+      "stage_medians_ms": {
+        "eval_ms": 246.74315999999996,
+        "eval_kernel_ms": 157.515502,
+        "repro_ms": 383.3772949999999,
+        "repro_kernel_ms": 278.83369641099125,
+        "pack_ms": 26.633361999999998,
+        "upload_ms": 46.638013
+      }
+    }
+  ]
+}

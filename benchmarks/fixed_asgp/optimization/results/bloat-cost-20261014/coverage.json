@@ -1,0 +1,49 @@
+{
+  "limits": "Syntactic counts only, not dynamic-work/speedup bounds. No fuel, numeric, error, binding or liveness proof. Repeated-subtree references preserve logical occurrences only in a separate execution representation.",
+  "snapshots": [
+    {
+      "task": "house_robber",
+      "snapshot": "initial",
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/house_robber.p1024.prepared.json",
+      "programs": 1024,
+      "phase_nodes": 117936,
+      "phases": 4096,
+      "constant_candidate_nodes_removed": 2111,
+      "straightline_constant_candidate_nodes_removed": 186,
+      "syntactic_repeated_nodes_replaced_by_reference": 44205
+    },
+    {
+      "task": "house_robber",
+      "snapshot": "gen128_seed0",
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/long/house_robber.gpu_overlap.s0.r0.final.json",
+      "programs": 1024,
+      "phase_nodes": 760562,
+      "phases": 4096,
+      "constant_candidate_nodes_removed": 28066,
+      "straightline_constant_candidate_nodes_removed": 6,
+      "syntactic_repeated_nodes_replaced_by_reference": 298742
+    },
+    {
+      "task": "median",
+      "snapshot": "initial",
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/median.p1024.prepared.json",
+      "programs": 1024,
+      "phase_nodes": 86213,
+      "phases": 5120,
+      "constant_candidate_nodes_removed": 6424,
+      "straightline_constant_candidate_nodes_removed": 670,
+      "syntactic_repeated_nodes_replaced_by_reference": 550
+    },
+    {
+      "task": "median",
+      "snapshot": "gen128_seed0",
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/long/median.gpu_overlap.s0.r0.final.json",
+      "programs": 1024,
+      "phase_nodes": 794221,
+      "phases": 5120,
+      "constant_candidate_nodes_removed": 33502,
+      "straightline_constant_candidate_nodes_removed": 120,
+      "syntactic_repeated_nodes_replaced_by_reference": 123869
+    }
+  ]
+}
