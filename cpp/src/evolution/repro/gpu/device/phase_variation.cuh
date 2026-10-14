@@ -117,6 +117,7 @@ __device__ inline int phase_tree_depth(const PhaseTreeNode* nodes, int count) {
 // Output must not alias either immutable input. The run owner supplies distinct
 // generation buffers; this primitive never retains pointers across calls.
 // Same type alone is insufficient: nonterminal and lexical scope must agree.
+template<bool FusedDepth = false>
 __device__ inline PhaseGenerationResult splice_phase_tree(const PhaseTreeView& base,
     int destination, const PhaseTreeView& donor, int source,
     MutablePhaseTree output, int max_depth) {
@@ -135,11 +136,23 @@ __device__ inline PhaseGenerationResult splice_phase_tree(const PhaseTreeView& b
   if (end < 0 || donor_end < 0) return result;
   const int length = base.node_count - (end - destination) + donor_end - source;
   if (length > output.capacity) { result.status = PhaseCompileStatus::Capacity; return result; }
+  int pending[64], depth = 1, maximum = 1;
+  if constexpr (FusedDepth) pending[0] = 1;
   for (int i = 0; i < length; ++i) {
     const bool incoming = i >= destination && i < destination + donor_end - source;
     const auto& tree = incoming ? donor : base;
     const int index = incoming ? source + i - destination : i < destination ? i : i + (end - destination) - (donor_end - source);
     auto node = tree.nodes[index];
+    if constexpr (FusedDepth) {
+      while (depth && !pending[depth - 1]) --depth;
+      if (!depth || node.arity < 0 || node.arity > 3) return result;
+      maximum = max(maximum, depth);
+      --pending[depth - 1];
+      if (node.arity) {
+        if (depth == 64) return result;
+        pending[depth++] = node.arity;
+      }
+    }
     if (node.kind == PhaseTreeKind::Constant) {
       if (node.operand < 0 || node.operand >= tree.constant_count) return result;
       node.operand = result.constants;
@@ -150,9 +163,14 @@ __device__ inline PhaseGenerationResult splice_phase_tree(const PhaseTreeView& b
   // The replaced root belongs to the destination's grammar invocation. Descendant
   // sites retain their own identity scope contracts, never pointer-based aliases.
   output.sites[destination] = a;
-  const int depth = phase_tree_depth(output.nodes, length);
-  if (depth < 0) return result;
-  if (depth > max_depth) { result.status = PhaseCompileStatus::Capacity; return result; }
+  if constexpr (FusedDepth) {
+    while (depth && !pending[depth - 1]) --depth;
+    if (depth) return result;
+  } else {
+    maximum = phase_tree_depth(output.nodes, length);
+    if (maximum < 0) return result;
+  }
+  if (maximum > max_depth) { result.status = PhaseCompileStatus::Capacity; return result; }
   result.nodes = length; result.status = PhaseCompileStatus::Ok; return result;
 }
 } // namespace gagp::evo::repro

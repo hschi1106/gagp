@@ -129,7 +129,7 @@ __device__ Site choose_site(TreePointers trees,int program,int slots,DGrammarRan
 }
 struct OperatorStats {int parent=-1,crossover=0,crossover_rejected=0,mutation=0,changed=0,error=0;};
 __global__ void crossover_population(TreePointers input,TreePointers output,const DeviceSlot* slots,
-    int slot_count,int population,int max_variable_nodes,const double* fitness,int pressure,std::uint64_t seed,OperatorStats* stats,bool counted) {
+    int slot_count,int population,int max_variable_nodes,const double* fitness,int pressure,std::uint64_t seed,OperatorStats* stats,bool counted,bool deferred_copy,bool fused_depth) {
  const int child=blockIdx.x*blockDim.x+threadIdx.x;if(child>=population)return;
  DGrammarRandom random(seed ^ (UINT64_C(0x617089e168) + child));auto& stat=stats[child];stat={};
  const int parent=tournament(fitness,population,pressure,random),donor=tournament(fitness,population,pressure,random);stat.parent=parent;
@@ -137,7 +137,7 @@ __global__ void crossover_population(TreePointers input,TreePointers output,cons
  for(int k=0;k<slot_count;++k) {
   const int row=parent*slot_count+k;
   if(!valid(input.lengths[row])){stat.error=1;return;}
-  total+=input.lengths[row].nodes;copy_tree(input,row,output,child*slot_count+k);
+  total+=input.lengths[row].nodes;if(!deferred_copy)copy_tree(input,row,output,child*slot_count+k);
  }
  // Bounded retry changes site sampling from the legacy compatible-pair policy.
  // Each rejection is explicit; fitness candidates and full evaluation stay intact.
@@ -150,16 +150,22 @@ __global__ void crossover_population(TreePointers input,TreePointers output,cons
   if(ae<0 || be<0){stat.error=3;return;}
   if(total-(ae-destination.node)+(be-source.node)>max_variable_nodes){++stat.crossover_rejected;continue;}
   const int slot=destination.row%slot_count,target=child*slot_count+slot;
-  auto r=splice_phase_tree(a,destination.node,b,source.node,output.output(target),slots[slot].max_depth);
-  if(r.status==PhaseCompileStatus::Ok){output.lengths[target]=r;stat.crossover=1;return;}
-  // Failed bounded speculation can have partially written the output buffer.
-  // Restore the complete parent before any subsequent attempt or publication.
-  copy_tree(input,destination.row,output,target);++stat.crossover_rejected;
+  auto r=fused_depth ? splice_phase_tree<true>(a,destination.node,b,source.node,output.output(target),slots[slot].max_depth)
+      : splice_phase_tree(a,destination.node,b,source.node,output.output(target),slots[slot].max_depth);
+  if(r.status==PhaseCompileStatus::Ok){
+   output.lengths[target]=r;stat.crossover=1;
+   if(deferred_copy)for(int k=0;k<slot_count;++k)if(k!=slot)copy_tree(input,parent*slot_count+k,output,child*slot_count+k);
+   return;
+  }
+  // Failed speculation may partially write output. Eager copies restore this
+  // phase now; deferred copies restore every nonselected phase at publication.
+  if(!deferred_copy)copy_tree(input,destination.row,output,target);++stat.crossover_rejected;
  }
+ if(deferred_copy)for(int k=0;k<slot_count;++k)copy_tree(input,parent*slot_count+k,output,child*slot_count+k);
 }
 template<bool InPlace, bool Fused>
 __global__ void mutate_population(TreePointers input,TreePointers output,TreePointers scratch,const DeviceSlot* slots,
-    int slot_count,int population,int max_variable_nodes,double probability,std::uint64_t seed,OperatorStats* stats,bool counted) {
+    int slot_count,int population,int max_variable_nodes,double probability,std::uint64_t seed,OperatorStats* stats,bool counted,bool fused_depth) {
  const int child=blockIdx.x*blockDim.x+threadIdx.x;if(child>=population)return;auto& stat=stats[child];if(stat.error)return;
  int total=0;
  for(int k=0;k<slot_count;++k){const int row=child*slot_count+k;if(!valid(input.lengths[row])){stat.error=4;return;}total+=input.lengths[row].nodes;if constexpr(!InPlace)copy_tree(input,row,output,row);}
@@ -181,7 +187,8 @@ __global__ void mutate_population(TreePointers input,TreePointers output,TreePoi
  // Splicing may partially write on failure, so its destination must never
  // alias the crossed input. Each child owns a separate temporary row.
  const int target=InPlace?child:destination.row;
- auto r=splice_phase_tree(a,destination.node,scratch.view(child),0,output.output(target),slot.max_depth);
+ auto r=fused_depth ? splice_phase_tree<true>(a,destination.node,scratch.view(child),0,output.output(target),slot.max_depth)
+     : splice_phase_tree(a,destination.node,scratch.view(child),0,output.output(target),slot.max_depth);
  if(r.status!=PhaseCompileStatus::Ok){stat.error=8;return;}
  output.lengths[target]=r;
  if constexpr(InPlace)copy_tree(output,target,input,destination.row);
@@ -202,12 +209,13 @@ __global__ void compare_offspring(TreePointers parents,TreePointers children,int
  }
  stats[child].changed=!equal;
 }
+template<bool SharedNodes, bool CompactFrames = false>
 __global__ void compile_population(TreePointers trees,const DeviceSlot* slots,int slot_count,int rows,
     gpu_detail::DInstr* code,Value* constants,PhaseCompileResult* compiled) {
  const int row=blockIdx.x*blockDim.x+threadIdx.x;if(row>=rows)return;
  const auto t=trees.view(row);const auto& slot=slots[row%slot_count];
  if(!valid(trees.lengths[row])){compiled[row]={};return;}
- compiled[row]=compile_phase_tree(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.scope,slot.type,
+ compiled[row]=compile_phase_tree<SharedNodes, CompactFrames>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.scope,slot.type,
      code+std::size_t(row)*code_capacity,code_capacity,constants+std::size_t(row)*capacity,capacity);
 }
 // One block scans all live rows in tiles. The former one-thread dependent
@@ -270,6 +278,9 @@ struct NativePhasePopulation::Impl {
  std::shared_ptr<const grammar::CompiledGrammar> grammar;
  const bool counted_sites;
  const bool inplace_mutation;
+ const bool deferred_copy;
+ const bool fused_splice_depth;
+ const bool compact_compile_frames;
  const bool constructive_export;
  std::size_t peak_transport_bytes=0;
  NativePhaseLayout layout;int population=0,slot_count=0,device=-1;bool healthy=true;
@@ -338,6 +349,9 @@ struct NativePhasePopulation::Impl {
  }
  explicit Impl(std::shared_ptr<const grammar::CompiledGrammar> g):grammar(std::move(g)),counted_sites(std::getenv("GAGP_COUNTED_SITE_DRAW")!=nullptr),
      inplace_mutation(std::getenv("GAGP_GPU_INPLACE_MUTATION")!=nullptr),
+     deferred_copy(std::getenv("GAGP_GPU_DEFERRED_CROSSOVER_COPY")!=nullptr),
+     fused_splice_depth(std::getenv("GAGP_GPU_FUSED_SPLICE_DEPTH")!=nullptr),
+     compact_compile_frames(std::getenv("GAGP_GPU_COMPACT_COMPILE_FRAMES")!=nullptr),
      constructive_export(std::getenv("GAGP_GPU_CONSTRUCTIVE_EXPORT")!=nullptr){}
  // Only this live owner can publish construction-derived members. Cold import
  // admits the fixed skeleton and all initial phases. GPU generation samples the
@@ -360,7 +374,9 @@ struct NativePhasePopulation::Impl {
  }
  void refresh_programs(ReproductionStats* timing) {
   const int rows=population*slot_count;checked(cudaEventRecord(start));
-  compile_population<<<(rows+63)/64,64>>>(pointers(*current),slots.data,slot_count,rows,code.data,constants.data,compiled.data);checked(cudaGetLastError());
+  if(compact_compile_frames)compile_population<true,true><<<(rows+63)/64,64>>>(pointers(*current),slots.data,slot_count,rows,code.data,constants.data,compiled.data);
+  else compile_population<false><<<(rows+63)/64,64>>>(pointers(*current),slots.data,slot_count,rows,code.data,constants.data,compiled.data);
+  checked(cudaGetLastError());
   offsets_kernel<<<1,256>>>(compiled.data,rows,code_offsets.data,constant_offsets.data);checked(cudaGetLastError());
   checked(cudaEventRecord(stop));checked(cudaEventSynchronize(stop));float ms;checked(cudaEventElapsedTime(&ms,start,stop));
   if(timing)timing->kernel_ms+=ms;
@@ -535,18 +551,18 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
  const int p=impl_->population,k=impl_->slot_count,available=impl_->layout.budget.max_nodes-impl_->layout.fixed_nodes;
  checked(cudaEventRecord(impl_->start));
  crossover_population<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->current),pointers(*impl_->crossed),impl_->slots.data,k,p,available,
-    impl_->fitness.data,pressure,seed,impl_->stats.data,counted);checked(cudaGetLastError());
+    impl_->fitness.data,pressure,seed,impl_->stats.data,counted,impl_->deferred_copy,impl_->fused_splice_depth);checked(cudaGetLastError());
  const bool fused=std::getenv("GAGP_GPU_FUSED_DONOR_SITES")!=nullptr;
  if(impl_->inplace_mutation) {
   if(fused)mutate_population<true,true><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
-      probability,seed,impl_->stats.data,counted);
+      probability,seed,impl_->stats.data,counted,impl_->fused_splice_depth);
   else mutate_population<true,false><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
-      probability,seed,impl_->stats.data,counted);
+      probability,seed,impl_->stats.data,counted,impl_->fused_splice_depth);
  } else {
   if(fused)mutate_population<false,true><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
-      probability,seed,impl_->stats.data,counted);
+      probability,seed,impl_->stats.data,counted,impl_->fused_splice_depth);
   else mutate_population<false,false><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
-      probability,seed,impl_->stats.data,counted);
+      probability,seed,impl_->stats.data,counted,impl_->fused_splice_depth);
  }
  checked(cudaGetLastError());
  auto& offspring=impl_->inplace_mutation?impl_->crossed:impl_->next;

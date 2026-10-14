@@ -47,6 +47,37 @@ void check_inplace_mutation(const std::shared_ptr<const grammar::CompiledGrammar
  }
 }
 
+void check_splice_policy(const char* flag, const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
+    const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
+    FitnessSessionGpu& session) {
+ const char* setting=std::getenv(flag);
+ const bool enabled=setting!=nullptr;const std::string saved=setting?setting:"";
+ unsetenv(flag);repro::NativePhasePopulation reference(grammar,parents,names);
+ setenv(flag,"1",1);repro::NativePhasePopulation candidate(grammar,parents,names);
+ if(enabled)setenv(flag,saved.c_str(),1);else unsetenv(flag);
+ require(candidate.device_bytes()<=reference.device_bytes(),"splice policy increased persistent capacity");
+ for(int generation=0;generation<=32;++generation) {
+  const auto before=reference.evaluate(session,true),after=candidate.evaluate(session,true);
+  require(before.ok && after.ok && before.fitness==after.fitness && before.case_counts==after.case_counts,
+      "splice policy changed full-case evaluation");
+  const auto a=reference.export_population(),b=candidate.export_population();
+  require(a.size()==b.size(),"splice policy lost an offspring");
+  for(std::size_t i=0;i<a.size();++i)
+   require(ast_cache_key(a[i].ast)==ast_cache_key(b[i].ast),"splice policy changed exact genotype");
+  if(generation==32)break;
+  const double probability=generation%3==0?0:generation%3==1?.3:1;
+  const auto x=reference.reproduce(before.fitness,2,probability,UINT64_C(0x16653)+generation);
+  const auto y=candidate.reproduce(after.fitness,2,probability,UINT64_C(0x16653)+generation);
+  require(x.variation.crossover_attempts==y.variation.crossover_attempts &&
+      x.variation.mutation_attempts==y.variation.mutation_attempts &&
+      x.variation.contract_rejections==y.variation.contract_rejections &&
+      x.variation.changed_children==y.variation.changed_children &&
+      x.variation.unchanged_children==y.variation.unchanged_children &&
+      x.variation.fallback_children==y.variation.fallback_children,
+      "splice policy changed operator accounting");
+ }
+}
+
 void check_constructive_export(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
     const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
     FitnessSessionGpu& session) {
@@ -159,6 +190,9 @@ int main(){try {
  unsetenv("GAGP_GPU_PHASE_POPULATION");unsetenv("GAGP_GPU_DIAGNOSTICS");
  FitnessSessionGpu session;require(session.init(cases,answers,10000,512,1000).ok,"GPU session init");
  check_inplace_mutation(grammar,parents,names,session);
+ check_splice_policy("GAGP_GPU_DEFERRED_CROSSOVER_COPY",grammar,parents,names,session);
+ check_splice_policy("GAGP_GPU_FUSED_SPLICE_DEPTH",grammar,parents,names,session);
+ check_splice_policy("GAGP_GPU_COMPACT_COMPILE_FRAMES",grammar,parents,names,session);
  check_constructive_export(grammar,parents,names,session);
  repro::NativePhasePopulation owner(grammar,parents,names);
  {

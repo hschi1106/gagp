@@ -1,6 +1,7 @@
 #pragma once
 #include "gagp/runtime/gpu/device_types_gpu.hpp"
 #include "gagp/core/builtin.hpp"
+#include <type_traits>
 
 namespace gagp::evo::repro {
 // Lowering prototype only: this proves bounded, typed phase bytecode. It does
@@ -83,17 +84,35 @@ __device__ inline ValueTag operation_type(const PhaseTreeNode& node, const Value
 // One thread per phase. All cursors/output writes are capacity checked; depth is
 // bounded independently of input metadata. Invalid/unsupported output is never
 // executable. No device allocation, recursive C++ call, or run-time JIT occurs.
+template<bool SharedNodes = false, bool CompactFrames = false>
 __device__ inline PhaseCompileResult compile_phase_tree(
     const PhaseTreeNode* nodes, int node_count,
     const Value* constants, int constant_count,
     const ValueTag* local_types, int local_count, ValueTag expected,
     gpu_detail::DInstr* code, int code_capacity, Value* output_constants, int constant_capacity) {
   using namespace phase_compile_detail;
+  static_assert(!CompactFrames || SharedNodes, "compact frames use immutable node indices");
+  if constexpr (CompactFrames) {
+    // The generic helper accepts larger code buffers. Preserve that contract
+    // instead of narrowing it to the native owner's bounded compact indices.
+    if (node_count > 4096 || code_capacity > 32767)
+      return compile_phase_tree<SharedNodes, false>(nodes,node_count,constants,constant_count,
+          local_types,local_count,expected,code,code_capacity,output_constants,constant_capacity);
+  }
   Output out{code,output_constants,code_capacity,constant_capacity,{}};
   if (!nodes || !code || !output_constants || node_count<=0 || node_count>4096 ||
       constant_count<0 || (constant_count && !constants) || local_count<0 || local_count>64 ||
       (local_count && !local_types) || code_capacity<=0 || constant_capacity<=0) return out.result;
-  struct Frame { PhaseTreeNode node; int seen, base_stack, first_jump, second_jump; ValueTag args[3]; };
+  struct CopiedNode { PhaseTreeNode node; };
+  // Source nodes remain immutable for this lowering invocation. Compact frames
+  // retain their indices, not copied nodes. At most4096 consumed source nodes
+  // bound the stack values; signed jump fields retain the -1 unset sentinel.
+  using FrameIndex = typename std::conditional<CompactFrames, std::int16_t, int>::type;
+  using ChildCount = typename std::conditional<CompactFrames, std::uint8_t, int>::type;
+  struct SharedNode { FrameIndex index; };
+  using StoredNode = typename std::conditional<SharedNodes, SharedNode, CopiedNode>::type;
+  struct Frame { StoredNode source; FrameIndex base_stack, first_jump, second_jump; ValueTag args[3]; ChildCount seen; };
+  static_assert(!CompactFrames || sizeof(Frame)==12, "compact lowering frame layout");
   Frame frames[64]; int depth=0, cursor=0;
   ValueTag completed=ValueTag::Invalid;
   bool have_value=false;
@@ -121,7 +140,10 @@ __device__ inline PhaseCompileResult compile_phase_tree(
         else if (node.kind==PhaseTreeKind::And || node.kind==PhaseTreeKind::Or) { if (node.arity!=2) return out.result; }
         else if (node.kind!=PhaseTreeKind::Operation) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
         if (depth==64) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
-        frames[depth++]={node,0,out.stack,-1,-1,{}};
+        StoredNode source;
+        if constexpr (SharedNodes) source.index=cursor-1;
+        else source.node=node;
+        frames[depth++]={source,static_cast<FrameIndex>(out.stack),-1,-1,{},0};
         continue;
       }
     }
@@ -133,7 +155,10 @@ __device__ inline PhaseCompileResult compile_phase_tree(
       return out.result;
     }
     auto& frame=frames[depth-1];
-    const auto& node=frame.node;
+    const auto node=[&]() {
+      if constexpr (SharedNodes) return nodes[frame.source.index];
+      else return frame.source.node;
+    }();
     frame.args[frame.seen++]=completed;
     const bool branch=node.kind==PhaseTreeKind::If || node.kind==PhaseTreeKind::And || node.kind==PhaseTreeKind::Or;
     if (branch && frame.seen==1) {

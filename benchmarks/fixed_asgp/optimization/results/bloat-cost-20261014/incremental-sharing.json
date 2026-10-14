@@ -1,0 +1,1175 @@
+{
+  "status": "Three minimal native opt-ins proposed for root final integrated validation; not a claim of reaching House30x",
+  "directions": {
+    "incremental": {
+      "implemented": "Fuse output structural-depth metadata construction into the mandatory splice loop",
+      "flag": "GAGP_GPU_FUSED_SPLICE_DEPTH",
+      "not_implemented": "No subtree incremental bytecode cache, branch/constant relocation cache, or dirty propagation framework",
+      "prior_rejection": "Prior selected-parent slot provenance reuse already avoided hashes and brought <1% full-search gain; not replayed"
+    },
+    "sharing": {
+      "implemented": "Defer parent phase copying until crossover publication; skip copy-before-overwrite of successfully replaced phase and copies restoring rejected attempts",
+      "flag": "GAGP_GPU_DEFERRED_CROSSOVER_COPY",
+      "lifetime": "Immutable parent borrowed only during one crossover kernel; every published output remains independently materialized",
+      "not_implemented": "No cross-generation DAG, no physical site aliasing, no changed logical genotype",
+      "copy_traffic": "Each avoided selected-parent phase copy saves reads and writes of44bytes per node plus16bytes per constant; actual selected-phase aggregate bytes were not instrumented"
+    },
+    "lowering_workspace": {
+      "implemented": "Borrow immutable source nodes by index and use12-byte lowering frames, with ordinary-width fallback beyond signed16-bit code-capacity proof",
+      "flag": "GAGP_GPU_COMPACT_COMPILE_FRAMES",
+      "reference_frame_stack_bytes": 2816,
+      "intermediate_index_stack_bytes": 1536,
+      "retained_compact_stack_bytes": 768,
+      "registers_each": 40,
+      "spill_load_and_store_bytes_each": 0,
+      "not_incremental": "Every source node is still lowered and checked",
+      "source_change_attribution": "Node access changes from stored reference to a local value even in the copied-node reference specialization. Standalone index-flag deltas do not measure the whole source change."
+    }
+  },
+  "removed_runtime_flags": [
+    "GAGP_GPU_SHARED_COMPILE_NODES"
+  ],
+  "validation": {
+    "root_first_stage": "Root reports original depth/copy affected3tests passed",
+    "index_stage": "2focused CUDA compiler/owner tests passed;32-generation exact AST/fitness/operator replay",
+    "compact_stage": "2focused CUDA compiler/owner tests passed including32768codecapacity fallback and all3compiler variants",
+    "final_assertions": "Independent bytecode-verifier max_stack_depth and result-type certificate assertions added after those runs; root final rebuild/test required",
+    "all_case_contract": "All measured search generations contain1024programs x1024cases with no unscored cases; exact per-generation semantic/operator/error traces and final/history ASTs compared",
+    "history_comparison": "elapsed_search_ms excluded; all other history fields and final AST JSON exact"
+  },
+  "experiments": {
+    "incremental-stage2": {
+      "contract": "CPU1T; native GPU reproduction; all1024x1024cases; cold init, final eval/export included in search; process wall separate; no RNG/operator/grammar/fuel change",
+      "variants": {
+        "baseline": "archived prior best binary",
+        "candidate": "same best flags plus GAGP_GPU_FUSED_SPLICE_DEPTH=1 and GAGP_GPU_DEFERRED_CROSSOVER_COPY=1; archived screen/off binary"
+      },
+      "tasks": {
+        "house_robber": {
+          "arms": {
+            "baseline": {
+              "samples": [
+                {
+                  "search_ms": 1138.345809,
+                  "process_wall_s": 2.3927000709809363,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-0/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-0/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 145.21946100000002,
+                  "repro_kernel_ms": 104.41404825542122
+                },
+                {
+                  "search_ms": 1066.317326,
+                  "process_wall_s": 2.295211600139737,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-1/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-1/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 145.46336,
+                  "repro_kernel_ms": 103.15008006244898
+                },
+                {
+                  "search_ms": 1065.249817,
+                  "process_wall_s": 2.3068845900706947,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-2/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-2/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 146.60750499999997,
+                  "repro_kernel_ms": 104.26630408549681
+                },
+                {
+                  "search_ms": 1067.12344,
+                  "process_wall_s": 2.2938221469521523,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-3/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-3/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 146.408751,
+                  "repro_kernel_ms": 104.32947170641273
+                },
+                {
+                  "search_ms": 1063.103051,
+                  "process_wall_s": 2.298530556028709,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-4/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-4/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 145.77949000000004,
+                  "repro_kernel_ms": 104.14070438081399
+                },
+                {
+                  "search_ms": 1140.045449,
+                  "process_wall_s": 2.4076083360705525,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-5/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-5/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 145.53475,
+                  "repro_kernel_ms": 104.09632036276162
+                },
+                {
+                  "search_ms": 1065.301709,
+                  "process_wall_s": 2.2774725269991904,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-6/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-6/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 146.061954,
+                  "repro_kernel_ms": 104.36537651345134
+                },
+                {
+                  "search_ms": 1071.156903,
+                  "process_wall_s": 2.3371118349023163,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-7/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-7/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 147.13935500000002,
+                  "repro_kernel_ms": 104.4652483696118
+                },
+                {
+                  "search_ms": 1070.186482,
+                  "process_wall_s": 2.3299746138509363,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-8/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-8/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 146.40568600000003,
+                  "repro_kernel_ms": 104.18243190506473
+                }
+              ],
+              "median_search_ms": 1067.12344
+            },
+            "candidate": {
+              "samples": [
+                {
+                  "search_ms": 1056.896257,
+                  "process_wall_s": 2.308539683930576,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-0/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-0/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 139.634738,
+                  "repro_kernel_ms": 97.13244806230068
+                },
+                {
+                  "search_ms": 1054.004718,
+                  "process_wall_s": 2.2694121319800615,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-1/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-1/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 139.067833,
+                  "repro_kernel_ms": 96.88166447822005
+                },
+                {
+                  "search_ms": 1052.531566,
+                  "process_wall_s": 2.2744513750076294,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-2/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-2/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 139.22813999999997,
+                  "repro_kernel_ms": 97.00089638121426
+                },
+                {
+                  "search_ms": 1074.658854,
+                  "process_wall_s": 2.34470252902247,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-3/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-3/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 141.35641100000004,
+                  "repro_kernel_ms": 97.05894441436976
+                },
+                {
+                  "search_ms": 1057.38065,
+                  "process_wall_s": 2.2764402341563255,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-4/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-4/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 139.347304,
+                  "repro_kernel_ms": 96.90281660016626
+                },
+                {
+                  "search_ms": 1085.413867,
+                  "process_wall_s": 2.3263354420196265,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-5/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-5/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 140.04360999999997,
+                  "repro_kernel_ms": 96.83260855032131
+                },
+                {
+                  "search_ms": 1080.024821,
+                  "process_wall_s": 2.338260197080672,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-6/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-6/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 142.045958,
+                  "repro_kernel_ms": 96.92767995782197
+                },
+                {
+                  "search_ms": 1056.247777,
+                  "process_wall_s": 2.2993055440019816,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-7/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-7/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 140.373967,
+                  "repro_kernel_ms": 97.08003173815086
+                },
+                {
+                  "search_ms": 1057.720051,
+                  "process_wall_s": 2.3134922448080033,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-8/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-8/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 140.01391200000003,
+                  "repro_kernel_ms": 96.97062429785728
+                }
+              ],
+              "median_search_ms": 1057.38065
+            }
+          },
+          "paired_trace_matches": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "long": {
+            "baseline": {
+              "search_ms": 11839.612139,
+              "repro_ms": 1577.243513,
+              "repro_kernel_ms": 974.9153248742223,
+              "generation_first16_median_ms": 21.438935999999998,
+              "generation_last16_median_ms": 174.75678649999998,
+              "repro_first16_median_ms": 3.716873,
+              "repro_last16_median_ms": 17.413057000000002,
+              "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-long/house_robber.gpu_overlap.s0.r0.json"
+            },
+            "candidate": {
+              "search_ms": 11685.36724,
+              "repro_ms": 1476.2941409999996,
+              "repro_kernel_ms": 870.0984622417018,
+              "generation_first16_median_ms": 21.003234,
+              "generation_last16_median_ms": 172.419869,
+              "repro_first16_median_ms": 3.602316,
+              "repro_last16_median_ms": 16.426907999999997,
+              "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-long/house_robber.gpu_overlap.s0.r0.json"
+            },
+            "semantic_trace_equal": true,
+            "exact_final_and_history": true
+          },
+          "final_ast_and_semantic_history_matches": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "paired_search_delta_ms": [
+            -81.44955199999981,
+            -12.312608000000182,
+            -12.718250999999782,
+            7.535413999999946,
+            -5.722400999999991,
+            -54.63158199999998,
+            14.723111999999901,
+            -14.909126000000015,
+            -12.466431000000057
+          ],
+          "paired_median_delta_ms": -12.466431000000057
+        },
+        "median": {
+          "arms": {
+            "baseline": {
+              "samples": [
+                {
+                  "search_ms": 910.221483,
+                  "process_wall_s": 2.0759899879340082,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-0/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-0/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 404.76451100000014,
+                  "repro_kernel_ms": 302.227071496658
+                },
+                {
+                  "search_ms": 919.779492,
+                  "process_wall_s": 2.0979472110047936,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-1/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-1/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 407.412828,
+                  "repro_kernel_ms": 301.960288092494
+                },
+                {
+                  "search_ms": 916.867906,
+                  "process_wall_s": 2.106578954961151,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-2/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-2/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 407.27557,
+                  "repro_kernel_ms": 302.3026877483353
+                },
+                {
+                  "search_ms": 919.539094,
+                  "process_wall_s": 2.0986162209883332,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-3/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-3/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 406.491165,
+                  "repro_kernel_ms": 301.67878408916295
+                },
+                {
+                  "search_ms": 909.272473,
+                  "process_wall_s": 2.1005550362169743,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-4/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-4/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 403.9966179999999,
+                  "repro_kernel_ms": 301.8741439227015
+                },
+                {
+                  "search_ms": 917.299384,
+                  "process_wall_s": 2.103242943994701,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-5/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-5/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 407.79603000000003,
+                  "repro_kernel_ms": 302.1132475119084
+                },
+                {
+                  "search_ms": 918.785635,
+                  "process_wall_s": 2.0914711570367217,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-6/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-6/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 405.5275689999999,
+                  "repro_kernel_ms": 302.33171222917736
+                },
+                {
+                  "search_ms": 912.344769,
+                  "process_wall_s": 2.0773521419614553,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-7/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-7/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 404.52368199999995,
+                  "repro_kernel_ms": 301.39308786112815
+                },
+                {
+                  "search_ms": 919.19585,
+                  "process_wall_s": 2.1105026500299573,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-8/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-8/manifest.json",
+                  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+                  "repro_ms": 406.0016499999999,
+                  "repro_kernel_ms": 301.6170883718878
+                }
+              ],
+              "median_search_ms": 917.299384
+            },
+            "candidate": {
+              "samples": [
+                {
+                  "search_ms": 902.148564,
+                  "process_wall_s": 2.08080942905508,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-0/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-0/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 386.65642600000007,
+                  "repro_kernel_ms": 278.4928644495085
+                },
+                {
+                  "search_ms": 902.28714,
+                  "process_wall_s": 2.0967892890330404,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-1/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-1/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 385.36784399999993,
+                  "repro_kernel_ms": 277.91843294445425
+                },
+                {
+                  "search_ms": 891.028009,
+                  "process_wall_s": 2.0840595099143684,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-2/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-2/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 383.3155940000001,
+                  "repro_kernel_ms": 278.72211187426
+                },
+                {
+                  "search_ms": 896.048672,
+                  "process_wall_s": 2.079948723083362,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-3/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-3/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 384.6054639999998,
+                  "repro_kernel_ms": 278.7997773019597
+                },
+                {
+                  "search_ms": 927.968742,
+                  "process_wall_s": 2.137973482022062,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-4/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-4/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 384.92749800000007,
+                  "repro_kernel_ms": 278.5487992661074
+                },
+                {
+                  "search_ms": 904.919883,
+                  "process_wall_s": 2.1108404470141977,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-5/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-5/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 385.8948299999998,
+                  "repro_kernel_ms": 278.46707254461944
+                },
+                {
+                  "search_ms": 894.92489,
+                  "process_wall_s": 2.0715482358355075,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-6/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-6/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 383.6110970000002,
+                  "repro_kernel_ms": 277.92745592445135
+                },
+                {
+                  "search_ms": 893.87829,
+                  "process_wall_s": 2.099734271876514,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-7/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-7/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 383.70665400000007,
+                  "repro_kernel_ms": 278.0336967622861
+                },
+                {
+                  "search_ms": 899.352414,
+                  "process_wall_s": 2.075379869202152,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-8/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-8/manifest.json",
+                  "binary_sha256": "8d0375e282898a567a5d71c0ca60e9551aa54cce4b0d0d81cb76b0c3eb7e46a6",
+                  "repro_ms": 384.970187,
+                  "repro_kernel_ms": 278.4470079317689
+                }
+              ],
+              "median_search_ms": 899.352414
+            }
+          },
+          "paired_trace_matches": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "long": {
+            "baseline": {
+              "search_ms": 3084.728461,
+              "repro_ms": 1652.938283,
+              "repro_kernel_ms": 873.8132788855582,
+              "generation_first16_median_ms": 11.902114000000001,
+              "generation_last16_median_ms": 29.925721,
+              "repro_first16_median_ms": 8.201911500000001,
+              "repro_last16_median_ms": 16.904345,
+              "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/baseline-long/median.gpu_overlap.s0.r0.json"
+            },
+            "candidate": {
+              "search_ms": 3010.935782,
+              "repro_ms": 1581.932323000001,
+              "repro_kernel_ms": 799.024156759493,
+              "generation_first16_median_ms": 11.641999,
+              "generation_last16_median_ms": 29.2807185,
+              "repro_first16_median_ms": 7.7063065,
+              "repro_last16_median_ms": 16.138437500000002,
+              "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/candidate-long/median.gpu_overlap.s0.r0.json"
+            },
+            "semantic_trace_equal": true,
+            "exact_final_and_history": true
+          },
+          "final_ast_and_semantic_history_matches": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "paired_search_delta_ms": [
+            -8.07291900000007,
+            -17.492351999999983,
+            -25.83989699999995,
+            -23.490421999999967,
+            18.69626900000003,
+            -12.379501000000005,
+            -23.86074499999995,
+            -18.46647900000005,
+            -19.843435999999997
+          ],
+          "paired_median_delta_ms": -18.46647900000005
+        }
+      },
+      "raw_root": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2",
+      "profiles": {
+        "house_robber": {
+          "diagnostic_only": true,
+          "nsys": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/profile/house_robber.nsys-rep",
+          "kernels": {
+            "compile_population": {
+              "count": 128,
+              "total_ms": 427.26310200000023,
+              "first16_median_ms": 0.6957800000000001,
+              "last16_median_ms": 4.65593,
+              "local_bytes": 0,
+              "registers": 40
+            },
+            "crossover_population": {
+              "count": 128,
+              "total_ms": 247.89327400000008,
+              "first16_median_ms": 0.450194,
+              "last16_median_ms": 2.380909,
+              "local_bytes": 0,
+              "registers": 62
+            },
+            "mutate_population": {
+              "count": 128,
+              "total_ms": 229.298673,
+              "first16_median_ms": 1.3514965,
+              "last16_median_ms": 1.7292095,
+              "local_bytes": 0,
+              "registers": 76
+            },
+            "compare_offspring": {
+              "count": 128,
+              "total_ms": 38.312611000000004,
+              "first16_median_ms": 0.055921,
+              "last16_median_ms": 0.396914,
+              "local_bytes": 0,
+              "registers": 33
+            },
+            "compact_code": {
+              "count": 128,
+              "total_ms": 2.8957929999999994,
+              "first16_median_ms": 0.00544,
+              "last16_median_ms": 0.0363845,
+              "local_bytes": 0,
+              "registers": 28
+            },
+            "offsets_kernel": {
+              "count": 128,
+              "total_ms": 1.0308860000000002,
+              "first16_median_ms": 0.008048,
+              "last16_median_ms": 0.0076159999999999995,
+              "local_bytes": 0,
+              "registers": 38
+            }
+          }
+        },
+        "median": {
+          "diagnostic_only": true,
+          "nsys": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/profile/median.nsys-rep",
+          "kernels": {
+            "compile_population": {
+              "count": 128,
+              "total_ms": 366.44840400000015,
+              "first16_median_ms": 1.4661825,
+              "last16_median_ms": 4.107919000000001,
+              "local_bytes": 0,
+              "registers": 40
+            },
+            "crossover_population": {
+              "count": 128,
+              "total_ms": 203.37152999999998,
+              "first16_median_ms": 1.0485484999999999,
+              "last16_median_ms": 2.2567445,
+              "local_bytes": 0,
+              "registers": 62
+            },
+            "mutate_population": {
+              "count": 128,
+              "total_ms": 248.3792909999999,
+              "first16_median_ms": 2.9122845,
+              "last16_median_ms": 1.508294,
+              "local_bytes": 0,
+              "registers": 76
+            },
+            "compare_offspring": {
+              "count": 128,
+              "total_ms": 47.21090700000001,
+              "first16_median_ms": 0.25241749999999996,
+              "last16_median_ms": 0.4262895,
+              "local_bytes": 0,
+              "registers": 33
+            },
+            "compact_code": {
+              "count": 128,
+              "total_ms": 4.107629,
+              "first16_median_ms": 0.0100965,
+              "last16_median_ms": 0.049103999999999995,
+              "local_bytes": 0,
+              "registers": 28
+            },
+            "offsets_kernel": {
+              "count": 128,
+              "total_ms": 1.4860610000000014,
+              "first16_median_ms": 0.011584,
+              "last16_median_ms": 0.0116005,
+              "local_bytes": 0,
+              "registers": 38
+            }
+          }
+        }
+      },
+      "binary_source_manifests": {
+        "baseline": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/baseline/manifest.json",
+        "candidate": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/bloat-cost-20261014/off/manifest.json"
+      },
+      "source_manifest_note": "short_search source_patch captures current run workspace; binary hashes and original archived binary source manifests above define actual binaries."
+    },
+    "shared-compile-nodes": {
+      "contract": "CPU1T; native GPU reproduction; all1024x1024cases; cold init, final eval/export included in search; process wall separate; no RNG/operator/grammar/fuel change",
+      "variants": {
+        "off": "same binary, original copied-node frames",
+        "on": "same flags plus GAGP_GPU_SHARED_COMPILE_NODES=1"
+      },
+      "tasks": {
+        "house_robber": {
+          "arms": {
+            "off": {
+              "samples": [
+                {
+                  "search_ms": 1064.086124,
+                  "process_wall_s": 2.3214529410470277,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/off-0/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/off-0/manifest.json",
+                  "binary_sha256": "c24c88735fbb2121c596fdf0558ea08d190f3b0125388274625f0fc55ac17107",
+                  "repro_ms": 138.40698199999997,
+                  "repro_kernel_ms": 95.75574436690658
+                },
+                {
+                  "search_ms": 1052.05904,
+                  "process_wall_s": 2.28292708680965,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/off-1/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/off-1/manifest.json",
+                  "binary_sha256": "c24c88735fbb2121c596fdf0558ea08d190f3b0125388274625f0fc55ac17107",
+                  "repro_ms": 137.30581699999996,
+                  "repro_kernel_ms": 95.85667144320905
+                },
+                {
+                  "search_ms": 1058.02978,
+                  "process_wall_s": 2.2817720698658377,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/off-2/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/off-2/manifest.json",
+                  "binary_sha256": "c24c88735fbb2121c596fdf0558ea08d190f3b0125388274625f0fc55ac17107",
+                  "repro_ms": 137.728339,
+                  "repro_kernel_ms": 95.86748822685331
+                }
+              ],
+              "median_search_ms": 1058.02978
+            },
+            "on": {
+              "samples": [
+                {
+                  "search_ms": 1050.053005,
+                  "process_wall_s": 2.2820290320087224,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/on-0/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/on-0/manifest.json",
+                  "binary_sha256": "c24c88735fbb2121c596fdf0558ea08d190f3b0125388274625f0fc55ac17107",
+                  "repro_ms": 133.178679,
+                  "repro_kernel_ms": 90.17711967555806
+                },
+                {
+                  "search_ms": 1049.073845,
+                  "process_wall_s": 2.2953673279844224,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/on-1/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/on-1/manifest.json",
+                  "binary_sha256": "c24c88735fbb2121c596fdf0558ea08d190f3b0125388274625f0fc55ac17107",
+                  "repro_ms": 132.382711,
+                  "repro_kernel_ms": 90.31145595246926
+                },
+                {
+                  "search_ms": 1049.902476,
+                  "process_wall_s": 2.2767239469103515,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/on-2/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/on-2/manifest.json",
+                  "binary_sha256": "c24c88735fbb2121c596fdf0558ea08d190f3b0125388274625f0fc55ac17107",
+                  "repro_ms": 132.433954,
+                  "repro_kernel_ms": 90.22249533887953
+                }
+              ],
+              "median_search_ms": 1049.902476
+            }
+          },
+          "paired_trace_matches": [
+            true,
+            true,
+            true
+          ],
+          "final_ast_and_semantic_history_matches": [
+            true,
+            true,
+            true
+          ],
+          "long": {
+            "off": {
+              "search_ms": 11665.606776,
+              "repro_ms": 1451.4727680000012,
+              "repro_kernel_ms": 849.6749452552758,
+              "generation_first16_median_ms": 21.0448545,
+              "generation_last16_median_ms": 172.306602,
+              "repro_first16_median_ms": 3.544145,
+              "repro_last16_median_ms": 15.9622125,
+              "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/off-long/house_robber.gpu_overlap.s0.r0.json"
+            },
+            "on": {
+              "search_ms": 11668.767933,
+              "repro_ms": 1400.547671,
+              "repro_kernel_ms": 805.3432348817587,
+              "generation_first16_median_ms": 21.398789,
+              "generation_last16_median_ms": 174.0304145,
+              "repro_first16_median_ms": 3.4602775,
+              "repro_last16_median_ms": 15.5266695,
+              "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/on-long/house_robber.gpu_overlap.s0.r0.json"
+            },
+            "semantic_trace_equal": true,
+            "exact_final_and_history": true
+          },
+          "paired_search_delta_ms": [
+            -14.033118999999942,
+            -2.9851950000002034,
+            -8.127304000000095
+          ],
+          "paired_median_delta_ms": -8.127304000000095
+        },
+        "median": {
+          "arms": {
+            "off": {
+              "samples": [
+                {
+                  "search_ms": 896.520365,
+                  "process_wall_s": 2.092270866036415,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/off-0/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/off-0/manifest.json",
+                  "binary_sha256": "c24c88735fbb2121c596fdf0558ea08d190f3b0125388274625f0fc55ac17107",
+                  "repro_ms": 384.01687000000004,
+                  "repro_kernel_ms": 279.18736088089645
+                },
+                {
+                  "search_ms": 885.258805,
+                  "process_wall_s": 2.0875189860817045,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/off-1/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/off-1/manifest.json",
+                  "binary_sha256": "c24c88735fbb2121c596fdf0558ea08d190f3b0125388274625f0fc55ac17107",
+                  "repro_ms": 382.06342900000004,
+                  "repro_kernel_ms": 279.037631707266
+                },
+                {
+                  "search_ms": 884.070589,
+                  "process_wall_s": 2.0438758230302483,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/off-2/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/off-2/manifest.json",
+                  "binary_sha256": "c24c88735fbb2121c596fdf0558ea08d190f3b0125388274625f0fc55ac17107",
+                  "repro_ms": 379.72261399999996,
+                  "repro_kernel_ms": 279.1044157743454
+                }
+              ],
+              "median_search_ms": 885.258805
+            },
+            "on": {
+              "samples": [
+                {
+                  "search_ms": 876.36934,
+                  "process_wall_s": 2.0481347190216184,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/on-0/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/on-0/manifest.json",
+                  "binary_sha256": "c24c88735fbb2121c596fdf0558ea08d190f3b0125388274625f0fc55ac17107",
+                  "repro_ms": 370.75113200000015,
+                  "repro_kernel_ms": 266.14470457844436
+                },
+                {
+                  "search_ms": 876.676481,
+                  "process_wall_s": 2.0552064718212932,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/on-1/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/on-1/manifest.json",
+                  "binary_sha256": "c24c88735fbb2121c596fdf0558ea08d190f3b0125388274625f0fc55ac17107",
+                  "repro_ms": 370.47056000000003,
+                  "repro_kernel_ms": 266.54899322614074
+                },
+                {
+                  "search_ms": 876.39877,
+                  "process_wall_s": 2.0441468821372837,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/on-2/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/on-2/manifest.json",
+                  "binary_sha256": "c24c88735fbb2121c596fdf0558ea08d190f3b0125388274625f0fc55ac17107",
+                  "repro_ms": 371.4375760000001,
+                  "repro_kernel_ms": 266.67539164051414
+                }
+              ],
+              "median_search_ms": 876.39877
+            }
+          },
+          "paired_trace_matches": [
+            true,
+            true,
+            true
+          ],
+          "final_ast_and_semantic_history_matches": [
+            true,
+            true,
+            true
+          ],
+          "long": {
+            "off": {
+              "search_ms": 3021.110159,
+              "repro_ms": 1574.8906900000002,
+              "repro_kernel_ms": 783.5232962584123,
+              "generation_first16_median_ms": 11.607292000000001,
+              "generation_last16_median_ms": 28.9803715,
+              "repro_first16_median_ms": 7.6525495,
+              "repro_last16_median_ms": 15.7503835,
+              "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/off-long/median.gpu_overlap.s0.r0.json"
+            },
+            "on": {
+              "search_ms": 2986.597504,
+              "repro_ms": 1522.0722799999999,
+              "repro_kernel_ms": 738.3742112955078,
+              "generation_first16_median_ms": 11.4756875,
+              "generation_last16_median_ms": 28.1827345,
+              "repro_first16_median_ms": 7.617585500000001,
+              "repro_last16_median_ms": 15.3280105,
+              "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/on-long/median.gpu_overlap.s0.r0.json"
+            },
+            "semantic_trace_equal": true,
+            "exact_final_and_history": true
+          },
+          "paired_search_delta_ms": [
+            -20.151025000000004,
+            -8.582324000000085,
+            -7.671819000000028
+          ],
+          "paired_median_delta_ms": -8.582324000000085
+        }
+      },
+      "raw_root": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes",
+      "profiles": {
+        "house_robber": {
+          "diagnostic_only": true,
+          "nsys": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/profile/house_robber.nsys-rep",
+          "kernels": {
+            "compile_population": {
+              "count": 128,
+              "total_ms": 268.153998,
+              "first16_median_ms": 0.3937445,
+              "last16_median_ms": 2.879473,
+              "local_bytes": 0,
+              "registers": 40
+            },
+            "crossover_population": {
+              "count": 128,
+              "total_ms": 250.66304799999992,
+              "first16_median_ms": 0.450608,
+              "last16_median_ms": 2.428209,
+              "local_bytes": 0,
+              "registers": 68
+            },
+            "mutate_population": {
+              "count": 128,
+              "total_ms": 228.09017300000002,
+              "first16_median_ms": 1.341377,
+              "last16_median_ms": 1.730929,
+              "local_bytes": 0,
+              "registers": 79
+            },
+            "compare_offspring": {
+              "count": 128,
+              "total_ms": 38.61814000000001,
+              "first16_median_ms": 0.059168,
+              "last16_median_ms": 0.399744,
+              "local_bytes": 0,
+              "registers": 33
+            },
+            "compact_code": {
+              "count": 128,
+              "total_ms": 2.941368999999999,
+              "first16_median_ms": 0.005424,
+              "last16_median_ms": 0.036975,
+              "local_bytes": 0,
+              "registers": 28
+            },
+            "offsets_kernel": {
+              "count": 128,
+              "total_ms": 1.0314250000000005,
+              "first16_median_ms": 0.007808,
+              "last16_median_ms": 0.00768,
+              "local_bytes": 0,
+              "registers": 38
+            }
+          }
+        },
+        "median": {
+          "diagnostic_only": true,
+          "nsys": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/profile/median.nsys-rep",
+          "kernels": {
+            "compile_population": {
+              "count": 128,
+              "total_ms": 233.31495599999997,
+              "first16_median_ms": 0.995168,
+              "last16_median_ms": 2.535857,
+              "local_bytes": 0,
+              "registers": 40
+            },
+            "crossover_population": {
+              "count": 128,
+              "total_ms": 203.18881399999992,
+              "first16_median_ms": 1.0506410000000002,
+              "last16_median_ms": 2.2410085000000004,
+              "local_bytes": 0,
+              "registers": 68
+            },
+            "mutate_population": {
+              "count": 128,
+              "total_ms": 246.20684100000014,
+              "first16_median_ms": 2.892769,
+              "last16_median_ms": 1.5029285,
+              "local_bytes": 0,
+              "registers": 79
+            },
+            "compare_offspring": {
+              "count": 128,
+              "total_ms": 47.183758999999995,
+              "first16_median_ms": 0.249216,
+              "last16_median_ms": 0.42531300000000005,
+              "local_bytes": 0,
+              "registers": 33
+            },
+            "compact_code": {
+              "count": 128,
+              "total_ms": 4.1495999999999995,
+              "first16_median_ms": 0.010032,
+              "last16_median_ms": 0.0490075,
+              "local_bytes": 0,
+              "registers": 28
+            },
+            "offsets_kernel": {
+              "count": 128,
+              "total_ms": 1.4832990000000008,
+              "first16_median_ms": 0.011375,
+              "last16_median_ms": 0.011585,
+              "local_bytes": 0,
+              "registers": 38
+            }
+          }
+        }
+      },
+      "archived_binary": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/bench",
+      "archived_binary_sha256": "c24c88735fbb2121c596fdf0558ea08d190f3b0125388274625f0fc55ac17107",
+      "actual_archived_source_patch": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/source.patch",
+      "actual_archived_source_patch_sha256": "d48d78cd15f052832142655b20bad847b0bcebad5ccc514e77c07ec5fe46d77f"
+    },
+    "compact-compile-frames": {
+      "contract": "CPU1T; native GPU reproduction; all1024x1024cases; cold init, final eval/export included in search; process wall separate; no RNG/operator/grammar/fuel change",
+      "variants": {
+        "index": "same binary, 24-byte indexed frames",
+        "compact": "same flags plus GAGP_GPU_COMPACT_COMPILE_FRAMES=1; 12-byte frames"
+      },
+      "tasks": {
+        "house_robber": {
+          "arms": {
+            "index": {
+              "samples": [
+                {
+                  "search_ms": 1124.962338,
+                  "process_wall_s": 2.3703195489943027,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/index-0/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/index-0/manifest.json",
+                  "binary_sha256": "ecc7c48f3a7ec43ba85856a2f77ba018e0fe9004ad28290ac9af02834a19c6e2",
+                  "repro_ms": 133.407955,
+                  "repro_kernel_ms": 91.89740807237104
+                },
+                {
+                  "search_ms": 1057.555849,
+                  "process_wall_s": 2.3022815010044724,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/index-1/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/index-1/manifest.json",
+                  "binary_sha256": "ecc7c48f3a7ec43ba85856a2f77ba018e0fe9004ad28290ac9af02834a19c6e2",
+                  "repro_ms": 133.76232000000002,
+                  "repro_kernel_ms": 91.94470388581976
+                },
+                {
+                  "search_ms": 1055.6364,
+                  "process_wall_s": 2.2953757559880614,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/index-2/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/index-2/manifest.json",
+                  "binary_sha256": "ecc7c48f3a7ec43ba85856a2f77ba018e0fe9004ad28290ac9af02834a19c6e2",
+                  "repro_ms": 134.17132299999997,
+                  "repro_kernel_ms": 92.16732838843018
+                }
+              ],
+              "median_search_ms": 1057.555849
+            },
+            "compact": {
+              "samples": [
+                {
+                  "search_ms": 1049.762106,
+                  "process_wall_s": 2.302708199014887,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/compact-0/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/compact-0/manifest.json",
+                  "binary_sha256": "ecc7c48f3a7ec43ba85856a2f77ba018e0fe9004ad28290ac9af02834a19c6e2",
+                  "repro_ms": 132.069003,
+                  "repro_kernel_ms": 90.14860800653696
+                },
+                {
+                  "search_ms": 1049.428732,
+                  "process_wall_s": 2.282986846053973,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/compact-1/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/compact-1/manifest.json",
+                  "binary_sha256": "ecc7c48f3a7ec43ba85856a2f77ba018e0fe9004ad28290ac9af02834a19c6e2",
+                  "repro_ms": 132.149879,
+                  "repro_kernel_ms": 90.32380743231624
+                },
+                {
+                  "search_ms": 1055.195783,
+                  "process_wall_s": 2.320168943842873,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/compact-2/house_robber.gpu_overlap.s0.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/compact-2/manifest.json",
+                  "binary_sha256": "ecc7c48f3a7ec43ba85856a2f77ba018e0fe9004ad28290ac9af02834a19c6e2",
+                  "repro_ms": 132.682657,
+                  "repro_kernel_ms": 90.32166388630867
+                }
+              ],
+              "median_search_ms": 1049.762106
+            }
+          },
+          "paired_trace_matches": [
+            true,
+            true,
+            true
+          ],
+          "final_ast_and_semantic_history_matches": [
+            true,
+            true,
+            true
+          ],
+          "long": {},
+          "paired_search_delta_ms": [
+            -75.20023200000014,
+            -8.127116999999998,
+            -0.4406170000002021
+          ],
+          "paired_median_delta_ms": -8.127116999999998
+        },
+        "median": {
+          "arms": {
+            "index": {
+              "samples": [
+                {
+                  "search_ms": 891.822576,
+                  "process_wall_s": 2.102132102008909,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/index-0/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/index-0/manifest.json",
+                  "binary_sha256": "ecc7c48f3a7ec43ba85856a2f77ba018e0fe9004ad28290ac9af02834a19c6e2",
+                  "repro_ms": 375.41658900000004,
+                  "repro_kernel_ms": 270.4246085435152
+                },
+                {
+                  "search_ms": 879.311047,
+                  "process_wall_s": 2.0563950890209526,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/index-1/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/index-1/manifest.json",
+                  "binary_sha256": "ecc7c48f3a7ec43ba85856a2f77ba018e0fe9004ad28290ac9af02834a19c6e2",
+                  "repro_ms": 373.34989300000007,
+                  "repro_kernel_ms": 269.934847548604
+                },
+                {
+                  "search_ms": 890.534722,
+                  "process_wall_s": 2.0708143929950893,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/index-2/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/index-2/manifest.json",
+                  "binary_sha256": "ecc7c48f3a7ec43ba85856a2f77ba018e0fe9004ad28290ac9af02834a19c6e2",
+                  "repro_ms": 375.26677700000005,
+                  "repro_kernel_ms": 270.0339194647968
+                }
+              ],
+              "median_search_ms": 890.534722
+            },
+            "compact": {
+              "samples": [
+                {
+                  "search_ms": 873.50957,
+                  "process_wall_s": 2.0422776150517166,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/compact-0/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/compact-0/manifest.json",
+                  "binary_sha256": "ecc7c48f3a7ec43ba85856a2f77ba018e0fe9004ad28290ac9af02834a19c6e2",
+                  "repro_ms": 368.61555799999996,
+                  "repro_kernel_ms": 265.97107216808945
+                },
+                {
+                  "search_ms": 878.435414,
+                  "process_wall_s": 2.0404426348395646,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/compact-1/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/compact-1/manifest.json",
+                  "binary_sha256": "ecc7c48f3a7ec43ba85856a2f77ba018e0fe9004ad28290ac9af02834a19c6e2",
+                  "repro_ms": 371.74930300000005,
+                  "repro_kernel_ms": 266.5780489053577
+                },
+                {
+                  "search_ms": 893.260572,
+                  "process_wall_s": 2.097643192857504,
+                  "json": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/compact-2/median.gpu_overlap.s2.r0.json",
+                  "manifest": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/compact-2/manifest.json",
+                  "binary_sha256": "ecc7c48f3a7ec43ba85856a2f77ba018e0fe9004ad28290ac9af02834a19c6e2",
+                  "repro_ms": 373.52772200000004,
+                  "repro_kernel_ms": 266.5190402911976
+                }
+              ],
+              "median_search_ms": 878.435414
+            }
+          },
+          "paired_trace_matches": [
+            true,
+            true,
+            true
+          ],
+          "final_ast_and_semantic_history_matches": [
+            true,
+            true,
+            true
+          ],
+          "long": {},
+          "paired_search_delta_ms": [
+            -18.313005999999973,
+            -0.8756329999999934,
+            2.7258500000000367
+          ],
+          "paired_median_delta_ms": -0.8756329999999934
+        }
+      },
+      "raw_root": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames",
+      "profiles": {},
+      "archived_binary": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/bench",
+      "archived_binary_sha256": "ecc7c48f3a7ec43ba85856a2f77ba018e0fe9004ad28290ac9af02834a19c6e2",
+      "actual_archived_source_patch": "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/source.patch",
+      "actual_archived_source_patch_sha256": "598ada948e76c5d0958b206855d9ec2de250bf17b07a6e643a2b67c7169b4c0b"
+    }
+  },
+  "profile_warning": "nsys diagnostic timings only; cannot be subtracted from formal search times. Original-archive vs indexed-source profile delta includes OFF-codegen changes and separate run windows.",
+  "source_base": "71dc916e412dba8ca44abbaa1ec0e8cb19547c4b",
+  "source_final_files": [
+    "cpp/src/evolution/repro/gpu/device/phase_compile.cuh",
+    "cpp/src/evolution/repro/gpu/device/phase_variation.cuh",
+    "cpp/src/evolution/repro/gpu/phase_population.cu"
+  ],
+  "adoption": "Root decides using cleaned final binary against immutable best archive; small per-flag percentages are not additive.",
+  "reproduction_scripts": [
+    "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/run.py",
+    "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/incremental-stage2/profile.py",
+    "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/run.py",
+    "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/shared-compile-nodes/long.py",
+    "/home/hschi1106/.t3/worktrees/gagp/bloat-incremental-20261014/logs/compact-compile-frames/run.py"
+  ]
+}

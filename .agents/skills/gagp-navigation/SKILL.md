@@ -113,3 +113,14 @@ maintenance, follow the rules in root `AGENTS.md`.
   private list views only for admitted view programs with list parameters.
   Raw session inputs remain available for generic fallback. Ownership/timing:
   `docs/design/payload.md`; test: `gagp_test_bounded_region_gpu_results`.
+
+- Native owner reproduction work policies: `GAGP_GPU_DEFERRED_CROSSOVER_COPY`
+  and `GAGP_GPU_FUSED_SPLICE_DEPTH` in `repro/gpu/phase_population.cu` and
+  `gpu/device/phase_variation.cuh`; compact indexed lowering frames use
+  `GAGP_GPU_COMPACT_COMPILE_FRAMES` and `gpu/device/phase_compile.cuh`.
+  These retain logical sites, scopes, RNG and fuel; no persistent shared genotype
+  or incremental executable cache is introduced. Tests:
+  `gagp_test_gpu_phase_population`, `gagp_test_gpu_phase_compile`.
+  Paths are relative to `cpp/src/evolution/` unless starting with `gpu/`, which
+  is relative to `cpp/src/evolution/repro/`. Contract and owner lifetimes:
+  `docs/design/gpu-reproduction.md`.

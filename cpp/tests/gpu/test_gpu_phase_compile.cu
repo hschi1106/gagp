@@ -45,11 +45,12 @@ struct Fixture {
   int code_limit=-1,constant_limit=-1;
 };
 struct Row { int node_offset,node_count,const_offset,const_count,local_offset,local_count,code_offset,code_capacity,out_const_offset,const_capacity; ValueTag expected; };
+template<bool SharedNodes, bool CompactFrames = false>
 __global__ void compile_many(const Row* rows,int count,const PhaseTreeNode* nodes,
     const Value* constants,const ValueTag* locals,gpu_detail::DInstr* code,Value* out_consts,PhaseCompileResult* results) {
   const int index=blockIdx.x*blockDim.x+threadIdx.x; if(index>=count)return;
   const auto row=rows[index];
-  results[index]=compile_phase_tree(nodes+row.node_offset,row.node_count,constants+row.const_offset,row.const_count,
+  results[index]=compile_phase_tree<SharedNodes, CompactFrames>(nodes+row.node_offset,row.node_count,constants+row.const_offset,row.const_count,
       locals+row.local_offset,row.local_count,row.expected,code+row.code_offset,row.code_capacity,
       out_consts+row.out_const_offset,row.const_capacity);
 }
@@ -131,6 +132,7 @@ std::vector<Fixture> generated() {
   invalid.constant_limit=1;invalid.code_limit=-1;out.push_back(invalid);
   invalid=leaf;invalid.nodes[0]={PhaseTreeKind::Local,Opcode::Load,2,0,1,1};invalid.locals={ValueTag::Int};invalid.status=PhaseCompileStatus::Invalid;out.push_back(invalid);
   invalid=leaf;invalid.nodes[0].fuel=0xffffffffU;invalid.status=PhaseCompileStatus::Invalid;out.push_back(invalid);
+  auto wide=leaf;wide.code_limit=32768;out.push_back(wide);
   return out;
 }
 const RegionPhase& phase_at(const BoundedRegionSegment& segment,std::size_t ordinal) {
@@ -176,6 +178,7 @@ std::vector<Fixture> frozen(const char* prepared,const char* grammar_path) {
   }
   return result;
 }
+template<bool SharedNodes, bool CompactFrames = false>
 void run(const std::vector<Fixture>& fixtures) {
   const auto start=Clock::now();std::vector<Row> rows;std::vector<PhaseTreeNode> nodes;std::vector<Value> constants;std::vector<ValueTag> locals;
   int code_count=0,out_const_count=0;
@@ -192,7 +195,7 @@ void run(const std::vector<Fixture>& fixtures) {
   Device<Row> dr(rows.size());Device<PhaseTreeNode> dn(nodes.size());Device<Value> dc(constants.size()),dout(out_const_count);Device<ValueTag> dl(locals.size());
   Device<gpu_detail::DInstr> dcode(code_count);Device<PhaseCompileResult> dresult(rows.size());
   const auto alloc_ms=ms(alloc);auto begin=Clock::now();dr.upload(rows);dn.upload(nodes);dc.upload(constants);dl.upload(locals);const auto h2d_ms=ms(begin);
-  auto launch=[&]{compile_many<<<(rows.size()+63)/64,64>>>(dr.data,rows.size(),dn.data,dc.data,dl.data,dcode.data,dout.data,dresult.data);cuda_check(cudaGetLastError());};
+  auto launch=[&]{compile_many<SharedNodes, CompactFrames><<<(rows.size()+63)/64,64>>>(dr.data,rows.size(),dn.data,dc.data,dl.data,dcode.data,dout.data,dresult.data);cuda_check(cudaGetLastError());};
   begin=Clock::now();launch();cuda_check(cudaDeviceSynchronize());const auto cold_ms=ms(begin);
   cudaEvent_t a,b;cuda_check(cudaEventCreate(&a));cuda_check(cudaEventCreate(&b));std::vector<float> samples;
   for(int repeat=0;repeat<10;++repeat) {cuda_check(cudaEventRecord(a));launch();cuda_check(cudaEventRecord(b));cuda_check(cudaEventSynchronize(b));float elapsed;cuda_check(cudaEventElapsedTime(&elapsed,a,b));samples.push_back(elapsed);}
@@ -202,6 +205,15 @@ void run(const std::vector<Fixture>& fixtures) {
     const auto& f=fixtures[i];const auto r=results[i];const auto row=rows[i];
     require(r.status==f.status,"status mismatch fixture "+std::to_string(i)+" got "+std::to_string(int(r.status)));
     if(f.status!=PhaseCompileStatus::Ok)continue;
+    BytecodeProgram oracle;
+    oracle.code=f.reference.code;oracle.consts=f.reference.consts;oracle.n_locals=f.reference.n_locals;
+    oracle.instruction_fuel=f.reference.instruction_fuel;
+    if(oracle.instruction_fuel.empty())oracle.instruction_fuel.assign(oracle.code.size(),1);
+    oracle.code.push_back({Opcode::Return});oracle.instruction_fuel.push_back(1);
+    const auto verified=verify_bytecode(oracle);
+    require(verified.ok && r.stack_bound==int(verified.verified.max_stack_depth),
+        "GPU stack certificate disagrees with independent bytecode verifier fixture "+std::to_string(i));
+    require(r.result_type==f.result,"GPU result-type certificate mismatch fixture "+std::to_string(i));
     std::array<ValueTag,64> view_inputs;view_inputs.fill(ValueTag::Invalid);
     std::copy(f.locals.begin(),f.locals.end(),view_inputs.begin());
     require(r.typed_views_proven && detail::view_code_supported(f.reference.code,f.reference.consts,
@@ -227,6 +239,8 @@ int main(int argc,char** argv) {
     const auto start=Clock::now();const auto fixtures=argc==3?frozen(argv[1],argv[2]):generated();const auto prepare_ms=ms(start);
     FitnessSessionGpu session;const auto init=session.init({{}},{Value::from_int(0)},1,1,1.0);require(init.ok,"CUDA initialization");
     std::cout<<"{\"host_admission_normalization_reference_compile_ms\":"<<prepare_ms<<",\"cuda_session_init_ms\":"<<init.timing.total_ms<<",\"prototype_only\":true}\n";
-    run(fixtures);
+    run<false>(fixtures);
+    run<true>(fixtures);
+    run<true,true>(fixtures);
   } catch(const std::exception& e) {std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}return 0;
 }

@@ -681,6 +681,36 @@ independent grammar/CPU validation. This switch changes neither the search
 profile, grammar support, random draws nor splice/resource validation.
 
 
+Three native owner policies reduce temporary reproduction work without changing
+logical sites, RNG draws, genotype nodes, grammar scope or execution fuel:
+
+- `GAGP_GPU_DEFERRED_CROSSOVER_COPY=1` keeps the selected parent immutable while
+  attempting the splice. On success it materializes the other phases once; on
+  exhaustion it materializes the complete parent. A failed speculative output
+  cannot escape. This avoids copying the changed phase before overwriting it;
+  it does not retain shared ancestors between generations.
+- `GAGP_GPU_FUSED_SPLICE_DEPTH=1` validates structural depth while constructing
+  the replacement output, eliminating the second output traversal. Capacity
+  rejection and source-site metadata remain unchanged. This is fused metadata
+  construction, not incremental bytecode compilation.
+- `GAGP_GPU_COMPACT_COMPILE_FRAMES=1` lowers using twelve-byte temporary frames
+  holding an immutable node index, stack/jump offsets, argument tags and child
+  count. Signed sixteen-bit fields cover the native owner's 1024 nodes and 4096
+  instructions. The helper retains its 4096-node contract and falls back to
+  ordinary-width indexed frames when code capacity exceeds 32767. Every node,
+  type, branch, capacity and fuel check still executes. No narrowed compiler
+  limit, cached executable or persistent shared genotype is introduced.
+
+These settings are captured when constructing the native population owner.
+Lowering frames borrow nodes only until the kernel returns; the private source
+and bytecode output buffers remain disjoint. Three-way compiler tests compare
+copied-node, indexed and compact frames against independent CPU instruction,
+constant and fuel output, including malformed input and large-buffer fallback.
+Owner tests compare exact genotypes, full-case fitness and operator accounting
+for 32 generations with each policy. Initialization, transfers, packing and final
+materialization remain included in their existing timing boundaries.
+
+
 `GAGP_GPU_CONSTRUCTIVE_EXPORT=1` fixes an AST-only export policy for a native
 population owner's lifetime. `ProgramGenome::derivation` is optional cache data;
 this policy returns it empty rather than reverse-parsing an already constructed
