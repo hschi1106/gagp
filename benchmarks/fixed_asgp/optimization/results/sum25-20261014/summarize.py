@@ -104,9 +104,13 @@ def main():
         return result
 
     def compare(a, b, scope):
+        identity = ('task', 'mode', 'seed', 'generations')
+        assert tuple(a[k] for k in identity) == tuple(b[k] for k in identity), 'comparison identity mismatch'
         x, y = data_cache[a['output']], data_cache[b['output']]
         assert semantic(x) == semantic(y), ('search semantic mismatch', a['output'], b['output'])
-        proof = dict(scope=scope, task=b['task'], seed=b['seed'], repeat=b['repeat'],
+        proof = dict(scope=scope, task=b['task'], mode=b['mode'], seed=b['seed'], repeat=b['repeat'],
+                     historical_control_reused=a.get('reused_control', False),
+                     before_manifest=a['manifest'], before_binary_sha256=a['binary_sha256'],
                      before=a['output'], after=b['output'], exact=True,
                      search_semantic_sha256=digest(semantic(x)))
         for suffix in ('final', 'history'):
@@ -136,6 +140,46 @@ def main():
         matches = [a for a in old_long if (a['task'], a['seed']) == (b['task'], b['seed'])]
         if matches:
             compare(matches[0], b, '128-generation-quality')
+    # Historical GPU-e/ER controls are semantic references only: deliberately
+    # never append them to samples, generations, or current timing medians.
+    historical = []
+    history_path = root/'logs/optimization/three-task-20261014/search/manifest.json'
+    if not history_path.exists():
+        missing.append(str(history_path))
+    else:
+        manifest = read(history_path)
+        manifests[str(history_path)] = {k: v for k, v in manifest.items() if k != 'cells'}
+        baseline = contract['baseline_manifest']
+        assert manifest['binary_sha256'] == baseline['binary_sha256'], 'historical mode binary changed'
+        assert manifest['flags'] == baseline['flags'], 'historical mode settings changed'
+        assert manifest['frozen_sha256'] == baseline['frozen_sha256'], 'historical mode inputs changed'
+        expected = {(t, m, 2 if t == 'median' else 0, r) for t in TASKS
+                    for m in ('gpu_eval', 'gpu_repro') for r in range(3)}
+        seen = set()
+        for cell in manifest['cells']:
+            if cell['mode'] not in ('gpu_eval', 'gpu_repro'):
+                continue
+            repeat = int(cell['tag'].rsplit('.r', 1)[1])
+            key = (cell['task'], cell['mode'], cell['seed'], repeat)
+            assert key in expected and key not in seen, (history_path, key)
+            seen.add(key)
+            output = Path(cell['output'])
+            required = [output, output.with_suffix('.final.json'), output.with_suffix('.history.json')]
+            if cell.get('status') != 'ok' or any(not path.exists() for path in required):
+                missing.append(f'{history_path}:{key}: unfinished/missing historical artifacts'); continue
+            assert cell['generations'] == (64 if cell['task'] == 'median' else 32), key
+            data_cache[cell['output']] = read(output)
+            helper.check_search(cell, data_cache[cell['output']])
+            historical.append(dict(cell, repeat=repeat, arm='historical-mode-reference', reused_control=True,
+                manifest=str(history_path), binary_sha256=manifest['binary_sha256'],
+                source_head=manifest['source_head'], frozen_sha256=manifest['frozen_sha256']))
+        missing.extend(f'{history_path}:{key}: missing historical cell' for key in sorted(expected-seen))
+    for b in other:
+        matches = [a for a in historical if (a['task'], a['mode'], a['seed'], a['generations'], a['repeat']) ==
+                   (b['task'], b['mode'], b['seed'], b['generations'], b['repeat'])]
+        if matches:
+            assert len(matches) == 1
+            compare(matches[0], b, 'historical-GPU-e-ER-reference')
     candidate = after+new_long+other+smoke
     if candidate:
         assert len({c['binary_sha256'] for c in candidate}) == 1, 'mixed candidate binaries'
@@ -215,12 +259,14 @@ def main():
 
     result = dict(complete=not missing, missing=missing, contract=contract, contract_path=str(contract_path),
         search_summary=grouped, samples=samples, exact_comparisons=comparisons,
+        historical_mode_controls=historical,
         long_quality=[s for s in samples if s['arm'].endswith('-long')],
         initial_snapshots=snapshots, scaling_table=scaling_table, scaling_raw=scaling, manifests=manifests,
         scopes=dict(timing='Nine fresh complete cold changing-population searches per task; three archived environmental controls; ASGP drift is separate from frozen denominators.',
             process='Process wall includes import/audit/export and excludes lock waiting; never substituted for evolve_wall_ms.',
             stages='Diagnostic stage sums/medians are attribution indicators. Overlap and accounting differ: do not add them as an exact wall-time decomposition or bound.',
             semantics='Compare complete result dictionaries and full final/history AST exports, recursively ignoring ONLY *_ms, *_bytes and execution_profile. Timing/memory diagnostics alone are excluded.',
+            historical_modes='All18new GPU-e/ER searches are compared to same task/mode/seed/generations/repeat historical controls, with original binary/settings recorded. Historical controls are semantic references only and excluded from current timing medians.',
             quality='Exact 128-generation trajectories across three seeds establish preservation, not improved convergence. All errors, timeouts, rejections, unique genomes and emitted CPU audit coverage remain visible.',
             memory='RSS is process peak from /usr/bin/time; genotype_device_bytes is reported genotype allocation, not total GPU peak.',
             scaling='Fixed-parent warmup plus three measured generations; ratios use each task/population own ASGP control, never frozen full-search denominators.',
