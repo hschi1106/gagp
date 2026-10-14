@@ -1,12 +1,13 @@
-# Astra parallel optimization — 2026-10-14 (active)
+# Astra parallel optimization — 2026-10-14 (integration)
 
-- Protected start: `ce0d811`; runtime/settings/binary remain the 2026-10-13 checked best below. No push. Original workspace and historical artifacts untouched.
-- Four tracks: static typed phase plans (Astra medium), local native CPU grammar admission (Astra medium), fused GPU donor construction metadata (Astra medium), size-fair crossover search experiment (root design + donor agent, separate commit/profile).
-- Three concurrent agent slots; development runs in `astra-static-20261014`, `astra-admission-20261014`, and `astra-donor-20261014` worktrees. All builds/performance runs use the existing shared benchmark lock.
-- Contract: CPU1T + GPU, P1024/full1024 cases, changing-population House32/seed0 and Median64/seed2. Target <922.912ms / <1172.983ms against frozen checked search ASGP denominators. Preserve all five native modes. Semantic search changes require separate quality evidence and labels.
-- Cold baseline replay (one process/task, diagnostic only): House1431.129ms, Median1165.687ms; raw `logs/optimization/astra-20261014/baseline`. This is not a replacement for prior nine-repeat baseline; candidate tests need same-round controls.
-- Hypotheses: eliminate phase dispatch/stack temporaries; combine membership matching with witness construction for provably unique production heads; emit GPU grammar sites during donor generation; test soft size-fair donor choice without fitness parsimony or hard growth rejection.
-- Next: focused tests and same-work A/B for exact candidates; three-seed long and equal-wall-clock quality screen for search change. Adoption pending evidence.
+- Protected start `ce0d811`; original workspace/artifacts unchanged, no push. Integration checkpoint `c934e1d`, native CPU1T + GPU only. Previous best and its authoritative manifest remain below.
+- Retained opt-in: fused GPU donor sites (`92941bf`), fused CPU witness admission (`0339d4a`), owned scalar compaction (`c704a50`), private constructive export (`12867af`), private import admission/executable reuse (`c934e1d`). Add `GAGP_GPU_FUSED_DONOR_SITES=1`, `GAGP_CPU_FUSED_ADMISSION=1`, `GAGP_CPU_COMPACT_ADMISSION=1`, `GAGP_GPU_CONSTRUCTIVE_EXPORT=1`, `GAGP_REUSE_IMPORT_CERTIFICATE=1` to the COMPLETE previous-best manifest flags. These are not default settings.
+- Contract: P1024/full1024 cases, changing House32/seed0 and Median64/seed2; all five native modes. Targets <922.912 / <1172.983 ms against frozen search ASGP medians27687.368 /5864.915 ms. No CPU reproduction replacement, worker threads, sampling or altered RNG/operators retained. Fused admission explicitly changes speculative matcher-work guard accounting.
+- Combined first screen1089.046 /906.550 ms (25.42x/6.47x); not final repeated results. Repeats: `logs/optimization/astra-20261014/combined-r3`. Complete source/binary/settings/input provenance: `logs/optimization/astra-20261014/import-reuse/artifact-on/manifest.json` (archive plus captured patch; root source now committed).
+- CPU compaction+admission same-window GPU-e3 improves15.0%/11.0%; donor3 improves1.39%/3.08%; export3 improves10.83%/10.87%. Do not add these independent percentages. Import witness-only OFF/ON3 improves5.6%/7.6%, and executable reuse is included only in combined candidate. Evidence under `results/{compact-admission-20261014.json,parallel-astra-20261014/,astra-20261014/}`.
+- Rejected: GPU scalar superinstructions, power-of-two division, guarded exact int32 division, CPU cached superinstructions; no reliable net evaluator win after archived-binary controls. Size-near crossover removed: House quality loss persists in preregistered equal-time/heldout audit (26 records, five uncovered comparisons excluded). No rejected runtime entry points adopted.
+- Active: donor agent's prepared immutable case views to remove repeated list-payload lookup (isolated); root full build/tests, all-mode controls, final repeated timing/scaling/long checks. All GPU performance and builds serialize on `/tmp/gagp-parallel-20261013-benchmark.lock`.
+- Reproduce timing with existing `short_search.py`, archived candidate binary and all manifest GAGP flags, into a NEW output directory. Never rerun prepare on original inputs. Current goal remains unmet for House; final adoption/report pending.
 
 ---
 
