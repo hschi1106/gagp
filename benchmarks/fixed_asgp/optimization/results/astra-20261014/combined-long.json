@@ -1,0 +1,100 @@
+{
+  "reference": "/home/hschi1106/.t3/worktrees/gagp/astra-donor-20261014/logs/bloat/off-long",
+  "candidate": "logs/optimization/astra-20261014/combined-long",
+  "rows": [
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "generations": 128,
+      "evolve_wall_ms": 11912.913494,
+      "final_best": -4427,
+      "best_seen": -4427,
+      "early_gen_median_ms": 22.3946155,
+      "late_gen_median_ms": 175.634159,
+      "unique_final_genomes": 1022,
+      "genotype_device_bytes": 586294144,
+      "resources": "peak_rss_kib=2188356\nprocess_wall_s=14.78\n",
+      "full_semantic_trace_and_exports_match": true,
+      "best_history": -4434
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "generations": 128,
+      "evolve_wall_ms": 6969.782916,
+      "final_best": -865,
+      "best_seen": -768,
+      "early_gen_median_ms": 25.615515000000002,
+      "late_gen_median_ms": 74.68437449999999,
+      "unique_final_genomes": 1022,
+      "genotype_device_bytes": 583625060,
+      "resources": "peak_rss_kib=2095172\nprocess_wall_s=9.58\n",
+      "full_semantic_trace_and_exports_match": true,
+      "best_history": -768
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "generations": 128,
+      "evolve_wall_ms": 7704.198269,
+      "final_best": -4535,
+      "best_seen": -4535,
+      "early_gen_median_ms": 22.6386225,
+      "late_gen_median_ms": 101.471868,
+      "unique_final_genomes": 1022,
+      "genotype_device_bytes": 578614628,
+      "resources": "peak_rss_kib=1909648\nprocess_wall_s=10.05\n",
+      "full_semantic_trace_and_exports_match": true,
+      "best_history": -4596
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "generations": 128,
+      "evolve_wall_ms": 3149.635634,
+      "final_best": -478,
+      "best_seen": -478,
+      "early_gen_median_ms": 11.928288,
+      "late_gen_median_ms": 30.0340365,
+      "unique_final_genomes": 1019,
+      "genotype_device_bytes": 797993060,
+      "resources": "peak_rss_kib=2390880\nprocess_wall_s=6.02\n",
+      "full_semantic_trace_and_exports_match": true,
+      "best_history": -478
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "generations": 128,
+      "evolve_wall_ms": 1677.894504,
+      "final_best": -642,
+      "best_seen": -642,
+      "early_gen_median_ms": 9.328517,
+      "late_gen_median_ms": 11.787862,
+      "unique_final_genomes": 957,
+      "genotype_device_bytes": 762173472,
+      "resources": "peak_rss_kib=1218092\nprocess_wall_s=2.91\n",
+      "full_semantic_trace_and_exports_match": true,
+      "best_history": -642
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "generations": 128,
+      "evolve_wall_ms": 1777.943922,
+      "final_best": -642,
+      "best_seen": -642,
+      "early_gen_median_ms": 9.3177775,
+      "late_gen_median_ms": 12.9490485,
+      "unique_final_genomes": 999,
+      "genotype_device_bytes": 764892808,
+      "resources": "peak_rss_kib=1315504\nprocess_wall_s=3.15\n",
+      "full_semantic_trace_and_exports_match": true,
+      "best_history": -642
+    }
+  ],
+  "limitations": [
+    "Same-seed exactness checks do not establish convergence quality across search profiles.",
+    "Peak process RSS includes history/JSON output; no claim of bounded history memory."
+  ]
+}
