@@ -1084,19 +1084,24 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
                    cudaGetDeviceProperties(&properties, device) == cudaSuccess,
                "shared capacity device properties")) return false;
     const auto shared_limit = static_cast<std::size_t>(properties.sharedMemPerBlock);
-    const auto root_length = (shared_limit - 32 * sizeof(double)) / sizeof(gpu_detail::DInstr);
+    // kernel_shared_bytes historically reserves alignof(double)-1 bytes even
+    // when DInstr already aligns the score table. Preserve that admission limit.
+    const auto padding = alignof(double) - 1;
+    const auto root_length = (shared_limit - 32 * sizeof(double) - padding) / sizeof(gpu_detail::DInstr);
     auto program = invocation(unary_segment(Value::from_int(7)), {Value::from_int(0)});
     program.n_locals = 1;
-    // A no-op Int check makes the initial root length even. Each added
-    // PushConst/Store pair is valid and leaves the bounded call's stack intact.
-    program.code.insert(program.code.end() - 1, ins(Opcode::CheckInt));
+    // Match parity with an optional no-op Int check. Each added PushConst/Store
+    // pair is valid and leaves the bounded call's stack intact.
+    if ((program.code.size() & 1u) != (root_length & 1u))
+      program.code.insert(program.code.end() - 1, ins(Opcode::CheckInt));
     while (program.code.size() < root_length) {
       program.code.insert(program.code.begin(), {ins_a(Opcode::PushConst, 0), ins_a(Opcode::Store, 0)});
     }
     program.instruction_fuel.assign(program.code.size(), 0);
-    if (!check(program.code.size() == root_length &&
-                   root_length * sizeof(gpu_detail::DInstr) + 32 * sizeof(double) == shared_limit,
-               "shared capacity fixture reaches exact limit") ||
+    const auto shared_required = root_length * sizeof(gpu_detail::DInstr) + padding + 32 * sizeof(double);
+    if (!check(program.code.size() == root_length && shared_required <= shared_limit &&
+                   shared_required + 16 > shared_limit,
+               "shared capacity fixture reaches prior admission boundary") ||
         !verify_fixture(program, "shared capacity boundary root")) return false;
     for (bool enabled : {false, true}) {
       if (enabled) setenv("GAGP_DYNAMIC_PROGRAM_QUEUE", "1", 1);
@@ -1105,7 +1110,7 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
       if (!check(gpu.ok && gpu.fitness == std::vector<double>{0} &&
                      gpu.case_counts[0][0] == 1 && gpu.case_counts[0][1] == 0 &&
                      gpu.execution_profile.find("-measure-cache") == std::string::npos,
-                 "queue exact shared capacity and cache fallback")) return false;
+                 "queue prior shared capacity and cache fallback")) return false;
     }
   }
   if(direct) {
