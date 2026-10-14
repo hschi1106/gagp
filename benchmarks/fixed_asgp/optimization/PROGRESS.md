@@ -1,3 +1,15 @@
+# Astra parallel optimization — 2026-10-14 (active)
+
+- Protected start: `ce0d811`; runtime/settings/binary remain the 2026-10-13 checked best below. No push. Original workspace and historical artifacts untouched.
+- Four tracks: static typed phase plans (Astra medium), local native CPU grammar admission (Astra medium), fused GPU donor construction metadata (Astra medium), size-fair crossover search experiment (root design + donor agent, separate commit/profile).
+- Three concurrent agent slots; development runs in `astra-static-20261014`, `astra-admission-20261014`, and `astra-donor-20261014` worktrees. All builds/performance runs use the existing shared benchmark lock.
+- Contract: CPU1T + GPU, P1024/full1024 cases, changing-population House32/seed0 and Median64/seed2. Target <922.912ms / <1172.983ms against frozen checked search ASGP denominators. Preserve all five native modes. Semantic search changes require separate quality evidence and labels.
+- Cold baseline replay (one process/task, diagnostic only): House1431.129ms, Median1165.687ms; raw `logs/optimization/astra-20261014/baseline`. This is not a replacement for prior nine-repeat baseline; candidate tests need same-round controls.
+- Hypotheses: eliminate phase dispatch/stack temporaries; combine membership matching with witness construction for provably unique production heads; emit GPU grammar sites during donor generation; test soft size-fair donor choice without fitness parsimony or hard growth rejection.
+- Next: focused tests and same-work A/B for exact candidates; three-seed long and equal-wall-clock quality screen for search change. Adoption pending evidence.
+
+---
+
 # Parallel worktree optimization — 2026-10-13 (complete)
 
 - Protected original workspace checkpoint `75d7f83`; optimization input checkpoint `9ddab1d`. Original workspace remains unchanged after its checkpoint; no push.
