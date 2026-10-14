@@ -983,6 +983,7 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
   }
   if(direct) {
     Environment window_mode("GAGP_WINDOW_EXECUTOR");
+    Environment leaf_direct("GAGP_GPU_WINDOW_LEAF_DIRECT");
     auto segment=sequence_segment(ValueTag::IntList);
     segment.plan.result_type=ValueTag::Int;segment.plan.preparations.resize(1);
     segment.preparations.resize(1);segment.plan.requests.resize(2);

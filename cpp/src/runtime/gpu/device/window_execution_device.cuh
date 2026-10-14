@@ -64,6 +64,21 @@ __device__ __noinline__ DResult d_run_window_region(
         }
       }
       if(depth>=segment.limits.frames)return d_error(ErrCode::Timeout);
+      // Intrinsic terminal windows never run the evolved predicate. Execute
+      // their original base phase directly, retaining the child depth check,
+      // entry charge and carried-state expression before this continuation.
+      if(workspace.window_leaf_direct && Value::container_len(next)<=1) {
+        if(fuel<0 || segment.limits.entry_fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
+        fuel-=static_cast<int>(segment.limits.entry_fuel);
+        Frame leaf;
+        leaf.state[0]=next;
+        if(segment.state_count==2)leaf.state[1]=carried;
+        result=d_region_phase<Flavor>(segment,segment.base_body_phase,ValueTag::Int,
+            leaf,caller_locals,caller_set,payload_tables,payload_state,tables,fuel,true);
+        if(result.is_error)return result;
+        frame.results[frame.next_request++]=result.value;
+        continue;
+      }
       ++frame.next_request;frames[depth*stride].state[0]=next;frames[depth*stride].next_request=-1;
       if(segment.state_count==2)frames[depth*stride].state[1]=carried;
       ++depth;continue;
