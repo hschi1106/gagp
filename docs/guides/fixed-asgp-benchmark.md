@@ -548,7 +548,9 @@ plots. See the [bounded long-search contract](../../benchmarks/fixed_asgp/optimi
 ### Short changing-population optimization check
 
 `benchmarks/fixed_asgp/optimization/short_search.py` compares fresh processes on
-House Robber (32 generations, seed 0) and Median (64 generations, seed 2), with
+House Robber (32 generations, seed 0) and Median (64 generations, seed 2) by
+default. `--tasks sum_of_elements house_robber median` additionally runs Sum of
+Elements (32 generations, seed 0). All tasks use
 1024 programs and all 1024 cases. It verifies frozen input hashes, archives the
 binary, pins one host thread, records explicit settings and raw generation data,
 and serializes runs using a shared file lock. `--seeds 0 1 2` expands quality

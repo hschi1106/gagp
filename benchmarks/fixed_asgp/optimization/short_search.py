@@ -24,9 +24,9 @@ def main():
     p.add_argument('--reference-root', type=Path, default=ROOT)
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--modes', nargs='+', choices=MODES, default=list(MODES))
-    p.add_argument('--tasks', nargs='+', choices=('house_robber', 'median'), default=['house_robber', 'median'])
-    p.add_argument('--generations', type=int, help='Override House32/Median64 for focused experiments')
-    p.add_argument('--seeds', nargs='+', type=int, help='Default House0/Median2')
+    p.add_argument('--tasks', nargs='+', choices=('sum_of_elements', 'house_robber', 'median'), default=['house_robber', 'median'])
+    p.add_argument('--generations', type=int, help='Override Sum32/House32/Median64 for focused experiments')
+    p.add_argument('--seeds', nargs='+', type=int, help='Default Sum0/House0/Median2')
     p.add_argument('--repeats', type=int, default=1)
     p.add_argument('--flag', action='append', default=[], help='Explicit recorded NAME=VALUE override')
     args = p.parse_args()
@@ -63,8 +63,8 @@ def main():
     save()
     for repeat in range(args.repeats):
         for task in args.tasks:
-            gens = args.generations or (32 if task == 'house_robber' else 64)
-            for seed in args.seeds if args.seeds is not None else [0 if task == 'house_robber' else 2]:
+            gens = args.generations or (64 if task == 'median' else 32)
+            for seed in args.seeds if args.seeds is not None else [2 if task == 'median' else 0]:
                 for mode in args.modes:
                     tag = f'{task}.{mode}.s{seed}.r{repeat}'
                     target = out/f'{tag}.json'

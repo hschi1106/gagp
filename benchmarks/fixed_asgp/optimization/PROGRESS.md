@@ -1,3 +1,14 @@
+# Three-task rerun — 2026-10-14 (complete)
+
+- No runtime change: validated `be455a4` binary SHA764ab8df9dbea4b2cb9e439a8e2608f7b1bd7fd9aa9f7ecd8bf4c4a6e09b53a0 and full64flags. CPU1T, P1024/C1024; no profiler/input preparation/early-success stop.
+- Sum32/seed0, House32/seed0, Median64/seed2; all5native modes×3fresh complete cold searches=45runs. Allcontrols rerun. GPU-er-o medians4339.178/1045.019/857.690ms; same-round ASGP ratios11.305x/26.477x/6.793x. Frozen historical House/Median ratios26.495x/6.838x kept separate. Fastest GPU happens to beER by a tiny margin; not evidence that overlap hurts.
+- Fresh fixed-parent all3tasks×5modes=15cells, each warmup+3samples:GPU-er-o45.844/30.940/6.604ms, same-round ratios41.38x/41.96x/8.63x; these do not establish complete-search targets.
+- Quality limitation:Suminitialgeneration0 alreadyfitness0 for allmodes. HousefinalfitnessASGP−4234/CPU,e−6544/ER,o−7146;Median−578/−642. Three timing repeats use one seed/task, not three independent quality seeds. Fullcases/unscored/audit checks passed in runner. Five fixed-tool tests and24repository checks passed; no runtime rebuild needed.
+- [Report](results/three-task-20261014/REPORT.zh-TW.md), [raw summary](results/three-task-20261014/summary.json), [per-generation CSV](results/three-task-20261014/generations.csv), [English chart](results/three-task-20261014/search-comparison.png). Raw root`logs/optimization/three-task-20261014/`; alljobs complete.
+- Reproduce with `python3 benchmarks/fixed_asgp/optimization/results/three-task-20261014/run.py --out <NEW>`; summarize via sibling `summarize.py --raw <runs> --out <NEW summary>`. Existing short_search now accepts explicitSum32/seed0; defaultHouse/Medianunchanged. No push.
+
+---
+
 # Bloat cost optimization — 2026-10-14 (complete)
 
 - Best runtime `be455a4`, branch `opt/gpu-generation-20261001`, worktree `gagp-opt-20261001`. Protected prior checkpoint `checkpoint/pre-bloat-cost-20261014` = `71dc916`. CPU1T, native GPU reproduction, full P1024/C1024; no RNG/operator/fuel changes, no push this round.
