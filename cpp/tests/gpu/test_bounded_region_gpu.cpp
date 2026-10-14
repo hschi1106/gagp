@@ -1020,6 +1020,56 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
       }
     }
   }
+  if (root) {
+    // Exercise the production dynamic shared cache allocation in a population
+    // containing compact, actual 20-deep generic, and impure phases together.
+    Environment cache_mode("GAGP_MEASURE_PHASE_CACHE");
+    std::vector<BytecodeProgram> programs;
+    for (unsigned length : {2u, 65u}) for (int variant = 0; variant < 3; ++variant) {
+      auto segment = sequence_segment(ValueTag::IntList);
+      segment.plan.result_type = ValueTag::Int;
+      segment.plan.preparations.resize(1); segment.preparations.resize(1);
+      segment.plan.requests.resize(2); segment.plan.limits.frames = 128;
+      segment.plan.requests[1].states[0] = window(0,
+          endpoint(WindowEndpointKind::InteriorCut, 0), endpoint(WindowEndpointKind::End));
+      segment.base_body = constant_phase(Value::from_int(7));
+      segment.combine = phase({},
+          {ins_a(Opcode::Load, 0), ins_a(Opcode::Load, 1), ins(Opcode::Add), ins(Opcode::Return)},
+          {{slot(RegionSlotBank::Result, 0), 0}, {slot(RegionSlotBank::Result, 1), 1}}, 2);
+      if (variant == 1) {
+        std::vector<Instr> code(20, ins_a(Opcode::Load, 0));
+        for (int i = 0; i < 19; ++i) code.push_back(ins(Opcode::Add));
+        code.push_back(ins(Opcode::Return));
+        segment.preparations[0] = phase({}, std::move(code),
+            {{slot(RegionSlotBank::Measure, 0), 0}}, 1);
+        segment.preparations[0].program.instruction_fuel.assign(40, 1);
+      } else if (variant == 2) {
+        // Even an unused non-Measure declaration prevents cache admission.
+        segment.preparations[0].bindings.push_back({slot(RegionSlotBank::State, 0), 1});
+        segment.preparations[0].program.n_locals = 2;
+      }
+      programs.push_back(invocation(std::move(segment),
+          {payload::make_int_list_value(std::vector<Value>(length, Value::from_int(3)))}));
+      if (!verify_fixture(programs.back(), "measure cache mixed capability fixture")) return false;
+    }
+    const std::vector<CaseBindings> cases(33);
+    const std::vector<Value> answers(33, Value::from_int(0));
+    for (int blocksize : {32, 128}) for (int fuel : {0, 3, 40, 4000}) {
+      FitnessSessionGpu session;
+      if (!check(session.init(cases, answers, fuel, blocksize, 7).ok,
+                 "measure cache production session init")) return false;
+      unsetenv("GAGP_MEASURE_PHASE_CACHE");
+      const auto off = session.eval_programs(programs, true);
+      setenv("GAGP_MEASURE_PHASE_CACHE", "1", 1);
+      const auto on = session.eval_programs(programs, true);
+      const auto cpu = eval_fitness_cpu(programs, cases, answers, fuel, 7, blocksize);
+      if (!check(off.ok && on.ok && off.fitness == on.fitness && on.fitness == cpu &&
+                     off.case_counts == on.case_counts && on.case_counts.size() == programs.size() &&
+                     on.execution_profile.find("int-list-views") != std::string::npos &&
+                     on.execution_profile.find("-direct") == std::string::npos,
+                 "measure cache mixed generic/typed/impure production fitness and counters")) return false;
+    }
+  }
   if(direct) {
     Environment add_mode("GAGP_BOUND_ADD_PHASE");
     for(bool explicit_return:{false,true}) {
