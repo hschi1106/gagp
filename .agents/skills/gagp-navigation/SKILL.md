@@ -108,3 +108,8 @@ maintenance, follow the rules in root `AGENTS.md`.
   identity-checked private admission/executable caches on cold import. External
   mutations, grammar/request and evaluator input order still pass validation.
   Contract: `docs/design/gpu-reproduction.md`; test: `gagp_test_gpu_phase_layout`.
+
+- `GAGP_PREPARED_CASE_VIEWS`: `runtime/gpu/fitness_gpu.cu` prepares per-evaluation
+  private list views only for admitted view programs with list parameters.
+  Raw session inputs remain available for generic fallback. Ownership/timing:
+  `docs/design/payload.md`; test: `gagp_test_bounded_region_gpu_results`.
