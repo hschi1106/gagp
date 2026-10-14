@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 TASKS = ("sum_of_elements", "median", "house_robber")
+EXPANDED_TASKS = ("count_odds", "last_index_of_zero")
 
 
 def constant(value, kind="Int"):
@@ -28,7 +29,7 @@ def state_value():
 
 
 def definition(root: Path, task: str) -> dict:
-    if task not in TASKS:
+    if task not in TASKS + EXPANDED_TASKS:
         raise ValueError(task)
     dp = task == "house_robber"
     if dp:
@@ -70,10 +71,16 @@ def definition(root: Path, task: str) -> dict:
                   ("Divide", [("n", "Int")]),
                   ("Combine", [("left", "Int"), ("right", "Int")])]
     low, high = (-20, 20) if task == "median" else (0, 20 if dp else 100)
+    if task == "count_odds":
+        low, high = -1000, 1000
     nts = []
     for phase, scope in phases:
         i, b = {"ref": f"{phase}.Int"}, {"ref": f"{phase}.Bool"}
         ints = [{"constant": {"type": "Int", "range": [str(low), str(high)]}}]
+        if task == "last_index_of_zero":
+            ints = [constant(0)]
+            if phase == "Solve":
+                ints += [bound("lo")]
         if dp:
             ints += [bound("n"), state_value()]
             if phase == "Transition":

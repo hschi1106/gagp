@@ -41,8 +41,17 @@ void freeze(const std::string& name, const std::string& path) {
   for (const auto& c : spec.train) {
     std::vector<Json> values;
     for (auto v : c.elements) values.push_back(string(std::to_string(v)));
-    cases.push_back(object({{"input",array(std::move(values))}, {"expected",string(std::to_string(c.expected.i))},
-                            {"start",number(c.start.a)}, {"extent",number(c.extent.a)}}));
+    Json expected=string(std::to_string(c.expected.i));
+    if (spec.output==asgp::Type::kIntList) {
+      std::vector<Json> items;for(auto v:c.expected.list)items.push_back(string(std::to_string(v)));
+      expected=array(std::move(items));
+    }
+    auto row=object({{"input",array(std::move(values))}, {"expected",expected},
+                     {"start",number(c.start.a)}, {"extent",number(c.extent.a)}});
+    if(name=="stock_with_cooldown") {
+      row.object_v["start_b"]=number(c.start.b);row.object_v["extent_b"]=number(c.extent.b);
+    }
+    cases.push_back(std::move(row));
   }
   if (cases.size()!=1024) throw std::runtime_error("generator did not produce 1024 cases");
   write(path,object({{"format",string("fixed-asgp-source-v1")}, {"task",string(name)},
@@ -58,10 +67,23 @@ void restore_cases(const Json& source, asgp::TaskSpec& spec, std::vector<gagp::e
       example.elements.push_back(std::stoll(v.string_v));
       values.push_back(gagp::Value::from_int(example.elements.back()));
     }
-    example.expected=asgp::Output::Int(std::stoll(row.object_v.at("expected").string_v));
+    gagp::Value expected;
+    if (spec.output==asgp::Type::kIntList) {
+      std::vector<std::int64_t> native;std::vector<gagp::Value> packed;
+      for(const auto& v:row.object_v.at("expected").array_v) {
+        native.push_back(std::stoll(v.string_v));packed.push_back(gagp::Value::from_int(native.back()));
+      }
+      example.expected=asgp::Output::List(std::move(native));
+      expected=gagp::payload::make_int_list_value(packed);
+    } else {
+      example.expected=asgp::Output::Int(std::stoll(row.object_v.at("expected").string_v));
+      expected=gagp::Value::from_int(example.expected.i);
+    }
     example.start.a=int(row.object_v.at("start").number_v);
     example.extent.a=int(row.object_v.at("extent").number_v);
-    cases.push_back({{{"source",gagp::payload::make_int_list_value(values)}},gagp::Value::from_int(example.expected.i)});
+    if(row.object_v.count("start_b"))example.start.b=int(row.object_v.at("start_b").number_v);
+    if(row.object_v.count("extent_b"))example.extent.b=int(row.object_v.at("extent_b").number_v);
+    cases.push_back({{{"source",gagp::payload::make_int_list_value(values)}},expected});
     spec.train.push_back(std::move(example));
   }
   if (cases.size()!=1024) throw std::runtime_error("fixed case count mismatch");
@@ -100,7 +122,13 @@ void audit(const Json& source, const std::string& grammar_path, const std::strin
   int cpu_bad=0;
   for (const auto& c : cases) {
     const auto result=gagp::execute_bytecode_cpu(code,{{0,c.inputs.at("source")}},2000000);
-    cpu_bad+=result.is_error || result.value.tag!=gagp::ValueTag::Int || result.value.i!=c.expected.i;
+    bool equal=!result.is_error && result.value.tag==c.expected.tag;
+    if(equal && c.expected.tag==gagp::ValueTag::IntList) {
+      std::vector<gagp::Value> actual,wanted;
+      equal=gagp::payload::lookup_list(result.value,&actual) && gagp::payload::lookup_list(c.expected,&wanted) && actual.size()==wanted.size();
+      if(equal)for(std::size_t i=0;i<actual.size();++i)equal=equal && actual[i].tag==wanted[i].tag && actual[i].i==wanted[i].i;
+    } else if(equal)equal=result.value.i==c.expected.i;
+    cpu_bad+=!equal;
   }
   auto cs=gagp::evo::prepare_case_set(cases);
   gagp::FitnessSessionGpu session;
@@ -198,7 +226,9 @@ Json measure_gagp(const std::vector<gagp::evo::ProgramGenome>& population,
 void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
               const std::vector<gagp::evo::EvalCase>& cases, const std::string& output) {
   const double penalty=std::getenv("GAGP_SNAPSHOT_PENALTY") ? std::stod(std::getenv("GAGP_SNAPSHOT_PENALTY")) : 1000;
-  if(!std::isfinite(penalty) || penalty<=0)throw std::invalid_argument("snapshot penalty must be finite and positive");
+  if(!std::isfinite(penalty) || penalty<0 ||
+     (penalty==0 && !(std::getenv("GAGP_BM_COMMON_FITNESS") && !cases.empty() && cases[0].expected.tag==gagp::ValueTag::IntList)))
+    throw std::invalid_argument("snapshot penalty must be positive (common list exact policy permits zero)");
   auto cs=gagp::evo::prepare_case_set(cases);
   const auto begin=Clock::now();
   std::vector<gagp::BytecodeProgram> programs;
@@ -329,7 +359,9 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   cfg.reproduction_backend=(mode=="gpu_repro" || mode=="gpu_overlap") ? gagp::evo::repro::ReproductionBackend::Gpu : gagp::evo::repro::ReproductionBackend::Cpu;
   cfg.repro_overlap=mode=="gpu_overlap"; cfg.compiled_grammar=grammar; cfg.generation_request=gg::entry_request(*grammar);
   cfg.fuel=2000000; cfg.penalty=std::getenv("GAGP_SEARCH_PENALTY") ? std::stod(std::getenv("GAGP_SEARCH_PENALTY")) : 1000;
-  if(!std::isfinite(cfg.penalty) || cfg.penalty<=0)throw std::invalid_argument("search penalty must be finite and positive"); cfg.gpu_blocksize=512; cfg.selection_pressure=2;
+  if(!std::isfinite(cfg.penalty) || cfg.penalty<0 ||
+     (cfg.penalty==0 && !(std::getenv("GAGP_BM_COMMON_FITNESS") && !cases.empty() && cases[0].expected.tag==gagp::ValueTag::IntList)))
+    throw std::invalid_argument("search penalty must be positive (common list exact policy permits zero)"); cfg.gpu_blocksize=512; cfg.selection_pressure=2;
   cfg.mutation_rate=.3; cfg.mutation_subtree_prob=1; cfg.skip_final_eval=false; cfg.retain_final_population=true;
   const auto call_begin=std::chrono::steady_clock::now();
   const auto result=gagp::evo::evolve_population(cases,cfg,&population);

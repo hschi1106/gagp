@@ -1,6 +1,7 @@
 #include "adapter.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -53,6 +54,7 @@ Json expression(const asgp::Expr& expr, std::size_t& at, bool dp) {
     case K::kResult:
       if (node.op > 1) throw std::runtime_error("unsupported result slot");
       return bound(dp ? (node.op ? "d2" : "d1") : (node.op ? "right" : "left"));
+    case K::kHeadIndex: return bound("lo");
     case K::kHead: return call("index(IntList,Int)->Int", {args.at(0), constant(0)});
     case K::kIndex: return call("index(IntList,Int)->Int", {bound("xs"), args.at(0)});
     case K::kNot: return call("not(Bool)->Bool", args);
@@ -103,10 +105,15 @@ asgp::Individual decode(const Json& value) {
   return out;
 }
 asgp::TaskSpec task(const std::string& name) {
-  if (name != "sum_of_elements" && name != "median" && name != "house_robber")
+  if (name != "sum_of_elements" && name != "median" && name != "house_robber" &&
+      name != "count_odds" && name != "last_index_of_zero" && name != "stock_with_cooldown")
     throw std::runtime_error("unknown fixed task " + name);
   asgp::DataConfig cfg; cfg.train=1024; cfg.test=1; cfg.seed=20260626; cfg.legacy_finite=false;
-  return *asgp::BuildTask(name, cfg);
+  auto spec = *asgp::BuildTask(name, cfg);
+  // Explicit study policy; historical tasks and default ASGP scoring stay intact.
+  if (std::getenv("GAGP_BM_COMMON_FITNESS") && name == "last_index_of_zero")
+    spec.proximity = asgp::Proximity::kRewarded;
+  return spec;
 }
 Json translated_root(const asgp::Individual& individual, const std::string& name) {
   const bool dp = name == "house_robber";
@@ -174,7 +181,17 @@ asgp::Individual solution(const std::string& name) {
   } else {
     out.phases[1]=lit(1); out.phases[2]=add(result(0),result(1));
     if (name == "sum_of_elements") out.phases[0]=index(0);
-    else {
+    else if (name == "count_odds") {
+      auto rem=expr(K::kIntOp,T::kInt,4,0,{index(0),lit(2)});
+      auto odd=expr(K::kBoolOp,T::kBool,5,0,{rem,lit(0)});
+      out.phases[0]=choose(odd,lit(1),lit(0));
+    } else if (name == "last_index_of_zero") {
+      auto zero=expr(K::kBoolOp,T::kBool,1,0,{index(0),lit(0)});
+      auto origin=expr(K::kHeadIndex,T::kInt,0,0,{expr(K::kInputList,T::kIntList,0,0)});
+      out.phases[0]=choose(zero,origin,lit(0));
+      out.phases[1]=lit(0);
+      out.phases[2]=choose(lt(result(0),result(1)),result(1),result(0));
+    } else {
       auto a=index(0), b=index(1), c=index(2);
       out.phases[0]=choose(lt(a,b),choose(lt(b,c),b,choose(lt(a,c),c,a)),
                                    choose(lt(a,c),a,choose(lt(b,c),c,b)));
