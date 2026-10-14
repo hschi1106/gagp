@@ -12,9 +12,9 @@ TASKS = ('count_odds', 'last_index_of_zero')
 # Representation support alone does not qualify a workload for timed comparison.
 UNMEASURED = {
     'negative_to_zero': {
-        'status': 'unmeasured_memory_safety_and_GPU_evaluation_failure',
-        'reason': 'CPU P8 two-generation random-list preflight exceeded 70 GiB RSS and was stopped; GPU known-solution audit failed. No trustworthy P1024 timing or qualified speedup.',
-        'reproduction': 'Generic GPU reproduction is available; this does not establish GPU evaluation correctness or safe CPU execution.',
+        'status': 'unmeasured_resource_limit_and_GPU_evaluation_failure',
+        'reason': 'CPU P8 two-generation random-list preflight reached 99,987,640 KiB RSS (about 95.36 GiB) and was stopped; GPU known-solution audit failed. No trustworthy P1024 timing or qualified speedup.',
+        'reproduction': 'Generic GPU reproduction is available; this does not establish GPU evaluation correctness or bounded CPU resource use.',
         'evidence': ['negative-cpu-memory-stop.json', 'artifacts/negative_to_zero.audit.json'],
     },
     'stock_with_cooldown': {
@@ -42,6 +42,30 @@ def normal_fitness(task, mode, value):
 def stats(values):
     values = [v for v in values if v is not None]
     return (statistics.median(values), min(values), max(values)) if values else (None, None, None)
+
+
+def process_timing(directory, cell):
+    """GNU time measures child lifetime; monitor elapsed includes polling tail."""
+    monitor = cell['process_wall_s'] * 1000
+    tag = cell.get('tag')
+    resources = directory / (tag + '.resources') if tag else None
+    if resources is not None and resources.is_file():
+        entries = dict(line.split('=', 1) for line in resources.read_text().splitlines() if '=' in line)
+        if 'process_wall_s' not in entries:
+            raise ValueError(f'Missing GNU time process_wall_s in {resources}')
+        value = float(entries['process_wall_s']) * 1000
+        if value <= 0:
+            raise ValueError(f'Invalid GNU time process duration in {resources}')
+        return dict(process_ms=value, monitor_process_wall_ms=monitor,
+            process_time_source='GNU /usr/bin/time resources; child execution wall time',
+            process_time_resolution_ms=10, process_time_path=str(resources))
+    # Explicitly preserve compatibility with synthetic/old records without tags.
+    # Real tagged study cells must retain their independent resources evidence.
+    if tag:
+        raise ValueError(f'Missing process resource evidence: {resources}')
+    return dict(process_ms=monitor, monitor_process_wall_ms=monitor,
+        process_time_source='manifest monitor estimate; includes up to 500 ms polling tail',
+        process_time_resolution_ms=None, process_time_path='')
 
 
 def summarize(study: Path, allow_incomplete=False):
@@ -102,7 +126,7 @@ def summarize(study: Path, allow_incomplete=False):
                     reasons.append('final_population_CPU_audit_mismatch')
                 window = max(1, len(rows) // 4)
                 record = dict(task=task, mode=mode, seed=seed, generations=len(rows),
-                    search_ms=data['evolve_wall_ms'], process_ms=cell['process_wall_s'] * 1000,
+                    search_ms=data['evolve_wall_ms'], **process_timing(study/'formal', cell),
                     early_generation_ms=statistics.median(r['generation_ms'] for r in rows[:window]),
                     late_generation_ms=statistics.median(r['generation_ms'] for r in rows[-window:]),
                     final_fitness=normal_fitness(task, mode, data['final_best']),
@@ -147,7 +171,7 @@ def summarize(study: Path, allow_incomplete=False):
             ratio = baseline[metric] / r[metric] if baseline else None
             r['measured_' + metric + '_ratio'] = ratio
             r['qualified_' + metric + '_speedup'] = ratio if r['qualified'] and baseline and baseline['qualified'] else None
-    numeric = ('search_ms', 'process_ms', 'early_generation_ms', 'late_generation_ms', 'final_fitness',
+    numeric = ('search_ms', 'process_ms', 'monitor_process_wall_ms', 'early_generation_ms', 'late_generation_ms', 'final_fitness',
         'cpu_audit_mismatches', 'cpu_audit_program_count', 'unique_genotypes', 'errors', 'timeouts',
         'heldout_exact_accuracy', 'measured_search_ms_ratio', 'measured_process_ms_ratio',
         'qualified_search_ms_speedup', 'qualified_process_ms_speedup')
@@ -160,6 +184,8 @@ def summarize(study: Path, allow_incomplete=False):
                 qualified=bool(group) and all(r['qualified'] for r in group),
                 qualification_reason=';'.join(sorted({r['qualification_reason'] for r in group if r['qualification_reason']})),
                 qualification_scope=QUALIFICATION_SCOPE,
+                process_time_sources=';'.join(sorted({r['process_time_source'] for r in group})),
+                process_time_resolution_ms=10 if group and all(r['process_time_resolution_ms']==10 for r in group) else None,
                 reproduction_profiles=';'.join(sorted({r['reproduction_profile'] for r in group})))
             for field in numeric:
                 values = [r.get(field) for r in group]
@@ -257,7 +283,7 @@ def native_controls(study):
         data = read(cell['output'])
         output.append(dict(task=cell['task'], mode=cell['mode'], seed=cell['seed'],
             metric='native ASGP policy; not directly comparable to common fitness',
-            search_ms=data['evolve_wall_ms'], process_ms=cell['process_wall_s']*1000,
+            search_ms=data['evolve_wall_ms'], **process_timing(study/'native-controls', cell),
             native_final_fitness=data['final_best'], generations=len(data['generations']),
             unique_genotypes=data['unique_final_genomes']))
     return output
@@ -339,6 +365,7 @@ def main():
         pilot_policy='pilot/ preserves the interrupted original attempt; pilot-supported/ is the two-task pilot.',
         seed_policy='Three independent searches; ranges describe seed variability, not repeated identical workloads.',
         ratios='Median of seed-matched ASGP ratios; measured ratios are descriptive only when scoped correctness checks fail.',
+        process_time='Tagged real runs require GNU /usr/bin/time resources process_wall_s (10 ms resolution). Monitor elapsed, including up to 500 ms polling tail, is retained separately. Untagged synthetic/legacy records explicitly fall back to a monitor estimate.',
         qualification_scope=QUALIFICATION_SCOPE,
         initial_snapshot_policy='Initial aggregate-fitness differences are reported, not used to discard timings; successful limited checks do not establish exact parity.',
         initial_snapshot_summary=snapshots,
