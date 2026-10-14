@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 TASKS = ("sum_of_elements", "median", "house_robber")
-EXPANDED_TASKS = ("count_odds", "last_index_of_zero")
+EXPANDED_TASKS = ("count_odds", "last_index_of_zero", "negative_to_zero")
 
 
 def constant(value, kind="Int"):
@@ -29,6 +29,9 @@ def state_value():
 
 
 def definition(root: Path, task: str) -> dict:
+    if task == "negative_to_zero":
+        from .list_grammar import negative_to_zero_definition
+        return negative_to_zero_definition(root)
     if task not in TASKS + EXPANDED_TASKS:
         raise ValueError(task)
     dp = task == "house_robber"

@@ -1,4 +1,5 @@
 #include "adapter.hpp"
+#include "expanded_audit.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -481,6 +482,8 @@ void measure(const Json& source, const std::string& prepared_path, const std::st
 }  // namespace
 int main(int argc,char** argv) try {
   if (argc==4 && std::string(argv[1])=="freeze") freeze(argv[2],argv[3]);
+  else if ((argc==6 || argc==7) && std::string(argv[1])=="quality")
+    fixed_asgp::expanded_quality(argv[2],argv[3],argv[4],argv[5],argc==7?argv[6]:"");
   else if (argc==6 && std::string(argv[1])=="prepare") prepare(read(argv[2]),argv[3],std::stoi(argv[4]),argv[5]);
   else if (argc==5 && std::string(argv[1])=="audit") audit(read(argv[2]),argv[3],argv[4]);
   else if (argc==8 && std::string(argv[1])=="measure") {
@@ -488,6 +491,6 @@ int main(int argc,char** argv) try {
     measure(read(argv[2]),argv[3],argv[4],std::stoi(argv[5]),argv[6],argv[7]);
     write(std::string(argv[7])+".wall.json",object({{"input_through_report_ms",number(elapsed(begin))}}));
   }
-  else throw std::runtime_error("usage: freeze TASK OUT | prepare SOURCE GRAMMAR POP OUT | audit SOURCE GRAMMAR OUT | measure SOURCE PREPARED GRAMMAR POP MODE OUT");
+  else throw std::runtime_error("usage: quality TASK EXPORT GRAMMAR OUT [HISTORY] | freeze TASK OUT | prepare SOURCE GRAMMAR POP OUT | audit SOURCE GRAMMAR OUT | measure SOURCE PREPARED GRAMMAR POP MODE OUT");
   return 0;
 } catch (const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }

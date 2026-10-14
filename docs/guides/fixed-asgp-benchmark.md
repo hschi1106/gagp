@@ -688,3 +688,31 @@ scaling separately retains the original fixed-parent warmup/three-sample
 contract. These are different workloads and their speedup denominators must
 remain separate. The adjacent `summarize.py` refuses incomplete validation by
 default and writes only to a new report directory.
+
+## Expanded capability and multi-generation study (2026-10-14)
+
+The opt-in study under `benchmarks/fixed_asgp/optimization/results/expanded-20261014/`
+adds Count Odds and Last Index of Zero to the original five native modes.
+`run.py` stages `prepare`, `pilot`, `formal`, `quality`, and `native-controls`
+use new output directories, full P1024/C1024, CPU1T, and serialized GPU jobs.
+Original default TASKS and frozen artifacts remain unchanged. The contract is
+`contract.json`; `summarize.py` requires all30 formal and30 quality cells.
+
+`GAGP_BM_COMMON_FITNESS=1` is benchmark-only: numeric tasks use capped L1;
+Last Index's original ASGP discounted L1 is separately controlled. The list
+adapter supports exact-case scoring (ASGP negative error count, GAGP correct
+count), but Negative to Zero is excluded from formal timing: GPU known-solution
+validation fails and CPU random P8 evolution reached95.36GiB RSS. Stock With
+Cooldown's exact clamped memo transitions fail the current validator. Neither
+is represented by a substitute pipeline or a qualified speedup.
+
+The native `quality TASK EXPORT GRAMMAR OUT [HISTORY]` command independently
+admits GAGP exports and CPU-evaluates final and initial/middle/last champions
+on1024 separately seeded local ASGP-domain cases. These are not official PSB
+heldout datasets, and natural overlap remains. Three seeds screen quality;
+they do not prove convergence equivalence. Known solutions are audit-only.
+
+Validation: `ctest -R gagp_test_fixed_asgp_bench`, operational
+`test_fixed_asgp*.py`, and the study's `test_summarize.py`. The list GPU
+correctness assertion is an explicit expected failure; unsafe random list
+evolution is explicitly skipped, not reported as supported.

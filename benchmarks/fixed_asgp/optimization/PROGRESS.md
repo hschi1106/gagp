@@ -1,3 +1,16 @@
+## Expanded benchmark checkpoint (2026-10-14)
+
+Runtime remains db1dd55/2938d69 best settings; no runtime architecture changes.
+Study: `results/expanded-20261014/contract.json` and `run.py`.
+New raw inputs/logs: `logs/optimization/expanded-20261014/`.
+Count Odds and Last Index: ten pilot cells complete, known-solution and top16
+CPU audits pass. Prespecified budget chooses16generations ×3seeds ×5modes
+for each task. Formal/quality/native-policy controls pending.
+Stock exact clamped memo transitions unsupported. Negative CPU random P8
+preflight stopped at95.36GiB RSS; GPU full-case known solution also fails.
+Do not rerun random list evolution without addressing allocation bounds.
+Original inputs, original three tasks, native pipeline and CPU1T preserved.
+
 # Sum25 / House25 / Median5 — 2026-10-14 (complete)
 
 - Best runtime `2938d69`; final test-only correction `c0d24a9`; branch `opt/gpu-generation-20261001`, worktree `gagp-opt-20261001`. Candidate binary SHA`e4c8e8ebebab92a6cc81be1e8df31d0a43d9dc9fb6f9dacc12e0f302c36e519b`. Start checkpoint `checkpoint/pre-sum25-20261014`=`320d8bf`; original worktree clean at`75d7f83`, archived baseline/frozen inputs preserved. No push.

@@ -1,0 +1,52 @@
+{
+  "study": "expanded-native-20261014",
+  "checkpoint": "db1dd55",
+  "population": 1024,
+  "cases": 1024,
+  "cpu_threads": 1,
+  "tasks": [
+    "count_odds",
+    "last_index_of_zero",
+    "negative_to_zero",
+    "stock_with_cooldown"
+  ],
+  "modes": [
+    "asgp_1t",
+    "gagp_cpu",
+    "gpu_eval",
+    "gpu_repro",
+    "gpu_overlap"
+  ],
+  "source": "local /home/hschi1106/r13921069 ASGP task definitions; not unmodified official PSB domains",
+  "training_seed": 20260626,
+  "quality_seed": 20261015,
+  "search_seeds": [
+    0,
+    1,
+    2
+  ],
+  "new_inputs_only": true,
+  "original_frozen_inputs_preserved": true,
+  "common_fitness_flag": "GAGP_BM_COMMON_FITNESS=1",
+  "numeric_policy": "negative sum min(abs(prediction-expected),1000); runtime/type errors cost1000",
+  "list_policy": "correct-case count; mismatch/runtime/type error contributes0; ASGP MetricExact negative error shifted by1024 for charts",
+  "native_policy_changes": {
+    "count_odds": "none",
+    "last_index_of_zero": "ASGP discounted absolute loss replaced by capped absolute loss for shared objective; native control reported separately",
+    "negative_to_zero": "Adapter supports exact-case policy but task excluded; no native evolution control claimed"
+  },
+  "pipeline": "Original native five modes. Formal GPU reproduction uses native-gpu-phase-v2-counted. Generic list GPU reproduction exists but list evaluator/resource checks fail; no CPU variation substitute.",
+  "pilot": "4 full generations seed0 for the two scalar tasks, five modes; separate capability checks exclude unsupported tasks before formal runs",
+  "formal_generation_rule": "Before formal runs, select largest G in32/16/8/4 such that sum(all5 pilot process times/4)*G*3<=900seconds per task; use identical G for every mode/seed. One process per seed, not same-workload timing repeats.",
+  "qualification": "Do not claim a qualified GPU speedup when the known correct solution fails full-case GPU audit or final top16 CPU audit disagrees. Keep raw diagnostic timing/errors visible.",
+  "stock_status": "unsupported exact clamped memo-coordinate transitions; actual validator positive/negative probes archived; no nonmemoized substitute",
+  "timing": "Existing evolve_wall_ms cold evolution through final evaluation; CLI input parsing/independent CPU audit/export additionally reported by process wall. Lock waiting excluded.",
+  "quality": "Final champion plus gen0/middle/last independently CPU evaluated on1024 heldout local-domain cases; GAGP grammar admitted. Three seeds are screening, not convergence equivalence. Natural overlap/duplicates retained.",
+  "runtime_changes": "none; new benchmark adapters, study policy, audit/reporting only",
+  "formal_tasks": [
+    "count_odds",
+    "last_index_of_zero"
+  ],
+  "negative_status": "Excluded from formal study: full-case GPU known solution incorrect; random CPU P8 preflight stopped at 99,987,640 KiB RSS (95.36 GiB), one thread. No complete P1024 timing or ratio.",
+  "resource_guard": "New runner stops only own process group at16GiB RSS; stopped/incomplete searches excluded, not timed as completed work"
+}

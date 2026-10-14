@@ -108,6 +108,71 @@ class TestFixedAsgpNative(unittest.TestCase):
                             self.assertNotEqual(rejected.returncode, 0)
 
 
+    def test_expanded_common_policy_and_heldout_audit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            for name in ("count_odds", "last_index_of_zero"):
+                with self.subTest(task=name):
+                    source=folder/f"{name}.source.json"
+                    grammar=folder/f"{name}.grammar.json"
+                    prepared=folder/f"{name}.prepared.json"
+                    grammar.write_text(json.dumps(definition(ROOT,name)))
+                    env=dict(os.environ,GAGP_BM_COMMON_FITNESS="1",GAGP_HOST_THREADS="1",
+                             GAGP_VIEW_PROFILE="1",GAGP_TYPED_VIEW_PHASE="1",
+                             GAGP_SEARCH_GENERATIONS="2",GAGP_BM_SEED="0",
+                             GAGP_SEARCH_PENALTY="0" if name=="negative_to_zero" else "1000")
+                    self.call("freeze",name,source,env=env)
+                    self.call("prepare",source,grammar,8,prepared,env=env)
+                    audit=folder/f"{name}.audit.json"
+                    self.call("audit",source,grammar,audit,env=env)
+                    report=json.loads(audit.read_text())
+                    self.assertEqual(report["known_solution_cpu_mismatches"],0)
+                    self.assertEqual(report["known_solution_asgp_wrong"],0)
+                    if name!="negative_to_zero":
+                        self.assertEqual(report["known_solution_gpu_fitness"],0)
+                    initial=[]
+                    modes=("asgp_1t","gagp_cpu") if name=="negative_to_zero" else ("asgp_1t","gagp_cpu","gpu_eval","gpu_repro","gpu_overlap")
+                    for mode in modes:
+                        output=folder/f"{name}.{mode}.json"
+                        export=folder/f"{name}.{mode}.export.json"
+                        history=folder/f"{name}.{mode}.history.json"
+                        env.update(GAGP_SEARCH_EXPORT=str(export),GAGP_SEARCH_HISTORY_EXPORT=str(history))
+                        self.call("measure",source,prepared,grammar,8,"search_"+mode,output,env=env)
+                        r=json.loads(output.read_text())
+                        self.assertEqual(len(r["generations"]),2)
+                        self.assertEqual(len(r["final_population"]),8)
+                        self.assertEqual(r.get("cpu_audit_mismatches",0),0)
+                        initial.append(r["generations"][0]["mean"]+(1024 if name=="negative_to_zero" and mode=="asgp_1t" else 0))
+                        quality=folder/f"{name}.{mode}.quality.json"
+                        self.call("quality",name,export,grammar,quality,history,env=env)
+                        q=json.loads(quality.read_text())
+                        self.assertEqual(len(q["cases"]),1024)
+                        self.assertEqual(q["final"]["cases"],1024)
+                        self.assertEqual(len(q["history"]),2)
+                    self.assertTrue(all(abs(x-initial[0])<1e-6 for x in initial),initial)
+
+    @unittest.skip("Random list evolution exceeded95GiB RSS atP8; resource limitation recorded in expanded study")
+    def test_negative_random_evolution_resource_support(self):
+        self.fail("Requires bounded list allocation before random evolution is safe")
+
+    @unittest.expectedFailure
+    def test_negative_gpu_known_solution_arena_limit(self):
+        # Documented evaluator capability gap, NOT a passing equivalence claim:
+        # generic list arena overflow and no Singleton/Concat view profile.
+        # Keep the strict correctness assertion visible as an expected failure.
+        with tempfile.TemporaryDirectory() as temporary:
+            folder=Path(temporary)
+            source=folder/"long.source.json";grammar=folder/"grammar.json";audit=folder/"audit.json"
+            source.write_text(json.dumps({"task":"negative_to_zero","cases":[
+                {"input":["-1"]*50,"expected":["0"]*50,"start":0,"extent":0}]*1024}))
+            grammar.write_text(json.dumps(definition(ROOT,"negative_to_zero")))
+            env=dict(os.environ,GAGP_BM_COMMON_FITNESS="1",GAGP_VIEW_PROFILE="1",GAGP_TYPED_VIEW_PHASE="1")
+            self.call("audit",source,grammar,audit,env=env)
+            r=json.loads(audit.read_text())
+            self.assertEqual(r["known_solution_asgp_wrong"],0)
+            self.assertEqual(r["known_solution_cpu_mismatches"],0)
+            self.assertEqual(r["known_solution_gpu_fitness"],1024)
+
 
 
 
