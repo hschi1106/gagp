@@ -661,3 +661,19 @@ node/origin/constant/fuel/status/step equality, large expression IDs, maximum
 depth and lexical permutations. This reduces pending-array traffic, not the
 kernel's reported maximum local frame: other native operations still require
 that frame. Measured improvement is modest and concentrated in reproduction.
+
+
+`GAGP_GPU_FUSED_DONOR_SITES=1` emits private mutation-donor site metadata while
+constructing grammar nodes. The admitted variation profile has identity scopes
+and no zero-node aliases, so a single immediately selected reference record
+identifies the next emitted node's nonterminal, entry expression and parent scope.
+Non-reference descendants start without a site. This avoids reparsing the newly
+generated tree and scanning its productions solely to recover construction facts.
+A distinct mutation-kernel specialization removes the annotation pending stack;
+the compact eight-byte generation task representation is unchanged.
+
+External import still uses independent annotation and admission. Differential
+tests compare fused sites against the annotation oracle, every generated node,
+constant and RNG step, followed by 32 generations of scoped/unscoped variation and
+independent grammar/CPU validation. This switch changes neither the search
+profile, grammar support, random draws nor splice/resource validation.

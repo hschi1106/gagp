@@ -4,6 +4,16 @@
 #include <type_traits>
 
 namespace gagp::evo::repro {
+// Internal construction metadata, never an external grammar certificate.
+// The current profile requires identity reference scope maps and no binders,
+// aliases, templates or coupled holes inside a phase. Each position denotes a
+// distinct logical site, even when two subtrees have identical contents.
+struct PhaseGeneSite {
+  int nonterminal = -1;
+  int entry_expression = -1;
+  int parent_scope = 0;
+  int scope = 0;
+};
 // Private uploaded grammar tables. The host compiler admits every reachable
 // production; an unsupported alternative declines the whole requested profile.
 enum class PhaseExpressionKind : int { Operation, Constant, Bound, Reference };
@@ -32,12 +42,15 @@ struct PhaseGenerationResult { PhaseCompileStatus status=PhaseCompileStatus::Inv
 // This constructs grammar expressions, not merely type-compatible trees. Scope
 // maps and constant domains come from the admitted immutable grammar upload.
 // Each lane owns its bounded output; no CPU reproduction or device allocation.
-template<bool CompactTasks=true>
+template<bool CompactTasks=true, bool EmitSites=false>
 __device__ inline PhaseGenerationResult generate_phase(
     const PhaseGrammarView& grammar, int root_expression, int scope_count,
     int depth, int capacity, std::uint64_t seed,
-    PhaseTreeNode* nodes, int* origins, Value* constants) {
+    PhaseTreeNode* nodes, int* origins, Value* constants, PhaseGeneSite* sites=nullptr) {
   PhaseGenerationResult result;
+  if constexpr(EmitSites) if(!sites)return result;
+  PhaseGeneSite next_site; // A reference is immediately followed by its selected production.
+
   if (!grammar.expressions || !grammar.minimum || !nodes || !origins || !constants ||
       root_expression<0 || root_expression>=grammar.expression_count ||
       scope_count<0 || scope_count>8 || depth<=0 || depth>=grammar.depth_count ||
@@ -81,6 +94,11 @@ __device__ inline PhaseGenerationResult generate_phase(
     if(expression.kind==PhaseExpressionKind::Reference) {
       if(expression.target<0 || expression.target>=grammar.nonterminal_count || !grammar.nonterminals || !grammar.productions ||
           expression.scope_count<0 || expression.scope_count>8)return result;
+      if constexpr(EmitSites) {
+        if(next_site.nonterminal>=0 || expression.scope_count>task.scope_count)return result;
+        for(int i=0;i<expression.scope_count;++i)if(expression.scope[i]!=i)return result;
+        next_site={expression.target,static_cast<int>(task.expression),static_cast<int>(task.scope_count),expression.scope_count};
+      }
       const auto nt=grammar.nonterminals[expression.target];
       if(nt.scope_count!=expression.scope_count || nt.production_offset<0 || nt.production_count<=0 ||
           nt.production_offset>grammar.production_count || nt.production_count>grammar.production_count-nt.production_offset)return result;
@@ -131,6 +149,7 @@ __device__ inline PhaseGenerationResult generate_phase(
       if(value.tag!=ValueTag::Int && value.tag!=ValueTag::Bool)return result;
       node.operand=result.constants;constants[result.constants++]=value;
     } else if(expression.kind!=PhaseExpressionKind::Operation)return result;
+    if constexpr(EmitSites) {sites[result.nodes]=next_site;next_site={};}
     origins[result.nodes]=task.expression;nodes[result.nodes++]=node;
     for(int i=node.arity-1;i>=0;--i) {
       if(count>=192) {result.status=PhaseCompileStatus::Capacity;return result;}

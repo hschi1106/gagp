@@ -998,3 +998,17 @@ under the GPU agent worktree's `logs/parallel-gpu/reuse-executable-*`. Its local
 build contains the archived rejected experiment until rebuilt; the root's
 validated runtime binary is unaffected. No dirty-work-queue extension is planned:
 its additional complexity is unsupported by this full-search result.
+
+2026-10-14 fused native GPU donor sites retained opt-in:
+`GAGP_GPU_FUSED_DONOR_SITES=1` writes exact construction-site metadata while
+emitting each mutation donor. Imported trees still use independent annotation;
+splice/resource validation and the single post-variation lowering remain.
+A dedicated mutation specialization removes the annotation traversal and reduces
+in-place local frame4784→1712B, registers86→76, no spills (sm86).
+Same-binary3-process House32 median1377.781→1358.585ms (1.39%); Median64
+1188.736→1152.144ms (3.08%). Same-window archived-best1379.784/1184.140ms
+is comparable to disabled. All final ASTs and quality/operator/error traces are
+exact across archive/OFF/ON. Five scoped/unscoped generation, variation and
+32-generation population tests pass. Evidence:
+`results/parallel-astra-20261014/fused-donor-sites.json`. This changes construction
+work only; size-near crossover is a separate search-rule experiment.

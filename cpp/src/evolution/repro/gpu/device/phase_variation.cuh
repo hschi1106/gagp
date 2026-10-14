@@ -2,16 +2,6 @@
 #include "phase_generate.cuh"
 
 namespace gagp::evo::repro {
-// Internal construction metadata, never an external grammar certificate.
-// The current profile requires identity reference scope maps and no binders,
-// aliases, templates or coupled holes inside a phase. Each position denotes a
-// distinct logical site, even when two subtrees have identical contents.
-struct PhaseGeneSite {
-  int nonterminal = -1;
-  int entry_expression = -1;
-  int parent_scope = 0;
-  int scope = 0;
-};
 struct PhaseTreeView {
   const PhaseTreeNode* nodes = nullptr;
   const int* origins = nullptr;

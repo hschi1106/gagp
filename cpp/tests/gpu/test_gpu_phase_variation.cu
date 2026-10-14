@@ -32,10 +32,12 @@ struct TreePointers {
  __device__ MutablePhaseTree output(int i) const { return {nodes+i*capacity,origins+i*capacity,sites+i*capacity,values+i*capacity,capacity}; }
 };
 TreePointers pointers(Trees& t) { return {t.nodes.data,t.origins.data,t.sites.data,t.values.data,t.results.data}; }
-__global__ void initialize(PhaseGrammarView g,int root,int scope,int depth,TreePointers out) {
+__global__ void initialize(PhaseGrammarView g,int root,int scope,int depth,TreePointers out,bool fused) {
  const int i=blockIdx.x*blockDim.x+threadIdx.x; if(i>=population)return;
- auto o=out.output(i); auto r=generate_phase(g,root,scope,depth,capacity,UINT64_C(193811)+i,o.nodes,o.origins,o.constants);
- if(r.status==PhaseCompileStatus::Ok && !annotate_phase_tree(g,root,scope,o.nodes,o.origins,r.nodes,o.sites))r.status=PhaseCompileStatus::Invalid;
+ auto o=out.output(i);
+ auto r=fused ? generate_phase<true,true>(g,root,scope,depth,capacity,UINT64_C(193811)+i,o.nodes,o.origins,o.constants,o.sites)
+              : generate_phase(g,root,scope,depth,capacity,UINT64_C(193811)+i,o.nodes,o.origins,o.constants);
+ if(!fused && r.status==PhaseCompileStatus::Ok && !annotate_phase_tree(g,root,scope,o.nodes,o.origins,r.nodes,o.sites))r.status=PhaseCompileStatus::Invalid;
  out.results[i]=r;
 }
 __device__ int choose_site(const PhaseTreeView& t,DGrammarRandom& random,int nt=-1,int scope=-1) {
@@ -70,8 +72,7 @@ __global__ void make_mutants(PhaseGrammarView g,int depth,int generation,TreePoi
  if(end<0 || at_depth<0){donors.results[i]={};return;}
  const int allowed_nodes=capacity-(a.node_count-(end-destination));
  const int allowed_depth=depth-at_depth+1;
- auto r=generate_phase(g,site.entry_expression,site.parent_scope,allowed_depth,allowed_nodes,random.next(),o.nodes,o.origins,o.constants);
- if(r.status==PhaseCompileStatus::Ok && !annotate_phase_tree(g,site.entry_expression,site.parent_scope,o.nodes,o.origins,r.nodes,o.sites))r.status=PhaseCompileStatus::Invalid;
+ auto r=generate_phase<true,true>(g,site.entry_expression,site.parent_scope,allowed_depth,allowed_nodes,random.next(),o.nodes,o.origins,o.constants,o.sites);
  donors.results[i]=r;
 }
 __global__ void mutate(PhaseGrammarView g,int root,int scope,int depth,TreePointers in,TreePointers donors,TreePointers out,const int* destinations,int* changed) {
@@ -195,7 +196,21 @@ void run(const grammar::CompiledGrammar& grammar,unsigned root,const HostPhaseGr
  Device<gpu_detail::DInstr> code(population*code_capacity);Device<Value> constants(population*capacity);Device<PhaseCompileResult> lowered(population);
  cudaEvent_t start,stop;check(cudaEventCreate(&start));check(cudaEventCreate(&stop));std::vector<float> timings;
  const int scope=grammar.nonterminals()[root].scope.size();const int depth=std::min(10,host.depth_count-1);
- initialize<<<(population+63)/64,64>>>(g,host.root_expression,scope,depth,pointers(a));check(cudaGetLastError());check(cudaDeviceSynchronize());
+ initialize<<<(population+63)/64,64>>>(g,host.root_expression,scope,depth,pointers(a),true);check(cudaGetLastError());check(cudaDeviceSynchronize());
+ initialize<<<(population+63)/64,64>>>(g,host.root_expression,scope,depth,pointers(b),false);check(cudaGetLastError());check(cudaDeviceSynchronize());
+ const auto ar=a.results.read(),br=b.results.read();const auto an=a.nodes.read(),bn=b.nodes.read();
+ const auto ao=a.origins.read(),bo=b.origins.read();const auto as=a.sites.read(),bs=b.sites.read();
+ const auto av=a.values.read(),bv=b.values.read();
+ for(int i=0;i<population;++i) {
+  require(ar[i].status==br[i].status && ar[i].nodes==br[i].nodes && ar[i].constants==br[i].constants && ar[i].steps==br[i].steps,"fused donor result changed");
+  for(int j=0;j<ar[i].nodes;++j) {
+   const int k=i*capacity+j;const auto x=an[k],y=bn[k];const auto u=as[k],v=bs[k];
+   require(x.kind==y.kind && x.opcode==y.opcode && x.operand==y.operand && x.arity==y.arity && x.fuel==y.fuel && x.merge_fuel==y.merge_fuel && ao[k]==bo[k],"fused donor genotype changed");
+   require(u.nonterminal==v.nonterminal && u.entry_expression==v.entry_expression && u.scope==v.scope && u.parent_scope==v.parent_scope,"fused donor sites differ from annotation oracle");
+  }
+  for(int j=0;j<ar[i].constants;++j) {const int k=i*capacity+j;require(av[k].tag==bv[k].tag && (av[k].tag==ValueTag::Bool?av[k].b==bv[k].b:av[k].i==bv[k].i),"fused donor constant changed");}
+ }
+
  negative_guards<<<1,1>>>(pointers(a),pointers(b),changed.data);check(cudaGetLastError());
  require(changed.read()[0]==7,"negative safety/contract guard failed");
  std::set<std::string> unique;auto final_unique=audit(grammar,root,host,a,unique,true);unsigned long long crossed=0,mutated=0;

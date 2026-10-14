@@ -157,7 +157,7 @@ __global__ void crossover_population(TreePointers input,TreePointers output,cons
   copy_tree(input,destination.row,output,target);++stat.crossover_rejected;
  }
 }
-template<bool InPlace>
+template<bool InPlace, bool Fused>
 __global__ void mutate_population(TreePointers input,TreePointers output,TreePointers scratch,const DeviceSlot* slots,
     int slot_count,int population,int max_variable_nodes,double probability,std::uint64_t seed,OperatorStats* stats,bool counted) {
  const int child=blockIdx.x*blockDim.x+threadIdx.x;if(child>=population)return;auto& stat=stats[child];if(stat.error)return;
@@ -170,10 +170,13 @@ __global__ void mutate_population(TreePointers input,TreePointers output,TreePoi
  if(end<0 || depth<0){stat.error=6;return;}
  const auto site=a.sites[destination.node];const auto& slot=slots[destination.row%slot_count];auto tmp=scratch.output(child);
  const int available=max_variable_nodes-(total-(end-destination.node));
- auto generated=generate_phase(slot.grammar,site.entry_expression,site.parent_scope,slot.max_depth-depth+1,
-     min(capacity,available),random.next(),tmp.nodes,tmp.origins,tmp.constants);
- if(generated.status!=PhaseCompileStatus::Ok || !annotate_phase_tree(slot.grammar,site.entry_expression,site.parent_scope,
-       tmp.nodes,tmp.origins,generated.nodes,tmp.sites)){stat.error=7;return;}
+ auto generated=Fused
+   ? generate_phase<true,true>(slot.grammar,site.entry_expression,site.parent_scope,slot.max_depth-depth+1,
+       min(capacity,available),random.next(),tmp.nodes,tmp.origins,tmp.constants,tmp.sites)
+   : generate_phase(slot.grammar,site.entry_expression,site.parent_scope,slot.max_depth-depth+1,
+       min(capacity,available),random.next(),tmp.nodes,tmp.origins,tmp.constants);
+ if(generated.status!=PhaseCompileStatus::Ok || (!Fused && !annotate_phase_tree(slot.grammar,site.entry_expression,site.parent_scope,
+       tmp.nodes,tmp.origins,generated.nodes,tmp.sites))){stat.error=7;return;}
  scratch.lengths[child]=generated;
  // Splicing may partially write on failure, so its destination must never
  // alias the crossed input. Each child owns a separate temporary row.
@@ -519,12 +522,18 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
  checked(cudaEventRecord(impl_->start));
  crossover_population<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->current),pointers(*impl_->crossed),impl_->slots.data,k,p,available,
     impl_->fitness.data,pressure,seed,impl_->stats.data,counted);checked(cudaGetLastError());
- if(impl_->inplace_mutation)
-  mutate_population<true><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
+ const bool fused=std::getenv("GAGP_GPU_FUSED_DONOR_SITES")!=nullptr;
+ if(impl_->inplace_mutation) {
+  if(fused)mutate_population<true,true><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
       probability,seed,impl_->stats.data,counted);
- else
-  mutate_population<false><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
+  else mutate_population<true,false><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
       probability,seed,impl_->stats.data,counted);
+ } else {
+  if(fused)mutate_population<false,true><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
+      probability,seed,impl_->stats.data,counted);
+  else mutate_population<false,false><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
+      probability,seed,impl_->stats.data,counted);
+ }
  checked(cudaGetLastError());
  auto& offspring=impl_->inplace_mutation?impl_->crossed:impl_->next;
  compare_offspring<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->current),pointers(*offspring),p,k,impl_->stats.data);checked(cudaGetLastError());
