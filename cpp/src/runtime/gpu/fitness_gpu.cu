@@ -564,16 +564,17 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       value.b = true;
     }
   }
-  bool direct_phases = use_views && std::getenv("GAGP_DIRECT_PHASE") &&
-      std::all_of(packed.region_phases.begin(), packed.region_phases.end(), [](const auto& phase) {
+  const int direct_stack_limit = std::getenv("GAGP_HYBRID_PHASE_EXECUTOR") ? gpu_detail::MAX_STACK : 16;
+  bool direct_phases = use_views && !std::getenv("GAGP_GENERIC_PHASE_VM") && std::getenv("GAGP_DIRECT_PHASE") &&
+      std::all_of(packed.region_phases.begin(), packed.region_phases.end(), [&](const auto& phase) {
         return phase.program.typed_view && phase.program.n_locals <= 8 &&
-            phase.program.verified_stack_bound <= 16;
+            phase.program.verified_stack_bound <= direct_stack_limit;
       });
   // Partition the owned population by its already-verified stack capability.
   // Both kernels consume the same packed tables; indices restore the original
   // fitness/diagnostic rows directly, without bytecode copies or repacking.
   std::vector<int> compact_indices,generic_indices;
-  if (!direct_phases && owned && use_views && std::getenv("GAGP_DIRECT_PHASE") &&
+  if (!direct_phases && owned && use_views && !std::getenv("GAGP_GENERIC_PHASE_VM") && std::getenv("GAGP_DIRECT_PHASE") &&
       std::getenv("GAGP_PHASE_CAP_BUCKETS") &&
       std::all_of(packed.region_phases.begin(),packed.region_phases.end(),[](const auto& phase) {
         return phase.program.typed_view && phase.program.n_locals<=8;
@@ -589,7 +590,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   const auto pack_t1 = std::chrono::steady_clock::now();
 
   const auto launch_prep_t0 = std::chrono::steady_clock::now();
-  const std::size_t shared_bytes = kernel_shared_bytes(packed.max_code_len, impl_->blocksize);
+  std::size_t shared_bytes = kernel_shared_bytes(packed.max_code_len, impl_->blocksize);
   if (shared_bytes > static_cast<std::size_t>(impl_->props.sharedMemPerBlock)) {
     return fitness_eval_single_error(ErrCode::Value, "shared memory requirement exceeded");
   }
@@ -646,6 +647,14 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
             (code[2].op==gpu_detail::OP_LT || code[2].op==gpu_detail::OP_LE) :
             (code[2].op==gpu_detail::OP_GT || code[2].op==gpu_detail::OP_GE);
       });
+  // The block validates the actual phase dependencies before filling a table.
+  // Large-stack capability buckets need this reuse just as compact ones do.
+  const std::size_t measure_bytes = sizeof(gpu_detail::DMeasurePhaseCacheEntry) *
+      (gpu_detail::DMEASURE_CACHE_MAX + 1) + sizeof(int);
+  region_workspace.measure_phase_cache = use_views && has_regions &&
+      std::getenv("GAGP_MEASURE_PHASE_CACHE") &&
+      shared_bytes + measure_bytes <= static_cast<std::size_t>(impl_->props.sharedMemPerBlock);
+  if (region_workspace.measure_phase_cache) shared_bytes += measure_bytes;
   region_workspace.unboxed_window_frames = region_workspace.window_executor && std::getenv("GAGP_UNBOXED_WINDOW_FRAMES");
   std::size_t frame_size = region_workspace.coordinate_executor ? sizeof(gpu_detail::DUnboxedCoordinateFrame) : region_workspace.unboxed_window_frames ?
       (region_workspace.two_state_frames ? sizeof(gpu_detail::DUnboxedWindowFrame<2>) : sizeof(gpu_detail::DUnboxedWindowFrame<1>)) : !region_workspace.compact_frames ? sizeof(gpu_detail::DRegionFrame) :
@@ -897,6 +906,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if (use_views && impl_->d_case_order) out.execution_profile += "-sorted";
     if (direct_phases) out.execution_profile += "-direct";
     if (direct_root) out.execution_profile += "-root";
+    if (direct_phases && std::getenv("GAGP_HYBRID_PHASE_EXECUTOR")) out.execution_profile += "-hybrid";
+    if (region_workspace.measure_phase_cache) out.execution_profile += "-measure-cache";
     if (region_workspace.coordinate_executor) out.execution_profile += "-coordinate";
     if (region_workspace.window_executor) out.execution_profile += "-window";
     if (region_workspace.unboxed_window_frames) out.execution_profile += "-unboxed";

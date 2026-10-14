@@ -1,3 +1,15 @@
+# Sum25 / House25 / Median5 — 2026-10-14 (active)
+
+- Checkpoint `checkpoint/pre-sum25-20261014` = `320d8bf`; runtimebestbe455a4 and all64bestflags preserved. Mainworktreegagp-opt-20261001; protectedchatworktreeuntouched; no push.
+- Targets frozen from user's last three-task comparison: Sum32seed0<1962.222087ms, House32seed0<1106.762830ms, Median64seed2<1165.223437ms. [Contract/denominators/fullbaseline](results/sum25-20261014/contract.json). All P1024/C1024, CPU1T, original native pipeline. Do not substitute fixed-parent ratios.
+- Sumcurrent4339ms:evalkernel3604ms, repro228ms; root prioritizes evaluator, not sub-ms host tweaks. Sumdefaultgen0alreadyfitness0: semantics-changing search candidates need separate meaningful unsolved/multiseed/equalwallclock quality checks.
+- Three Astra-medium agents in independent sum25-window, sum25-phase, sum25-schedule worktrees at320d8bf: windowcontinuations/binding; typedphase execution; GPU scheduling/layout. Allbuilds/GPUjobs serialized by /tmp/gagp-parallel-20261013-benchmark.lock. Existingrunnerlocks internally.
+- Root owns integration, late-populationdiagnosis, frozencontrols, quality/acceptance. New outputs logs/optimization/sum25-20261014; never overwrite old inputs/results or prepareoriginal. CurrentuserAGENTS requiresnsys only; noNCU thisround.
+
+- Active exact evaluator prototype: per-phase certificates + pure Measure phase reuse + hybrid phase dispatch. First full Sum32 screen2260ms vs archived4415ms; not yet25x or adopted. Root generic-cache screen exacttrace/AST all3tasks; hybrid safety/repeats pending. Failed top-cache and entry-direct removed by agents; leaf/queue/SoA measured modest gains, integration pending.
+
+---
+
 # Three-task rerun — 2026-10-14 (complete)
 
 - No runtime change: validated `be455a4` binary SHA764ab8df9dbea4b2cb9e439a8e2608f7b1bd7fd9aa9f7ecd8bf4c4a6e09b53a0 and full64flags. CPU1T, P1024/C1024; no profiler/input preparation/early-success stop.

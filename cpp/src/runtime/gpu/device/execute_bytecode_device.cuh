@@ -43,6 +43,8 @@ struct DPayloadStateStorage {
   __device__ typename DPayloadFlavorTraits<Flavor>::State& ref() { return state; }
 };
 
+#include "measure_phase_cache.cuh"
+
 struct DExecutionTables {
   const DInstr* phase_code = nullptr;
   const Value* phase_consts = nullptr;
@@ -52,6 +54,8 @@ struct DExecutionTables {
   int region_phase_count = 0;
   const DRegionPhaseBinding* region_bindings = nullptr;
   int region_binding_count = 0;
+  const DMeasurePhaseCacheEntry* measure_cache = nullptr;
+  int measure_cached_phase = -1;
 };
 
 struct DCodeView {

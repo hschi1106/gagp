@@ -16,6 +16,48 @@ __device__ inline double d_canonicalize_fitness_accumulator(double value) {
   return ldexp(static_cast<double>(quantized_mantissa), exponent - kMantissaBits);
 }
 
+// Validation is per block/program, alongside normal evaluation preparation.
+// Public metadata never grants this shortcut: the normal host verifier and
+// typed-view proof run first, then this narrower dependency check must pass.
+__device__ inline bool d_measure_cache_eligible(const DRegionPhase& phase,
+    const DExecutionTables& tables) {
+  const auto& p = phase.program;
+  if (!p.typed_view || p.n_locals < 0 || p.n_locals > 8 ||
+      p.verified_stack_bound > MAX_STACK || p.code_len <= 0 || p.code_len > 4096 ||
+      p.const_len < 0 || phase.binding_count < 0 || phase.binding_offset < 0 ||
+      phase.binding_count > tables.region_binding_count - phase.binding_offset)
+    return false;
+  for (int i = 0; i < phase.binding_count; ++i) {
+    const auto& b = tables.region_bindings[phase.binding_offset + i];
+    if (b.bank != RegionSlotBank::Measure || b.slot != 0 || b.local < 0 || b.local >= 8)
+      return false;
+  }
+  for (int i = 0; i < p.const_len; ++i) {
+    const auto tag = tables.phase_consts[p.const_offset + i].tag;
+    if (tag != ValueTag::Int && tag != ValueTag::Bool) return false;
+  }
+  for (int i = 0; i < p.code_len; ++i) {
+    const auto ins = tables.phase_code[p.code_offset + i];
+    switch (ins.op) {
+      case OP_PUSH_CONST: case OP_LOAD: case OP_STORE: case OP_NEG: case OP_NOT:
+      case OP_ADD: case OP_SUB: case OP_MUL: case OP_MOD: case OP_EQ: case OP_NE:
+      case OP_LT: case OP_LE: case OP_GT: case OP_GE: case OP_CHECK_INT: case OP_RETURN:
+        break;
+      case OP_JMP: case OP_JMP_IF_TRUE: case OP_JMP_IF_FALSE:
+        if (ins.a <= i || ins.a > p.code_len) return false;
+        break;
+      case OP_CALL_BUILTIN: {
+        const auto b = static_cast<BuiltinId>(ins.a);
+        if (b != BuiltinId::IDiv0 && b != BuiltinId::IMod0 && b != BuiltinId::Min &&
+            b != BuiltinId::Max && b != BuiltinId::Clip) return false;
+        break;
+      }
+      default: return false;
+    }
+  }
+  return true;
+}
+
 template <DPayloadFlavor Flavor, bool EnableRegions = false, bool DirectRoot = false>
 __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     int program_count,
@@ -74,7 +116,7 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
       list_payload_entry_count,
       list_payload_values,
   };
-  const DExecutionTables execution_tables{
+  DExecutionTables execution_tables{
       phase_code,
       phase_consts,
       region_segments, region_segment_count,
@@ -95,6 +137,57 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
   const std::size_t partial_offset =
       (code_bytes + alignof(double) - 1u) & ~static_cast<std::size_t>(alignof(double) - 1u);
   double* partial_scores = reinterpret_cast<double*>(shared_bytes + partial_offset);
+
+  if constexpr (EnableRegions && (Flavor == DPayloadFlavor::BoundIntListViews ||
+                                  Flavor == DPayloadFlavor::IntListViews)) {
+    if (workspace.measure_phase_cache) {
+      auto* cached_measure = reinterpret_cast<DMeasurePhaseCacheEntry*>(partial_scores + blockDim.x);
+      int& cached_phase = *reinterpret_cast<int*>(cached_measure + DMEASURE_CACHE_MAX + 1);
+      if (tid == 0) {
+        cached_phase = -1;
+        if (meta.is_valid && meta.region_count == 1 && meta.region_offset >= 0 &&
+            meta.region_offset < region_segment_count) {
+          const auto& segment = region_segments[meta.region_offset];
+          if (segment.progress == RegionProgressKind::SequenceWindows &&
+              segment.sequence_state == 0 && segment.state_types[0] == ValueTag::IntList &&
+              segment.preparation_count == 1 && segment.preparation_types[0] == ValueTag::Int) {
+            const int index = segment.preparation_phases[0];
+            if (index >= 0 && index < region_phase_count &&
+                d_measure_cache_eligible(region_phases[index], execution_tables)) cached_phase = index;
+          }
+        }
+      }
+      __syncthreads();
+      if (cached_phase >= 0) {
+        for (int length = tid + 2; length <= DMEASURE_CACHE_MAX; length += blockDim.x) {
+          auto& entry = cached_measure[length];
+          entry.error = -2; entry.spent_fuel = 0; entry.value = 0;
+          // Run the same phase dispatch as an ordinary invocation, including
+          // its typed/generic choice, constant shortcuts and exact fuel/errors.
+          // The admission above excludes every input except state[0]'s length.
+          DCompactRegionFrame frame{};
+          frame.state[0] = Value::from_int_list_hash_len(0, length);
+          typename DPayloadFlavorTraits<Flavor>::State cache_payload_state{};
+          int remaining = fuel;
+          const auto result = d_region_phase<Flavor>(region_segments[meta.region_offset],
+              cached_phase, ValueTag::Int, frame, nullptr, 0, payload_tables,
+              cache_payload_state, execution_tables, remaining);
+          // A timeout cannot certify the result or all instruction charges.
+          if (fuel >= 0 && remaining >= 0 &&
+              !(result.is_error && result.err_code == ErrCode::Timeout)) {
+            entry.spent_fuel = fuel - remaining;
+            entry.error = result.is_error ? static_cast<int>(result.err_code) : -1;
+            if (!result.is_error) entry.value = result.value.i;
+          }
+        }
+      }
+      __syncthreads();
+      if (cached_phase >= 0) {
+        execution_tables.measure_cache = cached_measure;
+        execution_tables.measure_cached_phase = cached_phase;
+      }
+    }
+  }
 
   double local_score = 0.0;
   const int chunk_start = (meta.case_count * tid) / static_cast<int>(blockDim.x);

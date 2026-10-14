@@ -753,3 +753,32 @@ This removes duplicate cold admission/lowering after population initialization,
 not the external validation boundary, phase-profile checks or GPU packing checks.
 The phase-layout test covers forged public witness fields, changed AST constants,
 changed grammar limits and reordered evaluator inputs.
+
+### Experimental pure-measure evaluation reuse
+
+`GAGP_MEASURE_PHASE_CACHE` leaves native reproduction and the evaluation pipeline
+unchanged. In the existing view-profile fitness kernels (compact and generic), each block may precompute
+its current program's Int preparation phase for sequence lengths 2..64. The
+private typed-view proof and sequence-window shape with sequence slot 0 are required; all declared bindings must be Measure,
+all constants Int/Bool, and the allowed scalar instructions have forward-only
+control flow. Captures, state, payload operations and other shapes decline.
+The shared table is rebuilt for every program and launch, never shared across
+executable identities. Its allocation, validation and preparation stay timed.
+
+All program/case pairs are evaluated. A cache entry stores the original VM
+result/error and exact instruction fuel spent. Insufficient remaining fuel,
+lengths outside the cache, and precomputation timeouts use ordinary execution.
+No precision, operation, error, grammar, RNG or search-rule change is intended.
+The 64-entry range bounds only optional reuse, not the supported input domain.
+
+Preparation uses the same per-phase dispatch as an ordinary invocation, including
+large-stack generic execution. Dynamic shared memory is reserved only when the
+optional table fits the device limit; otherwise ordinary execution is retained.
+
+`GAGP_HYBRID_PHASE_EXECUTOR` keeps the existing typed/direct-root and structural
+region proofs but admits a phase stack bound up to the existing MAX_STACK (64).
+Each phase requiring more than 16 slots calls the original IntListViews tagged
+VM, with the same binding, fuel, error and result checks. Other phases and region
+frames can remain compact. This does not reduce a resource limit or alter a
+program. The normal generic backend remains available when the existing type,
+payload, local-capacity or structural proof fails.

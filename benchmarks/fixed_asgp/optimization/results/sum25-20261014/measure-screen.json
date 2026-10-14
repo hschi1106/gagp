@@ -1,0 +1,86 @@
+[
+  {
+    "arm": "measure-on",
+    "task": "sum_of_elements",
+    "ms": 3986.440859,
+    "kernel_ms": 3232.704871,
+    "exact_trace_and_export": true
+  },
+  {
+    "arm": "measure-on",
+    "task": "house_robber",
+    "ms": 1065.980136,
+    "kernel_ms": 580.6663570000001,
+    "exact_trace_and_export": true
+  },
+  {
+    "arm": "measure-on",
+    "task": "median",
+    "ms": 864.860124,
+    "kernel_ms": 157.85030799999998,
+    "exact_trace_and_export": true
+  },
+  {
+    "arm": "measure-off",
+    "task": "sum_of_elements",
+    "ms": 4388.475418,
+    "kernel_ms": 3650.7933720000005,
+    "exact_trace_and_export": true
+  },
+  {
+    "arm": "measure-off",
+    "task": "house_robber",
+    "ms": 1045.481243,
+    "kernel_ms": 581.6260960000001,
+    "exact_trace_and_export": true
+  },
+  {
+    "arm": "measure-off",
+    "task": "median",
+    "ms": 862.484753,
+    "kernel_ms": 159.767098,
+    "exact_trace_and_export": true
+  },
+  {
+    "arm": "generic-on",
+    "task": "sum_of_elements",
+    "ms": 3047.107502,
+    "kernel_ms": 2319.5746480000003,
+    "exact_trace_and_export": true
+  },
+  {
+    "arm": "generic-on",
+    "task": "house_robber",
+    "ms": 1057.135785,
+    "kernel_ms": 585.0597969999999,
+    "exact_trace_and_export": true
+  },
+  {
+    "arm": "generic-on",
+    "task": "median",
+    "ms": 886.545514,
+    "kernel_ms": 179.93507699999992,
+    "exact_trace_and_export": true
+  },
+  {
+    "arm": "generic-off",
+    "task": "sum_of_elements",
+    "ms": 4399.025517,
+    "kernel_ms": 3660.443486,
+    "exact_trace_and_export": true
+  },
+  {
+    "arm": "generic-off",
+    "task": "house_robber",
+    "ms": 1055.891992,
+    "kernel_ms": 585.690611,
+    "exact_trace_and_export": true
+  },
+  {
+    "arm": "generic-off",
+    "task": "median",
+    "ms": 856.721423,
+    "kernel_ms": 159.794625,
+    "exact_trace_and_export": true
+  }
+]

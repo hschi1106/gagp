@@ -122,6 +122,20 @@ __device__ DResult d_region_phase(
     const DExecutionTables& tables, int& fuel, bool result_phase = false) {
   if (phase_index < 0 || phase_index >= tables.region_phase_count)
     return d_error(ErrCode::Value);
+  if constexpr (Flavor == DPayloadFlavor::BoundIntListViews || Flavor == DPayloadFlavor::IntListViews) {
+    if (expected == ValueTag::Int && tables.measure_cache &&
+        phase_index == tables.measure_cached_phase) {
+      const auto length = Value::container_len(frame.state[segment.sequence_state]);
+      if (length >= 2 && length <= DMEASURE_CACHE_MAX) {
+        const auto entry = tables.measure_cache[length];
+        if (entry.error >= -1 && fuel >= 0 && fuel >= entry.spent_fuel) {
+          fuel -= entry.spent_fuel;
+          return entry.error == -1 ? d_ok(Value::from_int(entry.value)) :
+              d_error(static_cast<ErrCode>(entry.error));
+        }
+      }
+    }
+  }
   const auto& constant = tables.region_phases[phase_index].program;
   if (constant.scalar_constant_index >= 0) {
     if (fuel < 0 || constant.scalar_constant_fuel > static_cast<unsigned>(fuel))
@@ -185,7 +199,20 @@ __device__ DResult d_region_phase(
       return d_ok(Value::from_int(value));
     }
     if (!phase.program.typed_view || phase.program.n_locals > 8 ||
-        phase.program.verified_stack_bound > 16) return d_error(ErrCode::Value);
+        phase.program.verified_stack_bound > MAX_STACK) return d_error(ErrCode::Value);
+    if (phase.program.verified_stack_bound > 16) {
+      // A large phase does not require generic region frames or generic calls
+      // for the other phases. Keep its original tagged view VM and exact fuel.
+      if (phase.binding_count <= 4)
+        return d_region_phase_impl<DPayloadFlavor::IntListViews, 4>(segment, phase_index,
+            expected, frame, caller_locals, caller_set, payload_tables, payload_state,
+            tables, fuel, result_phase);
+      constexpr int kBindings = DMAX_REGION_STATES + DMAX_REGION_PARAMETERS +
+          DMAX_REGION_PREPARATIONS + DMAX_REGION_REQUESTS + 1;
+      return d_region_phase_impl<DPayloadFlavor::IntListViews, kBindings>(segment, phase_index,
+          expected, frame, caller_locals, caller_set, payload_tables, payload_state,
+          tables, fuel, result_phase);
+    }
     DCodeView view;
     view.code = tables.phase_code + phase.program.code_offset;
     view.code_len = phase.program.code_len;

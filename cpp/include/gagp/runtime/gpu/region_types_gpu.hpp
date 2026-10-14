@@ -98,6 +98,7 @@ struct DRegionWorkspace {
   bool coordinate_executor = false;
   bool coordinate_ring_memo = false;
   bool unboxed_window_frames = false;
+  bool measure_phase_cache = false;
 };
 
 static_assert(std::is_trivially_copyable<DRegionFrame>::value);
