@@ -55,6 +55,8 @@ scaling = json.loads((RAW/'final/scaling/manifest.json').read_text())
 assert len(scaling['cells']) == 40
 summary['scaling'] = [{k:c[k] for k in ('task','population','mode','median_ms','output')} for c in scaling['cells']]
 summary['settings_manifest'] = str(RAW/'final/gpu-nine/manifest.json')
+final_manifest = json.loads(Path(summary['settings_manifest']).read_text())
+summary.update({k:final_manifest[k] for k in ('binary','binary_sha256','source_head','flags','frozen_sha256')})
 summary['cpu_control_reuse'] = 'Same archived control binary/settings and unchanged CPU/ASGP implementation; final addition touches GPU view preparation only. GPU-e rerun. Scaling controls all rerun.'
 (OUT/'final.json').write_text(json.dumps(summary, indent=2)+'\n')
 for r in summary['rows']:

@@ -1,0 +1,969 @@
+{
+  "frozen_search_asgp_ms": {
+    "house_robber": 27687.368225,
+    "median": 5864.915193
+  },
+  "rows": [
+    {
+      "task": "house_robber",
+      "mode": "asgp_1t",
+      "repeats": [
+        {
+          "tag": "house_robber.asgp_1t.s0.r0",
+          "evolve_wall_ms": 27576.167226,
+          "process_wall_s": 28.01037682290189,
+          "final_best": -4234,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final-controls/manifest.json",
+          "binary_sha256": "223cfc6fe67199df3207e7664dafe5bfb0568e0675d686f93410e368fd8b0598"
+        },
+        {
+          "tag": "house_robber.asgp_1t.s0.r1",
+          "evolve_wall_ms": 27608.896921,
+          "process_wall_s": 28.038781724171713,
+          "final_best": -4234,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final-controls/manifest.json",
+          "binary_sha256": "223cfc6fe67199df3207e7664dafe5bfb0568e0675d686f93410e368fd8b0598"
+        },
+        {
+          "tag": "house_robber.asgp_1t.s0.r2",
+          "evolve_wall_ms": 27320.366272,
+          "process_wall_s": 27.764806322054937,
+          "final_best": -4234,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final-controls/manifest.json",
+          "binary_sha256": "223cfc6fe67199df3207e7664dafe5bfb0568e0675d686f93410e368fd8b0598"
+        }
+      ],
+      "median_ms": 27576.167226,
+      "range_ms": [
+        27320.366272,
+        27608.896921
+      ],
+      "process_median_s": 28.01037682290189,
+      "frozen_asgp_ratio": 1.004032503795348,
+      "diagnostic_stage_medians_ms": {
+        "generation_ms": 26664.566870000002,
+        "eval_ms": 26646.329248000005,
+        "repro_ms": 16.604898,
+        "initial_admission_ms": 0.406532,
+        "final_eval_ms": 910.559434,
+        "early_gen_ms": 682.9664929999999,
+        "late_gen_ms": 875.6327605
+      }
+    },
+    {
+      "task": "house_robber",
+      "mode": "gagp_cpu",
+      "repeats": [
+        {
+          "tag": "house_robber.gagp_cpu.s0.r0",
+          "evolve_wall_ms": 82266.127373,
+          "process_wall_s": 83.47105526202358,
+          "final_best": -6544,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final-controls/manifest.json",
+          "binary_sha256": "223cfc6fe67199df3207e7664dafe5bfb0568e0675d686f93410e368fd8b0598"
+        },
+        {
+          "tag": "house_robber.gagp_cpu.s0.r1",
+          "evolve_wall_ms": 82083.335356,
+          "process_wall_s": 83.28934058197774,
+          "final_best": -6544,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final-controls/manifest.json",
+          "binary_sha256": "223cfc6fe67199df3207e7664dafe5bfb0568e0675d686f93410e368fd8b0598"
+        },
+        {
+          "tag": "house_robber.gagp_cpu.s0.r2",
+          "evolve_wall_ms": 82103.390207,
+          "process_wall_s": 83.29222030797973,
+          "final_best": -6544,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final-controls/manifest.json",
+          "binary_sha256": "223cfc6fe67199df3207e7664dafe5bfb0568e0675d686f93410e368fd8b0598"
+        }
+      ],
+      "median_ms": 82103.390207,
+      "range_ms": [
+        82083.335356,
+        82266.127373
+      ],
+      "process_median_s": 83.29222030797973,
+      "frozen_asgp_ratio": 0.3372256389802454,
+      "diagnostic_stage_medians_ms": {
+        "generation_ms": 78956.53309899998,
+        "eval_ms": 72517.681615,
+        "repro_ms": 6357.522788999999,
+        "eval_kernel_ms": 0,
+        "repro_kernel_ms": 0,
+        "repro_decode_ms": 0,
+        "pack_ms": 0,
+        "upload_ms": 0,
+        "initial_admission_ms": 15.887691,
+        "final_eval_ms": 3146.568618,
+        "early_gen_ms": 2087.719682,
+        "late_gen_ms": 2783.1371785
+      }
+    },
+    {
+      "task": "house_robber",
+      "mode": "gpu_eval",
+      "repeats": [
+        {
+          "tag": "house_robber.gpu_eval.s0.r0",
+          "evolve_wall_ms": 8398.266684,
+          "process_wall_s": 9.67470563412644,
+          "final_best": -6544,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-three/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "house_robber.gpu_eval.s0.r1",
+          "evolve_wall_ms": 8426.643099,
+          "process_wall_s": 9.700098261004314,
+          "final_best": -6544,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-three/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "house_robber.gpu_eval.s0.r2",
+          "evolve_wall_ms": 8398.84312,
+          "process_wall_s": 9.679935266962275,
+          "final_best": -6544,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-three/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        }
+      ],
+      "median_ms": 8398.84312,
+      "range_ms": [
+        8398.266684,
+        8426.643099
+      ],
+      "process_median_s": 9.679935266962275,
+      "frozen_asgp_ratio": 3.2965692809606852,
+      "diagnostic_stage_medians_ms": {
+        "generation_ms": 8151.455510000001,
+        "eval_ms": 1679.111118,
+        "repro_ms": 6364.744812000001,
+        "eval_kernel_ms": 732.560069,
+        "repro_kernel_ms": 0,
+        "repro_decode_ms": 0,
+        "pack_ms": 507.827259,
+        "upload_ms": 33.083742,
+        "initial_admission_ms": 16.778813,
+        "gpu_init_ms": 125.471574,
+        "final_eval_ms": 101.945115,
+        "early_gen_ms": 170.84802150000002,
+        "late_gen_ms": 383.9089365
+      }
+    },
+    {
+      "task": "house_robber",
+      "mode": "gpu_repro",
+      "repeats": [
+        {
+          "tag": "house_robber.gpu_repro.s0.r0",
+          "evolve_wall_ms": 1061.601989,
+          "process_wall_s": 2.284933516057208,
+          "final_best": -7146,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-three/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "house_robber.gpu_repro.s0.r1",
+          "evolve_wall_ms": 1066.226651,
+          "process_wall_s": 2.310172585071996,
+          "final_best": -7146,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-three/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "house_robber.gpu_repro.s0.r2",
+          "evolve_wall_ms": 1063.300027,
+          "process_wall_s": 2.3107198991347104,
+          "final_best": -7146,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-three/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        }
+      ],
+      "median_ms": 1063.300027,
+      "range_ms": [
+        1061.601989,
+        1066.226651
+      ],
+      "process_median_s": 2.310172585071996,
+      "frozen_asgp_ratio": 26.0390929389114,
+      "diagnostic_stage_medians_ms": {
+        "generation_ms": 780.7185160000001,
+        "eval_ms": 632.651422,
+        "repro_ms": 145.78321499999998,
+        "eval_kernel_ms": 577.354506,
+        "repro_kernel_ms": 104.19087965181097,
+        "repro_decode_ms": 26.476188999999998,
+        "pack_ms": 15.787677999999998,
+        "upload_ms": 28.570105000000005,
+        "initial_admission_ms": 101.166864,
+        "gpu_init_ms": 2.025769,
+        "final_eval_ms": 37.106931,
+        "early_gen_ms": 23.110397499999998,
+        "late_gen_ms": 29.1551355
+      }
+    },
+    {
+      "task": "house_robber",
+      "mode": "gpu_overlap",
+      "repeats": [
+        {
+          "tag": "house_robber.gpu_overlap.s0.r0",
+          "evolve_wall_ms": 1064.254311,
+          "process_wall_s": 2.3198705008253455,
+          "final_best": -7146,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r1",
+          "evolve_wall_ms": 1062.523316,
+          "process_wall_s": 2.268699391046539,
+          "final_best": -7146,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r2",
+          "evolve_wall_ms": 1069.72183,
+          "process_wall_s": 2.2942549139261246,
+          "final_best": -7146,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r3",
+          "evolve_wall_ms": 1059.246598,
+          "process_wall_s": 2.2987358400132507,
+          "final_best": -7146,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r4",
+          "evolve_wall_ms": 1064.776693,
+          "process_wall_s": 2.2952374170999974,
+          "final_best": -7146,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r5",
+          "evolve_wall_ms": 1071.684982,
+          "process_wall_s": 2.316042384132743,
+          "final_best": -7146,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r6",
+          "evolve_wall_ms": 1060.895525,
+          "process_wall_s": 2.278223185101524,
+          "final_best": -7146,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r7",
+          "evolve_wall_ms": 1066.094354,
+          "process_wall_s": 2.284619415877387,
+          "final_best": -7146,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "house_robber.gpu_overlap.s0.r8",
+          "evolve_wall_ms": 1065.030011,
+          "process_wall_s": 2.301508041797206,
+          "final_best": -7146,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        }
+      ],
+      "median_ms": 1064.776693,
+      "range_ms": [
+        1059.246598,
+        1071.684982
+      ],
+      "process_median_s": 2.2952374170999974,
+      "frozen_asgp_ratio": 26.002981101127464,
+      "diagnostic_stage_medians_ms": {
+        "generation_ms": 781.4558619999999,
+        "eval_ms": 632.983294,
+        "repro_ms": 146.062298,
+        "eval_kernel_ms": 577.976195,
+        "repro_kernel_ms": 104.23094407375902,
+        "repro_decode_ms": 26.431189999999997,
+        "pack_ms": 15.580844999999997,
+        "upload_ms": 28.308289999999996,
+        "initial_admission_ms": 101.079451,
+        "gpu_init_ms": 2.06401,
+        "final_eval_ms": 37.64736,
+        "early_gen_ms": 22.9973505,
+        "late_gen_ms": 29.154626
+      }
+    },
+    {
+      "task": "median",
+      "mode": "asgp_1t",
+      "repeats": [
+        {
+          "tag": "median.asgp_1t.s2.r0",
+          "evolve_wall_ms": 5877.41554,
+          "process_wall_s": 6.422030769987032,
+          "final_best": -578,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final-controls/manifest.json",
+          "binary_sha256": "223cfc6fe67199df3207e7664dafe5bfb0568e0675d686f93410e368fd8b0598"
+        },
+        {
+          "tag": "median.asgp_1t.s2.r1",
+          "evolve_wall_ms": 6276.35072,
+          "process_wall_s": 6.843244442017749,
+          "final_best": -578,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final-controls/manifest.json",
+          "binary_sha256": "223cfc6fe67199df3207e7664dafe5bfb0568e0675d686f93410e368fd8b0598"
+        },
+        {
+          "tag": "median.asgp_1t.s2.r2",
+          "evolve_wall_ms": 5899.859838,
+          "process_wall_s": 6.450447833864018,
+          "final_best": -578,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final-controls/manifest.json",
+          "binary_sha256": "223cfc6fe67199df3207e7664dafe5bfb0568e0675d686f93410e368fd8b0598"
+        }
+      ],
+      "median_ms": 5899.859838,
+      "range_ms": [
+        5877.41554,
+        6276.35072
+      ],
+      "process_median_s": 6.450447833864018,
+      "frozen_asgp_ratio": 0.9940770381060703,
+      "diagnostic_stage_medians_ms": {
+        "generation_ms": 5751.125208000002,
+        "eval_ms": 5723.537122,
+        "repro_ms": 24.43332400000001,
+        "initial_admission_ms": 0.503876,
+        "final_eval_ms": 147.366739,
+        "early_gen_ms": 42.785188,
+        "late_gen_ms": 119.884845
+      }
+    },
+    {
+      "task": "median",
+      "mode": "gagp_cpu",
+      "repeats": [
+        {
+          "tag": "median.gagp_cpu.s2.r0",
+          "evolve_wall_ms": 42221.827197,
+          "process_wall_s": 43.42157431691885,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final-controls/manifest.json",
+          "binary_sha256": "223cfc6fe67199df3207e7664dafe5bfb0568e0675d686f93410e368fd8b0598"
+        },
+        {
+          "tag": "median.gagp_cpu.s2.r1",
+          "evolve_wall_ms": 42153.158594,
+          "process_wall_s": 43.328557803994045,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final-controls/manifest.json",
+          "binary_sha256": "223cfc6fe67199df3207e7664dafe5bfb0568e0675d686f93410e368fd8b0598"
+        },
+        {
+          "tag": "median.gagp_cpu.s2.r2",
+          "evolve_wall_ms": 41681.858139,
+          "process_wall_s": 42.880945882061496,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final-controls/manifest.json",
+          "binary_sha256": "223cfc6fe67199df3207e7664dafe5bfb0568e0675d686f93410e368fd8b0598"
+        }
+      ],
+      "median_ms": 42153.158594,
+      "range_ms": [
+        41681.858139,
+        42221.827197
+      ],
+      "process_median_s": 43.328557803994045,
+      "frozen_asgp_ratio": 0.13913346920187378,
+      "diagnostic_stage_medians_ms": {
+        "generation_ms": 41822.193167,
+        "eval_ms": 21003.348163,
+        "repro_ms": 20457.538587000006,
+        "eval_kernel_ms": 0,
+        "repro_kernel_ms": 0,
+        "repro_decode_ms": 0,
+        "pack_ms": 0,
+        "upload_ms": 0,
+        "initial_admission_ms": 14.948056,
+        "final_eval_ms": 319.014104,
+        "early_gen_ms": 639.3402965,
+        "late_gen_ms": 625.67001
+      }
+    },
+    {
+      "task": "median",
+      "mode": "gpu_eval",
+      "repeats": [
+        {
+          "tag": "median.gpu_eval.s2.r0",
+          "evolve_wall_ms": 24333.95838,
+          "process_wall_s": 25.587930354988202,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-three/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "median.gpu_eval.s2.r1",
+          "evolve_wall_ms": 24131.382527,
+          "process_wall_s": 25.357363731134683,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-three/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "median.gpu_eval.s2.r2",
+          "evolve_wall_ms": 24031.564388,
+          "process_wall_s": 25.27342383703217,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-three/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        }
+      ],
+      "median_ms": 24131.382527,
+      "range_ms": [
+        24031.564388,
+        24333.95838
+      ],
+      "process_median_s": 25.357363731134683,
+      "frozen_asgp_ratio": 0.24304099387749095,
+      "diagnostic_stage_medians_ms": {
+        "generation_ms": 23942.068597999994,
+        "eval_ms": 3103.9183790000006,
+        "repro_ms": 20492.028218,
+        "eval_kernel_ms": 161.015454,
+        "repro_kernel_ms": 0,
+        "repro_decode_ms": 0,
+        "pack_ms": 1742.656108,
+        "upload_ms": 55.254242999999995,
+        "initial_admission_ms": 15.556048,
+        "gpu_init_ms": 122.73072,
+        "final_eval_ms": 46.299771,
+        "early_gen_ms": 348.573579,
+        "late_gen_ms": 350.28527099999997
+      }
+    },
+    {
+      "task": "median",
+      "mode": "gpu_repro",
+      "repeats": [
+        {
+          "tag": "median.gpu_repro.s2.r0",
+          "evolve_wall_ms": 915.629566,
+          "process_wall_s": 2.104509790893644,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-three/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "median.gpu_repro.s2.r1",
+          "evolve_wall_ms": 913.356402,
+          "process_wall_s": 2.112666079076007,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-three/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "median.gpu_repro.s2.r2",
+          "evolve_wall_ms": 919.659707,
+          "process_wall_s": 2.0944293530192226,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-three/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        }
+      ],
+      "median_ms": 915.629566,
+      "range_ms": [
+        913.356402,
+        919.659707
+      ],
+      "process_median_s": 2.104509790893644,
+      "frozen_asgp_ratio": 6.405336187014302,
+      "diagnostic_stage_medians_ms": {
+        "generation_ms": 658.1024739999999,
+        "eval_ms": 246.087804,
+        "repro_ms": 405.70887000000005,
+        "eval_kernel_ms": 157.88024500000006,
+        "repro_kernel_ms": 302.37673569098115,
+        "repro_decode_ms": 64.77337399999998,
+        "pack_ms": 25.461494999999985,
+        "upload_ms": 46.482491999999986,
+        "initial_admission_ms": 95.704932,
+        "gpu_init_ms": 2.041314,
+        "final_eval_ms": 14.148938,
+        "early_gen_ms": 9.424312,
+        "late_gen_ms": 10.811154
+      }
+    },
+    {
+      "task": "median",
+      "mode": "gpu_overlap",
+      "repeats": [
+        {
+          "tag": "median.gpu_overlap.s2.r0",
+          "evolve_wall_ms": 914.770751,
+          "process_wall_s": 2.0727146931458265,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r1",
+          "evolve_wall_ms": 908.363092,
+          "process_wall_s": 2.0622704660054296,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r2",
+          "evolve_wall_ms": 908.622689,
+          "process_wall_s": 2.0788189410232008,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r3",
+          "evolve_wall_ms": 908.892544,
+          "process_wall_s": 2.071742500178516,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r4",
+          "evolve_wall_ms": 911.705759,
+          "process_wall_s": 2.059961617924273,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r5",
+          "evolve_wall_ms": 911.566284,
+          "process_wall_s": 2.069799635792151,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r6",
+          "evolve_wall_ms": 908.159194,
+          "process_wall_s": 2.0717576858587563,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r7",
+          "evolve_wall_ms": 909.163542,
+          "process_wall_s": 2.0630077321548015,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        },
+        {
+          "tag": "median.gpu_overlap.s2.r8",
+          "evolve_wall_ms": 913.916061,
+          "process_wall_s": 2.070067134918645,
+          "final_best": -642,
+          "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+          "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc"
+        }
+      ],
+      "median_ms": 909.163542,
+      "range_ms": [
+        908.159194,
+        914.770751
+      ],
+      "process_median_s": 2.070067134918645,
+      "frozen_asgp_ratio": 6.45089131059767,
+      "diagnostic_stage_medians_ms": {
+        "generation_ms": 654.758333,
+        "eval_ms": 244.95391899999998,
+        "repro_ms": 404.01592100000005,
+        "eval_kernel_ms": 157.60296100000002,
+        "repro_kernel_ms": 301.8886715946719,
+        "repro_decode_ms": 64.134274,
+        "pack_ms": 25.199628999999998,
+        "upload_ms": 46.430543000000014,
+        "initial_admission_ms": 94.68869,
+        "gpu_init_ms": 1.989758,
+        "final_eval_ms": 14.260214,
+        "early_gen_ms": 9.3907185,
+        "late_gen_ms": 10.854627
+      }
+    }
+  ],
+  "timing": "Unprofiled complete search, cold initialization retained. Process time additionally includes parsing/audit/serialization.",
+  "scaling": [
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "mode": "asgp_1t",
+      "median_ms": 1315.939424,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p1024.house_robber.asgp_1t.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "mode": "gagp_cpu",
+      "median_ms": 3371.134244,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p1024.house_robber.gagp_cpu.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "mode": "gpu_eval",
+      "median_ms": 256.857142,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p1024.house_robber.gpu_eval.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "mode": "gpu_repro",
+      "median_ms": 31.939284,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p1024.house_robber.gpu_repro.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 1024,
+      "mode": "gpu_overlap",
+      "median_ms": 32.779159,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p1024.house_robber.gpu_overlap.json"
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "mode": "asgp_1t",
+      "median_ms": 58.912795,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p1024.median.asgp_1t.json"
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "mode": "gagp_cpu",
+      "median_ms": 515.721795,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p1024.median.gagp_cpu.json"
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "mode": "gpu_eval",
+      "median_ms": 224.521049,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p1024.median.gpu_eval.json"
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "mode": "gpu_repro",
+      "median_ms": 7.031942,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p1024.median.gpu_repro.json"
+    },
+    {
+      "task": "median",
+      "population": 1024,
+      "mode": "gpu_overlap",
+      "median_ms": 6.999117,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p1024.median.gpu_overlap.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 2048,
+      "mode": "asgp_1t",
+      "median_ms": 2607.952346,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p2048.house_robber.asgp_1t.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 2048,
+      "mode": "gagp_cpu",
+      "median_ms": 6779.534452,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p2048.house_robber.gagp_cpu.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 2048,
+      "mode": "gpu_eval",
+      "median_ms": 490.459427,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p2048.house_robber.gpu_eval.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 2048,
+      "mode": "gpu_repro",
+      "median_ms": 51.808805,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p2048.house_robber.gpu_repro.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 2048,
+      "mode": "gpu_overlap",
+      "median_ms": 50.964187,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p2048.house_robber.gpu_overlap.json"
+    },
+    {
+      "task": "median",
+      "population": 2048,
+      "mode": "asgp_1t",
+      "median_ms": 116.466451,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p2048.median.asgp_1t.json"
+    },
+    {
+      "task": "median",
+      "population": 2048,
+      "mode": "gagp_cpu",
+      "median_ms": 1039.892065,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p2048.median.gagp_cpu.json"
+    },
+    {
+      "task": "median",
+      "population": 2048,
+      "mode": "gpu_eval",
+      "median_ms": 446.530988,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p2048.median.gpu_eval.json"
+    },
+    {
+      "task": "median",
+      "population": 2048,
+      "mode": "gpu_repro",
+      "median_ms": 14.309364,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p2048.median.gpu_repro.json"
+    },
+    {
+      "task": "median",
+      "population": 2048,
+      "mode": "gpu_overlap",
+      "median_ms": 14.558187,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p2048.median.gpu_overlap.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 4096,
+      "mode": "asgp_1t",
+      "median_ms": 5242.181457,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p4096.house_robber.asgp_1t.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 4096,
+      "mode": "gagp_cpu",
+      "median_ms": 13496.069068,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p4096.house_robber.gagp_cpu.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 4096,
+      "mode": "gpu_eval",
+      "median_ms": 996.584708,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p4096.house_robber.gpu_eval.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 4096,
+      "mode": "gpu_repro",
+      "median_ms": 100.506514,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p4096.house_robber.gpu_repro.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 4096,
+      "mode": "gpu_overlap",
+      "median_ms": 99.55918,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p4096.house_robber.gpu_overlap.json"
+    },
+    {
+      "task": "median",
+      "population": 4096,
+      "mode": "asgp_1t",
+      "median_ms": 227.479141,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p4096.median.asgp_1t.json"
+    },
+    {
+      "task": "median",
+      "population": 4096,
+      "mode": "gagp_cpu",
+      "median_ms": 2192.652199,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p4096.median.gagp_cpu.json"
+    },
+    {
+      "task": "median",
+      "population": 4096,
+      "mode": "gpu_eval",
+      "median_ms": 908.900952,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p4096.median.gpu_eval.json"
+    },
+    {
+      "task": "median",
+      "population": 4096,
+      "mode": "gpu_repro",
+      "median_ms": 25.00249,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p4096.median.gpu_repro.json"
+    },
+    {
+      "task": "median",
+      "population": 4096,
+      "mode": "gpu_overlap",
+      "median_ms": 24.973277,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p4096.median.gpu_overlap.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 8192,
+      "mode": "asgp_1t",
+      "median_ms": 10471.24231,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p8192.house_robber.asgp_1t.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 8192,
+      "mode": "gagp_cpu",
+      "median_ms": 27388.341726,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p8192.house_robber.gagp_cpu.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 8192,
+      "mode": "gpu_eval",
+      "median_ms": 2097.530885,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p8192.house_robber.gpu_eval.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 8192,
+      "mode": "gpu_repro",
+      "median_ms": 195.683864,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p8192.house_robber.gpu_repro.json"
+    },
+    {
+      "task": "house_robber",
+      "population": 8192,
+      "mode": "gpu_overlap",
+      "median_ms": 197.847272,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p8192.house_robber.gpu_overlap.json"
+    },
+    {
+      "task": "median",
+      "population": 8192,
+      "mode": "asgp_1t",
+      "median_ms": 472.038402,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p8192.median.asgp_1t.json"
+    },
+    {
+      "task": "median",
+      "population": 8192,
+      "mode": "gagp_cpu",
+      "median_ms": 4457.432538,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p8192.median.gagp_cpu.json"
+    },
+    {
+      "task": "median",
+      "population": 8192,
+      "mode": "gpu_eval",
+      "median_ms": 1990.245582,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p8192.median.gpu_eval.json"
+    },
+    {
+      "task": "median",
+      "population": 8192,
+      "mode": "gpu_repro",
+      "median_ms": 51.517667,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p8192.median.gpu_repro.json"
+    },
+    {
+      "task": "median",
+      "population": 8192,
+      "mode": "gpu_overlap",
+      "median_ms": 51.004539,
+      "output": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/scaling/scaling.p8192.median.gpu_overlap.json"
+    }
+  ],
+  "settings_manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/manifest.json",
+  "binary": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/astra-20261014/final/gpu-nine/bench",
+  "binary_sha256": "898fcb55a6b3671cf655f27078c28b0c74f278c76ac80abd92fa77c516b691dc",
+  "source_head": "9ecf2f8976985ebd80f9da554c34992bcd89ae41",
+  "flags": {
+    "GAGP_VIEW_PROFILE": "1",
+    "GAGP_TYPED_VIEW_PHASE": "1",
+    "GAGP_SORT_CASES": "1",
+    "GAGP_COMPACT_FRAMES": "1",
+    "GAGP_CONSTANT_PHASE": "1",
+    "GAGP_POPULATION_HANDOFF": "1",
+    "GAGP_DIRECT_PHASE": "1",
+    "GAGP_DIRECT_ROOT": "1",
+    "GAGP_WINDOW_EXECUTOR": "1",
+    "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+    "GAGP_BOUND_ADD_PHASE": "1",
+    "GAGP_REUSE_ADMISSION_COMPILE": "1",
+    "GAGP_REUSE_SITE_CONTRACTS": "1",
+    "GAGP_SELECTED_SITES": "1",
+    "GAGP_OWNED_PREPARATION": "1",
+    "GAGP_CUDA_DEVICE": "0",
+    "GAGP_HOST_THREADS": "1",
+    "GAGP_SINGLE_EVAL_IDENTITY": "1",
+    "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+    "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+    "MALLOC_CONF": "background_thread:false,narenas:1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "GAGP_GPU_PHASE_POPULATION": "1",
+    "GAGP_OWNED_PHASE_PACK": "1",
+    "GAGP_OWNED_PHASE_CAPS": "1",
+    "GAGP_COORDINATE_EXECUTOR": "1",
+    "GAGP_COUNTED_SITE_DRAW": "1",
+    "GAGP_CPU_REGION_VIEWS": "1",
+    "GAGP_GPU_DIAGNOSTICS": "1",
+    "GAGP_SEARCH_TRACE": "1",
+    "GAGP_BATCH_PHASE_IMPORT": "1",
+    "GAGP_BATCH_PHASE_EXPORT": "1",
+    "GAGP_REUSE_PHASE_GRAMMAR": "1",
+    "GAGP_PHASE_CAP_BUCKETS": "1",
+    "GAGP_PHASE_REPRO_THREADS": "1",
+    "GAGP_GPU_STATIC_WEIGHTS": "1",
+    "GAGP_BUCKET_WORKSPACE": "1",
+    "GAGP_BOUND_COMPARE_PHASE": "1",
+    "GAGP_COORDINATE_RING_MEMO": "1",
+    "GAGP_CPU_LAZY_ANALYSIS": "1",
+    "GAGP_CPU_SELECTED_PARENTS": "1",
+    "GAGP_CPU_SELECTED_MUTATION": "1",
+    "GAGP_CPU_BOUND_PHASE": "1",
+    "GAGP_CPU_COORDINATE_VIEWS": "1",
+    "GAGP_CPU_TYPED_PHASE": "1",
+    "GAGP_CPU_DENSE_MEMO": "1",
+    "GAGP_CPU_SCALAR_VIEWS": "1",
+    "GAGP_CPU_COUNTED_PAIRS": "1",
+    "GAGP_CPU_COORDINATE_DRIVER": "1",
+    "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+    "GAGP_GPU_INPLACE_MUTATION": "1",
+    "GAGP_OWNED_PHASE_PACKED": "1",
+    "GAGP_CPU_ALL_FIT_PAIRS": "1",
+    "GAGP_GPU_FUSED_DONOR_SITES": "1",
+    "GAGP_CPU_FUSED_ADMISSION": "1",
+    "GAGP_CPU_COMPACT_ADMISSION": "1",
+    "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+    "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+    "GAGP_PREPARED_CASE_VIEWS": "1"
+  },
+  "frozen_sha256": {
+    "house_robber.source.json": "2c1eccd448fd813c444741d26df6e3021b55ffff0dd7a41f4fdc4508a81efd79",
+    "house_robber.grammar.json": "4aaa81fdf946a750842bf36bee0d6bf8ff7dcc465c7bdaf21194ac85b69e07ae",
+    "house_robber.p1024.prepared.json": "fb9c3e6d3a4741056fca1a58c0def1335127c65fe8eaa3d98772b60ce13a2ebd",
+    "median.source.json": "772c38045baf963050c1689f247a953b9346889ef58ddeaefac452818dcb5d74",
+    "median.grammar.json": "156eafd9aab2f22d0da2ea97b13476e65fdbe5994227eb12c4bf6a5e03c725d1",
+    "median.p1024.prepared.json": "f90c7bbc8c198cbb2fa6074f9466d8ed4061d7db1ed1dcb06170cf79c0c4d03f"
+  },
+  "cpu_control_reuse": "Same archived control binary/settings and unchanged CPU/ASGP implementation; final addition touches GPU view preparation only. GPU-e rerun. Scaling controls all rerun."
+}
