@@ -63,6 +63,16 @@ def preflight(root: Path, asgp: Path) -> dict:
             '{"IntList", ValueTag::IntList,',
             "config.reproduction_backend = mode <= 1 ? repro::ReproductionBackend::Cpu\n"
             "                                        : repro::ReproductionBackend::Gpu;"),
+        "generic_gpu_payload_capacity": evidence(root, "cpp/include/gagp/runtime/gpu/constants_gpu.hpp",
+            "constexpr int DMAX_THREAD_PAYLOAD_ENTRIES = 32;",
+            "constexpr int DMAX_THREAD_LIST_VALUES = 128;"),
+        "generic_gpu_concat_fallback": evidence(root, "cpp/src/runtime/gpu/device/builtins_device.cuh",
+            "st.list_values_used + al + bl <= st.kMaxListValues",
+            "Value::combine_container_hash48(d_list_type_code(a), a, b)"),
+        "gpu_view_builtin_admission": evidence(root, "cpp/src/runtime/view_profile.hpp",
+            "} else if (bid == BuiltinId::Slice) {\n"
+            "          if (ins.b != 3 || !pop(ValueTag::Int) || !pop(ValueTag::Int) || !pop(ValueTag::IntList) || !push(ValueTag::IntList)) return false;\n"
+            "        } else return false;"),
     }
     return {
         "contract": "negative-to-zero-capability-v1", "task": "negative_to_zero",
@@ -77,7 +87,9 @@ def preflight(root: Path, asgp: Path) -> dict:
                                    "asgp_distances": [1, 2], "gagp_scores": [0, 0]},
         "limitations": ["Existing native list fitness loses the ASGP distance ranking.",
                         "Fast GPU phase reproduction rejects empty list constants and list constructors.",
-                        "Generic GPU reproduction supports typed lists; validate this task separately."],
+                        "Generic GPU reproduction supports typed lists; validate this task separately.",
+                        "Generic GPU evaluation has a fixed 128-value/32-entry per-case list arena; exhausted concat uses synthetic hashes.",
+                        "The view evaluator rejects Singleton/Concat, so existing view flags cannot admit the known solution."],
         "common_policy": "Explicit ASGP Metric::kExact and GAGP penalty=0 align correct-case ranking; this changes the native ASGP objective.",
         "modes": {mode: "not_measured" for mode in
                   ("asgp_1t", "gagp_cpu", "gpu_eval", "gpu_repro", "gpu_overlap")},
