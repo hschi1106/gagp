@@ -1,0 +1,77 @@
+{
+  "runtime_source": "2938d6938b65240286a06d9f9c2153bd005ee4d4",
+  "test_fix_commit": "c0d24a9",
+  "benchmark_sha256": "e4c8e8ebebab92a6cc81be1e8df31d0a43d9dc9fb6f9dacc12e0f302c36e519b",
+  "focused_test_sha256": "10fd21b07d97714edc9e3c2ddc385ba38c2aedc64522f527be2f7007f39c44b1",
+  "native": {
+    "initial_passed": 126,
+    "initial_total": 127,
+    "initial_failure": "new shared capacity fixture expectation ignored existing alignment reserve",
+    "corrected_fixture_passed": 1,
+    "final_covered_passed": 127,
+    "runtime_changed_after_initial_suite": false,
+    "note": "Not a single all-green 127-test invocation. Fresh focused build and run after test-only correction."
+  },
+  "tools": {
+    "fixed_benchmark_passed": 5
+  },
+  "repository_at_runtime_validation": {
+    "passed": 24
+  },
+  "cuda_sanitizer": {
+    "version": "12.6",
+    "memcheck_errors": 0,
+    "racecheck_hazards": 0,
+    "racecheck_errors": 0,
+    "racecheck_warnings": 0
+  },
+  "stale_agent_object": "Prior agent 4096-frame fixture coverage retracted. Root freshly compiled legal 97-program/65-case/128-frame fixture; capacity safety remains enforced. Final focused binary passed memcheck/racecheck.",
+  "logs": {
+    "final-build.log": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/final-build.log",
+      "sha256": "e35ec7188ba51654fc8158a800f919fa083bab96a2ff30f97bf473e782dd227b"
+    },
+    "final-tests.log": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/final-tests.log",
+      "sha256": "b3d85611387af6b4bbbd81314b0b7d2ae0764fc0b2194211df87b92d20edab91"
+    },
+    "final-fixture-build.log": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/final-fixture-build.log",
+      "sha256": "1fdeb081eea860ec69147a15c365187b5b58de8781552bdf8f149faabb1833d4"
+    },
+    "final-fixture-test.log": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/final-fixture-test.log",
+      "sha256": "6714338ac897ee21cf200e637d8749c65991154abe92f2013d13296be0dfc78f"
+    },
+    "repository-tests.log": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/repository-tests.log",
+      "sha256": "b97d59105780e4d683546fd8387d87add8d20fd69399babe45acb014d612d6d4"
+    },
+    "tool-tests.log": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/tool-tests.log",
+      "sha256": "d5507df492fa83c3d99e95f0165eb5fe6d96fd0211bc921a3936ad9649a5e555"
+    },
+    "final-memcheck.log": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/final-memcheck.log",
+      "sha256": "a4a1fbbc4e9846112fa27f510380d43efe2cefdf70d2562760bfe3127e0c13e5"
+    },
+    "final-racecheck.log": {
+      "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/final-racecheck.log",
+      "sha256": "91ef106f9b9612c6f18d307c865ba0f0ad967f62c549bdc872da4653e9c7e616"
+    }
+  },
+  "profiling": "nsys only; no NCU; all formal search/scaling samples without external profiler",
+  "repository_after_report": {
+    "passed": 24,
+    "log": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/final-repository-complete.log",
+    "sha256": "b388e594ca266665a4f8d41c961f70125e20a6ba5452e00ac891164da868947a"
+  },
+  "final_measurements": {
+    "complete": true,
+    "search_samples": 90,
+    "exact_trace_and_ast_comparisons": 54,
+    "initial_snapshot_pairs": 3,
+    "fixed_parent_scaling_cells": 60,
+    "summary_sha256": "08545a8ae804dfd130d10475e6b0da8728fa7f163f8d112bca89c5776cbbc047"
+  }
+}

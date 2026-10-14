@@ -37,7 +37,7 @@ def digest(value):
 def write_csv(path, rows):
     fields = sorted(set().union(*(set(r) for r in rows))) if rows else ['no_rows']
     with path.open('x', newline='') as stream:
-        writer = csv.DictWriter(stream, fieldnames=fields)
+        writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         writer.writerows({k: json.dumps(v, sort_keys=True) if isinstance(v, (list, dict)) else v
                           for k, v in row.items()} for row in rows)

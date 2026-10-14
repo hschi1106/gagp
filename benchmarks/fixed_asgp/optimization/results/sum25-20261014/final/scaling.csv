@@ -1,0 +1,181 @@
+median_generation_ms,mode,output,own_asgp_ratio,population,process_wall_s,raw_generation_ms,resources,task
+1864.143952,asgp_1t,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p1024.sum_of_elements.asgp_1t.json,1.0,1024,8.529668602859601,"[1865.088313, 1864.143952, 1844.28461]","rss_kb=774828
+wall_seconds=8.49
+",sum_of_elements
+5625.392336,gagp_cpu,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p1024.sum_of_elements.gagp_cpu.json,0.3313802559281618,1024,23.15667670313269,"[5527.743274, 5625.392336, 5655.053869]","rss_kb=910972
+wall_seconds=23.15
+",sum_of_elements
+236.583633,gpu_eval,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p1024.sum_of_elements.gpu_eval.json,7.8794290558552715,1024,2.0683513758704066,"[239.058205, 236.583633, 235.918702]","rss_kb=1057964
+wall_seconds=2.04
+",sum_of_elements
+36.430574,gpu_repro,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p1024.sum_of_elements.gpu_repro.json,51.16976614203224,1024,1.567443927982822,"[37.031017, 36.302306, 36.430574]","rss_kb=1041916
+wall_seconds=1.53
+",sum_of_elements
+36.557419,gpu_overlap,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p1024.sum_of_elements.gpu_overlap.json,50.99221999233588,1024,1.5170387919060886,"[36.190701, 36.63572, 36.557419]","rss_kb=1040304
+wall_seconds=1.50
+",sum_of_elements
+1318.158736,asgp_1t,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p1024.house_robber.asgp_1t.json,1.0,1024,6.125142997130752,"[1321.036052, 1318.158736, 1317.664061]","rss_kb=629600
+wall_seconds=6.09
+",house_robber
+3346.694778,gagp_cpu,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p1024.house_robber.gagp_cpu.json,0.39386882385125593,1024,14.137987616006285,"[3336.860782, 3347.478697, 3346.694778]","rss_kb=788116
+wall_seconds=14.09
+",house_robber
+263.245573,gpu_eval,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p1024.house_robber.gpu_eval.json,5.007334865988422,1024,2.1180197088979185,"[265.684713, 263.245573, 256.766657]","rss_kb=942720
+wall_seconds=2.07
+",house_robber
+31.263312,gpu_repro,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p1024.house_robber.gpu_repro.json,42.16311873802751,1024,1.4657674310728908,"[33.034433, 30.818179, 31.263312]","rss_kb=916540
+wall_seconds=1.42
+",house_robber
+31.19908,gpu_overlap,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p1024.house_robber.gpu_overlap.json,42.24992326696813,1024,1.4656541468575597,"[32.103719, 30.728246, 31.19908]","rss_kb=916664
+wall_seconds=1.41
+",house_robber
+56.868725,asgp_1t,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p1024.median.asgp_1t.json,1.0,1024,1.2653792588971555,"[56.836159, 57.465387, 56.868725]","rss_kb=778984
+wall_seconds=1.23
+",median
+512.210094,gagp_cpu,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p1024.median.gagp_cpu.json,0.11102617005435272,1024,2.8676831829361618,"[512.210094, 510.817502, 512.426956]","rss_kb=916140
+wall_seconds=2.84
+",median
+223.797109,gpu_eval,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p1024.median.gpu_eval.json,0.2541083986924961,1024,2.0175208940636367,"[224.325482, 222.757917, 223.797109]","rss_kb=1065736
+wall_seconds=1.98
+",median
+6.846494,gpu_repro,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p1024.median.gpu_repro.json,8.306254997083178,1024,1.4663972379639745,"[6.96733, 6.836881, 6.846494]","rss_kb=1042956
+wall_seconds=1.41
+",median
+6.46101,gpu_overlap,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p1024.median.gpu_overlap.json,8.801832066503534,1024,1.4163254539016634,"[6.709838, 6.46101, 6.438946]","rss_kb=1043532
+wall_seconds=1.40
+",median
+3769.899436,asgp_1t,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p2048.sum_of_elements.asgp_1t.json,1.0,2048,16.58653644588776,"[3770.031939, 3769.899436, 3762.091613]","rss_kb=775944
+wall_seconds=16.56
+",sum_of_elements
+11360.891071,gagp_cpu,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p2048.sum_of_elements.gagp_cpu.json,0.33183131608603383,2048,46.99478555191308,"[11393.51501, 11318.301708, 11360.891071]","rss_kb=1657348
+wall_seconds=46.96
+",sum_of_elements
+475.518058,gpu_eval,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p2048.sum_of_elements.gpu_eval.json,7.927983748621383,2048,3.9227472920902073,"[476.856554, 475.518058, 470.352214]","rss_kb=1737140
+wall_seconds=3.87
+",sum_of_elements
+68.307432,gpu_repro,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p2048.sum_of_elements.gpu_repro.json,55.19017954005356,2048,2.8198181851767004,"[68.315957, 68.307432, 67.882779]","rss_kb=1737288
+wall_seconds=2.77
+",sum_of_elements
+67.853935,gpu_overlap,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p2048.sum_of_elements.gpu_overlap.json,55.559039221527826,2048,2.7697933500166982,"[67.853935, 67.673175, 68.047805]","rss_kb=1737268
+wall_seconds=2.74
+",sum_of_elements
+2579.627479,asgp_1t,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p2048.house_robber.asgp_1t.json,1.0,2048,11.584938501007855,"[2586.644118, 2572.095723, 2579.627479]","rss_kb=629280
+wall_seconds=11.56
+",house_robber
+6652.868046,gagp_cpu,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p2048.house_robber.gagp_cpu.json,0.38774667724711404,2048,28.265273107914254,"[6652.868046, 6653.137841, 6637.002251]","rss_kb=1643128
+wall_seconds=28.25
+",house_robber
+493.058999,gpu_eval,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p2048.house_robber.gpu_eval.json,5.231883981900512,2048,3.971241458086297,"[494.096329, 491.918185, 493.058999]","rss_kb=1721344
+wall_seconds=3.95
+",house_robber
+53.480132,gpu_repro,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p2048.house_robber.gpu_repro.json,48.235248914494086,2048,2.819679705891758,"[55.020808, 53.046638, 53.480132]","rss_kb=1784436
+wall_seconds=2.81
+",house_robber
+53.367007,gpu_overlap,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p2048.house_robber.gpu_overlap.json,48.33749584270297,2048,2.820075645111501,"[53.367007, 53.552893, 52.631117]","rss_kb=1722060
+wall_seconds=2.78
+",house_robber
+115.740972,asgp_1t,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p2048.median.asgp_1t.json,1.0,2048,2.0672469697892666,"[118.247616, 115.740972, 115.647526]","rss_kb=779144
+wall_seconds=2.03
+",median
+1029.52605,gagp_cpu,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p2048.median.gagp_cpu.json,0.11242160603901184,2048,5.772729533025995,"[1041.735403, 1029.52605, 1024.696611]","rss_kb=1665524
+wall_seconds=5.75
+",median
+442.004569,gpu_eval,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p2048.median.gpu_eval.json,0.2618546958956888,2048,3.770652041072026,"[442.004569, 436.454313, 443.806395]","rss_kb=1747872
+wall_seconds=3.72
+",median
+13.897041,gpu_repro,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p2048.median.gpu_repro.json,8.328461576820562,2048,2.6182500990107656,"[14.113466, 13.897041, 13.741309]","rss_kb=1747636
+wall_seconds=2.60
+",median
+14.052986,gpu_overlap,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p2048.median.gpu_overlap.json,8.23604122284047,2048,2.5684895338490605,"[14.052986, 14.134411, 13.992461]","rss_kb=1747488
+wall_seconds=2.56
+",median
+8081.560995,asgp_1t,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p4096.sum_of_elements.asgp_1t.json,1.0,4096,34.81959086796269,"[8081.560995, 8044.455079, 8105.77459]","rss_kb=778164
+wall_seconds=34.80
+",sum_of_elements
+23399.318623,gagp_cpu,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p4096.sum_of_elements.gagp_cpu.json,0.34537591137616946,4096,95.6633677019272,"[23522.864707, 23346.808883, 23399.318623]","rss_kb=1731548
+wall_seconds=95.62
+",sum_of_elements
+952.839147,gpu_eval,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p4096.sum_of_elements.gpu_eval.json,8.481558530046415,4096,6.274442967958748,"[952.839147, 950.905499, 958.696346]","rss_kb=1813536
+wall_seconds=6.26
+",sum_of_elements
+131.802055,gpu_repro,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p4096.sum_of_elements.gpu_repro.json,61.315895226368056,4096,4.123402457917109,"[131.423797, 131.802055, 132.062444]","rss_kb=1813488
+wall_seconds=4.09
+",sum_of_elements
+131.454973,gpu_overlap,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p4096.sum_of_elements.gpu_overlap.json,61.477788253777206,4096,4.121239164145663,"[131.574639, 131.454973, 131.421741]","rss_kb=1890508
+wall_seconds=4.10
+",sum_of_elements
+5204.146405,asgp_1t,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p4096.house_robber.asgp_1t.json,1.0,4096,22.947053405921906,"[5204.919273, 5166.201769, 5204.146405]","rss_kb=633764
+wall_seconds=22.94
+",house_robber
+13455.051884,gagp_cpu,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p4096.house_robber.gagp_cpu.json,0.38678010682281216,4096,56.065335201099515,"[13490.898717, 13455.051884, 13431.242159]","rss_kb=1730532
+wall_seconds=56.02
+",house_robber
+1010.088331,gpu_eval,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p4096.house_robber.gpu_eval.json,5.15216961258015,4096,6.578234609914944,"[1000.769234, 1010.088331, 1016.781604]","rss_kb=1803720
+wall_seconds=6.53
+",house_robber
+99.248857,gpu_repro,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p4096.house_robber.gpu_repro.json,52.43532834841615,4096,4.12080660299398,"[99.248857, 98.987254, 99.955317]","rss_kb=1903952
+wall_seconds=4.08
+",house_robber
+99.018377,gpu_overlap,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p4096.house_robber.gpu_overlap.json,52.55737937413376,4096,4.1212386910337955,"[99.018377, 99.150932, 98.805967]","rss_kb=1806276
+wall_seconds=4.08
+",house_robber
+225.736077,asgp_1t,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p4096.median.asgp_1t.json,1.0,4096,3.5186852619517595,"[225.736077, 225.11623, 227.618232]","rss_kb=782104
+wall_seconds=3.51
+",median
+2132.978184,gagp_cpu,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p4096.median.gagp_cpu.json,0.1058314045091049,4096,10.634733943967149,"[2078.515598, 2132.978184, 2138.317582]","rss_kb=1744812
+wall_seconds=10.62
+",median
+905.384103,gpu_eval,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p4096.median.gpu_eval.json,0.24932630941058173,4096,6.123865832109004,"[905.384103, 902.512214, 955.823365]","rss_kb=1739780
+wall_seconds=6.10
+",median
+22.659727,gpu_repro,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p4096.median.gpu_repro.json,9.961994555362471,4096,3.619565366068855,"[22.68683, 22.653982, 22.659727]","rss_kb=1767052
+wall_seconds=3.61
+",median
+23.056554,gpu_overlap,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p4096.median.gpu_overlap.json,9.790538386612328,4096,3.7213266359176487,"[23.684753, 22.742645, 23.056554]","rss_kb=1740160
+wall_seconds=3.69
+",median
+16797.852851,asgp_1t,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p8192.sum_of_elements.asgp_1t.json,1.0,8192,71.63525030389428,"[16742.441835, 16797.852851, 16910.783699]","rss_kb=795992
+wall_seconds=71.62
+",sum_of_elements
+47447.702345,gagp_cpu,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p8192.sum_of_elements.gagp_cpu.json,0.3540287942471917,8192,192.324489855906,"[47561.26131, 47447.702345, 47173.933455]","rss_kb=1888596
+wall_seconds=192.30
+",sum_of_elements
+2042.978814,gpu_eval,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p8192.sum_of_elements.gpu_eval.json,8.222235461223926,8192,11.48427549796179,"[1978.070962, 2060.678065, 2042.978814]","rss_kb=1970664
+wall_seconds=11.44
+",sum_of_elements
+257.145803,gpu_repro,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p8192.sum_of_elements.gpu_repro.json,65.32423494775064,8192,6.828565099975094,"[257.145803, 257.972023, 256.833061]","rss_kb=1967960
+wall_seconds=6.79
+",sum_of_elements
+257.828608,gpu_overlap,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p8192.sum_of_elements.gpu_overlap.json,65.15123741039629,8192,6.8286372078582644,"[256.958934, 258.453049, 257.828608]","rss_kb=1899380
+wall_seconds=6.79
+",sum_of_elements
+10576.288097,asgp_1t,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p8192.house_robber.asgp_1t.json,1.0,8192,46.49668129091151,"[10576.288097, 10691.700485, 10510.796316]","rss_kb=648964
+wall_seconds=46.44
+",house_robber
+26995.484571,gagp_cpu,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p8192.house_robber.gagp_cpu.json,0.3917798944924892,8192,111.50842974102125,"[26995.484571, 26892.018049, 27302.104796]","rss_kb=1913348
+wall_seconds=111.48
+",house_robber
+2174.382672,gpu_eval,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p8192.house_robber.gpu_eval.json,4.864041749961112,8192,12.088677255203947,"[2031.452798, 2174.382672, 2216.9475]","rss_kb=1994980
+wall_seconds=12.07
+",house_robber
+198.768293,gpu_repro,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p8192.house_robber.gpu_repro.json,53.20913077922343,8192,6.927919612964615,"[196.878827, 204.232783, 198.768293]","rss_kb=1982908
+wall_seconds=6.89
+",house_robber
+188.247818,gpu_overlap,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p8192.house_robber.gpu_overlap.json,56.182792498556346,8192,6.82789654401131,"[187.5895, 188.247818, 203.038268]","rss_kb=1899724
+wall_seconds=6.79
+",house_robber
+461.282956,asgp_1t,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p8192.median.asgp_1t.json,1.0,8192,6.725418502930552,"[460.044864, 461.282956, 464.028897]","rss_kb=799312
+wall_seconds=6.67
+",median
+4357.049852,gagp_cpu,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p8192.median.gagp_cpu.json,0.10587047926207661,8192,20.604388704057783,"[4423.270745, 4266.313323, 4357.049852]","rss_kb=1911708
+wall_seconds=20.56
+",median
+1985.706813,gpu_eval,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p8192.median.gpu_eval.json,0.23230164341486803,8192,11.388295744080096,"[1985.706813, 2020.064155, 1984.772704]","rss_kb=2137344
+wall_seconds=11.34
+",median
+46.920522,gpu_repro,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p8192.median.gpu_repro.json,9.831155672138516,8192,5.826597783016041,"[47.466125, 46.767474, 46.920522]","rss_kb=1982088
+wall_seconds=5.80
+",median
+47.770435,gpu_overlap,/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/sum25-20261014/validation/scaling/runs/scaling.p8192.median.gpu_overlap.json,9.656243574085101,8192,5.9269085980486125,"[47.770435, 47.219892, 47.9101]","rss_kb=1982128
+wall_seconds=5.88
+",median
