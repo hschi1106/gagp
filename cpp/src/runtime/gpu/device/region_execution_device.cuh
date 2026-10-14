@@ -448,6 +448,12 @@ __device__ DResult d_run_bounded_region(
         caller_set,payload_tables,payload_state,tables,fuel,workspace);
     if(workspace.window_executor) {
       if(workspace.unboxed_window_frames) {
+        if(workspace.window_soa) {
+          if(workspace.two_state_frames)return d_run_window_region<DUnboxedWindowFrame<2>,true>(segment,operands,caller_locals,
+              caller_set,payload_tables,payload_state,tables,fuel,workspace);
+          return d_run_window_region<DUnboxedWindowFrame<1>,true>(segment,operands,caller_locals,
+              caller_set,payload_tables,payload_state,tables,fuel,workspace);
+        }
         if(workspace.two_state_frames)return d_run_window_region<DUnboxedWindowFrame<2>>(segment,operands,caller_locals,
             caller_set,payload_tables,payload_state,tables,fuel,workspace);
         return d_run_window_region<DUnboxedWindowFrame<1>>(segment,operands,caller_locals,

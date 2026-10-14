@@ -1,0 +1,218 @@
+{
+  "rows": [
+    {
+      "name": "archived",
+      "evolve_wall_ms": 4329.45374,
+      "eval_kernel_ms": 3593.575636,
+      "checks": {
+        "trace": true,
+        "final": true,
+        "history": true
+      },
+      "binary_sha256": "764ab8df9dbea4b2cb9e439a8e2608f7b1bd7fd9aa9f7ecd8bf4c4a6e09b53a0",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs/archived/manifest.json"
+    },
+    {
+      "name": "off",
+      "evolve_wall_ms": 4395.223663,
+      "eval_kernel_ms": 3582.8861020000004,
+      "checks": {
+        "trace": true,
+        "final": true,
+        "history": true
+      },
+      "binary_sha256": "ce701b5267c3f355ab7faa66bd9920203987a6f6fdf5a209fecb6be388d19882",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs/off/manifest.json"
+    },
+    {
+      "name": "queue",
+      "evolve_wall_ms": 4268.68668,
+      "eval_kernel_ms": 3517.6880380000007,
+      "checks": {
+        "trace": true,
+        "final": true,
+        "history": true
+      },
+      "binary_sha256": "ce701b5267c3f355ab7faa66bd9920203987a6f6fdf5a209fecb6be388d19882",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs/queue/manifest.json"
+    },
+    {
+      "name": "soa",
+      "evolve_wall_ms": 4296.499003,
+      "eval_kernel_ms": 3541.704728,
+      "checks": {
+        "trace": true,
+        "final": true,
+        "history": true
+      },
+      "binary_sha256": "ce701b5267c3f355ab7faa66bd9920203987a6f6fdf5a209fecb6be388d19882",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs/soa/manifest.json"
+    },
+    {
+      "name": "both",
+      "evolve_wall_ms": 4172.045855,
+      "eval_kernel_ms": 3446.427362,
+      "checks": {
+        "trace": true,
+        "final": true,
+        "history": true
+      },
+      "binary_sha256": "ce701b5267c3f355ab7faa66bd9920203987a6f6fdf5a209fecb6be388d19882",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs/both/manifest.json"
+    },
+    {
+      "name": "pair1-off",
+      "evolve_wall_ms": 4411.713424,
+      "eval_kernel_ms": 3588.874885,
+      "checks": {
+        "trace": true,
+        "final": true,
+        "history": true
+      },
+      "binary_sha256": "ce701b5267c3f355ab7faa66bd9920203987a6f6fdf5a209fecb6be388d19882",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs/pair1-off/manifest.json"
+    },
+    {
+      "name": "pair1-both",
+      "evolve_wall_ms": 4180.848323,
+      "eval_kernel_ms": 3457.840417,
+      "checks": {
+        "trace": true,
+        "final": true,
+        "history": true
+      },
+      "binary_sha256": "ce701b5267c3f355ab7faa66bd9920203987a6f6fdf5a209fecb6be388d19882",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs/pair1-both/manifest.json"
+    },
+    {
+      "name": "pair2-off",
+      "evolve_wall_ms": 4344.9258,
+      "eval_kernel_ms": 3599.1672529999987,
+      "checks": {
+        "trace": true,
+        "final": true,
+        "history": true
+      },
+      "binary_sha256": "ce701b5267c3f355ab7faa66bd9920203987a6f6fdf5a209fecb6be388d19882",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs/pair2-off/manifest.json"
+    },
+    {
+      "name": "pair2-both",
+      "evolve_wall_ms": 4182.907314,
+      "eval_kernel_ms": 3455.5700039999992,
+      "checks": {
+        "trace": true,
+        "final": true,
+        "history": true
+      },
+      "binary_sha256": "ce701b5267c3f355ab7faa66bd9920203987a6f6fdf5a209fecb6be388d19882",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs/pair2-both/manifest.json"
+    },
+    {
+      "name": "pair3-off",
+      "evolve_wall_ms": 4345.24401,
+      "eval_kernel_ms": 3603.556198,
+      "checks": {
+        "trace": true,
+        "final": true,
+        "history": true
+      },
+      "binary_sha256": "ce701b5267c3f355ab7faa66bd9920203987a6f6fdf5a209fecb6be388d19882",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs/pair3-off/manifest.json"
+    },
+    {
+      "name": "pair3-both",
+      "evolve_wall_ms": 4171.432565,
+      "eval_kernel_ms": 3447.134936,
+      "checks": {
+        "trace": true,
+        "final": true,
+        "history": true
+      },
+      "binary_sha256": "ce701b5267c3f355ab7faa66bd9920203987a6f6fdf5a209fecb6be388d19882",
+      "manifest": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs/pair3-both/manifest.json"
+    }
+  ],
+  "flags": {
+    "GAGP_VIEW_PROFILE": "1",
+    "GAGP_TYPED_VIEW_PHASE": "1",
+    "GAGP_SORT_CASES": "1",
+    "GAGP_COMPACT_FRAMES": "1",
+    "GAGP_CONSTANT_PHASE": "1",
+    "GAGP_POPULATION_HANDOFF": "1",
+    "GAGP_DIRECT_PHASE": "1",
+    "GAGP_DIRECT_ROOT": "1",
+    "GAGP_WINDOW_EXECUTOR": "1",
+    "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+    "GAGP_BOUND_ADD_PHASE": "1",
+    "GAGP_REUSE_ADMISSION_COMPILE": "1",
+    "GAGP_REUSE_SITE_CONTRACTS": "1",
+    "GAGP_SELECTED_SITES": "1",
+    "GAGP_OWNED_PREPARATION": "1",
+    "GAGP_CUDA_DEVICE": "0",
+    "GAGP_HOST_THREADS": "1",
+    "GAGP_SINGLE_EVAL_IDENTITY": "1",
+    "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+    "GAGP_GPU_PHASE_POPULATION": "1",
+    "GAGP_OWNED_PHASE_PACK": "1",
+    "GAGP_OWNED_PHASE_CAPS": "1",
+    "GAGP_COORDINATE_EXECUTOR": "1",
+    "GAGP_COUNTED_SITE_DRAW": "1",
+    "GAGP_CPU_REGION_VIEWS": "1",
+    "GAGP_GPU_DIAGNOSTICS": "1",
+    "GAGP_SEARCH_TRACE": "1",
+    "GAGP_BATCH_PHASE_IMPORT": "1",
+    "GAGP_BATCH_PHASE_EXPORT": "1",
+    "GAGP_REUSE_PHASE_GRAMMAR": "1",
+    "GAGP_PHASE_CAP_BUCKETS": "1",
+    "GAGP_PHASE_REPRO_THREADS": "1",
+    "GAGP_GPU_STATIC_WEIGHTS": "1",
+    "GAGP_BUCKET_WORKSPACE": "1",
+    "GAGP_BOUND_COMPARE_PHASE": "1",
+    "GAGP_COORDINATE_RING_MEMO": "1",
+    "GAGP_CPU_LAZY_ANALYSIS": "1",
+    "GAGP_CPU_SELECTED_PARENTS": "1",
+    "GAGP_CPU_SELECTED_MUTATION": "1",
+    "GAGP_CPU_BOUND_PHASE": "1",
+    "GAGP_CPU_COORDINATE_VIEWS": "1",
+    "GAGP_CPU_TYPED_PHASE": "1",
+    "GAGP_CPU_DENSE_MEMO": "1",
+    "GAGP_CPU_SCALAR_VIEWS": "1",
+    "GAGP_CPU_COUNTED_PAIRS": "1",
+    "GAGP_CPU_COORDINATE_DRIVER": "1",
+    "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+    "GAGP_GPU_INPLACE_MUTATION": "1",
+    "GAGP_OWNED_PHASE_PACKED": "1",
+    "GAGP_CPU_ALL_FIT_PAIRS": "1",
+    "GAGP_GPU_FUSED_DONOR_SITES": "1",
+    "GAGP_CPU_FUSED_ADMISSION": "1",
+    "GAGP_CPU_COMPACT_ADMISSION": "1",
+    "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+    "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+    "GAGP_PREPARED_CASE_VIEWS": "1",
+    "GAGP_GPU_DEFERRED_CROSSOVER_COPY": "1",
+    "GAGP_GPU_FUSED_SPLICE_DEPTH": "1",
+    "GAGP_GPU_COMPACT_COMPILE_FRAMES": "1"
+  },
+  "tests": [
+    "gagp_test_bounded_region_gpu passed",
+    "CUDA12.6 compute-sanitizer memcheck 0errors"
+  ],
+  "candidate": "GAGP_DYNAMIC_PROGRAM_QUEUE=1 plus GAGP_WINDOW_SOA=1",
+  "status": "opt-in candidate; root integration and other task/scaling validation pending",
+  "median_off_ms": 4345.24401,
+  "median_on_ms": 4180.848323,
+  "median_off_kernel_ms": 3599.167253,
+  "median_on_kernel_ms": 3455.570004,
+  "design": [
+    "Per-block dynamic logical program queue retains private physical workspace and original output row scatter.",
+    "Unboxed window state/view/preparation/results/next-request use coalesced 64-bit field planes; identical frame size and capacity.",
+    "Both compact and generic queues initialized independently; no skipped programs/cases or reordered per-program fitness reductions."
+  ],
+  "limitations": [
+    "Three-pair results are Sum32 seed0 only; not a target attainment claim.",
+    "Generic capability bucket retains its original frame layout; only compact window bucket uses SoA.",
+    "Final host shared-memory guard reserves16bytes for queue shared variable; benchmark binaries precede guard-only change."
+  ],
+  "artifacts_root": "/home/hschi1106/.t3/worktrees/gagp/sum25-schedule-20261014/logs"
+}

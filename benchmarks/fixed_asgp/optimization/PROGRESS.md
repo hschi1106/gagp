@@ -1174,3 +1174,26 @@ Focused fitness/bounded-region/native population parity passes; a temporary
 and reproduced offspring against independent CPU execution. CUDA 12.6
 compute-sanitizer reports 0 errors. Structured results, raw paths, binary hashes,
 and original archived controls: `results/bloat-liveness-20261014.json`.
+
+
+2026-10-14 Sum scheduling/layout candidate (opt-in, pending integration):
+`GAGP_DYNAMIC_PROGRAM_QUEUE=1` lets each physical region block claim its next
+logical program row after completing all cases. It retains its own workspace,
+original row scatter and each program's reduction order. Compact/generic queues
+are separate. `GAGP_WINDOW_SOA=1` transposes unboxed window frame fields across
+case lanes without changing frame sizes, declared limits or the 512 MiB budget.
+Unsupported/generic frames retain their existing layout. Both flags are off by default.
+
+Three alternating full Sum32/seed0 P1024/C1024 pairs: search median
+4345.244 -> 4180.848 ms (3.78%); summed evaluation kernels
+3599.167 -> 3455.570 ms (3.99%). Archived control4329.454 ms; initial same-binary
+OFF/queue/SoA/both screens4395.224/4268.687/4296.499/4172.046 ms.
+Every final/history AST and semantic/operator/error row matches across all11runs.
+This is a small candidate improvement, not attainment of25x or cross-task evidence.
+
+Focused bounded-region CPU/GPU parity passes, including new17-program/65-case
+coverage at32/1024threads and4096framecapacity that forces queued block reuse.
+CUDA12.6 compute-sanitizer memcheck reports0errors. The final host guard reserves
+16bytes for queue shared state; archived timing binaries precede that guard-only
+change. Raw patches/binaries/manifests remain in the scheduling worktree's logs;
+tracked evidence: `results/sum25-scheduling-20261014.json`.

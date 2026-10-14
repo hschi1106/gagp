@@ -74,7 +74,7 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     const DRegionSegment* region_segments = nullptr, int region_segment_count = 0,
     const DRegionPhase* region_phases = nullptr, int region_phase_count = 0,
     const DRegionPhaseBinding* region_bindings = nullptr, int region_binding_count = 0,
-    DRegionWorkspace workspace = {}, unsigned int* case_counts = nullptr, const int* case_order = nullptr, const int* program_indices = nullptr) {
+    DRegionWorkspace workspace = {}, unsigned int* case_counts = nullptr, const int* case_order = nullptr, const int* program_indices = nullptr, int* next_program = nullptr) {
   const int tid = static_cast<int>(threadIdx.x);
   if constexpr (EnableRegions) {
     const std::size_t block_base = static_cast<std::size_t>(blockIdx.x) * blockDim.x;
@@ -84,7 +84,11 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
       if(workspace.coordinate_executor) {
         workspace.frames=reinterpret_cast<DRegionFrame*>(reinterpret_cast<DUnboxedCoordinateFrame*>(workspace.frames)+slot);
       } else if(workspace.unboxed_window_frames) {
-        workspace.frames=reinterpret_cast<DRegionFrame*>(workspace.two_state_frames ?
+        if (workspace.window_soa) {
+          const auto words = workspace.two_state_frames ? sizeof(DUnboxedWindowFrame<2>)/8 : sizeof(DUnboxedWindowFrame<1>)/8;
+          workspace.frames = reinterpret_cast<DRegionFrame*>(reinterpret_cast<std::int64_t*>(workspace.frames) +
+              block_base * workspace.frame_capacity * words + tid);
+        } else workspace.frames=reinterpret_cast<DRegionFrame*>(workspace.two_state_frames ?
             reinterpret_cast<void*>(reinterpret_cast<DUnboxedWindowFrame<2>*>(workspace.frames)+slot) :
             reinterpret_cast<void*>(reinterpret_cast<DUnboxedWindowFrame<1>*>(workspace.frames)+slot));
       } else if (workspace.compact_frames) {
@@ -104,7 +108,7 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
   // Each block owns its workspace slices throughout the launch. Grid-stride
   // program traversal bounds scratch allocation independently of population size.
   for (std::size_t logical_idx = blockIdx.x;
-       logical_idx < static_cast<std::size_t>(program_count); logical_idx += gridDim.x) {
+       logical_idx < static_cast<std::size_t>(program_count);) {
   const std::size_t prog_idx = program_indices ? program_indices[logical_idx] : logical_idx;
 
   const DProgramMeta meta = metas[prog_idx];
@@ -256,7 +260,16 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
   }
   if constexpr (!EnableRegions) break;
   // Thread 0 must finish consuming the reduction before shared code is reused.
-  __syncthreads();
+  // Workspace remains owned by the physical block when it takes another row.
+  __shared__ int next_row;
+  if (next_program) {
+    if (tid == 0) next_row = atomicAdd(next_program, 1);
+    __syncthreads();
+    logical_idx = static_cast<std::size_t>(next_row);
+  } else {
+    logical_idx += gridDim.x;
+    __syncthreads();
+  }
   }
 }
 

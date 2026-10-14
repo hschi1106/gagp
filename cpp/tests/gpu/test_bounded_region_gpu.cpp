@@ -1072,6 +1072,32 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
     }
   }
   if(direct) {
+    Environment window_mode("GAGP_WINDOW_EXECUTOR"), unboxed("GAGP_UNBOXED_WINDOW_FRAMES"),
+        soa("GAGP_WINDOW_SOA"), queue("GAGP_DYNAMIC_PROGRAM_QUEUE");
+    std::vector<BytecodeProgram> programs;
+    for(unsigned p=0;p<17;++p) {
+      auto segment=sequence_segment(ValueTag::IntList);
+      segment.plan.result_type=ValueTag::Int;segment.plan.preparations.resize(1);
+      segment.preparations.resize(1);segment.plan.requests.resize(2);
+      segment.plan.limits.frames=4096;
+      segment.plan.requests[1].states[0]=window(0,endpoint(WindowEndpointKind::InteriorCut,0),endpoint(WindowEndpointKind::End));
+      segment.base_body=constant_phase(Value::from_int(p+1));
+      segment.combine=phase({}, {ins_a(Opcode::Load,0),ins_a(Opcode::Load,1),ins(Opcode::Add),ins(Opcode::Return)},
+          {{slot(RegionSlotBank::Result,0),0},{slot(RegionSlotBank::Result,1),1}},2);
+      programs.push_back(invocation(segment,{payload::make_int_list_value(std::vector<Value>(p%9,Value::from_int(3)))}));
+    }
+    const std::vector<CaseBindings> cases(65);
+    const std::vector<Value> answers(65,Value::from_int(0));
+    for(int block:{32,1024}) {
+      FitnessSessionGpu session;if(!session.init(cases,answers,10000,block,7).ok)return false;
+      const auto gpu=session.eval_programs(programs,true);
+      const auto cpu=eval_fitness_cpu(programs,cases,answers,10000,7,block);
+      if(!check(gpu.ok && gpu.fitness==cpu,"SoA planes and queued program rows preserve fitness"))return false;
+      for(const auto& counts:gpu.case_counts)
+        if(!check(counts[0]==65 && counts[1]==0,"queued SoA rows must visit every case once"))return false;
+    }
+  }
+  if(direct) {
     Environment add_mode("GAGP_BOUND_ADD_PHASE");
     for(bool explicit_return:{false,true}) {
       auto segment=unary_segment(Value::from_int(0));segment.plan.memoized=false;segment.plan.limits.cells=0;segment.plan.state_types.push_back(ValueTag::Int);

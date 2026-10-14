@@ -1,9 +1,50 @@
 #pragma once
 
+// Unboxed frame field planes are contiguous across case lanes. The proxy
+// preserves lazy field access; no uninitialized frame fields are copied.
+struct DWindowSoAStateProxy {
+  std::int64_t& i;
+  ValueTag tag;
+  std::int64_t& view;
+  __device__ operator Value() const { Value v;v.i=i;v.tag=tag;v.b=tag==ValueTag::IntList && view;return v; }
+  __device__ DWindowSoAStateProxy& operator=(Value v) {i=v.i;if(tag==ValueTag::IntList)view=v.b;return *this;}
+};
+template<unsigned States> struct DWindowSoAStates {
+  std::int64_t* base; std::size_t stride;
+  __device__ DWindowSoAStateProxy operator[](unsigned i) const {return {base[i*stride],i?ValueTag::Int:ValueTag::IntList,base[States*stride]};}
+};
+struct DWindowSoAInt {
+  std::int64_t& i;
+  static constexpr ValueTag tag=ValueTag::Int;
+  __device__ operator Value() const {return Value::from_int(i);}
+  __device__ DWindowSoAInt& operator=(Value v){i=v.i;return *this;}
+};
+struct DWindowSoAInts {
+  std::int64_t* base; std::size_t stride;
+  __device__ DWindowSoAInt operator[](unsigned i) const {return {base[i*stride]};}
+};
+template<unsigned States> struct DWindowSoAFrame {
+  DWindowSoAStates<States> state;
+  DWindowSoAInts prepared,results;
+  std::int64_t& next_request;
+};
+template<class Frame,bool SoA> struct DWindowFrameAccess {
+  DRegionFrame* base; std::size_t stride;
+  __device__ Frame& operator[](std::size_t i) const {return reinterpret_cast<Frame*>(base)[i];}
+};
+template<unsigned States> struct DWindowFrameAccess<DUnboxedWindowFrame<States>,true> {
+  DRegionFrame* base; std::size_t stride;
+  static_assert(sizeof(DUnboxedWindowFrame<States>) == (States+5)*sizeof(std::int64_t));
+  __device__ DWindowSoAFrame<States> operator[](std::size_t i) const {
+    auto* words=reinterpret_cast<std::int64_t*>(base)+i*(States+5);
+    return {{words,stride},{words+(States+1)*stride,stride},{words+(States+2)*stride,stride},words[(States+4)*stride]};
+  }
+};
+
 // Capability: IntList state plus an optional carried Int, two window requests, one InteriorCut Int
 // preparation, Int result, no memo or bound operands. Still executes every
 // evolved predicate/base/cut/combine and uses the original entry/instruction fuel.
-template<class Frame>
+template<class Frame, bool SoA = false>
 __device__ __noinline__ DResult d_run_window_region(
     const DRegionSegment& segment, const Value* operands,
     const Value* caller_locals, std::uint64_t caller_set,
@@ -13,12 +54,12 @@ __device__ __noinline__ DResult d_run_window_region(
   constexpr auto Flavor=DPayloadFlavor::BoundIntListViews;
   if(segment.limits.frames==0)return d_error(ErrCode::Timeout);
   if(!workspace.frames || workspace.frame_capacity<segment.limits.frames)return d_error(ErrCode::Value);
-  auto* frames=reinterpret_cast<Frame*>(workspace.frames);
+  DWindowFrameAccess<Frame, SoA> frames{workspace.frames, workspace.slot_stride};
   const std::size_t stride=workspace.slot_stride;
   unsigned depth=1;frames[0].state[0]=operands[0];frames[0].next_request=-1;
   if(segment.state_count==2)frames[0].state[1]=operands[1];
   for(;;) {
-    auto& frame=frames[(depth-1)*stride];
+    auto&& frame=frames[(depth-1)*stride];
     DResult result;bool completed=false;
     if(frame.next_request<0) {
       if(fuel<0 || segment.limits.entry_fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
@@ -90,6 +131,6 @@ __device__ __noinline__ DResult d_run_window_region(
       if(result.is_error)return result;
     }
     if(--depth==0)return result;
-    auto& parent=frames[(depth-1)*stride];parent.results[parent.next_request-1]=result.value;
+    auto&& parent=frames[(depth-1)*stride];parent.results[parent.next_request-1]=result.value;
   }
 }
