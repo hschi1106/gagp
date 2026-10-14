@@ -88,3 +88,9 @@ maintenance, follow the rules in root `AGENTS.md`.
 - `GAGP_GPU_INPLACE_MUTATION`: `repro/gpu/phase_population.cu` splices GPU mutation into a per-child temporary, then publishes only the changed phase to the crossed population. No input/output splice aliasing or RNG changes; `gagp_test_gpu_phase_population` compares both paths for 32 generations and full-case CPU audit.
 
 - `GAGP_GPU_FUSED_DONOR_SITES`: private mutation generation emits exact construction sites in `gpu/device/phase_generate.cuh`; `gpu/phase_population.cu` chooses a dedicated kernel specialization. Import annotation remains independent. `gagp_test_gpu_phase_variation` compares sites to the annotation oracle and exercises scoped/unscoped generations.
+- Opt-in fused single-root witness admission: `grammar/membership.cpp`, flag
+  `GAGP_CPU_FUSED_ADMISSION`; exact node-local production proofs and repeated-hole
+  checks replace the duplicated matching traversal, with ambiguous/alias fallback.
+  It also affects public reconstruction and GPU imports; speculative work guard
+  accounting differs. Contract: `spec/grammar_definition.md`; differential tests
+  in `gagp_test_grammar_membership`, reproduction/resources tests above.

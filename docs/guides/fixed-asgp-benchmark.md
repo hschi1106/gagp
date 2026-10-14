@@ -617,3 +617,26 @@ and rejection counters remain identical to counted pairs without this setting.
 These summaries certify only resource fits; scope/domain/membership contracts
 still come from admitted variation sites and final canonical child admission.
 The setting has no effect on GPU reproduction or CPU worker count.
+
+`GAGP_CPU_FUSED_ADMISSION=1` optionally fuses materialized grammar checks into
+canonical witness construction in `grammar/membership.cpp`. At each nonterminal,
+exact local node, type, name, bound-variable, constant-domain, fuel-profile and
+structured-plan checks prove a unique production head, or defer to ordinary
+recursive matching. All selected descendants and repeated-hole equalities are
+checked; this is not type-only admission. Aliases, ambiguous heads and more than
+64 nested head wrappers use the original matcher. Native AST verification,
+lowering and canonical resource projection still run.
+
+Despite the CPU experiment name, this switch affects every unframed single-root
+`reconstruct_derivation` call, including public reconstruction and GPU import.
+Strict `require_membership`, framed reconstruction and multiple-root admission
+retain the original matcher. The switch changes the accounting of speculative
+matching work: its matching-step/frame guards cover recursive fallback work,
+while the unchanged witness logical-step/frame/template limits cover complete
+reconstruction. It does not claim identical admission at the old speculative
+work boundary. AST limits, execution fuel, canonical choices and RNG are
+unchanged. Benchmark it separately and keep an independent strict admission
+check for exported populations. Differential reconstruction coverage lives in
+`gagp_test_grammar_membership`; native CPU reproduction and authored resources
+are covered by `gagp_test_grammar_reproduction` and
+`gagp_test_derivation_resources`.

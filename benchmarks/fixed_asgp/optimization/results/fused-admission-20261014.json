@@ -1,0 +1,274 @@
+{
+  "experiment": "fused single-root canonical reconstruction",
+  "base_commit": "ce0d811",
+  "flag": "GAGP_CPU_FUSED_ADMISSION=1",
+  "status": "measured candidate; root owns adoption",
+  "contract": "Native AST reproduction, CPU1T, unchanged grammar/RNG/operator/execution/resource semantics; speculative matcher work guard accounting changes explicitly. Strict membership unchanged.",
+  "gpu_eval_full": [
+    {
+      "task": "house_robber",
+      "cells": [
+        {
+          "off_ms": 9545.826793,
+          "on_ms": 9348.258065,
+          "off_init_ms": 16.806506,
+          "on_init_ms": 16.937229,
+          "off_repro_ms": 7503.1781249999985,
+          "on_repro_ms": 7285.2325169999995,
+          "best": -6544
+        },
+        {
+          "off_ms": 9613.751856,
+          "on_ms": 9208.012309,
+          "off_init_ms": 17.271668,
+          "on_init_ms": 16.573842,
+          "off_repro_ms": 7571.376795999999,
+          "on_repro_ms": 7176.379016,
+          "best": -6544
+        },
+        {
+          "off_ms": 9648.087013,
+          "on_ms": 9372.83792,
+          "off_init_ms": 17.993178,
+          "on_init_ms": 16.304405,
+          "off_repro_ms": 7586.853104000001,
+          "on_repro_ms": 7254.182342000001,
+          "best": -6544
+        }
+      ],
+      "exact_quality_ast_and_history": true,
+      "off_ms": 9613.751856,
+      "on_ms": 9348.258065,
+      "off_init_ms": 17.271668,
+      "on_init_ms": 16.573842,
+      "off_repro_ms": 7571.376795999999,
+      "on_repro_ms": 7254.182342000001,
+      "best": -6544
+    },
+    {
+      "task": "median",
+      "cells": [
+        {
+          "off_ms": 26693.134785,
+          "on_ms": 25249.426951,
+          "off_init_ms": 15.346537,
+          "on_init_ms": 15.591242,
+          "off_repro_ms": 23057.578099000002,
+          "on_repro_ms": 21568.387713999993,
+          "best": -642
+        },
+        {
+          "off_ms": 26893.353416,
+          "on_ms": 25443.35117,
+          "off_init_ms": 15.884155,
+          "on_init_ms": 15.823791,
+          "off_repro_ms": 23287.647165999995,
+          "on_repro_ms": 21744.026253000004,
+          "best": -642
+        },
+        {
+          "off_ms": 26767.02716,
+          "on_ms": 25660.215734,
+          "off_init_ms": 15.623701,
+          "on_init_ms": 15.858524,
+          "off_repro_ms": 23129.554968,
+          "on_repro_ms": 21906.47628000001,
+          "best": -642
+        }
+      ],
+      "exact_quality_ast_and_history": true,
+      "off_ms": 26767.02716,
+      "on_ms": 25443.35117,
+      "off_init_ms": 15.623701,
+      "on_init_ms": 15.823791,
+      "off_repro_ms": 23129.554968,
+      "on_repro_ms": 21744.026253000004,
+      "best": -642
+    }
+  ],
+  "cpu_four_generation_screen": [
+    {
+      "task": "house_robber",
+      "cells": [
+        {
+          "off_ms": 12636.731893,
+          "on_ms": 14052.194718,
+          "off_init_ms": 16.194553,
+          "on_init_ms": 16.465832,
+          "off_repro_ms": 684.960961,
+          "on_repro_ms": 668.6284790000001,
+          "best": -8503
+        }
+      ],
+      "exact_quality_ast_and_history": true,
+      "off_ms": 12636.731893,
+      "on_ms": 14052.194718,
+      "off_init_ms": 16.194553,
+      "on_init_ms": 16.465832,
+      "off_repro_ms": 684.960961,
+      "on_repro_ms": 668.6284790000001,
+      "best": -8503
+    },
+    {
+      "task": "median",
+      "cells": [
+        {
+          "off_ms": 2624.989217,
+          "on_ms": 2594.108482,
+          "off_init_ms": 15.322087,
+          "on_init_ms": 15.372285,
+          "off_repro_ms": 986.442176,
+          "on_repro_ms": 941.4062819999999,
+          "best": -642
+        }
+      ],
+      "exact_quality_ast_and_history": true,
+      "off_ms": 2624.989217,
+      "on_ms": 2594.108482,
+      "off_init_ms": 15.322087,
+      "on_init_ms": 15.372285,
+      "off_repro_ms": 986.442176,
+      "on_repro_ms": 941.4062819999999,
+      "best": -642
+    }
+  ],
+  "strict_audit": {
+    "binary": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-main/bench",
+    "binary_sha256": "0636a67ef2e1f5460b337973d3cd8537a97e1f50ac94eebc693d8e541c6c7644",
+    "flags": {
+      "GAGP_VIEW_PROFILE": "1",
+      "GAGP_TYPED_VIEW_PHASE": "1",
+      "GAGP_SORT_CASES": "1",
+      "GAGP_COMPACT_FRAMES": "1",
+      "GAGP_CONSTANT_PHASE": "1",
+      "GAGP_POPULATION_HANDOFF": "1",
+      "GAGP_DIRECT_PHASE": "1",
+      "GAGP_DIRECT_ROOT": "1",
+      "GAGP_WINDOW_EXECUTOR": "1",
+      "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+      "GAGP_BOUND_ADD_PHASE": "1",
+      "GAGP_REUSE_ADMISSION_COMPILE": "1",
+      "GAGP_REUSE_SITE_CONTRACTS": "1",
+      "GAGP_SELECTED_SITES": "1",
+      "GAGP_OWNED_PREPARATION": "1",
+      "GAGP_CUDA_DEVICE": "0",
+      "GAGP_HOST_THREADS": "1",
+      "GAGP_SINGLE_EVAL_IDENTITY": "1",
+      "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+      "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+      "MALLOC_CONF": "background_thread:false,narenas:1",
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "GAGP_GPU_PHASE_POPULATION": "1",
+      "GAGP_OWNED_PHASE_PACK": "1",
+      "GAGP_OWNED_PHASE_CAPS": "1",
+      "GAGP_COORDINATE_EXECUTOR": "1",
+      "GAGP_COUNTED_SITE_DRAW": "1",
+      "GAGP_CPU_REGION_VIEWS": "1",
+      "GAGP_GPU_DIAGNOSTICS": "1",
+      "GAGP_SEARCH_TRACE": "1",
+      "GAGP_BATCH_PHASE_IMPORT": "1",
+      "GAGP_BATCH_PHASE_EXPORT": "1",
+      "GAGP_REUSE_PHASE_GRAMMAR": "1",
+      "GAGP_PHASE_CAP_BUCKETS": "1",
+      "GAGP_PHASE_REPRO_THREADS": "1",
+      "GAGP_GPU_STATIC_WEIGHTS": "1",
+      "GAGP_BUCKET_WORKSPACE": "1",
+      "GAGP_BOUND_COMPARE_PHASE": "1",
+      "GAGP_COORDINATE_RING_MEMO": "1",
+      "GAGP_CPU_LAZY_ANALYSIS": "1",
+      "GAGP_CPU_SELECTED_PARENTS": "1",
+      "GAGP_CPU_SELECTED_MUTATION": "1",
+      "GAGP_CPU_BOUND_PHASE": "1",
+      "GAGP_CPU_COORDINATE_VIEWS": "1",
+      "GAGP_CPU_TYPED_PHASE": "1",
+      "GAGP_CPU_DENSE_MEMO": "1",
+      "GAGP_CPU_SCALAR_VIEWS": "1",
+      "GAGP_CPU_COUNTED_PAIRS": "1",
+      "GAGP_CPU_COORDINATE_DRIVER": "1",
+      "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+      "GAGP_GPU_INPLACE_MUTATION": "1",
+      "GAGP_OWNED_PHASE_PACKED": "1",
+      "GAGP_CPU_ALL_FIT_PAIRS": "1"
+    },
+    "results": [
+      {
+        "task": "house_robber",
+        "programs": 1056,
+        "cases_per_program": 1024,
+        "mismatches": [],
+        "command": [
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-main/bench",
+          "measure",
+          "/home/hschi1106/.t3/worktrees/gagp/astra-admission-20261014/logs/local-admission/audit/house_robber.derived.source.json",
+          "/home/hschi1106/.t3/worktrees/gagp/astra-admission-20261014/logs/local-admission/audit/house_robber.derived.prepared.json",
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/house_robber.grammar.json",
+          "1056",
+          "snapshot",
+          "/home/hschi1106/.t3/worktrees/gagp/astra-admission-20261014/logs/local-admission/audit/house_robber.snapshot.json"
+        ]
+      },
+      {
+        "task": "median",
+        "programs": 1088,
+        "cases_per_program": 1024,
+        "mismatches": [],
+        "command": [
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/parallel-20261013/followup-main/bench",
+          "measure",
+          "/home/hschi1106/.t3/worktrees/gagp/astra-admission-20261014/logs/local-admission/audit/median.derived.source.json",
+          "/home/hschi1106/.t3/worktrees/gagp/astra-admission-20261014/logs/local-admission/audit/median.derived.prepared.json",
+          "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/fixed-asgp/artifacts/median.grammar.json",
+          "1088",
+          "snapshot",
+          "/home/hschi1106/.t3/worktrees/gagp/astra-admission-20261014/logs/local-admission/audit/median.snapshot.json"
+        ]
+      }
+    ]
+  },
+  "profile_off": {
+    "samples": 3751,
+    "reproduction_samples": 2300,
+    "inclusive_reproduction_percent": {
+      "certify_execution": 64.22,
+      "reconstruct_derivation(": 65.04,
+      "Matcher::": 24.17,
+      "WitnessBuilder::": 27.91,
+      "verify_ast(": 8.74,
+      "compile_for_eval(": 17.3,
+      "analyze_variation_impl": 14.83,
+      "compact_genome_tables": 6.52,
+      "runtime_cache_identity": 12.91,
+      "ResourceProjection": 1.13,
+      "build_genome_meta": 6.09
+    },
+    "note": "Unweighted sampled callchains, inclusive overlapping categories. Only stacks recognizing native CPU reproduction; unwind coverage incomplete."
+  },
+  "profile_on": {
+    "samples": 3560,
+    "reproduction_samples": 2090,
+    "inclusive_reproduction_percent": {
+      "certify_execution": 59.95,
+      "reconstruct_derivation(": 63.21,
+      "Matcher::": 17.08,
+      "WitnessBuilder::": 36.41,
+      "Matcher::choose": 0.0,
+      "Matcher::head_matches": 0.0,
+      "Matcher::shallow": 4.35,
+      "verify_ast(": 9.14,
+      "compile_for_eval(": 18.56,
+      "analyze_variation_impl": 17.99,
+      "compact_genome_tables": 6.03,
+      "runtime_cache_identity": 14.07
+    },
+    "note": "Unweighted sampled callchains, inclusive overlapping categories; incomplete unwind coverage."
+  },
+  "raw_root": "/home/hschi1106/.t3/worktrees/gagp/astra-admission-20261014/logs/local-admission",
+  "tests": [
+    "gagp_test_grammar_membership",
+    "gagp_test_grammar_reproduction",
+    "gagp_test_derivation_resources"
+  ],
+  "limits": "No claim of approaching ASGP CPU1T or native GPU whole-search target. Same-binary three-process GPU-e results; CPU four-generation screen is not a full CPU speedup claim."
+}

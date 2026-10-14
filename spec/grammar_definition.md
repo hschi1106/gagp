@@ -748,6 +748,19 @@ matching steps or 4,096 grammar frames. Negative matches are not cached because 
 can depend on the current alias ancestry. Generation runs this membership gate before
 accepting a result. Its cost belongs inside initialization timing.
 
+The experimental `GAGP_CPU_FUSED_ADMISSION=1` reconstruction profile may instead
+prove a unique production through its exact materialized head and validate its
+children during canonical witness construction. Ambiguous or unsupported heads
+use recursive matching; repeated-hole equality and all native, domain, scope,
+resource and lowering checks remain required. This profile changes speculative
+work accounting: matching step/frame limits apply to recursive fallback work,
+and complete reconstruction retains the witness limits of 1,048,576 logical
+steps, 4,096 grammar frames and 256 nested templates. It therefore need not
+reject at precisely the original matcher's speculative-work boundary. This
+opt-in applies to unframed single-root public reconstruction as well as internal
+admission. Strict `require_membership`, framed reconstruction and multiple-root
+admission retain the ordinary matching algorithm and work accounting.
+
 The compiled-grammar overload of population initialization requires a positive size,
 exact case input names/types (order-independent), and an expected return type matching
 the entry. Individual seeds are `seed + index` modulo 2^64. Each member retains its

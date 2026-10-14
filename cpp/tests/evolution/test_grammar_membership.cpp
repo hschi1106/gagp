@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <tuple>
+#include <optional>
 #include <vector>
 
 #include "gagp/evolution/ast_verify.hpp"
@@ -22,7 +24,60 @@ namespace {
 void check(bool condition, const char* message) {
   if (!condition) throw std::runtime_error(message);
 }
+void differential_admission(const CompiledGrammar& grammar, ProgramGenome genome) {
+  genome.derivation.reset();  // Never compare a cached certificate with itself.
+  const char* setting = std::getenv("GAGP_CPU_FUSED_ADMISSION");
+  const std::optional<std::string> previous = setting ? std::optional<std::string>(setting) : std::nullopt;
+  DerivationMetadata witnesses[2];
+  std::vector<std::vector<int>> environments[2];
+  bool accepted[2] = {};
+  for (int mode = 0; mode < 2; ++mode) {
+    if (mode) setenv("GAGP_CPU_FUSED_ADMISSION", "1", 1);
+    else unsetenv("GAGP_CPU_FUSED_ADMISSION");
+    try {
+      witnesses[mode] = reconstruct_derivation(grammar, genome, entry_request(grammar),
+          nullptr, &environments[mode]);
+      accepted[mode] = true;
+    } catch (const std::invalid_argument&) {}
+  }
+  if (previous) setenv("GAGP_CPU_FUSED_ADMISSION", previous->c_str(), 1);
+  else unsetenv("GAGP_CPU_FUSED_ADMISSION");
+  check(accepted[0] == accepted[1], "fused admission changed membership");
+  if (!accepted[0]) return;
+  const auto& a = witnesses[0]; const auto& b = witnesses[1];
+  check(a.logical_steps == b.logical_steps && a.derived_nodes == b.derived_nodes &&
+      a.lowered_instructions == b.lowered_instructions && a.nodes.size() == b.nodes.size() &&
+      a.choices.size() == b.choices.size() && a.templates.size() == b.templates.size() &&
+      a.holes.size() == b.holes.size() && environments[0] == environments[1],
+      "fused admission changed witness dimensions or exact scope");
+  for (std::size_t i = 0; i < a.nodes.size(); ++i) {
+    const auto& x = a.nodes[i]; const auto& y = b.nodes[i];
+    check(std::tie(x.expression, x.production, x.nonterminal, x.logical_instance,
+        x.template_instance, x.slot, x.fixed, x.template_depth) ==
+        std::tie(y.expression, y.production, y.nonterminal, y.logical_instance,
+        y.template_instance, y.slot, y.fixed, y.template_depth), "fused node origin differs");
+    const auto& r = a.resources->subtree(i); const auto& q = b.resources->subtree(i);
+    check(std::tie(r.nodes, r.carried_depth, r.reset_depth) ==
+        std::tie(q.nodes, q.carried_depth, q.reset_depth), "fused resource projection differs");
+  }
+  for (std::size_t i = 0; i < a.choices.size(); ++i) {
+    const auto& x = a.choices[i]; const auto& y = b.choices[i];
+    check(std::tie(x.nonterminal, x.production, x.parent, x.ast_begin, x.ast_end,
+        x.template_instance, x.slot, x.enclosing_template_depth) ==
+        std::tie(y.nonterminal, y.production, y.parent, y.ast_begin, y.ast_end,
+        y.template_instance, y.slot, y.enclosing_template_depth), "fused canonical choice differs");
+  }
+  for (std::size_t i = 0; i < a.templates.size(); ++i)
+    check(std::tie(a.templates[i].template_id, a.templates[i].parent) ==
+        std::tie(b.templates[i].template_id, b.templates[i].parent), "fused template owner differs");
+  for (std::size_t i = 0; i < a.holes.size(); ++i) {
+    const auto& x = a.holes[i]; const auto& y = b.holes[i];
+    check(std::tie(x.template_instance, x.slot, x.ast_begin, x.ast_end) ==
+        std::tie(y.template_instance, y.slot, y.ast_begin, y.ast_end), "fused hole occurrence differs");
+  }
+}
 void rejects(const CompiledGrammar& grammar, const ProgramGenome& genome) {
+  differential_admission(grammar, genome);
   check(static_cast<bool>(verify_ast(genome.ast, {})), "rejection fixture must remain native-valid");
   try { require_membership(grammar, genome); }
   catch (const std::invalid_argument&) { return; }
@@ -58,6 +113,7 @@ int main() {
       auto generated = generate_derivation(scalar, seed).genome;
       require_membership(scalar, generated);
       generated.derivation.reset();
+      differential_admission(scalar, generated);
       require_membership(scalar, generated);
       if (generated.ast.nodes[3].kind == NodeKind::ADD) sum = generated;
     }
@@ -207,6 +263,7 @@ int main() {
     repeated.ast.consts = {Value::from_int(1), Value::from_int(1)};
     repeated.ast.nodes[4].i0 = 0;
     repeated.ast.nodes[5].i0 = 1;
+    differential_admission(leaves, repeated);
     require_membership(leaves, repeated);
     require_membership(leaves, repro::compact_genome_tables(repeated));
     repeated.ast.consts[1] = Value::from_int(2);
@@ -233,6 +290,7 @@ int main() {
     })"));
     auto ancestry_member = repeated;
     ancestry_member.ast.consts[1] = Value::from_int(1);
+    differential_admission(ancestry, ancestry_member);
     require_membership(ancestry, ancestry_member);
     check(reconstruct_derivation(ancestry, ancestry_member).nodes.size() == ancestry_member.ast.nodes.size(),
           "alias-dependent failure was reused under a different ancestry");
@@ -257,6 +315,7 @@ int main() {
     auto fuel_repeated = generate_derivation(fuel_grammar, 3).genome;
     check(fuel_repeated.ast.fuel_specs.size() == 2,
           "generation did not copy a repeated-hole fuel profile");
+    differential_admission(fuel_grammar, fuel_repeated);
     require_membership(fuel_grammar, fuel_repeated);
     fuel_repeated.derivation.reset();
     require_membership(fuel_grammar, fuel_repeated);
@@ -328,6 +387,7 @@ int main() {
     aliases.object_v.at("nonterminals").array_v[0].object_v.at("alternatives").array_v[0]
         .object_v.at("expression").object_v.at("ref").string_v = "Other";
     const auto mutual = compile(aliases);
+    differential_admission(mutual, sum);
     require_membership(mutual, sum);
     check(reconstruct_derivation(mutual, sum).nodes.size() == sum.ast.nodes.size(),
           "mutual-alias match retained an active or failed production decision");
