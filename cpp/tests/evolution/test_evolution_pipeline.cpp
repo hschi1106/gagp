@@ -14,6 +14,7 @@
 #include "gagp/evolution/selection.hpp"
 #include "gagp/evolution/timing.hpp"
 #include "gagp/runtime/payload/payload.hpp"
+#include "../../src/bench/fixed_asgp/search_contract.hpp"
 
 namespace {
 
@@ -200,6 +201,22 @@ int main() {
   for(std::size_t i=1;i<elitist.history_best_fitness.size();++i)
     assert(elitist.history_best_fitness[i]>=elitist.history_best_fitness[i-1]);
   assert(elitist.best.fitness>=elitist.history_best_fitness.back());
+  for(const auto mode:{0,1,2,3}) {
+    auto audited=timing_config;
+    audited.eval_engine=mode==0?gagp::evo::EvalEngine::CPU:gagp::evo::EvalEngine::GPU;
+    audited.reproduction_backend=mode<2?gagp::evo::repro::ReproductionBackend::Cpu:gagp::evo::repro::ReproductionBackend::Gpu;
+    audited.repro_overlap=mode==3;audited.mutation_rate=.3;
+    const auto contract=fixed_asgp::audit_search_contract(audited,"native-ast",true,true);
+    assert(!contract.fully_aligned());
+    bool elite=false,gate=false;
+    for(const auto& item:contract.items) {
+      if(item.id=="elitism_count")elite=item.matched;
+      if(item.id=="crossover_gate")gate=!item.matched;
+    }
+    assert(elite && gate);
+  }
+  const auto unverified=fixed_asgp::audit_search_contract(timing_config,"native-ast");
+  assert(!unverified.items.front().matched && !unverified.fully_aligned());
   timing_config.elite_count=timing_config.population_size;
   bool bad_elites=false;
   try{(void)gagp::evo::evolve_population(timing_cases,timing_config);}catch(const std::invalid_argument&){bad_elites=true;}

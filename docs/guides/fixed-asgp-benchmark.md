@@ -788,3 +788,29 @@ DC list grammar combines recursive results only by concatenation: it has no
 map/scan or access to the left sum while transforming the right output. A
 failed known-solution gate for this task is an explicit source-language
 limitation; substituting a prefix-scan solver would change the experiment.
+### Search contract audit
+
+Aligned task fitness and one elite do not establish equivalent search. The
+machine-readable owner is `cpp/src/bench/fixed_asgp/search_contract.hpp`:
+`audit_search_contract(config, reproduction_profile, task_metric_verified,
+frozen_initial_population_verified)` returns named comparisons and a conservative
+`fully_aligned()` gate. Verification flags default false. Include every item in
+reports; do not discard unmatched items when comparing quality.
+
+The checked ASGP source uses crossover probability 0.7, mutation probability
+0.3, one uniformly selected phase, then a uniformly selected node. A mutation
+donor grows inside the remaining source phase depth (default 7). Native grammar
+variation retains its existing site/scope admissibility, physical capacities,
+and sampling policies. Crossover is attempted for each child. Repeated-hole
+atomic admission remains required. These differences are recorded rather than
+silently changing the native search space.
+
+ASGP grow generation selects terminals with probability 0.5 when both terminal
+and inner productions fit; full generation chooses inner productions. Constants
+select a range uniformly, then a value uniformly. Translating production sets
+and assigning equal weights does not reproduce those conditional distributions:
+separate constant-range alternatives can change the probability of constants.
+Source logical phase sizes also differ from lowered native AST sizes. Native
+CPU/GPU sampling, RNG streams, donor budgets and elite replacement accounting
+must therefore remain explicit differences even when metric parameters, initial
+frozen population, mutation probability, and elite count match.
