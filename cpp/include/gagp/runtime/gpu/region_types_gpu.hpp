@@ -127,6 +127,7 @@ struct DRegionWorkspace {
   bool window_leaf_direct = false;
   bool coordinate_executor = false;
   bool coordinate_ring_memo = false;
+  bool dense_coordinate_memo = false; // Reuses this invocation's memo_keys slice.
   bool unboxed_window_frames = false;
   bool measure_phase_cache = false;
   bool window_soa = false;

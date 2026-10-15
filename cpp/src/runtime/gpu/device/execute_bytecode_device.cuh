@@ -9,6 +9,7 @@
 #include "gagp/core/value_semantics.hpp"
 #include "gagp/runtime/gpu/device_types_gpu.hpp"
 #include "gagp/runtime/gpu/region_types_gpu.hpp"
+#include "../dense_coordinate_memo.hpp"
 
 namespace gagp::gpu_detail {
 

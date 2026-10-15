@@ -119,6 +119,23 @@ struct HostPayloadPack {
   std::vector<Value> list_values;
 };
 
+// Only one root call per program owns the reusable key slice. Inspect current
+// packed instructions, including freshly GPU-lowered phases, never cold caches.
+bool dense_coordinate_memo_supported(const gpu_detail::PackResult& packed) {
+  if(packed.metas.empty() || std::any_of(packed.all_phase_code.begin(),packed.all_phase_code.end(),
+      [](const auto& ins){return ins.op==gpu_detail::OP_BOUNDED_REGION;}))return false;
+  bool any=false;
+  for(const auto& meta:packed.metas) {
+    if(!meta.is_valid || meta.region_count!=1)return false;
+    unsigned calls=0;
+    for(int i=0;i<meta.code_len;++i)
+      calls+=packed.all_code[meta.code_offset+i].op==gpu_detail::OP_BOUNDED_REGION;
+    if(calls!=1)return false;
+    any|=gpu_detail::dense_coordinate_memo_cells(packed.region_segments[meta.region_offset])!=0;
+  }
+  return any;
+}
+
 using HostStringPayloadLookup = std::unordered_map<std::int64_t, std::string>;
 struct HostListPayloadKey {
   ValueTag tag = ValueTag::Invalid;
@@ -893,6 +910,10 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
             (code[2].op==gpu_detail::OP_LT || code[2].op==gpu_detail::OP_LE) :
             (code[2].op==gpu_detail::OP_GT || code[2].op==gpu_detail::OP_GE);
       });
+  const char* dense_memo_setting=std::getenv("GAGP_GPU_DENSE_COORDINATE_MEMO");
+  const bool request_dense_memo=dense_memo_setting && std::string(dense_memo_setting)=="1";
+  region_workspace.dense_coordinate_memo=request_dense_memo && !region_workspace.coordinate_executor &&
+      dense_coordinate_memo_supported(packed);
   // The block validates the actual phase dependencies before filling a table.
   // Large-stack capability buckets need this reuse just as compact ones do.
   const std::size_t measure_bytes = sizeof(gpu_detail::DMeasurePhaseCacheEntry) *
@@ -1429,6 +1450,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         "-private-intlist-offset-v1":"-private-intlist-offset-v1-declined";
     if(request_compact)out.execution_profile+=region_workspace.compact_intlist_cells?
         "-compact-intlist-cells":"-compact-intlist-cells-declined";
+    if(request_dense_memo)out.execution_profile+=region_workspace.dense_coordinate_memo?
+        "-dense-coordinate-memo":"-dense-coordinate-memo-declined";
     if(global_payload) {
       out.execution_profile+="-global-arena";
       if(tiled_initial)out.execution_profile+="-initial-tiled";

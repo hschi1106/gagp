@@ -310,6 +310,10 @@ __device__ __noinline__ DResult d_run_bounded_region_impl(
   Value* memo_values = workspace.memo_values;
   const std::size_t stride = workspace.slot_stride;
   std::uint32_t memo_count = 0;
+  const auto dense_cells=workspace.dense_coordinate_memo?dense_coordinate_memo_cells(segment):0;
+  // The index occupies only this invocation's existing key backing. No ordinary
+  // key is written while dense lookup is active; values keep insertion order.
+  for(unsigned i=0;i<dense_cells;++i)memo_keys[i*stride]=0;
   std::uint32_t depth = 1;
   for (std::uint32_t i = 0; i < segment.state_count; ++i) frames[0].state[i] = operands[i];
   frames[0].next_request = -1;
@@ -348,7 +352,10 @@ __device__ __noinline__ DResult d_run_bounded_region_impl(
         completed = true;
       } else {
         if (segment.memoized) {
-          for (std::uint32_t cell = 0; cell < memo_count; ++cell) {
+          if(dense_cells) {
+            const auto encoded=memo_keys[dense_coordinate_memo_slot(segment,frame)*stride];
+            if(encoded) {result=d_ok(memo_values[(encoded-1)*stride]);completed=true;}
+          } else for (std::uint32_t cell = 0; cell < memo_count; ++cell) {
             bool matches = true;
             for (std::uint32_t axis = 0; axis < segment.state_count; ++axis)
               matches &= memo_keys[(cell * DMAX_REGION_STATES + axis) * stride] == frame.state[axis].i;
@@ -423,7 +430,9 @@ __device__ __noinline__ DResult d_run_bounded_region_impl(
       if (result.value.tag != frame.results[0].tag) return d_error(ErrCode::Type);
       if (segment.memoized) {
         if (memo_count >= segment.limits.cells) return d_error(ErrCode::Timeout);
-        for (std::uint32_t i = 0; i < segment.state_count; ++i) memo_keys[(memo_count * DMAX_REGION_STATES + i) * stride] = frame.state[i].i;
+        if(dense_cells)memo_keys[dense_coordinate_memo_slot(segment,frame)*stride]=memo_count+1;
+        else for (std::uint32_t i = 0; i < segment.state_count; ++i)
+          memo_keys[(memo_count * DMAX_REGION_STATES + i) * stride] = frame.state[i].i;
         memo_values[memo_count * stride] = result.value;
         ++memo_count;
       }

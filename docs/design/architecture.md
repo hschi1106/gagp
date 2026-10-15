@@ -65,6 +65,31 @@ each thread retains exclusive ownership of its strided slice. The single-thread
 result probe uses the same interpreter with stride one. The fitness kernel
 declares a 1024-thread launch bound so its supported maximum block size does not
 depend on an external compiler register cap.
+
+`GAGP_GPU_DENSE_COORDINATE_MEMO=1` optionally indexes memo entries directly in
+small literal coordinate domains in the generic GPU bounded-region executor.
+Fitness admission requires one root `BoundedRegion` instruction and one segment
+per program, with no structured phase calls. Every state must be an Int covered
+by a distinct coordinate axis; checked inclusive/exclusive literal extents must
+have a positive product no larger than the declared memo-cell limit and existing
+backing capacity. Operand bounds, omitted/carried states, oversized domains and
+other shapes retain the ordinary linear lookup. Existing specialized coordinate
+execution retains its own lookup. The execution profile adds
+`-dense-coordinate-memo` when selected, or `-dense-coordinate-memo-declined`
+when requested but no eligible generic region exists.
+
+Each invocation clears its own strided index slice in the existing `memo_keys`
+allocation. Zero means absent; occupied slots address append-ordered
+`memo_values`. Dense execution never writes ordinary keys into that slice. All
+axes participate in the index, so changing any state changes the slot. There is
+no additional device allocation, shared index, cross-invocation answer cache, or
+new CPU work pool. Initialization and lookup remain inside measured GPU work.
+Entry fuel, boundary/base predicate and body evaluation precede lookup exactly
+as before; hit results, preparation/request/combine ordering, append counts and
+frame/memo timeout checks retain their ordinary behavior. Unknown shapes use
+linear lookup for the complete invocation. This is an opt-in performance
+experiment without an established speedup claim.
+
 Packing reserves the known root instruction and constant table capacities before
 appending entries. Capacity checks remain in place. External bytecode is verified on every import;
 GPU packing independently verifies bounded programs.

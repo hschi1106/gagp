@@ -134,7 +134,7 @@ BytecodeProgram decode_probe_bytecode(const cli_detail::JsonValue& raw) {
 }
 
 std::string probe(const BytecodeProgram& program, const CaseBindings& inputs, int fuel,
-                  bool* timeout) {
+                  bool* timeout, bool dense_memo = false) {
   struct RegistryGuard {
     std::vector<payload::StringSnapshot> strings = payload::snapshot_strings();
     std::vector<payload::ListSnapshot> lists = payload::snapshot_lists();
@@ -190,6 +190,9 @@ std::string probe(const BytecodeProgram& program, const CaseBindings& inputs, in
   region_workspace.memo_values = device.d_region_memo_values;
   region_workspace.frame_capacity = region_frame_capacity;
   region_workspace.memo_capacity = region_memo_capacity;
+#ifdef GAGP_CAPTURE_DENSE_MEMO
+  region_workspace.dense_coordinate_memo = dense_memo && dense_coordinate_memo_supported(packed);
+#endif
 #endif
   upload(packed.packed_case_local_vals, &device.d_shared_case_local_vals);
   upload(packed.packed_case_local_set, &device.d_shared_case_local_set);

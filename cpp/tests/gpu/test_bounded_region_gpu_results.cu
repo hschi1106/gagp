@@ -1,4 +1,5 @@
 #define GAGP_CAPTURE_LIBRARY_ONLY 1
+#define GAGP_CAPTURE_DENSE_MEMO 1
 #define main gagp_capture_tool_main
 #include "gpu_result_probe.cu"
 #undef main
@@ -176,10 +177,10 @@ struct Observed {
   int fuel_left = 0;
 };
 
-Observed probe(const BytecodeProgram& program, int fuel) {
+Observed probe(const BytecodeProgram& program, int fuel, bool dense_memo = false) {
   bool timeout = false;
   const JsonValue row = JsonParser(
-      gagp::migration::probe(program, {}, fuel, &timeout)).parse();
+      gagp::migration::probe(program, {}, fuel, &timeout, dense_memo)).parse();
   Observed out;
   const JsonValue& error = require_object_field(row, "error");
   out.is_error = error.kind != JsonValue::Kind::Null;
@@ -908,6 +909,8 @@ bool test_measure_phase_cache_contract() {
   return ok && generic_ok;
 }
 
+#include "dense_coordinate_memo_checks.cuh"
+
 }  // namespace
 
 int main() {
@@ -918,6 +921,7 @@ int main() {
              "GPU selection failed: " + device_error)) {
     return 1;
   }
+  if (!dense_memo_test::test_dense_coordinate_memo()) return 1;
   if (!measure_cache_test::test_measure_phase_cache_contract()) return 1;
   if (!test_phase_vm_masks_are_fresh()) return 1;
   if (!test_stack_top_survives_operand_transitions()) return 1;
