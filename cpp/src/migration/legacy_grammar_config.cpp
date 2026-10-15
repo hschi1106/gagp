@@ -110,6 +110,8 @@ bool LegacyGrammarConfig::allows_node_kind(evo::NodeKind kind) const {
     case K::CALL_ABS: return builtin_abs; case K::CALL_MIN: return builtin_min;
     case K::CALL_MAX: return builtin_max; case K::CALL_CLIP: return builtin_clip;
     case K::CALL_IDIV0: return builtin_idiv0; case K::CALL_IMOD0: return builtin_imod0;
+    // These operations have no grammar-config-v1 counterpart.
+    case K::CALL_TRUNC_DIV0: case K::CALL_TRUNC_MOD0: return false;
     case K::CALL_LEN: return builtin_len; case K::CALL_CONCAT: return builtin_concat;
     case K::CALL_SLICE: return builtin_slice; case K::CALL_INDEX: return builtin_index;
     case K::CALL_APPEND: return builtin_append; case K::CALL_PREPEND: return builtin_prepend;
@@ -189,7 +191,12 @@ evo::grammar::ResolvedDefinition convert_legacy_grammar_config(
       for (const auto& local : options.locals) if (local.type == value)
         alternatives.push_back(alternative("local." + local.name, object({{"local", string(local.name)}})));
     }
+    std::uint32_t legacy_signature_id = 0;
     for (const auto& signature : catalog.signatures()) {
+      // Keep historical production names independent of these catalog additions.
+      if (signature.lowering_node == evo::NodeKind::CALL_TRUNC_DIV0 ||
+          signature.lowering_node == evo::NodeKind::CALL_TRUNC_MOD0) continue;
+      const auto production_id = legacy_signature_id++;
       if (signature.result != value || !signature.executable() ||
           signature.operation == "constant" || signature.operation == "input" || signature.operation == "bound" ||
           !config.allows_node_kind(*signature.lowering_node) || !signature.regions.empty()) continue;
@@ -197,7 +204,7 @@ evo::grammar::ResolvedDefinition convert_legacy_grammar_config(
           [&](RType argument) { return config.allows_type(argument); })) continue;
       std::vector<Json> args;
       for (auto argument : signature.arguments) args.push_back(reference_expression(expr(argument)));
-      alternatives.push_back(alternative("primitive." + std::to_string(signature.id), object({{"signature", string(signature.key)}, {"args", array(std::move(args))}})));
+      alternatives.push_back(alternative("primitive." + std::to_string(production_id), object({{"signature", string(signature.key)}, {"args", array(std::move(args))}})));
     }
     rule(expr(value), value, "Expression", std::move(alternatives));
   }
