@@ -1,7 +1,7 @@
 """Small continuation runner; consumes frozen inputs, never prepares them."""
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from gagp_tools.experiments.fixed_asgp.low_budget import Study, sha
+from gagp_tools.experiments.fixed_asgp.low_budget import Study, sha, read
 
 p = ArgumentParser()
 p.add_argument('--out', required=True, type=Path)
@@ -21,6 +21,14 @@ base = root / 'logs/all-task-repair-20261015'
 s = Study(Namespace(out=a.out, binary=a.binary, settings=a.settings, stage='list-output-coarse',
     generations=a.generations, rss_gib=4, budget=a.budget, timeout=150,
     native_depth=24, source_balanced=True))
+# An archived benchmark's source identity belongs to its original manifest,
+# not the checkout used to launch this repeat.
+archive_manifest = a.binary.resolve().parent / 'manifest.json'
+if archive_manifest.exists():
+    provenance = read(archive_manifest)
+    if provenance.get('binary_sha256') == s.manifest['binary_sha256']:
+        s.manifest['binary_source_head'] = provenance.get('binary_source_head', provenance['source_head'])
+        s.manifest['binary_provenance_manifest'] = str(archive_manifest)
 s.manifest['population'] = a.population
 s.manifest['note'] = 'One cold search per task/seed/mode; complete cases and native pipeline. No precision or convergence-equivalence claim.'
 s.manifest['controls_reused'] = {'path': str(base / 'benchmark-all-g4/manifest.json'),

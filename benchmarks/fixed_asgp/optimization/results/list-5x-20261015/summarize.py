@@ -69,7 +69,7 @@ write_csv('speedups.csv', rows)
 write_csv('generations.csv', generations)
 (a.out / 'summary.json').write_text(json.dumps(dict(
     note='One cold process per task/seed: coarse screening, no precision or convergence-equivalence claim.',
-    source_head=manifest['source_head'], binary_sha256=manifest['binary_sha256'],
+    source_head=manifest.get('binary_source_head', manifest['source_head']), binary_sha256=manifest['binary_sha256'],
     raw=str(a.runs), settings=manifest['settings'], controls_reused=manifest['controls_reused'],
     rows=rows, exact_comparisons=checks), indent=2) + '\n')
 if rows and all(x['speedup'] is not None for x in rows):
