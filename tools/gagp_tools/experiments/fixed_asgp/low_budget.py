@@ -72,8 +72,13 @@ def validate_search(result: dict, population: int, generations: int, mode: str) 
         raise ValueError('non-finite fitness')
     if any(row['expected_program_cases'] != population * 1024 for row in rows):
         raise ValueError('incomplete evaluation workload')
-    if mode.startswith('gpu') and any(row.get('unscored', 0) for row in rows):
-        raise ValueError('unscored GPU cases')
+    if mode.startswith('gpu'):
+        if any(row.get('case_counters_available') != 1 or row.get('cases') != population * 1024 for row in rows):
+            raise ValueError('missing or incomplete measured GPU evaluation workload')
+        if any(row.get('eval_kernel_ms', 0) <= 0 for row in rows):
+            raise ValueError('no GPU evaluation kernel recorded')
+        if any(row.get('unscored', 0) for row in rows):
+            raise ValueError('unscored GPU cases')
     if result.get('cpu_audit_mismatches', 0):
         raise ValueError('independent CPU final-program fitness mismatch')
     if mode in ('gpu_repro', 'gpu_overlap'):
