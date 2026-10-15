@@ -1,5 +1,6 @@
 from __future__ import annotations
 import copy
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -14,6 +15,60 @@ def production(kind,typ,children=(),op=0):
     return dict(kind=kind,type=typ,children=list(children),op=op)
 
 class TestSourceGrammar(unittest.TestCase):
+    def test_balanced_source_mass_preserves_language_ids_and_domains(self):
+        productions = [production(1,'int'), production(5,'int'),
+                       production(22,'int',['int','int']), production(0,'bool'),
+                       production(11,'bool',['bool'])]
+        contract=dict(task='weight_fixture',scheme='divide-and-conquer',carrier='int',
+            scalars=[],base_size=1,ints=[['0','0'],['1','1'],['0','20']],chars=[],
+            phases=[dict(start='int',productions=productions)]*3)
+        default=definition(ROOT,'weight_fixture',contract=contract)
+        balanced=definition(ROOT,'weight_fixture',contract=contract,source_balanced=True)
+        stripped=copy.deepcopy(balanced)
+        for old,new in zip(default['nonterminals'],stripped['nonterminals']):
+            for a,b in zip(old['alternatives'],new['alternatives']):
+                b['weight']=a['weight']
+        self.assertEqual(stripped,default)
+        for nt in balanced['nonterminals'][1:]:
+            weights=[a['weight'] for a in nt['alternatives']]
+            self.assertAlmostEqual(sum(weights),1)
+            if nt['type']=='Int':
+                # Three overlapping constant domains share one source terminal.
+                self.assertEqual(weights,[1/12]*3+[1/4,1/2])
+            else:
+                self.assertEqual(weights,[1/4,1/4,1/2])
+        with self.assertRaisesRegex(ValueError,'source production contract'):
+            definition(ROOT,'house_robber',source_balanced=True)
+
+    def test_single_category_balances_source_productions_not_expansions(self):
+        from gagp_tools.experiments.fixed_asgp.source_grammar import balanced_weights
+        weights=balanced_weights([(production(0,'bool'),2),(production(1,'int'),3)])
+        self.assertEqual(weights,[1/4,1/4,1/6,1/6,1/6])
+        self.assertEqual(balanced_weights([(production(11,'bool',['bool']),1)]),[1])
+
+    def test_house_legacy_profile_maps_source_kinds_without_changing_domains(self):
+        bools=[production(20,'bool',['int','int'],op) for op in range(6)]
+        bools += [production(21,'bool',['bool','bool'],op) for op in range(2)]
+        bools += [production(11,'bool',['bool']),production(0,'bool')]
+        ints=[production(1,'int')]+[production(22,'int',['int','int'],op) for op in range(5)]
+        ints += [production(25,'int',['bool','int','int']),production(8,'int'),production(10,'int')]
+        contract={'task':'house_robber','phases':[{'productions':bools+ints},
+            {'productions':bools+ints+[production(7,'int',op=0),production(7,'int',op=1)]}]}
+        original=definition(ROOT,'house_robber',contract=contract)
+        candidate=definition(ROOT,'house_robber',contract=contract,source_balanced=True)
+        for old,new in zip(original['nonterminals'],candidate['nonterminals']):
+            if new['id']=='Root':continue
+            weights=[a['weight'] for a in new['alternatives']]
+            terminals=3 if new['id']=='Solve.Int' else 5 if new['id']=='Transition.Int' else 2
+            self.assertAlmostEqual(sum(weights[:terminals]),0.5)
+            self.assertAlmostEqual(sum(weights[terminals:]),0.5)
+            # Assert the legacy ordering used by the mapping: terminal macros have
+            # no source child refs even when they contain native calls.
+            for i,alt in enumerate(new['alternatives']):
+                self.assertEqual('"ref"' in json.dumps(alt['expression']),i>=terminals)
+            for a,b in zip(old['alternatives'],new['alternatives']):b['weight']=a['weight']
+        self.assertEqual(original,candidate)
+
     def test_protected_arithmetic_preserves_one_node_and_operands(self):
         from gagp_tools.experiments.fixed_asgp.arithmetic import protect
         for original, protected in [('idiv0', 'trunc_div0'), ('imod0', 'trunc_mod0')]:

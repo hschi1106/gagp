@@ -29,7 +29,7 @@ def state_value():
 
 
 def definition(root: Path, task: str, contract: dict | None = None, *,
-               native_depth: int | None = None) -> dict:
+               native_depth: int | None = None, source_balanced: bool = False) -> dict:
     """Build the native grammar, optionally restricting its physical AST depth.
 
     This candidate changes native search budgets, not source logical phase depth.
@@ -37,16 +37,19 @@ def definition(root: Path, task: str, contract: dict | None = None, *,
     """
     if native_depth is not None and (type(native_depth) is not int or not 1 <= native_depth <= 48):
         raise ValueError('native_depth must be an integer in [1, 48]')
-    document = _definition(root, task, contract)
+    if source_balanced and contract is None:
+        raise ValueError('source_balanced requires a source production contract')
+    document = _definition(root, task, contract, source_balanced=source_balanced)
     if native_depth is not None:
         document['search_limits']['max_depth'] = native_depth
     return document
 
 
-def _definition(root: Path, task: str, contract: dict | None = None) -> dict:
+def _definition(root: Path, task: str, contract: dict | None = None, *,
+                source_balanced: bool = False) -> dict:
     if contract is not None:
         from .source_grammar import definition as source_definition
-        return source_definition(root, task, contract)
+        return source_definition(root, task, contract, source_balanced=source_balanced)
     if task == "negative_to_zero":
         from .list_grammar import negative_to_zero_definition
         return negative_to_zero_definition(root)

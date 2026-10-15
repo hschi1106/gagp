@@ -130,7 +130,7 @@ class Study:
             'build_binary': str(original_binary),
             'source_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
             'source_status': subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True),
-            'settings': flags, 'native_depth': args.native_depth, 'tasks': {}, 'cells': [],
+            'settings': flags, 'native_depth': args.native_depth, 'source_balanced': args.source_balanced, 'tasks': {}, 'cells': [],
         }
         self.persist()
 
@@ -215,13 +215,15 @@ class Study:
                 record.update(status=cell['status'], blocked_at=phase)
                 return
         try:
-            document = definition(ROOT, task, contract=read(contract), native_depth=self.args.native_depth)
+            document = definition(ROOT, task, contract=read(contract), native_depth=self.args.native_depth,
+                                  source_balanced=self.args.source_balanced)
             save(grammar, document)
             record['native_search_limits'] = document['search_limits']
+            record['source_weight_profile'] = 'balanced-source-production-v1' if self.args.source_balanced else 'default'
         except (ValueError, KeyError, NotImplementedError) as error:
             record.update(status='unsupported', blocked_at='grammar', reason=str(error))
             return
-        if self.args.native_depth is not None:
+        if self.args.native_depth is not None or self.args.source_balanced:
             # A narrower candidate cannot cherry-pick the easy first eight parents.
             admission = self.run(task, 'admit1024', [self.args.binary, 'prepare',
                 source, grammar, 1024, folder / 'p1024.admission.json'])
@@ -236,7 +238,7 @@ class Study:
             cell = self.run(task, phase, [self.args.binary, *command])
             if phase == 'audit':
                 record['known_solution_audit'] = cell['status']
-                if self.args.native_depth is not None and cell['status'] != 'ok':
+                if (self.args.native_depth is not None or self.args.source_balanced) and cell['status'] != 'ok':
                     record.update(status=cell['status'], blocked_at='audit')
                     return
             elif cell['status'] != 'ok':
@@ -295,6 +297,7 @@ class Study:
             if sha(artifacts / name) != digest:
                 raise ValueError('frozen artifact changed: ' + str(artifacts / name))
         record['native_search_limits'] = read(artifacts / 'grammar.json')['search_limits']
+        record['source_weight_profile'] = old.get('source_weight_profile', 'default')
         prepared = self.out / (task + '.p1024.prepared.json')
         cell = self.run(task, 'prepare1024', [self.args.binary, 'prepare', artifacts / 'source.json',
             artifacts / 'grammar.json', 1024, prepared])
@@ -325,6 +328,8 @@ def main():
     parser.add_argument('--artifacts', type=Path)
     parser.add_argument('--native-depth', type=int, choices=range(1, 49), metavar='1..48',
                         help='support only: restrict native physical AST depth; require all 1024 parents and witness')
+    parser.add_argument('--source-balanced', action='store_true',
+                        help='support only: balance source terminal/inner production mass; admit all 1024 parents')
     parser.add_argument('--tasks', nargs='+', choices=PAPER_TASKS)
     parser.add_argument('--modes', nargs='+', choices=MODES, default=MODES)
     parser.add_argument('--generations', type=int, default=2)
@@ -336,8 +341,8 @@ def main():
         parser.error('--generations must be positive')
     if args.budget <= 0 or args.timeout <= 0 or args.rss_gib <= 0:
         parser.error('budgets must be positive')
-    if args.native_depth is not None and args.stage != 'support':
-        parser.error('--native-depth only prepares new support artifacts; later stages inherit their exact grammar')
+    if (args.native_depth is not None or args.source_balanced) and args.stage != 'support':
+        parser.error('--native-depth/--source-balanced only prepare new support artifacts; later stages inherit their exact grammar')
     if args.stage != 'support' and not args.artifacts:
         parser.error('--artifacts support output is required')
     args.binary = args.binary.resolve()

@@ -18,13 +18,45 @@ PAPER_TASKS = ('filter_odd', 'sum_of_elements', 'is_sorted', 'index_of_element',
     'stock_with_cooldown')
 TYPES = {'int':'Int', 'bool':'Bool', 'char':'Int', 'intList':'IntList', 'charList':'IntList', 'tuple':'IntList'}
 
-def definition(root: Path, task: str, contract: dict) -> dict:
+def balanced_weights(groups: list[tuple[dict, int]]) -> list[float]:
+    """Split category mass uniformly over source productions, then expansions."""
+    counts = {terminal: sum((not p['children']) == terminal for p, _ in groups)
+              for terminal in (False, True)}
+    categories = sum(count > 0 for count in counts.values())
+    return [1.0 / (categories * counts[not prod['children']] * expanded)
+            for prod, expanded in groups for _ in range(expanded)]
+
+
+def balance_house(document: dict, contract: dict) -> dict:
+    """Map the existing House scaffold's order without changing its domains/IDs."""
+    for nt in document['nonterminals'][1:]:
+        phase, typ = nt['id'].split('.')
+        source = contract['phases'][0 if phase == 'Solve' else 1]['productions']
+        source = {(p['kind'], p['op']): p for p in source if p['type'] == typ.lower()}
+        if typ == 'Int':
+            keys = [(1, 0), (8, 0), (10, 0)]
+            if phase == 'Transition':
+                keys += [(7, 0), (7, 1)]
+            keys += [(22, op) for op in range(5)] + [(25, 0)]
+            groups = [(source[key], 1) for key in keys]
+        else:
+            keys = [(0, 0)] + [(20, op) for op in range(6)] + [(21, 0), (21, 1), (11, 0)]
+            groups = [(source[key], 2 if key == (0, 0) else 1) for key in keys]
+        if set(keys) != set(source) or sum(n for _, n in groups) != len(nt['alternatives']):
+            raise ValueError('House source production mapping changed')
+        for alt, weight in zip(nt['alternatives'], balanced_weights(groups)):
+            alt['weight'] = weight
+    return document
+
+
+def definition(root: Path, task: str, contract: dict, *, source_balanced: bool = False) -> dict:
     if contract['task'] != task:
         raise ValueError('source contract task mismatch')
     if task == 'house_robber':
         from .grammar import definition as legacy_definition
         from .arithmetic import protect
-        return protect(legacy_definition(root, task))
+        document = protect(legacy_definition(root, task))
+        return balance_house(document, contract) if source_balanced else document
     dp = contract['scheme']=='dynamic-programming'
     carrier = TYPES[contract['carrier']]
     scalars = [{'name':f'scalar{i}','type':'Int'} for i,_ in enumerate(contract['scalars'])]
@@ -95,10 +127,13 @@ def definition(root: Path, task: str, contract: dict) -> dict:
                     else:raise ValueError(f'unsupported ASGP production {kind}')
                     exprs=[e]
                 expressions=exprs
-            groups.setdefault(typ,[]).extend(expressions)
-        for typ,expressions in groups.items():
+            groups.setdefault(typ,[]).append((prod, expressions))
+        for typ,source_groups in groups.items():
+            expressions = [e for _, expanded in source_groups for e in expanded]
+            weights = (balanced_weights([(prod, len(expanded)) for prod, expanded in source_groups])
+                       if source_balanced else [1] * len(expressions))
             nts.append({'id':f'{phase}.{typ}','type':TYPES[typ],'scope':copy.deepcopy(scope),
-                'alternatives':[{'id':f'p{i}','weight':1,'expression':e} for i,e in enumerate(expressions)]})
+                'alternatives':[{'id':f'p{i}','weight':weights[i],'expression':e} for i,e in enumerate(expressions)]})
     holes={} if dp else {'source':{'input':'source'}}
     holes.update({p.lower():{'ref':f'{p}.{contract["phases"][i]["start"]}'} for i,p in enumerate(phase_names)})
     nts.insert(0,{'id':'Root','type':carrier,'scope':[],'alternatives':[{'id':'scheme','weight':1,'expression':{'template':template['id'],'holes':holes}}]})

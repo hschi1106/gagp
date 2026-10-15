@@ -941,3 +941,29 @@ and reject `--native-depth` overrides. Compare short-search quality and complete
 generation timing before choosing a candidate; the default is not changed by
 this option. Reduced physical depth is an explicit native search-space tradeoff,
 not a claim of equivalent search trajectories or budgets to ASGP.
+
+
+The separate opt-in `--source-balanced` support profile changes only alternative
+weights. At each source nonterminal, productions with no source children share
+half the weight and productions with children share the other half. Within each
+category source productions have equal mass; multiple native alternatives for a
+single Boolean or constant-domain production split that production's mass. When
+only one category exists it receives all the mass. Native calls inside a source
+terminal (for example StateValue) do not turn it into an inner production.
+
+This approximates ASGP's conditional grow choice; native generation renormalizes
+over feasible alternatives and retains its existing RNG, node/depth budgeting,
+fuel and operators. It does not claim identical ASGP sampling or trajectories.
+The HouseRobber scaffold keeps its existing alternative IDs and merged constant
+domain, mapping the exported source kind/op groups into its established order;
+its two Boolean alternatives still split one source-production mass. All other
+source grammars assign weights directly while expanding exported productions.
+
+Omission retains every default weight. The balanced candidate preserves all
+expressions, production IDs, constant domains and search/execution limits; it can
+be combined explicitly with `--native-depth 24`. Support requires all1024 frozen
+parents and the known witness before smoke tests, and records
+`source_weight_profile=balanced-source-production-v1` per task. Quality/benchmark
+stages inherit the hashed grammar and profile and reject new weighting overrides.
+Compare quality and full-generation timing against depth24 alone before selecting
+a profile; neither option changes the default.
