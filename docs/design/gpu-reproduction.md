@@ -664,6 +664,15 @@ answers or particular comparison constants. Tests include operand reversal,
 large integer rounding and fuel/return boundaries against CPU execution.
 #### Owner-bound packed executable carrier
 
+Initial packed-table construction reuses the private owner's cold GPU bytecode
+verification and recorded stack bounds through `OwnedGpuPrograms`. The borrow
+is synchronous, after every imported executable passes the existing verifier
+and before any reproduction or program mutation. External import validation,
+capacity checks, and subsequent checked GPU lowering remain unchanged; no public
+verification flag is accepted. The phase-population regression checks packed
+and ordinary initialization with import reuse on/off, external mutation,
+empty/oversized populations, and CPU/GPU scores after reproduction.
+
 `GAGP_OWNED_PHASE_PACKED=1` retains one private packed root/region/binding
 layout inside `NativePhasePopulation`. Cold admission still verifies every
 external AST and bytecode. A checked unique slot-to-phase map binds each GPU

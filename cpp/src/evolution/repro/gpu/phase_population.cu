@@ -309,8 +309,8 @@ struct NativePhasePopulation::Impl {
  std::vector<int> packed_phase_indices,initial_phase_stack_bounds;
  std::size_t fixed_phase_code=0,fixed_phase_constants=0;
  bool programs_current=true;
- void initialize_host_packed() {
-  host_packed=std::make_unique<gpu_detail::PackResult>(gpu_detail::pack_programs_with_shared_case_count(programs,0,0));
+ void initialize_host_packed(const gpu_detail::OwnedGpuPrograms& initial) {
+  host_packed=std::make_unique<gpu_detail::PackResult>(gpu_detail::pack_owned_programs(initial,0,0));
   auto& out=*host_packed;std::vector<bool> dynamic(out.region_phases.size(),false);
   for(const auto& phase:out.region_phases)initial_phase_stack_bounds.push_back(phase.program.verified_stack_bound);
   for(int p=0;p<population;++p) {
@@ -535,6 +535,12 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   BytecodeVerifyOptions options;options.max_locals_per_code=gpu_detail::MAX_LOCALS;options.max_stack_depth=gpu_detail::MAX_STACK;
   const auto verified=verify_bytecode(impl_->programs.back(),options);
   phase_layout_require(bool(verified),"cold GPU executable verification failed");
+  // Ordinary packing additionally checks physical region capacities. Retain
+  // those inexpensive checks explicitly before creating the private carrier.
+  for(const auto& segment:impl_->programs.back().bounded_region_segments) {
+   phase_layout_require(segment.plan.limits.frames<=gpu_detail::DMAX_REGION_FRAMES,"cold GPU executable frame capacity exceeded");
+   phase_layout_require(segment.plan.limits.cells<=gpu_detail::DMAX_REGION_MEMO,"cold GPU executable memo capacity exceeded");
+  }
   impl_->fixed_stack_bounds.push_back(verified.verified.max_stack_depth);
   impl_->views_proven=impl_->views_proven && gpu_detail::view_program_supported(impl_->programs.back(),impl_->input_types);
   impl_->direct_root_proven=impl_->direct_root_proven && gpu_detail::direct_region_root_supported(impl_->programs.back());
@@ -552,7 +558,14 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  for(const auto& r:impl_->current->lengths.read(rows))phase_layout_require(valid(r),"import site annotation failed");
  impl_->fitness.reserve(input.size());impl_->stats.reserve(input.size());impl_->code.reserve(rows*code_capacity);impl_->constants.reserve(rows*capacity);
  impl_->compiled.reserve(rows);impl_->code_offsets.reserve(rows+1);impl_->constant_offsets.reserve(rows+1);
- if(std::getenv("GAGP_OWNED_PHASE_PACKED"))impl_->initialize_host_packed();
+ if(std::getenv("GAGP_OWNED_PHASE_PACKED")) {
+  // Every program above passed cold GPU bytecode verification with the same
+  // local/stack limits. No reproduction or program mutation has occurred.
+  // Borrow that exact immutable vector and its bounds only for this synchronous
+  // pack; later generations retain the existing checked lowering/refresh path.
+  const gpu_detail::OwnedGpuPrograms initial(impl_->programs,impl_->fixed_stack_bounds);
+  impl_->initialize_host_packed(initial);
+ }
  checked(cudaEventCreate(&impl_->start));checked(cudaEventCreate(&impl_->stop));
 }
 NativePhasePopulation::~NativePhasePopulation() {

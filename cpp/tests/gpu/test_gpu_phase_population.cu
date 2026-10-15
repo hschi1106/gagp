@@ -204,6 +204,39 @@ void check_constructive_export(const std::shared_ptr<const grammar::CompiledGram
  if(enabled)setenv("GAGP_GPU_CONSTRUCTIVE_EXPORT",saved.c_str(),1);
 }
 
+void check_initial_packed_verification(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
+    const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
+    FitnessSessionGpu& session,const std::vector<CaseBindings>& cases,const std::vector<Value>& answers) {
+ const char* flags[]={"GAGP_OWNED_PHASE_PACKED","GAGP_REUSE_IMPORTED_EXECUTABLE"};
+ std::string saved[2];bool present[2];
+ for(int i=0;i<2;++i){const auto* value=std::getenv(flags[i]);present[i]=value;saved[i]=value?value:"";}
+ for(int packed=0;packed<2;++packed)for(int reuse=0;reuse<2;++reuse) {
+  if(packed)setenv(flags[0],"1",1);else unsetenv(flags[0]);
+  if(reuse)setenv(flags[1],"1",1);else unsetenv(flags[1]);
+  auto external=std::vector<ProgramGenome>{parents.front(),parents.back()};
+  repro::NativePhasePopulation owner(grammar,external,names);
+  external.front().ast.nodes.clear(); // Cannot mutate the owner's admitted copy.
+  for(int generation=0;generation<2;++generation) {
+   const auto result=owner.evaluate(session,true);
+   const auto ordinary=session.eval_programs(owner.programs(),true);
+   const auto cpu=eval_fitness_cpu(owner.programs(),cases,answers,10000,1000,512);
+   require(result.ok && ordinary.ok && result.fitness==ordinary.fitness && result.fitness==cpu &&
+       result.case_counts==ordinary.case_counts,"initial private pack or subsequent lowering changed scores");
+   if(!generation)owner.reproduce(result.fitness,2,1.0,9183);
+  }
+  bool rejected=false;
+  try{repro::NativePhasePopulation bad(grammar,external,names);}catch(const std::invalid_argument&){rejected=true;}
+  require(rejected,"initial private packing trusted altered external AST");
+  rejected=false;
+  try{repro::NativePhasePopulation bad(grammar,{},names);}catch(const std::invalid_argument&){rejected=true;}
+  require(rejected,"empty population passed initial private packing");
+  rejected=false;
+  try{repro::NativePhasePopulation bad(grammar,std::vector<ProgramGenome>(8193),names);}catch(const std::invalid_argument&){rejected=true;}
+  require(rejected,"oversized population passed initial private packing");
+ }
+ for(int i=0;i<2;++i)if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);
+}
+
 void test_packed_pattern_refresh() {
  using namespace gpu_detail;
  setenv("GAGP_CONSTANT_PHASE","1",1);setenv("GAGP_BOUND_ADD_PHASE","1",1);setenv("GAGP_BOUND_COMPARE_PHASE","1",1);
@@ -326,6 +359,7 @@ int main(){try {
  require(fallback.reproduction_profile=="native-ast" && !fallback.reproduction_fallback_reason.empty(),"unsupported policy lacks explicit fallback");
  unsetenv("GAGP_GPU_PHASE_POPULATION");unsetenv("GAGP_GPU_DIAGNOSTICS");
  FitnessSessionGpu session;require(session.init(cases,answers,10000,512,1000).ok,"GPU session init");
+ check_initial_packed_verification(grammar,parents,names,session,cases,answers);
  check_inplace_mutation(grammar,parents,names,session);
  check_splice_policy("GAGP_GPU_DEFERRED_CROSSOVER_COPY",grammar,parents,names,session);
  check_splice_policy("GAGP_GPU_FUSED_SPLICE_DEPTH",grammar,parents,names,session);
