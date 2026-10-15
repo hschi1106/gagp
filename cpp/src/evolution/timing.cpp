@@ -20,6 +20,9 @@ void accumulate_timing(EvaluationTiming* total, const EvaluationTiming& value) {
   total->gpu_eval_launch_prep_ms += value.gpu_eval_launch_prep_ms;
   total->gpu_eval_upload_ms += value.gpu_eval_upload_ms;
   total->gpu_eval_kernel_ms += value.gpu_eval_kernel_ms;
+  total->gpu_eval_initial_kernel_wall_ms += value.gpu_eval_initial_kernel_wall_ms;
+  total->gpu_eval_initial_kernel_event_ms += value.gpu_eval_initial_kernel_event_ms;
+  total->gpu_eval_replay_kernel_event_ms += value.gpu_eval_replay_kernel_event_ms;
   total->gpu_eval_copyback_ms += value.gpu_eval_copyback_ms;
   total->gpu_eval_teardown_ms += value.gpu_eval_teardown_ms;
 }

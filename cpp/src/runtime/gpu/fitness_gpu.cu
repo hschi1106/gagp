@@ -1044,6 +1044,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     }
     // Initial and replay global arenas never coexist, preserving the scratch
     // bound. Every initial lane has finished, including any overlap callback.
+    const auto initial_kernel_t1 = std::chrono::steady_clock::now();
     initial_payload.clear();
     // Physical payload exhaustion is not a program error. Replay only affected
     // programs on GPU, replacing their entire original logical-lane reduction.
@@ -1171,10 +1172,13 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     out.timing.launch_prep_ms = ms_between(launch_prep_t0, launch_prep_t1);
     out.timing.upload_ms = ms_between(upload_t0, upload_t1);
     out.timing.kernel_ms = ms_between(kernel_t0, kernel_t1);
+    out.timing.initial_kernel_wall_ms = ms_between(kernel_t0, initial_kernel_t1);
+    out.timing.replay_kernel_event_ms = replay_kernel_ms;
     if (while_gpu_runs) {
       float elapsed = 0;
       if (cudaEventElapsedTime(&elapsed, events.start, events.end) != cudaSuccess)
         return fitness_eval_single_error(ErrCode::Value, "cuda overlap timing failure");
+      out.timing.initial_kernel_event_ms = elapsed;
       out.timing.kernel_ms = elapsed + replay_kernel_ms;
     }
     out.timing.copyback_ms = ms_between(copy_t0, copy_t1);

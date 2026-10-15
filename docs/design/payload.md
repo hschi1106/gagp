@@ -513,3 +513,12 @@ lookup, fuel and logical allocation charges stay unchanged. The profile adds
 `-window-aliases`. The extended-payload GPU test compares exact full outputs
 with the flag off/on at logical limit zero and checks that aliases avoid the
 physical copying that otherwise triggers replay.
+
+Diagnostic fixed-ASGP results separately report `initial_kernel_wall_ms`,
+`initial_kernel_event_ms` and `replay_kernel_event_ms`. Initial wall timing
+includes launch/wait and any host overlap callback. Initial event timing is
+populated only when a host overlap callback enables CUDA events; otherwise it
+is zero. Replay event timing sums the replay CUDA events. The existing
+`kernel_ms` retains its compatibility behavior: wall time including replay
+allocation and retry orchestration without overlap, summed kernel event time
+with overlap. Total evaluation time includes all allocations and frees.

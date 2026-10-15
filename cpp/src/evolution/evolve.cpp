@@ -291,6 +291,9 @@ std::vector<ScoredGenomeRef> score_population_gpu_refs(
   evaluation.timing.gpu_eval_launch_prep_ms = fit.timing.launch_prep_ms;
   evaluation.timing.gpu_eval_upload_ms = fit.timing.upload_ms;
   evaluation.timing.gpu_eval_kernel_ms = fit.timing.kernel_ms;
+  evaluation.timing.gpu_eval_initial_kernel_wall_ms = fit.timing.initial_kernel_wall_ms;
+  evaluation.timing.gpu_eval_initial_kernel_event_ms = fit.timing.initial_kernel_event_ms;
+  evaluation.timing.gpu_eval_replay_kernel_event_ms = fit.timing.replay_kernel_event_ms;
   evaluation.timing.gpu_eval_copyback_ms = fit.timing.copyback_ms;
   evaluation.timing.gpu_eval_teardown_ms = fit.timing.teardown_ms;
   return record_and_rank_evaluation(
@@ -348,6 +351,9 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
     }
     timing.gpu_eval_call_ms=fit.timing.total_ms;timing.gpu_eval_pack_ms=fit.timing.pack_ms;
     timing.gpu_eval_launch_prep_ms=fit.timing.launch_prep_ms;timing.gpu_eval_upload_ms=fit.timing.upload_ms;
+    timing.gpu_eval_initial_kernel_wall_ms=fit.timing.initial_kernel_wall_ms;
+    timing.gpu_eval_initial_kernel_event_ms=fit.timing.initial_kernel_event_ms;
+    timing.gpu_eval_replay_kernel_event_ms=fit.timing.replay_kernel_event_ms;
     timing.gpu_eval_kernel_ms=fit.timing.kernel_ms;timing.gpu_eval_copyback_ms=fit.timing.copyback_ms;
     timing.gpu_eval_teardown_ms=fit.timing.teardown_ms;
     accumulate_timing(&result.timing.evaluation_totals,timing);

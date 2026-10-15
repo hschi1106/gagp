@@ -20,6 +20,9 @@ struct EvaluationTiming {
   double gpu_eval_launch_prep_ms = 0.0;
   double gpu_eval_upload_ms = 0.0;
   double gpu_eval_kernel_ms = 0.0;
+  double gpu_eval_initial_kernel_wall_ms = 0.0;
+  double gpu_eval_initial_kernel_event_ms = 0.0;
+  double gpu_eval_replay_kernel_event_ms = 0.0;
   double gpu_eval_copyback_ms = 0.0;
   double gpu_eval_teardown_ms = 0.0;
 

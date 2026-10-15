@@ -371,6 +371,9 @@ bool test_payload_replay_fitness() {
     if(!check((gpu.execution_profile.find("-global-arena")!=std::string::npos)==(global[0]=='1'),
         "global payload flag did not select the expected executor"))return false;
     if(!check(gpu.case_counts[0][0]==513 && gpu.case_counts[1][0]==513,"replay diagnostics double-count cases"))return false;
+    if(!check(gpu.timing.initial_kernel_wall_ms>0 &&
+        (gpu.timing.replay_kernel_event_ms>0)==(limit==65536),
+        "initial/replay timing must track launched work"))return false;
     if(limit==65536) {
       if(!check(gpu.payload_replay_programs==1 && gpu.payload_replay_cases==513 && gpu.payload_replay_launches==1,
           "physical overflow must replay only the affected program"))return false;

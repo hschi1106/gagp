@@ -37,6 +37,11 @@ struct FitnessEvalTiming {
   double upload_ms = 0.0;
   // CUDA event time when a host overlap callback is supplied; otherwise launch/wait wall time.
   double kernel_ms = 0.0;
+  // Separate initial launch/wait wall time and CUDA event time.
+  // Initial event time is zero when no host overlap callback is supplied.
+  double initial_kernel_wall_ms = 0.0;
+  double initial_kernel_event_ms = 0.0;
+  double replay_kernel_event_ms = 0.0;
   double copyback_ms = 0.0;
   double teardown_ms = 0.0;
   double total_ms = 0.0;
