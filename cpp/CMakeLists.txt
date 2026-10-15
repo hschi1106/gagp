@@ -871,6 +871,12 @@ endif()
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 if(TARGET gagp_fixed_asgp_bench)
+  add_test(NAME gagp_test_fixed_asgp_source_arithmetic
+    COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/tests/evolution/test_fixed_asgp_source_arithmetic.py
+      $<TARGET_FILE:gagp_fixed_asgp_bench> ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  set_tests_properties(gagp_test_fixed_asgp_source_arithmetic PROPERTIES
+    LABELS "contract;integration;benchmark;cpu" TIMEOUT 90)
   add_test(NAME gagp_test_fixed_asgp_bench
     COMMAND ${Python3_EXECUTABLE}
       ${CMAKE_CURRENT_SOURCE_DIR}/tests/evolution/test_fixed_asgp_bench.py
