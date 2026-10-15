@@ -923,12 +923,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       (gpu_detail::DMEASURE_CACHE_MAX + 1) + sizeof(int);
   const char* private_measure_setting=std::getenv("GAGP_GPU_PRIVATE_MEASURE_CACHE");
   const bool request_private_measure=private_measure_setting && std::string(private_measure_setting)=="1";
-  // Arenas launch one physical warp, independently of logical fitness lanes.
-  const auto measure_base_bytes=private_intlists?
-      kernel_shared_bytes(packed.max_code_len,PayloadWorkspaceStorage::threads):shared_bytes;
   region_workspace.measure_phase_cache = (use_views || (private_intlists && request_private_measure)) && has_regions &&
       std::getenv("GAGP_MEASURE_PHASE_CACHE") &&
-      measure_base_bytes + measure_bytes <= static_cast<std::size_t>(impl_->props.sharedMemPerBlock);
+      shared_bytes + measure_bytes <= static_cast<std::size_t>(impl_->props.sharedMemPerBlock);
   if (region_workspace.measure_phase_cache && !private_intlists) shared_bytes += measure_bytes;
   // A tile retains one logical warp; an untiled block retains all logical
   // fitness lanes, even though arena execution uses 32 physical threads.

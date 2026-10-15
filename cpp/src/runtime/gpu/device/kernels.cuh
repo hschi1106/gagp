@@ -183,7 +183,10 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
                                   Flavor == DPayloadFlavor::ArenaMixed ||
                                   Flavor == DPayloadFlavor::IndexedArena)) {
     if (workspace.measure_phase_cache) {
-      auto* cached_measure = reinterpret_cast<DMeasurePhaseCacheEntry*>(partial_scores + (tiled_replay ? 32 : fitness_lanes));
+      // Untiled arenas retain one score per logical lane. Tiled launches use
+      // the tile's physical score slots; both layouts precede the cache.
+      const auto score_slots=tiled_replay?static_cast<int>(blockDim.x):fitness_lanes;
+      auto* cached_measure = reinterpret_cast<DMeasurePhaseCacheEntry*>(partial_scores + score_slots);
       int& cached_phase = *reinterpret_cast<int*>(cached_measure + DMEASURE_CACHE_MAX + 1);
       if (tid == 0) {
         cached_phase = -1;

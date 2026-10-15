@@ -283,8 +283,10 @@ Timeouts do not populate entries. A hit requires sufficient remaining fuel;
 misses, lengths outside the table and insufficient fuel execute the original
 phase, preserving partial consumption and error ordering. The original region
 entry fuel, expression evaluation, logical allocation, full cases and reductions
-remain unchanged. Cache storage is included in the actual physical block's
-dynamic shared-memory requirement; unavailable shared capacity declines caching.
+remain unchanged. Cache storage follows all score slots in dynamic shared memory: untiled arenas
+retain every logical lane slot, while tiles use physical lane slots. Cache fit
+admission conservatively reserves the original logical score width; unavailable
+shared capacity declines caching.
 Profiles report `-private-measure-cache` when enabled for private arenas, or
 `-private-measure-cache-declined` when its prerequisites fail. This reports cache
 availability; individual ineligible phases still use the ordinary VM.
