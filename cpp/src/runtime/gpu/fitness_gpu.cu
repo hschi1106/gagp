@@ -818,6 +818,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       };
       extended_payload |= needs_payload(program.code);
       for (const auto& segment : program.bounded_region_segments) {
+        // Sequence-window transitions materialize Slice even without a phase opcode.
+        extended_payload |= segment.plan.progress == RegionProgressKind::SequenceWindows;
         extended_payload |= needs_payload(segment.base_body.program.code) ||
                             needs_payload(segment.combine.program.code) ||
                             (segment.boundary && needs_payload(segment.boundary->program.code)) ||
