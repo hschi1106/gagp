@@ -866,6 +866,33 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
         if (!check(gpu.ok && gpu.fitness==cpu,"prepared capture length/marker/table/fuel parity")) return false;
       }
     }
+    // A nontrivial permutation crosses lane and block boundaries. Configured
+    // integral policies may reorder; discounted/fractional policies may not.
+    std::vector<CaseBindings> score_cases;
+    std::vector<Value> score_answers;
+    for(int i=0;i<65;++i) {
+      const int n=(i*17)%23;
+      score_cases.push_back({{0,Value::from_int(i%5)},
+          {1,payload::make_int_list_value(std::vector<Value>(n,Value::from_int(1)))}});
+      score_answers.push_back(Value::from_int((i*7)%19));
+    }
+    for(const auto metric:{FitnessMetric::Absolute,FitnessMetric::Exact})
+      for(const auto proximity:{FitnessProximity::Capped,FitnessProximity::Discounted})
+        for(const double penalty:{7.0,7.25}) {
+          const FitnessPolicy policy{metric,proximity};
+          FitnessSessionGpu session;
+          if(!check(session.init(score_cases,score_answers,100,32,penalty,policy).ok,
+                    "configured sorted view init"))return false;
+          std::vector<unsigned> wrong;
+          const auto cpu=eval_fitness_cpu({program},score_cases,score_answers,100,penalty,32,policy,&wrong);
+          const auto gpu=session.eval_programs({program},true);
+          const bool expected_sorted=metric==FitnessMetric::Exact ||
+              (proximity==FitnessProximity::Capped && penalty==7.0);
+          if(!check(gpu.ok && gpu.fitness==cpu && gpu.wrong==wrong &&
+              gpu.case_counts[0][0]==65 &&
+              (gpu.execution_profile.find("-sorted")!=std::string::npos)==expected_sorted,
+              "configured sorting preserves score/wrong/count; fractional stays ordered"))return false;
+        }
     if (!compare_fitness(program,
         {{{{0,Value::from_int(9)}},Value::from_int(-1),ErrCode::Value,true},
          {{{0,Value::from_int(0)}},Value::from_int(0),ErrCode::Name,false},
@@ -1300,7 +1327,7 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
     FitnessSessionGpu session;
     if(!check(session.init({{}},{answer},100,32,7,{FitnessMetric::Exact}).ok,label+" init"))return false;
     const auto fit=session.eval_programs({program},true);
-    std::string expected_profile="int-list-views-typed";
+    std::string expected_profile="int-list-views-typed-sorted";
     if(std::getenv("GAGP_DIRECT_PHASE")) {
       expected_profile+=std::getenv("GAGP_DIRECT_ROOT")?"-direct-root":"-direct";
       // This fixture has one bounded Int coordinate and literal endpoints, so

@@ -52,7 +52,7 @@ def summarize(folder: Path, out: Path) -> None:
                 writer.writeheader()
                 writer.writerows(data)
     lines = ['# Low-budget validation', '',
-             f"Stage: {manifest['stage']}; P={manifest['population']}, cases=1024, generations=2.",
+             f"Stage: {manifest['stage']}; P={manifest['population']}, cases=1024, generations={manifest['generations']}.",
              f"Elapsed {manifest['elapsed_s']:.1f} s. CPU1T; GPU jobs serialized.",
              'These are smoke/short-search samples, not precision speedups or convergence equivalence.', '',
              '| Task | Status | Known solution | Source outputs | CPU/GPU snapshot | ASGP | CPU | GPU-e | GPU-er | GPU-er-o |',

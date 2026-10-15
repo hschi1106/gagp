@@ -27,6 +27,13 @@ class TestLowBudgetContract(unittest.TestCase):
     def test_complete_native_gpu_search(self):
         validate_search(self.sample(), 1024, 2, 'gpu_overlap')
 
+    def test_requested_multigeneration_count_is_enforced(self):
+        sample = self.sample()
+        sample['generations'] *= 4
+        validate_search(sample, 1024, 8, 'gpu_overlap')
+        with self.assertRaises(ValueError):
+            validate_search(sample, 1024, 2, 'gpu_overlap')
+
     def test_incomplete_or_wrong_backend_does_not_qualify(self):
         for key, value in [('cases', 128), ('population', 8), ('generations', []),
                            ('final_population', []), ('final_best', float('nan')),

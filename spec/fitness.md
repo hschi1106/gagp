@@ -245,3 +245,13 @@ raw errors and wrong-case counts separately. A numeric tolerance alone does not
 establish value-level execution parity, especially for adjacent 64-bit integers
 whose conversion to double can erase a real difference. Use exact metric or
 raw-value oracles for those regressions.
+
+### Case-order optimization
+
+Verified integer-list view executors may reorder cases by input length for
+`Legacy`, `Exact`, or `Absolute` with capped proximity when every possible
+case score is integral and the bounded total is below 2^40. The view type-flow
+proof excludes floating-point outputs; expected values must be Int or Bool.
+Errors count with the same policy ceiling. Nonintegral penalties, discounted
+absolute proximity, and tuple-summary scores retain the original reduction
+order. This changes scheduling only, not case coverage, scores, or wrong counts.

@@ -430,10 +430,16 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
     impl_->shared_input_types[local] = type;
   }
   std::vector<int> case_order;
-  // Only permute when all per-case scores are integral and their bounded sum
-  // is exactly representable by the existing 48-bit canonical reduction.
-  if (policy.metric==FitnessMetric::Legacy && std::getenv("GAGP_SORT_CASES") && std::isfinite(penalty) && std::floor(std::fabs(penalty)) == std::fabs(penalty) &&
-      shared_cases.size() * std::max(1.0, std::fabs(penalty)) < 1099511627776.0 &&
+  // Only view kernels consume this permutation: their type-flow proof excludes
+  // Float outputs. Integer Absolute/Capped and Exact therefore have integral
+  // case scores, including errors. Bound the sum below the exact integer range
+  // of the canonical reduction. Discounted/TupleSummary keep original order.
+  const bool sortable_policy = policy.metric == FitnessMetric::Legacy ||
+      policy.metric == FitnessMetric::Exact ||
+      (policy.metric == FitnessMetric::Absolute && policy.proximity == FitnessProximity::Capped);
+  const double case_ceiling = fitness_error_ceiling(policy, penalty);
+  if (sortable_policy && std::getenv("GAGP_SORT_CASES") && std::isfinite(case_ceiling) && std::floor(case_ceiling) == case_ceiling &&
+      shared_cases.size() * std::max(1.0, case_ceiling) < 1099511627776.0 &&
       std::all_of(shared_answer.begin(), shared_answer.end(), [](const auto& v) { return v.tag == ValueTag::Int || v.tag == ValueTag::Bool; })) {
     std::vector<std::uint64_t> lengths(shared_cases.size(), 0);
     for (std::size_t c = 0; c < shared_cases.size(); ++c)

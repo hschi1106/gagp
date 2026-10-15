@@ -113,7 +113,7 @@ class Study:
             'format': 'asgp-low-budget-v1', 'stage': args.stage,
             'purpose': 'support and coarse optimization feedback; not precision speedup or convergence evidence',
             'population': 8 if args.stage == 'support' else 1024, 'cases': 1024,
-            'generations': 2, 'host_threads': 1, 'wall_budget_s': args.budget,
+            'generations': args.generations, 'host_threads': 1, 'wall_budget_s': args.budget,
             'binary': str(args.binary.resolve()), 'binary_sha256': sha(args.binary),
             'build_binary': str(original_binary),
             'source_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
@@ -244,13 +244,13 @@ class Study:
         export = self.out / f'{task}.{tag}.final.json'
         cell = self.run(task, tag, [self.args.binary, 'measure', artifacts / 'source.json',
             prepared, artifacts / 'grammar.json', population, 'search_' + mode, output],
-            {'GAGP_SEARCH_GENERATIONS': '2', 'GAGP_BM_SEED': str(seed),
+            {'GAGP_SEARCH_GENERATIONS': str(self.args.generations), 'GAGP_BM_SEED': str(seed),
              'GAGP_SEARCH_EXPORT': str(export)})
         if cell['status'] == 'ok':
             try:
                 result = read(output)
                 cell['output'] = output.name
-                validate_search(result, population, 2, mode)
+                validate_search(result, population, self.args.generations, mode)
                 cell.update(evolve_wall_ms=result['evolve_wall_ms'], final_best=result['final_best'],
                             output=output.name, unique_final_genomes=result['unique_final_genomes'])
             except (ValueError, KeyError) as error:
@@ -299,10 +299,13 @@ def main():
     parser.add_argument('--artifacts', type=Path)
     parser.add_argument('--tasks', nargs='+', choices=PAPER_TASKS)
     parser.add_argument('--modes', nargs='+', choices=MODES, default=MODES)
+    parser.add_argument('--generations', type=int, default=2)
     parser.add_argument('--budget', type=float, default=600)
     parser.add_argument('--timeout', type=float, default=30)
     parser.add_argument('--rss-gib', type=float, default=4)
     args = parser.parse_args()
+    if args.generations < 1:
+        parser.error('--generations must be positive')
     if args.budget <= 0 or args.timeout <= 0 or args.rss_gib <= 0:
         parser.error('budgets must be positive')
     if args.stage != 'support' and not args.artifacts:
