@@ -575,6 +575,11 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     return fitness_eval_single_error(ErrCode::Value,
         "GAGP_GPU_PAYLOAD_WORKSPACE_MIB must be a decimal integer in [64,8192]");
 
+  int initial_payload_scale=1;
+  if(!gpu_detail::parse_initial_payload_scale(std::getenv("GAGP_GPU_INITIAL_PAYLOAD_SCALE"),initial_payload_scale))
+    return fitness_eval_single_error(ErrCode::Value,
+        "GAGP_GPU_INITIAL_PAYLOAD_SCALE must be one of 1,2,4,8");
+
   const auto all_t0 = std::chrono::steady_clock::now();
   const auto pack_t0 = std::chrono::steady_clock::now();
   // The private packed carrier keeps a native reference on demand. A session
@@ -932,8 +937,11 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     }
     if(global_payload) {
       impl_->release_region_workspace();
-      if(!initial_payload.prepare(region_workspace,programs.size(),impl_->blocksize,1024,8192,8192,true,payload_metadata_bytes))
+      if(!initial_payload.prepare(region_workspace,programs.size(),impl_->blocksize,1024*initial_payload_scale,8192*initial_payload_scale,8192,true,payload_metadata_bytes))
         return fitness_eval_single_error(ErrCode::Value,"cuda initial global payload workspace capacity/allocation failure");
+      out.initial_payload_entry_capacity=1024*initial_payload_scale;
+      out.initial_payload_value_capacity=8192*initial_payload_scale;
+      out.initial_payload_physical_blocks=initial_payload.blocks;
       if(!gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(initial_payload.blocks)},&indices.compact_queue))
         return fitness_eval_single_error(ErrCode::Value,"cuda initial global payload queue allocation failure");
     }
@@ -1252,7 +1260,10 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
 
     out.ok = true;
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
-    if(global_payload)out.execution_profile+="-global-arena";
+    if(global_payload) {
+      out.execution_profile+="-global-arena";
+      if(initial_payload_scale!=1)out.execution_profile+="-initial-scale"+std::to_string(initial_payload_scale);
+    }
     if(global_window_aliases)out.execution_profile+="-window-aliases";
     if(region_workspace.fused_list_concat && extended_payload)out.execution_profile+="-fused-concat";
     if(region_workspace.small_int_hash && extended_payload)out.execution_profile+="-small-int-hash";

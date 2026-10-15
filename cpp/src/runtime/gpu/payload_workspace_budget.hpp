@@ -26,6 +26,15 @@ inline bool parse_payload_workspace_budget(const char* text, std::size_t& bytes)
   return true;
 }
 
+// Bounded experiment: scale only the initial arena's entries and Value cells.
+inline bool parse_initial_payload_scale(const char* text, int& scale) {
+  if(!text){scale=1;return true;}
+  if(text[0] && !text[1] && (text[0]=='1' || text[0]=='2' || text[0]=='4' || text[0]=='8')) {
+    scale=text[0]-'0';return true;
+  }
+  return false;
+}
+
 inline std::size_t payload_workspace_block_count(std::size_t budget,
     std::size_t programs, std::size_t bytes_per_lane, std::size_t extra_bytes) {
   constexpr std::size_t threads=32;

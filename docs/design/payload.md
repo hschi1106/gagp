@@ -632,3 +632,23 @@ payload allocation, fuel, and numeric semantics are unchanged. The execution
 profile adds `-small-int-hash`. The extended payload GPU test checks every table
 entry, adjacent bounds, full-width integer patterns, all other tags, typed-list
 Concat errors/capacity/collisions, and full-case CPU fitness with the flag off/on.
+
+`GAGP_GPU_INITIAL_PAYLOAD_SCALE` is an optional bounded initial-global-arena
+experiment. Its only accepted values are `1` (default), `2`, `4`, and `8`. It
+multiplies the initial 1024 registry entries and 8192 Value cells per physical
+lane; string bytes remain 8192. It does not enable global payload evaluation
+itself. Every allocation still fits the same configured workspace cap; larger
+lanes can reduce physical-worker concurrency. Original GPU overflow replay and
+its adaptive capacities remain available, with no CPU fallback or changes to
+case coverage, logical allocation limits, hashes, fuel, or scoring.
+
+The option is captured at evaluation entry. Snapshots record
+`initial_payload_entry_capacity`, `initial_payload_value_capacity`, and
+`initial_payload_physical_blocks` (zero when the global arena is unused); an
+explicit nondefault scale adds `-initial-scaleN` to the execution profile.
+Compare full-search time: avoided duplicate initial work competes with reduced
+concurrency, and initial evaluation assigns one worker per program whereas tiled
+replay can distribute its logical lanes across workers. Replay time is therefore
+not all avoidable overhead. Parser tests cover malformed values; GPU parity tests
+cover entry-only and value-only overflow, successful larger initial capacity,
+remaining replay, unaffected programs, and final case/error/timeout counts.

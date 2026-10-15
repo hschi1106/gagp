@@ -857,11 +857,59 @@ bool test_adaptive_replay() {
   return test_tiled_replay_entry_growth();
 }
 
+bool test_initial_payload_scale() {
+  ScopedEnvironment restore_scale("GAGP_GPU_INITIAL_PAYLOAD_SCALE"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),
+      restore_tiles("GAGP_GPU_TILED_REPLAY"),restore_adaptive("GAGP_GPU_ADAPTIVE_REPLAY");
+  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);setenv("GAGP_GPU_TILED_REPLAY","1",1);
+  setenv("GAGP_GPU_ADAPTIVE_REPLAY","1",1);
+  const auto entries=[](int count) {
+    BytecodeProgram p;p.n_locals=2;
+    p.consts={Value::from_int(0),Value::from_int(1),Value::from_int(count),Value::from_int(7)};
+    p.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::Store,0),ins_a(Opcode::Load,0),
+      ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),ins_a(Opcode::Store,1),
+      ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,1),ins(Opcode::Add),ins_a(Opcode::Store,0),
+      ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,2),ins(Opcode::Lt),ins_a(Opcode::JmpIfTrue,2),
+      ins_a(Opcode::PushConst,3),ins(Opcode::Return)};
+    p.instruction_fuel.assign(p.code.size(),1);return p;
+  };
+  BytecodeProgram cells;cells.n_locals=2;
+  cells.consts={Value::from_int(0),Value::from_int(1),Value::from_int(128),Value::from_int(7),
+      payload::make_int_list_value({}),payload::make_int_list_value({Value::from_int(1)})};
+  cells.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::Store,0),ins_a(Opcode::PushConst,4),ins_a(Opcode::Store,1),
+      ins_a(Opcode::Load,1),ins_a(Opcode::PushConst,5),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Concat),2),
+      ins_a(Opcode::Store,1),ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,1),ins(Opcode::Add),ins_a(Opcode::Store,0),
+      ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,2),ins(Opcode::Lt),ins_a(Opcode::JmpIfTrue,4),
+      ins_a(Opcode::PushConst,3),ins(Opcode::Return)};
+  cells.instruction_fuel.assign(cells.code.size(),1);
+  BytecodeProgram plain;plain.consts={Value::from_int(7)};plain.code={ins_a(Opcode::PushConst,0),ins(Opcode::Return)};
+  const std::vector<BytecodeProgram> programs{entries(1500),cells,entries(5000),plain};
+  const std::vector<CaseBindings> cases(3);const std::vector<Value> answers(3,Value::from_int(7));
+  FitnessPolicy policy{FitnessMetric::Exact};policy.list_allocation_limit=65536;
+  std::vector<CpuFitnessCaseCounts> cpu_counts;
+  const auto cpu=eval_fitness_cpu(programs,cases,answers,100000,1000,33,policy,nullptr,&cpu_counts);
+  for(const char* scale:{"1","2","4","8"}) {
+    setenv("GAGP_GPU_INITIAL_PAYLOAD_SCALE",scale,1);
+    FitnessSessionGpu session;if(!session.init(cases,answers,100000,33,1000,policy).ok)return false;
+    const auto gpu=session.eval_programs(programs,true);const int factor=scale[0]-'0';
+    if(!check(gpu.ok && gpu.fitness==cpu && cpu==std::vector<double>(4,0),"initial scale fitness parity"))return false;
+    const unsigned expected=factor==1?3:factor<8?1:0;
+    if(!check(gpu.payload_replay_programs==expected &&
+        gpu.initial_payload_entry_capacity==1024*factor && gpu.initial_payload_value_capacity==8192*factor &&
+        gpu.initial_payload_physical_blocks>0,"initial scale capacities/replay selection"))return false;
+    for(int p=0;p<4;++p)if(!check(gpu.case_counts[p][0]==cpu_counts[p].cases &&
+        gpu.case_counts[p][1]==cpu_counts[p].errors && gpu.case_counts[p][2]==cpu_counts[p].timeouts,
+        "initial scale case/error/timeout counts"))return false;
+  }
+  setenv("GAGP_GPU_INITIAL_PAYLOAD_SCALE","3",1);
+  FitnessSessionGpu invalid;if(!invalid.init(cases,answers,100000,33,1000,policy).ok)return false;
+  return check(!invalid.eval_programs(programs).ok,"invalid initial scale accepted");
+}
+
 int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_initial_payload_scale() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }
