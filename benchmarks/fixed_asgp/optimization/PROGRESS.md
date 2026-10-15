@@ -1,10 +1,16 @@
 # All-task runtime repair — 2026-10-15 (in progress)
 
-- Integration branch `fix/asgp-all-task-runtime-20261015`, worktree `gagp-support-20261015`; checkpoint `checkpoint/pre-all-task-runtime-20261015`=`241e374`. Original worktrees/frozen inputs untouched. No push this round yet.
-- User priority: all30 correctness, then full-case P1024 e2e performance under CPU1T/native GPU reproduction. Use bounded short searches, no expensive full precision matrix.
-- Implemented pending integrated validation: integral configured-policy case sorting; `index_nonnegative` primitive to avoid repeated-hole source guards; opt-in symmetric ASGP/GAGP `list-combine-v1` grammar extension; source logical arena policy. Preserve original grammar build and record extension separately.
-- Sorting targeted CUDA test passed. New builtin CPU tests and extension standalone ASGP CPU test passed. Integration build underway. GPU physical arena replay and source slice aliases are still being implemented, not claimed fixed.
-- Next: integrated focused tests; fresh output `logs/all-task-repair-20261015/`; regenerate ONLY new source inputs, rerun failed support gates, inspect actual phase profile before performance. GPU serialization lock `/tmp/gagp-support-20261015-gpu.lock`.
+- Integration branch `fix/asgp-all-task-runtime-20261015`, worktree `gagp-support-20261015`; protected checkpoint `checkpoint/pre-all-task-runtime-20261015`=`241e374`. Original worktrees/inputs/results unchanged; no push this round.
+- Active contract: all30 correctness first, then bounded P1024/full1024 e2e; CPU1T, native five modes and GPU reproduction retained. No high-cost precision matrix.
+- Implemented: integral-policy case sorting; compact nonnegative index and ASCII-letter primitives; symmetric opt-in `list-combine-v1` ASGP/GAGP extension; logical list allocation accounting; non-copying GPU slice aliases; bounded GPU physical-overflow replay; CPU staged-list borrowing/move; native GPU phase support for list expressions. Original source grammar build remains available.
+- Focused replay/phase/parity tests passed before payload-index prototype. Seven previous failures now have zero sampled source/CPU output/status mismatches and passing known witnesses under the explicitly extended grammar; this is not yet all-mode support.
+- Raw `logs/all-task-repair-20261015/scalar-g2`: one-shot G2 search wall ASGP/GPU-er-o (ms): Sum6223.882/612.108, House2927.546/437.409, Median182.248/386.396. Different source/search contract from historical best; do not reuse old denominators or call these long-search ratios.
+- `support-v1` interrupted intentionally: FilterOdd physical replay costs~21s/evaluation; IsSorted GPU-er/o timed out at35s. Results retained and explicitly marked incomplete. Do not claim all30 pass.
+- Opt-in payload index prototype currently fails launch OOM: IndexedExtended adds~8KiB/thread to already187KiB local storage. Agent is removing that production variant and retaining only pointer-backed replay indexing; no performance claim yet.
+- Stock source inline normalization fixes GPU phase scope but expands frozen parent11 past1024nodes. General `index_clamped_or_zero` primitive31 integrated; source/phase adapter pending. New primitive CPU semantics/migration tests pass; CUDA tests pending rebuild.
+- Optional depth24 candidate is gated on ALL1024 frozen parents and known witness (default48 unchanged).29 tasks pass full admission; Stock pendingcompact fix. Depth16 rejected because it excludes156 initial parents plus Scrabble witness. Depth24 adoption still requires quality/performance evidence.
+- Next: fix index regression, paired frozen FilterOdd measurement; integrate compact Stock; run all30 five-mode support in fresh output; then cheap multi-gen quality/timing and report every task. GPU runs serialized with `/tmp/gagp-support-20261015-gpu.lock`.
+- Reproducer: `PYTHONPATH=tools python3 -m gagp_tools.experiments.fixed_asgp.low_budget support --out <NEW> --budget 650 --timeout 35 [--native-depth 24]`; settings/binary/input hashes archived by runner. Never prepare historical inputs.
 
 ---
 
