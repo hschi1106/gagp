@@ -1,3 +1,14 @@
+# ASGP 30-task support and aligned metrics — 2026-10-15 (in progress)
+
+- Integration worktree `gagp-support-20261015`, branch `feat/asgp-support-contract-20261015`; starting checkpoint `checkpoint/pre-support-contract-20261015`=`dc99120`. Original and main worktrees untouched; main has pre-existing dirty documentation.
+- Three Astra-medium agents: fitness/ranking/elite, structured payload/memo runtime, source grammar/task adapters. Native five modes and CPU1T retained. No precision/full scaling benchmark authorized this round.
+- Landed source-derived30-task grammar contracts, task metric policies, error/wrong/native-size ranking, native GPU elite preservation, exact64-bit integer repairs, bounded CPU per-case payload lifetime, separate extended GPU payload profile, safe subordinate memo coordinate expressions. Full source-search equivalence is NOT claimed: named differences remain in `search_contract.hpp`.
+- New bounded runner: `PYTHONPATH=tools python3 -m gagp_tools.experiments.fixed_asgp.low_budget <support|quality|benchmark> --out <NEW DIR>`. Support P8/full1024; quality/benchmark P1024/full1024. Defaults2gens, quality3seeds; process memory/time budgets; serialized lock `/tmp/gagp-support-20261015-gpu.lock`. Output archive includes actual binary hash. No historical input prepare.
+- Raw work: `logs/support-20261015/`; pilot-scalar completed; all-task-pilot active (intermediate binary, not final evidence). Build logs `/tmp/gagp-support-build5.log`. Early4GPU/CPUfocusedtests passed. Updated source-source audits expose resource-capacity differences; these are retained, not hidden.
+- Remaining: finish integrated GPU tests/full task smoke, address gate failures, short quality + one-shot benchmark on qualified tasks, review final paths/contracts, fast-forward remote main after verification. No push yet. Main base `f0a7cc4` is an ancestor; must preserve its dirty files.
+
+---
+
 # Expanded native benchmark — 2026-10-14 (complete)
 
 - Runtime unchanged from db1dd55/2938d69; source checkpoint41f2566, binary SHA b9952b911df5f22f1ed361472663a114994882278bcededfbe3f8efd3d3d7980. Original worktree/frozen inputs preserved; no push.

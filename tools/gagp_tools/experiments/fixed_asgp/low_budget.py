@@ -223,7 +223,7 @@ class Study:
         record['artifacts'] = {p.name: sha(p) for p in folder.glob('*.json')}
         record['status'] = 'audit_pass'
         statuses = []
-        for mode in MODES:
+        for mode in self.args.modes:
             statuses.append(self.search(task, folder, prepared, 8, mode, 0))
         record['status'] = 'smoke_pass' if all(s == 'ok' for s in statuses) and record['cpu_gpu_snapshot'] == 'ok' and record['known_solution_audit'] == 'ok' else 'smoke_failed'
 
@@ -266,7 +266,7 @@ class Study:
         statuses = []
         seeds = (0, 1, 2) if self.args.stage == 'quality' else (0,)
         for seed in seeds:
-            for mode in MODES:
+            for mode in self.args.modes:
                 status = self.search(task, artifacts, prepared, 1024, mode, seed)
                 statuses.append(status)
                 if status == 'ok' and self.args.stage == 'quality':
@@ -286,6 +286,7 @@ def main():
     parser.add_argument('--settings', type=Path, default=ROOT / 'benchmarks/fixed_asgp/optimization/results/expanded-20261014/settings.json')
     parser.add_argument('--artifacts', type=Path)
     parser.add_argument('--tasks', nargs='+', choices=PAPER_TASKS)
+    parser.add_argument('--modes', nargs='+', choices=MODES, default=MODES)
     parser.add_argument('--budget', type=float, default=600)
     parser.add_argument('--timeout', type=float, default=30)
     parser.add_argument('--rss-gib', type=float, default=4)
