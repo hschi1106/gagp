@@ -147,6 +147,7 @@ struct StagedPayloads::State {
 
 namespace {
 thread_local StagedPayloads::State* staged = nullptr;
+thread_local std::size_t list_limit = 0, list_used = 0;
 
 bool identical(const std::string& a, const std::string& b) { return a == b; }
 bool identical(const std::vector<Value>& a, const std::vector<Value>& b) {
@@ -208,6 +209,21 @@ bool merge_staged(const Map& writes, const Reads& reads, const Map& global, Map&
   return true;
 }
 }  // namespace
+
+ListAllocationScope::ListAllocationScope(std::size_t limit, std::size_t initial_cells)
+    : previous_limit_(list_limit), previous_used_(list_used) {
+  list_limit = limit; list_used = initial_cells;
+}
+ListAllocationScope::~ListAllocationScope() {
+  list_limit = previous_limit_; list_used = previous_used_;
+}
+bool list_allocation_budget_active() { return list_limit != 0; }
+void charge_list_allocation(std::size_t cells) {
+  if (!list_limit || cells == 0) return;
+  if (list_used > list_limit || cells > list_limit - list_used)
+    throw PayloadBudgetExceeded("logical list-cell allocation budget exceeded");
+  list_used += cells;
+}
 
 void check_allocation_budget(std::size_t bytes) {
   if (staged && bytes > staged->byte_limit - staged->bytes)

@@ -21,6 +21,8 @@ struct DResult {
   int is_error = 0;
   ErrCode err_code = ErrCode::Value;
   Value value = Value::invalid();
+  // Distinguishes physical payload exhaustion from semantic Value errors.
+  bool payload_capacity_exceeded = false;
 };
 
 struct DPhaseMeta {

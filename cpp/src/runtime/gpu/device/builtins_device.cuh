@@ -27,6 +27,9 @@ struct DThreadPayloadStateT {
   int list_entry_count = 0;
   int string_bytes_used = 0;
   int list_values_used = 0;
+  unsigned logical_list_limit = 0;
+  unsigned long long logical_list_used = 0;
+  bool physical_capacity_exceeded = false;
   char string_bytes[(MaxStringBytes > 0) ? MaxStringBytes : 1];
   Value list_values[(MaxListValues > 0) ? MaxListValues : 1];
 };
@@ -424,8 +427,19 @@ __device__ inline bool d_register_local_list(State& st, const Value& v, int offs
     (void)len;
     return false;
   }
-  if (st.list_entry_count >= State::kMaxListEntries) return false;
+  if (st.list_entry_count >= State::kMaxListEntries) {
+    st.physical_capacity_exceeded = true; return false;
+  }
   st.list_entries[st.list_entry_count++] = DListPayloadEntry{v.tag, v.i, offset, len};
+  return true;
+}
+
+template <typename State>
+__device__ inline bool d_charge_list_allocation(State& state, unsigned cells) {
+  if (!state.logical_list_limit || !cells) return true;
+  if (state.logical_list_used > state.logical_list_limit ||
+      cells > state.logical_list_limit - state.logical_list_used) return false;
+  state.logical_list_used += cells;
   return true;
 }
 
@@ -608,6 +622,13 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       return true;
     }
     if (d_is_typed_list_tag(a.tag) && a.tag == b.tag) {
+      if (payload_state.logical_list_limit && d_has_exact_payload(tables, payload_state, a) &&
+          d_has_exact_payload(tables, payload_state, b)) {
+        const unsigned al = Value::container_len(a), bl = Value::container_len(b);
+        if (!al) { out = b; return true; }
+        if (!bl) { out = a; return true; }
+        if (!d_charge_list_allocation(payload_state, al + bl)) { err = ErrCode::Value; return false; }
+      }
       if constexpr (PayloadTraits::kHasList) {
         auto& st = payload_state;
         const Value* ap = nullptr;
@@ -629,7 +650,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         }
       }
       if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) {
-        if (d_has_exact_payload(tables, payload_state, a) && d_has_exact_payload(tables, payload_state, b)) { err = ErrCode::Value; return false; }
+        if (d_has_exact_payload(tables, payload_state, a) && d_has_exact_payload(tables, payload_state, b)) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
       }
     const std::uint32_t len = Value::saturating_len_add(Value::container_len(a), Value::container_len(b));
       const std::uint64_t h = Value::combine_container_hash48(d_list_type_code(a), a, b);
@@ -709,7 +730,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       }
     }
     if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) {
-        if (d_has_exact_payload(tables, payload_state, x)) { err = ErrCode::Value; return false; }
+        if (d_has_exact_payload(tables, payload_state, x)) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
       }
     const std::uint64_t out_h = Value::slice_container_hash48(d_list_type_code(x), x, lo.i, hi.i);
     out = d_make_list_hash_len(x.tag, out_h, out_len);
@@ -1092,6 +1113,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       return true;
     }
     if (x.tag == ValueTag::Int || x.tag == ValueTag::Float || x.tag == ValueTag::String) {
+      if (!d_charge_list_allocation(payload_state, 1)) { err = ErrCode::Value; return false; }
       const ValueTag list_tag = (x.tag == ValueTag::Int)
                                     ? ValueTag::IntList
                                     : ((x.tag == ValueTag::Float) ? ValueTag::FloatList : ValueTag::StringList);
@@ -1106,7 +1128,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           return true;
         }
       }
-      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
+      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
       std::uint64_t h = Value::fnv1a_init();
       h = Value::fnv1a_mix_u8(h, 0xA1U);
       h = Value::fnv1a_mix_u64(h, 1U);

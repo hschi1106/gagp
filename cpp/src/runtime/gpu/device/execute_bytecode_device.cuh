@@ -544,6 +544,14 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
   }
 
   DPayloadStateStorage<Flavor> payload_state_storage;
+  auto& payload_state = payload_state_storage.ref();
+  payload_state.logical_list_limit = policy.list_allocation_limit;
+  if (policy.list_allocation_limit && shared_case_local_vals && shared_case_local_set) {
+    const int base = local_case * MAX_LOCALS;
+    for (int i = 0; i < meta.n_locals; ++i)
+      if (shared_case_local_set[base + i] && d_is_typed_list_tag(shared_case_local_vals[base + i].tag))
+        payload_state.logical_list_used += Value::container_len(shared_case_local_vals[base + i]);
+  }
   int fuel_left = fuel;
   const DCodeView view{
       shared_code,
@@ -557,6 +565,7 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
   result = d_run_code_core<Flavor, EnableRegions>(view, shared_case_local_vals, shared_case_local_set,
                                             local_case, nullptr, 0, payload_tables,
                                             payload_state_storage.ref(), execution_tables, fuel_left, true, workspace);
+  result.payload_capacity_exceeded = payload_state.physical_capacity_exceeded;
   if(score && expected && !result.is_error) {
     if(policy.metric==FitnessMetric::Levenshtein || policy.metric==FitnessMetric::TupleSummary)
       *score=d_score_resident(result.value,*expected,penalty,policy,payload_tables,payload_state_storage.ref(),exact);

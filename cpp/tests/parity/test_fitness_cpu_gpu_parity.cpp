@@ -2695,6 +2695,22 @@ int main() {
       }
     }
   }
+  {
+    const auto one = gagp::payload::make_int_list_value({Value::from_int(7)});
+    const auto two = gagp::payload::make_int_list_value({Value::from_int(7),Value::from_int(7)});
+    auto program = make_builtin_program({one,one}, gagp::BuiltinId::Concat, 2);
+    for (unsigned limit : {1u, 2u, 0u}) {
+      gagp::FitnessPolicy policy{gagp::FitnessMetric::Levenshtein};
+      policy.list_allocation_limit = limit;
+      const auto cpu = gagp::eval_fitness_cpu({program},{{}},{two},100,7,32,policy);
+      gagp::FitnessSessionGpu session;
+      if (!session.init({{}},{two},100,32,7,policy).ok) return 1;
+      const auto gpu = session.eval_programs({program});
+      if (!gpu.ok || cpu != std::vector<double>{limit==1 ? -7.0 : 0.0} || gpu.fitness != cpu) {
+        std::cerr << "logical list arena boundary parity"; return 1;
+      }
+    }
+  }
   struct TruncCase {std::int64_t a,b,div,mod;};
   const TruncCase trunc_cases[]={{-7,3,-2,-1},{7,-3,-2,1},{-7,-3,2,-1},{7,0,0,0},
       {INT64_MIN,-1,0,0},{INT64_MIN,1,INT64_MIN,0},{INT64_MAX,2,INT64_MAX/2,1}};

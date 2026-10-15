@@ -51,6 +51,8 @@ inline void sampled_audit(const Json& source, const std::string& grammar_path,
       for(auto v:example.scalars)inputs.emplace_back(inputs.size(),gagp::Value::from_int(v));
       if(spec.scheme==asgp::Scheme::kDynamicProgramming && spec.id!="house_robber")
         for(auto v:{example.start.a,example.start.b,example.extent.a,example.extent.b})inputs.emplace_back(inputs.size(),gagp::Value::from_int(v));
+      gagp::payload::ListAllocationScope logical_budget(
+          asgp::IsListType(spec.output) ? config.limits.max_arena : 0, example.elements.size());
       const auto result=session.execute(inputs,2000000);
       native_errors+=result.is_error;
       if(source_error!=result.is_error){++status_mismatch;continue;}

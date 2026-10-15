@@ -13,8 +13,23 @@ namespace gagp::payload {
 // can replay generation sequentially.
 class PayloadBudgetExceeded : public std::runtime_error {
  public:
-  PayloadBudgetExceeded() : std::runtime_error("CPU fitness payload byte budget exceeded") {}
+  explicit PayloadBudgetExceeded(const char* message = "CPU fitness payload byte budget exceeded")
+      : std::runtime_error(message) {}
 };
+
+// Invocation-local logical list budget, independent of physical payload storage.
+// Input cells are charged once by the caller; slices and empty concat are free.
+class ListAllocationScope {
+ public:
+  ListAllocationScope(std::size_t limit, std::size_t initial_cells);
+  ~ListAllocationScope();
+  ListAllocationScope(const ListAllocationScope&) = delete;
+  ListAllocationScope& operator=(const ListAllocationScope&) = delete;
+ private:
+  std::size_t previous_limit_, previous_used_;
+};
+bool list_allocation_budget_active();
+void charge_list_allocation(std::size_t cells);
 
 // Check a prospective temporary allocation before constructing it.
 void check_allocation_budget(std::size_t bytes);

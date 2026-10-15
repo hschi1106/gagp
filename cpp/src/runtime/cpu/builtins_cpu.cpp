@@ -261,6 +261,11 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       std::vector<Value> la;
       std::vector<Value> lb;
       if (payload::lookup_list(a, &la) && payload::lookup_list(b, &lb)) {
+        if (payload::list_allocation_budget_active()) {
+          if (la.empty()) return BuiltinResult{false, b, Err{ErrCode::Value, ""}};
+          if (lb.empty()) return BuiltinResult{false, a, Err{ErrCode::Value, ""}};
+          payload::charge_list_allocation(la.size() + lb.size());
+        }
         std::vector<Value> out_elems;
         payload::check_allocation_budget((la.size() + lb.size()) * sizeof(Value));
         out_elems.reserve(la.size() + lb.size());
@@ -568,6 +573,8 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       }
       return BuiltinResult{false, payload::make_string_value(std::string(1, static_cast<char>(x.i))), Err{ErrCode::Value, ""}};
     }
+    if (x.tag == ValueTag::Int || x.tag == ValueTag::Float || x.tag == ValueTag::String)
+      payload::charge_list_allocation(1);
     if (x.tag == ValueTag::Int) {
       return BuiltinResult{false, payload::make_int_list_value({x}), Err{ErrCode::Value, ""}};
     }

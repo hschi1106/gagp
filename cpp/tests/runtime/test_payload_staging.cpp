@@ -159,6 +159,44 @@ int main() {
     check(stats().list_value_count == before.list_value_count,
           "failed evaluation retained generated payloads");
 
+    // Source-compatible logical cells count actual allocations, including repeats,
+    // while input windows and concat identities consume no new logical cells.
+    const auto empty = make_int_list_value({});
+    {
+      StagedPayloads physical(4096);
+      StagedPayloads::Scope physical_scope(physical);
+      ListAllocationScope logical(4, 1);
+      const auto slice = builtin_call(BuiltinId::Slice,
+          {input, Value::from_int(0), Value::from_int(1)});
+      check(!slice.is_error, "logical arena charged a slice");
+      check(!builtin_call(BuiltinId::Concat, {empty, input}).is_error,
+            "logical arena charged empty concat");
+      check(!builtin_call(BuiltinId::Singleton, {Value::from_int(7)}).is_error,
+            "logical arena rejected singleton below limit");
+      check(!builtin_call(BuiltinId::Concat, {input, input}).is_error,
+            "logical arena rejected exact capacity");
+      bool exhausted = false;
+      try { (void)builtin_call(BuiltinId::Singleton, {Value::from_int(7)}); }
+      catch (const PayloadBudgetExceeded&) { exhausted = true; }
+      check(exhausted, "logical arena deduplicated repeated allocation");
+    }
+    check(!list_allocation_budget_active(), "logical arena escaped invocation");
+    FitnessPolicy logical_policy;
+    logical_policy.list_allocation_limit = 1;
+    const auto logical_score = eval_fitness_cpu({concat}, std::vector<CaseBindings>(2),
+        {expected, expected}, 100, 1000.0, 1, logical_policy);
+    check(logical_score[0] == -2000.0, "fitness ignored logical arena policy");
+    logical_policy.list_allocation_limit = 2;
+    concat.n_locals = 1;
+    const auto input_charged = eval_fitness_cpu({concat}, {{{0,input}},{{0,input}}},
+        {expected, expected}, 100, 1000.0, 1, logical_policy);
+    check(input_charged[0] == -2000.0, "logical arena omitted bound input cells");
+    logical_policy.list_allocation_limit = 3;
+    const auto exact_budget = eval_fitness_cpu({concat}, {{{0,input}},{{0,input}}},
+        {expected, expected}, 100, 1000.0, 1, logical_policy);
+    check(exact_budget[0] == 0.0, "logical arena was not reset between cases");
+
+
     StagedPayloads guard;
     { StagedPayloads::Scope scope(guard);
       bool rejected = false;

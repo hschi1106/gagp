@@ -112,6 +112,11 @@ std::vector<double> eval_fitness_cpu(
         payload::StagedPayloads::Scope payload_scope(temporary_payloads);
         ExecResult out;
         try {
+          std::size_t input_cells = 0;
+          if (policy.list_allocation_limit) for (const auto& input : inputs)
+            if (input.second.tag == ValueTag::IntList || input.second.tag == ValueTag::FloatList ||
+                input.second.tag == ValueTag::StringList) input_cells += Value::container_len(input.second);
+          payload::ListAllocationScope logical_budget(policy.list_allocation_limit, input_cells);
           out = session ? session->execute(inputs, fuel)
                         : execute_bytecode_cpu(programs[p], inputs, fuel);
         } catch (const payload::PayloadBudgetExceeded& error) {

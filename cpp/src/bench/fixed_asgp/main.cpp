@@ -50,6 +50,7 @@ gagp::FitnessPolicy task_fitness_policy(const asgp::TaskSpec& spec) {
   policy.summary_count=spec.summaries;
   policy.summary_weight=spec.summary_weight;
   policy.summary_cap=spec.summary_cap;
+  if (asgp::IsListType(spec.output)) policy.list_allocation_limit=fitness_config().limits.max_arena;
   return policy;
 }
 void validate_aligned_penalty(double penalty) {

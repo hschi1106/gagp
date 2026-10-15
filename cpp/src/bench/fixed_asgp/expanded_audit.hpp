@@ -108,6 +108,8 @@ inline Json score_gagp(const Json& ast, const asgp::TaskSpec& spec,
     if(spec.scheme==asgp::Scheme::kDynamicProgramming && spec.id!="house_robber") {
       for(auto v:{example.start.a,example.start.b,example.extent.a,example.extent.b})inputs.emplace_back(inputs.size(),gagp::Value::from_int(v));
     }
+    gagp::payload::ListAllocationScope logical_budget(
+        totals.list_output ? asgp::EvalLimits{}.max_arena : 0, example.elements.size());
     const auto result = session.execute(inputs,fuel);
     bool error = result.is_error;
     bool exact = false;

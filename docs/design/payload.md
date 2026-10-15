@@ -421,3 +421,11 @@ Focused validation: `ctest --test-dir cpp/build -R
 'gagp_test_payload_staging|gagp_test_extended_payload_gpu' --output-on-failure`.
 The GPU test covers full 1024-case list construction, tuple/string entry counts,
 capacity errors, clamped subordinate memo coordinates and a 200-cell memo case.
+
+The optional fitness logical list-cell budget is independent of storage bytes
+and registry deduplication; its contract is in `spec/fitness.md`.
+`runtime/payload/staging.hpp` owns the invocation-local CPU counter, established
+by CPU fitness or a direct benchmark audit before execution. CUDA initializes
+the same counter in each invocation's payload state. Neither counter persists
+across cases. GPU `DResult::payload_capacity_exceeded` distinguishes physical
+list storage exhaustion from a logical budget failure.

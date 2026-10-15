@@ -9,6 +9,9 @@ struct FitnessPolicy {
   int summary_count = 0;
   double summary_weight = 0.1;
   double summary_cap = 100.0;
+  // Optional logical list-cell arena: inputs, singleton and nonempty concat.
+  // Zero retains the ordinary backend resource policy.
+  unsigned list_allocation_limit = 0;
 };
 inline bool valid_fitness_policy(FitnessPolicy p) {
   return (p.metric==FitnessMetric::Legacy || p.metric==FitnessMetric::Absolute ||

@@ -252,6 +252,17 @@ Verified integer-list view executors may reorder cases by input length for
 `Legacy`, `Exact`, or `Absolute` with capped proximity when every possible
 case score is integral and the bounded total is below 2^40. The view type-flow
 proof excludes floating-point outputs; expected values must be Int or Bool.
-Errors count with the same policy ceiling. Nonintegral penalties, discounted
-absolute proximity, and tuple-summary scores retain the original reduction
-order. This changes scheduling only, not case coverage, scores, or wrong counts.
+Errors count with the same policy ceiling. Nonintegral error ceilings, discounted absolute proximity, and tuple-summary
+scores retain the original reduction order. Exact scoring always has ceiling one. This changes scheduling only, not case coverage, scores, or wrong counts.
+`FitnessPolicy::list_allocation_limit` optionally supplies a logical list-cell
+arena limit (zero leaves the existing backend policy unchanged). Each case starts
+with the sum of its bound typed-list input lengths. `Singleton` consumes one cell;
+`Concat` of two nonempty lists consumes their combined length on every execution,
+including repeated identical results. An empty-list concat returns the other
+operand without allocation, and slicing consumes no logical cells. The next
+allocation that exceeds the limit produces the ordinary error penalty. Physical
+storage exhaustion remains a separate backend constraint; a GPU result marks
+physical payload exhaustion separately for bounded replay without treating a
+logical limit error as recoverable. This policy does not change fuel or frame
+limits. The aligned fixed-ASGP list-output benchmark selects the source arena
+limit of 65536 cells; source character lists use native IntList cells too.
