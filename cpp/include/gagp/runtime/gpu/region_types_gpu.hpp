@@ -92,6 +92,8 @@ struct DRegionWorkspace {
   char* payload_string_bytes = nullptr;
   Value* payload_list_values = nullptr;
   int* payload_list_index = nullptr;
+  DWindowHashCacheEntry* window_hash_cache = nullptr;
+  unsigned window_hash_cache_slots = 0;
   bool payload_window_aliases = false;
   bool fused_list_concat = false;
   int payload_entry_capacity = 0;
