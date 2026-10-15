@@ -38,14 +38,8 @@ Json bound(const std::string& name) { return object({{"bound", string(name)}}); 
 Json call(const std::string& signature, std::vector<Json> args) {
   return object({{"signature", string(signature)}, {"args", array(std::move(args))}});
 }
-void charge_lowering_scaffold(Json& expr) {
-  if(expr.object_v.count("signature") || expr.object_v.count("constant") || expr.object_v.count("bound"))
-    expr.object_v["resource_charge"]=object({{"nodes",number(0)},{"depth",number(0)},{"resets_depth",boolean(false)}});
-  if(expr.object_v.count("args"))for(auto& arg:expr.object_v.at("args").array_v)charge_lowering_scaffold(arg);
-}
 Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::TaskSpec& spec, const std::string& phase, bool guarded_index) {
   using K = asgp::NodeKind;
-  const auto source_node_index=at;
   const auto node = expr.at(at++);
   std::vector<Json> args;
   for (int k=0; k<asgp::Arity(node.kind); ++k) args.push_back(expression(expr, at, dp, spec, phase, guarded_index));
@@ -89,23 +83,8 @@ Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::Ta
     case K::kIntOp: {
       const char* ops[] = {"add", "sub", "mul", "idiv0", "imod0"};
       if (node.op >= 5) throw std::runtime_error("invalid arithmetic operator");
-      if(guarded_index && (node.op==3 || node.op==4)) {
-        const auto lhs_name="source_lhs"+std::to_string(source_node_index),rhs_name="source_rhs"+std::to_string(source_node_index);
-        const auto a=bound(lhs_name),b=bound(rhs_name);
-        Json result;
-        if(node.op==4)result=call("if(Bool,Int,Int)->Int",{call("eq(Int,Int)->Bool",{b,constant(0)}),constant(0),call("sub(Int,Int)->Int",{a,call("mul(Int,Int)->Int",{call("idiv0(Int,Int)->Int",{a,b}),b})})});
-        else {
-          auto overflow=call("if(Bool,Bool,Bool)->Bool",{call("eq(Int,Int)->Bool",{a,constant(INT64_MIN)}),call("eq(Int,Int)->Bool",{b,constant(-1)}),bool_constant(false)});
-          result=call("if(Bool,Int,Int)->Int",{overflow,constant(0),call("idiv0(Int,Int)->Int",{a,b})});
-        }
-        auto inner=call("let(Int,Int)->Int",{constant(0),result});inner.object_v["bind"]=object({{"1",array({string(rhs_name)})}});
-        auto outer=call("let(Int,Int)->Int",{constant(0),inner});outer.object_v["bind"]=object({{"1",array({string(lhs_name)})}});
-        charge_lowering_scaffold(outer);
-        outer.object_v["resource_charge"]=object({{"nodes",number(1)},{"depth",number(1)},{"resets_depth",boolean(false)}});
-        outer.object_v.at("args").array_v[0]=args[0];
-        outer.object_v.at("args").array_v[1].object_v.at("args").array_v[0]=args[1];
-        return outer;
-      }
+      if(guarded_index && (node.op==3 || node.op==4))
+        return call(node.op==3 ? "trunc_div0(Int,Int)->Int" : "trunc_mod0(Int,Int)->Int",args);
       return call(std::string(ops[node.op])+"(Int,Int)->Int", args);
     }
     case K::kBoolOp: {
@@ -219,7 +198,13 @@ gagp::evo::ProgramGenome translate(const asgp::Individual& individual, const std
     return row.object_v.at("id").string_v == "Root";
   });
   bool guarded_index=false;
-  for(const auto& t:doc.object_v.at("templates").array_v)if(t.object_v.at("id").string_v=="Fixed.Solve.Index" || t.object_v.at("id").string_v=="Fixed.Solve.ProtectedDiv")guarded_index=true;
+  for(const auto& t:doc.object_v.at("templates").array_v)if(t.object_v.at("id").string_v=="Fixed.Solve.Index")guarded_index=true;
+  for(const auto& nt:nonterminals)for(const auto& alt:nt.object_v.at("alternatives").array_v) {
+    const auto& expr=alt.object_v.at("expression");
+    const auto signature=expr.object_v.find("signature");
+    if(signature!=expr.object_v.end() && (signature->second.string_v=="trunc_div0(Int,Int)->Int" ||
+        signature->second.string_v=="trunc_mod0(Int,Int)->Int"))guarded_index=true;
+  }
   root.object_v.at("alternatives").array_v.front().object_v["expression"]=translated_root(individual, name, guarded_index);
   doc.object_v["nonterminals"]=array({root});
   const auto exact=gg::compile_grammar(gg::parse_definition(gg::canonical_json(doc)));

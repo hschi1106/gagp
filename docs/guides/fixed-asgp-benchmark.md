@@ -845,16 +845,13 @@ Timeout/resource failures remain visible and do not qualify as acceleration.
 `--modes` may narrow an optimization experiment; record the reduced scope.
 
 
-Source-contract protected arithmetic uses single-evaluation lexical operands.
-ASGP's truncating remainder is lowered as `a - (a / b) * b`, with zero-divisor
-protection; its exceptional `INT64_MIN / -1` result is zero. Native `imod0`
-retains Python-sign modulo and native `idiv0` retains its documented wrapped
-overflow result. Neither public primitive changes. Each protected source
-operator charges one logical grammar node/depth; fixed lowering scaffolding
-charges zero, and operand derivations retain their original charges. This
-prevents native VM expansion from consuming the source operator's search
-allowance. Physical AST/bytecode sizes and backend capacities still require
-separate admission checks; logical charges do not waive them.
+Source-contract protected arithmetic maps to `trunc_div0` and `trunc_mod0`.
+These primitives evaluate each operand once and preserve one physical node per
+source operation. Division truncates toward zero; remainder has the numerator's
+sign. Zero divisors and the exceptional `INT64_MIN / -1` pair return zero.
+Existing `imod0` retains Python-sign modulo and existing `idiv0` retains its
+wrapped overflow result. Expanded index/character guards and recurrence
+scaffolding still require physical AST/bytecode admission checks.
 
 The shared adapter contract covers frozen cases and original initial programs,
 source reachable production types and constant support, source integer results

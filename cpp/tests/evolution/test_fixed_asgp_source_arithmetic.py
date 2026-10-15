@@ -1,4 +1,4 @@
-"""CPU-only parity fixtures for source arithmetic and nested hygienic lets."""
+"""CPU-only parity fixtures for source arithmetic and nested operands."""
 from pathlib import Path
 import json
 import os
@@ -23,7 +23,7 @@ class TestProtectedSourceArithmetic(unittest.TestCase):
         result=subprocess.run([str(BINARY),*map(str,args)],env=env,capture_output=True,text=True,timeout=30)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
 
-    def test_source_phase_budget_excludes_fixed_arithmetic_scaffolding(self):
+    def test_source_arithmetic_preserves_population_admission(self):
         with tempfile.TemporaryDirectory() as folder:
             folder=Path(folder)
             self.call('contract','house_robber',folder/'contract.json')
