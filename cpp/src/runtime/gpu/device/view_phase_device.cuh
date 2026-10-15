@@ -74,7 +74,9 @@ __device__ __noinline__ DResult d_run_bound_view_phase(
       case OP_CHECK_INT: case OP_CHECK_LIST: break;
       case OP_CALL_BUILTIN: {
         const auto bid = static_cast<BuiltinId>(ins.a);
-        if (bid == BuiltinId::Len) {
+        if (bid == BuiltinId::IsLetter) {
+          const auto x=stack[sp-1]; stack[sp-1]=(x>='A' && x<='Z') || (x>='a' && x<='z');
+        } else if (bid == BuiltinId::Len) {
           stack[sp - 1] = static_cast<std::uint64_t>(stack[sp - 1]) >> 48;
         } else if (bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) {
           const auto index = stack[--sp]; const auto source = static_cast<std::uint64_t>(stack[sp - 1]);

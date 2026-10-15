@@ -87,7 +87,8 @@ inline std::optional<ExecResult> run_typed_phase(const PhaseProgram& program,
       case Opcode::CheckInt: case Opcode::CheckList: break;
       case Opcode::CallBuiltin: {
         const auto id=static_cast<BuiltinId>(ins.a);
-        if(id==BuiltinId::Len) stack[sp-1]=static_cast<std::uint64_t>(stack[sp-1])>>48;
+        if(id==BuiltinId::IsLetter) { const auto x=stack[sp-1]; stack[sp-1]=(x>='A' && x<='Z') || (x>='a' && x<='z'); }
+        else if(id==BuiltinId::Len) stack[sp-1]=static_cast<std::uint64_t>(stack[sp-1])>>48;
         else if((id == BuiltinId::Index || id == BuiltinId::IndexNonnegative || id == BuiltinId::IndexClampedOrZero) || id==BuiltinId::Slice) {
           const auto hi=stack[--sp];
           const auto lo=id==BuiltinId::Slice ? stack[--sp] : hi;

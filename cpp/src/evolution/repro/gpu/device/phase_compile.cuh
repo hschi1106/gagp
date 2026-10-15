@@ -195,7 +195,7 @@ __device__ inline PhaseCompileResult compile_phase_tree(
       completed=operation_type(node,frame.args);
       if (completed==ValueTag::Invalid) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
       if (node.opcode==Opcode::CallBuiltin) {
-        if(node.operand==int(BuiltinId::IsLetter) || node.operand==int(BuiltinId::Concat) || node.operand==int(BuiltinId::Singleton))typed_views=false;
+        if(node.operand==int(BuiltinId::Concat) || node.operand==int(BuiltinId::Singleton))typed_views=false;
         if (!out.emit(node.opcode,node.fuel,node.operand,node.arity,gpu_detail::DINSTR_HAS_A|gpu_detail::DINSTR_HAS_B)) return out.result;
       } else if (!out.emit(node.opcode,node.fuel)) return out.result;
       out.stack-=node.arity-1;

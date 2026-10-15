@@ -128,7 +128,7 @@ std::vector<Fixture> generated() {
     out.push_back(normalize(ast,3,end,{{0,0},{1,1}},{ValueTag::Int,ValueTag::Bool},boolean?ValueTag::Bool:ValueTag::Int,std::move(phase)));
   }
   Fixture leaf;leaf.nodes={{PhaseTreeKind::Constant,Opcode::PushConst,0,0,1,1}};leaf.constants={Value::from_int(1)};leaf.reference.consts=leaf.constants;leaf.reference.code={{Opcode::PushConst,0,0,true,false}};
-  auto letter=leaf;letter.result=ValueTag::Bool;letter.views=false;
+  auto letter=leaf;letter.result=ValueTag::Bool;
   letter.nodes.insert(letter.nodes.begin(),{PhaseTreeKind::Operation,Opcode::CallBuiltin,int(BuiltinId::IsLetter),1,1,1});
   letter.reference.code.push_back({Opcode::CallBuiltin,int(BuiltinId::IsLetter),1,true,true});
   out.push_back(letter);

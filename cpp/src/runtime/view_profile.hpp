@@ -90,6 +90,8 @@ inline bool view_code_supported(const std::vector<Instr>& code,
           if (ins.b != 2 || !pop(ValueTag::Int) || !pop(ValueTag::Int) || !push(ValueTag::Int)) return false;
         } else if (bid == BuiltinId::Clip) {
           if (ins.b != 3 || !pop(ValueTag::Int) || !pop(ValueTag::Int) || !pop(ValueTag::Int) || !push(ValueTag::Int)) return false;
+        } else if (bid == BuiltinId::IsLetter) {
+          if (ins.b != 1 || !pop(ValueTag::Int) || !push(ValueTag::Bool)) return false;
         } else if (bid == BuiltinId::Len) {
           if (ins.b != 1 || !pop(ValueTag::IntList) || !push(ValueTag::Int)) return false;
         } else if (bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) {

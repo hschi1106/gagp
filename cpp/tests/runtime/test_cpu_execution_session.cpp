@@ -17,6 +17,7 @@
 #include "gagp/runtime/payload/payload.hpp"
 #include "gagp/core/builtin.hpp"
 #include "gagp/runtime/cpu/builtins_cpu.hpp"
+#include "../../src/runtime/view_profile.hpp"
 
 namespace {
 
@@ -549,6 +550,25 @@ bool test_nonnegative_index() {
   return true;
 }
 
+bool test_integer_letter_views() {
+  for(std::int64_t x : {INT64_MIN,std::int64_t(64),std::int64_t(65),std::int64_t(90),std::int64_t(91),std::int64_t(96),std::int64_t(97),std::int64_t(122),std::int64_t(123),INT64_MAX}) {
+    auto region=counter_program();auto& segment=region.bounded_region_segments[0];
+    // Keep the recursive result Int while exercising Bool inside the base phase.
+    segment.base_body=phase({Value::from_int(x),Value::from_int(1),Value::from_int(0)},
+      {ins_a(Opcode::PushConst,0),{Opcode::CallBuiltin,int(BuiltinId::IsLetter),1,true,true},
+       ins_a(Opcode::JmpIfFalse,5),ins_a(Opcode::PushConst,1),ins_a(Opcode::Jmp,6),
+       ins_a(Opcode::PushConst,2),ins(Opcode::Return)});
+    const auto& p=segment.base_body.program;
+    if(!check(detail::view_code_supported(p.code,p.consts,0,{},ValueTag::Int),"integer IsLetter view proof"))return false;
+    const auto result=execute_bytecode_cpu(region,{{0,Value::from_int(0)}},100);
+    const bool wanted=(x>=65 && x<=90)||(x>=97 && x<=122);
+    if(!check(!result.is_error && result.value.i==wanted,"integer IsLetter view boundary"))return false;
+    auto chars=p.consts;chars[0]=Value::from_char(65);
+    if(!check(!detail::view_code_supported(p.code,chars,0,{},ValueTag::Int),"Char IsLetter remains generic"))return false;
+  }
+  return true;
+}
+
 bool test_clamped_index() {
   const auto full=payload::make_int_list_value({Value::from_int(INT64_MIN),Value::from_int(9007199254740993LL),Value::from_int(INT64_MAX)});
   const auto empty=payload::make_int_list_value({});
@@ -591,7 +611,7 @@ int main() {
       }
       if (direct) setenv("GAGP_CPU_BOUND_PHASE", "1", 1);
       else unsetenv("GAGP_CPU_BOUND_PHASE");
-    if (!test_clamped_index() || !test_nonnegative_index() || !test_compact_coordinate_branches() ||
+    if (!test_integer_letter_views() || !test_clamped_index() || !test_nonnegative_index() || !test_compact_coordinate_branches() ||
         !test_typed_numeric_boundaries_and_replay() ||
         !test_typed_integer_oracles() ||
         !test_coordinate_capture_views() ||

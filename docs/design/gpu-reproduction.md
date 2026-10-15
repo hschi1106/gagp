@@ -824,6 +824,9 @@ productions and the fixed region skeleton satisfy phase admission. Tests:
 `gagp_test_gpu_phase_compile` and `gagp_test_gpu_phase_layout`.
 
 The integer-codepoint `is_letter(Int)` overload is also admitted to phase
-construction/lowering. It clears the typed-view proof because the compact view
-interpreter does not implement this operation; evaluation stays on the ordinary
-GPU executor with the builtin's ASCII classification and fuel semantics.
+construction/lowering and the CPU/GPU typed view interpreters. The shared
+capability proof requires an Int input and Bool output; the operation preserves
+the view certificate and uses the builtin's ASCII classification with ordinary
+operation fuel. The Char overload remains on the generic executor. Boundary
+coverage lives in `gagp_test_cpu_execution_session`, with GPU phase proof and
+bytecode comparison in `gagp_test_gpu_phase_compile`.
