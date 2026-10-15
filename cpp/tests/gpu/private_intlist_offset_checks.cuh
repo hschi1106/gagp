@@ -61,6 +61,38 @@ __global__ void inspect_private_intlist_offsets(Value* cells, Value* source, int
   Value slice[3]={left,Value::from_int(1),Value::from_int(3)};
   if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Slice,slice,3,tables,st,b,error) ||
      !d_lookup_list_payload(tables,st,b,ptr,count) || count!=2 || ptr[0].i!=1) {*failure=14;return;}
+  // Local windows retain their origin through nested slices and later copies.
+  DArenaPayloadState local;local.private_intlists=true;local.list_values=cells;
+  local.kMaxListValues=65536;local.logical_list_limit=65536;
+  Value x,y,pair,window,nested,joined;
+  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&one,1,tables,local,x,error) ||
+     !d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&two,1,tables,local,y,error)) {*failure=15;return;}
+  Value pair_args[2]={x,y};
+  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Concat,pair_args,2,tables,local,pair,error)) {*failure=16;return;}
+  Value local_slice[3]={pair,Value::from_int(0),Value::from_int(2)};
+  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Slice,local_slice,3,tables,local,window,error)) {*failure=17;return;}
+  local_slice[0]=window;local_slice[1]=Value::from_int(1);
+  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Slice,local_slice,3,tables,local,nested,error) ||
+     !d_lookup_list_payload(tables,local,nested,ptr,count) || count!=1 || ptr[0].i!=8) {*failure=18;return;}
+  Value join_args[2]={nested,x};
+  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Concat,join_args,2,tables,local,joined,error) ||
+     !d_lookup_list_payload(tables,local,joined,ptr,count) || count!=2 || ptr[0].i!=8 || ptr[1].i!=7) {*failure=19;return;}
+  local_slice[0]=x;local_slice[1]=Value::from_int(0);local_slice[2]=Value::from_int(1);
+  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Slice,local_slice,3,tables,local,window,error) ||
+     !d_lookup_list_payload(tables,local,window,ptr,count) || count!=1 || ptr[0].i!=7 ||
+     local.list_values_used!=6 || local.logical_list_used!=6 || local.list_entry_count) {*failure=20;return;}
+  // A scalar region's discarded suffix is invalid before reuse. Offsets may be
+  // reused after that lifetime ends; no persistent ABA identity is promised.
+  const int saved=local.list_values_used;
+  Value discarded,replacement;
+  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&one,1,tables,local,discarded,error)) {*failure=21;return;}
+  d_restore_local_list_storage(local,0,saved);
+  if(d_lookup_list_payload(tables,local,discarded,ptr,count) || local.logical_list_used!=7) {*failure=22;return;}
+  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&two,1,tables,local,replacement,error) ||
+     !d_lookup_list_payload(tables,local,replacement,ptr,count) || count!=1 || ptr!=cells+saved || ptr[0].i!=8 ||
+     local.list_values_used!=saved+1 || local.logical_list_used!=8 ||
+     !d_lookup_list_payload(tables,local,joined,ptr,count) || count!=2 || ptr[0].i!=8 || ptr[1].i!=7) {*failure=23;return;}
+
 }
 
 bool test_private_intlist_offsets() {
@@ -73,6 +105,48 @@ bool test_private_intlist_offsets() {
       cudaMemcpy(&failure,device_failure,sizeof(int),cudaMemcpyDeviceToHost)==cudaSuccess;
   cudaFree(cells);cudaFree(source);cudaFree(device_failure);
   return check(ok && !failure,"private IntList descriptor/content boundary "+std::to_string(failure));
+}
+
+bool test_private_intlist_region_lifetime() {
+  auto base=phase({Value::from_int(91)},
+      {ins_a(Opcode::PushConst,0),ins_ab(Opcode::CallBuiltin,int(BuiltinId::Singleton),1),
+       ins_ab(Opcode::CallBuiltin,int(BuiltinId::Len),1),ins(Opcode::Return)});
+  auto program=invocation(unary_segment(ValueTag::Int,std::move(base),constant_phase(Value::from_int(0))),0);
+  program.n_locals=3;program.consts={Value::from_int(0),Value::from_int(1)};
+  // Root [input] survives a scalar phase's temporary [91]. The new [input+1]
+  // reuses that phase's discarded storage, then a root window joins both lists.
+  program.code={ins_a(Opcode::Load,0),ins_ab(Opcode::CallBuiltin,int(BuiltinId::Singleton),1),ins_a(Opcode::Store,1),
+      ins_a(Opcode::PushConst,0),ins_a(Opcode::BoundedRegion,0),ins_a(Opcode::Store,2),
+      ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,1),ins(Opcode::Add),
+      ins_ab(Opcode::CallBuiltin,int(BuiltinId::Singleton),1),ins_a(Opcode::Store,2),
+      ins_a(Opcode::Load,1),ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),
+      ins_ab(Opcode::CallBuiltin,int(BuiltinId::Slice),3),ins_a(Opcode::Load,2),
+      ins_ab(Opcode::CallBuiltin,int(BuiltinId::Concat),2),ins(Opcode::Return)};
+  program.instruction_fuel.assign(program.code.size(),1);
+  std::vector<CaseBindings> cases;std::vector<Value> answers;
+  for(int i=0;i<1024;++i) {
+    const int input=i%17-8;cases.push_back({{0,Value::from_int(input)}});
+    answers.push_back(payload::make_int_list_value({Value::from_int(input),Value::from_int(input+1)}));
+  }
+  ScopedEnvironment restore_tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD");
+  for(auto metric:{FitnessMetric::Exact,FitnessMetric::Levenshtein}) for(unsigned limit:{4u,5u}) {
+    FitnessPolicy policy{metric};policy.list_allocation_limit=limit;
+    std::vector<unsigned> wrong;std::vector<CpuFitnessCaseCounts> counts;
+    const auto cpu=eval_fitness_cpu({program},cases,answers,1000,1000,33,policy,&wrong,&counts);
+    for(const char* tiled:{"0","1"}) {
+      setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD",tiled,1);
+      FitnessSessionGpu session;if(!session.init(cases,answers,1000,33,1000,policy).ok)return false;
+      int callbacks=0;cudaError_t callback_status=cudaSuccess;
+      const auto result=session.eval_programs({program},true,[&]{++callbacks;callback_status=cudaDeviceSynchronize();});
+      if(!check(result.ok && result.fitness==cpu && result.wrong==wrong && callbacks==1 && callback_status==cudaSuccess &&
+          result.execution_profile.find("private-intlist-offset-v1-declined")==std::string::npos &&
+          result.execution_profile.find("private-intlist-offset-v1")!=std::string::npos &&
+          result.case_counts[0][0]==1024 && result.case_counts[0][1]==counts[0].errors &&
+          counts[0].errors==(limit==4?1024u:0u) && result.case_counts[0][2]==counts[0].timeouts &&
+          result.payload_replay_programs==0,"private scalar phase lifetime/full-case CPU/charge parity"))return false;
+    }
+  }
+  return true;
 }
 
 bool test_private_intlist_fitness() {
@@ -155,5 +229,5 @@ bool test_private_intlist_fitness() {
     if(!check(result.ok && result.case_counts[0][0]==1 && result.case_counts[0][2]==(fuel<3?1u:0u),
         "private fuel/error ordering"))return false;
   }
-  return true;
+  return test_private_intlist_region_lifetime();
 }
