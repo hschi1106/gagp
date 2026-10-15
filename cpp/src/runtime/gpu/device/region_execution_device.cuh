@@ -159,14 +159,14 @@ __device__ DResult d_region_phase(
       }
       const auto* code=tables.phase_code+phase.program.code_offset;
       // Both operands are total, initialized Int reads. Preserve each charge
-      // and the numeric comparison's double conversion without a phase VM call.
+      // and full-width integer ordering without a phase VM call.
       for(int i=0;i<phase.program.code_len;++i) {
         if(fuel<0 || code[i].fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
         fuel-=code[i].fuel;
       }
       const bool constant_first=code[0].op==OP_PUSH_CONST;
       const auto constant=tables.phase_consts[phase.program.const_offset+code[constant_first?0:1].a].i;
-      const double a=constant_first?constant:bound,b=constant_first?bound:constant;
+      const std::int64_t a=constant_first?constant:bound,b=constant_first?bound:constant;
       const bool answer=code[2].op==OP_LT?a<b:code[2].op==OP_LE?a<=b:code[2].op==OP_GT?a>b:a>=b;
       return d_ok(Value::from_bool(answer));
     }

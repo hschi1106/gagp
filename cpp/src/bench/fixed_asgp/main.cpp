@@ -1,4 +1,5 @@
 #include "adapter.hpp"
+#include "search_contract.hpp"
 #include "expanded_audit.hpp"
 #include "sampled_audit.hpp"
 
@@ -50,6 +51,15 @@ gagp::FitnessPolicy task_fitness_policy(const asgp::TaskSpec& spec) {
   policy.summary_weight=spec.summary_weight;
   policy.summary_cap=spec.summary_cap;
   return policy;
+}
+Json search_contract_json(const gagp::evo::EvolutionConfig& cfg, const std::string& profile) {
+  const auto audit=fixed_asgp::audit_search_contract(cfg,profile,
+      cfg.fitness_policy.metric!=gagp::FitnessMetric::Legacy,false);
+  std::vector<Json> items;
+  for(const auto& item:audit.items)items.push_back(object({{"id",string(item.id)},
+    {"asgp",string(item.source)},{"gagp",string(item.native)},{"matched",number(item.matched)}}));
+  return object({{"version",string(audit.version)},{"fully_aligned",number(audit.fully_aligned())},
+    {"items",array(std::move(items))}});
 }
 void freeze(const std::string& name, const std::string& path) {
   auto spec=task(name);
@@ -247,7 +257,8 @@ Json measure_gagp(const std::vector<gagp::evo::ProgramGenome>& population,
       std::chrono::steady_clock::now()-call_begin).count();
   const auto& t=result.timing.generations.at(0);
   const auto& v=t.reproduction.variation;
-  return object({{"execution_profile",string(t.evaluation.execution_profile)}, {"reproduction_profile",string(result.reproduction_profile)}, {"reproduction_fallback_reason",string(result.reproduction_fallback_reason)},
+  return object({{"execution_profile",string(t.evaluation.execution_profile)}, {"search_contract",search_contract_json(cfg,result.reproduction_profile)},
+    {"reproduction_profile",string(result.reproduction_profile)}, {"reproduction_fallback_reason",string(result.reproduction_fallback_reason)},
     {"initial_admission_ms",number(result.timing.init_population_ms)}, {"genotype_device_bytes",number(result.genotype_device_bytes)}, {"generation_ms",number(t.total_ms)}, {"eval_ms",number(t.eval_ms)}, {"repro_ms",number(t.repro_ms)},
     {"evolve_wall_ms",number(evolve_wall_ms)}, {"evolve_call_ms",number(result.timing.total_ms)}, {"gpu_init_ms",number(result.timing.gpu_eval_init_ms)},
     {"compile_ms",number(t.evaluation.cpu_compile_ms+t.evaluation.gpu_compile_ms)},
@@ -438,7 +449,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
       {"generation_rejections",number(v.generation_rejections)}}));
   }
   for (const auto& one:result.final_population)
-    final.push_back(object({{"fitness",number(one.fitness)}, {"nodes",number(one.genome.ast.nodes.size())}}));
+    final.push_back(object({{"fitness",number(one.fitness)}, {"wrong",number(one.wrong)}, {"nodes",number(one.genome.ast.nodes.size())}}));
   if (const char* path = std::getenv("GAGP_SEARCH_EXPORT")) {
     std::vector<Json> asts;
     for (const auto& one : result.final_population)
@@ -470,6 +481,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
     top_rows.push_back(object({{"gpu",number(result.final_population[i].fitness)},{"cpu",number(cpu[i])}}));
   write(output,object({{"mode",string(mode)}, {"case_penalty",number(cfg.penalty)}, {"elite_count",number(cfg.elite_count)}, {"fitness_metric",number(static_cast<int>(cfg.fitness_policy.metric))}, {"population",number(population.size())}, {"cases",number(cases.size())},
     {"final_best",number(result.final_population.front().fitness)},
+    {"search_contract",search_contract_json(cfg,result.reproduction_profile)},
     {"reproduction_profile",string(result.reproduction_profile)}, {"reproduction_fallback_reason",string(result.reproduction_fallback_reason)},
     {"genotype_device_bytes",number(result.genotype_device_bytes)}, {"top16_cpu",array(std::move(top_rows))},{"cpu_audit_ms",number(elapsed(audit_begin))},{"cpu_audit_program_count",number(cpu.size())},{"cpu_audit_mismatches",number(audit_mismatches)},
     {"unique_final_genomes",number(unique.size())},{"seed",number(cfg.seed)}, {"generations",array(std::move(rows))},

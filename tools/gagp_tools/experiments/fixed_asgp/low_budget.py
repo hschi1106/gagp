@@ -202,7 +202,9 @@ class Study:
             ('audit', ['audit', source, grammar, folder / 'audit.json']),
         ):
             cell = self.run(task, phase, [self.args.binary, *command])
-            if cell['status'] != 'ok':
+            if phase == 'audit':
+                record['known_solution_audit'] = cell['status']
+            elif cell['status'] != 'ok':
                 record.update(status=cell['status'], blocked_at=phase)
                 return
         sampled = self.run(task, 'sampled-audit', [self.args.binary, 'sampled-audit',
@@ -223,7 +225,7 @@ class Study:
         statuses = []
         for mode in MODES:
             statuses.append(self.search(task, folder, prepared, 8, mode, 0))
-        record['status'] = 'smoke_pass' if all(s == 'ok' for s in statuses) and record['cpu_gpu_snapshot'] == 'ok' else 'smoke_failed'
+        record['status'] = 'smoke_pass' if all(s == 'ok' for s in statuses) and record['cpu_gpu_snapshot'] == 'ok' and record['known_solution_audit'] == 'ok' else 'smoke_failed'
 
     def search(self, task, artifacts, prepared, population, mode, seed):
         tag = f'{mode}.s{seed}'
