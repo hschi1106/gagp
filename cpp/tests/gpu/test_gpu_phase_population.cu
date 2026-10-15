@@ -311,11 +311,11 @@ void test_trivial_pattern_refresh() {
 }
 
 void test_private_intlist_generations(bool sequence_windows=false) {
- const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_PRIVATE_MEASURE_CACHE","GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","GAGP_COMPACT_FRAMES","GAGP_GPU_WINDOW_LEAF_DIRECT","GAGP_GPU_PRIVATE_BOUND_PHASES","GAGP_BOUND_ADD_PHASE","GAGP_BOUND_COMPARE_PHASE"};
+ const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_PRIVATE_MEASURE_CACHE","GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","GAGP_COMPACT_FRAMES","GAGP_GPU_WINDOW_LEAF_DIRECT","GAGP_GPU_PRIVATE_BOUND_PHASES","GAGP_BOUND_ADD_PHASE","GAGP_BOUND_COMPARE_PHASE","GAGP_GPU_PRIVATE_TYPED_PHASES"};
  struct Restore {
-  const char** flags;std::string saved[15];bool present[15];
-  explicit Restore(const char** f):flags(f){for(int i=0;i<15;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
-  ~Restore(){for(int i=0;i<15;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
+  const char** flags;std::string saved[16];bool present[16];
+  explicit Restore(const char** f):flags(f){for(int i=0;i<16;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
+  ~Restore(){for(int i=0;i<16;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
  } restore(flags);
  if(!sequence_windows)setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","0",1);
  const auto grammar=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
@@ -336,6 +336,7 @@ void test_private_intlist_generations(bool sequence_windows=false) {
  repro::NativePhasePopulation owner(grammar,parents,names);
  bool changed=false,saw_content_match=false;
  for(int generation=0;generation<=32;++generation) {
+  setenv("GAGP_GPU_PRIVATE_TYPED_PHASES","0",1);
   setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","0",1);
   setenv("GAGP_GPU_PRIVATE_BOUND_PHASES","0",1);
   setenv("GAGP_GPU_PRIVATE_MEASURE_CACHE","0",1);
@@ -350,8 +351,13 @@ void test_private_intlist_generations(bool sequence_windows=false) {
   setenv("GAGP_GPU_PRIVATE_BOUND_PHASES","1",1);
   const auto canonical=owner.evaluate(session,true);
   setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","1",1);
+  const auto untyped=owner.evaluate(session,true);
+  setenv("GAGP_GPU_PRIVATE_TYPED_PHASES","1",1);
   const auto gpu=owner.evaluate(session,true);
-  require(no_bound.ok && no_bound.fitness==gpu.fitness && no_bound.wrong==gpu.wrong &&
+  require(untyped.ok && untyped.fitness==gpu.fitness && untyped.wrong==gpu.wrong &&
+      untyped.case_counts==gpu.case_counts && untyped.execution_profile.find("-private-typed-phases")==std::string::npos &&
+      gpu.execution_profile.find("-private-typed-phases")!=std::string::npos &&
+      no_bound.ok && no_bound.fitness==gpu.fitness && no_bound.wrong==gpu.wrong &&
       no_bound.case_counts==gpu.case_counts && no_bound.execution_profile.find("-private-bound-phases")==std::string::npos &&
       gpu.execution_profile.find("-private-bound-phases")!=std::string::npos &&
       uncached.ok && boxed.ok && gpu.ok && uncached.fitness==gpu.fitness && uncached.wrong==gpu.wrong &&
@@ -394,7 +400,8 @@ void test_private_intlist_generations(bool sequence_windows=false) {
      policy_declined.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos &&
      policy_declined.execution_profile.find("compact-intlist-cells-declined")!=std::string::npos &&
      policy_declined.execution_profile.find("-trivial-phases-declined")!=std::string::npos &&
-     policy_declined.execution_profile.find("-private-bound-phases-declined")!=std::string::npos,
+     policy_declined.execution_profile.find("-private-bound-phases-declined")!=std::string::npos &&
+     policy_declined.execution_profile.find("-private-typed-phases-declined")!=std::string::npos,
      "unsupported policy retained cold native phases/private profile");
  auto wrong_cases=cases;
  for(auto& binding:wrong_cases[0])if(names[binding.idx]=="base_value" || names[binding.idx]=="source")binding.value=Value::from_float(1.5);
@@ -406,7 +413,8 @@ void test_private_intlist_generations(bool sequence_windows=false) {
      declined.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos &&
      declined.execution_profile.find("compact-intlist-cells-declined")!=std::string::npos &&
      declined.execution_profile.find("-trivial-phases-declined")!=std::string::npos &&
-     declined.execution_profile.find("-private-bound-phases-declined")!=std::string::npos,
+     declined.execution_profile.find("-private-bound-phases-declined")!=std::string::npos &&
+     declined.execution_profile.find("-private-typed-phases-declined")!=std::string::npos,
      "different session reused stale private capability instead of current generic fallback");
 }
 

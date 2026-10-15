@@ -277,6 +277,28 @@ metadata is refreshed after every GPU generation. This independent flag defaults
 off and profiles append `-private-bound-phases` or `-private-bound-phases-declined`.
 The typed Bound-view VM remains limited to its existing view profile.
 
+`GAGP_GPU_PRIVATE_TYPED_PHASES=1`, together with
+`GAGP_GPU_PRIVATE_GLOBAL_OFFSETS=1`, optionally runs private phases through the
+existing 64-bit typed phase loop. Current complete private typeflow and successful
+normalization of every IntList case value and packed root/phase constant are
+required, including empty lists. Any unconverted canonical list, including an
+actual65536 input or constant, declines this shortcut for that evaluation;
+expected-answer-only payloads do not enter the phase loop and do not disqualify
+it. Normalization and its uploads remain inside ordinary evaluation timing and
+are repeated against each fresh packed table. External programs/cases are unchanged.
+
+Only phases with at most eight locals and a verified stack bound of sixteen use
+the typed loop; larger phases retain the generic private VM. Scalars retain all
+64 bits. List words preserve private global/local origin and escaped backing
+length, while Len/Index/Slice retain the existing encoded numeric length rules.
+The list adapter calls the existing checked private builtins for allocation,
+logical charging and physical-capacity replay. Missing or incorrectly typed
+parameter captures fail only on Load after its fuel charge; Store clears that
+local's capture-type guard. Unused captures remain unobserved. The same loop
+retains instruction order, wrapping arithmetic, branch fuel and protected numeric
+operations; its ordinary Bound-view policy remains unchanged. Profiles append
+`-private-typed-phases` or `-private-typed-phases-declined`; the flag defaults off.
+
 `GAGP_GPU_PRIVATE_MEASURE_CACHE=1`, together with
 `GAGP_MEASURE_PHASE_CACHE=1`, extends the existing block-local sequence-Measure
 preparation cache to admitted private IntList arenas. The default is off. Current

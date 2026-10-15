@@ -3,11 +3,49 @@
 // Host type-flow proof guarantees the instruction/type subset and stack bounds.
 // Keep ordinary numeric conversion, protected arithmetic, and every fuel charge.
 // This execution representation stores proven scalar/view payloads without tags.
+struct DViewPhasePayloadOps {
+  __device__ bool convert(Value& value,const DPayloadTables& tables) const {
+    return d_convert_list_view(value,tables);
+  }
+  __device__ bool call(BuiltinId,long long*,int&,const DPayloadTables&,DResult&) const {return false;}
+};
+
+template<DPayloadFlavor Flavor>
+struct DPrivatePhasePayloadOps {
+  typename DPayloadFlavorTraits<Flavor>::State& state;
+  __device__ bool convert(Value&,const DPayloadTables&) const {return true;}
+  __device__ bool call(BuiltinId bid,long long* stack,int& sp,
+      const DPayloadTables& tables,DResult& result) const {
+    int count=0;
+    switch(bid) {
+      case BuiltinId::Singleton:count=1;break;
+      case BuiltinId::Concat:case BuiltinId::Index:case BuiltinId::IndexNonnegative:
+      case BuiltinId::IndexClampedOrZero:count=2;break;
+      case BuiltinId::Slice:count=3;break;
+      case BuiltinId::Len:case BuiltinId::IsLetter:case BuiltinId::Clip:
+      case BuiltinId::TruncDiv0:case BuiltinId::TruncMod0:case BuiltinId::IDiv0:
+      case BuiltinId::IMod0:case BuiltinId::Min:case BuiltinId::Max:return false;
+      default:result=d_error(ErrCode::Type);return true;
+    }
+    Value args[3];
+    for(int i=0;i<count;++i) {
+      args[i]=Value::from_int(stack[sp-count+i]);
+      if(bid!=BuiltinId::Singleton && (i==0 || (bid==BuiltinId::Concat && i==1))) {
+        args[i].tag=ValueTag::IntList;args[i].b=true;
+      }
+    }
+    Value value;ErrCode error=ErrCode::Value;
+    if(!d_builtin_call<Flavor>(bid,args,count,tables,state,value,error))result=d_error(error);
+    else {sp-=count-1;stack[sp-1]=value.i;}
+    return true;
+  }
+};
+
 struct DViewPresets {
   const DLocalPreset* presets;
   int preset_count;
   __device__ ErrCode init(long long* locals, unsigned& local_set,
-      const DPayloadTables& tables) const {
+      const DPayloadTables& tables,unsigned&) const {
   for (int i = 0; i < preset_count; ++i) {
     const int local = presets[i].local;
     if (local < 0 || local >= 8) return ErrCode::Name;
@@ -20,13 +58,13 @@ struct DViewPresets {
   }
 };
 
-template <class Binder>
+template <class Binder,class PayloadOps=DViewPhasePayloadOps>
 __device__ __noinline__ DResult d_run_bound_view_phase(
     const DCodeView& view, Binder binder,
-    const DPayloadTables& tables, int& fuel, ValueTag expected) {
+    const DPayloadTables& tables, int& fuel, ValueTag expected, PayloadOps payload_ops={}) {
   long long stack[16], locals[8];
-  unsigned local_set = 0;
-  const auto error = binder.init(locals, local_set, tables);
+  unsigned local_set=0,wrong_type=0;
+  const auto error=binder.init(locals,local_set,tables,wrong_type);
   if (static_cast<int>(error) != -1) return d_error(error);
   int sp = 0, ip = 0;
   while (ip < view.code_len) {
@@ -36,15 +74,17 @@ __device__ __noinline__ DResult d_run_bound_view_phase(
     switch (ins.op) {
       case OP_PUSH_CONST: {
         Value value = view.consts[ins.a];
-        if (!d_convert_list_view(value, tables)) return d_error(ErrCode::Value);
+        if (!payload_ops.convert(value,tables)) return d_error(ErrCode::Value);
         stack[sp++] = value.tag == ValueTag::Bool ? value.b : value.i;
         break;
       }
       case OP_LOAD:
         if (!(local_set & (1u << ins.a))) return d_error(ErrCode::Name);
+        if(wrong_type & (1u<<ins.a))return d_error(ErrCode::Type);
         stack[sp++] = locals[ins.a]; break;
       case OP_STORE:
-        locals[ins.a] = stack[--sp]; local_set |= 1u << ins.a; break;
+        locals[ins.a] = stack[--sp]; local_set |= 1u << ins.a;
+        wrong_type &= ~(1u<<ins.a);break;
       case OP_NEG: stack[sp - 1] = vm_semantics::wrap_int_neg(stack[sp - 1]); break;
       case OP_NOT: stack[sp - 1] = !stack[sp - 1]; break;
       case OP_ADD: case OP_SUB: case OP_MUL: case OP_MOD: {
@@ -74,6 +114,11 @@ __device__ __noinline__ DResult d_run_bound_view_phase(
       case OP_CHECK_INT: case OP_CHECK_LIST: break;
       case OP_CALL_BUILTIN: {
         const auto bid = static_cast<BuiltinId>(ins.a);
+        DResult result;
+        if(payload_ops.call(bid,stack,sp,tables,result)) {
+          if(result.is_error)return result;
+          break;
+        }
         if (bid == BuiltinId::IsLetter) {
           const auto x=stack[sp-1]; stack[sp-1]=(x>='A' && x<='Z') || (x>='a' && x<='z');
         } else if (bid == BuiltinId::Len) {

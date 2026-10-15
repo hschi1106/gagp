@@ -235,12 +235,12 @@ bool test_private_global_offset_preparation() {
 
 bool test_private_global_offset_cases() {
   ScopedEnvironment private_mode("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"),global("GAGP_GPU_GLOBAL_PAYLOAD"),
-      mapping("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS"),trivial("GAGP_GPU_TRIVIAL_PHASES");
+      mapping("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS"),typed("GAGP_GPU_PRIVATE_TYPED_PHASES"),trivial("GAGP_GPU_TRIVIAL_PHASES");
   setenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS","1",1);setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
   setenv("GAGP_GPU_TRIVIAL_PHASES","1",1);
   std::vector<CaseBindings> cases;std::vector<Value> answers;
   for(int i=0;i<1024;++i) {
-    auto values=std::vector<Value>(i%4+1,Value::from_int(INT64_C(9007199254740993)+i%11));
+    auto values=std::vector<Value>(i%4,Value::from_int(INT64_C(9007199254740993)+i%11));
     const auto input=payload::make_int_list_value(values);cases.push_back({{0,input}});answers.push_back(input);
   }
   FitnessPolicy policy{FitnessMetric::Exact};policy.list_allocation_limit=65536;
@@ -273,7 +273,8 @@ bool test_private_global_offset_cases() {
     const auto cpu=eval_fitness_cpu(programs,current,expected,1000,1000,33,policy,&wrong,&counts);
     if(!session.init(current,expected,1000,33,1000,policy).ok)return false;
     FitnessEvalResult baseline;
-    for(const char* enabled:{"0","1"}) {
+    for(const char* typed_mode:{"0","1"})for(const char* enabled:{"0","1"}) {
+      setenv("GAGP_GPU_PRIVATE_TYPED_PHASES",typed_mode,1);
       setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS",enabled,1);
       int callbacks=0;
       const auto result=session.eval_programs(programs,true,[&]{++callbacks;});
@@ -282,6 +283,10 @@ bool test_private_global_offset_cases() {
           (result.execution_profile.find("-private-global-offsets")!=std::string::npos)==(enabled[0]=='1') &&
           (result.execution_profile.find("-private-global-offsets-declined")==std::string::npos)==
               (enabled[0]=='0' || active),"private global full-case/session reinit/decline CPU parity"))return false;
+      const bool typed_requested=typed_mode[0]=='1';
+      if(!check((result.execution_profile.find("-private-typed-phases")!=std::string::npos)==typed_requested &&
+          (result.execution_profile.find("-private-typed-phases-declined")==std::string::npos)==
+              (!typed_requested || active),"typed private admission must require complete current normalization"))return false;
       for(unsigned p=0;p<programs.size();++p)
         if(!check(result.case_counts[p][0]==1024 && result.case_counts[p][1]==counts[p].errors &&
             result.case_counts[p][2]==counts[p].timeouts,"private global lazy capture case/status counts"))return false;
@@ -292,6 +297,33 @@ bool test_private_global_offset_cases() {
     }
     if(!check(!programs[1].consts[0].b && !programs[2].bounded_region_segments[0].base_body.program.consts[0].b &&
         !cases.front()[0].value.b,"private global staging mutated external case/program ownership"))return false;
+  }
+  // Inputs and either constant pool with an actual65536 list decline only
+  // typed execution. An expected-answer-only65536 list is outside the word VM.
+  setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","1",1);setenv("GAGP_GPU_PRIVATE_TYPED_PHASES","1",1);
+  const auto full=payload::make_int_list_value(std::vector<Value>(65536,Value::from_int(17)));
+  const auto small=payload::make_int_list_value({Value::from_int(17)});
+  for(int location=0;location<4;++location) {
+    BytecodeProgram program;std::vector<CaseBindings> input_cases(1);
+    if(location==0) {
+      program.n_locals=1;program.code={ins_a(Opcode::Load,0),ins(Opcode::Return)};
+      input_cases[0]={{0,full}};
+    } else if(location==2) {
+      program=invocation(unary_segment(ValueTag::IntList,constant_phase(full),
+          load_phase(RegionSlotBank::Result,0)),0);
+    } else {
+      program.consts={location==3?small:full};
+      program.code={ins_a(Opcode::PushConst,0),ins(Opcode::Return)};
+    }
+    FitnessSessionGpu boundary;
+    if(!boundary.init(input_cases,{full},1000,32,1000,policy).ok)return false;
+    const auto result=boundary.eval_programs({program},true);
+    std::vector<unsigned> wrong;
+    const auto cpu=eval_fitness_cpu({program},input_cases,{full},1000,1000,32,policy,&wrong);
+    if(!check(result.ok && result.fitness==cpu && result.wrong==wrong &&
+        result.execution_profile.find("private-intlist-offset-v1-declined")==std::string::npos &&
+        (result.execution_profile.find("-private-typed-phases-declined")==std::string::npos)==(location==3),
+        "typed private boundary declines transport but preserves expected-only65536 answer"))return false;
   }
   return true;
 }

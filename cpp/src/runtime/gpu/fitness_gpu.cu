@@ -765,17 +765,21 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   // raw session values or surfacing an error for an unused/missing capture.
   std::vector<Value> prepared_case_views;
   const bool private_global_offsets=private_intlists && request_private_globals;
+  const char* private_typed_setting=std::getenv("GAGP_GPU_PRIVATE_TYPED_PHASES");
+  const bool request_private_typed=private_typed_setting && std::string(private_typed_setting)=="1";
+  bool complete_private_normalization=private_global_offsets;
   if(private_global_offsets) {
     const auto prepare=[&](Value& value) {
-      gpu_detail::prepare_private_global_intlist(value,payload_pack.list_entries,
-          static_cast<int>(payload_pack.list_values.size()));
+      if(value.tag==ValueTag::IntList && !gpu_detail::prepare_private_global_intlist(value,payload_pack.list_entries,
+          static_cast<int>(payload_pack.list_values.size())))complete_private_normalization=false;
     };
     for(auto& value:packed.all_consts)prepare(value);
     for(auto& value:packed.all_phase_consts)prepare(value);
     if(!impl_->shared_list_tokens.empty()) {
       prepared_case_views=impl_->host_case_local_vals;
       for(auto& value:prepared_case_views)prepare(value);
-    }
+    } else if(request_private_typed && std::any_of(impl_->host_case_local_vals.begin(),impl_->host_case_local_vals.end(),
+        [](const auto& value){return value.tag==ValueTag::IntList;}))complete_private_normalization=false;
   }
   if (use_views && !impl_->shared_list_tokens.empty() &&
       std::getenv("GAGP_PREPARED_CASE_VIEWS") &&
@@ -870,6 +874,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   const char* private_bound_setting=std::getenv("GAGP_GPU_PRIVATE_BOUND_PHASES");
   const bool request_private_bound=private_bound_setting && std::string(private_bound_setting)=="1";
   region_workspace.private_bound_phases=request_private_bound && private_intlists;
+  region_workspace.private_typed_phases=request_private_typed && complete_private_normalization;
   region_workspace.compact_intlist_cells=private_intlists && request_compact;
   region_workspace.shared_list_value_count=static_cast<int>(payload_pack.list_values.size());
   region_workspace.payload_epoch_index=payload_index && std::getenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX") &&
@@ -1485,6 +1490,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         "-private-intlist-offset-v1":"-private-intlist-offset-v1-declined";
     if(request_private_globals)out.execution_profile+=private_global_offsets?
         "-private-global-offsets":"-private-global-offsets-declined";
+    if(request_private_typed)out.execution_profile+=region_workspace.private_typed_phases?
+        "-private-typed-phases":"-private-typed-phases-declined";
     if(request_private_bound)out.execution_profile+=region_workspace.private_bound_phases?
         "-private-bound-phases":"-private-bound-phases-declined";
     if(request_trivial)out.execution_profile+=region_workspace.trivial_phases?

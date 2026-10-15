@@ -19,7 +19,7 @@ struct DViewRegionBindings {
   std::uint64_t caller_set;
   const DExecutionTables& execution;
   __device__ ErrCode init(long long* locals, unsigned& local_set,
-      const DPayloadTables& tables) const {
+      const DPayloadTables& tables,unsigned&) const {
     if (phase.binding_offset < 0 || phase.binding_count < 0 ||
         phase.binding_count > execution.region_binding_count - phase.binding_offset)
       return ErrCode::Value;
@@ -42,6 +42,40 @@ struct DViewRegionBindings {
       if (!d_convert_list_view(value, tables)) return ErrCode::Value;
       locals[b.local] = value.tag == ValueTag::Bool ? value.b : value.i;
       local_set |= 1u << b.local;
+    }
+    return static_cast<ErrCode>(-1);
+  }
+};
+
+// Private admission already normalized every external IntList. Keep capture
+// absence/type failures lazy; no payload is resolved while binding unused locals.
+template<class Frame>
+struct DPrivateRegionBindings {
+  const DRegionSegment& segment;const DRegionPhase& phase;const Frame& frame;
+  const Value* caller_locals;std::uint64_t caller_set;const DExecutionTables& execution;
+  __device__ ErrCode init(long long* locals,unsigned& local_set,
+      const DPayloadTables&,unsigned& wrong_type) const {
+    if(phase.binding_count<0 || phase.binding_count>8 || phase.binding_offset<0 ||
+        phase.binding_count>execution.region_binding_count-phase.binding_offset)return ErrCode::Value;
+    for(int i=0;i<phase.binding_count;++i) {
+      const auto& b=execution.region_bindings[phase.binding_offset+i];
+      if(b.local<0 || b.local>=8)return ErrCode::Name;
+      Value value;
+      switch(b.bank) {
+        case RegionSlotBank::State:value=frame.state[b.slot];break;
+        case RegionSlotBank::Prepared:value=frame.prepared[b.slot];break;
+        case RegionSlotBank::Result:value=frame.results[b.slot];break;
+        case RegionSlotBank::Measure:value=Value::from_int(Value::container_len(frame.state[segment.sequence_state]));break;
+        case RegionSlotBank::Parameter: {
+          const int local=segment.parameter_caller_locals[b.slot];
+          if(!(caller_set & (std::uint64_t{1}<<local)))continue;
+          value=caller_locals[local];
+          if(segment.parameter_types[b.slot]!=ValueTag::Invalid &&
+              value.tag!=segment.parameter_types[b.slot])wrong_type|=1u<<b.local;
+          break;
+        }
+      }
+      locals[b.local]=value.tag==ValueTag::Bool?value.b:value.i;local_set|=1u<<b.local;
     }
     return static_cast<ErrCode>(-1);
   }
@@ -222,6 +256,17 @@ __device__ DResult d_region_phase(
         fuel-=code[3].fuel;
       }
       return d_ok(Value::from_int(value));
+    }
+  }
+  if constexpr(Flavor==DPayloadFlavor::ArenaMixed || Flavor==DPayloadFlavor::IndexedArena) {
+    const auto& phase=tables.region_phases[phase_index];const auto& p=phase.program;
+    if(payload_state.private_intlists && payload_state.private_typed_phases &&
+        p.n_locals<=8 && p.verified_stack_bound<=16) {
+      const DCodeView view{tables.phase_code+p.code_offset,p.code_len,
+          tables.phase_consts?tables.phase_consts+p.const_offset:nullptr,p.const_len,p.n_locals};
+      return d_run_bound_view_phase(view,
+          DPrivateRegionBindings<Frame>{segment,phase,frame,caller_locals,caller_set,tables},
+          payload_tables,fuel,expected,DPrivatePhasePayloadOps<Flavor>{payload_state});
     }
   }
   if constexpr (Flavor == DPayloadFlavor::BoundIntListViews) {

@@ -70,6 +70,7 @@ struct DArenaPayloadState {
   bool private_intlists = false;
   bool trivial_phases = false;
   bool private_bound_phases = false;
+  bool private_typed_phases = false;
   bool compact_intlist_cells = false;
   std::int64_t* intlist_cells = nullptr;
   bool alias_windows = false;
