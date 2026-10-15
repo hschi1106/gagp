@@ -23,7 +23,8 @@ def definition(root: Path, task: str, contract: dict) -> dict:
         raise ValueError('source contract task mismatch')
     if task == 'house_robber':
         from .grammar import definition as legacy_definition
-        return legacy_definition(root, task)
+        from .arithmetic import protect
+        return protect(legacy_definition(root, task))
     dp = contract['scheme']=='dynamic-programming'
     carrier = TYPES[contract['carrier']]
     scalars = [{'name':f'scalar{i}','type':'Int'} for i,_ in enumerate(contract['scalars'])]
@@ -111,6 +112,7 @@ def definition(root: Path, task: str, contract: dict) -> dict:
     holes={} if dp else {'source':{'input':'source'}}
     holes.update({p.lower():{'ref':f'{p}.{contract["phases"][i]["start"]}'} for i,p in enumerate(phase_names)})
     nts.insert(0,{'id':'Root','type':carrier,'scope':[],'alternatives':[{'id':'scheme','weight':1,'expression':{'template':template['id'],'holes':holes}}]})
-    return {'format_version':'grammar-definition-v2','inputs':[{'name':'source','type':'IntList'}]+scalars+([{'name':n,'type':'Int'} for n in ('start_a','start_b','extent_a','extent_b')] if dp else []),
+    from .arithmetic import protect
+    return protect({'format_version':'grammar-definition-v2','inputs':[{'name':'source','type':'IntList'}]+scalars+([{'name':n,'type':'Int'} for n in ('start_a','start_b','extent_a','extent_b')] if dp else []),
         'entry':{'nonterminal':'Root','type':carrier},'search_limits':{'max_nodes':1024,'max_depth':48},
-        'execution_limits':{'fuel':2000000},'templates':[template]+index_templates,'nonterminals':nts}
+        'execution_limits':{'fuel':2000000},'templates':[template]+index_templates,'nonterminals':nts})

@@ -40,6 +40,7 @@ Json call(const std::string& signature, std::vector<Json> args) {
 }
 Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::TaskSpec& spec, const std::string& phase, bool guarded_index) {
   using K = asgp::NodeKind;
+  const auto source_node_index=at;
   const auto node = expr.at(at++);
   std::vector<Json> args;
   for (int k=0; k<asgp::Arity(node.kind); ++k) args.push_back(expression(expr, at, dp, spec, phase, guarded_index));
@@ -83,6 +84,19 @@ Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::Ta
     case K::kIntOp: {
       const char* ops[] = {"add", "sub", "mul", "idiv0", "imod0"};
       if (node.op >= 5) throw std::runtime_error("invalid arithmetic operator");
+      if(guarded_index && (node.op==3 || node.op==4)) {
+        const auto lhs_name="source_lhs"+std::to_string(source_node_index),rhs_name="source_rhs"+std::to_string(source_node_index);
+        const auto a=bound(lhs_name),b=bound(rhs_name);
+        Json result;
+        if(node.op==4)result=call("if(Bool,Int,Int)->Int",{call("eq(Int,Int)->Bool",{b,constant(0)}),constant(0),call("sub(Int,Int)->Int",{a,call("mul(Int,Int)->Int",{call("idiv0(Int,Int)->Int",{a,b}),b})})});
+        else {
+          auto overflow=call("if(Bool,Bool,Bool)->Bool",{call("eq(Int,Int)->Bool",{a,constant(INT64_MIN)}),call("eq(Int,Int)->Bool",{b,constant(-1)}),bool_constant(false)});
+          result=call("if(Bool,Int,Int)->Int",{overflow,constant(0),call("idiv0(Int,Int)->Int",{a,b})});
+        }
+        auto inner=call("let(Int,Int)->Int",{args[1],result});inner.object_v["bind"]=object({{"1",array({string(rhs_name)})}});
+        auto outer=call("let(Int,Int)->Int",{args[0],inner});outer.object_v["bind"]=object({{"1",array({string(lhs_name)})}});
+        return outer;
+      }
       return call(std::string(ops[node.op])+"(Int,Int)->Int", args);
     }
     case K::kBoolOp: {
@@ -196,7 +210,7 @@ gagp::evo::ProgramGenome translate(const asgp::Individual& individual, const std
     return row.object_v.at("id").string_v == "Root";
   });
   bool guarded_index=false;
-  for(const auto& t:doc.object_v.at("templates").array_v)if(t.object_v.at("id").string_v=="Fixed.Solve.Index")guarded_index=true;
+  for(const auto& t:doc.object_v.at("templates").array_v)if(t.object_v.at("id").string_v=="Fixed.Solve.Index" || t.object_v.at("id").string_v=="Fixed.Solve.ProtectedDiv")guarded_index=true;
   root.object_v.at("alternatives").array_v.front().object_v["expression"]=translated_root(individual, name, guarded_index);
   doc.object_v["nonterminals"]=array({root});
   const auto exact=gg::compile_grammar(gg::parse_definition(gg::canonical_json(doc)));
