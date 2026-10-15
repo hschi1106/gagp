@@ -34,8 +34,8 @@ struct Totals {
     return object({{"cases",number(n)}, {"exact",number(exact)},
       {"correct_count",number(exact)}, {"wrong",number(n-exact)}, {"exact_accuracy",number(double(exact)/n)},
       {"runtime_errors",number(errors)}, {"cases_at_cap",number(capped)},
-      {list_output ? "exact_loss_sum" : "capped_l1_sum",number(l1)},
-      {list_output ? "exact_loss_mean" : "capped_l1_mean",number(l1/n)},
+      {(list_output || case_cap==1) ? "exact_loss_sum" : "capped_l1_sum",number(l1)},
+      {(list_output || case_cap==1) ? "exact_loss_mean" : "capped_l1_mean",number(l1/n)},
       {"case_results",array(std::move(rows))}});
   }
 };
@@ -201,8 +201,8 @@ inline void expanded_quality(const std::string& name, const std::string& export_
     {"history_path",string(history_path)}, {"data_seed",number(config.seed)},
     {"data_origin",string("ASGP BuildTask local task domain, test split; not official PSB")},
     {"sampling_note",string("Independent generator seed; natural duplicates and possible training overlap retained")},
-    {"metric",string(asgp::IsListType(spec.output) ? "exact IntList accuracy; mismatch or execution/type error costs 1" : "exact Int accuracy and min(abs(predicted-expected),1000); execution/type error costs 1000")},
-    {"fuel",number(expanded_audit_detail::fuel)}, {"case_cap",number(asgp::IsListType(spec.output) ? 1 : expanded_audit_detail::cap)},
+    {"metric",string(asgp::IsListType(spec.output) ? "exact sequence accuracy; mismatch or execution/type error costs 1" : spec.output==asgp::Type::kBool ? "exact projected predicate accuracy; mismatch or execution/type error costs 1" : "exact Int accuracy and min(abs(predicted-expected),1000); execution/type error costs 1000")},
+    {"fuel",number(expanded_audit_detail::fuel)}, {"case_cap",number((asgp::IsListType(spec.output) || spec.output==asgp::Type::kBool) ? 1 : expanded_audit_detail::cap)},
     {"cases_sha256",string(hash)}, {"unique_inputs",number(unique.size())},
     {"cases",std::move(cases)}, {"final",std::move(final)}, {"history",array(std::move(history))}}));
 }
