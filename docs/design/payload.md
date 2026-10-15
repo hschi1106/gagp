@@ -843,6 +843,27 @@ work, 8/16 GiB caps can consume approximately 8/16 GiB of arena scratch. Treat t
 as explicit per-run A/B settings, not a new default or an established speedup.
 The parser and exact-cap arithmetic are checked by `gagp_test_fitness_contract`.
 
+`GAGP_GPU_REUSE_PRIVATE_WORKSPACE=1` optionally retains one session-owned device
+allocation for admitted private compact IntList arena cells, frames and memo
+storage. Initial evaluation and synchronized replay repartition that same
+allocation; there are no separate retained stage buffers. Every stage charges
+the entire retained capacity, including unused capacity, plus its current
+metadata, queues, indices and partial scores against the configured arena cap.
+Reduced headroom or a larger request evicts the old allocation before replacing
+it. Existing worker counts, logical capacities and complete case coverage stay
+unchanged. Dirty storage retains the VM's existing per-invocation initialization.
+
+The default is off; unrelated profiles evict retained arena storage and use their
+existing paths. Reinitialization releases it on its owning device before device
+selection. Destruction also selects its owning device and restores the caller's
+device. Completed calls may reuse storage; an active pooled evaluation rejects
+same-session evaluation/reinitialization from its overlap callback. The backing
+stays alive through that callback and all initial/replay synchronization. Profiles
+append `reuse-private-workspace` or `reuse-private-workspace-declined`. Results
+report retained bytes, successful backing allocations in that evaluation, and
+the maximum accounted pooled arena bytes. Allocation, eviction and transfer
+costs remain in normal evaluation/session timing.
+
 `GAGP_GPU_SMALL_INT_HASH=1`, together with `GAGP_GPU_FUSED_LIST_CONCAT=1`,
 optionally replaces the shallow element-hash calculation for Int values in
 [-256,255] with an exact 512-entry table lookup. The 4 KiB table is initialized at

@@ -15,6 +15,7 @@ struct EvaluationTiming {
   std::uint64_t program_cases = 0, eval_errors = 0, eval_timeouts = 0,
                 eval_fallbacks = 0, eval_unscored = 0;
   std::uint64_t payload_replay_programs = 0, payload_replay_cases = 0, payload_replay_launches = 0;
+  std::uint64_t payload_workspace_retained_bytes = 0, payload_workspace_pool_peak_bytes = 0, payload_workspace_pool_allocations = 0;
   std::array<unsigned long long,3> concat_cache_stats{};
   double cpu_compile_ms = 0.0;
   double gpu_compile_ms = 0.0;

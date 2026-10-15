@@ -39,12 +39,36 @@ using gpu_detail::DProgramMeta;
 using gpu_detail::DResult;
 using gpu_detail::DStringPayloadEntry;
 
+// One backing only: unused retained capacity counts against every current stage.
+struct ReusablePrivateWorkspace {
+  void* data=nullptr;std::size_t capacity=0,allocations=0,peak_bytes=0;int device=-1;bool busy=false;
+  bool clear() {
+    if(!data)return true;
+    int previous=-1;cudaGetDevice(&previous);
+    const auto status=cudaSetDevice(device)==cudaSuccess?cudaFree(data):cudaErrorInvalidDevice;
+    if(previous>=0 && previous!=device)cudaSetDevice(previous);
+    if(status!=cudaSuccess)return false;
+    data=nullptr;capacity=0;return true;
+  }
+  ~ReusablePrivateWorkspace(){clear();}
+  bool trim(std::size_t limit){return capacity<=limit || clear();}
+  bool reserve(std::size_t bytes,std::size_t limit,std::size_t extra) {
+    if(bytes>limit || !trim(limit))return false;
+    if(bytes>capacity) {
+      if(!clear() || cudaGetDevice(&device)!=cudaSuccess || cudaMalloc(&data,bytes)!=cudaSuccess)return false;
+      capacity=bytes;++allocations;
+    }
+    peak_bytes=std::max(peak_bytes,capacity+extra);return true;
+  }
+};
+
 // Shared bounded storage for initial generic payload evaluation and replay.
 // All buffers are per physical lane; logical lane reduction remains unchanged.
 struct PayloadWorkspaceStorage {
   static constexpr int threads=32;
   const std::size_t budget;
-  explicit PayloadWorkspaceStorage(std::size_t bytes):budget(bytes) {}
+  ReusablePrivateWorkspace* reusable=nullptr;
+  explicit PayloadWorkspaceStorage(std::size_t bytes,ReusablePrivateWorkspace* pool=nullptr):budget(bytes),reusable(pool) {}
   std::vector<void*> allocations;
   gpu_detail::DRegionWorkspace workspace{};
   std::size_t blocks=0;
@@ -91,6 +115,21 @@ struct PayloadWorkspaceStorage {
         payload_bytes+frame_bytes+key_bytes+memo_bytes,extra_bytes);
     if(!blocks)return false;
     const auto slots=blocks*threads;
+    if(reusable) {
+      if(!workspace.private_intlists || !workspace.compact_intlist_cells || workspace.concat_cache_enabled)return false;
+      // Every size is a multiple of eight; cudaMalloc supplies aligned backing.
+      static_assert(alignof(gpu_detail::DRegionFrame)<=8 && alignof(gpu_detail::DCompactPairRegionFrame)<=8 &&
+          alignof(gpu_detail::DCompactRegionFrame)<=8 && alignof(Value)<=8);
+      const auto cell_bytes=slots*std::size_t(values)*sizeof(std::int64_t);
+      const auto required=cell_bytes+slots*(frame_bytes+key_bytes+memo_bytes);
+      if(!reusable->reserve(required,budget-extra_bytes,extra_bytes))return false;
+      auto* base=static_cast<unsigned char*>(reusable->data);
+      workspace.payload_intlist_cells=reinterpret_cast<std::int64_t*>(base);
+      workspace.frames=frame_bytes?reinterpret_cast<gpu_detail::DRegionFrame*>(base+cell_bytes):nullptr;
+      workspace.memo_keys=key_bytes?reinterpret_cast<std::int64_t*>(base+cell_bytes+slots*frame_bytes):nullptr;
+      workspace.memo_values=memo_bytes?reinterpret_cast<Value*>(base+cell_bytes+slots*(frame_bytes+key_bytes)):nullptr;
+      return true;
+    }
     if(workspace.concat_cache_enabled && !allocate(reinterpret_cast<void**>(&workspace.concat_cache),
         slots*sizeof(gpu_detail::DConcatCacheEntry)*gpu_detail::DCONCAT_CACHE_SLOTS))return false;
     if(epoch_index) {
@@ -392,6 +431,7 @@ std::size_t kernel_shared_bytes(std::size_t max_code_len, int blocksize) {
 }  // namespace
 
 struct FitnessSessionGpu::Impl {
+  ReusablePrivateWorkspace private_workspace;
   bool ready = false;
   int device_id = -1;
   int fuel = 10000;
@@ -499,6 +539,8 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   }
 
   const auto all_t0 = std::chrono::steady_clock::now();
+  if(impl_->private_workspace.busy)return fitness_init_single_error(ErrCode::Value,"GPU private workspace is in use");
+  if(!impl_->private_workspace.clear())return fitness_init_single_error(ErrCode::Value,"cuda private workspace release failure");
   const auto device_select_t0 = all_t0;
   std::string select_msg;
   if (!select_gpu_device(impl_->props, select_msg)) {
@@ -649,6 +691,11 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   if (!impl_ || !impl_->ready) {
     return fitness_eval_single_error(ErrCode::Value, "gpu fitness session is not initialized");
   }
+  if(impl_->private_workspace.busy)return fitness_eval_single_error(ErrCode::Value,"GPU private workspace is in use");
+  struct PoolLease {
+    ReusablePrivateWorkspace* pool=nullptr;
+    ~PoolLease(){if(pool)pool->busy=false;}
+  } pool_lease;
   if (programs.empty()) {
     return fitness_eval_single_error(ErrCode::Value, "programs must not be empty");
   }
@@ -1053,12 +1100,25 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       sizeof(unsigned int)*programs.size()+(global_payload?sizeof(int):0);
   if(payload_metadata_bytes>=payload_workspace_budget)
     return fitness_eval_single_error(ErrCode::Value,"GPU payload workspace metadata exceeds configured scratch cap");
+  const char* reuse_setting=std::getenv("GAGP_GPU_REUSE_PRIVATE_WORKSPACE");
+  const bool request_reuse=reuse_setting && std::string(reuse_setting)=="1";
+  const bool reuse_private=request_reuse && global_payload && private_intlists && region_workspace.compact_intlist_cells &&
+      !region_workspace.concat_cache_enabled;
+  auto& pool=impl_->private_workspace;
+  if(!reuse_private) {
+    if(!pool.clear())return fitness_eval_single_error(ErrCode::Value,"cuda private workspace release failure");
+  } else {
+    if(initial_partial_bytes>=payload_workspace_budget-payload_metadata_bytes ||
+        !pool.trim(payload_workspace_budget-payload_metadata_bytes-initial_partial_bytes))
+      return fitness_eval_single_error(ErrCode::Value,"GPU reusable private workspace headroom failure");
+    pool.allocations=pool.peak_bytes=0;pool.busy=true;pool_lease.pool=&pool;
+  }
   FitnessEvalResult out;
   out.payload_workspace_budget_bytes=payload_workspace_budget;
   std::chrono::steady_clock::time_point teardown_t0;
   {
     gpu_detail::DeviceArena dev;
-    PayloadWorkspaceStorage initial_payload(payload_workspace_budget);
+    PayloadWorkspaceStorage initial_payload(payload_workspace_budget,reuse_private?&pool:nullptr);
     struct IndexBuffers {
       unsigned long long* concat_stats=nullptr;
       int *compact=nullptr,*generic=nullptr,*compact_queue=nullptr,*generic_queue=nullptr;
@@ -1298,7 +1358,10 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         return fitness_eval_single_error(ErrCode::Value, "cuda overlap timing failure");
       }
       try { while_gpu_runs(); }
-      catch (...) { cudaDeviceSynchronize(); throw; }
+      catch (...) { if(reuse_private)cudaSetDevice(impl_->device_id);cudaDeviceSynchronize(); throw; }
+      if(reuse_private && cudaSetDevice(impl_->device_id)!=cudaSuccess) {
+        pool.clear();return fitness_eval_single_error(ErrCode::Value,"cuda private workspace device restore failure");
+      }
     }
     const cudaError_t sync_err = cudaDeviceSynchronize();
     if (launch_err != cudaSuccess || sync_err != cudaSuccess) {
@@ -1353,7 +1416,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       replay_values=std::max(replay_values,65537);
     int replay_bytes=8192;
     while(!replay_programs.empty()) {
-      PayloadWorkspaceStorage replay_storage(payload_workspace_budget);
+      PayloadWorkspaceStorage replay_storage(payload_workspace_budget,reuse_private?&pool:nullptr);
       const std::size_t task_count=replay_programs.size()*(tiled_replay?replay_warps:1);
       if(task_count>static_cast<std::size_t>(std::numeric_limits<int>::max()))
         return fitness_eval_single_error(ErrCode::Value,"GPU replay task count exceeds addressing capacity");
@@ -1488,7 +1551,14 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     const auto copy_t1 = std::chrono::steady_clock::now();
 
     out.ok = true;
+    if(reuse_private) {
+      out.payload_workspace_retained_bytes=pool.capacity;
+      out.payload_workspace_pool_allocations=pool.allocations;
+      out.payload_workspace_pool_peak_bytes=pool.peak_bytes;
+    }
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
+    if(request_reuse)out.execution_profile+=reuse_private?
+        "-reuse-private-workspace":"-reuse-private-workspace-declined";
     if(request_private)out.execution_profile+=private_intlists?
         "-private-intlist-offset-v1":"-private-intlist-offset-v1-declined";
     if(request_private_globals)out.execution_profile+=private_global_offsets?
