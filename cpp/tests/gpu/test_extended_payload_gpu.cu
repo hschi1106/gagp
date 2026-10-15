@@ -696,7 +696,7 @@ bool test_adaptive_combined_reasons() {
   const std::vector<BytecodeProgram> programs{entries,unaffected,values};
   const std::vector<CaseBindings> cases(3);
   const std::vector<Value> answers(3,Value::from_int(0));
-  FitnessPolicy policy{FitnessMetric::Exact};policy.list_allocation_limit=65536;
+  FitnessPolicy policy{FitnessMetric::Exact}; // Unbounded logical budget exercises 16K physical value growth.
   std::vector<CpuFitnessCaseCounts> counts;
   const auto cpu=eval_fitness_cpu(programs,cases,answers,100000,1000,33,policy,nullptr,&counts);
   // First replay: one program exhausts4096 entries, another exhausts16384
