@@ -40,7 +40,7 @@ using DMixedPayloadState =
                          DMAX_THREAD_STRING_BYTES,
                          DMAX_THREAD_LIST_VALUES>;
 
-using DExtendedPayloadState = DThreadPayloadStateT<1024, 1024, 8192, 4096>;
+using DExtendedPayloadState = DThreadPayloadStateT<1024, 1024, 8192, 8192>;
 
 template <DPayloadFlavor Flavor>
 struct DPayloadFlavorTraits;
@@ -387,6 +387,21 @@ __device__ inline bool d_lookup_list_payload(const DPayloadTables& tables,
 }
 
 template <typename State>
+__device__ inline bool d_has_exact_payload(const DPayloadTables& tables, const State& state,
+                                         const Value& value) {
+  int length = 0;
+  if (value.tag == ValueTag::String) {
+    const char* bytes = nullptr;
+    return d_lookup_string_payload(tables, state, value, bytes, length);
+  }
+  if (d_is_typed_list_tag(value.tag)) {
+    const Value* elements = nullptr;
+    return d_lookup_list_payload(tables, state, value, elements, length);
+  }
+  return true;
+}
+
+template <typename State>
 __device__ inline bool d_register_local_string(State& st, const Value& v, int offset, int len) {
   if constexpr (State::kMaxStringEntries <= 0) {
     (void)st;
@@ -582,7 +597,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           return true;
         }
       }
-      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
+      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) {
+        if (d_has_exact_payload(tables, payload_state, a) && d_has_exact_payload(tables, payload_state, b)) { err = ErrCode::Value; return false; }
+      }
     const std::uint32_t len = Value::saturating_len_add(Value::container_len(a), Value::container_len(b));
       const std::uint64_t h = Value::combine_container_hash48(1U, a, b);
       out = Value::from_fallback_token(Value::pack_container_payload(h, len));
@@ -609,7 +626,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           return true;
         }
       }
-      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
+      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) {
+        if (d_has_exact_payload(tables, payload_state, a) && d_has_exact_payload(tables, payload_state, b)) { err = ErrCode::Value; return false; }
+      }
     const std::uint32_t len = Value::saturating_len_add(Value::container_len(a), Value::container_len(b));
       const std::uint64_t h = Value::combine_container_hash48(d_list_type_code(a), a, b);
       out = d_make_list_hash_len(a.tag, h, len);
@@ -662,7 +681,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           return true;
         }
       }
-      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
+      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) {
+        if (d_has_exact_payload(tables, payload_state, x)) { err = ErrCode::Value; return false; }
+      }
     const std::uint64_t out_h = Value::slice_container_hash48(1U, x, lo.i, hi.i);
       out = Value::from_fallback_token(Value::pack_container_payload(out_h, out_len));
       return true;
@@ -685,7 +706,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         return true;
       }
     }
-    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
+    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) {
+        if (d_has_exact_payload(tables, payload_state, x)) { err = ErrCode::Value; return false; }
+      }
     const std::uint64_t out_h = Value::slice_container_hash48(d_list_type_code(x), x, lo.i, hi.i);
     out = d_make_list_hash_len(x.tag, out_h, out_len);
     return true;
@@ -722,7 +745,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           return true;
         }
       }
-      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
+      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) {
+        if (d_has_exact_payload(tables, payload_state, x)) { err = ErrCode::Value; return false; }
+      }
       out = Value::from_fallback_token(Value::index_container_token64(5U, x, j));
       return true;
     }
@@ -735,7 +760,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         return true;
       }
     }
-    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
+    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) {
+        if (d_has_exact_payload(tables, payload_state, x)) { err = ErrCode::Value; return false; }
+      }
     out = Value::from_fallback_token(Value::index_container_token64(d_list_type_code(x), x, j));
     return true;
   }
@@ -770,7 +797,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         return true;
       }
     }
-    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
+    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) {
+        if (d_has_exact_payload(tables, payload_state, xs)) { err = ErrCode::Value; return false; }
+      }
     const std::uint32_t len = Value::saturating_len_add(Value::container_len(xs), 1U);
     const std::uint64_t h = Value::append_list_hash48(d_list_type_code(xs), xs, elem);
     out = d_make_list_hash_len(xs.tag, h, len);
@@ -803,7 +832,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         return true;
       }
     }
-    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
+    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) {
+        if (d_has_exact_payload(tables, payload_state, xs)) { err = ErrCode::Value; return false; }
+      }
     const std::uint32_t len = Value::saturating_len_add(Value::container_len(xs), 1U);
     const std::uint64_t h = d_prepend_list_hash48(d_list_type_code(xs), elem, xs);
     out = d_make_list_hash_len(xs.tag, h, len);
@@ -833,7 +864,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           return true;
         }
       }
-      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
+      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) {
+        if (d_has_exact_payload(tables, payload_state, x)) { err = ErrCode::Value; return false; }
+      }
       out = Value::from_fallback_token(Value::pack_container_payload(Value::reverse_container_hash48(7U, x),
                                                                      Value::container_len(x)));
       return true;
@@ -858,7 +891,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         return true;
       }
     }
-    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
+    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) {
+        if (d_has_exact_payload(tables, payload_state, x)) { err = ErrCode::Value; return false; }
+      }
     out = d_make_list_hash_len(x.tag, Value::reverse_container_hash48(d_list_type_code(x), x), Value::container_len(x));
     return true;
   }
