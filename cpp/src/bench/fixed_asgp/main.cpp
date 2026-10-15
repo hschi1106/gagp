@@ -52,6 +52,10 @@ gagp::FitnessPolicy task_fitness_policy(const asgp::TaskSpec& spec) {
   policy.summary_cap=spec.summary_cap;
   return policy;
 }
+void validate_aligned_penalty(double penalty) {
+  if(std::getenv("GAGP_BM_ALIGNED_FITNESS") && penalty!=fitness_config().max_case_error)
+    throw std::invalid_argument("aligned fitness requires the ASGP case cap 1000; use a separate custom-metric study for overrides");
+}
 Json search_contract_json(const gagp::evo::EvolutionConfig& cfg, const std::string& profile) {
   const auto audit=fixed_asgp::audit_search_contract(cfg,profile,
       cfg.fitness_policy.metric!=gagp::FitnessMetric::Legacy,false);
@@ -255,6 +259,7 @@ Json measure_gagp(const std::vector<gagp::evo::ProgramGenome>& population,
   cfg.generation_request=gg::entry_request(*grammar);
   cfg.fuel=2000000; cfg.penalty=1000; cfg.gpu_blocksize=512;
   cfg.fitness_policy=task_fitness_policy(spec);
+  validate_aligned_penalty(cfg.penalty);
   cfg.elite_count=std::getenv("GAGP_BM_ALIGNED_FITNESS") ? 1 : 0;
   cfg.selection_pressure=2;
   cfg.mutation_rate=.3; cfg.mutation_subtree_prob=1;
@@ -293,6 +298,7 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
   if(!std::isfinite(penalty) || penalty<0 ||
      (penalty==0 && !(std::getenv("GAGP_BM_COMMON_FITNESS") && !cases.empty() && cases[0].expected.tag==gagp::ValueTag::IntList)))
     throw std::invalid_argument("snapshot penalty must be positive (common list exact policy permits zero)");
+  validate_aligned_penalty(penalty);
   auto cs=gagp::evo::prepare_case_set(cases);
   const auto begin=Clock::now();
   std::vector<gagp::BytecodeProgram> programs;
@@ -427,6 +433,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
      (cfg.penalty==0 && !(std::getenv("GAGP_BM_COMMON_FITNESS") && !cases.empty() && cases[0].expected.tag==gagp::ValueTag::IntList)))
     throw std::invalid_argument("search penalty must be positive (common list exact policy permits zero)"); cfg.gpu_blocksize=512; cfg.selection_pressure=2;
   cfg.fitness_policy=task_fitness_policy(spec);
+  validate_aligned_penalty(cfg.penalty);
   cfg.elite_count=std::getenv("GAGP_BM_ALIGNED_FITNESS") ? 1 : 0;
   cfg.mutation_rate=.3; cfg.mutation_subtree_prob=1; cfg.skip_final_eval=false; cfg.retain_final_population=true;
   const auto call_begin=std::chrono::steady_clock::now();

@@ -45,6 +45,12 @@ class TestProtectedSourceArithmetic(unittest.TestCase):
             self.call('prepare',source_path,grammar_path,8,folder/'prepared.json')
             self.call('sampled-audit',source_path,grammar_path,folder/'audit.json')
             result=json.loads((folder/'audit.json').read_text())
+            for mode, name in [('search_gagp_cpu','GAGP_SEARCH_PENALTY'), ('snapshot','GAGP_SNAPSHOT_PENALTY')]:
+                rejected=subprocess.run([str(BINARY),'measure',str(source_path),str(folder/'prepared.json'),
+                    str(grammar_path),'8',mode,str(folder/'rejected.json')],
+                    env=dict(os.environ,GAGP_BM_ALIGNED_FITNESS='1',**{name:'1'}),capture_output=True,text=True,timeout=30)
+                self.assertNotEqual(rejected.returncode,0)
+                self.assertIn('aligned fitness requires',rejected.stdout+rejected.stderr)
             self.assertEqual(result['mismatches'],0)
             self.assertEqual(result['sampled_programs'],8)
             self.assertTrue(all(row['source_errors']==row['native_errors']==0 for row in result['programs']))
