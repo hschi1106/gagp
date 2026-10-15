@@ -331,6 +331,21 @@ int main() {
   if (!test_builtin_after_stack_spill()) return 1;
   if (!test_pointer_count_overload()) return 1;
   if (!test_local_slot_storage_boundaries()) return 1;
+  for (const auto c : {INT64_MIN, std::int64_t(-1), std::int64_t(64), std::int64_t(65),
+       std::int64_t(90), std::int64_t(91), std::int64_t(96), std::int64_t(97),
+       std::int64_t(122), std::int64_t(123), std::int64_t(256), INT64_MAX}) {
+    const bool expected = (c >= 65 && c <= 90) || (c >= 97 && c <= 122);
+    for (const auto value : {Value::from_int(c),Value::from_char(c)}) {
+      const auto result = gagp::builtin_call(BuiltinId::IsLetter,{value});
+      if (!check(!result.is_error && result.value.tag == ValueTag::Bool && result.value.b == expected,
+                 "is_letter ASCII code boundary")) return 1;
+    }
+  }
+  for (const auto value : {Value::from_bool(true),Value::from_float(65)})
+    if (!check(gagp::builtin_call(BuiltinId::IsLetter,{value}).is_error,
+               "is_letter accepted non-character/non-integer")) return 1;
+  if (!check(gagp::builtin_call(BuiltinId::IsDigit,{Value::from_int(48)}).is_error,
+             "is_letter overload widened another character predicate")) return 1;
   std::cout << "gagp_test_builtin_arguments: OK\n";
   return 0;
 }

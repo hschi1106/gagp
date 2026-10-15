@@ -157,6 +157,7 @@ PrimitiveCatalog::PrimitiveCatalog() {
   for (auto entry : {std::pair{"is_letter", NodeKind::CALL_IS_LETTER}, {"is_digit", NodeKind::CALL_IS_DIGIT},
                      {"is_space", NodeKind::CALL_IS_SPACE}, {"is_vowel", NodeKind::CALL_IS_VOWEL}})
     add(entry.first, {RType::Char}, RType::Bool, entry.second);
+  add("is_letter", {RType::Int}, RType::Bool, NodeKind::CALL_IS_LETTER);
   add("to_lower", {RType::Char}, RType::Char, NodeKind::CALL_TO_LOWER);
   add("to_upper", {RType::Char}, RType::Char, NodeKind::CALL_TO_UPPER);
   std::sort(signatures_.begin(), signatures_.end(), [](const auto& a, const auto& b) { return a.key < b.key; });

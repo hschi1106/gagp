@@ -426,6 +426,8 @@ class TypedVerifier {
     if (kind == NodeKind::CALL_STRING_TO_CHAR) return unary_builtin(node_index, args[0], RType::String, RType::Char);
     if (kind == NodeKind::CALL_ORD) return unary_builtin(node_index, args[0], RType::Char, RType::Int);
     if (kind == NodeKind::CALL_CHR) return unary_builtin(node_index, args[0], RType::Int, RType::Char);
+    if (kind == NodeKind::CALL_IS_LETTER && args[0] == RType::Int)
+      return typed(node_index, RType::Bool);
     if (kind == NodeKind::CALL_IS_LETTER || kind == NodeKind::CALL_IS_DIGIT ||
         kind == NodeKind::CALL_IS_SPACE || kind == NodeKind::CALL_IS_VOWEL) {
       return unary_builtin(node_index, args[0], RType::Char, RType::Bool);

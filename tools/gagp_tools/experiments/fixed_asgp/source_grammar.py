@@ -70,15 +70,7 @@ def definition(root: Path, task: str, contract: dict) -> dict:
                         offset=contract['dp_value_offset']
                         e=bound('source_v') if task=='stock_with_cooldown' else call('index(IntList,Int)->Int',bound('xs'),coordinate) if task=='subregion_sum' else call('index(IntList,Int)->Int',bound('xs'),call('min(Int,Int)->Int',call('sub(Int,Int)->Int',call('len(IntList)->Int',bound('xs')),constant(1)),call('max(Int,Int)->Int',call('add(Int,Int)->Int',coordinate,constant(offset)),constant(0))))
                     elif kind==11:e=call('not(Bool)->Bool',*args)
-                    elif kind==12:
-                        template_id=f'Fixed.{phase}.IsLetter'
-                        char={'hole':'char'}
-                        def between(lo,hi):return call('if(Bool,Bool,Bool)->Bool',call('ge(Int,Int)->Bool',char,constant(lo)),call('le(Int,Int)->Bool',char,constant(hi)),constant(False,'Bool'))
-                        if not any(t['id']==template_id for t in index_templates):
-                            index_templates.append({'id':template_id,'type':'Bool','scope':copy.deepcopy(scope),
-                                'holes':[{'id':'char','type':'Int','scope':copy.deepcopy(scope)}],
-                                'body':call('if(Bool,Bool,Bool)->Bool',between(65,90),constant(True,'Bool'),between(97,122))})
-                        e={'template':template_id,'holes':{'char':args[0]}}
+                    elif kind==12:e=call('is_letter(Int)->Bool',*args)
                     elif kind==13:
                         if op==1:
                             if contract.get('grammar_extension')!='list-combine-v1':

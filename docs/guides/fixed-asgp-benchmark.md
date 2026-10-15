@@ -893,3 +893,10 @@ and final evaluation in `evolve_wall_ms`. One-shot samples remain coarse
 feedback, not precision measurements. Source-derived list-task results record
 `list_allocation_limit` and the optional `list-combine-v1` contract separately
 from original-source/frozen results.
+New source-contract grammars map ASGP `IsLetter` directly to
+`is_letter(Int)->Bool`, evaluating the character expression once. The existing
+`Char` overload remains available; both use the ASCII ranges specified in
+`spec/builtins_base.md`. Character nonterminals still use their exported source
+ranges and do not gain integer arithmetic. When replaying a frozen grammar that
+lacks this primitive signature, the adapter retains the historical repeated-hole
+comparison expansion without modifying that grammar or its source artifact.

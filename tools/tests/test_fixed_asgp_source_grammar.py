@@ -55,8 +55,8 @@ class TestSourceGrammar(unittest.TestCase):
         singleton=nts['Solve.charList']['alternatives'][0]['expression']
         self.assertEqual(singleton['args'],[{'ref':'Solve.char'}])
         letter=nts['Solve.bool']['alternatives'][0]['expression']
-        self.assertEqual(letter,{'template':'Fixed.Solve.IsLetter','holes':{'char':{'ref':'Solve.char'}}})
-        self.assertEqual(document['templates'][1]['holes'][0]['id'],'char')
+        self.assertEqual(letter,{'signature':'is_letter(Int)->Bool','args':[{'ref':'Solve.char'}]})
+        self.assertFalse(any(t['id'].endswith('.IsLetter') for t in document['templates']))
         self.assertEqual([p['expression']['constant']['range'] for p in nts['Solve.char']['alternatives']],contract['chars'])
         self.assertEqual(document['templates'][0]['body']['captures'],[{'input':'scalar0'}])
         self.assertIn({'name':'scalar0','type':'Int'},nts['Solve.char']['scope'])

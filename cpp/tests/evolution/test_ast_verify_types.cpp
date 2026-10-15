@@ -164,5 +164,14 @@ int main() {
   };
   if (!expect_code(ast, {}, VerifyCode::TypeMismatch, "ForRange Float bound")) return 1;
 
+  for (const auto value : {gagp::Value::from_int(65), gagp::Value::from_char(65)}) {
+    ast = return_program({AstNode{NodeKind::CALL_IS_LETTER,0,0},AstNode{NodeKind::CONST,0,0}}, {value});
+    const auto letter = verify_ast(ast, {});
+    if (!check(letter.ok && letter.verified.return_type == RType::Bool,
+               "IsLetter Char/Int overload")) return 1;
+  }
+  ast = return_program({AstNode{NodeKind::CALL_IS_LETTER,0,0},AstNode{NodeKind::CONST,0,0}},
+                      {gagp::Value::from_float(65)});
+  if (!expect_code(ast, {}, VerifyCode::TypeMismatch, "IsLetter rejects Float")) return 1;
   return 0;
 }

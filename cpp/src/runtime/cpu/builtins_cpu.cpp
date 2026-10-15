@@ -536,8 +536,9 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
 
   if (id == BuiltinId::IsLetter || id == BuiltinId::IsDigit || id == BuiltinId::IsSpace ||
       id == BuiltinId::IsVowel || id == BuiltinId::ToLower || id == BuiltinId::ToUpper) {
-    if (argc != 1 || args[0].tag != ValueTag::Char) {
-      return fail(ErrCode::Type, std::string(builtin_name(id)) + " expects char");
+    if (argc != 1 || (args[0].tag != ValueTag::Char &&
+        !(id == BuiltinId::IsLetter && args[0].tag == ValueTag::Int))) {
+      return fail(ErrCode::Type, std::string(builtin_name(id)) + (id == BuiltinId::IsLetter ? " expects char or int" : " expects char"));
     }
     const long long c = args[0].i;
     BuiltinResult out;

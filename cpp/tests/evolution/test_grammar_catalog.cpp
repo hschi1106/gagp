@@ -36,6 +36,10 @@ Value literal(RType type) {
 int main() {
   try {
     const auto& catalog = PrimitiveCatalog::standard();
+    check(catalog.resolve("is_letter(Int)->Bool").lowering_node == gagp::evo::NodeKind::CALL_IS_LETTER,
+          "integer ASCII letter overload missing");
+    check(catalog.resolve("is_letter(Char)->Bool").lowering_node == gagp::evo::NodeKind::CALL_IS_LETTER,
+          "character letter overload lost");
     check(catalog.control_signatures().size() == 21, "control overload catalog incomplete");
     for (const auto& signature : catalog.control_signatures()) {
       check(&catalog.resolve_control(signature.key) == &signature, "control lookup lost identity");

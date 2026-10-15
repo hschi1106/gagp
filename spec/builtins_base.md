@@ -176,10 +176,12 @@ their payload representation. Rejection must be deterministic and reported as
 ### `is_letter(c)`
 
 - arity: `1`
-- input: `Char`
+- input: `Char` or `Int`
 - result type: `Bool`
-- result: true when `c` is classified as a letter by the implementation's
-  supported character table
+- result: true exactly for ASCII letter codes `65..90` (`A..Z`) and
+  `97..122` (`a..z`); false for every other integer, including negative and
+  out-of-byte-range values. The `Int` overload tests the code directly without
+  narrowing or converting it to `Char`.
 
 ### `is_digit(c)`
 

@@ -2741,6 +2741,22 @@ int main() {
       }
     }
   }
+  for (std::int64_t c : {INT64_MIN, std::int64_t(-1), std::int64_t(64), std::int64_t(65),
+       std::int64_t(90), std::int64_t(91), std::int64_t(96), std::int64_t(97),
+       std::int64_t(122), std::int64_t(123), std::int64_t(256), INT64_MAX}) {
+    const auto expected = Value::from_bool((c>=65 && c<=90) || (c>=97 && c<=122));
+    for (const auto value : {Value::from_int(c),Value::from_char(c)}) {
+      const auto program = make_builtin_program({value},gagp::BuiltinId::IsLetter,1);
+      const gagp::FitnessPolicy policy{gagp::FitnessMetric::Exact};
+      const auto cpu = gagp::eval_fitness_cpu({program},{{}},{expected},100,7,32,policy);
+      gagp::FitnessSessionGpu session;
+      if (!session.init({{}},{expected},100,32,7,policy).ok) return 1;
+      const auto gpu = session.eval_programs({program});
+      if (!gpu.ok || cpu != std::vector<double>{0} || gpu.fitness != cpu) {
+        std::cerr << "is_letter ASCII integer/character parity"; return 1;
+      }
+    }
+  }
   struct TruncCase {std::int64_t a,b,div,mod;};
   const TruncCase trunc_cases[]={{-7,3,-2,-1},{7,-3,-2,1},{-7,-3,2,-1},{7,0,0,0},
       {INT64_MIN,-1,0,0},{INT64_MIN,1,INT64_MIN,0},{INT64_MAX,2,INT64_MAX/2,1}};

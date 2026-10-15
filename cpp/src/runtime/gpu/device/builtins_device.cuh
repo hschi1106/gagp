@@ -1072,7 +1072,8 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
 
   if (bid == BuiltinId::IsLetter || bid == BuiltinId::IsDigit || bid == BuiltinId::IsSpace ||
       bid == BuiltinId::IsVowel || bid == BuiltinId::ToLower || bid == BuiltinId::ToUpper) {
-    if (argc != 1 || args[0].tag != ValueTag::Char) {
+    if (argc != 1 || (args[0].tag != ValueTag::Char &&
+        !(bid == BuiltinId::IsLetter && args[0].tag == ValueTag::Int))) {
       err = ErrCode::Type;
       return false;
     }
