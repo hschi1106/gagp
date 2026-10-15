@@ -522,7 +522,7 @@ __device__ __noinline__ double d_score_resident(const Value& actual,const Value&
   return -fitness_error_ceiling(policy,penalty);
 }
 
-template <DPayloadFlavor Flavor, bool EnableRegions = false>
+template <DPayloadFlavor Flavor, bool EnableRegions = false, bool CompactRoot = false>
 __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta,
                                                         const DInstr* shared_code,
                                                         const Value* all_consts,
@@ -581,7 +581,8 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
       meta.region_offset,
       meta.region_count,
   };
-  result = d_run_code_core<Flavor, EnableRegions>(view, shared_case_local_vals, shared_case_local_set,
+  result = d_run_code_core<Flavor, EnableRegions, CompactRoot ? 16 : MAX_STACK,
+      CompactRoot ? 8 : MAX_LOCALS>(view, shared_case_local_vals, shared_case_local_set,
                                             local_case, nullptr, 0, payload_tables,
                                             payload_state_storage.ref(), execution_tables, fuel_left, true, workspace);
   result.payload_capacity_exceeded = payload_state.physical_capacity_exceeded;

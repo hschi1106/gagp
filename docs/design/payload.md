@@ -565,3 +565,20 @@ binary before adopting it. The focused regression is
 `gagp_test_extended_payload_gpu` (window fuel boundaries, list and missing-payload
 results, fallback-index type errors, frame/logical limits, physical replay, and
 mixed ineligible layouts).
+
+
+
+`GAGP_ARENA_COMPACT_ROOT=1` optionally specializes the arena evaluator's root
+interpreter to 16 operand slots and 8 locals. After ordinary bytecode validation,
+every program in the batch must have at most 8 root locals and the certified
+load/constant/check/length, single-region, return shape (at most 12 root operands).
+An ineligible member keeps the entire batch on the existing root interpreter.
+This proof does not constrain region phases: their existing compact/full fallback
+remains independent. Initial global-arena evaluation and ordinary/tiled replay
+use the same certificate. Payload initialization, logical allocation accounting,
+ordered instruction fuel, overflow reporting and resident scoring are unchanged;
+allocated results remain alive until scoring. The profile adds `-compact-root`
+only when an arena launch actually uses the specialization. The default is off.
+`gagp_test_extended_payload_gpu` compares the flag off/on with CPU fitness and
+case/error/timeout counts, including missing/wrong local values, fuel boundaries,
+logical payload errors, allocated-list scoring, large phases and mixed root batches.

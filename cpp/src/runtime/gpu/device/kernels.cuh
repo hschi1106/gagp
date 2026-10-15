@@ -59,7 +59,7 @@ __device__ inline bool d_measure_cache_eligible(const DRegionPhase& phase,
   return true;
 }
 
-template <DPayloadFlavor Flavor, bool EnableRegions = false, bool DirectRoot = false>
+template <DPayloadFlavor Flavor, bool EnableRegions = false, bool DirectRoot = false, bool CompactRoot = false>
 // Arena kernels always launch one physical warp; reserving resources for a
 // hypothetical 1024-thread block needlessly constrains registers in this VM.
 __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
@@ -243,7 +243,7 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
         exact=fitness_case_score(result.value,shared_answer[input_case],penalty,{FitnessMetric::Exact})==0;
       }
     } else {
-    result = d_execute_bytecode_impl<Flavor, EnableRegions>(
+    result = d_execute_bytecode_impl<Flavor, EnableRegions, CompactRoot>(
         meta, shared_code, all_consts, shared_case_local_vals, shared_case_local_set,
         payload_tables, execution_tables, input_case, fuel, workspace,
         shared_answer+input_case,penalty,policy,&resident_score,&exact);

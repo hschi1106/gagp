@@ -30,6 +30,13 @@ inline bool direct_region_root_supported(const BytecodeProgram& program) {
   return true;
 }
 
+// A root-only capacity certificate, after ordinary bytecode verification. It
+// imposes no phase/type-view capability: arena phases keep their normal fallback.
+inline bool arena_compact_root_supported(const BytecodeProgram& program) {
+  return program.n_locals >= 0 && program.n_locals <= 8 &&
+      direct_region_root_supported(program);
+}
+
 inline bool view_program_supported(const BytecodeProgram& program,
     const std::array<ValueTag, 64>& input_types) {
   for (const auto& segment : program.bounded_region_segments)
