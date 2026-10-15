@@ -467,6 +467,27 @@ __device__ inline bool d_index_local_list_entry(State& st, const Value& value, i
   return true;
 }
 
+// Scalar regions discard their temporary registry suffix. Rebuild the private
+// index only when entries were discarded: clearing individual slots would break
+// open-address probe chains, and stale indices can alias later reused entries.
+template <typename State>
+__device__ inline void d_restore_local_list_entries(State& st, int count) {
+  if (st.list_entry_count == count) return;
+  st.list_entry_count = count;
+  if constexpr (State::kIndexedLists) {
+    for (int i = 0; i < st.list_index_capacity; ++i) st.list_index[i] = 0;
+    for (int i = 0; i < count; ++i) {
+      const auto& entry = st.list_entries[i];
+      Value key;
+      key.tag = entry.tag;
+      key.i = entry.packed;
+      // A surviving subset fits the same table; insertion retains first-match
+      // semantics for duplicate identities under the nonlogical policy.
+      d_index_local_list_entry(st, key, i);
+    }
+  }
+}
+
 template <typename State>
 __device__ inline bool d_lookup_list_payload(const DPayloadTables& tables,
                                              const State& st,

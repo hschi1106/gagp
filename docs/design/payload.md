@@ -474,8 +474,11 @@ which can exceed CUDA local-memory reservation limits. Ordinary payload/view
 flavors keep their original storage.
 The index preserves the first registered identity, including duplicate keys and
 negative-offset aliases; public hashes, full-content hashing, list allocation
-charges, fuel, and comparisons are unchanged. Slots are cleared per invocation,
-and replay slot memory counts against its 512 MiB scratch budget. This prototype
+charges, fuel, and comparisons are unchanged. When a scalar bounded region
+discards temporary list entries, the index is rebuilt from the surviving prefix
+only if the entry count changed. This preserves probe chains and first-match
+identity when later allocations reuse discarded entry slots. Slots are cleared
+per invocation, and replay slot memory counts against its 512 MiB scratch budget. This prototype
 removes linear entry lookup/dedup scans, not content hashing. Its initialization
 cost is included in kernel timing, and performance requires a measured flag-0
 versus flag-1 comparison. The execution profile adds `-list-index` only when the

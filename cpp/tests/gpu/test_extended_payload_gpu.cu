@@ -304,6 +304,57 @@ __global__ void inspect_private_list_index(gpu_detail::DIndexedExtendedPayloadSt
   if(!d_register_local_list(*state,alias,-1,1)){*failures=5;return;}
   const Value* values=nullptr;int count=0;
   if(!d_lookup_list_payload(tables,*state,alias,values,count) || values[0].i!=991){*failures=6;return;}
+  // Scalar-region rollback removes aliases and duplicates while retaining
+  // every surviving probe chain and the first identity of each entry.
+  d_restore_local_list_entries(*state,800);
+  if(d_find_local_list_entry(*state,alias)>=0){*failures=7;return;}
+  for(int i=0;i<800;++i) {
+    const auto token=d_make_list_hash_len(ValueTag::IntList,i+1,1);
+    if(d_find_local_list_entry(*state,token)!=i){*failures=8;return;}
+  }
+  // Reusing a discarded entry must not resurrect its old key or cause logical
+  // deduplication to omit a new registration.
+  if(!d_register_local_list(*state,alias,-1,1) || state->list_entry_count!=801){*failures=9;return;}
+  d_restore_local_list_entries(*state,0);
+  if(d_find_local_list_entry(*state,first)>=0 || d_find_local_list_entry(*state,alias)>=0){*failures=10;return;}
+
+}
+
+bool test_scalar_region_index_rollback() {
+  // A scalar region creates [7], then drops its payload. Recreate [7] outside
+  // the region and create [9] before reading it. A stale index wrongly dedups
+  // the recreated [7], then lets [9] overwrite its uncounted registry entry.
+  auto base=phase({Value::from_int(7)},
+      {ins_a(Opcode::PushConst,0),
+       ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),
+       ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Len),1),ins(Opcode::Return)});
+  auto program=invocation(unary_segment(ValueTag::Int,std::move(base),
+      constant_phase(Value::from_int(0))),0);
+  program.consts={Value::from_int(0),Value::from_int(7),Value::from_int(9)};
+  program.n_locals=2;
+  program.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::BoundedRegion,0),ins_a(Opcode::Store,1),
+      ins_a(Opcode::PushConst,1),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),ins_a(Opcode::Store,0),
+      ins_a(Opcode::PushConst,2),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),ins_a(Opcode::Store,1),
+      ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,0),
+      ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Index),2),ins(Opcode::Return)};
+  program.instruction_fuel.assign(program.code.size(),1);
+  ScopedEnvironment restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),restore_index("GAGP_GPU_PAYLOAD_INDEX");
+  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
+  std::vector<CaseBindings> cases(33);
+  std::vector<Value> answers(33,Value::from_int(7));
+  FitnessPolicy policy;policy.list_allocation_limit=65536;
+  std::vector<CpuFitnessCaseCounts> cpu_counts;
+  const auto cpu=eval_fitness_cpu({program},cases,answers,1000,1000.0,64,policy,nullptr,&cpu_counts);
+  for(const char* indexed:{"0","1"}) {
+    setenv("GAGP_GPU_PAYLOAD_INDEX",indexed,1);
+    FitnessSessionGpu session;
+    if(!check(session.init(cases,answers,1000,64,1000.0,policy).ok,"scalar rollback session init"))return false;
+    const auto gpu=session.eval_programs({program},true);
+    if(!check(gpu.ok && gpu.fitness==cpu && cpu_counts[0].errors==0 &&
+        gpu.case_counts[0][0]==33 && gpu.case_counts[0][1]==0 && gpu.case_counts[0][2]==0,
+        std::string("scalar region index rollback parity index=")+indexed))return false;
+  }
+  return true;
 }
 
 bool test_private_list_index() {
@@ -783,7 +834,7 @@ int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

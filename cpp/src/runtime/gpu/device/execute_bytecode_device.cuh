@@ -450,7 +450,7 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
         if (out.is_error) { result = out; break; }
         if (!d_is_payload_value(out.value)) {
           payload_state.string_entry_count = saved_strings;
-          payload_state.list_entry_count = saved_lists;
+          d_restore_local_list_entries(payload_state, saved_lists);
           payload_state.string_bytes_used = saved_bytes;
           payload_state.list_values_used = saved_values;
         }
