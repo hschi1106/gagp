@@ -5,6 +5,8 @@ namespace gagp::evo {
 
 void accumulate_timing(EvaluationTiming* total, const EvaluationTiming& value) {
   total->program_cases += value.program_cases;
+  for(std::size_t i=0;i<total->concat_cache_stats.size();++i)
+    total->concat_cache_stats[i] += value.concat_cache_stats[i];
   total->payload_replay_programs += value.payload_replay_programs;
   total->payload_replay_cases += value.payload_replay_cases;
   total->payload_replay_launches += value.payload_replay_launches;
