@@ -193,6 +193,9 @@ evo::grammar::ResolvedDefinition convert_legacy_grammar_config(
     }
     std::uint32_t legacy_signature_id = 0;
     for (const auto& signature : catalog.signatures()) {
+      // The integer overload shares a legacy node kind, but was not in v1.
+      // Exclude it before both production numbering and allowance checks.
+      if (signature.key == "is_letter(Int)->Bool") continue;
       // Keep historical production names independent of these catalog additions.
       if (signature.lowering_node == evo::NodeKind::CALL_TRUNC_DIV0 ||
           signature.lowering_node == evo::NodeKind::CALL_TRUNC_MOD0 ||

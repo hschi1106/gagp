@@ -54,6 +54,8 @@ def main() -> int:
             if decoded["format_version"] != "grammar-definition-v2":
                 raise AssertionError(f"{preset} did not produce grammar-definition-v2")
             outputs[preset] = destination.read_text(encoding="utf-8")
+            if "is_letter(Int)->Bool" in outputs[preset]:
+                raise AssertionError(f"{preset} migration admitted the post-v1 integer character overload")
             if any(operation in outputs[preset] for operation in ("trunc_div0", "trunc_mod0")):
                 raise AssertionError(f"{preset} migration admitted post-v1 truncating builtins")
             checked = repository / "configs" / "grammar" / f"{preset}.json"
