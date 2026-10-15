@@ -888,18 +888,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, impl_->d_case_order, nullptr, indices.compact_queue);
-    } else if (payload_index && has_regions && extended_payload) {
-      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedExtended, true>
-          <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
-              static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
-              impl_->d_shared_case_local_vals, impl_->d_shared_case_local_set, impl_->d_expected,
-              dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
-              dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
-              dev.d_phase_code, dev.d_phase_consts,
-              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness,
-              dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
-              dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
-              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, nullptr, nullptr, indices.compact_queue);
     } else if (has_regions && extended_payload) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::ExtendedMixed, true>
           <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
@@ -924,15 +912,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, nullptr, nullptr, indices.compact_queue);
-    } else if (payload_index && extended_payload) {
-      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedExtended>
-          <<<static_cast<unsigned int>(programs.size()), impl_->blocksize, shared_bytes>>>(
-              static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
-              impl_->d_shared_case_local_vals, impl_->d_shared_case_local_set, impl_->d_expected,
-              dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
-              dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
-              dev.d_phase_code, dev.d_phase_consts,
-              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness, nullptr, 0, nullptr, 0, nullptr, 0, region_workspace, dev.d_case_counts);
     } else if (extended_payload) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::ExtendedMixed>
           <<<static_cast<unsigned int>(programs.size()), impl_->blocksize, shared_bytes>>>(
@@ -1129,7 +1108,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
 
     out.ok = true;
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
-    if(payload_index)out.execution_profile+="-list-index";
+    if(payload_index && out.payload_replay_programs)out.execution_profile+="-list-index";
     if(out.payload_replay_programs)out.execution_profile+="-gpu-arena-replay";
     if (use_views && impl_->d_case_order) out.execution_profile += "-sorted";
     if (direct_phases) out.execution_profile += "-direct";

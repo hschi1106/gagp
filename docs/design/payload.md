@@ -466,10 +466,12 @@ results transfer their vector storage into the overlay through
 checks, and cumulative byte charges on every registration. Public constructors
 and payload identities are unchanged.
 `GAGP_GPU_PAYLOAD_INDEX=1` is an optional execution-private lookup prototype for
-extended payload evaluation and its GPU arena replay. The separate
-`IndexedExtended` and `IndexedArena` flavors index existing canonical
+GPU arena replay. The pointer-backed `IndexedArena` flavor indexes existing canonical
 `(list tag, packed hash/length)` entries with bounded open addressing at at most
-half occupancy. Ordinary payload/view flavors keep their original storage.
+half occupancy. Initial evaluation retains the ordinary extended evaluator;
+its large per-thread arena must not be enlarged with an additional local index,
+which can exceed CUDA local-memory reservation limits. Ordinary payload/view
+flavors keep their original storage.
 The index preserves the first registered identity, including duplicate keys and
 negative-offset aliases; public hashes, full-content hashing, list allocation
 charges, fuel, and comparisons are unchanged. Slots are cleared per invocation,
@@ -477,5 +479,5 @@ and replay slot memory counts against its 512 MiB scratch budget. This prototype
 removes linear entry lookup/dedup scans, not content hashing. Its initialization
 cost is included in kernel timing, and performance requires a measured flag-0
 versus flag-1 comparison. The execution profile adds `-list-index` only when the
-indexed evaluator is selected. `gagp_test_extended_payload_gpu` covers collisions,
+indexed replay actually runs. `gagp_test_extended_payload_gpu` covers collisions,
 duplicates, aliases and full-case CPU parity with the flag both off and on.
