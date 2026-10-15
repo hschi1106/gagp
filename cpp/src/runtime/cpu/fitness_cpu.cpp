@@ -35,7 +35,8 @@ double score_resident(const Value& actual,const Value& expected,double penalty,F
   } else return -fitness_error_ceiling(policy,penalty);
   exact=fitness_case_score(actual,expected,penalty,{FitnessMetric::Exact})==0;
   if(policy.metric==FitnessMetric::TupleSummary)
-    exact=a.size()==b.size() && a.size()==std::size_t(policy.summary_count+1) && a[0].i==b[0].i;
+    exact=actual.tag==ValueTag::IntList && valid_fitness_tuple(a.data(),int(a.size()),policy) &&
+        valid_fitness_tuple(b.data(),int(b.size()),policy) && a[0].i==b[0].i;
   std::vector<unsigned> row(b.size()+1);
   return fitness_sequence_score(a.data(),int(a.size()),b.data(),int(b.size()),penalty,policy,row.data());
 }
@@ -66,6 +67,14 @@ std::vector<double> eval_fitness_cpu(
     for(const auto& answer:shared_answer)
       if(!is_container(answer) || Value::container_len(answer)>kFitnessMaxSequence)
         throw std::invalid_argument("sequence fitness requires a container answer of at most 1024 elements");
+  if(policy.metric==FitnessMetric::TupleSummary) {
+    for(const auto& answer:shared_answer) {
+      std::vector<Value> tuple;
+      if(answer.tag!=ValueTag::IntList || !payload::lookup_list(answer,&tuple) ||
+          !valid_fitness_tuple(tuple.data(),int(tuple.size()),policy))
+        throw std::invalid_argument("TupleSummary answer must contain exactly summary_count+1 Int fields");
+    }
+  }
   if (programs.empty() || shared_cases.empty()) {
     return {};
   }

@@ -211,6 +211,9 @@ and GPU fitness accept the same optional policy; evolution carries it in
 ceiling: one for Exact or discounted proximity, `abs(penalty)` for capped
 proximity, and `1 + summary_count * summary_weight` for TupleSummary.
 Sequence answers above 1024 elements are rejected at session/evaluation setup.
+TupleSummary answers must have a resident IntList payload with exactly
+`summary_count + 1` Int fields; malformed answers are rejected at setup. A
+malformed actual tuple contributes the metric ceiling and one wrong case.
 Payloads are resolved before invocation-owned GPU storage expires; absent
 payloads receive the ceiling. No distance is inferred from transport hashes.
 

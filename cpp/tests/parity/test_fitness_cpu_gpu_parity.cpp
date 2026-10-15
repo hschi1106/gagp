@@ -2672,6 +2672,29 @@ int main() {
       std::cerr<<"discounted 512-lane reduction diverged";return 1;
     }
   }
+  {
+    gagp::FitnessPolicy policy{gagp::FitnessMetric::TupleSummary};policy.summary_count=1;
+    const auto valid_tuple=gagp::payload::make_int_list_value({Value::from_int(1),Value::from_int(2)});
+    const auto bad_fields=Value::from_int_list_hash_len(998878,2);
+    gagp::payload::register_list(bad_fields,{Value::from_int(1),Value::from_float(2)});
+    const auto bad_length=gagp::payload::make_int_list_value({Value::from_int(1)});
+    const auto bad_tag=gagp::payload::make_float_list_value({Value::from_float(1),Value::from_float(2)});
+    for(const auto invalid:{bad_fields,bad_length,bad_tag}) {
+      gagp::FitnessSessionGpu rejected;
+      if(rejected.init({{}},{invalid},100,32,10,policy).ok) {
+        std::cerr<<"malformed GPU tuple answer accepted";return 1;
+      }
+      auto program=make_return_const_program(0);program.consts={invalid};
+      std::vector<unsigned> wrong;
+      const auto cpu=gagp::eval_fitness_cpu({program},{{}},{valid_tuple},100,10,32,policy,&wrong);
+      gagp::FitnessSessionGpu session;
+      if(!session.init({{}},{valid_tuple},100,32,10,policy).ok)return 1;
+      const auto gpu=session.eval_programs({program});
+      if(!gpu.ok || gpu.fitness!=cpu || gpu.wrong!=wrong || wrong!=std::vector<unsigned>{1} || std::fabs(cpu[0]+1.1)>1e-12) {
+        std::cerr<<"malformed tuple actual parity failure";return 1;
+      }
+    }
+  }
   std::cout << "gagp_test_fitness_cpu_gpu_parity: OK\n";
   return 0;
 }

@@ -57,12 +57,17 @@ GAGP_FIT_HD inline double fitness_case_score(const Value& actual, const Value& e
 // Callers resolve payloads while their invocation owns them. The expected side
 // bounds the row; no allocation or payload-token approximation occurs on device.
 constexpr int kFitnessMaxSequence = 1024;
+GAGP_FIT_HD inline bool valid_fitness_tuple(const Value* values,int count,FitnessPolicy policy) {
+  if(!values || count!=policy.summary_count+1 || count<1 || count>3)return false;
+  for(int i=0;i<count;++i)if(values[i].tag!=ValueTag::Int)return false;
+  return true;
+}
 GAGP_FIT_HD inline double fitness_sequence_score(const Value* actual, int n,
     const Value* expected, int m, double penalty, FitnessPolicy policy, unsigned* row) {
   if (n < 0 || m < 0 || m > kFitnessMaxSequence)
     return -fitness_error_ceiling(policy,penalty);
   if (policy.metric == FitnessMetric::TupleSummary) {
-    if (n != policy.summary_count+1 || m != n || actual[0].tag!=ValueTag::Int || expected[0].tag!=ValueTag::Int)
+    if (!valid_fitness_tuple(actual,n,policy) || !valid_fitness_tuple(expected,m,policy))
       return -fitness_error_ceiling(policy,penalty);
     double error = actual[0].i == expected[0].i ? 0.0 : 1.0;
     for (int i=1;i<n;++i) {

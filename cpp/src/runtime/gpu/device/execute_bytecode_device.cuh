@@ -498,7 +498,8 @@ __device__ __noinline__ double d_score_resident(const Value& actual,const Value&
       return -fitness_error_ceiling(policy,penalty);
     if(exact)*exact=actual.i==expected.i;
     if(exact && policy.metric==FitnessMetric::TupleSummary)
-      *exact=n==m && n==policy.summary_count+1 && a[0].i==b[0].i;
+      *exact=actual.tag==ValueTag::IntList && valid_fitness_tuple(a,n,policy) &&
+          valid_fitness_tuple(b,m,policy) && a[0].i==b[0].i;
     return fitness_sequence_score(a,n,b,m,penalty,policy,row);
   }
   if(actual.tag==ValueTag::String && policy.metric==FitnessMetric::Levenshtein) {

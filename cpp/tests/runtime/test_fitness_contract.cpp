@@ -101,6 +101,21 @@ int main() {
   tuple.summary_count=1;unsigned scratch[3];
   if(!check(std::fabs(gagp::fitness_sequence_score(large_actual,2,large_expected,2,10,tuple,scratch)+.01)<1e-12,
       "tuple summary gap retains low integer bits"))return 1;
+  tuple.summary_count=1;
+  const auto valid_tuple=gagp::payload::make_int_list_value({Value::from_int(1),Value::from_int(2)});
+  const auto bad_fields=Value::from_int_list_hash_len(998877,2);
+  gagp::payload::register_list(bad_fields,{Value::from_int(1),Value::from_float(2)});
+  const auto bad_length=gagp::payload::make_int_list_value({Value::from_int(1)});
+  const auto bad_tag=gagp::payload::make_float_list_value({Value::from_float(1),Value::from_float(2)});
+  for(const auto invalid:{bad_fields,bad_length,bad_tag}) {
+    bool rejected=false;
+    try{(void)gagp::eval_fitness_cpu({returns(valid_tuple)},{{}},{invalid},100,10,1,tuple);}
+    catch(const std::invalid_argument&){rejected=true;}
+    if(!check(rejected,"malformed tuple answer rejected at setup"))return 1;
+    const auto bad_score=gagp::eval_fitness_cpu({returns(invalid)},{{}},{valid_tuple},100,10,1,tuple,&wrong);
+    if(!check(wrong==std::vector<unsigned>{1} && std::fabs(bad_score[0]+1.1)<1e-12,
+        "malformed tuple actual receives ceiling and wrong case"))return 1;
+  }
   std::cout << "gagp_test_fitness_contract: OK\n";
   return 0;
 }

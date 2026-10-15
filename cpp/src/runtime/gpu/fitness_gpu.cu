@@ -381,6 +381,14 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
     for(const auto& answer:shared_answer)
       if(!is_container(answer) || Value::container_len(answer)>kFitnessMaxSequence)
         return fitness_init_single_error(ErrCode::Value,"sequence fitness requires a container answer of at most 1024 elements");
+  if(policy.metric==FitnessMetric::TupleSummary) {
+    for(const auto& answer:shared_answer) {
+      std::vector<Value> tuple;
+      if(answer.tag!=ValueTag::IntList || !payload::lookup_list(answer,&tuple) ||
+          !valid_fitness_tuple(tuple.data(),int(tuple.size()),policy))
+        return fitness_init_single_error(ErrCode::Value,"TupleSummary answer must contain exactly summary_count+1 Int fields");
+    }
+  }
   if (shared_cases.empty()) {
     return fitness_init_single_error(ErrCode::Value, "shared_cases must not be empty");
   }
