@@ -822,3 +822,8 @@ existing payload-aware GPU VM; they never inherit a scalar/view capability
 certificate. This includes list and tuple carriers when all their remaining
 productions and the fixed region skeleton satisfy phase admission. Tests:
 `gagp_test_gpu_phase_compile` and `gagp_test_gpu_phase_layout`.
+
+The integer-codepoint `is_letter(Int)` overload is also admitted to phase
+construction/lowering. It clears the typed-view proof because the compact view
+interpreter does not implement this operation; evaluation stays on the ordinary
+GPU executor with the builtin's ASCII classification and fuel semantics.

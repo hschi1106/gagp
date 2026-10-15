@@ -79,7 +79,7 @@ Fixture normalize(const AstProgram& ast,std::size_t begin,std::size_t end,
   for(auto i=begin;i<end;++i) {
     const auto& node=ast.nodes[i]; const auto& descriptor=node_descriptor(node.kind);
     if((node.kind==NodeKind::CONST && ast.consts.at(node.i0).tag==ValueTag::IntList) ||
-        node.kind==NodeKind::CALL_CONCAT || node.kind==NodeKind::CALL_SINGLETON)out.views=false;
+        node.kind==NodeKind::CALL_IS_LETTER || node.kind==NodeKind::CALL_CONCAT || node.kind==NodeKind::CALL_SINGLETON)out.views=false;
     PhaseTreeNode value;value.arity=descriptor.prefix_arity;value.fuel=charge(ast,i,FuelEvent::Operation);
     if(node.kind==NodeKind::CONST) { value.kind=PhaseTreeKind::Constant;value.operand=node.i0; }
     else if(node.kind==NodeKind::REGION_VAR || node.kind==NodeKind::VAR) {
@@ -128,6 +128,10 @@ std::vector<Fixture> generated() {
     out.push_back(normalize(ast,3,end,{{0,0},{1,1}},{ValueTag::Int,ValueTag::Bool},boolean?ValueTag::Bool:ValueTag::Int,std::move(phase)));
   }
   Fixture leaf;leaf.nodes={{PhaseTreeKind::Constant,Opcode::PushConst,0,0,1,1}};leaf.constants={Value::from_int(1)};leaf.reference.consts=leaf.constants;leaf.reference.code={{Opcode::PushConst,0,0,true,false}};
+  auto letter=leaf;letter.result=ValueTag::Bool;letter.views=false;
+  letter.nodes.insert(letter.nodes.begin(),{PhaseTreeKind::Operation,Opcode::CallBuiltin,int(BuiltinId::IsLetter),1,1,1});
+  letter.reference.code.push_back({Opcode::CallBuiltin,int(BuiltinId::IsLetter),1,true,true});
+  out.push_back(letter);
   auto singleton=leaf;
   singleton.result=ValueTag::IntList;singleton.views=false;
   singleton.nodes.insert(singleton.nodes.begin(),{PhaseTreeKind::Operation,Opcode::CallBuiltin,int(BuiltinId::Singleton),1,1,1});
