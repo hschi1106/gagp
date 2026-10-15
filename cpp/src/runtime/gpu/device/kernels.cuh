@@ -77,6 +77,14 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     const DRegionPhaseBinding* region_bindings = nullptr, int region_binding_count = 0,
     DRegionWorkspace workspace = {}, unsigned int* case_counts = nullptr, const int* case_order = nullptr, const int* program_indices = nullptr, int* next_program = nullptr) {
   const int tid = static_cast<int>(threadIdx.x);
+  const int fitness_lanes = Flavor == DPayloadFlavor::ArenaMixed ? workspace.fitness_lanes : blockDim.x;
+  if constexpr (Flavor == DPayloadFlavor::ArenaMixed) {
+    const std::size_t slot = static_cast<std::size_t>(blockIdx.x) * blockDim.x + tid;
+    workspace.payload_string_entries += slot * workspace.payload_entry_capacity;
+    workspace.payload_list_entries += slot * workspace.payload_entry_capacity;
+    workspace.payload_string_bytes += slot * workspace.payload_byte_capacity;
+    workspace.payload_list_values += slot * workspace.payload_value_capacity;
+  }
   if constexpr (EnableRegions) {
     const std::size_t block_base = static_cast<std::size_t>(blockIdx.x) * blockDim.x;
     workspace.slot_stride = blockDim.x;
@@ -112,6 +120,13 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
        logical_idx < static_cast<std::size_t>(program_count);) {
   const std::size_t prog_idx = program_indices ? program_indices[logical_idx] : logical_idx;
 
+  if constexpr (Flavor == DPayloadFlavor::ArenaMixed) {
+    if (tid == 0) {
+      workspace.payload_overflows[prog_idx] = 0;
+      if (case_counts) for (int i=0;i<6;++i)case_counts[prog_idx*6+i]=0;
+    }
+    __syncthreads();
+  }
   const DProgramMeta meta = metas[prog_idx];
   const DPayloadTables payload_tables{
       string_payload_entries,
@@ -194,11 +209,12 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     }
   }
 
+  for (int logical_tid = tid; logical_tid < fitness_lanes; logical_tid += blockDim.x) {
   double local_score = 0.0;
-  const int chunk_start = (meta.case_count * tid) / static_cast<int>(blockDim.x);
-  const int chunk_end = (meta.case_count * (tid + 1)) / static_cast<int>(blockDim.x);
+  const int chunk_start = (meta.case_count * logical_tid) / fitness_lanes;
+  const int chunk_end = (meta.case_count * (logical_tid + 1)) / fitness_lanes;
   const bool strided = (Flavor == DPayloadFlavor::IntListViews || Flavor == DPayloadFlavor::BoundIntListViews) && case_order;
-  const int case_begin = strided ? tid : chunk_start;
+  const int case_begin = strided ? logical_tid : chunk_start;
   const int case_end = strided ? meta.case_count : chunk_end;
   const int case_step = strided ? static_cast<int>(blockDim.x) : 1;
   for (int local_case = case_begin; local_case < case_end; local_case += case_step) {
@@ -221,6 +237,8 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
         payload_tables, execution_tables, input_case, fuel, workspace,
         shared_answer+input_case,penalty,policy,&resident_score,&exact);
     }
+    if (result.payload_capacity_exceeded && workspace.payload_overflows)
+      atomicAdd(workspace.payload_overflows + prog_idx, 1u);
     unsigned int* counts = case_counts ? case_counts + prog_idx * 6 : nullptr;
     if (counts) { atomicAdd(counts, 1u); if(result.is_error || !exact)atomicAdd(counts+5,1u); }
     if (result.is_error) {
@@ -237,34 +255,30 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
         resident_score);
   }
 
-  partial_scores[tid] = local_score;
+  partial_scores[logical_tid] = local_score;
+  }
   __syncthreads();
 
-  const int lane = tid & 31;
-  const int warp_id = tid >> 5;
-  if (lane == 0) {
+  // Logical warp grouping is independent of replay's physical block width.
+  const int warp_count = (fitness_lanes + 31) >> 5;
+  for (int warp_id = tid; warp_id < warp_count; warp_id += blockDim.x) {
     const int warp_base = warp_id << 5;
-    const int warp_end =
-        ((warp_base + 32) < static_cast<int>(blockDim.x)) ? (warp_base + 32) : static_cast<int>(blockDim.x);
+    const int warp_end = min(warp_base + 32, fitness_lanes);
     double warp_score = 0.0;
-    for (int i = warp_base; i < warp_end; ++i) {
+    for (int i = warp_base; i < warp_end; ++i)
       warp_score = d_canonicalize_fitness_accumulator(warp_score + partial_scores[i]);
-    }
-    // Store the warp reduction in its own warp's first slot. Writing to
-    // partial_scores[warp_id] races with warp 0 reading partial_scores[1..31].
     partial_scores[warp_base] = warp_score;
   }
   __syncthreads();
 
   if (tid == 0) {
     double total_score = 0.0;
-    const int warp_count = (static_cast<int>(blockDim.x) + 31) >> 5;
     for (int warp = 0; warp < warp_count; ++warp) {
       total_score = d_canonicalize_fitness_accumulator(total_score + partial_scores[warp << 5]);
     }
     fitness_out[prog_idx] = total_score;
   }
-  if constexpr (!EnableRegions) break;
+  if constexpr (!EnableRegions && Flavor != DPayloadFlavor::ArenaMixed) break;
   // Thread 0 must finish consuming the reduction before shared code is reused.
   // Workspace remains owned by the physical block when it takes another row.
   if (next_program) {

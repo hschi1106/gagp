@@ -271,7 +271,7 @@ Json measure_gagp(const std::vector<gagp::evo::ProgramGenome>& population,
       std::chrono::steady_clock::now()-call_begin).count();
   const auto& t=result.timing.generations.at(0);
   const auto& v=t.reproduction.variation;
-  return object({{"execution_profile",string(t.evaluation.execution_profile)}, {"search_contract",search_contract_json(cfg,result.reproduction_profile)},
+  return object({{"execution_profile",string(t.evaluation.execution_profile)}, {"payload_replay_programs",number(t.evaluation.payload_replay_programs)}, {"payload_replay_cases",number(t.evaluation.payload_replay_cases)}, {"payload_replay_launches",number(t.evaluation.payload_replay_launches)}, {"search_contract",search_contract_json(cfg,result.reproduction_profile)},
     {"reproduction_profile",string(result.reproduction_profile)}, {"reproduction_fallback_reason",string(result.reproduction_fallback_reason)},
     {"initial_admission_ms",number(result.timing.init_population_ms)}, {"genotype_device_bytes",number(result.genotype_device_bytes)}, {"generation_ms",number(t.total_ms)}, {"eval_ms",number(t.eval_ms)}, {"repro_ms",number(t.repro_ms)},
     {"evolve_wall_ms",number(evolve_wall_ms)}, {"evolve_call_ms",number(result.timing.total_ms)}, {"gpu_init_ms",number(result.timing.gpu_eval_init_ms)},
@@ -352,7 +352,7 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
   }
   write(output,object({{"admission_compile_reuses",number(admission_reuses)}, {"compile_ms",number(compile_ms)}, {"gpu_init_ms",number(init.timing.total_ms)},
     {"eval_ms",number(result.timing.total_ms)}, {"kernel_ms",number(result.timing.kernel_ms)},
-    {"execution_profile",string(result.execution_profile)}, {"diagnostic_only",number(1)},
+    {"execution_profile",string(result.execution_profile)}, {"payload_replay_programs",number(result.payload_replay_programs)}, {"payload_replay_cases",number(result.payload_replay_cases)}, {"payload_replay_launches",number(result.payload_replay_launches)}, {"diagnostic_only",number(1)},
     {"cpu_behavior_probe_cases",number(behavior_probe?std::min<std::size_t>(32,cs.bindings.size()):0)},
     {"unique_cpu_behavior_probes",number(behaviors.size())}, {"programs",array(std::move(rows))}}));
 }
@@ -445,7 +445,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   for (std::size_t i=0;i<result.timing.generations.size();++i) {
     const auto& t=result.timing.generations[i]; const auto& e=t.evaluation; const auto& v=t.reproduction.variation;
     rows.push_back(object({{"generation",number(i)}, {"generation_ms",number(t.total_ms)},
-      {"elapsed_search_ms",number(t.elapsed_search_ms)}, {"execution_profile",string(e.execution_profile)},
+      {"elapsed_search_ms",number(t.elapsed_search_ms)}, {"execution_profile",string(e.execution_profile)}, {"payload_replay_programs",number(e.payload_replay_programs)}, {"payload_replay_cases",number(e.payload_replay_cases)}, {"payload_replay_launches",number(e.payload_replay_launches)},
       {"eval_ms",number(t.eval_ms)}, {"repro_ms",number(t.repro_ms)},
       {"compile_ms",number(e.cpu_compile_ms+e.gpu_compile_ms)}, {"eval_kernel_ms",number(e.gpu_eval_kernel_ms)},
       {"pack_ms",number(e.gpu_eval_pack_ms)}, {"upload_ms",number(e.gpu_eval_upload_ms)},

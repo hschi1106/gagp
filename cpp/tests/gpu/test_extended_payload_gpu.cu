@@ -267,6 +267,52 @@ bool test_extended_list_fitness() {
                "50-element list fitness produced errors");
 }
 
+bool test_payload_replay_fitness() {
+  // Two appends per frame allocate >8192 cells without exceeding the source
+  // logical arena. The original ExtendedMixed evaluation must overflow.
+  auto combine = phase({},
+      {ins_a(Opcode::Load, 0), ins_a(Opcode::Load, 1),
+       ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Singleton), 1),
+       ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Concat), 2),
+       ins_a(Opcode::Load, 1),
+       ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Singleton), 1),
+       ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Concat), 2), ins(Opcode::Return)},
+      {{slot(RegionSlotBank::Result, 0), 0}, {slot(RegionSlotBank::State, 0), 1}}, 2);
+  auto segment=unary_segment(ValueTag::IntList,
+      constant_phase(payload::make_int_list_value({})),std::move(combine));
+  segment.plan.coordinate_domains[0].upper=literal(100);
+  auto program=invocation(std::move(segment),100);
+  auto short_program=program;short_program.consts[0]=Value::from_int(1);
+  std::vector<Value> values;
+  for(int i=1;i<=100;++i){values.push_back(Value::from_int(i));values.push_back(Value::from_int(i));}
+  // Uneven chunks and nonintegral penalties exercise the original 512 logical
+  // lanes when replay uses only 32 physical CUDA threads.
+  std::vector<CaseBindings> cases(513);
+  std::vector<Value> answers;
+  for(int i=0;i<513;++i) {
+    auto expected=values;
+    for(int j=0;j<i%7;++j)expected[j]=Value::from_int(-1);
+    answers.push_back(payload::make_int_list_value(expected));
+  }
+  for(unsigned limit:{65536u,100u}) {
+    FitnessPolicy policy{FitnessMetric::Levenshtein,FitnessProximity::Discounted};
+    policy.list_allocation_limit=limit;
+    const auto cpu=eval_fitness_cpu({program,short_program},cases,answers,10000,1000.0,512,policy);
+    FitnessSessionGpu session;
+    if(!check(session.init(cases,answers,10000,512,1000.0,policy).ok,"replay session init"))return false;
+    const auto gpu=session.eval_programs({program,short_program},true);
+    if(!check(gpu.ok && gpu.fitness==cpu,"GPU arena replay differs from CPU 512-lane reduction"))return false;
+    if(!check(gpu.case_counts[0][0]==513 && gpu.case_counts[1][0]==513,"replay diagnostics double-count cases"))return false;
+    if(limit==65536) {
+      if(!check(gpu.payload_replay_programs==1 && gpu.payload_replay_cases==513 && gpu.payload_replay_launches==1,
+          "physical overflow must replay only the affected program"))return false;
+      if(!check(gpu.case_counts[0][1]==0 && gpu.case_counts[1][1]==0,"successful replay retained physical errors"))return false;
+    } else if(!check(gpu.payload_replay_programs==0 && gpu.case_counts[0][1]==513,
+        "logical allocation errors must not trigger physical replay"))return false;
+  }
+  return true;
+}
+
 bool test_extended_payload() {
   int* failures = nullptr;
   if (cudaMallocManaged(&failures, sizeof(int)) != cudaSuccess) return false;
@@ -292,7 +338,7 @@ int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_extended_payload() || !test_extended_list_fitness() ||
+  if (!test_extended_payload() || !test_extended_list_fitness() || !test_payload_replay_fitness() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

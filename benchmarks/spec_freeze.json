@@ -22,7 +22,7 @@
     },
     {
       "path": "spec/builtins_base.md",
-      "sha256": "a38824ac470b1a70e97b036f244a99b114771074bcb75109edac84c2d8776dc2"
+      "sha256": "4cbd7ae7a64ce4a5469de0aa22424c61972f40d0856d2194abc80d3bda233a64"
     },
     {
       "path": "spec/builtins_runtime.md",
@@ -30,7 +30,7 @@
     },
     {
       "path": "spec/fitness.md",
-      "sha256": "bf8411f060151f738677a8f622f663e1b7d1513ffa6d2701eb9fdcd5e252caae"
+      "sha256": "0ce9e5366d1f28e19de8e834216212a3b86070ce0547199079eb65d3d5269218"
     },
     {
       "path": "spec/fitness_cases.md",

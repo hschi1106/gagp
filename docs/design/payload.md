@@ -413,14 +413,33 @@ GPU fitness programs that construct strings/lists use the separate
 `extended-payload` profile when a view executor is not admitted. Its per-case
 arena has 8192 list values, 1024 list entries, 8192 string bytes and 1024 string
 entries. These are cumulative allocation limits, including intermediate
-results, not maximum output lengths. Exhaustion returns a Value error and the
-normal penalty. Scalar/view kernels keep their existing storage. The profile
-is bounded; it does not promise arbitrarily large list/string programs.
+results, not maximum output lengths. Physical exhaustion is detected separately
+from a semantic runtime error and triggers GPU replay of the affected programs.
+Replay uses `ArenaMixed`, pointer-backed invocation storage in a bounded global
+workspace. Thirty-two physical threads execute the original logical lane chunks
+and the same canonicalized warp reduction order. Successful replay replaces the
+program's score and diagnostics; preliminary physical failures never become
+fitness penalties. Scalar/view kernels keep their existing storage.
+
+Replay starts with 65536 entries and list values per invocation, with at least
+the configured logical cell limit, and 8192 string bytes. It doubles physical
+capacities when needed while reducing concurrent program blocks to stay within
+512 MiB of additional replay scratch. Logical policy limits never grow. If one
+32-thread block cannot fit or a CUDA allocation fails, the whole fitness call
+fails explicitly rather than returning a scored physical error or using CPU
+execution. Programs/cases/launches replayed are reported separately from final
+case counts through `FitnessEvalResult`, evolution timing, and benchmark JSON.
+Kernel timing includes all replay kernels; total evaluation timing also includes
+overflow detection, scratch allocation, and transfers. No host worker threads
+are added. This remains a bounded evaluator, not an unlimited allocation promise.
 
 Focused validation: `ctest --test-dir cpp/build -R
 'gagp_test_payload_staging|gagp_test_extended_payload_gpu' --output-on-failure`.
 The GPU test covers full 1024-case list construction, tuple/string entry counts,
 capacity errors, clamped subordinate memo coordinates and a 200-cell memo case.
+It also forces an 8192-cell overflow below the 65536-cell logical bound, checks
+selective replay and final counters against CPU execution with 512 reduction
+lanes and discounted list fitness, and verifies logical errors do not replay.
 
 The optional fitness logical list-cell budget is independent of storage bytes
 and registry deduplication; its contract is in `spec/fitness.md`.

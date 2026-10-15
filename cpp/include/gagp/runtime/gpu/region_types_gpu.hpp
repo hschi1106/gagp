@@ -86,6 +86,17 @@ struct DUnboxedCoordinateFrame {
 #undef GAGP_REGION_HD
 
 struct DRegionWorkspace {
+  // Replay owns bounded global payload slices per physical CUDA thread.
+  DStringPayloadEntry* payload_string_entries = nullptr;
+  DListPayloadEntry* payload_list_entries = nullptr;
+  char* payload_string_bytes = nullptr;
+  Value* payload_list_values = nullptr;
+  int payload_entry_capacity = 0;
+  int payload_value_capacity = 0;
+  int payload_byte_capacity = 0;
+  int fitness_lanes = 0; // Original logical block width for exact reduction.
+  unsigned int* payload_overflows = nullptr; // One counter per program.
+
   DRegionFrame* frames = nullptr;
   std::int64_t* memo_keys = nullptr;
   Value* memo_values = nullptr;

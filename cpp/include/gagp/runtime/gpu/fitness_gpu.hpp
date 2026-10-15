@@ -50,6 +50,10 @@ struct FitnessEvalResult {
   // Opt-in diagnostics: evaluated cases, errors, timeouts (subset of errors),
   // fallback-token results, and results without a fitness comparison.
   std::vector<std::array<unsigned int, 5>> case_counts;
+  // Extra GPU work replacing physical payload failures; logical errors are not replayed.
+  std::size_t payload_replay_programs = 0;
+  std::size_t payload_replay_cases = 0;
+  std::size_t payload_replay_launches = 0;
   FitnessEvalTiming timing;
   Err err{ErrCode::Value, ""};
 };

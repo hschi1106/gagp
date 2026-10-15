@@ -748,9 +748,14 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     gpu_detail::DeviceArena dev;
     struct IndexBuffers {
       int *compact=nullptr,*generic=nullptr,*compact_queue=nullptr,*generic_queue=nullptr;
-      ~IndexBuffers(){if(compact)cudaFree(compact);if(generic)cudaFree(generic);if(compact_queue)cudaFree(compact_queue);if(generic_queue)cudaFree(generic_queue);}
+      unsigned int* overflows=nullptr;
+      ~IndexBuffers(){if(overflows)cudaFree(overflows);if(compact)cudaFree(compact);if(generic)cudaFree(generic);if(compact_queue)cudaFree(compact_queue);if(generic_queue)cudaFree(generic_queue);}
     } indices;
     const auto upload_t0 = std::chrono::steady_clock::now();
+    if (cudaMalloc(reinterpret_cast<void**>(&indices.overflows), sizeof(unsigned int)*programs.size()) != cudaSuccess ||
+        cudaMemset(indices.overflows,0,sizeof(unsigned int)*programs.size()) != cudaSuccess)
+      return fitness_eval_single_error(ErrCode::Value,"cuda payload overflow diagnostics allocation failure");
+    region_workspace.payload_overflows=indices.overflows;
     if (has_regions && std::getenv("GAGP_DYNAMIC_PROGRAM_QUEUE")) {
       if (!gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(region_blocks)}, &indices.compact_queue) ||
           (capability_buckets && !gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(generic_blocks)}, &indices.generic_queue)))
@@ -913,7 +918,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
               dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
               dev.d_phase_code, dev.d_phase_consts,
-              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness, nullptr, 0, nullptr, 0, nullptr, 0, {}, dev.d_case_counts);
+              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness, nullptr, 0, nullptr, 0, nullptr, 0, region_workspace, dev.d_case_counts);
     } else {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::Mixed>
           <<<static_cast<unsigned int>(programs.size()), impl_->blocksize, shared_bytes>>>(
@@ -922,7 +927,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
               dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
               dev.d_phase_code, dev.d_phase_consts,
-              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness, nullptr, 0, nullptr, 0, nullptr, 0, {}, dev.d_case_counts);
+              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness, nullptr, 0, nullptr, 0, nullptr, 0, region_workspace, dev.d_case_counts);
     }
     if(capability_buckets) {
       const auto first_error=cudaGetLastError();
@@ -963,6 +968,104 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       }
       return fitness_eval_single_error(ErrCode::Value, msg);
     }
+    // Physical payload exhaustion is not a program error. Replay only affected
+    // programs on GPU, replacing their entire original logical-lane reduction.
+    // Global scratch bounds concurrency; no large per-thread local arrays and
+    // no CPU evaluation fallback are introduced.
+    double replay_kernel_ms=0;
+    std::vector<unsigned int> overflow_counts(programs.size());
+    if (cudaMemcpy(overflow_counts.data(),indices.overflows,sizeof(unsigned int)*programs.size(),cudaMemcpyDeviceToHost)!=cudaSuccess)
+      return fitness_eval_single_error(ErrCode::Value,"cuda payload overflow copy-back failure");
+    std::vector<int> replay_programs;
+    for(std::size_t p=0;p<programs.size();++p)if(overflow_counts[p])replay_programs.push_back(static_cast<int>(p));
+    out.payload_replay_programs=replay_programs.size();
+    if(impl_->policy.list_allocation_limit>static_cast<unsigned>(std::numeric_limits<int>::max()))
+      return fitness_eval_single_error(ErrCode::Value,"GPU logical list limit exceeds replay addressing capacity");
+    int replay_entries=65536;
+    int replay_values=static_cast<int>(std::max<unsigned>(65536,impl_->policy.list_allocation_limit));
+    int replay_bytes=8192;
+    constexpr std::size_t replay_budget=512u*1024u*1024u;
+    while(!replay_programs.empty()) {
+      struct ReplayStorage {
+        std::vector<void*> allocations;
+        ~ReplayStorage(){for(auto p:allocations)cudaFree(p);}
+        bool allocate(void** p,std::size_t bytes) {
+          if(!bytes){*p=nullptr;return true;}
+          if(cudaMalloc(p,bytes)!=cudaSuccess)return false;
+          allocations.push_back(*p);return true;
+        }
+      } replay_storage;
+      auto replay_workspace=region_workspace;
+      // Generic region executor only. Original compact frames remain compatible.
+      replay_workspace.window_executor=false;replay_workspace.coordinate_executor=false;
+      replay_workspace.unboxed_window_frames=false;replay_workspace.window_soa=false;
+      replay_workspace.measure_phase_cache=false;
+      replay_workspace.fitness_lanes=impl_->blocksize;
+      replay_workspace.payload_entry_capacity=replay_entries;
+      replay_workspace.payload_value_capacity=replay_values;
+      replay_workspace.payload_byte_capacity=replay_bytes;
+      const std::size_t replay_frame_size=!replay_workspace.compact_frames?sizeof(gpu_detail::DRegionFrame):
+          replay_workspace.two_state_frames?sizeof(gpu_detail::DCompactPairRegionFrame):sizeof(gpu_detail::DCompactRegionFrame);
+      const std::size_t payload_per_thread=std::size_t(replay_entries)*(sizeof(gpu_detail::DStringPayloadEntry)+sizeof(gpu_detail::DListPayloadEntry))+
+          std::size_t(replay_values)*sizeof(Value)+replay_bytes;
+      const std::size_t frame_per_thread=replay_frame_size*replay_workspace.frame_capacity;
+      const std::size_t memo_keys_per_thread=sizeof(std::int64_t)*gpu_detail::DMAX_REGION_STATES*replay_workspace.memo_capacity;
+      const std::size_t memo_values_per_thread=sizeof(Value)*replay_workspace.memo_capacity;
+      const std::size_t replay_per_thread=payload_per_thread+frame_per_thread+memo_keys_per_thread+memo_values_per_thread;
+      constexpr int replay_threads=32;
+      const auto replay_blocks=std::min(replay_programs.size(),replay_budget/(replay_threads*replay_per_thread));
+      if(!replay_blocks)
+        return fitness_eval_single_error(ErrCode::Value,"GPU payload replay workspace budget exhausted; physical overflow remains unscored");
+      const auto slots=replay_blocks*replay_threads;
+      int* replay_indices=nullptr;
+      if(!replay_storage.allocate(reinterpret_cast<void**>(&replay_indices),sizeof(int)*replay_programs.size()) ||
+          cudaMemcpy(replay_indices,replay_programs.data(),sizeof(int)*replay_programs.size(),cudaMemcpyHostToDevice)!=cudaSuccess ||
+          !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.payload_string_entries),slots*replay_entries*sizeof(gpu_detail::DStringPayloadEntry)) ||
+          !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.payload_list_entries),slots*replay_entries*sizeof(gpu_detail::DListPayloadEntry)) ||
+          !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.payload_string_bytes),slots*replay_bytes) ||
+          !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.payload_list_values),slots*replay_values*sizeof(Value)) ||
+          !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.frames),slots*frame_per_thread) ||
+          !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.memo_keys),slots*memo_keys_per_thread) ||
+          !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.memo_values),slots*memo_values_per_thread))
+        return fitness_eval_single_error(ErrCode::Value,"cuda payload replay workspace allocation failure");
+      KernelEvents replay_events;
+      if(cudaEventCreate(&replay_events.start)!=cudaSuccess || cudaEventCreate(&replay_events.end)!=cudaSuccess ||
+          cudaEventRecord(replay_events.start)!=cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value,"cuda payload replay timing failure");
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::ArenaMixed,true>
+          <<<static_cast<unsigned>(replay_blocks),replay_threads,kernel_shared_bytes(packed.max_code_len,impl_->blocksize)>>>(
+              static_cast<int>(replay_programs.size()),dev.d_consts,dev.d_code,dev.d_metas,
+              impl_->d_shared_case_local_vals,impl_->d_shared_case_local_set,impl_->d_expected,
+              dev.d_string_payload_entries,static_cast<int>(payload_pack.string_entries.size()),dev.d_string_payload_bytes,
+              dev.d_list_payload_entries,static_cast<int>(payload_pack.list_entries.size()),dev.d_list_payload_values,
+              dev.d_phase_code,dev.d_phase_consts,impl_->fuel,impl_->penalty,impl_->policy,dev.d_fitness,
+              dev.d_region_segments,static_cast<int>(packed.region_segments.size()),
+              dev.d_region_phases,static_cast<int>(packed.region_phases.size()),
+              dev.d_region_bindings,static_cast<int>(packed.region_bindings.size()),replay_workspace,
+              dev.d_case_counts,nullptr,replay_indices);
+      const auto replay_launch_error=cudaGetLastError();
+      const auto replay_event_error=cudaEventRecord(replay_events.end);
+      const auto replay_sync_error=cudaDeviceSynchronize();
+      if(replay_launch_error!=cudaSuccess || replay_event_error!=cudaSuccess || replay_sync_error!=cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value,"cuda payload replay execution failure");
+      float replay_elapsed=0;
+      if(cudaEventElapsedTime(&replay_elapsed,replay_events.start,replay_events.end)!=cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value,"cuda payload replay timing read failure");
+      replay_kernel_ms+=replay_elapsed;
+      ++out.payload_replay_launches;
+      for(auto p:replay_programs)out.payload_replay_cases+=packed.metas[p].case_count;
+      if(cudaMemcpy(overflow_counts.data(),indices.overflows,sizeof(unsigned int)*programs.size(),cudaMemcpyDeviceToHost)!=cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value,"cuda payload replay diagnostics failure");
+      replay_programs.erase(std::remove_if(replay_programs.begin(),replay_programs.end(),
+          [&](int p){return overflow_counts[p]==0;}),replay_programs.end());
+      // Capacity growth affects only physical storage, never the policy budget.
+      // The fixed global budget makes an unresolved overflow explicit.
+      if(!replay_programs.empty()) {
+        if(replay_entries>std::numeric_limits<int>::max()/2 || replay_values>std::numeric_limits<int>::max()/2 || replay_bytes>std::numeric_limits<int>::max()/2)
+          return fitness_eval_single_error(ErrCode::Value,"GPU payload replay capacity exceeds addressable storage");
+        replay_entries*=2;replay_values*=2;replay_bytes*=2;
+      }
+    }
     const auto kernel_t1 = std::chrono::steady_clock::now();
 
     const auto copy_t0 = std::chrono::steady_clock::now();
@@ -987,6 +1090,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
 
     out.ok = true;
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
+    if(out.payload_replay_programs)out.execution_profile+="-gpu-arena-replay";
     if (use_views && impl_->d_case_order) out.execution_profile += "-sorted";
     if (direct_phases) out.execution_profile += "-direct";
     if (direct_root) out.execution_profile += "-root";
@@ -1009,7 +1113,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       float elapsed = 0;
       if (cudaEventElapsedTime(&elapsed, events.start, events.end) != cudaSuccess)
         return fitness_eval_single_error(ErrCode::Value, "cuda overlap timing failure");
-      out.timing.kernel_ms = elapsed;
+      out.timing.kernel_ms = elapsed + replay_kernel_ms;
     }
     out.timing.copyback_ms = ms_between(copy_t0, copy_t1);
     out.err = Err{ErrCode::Value, ""};

@@ -234,8 +234,15 @@ rank scores, preserving these comparisons without changing reported fitness.
 
 GPU fitness's `extended-payload` profile has per-case limits of 8192 list values,
 1024 list entries, 8192 string bytes and 1024 string entries. Intermediate
-allocations count toward these limits. Capacity exhaustion is a Value error
-with the ordinary error penalty, rather than a synthetic successful result.
+allocations count toward these physical scratch limits. Physical exhaustion
+triggers bounded GPU replay of affected programs with larger global payload
+arenas. Replay preserves the original logical lane grouping and canonical
+reduction order, replaces preliminary scores and case counters, and contributes
+to measured evaluation time. Logical policy errors are not replayed. If physical
+capacity cannot be supplied within the replay workspace bound, the fitness call
+fails explicitly; an unresolved physical failure is never a scored case error.
+The storage policy and replay counters are documented in
+[the payload design](../docs/design/payload.md).
 Configured CPU task metrics use the same ordered 32-lane-group reduction as
 CUDA when `reduction_lanes` equals the GPU block size. Each accumulation uses
 48-bit mantissa rounding; evolution ranking additionally canonicalizes to 40
