@@ -143,7 +143,7 @@ int main(){try {
  std::vector<std::string> oversized_names;for(const auto& x:oversized->inputs())oversized_names.push_back(x.name);
  bool unsupported=false;
  try {repro::NativePhasePopulation reject(oversized,{grammar::generate_derivation(*oversized,7).genome},oversized_names);}
- catch(const std::invalid_argument& e){unsupported=std::string(e.what()).find("capacity 128")!=std::string::npos;}
+ catch(const std::invalid_argument& e){unsupported=std::string(e.what()).find("capacity 256")!=std::string::npos;}
  require(unsupported,"oversized declared memo capacity was silently reduced or accepted");
  definition.document.object_v.at("templates").array_v[0].object_v.at("body").object_v.at("structured").object_v.at("plan").object_v.at("limits").object_v.at("cells").number_v=128;
  const auto grammar=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(definition.document))));
