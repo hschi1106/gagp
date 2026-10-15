@@ -1,0 +1,875 @@
+{
+  "prototype_commit": "18b2b3b",
+  "gpu_validated": false,
+  "audit_binary_scope": "CPU prepare/audit only; linked pre-prototype runtime libraries",
+  "audit_binary_sha256": "dd0ee21e6328f1b1c9fe1bac9675ce828a7f5d363b6df38544314981d2e668f5",
+  "import_binary_sha256": "92f5fae4598a01f2c2e0e7ac24fb260fd0acbeebc43dcbba900b5d99fa2fd4a2",
+  "tasks": {
+    "filter_odd": {
+      "source_sha256": "94a55476c363dc48002f2bda2470d4f3d1cf9653871180728a42b0655392cbe4",
+      "input_grammar_sha256": "1172f4afd340a9f375e09fa173db31fbf7e262498b1fd848ea45225949c48a08",
+      "charged_grammar_sha256": "c106d9961635cf44e487a6ed2e53f5839dda1bbb3eb80758e13bc879e51f6fce",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/filter_odd/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/filter_odd-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/filter_odd-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/filter_odd/source.json",
+        "/tmp/gagp-source-depth-20261015/filter_odd-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/filter_odd-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "13f114573e8867c6b10dbcdfb6839e027639f490f809d34ff6a5e601c0cf1be2",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/filter_odd-charged.json",
+        "/tmp/gagp-source-depth-20261015/filter_odd-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "sum_of_elements": {
+      "source_sha256": "2432b4fe7b04b10b24b87ceb5e102a291f9b344806ab43e0ca491d15b6906a55",
+      "input_grammar_sha256": "01057e1940a8c0868d6de6c3d84f60d53190a0faeb7d2facb18a73db4fa4bc61",
+      "charged_grammar_sha256": "7b78140664920205da3b2da59ff4f965a56c16e59f5b90546e59e8f442e70a6d",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/sum_of_elements/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/sum_of_elements-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/sum_of_elements-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/sum_of_elements/source.json",
+        "/tmp/gagp-source-depth-20261015/sum_of_elements-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/sum_of_elements-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "acbd59dc14e0d084932c6fbb024a984049792c5b655cd12bb868abfd700311f1",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/sum_of_elements-charged.json",
+        "/tmp/gagp-source-depth-20261015/sum_of_elements-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "is_sorted": {
+      "source_sha256": "355949699f91fee336a9c5088e0b8c74d8de9abc76b9539fb3bd48c2e341c651",
+      "input_grammar_sha256": "72f399efbee344454b07e28aa31c46825257796fa04e1df32c8e30d1b52c8783",
+      "charged_grammar_sha256": "4952000c490fb0bf416f21aa8d801e4eea479646462581e6cd4246c825e05485",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/is_sorted/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/is_sorted-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/is_sorted-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/is_sorted/source.json",
+        "/tmp/gagp-source-depth-20261015/is_sorted-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/is_sorted-prepared.json"
+      ],
+      "exit_code": 1,
+      "status": "unsupported",
+      "reason": "source depth requires canonical resource-invariant grammar"
+    },
+    "index_of_element": {
+      "source_sha256": "90faaf75e0bb353b738d69d2d1fed660dbf8b69f8ba44686030609204562ed94",
+      "input_grammar_sha256": "973ea0efebb74223e0011e643b5978a405413ca797ca624f0aee88f547b3ca39",
+      "charged_grammar_sha256": "ca54c6b09d6bbbf59311c4aad496bf0ac2a33b940e9f1e660f3160e2933d34f5",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/index_of_element/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/index_of_element-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/index_of_element-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/index_of_element/source.json",
+        "/tmp/gagp-source-depth-20261015/index_of_element-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/index_of_element-prepared.json"
+      ],
+      "exit_code": 1,
+      "status": "unsupported",
+      "reason": "parent 19: native/source phase depth mismatch or source cap exceeded",
+      "unsupported_reason": "HeadIndex(InputList) lowers to bound(lo), erasing a fixed source child; canonical projected depth therefore undercounts source height. Strict gate rejects the entire parent set."
+    },
+    "all_equal": {
+      "source_sha256": "15444f6a54f10552b68317da58bc5d63b5f59387b58b7532c39ab93da1f9b719",
+      "input_grammar_sha256": "a3d4640aa07427287ca636060cd92728cd203d9f60c905f61e0b1bd43dbb54f1",
+      "charged_grammar_sha256": "8c29a1ee7313dcba96c11a7cc24f201f92f9d6e47b9319d65ef2a667b5fdbbcc",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/all_equal/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/all_equal-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/all_equal-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/all_equal/source.json",
+        "/tmp/gagp-source-depth-20261015/all_equal-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/all_equal-prepared.json"
+      ],
+      "exit_code": 1,
+      "status": "unsupported",
+      "reason": "source depth requires canonical resource-invariant grammar"
+    },
+    "cumulative_sum": {
+      "source_sha256": "bb77c11b59a791684bc3234db23d8cc03f7b5c652096a1eb914a6317d38bcf05",
+      "input_grammar_sha256": "6ce808296760617369d68ec29d2658a82dfafcd0d2ea8d6c87f17c7d1ce4350c",
+      "charged_grammar_sha256": "90ae999beb70f93f95a4b381e653d751a28971119f079ae051a90b59412048b0",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/cumulative_sum/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/cumulative_sum-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/cumulative_sum-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/cumulative_sum/source.json",
+        "/tmp/gagp-source-depth-20261015/cumulative_sum-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/cumulative_sum-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "3ce4b256e16857b5aed7475e206f661e95f298fd57f57e6a8751c62c704a8003",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/cumulative_sum-charged.json",
+        "/tmp/gagp-source-depth-20261015/cumulative_sum-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "fuel_cost": {
+      "source_sha256": "1d3cc915bd58b1f8ffaddede67edd07a44f8eaf8dfa3b8d01a11cb0157b31b4f",
+      "input_grammar_sha256": "79473ef229e57008e8ae14e70aaf759aa05e8a49f472cb7abe825c461a5906fb",
+      "charged_grammar_sha256": "57c63014020695935f7ba41818f8ba07a9162e19b8a16be8133c67f5b6368d36",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/fuel_cost/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/fuel_cost-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/fuel_cost-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/fuel_cost/source.json",
+        "/tmp/gagp-source-depth-20261015/fuel_cost-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/fuel_cost-prepared.json"
+      ],
+      "exit_code": 1,
+      "status": "unsupported",
+      "reason": "parent 9: native/source phase depth mismatch or source cap exceeded",
+      "unsupported_reason": "HeadIndex(InputList) lowers to bound(lo), erasing a fixed source child; canonical projected depth therefore undercounts source height. Strict gate rejects the entire parent set."
+    },
+    "luhn": {
+      "source_sha256": "4455c163fb40d77651411dfce16c34add27c66f9d05c182a34c55f7de8eeb758",
+      "input_grammar_sha256": "188aefe7aae91f34f60ea050c854a0301acd43850beb8182ba04f67786d93f11",
+      "charged_grammar_sha256": "be50acbfbe8d01ee75a26796d047a0f84e74d40112323cdbd83bb6236258cdbc",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/luhn/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/luhn-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/luhn-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/luhn/source.json",
+        "/tmp/gagp-source-depth-20261015/luhn-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/luhn-prepared.json"
+      ],
+      "exit_code": 1,
+      "status": "unsupported",
+      "reason": "parent 10: native/source phase depth mismatch or source cap exceeded",
+      "unsupported_reason": "HeadIndex(InputList) lowers to bound(lo), erasing a fixed source child; canonical projected depth therefore undercounts source height. Strict gate rejects the entire parent set."
+    },
+    "min": {
+      "source_sha256": "50f949f646b431b19a0bba8c6974936d5222c5dc76a828ca520861953ebd52f8",
+      "input_grammar_sha256": "15a33d5e245d3f88fbe3f7c71fdf5f30c5c69b1a223432931b943638f405e331",
+      "charged_grammar_sha256": "4752eb3f3400f04cc9f8a4b07f31b1ffb3379a8430c6f2faa796ad49d1734e53",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/min/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/min-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/min-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/min/source.json",
+        "/tmp/gagp-source-depth-20261015/min-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/min-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "623e4b3c746f7495aaaaa2d37ea283a39f01ec32ad59f3d0856fe93df9839234",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/min-charged.json",
+        "/tmp/gagp-source-depth-20261015/min-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "mpi": {
+      "source_sha256": "c228c6599ed9a8576ad5a18ec6d942a4dc2d9aea6b76efaa65c1ee6eef54663f",
+      "input_grammar_sha256": "379295feb857d3636c081357c68808cd31718a8642d9a4a2bae47dc4b162a4f2",
+      "charged_grammar_sha256": "bf8b074fac356ea429bc8f1a842baf4e16449d454d89e71a996a4eca3b236c65",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/mpi/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/mpi-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/mpi-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/mpi/source.json",
+        "/tmp/gagp-source-depth-20261015/mpi-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/mpi-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "73affa290165c6c445b37bc255d466c4941527038c05ca15ddfc15ef464eed88",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/mpi-charged.json",
+        "/tmp/gagp-source-depth-20261015/mpi-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "count_odds": {
+      "source_sha256": "7a45c0203ae6c8a579c540b65528296f045190cd7c00d41ba67f4675be4d9174",
+      "input_grammar_sha256": "7d36664273fe9793b108eb31c10beff90002006a56a4ed6248dd11cc94ff0eb4",
+      "charged_grammar_sha256": "842d755aca29ecf55fedd88df20ed4055a465578b24b516d76bc6950260825e6",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/count_odds/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/count_odds-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/count_odds-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/count_odds/source.json",
+        "/tmp/gagp-source-depth-20261015/count_odds-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/count_odds-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "26e9dc20042fb4fec546bd352f79d670e384b8dfc28a268c71ae7f9f60ca9010",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/count_odds-charged.json",
+        "/tmp/gagp-source-depth-20261015/count_odds-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "last_index_of_zero": {
+      "source_sha256": "cf1c1b69b4f09ac955acd978e841e2fa80b568d328888b2ac40f3a288fa8c11d",
+      "input_grammar_sha256": "200db7adbd7ca615e2e9a15d1e50858b1c3b875513176335244e54f16380d49e",
+      "charged_grammar_sha256": "171585e777c9c7102912dc1e2c2284f2f7a98429edccbaab7505b1a2ca505dc8",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/last_index_of_zero/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/last_index_of_zero-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/last_index_of_zero-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/last_index_of_zero/source.json",
+        "/tmp/gagp-source-depth-20261015/last_index_of_zero-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/last_index_of_zero-prepared.json"
+      ],
+      "exit_code": 1,
+      "status": "unsupported",
+      "reason": "parent 3: native/source phase depth mismatch or source cap exceeded",
+      "unsupported_reason": "HeadIndex(InputList) lowers to bound(lo), erasing a fixed source child; canonical projected depth therefore undercounts source height. Strict gate rejects the entire parent set."
+    },
+    "small_or_large": {
+      "source_sha256": "210029abcf4f30fd1afa00fe5b12a987042d43eecdcb640d4aced5957f4f7afc",
+      "input_grammar_sha256": "afbd7fe497013a7de7485bf534c0fd4d9bd130c8ff8462194a34d26fbf5432bb",
+      "charged_grammar_sha256": "0650636055c0d0f5572205485ff7d033a1b72a742d509e3cb059d8e1f813a032",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/small_or_large/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/small_or_large-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/small_or_large-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/small_or_large/source.json",
+        "/tmp/gagp-source-depth-20261015/small_or_large-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/small_or_large-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "f05bd7926f59918b4acd4b2f0f08243c3b4ca12318bfb4e7f58f0d901d78807c",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/small_or_large-charged.json",
+        "/tmp/gagp-source-depth-20261015/small_or_large-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "for_loop_index": {
+      "source_sha256": "efc67a213afc91f6f07dc712d8c83041ee88dac2f4af3a5bde5c6b3f77ad01a1",
+      "input_grammar_sha256": "883607a56c7930848fadf611c11fd32108ab4f9911dc5033a4818f46de810799",
+      "charged_grammar_sha256": "4285b4179c5c9a4c773e8455e84fc747b657baf9c3398359a59d1868c2ee7464",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/for_loop_index/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/for_loop_index-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/for_loop_index-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/for_loop_index/source.json",
+        "/tmp/gagp-source-depth-20261015/for_loop_index-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/for_loop_index-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "b179c372398c6001576a6cb9a028729d79dba46a11f24ae9b8a5bcbf9d386678",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/for_loop_index-charged.json",
+        "/tmp/gagp-source-depth-20261015/for_loop_index-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "double_letters": {
+      "source_sha256": "561decaa1f163adb58b63885ff4bda429a44a8221611c27887f4a60adb3f02fd",
+      "input_grammar_sha256": "bc5cdda67d38d28b21fc6317e372dd47eeb31f8a5a8b6431be3e5192d828b48b",
+      "charged_grammar_sha256": "0d36b3cbf1f99afa77c49c76c996deacb9d1ac5d4e227906a2c9e5dec2e47f08",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/double_letters/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/double_letters-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/double_letters-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/double_letters/source.json",
+        "/tmp/gagp-source-depth-20261015/double_letters-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/double_letters-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "85fe3e696f203d5b1f6512c8b6d5c908443d5e52f52542949678259b5407a84d",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/double_letters-charged.json",
+        "/tmp/gagp-source-depth-20261015/double_letters-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "replace_space_with_newline": {
+      "source_sha256": "dd886808a261de6021ef2c98048623407098bc9d57d65e21dd8f5ada2806b5dd",
+      "input_grammar_sha256": "8a702461aeedbddd164eb570ea640839831ea6833757c2f4f72fd59b460b4924",
+      "charged_grammar_sha256": "c20df82d6196637fa9f8082fe4d79c2f2b4b550004265813dd575ceb49c4e373",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/replace_space_with_newline/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/replace_space_with_newline-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/replace_space_with_newline-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/replace_space_with_newline/source.json",
+        "/tmp/gagp-source-depth-20261015/replace_space_with_newline-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/replace_space_with_newline-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "56f561d4b6c68d2e923b3c45b58e2e6684bd17933d9efd0945f539da1df628ce",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/replace_space_with_newline-charged.json",
+        "/tmp/gagp-source-depth-20261015/replace_space_with_newline-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "even_squares": {
+      "source_sha256": "0d12ffd78f58a93c01615c4f200512850aaa2460e928c335a991793e95e22905",
+      "input_grammar_sha256": "993ec24f23a352c511a13b198f1c46f69ece10f4dfbe55b33530eec91157ba9e",
+      "charged_grammar_sha256": "666979fd0e8d3cd27665479e5e6c5e5d1fb412c9e8eff5f37e58a0d69ab7f9ca",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/even_squares/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/even_squares-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/even_squares-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/even_squares/source.json",
+        "/tmp/gagp-source-depth-20261015/even_squares-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/even_squares-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "bf23d9ec440afb1d604fd5dd41ddab2f2de3f6f10cc9d27e2dee2800236d4fed",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/even_squares-charged.json",
+        "/tmp/gagp-source-depth-20261015/even_squares-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "sum_of_squares": {
+      "source_sha256": "ea28af6df6ea4413b665b95ceaee44d219973193fb674f08a5857ee7fedd149c",
+      "input_grammar_sha256": "142a9ac784c0bbc578c14cebcfd5969bccca029eb37c62589d31bbaf5da15447",
+      "charged_grammar_sha256": "e200606214be49632290332bcf165c35aaf241cbb055c6c530f6238f26af8ff1",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/sum_of_squares/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/sum_of_squares-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/sum_of_squares-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/sum_of_squares/source.json",
+        "/tmp/gagp-source-depth-20261015/sum_of_squares-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/sum_of_squares-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "3641c8abf46a50202baf9d026b5aac99374cf923c843d314c7ea32d6c55e179d",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/sum_of_squares-charged.json",
+        "/tmp/gagp-source-depth-20261015/sum_of_squares-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "negative_to_zero": {
+      "source_sha256": "fd15ac8c82eba5dccba79b442be9f8b14f95fba8c7286bffbcc8382bddfbd572",
+      "input_grammar_sha256": "c6b4f24ed5fbeb7f14fc72a13415c6f23e863f6df737b43588ecf5994a251414",
+      "charged_grammar_sha256": "71b0a1b40f4bca40a0fe4b54a969269566969af52e271309a5b00f9049bce0a4",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/negative_to_zero/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/negative_to_zero-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/negative_to_zero-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/negative_to_zero/source.json",
+        "/tmp/gagp-source-depth-20261015/negative_to_zero-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/negative_to_zero-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "f87e0dc90dba0bcd02f1b867e40340bd6e15c24e692e5426938a956220869451",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/negative_to_zero-charged.json",
+        "/tmp/gagp-source-depth-20261015/negative_to_zero-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "scrabble_score": {
+      "source_sha256": "58f5f14cd2ef590520c254b7827e70a4576e191206897d44bf83c55cb769fdcd",
+      "input_grammar_sha256": "a4a4657ba02a9279efa0dec0d5b1467e3634b3afffa8a07bd4ed8f52f4b2b02a",
+      "charged_grammar_sha256": "ecef9c2294ce56eb241a110760c7f8499f79c1b83486581f6a97dc4cf968488e",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/scrabble_score/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/scrabble_score-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/scrabble_score-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/scrabble_score/source.json",
+        "/tmp/gagp-source-depth-20261015/scrabble_score-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/scrabble_score-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "3c4c6234831dbf9003c1e63dbb19dc4800b02500a61f62f2b2c76afc0f282f89",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/scrabble_score-charged.json",
+        "/tmp/gagp-source-depth-20261015/scrabble_score-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "grade": {
+      "source_sha256": "e0da29582050c4e5713f9253d7adcc5ca5327c14e5f75c9ce97a4f2c65599fc0",
+      "input_grammar_sha256": "3ead4390c500af92095e8d366ce269901f9159a74bb7bf753af537fb56b3900f",
+      "charged_grammar_sha256": "66680b459e6eec17143e52effaf9d8014bcd1eb3ba80b9e734e119f39422533b",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/grade/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/grade-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/grade-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/grade/source.json",
+        "/tmp/gagp-source-depth-20261015/grade-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/grade-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "68072f43b7c37772ff835b6c2071c2fed7815eb2b53db745971c200593b3ce7e",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/grade-charged.json",
+        "/tmp/gagp-source-depth-20261015/grade-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "median": {
+      "source_sha256": "9b6395bea01d647bcd573d9c76d93008268514eee95dc873248e118f9312f0e9",
+      "input_grammar_sha256": "88f9c05f0f84194cc367cd40ebb8f70928835225b38b1401e10e429167360075",
+      "charged_grammar_sha256": "edcffd7f581570af504f8c01495ef52bde78df0ea984d1e133977de633cf46ae",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/median/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/median-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/median-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/median/source.json",
+        "/tmp/gagp-source-depth-20261015/median-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/median-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "c56e861698f246ba0462a310612ed6293e9862e17d83fa25205521f4f4082d2b",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/median-charged.json",
+        "/tmp/gagp-source-depth-20261015/median-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "smallest": {
+      "source_sha256": "0427b7873952e609ee4d31add9d0022a624c774e46402b0b9faafc8510804287",
+      "input_grammar_sha256": "8f6c5716697fa278aceafa1525cc17cf2de39cc64b4eb5e2dee2863a9b347152",
+      "charged_grammar_sha256": "4bb829bbff00361cf6d262ada045b2235c5cffa56dcdf0ad6850212e4af010cb",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/smallest/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/smallest-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/smallest-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/smallest/source.json",
+        "/tmp/gagp-source-depth-20261015/smallest-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/smallest-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "9789bd04d8aa31ae1d39faf9c475567605cc63a742d004d00af146259b939ef9",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/smallest-charged.json",
+        "/tmp/gagp-source-depth-20261015/smallest-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "syllables": {
+      "source_sha256": "b871e3dd67448f20aa21676fb44543ee31beb19cac1f04e0da9a37a8a0ad85a3",
+      "input_grammar_sha256": "b73ae2015de475caefdfa77e2da4c0aed7ba47f3ac5677b844bfad0f4b1f0e9b",
+      "charged_grammar_sha256": "05a2db2dfefecf149badaf41e4533bc15c866c5efa0047652c3d85a9d62539b6",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/syllables/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/syllables-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/syllables-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/syllables/source.json",
+        "/tmp/gagp-source-depth-20261015/syllables-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/syllables-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "7631b8b16da250cf8d297ffe81e64c8a5363892eaa107c0db0bb38190585e724",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/syllables-charged.json",
+        "/tmp/gagp-source-depth-20261015/syllables-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 3072,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "fibonacci": {
+      "source_sha256": "f7c562599a3ab74120ae3221cf1bcd52c9cda6629ccac148ddbdeb89a39b38c3",
+      "input_grammar_sha256": "d7a4032fba1009c2dc046ed7480f7843e91d0a526f6da0afc13280d1696cd122",
+      "charged_grammar_sha256": "3a2358a3d0f6607f4113e25de46d69c4d0605cf4bd70e7a2d5de3a993b063ae3",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/fibonacci/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/fibonacci-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/fibonacci-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/fibonacci/source.json",
+        "/tmp/gagp-source-depth-20261015/fibonacci-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/fibonacci-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "98b46934d035017962341dc6ffed3753e7fa3b3e8ceafd53b44447e6e700a894",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/fibonacci-charged.json",
+        "/tmp/gagp-source-depth-20261015/fibonacci-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 2048,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "tribonacci": {
+      "source_sha256": "43a9a8d2f0ac6b83a73328a3d329af7f8990663524ce3bf775ed881a5e20ee11",
+      "input_grammar_sha256": "ddf8b46f9df9cbc1e49445473e95c61c16b59d00aa771655636c9d8fcf4a09fb",
+      "charged_grammar_sha256": "509d2d49d8023c1b435b8f6496120fb8923d4f0cf45585a33d0f632e37e58d40",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/tribonacci/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/tribonacci-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/tribonacci-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/tribonacci/source.json",
+        "/tmp/gagp-source-depth-20261015/tribonacci-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/tribonacci-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "028a58699c9bfa405227381648582b01923b12563642bd5b9d86a50a1ee44d88",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/tribonacci-charged.json",
+        "/tmp/gagp-source-depth-20261015/tribonacci-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 2048,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "house_robber": {
+      "source_sha256": "d074248fa8401c31657498dc82a7e852ff2419b7656112d771011ef71100c66e",
+      "input_grammar_sha256": "cca247a8771f41b423eab4fdd483ac5d470a0bb83e9e69fdc1e3b8e64d939d5d",
+      "charged_grammar_sha256": "05a92c5af9498651a102121ad6e4c96ac5ed8b3cbc615129579bba18b0fd06dd",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/house_robber/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/house_robber-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/house_robber-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/house_robber/source.json",
+        "/tmp/gagp-source-depth-20261015/house_robber-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/house_robber-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "efd729845a8ca2a909be21517c06b8eddb7c53e88a4c1aa5910d072877eaa105",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/house_robber-charged.json",
+        "/tmp/gagp-source-depth-20261015/house_robber-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 2048,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "subregion_sum": {
+      "source_sha256": "be4102a7663a23d3b4795e6178a34a5737885ba5e77df328a03ecb14977d2f8a",
+      "input_grammar_sha256": "197e6a922b9666eebbf2ddcb2e552e15d2bb5b7ea81e3935b1be8fbdea176399",
+      "charged_grammar_sha256": "7becebf282407ea6baca3481cc940155f029a8d25ee679f4976353b07b4cafce",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/subregion_sum/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/subregion_sum-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/subregion_sum-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/subregion_sum/source.json",
+        "/tmp/gagp-source-depth-20261015/subregion_sum-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/subregion_sum-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "f6e12a683d7989f1b54f027b856ab2f0fbf3e4e96762abffc4c150f5840a127c",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/subregion_sum-charged.json",
+        "/tmp/gagp-source-depth-20261015/subregion_sum-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 2048,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "fibonacci_array": {
+      "source_sha256": "bea59ea9e54201c7fb43d0f9242dca52263a532a5dd7952cd393d7be138e351a",
+      "input_grammar_sha256": "afa8df92c9e40a1f154d83689ffbf3129500244369d143220af7988bf55d5e9f",
+      "charged_grammar_sha256": "f5496b745174c4ded9f515546d521e232c4603637e6bfbe421149a1470abf958",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/fibonacci_array/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/fibonacci_array-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/fibonacci_array-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/fibonacci_array/source.json",
+        "/tmp/gagp-source-depth-20261015/fibonacci_array-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/fibonacci_array-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "18542e6839d7c5957b02615787b9799882c0564b09fc619a2859445621bea19b",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/fibonacci_array-charged.json",
+        "/tmp/gagp-source-depth-20261015/fibonacci_array-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 2048,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    },
+    "stock_with_cooldown": {
+      "source_sha256": "c28f4df20f0ec0052d11d9c0c070ae242b234fbe12438fb606de602c92910d3a",
+      "input_grammar_sha256": "8d1e6aa98424560217ac09f1e8b546499e8106c3bd8bf633d370252e1ccea418",
+      "charged_grammar_sha256": "5016ffcde6334f4ddaa51ce454558103e143b0799bbdfbe71a8857f7c6c5e0f4",
+      "source": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/stock_with_cooldown/source.json",
+      "grammar": "/tmp/gagp-source-depth-20261015/stock_with_cooldown-charged.json",
+      "prepared": "/tmp/gagp-source-depth-20261015/stock_with_cooldown-prepared.json",
+      "command": [
+        "/tmp/gagp-source-depth-20261015/audit-bench",
+        "prepare",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/stock_with_cooldown/source.json",
+        "/tmp/gagp-source-depth-20261015/stock_with_cooldown-charged.json",
+        "1024",
+        "/tmp/gagp-source-depth-20261015/stock_with_cooldown-prepared.json"
+      ],
+      "exit_code": 0,
+      "parents": 1024,
+      "prepared_sha256": "9d6112befbdb998fc802eb8302a3842da1a6ec18a2aadfca8666758f0b913f51",
+      "phase_import_command": [
+        "/tmp/gagp-source-depth-20261015/import",
+        "/tmp/gagp-source-depth-20261015/stock_with_cooldown-charged.json",
+        "/tmp/gagp-source-depth-20261015/stock_with_cooldown-prepared.json"
+      ],
+      "phase_import_exit_code": 0,
+      "phase_import_output": "1024 native projected phase imports passed\n",
+      "status": "passed",
+      "phase_comparisons": 2048,
+      "maximum_source_phase_depth": 7,
+      "maximum_native_projected_phase_depth": 7
+    }
+  },
+  "elapsed_seconds": 127.56337699317373,
+  "diagnostic_followup_commit": "2d727fc",
+  "audit_binary_build": {
+    "compiler": "c++",
+    "standard": "c++20",
+    "optimization": "-O1",
+    "defines": [
+      "GAGP_ASGP_LIST_COMBINE_EXTENSION=1",
+      "GAGP_HAS_CUDA=1"
+    ],
+    "main_object": "/tmp/gagp-source-depth-20261015/main.o",
+    "linked_adapter_and_libraries": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/cpp/build/release",
+    "note": "Static linked CPU-only prepare invocation; executable is not the projected GPU implementation. SHA256 above identifies actual executable."
+  },
+  "summary": {
+    "passed_tasks": 24,
+    "passed_parents": 24576,
+    "unsupported_tasks": [
+      "is_sorted",
+      "index_of_element",
+      "all_equal",
+      "fuel_cost",
+      "luhn",
+      "last_index_of_zero"
+    ],
+    "no_parents_dropped_or_resampled": true,
+    "gpu_validated": false
+  }
+}

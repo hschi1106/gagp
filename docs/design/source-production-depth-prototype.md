@@ -58,3 +58,15 @@ Frozen-parent `prepare` with the environment enabled records source/native depth
 comparisons for every phase and fails the entire artifact on any mismatch.
 These host checks do not substitute for native GPU integration and offspring
 admission checks.
+
+The full frozen-parent gate accepts 24 complete task populations (24,576 parents),
+including the original Sum/Median/House comparison. Four additional grammars
+certify invariant native charges but fail source-height equality: IndexOfElement,
+FuelCost, Luhn, and LastIndexOfZero. Their unary `HeadIndex(InputList)` is already
+lowered to the `lo` binding, erasing a fixed source child. Their exported child
+language contains only terminal InputList, so this is an accounting mismatch,
+not evidence of incorrect evaluation. This prototype rejects those entire
+populations rather than weakening equality or adding a larger charge. Together
+with the two tuple certificate failures, six tasks are unsupported. Evidence,
+source hashes, executable hashes, and per-task commands are recorded in
+[`parent-gate.json`](../../benchmarks/fixed_asgp/optimization/results/source-depth-20261015/parent-gate.json).
