@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
+#include <map>
 #include <sstream>
 #include <stdexcept>
 #include "lang/expr.h"
@@ -37,11 +38,11 @@ Json bound(const std::string& name) { return object({{"bound", string(name)}}); 
 Json call(const std::string& signature, std::vector<Json> args) {
   return object({{"signature", string(signature)}, {"args", array(std::move(args))}});
 }
-Json expression(const asgp::Expr& expr, std::size_t& at, bool dp) {
+Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::TaskSpec& spec) {
   using K = asgp::NodeKind;
   const auto node = expr.at(at++);
   std::vector<Json> args;
-  for (int k=0; k<asgp::Arity(node.kind); ++k) args.push_back(expression(expr, at, dp));
+  for (int k=0; k<asgp::Arity(node.kind); ++k) args.push_back(expression(expr, at, dp, spec));
   switch (node.kind) {
     case K::kIntConst: case K::kCharConst: return constant(node.value);
     case K::kInputScalar: return bound("scalar" + std::to_string(node.op));
@@ -57,16 +58,20 @@ Json expression(const asgp::Expr& expr, std::size_t& at, bool dp) {
     case K::kSingleton: return call("singleton(Int)->IntList", args);
     case K::kConcat: return call("concat(IntList,IntList)->IntList", args);
     case K::kInputSize: case K::kStateA: return bound("n");
+    case K::kStateB: return bound("j");
     case K::kStateValue:
-      // The fixed DP domain already guarantees n <= len(xs) <= 20.
       return call("index(IntList,Int)->Int", {bound("xs"), call("max(Int,Int)->Int", {
-          call("sub(Int,Int)->Int", {bound("n"), constant(1)}), constant(0)})});
+          call(spec.id=="house_robber" ? "sub(Int,Int)->Int" : "add(Int,Int)->Int", {bound(spec.dp.value_at==asgp::ValueAt::kStateB ? "j" : "n"), constant(spec.id=="house_robber" ? 1 : spec.dp.value_offset)}), constant(0)})});
     case K::kResult:
-      if (node.op > 1) throw std::runtime_error("unsupported result slot");
-      return bound(dp ? (node.op ? "d2" : "d1") : (node.op ? "right" : "left"));
+      if(!dp && node.op>1)throw std::runtime_error("unsupported result slot");
+      return bound(dp ? "d"+std::to_string(node.op+1) : (node.op ? "right" : "left"));
     case K::kHeadIndex: return bound("lo");
     case K::kHead: return call("index(IntList,Int)->Int", {args.at(0), constant(0)});
     case K::kIndex: return call("index(IntList,Int)->Int", {bound("xs"), args.at(0)});
+    case K::kMakeTuple:
+      return call("concat(IntList,IntList)->IntList",{call("singleton(Int)->IntList",{call("if(Bool,Int,Int)->Int",{args[0],constant(1),constant(0)})}),call("concat(IntList,IntList)->IntList",{call("singleton(Int)->IntList",{args[1]}),call("singleton(Int)->IntList",{args[2]})})});
+    case K::kTupleGet0:return call("ne(Int,Int)->Bool",{call("index(IntList,Int)->Int",{args[0],constant(0)}),constant(0)});
+    case K::kTupleGet1:case K::kTupleGet2:return call("index(IntList,Int)->Int",{args[0],constant(node.kind==K::kTupleGet1?1:2)});
     case K::kNot: return call("not(Bool)->Bool", args);
     case K::kIntOp: {
       const char* ops[] = {"add", "sub", "mul", "idiv0", "imod0"};
@@ -148,6 +153,7 @@ Json task_contract(const std::string& name) {
   return object({{"format",string("asgp-task-contract-v1")},{"task",string(spec.id)},
     {"scheme",string(std::string(asgp::Name(spec.scheme)))},{"carrier",string(std::string(asgp::Name(spec.carrier)))},
     {"output",string(std::string(asgp::Name(spec.output)))},{"list_type",string(std::string(asgp::Name(spec.list_type)))},
+    {"summary_cap",number(spec.summary_cap)},{"summary_weight",number(spec.summary_weight)},{"summaries",number(spec.summaries)},
     {"metric",number(int(spec.metric))},{"proximity",number(int(spec.proximity))},{"projection",number(int(spec.projection))},
     {"base_size",number(spec.base_size)},{"positional",number(spec.positional)}, {"sequence_input",number(spec.sequence_input)},
     {"scalars",array(std::move(scalars))},{"ints",ranges(spec.consts.ints)},{"chars",ranges(spec.consts.chars)},
@@ -158,21 +164,22 @@ Json task_contract(const std::string& name) {
 }
 
 Json translated_root(const asgp::Individual& individual, const std::string& name) {
-  const auto spec = task(name);
+  static std::map<std::string,asgp::TaskSpec> specs;
+  auto it=specs.find(name);if(it==specs.end())it=specs.emplace(name,task(name)).first;
+  const auto& spec=it->second;
   const bool dp = spec.scheme == asgp::Scheme::kDynamicProgramming;
-  if (dp && name != "house_robber") throw std::runtime_error("unsupported DP shape for " + name);
-  if (spec.carrier == asgp::Type::kTuple) throw std::runtime_error("tuple carrier translation is not implemented");
+  if (dp && name == "stock_with_cooldown") throw std::runtime_error("stock recurrence needs clamped transitions");
   Json holes=object({});
   if (!dp) holes.object_v["source"]=object({{"input", string("source")}});
   const std::vector<std::string> names = dp ? std::vector<std::string>{"solve", "transition"}
                                            : std::vector<std::string>{"solve", "divide", "combine"};
   for (std::size_t p=0; p<names.size(); ++p) {
     std::size_t at=0;
-    holes.object_v[names[p]]=expression(individual.phases[p], at, dp);
+    holes.object_v[names[p]]=expression(individual.phases[p], at, dp, spec);
     if (at != individual.phases[p].size()) throw std::runtime_error("trailing ASGP nodes");
   }
-  return object({{"template", string(dp ? "Fixed.HouseRobber" :
-      asgp::IsListType(spec.carrier) ? "Package.DC.IntList.IntList" : "Package.DC.IntList.Int")}, {"holes", holes}});
+  return object({{"template", string(dp ? (name=="house_robber" ? "Fixed.HouseRobber" : "Fixed.DP."+name) :
+      (asgp::IsListType(spec.carrier) || spec.carrier==asgp::Type::kTuple) ? "Package.DC.IntList.IntList" : "Package.DC.IntList.Int")}, {"holes", holes}});
 }
 gagp::evo::ProgramGenome translate(const asgp::Individual& individual, const std::string& name,
                                   const gg::ResolvedDefinition& definition,
@@ -227,7 +234,12 @@ asgp::Individual solution(const std::string& name) {
   const auto concat_results=[&](T t){return expr(K::kConcat,t,0,0,{expr(K::kResult,t,0,0),expr(K::kResult,t,1,0)});};
   auto origin=expr(K::kHeadIndex,T::kInt,0,0,{expr(K::kInputList,T::kIntList,0,0)});
   asgp::Individual out;
-  if (name == "house_robber") {
+  if(name=="fibonacci" || name=="tribonacci" || name=="fibonacci_array" || name=="subregion_sum") {
+    auto n=expr(K::kStateA,T::kInt,0,0);
+    out.phases[0]=name=="fibonacci" ? n : name=="tribonacci" ? choose(lt(n,lit(1)),lit(0),lit(1)) : name=="subregion_sum" ? expr(K::kStateValue,T::kInt,0,0) : lit(1);
+    out.phases[1]=name=="subregion_sum" ? add(result(0),expr(K::kStateValue,T::kInt,0,0)) : add(result(0),result(1));
+    if(name=="tribonacci")out.phases[1]=add(out.phases[1],result(2));
+  } else if (name == "house_robber") {
     auto n=expr(K::kStateA,T::kInt,0,0), v=expr(K::kStateValue,T::kInt,0,0);
     out.phases[0]=choose(lt(n,lit(1)),lit(0),v);
     auto sum=add(result(1),v);
@@ -250,6 +262,13 @@ asgp::Individual solution(const std::string& name) {
       out.phases[0]=choose(zero,origin,lit(0));
       out.phases[1]=lit(0);
       out.phases[2]=choose(lt(result(0),result(1)),result(1),result(0));
+    } else if(name=="is_sorted" || name=="all_equal") {
+      const auto get=[&](int field,int slot){return expr(field==0?K::kTupleGet0:field==1?K::kTupleGet1:K::kTupleGet2,field==0?T::kBool:T::kInt,0,0,{expr(K::kResult,T::kTuple,slot,0)});};
+      auto min=choose(lt(get(1,0),get(1,1)),get(1,0),get(1,1));
+      auto max=choose(lt(get(2,0),get(2,1)),get(2,1),get(2,0));
+      auto condition=name=="all_equal" ? eq(min,max) : expr(K::kLogicOp,T::kBool,0,0,{expr(K::kLogicOp,T::kBool,0,0,{get(0,0),get(0,1)}),expr(K::kBoolOp,T::kBool,3,0,{get(2,0),get(1,1)})});
+      out.phases[0]=expr(K::kMakeTuple,T::kTuple,0,0,{expr(K::kBoolConst,T::kBool,0,1),index(0),index(0)});
+      out.phases[2]=expr(K::kMakeTuple,T::kTuple,0,0,{condition,min,max});
     } else if (name == "min" || name == "smallest") {
       const auto minimum=[&](E a,E b){return choose(lt(a,b),a,b);};
       out.phases[0]=name=="min" ? index(0) : minimum(minimum(index(0),index(1)),minimum(index(2),index(3)));

@@ -96,6 +96,7 @@ void restore_cases(const Json& source, asgp::TaskSpec& spec, std::vector<gagp::e
     if(example.scalars.size()!=spec.scalars.size())throw std::runtime_error("frozen scalar count mismatch");
     if(row.object_v.count("summary1"))example.expected.summary1=std::stoll(row.object_v.at("summary1").string_v);
     if(row.object_v.count("summary2"))example.expected.summary2=std::stoll(row.object_v.at("summary2").string_v);
+    if(spec.carrier==asgp::Type::kTuple)expected=gagp::payload::make_int_list_value({gagp::Value::from_int(example.expected.b),gagp::Value::from_int(example.expected.summary1),gagp::Value::from_int(example.expected.summary2)});
     gagp::evo::EvalCase native{{{"source",gagp::payload::make_int_list_value(values)}},expected};
     for(std::size_t i=0;i<example.scalars.size();++i)native.inputs["scalar"+std::to_string(i)]=gagp::Value::from_int(example.scalars[i]);
     if(spec.scheme==asgp::Scheme::kDynamicProgramming && spec.id!="house_robber") {

@@ -41,7 +41,7 @@ struct Totals {
 inline Json score_asgp(const Json& program, asgp::TaskSpec spec) {
   const auto individual = decode(program);
   // The common metric is explicitly independent of native discounted fitness.
-  const bool list_output = spec.output==asgp::Type::kIntList;
+  const bool list_output = asgp::IsListType(spec.output);
   spec.metric = list_output ? asgp::Metric::kExact : asgp::Metric::kAbsolute;
   spec.proximity = asgp::Proximity::kRewarded;
   asgp::FitnessConfig config;
@@ -50,7 +50,7 @@ inline Json score_asgp(const Json& program, asgp::TaskSpec spec) {
   config.limits.max_recursion = 127;
   asgp::FitnessScratch scratch;
   Totals totals;
-  totals.list_output = spec.output==asgp::Type::kIntList;
+  totals.list_output = asgp::IsListType(spec.output);
   totals.case_cap = totals.list_output ? 1 : cap;
   for (std::size_t i=0; i<spec.test.size(); ++i) {
     // Successful scalar/list Project initializes summary1 to zero. Score
@@ -72,17 +72,27 @@ inline Json score_gagp(const Json& ast, const asgp::TaskSpec& spec,
   genome.ast = gagp::cli_detail::decode_ast_json(ast);
   genome.meta = gagp::evo::build_genome_meta(genome.ast);
   gg::require_membership(grammar,genome);
-  const auto code = gagp::evo::compile_for_eval(genome,{"source"});
+  std::vector<std::string> names{"source"};
+  for(std::size_t i=0;i<spec.scalars.size();++i)names.push_back("scalar"+std::to_string(i));
+  if(spec.scheme==asgp::Scheme::kDynamicProgramming && spec.id!="house_robber") {
+    names.insert(names.end(),{"start_a","start_b","extent_a","extent_b"});
+  }
+  const auto code = gagp::evo::compile_for_eval(genome,names);
   gagp::CpuExecutionSession session(code);
   Totals totals;
-  totals.list_output = spec.output==asgp::Type::kIntList;
+  totals.list_output = asgp::IsListType(spec.output);
   totals.case_cap = totals.list_output ? 1 : cap;
   for (std::size_t i=0; i<spec.test.size(); ++i) {
     const auto& example = spec.test[i];
     std::vector<gagp::Value> elements;
     for (const auto v:example.elements) elements.push_back(gagp::Value::from_int(v));
     const auto input = gagp::payload::make_int_list_value(elements);
-    const auto result = session.execute({{0,input}},fuel);
+    std::vector<std::pair<int,gagp::Value>> inputs{{0,input}};
+    for(auto v:example.scalars)inputs.emplace_back(inputs.size(),gagp::Value::from_int(v));
+    if(spec.scheme==asgp::Scheme::kDynamicProgramming && spec.id!="house_robber") {
+      for(auto v:{example.start.a,example.start.b,example.extent.a,example.extent.b})inputs.emplace_back(inputs.size(),gagp::Value::from_int(v));
+    }
+    const auto result = session.execute(inputs,fuel);
     bool error = result.is_error;
     bool exact = false;
     double loss = totals.case_cap;
@@ -94,6 +104,10 @@ inline Json score_gagp(const Json& ast, const asgp::TaskSpec& spec,
       for (std::size_t j=0; exact && j<produced.size(); ++j)
         exact = produced[j].tag==gagp::ValueTag::Int && produced[j].i==example.expected.list[j];
       loss = exact ? 0 : 1;
+    } else if (!error && spec.output==asgp::Type::kBool) {
+      std::vector<gagp::Value> tuple;
+      error=result.value.tag!=gagp::ValueTag::IntList || !gagp::payload::lookup_list(result.value,&tuple) || tuple.size()!=3;
+      exact=!error && (tuple[0].i!=0)==example.expected.b;loss=exact?0:1;
     } else if (!error) {
       error = result.value.tag!=gagp::ValueTag::Int;
       exact = !error && result.value.i==example.expected.i;
@@ -121,8 +135,7 @@ inline void expanded_quality(const std::string& name, const std::string& export_
   auto built = asgp::BuildTask(name,config);
   if (!built) throw std::invalid_argument("unknown quality task: "+name);
   const auto& spec = *built;
-  if ((spec.output!=asgp::Type::kInt && spec.output!=asgp::Type::kIntList) || !spec.scalars.empty() || spec.test.size()!=1024)
-    throw std::invalid_argument("quality audit requires 1024 Int/IntList cases with source-only input");
+  if (spec.test.size()!=1024)throw std::invalid_argument("quality audit requires 1024 test cases");
   const auto exported = read(export_path);
   if (exported.object_v.count("task") && exported.object_v.at("task").string_v!=name)
     throw std::invalid_argument("quality export task mismatch");
@@ -133,11 +146,14 @@ inline void expanded_quality(const std::string& name, const std::string& export_
     std::vector<Json> values;
     for (auto v:example.elements) values.push_back(string(std::to_string(v)));
     auto input = array(std::move(values));
-    unique.insert(gg::canonical_json(input));
+    std::vector<Json> scalars;for(auto v:example.scalars)scalars.push_back(string(std::to_string(v)));
+    auto identity=object({{"input",input},{"scalars",array(scalars)},{"start",number(example.start.a)},{"start_b",number(example.start.b)}, {"extent",number(example.extent.a)}, {"extent_b",number(example.extent.b)}});
+    unique.insert(gg::canonical_json(identity));
     std::vector<Json> expected_list;
     for (auto v:example.expected.list) expected_list.push_back(string(std::to_string(v)));
-    encoded_cases.push_back(object({{"input",std::move(input)},
-      {"expected",spec.output==asgp::Type::kIntList ? array(std::move(expected_list)) : string(std::to_string(example.expected.i))},
+    encoded_cases.push_back(object({{"input",std::move(input)}, {"scalars",array(std::move(scalars))}, {"start_b",number(example.start.b)}, {"extent_b",number(example.extent.b)},
+      {"summary1",string(std::to_string(example.expected.summary1))},{"summary2",string(std::to_string(example.expected.summary2))},
+      {"expected",asgp::IsListType(spec.output) ? array(std::move(expected_list)) : string(std::to_string(spec.output==asgp::Type::kBool ? example.expected.b : example.expected.i))},
       {"start",number(example.start.a)}, {"extent",number(example.extent.a)}}));
   }
   auto cases = array(std::move(encoded_cases));
@@ -168,8 +184,8 @@ inline void expanded_quality(const std::string& name, const std::string& export_
     {"history_path",string(history_path)}, {"data_seed",number(config.seed)},
     {"data_origin",string("ASGP BuildTask local task domain, test split; not official PSB")},
     {"sampling_note",string("Independent generator seed; natural duplicates and possible training overlap retained")},
-    {"metric",string(spec.output==asgp::Type::kIntList ? "exact IntList accuracy; mismatch or execution/type error costs 1" : "exact Int accuracy and min(abs(predicted-expected),1000); execution/type error costs 1000")},
-    {"fuel",number(expanded_audit_detail::fuel)}, {"case_cap",number(spec.output==asgp::Type::kIntList ? 1 : expanded_audit_detail::cap)},
+    {"metric",string(asgp::IsListType(spec.output) ? "exact IntList accuracy; mismatch or execution/type error costs 1" : "exact Int accuracy and min(abs(predicted-expected),1000); execution/type error costs 1000")},
+    {"fuel",number(expanded_audit_detail::fuel)}, {"case_cap",number(asgp::IsListType(spec.output) ? 1 : expanded_audit_detail::cap)},
     {"cases_sha256",string(hash)}, {"unique_inputs",number(unique.size())},
     {"cases",std::move(cases)}, {"final",std::move(final)}, {"history",array(std::move(history))}}));
 }
