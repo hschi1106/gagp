@@ -18,11 +18,11 @@
     },
     {
       "path": "spec/bytecode_format.md",
-      "sha256": "19ebb58be4e42fe33ddd9ffd49a97bd39651fb0a7024533056862918a30b3c38"
+      "sha256": "fc5d1dc337267816874032f8056bb5bea90d2078a9fe6977f83dcf01ada49ae5"
     },
     {
       "path": "spec/builtins_base.md",
-      "sha256": "4f02457a81083dbdba39167855fb9ac9437846963324753ba605b93bd307e966"
+      "sha256": "4cf26ff9c1626d97e07c9ab89f04b1535d823dd731282de50b82081daacdd0e8"
     },
     {
       "path": "spec/builtins_runtime.md",
@@ -30,7 +30,7 @@
     },
     {
       "path": "spec/fitness.md",
-      "sha256": "f8dfad796be13d934b520d26fc9fef09ab90a1f2f431a558b3e0de405c0a6e86"
+      "sha256": "b796bc6a9abc6ae3ef37c3dccff8120c308911bef78d9f0a7ef6d8decf98df8a"
     },
     {
       "path": "spec/fitness_cases.md",
@@ -42,7 +42,7 @@
     },
     {
       "path": "spec/grammar_definition.md",
-      "sha256": "db53290ac9ba44aed60087a6bf54d55e9cb1d4464799e45d9c6c69db6dd79864"
+      "sha256": "088f3eacf1b6d24cdc928eef684cf3cc78492cc9a65989d7c6aabf5b254a9e76"
     }
   ],
   "status": "frozen"
