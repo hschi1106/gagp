@@ -4,12 +4,36 @@ import copy
 from pathlib import Path
 import sys
 import unittest
+from types import SimpleNamespace
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from gagp_tools.experiments.fixed_asgp.low_budget import PAPER_TASKS, validate_search
+from gagp_tools.experiments.fixed_asgp.low_budget import PAPER_TASKS, validate_search, Study
 
 
 class TestLowBudgetContract(unittest.TestCase):
+    def test_reduced_depth_rejects_profile_without_dropping_parents_or_witness(self):
+        for failure in ('admit1024','audit'):
+            with self.subTest(failure=failure),TemporaryDirectory() as folder:
+                study=Study.__new__(Study)
+                study.out=Path(folder)
+                study.args=SimpleNamespace(binary=Path('/unused'),native_depth=16)
+                study.manifest={'tasks':{}}
+                phases=[]
+                def run(task,phase,command,extra=None):
+                    phases.append((phase,command))
+                    return {'status':'failed' if phase==failure else 'ok'}
+                study.run=run
+                with patch('gagp_tools.experiments.fixed_asgp.low_budget.read',return_value={}), \
+                     patch('gagp_tools.experiments.fixed_asgp.low_budget.definition',return_value={'search_limits':{'max_nodes':1024,'max_depth':16}}):
+                    study.support('median')
+                expected=['contract','freeze','admit1024']
+                if failure=='audit':expected+=['prepare','audit']
+                self.assertEqual([phase for phase,_ in phases],expected)
+                self.assertEqual(phases[2][1][-2],1024)
+                self.assertEqual(study.manifest['tasks']['median']['blocked_at'],failure)
+
     def sample(self):
         return {'population': 1024, 'cases': 1024, 'final_best': -12,
                 'final_population': [{}] * 1024, 'cpu_audit_mismatches': 0,

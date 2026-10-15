@@ -907,3 +907,23 @@ New source-contract grammars map ASGP `IsLetter` directly to
 ranges and do not gain integer arithmetic. When replaying a frozen grammar that
 lacks this primitive signature, the adapter retains the historical repeated-hole
 comparison expansion without modifying that grammar or its source artifact.
+
+
+The optional low-budget support argument `--native-depth N` creates a new native
+physical AST depth profile (integer 1–48); omission retains depth48. It does not
+change the ASGP source depth7 rule, reproduce that logical bound, or restrict the
+native CPU and GPU modes differently. All native modes consume the same hashed
+grammar with `search_limits.max_depth=N`; the node budget remains1024. Source
+productions, constants, frozen cases and initial parents are unchanged.
+
+A reduced-depth support run first translates and admits all1024 frozen parents,
+then checks the known witness before the ordinary small-population smoke. Any
+failed parent or witness blocks that task/profile explicitly: no parent is
+removed, regenerated or replaced and no per-task depth is silently increased.
+The support manifest records the requested depth, each grammar's effective
+limits and full-population admission status. Quality and benchmark stages take
+these exact support artifacts via `--artifacts`, record their effective limits,
+and reject `--native-depth` overrides. Compare short-search quality and complete
+generation timing before choosing a candidate; the default is not changed by
+this option. Reduced physical depth is an explicit native search-space tradeoff,
+not a claim of equivalent search trajectories or budgets to ASGP.

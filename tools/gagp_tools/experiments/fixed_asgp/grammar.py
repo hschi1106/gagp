@@ -28,7 +28,22 @@ def state_value():
                      constant(0)))
 
 
-def definition(root: Path, task: str, contract: dict | None = None) -> dict:
+def definition(root: Path, task: str, contract: dict | None = None, *,
+               native_depth: int | None = None) -> dict:
+    """Build the native grammar, optionally restricting its physical AST depth.
+
+    This candidate changes native search budgets, not source logical phase depth.
+    Callers must admit every frozen parent and the witness before comparison.
+    """
+    if native_depth is not None and (type(native_depth) is not int or not 1 <= native_depth <= 48):
+        raise ValueError('native_depth must be an integer in [1, 48]')
+    document = _definition(root, task, contract)
+    if native_depth is not None:
+        document['search_limits']['max_depth'] = native_depth
+    return document
+
+
+def _definition(root: Path, task: str, contract: dict | None = None) -> dict:
     if contract is not None:
         from .source_grammar import definition as source_definition
         return source_definition(root, task, contract)

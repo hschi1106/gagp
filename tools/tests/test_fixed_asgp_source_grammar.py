@@ -37,6 +37,18 @@ class TestSourceGrammar(unittest.TestCase):
             'args':[{'bound':'xs'},{'ref':'Solve.int'}]})
         self.assertEqual(len(document['templates']),1)
 
+    def test_native_depth_candidate_only_changes_explicit_physical_limit(self):
+        original=definition(ROOT,'house_robber')
+        self.assertEqual(original['search_limits']['max_depth'],48)
+        for depth in (16,24,48):
+            candidate=definition(ROOT,'house_robber',native_depth=depth)
+            expected=copy.deepcopy(original)
+            expected['search_limits']['max_depth']=depth
+            self.assertEqual(candidate,expected)
+        for depth in (0,49,-1,True,16.5):
+            with self.subTest(depth=depth),self.assertRaises(ValueError):
+                definition(ROOT,'house_robber',native_depth=depth)
+
     def test_paper_catalog_uses_source_identifiers(self):
         self.assertEqual(len(set(PAPER_TASKS)),30)
         self.assertIn('min',PAPER_TASKS)

@@ -118,7 +118,7 @@ class Study:
             'build_binary': str(original_binary),
             'source_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
             'source_status': subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True),
-            'settings': flags, 'tasks': {}, 'cells': [],
+            'settings': flags, 'native_depth': args.native_depth, 'tasks': {}, 'cells': [],
         }
         self.persist()
 
@@ -203,10 +203,20 @@ class Study:
                 record.update(status=cell['status'], blocked_at=phase)
                 return
         try:
-            save(grammar, definition(ROOT, task, contract=read(contract)))
+            document = definition(ROOT, task, contract=read(contract), native_depth=self.args.native_depth)
+            save(grammar, document)
+            record['native_search_limits'] = document['search_limits']
         except (ValueError, KeyError, NotImplementedError) as error:
             record.update(status='unsupported', blocked_at='grammar', reason=str(error))
             return
+        if self.args.native_depth is not None:
+            # A narrower candidate cannot cherry-pick the easy first eight parents.
+            admission = self.run(task, 'admit1024', [self.args.binary, 'prepare',
+                source, grammar, 1024, folder / 'p1024.admission.json'])
+            record['full_initial_population_admission'] = admission['status']
+            if admission['status'] != 'ok':
+                record.update(status=admission['status'], blocked_at='admit1024')
+                return
         for phase, command in (
             ('prepare', ['prepare', source, grammar, 8, prepared]),
             ('audit', ['audit', source, grammar, folder / 'audit.json']),
@@ -214,6 +224,9 @@ class Study:
             cell = self.run(task, phase, [self.args.binary, *command])
             if phase == 'audit':
                 record['known_solution_audit'] = cell['status']
+                if self.args.native_depth is not None and cell['status'] != 'ok':
+                    record.update(status=cell['status'], blocked_at='audit')
+                    return
             elif cell['status'] != 'ok':
                 record.update(status=cell['status'], blocked_at=phase)
                 return
@@ -269,6 +282,7 @@ class Study:
         for name, digest in old['artifacts'].items():
             if sha(artifacts / name) != digest:
                 raise ValueError('frozen artifact changed: ' + str(artifacts / name))
+        record['native_search_limits'] = read(artifacts / 'grammar.json')['search_limits']
         prepared = self.out / (task + '.p1024.prepared.json')
         cell = self.run(task, 'prepare1024', [self.args.binary, 'prepare', artifacts / 'source.json',
             artifacts / 'grammar.json', 1024, prepared])
@@ -297,6 +311,8 @@ def main():
     parser.add_argument('--binary', type=Path, default=ROOT / 'cpp/build/release/gagp_fixed_asgp_bench')
     parser.add_argument('--settings', type=Path, default=ROOT / 'benchmarks/fixed_asgp/optimization/results/expanded-20261014/settings.json')
     parser.add_argument('--artifacts', type=Path)
+    parser.add_argument('--native-depth', type=int, choices=range(1, 49), metavar='1..48',
+                        help='support only: restrict native physical AST depth; require all 1024 parents and witness')
     parser.add_argument('--tasks', nargs='+', choices=PAPER_TASKS)
     parser.add_argument('--modes', nargs='+', choices=MODES, default=MODES)
     parser.add_argument('--generations', type=int, default=2)
@@ -308,6 +324,8 @@ def main():
         parser.error('--generations must be positive')
     if args.budget <= 0 or args.timeout <= 0 or args.rss_gib <= 0:
         parser.error('budgets must be positive')
+    if args.native_depth is not None and args.stage != 'support':
+        parser.error('--native-depth only prepares new support artifacts; later stages inherit their exact grammar')
     if args.stage != 'support' and not args.artifacts:
         parser.error('--artifacts support output is required')
     args.binary = args.binary.resolve()
