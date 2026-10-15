@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import resource
 from pathlib import Path
 import subprocess
 import sys
@@ -16,8 +17,12 @@ from gagp_tools.experiments.fixed_asgp.grammar import TASKS, definition
 
 
 class TestFixedAsgpNative(unittest.TestCase):
-    def call(self, *args, env=None):
-        result = subprocess.run([str(BINARY), *map(str, args)], capture_output=True, text=True, env=env)
+    def call(self, *args, env=None, timeout=120, memory_limit=None):
+        def limit_memory():
+            resource.setrlimit(resource.RLIMIT_AS, (memory_limit, memory_limit))
+        result = subprocess.run([str(BINARY), *map(str, args)], capture_output=True,
+                                text=True, env=env, timeout=timeout,
+                                preexec_fn=limit_memory if memory_limit else None)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_three_schemes_known_solutions_and_five_modes(self):
@@ -149,53 +154,86 @@ class TestFixedAsgpNative(unittest.TestCase):
                         self.assertEqual(len(q["cases"]),1024)
                         self.assertEqual(q["final"]["cases"],1024)
                         self.assertEqual(len(q["history"]),2)
-                    # Existing ASGP integer-wrap vs GAGP double-conversion semantics
-                    # differ for overflow-heavy LastIndex parent0. Do not assert
-                    # cross-system equivalence; keep the strict assertion below
-                    # as an explicit expected failure. GAGP backends must agree here.
+                    # Legacy grammar profiles remain separate from the strict
+                    # source-contract and integer-output regression below.
                     self.assertTrue(all(abs(x-initial[1])<1e-6 for x in initial[1:]),initial)
                     if name == "count_odds":
                         self.assertAlmostEqual(initial[0], initial[1])
 
-    @unittest.expectedFailure
+    def source_grammar(self, name, folder, env):
+        contract=folder/"contract.json"
+        grammar=folder/"grammar.json"
+        self.call("contract",name,contract,env=env)
+        grammar.write_text(json.dumps(definition(ROOT,name,contract=json.loads(contract.read_text()))))
+        return grammar
+
     def test_last_index_initial_asgp_integer_semantics_parity(self):
-        # Strict parity is intentionally not claimed: the first frozen parent
-        # repeatedly squares, exposing existing Int->double conversion above2^53.
+        # Parent zero repeatedly squares. Compare full values independently of
+        # fitness so floating-point score conversion cannot hide lost low bits.
         with tempfile.TemporaryDirectory() as temporary:
-            folder=Path(temporary);source=folder/"source.json";grammar=folder/"grammar.json";prepared=folder/"prepared.json"
-            grammar.write_text(json.dumps(definition(ROOT,"last_index_of_zero")))
-            env=dict(os.environ,GAGP_BM_COMMON_FITNESS="1",GAGP_HOST_THREADS="1",
+            folder=Path(temporary);source=folder/"source.json";prepared=folder/"prepared.json"
+            env=dict(os.environ,GAGP_BM_ALIGNED_FITNESS="1",GAGP_HOST_THREADS="1",
                      GAGP_VIEW_PROFILE="1",GAGP_TYPED_VIEW_PHASE="1",GAGP_SNAPSHOT_CPU="1")
+            env.pop("GAGP_BM_COMMON_FITNESS",None)
+            grammar=self.source_grammar("last_index_of_zero",folder,env)
             self.call("freeze","last_index_of_zero",source,env=env)
+            raw=json.loads(source.read_text());raw["population"]=raw["population"][:1]
+            self.assertEqual(len(raw["cases"]),1024)
+            source.write_text(json.dumps(raw))
             self.call("prepare",source,grammar,1,prepared,env=env)
+            values=folder/"values.json"
+            self.call("sampled-audit",source,grammar,values,env=env)
+            checked=json.loads(values.read_text())
+            self.assertEqual(checked["sampled_programs"],1)
+            self.assertEqual(checked["cases_per_program"],1024)
+            self.assertEqual(checked["mismatches"],0)
             a=folder/"asgp.json";g=folder/"gagp.json"
             self.call("measure",source,prepared,grammar,1,"asgp_snapshot",a,env=env)
             self.call("measure",source,prepared,grammar,1,"snapshot",g,env=env)
             left=json.loads(a.read_text())["programs"][0]["fitness"]
-            right=json.loads(g.read_text())["programs"][0]["cpu_fitness"]
-            self.assertEqual(left,right)
+            right=json.loads(g.read_text())["programs"][0]
+            self.assertEqual(right["cases"],1024)
+            self.assertEqual(right["fitness"],right["cpu_fitness"])
+            # ASGP sums raw doubles; native reductions round to48mantissa bits.
+            self.assertAlmostEqual(left,right["cpu_fitness"],places=8)
 
-    @unittest.skip("Random list evolution exceeded95GiB RSS atP8; resource limitation recorded in expanded study")
     def test_negative_random_evolution_resource_support(self):
-        self.fail("Requires bounded list allocation before random evolution is safe")
+        # Exercise all1024cases and changing random offspring, without allowing
+        # an allocation regression to consume the host's memory indefinitely.
+        with tempfile.TemporaryDirectory() as temporary:
+            folder=Path(temporary);source=folder/"source.json";prepared=folder/"prepared.json"
+            output=folder/"search.json"
+            env=dict(os.environ,GAGP_BM_ALIGNED_FITNESS="1",GAGP_HOST_THREADS="1",
+                     GAGP_SEARCH_GENERATIONS="2",GAGP_BM_SEED="0",GAGP_SEARCH_PENALTY="1000")
+            env.pop("GAGP_BM_COMMON_FITNESS",None)
+            grammar=self.source_grammar("negative_to_zero",folder,env)
+            self.call("freeze","negative_to_zero",source,env=env)
+            self.call("prepare",source,grammar,8,prepared,env=env)
+            self.call("measure",source,prepared,grammar,8,"search_gagp_cpu",output,
+                      env=env,timeout=120,memory_limit=2*1024**3)
+            report=json.loads(output.read_text())
+            self.assertEqual(report["cases"],1024)
+            self.assertEqual(report["population"],8)
+            self.assertEqual(len(report["generations"]),2)
+            self.assertEqual(len(report["final_population"]),8)
+            self.assertEqual(report["cpu_audit_mismatches"],0)
+            self.assertEqual(report["elite_count"],1)
 
-    @unittest.expectedFailure
     def test_negative_gpu_known_solution_arena_limit(self):
-        # Documented evaluator capability gap, NOT a passing equivalence claim:
-        # generic list arena overflow and no Singleton/Concat view profile.
-        # Keep the strict correctness assertion visible as an expected failure.
         with tempfile.TemporaryDirectory() as temporary:
             folder=Path(temporary)
-            source=folder/"long.source.json";grammar=folder/"grammar.json";audit=folder/"audit.json"
+            source=folder/"long.source.json";audit=folder/"audit.json"
             source.write_text(json.dumps({"task":"negative_to_zero","cases":[
                 {"input":["-1"]*50,"expected":["0"]*50,"start":0,"extent":0}]*1024}))
-            grammar.write_text(json.dumps(definition(ROOT,"negative_to_zero")))
-            env=dict(os.environ,GAGP_BM_COMMON_FITNESS="1",GAGP_VIEW_PROFILE="1",GAGP_TYPED_VIEW_PHASE="1")
+            env=dict(os.environ,GAGP_BM_ALIGNED_FITNESS="1",GAGP_HOST_THREADS="1",
+                     GAGP_VIEW_PROFILE="1",GAGP_TYPED_VIEW_PHASE="1")
+            env.pop("GAGP_BM_COMMON_FITNESS",None)
+            grammar=self.source_grammar("negative_to_zero",folder,env)
             self.call("audit",source,grammar,audit,env=env)
-            r=json.loads(audit.read_text())
-            self.assertEqual(r["known_solution_asgp_wrong"],0)
-            self.assertEqual(r["known_solution_cpu_mismatches"],0)
-            self.assertEqual(r["known_solution_gpu_fitness"],1024)
+            report=json.loads(audit.read_text())
+            self.assertEqual(report["known_solution_asgp_wrong"],0)
+            self.assertEqual(report["known_solution_cpu_mismatches"],0)
+            self.assertEqual(report["known_solution_gpu_fitness"],0)
 
 
 
