@@ -70,7 +70,7 @@ Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::Ta
     case K::kHeadIndex: return bound("lo");
     case K::kHead: return call("index(IntList,Int)->Int", {args.at(0), constant(0)});
     case K::kIndex:
-      if(guarded_index)return object({{"template",string("Fixed."+phase+".Index")},{"holes",object({{"index",args.at(0)}})}});
+      if(guarded_index)return call("if(Bool,Int,Int)->Int",{call("lt(Int,Int)->Bool",{args.at(0),constant(0)}),call("index(IntList,Int)->Int",{bound("xs"),call("len(IntList)->Int",{bound("xs")})}),call("index(IntList,Int)->Int",{bound("xs"),args.at(0)})});
       return call("index(IntList,Int)->Int", {bound("xs"), args.at(0)});
     case K::kMakeTuple:
       return call("concat(IntList,IntList)->IntList",{call("singleton(Int)->IntList",{call("if(Bool,Int,Int)->Int",{args[0],constant(1),constant(0)})}),call("concat(IntList,IntList)->IntList",{call("singleton(Int)->IntList",{args[1]}),call("singleton(Int)->IntList",{args[2]})})});
