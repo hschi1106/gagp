@@ -172,6 +172,45 @@ Exact string/typed-list builtins use bounded per-thread scratch. CPU and GPU sha
 There is no legacy payload-free/payload-bearing bucket split. The whole launch
 uses `Mixed` or the proven view profile, and evaluates every program/case pair.
 
+### Experimental private IntList arena offsets
+
+`GAGP_GPU_PRIVATE_INTLIST_OFFSETS=1` requests `private-intlist-offset-v1` in
+the existing GPU arena VM. Admission is population-wide and fail-closed: every
+root, phase and region must use only Int/Bool/IntList operations from the view
+subset plus integer Singleton/Concat, with IntList outputs permitted. Container
+equality and memoized regions with any IntList state are excluded. Unsupported
+programs, policies, missing payloads or absent global-arena storage retain normal
+execution and report `private-intlist-offset-v1-declined` in the execution profile.
+
+This opt-in profile has **collision-independent local content semantics**. It
+does not promise equivalence to canonical hash-registry aliasing under a hash
+collision. External inputs, answers and constants retain canonical transport
+identities; external IntList `Value.b` markers are normalized before execution.
+Only complete, integer-valued resident payloads can enter the profile. Generated
+lists use invocation-private offsets marked by `Value.b`, with distinct arena
+and immutable-table origins, checked bounds, and no hash/registry insertion.
+Descriptors remain inside the invocation through resident content scoring;
+neither serialization nor public bytecode/program ownership accepts a proof token.
+Exactness and wrong-case counts compare contents, including when equal contents
+have different private offsets. Initial policy support is Exact and Levenshtein.
+Set the opt-in before session and native-population initialization so expected
+payloads and the cold capability are prepared.
+Admission requires a positive logical allocation limit at most 65536 and external
+payloads at most 65536 elements. A descriptor escape bit retains actual length
+65536 for content scoring/copying while preserving the existing low-16-bit
+`container_len` behavior for Len/Index/Slice and empty-Concat decisions. Other
+sizes decline the profile rather than narrowing an offset or length.
+
+Singleton and nonempty Concat retain element copying and logical allocation
+charges. Slice retains the existing immutable-window alias rule or element copy
+rule. Empty Concat, fuel, frame/memo limits, logical-limit errors, physical
+overflow diagnostics and replay remain in the existing VM. Scalar region return
+rewinds cannot retain a list descriptor; list-valued results keep their backing.
+The native GPU reproduction owner proves fixed root/segment structure on cold
+import and composes it with an explicit capability certificate from every fresh
+GPU-lowered phase on every generation. Initial-population admission alone never
+authorizes later offspring.
+
 ### Proven integer/list execution profile
 
 `cpp/src/runtime/gpu/view_profile.hpp` checks forward type flow after ordinary

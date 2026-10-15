@@ -12,6 +12,7 @@ struct DPayloadTables {
   const DListPayloadEntry* list_entries = nullptr;
   int list_entry_count = 0;
   const Value* list_values = nullptr;
+  int list_value_count = 0;
 };
 
 template <int MaxStringEntries, int MaxListEntries, int MaxStringBytes, int MaxListValues>
@@ -38,6 +39,7 @@ struct DThreadPayloadStateT {
   unsigned physical_capacity_reason = 0;
   bool fused_list_concat = false;
   bool small_int_hash = false;
+  static constexpr bool private_intlists = false;
   bool alias_windows = false;
   char string_bytes[(MaxStringBytes > 0) ? MaxStringBytes : 1];
   Value list_values[(MaxListValues > 0) ? MaxListValues : 1];
@@ -62,6 +64,7 @@ struct DArenaPayloadState {
   unsigned long long concat_hits = 0, concat_misses = 0, concat_cells = 0;
   static constexpr bool kEpochLists = false;
   static constexpr bool kIndexedLists = false;
+  bool private_intlists = false;
   bool alias_windows = false;
   static constexpr int kMaxStringEntries = 1;
   static constexpr int kMaxListEntries = 1;
@@ -419,6 +422,19 @@ __device__ inline int d_find_list_payload_entry(const DPayloadTables& tables, Va
   return lo;
 }
 
+// Arena descriptors use a disjoint origin bit and a 65536-length escape bit.
+// Admission requires a positive logical allocation limit <=65536, so all local
+// lists fit this representation. Public container_len keeps low-16-bit encoding.
+constexpr std::uint64_t DPRIVATE_LIST_GLOBAL = 1ULL << 47;
+constexpr std::uint64_t DPRIVATE_LIST_LENGTH_65536 = 1ULL << 46;
+constexpr std::uint64_t DPRIVATE_LIST_OFFSET_MASK = (1ULL << 31) - 1;
+__device__ inline Value d_private_intlist(int offset, int length, bool global = false) {
+  auto bits=static_cast<std::uint64_t>(offset) | (global?DPRIVATE_LIST_GLOBAL:0) |
+      (length==65536?DPRIVATE_LIST_LENGTH_65536:0);
+  Value value=Value::from_int_list_hash_len(bits,static_cast<unsigned>(length));
+  value.b=true;return value;
+}
+
 // Private read-only view: b marks an offset into this launch's list table.
 // Static capability analysis excludes container equality and container outputs.
 __device__ inline Value d_list_view(std::uint64_t offset, std::uint32_t length) {
@@ -599,13 +615,32 @@ __device__ inline bool d_lookup_list_payload(const DPayloadTables& tables,
                                              const Value*& ptr,
                                              int& len) {
   if (!d_is_typed_list_tag(v.tag)) return false;
+  if (st.private_intlists && v.b) {
+    if (v.tag != ValueTag::IntList) return false;
+    const auto bits=Value::container_hash48(v);
+    if (bits & ~(DPRIVATE_LIST_GLOBAL|DPRIVATE_LIST_LENGTH_65536|DPRIVATE_LIST_OFFSET_MASK)) return false;
+    const bool global=(bits&DPRIVATE_LIST_GLOBAL)!=0;
+    const int offset=static_cast<int>(bits&DPRIVATE_LIST_OFFSET_MASK);
+    len=static_cast<int>(Value::container_len(v));
+    if(bits&DPRIVATE_LIST_LENGTH_65536) {if(len!=0)return false;len=65536;}
+    const int capacity=global?tables.list_value_count:st.list_values_used;
+    const auto* backing=global?tables.list_values:st.list_values;
+    if (capacity<0 || offset>capacity || len>capacity-offset || (len && !backing)) return false;
+    ptr=backing?backing+offset:nullptr;
+    return true;
+  }
   if constexpr (State::kMaxListEntries > 0) {
-    const int entry=d_find_local_list_entry(st,v);
-    if(entry>=0) {
-      const int offset=st.list_entries[entry].offset;
-      ptr=offset>=0?st.list_values+offset:tables.list_values+(-offset-1);
-      len=st.list_entries[entry].len;
-      return true;
+    // Private lists never enter the registry; its index is deliberately not
+    // initialized for this invocation. Canonical external lists go straight to
+    // immutable storage and cannot resolve through stale scratch entries.
+    if(!st.private_intlists) {
+      const int entry=d_find_local_list_entry(st,v);
+      if(entry>=0) {
+        const int offset=st.list_entries[entry].offset;
+        ptr=offset>=0?st.list_values+offset:tables.list_values+(-offset-1);
+        len=st.list_entries[entry].len;
+        return true;
+      }
     }
   }
   const int idx = d_find_list_payload_entry(tables, v.tag, v.i);
@@ -684,6 +719,61 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
                                       Value& out,
                                       ErrCode& err) {
   using PayloadTraits = DPayloadFlavorTraits<Flavor>;
+
+  // This branch is reachable only after whole-program capability admission.
+  // It shares the arena, fuel driver, charging and physical-overflow replay.
+  if constexpr (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) {
+    auto& st=payload_state;
+    if(st.private_intlists && (bid==BuiltinId::Singleton || bid==BuiltinId::Concat || bid==BuiltinId::Slice)) {
+      const Value *a=nullptr,*b=nullptr;int n=0,m=0;
+      if(bid==BuiltinId::Singleton) {
+        if(argc!=1 || args[0].tag!=ValueTag::Int){err=ErrCode::Type;return false;}
+        if(!d_charge_list_allocation(st,1)){err=ErrCode::Value;return false;}
+        if(st.list_values_used>=st.kMaxListValues) {
+          st.physical_capacity_exceeded=true;st.physical_capacity_reason|=DPAYLOAD_OVERFLOW_VALUES;
+          err=ErrCode::Value;return false;
+        }
+        const int offset=st.list_values_used++;st.list_values[offset]=args[0];
+        out=d_private_intlist(offset,1);return true;
+      }
+      if(argc!=(bid==BuiltinId::Concat?2:3) || args[0].tag!=ValueTag::IntList ||
+          (bid==BuiltinId::Concat?args[1].tag!=ValueTag::IntList:
+           (args[1].tag!=ValueTag::Int || args[2].tag!=ValueTag::Int))) {
+        err=ErrCode::Type;return false;
+      }
+      if(!d_lookup_list_payload(tables,st,args[0],a,n)) {err=ErrCode::Value;return false;}
+      if(bid==BuiltinId::Slice) {
+        const auto length=static_cast<long long>(Value::container_len(args[0]));
+        const int lo=static_cast<int>(d_norm_slice_idx(args[1].i,length));
+        const int hi=static_cast<int>(d_norm_slice_idx(args[2].i,length));
+        const int count=hi>lo?hi-lo:0;
+        // Positive logical allocation admission already selects immutable window
+        // aliasing in the ordinary arena; no copy policy is removed here.
+        if(args[0].b) {
+          const auto bits=Value::container_hash48(args[0]);
+          out=d_private_intlist(static_cast<int>(bits&DPRIVATE_LIST_OFFSET_MASK)+lo,count,
+              (bits&DPRIVATE_LIST_GLOBAL)!=0);
+        } else {
+          const int entry=d_find_list_payload_entry(tables,ValueTag::IntList,args[0].i);
+          if(entry<0){err=ErrCode::Value;return false;}
+          out=d_private_intlist(tables.list_entries[entry].offset+lo,count,true);
+        }
+        return true;
+      }
+      if(!d_lookup_list_payload(tables,st,args[1],b,m)){err=ErrCode::Value;return false;}
+      const auto left=Value::container_len(args[0]),right=Value::container_len(args[1]);
+      if(!left){out=args[1];return true;}if(!right){out=args[0];return true;}
+      if(!d_charge_list_allocation(st,left+right)){err=ErrCode::Value;return false;}
+      if(n<0 || m<0 || n>65536-m || n+m>st.kMaxListValues-st.list_values_used) {
+        st.physical_capacity_exceeded=true;st.physical_capacity_reason|=DPAYLOAD_OVERFLOW_VALUES;
+        err=ErrCode::Value;return false;
+      }
+      const int offset=st.list_values_used;
+      for(int i=0;i<n;++i)st.list_values[offset+i]=a[i];
+      for(int i=0;i<m;++i)st.list_values[offset+n+i]=b[i];
+      st.list_values_used+=n+m;out=d_private_intlist(offset,n+m);return true;
+    }
+  }
 
   if constexpr ((Flavor == DPayloadFlavor::IntListViews || Flavor == DPayloadFlavor::BoundIntListViews)) {
     if ((bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) || bid == BuiltinId::Slice) {

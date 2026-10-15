@@ -9,6 +9,7 @@
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
+#include "gagp/runtime/payload/payload.hpp"
 #include "gagp/runtime/gpu/host_pack_gpu.hpp"
 #include "../../src/runtime/gpu/owned_programs.hpp"
 #include "../../src/evolution/repro/gpu/phase_population.hpp"
@@ -264,8 +265,72 @@ void test_packed_pattern_refresh() {
  require(m.scalar_constant_index==-1 && m.add_left_binding==-1 && m.compare_binding==-1,"phase shrink retained stale pattern metadata");
 }
 }
+void test_private_intlist_generations() {
+ const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED"};
+ struct Restore {
+  const char** flags;std::string saved[4];bool present[4];
+  explicit Restore(const char** f):flags(f){for(int i=0;i<4;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
+  ~Restore(){for(int i=0;i<4;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
+ } restore(flags);
+ const auto grammar=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_intlist.json")));
+ std::vector<std::string> names;for(const auto& binding:grammar->inputs())names.push_back(binding.name);
+ std::vector<ProgramGenome> parents;for(int i=0;i<8;++i)parents.push_back(grammar::generate_derivation(*grammar,721+i).genome);
+ std::vector<CaseBindings> cases;std::vector<Value> answers;
+ for(int i=0;i<1024;++i) {
+  CaseBindings row;
+  for(std::size_t j=0;j<names.size();++j)row.push_back({int(j),Value::from_int(
+      names[j]=="row"?i%2:names[j]=="column"?(i/2)%2:names[j]=="rows" || names[j]=="columns"?2:i%7-3)});
+  cases.push_back(row);answers.push_back(payload::make_int_list_value({Value::from_int(i%7-3)}));
+ }
+ FitnessPolicy policy;policy.metric=FitnessMetric::Exact;policy.list_allocation_limit=65536;
+ FitnessSessionGpu session;require(session.init(cases,answers,10000,32,1000,policy).ok,"private list owner session");
+ repro::NativePhasePopulation owner(grammar,parents,names);
+ bool changed=false,saw_content_match=false;
+ for(int generation=0;generation<=32;++generation) {
+  const auto gpu=owner.evaluate(session,true);
+  require(gpu.ok && gpu.execution_profile.find("private-intlist-offset-v1")!=std::string::npos &&
+      gpu.execution_profile.find("-declined")==std::string::npos,"fresh list generation lost capability");
+  std::vector<BytecodeProgram> independent;
+  for(auto genome:owner.export_population()) {
+   genome.derivation.reset();grammar::require_membership(*grammar,genome);
+   independent.push_back(compile_for_eval(genome,names));
+  }
+  std::vector<unsigned> wrong;
+  const auto cpu=eval_fitness_cpu(independent,cases,answers,10000,1000,32,policy,&wrong);
+  require(gpu.fitness==cpu && gpu.wrong==wrong,"new GPU list phases differ from full-case independent CPU audit");
+  for(auto value:wrong)saw_content_match|=value<1024;
+  for(const auto& count:gpu.case_counts)require(count[0]==1024,"private owner omitted cases");
+  if(generation==32)break;
+  const auto stats=owner.reproduce(gpu.fitness,2,.3,UINT64_C(9831)+generation);
+  changed|=stats.variation.changed_children!=0;
+ }
+ require(changed && saw_content_match,"private list owner did not generate new phases/content matches");
+ // Same input types but an unsupported policy must use ordinary current phases.
+ auto unsupported_policy=policy;unsupported_policy.list_allocation_limit=0;
+ FitnessSessionGpu unsupported_session;
+ require(unsupported_session.init(cases,answers,10000,32,1000,unsupported_policy).ok,"private unsupported policy init");
+ owner.reproduce(owner.evaluate(session,true).fitness,2,.3,UINT64_C(17913));
+ const auto policy_declined=owner.evaluate(unsupported_session,true);
+ const auto policy_ordinary=unsupported_session.eval_programs(owner.programs(),true);
+ require(policy_declined.ok && policy_ordinary.ok && policy_declined.fitness==policy_ordinary.fitness &&
+     policy_declined.wrong==policy_ordinary.wrong &&
+     policy_declined.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos,
+     "unsupported policy retained cold native phases/private profile");
+ auto wrong_cases=cases;
+ for(auto& binding:wrong_cases[0])if(names[binding.idx]=="base_value")binding.value=Value::from_float(1.5);
+ FitnessSessionGpu wrong_session;require(wrong_session.init(wrong_cases,answers,10000,32,1000,policy).ok,"private wrong-type session");
+ owner.reproduce(owner.evaluate(session,true).fitness,2,.3,UINT64_C(123912));
+ const auto declined=owner.evaluate(wrong_session,true);
+ const auto ordinary=wrong_session.eval_programs(owner.programs(),true);
+ require(declined.ok && ordinary.ok && declined.fitness==ordinary.fitness && declined.wrong==ordinary.wrong &&
+     declined.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos,
+     "different session reused stale private capability instead of current generic fallback");
+}
+
 int main(){try {
  test_packed_pattern_refresh();
+ test_private_intlist_generations();
  auto definition=grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json");
  // Keep the original oversized fixture as a required explicit rejection.
  // The positive fixture is a separately authored GPU-capacity contract.

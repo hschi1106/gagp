@@ -16,7 +16,7 @@ inline bool view_value_type(ValueTag type) {
 inline bool view_code_supported(const std::vector<Instr>& code,
     const std::vector<Value>& constants, int n_locals,
     const std::array<ValueTag, 64>& input_types, ValueTag expected,
-    const std::vector<BoundedRegionSegment>* regions = nullptr) {
+    const std::vector<BoundedRegionSegment>* regions = nullptr, bool private_lists = false) {
   if (n_locals < 0 || n_locals > 64 || code.empty()) return false;
   for (const auto& value : constants) if (!view_value_type(value.tag)) return false;
   struct State {
@@ -35,7 +35,7 @@ inline bool view_code_supported(const std::vector<Instr>& code,
     return true;
   };
   auto result_type = [&](ValueTag type) {
-    return expected == ValueTag::Invalid ? (type == ValueTag::Int || type == ValueTag::Bool) : type == expected;
+    return expected == ValueTag::Invalid ? (type == ValueTag::Int || type == ValueTag::Bool || (private_lists && type == ValueTag::IntList)) : type == expected;
   };
   bool returns = false;
   for (std::size_t ip = 0; ip < code.size(); ++ip) {
@@ -92,6 +92,10 @@ inline bool view_code_supported(const std::vector<Instr>& code,
           if (ins.b != 3 || !pop(ValueTag::Int) || !pop(ValueTag::Int) || !pop(ValueTag::Int) || !push(ValueTag::Int)) return false;
         } else if (bid == BuiltinId::IsLetter) {
           if (ins.b != 1 || !pop(ValueTag::Int) || !push(ValueTag::Bool)) return false;
+        } else if (private_lists && bid == BuiltinId::Singleton) {
+          if (ins.b != 1 || !pop(ValueTag::Int) || !push(ValueTag::IntList)) return false;
+        } else if (private_lists && bid == BuiltinId::Concat) {
+          if (ins.b != 2 || !pop(ValueTag::IntList) || !pop(ValueTag::IntList) || !push(ValueTag::IntList)) return false;
         } else if (bid == BuiltinId::Len) {
           if (ins.b != 1 || !pop(ValueTag::IntList) || !push(ValueTag::Int)) return false;
         } else if (bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) {
@@ -135,8 +139,10 @@ inline bool view_code_supported(const std::vector<Instr>& code,
   return returns;
 }
 
-inline bool view_region_supported(const BoundedRegionSegment& segment) {
+inline bool view_region_supported(const BoundedRegionSegment& segment, bool private_lists = false) {
   const auto& plan = segment.plan;
+  if (private_lists && plan.memoized)
+    for (auto type : plan.state_types) if (type == ValueTag::IntList) return false;
   for (auto type : plan.state_types) if (!view_value_type(type)) return false;
   for (auto type : plan.parameter_types) if (!view_value_type(type)) return false;
   if (!view_value_type(plan.result_type)) return false;
@@ -156,7 +162,7 @@ inline bool view_region_supported(const BoundedRegionSegment& segment) {
       if (!view_value_type(type)) return false;
       locals[binding.local] = type;
     }
-    return view_code_supported(phase.program.code, phase.program.consts, phase.program.n_locals, locals, result);
+    return view_code_supported(phase.program.code, phase.program.consts, phase.program.n_locals, locals, result, nullptr, private_lists);
   };
   if ((segment.boundary && !phase_ok(*segment.boundary, plan.result_type)) ||
       !phase_ok(segment.base_predicate, ValueTag::Bool) || !phase_ok(segment.base_body, plan.result_type) ||

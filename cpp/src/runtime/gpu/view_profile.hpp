@@ -36,4 +36,12 @@ inline bool view_program_supported(const BytecodeProgram& program,
     if (!detail::view_region_supported(segment)) return false;
   return view_code_supported(program.code, program.consts, program.n_locals, input_types, ValueTag::Invalid, &program.bounded_region_segments);
 }
+// Separate capability: allocating IntLists may escape only to resident scoring.
+inline bool private_intlist_program_supported(const BytecodeProgram& program,
+    const std::array<ValueTag, 64>& input_types) {
+  for (const auto& segment : program.bounded_region_segments)
+    if (!detail::view_region_supported(segment, true)) return false;
+  return view_code_supported(program.code, program.consts, program.n_locals,
+      input_types, ValueTag::Invalid, &program.bounded_region_segments, true);
+}
 }  // namespace gagp::gpu_detail

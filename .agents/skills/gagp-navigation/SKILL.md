@@ -124,3 +124,11 @@ maintenance, follow the rules in root `AGENTS.md`.
   Paths are relative to `cpp/src/evolution/` unless starting with `gpu/`, which
   is relative to `cpp/src/evolution/repro/`. Contract and owner lifetimes:
   `docs/design/gpu-reproduction.md`.
+
+- Experimental `GAGP_GPU_PRIVATE_INTLIST_OFFSETS`: shared typeflow in
+  `runtime/view_profile.hpp`, existing arena builtins and resident scoring under
+  `runtime/gpu/device/`, private `OwnedGpuPrograms` capability composed with
+  each fresh `phase_compile.cuh` result in `repro/gpu/phase_population.cu`.
+  Contract: `docs/design/payload.md`; tests `gagp_test_extended_payload_gpu`,
+  `gagp_test_gpu_phase_compile`, `gagp_test_gpu_phase_population`. Paths are
+  relative to `cpp/src/` (the reproduction paths under `evolution/`).

@@ -276,3 +276,13 @@ physical payload exhaustion separately for bounded replay without treating a
 logical limit error as recoverable. This policy does not change fuel or frame
 limits. The aligned fixed-ASGP list-output benchmark selects the source arena
 limit of 65536 cells; source character lists use native IntList cells too.
+
+The explicit experimental `GAGP_GPU_PRIVATE_INTLIST_OFFSETS=1` profile scores
+resident IntList outputs by content for Exact and Levenshtein, including exact
+wrong-case counts. Its generated local list identity is collision-independent,
+so it intentionally differs from canonical transport-registry aliasing under a
+hash collision. Admission excludes container equality and IntList memo keys;
+unsupported populations/policies report a declined profile and execute normally.
+It preserves the logical allocation policy, fuel, complete case coverage and
+physical-overflow replay above. See `docs/design/payload.md` for its private
+descriptor lifetime and per-generation capability requirements.

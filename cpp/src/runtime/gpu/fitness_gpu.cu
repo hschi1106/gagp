@@ -370,6 +370,8 @@ struct FitnessSessionGpu::Impl {
   unsigned shared_input_payload_mask = 0U;
   std::uint32_t shared_max_intlist_input_length = 0;
   std::array<ValueTag, 64> shared_input_types{};
+  bool private_answers_prepared = false;
+  std::vector<Value> private_answer_tokens;
   std::size_t shared_bytes = 0;
   std::vector<Value> host_case_local_vals;
   Value* d_shared_case_local_vals = nullptr;
@@ -544,8 +546,15 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   impl_->shared_string_tokens.clear();
   impl_->shared_list_tokens.clear();
   append_payload_tokens_from_values(packed_case_local_vals, &impl_->shared_string_tokens, &impl_->shared_list_tokens);
+  impl_->private_answers_prepared=std::getenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS") &&
+      std::string(std::getenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"))=="1";
   if(policy.metric==FitnessMetric::Levenshtein || policy.metric==FitnessMetric::TupleSummary)
     append_payload_tokens_from_values(shared_answer, &impl_->shared_string_tokens, &impl_->shared_list_tokens);
+  impl_->private_answer_tokens.clear();
+  if(impl_->private_answers_prepared && policy.metric==FitnessMetric::Exact) {
+    std::vector<std::int64_t> unused_strings;
+    append_payload_tokens_from_values(shared_answer,&unused_strings,&impl_->private_answer_tokens);
+  }
   sort_and_unique_tokens(&impl_->shared_string_tokens);
   sort_and_unique_list_tokens(&impl_->shared_list_tokens);
   populate_payload_cache(impl_->shared_string_tokens, impl_->shared_list_tokens, &impl_->host_string_payloads,
@@ -559,9 +568,16 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   if(impl_->d_arena_case_order){cudaFree(impl_->d_arena_case_order);impl_->d_arena_case_order=nullptr;}
   if(!arena_case_order.empty() && !gpu_detail::cuda_alloc_and_copy_in(arena_case_order,&impl_->d_arena_case_order))
     return fitness_init_single_error(ErrCode::Value,"cuda arena case permutation allocation failure");
+  std::vector<Value> normalized_answers;
+  const auto* device_answers=&shared_answer;
+  if(impl_->private_answers_prepared) {
+    normalized_answers=shared_answer;
+    for(auto& value:normalized_answers)if(value.tag==ValueTag::IntList)value.b=false;
+    device_answers=&normalized_answers;
+  }
   if (!gpu_detail::cuda_alloc_and_copy_in(packed_case_local_vals, &impl_->d_shared_case_local_vals) ||
       !gpu_detail::cuda_alloc_and_copy_in(packed_case_local_set, &impl_->d_shared_case_local_set) ||
-      !gpu_detail::cuda_alloc_and_copy_in(shared_answer, &impl_->d_expected)) {
+      !gpu_detail::cuda_alloc_and_copy_in(*device_answers, &impl_->d_expected)) {
     return fitness_init_single_error(ErrCode::Value, "cuda allocation failure");
   }
   const auto upload_t1 = std::chrono::steady_clock::now();
@@ -619,7 +635,16 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   // The private packed carrier keeps a native reference on demand. A session
   // with different input types must perform its ordinary capability analysis
   // on current phase bytecode, not the owner's cold import snapshot.
-  if(owned && owned->prepacked() && !owned->views_supported_for(impl_->shared_input_types))
+  const bool request_private=std::getenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS") &&
+      std::string(std::getenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"))=="1";
+  const bool private_static_eligible=request_private && impl_->private_answers_prepared &&
+      (impl_->policy.metric==FitnessMetric::Exact || impl_->policy.metric==FitnessMetric::Levenshtein) &&
+      impl_->policy.list_allocation_limit>0 && impl_->policy.list_allocation_limit<=65536 &&
+      std::getenv("GAGP_GPU_GLOBAL_PAYLOAD") && std::string(std::getenv("GAGP_GPU_GLOBAL_PAYLOAD"))!="0";
+  const bool deferred_private_reference=owned && owned->prepacked() &&
+      !owned->views_supported_for(impl_->shared_input_types) && private_static_eligible &&
+      owned->private_intlists_supported_for(impl_->shared_input_types);
+  if(owned && owned->prepacked() && !owned->views_supported_for(impl_->shared_input_types) && !deferred_private_reference)
     owned->materialize_reference();
   gpu_detail::PackResult packed;
   try {
@@ -640,12 +665,49 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   append_payload_tokens_from_values(packed.all_phase_consts, &needed_string_tokens, &needed_list_tokens);
   sort_and_unique_tokens(&needed_string_tokens);
   sort_and_unique_list_tokens(&needed_list_tokens);
+  const bool private_program_eligible=private_static_eligible &&
+      (owned?owned->private_intlists_supported_for(impl_->shared_input_types):
+       std::all_of(programs.begin(),programs.end(),[&](const auto& program) {
+         return gpu_detail::private_intlist_program_supported(program,impl_->shared_input_types);
+       }));
+  std::vector<Value> normal_needed_lists;
+  std::vector<std::int64_t> normal_needed_strings;
+  const bool extra_private_answers=private_program_eligible && !impl_->private_answer_tokens.empty();
+  if(extra_private_answers) {
+    normal_needed_lists=needed_list_tokens;normal_needed_strings=needed_string_tokens;
+    needed_list_tokens.insert(needed_list_tokens.end(),impl_->private_answer_tokens.begin(),impl_->private_answer_tokens.end());
+    sort_and_unique_list_tokens(&needed_list_tokens);
+  }
   populate_payload_cache(needed_string_tokens, needed_list_tokens, &impl_->host_string_payloads, &impl_->host_list_payloads);
-  const auto required_list_count = needed_list_tokens.size();
-  const HostPayloadPack payload_pack =
+  auto required_list_count = needed_list_tokens.size();
+  HostPayloadPack payload_pack =
       build_payload_pack(impl_->host_string_payloads, impl_->host_list_payloads, std::move(needed_string_tokens),
                          std::move(needed_list_tokens));
-  const bool use_views = std::getenv("GAGP_VIEW_PROFILE") != nullptr && !packed.region_segments.empty() &&
+  const bool private_intlists=private_program_eligible &&
+      payload_pack.string_entries.empty() && payload_pack.list_entries.size()==required_list_count &&
+      payload_pack.list_values.size()<=static_cast<std::size_t>(std::numeric_limits<int>::max()) &&
+      std::all_of(payload_pack.list_values.begin(),payload_pack.list_values.end(),
+          [](const auto& value){return value.tag==ValueTag::Int;}) &&
+      std::all_of(payload_pack.list_entries.begin(),payload_pack.list_entries.end(),[](const auto& entry) {
+        return entry.tag==ValueTag::IntList && entry.len>=0 && entry.len<=65536 &&
+            static_cast<unsigned>(entry.len&65535)==
+            static_cast<unsigned>(static_cast<std::uint64_t>(entry.packed)>>48);
+      });
+  if(private_intlists) {
+    for(auto& value:packed.all_consts)if(value.tag==ValueTag::IntList)value.b=false;
+    for(auto& value:packed.all_phase_consts)if(value.tag==ValueTag::IntList)value.b=false;
+  }
+  if(!private_intlists) {
+    if(deferred_private_reference)owned->materialize_reference();
+    // Exact-policy answers were added only for private content scoring. Restore
+    // the ordinary token closure before selecting an existing fallback backend.
+    if(extra_private_answers) {
+      required_list_count=normal_needed_lists.size();
+      payload_pack=build_payload_pack(impl_->host_string_payloads,impl_->host_list_payloads,
+          std::move(normal_needed_strings),std::move(normal_needed_lists));
+    }
+  }
+  const bool use_views = !private_intlists && std::getenv("GAGP_VIEW_PROFILE") != nullptr && !packed.region_segments.empty() &&
       payload_pack.list_entries.size() == required_list_count &&
       std::all_of(payload_pack.list_entries.begin(), payload_pack.list_entries.end(), [](const auto& entry) { return entry.tag == ValueTag::IntList; }) &&
       std::all_of(payload_pack.list_values.begin(), payload_pack.list_values.end(), [](const auto& value) { return value.tag == ValueTag::Int; }) &&
@@ -708,7 +770,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
 
   const auto launch_prep_t0 = std::chrono::steady_clock::now();
   const bool has_regions = !packed.region_segments.empty();
-  bool extended_payload = false;
+  bool extended_payload = private_intlists;
   for (const auto& program : programs) {
     auto needs_payload = [](const auto& code) {
       for (const auto& ins : code) {
@@ -749,13 +811,15 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   // Keep generic frame/memo storage out of ordinary kernel call graphs.
   gpu_detail::DRegionWorkspace region_workspace;
   region_workspace.payload_window_aliases=global_window_aliases;
+  region_workspace.private_intlists=private_intlists;
+  region_workspace.shared_list_value_count=static_cast<int>(payload_pack.list_values.size());
   region_workspace.payload_epoch_index=payload_index && std::getenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX") &&
       std::string(std::getenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX"))=="1";
   region_workspace.fused_list_concat=std::getenv("GAGP_GPU_FUSED_LIST_CONCAT") &&
       std::string(std::getenv("GAGP_GPU_FUSED_LIST_CONCAT"))!="0";
   region_workspace.small_int_hash=region_workspace.fused_list_concat &&
       std::getenv("GAGP_GPU_SMALL_INT_HASH") && std::string(std::getenv("GAGP_GPU_SMALL_INT_HASH"))!="0";
-  region_workspace.concat_cache_enabled=region_workspace.fused_list_concat &&
+  region_workspace.concat_cache_enabled=!private_intlists && region_workspace.fused_list_concat &&
       std::getenv("GAGP_GPU_CONCAT_CACHE") && std::string(std::getenv("GAGP_GPU_CONCAT_CACHE"))!="0";
   const bool concat_diagnostics=region_workspace.concat_cache_enabled &&
       std::getenv("GAGP_GPU_CONCAT_CACHE_DIAGNOSTICS") && std::string(std::getenv("GAGP_GPU_CONCAT_CACHE_DIAGNOSTICS"))!="0";
@@ -1337,6 +1401,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
 
     out.ok = true;
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
+    if(request_private)out.execution_profile+=private_intlists?
+        "-private-intlist-offset-v1":"-private-intlist-offset-v1-declined";
     if(global_payload) {
       out.execution_profile+="-global-arena";
       if(tiled_initial)out.execution_profile+="-initial-tiled";

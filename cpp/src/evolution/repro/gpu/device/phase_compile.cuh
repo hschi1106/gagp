@@ -26,6 +26,9 @@ struct PhaseCompileResult {
   // Allocating list operations and empty list literals explicitly clear this
   // proof and use the ordinary payload-aware GPU executor.
   bool typed_views_proven = false;
+  // The complete operation_type whitelist excludes container equality. This
+  // certificate is published only after every source node and type was checked.
+  bool private_intlists_proven = false;
 };
 namespace phase_compile_detail {
 using gpu_detail::DInstr;
@@ -157,6 +160,7 @@ __device__ inline PhaseCompileResult compile_phase_tree(
       if (out.result.stack_bound>gpu_detail::MAX_STACK) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
       out.result.status=PhaseCompileStatus::Ok; out.result.result_type=completed;
       out.result.typed_views_proven=typed_views;
+      out.result.private_intlists_proven=true;
       return out.result;
     }
     auto& frame=frames[depth-1];

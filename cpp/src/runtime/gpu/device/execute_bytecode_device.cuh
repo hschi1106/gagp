@@ -28,6 +28,9 @@ __device__ inline bool d_make_empty_list_for_tag(ValueTag tag, State& st, Value&
   if (!d_is_typed_list_tag(tag)) {
     return false;
   }
+  if(st.private_intlists && tag==ValueTag::IntList) {
+    out=d_private_intlist(st.list_values_used,0);return true;
+  }
   const std::uint64_t h = d_hash_list_payload(nullptr, 0);
   out = d_make_list_hash_len(tag, h, 0U);
   if constexpr (State::kMaxListEntries > 0) {
@@ -485,6 +488,20 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
 template<class State>
 __device__ __noinline__ double d_score_resident(const Value& actual,const Value& expected,
     double penalty,FitnessPolicy policy,const DPayloadTables& tables,const State& state,bool* exact) {
+  if(state.private_intlists && (actual.tag==ValueTag::IntList || expected.tag==ValueTag::IntList)) {
+    if(exact)*exact=false;
+    if(actual.tag!=ValueTag::IntList || expected.tag!=ValueTag::IntList)
+      return -fitness_error_ceiling(policy,penalty);
+    const Value *a=nullptr,*b=nullptr;int n=0,m=0;
+    if(!d_lookup_list_payload(tables,state,actual,a,n) || !d_lookup_list_payload(tables,state,expected,b,m))
+      return -fitness_error_ceiling(policy,penalty);
+    bool same=n==m;
+    for(int i=0;same && i<n;++i)same=a[i].tag==ValueTag::Int && b[i].tag==ValueTag::Int && a[i].i==b[i].i;
+    if(exact)*exact=same;
+    if(policy.metric==FitnessMetric::Exact)return same?0:-fitness_error_ceiling(policy,penalty);
+    unsigned row[kFitnessMaxSequence+1];
+    return fitness_sequence_score(a,n,b,m,penalty,policy,row);
+  }
   if(exact)*exact=fitness_case_score(actual,expected,penalty,{FitnessMetric::Exact})==0;
   if(policy.metric!=FitnessMetric::Levenshtein && policy.metric!=FitnessMetric::TupleSummary)
     return fitness_case_score(actual,expected,penalty,policy);
@@ -546,6 +563,7 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
   DPayloadStateStorage<Flavor> payload_state_storage;
   auto& payload_state = payload_state_storage.ref();
   if constexpr ((Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena)) {
+    payload_state.private_intlists=workspace.private_intlists;
     payload_state.concat_cache=workspace.concat_cache;
     payload_state.concat_cache_diagnostics=workspace.concat_cache_stats!=nullptr;
     d_clear_concat_cache(payload_state);
@@ -563,7 +581,7 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
     payload_state.list_index_capacity=workspace.payload_entry_capacity*2;
     payload_state.epoch_index=workspace.payload_list_epoch_index;
     payload_state.epoch_counter=workspace.payload_list_epoch;
-    d_reset_private_list_index(payload_state);
+    if(!payload_state.private_intlists)d_reset_private_list_index(payload_state);
   }
   if constexpr (d_exact_payload_flavor<Flavor>) {
     payload_state.fused_list_concat=workspace.fused_list_concat;
@@ -600,7 +618,7 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
   result.payload_capacity_exceeded = payload_state.physical_capacity_exceeded;
   result.payload_capacity_reason = payload_state.physical_capacity_reason;
   if(score && expected && !result.is_error) {
-    if(policy.metric==FitnessMetric::Levenshtein || policy.metric==FitnessMetric::TupleSummary)
+    if(payload_state.private_intlists || policy.metric==FitnessMetric::Levenshtein || policy.metric==FitnessMetric::TupleSummary)
       *score=d_score_resident(result.value,*expected,penalty,policy,payload_tables,payload_state_storage.ref(),exact);
     else {
       *score=fitness_case_score(result.value,*expected,penalty,policy);

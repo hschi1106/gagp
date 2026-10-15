@@ -150,6 +150,7 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
       list_payload_entries,
       list_payload_entry_count,
       list_payload_values,
+      workspace.shared_list_value_count,
   };
   DExecutionTables execution_tables{
       phase_code,

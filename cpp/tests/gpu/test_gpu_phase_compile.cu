@@ -155,6 +155,9 @@ std::vector<Fixture> generated() {
   concat.reference.code.push_back({Opcode::PushConst,1,0,true,false});
   concat.reference.code.push_back({Opcode::CallBuiltin,int(BuiltinId::Concat),2,true,true});
   out.push_back(concat);
+  auto list_eq=empty;list_eq.result=ValueTag::Bool;
+  list_eq.nodes={{PhaseTreeKind::Operation,Opcode::Eq,0,2,1,1},empty.nodes[0],empty.nodes[0]};
+  list_eq.status=PhaseCompileStatus::Unsupported;out.push_back(list_eq);
   auto nonempty=empty;nonempty.constants={payload::make_int_list_value({Value::from_int(1)})};
   nonempty.status=PhaseCompileStatus::Unsupported;out.push_back(nonempty);
   auto invalid=leaf;invalid.nodes[0].operand=1;invalid.status=PhaseCompileStatus::Invalid;out.push_back(invalid);
@@ -237,7 +240,9 @@ void run(const std::vector<Fixture>& fixtures) {
   for(std::size_t i=0;i<fixtures.size();++i) {
     const auto& f=fixtures[i];const auto r=results[i];const auto row=rows[i];
     require(r.status==f.status,"status mismatch fixture "+std::to_string(i)+" got "+std::to_string(int(r.status)));
-    if(f.status!=PhaseCompileStatus::Ok)continue;
+    if(f.status!=PhaseCompileStatus::Ok) {
+      require(!r.private_intlists_proven,"failed phase retained private-list capability");continue;
+    }
     BytecodeProgram oracle;
     oracle.code=f.reference.code;oracle.consts=f.reference.consts;oracle.n_locals=f.reference.n_locals;
     oracle.instruction_fuel=f.reference.instruction_fuel;
@@ -247,10 +252,14 @@ void run(const std::vector<Fixture>& fixtures) {
     require(verified.ok && r.stack_bound==int(verified.verified.max_stack_depth),
         "GPU stack certificate disagrees with independent bytecode verifier fixture "+std::to_string(i));
     require(r.result_type==f.result,"GPU result-type certificate mismatch fixture "+std::to_string(i));
+    require(r.private_intlists_proven,"fresh successful GPU phase lacks private-list certificate");
     std::array<ValueTag,64> view_inputs;view_inputs.fill(ValueTag::Invalid);
     std::copy(f.locals.begin(),f.locals.end(),view_inputs.begin());
     require(r.typed_views_proven==f.views && (!r.typed_views_proven || detail::view_code_supported(f.reference.code,f.reference.consts,
         f.reference.n_locals,view_inputs,f.result)),"GPU capability proof disagrees with independent runtime analysis");
+    require(detail::view_code_supported(f.reference.code,f.reference.consts,
+        f.reference.n_locals,view_inputs,f.result,nullptr,true),
+        "private-list certificate disagrees with independent host typeflow");
     require(r.code_count==int(f.reference.code.size()) && r.constant_count==int(f.reference.consts.size()),"lowering shape mismatch fixture "+std::to_string(i));
     for(int j=0;j<r.code_count;++j) {
       const auto& x=code[row.code_offset+j];const auto& y=f.reference.code[j];

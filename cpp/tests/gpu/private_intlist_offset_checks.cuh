@@ -1,0 +1,159 @@
+#pragma once
+#include "../../src/runtime/gpu/device/execute_bytecode_device.cuh"
+#include "../../src/runtime/gpu/view_profile.hpp"
+
+__global__ void inspect_private_intlist_offsets(Value* cells, Value* source, int* failure) {
+  using namespace gagp::gpu_detail;
+  *failure=0;
+  DArenaPayloadState st;
+  DListPayloadEntry entries[4]{};
+  st.private_intlists=true;st.list_values=cells;st.kMaxListValues=65536;
+  st.list_entries=entries;st.list_entry_capacity=4;st.logical_list_limit=65536;
+  DPayloadTables tables{};
+  ErrCode error=ErrCode::Value;
+  Value one=Value::from_int(7),two=Value::from_int(8),a,b,c;
+  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&one,1,tables,st,a,error) ||
+     !d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&two,1,tables,st,b,error) ||
+     !d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&one,1,tables,st,c,error) ||
+     a.i==c.i || st.list_entry_count || st.logical_list_used!=3) {*failure=1;return;}
+  bool exact=false;
+  FitnessPolicy policy;policy.metric=FitnessMetric::Exact;
+  if(d_score_resident(a,c,1000,policy,tables,st,&exact)!=0 || !exact ||
+     d_score_resident(a,b,1000,policy,tables,st,&exact)!=-1 || exact) {*failure=2;return;}
+  policy.metric=FitnessMetric::Levenshtein;
+  if(d_score_resident(a,b,1000,policy,tables,st,&exact)!=-1 || exact) {*failure=3;return;}
+  // Fabricate a canonical identity collision with the private handle's bits.
+  // Private resolution must never select that registry's different contents.
+  entries[0]={ValueTag::IntList,a.i,1,1};st.list_entry_count=1;
+  const Value* ptr=nullptr;int count=0;
+  if(!d_lookup_list_payload(tables,st,a,ptr,count) || count!=1 || ptr[0].i!=7) {*failure=4;return;}
+  auto invalid=d_private_intlist(st.list_values_used,1);
+  if(d_lookup_list_payload(tables,st,invalid,ptr,count)) {*failure=5;return;}
+  invalid=a;invalid.tag=ValueTag::FloatList;
+  if(d_lookup_list_payload(tables,st,invalid,ptr,count)) {*failure=6;return;}
+  invalid=a;invalid.i|=1ULL<<40;
+  if(d_lookup_list_payload(tables,st,invalid,ptr,count)) {*failure=7;return;}
+  invalid=d_private_intlist(0,1,true);
+  if(d_lookup_list_payload(tables,st,invalid,ptr,count)) {*failure=8;return;}
+  d_restore_local_list_storage(st,0,0);
+  if(d_lookup_list_payload(tables,st,a,ptr,count)) {*failure=9;return;}
+  // Physical overflow and logical overflow remain distinct.
+  st.kMaxListValues=0;
+  if(d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&one,1,tables,st,a,error) ||
+     !st.physical_capacity_exceeded || error!=ErrCode::Value) {*failure=10;return;}
+  st.physical_capacity_exceeded=false;st.logical_list_used=65536;
+  if(d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&one,1,tables,st,a,error) ||
+     st.physical_capacity_exceeded || error!=ErrCode::Value) {*failure=11;return;}
+  // Full-length backing survives the public low-16-bit length encoding.
+  for(int i=0;i<65536;++i)source[i]=Value::from_int(i);
+  Value left=Value::from_int_list_hash_len(17,65535),right=Value::from_int_list_hash_len(19,1);
+  DListPayloadEntry globals[2]={{ValueTag::IntList,left.i,0,65535},{ValueTag::IntList,right.i,65535,1}};
+  tables.list_values=source;tables.list_value_count=65536;
+  tables.list_entries=globals;tables.list_entry_count=2;
+  st.list_values_used=0;st.logical_list_used=0;st.kMaxListValues=65536;
+  Value args[2]={left,right};
+  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Concat,args,2,tables,st,a,error) ||
+     Value::container_len(a)!=0 || !d_lookup_list_payload(tables,st,a,ptr,count) ||
+     count!=65536 || ptr[65535].i!=65535 || st.logical_list_used!=65536 || st.list_entry_count) {*failure=12;return;}
+  st.logical_list_limit=65535;st.logical_list_used=0;
+  if(d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Concat,args,2,tables,st,b,error) ||
+     st.physical_capacity_exceeded) {*failure=13;return;}
+  Value slice[3]={left,Value::from_int(1),Value::from_int(3)};
+  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Slice,slice,3,tables,st,b,error) ||
+     !d_lookup_list_payload(tables,st,b,ptr,count) || count!=2 || ptr[0].i!=1) {*failure=14;return;}
+}
+
+bool test_private_intlist_offsets() {
+  Value *cells=nullptr,*source=nullptr;int *device_failure=nullptr,failure=-1;
+  if(cudaMalloc(reinterpret_cast<void**>(&cells),65536*sizeof(Value))!=cudaSuccess)return false;
+  if(cudaMalloc(reinterpret_cast<void**>(&source),65536*sizeof(Value))!=cudaSuccess){cudaFree(cells);return false;}
+  if(cudaMalloc(reinterpret_cast<void**>(&device_failure),sizeof(int))!=cudaSuccess){cudaFree(cells);cudaFree(source);return false;}
+  inspect_private_intlist_offsets<<<1,1>>>(cells,source,device_failure);
+  const bool ok=cudaGetLastError()==cudaSuccess && cudaDeviceSynchronize()==cudaSuccess &&
+      cudaMemcpy(&failure,device_failure,sizeof(int),cudaMemcpyDeviceToHost)==cudaSuccess;
+  cudaFree(cells);cudaFree(source);cudaFree(device_failure);
+  return check(ok && !failure,"private IntList descriptor/content boundary "+std::to_string(failure));
+}
+
+bool test_private_intlist_fitness() {
+  ScopedEnvironment restore_private("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD");
+  setenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS","1",1);setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
+  auto integer=Value::from_int(7);
+  BytecodeProgram singleton;singleton.consts={integer};
+  singleton.code={ins_a(Opcode::PushConst,0),ins_ab(Opcode::CallBuiltin,int(BuiltinId::Singleton),1),ins(Opcode::Return)};
+  auto list=payload::make_int_list_value({integer});list.b=true; // external marker must be normalized
+  BytecodeProgram input;input.n_locals=1;input.code={ins_a(Opcode::Load,0),ins(Opcode::Return)};
+  BytecodeProgram constant;constant.consts={list};constant.code={ins_a(Opcode::PushConst,0),ins(Opcode::Return)};
+  FitnessPolicy policy;policy.metric=FitnessMetric::Exact;policy.list_allocation_limit=65536;
+  for(auto metric:{FitnessMetric::Exact,FitnessMetric::Levenshtein}) {
+    policy.metric=metric;
+    FitnessSessionGpu session;
+    if(!session.init({{{0,list}}},{list},100,32,1000,policy).ok)return false;
+    auto result=session.eval_programs({singleton,input,constant},true);
+    if(!check(result.ok && result.fitness==std::vector<double>(3,0) && result.wrong==std::vector<unsigned>(3,0) &&
+        result.execution_profile.find("private-intlist-offset-v1-declined")==std::string::npos &&
+        result.execution_profile.find("private-intlist-offset-v1")!=std::string::npos,
+        "private full scoring/external normalization"))return false;
+    auto inequality=singleton;
+    inequality.consts={list};inequality.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,0),ins(Opcode::Eq),ins(Opcode::Return)};
+    result=session.eval_programs({singleton,inequality},true);
+    if(!check(result.ok && result.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos,
+        "mixed population containing container Eq must decline whole profile"))return false;
+  }
+  auto segment=unary_segment(ValueTag::IntList,constant_phase(list),load_phase(RegionSlotBank::Result,0));
+  segment.plan.state_types.push_back(ValueTag::IntList);
+  if(!check(!gagp::detail::view_region_supported(segment,true),"memoized subordinate IntList state admitted"))return false;
+  // A large canonical constant concat forces initial physical overflow and GPU
+  // replay. Exact content scoring must retain actual length 65536, not empty.
+  std::vector<Value> large(65535,integer);
+  auto almost=payload::make_int_list_value(large);large.push_back(integer);
+  auto full=payload::make_int_list_value(large);list.b=false;
+  BytecodeProgram concat;concat.consts={almost,list};concat.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),
+      ins_ab(Opcode::CallBuiltin,int(BuiltinId::Concat),2),ins(Opcode::Return)};
+  policy.metric=FitnessMetric::Exact;
+  for(unsigned limit:{65535u,65536u}) {
+    policy.list_allocation_limit=limit;
+    FitnessSessionGpu session;if(!session.init({{}},{full},100,32,1000,policy).ok)return false;
+    const auto result=session.eval_programs({concat},true);
+    if(!check(result.ok && result.fitness[0]==(limit==65536?0:-1) &&
+        result.wrong[0]==(limit==65536?0u:1u) && result.payload_replay_programs==(limit==65536?1u:0u),
+        "private length65536 logical boundary/replay"))return false;
+  }
+  // Unsupported policies retain precisely the existing view backend even when
+  // this same session previously ran the allocating private profile.
+  ScopedEnvironment restore_view("GAGP_VIEW_PROFILE"),restore_typed("GAGP_TYPED_VIEW_PHASE");
+  setenv("GAGP_VIEW_PROFILE","1",1);setenv("GAGP_TYPED_VIEW_PHASE","1",1);
+  auto scalar=invocation(unary_segment(ValueTag::Int,constant_phase(integer),
+      load_phase(RegionSlotBank::Result,0)),3);
+  FitnessSessionGpu reused;
+  if(!reused.init({{}},{list},100,32,1000,policy).ok || !reused.eval_programs({singleton}).ok)return false;
+  for(auto metric:{FitnessMetric::Absolute,FitnessMetric::Exact}) {
+    auto unsupported=policy;unsupported.metric=metric;
+    if(metric==FitnessMetric::Exact)unsupported.list_allocation_limit=0;
+    setenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS","0",1);
+    if(!reused.init({{}},{integer},100,32,1000,unsupported).ok)return false;
+    const auto control=reused.eval_programs({scalar},true);
+    setenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS","1",1);
+    if(!reused.init({{}},{integer},100,32,1000,unsupported).ok)return false;
+    const auto declined=reused.eval_programs({scalar},true);
+    auto profile=declined.execution_profile;
+    const std::string suffix="-private-intlist-offset-v1-declined";
+    const auto position=profile.find(suffix);if(position!=std::string::npos)profile.erase(position,suffix.size());
+    if(!check(control.ok && declined.ok && position!=std::string::npos && profile==control.execution_profile &&
+        profile.find("int-list-views")==0 && control.fitness==declined.fitness && control.wrong==declined.wrong &&
+        control.case_counts==declined.case_counts,"declined policy/session reinit preserves ordinary view backend"))return false;
+  }
+  setenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS","1",1);
+  auto missing=constant;missing.consts={Value::from_int_list_hash_len(0xabcdef123456ULL,1)};missing.consts[0].b=true;
+  if(!reused.init({{}},{list},100,32,1000,policy).ok)return false;
+  const auto missing_result=reused.eval_programs({missing},true);
+  if(!check(missing_result.ok && missing_result.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos,
+      "missing external payload/forged marker must decline private profile"))return false;
+  for(int fuel:{0,1,2,3}) {
+    FitnessSessionGpu session;if(!session.init({{}},{list},fuel,32,1000,policy).ok)return false;
+    const auto result=session.eval_programs({singleton},true);
+    if(!check(result.ok && result.case_counts[0][0]==1 && result.case_counts[0][2]==(fuel<3?1u:0u),
+        "private fuel/error ordering"))return false;
+  }
+  return true;
+}

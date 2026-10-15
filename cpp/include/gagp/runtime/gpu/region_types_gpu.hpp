@@ -99,6 +99,8 @@ struct DRegionWorkspace {
   bool concat_cache_enabled = false;
   unsigned long long* concat_cache_stats = nullptr; // hits, misses, skipped cells; all attempts.
   bool payload_window_aliases = false;
+  bool private_intlists = false;
+  int shared_list_value_count = 0;
   bool fused_list_concat = false;
   bool small_int_hash = false;
   int payload_entry_capacity = 0;
