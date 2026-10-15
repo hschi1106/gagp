@@ -268,7 +268,7 @@ Json measure_gagp(const std::vector<gagp::evo::ProgramGenome>& population,
 // Diagnostics use the identical frozen programs/cases but are not headline
 // timing runs. CPU reference, when requested, evaluates every program/case.
 void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
-              const std::vector<gagp::evo::EvalCase>& cases, const std::string& output) {
+              const std::vector<gagp::evo::EvalCase>& cases, const std::string& output, const asgp::TaskSpec& spec) {
   const double penalty=std::getenv("GAGP_SNAPSHOT_PENALTY") ? std::stod(std::getenv("GAGP_SNAPSHOT_PENALTY")) : 1000;
   if(!std::isfinite(penalty) || penalty<0 ||
      (penalty==0 && !(std::getenv("GAGP_BM_COMMON_FITNESS") && !cases.empty() && cases[0].expected.tag==gagp::ValueTag::IntList)))
@@ -285,13 +285,13 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
   }
   const auto compile_ms=elapsed(begin);
   gagp::FitnessSessionGpu session;
-  const auto init=session.init(cs.bindings,cs.expected_values,2000000,512,penalty);
+  const auto init=session.init(cs.bindings,cs.expected_values,2000000,512,penalty,task_fitness_policy(spec));
   if (!init.ok) throw std::runtime_error(init.err.message);
   const auto result=session.eval_programs(programs,true);
   if (!result.ok) throw std::runtime_error(result.err.message);
   std::vector<double> cpu;
   if (std::getenv("GAGP_SNAPSHOT_CPU"))
-    cpu=gagp::eval_fitness_cpu(programs,cs.bindings,cs.expected_values,2000000,penalty,512);
+    cpu=gagp::eval_fitness_cpu(programs,cs.bindings,cs.expected_values,2000000,penalty,512,task_fitness_policy(spec));
   std::set<std::string> behaviors;
   const bool behavior_probe=std::getenv("GAGP_SNAPSHOT_BEHAVIOR")!=nullptr;
   if(behavior_probe) for(const auto& program:programs) {
@@ -510,7 +510,7 @@ void measure(const Json& source, const std::string& prepared_path, const std::st
   }
   if (mode=="search_asgp_1t") { search_asgp(parents,spec,output); return; }
   if (mode.starts_with("search_")) { search(population,cases,grammar,output,mode.substr(7),spec); return; }
-  if (mode=="snapshot") { snapshot(population,cases,output); return; }
+  if (mode=="snapshot") { snapshot(population,cases,output,spec); return; }
   if (mode=="search") { search(population,cases,grammar,output,"gpu_overlap",spec); return; }
   std::ofstream log(output);
   if (!log) throw std::runtime_error("cannot open result file");

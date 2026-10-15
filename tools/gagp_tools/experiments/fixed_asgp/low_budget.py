@@ -13,6 +13,7 @@ import math
 import os
 from pathlib import Path
 import signal
+import shutil
 import subprocess
 import time
 
@@ -86,6 +87,9 @@ class Study:
         self.out = args.out.resolve()
         self.out.mkdir(parents=True, exist_ok=False)
         self.started = time.monotonic()
+        original_binary = args.binary.resolve()
+        args.binary = self.out / "bench"
+        shutil.copy2(original_binary, args.binary)
         flags = read(args.settings)
         flags.pop('GAGP_BM_COMMON_FITNESS', None)
         flags.update(GAGP_HOST_THREADS='1', OMP_NUM_THREADS='1',
@@ -100,6 +104,7 @@ class Study:
             'population': 8 if args.stage == 'support' else 1024, 'cases': 1024,
             'generations': 2, 'host_threads': 1, 'wall_budget_s': args.budget,
             'binary': str(args.binary.resolve()), 'binary_sha256': sha(args.binary),
+            'build_binary': str(original_binary),
             'source_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
             'settings': flags, 'tasks': {}, 'cells': [],
         }
