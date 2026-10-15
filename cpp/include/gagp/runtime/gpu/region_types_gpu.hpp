@@ -86,9 +86,6 @@ struct DUnboxedCoordinateFrame {
 #undef GAGP_REGION_HD
 
 struct DRegionWorkspace {
-  // Immutable per-evaluation global table index, shared by initial and replay.
-  const int* global_list_index = nullptr;
-  int global_list_index_capacity = 0;
   // Replay owns bounded global payload slices per physical CUDA thread.
   DStringPayloadEntry* payload_string_entries = nullptr;
   DListPayloadEntry* payload_list_entries = nullptr;

@@ -115,18 +115,12 @@ int main() {
   eval_a.cpu_compile_ms = 2.0;
   eval_a.gpu_eval_pack_ms = 3.0;
   eval_a.gpu_eval_upload_ms = 5.0;
-  eval_a.global_list_index_bytes = 256;
   gagp::evo::EvaluationTiming eval_total;
   gagp::evo::accumulate_timing(&eval_total, eval_a);
   gagp::evo::accumulate_timing(&eval_total, eval_a);
   assert(eval_total.cpu_compile_ms == 4.0);
   assert(eval_total.gpu_eval_pack_upload_ms() == 16.0);
   assert(eval_total.gpu_eval_kernel_ms == 0.0);
-  assert(eval_total.global_list_index_bytes == 256);
-  gagp::evo::EvaluationTiming smaller_index;
-  smaller_index.global_list_index_bytes = 128;
-  gagp::evo::accumulate_timing(&eval_total, smaller_index);
-  assert(eval_total.global_list_index_bytes == 256);
 
   gagp::evo::ReproductionTiming repro_a;
   repro_a.prepare_inputs_ms = 1.0;

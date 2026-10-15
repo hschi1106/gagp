@@ -542,7 +542,6 @@ DeviceArena::~DeviceArena() {
   if (d_string_payload_bytes) cudaFree(d_string_payload_bytes);
   if (d_list_payload_entries) cudaFree(d_list_payload_entries);
   if (d_list_payload_values) cudaFree(d_list_payload_values);
-  if (d_global_list_index) cudaFree(d_global_list_index);
 }
 
 }  // namespace gagp::gpu_detail

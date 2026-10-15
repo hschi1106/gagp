@@ -10,7 +10,6 @@ void accumulate_timing(EvaluationTiming* total, const EvaluationTiming& value) {
   total->payload_replay_programs += value.payload_replay_programs;
   total->payload_replay_cases += value.payload_replay_cases;
   total->payload_replay_launches += value.payload_replay_launches;
-  total->global_list_index_bytes = std::max(total->global_list_index_bytes,value.global_list_index_bytes);
 
   total->eval_errors += value.eval_errors;
   total->eval_timeouts += value.eval_timeouts;

@@ -147,37 +147,7 @@ This separation is important:
 - the host registry is convenient for CPU exact behavior and test setup
 - the GPU runtime consumes compact, read-only per-eval payload tables instead of the full registry
 - shared case locals and expected answers are packed separately from payload snapshots
-- device lookup for global payload entries uses compact sorted tables, with an optional immutable list index described below
-
-### Optional immutable global list index
-
-`GAGP_GPU_GLOBAL_LIST_INDEX=1` builds an immutable open-addressed index for the
-current evaluation's global `DListPayloadEntry` table. Other values, unset, and
-empty tables retain binary search. This is independent of the private arena
-index/epoch settings and works with ordinary, initial-global, and replay kernels.
-The key includes the typed-list tag and complete packed token. Sequential host
-insertion preserves the sorted table's first exact match even for duplicates;
-collisions and misses compare exact keys and preserve ordinary fallback behavior.
-
-Each evaluation rebuilds the index alongside its actual packed table, including
-when constants change in a reused fitness session. Both buffers share the same
-`DeviceArena` lifetime; initial/replay workspaces borrow the same read-only index.
-Other VM callers leave optional `DPayloadTables` fields null and retain binary
-search. No index survives an evaluation or changes private registration, container
-identity, logical allocation, fuel, numerical behavior, or case traversal.
-
-Host construction is included in `pack_ms`, device allocation/upload in
-`upload_ms`, and release in `teardown_ms`/total evaluation time. Storage is four
-bytes per slot: the next power of two at least twice the global entry count,
-shared across all physical lanes. Like the global payload table, this immutable
-input storage is additional to the private arena scratch cap. Fitness results and
-fixed-ASGP snapshots/generation rows disclose `global_list_index_bytes`; accumulated
-evaluation timing retains the peak allocation rather than summing reused bytes. Oversized tables
-above 2^29 entries retain binary search. Active profiles add `-global-list-index`;
-this is an opt-in experiment without an established performance claim.
-`gagp_test_extended_payload_gpu` covers collision wraparound, signed token
-extremes, duplicate first matches, typed keys, missing/empty payloads, changing
-constant closures in one session, CPU fitness/status parity, and arena replay.
+- device lookup for global payload entries is done against compact sorted tables
 
 ## GPU Payload Flavors
 

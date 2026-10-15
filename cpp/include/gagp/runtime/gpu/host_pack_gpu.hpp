@@ -56,7 +56,6 @@ struct DeviceArena {
   char* d_string_payload_bytes = nullptr;
   DListPayloadEntry* d_list_payload_entries = nullptr;
   Value* d_list_payload_values = nullptr;
-  int* d_global_list_index = nullptr;
 
   DeviceArena() = default;
   DeviceArena(const DeviceArena&) = delete;

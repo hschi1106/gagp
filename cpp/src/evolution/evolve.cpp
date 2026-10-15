@@ -275,7 +275,6 @@ std::vector<ScoredGenomeRef> score_population_gpu_refs(
   evaluation.wrong = std::move(fit.wrong);
   evaluation.timing.execution_profile=fit.execution_profile;
   evaluation.timing.concat_cache_stats=fit.concat_cache_stats;
-  evaluation.timing.global_list_index_bytes=fit.global_list_index_bytes;
   evaluation.timing.payload_replay_programs=fit.payload_replay_programs;
   evaluation.timing.payload_replay_cases=fit.payload_replay_cases;
   evaluation.timing.payload_replay_launches=fit.payload_replay_launches;
@@ -343,7 +342,6 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
     if (!fit.ok) throw std::runtime_error("native GPU phase fitness failed: " + fit.err.message);
     timing.execution_profile=fit.execution_profile;
     timing.concat_cache_stats=fit.concat_cache_stats;
-    timing.global_list_index_bytes=fit.global_list_index_bytes;
     timing.payload_replay_programs=fit.payload_replay_programs;
     timing.payload_replay_cases=fit.payload_replay_cases;
     timing.payload_replay_launches=fit.payload_replay_launches;

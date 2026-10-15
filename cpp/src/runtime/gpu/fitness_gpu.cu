@@ -645,9 +645,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   const HostPayloadPack payload_pack =
       build_payload_pack(impl_->host_string_payloads, impl_->host_list_payloads, std::move(needed_string_tokens),
                          std::move(needed_list_tokens));
-  const char* global_index_setting = std::getenv("GAGP_GPU_GLOBAL_LIST_INDEX");
-  const auto global_list_index = global_index_setting && std::string(global_index_setting) == "1"
-      ? gpu_detail::build_global_list_index(payload_pack.list_entries) : std::vector<int>{};
   const bool use_views = std::getenv("GAGP_VIEW_PROFILE") != nullptr && !packed.region_segments.empty() &&
       payload_pack.list_entries.size() == required_list_count &&
       std::all_of(payload_pack.list_entries.begin(), payload_pack.list_entries.end(), [](const auto& entry) { return entry.tag == ValueTag::IntList; }) &&
@@ -909,7 +906,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     return fitness_eval_single_error(ErrCode::Value,"GPU payload workspace metadata exceeds configured scratch cap");
   FitnessEvalResult out;
   out.payload_workspace_budget_bytes=payload_workspace_budget;
-  out.global_list_index_bytes=sizeof(int)*global_list_index.size();
   std::chrono::steady_clock::time_point teardown_t0;
   {
     gpu_detail::DeviceArena dev;
@@ -970,12 +966,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         !gpu_detail::cuda_alloc_and_copy_in(payload_pack.string_entries, &dev.d_string_payload_entries) ||
         !gpu_detail::cuda_alloc_and_copy_in(payload_pack.string_bytes, &dev.d_string_payload_bytes) ||
         !gpu_detail::cuda_alloc_and_copy_in(payload_pack.list_entries, &dev.d_list_payload_entries) ||
-        !gpu_detail::cuda_alloc_and_copy_in(payload_pack.list_values, &dev.d_list_payload_values) ||
-        !gpu_detail::cuda_alloc_and_copy_in(global_list_index, &dev.d_global_list_index)) {
+        !gpu_detail::cuda_alloc_and_copy_in(payload_pack.list_values, &dev.d_list_payload_values)) {
       return fitness_eval_single_error(ErrCode::Value, "cuda allocation failure");
     }
-    region_workspace.global_list_index = dev.d_global_list_index;
-    region_workspace.global_list_index_capacity = static_cast<int>(global_list_index.size());
     if (cudaMalloc(reinterpret_cast<void**>(&dev.d_fitness), sizeof(double) * programs.size()) != cudaSuccess) {
       return fitness_eval_single_error(ErrCode::Value, "cuda allocation failure");
     }
@@ -1347,7 +1340,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       out.execution_profile+="-global-arena";
       if(tiled_initial)out.execution_profile+="-initial-tiled";
     }
-    if(!global_list_index.empty())out.execution_profile+="-global-list-index";
     if(region_workspace.concat_cache_enabled && (global_payload || out.payload_replay_programs))out.execution_profile+="-concat-cache";
     if(global_window_aliases)out.execution_profile+="-window-aliases";
     if(region_workspace.fused_list_concat && extended_payload)out.execution_profile+="-fused-concat";

@@ -2,7 +2,6 @@
 
 #include "gagp/core/builtin.hpp"
 #include "arith_device.cuh"
-#include "../global_list_index.hpp"
 
 namespace gagp::gpu_detail {
 
@@ -13,8 +12,6 @@ struct DPayloadTables {
   const DListPayloadEntry* list_entries = nullptr;
   int list_entry_count = 0;
   const Value* list_values = nullptr;
-  const int* list_index = nullptr;
-  int list_index_capacity = 0;
 };
 
 template <int MaxStringEntries, int MaxListEntries, int MaxStringBytes, int MaxListValues>
@@ -402,19 +399,6 @@ __device__ inline int d_append_float_decimal(char* out, double value) {
 }
 
 __device__ inline int d_find_list_payload_entry(const DPayloadTables& tables, ValueTag tag, std::int64_t packed) {
-  if (tables.list_index && tables.list_index_capacity > 0) {
-    const auto mask = static_cast<unsigned>(tables.list_index_capacity - 1);
-    auto slot = static_cast<unsigned>(global_list_index_hash(tag, packed)) & mask;
-    for (int probe = 0; probe < tables.list_index_capacity; ++probe) {
-      const int encoded = tables.list_index[slot];
-      if (!encoded) return -1;
-      const int entry = encoded - 1;
-      if (tables.list_entries[entry].tag == tag && tables.list_entries[entry].packed == packed)
-        return entry;
-      slot = (slot + 1) & mask;
-    }
-    return -1;
-  }
   int lo = 0;
   int hi = tables.list_entry_count;
   while (lo < hi) {
