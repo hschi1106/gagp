@@ -41,6 +41,7 @@ struct DThreadPayloadStateT {
   bool small_int_hash = false;
   static constexpr bool private_intlists = false;
   static constexpr bool compact_intlist_cells = false;
+  static constexpr int intlist_cell_stride = 1;
   static constexpr const std::int64_t* intlist_cells = nullptr;
   bool alias_windows = false;
   char string_bytes[(MaxStringBytes > 0) ? MaxStringBytes : 1];
@@ -69,6 +70,7 @@ struct DArenaPayloadState {
   bool private_intlists = false;
   bool trivial_phases = false;
   bool compact_intlist_cells = false;
+  int intlist_cell_stride = 1;
   std::int64_t* intlist_cells = nullptr;
   bool alias_windows = false;
   static constexpr int kMaxStringEntries = 1;
@@ -676,8 +678,9 @@ struct DPrivateIntListSpan {
   const Value* boxed=nullptr;
   const std::int64_t* integers=nullptr;
   int size=0;
+  int integer_stride=1;
   template<bool Compact> __device__ std::int64_t read(int index) const {
-    if constexpr (Compact)return integers[index];
+    if constexpr (Compact)return integers[static_cast<std::size_t>(index)*integer_stride];
     else return boxed[index].i;
   }
   __device__ std::int64_t at(int index) const {
@@ -701,8 +704,11 @@ __device__ inline bool d_private_intlist_span(const DPayloadTables& tables,
   }
   span={};span.size=length;
   if(!global && state.compact_intlist_cells) {
-    if(length && !state.intlist_cells)return false;
-    span.integers=state.intlist_cells?state.intlist_cells+offset:nullptr;
+    if((state.intlist_cell_stride!=1 && state.intlist_cell_stride!=32) || (length && !state.intlist_cells))return false;
+    span.integer_stride=state.intlist_cell_stride;
+    // Empty windows at capacity have no cell; do not form a pointer beyond
+    // the block allocation for nonzero lanes of an interleaved buffer.
+    span.integers=length?state.intlist_cells+static_cast<std::size_t>(offset)*span.integer_stride:nullptr;
   } else {
     const auto* backing=global?tables.list_values:state.list_values;
     if(length && !backing)return false;
@@ -711,9 +717,9 @@ __device__ inline bool d_private_intlist_span(const DPayloadTables& tables,
   return true;
 }
 
-__device__ inline void d_copy_private_intlist(std::int64_t* target,const DPrivateIntListSpan& source) {
-  if(source.integers)for(int i=0;i<source.size;++i)target[i]=source.read<true>(i);
-  else for(int i=0;i<source.size;++i)target[i]=source.read<false>(i);
+__device__ inline void d_copy_private_intlist(std::int64_t* target,const DPrivateIntListSpan& source,int target_stride) {
+  if(source.integers)for(int i=0;i<source.size;++i)target[static_cast<std::size_t>(i)*target_stride]=source.read<true>(i);
+  else for(int i=0;i<source.size;++i)target[static_cast<std::size_t>(i)*target_stride]=source.read<false>(i);
 }
 
 template <typename State>
@@ -790,6 +796,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     auto& st=payload_state;
     if(st.private_intlists && (bid==BuiltinId::Singleton || bid==BuiltinId::Concat || bid==BuiltinId::Slice ||
         bid==BuiltinId::Index || bid==BuiltinId::IndexNonnegative || bid==BuiltinId::IndexClampedOrZero)) {
+      if(st.compact_intlist_cells && (st.intlist_cell_stride!=1 && st.intlist_cell_stride!=32)) {
+        err=ErrCode::Value;return false;
+      }
       DPrivateIntListSpan a,b;
       if(bid==BuiltinId::Singleton) {
         if(argc!=1 || args[0].tag!=ValueTag::Int){err=ErrCode::Type;return false;}
@@ -799,7 +808,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           err=ErrCode::Value;return false;
         }
         const int offset=st.list_values_used++;
-        if(st.compact_intlist_cells)st.intlist_cells[offset]=args[0].i;
+        if(st.compact_intlist_cells)st.intlist_cells[static_cast<std::size_t>(offset)*st.intlist_cell_stride]=args[0].i;
         else st.list_values[offset]=args[0];
         out=d_private_intlist(offset,1);return true;
       }
@@ -850,8 +859,8 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       }
       const int offset=st.list_values_used;
       if(st.compact_intlist_cells) {
-        d_copy_private_intlist(st.intlist_cells+offset,a);
-        d_copy_private_intlist(st.intlist_cells+offset+n,b);
+        if(n)d_copy_private_intlist(st.intlist_cells+static_cast<std::size_t>(offset)*st.intlist_cell_stride,a,st.intlist_cell_stride);
+        if(m)d_copy_private_intlist(st.intlist_cells+static_cast<std::size_t>(offset+n)*st.intlist_cell_stride,b,st.intlist_cell_stride);
       } else {
         for(int i=0;i<n;++i)st.list_values[offset+i]=a.boxed[i];
         for(int i=0;i<m;++i)st.list_values[offset+n+i]=b.boxed[i];

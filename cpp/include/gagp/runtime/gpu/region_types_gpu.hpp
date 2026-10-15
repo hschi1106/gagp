@@ -103,6 +103,7 @@ struct DRegionWorkspace {
   bool private_intlists = false;
   bool trivial_phases = false;
   bool compact_intlist_cells = false;
+  int intlist_cell_stride = 1; // 1 contiguous, 32 interleaved physical lanes
   int shared_list_value_count = 0;
   bool fused_list_concat = false;
   bool small_int_hash = false;

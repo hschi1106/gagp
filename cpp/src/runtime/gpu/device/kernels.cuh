@@ -90,7 +90,12 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
     if(workspace.payload_list_entries)workspace.payload_list_entries += slot * workspace.payload_entry_capacity;
     if(workspace.payload_string_bytes)workspace.payload_string_bytes += slot * workspace.payload_byte_capacity;
     if(workspace.payload_list_values)workspace.payload_list_values += slot * workspace.payload_value_capacity;
-    if(workspace.payload_intlist_cells)workspace.payload_intlist_cells += slot * workspace.payload_value_capacity;
+    if(workspace.payload_intlist_cells) {
+      // Each block keeps the same bounded allocation; only its typed cell layout changes.
+      const auto base=workspace.intlist_cell_stride==1?slot*workspace.payload_value_capacity:
+          static_cast<std::size_t>(blockIdx.x)*blockDim.x*workspace.payload_value_capacity+tid;
+      workspace.payload_intlist_cells+=base;
+    }
     if(workspace.concat_cache)workspace.concat_cache+=slot*DCONCAT_CACHE_SLOTS;
     if constexpr (Flavor == DPayloadFlavor::IndexedArena) {
       if(workspace.payload_list_epoch_index) {

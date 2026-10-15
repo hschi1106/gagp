@@ -242,6 +242,18 @@ are identical to the boxed private profile. The flag defaults off and reports
 profile. It changes physical cell bytes and accounted workspace concurrency;
 there is no new VM, reproduction backend, search rule, or payload transport.
 
+`GAGP_GPU_INTLIST_CELLS_SOA=1` optionally interleaves compact local cells across
+the 32 physical lanes of each arena block: logical cell `i` in lane `l` occupies
+`i*32+l` inside that block's allocation. It requires both admitted private lists
+and compact cells; otherwise the profile reports `intlist-cells-soa-declined`.
+The default is off. Active profiles append `intlist-cells-soa`. Typed spans carry
+the local stride through copying, Index, Slice and Exact/Levenshtein scoring;
+immutable boxed global cells retain stride one. Descriptors and bounds remain
+logical, including actual length 65537, rewind and replay. Allocation bytes,
+capacity, workspace admission, instruction/fuel order and case order are
+unchanged. This is an experimental memory layout: similarly shaped lanes may
+coalesce their writes, while divergent allocation offsets may offer no benefit.
+
 `GAGP_GPU_TRIVIAL_PHASES=1` optionally bypasses phase stack/local setup inside
 an admitted private IntList arena invocation. Verified phases with at most eight
 locals and bindings qualify only for `PushConst` or one non-Parameter binding's

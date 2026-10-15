@@ -148,6 +148,9 @@ maintenance, follow the rules in root `AGENTS.md`.
   the private IntList proof above. The existing arena VM owns typed span reads
   in `cpp/src/runtime/gpu/device/builtins_device.cuh` and resident scoring in
   `resident_score_device.cuh`; `fitness_gpu.cu` owns byte accounting/allocation.
+  `GAGP_GPU_INTLIST_CELLS_SOA` optionally interleaves those cells across 32
+  physical lanes; `device/kernels.cuh` slices the block allocation and the same
+  typed spans carry the stride. It keeps existing capacities and byte accounting.
   Contract and tests are the same private-list owners above.
 
 - `GAGP_GPU_PRIVATE_GLOBAL_OFFSETS`: `runtime/gpu/private_global_offsets.hpp` checks host descriptors; `runtime/gpu/fitness_gpu.cu` prepares current-table cases/constants and reuses the prepared-case upload for initial/replay execution. Contract: `docs/design/payload.md`; tests: `gagp_test_extended_payload_gpu`, `gagp_test_gpu_phase_population`.
