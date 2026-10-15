@@ -15,6 +15,12 @@ def template(identifier, scope, modulo):
         result=call('if(Bool,Int,Int)->Int',overflow,constant(0),call('idiv0(Int,Int)->Int',a,b))
     inner=call('let(Int,Int)->Int',{'hole':'right'},result);inner['bind']={'1':['source_rhs']}
     outer=call('let(Int,Int)->Int',{'hole':'left'},inner);outer['bind']={'1':['source_lhs']}
+    def scaffold(expr):
+        if any(k in expr for k in ('signature','constant','bound')):
+            expr['resource_charge']={'nodes':0,'depth':0,'resets_depth':False}
+        for arg in expr.get('args',[]):scaffold(arg)
+    scaffold(outer)
+    outer['resource_charge']={'nodes':1,'depth':1,'resets_depth':False}
     return {'id':identifier,'type':'Int','scope':copy.deepcopy(scope),
         'holes':[{'id':name,'type':'Int','scope':copy.deepcopy(scope)} for name in ('left','right')], 'body':outer}
 

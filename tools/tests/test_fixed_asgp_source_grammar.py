@@ -14,6 +14,20 @@ def production(kind,typ,children=(),op=0):
     return dict(kind=kind,type=typ,children=list(children),op=op)
 
 class TestSourceGrammar(unittest.TestCase):
+    def test_protected_arithmetic_charges_only_one_source_operator(self):
+        from gagp_tools.experiments.fixed_asgp.arithmetic import template
+        for modulo in (False,True):
+            body=template('Test',[],modulo)['body']
+            charges=[];holes=[]
+            def visit(expr):
+                if 'resource_charge' in expr:charges.append(expr['resource_charge'])
+                if 'hole' in expr:holes.append(expr['hole'])
+                for arg in expr.get('args',[]):visit(arg)
+            visit(body)
+            self.assertEqual(sum(c['nodes'] for c in charges),1)
+            self.assertEqual(sum(c['depth'] for c in charges),1)
+            self.assertEqual(holes,['left','right'])
+
     def test_paper_catalog_uses_source_identifiers(self):
         self.assertEqual(len(set(PAPER_TASKS)),30)
         self.assertIn('min',PAPER_TASKS)

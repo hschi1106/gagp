@@ -38,6 +38,11 @@ Json bound(const std::string& name) { return object({{"bound", string(name)}}); 
 Json call(const std::string& signature, std::vector<Json> args) {
   return object({{"signature", string(signature)}, {"args", array(std::move(args))}});
 }
+void charge_lowering_scaffold(Json& expr) {
+  if(expr.object_v.count("signature") || expr.object_v.count("constant") || expr.object_v.count("bound"))
+    expr.object_v["resource_charge"]=object({{"nodes",number(0)},{"depth",number(0)},{"resets_depth",boolean(false)}});
+  if(expr.object_v.count("args"))for(auto& arg:expr.object_v.at("args").array_v)charge_lowering_scaffold(arg);
+}
 Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::TaskSpec& spec, const std::string& phase, bool guarded_index) {
   using K = asgp::NodeKind;
   const auto source_node_index=at;
@@ -93,8 +98,12 @@ Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::Ta
           auto overflow=call("if(Bool,Bool,Bool)->Bool",{call("eq(Int,Int)->Bool",{a,constant(INT64_MIN)}),call("eq(Int,Int)->Bool",{b,constant(-1)}),bool_constant(false)});
           result=call("if(Bool,Int,Int)->Int",{overflow,constant(0),call("idiv0(Int,Int)->Int",{a,b})});
         }
-        auto inner=call("let(Int,Int)->Int",{args[1],result});inner.object_v["bind"]=object({{"1",array({string(rhs_name)})}});
-        auto outer=call("let(Int,Int)->Int",{args[0],inner});outer.object_v["bind"]=object({{"1",array({string(lhs_name)})}});
+        auto inner=call("let(Int,Int)->Int",{constant(0),result});inner.object_v["bind"]=object({{"1",array({string(rhs_name)})}});
+        auto outer=call("let(Int,Int)->Int",{constant(0),inner});outer.object_v["bind"]=object({{"1",array({string(lhs_name)})}});
+        charge_lowering_scaffold(outer);
+        outer.object_v["resource_charge"]=object({{"nodes",number(1)},{"depth",number(1)},{"resets_depth",boolean(false)}});
+        outer.object_v.at("args").array_v[0]=args[0];
+        outer.object_v.at("args").array_v[1].object_v.at("args").array_v[0]=args[1];
         return outer;
       }
       return call(std::string(ops[node.op])+"(Int,Int)->Int", args);
