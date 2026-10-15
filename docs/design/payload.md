@@ -502,3 +502,14 @@ replay behavior and counters. The execution profile adds `-global-arena`.
 physical capacity boundaries, and checks a 96-program mixed scalar/list queue,
 logical 512-lane reduction and the overlap callback. This setting changes no
 CPU threading or reproduction backend.
+
+`GAGP_GPU_GLOBAL_WINDOW_ALIASES=1`, only with global initial payload evaluation,
+allows exact list-window aliases even when the logical list budget is disabled.
+The source backing must resolve to the immutable packed launch table or the
+invocation's append-only global arena. This backing remains valid through
+scoring. The flag propagates to that call's replay; it does not affect ordinary
+Mixed/Extended evaluation or replay-only indexing. Content hashing, first-key
+lookup, fuel and logical allocation charges stay unchanged. The profile adds
+`-window-aliases`. The extended-payload GPU test compares exact full outputs
+with the flag off/on at logical limit zero and checks that aliases avoid the
+physical copying that otherwise triggers replay.

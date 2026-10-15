@@ -689,6 +689,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   }
   const bool global_payload = extended_payload && !use_views && std::getenv("GAGP_GPU_GLOBAL_PAYLOAD") &&
       std::string(std::getenv("GAGP_GPU_GLOBAL_PAYLOAD"))!="0";
+  const bool global_window_aliases = global_payload && std::getenv("GAGP_GPU_GLOBAL_WINDOW_ALIASES") &&
+      std::string(std::getenv("GAGP_GPU_GLOBAL_WINDOW_ALIASES"))!="0";
   const bool payload_index = global_payload || (extended_payload && !use_views && std::getenv("GAGP_GPU_PAYLOAD_INDEX") &&
       std::string(std::getenv("GAGP_GPU_PAYLOAD_INDEX"))!="0");
 
@@ -698,6 +700,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   }
   // Keep generic frame/memo storage out of ordinary kernel call graphs.
   gpu_detail::DRegionWorkspace region_workspace;
+  region_workspace.payload_window_aliases=global_window_aliases;
   region_workspace.compact_frames = std::getenv("GAGP_COMPACT_FRAMES") &&
       std::all_of(packed.region_segments.begin(), packed.region_segments.end(), [](const auto& segment) {
         return segment.state_count <= 2 && segment.preparation_count <= 1 && segment.request_count <= 2;
@@ -1147,6 +1150,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     out.ok = true;
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
     if(global_payload)out.execution_profile+="-global-arena";
+    if(global_window_aliases)out.execution_profile+="-window-aliases";
     if(payload_index && (global_payload || out.payload_replay_programs))out.execution_profile+="-list-index";
     if(out.payload_replay_programs)out.execution_profile+="-gpu-arena-replay";
     if (use_views && impl_->d_case_order) out.execution_profile += "-sorted";

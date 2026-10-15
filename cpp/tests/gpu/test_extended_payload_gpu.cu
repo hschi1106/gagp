@@ -381,6 +381,38 @@ bool test_payload_replay_fitness() {
   return true;
 }
 
+bool test_global_window_aliases() {
+  ScopedEnvironment restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),restore_aliases("GAGP_GPU_GLOBAL_WINDOW_ALIASES");
+  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
+  std::vector<Value> values;for(int i=0;i<200;++i)values.push_back(Value::from_int(i-100));
+  const auto source=payload::make_int_list_value(values);
+  BytecodeProgram program;program.n_locals=1;
+  program.consts={source,Value::from_int(0),Value::from_int(200)};
+  for(int i=0;i<50;++i) {
+    program.code.push_back(ins_a(Opcode::PushConst,0));
+    program.code.push_back(ins_a(Opcode::PushConst,1));
+    program.code.push_back(ins_a(Opcode::PushConst,2));
+    program.code.push_back(ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Slice),3));
+    program.code.push_back(ins_a(Opcode::Store,0));
+  }
+  program.code.push_back(ins_a(Opcode::Load,0));program.code.push_back(ins(Opcode::Return));
+  program.instruction_fuel.assign(program.code.size(),0);
+  std::vector<CaseBindings> cases(33);std::vector<Value> answers(33,source);
+  FitnessPolicy policy{FitnessMetric::Exact}; // No logical budget activates aliases implicitly.
+  const auto cpu=eval_fitness_cpu({program},cases,answers,1000,1000.0,512,policy);
+  for(const char* aliases:{"0","1"}) {
+    setenv("GAGP_GPU_GLOBAL_WINDOW_ALIASES",aliases,1);
+    FitnessSessionGpu session;
+    if(!check(session.init(cases,answers,1000,512,1000.0,policy).ok,"global aliases init"))return false;
+    const auto gpu=session.eval_programs({program},true);
+    if(!check(gpu.ok && gpu.fitness==cpu && cpu[0]==0 && gpu.case_counts[0][1]==0,
+        "global window aliases changed exact list output"))return false;
+    if(!check(gpu.payload_replay_programs==(aliases[0]=='1'?0u:1u),
+        "logical-zero window aliases did not avoid physical copying"))return false;
+  }
+  return true;
+}
+
 bool test_global_payload_program_queue() {
   ScopedEnvironment restore("GAGP_GPU_GLOBAL_PAYLOAD");setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
   // More programs than bounded physical blocks, no regions, distinct rows.
@@ -439,7 +471,7 @@ int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_global_payload_program_queue() ||
+  if (!test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

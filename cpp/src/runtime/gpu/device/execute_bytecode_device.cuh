@@ -546,6 +546,7 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
   DPayloadStateStorage<Flavor> payload_state_storage;
   auto& payload_state = payload_state_storage.ref();
   if constexpr ((Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena)) {
+    payload_state.alias_windows = workspace.payload_window_aliases;
     payload_state.string_entries = workspace.payload_string_entries;
     payload_state.list_entries = workspace.payload_list_entries;
     payload_state.string_bytes = workspace.payload_string_bytes;

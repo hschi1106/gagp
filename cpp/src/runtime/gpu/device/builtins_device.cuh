@@ -51,6 +51,7 @@ using DExtendedPayloadState = DThreadPayloadStateT<1024, 1024, 8192, 8192>;
 // Runtime-sized replay storage. No large per-thread local arrays.
 struct DArenaPayloadState {
   static constexpr bool kIndexedLists = false;
+  bool alias_windows = false;
   static constexpr int kMaxStringEntries = 1;
   static constexpr int kMaxListEntries = 1;
   DStringPayloadEntry* string_entries = nullptr;
@@ -820,7 +821,10 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       auto& st = payload_state;
       const Value* xp = nullptr;
       int xl = 0;
-      if (st.logical_list_limit && d_lookup_list_payload(tables, st, x, xp, xl) &&
+      bool alias_windows=st.logical_list_limit!=0;
+      if constexpr (Flavor==DPayloadFlavor::ArenaMixed || Flavor==DPayloadFlavor::IndexedArena)
+        alias_windows|=st.alias_windows;
+      if (alias_windows && d_lookup_list_payload(tables, st, x, xp, xl) &&
           l >= 0 && l <= xl && h >= 0 && h <= xl) {
         // A source window owns no cells. Alias the immutable case table or an
         // earlier append-only local allocation, preserving exact content hashes.
