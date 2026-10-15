@@ -96,6 +96,7 @@ struct DRegionWorkspace {
   int payload_entry_capacity = 0;
   int payload_value_capacity = 0;
   int payload_byte_capacity = 0;
+  double* replay_warp_scores = nullptr; // Non-null selects logical-warp replay tiles.
   int fitness_lanes = 0; // Original logical block width for exact reduction.
   unsigned int* payload_overflows = nullptr; // One counter per program.
 

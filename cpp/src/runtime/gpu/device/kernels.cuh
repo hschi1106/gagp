@@ -120,10 +120,14 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
   // program traversal bounds scratch allocation independently of population size.
   for (std::size_t logical_idx = blockIdx.x;
        logical_idx < static_cast<std::size_t>(program_count);) {
-  const std::size_t prog_idx = program_indices ? program_indices[logical_idx] : logical_idx;
+  const int replay_warps = (fitness_lanes + 31) / 32;
+  const bool tiled_replay = workspace.replay_warp_scores != nullptr;
+  const std::size_t row = tiled_replay ? logical_idx / replay_warps : logical_idx;
+  const int tile = tiled_replay ? logical_idx % replay_warps : 0;
+  const std::size_t prog_idx = program_indices ? program_indices[row] : row;
 
   if constexpr ((Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena)) {
-    if (tid == 0) {
+    if (tid == 0 && !tiled_replay) {
       workspace.payload_overflows[prog_idx] = 0;
       if (case_counts) for (int i=0;i<6;++i)case_counts[prog_idx*6+i]=0;
     }
@@ -211,7 +215,9 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     }
   }
 
-  for (int logical_tid = tid; logical_tid < fitness_lanes; logical_tid += blockDim.x) {
+  const int lane_begin = tiled_replay ? tile * 32 : 0;
+  const int lane_end = tiled_replay ? min(lane_begin + 32, fitness_lanes) : fitness_lanes;
+  for (int logical_tid = lane_begin + tid; logical_tid < lane_end; logical_tid += blockDim.x) {
   double local_score = 0.0;
   const int chunk_start = (meta.case_count * logical_tid) / fitness_lanes;
   const int chunk_end = (meta.case_count * (logical_tid + 1)) / fitness_lanes;
@@ -262,6 +268,14 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
   __syncthreads();
 
   // Logical warp grouping is independent of replay's physical block width.
+  if (tiled_replay) {
+    if (tid == 0) {
+      double subtotal = 0.0;
+      for (int i = lane_begin; i < lane_end; ++i)
+        subtotal = d_canonicalize_fitness_accumulator(subtotal + partial_scores[i]);
+      workspace.replay_warp_scores[logical_idx] = subtotal;
+    }
+  } else {
   const int warp_count = (fitness_lanes + 31) >> 5;
   for (int warp_id = tid; warp_id < warp_count; warp_id += blockDim.x) {
     const int warp_base = warp_id << 5;
@@ -280,6 +294,7 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     }
     fitness_out[prog_idx] = total_score;
   }
+  } // Ordinary canonical program reduction.
   if constexpr (!EnableRegions && Flavor != DPayloadFlavor::ArenaMixed && Flavor != DPayloadFlavor::IndexedArena) break;
   // Thread 0 must finish consuming the reduction before shared code is reused.
   // Workspace remains owned by the physical block when it takes another row.
@@ -297,6 +312,26 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     __syncthreads();
   }
   }
+}
+
+// Each affected program is reset once, before independent warp tiles run.
+__global__ void reset_payload_replay(int count, const int* indices,
+    unsigned int* overflows, unsigned int* counts) {
+  const int row = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row >= count) return;
+  const int program = indices[row];
+  overflows[program] = 0;
+  if (counts) for (int i=0;i<6;++i) counts[program*6+i]=0;
+}
+
+__global__ void reduce_payload_replay(int count, int warps, const int* indices,
+    const double* partials, double* scores) {
+  const int row = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row >= count) return;
+  double total=0.0;
+  for(int warp=0;warp<warps;++warp)
+    total=d_canonicalize_fitness_accumulator(total+partials[row*warps+warp]);
+  scores[indices[row]]=total;
 }
 
 }  // namespace gagp::gpu_detail

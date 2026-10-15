@@ -345,18 +345,20 @@ bool test_payload_replay_fitness() {
     for(int j=0;j<i%7;++j)expected[j]=Value::from_int(-1);
     answers.push_back(payload::make_int_list_value(expected));
   }
-  ScopedEnvironment restore_index("GAGP_GPU_PAYLOAD_INDEX"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD");
-  for(const char* global:{"0","1"}) for(const char* indexed:{"0","1"}) for(unsigned limit:{65536u,100u}) {
+  ScopedEnvironment restore_index("GAGP_GPU_PAYLOAD_INDEX"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),restore_tiles("GAGP_GPU_TILED_REPLAY");
+  for(const char* global:{"0","1"}) for(const char* indexed:{"0","1"}) for(unsigned limit:{65536u,100u}) for(const char* tiled:{"0","1"}) for(int lanes:{33,512}) {
+    if(tiled[0]=='0' && lanes==33)continue;
+    setenv("GAGP_GPU_TILED_REPLAY",tiled,1);
     setenv("GAGP_GPU_GLOBAL_PAYLOAD",global,1);
     setenv("GAGP_GPU_PAYLOAD_INDEX",indexed,1);
     FitnessPolicy policy{FitnessMetric::Levenshtein,FitnessProximity::Discounted};
     policy.list_allocation_limit=limit;
-    const auto cpu=eval_fitness_cpu({program,short_program},cases,answers,10000,1000.0,512,policy);
+    const auto cpu=eval_fitness_cpu({program,short_program,program},cases,answers,10000,1000.0,lanes,policy);
     FitnessSessionGpu session;
-    if(!check(session.init(cases,answers,10000,512,1000.0,policy).ok,"replay session init"))return false;
-    const auto gpu=session.eval_programs({program,short_program},true);
-    if(!check(gpu.ok && gpu.fitness==cpu,"GPU arena replay differs from CPU 512-lane reduction")) {
-      std::cerr<<"global="<<global<<" index="<<indexed<<" limit="<<limit<<" ok="<<gpu.ok<<" error="<<gpu.err.message
+    if(!check(session.init(cases,answers,10000,lanes,1000.0,policy).ok,"replay session init"))return false;
+    const auto gpu=session.eval_programs({program,short_program,program},true);
+    if(!check(gpu.ok && gpu.fitness==cpu,"GPU arena replay differs from CPU logical-lane reduction")) {
+      std::cerr<<"tiled="<<tiled<<" global="<<global<<" index="<<indexed<<" limit="<<limit<<" ok="<<gpu.ok<<" error="<<gpu.err.message
           <<" profile="<<gpu.execution_profile<<" replay_programs="<<gpu.payload_replay_programs
           <<" replay_cases="<<gpu.payload_replay_cases<<" launches="<<gpu.payload_replay_launches<<'\n';
       std::cerr.precision(17);
@@ -370,15 +372,15 @@ bool test_payload_replay_fitness() {
     }
     if(!check((gpu.execution_profile.find("-global-arena")!=std::string::npos)==(global[0]=='1'),
         "global payload flag did not select the expected executor"))return false;
-    if(!check(gpu.case_counts[0][0]==513 && gpu.case_counts[1][0]==513,"replay diagnostics double-count cases"))return false;
+    if(!check(gpu.case_counts[0][0]==513 && gpu.case_counts[1][0]==513 && gpu.case_counts[2][0]==513,"replay diagnostics double-count cases"))return false;
     if(!check(gpu.timing.initial_kernel_wall_ms>0 &&
         (gpu.timing.replay_kernel_event_ms>0)==(limit==65536),
         "initial/replay timing must track launched work"))return false;
     if(limit==65536) {
-      if(!check(gpu.payload_replay_programs==1 && gpu.payload_replay_cases==513 && gpu.payload_replay_launches==1,
+      if(!check(gpu.payload_replay_programs==2 && gpu.payload_replay_cases==1026 && gpu.payload_replay_launches==1,
           "physical overflow must replay only the affected program"))return false;
-      if(!check(gpu.case_counts[0][1]==0 && gpu.case_counts[1][1]==0,"successful replay retained physical errors"))return false;
-    } else if(!check(gpu.payload_replay_programs==0 && gpu.case_counts[0][1]==513,
+      if(!check(gpu.case_counts[0][1]==0 && gpu.case_counts[1][1]==0 && gpu.case_counts[2][1]==0,"successful replay retained physical errors"))return false;
+    } else if(!check(gpu.payload_replay_programs==0 && gpu.case_counts[0][1]==513 && gpu.case_counts[2][1]==513,
         "logical allocation errors must not trigger physical replay"))return false;
   }
   return true;

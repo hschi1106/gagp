@@ -522,3 +522,15 @@ is zero. Replay event timing sums the replay CUDA events. The existing
 `kernel_ms` retains its compatibility behavior: wall time including replay
 allocation and retry orchestration without overlap, summed kernel event time
 with overlap. Total evaluation time includes all allocations and frees.
+
+`GAGP_GPU_TILED_REPLAY=1` schedules replay as `(program, logical warp)` tasks
+on the bounded 32-thread arena blocks. Each task keeps the original logical
+lane's consecutive case partition and writes its canonical warp subtotal.
+A final GPU kernel sums these subtotals in the original warp order. Counters
+and physical-overflow flags reset once per affected program before tiles run;
+all cases are reevaluated, and retry counters count full program passes.
+Replay CUDA event timing includes reset, evaluation, and final reduction.
+The 512 MiB scratch limit includes tile partials, queue and program indices.
+Tiled replay starts with 4096 entries and at least 65536 value cells, doubles
+entries alone until 65536, then follows the existing combined growth sequence.
+The default replay route and CPU/reproduction behavior remain unchanged.
