@@ -1263,10 +1263,11 @@ int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if(!test_private_intlist_offsets())return 1;
+  if(!test_private_intlist_offsets() || !test_private_global_offset_preparation() || !test_private_global_offset_cases())return 1;
   {
-    ScopedEnvironment compact("GAGP_GPU_COMPACT_INTLIST_CELLS");
-    for(const char* mode:{"0","1"}) {
+    ScopedEnvironment compact("GAGP_GPU_COMPACT_INTLIST_CELLS"),globals("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS");
+    for(const char* mode:{"0","1"}) for(const char* mapped:{"0","1"}) {
+      setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS",mapped,1);
       setenv("GAGP_GPU_COMPACT_INTLIST_CELLS",mode,1);
       if(!test_private_intlist_fitness())return 1;
     }

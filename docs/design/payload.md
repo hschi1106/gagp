@@ -291,6 +291,27 @@ Profiles report `-private-measure-cache` when enabled for private arenas, or
 `-private-measure-cache-declined` when its prerequisites fail. This reports cache
 availability; individual ineligible phases still use the ordinary VM.
 
+`GAGP_GPU_PRIVATE_GLOBAL_OFFSETS=1` additionally prepares admitted immutable
+IntList inputs and packed root/phase constants as global-origin offsets into
+this evaluation's payload table. This opt-in host step runs only after complete
+private eligibility; it checks identity, tag, encoded/actual length and backing
+bounds. Lists up to 65535 elements qualify. Actual 65536-element globals remain
+canonical so saturated/masked transport lengths retain their existing Len,
+Index, Slice and empty-Concat behavior. Unresolved values retain ordinary lazy
+lookup; unsupported populations still decline private execution normally.
+
+The existing prepared-case buffer owns the upload through initial evaluation
+and overflow replay. Session cases and external/owned ASTs remain canonical;
+all offsets are prepared again against the current table on every evaluation,
+including fresh GPU generations and reinitialized sessions. Host preparation
+and buffer upload remain in reported pack/upload and total evaluation timing.
+Answers retain canonical scoring transport. No device operation, numeric value,
+fuel, logical allocation charge or physical replay policy changes. Profiles add
+`-private-global-offsets` or `-private-global-offsets-declined` when requested;
+unset and other values leave the prototype off. The extended payload test covers
+both modes, canonical length boundaries, mixed origins, lazy captures and
+full-case CPU parity; native-owner tests compare both modes over 32 generations.
+
 ### Proven integer/list execution profile
 
 `cpp/src/runtime/gpu/view_profile.hpp` checks forward type flow after ordinary

@@ -1,6 +1,7 @@
 #pragma once
 #include "../../src/runtime/gpu/device/resident_score_device.cuh"
 #include "../../src/runtime/gpu/view_profile.hpp"
+#include "../../src/runtime/gpu/private_global_offsets.hpp"
 
 __global__ void inspect_private_intlist_offsets(Value* cells, std::int64_t* int_cells, Value* source, bool compact, int* failure) {
   using namespace gagp::gpu_detail;
@@ -196,6 +197,103 @@ bool test_private_intlist_offsets() {
   }
   cudaFree(cells);cudaFree(source);cudaFree(int_cells);cudaFree(device_failure);
   return check(ok,"boxed/compact private IntList boundary/origin/precision "+std::to_string(failure));
+}
+
+bool test_private_global_offset_preparation() {
+  using namespace gpu_detail;
+  const auto canonical=Value::from_int_list_hash_len(123,2);
+  for(int offset:{3,0,7}) {
+    std::vector<DListPayloadEntry> entries{{ValueTag::IntList,canonical.i,offset,2}};
+    auto value=canonical;value.b=true; // External markers cannot carry an old table offset.
+    if(!check(prepare_private_global_intlist(value,entries,offset+2) && value.b &&
+        Value::container_len(value)==2 && Value::container_hash48(value)==(DPRIVATE_LIST_GLOBAL|offset),
+        "private global preparation must use current checked table offset"))return false;
+    for(int capacity:{-1,offset,offset+1}) {
+      value=canonical;
+      if(!check(!prepare_private_global_intlist(value,entries,capacity) && !value.b && value.i==canonical.i,
+          "private global preparation accepted incomplete backing"))return false;
+    }
+  }
+  for(unsigned encoded:{0u,65535u}) {
+    auto value=Value::from_int_list_hash_len(37,encoded);const auto original=value;
+    if(!check(!prepare_private_global_intlist(value,{{ValueTag::IntList,value.i,0,65536}},65536) &&
+        !value.b && value.i==original.i,"full-length global must retain canonical length encoding"))return false;
+  }
+  auto maximum=Value::from_int_list_hash_len(99,65535);
+  if(!check(prepare_private_global_intlist(maximum,{{ValueTag::IntList,maximum.i,0,65535}},65535) &&
+      maximum.b && Value::container_len(maximum)==65535,"maximum converted global lost public length"))return false;
+  for(const auto& entry:std::vector<DListPayloadEntry>{{ValueTag::IntList,canonical.i,-1,2},
+      {ValueTag::IntList,canonical.i,0,1},{ValueTag::FloatList,canonical.i,0,2}}) {
+    auto value=canonical;
+    if(!check(!prepare_private_global_intlist(value,{entry},2) && !value.b && value.i==canonical.i,
+        "invalid private global entry manufactured a descriptor"))return false;
+  }
+  auto missing=canonical;
+  return check(!prepare_private_global_intlist(missing,{},2) && missing.i==canonical.i && !missing.b,
+      "missing private global must retain canonical lazy lookup");
+}
+
+bool test_private_global_offset_cases() {
+  ScopedEnvironment private_mode("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"),global("GAGP_GPU_GLOBAL_PAYLOAD"),
+      mapping("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS"),trivial("GAGP_GPU_TRIVIAL_PHASES");
+  setenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS","1",1);setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
+  setenv("GAGP_GPU_TRIVIAL_PHASES","1",1);
+  std::vector<CaseBindings> cases;std::vector<Value> answers;
+  for(int i=0;i<1024;++i) {
+    auto values=std::vector<Value>(i%4+1,Value::from_int(INT64_C(9007199254740993)+i%11));
+    const auto input=payload::make_int_list_value(values);cases.push_back({{0,input}});answers.push_back(input);
+  }
+  FitnessPolicy policy{FitnessMetric::Exact};policy.list_allocation_limit=65536;
+  FitnessSessionGpu session;
+  for(int iteration=0;iteration<4;++iteration) {
+    auto current=cases;
+    if(iteration==1)current.back().clear();
+    if(iteration==2)current.back()[0].value=Value::from_float(1.5);
+    const auto literal=payload::make_int_list_value({Value::from_int(iteration),Value::from_int(INT64_MIN)});
+    auto expected=answers;
+    for(unsigned i=0;i<expected.size();i+=3)expected[i]=literal;
+    BytecodeProgram pass;pass.n_locals=1;pass.code={ins_a(Opcode::Load,0),ins(Opcode::Return)};
+    BytecodeProgram constant;constant.consts={literal};constant.code={ins_a(Opcode::PushConst,0),ins(Opcode::Return)};
+    auto phase=constant_phase(literal);phase.program.n_locals=1;
+    phase.bindings={{slot(RegionSlotBank::Parameter,0),0}}; // Unused capture stays lazy.
+    auto segment=unary_segment(ValueTag::IntList,std::move(phase),load_phase(RegionSlotBank::Result,0));
+    segment.plan.parameter_types={ValueTag::IntList};segment.parameter_locals={0};
+    auto phased=invocation(std::move(segment),0);phased.n_locals=1;
+    BytecodeProgram mixed;mixed.n_locals=1;
+    mixed.consts={Value::from_int(0),Value::from_int(1),literal};
+    mixed.code={ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),
+        ins_ab(Opcode::CallBuiltin,int(BuiltinId::Slice),3),ins_a(Opcode::PushConst,2),
+        ins_ab(Opcode::CallBuiltin,int(BuiltinId::Concat),2),ins(Opcode::Return)};
+    BytecodeProgram indexed;indexed.n_locals=1;indexed.consts={Value::from_int(0)};
+    indexed.code={ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,0),
+        ins_ab(Opcode::CallBuiltin,int(BuiltinId::Index),2),
+        ins_ab(Opcode::CallBuiltin,int(BuiltinId::Singleton),1),ins(Opcode::Return)};
+    const std::vector<BytecodeProgram> programs{pass,constant,phased,mixed,indexed};
+    std::vector<unsigned> wrong;std::vector<CpuFitnessCaseCounts> counts;
+    const auto cpu=eval_fitness_cpu(programs,current,expected,1000,1000,33,policy,&wrong,&counts);
+    if(!session.init(current,expected,1000,33,1000,policy).ok)return false;
+    FitnessEvalResult baseline;
+    for(const char* enabled:{"0","1"}) {
+      setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS",enabled,1);
+      int callbacks=0;
+      const auto result=session.eval_programs(programs,true,[&]{++callbacks;});
+      const bool active=enabled[0]=='1' && (iteration==0 || iteration==3);
+      if(!check(result.ok && result.fitness==cpu && result.wrong==wrong && callbacks==1 &&
+          (result.execution_profile.find("-private-global-offsets")!=std::string::npos)==(enabled[0]=='1') &&
+          (result.execution_profile.find("-private-global-offsets-declined")==std::string::npos)==
+              (enabled[0]=='0' || active),"private global full-case/session reinit/decline CPU parity"))return false;
+      for(unsigned p=0;p<programs.size();++p)
+        if(!check(result.case_counts[p][0]==1024 && result.case_counts[p][1]==counts[p].errors &&
+            result.case_counts[p][2]==counts[p].timeouts,"private global lazy capture case/status counts"))return false;
+      if(enabled[0]=='0')baseline=result;
+      else if(!check(result.fitness==baseline.fitness && result.wrong==baseline.wrong &&
+          result.case_counts==baseline.case_counts && result.payload_replay_programs==baseline.payload_replay_programs,
+          "private global mapping changed canonical mode result"))return false;
+    }
+    if(!check(!programs[1].consts[0].b && !programs[2].bounded_region_segments[0].base_body.program.consts[0].b &&
+        !cases.front()[0].value.b,"private global staging mutated external case/program ownership"))return false;
+  }
+  return true;
 }
 
 bool test_private_intlist_region_lifetime() {

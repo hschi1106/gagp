@@ -26,6 +26,7 @@
 #include "view_profile.hpp"
 #include "payload_workspace_budget.hpp"
 #include "case_sort_policy.hpp"
+#include "private_global_offsets.hpp"
 #include "gagp/runtime/gpu/device_types_gpu.hpp"
 
 namespace gagp {
@@ -668,6 +669,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   // on current phase bytecode, not the owner's cold import snapshot.
   const bool request_private=std::getenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS") &&
       std::string(std::getenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"))=="1";
+  const bool request_private_globals=std::getenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS") &&
+      std::string(std::getenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS"))=="1";
   const bool request_compact=std::getenv("GAGP_GPU_COMPACT_INTLIST_CELLS") &&
       std::string(std::getenv("GAGP_GPU_COMPACT_INTLIST_CELLS"))=="1";
   const bool private_static_eligible=request_private && impl_->private_answers_prepared &&
@@ -761,6 +764,19 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   // Resolve immutable captures against this evaluation's table, without changing
   // raw session values or surfacing an error for an unused/missing capture.
   std::vector<Value> prepared_case_views;
+  const bool private_global_offsets=private_intlists && request_private_globals;
+  if(private_global_offsets) {
+    const auto prepare=[&](Value& value) {
+      gpu_detail::prepare_private_global_intlist(value,payload_pack.list_entries,
+          static_cast<int>(payload_pack.list_values.size()));
+    };
+    for(auto& value:packed.all_consts)prepare(value);
+    for(auto& value:packed.all_phase_consts)prepare(value);
+    if(!impl_->shared_list_tokens.empty()) {
+      prepared_case_views=impl_->host_case_local_vals;
+      for(auto& value:prepared_case_views)prepare(value);
+    }
+  }
   if (use_views && !impl_->shared_list_tokens.empty() &&
       std::getenv("GAGP_PREPARED_CASE_VIEWS") &&
       std::any_of(packed.region_segments.begin(), packed.region_segments.end(), [](const auto& segment) {
@@ -1145,7 +1161,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true>
           <<<static_cast<unsigned>(initial_payload.blocks),PayloadWorkspaceStorage::threads,arena_shared_bytes(initial_payload.workspace)>>>(
               static_cast<int>(initial_tasks),dev.d_consts,dev.d_code,dev.d_metas,
-              impl_->d_shared_case_local_vals,impl_->d_shared_case_local_set,impl_->d_expected,
+              view_case_values,impl_->d_shared_case_local_set,impl_->d_expected,
               dev.d_string_payload_entries,static_cast<int>(payload_pack.string_entries.size()),dev.d_string_payload_bytes,
               dev.d_list_payload_entries,static_cast<int>(payload_pack.list_entries.size()),dev.d_list_payload_values,
               dev.d_phase_code,dev.d_phase_consts,impl_->fuel,impl_->penalty,impl_->policy,dev.d_fitness,
@@ -1360,7 +1376,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true>
           <<<static_cast<unsigned>(replay_blocks),replay_threads,arena_shared_bytes(replay_workspace)>>>(
               static_cast<int>(task_count),dev.d_consts,dev.d_code,dev.d_metas,
-              impl_->d_shared_case_local_vals,impl_->d_shared_case_local_set,impl_->d_expected,
+              view_case_values,impl_->d_shared_case_local_set,impl_->d_expected,
               dev.d_string_payload_entries,static_cast<int>(payload_pack.string_entries.size()),dev.d_string_payload_bytes,
               dev.d_list_payload_entries,static_cast<int>(payload_pack.list_entries.size()),dev.d_list_payload_values,
               dev.d_phase_code,dev.d_phase_consts,impl_->fuel,impl_->penalty,impl_->policy,dev.d_fitness,
@@ -1372,7 +1388,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::ArenaMixed,true>
           <<<static_cast<unsigned>(replay_blocks),replay_threads,arena_shared_bytes(replay_workspace)>>>(
               static_cast<int>(task_count),dev.d_consts,dev.d_code,dev.d_metas,
-              impl_->d_shared_case_local_vals,impl_->d_shared_case_local_set,impl_->d_expected,
+              view_case_values,impl_->d_shared_case_local_set,impl_->d_expected,
               dev.d_string_payload_entries,static_cast<int>(payload_pack.string_entries.size()),dev.d_string_payload_bytes,
               dev.d_list_payload_entries,static_cast<int>(payload_pack.list_entries.size()),dev.d_list_payload_values,
               dev.d_phase_code,dev.d_phase_consts,impl_->fuel,impl_->penalty,impl_->policy,dev.d_fitness,
@@ -1460,6 +1476,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
     if(request_private)out.execution_profile+=private_intlists?
         "-private-intlist-offset-v1":"-private-intlist-offset-v1-declined";
+    if(request_private_globals)out.execution_profile+=private_global_offsets?
+        "-private-global-offsets":"-private-global-offsets-declined";
     if(request_trivial)out.execution_profile+=region_workspace.trivial_phases?
         "-trivial-phases":"-trivial-phases-declined";
     if(request_compact)out.execution_profile+=region_workspace.compact_intlist_cells?

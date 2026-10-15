@@ -150,6 +150,7 @@ maintenance, follow the rules in root `AGENTS.md`.
   `resident_score_device.cuh`; `fitness_gpu.cu` owns byte accounting/allocation.
   Contract and tests are the same private-list owners above.
 
+- `GAGP_GPU_PRIVATE_GLOBAL_OFFSETS`: `runtime/gpu/private_global_offsets.hpp` checks host descriptors; `runtime/gpu/fitness_gpu.cu` prepares current-table cases/constants and reuses the prepared-case upload for initial/replay execution. Contract: `docs/design/payload.md`; tests: `gagp_test_extended_payload_gpu`, `gagp_test_gpu_phase_population`.
 - `GAGP_GPU_TRIVIAL_PHASES`: `runtime/gpu/host_pack_gpu.cu` refreshes constant/single-Load metadata (up to eight declared bindings); `runtime/gpu/device/region_execution_device.cuh` consumes it only in admitted private arenas. Contract: `docs/design/payload.md`; static counts: `docs/reference/trivial-private-phase-counts.json`; tests: `gagp_test_bounded_region_gpu_results`, `gagp_test_gpu_phase_population`. Paths relative to `cpp/src/` unless stated otherwise.
 
 - `GAGP_GPU_PRIVATE_MEASURE_CACHE` extends the existing Measure-only preparation

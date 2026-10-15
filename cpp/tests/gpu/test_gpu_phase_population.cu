@@ -311,11 +311,11 @@ void test_trivial_pattern_refresh() {
 }
 
 void test_private_intlist_generations(bool sequence_windows=false) {
- const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_PRIVATE_MEASURE_CACHE"};
+ const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_PRIVATE_MEASURE_CACHE","GAGP_GPU_PRIVATE_GLOBAL_OFFSETS"};
  struct Restore {
-  const char** flags;std::string saved[8];bool present[8];
-  explicit Restore(const char** f):flags(f){for(int i=0;i<8;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
-  ~Restore(){for(int i=0;i<8;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
+  const char** flags;std::string saved[9];bool present[9];
+  explicit Restore(const char** f):flags(f){for(int i=0;i<9;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
+  ~Restore(){for(int i=0;i<9;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
  } restore(flags);
  const auto grammar=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
      grammar::load_definition(sequence_windows?GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_measure_intlist.json":
@@ -335,16 +335,23 @@ void test_private_intlist_generations(bool sequence_windows=false) {
  repro::NativePhasePopulation owner(grammar,parents,names);
  bool changed=false,saw_content_match=false;
  for(int generation=0;generation<=32;++generation) {
+  setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","0",1);
   setenv("GAGP_GPU_PRIVATE_MEASURE_CACHE","0",1);
   const auto uncached=owner.evaluate(session,true);
   setenv("GAGP_GPU_PRIVATE_MEASURE_CACHE","1",1);
   setenv("GAGP_GPU_COMPACT_INTLIST_CELLS","0",1);
   const auto boxed=owner.evaluate(session,true);
   setenv("GAGP_GPU_COMPACT_INTLIST_CELLS","1",1);
+  const auto canonical=owner.evaluate(session,true);
+  setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","1",1);
   const auto gpu=owner.evaluate(session,true);
   require(uncached.ok && boxed.ok && gpu.ok && uncached.fitness==gpu.fitness && uncached.wrong==gpu.wrong &&
       uncached.case_counts==gpu.case_counts && gpu.execution_profile.find("-private-measure-cache")!=std::string::npos &&
-      boxed.fitness==gpu.fitness && boxed.wrong==gpu.wrong &&
+      boxed.fitness==gpu.fitness && boxed.wrong==gpu.wrong,"cached/uncached fresh private phases differ");
+  require(canonical.ok && gpu.ok && canonical.fitness==gpu.fitness && canonical.wrong==gpu.wrong &&
+      canonical.case_counts==gpu.case_counts && gpu.execution_profile.find("-private-global-offsets")!=std::string::npos,
+      "global descriptor staging changed fresh GPU phases");
+  require(boxed.ok && gpu.ok && boxed.fitness==gpu.fitness && boxed.wrong==gpu.wrong &&
       boxed.case_counts==gpu.case_counts && boxed.execution_profile.find("-compact-intlist-cells")==std::string::npos &&
       gpu.execution_profile.find("-compact-intlist-cells")!=std::string::npos,
       "boxed/compact private cells differ across fresh GPU generations");
