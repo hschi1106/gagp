@@ -178,7 +178,7 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
   if constexpr (EnableRegions && (Flavor == DPayloadFlavor::BoundIntListViews ||
                                   Flavor == DPayloadFlavor::IntListViews)) {
     if (workspace.measure_phase_cache) {
-      auto* cached_measure = reinterpret_cast<DMeasurePhaseCacheEntry*>(partial_scores + blockDim.x);
+      auto* cached_measure = reinterpret_cast<DMeasurePhaseCacheEntry*>(partial_scores + (tiled_replay ? 32 : fitness_lanes));
       int& cached_phase = *reinterpret_cast<int*>(cached_measure + DMEASURE_CACHE_MAX + 1);
       if (tid == 0) {
         cached_phase = -1;
@@ -282,7 +282,7 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
         resident_score);
   }
 
-  partial_scores[logical_tid] = local_score;
+  partial_scores[tiled_replay ? logical_tid - lane_begin : logical_tid] = local_score;
   }
   __syncthreads();
 
@@ -291,7 +291,7 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
     if (tid == 0) {
       double subtotal = 0.0;
       for (int i = lane_begin; i < lane_end; ++i)
-        subtotal = d_canonicalize_fitness_accumulator(subtotal + partial_scores[i]);
+        subtotal = d_canonicalize_fitness_accumulator(subtotal + partial_scores[i - lane_begin]);
       workspace.replay_warp_scores[logical_idx] = subtotal;
     }
   } else {

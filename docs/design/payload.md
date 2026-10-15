@@ -838,3 +838,10 @@ avoided per-case clears; performance requires a full-case comparison.
 Validation: `gagp_test_extended_payload_gpu` includes direct legacy/epoch
 collision, rollback, error reuse and wrap tests, plus epoch-enabled CPU parity
 for queue reuse, initial case tiling, scalar rollback and growing arena replay.
+
+Tiled arena evaluation stores each logical warp's 32 partial scores at tile-local
+indices and reduces them in the original order. Its dynamic shared allocation
+reserves those 32 slots plus any active phase cache. Untiled arena evaluation
+still reserves all logical fitness lanes, independent of its physical warp size;
+shrinking untiled storage to the 32 physical threads is unsafe. The phase cache
+starts after the score slots. Case partitions and canonical reductions are unchanged.
