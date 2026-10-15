@@ -20,6 +20,14 @@ bool check(bool condition, const std::string& message) {
   return condition;
 }
 
+struct ScopedEnvironment {
+  std::string name,previous;bool existed;
+  explicit ScopedEnvironment(const char* key):name(key),existed(std::getenv(key)!=nullptr) {
+    if(existed)previous=std::getenv(key);
+  }
+  ~ScopedEnvironment(){if(existed)setenv(name.c_str(),previous.c_str(),1);else unsetenv(name.c_str());}
+};
+
 RegionValueSlot slot(RegionSlotBank bank, std::uint32_t index) {
   return {bank, index};
 }
@@ -337,12 +345,9 @@ bool test_payload_replay_fitness() {
     for(int j=0;j<i%7;++j)expected[j]=Value::from_int(-1);
     answers.push_back(payload::make_int_list_value(expected));
   }
-  const char* original_index=std::getenv("GAGP_GPU_PAYLOAD_INDEX");
-  const std::string saved_index=original_index?original_index:"";
-  struct RestoreIndex { bool existed;std::string value;
-    ~RestoreIndex(){if(existed)setenv("GAGP_GPU_PAYLOAD_INDEX",value.c_str(),1);else unsetenv("GAGP_GPU_PAYLOAD_INDEX");}
-  } restore{original_index!=nullptr,saved_index};
-  for(const char* indexed:{"0","1"}) for(unsigned limit:{65536u,100u}) {
+  ScopedEnvironment restore_index("GAGP_GPU_PAYLOAD_INDEX"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD");
+  for(const char* global:{"0","1"}) for(const char* indexed:{"0","1"}) for(unsigned limit:{65536u,100u}) {
+    setenv("GAGP_GPU_GLOBAL_PAYLOAD",global,1);
     setenv("GAGP_GPU_PAYLOAD_INDEX",indexed,1);
     FitnessPolicy policy{FitnessMetric::Levenshtein,FitnessProximity::Discounted};
     policy.list_allocation_limit=limit;
@@ -351,7 +356,7 @@ bool test_payload_replay_fitness() {
     if(!check(session.init(cases,answers,10000,512,1000.0,policy).ok,"replay session init"))return false;
     const auto gpu=session.eval_programs({program,short_program},true);
     if(!check(gpu.ok && gpu.fitness==cpu,"GPU arena replay differs from CPU 512-lane reduction")) {
-      std::cerr<<"index="<<indexed<<" limit="<<limit<<" ok="<<gpu.ok<<" error="<<gpu.err.message
+      std::cerr<<"global="<<global<<" index="<<indexed<<" limit="<<limit<<" ok="<<gpu.ok<<" error="<<gpu.err.message
           <<" profile="<<gpu.execution_profile<<" replay_programs="<<gpu.payload_replay_programs
           <<" replay_cases="<<gpu.payload_replay_cases<<" launches="<<gpu.payload_replay_launches<<'\n';
       std::cerr.precision(17);
@@ -363,6 +368,8 @@ bool test_payload_replay_fitness() {
       }
       return false;
     }
+    if(!check((gpu.execution_profile.find("-global-arena")!=std::string::npos)==(global[0]=='1'),
+        "global payload flag did not select the expected executor"))return false;
     if(!check(gpu.case_counts[0][0]==513 && gpu.case_counts[1][0]==513,"replay diagnostics double-count cases"))return false;
     if(limit==65536) {
       if(!check(gpu.payload_replay_programs==1 && gpu.payload_replay_cases==513 && gpu.payload_replay_launches==1,
@@ -371,6 +378,39 @@ bool test_payload_replay_fitness() {
     } else if(!check(gpu.payload_replay_programs==0 && gpu.case_counts[0][1]==513,
         "logical allocation errors must not trigger physical replay"))return false;
   }
+  return true;
+}
+
+bool test_global_payload_program_queue() {
+  ScopedEnvironment restore("GAGP_GPU_GLOBAL_PAYLOAD");setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
+  // More programs than bounded physical blocks, no regions, distinct rows.
+  // This exercises the persistent queue, mixed payload/scalar programs and the
+  // host overlap callback while retaining the same logical case reduction.
+  std::vector<BytecodeProgram> programs(96);
+  for(std::size_t i=0;i<programs.size();++i) {
+    programs[i].consts={Value::from_int(i%11)};
+    programs[i].code={ins_a(Opcode::PushConst,0),ins(Opcode::Return)};
+    programs[i].instruction_fuel={0,0};
+  }
+  programs[0].code.insert(programs[0].code.begin()+1,
+      ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1));
+  programs[0].instruction_fuel={0,0,0};
+  std::vector<CaseBindings> cases(33);std::vector<Value> answers;
+  for(int i=0;i<33;++i)answers.push_back(Value::from_int(i%7));
+  FitnessPolicy policy{FitnessMetric::Absolute,FitnessProximity::Discounted};
+  policy.list_allocation_limit=65536;
+  const auto cpu=eval_fitness_cpu(programs,cases,answers,1000,1000.0,512,policy);
+  FitnessSessionGpu session;
+  if(!check(session.init(cases,answers,1000,512,1000.0,policy).ok,"global payload queue init"))return false;
+  bool callback=false;
+  const auto gpu=session.eval_programs(programs,true,[&]{callback=true;});
+  if(!check(gpu.ok && gpu.fitness==cpu && callback,"global payload mixed program queue/overlap parity")) {
+    std::cerr<<gpu.err.message<<'\n';return false;
+  }
+  if(!check(gpu.execution_profile.find("-global-arena")!=std::string::npos && gpu.payload_replay_programs==0,
+      "global initial payload executor selection"))return false;
+  for(const auto& count:gpu.case_counts)
+    if(!check(count[0]==33 && count[1]==0,"global payload queue case ownership"))return false;
   return true;
 }
 
@@ -399,7 +439,7 @@ int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() ||
+  if (!test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_global_payload_program_queue() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

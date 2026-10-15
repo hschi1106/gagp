@@ -36,6 +36,52 @@ using gpu_detail::DProgramMeta;
 using gpu_detail::DResult;
 using gpu_detail::DStringPayloadEntry;
 
+// Shared bounded storage for initial generic payload evaluation and replay.
+// All buffers are per physical lane; logical lane reduction remains unchanged.
+struct PayloadWorkspaceStorage {
+  static constexpr int threads=32;
+  static constexpr std::size_t budget=512u*1024u*1024u;
+  std::vector<void*> allocations;
+  gpu_detail::DRegionWorkspace workspace{};
+  std::size_t blocks=0;
+  ~PayloadWorkspaceStorage(){clear();}
+  void clear(){for(auto p:allocations)cudaFree(p);allocations.clear();}
+  bool allocate(void** p,std::size_t bytes) {
+    if(!bytes){*p=nullptr;return true;}
+    if(cudaMalloc(p,bytes)!=cudaSuccess)return false;
+    allocations.push_back(*p);return true;
+  }
+  bool prepare(gpu_detail::DRegionWorkspace prototype,std::size_t programs,int lanes,
+      int entries,int values,int bytes,bool indexed) {
+    workspace=prototype;
+    workspace.window_executor=false;workspace.coordinate_executor=false;
+    workspace.unboxed_window_frames=false;workspace.window_soa=false;
+    workspace.measure_phase_cache=false;
+    workspace.fitness_lanes=lanes;
+    workspace.payload_entry_capacity=entries;
+    workspace.payload_value_capacity=values;
+    workspace.payload_byte_capacity=bytes;
+    const auto frame_size=!workspace.compact_frames?sizeof(gpu_detail::DRegionFrame):
+        workspace.two_state_frames?sizeof(gpu_detail::DCompactPairRegionFrame):sizeof(gpu_detail::DCompactRegionFrame);
+    const auto frame_bytes=frame_size*workspace.frame_capacity;
+    const auto key_bytes=sizeof(std::int64_t)*gpu_detail::DMAX_REGION_STATES*workspace.memo_capacity;
+    const auto memo_bytes=sizeof(Value)*workspace.memo_capacity;
+    const auto payload_bytes=std::size_t(entries)*(sizeof(gpu_detail::DStringPayloadEntry)+sizeof(gpu_detail::DListPayloadEntry))+
+        std::size_t(values)*sizeof(Value)+bytes+(indexed?std::size_t(entries)*2*sizeof(int):0);
+    blocks=std::min(programs,budget/(threads*(payload_bytes+frame_bytes+key_bytes+memo_bytes)));
+    if(!blocks)return false;
+    const auto slots=blocks*threads;
+    return (!indexed || allocate(reinterpret_cast<void**>(&workspace.payload_list_index),slots*entries*2*sizeof(int))) &&
+        allocate(reinterpret_cast<void**>(&workspace.payload_string_entries),slots*entries*sizeof(gpu_detail::DStringPayloadEntry)) &&
+        allocate(reinterpret_cast<void**>(&workspace.payload_list_entries),slots*entries*sizeof(gpu_detail::DListPayloadEntry)) &&
+        allocate(reinterpret_cast<void**>(&workspace.payload_string_bytes),slots*bytes) &&
+        allocate(reinterpret_cast<void**>(&workspace.payload_list_values),slots*values*sizeof(Value)) &&
+        allocate(reinterpret_cast<void**>(&workspace.frames),slots*frame_bytes) &&
+        allocate(reinterpret_cast<void**>(&workspace.memo_keys),slots*key_bytes) &&
+        allocate(reinterpret_cast<void**>(&workspace.memo_values),slots*memo_bytes);
+  }
+};
+
 struct HostPayloadPack {
   std::vector<DStringPayloadEntry> string_entries;
   std::vector<char> string_bytes;
@@ -614,6 +660,38 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
 
   const auto launch_prep_t0 = std::chrono::steady_clock::now();
   const bool has_regions = !packed.region_segments.empty();
+  bool extended_payload = false;
+  for (const auto& program : programs) {
+    auto needs_payload = [](const auto& code) {
+      for (const auto& ins : code) {
+        if (ins.op != Opcode::CallBuiltin) continue;
+        const auto id = static_cast<BuiltinId>(ins.a);
+        if (id == BuiltinId::Concat || id == BuiltinId::Singleton ||
+            id == BuiltinId::Append || id == BuiltinId::Prepend ||
+            id == BuiltinId::CharToString || id == BuiltinId::ToString ||
+            id == BuiltinId::Slice || id == BuiltinId::Reverse) return true;
+      }
+      return false;
+    };
+    extended_payload |= needs_payload(program.code);
+    for (const auto& segment : program.bounded_region_segments) {
+      // Sequence-window transitions materialize Slice even without a phase opcode.
+      extended_payload |= segment.plan.progress == RegionProgressKind::SequenceWindows;
+      extended_payload |= needs_payload(segment.base_body.program.code) ||
+                          needs_payload(segment.combine.program.code) ||
+                          (segment.boundary && needs_payload(segment.boundary->program.code)) ||
+                          needs_payload(segment.base_predicate.program.code);
+      for (const auto& phase : segment.preparations)
+        extended_payload |= needs_payload(phase.program.code);
+      for (const auto& phase : segment.request_expressions)
+        extended_payload |= needs_payload(phase.program.code);
+    }
+  }
+  const bool global_payload = extended_payload && !use_views && std::getenv("GAGP_GPU_GLOBAL_PAYLOAD") &&
+      std::string(std::getenv("GAGP_GPU_GLOBAL_PAYLOAD"))!="0";
+  const bool payload_index = global_payload || (extended_payload && !use_views && std::getenv("GAGP_GPU_PAYLOAD_INDEX") &&
+      std::string(std::getenv("GAGP_GPU_PAYLOAD_INDEX"))!="0");
+
   std::size_t shared_bytes = kernel_shared_bytes(packed.max_code_len, impl_->blocksize);
   if (shared_bytes > static_cast<std::size_t>(impl_->props.sharedMemPerBlock)) {
     return fitness_eval_single_error(ErrCode::Value, "shared memory requirement exceeded");
@@ -711,7 +789,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       workspace_bytes_per_thread * static_cast<std::size_t>(impl_->blocksize);
   std::size_t region_blocks = workspace_bytes_per_block == 0 ? programs.size() :
       std::min(programs.size(), kRegionWorkspaceBudget / workspace_bytes_per_block);
-  if (has_regions && region_blocks == 0) {
+  if (has_regions && !global_payload && region_blocks == 0) {
     return fitness_eval_single_error(ErrCode::Value, "GPU region workspace budget exceeded");
   }
   std::size_t generic_blocks=capability_buckets?std::min(region_blocks,generic_indices.size()):0;
@@ -746,6 +824,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   std::chrono::steady_clock::time_point teardown_t0;
   {
     gpu_detail::DeviceArena dev;
+    PayloadWorkspaceStorage initial_payload;
     struct IndexBuffers {
       int *compact=nullptr,*generic=nullptr,*compact_queue=nullptr,*generic_queue=nullptr;
       unsigned int* overflows=nullptr;
@@ -756,7 +835,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         cudaMemset(indices.overflows,0,sizeof(unsigned int)*programs.size()) != cudaSuccess)
       return fitness_eval_single_error(ErrCode::Value,"cuda payload overflow diagnostics allocation failure");
     region_workspace.payload_overflows=indices.overflows;
-    if (has_regions && std::getenv("GAGP_DYNAMIC_PROGRAM_QUEUE")) {
+    if (has_regions && !global_payload && std::getenv("GAGP_DYNAMIC_PROGRAM_QUEUE")) {
       if (!gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(region_blocks)}, &indices.compact_queue) ||
           (capability_buckets && !gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(generic_blocks)}, &indices.generic_queue)))
         return fitness_eval_single_error(ErrCode::Value, "cuda program queue allocation failure");
@@ -795,7 +874,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if (cudaMemset(dev.d_fitness, 0, sizeof(double) * programs.size()) != cudaSuccess) {
       return fitness_eval_single_error(ErrCode::Value, "cuda memset failure");
     }
-    if (has_regions) {
+    if (has_regions && !global_payload) {
       const std::size_t frame_bytes = workspace_frame_bytes;
       const std::size_t key_bytes = workspace_threads * region_workspace.memo_capacity *
                                     gpu_detail::DMAX_REGION_STATES * sizeof(std::int64_t);
@@ -806,6 +885,13 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       region_workspace.frames = impl_->region_frames;
       region_workspace.memo_keys = impl_->region_memo_keys;
       region_workspace.memo_values = impl_->region_memo_values;
+    }
+    if(global_payload) {
+      impl_->release_region_workspace();
+      if(!initial_payload.prepare(region_workspace,programs.size(),impl_->blocksize,1024,8192,8192,true))
+        return fitness_eval_single_error(ErrCode::Value,"cuda initial global payload workspace capacity/allocation failure");
+      if(!gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(initial_payload.blocks)},&indices.compact_queue))
+        return fitness_eval_single_error(ErrCode::Value,"cuda initial global payload queue allocation failure");
     }
     const auto upload_t1 = std::chrono::steady_clock::now();
 
@@ -822,37 +908,20 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
           cudaEventRecord(events.start) != cudaSuccess)
         return fitness_eval_single_error(ErrCode::Value, "cuda overlap timing failure");
     }
-    bool extended_payload = false;
-    for (const auto& program : programs) {
-      auto needs_payload = [](const auto& code) {
-        for (const auto& ins : code) {
-          if (ins.op != Opcode::CallBuiltin) continue;
-          const auto id = static_cast<BuiltinId>(ins.a);
-          if (id == BuiltinId::Concat || id == BuiltinId::Singleton ||
-              id == BuiltinId::Append || id == BuiltinId::Prepend ||
-              id == BuiltinId::CharToString || id == BuiltinId::ToString ||
-              id == BuiltinId::Slice || id == BuiltinId::Reverse) return true;
-        }
-        return false;
-      };
-      extended_payload |= needs_payload(program.code);
-      for (const auto& segment : program.bounded_region_segments) {
-        // Sequence-window transitions materialize Slice even without a phase opcode.
-        extended_payload |= segment.plan.progress == RegionProgressKind::SequenceWindows;
-        extended_payload |= needs_payload(segment.base_body.program.code) ||
-                            needs_payload(segment.combine.program.code) ||
-                            (segment.boundary && needs_payload(segment.boundary->program.code)) ||
-                            needs_payload(segment.base_predicate.program.code);
-        for (const auto& phase : segment.preparations)
-          extended_payload |= needs_payload(phase.program.code);
-        for (const auto& phase : segment.request_expressions)
-          extended_payload |= needs_payload(phase.program.code);
-      }
-    }
-    const bool payload_index = extended_payload && !use_views && std::getenv("GAGP_GPU_PAYLOAD_INDEX") &&
-        std::string(std::getenv("GAGP_GPU_PAYLOAD_INDEX"))!="0";
     const auto kernel_t0 = std::chrono::steady_clock::now();
-    if (direct_root) {
+    if(global_payload) {
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true>
+          <<<static_cast<unsigned>(initial_payload.blocks),PayloadWorkspaceStorage::threads,shared_bytes>>>(
+              static_cast<int>(programs.size()),dev.d_consts,dev.d_code,dev.d_metas,
+              impl_->d_shared_case_local_vals,impl_->d_shared_case_local_set,impl_->d_expected,
+              dev.d_string_payload_entries,static_cast<int>(payload_pack.string_entries.size()),dev.d_string_payload_bytes,
+              dev.d_list_payload_entries,static_cast<int>(payload_pack.list_entries.size()),dev.d_list_payload_values,
+              dev.d_phase_code,dev.d_phase_consts,impl_->fuel,impl_->penalty,impl_->policy,dev.d_fitness,
+              dev.d_region_segments,static_cast<int>(packed.region_segments.size()),
+              dev.d_region_phases,static_cast<int>(packed.region_phases.size()),
+              dev.d_region_bindings,static_cast<int>(packed.region_bindings.size()),initial_payload.workspace,
+              dev.d_case_counts,nullptr,nullptr,indices.compact_queue);
+    } else if (direct_root) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::BoundIntListViews, true, true>
           <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
               static_cast<int>(capability_buckets?compact_indices.size():programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
@@ -970,6 +1039,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       }
       return fitness_eval_single_error(ErrCode::Value, msg);
     }
+    // Initial and replay global arenas never coexist, preserving the scratch
+    // bound. Every initial lane has finished, including any overlap callback.
+    initial_payload.clear();
     // Physical payload exhaustion is not a program error. Replay only affected
     // programs on GPU, replacing their entire original logical-lane reduction.
     // Global scratch bounds concurrency; no large per-thread local arrays and
@@ -986,52 +1058,18 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     int replay_entries=65536;
     int replay_values=static_cast<int>(std::max<unsigned>(65536,impl_->policy.list_allocation_limit));
     int replay_bytes=8192;
-    constexpr std::size_t replay_budget=512u*1024u*1024u;
     while(!replay_programs.empty()) {
-      struct ReplayStorage {
-        std::vector<void*> allocations;
-        ~ReplayStorage(){for(auto p:allocations)cudaFree(p);}
-        bool allocate(void** p,std::size_t bytes) {
-          if(!bytes){*p=nullptr;return true;}
-          if(cudaMalloc(p,bytes)!=cudaSuccess)return false;
-          allocations.push_back(*p);return true;
-        }
-      } replay_storage;
-      auto replay_workspace=region_workspace;
-      // Generic region executor only. Original compact frames remain compatible.
-      replay_workspace.window_executor=false;replay_workspace.coordinate_executor=false;
-      replay_workspace.unboxed_window_frames=false;replay_workspace.window_soa=false;
-      replay_workspace.measure_phase_cache=false;
-      replay_workspace.fitness_lanes=impl_->blocksize;
-      replay_workspace.payload_entry_capacity=replay_entries;
-      replay_workspace.payload_value_capacity=replay_values;
-      replay_workspace.payload_byte_capacity=replay_bytes;
-      const std::size_t replay_frame_size=!replay_workspace.compact_frames?sizeof(gpu_detail::DRegionFrame):
-          replay_workspace.two_state_frames?sizeof(gpu_detail::DCompactPairRegionFrame):sizeof(gpu_detail::DCompactRegionFrame);
-      const std::size_t payload_per_thread=std::size_t(replay_entries)*(sizeof(gpu_detail::DStringPayloadEntry)+sizeof(gpu_detail::DListPayloadEntry))+
-          std::size_t(replay_values)*sizeof(Value)+replay_bytes+
-          (payload_index?std::size_t(replay_entries)*2*sizeof(int):0);
-      const std::size_t frame_per_thread=replay_frame_size*replay_workspace.frame_capacity;
-      const std::size_t memo_keys_per_thread=sizeof(std::int64_t)*gpu_detail::DMAX_REGION_STATES*replay_workspace.memo_capacity;
-      const std::size_t memo_values_per_thread=sizeof(Value)*replay_workspace.memo_capacity;
-      const std::size_t replay_per_thread=payload_per_thread+frame_per_thread+memo_keys_per_thread+memo_values_per_thread;
-      constexpr int replay_threads=32;
-      const auto replay_blocks=std::min(replay_programs.size(),replay_budget/(replay_threads*replay_per_thread));
-      if(!replay_blocks)
-        return fitness_eval_single_error(ErrCode::Value,"GPU payload replay workspace budget exhausted; physical overflow remains unscored");
-      const auto slots=replay_blocks*replay_threads;
+      PayloadWorkspaceStorage replay_storage;
+      if(!replay_storage.prepare(region_workspace,replay_programs.size(),impl_->blocksize,
+          replay_entries,replay_values,replay_bytes,payload_index))
+        return fitness_eval_single_error(ErrCode::Value,"GPU payload replay workspace capacity/allocation failure; physical overflow remains unscored");
+      const auto replay_workspace=replay_storage.workspace;
+      const auto replay_blocks=replay_storage.blocks;
+      constexpr int replay_threads=PayloadWorkspaceStorage::threads;
       int* replay_indices=nullptr;
       if(!replay_storage.allocate(reinterpret_cast<void**>(&replay_indices),sizeof(int)*replay_programs.size()) ||
-          cudaMemcpy(replay_indices,replay_programs.data(),sizeof(int)*replay_programs.size(),cudaMemcpyHostToDevice)!=cudaSuccess ||
-          (payload_index && !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.payload_list_index),slots*replay_entries*2*sizeof(int))) ||
-          !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.payload_string_entries),slots*replay_entries*sizeof(gpu_detail::DStringPayloadEntry)) ||
-          !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.payload_list_entries),slots*replay_entries*sizeof(gpu_detail::DListPayloadEntry)) ||
-          !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.payload_string_bytes),slots*replay_bytes) ||
-          !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.payload_list_values),slots*replay_values*sizeof(Value)) ||
-          !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.frames),slots*frame_per_thread) ||
-          !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.memo_keys),slots*memo_keys_per_thread) ||
-          !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.memo_values),slots*memo_values_per_thread))
-        return fitness_eval_single_error(ErrCode::Value,"cuda payload replay workspace allocation failure");
+          cudaMemcpy(replay_indices,replay_programs.data(),sizeof(int)*replay_programs.size(),cudaMemcpyHostToDevice)!=cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value,"cuda payload replay index allocation failure");
       KernelEvents replay_events;
       if(cudaEventCreate(&replay_events.start)!=cudaSuccess || cudaEventCreate(&replay_events.end)!=cudaSuccess ||
           cudaEventRecord(replay_events.start)!=cudaSuccess)
@@ -1108,7 +1146,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
 
     out.ok = true;
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
-    if(payload_index && out.payload_replay_programs)out.execution_profile+="-list-index";
+    if(global_payload)out.execution_profile+="-global-arena";
+    if(payload_index && (global_payload || out.payload_replay_programs))out.execution_profile+="-list-index";
     if(out.payload_replay_programs)out.execution_profile+="-gpu-arena-replay";
     if (use_views && impl_->d_case_order) out.execution_profile += "-sorted";
     if (direct_phases) out.execution_profile += "-direct";

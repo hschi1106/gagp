@@ -481,3 +481,24 @@ cost is included in kernel timing, and performance requires a measured flag-0
 versus flag-1 comparison. The execution profile adds `-list-index` only when the
 indexed replay actually runs. `gagp_test_extended_payload_gpu` covers collisions,
 duplicates, aliases and full-case CPU parity with the flag both off and on.
+
+`GAGP_GPU_GLOBAL_PAYLOAD=1` optionally routes initial generic extended-payload
+evaluation through the same pointer-backed indexed arena executor as replay.
+It retains the original physical capacities (1024 entries, 8192 list values and
+8192 string bytes per invocation) and the logical fitness block width. Thirty-two
+physical threads process those logical lanes; a persistent GPU program queue
+reuses a bounded set of blocks across the population. Scalars in the same
+population use the same original row mapping and generic VM. View-specialized
+populations remain on their admitted path.
+
+Initial payload, index, frame and memo buffers share a 512 MiB scratch budget.
+The ordinary cached region workspace is released before this allocation, and
+initial scratch is released after synchronization before any replay scratch is
+allocated. Preparation/allocation, execution, transfers and releases remain
+inside total evaluation timing; allocations are included in upload timing and
+all GPU launches in kernel timing. Physical overflows retain the existing GPU
+replay behavior and counters. The execution profile adds `-global-arena`.
+`gagp_test_extended_payload_gpu` compares both initial routes across logical and
+physical capacity boundaries, and checks a 96-program mixed scalar/list queue,
+logical 512-lane reduction and the overlap callback. This setting changes no
+CPU threading or reproduction backend.
