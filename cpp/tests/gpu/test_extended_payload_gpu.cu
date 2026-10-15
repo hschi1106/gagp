@@ -439,7 +439,6 @@ bool test_payload_replay_fitness() {
 
 bool test_global_window_aliases() {
   ScopedEnvironment restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),restore_aliases("GAGP_GPU_GLOBAL_WINDOW_ALIASES");
-  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
   std::vector<Value> values;for(int i=0;i<200;++i)values.push_back(Value::from_int(i-100));
   const auto source=payload::make_int_list_value(values);
   BytecodeProgram program;program.n_locals=1;
@@ -456,7 +455,8 @@ bool test_global_window_aliases() {
   std::vector<CaseBindings> cases(33);std::vector<Value> answers(33,source);
   FitnessPolicy policy{FitnessMetric::Exact}; // No logical budget activates aliases implicitly.
   const auto cpu=eval_fitness_cpu({program},cases,answers,1000,1000.0,512,policy);
-  for(const char* aliases:{"0","1"}) {
+  for(const char* global:{"0","1"}) for(const char* aliases:{"0","1"}) {
+    setenv("GAGP_GPU_GLOBAL_PAYLOAD",global,1);
     setenv("GAGP_GPU_GLOBAL_WINDOW_ALIASES",aliases,1);
     FitnessSessionGpu session;
     if(!check(session.init(cases,answers,1000,512,1000.0,policy).ok,"global aliases init"))return false;
@@ -583,11 +583,65 @@ bool test_fused_concat() {
   return test_extended_payload() && test_extended_list_fitness();
 }
 
+__global__ void inspect_extended_aliases(gpu_detail::DExtendedPayloadState* state,int* failure) {
+  using namespace gpu_detail;
+  *failure=0;
+  for(int type=0;type<3;++type) for(int local=0;local<2;++local)
+  for(int scenario=0;scenario<4;++scenario) for(int aliases=0;aliases<2;++aliases) {
+    const int test=1+(((type*2+local)*4+scenario)*2+aliases);
+    const ValueTag tag=type==0?ValueTag::IntList:type==1?ValueTag::FloatList:ValueTag::StringList;
+    Value elements[6];
+    for(int i=0;i<6;++i) elements[i]=type==0?Value::from_int(i-3):type==1?
+        Value::from_float(i*0.25-0.5):Value::from_string_hash_len(i+100,i);
+    const Value source=d_make_list_hash_len(tag,d_hash_list_payload(elements,6),6);
+    const Value empty=d_make_list_hash_len(tag,d_hash_list_payload(nullptr,0),0);
+    DListPayloadEntry entries[2]={{tag,empty.i,0,0},{tag,source.i,0,6}};
+    DPayloadTables tables{};tables.list_entries=entries;tables.list_entry_count=2;tables.list_values=elements;
+    state->list_entry_count=0;state->list_values_used=0;state->list_entry_capacity=1024;
+    state->logical_list_limit=0;state->logical_list_used=0;state->physical_capacity_exceeded=false;
+    state->alias_windows=aliases!=0;state->fused_list_concat=false;
+    Value value=source;ErrCode err=ErrCode::Value;
+    if(local) {
+      const Value concat[2]={source,empty};
+      if(!d_builtin_call<DPayloadFlavor::ExtendedMixed>(BuiltinId::Concat,concat,2,tables,*state,value,err)) {*failure=test;return;}
+    }
+    if(scenario==1)state->list_values_used=8192;
+    if(scenario==2)state->list_entry_capacity=state->list_entry_count;
+    const Value slice[3]={value,Value::from_int(1),Value::from_int(scenario==3?1:5)};
+    const bool ok=d_builtin_call<DPayloadFlavor::ExtendedMixed>(BuiltinId::Slice,slice,3,tables,*state,value,err);
+    const bool should_fail=scenario==2 || (scenario==1 && !aliases);
+    if(ok==should_fail || state->physical_capacity_exceeded!=should_fail || state->logical_list_used!=0) {*failure=test;return;}
+    if(should_fail) {if(err!=ErrCode::Value){*failure=test;return;}continue;}
+    const int first_len=scenario==3?0:4;
+    if(value.i!=d_make_list_hash_len(tag,d_hash_list_payload(first_len?elements+1:nullptr,first_len),first_len).i) {*failure=test;return;}
+    if(scenario==3)continue;
+    const Value nested[3]={value,Value::from_int(1),Value::from_int(3)};
+    if(!d_builtin_call<DPayloadFlavor::ExtendedMixed>(BuiltinId::Slice,nested,3,tables,*state,value,err) ||
+        value.i!=d_make_list_hash_len(tag,d_hash_list_payload(elements+2,2),2).i) {*failure=test;return;}
+    const Value* resolved=nullptr;int length=0;
+    if(!d_lookup_list_payload(tables,*state,value,resolved,length) || length!=2 ||
+        resolved[0].i!=elements[2].i || resolved[1].i!=elements[3].i) {*failure=test;return;}
+    const int expected_used=scenario==1?8192:(local?6:0)+(aliases?0:6);
+    if(state->list_values_used!=expected_used) {*failure=test;return;}
+  }
+}
+
+bool test_extended_aliases() {
+  gpu_detail::DExtendedPayloadState* state=nullptr;int* failure=nullptr;
+  if(cudaMallocManaged(&state,sizeof(*state))!=cudaSuccess)return false;
+  if(cudaMallocManaged(&failure,sizeof(int))!=cudaSuccess){cudaFree(state);return false;}
+  *failure=-1;inspect_extended_aliases<<<1,1>>>(state,failure);
+  const auto status=cudaDeviceSynchronize();
+  const bool passed=status==cudaSuccess && *failure==0;
+  if(!passed)std::cerr<<"extended nested aliases failure "<<*failure<<'\n';
+  cudaFree(state);cudaFree(failure);return passed;
+}
+
 int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_fused_concat() || !test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_extended_aliases() || !test_fused_concat() || !test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

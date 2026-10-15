@@ -34,6 +34,7 @@ struct DThreadPayloadStateT {
   unsigned long long logical_list_used = 0;
   bool physical_capacity_exceeded = false;
   bool fused_list_concat = false;
+  bool alias_windows = false;
   char string_bytes[(MaxStringBytes > 0) ? MaxStringBytes : 1];
   Value list_values[(MaxListValues > 0) ? MaxListValues : 1];
 };
@@ -842,7 +843,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       const Value* xp = nullptr;
       int xl = 0;
       bool alias_windows=st.logical_list_limit!=0;
-      if constexpr (Flavor==DPayloadFlavor::ArenaMixed || Flavor==DPayloadFlavor::IndexedArena)
+      if constexpr (d_exact_payload_flavor<Flavor>)
         alias_windows|=st.alias_windows;
       if (alias_windows && d_lookup_list_payload(tables, st, x, xp, xl) &&
           l >= 0 && l <= xl && h >= 0 && h <= xl) {

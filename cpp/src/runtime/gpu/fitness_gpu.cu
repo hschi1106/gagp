@@ -690,7 +690,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   }
   const bool global_payload = extended_payload && !use_views && std::getenv("GAGP_GPU_GLOBAL_PAYLOAD") &&
       std::string(std::getenv("GAGP_GPU_GLOBAL_PAYLOAD"))!="0";
-  const bool global_window_aliases = global_payload && std::getenv("GAGP_GPU_GLOBAL_WINDOW_ALIASES") &&
+  const bool global_window_aliases = extended_payload && !use_views && std::getenv("GAGP_GPU_GLOBAL_WINDOW_ALIASES") &&
       std::string(std::getenv("GAGP_GPU_GLOBAL_WINDOW_ALIASES"))!="0";
   const bool payload_index = global_payload || (extended_payload && !use_views && std::getenv("GAGP_GPU_PAYLOAD_INDEX") &&
       std::string(std::getenv("GAGP_GPU_PAYLOAD_INDEX"))!="0");
