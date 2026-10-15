@@ -19,6 +19,7 @@ Sequence builtins:
 - `slice(x, lo, hi)`
 - `index(x, i)`
 - `index_nonnegative(x, i)`
+- `index_clamped_or_zero(xs, i)`
 - `append(xs, x)`
 - `prepend(xs, x)`
 - `reverse(x)`
