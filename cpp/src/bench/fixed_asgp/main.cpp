@@ -163,6 +163,12 @@ void audit(const Json& source, const std::string& grammar_path, const std::strin
   const auto definition=gg::load_definition(grammar_path);
   const auto grammar=gg::compile_grammar(definition);
   const auto original=solution(spec.id);
+  std::vector<Json> witness_depths;int witness_max_depth=0;
+  const auto source_grammar=asgp::SchemeGrammar::Build(spec.Grammar());
+  for(int p=0;p<source_grammar.count;++p) {
+    const int depth=asgp::SubtreeDepth(original.phases[p],0);
+    witness_depths.push_back(number(depth));witness_max_depth=std::max(witness_max_depth,depth);
+  }
   asgp::FitnessScratch scratch;
   const auto fit=asgp::Score(original,spec,spec.train,fitness_config(),scratch);
   if (fit.wrong!=0) throw std::runtime_error("known ASGP solution does not solve frozen cases");
@@ -192,6 +198,8 @@ void audit(const Json& source, const std::string& grammar_path, const std::strin
     unique.insert(gg::canonical_json(c.object_v.at("input")));
   write(output,object({{"task",string(spec.id)}, {"cases",number(cases.size())},
                        {"unique_inputs",number(unique.size())}, {"known_solution_cpu_mismatches",number(cpu_bad)},
+                       {"known_solution_phase_depths",array(std::move(witness_depths))},{"known_solution_max_phase_depth",number(witness_max_depth)},
+                       {"known_solution_within_source_depth7",number(witness_max_depth<=7)},
                        {"known_solution_asgp_wrong",number(fit.wrong)}, {"known_solution_gpu_fitness",number(gpu.fitness[0])}}));
   const double expected_fitness=task_fitness_policy(spec).metric==gagp::FitnessMetric::Legacy &&
       !gagp::is_numeric(cases[0].expected) ? 1024.0 : 0.0;
