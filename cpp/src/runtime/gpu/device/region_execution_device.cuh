@@ -177,7 +177,7 @@ __device__ DResult d_region_phase(
     const auto& phase = tables.region_phases[phase_index];
     const bool enabled=Flavor==DPayloadFlavor::BoundIntListViews ||
         (payload_state.private_intlists && payload_state.private_bound_phases);
-    const auto read=[&](int index) {
+    const auto read=[&](int index) -> Value {
         const auto& binding=tables.region_bindings[index];
         switch(binding.bank) {
           case RegionSlotBank::State:return static_cast<Value>(frame.state[binding.slot]);
