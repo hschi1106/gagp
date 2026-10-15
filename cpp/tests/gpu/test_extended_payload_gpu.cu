@@ -11,7 +11,6 @@
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 #include "../../src/runtime/gpu/device/builtins_device.cuh"
-#include "../../src/runtime/gpu/read_only_payload_profile.hpp"
 using namespace gagp;
 Instr ins(Opcode op) { return {op, 0, 0, false, false}; }
 Instr ins_a(Opcode op, int a) { return {op, a, 0, true, false}; }
@@ -356,73 +355,6 @@ bool test_scalar_region_index_rollback() {
         std::string("scalar region index rollback parity index=")+indexed))return false;
   }
   return true;
-}
-
-bool test_read_only_payload() {
-  using namespace gpu_detail;
-  PackResult proof;
-  proof.metas.resize(1);proof.metas[0].is_valid=1;
-  DInstr instruction;instruction.op=OP_CALL_BUILTIN;
-  for(int id=0;id<=static_cast<int>(BuiltinId::IndexClampedOrZero);++id) {
-    instruction.a=id;proof.all_code={instruction};
-    const bool allowed=id<=4 || id==12 || id==13 || id==14 || id==28 || id==29;
-    if(!check(read_only_payload_supported(proof)==allowed,"read-only builtin allowlist"))return false;
-  }
-  instruction.op=OP_RETURN;proof.all_code={instruction};
-  if(!check(read_only_payload_supported(proof),"read-only current packed root"))return false;
-  proof.all_code[0].op=OP_EMPTY_LIST;
-  if(!check(!read_only_payload_supported(proof),"changed packed code must revoke proof"))return false;
-  proof.all_code[0].op=255;
-  if(!check(!read_only_payload_supported(proof),"unknown packed opcode must reject"))return false;
-  proof.all_code[0].op=OP_RETURN;proof.metas[0].is_valid=0;
-  if(!check(!read_only_payload_supported(proof),"invalid packed program must reject"))return false;
-  proof.metas[0].is_valid=1;proof.region_segments.resize(1);
-  if(!check(!read_only_payload_supported(proof),"regions must reject read-only profile"))return false;
-
-  ScopedEnvironment restore("GAGP_GPU_READ_ONLY_PAYLOAD");
-  const auto text=payload::make_string_value("large");
-  const auto list=payload::make_int_list_value({Value::from_int(7)});
-  const auto floats=payload::make_float_list_value({Value::from_float(-0.25)});
-  const auto strings=payload::make_string_list_value({text});
-  BytecodeProgram constant;constant.consts={text};
-  constant.code={ins_a(Opcode::PushConst,0),ins(Opcode::Return)};
-  auto list_constant=constant;list_constant.consts={list};
-  auto float_constant=constant;float_constant.consts={floats};
-  auto string_constant=constant;string_constant.consts={strings};
-  auto invalid=constant;invalid.code={ins_a(Opcode::PushConst,0),ins(Opcode::Neg),ins(Opcode::Return)};
-  auto zero=constant;zero.consts={Value::from_int(0)};
-  zero.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,0),ins(Opcode::Div),ins(Opcode::Return)};
-  BytecodeProgram loop;loop.code={ins_a(Opcode::Jmp,0)};
-  std::vector<BytecodeProgram> programs{constant,list_constant,float_constant,string_constant,invalid,zero,loop};
-  const std::vector<CaseBindings> cases(33);
-  for(const auto& answer:{text,list,floats,strings}) {
-    std::vector<Value> answers(33,answer);
-    FitnessPolicy policy{FitnessMetric::Levenshtein};
-    std::vector<CpuFitnessCaseCounts> counts;
-    const auto cpu=eval_fitness_cpu(programs,cases,answers,16,1000,64,policy,nullptr,&counts);
-    for(const char* enabled:{"0","1"}) {
-      setenv("GAGP_GPU_READ_ONLY_PAYLOAD",enabled,1);
-      FitnessSessionGpu session;
-      if(!check(session.init(cases,answers,16,64,1000,policy).ok,"read-only session init"))return false;
-      const auto gpu=session.eval_programs(programs,true);
-      if(!check(gpu.ok && gpu.fitness==cpu &&
-          (gpu.execution_profile=="read-only-payload")==bool(enabled[0]=='1'),"read-only fitness/profile parity"))return false;
-      for(std::size_t i=0;i<programs.size();++i)
-        if(!check(gpu.case_counts[i][0]==counts[i].cases && gpu.case_counts[i][1]==counts[i].errors &&
-            gpu.case_counts[i][2]==counts[i].timeouts,"read-only error/fuel parity"))return false;
-    }
-  }
-  // A read-only builtin with payload access must retain Mixed semantics.
-  auto indexed=list_constant;indexed.consts.push_back(Value::from_int(0));
-  indexed.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),
-      ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Index),2),ins(Opcode::Return)};
-  setenv("GAGP_GPU_READ_ONLY_PAYLOAD","1",1);
-  FitnessSessionGpu session;
-  std::vector<Value> answers(33,Value::from_int(7));
-  if(!check(session.init(cases,answers,16,64,1000).ok,"read-only fallback init"))return false;
-  const auto gpu=session.eval_programs({indexed},true);
-  return check(gpu.ok && gpu.execution_profile=="mixed" &&
-      gpu.fitness==eval_fitness_cpu({indexed},cases,answers,16,1000,64),"read-only Index fallback parity");
 }
 
 bool test_private_list_index() {
@@ -902,7 +834,7 @@ int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_extended_payload() || !test_private_list_index() || !test_read_only_payload() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

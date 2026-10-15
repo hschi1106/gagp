@@ -621,15 +621,3 @@ memory, so total device usage can exceed this arena cap. With enough pending
 work, 2/4 GiB caps can consume approximately 2/4 GiB of arena scratch. Treat those
 as explicit per-run A/B settings, not a new default or an established speedup.
 The parser and exact-cap arithmetic are checked by `gagp_test_fitness_contract`.
-
-`GAGP_GPU_READ_ONLY_PAYLOAD=1` optionally removes temporary thread payload arrays
-for a population whose current packed root instructions contain only
-arithmetic, control flow, local/constant moves, type checks, and an explicit
-allowlist of payload-independent builtins (Abs, Min, Max, Clip, Len, IsInt and
-protected integer division/remainder). Regions, constructors, unknown instructions,
-and payload-reading builtins such as Index retain the ordinary evaluator.
-The proof scans the same packed code uploaded for execution, including current
-owned-population code, rather than a cached host program snapshot. Final fitness
-scoring still resolves immutable global string and typed-list payloads. The
-execution profile is `read-only-payload`; fuel, errors and reduction are unchanged.
-`gagp_test_extended_payload_gpu` checks admission, fallback and CPU/GPU parity.
