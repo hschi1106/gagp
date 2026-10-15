@@ -427,7 +427,8 @@ bool test_private_measure_cache() {
     FitnessSessionGpu session;
     if(!check(session.init(cases,answers,fuel,lanes,7,policy).ok,"private Measure cache init"))return false;
     const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,7,lanes,policy);
-    for(bool compact_cells:{false,true}) {
+    for(bool tiled:{false,true})for(bool compact_cells:{false,true}) {
+      setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD",tiled?"1":"0",1);
       setenv("GAGP_GPU_COMPACT_INTLIST_CELLS",compact_cells?"1":"0",1);
       setenv("GAGP_GPU_PRIVATE_MEASURE_CACHE","0",1);
       const auto off=session.eval_programs(programs,true);
