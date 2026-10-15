@@ -1,0 +1,23 @@
+from pathlib import Path
+from argparse import Namespace
+from gagp_tools.experiments.fixed_asgp.low_budget import Study,read,save,snapshot_mismatches
+r=Path.cwd();b=r/'logs/list-5x-20261015';old=r/'logs/all-task-repair-20261015'
+a=Namespace(out=b/'sort-screen',binary=r/'cpp/build/release/gagp_fixed_asgp_bench',settings=b/'settings.json',stage='list-capacity-cache-screen',generations=0,rss_gib=4,budget=360,timeout=60,native_depth=24,source_balanced=True)
+s=Study(a);rows=[]
+key=lambda p:[{k:x[k] for k in ['fitness','cases','errors','timeouts','fallbacks','unscored']} for x in p]
+configs=[('base',0,0,0),('sort',1,0,0),('tilesort',1,1,0),('tilesortcache',1,1,1)]
+for task in ['filter_odd','double_letters','small_or_large']:
+ pop=1024;folder=old/'support-balanced'/task;reference=None
+ for label,scale,tile,cache in configs:
+  o=s.out/f'{task}.{label}.json';env={'GAGP_GPU_INITIAL_PAYLOAD_SCALE':'1','GAGP_GPU_SORT_ARENA_CASES':str(scale),'GAGP_GPU_OVERFLOW_DIAGNOSTICS':'1','GAGP_GPU_TILED_INITIAL_PAYLOAD':str(tile),'GAGP_GPU_CONCAT_CACHE':str(cache),'GAGP_SNAPSHOT_DIAGNOSTICS':'1'}
+  # Existing P64 CPU oracle; full P1024 compares identical program results
+  c=s.run(task,label,[a.binary,'measure',folder/'source.json',old/'benchmark-all-g4'/f'{task}.p1024.prepared.json',folder/'grammar.json',pop,'snapshot',o],env)
+  row={'task':task,'population':pop,'label':label,'scale':scale,'tile':tile,'cache':cache,'status':c['status']}
+  if c['status']=='ok':
+   d=read(o);row.update({k:v for k,v in d.items() if k!='programs'});row.update({k:sum(x.get(k,0) for x in d['programs']) for k in ['initial_payload_overflow_cases','initial_payload_overflow_lane_replay_cases','initial_payload_overflow_tile_replay_cases']})
+   if label=='base':
+    row['cpu_mismatches']=0;reference=key(d['programs'])
+    if row['cpu_mismatches']:row['status']='cpu_parity_failed'
+   row['baseline_equal']=reference==key(d['programs'])
+   if not row['baseline_equal']:row['status']='parity_failed'
+  rows.append(row);save(s.out/'summary.json',rows);print(task,label,row['status'],row.get('eval_ms'),row.get('payload_replay_programs'),flush=True)
