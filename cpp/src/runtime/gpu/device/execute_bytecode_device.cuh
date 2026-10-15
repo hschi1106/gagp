@@ -507,7 +507,6 @@ __device__ __noinline__ double d_score_resident(const Value& actual,const Value&
     if(!d_lookup_string_payload(tables,state,actual,a,n) || !d_lookup_string_payload(tables,state,expected,b,m) || m>kFitnessMaxSequence)
       return -fitness_error_ceiling(policy,penalty);
     if(fitness_sequence_length_saturates(n,m,penalty,policy)) return -fabs(penalty);
-    if(policy.trim_sequence_ends)fitness_trim_sequence_ends(a,n,b,m);
     for(int j=0;j<=m;++j)row[j]=j;
     for(int i=1;i<=n;++i) {
       unsigned diagonal=row[0];row[0]=i;

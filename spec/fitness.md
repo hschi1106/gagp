@@ -276,18 +276,3 @@ physical payload exhaustion separately for bounded replay without treating a
 logical limit error as recoverable. This policy does not change fuel or frame
 limits. The aligned fixed-ASGP list-output benchmark selects the source arena
 limit of 65536 cells; source character lists use native IntList cells too.
-
-### Optional exact sequence scorer optimization
-
-`GAGP_FITNESS_TRIM_SEQUENCE_ENDS=1` captures an optional optimization at each CPU
-fitness call and at GPU evaluator initialization. The default is off; callers
-may also set `FitnessPolicy::trim_sequence_ends`. For Levenshtein scoring only,
-matching prefixes and suffixes are removed before computing the same unit-cost
-edit distance. GPU String payloads compare bytes. Value sequences must contain
-only Int fields or only Char fields on both sides; mixed types and Float fields
-retain the ordinary computation. Element comparisons never use payload hashes.
-The original expected-length validation and capped length-gap bound precede
-trimming. Both Capped and Discounted scores, evaluation fuel, errors, case
-counts, and logical allocation budgets are unchanged. Record this option in
-benchmark manifests for same-binary comparisons; changing it after GPU evaluator
-initialization does not change that evaluator.

@@ -1,4 +1,3 @@
-#include "../fitness_options.hpp"
 #include "owned_programs.hpp"
 #include "read_only_payload_profile.hpp"
 #include "gagp/core/semantic_fuel.hpp"
@@ -427,7 +426,6 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
                                                  int fuel,
                                                  int blocksize,
                                                  double penalty, FitnessPolicy policy) {
-  policy=capture_fitness_options(policy);
   if(!valid_fitness_policy(policy))return fitness_init_single_error(ErrCode::Value,"invalid fitness policy");
   if(policy.metric==FitnessMetric::Levenshtein || policy.metric==FitnessMetric::TupleSummary)
     for(const auto& answer:shared_answer)

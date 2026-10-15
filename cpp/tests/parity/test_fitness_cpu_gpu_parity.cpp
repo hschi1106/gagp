@@ -2696,29 +2696,6 @@ int main() {
     }
   }
   {
-    // Same evaluator/cases/fuel, exact scorer candidate versus default.
-    const auto expected_list=gagp::payload::make_int_list_value({Value::from_int(1),Value::from_int(2),Value::from_int(3)});
-    const auto actual_list=gagp::payload::make_int_list_value({Value::from_int(1),Value::from_int(9),Value::from_int(3)});
-    const auto expected_string=gagp::payload::make_string_value("prefixXsuff");
-    const auto actual_string=gagp::payload::make_string_value("prefixYsuff");
-    for(const auto pair:std::vector<std::pair<Value,Value>>{{actual_list,expected_list},
-        {expected_list,expected_list},{actual_string,expected_string},{expected_string,expected_string}})
-      for(auto proximity:{gagp::FitnessProximity::Capped,gagp::FitnessProximity::Discounted}) {
-        auto program=make_return_const_program(0);program.consts={pair.first};
-        gagp::FitnessPolicy policy{gagp::FitnessMetric::Levenshtein,proximity};
-        const auto reference=gagp::eval_fitness_cpu({program},{{}},{pair.second},100,2.5,33,policy);
-        policy.trim_sequence_ends=true;
-        std::vector<unsigned> wrong;
-        const auto cpu=gagp::eval_fitness_cpu({program},{{}},{pair.second},100,2.5,33,policy,&wrong);
-        gagp::FitnessSessionGpu session;
-        if(!session.init({{}},{pair.second},100,33,2.5,policy).ok)return 1;
-        const auto gpu=session.eval_programs({program});
-        if(!gpu.ok || gpu.fitness!=reference || cpu!=reference || gpu.wrong!=wrong) {
-          std::cerr<<"trimmed sequence scorer parity failure";return 1;
-        }
-      }
-  }
-  {
     const auto one = gagp::payload::make_int_list_value({Value::from_int(7)});
     const auto two = gagp::payload::make_int_list_value({Value::from_int(7),Value::from_int(7)});
     auto program = make_builtin_program({one,one}, gagp::BuiltinId::Concat, 2);
