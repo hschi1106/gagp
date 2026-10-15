@@ -1,0 +1,8 @@
+{
+  "source_head": "b88c998",
+  "status": "rejected_and_reverted",
+  "revert": "730cbda",
+  "reason": "physical32 threads still index untiled partial_scores by logical fitness lanes512; reduced allocation caused illegal-memory access, not a performance result",
+  "raw": "logs/list-5x-20261015/warp-shared-screen",
+  "next": "04c731f maps only tiled partial scores to tile-local indices and preserves untiled logical lanes; tests/benchmark pending"
+}
