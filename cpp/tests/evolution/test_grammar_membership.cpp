@@ -13,6 +13,7 @@
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
 #include "../../src/runtime/payload/staging.hpp"
 #include "../../src/evolution/grammar/evaluation_identity.hpp"
+#include "../../src/evolution/grammar/cold_admission.hpp"
 #include "../../src/evolution/grammar/variation_internal.hpp"
 #include "gagp/evolution/grammar/cache.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
@@ -97,6 +98,77 @@ std::string constant_grammar(const std::string& type, const std::string& values)
     R"("},"search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":100},
     "nonterminals":[{"id":"Value","type":")" + type + R"(","scope":[],"alternatives":[
     {"id":"constant","weight":1,"expression":{"constant":{"type":")" + type + R"(","values":)" + values + "}}}]}]}";
+}
+void test_cold_payload_proofs() {
+  const char* enabled=std::getenv("GAGP_COLD_PAYLOAD_PROOFS");
+  const std::optional<std::string> previous=enabled?std::optional<std::string>(enabled):std::nullopt;
+  struct Restore {std::optional<std::string> value;~Restore(){if(value)setenv("GAGP_COLD_PAYLOAD_PROOFS",value->c_str(),1);else unsetenv("GAGP_COLD_PAYLOAD_PROOFS");}} restore{previous};
+  setenv("GAGP_COLD_PAYLOAD_PROOFS","1",1);
+  const auto grammar=compile_grammar(parse_definition(constant_grammar("IntList","[[]]")));
+  const auto request=entry_request(grammar);
+  auto genome=generate_derivation(grammar,0).genome;genome.derivation.reset();
+  const auto key=genome.ast.consts.front();
+  auto proof=grammar::detail::reconstruct_cold_derivation(grammar,genome,request);
+  check(bool(proof.certificate),"cold read scope did not retain registry proof");
+  genome.derivation=std::make_shared<const DerivationMetadata>(proof);
+  VerifiedAst verified;std::vector<std::vector<int>> environments;
+  const auto reused=grammar::detail::reconstruct_cold_derivation(grammar,genome,request,&verified,&environments);
+  check(reused.certificate==proof.certificate && verified.subtree_end.size()==genome.ast.nodes.size() &&
+      environments.size()==reused.choices.size() && reused.lowered_instructions==proof.lowered_instructions &&
+      reused.resources->subtree().nodes==proof.resources->subtree().nodes,
+      "cold registry proof did not preserve exact admission outputs");
+  check(!admitted_bytecode_for_eval(genome,{},grammar.execution_limits().fuel),"cold registry proof authorized executable reuse");
+  setenv("GAGP_COLD_PAYLOAD_PROOFS","0",1);
+  check(!grammar::detail::reconstruct_cold_derivation(grammar,genome,request).certificate,"disabled cold proof retained registry certificate");
+  setenv("GAGP_COLD_PAYLOAD_PROOFS","1",1);
+  const auto rejects_cold=[&](const CompiledGrammar& owner,const ProgramGenome& source,const GenerationRequest& root) {
+    VerifiedAst output;output.max_expression_depth=999;
+    std::vector<std::vector<int>> scopes{{999}};bool rejected=false;
+    try {(void)grammar::detail::reconstruct_cold_derivation(owner,source,root,&output,&scopes);}
+    catch(const std::exception&){rejected=true;}
+    check(rejected && output.max_expression_depth==999 && scopes==std::vector<std::vector<int>>{{999}} &&
+        !payload::StagedPayloads::has_active_scope(),"failed cold admission leaked candidate outputs or scope");
+  };
+  const auto other=compile_grammar(parse_definition(constant_grammar("IntList",R"([["7"]])")));
+  rejects_cold(other,genome,entry_request(other));
+  auto tight=request;tight.budget.max_nodes=4;rejects_cold(grammar,genome,tight);
+  auto changed=genome;changed.ast.consts.front()=payload::make_int_list_value({Value::from_int(7)});
+  rejects_cold(grammar,changed,request);
+  payload::register_list(key,{Value::from_int(7)}); // Same token, changed decoded contents.
+  rejects_cold(grammar,genome,request);payload::register_list(key,{});
+  check(grammar::detail::reconstruct_cold_derivation(grammar,genome,request).certificate==proof.certificate,
+      "restored exact payload identity failed to reuse cold proof");
+  payload::StagedPayloads inherited;
+  {
+    payload::StagedPayloads::Scope scope(inherited);
+    check(grammar::detail::reconstruct_cold_derivation(grammar,genome,request).certificate==proof.certificate &&
+        payload::StagedPayloads::has_active_scope(),"cold admission nested or ended enclosing snapshot");
+  }
+  check(inherited.read_snapshot_unchanged(),"cold admission damaged enclosing read snapshot");
+  int attempts=0;
+  const auto retried=grammar::detail::snapshot_cold_admission([&] {
+    ++attempts;
+    auto candidate=reconstruct_derivation(grammar,genome,request);
+    if(payload::StagedPayloads::has_active_scope()) {
+      payload::register_list(key,{Value::from_int(99)});
+      throw std::invalid_argument("speculative failure after staged write");
+    }
+    return candidate;
+  });
+  std::vector<Value> contents;
+  check(attempts==2 && !retried.certificate && payload::lookup_list(key,&contents) && contents.empty() &&
+      !payload::StagedPayloads::has_active_scope(),"write/conflict retry committed failed transaction or trusted its proof");
+  attempts=0;bool failed=false;
+  try {
+    (void)grammar::detail::snapshot_cold_admission([&] {
+      ++attempts;auto candidate=reconstruct_derivation(grammar,genome,request);
+      if(payload::StagedPayloads::has_active_scope())payload::clear(); // Invalidate captured read before publication.
+      return candidate;
+    });
+  } catch(const std::exception&){failed=true;}
+  check(failed && attempts==2 && !payload::StagedPayloads::has_active_scope() && !payload::lookup_list(key,&contents),
+      "changed-read retry published stale proof or restored removed payload");
+  payload::register_list(key,{});
 }
 }  // namespace
 
@@ -455,6 +527,7 @@ int main() {
           "mutual-alias match retained an active or failed production decision");
     for (std::uint64_t seed = 0; seed < 32; ++seed)
       require_membership(mutual, generate_derivation(mutual, seed).genome);
+    test_cold_payload_proofs();
     std::cout << "grammar membership passed\n";
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';

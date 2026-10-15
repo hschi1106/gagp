@@ -1,5 +1,6 @@
 #pragma once
 #include "phase_variation.hpp"
+#include "../../grammar/cold_admission.hpp"
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/bounded_region.hpp"
 #include "gagp/evolution/compiler.hpp"
@@ -71,7 +72,7 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   // initialization has already created such certificates for unchanged inputs.
   auto source = external;
   if (!std::getenv("GAGP_REUSE_IMPORT_CERTIFICATE")) source.derivation.reset();
-  const auto witness = reconstruct_derivation(grammar, source, entry_request(grammar), &verified, &environments);
+  const auto witness = grammar::detail::reconstruct_cold_derivation(grammar, source, entry_request(grammar), &verified, &environments);
   if(projected) {
     phase_layout_require(projected->max_nodes==grammar.search_limits().max_nodes &&
         projected->max_depth>0 && projected->max_depth<=15,"unsupported projected phase budget");

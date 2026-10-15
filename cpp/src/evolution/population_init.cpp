@@ -10,6 +10,7 @@
 #include "gagp/evolution/grammar/request.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/grammar/variation.hpp"
+#include "grammar/cold_admission.hpp"
 
 namespace gagp::evo {
 namespace {
@@ -168,7 +169,7 @@ PopulationInitialization initialize_population(
   out.population = *replay_population;
   out.replayed = true;
   for (auto& genome : out.population) {
-    auto witness = grammar::reconstruct_derivation(grammar, genome, request);
+    auto witness = grammar::detail::reconstruct_cold_derivation(grammar, genome, request);
     require_initial_budget(witness);
     genome.meta = build_genome_meta(genome.ast);
     genome.derivation = std::make_shared<const grammar::DerivationMetadata>(std::move(witness));

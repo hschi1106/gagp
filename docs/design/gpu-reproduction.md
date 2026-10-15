@@ -813,6 +813,22 @@ not the external validation boundary, phase-profile checks or GPU packing checks
 The phase-layout test covers forged public witness fields, changed AST constants,
 changed grammar limits and reordered evaluator inputs.
 
+`GAGP_COLD_PAYLOAD_PROOFS=1` additionally uses short read snapshots around
+replayed-population admission and native layout-import membership. Together with
+`GAGP_REUSE_IMPORT_CERTIFICATE=1`, registry-backed constants, including empty
+IntLists, can retain and reuse the same private membership proof. Each lookup
+still checks grammar, request, and exact decoded payload identity; a miss runs
+full membership, AST, resource, and lowering validation. The scope reads only
+that genome's constant closure and ends before GPU transport or generations.
+It may retain one copy of each distinct resident payload in that closure;
+registry bytecode executable reuse remains disabled. An unchanged read-only
+snapshot permits publication; changed reads or any staged writes discard the
+candidate and retry ordinary admission. No staged writes are committed, and an
+existing enclosing scope keeps its original transaction responsibility. This
+flag defaults off for same-binary cold-time A/B measurements; all work remains
+inside the existing admission timing boundary. `gagp_test_grammar_membership`
+covers identity changes, inherited scopes, discarded writes, and conflict retry.
+
 ### Experimental pure-measure evaluation reuse
 
 `GAGP_MEASURE_PHASE_CACHE` leaves native reproduction and the evaluation pipeline
