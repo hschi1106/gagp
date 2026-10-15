@@ -725,7 +725,7 @@ __device__ inline void d_copy_private_intlist(std::int64_t* target,const DPrivat
     // VM positions, or equal spans. Every sampled member executes all collectives.
     const unsigned mask=__activemask();const int participants=__popc(mask);
     if(participants>=4) {
-      unsigned owners=__ballot_sync(mask,source.size>=512);
+      unsigned owners=__ballot_sync(mask,source.size>=256);
       if(owners) {
         // Earlier owner writes must be visible to workers; shuffle is not a fence.
         __syncwarp(mask);
@@ -744,7 +744,7 @@ __device__ inline void d_copy_private_intlist(std::int64_t* target,const DPrivat
         }
         // All foreign writes finish before an owner can publish or reuse its output.
         __syncwarp(mask);
-        if(source.size>=512)return;
+        if(source.size>=256)return;
       }
     }
   }
