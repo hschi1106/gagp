@@ -318,6 +318,57 @@ bool test_private_list_index() {
   cudaFree(state);cudaFree(failures);return passed;
 }
 
+bool test_tiled_replay_entry_growth() {
+  ScopedEnvironment restore_tiles("GAGP_GPU_TILED_REPLAY"),
+      restore_global("GAGP_GPU_GLOBAL_PAYLOAD"), restore_index("GAGP_GPU_PAYLOAD_INDEX");
+  setenv("GAGP_GPU_TILED_REPLAY","1",1);
+  setenv("GAGP_GPU_GLOBAL_PAYLOAD","0",1);
+  setenv("GAGP_GPU_PAYLOAD_INDEX","1",1);
+  // Each iteration replaces local 1, but all distinct singleton payload entries
+  // remain resident for this invocation. 5000 entries exceed replay's initial
+  // 4096 entries while 5000 cells fit its 65536-cell arena and CPU staging.
+  BytecodeProgram growing;
+  growing.n_locals=2;
+  growing.consts={Value::from_int(0),Value::from_int(1),Value::from_int(5000)};
+  growing.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::Store,0),
+      ins_a(Opcode::Load,0),
+      ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),
+      ins_a(Opcode::Store,1),ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,1),
+      ins(Opcode::Add),ins_a(Opcode::Store,0),ins_a(Opcode::Load,0),
+      ins_a(Opcode::PushConst,2),ins(Opcode::Lt),ins_a(Opcode::JmpIfTrue,2),
+      ins_a(Opcode::Load,1),ins(Opcode::Return)};
+  growing.instruction_fuel.assign(growing.code.size(),1);
+  const auto answer=payload::make_int_list_value({Value::from_int(4999)});
+  BytecodeProgram unaffected;
+  unaffected.consts={answer};
+  unaffected.code={ins_a(Opcode::PushConst,0),ins(Opcode::Return)};
+  unaffected.instruction_fuel.assign(unaffected.code.size(),1);
+  const std::vector<BytecodeProgram> programs{growing,unaffected};
+  const std::vector<CaseBindings> cases(3);
+  const std::vector<Value> answers(3,answer);
+  FitnessPolicy policy{FitnessMetric::Levenshtein};
+  policy.list_allocation_limit=65536;
+  std::vector<CpuFitnessCaseCounts> cpu_counts;
+  const auto cpu=eval_fitness_cpu(programs,cases,answers,100000,1000,33,policy,nullptr,&cpu_counts);
+  FitnessSessionGpu session;
+  if(!check(session.init(cases,answers,100000,33,1000,policy).ok,"entry growth session init"))return false;
+  const auto gpu=session.eval_programs(programs,true);
+  if(!check(gpu.ok && gpu.fitness==cpu && cpu==std::vector<double>({0,0}),
+      "entry growth replay changed exact result")) {
+    std::cerr<<gpu.err.message<<'\n';return false;
+  }
+  if(!check(gpu.payload_replay_programs==1 && gpu.payload_replay_launches>=2 &&
+      gpu.payload_replay_cases==3*gpu.payload_replay_launches,
+      "entry capacity growth must retry only the overflowing program"))return false;
+  for(std::size_t p=0;p<programs.size();++p)
+    if(!check(cpu_counts[p].cases==3 && cpu_counts[p].errors==0 &&
+        gpu.case_counts[p][0]==cpu_counts[p].cases &&
+        gpu.case_counts[p][1]==cpu_counts[p].errors &&
+        gpu.case_counts[p][2]==cpu_counts[p].timeouts,
+        "entry growth retries retained errors or double-counted cases"))return false;
+  return true;
+}
+
 bool test_payload_replay_fitness() {
   // Two appends per frame allocate >8192 cells without exceeding the source
   // logical arena. The original ExtendedMixed evaluation must overflow.
@@ -476,7 +527,7 @@ int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }
