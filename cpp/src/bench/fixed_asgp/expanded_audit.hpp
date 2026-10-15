@@ -12,7 +12,7 @@
 #include "gagp/evolution/grammar/identity.hpp"
 #include "gagp/runtime/cpu/execution_session.hpp"
 #include "gagp/runtime/payload/payload.hpp"
-#include "runtime/payload/staging.hpp"
+#include "../../runtime/payload/staging.hpp"
 
 namespace fixed_asgp {
 namespace expanded_audit_detail {
