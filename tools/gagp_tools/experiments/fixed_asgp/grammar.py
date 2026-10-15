@@ -28,7 +28,10 @@ def state_value():
                      constant(0)))
 
 
-def definition(root: Path, task: str) -> dict:
+def definition(root: Path, task: str, contract: dict | None = None) -> dict:
+    if contract is not None:
+        from .source_grammar import definition as source_definition
+        return source_definition(root, task, contract)
     if task == "negative_to_zero":
         from .list_grammar import negative_to_zero_definition
         return negative_to_zero_definition(root)

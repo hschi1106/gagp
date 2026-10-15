@@ -37,19 +37,24 @@ void freeze(const std::string& name, const std::string& path) {
   const auto grammar=asgp::SchemeGrammar::Build(spec.Grammar());
   asgp::Rng rng(0);
   std::vector<Json> population, cases;
-  for (int i=0; i<8192; ++i)
+  const int population_count=std::getenv("GAGP_FREEZE_POPULATION") ? std::stoi(std::getenv("GAGP_FREEZE_POPULATION")) : 8192;
+  if(population_count<=0)throw std::invalid_argument("freeze population must be positive");
+  for (int i=0; i<population_count; ++i)
     population.push_back(encode(asgp::Initialize(grammar,2+i%6,(i/6)%2==1,rng),grammar.count));
   for (const auto& c : spec.train) {
     std::vector<Json> values;
     for (auto v : c.elements) values.push_back(string(std::to_string(v)));
     Json expected=string(std::to_string(c.expected.i));
-    if (spec.output==asgp::Type::kIntList) {
+    if (asgp::IsListType(spec.output)) {
       std::vector<Json> items;for(auto v:c.expected.list)items.push_back(string(std::to_string(v)));
       expected=array(std::move(items));
     }
+    if(spec.output==asgp::Type::kBool) expected=number(c.expected.b);
+    std::vector<Json> scalars; for(auto v:c.scalars)scalars.push_back(string(std::to_string(v)));
     auto row=object({{"input",array(std::move(values))}, {"expected",expected},
+                     {"scalars",array(std::move(scalars))},{"summary1",string(std::to_string(c.expected.summary1))},{"summary2",string(std::to_string(c.expected.summary2))},
                      {"start",number(c.start.a)}, {"extent",number(c.extent.a)}});
-    if(name=="stock_with_cooldown") {
+    {
       row.object_v["start_b"]=number(c.start.b);row.object_v["extent_b"]=number(c.extent.b);
     }
     cases.push_back(std::move(row));
@@ -69,13 +74,16 @@ void restore_cases(const Json& source, asgp::TaskSpec& spec, std::vector<gagp::e
       values.push_back(gagp::Value::from_int(example.elements.back()));
     }
     gagp::Value expected;
-    if (spec.output==asgp::Type::kIntList) {
+    if (asgp::IsListType(spec.output)) {
       std::vector<std::int64_t> native;std::vector<gagp::Value> packed;
       for(const auto& v:row.object_v.at("expected").array_v) {
         native.push_back(std::stoll(v.string_v));packed.push_back(gagp::Value::from_int(native.back()));
       }
       example.expected=asgp::Output::List(std::move(native));
       expected=gagp::payload::make_int_list_value(packed);
+    } else if(spec.output==asgp::Type::kBool) {
+      example.expected=asgp::Output::Bool(row.object_v.at("expected").number_v!=0);
+      expected=gagp::Value::from_bool(example.expected.b);
     } else {
       example.expected=asgp::Output::Int(std::stoll(row.object_v.at("expected").string_v));
       expected=gagp::Value::from_int(example.expected.i);
@@ -84,7 +92,17 @@ void restore_cases(const Json& source, asgp::TaskSpec& spec, std::vector<gagp::e
     example.extent.a=int(row.object_v.at("extent").number_v);
     if(row.object_v.count("start_b"))example.start.b=int(row.object_v.at("start_b").number_v);
     if(row.object_v.count("extent_b"))example.extent.b=int(row.object_v.at("extent_b").number_v);
-    cases.push_back({{{"source",gagp::payload::make_int_list_value(values)}},expected});
+    if(row.object_v.count("scalars"))for(const auto& v:row.object_v.at("scalars").array_v)example.scalars.push_back(std::stoll(v.string_v));
+    if(example.scalars.size()!=spec.scalars.size())throw std::runtime_error("frozen scalar count mismatch");
+    if(row.object_v.count("summary1"))example.expected.summary1=std::stoll(row.object_v.at("summary1").string_v);
+    if(row.object_v.count("summary2"))example.expected.summary2=std::stoll(row.object_v.at("summary2").string_v);
+    gagp::evo::EvalCase native{{{"source",gagp::payload::make_int_list_value(values)}},expected};
+    for(std::size_t i=0;i<example.scalars.size();++i)native.inputs["scalar"+std::to_string(i)]=gagp::Value::from_int(example.scalars[i]);
+    if(spec.scheme==asgp::Scheme::kDynamicProgramming && spec.id!="house_robber") {
+      native.inputs["start_a"]=gagp::Value::from_int(example.start.a);native.inputs["start_b"]=gagp::Value::from_int(example.start.b);
+      native.inputs["extent_a"]=gagp::Value::from_int(example.extent.a);native.inputs["extent_b"]=gagp::Value::from_int(example.extent.b);
+    }
+    cases.push_back(std::move(native));
     spec.train.push_back(std::move(example));
   }
   if (cases.size()!=1024) throw std::runtime_error("fixed case count mismatch");
@@ -119,10 +137,13 @@ void audit(const Json& source, const std::string& grammar_path, const std::strin
   const auto fit=asgp::Score(original,spec,spec.train,fitness_config(),scratch);
   if (fit.wrong!=0) throw std::runtime_error("known ASGP solution does not solve frozen cases");
   const auto genome=translate(original,spec.id,definition,grammar);
-  const auto code=gagp::evo::compile_for_eval(genome,{"source"});
+  auto cs=gagp::evo::prepare_case_set(cases);
+  const auto code=gagp::evo::compile_for_eval(genome,cs.input_names);
   int cpu_bad=0;
   for (const auto& c : cases) {
-    const auto result=gagp::execute_bytecode_cpu(code,{{0,c.inputs.at("source")}},2000000);
+    std::vector<std::pair<int,gagp::Value>> inputs;
+    for(std::size_t i=0;i<cs.input_names.size();++i)inputs.emplace_back(i,c.inputs.at(cs.input_names[i]));
+    const auto result=gagp::execute_bytecode_cpu(code,inputs,2000000);
     bool equal=!result.is_error && result.value.tag==c.expected.tag;
     if(equal && c.expected.tag==gagp::ValueTag::IntList) {
       std::vector<gagp::Value> actual,wanted;
@@ -131,7 +152,6 @@ void audit(const Json& source, const std::string& grammar_path, const std::strin
     } else if(equal)equal=result.value.i==c.expected.i;
     cpu_bad+=!equal;
   }
-  auto cs=gagp::evo::prepare_case_set(cases);
   gagp::FitnessSessionGpu session;
   auto init=session.init(cs.bindings,cs.expected_values,2000000,512,1000);
   if (!init.ok) throw std::runtime_error(init.err.message);
@@ -143,8 +163,7 @@ void audit(const Json& source, const std::string& grammar_path, const std::strin
   write(output,object({{"task",string(spec.id)}, {"cases",number(cases.size())},
                        {"unique_inputs",number(unique.size())}, {"known_solution_cpu_mismatches",number(cpu_bad)},
                        {"known_solution_asgp_wrong",number(fit.wrong)}, {"known_solution_gpu_fitness",number(gpu.fitness[0])}}));
-  // GPU payload approximations are part of the compared system, not an adapter
-  // parity gate. Exact CPU output is the translation check; retain GPU evidence.
+  if (gpu.fitness.at(0)!=0) throw std::runtime_error("known solution GPU fitness is not exact zero");
   if (cpu_bad) throw std::runtime_error("known solution CPU translation mismatches: " + std::to_string(cpu_bad));
 }
 Json measure_asgp(const std::vector<asgp::Individual>& parents, const asgp::TaskSpec& spec) {
@@ -481,7 +500,8 @@ void measure(const Json& source, const std::string& prepared_path, const std::st
 }
 }  // namespace
 int main(int argc,char** argv) try {
-  if (argc==4 && std::string(argv[1])=="freeze") freeze(argv[2],argv[3]);
+  if (argc==4 && std::string(argv[1])=="contract") write(argv[3],task_contract(argv[2]));
+  else if (argc==4 && std::string(argv[1])=="freeze") freeze(argv[2],argv[3]);
   else if ((argc==6 || argc==7) && std::string(argv[1])=="quality")
     fixed_asgp::expanded_quality(argv[2],argv[3],argv[4],argv[5],argc==7?argv[6]:"");
   else if (argc==6 && std::string(argv[1])=="prepare") prepare(read(argv[2]),argv[3],std::stoi(argv[4]),argv[5]);

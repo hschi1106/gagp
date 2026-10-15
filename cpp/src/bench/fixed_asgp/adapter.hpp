@@ -20,6 +20,7 @@ Json read(const std::string& path);
 void write(const std::string& path, const Json& value);
 Json encode(const asgp::Individual& individual, int phases);
 asgp::Individual decode(const Json& value);
+Json task_contract(const std::string& name);
 asgp::TaskSpec task(const std::string& name);
 Json translated_root(const asgp::Individual& individual, const std::string& name);
 gagp::evo::ProgramGenome translate(const asgp::Individual& individual, const std::string& name,
