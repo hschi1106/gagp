@@ -674,6 +674,132 @@ __global__ void inspect_fused_concat(int* failure) {
   }
 }
 
+__global__ void inspect_concat_cache(int* failure) {
+  using namespace gpu_detail;
+  *failure=0;
+  for(int type=0;type<3;++type) for(int scenario=0;scenario<8;++scenario) for(int logical=0;logical<2;++logical) {
+    const auto tag=type==0?ValueTag::IntList:type==1?ValueTag::FloatList:ValueTag::StringList;
+    Value source[4];
+    for(int i=0;i<4;++i)source[i]=type==0?Value::from_int(7+i):type==1?
+        Value::from_float(i*0.25):Value::from_string_hash_len(41+i,i);
+    const Value a=d_make_list_hash_len(tag,101,1),b=d_make_list_hash_len(tag,102,1);
+    DListPayloadEntry globals[2]={{tag,a.i,0,1},{tag,b.i,1,1}};
+    DPayloadTables tables{};tables.list_entries=globals;tables.list_entry_count=2;tables.list_values=source;
+    DListPayloadEntry entries[2][32]{};Value cells[2][32]{};
+    DArenaPayloadState states[2];DConcatCacheEntry cache[DCONCAT_CACHE_SLOTS]{};
+    for(int variant=0;variant<2;++variant) {
+      auto& st=states[variant];st.list_entries=entries[variant];st.list_values=cells[variant];
+      st.list_entry_capacity=32;st.kMaxListValues=32;st.logical_list_limit=logical?65536:0;
+      st.fused_list_concat=true;st.concat_cache=variant?cache:nullptr;st.concat_cache_diagnostics=true;
+      // Force a canonical result collision: the first registry identity must
+      // win, even though the cache retains the actual newly copied backing.
+      if(scenario==1 || scenario==4) {
+        const auto output=d_make_list_hash_len(tag,d_hash_list_payload(source,2),2);
+        d_register_local_list(st,output,-3,2);
+      }
+    }
+    for(int call=0;call<3;++call) {
+      Value outputs[2];ErrCode errors[2]={ErrCode::Value,ErrCode::Value};bool ok[2];
+      for(int variant=0;variant<2;++variant) {
+        auto& st=states[variant];
+        if(call==1) {
+          if(scenario==2)st.list_entry_capacity=st.list_entry_count;
+          if(scenario==3)st.kMaxListValues=st.list_values_used;
+          if(scenario==4) {
+            const auto old_count=st.list_entry_count;
+            d_restore_local_list_storage(st,logical?old_count:1,0);
+            if(variant && d_concat_cache_slot(st,source,1,source+1,1,tag)->tag!=ValueTag::Invalid){*failure=1;return;}
+          }
+          if(scenario==5) {
+            d_restore_local_list_storage(st,0,0);
+            cells[variant][0]=source[3];st.list_values_used=1;
+            d_register_local_list(st,a,0,1); // Local shadow changes resolved key.
+          }
+          if(scenario==6 && variant) {
+            auto* entry=d_concat_cache_slot(st,source,1,source+1,1,tag);
+            entry->right=source+2;entry->hash=0; // Same bucket, unequal exact key.
+          }
+        }
+        Value args[2]={a,b};
+        if(scenario==7 && call==1)args[1]=Value::from_int(3);
+        if(scenario==7 && call==2)args[1]=d_make_list_hash_len(tag,999,1);
+        outputs[variant]=Value::invalid();
+        ok[variant]=d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Concat,args,2,tables,st,outputs[variant],errors[variant]);
+      }
+      bool equal=ok[0]==ok[1] && errors[0]==errors[1] && outputs[0].tag==outputs[1].tag && outputs[0].i==outputs[1].i;
+      equal &= states[0].list_entry_count==states[1].list_entry_count && states[0].list_values_used==states[1].list_values_used &&
+          states[0].logical_list_used==states[1].logical_list_used &&
+          states[0].physical_capacity_reason==states[1].physical_capacity_reason;
+      if(ok[0]) {
+        const Value *left=nullptr,*right=nullptr;int nl=0,nr=0;
+        const bool pl=d_lookup_list_payload(tables,states[0],outputs[0],left,nl);
+        const bool pr=d_lookup_list_payload(tables,states[1],outputs[1],right,nr);
+        equal &= pl==pr && nl==nr;
+        if(pl && pr)for(int i=0;i<nl;++i)equal &= left[i].tag==right[i].tag && left[i].i==right[i].i && left[i].b==right[i].b;
+      }
+      if(!equal){*failure=10+type*100+scenario*10+call;return;}
+    }
+    if(scenario==0 && (states[1].concat_hits!=2 || states[1].concat_misses!=1 || states[1].concat_cells!=4)) {*failure=1000;return;}
+  }
+}
+
+bool test_concat_cache() {
+  int* failure=nullptr;if(cudaMallocManaged(&failure,sizeof(int))!=cudaSuccess)return false;
+  *failure=-1;inspect_concat_cache<<<1,1>>>(failure);
+  const bool raw=cudaDeviceSynchronize()==cudaSuccess && check(*failure==0,"concat cache raw parity failure="+std::to_string(*failure));
+  cudaFree(failure);if(!raw)return false;
+  ScopedEnvironment restore_cache("GAGP_GPU_CONCAT_CACHE"),restore_diag("GAGP_GPU_CONCAT_CACHE_DIAGNOSTICS"),
+      restore_fused("GAGP_GPU_FUSED_LIST_CONCAT"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD");
+  setenv("GAGP_GPU_FUSED_LIST_CONCAT","1",1);setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
+  setenv("GAGP_GPU_CONCAT_CACHE_DIAGNOSTICS","1",1);
+  const auto a=payload::make_int_list_value({Value::from_int(7)});
+  const auto b=payload::make_int_list_value({Value::from_int(9)});
+  const auto answer=payload::make_int_list_value({Value::from_int(7),Value::from_int(9)});
+  BytecodeProgram program;program.consts={a,b};program.n_locals=1;
+  for(int i=0;i<3;++i) {
+    program.code.push_back(ins_a(Opcode::PushConst,0));program.code.push_back(ins_a(Opcode::PushConst,1));
+    program.code.push_back(ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Concat),2));
+    program.code.push_back(ins_a(Opcode::Store,0));
+  }
+  program.code.push_back(ins_a(Opcode::Load,0));program.code.push_back(ins(Opcode::Return));
+  std::vector<CaseBindings> cases(513);std::vector<Value> answers(513,answer);
+  FitnessPolicy policy{FitnessMetric::Levenshtein};policy.list_allocation_limit=65536;
+  const auto cpu=eval_fitness_cpu({program},cases,answers,1000,1000,64,policy);
+  for(const char* enabled:{"0","1"}) {
+    setenv("GAGP_GPU_CONCAT_CACHE",enabled,1);
+    FitnessSessionGpu session;
+    if(!check(session.init(cases,answers,1000,64,1000,policy).ok,"concat cache session init"))return false;
+    const auto gpu=session.eval_programs({program},true);
+    if(!check(gpu.ok && gpu.fitness==cpu && gpu.case_counts[0][1]==0,"concat cache CPU fitness parity"))return false;
+    const std::array<unsigned long long,3> expected=enabled[0]=='1'?
+        std::array<unsigned long long,3>{1026,513,2052}:std::array<unsigned long long,3>{0,0,0};
+    if(!check(gpu.concat_cache_stats==expected,"concat cache per-case lifetime/diagnostics"))return false;
+  }
+  // Repeated cached outputs still reserve cells and must hit the same physical
+  // limit, then replay every case with unchanged semantic allocation charges.
+  BytecodeProgram growing;growing.n_locals=2;
+  growing.consts={a,b,Value::from_int(0),Value::from_int(1),Value::from_int(5000)};
+  growing.code={ins_a(Opcode::PushConst,2),ins_a(Opcode::Store,0),
+      ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),
+      ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Concat),2),ins_a(Opcode::Store,1),
+      ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,3),ins(Opcode::Add),ins_a(Opcode::Store,0),
+      ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,4),ins(Opcode::Lt),ins_a(Opcode::JmpIfTrue,2),
+      ins_a(Opcode::Load,1),ins(Opcode::Return)};
+  const std::vector<CaseBindings> few_cases(3);const std::vector<Value> few_answers(3,answer);
+  const auto growing_cpu=eval_fitness_cpu({growing},few_cases,few_answers,100000,1000,64,policy);
+  for(const char* enabled:{"0","1"}) {
+    setenv("GAGP_GPU_CONCAT_CACHE",enabled,1);
+    FitnessSessionGpu session;
+    if(!check(session.init(few_cases,few_answers,100000,64,1000,policy).ok,"concat cache replay init"))return false;
+    const auto gpu=session.eval_programs({growing},true);
+    if(!check(gpu.ok && gpu.fitness==growing_cpu && gpu.payload_replay_programs==1 &&
+        gpu.payload_replay_launches==1 && gpu.case_counts[0][1]==0,"concat cache preserves overflow/replay"))return false;
+    if(enabled[0]=='1' && !check(gpu.concat_cache_stats[0]>0 && gpu.concat_cache_stats[1]>=6,
+        "concat replay cache must restart per case/attempt"))return false;
+  }
+  return true;
+}
+
 bool test_fused_concat() {
   int* failure=nullptr;
   if(cudaMallocManaged(&failure,sizeof(int))!=cudaSuccess)return false;
@@ -958,7 +1084,7 @@ int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_tiled_initial_payload() || !test_initial_payload_scale() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_tiled_initial_payload() || !test_initial_payload_scale() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

@@ -395,7 +395,7 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
     {"initial_payload_entry_capacity",number(result.initial_payload_entry_capacity)},
     {"initial_payload_value_capacity",number(result.initial_payload_value_capacity)},
     {"initial_payload_physical_blocks",number(result.initial_payload_physical_blocks)},
-    {"initial_payload_tiled",number(result.initial_payload_tiled)}, {"payload_replay_programs",number(result.payload_replay_programs)}, {"payload_replay_cases",number(result.payload_replay_cases)}, {"payload_replay_launches",number(result.payload_replay_launches)}, {"payload_replay_entry_capacity",number(result.payload_replay_entry_capacity)}, {"payload_replay_value_capacity",number(result.payload_replay_value_capacity)}, {"payload_replay_byte_capacity",number(result.payload_replay_byte_capacity)}, {"diagnostic_only",number(1)},
+    {"initial_payload_tiled",number(result.initial_payload_tiled)}, {"payload_replay_programs",number(result.payload_replay_programs)}, {"payload_replay_cases",number(result.payload_replay_cases)}, {"concat_cache_hits",number(result.concat_cache_stats[0])}, {"concat_cache_misses",number(result.concat_cache_stats[1])}, {"concat_cache_skipped_cells",number(result.concat_cache_stats[2])}, {"payload_replay_launches",number(result.payload_replay_launches)}, {"payload_replay_entry_capacity",number(result.payload_replay_entry_capacity)}, {"payload_replay_value_capacity",number(result.payload_replay_value_capacity)}, {"payload_replay_byte_capacity",number(result.payload_replay_byte_capacity)}, {"diagnostic_only",number(1)},
     {"cpu_behavior_probe_cases",number(behavior_probe?std::min<std::size_t>(32,cs.bindings.size()):0)},
     {"unique_cpu_behavior_probes",number(behaviors.size())}, {"programs",array(std::move(rows))}}));
 }
@@ -489,7 +489,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   for (std::size_t i=0;i<result.timing.generations.size();++i) {
     const auto& t=result.timing.generations[i]; const auto& e=t.evaluation; const auto& v=t.reproduction.variation;
     rows.push_back(object({{"generation",number(i)}, {"generation_ms",number(t.total_ms)},
-      {"elapsed_search_ms",number(t.elapsed_search_ms)}, {"execution_profile",string(e.execution_profile)}, {"payload_replay_programs",number(e.payload_replay_programs)}, {"payload_replay_cases",number(e.payload_replay_cases)}, {"payload_replay_launches",number(e.payload_replay_launches)},
+      {"elapsed_search_ms",number(t.elapsed_search_ms)}, {"execution_profile",string(e.execution_profile)}, {"payload_replay_programs",number(e.payload_replay_programs)}, {"payload_replay_cases",number(e.payload_replay_cases)}, {"concat_cache_hits",number(e.concat_cache_stats[0])}, {"concat_cache_misses",number(e.concat_cache_stats[1])}, {"concat_cache_skipped_cells",number(e.concat_cache_stats[2])}, {"payload_replay_launches",number(e.payload_replay_launches)},
       {"eval_ms",number(t.eval_ms)}, {"repro_ms",number(t.repro_ms)},
       {"compile_ms",number(e.cpu_compile_ms+e.gpu_compile_ms)}, {"eval_kernel_ms",number(e.gpu_eval_kernel_ms)}, {"initial_kernel_wall_ms",number(e.gpu_eval_initial_kernel_wall_ms)}, {"initial_kernel_event_ms",number(e.gpu_eval_initial_kernel_event_ms)}, {"replay_kernel_event_ms",number(e.gpu_eval_replay_kernel_event_ms)},
       {"pack_ms",number(e.gpu_eval_pack_ms)}, {"upload_ms",number(e.gpu_eval_upload_ms)},

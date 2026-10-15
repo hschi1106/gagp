@@ -57,6 +57,8 @@ struct FitnessEvalResult {
   std::vector<std::array<unsigned int, 5>> case_counts;
   // Extra GPU work replacing physical payload failures; logical errors are not replayed.
   std::size_t payload_workspace_budget_bytes = 0; // Configured arena scratch cap.
+  // Optional cache diagnostics, including failed attempts/replays: hits, misses, skipped cells.
+  std::array<unsigned long long,3> concat_cache_stats{};
   std::size_t payload_replay_programs = 0;
   std::size_t payload_replay_cases = 0;
   std::size_t payload_replay_launches = 0;

@@ -667,3 +667,28 @@ result/snapshot records `initial_payload_tiled`, and the execution profile adds
 `-initial-tiled` when active. Tests compare flag off/on full-case Discounted
 fitness, status counts, original-lane diagnostics, fuel boundaries, and callbacks
 at 33 and 512 logical lanes, plus the initial-capacity/replay matrix.
+
+`GAGP_GPU_CONCAT_CACHE=1` with `GAGP_GPU_FUSED_LIST_CONCAT=1` enables a
+32-slot direct-mapped Concat result cache only in pointer-backed initial/replay
+arenas. Exact keys contain both resolved backing pointers, their lengths, and
+the typed-list tag; public token equality alone cannot produce a cache hit.
+Entries retain the full canonical hash and immutable local result backing.
+Hits preserve the original logical charge, physical value-capacity check,
+reserved cell count, and ordinary first-match registry registration. They skip
+only copying and hashing, leaving unused reserved cells inaccessible. Missing
+payloads, type errors, entry exhaustion and physical replay retain their normal
+paths. The cache clears per invocation and whenever scalar-region rollback
+rewinds either list entries or cells, including a cell-only rewind after dedup.
+Cache storage counts against the configured payload workspace cap; initialization
+and allocation remain inside the existing measured evaluation stages.
+
+`GAGP_GPU_CONCAT_CACHE_DIAGNOSTICS=1` optionally reports `concat_cache_hits`,
+`concat_cache_misses`, and `concat_cache_skipped_cells` in snapshot/generation
+records. Counts include failed initial attempts and all replay attempts; they
+count cache probes after the normal value-capacity check, including probes whose
+later registry registration fails. Three atomics per arena invocation aggregate
+these counters only when diagnostics are enabled. No diagnostic atomics run by
+default. The execution profile adds `-concat-cache` when an arena route runs.
+`gagp_test_extended_payload_gpu` covers repeated operands, cache and canonical
+identity collisions, global/local shadowing, typed errors, capacity, rollback,
+case lifetime, CPU fitness and unchanged physical-overflow replay.

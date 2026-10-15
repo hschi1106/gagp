@@ -92,6 +92,9 @@ struct DRegionWorkspace {
   char* payload_string_bytes = nullptr;
   Value* payload_list_values = nullptr;
   int* payload_list_index = nullptr;
+  DConcatCacheEntry* concat_cache = nullptr;
+  bool concat_cache_enabled = false;
+  unsigned long long* concat_cache_stats = nullptr; // hits, misses, skipped cells; all attempts.
   bool payload_window_aliases = false;
   bool fused_list_concat = false;
   bool small_int_hash = false;

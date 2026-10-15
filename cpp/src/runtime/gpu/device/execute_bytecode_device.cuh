@@ -450,9 +450,8 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
         if (out.is_error) { result = out; break; }
         if (!d_is_payload_value(out.value)) {
           payload_state.string_entry_count = saved_strings;
-          d_restore_local_list_entries(payload_state, saved_lists);
+          d_restore_local_list_storage(payload_state, saved_lists, saved_values);
           payload_state.string_bytes_used = saved_bytes;
-          payload_state.list_values_used = saved_values;
         }
         stack[sp++] = out.value;
         continue;
@@ -547,6 +546,9 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
   DPayloadStateStorage<Flavor> payload_state_storage;
   auto& payload_state = payload_state_storage.ref();
   if constexpr ((Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena)) {
+    payload_state.concat_cache=workspace.concat_cache;
+    payload_state.concat_cache_diagnostics=workspace.concat_cache_stats!=nullptr;
+    d_clear_concat_cache(payload_state);
     payload_state.string_entries = workspace.payload_string_entries;
     payload_state.list_entries = workspace.payload_list_entries;
     payload_state.string_bytes = workspace.payload_string_bytes;
@@ -586,6 +588,13 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
   result = d_run_code_core<Flavor, EnableRegions>(view, shared_case_local_vals, shared_case_local_set,
                                             local_case, nullptr, 0, payload_tables,
                                             payload_state_storage.ref(), execution_tables, fuel_left, true, workspace);
+  if constexpr (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) {
+    if(workspace.concat_cache_stats) {
+      atomicAdd(workspace.concat_cache_stats,payload_state.concat_hits);
+      atomicAdd(workspace.concat_cache_stats+1,payload_state.concat_misses);
+      atomicAdd(workspace.concat_cache_stats+2,payload_state.concat_cells);
+    }
+  }
   result.payload_capacity_exceeded = payload_state.physical_capacity_exceeded;
   result.payload_capacity_reason = payload_state.physical_capacity_reason;
   if(score && expected && !result.is_error) {

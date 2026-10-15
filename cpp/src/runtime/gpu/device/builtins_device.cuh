@@ -17,6 +17,7 @@ struct DPayloadTables {
 template <int MaxStringEntries, int MaxListEntries, int MaxStringBytes, int MaxListValues>
 struct DThreadPayloadStateT {
   static constexpr bool kIndexedLists = false;
+  static constexpr bool kConcatCache = false;
   static constexpr int kMaxStringEntries = MaxStringEntries;
   static constexpr int kMaxListEntries = MaxListEntries;
   static constexpr int kMaxStringBytes = MaxStringBytes;
@@ -54,6 +55,10 @@ using DExtendedPayloadState = DThreadPayloadStateT<1024, 1024, 8192, 8192>;
 
 // Runtime-sized replay storage. No large per-thread local arrays.
 struct DArenaPayloadState {
+  static constexpr bool kConcatCache = true;
+  DConcatCacheEntry* concat_cache = nullptr;
+  bool concat_cache_diagnostics = false;
+  unsigned long long concat_hits = 0, concat_misses = 0, concat_cells = 0;
   static constexpr bool kIndexedLists = false;
   bool alias_windows = false;
   static constexpr int kMaxStringEntries = 1;
@@ -513,6 +518,37 @@ __device__ inline void d_restore_local_list_entries(State& st, int count) {
 }
 
 template <typename State>
+__device__ inline void d_clear_concat_cache(State& st) {
+  if constexpr (State::kConcatCache)
+    if (st.concat_cache) for (int i=0;i<DCONCAT_CACHE_SLOTS;++i)
+      st.concat_cache[i].tag=ValueTag::Invalid;
+}
+
+template <typename State>
+__device__ inline DConcatCacheEntry* d_concat_cache_slot(State& st,
+    const Value* left, int left_len, const Value* right, int right_len, ValueTag tag) {
+  if constexpr (State::kConcatCache) {
+    if(st.concat_cache) {
+      auto key=(reinterpret_cast<std::uintptr_t>(left)>>4) ^
+          ((reinterpret_cast<std::uintptr_t>(right)>>4)*0x9e3779b97f4a7c15ULL) ^
+          (static_cast<unsigned long long>(left_len)<<32) ^ right_len ^ static_cast<unsigned>(tag);
+      key^=key>>33;key*=0xff51afd7ed558ccdULL;key^=key>>33;
+      return st.concat_cache+(key&(DCONCAT_CACHE_SLOTS-1));
+    }
+  }
+  return nullptr;
+}
+
+// Entries and cells can rewind independently under logical deduplication.
+// Invalidate before either rewind so reused addresses never match stale keys.
+template <typename State>
+__device__ inline void d_restore_local_list_storage(State& st,int entries,int values) {
+  if(st.list_entry_count!=entries || st.list_values_used!=values)d_clear_concat_cache(st);
+  d_restore_local_list_entries(st,entries);
+  st.list_values_used=values;
+}
+
+template <typename State>
 __device__ inline bool d_lookup_list_payload(const DPayloadTables& tables,
                                              const State& st,
                                              const Value& v,
@@ -800,8 +836,17 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
             al >= 0 && bl >= 0 &&
             st.list_values_used + al + bl <= st.kMaxListValues) {
           const int off = st.list_values_used;
+          auto* cached=fused?d_concat_cache_slot(st,ap,al,bp,bl,a.tag):nullptr;
+          const bool hit=cached && cached->tag==a.tag && cached->left==ap && cached->right==bp &&
+              cached->left_len==al && cached->right_len==bl;
+          int result_offset=off;
           std::uint64_t h;
-          if(fused) {
+          // Capacity/charge checks above still apply to hits. Reserve the same
+          // cells below, but register the earlier immutable backing so no caller
+          // can observe the unwritten reservation. Canonical lookup is unchanged.
+          if(hit) {
+            h=cached->hash;result_offset=cached->output_offset;
+          } else if(fused) {
             h=Value::fnv1a_mix_u8(Value::fnv1a_init(),0xA1U);
             h=Value::fnv1a_mix_u64(h,static_cast<std::uint64_t>(al+bl));
             for(int i=0;i<al;++i) {
@@ -819,7 +864,13 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           }
           st.list_values_used += al + bl;
           out = d_make_list_hash_len(a.tag, h, static_cast<std::uint32_t>(al + bl));
-          if (!d_register_local_list(st, out, off, al + bl)) { err = ErrCode::Value; return false; }
+          if constexpr (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) {
+            if(cached && st.concat_cache_diagnostics) {
+              if(hit){++st.concat_hits;st.concat_cells+=al+bl;}else ++st.concat_misses;
+            }
+          }
+          if (!d_register_local_list(st, out, result_offset, al + bl)) { err = ErrCode::Value; return false; }
+          if(cached && !hit) *cached=DConcatCacheEntry{ap,bp,h,al,bl,off,a.tag};
           return true;
         }
       }

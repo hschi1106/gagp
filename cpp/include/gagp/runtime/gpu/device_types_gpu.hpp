@@ -61,6 +61,17 @@ struct DProgramMeta {
   int region_count = 0;
 };
 
+// Per-invocation cache keys are resolved immutable backing pointers, not public
+// list identities. No entry survives a case boundary or local arena rewind.
+inline constexpr int DCONCAT_CACHE_SLOTS = 32;
+struct DConcatCacheEntry {
+  const Value* left = nullptr;
+  const Value* right = nullptr;
+  std::uint64_t hash = 0;
+  int left_len = 0, right_len = 0, output_offset = 0;
+  ValueTag tag = ValueTag::Invalid;
+};
+
 struct DStringPayloadEntry {
   std::int64_t packed = 0;
   int offset = 0;

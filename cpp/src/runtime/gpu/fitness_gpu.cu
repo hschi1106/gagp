@@ -69,11 +69,14 @@ struct PayloadWorkspaceStorage {
     const auto key_bytes=sizeof(std::int64_t)*gpu_detail::DMAX_REGION_STATES*workspace.memo_capacity;
     const auto memo_bytes=sizeof(Value)*workspace.memo_capacity;
     const auto payload_bytes=std::size_t(entries)*(sizeof(gpu_detail::DStringPayloadEntry)+sizeof(gpu_detail::DListPayloadEntry))+
-        std::size_t(values)*sizeof(Value)+bytes+(indexed?std::size_t(entries)*2*sizeof(int):0);
+        std::size_t(values)*sizeof(Value)+bytes+(indexed?std::size_t(entries)*2*sizeof(int):0)+
+        (workspace.concat_cache_enabled?sizeof(gpu_detail::DConcatCacheEntry)*gpu_detail::DCONCAT_CACHE_SLOTS:0);
     blocks=gpu_detail::payload_workspace_block_count(budget,programs,
         payload_bytes+frame_bytes+key_bytes+memo_bytes,extra_bytes);
     if(!blocks)return false;
     const auto slots=blocks*threads;
+    if(workspace.concat_cache_enabled && !allocate(reinterpret_cast<void**>(&workspace.concat_cache),
+        slots*sizeof(gpu_detail::DConcatCacheEntry)*gpu_detail::DCONCAT_CACHE_SLOTS))return false;
     return (!indexed || allocate(reinterpret_cast<void**>(&workspace.payload_list_index),slots*entries*2*sizeof(int))) &&
         allocate(reinterpret_cast<void**>(&workspace.payload_string_entries),slots*entries*sizeof(gpu_detail::DStringPayloadEntry)) &&
         allocate(reinterpret_cast<void**>(&workspace.payload_list_entries),slots*entries*sizeof(gpu_detail::DListPayloadEntry)) &&
@@ -719,6 +722,10 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       std::string(std::getenv("GAGP_GPU_FUSED_LIST_CONCAT"))!="0";
   region_workspace.small_int_hash=region_workspace.fused_list_concat &&
       std::getenv("GAGP_GPU_SMALL_INT_HASH") && std::string(std::getenv("GAGP_GPU_SMALL_INT_HASH"))!="0";
+  region_workspace.concat_cache_enabled=region_workspace.fused_list_concat &&
+      std::getenv("GAGP_GPU_CONCAT_CACHE") && std::string(std::getenv("GAGP_GPU_CONCAT_CACHE"))!="0";
+  const bool concat_diagnostics=region_workspace.concat_cache_enabled &&
+      std::getenv("GAGP_GPU_CONCAT_CACHE_DIAGNOSTICS") && std::string(std::getenv("GAGP_GPU_CONCAT_CACHE_DIAGNOSTICS"))!="0";
   region_workspace.compact_frames = std::getenv("GAGP_COMPACT_FRAMES") &&
       std::all_of(packed.region_segments.begin(), packed.region_segments.end(), [](const auto& segment) {
         return segment.state_count <= 2 && segment.preparation_count <= 1 && segment.request_count <= 2;
@@ -857,7 +864,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     return fitness_eval_single_error(ErrCode::Value,"GPU initial payload task count exceeds addressing capacity");
   const std::size_t initial_tasks=programs.size()*initial_tiles_per_program;
   const std::size_t initial_partial_bytes=tiled_initial?sizeof(double)*initial_tasks:0;
-  const std::size_t payload_metadata_bytes=overflow_mask_bytes+overflow_reason_bytes+
+  const std::size_t concat_stats_bytes=concat_diagnostics?3*sizeof(unsigned long long):0;
+  const std::size_t payload_metadata_bytes=overflow_mask_bytes+overflow_reason_bytes+concat_stats_bytes+
       sizeof(unsigned int)*programs.size()+(global_payload?sizeof(int):0);
   if(payload_metadata_bytes>=payload_workspace_budget)
     return fitness_eval_single_error(ErrCode::Value,"GPU payload workspace metadata exceeds configured scratch cap");
@@ -868,17 +876,24 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     gpu_detail::DeviceArena dev;
     PayloadWorkspaceStorage initial_payload(payload_workspace_budget);
     struct IndexBuffers {
+      unsigned long long* concat_stats=nullptr;
       int *compact=nullptr,*generic=nullptr,*compact_queue=nullptr,*generic_queue=nullptr;
       unsigned int* overflows=nullptr;
       unsigned int* overflow_reasons=nullptr;
       unsigned int* overflow_lane_masks=nullptr;
-      ~IndexBuffers(){if(overflow_reasons)cudaFree(overflow_reasons);if(overflow_lane_masks)cudaFree(overflow_lane_masks);if(overflows)cudaFree(overflows);if(compact)cudaFree(compact);if(generic)cudaFree(generic);if(compact_queue)cudaFree(compact_queue);if(generic_queue)cudaFree(generic_queue);}
+      ~IndexBuffers(){if(concat_stats)cudaFree(concat_stats);if(overflow_reasons)cudaFree(overflow_reasons);if(overflow_lane_masks)cudaFree(overflow_lane_masks);if(overflows)cudaFree(overflows);if(compact)cudaFree(compact);if(generic)cudaFree(generic);if(compact_queue)cudaFree(compact_queue);if(generic_queue)cudaFree(generic_queue);}
     } indices;
     const auto upload_t0 = std::chrono::steady_clock::now();
     if (cudaMalloc(reinterpret_cast<void**>(&indices.overflows), sizeof(unsigned int)*programs.size()) != cudaSuccess ||
         cudaMemset(indices.overflows,0,sizeof(unsigned int)*programs.size()) != cudaSuccess)
       return fitness_eval_single_error(ErrCode::Value,"cuda payload overflow diagnostics allocation failure");
     region_workspace.payload_overflows=indices.overflows;
+    if(concat_diagnostics) {
+      if(cudaMalloc(reinterpret_cast<void**>(&indices.concat_stats),concat_stats_bytes)!=cudaSuccess ||
+          cudaMemset(indices.concat_stats,0,concat_stats_bytes)!=cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value,"cuda concat cache diagnostics allocation failure");
+      region_workspace.concat_cache_stats=indices.concat_stats;
+    }
     if(adaptive_replay) {
       if(cudaMalloc(reinterpret_cast<void**>(&indices.overflow_reasons),overflow_reason_bytes)!=cudaSuccess ||
           cudaMemset(indices.overflow_reasons,0,overflow_reason_bytes)!=cudaSuccess)
@@ -1279,6 +1294,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       if(impl_->policy.metric!=FitnessMetric::Legacy)
         for(const auto& c:counts)out.wrong.push_back(c[5]);
     }
+    if(concat_diagnostics && cudaMemcpy(out.concat_cache_stats.data(),indices.concat_stats,
+        concat_stats_bytes,cudaMemcpyDeviceToHost)!=cudaSuccess)
+      return fitness_eval_single_error(ErrCode::Value,"cuda concat cache diagnostics copy failure");
     const auto copy_t1 = std::chrono::steady_clock::now();
 
     out.ok = true;
@@ -1288,6 +1306,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       if(tiled_initial)out.execution_profile+="-initial-tiled";
       if(initial_payload_scale!=1)out.execution_profile+="-initial-scale"+std::to_string(initial_payload_scale);
     }
+    if(region_workspace.concat_cache_enabled && (global_payload || out.payload_replay_programs))out.execution_profile+="-concat-cache";
     if(global_window_aliases)out.execution_profile+="-window-aliases";
     if(region_workspace.fused_list_concat && extended_payload)out.execution_profile+="-fused-concat";
     if(region_workspace.small_int_hash && extended_payload)out.execution_profile+="-small-int-hash";
