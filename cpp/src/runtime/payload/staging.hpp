@@ -5,6 +5,7 @@
 #include <limits>
 #include <stdexcept>
 #include <vector>
+#include "gagp/core/value.hpp"
 
 namespace gagp::payload {
 
@@ -30,6 +31,14 @@ class ListAllocationScope {
 };
 bool list_allocation_budget_active();
 void charge_list_allocation(std::size_t cells);
+
+// Borrows an invocation-owned staged vector, otherwise copies under the registry
+// lock into scratch. The returned pointer is only valid until the next payload
+// registration or scope exit; callers must finish reads before publishing output.
+const std::vector<Value>* read_list(const Value& key, std::vector<Value>& scratch);
+// Transfers a freshly constructed list into the active overlay. Validation,
+// content identity and cumulative byte charging match the public constructors.
+Value make_owned_list_value(ValueTag tag, std::vector<Value>&& elems);
 
 // Check a prospective temporary allocation before constructing it.
 void check_allocation_budget(std::size_t bytes);

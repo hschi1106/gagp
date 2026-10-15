@@ -197,6 +197,39 @@ int main() {
     check(exact_budget[0] == 0.0, "logical arena was not reset between cases");
 
 
+    {
+      const auto string = make_string_value("resident");
+      const std::vector<std::vector<Value>> lists{{Value::from_int(7)},
+          {Value::from_float(-0.0)}, {string}};
+      const std::vector<Value> keys{make_int_list_value(lists[0]),
+          make_float_list_value(lists[1]), make_string_list_value(lists[2])};
+      StagedPayloads temporary(4096);
+      StagedPayloads::Scope scope(temporary);
+      for (std::size_t i=0; i<keys.size(); ++i) {
+        std::vector<Value> scratch;
+        check(read_list(keys[i], scratch) == &scratch && scratch.size() == 1,
+              "global payload escaped the locked copy path");
+        auto owned = lists[i];
+        const auto* allocation = owned.data();
+        const auto key = make_owned_list_value(keys[i].tag, std::move(owned));
+        check(key.tag == keys[i].tag && key.i == keys[i].i,
+              "owned list changed typed content identity");
+        scratch.clear();
+        const auto* resident = read_list(key, scratch);
+        check(resident && resident->data() == allocation && scratch.empty(),
+              "owned payload registration or read copied its backing storage");
+      }
+    }
+    {
+      StagedPayloads temporary(sizeof(Value) + 16);
+      StagedPayloads::Scope scope(temporary);
+      (void)make_owned_list_value(ValueTag::IntList, {Value::from_int(7)});
+      bool exhausted = false;
+      try { (void)make_owned_list_value(ValueTag::IntList, {Value::from_int(7)}); }
+      catch (const PayloadBudgetExceeded&) { exhausted = true; }
+      check(exhausted, "owned replacement skipped cumulative byte charging");
+    }
+
     StagedPayloads guard;
     { StagedPayloads::Scope scope(guard);
       bool rejected = false;

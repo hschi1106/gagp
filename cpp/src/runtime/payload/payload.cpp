@@ -1,6 +1,7 @@
 #include "gagp/runtime/payload/payload.hpp"
 #include "staging.hpp"
 #include <optional>
+#include <algorithm>
 #include <cstring>
 
 #include <cstddef>
@@ -367,6 +368,42 @@ void register_list(const Value& key, const std::vector<Value>& elems) {
   }
   std::lock_guard<std::mutex> lock(g_mu);
   g_lists[key_of(key)] = elems;
+}
+
+const std::vector<Value>* read_list(const Value& key, std::vector<Value>& scratch) {
+  if (key.tag != ValueTag::IntList && key.tag != ValueTag::FloatList &&
+      key.tag != ValueTag::StringList) return nullptr;
+  if (staged) {
+    const auto own = staged->lists.find(key_of(key));
+    if (own != staged->lists.end()) return &own->second;
+  }
+  return lookup_list(key, &scratch) ? &scratch : nullptr;
+}
+
+Value make_owned_list_value(ValueTag tag, std::vector<Value>&& elems) {
+  if (!staged) {
+    if (tag == ValueTag::IntList) return make_int_list_value(elems);
+    if (tag == ValueTag::FloatList) return make_float_list_value(elems);
+    if (tag == ValueTag::StringList) return make_string_list_value(elems);
+    throw std::runtime_error("owned payload requires a typed list");
+  }
+  const bool valid = tag == ValueTag::IntList ? validate_int_list_elems(elems) :
+      tag == ValueTag::FloatList ? validate_float_list_elems(elems) :
+      tag == ValueTag::StringList && validate_string_list_elems(elems);
+  if (!valid) throw std::runtime_error("owned list payload element type mismatch");
+  const auto hash = hash_list_payload(elems);
+  const auto len = static_cast<std::uint32_t>(std::min<std::size_t>(elems.size(), Value::k_container_len_max));
+  const auto value = tag == ValueTag::IntList ? Value::from_int_list_hash_len(hash,len) :
+      tag == ValueTag::FloatList ? Value::from_float_list_hash_len(hash,len) :
+      Value::from_string_list_hash_len(hash,len);
+  const auto key = key_of(value);
+  const auto previous = staged->lists.find(key);
+  if (previous != staged->lists.end() && !identical(previous->second, elems)) staged->conflict = true;
+  const auto bytes = elems.size() * sizeof(Value) + sizeof(PayloadKey);
+  check_allocation_budget(bytes);
+  staged->bytes += bytes;
+  staged->lists[key] = std::move(elems);
+  return value;
 }
 
 bool lookup_string(const Value& key, std::string* out) {

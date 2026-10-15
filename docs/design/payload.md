@@ -437,3 +437,12 @@ the invocation's append-only list arena; a negative offset encodes
 offsets never escape the invocation or modify public payload identity. Repeated
 identical registrations reuse their first resident entry; logical allocation
 charges still occur on every singleton and nonempty concat execution.
+
+CPU builtins may borrow staged list contents through the private `read_list`
+helper while constructing a fresh result. Registry-backed inputs still use a
+locked copy; no pointer into the shared registry is exposed. Reads finish before
+registration, which can replace an existing staged payload. Fresh builtin list
+results transfer their vector storage into the overlay through
+`make_owned_list_value`, retaining typed validation, content hashing, collision
+checks, and cumulative byte charges on every registration. Public constructors
+and payload identities are unchanged.

@@ -96,14 +96,8 @@ std::uint64_t prepend_list_hash48(std::uint8_t type_code, const Value& elem, con
   return (h & Value::k_container_hash_mask);
 }
 
-BuiltinResult make_exact_list(ValueTag tag, const std::vector<Value>& elems) {
-  if (tag == ValueTag::IntList) {
-    return BuiltinResult{false, payload::make_int_list_value(elems), Err{ErrCode::Value, ""}};
-  }
-  if (tag == ValueTag::FloatList) {
-    return BuiltinResult{false, payload::make_float_list_value(elems), Err{ErrCode::Value, ""}};
-  }
-  return BuiltinResult{false, payload::make_string_list_value(elems), Err{ErrCode::Value, ""}};
+BuiltinResult make_exact_list(ValueTag tag, std::vector<Value>&& elems) {
+  return BuiltinResult{false, payload::make_owned_list_value(tag, std::move(elems)), Err{ErrCode::Value, ""}};
 }
 
 bool is_ascii_letter(long long c) {
@@ -258,9 +252,12 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       return out;
     }
     if (is_list_tag(a.tag) && a.tag == b.tag) {
-      std::vector<Value> la;
-      std::vector<Value> lb;
-      if (payload::lookup_list(a, &la) && payload::lookup_list(b, &lb)) {
+      std::vector<Value> left_scratch, right_scratch;
+      const auto* left = payload::read_list(a, left_scratch);
+      const auto* right = left ? payload::read_list(b, right_scratch) : nullptr;
+      if (left && right) {
+        const auto& la = *left;
+        const auto& lb = *right;
         if (payload::list_allocation_budget_active()) {
           if (la.empty()) return BuiltinResult{false, b, Err{ErrCode::Value, ""}};
           if (lb.empty()) return BuiltinResult{false, a, Err{ErrCode::Value, ""}};
@@ -271,7 +268,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
         out_elems.reserve(la.size() + lb.size());
         out_elems.insert(out_elems.end(), la.begin(), la.end());
         out_elems.insert(out_elems.end(), lb.begin(), lb.end());
-        return make_exact_list(a.tag, out_elems);
+        return make_exact_list(a.tag, std::move(out_elems));
       }
       const std::uint32_t len = Value::saturating_len_add(Value::container_len(a), Value::container_len(b));
       const std::uint64_t h = Value::combine_container_hash48(list_type_code(a), a, b);
@@ -319,8 +316,9 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       return out;
     }
     if (is_list_tag(x.tag)) {
-      std::vector<Value> lx;
-      if (payload::lookup_list(x, &lx)) {
+      std::vector<Value> scratch;
+      if (const auto* source = payload::read_list(x, scratch)) {
+        const auto& lx = *source;
         const std::size_t ls = static_cast<std::size_t>(l);
         const std::size_t hs = static_cast<std::size_t>(h);
         if (hs > ls && hs > lx.size()) return fail(ErrCode::Value, "slice exceeds registered list payload");
@@ -329,7 +327,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
         for (std::size_t k = ls; k < hs; ++k) {
           out_elems.push_back(lx[k]);
         }
-        return make_exact_list(x.tag, out_elems);
+        return make_exact_list(x.tag, std::move(out_elems));
       }
       const std::uint64_t out_h = Value::slice_container_hash48(list_type_code(x), x, lo.i, hi.i);
       BuiltinResult out;
@@ -392,7 +390,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     std::vector<Value> lx;
     if (payload::lookup_list(xs, &lx)) {
       lx.push_back(elem);
-      return make_exact_list(xs.tag, lx);
+      return make_exact_list(xs.tag, std::move(lx));
     }
     const std::uint32_t len = Value::saturating_len_add(Value::container_len(xs), 1U);
     const std::uint64_t h = Value::append_list_hash48(list_type_code(xs), xs, elem);
@@ -422,7 +420,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     std::vector<Value> lx;
     if (payload::lookup_list(xs, &lx)) {
       lx.insert(lx.begin(), elem);
-      return make_exact_list(xs.tag, lx);
+      return make_exact_list(xs.tag, std::move(lx));
     }
     const std::uint32_t len = Value::saturating_len_add(Value::container_len(xs), 1U);
     const std::uint64_t h = prepend_list_hash48(list_type_code(xs), elem, xs);
@@ -453,7 +451,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     std::vector<Value> lx;
     if (payload::lookup_list(x, &lx)) {
       std::reverse(lx.begin(), lx.end());
-      return make_exact_list(x.tag, lx);
+      return make_exact_list(x.tag, std::move(lx));
     }
     const std::uint64_t h = Value::reverse_container_hash48(list_type_code(x), x);
     BuiltinResult out;
