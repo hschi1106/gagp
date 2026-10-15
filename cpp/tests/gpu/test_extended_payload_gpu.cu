@@ -350,7 +350,19 @@ bool test_payload_replay_fitness() {
     FitnessSessionGpu session;
     if(!check(session.init(cases,answers,10000,512,1000.0,policy).ok,"replay session init"))return false;
     const auto gpu=session.eval_programs({program,short_program},true);
-    if(!check(gpu.ok && gpu.fitness==cpu,"GPU arena replay differs from CPU 512-lane reduction"))return false;
+    if(!check(gpu.ok && gpu.fitness==cpu,"GPU arena replay differs from CPU 512-lane reduction")) {
+      std::cerr<<"index="<<indexed<<" limit="<<limit<<" ok="<<gpu.ok<<" error="<<gpu.err.message
+          <<" profile="<<gpu.execution_profile<<" replay_programs="<<gpu.payload_replay_programs
+          <<" replay_cases="<<gpu.payload_replay_cases<<" launches="<<gpu.payload_replay_launches<<'\n';
+      std::cerr.precision(17);
+      for(std::size_t i=0;i<cpu.size();++i) {
+        std::cerr<<"program "<<i<<" cpu="<<cpu[i];
+        if(i<gpu.fitness.size())std::cerr<<" gpu="<<gpu.fitness[i];
+        if(i<gpu.case_counts.size())std::cerr<<" cases="<<gpu.case_counts[i][0]<<" errors="<<gpu.case_counts[i][1]<<" timeouts="<<gpu.case_counts[i][2];
+        std::cerr<<'\n';
+      }
+      return false;
+    }
     if(!check(gpu.case_counts[0][0]==513 && gpu.case_counts[1][0]==513,"replay diagnostics double-count cases"))return false;
     if(limit==65536) {
       if(!check(gpu.payload_replay_programs==1 && gpu.payload_replay_cases==513 && gpu.payload_replay_launches==1,
