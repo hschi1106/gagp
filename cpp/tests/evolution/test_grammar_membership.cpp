@@ -11,6 +11,7 @@
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
+#include "gagp/runtime/payload/payload.hpp"
 #include "../../src/runtime/payload/staging.hpp"
 #include "../../src/evolution/grammar/evaluation_identity.hpp"
 #include "../../src/evolution/grammar/cold_admission.hpp"
