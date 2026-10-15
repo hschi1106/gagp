@@ -232,6 +232,26 @@ int main(){try {
  legacy.offspring_resource_budget=legacy.initial_resource_budget;
  legacy.mutation_subtree_prob=.5; // Unsupported phase policy, valid generic policy.
  const std::vector<EvalCase> small_cases{evolution_cases.front()};
+ // Positive strict opt-in must select the projected owner and publish members
+ // independently admitted under the same budget, not merely reject bad flags.
+ auto projected=config;projected.generations=1;projected.gpu_blocksize=32;
+ projected.gpu_projected_phase_profile=true;
+ projected.initial_resource_budget=legacy.initial_resource_budget;
+ projected.offspring_resource_budget=legacy.offspring_resource_budget;
+ const auto projected_result=evolve_population(small_cases,projected,&parents);
+ require(projected_result.reproduction_profile=="native-gpu-phase-v3-projected" &&
+     projected_result.reproduction_fallback_reason.empty(),"positive projected opt-in did not use phase owner");
+ std::vector<BytecodeProgram> projected_programs;
+ for(const auto& scored:projected_result.final_population) {
+  auto fresh=scored.genome;fresh.derivation.reset();
+  const auto witness=grammar::reconstruct_derivation(*grammar,fresh);
+  require(projected.offspring_resource_budget->accepts(witness.resources->subtree()),"projected offspring exceeds canonical budget");
+  projected_programs.push_back(compile_for_eval(fresh,names));
+ }
+ const auto projected_cpu=eval_fitness_cpu(projected_programs,{cases.front()},{answers.front()},10000,1000,32);
+ for(std::size_t i=0;i<projected_cpu.size();++i)
+  require(canonicalize_fitness_for_ranking(projected_cpu[i])==projected_result.final_population[i].fitness,
+      "positive projected opt-in offspring CPU fitness mismatch");
  const auto generic=evolve_population(small_cases,legacy,&parents);
  require(generic.reproduction_profile=="native-ast" && !generic.reproduction_fallback_reason.empty(),
      "legacy projected budgets no longer fall back to generic GPU reproduction");

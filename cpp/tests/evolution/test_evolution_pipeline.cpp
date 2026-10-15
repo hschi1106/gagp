@@ -216,6 +216,26 @@ int main() {
     }
     assert(elite && gate);
   }
+  for(const auto& profile:{std::string("native-gpu-phase-v2-counted"),
+      std::string("native-gpu-phase-v2-counted-uniform-phase"),
+      std::string("native-gpu-phase-v3-projected-uniform-phase")}) {
+    auto audited=timing_config;
+    if(profile.find("projected")!=std::string::npos)
+      audited.offspring_resource_budget=gagp::evo::grammar::ProjectedBudget{1024,7};
+    const auto contract=fixed_asgp::audit_search_contract(audited,profile,true,true);
+    const bool uniform=profile.find("uniform-phase")!=std::string::npos;
+    for(const auto& item:contract.items) {
+      if(item.id=="crossover_sites" || item.id=="mutation_scope") {
+        assert((item.native.find("uniform variable phase")!=std::string::npos)==uniform);
+        assert(!item.matched); // Native sites/admission/retries remain distinct.
+      }
+      if(item.id=="phase_limits") {
+        assert((item.native.find("projected depth cap 7")!=std::string::npos)==bool(audited.offspring_resource_budget));
+        assert(!item.matched);
+      }
+    }
+    assert(!contract.fully_aligned());
+  }
   const auto unverified=fixed_asgp::audit_search_contract(timing_config,"native-ast");
   assert(!unverified.items.front().matched && !unverified.fully_aligned());
   // Explicit profile errors are validated before device initialization, even in

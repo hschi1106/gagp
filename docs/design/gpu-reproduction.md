@@ -568,7 +568,9 @@ this flag does not establish equivalent convergence or equal search work. The
 existing `gagp_test_gpu_phase_population` exercises enabled-policy membership,
 full-case CPU/GPU fitness parity, counted/reservoir selection, and exact
 unset-versus-zero trajectories. Quality/performance adoption requires separate
-measurements.
+measurements. The benchmark search-contract metadata names uniform-phase draws
+and active projected depth caps, while keeping their alignment flags false:
+native grammar sites, retries, physical limits, and admissibility still differ.
 
 #### Optional batched native GPU import/export transport
 

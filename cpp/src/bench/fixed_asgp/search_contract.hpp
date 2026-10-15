@@ -35,6 +35,11 @@ inline SearchContractAudit audit_search_contract(
     const gagp::evo::EvolutionConfig& cfg, const std::string& reproduction_profile,
     bool task_metric_verified = false, bool frozen_initial_population_verified = false) {
   const bool phase_owner=reproduction_profile.rfind("native-gpu-phase-",0)==0;
+  const std::string uniform_suffix="-uniform-phase";
+  const bool uniform_phase=phase_owner && reproduction_profile.size()>=uniform_suffix.size() &&
+      reproduction_profile.compare(reproduction_profile.size()-uniform_suffix.size(),uniform_suffix.size(),uniform_suffix)==0;
+  const bool projected_phase=phase_owner && reproduction_profile.rfind("native-gpu-phase-v3-projected",0)==0 &&
+      cfg.offspring_resource_budget.has_value();
   const bool gpu=cfg.reproduction_backend==gagp::evo::repro::ReproductionBackend::Gpu;
   SearchContractAudit audit;
   audit.reproduction_profile=reproduction_profile;
@@ -49,15 +54,20 @@ inline SearchContractAudit audit_search_contract(
     {"crossover_gate","0.7 probability per child, one uniformly chosen phase",
       "one crossover attempt per child; no probability gate",false},
     {"crossover_sites","uniform phase, uniform destination node, compatible donor in same phase",
+      uniform_phase?"uniform variable phase; grammar-admitted destination and compatible donor sites in the same phase; phase held across bounded retries":
       phase_owner?"whole-genome grammar sites; bounded compatible-donor retries":
                   "grammar-admitted site pairs, scopes and nonterminals",false},
     {"mutation_gate","0.3 probability per child",std::to_string(cfg.mutation_rate),cfg.mutation_rate==0.3},
     {"mutation_scope","uniform phase then uniform node",
-      "grammar-admitted sites; source phase is not sampled uniformly",false},
+      uniform_phase?"uniform variable phase then uniform grammar-admitted site; native site/admissibility rules":
+                    "grammar-admitted sites; source phase is not sampled uniformly",false},
     {"mutation_donor_depth","grow donor within max_depth minus selected node level plus one",
-      "compiled request and projected resource admission",false},
+      projected_phase?"remaining projected and physical depth; weighted jointly feasible grammar productions":
+                      "compiled request and projected resource admission",false},
     {"phase_limits","source logical phase depth limit 7",
-      "native grammar depth/node budgets and backend physical capacities",false},
+      cfg.offspring_resource_budget?"projected depth cap "+std::to_string(cfg.offspring_resource_budget->max_depth)+
+          "; independent native grammar depth/node budgets and backend physical capacities":
+          "native grammar depth/node budgets and backend physical capacities",false},
     {"terminal_sampler","grow: terminal probability 0.5 when both categories fit; full: inner",
       "weighted feasible productions; no conditional terminal/inner gate",false},
     {"constant_sampler","uniform constant production, uniform range, uniform value",
