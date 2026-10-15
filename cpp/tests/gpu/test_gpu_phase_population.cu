@@ -311,12 +311,13 @@ void test_trivial_pattern_refresh() {
 }
 
 void test_private_intlist_generations(bool sequence_windows=false) {
- const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_PRIVATE_MEASURE_CACHE","GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","GAGP_GPU_PRIVATE_BOUND_PHASES","GAGP_BOUND_ADD_PHASE","GAGP_BOUND_COMPARE_PHASE"};
+ const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_PRIVATE_MEASURE_CACHE","GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","GAGP_COMPACT_FRAMES","GAGP_GPU_WINDOW_LEAF_DIRECT","GAGP_GPU_PRIVATE_BOUND_PHASES","GAGP_BOUND_ADD_PHASE","GAGP_BOUND_COMPARE_PHASE"};
  struct Restore {
-  const char** flags;std::string saved[12];bool present[12];
-  explicit Restore(const char** f):flags(f){for(int i=0;i<12;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
-  ~Restore(){for(int i=0;i<12;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
+  const char** flags;std::string saved[15];bool present[15];
+  explicit Restore(const char** f):flags(f){for(int i=0;i<15;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
+  ~Restore(){for(int i=0;i<15;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
  } restore(flags);
+ if(!sequence_windows)setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","0",1);
  const auto grammar=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
      grammar::load_definition(sequence_windows?GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_measure_intlist.json":
          GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_intlist.json")));
@@ -338,8 +339,10 @@ void test_private_intlist_generations(bool sequence_windows=false) {
   setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","0",1);
   setenv("GAGP_GPU_PRIVATE_BOUND_PHASES","0",1);
   setenv("GAGP_GPU_PRIVATE_MEASURE_CACHE","0",1);
+  setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","0",1);
   const auto uncached=owner.evaluate(session,true);
   setenv("GAGP_GPU_PRIVATE_MEASURE_CACHE","1",1);
+  setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR",sequence_windows?"1":"0",1);
   setenv("GAGP_GPU_COMPACT_INTLIST_CELLS","0",1);
   const auto boxed=owner.evaluate(session,true);
   setenv("GAGP_GPU_COMPACT_INTLIST_CELLS","1",1);
@@ -361,6 +364,7 @@ void test_private_intlist_generations(bool sequence_windows=false) {
       boxed.case_counts==gpu.case_counts && boxed.execution_profile.find("-compact-intlist-cells")==std::string::npos &&
       gpu.execution_profile.find("-compact-intlist-cells")!=std::string::npos,
       "private bound/boxed/compact phases differ across fresh GPU generations");
+  require(!sequence_windows || (gpu.execution_profile.find("-private-window")!=std::string::npos && gpu.execution_profile.find("-private-window-declined")==std::string::npos),"sequence private driver declined");
   require(gpu.ok && gpu.execution_profile.find("-trivial-phases")!=std::string::npos && gpu.execution_profile.find("private-intlist-offset-v1")!=std::string::npos &&
       gpu.execution_profile.find("-declined")==std::string::npos,"fresh list generation lost capability");
   std::vector<BytecodeProgram> independent;

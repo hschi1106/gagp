@@ -61,7 +61,7 @@ struct PayloadWorkspaceStorage {
     workspace.compact_intlist_cells=workspace.private_intlists && workspace.compact_intlist_cells;
     if(workspace.compact_intlist_cells)workspace.payload_list_values=nullptr;
     else workspace.payload_intlist_cells=nullptr;
-    workspace.window_executor=false;workspace.coordinate_executor=false;
+    workspace.window_executor=workspace.private_intlists && workspace.window_executor;workspace.coordinate_executor=false;
     workspace.unboxed_window_frames=false;workspace.window_soa=false;
     workspace.measure_phase_cache=workspace.private_intlists && workspace.measure_phase_cache;
     workspace.fitness_lanes=lanes;
@@ -890,20 +890,24 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       std::any_of(packed.region_segments.begin(), packed.region_segments.end(), [](const auto& segment) {
         return segment.state_count > 1;
       });
-  region_workspace.window_executor = direct_phases && std::getenv("GAGP_WINDOW_EXECUTOR") &&
-      region_workspace.compact_frames &&
-      std::all_of(packed.region_segments.begin(),packed.region_segments.end(),[](const auto& s) {
-        return s.progress==RegionProgressKind::SequenceWindows && (s.state_count==1 ||
+  const char* private_window_setting=std::getenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR");
+  const bool request_private_window=private_window_setting && std::string(private_window_setting)=="1";
+  region_workspace.window_executor = ((direct_phases && std::getenv("GAGP_WINDOW_EXECUTOR")) ||
+      (private_intlists && request_private_window)) &&
+      has_regions && region_workspace.compact_frames &&
+      std::all_of(packed.region_segments.begin(),packed.region_segments.end(),[&](const auto& s) {
+        return s.progress==RegionProgressKind::SequenceWindows && s.sequence_state==0 && (s.state_count==1 ||
             (s.state_count==2 && s.state_types[1]==ValueTag::Int &&
              (s.requests[0][1].kind==RegionTransitionKind::Expression ||
               (s.requests[0][1].kind==RegionTransitionKind::CopyState && s.requests[0][1].source_state==1)) &&
              (s.requests[1][1].kind==RegionTransitionKind::Expression ||
               (s.requests[1][1].kind==RegionTransitionKind::CopyState && s.requests[1][1].source_state==1)))) &&
-            s.state_types[0]==ValueTag::IntList && s.result_type==ValueTag::Int &&
+            s.state_types[0]==ValueTag::IntList && s.result_type==(private_intlists?ValueTag::IntList:ValueTag::Int) &&
             !s.memoized && s.bound_operand_count==0 && s.preparation_count==1 &&
             s.preparation_kinds[0]==RegionPreparationKind::InteriorCut && s.preparation_types[0]==ValueTag::Int &&
             s.request_count==2 && s.requests[0][0].kind==RegionTransitionKind::SequenceWindow &&
-            s.requests[1][0].kind==RegionTransitionKind::SequenceWindow;
+            s.requests[1][0].kind==RegionTransitionKind::SequenceWindow &&
+            s.requests[0][0].source_state==0 && s.requests[1][0].source_state==0;
       });
   region_workspace.coordinate_executor = direct_phases && std::getenv("GAGP_COORDINATE_EXECUTOR") &&
       std::all_of(packed.region_segments.begin(),packed.region_segments.end(),[](const auto& s) {
@@ -955,7 +959,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   };
   region_workspace.window_leaf_direct = std::getenv("GAGP_GPU_WINDOW_LEAF_DIRECT") &&
       std::string(std::getenv("GAGP_GPU_WINDOW_LEAF_DIRECT")) != "0";
-  region_workspace.unboxed_window_frames = region_workspace.window_executor && std::getenv("GAGP_UNBOXED_WINDOW_FRAMES");
+  region_workspace.unboxed_window_frames = !private_intlists && region_workspace.window_executor && std::getenv("GAGP_UNBOXED_WINDOW_FRAMES");
   region_workspace.window_soa = region_workspace.unboxed_window_frames && std::getenv("GAGP_WINDOW_SOA");
   std::size_t frame_size = region_workspace.coordinate_executor ? sizeof(gpu_detail::DUnboxedCoordinateFrame) : region_workspace.unboxed_window_frames ?
       (region_workspace.two_state_frames ? sizeof(gpu_detail::DUnboxedWindowFrame<2>) : sizeof(gpu_detail::DUnboxedWindowFrame<1>)) : !region_workspace.compact_frames ? sizeof(gpu_detail::DRegionFrame) :
@@ -1516,6 +1520,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         "-private-measure-cache":"-private-measure-cache-declined";
     if (region_workspace.coordinate_executor) out.execution_profile += "-coordinate";
     if (region_workspace.window_executor) out.execution_profile += "-window";
+    if(request_private_window)out.execution_profile+=private_intlists && region_workspace.window_executor?
+        "-private-window":"-private-window-declined";
     if (region_workspace.unboxed_window_frames) out.execution_profile += "-unboxed";
     if(direct_phases && std::any_of(packed.region_phases.begin(),packed.region_phases.end(),
         [](const auto& p){return p.program.add_left_binding>=0;}))out.execution_profile+="-bound-add";

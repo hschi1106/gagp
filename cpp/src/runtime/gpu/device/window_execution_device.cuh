@@ -42,16 +42,16 @@ template<unsigned States> struct DWindowFrameAccess<DUnboxedWindowFrame<States>,
 };
 
 // Capability: IntList state plus an optional carried Int, two window requests, one InteriorCut Int
-// preparation, Int result, no memo or bound operands. Still executes every
+// preparation, Int or private IntList result, no memo or bound operands. Still executes every
 // evolved predicate/base/cut/combine and uses the original entry/instruction fuel.
-template<class Frame, bool SoA = false>
+template<class Frame, bool SoA = false, DPayloadFlavor Flavor = DPayloadFlavor::BoundIntListViews,
+    ValueTag Result = ValueTag::Int>
 __device__ __noinline__ DResult d_run_window_region(
     const DRegionSegment& segment, const Value* operands,
     const Value* caller_locals, std::uint64_t caller_set,
     const DPayloadTables& payload_tables,
-    DPayloadFlavorTraits<DPayloadFlavor::BoundIntListViews>::State& payload_state,
+    typename DPayloadFlavorTraits<Flavor>::State& payload_state,
     const DExecutionTables& tables, int& fuel, DRegionWorkspace workspace) {
-  constexpr auto Flavor=DPayloadFlavor::BoundIntListViews;
   if(segment.limits.frames==0)return d_error(ErrCode::Timeout);
   if(!workspace.frames || workspace.frame_capacity<segment.limits.frames)return d_error(ErrCode::Value);
   DWindowFrameAccess<Frame, SoA> frames{workspace.frames, workspace.slot_stride};
@@ -73,7 +73,7 @@ __device__ __noinline__ DResult d_run_window_region(
         if(result.is_error)return result;base=result.value.b;
       }
       if(base) {
-        result=d_region_phase<Flavor>(segment,segment.base_body_phase,ValueTag::Int,
+        result=d_region_phase<Flavor>(segment,segment.base_body_phase,Result,
             frame,caller_locals,caller_set,payload_tables,payload_state,tables,fuel,true);
         if(result.is_error)return result;completed=true;
       } else {
@@ -114,7 +114,7 @@ __device__ __noinline__ DResult d_run_window_region(
         Frame leaf;
         leaf.state[0]=next;
         if(segment.state_count==2)leaf.state[1]=carried;
-        result=d_region_phase<Flavor>(segment,segment.base_body_phase,ValueTag::Int,
+        result=d_region_phase<Flavor>(segment,segment.base_body_phase,Result,
             leaf,caller_locals,caller_set,payload_tables,payload_state,tables,fuel,true);
         if(result.is_error)return result;
         frame.results[frame.next_request++]=result.value;
@@ -126,7 +126,7 @@ __device__ __noinline__ DResult d_run_window_region(
     }
     if(!completed) {
       // Typed phase proof excludes fallback-token results in this profile.
-      result=d_region_phase<Flavor>(segment,segment.combine_phase,ValueTag::Int,
+      result=d_region_phase<Flavor>(segment,segment.combine_phase,Result,
           frame,caller_locals,caller_set,payload_tables,payload_state,tables,fuel,true);
       if(result.is_error)return result;
     }

@@ -161,3 +161,11 @@ maintenance, follow the rules in root `AGENTS.md`.
   Contract: `docs/design/payload.md`; tests: `gagp_test_bounded_region_gpu`,
   `gagp_test_bounded_region_gpu_results`, `gagp_test_gpu_phase_population`.
   Paths relative to `cpp/src/`.
+
+- `GAGP_GPU_PRIVATE_WINDOW_EXECUTOR` admits existing tagged compact arena frames
+  to the two-window driver in `runtime/gpu/device/window_execution_device.cuh`;
+  selection and replay propagation live in `runtime/gpu/fitness_gpu.cu`, with
+  flavor dispatch in `device/region_execution_device.cuh`. Contract:
+  `docs/design/payload.md`; tests: `gagp_test_bounded_region_gpu` and
+  `gagp_test_gpu_phase_population`. Paths relative to `cpp/src/` (device dispatch
+  under `runtime/gpu/`). Private results are IntList; unboxed/SoA stays view-only.

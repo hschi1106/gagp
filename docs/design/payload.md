@@ -324,6 +324,27 @@ unset and other values leave the prototype off. The extended payload test covers
 both modes, canonical length boundaries, mixed origins, lazy captures and
 full-case CPU parity; native-owner tests compare both modes over 32 generations.
 
+`GAGP_GPU_PRIVATE_WINDOW_EXECUTOR=1` selects the existing two-window driver
+for admitted private IntList arenas only when every packed segment has IntList
+state zero, an optional carried Int, IntList result, two same-source window
+requests, one InteriorCut Int preparation, no memo and no bound operands. The
+carried state may only copy itself or run its verified Int request expression.
+Unsupported or mixed shapes keep the generic driver and report
+`-private-window-declined`; admitted shapes report `-private-window`. The default
+is off. Current private typeflow excludes fallback-token phase results and nested
+region calls, including after every GPU-lowered generation.
+
+Private execution retains the existing tagged compact frames, capacities,
+workspace accounting, payload cells and resident scoring; unboxed/SoA frame
+formats remain view-only. Initial arenas and replay retain the same driver
+capability. Every evolved predicate, base body, cut, request expression and
+combine still runs with original instruction and entry fuel. Existing
+`GAGP_GPU_WINDOW_LEAF_DIRECT=1` may execute an intrinsic terminal child's base
+phase without storing its frame, after the original Slice, carried-state
+expression, declared depth check and child entry charge. Encoded lengths,
+logical allocation, physical overflow/replay, lazy captures, errors and scalar
+region rewind remain in the original phase VM and arena lifetime.
+
 ### Proven integer/list execution profile
 
 `cpp/src/runtime/gpu/view_profile.hpp` checks forward type flow after ordinary
