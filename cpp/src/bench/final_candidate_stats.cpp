@@ -64,7 +64,8 @@ void capture_population(const std::vector<gagp::evo::ProgramGenome>& population,
 
 namespace gagp::evo {
 std::vector<ScoredGenomeRef> capture_rank(const std::vector<ProgramGenome>& population,
-                                        const std::vector<double>& fitness, bool sort_output) {
+                                        const std::vector<double>& fitness, bool sort_output,
+                                        const std::vector<unsigned>& wrong = {}) {
   // Direct GPU reproduction also ranks the already evaluated fitness vector
   // into source order. Count the first ranking of each generation only; the
   // reproduction observer opens the next evaluation (including final eval).
@@ -72,7 +73,7 @@ std::vector<ScoredGenomeRef> capture_rank(const std::vector<ProgramGenome>& popu
     capture_population(population, "evaluation");
     capture_evaluation_pending = false;
   }
-  return rank_population_refs(population, fitness, sort_output);
+  return rank_population_refs(population, fitness, sort_output, wrong);
 }
 namespace repro {
 OwnedGpuReproOverlap capture_owned_overlap(std::vector<ProgramGenome> population,
