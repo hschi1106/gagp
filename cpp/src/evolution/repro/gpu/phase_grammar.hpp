@@ -19,7 +19,7 @@ struct HostPhaseGrammar {
   std::vector<PhaseDomain> domains;
   std::vector<Value> values;
   std::vector<unsigned> minimum;
-  int root_expression=-1,depth_count=0;
+  int root_expression=-1,depth_count=0,logical_depth_count=1;
 };
 // Prove that an alternative with maximum weight is feasible whenever any
 // alternative is feasible at the same depth/capacity. Only then is the dynamic
@@ -31,10 +31,10 @@ inline void normalize_static_phase_weights(const HostPhaseGrammar& host,
     double maximum=0;for(int i=0;i<nt.production_count;++i)
       maximum=std::max(maximum,productions.at(nt.production_offset+i).weight);
     bool proven=maximum>0;
-    for(int depth=0;depth<host.depth_count && proven;++depth) {
+    for(int depth=0;depth<host.depth_count*host.logical_depth_count && proven;++depth) {
       unsigned cheapest=0xffffffffu,max_weight_cheapest=0xffffffffu;
       for(int i=0;i<nt.production_count;++i){const auto& p=productions.at(nt.production_offset+i);
-        const auto cost=host.minimum.at(std::size_t(p.expression)*host.depth_count+depth);
+        const auto cost=host.minimum.at(std::size_t(p.expression)*host.depth_count*host.logical_depth_count+depth);
         cheapest=std::min(cheapest,cost);if(p.weight==maximum)max_weight_cheapest=std::min(max_weight_cheapest,cost);
       }
       proven=cheapest==max_weight_cheapest;
@@ -57,10 +57,10 @@ inline Opcode phase_opcode(NodeKind kind) {
   }
 }
 inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& grammar,
-    unsigned root, unsigned max_depth=32) {
+    unsigned root, unsigned max_depth=32, unsigned logical_depth=0) {
   using namespace grammar;
   const auto fail=[](const char* reason){throw std::invalid_argument(std::string("GPU phase construction: ")+reason);};
-  if(root>=grammar.nonterminals().size() || !max_depth || max_depth>64 || max_depth>grammar.search_limits().max_depth)
+  if(root>=grammar.nonterminals().size() || !max_depth || max_depth>64 || max_depth>grammar.search_limits().max_depth || logical_depth>15)
     fail("invalid root/depth");
   if(grammar.expressions().size()>65536 || grammar.nonterminals().size()>4096 ||
       (grammar.expressions().size()+1)*(max_depth+1)>4*1024*1024)fail("table capacity");
@@ -93,6 +93,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
   visit_expression=[&](unsigned id) {
     if(seen_expr.at(id))return;seen_expr[id]=true;
     const auto& e=grammar.expressions().at(id);auto& x=out.expressions[id];
+    x.depth_charge=e.resource_charge.depth;
     if(e.category!=NodeCategory::Expression || !e.regions.empty() ||
         (e.type!=RType::Int && e.type!=RType::Bool && e.type!=RType::IntList))fail("expression type or binder introduction");
     if(e.kind==ExpressionKind::Reference) {
@@ -161,6 +162,34 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
   for(int i=0;i<entry.scope_count;++i)entry.scope[i]=i;
   out.root_expression=out.expressions.size();out.expressions.push_back(entry);
   for(unsigned d=0;d<=max_depth;++d)out.minimum[out.root_expression*out.depth_count+d]=mutation_cost(root,d);
+  if(logical_depth) {
+    out.logical_depth_count=logical_depth+1;
+    const auto size=out.expressions.size()*out.depth_count*out.logical_depth_count;
+    if(size>4*1024*1024)fail("projected table capacity");
+    out.minimum.assign(size,kNoGrammarId);
+    // References do not consume physical or projected depth. The admitted
+    // profile forbids production-root aliases, so recursion always reduces d.
+    std::vector<bool> computed(size);
+    std::function<unsigned(int,int,int)> cost=[&](int id,int d,int l)->unsigned {
+      const auto offset=(std::size_t(id)*out.depth_count+d)*out.logical_depth_count+l;
+      auto& result=out.minimum[offset];
+      if(computed[offset])return result;
+      computed[offset]=true;
+      const auto& e=out.expressions[id];
+      if(e.kind==PhaseExpressionKind::Reference) {
+        const auto& nt=out.nonterminals[e.target];
+        for(int i=0;i<nt.production_count;++i)
+          result=std::min(result,cost(out.productions[nt.production_offset+i].expression,d,l));
+      } else if(d>0 && l>=e.depth_charge) {
+        std::uint64_t total=1;
+        for(int i=0;i<e.node.arity;++i)total+=cost(e.children[i],d-1,l-e.depth_charge);
+        result=total>=kNoGrammarId?kNoGrammarId:static_cast<unsigned>(total);
+      }
+      return result;
+    };
+    for(std::size_t i=0;i<out.expressions.size();++i)if(i==std::size_t(out.root_expression) || seen_expr[i])
+      for(unsigned d=0;d<=max_depth;++d)for(unsigned l=0;l<=logical_depth;++l)cost(i,d,l);
+  }
   return out;
 }
 } // namespace gagp::evo::repro

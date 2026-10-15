@@ -315,14 +315,19 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
   try {
     const auto entry = grammar::entry_request(*cfg.compiled_grammar);
     const auto request = cfg.generation_request.value_or(entry);
-    if (!cfg.additional_generation_requests.empty() || cfg.offspring_resource_budget ||
-        cfg.initial_resource_budget || cfg.mutation_subtree_prob != 1.0 ||
+    if (!cfg.additional_generation_requests.empty() || cfg.mutation_subtree_prob != 1.0 ||
         request.nonterminal != entry.nonterminal || request.type != entry.type ||
         !request.visible_environment.empty() || request.budget.max_nodes != entry.budget.max_nodes ||
         request.budget.max_depth != entry.budget.max_depth || request.stage != entry.stage)
       throw std::invalid_argument("native GPU phase profile requires the exact entry request and default resource/variation policy");
-    owner = std::make_unique<repro::NativePhasePopulation>(cfg.compiled_grammar,population,cases.input_names);
+    if(bool(cfg.initial_resource_budget)!=bool(cfg.offspring_resource_budget) ||
+        (cfg.initial_resource_budget &&
+         (cfg.initial_resource_budget->max_nodes!=cfg.offspring_resource_budget->max_nodes ||
+          cfg.initial_resource_budget->max_depth!=cfg.offspring_resource_budget->max_depth)))
+      throw std::invalid_argument("native GPU projected profile requires matching initial/offspring budgets");
+    owner = std::make_unique<repro::NativePhasePopulation>(cfg.compiled_grammar,population,cases.input_names,cfg.offspring_resource_budget);
   } catch (const std::invalid_argument& error) {
+    if(cfg.initial_resource_budget || cfg.offspring_resource_budget)throw; // projected phase request fails closed
     result.reproduction_fallback_reason = error.what();
     result.timing.init_population_ms += elapsed(begin);
     return false;

@@ -22,6 +22,7 @@ struct NativePhaseSlot {
   std::size_t begin = 0, end = 0, ordinal = 0;
   unsigned max_depth = 0;
   std::vector<int> binders;
+  unsigned logical_depth = 0;
 };
 struct NativePhaseLayout {
   AstProgram prototype;
@@ -42,15 +43,15 @@ class NativePhaseGrammarProfiles final {
  public:
   explicit NativePhaseGrammarProfiles(std::shared_ptr<const grammar::CompiledGrammar> owner)
       : owner_(std::move(owner)) { phase_layout_require(bool(owner_),"missing profile grammar owner"); }
-  const HostPhaseGrammar& get(const grammar::CompiledGrammar& grammar,unsigned nonterminal,unsigned depth) {
+  const HostPhaseGrammar& get(const grammar::CompiledGrammar& grammar,unsigned nonterminal,unsigned depth,unsigned logical_depth=0) {
     phase_layout_require(owner_.get()==&grammar,"phase profile grammar owner mismatch");
-    const auto key=std::make_pair(nonterminal,depth);const auto found=profiles_.find(key);
+    const auto key=std::make_tuple(nonterminal,depth,logical_depth);const auto found=profiles_.find(key);
     if(found!=profiles_.end())return found->second;
-    return profiles_.emplace(key,compile_phase_variation_grammar(grammar,nonterminal,depth)).first->second;
+    return profiles_.emplace(key,compile_phase_variation_grammar(grammar,nonterminal,depth,logical_depth)).first->second;
   }
  private:
   std::shared_ptr<const grammar::CompiledGrammar> owner_;
-  std::map<std::pair<unsigned,unsigned>,HostPhaseGrammar> profiles_;
+  std::map<std::tuple<unsigned,unsigned,unsigned>,HostPhaseGrammar> profiles_;
 };
 
 // A secondary population import may omit duplicate profile storage: it is used
@@ -59,7 +60,8 @@ class NativePhaseGrammarProfiles final {
 // witness and executable; otherwise ordinary reconstruction/lowering applies.
 inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGrammar& grammar,
     const ProgramGenome& external, NativePhaseGrammarProfiles* profiles=nullptr,
-    const std::vector<std::string>* evaluator_inputs=nullptr, bool retain_profiles=true) {
+    const std::vector<std::string>* evaluator_inputs=nullptr, bool retain_profiles=true,
+    const grammar::ProjectedBudget* projected=nullptr) {
   using namespace grammar;
   NativePhaseLayout result;
   VerifiedAst verified; std::vector<std::vector<int>> environments;
@@ -70,6 +72,14 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   auto source = external;
   if (!std::getenv("GAGP_REUSE_IMPORT_CERTIFICATE")) source.derivation.reset();
   const auto witness = reconstruct_derivation(grammar, source, entry_request(grammar), &verified, &environments);
+  if(projected) {
+    phase_layout_require(projected->max_nodes==grammar.search_limits().max_nodes &&
+        projected->max_depth>0 && projected->max_depth<=15,"unsupported projected phase budget");
+    phase_layout_require(grammar.resource_invariant_roots({grammar.entry()}).front(),
+        "projected resources lack canonical invariance certificate");
+    phase_layout_require(witness.resources && projected->accepts(witness.resources->subtree()),
+        "initial parent exceeds projected search budget");
+  }
   const auto& ast = source.ast;
   phase_layout_require(ast.bounded_region_specs.size() == 1 && ast.lexical_regions.empty() &&
       ast.traversal_specs.empty(), "requires one bounded region and no outer lexical/traversal regions");
@@ -89,7 +99,7 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   std::function<void(unsigned,bool)> inspect = [&](unsigned id, bool root) {
     const auto& e = grammar.expressions().at(id);
     phase_layout_require(e.resource_charge.nodes <= 1 && e.resource_charge.depth <= 1 &&
-        !e.resource_charge.resets_depth, "weighted/reset skeleton resources require native fallback");
+        (!e.resource_charge.resets_depth || projected), "weighted/reset skeleton resources require native fallback");
     if (e.kind == ExpressionKind::Template) phase_layout_require(root, "nested templates require fallback");
     if (e.kind == ExpressionKind::Hole) {
       phase_layout_require(holes.insert(e.target).second && e.children.size() == 1,
@@ -140,6 +150,12 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
     phase_layout_require(bindings.size() == nt.scope.size(), "phase scope must exactly match formal scope");
     NativePhaseSlot slot{found->second, hole.ast_begin, hole.ast_end, phase->second.second,
         grammar.search_limits().max_depth - depths.at(hole.ast_begin) + 1, {}};
+    if(projected) {
+      const auto allowance=witness.resources->replacement({hole.ast_begin},projected->max_nodes,projected->max_depth);
+      phase_layout_require(allowance.surrounding_fits && allowance.max_carried_depth>0 &&
+          allowance.max_carried_depth<=15,"unsupported projected phase allowance");
+      slot.logical_depth=allowance.max_carried_depth;
+    }
     for (const auto& binding : bindings) slot.binders.push_back(binding.binder_id);
     auto choice = std::find_if(witness.choices.begin(), witness.choices.end(), [&](const auto& c) {
       return c.nonterminal == slot.nonterminal && c.ast_begin == slot.begin && c.ast_end == slot.end;
@@ -157,8 +173,8 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   for (const auto& slot : result.slots) {
     result.fixed_nodes -= slot.end - slot.begin;
     HostPhaseGrammar uncached_profile;
-    if (!profiles) uncached_profile = compile_phase_variation_grammar(grammar,slot.nonterminal,result.budget.max_depth);
-    const auto& profile = profiles ? profiles->get(grammar,slot.nonterminal,result.budget.max_depth)
+    if (!profiles) uncached_profile = compile_phase_variation_grammar(grammar,slot.nonterminal,result.budget.max_depth,slot.logical_depth);
+    const auto& profile = profiles ? profiles->get(grammar,slot.nonterminal,result.budget.max_depth,slot.logical_depth)
                                    : uncached_profile;
     HostPhaseGene gene;
     for (auto i = slot.begin; i < slot.end; ++i) {

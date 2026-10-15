@@ -2,6 +2,7 @@
 #include "search_contract.hpp"
 #include "expanded_audit.hpp"
 #include "sampled_audit.hpp"
+#include "source_depth.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -148,10 +149,14 @@ void prepare(const Json& source, const std::string& grammar_path, int count, con
   const auto grammar=gg::compile_grammar(definition);
   const auto& parents=source.object_v.at("population").array_v;
   if (count<=0 || count>int(parents.size())) throw std::runtime_error("invalid population prefix");
+  const auto depth_budget=source_depth_budget(grammar);
+  std::vector<Json> depth_audits;
   std::vector<Json> programs;
   for (int i=0; i<count; ++i) {
     try {
-      auto g=translate(decode(parents[i]),name,definition,grammar);
+      const auto parent=decode(parents[i]);
+      auto g=translate(parent,name,definition,grammar);
+      if(depth_budget)depth_audits.push_back(audit_source_depth(parent,g,grammar,task(name),*depth_budget));
       programs.push_back(gagp::cli_detail::JsonParser(gagp::cli_detail::encode_ast_json(g.ast),{true,512}).parse());
     } catch (const std::exception& e) {
       throw std::runtime_error("parent " + std::to_string(i) + ": " + e.what());
@@ -159,7 +164,8 @@ void prepare(const Json& source, const std::string& grammar_path, int count, con
     if ((i+1)%256==0) std::cerr << name << " prepared " << i+1 << '/' << count << '\n';
   }
   write(output,object({{"format",string("fixed-asgp-prepared-v1")}, {"task",string(name)},
-                       {"grammar_hash",string(grammar.content_hash())}, {"programs",array(std::move(programs))}}));
+                       {"grammar_hash",string(grammar.content_hash())}, {"source_depth_cap",number(depth_budget?depth_budget->max_depth:0)},
+                       {"source_depth_audit",array(std::move(depth_audits))}, {"programs",array(std::move(programs))}}));
 }
 void audit(const Json& source, const std::string& grammar_path, const std::string& output) {
   auto spec=task(source.object_v.at("task").string_v);
@@ -265,6 +271,7 @@ Json measure_gagp(const std::vector<gagp::evo::ProgramGenome>& population,
   cfg.selection_pressure=2;
   cfg.mutation_rate=.3; cfg.mutation_subtree_prob=1;
   cfg.skip_final_eval=true; cfg.retain_final_population=false;
+  configure_source_depth(cfg);
   const auto call_begin=std::chrono::steady_clock::now();
   const auto result=gagp::evo::evolve_population(cases,cfg,&population);
   const double evolve_wall_ms=std::chrono::duration<double,std::milli>(
@@ -272,6 +279,7 @@ Json measure_gagp(const std::vector<gagp::evo::ProgramGenome>& population,
   const auto& t=result.timing.generations.at(0);
   const auto& v=t.reproduction.variation;
   return object({{"execution_profile",string(t.evaluation.execution_profile)}, {"payload_replay_programs",number(t.evaluation.payload_replay_programs)}, {"payload_replay_cases",number(t.evaluation.payload_replay_cases)}, {"payload_replay_launches",number(t.evaluation.payload_replay_launches)}, {"search_contract",search_contract_json(cfg,result.reproduction_profile)},
+    {"source_depth_cap",number(cfg.offspring_resource_budget?cfg.offspring_resource_budget->max_depth:0)},
     {"reproduction_profile",string(result.reproduction_profile)}, {"reproduction_fallback_reason",string(result.reproduction_fallback_reason)},
     {"initial_admission_ms",number(result.timing.init_population_ms)}, {"genotype_device_bytes",number(result.genotype_device_bytes)}, {"generation_ms",number(t.total_ms)}, {"eval_ms",number(t.eval_ms)}, {"repro_ms",number(t.repro_ms)},
     {"evolve_wall_ms",number(evolve_wall_ms)}, {"evolve_call_ms",number(result.timing.total_ms)}, {"gpu_init_ms",number(result.timing.gpu_eval_init_ms)},
@@ -468,6 +476,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   validate_aligned_penalty(cfg.penalty);
   cfg.elite_count=std::getenv("GAGP_BM_ALIGNED_FITNESS") ? 1 : 0;
   cfg.mutation_rate=.3; cfg.mutation_subtree_prob=1; cfg.skip_final_eval=false; cfg.retain_final_population=true;
+  configure_source_depth(cfg);
   const auto call_begin=std::chrono::steady_clock::now();
   const auto result=gagp::evo::evolve_population(cases,cfg,&population);
   const double evolve_wall_ms=std::chrono::duration<double,std::milli>(
@@ -529,6 +538,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   write(output,object({{"mode",string(mode)}, {"case_penalty",number(cfg.penalty)}, {"elite_count",number(cfg.elite_count)}, {"fitness_metric",number(static_cast<int>(cfg.fitness_policy.metric))}, {"list_allocation_limit",number(cfg.fitness_policy.list_allocation_limit)}, {"population",number(population.size())}, {"cases",number(cases.size())},
     {"final_best",number(result.final_population.front().fitness)},
     {"search_contract",search_contract_json(cfg,result.reproduction_profile)},
+    {"source_depth_cap",number(cfg.offspring_resource_budget?cfg.offspring_resource_budget->max_depth:0)},
     {"reproduction_profile",string(result.reproduction_profile)}, {"reproduction_fallback_reason",string(result.reproduction_fallback_reason)},
     {"genotype_device_bytes",number(result.genotype_device_bytes)}, {"top16_cpu",array(std::move(top_rows))},{"cpu_audit_ms",number(elapsed(audit_begin))},{"cpu_audit_program_count",number(cpu.size())},{"cpu_audit_mismatches",number(audit_mismatches)},
     {"unique_final_genomes",number(unique.size())},{"seed",number(cfg.seed)}, {"generations",array(std::move(rows))},

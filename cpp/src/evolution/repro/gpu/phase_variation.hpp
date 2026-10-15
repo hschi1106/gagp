@@ -4,8 +4,8 @@
 
 namespace gagp::evo::repro {
 inline HostPhaseGrammar compile_phase_variation_grammar(
-    const grammar::CompiledGrammar& grammar, unsigned root, unsigned max_depth) {
-  auto profile = compile_phase_grammar(grammar, root, max_depth);
+    const grammar::CompiledGrammar& grammar, unsigned root, unsigned max_depth, unsigned logical_depth=0) {
+  auto profile = compile_phase_grammar(grammar, root, max_depth, logical_depth);
   const auto fail = [](const char* why) {
     throw std::invalid_argument(std::string("GPU phase variation: ") + why);
   };
@@ -27,7 +27,7 @@ inline HostPhaseGrammar compile_phase_variation_grammar(
     if (visited.at(id)) return;
     visited[id] = true;
     const auto& e = grammar.expressions()[id];
-    if (e.resource_charge.nodes != 1 || e.resource_charge.depth != 1 || e.resource_charge.resets_depth)
+    if (e.resource_charge.nodes != 1 || (logical_depth?e.resource_charge.depth>1:e.resource_charge.depth!=1) || e.resource_charge.resets_depth)
       fail("projected resource charge requires native fallback");
     if (e.kind == grammar::ExpressionKind::Reference) {
       for (std::size_t j = 0; j < e.scope_mapping.size(); ++j)

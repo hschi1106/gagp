@@ -25,6 +25,7 @@ installation instructions or prerequisites for normal use.
 | [`design/architecture.md`](design/architecture.md) | Native component boundaries and invariants |
 | [`design/dataflow.md`](design/dataflow.md) | End-to-end execution and evolution dataflow |
 | [`design/payload.md`](design/payload.md) | Host/device payload transport implementation |
+| [`design/source-production-depth-prototype.md`](design/source-production-depth-prototype.md) | Opt-in source-production depth accounting and admission requirements |
 | [`design/gpu-reproduction.md`](design/gpu-reproduction.md) | GPU reproduction pipeline and overlap design |
 | [`design/gpu-phase-variation-comparison.zh-TW.md`](design/gpu-phase-variation-comparison.zh-TW.md) | 中文版本限定解說：native GPU phase profile 的 RNG、variation 新舊比較、範例與證據限制；契約仍由 GPU reproduction design 定義 |
 | [`guides/getting-started.md`](guides/getting-started.md) | New-user CPU/CUDA installation and end-to-end custom-grammar tutorial |

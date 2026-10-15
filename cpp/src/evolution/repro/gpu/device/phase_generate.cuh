@@ -21,6 +21,7 @@ struct PhaseExpression {
   PhaseExpressionKind kind = PhaseExpressionKind::Operation;
   PhaseTreeNode node;
   int native_kind = -1;
+  int depth_charge = 1;
   int target = -1;
   int children[3]{-1,-1,-1};
   int scope_count = 0;
@@ -35,7 +36,7 @@ struct PhaseGrammarView {
   const PhaseNonterminal* nonterminals=nullptr; int nonterminal_count=0;
   const PhaseDomain* domains=nullptr; int domain_count=0;
   const Value* values=nullptr; int value_count=0;
-  const unsigned* minimum=nullptr; int depth_count=0;
+  const unsigned* minimum=nullptr; int depth_count=0; int logical_depth_count=1;
 };
 struct PhaseGenerationResult { PhaseCompileStatus status=PhaseCompileStatus::Invalid; int nodes=0,constants=0,steps=0; };
 
@@ -46,7 +47,7 @@ template<bool CompactTasks=true, bool EmitSites=false>
 __device__ inline PhaseGenerationResult generate_phase(
     const PhaseGrammarView& grammar, int root_expression, int scope_count,
     int depth, int capacity, std::uint64_t seed,
-    PhaseTreeNode* nodes, int* origins, Value* constants, PhaseGeneSite* sites=nullptr) {
+    PhaseTreeNode* nodes, int* origins, Value* constants, PhaseGeneSite* sites=nullptr, int logical_depth=0) {
   PhaseGenerationResult result;
   if constexpr(EmitSites) if(!sites)return result;
   PhaseGeneSite next_site; // A reference is immediately followed by its selected production.
@@ -54,10 +55,10 @@ __device__ inline PhaseGenerationResult generate_phase(
   if (!grammar.expressions || !grammar.minimum || !nodes || !origins || !constants ||
       root_expression<0 || root_expression>=grammar.expression_count ||
       scope_count<0 || scope_count>8 || depth<=0 || depth>=grammar.depth_count ||
-      depth>64 || capacity<=0 || capacity>1024 || grammar.expression_count>131071) return result;
-  const auto minimum=[&](int expression,int d)->unsigned {
-    return expression<0 || expression>=grammar.expression_count || d<0 || d>=grammar.depth_count
-        ? 0xffffffffU : grammar.minimum[static_cast<std::size_t>(expression)*grammar.depth_count+d];
+      depth>64 || logical_depth<0 || logical_depth>=grammar.logical_depth_count || capacity<=0 || capacity>1024 || grammar.expression_count>131071) return result;
+  const auto minimum=[&](int expression,int d,int logical)->unsigned {
+    return expression<0 || expression>=grammar.expression_count || d<0 || d>=grammar.depth_count || logical<0 || logical>=grammar.logical_depth_count
+        ? 0xffffffffU : grammar.minimum[(static_cast<std::size_t>(expression)*grammar.depth_count+d)*grammar.logical_depth_count+logical];
   };
   // Host grammar admission caps source expressions at65536, plus one entry
   // expression. Depth<=64 and scope<=8; eight lexical indices occupy24bits.
@@ -67,27 +68,28 @@ __device__ inline PhaseGenerationResult generate_phase(
     unsigned expression:17;
     unsigned depth:7;
     unsigned scope_count:4;
+    unsigned logical:4;
     unsigned scope:24;
     CompactTask()=default;
-    __device__ CompactTask(unsigned e,unsigned d,unsigned n,unsigned s):expression(e),depth(d),scope_count(n),scope(s){}
+    __device__ CompactTask(unsigned e,unsigned d,unsigned n,unsigned s,unsigned l=0):expression(e),depth(d),scope_count(n),logical(l),scope(s){}
   };
   struct ReferenceTask {
-    int expression,depth,scope_count;unsigned scope;
+    int expression,depth; unsigned scope_count:28,logical:4; unsigned scope;
     ReferenceTask()=default;
-    __device__ ReferenceTask(unsigned e,unsigned d,unsigned n,unsigned s):expression(e),depth(d),scope_count(n),scope(s){}
+    __device__ ReferenceTask(unsigned e,unsigned d,unsigned n,unsigned s,unsigned l=0):expression(e),depth(d),scope_count(n),logical(l),scope(s){}
   };
   static_assert(sizeof(CompactTask)==8 && sizeof(ReferenceTask)==16,"generation task layouts");
   using Task=std::conditional_t<CompactTasks,CompactTask,ReferenceTask>;
   Task pending[192]; int count=1;
-  pending[0]={static_cast<unsigned>(root_expression),static_cast<unsigned>(depth),static_cast<unsigned>(scope_count),0};
+  pending[0]={static_cast<unsigned>(root_expression),static_cast<unsigned>(depth),static_cast<unsigned>(scope_count),0,static_cast<unsigned>(logical_depth)};
   for(int i=0;i<scope_count;++i)pending[0].scope |= static_cast<unsigned>(i) << (3*i);
-  unsigned reserved=minimum(root_expression,depth);
+  unsigned reserved=minimum(root_expression,depth,logical_depth);
   if(reserved>static_cast<unsigned>(capacity)) {result.status=PhaseCompileStatus::Capacity;return result;}
   DGrammarRandom random(seed);
   while(count) {
     if(++result.steps>8192) {result.status=PhaseCompileStatus::Capacity;return result;}
     const auto task=pending[--count];
-    const auto required=minimum(task.expression,task.depth);
+    const auto required=minimum(task.expression,task.depth,task.logical);
     if(required>reserved) return result;
     reserved-=required;
     const auto expression=grammar.expressions[task.expression];
@@ -102,7 +104,7 @@ __device__ inline PhaseGenerationResult generate_phase(
       const auto nt=grammar.nonterminals[expression.target];
       if(nt.scope_count!=expression.scope_count || nt.production_offset<0 || nt.production_count<=0 ||
           nt.production_offset>grammar.production_count || nt.production_count>grammar.production_count-nt.production_offset)return result;
-      Task next{unselected,static_cast<unsigned>(task.depth),static_cast<unsigned>(expression.scope_count),0};
+      Task next{unselected,static_cast<unsigned>(task.depth),static_cast<unsigned>(expression.scope_count),0,task.logical};
       for(int i=0;i<next.scope_count;++i) {
         if(expression.scope[i]<0 || expression.scope[i]>=task.scope_count)return result;
         next.scope |= ((task.scope >> (3*expression.scope[i])) & 7U) << (3*i);
@@ -112,24 +114,25 @@ __device__ inline PhaseGenerationResult generate_phase(
       double maximum=nt.normalized_weights?1:0,total=0;
       if(!nt.normalized_weights)for(int i=0;i<nt.production_count;++i) {
         const auto p=grammar.productions[nt.production_offset+i];
-        if(minimum(p.expression,task.depth)<=available && p.weight>maximum) maximum=p.weight;
+        if(minimum(p.expression,task.depth,task.logical)<=available && p.weight>maximum) maximum=p.weight;
       }
       if(!(maximum>0)) {result.status=PhaseCompileStatus::Capacity;return result;}
       for(int i=0;i<nt.production_count;++i) {
         const auto p=grammar.productions[nt.production_offset+i];
-        if(minimum(p.expression,task.depth)<=available)total+=nt.normalized_weights?p.weight:p.weight/maximum;
+        if(minimum(p.expression,task.depth,task.logical)<=available)total+=nt.normalized_weights?p.weight:p.weight/maximum;
       }
       double choice=static_cast<double>(random.next()>>11)*0x1.0p-53*total;
       for(int i=0;i<nt.production_count;++i) {
         const auto p=grammar.productions[nt.production_offset+i];
-        if(minimum(p.expression,task.depth)>available)continue;
+        if(minimum(p.expression,task.depth,task.logical)>available)continue;
         if(p.expression<0 || p.expression>=grammar.expression_count)return result;
         next.expression=p.expression; choice-=nt.normalized_weights?p.weight:p.weight/maximum; if(choice<0)break;
       }
       if(next.expression==unselected || count>=192)return result;
-      reserved+=minimum(next.expression,next.depth);pending[count++]=next;continue;
+      reserved+=minimum(next.expression,next.depth,next.logical);pending[count++]=next;continue;
     }
-    if(task.depth<=0 || result.nodes>=capacity) {result.status=PhaseCompileStatus::Capacity;return result;}
+    const int charge=grammar.logical_depth_count>1?expression.depth_charge:0;
+    if(task.depth<=0 || task.logical<charge || result.nodes>=capacity) {result.status=PhaseCompileStatus::Capacity;return result;}
     auto node=expression.node;
     if(node.arity<0 || node.arity>3)return result;
     if(expression.kind==PhaseExpressionKind::Bound) {
@@ -154,11 +157,11 @@ __device__ inline PhaseGenerationResult generate_phase(
     origins[result.nodes]=task.expression;nodes[result.nodes++]=node;
     for(int i=node.arity-1;i>=0;--i) {
       if(count>=192) {result.status=PhaseCompileStatus::Capacity;return result;}
-      const int child=expression.children[i];const auto need=minimum(child,task.depth-1);
+      const int child=expression.children[i];const auto need=minimum(child,task.depth-1,task.logical-charge);
       if(need>static_cast<unsigned>(capacity-result.nodes) || reserved>static_cast<unsigned>(capacity-result.nodes)-need) {
         result.status=PhaseCompileStatus::Capacity;return result;
       }
-      auto next=task;next.expression=child;--next.depth;pending[count++]=next;reserved+=need;
+      auto next=task;next.expression=child;--next.depth;next.logical-=charge;pending[count++]=next;reserved+=need;
     }
   }
   if(reserved || !result.nodes)return result;

@@ -46,10 +46,10 @@ struct UploadedProfile {
   domains.upload(h.domains);values.upload(h.values);minimum.upload(h.minimum);
  }
  PhaseGrammarView view(const HostPhaseGrammar& h)const{return {expressions.data,int(h.expressions.size()),productions.data,int(h.productions.size()),
-  nonterminals.data,int(h.nonterminals.size()),domains.data,int(h.domains.size()),values.data,int(h.values.size()),minimum.data,h.depth_count};}
+  nonterminals.data,int(h.nonterminals.size()),domains.data,int(h.domains.size()),values.data,int(h.values.size()),minimum.data,h.depth_count,h.logical_depth_count};}
  std::size_t bytes()const{return expressions.bytes()+productions.bytes()+nonterminals.bytes()+domains.bytes()+values.bytes()+minimum.bytes();}
 };
-struct DeviceSlot {PhaseGrammarView grammar;int root,scope,max_depth;ValueTag type;ValueTag locals[8];};
+struct DeviceSlot {PhaseGrammarView grammar;int root,scope,max_depth,logical_depth;ValueTag type;ValueTag locals[8];};
 struct Trees {
  Buffer<PhaseTreeNode> nodes;Buffer<int> origins;Buffer<PhaseGeneSite> sites;Buffer<Value> constants;Buffer<PhaseGenerationResult> lengths;
  explicit Trees(std::size_t count){nodes.reserve(count*capacity);origins.reserve(count*capacity);sites.reserve(count*capacity);constants.reserve(count*capacity);lengths.reserve(count);}
@@ -160,8 +160,8 @@ __global__ void crossover_population(TreePointers input,TreePointers output,cons
   if(ae<0 || be<0){stat.error=3;return;}
   if(total-(ae-destination.node)+(be-source.node)>max_variable_nodes){++stat.crossover_rejected;continue;}
   const int slot=destination.row%slot_count,target=child*slot_count+slot;
-  auto r=fused_depth ? splice_phase_tree<true>(a,destination.node,b,source.node,output.output(target),slots[slot].max_depth)
-      : splice_phase_tree(a,destination.node,b,source.node,output.output(target),slots[slot].max_depth);
+  auto r=fused_depth ? splice_phase_tree<true>(a,destination.node,b,source.node,output.output(target),slots[slot].max_depth,slots[slot].logical_depth?&slots[slot].grammar:nullptr,slots[slot].logical_depth)
+      : splice_phase_tree(a,destination.node,b,source.node,output.output(target),slots[slot].max_depth,slots[slot].logical_depth?&slots[slot].grammar:nullptr,slots[slot].logical_depth);
   if(r.status==PhaseCompileStatus::Ok){
    output.lengths[target]=r;stat.crossover=1;
    if(deferred_copy)for(int k=0;k<slot_count;++k)if(k!=slot)copy_tree(input,parent*slot_count+k,output,child*slot_count+k);
@@ -185,20 +185,23 @@ __global__ void mutate_population(TreePointers input,TreePointers output,TreePoi
  const auto a=input.view(destination.row);const int end=phase_subtree_end(a,destination.node),depth=phase_node_depth(a,destination.node);
  if(end<0 || depth<0){stat.error=6;return;}
  const auto site=a.sites[destination.node];const auto& slot=slots[destination.row%slot_count];auto tmp=scratch.output(child);
+ const int incoming=slot.logical_depth?phase_projected_depth(slot.grammar,a.nodes,a.origins,a.node_count,destination.node):0;
+ if(incoming<0 || incoming>slot.logical_depth){stat.error=6;return;}
+ const int logical=slot.logical_depth-incoming;
  const int available=max_variable_nodes-(total-(end-destination.node));
  auto generated=Fused
    ? generate_phase<true,true>(slot.grammar,site.entry_expression,site.parent_scope,slot.max_depth-depth+1,
-       min(capacity,available),random.next(),tmp.nodes,tmp.origins,tmp.constants,tmp.sites)
+       min(capacity,available),random.next(),tmp.nodes,tmp.origins,tmp.constants,tmp.sites,logical)
    : generate_phase(slot.grammar,site.entry_expression,site.parent_scope,slot.max_depth-depth+1,
-       min(capacity,available),random.next(),tmp.nodes,tmp.origins,tmp.constants);
+       min(capacity,available),random.next(),tmp.nodes,tmp.origins,tmp.constants,nullptr,logical);
  if(generated.status!=PhaseCompileStatus::Ok || (!Fused && !annotate_phase_tree(slot.grammar,site.entry_expression,site.parent_scope,
        tmp.nodes,tmp.origins,generated.nodes,tmp.sites))){stat.error=7;return;}
  scratch.lengths[child]=generated;
  // Splicing may partially write on failure, so its destination must never
  // alias the crossed input. Each child owns a separate temporary row.
  const int target=InPlace?child:destination.row;
- auto r=fused_depth ? splice_phase_tree<true>(a,destination.node,scratch.view(child),0,output.output(target),slot.max_depth)
-     : splice_phase_tree(a,destination.node,scratch.view(child),0,output.output(target),slot.max_depth);
+ auto r=fused_depth ? splice_phase_tree<true>(a,destination.node,scratch.view(child),0,output.output(target),slot.max_depth,slot.logical_depth?&slot.grammar:nullptr,slot.logical_depth)
+     : splice_phase_tree(a,destination.node,scratch.view(child),0,output.output(target),slot.max_depth,slot.logical_depth?&slot.grammar:nullptr,slot.logical_depth);
  if(r.status!=PhaseCompileStatus::Ok){stat.error=8;return;}
  output.lengths[target]=r;
  if constexpr(InPlace)copy_tree(output,target,input,destination.row);
@@ -354,6 +357,8 @@ struct NativePhasePopulation::Impl {
  // admits the fixed skeleton and all initial phases. GPU generation samples the
  // admitted grammar/domains; same-nonterminal/scope splices preserve membership,
  // and checked physical node/depth bounds imply the admitted grammar budgets.
+ // Projected profiles additionally check weighted depth on every splice; cold
+ // canonical resource invariance makes construction origins valid for export.
  // export_native_phase_layout still validates node/origin/fuel/index transport.
  // A canonical reverse-parsed witness is optional cache data, not this proof.
  ProgramGenome finish_export(ProgramGenome genome) const {
@@ -440,7 +445,7 @@ struct NativePhasePopulation::Impl {
 };
 
 NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
-    const std::vector<ProgramGenome>& input,const std::vector<std::string>& input_names):impl_(std::make_unique<Impl>(std::move(grammar))) {
+    const std::vector<ProgramGenome>& input,const std::vector<std::string>& input_names,std::optional<grammar::ProjectedBudget> projected):impl_(std::make_unique<Impl>(std::move(grammar))) {
  phase_layout_require(impl_->grammar && !input.empty() && input.size()<=8192,"population/grammar capacity");
  std::set<std::string> expected_names,actual_names(input_names.begin(),input_names.end());
  for(const auto& binding:impl_->grammar->inputs())expected_names.insert(binding.name);
@@ -458,7 +463,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  if(std::getenv("GAGP_REUSE_PHASE_GRAMMAR"))import_profiles=std::make_unique<NativePhaseGrammarProfiles>(impl_->grammar);
  const bool reuse_import=std::getenv("GAGP_REUSE_IMPORTED_EXECUTABLE")!=nullptr;
  const auto* evaluator_inputs=reuse_import?&input_names:nullptr;
- impl_->population=input.size();impl_->layout=import_native_phase_layout(*impl_->grammar,input.front(),import_profiles.get(),evaluator_inputs);
+ impl_->population=input.size();impl_->layout=import_native_phase_layout(*impl_->grammar,input.front(),import_profiles.get(),evaluator_inputs,true,projected?&*projected:nullptr);
  const auto capability=gpu_detail::pack_programs_with_shared_case_count({impl_->layout.executable},0,0);
  phase_layout_require(capability.metas.size()==1 && capability.metas.front().is_valid,"fixed executable requires GPU fallback");
  impl_->slot_count=impl_->layout.slots.size();phase_layout_require(impl_->slot_count>0 && impl_->slot_count<=8,"phase count capacity");
@@ -475,7 +480,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   const auto& profile=impl_->layout.profiles[k];const auto& layout=impl_->layout.slots[k];
   impl_->profiles.push_back(std::make_unique<UploadedProfile>(profile));
   const auto& nt=impl_->grammar->nonterminals()[layout.nonterminal];DeviceSlot slot{};
-  slot.grammar=impl_->profiles.back()->view(profile);slot.root=profile.root_expression;slot.scope=nt.scope.size();slot.max_depth=layout.max_depth;
+  slot.grammar=impl_->profiles.back()->view(profile);slot.root=profile.root_expression;slot.scope=nt.scope.size();slot.max_depth=layout.max_depth;slot.logical_depth=layout.logical_depth;
   const auto tag=[](RType t){return t==RType::Int?ValueTag::Int:t==RType::Bool?ValueTag::Bool:ValueTag::IntList;};
   slot.type=tag(nt.type);for(int j=0;j<slot.scope;++j)slot.locals[j]=tag(nt.scope[j].type);slots.push_back(slot);
  }
@@ -485,11 +490,11 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  std::vector<ImportOffset> import_offsets; if(batch_import)import_offsets.reserve(rows);
  // Upload live imports only, avoiding full-capacity host staging arrays.
  for(std::size_t p=0;p<input.size();++p) {
-  auto imported=p==0?impl_->layout:import_native_phase_layout(*impl_->grammar,input[p],import_profiles.get(),evaluator_inputs,!reuse_import);
+  auto imported=p==0?impl_->layout:import_native_phase_layout(*impl_->grammar,input[p],import_profiles.get(),evaluator_inputs,!reuse_import,projected?&*projected:nullptr);
   phase_layout_require(imported.slots.size()==impl_->layout.slots.size() && native_phase_skeleton_key(imported)==key,"mixed fixed skeleton requires native fallback");
   for(int k=0;k<impl_->slot_count;++k) {
    const auto& a=imported.slots[k];const auto& b=impl_->layout.slots[k];
-   phase_layout_require(a.nonterminal==b.nonterminal && a.ordinal==b.ordinal && a.binders==b.binders && a.max_depth==b.max_depth,"mixed phase contract requires fallback");
+   phase_layout_require(a.nonterminal==b.nonterminal && a.ordinal==b.ordinal && a.binders==b.binders && a.max_depth==b.max_depth && a.logical_depth==b.logical_depth,"mixed phase contract requires fallback");
    const int row=p*impl_->slot_count+k;const auto& gene=imported.genes[k];auto& l=lengths[row];l.status=PhaseCompileStatus::Ok;l.nodes=gene.nodes.size();l.constants=gene.constants.size();
    phase_layout_require(l.nodes>0 && l.nodes<=capacity && l.constants<=l.nodes,"imported phase capacity");
    if(batch_import) {
@@ -545,7 +550,7 @@ FitnessEvalResult NativePhasePopulation::evaluate(FitnessSessionGpu& session,boo
      impl_->host_packed.get(),[this]{impl_->materialize_programs();});
  return session.eval_owned_programs(owned,diagnostics);
 }
-const char* NativePhasePopulation::profile_name()const{return impl_->counted_sites?"native-gpu-phase-v2-counted":"native-gpu-phase-v1";}
+const char* NativePhasePopulation::profile_name()const{return impl_->layout.slots.front().logical_depth?"native-gpu-phase-v3-projected":impl_->counted_sites?"native-gpu-phase-v2-counted":"native-gpu-phase-v1";}
 std::size_t NativePhasePopulation::device_bytes()const{return std::max(impl_->bytes(),impl_->peak_transport_bytes);}
 std::vector<unsigned> NativePhasePopulation::node_counts()const {
  impl_->require_device();const auto lengths=impl_->current->lengths.read(impl_->population*impl_->slot_count);

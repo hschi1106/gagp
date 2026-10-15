@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <optional>
 #include <vector>
 #include "gagp/evolution/genome.hpp"
 #include "gagp/evolution/grammar/compiled.hpp"
@@ -12,7 +13,8 @@ namespace gagp::evo::repro {
 class NativePhasePopulation final {
  public:
   NativePhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
-      const std::vector<ProgramGenome>& input, const std::vector<std::string>& input_names);
+      const std::vector<ProgramGenome>& input, const std::vector<std::string>& input_names,
+      std::optional<grammar::ProjectedBudget> projected=std::nullopt);
   ~NativePhasePopulation();
   NativePhasePopulation(const NativePhasePopulation&) = delete;
   NativePhasePopulation& operator=(const NativePhasePopulation&) = delete;

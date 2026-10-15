@@ -286,6 +286,11 @@ target_link_libraries(gagp_test_resource_projection PRIVATE gagp_grammar)
 add_test(NAME gagp_test_resource_projection COMMAND gagp_test_resource_projection)
 set_tests_properties(gagp_test_resource_projection PROPERTIES LABELS "contract;property")
 
+add_executable(gagp_test_phase_projected_depth tests/evolution/test_phase_projected_depth.cpp)
+target_link_libraries(gagp_test_phase_projected_depth PRIVATE gagp_evolution)
+add_test(NAME gagp_test_phase_projected_depth COMMAND gagp_test_phase_projected_depth)
+set_tests_properties(gagp_test_phase_projected_depth PROPERTIES LABELS "contract;property")
+
 add_executable(gagp_test_derivation_resources tests/evolution/test_derivation_resources.cpp)
 target_link_libraries(gagp_test_derivation_resources PRIVATE gagp_evolution)
 add_test(NAME gagp_test_derivation_resources COMMAND gagp_test_derivation_resources)
