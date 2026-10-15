@@ -465,6 +465,15 @@ __device__ DResult d_run_bounded_region(
           caller_set,payload_tables,payload_state,tables,fuel,workspace);
     }
   }
+  if constexpr (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) {
+    if (workspace.arena_window_executor) {
+      if (workspace.two_state_frames)
+        return d_run_window_region<DCompactPairRegionFrame, false, Flavor>(segment, operands,
+            caller_locals, caller_set, payload_tables, payload_state, tables, fuel, workspace);
+      return d_run_window_region<DCompactRegionFrame, false, Flavor>(segment, operands,
+          caller_locals, caller_set, payload_tables, payload_state, tables, fuel, workspace);
+    }
+  }
   if (workspace.compact_frames) {
     if (segment.state_count > (workspace.two_state_frames ? 2u : 1u) || segment.preparation_count > 1 || segment.request_count > 2)
       return d_error(ErrCode::Value);

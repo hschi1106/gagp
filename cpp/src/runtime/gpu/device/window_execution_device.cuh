@@ -42,16 +42,21 @@ template<unsigned States> struct DWindowFrameAccess<DUnboxedWindowFrame<States>,
 };
 
 // Capability: IntList state plus an optional carried Int, two window requests, one InteriorCut Int
-// preparation, Int result, no memo or bound operands. Still executes every
+// preparation, no memo or bound operands. View frames require Int results; arena
+// frames retain full Values (including fallback tokens). Still executes every
 // evolved predicate/base/cut/combine and uses the original entry/instruction fuel.
-template<class Frame, bool SoA = false>
+template<class Frame, bool SoA = false, DPayloadFlavor Flavor = DPayloadFlavor::BoundIntListViews>
 __device__ __noinline__ DResult d_run_window_region(
     const DRegionSegment& segment, const Value* operands,
     const Value* caller_locals, std::uint64_t caller_set,
     const DPayloadTables& payload_tables,
-    DPayloadFlavorTraits<DPayloadFlavor::BoundIntListViews>::State& payload_state,
+    typename DPayloadFlavorTraits<Flavor>::State& payload_state,
     const DExecutionTables& tables, int& fuel, DRegionWorkspace workspace) {
-  constexpr auto Flavor=DPayloadFlavor::BoundIntListViews;
+  if constexpr (Flavor != DPayloadFlavor::BoundIntListViews) {
+    // Match the generic arena executor's capacity checks before fuel/entry work.
+    if(segment.limits.frames>DMAX_REGION_FRAMES || segment.limits.cells>DMAX_REGION_MEMO)
+      return d_error(ErrCode::Value);
+  }
   if(segment.limits.frames==0)return d_error(ErrCode::Timeout);
   if(!workspace.frames || workspace.frame_capacity<segment.limits.frames)return d_error(ErrCode::Value);
   DWindowFrameAccess<Frame, SoA> frames{workspace.frames, workspace.slot_stride};
@@ -73,7 +78,7 @@ __device__ __noinline__ DResult d_run_window_region(
         if(result.is_error)return result;base=result.value.b;
       }
       if(base) {
-        result=d_region_phase<Flavor>(segment,segment.base_body_phase,ValueTag::Int,
+        result=d_region_phase<Flavor>(segment,segment.base_body_phase,segment.result_type,
             frame,caller_locals,caller_set,payload_tables,payload_state,tables,fuel,true);
         if(result.is_error)return result;completed=true;
       } else {
@@ -108,13 +113,13 @@ __device__ __noinline__ DResult d_run_window_region(
       // Intrinsic terminal windows never run the evolved predicate. Execute
       // their original base phase directly, retaining the child depth check,
       // entry charge and carried-state expression before this continuation.
-      if(workspace.window_leaf_direct && Value::container_len(next)<=1) {
+      if(Flavor == DPayloadFlavor::BoundIntListViews && workspace.window_leaf_direct && Value::container_len(next)<=1) {
         if(fuel<0 || segment.limits.entry_fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
         fuel-=static_cast<int>(segment.limits.entry_fuel);
         Frame leaf;
         leaf.state[0]=next;
         if(segment.state_count==2)leaf.state[1]=carried;
-        result=d_region_phase<Flavor>(segment,segment.base_body_phase,ValueTag::Int,
+        result=d_region_phase<Flavor>(segment,segment.base_body_phase,segment.result_type,
             leaf,caller_locals,caller_set,payload_tables,payload_state,tables,fuel,true);
         if(result.is_error)return result;
         frame.results[frame.next_request++]=result.value;
@@ -125,12 +130,23 @@ __device__ __noinline__ DResult d_run_window_region(
       ++depth;continue;
     }
     if(!completed) {
-      // Typed phase proof excludes fallback-token results in this profile.
-      result=d_region_phase<Flavor>(segment,segment.combine_phase,ValueTag::Int,
+      if constexpr (Flavor != DPayloadFlavor::BoundIntListViews) {
+        for (unsigned i=0;i<2;++i)
+          if (frame.results[i].tag != segment.result_type &&
+              frame.results[i].tag != ValueTag::FallbackToken) return d_error(ErrCode::Type);
+      }
+      // Preserve generic result-tag consistency when payload operations fall back.
+      result=d_region_phase<Flavor>(segment,segment.combine_phase,segment.result_type,
           frame,caller_locals,caller_set,payload_tables,payload_state,tables,fuel,true);
       if(result.is_error)return result;
+      if constexpr (Flavor != DPayloadFlavor::BoundIntListViews)
+        if (result.value.tag != frame.results[0].tag) return d_error(ErrCode::Type);
     }
     if(--depth==0)return result;
-    auto&& parent=frames[(depth-1)*stride];parent.results[parent.next_request-1]=result.value;
+    auto&& parent=frames[(depth-1)*stride];
+    if constexpr (Flavor != DPayloadFlavor::BoundIntListViews)
+      if (parent.next_request > 1 && result.value.tag != parent.results[0].tag)
+        return d_error(ErrCode::Type);
+    parent.results[parent.next_request-1]=result.value;
   }
 }

@@ -727,6 +727,28 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
             s.request_count==2 && s.requests[0][0].kind==RegionTransitionKind::SequenceWindow &&
             s.requests[1][0].kind==RegionTransitionKind::SequenceWindow;
       });
+  // Independent of private-view admission: allocating list phases still execute
+  // the ordinary payload VM. No unboxed result representation is selected.
+  region_workspace.arena_window_executor = !use_views && extended_payload &&
+      std::getenv("GAGP_ARENA_WINDOW_EXECUTOR") &&
+      std::string(std::getenv("GAGP_ARENA_WINDOW_EXECUTOR")) != "0" &&
+      region_workspace.compact_frames && !packed.region_segments.empty() &&
+      std::all_of(packed.region_segments.begin(), packed.region_segments.end(), [](const auto& s) {
+        if (s.progress != RegionProgressKind::SequenceWindows || s.sequence_state != 0 ||
+            (s.state_count != 1 && s.state_count != 2) || s.state_types[0] != ValueTag::IntList ||
+            s.result_type != ValueTag::IntList || s.memoized || s.bound_operand_count != 0 ||
+            s.preparation_count != 1 || s.preparation_kinds[0] != RegionPreparationKind::InteriorCut ||
+            s.preparation_types[0] != ValueTag::Int || s.request_count != 2) return false;
+        for (unsigned r=0;r<2;++r) {
+          if (s.requests[r][0].kind != RegionTransitionKind::SequenceWindow ||
+              s.requests[r][0].source_state != 0) return false;
+          if (s.state_count == 2 && (s.state_types[1] != ValueTag::Int ||
+              !(s.requests[r][1].kind == RegionTransitionKind::Expression ||
+                (s.requests[r][1].kind == RegionTransitionKind::CopyState &&
+                 s.requests[r][1].source_state == 1)))) return false;
+        }
+        return true;
+      });
   region_workspace.coordinate_executor = direct_phases && std::getenv("GAGP_COORDINATE_EXECUTOR") &&
       std::all_of(packed.region_segments.begin(),packed.region_segments.end(),[](const auto& s) {
         if(s.progress!=RegionProgressKind::Coordinates || s.state_count!=1 || s.state_types[0]!=ValueTag::Int ||
@@ -1183,6 +1205,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if(global_payload)out.execution_profile+="-global-arena";
     if(global_window_aliases)out.execution_profile+="-window-aliases";
     if(region_workspace.fused_list_concat && extended_payload)out.execution_profile+="-fused-concat";
+    if(region_workspace.arena_window_executor && (global_payload || out.payload_replay_programs))
+      out.execution_profile+="-arena-window";
     if(payload_index && (global_payload || out.payload_replay_programs))out.execution_profile+="-list-index";
     if(out.payload_replay_programs)out.execution_profile+="-gpu-arena-replay";
     if(tiled_replay && out.payload_replay_programs)out.execution_profile+="-tiled";
