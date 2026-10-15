@@ -655,7 +655,7 @@ The regressions retain zero-budget value/byte growth and separately verify that
 positive-budget replay starts at the declared capacity with exact CPU parity.
 `GAGP_GPU_PAYLOAD_WORKSPACE_MIB` overrides the physical arena scratch cap for one
 GPU fitness evaluation. The default is 512 MiB; explicit values must be decimal
-integers in `[64,8192]` (for example `2048` or `4096`). Empty, signed, fractional,
+integers in `[64,16384]` (for example `2048`, `8192`, or `16384`). Empty, signed, fractional,
 unit-suffixed, whitespace-containing, out-of-range, and overflowing values return
 an explicit `Value` error. No device/system setting is changed. The chosen cap is
 reported as `payload_workspace_budget_bytes` in fitness results and fixed-ASGP
@@ -671,7 +671,7 @@ concurrency without changing per-case logical allocation limits, fuel, program
 selection, or case coverage. Ordinary resident inputs/program tables, output
 buffers, CUDA context, and other execution workspaces are additional device
 memory, so total device usage can exceed this arena cap. With enough pending
-work, 2/4 GiB caps can consume approximately 2/4 GiB of arena scratch. Treat those
+work, 8/16 GiB caps can consume approximately 8/16 GiB of arena scratch. Treat those
 as explicit per-run A/B settings, not a new default or an established speedup.
 The parser and exact-cap arithmetic are checked by `gagp_test_fitness_contract`.
 

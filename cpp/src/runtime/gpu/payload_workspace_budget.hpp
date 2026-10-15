@@ -8,6 +8,7 @@ namespace gagp::gpu_detail {
 
 // Decimal MiB only; no signs, whitespace, units, truncation, or wraparound.
 inline bool parse_payload_workspace_budget(const char* text, std::size_t& bytes) {
+  constexpr std::size_t max_mib=16384;
   std::size_t mib=512;
   if(text) {
     if(!*text)return false;
@@ -15,10 +16,10 @@ inline bool parse_payload_workspace_budget(const char* text, std::size_t& bytes)
     for(const char* p=text;*p;++p) {
       if(*p<'0' || *p>'9')return false;
       const unsigned digit=static_cast<unsigned>(*p-'0');
-      if(mib>(8192u-digit)/10u)return false;
+      if(mib>(max_mib-digit)/10u)return false;
       mib=mib*10+digit;
     }
-    if(mib<64 || mib>8192)return false;
+    if(mib<64 || mib>max_mib)return false;
   }
   constexpr std::size_t unit=1024u*1024u;
   if(mib>std::numeric_limits<std::size_t>::max()/unit)return false;

@@ -628,7 +628,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   if(!gpu_detail::parse_payload_workspace_budget(std::getenv("GAGP_GPU_PAYLOAD_WORKSPACE_MIB"),
       payload_workspace_budget))
     return fitness_eval_single_error(ErrCode::Value,
-        "GAGP_GPU_PAYLOAD_WORKSPACE_MIB must be a decimal integer in [64,8192]");
+        "GAGP_GPU_PAYLOAD_WORKSPACE_MIB must be a decimal integer in [64,16384]");
 
   const auto all_t0 = std::chrono::steady_clock::now();
   const auto pack_t0 = std::chrono::steady_clock::now();

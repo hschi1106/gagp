@@ -64,7 +64,7 @@ bool test_payload_workspace_budget() {
   std::size_t bytes=0;
   if(!check(parse_payload_workspace_budget(nullptr,bytes) && bytes==512*mib,
       "default payload workspace budget"))return false;
-  for(const char* text:{"64","512","2048","4096","8192"}) {
+  for(const char* text:{"64","512","2048","4096","8192","8193","16383","16384"}) {
     if(!check(parse_payload_workspace_budget(text,bytes) && bytes==std::stoull(text)*mib,
         "valid explicit payload workspace budget"))return false;
     const std::size_t lane_bytes=2*mib+37,extra=12345;
@@ -73,12 +73,16 @@ bool test_payload_workspace_budget() {
         (blocks==1024 || (blocks+1)*32*lane_bytes+extra>bytes),
         "workspace capacity does not obey exact configured cap"))return false;
   }
-  for(const char* text:{"","0","63","8193","-512","+512","512.0","512MiB"," 512","512 ",
+  for(const char* text:{"","0","63","16385","163840","-512","+512","512.0","512MiB"," 512","512 ",
       "184467440737095516160000000000000000"}) {
     bytes=123;
     if(!check(!parse_payload_workspace_budget(text,bytes) && bytes==123,
         "invalid workspace budget accepted or output mutated"))return false;
   }
+  if(!check(payload_workspace_block_count(8192*mib,1024,mib,0)==256 &&
+      payload_workspace_block_count(16384*mib,1024,mib,0)==512 &&
+      payload_workspace_block_count(16384*mib,1024,mib,1)==511,
+      "large workspace cap preserves full-warp capacity and metadata boundary"))return false;
   return check(payload_workspace_block_count(64*mib,5,2*mib,0)==1 &&
       payload_workspace_block_count(64*mib,5,2*mib,1)==0 &&
       payload_workspace_block_count(64*mib,5,1,64*mib)==0 &&
