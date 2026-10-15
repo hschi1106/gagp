@@ -63,7 +63,7 @@ inline SearchContractAudit audit_search_contract(
     {"constant_sampler","uniform constant production, uniform range, uniform value",
       "translated ranges are separate weighted productions",false},
     {"ranking","error, wrong cases, source logical phase nodes",
-      "error, wrong cases, native AST nodes; deterministic final tie",false},
+      "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",false},
     {"tournament_sampling","independent draws with replacement, size 2",
       phase_owner?"independent device draws with replacement":
         gpu?"permuted population tournament groups":"shuffled population tournament groups",

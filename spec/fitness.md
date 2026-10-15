@@ -233,3 +233,12 @@ GPU fitness's `extended-payload` profile has per-case limits of 4096 list values
 256 list entries, 8192 string bytes and 256 string entries. Intermediate
 allocations count toward these limits. Capacity exhaustion is a Value error
 with the ordinary error penalty, rather than a synthetic successful result.
+Configured CPU task metrics use the same ordered 32-lane-group reduction as
+CUDA when `reduction_lanes` equals the GPU block size. Each accumulation uses
+48-bit mantissa rounding; evolution ranking additionally canonicalizes to 40
+bits. Raw evaluator scores and stored ranked fitness therefore have different
+precision. Audit comparisons must compare the same representation, and record
+raw errors and wrong-case counts separately. A numeric tolerance alone does not
+establish value-level execution parity, especially for adjacent 64-bit integers
+whose conversion to double can erase a real difference. Use exact metric or
+raw-value oracles for those regressions.

@@ -1245,23 +1245,24 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
       const auto program=invocation(segment,{Value::from_int(0),Value::from_int((INT64_C(1)<<53)+9)});
       if(!verify_fixture(program,"bound add large-number fixture"))return false;
       for(int fuel=0;fuel<35;++fuel) {
-        FitnessSessionGpu session;const auto expected=Value::from_int((INT64_C(1)<<54)+16);
-        if(!check(session.init({{}},{expected},fuel,32,7).ok,"bound add init"))return false;
+        FitnessSessionGpu session;const auto expected=Value::from_int((INT64_C(1)<<54)+18);
+        if(!check(session.init({{}},{expected},fuel,32,7,{FitnessMetric::Exact}).ok,"bound add init"))return false;
         const auto gpu=session.eval_programs({program},true);
-        const auto cpu=eval_fitness_cpu({program},{{}},{expected},fuel,7,32);
+        const auto cpu=eval_fitness_cpu({program},{{}},{expected},fuel,7,32,{FitnessMetric::Exact});
         const auto execution=execute_bytecode_cpu(program,{},fuel);
         const bool matches=gpu.ok && gpu.execution_profile.find("-bound-add")!=std::string::npos && gpu.fitness==cpu &&
+            (execution.is_error || (execution.value.tag==ValueTag::Int && execution.value.i==expected.i && gpu.fitness[0]==0)) &&
             gpu.case_counts[0][2]==static_cast<unsigned>(execution.is_error && execution.err.code==ErrCode::Timeout);
         if(!matches)std::cerr<<"bound add detail fuel="<<fuel<<" explicit="<<explicit_return<<" profile="<<gpu.execution_profile
             <<" ok="<<gpu.ok<<" error="<<gpu.err.message<<" gpu="<<(gpu.fitness.empty()?0:gpu.fitness[0])<<" cpu="<<cpu[0]<<"\n";
-        if(!check(matches,"bound add preserves large-number rounding and explicit/implicit return fuel"))return false;
+        if(!check(matches,"bound add preserves exact integer result and explicit/implicit return fuel"))return false;
       }
     }
   }
   if(direct) {
     Environment compare_mode("GAGP_BOUND_COMPARE_PHASE");
     for(auto op:{Opcode::Lt,Opcode::Le,Opcode::Gt,Opcode::Ge})for(bool reversed:{false,true})for(bool explicit_return:{false,true}) {
-      constexpr std::int64_t big=(INT64_C(1)<<53)+9;
+      constexpr std::int64_t big=(INT64_C(1)<<53)+8;
       auto segment=unary_segment(Value::from_int(7));
       segment.plan.coordinate_domains[0].upper=literal(big+2);
       std::vector<Instr> code={ins_a(reversed?Opcode::PushConst:Opcode::Load,0),ins_a(reversed?Opcode::Load:Opcode::PushConst,0),ins(op)};
@@ -1278,29 +1279,35 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
         const auto gpu=session.eval_programs({program},true);const auto cpu=eval_fitness_cpu({program},{{}},{Value::from_int(7)},fuel,7,32);
         const auto execution=execute_bytecode_cpu(program,{},fuel);
         if(!check(gpu.ok && gpu.fitness==cpu && gpu.case_counts[0][2]==static_cast<unsigned>(execution.is_error && execution.err.code==ErrCode::Timeout),
-            "bound compare preserves operand order, float rounding, return and fuel"))return false;
+            "bound compare preserves exact adjacent integers, operand order, return and fuel"))return false;
       }
     }
   }
-  const auto numeric = [&](BuiltinId id, std::vector<Value> constants, Value answer, const std::string& label) {
+  const auto numeric = [&](BuiltinId id, std::vector<Value> constants, Value answer, const std::string& label, Opcode op=Opcode::Return) {
     auto segment=unary_segment(Value::from_int(0));
     std::vector<Instr> code;
     for(std::size_t i=0;i<constants.size();++i)code.push_back(ins_a(Opcode::PushConst,i));
-    code.push_back(ins_ab(Opcode::CallBuiltin,static_cast<int>(id),constants.size()));
+    if(op==Opcode::Return)code.push_back(ins_ab(Opcode::CallBuiltin,static_cast<int>(id),constants.size()));
+    else code.push_back(ins(op));
+    if(op==Opcode::Lt || op==Opcode::Le || op==Opcode::Gt || op==Opcode::Ge) {
+      constants.push_back(Value::from_int(1));constants.push_back(Value::from_int(0));
+      code.push_back(ins_a(Opcode::JmpIfFalse,6));code.push_back(ins_a(Opcode::PushConst,2));
+      code.push_back(ins_a(Opcode::Jmp,7));code.push_back(ins_a(Opcode::PushConst,3));
+    }
     code.push_back(ins(Opcode::Return));
     segment.base_body=phase(std::move(constants),std::move(code));
     const auto program=invocation(std::move(segment),{Value::from_int(0)});
     FitnessSessionGpu session;
-    if(!check(session.init({{}},{answer},100,32,7).ok,label+" init"))return false;
+    if(!check(session.init({{}},{answer},100,32,7,{FitnessMetric::Exact}).ok,label+" init"))return false;
     const auto fit=session.eval_programs({program},true);
-    std::string expected_profile="int-list-views-typed-sorted";
+    std::string expected_profile="int-list-views-typed";
     if(std::getenv("GAGP_DIRECT_PHASE")) {
       expected_profile+=std::getenv("GAGP_DIRECT_ROOT")?"-direct-root":"-direct";
       // This fixture has one bounded Int coordinate and literal endpoints, so
       // the adopted coordinate executor is eligible even for large constants.
       if(std::getenv("GAGP_COORDINATE_EXECUTOR"))expected_profile+="-coordinate";
     }
-    return check(fit.ok && fit.execution_profile==expected_profile,
+    return check(fit.ok && fit.fitness==std::vector<double>{0} && fit.wrong==std::vector<unsigned>{0} && fit.execution_profile==expected_profile,
         label+" selects proven profile (actual="+fit.execution_profile+", expected="+expected_profile+")") &&
         compare_fitness(program,{{{},answer,ErrCode::Value,true}},100,label);
   };
@@ -1310,6 +1317,16 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
      !numeric(BuiltinId::IDiv0,{Value::from_int(low),Value::from_int(-1)},Value::from_int(low),"typed protected div overflow") ||
      !numeric(BuiltinId::IDiv0,{Value::from_int(17),Value::from_int(0)},Value::from_int(0),"typed zero divisor") ||
      !numeric(BuiltinId::IMod0,{Value::from_int(-17),Value::from_int(5)},Value::from_int(3),"typed negative remainder"))return false;
+  if(!numeric(BuiltinId::Min,{Value::from_int(huge),Value::from_int(huge+1)},Value::from_int(huge),"typed exact min low bits") ||
+     !numeric(BuiltinId::Max,{Value::from_int(huge),Value::from_int(huge+1)},Value::from_int(huge+1),"typed exact max low bits"))return false;
+  for(const auto op:{Opcode::Add,Opcode::Sub,Opcode::Mul,Opcode::Mod}) {
+    const auto expected=op==Opcode::Add?huge+2:op==Opcode::Sub?huge-2:op==Opcode::Mul?huge*2:1;
+    if(!numeric(BuiltinId::Min,{Value::from_int(huge),Value::from_int(2)},Value::from_int(expected),"typed integer arithmetic oracle",op))return false;
+  }
+  for(const auto op:{Opcode::Lt,Opcode::Le,Opcode::Gt,Opcode::Ge})
+    if(!numeric(BuiltinId::Min,{Value::from_int(huge),Value::from_int(huge-1)},
+        Value::from_int(op==Opcode::Gt || op==Opcode::Ge?1:0),"typed adjacent integer ordering oracle",op))return false;
+  if(!numeric(BuiltinId::Min,{Value::from_int(INT64_MAX),Value::from_int(1)},Value::from_int(INT64_MIN),"typed integer wrapping oracle",Opcode::Add))return false;
   for (bool explicit_return : {false,true}) {
     auto scalar=unary_segment(Value::from_int(17));
     scalar.base_body.program.code={ins_a(Opcode::PushConst,0)};

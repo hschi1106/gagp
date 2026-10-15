@@ -371,6 +371,41 @@ bool test_typed_numeric_boundaries_and_replay() {
   return true;
 }
 
+// These expectations are integer oracles, not agreement with another executor:
+// double-based implementations can agree while both lose the same low bits.
+bool test_typed_integer_oracles() {
+  constexpr std::int64_t large=(INT64_C(1)<<53)+9;
+  const auto verify=[&](std::vector<Value> constants,std::vector<Instr> code,std::int64_t expected) {
+    auto program=counter_program();auto& body=program.bounded_region_segments[0].base_body.program;
+    program.bounded_region_segments[0].base_body.bindings.clear();body.n_locals=0;
+    body.consts=std::move(constants);body.code=std::move(code);
+    body.instruction_fuel.assign(body.code.size(),1);
+    CpuExecutionSession session(program);
+    const auto actual=session.execute({{0,Value::from_int(0)}},100);
+    return check(!actual.is_error && actual.value.tag==ValueTag::Int && actual.value.i==expected,
+        "typed phase preserves exact 64-bit integer oracle");
+  };
+  for(const auto op:{Opcode::Add,Opcode::Sub,Opcode::Mul,Opcode::Mod}) {
+    const std::int64_t expected=op==Opcode::Add?large+2:op==Opcode::Sub?large-2:op==Opcode::Mul?large*2:1;
+    if(!verify({Value::from_int(large),Value::from_int(2)},
+        {ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),ins(op),ins(Opcode::Return)},expected))return false;
+  }
+  for(const auto id:{BuiltinId::Min,BuiltinId::Max}) {
+    Instr call{Opcode::CallBuiltin,int(id),2,true,true};
+    if(!verify({Value::from_int(large),Value::from_int(large+1)},
+        {ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),call,ins(Opcode::Return)},
+        id==BuiltinId::Min?large:large+1))return false;
+  }
+  for(const auto op:{Opcode::Lt,Opcode::Le,Opcode::Gt,Opcode::Ge}) {
+    if(!verify({Value::from_int(large),Value::from_int(large-1),Value::from_int(1),Value::from_int(0)},
+        {ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),ins(op),ins_a(Opcode::JmpIfFalse,6),
+         ins_a(Opcode::PushConst,2),ins_a(Opcode::Jmp,7),ins_a(Opcode::PushConst,3),ins(Opcode::Return)},
+        op==Opcode::Gt || op==Opcode::Ge?1:0))return false;
+  }
+  return verify({Value::from_int(INT64_MAX),Value::from_int(1)},
+      {ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),ins(Opcode::Add),ins(Opcode::Return)},INT64_MIN);
+}
+
 bool test_coordinate_capture_views() {
   setenv("GAGP_CPU_REGION_VIEWS", "1", 1);
   setenv("GAGP_CPU_COORDINATE_VIEWS", "1", 1);
@@ -474,6 +509,7 @@ int main() {
       else unsetenv("GAGP_CPU_BOUND_PHASE");
     if (!test_compact_coordinate_branches() ||
         !test_typed_numeric_boundaries_and_replay() ||
+        !test_typed_integer_oracles() ||
         !test_coordinate_capture_views() ||
         !test_bound_store_fallback_and_semantic_fuel() ||
         !test_reuse_inputs_memo_and_capture_errors() ||
