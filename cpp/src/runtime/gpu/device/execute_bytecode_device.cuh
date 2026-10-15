@@ -564,6 +564,7 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
   if constexpr (d_exact_payload_flavor<Flavor>) {
     payload_state.fused_list_concat=workspace.fused_list_concat;
     payload_state.small_int_hash=workspace.small_int_hash;
+    payload_state.small_int_slice_hash=workspace.small_int_slice_hash;
     payload_state.alias_windows=workspace.payload_window_aliases;
   }
   payload_state.logical_list_limit = policy.list_allocation_limit;

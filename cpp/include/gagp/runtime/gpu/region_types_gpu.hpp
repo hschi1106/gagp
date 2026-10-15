@@ -95,6 +95,7 @@ struct DRegionWorkspace {
   bool payload_window_aliases = false;
   bool fused_list_concat = false;
   bool small_int_hash = false;
+  bool small_int_slice_hash = false;
   int payload_entry_capacity = 0;
   int payload_value_capacity = 0;
   int payload_byte_capacity = 0;

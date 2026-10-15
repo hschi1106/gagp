@@ -632,3 +632,15 @@ payload allocation, fuel, and numeric semantics are unchanged. The execution
 profile adds `-small-int-hash`. The extended payload GPU test checks every table
 entry, adjacent bounds, full-width integer patterns, all other tags, typed-list
 Concat errors/capacity/collisions, and full-case CPU fitness with the flag off/on.
+
+`GAGP_GPU_SMALL_INT_SLICE_HASH=1` independently extends the existing exact
+small-integer hash table to list Slice (both alias and copy paths) and Singleton.
+It requires `GAGP_GPU_SMALL_INT_HASH=1` and its existing fused-concat prerequisite.
+The default is off, allowing incremental A/B comparisons against concat-only
+small-int hashing. The same [-256,255] table and ordinary fallback are used;
+outer FNV folding, full-width/tag-dependent hashes, canonical identities,
+allocation limits, errors, and fuel are unchanged. No cache or storage is added.
+The option is captured at GPU evaluation entry and adds `-small-int-slice-hash`
+to the execution profile. The extended-payload GPU tests check hash boundaries
+and non-Int fallback, alias/copy Slice results and capacity failures, and full-case
+CPU fitness parity with the extra flag off and on.

@@ -616,7 +616,17 @@ __global__ void inspect_fused_concat(int* failure) {
   for(int i=-257;i<=256;++i) {
     const auto value=Value::from_int(i);
     if(d_hash_concat_element(value,true)!=d_hash_value_shallow(value) ||
-        d_hash_concat_element(value,false)!=d_hash_value_shallow(value)){*failure=10000+i+257;return;}
+        d_hash_concat_element(value,false)!=d_hash_value_shallow(value) ||
+        d_hash_list_payload(&value,1,true)!=d_hash_list_payload(&value,1,false)){*failure=10000+i+257;return;}
+    DListPayloadEntry entry;Value cell,output;DArenaPayloadState state;
+    state.list_entries=&entry;state.list_values=&cell;
+    state.list_entry_capacity=1;state.kMaxListValues=1;
+    state.logical_list_limit=1;state.small_int_slice_hash=true;
+    ErrCode error=ErrCode::Value;DPayloadTables tables{};
+    if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&value,1,tables,state,output,error) ||
+        output.i!=d_make_list_hash_len(ValueTag::IntList,d_hash_list_payload(&value,1),1).i ||
+        state.logical_list_used!=1 || state.list_values_used!=1 || state.list_entry_count!=1 ||
+        state.physical_capacity_exceeded){*failure=12000+i+257;return;}
   }
   unsigned long long bits=0x8000000000000000ULL;
   for(int sample=0;sample<128;++sample) {
@@ -625,7 +635,8 @@ __global__ void inspect_fused_concat(int* failure) {
     for(int tag=0;tag<=static_cast<int>(ValueTag::Invalid);++tag) {
       Value value=Value::from_int(static_cast<long long>(bits));
       value.tag=static_cast<ValueTag>(tag);value.b=(sample&1)!=0;
-      if(d_hash_concat_element(value,true)!=d_hash_value_shallow(value)){*failure=11000+sample;return;}
+      if(d_hash_concat_element(value,true)!=d_hash_value_shallow(value) ||
+          d_hash_list_payload(&value,1,true)!=d_hash_list_payload(&value,1,false)){*failure=11000+sample;return;}
     }
     bits=sample==0?0x7fffffffffffffffULL:bits*6364136223846793005ULL+1442695040888963407ULL;
   }
@@ -690,6 +701,7 @@ bool test_fused_concat() {
 __global__ void inspect_extended_aliases(gpu_detail::DExtendedPayloadState* state,int* failure) {
   using namespace gpu_detail;
   *failure=0;
+  for(int small_hash=0;small_hash<2;++small_hash)
   for(int type=0;type<3;++type) for(int local=0;local<2;++local)
   for(int scenario=0;scenario<4;++scenario) for(int aliases=0;aliases<2;++aliases) {
     const int test=1+(((type*2+local)*4+scenario)*2+aliases);
@@ -704,6 +716,7 @@ __global__ void inspect_extended_aliases(gpu_detail::DExtendedPayloadState* stat
     state->list_entry_count=0;state->list_values_used=0;state->list_entry_capacity=1024;
     state->logical_list_limit=0;state->logical_list_used=0;state->physical_capacity_exceeded=false;state->physical_capacity_reason=0;
     state->alias_windows=aliases!=0;state->fused_list_concat=false;
+    state->small_int_slice_hash=small_hash!=0;
     Value value=source;ErrCode err=ErrCode::Value;
     if(local) {
       const Value concat[2]={source,empty};
@@ -857,11 +870,23 @@ bool test_adaptive_replay() {
   return test_tiled_replay_entry_growth();
 }
 
+bool test_small_int_slice_hash_fitness() {
+  ScopedEnvironment restore_slice("GAGP_GPU_SMALL_INT_SLICE_HASH"),
+      restore_hash("GAGP_GPU_SMALL_INT_HASH"),restore_fused("GAGP_GPU_FUSED_LIST_CONCAT");
+  setenv("GAGP_GPU_SMALL_INT_HASH","1",1);
+  setenv("GAGP_GPU_FUSED_LIST_CONCAT","1",1);
+  for(const char* enabled:{"0","1"}) {
+    setenv("GAGP_GPU_SMALL_INT_SLICE_HASH",enabled,1);
+    if(!test_extended_list_fitness() || !test_global_window_aliases())return false;
+  }
+  return true;
+}
+
 int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_small_int_slice_hash_fitness() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }
