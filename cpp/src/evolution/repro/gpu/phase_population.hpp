@@ -19,7 +19,7 @@ class NativePhasePopulation final {
   // Materialized reference view; callers must request it again after reproduction.
   const std::vector<BytecodeProgram>& programs() const;
   ReproductionStats reproduce(const std::vector<double>& completed_fitness,
-      int tournament_size, double mutation_probability, std::uint64_t seed);
+      int tournament_size, double mutation_probability, std::uint64_t seed, int elite_count = 0);
   // Return independent member ASTs from the private construction invariant.
   // The optional canonical derivation cache may be absent; subsequent external
   // import/admission must validate these like any other supplied AST.

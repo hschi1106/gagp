@@ -4,6 +4,7 @@
 
 #include "gagp/core/bytecode.hpp"
 #include "gagp/core/value.hpp"
+#include "gagp/core/fitness_policy.hpp"
 
 namespace gagp {
 
@@ -29,6 +30,7 @@ std::vector<double> eval_fitness_cpu(
     const std::vector<Value>& shared_answer,
     int fuel = 10000,
     double penalty = 1.0,
-    int reduction_lanes = 1);
+    int reduction_lanes = 1,
+    FitnessPolicy policy = {});
 
 }  // namespace gagp

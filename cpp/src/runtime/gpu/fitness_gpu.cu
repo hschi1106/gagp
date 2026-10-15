@@ -303,6 +303,7 @@ struct FitnessSessionGpu::Impl {
   int fuel = 10000;
   int blocksize = 1024;
   double penalty = 1.0;
+  FitnessPolicy policy;
   int shared_case_count = 0;
   unsigned shared_input_payload_mask = 0U;
   std::array<ValueTag, 64> shared_input_types{};
@@ -374,7 +375,12 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
                                                  const std::vector<Value>& shared_answer,
                                                  int fuel,
                                                  int blocksize,
-                                                 double penalty) {
+                                                 double penalty, FitnessPolicy policy) {
+  if(!valid_fitness_policy(policy))return fitness_init_single_error(ErrCode::Value,"invalid fitness policy");
+  if(policy.metric==FitnessMetric::Levenshtein || policy.metric==FitnessMetric::TupleSummary)
+    for(const auto& answer:shared_answer)
+      if(!is_container(answer) || Value::container_len(answer)>kFitnessMaxSequence)
+        return fitness_init_single_error(ErrCode::Value,"sequence fitness requires a container answer of at most 1024 elements");
   if (shared_cases.empty()) {
     return fitness_init_single_error(ErrCode::Value, "shared_cases must not be empty");
   }
@@ -418,7 +424,7 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   std::vector<int> case_order;
   // Only permute when all per-case scores are integral and their bounded sum
   // is exactly representable by the existing 48-bit canonical reduction.
-  if (std::getenv("GAGP_SORT_CASES") && std::isfinite(penalty) && std::floor(std::fabs(penalty)) == std::fabs(penalty) &&
+  if (policy.metric==FitnessMetric::Legacy && std::getenv("GAGP_SORT_CASES") && std::isfinite(penalty) && std::floor(std::fabs(penalty)) == std::fabs(penalty) &&
       shared_cases.size() * std::max(1.0, std::fabs(penalty)) < 1099511627776.0 &&
       std::all_of(shared_answer.begin(), shared_answer.end(), [](const auto& v) { return v.tag == ValueTag::Int || v.tag == ValueTag::Bool; })) {
     std::vector<std::uint64_t> lengths(shared_cases.size(), 0);
@@ -439,6 +445,8 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   impl_->shared_string_tokens.clear();
   impl_->shared_list_tokens.clear();
   append_payload_tokens_from_values(packed_case_local_vals, &impl_->shared_string_tokens, &impl_->shared_list_tokens);
+  if(policy.metric==FitnessMetric::Levenshtein || policy.metric==FitnessMetric::TupleSummary)
+    append_payload_tokens_from_values(shared_answer, &impl_->shared_string_tokens, &impl_->shared_list_tokens);
   sort_and_unique_tokens(&impl_->shared_string_tokens);
   sort_and_unique_list_tokens(&impl_->shared_list_tokens);
   populate_payload_cache(impl_->shared_string_tokens, impl_->shared_list_tokens, &impl_->host_string_payloads,
@@ -461,6 +469,7 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   impl_->fuel = fuel;
   impl_->blocksize = blocksize;
   impl_->penalty = penalty;
+  impl_->policy = policy;
   impl_->shared_case_count = static_cast<int>(shared_cases.size());
   impl_->shared_input_payload_mask = shared_cases_payload_mask(shared_cases);
   impl_->shared_bytes = 0;
@@ -803,7 +812,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
               dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
               dev.d_phase_code, dev.d_phase_consts,
-              impl_->fuel, impl_->penalty, dev.d_fitness,
+              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness,
               dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, impl_->d_case_order, indices.compact, indices.compact_queue);
@@ -815,7 +824,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
               dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
               dev.d_phase_code, dev.d_phase_consts,
-              impl_->fuel, impl_->penalty, dev.d_fitness,
+              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness,
               dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, impl_->d_case_order, indices.compact, indices.compact_queue);
@@ -827,7 +836,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
               dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
               dev.d_phase_code, dev.d_phase_consts,
-              impl_->fuel, impl_->penalty, dev.d_fitness,
+              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness,
               dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, impl_->d_case_order, nullptr, indices.compact_queue);
@@ -839,7 +848,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
               dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
               dev.d_phase_code, dev.d_phase_consts,
-              impl_->fuel, impl_->penalty, dev.d_fitness,
+              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness,
               dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, nullptr, nullptr, indices.compact_queue);
@@ -851,7 +860,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
               dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
               dev.d_phase_code, dev.d_phase_consts,
-              impl_->fuel, impl_->penalty, dev.d_fitness, nullptr, 0, nullptr, 0, nullptr, 0, {}, dev.d_case_counts);
+              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness, nullptr, 0, nullptr, 0, nullptr, 0, {}, dev.d_case_counts);
     }
     if(capability_buckets) {
       const auto first_error=cudaGetLastError();
@@ -864,7 +873,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               view_case_values,impl_->d_shared_case_local_set,impl_->d_expected,
               dev.d_string_payload_entries,static_cast<int>(payload_pack.string_entries.size()),dev.d_string_payload_bytes,
               dev.d_list_payload_entries,static_cast<int>(payload_pack.list_entries.size()),dev.d_list_payload_values,
-              dev.d_phase_code,dev.d_phase_consts,impl_->fuel,impl_->penalty,dev.d_fitness,
+              dev.d_phase_code,dev.d_phase_consts,impl_->fuel,impl_->penalty,impl_->policy,dev.d_fitness,
               dev.d_region_segments,static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases,static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings,static_cast<int>(packed.region_bindings.size()),generic_workspace,

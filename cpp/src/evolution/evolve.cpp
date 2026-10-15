@@ -227,7 +227,7 @@ std::vector<ScoredGenomeRef> score_population_cpu_refs(
     const std::vector<Value>& shared_answer,
     int fuel,
     double penalty,
-    int reduction_lanes,
+    int reduction_lanes, FitnessPolicy policy,
     CompileCache* compile_cache,
     EvolutionResult* result,
     GenerationTiming* generation_timing,
@@ -238,7 +238,7 @@ std::vector<ScoredGenomeRef> score_population_cpu_refs(
   PopulationEvaluation evaluation;
   evaluation.timing.cpu_compile_ms = compiled.compile_ms;
   evaluation.fitness = eval_fitness_cpu(
-      compiled.programs, shared_cases, shared_answer, fuel, penalty, reduction_lanes);
+      compiled.programs, shared_cases, shared_answer, fuel, penalty, reduction_lanes, policy);
   return record_and_rank_evaluation(
       population, std::move(evaluation), result, generation_timing,
       fitness_sum_out, raw_fitness_out, sort_output);
@@ -344,7 +344,7 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
     result.history_mean_fitness.push_back(static_cast<double>(sum/fitness.size()));
     const auto repro_start=std::chrono::steady_clock::now();
     timing.reproduction=reproduction_timing_from_stats(owner->reproduce(fitness,
-        std::clamp(cfg.selection_pressure,1,cfg.population_size),cfg.mutation_rate,rng()));
+        std::clamp(cfg.selection_pressure,1,cfg.population_size),cfg.mutation_rate,rng(),cfg.elite_count));
     timing.repro_ms=elapsed(repro_start);
     result.genotype_device_bytes=std::max<std::uint64_t>(result.genotype_device_bytes,owner->device_bytes());
     accumulate_timing(&result.timing.reproduction_totals,timing.reproduction);
@@ -391,7 +391,7 @@ std::vector<ScoredGenome> evaluate_population(const std::vector<ProgramGenome>& 
   EvolutionResult result;
   return materialize_scored_population(score_population_cpu_refs(
       population, case_set.input_names, case_set.bindings, case_set.expected_values,
-      cfg.fuel, cfg.penalty, cfg.gpu_blocksize, nullptr, &result, nullptr,
+      cfg.fuel, cfg.penalty, cfg.gpu_blocksize, cfg.fitness_policy, nullptr, &result, nullptr,
       nullptr, nullptr, true));
 }
 
@@ -402,6 +402,8 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
   if (cases.empty()) {
     throw std::invalid_argument("cases must not be empty");
   }
+  if (cfg.elite_count < 0 || cfg.elite_count >= cfg.population_size)
+    throw std::invalid_argument("elite_count must be >= 0 and < population_size");
   if (cfg.population_size <= 0) {
     throw std::invalid_argument("population_size must be > 0");
   }
@@ -431,7 +433,7 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
 #ifdef GAGP_HAS_CUDA
     const FitnessSessionInitResult init_result =
         gpu_session.init(case_set.bindings, case_set.expected_values, cfg.fuel,
-                         cfg.gpu_blocksize, cfg.penalty);
+                         cfg.gpu_blocksize, cfg.penalty, cfg.fitness_policy);
     if (!init_result.ok) {
       throw std::runtime_error("gpu fitness session init failed: " + init_result.err.message);
     }
@@ -489,7 +491,7 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
     } else {
       scored = score_population_cpu_refs(
           evaluated_population, case_set.input_names, case_set.bindings, case_set.expected_values,
-          cfg.fuel, cfg.penalty, cfg.gpu_blocksize,
+          cfg.fuel, cfg.penalty, cfg.gpu_blocksize, cfg.fitness_policy,
           nullptr, &result, &generation_timing, &fitness_sum,
           gpu_repro_resources ? &raw_fitness : nullptr, true);
     }
@@ -516,6 +518,8 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
     }
     const auto repro_t1 = std::chrono::steady_clock::now();
 
+    for (int i = 0; i < cfg.elite_count; ++i)
+      reproduction.next_population.at(i) = *scored.at(i).genome;
     population = std::move(reproduction.next_population);
     overlap.population.reset();
     payload_lifetime.retain(population, result.history_best);
@@ -558,7 +562,7 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
     } else {
       const std::vector<ScoredGenomeRef> final_scored = score_population_cpu_refs(
           population, case_set.input_names, case_set.bindings,
-          case_set.expected_values, cfg.fuel, cfg.penalty, cfg.gpu_blocksize,
+          case_set.expected_values, cfg.fuel, cfg.penalty, cfg.gpu_blocksize, cfg.fitness_policy,
           nullptr, &result, nullptr, nullptr, nullptr, true);
       result.best = materialize_scored_genome(final_scored.front());
       result.final_population = cfg.retain_final_population

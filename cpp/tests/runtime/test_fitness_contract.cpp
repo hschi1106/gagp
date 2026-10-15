@@ -73,6 +73,26 @@ int main() {
   if (!check(failed.size() == 1 && failed[0] == -5.0,
              "runtime error must score one penalty")) return 1;
 
+  const gagp::FitnessPolicy discounted{gagp::FitnessMetric::Absolute,gagp::FitnessProximity::Discounted};
+  const auto distance=gagp::eval_fitness_cpu({returns(Value::from_int(3)),runtime_error},
+      {{}},{Value::from_int(0)},100,5,1,discounted);
+  if(!check(distance==std::vector<double>{-.75,-1.0},"discounted error and runtime ceiling"))return 1;
+  const auto list_a=gagp::payload::make_int_list_value({Value::from_int(1),Value::from_int(3)});
+  const auto list_b=gagp::payload::make_int_list_value({Value::from_int(1),Value::from_int(2),Value::from_int(3)});
+  const gagp::FitnessPolicy edit_distance{gagp::FitnessMetric::Levenshtein};
+  const auto edits=gagp::eval_fitness_cpu({returns(list_a)},{{}},{list_b},100,5,1,edit_distance);
+  if(!check(edits==std::vector<double>{-1},"Levenshtein insertion uses full payload"))return 1;
+  const auto strings=gagp::eval_fitness_cpu({returns(gagp::payload::make_string_value("kitten"))},{{}},
+      {gagp::payload::make_string_value("sitting")},100,10,1,edit_distance);
+  if(!check(strings==std::vector<double>{-3},"Levenshtein string distance"))return 1;
+  gagp::FitnessPolicy tuple{gagp::FitnessMetric::TupleSummary};tuple.summary_count=2;tuple.summary_cap=10;
+  const auto tuple_a=gagp::payload::make_int_list_value({Value::from_int(1),Value::from_int(5),Value::from_int(30)});
+  const auto tuple_b=gagp::payload::make_int_list_value({Value::from_int(1),Value::from_int(0),Value::from_int(0)});
+  const auto summaries=gagp::eval_fitness_cpu({returns(tuple_a)},{{}},{tuple_b},100,10,1,tuple);
+  if(!check(std::fabs(summaries[0]+.15)<1e-12,"tuple weighted capped summaries"))return 1;
+  const gagp::FitnessPolicy exact{gagp::FitnessMetric::Exact};
+  if(!check(gagp::fitness_case_score(Value::from_int(INT64_MAX),Value::from_int(INT64_MAX-1),5,exact)==-1,
+      "exact integer comparison retains low bits"))return 1;
   std::cout << "gagp_test_fitness_contract: OK\n";
   return 0;
 }

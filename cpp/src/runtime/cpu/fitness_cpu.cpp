@@ -6,6 +6,8 @@
 #include <vector>
 
 #include "gagp/core/value_semantics.hpp"
+#include "gagp/runtime/payload/payload.hpp"
+#include <stdexcept>
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
 #include "gagp/runtime/cpu/execution_session.hpp"
 #include "../payload/staging.hpp"
@@ -13,6 +15,25 @@
 namespace gagp {
 
 namespace {
+
+double score_resident(const Value& actual,const Value& expected,double penalty,FitnessPolicy policy) {
+  if(policy.metric!=FitnessMetric::Levenshtein && policy.metric!=FitnessMetric::TupleSummary)
+    return fitness_case_score(actual,expected,penalty,policy);
+  std::vector<Value> a,b;
+  if(actual.tag!=expected.tag)return -fitness_error_ceiling(policy,penalty);
+  if(is_typed_list(actual)) {
+    if(!payload::lookup_list(actual,&a) || !payload::lookup_list(expected,&b))
+      return -fitness_error_ceiling(policy,penalty);
+  } else if(actual.tag==ValueTag::String && policy.metric==FitnessMetric::Levenshtein) {
+    std::string x,y;
+    if(!payload::lookup_string(actual,&x) || !payload::lookup_string(expected,&y))
+      return -fitness_error_ceiling(policy,penalty);
+    for(unsigned char c:x)a.push_back(Value::from_char(c));
+    for(unsigned char c:y)b.push_back(Value::from_char(c));
+  } else return -fitness_error_ceiling(policy,penalty);
+  std::vector<unsigned> row(b.size()+1);
+  return fitness_sequence_score(a.data(),int(a.size()),b.data(),int(b.size()),penalty,policy,row.data());
+}
 
 double canonicalize_fitness_accumulator(double value) {
   if (!std::isfinite(value) || value == 0.0) {
@@ -33,7 +54,12 @@ std::vector<double> eval_fitness_cpu(
     const std::vector<Value>& shared_answer,
     int fuel,
     double penalty,
-    int reduction_lanes) {
+    int reduction_lanes, FitnessPolicy policy) {
+  if(!valid_fitness_policy(policy))throw std::invalid_argument("invalid fitness policy");
+  if(policy.metric==FitnessMetric::Levenshtein || policy.metric==FitnessMetric::TupleSummary)
+    for(const auto& answer:shared_answer)
+      if(!is_container(answer) || Value::container_len(answer)>kFitnessMaxSequence)
+        throw std::invalid_argument("sequence fitness requires a container answer of at most 1024 elements");
   if (programs.empty() || shared_cases.empty()) {
     return {};
   }
@@ -78,14 +104,12 @@ std::vector<double> eval_fitness_cpu(
           out.err = Err{ErrCode::Value, error.what()};
         }
         if (out.is_error) {
-          local_score = canonicalize_fitness_accumulator(local_score - std::fabs(penalty));
+          local_score = canonicalize_fitness_accumulator(local_score - fitness_error_ceiling(policy, penalty));
           continue;
         }
 
-        double case_score = 0.0;
-        if (vm_semantics::fitness_score_for_values(out.value, shared_answer[c], penalty, case_score)) {
-          local_score = canonicalize_fitness_accumulator(local_score + case_score);
-        }
+        local_score = canonicalize_fitness_accumulator(local_score +
+            score_resident(out.value, shared_answer[c], penalty, policy));
       }
       partial_scores[static_cast<std::size_t>(lane)] = local_score;
     }

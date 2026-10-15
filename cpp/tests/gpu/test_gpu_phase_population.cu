@@ -316,6 +316,12 @@ int main(){try {
  bool rejected=false;
  try{(void)owner.export_member(population);}catch(const std::invalid_argument&){rejected=true;}
  require(rejected,"out-of-range genotype export accepted");
+ {
+  std::vector<double> elite_scores(population,-1);elite_scores[3]=0;
+  const auto before=ast_cache_key(owner.export_member(3).ast);
+  owner.reproduce(elite_scores,2,1.0,812,1);
+  require(ast_cache_key(owner.export_member(0).ast)==before,"GPU elite was mutated or lost");
+ }
  rejected=false;try{(void)owner.reproduce({},2,.3,0);}catch(const std::invalid_argument&){rejected=true;}
  require(rejected,"incomplete fitness accepted");
  require(owner.programs().size()==population,"rejected external arguments invalidated live owner");

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include "gagp/core/fitness_policy.hpp"
 #include "execute_bytecode_device.cuh"
 
 namespace gagp::gpu_detail {
@@ -70,7 +71,7 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     const Value* list_payload_values,
     const DInstr* phase_code,
     const Value* phase_consts,
-    int fuel, double penalty, double* fitness_out,
+    int fuel, double penalty, FitnessPolicy policy, double* fitness_out,
     const DRegionSegment* region_segments = nullptr, int region_segment_count = 0,
     const DRegionPhase* region_phases = nullptr, int region_phase_count = 0,
     const DRegionPhaseBinding* region_bindings = nullptr, int region_binding_count = 0,
@@ -205,13 +206,16 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     if constexpr ((Flavor == DPayloadFlavor::IntListViews || Flavor == DPayloadFlavor::BoundIntListViews))
       if (case_order) input_case = case_order[local_case];
     DResult result;
+    double resident_score = 0;
     if constexpr (DirectRoot) {
       result = d_execute_region_root(meta, shared_code, all_consts, shared_case_local_vals,
           shared_case_local_set, payload_tables, execution_tables, input_case, fuel, workspace);
+      if(!result.is_error)resident_score=fitness_case_score(result.value,shared_answer[input_case],penalty,policy);
     } else {
     result = d_execute_bytecode_impl<Flavor, EnableRegions>(
         meta, shared_code, all_consts, shared_case_local_vals, shared_case_local_set,
-        payload_tables, execution_tables, input_case, fuel, workspace);
+        payload_tables, execution_tables, input_case, fuel, workspace,
+        shared_answer+input_case,penalty,policy,&resident_score);
     }
     unsigned int* counts = case_counts ? case_counts + prog_idx * 5 : nullptr;
     if (counts) atomicAdd(counts, 1u);
@@ -220,15 +224,13 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
         atomicAdd(counts + 1, 1u);
         if (result.err_code == ErrCode::Timeout) atomicAdd(counts + 2, 1u);
       }
-      local_score = d_canonicalize_fitness_accumulator(local_score - fabs(penalty));
+      local_score = d_canonicalize_fitness_accumulator(local_score - fitness_error_ceiling(policy, penalty));
       continue;
     }
 
     if (counts && result.value.tag == ValueTag::FallbackToken) atomicAdd(counts + 3, 1u);
-    double case_score = 0.0;
-    if (vm_semantics::fitness_score_for_values(result.value, shared_answer[input_case], penalty, case_score)) {
-      local_score = d_canonicalize_fitness_accumulator(local_score + case_score);
-    } else if (counts) atomicAdd(counts + 4, 1u);
+    local_score = d_canonicalize_fitness_accumulator(local_score +
+        resident_score);
   }
 
   partial_scores[tid] = local_score;

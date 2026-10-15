@@ -71,6 +71,16 @@ __device__ void copy_tree(TreePointers from,int source,TreePointers to,int targe
  for(int i=0;i<r.constants;++i)b.constants[i]=a.constants[i];
  to.lengths[target]=r;
 }
+// Preserve elites entirely on device; strict source-index tie breaking is deterministic.
+__global__ void preserve_elites(TreePointers source, TreePointers target,
+    const double* fitness, int population, int slots, int elites) {
+  const int candidate=blockIdx.x*blockDim.x+threadIdx.x;
+  if(candidate>=population)return;
+  int rank=0;
+  for(int i=0;i<population;++i)
+    if(fitness[i]>fitness[candidate] || (fitness[i]==fitness[candidate] && i<candidate))++rank;
+  if(rank<elites)for(int k=0;k<slots;++k)copy_tree(source,candidate*slots+k,target,rank*slots+k);
+}
 __global__ void annotate_import(TreePointers trees,const DeviceSlot* slots,int rows,int slot_count) {
  const int row=blockIdx.x*blockDim.x+threadIdx.x;if(row>=rows)return;const auto& s=slots[row%slot_count];const auto t=trees.view(row);
  if(!valid(trees.lengths[row]) || !annotate_phase_tree(s.grammar,s.root,s.scope,t.nodes,t.origins,t.node_count,trees.output(row).sites))trees.lengths[row].status=PhaseCompileStatus::Invalid;
@@ -551,7 +561,8 @@ FitnessEvalResult NativePhasePopulation::evaluate(FitnessSessionGpu& session,boo
 }
 const char* NativePhasePopulation::profile_name()const{return impl_->counted_sites?"native-gpu-phase-v2-counted":"native-gpu-phase-v1";}
 std::size_t NativePhasePopulation::device_bytes()const{return std::max(impl_->bytes(),impl_->peak_transport_bytes);}
-ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& completed_fitness,int pressure,double probability,std::uint64_t seed) {
+ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& completed_fitness,int pressure,double probability,std::uint64_t seed,int elite_count) {
+ phase_layout_require(elite_count>=0 && elite_count<impl_->population,"elite count");
  impl_->require_device();phase_layout_require(completed_fitness.size()==std::size_t(impl_->population) && pressure>0 && pressure<=impl_->population &&
    std::isfinite(probability) && probability>=0 && probability<=1,"selection/mutation contract");
  for(double value:completed_fitness)phase_layout_require(!std::isnan(value),"uncanonical fitness");
@@ -577,6 +588,10 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
  }
  checked(cudaGetLastError());
  auto& offspring=impl_->inplace_mutation?impl_->crossed:impl_->next;
+ if(elite_count) {
+  preserve_elites<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->current),pointers(*offspring),impl_->fitness.data,p,k,elite_count);
+  checked(cudaGetLastError());
+ }
  compare_offspring<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->current),pointers(*offspring),p,k,impl_->stats.data);checked(cudaGetLastError());
  checked(cudaEventRecord(impl_->stop));checked(cudaEventSynchronize(impl_->stop));float ms;checked(cudaEventElapsedTime(&ms,impl_->start,impl_->stop));timing.kernel_ms=ms;
  const auto stats=impl_->stats.read(p);

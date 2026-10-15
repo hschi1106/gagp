@@ -402,3 +402,9 @@ its prospective output before allocating it. Exhaustion produces a Value error
 and the normal case penalty; instruction fuel is unchanged. This is a CPU
 fitness resource boundary, not a claim that the GPU list arena has equal capacity.
 Direct execution APIs keep their existing persistent result-payload ownership.
+Configured sequence fitness resolves generated GPU payloads inside
+`d_execute_bytecode_impl`, before its per-invocation payload state is destroyed.
+Expected payloads are uploaded with shared case payloads. The metric owner is
+`core/fitness_policy.hpp`; CPU and CUDA scoring share the distance recurrence
+and numeric transforms. See [fitness](../../spec/fitness.md) for capacities and
+configuration semantics.

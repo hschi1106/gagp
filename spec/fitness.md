@@ -191,3 +191,32 @@ data and registry keys per case. Exceeding this limit is a runtime Value error
 and receives the ordinary error penalty. Temporary payloads are released after
 that case is scored. This resource bound is independent of instruction fuel;
 backend-specific resource limits need not be equal.
+## Opt-in task metrics and elitism
+
+`FitnessPolicy` defaults to `Legacy`, preserving the scores above. Native CPU
+and GPU fitness accept the same optional policy; evolution carries it in
+`EvolutionConfig::fitness_policy`. The task metrics maximize negative error:
+
+- `Absolute`: numeric absolute difference, capped by `abs(penalty)`.
+- `Exact`: zero for a matching value, minus one otherwise.
+- `Levenshtein`: insertion/deletion/substitution distance for typed lists or
+  string bytes, capped by `abs(penalty)`. List tags must match.
+- `TupleSummary`: an `IntList` encodes `[predicate, summary1, summary2]`, with
+  exactly `summary_count + 1` entries. Error is predicate mismatch plus
+  `summary_weight * min(abs(actual-expected), summary_cap)/summary_cap` for
+  each summary. `summary_count` is 0 through 2; the cap must be positive.
+
+`Discounted` proximity replaces the cap for Absolute and Levenshtein by
+`error/(1+error)`. Runtime errors and incomparable values receive the metric's
+ceiling: one for Exact or discounted proximity, `abs(penalty)` for capped
+proximity, and `1 + summary_count * summary_weight` for TupleSummary.
+Sequence answers above 1024 elements are rejected at session/evaluation setup.
+Payloads are resolved before invocation-owned GPU storage expires; absent
+payloads receive the ceiling. No distance is inferred from transport hashes.
+
+`EvolutionConfig::elite_count` defaults to zero and must be less than population
+size. Positive values preserve that many highest-ranked previous members in the
+next generation, after variation. The native GPU phase owner copies those trees
+on device before compilation. This keeps population size and evaluation count
+unchanged. This policy alone does not align random streams or tournament rules
+with external implementations.

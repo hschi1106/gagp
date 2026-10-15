@@ -66,7 +66,7 @@ class FitnessSessionGpu {
                                 const std::vector<Value>& shared_answer,
                                 int fuel = 10000,
                                 int blocksize = 1024,
-                                double penalty = 1.0);
+                                double penalty = 1.0, FitnessPolicy policy = {});
   FitnessEvalResult eval_programs(const std::vector<BytecodeProgram>& programs, bool capture_case_counts = false,
       const std::function<void()>& while_gpu_runs = {}) const;
   bool is_ready() const;

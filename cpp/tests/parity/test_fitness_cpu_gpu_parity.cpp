@@ -2629,6 +2629,32 @@ int main() {
   }
 
   if (!check_sparse_case_locals()) return 1;
+  for(const auto metric:{gagp::FitnessMetric::Absolute,gagp::FitnessMetric::Exact,
+                        gagp::FitnessMetric::Levenshtein,gagp::FitnessMetric::TupleSummary}) {
+    gagp::FitnessPolicy policy{metric,gagp::FitnessProximity::Discounted};
+    Value expected=Value::from_int(0);
+    auto program=make_return_const_program(3);
+    double wanted=-.75;
+    if(metric==gagp::FitnessMetric::Exact)wanted=-1;
+    if(metric==gagp::FitnessMetric::Levenshtein || metric==gagp::FitnessMetric::TupleSummary) {
+      policy.summary_count=2;policy.summary_cap=10;
+      const auto input=gagp::payload::make_int_list_value({Value::from_int(1),Value::from_int(5)});
+      expected=gagp::payload::make_int_list_value({Value::from_int(1),Value::from_int(0),Value::from_int(0)});
+      program.consts={input,Value::from_int(30)};
+      program.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),
+          ins_ab(Opcode::CallBuiltin,static_cast<int>(gagp::BuiltinId::Append),2),ins(Opcode::Return)};
+      wanted=metric==gagp::FitnessMetric::Levenshtein?-2.0/3.0:-.15;
+    }
+    const auto cpu=gagp::eval_fitness_cpu({program},{{}},{expected},1000,5,32,policy);
+    gagp::FitnessSessionGpu session;
+    const auto init=session.init({{}},{expected},1000,32,5,policy);
+    if(!init.ok){std::cerr<<init.err.message;return 1;}
+    const auto gpu=session.eval_programs({program});
+    if(!gpu.ok || std::fabs(cpu[0]-wanted)>1e-12 || std::fabs(gpu.fitness[0]-cpu[0])>1e-12) {
+      std::cerr<<"configured fitness parity failure metric="<<int(metric)<<" cpu="<<cpu[0]
+               <<" gpu="<<(gpu.ok?gpu.fitness[0]:999)<<" expected="<<wanted;return 1;
+    }
+  }
   std::cout << "gagp_test_fitness_cpu_gpu_parity: OK\n";
   return 0;
 }

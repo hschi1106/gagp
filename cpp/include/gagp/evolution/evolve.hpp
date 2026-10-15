@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "gagp/evolution/case_set.hpp"
+#include "gagp/core/fitness_policy.hpp"
 #include "gagp/evolution/genome.hpp"
 #include "gagp/evolution/grammar/request.hpp"
 #include "gagp/evolution/input_spec.hpp"
@@ -27,6 +28,8 @@ struct EvolutionConfig {
   double mutation_rate = 0.5;
   double mutation_subtree_prob = 0.8;
   double penalty = 1.0;
+  FitnessPolicy fitness_policy;
+  int elite_count = 0;
   EvalEngine eval_engine = EvalEngine::CPU;
   repro::ReproductionBackend reproduction_backend = repro::ReproductionBackend::Cpu;
   repro::CpuReproAblation cpu_repro_ablation = repro::CpuReproAblation::None;

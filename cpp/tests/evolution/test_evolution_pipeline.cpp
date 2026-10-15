@@ -189,5 +189,15 @@ int main() {
   assert(timed.timing.evaluation_totals.cpu_compile_ms == cpu_compile_sum);
   assert(timed.timing.evaluation_totals.gpu_eval_call_ms == 0.0);
   assert(timed.timing.reproduction_totals.selection_ms == selection_sum);
-  assert(timed.timing.final_eval_ms == 0.0);
+  timing_config.skip_final_eval=false;timing_config.generations=5;timing_config.elite_count=1;
+  timing_config.fitness_policy={gagp::FitnessMetric::Absolute,gagp::FitnessProximity::Discounted};
+  const auto elitist=gagp::evo::evolve_population(timing_cases,timing_config);
+  for(std::size_t i=1;i<elitist.history_best_fitness.size();++i)
+    assert(elitist.history_best_fitness[i]>=elitist.history_best_fitness[i-1]);
+  assert(elitist.best.fitness>=elitist.history_best_fitness.back());
+  timing_config.elite_count=timing_config.population_size;
+  bool bad_elites=false;
+  try{(void)gagp::evo::evolve_population(timing_cases,timing_config);}catch(const std::invalid_argument&){bad_elites=true;}
+  assert(bad_elites);
+  return 0;
 }

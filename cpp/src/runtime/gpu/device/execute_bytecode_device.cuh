@@ -1,4 +1,5 @@
 #pragma once
+#include "gagp/core/fitness_policy.hpp"
 
 #include <cstdint>
 
@@ -482,6 +483,37 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
   return result;
 }
 
+template<class State>
+__device__ __noinline__ double d_score_resident(const Value& actual,const Value& expected,
+    double penalty,FitnessPolicy policy,const DPayloadTables& tables,const State& state) {
+  if(policy.metric!=FitnessMetric::Levenshtein && policy.metric!=FitnessMetric::TupleSummary)
+    return fitness_case_score(actual,expected,penalty,policy);
+  if(actual.tag!=expected.tag)return -fitness_error_ceiling(policy,penalty);
+  unsigned row[kFitnessMaxSequence+1];
+  if(is_typed_list(actual)) {
+    const Value *a=nullptr,*b=nullptr;int n=0,m=0;
+    if(!d_lookup_list_payload(tables,state,actual,a,n) || !d_lookup_list_payload(tables,state,expected,b,m))
+      return -fitness_error_ceiling(policy,penalty);
+    return fitness_sequence_score(a,n,b,m,penalty,policy,row);
+  }
+  if(actual.tag==ValueTag::String && policy.metric==FitnessMetric::Levenshtein) {
+    const char *a=nullptr,*b=nullptr;int n=0,m=0;
+    if(!d_lookup_string_payload(tables,state,actual,a,n) || !d_lookup_string_payload(tables,state,expected,b,m) || m>kFitnessMaxSequence)
+      return -fitness_error_ceiling(policy,penalty);
+    for(int j=0;j<=m;++j)row[j]=j;
+    for(int i=1;i<=n;++i) {
+      unsigned diagonal=row[0];row[0]=i;
+      for(int j=1;j<=m;++j) {
+        const unsigned old=row[j],best=row[j]<row[j-1]?row[j]:row[j-1];
+        row[j]=a[i-1]==b[j-1]?diagonal:1+(diagonal<best?diagonal:best);diagonal=old;
+      }
+    }
+    const double error=row[m];
+    return policy.proximity==FitnessProximity::Discounted?-error/(1+error):-fmin(error,fabs(penalty));
+  }
+  return -fitness_error_ceiling(policy,penalty);
+}
+
 template <DPayloadFlavor Flavor, bool EnableRegions = false>
 __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta,
                                                         const DInstr* shared_code,
@@ -492,7 +524,8 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
                                                         const DExecutionTables& execution_tables,
                                                         int local_case,
                                                         int fuel,
-                                                        DRegionWorkspace workspace = {}) {
+                                                        DRegionWorkspace workspace = {}, const Value* expected = nullptr,
+    double penalty = 1.0, FitnessPolicy policy = {}, double* score = nullptr) {
   DResult result;
   result.is_error = 0;
   result.err_code = ErrCode::Value;
@@ -514,9 +547,12 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
       meta.region_offset,
       meta.region_count,
   };
-  return d_run_code_core<Flavor, EnableRegions>(view, shared_case_local_vals, shared_case_local_set,
+  result = d_run_code_core<Flavor, EnableRegions>(view, shared_case_local_vals, shared_case_local_set,
                                             local_case, nullptr, 0, payload_tables,
                                             payload_state_storage.ref(), execution_tables, fuel_left, true, workspace);
+  if(score && expected && !result.is_error)
+    *score=d_score_resident(result.value,*expected,penalty,policy,payload_tables,payload_state_storage.ref());
+  return result;
 }
 
 // The host proves this root has exactly operand loads, one region invocation and
