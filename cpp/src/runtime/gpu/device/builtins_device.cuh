@@ -422,15 +422,16 @@ __device__ inline int d_find_list_payload_entry(const DPayloadTables& tables, Va
   return lo;
 }
 
-// Arena descriptors use a disjoint origin bit and a 65536-length escape bit.
-// Admission requires a positive logical allocation limit <=65536, so all local
-// lists fit this representation. Public container_len keeps low-16-bit encoding.
+// The escape bit means actual length 65536+low16. A clamped external length
+// 65535 may hide one extra element, so a full-budget concat can copy 65537.
+// That consumes all logical cells; rewinds never refund them. Other generated
+// lists fit <=65536. Numeric observations retain the low-16-bit encoding.
 constexpr std::uint64_t DPRIVATE_LIST_GLOBAL = 1ULL << 47;
-constexpr std::uint64_t DPRIVATE_LIST_LENGTH_65536 = 1ULL << 46;
+constexpr std::uint64_t DPRIVATE_LIST_LENGTH_HIGH = 1ULL << 46;
 constexpr std::uint64_t DPRIVATE_LIST_OFFSET_MASK = (1ULL << 31) - 1;
 __device__ inline Value d_private_intlist(int offset, int length, bool global = false) {
   auto bits=static_cast<std::uint64_t>(offset) | (global?DPRIVATE_LIST_GLOBAL:0) |
-      (length==65536?DPRIVATE_LIST_LENGTH_65536:0);
+      (length>=65536?DPRIVATE_LIST_LENGTH_HIGH:0);
   Value value=Value::from_int_list_hash_len(bits,static_cast<unsigned>(length));
   value.b=true;return value;
 }
@@ -618,11 +619,14 @@ __device__ inline bool d_lookup_list_payload(const DPayloadTables& tables,
   if (st.private_intlists && v.b) {
     if (v.tag != ValueTag::IntList) return false;
     const auto bits=Value::container_hash48(v);
-    if (bits & ~(DPRIVATE_LIST_GLOBAL|DPRIVATE_LIST_LENGTH_65536|DPRIVATE_LIST_OFFSET_MASK)) return false;
+    if (bits & ~(DPRIVATE_LIST_GLOBAL|DPRIVATE_LIST_LENGTH_HIGH|DPRIVATE_LIST_OFFSET_MASK)) return false;
     const bool global=(bits&DPRIVATE_LIST_GLOBAL)!=0;
     const int offset=static_cast<int>(bits&DPRIVATE_LIST_OFFSET_MASK);
     len=static_cast<int>(Value::container_len(v));
-    if(bits&DPRIVATE_LIST_LENGTH_65536) {if(len!=0)return false;len=65536;}
+    if(bits&DPRIVATE_LIST_LENGTH_HIGH) {
+      len+=65536;
+      if(len>(global?65536:65537))return false;
+    }
     const int capacity=global?tables.list_value_count:st.list_values_used;
     const auto* backing=global?tables.list_values:st.list_values;
     if (capacity<0 || offset>capacity || len>capacity-offset || (len && !backing)) return false;
@@ -764,7 +768,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       const auto left=Value::container_len(args[0]),right=Value::container_len(args[1]);
       if(!left){out=args[1];return true;}if(!right){out=args[0];return true;}
       if(!d_charge_list_allocation(st,left+right)){err=ErrCode::Value;return false;}
-      if(n<0 || m<0 || n>65536-m || n+m>st.kMaxListValues-st.list_values_used) {
+      if(n<0 || m<0 || n>65537-m || n+m>st.kMaxListValues-st.list_values_used) {
         st.physical_capacity_exceeded=true;st.physical_capacity_reason|=DPAYLOAD_OVERFLOW_VALUES;
         err=ErrCode::Value;return false;
       }

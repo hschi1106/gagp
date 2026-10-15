@@ -284,6 +284,10 @@ so it intentionally differs from canonical transport-registry aliasing under a
 hash collision, and from token inequality caused by the historical saturated
 host versus masked device length encoding at 65536 elements. Admission excludes container equality and IntList memo keys;
 unsupported populations/policies report a declined profile and execute normally.
+It accepts external payloads through 65536 elements and generated private
+payloads through 65537 elements: clamped length 65535 plus length one charges
+65536 while copying 65537 elements. Private content scoring retains that full
+backing; numeric list observations retain the existing encoded-length rules.
 It preserves the logical allocation policy, fuel, complete case coverage and
 physical-overflow replay above. See `docs/design/payload.md` for its private
 descriptor lifetime and per-generation capability requirements.

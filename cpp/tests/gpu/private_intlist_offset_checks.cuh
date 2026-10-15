@@ -61,6 +61,35 @@ __global__ void inspect_private_intlist_offsets(Value* cells, Value* source, int
   Value slice[3]={left,Value::from_int(1),Value::from_int(3)};
   if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Slice,slice,3,tables,st,b,error) ||
      !d_lookup_list_payload(tables,st,b,ptr,count) || count!=2 || ptr[0].i!=1) {*failure=14;return;}
+  // Host clamping hides one element: transport65535 + constant1 charges65536
+  // while copying65537. The private high-length bit must retain that last cell.
+  source[65536]=Value::from_int(65536);
+  globals[0].len=65536;globals[1].offset=65536;tables.list_value_count=65537;
+  st.logical_list_limit=65536;st.logical_list_used=0;st.list_values_used=0;st.kMaxListValues=65538;
+  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Concat,args,2,tables,st,a,error) ||
+     Value::container_len(a)!=1 || !d_lookup_list_payload(tables,st,a,ptr,count) ||
+     count!=65537 || ptr[65536].i!=65536 || st.logical_list_used!=65536) {*failure=24;return;}
+  policy.metric=FitnessMetric::Exact;
+  const auto prefix=d_private_intlist(0,65536);
+  if(d_score_resident(a,a,1000,policy,tables,st,&exact)!=0 || !exact ||
+     d_score_resident(a,prefix,1000,policy,tables,st,&exact)!=-1 || exact) {*failure=25;return;}
+  // Both malformed handles fit their supplied physical backing; rejection is
+  // the profile's origin/length bound, rather than an incidental capacity bound.
+  st.list_values_used=65538;
+  invalid=d_private_intlist(0,65538);
+  if(d_lookup_list_payload(tables,st,invalid,ptr,count)) {*failure=26;return;}
+  invalid=d_private_intlist(0,65537,true);
+  if(d_lookup_list_payload(tables,st,invalid,ptr,count)) {*failure=27;return;}
+  st.list_values_used=65537;
+  Value exhausted_args[2]={a,right};
+  if(d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Concat,exhausted_args,2,tables,st,b,error) ||
+     st.physical_capacity_exceeded || error!=ErrCode::Value) {*failure=28;return;}
+  Value masked_slice[3]={a,Value::from_int(0),Value::from_int(65537)};
+  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Slice,masked_slice,3,tables,st,b,error) ||
+     !d_lookup_list_payload(tables,st,b,ptr,count) || count!=1 || st.logical_list_used!=65536) {*failure=29;return;}
+  d_restore_local_list_storage(st,0,0);
+  if(d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&one,1,tables,st,b,error) ||
+     st.logical_list_used!=65536 || st.physical_capacity_exceeded) {*failure=30;return;}
   // Local windows retain their origin through nested slices and later copies.
   DArenaPayloadState local;local.private_intlists=true;local.list_values=cells;
   local.kMaxListValues=65536;local.logical_list_limit=65536;
@@ -97,8 +126,8 @@ __global__ void inspect_private_intlist_offsets(Value* cells, Value* source, int
 
 bool test_private_intlist_offsets() {
   Value *cells=nullptr,*source=nullptr;int *device_failure=nullptr,failure=-1;
-  if(cudaMalloc(reinterpret_cast<void**>(&cells),65536*sizeof(Value))!=cudaSuccess)return false;
-  if(cudaMalloc(reinterpret_cast<void**>(&source),65536*sizeof(Value))!=cudaSuccess){cudaFree(cells);return false;}
+  if(cudaMalloc(reinterpret_cast<void**>(&cells),65538*sizeof(Value))!=cudaSuccess)return false;
+  if(cudaMalloc(reinterpret_cast<void**>(&source),65537*sizeof(Value))!=cudaSuccess){cudaFree(cells);return false;}
   if(cudaMalloc(reinterpret_cast<void**>(&device_failure),sizeof(int))!=cudaSuccess){cudaFree(cells);cudaFree(source);return false;}
   inspect_private_intlist_offsets<<<1,1>>>(cells,source,device_failure);
   const bool ok=cudaGetLastError()==cudaSuccess && cudaDeviceSynchronize()==cudaSuccess &&
@@ -193,6 +222,21 @@ bool test_private_intlist_fitness() {
         result.wrong[0]==(limit==65536?0u:1u) && result.payload_replay_programs==(limit==65536?1u:0u),
         "private length65536 logical boundary/replay"))return false;
   }
+  // A host-clamped full constant plus a constant singleton produces65537
+  // under a65536 logical charge. Score against an admitted65536 answer; it must
+  // be wrong by content and finish every case after exactly one physical replay.
+  concat.consts[0]=full;
+  FitnessSessionGpu boundary;
+  const std::vector<CaseBindings> boundary_cases(1024);
+  const std::vector<Value> boundary_answers(1024,full);
+  if(!boundary.init(boundary_cases,boundary_answers,100,32,1000,policy).ok)return false;
+  const auto beyond=boundary.eval_programs({concat},true);
+  if(!check(beyond.ok && beyond.fitness[0]==-1024 && beyond.wrong[0]==1024 &&
+      beyond.case_counts[0][0]==1024 && beyond.case_counts[0][1]==0 && beyond.case_counts[0][2]==0 &&
+      beyond.case_counts[0][4]==0 && beyond.payload_replay_programs==1 && beyond.payload_replay_launches==1 &&
+      beyond.payload_replay_value_capacity==65537 &&
+      beyond.execution_profile.find("private-intlist-offset-v1-declined")==std::string::npos,
+      "private generated65537 content mismatch/full-case single replay"))return false;
   // Unsupported policies retain precisely the existing view backend even when
   // this same session previously ran the allocating private profile.
   ScopedEnvironment restore_view("GAGP_VIEW_PROFILE"),restore_typed("GAGP_TYPED_VIEW_PHASE");

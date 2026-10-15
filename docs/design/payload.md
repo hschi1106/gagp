@@ -199,10 +199,19 @@ even without a hash collision. Initial policy support is Exact and Levenshtein.
 Set the opt-in before session and native-population initialization so expected
 payloads and the cold capability are prepared.
 Admission requires a positive logical allocation limit at most 65536 and external
-payloads at most 65536 elements. A descriptor escape bit retains actual length
-65536 for content scoring/copying while preserving the existing low-16-bit
-`container_len` behavior for Len/Index/Slice and empty-Concat decisions. Other
-sizes decline the profile rather than narrowing an offset or length.
+payloads at most 65536 elements. Private generated lists may reach 65537 elements:
+a host constant containing 65536 elements has clamped transport length 65535,
+so concatenating it with a one-element constant charges exactly 65536 cells
+while copying 65537 elements. This exhausts the entire logical budget; further
+nonempty allocations fail, scalar-region rewind does not refund that charge,
+and zero-charge Slice uses the masked length and cannot grow the backing.
+A descriptor escape bit means actual length `65536 + low16`, allowing local
+lengths 65536/65537 and immutable-table length 65536 only. Larger private handles
+are rejected. Generated `container_len` keeps the existing low-16-bit behavior
+for Len/Index/Slice and empty-Concat decisions. At logical limit 65536, private
+GPU replay reserves at least 65537 physical value cells so this valid boundary
+needs only the ordinary initial-overflow replay. Other external sizes decline
+the profile rather than narrowing an offset or length.
 
 Singleton and nonempty Concat retain element copying and logical allocation
 charges. The required positive allocation policy already makes ordinary arena

@@ -1266,6 +1266,10 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     std::vector<unsigned int> overflow_reasons(adaptive_replay?programs.size():0);
     int replay_entries=(tiled_replay || adaptive_replay)?4096:65536;
     int replay_values=static_cast<int>(std::max<unsigned>(adaptive_replay?16384:65536,impl_->policy.list_allocation_limit));
+    // A clamped external 65536-cell constant plus a one-cell constant charges
+    // 65536 logical cells but copies 65537. Keep the valid boundary in one replay.
+    if(private_intlists && impl_->policy.list_allocation_limit==65536)
+      replay_values=std::max(replay_values,65537);
     int replay_bytes=8192;
     while(!replay_programs.empty()) {
       PayloadWorkspaceStorage replay_storage(payload_workspace_budget);
