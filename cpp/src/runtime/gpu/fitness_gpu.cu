@@ -608,11 +608,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     return fitness_eval_single_error(ErrCode::Value,
         "GAGP_GPU_PAYLOAD_WORKSPACE_MIB must be a decimal integer in [64,8192]");
 
-  int initial_payload_scale=1;
-  if(!gpu_detail::parse_initial_payload_scale(std::getenv("GAGP_GPU_INITIAL_PAYLOAD_SCALE"),initial_payload_scale))
-    return fitness_eval_single_error(ErrCode::Value,
-        "GAGP_GPU_INITIAL_PAYLOAD_SCALE must be one of 1,2,4,8");
-
   const auto all_t0 = std::chrono::steady_clock::now();
   const auto pack_t0 = std::chrono::steady_clock::now();
   // The private packed carrier keeps a native reference on demand. A session
@@ -992,14 +987,14 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     }
     if(global_payload) {
       impl_->release_region_workspace();
-      if(!initial_payload.prepare(region_workspace,initial_tasks,impl_->blocksize,1024*initial_payload_scale,8192*initial_payload_scale,8192,true,payload_metadata_bytes+initial_partial_bytes))
+      if(!initial_payload.prepare(region_workspace,initial_tasks,impl_->blocksize,1024,8192,8192,true,payload_metadata_bytes+initial_partial_bytes))
         return fitness_eval_single_error(ErrCode::Value,"cuda initial global payload workspace capacity/allocation failure");
       if(tiled_initial && !initial_payload.allocate(
           reinterpret_cast<void**>(&initial_payload.workspace.replay_warp_scores),initial_partial_bytes))
         return fitness_eval_single_error(ErrCode::Value,"cuda initial payload partial-score allocation failure");
       out.initial_payload_tiled=tiled_initial;
-      out.initial_payload_entry_capacity=1024*initial_payload_scale;
-      out.initial_payload_value_capacity=8192*initial_payload_scale;
+      out.initial_payload_entry_capacity=1024;
+      out.initial_payload_value_capacity=8192;
       out.initial_payload_physical_blocks=initial_payload.blocks;
       if(!gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(initial_payload.blocks)},&indices.compact_queue))
         return fitness_eval_single_error(ErrCode::Value,"cuda initial global payload queue allocation failure");
@@ -1336,7 +1331,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if(global_payload) {
       out.execution_profile+="-global-arena";
       if(tiled_initial)out.execution_profile+="-initial-tiled";
-      if(initial_payload_scale!=1)out.execution_profile+="-initial-scale"+std::to_string(initial_payload_scale);
     }
     if(region_workspace.concat_cache_enabled && (global_payload || out.payload_replay_programs))out.execution_profile+="-concat-cache";
     if(global_window_aliases)out.execution_profile+="-window-aliases";

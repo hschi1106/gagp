@@ -58,14 +58,6 @@ bool test_arena_case_sort_proof() {
 }
 
 bool test_payload_workspace_budget() {
-  int scale=99;
-  if(!check(gagp::gpu_detail::parse_initial_payload_scale(nullptr,scale) && scale==1,"default initial arena scale"))return false;
-  for(const char* text:{"1","2","4","8"})
-    if(!check(gagp::gpu_detail::parse_initial_payload_scale(text,scale) && scale==text[0]-'0',"bounded initial arena scale"))return false;
-  for(const char* text:{"","0","3","16","01","+2","-1","2 "," 2","999999999999999999999"}) {
-    scale=99;
-    if(!check(!gagp::gpu_detail::parse_initial_payload_scale(text,scale) && scale==99,"invalid initial scale mutated output"))return false;
-  }
   using gagp::gpu_detail::parse_payload_workspace_budget;
   using gagp::gpu_detail::payload_workspace_block_count;
   constexpr std::size_t mib=1024u*1024u;

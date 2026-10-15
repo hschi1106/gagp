@@ -1042,8 +1042,8 @@ bool test_adaptive_replay() {
   return test_tiled_replay_entry_growth();
 }
 
-bool test_initial_payload_scale() {
-  ScopedEnvironment restore_scale("GAGP_GPU_INITIAL_PAYLOAD_SCALE"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),
+bool test_initial_payload_capacity_replay() {
+  ScopedEnvironment restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),
       restore_tiles("GAGP_GPU_TILED_REPLAY"),restore_adaptive("GAGP_GPU_ADAPTIVE_REPLAY");
   setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);setenv("GAGP_GPU_TILED_REPLAY","1",1);
   setenv("GAGP_GPU_ADAPTIVE_REPLAY","1",1);
@@ -1073,29 +1073,25 @@ bool test_initial_payload_scale() {
   std::vector<CpuFitnessCaseCounts> cpu_counts;
   const auto cpu=eval_fitness_cpu(programs,cases,answers,100000,1000,33,policy,nullptr,&cpu_counts);
   ScopedEnvironment restore_initial_tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD");
-  for(const char* tiled:{"0","1"}) for(const char* scale:{"1","2","4","8"}) {
+  for(const char* tiled:{"0","1"}) {
     setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD",tiled,1);
-    setenv("GAGP_GPU_INITIAL_PAYLOAD_SCALE",scale,1);
     FitnessSessionGpu session;if(!session.init(cases,answers,100000,33,1000,policy).ok)return false;
-    const auto gpu=session.eval_programs(programs,true);const int factor=scale[0]-'0';
-    if(!check(gpu.ok && gpu.fitness==cpu && cpu==std::vector<double>(4,0),"initial scale fitness parity"))return false;
-    const unsigned expected=factor==1?3:factor<8?1:0;
-    if(!check(gpu.payload_replay_programs==expected &&
-        gpu.initial_payload_entry_capacity==1024*factor && gpu.initial_payload_value_capacity==8192*factor &&
-        gpu.initial_payload_physical_blocks>0,"initial scale capacities/replay selection"))return false;
+    const auto gpu=session.eval_programs(programs,true);
+    if(!check(gpu.ok && gpu.fitness==cpu && cpu==std::vector<double>(4,0),"fixed initial capacity fitness parity"))return false;
+    if(!check(gpu.payload_replay_programs==3 &&
+        gpu.initial_payload_entry_capacity==1024 && gpu.initial_payload_value_capacity==8192 &&
+        gpu.initial_payload_physical_blocks>0,"fixed initial capacities/replay selection"))return false;
     for(int p=0;p<4;++p)if(!check(gpu.case_counts[p][0]==cpu_counts[p].cases &&
         gpu.case_counts[p][1]==cpu_counts[p].errors && gpu.case_counts[p][2]==cpu_counts[p].timeouts,
-        "initial scale case/error/timeout counts"))return false;
+        "fixed initial capacity case/error/timeout counts"))return false;
   }
-  setenv("GAGP_GPU_INITIAL_PAYLOAD_SCALE","3",1);
-  FitnessSessionGpu invalid;if(!invalid.init(cases,answers,100000,33,1000,policy).ok)return false;
-  return check(!invalid.eval_programs(programs).ok,"invalid initial scale accepted");
+  return true;
 }
 
 bool test_tiled_initial_payload() {
   ScopedEnvironment restore_tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),
-      restore_scale("GAGP_GPU_INITIAL_PAYLOAD_SCALE"),restore_diag("GAGP_GPU_OVERFLOW_DIAGNOSTICS");
-  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);setenv("GAGP_GPU_INITIAL_PAYLOAD_SCALE","1",1);
+      restore_diag("GAGP_GPU_OVERFLOW_DIAGNOSTICS");
+  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
   setenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS","1",1);
   BytecodeProgram list;list.n_locals=1;
   list.code={ins_a(Opcode::Load,0),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),ins(Opcode::Return)};
@@ -1141,9 +1137,8 @@ bool test_tiled_initial_payload() {
 
 bool test_sorted_arena_cases() {
   ScopedEnvironment restore_sort("GAGP_GPU_SORT_ARENA_CASES"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),
-      restore_tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),restore_replay("GAGP_GPU_TILED_REPLAY"),
-      restore_scale("GAGP_GPU_INITIAL_PAYLOAD_SCALE");
-  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);setenv("GAGP_GPU_INITIAL_PAYLOAD_SCALE","1",1);
+      restore_tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),restore_replay("GAGP_GPU_TILED_REPLAY");
+  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
   setenv("GAGP_GPU_TILED_REPLAY","1",1);
   BytecodeProgram pass;pass.n_locals=2;pass.code={ins_a(Opcode::Load,0),ins(Opcode::Return)};
   BytecodeProgram missing;missing.n_locals=2;
@@ -1208,7 +1203,7 @@ int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_initial_payload_scale() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_initial_payload_capacity_replay() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   {
     ScopedEnvironment epoch("GAGP_GPU_PAYLOAD_EPOCH_INDEX");

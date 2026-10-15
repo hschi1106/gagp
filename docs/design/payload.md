@@ -633,25 +633,13 @@ profile adds `-small-int-hash`. The extended payload GPU test checks every table
 entry, adjacent bounds, full-width integer patterns, all other tags, typed-list
 Concat errors/capacity/collisions, and full-case CPU fitness with the flag off/on.
 
-`GAGP_GPU_INITIAL_PAYLOAD_SCALE` is an optional bounded initial-global-arena
-experiment. Its only accepted values are `1` (default), `2`, `4`, and `8`. It
-multiplies the initial 1024 registry entries and 8192 Value cells per physical
-lane; string bytes remain 8192. It does not enable global payload evaluation
-itself. Every allocation still fits the same configured workspace cap; larger
-lanes can reduce physical-worker concurrency. Original GPU overflow replay and
-its adaptive capacities remain available, with no CPU fallback or changes to
-case coverage, logical allocation limits, hashes, fuel, or scoring.
-
-The option is captured at evaluation entry. Snapshots record
-`initial_payload_entry_capacity`, `initial_payload_value_capacity`, and
-`initial_payload_physical_blocks` (zero when the global arena is unused); an
-explicit nondefault scale adds `-initial-scaleN` to the execution profile.
-Compare full-search time: avoided duplicate initial work competes with reduced
-concurrency, and initial evaluation assigns one worker per program whereas tiled
-replay can distribute its logical lanes across workers. Replay time is therefore
-not all avoidable overhead. Parser tests cover malformed values; GPU parity tests
-cover entry-only and value-only overflow, successful larger initial capacity,
-remaining replay, unaffected programs, and final case/error/timeout counts.
+The initial global arena uses 1024 registry entries, 8192 Value cells, and 8192
+string bytes per physical lane within the configured workspace cap. Snapshots
+record `initial_payload_entry_capacity`, `initial_payload_value_capacity`, and
+`initial_payload_physical_blocks` (zero when the global arena is unused).
+Original GPU overflow replay and its adaptive capacities remain available.
+Tests retain entry-only and value-only overflow, unaffected programs, and final
+case/error/timeout coverage at these fixed initial capacities.
 
 `GAGP_GPU_TILED_INITIAL_PAYLOAD=1` independently applies the existing replay
 warp-tiling mechanism to initial global-arena evaluation. Tasks are program ×
@@ -666,7 +654,7 @@ The original overflow replay route remains unchanged. The default is off; the
 result/snapshot records `initial_payload_tiled`, and the execution profile adds
 `-initial-tiled` when active. Tests compare flag off/on full-case Discounted
 fitness, status counts, original-lane diagnostics, fuel boundaries, and callbacks
-at 33 and 512 logical lanes, plus the initial-capacity/replay matrix.
+at 33 and 512 logical lanes, plus fixed initial-capacity/replay coverage.
 
 `GAGP_GPU_CONCAT_CACHE=1` with `GAGP_GPU_FUSED_LIST_CONCAT=1` enables a
 32-slot direct-mapped Concat result cache only in pointer-backed initial/replay
