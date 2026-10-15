@@ -10,7 +10,6 @@
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 #include "../../src/runtime/gpu/device/builtins_device.cuh"
-#include "../../src/runtime/gpu/view_profile.hpp"
 using namespace gagp;
 Instr ins(Opcode op) { return {op, 0, 0, false, false}; }
 Instr ins_a(Opcode op, int a) { return {op, a, 0, true, false}; }
@@ -600,56 +599,6 @@ bool test_global_window_aliases() {
   return true;
 }
 
-bool test_arena_compact_root() {
-  ScopedEnvironment restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),restore_compact("GAGP_ARENA_COMPACT_ROOT");
-  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
-  auto body=phase({}, {ins_a(Opcode::Load,0),ins_ab(Opcode::CallBuiltin,int(BuiltinId::Singleton),1),
-      ins_a(Opcode::Load,0),ins_ab(Opcode::CallBuiltin,int(BuiltinId::Singleton),1),
-      ins_ab(Opcode::CallBuiltin,int(BuiltinId::Concat),2),ins(Opcode::Return)},
-      {{slot(RegionSlotBank::State,0),0}},1);
-  auto program=invocation(unary_segment(ValueTag::IntList,body,load_phase(RegionSlotBank::Result,0)),0);
-  program.n_locals=8;
-  program.code={ins_a(Opcode::Load,7),ins(Opcode::CheckInt),ins_a(Opcode::BoundedRegion,0),ins(Opcode::Return)};
-  program.instruction_fuel={2,3,5,7};
-  auto large_phase=program;
-  auto& phase=large_phase.bounded_region_segments[0].base_body;
-  phase.program.n_locals=9;phase.bindings[0].local=8;
-  for(auto& instruction:phase.program.code)if(instruction.op==Opcode::Load)instruction.a=8;
-  auto large_root=program;large_root.n_locals=9;
-  auto arithmetic_root=program;
-  arithmetic_root.code.insert(arithmetic_root.code.begin()+2,{ins_a(Opcode::PushConst,0),ins(Opcode::Add)});
-  arithmetic_root.instruction_fuel.insert(arithmetic_root.instruction_fuel.begin()+2,{0,0});
-  if(!check(gpu_detail::arena_compact_root_supported(program) &&
-      gpu_detail::arena_compact_root_supported(large_phase) &&
-      !gpu_detail::arena_compact_root_supported(large_root) &&
-      !gpu_detail::arena_compact_root_supported(arithmetic_root),"compact arena root certificate boundaries"))return false;
-  const std::vector<CaseBindings> cases={{{7,Value::from_int(0)}},{},{{7,Value::from_bool(false)}}};
-  const std::vector<Value> answers(3,payload::make_int_list_value({Value::from_int(0),Value::from_int(0)}));
-  for(bool mixed:{false,true}) for(unsigned limit:{1u,65536u}) for(int fuel:{0,2,5,10,17,50}) {
-    const std::vector<BytecodeProgram> programs=mixed?std::vector<BytecodeProgram>{program,large_root,arithmetic_root}:
-        std::vector<BytecodeProgram>{program,large_phase};
-    FitnessPolicy policy{FitnessMetric::Levenshtein,FitnessProximity::Discounted};policy.list_allocation_limit=limit;
-    std::vector<CpuFitnessCaseCounts> counts;
-    const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,1000,33,policy,nullptr,&counts);
-    FitnessEvalResult generic;
-    for(const char* flag:{"0","1"}) {
-      setenv("GAGP_ARENA_COMPACT_ROOT",flag,1);
-      FitnessSessionGpu session;
-      if(!check(session.init(cases,answers,fuel,33,1000,policy).ok,"compact root session init"))return false;
-      const auto gpu=session.eval_programs(programs,true);
-      if(flag[0]=='0')generic=gpu;
-      if(!check(gpu.ok && gpu.fitness==cpu && gpu.fitness==generic.fitness && gpu.case_counts==generic.case_counts,"compact arena root fitness/fuel/payload parity"))return false;
-      if(!check((gpu.execution_profile.find("-compact-root")!=std::string::npos)==(!mixed && flag[0]=='1'),
-          "compact root batch capability dispatch"))return false;
-      for(std::size_t i=0;i<programs.size();++i)
-        if(!check(gpu.case_counts[i][0]==counts[i].cases && gpu.case_counts[i][1]==counts[i].errors &&
-            gpu.case_counts[i][2]==counts[i].timeouts,
-            "compact root status/complete case parity"))return false;
-    }
-  }
-  return true;
-}
-
 bool test_global_payload_program_queue() {
   ScopedEnvironment restore("GAGP_GPU_GLOBAL_PAYLOAD");setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
   // More programs than bounded physical blocks, no regions, distinct rows.
@@ -768,7 +717,7 @@ int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_arena_compact_root() || !test_fused_concat() || !test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() || !test_arena_window_executor() ||
+  if (!test_fused_concat() || !test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() || !test_arena_window_executor() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }
