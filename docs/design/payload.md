@@ -408,3 +408,11 @@ Expected payloads are uploaded with shared case payloads. The metric owner is
 `core/fitness_policy.hpp`; CPU and CUDA scoring share the distance recurrence
 and numeric transforms. See [fitness](../../spec/fitness.md) for capacities and
 configuration semantics.
+
+GPU fitness programs that construct strings/lists use the separate
+`extended-payload` profile when a view executor is not admitted. Its per-case
+arena has 4096 list values, 256 list entries, 8192 string bytes and 256 string
+entries. These are cumulative allocation limits, including intermediate
+results, not maximum output lengths. Exhaustion returns a Value error and the
+normal penalty. Scalar/view kernels keep their existing storage. The profile
+is bounded; it does not promise arbitrarily large list/string programs.

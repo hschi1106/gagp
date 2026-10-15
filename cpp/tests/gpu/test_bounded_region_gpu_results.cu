@@ -15,6 +15,7 @@
 #include "gagp/core/bytecode_verify.hpp"
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
 #include "gagp/runtime/payload/payload.hpp"
+#include "gagp/runtime/gpu/fitness_gpu.hpp"
 
 namespace {
 
@@ -910,6 +911,118 @@ bool test_measure_phase_cache_contract() {
 
 }  // namespace
 
+__global__ void inspect_extended_payload(int* failures) {
+  using namespace gagp::gpu_detail;
+  constexpr auto flavor = DPayloadFlavor::ExtendedMixed;
+  DPayloadFlavorTraits<flavor>::State state{};
+  DPayloadTables tables{};
+  Value list;
+  ErrCode error = ErrCode::Value;
+  if (!d_make_empty_list_for_tag(ValueTag::IntList, state, list)) { *failures = 1; return; }
+  #pragma unroll 1
+  for (int i = 0; i < 50; ++i) {
+    Value element = Value::from_int(i % 2 ? i : 0), singleton;
+    if (!d_builtin_call<flavor>(BuiltinId::Singleton, &element, 1, tables, state, singleton, error)) {
+      *failures = 2; return;
+    }
+    Value args[] = {list, singleton}, next;
+    if (!d_builtin_call<flavor>(BuiltinId::Concat, args, 2, tables, state, next, error)) {
+      *failures = 3; return;
+    }
+    list = next;
+  }
+  const Value* values = nullptr;
+  int count = 0;
+  if (!d_lookup_list_payload(tables, state, list, values, count) || count != 50) {
+    *failures = 4; return;
+  }
+  for (int i = 0; i < count; ++i)
+    if (values[i].tag != ValueTag::Int || values[i].i != (i % 2 ? i : 0)) { *failures = 5; return; }
+  bool exhausted = false;
+  #pragma unroll 1
+  for (int i = 0; i < 20; ++i) {
+    Value args[] = {list, list}, next;
+    if (!d_builtin_call<flavor>(BuiltinId::Concat, args, 2, tables, state, next, error)) {
+      exhausted = error == ErrCode::Value; break;
+    }
+    list = next;
+  }
+  *failures = exhausted ? 0 : 6;
+}
+
+bool test_subordinate_memo_coordinate_fitness() {
+  auto segment = unary_segment(ValueTag::Int, load_phase(RegionSlotBank::State, 1),
+      phase({}, {ins_a(Opcode::Load, 0), ins_a(Opcode::Load, 1), ins(Opcode::Add), ins(Opcode::Return)},
+            {{slot(RegionSlotBank::Result, 0), 0}, {slot(RegionSlotBank::State, 1), 1}}, 2));
+  segment.plan.state_types.push_back(ValueTag::Int);
+  segment.plan.coordinate_slots.push_back(1);
+  segment.plan.coordinate_rank.push_back({1, 1});
+  segment.plan.coordinate_domains.push_back({literal(0), literal(1)});
+  segment.plan.duplicate_policy = DuplicatePolicy::Allow;
+  segment.plan.request_expression_types = {ValueTag::Int};
+  RegionStateTransition transition;
+  transition.kind = RegionTransitionKind::Expression;
+  transition.expression = 0;
+  segment.plan.requests[0].states.push_back(transition);
+  segment.request_expressions.push_back(phase({Value::from_int(1), Value::from_int(0)},
+      {ins_a(Opcode::Load, 0), ins_a(Opcode::PushConst, 0), ins(Opcode::Sub),
+       ins_a(Opcode::PushConst, 1), ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Max), 2),
+       ins(Opcode::Return)}, {{slot(RegionSlotBank::State, 1), 0}}, 1));
+  auto program = invocation(std::move(segment), 5);
+  program.consts.push_back(Value::from_int(1));
+  program.code.insert(program.code.begin() + 1, ins_a(Opcode::PushConst, 1));
+  program.instruction_fuel.insert(program.instruction_fuel.begin() + 1, 0);
+  auto other = program;
+  other.consts[1] = Value::from_int(0);
+  std::vector<CaseBindings> cases(32);
+  std::vector<Value> answers(32, Value::from_int(1));
+  const auto cpu = eval_fitness_cpu({program, other}, cases, answers, 1000, 1000.0);
+  FitnessSessionGpu session;
+  if (!session.init(cases, answers, 1000, 32, 1000.0).ok) return false;
+  const auto gpu = session.eval_programs({program, other}, true);
+  return check(gpu.ok && gpu.fitness == cpu && cpu == std::vector<double>({0.0, -32.0}),
+               "subordinate clamped memo coordinate CPU/GPU mismatch") &&
+         check(gpu.case_counts[0][1] == 0 && gpu.case_counts[1][1] == 0,
+               "subordinate memo coordinate execution error");
+}
+
+bool test_extended_list_fitness() {
+  auto combine = phase({},
+      {ins_a(Opcode::Load, 0), ins_a(Opcode::Load, 1),
+       ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Singleton), 1),
+       ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Concat), 2), ins(Opcode::Return)},
+      {{slot(RegionSlotBank::Result, 0), 0}, {slot(RegionSlotBank::State, 0), 1}}, 2);
+  auto segment = unary_segment(ValueTag::IntList,
+      constant_phase(payload::make_int_list_value({})), std::move(combine));
+  segment.plan.coordinate_domains[0].upper = literal(50);
+  auto program = invocation(std::move(segment), 50);
+  std::vector<Value> values;
+  for (int i = 1; i <= 50; ++i) values.push_back(Value::from_int(i));
+  std::vector<CaseBindings> cases(1024);
+  std::vector<Value> answers(1024, payload::make_int_list_value(values));
+  const auto cpu = eval_fitness_cpu({program}, cases, answers, 1000, 1000.0);
+  FitnessSessionGpu session;
+  const auto initialized = session.init(cases, answers, 1000, 64, 1000.0);
+  if (!check(initialized.ok, "extended list fitness session init")) return false;
+  const auto gpu = session.eval_programs({program}, true);
+  return check(gpu.ok && gpu.fitness == cpu && cpu[0] == 1024.0,
+               "50-element list full-case CPU/GPU fitness differs") &&
+         check(gpu.case_counts[0][0] == 1024 && gpu.case_counts[0][1] == 0,
+               "50-element list fitness produced errors");
+}
+
+bool test_extended_payload() {
+  int* failures = nullptr;
+  if (cudaMallocManaged(&failures, sizeof(int)) != cudaSuccess) return false;
+  *failures = -1;
+  inspect_extended_payload<<<1, 1>>>(failures);
+  const auto status = cudaDeviceSynchronize();
+  const bool passed = status == cudaSuccess && *failures == 0;
+  if (!passed) std::cerr << "extended payload error " << *failures << '\n';
+  cudaFree(failures);
+  return passed;
+}
+
 int main() {
   payload::clear();
   cudaDeviceProp properties{};
@@ -918,6 +1031,9 @@ int main() {
              "GPU selection failed: " + device_error)) {
     return 1;
   }
+  if (!test_extended_payload()) return 1;
+  if (!test_extended_list_fitness()) return 1;
+  if (!test_subordinate_memo_coordinate_fitness()) return 1;
   if (!measure_cache_test::test_measure_phase_cache_contract()) return 1;
   if (!test_phase_vm_masks_are_fresh()) return 1;
   if (!test_stack_top_survives_operand_transitions()) return 1;

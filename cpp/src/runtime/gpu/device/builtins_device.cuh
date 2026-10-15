@@ -40,6 +40,8 @@ using DMixedPayloadState =
                          DMAX_THREAD_STRING_BYTES,
                          DMAX_THREAD_LIST_VALUES>;
 
+using DExtendedPayloadState = DThreadPayloadStateT<256, 256, 8192, 4096>;
+
 template <DPayloadFlavor Flavor>
 struct DPayloadFlavorTraits;
 
@@ -78,6 +80,13 @@ struct DPayloadFlavorTraits<DPayloadFlavor::BoundIntListViews>
 template <>
 struct DPayloadFlavorTraits<DPayloadFlavor::Mixed> {
   using State = DMixedPayloadState;
+  static constexpr bool kHasString = true;
+  static constexpr bool kHasList = true;
+};
+
+template <>
+struct DPayloadFlavorTraits<DPayloadFlavor::ExtendedMixed> {
+  using State = DExtendedPayloadState;
   static constexpr bool kHasString = true;
   static constexpr bool kHasList = true;
 };
@@ -569,11 +578,12 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           st.string_bytes_used += al + bl;
           const std::uint64_t h = d_hash_bytes(st.string_bytes + off, al + bl);
           out = Value::from_string_hash_len(h, static_cast<std::uint32_t>(al + bl));
-          (void)d_register_local_string(st, out, off, al + bl);
+          if (!d_register_local_string(st, out, off, al + bl)) { err = ErrCode::Value; return false; }
           return true;
         }
       }
-      const std::uint32_t len = Value::saturating_len_add(Value::container_len(a), Value::container_len(b));
+      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
+    const std::uint32_t len = Value::saturating_len_add(Value::container_len(a), Value::container_len(b));
       const std::uint64_t h = Value::combine_container_hash48(1U, a, b);
       out = Value::from_fallback_token(Value::pack_container_payload(h, len));
       return true;
@@ -595,11 +605,12 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           st.list_values_used += al + bl;
           const std::uint64_t h = d_hash_list_payload(st.list_values + off, al + bl);
           out = d_make_list_hash_len(a.tag, h, static_cast<std::uint32_t>(al + bl));
-          (void)d_register_local_list(st, out, off, al + bl);
+          if (!d_register_local_list(st, out, off, al + bl)) { err = ErrCode::Value; return false; }
           return true;
         }
       }
-      const std::uint32_t len = Value::saturating_len_add(Value::container_len(a), Value::container_len(b));
+      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
+    const std::uint32_t len = Value::saturating_len_add(Value::container_len(a), Value::container_len(b));
       const std::uint64_t h = Value::combine_container_hash48(d_list_type_code(a), a, b);
       out = d_make_list_hash_len(a.tag, h, len);
       return true;
@@ -647,11 +658,12 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           st.string_bytes_used += static_cast<int>(out_len);
           const std::uint64_t out_h_exact = d_hash_bytes(st.string_bytes + off, static_cast<int>(out_len));
           out = Value::from_string_hash_len(out_h_exact, out_len);
-          (void)d_register_local_string(st, out, off, static_cast<int>(out_len));
+          if (!d_register_local_string(st, out, off, static_cast<int>(out_len))) { err = ErrCode::Value; return false; }
           return true;
         }
       }
-      const std::uint64_t out_h = Value::slice_container_hash48(1U, x, lo.i, hi.i);
+      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
+    const std::uint64_t out_h = Value::slice_container_hash48(1U, x, lo.i, hi.i);
       out = Value::from_fallback_token(Value::pack_container_payload(out_h, out_len));
       return true;
     }
@@ -669,10 +681,11 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         st.list_values_used += static_cast<int>(out_len);
         const std::uint64_t out_h_exact = d_hash_list_payload(st.list_values + off, static_cast<int>(out_len));
         out = d_make_list_hash_len(x.tag, out_h_exact, out_len);
-        (void)d_register_local_list(st, out, off, static_cast<int>(out_len));
+        if (!d_register_local_list(st, out, off, static_cast<int>(out_len))) { err = ErrCode::Value; return false; }
         return true;
       }
     }
+    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
     const std::uint64_t out_h = Value::slice_container_hash48(d_list_type_code(x), x, lo.i, hi.i);
     out = d_make_list_hash_len(x.tag, out_h, out_len);
     return true;
@@ -709,6 +722,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           return true;
         }
       }
+      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
       out = Value::from_fallback_token(Value::index_container_token64(5U, x, j));
       return true;
     }
@@ -721,6 +735,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         return true;
       }
     }
+    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
     out = Value::from_fallback_token(Value::index_container_token64(d_list_type_code(x), x, j));
     return true;
   }
@@ -751,10 +766,11 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         st.list_values_used += xl + 1;
         const std::uint64_t h = d_hash_list_payload(st.list_values + off, xl + 1);
         out = d_make_list_hash_len(xs.tag, h, static_cast<std::uint32_t>(xl + 1));
-        (void)d_register_local_list(st, out, off, xl + 1);
+        if (!d_register_local_list(st, out, off, xl + 1)) { err = ErrCode::Value; return false; }
         return true;
       }
     }
+    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
     const std::uint32_t len = Value::saturating_len_add(Value::container_len(xs), 1U);
     const std::uint64_t h = Value::append_list_hash48(d_list_type_code(xs), xs, elem);
     out = d_make_list_hash_len(xs.tag, h, len);
@@ -783,10 +799,11 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         st.list_values_used += xl + 1;
         const std::uint64_t h = d_hash_list_payload(st.list_values + off, xl + 1);
         out = d_make_list_hash_len(xs.tag, h, static_cast<std::uint32_t>(xl + 1));
-        (void)d_register_local_list(st, out, off, xl + 1);
+        if (!d_register_local_list(st, out, off, xl + 1)) { err = ErrCode::Value; return false; }
         return true;
       }
     }
+    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
     const std::uint32_t len = Value::saturating_len_add(Value::container_len(xs), 1U);
     const std::uint64_t h = d_prepend_list_hash48(d_list_type_code(xs), elem, xs);
     out = d_make_list_hash_len(xs.tag, h, len);
@@ -812,10 +829,11 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           st.string_bytes_used += xl;
           const std::uint64_t h = d_hash_bytes(st.string_bytes + off, xl);
           out = Value::from_string_hash_len(h, static_cast<std::uint32_t>(xl));
-          (void)d_register_local_string(st, out, off, xl);
+          if (!d_register_local_string(st, out, off, xl)) { err = ErrCode::Value; return false; }
           return true;
         }
       }
+      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
       out = Value::from_fallback_token(Value::pack_container_payload(Value::reverse_container_hash48(7U, x),
                                                                      Value::container_len(x)));
       return true;
@@ -836,10 +854,11 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         st.list_values_used += xl;
         const std::uint64_t h = d_hash_list_payload(st.list_values + off, xl);
         out = d_make_list_hash_len(x.tag, h, static_cast<std::uint32_t>(xl));
-        (void)d_register_local_list(st, out, off, xl);
+        if (!d_register_local_list(st, out, off, xl)) { err = ErrCode::Value; return false; }
         return true;
       }
     }
+    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
     out = d_make_list_hash_len(x.tag, Value::reverse_container_hash48(d_list_type_code(x), x), Value::container_len(x));
     return true;
   }
@@ -910,10 +929,11 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         st.string_bytes[off] = static_cast<char>(args[0].i);
         st.string_bytes_used += 1;
         out = Value::from_string_hash_len(d_hash_bytes(st.string_bytes + off, 1), 1U);
-        (void)d_register_local_string(st, out, off, 1);
+        if (!d_register_local_string(st, out, off, 1)) { err = ErrCode::Value; return false; }
         return true;
       }
     }
+    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
     const char c = static_cast<char>(args[0].i);
     out = Value::from_string_hash_len(d_hash_bytes(&c, 1), 1U);
     return true;
@@ -998,10 +1018,11 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         st.string_bytes_used += len;
         out = Value::from_string_hash_len(d_hash_bytes(st.string_bytes + off, len),
                                           static_cast<std::uint32_t>(len));
-        (void)d_register_local_string(st, out, off, len);
+        if (!d_register_local_string(st, out, off, len)) { err = ErrCode::Value; return false; }
         return true;
       }
     }
+    if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
     out = Value::from_string_hash_len(d_hash_bytes(tmp, len), static_cast<std::uint32_t>(len));
     return true;
   }
@@ -1024,10 +1045,11 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           st.string_bytes[off] = static_cast<char>(x.i);
           st.string_bytes_used += 1;
           out = Value::from_string_hash_len(d_hash_bytes(st.string_bytes + off, 1), 1U);
-          (void)d_register_local_string(st, out, off, 1);
+          if (!d_register_local_string(st, out, off, 1)) { err = ErrCode::Value; return false; }
           return true;
         }
       }
+      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
       const char c = static_cast<char>(x.i);
       out = Value::from_string_hash_len(d_hash_bytes(&c, 1), 1U);
       return true;
@@ -1043,10 +1065,11 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           st.list_values[off] = x;
           st.list_values_used += 1;
           out = d_make_list_hash_len(list_tag, d_hash_list_payload(st.list_values + off, 1), 1U);
-          (void)d_register_local_list(st, out, off, 1);
+          if (!d_register_local_list(st, out, off, 1)) { err = ErrCode::Value; return false; }
           return true;
         }
       }
+      if constexpr (Flavor == DPayloadFlavor::ExtendedMixed) { err = ErrCode::Value; return false; }
       std::uint64_t h = Value::fnv1a_init();
       h = Value::fnv1a_mix_u8(h, 0xA1U);
       h = Value::fnv1a_mix_u64(h, 1U);

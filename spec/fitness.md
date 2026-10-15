@@ -228,3 +228,8 @@ ASGP logical phase size: lowering can expand an authored operation. Remaining
 ties use the existing program key (native phase owner: source index). Legacy
 metrics retain their previous tie rules. GPU reproduction consumes ordinal
 rank scores, preserving these comparisons without changing reported fitness.
+
+GPU fitness's `extended-payload` profile has per-case limits of 4096 list values,
+256 list entries, 8192 string bytes and 256 string entries. Intermediate
+allocations count toward these limits. Capacity exhaustion is a Value error
+with the ordinary error penalty, rather than a synthetic successful result.

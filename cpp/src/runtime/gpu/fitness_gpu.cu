@@ -803,6 +803,31 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
           cudaEventRecord(events.start) != cudaSuccess)
         return fitness_eval_single_error(ErrCode::Value, "cuda overlap timing failure");
     }
+    bool extended_payload = false;
+    for (const auto& program : programs) {
+      auto needs_payload = [](const auto& code) {
+        for (const auto& ins : code) {
+          if (ins.op != Opcode::CallBuiltin) continue;
+          const auto id = static_cast<BuiltinId>(ins.a);
+          if (id == BuiltinId::Concat || id == BuiltinId::Singleton ||
+              id == BuiltinId::Append || id == BuiltinId::Prepend ||
+              id == BuiltinId::CharToString || id == BuiltinId::ToString ||
+              id == BuiltinId::Slice || id == BuiltinId::Reverse) return true;
+        }
+        return false;
+      };
+      extended_payload |= needs_payload(program.code);
+      for (const auto& segment : program.bounded_region_segments) {
+        extended_payload |= needs_payload(segment.base_body.program.code) ||
+                            needs_payload(segment.combine.program.code) ||
+                            (segment.boundary && needs_payload(segment.boundary->program.code)) ||
+                            needs_payload(segment.base_predicate.program.code);
+        for (const auto& phase : segment.preparations)
+          extended_payload |= needs_payload(phase.program.code);
+        for (const auto& phase : segment.request_expressions)
+          extended_payload |= needs_payload(phase.program.code);
+      }
+    }
     const auto kernel_t0 = std::chrono::steady_clock::now();
     if (direct_root) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::BoundIntListViews, true, true>
@@ -840,6 +865,18 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, impl_->d_case_order, nullptr, indices.compact_queue);
+    } else if (has_regions && extended_payload) {
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::ExtendedMixed, true>
+          <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
+              static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
+              impl_->d_shared_case_local_vals, impl_->d_shared_case_local_set, impl_->d_expected,
+              dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
+              dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
+              dev.d_phase_code, dev.d_phase_consts,
+              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness,
+              dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
+              dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
+              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, nullptr, nullptr, indices.compact_queue);
     } else if (has_regions) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::Mixed, true>
           <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
@@ -852,6 +889,15 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, nullptr, nullptr, indices.compact_queue);
+    } else if (extended_payload) {
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::ExtendedMixed>
+          <<<static_cast<unsigned int>(programs.size()), impl_->blocksize, shared_bytes>>>(
+              static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
+              impl_->d_shared_case_local_vals, impl_->d_shared_case_local_set, impl_->d_expected,
+              dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
+              dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
+              dev.d_phase_code, dev.d_phase_consts,
+              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness, nullptr, 0, nullptr, 0, nullptr, 0, {}, dev.d_case_counts);
     } else {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::Mixed>
           <<<static_cast<unsigned int>(programs.size()), impl_->blocksize, shared_bytes>>>(
@@ -924,7 +970,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     const auto copy_t1 = std::chrono::steady_clock::now();
 
     out.ok = true;
-    out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : "mixed";
+    out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
     if (use_views && impl_->d_case_order) out.execution_profile += "-sorted";
     if (direct_phases) out.execution_profile += "-direct";
     if (direct_root) out.execution_profile += "-root";
