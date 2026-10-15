@@ -849,6 +849,14 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   const int overflow_mask_words = (impl_->blocksize + 31) / 32;
   const std::size_t overflow_mask_bytes = overflow_diagnostics ?
       programs.size() * overflow_mask_words * sizeof(unsigned int) : 0;
+  const bool tiled_initial=global_payload && std::getenv("GAGP_GPU_TILED_INITIAL_PAYLOAD") &&
+      std::string(std::getenv("GAGP_GPU_TILED_INITIAL_PAYLOAD"))=="1";
+  const int initial_warps=(impl_->blocksize+31)/32;
+  const auto initial_tiles_per_program=static_cast<std::size_t>(tiled_initial?initial_warps:1);
+  if(programs.size()>static_cast<std::size_t>(std::numeric_limits<int>::max())/initial_tiles_per_program)
+    return fitness_eval_single_error(ErrCode::Value,"GPU initial payload task count exceeds addressing capacity");
+  const std::size_t initial_tasks=programs.size()*initial_tiles_per_program;
+  const std::size_t initial_partial_bytes=tiled_initial?sizeof(double)*initial_tasks:0;
   const std::size_t payload_metadata_bytes=overflow_mask_bytes+overflow_reason_bytes+
       sizeof(unsigned int)*programs.size()+(global_payload?sizeof(int):0);
   if(payload_metadata_bytes>=payload_workspace_budget)
@@ -937,8 +945,12 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     }
     if(global_payload) {
       impl_->release_region_workspace();
-      if(!initial_payload.prepare(region_workspace,programs.size(),impl_->blocksize,1024*initial_payload_scale,8192*initial_payload_scale,8192,true,payload_metadata_bytes))
+      if(!initial_payload.prepare(region_workspace,initial_tasks,impl_->blocksize,1024*initial_payload_scale,8192*initial_payload_scale,8192,true,payload_metadata_bytes+initial_partial_bytes))
         return fitness_eval_single_error(ErrCode::Value,"cuda initial global payload workspace capacity/allocation failure");
+      if(tiled_initial && !initial_payload.allocate(
+          reinterpret_cast<void**>(&initial_payload.workspace.replay_warp_scores),initial_partial_bytes))
+        return fitness_eval_single_error(ErrCode::Value,"cuda initial payload partial-score allocation failure");
+      out.initial_payload_tiled=tiled_initial;
       out.initial_payload_entry_capacity=1024*initial_payload_scale;
       out.initial_payload_value_capacity=8192*initial_payload_scale;
       out.initial_payload_physical_blocks=initial_payload.blocks;
@@ -964,7 +976,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if(global_payload) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true>
           <<<static_cast<unsigned>(initial_payload.blocks),PayloadWorkspaceStorage::threads,shared_bytes>>>(
-              static_cast<int>(programs.size()),dev.d_consts,dev.d_code,dev.d_metas,
+              static_cast<int>(initial_tasks),dev.d_consts,dev.d_code,dev.d_metas,
               impl_->d_shared_case_local_vals,impl_->d_shared_case_local_set,impl_->d_expected,
               dev.d_string_payload_entries,static_cast<int>(payload_pack.string_entries.size()),dev.d_string_payload_bytes,
               dev.d_list_payload_entries,static_cast<int>(payload_pack.list_entries.size()),dev.d_list_payload_values,
@@ -973,6 +985,17 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_region_phases,static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings,static_cast<int>(packed.region_bindings.size()),initial_payload.workspace,
               dev.d_case_counts,nullptr,nullptr,indices.compact_queue);
+      if(tiled_initial) {
+        const auto initial_launch_error=cudaGetLastError();
+        if(initial_launch_error!=cudaSuccess) {
+          cudaDeviceSynchronize();
+          return fitness_eval_single_error(ErrCode::Value,"cuda tiled initial payload launch failure");
+        }
+        // Default-stream ordering makes reduction part of the initial event
+        // interval and enqueues it before the host overlap callback begins.
+        gpu_detail::reduce_payload_replay<<<(programs.size()+127)/128,128>>>(
+            programs.size(),initial_warps,nullptr,initial_payload.workspace.replay_warp_scores,dev.d_fitness);
+      }
     } else if (direct_root) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::BoundIntListViews, true, true>
           <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
@@ -1262,6 +1285,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
     if(global_payload) {
       out.execution_profile+="-global-arena";
+      if(tiled_initial)out.execution_profile+="-initial-tiled";
       if(initial_payload_scale!=1)out.execution_profile+="-initial-scale"+std::to_string(initial_payload_scale);
     }
     if(global_window_aliases)out.execution_profile+="-window-aliases";

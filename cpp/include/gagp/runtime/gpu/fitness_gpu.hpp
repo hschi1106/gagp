@@ -65,6 +65,7 @@ struct FitnessEvalResult {
   int initial_payload_entry_capacity = 0; // Zero when the global arena is unused.
   int initial_payload_value_capacity = 0;
   std::size_t initial_payload_physical_blocks = 0;
+  bool initial_payload_tiled = false;
   int payload_replay_byte_capacity = 0;
   // Initial physical overflows, before replay replaces the case diagnostics.
   std::vector<unsigned> initial_payload_overflow_cases;

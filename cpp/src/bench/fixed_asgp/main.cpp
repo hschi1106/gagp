@@ -394,7 +394,8 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
     {"execution_profile",string(result.execution_profile)}, {"payload_workspace_budget_bytes",number(result.payload_workspace_budget_bytes)},
     {"initial_payload_entry_capacity",number(result.initial_payload_entry_capacity)},
     {"initial_payload_value_capacity",number(result.initial_payload_value_capacity)},
-    {"initial_payload_physical_blocks",number(result.initial_payload_physical_blocks)}, {"payload_replay_programs",number(result.payload_replay_programs)}, {"payload_replay_cases",number(result.payload_replay_cases)}, {"payload_replay_launches",number(result.payload_replay_launches)}, {"payload_replay_entry_capacity",number(result.payload_replay_entry_capacity)}, {"payload_replay_value_capacity",number(result.payload_replay_value_capacity)}, {"payload_replay_byte_capacity",number(result.payload_replay_byte_capacity)}, {"diagnostic_only",number(1)},
+    {"initial_payload_physical_blocks",number(result.initial_payload_physical_blocks)},
+    {"initial_payload_tiled",number(result.initial_payload_tiled)}, {"payload_replay_programs",number(result.payload_replay_programs)}, {"payload_replay_cases",number(result.payload_replay_cases)}, {"payload_replay_launches",number(result.payload_replay_launches)}, {"payload_replay_entry_capacity",number(result.payload_replay_entry_capacity)}, {"payload_replay_value_capacity",number(result.payload_replay_value_capacity)}, {"payload_replay_byte_capacity",number(result.payload_replay_byte_capacity)}, {"diagnostic_only",number(1)},
     {"cpu_behavior_probe_cases",number(behavior_probe?std::min<std::size_t>(32,cs.bindings.size()):0)},
     {"unique_cpu_behavior_probes",number(behaviors.size())}, {"programs",array(std::move(rows))}}));
 }

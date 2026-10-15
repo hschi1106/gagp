@@ -652,3 +652,18 @@ replay can distribute its logical lanes across workers. Replay time is therefore
 not all avoidable overhead. Parser tests cover malformed values; GPU parity tests
 cover entry-only and value-only overflow, successful larger initial capacity,
 remaining replay, unaffected programs, and final case/error/timeout counts.
+
+`GAGP_GPU_TILED_INITIAL_PAYLOAD=1` independently applies the existing replay
+warp-tiling mechanism to initial global-arena evaluation. Tasks are program ×
+logical warp; each still evaluates the original lane's complete case partition.
+The same per-lane accumulation, ascending-lane warp reduction, and ascending-warp
+final reduction preserve canonical fitness at both full and partial logical
+warps. Initial counters are initialized once before all tiles. An additional
+8 bytes per task of partial scores is included in the initial scratch cap and
+freed with that arena before any replay allocation. Reduction is enqueued before
+the overlap event/callback, and its cost is included in initial kernel timing.
+The original overflow replay route remains unchanged. The default is off; the
+result/snapshot records `initial_payload_tiled`, and the execution profile adds
+`-initial-tiled` when active. Tests compare flag off/on full-case Discounted
+fitness, status counts, original-lane diagnostics, fuel boundaries, and callbacks
+at 33 and 512 logical lanes, plus the initial-capacity/replay matrix.

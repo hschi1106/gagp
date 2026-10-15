@@ -343,7 +343,7 @@ __global__ void reduce_payload_replay(int count, int warps, const int* indices,
   double total=0.0;
   for(int warp=0;warp<warps;++warp)
     total=d_canonicalize_fitness_accumulator(total+partials[row*warps+warp]);
-  scores[indices[row]]=total;
+  scores[indices?indices[row]:row]=total;
 }
 
 }  // namespace gagp::gpu_detail
