@@ -22,7 +22,8 @@ Instead, `String`, `IntList`, `FloatList`, and `StringList` values use a two-lay
 
 In [cpp/include/gagp/core/value.hpp](../../cpp/include/gagp/core/value.hpp), `String`, `IntList`, `FloatList`, and `StringList` use `Value.i` as:
 
-- upper 16 bits: saturated length
+- upper 16 bits: encoded length (`pack_container_payload` masks to 16 bits;
+  host payload factories clamp the length before packing)
 - lower 48 bits: deterministic hash
 
 Helpers:
@@ -283,7 +284,7 @@ checked compact destinations in CUDA global allocations qualify; boxed global
 IntList sources and compact local sources are both supported. Thread-local
 pointers must never be shared through this helper. On Volta and later, the helper
 captures the currently active lanes and uses that opportunistic group only. It
-requires at least four participants and copies spans of at least 512 cells;
+requires at least four participants and copies spans of at least 256 cells;
 smaller spans, smaller groups, older devices and the default-off setting retain
 serial copies. Small-span owners still participate in all group collectives
 before copying their own small span serially.

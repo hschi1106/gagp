@@ -13,14 +13,14 @@ __global__ void inspect(std::int64_t* workspaces,std::int64_t* serial,
   auto* destination=local+kSource;
   auto* expected=serial+static_cast<std::size_t>(lane)*kDestination;
   const unsigned masks[]={0xffffffffu,0xaaaaaaaau,0x80000005u,0x80000000u,0x84210842u,0x7fffffffu};
-  const int lengths[]={0,1,127,128,511,512,513,1024,65536,65537};
+  const int lengths[]={0,1,127,128,255,256,257,511,512,513,1024,65536,65537};
   constexpr std::int64_t sentinel=INT64_C(0x123456789abcdef);
   int count=0;
   // Different loop counts and masked entrants may meet at different dynamic
   // copies. Each captured group's fields must describe its actual owners only.
   for(int round=0;round<7+int(lane%4);++round) {
     if(!(masks[round%6] & (1u<<lane)))continue;
-    const int size=round==0?1024:lengths[(lane+round*3)%10];
+    const int size=round==0?1024:lengths[(lane+round*3)%(sizeof(lengths)/sizeof(lengths[0]))];
     const bool global=round!=0 && (lane&1) && size<=65536;
     const int source_offset=lane%17,destination_offset=32+lane%19;
     for(int i=0;i<kDestination;++i)destination[i]=expected[i]=sentinel;
