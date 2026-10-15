@@ -16,6 +16,54 @@
 namespace {
 using namespace gagp;using namespace gagp::evo;
 void require(bool value,const char* message){if(!value)throw std::runtime_error(message);}
+void check_uniform_phase_sites(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
+    const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
+    FitnessSessionGpu& session,const std::vector<CaseBindings>& cases,
+    const std::vector<Value>& answers) {
+ const char* flag="GAGP_GPU_UNIFORM_PHASE_SITES";
+ const auto* prior=std::getenv(flag);const bool had_prior=prior;const std::string saved=prior?prior:"";
+ const auto* counted_prior=std::getenv("GAGP_COUNTED_SITE_DRAW");
+ const bool had_counted=counted_prior;const std::string counted_saved=counted_prior?counted_prior:"";
+ for(bool counted:{false,true}) {
+  if(counted)setenv("GAGP_COUNTED_SITE_DRAW","1",1);else unsetenv("GAGP_COUNTED_SITE_DRAW");
+  unsetenv(flag);repro::NativePhasePopulation reference(grammar,parents,names);
+  setenv(flag,"0",1);repro::NativePhasePopulation disabled(grammar,parents,names);
+  setenv(flag,"1",1);repro::NativePhasePopulation candidate(grammar,parents,names);
+  unsetenv(flag); // Policy is captured by the owner, not reread each generation.
+  require(std::string(reference.profile_name())==disabled.profile_name(),"zero flag changed profile");
+  require(std::string(candidate.profile_name())==std::string(reference.profile_name())+"-uniform-phase",
+      "uniform-phase search policy omitted from profile");
+  bool trajectory_changed=false;
+  for(int generation=0;generation<8;++generation) {
+   const auto before=reference.evaluate(session,true),off=disabled.evaluate(session,true),on=candidate.evaluate(session,true);
+   require(before.ok && off.ok && on.ok && before.fitness==off.fitness && before.case_counts==off.case_counts,
+       "disabled uniform-phase policy changed evaluation");
+   const auto a=reference.export_population(),b=disabled.export_population(),c=candidate.export_population();
+   require(a.size()==b.size() && a.size()==c.size(),"uniform-phase policy lost offspring");
+   std::vector<BytecodeProgram> programs;
+   for(std::size_t i=0;i<a.size();++i) {
+    require(ast_cache_key(a[i].ast)==ast_cache_key(b[i].ast),"disabled uniform-phase policy changed RNG trajectory");
+    trajectory_changed|=ast_cache_key(a[i].ast)!=ast_cache_key(c[i].ast);
+    auto fresh=c[i];fresh.derivation.reset();grammar::require_membership(*grammar,fresh);
+    programs.push_back(compile_for_eval(fresh,names));
+    require(on.case_counts.at(i)[0]==cases.size(),"uniform-phase policy omitted cases");
+   }
+   require(eval_fitness_cpu(programs,cases,answers,10000,1000,512)==on.fitness,
+       "uniform-phase offspring GPU/CPU fitness mismatch");
+   const double mutation=generation%3==0?0:generation%3==1?.3:1;
+   const auto seed=UINT64_C(0x89103)+generation;
+   reference.reproduce(before.fitness,2,mutation,seed);
+   disabled.reproduce(off.fitness,2,mutation,seed);
+   const auto stats=candidate.reproduce(on.fitness,2,mutation,seed);
+   require(stats.variation.changed_children+stats.variation.unchanged_children==parents.size(),
+       "uniform-phase offspring accounting incomplete");
+  }
+  require(trajectory_changed,"uniform-phase fixture did not exercise changed draws");
+ }
+ if(had_prior)setenv(flag,saved.c_str(),1);else unsetenv(flag);
+ if(had_counted)setenv("GAGP_COUNTED_SITE_DRAW",counted_saved.c_str(),1);else unsetenv("GAGP_COUNTED_SITE_DRAW");
+}
+
 void check_inplace_mutation(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
     const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
     FitnessSessionGpu& session) {
@@ -214,6 +262,7 @@ int main(){try {
  check_splice_policy("GAGP_GPU_FUSED_SPLICE_DEPTH",grammar,parents,names,session);
  check_splice_policy("GAGP_GPU_COMPACT_COMPILE_FRAMES",grammar,parents,names,session);
  check_constructive_export(grammar,parents,names,session);
+ check_uniform_phase_sites(grammar,parents,names,session,cases,answers);
  repro::NativePhasePopulation owner(grammar,parents,names);
  {
   auto reversed_names=names;std::reverse(reversed_names.begin(),reversed_names.end());

@@ -549,6 +549,27 @@ consumption and therefore evolutionary trajectories differ. Selection and both
 variation operators still execute entirely on GPU. Quality comparisons must
 identify this setting.
 
+`GAGP_GPU_UNIFORM_PHASE_SITES=1` is an opt-in search policy for the native GPU
+phase owner. Each crossover draws one variable phase uniformly before its bounded
+retry loop; every destination and compatible donor draw stays in that same phase.
+Each mutation that passes its existing probability gate independently draws one
+phase uniformly, then a site within it. Existing nonterminal/scope matching,
+physical/projected resource checks, retry count, and GPU execution remain in
+force. Only the exact value `1` enables this policy; unset or `0` preserves the
+existing genome-wide uniform-site draws and their RNG consumption. The owner
+captures the setting at construction, and its profile gains `-uniform-phase`.
+
+This changes the site distribution and RNG trajectory: phase probability becomes
+uniform instead of proportional to eligible site count. It does not introduce
+ASGP's crossover probability gate or its single-destination, depth-filtered donor
+selection. Native CPU reproduction (including GPU evaluation with CPU
+reproduction) is unchanged. Comparisons must disclose these operator differences;
+this flag does not establish equivalent convergence or equal search work. The
+existing `gagp_test_gpu_phase_population` exercises enabled-policy membership,
+full-case CPU/GPU fitness parity, counted/reservoir selection, and exact
+unset-versus-zero trajectories. Quality/performance adoption requires separate
+measurements.
+
 #### Optional batched native GPU import/export transport
 
 `GAGP_BATCH_PHASE_IMPORT=1` flattens admitted live genes once, uploads compact
