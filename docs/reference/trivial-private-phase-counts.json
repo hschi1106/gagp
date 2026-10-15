@@ -2,7 +2,7 @@
   "format": "gagp-trivial-private-phase-static-counts-v1",
   "source_head": "fd9bbdce350af342def9fc1570bded2b02d809bf",
   "method": "Read canonical NodeKind values and prefix arities, traverse each bounded-region phase AST subtree, count single CONST/REGION_VAR leaves and declared bindings. Compiler emits one PushConst/Load instruction for these leaves and retains all declared bindings. No execution or instruction-frequency profiling.",
-  "interpretation": "Existing zero-binding constant gate has no matches. Prototype covers literal constants with unused bindings and only single-Load phases with exactly one non-Parameter binding. Other multi-binding Load counts are recorded as excluded context.",
+  "interpretation": "Existing zero-binding constant gate has no matches. Original strict single-binding Load counts and all-declared-binding Load counts are both retained. The current prototype admits literal constants with unused bindings and a unique non-Parameter Load destination among at most eight declared bindings; these structural counts do not replace runtime capability checks.",
   "records": [
     {
       "task": "filter_odd",

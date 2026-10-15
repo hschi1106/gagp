@@ -247,8 +247,9 @@ an admitted private IntList arena invocation. Verified phases with at most eight
 locals and bindings qualify only for `PushConst` or one non-Parameter binding's
 `Load`, optionally followed by `Return`. Constant phases may declare unused
 bindings: missing or incorrectly typed unused captures remain unobserved. The
-single-Load form requires exactly one declared binding. Every instruction keeps
-its original fuel check and charge in order, including partial consumption on
+single-Load form selects one unique non-Parameter binding by destination local
+among up to eight declared bindings; unused bindings retain lazy capture errors.
+Every instruction keeps its original fuel check and charge in order, including partial consumption on
 timeout; final expected-tag and result-phase fallback-token checks are retained.
 
 Constants preserve their complete canonical `Value`, and loads preserve their

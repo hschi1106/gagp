@@ -318,10 +318,15 @@ void refresh_owned_phase_patterns(PackResult& out,std::size_t phase_begin,std::s
     if(code[0].op==OP_PUSH_CONST && code[0].a>=0 && code[0].a<m.const_len) {
       // No local is read: formal captures retain ordinary lazy error behavior.
       m.trivial_constant_index=m.const_offset+code[0].a;
-    } else if(code[0].op==OP_LOAD && phase.binding_count==1 && code[0].a>=0 && code[0].a<m.n_locals) {
-      const auto& binding=out.region_bindings[phase.binding_offset];
-      if(binding.local==code[0].a && binding.bank!=RegionSlotBank::Parameter)
-        m.trivial_load_binding=phase.binding_offset;
+    } else if(code[0].op==OP_LOAD && code[0].a>=0 && code[0].a<m.n_locals) {
+      int selected=-1;bool duplicate=false;
+      for(int j=0;j<phase.binding_count;++j) {
+        const int index=phase.binding_offset+j;
+        if(out.region_bindings[index].local!=code[0].a)continue;
+        if(selected>=0)duplicate=true;else selected=index;
+      }
+      if(selected>=0 && !duplicate && out.region_bindings[selected].bank!=RegionSlotBank::Parameter)
+        m.trivial_load_binding=selected;
     }
   }
   if (std::getenv("GAGP_BOUND_ADD_PHASE")) {
