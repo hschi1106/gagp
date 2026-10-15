@@ -6,7 +6,46 @@ It measures scoring plus reproduction, not time-to-solution or equivalent
 algorithm execution. Numerical differences and different reproduction outcomes
 are accepted and disclosed. Runtime semantics remain owned by `spec/`.
 
-## Workloads and matrix
+## Current 30-task repair contract (2026-10-15)
+
+The original `fixed-asgp-v1` workloads and timing/configuration blocks below
+remain the historical frozen contract; they are not the configuration of the
+30-task repair study. The authoritative final-run configuration and cell status
+belong to its [manifest](../../logs/all-task-repair-20261015/final-all30-g4/manifest.json),
+and results and limitations belong to the
+[repair report](../../benchmarks/fixed_asgp/optimization/results/repair-20261015/REPORT.zh-TW.md).
+These artifacts are populated by the final run; their planned paths do not imply
+completion or a speedup on every task.
+
+The repair contract aligns the task-specific fitness metric and its parameters,
+case-error cap 1000, elite count 1, frozen initial parents and cases, and one
+application CPU thread. It includes the explicitly disclosed `list-combine-v1`
+source/native grammar extension described below. These are execution and scoring
+contracts, not full search-space or convergence equivalence. Native physical
+AST limits, lowered-node sizes and tie breaking, tournament/site/donor sampling,
+crossover probability, replacement accounting, RNG and resource/fuel units still
+differ from ASGP; retain the machine-readable search-contract audit in reports.
+
+The final study selects the optional native physical-depth 24 and
+`balanced-source-production-v1` profiles, with 1024 nodes. All native modes inherit
+the same prepared grammar, and all 1024 frozen parents must pass admission without
+replacement. Balanced weights approximate source grow probabilities; physical
+depth 24 is not source logical depth 7. These experiment settings do not change the
+default depth 48 or default weights. The separate projected source-depth-7,
+uniform-phase selection and source crossover-gate experiments are not enabled in
+this final configuration; their quality tradeoffs must not be attributed to it.
+
+The final matrix targets 30 tasks at P1024, 1024 cases, G4, seed 0 for `gpu_overlap`,
+paired with ASGP controls. Earlier five-mode support used P8/G2; that evidence
+must not be described as a full-population five-mode performance comparison.
+Report complete search-wall timing with its initialization/admission costs,
+separately from the historical fixed-parent generation timing below. Known
+witnesses, sampled source/native execution parity, full-parent admission and
+independent CPU fitness audits establish their tested execution coverage, not
+exhaustive semantic parity or equal quality. Short runs and one seed do not
+establish convergence, and incomplete or failed cells cannot establish speedups.
+
+## Original frozen-contract workloads and matrix
 
 | Task | Frozen input distribution | Execution path |
 | --- | --- | --- |
@@ -51,7 +90,12 @@ not silently reduce cases or repetitions. A per-cell process timeout is reported
 as failure (default 300 seconds for daily, 1800 for scaling, adjustable via
 `--cell-timeout`). Incomplete cells never contribute a speedup.
 
-## Timing and configuration
+## Original frozen-contract timing and configuration
+
+The settings and accepted differences in this section describe the original
+`fixed-asgp-v1` experiment. For the repaired 30-task study, use the
+[current repair contract](#current-30-task-repair-contract-2026-10-15) and its
+run artifacts instead of substituting these historical settings.
 
 The timed interval starts with in-memory, unscored parents and ends when the
 next population has been produced. GAGP uses native `generation_total_ms`, with
