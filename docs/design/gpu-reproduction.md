@@ -572,6 +572,24 @@ measurements. The benchmark search-contract metadata names uniform-phase draws
 and active projected depth caps, while keeping their alignment flags false:
 native grammar sites, retries, physical limits, and admissibility still differ.
 
+`GAGP_GPU_SOURCE_CROSSOVER_GATE=1` independently enables a fixed 0.7
+crossover probability in the native GPU phase owner. The default remains one
+attempt per child. The gate is drawn after parent/donor selection and before
+phase/site selection; a skip clones the selected parent, including deferred-copy
+mode, then continues through the existing mutation pass. Skips are unchanged
+unless mutation changes them, and are neither crossover attempts nor failed
+crossover fallbacks. Exact `1` enables the constructor-captured policy; unset or
+`0` consumes no additional RNG draw. Profiles gain `-source-cross07` before the
+optional `-uniform-phase` suffix.
+
+The search-contract audit marks only the crossover probability item matched by
+this option. It changes RNG trajectories and does not align donor filtering,
+retry policy, elite work, native CPU reproduction, or the other search rules.
+The population regression covers disabled trajectory parity, attempted/skipped
+mixtures with mutation disabled, eager/deferred clones, projected resource
+admission, and full-case CPU/GPU fitness. This is an experimental search choice,
+not a default or a convergence-equivalence claim.
+
 #### Optional batched native GPU import/export transport
 
 `GAGP_BATCH_PHASE_IMPORT=1` flattens admitted live genes once, uploads compact

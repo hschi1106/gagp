@@ -139,9 +139,9 @@ __device__ Site choose_site(TreePointers trees,int program,int slots,DGrammarRan
  }
  return selected;
 }
-struct OperatorStats {int parent=-1,crossover=0,crossover_rejected=0,mutation=0,changed=0,error=0;};
+struct OperatorStats {int parent=-1,crossover_attempted=0,crossover=0,crossover_rejected=0,mutation=0,changed=0,error=0;};
 __global__ void crossover_population(TreePointers input,TreePointers output,const DeviceSlot* slots,
-    int slot_count,int population,int max_variable_nodes,const double* fitness,int pressure,std::uint64_t seed,OperatorStats* stats,bool counted,bool deferred_copy,bool fused_depth,bool uniform_phase) {
+    int slot_count,int population,int max_variable_nodes,const double* fitness,int pressure,std::uint64_t seed,OperatorStats* stats,bool counted,bool deferred_copy,bool fused_depth,bool uniform_phase,bool source_gate) {
  const int child=blockIdx.x*blockDim.x+threadIdx.x;if(child>=population)return;
  DGrammarRandom random(seed ^ (UINT64_C(0x617089e168) + child));auto& stat=stats[child];stat={};
  const int parent=tournament(fitness,population,pressure,random),donor=tournament(fitness,population,pressure,random);stat.parent=parent;
@@ -151,6 +151,12 @@ __global__ void crossover_population(TreePointers input,TreePointers output,cons
   if(!valid(input.lengths[row])){stat.error=1;return;}
   total+=input.lengths[row].nodes;if(!deferred_copy)copy_tree(input,row,output,child*slot_count+k);
  }
+ // Skips publish the selected parent before the ordinary mutation pass.
+ if(source_gate && static_cast<double>(random.next()>>11)*0x1.0p-53>=0.7) {
+  if(deferred_copy)for(int k=0;k<slot_count;++k)copy_tree(input,parent*slot_count+k,output,child*slot_count+k);
+  return;
+ }
+ stat.crossover_attempted=1;
  // Choose once per operator, not once per speculative retry.
  const int selected_slot=uniform_phase?int(random.bounded(slot_count)):-1;
  // Bounded retry changes site sampling from the legacy compatible-pair policy.
@@ -282,6 +288,8 @@ struct NativePhasePopulation::Impl {
  std::shared_ptr<const grammar::CompiledGrammar> grammar;
  const bool counted_sites;
  const bool uniform_phase_sites;
+ const bool source_crossover_gate;
+ std::string reproduction_profile;
  const bool inplace_mutation;
  const bool deferred_copy;
  const bool fused_splice_depth;
@@ -355,6 +363,7 @@ struct NativePhasePopulation::Impl {
  }
  explicit Impl(std::shared_ptr<const grammar::CompiledGrammar> g):grammar(std::move(g)),counted_sites(std::getenv("GAGP_COUNTED_SITE_DRAW")!=nullptr),
      uniform_phase_sites(std::getenv("GAGP_GPU_UNIFORM_PHASE_SITES") && std::string(std::getenv("GAGP_GPU_UNIFORM_PHASE_SITES"))=="1"),
+     source_crossover_gate(std::getenv("GAGP_GPU_SOURCE_CROSSOVER_GATE") && std::string(std::getenv("GAGP_GPU_SOURCE_CROSSOVER_GATE"))=="1"),
      inplace_mutation(std::getenv("GAGP_GPU_INPLACE_MUTATION")!=nullptr),
      deferred_copy(std::getenv("GAGP_GPU_DEFERRED_CROSSOVER_COPY")!=nullptr),
      fused_splice_depth(std::getenv("GAGP_GPU_FUSED_SPLICE_DEPTH")!=nullptr),
@@ -471,6 +480,10 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  const bool reuse_import=std::getenv("GAGP_REUSE_IMPORTED_EXECUTABLE")!=nullptr;
  const auto* evaluator_inputs=reuse_import?&input_names:nullptr;
  impl_->population=input.size();impl_->layout=import_native_phase_layout(*impl_->grammar,input.front(),import_profiles.get(),evaluator_inputs,true,projected?&*projected:nullptr);
+ impl_->reproduction_profile=impl_->layout.slots.front().logical_depth?"native-gpu-phase-v3-projected":
+     impl_->counted_sites?"native-gpu-phase-v2-counted":"native-gpu-phase-v1";
+ if(impl_->source_crossover_gate)impl_->reproduction_profile+="-source-cross07";
+ if(impl_->uniform_phase_sites)impl_->reproduction_profile+="-uniform-phase";
  const auto capability=gpu_detail::pack_programs_with_shared_case_count({impl_->layout.executable},0,0);
  phase_layout_require(capability.metas.size()==1 && capability.metas.front().is_valid,"fixed executable requires GPU fallback");
  impl_->slot_count=impl_->layout.slots.size();phase_layout_require(impl_->slot_count>0 && impl_->slot_count<=8,"phase count capacity");
@@ -557,11 +570,7 @@ FitnessEvalResult NativePhasePopulation::evaluate(FitnessSessionGpu& session,boo
      impl_->host_packed.get(),[this]{impl_->materialize_programs();});
  return session.eval_owned_programs(owned,diagnostics);
 }
-const char* NativePhasePopulation::profile_name()const {
- if(impl_->uniform_phase_sites)return impl_->layout.slots.front().logical_depth?"native-gpu-phase-v3-projected-uniform-phase":
-     impl_->counted_sites?"native-gpu-phase-v2-counted-uniform-phase":"native-gpu-phase-v1-uniform-phase";
- return impl_->layout.slots.front().logical_depth?"native-gpu-phase-v3-projected":impl_->counted_sites?"native-gpu-phase-v2-counted":"native-gpu-phase-v1";
-}
+const char* NativePhasePopulation::profile_name()const{return impl_->reproduction_profile.c_str();}
 std::size_t NativePhasePopulation::device_bytes()const{return std::max(impl_->bytes(),impl_->peak_transport_bytes);}
 std::vector<unsigned> NativePhasePopulation::node_counts()const {
  impl_->require_device();const auto lengths=impl_->current->lengths.read(impl_->population*impl_->slot_count);
@@ -581,7 +590,7 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
  const int p=impl_->population,k=impl_->slot_count,available=impl_->layout.budget.max_nodes-impl_->layout.fixed_nodes;
  checked(cudaEventRecord(impl_->start));
  crossover_population<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->current),pointers(*impl_->crossed),impl_->slots.data,k,p,available,
-    impl_->fitness.data,pressure,seed,impl_->stats.data,counted,impl_->deferred_copy,impl_->fused_splice_depth,impl_->uniform_phase_sites);checked(cudaGetLastError());
+    impl_->fitness.data,pressure,seed,impl_->stats.data,counted,impl_->deferred_copy,impl_->fused_splice_depth,impl_->uniform_phase_sites,impl_->source_crossover_gate);checked(cudaGetLastError());
  const bool fused=std::getenv("GAGP_GPU_FUSED_DONOR_SITES")!=nullptr;
  if(impl_->inplace_mutation) {
   if(fused)mutate_population<true,true><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
@@ -605,10 +614,10 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
  const auto stats=impl_->stats.read(p);
  for(const auto& one:stats) {
   if(one.error)throw std::runtime_error("GPU genotype variation error "+std::to_string(one.error));
-  ++timing.variation.crossover_attempts;timing.variation.mutation_attempts+=one.mutation;
+  timing.variation.crossover_attempts+=one.crossover_attempted;timing.variation.mutation_attempts+=one.mutation;
   timing.variation.contract_rejections+=one.crossover_rejected;
   timing.variation.changed_children+=one.changed;timing.variation.unchanged_children+=!one.changed;
-  timing.variation.fallback_children+=!one.crossover;
+  timing.variation.fallback_children+=one.crossover_attempted && !one.crossover;
  }
  impl_->current.swap(offspring);impl_->refresh_programs(&timing);impl_->healthy=true;return timing;
 }

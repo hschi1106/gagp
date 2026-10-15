@@ -16,6 +16,55 @@
 namespace {
 using namespace gagp;using namespace gagp::evo;
 void require(bool value,const char* message){if(!value)throw std::runtime_error(message);}
+void check_source_crossover_gate(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
+    const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
+    FitnessSessionGpu& session,const std::vector<CaseBindings>& cases,const std::vector<Value>& answers) {
+ const char* flags[]={"GAGP_GPU_SOURCE_CROSSOVER_GATE","GAGP_GPU_DEFERRED_CROSSOVER_COPY","GAGP_GPU_UNIFORM_PHASE_SITES"};
+ std::string saved[3];bool present[3];
+ for(int i=0;i<3;++i){const auto* value=std::getenv(flags[i]);present[i]=value;saved[i]=value?value:"";}
+ const grammar::ProjectedBudget budget{grammar->search_limits().max_nodes,grammar->search_limits().max_depth};
+ for(bool deferred:{false,true}) {
+  if(deferred){setenv(flags[1],"1",1);setenv(flags[2],"1",1);}
+  else {unsetenv(flags[1]);unsetenv(flags[2]);}
+  unsetenv(flags[0]);repro::NativePhasePopulation reference(grammar,parents,names,budget);
+  setenv(flags[0],"0",1);repro::NativePhasePopulation disabled(grammar,parents,names,budget);
+  setenv(flags[0],"1",1);repro::NativePhasePopulation candidate(grammar,parents,names,budget);
+  unsetenv(flags[0]); // Gate policy is owned by the population.
+  require(std::string(reference.profile_name())==disabled.profile_name(),"zero crossover gate changed profile");
+  require(std::string(candidate.profile_name()).find("-source-cross07")!=std::string::npos,"crossover gate missing from profile");
+  unsigned attempts=0,skips=0;
+  for(int generation=0;generation<=8;++generation) {
+   const auto before=reference.evaluate(session,true),off=disabled.evaluate(session,true),on=candidate.evaluate(session,true);
+   require(before.ok && off.ok && on.ok && before.fitness==off.fitness && before.case_counts==off.case_counts,"disabled crossover gate changed evaluation");
+   const auto a=reference.export_population(),b=disabled.export_population(),c=candidate.export_population();
+   require(a.size()==b.size() && a.size()==c.size(),"crossover gate lost offspring");
+   std::vector<BytecodeProgram> programs;
+   for(std::size_t i=0;i<a.size();++i) {
+    require(ast_cache_key(a[i].ast)==ast_cache_key(b[i].ast),"disabled crossover gate changed RNG trajectory");
+    auto fresh=c[i];fresh.derivation.reset();const auto witness=grammar::reconstruct_derivation(*grammar,fresh);
+    require(budget.accepts(witness.resources->subtree()),"crossover gate violated projected budget");
+    programs.push_back(compile_for_eval(fresh,names));
+    require(on.case_counts.at(i)[0]==cases.size(),"crossover gate omitted cases");
+   }
+   require(eval_fitness_cpu(programs,cases,answers,10000,1000,512)==on.fitness,"gated offspring GPU/CPU fitness mismatch");
+   if(generation==8)break;
+   const auto seed=UINT64_C(0x673219)+generation;
+   const auto old=reference.reproduce(before.fitness,2,0,seed);
+   disabled.reproduce(off.fitness,2,0,seed);
+   const auto now=candidate.reproduce(on.fitness,2,0,seed);
+   require(old.variation.crossover_attempts==parents.size(),"default crossover stopped attempting every child");
+   const auto tried=now.variation.crossover_attempts;
+   require(tried<=parents.size() && now.variation.mutation_attempts==0,"invalid gated operator accounting");
+   require(now.variation.unchanged_children>=parents.size()-tried && now.variation.changed_children<=tried,
+       "skipped crossover did not clone its selected parent");
+   require(now.variation.fallback_children<=tried,"skipped crossover counted as failed attempt");
+   attempts+=tried;skips+=parents.size()-tried;
+  }
+  require(attempts>0 && skips>0,"crossover gate fixture did not cover attempts and clones");
+ }
+ for(int i=0;i<3;++i)if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);
+}
+
 void check_uniform_phase_sites(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
     const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
     FitnessSessionGpu& session,const std::vector<CaseBindings>& cases,
@@ -283,6 +332,7 @@ int main(){try {
  check_splice_policy("GAGP_GPU_COMPACT_COMPILE_FRAMES",grammar,parents,names,session);
  check_constructive_export(grammar,parents,names,session);
  check_uniform_phase_sites(grammar,parents,names,session,cases,answers);
+ check_source_crossover_gate(grammar,parents,names,session,cases,answers);
  repro::NativePhasePopulation owner(grammar,parents,names);
  {
   auto reversed_names=names;std::reverse(reversed_names.begin(),reversed_names.end());

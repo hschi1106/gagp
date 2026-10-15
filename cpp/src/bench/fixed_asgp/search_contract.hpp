@@ -40,6 +40,7 @@ inline SearchContractAudit audit_search_contract(
       reproduction_profile.compare(reproduction_profile.size()-uniform_suffix.size(),uniform_suffix.size(),uniform_suffix)==0;
   const bool projected_phase=phase_owner && reproduction_profile.rfind("native-gpu-phase-v3-projected",0)==0 &&
       cfg.offspring_resource_budget.has_value();
+  const bool source_gate=phase_owner && reproduction_profile.find("-source-cross07")!=std::string::npos;
   const bool gpu=cfg.reproduction_backend==gagp::evo::repro::ReproductionBackend::Gpu;
   SearchContractAudit audit;
   audit.reproduction_profile=reproduction_profile;
@@ -51,8 +52,9 @@ inline SearchContractAudit audit_search_contract(
     {"initial_population","ramped depth 2..7, alternating full/grow",
       frozen_initial_population_verified?"verified translated frozen population":"native grammar initialization",
       frozen_initial_population_verified},
-    {"crossover_gate","0.7 probability per child, one uniformly chosen phase",
-      "one crossover attempt per child; no probability gate",false},
+    {"crossover_gate","0.7 probability per child",
+      source_gate?"0.7 probability per child; independent native RNG draw":
+                  "one crossover attempt per child; no probability gate",source_gate},
     {"crossover_sites","uniform phase, uniform destination node, compatible donor in same phase",
       uniform_phase?"uniform variable phase; grammar-admitted destination and compatible donor sites in the same phase; phase held across bounded retries":
       phase_owner?"whole-genome grammar sites; bounded compatible-donor retries":

@@ -218,13 +218,16 @@ int main() {
   }
   for(const auto& profile:{std::string("native-gpu-phase-v2-counted"),
       std::string("native-gpu-phase-v2-counted-uniform-phase"),
-      std::string("native-gpu-phase-v3-projected-uniform-phase")}) {
+      std::string("native-gpu-phase-v3-projected-uniform-phase"),
+      std::string("native-gpu-phase-v3-projected-source-cross07-uniform-phase")}) {
     auto audited=timing_config;
     if(profile.find("projected")!=std::string::npos)
       audited.offspring_resource_budget=gagp::evo::grammar::ProjectedBudget{1024,7};
     const auto contract=fixed_asgp::audit_search_contract(audited,profile,true,true);
     const bool uniform=profile.find("uniform-phase")!=std::string::npos;
     for(const auto& item:contract.items) {
+      if(item.id=="crossover_gate")
+        assert(item.matched==(profile.find("-source-cross07")!=std::string::npos));
       if(item.id=="crossover_sites" || item.id=="mutation_scope") {
         assert((item.native.find("uniform variable phase")!=std::string::npos)==uniform);
         assert(!item.matched); // Native sites/admission/retries remain distinct.
