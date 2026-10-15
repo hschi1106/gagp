@@ -88,7 +88,7 @@ inline std::optional<ExecResult> run_typed_phase(const PhaseProgram& program,
       case Opcode::CallBuiltin: {
         const auto id=static_cast<BuiltinId>(ins.a);
         if(id==BuiltinId::Len) stack[sp-1]=static_cast<std::uint64_t>(stack[sp-1])>>48;
-        else if((id == BuiltinId::Index || id == BuiltinId::IndexNonnegative) || id==BuiltinId::Slice) {
+        else if((id == BuiltinId::Index || id == BuiltinId::IndexNonnegative || id == BuiltinId::IndexClampedOrZero) || id==BuiltinId::Slice) {
           const auto hi=stack[--sp];
           const auto lo=id==BuiltinId::Slice ? stack[--sp] : hi;
           const auto source=static_cast<std::uint64_t>(stack[sp-1]);
@@ -96,8 +96,13 @@ inline std::optional<ExecResult> run_typed_phase(const PhaseProgram& program,
           if(!active_cpu_list_views || offset>active_cpu_list_views->values.size() ||
               length>active_cpu_list_views->values.size()-offset)
             return region_failure(ErrCode::Value,"list view exceeds invocation storage");
-          if(id == BuiltinId::Index || id == BuiltinId::IndexNonnegative) {
-            auto index=lo; if(index<0 && id==BuiltinId::Index) index+=static_cast<std::int64_t>(length);
+          if(id == BuiltinId::Index || id == BuiltinId::IndexNonnegative || id == BuiltinId::IndexClampedOrZero) {
+            auto index=lo;
+            if(id == BuiltinId::IndexClampedOrZero) {
+              if(!length) { stack[sp-1]=0; break; }
+              index=index<0 ? 0 : (static_cast<std::uint64_t>(index)>=length ? length-1 : index);
+            }
+            if(index<0 && id==BuiltinId::Index) index+=static_cast<std::int64_t>(length);
             if(index<0 || static_cast<std::uint64_t>(index)>=length)
               return region_failure(ErrCode::Value,"index out of range");
             stack[sp-1]=active_cpu_list_views->values[offset+index].i;

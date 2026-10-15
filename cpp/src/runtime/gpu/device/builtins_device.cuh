@@ -555,8 +555,8 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
   using PayloadTraits = DPayloadFlavorTraits<Flavor>;
 
   if constexpr ((Flavor == DPayloadFlavor::IntListViews || Flavor == DPayloadFlavor::BoundIntListViews)) {
-    if ((bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative) || bid == BuiltinId::Slice) {
-      if (argc != ((bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative) ? 2 : 3) || args[0].tag != ValueTag::IntList ||
+    if ((bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) || bid == BuiltinId::Slice) {
+      if (argc != ((bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) ? 2 : 3) || args[0].tag != ValueTag::IntList ||
           args[1].tag != ValueTag::Int || (argc == 3 && args[2].tag != ValueTag::Int)) {
         err = ErrCode::Type; return false;
       }
@@ -564,10 +564,14 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       if (!d_convert_list_view(source, tables)) { err = ErrCode::Value; return false; }
       const auto offset = Value::container_hash48(source);
       const auto length = static_cast<long long>(Value::container_len(source));
-      if (bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative) {
+      if (bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) {
         long long index;
-        if ((bid == BuiltinId::IndexNonnegative && args[1].i < 0) || !d_norm_index_idx(args[1].i, length, index)) { err = ErrCode::Value; return false; }
+        if (bid == BuiltinId::IndexClampedOrZero) {
+          if (!length) { out = Value::from_int(0); return true; }
+          index = args[1].i < 0 ? 0 : (args[1].i >= length ? length-1 : args[1].i);
+        } else if ((bid == BuiltinId::IndexNonnegative && args[1].i < 0) || !d_norm_index_idx(args[1].i, length, index)) { err = ErrCode::Value; return false; }
         out = tables.list_values[offset + index];
+        if (bid == BuiltinId::IndexClampedOrZero && out.tag != ValueTag::Int) { err = ErrCode::Type; return false; }
       } else {
         const auto lo = d_norm_slice_idx(args[1].i, length);
         const auto hi = d_norm_slice_idx(args[2].i, length);
@@ -859,14 +863,15 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     return true;
   }
 
-  if (bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative) {
+  if (bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) {
     if (argc != 2) {
       err = ErrCode::Type;
       return false;
     }
     const Value& x = args[0];
     const Value& i = args[1];
-    if (!(x.tag == ValueTag::String || d_is_typed_list_tag(x.tag))) {
+    if (!(x.tag == ValueTag::String || d_is_typed_list_tag(x.tag)) ||
+        (bid == BuiltinId::IndexClampedOrZero && x.tag != ValueTag::IntList)) {
       err = ErrCode::Type;
       return false;
     }
@@ -876,7 +881,10 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     }
     const long long n = static_cast<long long>(Value::container_len(x));
     long long j = 0;
-    if ((bid == BuiltinId::IndexNonnegative && i.i < 0) || !d_norm_index_idx(i.i, n, j)) {
+    if (bid == BuiltinId::IndexClampedOrZero) {
+      if (n == 0) { out = Value::from_int(0); return true; }
+      j = i.i < 0 ? 0 : (i.i >= n ? n - 1 : i.i);
+    } else if ((bid == BuiltinId::IndexNonnegative && i.i < 0) || !d_norm_index_idx(i.i, n, j)) {
       err = ErrCode::Value;
       return false;
     }
@@ -902,6 +910,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       int xl = 0;
       if (d_lookup_list_payload(tables, st, x, xp, xl) && j < xl) {
         out = xp[static_cast<int>(j)];
+        if (bid == BuiltinId::IndexClampedOrZero && out.tag != ValueTag::Int) { err = ErrCode::Type; return false; }
         return true;
       }
     }

@@ -549,6 +549,38 @@ bool test_nonnegative_index() {
   return true;
 }
 
+bool test_clamped_index() {
+  const auto full=payload::make_int_list_value({Value::from_int(INT64_MIN),Value::from_int(9007199254740993LL),Value::from_int(INT64_MAX)});
+  const auto empty=payload::make_int_list_value({});
+  for (const auto list : {full,empty}) for (std::int64_t index : {INT64_MIN,std::int64_t(-1),std::int64_t(0),std::int64_t(1),std::int64_t(2),INT64_MAX}) {
+    const auto wanted = list.i==empty.i ? 0 : index<=0 ? INT64_MIN : index==1 ? 9007199254740993LL : INT64_MAX;
+    BytecodeProgram program;
+    program.consts={list,Value::from_int(index)};
+    program.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),
+      {Opcode::CallBuiltin,int(BuiltinId::IndexClampedOrZero),2,true,true},ins(Opcode::Return)};
+    program.instruction_fuel={0,0,1,0};
+    const auto result=execute_bytecode_cpu(program,{},1);
+    if(!check(!result.is_error && result.value.tag==ValueTag::Int && result.value.i==wanted,"clamped index exact signed boundary")) return false;
+    const auto exhausted=execute_bytecode_cpu(program,{},0);
+    if(!check(exhausted.is_error && exhausted.err.code==ErrCode::Timeout,"clamped index binary fuel")) return false;
+    auto region=counter_program();auto& segment=region.bounded_region_segments[0];
+    segment.plan.parameter_types={ValueTag::IntList};
+    segment.base_body=phase({Value::from_int(index)},
+      {ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,0),
+       {Opcode::CallBuiltin,int(BuiltinId::IndexClampedOrZero),2,true,true},ins(Opcode::Return)},
+      {{slot(RegionSlotBank::Parameter,0),0}},1);
+    const auto viewed=execute_bytecode_cpu(region,{{0,Value::from_int(0)},{1,list}},100);
+    if(!check(same_result(result,viewed),"clamped index region view parity")) return false;
+  }
+  for(const auto bad : {Value::from_int(0),payload::make_float_list_value({Value::from_float(1)}),payload::make_string_value("a")})
+    if(!check(builtin_call(BuiltinId::IndexClampedOrZero,{bad,Value::from_int(0)}).is_error,"clamped index accepted wrong list type"))return false;
+  if(!check(builtin_call(BuiltinId::IndexClampedOrZero,{empty,Value::from_bool(false)}).is_error,"empty clamped index skipped index type"))return false;
+  const auto missing=Value::from_int_list_hash_len(887766,1);
+  const auto fallback=builtin_call(BuiltinId::IndexClampedOrZero,{missing,Value::from_int(INT64_MAX)});
+  if(!check(!fallback.is_error && fallback.value.tag==ValueTag::FallbackToken,"clamped index changed missing payload fallback"))return false;
+  return true;
+}
+
 int main() {
   try {
     for (int direct = 0; direct < 4; ++direct) {
@@ -559,7 +591,7 @@ int main() {
       }
       if (direct) setenv("GAGP_CPU_BOUND_PHASE", "1", 1);
       else unsetenv("GAGP_CPU_BOUND_PHASE");
-    if (!test_nonnegative_index() || !test_compact_coordinate_branches() ||
+    if (!test_clamped_index() || !test_nonnegative_index() || !test_compact_coordinate_branches() ||
         !test_typed_numeric_boundaries_and_replay() ||
         !test_typed_integer_oracles() ||
         !test_coordinate_capture_views() ||

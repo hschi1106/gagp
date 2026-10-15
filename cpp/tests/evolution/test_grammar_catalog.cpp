@@ -36,6 +36,7 @@ Value literal(RType type) {
 int main() {
   try {
     const auto& catalog = PrimitiveCatalog::standard();
+    check(catalog.resolve("index_clamped_or_zero(IntList,Int)->Int").lowering_node == gagp::evo::NodeKind::CALL_INDEX_CLAMPED_OR_ZERO, "clamped integer index overload missing");
     check(catalog.resolve("is_letter(Int)->Bool").lowering_node == gagp::evo::NodeKind::CALL_IS_LETTER,
           "integer ASCII letter overload missing");
     check(catalog.resolve("is_letter(Char)->Bool").lowering_node == gagp::evo::NodeKind::CALL_IS_LETTER,

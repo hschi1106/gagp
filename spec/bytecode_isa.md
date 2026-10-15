@@ -72,6 +72,7 @@ Builtin IDs are:
 26 to_string                  27 singleton
 28 trunc_div0                 29 trunc_mod0
 30 index_nonnegative
+31 index_clamped_or_zero
 ```
 
 `is_int` is compiler-internal and is not source syntax.

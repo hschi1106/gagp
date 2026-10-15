@@ -405,6 +405,11 @@ class TypedVerifier {
       if (!is_sequence_type(args[0]) || args[1] != RType::Int || args[2] != RType::Int) return fail_expr(VerifyCode::TypeMismatch, node_index, "slice requires (Seq, Int, Int)");
       return typed(node_index, args[0]);
     }
+    if (kind == NodeKind::CALL_INDEX_CLAMPED_OR_ZERO) {
+      if (args[0] != RType::IntList || args[1] != RType::Int)
+        return fail_expr(VerifyCode::TypeMismatch, node_index, "index_clamped_or_zero requires IntList and Int");
+      return typed(node_index, RType::Int);
+    }
     if (kind == NodeKind::CALL_INDEX || kind == NodeKind::CALL_INDEX_NONNEGATIVE) {
       if (args[1] != RType::Int || !is_sequence_type(args[0])) return fail_expr(VerifyCode::TypeMismatch, node_index, "index requires (Seq, Int)");
       if (args[0] == RType::String) return typed(node_index, RType::Char);

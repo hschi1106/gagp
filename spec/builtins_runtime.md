@@ -196,3 +196,15 @@ Required behavior:
 General region frame, memo, and payload materialization overflow is
 deterministic. GPU implementations use explicit bounded storage and do not
 depend on device recursion.
+
+## `index_clamped_or_zero(xs, i)`
+
+Binary `IntList, Int -> Int` operation. If `xs` is empty, return integer zero.
+Otherwise clamp the signed index to `[0, len(xs)-1]` and return that exact
+integer element. Clamping compares before subtracting or converting, including
+`INT64_MIN` and `INT64_MAX`; it never normalizes a negative index from the end.
+Both argument types are checked even for an empty list; other types produce
+`ErrCode::Type`. Nonempty missing payload uses the same explicit fallback-token
+behavior as ordinary `index`. This primitive does not change `index` or
+`index_nonnegative`. It consumes one ordinary binary builtin operation's fuel,
+not the multiple instructions charged by an authored conditional/clamp macro.

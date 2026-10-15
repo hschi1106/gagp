@@ -111,7 +111,7 @@ bool LegacyGrammarConfig::allows_node_kind(evo::NodeKind kind) const {
     case K::CALL_MAX: return builtin_max; case K::CALL_CLIP: return builtin_clip;
     case K::CALL_IDIV0: return builtin_idiv0; case K::CALL_IMOD0: return builtin_imod0;
     // These operations have no grammar-config-v1 counterpart.
-    case K::CALL_TRUNC_DIV0: case K::CALL_TRUNC_MOD0: case K::CALL_INDEX_NONNEGATIVE: return false;
+    case K::CALL_TRUNC_DIV0: case K::CALL_TRUNC_MOD0: case K::CALL_INDEX_NONNEGATIVE: case K::CALL_INDEX_CLAMPED_OR_ZERO: return false;
     case K::CALL_LEN: return builtin_len; case K::CALL_CONCAT: return builtin_concat;
     case K::CALL_SLICE: return builtin_slice; case K::CALL_INDEX: return builtin_index;
     case K::CALL_APPEND: return builtin_append; case K::CALL_PREPEND: return builtin_prepend;
@@ -199,7 +199,8 @@ evo::grammar::ResolvedDefinition convert_legacy_grammar_config(
       // Keep historical production names independent of these catalog additions.
       if (signature.lowering_node == evo::NodeKind::CALL_TRUNC_DIV0 ||
           signature.lowering_node == evo::NodeKind::CALL_TRUNC_MOD0 ||
-          signature.lowering_node == evo::NodeKind::CALL_INDEX_NONNEGATIVE) continue;
+          signature.lowering_node == evo::NodeKind::CALL_INDEX_NONNEGATIVE ||
+          signature.lowering_node == evo::NodeKind::CALL_INDEX_CLAMPED_OR_ZERO) continue;
       const auto production_id = legacy_signature_id++;
       if (signature.result != value || !signature.executable() ||
           signature.operation == "constant" || signature.operation == "input" || signature.operation == "bound" ||

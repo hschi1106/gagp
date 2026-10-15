@@ -127,7 +127,7 @@ struct NodeDescriptor {
   constexpr bool is_builtin() const noexcept { return builtin_id >= 0; }
 };
 
-inline constexpr std::size_t k_node_kind_count = 63;
+inline constexpr std::size_t k_node_kind_count = 64;
 
 const std::array<NodeDescriptor, k_node_kind_count>& all_node_descriptors() noexcept;
 const NodeDescriptor& node_descriptor(NodeKind kind);

@@ -2778,6 +2778,25 @@ int main() {
       }
     }
   }
+  {
+    const auto full=gagp::payload::make_int_list_value({Value::from_int(INT64_MIN),Value::from_int(9007199254740993LL),Value::from_int(INT64_MAX)});
+    const auto empty=gagp::payload::make_int_list_value({});
+    for(const auto list:{full,empty}) for(std::int64_t index:{INT64_MIN,std::int64_t(-1),std::int64_t(0),std::int64_t(1),std::int64_t(2),INT64_MAX}) {
+      const auto wanted=list.i==empty.i?0:index<=0?INT64_MIN:index==1?9007199254740993LL:INT64_MAX;
+      auto program=make_builtin_program({list,Value::from_int(index)},gagp::BuiltinId::IndexClampedOrZero,2);
+      program.instruction_fuel={0,0,1,0};
+      const gagp::FitnessPolicy policy{gagp::FitnessMetric::Exact};
+      for(int fuel:{0,1}) {
+        const auto cpu=gagp::eval_fitness_cpu({program},{{}},{Value::from_int(wanted)},fuel,7,32,policy);
+        gagp::FitnessSessionGpu session;
+        if(!session.init({{}},{Value::from_int(wanted)},fuel,32,7,policy).ok)return 1;
+        const auto gpu=session.eval_programs({program});
+        if(!gpu.ok || cpu!=std::vector<double>{fuel?0.0:-1.0} || gpu.fitness!=cpu) {
+          std::cerr<<"clamped index signed boundary/fuel parity";return 1;
+        }
+      }
+    }
+  }
   struct TruncCase {std::int64_t a,b,div,mod;};
   const TruncCase trunc_cases[]={{-7,3,-2,-1},{7,-3,-2,1},{-7,-3,2,-1},{7,0,0,0},
       {INT64_MIN,-1,0,0},{INT64_MIN,1,INT64_MIN,0},{INT64_MAX,2,INT64_MAX/2,1}};

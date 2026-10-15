@@ -42,6 +42,7 @@ enum class BuiltinId : std::int32_t {
   TruncDiv0 = 28,
   TruncMod0 = 29,
   IndexNonnegative = 30,
+  IndexClampedOrZero = 31,
 };
 
 GAGP_BUILTIN_HD inline const char* builtin_name(BuiltinId id) {
@@ -61,6 +62,7 @@ GAGP_BUILTIN_HD inline const char* builtin_name(BuiltinId id) {
     case BuiltinId::Slice:
       return "slice";
     case BuiltinId::IndexNonnegative: return "index_nonnegative";
+    case BuiltinId::IndexClampedOrZero: return "index_clamped_or_zero";
     case BuiltinId::Index:
       return "index";
     case BuiltinId::Append:
@@ -110,7 +112,7 @@ GAGP_BUILTIN_HD inline const char* builtin_name(BuiltinId id) {
 }
 
 GAGP_BUILTIN_HD inline bool builtin_id_from_int(int value, BuiltinId& out) {
-  if (value < static_cast<int>(BuiltinId::Abs) || value > static_cast<int>(BuiltinId::IndexNonnegative)) {
+  if (value < static_cast<int>(BuiltinId::Abs) || value > static_cast<int>(BuiltinId::IndexClampedOrZero)) {
     return false;
   }
   out = static_cast<BuiltinId>(value);

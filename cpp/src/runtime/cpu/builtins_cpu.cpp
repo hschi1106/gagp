@@ -337,7 +337,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     return fail(ErrCode::Type, "slice expects string/typed-list as first argument");
   }
 
-  if (id == BuiltinId::Index || id == BuiltinId::IndexNonnegative) {
+  if (id == BuiltinId::Index || id == BuiltinId::IndexNonnegative || id == BuiltinId::IndexClampedOrZero) {
     if (argc != 2) {
       return fail(ErrCode::Type, "index expects 2 arguments: index(x, i)");
     }
@@ -345,7 +345,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     if (x.tag == ValueTag::IntList && x.b && detail::active_cpu_list_views)
       return detail::active_cpu_list_views->call(id, args, argc);
     const Value& i = args[1];
-    if (!is_container(x)) {
+    if (!is_container(x) || (id == BuiltinId::IndexClampedOrZero && x.tag != ValueTag::IntList)) {
       return fail(ErrCode::Type, "index expects string/typed-list as first argument");
     }
     if (i.tag != ValueTag::Int) {
@@ -353,11 +353,18 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     }
     const long long n = static_cast<long long>(Value::container_len(x));
     long long j = 0;
-    if ((id == BuiltinId::IndexNonnegative && i.i < 0) || !normalize_index_idx(i.i, n, j)) {
+    if (id == BuiltinId::IndexClampedOrZero) {
+      if (n == 0) return BuiltinResult{false, Value::from_int(0), Err{ErrCode::Value, ""}};
+      j = i.i < 0 ? 0 : (i.i >= n ? n - 1 : i.i);
+    } else if ((id == BuiltinId::IndexNonnegative && i.i < 0) || !normalize_index_idx(i.i, n, j)) {
       return fail(ErrCode::Value, "index out of range");
     }
     BuiltinResult out;
-    if (payload::lookup_index(x, static_cast<std::size_t>(j), &out.value)) return out;
+    if (payload::lookup_index(x, static_cast<std::size_t>(j), &out.value)) {
+      if (id == BuiltinId::IndexClampedOrZero && out.value.tag != ValueTag::Int)
+        return fail(ErrCode::Type, "index_clamped_or_zero requires integer elements");
+      return out;
+    }
     if (x.tag == ValueTag::String) {
       out.value = Value::from_fallback_token(Value::index_container_token64(5U, x, j));
       return out;

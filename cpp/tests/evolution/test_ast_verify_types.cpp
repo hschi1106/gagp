@@ -173,5 +173,10 @@ int main() {
   ast = return_program({AstNode{NodeKind::CALL_IS_LETTER,0,0},AstNode{NodeKind::CONST,0,0}},
                       {gagp::Value::from_float(65)});
   if (!expect_code(ast, {}, VerifyCode::TypeMismatch, "IsLetter rejects Float")) return 1;
+  ast = return_program({AstNode{NodeKind::CALL_INDEX_CLAMPED_OR_ZERO,0,0},AstNode{NodeKind::CONST,0,0},AstNode{NodeKind::CONST,1,0}},
+      {gagp::Value::from_int_list_hash_len(0,0),gagp::Value::from_int(INT64_MIN)});
+  if (!check(verify_ast(ast,{}).ok,"clamped index IntList/Int overload"))return 1;
+  ast.consts[0]=gagp::Value::from_float_list_hash_len(0,0);
+  if (!expect_code(ast,{},VerifyCode::TypeMismatch,"clamped index rejects FloatList"))return 1;
   return 0;
 }

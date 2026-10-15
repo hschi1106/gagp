@@ -56,8 +56,8 @@ def main() -> int:
             outputs[preset] = destination.read_text(encoding="utf-8")
             if "is_letter(Int)->Bool" in outputs[preset]:
                 raise AssertionError(f"{preset} migration admitted the post-v1 integer character overload")
-            if any(operation in outputs[preset] for operation in ("trunc_div0", "trunc_mod0")):
-                raise AssertionError(f"{preset} migration admitted post-v1 truncating builtins")
+            if any(operation in outputs[preset] for operation in ("trunc_div0", "trunc_mod0", "index_nonnegative", "index_clamped_or_zero")):
+                raise AssertionError(f"{preset} migration admitted post-v1 builtins")
             checked = repository / "configs" / "grammar" / f"{preset}.json"
             if outputs[preset] != checked.read_text(encoding="utf-8"):
                 raise AssertionError(f"{preset} migration differs from its checked v2 definition")

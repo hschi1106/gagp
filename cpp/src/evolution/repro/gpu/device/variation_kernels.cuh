@@ -46,7 +46,7 @@ __device__ inline bool d_is_builtin_kind(NodeKind kind) {
   const int raw = static_cast<int>(kind);
   return (raw >= static_cast<int>(NodeKind::CALL_ABS) &&
          raw <= static_cast<int>(NodeKind::CALL_SINGLETON)) ||
-         kind == NodeKind::CALL_TRUNC_DIV0 || kind == NodeKind::CALL_TRUNC_MOD0 || kind == NodeKind::CALL_INDEX_NONNEGATIVE;
+         kind == NodeKind::CALL_TRUNC_DIV0 || kind == NodeKind::CALL_TRUNC_MOD0 || kind == NodeKind::CALL_INDEX_NONNEGATIVE || kind == NodeKind::CALL_INDEX_CLAMPED_OR_ZERO;
 }
 
 __device__ inline bool d_push_parse_task(unsigned char* task_stack, int* task_size, DParseTaskKind task) {
@@ -194,7 +194,7 @@ __device__ inline PackedChildMeta d_compute_child_meta(const DPlainNode* nodes,
             kind == NodeKind::OR || kind == NodeKind::CALL_MIN || kind == NodeKind::CALL_MAX ||
             kind == NodeKind::CALL_TRUNC_DIV0 || kind == NodeKind::CALL_TRUNC_MOD0 ||
          kind == NodeKind::CALL_IDIV0 || kind == NodeKind::CALL_IMOD0 ||
-            kind == NodeKind::CALL_CONCAT || (kind == NodeKind::CALL_INDEX || kind == NodeKind::CALL_INDEX_NONNEGATIVE) || kind == NodeKind::CALL_APPEND ||
+            kind == NodeKind::CALL_CONCAT || (kind == NodeKind::CALL_INDEX || kind == NodeKind::CALL_INDEX_NONNEGATIVE || kind == NodeKind::CALL_INDEX_CLAMPED_OR_ZERO) || kind == NodeKind::CALL_APPEND ||
             kind == NodeKind::CALL_PREPEND || kind == NodeKind::CALL_FIND || kind == NodeKind::CALL_CONTAINS) {
           if (!d_push_parse_task(task_stack, &task_size, DParseTaskKind::ReduceBinary) ||
               !d_push_parse_task(task_stack, &task_size, DParseTaskKind::Expr) ||
