@@ -1,5 +1,6 @@
 #include "../fitness_options.hpp"
 #include "owned_programs.hpp"
+#include "read_only_payload_profile.hpp"
 #include "gagp/core/semantic_fuel.hpp"
 
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
@@ -671,6 +672,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
 
   const auto launch_prep_t0 = std::chrono::steady_clock::now();
   const bool has_regions = !packed.region_segments.empty();
+  const bool read_only_payload = std::getenv("GAGP_GPU_READ_ONLY_PAYLOAD") &&
+      std::string(std::getenv("GAGP_GPU_READ_ONLY_PAYLOAD")) != "0" &&
+      gpu_detail::read_only_payload_supported(packed);
   bool extended_payload = false;
   for (const auto& program : programs) {
     auto needs_payload = [](const auto& code) {
@@ -1034,7 +1038,15 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
               dev.d_phase_code, dev.d_phase_consts,
               impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness, nullptr, 0, nullptr, 0, nullptr, 0, region_workspace, dev.d_case_counts);
-    } else {
+    } else if (read_only_payload) {
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::None>
+          <<<static_cast<unsigned int>(programs.size()), impl_->blocksize, shared_bytes>>>(
+              static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
+              impl_->d_shared_case_local_vals, impl_->d_shared_case_local_set, impl_->d_expected,
+              dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
+              dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
+              dev.d_phase_code, dev.d_phase_consts,
+              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness, nullptr, 0, nullptr, 0, nullptr, 0, region_workspace, dev.d_case_counts);    } else {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::Mixed>
           <<<static_cast<unsigned int>(programs.size()), impl_->blocksize, shared_bytes>>>(
               static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
@@ -1254,6 +1266,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
     if(global_payload)out.execution_profile+="-global-arena";
     if(global_window_aliases)out.execution_profile+="-window-aliases";
+    if(read_only_payload)out.execution_profile="read-only-payload";
     if(region_workspace.fused_list_concat && extended_payload)out.execution_profile+="-fused-concat";
     if(payload_index && (global_payload || out.payload_replay_programs))out.execution_profile+="-list-index";
     if(out.payload_replay_programs)out.execution_profile+="-gpu-arena-replay";
