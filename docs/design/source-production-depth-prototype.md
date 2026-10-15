@@ -26,6 +26,22 @@ Every frozen parent must fit; no filtering or resampling is allowed. The search
 budget is distinct from grammar membership and must be supplied consistently to
 native CPU and GPU reproduction. Unsupported profiles fail explicitly.
 
+Native callers select the strict GPU fast path with
+`EvolutionConfig::gpu_projected_phase_profile = true` (default `false`). It
+requires GPU evaluation and GPU reproduction, enabled `GAGP_GPU_PHASE_POPULATION`,
+a compiled grammar, matching initial/offspring projected budgets, the grammar's
+node cap, and projected depth in `[1,15]`. Invalid requests fail before device
+initialization; unsupported phase admission also fails instead of falling back.
+The fixed-ASGP source-depth configurator sets this flag only for GPU reproduction
+modes. CPU reproduction, including GPU evaluation with CPU reproduction, uses the
+ordinary projected-budget controls.
+
+Generic `initial_resource_budget`/`offspring_resource_budget` settings do not
+implicitly select this strict profile. Without the flag, existing GPU callers
+retain native AST fallback from the phase optimization, including asymmetric
+budgets and policies unsupported by the phase fast path. No-budget phase callers
+retain their existing behavior.
+
 GPU generation retains physical and projected remaining depth independently.
 Its minimum-node feasibility table is indexed by both bounds; transparent nodes
 still consume physical capacity. Expression origins supply projected charges,

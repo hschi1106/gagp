@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cstdlib>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
@@ -217,6 +218,33 @@ int main() {
   }
   const auto unverified=fixed_asgp::audit_search_contract(timing_config,"native-ast");
   assert(!unverified.items.front().matched && !unverified.fully_aligned());
+  // Explicit profile errors are validated before device initialization, even in
+  // CPU-only builds. Ordinary CPU and GPU-budget controls do not imply opt-in.
+  auto strict=timing_config;strict.gpu_projected_phase_profile=true;
+  auto rejects=[&](const gagp::evo::EvolutionConfig& cfg,const char* message) {
+    bool rejected=false;
+    try{(void)gagp::evo::evolve_population(timing_cases,cfg);}
+    catch(const std::invalid_argument& error){rejected=std::string(error.what()).find(message)!=std::string::npos;}
+    assert(rejected);
+  };
+  rejects(strict,"requires GPU evaluation/reproduction");
+  strict.eval_engine=gagp::evo::EvalEngine::GPU;
+  strict.reproduction_backend=gagp::evo::repro::ReproductionBackend::Gpu;
+  const char* old_phase=std::getenv("GAGP_GPU_PHASE_POPULATION");
+  const bool had_phase=old_phase!=nullptr;const std::string saved_phase=old_phase?old_phase:"";
+  unsetenv("GAGP_GPU_PHASE_POPULATION");
+  rejects(strict,"GAGP_GPU_PHASE_POPULATION");
+  setenv("GAGP_GPU_PHASE_POPULATION","0",1);
+  rejects(strict,"GAGP_GPU_PHASE_POPULATION");
+  setenv("GAGP_GPU_PHASE_POPULATION","1",1);
+  rejects(strict,"matching initial/offspring budgets");
+  strict.initial_resource_budget=gagp::evo::grammar::ProjectedBudget{strict.compiled_grammar->search_limits().max_nodes,7};
+  strict.offspring_resource_budget=gagp::evo::grammar::ProjectedBudget{strict.compiled_grammar->search_limits().max_nodes,6};
+  rejects(strict,"matching initial/offspring budgets");
+  strict.offspring_resource_budget=strict.initial_resource_budget;
+  strict.offspring_resource_budget->max_depth=strict.initial_resource_budget->max_depth=16;
+  rejects(strict,"projected depth in [1,15]");
+  if(had_phase)setenv("GAGP_GPU_PHASE_POPULATION",saved_phase.c_str(),1);else unsetenv("GAGP_GPU_PHASE_POPULATION");
   timing_config.elite_count=timing_config.population_size;
   bool bad_elites=false;
   try{(void)gagp::evo::evolve_population(timing_cases,timing_config);}catch(const std::invalid_argument&){bad_elites=true;}

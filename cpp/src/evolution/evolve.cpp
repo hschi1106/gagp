@@ -320,14 +320,12 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
         !request.visible_environment.empty() || request.budget.max_nodes != entry.budget.max_nodes ||
         request.budget.max_depth != entry.budget.max_depth || request.stage != entry.stage)
       throw std::invalid_argument("native GPU phase profile requires the exact entry request and default resource/variation policy");
-    if(bool(cfg.initial_resource_budget)!=bool(cfg.offspring_resource_budget) ||
-        (cfg.initial_resource_budget &&
-         (cfg.initial_resource_budget->max_nodes!=cfg.offspring_resource_budget->max_nodes ||
-          cfg.initial_resource_budget->max_depth!=cfg.offspring_resource_budget->max_depth)))
-      throw std::invalid_argument("native GPU projected profile requires matching initial/offspring budgets");
+    if(!cfg.gpu_projected_phase_profile &&
+        (cfg.initial_resource_budget || cfg.offspring_resource_budget))
+      throw std::invalid_argument("projected budgets use generic native GPU reproduction unless gpu_projected_phase_profile is requested");
     owner = std::make_unique<repro::NativePhasePopulation>(cfg.compiled_grammar,population,cases.input_names,cfg.offspring_resource_budget);
   } catch (const std::invalid_argument& error) {
-    if(cfg.initial_resource_budget || cfg.offspring_resource_budget)throw; // projected phase request fails closed
+    if(cfg.gpu_projected_phase_profile)throw; // Only explicitly requested profiles fail closed
     result.reproduction_fallback_reason = error.what();
     result.timing.init_population_ms += elapsed(begin);
     return false;
@@ -439,6 +437,19 @@ std::vector<ScoredGenome> evaluate_population(const std::vector<ProgramGenome>& 
 EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
                                   const EvolutionConfig& cfg,
                                   const std::vector<ProgramGenome>* initial_population) {
+  if(cfg.gpu_projected_phase_profile) {
+    const auto* phase_mode=std::getenv("GAGP_GPU_PHASE_POPULATION");
+    if(cfg.eval_engine!=EvalEngine::GPU || cfg.reproduction_backend!=repro::ReproductionBackend::Gpu ||
+        !phase_mode || std::string(phase_mode)=="0")
+      throw std::invalid_argument("gpu_projected_phase_profile requires GPU evaluation/reproduction and GAGP_GPU_PHASE_POPULATION enabled");
+    if(!cfg.compiled_grammar || !cfg.initial_resource_budget || !cfg.offspring_resource_budget ||
+        cfg.initial_resource_budget->max_nodes!=cfg.offspring_resource_budget->max_nodes ||
+        cfg.initial_resource_budget->max_depth!=cfg.offspring_resource_budget->max_depth)
+      throw std::invalid_argument("gpu_projected_phase_profile requires a compiled grammar and matching initial/offspring budgets");
+    if(cfg.offspring_resource_budget->max_nodes!=cfg.compiled_grammar->search_limits().max_nodes ||
+        cfg.offspring_resource_budget->max_depth==0 || cfg.offspring_resource_budget->max_depth>15)
+      throw std::invalid_argument("gpu_projected_phase_profile requires the grammar node cap and projected depth in [1,15]");
+  }
   repro::require_reproduction_mode_supported(cfg);
   if (cases.empty()) {
     throw std::invalid_argument("cases must not be empty");

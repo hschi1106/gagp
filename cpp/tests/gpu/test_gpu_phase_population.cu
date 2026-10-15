@@ -177,6 +177,26 @@ int main(){try {
  setenv("GAGP_REUSE_IMPORTED_EXECUTABLE","1",1);setenv("GAGP_REUSE_PHASE_GRAMMAR","1",1);setenv("GAGP_BATCH_PHASE_IMPORT","1",1);setenv("GAGP_BATCH_PHASE_EXPORT","1",1);
  const auto integrated=evolve_population(evolution_cases,config,&parents);
  require(integrated.reproduction_profile=="native-gpu-phase-v2-counted" && integrated.reproduction_fallback_reason.empty(),"GPU genotype evolution adapter not used");
+ // Existing projected-budget callers must retain generic GPU fallback unless
+ // they explicitly request the strict projected phase profile.
+ auto legacy=config;legacy.generations=1;legacy.gpu_blocksize=32;
+ legacy.initial_resource_budget=grammar::ProjectedBudget{grammar->search_limits().max_nodes,grammar->search_limits().max_depth};
+ legacy.offspring_resource_budget=legacy.initial_resource_budget;
+ legacy.mutation_subtree_prob=.5; // Unsupported phase policy, valid generic policy.
+ const std::vector<EvalCase> small_cases{evolution_cases.front()};
+ const auto generic=evolve_population(small_cases,legacy,&parents);
+ require(generic.reproduction_profile=="native-ast" && !generic.reproduction_fallback_reason.empty(),
+     "legacy projected budgets no longer fall back to generic GPU reproduction");
+ auto strict=legacy;strict.gpu_projected_phase_profile=true;
+ bool strict_rejected=false;
+ try{(void)evolve_population(small_cases,strict,&parents);}catch(const std::invalid_argument& error){
+   strict_rejected=std::string(error.what()).find("default resource/variation policy")!=std::string::npos;}
+ require(strict_rejected,"explicit projected phase profile silently fell back");
+ legacy.mutation_subtree_prob=1;
+ --legacy.offspring_resource_budget->max_depth;
+ const auto asymmetric=evolve_population(small_cases,legacy,&parents);
+ require(asymmetric.reproduction_profile=="native-ast" && !asymmetric.reproduction_fallback_reason.empty(),
+     "legacy asymmetric resource budgets no longer retain generic GPU controls");
  require(integrated.timing.generations[0].elapsed_search_ms>=integrated.timing.init_population_ms+integrated.timing.gpu_eval_init_ms &&
      integrated.timing.generations[1].elapsed_search_ms>integrated.timing.generations[0].elapsed_search_ms,
      "search completion timestamps omit initialization or are not monotonic");

@@ -25,6 +25,8 @@ inline void configure_source_depth(gagp::evo::EvolutionConfig& cfg) {
         !std::getenv("GAGP_GPU_PHASE_POPULATION"))
       throw std::invalid_argument("source depth GPU profile requires native GPU phase population");
     cfg.initial_resource_budget=budget;cfg.offspring_resource_budget=budget;
+    cfg.gpu_projected_phase_profile=bool(budget) &&
+        cfg.reproduction_backend==gagp::evo::repro::ReproductionBackend::Gpu;
   }
 }
 // Called only for a fresh prepared artifact under the explicitly selected

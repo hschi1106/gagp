@@ -50,6 +50,10 @@ struct EvolutionConfig {
   // Separate initial admission permits source profiles whose construction and
   // variation use different depth rules. No option changes physical capacities.
   std::optional<grammar::ProjectedBudget> initial_resource_budget;
+  // Explicit strict native GPU projected-phase profile. Generic resource budgets
+  // alone retain ordinary backend fallback. Requires GPU eval/reproduction,
+  // GAGP_GPU_PHASE_POPULATION, and matching supported initial/offspring budgets.
+  bool gpu_projected_phase_profile = false;
 
   bool skip_final_eval = false;
   bool retain_final_population = true;

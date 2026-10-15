@@ -410,7 +410,10 @@ membership; explicit structural nodes can use `resets_depth:true` to model
 expression-depth accounting. Physical `search_limits` always still apply.
 Native callers can additionally set `EvolutionConfig.initial_resource_budget`
 and `offspring_resource_budget` to enforce projected admission at initialization
-and CPU/GPU reproduction. These optional budgets are not CLI options. Generation
+and CPU/GPU reproduction. These budgets alone retain generic backend fallback;
+the experimental strict GPU phase path requires the separate
+[`gpu_projected_phase_profile` opt-in](../design/source-production-depth-prototype.md).
+These optional budgets are not CLI options. Generation
 uses bounded retries, so exhaustion does not prove that a grammar is infeasible.
 Admission reconstructs membership instead of trusting attached derivation metadata.
 
