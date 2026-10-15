@@ -925,6 +925,12 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       std::getenv("GAGP_MEASURE_PHASE_CACHE") &&
       shared_bytes + measure_bytes <= static_cast<std::size_t>(impl_->props.sharedMemPerBlock);
   if (region_workspace.measure_phase_cache) shared_bytes += measure_bytes;
+  // Arena execution launches one warp, regardless of the reference block size.
+  // Reserve its actual reduction lanes and the cache it actually constructs.
+  const auto arena_shared_bytes=[&](int threads,const gpu_detail::DRegionWorkspace& workspace) {
+    return kernel_shared_bytes(packed.max_code_len,threads)+
+        (workspace.measure_phase_cache?measure_bytes:0);
+  };
   region_workspace.window_leaf_direct = std::getenv("GAGP_GPU_WINDOW_LEAF_DIRECT") &&
       std::string(std::getenv("GAGP_GPU_WINDOW_LEAF_DIRECT")) != "0";
   region_workspace.unboxed_window_frames = region_workspace.window_executor && std::getenv("GAGP_UNBOXED_WINDOW_FRAMES");
@@ -1134,7 +1140,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     const auto kernel_t0 = std::chrono::steady_clock::now();
     if(global_payload) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true>
-          <<<static_cast<unsigned>(initial_payload.blocks),PayloadWorkspaceStorage::threads,shared_bytes>>>(
+          <<<static_cast<unsigned>(initial_payload.blocks),PayloadWorkspaceStorage::threads,arena_shared_bytes(PayloadWorkspaceStorage::threads,initial_payload.workspace)>>>(
               static_cast<int>(initial_tasks),dev.d_consts,dev.d_code,dev.d_metas,
               impl_->d_shared_case_local_vals,impl_->d_shared_case_local_set,impl_->d_expected,
               dev.d_string_payload_entries,static_cast<int>(payload_pack.string_entries.size()),dev.d_string_payload_bytes,
@@ -1349,7 +1355,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       }
       if(payload_index) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true>
-          <<<static_cast<unsigned>(replay_blocks),replay_threads,kernel_shared_bytes(packed.max_code_len,impl_->blocksize)>>>(
+          <<<static_cast<unsigned>(replay_blocks),replay_threads,arena_shared_bytes(replay_threads,replay_workspace)>>>(
               static_cast<int>(task_count),dev.d_consts,dev.d_code,dev.d_metas,
               impl_->d_shared_case_local_vals,impl_->d_shared_case_local_set,impl_->d_expected,
               dev.d_string_payload_entries,static_cast<int>(payload_pack.string_entries.size()),dev.d_string_payload_bytes,
@@ -1361,7 +1367,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_case_counts,impl_->d_arena_case_order,replay_indices,replay_queue);
       } else {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::ArenaMixed,true>
-          <<<static_cast<unsigned>(replay_blocks),replay_threads,kernel_shared_bytes(packed.max_code_len,impl_->blocksize)>>>(
+          <<<static_cast<unsigned>(replay_blocks),replay_threads,arena_shared_bytes(replay_threads,replay_workspace)>>>(
               static_cast<int>(task_count),dev.d_consts,dev.d_code,dev.d_metas,
               impl_->d_shared_case_local_vals,impl_->d_shared_case_local_set,impl_->d_expected,
               dev.d_string_payload_entries,static_cast<int>(payload_pack.string_entries.size()),dev.d_string_payload_bytes,
