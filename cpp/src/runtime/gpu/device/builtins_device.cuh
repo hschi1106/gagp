@@ -440,8 +440,8 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
   using PayloadTraits = DPayloadFlavorTraits<Flavor>;
 
   if constexpr ((Flavor == DPayloadFlavor::IntListViews || Flavor == DPayloadFlavor::BoundIntListViews)) {
-    if (bid == BuiltinId::Index || bid == BuiltinId::Slice) {
-      if (argc != (bid == BuiltinId::Index ? 2 : 3) || args[0].tag != ValueTag::IntList ||
+    if ((bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative) || bid == BuiltinId::Slice) {
+      if (argc != ((bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative) ? 2 : 3) || args[0].tag != ValueTag::IntList ||
           args[1].tag != ValueTag::Int || (argc == 3 && args[2].tag != ValueTag::Int)) {
         err = ErrCode::Type; return false;
       }
@@ -449,9 +449,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       if (!d_convert_list_view(source, tables)) { err = ErrCode::Value; return false; }
       const auto offset = Value::container_hash48(source);
       const auto length = static_cast<long long>(Value::container_len(source));
-      if (bid == BuiltinId::Index) {
+      if (bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative) {
         long long index;
-        if (!d_norm_index_idx(args[1].i, length, index)) { err = ErrCode::Value; return false; }
+        if ((bid == BuiltinId::IndexNonnegative && args[1].i < 0) || !d_norm_index_idx(args[1].i, length, index)) { err = ErrCode::Value; return false; }
         out = tables.list_values[offset + index];
       } else {
         const auto lo = d_norm_slice_idx(args[1].i, length);
@@ -716,7 +716,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     return true;
   }
 
-  if (bid == BuiltinId::Index) {
+  if (bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative) {
     if (argc != 2) {
       err = ErrCode::Type;
       return false;
@@ -733,7 +733,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     }
     const long long n = static_cast<long long>(Value::container_len(x));
     long long j = 0;
-    if (!d_norm_index_idx(i.i, n, j)) {
+    if ((bid == BuiltinId::IndexNonnegative && i.i < 0) || !d_norm_index_idx(i.i, n, j)) {
       err = ErrCode::Value;
       return false;
     }

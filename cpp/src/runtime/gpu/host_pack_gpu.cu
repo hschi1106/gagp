@@ -99,7 +99,7 @@ bool program_has_exact_payload_builtin(const BytecodeProgram& prog) {
     if (!builtin_id_from_int(ins.a, bid)) {
       continue;
     }
-    if (bid == BuiltinId::Concat || bid == BuiltinId::Slice || bid == BuiltinId::Index ||
+    if (bid == BuiltinId::Concat || bid == BuiltinId::Slice || (bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative) ||
         bid == BuiltinId::Append || bid == BuiltinId::Prepend || bid == BuiltinId::Reverse ||
         bid == BuiltinId::Find || bid == BuiltinId::Contains || bid == BuiltinId::CharToString ||
         bid == BuiltinId::StringToChar || bid == BuiltinId::Singleton) {

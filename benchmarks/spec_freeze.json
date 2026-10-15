@@ -14,7 +14,7 @@
     },
     {
       "path": "spec/bytecode_isa.md",
-      "sha256": "1501967e91234fd4755222b812de93a857f953bf7475a1bf56cf2ae4f3f37808"
+      "sha256": "5cf01f9fdb1e58d379ab208e501c69a13c1a43133ecfd679057376ed6586d8f2"
     },
     {
       "path": "spec/bytecode_format.md",
@@ -26,7 +26,7 @@
     },
     {
       "path": "spec/builtins_runtime.md",
-      "sha256": "79c2e9607f0f25cda4f2bc31287b1c7a8fc610ef2a2d23dec6563bf4e1ed219c"
+      "sha256": "fb15138d39b9583b8a35686ed8c3b981ee9d394a2da8f05cc0714b1ba442cc02"
     },
     {
       "path": "spec/fitness.md",

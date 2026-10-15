@@ -2710,6 +2710,23 @@ int main() {
       std::cerr<<"truncating builtin signed boundary parity";return 1;
     }
   }
+  for(const auto index:{INT64_MIN,std::int64_t(-1),std::int64_t(0),std::int64_t(1),std::int64_t(2),INT64_MAX}) {
+    const auto list=gagp::payload::make_int_list_value({Value::from_int(10),Value::from_int(20)});
+    auto program=make_builtin_program({list,Value::from_int(index)},gagp::BuiltinId::IndexNonnegative,2);
+    const auto answer=Value::from_int(index==1?20:10);
+    for(const auto fuel:{0u,100u}) {
+      std::vector<unsigned> wrong;
+      const gagp::FitnessPolicy exact{gagp::FitnessMetric::Exact};
+      const auto cpu=gagp::eval_fitness_cpu({program},{{}},{answer},fuel,7,32,exact,&wrong);
+      gagp::FitnessSessionGpu session;
+      if(!session.init({{}},{answer},fuel,32,7,exact).ok)return 1;
+      const auto gpu=session.eval_programs({program});
+      if(!gpu.ok || gpu.fitness!=cpu || gpu.wrong!=wrong ||
+          (fuel && wrong!=std::vector<unsigned>{unsigned(index<0 || index>=2)})) {
+        std::cerr<<"nonnegative index boundary/fuel parity";return 1;
+      }
+    }
+  }
   std::cout << "gagp_test_fitness_cpu_gpu_parity: OK\n";
   return 0;
 }

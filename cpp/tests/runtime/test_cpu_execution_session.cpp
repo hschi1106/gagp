@@ -16,6 +16,7 @@
 #include "gagp/runtime/cpu/execution_session.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 #include "gagp/core/builtin.hpp"
+#include "gagp/runtime/cpu/builtins_cpu.hpp"
 
 namespace {
 
@@ -506,6 +507,48 @@ bool test_compact_coordinate_branches() {
   return true;
 }
 
+bool test_nonnegative_index() {
+  const auto word=payload::make_string_value("hi");
+  const std::vector<Value> sequences={word,
+      payload::make_int_list_value({Value::from_int(7)}),
+      payload::make_float_list_value({Value::from_float(2.5)}),
+      payload::make_string_list_value({word})};
+  const std::vector<Value> expected={Value::from_char('h'),Value::from_int(7),Value::from_float(2.5),word};
+  for(std::size_t n=0;n<sequences.size();++n) {
+    const auto result=builtin_call(BuiltinId::IndexNonnegative,{sequences[n],Value::from_int(0)});
+    if(!check(!result.is_error && result.value.tag==expected[n].tag && result.value.i==expected[n].i,
+        "nonnegative index typed sequence result"))return false;
+    for(const auto index:{Value::from_int(-1),Value::from_bool(false),Value::from_float(0)}) {
+      const auto bad=builtin_call(BuiltinId::IndexNonnegative,{sequences[n],index});
+      if(!check(bad.is_error && bad.err.code==(index.tag==ValueTag::Int?ErrCode::Value:ErrCode::Type),
+          "nonnegative index typed sequence rejection"))return false;
+    }
+  }
+  const auto list=payload::make_int_list_value({Value::from_int(10),Value::from_int(20)});
+  for(auto index:{INT64_MIN, std::int64_t(-1), std::int64_t(0), std::int64_t(1), std::int64_t(2), INT64_MAX}) {
+    BytecodeProgram program;
+    program.consts={list,Value::from_int(index)};
+    program.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),
+      {Opcode::CallBuiltin,int(BuiltinId::IndexNonnegative),2,true,true},ins(Opcode::Return)};
+    program.instruction_fuel={0,0,1,0};
+    const auto result=execute_bytecode_cpu(program,{},1);
+    const bool valid=index>=0 && index<2;
+    if(!check(valid ? !result.is_error && result.value.i==10*(index+1) :
+        result.is_error && result.err.code==ErrCode::Value,"nonnegative index boundary"))return false;
+    const auto exhausted=execute_bytecode_cpu(program,{},0);
+    if(!check(exhausted.is_error && exhausted.err.code==ErrCode::Timeout,"nonnegative index fuel"))return false;
+    auto region=counter_program();auto& segment=region.bounded_region_segments[0];
+    segment.plan.parameter_types={ValueTag::IntList};
+    segment.base_body=phase({Value::from_int(index)},
+      {ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,0),
+       {Opcode::CallBuiltin,int(BuiltinId::IndexNonnegative),2,true,true},ins(Opcode::Return)},
+      {{slot(RegionSlotBank::Parameter,0),0}},1);
+    const auto viewed=execute_bytecode_cpu(region,{{0,Value::from_int(0)},{1,list}},100);
+    if(!check(same_result(result,viewed),"nonnegative index region view parity"))return false;
+  }
+  return true;
+}
+
 int main() {
   try {
     for (int direct = 0; direct < 4; ++direct) {
@@ -516,7 +559,7 @@ int main() {
       }
       if (direct) setenv("GAGP_CPU_BOUND_PHASE", "1", 1);
       else unsetenv("GAGP_CPU_BOUND_PHASE");
-    if (!test_compact_coordinate_branches() ||
+    if (!test_nonnegative_index() || !test_compact_coordinate_branches() ||
         !test_typed_numeric_boundaries_and_replay() ||
         !test_typed_integer_oracles() ||
         !test_coordinate_capture_views() ||

@@ -76,10 +76,10 @@ __device__ __noinline__ DResult d_run_bound_view_phase(
         const auto bid = static_cast<BuiltinId>(ins.a);
         if (bid == BuiltinId::Len) {
           stack[sp - 1] = static_cast<std::uint64_t>(stack[sp - 1]) >> 48;
-        } else if (bid == BuiltinId::Index) {
+        } else if (bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative) {
           const auto index = stack[--sp]; const auto source = static_cast<std::uint64_t>(stack[sp - 1]);
           long long normalized;
-          if (!d_norm_index_idx(index, source >> 48, normalized)) return d_error(ErrCode::Value);
+          if ((bid == BuiltinId::IndexNonnegative && index < 0) || !d_norm_index_idx(index, source >> 48, normalized)) return d_error(ErrCode::Value);
           const auto value = tables.list_values[(source & Value::k_container_hash_mask) + normalized];
           if (value.tag != ValueTag::Int) return d_error(ErrCode::Type);
           stack[sp - 1] = value.i;

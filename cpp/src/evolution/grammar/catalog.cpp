@@ -123,6 +123,7 @@ PrimitiveCatalog::PrimitiveCatalog() {
     add("len", {list}, RType::Int, NodeKind::CALL_LEN);
     add("concat", {list, list}, list, NodeKind::CALL_CONCAT);
     add("slice", {list, RType::Int, RType::Int}, list, NodeKind::CALL_SLICE);
+    add("index_nonnegative", {list, RType::Int}, element, NodeKind::CALL_INDEX_NONNEGATIVE);
     add("index", {list, RType::Int}, element, NodeKind::CALL_INDEX);
     add("reverse", {list}, list, NodeKind::CALL_REVERSE);
     add("singleton", {element}, list, NodeKind::CALL_SINGLETON);

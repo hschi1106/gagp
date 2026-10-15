@@ -126,7 +126,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         const auto builtin=static_cast<BuiltinId>(descriptor.builtin_id);
         switch(builtin) {
           case BuiltinId::TruncDiv0: case BuiltinId::TruncMod0: case BuiltinId::IDiv0:case BuiltinId::IMod0:case BuiltinId::Min:case BuiltinId::Max:case BuiltinId::Clip:
-          case BuiltinId::Len:case BuiltinId::Index:case BuiltinId::Slice:break;
+          case BuiltinId::Len:case BuiltinId::IndexNonnegative: case BuiltinId::Index:case BuiltinId::Slice:break;
           default:fail("builtin capability");
         }
         x.node.kind=PhaseTreeKind::Operation;x.node.opcode=Opcode::CallBuiltin;x.node.operand=descriptor.builtin_id;

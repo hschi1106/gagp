@@ -86,7 +86,7 @@ struct CpuListViews {
     return std::min(size, std::max<std::int64_t>(0, value));
   }
   BuiltinResult call(BuiltinId id, const Value* args, std::size_t count) const {
-    if ((id != BuiltinId::Slice && id != BuiltinId::Index && id != BuiltinId::Len) ||
+    if ((id != BuiltinId::Slice && id != BuiltinId::Index && id != BuiltinId::IndexNonnegative && id != BuiltinId::Len) ||
         count == 0 || args[0].tag != ValueTag::IntList)
       return builtin_call(id, args, count);
     const auto error = [](ErrCode code, const char* message) {
@@ -100,13 +100,13 @@ struct CpuListViews {
       if (count != 1) return error(ErrCode::Type, "len expects one argument");
       return {false, Value::from_int(length), {ErrCode::Value, ""}};
     }
-    if ((id == BuiltinId::Slice && count != 3) || (id == BuiltinId::Index && count != 2))
+    if ((id == BuiltinId::Slice && count != 3) || ((id == BuiltinId::Index || id == BuiltinId::IndexNonnegative) && count != 2))
       return error(ErrCode::Type, "invalid list view argument count");
     if (args[1].tag != ValueTag::Int || (count == 3 && args[2].tag != ValueTag::Int))
       return error(ErrCode::Type, "list view expects integer indices");
-    if (id == BuiltinId::Index) {
+    if (id == BuiltinId::Index || id == BuiltinId::IndexNonnegative) {
       auto index = args[1].i;
-      if (index < 0) index += length;
+      if (index < 0 && id == BuiltinId::Index) index += length;
       if (index < 0 || static_cast<std::uint64_t>(index) >= length)
         return error(ErrCode::Value, "index out of range");
       return {false, values[offset + index], {ErrCode::Value, ""}};

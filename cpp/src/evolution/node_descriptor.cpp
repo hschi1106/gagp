@@ -57,6 +57,7 @@ constexpr std::array<NodeDescriptor, k_node_kind_count> k_descriptors{{
     BUILTIN(CALL_LEN, "call_len", 1, Len, BuiltinLen),
     BUILTIN(CALL_CONCAT, "call_concat", 2, Concat, BuiltinConcat),
     BUILTIN(CALL_SLICE, "call_slice", 3, Slice, BuiltinSlice),
+    BUILTIN(CALL_INDEX_NONNEGATIVE, "call_index_nonnegative", 2, IndexNonnegative, BuiltinIndex),
     BUILTIN(CALL_INDEX, "call_index", 2, Index, BuiltinIndex),
     BUILTIN(CALL_APPEND, "call_append", 2, Append, BuiltinAppend),
     BUILTIN(CALL_PREPEND, "call_prepend", 2, Prepend, BuiltinPrepend),

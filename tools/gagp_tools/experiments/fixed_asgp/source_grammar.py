@@ -81,16 +81,7 @@ def definition(root: Path, task: str, contract: dict) -> dict:
                         e={'template':template_id,'holes':{'char':args[0]}}
                     elif kind==13:e=call('index(IntList,Int)->Int',args[0],constant(0))
                     elif kind==14:e=bound('lo')
-                    elif kind==15:
-                        template_id=f'Fixed.{phase}.Index'
-                        if not any(t['id']==template_id for t in index_templates):
-                            index={'hole':'index'}
-                            index_templates.append({'id':template_id,'type':'Int','scope':copy.deepcopy(scope),
-                                'holes':[{'id':'index','type':'Int','scope':copy.deepcopy(scope)}],
-                                'body':call('if(Bool,Int,Int)->Int',call('lt(Int,Int)->Bool',index,constant(0)),
-                                    call('index(IntList,Int)->Int',bound('xs'),call('len(IntList)->Int',bound('xs'))),
-                                    call('index(IntList,Int)->Int',bound('xs'),index))})
-                        e={'template':template_id,'holes':{'index':args[0]}}
+                    elif kind==15:e=call('index_nonnegative(IntList,Int)->Int',bound('xs'),args[0])
                     elif kind==16:e=call('singleton(Int)->IntList',*args)
                     elif kind in (17,18,19):
                         e=call('index(IntList,Int)->Int',args[0],constant(kind-17))

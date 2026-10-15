@@ -177,7 +177,7 @@ int expected_builtin_arity(BuiltinId id) {
     case BuiltinId::Min:
     case BuiltinId::Max:
     case BuiltinId::Concat:
-    case BuiltinId::Index:
+    case BuiltinId::IndexNonnegative: case BuiltinId::Index:
     case BuiltinId::Append:
     case BuiltinId::Find:
     case BuiltinId::Contains:
@@ -219,7 +219,7 @@ AbstractType builtin_result_type(BuiltinId id, const std::vector<AbstractType>& 
     case BuiltinId::Chr:
     case BuiltinId::ToLower:
     case BuiltinId::ToUpper: return AbstractType::Char;
-    case BuiltinId::Index:
+    case BuiltinId::IndexNonnegative: case BuiltinId::Index:
       if (args.empty()) return AbstractType::Unknown;
       if (args.front() == AbstractType::String) return AbstractType::Char;
       if (args.front() == AbstractType::IntList) return AbstractType::Int;

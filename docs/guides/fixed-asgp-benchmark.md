@@ -758,10 +758,12 @@ Character and character-list nonterminals remain distinct from integer ones,
 although native transport uses Int and IntList. Tuple carriers use a private
 three-element IntList `[predicate, summary1, summary2]`; only source tuple
 constructors/projections generate and access that representation. Source Index
-rejects negative indices, whereas the native primitive normalizes them; the
-source-derived grammar therefore uses a repeated-hole guard template that
-raises a native out-of-range error for negative source indices. The repeated
-hole preserves a single source index expression during generation and matching.
+rejects negative indices. The source-derived grammar uses the general
+`index_nonnegative` primitive, which evaluates the index once and raises the
+native out-of-range error for negative or oversized indices. This preserves
+one index operand during generation and matching and admits scalar phase GPU
+reproduction without a repeated-hole template. Its fuel is the ordinary binary
+builtin charge; legacy `index` retains Python-style negative indexing.
 
 StockWithCooldown uses increasing physical time as its strict progress proof
 and clamped holding-state request expressions. Terminal physical time may be
@@ -850,7 +852,7 @@ These primitives evaluate each operand once and preserve one physical node per
 source operation. Division truncates toward zero; remainder has the numerator's
 sign. Zero divisors and the exceptional `INT64_MIN / -1` pair return zero.
 Existing `imod0` retains Python-sign modulo and existing `idiv0` retains its
-wrapped overflow result. Expanded index/character guards and recurrence
+wrapped overflow result. Expanded character guards and recurrence
 scaffolding still require physical AST/bytecode admission checks.
 
 The shared adapter contract covers frozen cases and original initial programs,

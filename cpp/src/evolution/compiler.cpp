@@ -829,6 +829,7 @@ class Compiler {
       case NodeKind::CALL_LEN:
       case NodeKind::CALL_CONCAT:
       case NodeKind::CALL_SLICE:
+      case NodeKind::CALL_INDEX_NONNEGATIVE:
       case NodeKind::CALL_INDEX:
       case NodeKind::CALL_APPEND:
       case NodeKind::CALL_PREPEND:

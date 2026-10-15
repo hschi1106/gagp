@@ -334,7 +334,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     return fail(ErrCode::Type, "slice expects string/typed-list as first argument");
   }
 
-  if (id == BuiltinId::Index) {
+  if (id == BuiltinId::Index || id == BuiltinId::IndexNonnegative) {
     if (argc != 2) {
       return fail(ErrCode::Type, "index expects 2 arguments: index(x, i)");
     }
@@ -350,7 +350,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     }
     const long long n = static_cast<long long>(Value::container_len(x));
     long long j = 0;
-    if (!normalize_index_idx(i.i, n, j)) {
+    if ((id == BuiltinId::IndexNonnegative && i.i < 0) || !normalize_index_idx(i.i, n, j)) {
       return fail(ErrCode::Value, "index out of range");
     }
     BuiltinResult out;

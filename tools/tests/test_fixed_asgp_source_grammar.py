@@ -24,6 +24,19 @@ class TestSourceGrammar(unittest.TestCase):
             self.assertEqual(expr, {'signature': protected+'(Int,Int)->Int', 'args': operands})
             self.assertIs(expr['args'], operands)
 
+    def test_source_index_is_one_nonnegative_operation(self):
+        contract=dict(task='index_fixture',scheme='divide-and-conquer',carrier='int',
+            scalars=[],base_size=1,ints=[['0','2']],chars=[],
+            phases=[dict(start='int',productions=[production(1,'int'),production(15,'int',['int'])]),
+                dict(start='int',productions=[production(1,'int')]),
+                dict(start='int',productions=[production(7,'int')])])
+        document=definition(ROOT,'index_fixture',contract=contract)
+        solve=next(nt for nt in document['nonterminals'] if nt['id']=='Solve.int')
+        expr=solve['alternatives'][1]['expression']
+        self.assertEqual(expr,{'signature':'index_nonnegative(IntList,Int)->Int',
+            'args':[{'bound':'xs'},{'ref':'Solve.int'}]})
+        self.assertEqual(len(document['templates']),1)
+
     def test_paper_catalog_uses_source_identifiers(self):
         self.assertEqual(len(set(PAPER_TASKS)),30)
         self.assertIn('min',PAPER_TASKS)

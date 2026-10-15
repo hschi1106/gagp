@@ -18,6 +18,7 @@ Sequence builtins:
 - `concat(a, b)`
 - `slice(x, lo, hi)`
 - `index(x, i)`
+- `index_nonnegative(x, i)`
 - `append(xs, x)`
 - `prepend(xs, x)`
 - `reverse(x)`
@@ -109,6 +110,14 @@ Result types:
 - `index(StringList, Int) -> String`
 
 Negative indices are normalized like Python indexing.
+
+## `index_nonnegative(x, i)`
+
+Same arity, accepted types, result types, and payload access as `index`. Both
+operands are evaluated once, left to right, with the ordinary binary builtin
+operation fuel charge. An index below zero or at least the sequence length
+raises `ValueError`; negative indices are never normalized. Invalid argument
+types raise `TypeError` before index bounds are checked.
 
 ## `append(xs, x)`
 
