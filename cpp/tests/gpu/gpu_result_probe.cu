@@ -184,9 +184,12 @@ std::string probe(const BytecodeProgram& program, const CaseBindings& inputs, in
     checked(cudaMalloc(reinterpret_cast<void**>(&device.d_region_memo_values),
                        sizeof(Value) * region_memo_capacity));
   }
-  const DRegionWorkspace region_workspace{
-      device.d_region_frames, device.d_region_memo_keys, device.d_region_memo_values,
-      region_frame_capacity, region_memo_capacity};
+  DRegionWorkspace region_workspace{};
+  region_workspace.frames = device.d_region_frames;
+  region_workspace.memo_keys = device.d_region_memo_keys;
+  region_workspace.memo_values = device.d_region_memo_values;
+  region_workspace.frame_capacity = region_frame_capacity;
+  region_workspace.memo_capacity = region_memo_capacity;
 #endif
   upload(packed.packed_case_local_vals, &device.d_shared_case_local_vals);
   upload(packed.packed_case_local_set, &device.d_shared_case_local_set);
@@ -253,4 +256,3 @@ std::string probe(const BytecodeProgram& program, const CaseBindings& inputs, in
   }
 }
 }  // namespace gagp::migration
-
