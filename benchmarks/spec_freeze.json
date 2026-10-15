@@ -14,15 +14,15 @@
     },
     {
       "path": "spec/bytecode_isa.md",
-      "sha256": "4a7b5dc3342eff45341b5580962c9ff5d99257cb7696cd61161668f0cbbdf167"
+      "sha256": "1501967e91234fd4755222b812de93a857f953bf7475a1bf56cf2ae4f3f37808"
     },
     {
       "path": "spec/bytecode_format.md",
-      "sha256": "fc5d1dc337267816874032f8056bb5bea90d2078a9fe6977f83dcf01ada49ae5"
+      "sha256": "4b3348cac3321b1c1bc17bc730493a205ef94c15137425f6f9dbea304c840b5e"
     },
     {
       "path": "spec/builtins_base.md",
-      "sha256": "4cf26ff9c1626d97e07c9ab89f04b1535d823dd731282de50b82081daacdd0e8"
+      "sha256": "a38824ac470b1a70e97b036f244a99b114771074bcb75109edac84c2d8776dc2"
     },
     {
       "path": "spec/builtins_runtime.md",
@@ -30,7 +30,7 @@
     },
     {
       "path": "spec/fitness.md",
-      "sha256": "b796bc6a9abc6ae3ef37c3dccff8120c308911bef78d9f0a7ef6d8decf98df8a"
+      "sha256": "0e7fcc26c82ea44ed9547cb23d9acc2a3e7b825a224793d9bb9d4982854c9f6a"
     },
     {
       "path": "spec/fitness_cases.md",
