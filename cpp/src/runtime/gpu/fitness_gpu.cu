@@ -59,9 +59,6 @@ struct PayloadWorkspaceStorage {
       int entries,int values,int bytes,bool indexed,std::size_t extra_bytes=0) {
     workspace=prototype;
     workspace.compact_intlist_cells=workspace.private_intlists && workspace.compact_intlist_cells;
-    if(!workspace.compact_intlist_cells)workspace.intlist_cell_stride=1;
-    static_assert(threads==32,"interleaved compact cells require 32 physical lanes");
-    if(workspace.intlist_cell_stride!=1 && workspace.intlist_cell_stride!=threads)return false;
     if(workspace.compact_intlist_cells)workspace.payload_list_values=nullptr;
     else workspace.payload_intlist_cells=nullptr;
     workspace.window_executor=false;workspace.coordinate_executor=false;
@@ -871,10 +868,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   const bool request_trivial=trivial_setting && std::string(trivial_setting)=="1";
   region_workspace.trivial_phases=request_trivial && private_intlists;
   region_workspace.compact_intlist_cells=private_intlists && request_compact;
-  const char* soa_setting=std::getenv("GAGP_GPU_INTLIST_CELLS_SOA");
-  const bool request_cell_soa=soa_setting && std::string(soa_setting)=="1";
-  region_workspace.intlist_cell_stride=region_workspace.compact_intlist_cells && request_cell_soa?
-      PayloadWorkspaceStorage::threads:1;
   region_workspace.shared_list_value_count=static_cast<int>(payload_pack.list_values.size());
   region_workspace.payload_epoch_index=payload_index && std::getenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX") &&
       std::string(std::getenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX"))=="1";
@@ -1489,8 +1482,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         "-trivial-phases":"-trivial-phases-declined";
     if(request_compact)out.execution_profile+=region_workspace.compact_intlist_cells?
         "-compact-intlist-cells":"-compact-intlist-cells-declined";
-    if(request_cell_soa)out.execution_profile+=region_workspace.intlist_cell_stride==32?
-        "-intlist-cells-soa":"-intlist-cells-soa-declined";
     if(request_dense_memo)out.execution_profile+=region_workspace.dense_coordinate_memo?
         "-dense-coordinate-memo":"-dense-coordinate-memo-declined";
     if(global_payload) {
