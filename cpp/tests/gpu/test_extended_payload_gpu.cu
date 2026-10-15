@@ -1,5 +1,6 @@
 #include <cuda_runtime.h>
 #include <iostream>
+#include <new>
 #include <string>
 #include <utility>
 #include <vector>
@@ -117,10 +118,13 @@ BytecodeProgram invocation(BoundedRegionSegment segment, std::int64_t state) {
   return program;
 }
 
-__global__ void inspect_extended_payload(int* failures) {
+using ExtendedPayloadState = gagp::gpu_detail::DPayloadFlavorTraits<
+    gagp::gpu_detail::DPayloadFlavor::ExtendedMixed>::State;
+
+__global__ void inspect_extended_payload(ExtendedPayloadState* arena, int* failures) {
   using namespace gagp::gpu_detail;
   constexpr auto flavor = DPayloadFlavor::ExtendedMixed;
-  DPayloadFlavorTraits<flavor>::State state{};
+  auto& state = *arena;
   DPayloadTables tables{};
   Value list;
   ErrCode error = ErrCode::Value;
@@ -266,11 +270,20 @@ bool test_extended_list_fitness() {
 bool test_extended_payload() {
   int* failures = nullptr;
   if (cudaMallocManaged(&failures, sizeof(int)) != cudaSuccess) return false;
+  ExtendedPayloadState* arena = nullptr;
+  if (cudaMallocManaged(&arena, sizeof(ExtendedPayloadState)) != cudaSuccess) {
+    cudaFree(failures);
+    return false;
+  }
+  // Keep test-kernel optimization bounded; the fitness tests below exercise the
+  // production executor's local arena. These builtin checks use identical state.
+  new (arena) ExtendedPayloadState{};
   *failures = -1;
-  inspect_extended_payload<<<1, 1>>>(failures);
+  inspect_extended_payload<<<1, 1>>>(arena, failures);
   const auto status = cudaDeviceSynchronize();
   const bool passed = status == cudaSuccess && *failures == 0;
   if (!passed) std::cerr << "extended payload error " << *failures << '\n';
+  cudaFree(arena);
   cudaFree(failures);
   return passed;
 }
