@@ -13,6 +13,8 @@ enum class DPayloadFlavor : std::uint8_t {
   BoundIntListViews = 5,
   ExtendedMixed = 6,
   ArenaMixed = 7,
+  IndexedExtended = 8,
+  IndexedArena = 9,
 };
 
 }  // namespace gagp::gpu_detail

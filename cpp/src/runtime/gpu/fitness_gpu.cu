@@ -849,6 +849,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
           extended_payload |= needs_payload(phase.program.code);
       }
     }
+    const bool payload_index = extended_payload && !use_views && std::getenv("GAGP_GPU_PAYLOAD_INDEX") &&
+        std::string(std::getenv("GAGP_GPU_PAYLOAD_INDEX"))!="0";
     const auto kernel_t0 = std::chrono::steady_clock::now();
     if (direct_root) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::BoundIntListViews, true, true>
@@ -886,6 +888,18 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, impl_->d_case_order, nullptr, indices.compact_queue);
+    } else if (payload_index && has_regions && extended_payload) {
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedExtended, true>
+          <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
+              static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
+              impl_->d_shared_case_local_vals, impl_->d_shared_case_local_set, impl_->d_expected,
+              dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
+              dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
+              dev.d_phase_code, dev.d_phase_consts,
+              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness,
+              dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
+              dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
+              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, nullptr, nullptr, indices.compact_queue);
     } else if (has_regions && extended_payload) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::ExtendedMixed, true>
           <<<static_cast<unsigned int>(region_blocks), impl_->blocksize, shared_bytes>>>(
@@ -910,6 +924,15 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, nullptr, nullptr, indices.compact_queue);
+    } else if (payload_index && extended_payload) {
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedExtended>
+          <<<static_cast<unsigned int>(programs.size()), impl_->blocksize, shared_bytes>>>(
+              static_cast<int>(programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
+              impl_->d_shared_case_local_vals, impl_->d_shared_case_local_set, impl_->d_expected,
+              dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
+              dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
+              dev.d_phase_code, dev.d_phase_consts,
+              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness, nullptr, 0, nullptr, 0, nullptr, 0, region_workspace, dev.d_case_counts);
     } else if (extended_payload) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::ExtendedMixed>
           <<<static_cast<unsigned int>(programs.size()), impl_->blocksize, shared_bytes>>>(
@@ -1007,7 +1030,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       const std::size_t replay_frame_size=!replay_workspace.compact_frames?sizeof(gpu_detail::DRegionFrame):
           replay_workspace.two_state_frames?sizeof(gpu_detail::DCompactPairRegionFrame):sizeof(gpu_detail::DCompactRegionFrame);
       const std::size_t payload_per_thread=std::size_t(replay_entries)*(sizeof(gpu_detail::DStringPayloadEntry)+sizeof(gpu_detail::DListPayloadEntry))+
-          std::size_t(replay_values)*sizeof(Value)+replay_bytes;
+          std::size_t(replay_values)*sizeof(Value)+replay_bytes+
+          (payload_index?std::size_t(replay_entries)*2*sizeof(int):0);
       const std::size_t frame_per_thread=replay_frame_size*replay_workspace.frame_capacity;
       const std::size_t memo_keys_per_thread=sizeof(std::int64_t)*gpu_detail::DMAX_REGION_STATES*replay_workspace.memo_capacity;
       const std::size_t memo_values_per_thread=sizeof(Value)*replay_workspace.memo_capacity;
@@ -1020,6 +1044,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       int* replay_indices=nullptr;
       if(!replay_storage.allocate(reinterpret_cast<void**>(&replay_indices),sizeof(int)*replay_programs.size()) ||
           cudaMemcpy(replay_indices,replay_programs.data(),sizeof(int)*replay_programs.size(),cudaMemcpyHostToDevice)!=cudaSuccess ||
+          (payload_index && !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.payload_list_index),slots*replay_entries*2*sizeof(int))) ||
           !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.payload_string_entries),slots*replay_entries*sizeof(gpu_detail::DStringPayloadEntry)) ||
           !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.payload_list_entries),slots*replay_entries*sizeof(gpu_detail::DListPayloadEntry)) ||
           !replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.payload_string_bytes),slots*replay_bytes) ||
@@ -1032,6 +1057,19 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       if(cudaEventCreate(&replay_events.start)!=cudaSuccess || cudaEventCreate(&replay_events.end)!=cudaSuccess ||
           cudaEventRecord(replay_events.start)!=cudaSuccess)
         return fitness_eval_single_error(ErrCode::Value,"cuda payload replay timing failure");
+      if(payload_index) {
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true>
+          <<<static_cast<unsigned>(replay_blocks),replay_threads,kernel_shared_bytes(packed.max_code_len,impl_->blocksize)>>>(
+              static_cast<int>(replay_programs.size()),dev.d_consts,dev.d_code,dev.d_metas,
+              impl_->d_shared_case_local_vals,impl_->d_shared_case_local_set,impl_->d_expected,
+              dev.d_string_payload_entries,static_cast<int>(payload_pack.string_entries.size()),dev.d_string_payload_bytes,
+              dev.d_list_payload_entries,static_cast<int>(payload_pack.list_entries.size()),dev.d_list_payload_values,
+              dev.d_phase_code,dev.d_phase_consts,impl_->fuel,impl_->penalty,impl_->policy,dev.d_fitness,
+              dev.d_region_segments,static_cast<int>(packed.region_segments.size()),
+              dev.d_region_phases,static_cast<int>(packed.region_phases.size()),
+              dev.d_region_bindings,static_cast<int>(packed.region_bindings.size()),replay_workspace,
+              dev.d_case_counts,nullptr,replay_indices);
+      } else {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::ArenaMixed,true>
           <<<static_cast<unsigned>(replay_blocks),replay_threads,kernel_shared_bytes(packed.max_code_len,impl_->blocksize)>>>(
               static_cast<int>(replay_programs.size()),dev.d_consts,dev.d_code,dev.d_metas,
@@ -1043,6 +1081,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_region_phases,static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings,static_cast<int>(packed.region_bindings.size()),replay_workspace,
               dev.d_case_counts,nullptr,replay_indices);
+      }
       const auto replay_launch_error=cudaGetLastError();
       const auto replay_event_error=cudaEventRecord(replay_events.end);
       const auto replay_sync_error=cudaDeviceSynchronize();
@@ -1090,6 +1129,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
 
     out.ok = true;
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
+    if(payload_index)out.execution_profile+="-list-index";
     if(out.payload_replay_programs)out.execution_profile+="-gpu-arena-replay";
     if (use_views && impl_->d_case_order) out.execution_profile += "-sorted";
     if (direct_phases) out.execution_profile += "-direct";

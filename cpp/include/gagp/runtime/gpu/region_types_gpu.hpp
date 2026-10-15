@@ -91,6 +91,7 @@ struct DRegionWorkspace {
   DListPayloadEntry* payload_list_entries = nullptr;
   char* payload_string_bytes = nullptr;
   Value* payload_list_values = nullptr;
+  int* payload_list_index = nullptr;
   int payload_entry_capacity = 0;
   int payload_value_capacity = 0;
   int payload_byte_capacity = 0;

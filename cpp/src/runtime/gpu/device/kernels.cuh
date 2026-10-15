@@ -77,13 +77,15 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     const DRegionPhaseBinding* region_bindings = nullptr, int region_binding_count = 0,
     DRegionWorkspace workspace = {}, unsigned int* case_counts = nullptr, const int* case_order = nullptr, const int* program_indices = nullptr, int* next_program = nullptr) {
   const int tid = static_cast<int>(threadIdx.x);
-  const int fitness_lanes = Flavor == DPayloadFlavor::ArenaMixed ? workspace.fitness_lanes : blockDim.x;
-  if constexpr (Flavor == DPayloadFlavor::ArenaMixed) {
+  const int fitness_lanes = (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) ? workspace.fitness_lanes : blockDim.x;
+  if constexpr ((Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena)) {
     const std::size_t slot = static_cast<std::size_t>(blockIdx.x) * blockDim.x + tid;
     workspace.payload_string_entries += slot * workspace.payload_entry_capacity;
     workspace.payload_list_entries += slot * workspace.payload_entry_capacity;
     workspace.payload_string_bytes += slot * workspace.payload_byte_capacity;
     workspace.payload_list_values += slot * workspace.payload_value_capacity;
+    if constexpr (Flavor == DPayloadFlavor::IndexedArena)
+      workspace.payload_list_index += slot * workspace.payload_entry_capacity * 2;
   }
   if constexpr (EnableRegions) {
     const std::size_t block_base = static_cast<std::size_t>(blockIdx.x) * blockDim.x;
@@ -120,7 +122,7 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
        logical_idx < static_cast<std::size_t>(program_count);) {
   const std::size_t prog_idx = program_indices ? program_indices[logical_idx] : logical_idx;
 
-  if constexpr (Flavor == DPayloadFlavor::ArenaMixed) {
+  if constexpr ((Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena)) {
     if (tid == 0) {
       workspace.payload_overflows[prog_idx] = 0;
       if (case_counts) for (int i=0;i<6;++i)case_counts[prog_idx*6+i]=0;
@@ -278,7 +280,7 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
     }
     fitness_out[prog_idx] = total_score;
   }
-  if constexpr (!EnableRegions && Flavor != DPayloadFlavor::ArenaMixed) break;
+  if constexpr (!EnableRegions && Flavor != DPayloadFlavor::ArenaMixed && Flavor != DPayloadFlavor::IndexedArena) break;
   // Thread 0 must finish consuming the reduction before shared code is reused.
   // Workspace remains owned by the physical block when it takes another row.
   if (next_program) {

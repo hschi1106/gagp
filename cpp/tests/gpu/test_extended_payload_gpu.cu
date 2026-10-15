@@ -1,4 +1,5 @@
 #include <cuda_runtime.h>
+#include <cstdlib>
 #include <iostream>
 #include <new>
 #include <string>
@@ -267,6 +268,48 @@ bool test_extended_list_fitness() {
                "50-element list fitness produced errors");
 }
 
+__global__ void inspect_private_list_index(gpu_detail::DIndexedExtendedPayloadState* state, int* failures) {
+  using namespace gpu_detail;
+  *failures=0;
+  DPayloadTables tables;
+  Value external[1]={Value::from_int(991)};
+  tables.list_values=external;
+  for(int i=0;i<800;++i) {
+    state->list_values[i]=Value::from_int(i);
+    const auto token=d_make_list_hash_len(ValueTag::IntList,i+1,1);
+    if(!d_register_local_list(*state,token,i,1)){*failures=1;return;}
+  }
+  for(int i=799;i>=0;--i) {
+    const Value* values=nullptr;int count=0;
+    const auto token=d_make_list_hash_len(ValueTag::IntList,i+1,1);
+    if(!d_lookup_list_payload(tables,*state,token,values,count) || count!=1 || values[0].i!=i){*failures=2;return;}
+  }
+  // Keep the first canonical identity even when the nonlogical policy records
+  // another physical entry with the same key and a different backing offset.
+  const auto first=d_make_list_hash_len(ValueTag::IntList,1,1);
+  if(!d_register_local_list(*state,first,799,1) || d_find_local_list_entry(*state,first)!=0){*failures=3;return;}
+  state->logical_list_limit=65536;
+  const int before=state->list_entry_count;
+  if(!d_register_local_list(*state,first,798,1) || state->list_entry_count!=before){*failures=4;return;}
+  const auto alias=d_make_list_hash_len(ValueTag::IntList,99999,1);
+  if(!d_register_local_list(*state,alias,-1,1)){*failures=5;return;}
+  const Value* values=nullptr;int count=0;
+  if(!d_lookup_list_payload(tables,*state,alias,values,count) || values[0].i!=991){*failures=6;return;}
+}
+
+bool test_private_list_index() {
+  gpu_detail::DIndexedExtendedPayloadState* state=nullptr;int* failures=nullptr;
+  if(cudaMallocManaged(&state,sizeof(*state))!=cudaSuccess)return false;
+  if(cudaMallocManaged(&failures,sizeof(int))!=cudaSuccess){cudaFree(state);return false;}
+  new(state)gpu_detail::DIndexedExtendedPayloadState{};
+  *failures=-1;
+  inspect_private_list_index<<<1,1>>>(state,failures);
+  const auto status=cudaDeviceSynchronize();
+  const bool passed=status==cudaSuccess && *failures==0;
+  if(!passed)std::cerr<<"private payload index error "<<*failures<<'\n';
+  cudaFree(state);cudaFree(failures);return passed;
+}
+
 bool test_payload_replay_fitness() {
   // Two appends per frame allocate >8192 cells without exceeding the source
   // logical arena. The original ExtendedMixed evaluation must overflow.
@@ -294,7 +337,13 @@ bool test_payload_replay_fitness() {
     for(int j=0;j<i%7;++j)expected[j]=Value::from_int(-1);
     answers.push_back(payload::make_int_list_value(expected));
   }
-  for(unsigned limit:{65536u,100u}) {
+  const char* original_index=std::getenv("GAGP_GPU_PAYLOAD_INDEX");
+  const std::string saved_index=original_index?original_index:"";
+  struct RestoreIndex { bool existed;std::string value;
+    ~RestoreIndex(){if(existed)setenv("GAGP_GPU_PAYLOAD_INDEX",value.c_str(),1);else unsetenv("GAGP_GPU_PAYLOAD_INDEX");}
+  } restore{original_index!=nullptr,saved_index};
+  for(const char* indexed:{"0","1"}) for(unsigned limit:{65536u,100u}) {
+    setenv("GAGP_GPU_PAYLOAD_INDEX",indexed,1);
     FitnessPolicy policy{FitnessMetric::Levenshtein,FitnessProximity::Discounted};
     policy.list_allocation_limit=limit;
     const auto cpu=eval_fitness_cpu({program,short_program},cases,answers,10000,1000.0,512,policy);
@@ -338,7 +387,7 @@ int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_extended_payload() || !test_extended_list_fitness() || !test_payload_replay_fitness() ||
+  if (!test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

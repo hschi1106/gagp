@@ -545,7 +545,7 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
 
   DPayloadStateStorage<Flavor> payload_state_storage;
   auto& payload_state = payload_state_storage.ref();
-  if constexpr (Flavor == DPayloadFlavor::ArenaMixed) {
+  if constexpr ((Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena)) {
     payload_state.string_entries = workspace.payload_string_entries;
     payload_state.list_entries = workspace.payload_list_entries;
     payload_state.string_bytes = workspace.payload_string_bytes;
@@ -554,6 +554,11 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
     payload_state.list_entry_capacity = workspace.payload_entry_capacity;
     payload_state.kMaxStringBytes = workspace.payload_byte_capacity;
     payload_state.kMaxListValues = workspace.payload_value_capacity;
+  }
+  if constexpr (Flavor == DPayloadFlavor::IndexedArena) {
+    payload_state.list_index=workspace.payload_list_index;
+    payload_state.list_index_capacity=workspace.payload_entry_capacity*2;
+    for(int i=0;i<payload_state.list_index_capacity;++i)payload_state.list_index[i]=0;
   }
   payload_state.logical_list_limit = policy.list_allocation_limit;
   if (policy.list_allocation_limit && shared_case_local_vals && shared_case_local_set) {

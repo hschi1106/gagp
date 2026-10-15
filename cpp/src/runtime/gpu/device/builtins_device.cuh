@@ -16,6 +16,7 @@ struct DPayloadTables {
 
 template <int MaxStringEntries, int MaxListEntries, int MaxStringBytes, int MaxListValues>
 struct DThreadPayloadStateT {
+  static constexpr bool kIndexedLists = false;
   static constexpr int kMaxStringEntries = MaxStringEntries;
   static constexpr int kMaxListEntries = MaxListEntries;
   static constexpr int kMaxStringBytes = MaxStringBytes;
@@ -49,6 +50,7 @@ using DExtendedPayloadState = DThreadPayloadStateT<1024, 1024, 8192, 8192>;
 
 // Runtime-sized replay storage. No large per-thread local arrays.
 struct DArenaPayloadState {
+  static constexpr bool kIndexedLists = false;
   static constexpr int kMaxStringEntries = 1;
   static constexpr int kMaxListEntries = 1;
   DStringPayloadEntry* string_entries = nullptr;
@@ -63,6 +65,23 @@ struct DArenaPayloadState {
   unsigned long long logical_list_used = 0;
   bool physical_capacity_exceeded = false;
 };
+
+// Opt-in variants keep the default evaluator's storage layout unchanged.
+struct DIndexedExtendedPayloadState : DExtendedPayloadState {
+  static constexpr bool kIndexedLists = true;
+  static constexpr int list_index_capacity = 2048;
+  int list_index[list_index_capacity];
+};
+struct DIndexedArenaPayloadState : DArenaPayloadState {
+  static constexpr bool kIndexedLists = true;
+  int list_index_capacity = 0;
+  int* list_index = nullptr;
+};
+
+template <DPayloadFlavor Flavor>
+inline constexpr bool d_exact_payload_flavor = Flavor == DPayloadFlavor::ExtendedMixed ||
+    Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedExtended ||
+    Flavor == DPayloadFlavor::IndexedArena;
 
 template <DPayloadFlavor Flavor>
 struct DPayloadFlavorTraits;
@@ -118,6 +137,15 @@ struct DPayloadFlavorTraits<DPayloadFlavor::ArenaMixed> {
   using State = DArenaPayloadState;
   static constexpr bool kHasString = true;
   static constexpr bool kHasList = true;
+};
+
+template <>
+struct DPayloadFlavorTraits<DPayloadFlavor::IndexedExtended> : DPayloadFlavorTraits<DPayloadFlavor::ExtendedMixed> {
+  using State = DIndexedExtendedPayloadState;
+};
+template <>
+struct DPayloadFlavorTraits<DPayloadFlavor::IndexedArena> : DPayloadFlavorTraits<DPayloadFlavor::ArenaMixed> {
+  using State = DIndexedArenaPayloadState;
 };
 
 __device__ inline long long d_norm_slice_idx(long long idx, long long n) {
@@ -390,6 +418,49 @@ __device__ inline bool d_lookup_string_payload(const DPayloadTables& tables,
   return false;
 }
 
+__device__ inline unsigned d_private_list_bucket(const Value& value, unsigned capacity) {
+  auto bits=static_cast<std::uint64_t>(value.i) ^ (static_cast<std::uint64_t>(value.tag)*0x9e3779b97f4a7c15ULL);
+  bits ^= bits >> 33; bits *= 0xff51afd7ed558ccdULL; bits ^= bits >> 33;
+  return static_cast<unsigned>(bits) & (capacity-1);
+}
+
+template <typename State>
+__device__ inline int d_find_local_list_entry(const State& st, const Value& value) {
+  if constexpr (State::kIndexedLists) {
+    unsigned slot=d_private_list_bucket(value,st.list_index_capacity);
+    for(int probe=0;probe<st.list_index_capacity;++probe) {
+      const int encoded=st.list_index[slot];
+      if(!encoded)return -1;
+      const int entry=encoded-1;
+      if(st.list_entries[entry].tag==value.tag && st.list_entries[entry].packed==value.i)return entry;
+      slot=(slot+1)&(st.list_index_capacity-1);
+    }
+    return -1;
+  } else {
+    for(int i=0;i<st.list_entry_count;++i)
+      if(st.list_entries[i].tag==value.tag && st.list_entries[i].packed==value.i)return i;
+    return -1;
+  }
+}
+
+template <typename State>
+__device__ inline bool d_index_local_list_entry(State& st, const Value& value, int entry) {
+  if constexpr (State::kIndexedLists) {
+    unsigned slot=d_private_list_bucket(value,st.list_index_capacity);
+    for(int probe=0;probe<st.list_index_capacity;++probe) {
+      const int encoded=st.list_index[slot];
+      if(!encoded){st.list_index[slot]=entry+1;return true;}
+      const auto& first=st.list_entries[encoded-1];
+      // Original linear lookup returns the first registration of an identity,
+      // including a repeated canonical hash or an immutable input-window alias.
+      if(first.tag==value.tag && first.packed==value.i)return true;
+      slot=(slot+1)&(st.list_index_capacity-1);
+    }
+    st.physical_capacity_exceeded=true;return false;
+  }
+  return true;
+}
+
 template <typename State>
 __device__ inline bool d_lookup_list_payload(const DPayloadTables& tables,
                                              const State& st,
@@ -398,13 +469,12 @@ __device__ inline bool d_lookup_list_payload(const DPayloadTables& tables,
                                              int& len) {
   if (!d_is_typed_list_tag(v.tag)) return false;
   if constexpr (State::kMaxListEntries > 0) {
-    for (int i = 0; i < st.list_entry_count; ++i) {
-      if (st.list_entries[i].tag == v.tag && st.list_entries[i].packed == v.i) {
-        const int offset = st.list_entries[i].offset;
-        ptr = offset >= 0 ? st.list_values + offset : tables.list_values + (-offset - 1);
-        len = st.list_entries[i].len;
-        return true;
-      }
+    const int entry=d_find_local_list_entry(st,v);
+    if(entry>=0) {
+      const int offset=st.list_entries[entry].offset;
+      ptr=offset>=0?st.list_values+offset:tables.list_values+(-offset-1);
+      len=st.list_entries[entry].len;
+      return true;
     }
   }
   const int idx = d_find_list_payload_entry(tables, v.tag, v.i);
@@ -456,13 +526,13 @@ __device__ inline bool d_register_local_list(State& st, const Value& v, int offs
   }
   // Under the logical arena policy, physical registry entries are identities,
   // not allocation events. Keep the first resident identical-key payload.
-  if (st.logical_list_limit) for (int i = 0; i < st.list_entry_count; ++i)
-    if (st.list_entries[i].tag == v.tag && st.list_entries[i].packed == v.i) return true;
+  if (st.logical_list_limit && d_find_local_list_entry(st,v)>=0) return true;
   if (st.list_entry_count >= st.list_entry_capacity) {
     st.physical_capacity_exceeded = true; return false;
   }
-  st.list_entries[st.list_entry_count++] = DListPayloadEntry{v.tag, v.i, offset, len};
-  return true;
+  const int entry=st.list_entry_count++;
+  st.list_entries[entry] = DListPayloadEntry{v.tag, v.i, offset, len};
+  return d_index_local_list_entry(st,v,entry);
 }
 
 template <typename State>
@@ -644,7 +714,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           return true;
         }
       }
-      if constexpr ((Flavor == DPayloadFlavor::ExtendedMixed || Flavor == DPayloadFlavor::ArenaMixed)) {
+      if constexpr (d_exact_payload_flavor<Flavor>) {
         if (d_has_exact_payload(tables, payload_state, a) && d_has_exact_payload(tables, payload_state, b)) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
       }
     const std::uint32_t len = Value::saturating_len_add(Value::container_len(a), Value::container_len(b));
@@ -680,7 +750,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           return true;
         }
       }
-      if constexpr ((Flavor == DPayloadFlavor::ExtendedMixed || Flavor == DPayloadFlavor::ArenaMixed)) {
+      if constexpr (d_exact_payload_flavor<Flavor>) {
         if (d_has_exact_payload(tables, payload_state, a) && d_has_exact_payload(tables, payload_state, b)) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
       }
     const std::uint32_t len = Value::saturating_len_add(Value::container_len(a), Value::container_len(b));
@@ -735,7 +805,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           return true;
         }
       }
-      if constexpr ((Flavor == DPayloadFlavor::ExtendedMixed || Flavor == DPayloadFlavor::ArenaMixed)) {
+      if constexpr (d_exact_payload_flavor<Flavor>) {
         if (d_has_exact_payload(tables, payload_state, x)) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
       }
     const std::uint64_t out_h = Value::slice_container_hash48(1U, x, lo.i, hi.i);
@@ -752,11 +822,8 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         // earlier append-only local allocation, preserving exact content hashes.
         int source_offset = 0;
         bool found = false;
-        for (int i = 0; i < st.list_entry_count; ++i) {
-          if (st.list_entries[i].tag == x.tag && st.list_entries[i].packed == x.i) {
-            source_offset = st.list_entries[i].offset; found = true; break;
-          }
-        }
+        const int local_entry=d_find_local_list_entry(st,x);
+        if(local_entry>=0){source_offset=st.list_entries[local_entry].offset;found=true;}
         if (!found) {
           const int entry = d_find_list_payload_entry(tables, x.tag, x.i);
           if (entry >= 0) { source_offset = -tables.list_entries[entry].offset - 1; found = true; }
@@ -784,7 +851,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         return true;
       }
     }
-    if constexpr ((Flavor == DPayloadFlavor::ExtendedMixed || Flavor == DPayloadFlavor::ArenaMixed)) {
+    if constexpr (d_exact_payload_flavor<Flavor>) {
         if (d_has_exact_payload(tables, payload_state, x)) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
       }
     const std::uint64_t out_h = Value::slice_container_hash48(d_list_type_code(x), x, lo.i, hi.i);
@@ -823,7 +890,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           return true;
         }
       }
-      if constexpr ((Flavor == DPayloadFlavor::ExtendedMixed || Flavor == DPayloadFlavor::ArenaMixed)) {
+      if constexpr (d_exact_payload_flavor<Flavor>) {
         if (d_has_exact_payload(tables, payload_state, x)) { err = ErrCode::Value; return false; }
       }
       out = Value::from_fallback_token(Value::index_container_token64(5U, x, j));
@@ -838,7 +905,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         return true;
       }
     }
-    if constexpr ((Flavor == DPayloadFlavor::ExtendedMixed || Flavor == DPayloadFlavor::ArenaMixed)) {
+    if constexpr (d_exact_payload_flavor<Flavor>) {
         if (d_has_exact_payload(tables, payload_state, x)) { err = ErrCode::Value; return false; }
       }
     out = Value::from_fallback_token(Value::index_container_token64(d_list_type_code(x), x, j));
@@ -875,7 +942,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         return true;
       }
     }
-    if constexpr ((Flavor == DPayloadFlavor::ExtendedMixed || Flavor == DPayloadFlavor::ArenaMixed)) {
+    if constexpr (d_exact_payload_flavor<Flavor>) {
         if (d_has_exact_payload(tables, payload_state, xs)) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
       }
     const std::uint32_t len = Value::saturating_len_add(Value::container_len(xs), 1U);
@@ -910,7 +977,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         return true;
       }
     }
-    if constexpr ((Flavor == DPayloadFlavor::ExtendedMixed || Flavor == DPayloadFlavor::ArenaMixed)) {
+    if constexpr (d_exact_payload_flavor<Flavor>) {
         if (d_has_exact_payload(tables, payload_state, xs)) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
       }
     const std::uint32_t len = Value::saturating_len_add(Value::container_len(xs), 1U);
@@ -942,7 +1009,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           return true;
         }
       }
-      if constexpr ((Flavor == DPayloadFlavor::ExtendedMixed || Flavor == DPayloadFlavor::ArenaMixed)) {
+      if constexpr (d_exact_payload_flavor<Flavor>) {
         if (d_has_exact_payload(tables, payload_state, x)) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
       }
       out = Value::from_fallback_token(Value::pack_container_payload(Value::reverse_container_hash48(7U, x),
@@ -969,7 +1036,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         return true;
       }
     }
-    if constexpr ((Flavor == DPayloadFlavor::ExtendedMixed || Flavor == DPayloadFlavor::ArenaMixed)) {
+    if constexpr (d_exact_payload_flavor<Flavor>) {
         if (d_has_exact_payload(tables, payload_state, x)) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
       }
     out = d_make_list_hash_len(x.tag, Value::reverse_container_hash48(d_list_type_code(x), x), Value::container_len(x));
@@ -1046,7 +1113,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         return true;
       }
     }
-    if constexpr ((Flavor == DPayloadFlavor::ExtendedMixed || Flavor == DPayloadFlavor::ArenaMixed)) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
+    if constexpr (d_exact_payload_flavor<Flavor>) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
     const char c = static_cast<char>(args[0].i);
     out = Value::from_string_hash_len(d_hash_bytes(&c, 1), 1U);
     return true;
@@ -1136,7 +1203,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         return true;
       }
     }
-    if constexpr ((Flavor == DPayloadFlavor::ExtendedMixed || Flavor == DPayloadFlavor::ArenaMixed)) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
+    if constexpr (d_exact_payload_flavor<Flavor>) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
     out = Value::from_string_hash_len(d_hash_bytes(tmp, len), static_cast<std::uint32_t>(len));
     return true;
   }
@@ -1163,7 +1230,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           return true;
         }
       }
-      if constexpr ((Flavor == DPayloadFlavor::ExtendedMixed || Flavor == DPayloadFlavor::ArenaMixed)) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
+      if constexpr (d_exact_payload_flavor<Flavor>) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
       const char c = static_cast<char>(x.i);
       out = Value::from_string_hash_len(d_hash_bytes(&c, 1), 1U);
       return true;
@@ -1184,7 +1251,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           return true;
         }
       }
-      if constexpr ((Flavor == DPayloadFlavor::ExtendedMixed || Flavor == DPayloadFlavor::ArenaMixed)) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
+      if constexpr (d_exact_payload_flavor<Flavor>) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
       std::uint64_t h = Value::fnv1a_init();
       h = Value::fnv1a_mix_u8(h, 0xA1U);
       h = Value::fnv1a_mix_u64(h, 1U);
