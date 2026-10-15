@@ -1,0 +1,741 @@
+{
+  "scope": "CPU canonical resource audit and descriptive quality analysis; no GPU jobs",
+  "timing_status": "Exploratory timings superseded by certification-inside-wall correction; no timing conclusions here",
+  "audit_binary": "/tmp/gagp-depth-quality-20261015/audit",
+  "audit_binary_sha256": "e44b528a29494224fe8ba25fcb4086f416072cd7e4fa2d89f966e651be4028ae",
+  "audit_source": "#include <fstream>\n#include <iostream>\n#include \"gagp/cli/commands.hpp\"\n#include \"gagp/evolution/grammar/definition.hpp\"\n#include \"gagp/evolution/grammar/membership.hpp\"\nint main(int argc,char**argv)try{\n using namespace gagp;using namespace gagp::evo;\n auto g=grammar::compile_grammar(grammar::load_definition(argv[1]));\n std::ifstream f(argv[2]);std::string text((std::istreambuf_iterator<char>(f)),{});\n auto j=cli_detail::JsonParser(text,{true,512}).parse();unsigned index=0;\n for(const auto& x:j.object_v.at(\"programs\").array_v){ProgramGenome p;p.ast=cli_detail::decode_ast_json(x);auto w=grammar::reconstruct_derivation(g,p);\n std::cout<<index++<<','<<w.resources->subtree().peak()<<','<<w.resources->subtree().nodes;\n for(const auto& h:w.holes)std::cout<<','<<w.resources->subtree(h.ast_begin).peak();std::cout<<'\\n';}\n}catch(std::exception&e){std::cerr<<e.what()<<'\\n';return 1;}\n",
+  "runs": [
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "profile": "before",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.before.s0.json": "af0789192c1b59b1df84204e72c7dd12becb3bc8621f52454d3693ded2028726",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.before.s0.final.json": "4086525ce51a0f6ee68bca3b82227e692e138b74c70d0250cfe9a54b99198ecf",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.before.s0.heldout.json": "380e62163308d2f74e09fb0c78c514eb2b92cbe2704ffad745fbde913de88f2b",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/house_robber/grammar.json": "ccedfc42755cd3a15a778c9361922a684f9e0dbd9a89a063e74ccd6166016bb9",
+        "/tmp/gagp-depth-quality-20261015/house_robber.before.s0.csv": "5f1a3e7f0ac2a0edec23e2853126f0d2f2715686f91afa06c3596d0c6b1ba51e"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.before.s0.final.json"
+      ],
+      "generation_count": 32,
+      "training_loss": 5470,
+      "heldout_loss": 5808,
+      "best_phase_depths": [
+        13,
+        6
+      ],
+      "best_projected_depth": 13,
+      "cap_admissible_final_members": 103,
+      "best_cap_admissible_final": {
+        "training_loss": 6105,
+        "index": 41,
+        "projected_depth": 7
+      },
+      "mean_final_nodes": 211.861328125,
+      "unique_final_genomes": 1019,
+      "distinct_final_fitnesses": 293,
+      "changed_fraction": 0.925384521484375,
+      "last8_changed_fraction": 0.9320068359375,
+      "crossover_rejected_attempts": 4171,
+      "operator_fallback_children": 1,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "house_robber",
+      "seed": 0,
+      "profile": "projected",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.projected.s0.json": "109a7da8828e66ad61ae30ae5ca35496bceea0e30732d7367b0b8fda2a876d94",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.projected.s0.final.json": "232504c9228b68e8935b0d6a746b480c9c8282e34f9a77f03d2b1810b30d547d",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.projected.s0.heldout.json": "9e07539f59cab23f2c31dec26569a1ea2e5bf332d3f125666077871c38ff825e",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/house_robber/grammar.json": "ccedfc42755cd3a15a778c9361922a684f9e0dbd9a89a063e74ccd6166016bb9",
+        "/tmp/gagp-depth-quality-20261015/house_robber.projected.s0.csv": "89d381aa74fb99be5b8fd1bbaa18956db0b57e980537ddf0a451e98503a6d506"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.projected.s0.final.json"
+      ],
+      "generation_count": 32,
+      "training_loss": 7000,
+      "heldout_loss": 6894,
+      "best_phase_depths": [
+        1,
+        5
+      ],
+      "best_projected_depth": 5,
+      "cap_admissible_final_members": 1024,
+      "best_cap_admissible_final": {
+        "training_loss": 7000,
+        "index": 1,
+        "projected_depth": 5
+      },
+      "mean_final_nodes": 65.1806640625,
+      "unique_final_genomes": 942,
+      "distinct_final_fitnesses": 329,
+      "changed_fraction": 0.904052734375,
+      "last8_changed_fraction": 0.876220703125,
+      "crossover_rejected_attempts": 3783,
+      "operator_fallback_children": 1,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "profile": "before",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.before.s1.json": "58596f62c8786058733dcf7430c034e338d354735d53304d450659558fbadd7f",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.before.s1.final.json": "78a2abe0013800470a9843dcff30b2ccd625c2cdd618c5101defba5a886d8ba2",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.before.s1.heldout.json": "6a3809a211b78c0058edf4163c5ea918a91937f0eab840bec59734ec67b91954",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/house_robber/grammar.json": "ccedfc42755cd3a15a778c9361922a684f9e0dbd9a89a063e74ccd6166016bb9",
+        "/tmp/gagp-depth-quality-20261015/house_robber.before.s1.csv": "2e90dca1f79832b413ad4ca208b552638745d21b2a6b20f90cba7c93de95f366"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.before.s1.final.json"
+      ],
+      "generation_count": 32,
+      "training_loss": 4234,
+      "heldout_loss": 4229,
+      "best_phase_depths": [
+        1,
+        20
+      ],
+      "best_projected_depth": 20,
+      "cap_admissible_final_members": 43,
+      "best_cap_admissible_final": {
+        "training_loss": 5653,
+        "index": 13,
+        "projected_depth": 7
+      },
+      "mean_final_nodes": 259.37890625,
+      "unique_final_genomes": 1018,
+      "distinct_final_fitnesses": 515,
+      "changed_fraction": 0.923004150390625,
+      "last8_changed_fraction": 0.926025390625,
+      "crossover_rejected_attempts": 7162,
+      "operator_fallback_children": 3,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "house_robber",
+      "seed": 1,
+      "profile": "projected",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.projected.s1.json": "d8a3422b09087def659935084b1cd31011af39c1f4e42f054c95c181e3e8ff0d",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.projected.s1.final.json": "e3f63f33d0296f9ebc43448b952e2c82e537b12a5ba26b94c5e5473e4d164a41",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.projected.s1.heldout.json": "547c7cc033b4b273684a2b9a486d615d7db3c141e6f56d2bfdfdae062870cbf2",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/house_robber/grammar.json": "ccedfc42755cd3a15a778c9361922a684f9e0dbd9a89a063e74ccd6166016bb9",
+        "/tmp/gagp-depth-quality-20261015/house_robber.projected.s1.csv": "d46d039de0ab11986760237eb9c96770e1546d3207f0feb0aa63fbdcc27ad135"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.projected.s1.final.json"
+      ],
+      "generation_count": 32,
+      "training_loss": 7016,
+      "heldout_loss": 6924,
+      "best_phase_depths": [
+        1,
+        7
+      ],
+      "best_projected_depth": 7,
+      "cap_admissible_final_members": 1024,
+      "best_cap_admissible_final": {
+        "training_loss": 7016,
+        "index": 1,
+        "projected_depth": 7
+      },
+      "mean_final_nodes": 71.92578125,
+      "unique_final_genomes": 969,
+      "distinct_final_fitnesses": 446,
+      "changed_fraction": 0.902496337890625,
+      "last8_changed_fraction": 0.8880615234375,
+      "crossover_rejected_attempts": 3941,
+      "operator_fallback_children": 0,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "profile": "before",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.before.s2.json": "e54f41f3ebb830ee6ede6fdd27ac88d0ff9af3d7baaabe8f8d5e203845b31296",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.before.s2.final.json": "386f533088562e289d1d3e4044b3de3ca5d6ac0b3fb35c521f79b33462a96a70",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.before.s2.heldout.json": "801b3a36179cbb6a2140091ba0b689006b6d184b009b38b8e1e7983b02420933",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/house_robber/grammar.json": "ccedfc42755cd3a15a778c9361922a684f9e0dbd9a89a063e74ccd6166016bb9",
+        "/tmp/gagp-depth-quality-20261015/house_robber.before.s2.csv": "f9719d492fc885325e61bf71056fcac656f388e234fb55bee53673992fcdd903"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.before.s2.final.json"
+      ],
+      "generation_count": 32,
+      "training_loss": 7009,
+      "heldout_loss": 6843,
+      "best_phase_depths": [
+        1,
+        6
+      ],
+      "best_projected_depth": 6,
+      "cap_admissible_final_members": 17,
+      "best_cap_admissible_final": {
+        "training_loss": 7009,
+        "index": 0,
+        "projected_depth": 6
+      },
+      "mean_final_nodes": 483.7333984375,
+      "unique_final_genomes": 1022,
+      "distinct_final_fitnesses": 239,
+      "changed_fraction": 0.92791748046875,
+      "last8_changed_fraction": 0.94482421875,
+      "crossover_rejected_attempts": 7139,
+      "operator_fallback_children": 2,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "house_robber",
+      "seed": 2,
+      "profile": "projected",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.projected.s2.json": "da27aa4eb0b7eba1e1edd74079e364dbc2fd1fe2fa6ef625aaaea09201a3b42e",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.projected.s2.final.json": "4029f2b0ab214e0b15cbb7d3445e0f2412ebe306f6175c01fb39c5c9fa5c77e7",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.projected.s2.heldout.json": "22bd555b9dbf3a0bf23ef378b1853ad1c77637fb6af525147eec92872b29f739",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/house_robber/grammar.json": "ccedfc42755cd3a15a778c9361922a684f9e0dbd9a89a063e74ccd6166016bb9",
+        "/tmp/gagp-depth-quality-20261015/house_robber.projected.s2.csv": "b7ac3538d75b373b62872a8736e063811d782ee98c949e74d12eb7f4b4091530"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/house_robber.projected.s2.final.json"
+      ],
+      "generation_count": 32,
+      "training_loss": 5160,
+      "heldout_loss": 4638,
+      "best_phase_depths": [
+        1,
+        6
+      ],
+      "best_projected_depth": 6,
+      "cap_admissible_final_members": 1024,
+      "best_cap_admissible_final": {
+        "training_loss": 5160,
+        "index": 0,
+        "projected_depth": 6
+      },
+      "mean_final_nodes": 59.4599609375,
+      "unique_final_genomes": 937,
+      "distinct_final_fitnesses": 435,
+      "changed_fraction": 0.889068603515625,
+      "last8_changed_fraction": 0.8721923828125,
+      "crossover_rejected_attempts": 3283,
+      "operator_fallback_children": 0,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 0,
+      "profile": "before",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.before.s0.json": "1a7b2972bd419a5e46a5abde3084731b7e31ffc03bb34fbc2eaa0618b10c3be2",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.before.s0.final.json": "2c1d3057bf8a04a7856bdac6cde06f2883dd9ee210fae987e26ed9e358a144f5",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.before.s0.heldout.json": "5cac4ebcfeb7dbfcb7947231808d44b5c8fac44f51eda90e4c6e1af4a05f6aa8",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/sum_of_elements/grammar.json": "c6082aca862a8ee8cc79d646876cff92e899860d9e9f25be5cda521a3a5136ae",
+        "/tmp/gagp-depth-quality-20261015/sum_of_elements.before.s0.csv": "0579cd6c2ff8487b6f68ce889212815986e8d1e27a6661e9e3fff9d768e3d186"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.before.s0.final.json"
+      ],
+      "generation_count": 32,
+      "training_loss": 0,
+      "heldout_loss": 0,
+      "best_phase_depths": [
+        1,
+        2,
+        1,
+        2
+      ],
+      "best_projected_depth": 3,
+      "cap_admissible_final_members": 808,
+      "best_cap_admissible_final": {
+        "training_loss": 0,
+        "index": 457,
+        "projected_depth": 7
+      },
+      "mean_final_nodes": 44.3896484375,
+      "unique_final_genomes": 754,
+      "distinct_final_fitnesses": 129,
+      "changed_fraction": 0.823883056640625,
+      "last8_changed_fraction": 0.7418212890625,
+      "crossover_rejected_attempts": 2219,
+      "operator_fallback_children": 0,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 0,
+      "profile": "projected",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.projected.s0.json": "0bbb7c10e157c7b3fddc65a812cf53a2492ad0ef4a69f128f71b220f2121c6b1",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.projected.s0.final.json": "2dfbe5c0208f7ad902d00b4b8d81e942738986246b3976940ca205dcd4479267",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.projected.s0.heldout.json": "5dacd8adb1795266cbf5efed35e6445af8ceef1a05b3affdbb8073663cfaba7b",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/sum_of_elements/grammar.json": "c6082aca862a8ee8cc79d646876cff92e899860d9e9f25be5cda521a3a5136ae",
+        "/tmp/gagp-depth-quality-20261015/sum_of_elements.projected.s0.csv": "a1a03983fb88e6354aa185a20ecd16ac97d3d26a837c6179594cd9981780d053"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.projected.s0.final.json"
+      ],
+      "generation_count": 32,
+      "training_loss": 0,
+      "heldout_loss": 0,
+      "best_phase_depths": [
+        1,
+        2,
+        1,
+        2
+      ],
+      "best_projected_depth": 3,
+      "cap_admissible_final_members": 1024,
+      "best_cap_admissible_final": {
+        "training_loss": 0,
+        "index": 516,
+        "projected_depth": 7
+      },
+      "mean_final_nodes": 26.123046875,
+      "unique_final_genomes": 656,
+      "distinct_final_fitnesses": 138,
+      "changed_fraction": 0.810394287109375,
+      "last8_changed_fraction": 0.706787109375,
+      "crossover_rejected_attempts": 2955,
+      "operator_fallback_children": 0,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 1,
+      "profile": "before",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.before.s1.json": "ffe4d09484834b153ba1bbc90cdbca513758e1131707191215e081a1b2649877",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.before.s1.final.json": "c3f5e1d95246a1506da8e6353e5ae5f81571f19902d3dedbbf001e786a8b3095",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.before.s1.heldout.json": "0fb4626ecf82bbaeb6879e5cf675047db30301f3aecb426eb86fc9534b439216",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/sum_of_elements/grammar.json": "c6082aca862a8ee8cc79d646876cff92e899860d9e9f25be5cda521a3a5136ae",
+        "/tmp/gagp-depth-quality-20261015/sum_of_elements.before.s1.csv": "29eef32f17503be3e1016c5167a2a779551b02d3d30fcecd82847a3be81da7da"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.before.s1.final.json"
+      ],
+      "generation_count": 32,
+      "training_loss": 0,
+      "heldout_loss": 0,
+      "best_phase_depths": [
+        1,
+        2,
+        1,
+        2
+      ],
+      "best_projected_depth": 3,
+      "cap_admissible_final_members": 827,
+      "best_cap_admissible_final": {
+        "training_loss": 0,
+        "index": 427,
+        "projected_depth": 7
+      },
+      "mean_final_nodes": 54.068359375,
+      "unique_final_genomes": 611,
+      "distinct_final_fitnesses": 129,
+      "changed_fraction": 0.815765380859375,
+      "last8_changed_fraction": 0.6922607421875,
+      "crossover_rejected_attempts": 2082,
+      "operator_fallback_children": 0,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 1,
+      "profile": "projected",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.projected.s1.json": "ef85f26cff3f6cc91cd5ffbf6e56a837d6fe7d7abeaef80a262bfab949cc3d6e",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.projected.s1.final.json": "709792eb02c78a17dcaf9548c1ba11954b1a360755fb92f2ffd6a4e66cdd4204",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.projected.s1.heldout.json": "a0d1f9ec8948109f31bb58db049dc41a6593eb5c91c993701dd0f654da123818",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/sum_of_elements/grammar.json": "c6082aca862a8ee8cc79d646876cff92e899860d9e9f25be5cda521a3a5136ae",
+        "/tmp/gagp-depth-quality-20261015/sum_of_elements.projected.s1.csv": "c27d0699a98313389b143e6d31946c17969d395dda5ab6cf7edc144f8af8f4a6"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.projected.s1.final.json"
+      ],
+      "generation_count": 32,
+      "training_loss": 0,
+      "heldout_loss": 0,
+      "best_phase_depths": [
+        1,
+        2,
+        1,
+        2
+      ],
+      "best_projected_depth": 3,
+      "cap_admissible_final_members": 1024,
+      "best_cap_admissible_final": {
+        "training_loss": 0,
+        "index": 479,
+        "projected_depth": 7
+      },
+      "mean_final_nodes": 25.1748046875,
+      "unique_final_genomes": 550,
+      "distinct_final_fitnesses": 142,
+      "changed_fraction": 0.791717529296875,
+      "last8_changed_fraction": 0.6688232421875,
+      "crossover_rejected_attempts": 3049,
+      "operator_fallback_children": 1,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 2,
+      "profile": "before",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.before.s2.json": "e685c2ae4c7fdea3dc8b5d92116a16dcb05ecdbef7d17913b3e3cace2cf84a66",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.before.s2.final.json": "3da94cf23d05925fa6da82b0b6a651b04c94b64868d60341f8e5c767b69cd571",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.before.s2.heldout.json": "f752aa7f6ef4551d9a00e20211a65627b057465452ee47553a91771ef2c41178",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/sum_of_elements/grammar.json": "c6082aca862a8ee8cc79d646876cff92e899860d9e9f25be5cda521a3a5136ae",
+        "/tmp/gagp-depth-quality-20261015/sum_of_elements.before.s2.csv": "d799b6153c08f3a05a7cc2afd96d6f60d3c7fe04f5971acc6591999ccfe07733"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.before.s2.final.json"
+      ],
+      "generation_count": 32,
+      "training_loss": 0,
+      "heldout_loss": 0,
+      "best_phase_depths": [
+        1,
+        2,
+        1,
+        2
+      ],
+      "best_projected_depth": 3,
+      "cap_admissible_final_members": 792,
+      "best_cap_admissible_final": {
+        "training_loss": 0,
+        "index": 401,
+        "projected_depth": 6
+      },
+      "mean_final_nodes": 50.595703125,
+      "unique_final_genomes": 680,
+      "distinct_final_fitnesses": 139,
+      "changed_fraction": 0.790863037109375,
+      "last8_changed_fraction": 0.69873046875,
+      "crossover_rejected_attempts": 1886,
+      "operator_fallback_children": 1,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "sum_of_elements",
+      "seed": 2,
+      "profile": "projected",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.projected.s2.json": "f2debb283061c02c6b151f77d0efcccdde360fe513b7ed3e83ff3d4ab1aa6fdd",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.projected.s2.final.json": "83161a446a8faf3cd03cc80351ad0dc4e7b4fb7cb43a1e05b2ca656e6e91a90d",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.projected.s2.heldout.json": "610d2d00fdb869f7eb7d8d048bc6e785a8551e33b9b42352517c851946b6f902",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/sum_of_elements/grammar.json": "c6082aca862a8ee8cc79d646876cff92e899860d9e9f25be5cda521a3a5136ae",
+        "/tmp/gagp-depth-quality-20261015/sum_of_elements.projected.s2.csv": "21803e6bbf7d004e70c98fe4cacf687020d438079ef53b5d3882431b68c411ae"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/sum_of_elements.projected.s2.final.json"
+      ],
+      "generation_count": 32,
+      "training_loss": 0,
+      "heldout_loss": 0,
+      "best_phase_depths": [
+        1,
+        2,
+        1,
+        2
+      ],
+      "best_projected_depth": 3,
+      "cap_admissible_final_members": 1024,
+      "best_cap_admissible_final": {
+        "training_loss": 0,
+        "index": 408,
+        "projected_depth": 7
+      },
+      "mean_final_nodes": 25.8740234375,
+      "unique_final_genomes": 621,
+      "distinct_final_fitnesses": 139,
+      "changed_fraction": 0.77191162109375,
+      "last8_changed_fraction": 0.67578125,
+      "crossover_rejected_attempts": 2245,
+      "operator_fallback_children": 2,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "profile": "before",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.before.s0.json": "eb28ee14e459adb585f7b7ea6f32db2aac2c770c6e6b7960d5df031c3fc8fe0e",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.before.s0.final.json": "42abf3cbc4f0888625a793166542a537169b0cd11a8a924eea3c2c4a174e8965",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.before.s0.heldout.json": "46556dc06e2296062554edf4779860b785a53112ebbb0205491cc2ae1bb33532",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/median/grammar.json": "0c38ad3c85bccd0361dec318f447d80fb90a06eb701bf325143cb85cc81c3ee0",
+        "/tmp/gagp-depth-quality-20261015/median.before.s0.csv": "8c29f61779f3c8f91eda936d11fda289327c611df8717b87176396124bdd5b93"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.before.s0.final.json"
+      ],
+      "generation_count": 64,
+      "training_loss": 642,
+      "heldout_loss": 33756,
+      "best_phase_depths": [
+        1,
+        2,
+        1,
+        1
+      ],
+      "best_projected_depth": 3,
+      "cap_admissible_final_members": 980,
+      "best_cap_admissible_final": {
+        "training_loss": 642,
+        "index": 922,
+        "projected_depth": 6
+      },
+      "mean_final_nodes": 25.1064453125,
+      "unique_final_genomes": 228,
+      "distinct_final_fitnesses": 14,
+      "changed_fraction": 0.53277587890625,
+      "last8_changed_fraction": 0.4898681640625,
+      "crossover_rejected_attempts": 531,
+      "operator_fallback_children": 0,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "profile": "projected",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.projected.s0.json": "5a715c1f88dba50536443a359dba9bc1a76ccc7b8dd5a112ec154db8a9487d17",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.projected.s0.final.json": "4936c5afb948c34db951b24b631cc89d8fab0a0a8cc278b828f3ebb7c13490ff",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.projected.s0.heldout.json": "5742cbbe235958b483b3aa3fa767495632e5f431b53a69f74f9e169df7b988c3",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/median/grammar.json": "0c38ad3c85bccd0361dec318f447d80fb90a06eb701bf325143cb85cc81c3ee0",
+        "/tmp/gagp-depth-quality-20261015/median.projected.s0.csv": "730dae6cce68bf063007945752a9357b029a02346d6e6985e4e0bee868dbf3a4"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.projected.s0.final.json"
+      ],
+      "generation_count": 64,
+      "training_loss": 642,
+      "heldout_loss": 33756,
+      "best_phase_depths": [
+        1,
+        2,
+        1,
+        1
+      ],
+      "best_projected_depth": 3,
+      "cap_admissible_final_members": 1024,
+      "best_cap_admissible_final": {
+        "training_loss": 642,
+        "index": 956,
+        "projected_depth": 7
+      },
+      "mean_final_nodes": 19.4287109375,
+      "unique_final_genomes": 234,
+      "distinct_final_fitnesses": 12,
+      "changed_fraction": 0.535980224609375,
+      "last8_changed_fraction": 0.50146484375,
+      "crossover_rejected_attempts": 661,
+      "operator_fallback_children": 0,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "profile": "before",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.before.s1.json": "f4600735728a34d954d3ef041f9286e15f45d45876b745ee6dcbb490220649b4",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.before.s1.final.json": "c299d02df1237735d86eb3ef03e16bbd6d7daea36af6aa01622f71b448c3b214",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.before.s1.heldout.json": "2c7b3da5a9e52c6ed95fccd449a8bc0e0e10d9aab7d3d2d4bdcf775d4b92d192",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/median/grammar.json": "0c38ad3c85bccd0361dec318f447d80fb90a06eb701bf325143cb85cc81c3ee0",
+        "/tmp/gagp-depth-quality-20261015/median.before.s1.csv": "6915eb4a706c21c4a3883221f8ad8a6e7f4db52db40f446d9888bd35e7f13f53"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.before.s1.final.json"
+      ],
+      "generation_count": 64,
+      "training_loss": 642,
+      "heldout_loss": 33756,
+      "best_phase_depths": [
+        1,
+        2,
+        1,
+        1
+      ],
+      "best_projected_depth": 3,
+      "cap_admissible_final_members": 972,
+      "best_cap_admissible_final": {
+        "training_loss": 642,
+        "index": 914,
+        "projected_depth": 7
+      },
+      "mean_final_nodes": 27.75,
+      "unique_final_genomes": 266,
+      "distinct_final_fitnesses": 11,
+      "changed_fraction": 0.5294952392578125,
+      "last8_changed_fraction": 0.479736328125,
+      "crossover_rejected_attempts": 552,
+      "operator_fallback_children": 0,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "profile": "projected",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.projected.s1.json": "4c89afd5fd79da90a547f585154cd7224f5b3fd073cd086813932fda54f76fc8",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.projected.s1.final.json": "c2ae8e33da0092ca3b0ce79d1bac81f47b953aa629e69a0d9a1b004d7042cb58",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.projected.s1.heldout.json": "646c841bfccaffafbfe502e71fafa76395db91da028d3aecb679733427205f72",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/median/grammar.json": "0c38ad3c85bccd0361dec318f447d80fb90a06eb701bf325143cb85cc81c3ee0",
+        "/tmp/gagp-depth-quality-20261015/median.projected.s1.csv": "8ffc0e7d1a5eb77c52f98d92663edf85503db516073f5b16f5c3746d0b1c9d27"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.projected.s1.final.json"
+      ],
+      "generation_count": 64,
+      "training_loss": 642,
+      "heldout_loss": 33756,
+      "best_phase_depths": [
+        1,
+        2,
+        1,
+        1
+      ],
+      "best_projected_depth": 3,
+      "cap_admissible_final_members": 1024,
+      "best_cap_admissible_final": {
+        "training_loss": 642,
+        "index": 961,
+        "projected_depth": 7
+      },
+      "mean_final_nodes": 19.650390625,
+      "unique_final_genomes": 267,
+      "distinct_final_fitnesses": 11,
+      "changed_fraction": 0.5268707275390625,
+      "last8_changed_fraction": 0.4893798828125,
+      "crossover_rejected_attempts": 694,
+      "operator_fallback_children": 0,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "profile": "before",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.before.s2.json": "f72744c0c503c47599d1bf76764e74cddeebfe1e8194033c9bdafc8ec3e4c4ec",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.before.s2.final.json": "e4c7a199f517ba741f1542ac3e66c98bdc268cc3ce8aea52e2e8494278cb87f8",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.before.s2.heldout.json": "1f5aa45a8ec274b1eb357559b8e2440684159f18abfb11da9cf1d57b31243cb9",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/median/grammar.json": "0c38ad3c85bccd0361dec318f447d80fb90a06eb701bf325143cb85cc81c3ee0",
+        "/tmp/gagp-depth-quality-20261015/median.before.s2.csv": "92a8ae09c9066617098c22c70dae4cc1dbed3fc8242e4ebfd9847bc9bb3c492a"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.before.s2.final.json"
+      ],
+      "generation_count": 64,
+      "training_loss": 642,
+      "heldout_loss": 33756,
+      "best_phase_depths": [
+        1,
+        2,
+        1,
+        1
+      ],
+      "best_projected_depth": 3,
+      "cap_admissible_final_members": 975,
+      "best_cap_admissible_final": {
+        "training_loss": 642,
+        "index": 928,
+        "projected_depth": 7
+      },
+      "mean_final_nodes": 26.1962890625,
+      "unique_final_genomes": 235,
+      "distinct_final_fitnesses": 11,
+      "changed_fraction": 0.5442352294921875,
+      "last8_changed_fraction": 0.5206298828125,
+      "crossover_rejected_attempts": 570,
+      "operator_fallback_children": 0,
+      "reported_budget_rejections": 0
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "profile": "projected",
+      "files": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.projected.s2.json": "9f696922ede269366d8b03b069874011b1d16b8a586d006385c80dd008313b2b",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.projected.s2.final.json": "ec2233f4df93f71b2de2aa62df899ed512003dc174748ec9e39776ea6e0b3ffa",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.projected.s2.heldout.json": "cde39bdd211f9e33428243773ffd5a0d387cf31a25d4783358ea902695f3af26",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/median/grammar.json": "0c38ad3c85bccd0361dec318f447d80fb90a06eb701bf325143cb85cc81c3ee0",
+        "/tmp/gagp-depth-quality-20261015/median.projected.s2.csv": "e769d0b407170b7255d1b46c4a007c1d163b70fd9e828c225a65189d0f9b16d5"
+      },
+      "cpu_audit_command": [
+        "/tmp/gagp-depth-quality-20261015/audit",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-quality/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/projected-long-ab/median.projected.s2.final.json"
+      ],
+      "generation_count": 64,
+      "training_loss": 642,
+      "heldout_loss": 33756,
+      "best_phase_depths": [
+        1,
+        2,
+        1,
+        1
+      ],
+      "best_projected_depth": 3,
+      "cap_admissible_final_members": 1024,
+      "best_cap_admissible_final": {
+        "training_loss": 642,
+        "index": 961,
+        "projected_depth": 7
+      },
+      "mean_final_nodes": 19.6064453125,
+      "unique_final_genomes": 225,
+      "distinct_final_fitnesses": 12,
+      "changed_fraction": 0.538299560546875,
+      "last8_changed_fraction": 0.510986328125,
+      "crossover_rejected_attempts": 749,
+      "operator_fallback_children": 0,
+      "reported_budget_rejections": 0
+    }
+  ],
+  "findings": [
+    "House exact old best representations in seeds0/1 exceed cap7 (phase heights13/20). This does not prove their functions need those depths.",
+    "Old House populations also contain cap-admissible programs better than projected outcomes in seeds0/1: losses6105/5653 vs7000/7016. The observed quality change includes search trajectory effects.",
+    "Crossover rejected attempts decrease, fallback children remain rare. contract_rejections aggregates all phase crossover rejection causes; budget_rejections=0 does not establish absence of depth rejection.",
+    "Three seeds do not establish statistical significance or convergence equivalence."
+  ]
+}
