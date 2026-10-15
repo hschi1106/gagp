@@ -838,9 +838,3 @@ avoided per-case clears; performance requires a full-case comparison.
 Validation: `gagp_test_extended_payload_gpu` includes direct legacy/epoch
 collision, rollback, error reuse and wrap tests, plus epoch-enabled CPU parity
 for queue reuse, initial case tiling, scalar rollback and growing arena replay.
-
-Arena kernels reserve dynamic shared memory using their actual 32-thread launch,
-plus a phase-cache reservation only when that launch enables the cache. The
-reference evaluator block size does not change an arena's score-reduction lane
-count. This removes unused reduction slots; it changes neither case partitions
-nor scores. Performance still depends on the device and resulting resource use.
