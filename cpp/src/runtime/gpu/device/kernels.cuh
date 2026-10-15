@@ -60,7 +60,10 @@ __device__ inline bool d_measure_cache_eligible(const DRegionPhase& phase,
 }
 
 template <DPayloadFlavor Flavor, bool EnableRegions = false, bool DirectRoot = false>
-__global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
+// Arena kernels always launch one physical warp; reserving resources for a
+// hypothetical 1024-thread block needlessly constrains registers in this VM.
+__global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
+    Flavor == DPayloadFlavor::IndexedArena) ? 32 : 1024) void evaluate_fitness_programs_impl(
     int program_count,
     const Value* all_consts, const DInstr* all_code, const DProgramMeta* metas,
     const Value* shared_case_local_vals, const unsigned char* shared_case_local_set,
