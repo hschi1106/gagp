@@ -170,6 +170,12 @@ from the five modes above:
   and emits `cpu_cases`, `cpu_errors`, and `cpu_timeouts`. Errors include timeouts,
   matching GPU counters. The low-budget support gate requires matching CPU/GPU
   case, error, and timeout counts as well as finite matching fitness.
+  Capped Levenshtein scoring uses the exact length-gap lower bound: when unequal
+  sequence lengths differ by at least the absolute penalty, the score is already
+  the cap and no edit-distance matrix is needed. CPU/GPU lists and GPU strings
+  share this rule. All programs and cases still execute; this is an exact scoring
+  optimization, not an approximation or a case filter. Discounted proximity and
+  equal-length sequences retain the full distance calculation.
 - `search`: four actual generations, plus separately timed final evaluation and
   top-16 full-case CPU reevaluation. Set `GAGP_GPU_DIAGNOSTICS=1` for per-generation
   counters and `GAGP_BM_SEED=0/1/2` for the short quality screen. Final population

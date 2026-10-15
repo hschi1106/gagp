@@ -65,6 +65,15 @@ GAGP_FIT_HD inline bool valid_fitness_tuple(const Value* values,int count,Fitnes
   for(int i=0;i<count;++i)if(values[i].tag!=ValueTag::Int)return false;
   return true;
 }
+// Unit-cost edit distance is at least the length gap. With capped proximity
+// this proves the final score without evaluating DP cells. Equal lengths stay
+// on the ordinary path, including zero penalties and exact-match diagnostics.
+GAGP_FIT_HD inline bool fitness_sequence_length_saturates(int n, int m,
+    double penalty, FitnessPolicy policy) {
+  return policy.metric == FitnessMetric::Levenshtein &&
+      policy.proximity == FitnessProximity::Capped && n >= 0 && m >= 0 &&
+      n != m && double(n > m ? n - m : m - n) >= fabs(penalty);
+}
 GAGP_FIT_HD inline double fitness_sequence_score(const Value* actual, int n,
     const Value* expected, int m, double penalty, FitnessPolicy policy, unsigned* row) {
   if (n < 0 || m < 0 || m > kFitnessMaxSequence)
@@ -80,6 +89,7 @@ GAGP_FIT_HD inline double fitness_sequence_score(const Value* actual, int n,
     }
     return -error;
   }
+  if (fitness_sequence_length_saturates(n,m,penalty,policy)) return -fabs(penalty);
   for(int j=0;j<=m;++j)row[j]=j;
   const FitnessPolicy exact{FitnessMetric::Exact};
   for(int i=1;i<=n;++i) {

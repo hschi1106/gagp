@@ -1,5 +1,8 @@
 #include <cmath>
 #include <iostream>
+#include <limits>
+#include <random>
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -35,9 +38,42 @@ gagp::BytecodeProgram returns(const Value& value) {
   return program;
 }
 
+bool test_exact_length_bound() {
+  std::mt19937 random(2718);
+  const double penalties[] = {0, -0.0, .25, 1, 2.5, -3, 20,
+      std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()};
+  for (int sample=0; sample<200; ++sample) {
+    const int n=random()%12, m=random()%12;
+    std::vector<Value> a, b;
+    for(int i=0;i<n;++i) a.push_back(sample%2 ? Value::from_char('a'+random()%3) : Value::from_int(random()%3));
+    for(int j=0;j<m;++j) b.push_back(sample%2 ? Value::from_char('a'+random()%3) : Value::from_int(random()%3));
+    // Independent full matrix oracle; no cap or length shortcut.
+    std::vector<std::vector<unsigned>> distance(n+1,std::vector<unsigned>(m+1));
+    for(int i=0;i<=n;++i)distance[i][0]=i;
+    for(int j=0;j<=m;++j)distance[0][j]=j;
+    for(int i=1;i<=n;++i)for(int j=1;j<=m;++j)
+      distance[i][j]=std::min({distance[i-1][j]+1,distance[i][j-1]+1,
+          distance[i-1][j-1]+unsigned(a[i-1].i!=b[j-1].i)});
+    for(double penalty:penalties) for(auto proximity:{gagp::FitnessProximity::Capped,gagp::FitnessProximity::Discounted}) {
+      gagp::FitnessPolicy policy{gagp::FitnessMetric::Levenshtein,proximity};
+      std::vector<unsigned> row(m+1,999);
+      const double d=distance[n][m];
+      const double expected=proximity==gagp::FitnessProximity::Capped ? -std::fmin(d,std::fabs(penalty)) : -d/(1+d);
+      const auto actual=gagp::fitness_sequence_score(a.data(),n,b.data(),m,penalty,policy,row.data());
+      if(!check(actual==expected,"length-bound score differs from full edit matrix"))return false;
+      const bool shortcut=gagp::fitness_sequence_length_saturates(n,m,penalty,policy);
+      if(!check(!shortcut || row[0]==999,"length bound still evaluated DP"))return false;
+      if(!check((n!=m && proximity==gagp::FitnessProximity::Capped) || !shortcut,
+          "equal length or discounted score took shortcut"))return false;
+    }
+  }
+  return true;
+}
+
 }  // namespace
 
 int main() {
+  if(!test_exact_length_bound())return 1;
   gagp::payload::clear();
   if (!score_is(Value::from_int(3), Value::from_int(3), 0.0, "numeric exact")) return 1;
   if (!score_is(Value::from_float(7.5), Value::from_int(5), -2.5,
