@@ -132,3 +132,5 @@ maintenance, follow the rules in root `AGENTS.md`.
   Contract: `docs/design/payload.md`; tests `gagp_test_extended_payload_gpu`,
   `gagp_test_gpu_phase_compile`, `gagp_test_gpu_phase_population`. Paths are
   relative to `cpp/src/` (the reproduction paths under `evolution/`).
+
+- Resident payload scoring is shared by the VM and focused GPU probes through `cpp/src/runtime/gpu/device/resident_score_device.cuh`; keep full VM execution headers out of probe translation units that also link `gagp_gpu`.

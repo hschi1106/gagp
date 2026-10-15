@@ -1,5 +1,5 @@
 #pragma once
-#include "../../src/runtime/gpu/device/execute_bytecode_device.cuh"
+#include "../../src/runtime/gpu/device/resident_score_device.cuh"
 #include "../../src/runtime/gpu/view_profile.hpp"
 
 __global__ void inspect_private_intlist_offsets(Value* cells, Value* source, int* failure) {
