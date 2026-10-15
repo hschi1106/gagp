@@ -24,6 +24,7 @@
 #include "device/kernels.cuh"
 #include "opcode_map_gpu.hpp"
 #include "view_profile.hpp"
+#include "payload_workspace_budget.hpp"
 #include "gagp/runtime/gpu/device_types_gpu.hpp"
 
 namespace gagp {
@@ -40,7 +41,8 @@ using gpu_detail::DStringPayloadEntry;
 // All buffers are per physical lane; logical lane reduction remains unchanged.
 struct PayloadWorkspaceStorage {
   static constexpr int threads=32;
-  static constexpr std::size_t budget=512u*1024u*1024u;
+  const std::size_t budget;
+  explicit PayloadWorkspaceStorage(std::size_t bytes):budget(bytes) {}
   std::vector<void*> allocations;
   gpu_detail::DRegionWorkspace workspace{};
   std::size_t blocks=0;
@@ -68,8 +70,8 @@ struct PayloadWorkspaceStorage {
     const auto memo_bytes=sizeof(Value)*workspace.memo_capacity;
     const auto payload_bytes=std::size_t(entries)*(sizeof(gpu_detail::DStringPayloadEntry)+sizeof(gpu_detail::DListPayloadEntry))+
         std::size_t(values)*sizeof(Value)+bytes+(indexed?std::size_t(entries)*2*sizeof(int):0);
-    if(extra_bytes>=budget)return false;
-    blocks=std::min(programs,(budget-extra_bytes)/(threads*(payload_bytes+frame_bytes+key_bytes+memo_bytes)));
+    blocks=gpu_detail::payload_workspace_block_count(budget,programs,
+        payload_bytes+frame_bytes+key_bytes+memo_bytes,extra_bytes);
     if(!blocks)return false;
     const auto slots=blocks*threads;
     return (!indexed || allocate(reinterpret_cast<void**>(&workspace.payload_list_index),slots*entries*2*sizeof(int))) &&
@@ -567,6 +569,12 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     return fitness_eval_single_error(ErrCode::Value, "cuda set device failure");
   }
 
+  std::size_t payload_workspace_budget=0;
+  if(!gpu_detail::parse_payload_workspace_budget(std::getenv("GAGP_GPU_PAYLOAD_WORKSPACE_MIB"),
+      payload_workspace_budget))
+    return fitness_eval_single_error(ErrCode::Value,
+        "GAGP_GPU_PAYLOAD_WORKSPACE_MIB must be a decimal integer in [64,8192]");
+
   const auto all_t0 = std::chrono::steady_clock::now();
   const auto pack_t0 = std::chrono::steady_clock::now();
   // The private packed carrier keeps a native reference on demand. A session
@@ -834,11 +842,16 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   const int overflow_mask_words = (impl_->blocksize + 31) / 32;
   const std::size_t overflow_mask_bytes = overflow_diagnostics ?
       programs.size() * overflow_mask_words * sizeof(unsigned int) : 0;
+  const std::size_t payload_metadata_bytes=overflow_mask_bytes+overflow_reason_bytes+
+      sizeof(unsigned int)*programs.size()+(global_payload?sizeof(int):0);
+  if(payload_metadata_bytes>=payload_workspace_budget)
+    return fitness_eval_single_error(ErrCode::Value,"GPU payload workspace metadata exceeds configured scratch cap");
   FitnessEvalResult out;
+  out.payload_workspace_budget_bytes=payload_workspace_budget;
   std::chrono::steady_clock::time_point teardown_t0;
   {
     gpu_detail::DeviceArena dev;
-    PayloadWorkspaceStorage initial_payload;
+    PayloadWorkspaceStorage initial_payload(payload_workspace_budget);
     struct IndexBuffers {
       int *compact=nullptr,*generic=nullptr,*compact_queue=nullptr,*generic_queue=nullptr;
       unsigned int* overflows=nullptr;
@@ -917,7 +930,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     }
     if(global_payload) {
       impl_->release_region_workspace();
-      if(!initial_payload.prepare(region_workspace,programs.size(),impl_->blocksize,1024,8192,8192,true,overflow_mask_bytes+overflow_reason_bytes))
+      if(!initial_payload.prepare(region_workspace,programs.size(),impl_->blocksize,1024,8192,8192,true,payload_metadata_bytes))
         return fitness_eval_single_error(ErrCode::Value,"cuda initial global payload workspace capacity/allocation failure");
       if(!gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(initial_payload.blocks)},&indices.compact_queue))
         return fitness_eval_single_error(ErrCode::Value,"cuda initial global payload queue allocation failure");
@@ -1104,11 +1117,11 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     int replay_values=static_cast<int>(std::max<unsigned>(adaptive_replay?16384:65536,impl_->policy.list_allocation_limit));
     int replay_bytes=8192;
     while(!replay_programs.empty()) {
-      PayloadWorkspaceStorage replay_storage;
+      PayloadWorkspaceStorage replay_storage(payload_workspace_budget);
       const std::size_t task_count=replay_programs.size()*(tiled_replay?replay_warps:1);
       if(task_count>static_cast<std::size_t>(std::numeric_limits<int>::max()))
         return fitness_eval_single_error(ErrCode::Value,"GPU replay task count exceeds addressing capacity");
-      const std::size_t extra_bytes=overflow_mask_bytes+overflow_reason_bytes+sizeof(int)*replay_programs.size()+
+      const std::size_t extra_bytes=payload_metadata_bytes+sizeof(int)*replay_programs.size()+
           (tiled_replay?sizeof(double)*task_count+sizeof(int):0);
       if(!replay_storage.prepare(region_workspace,task_count,impl_->blocksize,
           replay_entries,replay_values,replay_bytes,payload_index,extra_bytes))

@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "gagp/core/bytecode.hpp"
+#include "../../src/runtime/gpu/payload_workspace_budget.hpp"
 #include "gagp/core/value_semantics.hpp"
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 #include "gagp/runtime/payload/payload.hpp"
@@ -36,6 +37,36 @@ gagp::BytecodeProgram returns(const Value& value) {
       {gagp::Opcode::Return, 0, 0, false, false},
   };
   return program;
+}
+
+bool test_payload_workspace_budget() {
+  using gagp::gpu_detail::parse_payload_workspace_budget;
+  using gagp::gpu_detail::payload_workspace_block_count;
+  constexpr std::size_t mib=1024u*1024u;
+  std::size_t bytes=0;
+  if(!check(parse_payload_workspace_budget(nullptr,bytes) && bytes==512*mib,
+      "default payload workspace budget"))return false;
+  for(const char* text:{"64","512","2048","4096","8192"}) {
+    if(!check(parse_payload_workspace_budget(text,bytes) && bytes==std::stoull(text)*mib,
+        "valid explicit payload workspace budget"))return false;
+    const std::size_t lane_bytes=2*mib+37,extra=12345;
+    const auto blocks=payload_workspace_block_count(bytes,1024,lane_bytes,extra);
+    if(!check(blocks*32*lane_bytes+extra<=bytes &&
+        (blocks==1024 || (blocks+1)*32*lane_bytes+extra>bytes),
+        "workspace capacity does not obey exact configured cap"))return false;
+  }
+  for(const char* text:{"","0","63","8193","-512","+512","512.0","512MiB"," 512","512 ",
+      "184467440737095516160000000000000000"}) {
+    bytes=123;
+    if(!check(!parse_payload_workspace_budget(text,bytes) && bytes==123,
+        "invalid workspace budget accepted or output mutated"))return false;
+  }
+  return check(payload_workspace_block_count(64*mib,5,2*mib,0)==1 &&
+      payload_workspace_block_count(64*mib,5,2*mib,1)==0 &&
+      payload_workspace_block_count(64*mib,5,1,64*mib)==0 &&
+      payload_workspace_block_count(64*mib,5,std::numeric_limits<std::size_t>::max(),0)==0 &&
+      payload_workspace_block_count(64*mib,0,1,0)==0,
+      "workspace zero capacity or overflow boundary");
 }
 
 bool test_exact_length_bound() {
@@ -73,7 +104,7 @@ bool test_exact_length_bound() {
 }  // namespace
 
 int main() {
-  if(!test_exact_length_bound())return 1;
+  if(!test_payload_workspace_budget() || !test_exact_length_bound())return 1;
   gagp::payload::clear();
   if (!score_is(Value::from_int(3), Value::from_int(3), 0.0, "numeric exact")) return 1;
   if (!score_is(Value::from_float(7.5), Value::from_int(5), -2.5,
