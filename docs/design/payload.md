@@ -641,9 +641,16 @@ Original GPU overflow replay and its adaptive capacities remain available.
 Tests retain entry-only and value-only overflow, unaffected programs, and final
 case/error/timeout coverage at these fixed initial capacities.
 
-`GAGP_GPU_TILED_INITIAL_PAYLOAD=1` independently applies the existing replay
-warp-tiling mechanism to initial global-arena evaluation. Tasks are program ×
-logical warp; each still evaluates the original lane's complete case partition.
+`GAGP_GPU_TILED_INITIAL_PAYLOAD=1` independently forces the existing replay
+warp-tiling mechanism for initial global-arena evaluation. The value `auto`
+enables it only when the session has at least one nonempty `IntList` input.
+This immutable session property is derived during initialization from effective
+packed local bindings, after duplicate bindings overwrite earlier values and
+out-of-range locals are ignored. Scalar inputs, empty lists, other list tags,
+list answers, and program-created lists do not activate `auto`. It is a
+data-derived scheduling heuristic; program/task names do not affect it. Tasks
+are program × logical warp; each still evaluates the original lane's complete
+case partition.
 The same per-lane accumulation, ascending-lane warp reduction, and ascending-warp
 final reduction preserve canonical fitness at both full and partial logical
 warps. Initial counters are initialized once before all tiles. An additional
@@ -652,9 +659,12 @@ freed with that arena before any replay allocation. Reduction is enqueued before
 the overlap event/callback, and its cost is included in initial kernel timing.
 The original overflow replay route remains unchanged. The default is off; the
 result/snapshot records `initial_payload_tiled`, and the execution profile adds
-`-initial-tiled` when active. Tests compare flag off/on full-case Discounted
+`-initial-tiled` when active. `1` still forces tiling, and unset, `0`, or other
+values retain the untiled launch. Tests compare off/forced/auto full-case Discounted
 fitness, status counts, original-lane diagnostics, fuel boundaries, and callbacks
-at 33 and 512 logical lanes, plus fixed initial-capacity/replay coverage.
+at 33 and 512 logical lanes, normalized input selection, and fixed
+initial-capacity/replay coverage. Sorted arena tests also check auto with
+overflow replay and callbacks.
 
 `GAGP_GPU_CONCAT_CACHE=1` with `GAGP_GPU_FUSED_LIST_CONCAT=1` enables a
 32-slot direct-mapped Concat result cache only in pointer-backed initial/replay
