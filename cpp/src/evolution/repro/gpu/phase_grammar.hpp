@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <vector>
 #include "gagp/evolution/grammar/budget.hpp"
+#include "gagp/evolution/grammar/values.hpp"
 #include "gagp/evolution/node_descriptor.hpp"
 #include "device/phase_generate.cuh"
 
@@ -106,12 +107,17 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       x.kind=PhaseExpressionKind::Constant;x.target=e.target;x.native_kind=static_cast<int>(NodeKind::CONST);x.node.kind=PhaseTreeKind::Constant;
       if(!seen_domain.at(e.target)) {
         seen_domain[e.target]=true;const auto& d=grammar.constants().at(e.target);auto& domain=out.domains[e.target];
-        if((d.type!=RType::Int && d.type!=RType::Bool) || d.sampling || d.elements || d.float_range)fail("constant domain capability");
+        if((d.type!=RType::Int && d.type!=RType::Bool && d.type!=RType::IntList) || d.sampling || d.elements || d.float_range)fail("constant domain capability");
         domain.integer_range=d.integer_range;domain.minimum=d.minimum;domain.maximum=d.maximum;
         if(!d.integer_range) {
           domain.value_offset=out.values.size();domain.value_count=d.values.size();
           if(d.values.empty() || d.values.size()>65536 || out.values.size()+d.values.size()>1024*1024)fail("finite domain capacity");
-          for(const auto& value:d.values)out.values.push_back(d.type==RType::Int?Value::from_int(std::get<std::int64_t>(value)):Value::from_bool(std::get<bool>(value)));
+          for(const auto& value:d.values) {
+            // Only the canonical empty list needs no mutable payload transport.
+            if(d.type==RType::IntList && !std::get<std::vector<std::int64_t>>(value).empty())
+              fail("nonempty list constant requires native fallback");
+            out.values.push_back(materialize_constant(d.type,value));
+          }
         }
       }
     } else if(e.kind==ExpressionKind::Bound) {
@@ -126,7 +132,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         const auto builtin=static_cast<BuiltinId>(descriptor.builtin_id);
         switch(builtin) {
           case BuiltinId::TruncDiv0: case BuiltinId::TruncMod0: case BuiltinId::IDiv0:case BuiltinId::IMod0:case BuiltinId::Min:case BuiltinId::Max:case BuiltinId::Clip:
-          case BuiltinId::Len:case BuiltinId::IndexNonnegative: case BuiltinId::Index:case BuiltinId::Slice:break;
+          case BuiltinId::Concat:case BuiltinId::Singleton:case BuiltinId::Len:case BuiltinId::IndexNonnegative: case BuiltinId::Index:case BuiltinId::Slice:break;
           default:fail("builtin capability");
         }
         x.node.kind=PhaseTreeKind::Operation;x.node.opcode=Opcode::CallBuiltin;x.node.operand=descriptor.builtin_id;

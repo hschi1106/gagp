@@ -9,6 +9,7 @@
 #include <vector>
 #include "gagp/cli/commands.hpp"
 #include "gagp/core/bytecode_verify.hpp"
+#include "gagp/runtime/payload/payload.hpp"
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/evolution/node_descriptor.hpp"
 #include "gagp/evolution/fuel_events.hpp"
@@ -43,6 +44,7 @@ struct Fixture {
   ValueTag result=ValueTag::Int;
   PhaseCompileStatus status=PhaseCompileStatus::Ok;
   int code_limit=-1,constant_limit=-1;
+  bool views=true;
 };
 struct Row { int node_offset,node_count,const_offset,const_count,local_offset,local_count,code_offset,code_capacity,out_const_offset,const_capacity; ValueTag expected; };
 template<bool SharedNodes, bool CompactFrames = false>
@@ -76,6 +78,8 @@ Fixture normalize(const AstProgram& ast,std::size_t begin,std::size_t end,
   Fixture out;out.constants=ast.consts;out.locals=std::move(locals);out.result=result;out.reference=std::move(reference);
   for(auto i=begin;i<end;++i) {
     const auto& node=ast.nodes[i]; const auto& descriptor=node_descriptor(node.kind);
+    if((node.kind==NodeKind::CONST && ast.consts.at(node.i0).tag==ValueTag::IntList) ||
+        node.kind==NodeKind::CALL_CONCAT || node.kind==NodeKind::CALL_SINGLETON)out.views=false;
     PhaseTreeNode value;value.arity=descriptor.prefix_arity;value.fuel=charge(ast,i,FuelEvent::Operation);
     if(node.kind==NodeKind::CONST) { value.kind=PhaseTreeKind::Constant;value.operand=node.i0; }
     else if(node.kind==NodeKind::REGION_VAR || node.kind==NodeKind::VAR) {
@@ -124,6 +128,23 @@ std::vector<Fixture> generated() {
     out.push_back(normalize(ast,3,end,{{0,0},{1,1}},{ValueTag::Int,ValueTag::Bool},boolean?ValueTag::Bool:ValueTag::Int,std::move(phase)));
   }
   Fixture leaf;leaf.nodes={{PhaseTreeKind::Constant,Opcode::PushConst,0,0,1,1}};leaf.constants={Value::from_int(1)};leaf.reference.consts=leaf.constants;leaf.reference.code={{Opcode::PushConst,0,0,true,false}};
+  auto singleton=leaf;
+  singleton.result=ValueTag::IntList;singleton.views=false;
+  singleton.nodes.insert(singleton.nodes.begin(),{PhaseTreeKind::Operation,Opcode::CallBuiltin,int(BuiltinId::Singleton),1,1,1});
+  singleton.reference.code.push_back({Opcode::CallBuiltin,int(BuiltinId::Singleton),1,true,true});
+  out.push_back(singleton);
+  auto empty=leaf;empty.result=ValueTag::IntList;empty.views=false;
+  empty.constants={payload::make_int_list_value({})};empty.reference.consts=empty.constants;
+  out.push_back(empty);
+  auto concat=singleton;
+  concat.constants.push_back(empty.constants[0]);concat.reference.consts=concat.constants;
+  concat.nodes.insert(concat.nodes.begin(),{PhaseTreeKind::Operation,Opcode::CallBuiltin,int(BuiltinId::Concat),2,1,1});
+  concat.nodes.push_back({PhaseTreeKind::Constant,Opcode::PushConst,1,0,1,1});
+  concat.reference.code.push_back({Opcode::PushConst,1,0,true,false});
+  concat.reference.code.push_back({Opcode::CallBuiltin,int(BuiltinId::Concat),2,true,true});
+  out.push_back(concat);
+  auto nonempty=empty;nonempty.constants={payload::make_int_list_value({Value::from_int(1)})};
+  nonempty.status=PhaseCompileStatus::Unsupported;out.push_back(nonempty);
   auto invalid=leaf;invalid.nodes[0].operand=1;invalid.status=PhaseCompileStatus::Invalid;out.push_back(invalid);
   invalid=leaf;invalid.nodes.push_back(invalid.nodes[0]);invalid.status=PhaseCompileStatus::Invalid;out.push_back(invalid);
   invalid=leaf;invalid.constants[0]=Value::from_float(1);invalid.status=PhaseCompileStatus::Unsupported;out.push_back(invalid);
@@ -216,8 +237,8 @@ void run(const std::vector<Fixture>& fixtures) {
     require(r.result_type==f.result,"GPU result-type certificate mismatch fixture "+std::to_string(i));
     std::array<ValueTag,64> view_inputs;view_inputs.fill(ValueTag::Invalid);
     std::copy(f.locals.begin(),f.locals.end(),view_inputs.begin());
-    require(r.typed_views_proven && detail::view_code_supported(f.reference.code,f.reference.consts,
-        f.reference.n_locals,view_inputs,f.result),"GPU capability proof disagrees with independent runtime analysis");
+    require(r.typed_views_proven==f.views && (!r.typed_views_proven || detail::view_code_supported(f.reference.code,f.reference.consts,
+        f.reference.n_locals,view_inputs,f.result)),"GPU capability proof disagrees with independent runtime analysis");
     require(r.code_count==int(f.reference.code.size()) && r.constant_count==int(f.reference.consts.size()),"lowering shape mismatch fixture "+std::to_string(i));
     for(int j=0;j<r.code_count;++j) {
       const auto& x=code[row.code_offset+j];const auto& y=f.reference.code[j];

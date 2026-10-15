@@ -809,3 +809,16 @@ semantics remain unchanged. The fixed benchmark's complete-search timing is
 `evolve_wall_ms` (cold evolution setup, all generations and final evaluation);
 input parsing and post-search CPU audit/export remain visible separately in
 process wall time, as in the existing comparison contract.
+
+
+Native GPU phase construction also admits `singleton(Int)`,
+`concat(IntList, IntList)`, and finite domains containing only empty `IntList`
+constants. Nonempty registry-backed constants still require the ordinary
+fallback. Empty literals use the canonical registered value; current phase
+constants enter the existing per-evaluation payload collection. Construction,
+variation and lowering remain GPU operations. Allocating list operations and
+empty list literals clear the private typed-view proof, so evaluation uses the
+existing payload-aware GPU VM; they never inherit a scalar/view capability
+certificate. This includes list and tuple carriers when all their remaining
+productions and the fixed region skeleton satisfy phase admission. Tests:
+`gagp_test_gpu_phase_compile` and `gagp_test_gpu_phase_layout`.

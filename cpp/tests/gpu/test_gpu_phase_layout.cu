@@ -38,7 +38,7 @@ void same_bytecode(const BytecodeProgram& a,const BytecodeProgram& b) {
   if(x.boundary)same_phase(*x.boundary,*y.boundary);
  }
 }
-void check_import(const grammar::CompiledGrammar& grammar,const ProgramGenome& genome) {
+void check_import(const grammar::CompiledGrammar& grammar,const ProgramGenome& genome,bool expect_scalar_certificate=true) {
  auto fresh=genome;fresh.derivation.reset();
  const auto layout=import_native_phase_layout(grammar,fresh);
  const auto restored=export_native_phase_layout(grammar,layout,layout.genes);
@@ -62,7 +62,7 @@ void check_import(const grammar::CompiledGrammar& grammar,const ProgramGenome& g
  setenv("GAGP_REUSE_IMPORT_CERTIFICATE","1",1);
  auto admitted=genome;
  admitted.derivation=std::make_shared<const grammar::DerivationMetadata>(grammar::reconstruct_derivation(grammar,admitted));
- require(bool(admitted.derivation->certificate),"import reuse fixture needs private admission");
+ require(!expect_scalar_certificate || bool(admitted.derivation->certificate),"import reuse fixture needs private admission");
  same_bytecode(layout.executable,import_native_phase_layout(grammar,admitted).executable);
  // A different evaluator order must lower for that order, not reuse the
  // canonical grammar-input executable. The fixture has multiple inputs.
@@ -114,6 +114,29 @@ int main(int argc,char** argv) {try {
   require(rejected,"coupled/lexical region combination did not request native fallback");
   std::ifstream source(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json");
   const std::string fixture((std::istreambuf_iterator<char>(source)),{});
+  {
+    auto document=cli_detail::JsonParser(fixture).parse();
+    auto& alternatives=document.object_v.at("nonterminals").array_v[1].object_v.at("alternatives").array_v;
+    alternatives.push_back(cli_detail::JsonParser(R"({"id":"list_length","weight":4,"expression":{
+      "signature":"len(IntList)->Int","args":[{"signature":"concat(IntList,IntList)->IntList","args":[
+        {"signature":"singleton(Int)->IntList","args":[{"ref":"Expr"}]},
+        {"constant":{"type":"IntList","values":[[]]}}]}]}})").parse());
+    const auto lists=grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(document)));
+    bool saw_empty=false;
+    for(unsigned seed=0;seed<64;++seed) {
+      const auto member=grammar::generate_derivation(lists,seed).genome;
+      for(const auto& value:member.ast.consts)saw_empty|=value.tag==ValueTag::IntList;
+      check_import(lists,member,false); // independent membership and exact lowering roundtrip
+    }
+    require(saw_empty,"list grammar test failed to exercise payload constants");
+    auto& literal=alternatives.back().object_v.at("expression").object_v.at("args").array_v[0]
+        .object_v.at("args").array_v[1].object_v.at("constant").object_v.at("values").array_v[0];
+    literal=cli_detail::JsonParser(R"(["1"])").parse();
+    const auto nonempty=grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(document)));
+    bool declined=false;
+    try{(void)compile_phase_grammar(nonempty,1,12);}catch(const std::invalid_argument&){declined=true;}
+    require(declined,"nonempty list constant silently admitted to GPU construction");
+  }
   for (const auto* charge : {R"({"nodes":2,"depth":1,"resets_depth":false})",
                             R"({"nodes":1,"depth":0,"resets_depth":true})"}) {
     auto document=cli_detail::JsonParser(fixture).parse();

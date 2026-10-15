@@ -146,7 +146,8 @@ __device__ inline PhaseGenerationResult generate_phase(
             domain.value_count>grammar.value_count-domain.value_offset)return result;
         value=grammar.values[domain.value_offset+random.bounded(domain.value_count)];
       }
-      if(value.tag!=ValueTag::Int && value.tag!=ValueTag::Bool)return result;
+      if(value.tag!=ValueTag::Int && value.tag!=ValueTag::Bool &&
+          !(value.tag==ValueTag::IntList && Value::container_len(value)==0))return result;
       node.operand=result.constants;constants[result.constants++]=value;
     } else if(expression.kind!=PhaseExpressionKind::Operation)return result;
     if constexpr(EmitSites) {sites[result.nodes]=next_site;next_site={};}

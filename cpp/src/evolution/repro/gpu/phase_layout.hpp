@@ -75,7 +75,8 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
       ast.traversal_specs.empty(), "requires one bounded region and no outer lexical/traversal regions");
   phase_layout_require(witness.templates.size() == 1, "requires one independent root template");
   for (const auto& value : ast.consts)
-    phase_layout_require(value.tag == ValueTag::Int || value.tag == ValueTag::Bool,
+    phase_layout_require(value.tag == ValueTag::Int || value.tag == ValueTag::Bool ||
+        (value.tag == ValueTag::IntList && Value::container_len(value) == 0),
                          "registry/noninteger constants require native fallback");
   const auto& entry = grammar.nonterminals()[grammar.entry()];
   phase_layout_require(entry.category == NodeCategory::Expression && entry.productions.size() == 1,

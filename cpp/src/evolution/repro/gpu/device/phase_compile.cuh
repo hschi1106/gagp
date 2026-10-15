@@ -22,9 +22,9 @@ struct PhaseCompileResult {
   int constant_count = 0;
   int stack_bound = 0;
   ValueTag result_type = ValueTag::Invalid;
-  // The closed operation_type set, typed constants/locals and forward typed
-  // branches also prove the runtime view_code_supported capability. Any future
-  // extension must retain that proof or return false here.
+  // Scalar/view operations and forward typed branches prove view execution.
+  // Allocating list operations and empty list literals explicitly clear this
+  // proof and use the ordinary payload-aware GPU executor.
   bool typed_views_proven = false;
 };
 namespace phase_compile_detail {
@@ -73,6 +73,8 @@ __device__ inline ValueTag operation_type(const PhaseTreeNode& node, const Value
       return node.arity==2 && args[0]==integer && args[1]==integer ? integer : ValueTag::Invalid;
     case BuiltinId::Clip:
       return node.arity==3 && args[0]==integer && args[1]==integer && args[2]==integer ? integer : ValueTag::Invalid;
+    case BuiltinId::Singleton: return node.arity==1 && args[0]==integer ? list : ValueTag::Invalid;
+    case BuiltinId::Concat: return node.arity==2 && args[0]==list && args[1]==list ? list : ValueTag::Invalid;
     case BuiltinId::Len: return node.arity==1 && args[0]==list ? integer : ValueTag::Invalid;
     case BuiltinId::IndexNonnegative: case BuiltinId::Index: return node.arity==2 && args[0]==list && args[1]==integer ? integer : ValueTag::Invalid;
     case BuiltinId::Slice: return node.arity==3 && args[0]==list && args[1]==integer && args[2]==integer ? list : ValueTag::Invalid;
@@ -115,7 +117,7 @@ __device__ inline PhaseCompileResult compile_phase_tree(
   static_assert(!CompactFrames || sizeof(Frame)==12, "compact lowering frame layout");
   Frame frames[64]; int depth=0, cursor=0;
   ValueTag completed=ValueTag::Invalid;
-  bool have_value=false;
+  bool have_value=false,typed_views=true;
   for (;;) {
     if (!have_value) {
       if (cursor>=node_count) return out.result;
@@ -124,7 +126,9 @@ __device__ inline PhaseCompileResult compile_phase_tree(
       if (node.kind==PhaseTreeKind::Constant) {
         if (node.arity!=0 || node.operand<0 || node.operand>=constant_count) return out.result;
         const auto value=constants[node.operand];
-        if (value.tag!=ValueTag::Int && value.tag!=ValueTag::Bool) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
+        if (value.tag!=ValueTag::Int && value.tag!=ValueTag::Bool &&
+            !(value.tag==ValueTag::IntList && Value::container_len(value)==0)) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
+        if(value.tag==ValueTag::IntList)typed_views=false;
         if (!out.push(value,node.fuel)) return out.result;
         completed=value.tag; have_value=true;
       } else if (node.kind==PhaseTreeKind::Local) {
@@ -151,7 +155,7 @@ __device__ inline PhaseCompileResult compile_phase_tree(
       if (cursor!=node_count || out.stack!=1 || completed!=expected) return out.result;
       if (out.result.stack_bound>gpu_detail::MAX_STACK) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
       out.result.status=PhaseCompileStatus::Ok; out.result.result_type=completed;
-      out.result.typed_views_proven=true;
+      out.result.typed_views_proven=typed_views;
       return out.result;
     }
     auto& frame=frames[depth-1];
@@ -190,6 +194,7 @@ __device__ inline PhaseCompileResult compile_phase_tree(
       completed=operation_type(node,frame.args);
       if (completed==ValueTag::Invalid) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
       if (node.opcode==Opcode::CallBuiltin) {
+        if(node.operand==int(BuiltinId::Concat) || node.operand==int(BuiltinId::Singleton))typed_views=false;
         if (!out.emit(node.opcode,node.fuel,node.operand,node.arity,gpu_detail::DINSTR_HAS_A|gpu_detail::DINSTR_HAS_B)) return out.result;
       } else if (!out.emit(node.opcode,node.fuel)) return out.result;
       out.stack-=node.arity-1;
