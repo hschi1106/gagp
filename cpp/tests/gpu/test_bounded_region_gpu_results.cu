@@ -909,9 +909,9 @@ bool test_measure_phase_cache_contract() {
   return ok && generic_ok;
 }
 
-#include "dense_coordinate_memo_checks.cuh"
+}  // namespace measure_cache_test
 
-}  // namespace
+#include "dense_coordinate_memo_checks.cuh"
 
 int main() {
   payload::clear();
