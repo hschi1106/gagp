@@ -1,4 +1,5 @@
 #include <iostream>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -50,6 +51,39 @@ bool eval_single(const BytecodeProgram& program, const Value& expected, double e
 
 int main() {
   gagp::payload::clear();
+  // Compare inside the VM: legacy numeric fitness would itself round large
+  // integers and could conceal precisely the arithmetic error under test.
+  const long long large = 9007199254740993LL;
+  struct IntegerSample { Opcode op; long long a, b, expected; };
+  const IntegerSample integer_samples[] = {
+    {Opcode::Add, large, 2, large + 2}, {Opcode::Sub, large, 2, large - 2},
+    {Opcode::Mul, large, 3, 27021597764222979LL}, {Opcode::Mod, large, 2, 1},
+    {Opcode::Add, std::numeric_limits<long long>::max(), 1,
+                  std::numeric_limits<long long>::min()},
+  };
+  for (const auto& sample : integer_samples) {
+    BytecodeProgram p;
+    p.consts = {Value::from_int(sample.a), Value::from_int(sample.b), Value::from_int(sample.expected)};
+    p.code = {ins_a(Opcode::PushConst, 0), ins_a(Opcode::PushConst, 1), ins(sample.op),
+              ins_a(Opcode::PushConst, 2), ins(Opcode::Eq), ins(Opcode::Return)};
+    if (!eval_single(p, Value::from_bool(true), 1.0, "exact integer arithmetic")) return 1;
+  }
+  for (const auto id : {gagp::BuiltinId::Min, gagp::BuiltinId::Max}) {
+    BytecodeProgram p;
+    p.consts = {Value::from_int(large), Value::from_int(large + 2),
+               Value::from_int(id == gagp::BuiltinId::Min ? large : large + 2)};
+    p.code = {ins_a(Opcode::PushConst, 0), ins_a(Opcode::PushConst, 1),
+              ins_ab(Opcode::CallBuiltin, static_cast<int>(id), 2),
+              ins_a(Opcode::PushConst, 2), ins(Opcode::Eq), ins(Opcode::Return)};
+    if (!eval_single(p, Value::from_bool(true), 1.0, "exact integer min/max")) return 1;
+  }
+  {
+    BytecodeProgram p;
+    p.consts = {Value::from_int(large - 1), Value::from_int(large)};
+    p.code = {ins_a(Opcode::PushConst, 0), ins_a(Opcode::PushConst, 1), ins(Opcode::Lt), ins(Opcode::Return)};
+    if (!eval_single(p, Value::from_bool(true), 1.0, "exact integer ordering")) return 1;
+  }
+
 
   {
     BytecodeProgram p;

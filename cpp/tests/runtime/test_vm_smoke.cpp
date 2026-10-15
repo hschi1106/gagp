@@ -1,4 +1,6 @@
 #include <iostream>
+#include <limits>
+#include "gagp/core/builtin.hpp"
 #include <vector>
 
 #include "gagp/core/bytecode.hpp"
@@ -44,6 +46,44 @@ bool test_basic_arithmetic() {
   return true;
 }
 
+bool test_exact_integer_operands() {
+  const long long large = 9007199254740993LL;
+  struct Sample { Opcode op; long long a, b, expected; };
+  const Sample samples[] = {
+    {Opcode::Add, large, 2, large + 2},
+    {Opcode::Sub, large, 2, large - 2},
+    {Opcode::Mul, large, 3, 27021597764222979LL},
+    {Opcode::Mod, large, 2, 1},
+    {Opcode::Add, std::numeric_limits<long long>::max(), 1,
+                  std::numeric_limits<long long>::min()},
+  };
+  for (const auto& sample : samples) {
+    BytecodeProgram p;
+    p.consts = {Value::from_int(sample.a), Value::from_int(sample.b)};
+    p.code = {ins_a(Opcode::PushConst, 0), ins_a(Opcode::PushConst, 1),
+              ins(sample.op), ins(Opcode::Return)};
+    const auto out = gagp::execute_bytecode_cpu(p, {}, 100);
+    if (!check(!out.is_error && out.value.tag == ValueTag::Int && out.value.i == sample.expected,
+               "full-width integer arithmetic")) return false;
+  }
+  BytecodeProgram p;
+  p.consts = {Value::from_int(large - 1), Value::from_int(large)};
+  p.code = {ins_a(Opcode::PushConst, 0), ins_a(Opcode::PushConst, 1),
+            ins(Opcode::Lt), ins(Opcode::Return)};
+  auto out = gagp::execute_bytecode_cpu(p, {}, 100);
+  if (!check(!out.is_error && out.value.tag == ValueTag::Bool && out.value.b,
+             "adjacent integers above binary64 exact range remain ordered")) return false;
+  for (const auto id : {gagp::BuiltinId::Min, gagp::BuiltinId::Max}) {
+    p.consts = {Value::from_int(large), Value::from_int(large + 2)};
+    p.code = {ins_a(Opcode::PushConst, 0), ins_a(Opcode::PushConst, 1),
+              Instr{Opcode::CallBuiltin, static_cast<int>(id), 2, true, true}, ins(Opcode::Return)};
+    out = gagp::execute_bytecode_cpu(p, {}, 100);
+    const auto expected = id == gagp::BuiltinId::Min ? large : large + 2;
+    if (!check(!out.is_error && out.value.i == expected, "full-width min/max")) return false;
+  }
+  return true;
+}
+
 bool test_loop_like_control_flow() {
   BytecodeProgram p;
   p.n_locals = 1;
@@ -75,6 +115,7 @@ bool test_loop_like_control_flow() {
 
 int main() {
   if (!test_basic_arithmetic()) return 1;
+  if (!test_exact_integer_operands()) return 1;
   if (!test_loop_like_control_flow()) return 1;
   std::cout << "gagp_test_vm_smoke: OK\n";
   return 0;

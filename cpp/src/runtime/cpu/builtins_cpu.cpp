@@ -144,7 +144,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     BuiltinResult out;
     out.value = (x.tag == ValueTag::Float)
                     ? Value::from_float(vm_semantics::canonicalize_vm_float(x.f < 0 ? -x.f : x.f))
-                                            : Value::from_int(x.i < 0 ? -x.i : x.i);
+                                            : Value::from_int(x.i < 0 ? vm_semantics::wrap_int_neg(x.i) : x.i);
     return out;
   }
 
@@ -161,7 +161,9 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     const double pick = (id == BuiltinId::Min) ? (a <= b ? a : b) : (a >= b ? a : b);
     BuiltinResult out;
     out.value = any_float ? Value::from_float(vm_semantics::canonicalize_vm_float(pick))
-                          : Value::from_int(static_cast<long long>(pick));
+                          : Value::from_int(id == BuiltinId::Min
+                              ? std::min(args[0].i, args[1].i)
+                              : std::max(args[0].i, args[1].i));
     return out;
   }
 

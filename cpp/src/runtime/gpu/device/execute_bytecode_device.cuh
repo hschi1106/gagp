@@ -270,22 +270,22 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
       if (ins.op == OP_ADD) {
         stack[sp++] = any_float ? Value::from_float(vm_semantics::canonicalize_vm_float(a_num + b_num))
                                 : Value::from_int(vm_semantics::wrap_int_add(
-                                      static_cast<long long>(a_num), static_cast<long long>(b_num)));
+                                      a.i, b.i));
       } else if (ins.op == OP_SUB) {
         stack[sp++] = any_float ? Value::from_float(vm_semantics::canonicalize_vm_float(a_num - b_num))
                                 : Value::from_int(vm_semantics::wrap_int_sub(
-                                      static_cast<long long>(a_num), static_cast<long long>(b_num)));
+                                      a.i, b.i));
       } else if (ins.op == OP_MUL) {
         stack[sp++] = any_float ? Value::from_float(vm_semantics::canonicalize_vm_float(a_num * b_num))
                                 : Value::from_int(vm_semantics::wrap_int_mul(
-                                      static_cast<long long>(a_num), static_cast<long long>(b_num)));
+                                      a.i, b.i));
       } else if (ins.op == OP_DIV) {
         stack[sp++] = Value::from_float(vm_semantics::canonicalize_vm_float(a_num / b_num));
       } else {
         stack[sp++] = any_float
                           ? Value::from_float(vm_semantics::canonicalize_vm_float(d_float_mod(a_num, b_num)))
-                          : Value::from_int(d_int_mod(static_cast<long long>(a_num),
-                                                      static_cast<long long>(b_num)));
+                          : Value::from_int(d_int_mod(a.i,
+                                                      b.i));
       }
       continue;
     }

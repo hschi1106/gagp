@@ -469,7 +469,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     const double pick =
         (bid == BuiltinId::Min) ? ((a <= b) ? a : b) : ((a >= b) ? a : b);
     out = any_float ? Value::from_float(vm_semantics::canonicalize_vm_float(pick))
-                    : Value::from_int(static_cast<long long>(pick));
+                    : Value::from_int(bid == BuiltinId::Min
+                        ? (args[0].i <= args[1].i ? args[0].i : args[1].i)
+                        : (args[0].i >= args[1].i ? args[0].i : args[1].i));
     return true;
   }
 

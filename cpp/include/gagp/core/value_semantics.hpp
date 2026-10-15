@@ -142,6 +142,16 @@ GAGP_VM_HD inline CompareStatus compare_values(CmpOp op, const Value& a, const V
     return CompareStatus::Ok;
   }
 
+  // Integer ordering must not lose low bits through binary64 conversion.
+  if (a.tag == ValueTag::Int && b.tag == ValueTag::Int) {
+    if (op == CmpOp::LT) out_bool = a.i < b.i;
+    else if (op == CmpOp::LE) out_bool = a.i <= b.i;
+    else if (op == CmpOp::GT) out_bool = a.i > b.i;
+    else if (op == CmpOp::GE) out_bool = a.i >= b.i;
+    else return CompareStatus::InvalidOp;
+    return CompareStatus::Ok;
+  }
+
   double a_num = 0.0;
   double b_num = 0.0;
   bool any_float = false;

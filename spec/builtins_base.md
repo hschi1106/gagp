@@ -62,6 +62,9 @@ SameNumeric(A, B) is valid only when A and B are the same runtime type.
 
 No scalar numeric builtin performs implicit `Int` / `Float` conversion.
 `idiv0` and `imod0` require `Int` operands.
+Integer arithmetic, ordering, and `min`/`max` preserve all 64 operand bits;
+implementations must not round integer operands through binary64. Integer
+add/subtract/multiply retain the VM wraparound contract.
 
 ## Numeric Builtins
 

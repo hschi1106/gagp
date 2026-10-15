@@ -375,21 +375,21 @@ ExecResult run_code_impl(const CodeView& view,
             stack.push_back(Value::from_float(vm_semantics::canonicalize_vm_float(a_num + b_num)));
           } else {
             stack.push_back(Value::from_int(
-                vm_semantics::wrap_int_add(static_cast<long long>(a_num), static_cast<long long>(b_num))));
+                vm_semantics::wrap_int_add(a.i, b.i)));
           }
         } else if (op == Opcode::Sub) {
           if (any_float) {
             stack.push_back(Value::from_float(vm_semantics::canonicalize_vm_float(a_num - b_num)));
           } else {
             stack.push_back(Value::from_int(
-                vm_semantics::wrap_int_sub(static_cast<long long>(a_num), static_cast<long long>(b_num))));
+                vm_semantics::wrap_int_sub(a.i, b.i)));
           }
         } else if (op == Opcode::Mul) {
           if (any_float) {
             stack.push_back(Value::from_float(vm_semantics::canonicalize_vm_float(a_num * b_num)));
           } else {
             stack.push_back(Value::from_int(
-                vm_semantics::wrap_int_mul(static_cast<long long>(a_num), static_cast<long long>(b_num))));
+                vm_semantics::wrap_int_mul(a.i, b.i)));
           }
         } else if (op == Opcode::Div) {
           stack.push_back(Value::from_float(vm_semantics::canonicalize_vm_float(a_num / b_num)));
@@ -397,8 +397,8 @@ ExecResult run_code_impl(const CodeView& view,
           stack.push_back(
               Value::from_float(vm_semantics::canonicalize_vm_float(vm_semantics::py_float_mod(a_num, b_num))));
         } else {
-          const long long ai = static_cast<long long>(a_num);
-          const long long bi = static_cast<long long>(b_num);
+          const long long ai = a.i;
+          const long long bi = b.i;
           stack.push_back(Value::from_int(vm_semantics::py_int_mod(ai, bi)));
         }
         continue;
