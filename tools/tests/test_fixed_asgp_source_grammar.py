@@ -50,6 +50,8 @@ class TestSourceGrammar(unittest.TestCase):
         self.assertEqual(plan['limits']['cells'],169)
         self.assertEqual(body['args'][:2],[{'input':'start_a'},{'input':'start_b'}])
         self.assertEqual([p['argument'] for p in body['phases']],[2,3,4,5])
+        interval=template(ROOT,'subregion_sum',dict(dp_dimensions=2,dp_deps=[[0,-1]],sequence_input=1))['body']
+        self.assertEqual(interval['structured']['plan']['limits']['cells'],20)
         stock=template(ROOT,'stock_with_cooldown',dict(dp_dimensions=2,dp_deps=[[1,0],[1,1],[2,-1]],sequence_input=1))['body']
         self.assertEqual(stock['structured']['plan']['coordinate_rank'][0]['direction'],-1)
         combine=next(p for p in stock['phases'] if any(b['bank']=='result' for b in p['bindings']))

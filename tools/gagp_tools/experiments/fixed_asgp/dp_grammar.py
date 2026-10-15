@@ -29,7 +29,8 @@ def template(root, task, contract):
     plan['coordinate_rank']=[{'coordinate':i,'direction':1} for i in range(dim)]
     domain=copy.deepcopy(plan['coordinate_domains'][0]);domain['upper']['literal']=str(upper)
     plan['coordinate_domains']=[copy.deepcopy(domain) for _ in range(dim)]
-    plan['limits'].update(frames=127,cells=(upper+1)**dim)
+    # Subregion keeps its first coordinate fixed: a call visits at most20 states.
+    plan['limits'].update(frames=127,cells=upper+1 if predicate=='interval' else (upper+1)**dim)
     body['captures']=[{'input':'source'}] if contract['sequence_input'] else []
     state_scope=[{'name':('n','j')[i],'type':'Int'} for i in range(dim)]
     bindings=[{'bank':'state','slot':i,'name':s['name']} for i,s in enumerate(state_scope)]
