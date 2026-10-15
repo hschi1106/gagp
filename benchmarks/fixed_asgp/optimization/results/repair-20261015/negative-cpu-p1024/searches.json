@@ -1,0 +1,28 @@
+[
+  {
+    "task": "negative_to_zero",
+    "phase": "gagp_cpu.s0",
+    "status": "ok",
+    "extra_settings": {
+      "GAGP_SEARCH_GENERATIONS": "1",
+      "GAGP_BM_SEED": "0",
+      "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/negative-cpu-p1024/negative_to_zero.gagp_cpu.s0.final.json"
+    },
+    "log": "negative_to_zero.gagp_cpu.s0.log",
+    "returncode": 0,
+    "peak_rss_bytes": 287465472,
+    "process_s": 71.75916533102281,
+    "output": "negative_to_zero.gagp_cpu.s0.json",
+    "evolve_wall_ms": 70753.952149,
+    "final_best": -12791,
+    "unique_final_genomes": 930,
+    "cpu_audit_mismatches": 0,
+    "cpu_audit_program_count": 16,
+    "reproduction_profile": "native-ast",
+    "source_depth_cap": 0,
+    "initial_admission_ms": 46.651956,
+    "gpu_init_ms": 0,
+    "final_eval_ms": 33089.902257,
+    "genotype_device_bytes": 0
+  }
+]

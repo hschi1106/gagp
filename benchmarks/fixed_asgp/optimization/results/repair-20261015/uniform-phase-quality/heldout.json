@@ -1,0 +1,122 @@
+[
+  {
+    "file": "house_robber.g48.s2.heldout.json",
+    "cases_sha256": "2411f09ebcc8e441f741ae7f0e14a6c04a5348cf080db8bd419611a34218bba3",
+    "data_origin": "ASGP BuildTask local task domain, test split; not official PSB",
+    "data_seed": 20261015,
+    "final": {
+      "backend": "gagp_cpu_1t",
+      "capped_l1_mean": 6.17578125,
+      "capped_l1_sum": 6324,
+      "cases": 1024,
+      "cases_at_cap": 0,
+      "correct_count": 155,
+      "exact": 155,
+      "exact_accuracy": 0.1513671875,
+      "grammar_admitted": 1,
+      "grammar_hash": "462cadffbfa5ddfbca1090f937db46681214997ed07f1bde63cc154675c30f53",
+      "runtime_errors": 0,
+      "wrong": 869
+    }
+  },
+  {
+    "file": "house_robber.g32.s0.heldout.json",
+    "cases_sha256": "2411f09ebcc8e441f741ae7f0e14a6c04a5348cf080db8bd419611a34218bba3",
+    "data_origin": "ASGP BuildTask local task domain, test split; not official PSB",
+    "data_seed": 20261015,
+    "final": {
+      "backend": "gagp_cpu_1t",
+      "capped_l1_mean": 4.912109375,
+      "capped_l1_sum": 5030,
+      "cases": 1024,
+      "cases_at_cap": 0,
+      "correct_count": 328,
+      "exact": 328,
+      "exact_accuracy": 0.3203125,
+      "grammar_admitted": 1,
+      "grammar_hash": "462cadffbfa5ddfbca1090f937db46681214997ed07f1bde63cc154675c30f53",
+      "runtime_errors": 0,
+      "wrong": 696
+    }
+  },
+  {
+    "file": "house_robber.g48.s1.heldout.json",
+    "cases_sha256": "2411f09ebcc8e441f741ae7f0e14a6c04a5348cf080db8bd419611a34218bba3",
+    "data_origin": "ASGP BuildTask local task domain, test split; not official PSB",
+    "data_seed": 20261015,
+    "final": {
+      "backend": "gagp_cpu_1t",
+      "capped_l1_mean": 5.4375,
+      "capped_l1_sum": 5568,
+      "cases": 1024,
+      "cases_at_cap": 0,
+      "correct_count": 246,
+      "exact": 246,
+      "exact_accuracy": 0.240234375,
+      "grammar_admitted": 1,
+      "grammar_hash": "462cadffbfa5ddfbca1090f937db46681214997ed07f1bde63cc154675c30f53",
+      "runtime_errors": 0,
+      "wrong": 778
+    }
+  },
+  {
+    "file": "house_robber.g32.s1.heldout.json",
+    "cases_sha256": "2411f09ebcc8e441f741ae7f0e14a6c04a5348cf080db8bd419611a34218bba3",
+    "data_origin": "ASGP BuildTask local task domain, test split; not official PSB",
+    "data_seed": 20261015,
+    "final": {
+      "backend": "gagp_cpu_1t",
+      "capped_l1_mean": 6.7138671875,
+      "capped_l1_sum": 6875,
+      "cases": 1024,
+      "cases_at_cap": 0,
+      "correct_count": 84,
+      "exact": 84,
+      "exact_accuracy": 0.08203125,
+      "grammar_admitted": 1,
+      "grammar_hash": "462cadffbfa5ddfbca1090f937db46681214997ed07f1bde63cc154675c30f53",
+      "runtime_errors": 0,
+      "wrong": 940
+    }
+  },
+  {
+    "file": "house_robber.g32.s2.heldout.json",
+    "cases_sha256": "2411f09ebcc8e441f741ae7f0e14a6c04a5348cf080db8bd419611a34218bba3",
+    "data_origin": "ASGP BuildTask local task domain, test split; not official PSB",
+    "data_seed": 20261015,
+    "final": {
+      "backend": "gagp_cpu_1t",
+      "capped_l1_mean": 6.5927734375,
+      "capped_l1_sum": 6751,
+      "cases": 1024,
+      "cases_at_cap": 0,
+      "correct_count": 34,
+      "exact": 34,
+      "exact_accuracy": 0.033203125,
+      "grammar_admitted": 1,
+      "grammar_hash": "462cadffbfa5ddfbca1090f937db46681214997ed07f1bde63cc154675c30f53",
+      "runtime_errors": 0,
+      "wrong": 990
+    }
+  },
+  {
+    "file": "house_robber.g48.s0.heldout.json",
+    "cases_sha256": "2411f09ebcc8e441f741ae7f0e14a6c04a5348cf080db8bd419611a34218bba3",
+    "data_origin": "ASGP BuildTask local task domain, test split; not official PSB",
+    "data_seed": 20261015,
+    "final": {
+      "backend": "gagp_cpu_1t",
+      "capped_l1_mean": 4.5234375,
+      "capped_l1_sum": 4632,
+      "cases": 1024,
+      "cases_at_cap": 0,
+      "correct_count": 321,
+      "exact": 321,
+      "exact_accuracy": 0.3134765625,
+      "grammar_admitted": 1,
+      "grammar_hash": "462cadffbfa5ddfbca1090f937db46681214997ed07f1bde63cc154675c30f53",
+      "runtime_errors": 0,
+      "wrong": 703
+    }
+  }
+]

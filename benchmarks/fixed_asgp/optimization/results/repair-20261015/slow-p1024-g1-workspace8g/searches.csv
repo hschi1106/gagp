@@ -1,0 +1,8 @@
+task,mode,seed,evolve_wall_ms,process_s,final_best,unique_final_genomes,cpu_audit_mismatches,peak_rss_bytes,status
+filter_odd,gpu_overlap,0,9823.540612,10.82774309697561,-12205,942,0,428609536,ok
+negative_to_zero,gpu_overlap,0,9738.518448,10.836862645111978,-12791,892,0,445714432,ok
+cumulative_sum,gpu_overlap,0,8910.132958,10.010572702158242,-23313,936,0,446099456,ok
+for_loop_index,gpu_overlap,0,8672.629642,9.560274275019765,-5621,925,0,444092416,ok
+double_letters,gpu_overlap,0,35644.812307,36.98244266305119,-3058,896,0,467689472,ok
+replace_space_with_newline,gpu_overlap,0,38184.244786,39.41058904211968,-453,897,0,455102464,ok
+even_squares,gpu_overlap,0,13539.162524,14.801846532151103,-1911,904,0,445083648,ok
