@@ -1,3 +1,4 @@
+#include "../fitness_options.hpp"
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 
 #include <algorithm>
@@ -62,6 +63,7 @@ std::vector<double> eval_fitness_cpu(
     double penalty,
     int reduction_lanes, FitnessPolicy policy, std::vector<unsigned>* wrong,
     std::vector<CpuFitnessCaseCounts>* case_counts) {
+  policy=capture_fitness_options(policy);
   if (case_counts) case_counts->assign(programs.size(), {});
   if(wrong)wrong->assign(programs.size(),0);
   if(!valid_fitness_policy(policy))throw std::invalid_argument("invalid fitness policy");

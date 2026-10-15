@@ -12,6 +12,8 @@ struct FitnessPolicy {
   // Optional logical list-cell arena: inputs, singleton and nonempty concat.
   // Zero retains the ordinary backend resource policy.
   unsigned list_allocation_limit = 0;
+  // Optional exact scorer optimization; does not affect evaluator resources.
+  bool trim_sequence_ends = false;
 };
 inline bool valid_fitness_policy(FitnessPolicy p) {
   return (p.metric==FitnessMetric::Legacy || p.metric==FitnessMetric::Absolute ||
@@ -74,6 +76,27 @@ GAGP_FIT_HD inline bool fitness_sequence_length_saturates(int n, int m,
       policy.proximity == FitnessProximity::Capped && n >= 0 && m >= 0 &&
       n != m && double(n > m ? n - m : m - n) >= fabs(penalty);
 }
+// Restrict cancellation to a uniform equivalence relation. Float and mixed
+// numeric comparisons retain full DP (including NaNs and integer rounding).
+GAGP_FIT_HD inline void fitness_trim_sequence_ends(const Value*& a, int& n,
+    const Value*& b, int& m) {
+  if(n==0 || m==0)return;
+  const auto tag=a[0].tag;
+  if(tag!=ValueTag::Int && tag!=ValueTag::Char)return;
+  for(int i=0;i<n;++i)if(a[i].tag!=tag)return;
+  for(int j=0;j<m;++j)if(b[j].tag!=tag)return;
+  int prefix=0;
+  while(prefix<n && prefix<m && a[prefix].i==b[prefix].i)++prefix;
+  a+=prefix;b+=prefix;n-=prefix;m-=prefix;
+  while(n>0 && m>0 && a[n-1].i==b[m-1].i){--n;--m;}
+}
+GAGP_FIT_HD inline void fitness_trim_sequence_ends(const char*& a, int& n,
+    const char*& b, int& m) {
+  int prefix=0;
+  while(prefix<n && prefix<m && a[prefix]==b[prefix])++prefix;
+  if(prefix){a+=prefix;b+=prefix;n-=prefix;m-=prefix;}
+  while(n>0 && m>0 && a[n-1]==b[m-1]){--n;--m;}
+}
 GAGP_FIT_HD inline double fitness_sequence_score(const Value* actual, int n,
     const Value* expected, int m, double penalty, FitnessPolicy policy, unsigned* row) {
   if (n < 0 || m < 0 || m > kFitnessMaxSequence)
@@ -90,6 +113,8 @@ GAGP_FIT_HD inline double fitness_sequence_score(const Value* actual, int n,
     return -error;
   }
   if (fitness_sequence_length_saturates(n,m,penalty,policy)) return -fabs(penalty);
+  if(policy.trim_sequence_ends && policy.metric==FitnessMetric::Levenshtein)
+    fitness_trim_sequence_ends(actual,n,expected,m);
   for(int j=0;j<=m;++j)row[j]=j;
   const FitnessPolicy exact{FitnessMetric::Exact};
   for(int i=1;i<=n;++i) {

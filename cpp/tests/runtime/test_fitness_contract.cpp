@@ -1,4 +1,5 @@
 #include <cmath>
+#include "../../src/runtime/fitness_options.hpp"
 #include <iostream>
 #include <limits>
 #include <random>
@@ -90,6 +91,7 @@ bool test_exact_length_bound() {
       std::vector<unsigned> row(m+1,999);
       const double d=distance[n][m];
       const double expected=proximity==gagp::FitnessProximity::Capped ? -std::fmin(d,std::fabs(penalty)) : -d/(1+d);
+      policy.trim_sequence_ends=sample%3!=0;
       const auto actual=gagp::fitness_sequence_score(a.data(),n,b.data(),m,penalty,policy,row.data());
       if(!check(actual==expected,"length-bound score differs from full edit matrix"))return false;
       const bool shortcut=gagp::fitness_sequence_length_saturates(n,m,penalty,policy);
@@ -101,10 +103,63 @@ bool test_exact_length_bound() {
   return true;
 }
 
+bool test_sequence_trimming() {
+  const auto compare=[](std::vector<Value> a,std::vector<Value> b) {
+    for(double penalty:{0.0,.25,1.0,2.5,1000.0,
+        std::numeric_limits<double>::infinity(),std::numeric_limits<double>::quiet_NaN()})
+      for(auto proximity:{gagp::FitnessProximity::Capped,gagp::FitnessProximity::Discounted}) {
+        gagp::FitnessPolicy baseline{gagp::FitnessMetric::Levenshtein,proximity};
+        auto trimmed=baseline;trimmed.trim_sequence_ends=true;
+        std::vector<unsigned> row(b.size()+1),other(b.size()+1);
+        const double expected=gagp::fitness_sequence_score(a.data(),a.size(),b.data(),b.size(),penalty,baseline,row.data());
+        const double result=gagp::fitness_sequence_score(a.data(),a.size(),b.data(),b.size(),penalty,trimmed,other.data());
+        if(!check(expected==result,"trim changed edit score"))return false;
+      }
+    return true;
+  };
+  const auto ints=[](std::initializer_list<int> xs){std::vector<Value> out;for(int x:xs)out.push_back(Value::from_int(x));return out;};
+  for(auto pair:std::vector<std::pair<std::vector<Value>,std::vector<Value>>>{
+      {{},{}},{ints({1,2}),{}},{ints({1,2}),ints({1,2})},
+      {ints({1,2,3}),ints({1,2})},{ints({0,1,2}),ints({1,2})},
+      {ints({1,2,1}),ints({1,1})},{ints({1,2,3,4}),ints({1,5,3,4})},
+      {{Value::from_float(NAN),Value::from_int(1)},{Value::from_float(NAN),Value::from_int(1)}},
+      {{Value::from_int(9007199254740993LL),Value::from_float(9007199254740992.)},
+       {Value::from_float(9007199254740992.),Value::from_int(9007199254740992LL)}}})
+    if(!compare(pair.first,pair.second))return false;
+  // Exhaustive short binary sequences include matching ends that overlap.
+  for(int n=0;n<=5;++n)for(int m=0;m<=5;++m)
+    for(int x=0;x<(1<<n);++x)for(int y=0;y<(1<<m);++y) {
+      std::vector<Value>a,b;
+      for(int i=0;i<n;++i)a.push_back(Value::from_int((x>>i)&1));
+      for(int j=0;j<m;++j)b.push_back(Value::from_int((y>>j)&1));
+      if(!compare(a,b))return false;
+    }
+  const Value values[]={Value::from_int(1),Value::from_int(2),Value::from_int(3)};
+  const Value* a=values;const Value* b=values;int n=3,m=3;
+  gagp::fitness_trim_sequence_ends(a,n,b,m);
+  if(!check(n==0 && m==0,"matching list did not eliminate DP extent"))return false;
+  const char* ca="prefixXsuff";const char* cb="prefixYsuff";n=11;m=11;
+  gagp::fitness_trim_sequence_ends(ca,n,cb,m);
+  if(!check(n==1 && m==1 && *ca=='X' && *cb=='Y',"byte prefix/suffix trim"))return false;
+  const Value mixed[]={Value::from_int(1),Value::from_float(2)};
+  a=mixed;b=mixed;n=2;m=2;gagp::fitness_trim_sequence_ends(a,n,b,m);
+  if(!check(n==2 && m==2,"mixed sequence must retain full DP"))return false;
+  const char* previous=std::getenv("GAGP_FITNESS_TRIM_SEQUENCE_ENDS");
+  const bool had_previous=previous;const std::string saved=previous?previous:"";
+  unsetenv("GAGP_FITNESS_TRIM_SEQUENCE_ENDS");
+  bool ok=check(!gagp::capture_fitness_options({}).trim_sequence_ends,"trim enabled by default");
+  setenv("GAGP_FITNESS_TRIM_SEQUENCE_ENDS","1",1);
+  ok=check(gagp::capture_fitness_options({}).trim_sequence_ends,"trim opt-in not captured") && ok;
+  setenv("GAGP_FITNESS_TRIM_SEQUENCE_ENDS","0",1);
+  ok=check(!gagp::capture_fitness_options({}).trim_sequence_ends,"trim zero flag enabled") && ok;
+  if(had_previous)setenv("GAGP_FITNESS_TRIM_SEQUENCE_ENDS",saved.c_str(),1);else unsetenv("GAGP_FITNESS_TRIM_SEQUENCE_ENDS");
+  return ok;
+}
+
 }  // namespace
 
 int main() {
-  if(!test_payload_workspace_budget() || !test_exact_length_bound())return 1;
+  if(!test_payload_workspace_budget() || !test_exact_length_bound() || !test_sequence_trimming())return 1;
   gagp::payload::clear();
   if (!score_is(Value::from_int(3), Value::from_int(3), 0.0, "numeric exact")) return 1;
   if (!score_is(Value::from_float(7.5), Value::from_int(5), -2.5,
