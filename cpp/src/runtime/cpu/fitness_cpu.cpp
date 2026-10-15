@@ -88,6 +88,7 @@ std::vector<double> eval_fitness_cpu(
     std::unique_ptr<CpuExecutionSession> session;
     if (!programs[p].bounded_region_segments.empty())
       session = std::make_unique<CpuExecutionSession>(programs[p]);
+    payload::StagedPayloads temporary_payloads(8U * 1024U * 1024U);
     std::vector<double> partial_scores(static_cast<std::size_t>(lanes), 0.0);
     for (int lane = 0; lane < lanes; ++lane) {
       const std::size_t chunk_start =
@@ -99,7 +100,6 @@ std::vector<double> eval_fitness_cpu(
         const auto& inputs = case_inputs[c];
         // Evaluation temporaries live through scoring only; inputs/constants remain
         // in the committed registry. The budget also bounds exponential Concat.
-        payload::StagedPayloads temporary_payloads(8U * 1024U * 1024U);
         payload::StagedPayloads::Scope payload_scope(temporary_payloads);
         ExecResult out;
         try {

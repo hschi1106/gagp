@@ -24,6 +24,7 @@ class StagedPayloads {
   struct State;
   // A finite limit creates a discard-only evaluation overlay; it cannot commit.
   // Counts cumulative registered payload bytes plus keys, including replacements.
+  // Finite scopes release writes at scope exit and may be reused across cases.
   explicit StagedPayloads(std::size_t byte_limit = std::numeric_limits<std::size_t>::max());
   ~StagedPayloads();
   StagedPayloads(const StagedPayloads&) = delete;

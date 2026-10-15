@@ -220,7 +220,8 @@ StagedPayloads::StagedPayloads(std::size_t byte_limit) : state_(std::make_unique
 StagedPayloads::~StagedPayloads() = default;
 bool StagedPayloads::has_active_scope() { return staged != nullptr; }
 StagedPayloads::Scope::Scope(StagedPayloads& transaction) : state_(transaction.state_.get()) {
-  if (staged || state_->active || state_->sealed)
+  if (staged || state_->active ||
+      (state_->sealed && state_->byte_limit == std::numeric_limits<std::size_t>::max()))
     throw std::logic_error("payload generation transaction cannot be nested or reused");
   state_->active = true;
   staged = state_;
@@ -229,6 +230,11 @@ StagedPayloads::Scope::~Scope() {
   staged = nullptr;
   state_->active = false;
   state_->sealed = true;
+  if (state_->byte_limit != std::numeric_limits<std::size_t>::max()) {
+    state_->strings.clear();
+    state_->lists.clear();
+    state_->bytes = 0;
+  }
 }
 bool StagedPayloads::read_snapshot_unchanged() const {
   const auto& state = *state_;
