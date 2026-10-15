@@ -194,6 +194,31 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   return result;
 }
 
+// A cold structural key only. Neutral expression placeholders are never executed
+// or offered as grammar members; their purpose is to compare the fixed skeleton.
+inline std::string native_phase_skeleton_key(const NativePhaseLayout& layout) {
+ ProgramGenome skeleton;skeleton.ast=layout.prototype;auto& ast=skeleton.ast;ast.nodes.clear();ast.fuel_specs.clear();
+ const int marker=ast.consts.size();ast.consts.push_back(Value::from_int(0));
+ std::vector<std::size_t> remap(layout.prototype.nodes.size(),std::size_t(-1));std::size_t slot=0;
+ for(std::size_t i=0;i<layout.prototype.nodes.size();) {
+  if(slot<layout.slots.size() && layout.slots[slot].begin==i){ast.nodes.push_back({NodeKind::CONST,marker});i=layout.slots[slot++].end;}
+  else {remap[i]=ast.nodes.size();ast.nodes.push_back(layout.prototype.nodes[i]);++i;}
+ }
+ for(const auto& fuel:layout.prototype.fuel_specs)if(remap.at(fuel.node_index)!=std::size_t(-1))ast.fuel_specs.push_back({remap[fuel.node_index],fuel.charges});
+ for(auto& region:ast.bounded_region_specs)region.node_index=remap.at(region.node_index);
+ // Stable table compaction alone retains parent-dependent interning order:
+ // a variable phase can intern a constant before a later fixed phase uses it.
+ // Serialize each fixed occurrence through a fresh, traversal-ordered table.
+ // Copy complete Values (including exact integer and payload identities), not
+ // floating conversions or hashes. This changes only the comparison artifact.
+ std::vector<Value> constants;
+ for(auto& node:ast.nodes)if(node.kind==NodeKind::CONST) {
+  constants.push_back(ast.consts.at(node.i0));node.i0=static_cast<int>(constants.size()-1);
+ }
+ ast.consts=std::move(constants);
+ return ast_cache_key(compact_genome_tables(std::move(skeleton)).ast);
+}
+
 // Export only. The caller supplies a private run's current device copyback;
 // external/imported gene buffers must never bypass independent admission.
 inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& grammar,

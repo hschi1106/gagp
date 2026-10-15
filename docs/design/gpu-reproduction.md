@@ -719,6 +719,15 @@ private `NativePhasePopulation::Impl::finish_export` is the only publication pat
 that uses this ownership argument. It does not accept an externally asserted
 validity bit or issue an admission certificate.
 
+The cold fixed-skeleton comparison serializes constants in fixed-node traversal
+order, copying their exact `Value` identities. Parent-dependent constant-pool
+interning order and duplicate table entries therefore do not force fallback.
+This normalization applies only to the comparison artifact, after each input's
+ordinary admission; fixed values, plans, bindings and fuel remain part of the
+key. The runtime AST and grammar membership contract are unchanged. Regression:
+`gagp_test_gpu_phase_layout` checks reordered pools and rejects changed constants
+(including integers above 2^53 and payload identities), plans, bindings and fuel.
+
 Cold import admits the immutable fixed skeleton, phase contracts and initial
 members. The admitted GPU generator samples grammar productions and constant
 domains. Crossover and mutation preserve exact nonterminal/identity-scope sites;

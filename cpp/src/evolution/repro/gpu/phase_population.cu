@@ -268,20 +268,6 @@ RegionPhase& phase_at(BoundedRegionSegment& segment,std::size_t ordinal) {
  }
  throw std::logic_error("GPU genotype phase ordinal");
 }
-// A cold structural key only. Neutral expression placeholders are never executed
-// or offered as grammar members; their purpose is to compare the fixed skeleton.
-std::string skeleton_key(const NativePhaseLayout& layout) {
- ProgramGenome skeleton;skeleton.ast=layout.prototype;auto& ast=skeleton.ast;ast.nodes.clear();ast.fuel_specs.clear();
- const int marker=ast.consts.size();ast.consts.push_back(Value::from_int(0));
- std::vector<std::size_t> remap(layout.prototype.nodes.size(),std::size_t(-1));std::size_t slot=0;
- for(std::size_t i=0;i<layout.prototype.nodes.size();) {
-  if(slot<layout.slots.size() && layout.slots[slot].begin==i){ast.nodes.push_back({NodeKind::CONST,marker});i=layout.slots[slot++].end;}
-  else {remap[i]=ast.nodes.size();ast.nodes.push_back(layout.prototype.nodes[i]);++i;}
- }
- for(const auto& fuel:layout.prototype.fuel_specs)if(remap.at(fuel.node_index)!=std::size_t(-1))ast.fuel_specs.push_back({remap[fuel.node_index],fuel.charges});
- for(auto& region:ast.bounded_region_specs)region.node_index=remap.at(region.node_index);
- return ast_cache_key(compact_genome_tables(std::move(skeleton)).ast);
-}
 } // namespace
 
 struct NativePhasePopulation::Impl {
@@ -476,7 +462,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  const auto capability=gpu_detail::pack_programs_with_shared_case_count({impl_->layout.executable},0,0);
  phase_layout_require(capability.metas.size()==1 && capability.metas.front().is_valid,"fixed executable requires GPU fallback");
  impl_->slot_count=impl_->layout.slots.size();phase_layout_require(impl_->slot_count>0 && impl_->slot_count<=8,"phase count capacity");
- const auto key=skeleton_key(impl_->layout);const std::size_t rows=input.size()*impl_->slot_count;
+ const auto key=native_phase_skeleton_key(impl_->layout);const std::size_t rows=input.size()*impl_->slot_count;
  const std::size_t tree_bytes=capacity*(sizeof(PhaseTreeNode)+sizeof(int)+sizeof(PhaseGeneSite)+sizeof(Value))+sizeof(PhaseGenerationResult);
  const auto mutation_rows=impl_->inplace_mutation?input.size():rows;
  const std::size_t estimated=(2*rows+mutation_rows+input.size())*tree_bytes+rows*(code_capacity*sizeof(gpu_detail::DInstr)+capacity*sizeof(Value));
@@ -500,7 +486,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  // Upload live imports only, avoiding full-capacity host staging arrays.
  for(std::size_t p=0;p<input.size();++p) {
   auto imported=p==0?impl_->layout:import_native_phase_layout(*impl_->grammar,input[p],import_profiles.get(),evaluator_inputs,!reuse_import);
-  phase_layout_require(imported.slots.size()==impl_->layout.slots.size() && skeleton_key(imported)==key,"mixed fixed skeleton requires native fallback");
+  phase_layout_require(imported.slots.size()==impl_->layout.slots.size() && native_phase_skeleton_key(imported)==key,"mixed fixed skeleton requires native fallback");
   for(int k=0;k<impl_->slot_count;++k) {
    const auto& a=imported.slots[k];const auto& b=impl_->layout.slots[k];
    phase_layout_require(a.nonterminal==b.nonterminal && a.ordinal==b.ordinal && a.binders==b.binders && a.max_depth==b.max_depth,"mixed phase contract requires fallback");

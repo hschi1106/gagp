@@ -41,6 +41,40 @@ void same_bytecode(const BytecodeProgram& a,const BytecodeProgram& b) {
 void check_import(const grammar::CompiledGrammar& grammar,const ProgramGenome& genome,bool expect_scalar_certificate=true) {
  auto fresh=genome;fresh.derivation.reset();
  const auto layout=import_native_phase_layout(grammar,fresh);
+ // Constant-pool numbering is incidental, including constants first interned
+ // inside a variable phase and reused by a later fixed request expression.
+ auto reordered_pool=fresh;
+ std::reverse(reordered_pool.ast.consts.begin(),reordered_pool.ast.consts.end());
+ for(auto& node:reordered_pool.ast.nodes)if(node.kind==NodeKind::CONST)
+  node.i0=static_cast<int>(reordered_pool.ast.consts.size())-1-node.i0;
+ const auto reordered_layout=import_native_phase_layout(grammar,reordered_pool);
+ const auto key=native_phase_skeleton_key(layout);
+ require(key==native_phase_skeleton_key(reordered_layout),"equivalent constant pools changed fixed skeleton");
+ auto changed=layout;
+ bool tested_fixed=false;
+ for(std::size_t i=0;i<changed.prototype.nodes.size();++i) {
+  const auto& node=changed.prototype.nodes[i];
+  const bool variable=std::any_of(layout.slots.begin(),layout.slots.end(),
+      [&](const auto& slot){return slot.begin<=i && i<slot.end;});
+  if(node.kind!=NodeKind::CONST || variable)continue;
+  changed.prototype.consts[node.i0]=Value::from_int(9007199254740993LL);
+  const auto wide_key=native_phase_skeleton_key(changed);
+  require(key!=wide_key,"different fixed constant admitted");
+  changed.prototype.consts[node.i0]=Value::from_int(9007199254740992LL);
+  require(wide_key!=native_phase_skeleton_key(changed),"fixed integer identity rounded");
+  changed.prototype.consts[node.i0]=Value::from_int_list_hash_len(123,0);
+  const auto payload_key=native_phase_skeleton_key(changed);
+  changed.prototype.consts[node.i0]=Value::from_int_list_hash_len(124,0);
+  require(payload_key!=native_phase_skeleton_key(changed),"fixed payload identity erased");
+  tested_fixed=true;break;
+ }
+ require(tested_fixed,"fixture needs a fixed constant");
+ changed=layout;changed.prototype.bounded_region_specs[0].plan.limits.entry_fuel+=1;
+ require(key!=native_phase_skeleton_key(changed),"fixed plan changed without rejection");
+ changed=layout;changed.prototype.bounded_region_specs[0].phases[0].bindings[0].binder_id+=1;
+ require(key!=native_phase_skeleton_key(changed),"fixed binding changed without rejection");
+ changed=layout;changed.prototype.fuel_specs.push_back({0,{{FuelEvent::Operation,123}}});
+ require(key!=native_phase_skeleton_key(changed),"fixed fuel changed without rejection");
  const auto restored=export_native_phase_layout(grammar,layout,layout.genes);
  // Independent canonical admission, with no carried provenance/certificate.
  require(!restored.derivation,"export accidentally attached a trusted proof");
