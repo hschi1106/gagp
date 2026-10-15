@@ -784,12 +784,32 @@ source list-arena limits differ. Source integer-overflow behavior also requires
 sampled parity evidence. These differences must be reported with any timing or
 quality comparison; successful grammar admission alone is not a parity claim.
 
-CumulativeSum is present in the source registry and its generated programs can
-be translated, but no general exact witness is registered. Its current source
-DC list grammar combines recursive results only by concatenation: it has no
-map/scan or access to the left sum while transforming the right output. A
-failed known-solution gate for this task is an explicit source-language
-limitation; substituting a prefix-scan solver would change the experiment.
+The original source CumulativeSum DC list grammar only concatenates recursive
+results and cannot express a general prefix sum. The local thesis reports three
+successes (table 5.3) and a 27-node handcrafted program (table 5.9), but those
+claims do not establish expressibility in this checked source version.
+
+An explicitly separate benchmark contract, `list-combine-v1`, is enabled with
+`-DGAGP_ASGP_LIST_COMBINE_EXTENSION=ON` (default OFF). The build generates three
+ASGP source overlays under its build directory; it never modifies the external
+checkout. Strict source anchors reject unsupported versions. Every IntList DC
+combine grammar gains general `head`, `last`, and `singleton` productions,
+including the existing arithmetic expressions reachable through singleton.
+`last` uses the unary source head node with op=1; op=0 remains head. Both reject
+empty lists. GAGP translates last to its existing negative-index primitive at
+-1, so no task-specific execution primitive is added. Source generation,
+mutation, evaluation, printing, and GAGP grammar use the same extension.
+
+The exported task contract records `grammar_extension` as `list-combine-v1` or
+`none`. Extended artifacts must be freshly frozen and reported separately from
+original-source results. The audit-only CumulativeSum witness splits at n-1,
+returns the singleton base input, and combines as
+`concat(left, singleton(last(left) + head(right)))`; its source phase depth is
+five. It is never inserted into the evolving population. This witnesses
+expressibility, not successful evolution. Run `gagp_test_fixed_asgp_list_combine`
+for CPU source grammar, varied-length signed prefix sums, and empty-list errors;
+full source/native CPU/GPU witness and sampled-program gates remain required.
+
 ### Search contract audit
 
 Aligned task fitness and one elite do not establish equivalent search. The

@@ -12,6 +12,7 @@ option(GAGP_BUILD_FUZZERS "Build Clang libFuzzer targets" OFF)
 option(GAGP_BUILD_BENCHMARKS "Build auxiliary benchmark executables" OFF)
 option(GAGP_BUILD_EXPERIMENTS "Build auxiliary experiment probes" OFF)
 set(GAGP_ASGP_SOURCE_DIR "" CACHE PATH "Optional ASGP checkout for the fixed comparison benchmark")
+option(GAGP_ASGP_LIST_COMBINE_EXTENSION "Build the explicit symmetric list-combine-v1 benchmark contract" OFF)
 option(GAGP_ENABLE_OPENSSL_SHA256 "Use system OpenSSL SHA-256 when available" ON)
 
 if((GAGP_ENABLE_SANITIZERS OR GAGP_BUILD_FUZZERS) AND GAGP_ENABLE_CUDA)
@@ -860,6 +861,26 @@ if(GAGP_BUILD_BENCHMARKS)
       message(FATAL_ERROR "The fixed ASGP comparison requires CUDA")
     endif()
     add_subdirectory("${GAGP_ASGP_SOURCE_DIR}/src" "external-asgp" EXCLUDE_FROM_ALL)
+    if(GAGP_ASGP_LIST_COMBINE_EXTENSION)
+      find_package(Python3 COMPONENTS Interpreter REQUIRED)
+      set(asgp_overlay "${CMAKE_CURRENT_BINARY_DIR}/asgp-list-combine-v1")
+      set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/bench/fixed_asgp/list_combine_overlay.py"
+        "${GAGP_ASGP_SOURCE_DIR}/src/lang/grammar.cc"
+        "${GAGP_ASGP_SOURCE_DIR}/src/eval/interpreter.cc"
+        "${GAGP_ASGP_SOURCE_DIR}/src/lang/printer.cc")
+      execute_process(COMMAND ${Python3_EXECUTABLE}
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/bench/fixed_asgp/list_combine_overlay.py"
+        "${GAGP_ASGP_SOURCE_DIR}/src" "${asgp_overlay}"
+        COMMAND_ERROR_IS_FATAL ANY)
+      get_target_property(asgp_sources asgp_core SOURCES)
+      foreach(source IN ITEMS lang/grammar.cc eval/interpreter.cc lang/printer.cc)
+        list(REMOVE_ITEM asgp_sources "${source}")
+        list(APPEND asgp_sources "${asgp_overlay}/${source}")
+      endforeach()
+      set_property(TARGET asgp_core PROPERTY SOURCES "${asgp_sources}")
+      target_compile_definitions(asgp_core PUBLIC GAGP_ASGP_LIST_COMBINE_EXTENSION=1)
+    endif()
     target_compile_features(asgp_core PUBLIC cxx_std_20)
     add_executable(gagp_fixed_asgp_bench
       src/bench/fixed_asgp/main.cpp
@@ -871,6 +892,11 @@ endif()
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 if(TARGET gagp_fixed_asgp_bench)
+  if(GAGP_ASGP_LIST_COMBINE_EXTENSION)
+    add_executable(gagp_test_fixed_asgp_list_combine tests/evolution/test_fixed_asgp_list_combine.cpp)
+    target_link_libraries(gagp_test_fixed_asgp_list_combine PRIVATE asgp_core)
+    add_test(NAME gagp_test_fixed_asgp_list_combine COMMAND gagp_test_fixed_asgp_list_combine)
+  endif()
   add_test(NAME gagp_test_fixed_asgp_source_arithmetic
     COMMAND ${Python3_EXECUTABLE}
       ${CMAKE_CURRENT_SOURCE_DIR}/tests/evolution/test_fixed_asgp_source_arithmetic.py

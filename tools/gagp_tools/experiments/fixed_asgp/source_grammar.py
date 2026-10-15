@@ -79,7 +79,12 @@ def definition(root: Path, task: str, contract: dict) -> dict:
                                 'holes':[{'id':'char','type':'Int','scope':copy.deepcopy(scope)}],
                                 'body':call('if(Bool,Bool,Bool)->Bool',between(65,90),constant(True,'Bool'),between(97,122))})
                         e={'template':template_id,'holes':{'char':args[0]}}
-                    elif kind==13:e=call('index(IntList,Int)->Int',args[0],constant(0))
+                    elif kind==13:
+                        if op==1:
+                            if contract.get('grammar_extension')!='list-combine-v1':
+                                raise ValueError('last requires list-combine-v1 contract')
+                            e=call('index(IntList,Int)->Int',args[0],constant(-1))
+                        else:e=call('index(IntList,Int)->Int',args[0],constant(0))
                     elif kind==14:e=bound('lo')
                     elif kind==15:e=call('index_nonnegative(IntList,Int)->Int',bound('xs'),args[0])
                     elif kind==16:e=call('singleton(Int)->IntList',*args)

@@ -71,7 +71,15 @@ Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::Ta
       if(!dp && node.op>1)throw std::runtime_error("unsupported result slot");
       return bound(dp ? "d"+std::to_string(node.op+1) : (node.op ? "right" : "left"));
     case K::kHeadIndex: return bound("lo");
-    case K::kHead: return call("index(IntList,Int)->Int", {args.at(0), constant(0)});
+    case K::kHead:
+      if (node.op == 1) {
+#ifdef GAGP_ASGP_LIST_COMBINE_EXTENSION
+        return call("index(IntList,Int)->Int", {args.at(0), constant(-1)});
+#else
+        throw std::runtime_error("last requires the list-combine-v1 build contract");
+#endif
+      }
+      return call("index(IntList,Int)->Int", {args.at(0), constant(0)});
     case K::kIndex:
       if(nonnegative_index)return call("index_nonnegative(IntList,Int)->Int", {bound("xs"), args.at(0)});
       if(guarded_index)return call("if(Bool,Int,Int)->Int",{call("lt(Int,Int)->Bool",{args.at(0),constant(0)}),call("index(IntList,Int)->Int",{bound("xs"),call("len(IntList)->Int",{bound("xs")})}),call("index(IntList,Int)->Int",{bound("xs"),args.at(0)})});
@@ -160,7 +168,13 @@ Json task_contract(const std::string& name) {
     }
     phases.push_back(object({{"start",string(std::string(asgp::Name(grammar[p].start())))},{"productions",array(std::move(productions))}}));
   }
-  return object({{"format",string("asgp-task-contract-v1")},{"task",string(spec.id)},
+  return object({{"grammar_extension",string(
+#ifdef GAGP_ASGP_LIST_COMBINE_EXTENSION
+    "list-combine-v1"
+#else
+    "none"
+#endif
+    )},{"format",string("asgp-task-contract-v1")},{"task",string(spec.id)},
     {"scheme",string(std::string(asgp::Name(spec.scheme)))},{"carrier",string(std::string(asgp::Name(spec.carrier)))},
     {"output",string(std::string(asgp::Name(spec.output)))},{"list_type",string(std::string(asgp::Name(spec.list_type)))},
     {"summary_cap",number(spec.summary_cap)},{"summary_weight",number(spec.summary_weight)},{"summaries",number(spec.summaries)},
@@ -269,7 +283,19 @@ asgp::Individual solution(const std::string& name) {
     out.phases[1]=choose(lt(result(0),sum),sum,result(0));
   } else {
     out.phases[1]=lit(1); out.phases[2]=add(result(0),result(1));
-    if (name == "negative_to_zero") {
+    if (name == "cumulative_sum") {
+#ifndef GAGP_ASGP_LIST_COMBINE_EXTENSION
+      throw std::runtime_error("CumulativeSum requires the explicit list-combine-v1 contract");
+#else
+      const auto left=expr(K::kResult,T::kIntList,0,0);
+      const auto right=expr(K::kResult,T::kIntList,1,0);
+      out.phases[0]=expr(K::kInputList,T::kIntList,0,0);
+      out.phases[1]=arith(1,expr(K::kInputSize,T::kInt,0,0),lit(1));
+      out.phases[2]=expr(K::kConcat,T::kIntList,0,0,{left,
+          single(add(expr(K::kHead,T::kInt,1,0,{left}),
+                     expr(K::kHead,T::kInt,0,0,{right})),T::kIntList)});
+#endif
+    } else if (name == "negative_to_zero") {
       out.phases[1]=lit(0);
       out.phases[0]=expr(K::kSingleton,T::kIntList,0,0,{choose(lt(index(0),lit(0)),lit(0),index(0))});
       out.phases[2]=expr(K::kConcat,T::kIntList,0,0,
