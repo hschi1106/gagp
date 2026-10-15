@@ -69,7 +69,7 @@ __device__ inline ValueTag operation_type(const PhaseTreeNode& node, const Value
     default: return ValueTag::Invalid;
   }
   switch (static_cast<BuiltinId>(node.operand)) {
-    case BuiltinId::IDiv0: case BuiltinId::IMod0: case BuiltinId::Min: case BuiltinId::Max:
+    case BuiltinId::TruncDiv0: case BuiltinId::TruncMod0: case BuiltinId::IDiv0: case BuiltinId::IMod0: case BuiltinId::Min: case BuiltinId::Max:
       return node.arity==2 && args[0]==integer && args[1]==integer ? integer : ValueTag::Invalid;
     case BuiltinId::Clip:
       return node.arity==3 && args[0]==integer && args[1]==integer && args[2]==integer ? integer : ValueTag::Invalid;

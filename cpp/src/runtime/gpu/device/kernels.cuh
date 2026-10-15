@@ -49,7 +49,7 @@ __device__ inline bool d_measure_cache_eligible(const DRegionPhase& phase,
         break;
       case OP_CALL_BUILTIN: {
         const auto b = static_cast<BuiltinId>(ins.a);
-        if (b != BuiltinId::IDiv0 && b != BuiltinId::IMod0 && b != BuiltinId::Min &&
+        if (b != BuiltinId::TruncDiv0 && b != BuiltinId::TruncMod0 && b != BuiltinId::IDiv0 && b != BuiltinId::IMod0 && b != BuiltinId::Min &&
             b != BuiltinId::Max && b != BuiltinId::Clip) return false;
         break;
       }

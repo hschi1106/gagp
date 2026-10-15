@@ -94,7 +94,9 @@ __device__ __noinline__ DResult d_run_bound_view_phase(
           stack[sp - 1] = lower < hi ? lower : hi;
         } else {
           const auto b = stack[--sp], a = stack[sp - 1];
-          if (bid == BuiltinId::IDiv0) stack[sp - 1] = b == 0 ? 0 : vm_semantics::wrap_int_div(a, b);
+          if (bid == BuiltinId::TruncDiv0) stack[sp-1]=vm_semantics::trunc_int_div0(a,b);
+          else if (bid == BuiltinId::TruncMod0) stack[sp-1]=vm_semantics::trunc_int_mod0(a,b);
+          else if (bid == BuiltinId::IDiv0) stack[sp - 1] = b == 0 ? 0 : vm_semantics::wrap_int_div(a, b);
           else if (bid == BuiltinId::IMod0) stack[sp - 1] = b == 0 ? 0 : vm_semantics::py_int_mod(a, b);
           else {
             stack[sp - 1] = bid == BuiltinId::Min ? (a <= b ? a : b) : (a >= b ? a : b);

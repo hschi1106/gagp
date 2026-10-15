@@ -59,6 +59,8 @@ enum class GrammarFeature {
   BuiltinClip,
   BuiltinIdiv0,
   BuiltinImod0,
+  BuiltinTruncDiv0,
+  BuiltinTruncMod0,
   BuiltinLen,
   BuiltinConcat,
   BuiltinSlice,
@@ -125,7 +127,7 @@ struct NodeDescriptor {
   constexpr bool is_builtin() const noexcept { return builtin_id >= 0; }
 };
 
-inline constexpr std::size_t k_node_kind_count = 60;
+inline constexpr std::size_t k_node_kind_count = 62;
 
 const std::array<NodeDescriptor, k_node_kind_count>& all_node_descriptors() noexcept;
 const NodeDescriptor& node_descriptor(NodeKind kind);

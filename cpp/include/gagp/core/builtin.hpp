@@ -39,6 +39,8 @@ enum class BuiltinId : std::int32_t {
   ToUpper = 25,
   ToString = 26,
   Singleton = 27,
+  TruncDiv0 = 28,
+  TruncMod0 = 29,
 };
 
 GAGP_BUILTIN_HD inline const char* builtin_name(BuiltinId id) {
@@ -69,6 +71,8 @@ GAGP_BUILTIN_HD inline const char* builtin_name(BuiltinId id) {
       return "contains";
     case BuiltinId::IsInt:
       return "is_int";
+    case BuiltinId::TruncDiv0: return "trunc_div0";
+    case BuiltinId::TruncMod0: return "trunc_mod0";
     case BuiltinId::IDiv0:
       return "idiv0";
     case BuiltinId::IMod0:
@@ -104,7 +108,7 @@ GAGP_BUILTIN_HD inline const char* builtin_name(BuiltinId id) {
 }
 
 GAGP_BUILTIN_HD inline bool builtin_id_from_int(int value, BuiltinId& out) {
-  if (value < static_cast<int>(BuiltinId::Abs) || value > static_cast<int>(BuiltinId::Singleton)) {
+  if (value < static_cast<int>(BuiltinId::Abs) || value > static_cast<int>(BuiltinId::TruncMod0)) {
     return false;
   }
   out = static_cast<BuiltinId>(value);

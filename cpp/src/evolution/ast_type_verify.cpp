@@ -388,7 +388,8 @@ class TypedVerifier {
       if (!same_numeric()) return fail_expr(VerifyCode::TypeMismatch, node_index, "numeric builtin requires identical numeric argument types");
       return typed(node_index, args[0]);
     }
-    if (kind == NodeKind::CALL_IDIV0 || kind == NodeKind::CALL_IMOD0) {
+    if (kind == NodeKind::CALL_TRUNC_DIV0 || kind == NodeKind::CALL_TRUNC_MOD0 ||
+         kind == NodeKind::CALL_IDIV0 || kind == NodeKind::CALL_IMOD0) {
       if (args[0] != RType::Int || args[1] != RType::Int) return fail_expr(VerifyCode::TypeMismatch, node_index, "protected integer builtin requires Int arguments");
       return typed(node_index, RType::Int);
     }

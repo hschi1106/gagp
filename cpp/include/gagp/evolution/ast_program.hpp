@@ -86,6 +86,8 @@ enum class NodeKind {
   CHECK_INT,
   CHECK_LIST,
   BOUNDED_REGION,
+  CALL_TRUNC_DIV0,
+  CALL_TRUNC_MOD0,
   COUNT,
 };
 

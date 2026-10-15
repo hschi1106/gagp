@@ -19,6 +19,7 @@ bool is_binary_expr(NodeKind kind) {
          kind == NodeKind::MOD || kind == NodeKind::LT || kind == NodeKind::LE || kind == NodeKind::GT ||
          kind == NodeKind::GE || kind == NodeKind::EQ || kind == NodeKind::NE || kind == NodeKind::AND ||
          kind == NodeKind::OR || kind == NodeKind::CALL_MIN || kind == NodeKind::CALL_MAX ||
+         kind == NodeKind::CALL_TRUNC_DIV0 || kind == NodeKind::CALL_TRUNC_MOD0 ||
          kind == NodeKind::CALL_IDIV0 || kind == NodeKind::CALL_IMOD0 ||
          kind == NodeKind::CALL_CONCAT || kind == NodeKind::CALL_INDEX || kind == NodeKind::CALL_APPEND ||
          kind == NodeKind::CALL_PREPEND || kind == NodeKind::CALL_FIND || kind == NodeKind::CALL_CONTAINS;

@@ -402,6 +402,15 @@ bool test_typed_integer_oracles() {
          ins_a(Opcode::PushConst,2),ins_a(Opcode::Jmp,7),ins_a(Opcode::PushConst,3),ins(Opcode::Return)},
         op==Opcode::Gt || op==Opcode::Ge?1:0))return false;
   }
+  struct TruncCase {std::int64_t a,b,div,mod;};
+  const TruncCase trunc_cases[]={{-7,3,-2,-1},{7,-3,-2,1},{-7,-3,2,-1},{7,0,0,0},
+      {INT64_MIN,-1,0,0},{INT64_MIN,1,INT64_MIN,0},{INT64_MAX,2,INT64_MAX/2,1}};
+  for(const auto c:trunc_cases)for(const auto id:{BuiltinId::TruncDiv0,BuiltinId::TruncMod0}) {
+    Instr call{Opcode::CallBuiltin,int(id),2,true,true};
+    if(!verify({Value::from_int(c.a),Value::from_int(c.b)},
+        {ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),call,ins(Opcode::Return)},
+        id==BuiltinId::TruncDiv0?c.div:c.mod))return false;
+  }
   return verify({Value::from_int(INT64_MAX),Value::from_int(1)},
       {ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),ins(Opcode::Add),ins(Opcode::Return)},INT64_MIN);
 }

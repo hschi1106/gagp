@@ -111,6 +111,8 @@ PrimitiveCatalog::PrimitiveCatalog() {
   add("or", {RType::Bool, RType::Bool}, RType::Bool, NodeKind::OR);
   add("idiv0", {RType::Int, RType::Int}, RType::Int, NodeKind::CALL_IDIV0);
   add("imod0", {RType::Int, RType::Int}, RType::Int, NodeKind::CALL_IMOD0);
+  add("trunc_div0", {RType::Int, RType::Int}, RType::Int, NodeKind::CALL_TRUNC_DIV0);
+  add("trunc_mod0", {RType::Int, RType::Int}, RType::Int, NodeKind::CALL_TRUNC_MOD0);
   add("check_int", {RType::Int}, RType::Int, NodeKind::CHECK_INT);
   for (RType list : {RType::IntList, RType::FloatList, RType::StringList}) {
     add("check_list", {list}, list, NodeKind::CHECK_LIST);

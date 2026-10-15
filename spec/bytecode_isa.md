@@ -70,6 +70,7 @@ Builtin IDs are:
 18 ord      19 chr            20 is_letter   21 is_digit
 22 is_space 23 is_vowel       24 to_lower    25 to_upper
 26 to_string                  27 singleton
+28 trunc_div0                 29 trunc_mod0
 ```
 
 `is_int` is compiler-internal and is not source syntax.

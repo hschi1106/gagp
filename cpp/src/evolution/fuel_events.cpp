@@ -100,6 +100,8 @@ bool operation_node(NodeKind kind) {
     case NodeKind::CALL_MAX:
     case NodeKind::CALL_CLIP:
     case NodeKind::CALL_IDIV0:
+    case NodeKind::CALL_TRUNC_DIV0:
+    case NodeKind::CALL_TRUNC_MOD0:
     case NodeKind::CALL_IMOD0:
     case NodeKind::CALL_LEN:
     case NodeKind::CALL_CONCAT:

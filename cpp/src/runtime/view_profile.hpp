@@ -86,7 +86,7 @@ inline bool view_code_supported(const std::vector<Instr>& code,
       case Opcode::CallBuiltin: {
         if (!ins.has_a || !ins.has_b) return false;
         const auto bid = static_cast<BuiltinId>(ins.a);
-        if (bid == BuiltinId::IDiv0 || bid == BuiltinId::IMod0 || bid == BuiltinId::Min || bid == BuiltinId::Max) {
+        if (bid == BuiltinId::TruncDiv0 || bid == BuiltinId::TruncMod0 || bid == BuiltinId::IDiv0 || bid == BuiltinId::IMod0 || bid == BuiltinId::Min || bid == BuiltinId::Max) {
           if (ins.b != 2 || !pop(ValueTag::Int) || !pop(ValueTag::Int) || !push(ValueTag::Int)) return false;
         } else if (bid == BuiltinId::Clip) {
           if (ins.b != 3 || !pop(ValueTag::Int) || !pop(ValueTag::Int) || !pop(ValueTag::Int) || !push(ValueTag::Int)) return false;

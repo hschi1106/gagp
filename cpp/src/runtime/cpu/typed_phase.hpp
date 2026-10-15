@@ -110,7 +110,9 @@ inline std::optional<ExecResult> run_typed_phase(const PhaseProgram& program,
           stack[sp-1]=std::min(std::max(value,lo),hi);
         } else {
           const auto b=stack[--sp], a=stack[sp-1];
-          if(id==BuiltinId::IDiv0) stack[sp-1]=b?vm_semantics::wrap_int_div(a,b):0;
+          if(id==BuiltinId::TruncDiv0) stack[sp-1]=vm_semantics::trunc_int_div0(a,b);
+          else if(id==BuiltinId::TruncMod0) stack[sp-1]=vm_semantics::trunc_int_mod0(a,b);
+          else if(id==BuiltinId::IDiv0) stack[sp-1]=b?vm_semantics::wrap_int_div(a,b):0;
           else if(id==BuiltinId::IMod0) stack[sp-1]=b?vm_semantics::py_int_mod(a,b):0;
           else {
             stack[sp-1]=id==BuiltinId::Min ? std::min(a,b) : std::max(a,b);

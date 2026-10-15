@@ -21,6 +21,8 @@ Scalar numeric builtins:
 - `clip(x, lo, hi)`
 - `idiv0(x, y)`
 - `imod0(x, y)`
+- `trunc_div0(x, y)`
+- `trunc_mod0(x, y)`
 
 Character and conversion builtins:
 
@@ -116,6 +118,19 @@ evaluation and does not swap bounds.
 - result type: `Int`
 - result: integer modulo when `y != 0`
 - result when `y == 0`: `0`
+
+### `trunc_div0(x, y)` and `trunc_mod0(x, y)`
+
+Both have arity 2 and require exactly `Int` operands (`Bool` and `Float` cause
+`TypeError`). Both return `Int` and return zero for a zero divisor or the signed
+overflow pair `(-9223372036854775808, -1)`.
+
+For every other pair, `trunc_div0` divides with truncation toward zero;
+`trunc_mod0` returns the corresponding remainder with the dividend's sign:
+`trunc_div0(-7, 3) == -2`, `trunc_mod0(-7, 3) == -1`, and
+`trunc_mod0(7, -3) == 1`. Evaluation order and fuel follow other binary builtins.
+These are separate operations: `idiv0` retains wrapping division overflow and
+`imod0` retains remainder adjustment toward the divisor's sign.
 
 ## Character and Conversion Builtins
 

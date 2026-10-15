@@ -432,3 +432,9 @@ preserves the existing stream-produced key bytes, including signed zero and NaN
 payload bits, without allocating a stream for every constant. Runtime identity
 continues to decode payload values separately; registry tokens alone do not
 certify runtime equivalence.
+
+Protected truncating integer division/remainder are shared CPU/CUDA primitives
+in `core/value_semantics.hpp`, exposed as `trunc_div0`/`trunc_mod0` through the
+grammar catalog. Generic and typed phase executors and native GPU phase
+compilation admit the same two Int operands. Public IDs and exceptional-pair
+behavior are authoritative in [the builtin spec](../../spec/builtins_base.md).

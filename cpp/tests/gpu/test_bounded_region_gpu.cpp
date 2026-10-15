@@ -1326,6 +1326,12 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
   for(const auto op:{Opcode::Lt,Opcode::Le,Opcode::Gt,Opcode::Ge})
     if(!numeric(BuiltinId::Min,{Value::from_int(huge),Value::from_int(huge-1)},
         Value::from_int(op==Opcode::Gt || op==Opcode::Ge?1:0),"typed adjacent integer ordering oracle",op))return false;
+  struct TruncCase {std::int64_t a,b,div,mod;};
+  const TruncCase trunc_cases[]={{-7,3,-2,-1},{7,-3,-2,1},{-7,-3,2,-1},{7,0,0,0},
+      {INT64_MIN,-1,0,0},{INT64_MIN,1,INT64_MIN,0},{INT64_MAX,2,INT64_MAX/2,1}};
+  for(const auto c:trunc_cases)for(const auto id:{BuiltinId::TruncDiv0,BuiltinId::TruncMod0})
+    if(!numeric(id,{Value::from_int(c.a),Value::from_int(c.b)},Value::from_int(id==BuiltinId::TruncDiv0?c.div:c.mod),
+        "typed truncating builtin signed boundary oracle"))return false;
   if(!numeric(BuiltinId::Min,{Value::from_int(INT64_MAX),Value::from_int(1)},Value::from_int(INT64_MIN),"typed integer wrapping oracle",Opcode::Add))return false;
   for (bool explicit_return : {false,true}) {
     auto scalar=unary_segment(Value::from_int(17));

@@ -40,16 +40,19 @@ int main() {
       assert(descriptor.builtin_arity == -1);
     }
     const bool in_device_builtin_range =
-        static_cast<int>(descriptor.kind) >= static_cast<int>(NodeKind::CALL_ABS) &&
-        static_cast<int>(descriptor.kind) <= static_cast<int>(NodeKind::CALL_SINGLETON);
+        (static_cast<int>(descriptor.kind) >= static_cast<int>(NodeKind::CALL_ABS) &&
+        static_cast<int>(descriptor.kind) <= static_cast<int>(NodeKind::CALL_SINGLETON)) ||
+        descriptor.kind==NodeKind::CALL_TRUNC_DIV0 || descriptor.kind==NodeKind::CALL_TRUNC_MOD0;
     assert(in_device_builtin_range == descriptor.is_builtin());
   }
 
-  assert(builtin_count == 27U);
+  assert(builtin_count == 29U);
   assert(node_descriptor(NodeKind::PROGRAM).prefix_arity == 1);
   assert(node_descriptor(NodeKind::CALL_INDEX).builtin_id == static_cast<int>(gagp::BuiltinId::Index));
   assert(static_cast<int>(NodeKind::LET_REGION) == 71);
   assert(static_cast<int>(NodeKind::BOUNDED_REGION) == 77);
+  assert(static_cast<int>(NodeKind::CALL_TRUNC_DIV0) == 78);
+  assert(static_cast<int>(NodeKind::CALL_TRUNC_MOD0) == 79);
   for (int legacy_kind = 53; legacy_kind <= 70; ++legacy_kind) {
     assert(!is_known_node_kind(legacy_kind));
   }

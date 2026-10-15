@@ -170,6 +170,19 @@ int main() {
   if (!test_sequential_loops_reuse_only_hidden_locals()) return 1;
   if (!test_logical_operators_short_circuit()) return 1;
   if (!test_verified_compile_reuses_and_validates_annotations()) return 1;
+  for(const auto kind:{NodeKind::CALL_TRUNC_DIV0,NodeKind::CALL_TRUNC_MOD0}) {
+    AstProgram ast;ast.consts={Value::from_int(-7),Value::from_int(3)};
+    ast.nodes={{NodeKind::PROGRAM,0,0},{NodeKind::BLOCK_CONS,0,0},{NodeKind::RETURN,0,0},
+               {kind,0,0},{NodeKind::CONST,0,0},{NodeKind::CONST,1,0},{NodeKind::BLOCK_NIL,0,0}};
+    const auto verified=gagp::evo::verify_ast(ast,{});
+    if(!check(verified.ok,"truncating builtin AST type contract"))return 1;
+    const auto bytecode=gagp::evo::compile_for_eval(genome(ast),verified.verified);
+    const auto result=gagp::execute_bytecode_cpu(bytecode,{},100);
+    if(!check(!result.is_error && result.value.tag==gagp::ValueTag::Int &&
+        result.value.i==(kind==NodeKind::CALL_TRUNC_DIV0?-2:-1),"truncating builtin lowering"))return 1;
+    ast.consts[0]=Value::from_bool(true);
+    if(!check(!gagp::evo::verify_ast(ast,{}).ok,"truncating builtin rejects Bool"))return 1;
+  }
   std::cout << "gagp_test_compiler_lowering: OK\n";
   return 0;
 }

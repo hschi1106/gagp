@@ -2695,6 +2695,21 @@ int main() {
       }
     }
   }
+  struct TruncCase {std::int64_t a,b,div,mod;};
+  const TruncCase trunc_cases[]={{-7,3,-2,-1},{7,-3,-2,1},{-7,-3,2,-1},{7,0,0,0},
+      {INT64_MIN,-1,0,0},{INT64_MIN,1,INT64_MIN,0},{INT64_MAX,2,INT64_MAX/2,1}};
+  for(const auto c:trunc_cases)for(const auto id:{gagp::BuiltinId::TruncDiv0,gagp::BuiltinId::TruncMod0}) {
+    auto program=make_builtin_program({Value::from_int(c.a),Value::from_int(c.b)},id,2);
+    const auto answer=Value::from_int(id==gagp::BuiltinId::TruncDiv0?c.div:c.mod);
+    const gagp::FitnessPolicy exact{gagp::FitnessMetric::Exact};
+    const auto cpu=gagp::eval_fitness_cpu({program},{{}},{answer},100,7,32,exact);
+    gagp::FitnessSessionGpu session;
+    if(!session.init({{}},{answer},100,32,7,exact).ok)return 1;
+    const auto gpu=session.eval_programs({program});
+    if(!gpu.ok || cpu!=std::vector<double>{0} || gpu.fitness!=cpu || gpu.wrong!=std::vector<unsigned>{0}) {
+      std::cerr<<"truncating builtin signed boundary parity";return 1;
+    }
+  }
   std::cout << "gagp_test_fitness_cpu_gpu_parity: OK\n";
   return 0;
 }

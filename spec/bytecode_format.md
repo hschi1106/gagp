@@ -188,3 +188,9 @@ runtime error set from the ISA. Fixtures are verified before execution.
 Release-1 bytecode is deliberately not migratable. Recompile a migrated source
 AST so type/scope and general-region metadata are regenerated and verified.
 Normal codecs issue this instruction when they see a release-1 identifier.
+
+The `ast-prefix-v2` node kinds 78 and 79 are `CALL_TRUNC_DIV0` and
+`CALL_TRUNC_MOD0`, respectively. They are binary Int expressions lowering to
+`CALL_BUILTIN` IDs 28 and 29. Existing numeric node kinds remain unchanged,
+including reserved legacy kinds 53 through 70. Their contract is in
+[builtins_base.md](builtins_base.md).

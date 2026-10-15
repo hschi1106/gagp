@@ -201,7 +201,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     return out;
   }
 
-  if (id == BuiltinId::IDiv0 || id == BuiltinId::IMod0) {
+  if (id == BuiltinId::TruncDiv0 || id == BuiltinId::TruncMod0 || id == BuiltinId::IDiv0 || id == BuiltinId::IMod0) {
     if (argc != 2) {
       return fail(ErrCode::Type, std::string(builtin_name(id)) + " expects 2 arguments");
     }
@@ -213,6 +213,8 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     BuiltinResult out;
     if (b.i == 0) {
       out.value = Value::from_int(0);
+    } else if (id == BuiltinId::TruncDiv0 || id == BuiltinId::TruncMod0) {
+      out.value=Value::from_int(id==BuiltinId::TruncDiv0 ? vm_semantics::trunc_int_div0(a.i,b.i) : vm_semantics::trunc_int_mod0(a.i,b.i));
     } else if (id == BuiltinId::IDiv0) {
       out.value = Value::from_int(vm_semantics::wrap_int_div(a.i, b.i));
     } else {

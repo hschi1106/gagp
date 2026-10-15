@@ -534,7 +534,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     return true;
   }
 
-  if (bid == BuiltinId::IDiv0 || bid == BuiltinId::IMod0) {
+  if (bid == BuiltinId::TruncDiv0 || bid == BuiltinId::TruncMod0 || bid == BuiltinId::IDiv0 || bid == BuiltinId::IMod0) {
     if (argc != 2) {
       err = ErrCode::Type;
       return false;
@@ -547,6 +547,8 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     }
     if (b.i == 0) {
       out = Value::from_int(0);
+    } else if (bid == BuiltinId::TruncDiv0 || bid == BuiltinId::TruncMod0) {
+      out=Value::from_int(bid==BuiltinId::TruncDiv0 ? vm_semantics::trunc_int_div0(a.i,b.i) : vm_semantics::trunc_int_mod0(a.i,b.i));
     } else if (bid == BuiltinId::IDiv0) {
       out = Value::from_int(vm_semantics::wrap_int_div(a.i, b.i));
     } else {

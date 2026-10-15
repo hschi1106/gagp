@@ -181,7 +181,7 @@ int expected_builtin_arity(BuiltinId id) {
     case BuiltinId::Append:
     case BuiltinId::Find:
     case BuiltinId::Contains:
-    case BuiltinId::IDiv0:
+    case BuiltinId::TruncDiv0: case BuiltinId::TruncMod0: case BuiltinId::IDiv0:
     case BuiltinId::IMod0:
     case BuiltinId::Prepend: return 2;
     case BuiltinId::Clip:
@@ -205,7 +205,7 @@ AbstractType builtin_result_type(BuiltinId id, const std::vector<AbstractType>& 
     case BuiltinId::Len:
     case BuiltinId::Find:
     case BuiltinId::Ord:
-    case BuiltinId::IDiv0:
+    case BuiltinId::TruncDiv0: case BuiltinId::TruncMod0: case BuiltinId::IDiv0:
     case BuiltinId::IMod0: return AbstractType::Int;
     case BuiltinId::Contains:
     case BuiltinId::IsInt:
