@@ -883,3 +883,13 @@ phase-depth constraints, expanded physical program sizes, fuel events, memo
 work, or list allocation budgets. Successful output and fitness parity on the
 checked programs is evidence for those programs, not proof that every future
 search trajectory or resource failure is equivalent.
+
+### Bounded multi-generation feedback
+
+`low_budget` accepts `--generations N` (default 2) for explicit short-search
+comparisons. The manifest, native search command and completeness checks all
+use N. Use the same N and seed across modes for each task; retain cold startup
+and final evaluation in `evolve_wall_ms`. One-shot samples remain coarse
+feedback, not precision measurements. Source-derived list-task results record
+`list_allocation_limit` and the optional `list-combine-v1` contract separately
+from original-source/frozen results.

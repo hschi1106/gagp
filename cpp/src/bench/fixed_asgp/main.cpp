@@ -495,7 +495,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   for(std::size_t i=0;i<cpu.size();++i)if(gagp::evo::canonicalize_fitness_for_ranking(cpu[i])!=result.final_population[i].fitness)++audit_mismatches;
   for(std::size_t i=0;i<std::min<std::size_t>(16,cpu.size());++i)
     top_rows.push_back(object({{"gpu",number(result.final_population[i].fitness)},{"cpu",number(cpu[i])}}));
-  write(output,object({{"mode",string(mode)}, {"case_penalty",number(cfg.penalty)}, {"elite_count",number(cfg.elite_count)}, {"fitness_metric",number(static_cast<int>(cfg.fitness_policy.metric))}, {"population",number(population.size())}, {"cases",number(cases.size())},
+  write(output,object({{"mode",string(mode)}, {"case_penalty",number(cfg.penalty)}, {"elite_count",number(cfg.elite_count)}, {"fitness_metric",number(static_cast<int>(cfg.fitness_policy.metric))}, {"list_allocation_limit",number(cfg.fitness_policy.list_allocation_limit)}, {"population",number(population.size())}, {"cases",number(cases.size())},
     {"final_best",number(result.final_population.front().fitness)},
     {"search_contract",search_contract_json(cfg,result.reproduction_profile)},
     {"reproduction_profile",string(result.reproduction_profile)}, {"reproduction_fallback_reason",string(result.reproduction_fallback_reason)},

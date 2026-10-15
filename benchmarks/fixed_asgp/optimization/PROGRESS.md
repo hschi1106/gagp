@@ -1,3 +1,13 @@
+# All-task runtime repair — 2026-10-15 (in progress)
+
+- Integration branch `fix/asgp-all-task-runtime-20261015`, worktree `gagp-support-20261015`; checkpoint `checkpoint/pre-all-task-runtime-20261015`=`241e374`. Original worktrees/frozen inputs untouched. No push this round yet.
+- User priority: all30 correctness, then full-case P1024 e2e performance under CPU1T/native GPU reproduction. Use bounded short searches, no expensive full precision matrix.
+- Implemented pending integrated validation: integral configured-policy case sorting; `index_nonnegative` primitive to avoid repeated-hole source guards; opt-in symmetric ASGP/GAGP `list-combine-v1` grammar extension; source logical arena policy. Preserve original grammar build and record extension separately.
+- Sorting targeted CUDA test passed. New builtin CPU tests and extension standalone ASGP CPU test passed. Integration build underway. GPU physical arena replay and source slice aliases are still being implemented, not claimed fixed.
+- Next: integrated focused tests; fresh output `logs/all-task-repair-20261015/`; regenerate ONLY new source inputs, rerun failed support gates, inspect actual phase profile before performance. GPU serialization lock `/tmp/gagp-support-20261015-gpu.lock`.
+
+---
+
 # ASGP 30-task support and aligned metrics — 2026-10-15 (validation complete)
 
 - Integration `feat/asgp-support-contract-20261015`, worktree `gagp-support-20261015`; protected checkpoint `dc99120`. Runtime checkpoint `e2da6ad`, diagnostic/migration/test followups through `8163e47`. Main fast-forward delivery; preserve the dirty original main checkout rather than resetting it. Original chat worktree and historical inputs/binaries remain unchanged.
