@@ -1,0 +1,5 @@
+task,mode,seed,evolve_wall_ms,process_s,final_best,unique_final_genomes,cpu_audit_mismatches,peak_rss_bytes,status
+sum_of_elements,asgp_1t,0,49261.072422,49.56670920900069,0,318,0,115507200,ok
+sum_of_elements,gpu_overlap,0,2290.11324,3.172715480905026,0,754,0,437198848,ok
+house_robber,asgp_1t,0,27251.035033,27.415285371942446,-4234,963,0,94257152,ok
+house_robber,gpu_overlap,0,1466.870394,2.6502534369938076,-5470,1019,0,749494272,ok

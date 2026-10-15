@@ -1,0 +1,15 @@
+[
+  {
+    "task": "stock_with_cooldown",
+    "status": "passed",
+    "known_solution": "not_run",
+    "source_output_parity": "not_run",
+    "cpu_gpu_snapshot": "not_run",
+    "asgp_1t": "ok",
+    "gagp_cpu": "not_run",
+    "gpu_eval": "not_run",
+    "gpu_repro": "not_run",
+    "gpu_overlap": "ok",
+    "issues": ""
+  }
+]

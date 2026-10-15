@@ -1,0 +1,3 @@
+task,mode,seed,evolve_wall_ms,process_s,final_best,unique_final_genomes,cpu_audit_mismatches,peak_rss_bytes,status
+median,asgp_1t,0,2813.29387,2.9035295550711453,-642,283,0,111677440,ok
+median,gpu_overlap,0,931.592594,1.5861105311196297,-642,228,0,423604224,ok

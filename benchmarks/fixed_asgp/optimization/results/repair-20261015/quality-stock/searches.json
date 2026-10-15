@@ -1,0 +1,74 @@
+[
+  {
+    "task": "stock_with_cooldown",
+    "mode": "asgp_1t",
+    "seed": 0,
+    "evolve_wall_ms": 6349.397631,
+    "process_s": 6.622191677102819,
+    "final_best": -5670,
+    "unique_final_genomes": 805,
+    "cpu_audit_mismatches": 0,
+    "peak_rss_bytes": 93388800,
+    "status": "ok"
+  },
+  {
+    "task": "stock_with_cooldown",
+    "mode": "gpu_overlap",
+    "seed": 0,
+    "evolve_wall_ms": 1291.354063,
+    "process_s": 2.3844724080991,
+    "final_best": -4835,
+    "unique_final_genomes": 803,
+    "cpu_audit_mismatches": 0,
+    "peak_rss_bytes": 564264960,
+    "status": "ok"
+  },
+  {
+    "task": "stock_with_cooldown",
+    "mode": "asgp_1t",
+    "seed": 1,
+    "evolve_wall_ms": 6336.620456,
+    "process_s": 6.6271827791351825,
+    "final_best": -4752,
+    "unique_final_genomes": 812,
+    "cpu_audit_mismatches": 0,
+    "peak_rss_bytes": 93388800,
+    "status": "ok"
+  },
+  {
+    "task": "stock_with_cooldown",
+    "mode": "gpu_overlap",
+    "seed": 1,
+    "evolve_wall_ms": 1290.36114,
+    "process_s": 2.384760346962139,
+    "final_best": -4923,
+    "unique_final_genomes": 759,
+    "cpu_audit_mismatches": 0,
+    "peak_rss_bytes": 568614912,
+    "status": "ok"
+  },
+  {
+    "task": "stock_with_cooldown",
+    "mode": "asgp_1t",
+    "seed": 2,
+    "evolve_wall_ms": 6314.466022,
+    "process_s": 6.6335163419134915,
+    "final_best": -5637,
+    "unique_final_genomes": 752,
+    "cpu_audit_mismatches": 0,
+    "peak_rss_bytes": 93581312,
+    "status": "ok"
+  },
+  {
+    "task": "stock_with_cooldown",
+    "mode": "gpu_overlap",
+    "seed": 2,
+    "evolve_wall_ms": 1288.418907,
+    "process_s": 2.3887989879585803,
+    "final_best": -4998,
+    "unique_final_genomes": 790,
+    "cpu_audit_mismatches": 0,
+    "peak_rss_bytes": 576000000,
+    "status": "ok"
+  }
+]

@@ -1,0 +1,7 @@
+task,mode,seed,evolve_wall_ms,process_s,final_best,unique_final_genomes,cpu_audit_mismatches,peak_rss_bytes,status
+stock_with_cooldown,asgp_1t,0,6349.397631,6.622191677102819,-5670,805,0,93388800,ok
+stock_with_cooldown,gpu_overlap,0,1291.354063,2.3844724080991,-4835,803,0,564264960,ok
+stock_with_cooldown,asgp_1t,1,6336.620456,6.6271827791351825,-4752,812,0,93388800,ok
+stock_with_cooldown,gpu_overlap,1,1290.36114,2.384760346962139,-4923,759,0,568614912,ok
+stock_with_cooldown,asgp_1t,2,6314.466022,6.6335163419134915,-5637,752,0,93581312,ok
+stock_with_cooldown,gpu_overlap,2,1288.418907,2.3887989879585803,-4998,790,0,576000000,ok
