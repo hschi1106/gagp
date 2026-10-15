@@ -25,7 +25,7 @@ struct DPrivatePhasePayloadOps {
       case BuiltinId::Len:case BuiltinId::IsLetter:case BuiltinId::Clip:
       case BuiltinId::TruncDiv0:case BuiltinId::TruncMod0:case BuiltinId::IDiv0:
       case BuiltinId::IMod0:case BuiltinId::Min:case BuiltinId::Max:return false;
-      default:result=d_error(ErrCode::Type);return true;
+      default:result=d_error(ErrCode::Name);return true;
     }
     Value args[3];
     for(int i=0;i<count;++i) {
