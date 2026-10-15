@@ -95,7 +95,8 @@ void check_import(const grammar::CompiledGrammar& grammar,const ProgramGenome& g
  const std::optional<std::string> saved=prior?std::optional<std::string>(prior):std::nullopt;
  setenv("GAGP_REUSE_IMPORT_CERTIFICATE","1",1);
  auto admitted=genome;
- admitted.derivation=std::make_shared<const grammar::DerivationMetadata>(grammar::reconstruct_derivation(grammar,admitted));
+ admitted.derivation=std::make_shared<const grammar::DerivationMetadata>(
+     grammar::detail::reconstruct_cold_derivation(grammar,admitted,grammar::entry_request(grammar)));
  require(!expect_scalar_certificate || bool(admitted.derivation->certificate),"import reuse fixture needs private admission");
  same_bytecode(layout.executable,import_native_phase_layout(grammar,admitted).executable);
  // A different evaluator order must lower for that order, not reuse the
@@ -116,6 +117,8 @@ void check_import(const grammar::CompiledGrammar& grammar,const ProgramGenome& g
 }
 }
 int main(int argc,char** argv) {try {
+ setenv("GAGP_COLD_PAYLOAD_PROOFS","1",1);setenv("GAGP_COLD_IMPORT_EXECUTABLES","1",1);
+ setenv("GAGP_REUSE_ADMISSION_COMPILE","1",1);
  require(argc==1 || argc==3,"usage: test_gpu_phase_layout [PREPARED_JSON GRAMMAR_JSON]");
  const auto grammar_owner=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(grammar::load_definition(argc==3?argv[2]:
      GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json")));

@@ -311,11 +311,11 @@ void test_trivial_pattern_refresh() {
 }
 
 void test_private_intlist_generations(bool sequence_windows=false) {
- const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_PRIVATE_MEASURE_CACHE","GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","GAGP_COMPACT_FRAMES","GAGP_GPU_WINDOW_LEAF_DIRECT","GAGP_GPU_PRIVATE_BOUND_PHASES","GAGP_BOUND_ADD_PHASE","GAGP_BOUND_COMPARE_PHASE","GAGP_GPU_PRIVATE_TYPED_PHASES"};
+ const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_PRIVATE_MEASURE_CACHE","GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","GAGP_COMPACT_FRAMES","GAGP_GPU_WINDOW_LEAF_DIRECT","GAGP_GPU_PRIVATE_BOUND_PHASES","GAGP_BOUND_ADD_PHASE","GAGP_BOUND_COMPARE_PHASE","GAGP_GPU_PRIVATE_TYPED_PHASES","GAGP_COLD_PAYLOAD_PROOFS","GAGP_COLD_IMPORT_EXECUTABLES","GAGP_REUSE_IMPORT_CERTIFICATE","GAGP_REUSE_ADMISSION_COMPILE","GAGP_REUSE_IMPORTED_EXECUTABLE"};
  struct Restore {
-  const char** flags;std::string saved[16];bool present[16];
-  explicit Restore(const char** f):flags(f){for(int i=0;i<16;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
-  ~Restore(){for(int i=0;i<16;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
+  const char** flags;std::string saved[21];bool present[21];
+  explicit Restore(const char** f):flags(f){for(int i=0;i<21;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
+  ~Restore(){for(int i=0;i<21;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
  } restore(flags);
  if(!sequence_windows)setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","0",1);
  const auto grammar=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
@@ -323,6 +323,14 @@ void test_private_intlist_generations(bool sequence_windows=false) {
          GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_intlist.json")));
  std::vector<std::string> names;for(const auto& binding:grammar->inputs())names.push_back(binding.name);
  std::vector<ProgramGenome> parents;for(int i=0;i<8;++i)parents.push_back(grammar::generate_derivation(*grammar,721+i).genome);
+ bool retained_cold_artifact=false;
+ for(auto& parent:parents) {
+  std::shared_ptr<const BytecodeProgram> artifact;
+  parent.derivation=std::make_shared<const grammar::DerivationMetadata>(
+      grammar::detail::reconstruct_cold_derivation(*grammar,parent,grammar::entry_request(*grammar),nullptr,nullptr,&artifact,&names));
+  retained_cold_artifact|=bool(artifact);
+ }
+ require(retained_cold_artifact,"private owner fixture did not retain cold executable");
  std::vector<CaseBindings> cases;std::vector<Value> answers;
  for(int i=0;i<1024;++i) {
   CaseBindings row;
@@ -333,6 +341,9 @@ void test_private_intlist_generations(bool sequence_windows=false) {
  }
  FitnessPolicy policy;policy.metric=FitnessMetric::Exact;policy.list_allocation_limit=65536;
  FitnessSessionGpu session;require(session.init(cases,answers,10000,32,1000,policy).ok,"private list owner session");
+ setenv("GAGP_COLD_IMPORT_EXECUTABLES","0",1);
+ repro::NativePhasePopulation cold_control(grammar,parents,names);
+ setenv("GAGP_COLD_IMPORT_EXECUTABLES","1",1);
  repro::NativePhasePopulation owner(grammar,parents,names);
  bool changed=false,saw_content_match=false;
  for(int generation=0;generation<=32;++generation) {
@@ -354,6 +365,9 @@ void test_private_intlist_generations(bool sequence_windows=false) {
   const auto untyped=owner.evaluate(session,true);
   setenv("GAGP_GPU_PRIVATE_TYPED_PHASES","1",1);
   const auto gpu=owner.evaluate(session,true);
+  const auto cold_off=cold_control.evaluate(session,true);
+  require(cold_off.ok && cold_off.fitness==gpu.fitness && cold_off.wrong==gpu.wrong && cold_off.case_counts==gpu.case_counts,
+      "cold executable reuse changed fresh-generation full-case fitness");
   require(untyped.ok && untyped.fitness==gpu.fitness && untyped.wrong==gpu.wrong &&
       untyped.case_counts==gpu.case_counts && untyped.execution_profile.find("-private-typed-phases")==std::string::npos &&
       gpu.execution_profile.find("-private-typed-phases")!=std::string::npos &&
@@ -385,6 +399,7 @@ void test_private_intlist_generations(bool sequence_windows=false) {
   for(const auto& count:gpu.case_counts)require(count[0]==1024,"private owner omitted cases");
   if(generation==32)break;
   const auto stats=owner.reproduce(gpu.fitness,2,.3,UINT64_C(9831)+generation);
+  cold_control.reproduce(gpu.fitness,2,.3,UINT64_C(9831)+generation);
   changed|=stats.variation.changed_children!=0;
  }
  require(changed && saw_content_match,"private list owner did not generate new phases/content matches");

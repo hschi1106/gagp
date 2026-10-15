@@ -12,6 +12,7 @@
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
+#include "gagp/runtime/cpu/fitness_cpu.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 #include "../../src/runtime/payload/staging.hpp"
 #include "../../src/evolution/grammar/evaluation_identity.hpp"
@@ -178,6 +179,113 @@ void test_cold_payload_proofs() {
       "changed-read retry published stale proof or reverted external payload replacement");
   payload::register_list(key,{});
 }
+void test_cold_import_executables() {
+  const char* flags[]={"GAGP_COLD_PAYLOAD_PROOFS","GAGP_COLD_IMPORT_EXECUTABLES","GAGP_REUSE_ADMISSION_COMPILE"};
+  struct Restore {
+    const char** flags;std::optional<std::string> saved[3];
+    explicit Restore(const char** f):flags(f){for(int i=0;i<3;++i){const auto* v=std::getenv(f[i]);if(v)saved[i]=v;setenv(f[i],"1",1);}}
+    ~Restore(){for(int i=0;i<3;++i){if(saved[i])setenv(flags[i],saved[i]->c_str(),1);else unsetenv(flags[i]);}}
+  } restore(flags);
+  const auto grammar=compile_grammar(parse_definition(constant_grammar("IntList","[[]]")));
+  const auto request=entry_request(grammar);
+  auto genome=generate_derivation(grammar,0).genome;genome.derivation.reset();
+  const auto key=genome.ast.consts.front();
+  std::shared_ptr<const BytecodeProgram> first,reused;
+  auto proof=grammar::detail::reconstruct_cold_derivation(grammar,genome,request,nullptr,nullptr,&first);
+  check(bool(first) && bool(proof.certificate),"cold admission did not retain its existing lowering");
+  genome.derivation=std::make_shared<const DerivationMetadata>(proof);
+  grammar::detail::reconstruct_cold_derivation(grammar,genome,request,nullptr,nullptr,&reused);
+  check(first==reused && !admitted_bytecode_for_eval(genome,{},grammar.execution_limits().fuel),
+      "private cold lookup must reuse same artifact while public registry lookup declines");
+  check(!grammar::detail::cold_import_bytecode(grammar,genome,proof,request,nullptr),"cold executable escaped its read scope");
+  const auto check_fitness=[&](const BytecodeProgram& program,const ProgramGenome& source) {
+    FitnessPolicy policy;policy.metric=FitnessMetric::Exact;
+    const auto independent=compile_for_eval(source);
+    const auto scores=eval_fitness_cpu({program,independent},{{}},{source.ast.consts.front()},100,1000,1,policy);
+    check(scores==std::vector<double>({0,0}),"retained cold executable differs from independent CPU fitness");
+  };
+  check_fitness(*reused,genome);
+  setenv("GAGP_COLD_IMPORT_EXECUTABLES","0",1);
+  grammar::detail::reconstruct_cold_derivation(grammar,genome,request,nullptr,nullptr,&reused);
+  check(!reused,"disabled cold executable flag reused a stored artifact");
+  setenv("GAGP_COLD_IMPORT_EXECUTABLES","1",1);
+  setenv("GAGP_COLD_PAYLOAD_PROOFS","0",1);
+  grammar::detail::reconstruct_cold_derivation(grammar,genome,request,nullptr,nullptr,&reused);
+  check(!reused,"cold executable reuse bypassed disabled read-snapshot proof");
+  setenv("GAGP_COLD_PAYLOAD_PROOFS","1",1);
+  std::vector<std::string> wrong_inputs{"extra"};
+  grammar::detail::reconstruct_cold_derivation(grammar,genome,request,nullptr,nullptr,&reused,&wrong_inputs);
+  check(!reused,"wrong input order reused cold executable");
+  auto marked=genome;marked.ast.consts.front().b=true;
+  grammar::detail::reconstruct_cold_derivation(grammar,marked,request,nullptr,nullptr,&reused);
+  check(!reused,"changed raw constant marker reused old executable");
+  // Decoded identity can match while raw tokens differ. Never retain the old
+  // executable token, which could be rebound independently after import.
+  auto alias=genome;alias.ast.consts.front()=Value::from_int_list_hash_len(0xabc123,0);
+  payload::register_list(alias.ast.consts.front(),{});
+  VerifiedAst verified;
+  grammar::detail::reconstruct_cold_derivation(grammar,alias,request,&verified,nullptr,&reused);
+  check(!reused,"equal-content different token reused stale executable constants");
+  const auto current=compile_for_eval(alias,verified);
+  payload::register_list(key,{Value::from_int(9)});
+  check_fitness(current,alias);
+  bool rejected=false;
+  try {grammar::detail::reconstruct_cold_derivation(grammar,genome,request,nullptr,nullptr,&reused);}
+  catch(const std::invalid_argument&){rejected=true;}
+  check(rejected && !reused,"rebound payload published stale executable");
+  payload::register_list(key,{});
+  const auto other=compile_grammar(parse_definition(constant_grammar("IntList",R"([["7"]])")));
+  payload::StagedPayloads reads;
+  {
+    payload::StagedPayloads::Scope scope(reads);
+    auto tight=request;tight.budget.max_nodes=4;
+    check(!grammar::detail::cold_import_bytecode(other,genome,proof,entry_request(other),nullptr) &&
+        !grammar::detail::cold_import_bytecode(grammar,genome,proof,tight,nullptr),"stale grammar/request reused cold executable");
+    grammar::detail::reconstruct_cold_derivation(grammar,genome,request,nullptr,nullptr,&reused);
+    check(!reused,"inherited transaction published cold executable before its owner validated reads");
+  }
+  check(reads.read_snapshot_unchanged(),"cold lookup changed enclosing snapshot");
+  auto fuel_text=constant_grammar("IntList","[[]]");
+  const std::string fuel_field="\"fuel\":100";
+  fuel_text.replace(fuel_text.find(fuel_field),fuel_field.size(),"\"fuel\":101");
+  const auto other_fuel=compile_grammar(parse_definition(fuel_text));
+  {
+    payload::StagedPayloads fuel_reads;payload::StagedPayloads::Scope scope(fuel_reads);
+    check(!grammar::detail::cold_import_bytecode(other_fuel,genome,proof,entry_request(other_fuel),nullptr),
+        "changed execution fuel reused cold executable");
+  }
+
+  // Candidate artifacts exist speculatively, but a write discards them and the
+  // ordinary retry cannot publish an artifact outside a validated read scope.
+  int attempts=0;
+  const auto written=grammar::detail::snapshot_cold_admission([&] {
+    ++attempts;
+    const auto witness=reconstruct_derivation(grammar,genome,request);
+    const auto candidate=grammar::detail::cold_import_bytecode(grammar,genome,witness,request,nullptr);
+    if(payload::StagedPayloads::has_active_scope()) {
+      check(candidate==first,"write test failed to obtain speculative artifact");
+      payload::register_list(key,{Value::from_int(99)});
+    }
+    return candidate;
+  });
+  check(attempts==2 && !written,"staged write leaked a speculative executable");
+  attempts=0;rejected=false;
+  try {
+    (void)grammar::detail::snapshot_cold_admission([&] {
+      ++attempts;
+      const auto witness=reconstruct_derivation(grammar,genome,request);
+      const auto candidate=grammar::detail::cold_import_bytecode(grammar,genome,witness,request,nullptr);
+      if(payload::StagedPayloads::has_active_scope()) {
+        check(candidate==first,"conflict test failed to obtain speculative artifact");
+        std::thread writer([&]{payload::register_list(key,{Value::from_int(99)});});writer.join();
+      }
+      return candidate;
+    });
+  } catch(const std::invalid_argument&){rejected=true;}
+  check(attempts==2 && rejected && !payload::StagedPayloads::has_active_scope(),"conflicting read published stale executable");
+  payload::register_list(key,{});
+}
+
 }  // namespace
 
 int main() {
@@ -536,6 +644,7 @@ int main() {
     for (std::uint64_t seed = 0; seed < 32; ++seed)
       require_membership(mutual, generate_derivation(mutual, seed).genome);
     test_cold_payload_proofs();
+    test_cold_import_executables();
     std::cout << "grammar membership passed\n";
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';

@@ -821,13 +821,29 @@ still checks grammar, request, and exact decoded payload identity; a miss runs
 full membership, AST, resource, and lowering validation. The scope reads only
 that genome's constant closure and ends before GPU transport or generations.
 It may retain one copy of each distinct resident payload in that closure;
-registry bytecode executable reuse remains disabled. An unchanged read-only
+public registry bytecode executable reuse remains disabled. An unchanged read-only
 snapshot permits publication; changed reads or any staged writes discard the
 candidate and retry ordinary admission. No staged writes are committed, and an
 existing enclosing scope keeps its original transaction responsibility. This
 flag defaults off for same-binary cold-time A/B measurements; all work remains
 inside the existing admission timing boundary. `gagp_test_grammar_membership`
 covers identity changes, inherited scopes, discarded writes, and conflict retry.
+
+`GAGP_COLD_IMPORT_EXECUTABLES=1` optionally retains immutable bytecode already
+lowered during cold admission, including registry constants. It requires the
+existing `GAGP_COLD_PAYLOAD_PROOFS=1` read-only snapshot and
+`GAGP_REUSE_ADMISSION_COMPILE=1`. The existing import-certificate and imported-
+executable settings retain reuse across initialization and owner construction.
+A private cold-import lookup checks the current grammar, request,
+complete decoded AST/constant identity, exact raw constant tokens/markers,
+evaluator input order and fuel inside that snapshot. Only validated, write-free reads publish the candidate; writes or
+conflicts discard it and retry ordinary admission/lowering. Public mutable-AST
+executable reuse still rejects registry constants. The artifact owns its copied
+constant tokens exactly like ordinary bytecode and does not freeze registry
+contents for execution. This removes a second cold lowering, changes no evolved
+phase or generation execution, and retains at most the current cold certificates'
+compiled artifacts plus exact constant-pool copies. The default is off; allocation and lookup remain in normal
+initialization timing.
 
 ### Experimental pure-measure evaluation reuse
 

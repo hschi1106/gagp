@@ -1,5 +1,6 @@
 #include "owned_population.hpp"
 #include "evaluation_identity.hpp"
+#include "cold_admission.hpp"
 #include "gagp/evolution/repro/pack.hpp"
 #include "variation_internal.hpp"
 #include "gagp/evolution/grammar/derivation_resources.hpp"
@@ -15,6 +16,7 @@
 #include <memory>
 #include "../../runtime/payload/staging.hpp"
 #include <cstdlib>
+#include <cstring>
 #include "gagp/evolution/grammar/cache.hpp"
 
 #include <algorithm>
@@ -33,10 +35,15 @@ class DerivationCertificate {
   DerivationMetadata witness;
   VerifiedAst verified;
   std::shared_ptr<const BytecodeProgram> executable;
+  std::vector<Value> executable_constants; // Raw tokens/markers must match the copied bytecode.
   std::vector<std::vector<int>> environments;
 };
 namespace {
 bool certificates_enabled() { return std::getenv("GAGP_NO_DERIVATION_CERTIFICATES") == nullptr; }
+bool cold_executables_enabled() {
+  const auto* flag=std::getenv("GAGP_COLD_IMPORT_EXECUTABLES");
+  return flag && std::string(flag)=="1";
+}
 bool same_certificate_request(const GenerationRequest& a, const GenerationRequest& b) {
   if (a.nonterminal != b.nonterminal || a.type != b.type || a.stage != b.stage ||
       a.budget.max_nodes != b.budget.max_nodes || a.budget.max_depth != b.budget.max_depth ||
@@ -856,6 +863,26 @@ std::shared_ptr<const BytecodeProgram> admitted_bytecode_for_eval(
   return detail::evaluation_identity(genome, input_names, fuel).executable;
 }
 
+std::shared_ptr<const BytecodeProgram> detail::cold_import_bytecode(const CompiledGrammar& grammar,
+    const ProgramGenome& genome,const DerivationMetadata& witness,const GenerationRequest& request,
+    const std::vector<std::string>* inputs) {
+  if(!cold_executables_enabled() || !certificates_enabled() ||
+      !std::getenv("GAGP_REUSE_ADMISSION_COMPILE") || !payload::StagedPayloads::has_active_scope() ||
+      !witness.certificate)return nullptr;
+  const auto& proof=*witness.certificate;
+  if(!proof.executable || proof.witness.grammar_hash!=grammar.content_hash() ||
+      !same_certificate_request(proof.witness.request,request))return nullptr;
+  if(proof.executable_constants.size()!=genome.ast.consts.size())return nullptr;
+  for(std::size_t i=0;i<genome.ast.consts.size();++i) {
+    const auto a=proof.executable_constants[i],b=genome.ast.consts[i];
+    if(a.tag!=b.tag || a.b!=b.b || std::memcmp(&a.i,&b.i,sizeof(a.i))!=0)return nullptr;
+  }
+  std::vector<std::string> ordered;
+  if(!inputs){for(const auto& input:grammar.inputs())ordered.push_back(input.name);inputs=&ordered;}
+  if(proof.identity!=runtime_cache_identity(genome,*inputs,grammar.execution_limits().fuel))return nullptr;
+  return proof.executable;
+}
+
 void require_membership(const CompiledGrammar& grammar, const ProgramGenome& genome) {
   require_membership(grammar, genome, entry_request(grammar));
 }
@@ -877,7 +904,7 @@ DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const 
 static DerivationMetadata reconstruct_derivation_impl(const CompiledGrammar& grammar,
     const ProgramGenome& genome, const GenerationRequest& request, VerifiedAst* verified,
     std::vector<std::vector<int>>* choice_lexical_environments,
-    ProgramGenome* compact_owned = nullptr) {
+    ProgramGenome* compact_owned = nullptr,bool retain_registry_executable = false) {
   // A public caller without a read snapshot cannot bind mutable registry
   // contents to one consistent proof. Scalar-only ASTs have no such dependency.
   const bool registry_constants = std::any_of(genome.ast.consts.begin(), genome.ast.consts.end(), [](const auto& value) {
@@ -904,7 +931,7 @@ static DerivationMetadata reconstruct_derivation_impl(const CompiledGrammar& gra
   std::shared_ptr<const BytecodeProgram> executable;
   auto witness = WitnessBuilder(grammar, genome, request, matcher, nullptr,
       cache ? &environments : choice_lexical_environments).run(true, nullptr,
-          cache && !registry_constants && std::getenv("GAGP_REUSE_ADMISSION_COMPILE")
+          cache && (!registry_constants || retain_registry_executable) && std::getenv("GAGP_REUSE_ADMISSION_COMPILE")
               ? &executable : nullptr);
   if (compact_owned) {
     // Original tables, including unused entries, have already passed full
@@ -926,12 +953,19 @@ static DerivationMetadata reconstruct_derivation_impl(const CompiledGrammar& gra
     proof->witness = witness;
     proof->verified = matcher.verified();
     proof->executable = std::move(executable);
+    if(registry_constants && proof->executable)proof->executable_constants=genome.ast.consts;
     proof->environments = std::move(environments);
     if (choice_lexical_environments) *choice_lexical_environments = proof->environments;
     witness.certificate = std::move(proof);
   }
   if (verified) *verified = matcher.take_verified();
   return witness;
+}
+
+DerivationMetadata detail::reconstruct_cold_import(const CompiledGrammar& grammar,const ProgramGenome& genome,
+    const GenerationRequest& request,VerifiedAst* verified,std::vector<std::vector<int>>* environments) {
+  return reconstruct_derivation_impl(grammar,genome,request,verified,environments,nullptr,
+      cold_executables_enabled() && payload::StagedPayloads::has_active_scope());
 }
 
 DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar,

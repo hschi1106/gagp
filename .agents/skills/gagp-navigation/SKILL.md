@@ -113,6 +113,8 @@ maintenance, follow the rules in root `AGENTS.md`.
   generation transaction or registry-bytecode trust. Test:
   `gagp_test_grammar_membership`; integration: `gagp_test_gpu_phase_layout`.
 
+- `GAGP_COLD_IMPORT_EXECUTABLES` additionally retains the already-lowered immutable artifact in cold read-snapshot certificates. Private lookup in `evolution/grammar/cold_admission.hpp`/`membership.cpp` checks decoded identity plus exact raw constant Values and publishes only after snapshot validation; public registry executable reuse stays declined. Contract/tests follow the cold-proof owners above.
+
 - `GAGP_REUSE_IMPORT_CERTIFICATE`: `repro/gpu/phase_layout.hpp` retains only
   identity-checked private admission/executable caches on cold import. External
   mutations, grammar/request and evaluator input order still pass validation.

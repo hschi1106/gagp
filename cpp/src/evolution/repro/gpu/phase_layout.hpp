@@ -72,7 +72,9 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   // initialization has already created such certificates for unchanged inputs.
   auto source = external;
   if (!std::getenv("GAGP_REUSE_IMPORT_CERTIFICATE")) source.derivation.reset();
-  const auto witness = grammar::detail::reconstruct_cold_derivation(grammar, source, entry_request(grammar), &verified, &environments);
+  std::shared_ptr<const BytecodeProgram> cold_executable;
+  const auto witness = grammar::detail::reconstruct_cold_derivation(grammar, source, entry_request(grammar),
+      &verified, &environments,&cold_executable,evaluator_inputs);
   if(projected) {
     phase_layout_require(projected->max_nodes==grammar.search_limits().max_nodes &&
         projected->max_depth>0 && projected->max_depth<=15,"unsupported projected phase budget");
@@ -206,7 +208,7 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   const auto executable = std::getenv("GAGP_REUSE_IMPORT_CERTIFICATE")
       ? admitted_bytecode_for_eval(source, execution_inputs, grammar.execution_limits().fuel)
       : nullptr;
-  result.executable = executable ? *executable : compile_for_eval(source, verified, execution_inputs);
+  result.executable = cold_executable ? *cold_executable : executable ? *executable : compile_for_eval(source, verified, execution_inputs);
   result.prototype = std::move(source.ast);
   return result;
 }
