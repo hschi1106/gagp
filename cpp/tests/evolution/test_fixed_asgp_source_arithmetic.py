@@ -23,6 +23,18 @@ class TestProtectedSourceArithmetic(unittest.TestCase):
         result=subprocess.run([str(BINARY),*map(str,args)],env=env,capture_output=True,text=True,timeout=30)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
 
+    def test_source_phase_budget_excludes_fixed_arithmetic_scaffolding(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder=Path(folder)
+            self.call('contract','house_robber',folder/'contract.json')
+            self.call('freeze','house_robber',folder/'source.json',env=dict(os.environ,GAGP_FREEZE_POPULATION='12'))
+            contract=json.loads((folder/'contract.json').read_text())
+            grammar=definition(ROOT,'house_robber',contract=contract)
+            self.assertEqual(grammar['search_limits'],{'max_nodes':1024,'max_depth':48})
+            (folder/'grammar.json').write_text(json.dumps(grammar))
+            self.call('prepare',folder/'source.json',folder/'grammar.json',12,folder/'prepared.json')
+            self.assertEqual(len(json.loads((folder/'prepared.json').read_text())['programs']),12)
+
     def test_signed_modulo_protected_overflow_and_nested_operands(self):
         with tempfile.TemporaryDirectory() as folder:
             folder=Path(folder);contract_path=folder/'contract.json';source_path=folder/'source.json'

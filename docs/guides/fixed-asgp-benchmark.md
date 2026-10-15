@@ -843,3 +843,24 @@ output directories are mandatory. GPU processes serialize through flock.
 Defaults enforce CPU1T, a4GiB process-group RSS guard and per-command30s limit.
 Timeout/resource failures remain visible and do not qualify as acceleration.
 `--modes` may narrow an optimization experiment; record the reduced scope.
+
+
+Source-contract protected arithmetic uses single-evaluation lexical operands.
+ASGP's truncating remainder is lowered as `a - (a / b) * b`, with zero-divisor
+protection; its exceptional `INT64_MIN / -1` result is zero. Native `imod0`
+retains Python-sign modulo and native `idiv0` retains its documented wrapped
+overflow result. Neither public primitive changes. Each protected source
+operator charges one logical grammar node/depth; fixed lowering scaffolding
+charges zero, and operand derivations retain their original charges. This
+prevents native VM expansion from consuming the source operator's search
+allowance. Physical AST/bytecode sizes and backend capacities still require
+separate admission checks; logical charges do not waive them.
+
+The shared adapter contract covers frozen cases and original initial programs,
+source reachable production types and constant support, source integer results
+(including negative-index errors, protected division and signed remainder), and
+explicit carrier/projection transport. It does not equate production sampling,
+phase-depth constraints, expanded physical program sizes, fuel events, memo
+work, or list allocation budgets. Successful output and fitness parity on the
+checked programs is evidence for those programs, not proof that every future
+search trajectory or resource failure is equivalent.
