@@ -848,6 +848,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   gpu_detail::DRegionWorkspace region_workspace;
   region_workspace.payload_window_aliases=global_window_aliases;
   region_workspace.private_intlists=private_intlists;
+  const char* trivial_setting=std::getenv("GAGP_GPU_TRIVIAL_PHASES");
+  const bool request_trivial=trivial_setting && std::string(trivial_setting)=="1";
+  region_workspace.trivial_phases=request_trivial && private_intlists;
   region_workspace.compact_intlist_cells=private_intlists && request_compact;
   region_workspace.shared_list_value_count=static_cast<int>(payload_pack.list_values.size());
   region_workspace.payload_epoch_index=payload_index && std::getenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX") &&
@@ -1448,6 +1451,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
     if(request_private)out.execution_profile+=private_intlists?
         "-private-intlist-offset-v1":"-private-intlist-offset-v1-declined";
+    if(request_trivial)out.execution_profile+=region_workspace.trivial_phases?
+        "-trivial-phases":"-trivial-phases-declined";
     if(request_compact)out.execution_profile+=region_workspace.compact_intlist_cells?
         "-compact-intlist-cells":"-compact-intlist-cells-declined";
     if(request_dense_memo)out.execution_profile+=region_workspace.dense_coordinate_memo?

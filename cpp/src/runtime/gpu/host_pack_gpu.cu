@@ -304,8 +304,25 @@ void refresh_owned_phase_patterns(PackResult& out,std::size_t phase_begin,std::s
   if(phase_begin>phase_end || phase_end>out.region_phases.size())throw std::logic_error("owned phase pattern range");
   for(auto i=phase_begin;i<phase_end;++i) {
     auto& m=out.region_phases[i].program;
+    m.trivial_constant_index=-1;m.trivial_load_binding=-1;
     m.scalar_constant_index=-1;m.scalar_constant_fuel=0;
     m.add_left_binding=-1;m.add_right_binding=-1;m.compare_binding=-1;
+  }
+  const char* trivial=std::getenv("GAGP_GPU_TRIVIAL_PHASES");
+  if(trivial && std::string(trivial)=="1")for(auto i=phase_begin;i<phase_end;++i) {
+    auto& phase=out.region_phases[i];auto& m=phase.program;
+    if(m.n_locals<0 || m.n_locals>8 || phase.binding_count<0 || phase.binding_count>8 ||
+        (m.code_len!=1 && m.code_len!=2))continue;
+    const auto* code=out.all_phase_code.data()+m.code_offset;
+    if(!d_has_a(code[0]) || (m.code_len==2 && code[1].op!=OP_RETURN))continue;
+    if(code[0].op==OP_PUSH_CONST && code[0].a>=0 && code[0].a<m.const_len) {
+      // No local is read: formal captures retain ordinary lazy error behavior.
+      m.trivial_constant_index=m.const_offset+code[0].a;
+    } else if(code[0].op==OP_LOAD && phase.binding_count==1 && code[0].a>=0 && code[0].a<m.n_locals) {
+      const auto& binding=out.region_bindings[phase.binding_offset];
+      if(binding.local==code[0].a && binding.bank!=RegionSlotBank::Parameter)
+        m.trivial_load_binding=phase.binding_offset;
+    }
   }
   if (std::getenv("GAGP_BOUND_ADD_PHASE")) {
     for(auto i=phase_begin;i<phase_end;++i) {

@@ -242,6 +242,28 @@ are identical to the boxed private profile. The flag defaults off and reports
 profile. It changes physical cell bytes and accounted workspace concurrency;
 there is no new VM, reproduction backend, search rule, or payload transport.
 
+`GAGP_GPU_TRIVIAL_PHASES=1` optionally bypasses phase stack/local setup inside
+an admitted private IntList arena invocation. Verified phases with at most eight
+locals and bindings qualify only for `PushConst` or one non-Parameter binding's
+`Load`, optionally followed by `Return`. Constant phases may declare unused
+bindings: missing or incorrectly typed unused captures remain unobserved. The
+single-Load form requires exactly one declared binding. Every instruction keeps
+its original fuel check and charge in order, including partial consumption on
+timeout; final expected-tag and result-phase fallback-token checks are retained.
+
+Constants preserve their complete canonical `Value`, and loads preserve their
+original frame value. Neither path eagerly resolves payloads, converts constants
+to views, changes list registration/identity, or extends payload lifetime. The
+shortcut has its own metadata and runs only behind both the private-arena proof
+and this flag; declined view/generic profiles retain ordinary execution. Metadata
+is reset and rebuilt against the current phase code/constant offsets after every
+GPU generation. Set the flag before native population initialization. Profiles
+append `-trivial-phases` or `-trivial-phases-declined`; the flag defaults off.
+
+[Static phase counts](../reference/trivial-private-phase-counts.json) show why the
+existing zero-binding scalar-constant shortcut misses these populations. These
+are structural artifact counts, not dynamic call frequencies or speedup evidence.
+
 ### Proven integer/list execution profile
 
 `cpp/src/runtime/gpu/view_profile.hpp` checks forward type flow after ordinary

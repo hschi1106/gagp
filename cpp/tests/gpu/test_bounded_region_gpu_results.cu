@@ -912,6 +912,7 @@ bool test_measure_phase_cache_contract() {
 }  // namespace measure_cache_test
 
 #include "dense_coordinate_memo_checks.cuh"
+#include "trivial_private_phase_checks.cuh"
 
 int main() {
   payload::clear();
@@ -921,6 +922,7 @@ int main() {
              "GPU selection failed: " + device_error)) {
     return 1;
   }
+  if (!trivial_private_phase_test::test_contract()) return 1;
   if (!dense_memo_test::test_dense_coordinate_memo()) return 1;
   if (!measure_cache_test::test_measure_phase_cache_contract()) return 1;
   if (!test_phase_vm_masks_are_fresh()) return 1;

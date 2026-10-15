@@ -265,12 +265,42 @@ void test_packed_pattern_refresh() {
  require(m.scalar_constant_index==-1 && m.add_left_binding==-1 && m.compare_binding==-1,"phase shrink retained stale pattern metadata");
 }
 }
+void test_trivial_pattern_refresh() {
+ using namespace gpu_detail;
+ const char* flag="GAGP_GPU_TRIVIAL_PHASES";const bool present=std::getenv(flag)!=nullptr;
+ const std::string saved=present?std::getenv(flag):"";setenv(flag,"1",1);
+ PackResult pack;pack.region_phases.resize(1);auto& phase=pack.region_phases[0];auto& m=phase.program;
+ pack.all_phase_code={{OP_PUSH_CONST,DINSTR_HAS_A,0,0,3},{OP_RETURN,0,0,0,2}};
+ pack.all_phase_consts={Value::from_int(0),Value::from_int_list_hash_len(17,0)};
+ pack.region_bindings.resize(8);
+ for(int i=0;i<8;++i)pack.region_bindings[i]={RegionSlotBank::Parameter,static_cast<unsigned>(i),i};
+ phase.binding_count=8;m.n_locals=8;m.code_len=2;m.const_offset=1;m.const_len=1;
+ refresh_owned_phase_patterns(pack,0,1);
+ require(m.trivial_constant_index==1 && m.trivial_load_binding==-1,"unused bindings blocked private constant proof");
+ pack.all_phase_consts.push_back(Value::from_int_list_hash_len(23,1));m.const_offset=2;
+ refresh_owned_phase_patterns(pack,0,1);
+ require(m.trivial_constant_index==2,"private constant retained old generation offset");
+ pack.all_phase_code[0].op=OP_LOAD;phase.binding_count=1;m.n_locals=1;
+ pack.region_bindings[0]={RegionSlotBank::State,0,0};refresh_owned_phase_patterns(pack,0,1);
+ require(m.trivial_constant_index==-1 && m.trivial_load_binding==0,"constant/load metadata replacement");
+ pack.region_bindings[0].bank=RegionSlotBank::Parameter;refresh_owned_phase_patterns(pack,0,1);
+ require(m.trivial_load_binding==-1,"Parameter load bypassed lazy capture checks");
+ pack.all_phase_code[0].op=OP_PUSH_CONST;m.n_locals=9;refresh_owned_phase_patterns(pack,0,1);
+ require(m.trivial_constant_index==-1,"private shortcut exceeded eight-local contract");
+ m.n_locals=8;phase.binding_count=9;refresh_owned_phase_patterns(pack,0,1);
+ require(m.trivial_constant_index==-1,"private shortcut exceeded eight-binding contract");
+ phase.binding_count=8;refresh_owned_phase_patterns(pack,0,1);setenv(flag,"0",1);
+ refresh_owned_phase_patterns(pack,0,1);
+ require(m.trivial_constant_index==-1 && m.trivial_load_binding==-1,"disabled refresh retained private shortcut");
+ if(present)setenv(flag,saved.c_str(),1);else unsetenv(flag);
+}
+
 void test_private_intlist_generations() {
- const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS"};
+ const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES"};
  struct Restore {
-  const char** flags;std::string saved[5];bool present[5];
-  explicit Restore(const char** f):flags(f){for(int i=0;i<5;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
-  ~Restore(){for(int i=0;i<5;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
+  const char** flags;std::string saved[6];bool present[6];
+  explicit Restore(const char** f):flags(f){for(int i=0;i<6;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
+  ~Restore(){for(int i=0;i<6;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
  } restore(flags);
  const auto grammar=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
      grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_intlist.json")));
@@ -296,7 +326,7 @@ void test_private_intlist_generations() {
       boxed.case_counts==gpu.case_counts && boxed.execution_profile.find("-compact-intlist-cells")==std::string::npos &&
       gpu.execution_profile.find("-compact-intlist-cells")!=std::string::npos,
       "boxed/compact private cells differ across fresh GPU generations");
-  require(gpu.ok && gpu.execution_profile.find("private-intlist-offset-v1")!=std::string::npos &&
+  require(gpu.ok && gpu.execution_profile.find("-trivial-phases")!=std::string::npos && gpu.execution_profile.find("private-intlist-offset-v1")!=std::string::npos &&
       gpu.execution_profile.find("-declined")==std::string::npos,"fresh list generation lost capability");
   std::vector<BytecodeProgram> independent;
   for(auto genome:owner.export_population()) {
@@ -323,7 +353,8 @@ void test_private_intlist_generations() {
  require(policy_declined.ok && policy_ordinary.ok && policy_declined.fitness==policy_ordinary.fitness &&
      policy_declined.wrong==policy_ordinary.wrong &&
      policy_declined.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos &&
-     policy_declined.execution_profile.find("compact-intlist-cells-declined")!=std::string::npos,
+     policy_declined.execution_profile.find("compact-intlist-cells-declined")!=std::string::npos &&
+     policy_declined.execution_profile.find("-trivial-phases-declined")!=std::string::npos,
      "unsupported policy retained cold native phases/private profile");
  auto wrong_cases=cases;
  for(auto& binding:wrong_cases[0])if(names[binding.idx]=="base_value")binding.value=Value::from_float(1.5);
@@ -333,12 +364,14 @@ void test_private_intlist_generations() {
  const auto ordinary=wrong_session.eval_programs(owner.programs(),true);
  require(declined.ok && ordinary.ok && declined.fitness==ordinary.fitness && declined.wrong==ordinary.wrong &&
      declined.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos &&
-     declined.execution_profile.find("compact-intlist-cells-declined")!=std::string::npos,
+     declined.execution_profile.find("compact-intlist-cells-declined")!=std::string::npos &&
+     declined.execution_profile.find("-trivial-phases-declined")!=std::string::npos,
      "different session reused stale private capability instead of current generic fallback");
 }
 
 int main(){try {
  test_packed_pattern_refresh();
+ test_trivial_pattern_refresh();
  test_private_intlist_generations();
  auto definition=grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json");
  // Keep the original oversized fixture as a required explicit rejection.

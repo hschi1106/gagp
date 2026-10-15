@@ -38,6 +38,8 @@ struct DPhaseMeta {
   int const_offset = 0;
   int const_len = 0;
   int n_locals = 0;
+  int trivial_constant_index = -1;
+  int trivial_load_binding = -1;
   int scalar_constant_index = -1;
   unsigned scalar_constant_fuel = 0;
   int add_left_binding = -1;

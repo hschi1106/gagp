@@ -67,6 +67,7 @@ struct DArenaPayloadState {
   static constexpr bool kEpochLists = false;
   static constexpr bool kIndexedLists = false;
   bool private_intlists = false;
+  bool trivial_phases = false;
   bool compact_intlist_cells = false;
   std::int64_t* intlist_cells = nullptr;
   bool alias_windows = false;

@@ -145,6 +145,32 @@ __device__ DResult d_region_phase(
     if (value.tag != expected) return d_error(ErrCode::Type);
     return d_ok(value);
   }
+  if constexpr (Flavor==DPayloadFlavor::ArenaMixed || Flavor==DPayloadFlavor::IndexedArena) {
+    if(payload_state.private_intlists && payload_state.trivial_phases &&
+        (constant.trivial_constant_index>=0 || constant.trivial_load_binding>=0)) {
+      // These instructions have no effects before return. Charge separately so
+      // a later timeout retains consumption of preceding instructions.
+      for(int i=0;i<constant.code_len;++i) {
+        const auto charge=tables.phase_code[constant.code_offset+i].fuel;
+        if(fuel<0 || charge>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
+        fuel-=static_cast<int>(charge);
+      }
+      Value value;
+      if(constant.trivial_constant_index>=0)value=tables.phase_consts[constant.trivial_constant_index];
+      else {
+        const auto& binding=tables.region_bindings[constant.trivial_load_binding];
+        switch(binding.bank) {
+          case RegionSlotBank::State:value=frame.state[binding.slot];break;
+          case RegionSlotBank::Prepared:value=frame.prepared[binding.slot];break;
+          case RegionSlotBank::Result:value=frame.results[binding.slot];break;
+          case RegionSlotBank::Measure:value=Value::from_int(Value::container_len(frame.state[segment.sequence_state]));break;
+          default:return d_error(ErrCode::Value); // Excluded by verified metadata.
+        }
+      }
+      if(value.tag!=expected && !(result_phase && value.tag==ValueTag::FallbackToken))return d_error(ErrCode::Type);
+      return d_ok(value);
+    }
+  }
   if constexpr (Flavor == DPayloadFlavor::BoundIntListViews) {
     const auto& phase = tables.region_phases[phase_index];
     if(expected==ValueTag::Bool && phase.program.compare_binding>=0) {

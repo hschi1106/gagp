@@ -513,6 +513,7 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
   auto& payload_state = payload_state_storage.ref();
   if constexpr ((Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena)) {
     payload_state.private_intlists=workspace.private_intlists;
+    payload_state.trivial_phases=workspace.trivial_phases;
     payload_state.compact_intlist_cells=workspace.compact_intlist_cells;
     payload_state.intlist_cells=workspace.payload_intlist_cells;
     payload_state.concat_cache=workspace.concat_cache;

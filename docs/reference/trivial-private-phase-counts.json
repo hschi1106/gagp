@@ -1,0 +1,76 @@
+{
+  "format": "gagp-trivial-private-phase-static-counts-v1",
+  "source_head": "fd9bbdce350af342def9fc1570bded2b02d809bf",
+  "method": "Read canonical NodeKind values and prefix arities, traverse each bounded-region phase AST subtree, count single CONST/REGION_VAR leaves and declared bindings. Compiler emits one PushConst/Load instruction for these leaves and retains all declared bindings. No execution or instruction-frequency profiling.",
+  "interpretation": "Existing zero-binding constant gate has no matches. Prototype covers literal constants with unused bindings and only single-Load phases with exactly one non-Parameter binding. Other multi-binding Load counts are recorded as excluded context.",
+  "records": [
+    {
+      "task": "filter_odd",
+      "stage": "frozen",
+      "artifact": "logs/all-task-repair-20261015/benchmark-all-g4/filter_odd.p1024.prepared.json",
+      "sha256": "b716d1236856491933275d1e6a914783ef5ab4ad186f8a35f98bf855d28dfa26",
+      "programs": 1024,
+      "phases": 5120,
+      "zero_binding_phases": 0,
+      "constant_intlist_empty_base_body": 126,
+      "constant_int_preparation": 135,
+      "single_load_one_binding_measure_preparation": 115,
+      "single_load_all_bindings": {
+        "base_body_state": 137,
+        "preparation_measure": 115,
+        "combine_result": 266
+      }
+    },
+    {
+      "task": "filter_odd",
+      "stage": "private-g4",
+      "artifact": "logs/list-5x-20261015/private-ten/filter_odd.gpu_overlap.s0.final.json",
+      "sha256": "9cf5d1d5c4d2b56584daababd6bc52bb4daf7f7bd88e5e8123eca6eb59098326",
+      "programs": 1024,
+      "phases": 5120,
+      "zero_binding_phases": 0,
+      "constant_intlist_empty_base_body": 76,
+      "constant_int_preparation": 276,
+      "single_load_one_binding_measure_preparation": 189,
+      "single_load_all_bindings": {
+        "base_body_state": 605,
+        "preparation_measure": 189,
+        "combine_result": 741
+      }
+    },
+    {
+      "task": "double_letters",
+      "stage": "frozen",
+      "artifact": "logs/all-task-repair-20261015/benchmark-all-g4/double_letters.p1024.prepared.json",
+      "sha256": "2885f3233cf0b39f7c3fa3d6fcb2f57068f2eaeb672c37de953042db9f397985",
+      "programs": 1024,
+      "phases": 5120,
+      "zero_binding_phases": 0,
+      "constant_intlist_empty_base_body": 106,
+      "constant_int_preparation": 115,
+      "single_load_one_binding_measure_preparation": 137,
+      "single_load_all_bindings": {
+        "base_body_state": 141,
+        "preparation_measure": 137,
+        "combine_result": 262
+      }
+    },
+    {
+      "task": "double_letters",
+      "stage": "private-g4",
+      "artifact": "logs/list-5x-20261015/private-ten/double_letters.gpu_overlap.s0.final.json",
+      "sha256": "523887644c26470adaf920577c6b2df217e1bf8f67add2f2fa9b632ced19873b",
+      "programs": 1024,
+      "phases": 5120,
+      "zero_binding_phases": 0,
+      "constant_intlist_empty_base_body": 54,
+      "constant_int_preparation": 226,
+      "single_load_one_binding_measure_preparation": 242,
+      "single_load_all_bindings": {
+        "base_body_state": 402,
+        "preparation_measure": 242,
+        "combine_result": 475
+      }
+    }
+  ]
+}
