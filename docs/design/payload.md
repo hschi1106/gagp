@@ -534,3 +534,14 @@ The 512 MiB scratch limit includes tile partials, queue and program indices.
 Tiled replay starts with 4096 entries and at least 65536 value cells, doubles
 entries alone until 65536, then follows the existing combined growth sequence.
 The default replay route and CPU/reproduction behavior remain unchanged.
+
+`GAGP_GPU_FUSED_LIST_CONCAT=1` enables an exact Concat implementation in the
+extended and arena payload evaluators. It resolves both list operands once,
+reuses those first-match results through logical charging and capacity checks,
+and performs canonical hashing while copying values. Hash element order and
+bits, empty-list handling, allocation accounting, registry registration and
+fallback/error behavior are unchanged. The profile adds `-fused-concat`.
+This setting adds no payload arrays and does not change Slice or index clearing.
+The extended-payload test compares both implementations for all three typed-list
+kinds, missing payloads, empty operands, first-match collisions, capacity errors,
+logical limits, and full CPU/GPU list-output fitness parity.

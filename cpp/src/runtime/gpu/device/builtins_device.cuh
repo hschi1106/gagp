@@ -33,6 +33,7 @@ struct DThreadPayloadStateT {
   unsigned logical_list_limit = 0;
   unsigned long long logical_list_used = 0;
   bool physical_capacity_exceeded = false;
+  bool fused_list_concat = false;
   char string_bytes[(MaxStringBytes > 0) ? MaxStringBytes : 1];
   Value list_values[(MaxListValues > 0) ? MaxListValues : 1];
 };
@@ -65,6 +66,7 @@ struct DArenaPayloadState {
   unsigned logical_list_limit = 0;
   unsigned long long logical_list_used = 0;
   bool physical_capacity_exceeded = false;
+  bool fused_list_concat = false;
 };
 
 // Opt-in variants keep the default evaluator's storage layout unchanged.
@@ -728,8 +730,16 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       return true;
     }
     if (d_is_typed_list_tag(a.tag) && a.tag == b.tag) {
-      if (payload_state.logical_list_limit && d_has_exact_payload(tables, payload_state, a) &&
-          d_has_exact_payload(tables, payload_state, b)) {
+      const bool fused=payload_state.fused_list_concat;
+      const Value* ap = nullptr;
+      const Value* bp = nullptr;
+      int al = 0, bl = 0;
+      // Resolution does not mutate the registry. Reuse precisely the same
+      // first local/global matches through charging, copying and failure paths.
+      const bool resolved=fused && d_lookup_list_payload(tables,payload_state,a,ap,al) &&
+          d_lookup_list_payload(tables,payload_state,b,bp,bl);
+      if (payload_state.logical_list_limit && (fused ? resolved :
+          (d_has_exact_payload(tables, payload_state, a) && d_has_exact_payload(tables, payload_state, b)))) {
         const unsigned al = Value::container_len(a), bl = Value::container_len(b);
         if (!al) { out = b; return true; }
         if (!bl) { out = a; return true; }
@@ -737,26 +747,36 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       }
       if constexpr (PayloadTraits::kHasList) {
         auto& st = payload_state;
-        const Value* ap = nullptr;
-        const Value* bp = nullptr;
-        int al = 0;
-        int bl = 0;
-        if (d_lookup_list_payload(tables, st, a, ap, al) &&
-            d_lookup_list_payload(tables, st, b, bp, bl) &&
+        if ((fused ? resolved : (d_lookup_list_payload(tables, st, a, ap, al) &&
+            d_lookup_list_payload(tables, st, b, bp, bl))) &&
             al >= 0 && bl >= 0 &&
             st.list_values_used + al + bl <= st.kMaxListValues) {
           const int off = st.list_values_used;
-          for (int i = 0; i < al; ++i) st.list_values[off + i] = ap[i];
-          for (int i = 0; i < bl; ++i) st.list_values[off + al + i] = bp[i];
+          std::uint64_t h;
+          if(fused) {
+            h=Value::fnv1a_mix_u8(Value::fnv1a_init(),0xA1U);
+            h=Value::fnv1a_mix_u64(h,static_cast<std::uint64_t>(al+bl));
+            for(int i=0;i<al;++i) {
+              const Value value=ap[i];st.list_values[off+i]=value;
+              h=Value::fnv1a_mix_u64(h,d_hash_value_shallow(value));
+            }
+            for(int i=0;i<bl;++i) {
+              const Value value=bp[i];st.list_values[off+al+i]=value;
+              h=Value::fnv1a_mix_u64(h,d_hash_value_shallow(value));
+            }
+          } else {
+            for (int i = 0; i < al; ++i) st.list_values[off + i] = ap[i];
+            for (int i = 0; i < bl; ++i) st.list_values[off + al + i] = bp[i];
+            h=d_hash_list_payload(st.list_values+off,al+bl);
+          }
           st.list_values_used += al + bl;
-          const std::uint64_t h = d_hash_list_payload(st.list_values + off, al + bl);
           out = d_make_list_hash_len(a.tag, h, static_cast<std::uint32_t>(al + bl));
           if (!d_register_local_list(st, out, off, al + bl)) { err = ErrCode::Value; return false; }
           return true;
         }
       }
       if constexpr (d_exact_payload_flavor<Flavor>) {
-        if (d_has_exact_payload(tables, payload_state, a) && d_has_exact_payload(tables, payload_state, b)) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
+        if (fused ? resolved : (d_has_exact_payload(tables, payload_state, a) && d_has_exact_payload(tables, payload_state, b))) { payload_state.physical_capacity_exceeded = true; err = ErrCode::Value; return false; }
       }
     const std::uint32_t len = Value::saturating_len_add(Value::container_len(a), Value::container_len(b));
       const std::uint64_t h = Value::combine_container_hash48(d_list_type_code(a), a, b);

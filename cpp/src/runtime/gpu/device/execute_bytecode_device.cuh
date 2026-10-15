@@ -562,6 +562,8 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
     payload_state.list_index_capacity=workspace.payload_entry_capacity*2;
     for(int i=0;i<payload_state.list_index_capacity;++i)payload_state.list_index[i]=0;
   }
+  if constexpr (d_exact_payload_flavor<Flavor>)
+    payload_state.fused_list_concat=workspace.fused_list_concat;
   payload_state.logical_list_limit = policy.list_allocation_limit;
   if (policy.list_allocation_limit && shared_case_local_vals && shared_case_local_set) {
     const int base = local_case * MAX_LOCALS;

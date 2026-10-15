@@ -523,11 +523,71 @@ bool test_extended_payload() {
   return passed;
 }
 
+__global__ void inspect_fused_concat(int* failure) {
+  using namespace gpu_detail;
+  *failure=0;
+  for(int type=0;type<3;++type) for(int scenario=0;scenario<11;++scenario) {
+    const ValueTag tag=type==0?ValueTag::IntList:type==1?ValueTag::FloatList:ValueTag::StringList;
+    Value source[3];
+    if(type==0) {source[0]=Value::from_int(9007199254740993LL);source[1]=Value::from_int(-3);source[2]=Value::from_int(7);}
+    else if(type==1) {source[0]=Value::from_float(-0.0);source[1]=Value::from_float(1.25);source[2]=Value::from_float(0);source[2].i=0x7ff8000000000042LL;}
+    else {source[0]=Value::from_string_hash_len(17,2);source[1]=Value::from_string_hash_len(23,1);source[2]=Value::from_string_hash_len(31,3);}
+    const Value a=d_make_list_hash_len(tag,d_hash_list_payload(source,2),2);
+    const Value b=d_make_list_hash_len(tag,d_hash_list_payload(source+2,1),1);
+    const Value empty=d_make_list_hash_len(tag,d_hash_list_payload(nullptr,0),0);
+    DListPayloadEntry external[3]={{tag,empty.i,0,0},{tag,b.i,2,1},{tag,a.i,0,2}};
+    DPayloadTables tables{};tables.list_entries=external;tables.list_entry_count=3;tables.list_values=source;
+    DListPayloadEntry entries[2][16]{};Value cells[2][16]{};
+    DArenaPayloadState states[2];Value outputs[2];ErrCode errors[2];bool success[2];
+    for(int variant=0;variant<2;++variant) {
+      auto& state=states[variant];state.list_entries=entries[variant];state.list_values=cells[variant];
+      state.list_entry_capacity=scenario==5?0:16;state.kMaxListValues=scenario==4?2:16;
+      state.logical_list_limit=scenario==8?0:scenario==6?2:3;
+      state.fused_list_concat=variant!=0;
+      if(scenario==9) {
+        // Two colliding source registrations must still select the first.
+        cells[variant][0]=source[2];cells[variant][1]=source[1];cells[variant][2]=source[0];
+        entries[variant][0]={tag,a.i,0,2};entries[variant][1]={tag,a.i,1,2};
+        state.list_entry_count=2;state.list_values_used=3;
+      }
+      Value args[2]={a,b};
+      if(scenario==1)args[0]=empty;
+      if(scenario==2)args[1]=empty;
+      if(scenario==3)args[0]=d_make_list_hash_len(tag,12345,2);
+      if(scenario==10)args[1]=Value::from_int(3);
+      outputs[variant]=Value::invalid();errors[variant]=ErrCode::Value;
+      success[variant]=d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Concat,args,2,tables,state,outputs[variant],errors[variant]);
+    }
+    bool equal=success[0]==success[1] && errors[0]==errors[1] && outputs[0].tag==outputs[1].tag && outputs[0].i==outputs[1].i;
+    equal &= states[0].list_values_used==states[1].list_values_used && states[0].list_entry_count==states[1].list_entry_count &&
+        states[0].logical_list_used==states[1].logical_list_used && states[0].physical_capacity_exceeded==states[1].physical_capacity_exceeded;
+    for(int i=0;i<states[0].list_values_used;++i)
+      equal &= cells[0][i].tag==cells[1][i].tag && cells[0][i].i==cells[1][i].i && cells[0][i].b==cells[1][i].b;
+    for(int i=0;i<states[0].list_entry_count;++i)
+      equal &= entries[0][i].tag==entries[1][i].tag && entries[0][i].packed==entries[1][i].packed &&
+          entries[0][i].offset==entries[1][i].offset && entries[0][i].len==entries[1][i].len;
+    if(!equal){*failure=type*100+scenario+1;return;}
+  }
+}
+
+bool test_fused_concat() {
+  int* failure=nullptr;
+  if(cudaMallocManaged(&failure,sizeof(int))!=cudaSuccess)return false;
+  *failure=-1;inspect_fused_concat<<<1,1>>>(failure);
+  const auto status=cudaDeviceSynchronize();
+  const bool passed=status==cudaSuccess && *failure==0;
+  if(!passed)std::cerr<<"fused concat parity failure "<<*failure<<'\n';
+  cudaFree(failure);
+  if(!passed)return false;
+  ScopedEnvironment restore("GAGP_GPU_FUSED_LIST_CONCAT");setenv("GAGP_GPU_FUSED_LIST_CONCAT","1",1);
+  return test_extended_payload() && test_extended_list_fitness();
+}
+
 int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_fused_concat() || !test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }
