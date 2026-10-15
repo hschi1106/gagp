@@ -5,6 +5,7 @@
 #include <string>
 #include <utility>
 #include <tuple>
+#include <thread>
 #include <optional>
 #include <vector>
 
@@ -163,12 +164,18 @@ void test_cold_payload_proofs() {
   try {
     (void)grammar::detail::snapshot_cold_admission([&] {
       ++attempts;auto candidate=reconstruct_derivation(grammar,genome,request);
-      if(payload::StagedPayloads::has_active_scope())payload::clear(); // Invalidate captured read before publication.
+      if(payload::StagedPayloads::has_active_scope()) {
+        // Staging is thread-local. A joined external writer changes the real
+        // dependency after admission and before read-only validation.
+        std::thread writer([&]{payload::register_list(key,{Value::from_int(99)});});
+        writer.join();
+      }
       return candidate;
     });
   } catch(const std::exception&){failed=true;}
-  check(failed && attempts==2 && !payload::StagedPayloads::has_active_scope() && !payload::lookup_list(key,&contents),
-      "changed-read retry published stale proof or restored removed payload");
+  check(failed && attempts==2 && !payload::StagedPayloads::has_active_scope() &&
+      payload::lookup_list(key,&contents) && contents.size()==1 && contents[0].i==99,
+      "changed-read retry published stale proof or reverted external payload replacement");
   payload::register_list(key,{});
 }
 }  // namespace
