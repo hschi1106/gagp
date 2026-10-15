@@ -1,0 +1,2227 @@
+{
+  "format": "asgp-low-budget-v1",
+  "stage": "quality",
+  "purpose": "support and coarse optimization feedback; not precision speedup or convergence evidence",
+  "population": 1024,
+  "cases": 1024,
+  "generations": 2,
+  "host_threads": 1,
+  "wall_budget_s": 300.0,
+  "binary": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+  "binary_sha256": "7ff0b4ec95fd8ae3975327c21b40926e49b168fc064ad1c71ffa2948af9e94ff",
+  "build_binary": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/cpp/build/release/gagp_fixed_asgp_bench",
+  "source_head": "9b3c9e7bb50b4627400c0ed0cfd310ef49c422b3",
+  "source_status": "",
+  "settings": {
+    "GAGP_VIEW_PROFILE": "1",
+    "GAGP_TYPED_VIEW_PHASE": "1",
+    "GAGP_SORT_CASES": "1",
+    "GAGP_COMPACT_FRAMES": "1",
+    "GAGP_CONSTANT_PHASE": "1",
+    "GAGP_POPULATION_HANDOFF": "1",
+    "GAGP_DIRECT_PHASE": "1",
+    "GAGP_DIRECT_ROOT": "1",
+    "GAGP_WINDOW_EXECUTOR": "1",
+    "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+    "GAGP_BOUND_ADD_PHASE": "1",
+    "GAGP_REUSE_ADMISSION_COMPILE": "1",
+    "GAGP_REUSE_SITE_CONTRACTS": "1",
+    "GAGP_SELECTED_SITES": "1",
+    "GAGP_OWNED_PREPARATION": "1",
+    "GAGP_CUDA_DEVICE": "0",
+    "GAGP_HOST_THREADS": "1",
+    "GAGP_SINGLE_EVAL_IDENTITY": "1",
+    "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+    "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+    "MALLOC_CONF": "background_thread:false,narenas:1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "GAGP_GPU_PHASE_POPULATION": "1",
+    "GAGP_OWNED_PHASE_PACK": "1",
+    "GAGP_OWNED_PHASE_CAPS": "1",
+    "GAGP_COORDINATE_EXECUTOR": "1",
+    "GAGP_COUNTED_SITE_DRAW": "1",
+    "GAGP_CPU_REGION_VIEWS": "1",
+    "GAGP_GPU_DIAGNOSTICS": "1",
+    "GAGP_SEARCH_TRACE": "1",
+    "GAGP_BATCH_PHASE_IMPORT": "1",
+    "GAGP_BATCH_PHASE_EXPORT": "1",
+    "GAGP_REUSE_PHASE_GRAMMAR": "1",
+    "GAGP_PHASE_CAP_BUCKETS": "1",
+    "GAGP_PHASE_REPRO_THREADS": "1",
+    "GAGP_GPU_STATIC_WEIGHTS": "1",
+    "GAGP_BUCKET_WORKSPACE": "1",
+    "GAGP_BOUND_COMPARE_PHASE": "1",
+    "GAGP_COORDINATE_RING_MEMO": "1",
+    "GAGP_CPU_LAZY_ANALYSIS": "1",
+    "GAGP_CPU_SELECTED_PARENTS": "1",
+    "GAGP_CPU_SELECTED_MUTATION": "1",
+    "GAGP_CPU_BOUND_PHASE": "1",
+    "GAGP_CPU_COORDINATE_VIEWS": "1",
+    "GAGP_CPU_TYPED_PHASE": "1",
+    "GAGP_CPU_DENSE_MEMO": "1",
+    "GAGP_CPU_SCALAR_VIEWS": "1",
+    "GAGP_CPU_COUNTED_PAIRS": "1",
+    "GAGP_CPU_COORDINATE_DRIVER": "1",
+    "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+    "GAGP_GPU_INPLACE_MUTATION": "1",
+    "GAGP_OWNED_PHASE_PACKED": "1",
+    "GAGP_CPU_ALL_FIT_PAIRS": "1",
+    "GAGP_GPU_FUSED_DONOR_SITES": "1",
+    "GAGP_CPU_FUSED_ADMISSION": "1",
+    "GAGP_CPU_COMPACT_ADMISSION": "1",
+    "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+    "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+    "GAGP_PREPARED_CASE_VIEWS": "1",
+    "GAGP_GPU_DEFERRED_CROSSOVER_COPY": "1",
+    "GAGP_GPU_FUSED_SPLICE_DEPTH": "1",
+    "GAGP_GPU_COMPACT_COMPILE_FRAMES": "1",
+    "GAGP_MEASURE_PHASE_CACHE": "1",
+    "GAGP_PER_PHASE_STACK_BOUND": "1",
+    "GAGP_HYBRID_PHASE_EXECUTOR": "1",
+    "GAGP_GPU_WINDOW_LEAF_DIRECT": "1",
+    "GAGP_WINDOW_SOA": "1",
+    "GAGP_DYNAMIC_PROGRAM_QUEUE": "1",
+    "GAGP_BM_ALIGNED_FITNESS": "1",
+    "GAGP_FREEZE_POPULATION": "1024"
+  },
+  "tasks": {
+    "sum_of_elements": {
+      "status": "passed"
+    },
+    "house_robber": {
+      "status": "passed"
+    },
+    "median": {
+      "status": "passed"
+    }
+  },
+  "cells": [
+    {
+      "task": "sum_of_elements",
+      "phase": "prepare1024",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "prepare",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.prepare1024.log",
+      "returncode": 0,
+      "peak_rss_bytes": 346357760,
+      "process_s": 3.6937793630640954
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "asgp_1t.s0",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "search_asgp_1t",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.asgp_1t.s0.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "0",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.asgp_1t.s0.final.json"
+      },
+      "log": "sum_of_elements.asgp_1t.s0.log",
+      "returncode": 0,
+      "peak_rss_bytes": 115507200,
+      "process_s": 6.32614858308807,
+      "output": "sum_of_elements.asgp_1t.s0.json",
+      "evolve_wall_ms": 6097.794019,
+      "final_best": 0,
+      "unique_final_genomes": 896
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "asgp_1t.s0.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "sum_of_elements",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.asgp_1t.s0.final.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.asgp_1t.s0.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.asgp_1t.s0.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 24248320,
+      "process_s": 0.2749338180292398
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gagp_cpu.s0",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "search_gagp_cpu",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gagp_cpu.s0.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "0",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gagp_cpu.s0.final.json"
+      },
+      "log": "sum_of_elements.gagp_cpu.s0.log",
+      "returncode": 0,
+      "peak_rss_bytes": 342585344,
+      "process_s": 21.218628047034144,
+      "output": "sum_of_elements.gagp_cpu.s0.json",
+      "evolve_wall_ms": 20457.680664,
+      "final_best": 0,
+      "unique_final_genomes": 993
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gagp_cpu.s0.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "sum_of_elements",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gagp_cpu.s0.final.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gagp_cpu.s0.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.gagp_cpu.s0.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 33587200,
+      "process_s": 0.3367765417788178
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_eval.s0",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "search_gpu_eval",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_eval.s0.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "0",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_eval.s0.final.json"
+      },
+      "log": "sum_of_elements.gpu_eval.s0.log",
+      "returncode": 0,
+      "peak_rss_bytes": 489275392,
+      "process_s": 1.8542512669228017,
+      "output": "sum_of_elements.gpu_eval.s0.json",
+      "evolve_wall_ms": 1057.570331,
+      "final_best": 0,
+      "unique_final_genomes": 993
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_eval.s0.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "sum_of_elements",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_eval.s0.final.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_eval.s0.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.gpu_eval.s0.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 33587200,
+      "process_s": 0.2653277958743274
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_repro.s0",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "search_gpu_repro",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_repro.s0.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "0",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_repro.s0.final.json"
+      },
+      "log": "sum_of_elements.gpu_repro.s0.log",
+      "returncode": 0,
+      "peak_rss_bytes": 506597376,
+      "process_s": 2.121294441865757,
+      "output": "sum_of_elements.gpu_repro.s0.json",
+      "evolve_wall_ms": 1148.290338,
+      "final_best": 0,
+      "unique_final_genomes": 990
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_repro.s0.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "sum_of_elements",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_repro.s0.final.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_repro.s0.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.gpu_repro.s0.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 32931840,
+      "process_s": 0.26586993713863194
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_overlap.s0",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "search_gpu_overlap",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_overlap.s0.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "0",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_overlap.s0.final.json"
+      },
+      "log": "sum_of_elements.gpu_overlap.s0.log",
+      "returncode": 0,
+      "peak_rss_bytes": 510980096,
+      "process_s": 1.8599671199917793,
+      "output": "sum_of_elements.gpu_overlap.s0.json",
+      "evolve_wall_ms": 1071.20823,
+      "final_best": 0,
+      "unique_final_genomes": 990
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_overlap.s0.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "sum_of_elements",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_overlap.s0.final.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_overlap.s0.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.gpu_overlap.s0.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31129600,
+      "process_s": 0.2642908680718392
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "asgp_1t.s1",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "search_asgp_1t",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.asgp_1t.s1.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "1",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.asgp_1t.s1.final.json"
+      },
+      "log": "sum_of_elements.asgp_1t.s1.log",
+      "returncode": 0,
+      "peak_rss_bytes": 115671040,
+      "process_s": 6.31992980116047,
+      "output": "sum_of_elements.asgp_1t.s1.json",
+      "evolve_wall_ms": 6010.628838,
+      "final_best": 0,
+      "unique_final_genomes": 907
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "asgp_1t.s1.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "sum_of_elements",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.asgp_1t.s1.final.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.asgp_1t.s1.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.asgp_1t.s1.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 14417920,
+      "process_s": 0.33400044380687177
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gagp_cpu.s1",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "search_gagp_cpu",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gagp_cpu.s1.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "1",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gagp_cpu.s1.final.json"
+      },
+      "log": "sum_of_elements.gagp_cpu.s1.log",
+      "returncode": 0,
+      "peak_rss_bytes": 350420992,
+      "process_s": 21.395756187150255,
+      "output": "sum_of_elements.gagp_cpu.s1.json",
+      "evolve_wall_ms": 20432.006028,
+      "final_best": 0,
+      "unique_final_genomes": 994
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gagp_cpu.s1.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "sum_of_elements",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gagp_cpu.s1.final.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gagp_cpu.s1.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.gagp_cpu.s1.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31457280,
+      "process_s": 0.265042319893837
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_eval.s1",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "search_gpu_eval",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_eval.s1.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "1",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_eval.s1.final.json"
+      },
+      "log": "sum_of_elements.gpu_eval.s1.log",
+      "returncode": 0,
+      "peak_rss_bytes": 486973440,
+      "process_s": 1.910192940151319,
+      "output": "sum_of_elements.gpu_eval.s1.json",
+      "evolve_wall_ms": 1046.01854,
+      "final_best": 0,
+      "unique_final_genomes": 994
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_eval.s1.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "sum_of_elements",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_eval.s1.final.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_eval.s1.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.gpu_eval.s1.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 30801920,
+      "process_s": 0.26429009810090065
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_repro.s1",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "search_gpu_repro",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_repro.s1.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "1",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_repro.s1.final.json"
+      },
+      "log": "sum_of_elements.gpu_repro.s1.log",
+      "returncode": 0,
+      "peak_rss_bytes": 506634240,
+      "process_s": 2.183859644923359,
+      "output": "sum_of_elements.gpu_repro.s1.json",
+      "evolve_wall_ms": 1142.339022,
+      "final_best": 0,
+      "unique_final_genomes": 997
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_repro.s1.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "sum_of_elements",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_repro.s1.final.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_repro.s1.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.gpu_repro.s1.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31784960,
+      "process_s": 0.26468622288666666
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_overlap.s1",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "search_gpu_overlap",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_overlap.s1.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "1",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_overlap.s1.final.json"
+      },
+      "log": "sum_of_elements.gpu_overlap.s1.log",
+      "returncode": 0,
+      "peak_rss_bytes": 521072640,
+      "process_s": 1.8531488049775362,
+      "output": "sum_of_elements.gpu_overlap.s1.json",
+      "evolve_wall_ms": 1062.141949,
+      "final_best": 0,
+      "unique_final_genomes": 997
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_overlap.s1.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "sum_of_elements",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_overlap.s1.final.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_overlap.s1.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.gpu_overlap.s1.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 32112640,
+      "process_s": 0.27385398116894066
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "asgp_1t.s2",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "search_asgp_1t",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.asgp_1t.s2.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "2",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.asgp_1t.s2.final.json"
+      },
+      "log": "sum_of_elements.asgp_1t.s2.log",
+      "returncode": 0,
+      "peak_rss_bytes": 116326400,
+      "process_s": 6.682914982084185,
+      "output": "sum_of_elements.asgp_1t.s2.json",
+      "evolve_wall_ms": 6258.493841,
+      "final_best": 0,
+      "unique_final_genomes": 907
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "asgp_1t.s2.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "sum_of_elements",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.asgp_1t.s2.final.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.asgp_1t.s2.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.asgp_1t.s2.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 14417920,
+      "process_s": 0.33030724921263754
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gagp_cpu.s2",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "search_gagp_cpu",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gagp_cpu.s2.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "2",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gagp_cpu.s2.final.json"
+      },
+      "log": "sum_of_elements.gagp_cpu.s2.log",
+      "returncode": 0,
+      "peak_rss_bytes": 350507008,
+      "process_s": 21.725647762184963,
+      "output": "sum_of_elements.gagp_cpu.s2.json",
+      "evolve_wall_ms": 20649.543821,
+      "final_best": 0,
+      "unique_final_genomes": 1003
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gagp_cpu.s2.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "sum_of_elements",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gagp_cpu.s2.final.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gagp_cpu.s2.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.gagp_cpu.s2.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 32112640,
+      "process_s": 0.2655529659241438
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_eval.s2",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "search_gpu_eval",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_eval.s2.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "2",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_eval.s2.final.json"
+      },
+      "log": "sum_of_elements.gpu_eval.s2.log",
+      "returncode": 0,
+      "peak_rss_bytes": 491188224,
+      "process_s": 1.8524042360950261,
+      "output": "sum_of_elements.gpu_eval.s2.json",
+      "evolve_wall_ms": 1074.490132,
+      "final_best": 0,
+      "unique_final_genomes": 1003
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_eval.s2.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "sum_of_elements",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_eval.s2.final.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_eval.s2.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.gpu_eval.s2.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 32768000,
+      "process_s": 0.2650164091028273
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_repro.s2",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "search_gpu_repro",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_repro.s2.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "2",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_repro.s2.final.json"
+      },
+      "log": "sum_of_elements.gpu_repro.s2.log",
+      "returncode": 0,
+      "peak_rss_bytes": 507383808,
+      "process_s": 1.852285104803741,
+      "output": "sum_of_elements.gpu_repro.s2.json",
+      "evolve_wall_ms": 1136.098751,
+      "final_best": 0,
+      "unique_final_genomes": 998
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_repro.s2.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "sum_of_elements",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_repro.s2.final.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_repro.s2.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.gpu_repro.s2.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31948800,
+      "process_s": 0.26542964903637767
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_overlap.s2",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/sum_of_elements/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.p1024.prepared.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "1024",
+        "search_gpu_overlap",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_overlap.s2.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "2",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_overlap.s2.final.json"
+      },
+      "log": "sum_of_elements.gpu_overlap.s2.log",
+      "returncode": 0,
+      "peak_rss_bytes": 519294976,
+      "process_s": 1.8522998089902103,
+      "output": "sum_of_elements.gpu_overlap.s2.json",
+      "evolve_wall_ms": 1057.86417,
+      "final_best": 0,
+      "unique_final_genomes": 998
+    },
+    {
+      "task": "sum_of_elements",
+      "phase": "gpu_overlap.s2.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "sum_of_elements",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_overlap.s2.final.json",
+        "logs/support-20261015/native-support/sum_of_elements/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/sum_of_elements.gpu_overlap.s2.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "sum_of_elements.gpu_overlap.s2.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 32604160,
+      "process_s": 0.26510781003162265
+    },
+    {
+      "task": "house_robber",
+      "phase": "prepare1024",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "prepare",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.prepare1024.log",
+      "returncode": 0,
+      "peak_rss_bytes": 338001920,
+      "process_s": 3.175977106206119
+    },
+    {
+      "task": "house_robber",
+      "phase": "asgp_1t.s0",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "search_asgp_1t",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.asgp_1t.s0.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "0",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.asgp_1t.s0.final.json"
+      },
+      "log": "house_robber.asgp_1t.s0.log",
+      "returncode": 0,
+      "peak_rss_bytes": 94535680,
+      "process_s": 3.18913676799275,
+      "output": "house_robber.asgp_1t.s0.json",
+      "evolve_wall_ms": 2967.474359,
+      "final_best": -8503,
+      "unique_final_genomes": 837
+    },
+    {
+      "task": "house_robber",
+      "phase": "asgp_1t.s0.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "house_robber",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.asgp_1t.s0.final.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.asgp_1t.s0.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.asgp_1t.s0.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 19169280,
+      "process_s": 0.2657775019761175
+    },
+    {
+      "task": "house_robber",
+      "phase": "gagp_cpu.s0",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "search_gagp_cpu",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gagp_cpu.s0.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "0",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gagp_cpu.s0.final.json"
+      },
+      "log": "house_robber.gagp_cpu.s0.log",
+      "returncode": 0,
+      "peak_rss_bytes": 309571584,
+      "process_s": 8.988195116166025,
+      "output": "house_robber.gagp_cpu.s0.json",
+      "evolve_wall_ms": 8197.975412,
+      "final_best": -8503,
+      "unique_final_genomes": 881
+    },
+    {
+      "task": "house_robber",
+      "phase": "gagp_cpu.s0.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "house_robber",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gagp_cpu.s0.final.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gagp_cpu.s0.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.gagp_cpu.s0.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31784960,
+      "process_s": 0.5991865170653909
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_eval.s0",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "search_gpu_eval",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_eval.s0.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "0",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_eval.s0.final.json"
+      },
+      "log": "house_robber.gpu_eval.s0.log",
+      "returncode": 0,
+      "peak_rss_bytes": 456998912,
+      "process_s": 1.924864523112774,
+      "output": "house_robber.gpu_eval.s0.json",
+      "evolve_wall_ms": 925.281026,
+      "final_best": -8503,
+      "unique_final_genomes": 881
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_eval.s0.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "house_robber",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_eval.s0.final.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_eval.s0.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.gpu_eval.s0.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31621120,
+      "process_s": 0.26614634809084237
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_repro.s0",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "search_gpu_repro",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_repro.s0.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "0",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_repro.s0.final.json"
+      },
+      "log": "house_robber.gpu_repro.s0.log",
+      "returncode": 0,
+      "peak_rss_bytes": 404332544,
+      "process_s": 1.32608802895993,
+      "output": "house_robber.gpu_repro.s0.json",
+      "evolve_wall_ms": 521.319001,
+      "final_best": -8503,
+      "unique_final_genomes": 848
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_repro.s0.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "house_robber",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_repro.s0.final.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_repro.s0.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.gpu_repro.s0.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 32276480,
+      "process_s": 0.2658541069831699
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_overlap.s0",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "search_gpu_overlap",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_overlap.s0.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "0",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_overlap.s0.final.json"
+      },
+      "log": "house_robber.gpu_overlap.s0.log",
+      "returncode": 0,
+      "peak_rss_bytes": 404197376,
+      "process_s": 1.3268618520814925,
+      "output": "house_robber.gpu_overlap.s0.json",
+      "evolve_wall_ms": 524.128874,
+      "final_best": -8503,
+      "unique_final_genomes": 848
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_overlap.s0.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "house_robber",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_overlap.s0.final.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_overlap.s0.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.gpu_overlap.s0.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 32112640,
+      "process_s": 0.2658074349164963
+    },
+    {
+      "task": "house_robber",
+      "phase": "asgp_1t.s1",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "search_asgp_1t",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.asgp_1t.s1.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "1",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.asgp_1t.s1.final.json"
+      },
+      "log": "house_robber.asgp_1t.s1.log",
+      "returncode": 0,
+      "peak_rss_bytes": 94535680,
+      "process_s": 3.1719643368851393,
+      "output": "house_robber.asgp_1t.s1.json",
+      "evolve_wall_ms": 2979.266724,
+      "final_best": -8479,
+      "unique_final_genomes": 820
+    },
+    {
+      "task": "house_robber",
+      "phase": "asgp_1t.s1.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "house_robber",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.asgp_1t.s1.final.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.asgp_1t.s1.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.asgp_1t.s1.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 18841600,
+      "process_s": 0.32284298399463296
+    },
+    {
+      "task": "house_robber",
+      "phase": "gagp_cpu.s1",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "search_gagp_cpu",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gagp_cpu.s1.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "1",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gagp_cpu.s1.final.json"
+      },
+      "log": "house_robber.gagp_cpu.s1.log",
+      "returncode": 0,
+      "peak_rss_bytes": 263004160,
+      "process_s": 9.061452238820493,
+      "output": "house_robber.gagp_cpu.s1.json",
+      "evolve_wall_ms": 8104.805617,
+      "final_best": -8479,
+      "unique_final_genomes": 883
+    },
+    {
+      "task": "house_robber",
+      "phase": "gagp_cpu.s1.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "house_robber",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gagp_cpu.s1.final.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gagp_cpu.s1.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.gagp_cpu.s1.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31457280,
+      "process_s": 0.265958733856678
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_eval.s1",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "search_gpu_eval",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_eval.s1.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "1",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_eval.s1.final.json"
+      },
+      "log": "house_robber.gpu_eval.s1.log",
+      "returncode": 0,
+      "peak_rss_bytes": 437207040,
+      "process_s": 1.5904197699856013,
+      "output": "house_robber.gpu_eval.s1.json",
+      "evolve_wall_ms": 906.421843,
+      "final_best": -8479,
+      "unique_final_genomes": 883
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_eval.s1.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "house_robber",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_eval.s1.final.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_eval.s1.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.gpu_eval.s1.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 32604160,
+      "process_s": 0.2664779929909855
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_repro.s1",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "search_gpu_repro",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_repro.s1.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "1",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_repro.s1.final.json"
+      },
+      "log": "house_robber.gpu_repro.s1.log",
+      "returncode": 0,
+      "peak_rss_bytes": 402370560,
+      "process_s": 1.3244909641798586,
+      "output": "house_robber.gpu_repro.s1.json",
+      "evolve_wall_ms": 529.568874,
+      "final_best": -8503,
+      "unique_final_genomes": 857
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_repro.s1.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "house_robber",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_repro.s1.final.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_repro.s1.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.gpu_repro.s1.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31293440,
+      "process_s": 0.2657240889966488
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_overlap.s1",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "search_gpu_overlap",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_overlap.s1.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "1",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_overlap.s1.final.json"
+      },
+      "log": "house_robber.gpu_overlap.s1.log",
+      "returncode": 0,
+      "peak_rss_bytes": 404246528,
+      "process_s": 1.3256289418786764,
+      "output": "house_robber.gpu_overlap.s1.json",
+      "evolve_wall_ms": 524.396702,
+      "final_best": -8503,
+      "unique_final_genomes": 857
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_overlap.s1.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "house_robber",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_overlap.s1.final.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_overlap.s1.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.gpu_overlap.s1.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 32768000,
+      "process_s": 0.2658043229021132
+    },
+    {
+      "task": "house_robber",
+      "phase": "asgp_1t.s2",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "search_asgp_1t",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.asgp_1t.s2.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "2",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.asgp_1t.s2.final.json"
+      },
+      "log": "house_robber.asgp_1t.s2.log",
+      "returncode": 0,
+      "peak_rss_bytes": 94535680,
+      "process_s": 3.166571083944291,
+      "output": "house_robber.asgp_1t.s2.json",
+      "evolve_wall_ms": 3004.654844,
+      "final_best": -8503,
+      "unique_final_genomes": 835
+    },
+    {
+      "task": "house_robber",
+      "phase": "asgp_1t.s2.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "house_robber",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.asgp_1t.s2.final.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.asgp_1t.s2.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.asgp_1t.s2.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 18350080,
+      "process_s": 0.2652396149933338
+    },
+    {
+      "task": "house_robber",
+      "phase": "gagp_cpu.s2",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "search_gagp_cpu",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gagp_cpu.s2.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "2",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gagp_cpu.s2.final.json"
+      },
+      "log": "house_robber.gagp_cpu.s2.log",
+      "returncode": 0,
+      "peak_rss_bytes": 267288576,
+      "process_s": 8.73243607999757,
+      "output": "house_robber.gagp_cpu.s2.json",
+      "evolve_wall_ms": 8162.885514,
+      "final_best": -8503,
+      "unique_final_genomes": 873
+    },
+    {
+      "task": "house_robber",
+      "phase": "gagp_cpu.s2.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "house_robber",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gagp_cpu.s2.final.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gagp_cpu.s2.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.gagp_cpu.s2.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 32440320,
+      "process_s": 0.26565751200541854
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_eval.s2",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "search_gpu_eval",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_eval.s2.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "2",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_eval.s2.final.json"
+      },
+      "log": "house_robber.gpu_eval.s2.log",
+      "returncode": 0,
+      "peak_rss_bytes": 463659008,
+      "process_s": 1.8953009569086134,
+      "output": "house_robber.gpu_eval.s2.json",
+      "evolve_wall_ms": 926.465716,
+      "final_best": -8503,
+      "unique_final_genomes": 873
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_eval.s2.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "house_robber",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_eval.s2.final.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_eval.s2.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.gpu_eval.s2.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31457280,
+      "process_s": 0.33414733898825943
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_repro.s2",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "search_gpu_repro",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_repro.s2.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "2",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_repro.s2.final.json"
+      },
+      "log": "house_robber.gpu_repro.s2.log",
+      "returncode": 0,
+      "peak_rss_bytes": 404246528,
+      "process_s": 1.3240388401318341,
+      "output": "house_robber.gpu_repro.s2.json",
+      "evolve_wall_ms": 525.479005,
+      "final_best": -8503,
+      "unique_final_genomes": 848
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_repro.s2.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "house_robber",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_repro.s2.final.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_repro.s2.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.gpu_repro.s2.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 32112640,
+      "process_s": 0.26598890498280525
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_overlap.s2",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/house_robber/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.p1024.prepared.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "1024",
+        "search_gpu_overlap",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_overlap.s2.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "2",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_overlap.s2.final.json"
+      },
+      "log": "house_robber.gpu_overlap.s2.log",
+      "returncode": 0,
+      "peak_rss_bytes": 402784256,
+      "process_s": 1.3230986229609698,
+      "output": "house_robber.gpu_overlap.s2.json",
+      "evolve_wall_ms": 527.933766,
+      "final_best": -8503,
+      "unique_final_genomes": 848
+    },
+    {
+      "task": "house_robber",
+      "phase": "gpu_overlap.s2.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "house_robber",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_overlap.s2.final.json",
+        "logs/support-20261015/native-support/house_robber/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/house_robber.gpu_overlap.s2.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "house_robber.gpu_overlap.s2.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 30474240,
+      "process_s": 0.26500589097850025
+    },
+    {
+      "task": "median",
+      "phase": "prepare1024",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "prepare",
+        "logs/support-20261015/native-support/median/source.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.prepare1024.log",
+      "returncode": 0,
+      "peak_rss_bytes": 229703680,
+      "process_s": 3.9600318879820406
+    },
+    {
+      "task": "median",
+      "phase": "asgp_1t.s0",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/median/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "search_asgp_1t",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.asgp_1t.s0.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "0",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.asgp_1t.s0.final.json"
+      },
+      "log": "median.asgp_1t.s0.log",
+      "returncode": 0,
+      "peak_rss_bytes": 111575040,
+      "process_s": 0.5969509100541472,
+      "output": "median.asgp_1t.s0.json",
+      "evolve_wall_ms": 179.188483,
+      "final_best": -642,
+      "unique_final_genomes": 926
+    },
+    {
+      "task": "median",
+      "phase": "asgp_1t.s0.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "median",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.asgp_1t.s0.final.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.asgp_1t.s0.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.asgp_1t.s0.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 17039360,
+      "process_s": 0.2706952129956335
+    },
+    {
+      "task": "median",
+      "phase": "gagp_cpu.s0",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/median/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "search_gagp_cpu",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gagp_cpu.s0.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "0",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gagp_cpu.s0.final.json"
+      },
+      "log": "median.gagp_cpu.s0.log",
+      "returncode": 0,
+      "peak_rss_bytes": 308813824,
+      "process_s": 2.1834383758250624,
+      "output": "median.gagp_cpu.s0.json",
+      "evolve_wall_ms": 1476.744425,
+      "final_best": -642,
+      "unique_final_genomes": 1013
+    },
+    {
+      "task": "median",
+      "phase": "gagp_cpu.s0.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "median",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gagp_cpu.s0.final.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gagp_cpu.s0.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.gagp_cpu.s0.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31457280,
+      "process_s": 0.2647810068447143
+    },
+    {
+      "task": "median",
+      "phase": "gpu_eval.s0",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/median/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "search_gpu_eval",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_eval.s0.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "0",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_eval.s0.final.json"
+      },
+      "log": "median.gpu_eval.s0.log",
+      "returncode": 0,
+      "peak_rss_bytes": 443723776,
+      "process_s": 1.5858225841075182,
+      "output": "median.gpu_eval.s0.json",
+      "evolve_wall_ms": 740.947394,
+      "final_best": -642,
+      "unique_final_genomes": 1013
+    },
+    {
+      "task": "median",
+      "phase": "gpu_eval.s0.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "median",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_eval.s0.final.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_eval.s0.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.gpu_eval.s0.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31293440,
+      "process_s": 0.26542589999735355
+    },
+    {
+      "task": "median",
+      "phase": "gpu_repro.s0",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/median/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "search_gpu_repro",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_repro.s0.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "0",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_repro.s0.final.json"
+      },
+      "log": "median.gpu_repro.s0.log",
+      "returncode": 0,
+      "peak_rss_bytes": 463155200,
+      "process_s": 1.588027570862323,
+      "output": "median.gpu_repro.s0.json",
+      "evolve_wall_ms": 767.201529,
+      "final_best": -642,
+      "unique_final_genomes": 1012
+    },
+    {
+      "task": "median",
+      "phase": "gpu_repro.s0.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "median",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_repro.s0.final.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_repro.s0.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.gpu_repro.s0.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 32112640,
+      "process_s": 0.6002072871197015
+    },
+    {
+      "task": "median",
+      "phase": "gpu_overlap.s0",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/median/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "search_gpu_overlap",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_overlap.s0.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "0",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_overlap.s0.final.json"
+      },
+      "log": "median.gpu_overlap.s0.log",
+      "returncode": 0,
+      "peak_rss_bytes": 460541952,
+      "process_s": 1.5860923049040139,
+      "output": "median.gpu_overlap.s0.json",
+      "evolve_wall_ms": 749.262501,
+      "final_best": -642,
+      "unique_final_genomes": 1012
+    },
+    {
+      "task": "median",
+      "phase": "gpu_overlap.s0.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "median",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_overlap.s0.final.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_overlap.s0.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.gpu_overlap.s0.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31457280,
+      "process_s": 0.26556982984766364
+    },
+    {
+      "task": "median",
+      "phase": "asgp_1t.s1",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/median/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "search_asgp_1t",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.asgp_1t.s1.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "1",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.asgp_1t.s1.final.json"
+      },
+      "log": "median.asgp_1t.s1.log",
+      "returncode": 0,
+      "peak_rss_bytes": 112443392,
+      "process_s": 0.5287674069404602,
+      "output": "median.asgp_1t.s1.json",
+      "evolve_wall_ms": 169.055985,
+      "final_best": -642,
+      "unique_final_genomes": 930
+    },
+    {
+      "task": "median",
+      "phase": "asgp_1t.s1.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "median",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.asgp_1t.s1.final.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.asgp_1t.s1.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.asgp_1t.s1.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 17039360,
+      "process_s": 0.26496395794674754
+    },
+    {
+      "task": "median",
+      "phase": "gagp_cpu.s1",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/median/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "search_gagp_cpu",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gagp_cpu.s1.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "1",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gagp_cpu.s1.final.json"
+      },
+      "log": "median.gagp_cpu.s1.log",
+      "returncode": 0,
+      "peak_rss_bytes": 374173696,
+      "process_s": 2.1129904529079795,
+      "output": "median.gagp_cpu.s1.json",
+      "evolve_wall_ms": 1444.004497,
+      "final_best": -642,
+      "unique_final_genomes": 1014
+    },
+    {
+      "task": "median",
+      "phase": "gagp_cpu.s1.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "median",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gagp_cpu.s1.final.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gagp_cpu.s1.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.gagp_cpu.s1.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 109772800,
+      "process_s": 0.5831350111402571
+    },
+    {
+      "task": "median",
+      "phase": "gpu_eval.s1",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/median/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "search_gpu_eval",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_eval.s1.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "1",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_eval.s1.final.json"
+      },
+      "log": "median.gpu_eval.s1.log",
+      "returncode": 0,
+      "peak_rss_bytes": 442716160,
+      "process_s": 1.5850790771655738,
+      "output": "median.gpu_eval.s1.json",
+      "evolve_wall_ms": 728.87106,
+      "final_best": -642,
+      "unique_final_genomes": 1014
+    },
+    {
+      "task": "median",
+      "phase": "gpu_eval.s1.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "median",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_eval.s1.final.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_eval.s1.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.gpu_eval.s1.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31293440,
+      "process_s": 0.2647560329642147
+    },
+    {
+      "task": "median",
+      "phase": "gpu_repro.s1",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/median/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "search_gpu_repro",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_repro.s1.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "1",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_repro.s1.final.json"
+      },
+      "log": "median.gpu_repro.s1.log",
+      "returncode": 0,
+      "peak_rss_bytes": 482951168,
+      "process_s": 1.6483602700755,
+      "output": "median.gpu_repro.s1.json",
+      "evolve_wall_ms": 768.494466,
+      "final_best": -642,
+      "unique_final_genomes": 1010
+    },
+    {
+      "task": "median",
+      "phase": "gpu_repro.s1.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "median",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_repro.s1.final.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_repro.s1.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.gpu_repro.s1.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31621120,
+      "process_s": 0.2651821330655366
+    },
+    {
+      "task": "median",
+      "phase": "gpu_overlap.s1",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/median/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "search_gpu_overlap",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_overlap.s1.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "1",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_overlap.s1.final.json"
+      },
+      "log": "median.gpu_overlap.s1.log",
+      "returncode": 0,
+      "peak_rss_bytes": 525201408,
+      "process_s": 1.5854651110712439,
+      "output": "median.gpu_overlap.s1.json",
+      "evolve_wall_ms": 762.496318,
+      "final_best": -642,
+      "unique_final_genomes": 1010
+    },
+    {
+      "task": "median",
+      "phase": "gpu_overlap.s1.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "median",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_overlap.s1.final.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_overlap.s1.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.gpu_overlap.s1.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31784960,
+      "process_s": 0.2652628088835627
+    },
+    {
+      "task": "median",
+      "phase": "asgp_1t.s2",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/median/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "search_asgp_1t",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.asgp_1t.s2.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "2",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.asgp_1t.s2.final.json"
+      },
+      "log": "median.asgp_1t.s2.log",
+      "returncode": 0,
+      "peak_rss_bytes": 30801920,
+      "process_s": 0.5370533128734678,
+      "output": "median.asgp_1t.s2.json",
+      "evolve_wall_ms": 158.150313,
+      "final_best": -642,
+      "unique_final_genomes": 920
+    },
+    {
+      "task": "median",
+      "phase": "asgp_1t.s2.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "median",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.asgp_1t.s2.final.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.asgp_1t.s2.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.asgp_1t.s2.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 17039360,
+      "process_s": 0.26532408804632723
+    },
+    {
+      "task": "median",
+      "phase": "gagp_cpu.s2",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/median/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "search_gagp_cpu",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gagp_cpu.s2.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "2",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gagp_cpu.s2.final.json"
+      },
+      "log": "median.gagp_cpu.s2.log",
+      "returncode": 0,
+      "peak_rss_bytes": 372731904,
+      "process_s": 2.116098423022777,
+      "output": "median.gagp_cpu.s2.json",
+      "evolve_wall_ms": 1439.944123,
+      "final_best": -642,
+      "unique_final_genomes": 1012
+    },
+    {
+      "task": "median",
+      "phase": "gagp_cpu.s2.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "median",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gagp_cpu.s2.final.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gagp_cpu.s2.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.gagp_cpu.s2.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31293440,
+      "process_s": 0.2651457597967237
+    },
+    {
+      "task": "median",
+      "phase": "gpu_eval.s2",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/median/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "search_gpu_eval",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_eval.s2.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "2",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_eval.s2.final.json"
+      },
+      "log": "median.gpu_eval.s2.log",
+      "returncode": 0,
+      "peak_rss_bytes": 442585088,
+      "process_s": 1.584508809959516,
+      "output": "median.gpu_eval.s2.json",
+      "evolve_wall_ms": 744.686765,
+      "final_best": -642,
+      "unique_final_genomes": 1012
+    },
+    {
+      "task": "median",
+      "phase": "gpu_eval.s2.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "median",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_eval.s2.final.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_eval.s2.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.gpu_eval.s2.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31457280,
+      "process_s": 0.2652571590151638
+    },
+    {
+      "task": "median",
+      "phase": "gpu_repro.s2",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/median/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "search_gpu_repro",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_repro.s2.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "2",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_repro.s2.final.json"
+      },
+      "log": "median.gpu_repro.s2.log",
+      "returncode": 0,
+      "peak_rss_bytes": 541421568,
+      "process_s": 1.5847485740669072,
+      "output": "median.gpu_repro.s2.json",
+      "evolve_wall_ms": 768.669944,
+      "final_best": -642,
+      "unique_final_genomes": 1008
+    },
+    {
+      "task": "median",
+      "phase": "gpu_repro.s2.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "median",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_repro.s2.final.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_repro.s2.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.gpu_repro.s2.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 32276480,
+      "process_s": 0.2657987067941576
+    },
+    {
+      "task": "median",
+      "phase": "gpu_overlap.s2",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "measure",
+        "logs/support-20261015/native-support/median/source.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.p1024.prepared.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "1024",
+        "search_gpu_overlap",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_overlap.s2.json"
+      ],
+      "status": "ok",
+      "extra_settings": {
+        "GAGP_SEARCH_GENERATIONS": "2",
+        "GAGP_BM_SEED": "2",
+        "GAGP_SEARCH_EXPORT": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_overlap.s2.final.json"
+      },
+      "log": "median.gpu_overlap.s2.log",
+      "returncode": 0,
+      "peak_rss_bytes": 463192064,
+      "process_s": 1.5825136180501431,
+      "output": "median.gpu_overlap.s2.json",
+      "evolve_wall_ms": 757.2717,
+      "final_best": -642,
+      "unique_final_genomes": 1008
+    },
+    {
+      "task": "median",
+      "phase": "gpu_overlap.s2.heldout",
+      "command": [
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/bench",
+        "quality",
+        "median",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_overlap.s2.final.json",
+        "logs/support-20261015/native-support/median/grammar.json",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/support-20261015/quality/median.gpu_overlap.s2.heldout.json"
+      ],
+      "status": "ok",
+      "extra_settings": {},
+      "log": "median.gpu_overlap.s2.heldout.log",
+      "returncode": 0,
+      "peak_rss_bytes": 31784960,
+      "process_s": 0.2655228250660002
+    }
+  ],
+  "elapsed_s": 197.64706969098188
+}

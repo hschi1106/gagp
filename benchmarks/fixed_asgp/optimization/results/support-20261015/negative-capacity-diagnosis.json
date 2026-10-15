@@ -1,0 +1,55 @@
+{
+  "arena_list_values": 8192,
+  "cases": 1024,
+  "programs": [
+    {
+      "program": 2,
+      "source_combine": "(L++L)++(R++(L++L))",
+      "divide_cut": 1,
+      "allocation_formula": "(9*n*n+n-10)/2",
+      "first_exhausted_input_length": 43,
+      "predicted_cpu_fitness": -87198,
+      "predicted_gpu_fitness": -225499,
+      "predicted_gpu_errors": 164,
+      "observed": {
+        "cases": 1024,
+        "cpu_fitness": -87198,
+        "errors": 164,
+        "fallbacks": 0,
+        "fitness": -225499,
+        "nodes": 30,
+        "program": 2,
+        "timeouts": 0,
+        "unscored": 0
+      },
+      "exact_match": true,
+      "output_recurrence": "F([x]+tail)=[x,x]+F(tail)+[x,x]; F([x])=[x]"
+    },
+    {
+      "program": 7,
+      "source_combine": "(L++L)++(L++R)",
+      "divide_cut": 1,
+      "allocation_formula": "(7*n*n-n-6)/2",
+      "first_exhausted_input_length": 49,
+      "predicted_cpu_fitness": -62339,
+      "predicted_gpu_fitness": -84339,
+      "predicted_gpu_errors": 25,
+      "observed": {
+        "cases": 1024,
+        "cpu_fitness": -62339,
+        "errors": 25,
+        "fallbacks": 0,
+        "fitness": -84339,
+        "nodes": 39,
+        "program": 7,
+        "timeouts": 0,
+        "unscored": 0
+      },
+      "exact_match": true,
+      "output_recurrence": "F([x]+tail)=[x,x,x]+F(tail); F([x])=[x]"
+    }
+  ],
+  "source_sha256": "cf98d37f463660c435a4797df81395f9f34f5dcb1053d14388320199a0c52e1a",
+  "snapshot_sha256": "a6c87150b3f14d7d06425562601225b105ccba31f708a4c7960b846d76a6bb1b",
+  "method": "Archived programs 2 and 7 have divide clamped to 1 and solve(xs)=xs. Reconstruct outputs recursively using their literal concat trees. Compute exact Levenshtein over all 1024 expected lists. Charge materialized input slices and each concat output length; replace the loss with penalty 1000 when cumulative values exceed 8192."
+}

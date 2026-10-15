@@ -1,0 +1,5681 @@
+{
+  "filter_odd": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 5,
+      "known_solution_phase_depths": [
+        5,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "filter_odd",
+      "unique_inputs": 1023
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 114,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 621,
+          "program": 2,
+          "source_errors": 692,
+          "status_mismatches": 71,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 854,
+          "program": 3,
+          "source_errors": 897,
+          "status_mismatches": 43,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 7,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "filter_odd"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 3,
+      "compile_ms": 0.116407,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 443.604772,
+      "execution_profile": "extended-payload",
+      "gpu_init_ms": 218.516088,
+      "kernel_ms": 442.643147,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -12952,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -12952,
+          "nodes": 23,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -12952,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -12952,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -827459,
+          "errors": 775,
+          "fallbacks": 0,
+          "fitness": -827459,
+          "nodes": 22,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -940496,
+          "errors": 916,
+          "fallbacks": 0,
+          "fitness": -940496,
+          "nodes": 29,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -12952,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -12952,
+          "nodes": 38,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -12952,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -12952,
+          "nodes": 40,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -12952,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -12952,
+          "nodes": 23,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024000,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024000,
+          "nodes": 40,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "sum_of_elements": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 2,
+      "known_solution_phase_depths": [
+        2,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "sum_of_elements",
+      "unique_inputs": 1022
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 4,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "sum_of_elements"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 8,
+      "compile_ms": 0.051358,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 22.762619,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache-window-unboxed-bound-add",
+      "gpu_init_ms": 118.929355,
+      "kernel_ms": 22.168169,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -808061,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -808061,
+          "nodes": 22,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -807649,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -807649,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -808061,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -808061,
+          "nodes": 22,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -807386,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -807386,
+          "nodes": 40,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024000,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024000,
+          "nodes": 30,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -836769,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -836769,
+          "nodes": 39,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -808061,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -808061,
+          "nodes": 23,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -777472,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -777472,
+          "nodes": 34,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "is_sorted": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 5,
+      "known_solution_phase_depths": [
+        3,
+        1,
+        5
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "is_sorted",
+      "unique_inputs": 1017
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 2,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 3,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 5,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "is_sorted"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 8,
+      "compile_ms": 0.06708,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 258.920784,
+      "execution_profile": "extended-payload",
+      "gpu_init_ms": 121.662852,
+      "kernel_ms": 258.371785,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -616.0000000000109,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -616.0000000000109,
+          "nodes": 38,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -630.4000000000087,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -630.4000000000087,
+          "nodes": 44,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1228.800000000032,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1228.800000000032,
+          "nodes": 46,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1228.800000000032,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1228.800000000032,
+          "nodes": 42,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -646.8700000000135,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -646.8700000000135,
+          "nodes": 45,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1228.800000000032,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1228.800000000032,
+          "nodes": 90,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -649.9600000000064,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -649.9600000000064,
+          "nodes": 38,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -628.940000000006,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -628.940000000006,
+          "nodes": 56,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "index_of_element": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 4,
+      "known_solution_phase_depths": [
+        4,
+        1,
+        3
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "index_of_element",
+      "unique_inputs": 1020
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 0,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 1,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 5,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "index_of_element"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 0,
+      "compile_ms": 0.20655,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 20.910567,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache-window-unboxed-bound-add",
+      "gpu_init_ms": 121.923731,
+      "kernel_ms": 20.329609,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 28,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 38,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -707.4072596162114,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -707.4072596162114,
+          "nodes": 22,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -723.9072596162114,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -723.9072596162114,
+          "nodes": 28,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -707.4072596162114,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -707.4072596162114,
+          "nodes": 28,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 42,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1009.4583066513442,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1009.4583066513442,
+          "nodes": 24,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -707.4072596162114,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -707.4072596162114,
+          "nodes": 35,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "all_equal": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 6,
+      "known_solution_phase_depths": [
+        3,
+        1,
+        6
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "all_equal",
+      "unique_inputs": 850
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 2,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 3,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 5,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "all_equal"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 8,
+      "compile_ms": 0.059286,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 272.341599,
+      "execution_profile": "extended-payload",
+      "gpu_init_ms": 123.884451,
+      "kernel_ms": 271.881032,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -577.6100000000079,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -577.6100000000079,
+          "nodes": 38,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -632.690000000006,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -632.690000000006,
+          "nodes": 44,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1228.800000000032,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1228.800000000032,
+          "nodes": 46,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1228.800000000032,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1228.800000000032,
+          "nodes": 42,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -638.3900000000067,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -638.3900000000067,
+          "nodes": 45,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1228.800000000032,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1228.800000000032,
+          "nodes": 90,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -628.4900000000089,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -628.4900000000089,
+          "nodes": 38,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -622.2100000000064,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -622.2100000000064,
+          "nodes": 56,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "cumulative_sum": {
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 42,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 833,
+          "program": 3,
+          "source_errors": 875,
+          "status_mismatches": 42,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "cumulative_sum"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 3,
+      "compile_ms": 0.104468,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 438.300258,
+      "execution_profile": "extended-payload",
+      "gpu_init_ms": 218.532355,
+      "kernel_ms": 437.232009,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -24672,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -24672,
+          "nodes": 23,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -24672,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -24672,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -473644,
+          "errors": 243,
+          "fallbacks": 0,
+          "fitness": -473644,
+          "nodes": 22,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -918083,
+          "errors": 895,
+          "fallbacks": 0,
+          "fitness": -918083,
+          "nodes": 29,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -24447,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -24447,
+          "nodes": 50,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -24672,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -24672,
+          "nodes": 16,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -24672,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -24672,
+          "nodes": 23,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -24492,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -24492,
+          "nodes": 37,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "fuel_cost": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 5,
+      "known_solution_phase_depths": [
+        5,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "fuel_cost",
+      "unique_inputs": 1024
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 0,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "fuel_cost"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 8,
+      "compile_ms": 0.053404,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 22.069216,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache-window-unboxed-bound-add",
+      "gpu_init_ms": 122.194905,
+      "kernel_ms": 21.440388,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024000,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024000,
+          "nodes": 30,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1008647,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1008647,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1008602,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1008602,
+          "nodes": 25,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1018226,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1018226,
+          "nodes": 34,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1013849,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1013849,
+          "nodes": 39,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1013836,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1013836,
+          "nodes": 18,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1008625,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1008625,
+          "nodes": 24,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1016515,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1016515,
+          "nodes": 34,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "luhn": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 6,
+      "known_solution_phase_depths": [
+        6,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "luhn",
+      "unique_inputs": 973
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 0,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 1,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "luhn"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 0,
+      "compile_ms": 0.230664,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 18.519545,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache-window-unboxed-bound-add",
+      "gpu_init_ms": 128.874276,
+      "kernel_ms": 18.078768,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024000,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024000,
+          "nodes": 28,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024000,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024000,
+          "nodes": 38,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -49190,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -49190,
+          "nodes": 22,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -246399,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -246399,
+          "nodes": 48,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -51169,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -51169,
+          "nodes": 73,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -47360,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -47360,
+          "nodes": 22,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -33605,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -33605,
+          "nodes": 22,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -48495,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -48495,
+          "nodes": 42,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "min": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 3,
+      "known_solution_phase_depths": [
+        2,
+        1,
+        3
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "min",
+      "unique_inputs": 1023
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 4,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "min"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 8,
+      "compile_ms": 0.052278,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 23.658584,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache-window-unboxed-bound-add",
+      "gpu_init_ms": 130.566409,
+      "kernel_ms": 23.085075,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 22,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 22,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 40,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 30,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 39,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 23,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 34,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "mpi": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 5,
+      "known_solution_phase_depths": [
+        4,
+        1,
+        5
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "mpi",
+      "unique_inputs": 1023
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 4,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 5,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 7,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "mpi"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 8,
+      "compile_ms": 0.066639,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 21.476277,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache-window-unboxed-bound-add",
+      "gpu_init_ms": 130.130266,
+      "kernel_ms": 20.873131,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -832,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -832,
+          "nodes": 22,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1002,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1002,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1009,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1009,
+          "nodes": 25,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -915,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -915,
+          "nodes": 34,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 82,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 39,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1002,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1002,
+          "nodes": 23,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 58,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "count_odds": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 5,
+      "known_solution_phase_depths": [
+        5,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "count_odds",
+      "unique_inputs": 1022
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 6,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 7,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "count_odds"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 8,
+      "compile_ms": 0.053088,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 22.246421,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache-window-unboxed-bound-add",
+      "gpu_init_ms": 129.792807,
+      "kernel_ms": 21.66032,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -13080,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -13080,
+          "nodes": 22,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -13080,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -13080,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -13110,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -13110,
+          "nodes": 22,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -11198,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -11198,
+          "nodes": 40,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -13082,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -13082,
+          "nodes": 48,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -12114,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -12114,
+          "nodes": 16,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024000,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024000,
+          "nodes": 30,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024000,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024000,
+          "nodes": 42,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "last_index_of_zero": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 4,
+      "known_solution_phase_depths": [
+        4,
+        1,
+        3
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "last_index_of_zero",
+      "unique_inputs": 992
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "last_index_of_zero"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 8,
+      "compile_ms": 0.053096,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 23.091187,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache-window-unboxed-bound-add",
+      "gpu_init_ms": 132.216143,
+      "kernel_ms": 22.465114,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -917.2617516843129,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -917.2617516843129,
+          "nodes": 28,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -877.6654919500616,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -877.6654919500616,
+          "nodes": 36,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -862.0399389644117,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -862.0399389644117,
+          "nodes": 35,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -877.6654919500616,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -877.6654919500616,
+          "nodes": 33,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -877.6654919500616,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -877.6654919500616,
+          "nodes": 16,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -887.1654919500652,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -887.1654919500652,
+          "nodes": 36,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -977.4562980402734,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -977.4562980402734,
+          "nodes": 30,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -877.6654919500616,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -877.6654919500616,
+          "nodes": 36,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "small_or_large": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 6,
+      "known_solution_phase_depths": [
+        6,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "small_or_large",
+      "unique_inputs": 805
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 2,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "small_or_large"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 2,
+      "compile_ms": 0.126078,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 23.710004,
+      "execution_profile": "extended-payload",
+      "gpu_init_ms": 121.734681,
+      "kernel_ms": 23.251615,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -5120,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -5120,
+          "nodes": 20,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -4096,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -4096,
+          "nodes": 17,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024000,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024000,
+          "nodes": 31,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -4616,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -4616,
+          "nodes": 49,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -5120,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -5120,
+          "nodes": 41,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -4600,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -4600,
+          "nodes": 21,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -4096,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -4096,
+          "nodes": 21,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -5120,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -5120,
+          "nodes": 37,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "for_loop_index": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 6,
+      "known_solution_phase_depths": [
+        6,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "for_loop_index",
+      "unique_inputs": 597
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 100,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 755,
+          "program": 2,
+          "source_errors": 808,
+          "status_mismatches": 53,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 831,
+          "program": 3,
+          "source_errors": 878,
+          "status_mismatches": 47,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "for_loop_index"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 0,
+      "compile_ms": 0.18271,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 447.735239,
+      "execution_profile": "extended-payload",
+      "gpu_init_ms": 215.877533,
+      "kernel_ms": 447.133021,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -6657,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -6657,
+          "nodes": 23,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -6657,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -6657,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -889243,
+          "errors": 850,
+          "fallbacks": 0,
+          "fitness": -889243,
+          "nodes": 22,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -917188,
+          "errors": 900,
+          "fallbacks": 0,
+          "fitness": -917188,
+          "nodes": 29,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -6490,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -6490,
+          "nodes": 17,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -6457,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -6457,
+          "nodes": 29,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -6657,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -6657,
+          "nodes": 23,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -7415,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -7415,
+          "nodes": 32,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "double_letters": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 6,
+      "known_solution_phase_depths": [
+        6,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "double_letters",
+      "unique_inputs": 1021
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 179,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 623,
+          "program": 2,
+          "source_errors": 704,
+          "status_mismatches": 81,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 874,
+          "program": 3,
+          "source_errors": 909,
+          "status_mismatches": 35,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 722,
+          "program": 7,
+          "source_errors": 785,
+          "status_mismatches": 63,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "double_letters"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 5,
+      "compile_ms": 0.129269,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 494.41145,
+      "execution_profile": "extended-payload",
+      "gpu_init_ms": 215.447691,
+      "kernel_ms": 492.877034,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -3058,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -3058,
+          "nodes": 22,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -50112,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -50112,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -840651,
+          "errors": 785,
+          "fallbacks": 0,
+          "fitness": -840651,
+          "nodes": 22,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -939789,
+          "errors": 924,
+          "fallbacks": 0,
+          "fitness": -939789,
+          "nodes": 29,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -49761,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -49761,
+          "nodes": 52,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -50112,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -50112,
+          "nodes": 16,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -23939,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -23939,
+          "nodes": 23,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -898570,
+          "errors": 850,
+          "fallbacks": 0,
+          "fitness": -898570,
+          "nodes": 34,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "replace_space_with_newline": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 5,
+      "known_solution_phase_depths": [
+        5,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "replace_space_with_newline",
+      "unique_inputs": 1024
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 143,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 618,
+          "program": 2,
+          "source_errors": 702,
+          "status_mismatches": 84,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 869,
+          "program": 3,
+          "source_errors": 908,
+          "status_mismatches": 39,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 849,
+          "program": 7,
+          "source_errors": 869,
+          "status_mismatches": 20,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "replace_space_with_newline"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 6,
+      "compile_ms": 0.080005,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 473.360273,
+      "execution_profile": "extended-payload",
+      "gpu_init_ms": 213.775528,
+      "kernel_ms": 472.610124,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -27083,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -27083,
+          "nodes": 22,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -26630,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -26630,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -841356,
+          "errors": 795,
+          "fallbacks": 0,
+          "fitness": -841356,
+          "nodes": 22,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -945572,
+          "errors": 930,
+          "fallbacks": 0,
+          "fitness": -945572,
+          "nodes": 29,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -26630,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -26630,
+          "nodes": 17,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -25619,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -25619,
+          "nodes": 27,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -26202,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -26202,
+          "nodes": 21,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -935575,
+          "errors": 908,
+          "fallbacks": 0,
+          "fitness": -935575,
+          "nodes": 42,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "even_squares": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 6,
+      "known_solution_phase_depths": [
+        6,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "even_squares",
+      "unique_inputs": 99
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 32,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 925,
+          "program": 2,
+          "source_errors": 943,
+          "status_mismatches": 18,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 954,
+          "program": 3,
+          "source_errors": 968,
+          "status_mismatches": 14,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "even_squares"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 0,
+      "compile_ms": 0.196022,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 531.520129,
+      "execution_profile": "extended-payload",
+      "gpu_init_ms": 212.573212,
+      "kernel_ms": 531.187223,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -2891,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -2891,
+          "nodes": 23,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -2891,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -2891,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -973484,
+          "errors": 959,
+          "fallbacks": 0,
+          "fitness": -973484,
+          "nodes": 22,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -987077,
+          "errors": 979,
+          "fallbacks": 0,
+          "fitness": -987077,
+          "nodes": 29,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -2918,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -2918,
+          "nodes": 17,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -2918,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -2918,
+          "nodes": 44,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -3054,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -3054,
+          "nodes": 21,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -4066,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -4066,
+          "nodes": 32,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "sum_of_squares": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 3,
+      "known_solution_phase_depths": [
+        3,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "sum_of_squares",
+      "unique_inputs": 30
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 4,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "sum_of_squares"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 8,
+      "compile_ms": 0.066661,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 20.103594,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache-window-unboxed-bound-add",
+      "gpu_init_ms": 115.577269,
+      "kernel_ms": 19.816366,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -695023,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -695023,
+          "nodes": 22,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -694616,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -694616,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -695023,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -695023,
+          "nodes": 22,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -751285,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -751285,
+          "nodes": 40,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024000,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024000,
+          "nodes": 30,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -870344,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -870344,
+          "nodes": 39,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -695023,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -695023,
+          "nodes": 23,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -849251,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -849251,
+          "nodes": 34,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "negative_to_zero": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 5,
+      "known_solution_phase_depths": [
+        5,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "negative_to_zero",
+      "unique_inputs": 1023
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "negative_to_zero"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 3,
+      "compile_ms": 0.122953,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 465.098548,
+      "execution_profile": "extended-payload",
+      "gpu_init_ms": 117.672702,
+      "kernel_ms": 464.175311,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -25941,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -25941,
+          "nodes": 23,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -25941,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -25941,
+          "nodes": 18,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -87198,
+          "errors": 164,
+          "fallbacks": 0,
+          "fitness": -225499,
+          "nodes": 30,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -25941,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -25941,
+          "nodes": 63,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -25941,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -25941,
+          "nodes": 18,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -100446,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -100446,
+          "nodes": 25,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -25941,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -25941,
+          "nodes": 23,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -62339,
+          "errors": 25,
+          "fallbacks": 0,
+          "fitness": -84339,
+          "nodes": 39,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "scrabble_score": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 16,
+      "known_solution_phase_depths": [
+        16,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 0,
+      "task": "scrabble_score",
+      "unique_inputs": 1016
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "scrabble_score"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 8,
+      "compile_ms": 0.053324,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 22.339443,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache-window-unboxed-bound-add",
+      "gpu_init_ms": 114.923649,
+      "kernel_ms": 21.793522,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -75436,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -75436,
+          "nodes": 22,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -71542,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -71542,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -75550,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -75550,
+          "nodes": 22,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -922686,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -922686,
+          "nodes": 44,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -75550,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -75550,
+          "nodes": 56,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -75425,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -75425,
+          "nodes": 99,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -587979,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -587979,
+          "nodes": 23,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -78576,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -78576,
+          "nodes": 36,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "grade": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 7,
+      "known_solution_phase_depths": [
+        7,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "grade",
+      "unique_inputs": 1024
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 2,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "grade"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 2,
+      "compile_ms": 0.122912,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 22.883907,
+      "execution_profile": "extended-payload",
+      "gpu_init_ms": 167.694076,
+      "kernel_ms": 22.486018,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 20,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -845,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -845,
+          "nodes": 17,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024000,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024000,
+          "nodes": 31,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -812,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -812,
+          "nodes": 49,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 41,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -845,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -845,
+          "nodes": 21,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -805,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -805,
+          "nodes": 21,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 37,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "median": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 6,
+      "known_solution_phase_depths": [
+        6,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "median",
+      "unique_inputs": 1024
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 4,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 5,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 7,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "median"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 8,
+      "compile_ms": 0.098219,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 16.286684,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache-window-unboxed-bound-add",
+      "gpu_init_ms": 115.310102,
+      "kernel_ms": 15.92846,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -1016,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1016,
+          "nodes": 22,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1018,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1018,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1019,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1019,
+          "nodes": 25,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1019,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1019,
+          "nodes": 34,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 82,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 39,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1018,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1018,
+          "nodes": 23,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 58,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "smallest": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 6,
+      "known_solution_phase_depths": [
+        6,
+        1,
+        3
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "smallest",
+      "unique_inputs": 1024
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 4,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 5,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 1024,
+          "program": 7,
+          "source_errors": 1024,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "smallest"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 8,
+      "compile_ms": 0.053096,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 16.920537,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache-window-unboxed-bound-add",
+      "gpu_init_ms": 125.551091,
+      "kernel_ms": 16.516036,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -1022,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1022,
+          "nodes": 22,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1021,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1021,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1023,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1023,
+          "nodes": 25,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1023,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1023,
+          "nodes": 34,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 82,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 39,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1021,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -1021,
+          "nodes": 23,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -1024,
+          "errors": 1024,
+          "fallbacks": 0,
+          "fitness": -1024,
+          "nodes": 58,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "syllables": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 7,
+      "known_solution_phase_depths": [
+        7,
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "syllables",
+      "unique_inputs": 1017
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "syllables"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 8,
+      "compile_ms": 0.055001,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 22.35575,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache-window-unboxed-bound-add",
+      "gpu_init_ms": 124.996582,
+      "kernel_ms": 21.829998,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -5588,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -5588,
+          "nodes": 22,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -4695,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -4695,
+          "nodes": 16,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -5588,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -5588,
+          "nodes": 22,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -30931,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -30931,
+          "nodes": 40,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -46637,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -46637,
+          "nodes": 45,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -4694,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -4694,
+          "nodes": 102,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -5993,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -5993,
+          "nodes": 22,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -179487,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -179487,
+          "nodes": 41,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "fibonacci": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 2,
+      "known_solution_phase_depths": [
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "fibonacci",
+      "unique_inputs": 1
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "fibonacci"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 0,
+      "compile_ms": 0.155952,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 18.137336,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache-coordinate-ring4",
+      "gpu_init_ms": 125.119301,
+      "kernel_ms": 17.785901,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -447368,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -447368,
+          "nodes": 16,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -324033,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -324033,
+          "nodes": 14,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -324025,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -324025,
+          "nodes": 18,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -317855,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -317855,
+          "nodes": 21,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -324033,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -324033,
+          "nodes": 47,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -323328,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -323328,
+          "nodes": 51,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -324033,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -324033,
+          "nodes": 17,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -324377,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -324377,
+          "nodes": 25,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "tribonacci": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 3,
+      "known_solution_phase_depths": [
+        3,
+        3
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "tribonacci",
+      "unique_inputs": 1
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "tribonacci"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 0,
+      "compile_ms": 0.16852,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 20.654062,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache",
+      "gpu_init_ms": 124.863714,
+      "kernel_ms": 20.286028,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -585161,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -585161,
+          "nodes": 16,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -381054,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -381054,
+          "nodes": 14,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -381004,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -381004,
+          "nodes": 18,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -380997,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -380997,
+          "nodes": 24,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -380997,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -380997,
+          "nodes": 31,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -375882,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -375882,
+          "nodes": 46,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -380186,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -380186,
+          "nodes": 17,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -379409,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -379409,
+          "nodes": 26,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "house_robber": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 4,
+      "known_solution_phase_depths": [
+        3,
+        4
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "house_robber",
+      "unique_inputs": 994
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "house_robber"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 8,
+      "compile_ms": 0.047856,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 20.686585,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache-coordinate-ring4",
+      "gpu_init_ms": 124.376658,
+      "kernel_ms": 19.600693,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -65387,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -65387,
+          "nodes": 17,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -65431,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -65431,
+          "nodes": 17,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -64411,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -64411,
+          "nodes": 13,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -65911,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -65911,
+          "nodes": 33,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -65431,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -65431,
+          "nodes": 48,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -59481,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -59481,
+          "nodes": 71,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -80181,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -80181,
+          "nodes": 18,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -103294,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -103294,
+          "nodes": 41,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "subregion_sum": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 2,
+      "known_solution_phase_depths": [
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "subregion_sum",
+      "unique_inputs": 998
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "subregion_sum"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 0,
+      "compile_ms": 0.280597,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 19.795425,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache",
+      "gpu_init_ms": 127.84153,
+      "kernel_ms": 17.694639,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -37258,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -37258,
+          "nodes": 19,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -26504,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -26504,
+          "nodes": 17,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -37703,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -37703,
+          "nodes": 28,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -371132,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -371132,
+          "nodes": 50,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -25178,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -25178,
+          "nodes": 33,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -42406,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -42406,
+          "nodes": 59,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -60264,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -60264,
+          "nodes": 21,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -35055,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -35055,
+          "nodes": 27,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "fibonacci_array": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 2,
+      "known_solution_phase_depths": [
+        1,
+        2
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "fibonacci_array",
+      "unique_inputs": 1
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "fibonacci_array"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 0,
+      "compile_ms": 0.180613,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 29.268574,
+      "execution_profile": "int-list-views-typed-direct-root-hybrid-measure-cache",
+      "gpu_init_ms": 126.357295,
+      "kernel_ms": 28.853857,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -213153,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -213153,
+          "nodes": 22,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -213141,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -213141,
+          "nodes": 22,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -211147,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -211147,
+          "nodes": 18,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -213169,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -213169,
+          "nodes": 26,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -210886,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -210886,
+          "nodes": 49,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -208293,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -208293,
+          "nodes": 38,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -206181,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -206181,
+          "nodes": 22,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -282045,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -282045,
+          "nodes": 30,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  },
+  "stock_with_cooldown": {
+    "audit": {
+      "cases": 1024,
+      "known_solution_asgp_wrong": 0,
+      "known_solution_cpu_mismatches": 0,
+      "known_solution_gpu_fitness": 0,
+      "known_solution_max_phase_depth": 5,
+      "known_solution_phase_depths": [
+        1,
+        5
+      ],
+      "known_solution_within_source_depth7": 1,
+      "task": "stock_with_cooldown",
+      "unique_inputs": 951
+    },
+    "sampled-audit": {
+      "cases_per_program": 1024,
+      "mismatches": 0,
+      "programs": [
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 0,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 1,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 2,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 3,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 4,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 5,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 6,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        },
+        {
+          "cases": 1024,
+          "native_errors": 0,
+          "program": 7,
+          "source_errors": 0,
+          "status_mismatches": 0,
+          "value_mismatches": 0
+        }
+      ],
+      "sampled_programs": 8,
+      "task": "stock_with_cooldown"
+    },
+    "snapshot": {
+      "admission_compile_reuses": 0,
+      "compile_ms": 0.416215,
+      "cpu_behavior_probe_cases": 0,
+      "diagnostic_only": 1,
+      "eval_ms": 34.500803,
+      "execution_profile": "int-list-views-typed-measure-cache",
+      "gpu_init_ms": 132.915753,
+      "kernel_ms": 33.273543,
+      "programs": [
+        {
+          "cases": 1024,
+          "cpu_fitness": -16606,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -16606,
+          "nodes": 68,
+          "program": 0,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -16606,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -16606,
+          "nodes": 66,
+          "program": 1,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -23174,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -23174,
+          "nodes": 77,
+          "program": 2,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -16606,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -16606,
+          "nodes": 93,
+          "program": 3,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -16606,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -16606,
+          "nodes": 64,
+          "program": 4,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -12610,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -12610,
+          "nodes": 64,
+          "program": 5,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -16606,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -16606,
+          "nodes": 68,
+          "program": 6,
+          "timeouts": 0,
+          "unscored": 0
+        },
+        {
+          "cases": 1024,
+          "cpu_fitness": -16606,
+          "errors": 0,
+          "fallbacks": 0,
+          "fitness": -16606,
+          "nodes": 77,
+          "program": 7,
+          "timeouts": 0,
+          "unscored": 0
+        }
+      ],
+      "unique_cpu_behavior_probes": 0
+    }
+  }
+}

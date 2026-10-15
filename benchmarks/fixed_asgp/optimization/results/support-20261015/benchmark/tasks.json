@@ -1,0 +1,41 @@
+[
+  {
+    "task": "sum_of_elements",
+    "status": "passed",
+    "known_solution": "not_run",
+    "source_output_parity": "not_run",
+    "cpu_gpu_snapshot": "not_run",
+    "asgp_1t": "ok",
+    "gagp_cpu": "ok",
+    "gpu_eval": "ok",
+    "gpu_repro": "ok",
+    "gpu_overlap": "ok",
+    "issues": ""
+  },
+  {
+    "task": "house_robber",
+    "status": "passed",
+    "known_solution": "not_run",
+    "source_output_parity": "not_run",
+    "cpu_gpu_snapshot": "not_run",
+    "asgp_1t": "ok",
+    "gagp_cpu": "ok",
+    "gpu_eval": "ok",
+    "gpu_repro": "ok",
+    "gpu_overlap": "ok",
+    "issues": ""
+  },
+  {
+    "task": "median",
+    "status": "passed",
+    "known_solution": "not_run",
+    "source_output_parity": "not_run",
+    "cpu_gpu_snapshot": "not_run",
+    "asgp_1t": "ok",
+    "gagp_cpu": "ok",
+    "gpu_eval": "ok",
+    "gpu_repro": "ok",
+    "gpu_overlap": "ok",
+    "issues": ""
+  }
+]

@@ -1,0 +1,4 @@
+task,status,known_solution,source_output_parity,cpu_gpu_snapshot,asgp_1t,gagp_cpu,gpu_eval,gpu_repro,gpu_overlap,issues
+sum_of_elements,passed,not_run,not_run,not_run,ok,ok,ok,ok,ok,
+house_robber,passed,not_run,not_run,not_run,ok,ok,ok,ok,ok,
+median,passed,not_run,not_run,not_run,ok,ok,ok,ok,ok,

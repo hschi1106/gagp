@@ -1,0 +1,102 @@
+{
+  "fully_aligned": 0,
+  "items": [
+    {
+      "asgp": "task metric/proximity/ceiling/summary parameters",
+      "gagp": "verified task policy",
+      "id": "task_metric",
+      "matched": 1
+    },
+    {
+      "asgp": "1",
+      "gagp": "1",
+      "id": "elitism_count",
+      "matched": 1
+    },
+    {
+      "asgp": "ramped depth 2..7, alternating full/grow",
+      "gagp": "native grammar initialization",
+      "id": "initial_population",
+      "matched": 0
+    },
+    {
+      "asgp": "0.7 probability per child, one uniformly chosen phase",
+      "gagp": "one crossover attempt per child; no probability gate",
+      "id": "crossover_gate",
+      "matched": 0
+    },
+    {
+      "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+      "gagp": "grammar-admitted site pairs, scopes and nonterminals",
+      "id": "crossover_sites",
+      "matched": 0
+    },
+    {
+      "asgp": "0.3 probability per child",
+      "gagp": "0.300000",
+      "id": "mutation_gate",
+      "matched": 1
+    },
+    {
+      "asgp": "uniform phase then uniform node",
+      "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+      "id": "mutation_scope",
+      "matched": 0
+    },
+    {
+      "asgp": "grow donor within max_depth minus selected node level plus one",
+      "gagp": "compiled request and projected resource admission",
+      "id": "mutation_donor_depth",
+      "matched": 0
+    },
+    {
+      "asgp": "source logical phase depth limit 7",
+      "gagp": "native grammar depth/node budgets and backend physical capacities",
+      "id": "phase_limits",
+      "matched": 0
+    },
+    {
+      "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+      "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+      "id": "terminal_sampler",
+      "matched": 0
+    },
+    {
+      "asgp": "uniform constant production, uniform range, uniform value",
+      "gagp": "translated ranges are separate weighted productions",
+      "id": "constant_sampler",
+      "matched": 0
+    },
+    {
+      "asgp": "error, wrong cases, source logical phase nodes",
+      "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+      "id": "ranking",
+      "matched": 0
+    },
+    {
+      "asgp": "independent draws with replacement, size 2",
+      "gagp": "permuted population tournament groups",
+      "id": "tournament_sampling",
+      "matched": 0
+    },
+    {
+      "asgp": "population minus elites children are generated",
+      "gagp": "population children generated; elites replace first ranked slots",
+      "id": "offspring_budget",
+      "matched": 0
+    },
+    {
+      "asgp": "source evaluator steps, recursion and arena limits",
+      "gagp": "native instruction fuel, region memo/frame and payload capacities",
+      "id": "execution_budget",
+      "matched": 0
+    },
+    {
+      "asgp": "ASGP RNG stream and source operator draw order",
+      "gagp": "native CPU/CUDA RNG streams and operator draw order",
+      "id": "rng_replay",
+      "matched": 0
+    }
+  ],
+  "version": "asgp-native-search-contract-v1"
+}

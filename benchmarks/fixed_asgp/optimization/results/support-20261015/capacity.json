@@ -1,0 +1,246 @@
+{
+  "artifacts": "/tmp/gagp-source-capacity-20261015-v9r1mx04",
+  "population": 1024,
+  "rows": [
+    {
+      "task": "filter_odd",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 733,
+      "grammar_hash": "687af866211d1dae4e2ada6e8d7662492e4af39bc445fe3e89a155279d778b80",
+      "seconds": 4.142
+    },
+    {
+      "task": "sum_of_elements",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 801,
+      "grammar_hash": "ee6ad8aa1750a5c4efd06cfbdd529e7d42232d833b961bea076195ba1298c664",
+      "seconds": 4.864
+    },
+    {
+      "task": "is_sorted",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 888,
+      "grammar_hash": "70d0f5e7fc05528e60f8bb4e8c687ff838ebf9400b11a7097733082fdd7bddac",
+      "seconds": 6.073
+    },
+    {
+      "task": "index_of_element",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 667,
+      "grammar_hash": "058b844b1216786145d14b3188d158ccb1a6663760b831f5a79e88d32df621d5",
+      "seconds": 4.786
+    },
+    {
+      "task": "all_equal",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 888,
+      "grammar_hash": "8c9c38651c33e66ff0d55e721a5fbc6e15ce57cfb01e7bd2b1c9a48be1bdb67e",
+      "seconds": 6.228
+    },
+    {
+      "task": "cumulative_sum",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 772,
+      "grammar_hash": "c6fc7a94ce3113922a4423d275d10ecf56d41a72947ae0644598ce561d1d07d0",
+      "seconds": 4.587
+    },
+    {
+      "task": "fuel_cost",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 684,
+      "grammar_hash": "ebe1dc9b8943c95db48fd31488f590bb23dd3d666fc43ebd65b19483fb6c4eef",
+      "seconds": 4.708
+    },
+    {
+      "task": "luhn",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 767,
+      "grammar_hash": "05832a3780ef912e3e70378c1775ed876345bb3929ad049bab3fff6bd5aff67c",
+      "seconds": 4.82
+    },
+    {
+      "task": "min",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 801,
+      "grammar_hash": "dc8c74a2aacc8a1d38fc1d28601299ef327f0b573a531ad5378c34c8f70765a3",
+      "seconds": 4.616
+    },
+    {
+      "task": "mpi",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 716,
+      "grammar_hash": "32bb9644158f544d6141a310d2aa16ecdbdf5c142bf82aa0601da520e1382689",
+      "seconds": 4.964
+    },
+    {
+      "task": "count_odds",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 748,
+      "grammar_hash": "c49f17cee16e5bb41442e451edd4c40362eddd22d3311d1b692a996cc932dad4",
+      "seconds": 4.623
+    },
+    {
+      "task": "last_index_of_zero",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 709,
+      "grammar_hash": "dfb10fc222ec5588c66227de25c5a8d904a8afbc2860535b374be6c293e40a09",
+      "seconds": 4.371
+    },
+    {
+      "task": "small_or_large",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 847,
+      "grammar_hash": "7c104684f812dbffa89ade9afc34fcca6413c017dad0e3e367139fd69e17fb0e",
+      "seconds": 4.776
+    },
+    {
+      "task": "for_loop_index",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 813,
+      "grammar_hash": "1285edb89cda42d7df986f17b661400e678f31c4ddf2ddec557bc55a8557d216",
+      "seconds": 4.483
+    },
+    {
+      "task": "double_letters",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 941,
+      "grammar_hash": "577b9db9a2da819dc025bb82e1b5dc91078ae2d56b11757596ac8676b16931e9",
+      "seconds": 4.849
+    },
+    {
+      "task": "replace_space_with_newline",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 756,
+      "grammar_hash": "665ee17ae161173c0e034959b87e8a9c0cc078cae4fa24d463502416ecb0e7d7",
+      "seconds": 4.776
+    },
+    {
+      "task": "even_squares",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 803,
+      "grammar_hash": "9e384230b6903638966a8b4c01b7015b212ab2030a12a4ba6ce8a02cf0c42dce",
+      "seconds": 4.362
+    },
+    {
+      "task": "sum_of_squares",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 801,
+      "grammar_hash": "3149894cc3f3657efa26c3bad6c1242f2e4de4a4a875ec3006ee11444ac2cab9",
+      "seconds": 4.688
+    },
+    {
+      "task": "negative_to_zero",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 743,
+      "grammar_hash": "58a745b63334bb19bbfe155960f10e685a0a6a9c2f66194dd696221bc9b5b190",
+      "seconds": 4.168
+    },
+    {
+      "task": "scrabble_score",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 783,
+      "grammar_hash": "88d11d8751d33193f68dd2683b3315a4dd228a79a18639f27bb60c9af648ca40",
+      "seconds": 6.256
+    },
+    {
+      "task": "grade",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 847,
+      "grammar_hash": "a807094f434f08fec5e1d0e0cda4bdebd3cf85ce30b1cdba419c9f9864a71a3e",
+      "seconds": 4.918
+    },
+    {
+      "task": "median",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 716,
+      "grammar_hash": "02378a43b4ed8543a03bf0691872adc6e3e45c56b69b7540168caffb3fac36ee",
+      "seconds": 4.864
+    },
+    {
+      "task": "smallest",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 716,
+      "grammar_hash": "8dd95c27236103722ab91f351bbc023dc8ea6ddbe8296573480785f128633d4f",
+      "seconds": 4.71
+    },
+    {
+      "task": "syllables",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 956,
+      "grammar_hash": "c28a366c625453689a342daf16325ed1c635c0ba6a2d77b30eee5be6d4563d4f",
+      "seconds": 5.218
+    },
+    {
+      "task": "fibonacci",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 602,
+      "grammar_hash": "d6678189354120c73bcf4bdfacc5041dd440fe948d1b8aaa8b8ba6f890f2dfc2",
+      "seconds": 3.195
+    },
+    {
+      "task": "tribonacci",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 499,
+      "grammar_hash": "a0c9a70a60bc2102132179c8f902fbcd8533a9c046d43aa58fdcad026abe902e",
+      "seconds": 3.367
+    },
+    {
+      "task": "house_robber",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 916,
+      "grammar_hash": "aea7f9a09f441c35f632cdede92ff7aea7775a8bcf8b2beb359c4b770325753e",
+      "seconds": 4.061
+    },
+    {
+      "task": "subregion_sum",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 657,
+      "grammar_hash": "ebf29a182fe7f18e7423aa46d4ba179fa490f7ecf9e6c0d1b829526a74ede2d1",
+      "seconds": 3.543
+    },
+    {
+      "task": "fibonacci_array",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 527,
+      "grammar_hash": "a99524195790ed8728a78002c5884f33f0dda5feb1a745ee5b385a14b58536ba",
+      "seconds": 3.641
+    },
+    {
+      "task": "stock_with_cooldown",
+      "status": "prepared",
+      "programs": 1024,
+      "max_physical_nodes": 572,
+      "grammar_hash": "f74c5c80f9d8582497b51edf904b31e0faef538303d38f4076549c002b2b5bb0",
+      "seconds": 5.401
+    }
+  ]
+}
