@@ -24,13 +24,16 @@ class TestSourceGrammar(unittest.TestCase):
         contract=dict(task='character_fixture',scheme='divide-and-conquer',carrier='charList',
             scalars=['threshold'],base_size=1,ints=[['0','2']],chars=[['32','32'],['10','10']],
             phases=[dict(start='charList',productions=[production(2,'char'),production(1,'int'),
-                production(6,'int'),production(16,'charList',['char'])]),
+                production(6,'int'),production(12,'bool',['char']),production(16,'charList',['char'])]),
                 dict(start='int',productions=[production(1,'int')]),
                 dict(start='charList',productions=[production(7,'charList')])])
         document=definition(ROOT,'character_fixture',contract=contract)
         nts={nt['id']:nt for nt in document['nonterminals']}
         singleton=nts['Solve.charList']['alternatives'][0]['expression']
         self.assertEqual(singleton['args'],[{'ref':'Solve.char'}])
+        letter=nts['Solve.bool']['alternatives'][0]['expression']
+        self.assertEqual(letter,{'template':'Fixed.Solve.IsLetter','holes':{'char':{'ref':'Solve.char'}}})
+        self.assertEqual(document['templates'][1]['holes'][0]['id'],'char')
         self.assertEqual([p['expression']['constant']['range'] for p in nts['Solve.char']['alternatives']],contract['chars'])
         self.assertEqual(document['templates'][0]['body']['captures'],[{'input':'scalar0'}])
         self.assertIn({'name':'scalar0','type':'Int'},nts['Solve.char']['scope'])
