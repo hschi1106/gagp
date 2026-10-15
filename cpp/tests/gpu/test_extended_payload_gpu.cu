@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <new>
 #include <string>
 #include <utility>
@@ -1248,10 +1249,149 @@ bool test_sorted_arena_cases() {
   return true;
 }
 
+__global__ void inspect_global_list_index(gpu_detail::DPayloadTables tables,
+    const gpu_detail::DListPayloadEntry* queries, const int* expected, int count, int* failure) {
+  using namespace gpu_detail;
+  *failure = 0;
+  auto binary = tables;
+  binary.list_index = nullptr;
+  binary.list_index_capacity = 0;
+  for (int i = 0; i < count; ++i) {
+    if (d_find_list_payload_entry(binary, queries[i].tag, queries[i].packed) != expected[i] ||
+        d_find_list_payload_entry(tables, queries[i].tag, queries[i].packed) != expected[i]) {
+      *failure = i + 1;
+      return;
+    }
+  }
+  if (d_find_list_payload_entry(DPayloadTables{}, ValueTag::IntList, 0) != -1)
+    *failure = count + 1;
+}
+
+bool test_global_list_index() {
+  using namespace gpu_detail;
+  if (!check(build_global_list_index({}).empty(), "empty global table needs no index")) return false;
+  std::vector<DListPayloadEntry> entries;
+  // Force a probe chain that wraps at the end of the 64-slot table.
+  std::int64_t candidate = 1;
+  while (entries.size() < 12) {
+    if ((global_list_index_hash(ValueTag::IntList, candidate) & 63) == 63)
+      entries.push_back({ValueTag::IntList, candidate, static_cast<int>(entries.size()), 1});
+    ++candidate;
+  }
+  const auto collision_key = entries.front().packed;
+  entries.push_back({ValueTag::IntList, collision_key, 12345, 99}); // Later duplicate must lose.
+  entries.push_back({ValueTag::FloatList, collision_key, 20, 1});
+  entries.push_back({ValueTag::StringList, collision_key, 21, 1});
+  entries.push_back({ValueTag::IntList, std::numeric_limits<std::int64_t>::min(), 22, 1});
+  entries.push_back({ValueTag::IntList, std::numeric_limits<std::int64_t>::max(), 23, 1});
+  entries.push_back({ValueTag::IntList, -1, 24, 1});
+  entries.push_back({ValueTag::IntList, 0, 25, 0}); // Exact empty payload.
+  const auto less = [](const auto& a, const auto& b) {
+    return a.tag != b.tag ? static_cast<int>(a.tag) < static_cast<int>(b.tag) : a.packed < b.packed;
+  };
+  std::stable_sort(entries.begin(), entries.end(), less);
+  const auto index = build_global_list_index(entries);
+  if (!check(index.size() == 64, "collision test capacity")) return false;
+  std::vector<DListPayloadEntry> queries = entries;
+  while ((global_list_index_hash(ValueTag::IntList, candidate) & 63) != 63) ++candidate;
+  queries.push_back({ValueTag::IntList, candidate, 0, 0}); // Miss through entire chain.
+  queries.push_back({ValueTag::FloatList, -1, 0, 0});
+  queries.push_back({ValueTag::StringList, 0, 0, 0});
+  std::vector<int> expected;
+  for (const auto& query : queries) {
+    const auto it = std::lower_bound(entries.begin(), entries.end(), query, less);
+    expected.push_back(it != entries.end() && it->tag == query.tag && it->packed == query.packed
+        ? static_cast<int>(it - entries.begin()) : -1);
+  }
+  // One contiguous managed allocation keeps failure cleanup simple.
+  unsigned char* storage = nullptr;
+  const auto entry_bytes = entries.size() * sizeof(DListPayloadEntry);
+  const auto query_bytes = queries.size() * sizeof(DListPayloadEntry);
+  const auto bytes = entry_bytes + query_bytes + sizeof(int) * (index.size() + expected.size() + 1);
+  if (cudaMallocManaged(&storage, bytes) != cudaSuccess) return false;
+  auto* device_entries = reinterpret_cast<DListPayloadEntry*>(storage);
+  auto* device_queries = reinterpret_cast<DListPayloadEntry*>(storage + entry_bytes);
+  auto* device_index = reinterpret_cast<int*>(storage + entry_bytes + query_bytes);
+  auto* device_expected = device_index + index.size();
+  auto* failure = device_expected + expected.size();
+  std::copy(entries.begin(), entries.end(), device_entries);
+  std::copy(queries.begin(), queries.end(), device_queries);
+  std::copy(index.begin(), index.end(), device_index);
+  std::copy(expected.begin(), expected.end(), device_expected);
+  DPayloadTables tables{};
+  tables.list_entries = device_entries;
+  tables.list_entry_count = static_cast<int>(entries.size());
+  tables.list_index = device_index;
+  tables.list_index_capacity = static_cast<int>(index.size());
+  *failure = -1;
+  inspect_global_list_index<<<1, 1>>>(tables, device_queries, device_expected, expected.size(), failure);
+  const bool passed = cudaDeviceSynchronize() == cudaSuccess &&
+      check(*failure == 0, "global list collision/first-match/signed/type/missing parity " + std::to_string(*failure));
+  cudaFree(storage);
+  return passed;
+}
+
+bool test_global_list_index_fitness() {
+  ScopedEnvironment restore_index("GAGP_GPU_GLOBAL_LIST_INDEX"), restore_global("GAGP_GPU_GLOBAL_PAYLOAD");
+  const auto captured = payload::make_int_list_value({Value::from_int(77)});
+  const std::vector<CaseBindings> cases(33, {{0, captured}});
+  const std::vector<Value> answers(33, Value::from_int(77));
+  FitnessPolicy policy{FitnessMetric::Exact};
+  policy.list_allocation_limit = 65536;
+  for (const char* global : {"0", "1"}) for (const char* indexed : {"0", "1"}) {
+    setenv("GAGP_GPU_GLOBAL_PAYLOAD", global, 1);
+    setenv("GAGP_GPU_GLOBAL_LIST_INDEX", indexed, 1);
+    FitnessSessionGpu session;
+    if (!check(session.init(cases, answers, 1000, 33, 1000, policy).ok, "global index session init")) return false;
+    // Reuse the session across changing constant closures/table offsets, then
+    // restore the original closure. No index can survive its matching table.
+    for (int generation : {0, 1, 2, 0}) {
+      std::vector<Value> distractors;
+      for (int i = 0; i < generation * 7; ++i)
+        distractors.push_back(payload::make_int_list_value({Value::from_int(i), Value::from_int(i + 1)}));
+      const auto float_list = payload::make_float_list_value({Value::from_float(77)});
+      const auto string_list = payload::make_string_list_value({payload::make_string_value("77")});
+      auto index_program = [](Value list) {
+        BytecodeProgram program;
+        program.consts = {list, Value::from_int(0)};
+        program.code = {ins_a(Opcode::PushConst, 0), ins_a(Opcode::PushConst, 1),
+            ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Index), 2), ins(Opcode::Return)};
+        program.instruction_fuel.assign(program.code.size(), 1);
+        return program;
+      };
+      auto from_case = index_program(captured);
+      from_case.n_locals = 1;
+      from_case.code[0] = ins_a(Opcode::Load, 0);
+      from_case.consts.insert(from_case.consts.end(), distractors.begin(), distractors.end());
+      const auto missing = Value::from_int_list_hash_len(0x0123456789abULL, 1);
+      // A constant owned only by a phase changes on every evaluation too.
+      const auto phase_program = index_program(payload::make_int_list_value({Value::from_int(77 + generation)}));
+      const auto region_program = invocation(unary_segment(ValueTag::Int,
+          phase(phase_program.consts, phase_program.code), constant_phase(Value::from_int(0))), 0);
+      const std::vector<BytecodeProgram> programs{from_case, index_program(float_list),
+          index_program(string_list), index_program(missing), index_program(payload::make_int_list_value({})), region_program};
+      std::vector<CpuFitnessCaseCounts> counts;
+      const auto cpu = eval_fitness_cpu(programs, cases, answers, 1000, 1000, 33, policy, nullptr, &counts);
+      const auto gpu = session.eval_programs(programs, true);
+      if (!check(gpu.ok && gpu.fitness == cpu && cpu[0] == 0 && counts[0].errors == 0, "global index cross-evaluation CPU fitness parity")) return false;
+      if (!check(indexed[0] == '1' ? gpu.global_list_index_bytes > 0 &&
+          (gpu.global_list_index_bytes & (gpu.global_list_index_bytes - 1)) == 0 : gpu.global_list_index_bytes == 0,
+          "global index allocated byte disclosure")) return false;
+      if (!check((gpu.execution_profile.find("-global-list-index") != std::string::npos) == (indexed[0] == '1'),
+          "global index opt-in profile")) return false;
+      for (std::size_t p = 0; p < programs.size(); ++p)
+        if (!check(gpu.case_counts[p][0] == counts[p].cases && gpu.case_counts[p][1] == counts[p].errors &&
+            gpu.case_counts[p][2] == counts[p].timeouts, "global index case/error/timeout parity")) return false;
+    }
+  }
+  return true;
+}
+
 int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
+  if (!test_global_list_index() || !test_global_list_index_fitness()) return 1;
   if (!test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_initial_payload_capacity_replay() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   {
@@ -1262,6 +1402,11 @@ int main() {
     if(!test_epoch_list_index() || !test_global_payload_program_queue() ||
        !test_tiled_initial_payload() || !test_scalar_region_index_rollback() ||
        !test_tiled_replay_entry_growth())return 1;
+  }
+  {
+    ScopedEnvironment index("GAGP_GPU_GLOBAL_LIST_INDEX");
+    setenv("GAGP_GPU_GLOBAL_LIST_INDEX", "1", 1);
+    if (!test_concat_cache() || !test_payload_replay_fitness() || !test_scalar_region_index_rollback()) return 1;
   }
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

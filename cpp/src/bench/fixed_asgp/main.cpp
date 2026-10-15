@@ -278,7 +278,7 @@ Json measure_gagp(const std::vector<gagp::evo::ProgramGenome>& population,
       std::chrono::steady_clock::now()-call_begin).count();
   const auto& t=result.timing.generations.at(0);
   const auto& v=t.reproduction.variation;
-  return object({{"execution_profile",string(t.evaluation.execution_profile)}, {"payload_replay_programs",number(t.evaluation.payload_replay_programs)}, {"payload_replay_cases",number(t.evaluation.payload_replay_cases)}, {"payload_replay_launches",number(t.evaluation.payload_replay_launches)}, {"search_contract",search_contract_json(cfg,result.reproduction_profile)},
+  return object({{"execution_profile",string(t.evaluation.execution_profile)}, {"global_list_index_bytes",number(t.evaluation.global_list_index_bytes)}, {"payload_replay_programs",number(t.evaluation.payload_replay_programs)}, {"payload_replay_cases",number(t.evaluation.payload_replay_cases)}, {"payload_replay_launches",number(t.evaluation.payload_replay_launches)}, {"search_contract",search_contract_json(cfg,result.reproduction_profile)},
     {"source_depth_cap",number(cfg.offspring_resource_budget?cfg.offspring_resource_budget->max_depth:0)},
     {"reproduction_profile",string(result.reproduction_profile)}, {"reproduction_fallback_reason",string(result.reproduction_fallback_reason)},
     {"initial_admission_ms",number(result.timing.init_population_ms)}, {"genotype_device_bytes",number(result.genotype_device_bytes)}, {"generation_ms",number(t.total_ms)}, {"eval_ms",number(t.eval_ms)}, {"repro_ms",number(t.repro_ms)},
@@ -391,7 +391,7 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
   }
   write(output,object({{"admission_compile_reuses",number(admission_reuses)}, {"compile_ms",number(compile_ms)}, {"gpu_init_ms",number(init.timing.total_ms)},
     {"eval_ms",number(result.timing.total_ms)}, {"kernel_ms",number(result.timing.kernel_ms)}, {"initial_kernel_wall_ms",number(result.timing.initial_kernel_wall_ms)}, {"initial_kernel_event_ms",number(result.timing.initial_kernel_event_ms)}, {"replay_kernel_event_ms",number(result.timing.replay_kernel_event_ms)},
-    {"execution_profile",string(result.execution_profile)}, {"payload_workspace_budget_bytes",number(result.payload_workspace_budget_bytes)},
+    {"execution_profile",string(result.execution_profile)}, {"global_list_index_bytes",number(result.global_list_index_bytes)}, {"payload_workspace_budget_bytes",number(result.payload_workspace_budget_bytes)},
     {"initial_payload_entry_capacity",number(result.initial_payload_entry_capacity)},
     {"initial_payload_value_capacity",number(result.initial_payload_value_capacity)},
     {"initial_payload_physical_blocks",number(result.initial_payload_physical_blocks)},
@@ -490,7 +490,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   for (std::size_t i=0;i<result.timing.generations.size();++i) {
     const auto& t=result.timing.generations[i]; const auto& e=t.evaluation; const auto& v=t.reproduction.variation;
     rows.push_back(object({{"generation",number(i)}, {"generation_ms",number(t.total_ms)},
-      {"elapsed_search_ms",number(t.elapsed_search_ms)}, {"execution_profile",string(e.execution_profile)}, {"payload_replay_programs",number(e.payload_replay_programs)}, {"payload_replay_cases",number(e.payload_replay_cases)}, {"concat_cache_hits",number(e.concat_cache_stats[0])}, {"concat_cache_misses",number(e.concat_cache_stats[1])}, {"concat_cache_skipped_cells",number(e.concat_cache_stats[2])}, {"payload_replay_launches",number(e.payload_replay_launches)},
+      {"elapsed_search_ms",number(t.elapsed_search_ms)}, {"execution_profile",string(e.execution_profile)}, {"global_list_index_bytes",number(e.global_list_index_bytes)}, {"payload_replay_programs",number(e.payload_replay_programs)}, {"payload_replay_cases",number(e.payload_replay_cases)}, {"concat_cache_hits",number(e.concat_cache_stats[0])}, {"concat_cache_misses",number(e.concat_cache_stats[1])}, {"concat_cache_skipped_cells",number(e.concat_cache_stats[2])}, {"payload_replay_launches",number(e.payload_replay_launches)},
       {"eval_ms",number(t.eval_ms)}, {"repro_ms",number(t.repro_ms)},
       {"compile_ms",number(e.cpu_compile_ms+e.gpu_compile_ms)}, {"eval_kernel_ms",number(e.gpu_eval_kernel_ms)}, {"initial_kernel_wall_ms",number(e.gpu_eval_initial_kernel_wall_ms)}, {"initial_kernel_event_ms",number(e.gpu_eval_initial_kernel_event_ms)}, {"replay_kernel_event_ms",number(e.gpu_eval_replay_kernel_event_ms)},
       {"pack_ms",number(e.gpu_eval_pack_ms)}, {"upload_ms",number(e.gpu_eval_upload_ms)},

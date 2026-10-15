@@ -70,6 +70,7 @@ struct FitnessEvalResult {
   bool initial_payload_tiled = false;
   bool arena_cases_sorted = false;
   std::size_t arena_case_order_bytes = 0; // Immutable session input permutation.
+  std::size_t global_list_index_bytes = 0; // Immutable eval input index, outside arena scratch.
   int payload_replay_byte_capacity = 0;
   // Initial physical overflows, before replay replaces the case diagnostics.
   std::vector<unsigned> initial_payload_overflow_cases;
