@@ -255,12 +255,35 @@ void validate_coordinate_plan(const RegionPlan& plan) {
     request_offsets.reserve(plan.coordinate_slots.size());
     for (std::uint32_t slot : plan.coordinate_slots) {
       const RegionStateTransition& transition = request.states[slot];
-      if (transition.kind != RegionTransitionKind::CoordinateOffset ||
-          transition.source_state != slot) {
-        throw std::invalid_argument(
-            "each projected coordinate must use its matching offset constructor");
+      if (transition.kind == RegionTransitionKind::Expression) {
+        if (plan.duplicate_policy != DuplicatePolicy::Allow)
+          throw std::invalid_argument("coordinate expressions require Allow duplicate policy");
+        // Later rank components cannot undo an earlier strict decrease. Their
+        // expressions remain fully type checked and included in memo keys.
+        bool earlier_decrease = false;
+        const auto coordinate = static_cast<std::uint32_t>(request_offsets.size());
+        for (const auto& axis : plan.coordinate_rank) {
+          if (axis.coordinate >= plan.coordinate_slots.size()) break;
+          if (axis.coordinate == coordinate) break;
+          const auto& prior = request.states[plan.coordinate_slots[axis.coordinate]];
+          if (prior.kind != RegionTransitionKind::CoordinateOffset ||
+              prior.source_state != plan.coordinate_slots[axis.coordinate]) break;
+          if (prior.offset == 0) continue;
+          earlier_decrease = axis.direction == 1 ? prior.offset < 0 :
+                             axis.direction == -1 && prior.offset > 0;
+          break;
+        }
+        if (!earlier_decrease)
+          throw std::invalid_argument("coordinate expression requires an earlier strict rank decrease");
+        request_offsets.push_back(0); // irrelevant suffix of the proved rank
+      } else {
+        if (transition.kind != RegionTransitionKind::CoordinateOffset ||
+            transition.source_state != slot) {
+          throw std::invalid_argument(
+              "each projected coordinate must use its matching offset constructor");
+        }
+        request_offsets.push_back(transition.offset);
       }
-      request_offsets.push_back(transition.offset);
     }
     offsets.push_back(std::move(request_offsets));
   }

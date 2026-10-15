@@ -522,10 +522,15 @@ windows; it does not encode a divide-and-conquer package identity.
 
 The compiled `RegionPlan` shape uses exact public state/result/parameter types,
 ordered preparations and requests, explicit execution limits, and one progress
-proof. Coordinate slots project `Int` state slots; every projected next state must
-use its own checked constant-offset constructor. A ranked sequence must use a
-proper-window constructor from that same source. An arbitrary request expression
-is permitted only for an unranked state slot and must have that slot's exact type.
+proof. Coordinate slots project `Int` state slots. A projected next state uses
+its own checked constant-offset constructor, or an exact `Int` expression when
+an earlier axis in the declared lexicographic rank has a strictly decreasing
+constant offset (all preceding axes are unchanged). Such subordinate coordinate
+expressions require the explicit `Allow` duplicate policy because distinct
+expression results cannot be proved statically. Later coordinates cannot undo
+that strict prefix decrease. A ranked sequence must use a proper-window
+constructor from that same source. Other arbitrary request expressions are
+permitted for unranked state slots and must have that slot's exact type.
 Memoization requires coordinates covering every state slot, so its key omits no
 changing state. Nonmemoized plans have a canonical zero cell limit.
 Materialized plans require a frame-entry charge in `[1, INT_MAX]`; thus every

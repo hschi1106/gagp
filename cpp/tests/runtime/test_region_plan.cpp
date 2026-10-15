@@ -191,6 +191,29 @@ RegionPlan typed_auxiliary_plan(ValueTag type) {
   return plan;
 }
 
+bool test_subordinate_coordinate_expression() {
+  auto plan = typed_auxiliary_plan(ValueTag::Int);
+  plan.memoized = true;
+  plan.limits.cells = 100;
+  plan.coordinate_slots = {0, 1};
+  plan.coordinate_rank = {{0, 1}, {1, 1}};
+  plan.coordinate_domains.push_back({literal(0), literal(1)});
+  plan.duplicate_policy = DuplicatePolicy::Allow;
+  gagp::validate_region_plan(plan);
+  auto bad = plan;
+  bad.requests[0].states[0].offset = 0;
+  if (!rejects([&] { gagp::validate_region_plan(bad); }, "expression without strict prefix rejected")) return false;
+  bad = plan;
+  bad.coordinate_rank = {{1, 1}, {0, 1}};
+  if (!rejects([&] { gagp::validate_region_plan(bad); }, "expression before decreasing coordinate rejected")) return false;
+  bad = plan;
+  bad.requests[0].states[0].offset = 1;
+  if (!rejects([&] { gagp::validate_region_plan(bad); }, "increasing prefix rejected")) return false;
+  bad = plan;
+  bad.duplicate_policy = DuplicatePolicy::Reject;
+  return rejects([&] { gagp::validate_region_plan(bad); }, "unknown expression duplicates rejected");
+}
+
 bool test_valid_general_plans() {
   gagp::validate_region_plan(general_coordinate_plan());
   gagp::validate_region_plan(sequence_plan());
@@ -545,6 +568,7 @@ bool test_phase_slot_banks() {
 }  // namespace
 
 int main() {
+  if (!test_subordinate_coordinate_expression()) return 1;
   if (!test_valid_general_plans()) return 1;
   if (!test_coordinate_proof_rejections()) return 1;
   if (!test_bounds_and_capacity_rejections()) return 1;
