@@ -2656,6 +2656,22 @@ int main() {
                <<" gpu="<<(gpu.ok?gpu.fitness[0]:999)<<" expected="<<wanted;return 1;
     }
   }
+  {
+    const gagp::FitnessPolicy policy{gagp::FitnessMetric::Absolute,gagp::FitnessProximity::Discounted};
+    std::vector<CaseBindings> cases(1024);std::vector<Value> answers;
+    for(int i=0;i<1024;++i)answers.push_back(Value::from_int((i*17)%51-1));
+    std::vector<BytecodeProgram> programs;
+    for(int i=-1;i<16;++i)programs.push_back(make_return_const_program(i));
+    std::vector<unsigned> wrong;
+    const auto cpu=gagp::eval_fitness_cpu(programs,cases,answers,1000,1000,512,policy,&wrong);
+    gagp::FitnessSessionGpu session;
+    const auto init=session.init(cases,answers,1000,512,1000,policy);
+    if(!init.ok){std::cerr<<init.err.message;return 1;}
+    const auto gpu=session.eval_programs(programs);
+    if(!gpu.ok || gpu.wrong!=wrong || gpu.fitness!=cpu) {
+      std::cerr<<"discounted 512-lane reduction diverged";return 1;
+    }
+  }
   std::cout << "gagp_test_fitness_cpu_gpu_parity: OK\n";
   return 0;
 }

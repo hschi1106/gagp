@@ -124,8 +124,18 @@ std::vector<double> eval_fitness_cpu(
     }
 
     double score = 0.0;
-    for (double partial_score : partial_scores) {
-      score = canonicalize_fitness_accumulator(score + partial_score);
+    if(policy.metric==FitnessMetric::Legacy) {
+      for (double partial_score : partial_scores)
+        score = canonicalize_fitness_accumulator(score + partial_score);
+    } else {
+      // Match CUDA's ordered warp-then-block reduction, including each 48-bit
+      // rounding point. Fractional task errors can sit on a ranking boundary.
+      for(std::size_t base=0;base<partial_scores.size();base+=32) {
+        double warp_score=0;
+        for(std::size_t i=base;i<std::min(base+32,partial_scores.size());++i)
+          warp_score=canonicalize_fitness_accumulator(warp_score+partial_scores[i]);
+        score=canonicalize_fitness_accumulator(score+warp_score);
+      }
     }
     fitness[p] = score;
   }
