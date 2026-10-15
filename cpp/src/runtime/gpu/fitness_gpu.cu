@@ -368,7 +368,7 @@ struct FitnessSessionGpu::Impl {
   FitnessPolicy policy;
   int shared_case_count = 0;
   unsigned shared_input_payload_mask = 0U;
-  bool shared_has_nonempty_intlist_input = false;
+  std::uint32_t shared_max_intlist_input_length = 0;
   std::array<ValueTag, 64> shared_input_types{};
   std::size_t shared_bytes = 0;
   std::vector<Value> host_case_local_vals;
@@ -484,16 +484,16 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   const auto shared_case_pack_t0 = std::chrono::steady_clock::now();
   gpu_detail::pack_shared_cases_only(shared_cases, &packed_case_local_vals, &packed_case_local_set);
   impl_->shared_input_types.fill(ValueTag::Invalid);
-  impl_->shared_has_nonempty_intlist_input = false;
+  impl_->shared_max_intlist_input_length = 0;
   for (int local = 0; local < 64; ++local) {
     auto type = packed_case_local_set[local] ? packed_case_local_vals[local].tag : ValueTag::Invalid;
     for (std::size_t c = 0; c < shared_cases.size(); ++c) {
       const auto i = c * 64 + local;
       if (!packed_case_local_set[i] || packed_case_local_vals[i].tag != type) type = ValueTag::Invalid;
       // Scheduling observes only effective bindings after duplicate/local normalization.
-      if (packed_case_local_set[i] && packed_case_local_vals[i].tag == ValueTag::IntList &&
-          Value::container_len(packed_case_local_vals[i]) > 0)
-        impl_->shared_has_nonempty_intlist_input = true;
+      if (packed_case_local_set[i] && packed_case_local_vals[i].tag == ValueTag::IntList)
+        impl_->shared_max_intlist_input_length = std::max(
+            impl_->shared_max_intlist_input_length, Value::container_len(packed_case_local_vals[i]));
       // Container b is semantically unused; reserve the marker for device views.
       if (packed_case_local_vals[i].tag == ValueTag::IntList) packed_case_local_vals[i].b = false;
     }
@@ -889,10 +889,11 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   const int overflow_mask_words = (impl_->blocksize + 31) / 32;
   const std::size_t overflow_mask_bytes = overflow_diagnostics ?
       programs.size() * overflow_mask_words * sizeof(unsigned int) : 0;
+  // One warp of input elements is a scheduling heuristic, not a semantic limit.
   const char* initial_tiling=std::getenv("GAGP_GPU_TILED_INITIAL_PAYLOAD");
   const bool tiled_initial=global_payload && initial_tiling &&
       (std::string(initial_tiling)=="1" ||
-       (std::string(initial_tiling)=="auto" && impl_->shared_has_nonempty_intlist_input));
+       (std::string(initial_tiling)=="auto" && impl_->shared_max_intlist_input_length>=32));
   const int initial_warps=(impl_->blocksize+31)/32;
   const auto initial_tiles_per_program=static_cast<std::size_t>(tiled_initial?initial_warps:1);
   if(programs.size()>static_cast<std::size_t>(std::numeric_limits<int>::max())/initial_tiles_per_program)

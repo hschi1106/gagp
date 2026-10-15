@@ -1105,10 +1105,12 @@ bool test_tiled_initial_payload() {
     cases.push_back({{0,Value::from_int(i%3)}});
     answers.push_back(payload::make_int_list_value({Value::from_int(i%5)}));
   }
-  for(bool nonempty_input:{false,true}) {
-    // A single effective input, in the last case, is enough for auto. List
-    // answers and list-producing programs alone must not trigger scheduling.
-    if(nonempty_input)cases.back().push_back({1,payload::make_int_list_value({Value::from_int(7)})});
+  for(int input_length:{31,32}) {
+    // Only the last case reaches the boundary. The maximum effective input
+    // length selects scheduling; case count and list output do not.
+    cases.back().resize(1);
+    cases.back().push_back({1,payload::make_int_list_value(
+        std::vector<Value>(input_length,Value::from_int(7)))});
     for(int lanes:{33,512}) for(int fuel:{2,100}) {
       FitnessPolicy policy{FitnessMetric::Levenshtein,FitnessProximity::Discounted};
       policy.list_allocation_limit=65536;
@@ -1124,7 +1126,7 @@ bool test_tiled_initial_payload() {
         });
         if(!check(gpu.ok && gpu.fitness==cpu && gpu.wrong==wrong_counts && callback_count==1 &&
             callback_status==cudaSuccess && gpu.timing.initial_kernel_event_ms>0 &&
-            gpu.initial_payload_tiled==(tiled[0]=='1' || (tiled[0]=='a' && nonempty_input)) && gpu.payload_replay_programs==0,
+            gpu.initial_payload_tiled==(tiled[0]=='1' || (tiled[0]=='a' && input_length>=32)) && gpu.payload_replay_programs==0,
             "tiled initial full-case canonical fitness/callback parity"))return false;
         for(int p=0;p<3;++p)if(!check(gpu.case_counts[p][0]==counts[p].cases &&
             gpu.case_counts[p][1]==counts[p].errors && gpu.case_counts[p][2]==counts[p].timeouts,
@@ -1145,17 +1147,24 @@ bool test_auto_initial_payload_inputs() {
   setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
   const auto nonempty=payload::make_int_list_value({Value::from_int(7)});
   const auto empty=payload::make_int_list_value({});
+  const auto below_threshold=payload::make_int_list_value(std::vector<Value>(31,Value::from_int(7)));
+  const auto threshold=payload::make_int_list_value(std::vector<Value>(32,Value::from_int(7)));
   const std::vector<std::pair<CaseBindings,bool>> fixtures{
       {{},false},
       {{{1,empty}},false},
-      {{{1,nonempty},{1,Value::from_int(7)}},false},
-      {{{1,nonempty},{1,empty}},false},
-      {{{-1,nonempty},{64,nonempty}},false},
-      {{{1,payload::make_float_list_value({Value::from_float(7)})}},false},
-      {{{1,payload::make_string_list_value({payload::make_string_value("x")})}},false},
-      {{{1,empty},{1,nonempty}},true},
+      {{{1,nonempty}},false},
+      {{{1,below_threshold}},false},
+      {{{1,below_threshold},{2,below_threshold}},false},
+      {{{1,threshold}},true},
+      {{{1,threshold},{1,Value::from_int(7)}},false},
+      {{{1,threshold},{1,empty}},false},
+      {{{1,threshold},{1,below_threshold}},false},
+      {{{-1,threshold},{64,threshold}},false},
+      {{{1,payload::make_float_list_value(std::vector<Value>(32,Value::from_float(7)))}},false},
+      {{{1,payload::make_string_list_value(std::vector<Value>(32,payload::make_string_value("x")))}},false},
+      {{{1,below_threshold},{1,threshold}},true},
   };
-  BytecodeProgram list;list.n_locals=2;
+  BytecodeProgram list;list.n_locals=3;
   list.code={ins_a(Opcode::Load,0),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),ins(Opcode::Return)};
   const std::vector<BytecodeProgram> programs{list};
   const std::vector<Value> answers(3,nonempty);

@@ -643,12 +643,13 @@ case/error/timeout coverage at these fixed initial capacities.
 
 `GAGP_GPU_TILED_INITIAL_PAYLOAD=1` independently forces the existing replay
 warp-tiling mechanism for initial global-arena evaluation. The value `auto`
-enables it only when the session has at least one nonempty `IntList` input.
-This immutable session property is derived during initialization from effective
-packed local bindings, after duplicate bindings overwrite earlier values and
-out-of-range locals are ignored. Scalar inputs, empty lists, other list tags,
-list answers, and program-created lists do not activate `auto`. It is a
-data-derived scheduling heuristic; program/task names do not affect it. Tasks
+enables it only when the maximum `IntList` input length is at least 32 elements
+(one warp). This immutable session maximum is derived during initialization
+from effective packed local bindings, after duplicate bindings overwrite earlier
+values and out-of-range locals are ignored. Scalar inputs, shorter or empty
+`IntList` inputs, other list tags, list answers, and program-created lists do not
+activate `auto`. The threshold is a data-derived performance heuristic, not a
+correctness or supported-input limit; program/task names do not affect it. Tasks
 are program × logical warp; each still evaluates the original lane's complete
 case partition.
 The same per-lane accumulation, ascending-lane warp reduction, and ascending-warp
@@ -662,8 +663,8 @@ result/snapshot records `initial_payload_tiled`, and the execution profile adds
 `-initial-tiled` when active. `1` still forces tiling, and unset, `0`, or other
 values retain the untiled launch. Tests compare off/forced/auto full-case Discounted
 fitness, status counts, original-lane diagnostics, fuel boundaries, and callbacks
-at 33 and 512 logical lanes, normalized input selection, and fixed
-initial-capacity/replay coverage. Sorted arena tests also check auto with
+at 33 and 512 logical lanes, input lengths 31/32, normalized input selection,
+and fixed initial-capacity/replay coverage. Sorted arena tests also check auto with
 overflow replay and callbacks.
 
 `GAGP_GPU_CONCAT_CACHE=1` with `GAGP_GPU_FUSED_LIST_CONCAT=1` enables a
