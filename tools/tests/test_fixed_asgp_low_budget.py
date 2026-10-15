@@ -40,6 +40,12 @@ class TestLowBudgetContract(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_search(sample, 1024, 2, 'gpu_overlap')
 
+    def test_elite_cannot_lose_best_training_fitness(self):
+        sample = copy.deepcopy(self.sample())
+        sample['generations'][0]['best'] = -1
+        with self.assertRaisesRegex(ValueError, 'elite lost'):
+            validate_search(sample, 1024, 2, 'gpu_overlap')
+
     def test_gpu_eval_requires_measured_work_and_kernel(self):
         for key, value in [('cases', 0), ('case_counters_available', 0), ('eval_kernel_ms', 0)]:
             sample = copy.deepcopy(self.sample())

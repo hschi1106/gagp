@@ -70,6 +70,10 @@ def validate_search(result: dict, population: int, generations: int, mode: str) 
         raise ValueError('incomplete generations/population')
     if not math.isfinite(result['final_best']):
         raise ValueError('non-finite fitness')
+    if any(not math.isfinite(row.get('best', result['final_best'])) for row in rows):
+        raise ValueError('non-finite generation fitness')
+    if result['final_best'] + 1e-8 < max(row.get('best', result['final_best']) for row in rows):
+        raise ValueError('elite lost the previously best training fitness')
     if any(row['expected_program_cases'] != population * 1024 for row in rows):
         raise ValueError('incomplete evaluation workload')
     if mode.startswith('gpu'):
