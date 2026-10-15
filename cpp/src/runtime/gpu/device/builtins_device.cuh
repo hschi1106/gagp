@@ -36,7 +36,6 @@ struct DThreadPayloadStateT {
   unsigned physical_capacity_reason = 0;
   bool fused_list_concat = false;
   bool small_int_hash = false;
-  bool small_int_slice_hash = false;
   bool alias_windows = false;
   char string_bytes[(MaxStringBytes > 0) ? MaxStringBytes : 1];
   Value list_values[(MaxListValues > 0) ? MaxListValues : 1];
@@ -73,7 +72,6 @@ struct DArenaPayloadState {
   unsigned physical_capacity_reason = 0;
   bool fused_list_concat = false;
   bool small_int_hash = false;
-  bool small_int_slice_hash = false;
 };
 
 // Opt-in variants keep the default evaluator's storage layout unchanged.
@@ -222,12 +220,12 @@ __device__ inline std::uint64_t d_hash_concat_element(const Value& value, bool s
   return d_hash_value_shallow(value);
 }
 
-__device__ inline std::uint64_t d_hash_list_payload(const Value* elems, int n, bool small_int_hash = false) {
+__device__ inline std::uint64_t d_hash_list_payload(const Value* elems, int n) {
   std::uint64_t h = Value::fnv1a_init();
   h = Value::fnv1a_mix_u8(h, 0xA1U);
   h = Value::fnv1a_mix_u64(h, static_cast<std::uint64_t>(n));
   for (int i = 0; i < n; ++i) {
-    h = Value::fnv1a_mix_u64(h, d_hash_concat_element(elems[i], small_int_hash));
+    h = Value::fnv1a_mix_u64(h, d_hash_value_shallow(elems[i]));
   }
   return h;
 }
@@ -909,7 +907,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         if (found) {
           const int offset = source_offset >= 0 ? source_offset + static_cast<int>(l)
                                                : source_offset - static_cast<int>(l);
-          const auto hash = d_hash_list_payload(out_len ? xp + l : nullptr, out_len, st.small_int_slice_hash);
+          const auto hash = d_hash_list_payload(out_len ? xp + l : nullptr, out_len);
           out = d_make_list_hash_len(x.tag, hash, out_len);
           if (!d_register_local_list(st, out, offset, out_len)) { err = ErrCode::Value; return false; }
           return true;
@@ -923,7 +921,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           st.list_values[off + i] = xp[static_cast<int>(l) + i];
         }
         st.list_values_used += static_cast<int>(out_len);
-        const std::uint64_t out_h_exact = d_hash_list_payload(st.list_values + off, static_cast<int>(out_len), st.small_int_slice_hash);
+        const std::uint64_t out_h_exact = d_hash_list_payload(st.list_values + off, static_cast<int>(out_len));
         out = d_make_list_hash_len(x.tag, out_h_exact, out_len);
         if (!d_register_local_list(st, out, off, static_cast<int>(out_len))) { err = ErrCode::Value; return false; }
         return true;
@@ -1329,7 +1327,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           const int off = st.list_values_used;
           st.list_values[off] = x;
           st.list_values_used += 1;
-          out = d_make_list_hash_len(list_tag, d_hash_list_payload(st.list_values + off, 1, st.small_int_slice_hash), 1U);
+          out = d_make_list_hash_len(list_tag, d_hash_list_payload(st.list_values + off, 1), 1U);
           if (!d_register_local_list(st, out, off, 1)) { err = ErrCode::Value; return false; }
           return true;
         }
