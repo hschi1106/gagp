@@ -91,33 +91,34 @@ __global__ void inspect_private_intlist_offsets(Value* cells, Value* source, int
   if(d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&one,1,tables,st,b,error) ||
      st.logical_list_used!=65536 || st.physical_capacity_exceeded) {*failure=30;return;}
   // Local windows retain their origin through nested slices and later copies.
-  DArenaPayloadState local;local.private_intlists=true;local.list_values=cells;
+  // No registry, legacy index, or epoch buffers exist for active private lists.
+  DIndexedArenaPayloadState local;local.private_intlists=true;local.list_values=cells;
   local.kMaxListValues=65536;local.logical_list_limit=65536;
   Value x,y,pair,window,nested,joined;
-  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&one,1,tables,local,x,error) ||
-     !d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&two,1,tables,local,y,error)) {*failure=15;return;}
+  if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Singleton,&one,1,tables,local,x,error) ||
+     !d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Singleton,&two,1,tables,local,y,error)) {*failure=15;return;}
   Value pair_args[2]={x,y};
-  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Concat,pair_args,2,tables,local,pair,error)) {*failure=16;return;}
+  if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Concat,pair_args,2,tables,local,pair,error)) {*failure=16;return;}
   Value local_slice[3]={pair,Value::from_int(0),Value::from_int(2)};
-  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Slice,local_slice,3,tables,local,window,error)) {*failure=17;return;}
+  if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Slice,local_slice,3,tables,local,window,error)) {*failure=17;return;}
   local_slice[0]=window;local_slice[1]=Value::from_int(1);
-  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Slice,local_slice,3,tables,local,nested,error) ||
+  if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Slice,local_slice,3,tables,local,nested,error) ||
      !d_lookup_list_payload(tables,local,nested,ptr,count) || count!=1 || ptr[0].i!=8) {*failure=18;return;}
   Value join_args[2]={nested,x};
-  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Concat,join_args,2,tables,local,joined,error) ||
+  if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Concat,join_args,2,tables,local,joined,error) ||
      !d_lookup_list_payload(tables,local,joined,ptr,count) || count!=2 || ptr[0].i!=8 || ptr[1].i!=7) {*failure=19;return;}
   local_slice[0]=x;local_slice[1]=Value::from_int(0);local_slice[2]=Value::from_int(1);
-  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Slice,local_slice,3,tables,local,window,error) ||
+  if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Slice,local_slice,3,tables,local,window,error) ||
      !d_lookup_list_payload(tables,local,window,ptr,count) || count!=1 || ptr[0].i!=7 ||
      local.list_values_used!=6 || local.logical_list_used!=6 || local.list_entry_count) {*failure=20;return;}
   // A scalar region's discarded suffix is invalid before reuse. Offsets may be
   // reused after that lifetime ends; no persistent ABA identity is promised.
   const int saved=local.list_values_used;
   Value discarded,replacement;
-  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&one,1,tables,local,discarded,error)) {*failure=21;return;}
+  if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Singleton,&one,1,tables,local,discarded,error)) {*failure=21;return;}
   d_restore_local_list_storage(local,0,saved);
   if(d_lookup_list_payload(tables,local,discarded,ptr,count) || local.logical_list_used!=7) {*failure=22;return;}
-  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&two,1,tables,local,replacement,error) ||
+  if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Singleton,&two,1,tables,local,replacement,error) ||
      !d_lookup_list_payload(tables,local,replacement,ptr,count) || count!=1 || ptr!=cells+saved || ptr[0].i!=8 ||
      local.list_values_used!=saved+1 || local.logical_list_used!=8 ||
      !d_lookup_list_payload(tables,local,joined,ptr,count) || count!=2 || ptr[0].i!=8 || ptr[1].i!=7) {*failure=23;return;}
@@ -157,13 +158,14 @@ bool test_private_intlist_region_lifetime() {
     const int input=i%17-8;cases.push_back({{0,Value::from_int(input)}});
     answers.push_back(payload::make_int_list_value({Value::from_int(input),Value::from_int(input+1)}));
   }
-  ScopedEnvironment restore_tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD");
+  ScopedEnvironment restore_tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),restore_epoch("GAGP_GPU_PAYLOAD_EPOCH_INDEX");
   for(auto metric:{FitnessMetric::Exact,FitnessMetric::Levenshtein}) for(unsigned limit:{4u,5u}) {
     FitnessPolicy policy{metric};policy.list_allocation_limit=limit;
     std::vector<unsigned> wrong;std::vector<CpuFitnessCaseCounts> counts;
     const auto cpu=eval_fitness_cpu({program},cases,answers,1000,1000,33,policy,&wrong,&counts);
-    for(const char* tiled:{"0","1"}) {
+    for(const char* tiled:{"0","1"}) for(const char* epoch:{"0","1"}) {
       setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD",tiled,1);
+      setenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX",epoch,1);
       FitnessSessionGpu session;if(!session.init(cases,answers,1000,33,1000,policy).ok)return false;
       int callbacks=0;cudaError_t callback_status=cudaSuccess;
       const auto result=session.eval_programs({program},true,[&]{++callbacks;callback_status=cudaDeviceSynchronize();});

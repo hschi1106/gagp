@@ -83,16 +83,16 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
   const int fitness_lanes = (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) ? workspace.fitness_lanes : blockDim.x;
   if constexpr ((Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena)) {
     const std::size_t slot = static_cast<std::size_t>(blockIdx.x) * blockDim.x + tid;
-    workspace.payload_string_entries += slot * workspace.payload_entry_capacity;
-    workspace.payload_list_entries += slot * workspace.payload_entry_capacity;
-    workspace.payload_string_bytes += slot * workspace.payload_byte_capacity;
+    if(workspace.payload_string_entries)workspace.payload_string_entries += slot * workspace.payload_entry_capacity;
+    if(workspace.payload_list_entries)workspace.payload_list_entries += slot * workspace.payload_entry_capacity;
+    if(workspace.payload_string_bytes)workspace.payload_string_bytes += slot * workspace.payload_byte_capacity;
     workspace.payload_list_values += slot * workspace.payload_value_capacity;
     if(workspace.concat_cache)workspace.concat_cache+=slot*DCONCAT_CACHE_SLOTS;
     if constexpr (Flavor == DPayloadFlavor::IndexedArena) {
       if(workspace.payload_list_epoch_index) {
         workspace.payload_list_epoch_index += slot * workspace.payload_entry_capacity * 2;
-        workspace.payload_list_epoch += slot;
-      } else workspace.payload_list_index += slot * workspace.payload_entry_capacity * 2;
+        if(workspace.payload_list_epoch)workspace.payload_list_epoch += slot;
+      } else if(workspace.payload_list_index)workspace.payload_list_index += slot * workspace.payload_entry_capacity * 2;
     }
   }
   if constexpr (EnableRegions) {

@@ -189,6 +189,11 @@ identities; external IntList `Value.b` markers are normalized before execution.
 Only complete, integer-valued resident payloads can enter the profile. Generated
 lists use invocation-private offsets marked by `Value.b`, with distinct arena
 and immutable-table origins, checked bounds, and no hash/registry insertion.
+Active private arenas allocate only list cells and required frame/memo storage;
+unused string storage, local registries, and legacy/epoch indices are omitted
+from allocations and workspace-budget accounting. Their pointers remain null
+through initial execution and physical-overflow replay. Capacity fields and
+logical allocation accounting retain their existing meaning.
 Descriptors remain inside the invocation through resident content scoring;
 neither serialization nor public bytecode/program ownership accepts a proof token.
 Exactness and wrong-case counts compare contents, including when equal contents

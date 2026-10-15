@@ -69,10 +69,18 @@ struct PayloadWorkspaceStorage {
     const auto frame_bytes=frame_size*workspace.frame_capacity;
     const auto key_bytes=sizeof(std::int64_t)*gpu_detail::DMAX_REGION_STATES*workspace.memo_capacity;
     const auto memo_bytes=sizeof(Value)*workspace.memo_capacity;
-    const bool epoch_index=indexed && workspace.payload_epoch_index;
-    const auto payload_bytes=std::size_t(entries)*(sizeof(gpu_detail::DStringPayloadEntry)+sizeof(gpu_detail::DListPayloadEntry))+
-        std::size_t(values)*sizeof(Value)+bytes+(indexed?std::size_t(entries)*2*(epoch_index?sizeof(std::uint64_t):sizeof(int)):0)+
-        (epoch_index?sizeof(unsigned):0)+
+    // Private lists use checked offsets; only the immutable external table
+    // retains a registry. No per-lane string/registry/index scratch is needed.
+    const bool registry=!workspace.private_intlists;
+    const bool epoch_index=registry && indexed && workspace.payload_epoch_index;
+    if(!registry) {
+      workspace.payload_string_entries=nullptr;workspace.payload_list_entries=nullptr;
+      workspace.payload_string_bytes=nullptr;workspace.payload_list_index=nullptr;
+      workspace.payload_list_epoch_index=nullptr;workspace.payload_list_epoch=nullptr;
+    }
+    const auto payload_bytes=(registry?std::size_t(entries)*(sizeof(gpu_detail::DStringPayloadEntry)+sizeof(gpu_detail::DListPayloadEntry))+
+        bytes+(indexed?std::size_t(entries)*2*(epoch_index?sizeof(std::uint64_t):sizeof(int)):0)+
+        (epoch_index?sizeof(unsigned):0):0)+std::size_t(values)*sizeof(Value)+
         (workspace.concat_cache_enabled?sizeof(gpu_detail::DConcatCacheEntry)*gpu_detail::DCONCAT_CACHE_SLOTS:0);
     blocks=gpu_detail::payload_workspace_block_count(budget,programs,
         payload_bytes+frame_bytes+key_bytes+memo_bytes,extra_bytes);
@@ -87,10 +95,10 @@ struct PayloadWorkspaceStorage {
          cudaMemset(workspace.payload_list_epoch_index,0,index_bytes)!=cudaSuccess ||
          cudaMemset(workspace.payload_list_epoch,0,slots*sizeof(unsigned))!=cudaSuccess)return false;
     }
-    return (!indexed || epoch_index || allocate(reinterpret_cast<void**>(&workspace.payload_list_index),slots*entries*2*sizeof(int))) &&
-        allocate(reinterpret_cast<void**>(&workspace.payload_string_entries),slots*entries*sizeof(gpu_detail::DStringPayloadEntry)) &&
-        allocate(reinterpret_cast<void**>(&workspace.payload_list_entries),slots*entries*sizeof(gpu_detail::DListPayloadEntry)) &&
-        allocate(reinterpret_cast<void**>(&workspace.payload_string_bytes),slots*bytes) &&
+    return (!registry || !indexed || epoch_index || allocate(reinterpret_cast<void**>(&workspace.payload_list_index),slots*entries*2*sizeof(int))) &&
+        (!registry || allocate(reinterpret_cast<void**>(&workspace.payload_string_entries),slots*entries*sizeof(gpu_detail::DStringPayloadEntry))) &&
+        (!registry || allocate(reinterpret_cast<void**>(&workspace.payload_list_entries),slots*entries*sizeof(gpu_detail::DListPayloadEntry))) &&
+        (!registry || allocate(reinterpret_cast<void**>(&workspace.payload_string_bytes),slots*bytes)) &&
         allocate(reinterpret_cast<void**>(&workspace.payload_list_values),slots*values*sizeof(Value)) &&
         allocate(reinterpret_cast<void**>(&workspace.frames),slots*frame_bytes) &&
         allocate(reinterpret_cast<void**>(&workspace.memo_keys),slots*key_bytes) &&
