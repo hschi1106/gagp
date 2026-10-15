@@ -1,0 +1,288 @@
+Internal ctest changing into directory: /home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/cpp/build/release
+Test project /home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/cpp/build/release
+        Start   1: gagp_test_grammar_cache
+  1/128 Test   #1: gagp_test_grammar_cache .....................   Passed    0.00 sec
+        Start   2: gagp_test_grammar_membership
+  2/128 Test   #2: gagp_test_grammar_membership ................   Passed    0.02 sec
+        Start   3: gagp_test_grammar_packages
+  3/128 Test   #3: gagp_test_grammar_packages ..................   Passed    2.40 sec
+        Start   4: gagp_test_grammar_population
+  4/128 Test   #4: gagp_test_grammar_population ................   Passed    0.00 sec
+        Start   5: gagp_test_grammar_generation
+  5/128 Test   #5: gagp_test_grammar_generation ................   Passed    0.02 sec
+        Start   6: gagp_test_grammar_catalog
+  6/128 Test   #6: gagp_test_grammar_catalog ...................   Passed    0.00 sec
+        Start   7: gagp_test_grammar_compiled
+  7/128 Test   #7: gagp_test_grammar_compiled ..................   Passed    0.01 sec
+        Start   8: gagp_test_grammar_definition
+  8/128 Test   #8: gagp_test_grammar_definition ................   Passed    0.01 sec
+        Start   9: gagp_test_ast_verify_exact_scope
+  9/128 Test   #9: gagp_test_ast_verify_exact_scope ............   Passed    0.00 sec
+        Start  10: gagp_test_grammar_variation_contract
+ 10/128 Test  #10: gagp_test_grammar_variation_contract ........   Passed    0.01 sec
+        Start  11: gagp_test_grammar_variation_cache
+ 11/128 Test  #11: gagp_test_grammar_variation_cache ...........   Passed    0.02 sec
+        Start  12: gagp_test_grammar_variation_fallback
+ 12/128 Test  #12: gagp_test_grammar_variation_fallback ........   Passed    0.00 sec
+        Start  13: gagp_test_constant_prep
+ 13/128 Test  #13: gagp_test_constant_prep .....................   Passed    0.00 sec
+        Start  14: gagp_test_splice_metadata
+ 14/128 Test  #14: gagp_test_splice_metadata ...................   Passed    0.00 sec
+        Start  15: gagp_test_grammar_repro_prep
+ 15/128 Test  #15: gagp_test_grammar_repro_prep ................   Passed    0.10 sec
+        Start  16: gagp_test_grammar_reproduction
+ 16/128 Test  #16: gagp_test_grammar_reproduction ..............   Passed    0.84 sec
+        Start  17: gagp_test_evolution_pipeline
+ 17/128 Test  #17: gagp_test_evolution_pipeline ................   Passed    0.01 sec
+        Start  18: gagp_test_grammar_mutation
+ 18/128 Test  #18: gagp_test_grammar_mutation ..................   Passed    0.02 sec
+        Start  19: gagp_test_grammar_generation_stages
+ 19/128 Test  #19: gagp_test_grammar_generation_stages .........   Passed    0.09 sec
+        Start  20: gagp_test_grammar_sequence_constants
+ 20/128 Test  #20: gagp_test_grammar_sequence_constants ........   Passed    0.05 sec
+        Start  21: gagp_test_grammar_numeric_constants
+ 21/128 Test  #21: gagp_test_grammar_numeric_constants .........   Passed    0.18 sec
+        Start  22: gagp_test_resource_projection
+ 22/128 Test  #22: gagp_test_resource_projection ...............   Passed    0.01 sec
+        Start  23: gagp_test_derivation_resources
+ 23/128 Test  #23: gagp_test_derivation_resources ..............   Passed    0.04 sec
+        Start  24: gagp_test_grammar_crossover
+ 24/128 Test  #24: gagp_test_grammar_crossover .................   Passed    0.02 sec
+        Start  25: gagp_test_grammar_donor
+ 25/128 Test  #25: gagp_test_grammar_donor .....................   Passed    0.01 sec
+        Start  26: gagp_test_grammar_contextual_donor
+ 26/128 Test  #26: gagp_test_grammar_contextual_donor ..........   Passed    0.01 sec
+        Start  27: gagp_test_grammar_frame
+ 27/128 Test  #27: gagp_test_grammar_frame .....................   Passed    0.00 sec
+        Start  28: gagp_test_grammar_witness
+ 28/128 Test  #28: gagp_test_grammar_witness ...................   Passed    0.01 sec
+        Start  29: gagp_test_grammar_request
+ 29/128 Test  #29: gagp_test_grammar_request ...................   Passed    0.01 sec
+        Start  30: gagp_test_grammar_generate_cli
+ 30/128 Test  #30: gagp_test_grammar_generate_cli ..............   Passed    0.03 sec
+        Start  31: gagp_test_grammar_author_cli
+ 31/128 Test  #31: gagp_test_grammar_author_cli ................   Passed    0.00 sec
+        Start  32: gagp_test_grammar_examples
+ 32/128 Test  #32: gagp_test_grammar_examples ..................   Passed    0.09 sec
+        Start  33: gagp_test_grammar_population_artifact
+ 33/128 Test  #33: gagp_test_grammar_population_artifact .......   Passed    0.03 sec
+        Start  34: gagp_test_grammar_artifact_cli
+ 34/128 Test  #34: gagp_test_grammar_artifact_cli ..............   Passed    0.01 sec
+        Start  35: gagp_test_grammar_artifact
+ 35/128 Test  #35: gagp_test_grammar_artifact ..................   Passed    0.02 sec
+        Start  36: gagp_test_ast_json_boundary
+ 36/128 Test  #36: gagp_test_ast_json_boundary .................   Passed    0.01 sec
+        Start  37: gagp_test_evolve_cli_contract
+ 37/128 Test  #37: gagp_test_evolve_cli_contract ...............   Passed    0.08 sec
+        Start  38: gagp_test_vm_gpu_smoke
+ 38/128 Test  #38: gagp_test_vm_gpu_smoke ......................   Passed    0.35 sec
+        Start  39: gagp_test_fitness_cpu_gpu_parity
+ 39/128 Test  #39: gagp_test_fitness_cpu_gpu_parity ............   Passed    1.08 sec
+        Start  40: gagp_test_evolution_cpu_gpu_parity
+ 40/128 Test  #40: gagp_test_evolution_cpu_gpu_parity ..........   Passed    0.75 sec
+        Start  41: gagp_test_vm_smoke
+ 41/128 Test  #41: gagp_test_vm_smoke ..........................   Passed    0.00 sec
+        Start  42: gagp_test_bytecode_verify
+ 42/128 Test  #42: gagp_test_bytecode_verify ...................   Passed    0.00 sec
+        Start  43: gagp_test_cli_json
+ 43/128 Test  #43: gagp_test_cli_json ..........................   Passed    0.00 sec
+        Start  44: gagp_test_cli_options
+ 44/128 Test  #44: gagp_test_cli_options .......................   Passed    0.00 sec
+        Start  45: gagp_test_runtime_scalar
+ 45/128 Test  #45: gagp_test_runtime_scalar ....................   Passed    0.00 sec
+        Start  46: gagp_test_runtime_control_flow
+ 46/128 Test  #46: gagp_test_runtime_control_flow ..............   Passed    0.00 sec
+        Start  47: gagp_test_runtime_builtins
+ 47/128 Test  #47: gagp_test_runtime_builtins ..................   Passed    0.00 sec
+        Start  48: gagp_test_runtime_typed_values
+ 48/128 Test  #48: gagp_test_runtime_typed_values ..............   Passed    0.00 sec
+        Start  49: gagp_test_fixture_codec
+ 49/128 Test  #49: gagp_test_fixture_codec .....................   Passed    0.01 sec
+        Start  50: gagp_test_payload_staging
+ 50/128 Test  #50: gagp_test_payload_staging ...................   Passed    0.01 sec
+        Start  51: gagp_test_payload_registry
+ 51/128 Test  #51: gagp_test_payload_registry ..................   Passed    0.00 sec
+        Start  52: gagp_test_compiler_lowering
+ 52/128 Test  #52: gagp_test_compiler_lowering .................   Passed    0.00 sec
+        Start  53: gagp_test_ast_codec_compaction
+ 53/128 Test  #53: gagp_test_ast_codec_compaction ..............   Passed    0.00 sec
+        Start  54: gagp_test_fitness_contract
+ 54/128 Test  #54: gagp_test_fitness_contract ..................   Passed    0.00 sec
+        Start  55: gagp_test_decode_fuzz_smoke
+ 55/128 Test  #55: gagp_test_decode_fuzz_smoke .................   Passed    0.01 sec
+        Start  56: gagp_test_node_descriptor
+ 56/128 Test  #56: gagp_test_node_descriptor ...................   Passed    0.00 sec
+        Start  57: gagp_test_ast_verify_structure
+ 57/128 Test  #57: gagp_test_ast_verify_structure ..............   Passed    0.00 sec
+        Start  58: gagp_test_ast_verify_types
+ 58/128 Test  #58: gagp_test_ast_verify_types ..................   Passed    0.00 sec
+        Start  59: gagp_test_repository_contract
+ 59/128 Test  #59: gagp_test_repository_contract ...............   Passed    0.56 sec
+        Start  60: gagp_test_region_plan
+ 60/128 Test  #60: gagp_test_region_plan .......................   Passed    0.00 sec
+        Start  61: gagp_test_sequence_rank
+ 61/128 Test  #61: gagp_test_sequence_rank .....................   Passed    0.00 sec
+        Start  62: gagp_test_bounded_sequence
+ 62/128 Test  #62: gagp_test_bounded_sequence ..................   Passed    0.00 sec
+        Start  63: gagp_test_recurrence_memo
+ 63/128 Test  #63: gagp_test_recurrence_memo ...................   Passed    0.00 sec
+        Start  64: gagp_test_bounded_region
+ 64/128 Test  #64: gagp_test_bounded_region ....................   Passed    0.02 sec
+        Start  65: gagp_test_recurrence_rank
+ 65/128 Test  #65: gagp_test_recurrence_rank ...................   Passed    0.00 sec
+        Start  66: gagp_test_recurrence_rank_properties
+ 66/128 Test  #66: gagp_test_recurrence_rank_properties ........   Passed    0.00 sec
+        Start  67: gagp_test_semantic_fuel
+ 67/128 Test  #67: gagp_test_semantic_fuel .....................   Passed    0.00 sec
+        Start  68: gagp_test_semantic_fuel_execution
+ 68/128 Test  #68: gagp_test_semantic_fuel_execution ...........   Passed    0.00 sec
+        Start  69: gagp_test_builtin_arguments
+ 69/128 Test  #69: gagp_test_builtin_arguments .................   Passed    0.00 sec
+        Start  70: gagp_test_value_stack
+ 70/128 Test  #70: gagp_test_value_stack .......................   Passed    0.00 sec
+        Start  71: gagp_test_payload_index
+ 71/128 Test  #71: gagp_test_payload_index .....................   Passed    0.00 sec
+        Start  72: gagp_test_semantic_fuel_gpu_rejection
+ 72/128 Test  #72: gagp_test_semantic_fuel_gpu_rejection .......   Passed    0.18 sec
+        Start  73: gagp_test_lexical_region_gpu
+ 73/128 Test  #73: gagp_test_lexical_region_gpu ................   Passed    0.22 sec
+        Start  74: gagp_test_compiled_evolution_stress_gpu
+ 74/128 Test  #74: gagp_test_compiled_evolution_stress_gpu .....   Passed    0.77 sec
+        Start  75: gagp_test_compiled_payload_evolution_gpu
+ 75/128 Test  #75: gagp_test_compiled_payload_evolution_gpu ....   Passed    1.12 sec
+        Start  76: gagp_test_compiled_backend_gpu
+ 76/128 Test  #76: gagp_test_compiled_backend_gpu ..............   Passed    0.74 sec
+        Start  77: gagp_test_compiled_mutation_gpu
+ 77/128 Test  #77: gagp_test_compiled_mutation_gpu .............   Passed    0.20 sec
+        Start  78: gagp_test_constant_mutation_gpu
+ 78/128 Test  #78: gagp_test_constant_mutation_gpu .............   Passed    0.20 sec
+        Start  79: gagp_test_compiled_transport_gpu
+ 79/128 Test  #79: gagp_test_compiled_transport_gpu ............   Passed    0.17 sec
+        Start  80: gagp_test_compiled_variation_gpu
+ 80/128 Test  #80: gagp_test_compiled_variation_gpu ............   Passed    0.16 sec
+        Start  81: gagp_test_gpu_phase_generate
+ 81/128 Test  #81: gagp_test_gpu_phase_generate ................   Passed    0.25 sec
+        Start  82: gagp_test_gpu_phase_generate_scope
+ 82/128 Test  #82: gagp_test_gpu_phase_generate_scope ..........   Passed    0.22 sec
+        Start  83: gagp_test_gpu_phase_population
+ 83/128 Test  #83: gagp_test_gpu_phase_population ..............   Passed    2.95 sec
+        Start  84: gagp_test_gpu_phase_layout
+ 84/128 Test  #84: gagp_test_gpu_phase_layout ..................   Passed    0.05 sec
+        Start  85: gagp_test_gpu_phase_variation
+ 85/128 Test  #85: gagp_test_gpu_phase_variation ...............   Passed    1.06 sec
+        Start  86: gagp_test_gpu_phase_variation_scope
+ 86/128 Test  #86: gagp_test_gpu_phase_variation_scope .........   Passed    0.25 sec
+        Start  87: gagp_test_gpu_phase_compile
+ 87/128 Test  #87: gagp_test_gpu_phase_compile .................   Passed    0.18 sec
+        Start  88: gagp_test_grammar_random_gpu
+ 88/128 Test  #88: gagp_test_grammar_random_gpu ................   Passed    0.16 sec
+        Start  89: gagp_test_compiled_splice_gpu
+ 89/128 Test  #89: gagp_test_compiled_splice_gpu ...............   Passed    0.19 sec
+        Start  90: gagp_test_atomic_splice_gpu
+ 90/128 Test  #90: gagp_test_atomic_splice_gpu .................   Passed    0.17 sec
+        Start  91: gagp_test_extended_payload_gpu
+ 91/128 Test  #91: gagp_test_extended_payload_gpu ..............   Passed    0.33 sec
+        Start  92: gagp_test_bounded_region_gpu_results
+ 92/128 Test  #92: gagp_test_bounded_region_gpu_results ........   Passed    0.66 sec
+        Start  93: gagp_test_grammar_package_gpu_results
+ 93/128 Test  #93: gagp_test_grammar_package_gpu_results .......   Passed    0.37 sec
+        Start  94: gagp_test_bounded_region_gpu
+ 94/128 Test  #94: gagp_test_bounded_region_gpu ................   Passed    5.48 sec
+        Start  95: gagp_test_lexical_regions
+ 95/128 Test  #95: gagp_test_lexical_regions ...................***Failed    0.00 sec
+FAIL: exposed index should preserve frozen Int ADD behavior at INT64_MAX: expected -9223372036854775806 but got -9223372036854775807
+
+        Start  96: gagp_test_region_codec
+ 96/128 Test  #96: gagp_test_region_codec ......................   Passed    0.00 sec
+        Start  97: gagp_test_region_splice
+ 97/128 Test  #97: gagp_test_region_splice .....................   Passed    0.00 sec
+        Start  98: gagp_test_grammar_regions
+ 98/128 Test  #98: gagp_test_grammar_regions ...................   Passed    0.01 sec
+        Start  99: gagp_test_grammar_region_artifacts
+ 99/128 Test  #99: gagp_test_grammar_region_artifacts ..........   Passed    0.01 sec
+        Start 100: gagp_test_grammar_region_variation
+100/128 Test #100: gagp_test_grammar_region_variation ..........   Passed    0.00 sec
+        Start 101: gagp_test_checked_values
+101/128 Test #101: gagp_test_checked_values ....................   Passed    0.00 sec
+        Start 102: gagp_test_ast_fuel_codec
+102/128 Test #102: gagp_test_ast_fuel_codec ....................   Passed    0.00 sec
+        Start 103: gagp_test_source_fuel
+103/128 Test #103: gagp_test_source_fuel .......................   Passed    0.00 sec
+        Start 104: gagp_test_fuel_optimization
+104/128 Test #104: gagp_test_fuel_optimization .................   Passed    0.00 sec
+        Start 105: gagp_test_legacy_budget
+105/128 Test #105: gagp_test_legacy_budget .....................   Passed    0.13 sec
+        Start 106: gagp_test_typed_storage
+106/128 Test #106: gagp_test_typed_storage .....................   Passed    0.00 sec
+        Start 107: gagp_test_fixed_asgp_source_arithmetic
+107/128 Test #107: gagp_test_fixed_asgp_source_arithmetic ......   Passed    0.20 sec
+        Start 108: gagp_test_migrate_artifact_cli
+108/128 Test #108: gagp_test_migrate_artifact_cli ..............***Failed    0.07 sec
+Traceback (most recent call last):
+  File "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/cpp/tests/migration/test_migrate_artifact_cli.py", line 481, in <module>
+    raise SystemExit(main())
+  File "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/cpp/tests/migration/test_migrate_artifact_cli.py", line 59, in main
+    raise AssertionError(f"{preset} migration differs from its checked v2 definition")
+AssertionError: all migration differs from its checked v2 definition
+
+        Start 109: gagp_test_final_candidate_bench
+109/128 Test #109: gagp_test_final_candidate_bench .............   Passed    0.08 sec
+        Start 110: gagp_test_final_candidate_stats
+110/128 Test #110: gagp_test_final_candidate_stats .............   Passed    5.22 sec
+        Start 111: gagp_test_legacy_ast_migration_boundary
+111/128 Test #111: gagp_test_legacy_ast_migration_boundary .....   Passed    0.00 sec
+        Start 112: gagp_test_legacy_package_equivalence
+112/128 Test #112: gagp_test_legacy_package_equivalence ........   Passed    1.15 sec
+        Start 113: gagp_test_source_fuel_preservation
+113/128 Test #113: gagp_test_source_fuel_preservation ..........   Passed    0.00 sec
+        Start 114: gagp_test_region_bytecode_verify
+114/128 Test #114: gagp_test_region_bytecode_verify ............   Passed    0.00 sec
+        Start 115: gagp_test_region_execution
+115/128 Test #115: gagp_test_region_execution ..................   Passed    0.00 sec
+        Start 116: gagp_test_cpu_execution_session
+116/128 Test #116: gagp_test_cpu_execution_session .............   Passed    0.12 sec
+        Start 117: gagp_test_region_bytecode_codec
+117/128 Test #117: gagp_test_region_bytecode_codec .............   Passed    0.00 sec
+        Start 118: gagp_test_bounded_region_structure
+118/128 Test #118: gagp_test_bounded_region_structure ..........   Passed    0.00 sec
+        Start 119: gagp_test_bounded_region_typing
+119/128 Test #119: gagp_test_bounded_region_typing .............   Passed    0.00 sec
+        Start 120: gagp_test_bounded_region_compile
+120/128 Test #120: gagp_test_bounded_region_compile ............   Passed    0.00 sec
+        Start 121: gagp_test_bounded_region_ast_codec
+121/128 Test #121: gagp_test_bounded_region_ast_codec ..........   Passed    0.00 sec
+        Start 122: gagp_test_bounded_region_sequence_compile
+122/128 Test #122: gagp_test_bounded_region_sequence_compile ...   Passed    0.01 sec
+        Start 123: gagp_test_grammar_bounded_parse
+123/128 Test #123: gagp_test_grammar_bounded_parse .............   Passed    0.01 sec
+        Start 124: gagp_test_grammar_bounded_generation
+124/128 Test #124: gagp_test_grammar_bounded_generation ........   Passed    0.01 sec
+        Start 125: gagp_test_grammar_bounded_membership
+125/128 Test #125: gagp_test_grammar_bounded_membership ........   Passed    0.00 sec
+        Start 126: gagp_test_grammar_bounded_variation
+126/128 Test #126: gagp_test_grammar_bounded_variation .........   Passed    0.03 sec
+        Start 127: gagp_test_grammar_bounded_artifact
+127/128 Test #127: gagp_test_grammar_bounded_artifact ..........   Passed    0.01 sec
+        Start 128: gagp_test_host_threads
+128/128 Test #128: gagp_test_host_threads ......................   Passed    0.00 sec
+
+98% tests passed, 2 tests failed out of 128
+
+Label Time Summary:
+benchmark         =   5.51 sec*proc (3 tests)
+contract          =  28.02 sec*proc (122 tests)
+cpu               =   0.20 sec*proc (1 test)
+cpu_gpu_parity    =  10.95 sec*proc (10 tests)
+gpu               =  23.46 sec*proc (26 tests)
+integration       =  26.55 sec*proc (65 tests)
+migration         =   6.66 sec*proc (7 tests)
+property          =   1.46 sec*proc (25 tests)
+tooling           =   0.56 sec*proc (1 test)
+unit              =   0.61 sec*proc (47 tests)
+
+Total Test time (real) =  30.24 sec
+
+The following tests FAILED:
+	 95 - gagp_test_lexical_regions (Failed)
+	108 - gagp_test_migrate_artifact_cli (Failed)
+Errors while running CTest

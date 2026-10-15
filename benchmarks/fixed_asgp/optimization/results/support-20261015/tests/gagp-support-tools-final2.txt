@@ -1,0 +1,109 @@
+test_profile_identity_comes_from_embedded_content (test_checked_grammar_presets.TestCheckedGrammarPresets) ... ok
+test_v1_inputs_are_isolated_and_v2_definitions_preserve_their_content (test_checked_grammar_presets.TestCheckedGrammarPresets) ... ok
+test_failure_preserves_process_evidence_and_commits_no_partial_mode_block (test_compiled_migration.TestCompiledMigration) ... ok
+test_pilot_is_explicitly_incomplete_and_keeps_warmup_labels (test_compiled_migration.TestCompiledMigration) ... ok
+test_rejects_each_frozen_artifact_hash_mismatch_before_output (test_compiled_migration.TestCompiledMigration) ... ok
+test_rejects_missing_or_malformed_native_timing_output (test_compiled_migration.TestCompiledMigration) ... ok
+test_cli_refuses_output_inside_trial_directory (test_compiled_migration_report.TestCompiledMigrationReport) ... usage: compiled-migration [-h] --workloads WORKLOADS [--root ROOT] --output
+                          OUTPUT
+                          trials
+compiled-migration: error: report output must be outside the immutable trial directory
+ok
+test_complete_report_uses_only_measured_blocks_and_correct_counter_rates (test_compiled_migration_report.TestCompiledMigrationReport) ... ok
+test_pilot_is_incomplete_and_warmup_is_descriptive_only (test_compiled_migration_report.TestCompiledMigrationReport) ... ok
+test_rejects_nonfinite_schema_and_identity_or_binary_mismatch (test_compiled_migration_report.TestCompiledMigrationReport) ... ok
+test_rejects_tampered_process_missing_evidence_and_incomplete_mode_coverage (test_compiled_migration_report.TestCompiledMigrationReport) ... ok
+test_failed_generation_does_not_publish_manifest (test_compiled_workloads.TestCompiledWorkloads) ... ok
+test_hashes_domains_and_profile_shapes_are_exact (test_compiled_workloads.TestCompiledWorkloads) ... ok
+test_manifest_preregisters_complete_candidate_grid (test_compiled_workloads.TestCompiledWorkloads) ... ok
+test_refuses_an_existing_output_without_invoking_generator (test_compiled_workloads.TestCompiledWorkloads) ... ok
+test_gpu_kernel_and_host_disagreement_is_rejected (test_evolution_statistics_validation.TestEvolutionStatisticsValidation) ... ok
+test_missing_child_decisions_are_rejected (test_evolution_statistics_validation.TestEvolutionStatisticsValidation) ... ok
+test_changed_asgp_baseline_rejected_before_measurement (test_fixed_asgp.TestFixedAsgp) ... ok
+test_failed_baseline_never_produces_ratio (test_fixed_asgp.TestFixedAsgp) ... ok
+test_incomplete_duplicate_or_wrong_workload_rejected (test_fixed_asgp.TestFixedAsgp) ... ok
+test_task_skeletons_have_distinct_required_behavior (test_fixed_asgp.TestFixedAsgp) ... ok
+test_warmup_excluded_and_ratios_use_medians (test_fixed_asgp.TestFixedAsgp) ... ok
+test_evidence_rejects_source_drift (test_fixed_asgp_list.TestFixedAsgpList) ... ok
+test_negative_language_keeps_typed_recursive_boundaries (test_fixed_asgp_list.TestFixedAsgpList) ... ok
+test_complete_native_gpu_search (test_fixed_asgp_low_budget.TestLowBudgetContract) ... ok
+test_elite_cannot_lose_best_training_fitness (test_fixed_asgp_low_budget.TestLowBudgetContract) ... ok
+test_exact_paper_scope (test_fixed_asgp_low_budget.TestLowBudgetContract) ... ok
+test_gpu_eval_requires_measured_work_and_kernel (test_fixed_asgp_low_budget.TestLowBudgetContract) ... ok
+test_incomplete_or_wrong_backend_does_not_qualify (test_fixed_asgp_low_budget.TestLowBudgetContract) ... ok
+test_character_language_does_not_gain_integer_arithmetic (test_fixed_asgp_source_grammar.TestSourceGrammar) ... ok
+test_coordinate_dependencies_preserve_source_order_and_dimension (test_fixed_asgp_source_grammar.TestSourceGrammar) ... ok
+test_paper_catalog_uses_source_identifiers (test_fixed_asgp_source_grammar.TestSourceGrammar) ... ok
+test_protected_arithmetic_preserves_one_node_and_operands (test_fixed_asgp_source_grammar.TestSourceGrammar) ... ok
+test_init_copies_each_named_example_exactly (test_grammar_commands.TestGrammarCommands) ... ok
+test_init_discovers_checkout_from_a_nested_working_directory (test_grammar_commands.TestGrammarCommands) ... ok
+test_init_refuses_to_overwrite_an_existing_output (test_grammar_commands.TestGrammarCommands) ... ok
+test_init_reports_missing_example_without_creating_output (test_grammar_commands.TestGrammarCommands) ... ok
+test_migrate_forwards_only_current_native_route_flags (test_grammar_commands.TestGrammarCommands) ... ok
+test_migrate_omits_optional_route_flags_when_absent (test_grammar_commands.TestGrammarCommands) ... ok
+test_native_adapters_use_checkout_build_defaults (test_grammar_commands.TestGrammarCommands) ... ok
+test_native_grammar_commands_forward_arguments_and_process_streams (test_grammar_commands.TestGrammarCommands) ... ok
+test_case_materialization_refuses_lossy_public_values (test_grammar_migration.TestGrammarMigration) ... ok
+test_diagnostic_observations_are_not_timing_evidence (test_grammar_migration.TestGrammarMigration) ... ok
+test_fitness_preserves_reference_backend_rounding (test_grammar_migration.TestGrammarMigration) ... ok
+test_grammar_dependency_closure_nested_shared_and_invalid (test_grammar_migration.TestGrammarMigration) ... ok
+test_incomplete_trials (test_grammar_migration.TestGrammarMigration) ... ok
+test_invalid_trials (test_grammar_migration.TestGrammarMigration) ... ok
+test_manifest_rejects_missing_rows_workload_change_and_phase_sums (test_grammar_migration.TestGrammarMigration) ... ok
+test_measurement_command_uses_compiled_definition_flag (test_grammar_migration.TestGrammarMigration) ... ok
+test_noisy_paired_blocks_remain_unresolved (test_grammar_migration.TestGrammarMigration) ... ok
+test_raw_audit_detects_pruned_rows_and_fabricated_timings (test_grammar_migration.TestGrammarMigration) ... ok
+test_reference_vs_reference (test_grammar_migration.TestGrammarMigration) ... ok
+test_representative_runner_and_audit (test_grammar_migration.TestGrammarMigration) ... ok
+test_representative_tolerance_and_bounded_recheck (test_grammar_migration.TestGrammarMigration) ... ok
+test_reproduction_modes_use_frozen_tape_and_separate_executables (test_grammar_migration.TestGrammarMigration) ... ok
+test_requires_rerun_before_declaring_persistent_loss (test_grammar_migration.TestGrammarMigration) ... ok
+test_runner_checks_frozen_files_and_modes (test_grammar_migration.TestGrammarMigration) ... ok
+test_scope_extraction_does_not_sum_overlap (test_grammar_migration.TestGrammarMigration) ... ok
+test_speedup_loss_even_when_both_absolute_times_improve (test_grammar_migration.TestGrammarMigration) ... ok
+test_speedup_only_protocol_preserves_historical_absolute_gate (test_grammar_migration.TestGrammarMigration) ... ok
+test_speedup_runner_and_audit (test_grammar_migration.TestGrammarMigration) ... ok
+test_steady_session_excludes_warmups_without_counting_calls_as_blocks (test_grammar_migration.TestGrammarMigration) ... ok
+test_symmetric_slowdown_cannot_hide_absolute_regression (test_grammar_migration.TestGrammarMigration) ... ok
+test_v1_role_helpers_preserve_workload_and_hash (test_grammar_migration.TestGrammarMigration) ... ok
+test_v2_reproduction_routes_legacy_cpu_replay_and_current_cpu_adapter (test_grammar_migration.TestGrammarMigration) ... ok
+test_v2_routes_distinct_artifacts_args_and_hashes (test_grammar_migration.TestGrammarMigration) ... ok
+test_v2_runner_writes_role_hashes_and_audit_checks_commands (test_grammar_migration.TestGrammarMigration) ... ok
+test_all_types_preserve_requested_order_and_native_replay (test_materialize_population.TestMaterializePopulation) ... skipped 'build gagp_generate_cli for integration tests'
+test_invalid_roots_preserve_existing_output (test_materialize_population.TestMaterializePopulation) ... skipped 'build gagp_generate_cli for integration tests'
+test_omitted_roots_keep_single_entry (test_materialize_population.TestMaterializePopulation) ... skipped 'build gagp_generate_cli for integration tests'
+test_current_convert_emits_direct_int_list_schema (test_psb1_tools.TestPsb1Tools) ... ok
+test_unified_convert_with_psb1_multi_output_is_rejected (test_psb1_tools.TestPsb1Tools) ... ok
+test_unified_convert_with_psb1_problem_to_fitness_cases (test_psb1_tools.TestPsb1Tools) ... ok
+test_convert_empty_list_uses_field_schema (test_psb2_tools.TestPsb2Tools) ... ok
+test_convert_multi_output_is_rejected (test_psb2_tools.TestPsb2Tools) ... ok
+test_current_mixed_numeric_list_requires_explicit_schema (test_psb2_tools.TestPsb2Tools) ... ok
+test_unified_convert_with_psb2_basic (test_psb2_tools.TestPsb2Tools) ... ok
+test_unified_convert_with_psb2_problem_to_fitness_cases (test_psb2_tools.TestPsb2Tools) ... ok
+test_unified_fetch_with_psb1_dry_run_subset (test_psb_fetch_tools.TestPsbFetchTools) ... ok
+test_unified_fetch_with_psb1_unknown_problem (test_psb_fetch_tools.TestPsbFetchTools) ... ok
+test_unified_fetch_with_psb2_dry_run_subset (test_psb_fetch_tools.TestPsbFetchTools) ... ok
+test_unified_fetch_with_psb2_unknown_problem (test_psb_fetch_tools.TestPsbFetchTools) ... ok
+test_compare_psb_baseline_attributes_gpu_kernel_speed_regression (test_psb_regression_tools.TestPsbRegressionTools) ... ok
+test_compare_psb_baseline_fails_large_quality_regression (test_psb_regression_tools.TestPsbRegressionTools) ... ok
+test_compare_psb_baseline_fails_test_quality_regression (test_psb_regression_tools.TestPsbRegressionTools) ... ok
+test_compare_psb_baseline_passes_with_close_candidate (test_psb_regression_tools.TestPsbRegressionTools) ... ok
+test_compare_psb_baseline_uses_problem_specific_quality_tolerances (test_psb_regression_tools.TestPsbRegressionTools) ... ok
+test_make_population_materializes_compiled_snapshot (test_psb_regression_tools.TestPsbRegressionTools) ... ok
+test_materialize_psb_fixtures_writes_manifest_with_exclusions (test_psb_regression_tools.TestPsbRegressionTools) ... ok
+test_release_psb_exclusion_manifest_is_consistent (test_psb_regression_tools.TestPsbRegressionTools) ... ok
+test_run_psb_regression_dry_run_writes_summary (test_psb_regression_tools.TestPsbRegressionTools) ... ok
+test_run_psb_regression_eval_test_records_test_metrics (test_psb_regression_tools.TestPsbRegressionTools) ... skipped 'native CLI is not built or is stale'
+test_run_psb_regression_requires_definition (test_psb_regression_tools.TestPsbRegressionTools) ... ok
+test_run_psb_regression_uses_explicit_v2_definition (test_psb_regression_tools.TestPsbRegressionTools) ... ok
+test_supported_psb1_baseline_manifest_is_consistent (test_psb_regression_tools.TestPsbRegressionTools) ... ok
+test_write_psb_manifest_compacts_comparison_artifacts (test_psb_regression_tools.TestPsbRegressionTools) ... ok
+test_compatibility_wrappers_are_thin (test_tool_cli.TestToolCli) ... ok
+test_every_unified_subcommand_dispatches_help (test_tool_cli.TestToolCli) ... ok
+test_population_wrapper_and_unified_output_match (test_tool_cli.TestToolCli) ... ok
+test_unified_help_lists_every_command (test_tool_cli.TestToolCli) ... ok
+
+----------------------------------------------------------------------
+Ran 100 tests in 4.490s
+
+OK (skipped=4)

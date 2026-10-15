@@ -48,7 +48,7 @@ def summarize(folder: Path, out: Path) -> None:
         if data:
             fields = list(dict.fromkeys(k for row in data for k in row))
             with (out / (name + '.csv')).open('w') as stream:
-                writer = csv.DictWriter(stream, fieldnames=fields)
+                writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
                 writer.writeheader()
                 writer.writerows(data)
     lines = ['# Low-budget validation', '',
