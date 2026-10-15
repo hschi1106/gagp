@@ -88,8 +88,12 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
     workspace.payload_string_bytes += slot * workspace.payload_byte_capacity;
     workspace.payload_list_values += slot * workspace.payload_value_capacity;
     if(workspace.concat_cache)workspace.concat_cache+=slot*DCONCAT_CACHE_SLOTS;
-    if constexpr (Flavor == DPayloadFlavor::IndexedArena)
-      workspace.payload_list_index += slot * workspace.payload_entry_capacity * 2;
+    if constexpr (Flavor == DPayloadFlavor::IndexedArena) {
+      if(workspace.payload_list_epoch_index) {
+        workspace.payload_list_epoch_index += slot * workspace.payload_entry_capacity * 2;
+        workspace.payload_list_epoch += slot;
+      } else workspace.payload_list_index += slot * workspace.payload_entry_capacity * 2;
+    }
   }
   if constexpr (EnableRegions) {
     const std::size_t block_base = static_cast<std::size_t>(blockIdx.x) * blockDim.x;

@@ -69,8 +69,10 @@ struct PayloadWorkspaceStorage {
     const auto frame_bytes=frame_size*workspace.frame_capacity;
     const auto key_bytes=sizeof(std::int64_t)*gpu_detail::DMAX_REGION_STATES*workspace.memo_capacity;
     const auto memo_bytes=sizeof(Value)*workspace.memo_capacity;
+    const bool epoch_index=indexed && workspace.payload_epoch_index;
     const auto payload_bytes=std::size_t(entries)*(sizeof(gpu_detail::DStringPayloadEntry)+sizeof(gpu_detail::DListPayloadEntry))+
-        std::size_t(values)*sizeof(Value)+bytes+(indexed?std::size_t(entries)*2*sizeof(int):0)+
+        std::size_t(values)*sizeof(Value)+bytes+(indexed?std::size_t(entries)*2*(epoch_index?sizeof(std::uint64_t):sizeof(int)):0)+
+        (epoch_index?sizeof(unsigned):0)+
         (workspace.concat_cache_enabled?sizeof(gpu_detail::DConcatCacheEntry)*gpu_detail::DCONCAT_CACHE_SLOTS:0);
     blocks=gpu_detail::payload_workspace_block_count(budget,programs,
         payload_bytes+frame_bytes+key_bytes+memo_bytes,extra_bytes);
@@ -78,7 +80,14 @@ struct PayloadWorkspaceStorage {
     const auto slots=blocks*threads;
     if(workspace.concat_cache_enabled && !allocate(reinterpret_cast<void**>(&workspace.concat_cache),
         slots*sizeof(gpu_detail::DConcatCacheEntry)*gpu_detail::DCONCAT_CACHE_SLOTS))return false;
-    return (!indexed || allocate(reinterpret_cast<void**>(&workspace.payload_list_index),slots*entries*2*sizeof(int))) &&
+    if(epoch_index) {
+      const auto index_bytes=slots*entries*2*sizeof(std::uint64_t);
+      if(!allocate(reinterpret_cast<void**>(&workspace.payload_list_epoch_index),index_bytes) ||
+         !allocate(reinterpret_cast<void**>(&workspace.payload_list_epoch),slots*sizeof(unsigned)) ||
+         cudaMemset(workspace.payload_list_epoch_index,0,index_bytes)!=cudaSuccess ||
+         cudaMemset(workspace.payload_list_epoch,0,slots*sizeof(unsigned))!=cudaSuccess)return false;
+    }
+    return (!indexed || epoch_index || allocate(reinterpret_cast<void**>(&workspace.payload_list_index),slots*entries*2*sizeof(int))) &&
         allocate(reinterpret_cast<void**>(&workspace.payload_string_entries),slots*entries*sizeof(gpu_detail::DStringPayloadEntry)) &&
         allocate(reinterpret_cast<void**>(&workspace.payload_list_entries),slots*entries*sizeof(gpu_detail::DListPayloadEntry)) &&
         allocate(reinterpret_cast<void**>(&workspace.payload_string_bytes),slots*bytes) &&
@@ -739,6 +748,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   // Keep generic frame/memo storage out of ordinary kernel call graphs.
   gpu_detail::DRegionWorkspace region_workspace;
   region_workspace.payload_window_aliases=global_window_aliases;
+  region_workspace.payload_epoch_index=payload_index && std::getenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX") &&
+      std::string(std::getenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX"))=="1";
   region_workspace.fused_list_concat=std::getenv("GAGP_GPU_FUSED_LIST_CONCAT") &&
       std::string(std::getenv("GAGP_GPU_FUSED_LIST_CONCAT"))!="0";
   region_workspace.small_int_hash=region_workspace.fused_list_concat &&
@@ -1331,7 +1342,10 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if(global_window_aliases)out.execution_profile+="-window-aliases";
     if(region_workspace.fused_list_concat && extended_payload)out.execution_profile+="-fused-concat";
     if(region_workspace.small_int_hash && extended_payload)out.execution_profile+="-small-int-hash";
-    if(payload_index && (global_payload || out.payload_replay_programs))out.execution_profile+="-list-index";
+    if(payload_index && (global_payload || out.payload_replay_programs)) {
+      out.execution_profile+="-list-index";
+      if(region_workspace.payload_epoch_index)out.execution_profile+="-epoch";
+    }
     if(out.payload_replay_programs)out.execution_profile+="-gpu-arena-replay";
     if(tiled_replay && out.payload_replay_programs)out.execution_profile+="-tiled";
     if(adaptive_replay && out.payload_replay_programs)out.execution_profile+="-adaptive";

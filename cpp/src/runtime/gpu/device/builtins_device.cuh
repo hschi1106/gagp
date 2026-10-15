@@ -16,6 +16,7 @@ struct DPayloadTables {
 
 template <int MaxStringEntries, int MaxListEntries, int MaxStringBytes, int MaxListValues>
 struct DThreadPayloadStateT {
+  static constexpr bool kEpochLists = false;
   static constexpr bool kIndexedLists = false;
   static constexpr bool kConcatCache = false;
   static constexpr int kMaxStringEntries = MaxStringEntries;
@@ -59,6 +60,7 @@ struct DArenaPayloadState {
   DConcatCacheEntry* concat_cache = nullptr;
   bool concat_cache_diagnostics = false;
   unsigned long long concat_hits = 0, concat_misses = 0, concat_cells = 0;
+  static constexpr bool kEpochLists = false;
   static constexpr bool kIndexedLists = false;
   bool alias_windows = false;
   static constexpr int kMaxStringEntries = 1;
@@ -86,6 +88,10 @@ struct DIndexedExtendedPayloadState : DExtendedPayloadState {
   int list_index[list_index_capacity];
 };
 struct DIndexedArenaPayloadState : DArenaPayloadState {
+  static constexpr bool kEpochLists = true;
+  std::uint64_t* epoch_index = nullptr;
+  unsigned* epoch_counter = nullptr;
+  unsigned epoch = 0;
   static constexpr bool kIndexedLists = true;
   int list_index_capacity = 0;
   int* list_index = nullptr;
@@ -459,12 +465,50 @@ __device__ inline unsigned d_private_list_bucket(const Value& value, unsigned ca
   return static_cast<unsigned>(bits) & (capacity-1);
 }
 
+// One physical lane owns its table across sequential cases and queue tasks.
+// Epoch zero denotes never initialized; wrap clears before reusing epoch one.
+template <typename State>
+__device__ inline void d_reset_private_list_index(State& st) {
+  if constexpr (State::kEpochLists) {
+    if (st.epoch_index) {
+      unsigned next = *st.epoch_counter + 1u;
+      if (!next) {
+        for (int i=0;i<st.list_index_capacity;++i) st.epoch_index[i]=0;
+        next=1;
+      }
+      st.epoch=next;*st.epoch_counter=next;
+      return;
+    }
+  }
+  for (int i=0;i<st.list_index_capacity;++i) st.list_index[i]=0;
+}
+template <typename State>
+__device__ inline int d_private_list_index_read(const State& st, unsigned slot) {
+  if constexpr (State::kEpochLists) {
+    if (st.epoch_index) {
+      const auto word=st.epoch_index[slot];
+      return unsigned(word>>32)==st.epoch ? int(unsigned(word)) : 0;
+    }
+  }
+  return st.list_index[slot];
+}
+template <typename State>
+__device__ inline void d_private_list_index_write(State& st, unsigned slot, int encoded) {
+  if constexpr (State::kEpochLists) {
+    if (st.epoch_index) {
+      st.epoch_index[slot]=(std::uint64_t(st.epoch)<<32)|unsigned(encoded);
+      return;
+    }
+  }
+  st.list_index[slot]=encoded;
+}
+
 template <typename State>
 __device__ inline int d_find_local_list_entry(const State& st, const Value& value) {
   if constexpr (State::kIndexedLists) {
     unsigned slot=d_private_list_bucket(value,st.list_index_capacity);
     for(int probe=0;probe<st.list_index_capacity;++probe) {
-      const int encoded=st.list_index[slot];
+      const int encoded=d_private_list_index_read(st,slot);
       if(!encoded)return -1;
       const int entry=encoded-1;
       if(st.list_entries[entry].tag==value.tag && st.list_entries[entry].packed==value.i)return entry;
@@ -483,8 +527,8 @@ __device__ inline bool d_index_local_list_entry(State& st, const Value& value, i
   if constexpr (State::kIndexedLists) {
     unsigned slot=d_private_list_bucket(value,st.list_index_capacity);
     for(int probe=0;probe<st.list_index_capacity;++probe) {
-      const int encoded=st.list_index[slot];
-      if(!encoded){st.list_index[slot]=entry+1;return true;}
+      const int encoded=d_private_list_index_read(st,slot);
+      if(!encoded){d_private_list_index_write(st,slot,entry+1);return true;}
       const auto& first=st.list_entries[encoded-1];
       // Original linear lookup returns the first registration of an identity,
       // including a repeated canonical hash or an immutable input-window alias.
@@ -504,7 +548,7 @@ __device__ inline void d_restore_local_list_entries(State& st, int count) {
   if (st.list_entry_count == count) return;
   st.list_entry_count = count;
   if constexpr (State::kIndexedLists) {
-    for (int i = 0; i < st.list_index_capacity; ++i) st.list_index[i] = 0;
+    d_reset_private_list_index(st);
     for (int i = 0; i < count; ++i) {
       const auto& entry = st.list_entries[i];
       Value key;

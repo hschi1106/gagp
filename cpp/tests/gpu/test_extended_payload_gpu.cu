@@ -367,6 +367,65 @@ bool test_small_int_hash_fitness() {
   return true;
 }
 
+// Tiny persistent lane reused by successive invocations, including errors and wrap.
+__global__ void inspect_epoch_list_index(int* failures) {
+  using namespace gpu_detail;
+  *failures=0;
+  DListPayloadEntry entries[8];Value values[8];
+  std::uint64_t words[16]{};unsigned counter=0;int legacy[16]{};
+  for(int mode=0;mode<2;++mode) {
+    const bool epoch_mode=mode!=0;
+    counter=0;
+    for(int i=0;i<16;++i)words[i]=0;
+    for(int invocation=0;invocation<3;++invocation) {
+      DIndexedArenaPayloadState st;
+      st.list_entries=entries;st.list_values=values;st.list_entry_capacity=8;
+      st.kMaxListValues=8;st.list_index_capacity=16;st.list_index=legacy;
+      if(epoch_mode){st.epoch_index=words;st.epoch_counter=&counter;}
+      if(invocation==2) {
+        // Poison with the epoch we will reuse after unsigned wrap.
+        for(int i=0;i<16;++i)words[i]=(std::uint64_t(1)<<32)|8;
+        counter=~0u;
+      }
+      d_reset_private_list_index(st);
+      const auto first=d_make_list_hash_len(ValueTag::IntList,1,1);
+      Value collision;
+      for(unsigned hash=2;;++hash) {
+        collision=d_make_list_hash_len(ValueTag::IntList,hash,1);
+        if(d_private_list_bucket(collision,16)==d_private_list_bucket(first,16))break;
+      }
+      if(d_find_local_list_entry(st,first)!=-1){*failures=1;return;}
+      values[0]=Value::from_int(17);values[1]=Value::from_int(29);
+      if(!d_register_local_list(st,first,0,1) ||
+         !d_register_local_list(st,collision,1,1) ||
+         !d_register_local_list(st,first,1,1) ||
+         d_find_local_list_entry(st,first)!=0 || d_find_local_list_entry(st,collision)!=1) {
+        *failures=2;return;
+      }
+      d_restore_local_list_entries(st,1);
+      if(d_find_local_list_entry(st,first)!=0 || d_find_local_list_entry(st,collision)!=-1 ||
+         !d_register_local_list(st,collision,1,1) || d_find_local_list_entry(st,collision)!=1) {
+        *failures=3;return;
+      }
+      Value output;ErrCode error=ErrCode::Value;DPayloadTables tables;
+      const Value args[]{first,Value::from_int(10)};
+      if(d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Index,args,2,tables,st,output,error)) {
+        *failures=4;return;
+      }
+      // No successful-return cleanup: next case must still ignore these entries.
+    }
+  }
+}
+
+bool test_epoch_list_index() {
+  int* failures=nullptr;
+  if(cudaMallocManaged(&failures,sizeof(int))!=cudaSuccess)return false;
+  *failures=-1;inspect_epoch_list_index<<<1,1>>>(failures);
+  const auto status=cudaDeviceSynchronize();
+  const bool passed=check(status==cudaSuccess && *failures==0,"epoch index reset/collision/rollback/wrap");
+  cudaFree(failures);return passed;
+}
+
 bool test_private_list_index() {
   gpu_detail::DIndexedExtendedPayloadState* state=nullptr;int* failures=nullptr;
   if(cudaMallocManaged(&state,sizeof(*state))!=cudaSuccess)return false;
@@ -1151,5 +1210,14 @@ int main() {
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
   if (!test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_initial_payload_scale() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
+  {
+    ScopedEnvironment epoch("GAGP_GPU_PAYLOAD_EPOCH_INDEX");
+    setenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX","1",1);
+    // Existing CPU parity cases cover physical lane reuse, mixed roots, errors,
+    // initial case tiles, scalar rollback, and replay with arena growth.
+    if(!test_epoch_list_index() || !test_global_payload_program_queue() ||
+       !test_tiled_initial_payload() || !test_scalar_region_index_rollback() ||
+       !test_tiled_replay_entry_growth())return 1;
+  }
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

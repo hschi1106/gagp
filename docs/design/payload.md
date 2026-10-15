@@ -716,3 +716,33 @@ positions, not the original case positions. Result/snapshot fields
 arena sorting adds `-arena-sorted` to the profile. Default is off. Tests cover
 full 1024-case CPU fitness/status parity at 33/512 lanes, tiled/non-tiled initial
 evaluation, indexed/nonindexed replay, and excluded fractional/Discounted policies.
+
+
+### Optional private arena index epochs
+
+`GAGP_GPU_PAYLOAD_EPOCH_INDEX=1` selects a 64-bit epoch/entry index for indexed
+GPU arena execution and replay. Unset, `0`, or other values retain the 32-bit
+index. This changes physical index maintenance only: canonical first-match
+identities, payload lookup, logical allocation, fuel, case coverage and native
+GPU reproduction remain unchanged. Active execution profiles append `-epoch`
+after `-list-index`; this is an experimental setting, not a measured speedup claim.
+
+Each physical lane owns an index and unsigned epoch counter across sequential
+cases, program-queue tasks and case tiles. Workspace allocation initializes both
+once inside evaluation timing. A new case advances the epoch; slots from older
+epochs are empty. Unsigned wrap clears that lane's table before reusing epoch 1.
+Scalar-region rollback advances the epoch and rebuilds surviving entries in
+registration order, preserving collision probe chains and first-match semantics.
+Scoring finishes while the current case's payload remains resident; error exits
+need no cleanup before the next epoch. Separate replay allocations initialize
+independent tables/counters. No index state crosses workspace ownership.
+
+Workspace budgeting includes eight bytes per index slot (two slots per entry)
+and four bytes per physical lane for the counter, instead of four bytes per slot.
+Allocation/initialization failure follows the ordinary workspace failure path.
+The additional lookup traffic and reduced resident block capacity can offset the
+avoided per-case clears; performance requires a full-case comparison.
+
+Validation: `gagp_test_extended_payload_gpu` includes direct legacy/epoch
+collision, rollback, error reuse and wrap tests, plus epoch-enabled CPU parity
+for queue reuse, initial case tiling, scalar rollback and growing arena replay.

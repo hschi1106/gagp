@@ -561,7 +561,9 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
   if constexpr (Flavor == DPayloadFlavor::IndexedArena) {
     payload_state.list_index=workspace.payload_list_index;
     payload_state.list_index_capacity=workspace.payload_entry_capacity*2;
-    for(int i=0;i<payload_state.list_index_capacity;++i)payload_state.list_index[i]=0;
+    payload_state.epoch_index=workspace.payload_list_epoch_index;
+    payload_state.epoch_counter=workspace.payload_list_epoch;
+    d_reset_private_list_index(payload_state);
   }
   if constexpr (d_exact_payload_flavor<Flavor>) {
     payload_state.fused_list_concat=workspace.fused_list_concat;
