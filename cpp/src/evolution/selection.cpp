@@ -25,6 +25,10 @@ bool scored_genome_sorts_before(const ScoredGenome& a, const ScoredGenome& b) {
   if (fitness_a != fitness_b) {
     return fitness_a > fitness_b;
   }
+  if(a.wrong>=0 && b.wrong>=0) {
+    if(a.wrong!=b.wrong)return a.wrong<b.wrong;
+    if(a.genome.meta.node_count!=b.genome.meta.node_count)return a.genome.meta.node_count<b.genome.meta.node_count;
+  }
   return a.genome.meta.program_key < b.genome.meta.program_key;
 }
 
@@ -34,20 +38,25 @@ bool scored_genome_sorts_before(const ScoredGenomeRef& a, const ScoredGenomeRef&
   if (fitness_a != fitness_b) {
     return fitness_a > fitness_b;
   }
+  if(a.wrong>=0 && b.wrong>=0) {
+    if(a.wrong!=b.wrong)return a.wrong<b.wrong;
+    if(a.genome->meta.node_count!=b.genome->meta.node_count)return a.genome->meta.node_count<b.genome->meta.node_count;
+  }
   return a.genome->meta.program_key < b.genome->meta.program_key;
 }
 
 std::vector<ScoredGenomeRef> rank_population_refs(
     const std::vector<ProgramGenome>& population,
     const std::vector<double>& fitness,
-    bool sort_output) {
+    bool sort_output, const std::vector<unsigned>& wrong) {
+  if(!wrong.empty() && wrong.size()!=population.size())throw std::runtime_error("wrong count size mismatch");
   if (fitness.size() != population.size()) {
     throw std::runtime_error("fitness size mismatch");
   }
   std::vector<ScoredGenomeRef> scored;
   scored.reserve(population.size());
   for (std::size_t i = 0; i < population.size(); ++i) {
-    scored.push_back(ScoredGenomeRef{&population[i], fitness[i]});
+    scored.push_back(ScoredGenomeRef{&population[i], fitness[i], wrong.empty()?-1:int(wrong[i])});
   }
   if (sort_output) {
     std::sort(scored.begin(), scored.end(), [](const ScoredGenomeRef& a, const ScoredGenomeRef& b) {
@@ -61,7 +70,7 @@ ScoredGenome materialize_scored_genome(const ScoredGenomeRef& scored) {
   if (scored.genome == nullptr) {
     throw std::runtime_error("scored genome ref is null");
   }
-  return ScoredGenome{*scored.genome, scored.fitness};
+  return ScoredGenome{*scored.genome, scored.fitness, scored.wrong};
 }
 
 std::vector<ScoredGenome> materialize_scored_population(

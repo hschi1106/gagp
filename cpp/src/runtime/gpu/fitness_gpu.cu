@@ -767,8 +767,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if (cudaMalloc(reinterpret_cast<void**>(&dev.d_fitness), sizeof(double) * programs.size()) != cudaSuccess) {
       return fitness_eval_single_error(ErrCode::Value, "cuda allocation failure");
     }
-    if (capture_case_counts) {
-      const auto bytes = sizeof(unsigned int) * 5 * programs.size();
+    if (capture_case_counts || impl_->policy.metric!=FitnessMetric::Legacy) {
+      const auto bytes = sizeof(unsigned int) * 6 * programs.size();
       if (cudaMalloc(reinterpret_cast<void**>(&dev.d_case_counts), bytes) != cudaSuccess ||
           cudaMemset(dev.d_case_counts, 0, bytes) != cudaSuccess)
         return fitness_eval_single_error(ErrCode::Value, "cuda diagnostics allocation failure");
@@ -909,12 +909,17 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         cudaSuccess) {
       return fitness_eval_single_error(ErrCode::Value, "cuda copy-back failure");
     }
-    if (capture_case_counts) {
-      out.case_counts.resize(programs.size());
-      static_assert(sizeof(out.case_counts[0]) == sizeof(unsigned int) * 5);
-      if (cudaMemcpy(out.case_counts.data(), dev.d_case_counts,
-                     sizeof(unsigned int) * 5 * programs.size(), cudaMemcpyDeviceToHost) != cudaSuccess)
+    if (capture_case_counts || impl_->policy.metric!=FitnessMetric::Legacy) {
+      std::vector<std::array<unsigned,6>> counts(programs.size());
+      if (cudaMemcpy(counts.data(), dev.d_case_counts,
+                     sizeof(unsigned int) * 6 * programs.size(), cudaMemcpyDeviceToHost) != cudaSuccess)
         return fitness_eval_single_error(ErrCode::Value, "cuda diagnostics copy-back failure");
+      if(capture_case_counts) {
+        out.case_counts.resize(programs.size());
+        for(std::size_t i=0;i<counts.size();++i)std::copy_n(counts[i].begin(),5,out.case_counts[i].begin());
+      }
+      if(impl_->policy.metric!=FitnessMetric::Legacy)
+        for(const auto& c:counts)out.wrong.push_back(c[5]);
     }
     const auto copy_t1 = std::chrono::steady_clock::now();
 

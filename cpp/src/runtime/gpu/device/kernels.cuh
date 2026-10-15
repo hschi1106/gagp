@@ -207,18 +207,22 @@ __global__ __launch_bounds__(1024) void evaluate_fitness_programs_impl(
       if (case_order) input_case = case_order[local_case];
     DResult result;
     double resident_score = 0;
+    bool exact=false;
     if constexpr (DirectRoot) {
       result = d_execute_region_root(meta, shared_code, all_consts, shared_case_local_vals,
           shared_case_local_set, payload_tables, execution_tables, input_case, fuel, workspace);
-      if(!result.is_error)resident_score=fitness_case_score(result.value,shared_answer[input_case],penalty,policy);
+      if(!result.is_error) {
+        resident_score=fitness_case_score(result.value,shared_answer[input_case],penalty,policy);
+        exact=fitness_case_score(result.value,shared_answer[input_case],penalty,{FitnessMetric::Exact})==0;
+      }
     } else {
     result = d_execute_bytecode_impl<Flavor, EnableRegions>(
         meta, shared_code, all_consts, shared_case_local_vals, shared_case_local_set,
         payload_tables, execution_tables, input_case, fuel, workspace,
-        shared_answer+input_case,penalty,policy,&resident_score);
+        shared_answer+input_case,penalty,policy,&resident_score,&exact);
     }
-    unsigned int* counts = case_counts ? case_counts + prog_idx * 5 : nullptr;
-    if (counts) atomicAdd(counts, 1u);
+    unsigned int* counts = case_counts ? case_counts + prog_idx * 6 : nullptr;
+    if (counts) { atomicAdd(counts, 1u); if(result.is_error || !exact)atomicAdd(counts+5,1u); }
     if (result.is_error) {
       if (counts) {
         atomicAdd(counts + 1, 1u);

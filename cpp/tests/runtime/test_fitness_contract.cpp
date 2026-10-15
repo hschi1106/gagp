@@ -93,6 +93,9 @@ int main() {
   const gagp::FitnessPolicy exact{gagp::FitnessMetric::Exact};
   if(!check(gagp::fitness_case_score(Value::from_int(INT64_MAX),Value::from_int(INT64_MAX-1),5,exact)==-1,
       "exact integer comparison retains low bits"))return 1;
+  std::vector<unsigned> wrong;
+  const auto tuple_counts=gagp::eval_fitness_cpu({returns(tuple_a),runtime_error},{{}},{tuple_b},100,10,1,tuple,&wrong);
+  if(!check(wrong==std::vector<unsigned>{0,1},"tuple solved predicate ignores summary distance; error is wrong"))return 1;
   std::cout << "gagp_test_fitness_contract: OK\n";
   return 0;
 }

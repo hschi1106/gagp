@@ -65,6 +65,7 @@ struct CompiledPopulation {
 
 struct PopulationEvaluation {
   std::vector<double> fitness;
+  std::vector<unsigned> wrong;
   EvaluationTiming timing;
 };
 
@@ -216,8 +217,16 @@ std::vector<ScoredGenomeRef> record_and_rank_evaluation(
     for (double one : evaluation.fitness) sum += static_cast<long double>(one);
     *fitness_sum_out = static_cast<double>(sum);
   }
-  if (raw_fitness_out != nullptr) *raw_fitness_out = evaluation.fitness;
-  return rank_population_refs(population, evaluation.fitness, sort_output);
+  auto ranked=rank_population_refs(population,evaluation.fitness,sort_output,evaluation.wrong);
+  if (raw_fitness_out != nullptr) {
+    *raw_fitness_out = evaluation.fitness;
+    if(!evaluation.wrong.empty()) {
+      const auto ordered=sort_output?ranked:rank_population_refs(population,evaluation.fitness,true,evaluation.wrong);
+      for(std::size_t rank=0;rank<ordered.size();++rank)
+        raw_fitness_out->at(ordered[rank].genome-population.data())=double(ordered.size()-rank);
+    }
+  }
+  return ranked;
 }
 
 std::vector<ScoredGenomeRef> score_population_cpu_refs(
@@ -238,7 +247,7 @@ std::vector<ScoredGenomeRef> score_population_cpu_refs(
   PopulationEvaluation evaluation;
   evaluation.timing.cpu_compile_ms = compiled.compile_ms;
   evaluation.fitness = eval_fitness_cpu(
-      compiled.programs, shared_cases, shared_answer, fuel, penalty, reduction_lanes, policy);
+      compiled.programs, shared_cases, shared_answer, fuel, penalty, reduction_lanes, policy, policy.metric==FitnessMetric::Legacy?nullptr:&evaluation.wrong);
   return record_and_rank_evaluation(
       population, std::move(evaluation), result, generation_timing,
       fitness_sum_out, raw_fitness_out, sort_output);
@@ -263,6 +272,7 @@ std::vector<ScoredGenomeRef> score_population_gpu_refs(
   }
   PopulationEvaluation evaluation;
   evaluation.fitness = std::move(fit.fitness);
+  evaluation.wrong = std::move(fit.wrong);
   evaluation.timing.execution_profile=fit.execution_profile;
   for (const auto& counts : fit.case_counts) {
     evaluation.timing.program_cases += counts[0];
@@ -313,13 +323,15 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
   result.timing.init_population_ms += elapsed(begin);
   result.reproduction_profile = owner->profile_name();
   std::mt19937_64 rng(cfg.seed);
-  std::vector<double> fitness;
+  std::vector<double> fitness, selection_fitness;
+  std::vector<unsigned> wrong;
   std::vector<std::size_t> ranking(population.size());
   const auto evaluate = [&](EvaluationTiming& timing) {
     auto fit = owner->evaluate(session,std::getenv("GAGP_GPU_DIAGNOSTICS") != nullptr);
     if (!fit.ok) throw std::runtime_error("native GPU phase fitness failed: " + fit.err.message);
     timing.execution_profile=fit.execution_profile;
     fitness = std::move(fit.fitness);
+    wrong=std::move(fit.wrong);
     if (fitness.size()!=population.size()) throw std::runtime_error("phase fitness size mismatch");
     for (auto& f:fitness) f=canonicalize_fitness_for_ranking(f);
     for (const auto& c:fit.case_counts) {
@@ -332,18 +344,28 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
     timing.gpu_eval_teardown_ms=fit.timing.teardown_ms;
     accumulate_timing(&result.timing.evaluation_totals,timing);
     std::iota(ranking.begin(),ranking.end(),0);
-    std::stable_sort(ranking.begin(),ranking.end(),[&](auto a,auto b){return fitness[a]>fitness[b];});
+    const auto nodes=wrong.empty()?std::vector<unsigned>{}:owner->node_counts();
+    std::stable_sort(ranking.begin(),ranking.end(),[&](auto a,auto b){
+      if(fitness[a]!=fitness[b])return fitness[a]>fitness[b];
+      if(!wrong.empty()) {
+        if(wrong[a]!=wrong[b])return wrong[a]<wrong[b];
+        if(nodes[a]!=nodes[b])return nodes[a]<nodes[b];
+      }
+      return a<b;
+    });
+    selection_fitness=fitness;
+    if(!wrong.empty())for(std::size_t rank=0;rank<ranking.size();++rank)selection_fitness[ranking[rank]]=double(ranking.size()-rank);
   };
   for (int gen=0;gen<cfg.generations;++gen) {
     const auto start=std::chrono::steady_clock::now();GenerationTiming timing;
     evaluate(timing.evaluation);timing.eval_ms=elapsed(start);
     const auto best=ranking.front();
-    result.history_best.push_back({owner->export_member(best),fitness[best]});
+    result.history_best.push_back({owner->export_member(best),fitness[best],wrong.empty()?-1:int(wrong[best])});
     result.history_best_fitness.push_back(fitness[best]);
     long double sum=0;for(double f:fitness)sum+=f;
     result.history_mean_fitness.push_back(static_cast<double>(sum/fitness.size()));
     const auto repro_start=std::chrono::steady_clock::now();
-    timing.reproduction=reproduction_timing_from_stats(owner->reproduce(fitness,
+    timing.reproduction=reproduction_timing_from_stats(owner->reproduce(selection_fitness,
         std::clamp(cfg.selection_pressure,1,cfg.population_size),cfg.mutation_rate,rng(),cfg.elite_count));
     timing.repro_ms=elapsed(repro_start);
     result.genotype_device_bytes=std::max<std::uint64_t>(result.genotype_device_bytes,owner->device_bytes());
@@ -359,12 +381,12 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
     const auto start=std::chrono::steady_clock::now();EvaluationTiming timing;evaluate(timing);
     if(cfg.retain_final_population && std::getenv("GAGP_BATCH_PHASE_EXPORT")) {
       auto exported=owner->export_population();
-      result.best={exported.at(ranking.front()),fitness[ranking.front()]};
-      for(auto i:ranking)result.final_population.push_back({std::move(exported.at(i)),fitness[i]});
+      result.best={exported.at(ranking.front()),fitness[ranking.front()],wrong.empty()?-1:int(wrong[ranking.front()])};
+      for(auto i:ranking)result.final_population.push_back({std::move(exported.at(i)),fitness[i],wrong.empty()?-1:int(wrong[i])});
     } else {
-      result.best={owner->export_member(ranking.front()),fitness[ranking.front()]};
+      result.best={owner->export_member(ranking.front()),fitness[ranking.front()],wrong.empty()?-1:int(wrong[ranking.front()])};
       if(cfg.retain_final_population)for(auto i:ranking)
-        result.final_population.push_back({owner->export_member(i),fitness[i]});
+        result.final_population.push_back({owner->export_member(i),fitness[i],wrong.empty()?-1:int(wrong[i])});
     }
     result.genotype_device_bytes=std::max<std::uint64_t>(result.genotype_device_bytes,owner->device_bytes());
     result.timing.final_eval_ms=elapsed(start);

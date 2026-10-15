@@ -46,6 +46,7 @@ struct FitnessEvalResult {
   std::string execution_profile = "mixed";
   bool ok = false;
   std::vector<double> fitness;
+  std::vector<unsigned> wrong; // Present for configured task metrics.
   // Opt-in diagnostics: evaluated cases, errors, timeouts (subset of errors),
   // fallback-token results, and results without a fitness comparison.
   std::vector<std::array<unsigned int, 5>> case_counts;

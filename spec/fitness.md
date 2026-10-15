@@ -220,3 +220,11 @@ next generation, after variation. The native GPU phase owner copies those trees
 on device before compilation. This keeps population size and evaluation count
 unchanged. This policy alone does not align random streams or tournament rules
 with external implementations.
+
+Configured task metrics rank by total error, then wrong-case count, then native
+AST node count. TupleSummary counts only predicate mismatches as wrong, even
+when summaries contribute error. Native AST size is not necessarily the source
+ASGP logical phase size: lowering can expand an authored operation. Remaining
+ties use the existing program key (native phase owner: source index). Legacy
+metrics retain their previous tie rules. GPU reproduction consumes ordinal
+rank scores, preserving these comparisons without changing reported fitness.

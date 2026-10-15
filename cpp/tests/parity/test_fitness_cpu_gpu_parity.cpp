@@ -2645,12 +2645,13 @@ int main() {
           ins_ab(Opcode::CallBuiltin,static_cast<int>(gagp::BuiltinId::Append),2),ins(Opcode::Return)};
       wanted=metric==gagp::FitnessMetric::Levenshtein?-2.0/3.0:-.15;
     }
-    const auto cpu=gagp::eval_fitness_cpu({program},{{}},{expected},1000,5,32,policy);
+    std::vector<unsigned> wrong;
+    const auto cpu=gagp::eval_fitness_cpu({program},{{}},{expected},1000,5,32,policy,&wrong);
     gagp::FitnessSessionGpu session;
     const auto init=session.init({{}},{expected},1000,32,5,policy);
     if(!init.ok){std::cerr<<init.err.message;return 1;}
     const auto gpu=session.eval_programs({program});
-    if(!gpu.ok || std::fabs(cpu[0]-wanted)>1e-12 || std::fabs(gpu.fitness[0]-cpu[0])>1e-12) {
+    if(!gpu.ok || gpu.wrong!=wrong || std::fabs(cpu[0]-wanted)>1e-12 || std::fabs(gpu.fitness[0]-cpu[0])>1e-12) {
       std::cerr<<"configured fitness parity failure metric="<<int(metric)<<" cpu="<<cpu[0]
                <<" gpu="<<(gpu.ok?gpu.fitness[0]:999)<<" expected="<<wanted;return 1;
     }

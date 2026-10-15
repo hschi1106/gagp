@@ -26,6 +26,7 @@ class NativePhasePopulation final {
   std::vector<ProgramGenome> export_population() const;
   ProgramGenome export_member(std::size_t index) const;
   std::size_t device_bytes() const;
+  std::vector<unsigned> node_counts() const;
   const char* profile_name() const;
   FitnessEvalResult evaluate(FitnessSessionGpu& session, bool diagnostics) const;
  private:

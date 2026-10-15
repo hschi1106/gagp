@@ -73,6 +73,11 @@ int main() {
   assert(ranked[0].genome->meta.program_key == "m");
   assert(ranked[1].genome->meta.program_key == "a");
   assert(ranked[2].genome->meta.program_key == "z");
+  population[0].meta.node_count=9;population[1].meta.node_count=3;population[2].meta.node_count=2;
+  const auto task_rank=gagp::evo::rank_population_refs(population,{0,0,0},true,{1,0,0});
+  assert(task_rank[0].genome==&population[2] && task_rank[1].genome==&population[1]);
+  const auto owned_task=gagp::evo::materialize_scored_population(task_rank);
+  assert(owned_task[0].wrong==0 && owned_task[2].wrong==1);
   const auto owned = gagp::evo::materialize_scored_population(ranked);
   assert(owned.size() == ranked.size());
   assert(owned[0].genome.meta.program_key == "m" && owned[0].fitness == 2.0);

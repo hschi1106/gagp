@@ -561,6 +561,12 @@ FitnessEvalResult NativePhasePopulation::evaluate(FitnessSessionGpu& session,boo
 }
 const char* NativePhasePopulation::profile_name()const{return impl_->counted_sites?"native-gpu-phase-v2-counted":"native-gpu-phase-v1";}
 std::size_t NativePhasePopulation::device_bytes()const{return std::max(impl_->bytes(),impl_->peak_transport_bytes);}
+std::vector<unsigned> NativePhasePopulation::node_counts()const {
+ impl_->require_device();const auto lengths=impl_->current->lengths.read(impl_->population*impl_->slot_count);
+ std::vector<unsigned> counts(impl_->population,impl_->layout.fixed_nodes);
+ for(int i=0;i<impl_->population;++i)for(int k=0;k<impl_->slot_count;++k)counts[i]+=lengths[i*impl_->slot_count+k].nodes;
+ return counts;
+}
 ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& completed_fitness,int pressure,double probability,std::uint64_t seed,int elite_count) {
  phase_layout_require(elite_count>=0 && elite_count<impl_->population,"elite count");
  impl_->require_device();phase_layout_require(completed_fitness.size()==std::size_t(impl_->population) && pressure>0 && pressure<=impl_->population &&

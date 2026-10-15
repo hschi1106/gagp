@@ -11,11 +11,13 @@ namespace gagp::evo {
 struct ScoredGenome {
   ProgramGenome genome;
   double fitness = 0.0;
+  int wrong = -1; // Negative preserves legacy tie breaking.
 };
 
 struct ScoredGenomeRef {
   const ProgramGenome* genome = nullptr;
   double fitness = 0.0;
+  int wrong = -1; // Negative preserves legacy tie breaking.
 };
 
 double canonicalize_fitness_for_ranking(double fitness);
@@ -26,7 +28,7 @@ bool scored_genome_sorts_before(const ScoredGenomeRef& a, const ScoredGenomeRef&
 std::vector<ScoredGenomeRef> rank_population_refs(
     const std::vector<ProgramGenome>& population,
     const std::vector<double>& fitness,
-    bool sort_output = true);
+    bool sort_output = true, const std::vector<unsigned>& wrong = {});
 ScoredGenome materialize_scored_genome(const ScoredGenomeRef& scored);
 std::vector<ScoredGenome> materialize_scored_population(
     const std::vector<ScoredGenomeRef>& scored);

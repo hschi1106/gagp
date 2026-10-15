@@ -31,6 +31,6 @@ std::vector<double> eval_fitness_cpu(
     int fuel = 10000,
     double penalty = 1.0,
     int reduction_lanes = 1,
-    FitnessPolicy policy = {});
+    FitnessPolicy policy = {}, std::vector<unsigned>* wrong = nullptr);
 
 }  // namespace gagp

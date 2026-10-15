@@ -16,9 +16,11 @@ namespace gagp {
 
 namespace {
 
-double score_resident(const Value& actual,const Value& expected,double penalty,FitnessPolicy policy) {
+double score_resident(const Value& actual,const Value& expected,double penalty,FitnessPolicy policy, bool& exact) {
+  exact=fitness_case_score(actual,expected,penalty,{FitnessMetric::Exact})==0;
   if(policy.metric!=FitnessMetric::Levenshtein && policy.metric!=FitnessMetric::TupleSummary)
     return fitness_case_score(actual,expected,penalty,policy);
+  exact=false;
   std::vector<Value> a,b;
   if(actual.tag!=expected.tag)return -fitness_error_ceiling(policy,penalty);
   if(is_typed_list(actual)) {
@@ -31,6 +33,9 @@ double score_resident(const Value& actual,const Value& expected,double penalty,F
     for(unsigned char c:x)a.push_back(Value::from_char(c));
     for(unsigned char c:y)b.push_back(Value::from_char(c));
   } else return -fitness_error_ceiling(policy,penalty);
+  exact=fitness_case_score(actual,expected,penalty,{FitnessMetric::Exact})==0;
+  if(policy.metric==FitnessMetric::TupleSummary)
+    exact=a.size()==b.size() && a.size()==std::size_t(policy.summary_count+1) && a[0].i==b[0].i;
   std::vector<unsigned> row(b.size()+1);
   return fitness_sequence_score(a.data(),int(a.size()),b.data(),int(b.size()),penalty,policy,row.data());
 }
@@ -54,7 +59,8 @@ std::vector<double> eval_fitness_cpu(
     const std::vector<Value>& shared_answer,
     int fuel,
     double penalty,
-    int reduction_lanes, FitnessPolicy policy) {
+    int reduction_lanes, FitnessPolicy policy, std::vector<unsigned>* wrong) {
+  if(wrong)wrong->assign(programs.size(),0);
   if(!valid_fitness_policy(policy))throw std::invalid_argument("invalid fitness policy");
   if(policy.metric==FitnessMetric::Levenshtein || policy.metric==FitnessMetric::TupleSummary)
     for(const auto& answer:shared_answer)
@@ -104,12 +110,15 @@ std::vector<double> eval_fitness_cpu(
           out.err = Err{ErrCode::Value, error.what()};
         }
         if (out.is_error) {
+          if(wrong)++wrong->at(p);
           local_score = canonicalize_fitness_accumulator(local_score - fitness_error_ceiling(policy, penalty));
           continue;
         }
 
+        bool exact=false;
         local_score = canonicalize_fitness_accumulator(local_score +
-            score_resident(out.value, shared_answer[c], penalty, policy));
+            score_resident(out.value, shared_answer[c], penalty, policy, exact));
+        if(wrong && !exact)++wrong->at(p);
       }
       partial_scores[static_cast<std::size_t>(lane)] = local_score;
     }
