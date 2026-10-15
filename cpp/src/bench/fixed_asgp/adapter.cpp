@@ -38,11 +38,11 @@ Json bound(const std::string& name) { return object({{"bound", string(name)}}); 
 Json call(const std::string& signature, std::vector<Json> args) {
   return object({{"signature", string(signature)}, {"args", array(std::move(args))}});
 }
-Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::TaskSpec& spec) {
+Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::TaskSpec& spec, const std::string& phase, bool guarded_index) {
   using K = asgp::NodeKind;
   const auto node = expr.at(at++);
   std::vector<Json> args;
-  for (int k=0; k<asgp::Arity(node.kind); ++k) args.push_back(expression(expr, at, dp, spec));
+  for (int k=0; k<asgp::Arity(node.kind); ++k) args.push_back(expression(expr, at, dp, spec, phase, guarded_index));
   switch (node.kind) {
     case K::kIntConst: case K::kCharConst: return constant(node.value);
     case K::kInputScalar: return bound("scalar" + std::to_string(node.op));
@@ -67,7 +67,9 @@ Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::Ta
       return bound(dp ? "d"+std::to_string(node.op+1) : (node.op ? "right" : "left"));
     case K::kHeadIndex: return bound("lo");
     case K::kHead: return call("index(IntList,Int)->Int", {args.at(0), constant(0)});
-    case K::kIndex: return call("index(IntList,Int)->Int", {bound("xs"), args.at(0)});
+    case K::kIndex:
+      if(guarded_index)return object({{"template",string("Fixed."+phase+".Index")},{"holes",object({{"index",args.at(0)}})}});
+      return call("index(IntList,Int)->Int", {bound("xs"), args.at(0)});
     case K::kMakeTuple:
       return call("concat(IntList,IntList)->IntList",{call("singleton(Int)->IntList",{call("if(Bool,Int,Int)->Int",{args[0],constant(1),constant(0)})}),call("concat(IntList,IntList)->IntList",{call("singleton(Int)->IntList",{args[1]}),call("singleton(Int)->IntList",{args[2]})})});
     case K::kTupleGet0:return call("ne(Int,Int)->Bool",{call("index(IntList,Int)->Int",{args[0],constant(0)}),constant(0)});
@@ -163,7 +165,7 @@ Json task_contract(const std::string& name) {
     {"source_max_phase_depth",number(7)},{"native_max_nodes",number(1024)},{"native_max_depth",number(48)}});
 }
 
-Json translated_root(const asgp::Individual& individual, const std::string& name) {
+Json translated_root(const asgp::Individual& individual, const std::string& name, bool guarded_index) {
   static std::map<std::string,asgp::TaskSpec> specs;
   auto it=specs.find(name);if(it==specs.end())it=specs.emplace(name,task(name)).first;
   const auto& spec=it->second;
@@ -175,7 +177,7 @@ Json translated_root(const asgp::Individual& individual, const std::string& name
                                            : std::vector<std::string>{"solve", "divide", "combine"};
   for (std::size_t p=0; p<names.size(); ++p) {
     std::size_t at=0;
-    holes.object_v[names[p]]=expression(individual.phases[p], at, dp, spec);
+    holes.object_v[names[p]]=expression(individual.phases[p], at, dp, spec, p==0?"Solve":dp?"Transition":p==1?"Divide":"Combine", guarded_index);
     if (at != individual.phases[p].size()) throw std::runtime_error("trailing ASGP nodes");
   }
   return object({{"template", string(dp ? (name=="house_robber" ? "Fixed.HouseRobber" : "Fixed.DP."+name) :
@@ -189,7 +191,9 @@ gagp::evo::ProgramGenome translate(const asgp::Individual& individual, const std
   auto root=*std::find_if(nonterminals.begin(), nonterminals.end(), [](const auto& row) {
     return row.object_v.at("id").string_v == "Root";
   });
-  root.object_v.at("alternatives").array_v.front().object_v["expression"]=translated_root(individual, name);
+  bool guarded_index=false;
+  for(const auto& t:doc.object_v.at("templates").array_v)if(t.object_v.at("id").string_v=="Fixed.Solve.Index")guarded_index=true;
+  root.object_v.at("alternatives").array_v.front().object_v["expression"]=translated_root(individual, name, guarded_index);
   doc.object_v["nonterminals"]=array({root});
   const auto exact=gg::compile_grammar(gg::parse_definition(gg::canonical_json(doc)));
   auto genome=gg::generate_derivation(exact, 0).genome;

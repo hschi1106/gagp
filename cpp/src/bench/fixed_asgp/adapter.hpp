@@ -22,7 +22,7 @@ Json encode(const asgp::Individual& individual, int phases);
 asgp::Individual decode(const Json& value);
 Json task_contract(const std::string& name);
 asgp::TaskSpec task(const std::string& name);
-Json translated_root(const asgp::Individual& individual, const std::string& name);
+Json translated_root(const asgp::Individual& individual, const std::string& name, bool guarded_index = false);
 gagp::evo::ProgramGenome translate(const asgp::Individual& individual, const std::string& name,
                                   const gg::ResolvedDefinition& definition,
                                   const gg::CompiledGrammar& grammar);

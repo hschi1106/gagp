@@ -1,5 +1,6 @@
 #include "adapter.hpp"
 #include "expanded_audit.hpp"
+#include "sampled_audit.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -531,6 +532,7 @@ int main(int argc,char** argv) try {
   else if ((argc==6 || argc==7) && std::string(argv[1])=="quality")
     fixed_asgp::expanded_quality(argv[2],argv[3],argv[4],argv[5],argc==7?argv[6]:"");
   else if (argc==6 && std::string(argv[1])=="prepare") prepare(read(argv[2]),argv[3],std::stoi(argv[4]),argv[5]);
+  else if (argc==5 && std::string(argv[1])=="sampled-audit") sampled_audit(read(argv[2]),argv[3],argv[4]);
   else if (argc==5 && std::string(argv[1])=="audit") audit(read(argv[2]),argv[3],argv[4]);
   else if (argc==8 && std::string(argv[1])=="measure") {
     const auto begin=Clock::now();
