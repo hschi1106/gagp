@@ -311,11 +311,11 @@ void test_trivial_pattern_refresh() {
 }
 
 void test_private_intlist_generations(bool sequence_windows=false) {
- const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_PRIVATE_MEASURE_CACHE","GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","GAGP_COMPACT_FRAMES","GAGP_GPU_WINDOW_LEAF_DIRECT","GAGP_GPU_PRIVATE_BOUND_PHASES","GAGP_BOUND_ADD_PHASE","GAGP_BOUND_COMPARE_PHASE","GAGP_GPU_PRIVATE_TYPED_PHASES","GAGP_GPU_PRIVATE_WARP_COPY","GAGP_COLD_PAYLOAD_PROOFS","GAGP_COLD_IMPORT_EXECUTABLES","GAGP_REUSE_IMPORT_CERTIFICATE","GAGP_REUSE_ADMISSION_COMPILE","GAGP_REUSE_IMPORTED_EXECUTABLE"};
+ const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_PRIVATE_MEASURE_CACHE","GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","GAGP_COMPACT_FRAMES","GAGP_GPU_WINDOW_LEAF_DIRECT","GAGP_GPU_PRIVATE_BOUND_PHASES","GAGP_BOUND_ADD_PHASE","GAGP_BOUND_COMPARE_PHASE","GAGP_GPU_PRIVATE_TYPED_PHASES","GAGP_GPU_PRIVATE_WARP_COPY","GAGP_COLD_PAYLOAD_PROOFS","GAGP_COLD_IMPORT_EXECUTABLES","GAGP_REUSE_IMPORT_CERTIFICATE","GAGP_REUSE_ADMISSION_COMPILE","GAGP_REUSE_IMPORTED_EXECUTABLE","GAGP_GPU_REUSE_PRIVATE_WORKSPACE"};
  struct Restore {
-  const char** flags;std::string saved[22];bool present[22];
-  explicit Restore(const char** f):flags(f){for(int i=0;i<22;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
-  ~Restore(){for(int i=0;i<22;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
+  const char** flags;std::string saved[23];bool present[23];
+  explicit Restore(const char** f):flags(f){for(int i=0;i<23;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
+  ~Restore(){for(int i=0;i<23;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
  } restore(flags);
  if(!sequence_windows)setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","0",1);
  const auto grammar=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
@@ -370,6 +370,7 @@ void test_private_intlist_generations(bool sequence_windows=false) {
  repro::NativePhasePopulation owner(grammar,parents,names);
  bool changed=false,saw_content_match=false;
  for(int generation=0;generation<=32;++generation) {
+  setenv("GAGP_GPU_REUSE_PRIVATE_WORKSPACE","0",1);
   setenv("GAGP_GPU_PRIVATE_WARP_COPY","0",1);
   setenv("GAGP_GPU_PRIVATE_TYPED_PHASES","0",1);
   setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","0",1);
@@ -392,7 +393,15 @@ void test_private_intlist_generations(bool sequence_windows=false) {
   setenv("GAGP_GPU_PRIVATE_TYPED_PHASES","1",1);
   const auto no_warp=owner.evaluate(session,true);
   setenv("GAGP_GPU_PRIVATE_WARP_COPY","1",1);
+  const auto unpooled=owner.evaluate(session,true);
+  setenv("GAGP_GPU_REUSE_PRIVATE_WORKSPACE","1",1);
   const auto gpu=owner.evaluate(session,true);
+  const auto dirty=owner.evaluate(session,true);
+  require(unpooled.ok && unpooled.fitness==gpu.fitness && unpooled.wrong==gpu.wrong && unpooled.case_counts==gpu.case_counts &&
+      dirty.ok && dirty.fitness==gpu.fitness && dirty.wrong==gpu.wrong && dirty.case_counts==gpu.case_counts &&
+      gpu.payload_workspace_retained_bytes>0 && gpu.payload_workspace_pool_peak_bytes<=gpu.payload_workspace_budget_bytes &&
+      dirty.payload_workspace_pool_peak_bytes<=dirty.payload_workspace_budget_bytes,
+      "fresh-generation pooled cells/frames/memo differ from ordinary execution");
   const auto cold_off=cold_control.evaluate(session,true);
   require(cold_off.ok && cold_off.fitness==gpu.fitness && cold_off.wrong==gpu.wrong && cold_off.case_counts==gpu.case_counts,
       "cold executable reuse changed fresh-generation full-case fitness");

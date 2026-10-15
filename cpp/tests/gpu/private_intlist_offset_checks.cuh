@@ -501,3 +501,90 @@ bool test_private_intlist_fitness() {
   }
   return test_private_intlist_region_lifetime();
 }
+
+bool test_reusable_private_workspace() {
+  ScopedEnvironment private_flag("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"),global("GAGP_GPU_GLOBAL_PAYLOAD"),
+      compact("GAGP_GPU_COMPACT_INTLIST_CELLS"),reuse("GAGP_GPU_REUSE_PRIVATE_WORKSPACE"),
+      budget("GAGP_GPU_PAYLOAD_WORKSPACE_MIB"),tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),
+      replay("GAGP_GPU_TILED_REPLAY"),adaptive("GAGP_GPU_ADAPTIVE_REPLAY"),diagnostics("GAGP_GPU_OVERFLOW_DIAGNOSTICS");
+  setenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS","1",1);setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
+  setenv("GAGP_GPU_COMPACT_INTLIST_CELLS","1",1);setenv("GAGP_GPU_PAYLOAD_WORKSPACE_MIB","65",1);
+  setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD","1",1);setenv("GAGP_GPU_TILED_REPLAY","1",1);
+  setenv("GAGP_GPU_ADAPTIVE_REPLAY","1",1);setenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS","0",1);
+  constexpr std::size_t mib=1024*1024;
+  const auto value=Value::from_int(INT64_MIN+7);
+  const auto answer=payload::make_int_list_value({value});
+  BytecodeProgram program;program.n_locals=1;
+  program.code={ins_a(Opcode::Load,0),ins_ab(Opcode::CallBuiltin,int(BuiltinId::Singleton),1),ins(Opcode::Return)};
+  const std::vector<BytecodeProgram> population(65,program);
+  const std::vector<CaseBindings> cases{{{0,value}}};const std::vector<Value> answers{answer};
+  FitnessPolicy policy;policy.metric=FitnessMetric::Exact;policy.list_allocation_limit=65536;
+  const auto cpu=eval_fitness_cpu(population,cases,answers,100,1000,1024,policy);
+  FitnessSessionGpu session;if(!session.init(cases,answers,100,1024,1000,policy).ok)return false;
+  setenv("GAGP_GPU_REUSE_PRIVATE_WORKSPACE","0",1);
+  const auto control=session.eval_programs(population,true);
+  if(!check(control.ok && control.fitness==cpu && !control.payload_workspace_retained_bytes,"ordinary private workspace control"))return false;
+  setenv("GAGP_GPU_REUSE_PRIVATE_WORKSPACE","1",1);
+  bool nested_rejected=false;int callbacks=0;
+  const auto first=session.eval_programs(population,true,[&] {
+    ++callbacks;
+    const auto nested=session.eval_programs(population,true);
+    const auto reset=session.init(cases,answers,100,1024,1000,policy);
+    nested_rejected=!nested.ok && !reset.ok && nested.err.message.find("in use")!=std::string::npos &&
+        reset.err.message.find("in use")!=std::string::npos;
+  });
+  if(!check(first.ok && first.fitness==cpu && first.wrong==control.wrong && first.case_counts==control.case_counts &&
+      callbacks==1 && nested_rejected && first.payload_workspace_pool_allocations==1 &&
+      first.payload_workspace_retained_bytes==64*mib && first.payload_workspace_pool_peak_bytes<=65*mib &&
+      first.initial_payload_physical_blocks==control.initial_payload_physical_blocks &&
+      first.execution_profile.find("-reuse-private-workspace-declined")==std::string::npos,
+      "single bounded backing/callback lease must preserve complete work"))return false;
+  auto different=program;different.consts={Value::from_int(INT64_MAX)};different.code[0]=ins_a(Opcode::PushConst,0);
+  for(const auto& current:{std::vector<BytecodeProgram>(65,different),population}) {
+    const auto expected=eval_fitness_cpu(current,cases,answers,100,1000,1024,policy);
+    const auto result=session.eval_programs(current,true);
+    if(!check(result.ok && result.fitness==expected && result.payload_workspace_pool_allocations==0 &&
+        result.payload_workspace_retained_bytes==first.payload_workspace_retained_bytes &&
+        result.payload_workspace_pool_peak_bytes<=65*mib,"dirty pooled cells changed CPU content fitness"))return false;
+  }
+  bool threw=false;
+  try {(void)session.eval_programs(population,true,[]{throw std::runtime_error("pooled callback test");});}
+  catch(const std::runtime_error&){threw=true;}
+  const auto recovered=session.eval_programs(population,true);
+  if(!check(threw && recovered.ok && recovered.fitness==cpu && recovered.payload_workspace_pool_allocations==0,
+      "throwing callback left pooled storage leased or unsafe"))return false;
+  // Same cap, more current diagnostics/partials: the old64MiB allocation no
+  // longer fits. Evict it BEFORE allocating those current scratch buffers.
+  setenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS","1",1);
+  const std::vector<BytecodeProgram> many(4096,program);
+  const auto headroom=session.eval_programs(many,true);
+  const std::size_t extra=4096*(2*sizeof(unsigned)+32*sizeof(unsigned)+32*sizeof(double))+sizeof(int);
+  if(!check(headroom.ok && headroom.fitness==std::vector<double>(4096,0) &&
+      headroom.payload_workspace_pool_allocations==1 && headroom.payload_workspace_retained_bytes==62*mib &&
+      headroom.payload_workspace_pool_peak_bytes==headroom.payload_workspace_retained_bytes+extra &&
+      headroom.payload_workspace_pool_peak_bytes<=65*mib,"retained capacity must count against current metadata/partial headroom"))return false;
+  for(const auto& counts:headroom.case_counts)if(!check(counts[0]==1 && !counts[1] && !counts[2],"pooled metadata resize omitted cases"))return false;
+  setenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS","0",1);
+  const auto grown=session.eval_programs(population,true);
+  setenv("GAGP_GPU_PAYLOAD_WORKSPACE_MIB","64",1);
+  const auto shrunk=session.eval_programs(population,true);
+  if(!check(grown.ok && grown.fitness==cpu && grown.payload_workspace_retained_bytes==64*mib &&
+      grown.payload_workspace_pool_allocations==1 && shrunk.ok && shrunk.fitness==cpu &&
+      shrunk.payload_workspace_retained_bytes==62*mib && shrunk.payload_workspace_pool_allocations==1 &&
+      shrunk.payload_workspace_pool_peak_bytes<=64*mib,"budget reduction retained hidden stage capacity"))return false;
+  FitnessSessionGpu moved(std::move(session));
+  const auto after_move=moved.eval_programs(population,true);
+  if(!check(after_move.ok && after_move.fitness==cpu && after_move.payload_workspace_pool_allocations==0,"session move lost reusable storage ownership"))return false;
+  setenv("GAGP_GPU_COMPACT_INTLIST_CELLS","0",1);
+  const auto declined=moved.eval_programs(population,true);
+  setenv("GAGP_GPU_COMPACT_INTLIST_CELLS","1",1);
+  const auto returned=moved.eval_programs(population,true);
+  if(!check(declined.ok && declined.fitness==cpu && !declined.payload_workspace_retained_bytes &&
+      declined.execution_profile.find("-reuse-private-workspace-declined")!=std::string::npos &&
+      returned.ok && returned.fitness==cpu && returned.payload_workspace_pool_allocations==1,
+      "unrelated storage profile must evict pooled backing"))return false;
+  if(!moved.init(cases,answers,100,1024,1000,policy).ok)return false;
+  const auto reset=moved.eval_programs(population,true);
+  return check(reset.ok && reset.fitness==cpu && reset.payload_workspace_pool_allocations==1 &&
+      reset.payload_workspace_pool_peak_bytes<=64*mib,"session reset retained old arena allocation");
+}
