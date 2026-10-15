@@ -323,6 +323,7 @@ asgp::Individual solution(const std::string& name) {
       out.phases[0]=single(typed_if(T::kChar,ge(1),typed_if(T::kChar,ge(0),chr('A'),chr('B')),typed_if(T::kChar,ge(2),chr('C'),typed_if(T::kChar,ge(3),chr('D'),chr('F')))),T::kCharList);
       out.phases[2]=concat_results(T::kCharList);
     } else if(name=="small_or_large") {
+      out.phases[1]=lit(0); // This task has no literal 1 in its source pool.
       const auto word=[&](const auto& self,const std::string& text)->E {
         if(text.size()==1)return single(chr(text[0]),T::kCharList);
         auto mid=text.size()/2;return expr(K::kConcat,T::kCharList,0,0,{self(self,text.substr(0,mid)),self(self,text.substr(mid))});
