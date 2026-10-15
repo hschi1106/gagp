@@ -545,23 +545,3 @@ This setting adds no payload arrays and does not change Slice or index clearing.
 The extended-payload test compares both implementations for all three typed-list
 kinds, missing payloads, empty operands, first-match collisions, capacity errors,
 logical limits, and full CPU/GPU list-output fitness parity.
-`GAGP_ARENA_WINDOW_EXECUTOR=1` is an experimental, disabled-by-default
-continuation-loop specialization for arena-backed `IntList` results. It requires
-compact frames and a uniformly eligible batch: sequence state 0 is `IntList`,
-there is at most one carried `Int`, one `InteriorCut` preparation, exactly two
-window requests, and no memoization or bound operands. The carried state can be
-copied or computed by the existing request-expression phase. Ineligible batches
-retain generic region execution. The profile suffix is `-arena-window` when the
-initial global arena or replay uses this path.
-
-The specialization preserves full `Value` child results and the generic phase
-VM and payload builtins. It checks sibling/combine tags, including fallback
-tokens, and preserves original entry/instruction fuel, frame limits, logical
-allocation charges, and physical-overflow replay. It does not widen private-view
-admission or use unboxed result storage or the direct-leaf shortcut. Both initial
-arena evaluation and replay inherit the same eligibility. This candidate has no
-established performance benefit; compare flag values `0` and `1` in the same
-binary before adopting it. The focused regression is
-`gagp_test_extended_payload_gpu` (window fuel boundaries, list and missing-payload
-results, fallback-index type errors, frame/logical limits, physical replay, and
-mixed ineligible layouts).

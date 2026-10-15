@@ -437,136 +437,6 @@ bool test_payload_replay_fitness() {
   return true;
 }
 
-BytecodeProgram arena_window_program(RegionPhase base, RegionPhase combine, bool carry=false) {
-  BoundedRegionSegment segment;
-  auto& plan=segment.plan;
-  plan.progress=RegionProgressKind::SequenceWindows;
-  plan.state_types={ValueTag::IntList};
-  if(carry)plan.state_types.push_back(ValueTag::Int);
-  plan.result_type=ValueTag::IntList;
-  plan.sequence_state=0;
-  plan.preparations={{ValueTag::Int,RegionPreparationKind::InteriorCut}};
-  plan.memoized=false;
-  plan.limits={32,0,1};
-  RegionStateTransition left,right,copy;
-  left.kind=right.kind=RegionTransitionKind::SequenceWindow;
-  left.source_state=right.source_state=0;
-  left.window={{WindowEndpointKind::Begin,0},{WindowEndpointKind::InteriorCut,0}};
-  right.window={{WindowEndpointKind::InteriorCut,0},{WindowEndpointKind::End,0}};
-  plan.requests={{{left}},{{right}}};
-  if(carry) {
-    copy.kind=RegionTransitionKind::CopyState;copy.source_state=1;
-    for(auto& request:plan.requests)request.states.push_back(copy);
-    plan.requests[1].states[1]=RegionStateTransition{};
-    plan.requests[1].states[1].kind=RegionTransitionKind::Expression;
-    plan.requests[1].states[1].expression=0;
-    plan.request_expression_types={ValueTag::Int};
-    segment.request_expressions={load_phase(RegionSlotBank::State,1)};
-  }
-  segment.base_predicate=constant_phase(Value::from_bool(false));
-  segment.preparations={constant_phase(Value::from_int(1))};
-  segment.base_body=std::move(base);segment.combine=std::move(combine);
-  BytecodeProgram program;
-  program.n_locals=1;
-  program.code={ins_a(Opcode::Load,0)};
-  if(carry) {
-    program.consts={Value::from_int(INT64_MIN)};
-    program.code.push_back(ins_a(Opcode::PushConst,0));
-  }
-  program.code.push_back(ins_a(Opcode::BoundedRegion,0));
-  program.code.push_back(ins(Opcode::Return));
-  program.instruction_fuel.assign(program.code.size(),0);
-  program.instruction_fuel[program.code.size()-2]=1;
-  program.bounded_region_segments.push_back(std::move(segment));
-  return program;
-}
-
-bool test_arena_window_executor() {
-  ScopedEnvironment restore_window("GAGP_ARENA_WINDOW_EXECUTOR"),
-      restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),restore_compact("GAGP_COMPACT_FRAMES"),
-      restore_index("GAGP_GPU_PAYLOAD_INDEX"),restore_tiled("GAGP_GPU_TILED_REPLAY");
-  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
-  setenv("GAGP_COMPACT_FRAMES","1",1);
-  setenv("GAGP_GPU_PAYLOAD_INDEX","1",1);
-  setenv("GAGP_GPU_TILED_REPLAY","1",1);
-  const auto concat=phase({},
-      {ins_a(Opcode::Load,0),ins_a(Opcode::Load,1),
-       ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Concat),2),ins(Opcode::Return)},
-      {{slot(RegionSlotBank::Result,0),0},{slot(RegionSlotBank::Result,1),1}},2);
-  const auto identity=arena_window_program(load_phase(RegionSlotBank::State,0),concat);
-  const auto carried=arena_window_program(load_phase(RegionSlotBank::State,0),concat,true);
-  const auto missing=Value::from_int_list_hash_len(928374651,1);
-  const auto fallback_base=phase({missing,Value::from_int(7)},
-      {ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),
-       ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),
-       ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Concat),2),ins(Opcode::Return)});
-  const auto fallback=arena_window_program(fallback_base,load_phase(RegionSlotBank::Result,0));
-  const auto empty=payload::make_int_list_value({});
-  const auto fallback_index_base=phase({missing,Value::from_int(0)},
-      {ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),
-       ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Index),2),
-       ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),ins(Opcode::Return)});
-  const auto wrong_tag=arena_window_program(fallback_index_base,concat);
-  auto frame_limited=identity;frame_limited.bounded_region_segments[0].plan.limits.frames=1;
-  const auto one=payload::make_int_list_value({Value::from_int(INT64_MAX)});
-  const auto four=payload::make_int_list_value({Value::from_int(1),Value::from_int(2),Value::from_int(3),Value::from_int(4)});
-  const std::vector<CaseBindings> cases{{{0,empty}},{{0,one}},{{0,four}}};
-  const std::vector<Value> answers{empty,one,four};
-  FitnessPolicy policy{FitnessMetric::Exact};policy.list_allocation_limit=65536;
-  const std::vector<BytecodeProgram> programs{identity,carried,fallback,wrong_tag,frame_limited};
-  // Phases have zero instruction fuel; root/each recursive entry cost one.
-  // 0..10 spans every fuel boundary of the four-element (seven-entry) tree.
-  for(int fuel=0;fuel<=10;++fuel) for(const char* enabled:{"0","1"}) {
-    setenv("GAGP_ARENA_WINDOW_EXECUTOR",enabled,1);
-    std::vector<CpuFitnessCaseCounts> counts;
-    const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,1000,33,policy,nullptr,&counts);
-    FitnessSessionGpu session;
-    if(!check(session.init(cases,answers,fuel,33,1000,policy).ok,"arena window fuel init"))return false;
-    const auto gpu=session.eval_programs(programs,true);
-    if(!check(gpu.ok && gpu.fitness==cpu,"arena window list/fallback/fuel parity")) {
-      std::cerr<<gpu.err.message<<" fuel="<<fuel<<" enabled="<<enabled<<'\n';return false;
-    }
-    if(!check((gpu.execution_profile.find("-arena-window")!=std::string::npos)==(enabled[0]=='1'),
-        "arena window opt-in selection"))return false;
-    for(std::size_t p=0;p<programs.size();++p)
-      if(!check(gpu.case_counts[p][0]==counts[p].cases && gpu.case_counts[p][1]==counts[p].errors &&
-          gpu.case_counts[p][2]==counts[p].timeouts,"arena window status parity"))return false;
-    if(fuel==10 && !check(gpu.case_counts[2][3]==0 && gpu.case_counts[2][1]==0 && gpu.case_counts[3][1]==3 &&
-        gpu.case_counts[4][2]==1,"arena window fallback/type/frame paths not exercised"))return false;
-  }
-  // Large constant leaves force physical arena replay; a small logical budget
-  // instead produces the same semantic error on CPU and GPU.
-  std::vector<Value> repeated(3000,Value::from_int(7));
-  const auto large=arena_window_program(constant_phase(payload::make_int_list_value(repeated)),concat);
-  repeated.resize(12000,Value::from_int(7));
-  const std::vector<CaseBindings> large_cases{{{0,four}}};
-  const std::vector<Value> large_answers{payload::make_int_list_value(repeated)};
-  for(unsigned limit:{65536u,8u}) for(const char* enabled:{"0","1"}) {
-    policy.list_allocation_limit=limit;
-    setenv("GAGP_ARENA_WINDOW_EXECUTOR",enabled,1);
-    std::vector<CpuFitnessCaseCounts> counts;
-    const auto cpu=eval_fitness_cpu({large},large_cases,large_answers,100,1000,33,policy,nullptr,&counts);
-    FitnessSessionGpu session;
-    if(!check(session.init(large_cases,large_answers,100,33,1000,policy).ok,"arena window resource init"))return false;
-    const auto gpu=session.eval_programs({large},true);
-    if(!check(gpu.ok && gpu.fitness==cpu && gpu.case_counts[0][0]==1 &&
-        gpu.case_counts[0][1]==counts[0].errors && gpu.case_counts[0][2]==counts[0].timeouts &&
-        (limit==65536 ? gpu.payload_replay_programs==1 && cpu[0]==0 : gpu.payload_replay_programs==0 && counts[0].errors==1),
-        "arena window replay/logical resource parity"))return false;
-  }
-  // A population with an unsupported request shape must retain generic routing.
-  // Use a valid coordinate segment as the ineligible peer instead.
-  const auto peer=invocation(unary_segment(ValueTag::IntList,constant_phase(empty),
-      load_phase(RegionSlotBank::Result,0)),1);
-  setenv("GAGP_ARENA_WINDOW_EXECUTOR","1",1);
-  policy.list_allocation_limit=65536;
-  FitnessSessionGpu mixed;
-  if(!check(mixed.init(cases,answers,100,33,1000,policy).ok,"arena window mixed init"))return false;
-  const auto gpu=mixed.eval_programs({identity,peer},true);
-  return check(gpu.ok && gpu.fitness==eval_fitness_cpu({identity,peer},cases,answers,100,1000,33,policy) &&
-      gpu.execution_profile.find("-arena-window")==std::string::npos,"mixed unsupported layout entered arena window executor");
-}
-
 bool test_global_window_aliases() {
   ScopedEnvironment restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),restore_aliases("GAGP_GPU_GLOBAL_WINDOW_ALIASES");
   setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
@@ -717,7 +587,7 @@ int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_fused_concat() || !test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() || !test_arena_window_executor() ||
+  if (!test_fused_concat() || !test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

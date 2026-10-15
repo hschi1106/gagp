@@ -94,7 +94,6 @@ struct DRegionWorkspace {
   int* payload_list_index = nullptr;
   bool payload_window_aliases = false;
   bool fused_list_concat = false;
-  bool arena_window_executor = false; // Opt-in structural window loop; full Value results.
   int payload_entry_capacity = 0;
   int payload_value_capacity = 0;
   int payload_byte_capacity = 0;
