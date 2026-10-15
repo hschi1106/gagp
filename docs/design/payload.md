@@ -621,3 +621,14 @@ memory, so total device usage can exceed this arena cap. With enough pending
 work, 2/4 GiB caps can consume approximately 2/4 GiB of arena scratch. Treat those
 as explicit per-run A/B settings, not a new default or an established speedup.
 The parser and exact-cap arithmetic are checked by `gagp_test_fitness_contract`.
+
+`GAGP_GPU_SMALL_INT_HASH=1`, together with `GAGP_GPU_FUSED_LIST_CONCAT=1`,
+optionally replaces the shallow element-hash calculation for Int values in
+[-256,255] with an exact 512-entry table lookup. The 4 KiB table is initialized at
+compile time in device global memory and uses read-only cached loads; it is not
+CUDA constant memory and needs no per-evaluation upload or initialization.
+Other values and tags use the original hash routine. Outer list hashing,
+payload allocation, fuel, and numeric semantics are unchanged. The execution
+profile adds `-small-int-hash`. The extended payload GPU test checks every table
+entry, adjacent bounds, full-width integer patterns, all other tags, typed-list
+Concat errors/capacity/collisions, and full-case CPU fitness with the flag off/on.

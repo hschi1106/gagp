@@ -35,6 +35,7 @@ struct DThreadPayloadStateT {
   bool physical_capacity_exceeded = false;
   unsigned physical_capacity_reason = 0;
   bool fused_list_concat = false;
+  bool small_int_hash = false;
   bool alias_windows = false;
   char string_bytes[(MaxStringBytes > 0) ? MaxStringBytes : 1];
   Value list_values[(MaxListValues > 0) ? MaxListValues : 1];
@@ -70,6 +71,7 @@ struct DArenaPayloadState {
   bool physical_capacity_exceeded = false;
   unsigned physical_capacity_reason = 0;
   bool fused_list_concat = false;
+  bool small_int_hash = false;
 };
 
 // Opt-in variants keep the default evaluator's storage layout unchanged.
@@ -194,6 +196,28 @@ __device__ inline std::uint64_t d_hash_value_shallow(const Value& v) {
     return Value::fnv1a_mix_u64(h, bits.u);
   }
   return Value::fnv1a_mix_u64(h, static_cast<std::uint64_t>(v.i));
+}
+
+// Compile-time initialized global memory, deliberately not CUDA constant
+// memory: lanes may request unrelated integer values without serialization.
+struct DSmallIntHashTable { unsigned long long values[512]{}; };
+constexpr DSmallIntHashTable d_make_small_int_hash_table() {
+  DSmallIntHashTable table{};
+  for (int i = 0; i < 512; ++i) {
+    auto h = (1469598103934665603ULL ^ static_cast<unsigned char>(ValueTag::Int)) * 1099511628211ULL;
+    const auto bits = static_cast<unsigned long long>(static_cast<long long>(i - 256));
+    for (int byte = 0; byte < 8; ++byte)
+      h = (h ^ ((bits >> (byte * 8)) & 255ULL)) * 1099511628211ULL;
+    table.values[i] = h;
+  }
+  return table;
+}
+static __device__ const DSmallIntHashTable d_small_int_hash_table = d_make_small_int_hash_table();
+
+__device__ inline std::uint64_t d_hash_concat_element(const Value& value, bool small_int_hash) {
+  if (small_int_hash && value.tag == ValueTag::Int && value.i >= -256 && value.i <= 255)
+    return __ldg(&d_small_int_hash_table.values[static_cast<int>(value.i) + 256]);
+  return d_hash_value_shallow(value);
 }
 
 __device__ inline std::uint64_t d_hash_list_payload(const Value* elems, int n) {
@@ -782,11 +806,11 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
             h=Value::fnv1a_mix_u64(h,static_cast<std::uint64_t>(al+bl));
             for(int i=0;i<al;++i) {
               const Value value=ap[i];st.list_values[off+i]=value;
-              h=Value::fnv1a_mix_u64(h,d_hash_value_shallow(value));
+              h=Value::fnv1a_mix_u64(h,d_hash_concat_element(value,st.small_int_hash));
             }
             for(int i=0;i<bl;++i) {
               const Value value=bp[i];st.list_values[off+al+i]=value;
-              h=Value::fnv1a_mix_u64(h,d_hash_value_shallow(value));
+              h=Value::fnv1a_mix_u64(h,d_hash_concat_element(value,st.small_int_hash));
             }
           } else {
             for (int i = 0; i < al; ++i) st.list_values[off + i] = ap[i];

@@ -357,6 +357,16 @@ bool test_scalar_region_index_rollback() {
   return true;
 }
 
+bool test_small_int_hash_fitness() {
+  ScopedEnvironment restore_hash("GAGP_GPU_SMALL_INT_HASH"),restore_fused("GAGP_GPU_FUSED_LIST_CONCAT");
+  setenv("GAGP_GPU_FUSED_LIST_CONCAT","1",1);
+  for(const char* enabled:{"0","1"}) {
+    setenv("GAGP_GPU_SMALL_INT_HASH",enabled,1);
+    if(!test_extended_list_fitness())return false;
+  }
+  return true;
+}
+
 bool test_private_list_index() {
   gpu_detail::DIndexedExtendedPayloadState* state=nullptr;int* failures=nullptr;
   if(cudaMallocManaged(&state,sizeof(*state))!=cudaSuccess)return false;
@@ -603,7 +613,23 @@ bool test_extended_payload() {
 __global__ void inspect_fused_concat(int* failure) {
   using namespace gpu_detail;
   *failure=0;
-  for(int type=0;type<3;++type) for(int scenario=0;scenario<11;++scenario) {
+  for(int i=-257;i<=256;++i) {
+    const auto value=Value::from_int(i);
+    if(d_hash_concat_element(value,true)!=d_hash_value_shallow(value) ||
+        d_hash_concat_element(value,false)!=d_hash_value_shallow(value)){*failure=10000+i+257;return;}
+  }
+  unsigned long long bits=0x8000000000000000ULL;
+  for(int sample=0;sample<128;++sample) {
+    // Full-width signed extremes and deterministic random patterns, including
+    // Float NaN/-zero bits, must retain the original tag-dependent hash.
+    for(int tag=0;tag<=static_cast<int>(ValueTag::Invalid);++tag) {
+      Value value=Value::from_int(static_cast<long long>(bits));
+      value.tag=static_cast<ValueTag>(tag);value.b=(sample&1)!=0;
+      if(d_hash_concat_element(value,true)!=d_hash_value_shallow(value)){*failure=11000+sample;return;}
+    }
+    bits=sample==0?0x7fffffffffffffffULL:bits*6364136223846793005ULL+1442695040888963407ULL;
+  }
+  for(int small_hash=0;small_hash<2;++small_hash) for(int type=0;type<3;++type) for(int scenario=0;scenario<11;++scenario) {
     const ValueTag tag=type==0?ValueTag::IntList:type==1?ValueTag::FloatList:ValueTag::StringList;
     Value source[3];
     if(type==0) {source[0]=Value::from_int(9007199254740993LL);source[1]=Value::from_int(-3);source[2]=Value::from_int(7);}
@@ -621,6 +647,7 @@ __global__ void inspect_fused_concat(int* failure) {
       state.list_entry_capacity=scenario==5?0:16;state.kMaxListValues=scenario==4?2:16;
       state.logical_list_limit=scenario==8?0:scenario==6?2:3;
       state.fused_list_concat=variant!=0;
+      state.small_int_hash=small_hash!=0;
       if(scenario==9) {
         // Two colliding source registrations must still select the first.
         cells[variant][0]=source[2];cells[variant][1]=source[1];cells[variant][2]=source[0];
@@ -834,7 +861,7 @@ int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }
