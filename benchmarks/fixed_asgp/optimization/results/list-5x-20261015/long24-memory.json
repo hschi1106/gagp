@@ -1,0 +1,83 @@
+{
+  "note": "External250ms processRSS sampling, not device peak; history/export/audit included. Short G24 run cannot prove bounded long-run memory.",
+  "rows": [
+    {
+      "task": "filter_odd",
+      "runtime": "lossless",
+      "peak_process_rss_mib": 560.11328125,
+      "genotype_device_bytes": 761570396,
+      "early4_generation_ms": 759.1282715,
+      "late4_generation_ms": 1146.0928085,
+      "rss_medians_by_completed_generation_range": {
+        "0-7": 374.671875,
+        "8-15": 309.24609375,
+        "16-23": 313.046875
+      }
+    },
+    {
+      "task": "filter_odd",
+      "runtime": "warp",
+      "peak_process_rss_mib": 580.08203125,
+      "genotype_device_bytes": 761570396,
+      "early4_generation_ms": 313.6130445,
+      "late4_generation_ms": 367.90940850000004,
+      "rss_medians_by_completed_generation_range": {
+        "0-7": 402.921875,
+        "8-15": 403.0,
+        "16-23": 405.421875
+      }
+    },
+    {
+      "task": "negative_to_zero",
+      "runtime": "lossless",
+      "peak_process_rss_mib": 436.375,
+      "genotype_device_bytes": 758392348,
+      "early4_generation_ms": 748.962163,
+      "late4_generation_ms": 1304.235696,
+      "rss_medians_by_completed_generation_range": {
+        "0-7": 367.55859375,
+        "8-15": 309.5234375,
+        "16-23": 310.1953125
+      }
+    },
+    {
+      "task": "negative_to_zero",
+      "runtime": "warp",
+      "peak_process_rss_mib": 455.1484375,
+      "genotype_device_bytes": 758392348,
+      "early4_generation_ms": 292.6029375,
+      "late4_generation_ms": 408.11483150000004,
+      "rss_medians_by_completed_generation_range": {
+        "0-7": 399.8203125,
+        "8-15": 400.1328125,
+        "16-23": 400.2890625
+      }
+    },
+    {
+      "task": "small_or_large",
+      "runtime": "lossless",
+      "peak_process_rss_mib": 626.6640625,
+      "genotype_device_bytes": 764650844,
+      "early4_generation_ms": 54.237638000000004,
+      "late4_generation_ms": 150.5762385,
+      "rss_medians_by_completed_generation_range": {
+        "0-7": 388.69140625,
+        "8-15": 402.4296875,
+        "16-23": 406.3359375
+      }
+    },
+    {
+      "task": "small_or_large",
+      "runtime": "warp",
+      "peak_process_rss_mib": 643.36328125,
+      "genotype_device_bytes": 764650844,
+      "early4_generation_ms": 31.867348,
+      "late4_generation_ms": 54.970541,
+      "rss_medians_by_completed_generation_range": {
+        "0-7": 417.66015625,
+        "8-15": 431.97265625,
+        "16-23": 534.009765625
+      }
+    }
+  ]
+}

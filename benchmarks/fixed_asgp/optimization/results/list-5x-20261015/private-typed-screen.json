@@ -1,0 +1,167 @@
+{
+  "raw": "logs/list-5x-20261015/private-typed-screen",
+  "commit": "e8d41f9",
+  "note": "Full fixed snapshots allscores/status exact; small-task compile-only regression visible and no standalone normalization gain.",
+  "rows": [
+    {
+      "task": "filter_odd",
+      "label": "old",
+      "status": "ok",
+      "eval_ms": 460.007916,
+      "payload_replay_programs": 67,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "filter_odd",
+      "label": "off",
+      "status": "ok",
+      "eval_ms": 457.483995,
+      "payload_replay_programs": 67,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "filter_odd",
+      "label": "globals",
+      "status": "ok",
+      "eval_ms": 457.249562,
+      "payload_replay_programs": 67,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "filter_odd",
+      "label": "typed",
+      "status": "ok",
+      "eval_ms": 424.602961,
+      "payload_replay_programs": 67,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "for_loop_index",
+      "label": "old",
+      "status": "ok",
+      "eval_ms": 423.411329,
+      "payload_replay_programs": 64,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "for_loop_index",
+      "label": "off",
+      "status": "ok",
+      "eval_ms": 425.611422,
+      "payload_replay_programs": 64,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "for_loop_index",
+      "label": "globals",
+      "status": "ok",
+      "eval_ms": 430.820121,
+      "payload_replay_programs": 64,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "for_loop_index",
+      "label": "typed",
+      "status": "ok",
+      "eval_ms": 374.933752,
+      "payload_replay_programs": 64,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "even_squares",
+      "label": "old",
+      "status": "ok",
+      "eval_ms": 656.888805,
+      "payload_replay_programs": 86,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "even_squares",
+      "label": "off",
+      "status": "ok",
+      "eval_ms": 667.834021,
+      "payload_replay_programs": 86,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "even_squares",
+      "label": "globals",
+      "status": "ok",
+      "eval_ms": 664.524629,
+      "payload_replay_programs": 86,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "even_squares",
+      "label": "typed",
+      "status": "ok",
+      "eval_ms": 604.421001,
+      "payload_replay_programs": 86,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "double_letters",
+      "label": "old",
+      "status": "ok",
+      "eval_ms": 1628.38646,
+      "payload_replay_programs": 334,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "double_letters",
+      "label": "off",
+      "status": "ok",
+      "eval_ms": 1631.636254,
+      "payload_replay_programs": 334,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "double_letters",
+      "label": "globals",
+      "status": "ok",
+      "eval_ms": 1630.818822,
+      "payload_replay_programs": 334,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "double_letters",
+      "label": "typed",
+      "status": "ok",
+      "eval_ms": 1600.371293,
+      "payload_replay_programs": 334,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "small_or_large",
+      "label": "old",
+      "status": "ok",
+      "eval_ms": 57.953905,
+      "payload_replay_programs": 0,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "small_or_large",
+      "label": "off",
+      "status": "ok",
+      "eval_ms": 63.553915,
+      "payload_replay_programs": 0,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "small_or_large",
+      "label": "globals",
+      "status": "ok",
+      "eval_ms": 65.411082,
+      "payload_replay_programs": 0,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "small_or_large",
+      "label": "typed",
+      "status": "ok",
+      "eval_ms": 62.965659,
+      "payload_replay_programs": 0,
+      "same_program_scores_status": true
+    }
+  ]
+}

@@ -1,0 +1,192 @@
+{
+  "decision": "SoA rejected and removed by68a8ee8; global-offset preparation has no independent speedup and is retained only as pending typed-VM prerequisite, not current best setting.",
+  "commits": [
+    "54ca35e",
+    "c61acb5",
+    "68a8ee8"
+  ],
+  "raw": "logs/list-5x-20261015/globals-soa-screen",
+  "all_scores_status_equal": true,
+  "rows": [
+    {
+      "task": "filter_odd",
+      "label": "base",
+      "status": "ok",
+      "eval_ms": 514.749854,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 67,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "filter_odd",
+      "label": "globals",
+      "status": "ok",
+      "eval_ms": 516.945147,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 67,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "filter_odd",
+      "label": "soa",
+      "status": "ok",
+      "eval_ms": 526.850392,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 67,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "filter_odd",
+      "label": "both",
+      "status": "ok",
+      "eval_ms": 525.699923,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 67,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "for_loop_index",
+      "label": "base",
+      "status": "ok",
+      "eval_ms": 469.64417,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 64,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "for_loop_index",
+      "label": "globals",
+      "status": "ok",
+      "eval_ms": 467.902746,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 64,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "for_loop_index",
+      "label": "soa",
+      "status": "ok",
+      "eval_ms": 463.80491,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 64,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "for_loop_index",
+      "label": "both",
+      "status": "ok",
+      "eval_ms": 462.11193,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 64,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "even_squares",
+      "label": "base",
+      "status": "ok",
+      "eval_ms": 780.8392,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 86,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "even_squares",
+      "label": "globals",
+      "status": "ok",
+      "eval_ms": 781.728817,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 86,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "even_squares",
+      "label": "soa",
+      "status": "ok",
+      "eval_ms": 896.890735,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 86,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "even_squares",
+      "label": "both",
+      "status": "ok",
+      "eval_ms": 892.260433,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 86,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "double_letters",
+      "label": "base",
+      "status": "ok",
+      "eval_ms": 1706.797251,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 334,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "double_letters",
+      "label": "globals",
+      "status": "ok",
+      "eval_ms": 1713.505784,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 334,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "double_letters",
+      "label": "soa",
+      "status": "ok",
+      "eval_ms": 1650.365717,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 334,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "double_letters",
+      "label": "both",
+      "status": "ok",
+      "eval_ms": 1644.308484,
+      "initial_payload_physical_blocks": 3499,
+      "payload_replay_programs": 334,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "small_or_large",
+      "label": "base",
+      "status": "ok",
+      "eval_ms": 56.57804,
+      "initial_payload_physical_blocks": 1024,
+      "payload_replay_programs": 0,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "small_or_large",
+      "label": "globals",
+      "status": "ok",
+      "eval_ms": 58.048765,
+      "initial_payload_physical_blocks": 1024,
+      "payload_replay_programs": 0,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "small_or_large",
+      "label": "soa",
+      "status": "ok",
+      "eval_ms": 56.4161,
+      "initial_payload_physical_blocks": 1024,
+      "payload_replay_programs": 0,
+      "same_program_scores_status": true
+    },
+    {
+      "task": "small_or_large",
+      "label": "both",
+      "status": "ok",
+      "eval_ms": 56.677319,
+      "initial_payload_physical_blocks": 1024,
+      "payload_replay_programs": 0,
+      "same_program_scores_status": true
+    }
+  ]
+}
