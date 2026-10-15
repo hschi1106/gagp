@@ -96,6 +96,11 @@ int main() {
   std::vector<unsigned> wrong;
   const auto tuple_counts=gagp::eval_fitness_cpu({returns(tuple_a),runtime_error},{{}},{tuple_b},100,10,1,tuple,&wrong);
   if(!check(wrong==std::vector<unsigned>{0,1},"tuple solved predicate ignores summary distance; error is wrong"))return 1;
+  const Value large_actual[]={Value::from_int(1),Value::from_int(INT64_MAX)};
+  const Value large_expected[]={Value::from_int(1),Value::from_int(INT64_MAX-1)};
+  tuple.summary_count=1;unsigned scratch[3];
+  if(!check(std::fabs(gagp::fitness_sequence_score(large_actual,2,large_expected,2,10,tuple,scratch)+.01)<1e-12,
+      "tuple summary gap retains low integer bits"))return 1;
   std::cout << "gagp_test_fitness_contract: OK\n";
   return 0;
 }

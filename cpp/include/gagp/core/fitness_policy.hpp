@@ -28,6 +28,9 @@ GAGP_FIT_HD inline double fitness_error_ceiling(FitnessPolicy policy, double pen
       (policy.metric != FitnessMetric::Legacy && policy.proximity == FitnessProximity::Discounted)
       ? 1.0 : fabs(penalty);
 }
+GAGP_FIT_HD inline double fitness_integer_gap(std::int64_t a,std::int64_t b) {
+  return double(a>=b ? std::uint64_t(a)-std::uint64_t(b) : std::uint64_t(b)-std::uint64_t(a));
+}
 GAGP_FIT_HD inline double fitness_case_score(const Value& actual, const Value& expected,
                                             double penalty, FitnessPolicy policy) {
   double score = 0;
@@ -47,8 +50,7 @@ GAGP_FIT_HD inline double fitness_case_score(const Value& actual, const Value& e
   if (!numeric || !std::isfinite(a) || !std::isfinite(b))
     return -fitness_error_ceiling(policy,penalty);
   const double error = actual.tag==ValueTag::Int && expected.tag==ValueTag::Int
-      ? double(actual.i>=expected.i ? std::uint64_t(actual.i)-std::uint64_t(expected.i)
-                                   : std::uint64_t(expected.i)-std::uint64_t(actual.i)) : fabs(a-b);
+      ? fitness_integer_gap(actual.i,expected.i) : fabs(a-b);
   if (!std::isfinite(error)) return -fitness_error_ceiling(policy,penalty);
   return policy.proximity == FitnessProximity::Discounted ? -error/(1.0+error) : -fmin(error,fabs(penalty));
 }
@@ -60,12 +62,13 @@ GAGP_FIT_HD inline double fitness_sequence_score(const Value* actual, int n,
   if (n < 0 || m < 0 || m > kFitnessMaxSequence)
     return -fitness_error_ceiling(policy,penalty);
   if (policy.metric == FitnessMetric::TupleSummary) {
-    if (n != policy.summary_count+1 || m != n) return -fitness_error_ceiling(policy,penalty);
+    if (n != policy.summary_count+1 || m != n || actual[0].tag!=ValueTag::Int || expected[0].tag!=ValueTag::Int)
+      return -fitness_error_ceiling(policy,penalty);
     double error = actual[0].i == expected[0].i ? 0.0 : 1.0;
     for (int i=1;i<n;++i) {
       if(actual[i].tag!=ValueTag::Int || expected[i].tag!=ValueTag::Int)
         return -fitness_error_ceiling(policy,penalty);
-      error += policy.summary_weight * fmin(fabs(double(actual[i].i)-double(expected[i].i)),policy.summary_cap)/policy.summary_cap;
+      error += policy.summary_weight * fmin(fitness_integer_gap(actual[i].i,expected[i].i),policy.summary_cap)/policy.summary_cap;
     }
     return -error;
   }

@@ -218,7 +218,7 @@ std::vector<ScoredGenomeRef> score_refs(
   std::vector<ScoredGenomeRef> refs;
   refs.reserve(scored.size());
   for (const auto& one : scored)
-    refs.push_back(ScoredGenomeRef{&one.genome, one.fitness});
+    refs.push_back(ScoredGenomeRef{&one.genome, one.fitness, one.wrong});
   return refs;
 }
 
@@ -275,6 +275,14 @@ void test_backend_replay_and_owned_ref_parity() {
   check_same_counters(referenced.stats.variation, owned_a.stats.variation,
       "owned and referenced backend overloads changed variation counters");
   require_population_membership(*grammar, referenced.next_population);
+  auto task_scored=scored;
+  for(std::size_t i=0;i<task_scored.size();++i){task_scored[i].fitness=-1;task_scored[i].wrong=int(task_scored.size()-i);}
+  const auto task_refs=score_refs(task_scored);
+  std::mt19937_64 task_owned_rng(4321),task_ref_rng(4321);
+  const auto task_owned=repro::run_reproduction_backend(task_scored,cfg,task_owned_rng);
+  const auto task_reference=repro::run_reproduction_backend(task_refs,cfg,task_ref_rng);
+  check_same_population(task_owned.next_population,task_reference.next_population,
+      "task wrong-case ranking lost across owned/ref reproduction overloads");
 }
 
 void test_deferred_site_analysis_matches_eager() {

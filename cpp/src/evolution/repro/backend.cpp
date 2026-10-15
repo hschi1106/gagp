@@ -67,8 +67,10 @@ std::vector<std::size_t> gpu_style_selection_indices(
     int best = permuted_index(size, begin, seed);
     for (int logical = begin + 1; logical < end; ++logical) {
       const int candidate = permuted_index(size, logical, seed);
-      if (scored[static_cast<std::size_t>(candidate)].fitness >
-          scored[static_cast<std::size_t>(best)].fitness) best = candidate;
+      if (scored[static_cast<std::size_t>(candidate)].wrong>=0
+          ? scored_genome_sorts_before(scored[candidate],scored[best])
+          : scored[static_cast<std::size_t>(candidate)].fitness > scored[static_cast<std::size_t>(best)].fitness)
+        best = candidate;
     }
     selected.push_back(static_cast<std::size_t>(best));
   }
@@ -377,7 +379,7 @@ ReproductionResult run_cpu_backend(const std::vector<ScoredGenome>& scored,
                                    const EvolutionConfig& cfg, std::mt19937_64& rng) {
   std::vector<ScoredGenomeRef> refs;
   refs.reserve(scored.size());
-  for (const auto& one : scored) refs.push_back({&one.genome, one.fitness});
+  for (const auto& one : scored) refs.push_back({&one.genome, one.fitness, one.wrong});
   return run_cpu_backend_impl(refs, cfg, rng);
 }
 

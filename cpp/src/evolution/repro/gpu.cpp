@@ -129,20 +129,17 @@ GpuReproRuntimeCache& gpu_runtime_cache() {
 }
 #endif
 
-std::vector<double> extract_fitness(const std::vector<ScoredGenome>& scored) {
+template<class Scored>
+std::vector<double> extract_fitness(const std::vector<Scored>& scored) {
   std::vector<double> fitness;
   fitness.reserve(scored.size());
-  for (const ScoredGenome& one : scored) {
+  for (const auto& one : scored)
     fitness.push_back(canonicalize_fitness_for_ranking(one.fitness));
-  }
-  return fitness;
-}
-
-std::vector<double> extract_fitness(const std::vector<ScoredGenomeRef>& scored) {
-  std::vector<double> fitness;
-  fitness.reserve(scored.size());
-  for (const ScoredGenomeRef& one : scored) {
-    fitness.push_back(canonicalize_fitness_for_ranking(one.fitness));
+  if(!scored.empty() && scored.front().wrong>=0) {
+    std::vector<std::size_t> order(scored.size());
+    for(std::size_t i=0;i<order.size();++i)order[i]=i;
+    std::stable_sort(order.begin(),order.end(),[&](auto a,auto b){return scored_genome_sorts_before(scored[a],scored[b]);});
+    for(std::size_t rank=0;rank<order.size();++rank)fitness[order[rank]]=double(order.size()-rank);
   }
   return fitness;
 }
@@ -151,7 +148,7 @@ std::vector<ScoredGenomeRef> make_scored_refs(const std::vector<ScoredGenome>& s
   std::vector<ScoredGenomeRef> refs;
   refs.reserve(scored.size());
   for (const ScoredGenome& one : scored) {
-    refs.push_back(ScoredGenomeRef{&one.genome, one.fitness});
+    refs.push_back(ScoredGenomeRef{&one.genome, one.fitness, one.wrong});
   }
   return refs;
 }
