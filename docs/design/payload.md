@@ -416,3 +416,8 @@ entries. These are cumulative allocation limits, including intermediate
 results, not maximum output lengths. Exhaustion returns a Value error and the
 normal penalty. Scalar/view kernels keep their existing storage. The profile
 is bounded; it does not promise arbitrarily large list/string programs.
+
+Focused validation: `ctest --test-dir cpp/build -R
+'gagp_test_payload_staging|gagp_test_extended_payload_gpu' --output-on-failure`.
+The GPU test covers full 1024-case list construction, tuple/string entry counts,
+capacity errors, clamped subordinate memo coordinates and a 200-cell memo case.

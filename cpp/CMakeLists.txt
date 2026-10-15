@@ -732,6 +732,11 @@ if(GAGP_HAS_CUDA)
   add_test(NAME gagp_test_atomic_splice_gpu COMMAND gagp_test_atomic_splice_gpu)
   set_tests_properties(gagp_test_atomic_splice_gpu PROPERTIES LABELS "contract;integration;gpu")
 
+  add_executable(gagp_test_extended_payload_gpu tests/gpu/test_extended_payload_gpu.cu)
+  target_link_libraries(gagp_test_extended_payload_gpu PRIVATE gagp_gpu gagp_cpu)
+  add_test(NAME gagp_test_extended_payload_gpu COMMAND gagp_test_extended_payload_gpu)
+  set_tests_properties(gagp_test_extended_payload_gpu PROPERTIES LABELS "contract;integration;gpu;cpu_gpu_parity")
+
   add_executable(gagp_test_bounded_region_gpu_results
     tests/gpu/test_bounded_region_gpu_results.cu)
   target_link_libraries(gagp_test_bounded_region_gpu_results PRIVATE gagp_cli_support)
