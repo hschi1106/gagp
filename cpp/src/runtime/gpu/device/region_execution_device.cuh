@@ -190,8 +190,8 @@ __device__ DResult d_region_phase(
       fuel-=code[1].fuel;const auto right=read(phase.program.add_right_binding);
       if(fuel<0 || code[2].fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
       fuel-=code[2].fuel;
-      const auto value=vm_semantics::wrap_int_add(static_cast<long long>(static_cast<double>(left)),
-          static_cast<long long>(static_cast<double>(right)));
+      const auto value=vm_semantics::wrap_int_add(left,
+          right);
       if(phase.program.code_len==4) {
         if(fuel<0 || code[3].fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
         fuel-=code[3].fuel;

@@ -72,6 +72,8 @@ def validate_search(result: dict, population: int, generations: int, mode: str) 
         raise ValueError('non-finite fitness')
     if any(row['expected_program_cases'] != population * 1024 for row in rows):
         raise ValueError('incomplete evaluation workload')
+    if mode.startswith('gpu') and any(row.get('unscored', 0) for row in rows):
+        raise ValueError('unscored GPU cases')
     if result.get('cpu_audit_mismatches', 0):
         raise ValueError('independent CPU final-program fitness mismatch')
     if mode in ('gpu_repro', 'gpu_overlap'):
@@ -203,12 +205,25 @@ class Study:
             if cell['status'] != 'ok':
                 record.update(status=cell['status'], blocked_at=phase)
                 return
+        sampled = self.run(task, 'sampled-audit', [self.args.binary, 'sampled-audit',
+            source, grammar, folder / 'sampled-audit.json'])
+        record['source_output_parity'] = sampled['status']
+        snapshot = self.run(task, 'snapshot', [self.args.binary, 'measure', source,
+            prepared, grammar, 8, 'snapshot', folder / 'snapshot.json'],
+            {'GAGP_SNAPSHOT_CPU': '1'})
+        record['cpu_gpu_snapshot'] = snapshot['status']
+        if snapshot['status'] == 'ok':
+            snapshot_rows = read(folder / 'snapshot.json')['programs']
+            mismatches = sum(abs(r['fitness'] - r['cpu_fitness']) > 1e-8 for r in snapshot_rows)
+            record['cpu_gpu_snapshot_mismatches'] = mismatches
+            if mismatches:
+                record['cpu_gpu_snapshot'] = 'mismatch'
         record['artifacts'] = {p.name: sha(p) for p in folder.glob('*.json')}
         record['status'] = 'audit_pass'
         statuses = []
         for mode in MODES:
             statuses.append(self.search(task, folder, prepared, 8, mode, 0))
-        record['status'] = 'smoke_pass' if all(s == 'ok' for s in statuses) else 'smoke_failed'
+        record['status'] = 'smoke_pass' if all(s == 'ok' for s in statuses) and record['cpu_gpu_snapshot'] == 'ok' else 'smoke_failed'
 
     def search(self, task, artifacts, prepared, population, mode, seed):
         tag = f'{mode}.s{seed}'

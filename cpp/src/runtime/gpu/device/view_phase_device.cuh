@@ -49,8 +49,8 @@ __device__ __noinline__ DResult d_run_bound_view_phase(
       case OP_NOT: stack[sp - 1] = !stack[sp - 1]; break;
       case OP_ADD: case OP_SUB: case OP_MUL: case OP_MOD: {
         const auto right = stack[--sp]; const auto left = stack[sp - 1];
-        const auto a = static_cast<long long>(static_cast<double>(left));
-        const auto b = static_cast<long long>(static_cast<double>(right));
+        const auto a = left;
+        const auto b = right;
         if (ins.op == OP_ADD) stack[sp - 1] = vm_semantics::wrap_int_add(a, b);
         else if (ins.op == OP_SUB) stack[sp - 1] = vm_semantics::wrap_int_sub(a, b);
         else if (ins.op == OP_MUL) stack[sp - 1] = vm_semantics::wrap_int_mul(a, b);
@@ -62,10 +62,10 @@ __device__ __noinline__ DResult d_run_bound_view_phase(
         bool value = false;
         if (ins.op == OP_EQ) value = a == b;
         else if (ins.op == OP_NE) value = a != b;
-        else if (ins.op == OP_LT) value = static_cast<double>(a) < static_cast<double>(b);
-        else if (ins.op == OP_LE) value = static_cast<double>(a) <= static_cast<double>(b);
-        else if (ins.op == OP_GT) value = static_cast<double>(a) > static_cast<double>(b);
-        else value = static_cast<double>(a) >= static_cast<double>(b);
+        else if (ins.op == OP_LT) value = a < b;
+        else if (ins.op == OP_LE) value = a <= b;
+        else if (ins.op == OP_GT) value = a > b;
+        else value = a >= b;
         stack[sp - 1] = value; break;
       }
       case OP_JMP: ip = ins.a; break;
@@ -97,8 +97,7 @@ __device__ __noinline__ DResult d_run_bound_view_phase(
           if (bid == BuiltinId::IDiv0) stack[sp - 1] = b == 0 ? 0 : vm_semantics::wrap_int_div(a, b);
           else if (bid == BuiltinId::IMod0) stack[sp - 1] = b == 0 ? 0 : vm_semantics::py_int_mod(a, b);
           else {
-            const double x = a, y = b;
-            stack[sp - 1] = static_cast<long long>(bid == BuiltinId::Min ? (x <= y ? x : y) : (x >= y ? x : y));
+            stack[sp - 1] = bid == BuiltinId::Min ? (a <= b ? a : b) : (a >= b ? a : b);
           }
         }
         break;

@@ -60,13 +60,7 @@ inline std::optional<ExecResult> run_typed_phase(const PhaseProgram& program,
       case Opcode::Not: stack[sp-1] = !stack[sp-1]; break;
       case Opcode::Add: case Opcode::Sub: case Opcode::Mul: case Opcode::Mod: {
         const auto right = stack[--sp], left = stack[sp-1];
-        // Preserve the reference VM's double round-trip, including its loss of
-        // precision above 2^53; this is not a new direct-integer semantic mode.
-        if (static_cast<double>(left) >= 0x1p63 || static_cast<double>(right) >= 0x1p63) {
-          fuel = original_fuel; return std::nullopt;
-        }
-        const auto a = static_cast<long long>(static_cast<double>(left));
-        const auto b = static_cast<long long>(static_cast<double>(right));
+        const auto a = left, b = right;
         if (ins.op == Opcode::Add) stack[sp-1] = vm_semantics::wrap_int_add(a,b);
         else if (ins.op == Opcode::Sub) stack[sp-1] = vm_semantics::wrap_int_sub(a,b);
         else if (ins.op == Opcode::Mul) stack[sp-1] = vm_semantics::wrap_int_mul(a,b);
@@ -81,10 +75,10 @@ inline std::optional<ExecResult> run_typed_phase(const PhaseProgram& program,
         const auto b=stack[--sp], a=stack[sp-1];
         if (ins.op==Opcode::Eq) stack[sp-1]=a==b;
         else if(ins.op==Opcode::Ne) stack[sp-1]=a!=b;
-        else if(ins.op==Opcode::Lt) stack[sp-1]=static_cast<double>(a)<static_cast<double>(b);
-        else if(ins.op==Opcode::Le) stack[sp-1]=static_cast<double>(a)<=static_cast<double>(b);
-        else if(ins.op==Opcode::Gt) stack[sp-1]=static_cast<double>(a)>static_cast<double>(b);
-        else stack[sp-1]=static_cast<double>(a)>=static_cast<double>(b);
+        else if(ins.op==Opcode::Lt) stack[sp-1]=a<b;
+        else if(ins.op==Opcode::Le) stack[sp-1]=a<=b;
+        else if(ins.op==Opcode::Gt) stack[sp-1]=a>b;
+        else stack[sp-1]=a>=b;
         break;
       }
       case Opcode::Jmp: ip=ins.a; break;
@@ -119,10 +113,7 @@ inline std::optional<ExecResult> run_typed_phase(const PhaseProgram& program,
           if(id==BuiltinId::IDiv0) stack[sp-1]=b?vm_semantics::wrap_int_div(a,b):0;
           else if(id==BuiltinId::IMod0) stack[sp-1]=b?vm_semantics::py_int_mod(a,b):0;
           else {
-            const double x=a,y=b;
-            const double picked=id==BuiltinId::Min?(x<=y?x:y):(x>=y?x:y);
-            if(picked>=0x1p63) { fuel=original_fuel; return std::nullopt; }
-            stack[sp-1]=static_cast<long long>(picked);
+            stack[sp-1]=id==BuiltinId::Min ? std::min(a,b) : std::max(a,b);
           }
         }
         break;
