@@ -173,18 +173,24 @@ __device__ DResult d_region_phase(
       return d_ok(value);
     }
   }
-  if constexpr (Flavor == DPayloadFlavor::BoundIntListViews) {
+  if constexpr (Flavor==DPayloadFlavor::BoundIntListViews || Flavor==DPayloadFlavor::ArenaMixed || Flavor==DPayloadFlavor::IndexedArena) {
     const auto& phase = tables.region_phases[phase_index];
-    if(expected==ValueTag::Bool && phase.program.compare_binding>=0) {
-      const auto& binding=tables.region_bindings[phase.program.compare_binding];
-      std::int64_t bound=0;
-      switch(binding.bank) {
-        case RegionSlotBank::State:bound=static_cast<Value>(frame.state[binding.slot]).i;break;
-        case RegionSlotBank::Prepared:bound=frame.prepared[binding.slot].i;break;
-        case RegionSlotBank::Result:bound=frame.results[binding.slot].i;break;
-        case RegionSlotBank::Measure:bound=Value::container_len(frame.state[segment.sequence_state]);break;
-        default:return d_error(ErrCode::Value); // excluded by the packing proof
-      }
+    const bool enabled=Flavor==DPayloadFlavor::BoundIntListViews ||
+        (payload_state.private_intlists && payload_state.private_bound_phases);
+    const auto read=[&](int index) {
+        const auto& binding=tables.region_bindings[index];
+        switch(binding.bank) {
+          case RegionSlotBank::State:return static_cast<Value>(frame.state[binding.slot]);
+          case RegionSlotBank::Prepared:return frame.prepared[binding.slot];
+          case RegionSlotBank::Result:return frame.results[binding.slot];
+          case RegionSlotBank::Measure:return Value::from_int(Value::container_len(frame.state[segment.sequence_state]));
+          default:return Value::invalid(); // parameter bindings are excluded by the pack proof
+        }
+      };
+
+    if(enabled && expected==ValueTag::Bool && phase.program.compare_binding>=0 &&
+        read(phase.program.compare_binding).tag==ValueTag::Int) {
+      const auto bound=read(phase.program.compare_binding).i;
       const auto* code=tables.phase_code+phase.program.code_offset;
       // Both operands are total, initialized Int reads. Preserve each charge
       // and full-width integer ordering without a phase VM call.
@@ -198,24 +204,15 @@ __device__ DResult d_region_phase(
       const bool answer=code[2].op==OP_LT?a<b:code[2].op==OP_LE?a<=b:code[2].op==OP_GT?a>b:a>=b;
       return d_ok(Value::from_bool(answer));
     }
-    if(expected==ValueTag::Int && phase.program.add_left_binding>=0) {
-      const auto read=[&](int index) {
-        const auto& binding=tables.region_bindings[index];
-        switch(binding.bank) {
-          case RegionSlotBank::State:return static_cast<Value>(frame.state[binding.slot]).i;
-          case RegionSlotBank::Prepared:return frame.prepared[binding.slot].i;
-          case RegionSlotBank::Result:return frame.results[binding.slot].i;
-          case RegionSlotBank::Measure:return static_cast<std::int64_t>(Value::container_len(frame.state[segment.sequence_state]));
-          default:return std::int64_t{0}; // parameter bindings are excluded by the pack proof
-        }
-      };
+    if(enabled && expected==ValueTag::Int && phase.program.add_left_binding>=0 &&
+        read(phase.program.add_left_binding).tag==ValueTag::Int && read(phase.program.add_right_binding).tag==ValueTag::Int) {
       const auto* code=tables.phase_code+phase.program.code_offset;
       // Every input is an initialized non-parameter scalar. Exact instruction
       // charges remain ordered; no expression or fuel is memoized.
       if(fuel<0 || code[0].fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
-      fuel-=code[0].fuel;const auto left=read(phase.program.add_left_binding);
+      fuel-=code[0].fuel;const auto left=read(phase.program.add_left_binding).i;
       if(fuel<0 || code[1].fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
-      fuel-=code[1].fuel;const auto right=read(phase.program.add_right_binding);
+      fuel-=code[1].fuel;const auto right=read(phase.program.add_right_binding).i;
       if(fuel<0 || code[2].fuel>static_cast<unsigned>(fuel))return d_error(ErrCode::Timeout);
       fuel-=code[2].fuel;
       const auto value=vm_semantics::wrap_int_add(left,
@@ -226,6 +223,9 @@ __device__ DResult d_region_phase(
       }
       return d_ok(Value::from_int(value));
     }
+  }
+  if constexpr (Flavor == DPayloadFlavor::BoundIntListViews) {
+    const auto& phase = tables.region_phases[phase_index];
     if (!phase.program.typed_view || phase.program.n_locals > 8 ||
         phase.program.verified_stack_bound > MAX_STACK) return d_error(ErrCode::Value);
     if (phase.program.verified_stack_bound > 16) {

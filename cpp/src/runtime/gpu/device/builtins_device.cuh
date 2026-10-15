@@ -40,6 +40,7 @@ struct DThreadPayloadStateT {
   bool fused_list_concat = false;
   bool small_int_hash = false;
   static constexpr bool private_intlists = false;
+  static constexpr bool private_bound_phases = false;
   static constexpr bool compact_intlist_cells = false;
   static constexpr const std::int64_t* intlist_cells = nullptr;
   bool alias_windows = false;
@@ -68,6 +69,7 @@ struct DArenaPayloadState {
   static constexpr bool kIndexedLists = false;
   bool private_intlists = false;
   bool trivial_phases = false;
+  bool private_bound_phases = false;
   bool compact_intlist_cells = false;
   std::int64_t* intlist_cells = nullptr;
   bool alias_windows = false;

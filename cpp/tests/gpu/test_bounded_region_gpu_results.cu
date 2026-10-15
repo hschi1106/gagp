@@ -942,6 +942,7 @@ bool test_measure_phase_cache_contract() {
 
 #include "dense_coordinate_memo_checks.cuh"
 #include "trivial_private_phase_checks.cuh"
+#include "private_bound_phase_checks.cuh"
 
 int main() {
   payload::clear();
@@ -952,6 +953,7 @@ int main() {
     return 1;
   }
   if (!trivial_private_phase_test::test_contract()) return 1;
+  if (!private_bound_phase_test::test_contract()) return 1;
   if (!dense_memo_test::test_dense_coordinate_memo()) return 1;
   if (!measure_cache_test::test_measure_phase_cache_contract()) return 1;
   if (!test_phase_vm_masks_are_fresh()) return 1;

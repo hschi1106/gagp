@@ -265,6 +265,18 @@ append `-trivial-phases` or `-trivial-phases-declined`; the flag defaults off.
 existing zero-binding scalar-constant shortcut misses these populations. These
 are structural artifact counts, not dynamic call frequencies or speedup evidence.
 
+`GAGP_GPU_PRIVATE_BOUND_PHASES=1` optionally reuses the existing Bound-view
+scalar compare/add shortcuts inside an admitted private arena. The existing
+`GAGP_BOUND_COMPARE_PHASE=1` and `GAGP_BOUND_ADD_PHASE=1` metadata matchers retain
+their strict binding counts: one non-Parameter binding compared with an Int
+constant, or two non-Parameter loads followed by Add, optionally with Return.
+Only used Int operands qualify; other tags execute the ordinary phase VM.
+Unused captures remain lazy. Full-width comparisons, wrapping Int addition,
+ordered instruction fuel checks and final result types remain unchanged. Current
+metadata is refreshed after every GPU generation. This independent flag defaults
+off and profiles append `-private-bound-phases` or `-private-bound-phases-declined`.
+The typed Bound-view VM remains limited to its existing view profile.
+
 `GAGP_GPU_PRIVATE_MEASURE_CACHE=1`, together with
 `GAGP_MEASURE_PHASE_CACHE=1`, extends the existing block-local sequence-Measure
 preparation cache to admitted private IntList arenas. The default is off. Current

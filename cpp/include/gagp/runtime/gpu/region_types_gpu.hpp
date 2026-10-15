@@ -102,6 +102,7 @@ struct DRegionWorkspace {
   bool payload_window_aliases = false;
   bool private_intlists = false;
   bool trivial_phases = false;
+  bool private_bound_phases = false;
   bool compact_intlist_cells = false;
   int shared_list_value_count = 0;
   bool fused_list_concat = false;
