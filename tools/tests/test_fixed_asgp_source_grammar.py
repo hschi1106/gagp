@@ -53,6 +53,7 @@ class TestSourceGrammar(unittest.TestCase):
         stock=template(ROOT,'stock_with_cooldown',dict(dp_dimensions=2,dp_deps=[[1,0],[1,1],[2,-1]],sequence_input=1))['body']
         self.assertEqual(stock['structured']['plan']['coordinate_rank'][0]['direction'],-1)
         self.assertTrue(all(r['states'][1]['kind']=='expression' for r in stock['structured']['plan']['requests']))
+        self.assertTrue(all(r['states'][1]['offset']=='0' and r['states'][1]['source_state']==0 for r in stock['structured']['plan']['requests']))
 
 if __name__=='__main__':
     unittest.main()

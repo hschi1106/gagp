@@ -60,6 +60,8 @@ Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::Ta
     case K::kInputSize: case K::kStateA: return spec.id=="stock_with_cooldown" ? call("min(Int,Int)->Int",{bound("n"),bound("extent")}) : bound("n");
     case K::kStateB: return bound("j");
     case K::kStateValue: {
+      // Subregion starts 0<=l<=r<len(xs); decrementing r stops at r<=l.
+      if(spec.id=="subregion_sum")return call("index(IntList,Int)->Int",{bound("xs"),bound("j")});
       auto index=call("max(Int,Int)->Int",{call(spec.id=="house_robber" ? "sub(Int,Int)->Int" : "add(Int,Int)->Int",{bound(spec.dp.value_at==asgp::ValueAt::kStateB ? "j" : "n"),constant(spec.id=="house_robber" ? 1 : spec.dp.value_offset)}),constant(0)});
       if(spec.id!="house_robber")index=call("min(Int,Int)->Int",{call("sub(Int,Int)->Int",{call("len(IntList)->Int",{bound("xs")}),constant(1)}),index});
       return call("index(IntList,Int)->Int",{bound("xs"),index});

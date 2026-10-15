@@ -56,7 +56,7 @@ def template(root, task, contract):
         plan['limits']['cells']=(upper+1)*2
         plan['request_expression_types']=['Int']*len(plan['requests'])
         for i,(request,dep) in enumerate(zip(plan['requests'],contract['dp_deps'])):
-            request['states'][1].update(kind='expression',expression=i)
+            request['states'][1].update(kind='expression',expression=i,source_state=0,offset='0')
             body['args'].append(call('min(Int,Int)->Int',constant(1),call('max(Int,Int)->Int',constant(0),call('add(Int,Int)->Int',bound('j'),constant(dep[1])))))
             body['phases'].append({'argument':dim+4+i,'bindings':bindings})
         body['args'][dim]=call('ge(Int,Int)->Bool',bound('n'),bound('extent'))

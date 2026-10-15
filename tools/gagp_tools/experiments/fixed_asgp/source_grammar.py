@@ -67,7 +67,7 @@ def definition(root: Path, task: str, contract: dict) -> dict:
                     elif kind==10:
                         coordinate=bound('n' if contract['dp_value_at']==1 else 'j')
                         offset=contract['dp_value_offset']
-                        e=call('index(IntList,Int)->Int',bound('xs'),call('min(Int,Int)->Int',call('sub(Int,Int)->Int',call('len(IntList)->Int',bound('xs')),constant(1)),call('max(Int,Int)->Int',call('add(Int,Int)->Int',coordinate,constant(offset)),constant(0))))
+                        e=call('index(IntList,Int)->Int',bound('xs'),coordinate) if task=='subregion_sum' else call('index(IntList,Int)->Int',bound('xs'),call('min(Int,Int)->Int',call('sub(Int,Int)->Int',call('len(IntList)->Int',bound('xs')),constant(1)),call('max(Int,Int)->Int',call('add(Int,Int)->Int',coordinate,constant(offset)),constant(0))))
                     elif kind==11:e=call('not(Bool)->Bool',*args)
                     elif kind==12:
                         template_id=f'Fixed.{phase}.IsLetter'
