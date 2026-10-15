@@ -1,0 +1,4693 @@
+{
+  "contract": "P1024 C1024 G4 seed0 CPU1T native GPU reproduction; one cold process/task, own G4 ASGP controls reused; no precision claim",
+  "source_head": "96152cb94f0ed151f2290e0d05e08798c81f37d3",
+  "binary_sha256": "05bb8ef4d47ccaedc2a1e4e0b916eb069faccc26ea08724a2e3392809891bd5f",
+  "elapsed_s": 266.7818061709404,
+  "settings": {
+    "GAGP_VIEW_PROFILE": "1",
+    "GAGP_TYPED_VIEW_PHASE": "1",
+    "GAGP_SORT_CASES": "1",
+    "GAGP_COMPACT_FRAMES": "1",
+    "GAGP_CONSTANT_PHASE": "1",
+    "GAGP_POPULATION_HANDOFF": "1",
+    "GAGP_DIRECT_PHASE": "1",
+    "GAGP_DIRECT_ROOT": "1",
+    "GAGP_WINDOW_EXECUTOR": "1",
+    "GAGP_UNBOXED_WINDOW_FRAMES": "1",
+    "GAGP_BOUND_ADD_PHASE": "1",
+    "GAGP_REUSE_ADMISSION_COMPILE": "1",
+    "GAGP_REUSE_SITE_CONTRACTS": "1",
+    "GAGP_SELECTED_SITES": "1",
+    "GAGP_OWNED_PREPARATION": "1",
+    "GAGP_CUDA_DEVICE": "0",
+    "GAGP_HOST_THREADS": "1",
+    "GAGP_SINGLE_EVAL_IDENTITY": "1",
+    "GAGP_OWNED_CROSSOVER_HANDOFF": "1",
+    "LD_PRELOAD": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+    "MALLOC_CONF": "background_thread:false,narenas:1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "GAGP_GPU_PHASE_POPULATION": "1",
+    "GAGP_OWNED_PHASE_PACK": "1",
+    "GAGP_OWNED_PHASE_CAPS": "1",
+    "GAGP_COORDINATE_EXECUTOR": "1",
+    "GAGP_COUNTED_SITE_DRAW": "1",
+    "GAGP_CPU_REGION_VIEWS": "1",
+    "GAGP_GPU_DIAGNOSTICS": "1",
+    "GAGP_SEARCH_TRACE": "1",
+    "GAGP_BATCH_PHASE_IMPORT": "1",
+    "GAGP_BATCH_PHASE_EXPORT": "1",
+    "GAGP_REUSE_PHASE_GRAMMAR": "1",
+    "GAGP_PHASE_CAP_BUCKETS": "1",
+    "GAGP_PHASE_REPRO_THREADS": "1",
+    "GAGP_GPU_STATIC_WEIGHTS": "1",
+    "GAGP_BUCKET_WORKSPACE": "1",
+    "GAGP_BOUND_COMPARE_PHASE": "1",
+    "GAGP_COORDINATE_RING_MEMO": "1",
+    "GAGP_CPU_LAZY_ANALYSIS": "1",
+    "GAGP_CPU_SELECTED_PARENTS": "1",
+    "GAGP_CPU_SELECTED_MUTATION": "1",
+    "GAGP_CPU_BOUND_PHASE": "1",
+    "GAGP_CPU_COORDINATE_VIEWS": "1",
+    "GAGP_CPU_TYPED_PHASE": "1",
+    "GAGP_CPU_DENSE_MEMO": "1",
+    "GAGP_CPU_SCALAR_VIEWS": "1",
+    "GAGP_CPU_COUNTED_PAIRS": "1",
+    "GAGP_CPU_COORDINATE_DRIVER": "1",
+    "GAGP_REUSE_IMPORTED_EXECUTABLE": "1",
+    "GAGP_GPU_INPLACE_MUTATION": "1",
+    "GAGP_OWNED_PHASE_PACKED": "1",
+    "GAGP_CPU_ALL_FIT_PAIRS": "1",
+    "GAGP_GPU_FUSED_DONOR_SITES": "1",
+    "GAGP_CPU_FUSED_ADMISSION": "1",
+    "GAGP_CPU_COMPACT_ADMISSION": "1",
+    "GAGP_GPU_CONSTRUCTIVE_EXPORT": "1",
+    "GAGP_REUSE_IMPORT_CERTIFICATE": "1",
+    "GAGP_PREPARED_CASE_VIEWS": "1",
+    "GAGP_GPU_DEFERRED_CROSSOVER_COPY": "1",
+    "GAGP_GPU_FUSED_SPLICE_DEPTH": "1",
+    "GAGP_GPU_COMPACT_COMPILE_FRAMES": "1",
+    "GAGP_MEASURE_PHASE_CACHE": "1",
+    "GAGP_PER_PHASE_STACK_BOUND": "1",
+    "GAGP_HYBRID_PHASE_EXECUTOR": "1",
+    "GAGP_GPU_WINDOW_LEAF_DIRECT": "1",
+    "GAGP_WINDOW_SOA": "1",
+    "GAGP_DYNAMIC_PROGRAM_QUEUE": "1",
+    "GAGP_GPU_PAYLOAD_INDEX": "1",
+    "GAGP_GPU_GLOBAL_PAYLOAD": "1",
+    "GAGP_GPU_GLOBAL_WINDOW_ALIASES": "1",
+    "GAGP_GPU_TILED_REPLAY": "1",
+    "GAGP_GPU_FUSED_LIST_CONCAT": "1",
+    "GAGP_GPU_ADAPTIVE_REPLAY": "1",
+    "GAGP_GPU_PAYLOAD_WORKSPACE_MIB": "8192",
+    "GAGP_GPU_SMALL_INT_HASH": "1",
+    "GAGP_BM_ALIGNED_FITNESS": "1",
+    "GAGP_FREEZE_POPULATION": "1024"
+  },
+  "rows": [
+    {
+      "task": "filter_odd",
+      "status": "ok",
+      "asgp_s": 10.973031773999999,
+      "gpu_ero_s": 16.080992808,
+      "speedup": 0.6823603433577258,
+      "before_gpu_ero_s": null,
+      "asgp_best": -9107,
+      "gpu_best": -11471,
+      "unique_final_genomes": 800,
+      "peak_host_rss_mib": 412.578125,
+      "process_s": 17.162550741108134,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "sum_of_elements",
+      "status": "ok",
+      "asgp_s": 10.216613114,
+      "gpu_ero_s": 0.49394580000000005,
+      "speedup": 20.683672406972587,
+      "before_gpu_ero_s": 0.578946578,
+      "asgp_best": 0,
+      "gpu_best": 0,
+      "unique_final_genomes": 966,
+      "peak_host_rss_mib": 464.3359375,
+      "process_s": 1.652264751959592,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "is_sorted",
+      "status": "ok",
+      "asgp_s": 11.584855218000001,
+      "gpu_ero_s": 10.444482335999998,
+      "speedup": 1.109184241527162,
+      "before_gpu_ero_s": 46.964848343,
+      "asgp_best": -254.1599999999997,
+      "gpu_best": -233.37000000011176,
+      "unique_final_genomes": 1016,
+      "peak_host_rss_mib": 548.94140625,
+      "process_s": 12.998991254949942,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "index_of_element",
+      "status": "ok",
+      "asgp_s": 11.663102503,
+      "gpu_ero_s": 1.0449078139999999,
+      "speedup": 11.161848295834451,
+      "before_gpu_ero_s": 1.0843057429999998,
+      "asgp_best": -629.6959405578206,
+      "gpu_best": -683.4449906321242,
+      "unique_final_genomes": 952,
+      "peak_host_rss_mib": 470.15625,
+      "process_s": 1.8492827548179775,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "all_equal",
+      "status": "ok",
+      "asgp_s": 11.093696045,
+      "gpu_ero_s": 9.776992089,
+      "speedup": 1.1346737262354352,
+      "before_gpu_ero_s": 38.538655252,
+      "asgp_best": -522.0700000000018,
+      "gpu_best": -518.4400000004098,
+      "unique_final_genomes": 1003,
+      "peak_host_rss_mib": 514.68359375,
+      "process_s": 11.61054948111996,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "cumulative_sum",
+      "status": "ok",
+      "asgp_s": 16.287782677,
+      "gpu_ero_s": 15.968611202,
+      "speedup": 1.0199874285222765,
+      "before_gpu_ero_s": null,
+      "asgp_best": -22821,
+      "gpu_best": -23249,
+      "unique_final_genomes": 885,
+      "peak_host_rss_mib": 435.8125,
+      "process_s": 17.142039512982592,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "fuel_cost",
+      "status": "ok",
+      "asgp_s": 10.188871056,
+      "gpu_ero_s": 0.504616142,
+      "speedup": 20.191330018927534,
+      "before_gpu_ero_s": 0.585887601,
+      "asgp_best": -808506,
+      "gpu_best": -765473,
+      "unique_final_genomes": 975,
+      "peak_host_rss_mib": 470.62890625,
+      "process_s": 1.3432479130569845,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "luhn",
+      "status": "ok",
+      "asgp_s": 4.0834602669999995,
+      "gpu_ero_s": 0.416996729,
+      "speedup": 9.792547478232137,
+      "before_gpu_ero_s": 0.502660613,
+      "asgp_best": -4566,
+      "gpu_best": -4566,
+      "unique_final_genomes": 887,
+      "peak_host_rss_mib": 453.8203125,
+      "process_s": 1.3216986570041627,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "min",
+      "status": "ok",
+      "asgp_s": 11.574916888,
+      "gpu_ero_s": 0.5155849480000001,
+      "speedup": 22.4500675066255,
+      "before_gpu_ero_s": 0.60184212,
+      "asgp_best": 0,
+      "gpu_best": -808,
+      "unique_final_genomes": 923,
+      "peak_host_rss_mib": 495.63671875,
+      "process_s": 1.3229899280704558,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "mpi",
+      "status": "ok",
+      "asgp_s": 9.127446697,
+      "gpu_ero_s": 0.518734909,
+      "speedup": 17.595589844908623,
+      "before_gpu_ero_s": 0.6098044619999999,
+      "asgp_best": -568,
+      "gpu_best": -572,
+      "unique_final_genomes": 887,
+      "peak_host_rss_mib": 462.125,
+      "process_s": 1.3210147339850664,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "count_odds",
+      "status": "ok",
+      "asgp_s": 9.529960432,
+      "gpu_ero_s": 0.498196865,
+      "speedup": 19.128904859728493,
+      "before_gpu_ero_s": 0.589148371,
+      "asgp_best": -2019,
+      "gpu_best": -6508,
+      "unique_final_genomes": 843,
+      "peak_host_rss_mib": 440.73828125,
+      "process_s": 1.3209185430314392,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "last_index_of_zero",
+      "status": "ok",
+      "asgp_s": 9.510802376,
+      "gpu_ero_s": 0.973898057,
+      "speedup": 9.765706284800608,
+      "before_gpu_ero_s": 1.053001848,
+      "asgp_best": -646.1501278258404,
+      "gpu_best": -646.1501278262585,
+      "unique_final_genomes": 741,
+      "peak_host_rss_mib": 419.765625,
+      "process_s": 1.8480316780041903,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "small_or_large",
+      "status": "ok",
+      "asgp_s": 0.385472072,
+      "gpu_ero_s": 0.8672975509999999,
+      "speedup": 0.44445193181457515,
+      "before_gpu_ero_s": 0.8607291709999999,
+      "asgp_best": -2568,
+      "gpu_best": -2552,
+      "unique_final_genomes": 962,
+      "peak_host_rss_mib": 489.37890625,
+      "process_s": 1.5835062458645552,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "for_loop_index",
+      "status": "ok",
+      "asgp_s": 9.372398334,
+      "gpu_ero_s": 15.655651901999999,
+      "speedup": 0.5986590908298544,
+      "before_gpu_ero_s": null,
+      "asgp_best": -5460,
+      "gpu_best": -5582,
+      "unique_final_genomes": 777,
+      "peak_host_rss_mib": 432.53125,
+      "process_s": 16.588643768103793,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "double_letters",
+      "status": "ok",
+      "asgp_s": 39.507244641,
+      "gpu_ero_s": 54.140967157,
+      "speedup": 0.7297107295190242,
+      "before_gpu_ero_s": null,
+      "asgp_best": -3058,
+      "gpu_best": -3058,
+      "unique_final_genomes": 824,
+      "peak_host_rss_mib": 438.296875,
+      "process_s": 55.413298297906294,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "replace_space_with_newline",
+      "status": "ok",
+      "asgp_s": 29.32100283,
+      "gpu_ero_s": 53.234459251,
+      "speedup": 0.5507899064354488,
+      "before_gpu_ero_s": null,
+      "asgp_best": -453,
+      "gpu_best": -453,
+      "unique_final_genomes": 779,
+      "peak_host_rss_mib": 437.1796875,
+      "process_s": 54.33853677310981,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "even_squares",
+      "status": "ok",
+      "asgp_s": 18.222991903999997,
+      "gpu_ero_s": 23.420217622,
+      "speedup": 0.7780880689546651,
+      "before_gpu_ero_s": null,
+      "asgp_best": -1911,
+      "gpu_best": -1911,
+      "unique_final_genomes": 699,
+      "peak_host_rss_mib": 424.0703125,
+      "process_s": 24.77770162001252,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "sum_of_squares",
+      "status": "ok",
+      "asgp_s": 5.626228546,
+      "gpu_ero_s": 0.412911378,
+      "speedup": 13.625753238507272,
+      "before_gpu_ero_s": 0.49098204199999995,
+      "asgp_best": -492890,
+      "gpu_best": -574245,
+      "unique_final_genomes": 874,
+      "peak_host_rss_mib": 449.09375,
+      "process_s": 1.3210890342015773,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "negative_to_zero",
+      "status": "ok",
+      "asgp_s": 15.878497286,
+      "gpu_ero_s": 17.022730749999997,
+      "speedup": 0.932782026526502,
+      "before_gpu_ero_s": null,
+      "asgp_best": -12791,
+      "gpu_best": -12791,
+      "unique_final_genomes": 967,
+      "peak_host_rss_mib": 453.21875,
+      "process_s": 18.178420164156705,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "scrabble_score",
+      "status": "ok",
+      "asgp_s": 16.048059557000002,
+      "gpu_ero_s": 0.5491640630000001,
+      "speedup": 29.222705268316144,
+      "before_gpu_ero_s": 0.6341284439999999,
+      "asgp_best": -10158,
+      "gpu_best": -10220,
+      "unique_final_genomes": 995,
+      "peak_host_rss_mib": 503.640625,
+      "process_s": 1.3221256360411644,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "grade",
+      "status": "ok",
+      "asgp_s": 0.35475376399999997,
+      "gpu_ero_s": 0.866338731,
+      "speedup": 0.4094862105385889,
+      "before_gpu_ero_s": 0.88273339,
+      "asgp_best": -801,
+      "gpu_best": -805,
+      "unique_final_genomes": 954,
+      "peak_host_rss_mib": 490.15625,
+      "process_s": 1.5880926770623773,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "median",
+      "status": "ok",
+      "asgp_s": 0.268991905,
+      "gpu_ero_s": 0.323548615,
+      "speedup": 0.8313801775971131,
+      "before_gpu_ero_s": 0.34721561900000003,
+      "asgp_best": -642,
+      "gpu_best": -642,
+      "unique_final_genomes": 894,
+      "peak_host_rss_mib": 483.57421875,
+      "process_s": 1.0605081820394844,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "smallest",
+      "status": "ok",
+      "asgp_s": 0.273704838,
+      "gpu_ero_s": 0.322572003,
+      "speedup": 0.8485077299160398,
+      "before_gpu_ero_s": 0.40261001199999996,
+      "asgp_best": -610,
+      "gpu_best": -610,
+      "unique_final_genomes": 891,
+      "peak_host_rss_mib": 477.98828125,
+      "process_s": 1.0583390640094876,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "syllables",
+      "status": "ok",
+      "asgp_s": 17.612301195,
+      "gpu_ero_s": 0.571205536,
+      "speedup": 30.833561800423443,
+      "before_gpu_ero_s": 0.6313997859999999,
+      "asgp_best": -2950,
+      "gpu_best": -2998,
+      "unique_final_genomes": 934,
+      "peak_host_rss_mib": 516.265625,
+      "process_s": 1.5875118509866297,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "fibonacci",
+      "status": "ok",
+      "asgp_s": 4.06610354,
+      "gpu_ero_s": 0.644771229,
+      "speedup": 6.306273228577946,
+      "before_gpu_ero_s": 0.716577268,
+      "asgp_best": 0,
+      "gpu_best": 0,
+      "unique_final_genomes": 798,
+      "peak_host_rss_mib": 413.140625,
+      "process_s": 1.323658716864884,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "tribonacci",
+      "status": "ok",
+      "asgp_s": 4.707958726,
+      "gpu_ero_s": 1.033317473,
+      "speedup": 4.556159020839474,
+      "before_gpu_ero_s": 1.1129138680000001,
+      "asgp_best": -214666,
+      "gpu_best": -214554,
+      "unique_final_genomes": 824,
+      "peak_host_rss_mib": 358.2890625,
+      "process_s": 1.851943576009944,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "house_robber",
+      "status": "ok",
+      "asgp_s": 4.252079181,
+      "gpu_ero_s": 0.44303213799999996,
+      "speedup": 9.597676593385197,
+      "before_gpu_ero_s": 0.520584096,
+      "asgp_best": -8493,
+      "gpu_best": -8503,
+      "unique_final_genomes": 843,
+      "peak_host_rss_mib": 504.55859375,
+      "process_s": 1.3249492589384317,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "subregion_sum",
+      "status": "ok",
+      "asgp_s": 1.285639536,
+      "gpu_ero_s": 0.43419102299999995,
+      "speedup": 2.9609998086026756,
+      "before_gpu_ero_s": 0.511373756,
+      "asgp_best": 0,
+      "gpu_best": 0,
+      "unique_final_genomes": 849,
+      "peak_host_rss_mib": 376.72265625,
+      "process_s": 1.326042904984206,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "fibonacci_array",
+      "status": "ok",
+      "asgp_s": 7.863185862,
+      "gpu_ero_s": 2.080015953,
+      "speedup": 3.780348824084235,
+      "before_gpu_ero_s": 2.1668556100000003,
+      "asgp_best": -1024,
+      "gpu_best": -1024,
+      "unique_final_genomes": 899,
+      "peak_host_rss_mib": 455.9140625,
+      "process_s": 2.9105912190862,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    },
+    {
+      "task": "stock_with_cooldown",
+      "status": "ok",
+      "asgp_s": 6.279614824,
+      "gpu_ero_s": 1.1985498970000001,
+      "speedup": 5.239343676652954,
+      "before_gpu_ero_s": 2.3822847400000002,
+      "asgp_best": -5670,
+      "gpu_best": -4835,
+      "unique_final_genomes": 803,
+      "peak_host_rss_mib": 525.41015625,
+      "process_s": 2.3846273641102016,
+      "cpu_audit_program_count": 16,
+      "cpu_audit_mismatches": 0,
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "reproduction_fallback_reason": "",
+      "fully_aligned": 0
+    }
+  ],
+  "counts": {
+    "cases": 125829120,
+    "errors": 11323055,
+    "timeouts": 0,
+    "fallbacks": 0,
+    "unscored": 0,
+    "operator_fallbacks": 103,
+    "gpu_donor_fallback": 0,
+    "cpu_audit_program_count": 480,
+    "cpu_audit_mismatches": 0
+  },
+  "details": {
+    "filter_odd": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 329.978517,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 16079.253432,
+      "evolve_wall_ms": 16080.992808,
+      "final_best": -11471,
+      "final_eval_ms": 2123.960903,
+      "fitness_metric": 3,
+      "genotype_device_bytes": 757202184,
+      "gpu_init_ms": 2.36866,
+      "initial_admission_ms": 172.970935,
+      "list_allocation_limit": 65536,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 800,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 518514,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 12,
+      "generation_total_gpu_donor_fallback": 0
+    },
+    "sum_of_elements": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 134.962094,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 491.376378,
+      "evolve_wall_ms": 493.9458,
+      "final_best": 0,
+      "final_eval_ms": 48.182073,
+      "fitness_metric": 1,
+      "genotype_device_bytes": 757873924,
+      "gpu_init_ms": 1.953044,
+      "initial_admission_ms": 96.52901899999999,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 966,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 465645,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "is_sorted": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 1287.842148,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 10442.664548,
+      "evolve_wall_ms": 10444.482336,
+      "final_best": -233.37000000011176,
+      "final_eval_ms": 2488.015002,
+      "fitness_metric": 4,
+      "genotype_device_bytes": 759454164,
+      "gpu_init_ms": 2.018747,
+      "initial_admission_ms": 110.219087,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 1016,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 620323,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 8,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "index_of_element": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 114.026386,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 1042.155655,
+      "evolve_wall_ms": 1044.907814,
+      "final_best": -683.4449906321242,
+      "final_eval_ms": 145.535157,
+      "fitness_metric": 1,
+      "genotype_device_bytes": 757858040,
+      "gpu_init_ms": 2.142764,
+      "initial_admission_ms": 134.78654,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 952,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 379470,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "all_equal": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 1101.942702,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 9775.09966,
+      "evolve_wall_ms": 9776.992089,
+      "final_best": -518.4400000004098,
+      "final_eval_ms": 2021.466874,
+      "fitness_metric": 4,
+      "genotype_device_bytes": 758552224,
+      "gpu_init_ms": 1.951477,
+      "initial_admission_ms": 113.04293799999999,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 1003,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 622688,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 4,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "cumulative_sum": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 400.490401,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 15966.849117,
+      "evolve_wall_ms": 15968.611202,
+      "final_best": -23249,
+      "final_eval_ms": 2429.597946,
+      "fitness_metric": 3,
+      "genotype_device_bytes": 757842928,
+      "gpu_init_ms": 2.135823,
+      "initial_admission_ms": 185.63842,
+      "list_allocation_limit": 65536,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 885,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 514053,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 14,
+      "generation_total_gpu_donor_fallback": 0
+    },
+    "fuel_cost": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 117.439432,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 502.708653,
+      "evolve_wall_ms": 504.616142,
+      "final_best": -765473,
+      "final_eval_ms": 48.935592,
+      "fitness_metric": 1,
+      "genotype_device_bytes": 757963332,
+      "gpu_init_ms": 1.938275,
+      "initial_admission_ms": 93.323936,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 975,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 368075,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "luhn": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 91.611485,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 415.035824,
+      "evolve_wall_ms": 416.996729,
+      "final_best": -4566,
+      "final_eval_ms": 25.396999,
+      "fitness_metric": 1,
+      "genotype_device_bytes": 757717996,
+      "gpu_init_ms": 1.961568,
+      "initial_admission_ms": 129.453158,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 887,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 382876,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "min": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 118.765699,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 512.912621,
+      "evolve_wall_ms": 515.584948,
+      "final_best": -808,
+      "final_eval_ms": 61.281651,
+      "fitness_metric": 2,
+      "genotype_device_bytes": 758527668,
+      "gpu_init_ms": 1.977146,
+      "initial_admission_ms": 96.377964,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 923,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 590343,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "mpi": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 108.383148,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 516.784955,
+      "evolve_wall_ms": 518.734909,
+      "final_best": -572,
+      "final_eval_ms": 56.193244,
+      "fitness_metric": 2,
+      "genotype_device_bytes": 757797276,
+      "gpu_init_ms": 2.072066,
+      "initial_admission_ms": 93.29819099999999,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 887,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 471477,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "count_odds": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 111.32565,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 495.213818,
+      "evolve_wall_ms": 498.196865,
+      "final_best": -6508,
+      "final_eval_ms": 46.004728,
+      "fitness_metric": 1,
+      "genotype_device_bytes": 757305340,
+      "gpu_init_ms": 2.091566,
+      "initial_admission_ms": 94.07512,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 843,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 406755,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "last_index_of_zero": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 107.768144,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 971.239788,
+      "evolve_wall_ms": 973.898057,
+      "final_best": -646.1501278262585,
+      "final_eval_ms": 149.175415,
+      "fitness_metric": 1,
+      "genotype_device_bytes": 757319568,
+      "gpu_init_ms": 2.037115,
+      "initial_admission_ms": 91.905992,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 741,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 266182,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "small_or_large": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 33.516184,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 865.416912,
+      "evolve_wall_ms": 867.297551,
+      "final_best": -2552,
+      "final_eval_ms": 102.091096,
+      "fitness_metric": 3,
+      "genotype_device_bytes": 758973128,
+      "gpu_init_ms": 1.835282,
+      "initial_admission_ms": 222.66866299999998,
+      "list_allocation_limit": 65536,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 962,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 458774,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 1,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "for_loop_index": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 294.574226,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 15654.032276,
+      "evolve_wall_ms": 15655.651902,
+      "final_best": -5582,
+      "final_eval_ms": 2407.356346,
+      "fitness_metric": 3,
+      "genotype_device_bytes": 757520288,
+      "gpu_init_ms": 2.058838,
+      "initial_admission_ms": 198.29233299999999,
+      "list_allocation_limit": 65536,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 777,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 490541,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 14,
+      "generation_total_gpu_donor_fallback": 0
+    },
+    "double_letters": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 592.792434,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 54139.263308,
+      "evolve_wall_ms": 54140.967157,
+      "final_best": -3058,
+      "final_eval_ms": 6497.219134,
+      "fitness_metric": 3,
+      "genotype_device_bytes": 757298172,
+      "gpu_init_ms": 2.555684,
+      "initial_admission_ms": 195.0752,
+      "list_allocation_limit": 65536,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 824,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 943901,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 15,
+      "generation_total_gpu_donor_fallback": 0
+    },
+    "replace_space_with_newline": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 376.813734,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 53232.645101,
+      "evolve_wall_ms": 53234.459251,
+      "final_best": -453,
+      "final_eval_ms": 4207.584736,
+      "fitness_metric": 3,
+      "genotype_device_bytes": 757420484,
+      "gpu_init_ms": 2.24057,
+      "initial_admission_ms": 191.638618,
+      "list_allocation_limit": 65536,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 779,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 899676,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 14,
+      "generation_total_gpu_donor_fallback": 0
+    },
+    "even_squares": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 629.501432,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 23419.286699,
+      "evolve_wall_ms": 23420.217622,
+      "final_best": -1911,
+      "final_eval_ms": 3423.26237,
+      "fitness_metric": 3,
+      "genotype_device_bytes": 757176760,
+      "gpu_init_ms": 1.79783,
+      "initial_admission_ms": 189.96572099999997,
+      "list_allocation_limit": 65536,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 699,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 524815,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 10,
+      "generation_total_gpu_donor_fallback": 0
+    },
+    "sum_of_squares": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 85.300067,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 410.722156,
+      "evolve_wall_ms": 412.911378,
+      "final_best": -574245,
+      "final_eval_ms": 32.77839,
+      "fitness_metric": 1,
+      "genotype_device_bytes": 757432260,
+      "gpu_init_ms": 1.795771,
+      "initial_admission_ms": 96.107248,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 874,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 453533,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "negative_to_zero": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 389.390236,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 17021.152515,
+      "evolve_wall_ms": 17022.73075,
+      "final_best": -12791,
+      "final_eval_ms": 2515.164071,
+      "fitness_metric": 3,
+      "genotype_device_bytes": 758303716,
+      "gpu_init_ms": 2.275596,
+      "initial_admission_ms": 169.633957,
+      "list_allocation_limit": 65536,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 967,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 476103,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 9,
+      "generation_total_gpu_donor_fallback": 0
+    },
+    "scrabble_score": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 123.203182,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 546.465119,
+      "evolve_wall_ms": 549.164063,
+      "final_best": -10220,
+      "final_eval_ms": 54.33854,
+      "fitness_metric": 1,
+      "genotype_device_bytes": 758303828,
+      "gpu_init_ms": 2.106835,
+      "initial_admission_ms": 104.05436900000001,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 995,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 37712,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "grade": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 19.085426,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 864.893518,
+      "evolve_wall_ms": 866.338731,
+      "final_best": -805,
+      "final_eval_ms": 100.959814,
+      "fitness_metric": 3,
+      "genotype_device_bytes": 759011476,
+      "gpu_init_ms": 1.982183,
+      "initial_admission_ms": 225.204809,
+      "list_allocation_limit": 65536,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 954,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 450693,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 2,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "median": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 15.174829,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 320.757218,
+      "evolve_wall_ms": 323.548615,
+      "final_best": -642,
+      "final_eval_ms": 11.666056,
+      "fitness_metric": 2,
+      "genotype_device_bytes": 758444920,
+      "gpu_init_ms": 1.983274,
+      "initial_admission_ms": 96.284621,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 894,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 463657,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "smallest": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 15.074601,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 320.588555,
+      "evolve_wall_ms": 322.572003,
+      "final_best": -610,
+      "final_eval_ms": 11.056418,
+      "fitness_metric": 2,
+      "genotype_device_bytes": 758299288,
+      "gpu_init_ms": 1.886195,
+      "initial_admission_ms": 95.992348,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 891,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 483460,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "syllables": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 152.655715,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 568.480881,
+      "evolve_wall_ms": 571.205536,
+      "final_best": -2998,
+      "final_eval_ms": 52.604598,
+      "fitness_metric": 1,
+      "genotype_device_bytes": 758922676,
+      "gpu_init_ms": 2.168643,
+      "initial_admission_ms": 106.35060800000001,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 934,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 33789,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "fibonacci": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 42.13862,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 639.350343,
+      "evolve_wall_ms": 644.771229,
+      "final_best": 0,
+      "final_eval_ms": 74.419685,
+      "fitness_metric": 1,
+      "genotype_device_bytes": 547782108,
+      "gpu_init_ms": 1.969948,
+      "initial_admission_ms": 107.78444499999999,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 798,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 0,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "tribonacci": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 45.323388,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 1027.855917,
+      "evolve_wall_ms": 1033.317473,
+      "final_best": -214554,
+      "final_eval_ms": 147.850317,
+      "fitness_metric": 1,
+      "genotype_device_bytes": 548101160,
+      "gpu_init_ms": 1.980544,
+      "initial_admission_ms": 106.49233299999999,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 824,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 0,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "house_robber": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 45.202703,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 438.791438,
+      "evolve_wall_ms": 443.032138,
+      "final_best": -8503,
+      "final_eval_ms": 32.73413,
+      "fitness_metric": 1,
+      "genotype_device_bytes": 550045584,
+      "gpu_init_ms": 1.984403,
+      "initial_admission_ms": 104.773489,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 843,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 0,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "subregion_sum": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 19.977763,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 428.932796,
+      "evolve_wall_ms": 434.191023,
+      "final_best": 0,
+      "final_eval_ms": 27.946906,
+      "fitness_metric": 1,
+      "genotype_device_bytes": 548240560,
+      "gpu_init_ms": 2.067783,
+      "initial_admission_ms": 120.64433,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 849,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 0,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "fibonacci_array": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 83.685481,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 2074.895619,
+      "evolve_wall_ms": 2080.015953,
+      "final_best": -1024,
+      "final_eval_ms": 350.129675,
+      "fitness_metric": 1,
+      "genotype_device_bytes": 548147484,
+      "gpu_init_ms": 1.858855,
+      "initial_admission_ms": 115.945052,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 899,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 0,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": true,
+      "before_same_generation_best": true
+    },
+    "stock_with_cooldown": {
+      "case_penalty": 1000,
+      "cases": 1024,
+      "cpu_audit_mismatches": 0,
+      "cpu_audit_ms": 115.836745,
+      "cpu_audit_program_count": 16,
+      "elite_count": 1,
+      "evolve_call_ms": 1193.264229,
+      "evolve_wall_ms": 1198.549897,
+      "final_best": -4835,
+      "final_eval_ms": 165.190132,
+      "fitness_metric": 1,
+      "genotype_device_bytes": 548217892,
+      "gpu_init_ms": 2.059178,
+      "initial_admission_ms": 166.766019,
+      "list_allocation_limit": 0,
+      "mode": "gpu_overlap",
+      "population": 1024,
+      "reproduction_fallback_reason": "",
+      "reproduction_profile": "native-gpu-phase-v2-counted",
+      "search_contract": {
+        "fully_aligned": 0,
+        "items": [
+          {
+            "asgp": "task metric/proximity/ceiling/summary parameters",
+            "gagp": "verified task policy",
+            "id": "task_metric",
+            "matched": 1
+          },
+          {
+            "asgp": "1",
+            "gagp": "1",
+            "id": "elitism_count",
+            "matched": 1
+          },
+          {
+            "asgp": "ramped depth 2..7, alternating full/grow",
+            "gagp": "native grammar initialization",
+            "id": "initial_population",
+            "matched": 0
+          },
+          {
+            "asgp": "0.7 probability per child",
+            "gagp": "one crossover attempt per child; no probability gate",
+            "id": "crossover_gate",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform phase, uniform destination node, compatible donor in same phase",
+            "gagp": "whole-genome grammar sites; bounded compatible-donor retries",
+            "id": "crossover_sites",
+            "matched": 0
+          },
+          {
+            "asgp": "0.3 probability per child",
+            "gagp": "0.300000",
+            "id": "mutation_gate",
+            "matched": 1
+          },
+          {
+            "asgp": "uniform phase then uniform node",
+            "gagp": "grammar-admitted sites; source phase is not sampled uniformly",
+            "id": "mutation_scope",
+            "matched": 0
+          },
+          {
+            "asgp": "grow donor within max_depth minus selected node level plus one",
+            "gagp": "compiled request and projected resource admission",
+            "id": "mutation_donor_depth",
+            "matched": 0
+          },
+          {
+            "asgp": "source logical phase depth limit 7",
+            "gagp": "native grammar depth/node budgets and backend physical capacities",
+            "id": "phase_limits",
+            "matched": 0
+          },
+          {
+            "asgp": "grow: terminal probability 0.5 when both categories fit; full: inner",
+            "gagp": "weighted feasible productions; no conditional terminal/inner gate",
+            "id": "terminal_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "uniform constant production, uniform range, uniform value",
+            "gagp": "translated ranges are separate weighted productions",
+            "id": "constant_sampler",
+            "matched": 0
+          },
+          {
+            "asgp": "error, wrong cases, source logical phase nodes",
+            "gagp": "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",
+            "id": "ranking",
+            "matched": 0
+          },
+          {
+            "asgp": "independent draws with replacement, size 2",
+            "gagp": "independent device draws with replacement",
+            "id": "tournament_sampling",
+            "matched": 1
+          },
+          {
+            "asgp": "population minus elites children are generated",
+            "gagp": "population children generated; elites replace first ranked slots",
+            "id": "offspring_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "source evaluator steps, recursion and arena limits",
+            "gagp": "native instruction fuel, region memo/frame and payload capacities",
+            "id": "execution_budget",
+            "matched": 0
+          },
+          {
+            "asgp": "ASGP RNG stream and source operator draw order",
+            "gagp": "native CPU/CUDA RNG streams and operator draw order",
+            "id": "rng_replay",
+            "matched": 0
+          }
+        ],
+        "version": "asgp-native-search-contract-v1"
+      },
+      "seed": 0,
+      "source_depth_cap": 0,
+      "unique_final_genomes": 803,
+      "generation_total_cases": 4194304,
+      "generation_total_errors": 0,
+      "generation_total_timeouts": 0,
+      "generation_total_fallbacks": 0,
+      "generation_total_unscored": 0,
+      "generation_total_operator_fallbacks": 0,
+      "generation_total_gpu_donor_fallback": 0,
+      "before_same_final_population_metrics": false,
+      "before_same_generation_best": false
+    }
+  },
+  "drift_controls": [
+    {
+      "task": "house_robber",
+      "reused_ms": 4252.079181,
+      "same_round_ms": 4276.816851,
+      "ratio_new_old": 1.0058177820654275
+    },
+    {
+      "task": "median",
+      "reused_ms": 268.991905,
+      "same_round_ms": 275.60457,
+      "ratio_new_old": 1.0245831375483216
+    }
+  ]
+}

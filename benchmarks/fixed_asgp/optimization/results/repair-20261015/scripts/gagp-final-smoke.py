@@ -6,6 +6,7 @@ parser=ArgumentParser();parser.add_argument('--out',type=Path);cli=parser.parse_
 a=Namespace(out=cli.out or b/'final-five-mode-smoke',binary=b/'smallhash-screen/bench',settings=b/'settings-final.json',stage='final-five-mode-smoke',generations=2,rss_gib=4,budget=600,timeout=45,native_depth=24,source_balanced=True)
 s=Study(a)
 s.manifest['binary_source_head']='8249c0d';s.manifest['binary_note']='Archived smallhash candidate; final current cpp tree identical to 8249c0d after rejected transpose and Slice-hash reverts.';s.persist()
+s.manifest['population']=8
 s.manifest['note']='Reuses existing source/grammar/P8 prepared files without prepare. All30 full1024-case CPU-GPU snapshots and five native mode P8G2 smokes. Not P1024 speed evidence.';s.persist()
 for task in PAPER_TASKS:
  f=b/'support-balanced'/task;p=f/'p8.prepared.json';o=s.out/f'{task}.snapshot.json'

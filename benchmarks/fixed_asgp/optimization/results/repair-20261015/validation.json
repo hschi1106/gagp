@@ -1,0 +1,22 @@
+{
+  "status": "baseline rebuild pending",
+  "smoke_tasks_passed": 30,
+  "smoke_cells": 180,
+  "smoke_elapsed_s": 185.86432942305692,
+  "smoke_population": 8,
+  "cases": 1024,
+  "generations": 2,
+  "modes": [
+    "asgp_1t",
+    "gagp_cpu",
+    "gpu_eval",
+    "gpu_repro",
+    "gpu_overlap"
+  ],
+  "latest_full_ctest": {
+    "source": "01f4f65",
+    "passed": 131,
+    "final_smallhash_coverage": false
+  },
+  "smallhash_focused_extended_test": "passed"
+}
