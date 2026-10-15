@@ -41,16 +41,18 @@ inline void sampled_audit(const Json& source, const std::string& grammar_path,
     std::size_t value_mismatch=0,status_mismatch=0,source_errors=0,native_errors=0;
     for(std::size_t c=0;c<spec.train.size();++c) {
       const auto& example=spec.train[c];
-      scratch.produced=asgp::Output{};scratch.produced.summary1=std::numeric_limits<std::int64_t>::min();
-      asgp::Score(original,spec,std::span<const asgp::Example>(&example,1),config,scratch);
-      const bool source_error=scratch.produced.summary1==std::numeric_limits<std::int64_t>::min();
+      const bool source_error=!expanded_audit_detail::execute_source(original,spec,example,config.limits,scratch);
+      source_errors+=source_error;
+      try {
+      gagp::payload::StagedPayloads payloads(8*1024*1024);
+      gagp::payload::StagedPayloads::Scope scope(payloads);
       std::vector<gagp::Value> elements;for(auto v:example.elements)elements.push_back(gagp::Value::from_int(v));
       std::vector<std::pair<int,gagp::Value>> inputs{{0,gagp::payload::make_int_list_value(elements)}};
       for(auto v:example.scalars)inputs.emplace_back(inputs.size(),gagp::Value::from_int(v));
       if(spec.scheme==asgp::Scheme::kDynamicProgramming && spec.id!="house_robber")
         for(auto v:{example.start.a,example.start.b,example.extent.a,example.extent.b})inputs.emplace_back(inputs.size(),gagp::Value::from_int(v));
       const auto result=session.execute(inputs,2000000);
-      source_errors+=source_error;native_errors+=result.is_error;
+      native_errors+=result.is_error;
       if(source_error!=result.is_error){++status_mismatch;continue;}
       if(source_error)continue;
       bool equal=false;
@@ -61,6 +63,7 @@ inline void sampled_audit(const Json& source, const std::string& grammar_path,
         for(std::size_t i=0;equal && i<actual.size();++i)equal=actual[i].tag==gagp::ValueTag::Int && actual[i].i==expected[i];
       } else equal=result.value.tag==gagp::ValueTag::Int && result.value.i==scratch.produced.i;
       value_mismatch+=!equal;
+      } catch(const gagp::payload::PayloadBudgetExceeded&) { ++native_errors;status_mismatch+=!source_error; }
     }
     mismatches+=value_mismatch+status_mismatch;
     rows.push_back(object({{"program",number(p)},{"cases",number(spec.train.size())},{"source_errors",number(source_errors)},

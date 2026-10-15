@@ -47,8 +47,9 @@ class TestSourceGrammar(unittest.TestCase):
         self.assertEqual(plan['limits']['cells'],169)
         self.assertEqual(body['args'][:2],[{'input':'start_a'},{'input':'start_b'}])
         self.assertEqual([p['argument'] for p in body['phases']],[2,3,4,5])
-        with self.assertRaisesRegex(ValueError,'clamped coordinate'):
-            template(ROOT,'stock_with_cooldown',contract)
+        stock=template(ROOT,'stock_with_cooldown',dict(dp_dimensions=2,dp_deps=[[1,0],[1,1],[2,-1]],sequence_input=1))['body']
+        self.assertEqual(stock['structured']['plan']['coordinate_rank'][0]['direction'],-1)
+        self.assertTrue(all(r['states'][1]['kind']=='expression' for r in stock['structured']['plan']['requests']))
 
 if __name__=='__main__':
     unittest.main()

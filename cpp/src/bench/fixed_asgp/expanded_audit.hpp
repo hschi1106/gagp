@@ -12,6 +12,7 @@
 #include "gagp/evolution/grammar/identity.hpp"
 #include "gagp/runtime/cpu/execution_session.hpp"
 #include "gagp/runtime/payload/payload.hpp"
+#include "runtime/payload/staging.hpp"
 
 namespace fixed_asgp {
 namespace expanded_audit_detail {
@@ -38,6 +39,23 @@ struct Totals {
       {"case_results",array(std::move(rows))}});
   }
 };
+inline bool execute_source(const asgp::Individual& individual,const asgp::TaskSpec& spec,
+                           const asgp::Example& example,const asgp::EvalLimits& limits,
+                           asgp::FitnessScratch& scratch) {
+  if(spec.scheme==asgp::Scheme::kDynamicProgramming) {
+    asgp::DpProgram program{&individual.phases[0],&individual.phases[1],&spec.dp,spec.carrier};
+    asgp::DpInstance instance{example.elements.data(),static_cast<std::uint32_t>(example.elements.size()),example.scalars.data(),example.start,example.extent};
+    const auto result=asgp::RunDp(program,instance,limits,scratch.memo,&scratch.arena);
+    if(!result.ok())return false;
+    scratch.produced=asgp::Project(result.structured,spec,scratch.arena);return true;
+  }
+  if(spec.scheme!=asgp::Scheme::kDivideConquer)throw std::runtime_error("unsupported source audit scheme");
+  asgp::DcProgram program{&individual.phases[0],&individual.phases[1],&individual.phases[2],spec.carrier,spec.base_size};
+  asgp::Instance instance{example.elements.data(),static_cast<std::uint32_t>(example.elements.size()),example.scalars.data()};
+  const auto result=asgp::RunDc(program,instance,limits,scratch.arena);
+  if(!result.ok())return false;
+  scratch.produced=asgp::Project(result.value,spec,scratch.arena);return true;
+}
 inline Json score_asgp(const Json& program, asgp::TaskSpec spec) {
   const auto individual = decode(program);
   // The common metric is explicitly independent of native discounted fitness.
@@ -51,16 +69,11 @@ inline Json score_asgp(const Json& program, asgp::TaskSpec spec) {
   asgp::FitnessScratch scratch;
   Totals totals;
   totals.list_output = asgp::IsListType(spec.output);
-  totals.case_cap = totals.list_output ? 1 : cap;
+  totals.case_cap = (totals.list_output || spec.output==asgp::Type::kBool) ? 1 : cap;
   for (std::size_t i=0; i<spec.test.size(); ++i) {
-    // Successful scalar/list Project initializes summary1 to zero. Score
-    // leaves produced untouched on execution failure, preserving the sentinel.
-    scratch.produced = asgp::Output{};
-    scratch.produced.summary1 = std::numeric_limits<std::int64_t>::min();
-    const auto score = asgp::Score(individual, spec,
-      std::span<const asgp::Example>(&spec.test[i],1), config, scratch);
-    const bool error = scratch.produced.summary1==std::numeric_limits<std::int64_t>::min();
-    totals.add(i,score.wrong==0,error,score.error);
+    const bool error=!execute_source(individual,spec,spec.test[i],config.limits,scratch);
+    const auto score=error ? asgp::CaseScore{} : asgp::Compare(scratch.produced,spec.test[i].expected,spec,scratch.row);
+    totals.add(i,!error && score.exact,error,error ? totals.case_cap : std::min(totals.case_cap,score.error));
   }
   auto result = totals.finish();
   result.object_v["backend"] = string("asgp_1t");
@@ -81,8 +94,11 @@ inline Json score_gagp(const Json& ast, const asgp::TaskSpec& spec,
   gagp::CpuExecutionSession session(code);
   Totals totals;
   totals.list_output = asgp::IsListType(spec.output);
-  totals.case_cap = totals.list_output ? 1 : cap;
+  totals.case_cap = (totals.list_output || spec.output==asgp::Type::kBool) ? 1 : cap;
   for (std::size_t i=0; i<spec.test.size(); ++i) {
+    try {
+    gagp::payload::StagedPayloads payloads(8*1024*1024);
+    gagp::payload::StagedPayloads::Scope scope(payloads);
     const auto& example = spec.test[i];
     std::vector<gagp::Value> elements;
     for (const auto v:example.elements) elements.push_back(gagp::Value::from_int(v));
@@ -115,6 +131,7 @@ inline Json score_gagp(const Json& ast, const asgp::TaskSpec& spec,
         std::fabs(static_cast<long double>(result.value.i)-example.expected.i)));
     }
     totals.add(i,exact,error,loss);
+    } catch(const gagp::payload::PayloadBudgetExceeded&) { totals.add(i,false,true,totals.case_cap); }
   }
   auto result = totals.finish();
   result.object_v["backend"] = string("gagp_cpu_1t");

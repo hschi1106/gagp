@@ -57,11 +57,13 @@ Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::Ta
       return object({{"constant", object({{"type", string("IntList")}, {"values", array({array({})})}})}});
     case K::kSingleton: return call("singleton(Int)->IntList", args);
     case K::kConcat: return call("concat(IntList,IntList)->IntList", args);
-    case K::kInputSize: case K::kStateA: return bound("n");
+    case K::kInputSize: case K::kStateA: return spec.id=="stock_with_cooldown" ? call("min(Int,Int)->Int",{bound("n"),bound("extent")}) : bound("n");
     case K::kStateB: return bound("j");
-    case K::kStateValue:
-      return call("index(IntList,Int)->Int", {bound("xs"), call("max(Int,Int)->Int", {
-          call(spec.id=="house_robber" ? "sub(Int,Int)->Int" : "add(Int,Int)->Int", {bound(spec.dp.value_at==asgp::ValueAt::kStateB ? "j" : "n"), constant(spec.id=="house_robber" ? 1 : spec.dp.value_offset)}), constant(0)})});
+    case K::kStateValue: {
+      auto index=call("max(Int,Int)->Int",{call(spec.id=="house_robber" ? "sub(Int,Int)->Int" : "add(Int,Int)->Int",{bound(spec.dp.value_at==asgp::ValueAt::kStateB ? "j" : "n"),constant(spec.id=="house_robber" ? 1 : spec.dp.value_offset)}),constant(0)});
+      if(spec.id!="house_robber")index=call("min(Int,Int)->Int",{call("sub(Int,Int)->Int",{call("len(IntList)->Int",{bound("xs")}),constant(1)}),index});
+      return call("index(IntList,Int)->Int",{bound("xs"),index});
+    }
     case K::kResult:
       if(!dp && node.op>1)throw std::runtime_error("unsupported result slot");
       return bound(dp ? "d"+std::to_string(node.op+1) : (node.op ? "right" : "left"));
@@ -170,7 +172,6 @@ Json translated_root(const asgp::Individual& individual, const std::string& name
   auto it=specs.find(name);if(it==specs.end())it=specs.emplace(name,task(name)).first;
   const auto& spec=it->second;
   const bool dp = spec.scheme == asgp::Scheme::kDynamicProgramming;
-  if (dp && name == "stock_with_cooldown") throw std::runtime_error("stock recurrence needs clamped transitions");
   Json holes=object({});
   if (!dp) holes.object_v["source"]=object({{"input", string("source")}});
   const std::vector<std::string> names = dp ? std::vector<std::string>{"solve", "transition"}
@@ -238,7 +239,12 @@ asgp::Individual solution(const std::string& name) {
   const auto concat_results=[&](T t){return expr(K::kConcat,t,0,0,{expr(K::kResult,t,0,0),expr(K::kResult,t,1,0)});};
   auto origin=expr(K::kHeadIndex,T::kInt,0,0,{expr(K::kInputList,T::kIntList,0,0)});
   asgp::Individual out;
-  if(name=="fibonacci" || name=="tribonacci" || name=="fibonacci_array" || name=="subregion_sum") {
+  if(name=="stock_with_cooldown") {
+    auto h=expr(K::kStateB,T::kInt,0,0),v=expr(K::kStateValue,T::kInt,0,0);
+    const auto maximum=[&](E a,E b){return choose(lt(a,b),b,a);};
+    out.phases[0]=lit(0);
+    out.phases[1]=choose(eq(h,lit(0)),maximum(result(0),arith(1,result(1),v)),maximum(result(0),add(result(2),v)));
+  } else if(name=="fibonacci" || name=="tribonacci" || name=="fibonacci_array" || name=="subregion_sum") {
     auto n=expr(K::kStateA,T::kInt,0,0);
     out.phases[0]=name=="fibonacci" ? n : name=="tribonacci" ? choose(lt(n,lit(1)),lit(0),lit(1)) : name=="subregion_sum" ? expr(K::kStateValue,T::kInt,0,0) : lit(1);
     out.phases[1]=name=="subregion_sum" ? add(result(0),expr(K::kStateValue,T::kInt,0,0)) : add(result(0),result(1));

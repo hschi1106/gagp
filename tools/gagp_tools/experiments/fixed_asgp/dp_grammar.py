@@ -5,7 +5,8 @@ from .grammar import bound, call, constant
 
 # Source task/dp_problems.cc defines these fixed base predicates and domains.
 SHAPES = {'fibonacci': (30,'one'), 'tribonacci':(25,'two'),
-          'subregion_sum':(19,'interval'), 'fibonacci_array':(12,'axes')}
+          'subregion_sum':(19,'interval'), 'fibonacci_array':(12,'axes'),
+          'stock_with_cooldown':(14,'time')}
 
 def template(root, task, contract):
     if task not in SHAPES:
@@ -43,5 +44,23 @@ def template(root, task, contract):
         {'argument':dim+1,'bindings':phase_bindings},
         {'argument':dim+2,'bindings':phase_bindings+[{'bank':'result','slot':i,'name':s['name']} for i,s in enumerate(results)]},
         {'argument':dim+3,'bindings':[]}]
+    if predicate=='time':
+        plan['parameter_types'].append('Int')
+        body['captures'].append({'input':'extent_a'})
+        scope.append({'name':'extent','type':'Int'})
+        phase_bindings.append({'bank':'parameter','slot':1,'name':'extent'})
+        # Each nonterminal frame advances time strictly; holding-state requests
+        # clamp independently. Source terminals bypass the memo table.
+        plan['coordinate_rank'][0]['direction']=-1
+        plan['coordinate_domains'][1]['upper']['literal']='1'
+        plan['limits']['cells']=(upper+1)*2
+        plan['request_expression_types']=['Int']*len(plan['requests'])
+        for i,(request,dep) in enumerate(zip(plan['requests'],contract['dp_deps'])):
+            request['states'][1].update(kind='expression',expression=i)
+            body['args'].append(call('min(Int,Int)->Int',constant(1),call('max(Int,Int)->Int',constant(0),call('add(Int,Int)->Int',bound('j'),constant(dep[1])))))
+            body['phases'].append({'argument':dim+4+i,'bindings':bindings})
+        body['args'][dim]=call('ge(Int,Int)->Bool',bound('n'),bound('extent'))
+        body['phases'][0]['bindings']=phase_bindings
+        body['phases'][2]['bindings']=phase_bindings+[{'bank':'result','slot':i,'name':s['name']} for i,s in enumerate(results)]
     return {'id':f'Fixed.DP.{task}','type':'Int','scope':[],
         'holes':[{'id':'solve','type':'Int','scope':scope}, {'id':'transition','type':'Int','scope':scope+results}], 'body':body}

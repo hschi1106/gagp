@@ -728,3 +728,63 @@ training fitness (final wins ties), then independently audits the saved program;
 this is post-search analysis, not elitism added to the measured pipeline.
 `summarize_best.py` requires30 paired final/archive audits and never replaces
 the final-quality result. Exact study flags are frozen in `settings.json`.
+
+## Source-derived paper task coverage
+
+The opt-in `contract TASK OUT` native command exports the actual reachable
+ASGP productions, constant pools, carrier/projection, metric, scalar inputs,
+and recurrence dependencies. `source_grammar.py` consumes this contract through
+`definition(root, task, contract=...)`; `dp_grammar.py` owns coordinate-plan
+construction. The historical no-contract grammar API remains available for
+archived inputs. The 30 source identifiers are `PAPER_TASKS` in
+`source_grammar.py`; the paper's Minimum and MinimumPositiveInteger map to
+`min` and `mpi` in the source registry.
+
+`freeze` records scalar inputs, both coordinates/extents, character sequences
+as integer code points, and tuple summaries. `GAGP_FREEZE_POPULATION` controls
+new population size (default8192). Existing files must not be overwritten.
+The native `sampled-audit SOURCE GRAMMAR OUT` command compares the first eight
+frozen parents on every one of the1024 frozen cases, using original ASGP
+execution and native CPU execution. It checks values and execution status
+independently of fitness, writes mismatch evidence, and fails on mismatch.
+Known-solution `audit` remains separate and fails if CPU output differs or GPU
+fitness is nonzero. Witnesses are never injected into evolution populations.
+The independent `quality` command supports scalar inputs, character/list,
+tuple predicate projections, and recurrence coordinates; it uses a separate
+ASGP generator seed, not official PSB test data. Native sampled and quality
+execution use discard-only8MiB payload scopes per case.
+
+Character and character-list nonterminals remain distinct from integer ones,
+although native transport uses Int and IntList. Tuple carriers use a private
+three-element IntList `[predicate, summary1, summary2]`; only source tuple
+constructors/projections generate and access that representation. Source Index
+rejects negative indices, whereas the native primitive normalizes them; the
+source-derived grammar therefore uses a repeated-hole guard template that
+raises a native out-of-range error for negative source indices. The repeated
+hole preserves a single source index expression during generation and matching.
+
+StockWithCooldown uses increasing physical time as its strict progress proof
+and clamped holding-state request expressions. Terminal physical time may be
+one step beyond the source extent; source-visible StateA and StateValue clamp
+to the original extent/last element. Source terminal evaluation precedes memo
+lookup. This shape requires the bounded-plan validator's subordinate-coordinate
+expression rule and `duplicate_policy=allow`.
+
+These adapters do **not** establish identical search distributions or resource
+accounting. Exported source constant ranges are preserved, including duplicate
+literal/range alternatives, but native production weights and constant-range
+draws differ from ASGP's two-stage production/pool selection. Source search
+uses phase depth7; native limits remain1024 nodes/depth48 and count expanded
+constructor/guard nodes. Conditional guards, tuple encoding, character tests,
+and recurrence scaffolding change VM instruction/fuel cost. Both audit engines
+use fuel2000000 and recursion/frame bound127; native payload-byte limits and
+source list-arena limits differ. Source integer-overflow behavior also requires
+sampled parity evidence. These differences must be reported with any timing or
+quality comparison; successful grammar admission alone is not a parity claim.
+
+CumulativeSum is present in the source registry and its generated programs can
+be translated, but no general exact witness is registered. Its current source
+DC list grammar combines recursive results only by concatenation: it has no
+map/scan or access to the left sum while transforming the right output. A
+failed known-solution gate for this task is an explicit source-language
+limitation; substituting a prefix-scan solver would change the experiment.
