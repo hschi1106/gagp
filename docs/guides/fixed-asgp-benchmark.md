@@ -166,7 +166,10 @@ The native `measure SOURCE PREPARED GRAMMAR POP MODE OUT` entry also supports
 from the five modes above:
 
 - `snapshot`: identical frozen programs and all cases, per-program fitness/error/
-  timeout/fallback counts. `GAGP_SNAPSHOT_CPU=1` also scores every program on CPU.
+  timeout/fallback counts. `GAGP_SNAPSHOT_CPU=1` also scores every program on CPU
+  and emits `cpu_cases`, `cpu_errors`, and `cpu_timeouts`. Errors include timeouts,
+  matching GPU counters. The low-budget support gate requires matching CPU/GPU
+  case, error, and timeout counts as well as finite matching fitness.
 - `search`: four actual generations, plus separately timed final evaluation and
   top-16 full-case CPU reevaluation. Set `GAGP_GPU_DIAGNOSTICS=1` for per-generation
   counters and `GAGP_BM_SEED=0/1/2` for the short quality screen. Final population

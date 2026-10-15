@@ -62,6 +62,18 @@ def process_group_rss(group: int) -> int:
     return rss
 
 
+def snapshot_mismatches(rows: list[dict]) -> int:
+    """Require matching execution status counts as well as finite fitness."""
+    return sum(
+        not (math.isfinite(row.get('fitness', math.nan)) and
+             math.isfinite(row.get('cpu_fitness', math.nan)) and
+             abs(row['fitness'] - row['cpu_fitness']) <= 1e-8 and
+             all(key in row and 'cpu_' + key in row and
+                 row[key] == row['cpu_' + key]
+                 for key in ('cases', 'errors', 'timeouts')))
+        for row in rows)
+
+
 def validate_search(result: dict, population: int, generations: int, mode: str) -> None:
     if result['population'] != population or result['cases'] != 1024:
         raise ValueError('search dimensions differ from declared contract')
@@ -239,7 +251,7 @@ class Study:
         record['cpu_gpu_snapshot'] = snapshot['status']
         if snapshot['status'] == 'ok':
             snapshot_rows = read(folder / 'snapshot.json')['programs']
-            mismatches = sum(abs(r['fitness'] - r['cpu_fitness']) > 1e-8 for r in snapshot_rows)
+            mismatches = snapshot_mismatches(snapshot_rows)
             record['cpu_gpu_snapshot_mismatches'] = mismatches
             if mismatches:
                 record['cpu_gpu_snapshot'] = 'mismatch'

@@ -293,6 +293,32 @@ bool test_move_lifetime_and_retained_storage() {
   return true;
 }
 
+bool test_fitness_optional_case_counts() {
+  BytecodeProgram load;
+  load.n_locals = 1;
+  load.code = {ins_a(Opcode::Load, 0), ins(Opcode::Return)};
+  load.instruction_fuel = {0, 0};
+  BytecodeProgram timeout = load;
+  timeout.instruction_fuel = {2, 0};
+  const std::vector<CaseBindings> cases{{{0, Value::from_int(4)}}, {}};
+  const std::vector<Value> answers(2, Value::from_int(4));
+  std::vector<CpuFitnessCaseCounts> counts(7);
+  std::vector<unsigned> wrong;
+  const auto plain = eval_fitness_cpu({load, timeout}, cases, answers, 1, 7, 3);
+  const auto counted = eval_fitness_cpu({load, timeout}, cases, answers, 1, 7, 3,
+                                       {}, &wrong, &counts);
+  if (!check(plain == counted && counts.size() == 2,
+             "optional diagnostics changed scores or retained old counts") ||
+      !check(counts[0].cases == 2 && counts[0].errors == 1 && counts[0].timeouts == 0,
+             "ordinary success/name error counts disagree") ||
+      !check(counts[1].cases == 2 && counts[1].errors == 2 && counts[1].timeouts == 2,
+             "fuel timeouts must also count as errors") ||
+      !check(wrong == std::vector<unsigned>({1, 2}), "wrong counts changed")) return false;
+  eval_fitness_cpu({load}, {}, {}, 1, 7, 3, {}, nullptr, &counts);
+  return check(counts.size() == 1 && counts[0].cases == 0 && counts[0].errors == 0,
+               "empty evaluation did not reset diagnostics");
+}
+
 bool test_fitness_batch_reuses_without_state_leaks() {
   const BytecodeProgram program = counter_program();
   const std::vector<CaseBindings> cases{
@@ -611,7 +637,7 @@ int main() {
       }
       if (direct) setenv("GAGP_CPU_BOUND_PHASE", "1", 1);
       else unsetenv("GAGP_CPU_BOUND_PHASE");
-    if (!test_integer_letter_views() || !test_clamped_index() || !test_nonnegative_index() || !test_compact_coordinate_branches() ||
+    if (!test_fitness_optional_case_counts() || !test_integer_letter_views() || !test_clamped_index() || !test_nonnegative_index() || !test_compact_coordinate_branches() ||
         !test_typed_numeric_boundaries_and_replay() ||
         !test_typed_integer_oracles() ||
         !test_coordinate_capture_views() ||

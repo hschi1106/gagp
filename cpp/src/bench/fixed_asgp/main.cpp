@@ -317,8 +317,9 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
   const auto result=session.eval_programs(programs,true);
   if (!result.ok) throw std::runtime_error(result.err.message);
   std::vector<double> cpu;
+  std::vector<gagp::CpuFitnessCaseCounts> cpu_counts;
   if (std::getenv("GAGP_SNAPSHOT_CPU"))
-    cpu=gagp::eval_fitness_cpu(programs,cs.bindings,cs.expected_values,2000000,penalty,512,task_fitness_policy(spec));
+    cpu=gagp::eval_fitness_cpu(programs,cs.bindings,cs.expected_values,2000000,penalty,512,task_fitness_policy(spec),nullptr,&cpu_counts);
   std::set<std::string> behaviors;
   const bool behavior_probe=std::getenv("GAGP_SNAPSHOT_BEHAVIOR")!=nullptr;
   if(behavior_probe) for(const auto& program:programs) {
@@ -347,7 +348,12 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
     auto row=object({{"program",number(i)}, {"nodes",number(population[i].ast.nodes.size())},
       {"fitness",number(result.fitness[i])}, {"cases",number(n[0])}, {"errors",number(n[1])},
       {"timeouts",number(n[2])}, {"fallbacks",number(n[3])}, {"unscored",number(n[4])}});
-    if (!cpu.empty()) row.object_v["cpu_fitness"]=number(cpu[i]);
+    if (!cpu.empty()) {
+      row.object_v["cpu_fitness"]=number(cpu[i]);
+      row.object_v["cpu_cases"]=number(cpu_counts[i].cases);
+      row.object_v["cpu_errors"]=number(cpu_counts[i].errors);
+      row.object_v["cpu_timeouts"]=number(cpu_counts[i].timeouts);
+    }
     rows.push_back(std::move(row));
   }
   write(output,object({{"admission_compile_reuses",number(admission_reuses)}, {"compile_ms",number(compile_ms)}, {"gpu_init_ms",number(init.timing.total_ms)},

@@ -60,7 +60,9 @@ std::vector<double> eval_fitness_cpu(
     const std::vector<Value>& shared_answer,
     int fuel,
     double penalty,
-    int reduction_lanes, FitnessPolicy policy, std::vector<unsigned>* wrong) {
+    int reduction_lanes, FitnessPolicy policy, std::vector<unsigned>* wrong,
+    std::vector<CpuFitnessCaseCounts>* case_counts) {
+  if (case_counts) case_counts->assign(programs.size(), {});
   if(wrong)wrong->assign(programs.size(),0);
   if(!valid_fitness_policy(policy))throw std::invalid_argument("invalid fitness policy");
   if(policy.metric==FitnessMetric::Levenshtein || policy.metric==FitnessMetric::TupleSummary)
@@ -130,6 +132,14 @@ std::vector<double> eval_fitness_cpu(
         } catch (const payload::PayloadBudgetExceeded& error) {
           out.is_error = true;
           out.err = Err{ErrCode::Value, error.what()};
+        }
+        if (case_counts) {
+          auto& counts = (*case_counts)[p];
+          ++counts.cases;
+          if (out.is_error) {
+            ++counts.errors;
+            if (out.err.code == ErrCode::Timeout) ++counts.timeouts;
+          }
         }
         if (out.is_error) {
           if(wrong)++wrong->at(p);

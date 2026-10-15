@@ -15,6 +15,14 @@ struct InputBinding {
 
 using CaseBindings = std::vector<InputBinding>;
 
+// Optional per-program execution counts. Errors include timeouts; scoring
+// mismatches and fallback values are not runtime errors.
+struct CpuFitnessCaseCounts {
+  unsigned cases = 0;
+  unsigned errors = 0;
+  unsigned timeouts = 0;
+};
+
 // Returns one fitness score per program.
 // Per-case scoring:
 //   if expected is numeric:
@@ -31,6 +39,7 @@ std::vector<double> eval_fitness_cpu(
     int fuel = 10000,
     double penalty = 1.0,
     int reduction_lanes = 1,
-    FitnessPolicy policy = {}, std::vector<unsigned>* wrong = nullptr);
+    FitnessPolicy policy = {}, std::vector<unsigned>* wrong = nullptr,
+    std::vector<CpuFitnessCaseCounts>* case_counts = nullptr);
 
 }  // namespace gagp

@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from gagp_tools.experiments.fixed_asgp.low_budget import PAPER_TASKS, validate_search, Study
+from gagp_tools.experiments.fixed_asgp.low_budget import PAPER_TASKS, validate_search, snapshot_mismatches, Study
 
 
 class TestLowBudgetContract(unittest.TestCase):
@@ -33,6 +33,17 @@ class TestLowBudgetContract(unittest.TestCase):
                 self.assertEqual([phase for phase,_ in phases],expected)
                 self.assertEqual(phases[2][1][-2],1024)
                 self.assertEqual(study.manifest['tasks']['median']['blocked_at'],failure)
+
+    def test_snapshot_requires_status_parity_even_when_fitness_matches(self):
+        row = dict(fitness=-7, cpu_fitness=-7, cases=3, cpu_cases=3,
+                   errors=2, cpu_errors=2, timeouts=1, cpu_timeouts=1)
+        self.assertEqual(snapshot_mismatches([row]), 0)
+        for key in ('cases', 'errors', 'timeouts'):
+            changed = dict(row, **{'cpu_' + key: row[key] + 1})
+            self.assertEqual(snapshot_mismatches([changed]), 1)
+            del changed['cpu_' + key]
+            self.assertEqual(snapshot_mismatches([changed]), 1)
+        self.assertEqual(snapshot_mismatches([dict(row, fitness=float('nan'))]), 1)
 
     def sample(self):
         return {'population': 1024, 'cases': 1024, 'final_best': -12,
