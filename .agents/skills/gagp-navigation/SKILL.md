@@ -105,6 +105,14 @@ maintenance, follow the rules in root `AGENTS.md`.
 
 - `GAGP_GPU_CONSTRUCTIVE_EXPORT`: private `NativePhasePopulation::Impl::finish_export` in `gpu/phase_population.cu` omits optional canonical export caches using the live grammar-construction invariant. External import stays strict. `gagp_test_gpu_phase_population` clears supplied derivations for all-member grammar/CPU validation and checks owner lifetime, exact AST replay and modified-export rejection.
 
+- `GAGP_COLD_PAYLOAD_PROOFS=1`: `evolution/grammar/cold_admission.hpp`
+  scopes cold replay/import membership reads in existing payload snapshots;
+  `evolution/population_init.cpp` and `evolution/repro/gpu/phase_layout.hpp`
+  retain exact certificates only after read-only validation. Writes/conflicts
+  discard speculative results and retry ordinary admission. This is not a hot
+  generation transaction or registry-bytecode trust. Test:
+  `gagp_test_grammar_membership`; integration: `gagp_test_gpu_phase_layout`.
+
 - `GAGP_REUSE_IMPORT_CERTIFICATE`: `repro/gpu/phase_layout.hpp` retains only
   identity-checked private admission/executable caches on cold import. External
   mutations, grammar/request and evaluator input order still pass validation.

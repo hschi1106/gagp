@@ -1,11 +1,12 @@
 {
   "authoritative_entrypoint": "spec/grammar.md",
   "format_version": "spec-freeze",
-  "generated_at": "2026-10-14",
+  "generated_at": "2026-10-15",
   "notes": [
     "This manifest records the release 2.0.0 normative spec set after the compiled-grammar production cutover and v2 AST/bytecode/artifact version boundary.",
     "The hash gate is intentionally mechanical: if a listed spec changes, update this manifest in the same semantic change.",
-    "2026-10-14: document opt-in fused witness admission and its explicit speculative matcher-work accounting; strict membership and materialized execution semantics remain unchanged."
+    "2026-10-14: document opt-in fused witness admission and its explicit speculative matcher-work accounting; strict membership and materialized execution semantics remain unchanged.",
+    "2026-10-15: document opt-in private IntList content identity, 65536/65537 backing boundaries, and exact compact int64 cell storage. Canonical default behavior and transport format remain unchanged; profile admission and explicit fallback are required."
   ],
   "specs": [
     {
@@ -30,7 +31,7 @@
     },
     {
       "path": "spec/fitness.md",
-      "sha256": "a46d331dea2fd12ed03bb754f158ab97b06fb00a777a0f61dc73dcac34e4503a"
+      "sha256": "30eeb3187c478826c6b4ee5c873c713a7e0562f90c6ecab52dd3467e61f09154"
     },
     {
       "path": "spec/fitness_cases.md",
