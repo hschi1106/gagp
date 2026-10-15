@@ -323,14 +323,36 @@ void test_private_intlist_generations(bool sequence_windows=false) {
          GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_intlist.json")));
  std::vector<std::string> names;for(const auto& binding:grammar->inputs())names.push_back(binding.name);
  std::vector<ProgramGenome> parents;for(int i=0;i<8;++i)parents.push_back(grammar::generate_derivation(*grammar,721+i).genome);
- bool retained_cold_artifact=false;
- for(auto& parent:parents) {
+ bool retained_cold_artifact=false,certified_cold_miss=false;
+ for(std::size_t i=0;i<parents.size();++i) {
+  auto& parent=parents[i];
+  const bool registry=std::any_of(parent.ast.consts.begin(),parent.ast.consts.end(),
+      [](const Value& value){return value.tag==ValueTag::IntList;});
+  require(registry==!sequence_windows,"private owner fixture registry constants changed");
+  // Serialized external parents carry no public derivation or certificate.
+  parent.derivation.reset();
   std::shared_ptr<const BytecodeProgram> artifact;
-  parent.derivation=std::make_shared<const grammar::DerivationMetadata>(
-      grammar::detail::reconstruct_cold_derivation(*grammar,parent,grammar::entry_request(*grammar),nullptr,nullptr,&artifact,&names));
+  if(i==0 && registry) {
+   // Keep one valid membership certificate created without executable retention.
+   // Enabling reuse must preserve that miss and take ordinary import lowering.
+   setenv("GAGP_COLD_IMPORT_EXECUTABLES","0",1);
+   parent.derivation=std::make_shared<const grammar::DerivationMetadata>(
+       grammar::detail::reconstruct_cold_derivation(*grammar,parent,grammar::entry_request(*grammar)));
+   require(bool(parent.derivation->certificate),"cold fallback fixture lacks certificate");
+   setenv("GAGP_COLD_IMPORT_EXECUTABLES","1",1);
+   const auto reused=grammar::detail::reconstruct_cold_derivation(
+       *grammar,parent,grammar::entry_request(*grammar),nullptr,nullptr,&artifact,&names);
+   require(!artifact && reused.certificate==parent.derivation->certificate,"certified miss forced unnecessary lowering");
+   certified_cold_miss=true;
+  } else {
+   parent.derivation=std::make_shared<const grammar::DerivationMetadata>(
+       grammar::detail::reconstruct_cold_derivation(*grammar,parent,grammar::entry_request(*grammar),nullptr,nullptr,&artifact,&names));
+   require(bool(artifact)==registry,"cold executable retention differs from actual constant storage");
+  }
   retained_cold_artifact|=bool(artifact);
  }
- require(retained_cold_artifact,"private owner fixture did not retain cold executable");
+ require(retained_cold_artifact==!sequence_windows && certified_cold_miss==!sequence_windows,
+     "private owner fixture must cover registry reuse/miss and scalar ordinary lowering");
  std::vector<CaseBindings> cases;std::vector<Value> answers;
  for(int i=0;i<1024;++i) {
   CaseBindings row;
