@@ -192,7 +192,10 @@ and immutable-table origins, checked bounds, and no hash/registry insertion.
 Descriptors remain inside the invocation through resident content scoring;
 neither serialization nor public bytecode/program ownership accepts a proof token.
 Exactness and wrong-case counts compare contents, including when equal contents
-have different private offsets. Initial policy support is Exact and Levenshtein.
+have different private offsets. Content scoring also ignores the historical
+saturated-versus-masked transport length difference for a 65536-element list;
+legacy token-based Exact/wrong counts can therefore differ at that boundary
+even without a hash collision. Initial policy support is Exact and Levenshtein.
 Set the opt-in before session and native-population initialization so expected
 payloads and the cold capability are prepared.
 Admission requires a positive logical allocation limit at most 65536 and external
@@ -202,14 +205,16 @@ payloads at most 65536 elements. A descriptor escape bit retains actual length
 sizes decline the profile rather than narrowing an offset or length.
 
 Singleton and nonempty Concat retain element copying and logical allocation
-charges. Slice retains the existing immutable-window alias rule or element copy
-rule. Empty Concat, fuel, frame/memo limits, logical-limit errors, physical
+charges. The required positive allocation policy already makes ordinary arena
+Slice alias immutable windows; private Slice preserves that rule. Empty Concat, fuel, frame/memo limits, logical-limit errors, physical
 overflow diagnostics and replay remain in the existing VM. Scalar region return
 rewinds cannot retain a list descriptor; list-valued results keep their backing.
 The native GPU reproduction owner proves fixed root/segment structure on cold
 import and composes it with an explicit capability certificate from every fresh
 GPU-lowered phase on every generation. Initial-population admission alone never
-authorizes later offspring.
+authorizes later offspring. This execution capability is a type/support proof,
+not grammar membership; the native reproduction owner retains its separate
+grammar construction and variation invariants.
 
 ### Proven integer/list execution profile
 

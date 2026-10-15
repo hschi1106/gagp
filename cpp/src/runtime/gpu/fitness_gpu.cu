@@ -689,9 +689,12 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       std::all_of(payload_pack.list_values.begin(),payload_pack.list_values.end(),
           [](const auto& value){return value.tag==ValueTag::Int;}) &&
       std::all_of(payload_pack.list_entries.begin(),payload_pack.list_entries.end(),[](const auto& entry) {
+        const auto encoded=static_cast<unsigned>(static_cast<std::uint64_t>(entry.packed)>>48);
+        // Public payload factories saturate; legacy device construction masks.
+        // Both encodings can name a checked 65536-cell immutable payload.
         return entry.tag==ValueTag::IntList && entry.len>=0 && entry.len<=65536 &&
-            static_cast<unsigned>(entry.len&65535)==
-            static_cast<unsigned>(static_cast<std::uint64_t>(entry.packed)>>48);
+            (encoded==static_cast<unsigned>(entry.len&65535) ||
+             (entry.len==65536 && encoded==65535));
       });
   if(private_intlists) {
     for(auto& value:packed.all_consts)if(value.tag==ValueTag::IntList)value.b=false;
