@@ -53,7 +53,8 @@ inline Json audit_source_depth(const asgp::Individual& source,
     const auto source_height=asgp::SubtreeDepth(source.phases[p],0);
     const auto native_height=witness.resources->subtree(root->ast_begin).peak();
     if(source_height!=native_height || source_height>budget.max_depth)
-      throw std::invalid_argument("native/source phase depth mismatch or source cap exceeded");
+      throw std::invalid_argument("native/source phase depth mismatch or source cap exceeded: phase="+std::to_string(p)+
+          " source="+std::to_string(source_height)+" native="+std::to_string(native_height));
     rows.push_back(object({{"phase",number(p)},{"source_depth",number(source_height)},
         {"native_projected_depth",number(native_height)}}));
   }
