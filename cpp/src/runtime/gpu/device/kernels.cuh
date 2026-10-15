@@ -87,8 +87,15 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
     workspace.payload_list_entries += slot * workspace.payload_entry_capacity;
     workspace.payload_string_bytes += slot * workspace.payload_byte_capacity;
     workspace.payload_list_values += slot * workspace.payload_value_capacity;
-    if constexpr (Flavor == DPayloadFlavor::IndexedArena)
-      workspace.payload_list_index += slot * workspace.payload_entry_capacity * 2;
+    if constexpr (Flavor == DPayloadFlavor::IndexedArena) {
+      // Arena kernels have exactly 32 physical lanes. Each block owns a
+      // disjoint [index slot][lane] slab; logical fitness lanes do not enter
+      // this address calculation, including tiled replay and queued programs.
+      const std::size_t index_base=workspace.payload_list_index_stride==32
+          ? static_cast<std::size_t>(blockIdx.x)*32*workspace.payload_entry_capacity*2+tid
+          : slot*workspace.payload_entry_capacity*2;
+      workspace.payload_list_index += index_base;
+    }
   }
   if constexpr (EnableRegions) {
     const std::size_t block_base = static_cast<std::size_t>(blockIdx.x) * blockDim.x;
