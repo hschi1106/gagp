@@ -108,6 +108,7 @@ class Study:
             'binary': str(args.binary.resolve()), 'binary_sha256': sha(args.binary),
             'build_binary': str(original_binary),
             'source_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
+            'source_status': subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True),
             'settings': flags, 'tasks': {}, 'cells': [],
         }
         self.persist()
@@ -225,7 +226,8 @@ class Study:
         statuses = []
         for mode in self.args.modes:
             statuses.append(self.search(task, folder, prepared, 8, mode, 0))
-        record['status'] = 'smoke_pass' if all(s == 'ok' for s in statuses) and record['cpu_gpu_snapshot'] == 'ok' and record['known_solution_audit'] == 'ok' else 'smoke_failed'
+        record['runtime_smoke_pass'] = all(s == 'ok' for s in statuses)
+        record['status'] = 'smoke_pass' if record['runtime_smoke_pass'] and record['cpu_gpu_snapshot'] == 'ok' and record['known_solution_audit'] == 'ok' and record['source_output_parity'] == 'ok' else 'smoke_failed'
 
     def search(self, task, artifacts, prepared, population, mode, seed):
         tag = f'{mode}.s{seed}'
@@ -238,6 +240,7 @@ class Study:
         if cell['status'] == 'ok':
             try:
                 result = read(output)
+                cell['output'] = output.name
                 validate_search(result, population, 2, mode)
                 cell.update(evolve_wall_ms=result['evolve_wall_ms'], final_best=result['final_best'],
                             output=output.name, unique_final_genomes=result['unique_final_genomes'])

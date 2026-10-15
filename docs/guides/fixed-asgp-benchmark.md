@@ -814,3 +814,32 @@ Source logical phase sizes also differ from lowered native AST sizes. Native
 CPU/GPU sampling, RNG streams, donor budgets and elite replacement accounting
 must therefore remain explicit differences even when metric parameters, initial
 frozen population, mutation probability, and elite count match.
+
+### Bounded support and optimization feedback
+
+Run the source-contract support gate before any quality or timing comparison:
+
+```bash
+PYTHONPATH=tools python3 -m gagp_tools.experiments.fixed_asgp.low_budget support --out logs/support-NEW --budget 600 --timeout 30
+PYTHONPATH=tools python3 -m gagp_tools.experiments.fixed_asgp.low_budget quality --artifacts logs/support-NEW --out logs/quality-NEW --budget 300 --tasks sum_of_elements house_robber median
+PYTHONPATH=tools python3 -m gagp_tools.experiments.fixed_asgp.low_budget benchmark --artifacts logs/support-NEW --out logs/benchmark-NEW --budget 180 --tasks sum_of_elements house_robber median
+PYTHONPATH=tools python3 -m gagp_tools.experiments.fixed_asgp.low_budget_report --runs logs/support-NEW --out logs/support-summary-NEW
+```
+
+Support uses P=8, two generations, full1024 cases and all five modes for30
+source-paper tasks. It separately checks known witnesses, eight frozen source
+programs against native CPU outputs/status, CPU/GPU snapshot scores, final CPU
+reevaluation and actual GPU reproduction activity. A source-output mismatch
+blocks the larger comparison even if the native runtime finishes normally.
+Quality uses P=1024, three seeds and only two generations; heldout cases use a
+separate ASGP generator seed, not an official PSB test set. This can detect
+crashes and obvious short-run degradation; it cannot establish convergence
+equivalence. Benchmark uses one seed/two generations, without repeats or a
+scaling matrix. It is coarse feedback, never a precision headline speedup.
+
+Each run archives its binary, settings, source HEAD/status, hashes, per-process
+RSS/time limits, all command outcomes and complete generation records. New
+output directories are mandatory. GPU processes serialize through flock.
+Defaults enforce CPU1T, a4GiB process-group RSS guard and per-command30s limit.
+Timeout/resource failures remain visible and do not qualify as acceleration.
+`--modes` may narrow an optimization experiment; record the reduced scope.
