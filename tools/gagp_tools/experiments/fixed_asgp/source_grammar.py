@@ -63,12 +63,18 @@ def definition(root: Path, task: str, contract: dict) -> dict:
                     elif kind==5:e=bound('n')
                     elif kind==6:e=bound(f'scalar{op}')
                     elif kind==7:e=bound(f'd{op+1}' if dp else ('left','right')[op])
-                    elif kind==8:e=bound('source_n' if task=='stock_with_cooldown' else 'n')
+                    elif kind==8:e=call('min(Int,Int)->Int',bound('n'),bound('extent')) if task=='stock_with_cooldown' else bound('n')
                     elif kind==9:e=bound('j')
                     elif kind==10:
                         coordinate=bound('n' if contract['dp_value_at']==1 else 'j')
                         offset=contract['dp_value_offset']
-                        e=bound('source_v') if task=='stock_with_cooldown' else call('index(IntList,Int)->Int',bound('xs'),coordinate) if task=='subregion_sum' else call('index(IntList,Int)->Int',bound('xs'),call('min(Int,Int)->Int',call('sub(Int,Int)->Int',call('len(IntList)->Int',bound('xs')),constant(1)),call('max(Int,Int)->Int',call('add(Int,Int)->Int',coordinate,constant(offset)),constant(0))))
+                        if task=='stock_with_cooldown':
+                            length=call('len(IntList)->Int',bound('xs'))
+                            index=call('min(Int,Int)->Int',call('sub(Int,Int)->Int',length,constant(1)),
+                                call('max(Int,Int)->Int',bound('n'),constant(0)))
+                            e=call('if(Bool,Int,Int)->Int',call('eq(Int,Int)->Bool',length,constant(0)),
+                                constant(0),call('index(IntList,Int)->Int',bound('xs'),index))
+                        else:e=call('index(IntList,Int)->Int',bound('xs'),coordinate) if task=='subregion_sum' else call('index(IntList,Int)->Int',bound('xs'),call('min(Int,Int)->Int',call('sub(Int,Int)->Int',call('len(IntList)->Int',bound('xs')),constant(1)),call('max(Int,Int)->Int',call('add(Int,Int)->Int',coordinate,constant(offset)),constant(0))))
                     elif kind==11:e=call('not(Bool)->Bool',*args)
                     elif kind==12:e=call('is_letter(Int)->Bool',*args)
                     elif kind==13:

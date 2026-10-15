@@ -35,6 +35,36 @@ class TestProtectedSourceArithmetic(unittest.TestCase):
             self.call('prepare',folder/'source.json',folder/'grammar.json',12,folder/'prepared.json')
             self.assertEqual(len(json.loads((folder/'prepared.json').read_text())['programs']),12)
 
+    def test_stock_demand_values_and_clamped_terminal_coordinates(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder=Path(folder)
+            self.call('contract','stock_with_cooldown',folder/'contract.json')
+            self.call('freeze','stock_with_cooldown',folder/'source.json',
+                env=dict(os.environ,GAGP_FREEZE_POPULATION='8'))
+            contract=json.loads((folder/'contract.json').read_text())
+            grammar=definition(ROOT,'stock_with_cooldown',contract=contract)
+            (folder/'grammar.json').write_text(json.dumps(grammar))
+            self.call('sampled-audit',folder/'source.json',folder/'grammar.json',folder/'frozen.audit.json')
+            self.assertEqual(json.loads((folder/'frozen.audit.json').read_text())['mismatches'],0)
+            source=json.loads((folder/'source.json').read_text())
+            state=[[8,1,0,1,'0']];price=[[10,1,0,1,'0']];result=[[7,1,0,1,'0']]
+            # Constant phases must not read an unused price, even for an empty
+            # sequence. Used values retain source empty-zero and endpoint clamps.
+            source['population']=[[literal(0),literal(0)],[state,state],[price,price],
+                [price,result],[state,result],[literal(0),price],[literal(0),state],[literal(0),result]]
+            cases=[]
+            for values in [[],['10'],['10','20'],['10','20','30']]:
+                case=dict(source['cases'][0],input=values,extent=len(values),start=0,
+                    start_b=0,extent_b=1,expected='0')
+                cases.append(case)
+            source['cases']=cases*256
+            (folder/'source.json').write_text(json.dumps(source))
+            self.call('prepare',folder/'source.json',folder/'grammar.json',8,folder/'prepared.json')
+            self.call('sampled-audit',folder/'source.json',folder/'grammar.json',folder/'boundary.audit.json')
+            audit=json.loads((folder/'boundary.audit.json').read_text())
+            self.assertEqual(audit['mismatches'],0)
+            self.assertTrue(all(row['source_errors']==row['native_errors']==0 for row in audit['programs']))
+
     def test_signed_modulo_protected_overflow_and_nested_operands(self):
         with tempfile.TemporaryDirectory() as folder:
             folder=Path(folder);contract_path=folder/'contract.json';source_path=folder/'source.json'

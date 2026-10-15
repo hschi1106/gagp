@@ -768,9 +768,16 @@ builtin charge; legacy `index` retains Python-style negative indexing.
 StockWithCooldown uses increasing physical time as its strict progress proof
 and clamped holding-state request expressions. Terminal physical time may be
 one step beyond the source extent; source-visible StateA and StateValue clamp
-to the original extent/last element. Source terminal evaluation precedes memo
-lookup. This shape requires the bounded-plan validator's subordinate-coordinate
-expression rule and `duplicate_policy=allow`.
+to the original extent/last element. Regenerated source grammars compute these
+values only where the corresponding source operation appears, preserving source
+demand evaluation: a constant solve phase does not read an unused price. This
+replaces the earlier eager two-let scaffold, reduces formal scopes to four and
+seven slots, and makes each variable hole cover a complete native GPU phase.
+Historical frozen templates retain their eager bindings during translation.
+Native fuel now charges each used clamp/index expression instead of eager setup
+once per phase; native and ASGP fuel counts are not equated. Source terminal
+evaluation still precedes memo lookup. The plan's subordinate-coordinate and
+strict time-progress validation remain unchanged.
 
 These adapters do **not** establish identical search distributions or resource
 accounting. Exported source constant ranges are preserved, including duplicate

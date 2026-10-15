@@ -67,13 +67,5 @@ def template(root, task, contract):
         body['phases'][2]['bindings']=phase_bindings+[{'bank':'result','slot':i,'name':s['name']} for i,s in enumerate(results)]
     body['phases'].sort(key=lambda phase:phase['argument'])
     hole_scopes=[scope,scope+results]
-    if predicate=='time':
-        source_n=call('min(Int,Int)->Int',bound('n'),bound('extent'))
-        source_v=call('index(IntList,Int)->Int',bound('xs'),call('min(Int,Int)->Int',call('sub(Int,Int)->Int',call('len(IntList)->Int',bound('xs')),constant(1)),call('max(Int,Int)->Int',bound('n'),constant(0))))
-        for phase,argument in enumerate((dim+1,dim+2+len(plan['requests']))):
-            inner=call('let(Int,Int)->Int',source_v,body['args'][argument]);inner['bind']={'1':['source_v']}
-            outer=call('let(Int,Int)->Int',source_n,inner);outer['bind']={'1':['source_n']}
-            body['args'][argument]=outer
-            hole_scopes[phase]=hole_scopes[phase]+[{'name':'source_n','type':'Int'},{'name':'source_v','type':'Int'}]
     return {'id':f'Fixed.DP.{task}','type':'Int','scope':[],
         'holes':[{'id':'solve','type':'Int','scope':hole_scopes[0]}, {'id':'transition','type':'Int','scope':hole_scopes[1]}], 'body':body}
