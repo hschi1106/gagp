@@ -1,0 +1,68 @@
+{
+  "runtime_commit": "4fe7621",
+  "test_fix_commit": "1e8d915",
+  "native_full_suite": {
+    "passed": 130,
+    "failed": 1,
+    "log": "logs/list-5x-20261015/full-tests-4fe7621.log",
+    "note": "Only failure was new scalar Measure fixture incorrectly expecting a registry artifact."
+  },
+  "corrected_owner_test": {
+    "passed": 1,
+    "failed": 0,
+    "seconds": 65.54,
+    "log": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/list-5x-20261015/final-validation/owner-test.log",
+    "note": "Assertions preserved; correct registry/nonregistry expectations, certified-miss fallback,32 GPU generations."
+  },
+  "repository_tests": {
+    "passed": 24
+  },
+  "focused_operational_tools": {
+    "passed": 31
+  },
+  "warp_copy_safety_binary": {
+    "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/list-5x-20261015/warp-copy-safety/check",
+    "sha256": "0e5cabfc05a060e82967a881561ca4abd4bd79cb618c625eaa41c4d5f6f94c80",
+    "source": "logs/list-5x-20261015/warp-copy-safety/source-fixed.cu"
+  },
+  "five_mode_smoke": {
+    "raw": "logs/list-5x-20261015/five-mode-final",
+    "tasks": 13,
+    "cells": 78,
+    "passed": 78,
+    "snapshot_mismatches": 0,
+    "population": 8,
+    "cases": 1024,
+    "generations": 2,
+    "note": "Support evidence only, not headline speed."
+  },
+  "repository_current": {
+    "passed": 24,
+    "log": "logs/list-5x-20261015/final-validation/repository.log"
+  },
+  "tools_current": {
+    "passed": 31,
+    "log": "logs/list-5x-20261015/final-validation/fixed-asgp-tools.log"
+  },
+  "warp_copy_sanitizer": {
+    "runtime": "4fe7621",
+    "memcheck_errors": 0,
+    "synccheck_errors": 0,
+    "logs": [
+      "logs/list-5x-20261015/final-validation/warp-memcheck-fullpath.log",
+      "logs/list-5x-20261015/final-validation/warp-synccheck.log"
+    ],
+    "note": "Exact retained productionhelper/rawsafetyfixture; CUDA12.6 fullpath. /usr/bin oldtool failed injectionlibrary, not a kernel/test failure."
+  },
+  "native_final": {
+    "passed": 131,
+    "failed": 0,
+    "seconds": 169.65,
+    "log": "logs/list-5x-20261015/final-validation/full-tests-threshold256.log"
+  },
+  "threshold256_sanitizer": {
+    "memcheck_errors": 0,
+    "synccheck_errors": 0,
+    "raw_commands": "logs/list-5x-20261015/final-validation/threshold256-checks.json"
+  }
+}

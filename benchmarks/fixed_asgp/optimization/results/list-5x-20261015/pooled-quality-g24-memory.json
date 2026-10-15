@@ -1,0 +1,173 @@
+{
+  "note": "RSS samples250ms and nvidia-smi <=1Hz external diagnostic. Device samples are NOT peak; especially shortSmall run canmiss pooledallocation lifetime. FullRSSpeak includes export/audit; bins exclude generation23 to avoid its mixed finalization period. G24 cannot prove arbitrarylongrun memory boundedness. No G4 denominators used.",
+  "rows": [
+    {
+      "task": "filter_odd",
+      "lossless_wall_s": 20.134354869,
+      "current_wall_s": 4.823166864,
+      "population_equal": true,
+      "semantics_equal": true,
+      "all_ast_equal": true,
+      "cpu_audit_mismatches": 0,
+      "final_best": -11471,
+      "final_unique": 1007,
+      "early4_gen_ms": 177.01561099999998,
+      "late4_gen_ms": 226.81806749999998,
+      "peak_sampled_process_rss_mib": 579.67578125,
+      "max_sampled_device_process_mib": 18664,
+      "genotype_device_bytes": 761570396,
+      "backing_allocations_by_generation": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "rss_medians_by_generation": {
+        "0-7": {
+          "samples": 5,
+          "median_mib": 402.359375
+        },
+        "8-15": {
+          "samples": 5,
+          "median_mib": 402.359375
+        },
+        "16-22": {
+          "samples": 5,
+          "median_mib": 404.859375
+        }
+      }
+    },
+    {
+      "task": "negative_to_zero",
+      "lossless_wall_s": 25.358801877999998,
+      "current_wall_s": 6.155988185,
+      "population_equal": true,
+      "semantics_equal": true,
+      "all_ast_equal": true,
+      "cpu_audit_mismatches": 0,
+      "final_best": 0,
+      "final_unique": 827,
+      "early4_gen_ms": 190.3350435,
+      "late4_gen_ms": 270.5453195,
+      "peak_sampled_process_rss_mib": 455.91796875,
+      "max_sampled_device_process_mib": 18664,
+      "genotype_device_bytes": 758392348,
+      "backing_allocations_by_generation": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "rss_medians_by_generation": {
+        "0-7": {
+          "samples": 6,
+          "median_mib": 399.42578125
+        },
+        "8-15": {
+          "samples": 7,
+          "median_mib": 399.73828125
+        },
+        "16-22": {
+          "samples": 7,
+          "median_mib": 399.73828125
+        }
+      }
+    },
+    {
+      "task": "small_or_large",
+      "lossless_wall_s": 3.796160132,
+      "current_wall_s": 0.8086136669999999,
+      "population_equal": true,
+      "semantics_equal": true,
+      "all_ast_equal": true,
+      "cpu_audit_mismatches": 0,
+      "final_best": -2520,
+      "final_unique": 1017,
+      "early4_gen_ms": 14.9929165,
+      "late4_gen_ms": 18.552887,
+      "peak_sampled_process_rss_mib": 643.98828125,
+      "max_sampled_device_process_mib": 1550,
+      "genotype_device_bytes": 764650844,
+      "backing_allocations_by_generation": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "rss_medians_by_generation": {
+        "0-7": {
+          "samples": 0,
+          "median_mib": null
+        },
+        "8-15": {
+          "samples": 1,
+          "median_mib": 432.59765625
+        },
+        "16-22": {
+          "samples": 0,
+          "median_mib": null
+        }
+      }
+    }
+  ]
+}

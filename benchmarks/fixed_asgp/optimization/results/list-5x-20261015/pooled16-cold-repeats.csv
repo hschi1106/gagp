@@ -1,0 +1,10 @@
+task,repeat,evolve_wall_s,raw,cpu_audit_mismatches
+filter_odd,0,1.140088421,logs/list-5x-20261015/pooled16-repeat-0/filter_odd.gpu_overlap.s0.json,0
+filter_odd,1,1.111133948,logs/list-5x-20261015/pooled16-repeat-1/filter_odd.gpu_overlap.s0.json,0
+filter_odd,2,1.110983201,logs/list-5x-20261015/pooled16-repeat-2/filter_odd.gpu_overlap.s0.json,0
+for_loop_index,0,1.1523844030000001,logs/list-5x-20261015/pooled16-repeat-0/for_loop_index.gpu_overlap.s0.json,0
+for_loop_index,1,1.151863184,logs/list-5x-20261015/pooled16-repeat-1/for_loop_index.gpu_overlap.s0.json,0
+for_loop_index,2,1.1469256319999999,logs/list-5x-20261015/pooled16-repeat-2/for_loop_index.gpu_overlap.s0.json,0
+double_letters,0,2.6743415209999997,logs/list-5x-20261015/pooled16-repeat-0/double_letters.gpu_overlap.s0.json,0
+double_letters,1,2.674750884,logs/list-5x-20261015/pooled16-repeat-1/double_letters.gpu_overlap.s0.json,0
+double_letters,2,2.667273726,logs/list-5x-20261015/pooled16-repeat-2/double_letters.gpu_overlap.s0.json,0

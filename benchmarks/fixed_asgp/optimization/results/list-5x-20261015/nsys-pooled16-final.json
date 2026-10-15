@@ -1,0 +1,13 @@
+{
+  "raw": "logs/list-5x-20261015/nsys-pooled16-final",
+  "source": "b1760de",
+  "workspace_gib": 16,
+  "note": "Diagnostic fullCLI nsys; priortrace8GiB andoldbinary differs, cannotattributeallcountertime changesonlytopool. No profilerwallfractions or subtraction from unprofiled times.",
+  "eval_kernel_ms": 758.341569,
+  "eval_kernel_share_percent": 97.2,
+  "cudaMalloc_calls": 166,
+  "cudaMalloc_api_ms": 5.029257,
+  "cudaFree_calls": 166,
+  "cudaFree_api_ms": 21.283361,
+  "cudaDeviceSynchronize_api_ms": 758.478643
+}

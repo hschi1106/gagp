@@ -1,0 +1,56 @@
+[
+  {
+    "run": "filter_odd.gpu_overlap.s1.json",
+    "population_equal": true,
+    "semantics_equal": true,
+    "all_ast_equal": true,
+    "cpu_audit_mismatches": 0,
+    "final_best": -9107,
+    "final_unique": 802
+  },
+  {
+    "run": "filter_odd.gpu_overlap.s2.json",
+    "population_equal": true,
+    "semantics_equal": true,
+    "all_ast_equal": true,
+    "cpu_audit_mismatches": 0,
+    "final_best": -9107,
+    "final_unique": 788
+  },
+  {
+    "run": "negative_to_zero.gpu_overlap.s1.json",
+    "population_equal": true,
+    "semantics_equal": true,
+    "all_ast_equal": true,
+    "cpu_audit_mismatches": 0,
+    "final_best": -12791,
+    "final_unique": 949
+  },
+  {
+    "run": "negative_to_zero.gpu_overlap.s2.json",
+    "population_equal": true,
+    "semantics_equal": true,
+    "all_ast_equal": true,
+    "cpu_audit_mismatches": 0,
+    "final_best": 0,
+    "final_unique": 961
+  },
+  {
+    "run": "small_or_large.gpu_overlap.s1.json",
+    "population_equal": true,
+    "semantics_equal": true,
+    "all_ast_equal": true,
+    "cpu_audit_mismatches": 0,
+    "final_best": -2568,
+    "final_unique": 960
+  },
+  {
+    "run": "small_or_large.gpu_overlap.s2.json",
+    "population_equal": true,
+    "semantics_equal": true,
+    "all_ast_equal": true,
+    "cpu_audit_mismatches": 0,
+    "final_best": -2568,
+    "final_unique": 986
+  }
+]

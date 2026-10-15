@@ -1,0 +1,192 @@
+[
+  {
+    "task": "filter_odd",
+    "pool": "0",
+    "evolve_wall_ms": 1652.453463,
+    "same_population_semantics_ast": true,
+    "cpu_audit_mismatches": 0,
+    "retained_bytes_by_gen": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "pool_allocations_by_gen": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "task": "filter_odd",
+    "pool": "1",
+    "evolve_wall_ms": 1155.742712,
+    "same_population_semantics_ast": true,
+    "cpu_audit_mismatches": 0,
+    "retained_bytes_by_gen": [
+      8589289216,
+      8589289216,
+      8589289216,
+      8589289216
+    ],
+    "pool_allocations_by_gen": [
+      1,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "task": "for_loop_index",
+    "pool": "0",
+    "evolve_wall_ms": 1784.724191,
+    "same_population_semantics_ast": true,
+    "cpu_audit_mismatches": 0,
+    "retained_bytes_by_gen": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "pool_allocations_by_gen": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "task": "for_loop_index",
+    "pool": "1",
+    "evolve_wall_ms": 1164.9682,
+    "same_population_semantics_ast": true,
+    "cpu_audit_mismatches": 0,
+    "retained_bytes_by_gen": [
+      8589289216,
+      8589289216,
+      8589289216,
+      8589289216
+    ],
+    "pool_allocations_by_gen": [
+      1,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "task": "even_squares",
+    "pool": "0",
+    "evolve_wall_ms": 2031.158441,
+    "same_population_semantics_ast": true,
+    "cpu_audit_mismatches": 0,
+    "retained_bytes_by_gen": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "pool_allocations_by_gen": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "task": "even_squares",
+    "pool": "1",
+    "evolve_wall_ms": 1672.91629,
+    "same_population_semantics_ast": true,
+    "cpu_audit_mismatches": 0,
+    "retained_bytes_by_gen": [
+      8589289216,
+      8589289216,
+      8589289216,
+      8589289216
+    ],
+    "pool_allocations_by_gen": [
+      1,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "task": "double_letters",
+    "pool": "0",
+    "evolve_wall_ms": 3563.362275,
+    "same_population_semantics_ast": true,
+    "cpu_audit_mismatches": 0,
+    "retained_bytes_by_gen": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "pool_allocations_by_gen": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "task": "double_letters",
+    "pool": "1",
+    "evolve_wall_ms": 3261.553336,
+    "same_population_semantics_ast": true,
+    "cpu_audit_mismatches": 0,
+    "retained_bytes_by_gen": [
+      8589289216,
+      8589289216,
+      8589289216,
+      8589289216
+    ],
+    "pool_allocations_by_gen": [
+      1,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "task": "small_or_large",
+    "pool": "0",
+    "evolve_wall_ms": 477.418238,
+    "same_population_semantics_ast": true,
+    "cpu_audit_mismatches": 0,
+    "retained_bytes_by_gen": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "pool_allocations_by_gen": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "task": "small_or_large",
+    "pool": "1",
+    "evolve_wall_ms": 412.597946,
+    "same_population_semantics_ast": true,
+    "cpu_audit_mismatches": 0,
+    "retained_bytes_by_gen": [
+      2513698816,
+      2513698816,
+      2513698816,
+      2513698816
+    ],
+    "pool_allocations_by_gen": [
+      1,
+      0,
+      0,
+      0
+    ]
+  }
+]
