@@ -310,34 +310,41 @@ void test_trivial_pattern_refresh() {
  if(present)setenv(flag,saved.c_str(),1);else unsetenv(flag);
 }
 
-void test_private_intlist_generations() {
- const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES"};
+void test_private_intlist_generations(bool sequence_windows=false) {
+ const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_PRIVATE_MEASURE_CACHE"};
  struct Restore {
-  const char** flags;std::string saved[6];bool present[6];
-  explicit Restore(const char** f):flags(f){for(int i=0;i<6;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
-  ~Restore(){for(int i=0;i<6;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
+  const char** flags;std::string saved[8];bool present[8];
+  explicit Restore(const char** f):flags(f){for(int i=0;i<8;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
+  ~Restore(){for(int i=0;i<8;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
  } restore(flags);
  const auto grammar=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
-     grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_intlist.json")));
+     grammar::load_definition(sequence_windows?GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_measure_intlist.json":
+         GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_intlist.json")));
  std::vector<std::string> names;for(const auto& binding:grammar->inputs())names.push_back(binding.name);
  std::vector<ProgramGenome> parents;for(int i=0;i<8;++i)parents.push_back(grammar::generate_derivation(*grammar,721+i).genome);
  std::vector<CaseBindings> cases;std::vector<Value> answers;
  for(int i=0;i<1024;++i) {
   CaseBindings row;
-  for(std::size_t j=0;j<names.size();++j)row.push_back({int(j),Value::from_int(
+  for(std::size_t j=0;j<names.size();++j)row.push_back({int(j),names[j]=="source"?
+      payload::make_int_list_value(std::vector<Value>(i%67,Value::from_int((INT64_C(1)<<53)+i))):Value::from_int(
       names[j]=="row"?i%2:names[j]=="column"?(i/2)%2:names[j]=="rows" || names[j]=="columns"?2:i%7-3)});
-  cases.push_back(row);answers.push_back(payload::make_int_list_value({Value::from_int(i%7-3)}));
+  cases.push_back(row);answers.push_back(sequence_windows?row[0].value:payload::make_int_list_value({Value::from_int(i%7-3)}));
  }
  FitnessPolicy policy;policy.metric=FitnessMetric::Exact;policy.list_allocation_limit=65536;
  FitnessSessionGpu session;require(session.init(cases,answers,10000,32,1000,policy).ok,"private list owner session");
  repro::NativePhasePopulation owner(grammar,parents,names);
  bool changed=false,saw_content_match=false;
  for(int generation=0;generation<=32;++generation) {
+  setenv("GAGP_GPU_PRIVATE_MEASURE_CACHE","0",1);
+  const auto uncached=owner.evaluate(session,true);
+  setenv("GAGP_GPU_PRIVATE_MEASURE_CACHE","1",1);
   setenv("GAGP_GPU_COMPACT_INTLIST_CELLS","0",1);
   const auto boxed=owner.evaluate(session,true);
   setenv("GAGP_GPU_COMPACT_INTLIST_CELLS","1",1);
   const auto gpu=owner.evaluate(session,true);
-  require(boxed.ok && gpu.ok && boxed.fitness==gpu.fitness && boxed.wrong==gpu.wrong &&
+  require(uncached.ok && boxed.ok && gpu.ok && uncached.fitness==gpu.fitness && uncached.wrong==gpu.wrong &&
+      uncached.case_counts==gpu.case_counts && gpu.execution_profile.find("-private-measure-cache")!=std::string::npos &&
+      boxed.fitness==gpu.fitness && boxed.wrong==gpu.wrong &&
       boxed.case_counts==gpu.case_counts && boxed.execution_profile.find("-compact-intlist-cells")==std::string::npos &&
       gpu.execution_profile.find("-compact-intlist-cells")!=std::string::npos,
       "boxed/compact private cells differ across fresh GPU generations");
@@ -372,7 +379,7 @@ void test_private_intlist_generations() {
      policy_declined.execution_profile.find("-trivial-phases-declined")!=std::string::npos,
      "unsupported policy retained cold native phases/private profile");
  auto wrong_cases=cases;
- for(auto& binding:wrong_cases[0])if(names[binding.idx]=="base_value")binding.value=Value::from_float(1.5);
+ for(auto& binding:wrong_cases[0])if(names[binding.idx]=="base_value" || names[binding.idx]=="source")binding.value=Value::from_float(1.5);
  FitnessSessionGpu wrong_session;require(wrong_session.init(wrong_cases,answers,10000,32,1000,policy).ok,"private wrong-type session");
  owner.reproduce(owner.evaluate(session,true).fitness,2,.3,UINT64_C(123912));
  const auto declined=owner.evaluate(wrong_session,true);
@@ -388,6 +395,7 @@ int main(){try {
  test_packed_pattern_refresh();
  test_trivial_pattern_refresh();
  test_private_intlist_generations();
+ test_private_intlist_generations(true);
  auto definition=grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json");
  // Keep the original oversized fixture as a required explicit rejection.
  // The positive fixture is a separately authored GPU-capacity contract.

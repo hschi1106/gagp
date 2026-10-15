@@ -19,11 +19,14 @@ __device__ inline double d_canonicalize_fitness_accumulator(double value) {
 
 // Validation is per block/program, alongside normal evaluation preparation.
 // Public metadata never grants this shortcut: the normal host verifier and
-// typed-view proof run first, then this narrower dependency check must pass.
+// typed-view or private-arena typeflow runs first, then this narrower dependency
+// check must pass. Private proof is supplied only by the admitted workspace.
 __device__ inline bool d_measure_cache_eligible(const DRegionPhase& phase,
-    const DExecutionTables& tables) {
+    const DExecutionTables& tables, bool private_proven = false, bool trivial_phases = false) {
   const auto& p = phase.program;
-  if (!p.typed_view || p.n_locals < 0 || p.n_locals > 8 ||
+  if(private_proven && (p.scalar_constant_index>=0 ||
+      (trivial_phases && (p.trivial_constant_index>=0 || p.trivial_load_binding>=0))))return false;
+  if ((!p.typed_view && !private_proven) || p.n_locals < 0 || p.n_locals > 8 ||
       p.verified_stack_bound > MAX_STACK || p.code_len <= 0 || p.code_len > 4096 ||
       p.const_len < 0 || phase.binding_count < 0 || phase.binding_offset < 0 ||
       phase.binding_count > tables.region_binding_count - phase.binding_offset)
@@ -176,7 +179,9 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
   double* partial_scores = reinterpret_cast<double*>(shared_bytes + partial_offset);
 
   if constexpr (EnableRegions && (Flavor == DPayloadFlavor::BoundIntListViews ||
-                                  Flavor == DPayloadFlavor::IntListViews)) {
+                                  Flavor == DPayloadFlavor::IntListViews ||
+                                  Flavor == DPayloadFlavor::ArenaMixed ||
+                                  Flavor == DPayloadFlavor::IndexedArena)) {
     if (workspace.measure_phase_cache) {
       auto* cached_measure = reinterpret_cast<DMeasurePhaseCacheEntry*>(partial_scores + (tiled_replay ? 32 : fitness_lanes));
       int& cached_phase = *reinterpret_cast<int*>(cached_measure + DMEASURE_CACHE_MAX + 1);
@@ -190,7 +195,8 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
               segment.preparation_count == 1 && segment.preparation_types[0] == ValueTag::Int) {
             const int index = segment.preparation_phases[0];
             if (index >= 0 && index < region_phase_count &&
-                d_measure_cache_eligible(region_phases[index], execution_tables)) cached_phase = index;
+                d_measure_cache_eligible(region_phases[index], execution_tables,
+                    workspace.private_intlists,workspace.trivial_phases)) cached_phase = index;
           }
         }
       }
@@ -205,6 +211,10 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
           DCompactRegionFrame frame{};
           frame.state[0] = Value::from_int_list_hash_len(0, length);
           typename DPayloadFlavorTraits<Flavor>::State cache_payload_state{};
+          if constexpr (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) {
+            cache_payload_state.private_intlists=workspace.private_intlists;
+            cache_payload_state.trivial_phases=workspace.trivial_phases;
+          }
           int remaining = fuel;
           const auto result = d_region_phase<Flavor>(region_segments[meta.region_offset],
               cached_phase, ValueTag::Int, frame, nullptr, 0, payload_tables,

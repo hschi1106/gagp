@@ -265,6 +265,30 @@ append `-trivial-phases` or `-trivial-phases-declined`; the flag defaults off.
 existing zero-binding scalar-constant shortcut misses these populations. These
 are structural artifact counts, not dynamic call frequencies or speedup evidence.
 
+`GAGP_GPU_PRIVATE_MEASURE_CACHE=1`, together with
+`GAGP_MEASURE_PHASE_CACHE=1`, extends the existing block-local sequence-Measure
+preparation cache to admitted private IntList arenas. The default is off. Current
+CPU-verified or GPU-lowered private typeflow must succeed; the block then admits
+only a single Int preparation whose declared bindings are all Measure slot zero,
+whose constants are Int/Bool, and whose forward-only scalar instruction/builtin
+whitelist cannot observe captures or payloads. Other phases execute normally; private phases already handled by the scalar-constant
+or enabled trivial constant/Load shortcut skip cache construction.
+The cache is rebuilt from current phase code for every program block, including
+initial tiles and replay; it never crosses a program or generation boundary.
+
+Lengths 2 through 64 are evaluated by the same arena phase VM using an empty
+payload state and the same private/trivial dispatch settings. Cached results
+retain all 64 integer bits, exact non-timeout errors and spent instruction fuel.
+Timeouts do not populate entries. A hit requires sufficient remaining fuel;
+misses, lengths outside the table and insufficient fuel execute the original
+phase, preserving partial consumption and error ordering. The original region
+entry fuel, expression evaluation, logical allocation, full cases and reductions
+remain unchanged. Cache storage is included in the actual physical block's
+dynamic shared-memory requirement; unavailable shared capacity declines caching.
+Profiles report `-private-measure-cache` when enabled for private arenas, or
+`-private-measure-cache-declined` when its prerequisites fail. This reports cache
+availability; individual ineligible phases still use the ordinary VM.
+
 ### Proven integer/list execution profile
 
 `cpp/src/runtime/gpu/view_profile.hpp` checks forward type flow after ordinary

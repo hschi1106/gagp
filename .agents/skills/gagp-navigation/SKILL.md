@@ -151,3 +151,11 @@ maintenance, follow the rules in root `AGENTS.md`.
   Contract and tests are the same private-list owners above.
 
 - `GAGP_GPU_TRIVIAL_PHASES`: `runtime/gpu/host_pack_gpu.cu` refreshes constant/single-Load metadata (up to eight declared bindings); `runtime/gpu/device/region_execution_device.cuh` consumes it only in admitted private arenas. Contract: `docs/design/payload.md`; static counts: `docs/reference/trivial-private-phase-counts.json`; tests: `gagp_test_bounded_region_gpu_results`, `gagp_test_gpu_phase_population`. Paths relative to `cpp/src/` unless stated otherwise.
+
+- `GAGP_GPU_PRIVATE_MEASURE_CACHE` extends the existing Measure-only preparation
+  cache to admitted private arenas; dependency admission/build lives in
+  `runtime/gpu/device/kernels.cuh`, hits in `region_execution_device.cuh`, and
+  actual-block shared-memory admission/launch sizing in `runtime/gpu/fitness_gpu.cu`.
+  Contract: `docs/design/payload.md`; tests: `gagp_test_bounded_region_gpu`,
+  `gagp_test_bounded_region_gpu_results`, `gagp_test_gpu_phase_population`.
+  Paths relative to `cpp/src/`.

@@ -1,0 +1,275 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {
+    "nonterminal": "Root",
+    "type": "IntList"
+  },
+  "inputs": [
+    {
+      "name": "source",
+      "type": "IntList"
+    }
+  ],
+  "search_limits": {
+    "max_nodes": 40,
+    "max_depth": 12
+  },
+  "execution_limits": {
+    "fuel": 1000000
+  },
+  "nonterminals": [
+    {
+      "id": "Root",
+      "type": "IntList",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "windows",
+          "weight": 1,
+          "expression": {
+            "template": "WindowBody",
+            "holes": {
+              "cut": {
+                "ref": "Cut"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Cut",
+      "type": "Int",
+      "scope": [
+        {
+          "name": "n",
+          "type": "Int"
+        }
+      ],
+      "alternatives": [
+        {
+          "id": "measure",
+          "weight": 1,
+          "expression": {
+            "bound": "n"
+          }
+        },
+        {
+          "id": "constant",
+          "weight": 1,
+          "expression": {
+            "constant": {
+              "type": "Int",
+              "values": [
+                "1",
+                "2",
+                "3",
+                "7",
+                "-9223372036854775808",
+                "9223372036854775807",
+                "9007199254741001"
+              ]
+            }
+          }
+        },
+        {
+          "id": "add",
+          "weight": 2,
+          "expression": {
+            "signature": "add(Int,Int)->Int",
+            "args": [
+              {
+                "ref": "Cut"
+              },
+              {
+                "ref": "Cut"
+              }
+            ]
+          }
+        },
+        {
+          "id": "divide",
+          "weight": 2,
+          "expression": {
+            "signature": "trunc_div0(Int,Int)->Int",
+            "args": [
+              {
+                "ref": "Cut"
+              },
+              {
+                "ref": "Cut"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "templates": [
+    {
+      "id": "WindowBody",
+      "type": "IntList",
+      "scope": [],
+      "holes": [
+        {
+          "id": "cut",
+          "type": "Int",
+          "scope": [
+            {
+              "name": "n",
+              "type": "Int"
+            }
+          ]
+        }
+      ],
+      "body": {
+        "structured": {
+          "family": "bounded",
+          "plan": {
+            "version": 1,
+            "state_types": [
+              "IntList"
+            ],
+            "result_type": "IntList",
+            "parameter_types": [],
+            "preparations": [
+              {
+                "type": "Int",
+                "kind": "interior_cut"
+              }
+            ],
+            "request_expression_types": [],
+            "bound_operand_count": 0,
+            "requests": [
+              {
+                "states": [
+                  {
+                    "kind": "sequence_window",
+                    "source_state": 0,
+                    "offset": "0",
+                    "expression": 0,
+                    "window": {
+                      "begin": {
+                        "kind": "begin",
+                        "cut": 0
+                      },
+                      "end": {
+                        "kind": "interior_cut",
+                        "cut": 0
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "states": [
+                  {
+                    "kind": "sequence_window",
+                    "source_state": 0,
+                    "offset": "0",
+                    "expression": 0,
+                    "window": {
+                      "begin": {
+                        "kind": "interior_cut",
+                        "cut": 0
+                      },
+                      "end": {
+                        "kind": "end",
+                        "cut": 0
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "limits": {
+              "frames": 128,
+              "cells": 0,
+              "entry_fuel": 1
+            },
+            "memoized": false,
+            "duplicate_policy": "reject",
+            "progress": "sequence_windows",
+            "coordinate_slots": [],
+            "coordinate_rank": [],
+            "coordinate_domains": [],
+            "coordinate_endpoint": "exclusive",
+            "sequence_state": 0
+          }
+        },
+        "captures": [],
+        "phases": [
+          {
+            "argument": 1,
+            "bindings": []
+          },
+          {
+            "argument": 2,
+            "bindings": [
+              {
+                "bank": "state",
+                "slot": 0,
+                "name": "xs"
+              }
+            ]
+          },
+          {
+            "argument": 3,
+            "bindings": [
+              {
+                "bank": "measure",
+                "slot": 0,
+                "name": "n"
+              }
+            ]
+          },
+          {
+            "argument": 4,
+            "bindings": [
+              {
+                "bank": "result",
+                "slot": 0,
+                "name": "left"
+              },
+              {
+                "bank": "result",
+                "slot": 1,
+                "name": "right"
+              }
+            ]
+          }
+        ],
+        "args": [
+          {
+            "input": "source"
+          },
+          {
+            "constant": {
+              "type": "Bool",
+              "values": [
+                false
+              ]
+            }
+          },
+          {
+            "bound": "xs"
+          },
+          {
+            "hole": "cut"
+          },
+          {
+            "signature": "concat(IntList,IntList)->IntList",
+            "args": [
+              {
+                "bound": "left"
+              },
+              {
+                "bound": "right"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

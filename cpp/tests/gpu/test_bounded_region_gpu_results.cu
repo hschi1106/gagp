@@ -772,19 +772,21 @@ __global__ void inspect_measure_phase_cache(int* observations) {
   if (threadIdx.x || blockIdx.x) return;
   int checks = 0, failures = 0;
   const auto verify = [&](bool pass) { ++checks; if (!pass) ++failures; };
-  for (int scenario = 0; scenario < (Flavor == DPayloadFlavor::IntListViews ? 6 : 5); ++scenario) {
+  constexpr bool arena=Flavor==DPayloadFlavor::ArenaMixed || Flavor==DPayloadFlavor::IndexedArena;
+  for (int scenario = 0; scenario < (arena ? 8 : Flavor == DPayloadFlavor::IntListViews ? 6 : 5); ++scenario) {
     DInstr code[64]{};
     Value constants[]{Value::from_int(3), Value::from_int(7), Value::from_int(0),
-        Value::from_int((INT64_C(1) << 53) + 9), Value::from_int(1)};
+        Value::from_int((INT64_C(1) << 53) + 9), Value::from_int(1),
+        Value::from_int(INT64_MIN), Value::from_int(INT64_MAX)};
     DRegionPhaseBinding bindings[2]{};
     bindings[0].bank = RegionSlotBank::Measure;
     bindings[0].slot = 0; bindings[0].local = 0;
     DRegionPhase phase{};
     phase.binding_count = 1;
-    phase.program.typed_view = true;
+    phase.program.typed_view = !arena;
     phase.program.n_locals = 2;
     phase.program.verified_stack_bound = scenario == 5 ? 20 : 2;
-    phase.program.const_len = 5;
+    phase.program.const_len = 7;
     int count = 0;
     const auto emit = [&](unsigned char op, int a = 0, unsigned charge = 2) {
       code[count].op = op; code[count].a = a; code[count].fuel = charge;
@@ -804,6 +806,8 @@ __global__ void inspect_measure_phase_cache(int* observations) {
       emit(OP_RETURN, 0, 1000);
     } else if (scenario == 3) {
       emit(OP_LOAD, 1); emit(OP_RETURN);
+    } else if (scenario >= 6) {
+      emit(OP_LOAD); emit(OP_PUSH_CONST, scenario-1); emit(OP_ADD); emit(OP_RETURN);
     } else if (scenario == 5) {
       for (int i = 0; i < 20; ++i) emit(i ? OP_PUSH_CONST : OP_LOAD, i ? 3 : 0, 1);
       for (int i = 0; i < 19; ++i) emit(OP_ADD, 0, 1);
@@ -817,20 +821,34 @@ __global__ void inspect_measure_phase_cache(int* observations) {
     tables.phase_code = code; tables.phase_consts = constants;
     tables.region_phases = &phase; tables.region_phase_count = 1;
     tables.region_bindings = bindings; tables.region_binding_count = 2;
-    verify(d_measure_cache_eligible(phase, tables));
+    verify(d_measure_cache_eligible(phase, tables, arena));
+    if constexpr(arena) {
+      verify(!d_measure_cache_eligible(phase,tables));
+      phase.program.trivial_load_binding=0;
+      verify(!d_measure_cache_eligible(phase,tables,true,true));
+      verify(d_measure_cache_eligible(phase,tables,true,false));
+      phase.program.trivial_load_binding=-1;
+      phase.program.scalar_constant_index=0;
+      verify(!d_measure_cache_eligible(phase,tables,true));
+      phase.program.scalar_constant_index=-1;
+      bindings[0].bank=RegionSlotBank::Parameter;
+      verify(!d_measure_cache_eligible(phase,tables,true));
+      bindings[0].bank=RegionSlotBank::Measure;
+    }
     // Unused declarations still matter because original binding is eager.
     phase.binding_count = 2; bindings[1].bank = RegionSlotBank::State; bindings[1].local = 1;
-    verify(!d_measure_cache_eligible(phase, tables)); phase.binding_count = 1;
+    verify(!d_measure_cache_eligible(phase, tables, arena)); phase.binding_count = 1;
     const auto saved_constant = constants[0];
     constants[0] = Value::from_int_list_hash_len(0, 0);
-    verify(!d_measure_cache_eligible(phase, tables)); constants[0] = saved_constant;
+    verify(!d_measure_cache_eligible(phase, tables, arena)); constants[0] = saved_constant;
     const auto saved_instruction = code[0];
     code[0].op = OP_JMP; code[0].a = 0;
-    verify(!d_measure_cache_eligible(phase, tables));
+    verify(!d_measure_cache_eligible(phase, tables, arena));
     code[0].op = OP_CALL_BUILTIN; code[0].a = static_cast<int>(BuiltinId::Len);
-    verify(!d_measure_cache_eligible(phase, tables)); code[0] = saved_instruction;
+    verify(!d_measure_cache_eligible(phase, tables, arena)); code[0] = saved_instruction;
     DPayloadTables payloads{};
     typename DPayloadFlavorTraits<Flavor>::State state{};
+    if constexpr(arena)state.private_intlists=true;
     DRegionSegment segment{}; segment.sequence_state = 0;
     DRegionFrame frame{};
     DMeasurePhaseCacheEntry cache[DMEASURE_CACHE_MAX + 1];
@@ -881,6 +899,8 @@ __global__ void inspect_measure_phase_cache(int* observations) {
     const auto error_hit = d_region_phase<Flavor>(
         segment, 0, ValueTag::Int, frame, nullptr, 0, payloads, state, tables, hit_fuel);
     verify(error_hit.is_error && error_hit.err_code == ErrCode::ZeroDiv && hit_fuel == 0);
+    if constexpr(arena)verify(state.list_values_used==0 && state.list_entry_count==0 &&
+        state.logical_list_used==0 && !state.physical_capacity_exceeded);
   }
   observations[0] = checks; observations[1] = failures;
 }
@@ -905,8 +925,17 @@ bool test_measure_phase_cache_contract() {
       check(observations[0] == 3822 && observations[1] == 0,
           "generic measure cache exact result/error/fuel or eligibility failed: checks=" +
           std::to_string(observations[0]) + " failures=" + std::to_string(observations[1]));
+  bool arena_ok=true;
+  for(int indexed=0;indexed<2;++indexed) {
+    if(indexed)inspect_measure_phase_cache<gagp::gpu_detail::DPayloadFlavor::IndexedArena><<<1,1>>>(observations);
+    else inspect_measure_phase_cache<gagp::gpu_detail::DPayloadFlavor::ArenaMixed><<<1,1>>>(observations);
+    const auto launched=cudaGetLastError(),completed=cudaDeviceSynchronize();
+    arena_ok=check(launched==cudaSuccess && completed==cudaSuccess && observations[0]>5000 && observations[1]==0,
+        "private arena measure cache full-width/fuel/errors/payload isolation: checks="+
+        std::to_string(observations[0])+" failures="+std::to_string(observations[1])) && arena_ok;
+  }
   cudaFree(observations);
-  return ok && generic_ok;
+  return ok && generic_ok && arena_ok;
 }
 
 }  // namespace measure_cache_test

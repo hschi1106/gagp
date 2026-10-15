@@ -62,7 +62,7 @@ struct PayloadWorkspaceStorage {
     else workspace.payload_intlist_cells=nullptr;
     workspace.window_executor=false;workspace.coordinate_executor=false;
     workspace.unboxed_window_frames=false;workspace.window_soa=false;
-    workspace.measure_phase_cache=false;
+    workspace.measure_phase_cache=workspace.private_intlists && workspace.measure_phase_cache;
     workspace.fitness_lanes=lanes;
     workspace.payload_entry_capacity=entries;
     workspace.payload_value_capacity=values;
@@ -921,10 +921,15 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   // Large-stack capability buckets need this reuse just as compact ones do.
   const std::size_t measure_bytes = sizeof(gpu_detail::DMeasurePhaseCacheEntry) *
       (gpu_detail::DMEASURE_CACHE_MAX + 1) + sizeof(int);
-  region_workspace.measure_phase_cache = use_views && has_regions &&
+  const char* private_measure_setting=std::getenv("GAGP_GPU_PRIVATE_MEASURE_CACHE");
+  const bool request_private_measure=private_measure_setting && std::string(private_measure_setting)=="1";
+  // Arenas launch one physical warp, independently of logical fitness lanes.
+  const auto measure_base_bytes=private_intlists?
+      kernel_shared_bytes(packed.max_code_len,PayloadWorkspaceStorage::threads):shared_bytes;
+  region_workspace.measure_phase_cache = (use_views || (private_intlists && request_private_measure)) && has_regions &&
       std::getenv("GAGP_MEASURE_PHASE_CACHE") &&
-      shared_bytes + measure_bytes <= static_cast<std::size_t>(impl_->props.sharedMemPerBlock);
-  if (region_workspace.measure_phase_cache) shared_bytes += measure_bytes;
+      measure_base_bytes + measure_bytes <= static_cast<std::size_t>(impl_->props.sharedMemPerBlock);
+  if (region_workspace.measure_phase_cache && !private_intlists) shared_bytes += measure_bytes;
   // A tile retains one logical warp; an untiled block retains all logical
   // fitness lanes, even though arena execution uses 32 physical threads.
   const auto arena_shared_bytes=[&](const gpu_detail::DRegionWorkspace& workspace) {
@@ -1487,6 +1492,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if (direct_root) out.execution_profile += "-root";
     if (direct_phases && std::getenv("GAGP_HYBRID_PHASE_EXECUTOR")) out.execution_profile += "-hybrid";
     if (region_workspace.measure_phase_cache) out.execution_profile += "-measure-cache";
+    if(request_private_measure)out.execution_profile+=private_intlists && region_workspace.measure_phase_cache?
+        "-private-measure-cache":"-private-measure-cache-declined";
     if (region_workspace.coordinate_executor) out.execution_profile += "-coordinate";
     if (region_workspace.window_executor) out.execution_profile += "-window";
     if (region_workspace.unboxed_window_frames) out.execution_profile += "-unboxed";

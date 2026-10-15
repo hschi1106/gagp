@@ -386,6 +386,72 @@ Value sequence(ValueTag tag) {
        payload::make_string_value("b"), payload::make_string_value("tail")});
 }
 
+bool test_private_measure_cache() {
+  struct Environment {
+    const char* key; std::string old; bool had;
+    explicit Environment(const char* name):key(name),had(std::getenv(name)!=nullptr) {
+      if(had)old=std::getenv(name);setenv(key,"1",1);
+    }
+    ~Environment(){if(had)setenv(key,old.c_str(),1);else unsetenv(key);}
+  } private_lists("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"),global("GAGP_GPU_GLOBAL_PAYLOAD"),
+      measure("GAGP_MEASURE_PHASE_CACHE"),private_measure("GAGP_GPU_PRIVATE_MEASURE_CACHE"),
+      compact("GAGP_GPU_COMPACT_INTLIST_CELLS"),tiling("GAGP_GPU_TILED_INITIAL_PAYLOAD");
+  std::vector<BytecodeProgram> programs;
+  for(unsigned length:{2u,65u,1024u})for(bool impure:{false,true}) {
+    auto segment=sequence_segment(ValueTag::IntList);
+    segment.plan.preparations.resize(1);segment.preparations.resize(1);
+    segment.plan.requests.resize(2);segment.plan.limits.frames=128;
+    segment.plan.requests[1].states[0]=window(0,
+        endpoint(WindowEndpointKind::InteriorCut,0),endpoint(WindowEndpointKind::End));
+    const auto wide=Value::from_int((INT64_C(1)<<53)+9);
+    segment.preparations[0]=phase({wide,Value::from_int(3)},
+        {ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,0),ins(Opcode::Add),
+         ins_a(Opcode::PushConst,0),ins(Opcode::Sub),ins_a(Opcode::PushConst,1),
+         ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::IDiv0),2),ins(Opcode::Return)},
+        {{slot(RegionSlotBank::Measure,0),0}},impure?2:1);
+    segment.preparations[0].program.instruction_fuel.assign(8,2);
+    if(impure)segment.preparations[0].bindings.push_back({slot(RegionSlotBank::State,0),1});
+    segment.combine=phase({},
+        {ins_a(Opcode::Load,0),ins_a(Opcode::Load,1),
+         ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Concat),2),ins(Opcode::Return)},
+        {{slot(RegionSlotBank::Result,0),0},{slot(RegionSlotBank::Result,1),1}},2);
+    programs.push_back(invocation(std::move(segment),
+        {payload::make_int_list_value(std::vector<Value>(length,Value::from_int(INT64_MIN)))}));
+    if(!verify_fixture(programs.back(),"private Measure cache fixture"))return false;
+  }
+  const std::vector<CaseBindings> cases(33);
+  const std::vector<Value> answers(33,payload::make_int_list_value(
+      std::vector<Value>(1024,Value::from_int(INT64_MIN))));
+  FitnessPolicy policy;policy.metric=FitnessMetric::Exact;policy.list_allocation_limit=65536;
+  for(int lanes:{32,128})for(int fuel:{0,3,40,1000000}) {
+    FitnessSessionGpu session;
+    if(!check(session.init(cases,answers,fuel,lanes,7,policy).ok,"private Measure cache init"))return false;
+    const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,7,lanes,policy);
+    for(bool compact_cells:{false,true}) {
+      setenv("GAGP_GPU_COMPACT_INTLIST_CELLS",compact_cells?"1":"0",1);
+      setenv("GAGP_GPU_PRIVATE_MEASURE_CACHE","0",1);
+      const auto off=session.eval_programs(programs,true);
+      setenv("GAGP_GPU_PRIVATE_MEASURE_CACHE","1",1);
+      const auto on=session.eval_programs(programs,true);
+      if(!check(off.ok && on.ok && on.fitness==off.fitness && on.fitness==cpu &&
+          on.case_counts==off.case_counts && on.wrong==off.wrong &&
+          on.execution_profile.find("-private-measure-cache")!=std::string::npos &&
+          on.execution_profile.find("-private-measure-cache-declined")==std::string::npos,
+          "private Measure cache initial/replay/full-case/fuel parity"))return false;
+      if(fuel==1000000 && !check(on.payload_replay_programs>0 &&
+          on.payload_replay_programs==off.payload_replay_programs,"private Measure cache replay exercised"))return false;
+      for(const auto& count:on.case_counts)if(!check(count[0]==33,"private Measure cache omitted cases"))return false;
+    }
+  }
+  policy.list_allocation_limit=0;
+  FitnessSessionGpu declined;
+  if(!check(declined.init(cases,answers,1000000,32,7,policy).ok,"private Measure decline init"))return false;
+  const auto result=declined.eval_programs(programs,true);
+  return check(result.ok && result.execution_profile.find("-private-measure-cache-declined")!=std::string::npos &&
+      result.fitness==eval_fitness_cpu(programs,cases,answers,1000000,7,32,policy),
+      "private Measure unsupported policy ordinary fallback");
+}
+
 bool test_sequence_divide_and_conquer() {
   for (const ValueTag tag : {ValueTag::String, ValueTag::IntList,
                              ValueTag::FloatList, ValueTag::StringList}) {
@@ -1415,6 +1481,7 @@ int main() {
   if (!test_production_capability_dispatch_sequence()) return 1;
   if (!test_ordered_coordinate_memo()) return 1;
   if (!test_sequence_divide_and_conquer()) return 1;
+  if (!test_private_measure_cache()) return 1;
   if (!test_captured_locals_are_per_case_and_lazy()) return 1;
   if (!test_boundary_base_and_fuel()) return 1;
   if (!test_exact_capacity_exhaustion()) return 1;

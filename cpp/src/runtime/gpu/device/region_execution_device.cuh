@@ -122,8 +122,10 @@ __device__ DResult d_region_phase(
     const DExecutionTables& tables, int& fuel, bool result_phase = false) {
   if (phase_index < 0 || phase_index >= tables.region_phase_count)
     return d_error(ErrCode::Value);
-  if constexpr (Flavor == DPayloadFlavor::BoundIntListViews || Flavor == DPayloadFlavor::IntListViews) {
-    if (expected == ValueTag::Int && tables.measure_cache &&
+  if constexpr (Flavor == DPayloadFlavor::BoundIntListViews || Flavor == DPayloadFlavor::IntListViews ||
+      Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) {
+    if ((Flavor == DPayloadFlavor::BoundIntListViews || Flavor == DPayloadFlavor::IntListViews ||
+         payload_state.private_intlists) && expected == ValueTag::Int && tables.measure_cache &&
         phase_index == tables.measure_cached_phase) {
       const auto length = Value::container_len(frame.state[segment.sequence_state]);
       if (length >= 2 && length <= DMEASURE_CACHE_MAX) {
