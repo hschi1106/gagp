@@ -335,7 +335,7 @@ asgp::Individual solution(const std::string& name) {
         if(text.size()==1)return ceq(text[0]); auto mid=text.size()/2;
         return expr(K::kLogicOp,T::kBool,1,0,{self(self,text.substr(0,mid)),self(self,text.substr(mid))});
       };
-      if(name=="syllables")out.phases[0]=choose(any(any,"aeiouyAEIOUY"),lit(1),lit(0));
+      if(name=="syllables")out.phases[0]=choose(any(any,"aeiouy"),lit(1),lit(0));
       else {
         // Witness only; this is never seeded into an evolution population.
         static const std::pair<const char*,int> groups[]={{"aeilnorstuAEILNORSTU",1},{"dgDG",2},{"bcmpBCMP",3},{"fhvwyFHVWY",4},{"kK",5},{"jxJX",8},{"qzQZ",10}};
