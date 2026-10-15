@@ -374,7 +374,8 @@ __device__ inline bool d_lookup_list_payload(const DPayloadTables& tables,
   if constexpr (State::kMaxListEntries > 0) {
     for (int i = 0; i < st.list_entry_count; ++i) {
       if (st.list_entries[i].tag == v.tag && st.list_entries[i].packed == v.i) {
-        ptr = st.list_values + st.list_entries[i].offset;
+        const int offset = st.list_entries[i].offset;
+        ptr = offset >= 0 ? st.list_values + offset : tables.list_values + (-offset - 1);
         len = st.list_entries[i].len;
         return true;
       }
@@ -427,6 +428,10 @@ __device__ inline bool d_register_local_list(State& st, const Value& v, int offs
     (void)len;
     return false;
   }
+  // Under the logical arena policy, physical registry entries are identities,
+  // not allocation events. Keep the first resident identical-key payload.
+  if (st.logical_list_limit) for (int i = 0; i < st.list_entry_count; ++i)
+    if (st.list_entries[i].tag == v.tag && st.list_entries[i].packed == v.i) return true;
   if (st.list_entry_count >= State::kMaxListEntries) {
     st.physical_capacity_exceeded = true; return false;
   }
@@ -715,6 +720,30 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       auto& st = payload_state;
       const Value* xp = nullptr;
       int xl = 0;
+      if (st.logical_list_limit && d_lookup_list_payload(tables, st, x, xp, xl) &&
+          l >= 0 && l <= xl && h >= 0 && h <= xl) {
+        // A source window owns no cells. Alias the immutable case table or an
+        // earlier append-only local allocation, preserving exact content hashes.
+        int source_offset = 0;
+        bool found = false;
+        for (int i = 0; i < st.list_entry_count; ++i) {
+          if (st.list_entries[i].tag == x.tag && st.list_entries[i].packed == x.i) {
+            source_offset = st.list_entries[i].offset; found = true; break;
+          }
+        }
+        if (!found) {
+          const int entry = d_find_list_payload_entry(tables, x.tag, x.i);
+          if (entry >= 0) { source_offset = -tables.list_entries[entry].offset - 1; found = true; }
+        }
+        if (found) {
+          const int offset = source_offset >= 0 ? source_offset + static_cast<int>(l)
+                                               : source_offset - static_cast<int>(l);
+          const auto hash = d_hash_list_payload(out_len ? xp + l : nullptr, out_len);
+          out = d_make_list_hash_len(x.tag, hash, out_len);
+          if (!d_register_local_list(st, out, offset, out_len)) { err = ErrCode::Value; return false; }
+          return true;
+        }
+      }
       if (d_lookup_list_payload(tables, st, x, xp, xl) &&
           l >= 0 && l <= xl && h >= 0 && h <= xl &&
           st.list_values_used + static_cast<int>(out_len) <= st.kMaxListValues) {

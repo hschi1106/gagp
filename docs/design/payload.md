@@ -429,3 +429,11 @@ by CPU fitness or a direct benchmark audit before execution. CUDA initializes
 the same counter in each invocation's payload state. Neither counter persists
 across cases. GPU `DResult::payload_capacity_exceeded` distinguishes physical
 list storage exhaustion from a logical budget failure.
+
+In the logical list budget profile, CUDA slices register exact-content window
+aliases instead of copying cells. A nonnegative private entry offset addresses
+the invocation's append-only list arena; a negative offset encodes
+`-(case_table_offset + 1)` into the immutable packed case/constant table. These
+offsets never escape the invocation or modify public payload identity. Repeated
+identical registrations reuse their first resident entry; logical allocation
+charges still occur on every singleton and nonempty concat execution.

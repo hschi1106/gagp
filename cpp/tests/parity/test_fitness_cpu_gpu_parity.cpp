@@ -2711,6 +2711,36 @@ int main() {
       }
     }
   }
+  {
+    std::vector<Value> values;
+    for (int i=0; i<200; ++i) values.push_back(Value::from_int(i));
+    const auto original = gagp::payload::make_int_list_value(values);
+    // Exercise both case-table aliases and aliases into locally allocated concat.
+    for (bool local : {false,true}) {
+      BytecodeProgram program;
+      program.consts = {original,Value::from_int(0),Value::from_int(200)};
+      program.code.push_back({Opcode::PushConst,0,0,true,false});
+      if (local) {
+        program.code.push_back({Opcode::PushConst,0,0,true,false});
+        program.code.push_back({Opcode::CallBuiltin,static_cast<int>(gagp::BuiltinId::Concat),2,true,true});
+      }
+      for (int i=0; i<50; ++i) {
+        program.code.push_back({Opcode::PushConst,1,0,true,false});
+        program.code.push_back({Opcode::PushConst,2,0,true,false});
+        program.code.push_back({Opcode::CallBuiltin,static_cast<int>(gagp::BuiltinId::Slice),3,true,true});
+      }
+      program.code.push_back({Opcode::Return,0,0,false,false});
+      gagp::FitnessPolicy policy{gagp::FitnessMetric::Levenshtein};
+      policy.list_allocation_limit = 400;
+      const auto cpu = gagp::eval_fitness_cpu({program},{{}},{original},1000,7,32,policy);
+      gagp::FitnessSessionGpu session;
+      if (!session.init({{}},{original},1000,32,7,policy).ok) return 1;
+      const auto gpu = session.eval_programs({program});
+      if (!gpu.ok || cpu != std::vector<double>{0.0} || gpu.fitness != cpu || gpu.wrong != std::vector<unsigned>{0}) {
+        std::cerr << "logical list window alias parity"; return 1;
+      }
+    }
+  }
   struct TruncCase {std::int64_t a,b,div,mod;};
   const TruncCase trunc_cases[]={{-7,3,-2,-1},{7,-3,-2,1},{-7,-3,2,-1},{7,0,0,0},
       {INT64_MIN,-1,0,0},{INT64_MIN,1,INT64_MIN,0},{INT64_MAX,2,INT64_MAX/2,1}};
