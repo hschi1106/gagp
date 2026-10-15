@@ -489,13 +489,13 @@ bool test_wrapping_exposed_index() {
   AstProgram ast = int_range(TraversalDirection::Forward, 1, 3,
                              leaf(NodeKind::REGION_VAR, kIndex));
   ast.consts[1] = Value::from_int(std::numeric_limits<std::int64_t>::max());
-  if (!is_int(run(ast), std::numeric_limits<std::int64_t>::min() + 2,
-              "exposed index should preserve frozen Int ADD behavior at INT64_MAX")) {
+  if (!is_int(run(ast), std::numeric_limits<std::int64_t>::min() + 1,
+              "exposed index must wrap the exact INT64_MAX + 2 value")) {
     return false;
   }
   ast.consts[1] = Value::from_int(9007199254740993LL);
-  return is_int(run(ast), 9007199254740994LL,
-                "exposed index should preserve frozen Int ADD rounding above 2^53");
+  return is_int(run(ast), 9007199254740995LL,
+                "exposed index must retain low bits above 2^53");
 }
 
 bool test_lazy_seed_body_and_runtime_check_order() {
