@@ -692,3 +692,27 @@ default. The execution profile adds `-concat-cache` when an arena route runs.
 `gagp_test_extended_payload_gpu` covers repeated operands, cache and canonical
 identity collisions, global/local shadowing, typed errors, capacity, rollback,
 case lifetime, CPU fitness and unchanged physical-overflow replay.
+
+`GAGP_GPU_SORT_ARENA_CASES=1` independently sorts arena cases by total effective
+input IntList length, stably preserving ties. Eligibility requires Levenshtein
+with Capped proximity, finite integral `abs(penalty)`, and
+`case_count * max(1, abs(penalty)) < 2^40`. Unit edit distances, capped scores,
+and all error ceilings are then integral; every partial sum stays exactly
+representable under the 48-bit canonical reduction. Summary parameters are not
+used by Levenshtein; TupleSummary, Discounted, and all other metrics retain their
+original order. This guard does not depend on program output type or widen the
+existing view-executor proof.
+
+The separate permutation is captured and uploaded at session initialization,
+with construction/upload included in initialization timing. It adds four bytes
+per case of immutable session input storage (4096 bytes for 1024 cases), outside
+the arena scratch cap just like existing input tables. Initial global evaluation
+and both arena replay flavors consume it without changing contiguous logical
+case partitions, case multiplicity, or the original input/expected pairing.
+Local initial evaluation remains unsorted. Overflow lane masks continue to refer
+to logical execution lanes: with global sorting these contain sorted case
+positions, not the original case positions. Result/snapshot fields
+`arena_cases_sorted` and `arena_case_order_bytes` disclose usage/storage; active
+arena sorting adds `-arena-sorted` to the profile. Default is off. Tests cover
+full 1024-case CPU fitness/status parity at 33/512 lanes, tiled/non-tiled initial
+evaluation, indexed/nonindexed replay, and excluded fractional/Discounted policies.

@@ -25,6 +25,7 @@
 #include "opcode_map_gpu.hpp"
 #include "view_profile.hpp"
 #include "payload_workspace_budget.hpp"
+#include "case_sort_policy.hpp"
 #include "gagp/runtime/gpu/device_types_gpu.hpp"
 
 namespace gagp {
@@ -365,6 +366,7 @@ struct FitnessSessionGpu::Impl {
   unsigned char* d_shared_case_local_set = nullptr;
   Value* d_expected = nullptr;
   int* d_case_order = nullptr;
+  int* d_arena_case_order = nullptr;
   mutable HostStringPayloadLookup host_string_payloads;
   mutable HostListPayloadLookup host_list_payloads;
   std::vector<std::int64_t> shared_string_tokens;
@@ -413,6 +415,7 @@ struct FitnessSessionGpu::Impl {
     if (d_shared_case_local_set) cudaFree(d_shared_case_local_set);
     if (d_expected) cudaFree(d_expected);
     if (d_case_order) cudaFree(d_case_order);
+    if (d_arena_case_order) cudaFree(d_arena_case_order);
   }
 };
 
@@ -503,6 +506,21 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
     std::iota(case_order.begin(), case_order.end(), 0);
     std::stable_sort(case_order.begin(), case_order.end(), [&](int a, int b) { return lengths[a] < lengths[b]; });
   }
+  std::vector<int> arena_case_order;
+  if(std::getenv("GAGP_GPU_SORT_ARENA_CASES") && std::string(std::getenv("GAGP_GPU_SORT_ARENA_CASES"))=="1" &&
+      gpu_detail::arena_case_sort_is_exact(policy,penalty,shared_cases.size())) {
+    std::vector<std::uint64_t> lengths(shared_cases.size(),0);
+    for(std::size_t c=0;c<shared_cases.size();++c)
+      for(int local=0;local<64;++local) {
+        const auto& value=packed_case_local_vals[c*64+local];
+        if(packed_case_local_set[c*64+local] && value.tag==ValueTag::IntList)
+          lengths[c]+=Value::container_len(value);
+      }
+    arena_case_order.resize(shared_cases.size());
+    std::iota(arena_case_order.begin(),arena_case_order.end(),0);
+    std::stable_sort(arena_case_order.begin(),arena_case_order.end(),
+        [&](int a,int b){return lengths[a]<lengths[b];});
+  }
   const auto shared_case_pack_t1 = std::chrono::steady_clock::now();
 
   const auto payload_cache_t0 = std::chrono::steady_clock::now();
@@ -523,6 +541,9 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   if (impl_->d_case_order) { cudaFree(impl_->d_case_order); impl_->d_case_order = nullptr; }
   if (!case_order.empty() && !gpu_detail::cuda_alloc_and_copy_in(case_order, &impl_->d_case_order))
     return fitness_init_single_error(ErrCode::Value, "cuda case permutation allocation failure");
+  if(impl_->d_arena_case_order){cudaFree(impl_->d_arena_case_order);impl_->d_arena_case_order=nullptr;}
+  if(!arena_case_order.empty() && !gpu_detail::cuda_alloc_and_copy_in(arena_case_order,&impl_->d_arena_case_order))
+    return fitness_init_single_error(ErrCode::Value,"cuda arena case permutation allocation failure");
   if (!gpu_detail::cuda_alloc_and_copy_in(packed_case_local_vals, &impl_->d_shared_case_local_vals) ||
       !gpu_detail::cuda_alloc_and_copy_in(packed_case_local_set, &impl_->d_shared_case_local_set) ||
       !gpu_detail::cuda_alloc_and_copy_in(shared_answer, &impl_->d_expected)) {
@@ -999,7 +1020,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_region_segments,static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases,static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings,static_cast<int>(packed.region_bindings.size()),initial_payload.workspace,
-              dev.d_case_counts,nullptr,nullptr,indices.compact_queue);
+              dev.d_case_counts,impl_->d_arena_case_order,nullptr,indices.compact_queue);
       if(tiled_initial) {
         const auto initial_launch_error=cudaGetLastError();
         if(initial_launch_error!=cudaSuccess) {
@@ -1210,7 +1231,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_region_segments,static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases,static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings,static_cast<int>(packed.region_bindings.size()),replay_workspace,
-              dev.d_case_counts,nullptr,replay_indices,replay_queue);
+              dev.d_case_counts,impl_->d_arena_case_order,replay_indices,replay_queue);
       } else {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::ArenaMixed,true>
           <<<static_cast<unsigned>(replay_blocks),replay_threads,kernel_shared_bytes(packed.max_code_len,impl_->blocksize)>>>(
@@ -1222,7 +1243,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_region_segments,static_cast<int>(packed.region_segments.size()),
               dev.d_region_phases,static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings,static_cast<int>(packed.region_bindings.size()),replay_workspace,
-              dev.d_case_counts,nullptr,replay_indices,replay_queue);
+              dev.d_case_counts,impl_->d_arena_case_order,replay_indices,replay_queue);
       }
       const auto replay_launch_error=cudaGetLastError();
       if(tiled_replay)
@@ -1314,6 +1335,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if(out.payload_replay_programs)out.execution_profile+="-gpu-arena-replay";
     if(tiled_replay && out.payload_replay_programs)out.execution_profile+="-tiled";
     if(adaptive_replay && out.payload_replay_programs)out.execution_profile+="-adaptive";
+    out.arena_cases_sorted=impl_->d_arena_case_order && (global_payload || out.payload_replay_programs);
+    out.arena_case_order_bytes=impl_->d_arena_case_order?sizeof(int)*static_cast<std::size_t>(impl_->shared_case_count):0;
+    if(out.arena_cases_sorted)out.execution_profile+="-arena-sorted";
     if (use_views && impl_->d_case_order) out.execution_profile += "-sorted";
     if (direct_phases) out.execution_profile += "-direct";
     if (direct_root) out.execution_profile += "-root";

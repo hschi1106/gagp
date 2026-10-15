@@ -1080,11 +1080,76 @@ bool test_tiled_initial_payload() {
   return true;
 }
 
+bool test_sorted_arena_cases() {
+  ScopedEnvironment restore_sort("GAGP_GPU_SORT_ARENA_CASES"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),
+      restore_tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),restore_replay("GAGP_GPU_TILED_REPLAY"),
+      restore_scale("GAGP_GPU_INITIAL_PAYLOAD_SCALE");
+  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);setenv("GAGP_GPU_INITIAL_PAYLOAD_SCALE","1",1);
+  setenv("GAGP_GPU_TILED_REPLAY","1",1);
+  BytecodeProgram pass;pass.n_locals=2;pass.code={ins_a(Opcode::Load,0),ins(Opcode::Return)};
+  BytecodeProgram missing;missing.n_locals=2;
+  missing.code={ins_a(Opcode::Load,1),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),ins(Opcode::Return)};
+  BytecodeProgram growing;growing.n_locals=2;
+  for(int i=0;i<7;++i) {
+    growing.code.push_back(ins_a(Opcode::Load,0));growing.code.push_back(ins_a(Opcode::Load,0));
+    growing.code.push_back(ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Concat),2));
+    growing.code.push_back(ins_a(Opcode::Store,0));
+  }
+  growing.code.push_back(ins_a(Opcode::Load,0));growing.code.push_back(ins(Opcode::Return));
+  const std::vector<BytecodeProgram> programs{pass,missing,growing};
+  std::vector<CaseBindings> cases;std::vector<Value> answers;
+  for(int i=0;i<1024;++i) {
+    std::vector<Value> values((i*37)%50+1,Value::from_int(i));
+    const auto input=payload::make_int_list_value(values);
+    CaseBindings bindings{{0,input}};
+    if(i%7)bindings.push_back({1,Value::from_int(i)});
+    cases.push_back(std::move(bindings));answers.push_back(input);
+  }
+  FitnessPolicy policy{FitnessMetric::Levenshtein};policy.list_allocation_limit=65536;
+  for(int lanes:{33,512}) {
+    std::vector<CpuFitnessCaseCounts> counts;std::vector<unsigned> wrong;
+    const auto cpu=eval_fitness_cpu(programs,cases,answers,1000,1000,lanes,policy,&wrong,&counts);
+    for(const char* tiled:{"0","1"}) for(const char* sorted:{"0","1"}) {
+      setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD",tiled,1);setenv("GAGP_GPU_SORT_ARENA_CASES",sorted,1);
+      FitnessSessionGpu session;if(!session.init(cases,answers,1000,lanes,1000,policy).ok)return false;
+      const auto gpu=session.eval_programs(programs,true);
+      if(!check(gpu.ok && gpu.fitness==cpu && gpu.wrong==wrong && gpu.payload_replay_programs==1 &&
+          gpu.arena_cases_sorted==(sorted[0]=='1') && gpu.arena_case_order_bytes==(sorted[0]=='1'?4096u:0u),
+          "arena sorted full-case fitness/replay/profile parity"))return false;
+      for(int p=0;p<3;++p)if(!check(gpu.case_counts[p][0]==counts[p].cases &&
+          gpu.case_counts[p][1]==counts[p].errors && gpu.case_counts[p][2]==counts[p].timeouts,
+          "arena sorted case coverage/status mismatch"))return false;
+    }
+  }
+  // Unproved policies must retain the ordinary case order even with opt-in.
+  setenv("GAGP_GPU_SORT_ARENA_CASES","1",1);
+  for(bool discounted:{false,true}) {
+    auto excluded=policy;excluded.proximity=discounted?FitnessProximity::Discounted:FitnessProximity::Capped;
+    FitnessSessionGpu session;if(!session.init(cases,answers,2,33,2.5,excluded).ok)return false;
+    const auto gpu=session.eval_programs(programs,true);
+    const auto cpu=eval_fitness_cpu(programs,cases,answers,2,2.5,33,excluded);
+    if(!check(gpu.ok && gpu.fitness==cpu && !gpu.arena_cases_sorted && gpu.arena_case_order_bytes==0,
+        "fractional/Discounted arena sort must be disabled"))return false;
+  }
+  // A local initial launch stays unsorted; its global replay can safely sort.
+  setenv("GAGP_GPU_GLOBAL_PAYLOAD","0",1);
+  ScopedEnvironment restore_index("GAGP_GPU_PAYLOAD_INDEX");
+  const auto replay_cpu=eval_fitness_cpu(programs,cases,answers,1000,1000,33,policy);
+  for(const char* index:{"0","1"}) {
+    setenv("GAGP_GPU_PAYLOAD_INDEX",index,1);
+    FitnessSessionGpu session;if(!session.init(cases,answers,1000,33,1000,policy).ok)return false;
+    const auto gpu=session.eval_programs(programs,true);
+    if(!check(gpu.ok && gpu.arena_cases_sorted && gpu.payload_replay_programs==1 && gpu.fitness==replay_cpu,
+        "local initial/sorted replay parity"))return false;
+  }
+  return true;
+}
+
 int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_tiled_initial_payload() || !test_initial_payload_scale() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_initial_payload_scale() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

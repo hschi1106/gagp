@@ -232,7 +232,8 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
   const int case_step = strided ? static_cast<int>(blockDim.x) : 1;
   for (int local_case = case_begin; local_case < case_end; local_case += case_step) {
     int input_case = local_case;
-    if constexpr ((Flavor == DPayloadFlavor::IntListViews || Flavor == DPayloadFlavor::BoundIntListViews))
+    if constexpr (Flavor == DPayloadFlavor::IntListViews || Flavor == DPayloadFlavor::BoundIntListViews ||
+                  Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena)
       if (case_order) input_case = case_order[local_case];
     DResult result;
     double resident_score = 0;

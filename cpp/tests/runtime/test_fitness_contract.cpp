@@ -8,6 +8,7 @@
 
 #include "gagp/core/bytecode.hpp"
 #include "../../src/runtime/gpu/payload_workspace_budget.hpp"
+#include "../../src/runtime/gpu/case_sort_policy.hpp"
 #include "gagp/core/value_semantics.hpp"
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 #include "gagp/runtime/payload/payload.hpp"
@@ -37,6 +38,23 @@ gagp::BytecodeProgram returns(const Value& value) {
       {gagp::Opcode::Return, 0, 0, false, false},
   };
   return program;
+}
+
+bool test_arena_case_sort_proof() {
+  gagp::FitnessPolicy policy{gagp::FitnessMetric::Levenshtein};
+  using gagp::gpu_detail::arena_case_sort_is_exact;
+  if(!check(arena_case_sort_is_exact(policy,1000,1024) && arena_case_sort_is_exact(policy,-2,1024) &&
+      arena_case_sort_is_exact(policy,0,1024),"integral sequence sort rejected"))return false;
+  for(double penalty:{.5,2.5,std::numeric_limits<double>::infinity(),std::numeric_limits<double>::quiet_NaN()})
+    if(!check(!arena_case_sort_is_exact(policy,penalty,1024),"nonintegral sort admitted"))return false;
+  if(!check(!arena_case_sort_is_exact(policy,1099511627776.0,1),"inexact accumulator bound admitted"))return false;
+  policy.proximity=gagp::FitnessProximity::Discounted;
+  if(!check(!arena_case_sort_is_exact(policy,1000,1024),"discounted sort admitted"))return false;
+  for(auto metric:{gagp::FitnessMetric::Legacy,gagp::FitnessMetric::Absolute,gagp::FitnessMetric::Exact,gagp::FitnessMetric::TupleSummary}) {
+    policy={metric};
+    if(!check(!arena_case_sort_is_exact(policy,1000,1024),"unproved metric admitted for arena sort"))return false;
+  }
+  return true;
 }
 
 bool test_payload_workspace_budget() {
@@ -112,7 +130,7 @@ bool test_exact_length_bound() {
 }  // namespace
 
 int main() {
-  if(!test_payload_workspace_budget() || !test_exact_length_bound())return 1;
+  if(!test_arena_case_sort_proof() || !test_payload_workspace_budget() || !test_exact_length_bound())return 1;
   gagp::payload::clear();
   if (!score_is(Value::from_int(3), Value::from_int(3), 0.0, "numeric exact")) return 1;
   if (!score_is(Value::from_float(7.5), Value::from_int(5), -2.5,

@@ -68,6 +68,8 @@ struct FitnessEvalResult {
   int initial_payload_value_capacity = 0;
   std::size_t initial_payload_physical_blocks = 0;
   bool initial_payload_tiled = false;
+  bool arena_cases_sorted = false;
+  std::size_t arena_case_order_bytes = 0; // Immutable session input permutation.
   int payload_replay_byte_capacity = 0;
   // Initial physical overflows, before replay replaces the case diagnostics.
   std::vector<unsigned> initial_payload_overflow_cases;
