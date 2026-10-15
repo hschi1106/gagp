@@ -59,6 +59,9 @@ struct FitnessEvalResult {
   std::size_t payload_replay_programs = 0;
   std::size_t payload_replay_cases = 0;
   std::size_t payload_replay_launches = 0;
+  int payload_replay_entry_capacity = 0;
+  int payload_replay_value_capacity = 0;
+  int payload_replay_byte_capacity = 0;
   // Initial physical overflows, before replay replaces the case diagnostics.
   std::vector<unsigned> initial_payload_overflow_cases;
   // Optional row-major [program][ceil(logical_lanes/32)] lane bit masks.

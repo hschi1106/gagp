@@ -132,6 +132,7 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
   if constexpr ((Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena)) {
     if (tid == 0 && !tiled_replay) {
       workspace.payload_overflows[prog_idx] = 0;
+      if(workspace.payload_overflow_reasons)workspace.payload_overflow_reasons[prog_idx]=0;
       if (case_counts) for (int i=0;i<6;++i)case_counts[prog_idx*6+i]=0;
     }
     __syncthreads();
@@ -249,6 +250,8 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
         shared_answer+input_case,penalty,policy,&resident_score,&exact);
     }
     if (result.payload_capacity_exceeded) {
+      if(workspace.payload_overflow_reasons)
+        atomicOr(workspace.payload_overflow_reasons+prog_idx,result.payload_capacity_reason);
       if (workspace.payload_overflows) atomicAdd(workspace.payload_overflows + prog_idx, 1u);
       if (workspace.payload_overflow_lane_masks)
         atomicOr(workspace.payload_overflow_lane_masks +
@@ -324,11 +327,12 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
 
 // Each affected program is reset once, before independent warp tiles run.
 __global__ void reset_payload_replay(int count, const int* indices,
-    unsigned int* overflows, unsigned int* counts) {
+    unsigned int* overflows, unsigned int* counts, unsigned int* reasons=nullptr) {
   const int row = blockIdx.x * blockDim.x + threadIdx.x;
   if (row >= count) return;
   const int program = indices[row];
   overflows[program] = 0;
+  if(reasons)reasons[program]=0;
   if (counts) for (int i=0;i<6;++i) counts[program*6+i]=0;
 }
 

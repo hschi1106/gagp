@@ -101,6 +101,7 @@ struct DRegionWorkspace {
   int fitness_lanes = 0; // Original logical block width for exact reduction.
   unsigned int* payload_overflow_lane_masks = nullptr; // Initial pass only.
   int payload_overflow_mask_words = 0;
+  unsigned int* payload_overflow_reasons = nullptr; // Per-program OR of physical capacity kinds.
   unsigned int* payload_overflows = nullptr; // One counter per program.
 
   DRegionFrame* frames = nullptr;

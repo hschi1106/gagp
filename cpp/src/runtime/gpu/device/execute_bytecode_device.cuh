@@ -586,6 +586,7 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
                                             local_case, nullptr, 0, payload_tables,
                                             payload_state_storage.ref(), execution_tables, fuel_left, true, workspace);
   result.payload_capacity_exceeded = payload_state.physical_capacity_exceeded;
+  result.payload_capacity_reason = payload_state.physical_capacity_reason;
   if(score && expected && !result.is_error) {
     if(policy.metric==FitnessMetric::Levenshtein || policy.metric==FitnessMetric::TupleSummary)
       *score=d_score_resident(result.value,*expected,penalty,policy,payload_tables,payload_state_storage.ref(),exact);

@@ -368,6 +368,9 @@ bool test_tiled_replay_entry_growth() {
   if(!check(gpu.payload_replay_programs==1 && gpu.payload_replay_launches>=2 &&
       gpu.payload_replay_cases==3*gpu.payload_replay_launches,
       "entry capacity growth must retry only the overflowing program"))return false;
+  if(std::getenv("GAGP_GPU_ADAPTIVE_REPLAY") && std::string(std::getenv("GAGP_GPU_ADAPTIVE_REPLAY"))!="0" &&
+      !check(gpu.payload_replay_entry_capacity==8192 && gpu.payload_replay_value_capacity==16384 &&
+          gpu.payload_replay_byte_capacity==8192,"entry exhaustion must grow only entry capacity"))return false;
   for(std::size_t p=0;p<programs.size();++p)
     if(!check(cpu_counts[p].cases==3 && cpu_counts[p].errors==0 &&
         gpu.case_counts[p][0]==cpu_counts[p].cases &&
@@ -378,6 +381,8 @@ bool test_tiled_replay_entry_growth() {
 }
 
 bool test_payload_replay_fitness() {
+  ScopedEnvironment restore_adaptive("GAGP_GPU_ADAPTIVE_REPLAY");
+  setenv("GAGP_GPU_ADAPTIVE_REPLAY","0",1);
   // Two appends per frame allocate >8192 cells without exceeding the source
   // logical arena. The original ExtendedMixed evaluation must overflow.
   auto combine = phase({},
@@ -619,7 +624,7 @@ __global__ void inspect_extended_aliases(gpu_detail::DExtendedPayloadState* stat
     DListPayloadEntry entries[2]={{tag,empty.i,0,0},{tag,source.i,0,6}};
     DPayloadTables tables{};tables.list_entries=entries;tables.list_entry_count=2;tables.list_values=elements;
     state->list_entry_count=0;state->list_values_used=0;state->list_entry_capacity=1024;
-    state->logical_list_limit=0;state->logical_list_used=0;state->physical_capacity_exceeded=false;
+    state->logical_list_limit=0;state->logical_list_used=0;state->physical_capacity_exceeded=false;state->physical_capacity_reason=0;
     state->alias_windows=aliases!=0;state->fused_list_concat=false;
     Value value=source;ErrCode err=ErrCode::Value;
     if(local) {
@@ -658,11 +663,64 @@ bool test_extended_aliases() {
   cudaFree(state);cudaFree(failure);return passed;
 }
 
+bool test_adaptive_replay() {
+  ScopedEnvironment restore_adaptive("GAGP_GPU_ADAPTIVE_REPLAY"),restore_tiles("GAGP_GPU_TILED_REPLAY"),
+      restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),restore_index("GAGP_GPU_PAYLOAD_INDEX");
+  setenv("GAGP_GPU_TILED_REPLAY","1",1);setenv("GAGP_GPU_GLOBAL_PAYLOAD","0",1);
+  setenv("GAGP_GPU_PAYLOAD_INDEX","1",1);
+  for(int strings=0;strings<2;++strings) for(int adaptive=0;adaptive<2;++adaptive) {
+    // 100 independent concatenations consume 20000 cells or bytes, but only
+    // 100 registrations. List replay must grow values; string replay bytes.
+    // Keep the old string route out of this focused test: it intentionally
+    // doubles entries to65536 before growing its byte storage.
+    if(strings && !adaptive)continue;
+    setenv("GAGP_GPU_ADAPTIVE_REPLAY",adaptive?"1":"0",1);
+    std::vector<Value> elements(100,Value::from_int(7));
+    Value source=strings?payload::make_string_value(std::string(100,'a')):payload::make_int_list_value(elements);
+    elements.resize(200,Value::from_int(7));
+    Value answer=strings?payload::make_string_value(std::string(200,'a')):payload::make_int_list_value(elements);
+    BytecodeProgram growing;growing.n_locals=2;
+    growing.consts={Value::from_int(0),Value::from_int(1),Value::from_int(100),source};
+    growing.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::Store,0),
+        ins_a(Opcode::PushConst,3),ins_a(Opcode::PushConst,3),
+        ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Concat),2),ins_a(Opcode::Store,1),
+        ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,1),ins(Opcode::Add),ins_a(Opcode::Store,0),
+        ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,2),ins(Opcode::Lt),ins_a(Opcode::JmpIfTrue,2),
+        ins_a(Opcode::Load,1),ins(Opcode::Return)};
+    growing.instruction_fuel.assign(growing.code.size(),1);
+    BytecodeProgram unaffected;unaffected.consts={answer};
+    unaffected.code={ins_a(Opcode::PushConst,0),ins(Opcode::Return)};
+    unaffected.instruction_fuel.assign(unaffected.code.size(),1);
+    const std::vector<BytecodeProgram> programs{growing,unaffected};
+    const std::vector<CaseBindings> cases(3);const std::vector<Value> answers(3,answer);
+    FitnessPolicy policy{FitnessMetric::Levenshtein};policy.list_allocation_limit=65536;
+    std::vector<CpuFitnessCaseCounts> cpu_counts;
+    const auto cpu=eval_fitness_cpu(programs,cases,answers,10000,1000,33,policy,nullptr,&cpu_counts);
+    FitnessSessionGpu session;
+    if(!check(session.init(cases,answers,10000,33,1000,policy).ok,"adaptive replay init"))return false;
+    const auto gpu=session.eval_programs(programs,true);
+    if(!check(gpu.ok && gpu.fitness==cpu && cpu==std::vector<double>({0,0}),"adaptive replay exact fitness")) {
+      std::cerr<<gpu.err.message<<'\n';return false;
+    }
+    const unsigned launches=adaptive?(strings?3:2):1;
+    if(!check(gpu.payload_replay_programs==1 && gpu.payload_replay_launches==launches &&
+        gpu.payload_replay_cases==3*launches,"adaptive replay complete-pass accounting"))return false;
+    if(adaptive && !check(gpu.payload_replay_entry_capacity==4096 &&
+        gpu.payload_replay_value_capacity==(strings?16384:32768) &&
+        gpu.payload_replay_byte_capacity==(strings?32768:8192),"adaptive replay grew an unexhausted capacity"))return false;
+    for(std::size_t p=0;p<programs.size();++p)
+      if(!check(gpu.case_counts[p][0]==cpu_counts[p].cases && gpu.case_counts[p][1]==cpu_counts[p].errors &&
+          gpu.case_counts[p][2]==cpu_counts[p].timeouts,"adaptive replay case/status parity"))return false;
+  }
+  setenv("GAGP_GPU_ADAPTIVE_REPLAY","1",1);
+  return test_tiled_replay_entry_growth();
+}
+
 int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_extended_aliases() || !test_fused_concat() || !test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_extended_payload() || !test_private_list_index() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

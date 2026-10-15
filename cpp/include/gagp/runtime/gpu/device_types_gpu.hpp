@@ -17,12 +17,17 @@ struct DInstr {
   std::uint32_t fuel = 1;
 };
 
+inline constexpr unsigned DPAYLOAD_OVERFLOW_ENTRIES = 1u;
+inline constexpr unsigned DPAYLOAD_OVERFLOW_VALUES = 2u;
+inline constexpr unsigned DPAYLOAD_OVERFLOW_BYTES = 4u;
+
 struct DResult {
   int is_error = 0;
   ErrCode err_code = ErrCode::Value;
   Value value = Value::invalid();
   // Distinguishes physical payload exhaustion from semantic Value errors.
   bool payload_capacity_exceeded = false;
+  unsigned payload_capacity_reason = 0;
 };
 
 struct DPhaseMeta {

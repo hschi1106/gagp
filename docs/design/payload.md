@@ -571,3 +571,16 @@ They estimate selective replay opportunities; replay still replaces entire
 programs. Logical allocation failures do not set these diagnostics. The existing
 extended-payload GPU regression checks dense 33/512-lane masks, unaffected
 programs, logical failures, and sparse lanes preserved across multiple retries.
+
+`GAGP_GPU_ADAPTIVE_REPLAY=1` starts GPU replay with 4096 registry entries,
+16384 value cells and 8192 string bytes per physical lane. Physical failures
+carry entry/value/byte reason bits independently from semantic errors and
+initial overflow diagnostics. Retries double only capacities exhausted by
+unresolved programs; unknown reasons conservatively grow all three. Each retry
+still evaluates the complete unresolved programs and uses the original logical
+lane reduction. Logical allocation budgets, fuel and numeric behavior do not
+change. Scratch accounting includes the reason array within the arena budget.
+The default sizing/growth route is unchanged. Snapshot diagnostics report final
+replay entry/value/byte capacities; replay timing and case counters include all
+attempts. Tests independently exhaust entries, values and bytes and compare
+fitness and statuses with CPU evaluation, retaining unaffected program rows.
