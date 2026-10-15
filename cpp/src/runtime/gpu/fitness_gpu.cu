@@ -57,6 +57,9 @@ struct PayloadWorkspaceStorage {
   bool prepare(gpu_detail::DRegionWorkspace prototype,std::size_t programs,int lanes,
       int entries,int values,int bytes,bool indexed,std::size_t extra_bytes=0) {
     workspace=prototype;
+    workspace.compact_intlist_cells=workspace.private_intlists && workspace.compact_intlist_cells;
+    if(workspace.compact_intlist_cells)workspace.payload_list_values=nullptr;
+    else workspace.payload_intlist_cells=nullptr;
     workspace.window_executor=false;workspace.coordinate_executor=false;
     workspace.unboxed_window_frames=false;workspace.window_soa=false;
     workspace.measure_phase_cache=false;
@@ -80,7 +83,8 @@ struct PayloadWorkspaceStorage {
     }
     const auto payload_bytes=(registry?std::size_t(entries)*(sizeof(gpu_detail::DStringPayloadEntry)+sizeof(gpu_detail::DListPayloadEntry))+
         bytes+(indexed?std::size_t(entries)*2*(epoch_index?sizeof(std::uint64_t):sizeof(int)):0)+
-        (epoch_index?sizeof(unsigned):0):0)+std::size_t(values)*sizeof(Value)+
+        (epoch_index?sizeof(unsigned):0):0)+std::size_t(values)*
+        (workspace.compact_intlist_cells?sizeof(std::int64_t):sizeof(Value))+
         (workspace.concat_cache_enabled?sizeof(gpu_detail::DConcatCacheEntry)*gpu_detail::DCONCAT_CACHE_SLOTS:0);
     blocks=gpu_detail::payload_workspace_block_count(budget,programs,
         payload_bytes+frame_bytes+key_bytes+memo_bytes,extra_bytes);
@@ -99,7 +103,9 @@ struct PayloadWorkspaceStorage {
         (!registry || allocate(reinterpret_cast<void**>(&workspace.payload_string_entries),slots*entries*sizeof(gpu_detail::DStringPayloadEntry))) &&
         (!registry || allocate(reinterpret_cast<void**>(&workspace.payload_list_entries),slots*entries*sizeof(gpu_detail::DListPayloadEntry))) &&
         (!registry || allocate(reinterpret_cast<void**>(&workspace.payload_string_bytes),slots*bytes)) &&
-        allocate(reinterpret_cast<void**>(&workspace.payload_list_values),slots*values*sizeof(Value)) &&
+        (workspace.compact_intlist_cells?
+            allocate(reinterpret_cast<void**>(&workspace.payload_intlist_cells),slots*values*sizeof(std::int64_t)):
+            allocate(reinterpret_cast<void**>(&workspace.payload_list_values),slots*values*sizeof(Value))) &&
         allocate(reinterpret_cast<void**>(&workspace.frames),slots*frame_bytes) &&
         allocate(reinterpret_cast<void**>(&workspace.memo_keys),slots*key_bytes) &&
         allocate(reinterpret_cast<void**>(&workspace.memo_values),slots*memo_bytes);
@@ -645,6 +651,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   // on current phase bytecode, not the owner's cold import snapshot.
   const bool request_private=std::getenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS") &&
       std::string(std::getenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"))=="1";
+  const bool request_compact=std::getenv("GAGP_GPU_COMPACT_INTLIST_CELLS") &&
+      std::string(std::getenv("GAGP_GPU_COMPACT_INTLIST_CELLS"))=="1";
   const bool private_static_eligible=request_private && impl_->private_answers_prepared &&
       (impl_->policy.metric==FitnessMetric::Exact || impl_->policy.metric==FitnessMetric::Levenshtein) &&
       impl_->policy.list_allocation_limit>0 && impl_->policy.list_allocation_limit<=65536 &&
@@ -823,6 +831,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   gpu_detail::DRegionWorkspace region_workspace;
   region_workspace.payload_window_aliases=global_window_aliases;
   region_workspace.private_intlists=private_intlists;
+  region_workspace.compact_intlist_cells=private_intlists && request_compact;
   region_workspace.shared_list_value_count=static_cast<int>(payload_pack.list_values.size());
   region_workspace.payload_epoch_index=payload_index && std::getenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX") &&
       std::string(std::getenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX"))=="1";
@@ -1418,15 +1427,17 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
     if(request_private)out.execution_profile+=private_intlists?
         "-private-intlist-offset-v1":"-private-intlist-offset-v1-declined";
+    if(request_compact)out.execution_profile+=region_workspace.compact_intlist_cells?
+        "-compact-intlist-cells":"-compact-intlist-cells-declined";
     if(global_payload) {
       out.execution_profile+="-global-arena";
       if(tiled_initial)out.execution_profile+="-initial-tiled";
     }
     if(region_workspace.concat_cache_enabled && (global_payload || out.payload_replay_programs))out.execution_profile+="-concat-cache";
     if(global_window_aliases)out.execution_profile+="-window-aliases";
-    if(region_workspace.fused_list_concat && extended_payload)out.execution_profile+="-fused-concat";
-    if(region_workspace.small_int_hash && extended_payload)out.execution_profile+="-small-int-hash";
-    if(payload_index && (global_payload || out.payload_replay_programs)) {
+    if(!private_intlists && region_workspace.fused_list_concat && extended_payload)out.execution_profile+="-fused-concat";
+    if(!private_intlists && region_workspace.small_int_hash && extended_payload)out.execution_profile+="-small-int-hash";
+    if(!private_intlists && payload_index && (global_payload || out.payload_replay_programs)) {
       out.execution_profile+="-list-index";
       if(region_workspace.payload_epoch_index)out.execution_profile+="-epoch";
     }

@@ -290,4 +290,7 @@ payloads through 65537 elements: clamped length 65535 plus length one charges
 backing; numeric list observations retain the existing encoded-length rules.
 It preserves the logical allocation policy, fuel, complete case coverage and
 physical-overflow replay above. See `docs/design/payload.md` for its private
-descriptor lifetime and per-generation capability requirements.
+descriptor lifetime and per-generation capability requirements. The additional
+`GAGP_GPU_COMPACT_INTLIST_CELLS=1` storage opt-in requires an admitted private
+profile and preserves its scores, wrong counts and resource charges exactly;
+only local physical cells change from boxed Values to signed 64-bit integers.

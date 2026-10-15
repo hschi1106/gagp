@@ -266,11 +266,11 @@ void test_packed_pattern_refresh() {
 }
 }
 void test_private_intlist_generations() {
- const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED"};
+ const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS"};
  struct Restore {
-  const char** flags;std::string saved[4];bool present[4];
-  explicit Restore(const char** f):flags(f){for(int i=0;i<4;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
-  ~Restore(){for(int i=0;i<4;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
+  const char** flags;std::string saved[5];bool present[5];
+  explicit Restore(const char** f):flags(f){for(int i=0;i<5;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
+  ~Restore(){for(int i=0;i<5;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
  } restore(flags);
  const auto grammar=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
      grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_intlist.json")));
@@ -288,7 +288,14 @@ void test_private_intlist_generations() {
  repro::NativePhasePopulation owner(grammar,parents,names);
  bool changed=false,saw_content_match=false;
  for(int generation=0;generation<=32;++generation) {
+  setenv("GAGP_GPU_COMPACT_INTLIST_CELLS","0",1);
+  const auto boxed=owner.evaluate(session,true);
+  setenv("GAGP_GPU_COMPACT_INTLIST_CELLS","1",1);
   const auto gpu=owner.evaluate(session,true);
+  require(boxed.ok && gpu.ok && boxed.fitness==gpu.fitness && boxed.wrong==gpu.wrong &&
+      boxed.case_counts==gpu.case_counts && boxed.execution_profile.find("-compact-intlist-cells")==std::string::npos &&
+      gpu.execution_profile.find("-compact-intlist-cells")!=std::string::npos,
+      "boxed/compact private cells differ across fresh GPU generations");
   require(gpu.ok && gpu.execution_profile.find("private-intlist-offset-v1")!=std::string::npos &&
       gpu.execution_profile.find("-declined")==std::string::npos,"fresh list generation lost capability");
   std::vector<BytecodeProgram> independent;
@@ -315,7 +322,8 @@ void test_private_intlist_generations() {
  const auto policy_ordinary=unsupported_session.eval_programs(owner.programs(),true);
  require(policy_declined.ok && policy_ordinary.ok && policy_declined.fitness==policy_ordinary.fitness &&
      policy_declined.wrong==policy_ordinary.wrong &&
-     policy_declined.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos,
+     policy_declined.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos &&
+     policy_declined.execution_profile.find("compact-intlist-cells-declined")!=std::string::npos,
      "unsupported policy retained cold native phases/private profile");
  auto wrong_cases=cases;
  for(auto& binding:wrong_cases[0])if(names[binding.idx]=="base_value")binding.value=Value::from_float(1.5);
@@ -324,7 +332,8 @@ void test_private_intlist_generations() {
  const auto declined=owner.evaluate(wrong_session,true);
  const auto ordinary=wrong_session.eval_programs(owner.programs(),true);
  require(declined.ok && ordinary.ok && declined.fitness==ordinary.fitness && declined.wrong==ordinary.wrong &&
-     declined.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos,
+     declined.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos &&
+     declined.execution_profile.find("compact-intlist-cells-declined")!=std::string::npos,
      "different session reused stale private capability instead of current generic fallback");
 }
 

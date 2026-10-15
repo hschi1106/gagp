@@ -86,7 +86,8 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
     if(workspace.payload_string_entries)workspace.payload_string_entries += slot * workspace.payload_entry_capacity;
     if(workspace.payload_list_entries)workspace.payload_list_entries += slot * workspace.payload_entry_capacity;
     if(workspace.payload_string_bytes)workspace.payload_string_bytes += slot * workspace.payload_byte_capacity;
-    workspace.payload_list_values += slot * workspace.payload_value_capacity;
+    if(workspace.payload_list_values)workspace.payload_list_values += slot * workspace.payload_value_capacity;
+    if(workspace.payload_intlist_cells)workspace.payload_intlist_cells += slot * workspace.payload_value_capacity;
     if(workspace.concat_cache)workspace.concat_cache+=slot*DCONCAT_CACHE_SLOTS;
     if constexpr (Flavor == DPayloadFlavor::IndexedArena) {
       if(workspace.payload_list_epoch_index) {

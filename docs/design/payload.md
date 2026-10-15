@@ -230,6 +230,18 @@ authorizes later offspring. This execution capability is a type/support proof,
 not grammar membership; the native reproduction owner retains its separate
 grammar construction and variation invariants.
 
+`GAGP_GPU_COMPACT_INTLIST_CELLS=1` additionally requests eight-byte signed
+integer cells for invocation-local storage, only after the complete private
+IntList capability above succeeds. Immutable case/constant/answer tables remain
+boxed `Value` arrays. The existing VM uses typed spans to read either backing;
+ordinary boxed payload lookup rejects compact local descriptors. All 64 integer
+bits, element offsets, encoded numeric list lengths, actual content lengths,
+logical allocation charges, fuel, rollback, overflow/replay, and case coverage
+are identical to the boxed private profile. The flag defaults off and reports
+`compact-intlist-cells` or `compact-intlist-cells-declined` in the execution
+profile. It changes physical cell bytes and accounted workspace concurrency;
+there is no new VM, reproduction backend, search rule, or payload transport.
+
 ### Proven integer/list execution profile
 
 `cpp/src/runtime/gpu/view_profile.hpp` checks forward type flow after ordinary

@@ -40,6 +40,8 @@ struct DThreadPayloadStateT {
   bool fused_list_concat = false;
   bool small_int_hash = false;
   static constexpr bool private_intlists = false;
+  static constexpr bool compact_intlist_cells = false;
+  static constexpr const std::int64_t* intlist_cells = nullptr;
   bool alias_windows = false;
   char string_bytes[(MaxStringBytes > 0) ? MaxStringBytes : 1];
   Value list_values[(MaxListValues > 0) ? MaxListValues : 1];
@@ -65,6 +67,8 @@ struct DArenaPayloadState {
   static constexpr bool kEpochLists = false;
   static constexpr bool kIndexedLists = false;
   bool private_intlists = false;
+  bool compact_intlist_cells = false;
+  std::int64_t* intlist_cells = nullptr;
   bool alias_windows = false;
   static constexpr int kMaxStringEntries = 1;
   static constexpr int kMaxListEntries = 1;
@@ -436,6 +440,22 @@ __device__ inline Value d_private_intlist(int offset, int length, bool global = 
   value.b=true;return value;
 }
 
+// Shared descriptor decoding keeps boxed and compact storage bounds identical.
+__device__ inline bool d_private_intlist_bounds(const Value& value, int local_capacity,
+    int global_capacity, bool& global, int& offset, int& length) {
+  if(value.tag!=ValueTag::IntList || !value.b)return false;
+  const auto bits=Value::container_hash48(value);
+  if(bits & ~(DPRIVATE_LIST_GLOBAL|DPRIVATE_LIST_LENGTH_HIGH|DPRIVATE_LIST_OFFSET_MASK))return false;
+  global=(bits&DPRIVATE_LIST_GLOBAL)!=0;
+  offset=static_cast<int>(bits&DPRIVATE_LIST_OFFSET_MASK);
+  length=static_cast<int>(Value::container_len(value));
+  if(bits&DPRIVATE_LIST_LENGTH_HIGH) {
+    length+=65536;if(length>(global?65536:65537))return false;
+  }
+  const int capacity=global?global_capacity:local_capacity;
+  return capacity>=0 && offset<=capacity && length<=capacity-offset;
+}
+
 // Private read-only view: b marks an offset into this launch's list table.
 // Static capability analysis excludes container equality and container outputs.
 __device__ inline Value d_list_view(std::uint64_t offset, std::uint32_t length) {
@@ -617,19 +637,12 @@ __device__ inline bool d_lookup_list_payload(const DPayloadTables& tables,
                                              int& len) {
   if (!d_is_typed_list_tag(v.tag)) return false;
   if (st.private_intlists && v.b) {
-    if (v.tag != ValueTag::IntList) return false;
-    const auto bits=Value::container_hash48(v);
-    if (bits & ~(DPRIVATE_LIST_GLOBAL|DPRIVATE_LIST_LENGTH_HIGH|DPRIVATE_LIST_OFFSET_MASK)) return false;
-    const bool global=(bits&DPRIVATE_LIST_GLOBAL)!=0;
-    const int offset=static_cast<int>(bits&DPRIVATE_LIST_OFFSET_MASK);
-    len=static_cast<int>(Value::container_len(v));
-    if(bits&DPRIVATE_LIST_LENGTH_HIGH) {
-      len+=65536;
-      if(len>(global?65536:65537))return false;
-    }
-    const int capacity=global?tables.list_value_count:st.list_values_used;
+    bool global=false;int offset=0;
+    if(!d_private_intlist_bounds(v,st.list_values_used,tables.list_value_count,global,offset,len))return false;
+    // Compact local storage must never be exposed through a boxed Value pointer.
+    if(!global && st.compact_intlist_cells)return false;
     const auto* backing=global?tables.list_values:st.list_values;
-    if (capacity<0 || offset>capacity || len>capacity-offset || (len && !backing)) return false;
+    if(len && !backing)return false;
     ptr=backing?backing+offset:nullptr;
     return true;
   }
@@ -654,6 +667,52 @@ __device__ inline bool d_lookup_list_payload(const DPayloadTables& tables,
     return true;
   }
   return false;
+}
+
+// Local compact integers and immutable boxed tables have separate typed
+// pointers. Reader dispatch can be hoisted outside copying and distance loops.
+struct DPrivateIntListSpan {
+  const Value* boxed=nullptr;
+  const std::int64_t* integers=nullptr;
+  int size=0;
+  template<bool Compact> __device__ std::int64_t read(int index) const {
+    if constexpr (Compact)return integers[index];
+    else return boxed[index].i;
+  }
+  __device__ std::int64_t at(int index) const {
+    return integers?read<true>(index):read<false>(index);
+  }
+};
+
+template<class State>
+__device__ inline bool d_private_intlist_span(const DPayloadTables& tables,
+    const State& state,const Value& value,DPrivateIntListSpan& span) {
+  if(!state.private_intlists || value.tag!=ValueTag::IntList)return false;
+  bool global=true;int offset=0,length=0;
+  if(value.b) {
+    if(!d_private_intlist_bounds(value,state.list_values_used,tables.list_value_count,global,offset,length))return false;
+  } else {
+    const int entry=d_find_list_payload_entry(tables,ValueTag::IntList,value.i);
+    if(entry<0)return false;
+    offset=tables.list_entries[entry].offset;length=tables.list_entries[entry].len;
+    if(offset<0 || length<0 || length>65536 || offset>tables.list_value_count ||
+        length>tables.list_value_count-offset)return false;
+  }
+  span={};span.size=length;
+  if(!global && state.compact_intlist_cells) {
+    if(length && !state.intlist_cells)return false;
+    span.integers=state.intlist_cells?state.intlist_cells+offset:nullptr;
+  } else {
+    const auto* backing=global?tables.list_values:state.list_values;
+    if(length && !backing)return false;
+    span.boxed=backing?backing+offset:nullptr;
+  }
+  return true;
+}
+
+__device__ inline void d_copy_private_intlist(std::int64_t* target,const DPrivateIntListSpan& source) {
+  if(source.integers)for(int i=0;i<source.size;++i)target[i]=source.read<true>(i);
+  else for(int i=0;i<source.size;++i)target[i]=source.read<false>(i);
 }
 
 template <typename State>
@@ -728,8 +787,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
   // It shares the arena, fuel driver, charging and physical-overflow replay.
   if constexpr (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) {
     auto& st=payload_state;
-    if(st.private_intlists && (bid==BuiltinId::Singleton || bid==BuiltinId::Concat || bid==BuiltinId::Slice)) {
-      const Value *a=nullptr,*b=nullptr;int n=0,m=0;
+    if(st.private_intlists && (bid==BuiltinId::Singleton || bid==BuiltinId::Concat || bid==BuiltinId::Slice ||
+        bid==BuiltinId::Index || bid==BuiltinId::IndexNonnegative || bid==BuiltinId::IndexClampedOrZero)) {
+      DPrivateIntListSpan a,b;
       if(bid==BuiltinId::Singleton) {
         if(argc!=1 || args[0].tag!=ValueTag::Int){err=ErrCode::Type;return false;}
         if(!d_charge_list_allocation(st,1)){err=ErrCode::Value;return false;}
@@ -737,15 +797,29 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           st.physical_capacity_exceeded=true;st.physical_capacity_reason|=DPAYLOAD_OVERFLOW_VALUES;
           err=ErrCode::Value;return false;
         }
-        const int offset=st.list_values_used++;st.list_values[offset]=args[0];
+        const int offset=st.list_values_used++;
+        if(st.compact_intlist_cells)st.intlist_cells[offset]=args[0].i;
+        else st.list_values[offset]=args[0];
         out=d_private_intlist(offset,1);return true;
+      }
+      if(bid==BuiltinId::Index || bid==BuiltinId::IndexNonnegative || bid==BuiltinId::IndexClampedOrZero) {
+        if(argc!=2 || args[0].tag!=ValueTag::IntList || args[1].tag!=ValueTag::Int){err=ErrCode::Type;return false;}
+        const auto length=static_cast<long long>(Value::container_len(args[0]));
+        long long index=0;
+        if(bid==BuiltinId::IndexClampedOrZero) {
+          if(!length){out=Value::from_int(0);return true;}
+          index=args[1].i<0?0:args[1].i>=length?length-1:args[1].i;
+        } else if((bid==BuiltinId::IndexNonnegative && args[1].i<0) ||
+            !d_norm_index_idx(args[1].i,length,index)){err=ErrCode::Value;return false;}
+        if(!d_private_intlist_span(tables,st,args[0],a) || index>=a.size){err=ErrCode::Value;return false;}
+        out=Value::from_int(a.at(static_cast<int>(index)));return true;
       }
       if(argc!=(bid==BuiltinId::Concat?2:3) || args[0].tag!=ValueTag::IntList ||
           (bid==BuiltinId::Concat?args[1].tag!=ValueTag::IntList:
            (args[1].tag!=ValueTag::Int || args[2].tag!=ValueTag::Int))) {
         err=ErrCode::Type;return false;
       }
-      if(!d_lookup_list_payload(tables,st,args[0],a,n)) {err=ErrCode::Value;return false;}
+      if(!d_private_intlist_span(tables,st,args[0],a)) {err=ErrCode::Value;return false;}
       if(bid==BuiltinId::Slice) {
         const auto length=static_cast<long long>(Value::container_len(args[0]));
         const int lo=static_cast<int>(d_norm_slice_idx(args[1].i,length));
@@ -764,17 +838,23 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         }
         return true;
       }
-      if(!d_lookup_list_payload(tables,st,args[1],b,m)){err=ErrCode::Value;return false;}
+      if(!d_private_intlist_span(tables,st,args[1],b)){err=ErrCode::Value;return false;}
       const auto left=Value::container_len(args[0]),right=Value::container_len(args[1]);
       if(!left){out=args[1];return true;}if(!right){out=args[0];return true;}
       if(!d_charge_list_allocation(st,left+right)){err=ErrCode::Value;return false;}
+      const int n=a.size,m=b.size;
       if(n<0 || m<0 || n>65537-m || n+m>st.kMaxListValues-st.list_values_used) {
         st.physical_capacity_exceeded=true;st.physical_capacity_reason|=DPAYLOAD_OVERFLOW_VALUES;
         err=ErrCode::Value;return false;
       }
       const int offset=st.list_values_used;
-      for(int i=0;i<n;++i)st.list_values[offset+i]=a[i];
-      for(int i=0;i<m;++i)st.list_values[offset+n+i]=b[i];
+      if(st.compact_intlist_cells) {
+        d_copy_private_intlist(st.intlist_cells+offset,a);
+        d_copy_private_intlist(st.intlist_cells+offset+n,b);
+      } else {
+        for(int i=0;i<n;++i)st.list_values[offset+i]=a.boxed[i];
+        for(int i=0;i<m;++i)st.list_values[offset+n+i]=b.boxed[i];
+      }
       st.list_values_used+=n+m;out=d_private_intlist(offset,n+m);return true;
     }
   }

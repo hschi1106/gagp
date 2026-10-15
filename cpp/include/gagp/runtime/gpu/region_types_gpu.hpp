@@ -91,6 +91,7 @@ struct DRegionWorkspace {
   DListPayloadEntry* payload_list_entries = nullptr;
   char* payload_string_bytes = nullptr;
   Value* payload_list_values = nullptr;
+  std::int64_t* payload_intlist_cells = nullptr;
   int* payload_list_index = nullptr;
   std::uint64_t* payload_list_epoch_index = nullptr;
   unsigned* payload_list_epoch = nullptr;
@@ -100,6 +101,7 @@ struct DRegionWorkspace {
   unsigned long long* concat_cache_stats = nullptr; // hits, misses, skipped cells; all attempts.
   bool payload_window_aliases = false;
   bool private_intlists = false;
+  bool compact_intlist_cells = false;
   int shared_list_value_count = 0;
   bool fused_list_concat = false;
   bool small_int_hash = false;

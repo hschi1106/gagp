@@ -5,6 +5,33 @@
 
 namespace gagp::gpu_detail {
 
+// Backing dispatch occurs once per score, outside the inner distance loop.
+// Admission proves all elements are Int, so comparisons retain all 64 bits.
+template<bool CompactA,bool CompactB>
+__device__ __forceinline__ double d_score_private_intlist_spans(const DPrivateIntListSpan& a,
+    const DPrivateIntListSpan& b,double penalty,FitnessPolicy policy,bool* exact) {
+  const int n=a.size,m=b.size;
+  bool same=n==m;
+  for(int i=0;same && i<n;++i)same=a.read<CompactA>(i)==b.read<CompactB>(i);
+  if(exact)*exact=same;
+  if(policy.metric==FitnessMetric::Exact)return same?0:-fitness_error_ceiling(policy,penalty);
+  if(m>kFitnessMaxSequence)return -fitness_error_ceiling(policy,penalty);
+  if(fitness_sequence_length_saturates(n,m,penalty,policy))return -fabs(penalty);
+  unsigned row[kFitnessMaxSequence+1];
+  for(int j=0;j<=m;++j)row[j]=j;
+  for(int i=1;i<=n;++i) {
+    const auto value=a.read<CompactA>(i-1);
+    unsigned diagonal=row[0];row[0]=i;
+    for(int j=1;j<=m;++j) {
+      const unsigned old=row[j],best=row[j]<row[j-1]?row[j]:row[j-1];
+      row[j]=value==b.read<CompactB>(j-1)?diagonal:1+(diagonal<best?diagonal:best);
+      diagonal=old;
+    }
+  }
+  const double error=row[m];
+  return policy.proximity==FitnessProximity::Discounted?-error/(1+error):-fmin(error,fabs(penalty));
+}
+
 template<class State>
 __device__ __noinline__ double d_score_resident(const Value& actual,const Value& expected,
     double penalty,FitnessPolicy policy,const DPayloadTables& tables,const State& state,bool* exact) {
@@ -12,15 +39,15 @@ __device__ __noinline__ double d_score_resident(const Value& actual,const Value&
     if(exact)*exact=false;
     if(actual.tag!=ValueTag::IntList || expected.tag!=ValueTag::IntList)
       return -fitness_error_ceiling(policy,penalty);
-    const Value *a=nullptr,*b=nullptr;int n=0,m=0;
-    if(!d_lookup_list_payload(tables,state,actual,a,n) || !d_lookup_list_payload(tables,state,expected,b,m))
+    DPrivateIntListSpan a,b;
+    if(!d_private_intlist_span(tables,state,actual,a) || !d_private_intlist_span(tables,state,expected,b))
       return -fitness_error_ceiling(policy,penalty);
-    bool same=n==m;
-    for(int i=0;same && i<n;++i)same=a[i].tag==ValueTag::Int && b[i].tag==ValueTag::Int && a[i].i==b[i].i;
-    if(exact)*exact=same;
-    if(policy.metric==FitnessMetric::Exact)return same?0:-fitness_error_ceiling(policy,penalty);
-    unsigned row[kFitnessMaxSequence+1];
-    return fitness_sequence_score(a,n,b,m,penalty,policy,row);
+    if(a.integers) {
+      if(b.integers)return d_score_private_intlist_spans<true,true>(a,b,penalty,policy,exact);
+      return d_score_private_intlist_spans<true,false>(a,b,penalty,policy,exact);
+    }
+    if(b.integers)return d_score_private_intlist_spans<false,true>(a,b,penalty,policy,exact);
+    return d_score_private_intlist_spans<false,false>(a,b,penalty,policy,exact);
   }
   if(exact)*exact=fitness_case_score(actual,expected,penalty,{FitnessMetric::Exact})==0;
   if(policy.metric!=FitnessMetric::Levenshtein && policy.metric!=FitnessMetric::TupleSummary)

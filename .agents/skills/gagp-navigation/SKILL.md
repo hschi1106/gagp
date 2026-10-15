@@ -134,3 +134,9 @@ maintenance, follow the rules in root `AGENTS.md`.
   relative to `cpp/src/` (the reproduction paths under `evolution/`).
 
 - Resident payload scoring is shared by the VM and focused GPU probes through `cpp/src/runtime/gpu/device/resident_score_device.cuh`; keep full VM execution headers out of probe translation units that also link `gagp_gpu`.
+
+- `GAGP_GPU_COMPACT_INTLIST_CELLS` adds typed int64 local storage only under
+  the private IntList proof above. The existing arena VM owns typed span reads
+  in `cpp/src/runtime/gpu/device/builtins_device.cuh` and resident scoring in
+  `resident_score_device.cuh`; `fitness_gpu.cu` owns byte accounting/allocation.
+  Contract and tests are the same private-list owners above.

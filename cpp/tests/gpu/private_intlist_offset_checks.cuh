@@ -2,12 +2,13 @@
 #include "../../src/runtime/gpu/device/resident_score_device.cuh"
 #include "../../src/runtime/gpu/view_profile.hpp"
 
-__global__ void inspect_private_intlist_offsets(Value* cells, Value* source, int* failure) {
+__global__ void inspect_private_intlist_offsets(Value* cells, std::int64_t* int_cells, Value* source, bool compact, int* failure) {
   using namespace gagp::gpu_detail;
   *failure=0;
   DArenaPayloadState st;
   DListPayloadEntry entries[4]{};
-  st.private_intlists=true;st.list_values=cells;st.kMaxListValues=65536;
+  st.private_intlists=true;st.compact_intlist_cells=compact;
+  st.list_values=compact?nullptr:cells;st.intlist_cells=compact?int_cells:nullptr;st.kMaxListValues=65536;
   st.list_entries=entries;st.list_entry_capacity=4;st.logical_list_limit=65536;
   DPayloadTables tables{};
   ErrCode error=ErrCode::Value;
@@ -25,18 +26,20 @@ __global__ void inspect_private_intlist_offsets(Value* cells, Value* source, int
   // Fabricate a canonical identity collision with the private handle's bits.
   // Private resolution must never select that registry's different contents.
   entries[0]={ValueTag::IntList,a.i,1,1};st.list_entry_count=1;
-  const Value* ptr=nullptr;int count=0;
-  if(!d_lookup_list_payload(tables,st,a,ptr,count) || count!=1 || ptr[0].i!=7) {*failure=4;return;}
+  DPrivateIntListSpan span;
+  const Value* boxed_ptr=nullptr;int boxed_count=0;
+  if(d_lookup_list_payload(tables,st,a,boxed_ptr,boxed_count)==compact) {*failure=31;return;}
+  if(!d_private_intlist_span(tables,st,a,span) || span.size!=1 || span.at(0)!=7) {*failure=4;return;}
   auto invalid=d_private_intlist(st.list_values_used,1);
-  if(d_lookup_list_payload(tables,st,invalid,ptr,count)) {*failure=5;return;}
+  if(d_private_intlist_span(tables,st,invalid,span)) {*failure=5;return;}
   invalid=a;invalid.tag=ValueTag::FloatList;
-  if(d_lookup_list_payload(tables,st,invalid,ptr,count)) {*failure=6;return;}
+  if(d_private_intlist_span(tables,st,invalid,span)) {*failure=6;return;}
   invalid=a;invalid.i|=1ULL<<40;
-  if(d_lookup_list_payload(tables,st,invalid,ptr,count)) {*failure=7;return;}
+  if(d_private_intlist_span(tables,st,invalid,span)) {*failure=7;return;}
   invalid=d_private_intlist(0,1,true);
-  if(d_lookup_list_payload(tables,st,invalid,ptr,count)) {*failure=8;return;}
+  if(d_private_intlist_span(tables,st,invalid,span)) {*failure=8;return;}
   d_restore_local_list_storage(st,0,0);
-  if(d_lookup_list_payload(tables,st,a,ptr,count)) {*failure=9;return;}
+  if(d_private_intlist_span(tables,st,a,span)) {*failure=9;return;}
   // Physical overflow and logical overflow remain distinct.
   st.kMaxListValues=0;
   if(d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&one,1,tables,st,a,error) ||
@@ -53,22 +56,31 @@ __global__ void inspect_private_intlist_offsets(Value* cells, Value* source, int
   st.list_values_used=0;st.logical_list_used=0;st.kMaxListValues=65536;
   Value args[2]={left,right};
   if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Concat,args,2,tables,st,a,error) ||
-     Value::container_len(a)!=0 || !d_lookup_list_payload(tables,st,a,ptr,count) ||
-     count!=65536 || ptr[65535].i!=65535 || st.logical_list_used!=65536 || st.list_entry_count) {*failure=12;return;}
+     Value::container_len(a)!=0 || !d_private_intlist_span(tables,st,a,span) ||
+     span.size!=65536 || span.at(65535)!=65535 || st.logical_list_used!=65536 || st.list_entry_count) {*failure=12;return;}
+  Value encoded_index[2]={a,Value::from_int(0)};
+  if(d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Index,encoded_index,2,tables,st,b,error) ||
+     error!=ErrCode::Value || !d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::IndexClampedOrZero,
+         encoded_index,2,tables,st,b,error) || b.tag!=ValueTag::Int || b.i!=0) {*failure=32;return;}
   st.logical_list_limit=65535;st.logical_list_used=0;
   if(d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Concat,args,2,tables,st,b,error) ||
      st.physical_capacity_exceeded) {*failure=13;return;}
   Value slice[3]={left,Value::from_int(1),Value::from_int(3)};
   if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Slice,slice,3,tables,st,b,error) ||
-     !d_lookup_list_payload(tables,st,b,ptr,count) || count!=2 || ptr[0].i!=1) {*failure=14;return;}
+     !d_private_intlist_span(tables,st,b,span) || span.size!=2 || span.at(0)!=1) {*failure=14;return;}
   // Host clamping hides one element: transport65535 + constant1 charges65536
   // while copying65537. The private high-length bit must retain that last cell.
   source[65536]=Value::from_int(65536);
   globals[0].len=65536;globals[1].offset=65536;tables.list_value_count=65537;
   st.logical_list_limit=65536;st.logical_list_used=0;st.list_values_used=0;st.kMaxListValues=65538;
   if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Concat,args,2,tables,st,a,error) ||
-     Value::container_len(a)!=1 || !d_lookup_list_payload(tables,st,a,ptr,count) ||
-     count!=65537 || ptr[65536].i!=65536 || st.logical_list_used!=65536) {*failure=24;return;}
+     Value::container_len(a)!=1 || !d_private_intlist_span(tables,st,a,span) ||
+     span.size!=65537 || span.at(65536)!=65536 || st.logical_list_used!=65536) {*failure=24;return;}
+  encoded_index[0]=a;
+  if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Index,encoded_index,2,tables,st,b,error) || b.i!=0) {*failure=33;return;}
+  encoded_index[1]=Value::from_int(1);
+  if(d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Index,encoded_index,2,tables,st,b,error) ||
+     !d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::IndexClampedOrZero,encoded_index,2,tables,st,b,error) || b.i!=0) {*failure=34;return;}
   policy.metric=FitnessMetric::Exact;
   const auto prefix=d_private_intlist(0,65536);
   if(d_score_resident(a,a,1000,policy,tables,st,&exact)!=0 || !exact ||
@@ -77,22 +89,23 @@ __global__ void inspect_private_intlist_offsets(Value* cells, Value* source, int
   // the profile's origin/length bound, rather than an incidental capacity bound.
   st.list_values_used=65538;
   invalid=d_private_intlist(0,65538);
-  if(d_lookup_list_payload(tables,st,invalid,ptr,count)) {*failure=26;return;}
+  if(d_private_intlist_span(tables,st,invalid,span)) {*failure=26;return;}
   invalid=d_private_intlist(0,65537,true);
-  if(d_lookup_list_payload(tables,st,invalid,ptr,count)) {*failure=27;return;}
+  if(d_private_intlist_span(tables,st,invalid,span)) {*failure=27;return;}
   st.list_values_used=65537;
   Value exhausted_args[2]={a,right};
   if(d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Concat,exhausted_args,2,tables,st,b,error) ||
      st.physical_capacity_exceeded || error!=ErrCode::Value) {*failure=28;return;}
   Value masked_slice[3]={a,Value::from_int(0),Value::from_int(65537)};
   if(!d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Slice,masked_slice,3,tables,st,b,error) ||
-     !d_lookup_list_payload(tables,st,b,ptr,count) || count!=1 || st.logical_list_used!=65536) {*failure=29;return;}
+     !d_private_intlist_span(tables,st,b,span) || span.size!=1 || st.logical_list_used!=65536) {*failure=29;return;}
   d_restore_local_list_storage(st,0,0);
   if(d_builtin_call<DPayloadFlavor::ArenaMixed>(BuiltinId::Singleton,&one,1,tables,st,b,error) ||
      st.logical_list_used!=65536 || st.physical_capacity_exceeded) {*failure=30;return;}
   // Local windows retain their origin through nested slices and later copies.
   // No registry, legacy index, or epoch buffers exist for active private lists.
-  DIndexedArenaPayloadState local;local.private_intlists=true;local.list_values=cells;
+  DIndexedArenaPayloadState local;local.private_intlists=true;local.compact_intlist_cells=compact;
+  local.list_values=compact?nullptr:cells;local.intlist_cells=compact?int_cells:nullptr;
   local.kMaxListValues=65536;local.logical_list_limit=65536;
   Value x,y,pair,window,nested,joined;
   if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Singleton,&one,1,tables,local,x,error) ||
@@ -103,13 +116,13 @@ __global__ void inspect_private_intlist_offsets(Value* cells, Value* source, int
   if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Slice,local_slice,3,tables,local,window,error)) {*failure=17;return;}
   local_slice[0]=window;local_slice[1]=Value::from_int(1);
   if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Slice,local_slice,3,tables,local,nested,error) ||
-     !d_lookup_list_payload(tables,local,nested,ptr,count) || count!=1 || ptr[0].i!=8) {*failure=18;return;}
+     !d_private_intlist_span(tables,local,nested,span) || span.size!=1 || span.at(0)!=8) {*failure=18;return;}
   Value join_args[2]={nested,x};
   if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Concat,join_args,2,tables,local,joined,error) ||
-     !d_lookup_list_payload(tables,local,joined,ptr,count) || count!=2 || ptr[0].i!=8 || ptr[1].i!=7) {*failure=19;return;}
+     !d_private_intlist_span(tables,local,joined,span) || span.size!=2 || span.at(0)!=8 || span.at(1)!=7) {*failure=19;return;}
   local_slice[0]=x;local_slice[1]=Value::from_int(0);local_slice[2]=Value::from_int(1);
   if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Slice,local_slice,3,tables,local,window,error) ||
-     !d_lookup_list_payload(tables,local,window,ptr,count) || count!=1 || ptr[0].i!=7 ||
+     !d_private_intlist_span(tables,local,window,span) || span.size!=1 || span.at(0)!=7 ||
      local.list_values_used!=6 || local.logical_list_used!=6 || local.list_entry_count) {*failure=20;return;}
   // A scalar region's discarded suffix is invalid before reuse. Offsets may be
   // reused after that lifetime ends; no persistent ABA identity is promised.
@@ -117,24 +130,72 @@ __global__ void inspect_private_intlist_offsets(Value* cells, Value* source, int
   Value discarded,replacement;
   if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Singleton,&one,1,tables,local,discarded,error)) {*failure=21;return;}
   d_restore_local_list_storage(local,0,saved);
-  if(d_lookup_list_payload(tables,local,discarded,ptr,count) || local.logical_list_used!=7) {*failure=22;return;}
+  if(d_private_intlist_span(tables,local,discarded,span) || local.logical_list_used!=7) {*failure=22;return;}
   if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Singleton,&two,1,tables,local,replacement,error) ||
-     !d_lookup_list_payload(tables,local,replacement,ptr,count) || count!=1 || ptr!=cells+saved || ptr[0].i!=8 ||
+     !d_private_intlist_span(tables,local,replacement,span) || span.size!=1 || (compact?span.integers!=int_cells+saved:span.boxed!=cells+saved) || span.at(0)!=8 ||
      local.list_values_used!=saved+1 || local.logical_list_used!=8 ||
-     !d_lookup_list_payload(tables,local,joined,ptr,count) || count!=2 || ptr[0].i!=8 || ptr[1].i!=7) {*failure=23;return;}
+     !d_private_intlist_span(tables,local,joined,span) || span.size!=2 || span.at(0)!=8 || span.at(1)!=7) {*failure=23;return;}
+
+  constexpr std::int64_t wide[]={INT64_MIN,INT64_MAX,
+      INT64_C(9007199254740993),-INT64_C(9007199254740993),0,-1};
+  for(int i=0;i<6;++i)source[i]=Value::from_int(wide[i]);
+  const Value external=Value::from_int_list_hash_len(123,6);
+  DListPayloadEntry wide_entry{ValueTag::IntList,external.i,0,6};
+  tables.list_entries=&wide_entry;tables.list_entry_count=1;tables.list_value_count=6;
+  for(int i=0;i<6;++i) {
+    Value item,element=source[i];
+    if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Singleton,&element,1,tables,local,item,error)) {*failure=35;return;}
+    for(auto bid:{BuiltinId::Index,BuiltinId::IndexNonnegative,BuiltinId::IndexClampedOrZero}) {
+      Value index_args[2]={item,Value::from_int(bid==BuiltinId::Index?-1:bid==BuiltinId::IndexNonnegative?0:999)};
+      Value indexed;
+      if(!d_builtin_call<DPayloadFlavor::IndexedArena>(bid,index_args,2,tables,local,indexed,error) ||
+          indexed.tag!=ValueTag::Int || indexed.i!=wide[i]) {*failure=36;return;}
+    }
+  }
+  Value mixed=external;
+  for(int origin=0;origin<4;++origin) {
+    Value mix_args[2]={origin==0 || origin==1?external:mixed,origin==0 || origin==2?external:mixed};
+    Value result;
+    if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Concat,mix_args,2,tables,local,result,error) ||
+        !d_private_intlist_span(tables,local,result,span)) {*failure=37;return;}
+    for(int i=0;i<span.size;++i)if(span.at(i)!=wide[i%6]) {*failure=38;return;}
+    Value reference[96];
+    for(int i=0;i<span.size;++i)reference[i]=Value::from_int(wide[i%6]);
+    for(auto proximity:{FitnessProximity::Capped,FitnessProximity::Discounted}) {
+      FitnessPolicy distance{FitnessMetric::Levenshtein,proximity};unsigned row[kFitnessMaxSequence+1];
+      const auto expected=fitness_sequence_score(reference,span.size,source,6,2.5,distance,row);
+      const auto score=d_score_resident(result,external,2.5,distance,tables,local,&exact);
+      if(score!=expected || exact) {*failure=39;return;}
+      if(d_score_resident(external,result,2.5,distance,tables,local,&exact)!=expected || exact) {*failure=40;return;}
+    }
+    mixed=result;
+  }
+  Value negative[2]={mixed,Value::from_int(-1)},indexed;
+  if(d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::IndexNonnegative,negative,2,tables,local,indexed,error) ||
+      error!=ErrCode::Value) {*failure=41;return;}
+  Value not_integer=Value::from_float(1.0);
+  const auto charged=local.logical_list_used;
+  if(d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Singleton,&not_integer,1,tables,local,indexed,error) ||
+      error!=ErrCode::Type || local.logical_list_used!=charged) {*failure=42;return;}
 
 }
 
 bool test_private_intlist_offsets() {
-  Value *cells=nullptr,*source=nullptr;int *device_failure=nullptr,failure=-1;
+  Value *cells=nullptr,*source=nullptr;std::int64_t* int_cells=nullptr;
+  int *device_failure=nullptr,failure=-1;
   if(cudaMalloc(reinterpret_cast<void**>(&cells),65538*sizeof(Value))!=cudaSuccess)return false;
   if(cudaMalloc(reinterpret_cast<void**>(&source),65537*sizeof(Value))!=cudaSuccess){cudaFree(cells);return false;}
-  if(cudaMalloc(reinterpret_cast<void**>(&device_failure),sizeof(int))!=cudaSuccess){cudaFree(cells);cudaFree(source);return false;}
-  inspect_private_intlist_offsets<<<1,1>>>(cells,source,device_failure);
-  const bool ok=cudaGetLastError()==cudaSuccess && cudaDeviceSynchronize()==cudaSuccess &&
-      cudaMemcpy(&failure,device_failure,sizeof(int),cudaMemcpyDeviceToHost)==cudaSuccess;
-  cudaFree(cells);cudaFree(source);cudaFree(device_failure);
-  return check(ok && !failure,"private IntList descriptor/content boundary "+std::to_string(failure));
+  if(cudaMalloc(reinterpret_cast<void**>(&int_cells),65538*sizeof(std::int64_t))!=cudaSuccess){cudaFree(cells);cudaFree(source);return false;}
+  if(cudaMalloc(reinterpret_cast<void**>(&device_failure),sizeof(int))!=cudaSuccess){cudaFree(cells);cudaFree(source);cudaFree(int_cells);return false;}
+  bool ok=true;
+  for(bool compact:{false,true}) {
+    inspect_private_intlist_offsets<<<1,1>>>(cells,int_cells,source,compact,device_failure);
+    ok=cudaGetLastError()==cudaSuccess && cudaDeviceSynchronize()==cudaSuccess &&
+        cudaMemcpy(&failure,device_failure,sizeof(int),cudaMemcpyDeviceToHost)==cudaSuccess && failure==0;
+    if(!ok)break;
+  }
+  cudaFree(cells);cudaFree(source);cudaFree(int_cells);cudaFree(device_failure);
+  return check(ok,"boxed/compact private IntList boundary/origin/precision "+std::to_string(failure));
 }
 
 bool test_private_intlist_region_lifetime() {
@@ -183,6 +244,12 @@ bool test_private_intlist_region_lifetime() {
 bool test_private_intlist_fitness() {
   ScopedEnvironment restore_private("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD");
   setenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS","1",1);setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
+  ScopedEnvironment fused("GAGP_GPU_FUSED_LIST_CONCAT"),small_hash("GAGP_GPU_SMALL_INT_HASH"),
+      index("GAGP_GPU_PAYLOAD_INDEX"),epoch("GAGP_GPU_PAYLOAD_EPOCH_INDEX");
+  setenv("GAGP_GPU_FUSED_LIST_CONCAT","1",1);setenv("GAGP_GPU_SMALL_INT_HASH","1",1);
+  setenv("GAGP_GPU_PAYLOAD_INDEX","1",1);setenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX","1",1);
+  const bool compact=std::getenv("GAGP_GPU_COMPACT_INTLIST_CELLS") &&
+      std::string(std::getenv("GAGP_GPU_COMPACT_INTLIST_CELLS"))=="1";
   auto integer=Value::from_int(7);
   BytecodeProgram singleton;singleton.consts={integer};
   singleton.code={ins_a(Opcode::PushConst,0),ins_ab(Opcode::CallBuiltin,int(BuiltinId::Singleton),1),ins(Opcode::Return)};
@@ -199,6 +266,12 @@ bool test_private_intlist_fitness() {
         result.execution_profile.find("private-intlist-offset-v1-declined")==std::string::npos &&
         result.execution_profile.find("private-intlist-offset-v1")!=std::string::npos,
         "private full scoring/external normalization"))return false;
+    if(!check((result.execution_profile.find("-compact-intlist-cells")!=std::string::npos)==compact &&
+        result.execution_profile.find("-compact-intlist-cells-declined")==std::string::npos &&
+        result.execution_profile.find("-fused-concat")==std::string::npos &&
+        result.execution_profile.find("-small-int-hash")==std::string::npos &&
+        result.execution_profile.find("-list-index")==std::string::npos &&
+        result.execution_profile.find("-epoch")==std::string::npos,"private storage diagnostics report executed work"))return false;
     auto inequality=singleton;
     inequality.consts={list};inequality.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,0),ins(Opcode::Eq),ins(Opcode::Return)};
     result=session.eval_programs({singleton,inequality},true);
@@ -259,7 +332,9 @@ bool test_private_intlist_fitness() {
     auto profile=declined.execution_profile;
     const std::string suffix="-private-intlist-offset-v1-declined";
     const auto position=profile.find(suffix);if(position!=std::string::npos)profile.erase(position,suffix.size());
-    if(!check(control.ok && declined.ok && position!=std::string::npos && profile==control.execution_profile &&
+    if(!check((!compact || (control.execution_profile.find("-compact-intlist-cells-declined")!=std::string::npos &&
+        declined.execution_profile.find("-compact-intlist-cells-declined")!=std::string::npos)) &&
+        control.ok && declined.ok && position!=std::string::npos && profile==control.execution_profile &&
         profile.find("int-list-views")==0 && control.fitness==declined.fitness && control.wrong==declined.wrong &&
         control.case_counts==declined.case_counts,"declined policy/session reinit preserves ordinary view backend"))return false;
   }
@@ -269,6 +344,25 @@ bool test_private_intlist_fitness() {
   const auto missing_result=reused.eval_programs({missing},true);
   if(!check(missing_result.ok && missing_result.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos,
       "missing external payload/forged marker must decline private profile"))return false;
+  // Real workspace admission must account for eight-byte cells: under the
+  // same64MiB bound, more physical lanes fit without changing value capacities.
+  {
+    ScopedEnvironment budget("GAGP_GPU_PAYLOAD_WORKSPACE_MIB"),tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),
+        restore_mode("GAGP_GPU_COMPACT_INTLIST_CELLS");
+    setenv("GAGP_GPU_PAYLOAD_WORKSPACE_MIB","64",1);setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD","0",1);
+    const std::vector<BytecodeProgram> population(65,singleton);
+    std::size_t boxed_blocks=0;
+    for(const char* mode:{"0","1"}) {
+      setenv("GAGP_GPU_COMPACT_INTLIST_CELLS",mode,1);
+      FitnessSessionGpu session;if(!session.init({{}},{list},100,32,1000,policy).ok)return false;
+      const auto result=session.eval_programs(population,true);
+      if(!check(result.ok && result.fitness==std::vector<double>(65,0) && result.wrong==std::vector<unsigned>(65,0) &&
+          result.initial_payload_value_capacity==8192 && result.payload_replay_programs==0,
+          "boxed/compact workspace budget/capacity/coverage"))return false;
+      if(mode[0]=='0')boxed_blocks=result.initial_payload_physical_blocks;
+      else if(!check(result.initial_payload_physical_blocks>boxed_blocks,"compact typed bytes must admit more physical blocks"))return false;
+    }
+  }
   for(int fuel:{0,1,2,3}) {
     FitnessSessionGpu session;if(!session.init({{}},{list},fuel,32,1000,policy).ok)return false;
     const auto result=session.eval_programs({singleton},true);
