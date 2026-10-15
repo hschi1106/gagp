@@ -113,9 +113,17 @@ std::vector<double> eval_fitness_cpu(
         ExecResult out;
         try {
           std::size_t input_cells = 0;
-          if (policy.list_allocation_limit) for (const auto& input : inputs)
-            if (input.second.tag == ValueTag::IntList || input.second.tag == ValueTag::FloatList ||
-                input.second.tag == ValueTag::StringList) input_cells += Value::container_len(input.second);
+          if (policy.list_allocation_limit) for (std::size_t i = 0; i < inputs.size(); ++i) {
+            const auto& input = inputs[i];
+            // Match the local loader: ignore out-of-range bindings and use the
+            // last value when a slot is bound more than once.
+            if (input.first < 0 || input.first >= programs[p].n_locals) continue;
+            const bool shadowed = std::any_of(inputs.begin() + i + 1, inputs.end(),
+                [&](const auto& later) { return later.first == input.first; });
+            if (!shadowed && (input.second.tag == ValueTag::IntList ||
+                input.second.tag == ValueTag::FloatList || input.second.tag == ValueTag::StringList))
+              input_cells += Value::container_len(input.second);
+          }
           payload::ListAllocationScope logical_budget(policy.list_allocation_limit, input_cells);
           out = session ? session->execute(inputs, fuel)
                         : execute_bytecode_cpu(programs[p], inputs, fuel);

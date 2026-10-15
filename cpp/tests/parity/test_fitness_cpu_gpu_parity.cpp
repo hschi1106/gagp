@@ -2757,6 +2757,27 @@ int main() {
       }
     }
   }
+  {
+    const auto input = gagp::payload::make_int_list_value({Value::from_int(7)});
+    const auto expected = gagp::payload::make_int_list_value({Value::from_int(7),Value::from_int(7)});
+    auto program = make_builtin_program({input,input},gagp::BuiltinId::Concat,2);
+    const std::vector<CaseBindings> cases{{{0,input}}, {{0,input},{0,Value::from_int(0)}},
+        {{0,Value::from_int(0)},{0,input}}, {{4,input}}, {{-1,input}}};
+    const std::vector<Value> answers(cases.size(),expected);
+    gagp::FitnessPolicy policy{gagp::FitnessMetric::Levenshtein};
+    policy.list_allocation_limit = 2;
+    for (int locals : {0,1,5}) {
+      program.n_locals = locals;
+      const auto cpu = gagp::eval_fitness_cpu({program},cases,answers,100,7,32,policy);
+      gagp::FitnessSessionGpu session;
+      if (!session.init(cases,answers,100,32,7,policy).ok) return 1;
+      const auto gpu = session.eval_programs({program});
+      const double wanted = locals == 0 ? 0.0 : locals == 1 ? -14.0 : -21.0;
+      if (!gpu.ok || cpu != std::vector<double>{wanted} || gpu.fitness != cpu) {
+        std::cerr << "effective input logical arena parity"; return 1;
+      }
+    }
+  }
   struct TruncCase {std::int64_t a,b,div,mod;};
   const TruncCase trunc_cases[]={{-7,3,-2,-1},{7,-3,-2,1},{-7,-3,2,-1},{7,0,0,0},
       {INT64_MIN,-1,0,0},{INT64_MIN,1,INT64_MIN,0},{INT64_MAX,2,INT64_MAX/2,1}};

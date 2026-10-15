@@ -195,6 +195,18 @@ int main() {
     const auto exact_budget = eval_fitness_cpu({concat}, {{{0,input}},{{0,input}}},
         {expected, expected}, 100, 1000.0, 1, logical_policy);
     check(exact_budget[0] == 0.0, "logical arena was not reset between cases");
+    logical_policy.list_allocation_limit = 2;
+    const std::vector<CaseBindings> effective_cases{{{0,input}},
+        {{0,input},{0,Value::from_int(0)}}, {{0,Value::from_int(0)},{0,input}},
+        {{4,input}}, {{-1,input}}};
+    for (int locals : {0,1,5}) {
+      concat.n_locals = locals;
+      const auto effective = eval_fitness_cpu({concat}, effective_cases,
+          std::vector<Value>(effective_cases.size(),expected), 100,1000.0,1,logical_policy);
+      const double wanted = locals == 0 ? 0.0 : locals == 1 ? -2000.0 : -3000.0;
+      check(effective[0] == wanted, "logical arena differs from effective VM bindings");
+    }
+
 
 
     {

@@ -263,7 +263,10 @@ Errors count with the same policy ceiling. Nonintegral error ceilings, discounte
 scores retain the original reduction order. Exact scoring always has ceiling one. This changes scheduling only, not case coverage, scores, or wrong counts.
 `FitnessPolicy::list_allocation_limit` optionally supplies a logical list-cell
 arena limit (zero leaves the existing backend policy unchanged). Each case starts
-with the sum of its bound typed-list input lengths. `Singleton` consumes one cell;
+with the sum of its effective typed-list input lengths: only slots in
+`[0, program.n_locals)` count, and duplicate bindings use the last value, as in
+the VM local loader. A binding outside this range is ignored even when it names
+a list. `Singleton` consumes one cell;
 `Concat` of two nonempty lists consumes their combined length on every execution,
 including repeated identical results. An empty-list concat returns the other
 operand without allocation, and slicing consumes no logical cells. The next
