@@ -1,0 +1,18 @@
+{
+  "scope": "nsys diagnostic only, excluded from unprofiled complete-search speedups. CPU API totals overlap GPU work and cannot be subtracted from search wall. Resource stack bytes are compiler storage, not measured spilling traffic.",
+  "source_head": "a8c9bd09e180b3a4965783463cbfd235a5e5d81f",
+  "binary_sha256": "8a64443d22256474792abf02262ffc7d2999f0ba03b8fe3e4fe54ed56f93808f",
+  "raw": "logs/list-5x-20261015/nsys-private",
+  "eval_gpu_kernel_pct": 99.2,
+  "eval_gpu_kernel_total_ns": 2604529375,
+  "eval_launches": 10,
+  "gpu_mutation_ns": 14588586,
+  "gpu_compile_ns": 2570446,
+  "gpu_crossover_ns": 1611530,
+  "cuda_malloc_calls": 180,
+  "cuda_free_calls": 180,
+  "cuda_malloc_api_ns": 39976937,
+  "cuda_free_api_ns": 72886395,
+  "active_indexed_arena_kernel_registers": 128,
+  "active_indexed_arena_kernel_stack_bytes": 9392
+}

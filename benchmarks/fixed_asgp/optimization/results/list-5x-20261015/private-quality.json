@@ -1,0 +1,71 @@
+{
+  "note": "Seeds1/2 supplement seed0 ten-task exact screen; 3tasks x3seeds xG4. Excludes convergence-equivalence claim.",
+  "rows": [
+    {
+      "task": "filter_odd",
+      "seed": 1,
+      "generation_semantics_equal": true,
+      "final_population_equal": true,
+      "export_ast_equal": true,
+      "final_best": -9107,
+      "unique_final_genomes": 802,
+      "cpu_audit_mismatches": 0,
+      "wall_ms": 3235.397337
+    },
+    {
+      "task": "filter_odd",
+      "seed": 2,
+      "generation_semantics_equal": true,
+      "final_population_equal": true,
+      "export_ast_equal": true,
+      "final_best": -9107,
+      "unique_final_genomes": 788,
+      "cpu_audit_mismatches": 0,
+      "wall_ms": 3296.638021
+    },
+    {
+      "task": "negative_to_zero",
+      "seed": 1,
+      "generation_semantics_equal": true,
+      "final_population_equal": true,
+      "export_ast_equal": true,
+      "final_best": -12791,
+      "unique_final_genomes": 949,
+      "cpu_audit_mismatches": 0,
+      "wall_ms": 3386.950173
+    },
+    {
+      "task": "negative_to_zero",
+      "seed": 2,
+      "generation_semantics_equal": true,
+      "final_population_equal": true,
+      "export_ast_equal": true,
+      "final_best": 0,
+      "unique_final_genomes": 961,
+      "cpu_audit_mismatches": 0,
+      "wall_ms": 3369.049925
+    },
+    {
+      "task": "small_or_large",
+      "seed": 1,
+      "generation_semantics_equal": true,
+      "final_population_equal": true,
+      "export_ast_equal": true,
+      "final_best": -2568,
+      "unique_final_genomes": 960,
+      "cpu_audit_mismatches": 0,
+      "wall_ms": 524.071256
+    },
+    {
+      "task": "small_or_large",
+      "seed": 2,
+      "generation_semantics_equal": true,
+      "final_population_equal": true,
+      "export_ast_equal": true,
+      "final_best": -2568,
+      "unique_final_genomes": 986,
+      "cpu_audit_mismatches": 0,
+      "wall_ms": 518.831564
+    }
+  ]
+}
