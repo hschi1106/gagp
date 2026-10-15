@@ -68,7 +68,7 @@ int verify_bounded_program_or_throw(const BytecodeProgram& prog) {
     if (limits.cells > DMAX_REGION_MEMO) {
       throw std::invalid_argument(
           "bounded region segment " + std::to_string(i) +
-          " cell limit exceeds GPU capacity 128");
+          " cell limit exceeds GPU capacity " + std::to_string(DMAX_REGION_MEMO));
     }
   }
   return static_cast<int>(verified.verified.max_stack_depth);

@@ -9,7 +9,7 @@
 namespace gagp::gpu_detail {
 
 inline constexpr std::uint32_t DMAX_REGION_FRAMES = 128;
-inline constexpr std::uint32_t DMAX_REGION_MEMO = 128;
+inline constexpr std::uint32_t DMAX_REGION_MEMO = 256;
 inline constexpr std::uint32_t DMAX_REGION_STATES = 4;
 inline constexpr std::uint32_t DMAX_REGION_REQUESTS = 8;
 inline constexpr std::uint32_t DMAX_REGION_PREPARATIONS = 4;
