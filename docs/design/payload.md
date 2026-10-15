@@ -551,3 +551,23 @@ This setting adds no payload arrays and does not change Slice or index clearing.
 The extended-payload test compares both implementations for all three typed-list
 kinds, missing payloads, empty operands, first-match collisions, capacity errors,
 logical limits, and full CPU/GPU list-output fitness parity.
+
+Initial physical-overflow counts are retained per program in
+`FitnessEvalResult::initial_payload_overflow_cases` before replay replaces final
+status counters. `GAGP_GPU_OVERFLOW_DIAGNOSTICS=1` additionally records a bit mask
+per original logical warp: bit `lane % 32` marks a lane containing at least one
+initial physical overflow. Masks use original program order and logical lanes,
+not arena worker IDs, and are disabled before retries. The optional storage is
+64 KiB for 1024 programs with 512 logical lanes and is included in the arena
+scratch budget. This diagnostic adds atomics/copyback and may reduce arena worker
+count at a memory-budget boundary; it is not a zero-cost timing profile.
+
+Fixed-ASGP snapshots emit per-program `initial_payload_overflow_cases` and, when
+the flag is enabled, `initial_payload_overflow_logical_lanes`, raw `lane_masks`,
+affected `lanes`/`tiles`, and `lane_replay_cases`/`tile_replay_cases` (all fields
+carry the `initial_payload_overflow_` prefix). The latter count the original case
+chunks covered by affected lanes or tiles, not extra cases actually executed.
+They estimate selective replay opportunities; replay still replaces entire
+programs. Logical allocation failures do not set these diagnostics. The existing
+extended-payload GPU regression checks dense 33/512-lane masks, unaffected
+programs, logical failures, and sparse lanes preserved across multiple retries.

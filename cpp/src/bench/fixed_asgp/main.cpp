@@ -348,6 +348,31 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
     auto row=object({{"program",number(i)}, {"nodes",number(population[i].ast.nodes.size())},
       {"fitness",number(result.fitness[i])}, {"cases",number(n[0])}, {"errors",number(n[1])},
       {"timeouts",number(n[2])}, {"fallbacks",number(n[3])}, {"unscored",number(n[4])}});
+    row.object_v["initial_payload_overflow_cases"]=number(result.initial_payload_overflow_cases.at(i));
+    const int logical_lanes=result.initial_payload_overflow_logical_lanes;
+    if(logical_lanes>0) {
+      const int words=(logical_lanes+31)/32;
+      unsigned lanes=0,tiles=0;
+      std::size_t lane_cases=0,tile_cases=0;
+      std::vector<Json> masks;
+      for(int w=0;w<words;++w) {
+        const auto mask=result.initial_payload_overflow_lane_masks.at(i*words+w);
+        masks.push_back(number(mask));
+        if(mask)++tiles;
+        for(int bit=0;bit<32 && w*32+bit<logical_lanes;++bit) {
+          const auto lane=static_cast<std::size_t>(w*32+bit);
+          const auto count=cs.bindings.size()*(lane+1)/logical_lanes-cs.bindings.size()*lane/logical_lanes;
+          if(mask)tile_cases+=count;
+          if(mask & (1u<<bit)){++lanes;lane_cases+=count;}
+        }
+      }
+      row.object_v["initial_payload_overflow_logical_lanes"]=number(logical_lanes);
+      row.object_v["initial_payload_overflow_lane_masks"]=array(std::move(masks));
+      row.object_v["initial_payload_overflow_lanes"]=number(lanes);
+      row.object_v["initial_payload_overflow_tiles"]=number(tiles);
+      row.object_v["initial_payload_overflow_lane_replay_cases"]=number(lane_cases);
+      row.object_v["initial_payload_overflow_tile_replay_cases"]=number(tile_cases);
+    }
     if (!cpu.empty()) {
       row.object_v["cpu_fitness"]=number(cpu[i]);
       row.object_v["cpu_cases"]=number(cpu_counts[i].cases);

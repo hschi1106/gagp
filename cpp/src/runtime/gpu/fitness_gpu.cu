@@ -826,6 +826,11 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   }
   const auto launch_prep_t1 = std::chrono::steady_clock::now();
 
+  const bool overflow_diagnostics = std::getenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS") &&
+      std::string(std::getenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS")) != "0";
+  const int overflow_mask_words = (impl_->blocksize + 31) / 32;
+  const std::size_t overflow_mask_bytes = overflow_diagnostics ?
+      programs.size() * overflow_mask_words * sizeof(unsigned int) : 0;
   FitnessEvalResult out;
   std::chrono::steady_clock::time_point teardown_t0;
   {
@@ -834,13 +839,21 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     struct IndexBuffers {
       int *compact=nullptr,*generic=nullptr,*compact_queue=nullptr,*generic_queue=nullptr;
       unsigned int* overflows=nullptr;
-      ~IndexBuffers(){if(overflows)cudaFree(overflows);if(compact)cudaFree(compact);if(generic)cudaFree(generic);if(compact_queue)cudaFree(compact_queue);if(generic_queue)cudaFree(generic_queue);}
+      unsigned int* overflow_lane_masks=nullptr;
+      ~IndexBuffers(){if(overflow_lane_masks)cudaFree(overflow_lane_masks);if(overflows)cudaFree(overflows);if(compact)cudaFree(compact);if(generic)cudaFree(generic);if(compact_queue)cudaFree(compact_queue);if(generic_queue)cudaFree(generic_queue);}
     } indices;
     const auto upload_t0 = std::chrono::steady_clock::now();
     if (cudaMalloc(reinterpret_cast<void**>(&indices.overflows), sizeof(unsigned int)*programs.size()) != cudaSuccess ||
         cudaMemset(indices.overflows,0,sizeof(unsigned int)*programs.size()) != cudaSuccess)
       return fitness_eval_single_error(ErrCode::Value,"cuda payload overflow diagnostics allocation failure");
     region_workspace.payload_overflows=indices.overflows;
+    if (overflow_diagnostics) {
+      if (cudaMalloc(reinterpret_cast<void**>(&indices.overflow_lane_masks),overflow_mask_bytes)!=cudaSuccess ||
+          cudaMemset(indices.overflow_lane_masks,0,overflow_mask_bytes)!=cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value,"cuda initial overflow lane diagnostics allocation failure");
+      region_workspace.payload_overflow_lane_masks=indices.overflow_lane_masks;
+      region_workspace.payload_overflow_mask_words=overflow_mask_words;
+    }
     if (has_regions && !global_payload && std::getenv("GAGP_DYNAMIC_PROGRAM_QUEUE")) {
       if (!gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(region_blocks)}, &indices.compact_queue) ||
           (capability_buckets && !gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(generic_blocks)}, &indices.generic_queue)))
@@ -894,7 +907,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     }
     if(global_payload) {
       impl_->release_region_workspace();
-      if(!initial_payload.prepare(region_workspace,programs.size(),impl_->blocksize,1024,8192,8192,true))
+      if(!initial_payload.prepare(region_workspace,programs.size(),impl_->blocksize,1024,8192,8192,true,overflow_mask_bytes))
         return fitness_eval_single_error(ErrCode::Value,"cuda initial global payload workspace capacity/allocation failure");
       if(!gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(initial_payload.blocks)},&indices.compact_queue))
         return fitness_eval_single_error(ErrCode::Value,"cuda initial global payload queue allocation failure");
@@ -1057,6 +1070,17 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     std::vector<unsigned int> overflow_counts(programs.size());
     if (cudaMemcpy(overflow_counts.data(),indices.overflows,sizeof(unsigned int)*programs.size(),cudaMemcpyDeviceToHost)!=cudaSuccess)
       return fitness_eval_single_error(ErrCode::Value,"cuda payload overflow copy-back failure");
+    out.initial_payload_overflow_cases=overflow_counts;
+    if (overflow_diagnostics) {
+      out.initial_payload_overflow_logical_lanes=impl_->blocksize;
+      out.initial_payload_overflow_lane_masks.resize(programs.size()*overflow_mask_words);
+      if (cudaMemcpy(out.initial_payload_overflow_lane_masks.data(),indices.overflow_lane_masks,
+          overflow_mask_bytes,cudaMemcpyDeviceToHost)!=cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value,"cuda initial overflow lane diagnostics copy failure");
+    }
+    // Later retries must not change the initial distribution being measured.
+    region_workspace.payload_overflow_lane_masks=nullptr;
+    region_workspace.payload_overflow_mask_words=0;
     std::vector<int> replay_programs;
     for(std::size_t p=0;p<programs.size();++p)if(overflow_counts[p])replay_programs.push_back(static_cast<int>(p));
     out.payload_replay_programs=replay_programs.size();
@@ -1073,7 +1097,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       const std::size_t task_count=replay_programs.size()*(tiled_replay?replay_warps:1);
       if(task_count>static_cast<std::size_t>(std::numeric_limits<int>::max()))
         return fitness_eval_single_error(ErrCode::Value,"GPU replay task count exceeds addressing capacity");
-      const std::size_t extra_bytes=sizeof(int)*replay_programs.size()+
+      const std::size_t extra_bytes=overflow_mask_bytes+sizeof(int)*replay_programs.size()+
           (tiled_replay?sizeof(double)*task_count+sizeof(int):0);
       if(!replay_storage.prepare(region_workspace,task_count,impl_->blocksize,
           replay_entries,replay_values,replay_bytes,payload_index,extra_bytes))

@@ -248,8 +248,13 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
         payload_tables, execution_tables, input_case, fuel, workspace,
         shared_answer+input_case,penalty,policy,&resident_score,&exact);
     }
-    if (result.payload_capacity_exceeded && workspace.payload_overflows)
-      atomicAdd(workspace.payload_overflows + prog_idx, 1u);
+    if (result.payload_capacity_exceeded) {
+      if (workspace.payload_overflows) atomicAdd(workspace.payload_overflows + prog_idx, 1u);
+      if (workspace.payload_overflow_lane_masks)
+        atomicOr(workspace.payload_overflow_lane_masks +
+            prog_idx * workspace.payload_overflow_mask_words + logical_tid / 32,
+            1u << (logical_tid % 32));
+    }
     unsigned int* counts = case_counts ? case_counts + prog_idx * 6 : nullptr;
     if (counts) { atomicAdd(counts, 1u); if(result.is_error || !exact)atomicAdd(counts+5,1u); }
     if (result.is_error) {

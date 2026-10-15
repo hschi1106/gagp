@@ -1,4 +1,5 @@
 #include <cuda_runtime.h>
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <new>
@@ -320,7 +321,9 @@ bool test_private_list_index() {
 
 bool test_tiled_replay_entry_growth() {
   ScopedEnvironment restore_tiles("GAGP_GPU_TILED_REPLAY"),
-      restore_global("GAGP_GPU_GLOBAL_PAYLOAD"), restore_index("GAGP_GPU_PAYLOAD_INDEX");
+      restore_global("GAGP_GPU_GLOBAL_PAYLOAD"), restore_index("GAGP_GPU_PAYLOAD_INDEX"),
+      restore_diagnostics("GAGP_GPU_OVERFLOW_DIAGNOSTICS");
+  setenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS","1",1);
   setenv("GAGP_GPU_TILED_REPLAY","1",1);
   setenv("GAGP_GPU_GLOBAL_PAYLOAD","0",1);
   setenv("GAGP_GPU_PAYLOAD_INDEX","1",1);
@@ -357,6 +360,11 @@ bool test_tiled_replay_entry_growth() {
       "entry growth replay changed exact result")) {
     std::cerr<<gpu.err.message<<'\n';return false;
   }
+  // floor(3*lane/33) partitions place the three cases in lanes10,21,32.
+  if(!check(gpu.initial_payload_overflow_cases==std::vector<unsigned>({3,0}) &&
+      gpu.initial_payload_overflow_logical_lanes==33 &&
+      gpu.initial_payload_overflow_lane_masks==std::vector<unsigned>({(1u<<10)|(1u<<21),1u,0u,0u}),
+      "sparse initial overflow mask not preserved across capacity retries"))return false;
   if(!check(gpu.payload_replay_programs==1 && gpu.payload_replay_launches>=2 &&
       gpu.payload_replay_cases==3*gpu.payload_replay_launches,
       "entry capacity growth must retry only the overflowing program"))return false;
@@ -396,7 +404,9 @@ bool test_payload_replay_fitness() {
     for(int j=0;j<i%7;++j)expected[j]=Value::from_int(-1);
     answers.push_back(payload::make_int_list_value(expected));
   }
-  ScopedEnvironment restore_index("GAGP_GPU_PAYLOAD_INDEX"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),restore_tiles("GAGP_GPU_TILED_REPLAY");
+  ScopedEnvironment restore_index("GAGP_GPU_PAYLOAD_INDEX"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),restore_tiles("GAGP_GPU_TILED_REPLAY"),
+      restore_diagnostics("GAGP_GPU_OVERFLOW_DIAGNOSTICS");
+  setenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS","1",1);
   for(const char* global:{"0","1"}) for(const char* indexed:{"0","1"}) for(unsigned limit:{65536u,100u}) for(const char* tiled:{"0","1"}) for(int lanes:{33,512}) {
     if(tiled[0]=='0' && lanes==33)continue;
     setenv("GAGP_GPU_TILED_REPLAY",tiled,1);
@@ -420,6 +430,17 @@ bool test_payload_replay_fitness() {
         std::cerr<<'\n';
       }
       return false;
+    }
+    const unsigned overflow_cases=limit==65536 ? 513u : 0u;
+    if(!check(gpu.initial_payload_overflow_cases==std::vector<unsigned>({overflow_cases,0,overflow_cases}) &&
+        gpu.initial_payload_overflow_logical_lanes==lanes,
+        "initial overflow counts were lost or replaced by replay"))return false;
+    const int words=(lanes+31)/32;
+    for(int p=0;p<3;++p) for(int w=0;w<words;++w) {
+      const int bits=std::min(32,lanes-w*32);
+      const unsigned expected=(p!=1 && limit==65536) ? (bits==32 ? ~0u : (1u<<bits)-1u) : 0u;
+      if(!check(gpu.initial_payload_overflow_lane_masks.at(p*words+w)==expected,
+          "initial overflow lane masks changed on replay or misnumbered partial warp"))return false;
     }
     if(!check((gpu.execution_profile.find("-global-arena")!=std::string::npos)==(global[0]=='1'),
         "global payload flag did not select the expected executor"))return false;

@@ -59,6 +59,12 @@ struct FitnessEvalResult {
   std::size_t payload_replay_programs = 0;
   std::size_t payload_replay_cases = 0;
   std::size_t payload_replay_launches = 0;
+  // Initial physical overflows, before replay replaces the case diagnostics.
+  std::vector<unsigned> initial_payload_overflow_cases;
+  // Optional row-major [program][ceil(logical_lanes/32)] lane bit masks.
+  // Enabled by GAGP_GPU_OVERFLOW_DIAGNOSTICS=1; absent otherwise.
+  int initial_payload_overflow_logical_lanes = 0;
+  std::vector<unsigned> initial_payload_overflow_lane_masks;
   FitnessEvalTiming timing;
   Err err{ErrCode::Value, ""};
 };
