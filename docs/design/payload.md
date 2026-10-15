@@ -573,7 +573,10 @@ extended-payload GPU regression checks dense 33/512-lane masks, unaffected
 programs, logical failures, and sparse lanes preserved across multiple retries.
 
 `GAGP_GPU_ADAPTIVE_REPLAY=1` starts GPU replay with 4096 registry entries,
-16384 value cells and 8192 string bytes per physical lane. Physical failures
+`max(16384, policy.list_allocation_limit)` value cells and 8192 string bytes
+per physical lane. A declared positive list budget therefore sizes the initial
+value arena upfront; zero-budget policies retain the smaller 16384-cell start.
+Physical failures
 carry entry/value/byte reason bits independently from semantic errors and
 initial overflow diagnostics. Retries double only capacities exhausted by
 unresolved programs; unknown reasons conservatively grow all three. Each retry
@@ -584,3 +587,13 @@ The default sizing/growth route is unchanged. Snapshot diagnostics report final
 replay entry/value/byte capacities; replay timing and case counters include all
 attempts. Tests independently exhaust entries, values and bytes and compare
 fitness and statuses with CPU evaluation, retaining unaffected program rows.
+
+This sizing rule trades concurrency for avoiding repeated full-program work.
+The 2026-10-15 coarse P64/C1024 snapshot screen before this adjustment found
+that an unconditional 16384-cell start took three replay passes instead of one
+for FilterOdd (3859 to 4989 ms total evaluation) and NegativeToZero (5358 to
+6458 ms), while IsSorted improved from 722 to 643 ms with one replay pass.
+All scores and statuses matched. These observations motivate using the declared
+budget; they are not measurements of the adjusted rule or formal speedup claims.
+The regressions retain zero-budget value/byte growth and separately verify that
+positive-budget replay starts at the declared capacity with exact CPU parity.

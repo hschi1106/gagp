@@ -1101,7 +1101,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     const int replay_warps=(impl_->blocksize+31)/32;
     std::vector<unsigned int> overflow_reasons(adaptive_replay?programs.size():0);
     int replay_entries=(tiled_replay || adaptive_replay)?4096:65536;
-    int replay_values=adaptive_replay?16384:static_cast<int>(std::max<unsigned>(65536,impl_->policy.list_allocation_limit));
+    int replay_values=static_cast<int>(std::max<unsigned>(adaptive_replay?16384:65536,impl_->policy.list_allocation_limit));
     int replay_bytes=8192;
     while(!replay_programs.empty()) {
       PayloadWorkspaceStorage replay_storage;
