@@ -52,6 +52,10 @@ class TestSourceGrammar(unittest.TestCase):
         self.assertEqual([p['argument'] for p in body['phases']],[2,3,4,5])
         stock=template(ROOT,'stock_with_cooldown',dict(dp_dimensions=2,dp_deps=[[1,0],[1,1],[2,-1]],sequence_input=1))['body']
         self.assertEqual(stock['structured']['plan']['coordinate_rank'][0]['direction'],-1)
+        combine=next(p for p in stock['phases'] if any(b['bank']=='result' for b in p['bindings']))
+        self.assertEqual(combine['argument'],7)
+        self.assertEqual(stock['args'][7]['args'][1]['args'][1],{'hole':'transition'})
+        self.assertEqual(stock['args'][7]['bind'],{'1':['source_n']})
         self.assertTrue(all(r['states'][1]['kind']=='expression' for r in stock['structured']['plan']['requests']))
         self.assertTrue(all(r['states'][1]['offset']=='0' and r['states'][1]['source_state']==0 for r in stock['structured']['plan']['requests']))
 
