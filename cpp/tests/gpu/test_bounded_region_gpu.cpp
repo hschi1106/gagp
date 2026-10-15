@@ -486,7 +486,9 @@ bool test_private_measure_cache(bool private_window=false) {
         {ins_a(Opcode::PushConst,0),ins_a(Opcode::Load,0),ins(Opcode::Mod),
          ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),ins(Opcode::Return)},
         {{slot(RegionSlotBank::Parameter,0),0}},1);
-    boundaries.push_back(invocation(std::move(captured),{sequence(ValueTag::IntList)}));
+    boundaries.push_back(invocation(std::move(captured),{sequence(ValueTag::IntList)},1));
+    for(std::size_t i=0;i<boundaries.size();++i)
+      if(!verify_fixture(boundaries[i],"private window boundary row "+std::to_string(i)))return false;
     std::vector<CaseBindings> capture_cases;
     for(int i=0;i<33;++i)capture_cases.push_back({{0,Value::from_int(i%3-1)}});
     FitnessSessionGpu boundary_session;
@@ -498,10 +500,23 @@ bool test_private_measure_cache(bool private_window=false) {
       const auto off=boundary_session.eval_programs(boundaries,true);
       setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","1",1);
       const auto on=boundary_session.eval_programs(boundaries,true);
-      if(!check(off.ok && on.ok && off.fitness==on.fitness && on.fitness==cpu && off.case_counts==on.case_counts &&
-          on.case_counts[21][2]==33 && on.case_counts[22][1]==0 &&
+      const auto mode="private window boundary leaf="+std::to_string(direct_leaf);
+      if(!check(off.ok && on.ok && off.fitness.size()==boundaries.size() &&
+          on.fitness.size()==boundaries.size() && cpu.size()==boundaries.size() &&
+          off.case_counts.size()==boundaries.size() && on.case_counts.size()==boundaries.size(),
+          mode+" evaluation/results unavailable: off.ok="+std::to_string(off.ok)+" on.ok="+std::to_string(on.ok)))return false;
+      for(std::size_t i=0;i<boundaries.size();++i) {
+        if(!check(off.fitness[i]==on.fitness[i] && on.fitness[i]==cpu[i] && off.case_counts[i]==on.case_counts[i],
+            mode+" row="+std::to_string(i)+" fitness(off,on,cpu)="+std::to_string(off.fitness[i])+","+
+            std::to_string(on.fitness[i])+","+std::to_string(cpu[i])+" errors(off,on)="+
+            std::to_string(off.case_counts[i][1])+","+std::to_string(on.case_counts[i][1])+" timeouts(off,on)="+
+            std::to_string(off.case_counts[i][2])+","+std::to_string(on.case_counts[i][2])))return false;
+      }
+      if(!check(on.case_counts[21][2]==33 && on.case_counts[22][1]==0 &&
           on.case_counts.back()[1]==11 && on.case_counts.back()[2]==0,
-          "private window empty/depth/reversed-endpoint/capture-error/terminal ordering"))return false;
+          mode+" expected depth16 timeouts=33, depth17 errors=0, capture errors/timeouts=11/0; actual="+
+          std::to_string(on.case_counts[21][2])+","+std::to_string(on.case_counts[22][1])+","+
+          std::to_string(on.case_counts.back()[1])+"/"+std::to_string(on.case_counts.back()[2])))return false;
     }
     auto nonzero=boundaries[23].bounded_region_segments[0];
     nonzero.plan.state_types={ValueTag::Int,ValueTag::IntList};nonzero.plan.sequence_state=1;
@@ -520,6 +535,8 @@ bool test_private_measure_cache(bool private_window=false) {
         {ins_a(Opcode::Load,0),ins_a(Opcode::Load,1),ins(Opcode::Add),ins(Opcode::Return)},
         {{slot(RegionSlotBank::Result,0),0},{slot(RegionSlotBank::Result,1),1}},2);
     unsupported_shapes.push_back(invocation(std::move(scalar),{sequence(ValueTag::IntList)}));
+    for(std::size_t i=0;i<unsupported_shapes.size();++i)
+      if(!verify_fixture(unsupported_shapes[i],"private window unsupported shape "+std::to_string(i)))return false;
     for(const auto& extra:unsupported_shapes) {
       auto mixed=boundaries;mixed.push_back(extra);
       const auto unsupported=boundary_session.eval_programs(mixed,true);
