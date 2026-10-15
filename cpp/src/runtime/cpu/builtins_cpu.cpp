@@ -8,6 +8,7 @@
 
 #include "gagp/core/value_semantics.hpp"
 #include "gagp/runtime/payload/payload.hpp"
+#include "../payload/staging.hpp"
 
 namespace gagp {
 namespace detail { thread_local const CpuListViews* active_cpu_list_views = nullptr; }
@@ -245,6 +246,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       std::string sa;
       std::string sb;
       if (payload::lookup_string(a, &sa) && payload::lookup_string(b, &sb)) {
+        payload::check_allocation_budget(sa.size() + sb.size());
         return BuiltinResult{false, payload::make_string_value(sa + sb), Err{ErrCode::Value, ""}};
       }
       const std::uint32_t len = Value::saturating_len_add(Value::container_len(a), Value::container_len(b));
@@ -258,6 +260,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       std::vector<Value> lb;
       if (payload::lookup_list(a, &la) && payload::lookup_list(b, &lb)) {
         std::vector<Value> out_elems;
+        payload::check_allocation_budget((la.size() + lb.size()) * sizeof(Value));
         out_elems.reserve(la.size() + lb.size());
         out_elems.insert(out_elems.end(), la.begin(), la.end());
         out_elems.insert(out_elems.end(), lb.begin(), lb.end());

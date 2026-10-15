@@ -1,6 +1,9 @@
 #pragma once
 
 #include <memory>
+#include <cstddef>
+#include <limits>
+#include <stdexcept>
 #include <vector>
 
 namespace gagp::payload {
@@ -8,10 +11,20 @@ namespace gagp::payload {
 // Internal generation transaction. Each scope belongs to one worker. Commit only
 // after every scope has ended; conflicts leave the registry unchanged so callers
 // can replay generation sequentially.
+class PayloadBudgetExceeded : public std::runtime_error {
+ public:
+  PayloadBudgetExceeded() : std::runtime_error("CPU fitness payload byte budget exceeded") {}
+};
+
+// Check a prospective temporary allocation before constructing it.
+void check_allocation_budget(std::size_t bytes);
+
 class StagedPayloads {
  public:
   struct State;
-  StagedPayloads();
+  // A finite limit creates a discard-only evaluation overlay; it cannot commit.
+  // Counts cumulative registered payload bytes plus keys, including replacements.
+  explicit StagedPayloads(std::size_t byte_limit = std::numeric_limits<std::size_t>::max());
   ~StagedPayloads();
   StagedPayloads(const StagedPayloads&) = delete;
   StagedPayloads& operator=(const StagedPayloads&) = delete;

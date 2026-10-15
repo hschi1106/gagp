@@ -391,3 +391,14 @@ writes, unsealed/active snapshots, conflicts, and an enclosing thread-local scop
 Successful earlier commit does not prevent another read validation. Consumers
 must separately ensure their AST/request ownership has not changed; payload
 validity alone does not certify an arbitrary mutable genome.
+
+## CPU fitness temporary payloads
+
+Each CPU fitness case executes and scores inside a discard-only payload overlay.
+Generated string/list payloads are visible until scoring finishes, then released;
+committed case, answer, and program payloads remain available. The overlay limits
+cumulative generated data plus registry keys to 8 MiB per case. Concat checks
+its prospective output before allocating it. Exhaustion produces a Value error
+and the normal case penalty; instruction fuel is unchanged. This is a CPU
+fitness resource boundary, not a claim that the GPU list arena has equal capacity.
+Direct execution APIs keep their existing persistent result-payload ownership.

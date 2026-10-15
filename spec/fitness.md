@@ -183,3 +183,11 @@ PSB regression reports must record:
 
 For `compat`, compare these values against the baseline and gates recorded in
 the relevant benchmark manifest.
+
+### CPU payload allocation boundary
+
+CPU fitness evaluation permits at most 8 MiB of cumulative generated payload
+data and registry keys per case. Exceeding this limit is a runtime Value error
+and receives the ordinary error penalty. Temporary payloads are released after
+that case is scored. This resource bound is independent of instruction fuel;
+backend-specific resource limits need not be equal.

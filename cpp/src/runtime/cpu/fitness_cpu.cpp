@@ -8,6 +8,7 @@
 #include "gagp/core/value_semantics.hpp"
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
 #include "gagp/runtime/cpu/execution_session.hpp"
+#include "../payload/staging.hpp"
 
 namespace gagp {
 
@@ -64,8 +65,18 @@ std::vector<double> eval_fitness_cpu(
       double local_score = 0.0;
       for (std::size_t c = chunk_start; c < chunk_end; ++c) {
         const auto& inputs = case_inputs[c];
-        const ExecResult out = session ? session->execute(inputs, fuel)
-                                      : execute_bytecode_cpu(programs[p], inputs, fuel);
+        // Evaluation temporaries live through scoring only; inputs/constants remain
+        // in the committed registry. The budget also bounds exponential Concat.
+        payload::StagedPayloads temporary_payloads(8U * 1024U * 1024U);
+        payload::StagedPayloads::Scope payload_scope(temporary_payloads);
+        ExecResult out;
+        try {
+          out = session ? session->execute(inputs, fuel)
+                        : execute_bytecode_cpu(programs[p], inputs, fuel);
+        } catch (const payload::PayloadBudgetExceeded& error) {
+          out.is_error = true;
+          out.err = Err{ErrCode::Value, error.what()};
+        }
         if (out.is_error) {
           local_score = canonicalize_fitness_accumulator(local_score - std::fabs(penalty));
           continue;

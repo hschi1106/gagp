@@ -3,6 +3,8 @@
 #include <memory>
 #include <stdexcept>
 #include "gagp/runtime/payload/payload.hpp"
+#include "gagp/runtime/cpu/builtins_cpu.hpp"
+#include "gagp/runtime/cpu/fitness_cpu.hpp"
 #include "../../src/runtime/payload/staging.hpp"
 
 using namespace gagp;
@@ -104,6 +106,58 @@ int main() {
     { StagedPayloads::Scope scope(enclosing);
       check(!reusable.read_snapshot_unchanged(), "snapshot reuse ignored an enclosing view");
     }
+
+    // Evaluation scopes retain inputs but discard generated list/string closures.
+    const auto input = make_int_list_value({Value::from_int(7)});
+    const auto expected = Value::from_int(2);
+    const auto before = stats();
+    BytecodeProgram concat;
+    concat.consts = {input};
+    concat.code = {{Opcode::PushConst, 0, 0, true, false},
+                   {Opcode::PushConst, 0, 0, true, false},
+                   {Opcode::CallBuiltin, static_cast<int>(BuiltinId::Concat), 2, true, true},
+                   {Opcode::CallBuiltin, static_cast<int>(BuiltinId::Len), 1, true, true},
+                   {Opcode::Return, 0, 0, false, false}};
+    const auto score = eval_fitness_cpu({concat}, std::vector<CaseBindings>(100),
+                                      std::vector<Value>(100, expected), 100, 1000.0);
+    check(score.size() == 1 && score[0] == 0.0, "temporary payload score changed");
+    check(stats().list_entries == before.list_entries &&
+          stats().list_value_count == before.list_value_count,
+          "fitness evaluation retained case temporaries");
+    BytecodeProgram amplified;
+    amplified.n_locals = 1;
+    amplified.consts = {input};
+    amplified.code = {{Opcode::PushConst, 0, 0, true, false},
+                      {Opcode::Store, 0, 0, true, false}};
+    for (int i = 0; i < 25; ++i) {
+      amplified.code.push_back({Opcode::Load, 0, 0, true, false});
+      amplified.code.push_back({Opcode::Load, 0, 0, true, false});
+      amplified.code.push_back({Opcode::CallBuiltin, static_cast<int>(BuiltinId::Concat), 2, true, true});
+      amplified.code.push_back({Opcode::Store, 0, 0, true, false});
+    }
+    amplified.code.push_back({Opcode::Load, 0, 0, true, false});
+    amplified.code.push_back({Opcode::Return, 0, 0, false, false});
+    const auto bounded_score = eval_fitness_cpu({amplified}, std::vector<CaseBindings>(2),
+                                               {input, input}, 1000, 1000.0);
+    check(bounded_score.size() == 1 && bounded_score[0] == -2000.0,
+          "payload exhaustion did not produce the ordinary fitness penalty");
+    check(stats().list_value_count == before.list_value_count,
+          "resource-limited fitness retained case temporaries");
+    bool limited = false;
+    { StagedPayloads bounded(4096);
+      StagedPayloads::Scope scope(bounded);
+      auto value = input;
+      try {
+        for (int i = 0; i < 30; ++i) {
+          auto result = builtin_call(BuiltinId::Concat, {value, value});
+          check(!result.is_error, "bounded concat failed before resource limit");
+          value = result.value;
+        }
+      } catch (const PayloadBudgetExceeded&) { limited = true; }
+    }
+    check(limited, "exponential concat exceeded bounded payload allocation");
+    check(stats().list_value_count == before.list_value_count,
+          "failed evaluation retained generated payloads");
 
     StagedPayloads guard;
     { StagedPayloads::Scope scope(guard);

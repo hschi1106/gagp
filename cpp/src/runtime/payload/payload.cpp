@@ -140,6 +140,8 @@ struct StagedPayloads::State {
   std::unordered_map<PayloadKey, std::vector<Value>, PayloadKeyHash> lists;
   std::unordered_map<PayloadKey, std::optional<std::string>, PayloadKeyHash> string_reads;
   std::unordered_map<PayloadKey, std::optional<std::vector<Value>>, PayloadKeyHash> list_reads;
+  std::size_t byte_limit = std::numeric_limits<std::size_t>::max();
+  std::size_t bytes = 0;
   bool active = false, sealed = false, conflict = false, committed = false;
 };
 
@@ -164,6 +166,13 @@ template<class Map, class Reads, class Data>
 bool staged_lookup(const PayloadKey& key, Data* out, Map& writes, Reads& reads, const Map& global) {
   const auto own = writes.find(key);
   if (own != writes.end()) { *out = own->second; return true; }
+  if (staged->byte_limit != std::numeric_limits<std::size_t>::max()) {
+    std::lock_guard<std::mutex> lock(g_mu);
+    const auto found = global.find(key);
+    if (found == global.end()) return false;
+    *out = found->second;
+    return true;
+  }
   const auto captured = reads.find(key);
   if (captured != reads.end()) {
     if (!captured->second) return false;
@@ -200,7 +209,14 @@ bool merge_staged(const Map& writes, const Reads& reads, const Map& global, Map&
 }
 }  // namespace
 
-StagedPayloads::StagedPayloads() : state_(std::make_unique<State>()) {}
+void check_allocation_budget(std::size_t bytes) {
+  if (staged && bytes > staged->byte_limit - staged->bytes)
+    throw PayloadBudgetExceeded();
+}
+
+StagedPayloads::StagedPayloads(std::size_t byte_limit) : state_(std::make_unique<State>()) {
+  state_->byte_limit = byte_limit;
+}
 StagedPayloads::~StagedPayloads() = default;
 bool StagedPayloads::has_active_scope() { return staged != nullptr; }
 StagedPayloads::Scope::Scope(StagedPayloads& transaction) : state_(transaction.state_.get()) {
@@ -216,6 +232,7 @@ StagedPayloads::Scope::~Scope() {
 }
 bool StagedPayloads::read_snapshot_unchanged() const {
   const auto& state = *state_;
+  if (state.byte_limit != std::numeric_limits<std::size_t>::max()) return false;
   if (staged || state.active || !state.sealed || state.conflict ||
       !state.strings.empty() || !state.lists.empty()) return false;
   std::lock_guard<std::mutex> lock(g_mu);
@@ -234,6 +251,7 @@ bool StagedPayloads::commit_all(const std::vector<StagedPayloads*>& transactions
     if (!transaction || transaction->state_->active || !transaction->state_->sealed ||
         transaction->state_->committed) throw std::logic_error("invalid payload transaction commit");
     const auto& state = *transaction->state_;
+    if (state.byte_limit != std::numeric_limits<std::size_t>::max()) return false;
     if (state.conflict || !merge_staged(state.strings, state.string_reads, g_strings, strings) ||
         !merge_staged(state.lists, state.list_reads, g_lists, lists)) return false;
   }
@@ -305,6 +323,8 @@ void register_string(const Value& key, const std::string& s) {
   if (staged) {
     const auto previous = staged->strings.find(key_of(key));
     if (previous != staged->strings.end() && !identical(previous->second, s)) staged->conflict = true;
+    check_allocation_budget(s.size() + sizeof(PayloadKey));
+    staged->bytes += s.size() + sizeof(PayloadKey);
     staged->strings[key_of(key)] = s;
     return;
   }
@@ -318,6 +338,8 @@ void register_list(const Value& key, const std::vector<Value>& elems) {
   if (staged) {
     const auto previous = staged->lists.find(key_of(key));
     if (previous != staged->lists.end() && !identical(previous->second, elems)) staged->conflict = true;
+    check_allocation_budget(elems.size() * sizeof(Value) + sizeof(PayloadKey));
+    staged->bytes += elems.size() * sizeof(Value) + sizeof(PayloadKey);
     staged->lists[key_of(key)] = elems;
     return;
   }
