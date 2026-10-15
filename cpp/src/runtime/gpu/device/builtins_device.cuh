@@ -40,7 +40,7 @@ using DMixedPayloadState =
                          DMAX_THREAD_STRING_BYTES,
                          DMAX_THREAD_LIST_VALUES>;
 
-using DExtendedPayloadState = DThreadPayloadStateT<256, 256, 8192, 4096>;
+using DExtendedPayloadState = DThreadPayloadStateT<256, 1024, 8192, 4096>;
 
 template <DPayloadFlavor Flavor>
 struct DPayloadFlavorTraits;

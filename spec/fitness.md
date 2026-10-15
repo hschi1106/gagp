@@ -230,7 +230,7 @@ metrics retain their previous tie rules. GPU reproduction consumes ordinal
 rank scores, preserving these comparisons without changing reported fitness.
 
 GPU fitness's `extended-payload` profile has per-case limits of 4096 list values,
-256 list entries, 8192 string bytes and 256 string entries. Intermediate
+1024 list entries, 8192 string bytes and 256 string entries. Intermediate
 allocations count toward these limits. Capacity exhaustion is a Value error
 with the ordinary error penalty, rather than a synthetic successful result.
 Configured CPU task metrics use the same ordered 32-lane-group reduction as

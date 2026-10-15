@@ -411,7 +411,7 @@ configuration semantics.
 
 GPU fitness programs that construct strings/lists use the separate
 `extended-payload` profile when a view executor is not admitted. Its per-case
-arena has 4096 list values, 256 list entries, 8192 string bytes and 256 string
+arena has 4096 list values, 1024 list entries, 8192 string bytes and 256 string
 entries. These are cumulative allocation limits, including intermediate
 results, not maximum output lengths. Exhaustion returns a Value error and the
 normal penalty. Scalar/view kernels keep their existing storage. The profile

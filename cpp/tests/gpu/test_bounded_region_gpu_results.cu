@@ -947,7 +947,31 @@ __global__ void inspect_extended_payload(int* failures) {
     }
     list = next;
   }
-  *failures = exhausted ? 0 : 6;
+  if (!exhausted) { *failures = 6; return; }
+  // A 50-leaf binary tuple recurrence has 99 nodes. Each three-field tuple
+  // uses three Singletons and two Concats: 495 entries before input slices.
+  state.list_entry_count = 0;
+  state.list_values_used = 0;
+  #pragma unroll 1
+  for (int node = 0; node < 99; ++node) {
+    Value fields[3];
+    #pragma unroll 1
+    for (int field = 0; field < 3; ++field) {
+      Value value = Value::from_int(field + node);
+      if (!d_builtin_call<flavor>(BuiltinId::Singleton, &value, 1, tables, state, fields[field], error)) {
+        *failures = 7; return;
+      }
+    }
+    Value args[] = {fields[0], fields[1]}, pair, tuple;
+    if (!d_builtin_call<flavor>(BuiltinId::Concat, args, 2, tables, state, pair, error)) {
+      *failures = 8; return;
+    }
+    args[0] = pair; args[1] = fields[2];
+    if (!d_builtin_call<flavor>(BuiltinId::Concat, args, 2, tables, state, tuple, error)) {
+      *failures = 9; return;
+    }
+  }
+  *failures = state.list_entry_count == 495 && state.list_values_used == 792 ? 0 : 10;
 }
 
 bool test_subordinate_memo_coordinate_fitness() {
