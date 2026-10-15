@@ -12,8 +12,6 @@ struct DPayloadTables {
   const DListPayloadEntry* list_entries = nullptr;
   int list_entry_count = 0;
   const Value* list_values = nullptr;
-  DWindowHashCacheEntry* window_hash_cache = nullptr;
-  unsigned window_hash_cache_slots = 0;
 };
 
 template <int MaxStringEntries, int MaxListEntries, int MaxStringBytes, int MaxListValues>
@@ -206,37 +204,6 @@ __device__ inline std::uint64_t d_hash_list_payload(const Value* elems, int n) {
     h = Value::fnv1a_mix_u64(h, d_hash_value_shallow(elems[i]));
   }
   return h;
-}
-
-// Cache only resolved immutable launch-table windows. The exact key has a
-// spare high bit for publication; slots never change owners during evaluation.
-__device__ inline unsigned long long d_window_hash_key(ValueTag tag, int offset, unsigned length) {
-  return 1ULL + (static_cast<unsigned long long>(tag) << 48) +
-      (static_cast<unsigned long long>(offset) << 16) + length;
-}
-__device__ inline unsigned d_window_hash_bucket(unsigned long long key,unsigned slots) {
-  key^=key>>33;key*=0xff51afd7ed558ccdULL;key^=key>>33;
-  return static_cast<unsigned>(key)&(slots-1);
-}
-__device__ inline std::uint64_t d_hash_immutable_window(const DPayloadTables& tables,
-    ValueTag tag,int offset,const Value* elements,unsigned length) {
-  if(!tables.window_hash_cache || !tables.window_hash_cache_slots || offset<0 ||
-      length>0xffffu || static_cast<unsigned>(tag)>0xffu)
-    return d_hash_list_payload(elements,length);
-  constexpr unsigned long long ready=1ULL<<63;
-  const auto key=d_window_hash_key(tag,offset,length);
-  auto& slot=tables.window_hash_cache[d_window_hash_bucket(key,tables.window_hash_cache_slots)];
-  const auto previous=atomicCAS(&slot.key,0ULL,key);
-  if(previous==(key|ready))return atomicAdd(&slot.hash,0ULL);
-  // A collision or unfinished matching writer never causes waiting. In
-  // particular, divergent lanes cannot deadlock while another lane publishes.
-  const auto hash=d_hash_list_payload(elements,length);
-  if(previous==0) {
-    atomicExch(&slot.hash,static_cast<unsigned long long>(hash));
-    __threadfence();
-    atomicExch(&slot.key,key|ready);
-  }
-  return hash;
 }
 
 __device__ inline int d_find_string_payload_entry(const DPayloadTables& tables, std::int64_t packed) {
@@ -895,10 +862,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         if (found) {
           const int offset = source_offset >= 0 ? source_offset + static_cast<int>(l)
                                                : source_offset - static_cast<int>(l);
-          const Value* elements=out_len ? xp+l : nullptr;
-          const auto hash=offset<0 ? d_hash_immutable_window(tables,x.tag,
-              static_cast<int>(-static_cast<long long>(offset)-1),elements,out_len) :
-              d_hash_list_payload(elements,out_len);
+          const auto hash = d_hash_list_payload(out_len ? xp + l : nullptr, out_len);
           out = d_make_list_hash_len(x.tag, hash, out_len);
           if (!d_register_local_list(st, out, offset, out_len)) { err = ErrCode::Value; return false; }
           return true;

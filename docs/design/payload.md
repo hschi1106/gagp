@@ -618,27 +618,3 @@ memory, so total device usage can exceed this arena cap. With enough pending
 work, 2/4 GiB caps can consume approximately 2/4 GiB of arena scratch. Treat those
 as explicit per-run A/B settings, not a new default or an established speedup.
 The parser and exact-cap arithmetic are checked by `gagp_test_fitness_contract`.
-
-`GAGP_GPU_WINDOW_HASH_CACHE=1` adds a bounded cache for canonical hashes of
-immutable packed-table Slice windows. The existing lookup first resolves the
-actual backing using normal first-match identity rules. Only negative-offset
-aliases into that table are eligible; local append-only storage is excluded.
-The exact key contains list tag, absolute table-element offset and length.
-The cache retains full 64-bit hash results without changing public 48-bit
-container identities, registration, allocation accounting, fuel or scoring.
-
-Each evaluation allocates and zeros 65536 sixteen-byte slots (1 MiB), retains
-them through initial evaluation and replay, then frees them. Packed-table
-changes in later evaluations cannot reuse stale entries. This storage is
-included in configured payload scratch accounting, allocation/clear in upload
-timing, and all costs in total evaluation time. The profile adds
-`-window-hash-cache`. A slot is claimed once by atomic exact-key comparison;
-the full hash is atomically stored, fenced, and then the key is marked ready.
-Readers use only exact ready matches. Collisions and unfinished publications
-compute the original hash without waiting, preserving divergent-warp progress.
-
-This optimization saves only repeated immutable-window hashing. Tuple
-Singleton/Concat construction and hashes of local results remain unchanged.
-Tests cover cold/warm matches, exact-key collisions, unfinished publication,
-concurrent readers/writers, all typed-list element bits and CPU fitness/status
-parity across changed packed constants in the same session.

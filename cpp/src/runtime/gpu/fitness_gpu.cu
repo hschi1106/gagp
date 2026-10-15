@@ -842,12 +842,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   const int overflow_mask_words = (impl_->blocksize + 31) / 32;
   const std::size_t overflow_mask_bytes = overflow_diagnostics ?
       programs.size() * overflow_mask_words * sizeof(unsigned int) : 0;
-  const bool window_hash_cache=extended_payload && !use_views &&
-      std::getenv("GAGP_GPU_WINDOW_HASH_CACHE") && std::string(std::getenv("GAGP_GPU_WINDOW_HASH_CACHE"))!="0";
-  constexpr unsigned window_hash_cache_slots=65536;
-  const std::size_t window_hash_cache_bytes=window_hash_cache?
-      sizeof(gpu_detail::DWindowHashCacheEntry)*window_hash_cache_slots:0;
-  const std::size_t payload_metadata_bytes=window_hash_cache_bytes+overflow_mask_bytes+overflow_reason_bytes+
+  const std::size_t payload_metadata_bytes=overflow_mask_bytes+overflow_reason_bytes+
       sizeof(unsigned int)*programs.size()+(global_payload?sizeof(int):0);
   if(payload_metadata_bytes>=payload_workspace_budget)
     return fitness_eval_single_error(ErrCode::Value,"GPU payload workspace metadata exceeds configured scratch cap");
@@ -862,21 +857,13 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       unsigned int* overflows=nullptr;
       unsigned int* overflow_reasons=nullptr;
       unsigned int* overflow_lane_masks=nullptr;
-      gpu_detail::DWindowHashCacheEntry* window_hash_cache=nullptr;
-      ~IndexBuffers(){if(window_hash_cache)cudaFree(window_hash_cache);if(overflow_reasons)cudaFree(overflow_reasons);if(overflow_lane_masks)cudaFree(overflow_lane_masks);if(overflows)cudaFree(overflows);if(compact)cudaFree(compact);if(generic)cudaFree(generic);if(compact_queue)cudaFree(compact_queue);if(generic_queue)cudaFree(generic_queue);}
+      ~IndexBuffers(){if(overflow_reasons)cudaFree(overflow_reasons);if(overflow_lane_masks)cudaFree(overflow_lane_masks);if(overflows)cudaFree(overflows);if(compact)cudaFree(compact);if(generic)cudaFree(generic);if(compact_queue)cudaFree(compact_queue);if(generic_queue)cudaFree(generic_queue);}
     } indices;
     const auto upload_t0 = std::chrono::steady_clock::now();
     if (cudaMalloc(reinterpret_cast<void**>(&indices.overflows), sizeof(unsigned int)*programs.size()) != cudaSuccess ||
         cudaMemset(indices.overflows,0,sizeof(unsigned int)*programs.size()) != cudaSuccess)
       return fitness_eval_single_error(ErrCode::Value,"cuda payload overflow diagnostics allocation failure");
     region_workspace.payload_overflows=indices.overflows;
-    if(window_hash_cache) {
-      if(cudaMalloc(reinterpret_cast<void**>(&indices.window_hash_cache),window_hash_cache_bytes)!=cudaSuccess ||
-          cudaMemset(indices.window_hash_cache,0,window_hash_cache_bytes)!=cudaSuccess)
-        return fitness_eval_single_error(ErrCode::Value,"cuda immutable-window hash cache allocation failure");
-      region_workspace.window_hash_cache=indices.window_hash_cache;
-      region_workspace.window_hash_cache_slots=window_hash_cache_slots;
-    }
     if(adaptive_replay) {
       if(cudaMalloc(reinterpret_cast<void**>(&indices.overflow_reasons),overflow_reason_bytes)!=cudaSuccess ||
           cudaMemset(indices.overflow_reasons,0,overflow_reason_bytes)!=cudaSuccess)
@@ -1265,7 +1252,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
     if(global_payload)out.execution_profile+="-global-arena";
     if(global_window_aliases)out.execution_profile+="-window-aliases";
-    if(window_hash_cache)out.execution_profile+="-window-hash-cache";
     if(region_workspace.fused_list_concat && extended_payload)out.execution_profile+="-fused-concat";
     if(payload_index && (global_payload || out.payload_replay_programs))out.execution_profile+="-list-index";
     if(out.payload_replay_programs)out.execution_profile+="-gpu-arena-replay";

@@ -61,13 +61,6 @@ struct DProgramMeta {
   int region_count = 0;
 };
 
-// Per-evaluation immutable-window cache; both words are accessed atomically.
-struct DWindowHashCacheEntry {
-  unsigned long long key = 0;
-  unsigned long long hash = 0;
-};
-static_assert(sizeof(DWindowHashCacheEntry)==16);
-
 struct DStringPayloadEntry {
   std::int64_t packed = 0;
   int offset = 0;
