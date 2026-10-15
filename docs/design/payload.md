@@ -277,6 +277,31 @@ metadata is refreshed after every GPU generation. This independent flag defaults
 off and profiles append `-private-bound-phases` or `-private-bound-phases-declined`.
 The typed Bound-view VM remains limited to its existing view profile.
 
+`GAGP_GPU_PRIVATE_WARP_COPY=1` optionally cooperates on private compact IntList
+copies without changing arena layout, case ownership or VM scheduling. Only
+checked compact destinations in CUDA global allocations qualify; boxed global
+IntList sources and compact local sources are both supported. Thread-local
+pointers must never be shared through this helper. On Volta and later, the helper
+captures the currently active lanes and uses that opportunistic group only. It
+requires at least four participants and copies spans of at least 512 cells;
+smaller spans, smaller groups, older devices and the default-off setting retain
+serial copies. Small-span owners still participate in all group collectives
+before copying their own small span serially.
+
+The group enumerates qualifying owners and broadcasts each owner's checked
+source, destination, length and source representation. Participant ranks copy
+consecutive cells of one owner at a time; lanes need not have equal sizes or
+matching VM positions. An initial `__syncwarp(mask)` orders prior owner writes
+before foreign reads, and a final barrier completes foreign writes before owners
+resume. Sources are immutable during the copy; append destinations are disjoint
+from existing source spans and other cases. The captured mask remains fixed for
+all collectives, so later arrivals form independent groups or copy serially.
+The synchronization follows NVIDIA's [warp intrinsic participation and ordering contract](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html#warp-functions).
+Logical allocation, fuel, descriptor identity, physical limits and replay remain
+unchanged; every source cell is copied. Profiles append `-private-warp-copy` or
+`-private-warp-copy-declined` when requested. Preparation and copy costs remain
+inside ordinary evaluation timing.
+
 `GAGP_GPU_PRIVATE_TYPED_PHASES=1`, together with
 `GAGP_GPU_PRIVATE_GLOBAL_OFFSETS=1`, optionally runs private phases through the
 existing 64-bit typed phase loop. Current complete private typeflow and successful

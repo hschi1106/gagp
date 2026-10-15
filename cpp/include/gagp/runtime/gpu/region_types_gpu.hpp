@@ -105,6 +105,7 @@ struct DRegionWorkspace {
   bool private_bound_phases = false;
   bool private_typed_phases = false;
   bool compact_intlist_cells = false;
+  bool private_warp_copy = false;
   int shared_list_value_count = 0;
   bool fused_list_concat = false;
   bool small_int_hash = false;

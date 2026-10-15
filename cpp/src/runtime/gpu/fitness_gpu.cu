@@ -876,6 +876,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   region_workspace.private_bound_phases=request_private_bound && private_intlists;
   region_workspace.private_typed_phases=request_private_typed && complete_private_normalization;
   region_workspace.compact_intlist_cells=private_intlists && request_compact;
+  const char* warp_copy_setting=std::getenv("GAGP_GPU_PRIVATE_WARP_COPY");
+  const bool request_warp_copy=warp_copy_setting && std::string(warp_copy_setting)=="1";
+  region_workspace.private_warp_copy=request_warp_copy && region_workspace.compact_intlist_cells;
   region_workspace.shared_list_value_count=static_cast<int>(payload_pack.list_values.size());
   region_workspace.payload_epoch_index=payload_index && std::getenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX") &&
       std::string(std::getenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX"))=="1";
@@ -1490,6 +1493,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         "-private-intlist-offset-v1":"-private-intlist-offset-v1-declined";
     if(request_private_globals)out.execution_profile+=private_global_offsets?
         "-private-global-offsets":"-private-global-offsets-declined";
+    if(request_warp_copy)out.execution_profile+=region_workspace.private_warp_copy?
+        "-private-warp-copy":"-private-warp-copy-declined";
     if(request_private_typed)out.execution_profile+=region_workspace.private_typed_phases?
         "-private-typed-phases":"-private-typed-phases-declined";
     if(request_private_bound)out.execution_profile+=region_workspace.private_bound_phases?

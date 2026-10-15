@@ -219,6 +219,7 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
             cache_payload_state.trivial_phases=workspace.trivial_phases;
             cache_payload_state.private_bound_phases=workspace.private_bound_phases;
             cache_payload_state.private_typed_phases=workspace.private_typed_phases;
+            cache_payload_state.private_warp_copy=workspace.private_warp_copy;
           }
           int remaining = fuel;
           const auto result = d_region_phase<Flavor>(region_segments[meta.region_offset],

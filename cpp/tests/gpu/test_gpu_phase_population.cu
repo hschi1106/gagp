@@ -311,11 +311,11 @@ void test_trivial_pattern_refresh() {
 }
 
 void test_private_intlist_generations(bool sequence_windows=false) {
- const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_PRIVATE_MEASURE_CACHE","GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","GAGP_COMPACT_FRAMES","GAGP_GPU_WINDOW_LEAF_DIRECT","GAGP_GPU_PRIVATE_BOUND_PHASES","GAGP_BOUND_ADD_PHASE","GAGP_BOUND_COMPARE_PHASE","GAGP_GPU_PRIVATE_TYPED_PHASES","GAGP_COLD_PAYLOAD_PROOFS","GAGP_COLD_IMPORT_EXECUTABLES","GAGP_REUSE_IMPORT_CERTIFICATE","GAGP_REUSE_ADMISSION_COMPILE","GAGP_REUSE_IMPORTED_EXECUTABLE"};
+ const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_PRIVATE_MEASURE_CACHE","GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","GAGP_COMPACT_FRAMES","GAGP_GPU_WINDOW_LEAF_DIRECT","GAGP_GPU_PRIVATE_BOUND_PHASES","GAGP_BOUND_ADD_PHASE","GAGP_BOUND_COMPARE_PHASE","GAGP_GPU_PRIVATE_TYPED_PHASES","GAGP_GPU_PRIVATE_WARP_COPY","GAGP_COLD_PAYLOAD_PROOFS","GAGP_COLD_IMPORT_EXECUTABLES","GAGP_REUSE_IMPORT_CERTIFICATE","GAGP_REUSE_ADMISSION_COMPILE","GAGP_REUSE_IMPORTED_EXECUTABLE"};
  struct Restore {
-  const char** flags;std::string saved[21];bool present[21];
-  explicit Restore(const char** f):flags(f){for(int i=0;i<21;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
-  ~Restore(){for(int i=0;i<21;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
+  const char** flags;std::string saved[22];bool present[22];
+  explicit Restore(const char** f):flags(f){for(int i=0;i<22;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
+  ~Restore(){for(int i=0;i<22;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
  } restore(flags);
  if(!sequence_windows)setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","0",1);
  const auto grammar=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
@@ -335,18 +335,20 @@ void test_private_intlist_generations(bool sequence_windows=false) {
  for(int i=0;i<1024;++i) {
   CaseBindings row;
   for(std::size_t j=0;j<names.size();++j)row.push_back({int(j),names[j]=="source"?
-      payload::make_int_list_value(std::vector<Value>(i%67,Value::from_int((INT64_C(1)<<53)+i))):Value::from_int(
+      payload::make_int_list_value(std::vector<Value>(sequence_windows && i%32==0?1024:i%67,Value::from_int((INT64_C(1)<<53)+i))):Value::from_int(
       names[j]=="row"?i%2:names[j]=="column"?(i/2)%2:names[j]=="rows" || names[j]=="columns"?2:i%7-3)});
   cases.push_back(row);answers.push_back(sequence_windows?row[0].value:payload::make_int_list_value({Value::from_int(i%7-3)}));
  }
  FitnessPolicy policy;policy.metric=FitnessMetric::Exact;policy.list_allocation_limit=65536;
- FitnessSessionGpu session;require(session.init(cases,answers,10000,32,1000,policy).ok,"private list owner session");
+ const int audit_fuel=sequence_windows?100000:10000;
+ FitnessSessionGpu session;require(session.init(cases,answers,audit_fuel,32,1000,policy).ok,"private list owner session");
  setenv("GAGP_COLD_IMPORT_EXECUTABLES","0",1);
  repro::NativePhasePopulation cold_control(grammar,parents,names);
  setenv("GAGP_COLD_IMPORT_EXECUTABLES","1",1);
  repro::NativePhasePopulation owner(grammar,parents,names);
  bool changed=false,saw_content_match=false;
  for(int generation=0;generation<=32;++generation) {
+  setenv("GAGP_GPU_PRIVATE_WARP_COPY","0",1);
   setenv("GAGP_GPU_PRIVATE_TYPED_PHASES","0",1);
   setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","0",1);
   setenv("GAGP_GPU_PRIVATE_BOUND_PHASES","0",1);
@@ -356,7 +358,9 @@ void test_private_intlist_generations(bool sequence_windows=false) {
   setenv("GAGP_GPU_PRIVATE_MEASURE_CACHE","1",1);
   setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR",sequence_windows?"1":"0",1);
   setenv("GAGP_GPU_COMPACT_INTLIST_CELLS","0",1);
+  setenv("GAGP_GPU_PRIVATE_WARP_COPY","1",1);
   const auto boxed=owner.evaluate(session,true);
+  setenv("GAGP_GPU_PRIVATE_WARP_COPY","0",1);
   setenv("GAGP_GPU_COMPACT_INTLIST_CELLS","1",1);
   const auto no_bound=owner.evaluate(session,true);
   setenv("GAGP_GPU_PRIVATE_BOUND_PHASES","1",1);
@@ -364,11 +368,18 @@ void test_private_intlist_generations(bool sequence_windows=false) {
   setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","1",1);
   const auto untyped=owner.evaluate(session,true);
   setenv("GAGP_GPU_PRIVATE_TYPED_PHASES","1",1);
+  const auto no_warp=owner.evaluate(session,true);
+  setenv("GAGP_GPU_PRIVATE_WARP_COPY","1",1);
   const auto gpu=owner.evaluate(session,true);
   const auto cold_off=cold_control.evaluate(session,true);
   require(cold_off.ok && cold_off.fitness==gpu.fitness && cold_off.wrong==gpu.wrong && cold_off.case_counts==gpu.case_counts,
       "cold executable reuse changed fresh-generation full-case fitness");
-  require(untyped.ok && untyped.fitness==gpu.fitness && untyped.wrong==gpu.wrong &&
+  require(no_warp.ok && no_warp.fitness==gpu.fitness && no_warp.wrong==gpu.wrong &&
+      no_warp.case_counts==gpu.case_counts && no_warp.payload_replay_programs==gpu.payload_replay_programs &&
+      no_warp.payload_replay_value_capacity==gpu.payload_replay_value_capacity && no_warp.execution_profile.find("-private-warp-copy")==std::string::npos &&
+      gpu.execution_profile.find("-private-warp-copy")!=std::string::npos &&
+      boxed.execution_profile.find("-private-warp-copy-declined")!=std::string::npos &&
+      untyped.ok && untyped.fitness==gpu.fitness && untyped.wrong==gpu.wrong &&
       untyped.case_counts==gpu.case_counts && untyped.execution_profile.find("-private-typed-phases")==std::string::npos &&
       gpu.execution_profile.find("-private-typed-phases")!=std::string::npos &&
       no_bound.ok && no_bound.fitness==gpu.fitness && no_bound.wrong==gpu.wrong &&
@@ -393,7 +404,7 @@ void test_private_intlist_generations(bool sequence_windows=false) {
    independent.push_back(compile_for_eval(genome,names));
   }
   std::vector<unsigned> wrong;
-  const auto cpu=eval_fitness_cpu(independent,cases,answers,10000,1000,32,policy,&wrong);
+  const auto cpu=eval_fitness_cpu(independent,cases,answers,audit_fuel,1000,32,policy,&wrong);
   require(gpu.fitness==cpu && gpu.wrong==wrong,"new GPU list phases differ from full-case independent CPU audit");
   for(auto value:wrong)saw_content_match|=value<1024;
   for(const auto& count:gpu.case_counts)require(count[0]==1024,"private owner omitted cases");
@@ -406,7 +417,7 @@ void test_private_intlist_generations(bool sequence_windows=false) {
  // Same input types but an unsupported policy must use ordinary current phases.
  auto unsupported_policy=policy;unsupported_policy.list_allocation_limit=0;
  FitnessSessionGpu unsupported_session;
- require(unsupported_session.init(cases,answers,10000,32,1000,unsupported_policy).ok,"private unsupported policy init");
+ require(unsupported_session.init(cases,answers,audit_fuel,32,1000,unsupported_policy).ok,"private unsupported policy init");
  owner.reproduce(owner.evaluate(session,true).fitness,2,.3,UINT64_C(17913));
  const auto policy_declined=owner.evaluate(unsupported_session,true);
  const auto policy_ordinary=unsupported_session.eval_programs(owner.programs(),true);
@@ -416,11 +427,12 @@ void test_private_intlist_generations(bool sequence_windows=false) {
      policy_declined.execution_profile.find("compact-intlist-cells-declined")!=std::string::npos &&
      policy_declined.execution_profile.find("-trivial-phases-declined")!=std::string::npos &&
      policy_declined.execution_profile.find("-private-bound-phases-declined")!=std::string::npos &&
-     policy_declined.execution_profile.find("-private-typed-phases-declined")!=std::string::npos,
+     policy_declined.execution_profile.find("-private-typed-phases-declined")!=std::string::npos &&
+     policy_declined.execution_profile.find("-private-warp-copy-declined")!=std::string::npos,
      "unsupported policy retained cold native phases/private profile");
  auto wrong_cases=cases;
  for(auto& binding:wrong_cases[0])if(names[binding.idx]=="base_value" || names[binding.idx]=="source")binding.value=Value::from_float(1.5);
- FitnessSessionGpu wrong_session;require(wrong_session.init(wrong_cases,answers,10000,32,1000,policy).ok,"private wrong-type session");
+ FitnessSessionGpu wrong_session;require(wrong_session.init(wrong_cases,answers,audit_fuel,32,1000,policy).ok,"private wrong-type session");
  owner.reproduce(owner.evaluate(session,true).fitness,2,.3,UINT64_C(123912));
  const auto declined=owner.evaluate(wrong_session,true);
  const auto ordinary=wrong_session.eval_programs(owner.programs(),true);
@@ -429,7 +441,8 @@ void test_private_intlist_generations(bool sequence_windows=false) {
      declined.execution_profile.find("compact-intlist-cells-declined")!=std::string::npos &&
      declined.execution_profile.find("-trivial-phases-declined")!=std::string::npos &&
      declined.execution_profile.find("-private-bound-phases-declined")!=std::string::npos &&
-     declined.execution_profile.find("-private-typed-phases-declined")!=std::string::npos,
+     declined.execution_profile.find("-private-typed-phases-declined")!=std::string::npos &&
+     declined.execution_profile.find("-private-warp-copy-declined")!=std::string::npos,
      "different session reused stale private capability instead of current generic fallback");
 }
 

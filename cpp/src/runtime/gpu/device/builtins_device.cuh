@@ -72,6 +72,7 @@ struct DArenaPayloadState {
   bool private_bound_phases = false;
   bool private_typed_phases = false;
   bool compact_intlist_cells = false;
+  bool private_warp_copy = false;
   std::int64_t* intlist_cells = nullptr;
   bool alias_windows = false;
   static constexpr int kMaxStringEntries = 1;
@@ -714,7 +715,40 @@ __device__ inline bool d_private_intlist_span(const DPayloadTables& tables,
   return true;
 }
 
-__device__ inline void d_copy_private_intlist(std::int64_t* target,const DPrivateIntListSpan& source) {
+// Cooperative calls require checked CUDA-global pointers: an append-only compact
+// target and a source that remains immutable for the captured group.
+__device__ inline void d_copy_private_intlist(std::int64_t* target,const DPrivateIntListSpan& source,
+    bool cooperative=false) {
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+  if(cooperative) {
+    // Opportunistic membership only: never assume all branch entrants, matching
+    // VM positions, or equal spans. Every sampled member executes all collectives.
+    const unsigned mask=__activemask();const int participants=__popc(mask);
+    if(participants>=4) {
+      unsigned owners=__ballot_sync(mask,source.size>=512);
+      if(owners) {
+        // Earlier owner writes must be visible to workers; shuffle is not a fence.
+        __syncwarp(mask);
+        const unsigned lane=threadIdx.x & 31;
+        const int rank=__popc(mask & ((1u<<lane)-1u));
+        while(owners) {
+          const int owner=__ffs(owners)-1;owners&=owners-1;
+          const auto destination=__shfl_sync(mask,reinterpret_cast<unsigned long long>(target),owner);
+          const auto pointer=__shfl_sync(mask,reinterpret_cast<unsigned long long>(
+              source.integers?static_cast<const void*>(source.integers):static_cast<const void*>(source.boxed)),owner);
+          const int size=__shfl_sync(mask,source.size,owner);
+          const int integers=__shfl_sync(mask,int(source.integers!=nullptr),owner);
+          auto* output=reinterpret_cast<std::int64_t*>(destination);
+          if(integers)for(int i=rank;i<size;i+=participants)output[i]=reinterpret_cast<const std::int64_t*>(pointer)[i];
+          else for(int i=rank;i<size;i+=participants)output[i]=reinterpret_cast<const Value*>(pointer)[i].i;
+        }
+        // All foreign writes finish before an owner can publish or reuse its output.
+        __syncwarp(mask);
+        if(source.size>=512)return;
+      }
+    }
+  }
+#endif
   if(source.integers)for(int i=0;i<source.size;++i)target[i]=source.read<true>(i);
   else for(int i=0;i<source.size;++i)target[i]=source.read<false>(i);
 }
@@ -853,8 +887,8 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       }
       const int offset=st.list_values_used;
       if(st.compact_intlist_cells) {
-        d_copy_private_intlist(st.intlist_cells+offset,a);
-        d_copy_private_intlist(st.intlist_cells+offset+n,b);
+        d_copy_private_intlist(st.intlist_cells+offset,a,st.private_warp_copy);
+        d_copy_private_intlist(st.intlist_cells+offset+n,b,st.private_warp_copy);
       } else {
         for(int i=0;i<n;++i)st.list_values[offset+i]=a.boxed[i];
         for(int i=0;i<m;++i)st.list_values[offset+n+i]=b.boxed[i];
