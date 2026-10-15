@@ -132,6 +132,14 @@ std::vector<Fixture> generated() {
   letter.nodes.insert(letter.nodes.begin(),{PhaseTreeKind::Operation,Opcode::CallBuiltin,int(BuiltinId::IsLetter),1,1,1});
   letter.reference.code.push_back({Opcode::CallBuiltin,int(BuiltinId::IsLetter),1,true,true});
   out.push_back(letter);
+  auto clamped=leaf;
+  clamped.locals={ValueTag::IntList};
+  clamped.nodes={{PhaseTreeKind::Operation,Opcode::CallBuiltin,int(BuiltinId::IndexClampedOrZero),2,1,1},
+    {PhaseTreeKind::Local,Opcode::Load,0,0,1,1},leaf.nodes[0]};
+  clamped.reference.n_locals=1;
+  clamped.reference.code={{Opcode::Load,0,0,true,false},{Opcode::PushConst,0,0,true,false},
+    {Opcode::CallBuiltin,int(BuiltinId::IndexClampedOrZero),2,true,true}};
+  out.push_back(clamped);
   auto singleton=leaf;
   singleton.result=ValueTag::IntList;singleton.views=false;
   singleton.nodes.insert(singleton.nodes.begin(),{PhaseTreeKind::Operation,Opcode::CallBuiltin,int(BuiltinId::Singleton),1,1,1});

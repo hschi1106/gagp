@@ -773,9 +773,14 @@ values only where the corresponding source operation appears, preserving source
 demand evaluation: a constant solve phase does not read an unused price. This
 replaces the earlier eager two-let scaffold, reduces formal scopes to four and
 seven slots, and makes each variable hole cover a complete native GPU phase.
-Historical frozen templates retain their eager bindings during translation.
-Native fuel now charges each used clamp/index expression instead of eager setup
-once per phase; native and ASGP fuel counts are not equated. Source terminal
+Historical frozen templates retain their eager bindings during translation;
+intermediate inline-clamp grammars retain their expanded expressions.
+StateValue uses the general `index_clamped_or_zero(IntList,Int)` primitive: an
+empty list returns0, otherwise the signed index clamps to the nearest endpoint.
+This keeps each source price read to three physical nodes and admits all frozen
+parents without an expanded clamp macro. Native fuel charges its ordinary binary
+builtin operation, while StateA retains its explicit min clamp, instead of eager
+setup once per phase; native and ASGP fuel counts are not equated. Source terminal
 evaluation still precedes memo lookup. The plan's subordinate-coordinate and
 strict time-progress validation remain unchanged.
 

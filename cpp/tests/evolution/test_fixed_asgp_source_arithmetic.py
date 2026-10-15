@@ -40,10 +40,13 @@ class TestProtectedSourceArithmetic(unittest.TestCase):
             folder=Path(folder)
             self.call('contract','stock_with_cooldown',folder/'contract.json')
             self.call('freeze','stock_with_cooldown',folder/'source.json',
-                env=dict(os.environ,GAGP_FREEZE_POPULATION='8'))
+                env=dict(os.environ,GAGP_FREEZE_POPULATION='32'))
             contract=json.loads((folder/'contract.json').read_text())
             grammar=definition(ROOT,'stock_with_cooldown',contract=contract)
             (folder/'grammar.json').write_text(json.dumps(grammar))
+            # Parent11 exceeds the old expanded price macro's physical node budget.
+            self.call('prepare',folder/'source.json',folder/'grammar.json',32,folder/'frozen.prepared.json')
+            self.assertEqual(len(json.loads((folder/'frozen.prepared.json').read_text())['programs']),32)
             self.call('sampled-audit',folder/'source.json',folder/'grammar.json',folder/'frozen.audit.json')
             self.assertEqual(json.loads((folder/'frozen.audit.json').read_text())['mismatches'],0)
             source=json.loads((folder/'source.json').read_text())

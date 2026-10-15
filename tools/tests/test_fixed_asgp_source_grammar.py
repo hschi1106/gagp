@@ -91,7 +91,8 @@ class TestSourceGrammar(unittest.TestCase):
         literal,state,price=[p['expression'] for p in solve['alternatives']]
         self.assertEqual(literal,{'constant':{'type':'Int','range':['0','2']}})
         self.assertEqual(state,{'signature':'min(Int,Int)->Int','args':[{'bound':'n'},{'bound':'extent'}]})
-        self.assertEqual(price['signature'],'if(Bool,Int,Int)->Int')
+        self.assertEqual(price,{'signature':'index_clamped_or_zero(IntList,Int)->Int',
+            'args':[{'bound':'xs'},{'bound':'n'}]})
         self.assertNotIn('index(',str(root))
         # Independent interpretation of this small clamp expression at boundaries.
         def evaluate(e,n,xs):
@@ -105,7 +106,7 @@ class TestSourceGrammar(unittest.TestCase):
             if op=='max':return max(args)
             if op=='sub':return args[0]-args[1]
             if op=='len':return len(args[0])
-            if op=='index':return args[0][args[1]]
+            if op=='index_clamped_or_zero':return args[0][max(0,min(args[1],len(args[0])-1))] if args[0] else 0
             raise AssertionError(op)
         self.assertEqual(evaluate(price,0,[]),0)
         for n,expected in [(-1,10),(0,10),(1,20),(2,30),(3,30),(99,30)]:

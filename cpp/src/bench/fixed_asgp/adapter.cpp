@@ -38,11 +38,11 @@ Json bound(const std::string& name) { return object({{"bound", string(name)}}); 
 Json call(const std::string& signature, std::vector<Json> args) {
   return object({{"signature", string(signature)}, {"args", array(std::move(args))}});
 }
-Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::TaskSpec& spec, const std::string& phase, bool guarded_index, bool nonnegative_index, bool primitive_letter, bool inline_stock) {
+Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::TaskSpec& spec, const std::string& phase, bool guarded_index, bool nonnegative_index, bool primitive_letter, bool inline_stock, bool compact_stock) {
   using K = asgp::NodeKind;
   const auto node = expr.at(at++);
   std::vector<Json> args;
-  for (int k=0; k<asgp::Arity(node.kind); ++k) args.push_back(expression(expr, at, dp, spec, phase, guarded_index, nonnegative_index, primitive_letter, inline_stock));
+  for (int k=0; k<asgp::Arity(node.kind); ++k) args.push_back(expression(expr, at, dp, spec, phase, guarded_index, nonnegative_index, primitive_letter, inline_stock, compact_stock));
   switch (node.kind) {
     case K::kIntConst: case K::kCharConst: return constant(node.value);
     case K::kInputScalar: return bound("scalar" + std::to_string(node.op));
@@ -66,6 +66,7 @@ Json expression(const asgp::Expr& expr, std::size_t& at, bool dp, const asgp::Ta
     case K::kStateValue: {
       if(spec.id=="stock_with_cooldown") {
         if(!inline_stock)return bound("source_v");
+        if(compact_stock)return call("index_clamped_or_zero(IntList,Int)->Int",{bound("xs"),bound("n")});
         const auto length=call("len(IntList)->Int",{bound("xs")});
         const auto index=call("min(Int,Int)->Int",{call("sub(Int,Int)->Int",{length,constant(1)}),
           call("max(Int,Int)->Int",{bound("n"),constant(0)})});
@@ -198,7 +199,7 @@ Json task_contract(const std::string& name) {
     {"source_max_phase_depth",number(7)},{"native_max_nodes",number(1024)},{"native_max_depth",number(48)}});
 }
 
-Json translated_root(const asgp::Individual& individual, const std::string& name, bool guarded_index, bool nonnegative_index, bool primitive_letter, bool inline_stock) {
+Json translated_root(const asgp::Individual& individual, const std::string& name, bool guarded_index, bool nonnegative_index, bool primitive_letter, bool inline_stock, bool compact_stock) {
   static std::map<std::string,asgp::TaskSpec> specs;
   auto it=specs.find(name);if(it==specs.end())it=specs.emplace(name,task(name)).first;
   const auto& spec=it->second;
@@ -209,7 +210,7 @@ Json translated_root(const asgp::Individual& individual, const std::string& name
                                            : std::vector<std::string>{"solve", "divide", "combine"};
   for (std::size_t p=0; p<names.size(); ++p) {
     std::size_t at=0;
-    holes.object_v[names[p]]=expression(individual.phases[p], at, dp, spec, p==0?"Solve":dp?"Transition":p==1?"Divide":"Combine", guarded_index, nonnegative_index, primitive_letter, inline_stock);
+    holes.object_v[names[p]]=expression(individual.phases[p], at, dp, spec, p==0?"Solve":dp?"Transition":p==1?"Divide":"Combine", guarded_index, nonnegative_index, primitive_letter, inline_stock, compact_stock);
     if (at != individual.phases[p].size()) throw std::runtime_error("trailing ASGP nodes");
   }
   return object({{"template", string(dp ? (name=="house_robber" ? "Fixed.HouseRobber" : "Fixed.DP."+name) :
@@ -224,7 +225,7 @@ gagp::evo::ProgramGenome translate(const asgp::Individual& individual, const std
     return row.object_v.at("id").string_v == "Root";
   });
   bool guarded_index=false,nonnegative_index=false,primitive_letter=false;
-  bool inline_stock=name=="stock_with_cooldown";
+  bool inline_stock=name=="stock_with_cooldown",compact_stock=false;
   // Historical frozen Stock templates bind eager setup locals. New source
   // templates compute the same clamped values only at their source use sites.
   if(inline_stock)for(const auto& t:doc.object_v.at("templates").array_v)
@@ -236,12 +237,13 @@ gagp::evo::ProgramGenome translate(const asgp::Individual& individual, const std
   for(const auto& nt:nonterminals)for(const auto& alt:nt.object_v.at("alternatives").array_v) {
     const auto& expr=alt.object_v.at("expression");
     const auto signature=expr.object_v.find("signature");
+    if(signature!=expr.object_v.end() && signature->second.string_v=="index_clamped_or_zero(IntList,Int)->Int")compact_stock=true;
     if(signature!=expr.object_v.end() && signature->second.string_v=="is_letter(Int)->Bool")primitive_letter=true;
     if(signature!=expr.object_v.end() && signature->second.string_v=="index_nonnegative(IntList,Int)->Int")nonnegative_index=true;
     if(signature!=expr.object_v.end() && (signature->second.string_v=="trunc_div0(Int,Int)->Int" ||
         signature->second.string_v=="trunc_mod0(Int,Int)->Int"))guarded_index=true;
   }
-  root.object_v.at("alternatives").array_v.front().object_v["expression"]=translated_root(individual, name, guarded_index, nonnegative_index, primitive_letter, inline_stock);
+  root.object_v.at("alternatives").array_v.front().object_v["expression"]=translated_root(individual, name, guarded_index, nonnegative_index, primitive_letter, inline_stock, compact_stock);
   doc.object_v["nonterminals"]=array({root});
   const auto exact=gg::compile_grammar(gg::parse_definition(gg::canonical_json(doc)));
   auto genome=gg::generate_derivation(exact, 0).genome;

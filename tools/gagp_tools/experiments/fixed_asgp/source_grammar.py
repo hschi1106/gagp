@@ -69,11 +69,7 @@ def definition(root: Path, task: str, contract: dict) -> dict:
                         coordinate=bound('n' if contract['dp_value_at']==1 else 'j')
                         offset=contract['dp_value_offset']
                         if task=='stock_with_cooldown':
-                            length=call('len(IntList)->Int',bound('xs'))
-                            index=call('min(Int,Int)->Int',call('sub(Int,Int)->Int',length,constant(1)),
-                                call('max(Int,Int)->Int',bound('n'),constant(0)))
-                            e=call('if(Bool,Int,Int)->Int',call('eq(Int,Int)->Bool',length,constant(0)),
-                                constant(0),call('index(IntList,Int)->Int',bound('xs'),index))
+                            e=call('index_clamped_or_zero(IntList,Int)->Int',bound('xs'),bound('n'))
                         else:e=call('index(IntList,Int)->Int',bound('xs'),coordinate) if task=='subregion_sum' else call('index(IntList,Int)->Int',bound('xs'),call('min(Int,Int)->Int',call('sub(Int,Int)->Int',call('len(IntList)->Int',bound('xs')),constant(1)),call('max(Int,Int)->Int',call('add(Int,Int)->Int',coordinate,constant(offset)),constant(0))))
                     elif kind==11:e=call('not(Bool)->Bool',*args)
                     elif kind==12:e=call('is_letter(Int)->Bool',*args)

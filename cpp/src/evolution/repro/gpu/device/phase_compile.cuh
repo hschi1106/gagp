@@ -77,7 +77,7 @@ __device__ inline ValueTag operation_type(const PhaseTreeNode& node, const Value
     case BuiltinId::Singleton: return node.arity==1 && args[0]==integer ? list : ValueTag::Invalid;
     case BuiltinId::Concat: return node.arity==2 && args[0]==list && args[1]==list ? list : ValueTag::Invalid;
     case BuiltinId::Len: return node.arity==1 && args[0]==list ? integer : ValueTag::Invalid;
-    case BuiltinId::IndexNonnegative: case BuiltinId::Index: return node.arity==2 && args[0]==list && args[1]==integer ? integer : ValueTag::Invalid;
+    case BuiltinId::IndexClampedOrZero: case BuiltinId::IndexNonnegative: case BuiltinId::Index: return node.arity==2 && args[0]==list && args[1]==integer ? integer : ValueTag::Invalid;
     case BuiltinId::Slice: return node.arity==3 && args[0]==list && args[1]==integer && args[2]==integer ? list : ValueTag::Invalid;
     default: return ValueTag::Invalid;
   }
