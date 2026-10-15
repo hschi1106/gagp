@@ -3,7 +3,8 @@
 This opt-in search profile limits each ASGP-derived phase to seven source
 productions on any root-to-leaf path. It does not change grammar membership,
 runtime fuel, evaluation, production identities, nonterminal compatibility, or
-operator sampling. Physical node/depth limits remain additional constraints.
+operator selection policy. Feasible donors, rejection decisions and RNG trajectories
+change under the additional cap. Physical node/depth limits remain additional constraints.
 A known solution outside the search cap remains a valid runtime/grammar witness;
 in particular Scrabble's depth-16 witness is not evidence of cap-seven admission.
 
@@ -70,3 +71,9 @@ populations rather than weakening equality or adding a larger charge. Together
 with the two tuple certificate failures, six tasks are unsupported. Evidence,
 source hashes, executable hashes, and per-task commands are recorded in
 [`parent-gate.json`](../../benchmarks/fixed_asgp/optimization/results/source-depth-20261015/parent-gate.json).
+
+The benchmark includes profile configuration and its canonical resource-invariance
+certification inside `evolve_wall_ms`. Initial experimental records before the
+timing-boundary correction remain quality evidence only; rerun timings before
+claiming profile speedups. External frozen-input translation and independent
+post-search CPU audits remain separately reported under the existing boundary.

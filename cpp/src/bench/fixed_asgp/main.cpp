@@ -271,8 +271,8 @@ Json measure_gagp(const std::vector<gagp::evo::ProgramGenome>& population,
   cfg.selection_pressure=2;
   cfg.mutation_rate=.3; cfg.mutation_subtree_prob=1;
   cfg.skip_final_eval=true; cfg.retain_final_population=false;
-  configure_source_depth(cfg);
   const auto call_begin=std::chrono::steady_clock::now();
+  configure_source_depth(cfg);
   const auto result=gagp::evo::evolve_population(cases,cfg,&population);
   const double evolve_wall_ms=std::chrono::duration<double,std::milli>(
       std::chrono::steady_clock::now()-call_begin).count();
@@ -476,8 +476,8 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   validate_aligned_penalty(cfg.penalty);
   cfg.elite_count=std::getenv("GAGP_BM_ALIGNED_FITNESS") ? 1 : 0;
   cfg.mutation_rate=.3; cfg.mutation_subtree_prob=1; cfg.skip_final_eval=false; cfg.retain_final_population=true;
-  configure_source_depth(cfg);
   const auto call_begin=std::chrono::steady_clock::now();
+  configure_source_depth(cfg);
   const auto result=gagp::evo::evolve_population(cases,cfg,&population);
   const double evolve_wall_ms=std::chrono::duration<double,std::milli>(
       std::chrono::steady_clock::now()-call_begin).count();
