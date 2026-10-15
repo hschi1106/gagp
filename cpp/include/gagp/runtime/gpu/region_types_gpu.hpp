@@ -92,8 +92,6 @@ struct DRegionWorkspace {
   char* payload_string_bytes = nullptr;
   Value* payload_list_values = nullptr;
   int* payload_list_index = nullptr;
-  // IndexedArena only: 1 = lane-contiguous; 32 = interleaved physical lanes.
-  int payload_list_index_stride = 1;
   bool payload_window_aliases = false;
   bool fused_list_concat = false;
   bool small_int_hash = false;

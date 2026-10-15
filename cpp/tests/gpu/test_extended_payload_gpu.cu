@@ -320,53 +320,6 @@ __global__ void inspect_private_list_index(gpu_detail::DIndexedExtendedPayloadSt
 
 }
 
-// Two physical blocks catch cross-block and cross-lane address overlap.
-__global__ void inspect_transposed_private_index(int* indices,
-    gpu_detail::DListPayloadEntry* entries,int stride,int* failures) {
-  using namespace gpu_detail;
-  constexpr int capacity=16,entry_capacity=8;
-  const int lane=blockIdx.x*32+threadIdx.x;
-  DIndexedArenaPayloadState state;
-  state.list_index_capacity=capacity;state.list_index_stride=stride;
-  state.list_index=indices+(stride==32?blockIdx.x*32*capacity+threadIdx.x:lane*capacity);
-  state.list_entries=entries+lane*entry_capacity;state.list_entry_capacity=entry_capacity;
-  for(int i=0;i<capacity;++i)state.list_index[i*stride]=0;
-  // Deliberately collide three distinct keys; lane-specific identities expose
-  // aliasing even if adjacent lanes happen to follow the same instructions.
-  Value keys[3];int count=0;
-  for(unsigned hash=lane*10000+1;count<3;++hash) {
-    const auto key=d_make_list_hash_len(ValueTag::IntList,hash,1);
-    if(d_private_list_bucket(key,capacity)==0)keys[count++]=key;
-  }
-  failures[lane]=0;
-  for(int i=0;i<3;++i)if(!d_register_local_list(state,keys[i],i,1))failures[lane]=1;
-  if(!d_register_local_list(state,keys[0],7,1) || d_find_local_list_entry(state,keys[0])!=0)failures[lane]=2;
-  state.logical_list_limit=65536;
-  if(!d_register_local_list(state,keys[0],6,1) || state.list_entry_count!=4)failures[lane]=3;
-  d_restore_local_list_entries(state,2);
-  if(d_find_local_list_entry(state,keys[0])!=0 || d_find_local_list_entry(state,keys[1])!=1 ||
-      d_find_local_list_entry(state,keys[2])!=-1)failures[lane]=4;
-  if(!d_register_local_list(state,keys[2],2,1) || d_find_local_list_entry(state,keys[2])!=2)failures[lane]=5;
-  d_restore_local_list_entries(state,0);
-  for(int i=0;i<capacity;++i)if(state.list_index[i*stride]!=0)failures[lane]=6;
-}
-
-bool test_transposed_private_index() {
-  int* indices=nullptr;int* failures=nullptr;gpu_detail::DListPayloadEntry* entries=nullptr;
-  if(cudaMallocManaged(&indices,sizeof(int)*(64*16+2))!=cudaSuccess)return false;
-  if(cudaMallocManaged(&failures,sizeof(int)*64)!=cudaSuccess){cudaFree(indices);return false;}
-  if(cudaMallocManaged(&entries,sizeof(*entries)*64*8)!=cudaSuccess){cudaFree(indices);cudaFree(failures);return false;}
-  bool ok=true;
-  for(int stride:{1,32}) {
-    std::fill(indices,indices+64*16+2,719);
-    inspect_transposed_private_index<<<2,32>>>(indices+1,entries,stride,failures);
-    if(cudaDeviceSynchronize()!=cudaSuccess){ok=false;break;}
-    ok=check(indices[0]==719 && indices[64*16+1]==719,"transposed index allocation bounds") && ok;
-    for(int lane=0;lane<64;++lane)ok=check(failures[lane]==0,"transposed index collision/duplicate/rollback") && ok;
-  }
-  cudaFree(indices);cudaFree(failures);cudaFree(entries);return ok;
-}
-
 bool test_scalar_region_index_rollback() {
   // A scalar region creates [7], then drops its payload. Recreate [7] outside
   // the region and create [9] before reading it. A stale index wrongly dedups
@@ -904,23 +857,11 @@ bool test_adaptive_replay() {
   return test_tiled_replay_entry_growth();
 }
 
-bool test_transposed_index_fitness() {
-  ScopedEnvironment restore_transpose("GAGP_GPU_TRANSPOSE_PAYLOAD_INDEX"),
-      restore_global("GAGP_GPU_GLOBAL_PAYLOAD");
-  for(const char* enabled:{"0","1"}) {
-    setenv("GAGP_GPU_TRANSPOSE_PAYLOAD_INDEX",enabled,1);
-    setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
-    if(!test_extended_list_fitness() || !test_scalar_region_index_rollback() ||
-        !test_tiled_replay_entry_growth() || !test_global_payload_program_queue())return false;
-  }
-  return true;
-}
-
 int main() {
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if (!test_transposed_private_index() || !test_transposed_index_fitness() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

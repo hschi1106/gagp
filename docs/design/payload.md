@@ -632,18 +632,3 @@ payload allocation, fuel, and numeric semantics are unchanged. The execution
 profile adds `-small-int-hash`. The extended payload GPU test checks every table
 entry, adjacent bounds, full-width integer patterns, all other tags, typed-list
 Concat errors/capacity/collisions, and full-case CPU fitness with the flag off/on.
-
-`GAGP_GPU_TRANSPOSE_PAYLOAD_INDEX=1` optionally interleaves the IndexedArena
-list-index slots across each worker's 32 physical lanes. A block owns a disjoint
-`[index slot][lane]` slab instead of 32 contiguous per-lane tables. Clearing,
-lookup, insertion, and rollback rebuild use stride 32; IndexedExtended keeps
-stride 1. The initial global evaluator and indexed replay capture the setting
-at evaluation entry. Logical fitness lanes (including 33 and 512) do not affect
-the storage layout. The arena allocator still reserves exactly the same number
-of index bytes under the configured scratch cap. Registry order, duplicate
-identity, probing, payload values, logical charges, and fuel are unchanged.
-The default is off. Actual indexed arena execution adds `-transpose32` to its
-execution profile when enabled; record the option for performance comparisons.
-`gagp_test_extended_payload_gpu` covers two physical blocks of deliberate
-collisions, duplicate handling, rollback/reuse, allocation sentinels, and flag
-off/on CPU fitness parity for full cases, global queues, and entry-growth replay.

@@ -41,7 +41,6 @@ using gpu_detail::DStringPayloadEntry;
 // All buffers are per physical lane; logical lane reduction remains unchanged.
 struct PayloadWorkspaceStorage {
   static constexpr int threads=32;
-  static_assert(threads==32,"transposed payload index requires 32 physical lanes");
   const std::size_t budget;
   explicit PayloadWorkspaceStorage(std::size_t bytes):budget(bytes) {}
   std::vector<void*> allocations;
@@ -711,9 +710,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   // Keep generic frame/memo storage out of ordinary kernel call graphs.
   gpu_detail::DRegionWorkspace region_workspace;
   region_workspace.payload_window_aliases=global_window_aliases;
-  region_workspace.payload_list_index_stride=
-      std::getenv("GAGP_GPU_TRANSPOSE_PAYLOAD_INDEX") &&
-      std::string(std::getenv("GAGP_GPU_TRANSPOSE_PAYLOAD_INDEX"))=="1" ? 32 : 1;
   region_workspace.fused_list_concat=std::getenv("GAGP_GPU_FUSED_LIST_CONCAT") &&
       std::string(std::getenv("GAGP_GPU_FUSED_LIST_CONCAT"))!="0";
   region_workspace.small_int_hash=region_workspace.fused_list_concat &&
@@ -1260,10 +1256,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if(global_window_aliases)out.execution_profile+="-window-aliases";
     if(region_workspace.fused_list_concat && extended_payload)out.execution_profile+="-fused-concat";
     if(region_workspace.small_int_hash && extended_payload)out.execution_profile+="-small-int-hash";
-    if(payload_index && (global_payload || out.payload_replay_programs)) {
-      out.execution_profile+="-list-index";
-      if(region_workspace.payload_list_index_stride==32)out.execution_profile+="-transpose32";
-    }
+    if(payload_index && (global_payload || out.payload_replay_programs))out.execution_profile+="-list-index";
     if(out.payload_replay_programs)out.execution_profile+="-gpu-arena-replay";
     if(tiled_replay && out.payload_replay_programs)out.execution_profile+="-tiled";
     if(adaptive_replay && out.payload_replay_programs)out.execution_profile+="-adaptive";

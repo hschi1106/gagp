@@ -78,13 +78,11 @@ struct DArenaPayloadState {
 struct DIndexedExtendedPayloadState : DExtendedPayloadState {
   static constexpr bool kIndexedLists = true;
   static constexpr int list_index_capacity = 2048;
-  static constexpr int list_index_stride = 1;
   int list_index[list_index_capacity];
 };
 struct DIndexedArenaPayloadState : DArenaPayloadState {
   static constexpr bool kIndexedLists = true;
   int list_index_capacity = 0;
-  int list_index_stride = 1;
   int* list_index = nullptr;
 };
 
@@ -461,7 +459,7 @@ __device__ inline int d_find_local_list_entry(const State& st, const Value& valu
   if constexpr (State::kIndexedLists) {
     unsigned slot=d_private_list_bucket(value,st.list_index_capacity);
     for(int probe=0;probe<st.list_index_capacity;++probe) {
-      const int encoded=st.list_index[slot * st.list_index_stride];
+      const int encoded=st.list_index[slot];
       if(!encoded)return -1;
       const int entry=encoded-1;
       if(st.list_entries[entry].tag==value.tag && st.list_entries[entry].packed==value.i)return entry;
@@ -480,8 +478,8 @@ __device__ inline bool d_index_local_list_entry(State& st, const Value& value, i
   if constexpr (State::kIndexedLists) {
     unsigned slot=d_private_list_bucket(value,st.list_index_capacity);
     for(int probe=0;probe<st.list_index_capacity;++probe) {
-      const int encoded=st.list_index[slot * st.list_index_stride];
-      if(!encoded){st.list_index[slot * st.list_index_stride]=entry+1;return true;}
+      const int encoded=st.list_index[slot];
+      if(!encoded){st.list_index[slot]=entry+1;return true;}
       const auto& first=st.list_entries[encoded-1];
       // Original linear lookup returns the first registration of an identity,
       // including a repeated canonical hash or an immutable input-window alias.
@@ -501,7 +499,7 @@ __device__ inline void d_restore_local_list_entries(State& st, int count) {
   if (st.list_entry_count == count) return;
   st.list_entry_count = count;
   if constexpr (State::kIndexedLists) {
-    for (int i = 0; i < st.list_index_capacity; ++i) st.list_index[i * st.list_index_stride] = 0;
+    for (int i = 0; i < st.list_index_capacity; ++i) st.list_index[i] = 0;
     for (int i = 0; i < count; ++i) {
       const auto& entry = st.list_entries[i];
       Value key;
