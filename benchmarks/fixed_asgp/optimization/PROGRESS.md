@@ -3,7 +3,7 @@
 - 使用者授權完整30題×P1024/2048/4096/8192/16384×G4，可超過1小時。比較ASGP1T／最佳GPU-er-o，CPU1T、完整1024cases，不改runtime／pipeline。
 - Runtime及設定沿用下方d250ac3 checkpoint；binary `logs/list-5x-20261015/pooled16-ten/bench`。準備與矩陣各自新目錄`logs/all30-scaling-20261016/{artifacts,matrix}`，外部launcher等待prepare完成後自動開始measure。原始worktrees／artifacts不改，不push。
 - 最新P1024 GPU30/30完整G4與CPU audit通過；先期歷史分母摘要在`results/scaling-all30-20261016/p1024/`。正式五種P使用各自重新測得ASGP控制，不混用歷史分母。
-- 30/30題新16384source已確認原1024 parents/cases prefix，native prepare全數通過原AST prefix/grammar。正式矩陣已啟動。原16GiB若allocation失敗才明列8／4GiB重試，保留所有failed attempts；其他錯誤不改設定掩蓋。每cell1800s、hostRSS32GiB保護，失敗無speedup。
+- 30/30題新16384source已確認原1024 parents/cases prefix，native prepare全數通過原AST prefix/grammar。正式矩陣P1024/2048/4096的30題皆已完整通過（90/150格），目前進入P8192。原16GiB若allocation失敗才明列8／4GiB重試，保留所有failed attempts；其他錯誤不改設定掩蓋。每cell1800s、hostRSS32GiB保護，失敗無speedup。
 - [執行與恢復入口](results/scaling-all30-20261016/README.md)，runner `results/scaling-all30-20261016/run_matrix.py`。每cell寫manifest／rawlog／JSON；續跑先查launcher與controller，未完成measure用`--resume`。GPU lock仍`/tmp/gagp-support-20261015-gpu.lock`。P16384 Filter先期已見constant node origin preparation item limit（16/8/4GiB皆失敗、不是OOM），僅作support evidence。預計數小時，不因啟動長跑就收尾。
 
 ---
