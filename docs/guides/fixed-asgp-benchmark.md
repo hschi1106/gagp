@@ -1011,3 +1011,17 @@ parents and the known witness before smoke tests, and records
 stages inherit the hashed grammar and profile and reject new weighting overrides.
 Compare quality and full-generation timing against depth24 alone before selecting
 a profile; neither option changes the default.
+
+
+## Complete G4, 30-task scaling verification (2026-10-16)
+
+The separate [scaling check](../../benchmarks/fixed_asgp/optimization/results/scaling-all30-20261016/README.md)
+uses P=1024/2048/4096/8192/16384 with all1024 cases, four complete search generations
+plus final evaluation, CPU1T, ASGP1T and the best native GPU-er-o. It is a single
+cold-process support/timing screen, not the historical fixed-parent scaling suite
+or a precision/quality-equivalence study. Its runner creates new16384-parent
+artifacts, checks the original1024 prefix/cases and grammar, and never prepares
+or overwrites original frozen inputs. Each population gets its own fresh ASGP
+control. Allocation-only retries with8/4GiB scratch are recorded separately from
+the preferred16GiB configuration; failed or unmeasured cells have no speedup.
+Completion belongs to its raw manifests/results, not this planned scope.

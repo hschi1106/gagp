@@ -1,3 +1,13 @@
+# All30 G4 scaling — 2026-10-16（執行中）
+
+- 使用者授權完整30題×P1024/2048/4096/8192/16384×G4，可超過1小時。比較ASGP1T／最佳GPU-er-o，CPU1T、完整1024cases，不改runtime／pipeline。
+- Runtime及設定沿用下方d250ac3 checkpoint；binary `logs/list-5x-20261015/pooled16-ten/bench`。準備與矩陣各自新目錄`logs/all30-scaling-20261016/{artifacts,matrix}`，外部launcher等待prepare完成後自動開始measure。原始worktrees／artifacts不改，不push。
+- 最新P1024 GPU30/30完整G4與CPU audit通過；先期歷史分母摘要在`results/scaling-all30-20261016/p1024/`。正式五種P使用各自重新測得ASGP控制，不混用歷史分母。
+- 新16384source確認原1024 parents/cases prefix；native prepare確認原AST prefix/grammar，全部新檔。原16GiB若allocation失敗才明列8／4GiB重試，保留所有failed attempts；其他錯誤不改設定掩蓋。每cell1800s、hostRSS32GiB保護，失敗無speedup。
+- [執行與恢復入口](results/scaling-all30-20261016/README.md)，runner `results/scaling-all30-20261016/run_matrix.py`。每cell寫manifest／rawlog／JSON；續跑先查launcher與controller，未完成measure用`--resume`。GPU lock仍`/tmp/gagp-support-20261015-gpu.lock`。預計數小時，不因啟動長跑就收尾。
+
+---
+
 # List／sequence 優化 checkpoint — 2026-10-15–16
 
 - 範圍：10×伸展目標、5×里程碑；CPU 1T＋GPU、原生五種模式、P1024／完整1024 cases／G4＋final eval。分母沿用各題 frozen ASGP 1T G4。沒有 sampling、solver、CPU fragment reproduction 或本輪新的 RNG／operator／fuel／數值變更。未 push、未使用 NCU、未跑高成本全30題／scaling精確矩陣；原始 worktree／frozen inputs／歷史結果未改。

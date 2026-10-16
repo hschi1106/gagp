@@ -1,0 +1,23 @@
+# ASGP 1T / GPU-er-o：30題完整G4 scaling檢查
+
+固定CPU1T、完整1024cases、seed0、四代與最後評估，沿用`evolve_wall_ms`。P=1024/2048/4096/8192/16384，每格單次cold process；不是精確重複矩陣或品質等價證明。GPU測試依序，ASGP controls也依序，不與offline preparation搶CPU。
+
+Runtime binary：`logs/list-5x-20261015/pooled16-ten/bench`（source b1760de，production b568c7e）。設定：上一輪`settings-workspace-pool16.json`，一個application CPU thread。先測16GiB；只有allocation failure才明列重試8／4GiB，不減population、cases或世代。每次attempt保存獨立log／JSON，不把失敗時間當有效speedup。重試是外部重新設定後的獨立run，不是假裝已包含失敗成本的自動fallback。
+
+以固定ASGP seed產生新的16384-parent source，驗證前1024parents及全部cases對舊frozen artifact一致。新的native preparation驗證原1024 AST prefix及grammar hash；所有準備只寫新目錄。各P使用同一大artifact的prefix，不複製1024個體來填滿大population。
+
+P1024已用最佳binary重跑全部30題GPU；這批有效GPU runs在正式矩陣中可依binary／settings／inputs hash重用。正式矩陣的五種P均重新測同P的ASGP1T control，不能拿歷史P1024分母套到其他P。`p1024/`只保留先期使用歷史分母的結果，不是最終scaling表。
+
+```bash
+PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all30-20261016/run_matrix.py prepare \
+  --out logs/all30-scaling-20261016/artifacts
+PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all30-20261016/run_matrix.py measure \
+  --out logs/all30-scaling-20261016/matrix \
+  --artifacts logs/all30-scaling-20261016/artifacts
+```
+
+恢復同一階段：原命令加`--resume`。先確認沒有同階段controller仍在執行；新版runner有controller flock，拒絕重複啟動。prepare最初執行版另存`logs/all30-scaling-20261016/prepare-runner-v1.py`，只是少了後來新增的controller lock與measure恢復保護，準備內容／驗證不變。
+
+Raw狀態：`logs/all30-scaling-20261016/{artifacts,matrix}/manifest.json`。本輪outer launcher等待原prepare PID退出，確認30題完成後自動進入matrix；記錄於`logs/all30-scaling-20261016/launcher.json`。中斷後若matrix尚未開始，依上述第二條命令啟動；已存在則加`--resume`。所有完整結果落盤後再產生最終CSV／報告；計畫中的表格不表示已完成。
+
+每cell1800s process limit、32GiB外部hostRSS保護；timeout／memory limit／OOM／admission failure／CPU audit mismatch明列，不產生合格speedup。完整Search含必要內部materialization／清理，CLI解析與export／獨立CPU audit依原邊界另列process成本。保留原有ASGP／GAGP搜尋契約差異，不宣稱grammar language／RNG／演化軌跡完全相同。
