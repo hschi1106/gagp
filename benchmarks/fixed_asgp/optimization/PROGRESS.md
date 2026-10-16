@@ -1,11 +1,12 @@
-# 全題統一2048-node容量驗證 — 2026-10-16（執行中）
+# 全題統一2048-node容量驗證 — 2026-10-16（完成）
 
 - 使用者要求統一放寬限制。新增benchmark `native_nodes`／`--native-nodes`，預設1024不變；新設定全30題統一whole-AST2048/depth24，ASGP phase depth7不變，GPU每phase1024節點、12GiB genotype guard與16GiB workspace保留。
 - GPU layout不再把整體budget與單phase allocation混為同一上限；compacted code/constants依整體variable node budget檢查。Cold import明確拒絕超過1024節點的phase。新增>1024整體AST的四代GPU reproduction＋獨立CPU fitness核對，較小whole-budget與單phase容量拒絕均有覆蓋；既有32代GPU回歸通過135.06s。工具116項通過（4 skips）、repository24通過；其餘130項native通過105.98s（總計131/131）。
 - 實際pilot揭露evolve在嘗試phase owner之前先執行generic1024-node preflight，已改為phase admission後才在fallback建立generic resources，保留generic硬限制與payload roots。另修正mutation donor須同時符合剩餘whole budget及destination phase容量；公共evolve入口、generic負向測試及大AST CPU/GPU audit均通過，完整native131/131再次PASS（239.39s）。先期失敗與舊binary保留。
-- 正式runtime凍結`12c6849`，`logs/nodes2048-searches-20261016/` controller PID2919789（metadata/log同prefix），先等待離線準備完成；不要重複啟動。準備資料在`logs/nodes2048-20261016/`，controller PID2912511，其舊pilot失敗不作正式速度／顯存證據。恢復時先讀兩份manifest及PID；`/tmp/gagp-nodes2048-combined-status.py`可查兩階段狀態。所有30題完整實跑結束前不收尾。
-- 最新要求全30題都能完整執行；`run_searches.py`將在離線準備全部結束後，用同一新binary逐題跑P16384/C1024/G4＋全最終population CPU fitness audit。保持16GiB，不以CPU reproduction或較小workspace替代；成功與限制均按實際結果記錄。
-- [本輪入口與範圍](results/nodes2048-20261016/README.md)。所有新grammar只改max_nodes；初始source/cases不變，不替換個體。預計驗證全30題16384初始admission、House五模式P8/G2及P16384/G4＋全量CPU audit。舊1024-node完整矩陣與失敗紀錄保留，不以新budget單格補進舊主表。
+- 正式runtime凍結`12c6849`；同一新binary完成全30題P16384/C1024/G4＋final evaluation，30/30成功。每題全部16384個最終個體的CPU fitness audit均0 mismatch，四代unscored=0；仍使用GPU繁殖與16GiB workspace。House五模式P8/G2亦5/5通過。兩個controller皆已退出，沒有背景benchmark工作。
+- 24GiB RTX3090整卡NVML每200ms取樣峰值21.2978GiB（含桌面，可能漏掉短尖峰）。跨題倍率中位數14.38×、幾何平均10.12×，28/30題快於ASGP；每題單次cold process，非精確重複量測或收斂等價證明。House為17.27×、10.56GiB，最終最大AST1115，確實驗證大於舊1024上限的GPU演化。
+- 全30題16384初始admission通過；所有新grammar只改max_nodes，初始source/cases不變，不替換個體。29題完整初始AST與舊artifact相同，House前8192個體相同。準備資料及舊pilot失敗保留在`logs/nodes2048-20261016/`；正式raw、不可變binary、硬體及取樣在`logs/nodes2048-searches-20261016/`。通過指完整執行與fitness核對，不表示全部隨機程式正確或全部題目已解出。
+- [完整中文報告](results/nodes2048-20261016/final/REPORT.zh-TW.md)、[互動表](results/nodes2048-20261016/final/dashboard.html)、[原始秒數與counters](results/nodes2048-20261016/final/cells.csv)、[重現入口](results/nodes2048-20261016/README.md)。本輪新設定只重測最大P的30格；舊1024-node完整150格矩陣與失敗紀錄保留，不以新budget單格補進舊主表。工作區仍為`gagp-support-20261015`／branch `opt/list-output-5x-20261015`，變更只在本地、未push。
 
 ---
 
