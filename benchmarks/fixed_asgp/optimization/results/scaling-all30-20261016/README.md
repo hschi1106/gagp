@@ -1,4 +1,12 @@
-# ASGP 1T / GPU-er-o：30題完整G4 scaling檢查
+# ASGP 1T / GPU-er-o：30題完整G4 scaling（已完成）
+
+目前主表是 [固定16GiB完整結果](final-same16/REPORT.zh-TW.md)：150格全部量測結束，149/150 GPU成功且有合格倍率。P1024/2048/4096/8192均30/30；P16384為29/30，全部最終16384個體的完整1024cases CPU fitness audit均0 mismatch。RTX3090 24GiB整卡取樣峰值21.27GiB。唯一限制是House Robber frozen parent index8603的1086 AST nodes超過固定1024 node budget，未進入GPU，不計倍率。
+
+所有GPU正式時間使用runtime `356bc55`的同一binary、16GiB workspace、CPU1T、seed0、完整1024cases、四代與最後評分。ASGP使用同population的實測控制組（121個經hash驗證重用，29個P16384另測）。[CSV](final-same16/cells.csv)、[逐代資料](final-same16/generations.csv)、[互動表](final-same16/dashboard.html)、[來源與雜湊](final-same16/provenance.json)一併保存。單次cold process用於支援與粗略速度檢查，不代表精確速度或收斂等價；搜尋契約差異仍保留。
+
+當前重現入口是下方「更新後的固定16GiB主矩陣」的`run_same16.py`。原始資料在`logs/all30-scaling-20261016/same16/`，controller已退出。`final-same16/`取代舊的`final/`及`final-selected/`作主結論；下面的先期流程、失敗與較小workspace補測均保留為歷史。
+
+## 先期流程與容量診斷（歷史）
 
 固定CPU1T、完整1024cases、seed0、四代與最後評估，沿用`evolve_wall_ms`。P=1024/2048/4096/8192/16384，每格單次cold process；不是精確重複矩陣或品質等價證明。GPU測試依序，ASGP controls也依序，不與offline preparation搶CPU。
 
@@ -33,7 +41,7 @@ PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all3
 
 `cells.csv`含每題／P的status、ASGP及GPU秒數、ratio、實際workspace及fitness／case counters；`generations.csv`保留逐代原始資訊。失敗或pending一律不計ratio。報表以真實完成JSON與真實constant-preparation-limit失敗log做過工具檢查。圖中文字用英文。
 
-已知先期P16384 Filter容量檢查：16／8／4GiB都在演化前觸發constant node origin preparation item limit；不是已證實VRAM OOM。此probe與offline preparation可能重疊，只是support evidence，其時間不重用於正式矩陣。Runtime安全上限維持原樣，正式矩陣會重新記錄此失敗。
+已知先期P16384 Filter容量檢查：16／8／4GiB都在演化前觸發constant node origin preparation item limit；不是已證實VRAM OOM。此probe與offline preparation可能重疊，只是support evidence，其時間不重用於正式矩陣。Runtime安全上限維持原樣，該階段的正式matrix也保留此失敗；後續修復與新主表見下文。
 
 ### P8192 launch failure診斷與獨立容量設定
 
@@ -53,7 +61,7 @@ PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all3
 
 報表保留`gpu_original_status`／`gpu_original_log`與實際workspace，原始matrix不受覆寫。
 
-`p1024-current/`與`p8192-checkpoint/`是執行中快照，包含尚未完成的pending欄位，僅供歷史／恢復；最終以`final-selected/`為準，並同時保留原16GiB矩陣`final/`。
+`p1024-current/`與`p8192-checkpoint/`是執行中快照，包含尚未完成的pending欄位，僅供歷史／恢復；當時合併表為`final-selected/`，原16GiB矩陣為`final/`；目前主表已改為`final-same16/`。
 
 
 ### 更新後的固定16GiB主矩陣
@@ -79,16 +87,15 @@ CPU audit，並與舊版本有效資料比較全部輸出AST、fitness及semanti
 用量，含桌面背景，並非精確的process-only峰值。
 
 新原始資料`logs/all30-scaling-20261016/same16/`；launcher及log為
-`same16-controller.json`／`same16-controller.log`。主表完成後以`report.py --matrix`
+`same16-controller.json`／`same16-controller.log`。主表以`report.py --matrix`
 指向`same16/`，不傳`--capacity-results`。此表取代不同workspace合併表作主結論；
 原matrix、失敗及8GiB補測仍保留。
 
 `same16-p8192-checkpoint/` 是新binary固定16GiB的前120格快照，P16384仍pending；
 含CSV、逐代資料、靜態英文圖及可獨立開啟的 `dashboard.html`。互動表可切換倍率、
-ASGP/GAGP秒數與顯存，點格查看CPU audit範圍及完整cases counters。最終以全部格子
-完成後的新報表為準。
+ASGP/GAGP秒數與顯存，點格查看CPU audit範圍及完整cases counters。最終以 `final-same16/` 為準。
 
-全部150格完成後，以 `PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all30-20261016/finish_same16.py` 產生 `final-same16/`，含中文完整表、統計、圖、互動頁與來源／硬體快照。這個入口會拒絕未完成或尚未量測的格子，已有最終資料夾時也不覆寫。
+全部150格已完成，`PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all30-20261016/finish_same16.py` 已產生 `final-same16/`，含中文完整表、統計、圖、互動頁與來源／硬體快照。這個入口會拒絕未完成或尚未量測的格子，已有最終資料夾時也不覆寫。
 
 ### House Robber P16384的admission更正
 

@@ -203,7 +203,7 @@ h2{font-size:21px;line-height:1.35;margin:0 0 8px}p{margin:8px 0;color:var(--mut
 .scroll{overflow:auto}table{border-collapse:collapse;width:100%;min-width:615px;font-size:12px;font-variant-numeric:tabular-nums}th,td{border-bottom:1px solid var(--border,#dce1e8);padding:8px 5px;text-align:center}th:first-child,td:first-child{text-align:left;max-width:210px}thead{color:var(--muted-foreground,#657184)}
 .cell{width:100%;border:0;padding:5px 2px;font:inherit;font-weight:600;cursor:pointer;border-radius:5px;background:color-mix(in srgb,#168468 10%,transparent);color:var(--foreground,#182334)}.cell.slow{background:color-mix(in srgb,#cc6c30 15%,transparent)}.cell.failed{background:var(--card,#f4f6f9);font-weight:400}.cell:focus-visible{outline:2px solid #168468;outline-offset:2px}.cell:hover{outline:1px solid #168468}
 .detail{margin:18px 0;padding:16px;background:var(--card,#f4f6f9);border-radius:var(--radius,10px)}.detail h3{margin:0 0 10px;font-size:15px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.grid div{min-width:0}.grid small{display:block;color:var(--muted-foreground,#657184);font-size:11px}.grid b{font-size:14px;font-variant-numeric:tabular-nums}.note{font-size:12px;margin-top:16px}
-@media(max-width:450px){.stats{gap:6px}.stat{padding:16px 10px}.stat b{font-size:19px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}h2{font-size:19px}}
+@media(max-width:450px){.stats{gap:6px}.stat{padding:16px}.stat b{font-size:19px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}h2{font-size:19px}}
 </style>
 <h2>30 題 × 5 種 population · 固定 16 GiB</h2>
 <p>ASGP 1T / GAGP GPU-er-o；1024 cases、四代＋最後評分。倍率越大代表 GAGP 越快。</p>

@@ -72,7 +72,7 @@ failed = [r for r in rows if r['gpu_status'] != 'ok' or r['asgp_status'] != 'ok'
 lines += ['', '## 執行限制與驗證範圍', '']
 if failed:
     for row in failed:
-        lines.append(f'- {row["task"]} P={row["population"]}：GPU {row["gpu_status"]}、ASGP {row["asgp_status"]}；{row.get("gpu_reason") or "原始log見CSV／manifest"}。沒有合格倍率。')
+        lines.append(f'- {row["task"]} P={row["population"]}：GPU {row["gpu_status"]}、ASGP {row["asgp_status"]}；{(row.get("gpu_reason") or "原始log見CSV／manifest").rstrip("。")}。沒有合格倍率。')
 else:
     lines += ['這組固定資料、設定與四代測試中，五種population的30題全部正常完成，未觸發OOM、整格執行timeout、preparation limit或CPU fitness mismatch。']
 lines += ['',

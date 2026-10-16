@@ -1,0 +1,23 @@
+{
+  "format": "same16-initial-admission-evidence-v1",
+  "binary_sha256": "2170bb7dba9af579fc89480df22681adbc4b7d4e3e4f598e858b0a8422ffe8cb",
+  "entries": {
+    "house_robber.p16384": {
+      "status": "initial_admission_limit",
+      "parent_index_zero_based": 8603,
+      "translated_ast_nodes": 1086,
+      "configured_search_limits": {
+        "max_nodes": 1024,
+        "max_depth": 24
+      },
+      "reason": "初始 frozen parent index8603 轉譯為1086個AST節點，超過固定max_nodes=1024（depth24）。只放寬depth至48仍失敗；nodes4096/depth24僅用於離線診斷，未用於主表。這是admission限制，尚未進入GPU。",
+      "inputs": {
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all30-scaling-20261016/artifacts/house_robber/source16384.a0.json": "7c87f35ddef7cdebb993ba8790adff462a6e106f96a7d24d57a0642e20c353a8",
+        "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all-task-repair-20261015/support-balanced/house_robber/grammar.json": "cca247a8771f41b423eab4fdd483ac5d470a0bb83e9e69fdc1e3b8e64d939d5d"
+      },
+      "log": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all30-scaling-20261016/artifacts/house_robber.prepare16384.a0.log",
+      "diagnostic_dir": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/all30-scaling-20261016/house-admission-diagnostic",
+      "diagnostic_only": true
+    }
+  }
+}

@@ -1,20 +1,12 @@
-# 同16GiB容量恢復 — 2026-10-16（執行中）
+# 固定16GiB完整scaling完成 — 2026-10-16
 
-- T3更新後恢復到原工作區 `gagp-support-20261015`、checkpoint `047aa84`；初始UI工作區 `t3code-63ba5a62` 是較早的分支，未改動。
-- 使用者新要求：先驗證正確性與24GB顯卡的可執行性，全部population維持16GiB設定，無法執行明列限制。原矩陣、16GiB失敗及8GiB補測全部保留為歷史；新主表不混用8GiB時間。
-- 原runtime的native phase population硬上限8192使16384轉入generic path並觸發constant metadata 100萬項上限。候選將phase owner擴到16384，仍保留12GiB genotype guard；按記憶體估算分階段配置repro暫存與eval scratch，不變更RNG、搜尋參數、個體/案例數、fuel或16GiB scratch上限。
-- 候選完整build通過；新增32代 staged/resident、in-place/out-of-place、private-list/window及CPU fitness checks所在 `gagp_test_gpu_phase_population` 通過（136.57s）。其餘native130 tests也全通過（合計131/131）；tools115 tests（4 skips）、repository24 checks通過。
-- Filter16384先期正確性probe已完成G4+final eval，顯存取樣峰值21766MiB（device total，含桌面）；CPU1T對全部16384個最終個體/1024cases audit通過（0 mismatch，316.09s）。此probe與build重疊，時間不作正式speedup。
-- 新runner `results/scaling-all30-20261016/run_same16.py`；新資料 `logs/all30-scaling-20261016/same16-probe/`。正式矩陣已啟動，controller PID 2880162，source `356bc55`；用同一候選binary重測全部150個GPU cells，重用完全相同inputs/settings且ASGP邏輯未變的既有同P controls，剩餘controls重新量測。P16384全最終population CPU audit在evolve wall time之外。較小P也比較完整輸出AST、fitness與semantic/operator traces（8GiB舊資料只作語意比對、不取其時間）。
-
-- 固定16GiB的新主矩陣P1024/2048/4096/8192全部30/30通過，120個完整AST/fitness/semantic/operator比對通過；先前九筆8GiB補測題也全在16GiB通過。快照 `results/scaling-all30-20261016/same16-p8192-checkpoint/` 明列P16384 pending。正式Filter16384已完成G4，仍在全量CPU audit，未把先期probe時間取代正式結果。
-- 報表已檢查120合格/150總格與固定workspace16384MiB；互動HTML在728px light與360px dark預覽無console error，task filter/cell details/metric switch/reset檢查通過。`report.py`同時輸出CSV、英文PNG/PDF、中文互動表；仍需完成正式P16384及其ASGP controls。
-
-- 正式P16384 Filter／Sum／IsSorted／Index四題的全部16384個最終個體CPU fitness audit均0 mismatch；GPU完整驗證累計124/150格，配對121/150（其餘P16384 ASGP controls在GPU階段後補齊）。Filter正式13.5099s／13.8966×、device-total peak21.2559GiB；IsSorted87.0760s，CPU全量audit707.73s、peak21.2734GiB。AllEqual進行中。
-- 完成入口`finish_same16.py`已確認未完成矩陣會拒絕出版；它在所有格子完成後才產生中文全文、統計與來源快照。
-
-- GPU階段完成：149/150合格執行；P16384為29/30，全部29題全最終population CPU fitness audit0 mismatch。House Robber的原16K prepare早已在parent index8603失敗（1086nodes>max1024；depth24不是原因）；先前將30個prepare任務complete誤當全部admission通過，已更正。這一格保留None輸入失敗的原attempt，以source/grammar/binary hash連結原prepare log正確分類initial_admission_limit；不使用離線放寬node budget診斷的資料計時。
-- P16384 ASGP1T controls已開始補測；主表仍待全部配對完成。P<=8192的120格均同binary、16GiB完整通過且輸出比對一致。
+- 已完成完整30題 × P1024/2048/4096/8192/16384 × G4+final evaluation／完整1024cases。CPU1T、seed0，所有GPU格同一binary、16GiB workspace；不混入8GiB時間。150格全部結束，149格GPU成功並有合格倍率；ASGP controls 150/150完成（121個同P、同inputs/settings且ASGP邏輯未變的控制組經驗證後重用，29個P16384另行實測）。controller已退出，沒有背景benchmark工作。
+- P<=8192的120/120格通過，完整輸出AST、fitness及semantic/operator traces皆與既有有效資料一致；先前九筆僅8GiB可執行的題目現也全在16GiB通過。P16384成功29/30題，全部16384個最終個體 × 1024cases的CPU fitness audit均0 mismatch；所有GPU成功格unscored=0。
+- 唯一限制：House Robber的frozen parent index8603轉譯為1086 AST nodes，超過固定1024 node budget；depth24不是原因。原16K preparation已失敗，先前誤把30個prepare任務complete當作全部admission成功，已更正。原None輸入attempt保留，以source/grammar/binary hashes及原prepare log註記initial_admission_limit；不是OOM或GPU kernel失敗，沒有合格倍率。未刪除／替換parent或採用放寬node budget的離線診斷資料。
+- RTX3090 24GiB整卡NVML每200ms取樣峰值21.2734GiB，含桌面，可能漏掉短尖峰。P1024/2048/4096/8192/16384跨題倍率中位數9.77/12.61/14.89/13.23/13.90×，幾何平均7.12/8.76/10.04/9.32/9.92×；最後一組為29題，其餘30題。每格單次cold process，屬支援／粗略速度檢查，非精確重複量測或收斂等價證明。
+- Runtime checkpoint `356bc55`：native phase owner上限8192擴到16384，保留12GiB genotype guard。按記憶體估算分階段配置／釋放repro暫存及eval scratch，不改搜尋參數、RNG、個體／案例數、fuel或16GiB scratch上限；generic metadata 100萬項guard未抬高。完整Release build及131/131 native tests通過，含32代staged/resident、in-place/out-of-place、private-list/window及CPU對照；tools115項（4 skips）、repository24 checks通過。
+- [完整中文報告](results/scaling-all30-20261016/final-same16/REPORT.zh-TW.md)、[原始秒數與counters](results/scaling-all30-20261016/final-same16/cells.csv)、[互動表](results/scaling-all30-20261016/final-same16/dashboard.html)、[重現與恢復](results/scaling-all30-20261016/README.md)。`final-same16/`另含逐代CSV、PNG/PDF、硬體、驗證及來源雜湊。原始資料及pinned binary在`logs/all30-scaling-20261016/same16/`，舊失敗、probe及8GiB補測全部保留為歷史。
+- T3更新後恢復原工作區`gagp-support-20261015`、branch `opt/list-output-5x-20261015`（起點047aa84）；初始UI工作區`t3code-63ba5a62`是較早分支，未改動。變更與結果只在本地，未push。
 
 ---
 
