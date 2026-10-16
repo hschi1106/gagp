@@ -1,0 +1,27 @@
+{
+  "source_head": "356bc559724b55311a1992a0966fae8b90032de4",
+  "build": "cmake --build cpp/build/release -j8",
+  "native_tests": {
+    "phase_population": {
+      "passed": 1,
+      "seconds": 136.57,
+      "command": "ctest --test-dir cpp/build/release -R '^gagp_test_gpu_phase_population$' --output-on-failure"
+    },
+    "remaining": {
+      "passed": 130,
+      "seconds": 104.78,
+      "command": "ctest --test-dir cpp/build/release -E '^gagp_test_gpu_phase_population$' --output-on-failure"
+    }
+  },
+  "tools_tests": {
+    "run": 115,
+    "skipped": 4,
+    "failed": 0
+  },
+  "repository_tests": {
+    "run": 24,
+    "failed": 0
+  },
+  "probe": "same16-probe.json",
+  "note": "Probe is correctness evidence only. Full final-population CPU fitness parity on Filter16384; native regressions also compare AST, errors/timeouts and operator rows across32generations."
+}

@@ -1,3 +1,14 @@
+# 同16GiB容量恢復 — 2026-10-16（執行中）
+
+- T3更新後恢復到原工作區 `gagp-support-20261015`、checkpoint `047aa84`；初始UI工作區 `t3code-63ba5a62` 是較早的分支，未改動。
+- 使用者新要求：先驗證正確性與24GB顯卡的可執行性，全部population維持16GiB設定，無法執行明列限制。原矩陣、16GiB失敗及8GiB補測全部保留為歷史；新主表不混用8GiB時間。
+- 原runtime的native phase population硬上限8192使16384轉入generic path並觸發constant metadata 100萬項上限。候選將phase owner擴到16384，仍保留12GiB genotype guard；按記憶體估算分階段配置repro暫存與eval scratch，不變更RNG、搜尋參數、個體/案例數、fuel或16GiB scratch上限。
+- 候選完整build通過；新增32代 staged/resident、in-place/out-of-place、private-list/window及CPU fitness checks所在 `gagp_test_gpu_phase_population` 通過（136.57s）。其餘native130 tests也全通過（合計131/131）；tools115 tests（4 skips）、repository24 checks通過。
+- Filter16384先期正確性probe已完成G4+final eval，顯存取樣峰值21766MiB（device total，含桌面）；CPU1T對全部16384個最終個體/1024cases audit通過（0 mismatch，316.09s）。此probe與build重疊，時間不作正式speedup。
+- 新runner `results/scaling-all30-20261016/run_same16.py`；新資料 `logs/all30-scaling-20261016/same16-probe/`。正式矩陣已啟動，controller PID 2880162，source `356bc55`；用同一候選binary重測全部150個GPU cells，重用完全相同inputs/settings且ASGP邏輯未變的既有同P controls，剩餘controls重新量測。P16384全最終population CPU audit在evolve wall time之外。較小P也比較完整輸出AST、fitness與semantic/operator traces（8GiB舊資料只作語意比對、不取其時間）。
+
+---
+
 # All30 G4 scaling — 2026-10-16（執行中）
 
 - 使用者授權完整30題×P1024/2048/4096/8192/16384×G4，可超過1小時。比較ASGP1T／最佳GPU-er-o，CPU1T、完整1024cases，不改runtime／pipeline。

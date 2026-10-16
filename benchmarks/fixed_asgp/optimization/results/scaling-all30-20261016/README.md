@@ -54,3 +54,31 @@ PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all3
 報表保留`gpu_original_status`／`gpu_original_log`與實際workspace，原始matrix不受覆寫。
 
 `p1024-current/`與`p8192-checkpoint/`是執行中快照，包含尚未完成的pending欄位，僅供歷史／恢復；最終以`final-selected/`為準，並同時保留原16GiB矩陣`final/`。
+
+
+### 更新後的固定16GiB主矩陣
+
+使用者要求先檢查正確性，所有P固定16GiB；無法執行才列限制。`356bc55`
+將native phase population擴至16384，按實際記憶體估算分階段釋放repro暫存及eval
+scratch，保留12GiB genotype guard及全部搜尋參數。完整native131tests通過。
+Filter P16384先期probe已通過全部16384個最終個體的CPU fitness audit，device-total
+VRAM取樣峰值21766MiB；它與build重疊，只作正確性證據，不重用其正式時間。
+
+```bash
+PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all30-20261016/run_same16.py \
+  --out logs/all30-scaling-20261016/same16 --populations 1024 2048 4096 8192 16384
+```
+
+恢復同一命令加`--resume`，先確認`same16-controller.json`的PID已退出。
+新runner有controller flock，保留中斷attempt及原log；完整的新attempt才取得結果。
+每格使用同一candidate binary、固定16GiB、CPU1T、1024cases、G4+finaleval。
+P16384在計時後對全部最終個體做完整cases CPU fitness audit；其餘P保留top16
+CPU audit，並與舊版本有效資料比較全部輸出AST、fitness及semantic/operator traces。
+舊8GiB資料僅供語意比較，不作新主表時間。ASGP邏輯未變，同inputs/settings的原
+同P controls經驗證後重用，未完成controls另行實測。NVML只讀取樣記錄整張卡的
+用量，含桌面背景，並非精確的process-only峰值。
+
+新原始資料`logs/all30-scaling-20261016/same16/`；launcher及log為
+`same16-controller.json`／`same16-controller.log`。主表完成後以`report.py --matrix`
+指向`same16/`，不傳`--capacity-results`。此表取代不同workspace合併表作主結論；
+原matrix、失敗及8GiB補測仍保留。

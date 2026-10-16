@@ -73,6 +73,8 @@ for task in PAPER_TASKS:
             if label == 'gpu':
                 row.update(workspace_mib=cell['workspace_mib'],
                     cpu_audit_mismatches=data['cpu_audit_mismatches'],
+                    cpu_audit_program_count=data['cpu_audit_program_count'],
+                    sampled_device_peak_bytes=cell.get('sampled_device_peak_bytes'),
                     reproduction_profile=data['reproduction_profile'],
                     reproduction_fallback_reason=data['reproduction_fallback_reason'],
                     genotype_device_bytes=data['genotype_device_bytes'],
@@ -110,6 +112,8 @@ summary = dict(note='One cold process per configured run. Complete1024cases/G4+f
     binary_source_head=m.get('binary_source_head', m['source_head']),
     binary_sha256=m['binary_sha256'], completed_cells=complete, qualified_cells=passed,
     total_cells=150, rows=rows)
+if m['stage'] == 'all30-scaling-same16':
+    summary['note'] = m['note']
 (a.out / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
 table = '# ASGP 1T / GPU-er-o: complete G4 scaling\n\n'
 table += f'Completed cells: {complete}/150; qualified ratios: {passed}.\n\n'
@@ -125,7 +129,10 @@ for task in PAPER_TASKS:
             value = r['gpu_status'] if r['gpu_status'] != 'ok' else 'ASGP ' + r['asgp_status']
         values.append(value)
     table += '| ' + task + ' | ' + ' | '.join(values) + ' |\n'
-table += '\nDefault:16GiB arena budget;8/4GiB allocation-only retries explicitly marked. Failed/pending cells have no speedup.\n'
+table += ('\nFixed16GiB arena budget in every GPU cell; no smaller-capacity retries. '
+          'Full final-population CPU fitness audit at P16384 is outside evolve wall time. '
+          'Failed/pending cells have no speedup.\n' if m['stage'] == 'all30-scaling-same16' else
+          '\nDefault:16GiB arena budget;8/4GiB allocation-only retries explicitly marked. Failed/pending cells have no speedup.\n')
 (a.out / 'report.md').write_text(table)
 
 if passed:
