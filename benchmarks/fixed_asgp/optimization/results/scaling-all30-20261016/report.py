@@ -10,8 +10,13 @@ POPS = (1024, 2048, 4096, 8192, 16384)
 p = ArgumentParser(description=__doc__)
 p.add_argument('--matrix', type=Path, required=True)
 p.add_argument('--out', type=Path, required=True)
+p.add_argument('--capacity-results', type=Path, help='Separate explicitly configured smaller-workspace runs')
 a = p.parse_args()
 m = read(a.matrix / 'manifest.json')
+supplement = read(a.capacity_results) if a.capacity_results else None
+if supplement:
+    assert supplement['binary_sha256'] == m['binary_sha256']
+    assert supplement['settings'] == m['settings']
 a.out.mkdir(parents=True, exist_ok=False)
 rows, generations = [], []
 
@@ -34,12 +39,26 @@ def status(cell):
 for task in PAPER_TASKS:
     for population in POPS:
         record = m.get('results', {}).get(f'{task}.p{population}', {})
+        selected = supplement.get('results', {}).get(f'{task}.p{population}', {}) if supplement else {}
+        if selected:
+            assert selected['inputs'] == record['inputs']
         row = {'task': task, 'population': population, 'cases': 1024, 'generations': 4,
                'asgp_status': 'pending', 'gpu_status': 'pending', 'speedup': None}
         for mode, label in [('asgp_1t', 'asgp'), ('gpu_overlap', 'gpu')]:
             cell = record.get(mode, {})
+            if label == 'gpu' and selected.get('complete'):
+                row['gpu_original_status'] = status(cell)
+                row['gpu_original_log'] = cell.get('log')
+                if selected.get('gpu_overlap', {}).get('status') == 'ok':
+                    cell = selected['gpu_overlap']
+                    row['gpu_separate_capacity_config'] = True
             row[label + '_status'] = status(cell)
             row[label + '_output'] = cell.get('output')
+            row[label + '_process_s'] = cell.get('process_s')
+            collection = supplement if label == 'gpu' and row.get('gpu_separate_capacity_config') else m
+            process_cell = next((c for c in collection.get('cells', [])
+                if cell.get('log') and Path(c.get('log', '/missing')).name == Path(cell['log']).name), {})
+            row[label + '_peak_rss_bytes'] = process_cell.get('peak_rss_bytes')
             if cell.get('status') != 'ok':
                 continue
             data = read(Path(cell['output']))
@@ -84,7 +103,8 @@ summary = dict(note='One cold process per configured run. Complete1024cases/G4+f
     'CPU1T, fresh own-population ASGP controls. Qualified P1024 GPU runs reused by hash. '
     'No extrapolated ratios or precision/quality-equivalence claim. Alternate workspace '
     'runs exclude earlier failed probes; all attempts remain in matrix manifest.',
-    matrix_manifest=str(a.matrix / 'manifest.json'), source_head=m['source_head'],
+    matrix_manifest=str(a.matrix / 'manifest.json'),
+    capacity_manifest=str(a.capacity_results) if a.capacity_results else None, source_head=m['source_head'],
     binary_source_head=m.get('binary_source_head', m['source_head']),
     binary_sha256=m['binary_sha256'], completed_cells=complete, qualified_cells=passed,
     total_cells=150, rows=rows)

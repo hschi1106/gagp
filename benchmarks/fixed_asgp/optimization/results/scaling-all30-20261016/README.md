@@ -34,3 +34,21 @@ PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all3
 `cells.csv`含每題／P的status、ASGP及GPU秒數、ratio、實際workspace及fitness／case counters；`generations.csv`保留逐代原始資訊。失敗或pending一律不計ratio。報表以真實完成JSON與真實constant-preparation-limit失敗log做過工具檢查。圖中文字用英文。
 
 已知先期P16384 Filter容量檢查：16／8／4GiB都在演化前觸發constant node origin preparation item limit；不是已證實VRAM OOM。此probe與offline preparation可能重疊，只是support evidence，其時間不重用於正式矩陣。Runtime安全上限維持原樣，正式矩陣會重新記錄此失敗。
+
+### P8192 launch failure診斷與獨立容量設定
+
+Filter Odd的16GiB失敗已用nsys CUDA API trace確認`cudaLaunchKernel_v7000 returnValue=2`；本機CUDA12.6 `driver_types.h`定義為`cudaErrorMemoryAllocation`。trace與SQLite保存在`logs/all30-scaling-20261016/p8192-launch-diagnostic/`；profiled run不計ratio。不把其他只有相似文字的失敗直接宣稱為已證實OOM。
+
+`capacity_retries.py`只對原16GiB出現同一tiled-initial-payload launch signature的cell，在共享鎖下分開量測8／4GiB設定。這是新的完整G4 run，不修改runtime、不刪原失敗，也不把失敗probe的耗時當作成功設定的耗時。實際通過完整cases／GPU repro／CPU audit才能填ratio；constant preparation limit不適用這個重試。
+
+```bash
+PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all30-20261016/capacity_retries.py \
+  --matrix logs/all30-scaling-20261016/matrix \
+  --out logs/all30-scaling-20261016/capacity-retries --controller-pid <ACTIVE_MATRIX_PID>
+PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all30-20261016/report.py \
+  --matrix logs/all30-scaling-20261016/matrix \
+  --capacity-results logs/all30-scaling-20261016/capacity-retries/manifest.json \
+  --out benchmarks/fixed_asgp/optimization/results/scaling-all30-20261016/final-selected
+```
+
+報表保留`gpu_original_status`／`gpu_original_log`與實際workspace，原始matrix不受覆寫。

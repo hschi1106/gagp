@@ -6,6 +6,8 @@
 - 30/30題新16384source已確認原1024 parents/cases prefix，native prepare全數通過原AST prefix/grammar。正式矩陣P1024/2048/4096的30題皆已完整通過（90/150格），目前進入P8192。原16GiB若allocation失敗才明列8／4GiB重試，保留所有failed attempts；其他錯誤不改設定掩蓋。每cell1800s、hostRSS32GiB保護，失敗無speedup。
 - [執行與恢復入口](results/scaling-all30-20261016/README.md)，runner `results/scaling-all30-20261016/run_matrix.py`。每cell寫manifest／rawlog／JSON；續跑先查launcher與controller，未完成measure用`--resume`。GPU lock仍`/tmp/gagp-support-20261015-gpu.lock`。P16384 Filter先期已見constant node origin preparation item limit（16/8/4GiB皆失敗、不是OOM），僅作support evidence。預計數小時，不因啟動長跑就收尾。
 
+- P8192 Filter16GiB的launch failure經nsys確認cudaLaunchKernel returnValue=2（memory allocation）；原失敗保留。獨立`capacity_retries.py`於同一鎖下測8/4GiB，已有Filter／IsSorted／AllEqual在8GiB完整G4與CPU audit通過。其他相同文字不一律宣稱已證實OOM；以各自完整run結果判定。`report.py --capacity-results <manifest>`可合併有效設定並保留original status/log；實際資料工具檢查通過。
+
 ---
 
 # List／sequence 優化 checkpoint — 2026-10-15–16
