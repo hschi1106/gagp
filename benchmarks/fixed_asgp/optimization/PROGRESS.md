@@ -10,6 +10,9 @@
 - 固定16GiB的新主矩陣P1024/2048/4096/8192全部30/30通過，120個完整AST/fitness/semantic/operator比對通過；先前九筆8GiB補測題也全在16GiB通過。快照 `results/scaling-all30-20261016/same16-p8192-checkpoint/` 明列P16384 pending。正式Filter16384已完成G4，仍在全量CPU audit，未把先期probe時間取代正式結果。
 - 報表已檢查120合格/150總格與固定workspace16384MiB；互動HTML在728px light與360px dark預覽無console error，task filter/cell details/metric switch/reset檢查通過。`report.py`同時輸出CSV、英文PNG/PDF、中文互動表；仍需完成正式P16384及其ASGP controls。
 
+- 正式P16384 Filter／Sum／IsSorted／Index四題的全部16384個最終個體CPU fitness audit均0 mismatch；GPU完整驗證累計124/150格，配對121/150（其餘P16384 ASGP controls在GPU階段後補齊）。Filter正式13.5099s／13.8966×、device-total peak21.2559GiB；IsSorted87.0760s，CPU全量audit707.73s、peak21.2734GiB。AllEqual進行中。
+- 完成入口`finish_same16.py`已確認未完成矩陣會拒絕出版；它在所有格子完成後才產生中文全文、統計與來源快照。
+
 ---
 
 # All30 G4 scaling — 2026-10-16（執行中）

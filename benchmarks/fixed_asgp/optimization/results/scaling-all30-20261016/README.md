@@ -87,3 +87,5 @@ CPU audit，並與舊版本有效資料比較全部輸出AST、fitness及semanti
 含CSV、逐代資料、靜態英文圖及可獨立開啟的 `dashboard.html`。互動表可切換倍率、
 ASGP/GAGP秒數與顯存，點格查看CPU audit範圍及完整cases counters。最終以全部格子
 完成後的新報表為準。
+
+全部150格完成後，以 `PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all30-20261016/finish_same16.py` 產生 `final-same16/`，含中文完整表、統計、圖、互動頁與來源／硬體快照。這個入口會拒絕未完成或尚未量測的格子，已有最終資料夾時也不覆寫。

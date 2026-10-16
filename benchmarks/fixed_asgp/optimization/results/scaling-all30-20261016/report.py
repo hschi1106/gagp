@@ -55,6 +55,9 @@ for task in PAPER_TASKS:
             row[label + '_status'] = status(cell)
             if label == 'gpu':
                 row['workspace_mib'] = cell.get('workspace_mib')
+                row['sampled_device_peak_bytes'] = cell.get('sampled_device_peak_bytes')
+                row['gpu_reason'] = cell.get('reason')
+                row['gpu_log'] = cell.get('log')
             row[label + '_output'] = cell.get('output')
             row[label + '_process_s'] = cell.get('process_s')
             collection = supplement if label == 'gpu' and row.get('gpu_separate_capacity_config') else m
