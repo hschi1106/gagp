@@ -21,3 +21,16 @@ PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all3
 Raw狀態：`logs/all30-scaling-20261016/{artifacts,matrix}/manifest.json`。本輪outer launcher等待原prepare PID退出，確認30題完成後自動進入matrix；記錄於`logs/all30-scaling-20261016/launcher.json`。中斷後若matrix尚未開始，依上述第二條命令啟動；已存在則加`--resume`。所有完整結果落盤後再產生最終CSV／報告；計畫中的表格不表示已完成。
 
 每cell1800s process limit、32GiB外部hostRSS保護；timeout／memory limit／OOM／admission failure／CPU audit mismatch明列，不產生合格speedup。完整Search含必要內部materialization／清理，CLI解析與export／獨立CPU audit依原邊界另列process成本。保留原有ASGP／GAGP搜尋契約差異，不宣稱grammar language／RNG／演化軌跡完全相同。
+
+
+報表（新目錄）：
+
+```bash
+PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all30-20261016/report.py \
+  --matrix logs/all30-scaling-20261016/matrix \
+  --out benchmarks/fixed_asgp/optimization/results/scaling-all30-20261016/final
+```
+
+`cells.csv`含每題／P的status、ASGP及GPU秒數、ratio、實際workspace及fitness／case counters；`generations.csv`保留逐代原始資訊。失敗或pending一律不計ratio。報表以真實完成JSON與真實constant-preparation-limit失敗log做過工具檢查。圖中文字用英文。
+
+已知先期P16384 Filter容量檢查：16／8／4GiB都在演化前觸發constant node origin preparation item limit；不是已證實VRAM OOM。此probe與offline preparation可能重疊，只是support evidence，其時間不重用於正式矩陣。Runtime安全上限維持原樣，正式矩陣會重新記錄此失敗。

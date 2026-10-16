@@ -43,6 +43,14 @@ def study(args):
     s.out = args.out.resolve()
     s.manifest = read(s.out / 'manifest.json')
     assert s.manifest['stage'] == 'all30-scaling-' + args.stage
+    running = {tuple(c['command']) for c in s.manifest['cells'] if c['status'] == 'running'}
+    for process in Path('/proc').glob('[0-9]*'):
+        try:
+            command = tuple(part.decode() for part in (process / 'cmdline').read_bytes().split(b'\0') if part)
+        except (OSError, UnicodeDecodeError):
+            continue
+        if command in running:
+            raise RuntimeError(f'Previous native command still active as PID {process.name}; wait before resuming')
     s.args.binary = s.out / 'bench'
     assert sha(s.args.binary) == s.manifest['binary_sha256']
     import os
