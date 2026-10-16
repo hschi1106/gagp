@@ -1,3 +1,11 @@
+# 全題統一2048-node容量驗證 — 2026-10-16（執行中）
+
+- 使用者要求統一放寬限制。新增benchmark `native_nodes`／`--native-nodes`，預設1024不變；新設定全30題統一whole-AST2048/depth24，ASGP phase depth7不變，GPU每phase1024節點、12GiB genotype guard與16GiB workspace保留。
+- GPU layout不再把整體budget與單phase allocation混為同一上限；compacted code/constants依整體variable node budget檢查。Cold import明確拒絕超過1024節點的phase。新增>1024整體AST的四代GPU reproduction＋獨立CPU fitness核對，較小whole-budget與單phase容量拒絕均有覆蓋；既有32代GPU回歸通過135.06s。工具116項通過（4 skips）、repository24通過；其餘130項native通過105.98s（總計131/131）。
+- [本輪入口與範圍](results/nodes2048-20261016/README.md)。所有新grammar只改max_nodes；初始source/cases不變，不替換個體。預計驗證全30題16384初始admission、House五模式P8/G2及P16384/G4＋全量CPU audit。舊1024-node完整矩陣與失敗紀錄保留，不以新budget單格補進舊主表。
+
+---
+
 # 固定16GiB完整scaling完成 — 2026-10-16
 
 - 已完成完整30題 × P1024/2048/4096/8192/16384 × G4+final evaluation／完整1024cases。CPU1T、seed0，所有GPU格同一binary、16GiB workspace；不混入8GiB時間。150格全部結束，149格GPU成功並有合格倍率；ASGP controls 150/150完成（121個同P、同inputs/settings且ASGP邏輯未變的控制組經驗證後重用，29個P16384另行實測）。controller已退出，沒有背景benchmark工作。

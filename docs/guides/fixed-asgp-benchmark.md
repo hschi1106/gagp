@@ -45,6 +45,25 @@ independent CPU fitness audits establish their tested execution coverage, not
 exhaustive semantic parity or equal quality. Short runs and one seed do not
 establish convergence, and incomplete or failed cells cannot establish speedups.
 
+## Optional physical node budget
+
+The support preparer accepts `--native-nodes 2048` to author a fresh grammar with
+a larger whole-AST node limit. The default remains 1024; `--native-depth 24` and
+balanced source weights remain independent settings. The Python `definition`
+helper exposes the same optional `native_nodes` argument. Limits are recorded in
+the manifest and all prepared parents and the witness must still pass admission.
+Later quality/timing stages inherit the exact prepared grammar. Keep previous
+grammars, binaries and results frozen, apply the new setting uniformly across
+all tasks, and report its runs separately from the 1024-node matrix.
+
+The native GPU phase owner supports up to 2048 whole-AST nodes while retaining
+1024 nodes per variable phase, its existing population/genotype storage guards,
+and the configured payload workspace. Larger preparation-only budgets (up to
+4096) do not imply support by that owner. ASGP still uses source logical phase
+depth 7, with no matching whole-native-AST node cap. This setting removes a
+physical admission restriction; it does not align operator distributions or
+search spaces. See the [GPU reproduction contract](../design/gpu-reproduction.md).
+
 ## Original frozen-contract workloads and matrix
 
 | Task | Frozen input distribution | Execution path |

@@ -512,6 +512,15 @@ Results must identify this profile and cannot be presented as identical evolving
 populations to legacy reproduction. GPU memory is bounded by live population and
 grammar capacities, without ancestral proof/source retention.
 
+The physical whole-program grammar budget may be at most 2048 nodes and 64
+levels. Each variable phase still has its independent 1024-node buffer; a larger
+whole-program budget does not enlarge those buffers. Cold import explicitly
+declines any phase exceeding that capacity. Variation checks the sum of all
+variable phases plus fixed nodes against the authored whole-program budget,
+and lowering bounds compacted code/constants by that sum rather than a single
+phase's capacity. These are backend resource limits, not ASGP logical-depth
+limits; a 2048-node grammar does not establish equal search spaces.
+
 The phase owner accepts up to 16384 members, subject to its existing 12 GiB
 genotype allocation bound. If the estimated genotype buffers, configured payload
 scratch cap and 2 GiB of kernel-launch headroom would exceed currently free

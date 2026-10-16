@@ -171,7 +171,7 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   phase_layout_require(found_holes.size() == variable_holes.size(), "variable hole missing from admission witness");
   std::sort(result.slots.begin(), result.slots.end(), [](const auto& a,const auto& b){return a.begin < b.begin;});
   result.fixed_nodes = ast.nodes.size(); result.budget = grammar.search_limits();
-  phase_layout_require(result.budget.max_nodes <= 1024 && result.budget.max_depth <= 64,
+  phase_layout_require(result.budget.max_nodes <= 2048 && result.budget.max_depth <= 64,
                        "GPU genotype capacity requires fallback");
   for (const auto& slot : result.slots) {
     result.fixed_nodes -= slot.end - slot.begin;
@@ -195,6 +195,7 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
       }
       gene.nodes.push_back(node); gene.origins.push_back(expression);
     }
+    phase_layout_require(gene.nodes.size() <= 1024, "per-phase genotype capacity requires fallback");
     if (retain_profiles) {
       if (profiles) result.profiles.push_back(profile);
       else result.profiles.push_back(std::move(uncached_profile));

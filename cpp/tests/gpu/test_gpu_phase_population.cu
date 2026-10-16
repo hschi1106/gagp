@@ -483,7 +483,61 @@ void test_private_intlist_generations(bool sequence_windows=false,bool staged=fa
      "different session reused stale private capability instead of current generic fallback");
 }
 
+// Whole-program capacity is independent of the fixed per-phase allocation.
+void test_whole_program_node_budget() {
+ auto definition=grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json");
+ auto document=definition.document;
+ document.object_v.at("search_limits").object_v.at("max_nodes").number_v=2048;
+ document.object_v.at("search_limits").object_v.at("max_depth").number_v=24;
+ document.object_v.at("templates").array_v[0].object_v.at("body").object_v.at("structured").object_v.at("plan").object_v.at("limits").object_v.at("cells").number_v=128;
+ auto owner_grammar=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(document))));
+ auto expression=cli_detail::JsonParser(R"({"bound":"base"})").parse();
+ for(int i=0;i<9;++i) {
+  auto add=cli_detail::JsonParser(R"({"signature":"add(Int,Int)->Int","args":[]})").parse();
+  add.object_v.at("args").array_v={expression,expression};expression=std::move(add);
+ }
+ const auto generate=[&](const auto& body) {
+  auto exact=document;
+  auto& nonterminals=exact.object_v.at("nonterminals").array_v;
+  auto root=std::find_if(nonterminals.begin(),nonterminals.end(),[](const auto& nt){return nt.object_v.at("id").string_v=="Memo";});
+  require(root!=nonterminals.end(),"large fixture root missing");
+  root->object_v.at("alternatives").array_v[0].object_v.at("expression").object_v.at("holes").object_v.at("base")=body;
+  return grammar::generate_derivation(grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(exact))),0).genome;
+ };
+ const auto parent=generate(expression);
+ require(parent.ast.nodes.size()>1024 && parent.ast.nodes.size()<=2048,"large whole-AST fixture must cross the old limit");
+ auto layout=repro::import_native_phase_layout(*owner_grammar,parent);
+ require(layout.genes.size()==1 && layout.genes[0].nodes.size()==1023,"large fixture must fit one phase buffer");
+ auto smaller=document;smaller.object_v.at("search_limits").object_v.at("max_nodes").number_v=1024;
+ const auto bounded=grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(smaller)));
+ bool declined=false;try{(void)repro::import_native_phase_layout(bounded,parent);}catch(const std::invalid_argument&){declined=true;}
+ require(declined,"whole-AST node budget ceased to reject oversized input");
+ auto too_large=cli_detail::JsonParser(R"({"signature":"add(Int,Int)->Int","args":[]})").parse();
+ too_large.object_v.at("args").array_v={expression,cli_detail::JsonParser(R"({"bound":"base"})").parse()};
+ const auto oversized=generate(too_large);declined=false;
+ try{(void)repro::import_native_phase_layout(*owner_grammar,oversized);}catch(const std::invalid_argument& e){declined=std::string(e.what()).find("per-phase genotype capacity")!=std::string::npos;}
+ require(declined,"per-phase node capacity ceased to reject oversized input");
+ std::vector<std::string> names;for(const auto& input:owner_grammar->inputs())names.push_back(input.name);
+ std::vector<CaseBindings> cases(16);std::vector<Value> answers(16,Value::from_int(0));
+ for(int i=0;i<16;++i)for(std::size_t j=0;j<names.size();++j)
+  cases[i].push_back({int(j),Value::from_int(names[j]=="rows" || names[j]=="columns"?4:names[j]=="base_value"?i%7:0)});
+ FitnessSessionGpu session;require(session.init(cases,answers,10000,32,1000).ok,"large whole-AST GPU session");
+ repro::NativePhasePopulation owner(owner_grammar,{parent,parent},names);
+ for(int generation=0;generation<=4;++generation) {
+  const auto gpu=owner.evaluate(session,true);require(gpu.ok,"large whole-AST GPU evaluation");
+  std::vector<BytecodeProgram> programs;
+  for(auto member:owner.export_population()) {
+   member.derivation.reset();grammar::require_membership(*owner_grammar,member);
+   require(member.ast.nodes.size()<=2048,"large whole-AST reproduction exceeded whole-program budget");
+   programs.push_back(compile_for_eval(member,names));
+  }
+  require(eval_fitness_cpu(programs,cases,answers,10000,1000,32)==gpu.fitness,"large whole-AST CPU/GPU mismatch");
+  if(generation<4)owner.reproduce(gpu.fitness,2,.3,UINT64_C(0x4119)+generation);
+ }
+}
+
 int main(){try {
+ test_whole_program_node_budget();
  test_packed_pattern_refresh();
  test_trivial_pattern_refresh();
  test_private_intlist_generations();

@@ -13,13 +13,14 @@ from gagp_tools.experiments.fixed_asgp.low_budget import PAPER_TASKS, validate_s
 
 
 class TestLowBudgetContract(unittest.TestCase):
-    def test_reduced_depth_rejects_profile_without_dropping_parents_or_witness(self):
-        for failure,depth,balanced in [('admit1024',16,False),('audit',16,False),
-                                       ('admit1024',None,True),('audit',None,True)]:
+    def test_changed_profile_requires_all_parents_and_witness(self):
+        for failure,depth,balanced,nodes in [('admit1024',16,False,None),('audit',16,False,None),
+                                       ('admit1024',None,True,None),('audit',None,True,None),
+                                       ('admit1024',None,False,2048),('audit',None,False,2048)]:
             with self.subTest(failure=failure),TemporaryDirectory() as folder:
                 study=Study.__new__(Study)
                 study.out=Path(folder)
-                study.args=SimpleNamespace(binary=Path('/unused'),native_depth=depth,source_balanced=balanced)
+                study.args=SimpleNamespace(binary=Path('/unused'),native_depth=depth,source_balanced=balanced,native_nodes=nodes)
                 study.manifest={'tasks':{}}
                 phases=[]
                 def run(task,phase,command,extra=None):

@@ -422,7 +422,10 @@ struct NativePhasePopulation::Impl {
   const auto certificates=compiled.read(rows);
   if(timing)timing->copyback_ms+=elapsed(begin);
   if(offsets.back()<0 || values.back()<0)throw std::runtime_error("GPU genotype lowering rejected a constructed program");
-  phase_layout_require(offsets.back()<=population*capacity*4 && values.back()<=population*capacity,"whole-program compiled capacity");
+  // The program budget covers all variable phases, not one phase buffer.
+  const std::size_t variable_nodes=layout.budget.max_nodes-layout.fixed_nodes;
+  phase_layout_require(std::size_t(offsets.back())<=std::size_t(population)*variable_nodes*4 &&
+      std::size_t(values.back())<=std::size_t(population)*variable_nodes,"whole-program compiled capacity");
   const auto setup=Clock::now();packed_code.reserve(offsets.back());packed_constants.reserve(values.back());
   if(timing)timing->setup_ms+=elapsed(setup);checked(cudaEventRecord(start));
   compact_code<<<rows,128>>>(code.data,constants.data,code_offsets.data,constant_offsets.data,rows,packed_code.data,packed_constants.data);checked(cudaGetLastError());

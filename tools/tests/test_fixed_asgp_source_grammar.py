@@ -104,6 +104,17 @@ class TestSourceGrammar(unittest.TestCase):
             with self.subTest(depth=depth),self.assertRaises(ValueError):
                 definition(ROOT,'house_robber',native_depth=depth)
 
+    def test_native_node_budget_only_changes_physical_whole_ast_limit(self):
+        original=definition(ROOT,'house_robber')
+        self.assertEqual(original['search_limits']['max_nodes'],1024)
+        candidate=definition(ROOT,'house_robber',native_depth=24,native_nodes=2048)
+        expected=copy.deepcopy(original)
+        expected['search_limits']={'max_nodes':2048,'max_depth':24}
+        self.assertEqual(candidate,expected)
+        for nodes in (0,-1,4097,True,2048.5):
+            with self.subTest(nodes=nodes),self.assertRaises(ValueError):
+                definition(ROOT,'house_robber',native_nodes=nodes)
+
     def test_paper_catalog_uses_source_identifiers(self):
         self.assertEqual(len(set(PAPER_TASKS)),30)
         self.assertIn('min',PAPER_TASKS)

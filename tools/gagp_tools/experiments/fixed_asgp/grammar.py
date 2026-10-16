@@ -29,19 +29,24 @@ def state_value():
 
 
 def definition(root: Path, task: str, contract: dict | None = None, *,
-               native_depth: int | None = None, source_balanced: bool = False) -> dict:
-    """Build the native grammar, optionally restricting its physical AST depth.
+               native_depth: int | None = None, native_nodes: int | None = None,
+               source_balanced: bool = False) -> dict:
+    """Build the native grammar, optionally authoring physical AST budgets.
 
     This candidate changes native search budgets, not source logical phase depth.
     Callers must admit every frozen parent and the witness before comparison.
     """
     if native_depth is not None and (type(native_depth) is not int or not 1 <= native_depth <= 48):
         raise ValueError('native_depth must be an integer in [1, 48]')
+    if native_nodes is not None and (type(native_nodes) is not int or not 1 <= native_nodes <= 4096):
+        raise ValueError('native_nodes must be an integer in [1, 4096]')
     if source_balanced and contract is None:
         raise ValueError('source_balanced requires a source production contract')
     document = _definition(root, task, contract, source_balanced=source_balanced)
     if native_depth is not None:
         document['search_limits']['max_depth'] = native_depth
+    if native_nodes is not None:
+        document['search_limits']['max_nodes'] = native_nodes
     return document
 
 
