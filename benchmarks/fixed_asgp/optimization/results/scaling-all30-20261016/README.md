@@ -89,3 +89,17 @@ ASGP/GAGP秒數與顯存，點格查看CPU audit範圍及完整cases counters。
 完成後的新報表為準。
 
 全部150格完成後，以 `PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all30-20261016/finish_same16.py` 產生 `final-same16/`，含中文完整表、統計、圖、互動頁與來源／硬體快照。這個入口會拒絕未完成或尚未量測的格子，已有最終資料夾時也不覆寫。
+
+### House Robber P16384的admission更正
+
+先前將prepare的任務`complete`旗標誤當全部prefix admission成功，這項說法不正確。
+實際只有29題的P16384 native preparation成功；House Robber在zero-based parent
+index8603失敗。其轉譯AST為1086nodes，固定node budget1024無法接受。depth放寬
+至48仍失敗，僅增加node budget才可轉譯（只是離線診斷，不作正式設定）。
+原始30題source/cases prefix檢查仍成立，House的P<=8192也都已通過。
+
+新runner對缺少prepared artifact直接標記initial_admission_limit；更新前已啟動的
+controller曾把None傳入CLI而回報cannot read None，該原始attempt保留，報表以
+`initial_admission_limits.json`的source/grammar/binary hashes及原prepare log判定真正
+限制，保留原status/log。它不是OOM或GPU kernel失敗，也沒有合格倍率；不刪除或
+替換parent、不調整House單題設定。

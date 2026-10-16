@@ -33,11 +33,14 @@ assert all(r['workspace_mib'] == 16384 for r in gpu)
 assert all(r['cpu_audit_program_count'] == 16384 and r['cpu_audit_mismatches'] == 0 for r in large)
 shutil.copy2(matrix / 'environment.json', out / 'environment.json')
 shutil.copy2(base / 'same16-validation.json', out / 'validation.json')
+if (matrix / 'initial_admission_limits.json').exists():
+    shutil.copy2(matrix / 'initial_admission_limits.json', out / 'initial_admission_limits.json')
 manifest_hash = sha(matrix / 'manifest.json')
 (out / 'provenance.json').write_text(json.dumps({
     'matrix_manifest': str(matrix / 'manifest.json'), 'matrix_sha256': manifest_hash,
     'binary_sha256': m['binary_sha256'], 'runtime_source_head': m['source_head'],
-    'report_sha256': sha(base / 'report.py'), 'finish_sha256': sha(Path(__file__)),
+    'report_sha256': sha(base / 'report.py'),
+    'admission_limits_sha256': sha(matrix / 'initial_admission_limits.json') if (matrix / 'initial_admission_limits.json').exists() else None, 'finish_sha256': sha(Path(__file__)),
     'reused_asgp_controls': sum(r['asgp_1t'].get('reused_control', False) for r in m['results'].values()),
     'exact_prior_population_checks': sum('exact_reference_output' in r['gpu_overlap'] for r in m['results'].values()),
 }, indent=2) + '\n')
@@ -46,7 +49,7 @@ lines = ['# ASGP 1T / GAGP GPU-er-o：完整30題 scaling', '',
     f'固定16 GiB workspace，GPU完整執行與驗證 **{len(gpu)}/150**；合格加速比 **{s["qualified_cells"]}/150**。',
     f'P=16384已有 **{len(large)}/30** 題通過全部16384個最終個體的CPU fitness audit；GPU成功格皆零 mismatch。',
     f'整張RTX3090（24 GiB）的NVML取樣峰值為 **{peak:.2f} GiB**，含桌面背景。', '',
-    '## 每種population', '',
+    '## 每種population', '', '中位數、幾何平均與範圍均為該population跨題目的倍率統計。', '',
     '| Population | GPU通過 | 快於ASGP | 加速比中位數 | 幾何平均 | 最小–最大 |',
     '| ---: | ---: | ---: | ---: | ---: | ---: |']
 for pop in pops:
@@ -71,7 +74,7 @@ if failed:
     for row in failed:
         lines.append(f'- {row["task"]} P={row["population"]}：GPU {row["gpu_status"]}、ASGP {row["asgp_status"]}；{row.get("gpu_reason") or "原始log見CSV／manifest"}。沒有合格倍率。')
 else:
-    lines += ['這組固定資料、設定與四代測試中，五種population的30題全部正常完成，未觸發OOM、timeout、preparation limit或CPU fitness mismatch。']
+    lines += ['這組固定資料、設定與四代測試中，五種population的30題全部正常完成，未觸發OOM、整格執行timeout、preparation limit或CPU fitness mismatch。']
 lines += ['',
     '- 每格一次獨立冷啟動；完整1024 cases、CPU1T、seed0、四代與最後評分。倍率是ASGP `evolve_wall_ms` / GAGP `evolve_wall_ms`，包含初始化、必要materialization與清理；CLI I/O、export及獨立CPU audit另列。這是支援與粗略速度測試，不是精確重複量測或收斂等價證明。',
     '- 所有GPU格使用同一binary與16GiB設定。P16384對全部最終個體做CPU fitness核對；較小P保留top16 CPU audit，並比較完整輸出AST、fitness及每代semantic/operator traces。Runtime errors/timeouts是隨機個體的評分結果，與整個執行是否成功分開計數。',

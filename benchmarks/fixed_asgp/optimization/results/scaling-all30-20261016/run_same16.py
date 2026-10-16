@@ -93,6 +93,12 @@ def run(task,pop,mode,record):
     tag=prefix+f'w16384.a{attempt}'
     output=s.out/f'{task}.{tag}.json';export=s.out/f'{task}.{tag}.final.json'
     source=entry(task,pop)
+    if mode=='gpu_overlap' and source.get('prepared') is None:
+        result=dict(status='initial_admission_limit',workspace_mib=16384,
+            reason='Frozen prefix was not admitted under the unchanged grammar search budget; no prepared artifact exists.')
+        record['attempts'].append(dict(mode=mode,**result));record[mode]=result
+        record['complete']='asgp_1t' in record;record['status']='failed' if record['complete'] else 'pending'
+        record['speedup']=None;s.persist();return
     extra={'GAGP_SEARCH_GENERATIONS':'4','GAGP_BM_SEED':'0',
         'GAGP_GPU_PAYLOAD_WORKSPACE_MIB':'16384','GAGP_SEARCH_EXPORT':str(export)}
     if mode=='gpu_overlap' and pop==16384:extra['GAGP_SEARCH_CPU_ALL']='1'

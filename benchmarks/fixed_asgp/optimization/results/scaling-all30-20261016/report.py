@@ -13,6 +13,10 @@ p.add_argument('--out', type=Path, required=True)
 p.add_argument('--capacity-results', type=Path, help='Separate explicitly configured smaller-workspace runs')
 a = p.parse_args()
 m = read(a.matrix / 'manifest.json')
+admission_file = a.matrix / 'initial_admission_limits.json'
+admissions = read(admission_file) if admission_file.exists() else None
+if admissions:
+    assert admissions['binary_sha256'] == m['binary_sha256']
 supplement = read(a.capacity_results) if a.capacity_results else None
 if supplement:
     assert supplement['binary_sha256'] == m['binary_sha256']
@@ -52,6 +56,13 @@ for task in PAPER_TASKS:
                 if selected.get('gpu_overlap'):
                     cell = selected['gpu_overlap']
                     row['gpu_separate_capacity_config'] = True
+            admission = admissions.get('entries', {}).get(f'{task}.p{population}') if admissions else None
+            if label == 'gpu' and admission:
+                assert admission['inputs'] == record['inputs']
+                row['gpu_original_status'] = cell.get('status')
+                row['gpu_original_log'] = cell.get('log')
+                cell = dict(status=admission['status'], workspace_mib=16384,
+                    reason=admission['reason'], log=admission['log'])
             row[label + '_status'] = status(cell)
             if label == 'gpu':
                 row['workspace_mib'] = cell.get('workspace_mib')
@@ -113,6 +124,7 @@ summary = dict(note='One cold process per configured run. Complete1024cases/G4+f
     matrix_manifest=str(a.matrix / 'manifest.json'),
     capacity_manifest=str(a.capacity_results) if a.capacity_results else None, source_head=m['source_head'],
     binary_source_head=m.get('binary_source_head', m['source_head']),
+    admission_manifest=str(admission_file) if admissions else None,
     binary_sha256=m['binary_sha256'], completed_cells=complete, qualified_cells=passed,
     total_cells=150, rows=rows)
 if m['stage'] == 'all30-scaling-same16':
@@ -161,6 +173,7 @@ if passed:
             if r['speedup'] is None:
                 state = r['gpu_status'] if r['gpu_status'] != 'ok' else 'ASGP ' + r['asgp_status']
                 label = {'constant_preparation_limit': 'limit', 'allocation_failure': 'alloc',
+                         'initial_admission_limit': 'admission',
                          'validation_failed': 'audit', 'timeout': 'timeout'}.get(state, state)
             else:
                 label = f'{r["speedup"]:.2f}x'
@@ -195,6 +208,7 @@ h2{font-size:21px;line-height:1.35;margin:0 0 8px}p{margin:8px 0;color:var(--mut
 <h2>30 題 × 5 種 population · 固定 16 GiB</h2>
 <p>ASGP 1T / GAGP GPU-er-o；1024 cases、四代＋最後評分。倍率越大代表 GAGP 越快。</p>
 <div class="stats"><div class="stat"><b id="support"></b><span>完成且有合格加速比</span></div><div class="stat"><b id="large"></b><span>P16384 全量 CPU audit 通過題數</span></div><div class="stat"><b id="peak"></b><span>整張 24 GiB 顯卡取樣峰值</span></div></div>
+<div id="limits"></div>
 <div class="controls"><input id="filter" type="search" placeholder="搜尋題目" aria-label="搜尋題目"><select id="metric" aria-label="表格指標"><option value="speedup">加速比</option><option value="gpu_wall_s">GAGP 秒數</option><option value="asgp_wall_s">ASGP 秒數</option><option value="vram">顯存 GiB</option></select></div>
 <div class="scroll"><table><thead><tr><th>Task</th><th>1024</th><th>2048</th><th>4096</th><th>8192</th><th>16384</th></tr></thead><tbody id="body"></tbody></table></div>
 <div class="detail" id="detail"><h3 id="selected"></h3><div class="grid" id="grid"></div></div>
@@ -208,6 +222,7 @@ const title=t=>t.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());
 document.getElementById('support').textContent=data.qualified_cells+'/150';
 document.getElementById('large').textContent=rows.filter(r=>r.population===16384&&r.cpu_audit_program_count===16384&&r.cpu_audit_mismatches===0&&r.gpu_status==='ok').length+'/30';
 const peaks=rows.map(r=>r.sampled_device_peak_bytes||0);document.getElementById('peak').textContent=fmt(Math.max(...peaks)/2**30,2)+' GiB';
+for(const r of rows.filter(r=>!['ok','pending'].includes(r.gpu_status))){const p=document.createElement('p');p.className='note';p.textContent=title(r.task)+' · P='+r.population+'：'+(r.gpu_reason||r.gpu_status);document.getElementById('limits').append(p)}
 function choose(r){
  document.getElementById('selected').textContent=title(r.task)+' · P='+r.population;
  const fields=[['加速比',r.speedup==null?'無合格倍率':fmt(r.speedup)+'×'],['ASGP 1T',fmt(r.asgp_wall_s,3)+' s'],['GPU-er-o',fmt(r.gpu_wall_s,3)+' s'],['GPU 狀態',r.gpu_status],['Workspace',r.workspace_mib==null?'—':fmt(r.workspace_mib/1024,0)+' GiB'],['顯存取樣峰值',r.sampled_device_peak_bytes?fmt(r.sampled_device_peak_bytes/2**30)+' GiB':'—'],['CPU audit 個體數',fmt(r.cpu_audit_program_count,0)],['CPU mismatch',fmt(r.cpu_audit_mismatches,0)],['四代已評分 program-cases',fmt(r.evaluated_pairs,0)],['Runtime errors',fmt(r.errors,0)],['Timeouts（errors 子集）',fmt(r.timeouts,0)],['漏評 cases',fmt(r.unscored,0)]];
@@ -220,11 +235,18 @@ function draw(){
   const tr=document.createElement('tr'),name=document.createElement('td');name.textContent=title(task);tr.append(name);
   for(const pop of pops){const r=rows.find(x=>x.task===task&&x.population===pop),td=document.createElement('td'),b=document.createElement('button');b.className='cell'+(r.speedup==null?' failed':r.speedup<1?' slow':'');b.setAttribute('aria-label',title(task)+' population '+pop);
    const v=metric==='vram'?(r.sampled_device_peak_bytes?r.sampled_device_peak_bytes/2**30:null):r[metric];
-   b.textContent=r.speedup==null?(r.gpu_status==='ok'?'ASGP '+r.asgp_status:r.gpu_status):fmt(v)+(metric==='speedup'?'×':'');b.onclick=()=>choose(r);td.append(b);tr.append(td)
+   b.textContent=r.speedup==null?(r.gpu_status==='ok'?'ASGP '+r.asgp_status:r.gpu_status==='initial_admission_limit'?'admission limit':r.gpu_status):fmt(v)+(metric==='speedup'?'×':'');b.onclick=()=>choose(r);td.append(b);tr.append(td)
   }body.append(tr)
  }
 }
 document.getElementById('filter').addEventListener('input',draw);document.getElementById('metric').addEventListener('change',draw);draw();choose(rows.find(r=>r.population===16384&&r.gpu_status==='ok')||rows[0]);
 console.log('dashboard checks',JSON.stringify({rows:rows.length,tasks:tasks.length,columns:pops.length,qualified:data.qualified_cells,completed:data.completed_cells}));
 </script></html>"""
-    (a.out / 'dashboard.html').write_text(dashboard.replace('__DATA__', json.dumps(summary).replace('<', '\\u003c')))
+    view_fields = ('task', 'population', 'gpu_status', 'asgp_status', 'workspace_mib',
+        'speedup', 'gpu_wall_s', 'asgp_wall_s', 'sampled_device_peak_bytes',
+        'cpu_audit_program_count', 'cpu_audit_mismatches', 'evaluated_pairs',
+        'errors', 'timeouts', 'unscored', 'gpu_reason')
+    view = dict(completed_cells=complete, qualified_cells=passed,
+        rows=[{k: row.get(k) for k in view_fields} for row in rows])
+    (a.out / 'dashboard.html').write_text(dashboard.replace('__DATA__',
+        json.dumps(view, separators=(',', ':')).replace('<', '\\u003c')))

@@ -13,6 +13,9 @@
 - 正式P16384 Filter／Sum／IsSorted／Index四題的全部16384個最終個體CPU fitness audit均0 mismatch；GPU完整驗證累計124/150格，配對121/150（其餘P16384 ASGP controls在GPU階段後補齊）。Filter正式13.5099s／13.8966×、device-total peak21.2559GiB；IsSorted87.0760s，CPU全量audit707.73s、peak21.2734GiB。AllEqual進行中。
 - 完成入口`finish_same16.py`已確認未完成矩陣會拒絕出版；它在所有格子完成後才產生中文全文、統計與來源快照。
 
+- GPU階段完成：149/150合格執行；P16384為29/30，全部29題全最終population CPU fitness audit0 mismatch。House Robber的原16K prepare早已在parent index8603失敗（1086nodes>max1024；depth24不是原因）；先前將30個prepare任務complete誤當全部admission通過，已更正。這一格保留None輸入失敗的原attempt，以source/grammar/binary hash連結原prepare log正確分類initial_admission_limit；不使用離線放寬node budget診斷的資料計時。
+- P16384 ASGP1T controls已開始補測；主表仍待全部配對完成。P<=8192的120格均同binary、16GiB完整通過且輸出比對一致。
+
 ---
 
 # All30 G4 scaling — 2026-10-16（執行中）
@@ -20,7 +23,7 @@
 - 使用者授權完整30題×P1024/2048/4096/8192/16384×G4，可超過1小時。比較ASGP1T／最佳GPU-er-o，CPU1T、完整1024cases，不改runtime／pipeline。
 - Runtime及設定沿用下方d250ac3 checkpoint；binary `logs/list-5x-20261015/pooled16-ten/bench`。準備與矩陣各自新目錄`logs/all30-scaling-20261016/{artifacts,matrix}`，外部launcher等待prepare完成後自動開始measure。原始worktrees／artifacts不改，不push。
 - 最新P1024 GPU30/30完整G4與CPU audit通過；先期歷史分母摘要在`results/scaling-all30-20261016/p1024/`。正式五種P使用各自重新測得ASGP控制，不混用歷史分母。
-- 30/30題新16384source已確認原1024 parents/cases prefix，native prepare全數通過原AST prefix/grammar。正式矩陣P1024/2048/4096/8192皆30/30通過（120/150格），目前進入P16384。P8192九題使用獨立8GiB設定恢復完整執行，原16GiB失敗仍保留。原16GiB若allocation失敗才明列8／4GiB重試，保留所有failed attempts；其他錯誤不改設定掩蓋。每cell1800s、hostRSS32GiB保護，失敗無speedup。
+- 30/30題新16384source已確認原1024 parents/cases prefix；P16384 native admission實際29/30通過，House在parent8603因node budget失敗（先前誤讀complete旗標，已更正）。正式矩陣P1024/2048/4096/8192皆30/30通過（120/150格），目前進入P16384。P8192九題使用獨立8GiB設定恢復完整執行，原16GiB失敗仍保留。原16GiB若allocation失敗才明列8／4GiB重試，保留所有failed attempts；其他錯誤不改設定掩蓋。每cell1800s、hostRSS32GiB保護，失敗無speedup。
 - [執行與恢復入口](results/scaling-all30-20261016/README.md)，runner `results/scaling-all30-20261016/run_matrix.py`。每cell寫manifest／rawlog／JSON；續跑先查launcher與controller，未完成measure用`--resume`。GPU lock仍`/tmp/gagp-support-20261015-gpu.lock`。P16384 Filter先期已見constant node origin preparation item limit（16/8/4GiB皆失敗、不是OOM），僅作support evidence。預計數小時，不因啟動長跑就收尾。
 
 - P8192 Filter16GiB的launch failure經nsys確認cudaLaunchKernel returnValue=2（memory allocation）；原失敗保留。獨立`capacity_retries.py`於同一鎖下測8/4GiB，九題均在8GiB完整G4與CPU audit通過（Filter／IsSorted／AllEqual／Cumulative／For／Double／Replace／Even／Negative）。其他相同文字不一律宣稱已證實OOM；以各自完整run結果判定。`report.py --capacity-results <manifest>`可合併有效設定並保留original status/log；實際資料工具檢查通過。
