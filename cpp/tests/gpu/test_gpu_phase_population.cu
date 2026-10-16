@@ -534,6 +534,32 @@ void test_whole_program_node_budget() {
   require(eval_fitness_cpu(programs,cases,answers,10000,1000,32)==gpu.fitness,"large whole-AST CPU/GPU mismatch");
   if(generation<4)owner.reproduce(gpu.fitness,2,.3,UINT64_C(0x4119)+generation);
  }
+ // Exercise the public entry point, including generic GPU preflight ordering.
+ EvolutionConfig config;config.population_size=2;config.generations=2;
+ config.compiled_grammar=owner_grammar;config.generation_request=grammar::entry_request(*owner_grammar);
+ config.eval_engine=EvalEngine::GPU;config.reproduction_backend=repro::ReproductionBackend::Gpu;
+ config.mutation_subtree_prob=1;config.fuel=10000;config.penalty=1000;config.gpu_blocksize=32;
+ config.retain_final_population=true;config.skip_final_eval=false;
+ std::vector<EvalCase> evolution_cases;
+ for(std::size_t i=0;i<cases.size();++i){EvalCase row;row.expected=answers[i];
+  for(std::size_t j=0;j<names.size();++j)row.inputs[names[j]]=cases[i][j].value;
+  evolution_cases.push_back(std::move(row));}
+ const char* flag="GAGP_GPU_PHASE_POPULATION";const auto* prior=std::getenv(flag);
+ const bool had_prior=prior;const std::string saved=prior?prior:"";setenv(flag,"1",1);
+ const std::vector<ProgramGenome> parents{parent,parent};
+ const auto integrated=evolve_population(evolution_cases,config,&parents);
+ require(integrated.reproduction_profile.rfind("native-gpu-phase-",0)==0 && integrated.reproduction_fallback_reason.empty(),
+     "large whole-AST entry point did not use the admitted GPU phase owner");
+ std::vector<BytecodeProgram> final_programs;
+ for(const auto& member:integrated.final_population)final_programs.push_back(compile_for_eval(member.genome,names));
+ const auto cpu=eval_fitness_cpu(final_programs,cases,answers,10000,1000,32);
+ for(std::size_t i=0;i<cpu.size();++i)require(canonicalize_fitness_for_ranking(cpu[i])==integrated.final_population[i].fitness,
+     "large whole-AST public evolution CPU/GPU mismatch");
+ config.mutation_subtree_prob=.5;declined=false;
+ try{(void)evolve_population(evolution_cases,config,&parents);}catch(const std::invalid_argument& e){
+  declined=std::string(e.what()).find("generation request max_nodes=2048 exceeds kernel maximum 1024")!=std::string::npos;}
+ require(declined,"generic GPU fallback silently exceeded its independent 1024-node capacity");
+ if(had_prior)setenv(flag,saved.c_str(),1);else unsetenv(flag);
 }
 
 int main(){try {

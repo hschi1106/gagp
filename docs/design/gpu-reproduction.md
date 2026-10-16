@@ -517,9 +517,17 @@ levels. Each variable phase still has its independent 1024-node buffer; a larger
 whole-program budget does not enlarge those buffers. Cold import explicitly
 declines any phase exceeding that capacity. Variation checks the sum of all
 variable phases plus fixed nodes against the authored whole-program budget,
-and lowering bounds compacted code/constants by that sum rather than a single
-phase's capacity. These are backend resource limits, not ASGP logical-depth
+fresh mutation donors fit both the remaining whole-program budget and the
+remaining destination-phase capacity, and lowering bounds compacted
+code/constants by the whole-program sum rather than a single phase's capacity. These are backend resource limits, not ASGP logical-depth
 limits; a 2048-node grammar does not establish equal search spaces.
+
+Evolution attempts this independently checked phase owner before creating the
+generic GPU reproduction resources. The generic kernel's 1024-node request
+preflight remains enforced if phase admission declines; no larger request is
+silently passed to that kernel. Initial case/AST payload roots are retained
+before admission, and generic run/domain roots join retention when that backend
+is created. This ordering does not replace GPU reproduction with CPU work.
 
 The phase owner accepts up to 16384 members, subject to its existing 12 GiB
 genotype allocation bound. If the estimated genotype buffers, configured payload

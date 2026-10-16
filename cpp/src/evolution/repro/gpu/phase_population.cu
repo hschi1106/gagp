@@ -201,7 +201,9 @@ __global__ void mutate_population(TreePointers input,TreePointers output,TreePoi
  const int incoming=slot.logical_depth?phase_projected_depth(slot.grammar,a.nodes,a.origins,a.node_count,destination.node):0;
  if(incoming<0 || incoming>slot.logical_depth){stat.error=6;return;}
  const int logical=slot.logical_depth-incoming;
- const int available=max_variable_nodes-(total-(end-destination.node));
+ // A larger whole-program budget does not enlarge the destination phase buffer.
+ const int replaced=end-destination.node;
+ const int available=min(max_variable_nodes-(total-replaced),capacity-(a.node_count-replaced));
  auto generated=Fused
    ? generate_phase<true,true>(slot.grammar,site.entry_expression,site.parent_scope,slot.max_depth-depth+1,
        min(capacity,available),random.next(),tmp.nodes,tmp.origins,tmp.constants,tmp.sites,logical)

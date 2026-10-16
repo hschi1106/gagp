@@ -479,9 +479,14 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
   const CaseSet case_set = evolution_case_set(cases, cfg);
   EvolutionConfig reproduction_cfg = cfg;
   reproduction_cfg.verification_inputs = case_set.input_specs;
-  const auto gpu_repro_resources = cfg.reproduction_backend == repro::ReproductionBackend::Gpu
+  // The phase owner has independent whole-program and per-phase capacities.
+  // Keep ordinary generic preflight early; defer it when phase admission is requested.
+  const bool phase_requested=cfg.eval_engine==EvalEngine::GPU &&
+      cfg.reproduction_backend==repro::ReproductionBackend::Gpu &&
+      std::getenv("GAGP_GPU_PHASE_POPULATION");
+  auto gpu_repro_resources = cfg.reproduction_backend==repro::ReproductionBackend::Gpu && !phase_requested
       ? repro::make_gpu_repro_run_resources(reproduction_cfg) : nullptr;
-  const PayloadLifetimeManager payload_lifetime(cases, gpu_repro_resources);
+  const PayloadLifetimeManager initial_payload_lifetime(cases,gpu_repro_resources);
 
   EvolutionResult result;
   result.timing.generations.reserve(static_cast<std::size_t>(cfg.generations));
@@ -512,10 +517,10 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
   result.timing.init_population_ms =
       std::chrono::duration<double, std::milli>(init_t1 - init_t0).count();
 
-  payload_lifetime.retain(population, result.history_best);
+  initial_payload_lifetime.retain(population, result.history_best);
 #ifdef GAGP_HAS_CUDA
   if (evolve_gpu_phase_population(cfg,case_set,population,gpu_session,result,all_t0)) {
-    payload_lifetime.retain({},result.history_best,cfg.skip_final_eval ? nullptr : &result.best,
+    initial_payload_lifetime.retain({},result.history_best,cfg.skip_final_eval ? nullptr : &result.best,
         cfg.retain_final_population ? &result.final_population : nullptr);
     result.timing.total_ms=std::chrono::duration<double,std::milli>(
         std::chrono::steady_clock::now()-all_t0).count();
@@ -523,6 +528,9 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
   }
 #endif
 
+  if(cfg.reproduction_backend==repro::ReproductionBackend::Gpu && !gpu_repro_resources)
+    gpu_repro_resources=repro::make_gpu_repro_run_resources(reproduction_cfg);
+  const PayloadLifetimeManager payload_lifetime(cases,gpu_repro_resources);
   for (int gen = 0; gen < cfg.generations; ++gen) {
     GenerationTiming generation_timing;
     const auto gen_t0 = std::chrono::steady_clock::now();
