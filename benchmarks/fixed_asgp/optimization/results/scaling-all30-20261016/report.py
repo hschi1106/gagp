@@ -49,10 +49,12 @@ for task in PAPER_TASKS:
             if label == 'gpu' and selected.get('complete'):
                 row['gpu_original_status'] = status(cell)
                 row['gpu_original_log'] = cell.get('log')
-                if selected.get('gpu_overlap', {}).get('status') == 'ok':
+                if selected.get('gpu_overlap'):
                     cell = selected['gpu_overlap']
                     row['gpu_separate_capacity_config'] = True
             row[label + '_status'] = status(cell)
+            if label == 'gpu':
+                row['workspace_mib'] = cell.get('workspace_mib')
             row[label + '_output'] = cell.get('output')
             row[label + '_process_s'] = cell.get('process_s')
             collection = supplement if label == 'gpu' and row.get('gpu_separate_capacity_config') else m

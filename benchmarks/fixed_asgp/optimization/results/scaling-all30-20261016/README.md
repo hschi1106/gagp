@@ -52,3 +52,5 @@ PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/scaling-all3
 ```
 
 報表保留`gpu_original_status`／`gpu_original_log`與實際workspace，原始matrix不受覆寫。
+
+`p1024-current/`與`p8192-checkpoint/`是執行中快照，包含尚未完成的pending欄位，僅供歷史／恢復；最終以`final-selected/`為準，並同時保留原16GiB矩陣`final/`。
