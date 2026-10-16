@@ -512,6 +512,21 @@ Results must identify this profile and cannot be presented as identical evolving
 populations to legacy reproduction. GPU memory is bounded by live population and
 grammar capacities, without ancestral proof/source retention.
 
+The phase owner accepts up to 16384 members, subject to its existing 12 GiB
+genotype allocation bound. If the estimated genotype buffers, configured payload
+scratch cap and 2 GiB of kernel-launch headroom would exceed currently free
+device memory, it allocates reproduction buffers only during reproduction.
+Completed lowering is copied into the existing host executable owner before
+those temporary device buffers are released. Evaluation retains only the current
+genotype, and its private payload workspace is released before reproduction.
+This changes storage lifetime, preserving the configured scratch cap, population,
+cases, RNG, operators and execution limits. All allocation, release and lowering
+costs remain in search wall time; this heuristic does not guarantee that a given
+card has sufficient memory. `GAGP_GPU_PHASE_STAGED_BUFFERS=1` forces this lifetime
+policy for diagnostics; `0` retains all buffers, and an unset value selects it
+from the memory estimate. Both diagnostic policies receive full offspring and
+CPU/GPU evaluation checks in `gagp_test_gpu_phase_population`.
+
 `GAGP_OWNED_PHASE_PACK=1` additionally reuses executable verification in that
 private owner. A nonconstructible borrowed view is valid only for a synchronous
 owner evaluation. Cold native verification certifies the unchanged root, plan,

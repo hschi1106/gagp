@@ -510,6 +510,10 @@ FitnessSessionGpu& FitnessSessionGpu::operator=(FitnessSessionGpu&&) noexcept = 
 
 bool FitnessSessionGpu::is_ready() const { return impl_ && impl_->ready; }
 
+bool FitnessSessionGpu::release_private_workspace() const {
+  return impl_ && !impl_->private_workspace.busy && impl_->private_workspace.clear();
+}
+
 FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>& shared_cases,
                                                  const std::vector<Value>& shared_answer,
                                                  int fuel,

@@ -1,5 +1,6 @@
 #include "../../../runtime/gpu/owned_programs.hpp"
 #include "../../../runtime/gpu/view_profile.hpp"
+#include "../../../runtime/gpu/payload_workspace_budget.hpp"
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
 #include "gagp/core/bytecode_verify.hpp"
 #include "phase_population.hpp"
@@ -21,6 +22,7 @@ template<class T> struct Buffer {
  T* data=nullptr;std::size_t count=0;
  Buffer()=default;Buffer(const Buffer&)=delete;
  ~Buffer(){if(data)cudaFree(data);}
+ void clear(){if(data)checked(cudaFree(data));data=nullptr;count=0;}
  void reserve(std::size_t size) {
   if(size<=count)return;
   if(size>std::numeric_limits<std::size_t>::max()/sizeof(T))throw std::overflow_error("GPU genotype allocation overflow");
@@ -296,6 +298,7 @@ struct NativePhasePopulation::Impl {
  const bool compact_compile_frames;
  const bool constructive_export;
  std::size_t peak_transport_bytes=0;
+ bool staged_buffers=false;
  NativePhaseLayout layout;int population=0,slot_count=0,device=-1;bool healthy=true;
  std::vector<std::unique_ptr<UploadedProfile>> profiles;Buffer<DeviceSlot> slots;
  std::unique_ptr<Trees> current,next,crossed,scratch;
@@ -388,9 +391,24 @@ struct NativePhasePopulation::Impl {
  ~Impl(){if(start)cudaEventDestroy(start);if(stop)cudaEventDestroy(stop);}
  void require_device()const{if(!healthy)throw std::logic_error("GPU genotype owner invalidated by a failed step");int now;checked(cudaGetDevice(&now));if(now!=device)throw std::logic_error("GPU genotype device/owner mismatch");}
  std::size_t bytes()const {
-  std::size_t total=current->bytes()+next->bytes()+crossed->bytes()+scratch->bytes()+slots.bytes()+fitness.bytes()+stats.bytes()+code.bytes()+packed_code.bytes()+
+  std::size_t total=(current?current->bytes():0)+(next?next->bytes():0)+(crossed?crossed->bytes():0)+(scratch?scratch->bytes():0)+slots.bytes()+fitness.bytes()+stats.bytes()+code.bytes()+packed_code.bytes()+
       constants.bytes()+packed_constants.bytes()+compiled.bytes()+code_offsets.bytes()+constant_offsets.bytes();
   for(const auto& p:profiles)total+=p->bytes();return total;
+ }
+ void reserve_reproduction_buffers() {
+  const std::size_t rows=std::size_t(population)*slot_count;
+  if(!next)next=std::make_unique<Trees>(inplace_mutation?population:rows);
+  if(!crossed)crossed=std::make_unique<Trees>(rows);
+  if(!scratch)scratch=std::make_unique<Trees>(population);
+  fitness.reserve(population);stats.reserve(population);code.reserve(rows*code_capacity);constants.reserve(rows*capacity);
+  compiled.reserve(rows);code_offsets.reserve(rows+1);constant_offsets.reserve(rows+1);
+  peak_transport_bytes=std::max(peak_transport_bytes,bytes());
+ }
+ void release_reproduction_buffers() {
+  peak_transport_bytes=std::max(peak_transport_bytes,bytes());
+  next.reset();crossed.reset();scratch.reset();
+  fitness.clear();stats.clear();code.clear();constants.clear();compiled.clear();
+  code_offsets.clear();constant_offsets.clear();packed_code.clear();packed_constants.clear();
  }
  void refresh_programs(ReproductionStats* timing) {
   const int rows=population*slot_count;checked(cudaEventRecord(start));
@@ -465,7 +483,7 @@ struct NativePhasePopulation::Impl {
 
 NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
     const std::vector<ProgramGenome>& input,const std::vector<std::string>& input_names,std::optional<grammar::ProjectedBudget> projected):impl_(std::make_unique<Impl>(std::move(grammar))) {
- phase_layout_require(impl_->grammar && !input.empty() && input.size()<=8192,"population/grammar capacity");
+ phase_layout_require(impl_->grammar && !input.empty() && input.size()<=16384,"population/grammar capacity");
  std::set<std::string> expected_names,actual_names(input_names.begin(),input_names.end());
  for(const auto& binding:impl_->grammar->inputs())expected_names.insert(binding.name);
  phase_layout_require(actual_names==expected_names && actual_names.size()==input_names.size(),"input names must exactly cover grammar inputs");
@@ -495,9 +513,23 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  const auto mutation_rows=impl_->inplace_mutation?input.size():rows;
  const std::size_t estimated=(2*rows+mutation_rows+input.size())*tree_bytes+rows*(code_capacity*sizeof(gpu_detail::DInstr)+capacity*sizeof(Value));
  phase_layout_require(estimated<=std::size_t(12)*1024*1024*1024,"resident genotype workspace capacity requires native fallback");
+ std::size_t scratch_budget=0,free_bytes=0,total_bytes=0;
+ if(std::getenv("GAGP_GPU_GLOBAL_PAYLOAD"))
+  phase_layout_require(gpu_detail::parse_payload_workspace_budget(std::getenv("GAGP_GPU_PAYLOAD_WORKSPACE_MIB"),scratch_budget),"invalid payload workspace budget");
+ checked(cudaMemGetInfo(&free_bytes,&total_bytes));
+ // Kernel local-memory backing also needs device space. Retire buffers that
+ // belong exclusively to the other stage before admitting the full scratch cap.
+ constexpr std::size_t launch_headroom=std::size_t(2)*1024*1024*1024;
+ impl_->staged_buffers=estimated>=free_bytes || scratch_budget>=free_bytes-estimated ||
+     launch_headroom>=free_bytes-estimated-scratch_budget;
+ if(const auto* setting=std::getenv("GAGP_GPU_PHASE_STAGED_BUFFERS")) {
+  phase_layout_require(std::string(setting)=="0" || std::string(setting)=="1","staged phase buffers must be 0 or 1");
+  impl_->staged_buffers=std::string(setting)=="1";
+ }
  // Persistent buffers are bounded by population × grammar capacity; no retained
  // ancestral ASTs, intern tables or generation history exist in this owner.
- impl_->current=std::make_unique<Trees>(rows);impl_->next=std::make_unique<Trees>(mutation_rows);impl_->crossed=std::make_unique<Trees>(rows);impl_->scratch=std::make_unique<Trees>(input.size());
+ impl_->current=std::make_unique<Trees>(rows);
+ if(!impl_->staged_buffers){impl_->next=std::make_unique<Trees>(mutation_rows);impl_->crossed=std::make_unique<Trees>(rows);impl_->scratch=std::make_unique<Trees>(input.size());}
  std::vector<DeviceSlot> slots;
  for(int k=0;k<impl_->slot_count;++k) {
   const auto& profile=impl_->layout.profiles[k];const auto& layout=impl_->layout.slots[k];
@@ -561,8 +593,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  }
  annotate_import<<<(rows+63)/64,64>>>(pointers(*impl_->current),impl_->slots.data,rows,impl_->slot_count);checked(cudaGetLastError());
  for(const auto& r:impl_->current->lengths.read(rows))phase_layout_require(valid(r),"import site annotation failed");
- impl_->fitness.reserve(input.size());impl_->stats.reserve(input.size());impl_->code.reserve(rows*code_capacity);impl_->constants.reserve(rows*capacity);
- impl_->compiled.reserve(rows);impl_->code_offsets.reserve(rows+1);impl_->constant_offsets.reserve(rows+1);
+ if(!impl_->staged_buffers)impl_->reserve_reproduction_buffers();
  if(std::getenv("GAGP_OWNED_PHASE_PACKED")) {
   // Every program above passed cold GPU bytecode verification with the same
   // local/stack limits. No reproduction or program mutation has occurred.
@@ -581,13 +612,22 @@ NativePhasePopulation::~NativePhasePopulation() {
 const std::vector<BytecodeProgram>& NativePhasePopulation::programs()const{impl_->require_device();impl_->materialize_programs();return impl_->programs;}
 FitnessEvalResult NativePhasePopulation::evaluate(FitnessSessionGpu& session,bool diagnostics)const {
  impl_->require_device();
- if(!std::getenv("GAGP_OWNED_PHASE_PACK"))return session.eval_programs(programs(),diagnostics);
+ const auto finish=[&](FitnessEvalResult result) {
+  if(impl_->staged_buffers) {
+   const auto begin=Clock::now();
+   if(!session.release_private_workspace())throw std::runtime_error("GPU phase evaluation workspace release failed");
+   const auto ms=elapsed(begin);result.timing.teardown_ms+=ms;result.timing.total_ms+=ms;
+   result.payload_workspace_retained_bytes=0;
+  }
+  return result;
+ };
+ if(!std::getenv("GAGP_OWNED_PHASE_PACK"))return finish(session.eval_programs(programs(),diagnostics));
  const bool capabilities=std::getenv("GAGP_OWNED_PHASE_CAPS") && impl_->views_proven;
  const gpu_detail::OwnedGpuPrograms owned(impl_->programs,impl_->stack_bounds,
      capabilities?&impl_->input_types:nullptr,capabilities && impl_->direct_root_proven,
      impl_->host_packed.get(),[this]{impl_->materialize_programs();},
      impl_->private_intlists_proven?&impl_->input_types:nullptr);
- return session.eval_owned_programs(owned,diagnostics);
+ return finish(session.eval_owned_programs(owned,diagnostics));
 }
 const char* NativePhasePopulation::profile_name()const{return impl_->reproduction_profile.c_str();}
 std::size_t NativePhasePopulation::device_bytes()const{return std::max(impl_->bytes(),impl_->peak_transport_bytes);}
@@ -602,7 +642,9 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
  impl_->require_device();phase_layout_require(completed_fitness.size()==std::size_t(impl_->population) && pressure>0 && pressure<=impl_->population &&
    std::isfinite(probability) && probability>=0 && probability<=1,"selection/mutation contract");
  for(double value:completed_fitness)phase_layout_require(!std::isnan(value),"uncanonical fitness");
- impl_->healthy=false;ReproductionStats timing;const auto upload=Clock::now();impl_->fitness.upload(completed_fitness);timing.upload_ms=elapsed(upload);
+ impl_->healthy=false;ReproductionStats timing;
+ if(impl_->staged_buffers){const auto setup=Clock::now();impl_->reserve_reproduction_buffers();timing.setup_ms+=elapsed(setup);}
+ const auto upload=Clock::now();impl_->fitness.upload(completed_fitness);timing.upload_ms=elapsed(upload);
  const bool counted=impl_->counted_sites;
  int threads=64;
  if(const char* setting=std::getenv("GAGP_PHASE_REPRO_THREADS")){threads=std::atoi(setting);phase_layout_require(threads==1 || threads==2 || threads==4 || threads==8 || threads==16 || threads==32 || threads==64 || threads==128,"phase reproduction block size");}
@@ -638,7 +680,9 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
   timing.variation.changed_children+=one.changed;timing.variation.unchanged_children+=!one.changed;
   timing.variation.fallback_children+=one.crossover_attempted && !one.crossover;
  }
- impl_->current.swap(offspring);impl_->refresh_programs(&timing);impl_->healthy=true;return timing;
+ impl_->current.swap(offspring);impl_->refresh_programs(&timing);
+ if(impl_->staged_buffers){const auto teardown=Clock::now();impl_->release_reproduction_buffers();timing.setup_ms+=elapsed(teardown);}
+ impl_->healthy=true;return timing;
 }
 std::vector<ProgramGenome> NativePhasePopulation::export_population()const {
  impl_->require_device();

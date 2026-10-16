@@ -104,6 +104,7 @@ class FitnessSessionGpu {
 
  private:
   friend class evo::repro::NativePhasePopulation;
+  bool release_private_workspace() const;
   FitnessEvalResult eval_owned_programs(const gpu_detail::OwnedGpuPrograms&, bool capture_case_counts) const;
   FitnessEvalResult eval_programs_impl(const std::vector<BytecodeProgram>&, bool,
       const std::function<void()>&, const gpu_detail::OwnedGpuPrograms*) const;

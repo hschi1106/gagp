@@ -310,7 +310,7 @@ void test_trivial_pattern_refresh() {
  if(present)setenv(flag,saved.c_str(),1);else unsetenv(flag);
 }
 
-void test_private_intlist_generations(bool sequence_windows=false) {
+void test_private_intlist_generations(bool sequence_windows=false,bool staged=false) {
  const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_PRIVATE_MEASURE_CACHE","GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","GAGP_COMPACT_FRAMES","GAGP_GPU_WINDOW_LEAF_DIRECT","GAGP_GPU_PRIVATE_BOUND_PHASES","GAGP_BOUND_ADD_PHASE","GAGP_BOUND_COMPARE_PHASE","GAGP_GPU_PRIVATE_TYPED_PHASES","GAGP_GPU_PRIVATE_WARP_COPY","GAGP_COLD_PAYLOAD_PROOFS","GAGP_COLD_IMPORT_EXECUTABLES","GAGP_REUSE_IMPORT_CERTIFICATE","GAGP_REUSE_ADMISSION_COMPILE","GAGP_REUSE_IMPORTED_EXECUTABLE","GAGP_GPU_REUSE_PRIVATE_WORKSPACE"};
  struct Restore {
   const char** flags;std::string saved[23];bool present[23];
@@ -364,10 +364,16 @@ void test_private_intlist_generations(bool sequence_windows=false) {
  FitnessPolicy policy;policy.metric=FitnessMetric::Exact;policy.list_allocation_limit=65536;
  const int audit_fuel=sequence_windows?100000:10000;
  FitnessSessionGpu session;require(session.init(cases,answers,audit_fuel,32,1000,policy).ok,"private list owner session");
+ const auto* stage_prior=std::getenv("GAGP_GPU_PHASE_STAGED_BUFFERS");
+ const bool stage_present=stage_prior;const std::string stage_saved=stage_prior?stage_prior:"";
+ setenv("GAGP_GPU_PHASE_STAGED_BUFFERS","0",1);
  setenv("GAGP_COLD_IMPORT_EXECUTABLES","0",1);
  repro::NativePhasePopulation cold_control(grammar,parents,names);
+ setenv("GAGP_GPU_PHASE_STAGED_BUFFERS",staged?"1":"0",1);
  setenv("GAGP_COLD_IMPORT_EXECUTABLES","1",1);
  repro::NativePhasePopulation owner(grammar,parents,names);
+ if(stage_present)setenv("GAGP_GPU_PHASE_STAGED_BUFFERS",stage_saved.c_str(),1);else unsetenv("GAGP_GPU_PHASE_STAGED_BUFFERS");
+ if(staged)require(owner.device_bytes()<cold_control.device_bytes(),"staged owner retained reproduction buffers at cold admission");
  bool changed=false,saw_content_match=false;
  for(int generation=0;generation<=32;++generation) {
   setenv("GAGP_GPU_REUSE_PRIVATE_WORKSPACE","0",1);
@@ -399,7 +405,7 @@ void test_private_intlist_generations(bool sequence_windows=false) {
   const auto dirty=owner.evaluate(session,true);
   require(unpooled.ok && unpooled.fitness==gpu.fitness && unpooled.wrong==gpu.wrong && unpooled.case_counts==gpu.case_counts &&
       dirty.ok && dirty.fitness==gpu.fitness && dirty.wrong==gpu.wrong && dirty.case_counts==gpu.case_counts &&
-      gpu.payload_workspace_retained_bytes>0 && gpu.payload_workspace_pool_peak_bytes<=gpu.payload_workspace_budget_bytes &&
+      (staged?gpu.payload_workspace_retained_bytes==0:gpu.payload_workspace_retained_bytes>0) && gpu.payload_workspace_pool_peak_bytes<=gpu.payload_workspace_budget_bytes &&
       dirty.payload_workspace_pool_peak_bytes<=dirty.payload_workspace_budget_bytes,
       "fresh-generation pooled cells/frames/memo differ from ordinary execution");
   const auto cold_off=cold_control.evaluate(session,true);
@@ -482,6 +488,8 @@ int main(){try {
  test_trivial_pattern_refresh();
  test_private_intlist_generations();
  test_private_intlist_generations(true);
+ test_private_intlist_generations(false,true);
+ test_private_intlist_generations(true,true);
  auto definition=grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json");
  // Keep the original oversized fixture as a required explicit rejection.
  // The positive fixture is a separately authored GPU-capacity contract.
@@ -577,6 +585,10 @@ int main(){try {
  FitnessSessionGpu session;require(session.init(cases,answers,10000,512,1000).ok,"GPU session init");
  check_initial_packed_verification(grammar,parents,names,session,cases,answers);
  check_inplace_mutation(grammar,parents,names,session);
+ setenv("GAGP_GPU_PHASE_STAGED_BUFFERS","1",1);
+ check_inplace_mutation(grammar,parents,names,session);
+ unsetenv("GAGP_GPU_PHASE_STAGED_BUFFERS");
+ check_splice_policy("GAGP_GPU_PHASE_STAGED_BUFFERS",grammar,parents,names,session);
  check_splice_policy("GAGP_GPU_DEFERRED_CROSSOVER_COPY",grammar,parents,names,session);
  check_splice_policy("GAGP_GPU_FUSED_SPLICE_DEPTH",grammar,parents,names,session);
  check_splice_policy("GAGP_GPU_COMPACT_COMPILE_FRAMES",grammar,parents,names,session);
