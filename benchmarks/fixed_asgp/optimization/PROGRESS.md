@@ -7,6 +7,9 @@
 - Filter16384先期正確性probe已完成G4+final eval，顯存取樣峰值21766MiB（device total，含桌面）；CPU1T對全部16384個最終個體/1024cases audit通過（0 mismatch，316.09s）。此probe與build重疊，時間不作正式speedup。
 - 新runner `results/scaling-all30-20261016/run_same16.py`；新資料 `logs/all30-scaling-20261016/same16-probe/`。正式矩陣已啟動，controller PID 2880162，source `356bc55`；用同一候選binary重測全部150個GPU cells，重用完全相同inputs/settings且ASGP邏輯未變的既有同P controls，剩餘controls重新量測。P16384全最終population CPU audit在evolve wall time之外。較小P也比較完整輸出AST、fitness與semantic/operator traces（8GiB舊資料只作語意比對、不取其時間）。
 
+- 固定16GiB的新主矩陣P1024/2048/4096/8192全部30/30通過，120個完整AST/fitness/semantic/operator比對通過；先前九筆8GiB補測題也全在16GiB通過。快照 `results/scaling-all30-20261016/same16-p8192-checkpoint/` 明列P16384 pending。正式Filter16384已完成G4，仍在全量CPU audit，未把先期probe時間取代正式結果。
+- 報表已檢查120合格/150總格與固定workspace16384MiB；互動HTML在728px light與360px dark預覽無console error，task filter/cell details/metric switch/reset檢查通過。`report.py`同時輸出CSV、英文PNG/PDF、中文互動表；仍需完成正式P16384及其ASGP controls。
+
 ---
 
 # All30 G4 scaling — 2026-10-16（執行中）

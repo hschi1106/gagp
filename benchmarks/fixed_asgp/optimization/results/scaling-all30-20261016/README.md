@@ -82,3 +82,8 @@ CPU audit，並與舊版本有效資料比較全部輸出AST、fitness及semanti
 `same16-controller.json`／`same16-controller.log`。主表完成後以`report.py --matrix`
 指向`same16/`，不傳`--capacity-results`。此表取代不同workspace合併表作主結論；
 原matrix、失敗及8GiB補測仍保留。
+
+`same16-p8192-checkpoint/` 是新binary固定16GiB的前120格快照，P16384仍pending；
+含CSV、逐代資料、靜態英文圖及可獨立開啟的 `dashboard.html`。互動表可切換倍率、
+ASGP/GAGP秒數與顯存，點格查看CPU audit範圍及完整cases counters。最終以全部格子
+完成後的新報表為準。
