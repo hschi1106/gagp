@@ -20,3 +20,12 @@ PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/day24-202610
 ```
 
 原始資料、pinned binary、manifest與進度位於logs/day24-20261017。中斷／失敗原樣保留；resume不會把失敗格覆寫成重跑樣本。尚未完成搜尋不得宣稱整輪完成。
+
+分析程式在正式held-out判題前凍結；完成後才產生新的報告目錄：
+
+```bash
+PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/day24-20261017/report.py \
+  --matrix logs/day24-20261017 --out <NEW_REPORT_DIRECTORY>
+```
+
+報告以已選定的G過濾pilot，保留150個速度格與300個品質runs，另外列出coverage、失敗與初始已成功的runs。每代曲線使用原生CPU判題的exact accuracy；不是只看搜尋fitness。所有比率按本輪原始秒數計算。
