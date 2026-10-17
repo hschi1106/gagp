@@ -5,6 +5,7 @@
 - 16GiB workspace、GPU繁殖、CPU1T、whole AST2048／physicaldepth24／phase1024固定。production runtime保持12c6849；本輪僅擴充benchmark adapter的opt-in案例數、初代seed、指定資料原生CPU判題與best-only export。舊資料與binary不改。
 - Controller PID3124080已啟動；原始資料／pinned binary／manifest／controller metadata在`logs/day24-20261017/`及同prefix controller檔案。續跑先確認controller／子程序狀態，使用runner的--resume；不要重複啟動。24h結束前持續工作，只有全部請求有明確結果與報告才收尾。
 - 全30題、150組品質初代準備完成，均完整admit，未替換個體；30題train/test input overlap均0。有限域Train/Test unique例外：Even Squares79/20、Sum of Squares30/70、Fibonacci21/10、Tribonacci19/7、Fibonacci Array81/88，其餘25題200/1000。已進入代表題時間／資源pilot，尚未決定正式代數，尚未作held-out判題。
+- 首對Double Letters P16384/C1024/G16＋final pilot通過：ASGP搜尋2307.765s、GPU96.318s；GPU16輪unscored=0，first16 final-program CPU audit為0 mismatch，無CPU繁殖fallback。整卡200ms NVML取樣峰值21.106GiB（含桌面，可能漏短尖峰）；只代表此題此設定，尚非全題G16支援證明。正式代數尚未選定，不能提前把pilot當作正式完整表。
 - 暫時性T3 monitor每30分鐘回到原對話核對進度並在完成後接續分析／交付，首次2026-10-17 14:51:05 UTC。ID及prompt存`logs/day24-20261017-monitor.json`；交付或取消後以`update_scheduled_task(enabled=false)`停用。正常長跑期間不作競爭的build／測試／重分析。
 - [本輪規格、範圍與重現](results/day24-20261017/README.md)、[凍結protocol](results/day24-20261017/protocol.json)。先前四代／1024-node結果保留獨立，不混入新的長程表。核對採每次既有first16 final-program CPU audit及所有品質champions離線原生CPU判題；不宣稱新的全population parity證明。
 
