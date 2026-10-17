@@ -1,0 +1,43 @@
+{
+  "status": "pass",
+  "checks": [
+    "30 task rows / 150 speed cells",
+    "Median search and task selection",
+    "5 seeds and two CPU accuracy curves",
+    "train/test toggle changes plot",
+    "House success counters agree with summary",
+    "finite training pool wording",
+    "filter reset",
+    "no horizontal body overflow"
+  ],
+  "previews": {
+    "desktop": {
+      "width": 728,
+      "contentHeight": 2519,
+      "consoleMessages": [
+        {
+          "level": "log",
+          "text": "day24 result checks {\"speed_rows\":150,\"speed_qualified\":150,\"quality_rows\":300,\"quality_audited\":300,\"speed_g\":8,\"quality_g\":64,\"tasks\":30}"
+        },
+        {
+          "level": "log",
+          "text": "INTERACTION_CHECK_PASS {\"width\":728,\"rows\":30,\"seeds\":5,\"house\":\"1/0\",\"bodyWidth\":728}"
+        }
+      ]
+    },
+    "mobile": {
+      "width": 360,
+      "contentHeight": 2780,
+      "consoleMessages": [
+        {
+          "level": "log",
+          "text": "day24 result checks {\"speed_rows\":150,\"speed_qualified\":150,\"quality_rows\":300,\"quality_audited\":300,\"speed_g\":8,\"quality_g\":64,\"tasks\":30}"
+        },
+        {
+          "level": "log",
+          "text": "INTERACTION_CHECK_PASS {\"width\":360,\"rows\":30,\"seeds\":5,\"house\":\"1/0\",\"bodyWidth\":360}"
+        }
+      ]
+    }
+  }
+}

@@ -136,13 +136,15 @@ def main():
     save(args.out/"summary.json",s)
     write_csv(args.out/"speed.csv",s["speed_rows"]);write_csv(args.out/"quality.csv",s["quality_rows"])
     for source,name in [(args.matrix/"environment.json","environment.json"),(BASE/"protocol.json","protocol.json"),
-                        (BASE/"validation.json","validation.json")]:
+                        (BASE/"validation.json","validation.json"),
+                        (args.matrix/"asgp-source-hashes.json","asgp-source-hashes.json")]:
         shutil.copy2(source,args.out/name)
     save(args.out/"provenance.json",dict(manifest=str(args.matrix/"manifest.json"),
         manifest_sha256=sha(args.matrix/"manifest.json"),binary_sha256=m["binary_sha256"],
         source_head=m["source_head"],runner_sha256=m["runner_sha256"],
         report_sha256=sha(Path(__file__)),template_sha256=sha(BASE/"dashboard.template.html"),
-        fixture_helper_sha256=m["fixture_helper_sha256"],runtime_source_sha256=m["runtime_source_sha256"]))
+        fixture_helper_sha256=m["fixture_helper_sha256"],runtime_source_sha256=m["runtime_source_sha256"],
+        external_asgp_source_manifest_sha256=sha(args.matrix/"asgp-source-hashes.json")))
     save(args.out/"dataset-splits.json",{t:m["inputs"][t]["split"] for t in PAPER_TASKS})
     lines=["# 單機24小時：ASGP／GAGP多代速度與品質","",
         f"速度矩陣G{s['speed_generations']}：合格{s['speed_qualified']}/150格；品質P1024/G{s['quality_generations']}：完成獨立CPU判題{s['quality_audited']}/300 runs。","",
@@ -164,7 +166,7 @@ def main():
         "- 全部GAGP採whole AST2048、physical depth24、每phase1024、GPU繁殖、CPU1T。ASGP logical phase depth7、operator/RNG、ranking及resource units等差異保留，fully_aligned=false。",
         "- ASGP比較組是benchmark search_asgp_1t：原生Score／operators順序執行、elite1、每輪重評完整population；不是含cross-generation program-fitness cache的stock Run入口。倍率只相對這個公開1T控制組。",
         "- 速度：完整1024cases、seed0、每格單次cold process；evolve_wall_ms包含呼叫內初始化／admission、演化、最後評分與清理。CLI解析／匯入準備、export與獨立CPU audit另列process wall；不能稱完整CLI加速或純硬體加速。",
-        "- 品質採本地ASGP BuildTask domain，data seed20261017；不是official PSB fixture，也不是原論文100run／500000NFE重現。每題unique train最多200、test最多1000，input overlap=0；有限域／外推支援範圍見dataset-splits.json。",
+        "- 品質採本地ASGP BuildTask domain，data seed20261017；不是official PSB fixture，也不是原論文100run／500000NFE重現。每題unique train最多200、test最多1000，input overlap=0；有限域見dataset-splits.json。其heldout_outside_training_support欄位實際計算test輸入未出現在4096筆原始training pool的數量，不能僅依此判定分布外推。",
         "- 品質只比較P1024，不能從此判斷不同population的收斂優劣；每題五個seeds只屬探索性，沒有品質等價／非劣性宣稱。Test曲線為事後判題的training-selected champion，不向搜尋回饋。",
         "- 每次GPU搜尋先以CPU核對first16 final programs；品質的每代champion及final candidate另用各自原生CPU表示對指定train/test做exact判題，post-search去重只節省重複audit。未做新的全population CPU重算，不能宣稱全部個體parity。",
         "- 每題native錯誤／timeout仍照原契約計入fitness；程序失敗、資源限制、未完成與未解題分開記錄。失敗不得提供合格倍率，成功率分母保留預訂五次。",

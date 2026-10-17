@@ -1,15 +1,17 @@
-# 單機24小時實驗 — 2026-10-17（速度完成／品質搜尋執行中）
+# 單機24小時實驗 — 2026-10-17（已完成）
 
 - 使用者已授權開始。24h從2026-10-17 13:16:49 UTC起算，硬截止2026-10-18 13:16:49 UTC（台灣21:16:49）；重啟不重設預算。先以時間／資源pilot選定速度G16／品質G128，若12h／5h及保留5h的門檻不成立，正式前統一改G8／G64。
 - 速度保留30題×五種P1024/2048/4096/8192/16384×ASGP1T／GPU-er-o，seed0，各一個cold process。品質保留全30題、P1024、配對初代與variation seeds0–4、unique train<=200／input-disjoint test<=1000；有限域例外明列，不能稱原論文重現或品質等價證明。
 - 16GiB workspace、GPU繁殖、CPU1T、whole AST2048／physicaldepth24／phase1024固定。production runtime保持12c6849；本輪僅擴充benchmark adapter的opt-in案例數、初代seed、指定資料原生CPU判題與best-only export。舊資料與binary不改。
-- Controller PID3124080已啟動；原始資料／pinned binary／manifest／controller metadata在`logs/day24-20261017/`及同prefix controller檔案。續跑先確認controller／子程序狀態，使用runner的--resume；不要重複啟動。24h結束前持續工作，只有全部請求有明確結果與報告才收尾。
-- 全30題、150組品質初代準備完成，均完整admit，未替換個體；30題train/test input overlap均0。有限域Train/Test unique例外：Even Squares79/20、Sum of Squares30/70、Fibonacci21/10、Tribonacci19/7、Fibonacci Array81/88，其餘25題200/1000。代表題速度pilot6/6、品質pilot12/12完整通過；尚未作held-out判題。
+- Controller原PID3124080已退出，manifest為complete，沒有背景benchmark工作。原始資料／pinned binary／manifest／controller metadata在`logs/day24-20261017/`及同prefix controller檔案；不要resume已完成矩陣。從準備到全部核對9.234h，含報告檢查時間另見final/completion.json，仍在原24h截止內。
+- 全30題、150組品質初代準備完成，均完整admit，未替換個體；30題train/test input overlap均0。有限域Train/Test unique例外：Even Squares79/20、Sum of Squares30/70、Fibonacci21/10、Tribonacci19/7、Fibonacci Array81/88，其餘25題200/1000。代表題速度pilot6/6、品質pilot12/12完整通過；正式品質的600/600指定train/test原生CPU判題亦完成。
 - 2026-10-17 15:22:04 UTC正式前依凍結門檻全局選定速度G8／品質G64。Pilot校正預估：G16／G128速度26.876h、品質9.793h，超出12h／5h門檻；G8／G64估速度14.530h、品質5.380h，合計19.911h，選定時剩21.912h。這是保守預測而非完成保證；原硬截止及reserve guards保留，若時間不足須明列budget_not_run。全30題／五種P／五組品質seeds與其他設定不變，不再逐格調代數。
-- 正式G8速度矩陣300/300方法runs完成且驗證通過，150/150配對格齊全，0失敗；五種P各30題全部完成，包含P16384全30題。所有GPU仍使用同一pinned binary、16GiB workspace及GPU繁殖，未降級設定。已進入P1024／G64／seeds0–4品質搜尋；其後才執行逐代champion及final candidate的train/test原生CPU判題，尚非整輪完成或品質結論。
+- 正式G8速度矩陣300/300方法runs完成且驗證通過，150/150配對格齊全，0失敗；五種P各30題全部完成，包含P16384全30題。所有GPU使用同一pinned binary、16GiB workspace及GPU繁殖。各P倍率中位數10.64／13.95／16.05／14.94／15.22×，幾何平均7.95／10.22／11.49／10.30／11.07×；147/150格較快。正式速度整卡200ms NVML取樣峰值21.114GiB，含pilot等工作最高21.132GiB；含桌面且可能漏短尖峰。
+- P1024／G64／seeds0–4品質300/300搜尋與600/600指定train/test原生CPU判題完成，沒有程序失敗。ASGP final train/test全對58/150、GPU39/150，兩邊gen0 champion各10個已成功，新增成功48／29；至少一個seed成功的題目16／9題。跨題加總及每題5seeds僅屬描述性探索，顯示目前品質有落差，不能將搜尋倍率當作解題加速比，也不能單獨歸因於GPU有損執行。
+- 完整性核對591個檔案雜湊（外部ASGP46來源檔案）、30題資料／初代配對、600正式命令及全部串行時間區間通過。初版報告保留在`logs/day24-20261017-report-initial`；修正pool/support標示、gen0 champion文案及補source provenance後，summary／CSV／PNG雜湊不變，沒有改指標或重測。
 - 首對Double Letters P16384/C1024/G16＋final pilot通過：ASGP搜尋2307.765s、GPU96.318s；GPU16輪unscored=0，first16 final-program CPU audit為0 mismatch，無CPU繁殖fallback。整卡200ms NVML取樣峰值21.106GiB（含桌面，可能漏短尖峰）；只代表此題此設定，尚非全題G16支援證明。較大G16／G128 pilot獨立保留，不混入G8／G64正式主表。
-- 暫時性T3 monitor每30分鐘回到原對話核對進度並在完成後接續分析／交付，首次2026-10-17 14:51:05 UTC。ID及prompt存`logs/day24-20261017-monitor.json`；交付或取消後以`update_scheduled_task(enabled=false)`停用。正常長跑期間不作競爭的build／測試／重分析。
-- [本輪規格、範圍與重現](results/day24-20261017/README.md)、[凍結protocol](results/day24-20261017/protocol.json)。先前四代／1024-node結果保留獨立，不混入新的長程表。核對採每次既有first16 final-program CPU audit及所有品質champions離線原生CPU判題；不宣稱新的全population parity證明。
+- 暫時性T3 monitor原每30分鐘回到原對話核對進度，現已以`update_scheduled_task(enabled=false)`停用。ID及prompt存`logs/day24-20261017-monitor.json`。最終repository24項全通過，桌面728／手機360互動檢查通過；production runtime與12c6849差異為空。變更與結果只在本地、未push。
+- [主要結論與限制](results/day24-20261017/final/FINDINGS.zh-TW.md)、[完整逐題報告](results/day24-20261017/final/REPORT.zh-TW.md)、[互動表](results/day24-20261017/final/dashboard.html)、[速度CSV](results/day24-20261017/final/speed.csv)、[品質CSV](results/day24-20261017/final/quality.csv)、[本輪規格與重現](results/day24-20261017/README.md)、[凍結protocol](results/day24-20261017/protocol.json)。先前四代／1024-node結果保留獨立，不混入新的長程表。核對採每次既有first16 final-program CPU audit及所有品質champions離線原生CPU判題；不宣稱新的全population parity證明。
 
 ---
 

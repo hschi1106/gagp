@@ -1,4 +1,6 @@
-# 單機24小時 ASGP／GAGP 實驗（2026-10-17）
+# 單機24小時 ASGP／GAGP 實驗（2026-10-17，已完成）
+
+已完成正式速度G8的150/150配對格、品質P1024/G64的300/300 runs及600/600原生CPU train/test判題，均無程序失敗。控制器共9.234h；包含報告核對的總時間見[completion.json](final/completion.json)。[主要結論與限制](final/FINDINGS.zh-TW.md)、[完整逐題報告](final/REPORT.zh-TW.md)、[互動表](final/dashboard.html)、[速度CSV](final/speed.csv)、[品質CSV](final/quality.csv)。
 
 正式規格見[protocol.json](protocol.json)。使用者已授權開始；總時間從2026-10-17 13:16:49 UTC起算24小時，包含準備、試跑、搜尋及核對，不因重啟controller重設。
 
@@ -21,7 +23,7 @@ PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/day24-202610
 
 原始資料、pinned binary、manifest與進度位於logs/day24-20261017。中斷／失敗原樣保留；resume不會把失敗格覆寫成重跑樣本。尚未完成搜尋不得宣稱整輪完成。
 
-本輪另設暫時性T3進度檢查，每30分鐘回到原對話核對controller、子程序及manifest，正常執行時不啟動競爭的工作。首次檢查2026-10-17 14:51:05 UTC；task ID、原始prompt及cadence存於`logs/day24-20261017-monitor.json`。搜尋及離線核對完成後接續產生報告，交付報告或使用者取消時停用此monitor。這個檢查不重設24h期限，也不重複啟動活著的controller。
+本輪另設暫時性T3進度檢查，每30分鐘回到原對話核對controller、子程序及manifest，正常執行時不啟動競爭的工作。首次檢查2026-10-17 14:51:05 UTC；task ID、原始prompt及cadence存於`logs/day24-20261017-monitor.json`。搜尋、離線核對及報告完成後，已將monitor停用。這個檢查不重設24h期限，也不重複啟動活著的controller。
 
 分析程式在正式held-out判題前凍結；完成後才產生新的報告目錄：
 
@@ -31,3 +33,14 @@ PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/day24-202610
 ```
 
 報告以已選定的G過濾pilot，保留150個速度格與300個品質runs，另外列出coverage、失敗與初始已成功的runs。每代曲線使用原生CPU判題的exact accuracy；不是只看搜尋fitness。所有比率按本輪原始秒數計算。
+
+最終核對時修正一處pool/support文案：欄位`heldout_outside_training_support`實際表示未出現在原始training pool，不保證是分布外推。另明確標示gen0 champion並補外部ASGP source provenance；沒有改變數值、指標、成功分類或搜尋設定。初版保存在`logs/day24-20261017-report-initial`，修正前後JSON／CSV／PNG雜湊相同，詳見[analysis-corrections.json](final/analysis-corrections.json)。
+
+Post-run完整性檢查不啟動benchmark；本輪已核對591個檔案雜湊、資料配對、五組不同初代、正式命令與全部串行程序區間：
+
+```bash
+PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/day24-20261017/verify.py \
+  --matrix logs/day24-20261017 \
+  --report benchmarks/fixed_asgp/optimization/results/day24-20261017/final \
+  --out <NEW_INTEGRITY_JSON>
+```

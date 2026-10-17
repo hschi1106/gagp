@@ -1,0 +1,28 @@
+{
+  "status": "complete",
+  "recorded_utc": "2026-10-17T22:59:27.898725+00:00",
+  "started_epoch": 1792243009.0,
+  "deadline_epoch": 1792329409.0,
+  "controller_elapsed_h": 9.234304920898543,
+  "elapsed_including_reporting_h": 9.721101941929923,
+  "within_original_24h_budget": true,
+  "speed_runs_passed": 300,
+  "quality_search_runs_passed": 300,
+  "cpu_judge_jobs_passed": 600,
+  "ratio_raw_time_checks": "pass",
+  "aggregate_count_checks": "pass",
+  "integrity": "integrity.json",
+  "ui_validation": "ui-validation.json",
+  "repository_checks": {
+    "run": 24,
+    "failed": 0,
+    "status": "pass",
+    "initial_issue": "Completion record link target was written after the first final link check; final checks rerun after adding it."
+  },
+  "completed_utc": "2026-10-17T23:00:04.966980+00:00",
+  "temporary_monitor": {
+    "scheduledTaskId": "scheduled-task:command:mcp:a9daca1a-d19e-403a-a37b-334568ed881c:schedule-task:gagp-day24-20261017-progress-monitor-v1",
+    "enabled": false,
+    "nextRunAt": null
+  }
+}

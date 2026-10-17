@@ -1,0 +1,8 @@
+{
+  "cpu": "Intel(R) Core(TM) i9-10900K CPU @ 3.70GHz",
+  "gpu": "index, name, memory.total [MiB], driver_version, uuid\n0, NVIDIA GeForce RTX 3090, 24576 MiB, 560.35.05, GPU-9c69fabe-a876-c803-9278-b54b8ec52daf\n",
+  "source_head": "5d4252cb6bd16948a393ec712be41e9a4501f067",
+  "binary_sha256": "c468542bfceb361809aae24667579ca142ab7e2230aa482b1753bf5dba500442",
+  "host_threads": 1,
+  "workspace_mib": 16384
+}
