@@ -3,7 +3,9 @@
 - 使用者已授權開始。24h從2026-10-17 13:16:49 UTC起算，硬截止2026-10-18 13:16:49 UTC（台灣21:16:49）；重啟不重設預算。先以時間／資源pilot選定速度G16／品質G128，若12h／5h及保留5h的門檻不成立，正式前統一改G8／G64。
 - 速度保留30題×五種P1024/2048/4096/8192/16384×ASGP1T／GPU-er-o，seed0，各一個cold process。品質保留全30題、P1024、配對初代與variation seeds0–4、unique train<=200／input-disjoint test<=1000；有限域例外明列，不能稱原論文重現或品質等價證明。
 - 16GiB workspace、GPU繁殖、CPU1T、whole AST2048／physicaldepth24／phase1024固定。production runtime保持12c6849；本輪僅擴充benchmark adapter的opt-in案例數、初代seed、指定資料原生CPU判題與best-only export。舊資料與binary不改。
-- 原始資料／pinned binary／manifest／controller metadata預定在`logs/day24-20261017/`及同prefix controller檔案。續跑先確認controller／子程序狀態，使用runner的--resume；不要重複啟動。24h結束前持續工作，只有全部請求有明確結果與報告才收尾。
+- Controller PID3124080已啟動；原始資料／pinned binary／manifest／controller metadata在`logs/day24-20261017/`及同prefix controller檔案。續跑先確認controller／子程序狀態，使用runner的--resume；不要重複啟動。24h結束前持續工作，只有全部請求有明確結果與報告才收尾。
+- 全30題、150組品質初代準備完成，均完整admit，未替換個體；30題train/test input overlap均0。有限域Train/Test unique例外：Even Squares79/20、Sum of Squares30/70、Fibonacci21/10、Tribonacci19/7、Fibonacci Array81/88，其餘25題200/1000。已進入代表題時間／資源pilot，尚未決定正式代數，尚未作held-out判題。
+- 暫時性T3 monitor每30分鐘回到原對話核對進度並在完成後接續分析／交付，首次2026-10-17 14:51:05 UTC。ID及prompt存`logs/day24-20261017-monitor.json`；交付或取消後以`update_scheduled_task(enabled=false)`停用。正常長跑期間不作競爭的build／測試／重分析。
 - [本輪規格、範圍與重現](results/day24-20261017/README.md)、[凍結protocol](results/day24-20261017/protocol.json)。先前四代／1024-node結果保留獨立，不混入新的長程表。核對採每次既有first16 final-program CPU audit及所有品質champions離線原生CPU判題；不宣稱新的全population parity證明。
 
 ---

@@ -21,6 +21,8 @@ PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/day24-202610
 
 原始資料、pinned binary、manifest與進度位於logs/day24-20261017。中斷／失敗原樣保留；resume不會把失敗格覆寫成重跑樣本。尚未完成搜尋不得宣稱整輪完成。
 
+本輪另設暫時性T3進度檢查，每30分鐘回到原對話核對controller、子程序及manifest，正常執行時不啟動競爭的工作。首次檢查2026-10-17 14:51:05 UTC；task ID、原始prompt及cadence存於`logs/day24-20261017-monitor.json`。搜尋及離線核對完成後接續產生報告，交付報告或使用者取消時停用此monitor。這個檢查不重設24h期限，也不重複啟動活著的controller。
+
 分析程式在正式held-out判題前凍結；完成後才產生新的報告目錄：
 
 ```bash
