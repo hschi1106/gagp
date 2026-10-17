@@ -25,6 +25,52 @@ class TestFixedAsgpNative(unittest.TestCase):
                                 preexec_fn=limit_memory if memory_limit else None)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_explicit_quality_cases_seed_and_native_judge(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            folder=Path(temporary)
+            base=dict(os.environ,GAGP_FREEZE_POPULATION='8',GAGP_HOST_THREADS='1',
+                      GAGP_BM_ALIGNED_FITNESS='1',GAGP_SEARCH_GENERATIONS='2')
+            sources=[]
+            for seed in (0,1):
+                path=folder/f'seed{seed}.json'
+                self.call('freeze','min',path,env=dict(base,GAGP_FREEZE_POPULATION_SEED=str(seed)))
+                sources.append(json.loads(path.read_text()))
+            self.assertNotEqual(sources[0]['population'],sources[1]['population'])
+            default=folder/'default.json';self.call('freeze','min',default,env=base)
+            self.assertEqual(json.loads(default.read_text()),sources[0])
+            source=folder/'train.json';document=sources[0];document['cases']=document['cases'][:3]
+            source.write_text(json.dumps(document))
+            grammar=self.source_grammar('min',folder,base)
+            prepared=folder/'prepared.json';self.call('prepare',source,grammar,8,prepared,env=base)
+            rejected=subprocess.run([str(BINARY),'measure',str(source),str(prepared),str(grammar),
+                '8','search_asgp_1t',str(folder/'bad.json')],env=base,capture_output=True,text=True)
+            self.assertNotEqual(rejected.returncode,0)
+            env=dict(base,GAGP_BM_CASE_COUNT='3',GAGP_SEARCH_EXPORT_BEST_ONLY='1')
+            for mode in ('asgp_1t','gagp_cpu'):
+                output=folder/f'{mode}.json';export=folder/f'{mode}.export.json';history=folder/f'{mode}.history.json'
+                current=dict(env,GAGP_SEARCH_EXPORT=str(export),GAGP_SEARCH_HISTORY_EXPORT=str(history))
+                self.call('measure',source,prepared,grammar,8,'search_'+mode,output,env=current)
+                result=json.loads(output.read_text())
+                self.assertEqual(result['cases'],3)
+                self.assertTrue(all(row['expected_program_cases']==24 for row in result['generations']))
+                if mode=='gagp_cpu':
+                    self.assertEqual(result['cpu_audit_mismatches'],0)
+                    self.assertEqual(len(json.loads(export.read_text())['programs']),1)
+                    self.assertEqual(len(result['final_population']),8)
+                judged=folder/f'{mode}.judge.json'
+                self.call('quality-source',source,export,grammar,judged,history,env=env)
+                audit=json.loads(judged.read_text())
+                self.assertEqual(audit['cases'],3)
+                self.assertEqual(audit['final']['cases'],3)
+                self.assertEqual(len(audit['history']),2)
+                self.assertEqual(len(audit['final']['case_results']),3)
+                self.assertLessEqual(audit['unique_audited_programs'],3)
+            pool=folder/'pool.json';self.call('dataset','fibonacci',pool,env=base)
+            raw=json.loads(pool.read_text())
+            self.assertEqual({r['start'] for r in raw['train']},set(range(21)))
+            self.assertEqual({r['start'] for r in raw['test']},set(range(31)))
+            self.assertTrue(all(r['expected']=='832040' for r in raw['test'] if r['start']==30))
+
     def test_three_schemes_known_solutions_and_five_modes(self):
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)

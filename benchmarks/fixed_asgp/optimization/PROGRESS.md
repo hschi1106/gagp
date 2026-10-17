@@ -1,3 +1,13 @@
+# 單機24小時實驗 — 2026-10-17（準備／試跑中）
+
+- 使用者已授權開始。24h從2026-10-17 13:16:49 UTC起算，硬截止2026-10-18 13:16:49 UTC（台灣21:16:49）；重啟不重設預算。先以時間／資源pilot選定速度G16／品質G128，若12h／5h及保留5h的門檻不成立，正式前統一改G8／G64。
+- 速度保留30題×五種P1024/2048/4096/8192/16384×ASGP1T／GPU-er-o，seed0，各一個cold process。品質保留全30題、P1024、配對初代與variation seeds0–4、unique train<=200／input-disjoint test<=1000；有限域例外明列，不能稱原論文重現或品質等價證明。
+- 16GiB workspace、GPU繁殖、CPU1T、whole AST2048／physicaldepth24／phase1024固定。production runtime保持12c6849；本輪僅擴充benchmark adapter的opt-in案例數、初代seed、指定資料原生CPU判題與best-only export。舊資料與binary不改。
+- 原始資料／pinned binary／manifest／controller metadata預定在`logs/day24-20261017/`及同prefix controller檔案。續跑先確認controller／子程序狀態，使用runner的--resume；不要重複啟動。24h結束前持續工作，只有全部請求有明確結果與報告才收尾。
+- [本輪規格、範圍與重現](results/day24-20261017/README.md)、[凍結protocol](results/day24-20261017/protocol.json)。先前四代／1024-node結果保留獨立，不混入新的長程表。核對採每次既有first16 final-program CPU audit及所有品質champions離線原生CPU判題；不宣稱新的全population parity證明。
+
+---
+
 # 全題統一2048-node容量驗證 — 2026-10-16（完成）
 
 - 使用者要求統一放寬限制。新增benchmark `native_nodes`／`--native-nodes`，預設1024不變；新設定全30題統一whole-AST2048/depth24，ASGP phase depth7不變，GPU每phase1024節點、12GiB genotype guard與16GiB workspace保留。

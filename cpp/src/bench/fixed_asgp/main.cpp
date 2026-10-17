@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <set>
 #include <cstring>
 #include <cmath>
@@ -67,36 +68,53 @@ Json search_contract_json(const gagp::evo::EvolutionConfig& cfg, const std::stri
   return object({{"version",string(audit.version)},{"fully_aligned",number(audit.fully_aligned())},
     {"items",array(std::move(items))}});
 }
+std::size_t declared_case_count() {
+  const char* value=std::getenv("GAGP_BM_CASE_COUNT");
+  const int count=value ? std::stoi(value) : 1024;
+  if(count<1 || count>4096)throw std::invalid_argument("benchmark case count must be in 1..4096");
+  return static_cast<std::size_t>(count);
+}
+Json encode_case(const asgp::Example& c,const asgp::TaskSpec& spec) {
+  std::vector<Json> values,scalars;
+  for(auto v:c.elements)values.push_back(string(std::to_string(v)));
+  for(auto v:c.scalars)scalars.push_back(string(std::to_string(v)));
+  Json expected=string(std::to_string(c.expected.i));
+  if(asgp::IsListType(spec.output)) {
+    std::vector<Json> items;for(auto v:c.expected.list)items.push_back(string(std::to_string(v)));
+    expected=array(std::move(items));
+  } else if(spec.output==asgp::Type::kBool)expected=number(c.expected.b);
+  return object({{"input",array(std::move(values))},{"expected",expected},
+    {"scalars",array(std::move(scalars))},{"summary1",string(std::to_string(c.expected.summary1))},
+    {"summary2",string(std::to_string(c.expected.summary2))},{"start",number(c.start.a)},
+    {"extent",number(c.extent.a)},{"start_b",number(c.start.b)},{"extent_b",number(c.extent.b)}});
+}
+void dataset(const std::string& name,const std::string& path) {
+  asgp::DataConfig config;config.train=4096;config.test=4096;
+  config.seed=20261017;config.legacy_finite=false;
+  const auto built=asgp::BuildTask(name,config);
+  if(!built)throw std::invalid_argument("unknown dataset task");
+  std::vector<Json> train,test;
+  for(const auto& c:built->train)train.push_back(encode_case(c,*built));
+  for(const auto& c:built->test)test.push_back(encode_case(c,*built));
+  write(path,object({{"task",string(name)},{"data_seed",number(config.seed)},
+    {"origin",string("ASGP BuildTask local domain; independent quality fixture pool")},
+    {"train",array(std::move(train))},{"test",array(std::move(test))}}));
+}
 void freeze(const std::string& name, const std::string& path) {
   auto spec=task(name);
   const auto grammar=asgp::SchemeGrammar::Build(spec.Grammar());
-  asgp::Rng rng(0);
+  const auto population_seed=std::getenv("GAGP_FREEZE_POPULATION_SEED")
+      ? std::stoull(std::getenv("GAGP_FREEZE_POPULATION_SEED")) : 0;
+  asgp::Rng rng(population_seed);
   std::vector<Json> population, cases;
   const int population_count=std::getenv("GAGP_FREEZE_POPULATION") ? std::stoi(std::getenv("GAGP_FREEZE_POPULATION")) : 8192;
   if(population_count<=0)throw std::invalid_argument("freeze population must be positive");
   for (int i=0; i<population_count; ++i)
     population.push_back(encode(asgp::Initialize(grammar,2+i%6,(i/6)%2==1,rng),grammar.count));
-  for (const auto& c : spec.train) {
-    std::vector<Json> values;
-    for (auto v : c.elements) values.push_back(string(std::to_string(v)));
-    Json expected=string(std::to_string(c.expected.i));
-    if (asgp::IsListType(spec.output)) {
-      std::vector<Json> items;for(auto v:c.expected.list)items.push_back(string(std::to_string(v)));
-      expected=array(std::move(items));
-    }
-    if(spec.output==asgp::Type::kBool) expected=number(c.expected.b);
-    std::vector<Json> scalars; for(auto v:c.scalars)scalars.push_back(string(std::to_string(v)));
-    auto row=object({{"input",array(std::move(values))}, {"expected",expected},
-                     {"scalars",array(std::move(scalars))},{"summary1",string(std::to_string(c.expected.summary1))},{"summary2",string(std::to_string(c.expected.summary2))},
-                     {"start",number(c.start.a)}, {"extent",number(c.extent.a)}});
-    {
-      row.object_v["start_b"]=number(c.start.b);row.object_v["extent_b"]=number(c.extent.b);
-    }
-    cases.push_back(std::move(row));
-  }
+  for (const auto& c : spec.train) cases.push_back(encode_case(c,spec));
   if (cases.size()!=1024) throw std::runtime_error("generator did not produce 1024 cases");
   write(path,object({{"format",string("fixed-asgp-source-v1")}, {"task",string(name)},
-                    {"population_seed",number(0)}, {"data_seed",number(20260626)},
+                    {"population_seed",number(population_seed)}, {"data_seed",number(20260626)},
                     {"population",array(std::move(population))}, {"cases",array(std::move(cases))}}));
 }
 void restore_cases(const Json& source, asgp::TaskSpec& spec, std::vector<gagp::evo::EvalCase>& cases) {
@@ -141,7 +159,42 @@ void restore_cases(const Json& source, asgp::TaskSpec& spec, std::vector<gagp::e
     cases.push_back(std::move(native));
     spec.train.push_back(std::move(example));
   }
-  if (cases.size()!=1024) throw std::runtime_error("fixed case count mismatch");
+  if (cases.size()!=declared_case_count()) throw std::runtime_error("declared case count mismatch");
+}
+void quality_source(const Json& source,const std::string& export_path,
+                    const std::string& grammar_path,const std::string& output,
+                    const std::string& history_path="") {
+  auto spec=task(source.object_v.at("task").string_v);
+  std::vector<gagp::evo::EvalCase> cases;restore_cases(source,spec,cases);
+  spec.test=std::move(spec.train);
+  const auto exported=read(export_path);
+  if(exported.object_v.count("task") && exported.object_v.at("task").string_v!=spec.id)
+    throw std::invalid_argument("quality export task mismatch");
+  const bool source_program=exported.object_v.count("best_program")!=0;
+  std::shared_ptr<gg::CompiledGrammar> grammar;
+  if(!source_program)grammar=std::make_shared<gg::CompiledGrammar>(gg::compile_grammar(gg::load_definition(grammar_path)));
+  std::map<std::string,Json> cache;
+  const auto evaluate=[&](const Json& program) {
+    const auto key=gg::canonical_json(program);
+    auto found=cache.find(key);if(found!=cache.end())return found->second;
+    auto value=source_program ? fixed_asgp::expanded_audit_detail::score_asgp(program,spec)
+      : fixed_asgp::expanded_audit_detail::score_gagp(program,spec,*grammar);
+    cache.emplace(key,value);return value;
+  };
+  auto final=evaluate(source_program ? exported.object_v.at("best_program")
+    : exported.object_v.at("programs").array_v.at(0));
+  std::vector<Json> history;
+  if(!history_path.empty()) {
+    const auto artifact=read(history_path);
+    for(const auto& row:artifact.object_v.at("history").array_v) {
+      auto value=evaluate(row.object_v.at(source_program?"program":"ast"));
+      value.object_v["generation"]=row.object_v.at("generation");history.push_back(std::move(value));
+    }
+  }
+  write(output,object({{"format",string("fixed-quality-source-v1")},{"task",string(spec.id)},
+    {"cases",number(cases.size())},{"cases_sha256",string(gg::content_sha256(gg::canonical_json(source.object_v.at("cases"))))},
+    {"unique_audited_programs",number(cache.size())},{"final",std::move(final)},
+    {"history",array(std::move(history))}}));
 }
 void prepare(const Json& source, const std::string& grammar_path, int count, const std::string& output) {
   const auto name=source.object_v.at("task").string_v;
@@ -522,8 +575,10 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
     final.push_back(object({{"fitness",number(one.fitness)}, {"wrong",number(one.wrong)}, {"nodes",number(one.genome.ast.nodes.size())}}));
   if (const char* path = std::getenv("GAGP_SEARCH_EXPORT")) {
     std::vector<Json> asts;
-    for (const auto& one : result.final_population)
+    for (const auto& one : result.final_population) {
       asts.push_back(gagp::cli_detail::JsonParser(gagp::cli_detail::encode_ast_json(one.genome.ast),{true,512}).parse());
+      if(std::getenv("GAGP_SEARCH_EXPORT_BEST_ONLY"))break;
+    }
     write(path,object({{"programs",array(std::move(asts))}}));
   }
   if (const char* path=std::getenv("GAGP_SEARCH_HISTORY_EXPORT")) {
@@ -611,6 +666,9 @@ void measure(const Json& source, const std::string& prepared_path, const std::st
 }  // namespace
 int main(int argc,char** argv) try {
   if (argc==4 && std::string(argv[1])=="contract") write(argv[3],task_contract(argv[2]));
+  else if (argc==4 && std::string(argv[1])=="dataset") dataset(argv[2],argv[3]);
+  else if ((argc==6 || argc==7) && std::string(argv[1])=="quality-source")
+    quality_source(read(argv[2]),argv[3],argv[4],argv[5],argc==7?argv[6]:"");
   else if (argc==4 && std::string(argv[1])=="freeze") freeze(argv[2],argv[3]);
   else if ((argc==6 || argc==7) && std::string(argv[1])=="quality")
     fixed_asgp::expanded_quality(argv[2],argv[3],argv[4],argv[5],argc==7?argv[6]:"");
@@ -622,6 +680,6 @@ int main(int argc,char** argv) try {
     measure(read(argv[2]),argv[3],argv[4],std::stoi(argv[5]),argv[6],argv[7]);
     write(std::string(argv[7])+".wall.json",object({{"input_through_report_ms",number(elapsed(begin))}}));
   }
-  else throw std::runtime_error("usage: quality TASK EXPORT GRAMMAR OUT [HISTORY] | freeze TASK OUT | prepare SOURCE GRAMMAR POP OUT | audit SOURCE GRAMMAR OUT | measure SOURCE PREPARED GRAMMAR POP MODE OUT");
+  else throw std::runtime_error("usage: dataset TASK OUT | quality-source SOURCE EXPORT GRAMMAR OUT [HISTORY] | quality TASK EXPORT GRAMMAR OUT [HISTORY] | freeze TASK OUT | prepare SOURCE GRAMMAR POP OUT | audit SOURCE GRAMMAR OUT | measure SOURCE PREPARED GRAMMAR POP MODE OUT");
   return 0;
 } catch (const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }

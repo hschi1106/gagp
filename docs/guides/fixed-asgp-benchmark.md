@@ -47,6 +47,20 @@ establish convergence, and incomplete or failed cells cannot establish speedups.
 
 ## Optional physical node budget
 
+The bounded [24-hour study](../../benchmarks/fixed_asgp/optimization/results/day24-20261017/README.md)
+keeps the current2048-node profile uniform across its population matrix and
+separates1024-case timing from smaller input-disjoint quality fixtures. The
+benchmark adapter defaults to1024 cases; an explicit
+`GAGP_BM_CASE_COUNT=1..4096` declares a different source fixture length and rejects
+any mismatch. `dataset TASK OUT` exports local native train/test candidate pools;
+`quality-source SOURCE EXPORT GRAMMAR OUT [HISTORY]` judges already selected
+candidates on that exact source fixture through each representation's CPU path.
+It does not generate replacement cases or select programs using test scores.
+`GAGP_FREEZE_POPULATION_SEED` changes only the opt-in frozen population seed
+(default0); `GAGP_SEARCH_EXPORT_BEST_ONLY` limits the optional native export to
+the final training-selected champion without changing the search or statistics.
+The historical fixed1024-case and full-population export defaults remain intact.
+
 The support preparer accepts `--native-nodes 2048` to author a fresh grammar with
 a larger whole-AST node limit. The default remains 1024; `--native-depth 24` and
 balanced source weights remain independent settings. The Python `definition`

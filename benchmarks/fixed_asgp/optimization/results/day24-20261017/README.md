@@ -1,0 +1,22 @@
+# 單機24小時 ASGP／GAGP 實驗（2026-10-17）
+
+正式規格見[protocol.json](protocol.json)。使用者已授權開始；總時間從2026-10-17 13:16:49 UTC起算24小時，包含準備、試跑、搜尋及核對，不因重啟controller重設。
+
+- 速度：全30題×P1024/2048/4096/8192/16384，ASGP1T與GPU-er-o，seed0，各一個cold process。先試G16，若12h速度／5h品質及剩餘時間保留5h的門檻不成立，正式前全局選G8。
+- 品質：全30題，P1024，5組配對初代及variation seeds0–4。初代由ASGP原生initializer產生，全部1024個體須admit，沒有替換／篩選。先試G128，縮小規模則G64。每題固定本地原生資料pool、最多200個unique training與1000個input-disjoint test；有限域保留原始train/test支援範圍，必要時確定性保留20%域作測試。
+- 所有GAGP使用同一binary、whole AST2048／depth24、每phase1024與16GiB workspace。ASGP logical phase depth7與原生演化規則保留；仍不是相同搜尋空間／RNG。
+- 品質test在規模選定與搜尋完成後才作離線判題。每代training champion與final candidate均用各自原生CPU表示核對；不以test挑選candidate。沒有simplification。獨立變異的五個runs只能作探索性品質比較。
+- 每次GPU搜尋沿用既有first16 final-program CPU fitness audit；不是全population驗證。每代統計／champion、錯誤、超時、漏評、VRAM/RSS及所有失敗均保留。主要時間為evolve_wall_ms；另列process wall與離線audit。
+- 時間試跑只使用資源／耗時選規模。若pilot正好符合正式選定的完整規格，保留為該格唯一一次cold sample；不選最快重複測次。較大pilot在縮小規模時另列，不混入主表。
+- 前置成本估計只用舊G4搜尋時間作基準，由真實長程pilot校正；預測值不是結果。NVML每200ms記錄整卡顯存，包含桌面，可能漏短尖峰。
+- CPU／GPU工作串行並取得共用GPU鎖；沒有競爭的build／測試／profiling。沒有使用ncu或將CPU繁殖當作GPU主線。
+
+本輪只在benchmark adapter增加明確opt-in的案例數宣告、population seed、原生資料pool、指定資料判題及best-only export。production runtime保持12c6849相同。舊資料／binary均不覆寫。
+
+```bash
+PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/day24-20261017/run.py --out logs/day24-20261017
+# 已有目錄只允許在確認舊controller／子程序已退出後恢復：
+PYTHONPATH=tools python3 benchmarks/fixed_asgp/optimization/results/day24-20261017/run.py --out logs/day24-20261017 --resume
+```
+
+原始資料、pinned binary、manifest與進度位於logs/day24-20261017。中斷／失敗原樣保留；resume不會把失敗格覆寫成重跑樣本。尚未完成搜尋不得宣稱整輪完成。
