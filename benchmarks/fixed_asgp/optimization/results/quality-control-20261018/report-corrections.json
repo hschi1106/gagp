@@ -1,0 +1,31 @@
+{
+  "frozen_experiment_changed": false,
+  "formal_samples_rerun": false,
+  "attempt0": {
+    "log": "logs/quality-control-20261018/report-attempt0.log",
+    "error": "TypeError: dict() got multiple values for keyword argument task",
+    "effect": "before report output directory creation; redundant metadata keyword removed and metadata task equality asserted"
+  },
+  "attempt1": {
+    "log": "logs/quality-control-20261018/report-attempt1.log",
+    "status": "complete",
+    "archive": "logs/quality-control-20261018/report-initial",
+    "source_copies": "*.source in that archive"
+  },
+  "attempt2": {
+    "log": "logs/quality-control-20261018/report-attempt2.log",
+    "status": "complete",
+    "changes": [
+      "Add explicit train/test offline judge process seconds to runs.csv",
+      "State formal paired execution speed intervals and negative/mixed quality results",
+      "Report unchanged counters, verification overhead and sampled memory",
+      "Fix chart label margin and touch inspection"
+    ]
+  },
+  "presentation_followup": {
+    "archive": "logs/quality-control-20261018/report-dashboard-before-tooltip-fix.html",
+    "change": "Reset stale tooltip on task/split change; regenerate HTML from identical payload and current template"
+  },
+  "scientific_results_unchanged_from_attempt1": true,
+  "verification": "final/review-validation.json checks all prior CSV values, PNGs, inference JSON and 180-pair trajectory identities"
+}

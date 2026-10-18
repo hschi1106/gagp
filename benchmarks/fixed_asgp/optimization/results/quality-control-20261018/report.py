@@ -87,7 +87,8 @@ def collect(allow_partial=False):
                 assert source['population']==initial['population'] and len(source['population'])==1024
                 assert source['population_seed']==seed and source['cases']==train
             if row.get('status')=='ok':assert len(study.read(row['prepared'])['programs'])==1024
-        splits.append(dict(task=task,status='prepared',**entry['metadata']))
+        assert entry['metadata']['task']==task,'split metadata task differs'
+        splits.append(dict(entry['metadata'],status='prepared'))
     rows=[];curves=[];generations=[];verification=[];judge_cases_sha={}
     for task in freeze['tasks']:
         entry=manifest.get('inputs',{}).get(task,dict(status='missing_input_preparation'))
@@ -101,6 +102,7 @@ def collect(allow_partial=False):
                     evaluated_populations=freeze['generations']+1,search_status=job['status'],
                     train_audit_status=judges['train']['status'],test_audit_status=judges['test']['status'],audited=complete,
                     search_s=job.get('search_s'),process_s=job.get('process_s'),
+                    train_audit_process_s=judges['train'].get('process_s'),test_audit_process_s=judges['test'].get('process_s'),
                     sampled_card_peak_gib=job.get('sampled_card_peak_bytes',0)/1024**3,
                     cpu_top16_fitness_mismatches=job.get('cpu_audit_fitness_mismatches'),
                     cpu_top16_wrong_mismatches=job.get('cpu_audit_wrong_mismatches'),

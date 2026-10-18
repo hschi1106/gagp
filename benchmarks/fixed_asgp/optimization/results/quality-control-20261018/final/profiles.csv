@@ -1,0 +1,5 @@
+phase,task,kernel_total_s,fitness_kernel_s,malloc_calls,malloc_api_interval_s
+profile-baseline,is_sorted,38.779490651,38.510307668,2376,46.193316162
+profile-baseline,all_equal,38.939519383,38.659814615,2399,46.437200193
+profile-tuple,is_sorted,7.541972164,7.246490195,1207,0.021471531
+profile-tuple,all_equal,7.240896469,6.937606314,1230,0.025724712

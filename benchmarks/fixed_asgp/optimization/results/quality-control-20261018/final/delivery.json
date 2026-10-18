@@ -1,0 +1,52 @@
+{
+  "attachmentId": "5c8c22b3-13b0-45be-8f40-9ef527aa67b5-3a38327d-ba1c-44ed-a76d-4acb0d6b99ac-html",
+  "height": 1688,
+  "responsiveHeights": [
+    [
+      320,
+      2646
+    ],
+    [
+      375,
+      2392
+    ],
+    [
+      430,
+      2377
+    ],
+    [
+      520,
+      1792
+    ],
+    [
+      640,
+      1818
+    ],
+    [
+      728,
+      1688
+    ],
+    [
+      860,
+      1418
+    ],
+    [
+      1000,
+      1381
+    ],
+    [
+      1144,
+      1362
+    ]
+  ],
+  "title": "GAGP 品質控制與長程 GPU 改善：正式結果",
+  "rendered_epoch": 1792316026.4395978,
+  "original_final_html": true,
+  "html_sha256": "9ea5ec3492f8d6a104681c11aa8c2cf5909a8565a057cdad25739f34d97065fc",
+  "matches_ui_checked_html": true,
+  "temporary_monitor_disabled": true,
+  "old_day24_monitor_disabled": true,
+  "all_experiment_controllers_exited": true,
+  "all_work_within_original_deadline": true,
+  "no_push": true
+}

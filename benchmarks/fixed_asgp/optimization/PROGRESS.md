@@ -1,15 +1,13 @@
-# 品質控制與長代改善24小時 — 2026-10-18（進行中）
+# 品質控制與長代改善24小時 — 2026-10-18（已完成）
 
-- 使用者授權完成前次建議第1–3項：同候選評分與算子診斷、可計量CPU訓練集複核、nsys長代瓶頸改善。新時間窗2026-10-18 01:17:45 UTC至2026-10-19 01:17:45 UTC（台灣10/19 09:17:45），重啟不重設。舊day24結果不改；GPU eval/reproduction、CPU1T、16GiB workspace、2048/24/phase1024固定。
-- 初代30題×1024=30,720候選的ASGP CPU/native CPU/resident GPU fitness及wrong全部一致；native CPU/GPU配對偏好0差異。source/native 491,520抽樣配對中1011對不同（0.206%），受邏輯／physical節點破同分影響。尚不表示中後代或任意輸入一致，也未證明品質落差的單一因果。
-- 新增預設關閉的top-K/interval/near-zero CPU reference訓練集複核、獨立成本／修正／未覆核leader counters，以及指定generation的全population診斷checkpoint。Release重建＋evolution_pipeline/fixed_asgp_bench 2/2 PASS（49.06s）。後續完整建置／回歸紀錄見下方；尚未選為最終候選。
-- 串行診斷controller資訊在`logs/quality-control-20261018/diagnose-controller.json`；含兩題G64 nsys、9題×5seed×4算子組合，seed0 ASGP及中後代同候選稽核。先依training/parity/runtime凍結候選；正式啟動時間與選定規模見下方新紀錄。
-- 核心實作本地提交4ca0909；Release全建置通過，native130/131唯一文件hash gate失敗修正後gate＋adapter2/2通過，tools122(4skip)、repository24通過；最後raw-score／behavior scope修改pipeline＋adapter2/2通過49.32s。不能描述成單次fresh131全通過。全30題site admission/G1共90/90完成；TupleSummary A/B兩題G64約9.72/9.90×且最終1024 AST、全代champion fitness相同。仍屬開發證據。
-- 新增固定CPUguard劑量screen、9題四個checkpoint的CPU行為多樣性／同候選metrics及嚴格正式矩陣harness；舊training smoke7/7及Python8項通過。正式候選及20×G128優先的全局時間規模規則在fresh heldout之前凍結；詳見analysis-plan及RECOVERY。
-- 2026-10-18 04:22:53 UTC自動凍結`site7`（tuple＋uniform phase sites＋source crossover gate＋grammar-site depth7，parsimony關閉）；僅用舊training，18/45全對、6題改善／3題變差，不作heldout結論。正式9題×20新seeds5–24×5方法，P1024／G64，共900搜尋及1800原生CPU train/test history+final判題；新資料seed20261018於凍結後才準備。見[candidate-selection](results/quality-control-20261018/candidate-selection.json)、[validation-freeze](results/quality-control-20261018/validation-freeze.json)。
-- 固定時間規則20×G128總估24.685h不合，選20×G64：search5.523h、judge1.205h；另計程序成本30分鐘後乘1.5倍緩衝＋準備45分鐘＋報告3h，共14.592h，預測至2026-10-18 18:58:26 UTC（台灣10/19 02:58:26），非保證。原硬截止不變。04:49核對全部前置診斷完成、正式369準備工作成功，38/900搜尋通過、1執行中、0失敗；品質判題尚未開始。Controller3166668及child正常，未重啟或更改frozen harness/binary/settings。
-- 2026-10-18 08:47 UTC階段核對：正式900/900搜尋均完成並通過執行檢查，最後搜尋程序結束於2026-10-18 08:35:23 UTC；369個資料／初代準備工作成功。原生CPU train/test判題已開始，目前834/1800完成、1執行中、0程序失敗，涵蓋final及全代champions。這是工作進度，不代表解題成功或評分完全一致；須待全部雙判題及report integrity核對。Controller3166668及child正常，正式設定／binary／harness保持凍結。
-- [工作規格與恢復](results/quality-control-20261018/README.md)、[protocol](results/quality-control-20261018/protocol.json)。工作區仍為gagp-support-20261015，沒有子代理或push。
+- 新時間窗固定2026-10-18 01:17:45 UTC至2026-10-19 01:17:45 UTC，沒有重設。9題 × 20新seeds × 5方法、P1024／G64，共900搜尋＋1800 CPU train/test final/history判題全部完成，0程序失敗／未執行；369個準備工作成功。搜尋08:35:23 UTC、判題09:03:29 UTC結束（起點至此7.762h），所有controller／children已退出；不要resume。CPU1T、GPU評分與繁殖、16GiB workspace、physical2048/24/phase1024固定。
+- 第1項完成：全30題初代30,720、中後代144快照147,456、演化後source/native27快照27,648候選觀測fitness/wrong皆0差異；正式final前16共11,520觀測亦0差異。Source/native抽樣偏好1011/491520不同，4題HeadIndex site count仍不等價。算子／rejection／行為多樣性證據已整理，未把品質落差唯一歸因為GPU評分錯誤。
+- 第2項完成：預設關閉CPU training top-K/interval/near-zero機制；正式top8/i8檢查19,584個program觀測／3,916,800cases，fitness/wrong修正0，CPUwall80.644s占guard搜尋9.00%；相對operator搜尋wall配對中位增加9.71%。離線雙split判題另耗1155.238s程序wall。未看到品質收益，定位為校驗機制。
+- 第3項完成：TupleSummary execution-only在新資料20配對seeds的G64搜尋相對原GPU，Is Sorted9.59×（95%8.89–9.87），All Equal9.94×（9.36–10.27）；對ASGP為6.30／4.28×。180對匯出champion AST／fitness軌跡及最終descriptors一致；不宣稱全population AST／任意輸入語意相同。倍率不混nsys時間。
+- 品質未證明整體提升：ASGP final聯合成功41/180，四GPU方法皆39/180，gen0 champion成功皆0。Training-only自動選出site7於04:22:53 UTC凍結，按固定時間規則選20×G64，再建立新data seed20261018／seeds5–24。相對execution-only，site7成功數3題增加、2題減少，主要9題Holm後無支持提升或退步；沒有顯著差異不代表等價。保留execution與operator分開比較，沒有按test挑新設定。
+- 完整性5160檔案雜湊、外部ASGP46來源、相同且不相交的每題train/test／相同初代及串行區間全部通過；各題train200/test1000，全卡200ms NVML取樣最高18.950GiB（含桌面，可能漏短尖峰）。正式同一binary SHA d347d95617aba1676af11b05d786bf06db882d9eddff6b97756207b3d8d9a48a，核心4ca0909。品質僅9題／P1024／本機，不能推廣全30品質、ASGP等價、論文重現或time-to-solution。
+- Release全build PASS；完整native130/131唯一文件hash gate修正後gate＋adapter2/2，最後pipeline＋adapter2/2；tools122(4skip)、repo24。最終分析／驗證15、repository24通過，不宣稱單次fresh131全通過。三張實際PNG已檢視；T3 html_preview桌面728／手機360各71互動檢查通過。報告首版失敗／修訂均保留，科學數值／PNG／推論JSON不變。暫時monitor已停用、舊day24仍停用；本地提交、未push。
+- [主要結論](results/quality-control-20261018/final/FINDINGS.zh-TW.md)、[完整中文報告](results/quality-control-20261018/final/REPORT.zh-TW.md)、[互動頁](results/quality-control-20261018/final/dashboard.html)、[逐run CSV](results/quality-control-20261018/final/runs.csv)、[配對統計](results/quality-control-20261018/final/paired_tests.csv)、[規格／重現](results/quality-control-20261018/README.md)、[恢復入口](results/quality-control-20261018/RECOVERY.md)。Raw logs／immutable binaries／全attempts：logs/quality-control-20261018/。工作區gagp-support-20261015／opt/list-output-5x-20261015，舊UI worktree未改動。
 
 ---
 

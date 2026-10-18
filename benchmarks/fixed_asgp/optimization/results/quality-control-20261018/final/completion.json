@@ -1,0 +1,17 @@
+{
+  "finished_epoch": 1792315606.8112607,
+  "original_deadline_epoch": 1792372665.0,
+  "within_original_24h": true,
+  "all_complete": true,
+  "report_source_sha256": {
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/quality-control-20261018/report.py": "937623d208c978acb621e4c27f563ba06d1c4757af586333826021ae364a0446",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/quality-control-20261018/analysis.py": "889604aaccb151031b915e728d5f33bfcd5e6b55fb602e6a33bdd635ce9b7a1d",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/quality-control-20261018/report_view.py": "55d934f66bad89b8a2aac945acab491b8a7d7641a0060edc5cb001ba2aa5c5cb",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/quality-control-20261018/dashboard.template.html": "95ef47202b70df7b2299bd6f8f3664d4609b6631755e68d288858089b981c26e"
+  },
+  "initial_generated_epoch": 1792315550.998565,
+  "presentation_revision": "Reset per-generation inspection when task/split changes; same frozen experiment, payload and scientific results",
+  "delivery_ready_epoch": 1792316026.4395978,
+  "delivery_elapsed_h": 8.267066554956966,
+  "ui_and_final_checks_within_original_24h": true
+}

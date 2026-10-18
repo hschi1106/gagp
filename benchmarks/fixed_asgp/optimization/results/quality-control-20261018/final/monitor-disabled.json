@@ -1,0 +1,8 @@
+{
+  "scheduledTaskId": "scheduled-task:command:mcp:cee2e50c-2b7a-44cd-8910-43eabaf6cc93:schedule-task:gagp-quality-control-20261018-monitor-v1",
+  "enabled": false,
+  "nextRunAt": null,
+  "disabled_epoch": 1792315897.7949574,
+  "old_day24_monitor_enabled": false,
+  "verified_via": "T3 list_scheduled_tasks then update_scheduled_task(enabled=false)"
+}

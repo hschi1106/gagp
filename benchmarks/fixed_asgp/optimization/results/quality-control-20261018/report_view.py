@@ -60,6 +60,21 @@ def write(out,freeze,coverage,rows,curves,details,tests,diagnostics):
     checked=sum(r['verification_programs'] for r in guards);cases=sum(r['verification_cases'] for r in guards)
     corrections=sum(r['verification_fitness_corrections'] for r in guards);wrong_corrections=sum(r['verification_wrong_corrections'] for r in guards)
     guard_ms=sum(r['verification_ms'] for r in guards);guard_search_ms=1000*sum(r['search_s'] for r in guards)
+    offline_judge_s=sum((r.get('train_audit_process_s') or 0)+(r.get('test_audit_process_s') or 0) for r in rows)
+    peak_gib=max([r['sampled_card_peak_gib'] for r in rows] or [0])
+    by={(r['task'],r['seed'],r['variant']):r for r in rows}
+    guard_ratios=[r['search_s']/by[r['task'],r['seed'],operator]['search_s'] for r in guards
+        if by[r['task'],r['seed'],operator]['search_status']=='ok']
+    guard_cost=f"正式guard的搜尋wall相對同task/seed operator，中位增加{100*(statistics.median(guard_ratios)-1) if guard_ratios else 0:.2f}%；這與CPU複核占搜尋wall的比率分母不同。離線雙split CPU判題另耗程序wall合計{offline_judge_s:.3f}s，不含於上述search_s，也不從搜尋時間扣除。"
+    execution_tests=[r for r in tests if r['family']=='execution' and r['task'] in ('is_sorted','all_equal')]
+    execution_readout='；'.join(f"{r['task']} {number(r['median_speedup'])}×（逐題配對中位數bootstrap95%：{number(r['speed_median_bootstrap95_low'])}–{number(r['speed_median_bootstrap95_high'])}×）" for r in execution_tests)
+    execution_readout='新資料execution-only相對原GPU：'+execution_readout+'；各題20配對seeds。'
+    variation_readouts=[]
+    for variant,phase in [('baseline','site-development'),('phase','development'),('gate','development'),('phase_gate','site-development'),('site7','site-development'),('site7_parsimony','site-development')]:
+        group=[r for r in diagnostics['development_variation'] if r['phase']==phase and r['variant']==variant]
+        changed=sum(r.get('changed') or 0 for r in group);unchanged=sum(r.get('unchanged') or 0 for r in group)
+        variation_readouts.append(f"{variant} {100*unchanged/(changed+unchanged) if changed+unchanged else 0:.2f}%")
+    variation_readout='舊training各組changed+unchanged觀測中的unchanged占比：'+'、'.join(variation_readouts)+'。Gate本身會跳過部分crossover，unchanged不能全部解讀為拒絕或品質退步；與拒絕counters、行為多樣性及成功率一起判讀。'
     status='全部指定搜尋與train/test稽核完成' if coverage['all_complete'] else '部分完成；失敗／缺漏明列'
     aggregate='\n'.join(f"- {LABELS[v]}：final聯合成功{totals[v]['success']}/{count}；gen0 champion已成功{totals[v]['initial']}，後續final新增{totals[v]['new']}，初代成功但final失去{totals[v]['lost']}；完整判題{totals[v]['audited']}/{count}。" for v in freeze['variants'])
     if operator!='gpu_exec':
@@ -79,9 +94,14 @@ def write(out,freeze,coverage,rows,curves,details,tests,diagnostics):
         if v=='asgp':continue
         selected=[r for r in tests if r['a']==v and r['b']=='asgp']
         speeds.append('|'+LABELS[v]+'|'+'|'.join(number(next(r for r in selected if r['task']==t)['median_speedup'])+'×' for t in freeze['tasks'])+'|')
+    verdict='本輪有明確的GPU執行加速證據；新算子及CPU複核未證明提高heldout解題率。受檢範圍未找到CPU/GPU評分差異，但品質落差仍未被唯一歸因；保留演算法與執行優化的分開比較。'
     report=f'''# 品質診斷、可控CPU校驗與長代GPU改善
 
 本輪狀態：**{status}**。原24小時時間窗為2026-10-18 01:17:45 UTC至2026-10-19 01:17:45 UTC（台灣10/19 09:17:45），沒有重設。正式搜尋{coverage['search_status']}；完整雙split CPU判題{coverage['fully_audited']}/{coverage['planned_searches']}。所有失敗／budget_not_run均保留，沒有替換初代或補跑成功列。
+
+{verdict}
+
+{execution_readout}
 
 ## 第1項：品質差距的來源
 
@@ -90,6 +110,8 @@ def write(out,freeze,coverage,rows,curves,details,tests,diagnostics):
 中後代新增checkpoint metrics：成功快照{len(checkpoints)}個，合計{evaluated}個候選觀測；CPU/GPU 40-bit canonical ranking fitness差異{fidelity}個、wrong差異{wrong}個，raw fitness最大絕對差{number(max([r['raw_max_abs_error'] for r in checkpoints] or [0]),8)}。ASGP演化後、成功轉譯的同候選source/native CPU比較（{source_successful}/27快照、{source_admitted}個候選觀測）fitness差異{source_fitness}、wrong差異{source_wrong}；詳見evolved_source_comparison.csv。source未被native准入的個體另外記錄，不能把接受子集當完整population。相同個體跨checkpoint可重複，數字不是獨立樣本數或任意程式正確性證明。
 
 原4種算子factorial（phase均勻抽樣／source crossover gate）及新增site-depth／parsimony四組，都使用舊training的5配對seeds。每代變異嘗試、changed/unchanged、contract/budget/generation rejection及節點大小保存在development_variation.csv；final CPU訓練判題保存在development_training.csv。first32訓練案例的CPU輸出探針量測行為多樣性，包含IntList實際內容及錯誤，但不是完整語意等價分類。
+
+{variation_readout}
 
 舊training的final訓練全對數：{training_readout} ASGP控制只有seed0共9組，不與45組直接作配對成功率比較。這些開發數字只用於診斷與全局選擇，正式泛化結果另以新資料／新seeds判定。
 
@@ -101,7 +123,7 @@ ASGP source phase depth7與native physical depth24不是相同限制。新增可
 
 公共EvolutionConfig新增top-K、interval、near-zero policy，預設關閉；明確要求resident GPU evaluation及GPU reproduction。每次只重評選定候選的當前training，用原fuel、metric、allocation policy與CPU discard overlay，修正ranking用fitness及wrong，再排序；繁殖仍在GPU。raw GPU/CPU最大差異與40-bit ranking修正分開記錄。K=0維持關閉；partial top-K不保證未檢查的新leader或所有population正確。
 
-舊training seed0/G64固定cost screen為none、top1/i8、top8/i8、top32/i1（near-zero=0）；完整負面／成本結果在guard_development.csv與verification-cost圖。正式guard預先指定top8/i8，並在final或sum error<=0觸發，套用所選全局算子。正式已執行CPU複核{checked}個program觀測／{cases}個program-case；fitness ranking修正{corrections}、wrong修正{wrong_corrections}，raw最大絕對差{number(max([r['verification_max_abs_error'] for r in guards] or [0]),8)}。CPU複核共{guard_ms/1000:.3f}s，占guard搜尋總wall {100*guard_ms/guard_search_ms if guard_search_ms else 0:.2f}%；逐代數據在verification.csv。
+舊training seed0/G64固定cost screen為none、top1/i8、top8/i8、top32/i1（near-zero=0）；完整負面／成本結果在guard_development.csv與verification-cost圖。正式guard預先指定top8/i8，並在final或sum error<=0觸發，套用所選全局算子。正式已執行CPU複核{checked}個program觀測／{cases}個program-case；fitness ranking修正{corrections}、wrong修正{wrong_corrections}，raw最大絕對差{number(max([r['verification_max_abs_error'] for r in guards] or [0]),8)}。CPU複核共{guard_ms/1000:.3f}s，占guard搜尋總wall {100*guard_ms/guard_search_ms if guard_search_ms else 0:.2f}%；逐代數據在verification.csv。{guard_cost}
 
 正式guard對所選政策共有{len(guard_identity)}對可比搜尋；其中{len(guard_no_correction)}對未發生ranking或wrong修正，{guard_unchanged}對的全部已匯出champion AST／fitness及最終score/wrong/size arrays也相同。逐對見verification_identity.csv；這仍不是完整population AST證明。
 
@@ -151,7 +173,7 @@ coverage.json明列計畫與實際搜尋／雙split判題狀態；integrity.json
 
 Release全build通過。完整native第一次130/131（251.68s），唯一失敗是附加實驗說明觸發frozen spec hash gate；只移除該附加說明後，gate＋adapter2/2重跑通過（49.56s），tools122（4skip）、repository24通過。最後raw-score／behavior allocation scope變更以pipeline＋adapter2/2通過（49.32s）。未聲稱單次fresh131全通過。新增fixture／runner及統計檢查與最終repository檢查紀錄分別保存。
 
-GPU記憶體為device0全卡NVML約200ms取樣，包含桌面且可能漏短尖峰，不是精確單程序VRAM峰值。正式效能範圍為P1024／本機單GPU，不能把改善倍率推廣到其它population或硬體。品質只有9選定題與本輪有限seeds；不能宣稱原論文重現、ASGP搜尋等價、所有population語意parity或GPU近似已完全受控。本輪新增的site政策是明確演算法變更，必須與execution-only改善分開解讀。
+正式搜尋device0全卡NVML約200ms取樣最高{peak_gib:.3f}GiB，包含桌面且可能漏短尖峰，不是精確單程序VRAM峰值。正式效能範圍為P1024／本機單GPU，不能把改善倍率推廣到其它population或硬體。品質只有9選定題與本輪有限seeds；不能宣稱原論文重現、ASGP搜尋等價、所有population語意parity或GPU近似已完全受控。本輪新增的site政策是明確演算法變更，必須與execution-only改善分開解讀。
 
 ## 檔案
 
@@ -170,6 +192,10 @@ GPU記憶體為device0全卡NVML約200ms取樣，包含桌面且可能漏短尖�
 
 {quality_readout}
 
+{verdict}
+
+{execution_readout} CPU複核{checked}個program觀測，fitness／wrong修正皆{corrections}/{wrong_corrections}，CPUwall {guard_ms/1000:.3f}s、占guard搜尋{100*guard_ms/guard_search_ms if guard_search_ms else 0:.2f}%。{guard_cost}
+
 完成同候選／算子診斷、預設關閉且明列成本的CPU訓練校驗，以及TupleSummary GPU執行優化。新算子選擇為{freeze['operator_selection']}，只依舊training選出。詳細結果及每題差異見[完整報告](REPORT.zh-TW.md)。
 
 限制：品質範圍9選定題；fixed-work speed不等於time-to-solution；部分CPU校驗不保證全population；native grammar-site政策不普遍等於ASGP source邏輯成本；未完成stock ASGP論文完整重現。
@@ -184,6 +210,7 @@ GPU記憶體為device0全卡NVML約200ms取樣，包含桌面且可能漏短尖�
             percentile(a,.25),percentile(a,.75),percentile(b,.25),percentile(b,.75),statistics.median(r['elapsed_search_s'] for r in group)])
     payload=dict(tasks=freeze['tasks'],variants=list(freeze['variants']),labels=LABELS,colors=COLORS,
         seeds=len(freeze['seeds']),generations=freeze['generations'],coverage=coverage,details=details,tests=tests,
-        curves=curves_compact,operator=freeze['operator_selection'],totals=totals,quality_readout=quality_readout,fidelity=formal_fidelity)
+        curves=curves_compact,operator=freeze['operator_selection'],totals=totals,quality_readout=quality_readout,fidelity=formal_fidelity,
+        execution_readout=execution_readout,guard_readout=f'CPU校驗{checked}個program觀測，fitness/wrong修正{corrections}/{wrong_corrections}；CPUwall占guard搜尋{100*guard_ms/guard_search_ms if guard_search_ms else 0:.2f}%。',verdict=verdict)
     template=(study.BASE/'dashboard.template.html').read_text()
     (out/'dashboard.html').write_text(template.replace('__DATA__',json.dumps(payload,separators=(',',':')).replace('</','<\\/')))
