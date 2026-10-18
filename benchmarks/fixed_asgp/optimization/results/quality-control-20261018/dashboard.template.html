@@ -3,7 +3,7 @@
 </style><body>
 <p class="intro">同候選診斷、CPU 訓練校驗及長代 GPU 改善。下列品質結果使用凍結後的新資料與配對初代；所有 champion 均由訓練評分選出。</p>
 <div class="summary"><div class="panel"><div class="muted">完整搜尋＋雙 split 稽核</div><div class="big" id="coverage"></div></div><div class="panel"><div class="muted">正式設定</div><div class="big" id="scale"></div><span id="resources" class="notes"></span></div></div>
-<p class="muted notes">9 題 final 聯合成功的描述性合計；每個方法的分母是題目數 × 計畫種子數。</p><div id="cohort" class="summary"></div>
+<p class="muted notes">9 題 final 聯合成功的描述性合計；每個方法的分母是題目數 × 計畫種子數。</p><div id="cohort" class="summary"></div><p id="fidelity" class="notes muted"></p>
 <div class="controls"><label>篩選題目<input id="filter" type="search" placeholder="例如 sorted、robber" autocomplete="off"></label><label>選擇題目<select id="task" aria-label="選擇題目"></select></label><div class="toggle" role="group" aria-label="資料切分"><button id="train" type="button">Training</button><button id="test" class="active" type="button">Test</button></div></div>
 <p class="muted notes" id="selection"></p><div id="cards" class="cards"></div>
 <h3 id="charttitle">每代訓練所選 champion 的正確率</h3><p class="muted notes">折線為配對種子中位數，色帶為四分位距。Test 曲線只在搜尋結束後產生，不參與選擇，也不以最佳 Test 一代計算成功。</p>
@@ -19,6 +19,7 @@ el('scale').textContent=`G${D.generations} · ${D.seeds} seeds`;
 el('resources').textContent='P1024 · 9 題 · CPU1T + GPU E/R';
 const operator=D.variants.includes('gpu_operator')?'gpu_operator':'gpu_exec',denominator=D.tasks.length*D.seeds;
 el('cohort').innerHTML=['asgp',operator,'gpu_guard'].map(v=>{const r=D.totals[v];return `<div class="panel"><div class="cardtitle">${D.labels[v]}</div><div class="big">${r.success}<small style="font-size:14px"> / ${denominator}</small></div><div class="notes muted">gen0 ${r.initial} · 後續新增 ${r.new}<br>初代成功後失去 ${r.lost}<br>完整判題 ${r.audited}/${denominator}</div></div>`}).join('');
+const fidelity=D.fidelity;el('fidelity').textContent=`成功 GPU 搜尋的 final 前16候選 CPU 稽核：fitness 差異 ${fidelity.fitness_mismatches}、wrong 差異 ${fidelity.wrong_mismatches}，涉及 ${fidelity.runs_with_mismatches}/${fidelity.successful_gpu_runs} 次搜尋。這不是全 population 檢查。`;if(fidelity.runs_with_mismatches)el('fidelity').className='notes warn';
 el('selection').textContent=`全局算子：${D.operator}；同一設定套用所有題目。`;
 el('legend').innerHTML=D.variants.map(v=>`<span><i class="dot" style="background:${D.colors[v]}"></i>${D.labels[v]}</span>`).join('');
 function filterTasks(){const query=el('filter').value.toLowerCase().trim(),tasks=D.tasks.filter(t=>t.toLowerCase().includes(query)||t.replaceAll('_',' ').includes(query));el('task').replaceChildren(...tasks.map(t=>{const o=document.createElement('option');o.value=t;o.textContent=t.replaceAll('_',' ');return o}));if(!tasks.includes(selected))selected=tasks[0]||null;el('task').value=selected||'';el('task').disabled=!tasks.length;render()}

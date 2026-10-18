@@ -40,6 +40,11 @@ def write(out,freeze,coverage,rows,curves,details,tests,diagnostics):
     guard_identity=[r for r in diagnostics.get('verification_identity',[]) if r['status']=='ok']
     guard_no_correction=[r for r in guard_identity if not r['reference_fitness_corrections'] and not r['reference_wrong_corrections']]
     guard_unchanged=sum(r['final_champion_ast_equal'] and r['all_observed_champion_asts_equal'] and r['all_observed_champion_fitness_equal'] and r['final_score_wrong_size_arrays_equal'] for r in guard_no_correction)
+    native=[r for r in rows if r['variant']!='asgp' and r['search_status']=='ok']
+    formal_fidelity=dict(successful_gpu_runs=len(native),program_observations=16*len(native),
+        fitness_mismatches=sum(r['cpu_top16_fitness_mismatches'] or 0 for r in native),
+        wrong_mismatches=sum(r['cpu_top16_wrong_mismatches'] or 0 for r in native),
+        runs_with_mismatches=sum(bool(r['cpu_top16_fitness_mismatches'] or r['cpu_top16_wrong_mismatches']) for r in native))
     guards=[r for r in rows if r['variant']=='gpu_guard' and r['search_status']=='ok']
     checked=sum(r['verification_programs'] for r in guards);cases=sum(r['verification_cases'] for r in guards)
     corrections=sum(r['verification_fitness_corrections'] for r in guards);wrong_corrections=sum(r['verification_wrong_corrections'] for r in guards)
@@ -115,6 +120,8 @@ final成功要求CPU training及test皆wrong=0。所有代champion按training選
 
 {chr(10).join(table)}
 
+正式成功GPU搜尋{formal_fidelity['successful_gpu_runs']}次，每次final前16候選另作CPU fitness及wrong稽核，共{formal_fidelity['program_observations']}個候選觀測；canonical ranking fitness差異{formal_fidelity['fitness_mismatches']}、wrong差異{formal_fidelity['wrong_mismatches']}，涉及{formal_fidelity['runs_with_mismatches']}次搜尋。這與程序完成／champion品質判題分開，也不是全population檢查。
+
 逐題固定工作量加速比中位數（同seed ASGP搜尋wall / GPU搜尋wall，含GPU內CPUguard成本）：
 
 |方法|{'|'.join(freeze['tasks'])}|
@@ -164,6 +171,6 @@ GPU記憶體為device0全卡NVML約200ms取樣，包含桌面且可能漏短尖�
             percentile(a,.25),percentile(a,.75),percentile(b,.25),percentile(b,.75),statistics.median(r['elapsed_search_s'] for r in group)])
     payload=dict(tasks=freeze['tasks'],variants=list(freeze['variants']),labels=LABELS,colors=COLORS,
         seeds=len(freeze['seeds']),generations=freeze['generations'],coverage=coverage,details=details,tests=tests,
-        curves=curves_compact,operator=freeze['operator_selection'],totals=totals,quality_readout=quality_readout)
+        curves=curves_compact,operator=freeze['operator_selection'],totals=totals,quality_readout=quality_readout,fidelity=formal_fidelity)
     template=(study.BASE/'dashboard.template.html').read_text()
     (out/'dashboard.html').write_text(template.replace('__DATA__',json.dumps(payload,separators=(',',':')).replace('</','<\\/')))
