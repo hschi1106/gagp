@@ -37,6 +37,9 @@ def write(out,freeze,coverage,rows,curves,details,tests,diagnostics):
     source_successful=sum(r['status']=='ok' for r in source_rows)
     identity=[r for r in diagnostics.get('execution_identity',[]) if r['status']=='ok']
     identity_asts=sum(r['final_champion_ast_equal'] and r['all_observed_champion_asts_equal'] for r in identity)
+    guard_identity=[r for r in diagnostics.get('verification_identity',[]) if r['status']=='ok']
+    guard_no_correction=[r for r in guard_identity if not r['reference_fitness_corrections'] and not r['reference_wrong_corrections']]
+    guard_unchanged=sum(r['final_champion_ast_equal'] and r['all_observed_champion_asts_equal'] and r['all_observed_champion_fitness_equal'] and r['final_score_wrong_size_arrays_equal'] for r in guard_no_correction)
     guards=[r for r in rows if r['variant']=='gpu_guard' and r['search_status']=='ok']
     checked=sum(r['verification_programs'] for r in guards);cases=sum(r['verification_cases'] for r in guards)
     corrections=sum(r['verification_fitness_corrections'] for r in guards);wrong_corrections=sum(r['verification_wrong_corrections'] for r in guards)
@@ -74,13 +77,15 @@ def write(out,freeze,coverage,rows,curves,details,tests,diagnostics):
 
 ASGP source phase depth7與native physical depth24不是相同限制。新增可選grammar-invocation depth7，保留physical AST2048/depth24/phase1024，並可使用grammar-site數量破同分。全30題初代及G1+final admission90/90通過；其中4題（Index of Element、Fuel Cost、Luhn、Last Index of Zero）因HeadIndex把固定InputList子節點lower成bound(lo)，共有1274個node-count／61個depth差異。故新政策仍不等於ASGP完整搜尋空間、節點成本或RNG。
 
-全局選擇為**{freeze['operator_selection']}**；選擇只看舊training CPU判題：更多training-perfect champion，其次較低task/seed內common loss rank，同分偏好較少控制；改善題數須不低於惡化題數。所有控制組保留。候選與正式規模在新heldout pool建立前凍結，沒有test調參。
+全局選擇為**{freeze['operator_selection']}**；選擇只看舊training CPU判題：更多training-perfect champion，其次較低task/seed內common loss rank，同分偏好較少控制；改善題數須不低於惡化題數。所有控制組保留。候選與正式規模在新heldout pool建立前凍結，沒有test調參。正式驗證比較所選組合政策，各元件的因果歸屬仍限於開發factorial，未在新heldout重做全部元件組合。
 
 ## 第2項：可量測且可設定的CPU訓練校驗
 
 公共EvolutionConfig新增top-K、interval、near-zero policy，預設關閉；明確要求resident GPU evaluation及GPU reproduction。每次只重評選定候選的當前training，用原fuel、metric、allocation policy與CPU discard overlay，修正ranking用fitness及wrong，再排序；繁殖仍在GPU。raw GPU/CPU最大差異與40-bit ranking修正分開記錄。K=0維持關閉；partial top-K不保證未檢查的新leader或所有population正確。
 
 舊training seed0/G64固定cost screen為none、top1/i8、top8/i8、top32/i1（near-zero=0）；完整負面／成本結果在guard_development.csv與verification-cost圖。正式guard預先指定top8/i8，並在final或sum error<=0觸發，套用所選全局算子。正式已執行CPU複核{checked}個program觀測／{cases}個program-case；fitness ranking修正{corrections}、wrong修正{wrong_corrections}，raw最大絕對差{number(max([r['verification_max_abs_error'] for r in guards] or [0]),8)}。CPU複核共{guard_ms/1000:.3f}s，占guard搜尋總wall {100*guard_ms/guard_search_ms if guard_search_ms else 0:.2f}%；逐代數據在verification.csv。
+
+正式guard對所選政策共有{len(guard_identity)}對可比搜尋；其中{len(guard_no_correction)}對未發生ranking或wrong修正，{guard_unchanged}對的全部已匯出champion AST／fitness及最終score/wrong/size arrays也相同。逐對見verification_identity.csv；這仍不是完整population AST證明。
 
 計數可能包含同一候選在多代重複檢查；修正數為0只代表受檢候選，不能證明近似從不影響搜尋。若無實際修正或heldout提升，這項成果應定位為控制／診斷機制，不能宣稱已證明品質改善。
 
@@ -131,7 +136,7 @@ GPU記憶體為device0全卡NVML約200ms取樣，包含桌面且可能漏短尖�
 ## 檔案
 
 - [逐run結果](runs.csv)、[逐題摘要](task_summary.csv)、[成對倍率](paired_runs.csv)、[配對統計](paired_tests.csv)
-- [逐代CPU判題曲線](curves.csv)、[CPU校驗](verification.csv)、[資料切分](dataset_splits.csv)
+- [逐代CPU判題曲線](curves.csv)、[CPU校驗](verification.csv)、[校驗軌跡比對](verification_identity.csv)、[資料切分](dataset_splits.csv)
 - [初代評分](initial.csv)、[中後代metrics](checkpoints.csv)、[source同候選比較](evolved_source_comparison.csv)、[算子training](development_training.csv)、[execution AST核對](execution_identity.csv)
 - [速度／品質PNG](speed-quality.png)／[PDF](speed-quality.pdf)、[行為多樣性PNG](diagnostic-diversity.png)／[PDF](diagnostic-diversity.pdf)、[CPU校驗成本PNG](verification-cost.png)／[PDF](verification-cost.pdf)
 - [互動檢視](dashboard.html)、[完整性](integrity.json)、[覆蓋](coverage.json)、[摘要](summary.json)
@@ -159,6 +164,6 @@ GPU記憶體為device0全卡NVML約200ms取樣，包含桌面且可能漏短尖�
             percentile(a,.25),percentile(a,.75),percentile(b,.25),percentile(b,.75),statistics.median(r['elapsed_search_s'] for r in group)])
     payload=dict(tasks=freeze['tasks'],variants=list(freeze['variants']),labels=LABELS,colors=COLORS,
         seeds=len(freeze['seeds']),generations=freeze['generations'],coverage=coverage,details=details,tests=tests,
-        curves=curves_compact,operator=freeze['operator_selection'],totals=totals)
+        curves=curves_compact,operator=freeze['operator_selection'],totals=totals,quality_readout=quality_readout)
     template=(study.BASE/'dashboard.template.html').read_text()
     (out/'dashboard.html').write_text(template.replace('__DATA__',json.dumps(payload,separators=(',',':')).replace('</','<\\/')))

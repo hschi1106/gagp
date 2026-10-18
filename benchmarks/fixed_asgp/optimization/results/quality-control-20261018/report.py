@@ -238,14 +238,16 @@ def summaries(freeze,rows):
     return details,pairs,tests
 
 
-def execution_identity(freeze,manifest):
+def execution_identity(freeze,manifest,a_variant='gpu_base',b_variant='gpu_exec'):
     rows=[]
     for task in freeze['tasks']:
         for seed in freeze['seeds']:
-            jobs=[manifest['jobs'].get(f'{task}.s{seed}.{variant}',dict(status='missing')) for variant in ('gpu_base','gpu_exec')]
-            row=dict(task=task,seed=seed,status='ok' if all(j['status']=='ok' for j in jobs) else 'unavailable')
+            jobs=[manifest['jobs'].get(f'{task}.s{seed}.{variant}',dict(status='missing')) for variant in (a_variant,b_variant)]
+            row=dict(task=task,seed=seed,a=a_variant,b=b_variant,status='ok' if all(j['status']=='ok' for j in jobs) else 'unavailable')
             if row['status']=='ok':
                 a,b=[study.read(j['output']) for j in jobs]
+                reference=b.get('verification',{})
+                row.update(reference_fitness_corrections=reference.get('fitness_corrections',0),reference_wrong_corrections=reference.get('wrong_corrections',0))
                 ah,bh=[study.read(j['history'])['history'] for j in jobs]
                 row.update(final_champion_ast_equal=study.read(jobs[0]['export'])==study.read(jobs[1]['export']),
                     all_observed_champion_asts_equal=[g['ast'] for g in ah]==[g['ast'] for g in bh],
@@ -355,6 +357,8 @@ def main():
         fcntl.flock(lock,fcntl.LOCK_EX)
         freeze,manifest,rows,curves,generations,verification,splits,integrity,coverage=collect(args.allow_partial)
         details,pairs,tests=summaries(freeze,rows);diagnostics=diagnostic_tables();diagnostics['execution_identity']=execution_identity(freeze,manifest)
+        operator='gpu_operator' if 'gpu_operator' in freeze['variants'] else 'gpu_exec'
+        diagnostics['verification_identity']=execution_identity(freeze,manifest,operator,'gpu_guard')
         args.out.mkdir(parents=True)
         for name,data in dict(runs=rows,curves=curves,generations=generations,verification=verification,task_summary=details,paired_runs=pairs,paired_tests=tests,dataset_splits=splits,**diagnostics).items():csv_save(args.out/(name+'.csv'),data)
         study.save(args.out/'coverage.json',coverage);study.save(args.out/'integrity.json',integrity)
