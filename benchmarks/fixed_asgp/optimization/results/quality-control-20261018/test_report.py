@@ -43,5 +43,14 @@ class TestCoverageAwarePairs(unittest.TestCase):
             self.assertFalse(result['final_champion_ast_equal'])
             self.assertFalse(result['all_observed_champion_asts_equal'])
 
+    def test_rejects_judge_aggregate_inconsistent_with_cases(self):
+        score=dict(cases=2,correct_count=2,exact=2,wrong=0,runtime_errors=0,exact_accuracy=1,
+            case_results=[dict(case=0,exact=1,runtime_error=0),dict(case=1,exact=0,runtime_error=0)])
+        with self.assertRaises(AssertionError):report.validate_cpu_score(score,2)
+        score.update(correct_count=1,exact=1,wrong=1,exact_accuracy=.5)
+        report.validate_cpu_score(score,2)
+        score['case_results'][1]['case']=0
+        with self.assertRaises(AssertionError):report.validate_cpu_score(score,2)
+
 
 if __name__=='__main__':unittest.main()

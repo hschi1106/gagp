@@ -43,6 +43,18 @@ def write(out,freeze,coverage,rows,curves,details,tests,diagnostics):
     guard_ms=sum(r['verification_ms'] for r in guards);guard_search_ms=1000*sum(r['search_s'] for r in guards)
     status='全部指定搜尋與train/test稽核完成' if coverage['all_complete'] else '部分完成；失敗／缺漏明列'
     aggregate='\n'.join(f"- {LABELS[v]}：final聯合成功{totals[v]['success']}/{count}；gen0 champion已成功{totals[v]['initial']}，後續final新增{totals[v]['new']}，初代成功但final失去{totals[v]['lost']}；完整判題{totals[v]['audited']}/{count}。" for v in freeze['variants'])
+    if operator!='gpu_exec':
+        op={r['task']:r for r in details if r['variant']==operator}
+        ex={r['task']:r for r in details if r['variant']=='gpu_exec'}
+        wins=sum(op[t]['successes']>ex[t]['successes'] for t in freeze['tasks'])
+        losses=sum(op[t]['successes']<ex[t]['successes'] for t in freeze['tasks'])
+        primary=[r for r in tests if r['family']=='operator']
+        supported=sum(r['holm_p_across9tasks']<.05 and r['a_only']>r['b_only'] for r in primary)
+        regressions=sum(r['holm_p_across9tasks']<.05 and r['a_only']<r['b_only'] for r in primary)
+        quality_readout=f"相對execution-only，新算子final聯合成功由{totals['gpu_exec']['success']}/{count}變為{totals[operator]['success']}/{count}；以計畫seed的成功數作描述性逐題比較，{wins}題增加、{losses}題減少，其餘相同。主要9題配對成功檢定經Holm後，{supported}題支持提升、{regressions}題支持退步（p<0.05）；完整paired樣本數及區間見CSV。沒有顯著差異不代表等價。"
+    else:
+        quality_readout='全局training規則保留baseline；本輪沒有將新算子政策帶入正式矩陣。這是負面採用結果，沒有挑選單題最佳政策補成整體品質提升。'
+    quality_readout+=f" 所選GPU政策與ASGP的final聯合成功分別為{totals[operator]['success']}/{count}與{totals['asgp']['success']}/{count}；此跨題加總僅描述本輪cohort，品質差距仍須逐題與不確定性解讀。"
     speeds=[]
     for v in freeze['variants']:
         if v=='asgp':continue
@@ -92,7 +104,9 @@ final成功要求CPU training及test皆wrong=0。所有代champion按training選
 
 {aggregate}
 
-以上跨題加總僅描述本輪cohort，沒有把180個task-seed視為180個獨立題目。
+{quality_readout}
+
+以上跨題加總僅描述本輪cohort，沒有把task-seed總數視為相同數量的獨立題目。
 
 {chr(10).join(table)}
 
@@ -128,6 +142,8 @@ GPU記憶體為device0全卡NVML約200ms取樣，包含桌面且可能漏短尖�
 {status}：{coverage['fully_audited']}/{coverage['planned_searches']}個搜尋完成train/test CPU判題；9題、P1024、G{freeze['generations']}、{len(freeze['seeds'])}組新配對seeds。
 
 {aggregate}
+
+{quality_readout}
 
 完成同候選／算子診斷、預設關閉且明列成本的CPU訓練校驗，以及TupleSummary GPU執行優化。新算子選擇為{freeze['operator_selection']}，只依舊training選出。詳細結果及每題差異見[完整報告](REPORT.zh-TW.md)。
 

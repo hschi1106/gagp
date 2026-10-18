@@ -32,10 +32,26 @@ def check_hash(path,digest,integrity):
     integrity[str(path)]=digest
 
 
+def validate_cpu_score(score,count):
+    results=score['case_results']
+    assert score['cases']==len(results)==count
+    assert [r['case'] for r in results]==list(range(count)),'missing/duplicated judge case'
+    assert all(r['exact'] in (0,1) and r['runtime_error'] in (0,1) for r in results)
+    exact=sum(r['exact'] for r in results)
+    assert score['correct_count']==score['exact']==exact
+    assert score['wrong']==count-exact
+    assert score['runtime_errors']==sum(r['runtime_error'] for r in results)
+    assert math.isclose(score['exact_accuracy'],exact/count,rel_tol=0,abs_tol=1e-12)
+
+
 def collect(allow_partial=False):
     freeze_path=study.BASE/'validation-freeze.json';freeze=study.read(freeze_path)
     matrix=study.RAW/'validation';manifest=study.read(matrix/'manifest.json');integrity={}
     check_hash(freeze_path,manifest['freeze_sha256'],integrity)
+    check_hash(study.BASE/'candidate-selection.json',freeze['candidate_selection_sha256'],integrity)
+    environment=study.read(study.BASE/'prevalidation-environment.json')
+    check_hash(environment['allocator']['path'],environment['allocator']['sha256'],integrity)
+    integrity[str(study.BASE/'prevalidation-environment.json')]=study.sha(study.BASE/'prevalidation-environment.json')
     check_hash(matrix/'bench',freeze['binary_sha256'],integrity)
     assert manifest['binary_sha256']==freeze['binary_sha256'] and manifest['settings']==freeze['settings']
     assert freeze['deadline_epoch']==study.DEADLINE and freeze['started_epoch']==study.START
@@ -47,7 +63,7 @@ def collect(allow_partial=False):
     old=study.read(study.ROOT/'logs/day24-20261017/manifest.json')
     splits=[]
     for task in freeze['tasks']:
-        entry=manifest['inputs'][task]
+        entry=manifest.get('inputs',{}).get(task,dict(status='missing_input_preparation'))
         if entry['status']!='prepared':
             splits.append(dict(task=task,status=entry['status'],error=entry.get('error')));continue
         for field in ('pool','split','test_source'):check_hash(entry[field],entry[field+'_sha256'],integrity)
@@ -74,7 +90,7 @@ def collect(allow_partial=False):
         splits.append(dict(task=task,status='prepared',**entry['metadata']))
     rows=[];curves=[];generations=[];verification=[];judge_cases_sha={}
     for task in freeze['tasks']:
-        entry=manifest['inputs'][task]
+        entry=manifest.get('inputs',{}).get(task,dict(status='missing_input_preparation'))
         for seed in freeze['seeds']:
             for variant,spec in freeze['variants'].items():
                 tag=f'{task}.s{seed}.{variant}';job=manifest['jobs'].get(tag,dict(status='missing'))
@@ -100,7 +116,13 @@ def collect(allow_partial=False):
                     doc=study.read(job['output']);run_validation.validate_run(doc,spec['mode'],1024,row['train_count'],freeze['generations'])
                     assert abs(job['search_s']-doc['evolve_wall_ms']/1000)<1e-9
                     assert job['extra']['GAGP_BM_SEED']==str(seed) and job['extra']['GAGP_SEARCH_GENERATIONS']==str(freeze['generations'])
-                    assert all(job['extra'][k]==v for k,v in spec['extra'].items())
+                    expected_extra=dict(spec['extra'],GAGP_BM_CASE_COUNT=str(row['train_count']),GAGP_BM_SEED=str(seed),
+                        GAGP_SEARCH_GENERATIONS=str(freeze['generations']),GAGP_SEARCH_EXPORT=job['export'],
+                        GAGP_SEARCH_HISTORY_EXPORT=job['history'],GAGP_SEARCH_EXPORT_BEST_ONLY='1')
+                    assert job['extra']==expected_extra,'formal extra settings differ'
+                    inp=entry['seeds'][str(seed)];prepared=inp['prepared'] if inp['status']=='ok' else inp['source']
+                    assert job['command']==[str(matrix/'bench'),'measure',inp['source'],prepared,entry['grammar'],'1024','search_'+spec['mode'],job['output']]
+                    assert job['returncode']==0
                     for path,digest in job['input_sha256'].items():check_hash(path,digest,integrity)
                     row.update(final_unique_genomes=doc['unique_final_genomes'],final_mean_nodes=statistics.mean(p['nodes'] for p in doc['final_population']),
                         final_max_nodes=max(p['nodes'] for p in doc['final_population']))
@@ -119,6 +141,11 @@ def collect(allow_partial=False):
                         check_hash(j['output'],j['output_sha256'],integrity)
                         for path,digest in j['input_sha256'].items():check_hash(path,digest,integrity)
                         q=study.read(j['output']);assert len(q['history'])==freeze['generations']
+                        inp=entry['seeds'][str(seed)]
+                        judge_source=inp['source'] if split=='train' else entry['test_source']
+                        assert j['command']==[str(matrix/'bench'),'quality-source',judge_source,job['export'],entry['grammar'],j['output'],job['history']]
+                        assert j['extra']=={'GAGP_BM_CASE_COUNT':str(row[split+'_count'])} and j['returncode']==0
+                        for score in q['history']+[q['final']]:validate_cpu_score(score,row[split+'_count'])
                         assert q['cases']==row[split+'_count']
                         assert q['task']==task and len(q['cases_sha256'])==64
                         key=(task,split)
