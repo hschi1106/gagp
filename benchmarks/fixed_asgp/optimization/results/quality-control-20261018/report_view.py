@@ -23,6 +23,17 @@ def write(out,freeze,coverage,rows,curves,details,tests,diagnostics):
         initial=sum(bool(r['initial_success']) for r in rows if r['variant']==v),
         new=sum(bool(r['new_final_success']) for r in rows if r['variant']==v),
         lost=sum(bool(r['lost_initial_success']) for r in rows if r['variant']==v)) for v in freeze['variants']}
+    training_readouts=[]
+    for phase in ('development-training-judges','site-training-judges'):
+        group=[r for r in diagnostics['development_training'] if r['phase']==phase and r.get('variant')!='asgp']
+        variants=list(dict.fromkeys(r.get('variant','unknown_failure') for r in group))
+        values=[]
+        for variant in variants:
+            selected=[r for r in group if r.get('variant','unknown_failure')==variant]
+            perfect=sum(r['status']=='ok' and r.get('training_wrong')==0 for r in selected)
+            values.append(f'{variant}={perfect}/{len(selected)}')
+        training_readouts.append(('原算子factorial' if phase=='development-training-judges' else '新增site政策')+'：'+'、'.join(values)+'。')
+    training_readout=' '.join(training_readouts)
     count=len(freeze['tasks'])*len(freeze['seeds']);table=['|題目|'+'|'.join(LABELS[v] for v in freeze['variants'])+'|','|---|'+'|'.join('---:' for v in freeze['variants'])+'|']
     for task in freeze['tasks']:
         values=[next(r for r in details if r['task']==task and r['variant']==v) for v in freeze['variants']]
@@ -79,6 +90,8 @@ def write(out,freeze,coverage,rows,curves,details,tests,diagnostics):
 中後代新增checkpoint metrics：成功快照{len(checkpoints)}個，合計{evaluated}個候選觀測；CPU/GPU 40-bit canonical ranking fitness差異{fidelity}個、wrong差異{wrong}個，raw fitness最大絕對差{number(max([r['raw_max_abs_error'] for r in checkpoints] or [0]),8)}。ASGP演化後、成功轉譯的同候選source/native CPU比較（{source_successful}/27快照、{source_admitted}個候選觀測）fitness差異{source_fitness}、wrong差異{source_wrong}；詳見evolved_source_comparison.csv。source未被native准入的個體另外記錄，不能把接受子集當完整population。相同個體跨checkpoint可重複，數字不是獨立樣本數或任意程式正確性證明。
 
 原4種算子factorial（phase均勻抽樣／source crossover gate）及新增site-depth／parsimony四組，都使用舊training的5配對seeds。每代變異嘗試、changed/unchanged、contract/budget/generation rejection及節點大小保存在development_variation.csv；final CPU訓練判題保存在development_training.csv。first32訓練案例的CPU輸出探針量測行為多樣性，包含IntList實際內容及錯誤，但不是完整語意等價分類。
+
+舊training的final訓練全對數：{training_readout} ASGP控制只有seed0共9組，不與45組直接作配對成功率比較。這些開發數字只用於診斷與全局選擇，正式泛化結果另以新資料／新seeds判定。
 
 ASGP source phase depth7與native physical depth24不是相同限制。新增可選grammar-invocation depth7，保留physical AST2048/depth24/phase1024，並可使用grammar-site數量破同分。全30題初代及G1+final admission90/90通過；其中4題（Index of Element、Fuel Cost、Luhn、Last Index of Zero）因HeadIndex把固定InputList子節點lower成bound(lo)，共有1274個node-count／61個depth差異。故新政策仍不等於ASGP完整搜尋空間、節點成本或RNG。
 
