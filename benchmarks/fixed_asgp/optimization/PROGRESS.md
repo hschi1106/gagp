@@ -8,6 +8,7 @@
 - 新增固定CPUguard劑量screen、9題四個checkpoint的CPU行為多樣性／同候選metrics及嚴格正式矩陣harness；舊training smoke7/7及Python8項通過。正式候選及20×G128優先的全局時間規模規則在fresh heldout之前凍結；詳見analysis-plan及RECOVERY。
 - 2026-10-18 04:22:53 UTC自動凍結`site7`（tuple＋uniform phase sites＋source crossover gate＋grammar-site depth7，parsimony關閉）；僅用舊training，18/45全對、6題改善／3題變差，不作heldout結論。正式9題×20新seeds5–24×5方法，P1024／G64，共900搜尋及1800原生CPU train/test history+final判題；新資料seed20261018於凍結後才準備。見[candidate-selection](results/quality-control-20261018/candidate-selection.json)、[validation-freeze](results/quality-control-20261018/validation-freeze.json)。
 - 固定時間規則20×G128總估24.685h不合，選20×G64：search5.523h、judge1.205h；另計程序成本30分鐘後乘1.5倍緩衝＋準備45分鐘＋報告3h，共14.592h，預測至2026-10-18 18:58:26 UTC（台灣10/19 02:58:26），非保證。原硬截止不變。04:49核對全部前置診斷完成、正式369準備工作成功，38/900搜尋通過、1執行中、0失敗；品質判題尚未開始。Controller3166668及child正常，未重啟或更改frozen harness/binary/settings。
+- 2026-10-18 08:47 UTC階段核對：正式900/900搜尋均完成並通過執行檢查，最後搜尋程序結束於2026-10-18 08:35:23 UTC；369個資料／初代準備工作成功。原生CPU train/test判題已開始，目前834/1800完成、1執行中、0程序失敗，涵蓋final及全代champions。這是工作進度，不代表解題成功或評分完全一致；須待全部雙判題及report integrity核對。Controller3166668及child正常，正式設定／binary／harness保持凍結。
 - [工作規格與恢復](results/quality-control-20261018/README.md)、[protocol](results/quality-control-20261018/protocol.json)。工作區仍為gagp-support-20261015，沒有子代理或push。
 
 ---

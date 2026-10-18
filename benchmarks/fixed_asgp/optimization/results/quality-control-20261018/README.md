@@ -37,3 +37,5 @@ CPU校驗舊training seed0/G64的9題cost screen已全部72/72搜尋／判題程
 正式規模固定9題×新seeds5–24共20組×5方法（ASGP、原GPU、execution-only、operator、operator+top8/i8 CPUguard），P1024／G64，共900次搜尋及1800個原生CPU train/test history+final判題工作。資料seed20261018；凍結後才準備新heldout。全9題資料與180組初代已準備，程序尚在搜尋階段，品質結論待完整判題。所有方法同一pinned binary SHA256 `d347d95617aba1676af11b05d786bf06db882d9eddff6b97756207b3d8d9a48a`；不再按新test或單題結果選設定。
 
 固定時間規則拒絕20×G128（保守總估24.685h），選20×G64：預估search5.523h、judge1.205h；搜尋／判題另計程序額外成本30分鐘，再乘1.5倍緩衝、加準備45分鐘與報告3小時，共14.592h，從凍結時預測至2026-10-18 18:58:26 UTC（台灣10/19 02:58:26）。這是舊training外推，非保證；硬截止仍2026-10-19 01:17:45 UTC。若新軌跡變慢，保留失敗／budget-not-run，不替換seeds或變更代數。
+
+2026-10-18 08:47 UTC階段核對：正式900/900搜尋均完成並通過執行檢查，最後搜尋程序結束於2026-10-18 08:35:23 UTC；369個資料／初代準備工作成功。原生CPU train/test判題已開始，目前834/1800完成、1執行中、0程序失敗，涵蓋final及全代champions。這是工作進度，不代表解題成功或評分完全一致；須待全部雙判題及report integrity核對。Controller3166668及child正常，正式設定／binary／harness保持凍結。
