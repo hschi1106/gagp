@@ -2,6 +2,8 @@
 
 新授權24h，固定2026-10-18 11:18:51 UTC至2026-10-19 11:18:51 UTC（台灣10/19 19:18:51）；不延長或重設。舊quality-control與day24已完成，保持不變。
 
+[目前結果怎麼讀（進行中）](CURRENT.zh-TW.md)：列出P／代數、已完成筆數、GPU搜尋與額外CPU核對時間；正式加速表尚未產生。
+
 先做Is Sorted／All Equal／House Robber的P16384、完整1024cases、G8容量／全population CPU fitness+wrong核對，使用既有frozen inputs、不替換個體。比較ASGP／原GPU／tuple execution-only；保留16GiB workspace、2048/depth24/phase1024與GPU評分及繁殖。再依未profile實測與nsys診斷優化，凍結正式版本／共同代數與重複數後完成全30題P1024／16384，同輪量測分母。品質診斷使用固定父代／操作另列，不把算子變更混為執行加速。
 
 [凍結起點與約束](protocol.json)。Raw、manifests、pinned binaries在`logs/scaling-optimization-20261018/`；每stage單一controller、所有重工作共用`/tmp/gagp-support-20261015-gpu.lock`。No subagents／push。正式輸出與易讀報告尚未產生。
