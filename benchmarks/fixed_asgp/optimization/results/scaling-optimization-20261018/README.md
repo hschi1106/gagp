@@ -15,3 +15,5 @@
 `development.py`（PID3197591）只等待pilot與全部children退出且9runs／3組完整AST比較通過，之後才在共用鎖下做harness檢查、Release benchmark build、adapter回歸、兩筆nsys與40筆development測速。固定五題IsSorted／AllEqual／HouseRobber／FilterOdd／DoubleLetters，各P1024／16384、G8、blocksize512／256／128／64；tuple-only開啟，不改算子。選一個全局blocksize，要求10格CPU核對／全最終AST／descriptors／champion fitness一致，且任一格退步不超過10%，再比幾何平均。這是development候選，不自動啟動正式矩陣。
 
 正式runner為`formal.py`，尚未執行，必須先新增不可變`formal-freeze.json`。依[時間分配規則](allocation-policy.json)選共同G／重複數；正式rep0的兩GPU方法每題／每P均核對全部最終個體，其餘reps核對前16，CPU核對成本另列；全程保存成功與失敗狀態。目前沒有正式加速比可報告。
+
+Pilot9/9與原development40/40均完整結束。較小分組皆未通過全局速度門檻；256另有IsSorted P16384 final score descriptors差異，完整AST仍相同／前16 CPU audit0差異，並未當作通過。新增[1024分組development規則](extension1024-plan.json)與`extension1024.py`，在原controller退出後用同一新binary另跑512／1024二十筆、保留所有原結果；只依training runtime／一致性選單一全局設定，尚未正式freeze。最後才於共用鎖下產生nsys統計及靜態CUDA binary資源資料，不與搜尋並行。

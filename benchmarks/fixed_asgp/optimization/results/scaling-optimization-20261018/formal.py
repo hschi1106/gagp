@@ -17,7 +17,7 @@ def main():
     args = parser.parse_args()
     controller_lock = (serial.RAW / 'formal.lock').open('a')
     fcntl.flock(controller_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    for name in ('pilot', 'development'):
+    for name in ('pilot', 'development', 'extension1024'):
         p = serial.RAW / (name + '-controller.json')
         if p.exists():
             controller = serial.read(p)
