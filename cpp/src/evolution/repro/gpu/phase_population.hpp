@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <array>
 #include <optional>
 #include <vector>
 #include "gagp/evolution/genome.hpp"
@@ -14,7 +15,7 @@ class NativePhasePopulation final {
  public:
   NativePhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
       const std::vector<ProgramGenome>& input, const std::vector<std::string>& input_names,
-      std::optional<grammar::ProjectedBudget> projected=std::nullopt);
+      std::optional<grammar::ProjectedBudget> projected=std::nullopt, int site_depth=0);
   ~NativePhasePopulation();
   NativePhasePopulation(const NativePhasePopulation&) = delete;
   NativePhasePopulation& operator=(const NativePhasePopulation&) = delete;
@@ -28,7 +29,9 @@ class NativePhasePopulation final {
   std::vector<ProgramGenome> export_population() const;
   ProgramGenome export_member(std::size_t index) const;
   std::size_t device_bytes() const;
-  std::vector<unsigned> node_counts() const;
+  std::vector<unsigned> node_counts(bool grammar_sites=false) const;
+  // Each row: independently mutable grammar roots, maximum per-phase site depth.
+  std::vector<std::array<unsigned,2>> site_metrics() const;
   const char* profile_name() const;
   FitnessEvalResult evaluate(FitnessSessionGpu& session, bool diagnostics) const;
  private:

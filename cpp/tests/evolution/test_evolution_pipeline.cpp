@@ -16,6 +16,7 @@
 #include "gagp/evolution/timing.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 #include "../../src/bench/fixed_asgp/search_contract.hpp"
+#include "../../src/evolution/fitness_verification.hpp"
 
 namespace {
 
@@ -268,6 +269,63 @@ int main() {
   strict.offspring_resource_budget->max_depth=strict.initial_resource_budget->max_depth=16;
   rejects(strict,"projected depth in [1,15]");
   if(had_phase)setenv("GAGP_GPU_PHASE_POPULATION",saved_phase.c_str(),1);else unsetenv("GAGP_GPU_PHASE_POPULATION");
+  // Partial reference scoring corrects only the explicitly selected indices.
+  std::vector<double> approximate{-1.0,-3.0,-9.0};
+  std::vector<unsigned> approximate_wrong{0,3,9};
+  gagp::evo::EvaluationTiming verification;
+  gagp::evo::detail::reconcile_reference_fitness({0,2},{-5.0,-9.0},{5,9},
+      approximate,approximate_wrong,verification);
+  assert((approximate==std::vector<double>{-5,-3,-9}));
+  assert((approximate_wrong==std::vector<unsigned>{5,3,9}));
+  assert(verification.verification_fitness_corrections==1 && verification.verification_wrong_corrections==1);
+  assert(verification.verification_max_abs_error==4);
+  const auto corrected=gagp::evo::rank_population_refs(population,approximate,true,approximate_wrong);
+  assert(corrected.front().genome==&population[1]);
+  gagp::evo::EvaluationTiming summed;
+  gagp::evo::accumulate_timing(&summed,verification);
+  gagp::evo::accumulate_timing(&summed,verification);
+  assert(summed.verification_fitness_corrections==2 && summed.verification_max_abs_error==4);
+  // Report raw evaluator error separately from ranking quantization. Two raw
+  // scores can share a40-bit ranking key yet differ at evaluator precision.
+  std::vector<double> raw_gpu{.1},raw_reference{.1+1e-14};
+  std::vector<double> quantized{gagp::evo::canonicalize_fitness_for_ranking(raw_gpu[0])};
+  std::vector<unsigned> equal_wrong{0};gagp::evo::EvaluationTiming raw_stats;
+  assert(quantized[0]==gagp::evo::canonicalize_fitness_for_ranking(raw_reference[0]));
+  gagp::evo::detail::reconcile_reference_fitness({0},raw_reference,{0},quantized,equal_wrong,raw_stats,raw_gpu);
+  assert(raw_stats.verification_fitness_corrections==0);
+  assert(raw_stats.verification_max_abs_error==std::abs(raw_gpu[0]-raw_reference[0]));
+  auto bad_site=timing_config;bad_site.gpu_phase_site_depth=7;
+  rejects(bad_site,"site policy requires resident GPU");
+  bad_site.gpu_phase_site_depth=16;rejects(bad_site,"invalid GPU phase site depth");
+  auto bad_verification=timing_config;
+  bad_verification.cpu_fitness_verification.top_k=1;
+  rejects(bad_verification,"requires resident GPU");
+  bad_verification.cpu_fitness_verification.top_k=bad_verification.population_size+1;
+  rejects(bad_verification,"verification budget");
+  auto observed=timing_config;
+  std::vector<int> seen;
+  observed.checkpoint_generations={0,2,observed.generations};
+  observed.evaluation_checkpoint=[&](int gen,const std::vector<gagp::evo::ScoredGenome>& members) {
+    seen.push_back(gen);assert(members.size()==std::size_t(observed.population_size));
+    std::vector<gagp::evo::ProgramGenome> genomes;
+    for(const auto& m:members)genomes.push_back(m.genome);
+    const auto reference=gagp::evo::evaluate_population(genomes,timing_cases,observed);
+    for(const auto& m:members) {
+      bool found=false;
+      for(const auto& r:reference)if(r.genome.meta.program_key==m.genome.meta.program_key) {
+        assert(r.fitness==m.fitness && r.wrong==m.wrong);found=true;
+      }
+      assert(found);
+    }
+  };
+  const auto with_checkpoints=gagp::evo::evolve_population(timing_cases,observed);
+  assert(seen==observed.checkpoint_generations);
+  assert(with_checkpoints.history_best_fitness==elitist.history_best_fitness);
+  assert(with_checkpoints.best.genome.meta.program_key==elitist.best.genome.meta.program_key);
+  observed.checkpoint_generations={2,0};rejects(observed,"invalid evaluation checkpoints");
+  observed.checkpoint_generations={0,0};rejects(observed,"invalid evaluation checkpoints");
+  observed.checkpoint_generations={observed.generations};observed.skip_final_eval=true;
+  rejects(observed,"invalid evaluation checkpoints");
   timing_config.elite_count=timing_config.population_size;
   bool bad_elites=false;
   try{(void)gagp::evo::evolve_population(timing_cases,timing_config);}catch(const std::invalid_argument&){bad_elites=true;}

@@ -622,6 +622,63 @@ mixtures with mutation disabled, eager/deferred clones, projected resource
 admission, and full-case CPU/GPU fitness. This is an experimental search choice,
 not a default or a convergence-equivalence claim.
 
+#### Grammar-invocation depth and parsimony
+
+`EvolutionConfig::gpu_phase_site_depth` optionally caps per-phase nesting of
+independently mutable grammar invocation roots (1–15; zero disables the policy).
+Physical grammar node/depth and per-phase GPU capacities remain separate checks.
+Cold import annotates and checks every initial member; crossover checks the
+spliced site's annotated depth, and mutation samples from a joint physical-node,
+physical-depth and invocation-depth feasibility table. Synthetic nodes inside a
+production consume physical resources but no invocation level. The profile is
+`native-gpu-phase-v4-site-depthN`. Explicit requests require the resident GPU
+owner and fail on unsupported policies or initial members; they cannot combine
+with authored projected-resource budgets. This counts private construction
+sites, rather than treating canonical projected resources as interchangeable.
+
+`gpu_phase_site_parsimony` independently uses the number of mutable grammar
+invocations to break fitness/wrong ties. It requires a task metric with wrong
+counts, keeps the original index as the final tie break, and adds
+`-site-parsimony` to the profile. It changes selection; it is not a performance
+shortcut. Device metrics are checked against independent canonical derivations
+in the owner regression. Matching a source's counts on audited programs does not
+establish equivalent RNG, donor filtering or search distributions.
+
+#### Optional CPU training reference verification
+
+`EvolutionConfig::cpu_fitness_verification` is disabled when `top_k=0`. Otherwise
+it evaluates the leading `top_k` resident GPU candidates on the same training
+cases at generations divisible by `interval` and at final evaluation.
+`near_zero_error >= 0` additionally triggers when the leading summed fitness is
+at least its negative. The threshold concerns the configured fitness, including
+auxiliary tuple summaries, rather than a universal correctness threshold.
+
+The CPU reference exports and compiles only those candidates, applies the same
+fuel, penalty, metric and reduction lanes, canonicalizes reference scores to the
+ranking precision, corrects their scores/wrong counts, then re-ranks the complete
+population before GPU selection and reproduction. Candidates outside the bounded
+subset retain GPU scores; a corrected leader can therefore be replaced by an
+unverified candidate. `verification_best_unverified` explicitly counts that case.
+This is partial verification relative to the native CPU runtime, not an
+all-candidate or all-input exactness guarantee. It uses the CPU evaluator's
+existing per-case discard-only payload overlay.
+
+`EvaluationTiming` separately records verified programs/cases/errors/timeouts,
+score/wrong corrections, leader changes, unverified leaders, maximum raw score
+delta and total verification wall time. Preparing raw-score diagnostics, export, compilation and re-ranking are
+included in that cost and in search wall time. GPU case counters remain GPU
+counters. Enabling verification on an unsupported owner, a CPU reproduction path
+or a legacy metric fails explicitly; it never silently disables verification or
+replaces GPU reproduction.
+
+`checkpoint_generations` plus `evaluation_checkpoint` provide opt-in diagnostic
+population snapshots after evaluation and before variation, in source population
+order. Generation G denotes final evaluation. The sorted, unique requested
+indices must be in 0..G and cannot request G when final evaluation is skipped.
+Callbacks must finish using payload handles during the call. Native populations
+export only requested checkpoints; callback/export cost is charged to the run.
+They are intended for diagnostics, not headline timing.
+
 #### Optional batched native GPU import/export transport
 
 `GAGP_BATCH_PHASE_IMPORT=1` flattens admitted live genes once, uploads compact

@@ -201,10 +201,12 @@ Exactness and wrong-case counts compare contents, including when equal contents
 have different private offsets. Content scoring also ignores the historical
 saturated-versus-masked transport length difference for a 65536-element list;
 legacy token-based Exact/wrong counts can therefore differ at that boundary
-even without a hash collision. Initial policy support is Exact and Levenshtein.
+even without a hash collision. Exact and Levenshtein support use the allocation
+policy below; TupleSummary has a separate opt-in described next.
 Set the opt-in before session and native-population initialization so expected
 payloads and the cold capability are prepared.
-Admission requires a positive logical allocation limit at most 65536 and external
+Exact/Levenshtein admission requires a positive logical allocation limit at most
+65536 and external
 payloads at most 65536 elements. Private generated lists may reach 65537 elements:
 a host constant containing 65536 elements has clamped transport length 65535,
 so concatenating it with a one-element constant charges exactly 65536 cells
@@ -218,6 +220,29 @@ for Len/Index/Slice and empty-Concat decisions. At logical limit 65536, private
 GPU replay reserves at least 65537 physical value cells so this valid boundary
 needs only the ordinary initial-overflow replay. Other external sizes decline
 the profile rather than narrowing an offset or length.
+
+`GAGP_GPU_PRIVATE_TUPLE_SCORE=1` extends this private profile to TupleSummary.
+It compares signed 64-bit fields directly, validates the expected tuple width,
+and counts correctness using the primary field only. Auxiliary fields contribute
+the same weighted/capped error as ordinary tuple scoring. All existing whole-
+program type/support proofs and external payload bounds remain required.
+Positive logical caps through 65536 retain their existing charges. A zero cap
+is preserved, rather than replaced by an implicit allocation policy.
+
+Zero-cap admission additionally calls `gpu/private_tuple_policy.hpp` on current
+bytecode. A forward dataflow proof checks all branch paths and proves every
+Concat allocates at most three cells. Inputs and slices may keep their original
+length through 65536. Region base/combine/boundary results establish an inductive
+three-cell bound for child-result bindings. Unknown or larger concatenations
+decline the complete private profile and use ordinary evaluation, including when
+a later slice would shorten the final result. This prevents unbounded zero-cap
+intermediates from exceeding the private descriptor's representable length.
+The resident owner materializes current phase bytecode for this additional
+proof each evaluation; an initial/typeflow-only certificate is insufficient.
+The execution profile records `private-tuple-score` or its declined form.
+Workspace reuse, typed phases and private window execution apply only after
+these checks succeed. Fuel, limits, complete cases and GPU overflow replay keep
+their existing contracts. The new flag defaults off.
 
 Singleton and nonempty Concat retain element copying and logical allocation
 charges. The required positive allocation policy already makes ordinary arena

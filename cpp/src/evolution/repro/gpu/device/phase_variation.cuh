@@ -114,11 +114,32 @@ __device__ inline int phase_tree_depth(const PhaseTreeNode* nodes, int count) {
   return depth == 0 ? maximum : -1;
 }
 
+// Count only independently mutable grammar invocation roots. Literal nodes
+// introduced inside a production and all lowering scaffolds carry no charge.
+// Position returns incoming depth; the selected site's own charge is excluded.
+__host__ __device__ inline int phase_site_depth(const PhaseTreeNode* nodes,
+    const PhaseGeneSite* sites,int count,int position=-1) {
+  if(!nodes || !sites || count<=0 || count>1024 || position>=count)return -1;
+  int pending[64],incoming[64];int depth=1,maximum=0;pending[0]=1;incoming[0]=0;
+  for(int i=0;i<count;++i) {
+    while(depth && !pending[depth-1])--depth;
+    if(!depth)return -1;
+    if(i==position)return incoming[depth-1];
+    const int arity=nodes[i].arity;if(arity<0 || arity>3)return -1;
+    const int value=incoming[depth-1]+(sites[i].nonterminal>=0?1:0);
+    maximum=value>maximum?value:maximum;--pending[depth-1];
+    if(arity) {if(depth==64)return -1;pending[depth]=arity;incoming[depth++]=value;}
+  }
+  while(depth && !pending[depth-1])--depth;
+  return depth?-1:maximum;
+}
+
 // Weighted prefix occurrences use certified expression origins, never opcode
 // guesses. position<0 returns the complete height; otherwise incoming depth at
 // that occurrence is returned (excluding its own charge).
 __device__ inline int phase_projected_depth(const PhaseGrammarView& grammar,
-    const PhaseTreeNode* nodes,const int* origins,int count,int position=-1) {
+    const PhaseTreeNode* nodes,const int* origins,int count,int position=-1,const PhaseGeneSite* sites=nullptr) {
+  if(grammar.site_depth)return phase_site_depth(nodes,sites,count,position);
   if(!nodes || !origins || !grammar.expressions || count<=0 || count>1024 || position>=count)return -1;
   int pending[64],incoming[64];int depth=1,maximum=0;pending[0]=1;incoming[0]=0;
   for(int i=0;i<count;++i) {
@@ -193,7 +214,7 @@ __device__ inline PhaseGenerationResult splice_phase_tree(const PhaseTreeView& b
   }
   if (maximum > max_depth) { result.status = PhaseCompileStatus::Capacity; return result; }
   if(projected) {
-    const int height=phase_projected_depth(*projected,output.nodes,output.origins,length);
+    const int height=phase_projected_depth(*projected,output.nodes,output.origins,length,-1,output.sites);
     if(height<0)return result;
     if(height>logical_depth){result.status=PhaseCompileStatus::Capacity;return result;}
   }

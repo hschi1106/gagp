@@ -1,0 +1,19 @@
+{
+  "format": "gagp-quality-control-24h-v1",
+  "started_utc": "2026-10-18T01:17:45+00:00",
+  "deadline_utc": "2026-10-19T01:17:45+00:00",
+  "budget_s": 86400,
+  "baseline_commit": "a948e41",
+  "baseline_binary": "logs/day24-20261017/bench",
+  "baseline_binary_sha256": "c468542bfceb361809aae24667579ca142ab7e2230aa482b1753bf5dba500442",
+  "scope": ["same-candidate scoring and variation diagnosis", "configurable exact CPU training verification", "long-run GPU bottleneck improvement"],
+  "resources": {"host_threads": 1, "gpu": 0, "workspace_mib": 16384, "ast_nodes": 2048, "physical_depth": 24, "phase_nodes": 1024, "host_rss_limit_gib": 32},
+  "diagnostic_tasks": ["count_odds", "last_index_of_zero", "cumulative_sum", "is_sorted", "all_equal", "house_robber", "filter_odd", "double_letters", "median"],
+  "initial_audit": {"tasks": "all30", "population": 1024, "fixture": "previous training only", "seed": 0},
+  "development": {"population": 1024, "generations": 64, "seeds": [0, 1, 2, 3, 4], "uses": "training scores, runtime, reference parity and variation counters only"},
+  "validation": {"new_data_seed": 20261018, "train_unique_limit": 200, "test_unique_limit": 1000, "test_selection": "exclude new training and previous selected train/test inputs; held-out test is not used for candidate or configuration selection", "minimum_paired_initial_seeds": 10, "target_paired_initial_seeds": 20},
+  "profiling": "nsys only; profiled runs are diagnostic and excluded from speedup estimates",
+  "controls": "GPU evaluation and GPU reproduction remain the mainline; CPU reference scoring is explicit, counted and timed; exact verification disabled by default",
+  "selection": "freeze final candidate and validation scale using development training/parity/runtime before new heldout scoring",
+  "preservation": "previous experiment artifacts and binary remain immutable; all failed and rejected attempts retained; deadline never resets"
+}

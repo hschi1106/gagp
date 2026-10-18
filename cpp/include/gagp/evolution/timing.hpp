@@ -17,6 +17,13 @@ struct EvaluationTiming {
   std::uint64_t payload_replay_programs = 0, payload_replay_cases = 0, payload_replay_launches = 0;
   std::uint64_t payload_workspace_retained_bytes = 0, payload_workspace_pool_peak_bytes = 0, payload_workspace_pool_allocations = 0;
   std::array<unsigned long long,3> concat_cache_stats{};
+  // Extra reference work is separate from GPU program-case counters. Wall time
+  // includes export, compilation, CPU evaluation, correction and re-ranking.
+  std::uint64_t verification_programs = 0, verification_cases = 0,
+                verification_errors = 0, verification_timeouts = 0,
+                verification_fitness_corrections = 0, verification_wrong_corrections = 0,
+                verification_best_changes = 0, verification_best_unverified = 0;
+  double verification_ms = 0.0, verification_max_abs_error = 0.0;
   double cpu_compile_ms = 0.0;
   double gpu_compile_ms = 0.0;
   double gpu_eval_call_ms = 0.0;

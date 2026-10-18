@@ -11,6 +11,18 @@ template<bool CompactA,bool CompactB>
 __device__ __forceinline__ double d_score_private_intlist_spans(const DPrivateIntListSpan& a,
     const DPrivateIntListSpan& b,double penalty,FitnessPolicy policy,bool* exact) {
   const int n=a.size,m=b.size;
+  if(policy.metric==FitnessMetric::TupleSummary) {
+    if(exact)*exact=false;
+    if(n!=policy.summary_count+1 || m!=n || n<1 || n>3)
+      return -fitness_error_ceiling(policy,penalty);
+    const bool correct=a.read<CompactA>(0)==b.read<CompactB>(0);
+    if(exact)*exact=correct; // Auxiliary summaries shape fitness, not correctness.
+    double error=correct?0.0:1.0;
+    for(int i=1;i<n;++i)
+      error+=policy.summary_weight*fmin(fitness_integer_gap(a.read<CompactA>(i),b.read<CompactB>(i)),
+          policy.summary_cap)/policy.summary_cap;
+    return -error;
+  }
   bool same=n==m;
   for(int i=0;same && i<n;++i)same=a.read<CompactA>(i)==b.read<CompactB>(i);
   if(exact)*exact=same;

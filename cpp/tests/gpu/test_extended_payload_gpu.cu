@@ -1272,7 +1272,7 @@ int main() {
       setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS",mapped,1);
       setenv("GAGP_GPU_COMPACT_INTLIST_CELLS",mode,1);
       setenv("GAGP_GPU_REUSE_PRIVATE_WORKSPACE",mode[0]=='1' && mapped[0]=='1'?"1":"0",1);
-      if(!test_private_intlist_fitness())return 1;
+      if(!test_private_intlist_fitness() || !test_private_tuple_fitness())return 1;
     }
   }
   if (!test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_initial_payload_capacity_replay() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||

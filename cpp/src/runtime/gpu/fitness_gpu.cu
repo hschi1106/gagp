@@ -27,6 +27,7 @@
 #include "payload_workspace_budget.hpp"
 #include "case_sort_policy.hpp"
 #include "private_global_offsets.hpp"
+#include "private_tuple_policy.hpp"
 #include "gagp/runtime/gpu/device_types_gpu.hpp"
 
 namespace gagp {
@@ -724,11 +725,24 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       std::string(std::getenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS"))=="1";
   const bool request_compact=std::getenv("GAGP_GPU_COMPACT_INTLIST_CELLS") &&
       std::string(std::getenv("GAGP_GPU_COMPACT_INTLIST_CELLS"))=="1";
+  const char* tuple_setting=std::getenv("GAGP_GPU_PRIVATE_TUPLE_SCORE");
+  const bool request_private_tuple=tuple_setting && std::string(tuple_setting)=="1";
+  // TupleSummary observes Int fields and the primary result, never identity.
+  // The same whole-program private-list proof excludes container Eq and list
+  // memo keys. Zero logical cap retains its existing policy; physical scratch
+  // exhaustion still replays on GPU. No policy/fuel/grammar limit is changed.
+  const bool private_tuple_policy=request_private_tuple && impl_->policy.metric==FitnessMetric::TupleSummary &&
+      impl_->policy.list_allocation_limit<=65536;
+  const bool private_sequence_policy=(impl_->policy.metric==FitnessMetric::Exact ||
+      impl_->policy.metric==FitnessMetric::Levenshtein) && impl_->policy.list_allocation_limit>0 &&
+      impl_->policy.list_allocation_limit<=65536;
   const bool private_static_eligible=request_private && impl_->private_answers_prepared &&
-      (impl_->policy.metric==FitnessMetric::Exact || impl_->policy.metric==FitnessMetric::Levenshtein) &&
-      impl_->policy.list_allocation_limit>0 && impl_->policy.list_allocation_limit<=65536 &&
+      (private_sequence_policy || private_tuple_policy) &&
       std::getenv("GAGP_GPU_GLOBAL_PAYLOAD") && std::string(std::getenv("GAGP_GPU_GLOBAL_PAYLOAD"))!="0";
-  const bool deferred_private_reference=owned && owned->prepacked() &&
+  const bool tuple_zero_cap=private_tuple_policy && impl_->policy.list_allocation_limit==0;
+  // Fresh code is needed for the extra bounded-allocation proof. A stale cold
+  // executable or typeflow-only certificate cannot establish this property.
+  const bool deferred_private_reference=!tuple_zero_cap && owned && owned->prepacked() &&
       !owned->views_supported_for(impl_->shared_input_types) && private_static_eligible &&
       owned->private_intlists_supported_for(impl_->shared_input_types);
   if(owned && owned->prepacked() && !owned->views_supported_for(impl_->shared_input_types) && !deferred_private_reference)
@@ -756,6 +770,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       (owned?owned->private_intlists_supported_for(impl_->shared_input_types):
        std::all_of(programs.begin(),programs.end(),[&](const auto& program) {
          return gpu_detail::private_intlist_program_supported(program,impl_->shared_input_types);
+       })) && (!tuple_zero_cap || std::all_of(programs.begin(),programs.end(),[&](const auto& program) {
+         return gpu_detail::bounded_tuple_allocations(program,impl_->shared_input_types);
        }));
   std::vector<Value> normal_needed_lists;
   std::vector<std::int64_t> normal_needed_strings;
@@ -1567,6 +1583,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         "-private-intlist-offset-v1":"-private-intlist-offset-v1-declined";
     if(request_private_globals)out.execution_profile+=private_global_offsets?
         "-private-global-offsets":"-private-global-offsets-declined";
+    if(request_private_tuple)out.execution_profile+=private_intlists && private_tuple_policy?
+        "-private-tuple-score":"-private-tuple-score-declined";
     if(request_warp_copy)out.execution_profile+=region_workspace.private_warp_copy?
         "-private-warp-copy":"-private-warp-copy-declined";
     if(request_private_typed)out.execution_profile+=region_workspace.private_typed_phases?

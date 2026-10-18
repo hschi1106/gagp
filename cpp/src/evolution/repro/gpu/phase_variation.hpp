@@ -4,8 +4,8 @@
 
 namespace gagp::evo::repro {
 inline HostPhaseGrammar compile_phase_variation_grammar(
-    const grammar::CompiledGrammar& grammar, unsigned root, unsigned max_depth, unsigned logical_depth=0) {
-  auto profile = compile_phase_grammar(grammar, root, max_depth, logical_depth);
+    const grammar::CompiledGrammar& grammar, unsigned root, unsigned max_depth, unsigned logical_depth=0, bool site_depth=false) {
+  auto profile = compile_phase_grammar(grammar, root, max_depth, logical_depth, site_depth);
   const auto fail = [](const char* why) {
     throw std::invalid_argument(std::string("GPU phase variation: ") + why);
   };

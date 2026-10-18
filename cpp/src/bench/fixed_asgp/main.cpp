@@ -8,6 +8,8 @@
 #include <chrono>
 #include <cstdlib>
 #include <fstream>
+#include <filesystem>
+#include <sstream>
 #include <iostream>
 #include <map>
 #include <set>
@@ -24,6 +26,9 @@
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 #include "gagp/evolution/grammar/cache.hpp"
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
+#ifdef GAGP_HAS_CUDA
+#include "../../evolution/repro/gpu/phase_population.hpp"
+#endif
 
 namespace {
 using namespace fixed_asgp;
@@ -90,7 +95,9 @@ Json encode_case(const asgp::Example& c,const asgp::TaskSpec& spec) {
 }
 void dataset(const std::string& name,const std::string& path) {
   asgp::DataConfig config;config.train=4096;config.test=4096;
-  config.seed=20261017;config.legacy_finite=false;
+  config.seed=std::getenv("GAGP_DATASET_SEED")
+      ? std::stoull(std::getenv("GAGP_DATASET_SEED")) : 20261017;
+  config.legacy_finite=false;
   const auto built=asgp::BuildTask(name,config);
   if(!built)throw std::invalid_argument("unknown dataset task");
   std::vector<Json> train,test;
@@ -204,21 +211,27 @@ void prepare(const Json& source, const std::string& grammar_path, int count, con
   if (count<=0 || count>int(parents.size())) throw std::runtime_error("invalid population prefix");
   const auto depth_budget=source_depth_budget(grammar);
   std::vector<Json> depth_audits;
-  std::vector<Json> programs;
+  std::vector<Json> programs,source_indices,rejections;
   for (int i=0; i<count; ++i) {
     try {
       const auto parent=decode(parents[i]);
       auto g=translate(parent,name,definition,grammar);
       if(depth_budget)depth_audits.push_back(audit_source_depth(parent,g,grammar,task(name),*depth_budget));
       programs.push_back(gagp::cli_detail::JsonParser(gagp::cli_detail::encode_ast_json(g.ast),{true,512}).parse());
+      source_indices.push_back(number(i));
     } catch (const std::exception& e) {
-      throw std::runtime_error("parent " + std::to_string(i) + ": " + e.what());
+      if (!std::getenv("GAGP_PREPARE_CLASSIFY_REJECTIONS"))
+        throw std::runtime_error("parent " + std::to_string(i) + ": " + e.what());
+      rejections.push_back(object({{"source_index",number(i)}, {"reason",string(e.what())}}));
     }
     if ((i+1)%256==0) std::cerr << name << " prepared " << i+1 << '/' << count << '\n';
   }
   write(output,object({{"format",string("fixed-asgp-prepared-v1")}, {"task",string(name)},
                        {"grammar_hash",string(grammar.content_hash())}, {"source_depth_cap",number(depth_budget?depth_budget->max_depth:0)},
-                       {"source_depth_audit",array(std::move(depth_audits))}, {"programs",array(std::move(programs))}}));
+                       {"source_depth_audit",array(std::move(depth_audits))},
+                       {"requested_programs",number(count)}, {"source_indices",array(std::move(source_indices))},
+                       {"admission_rejections",array(std::move(rejections))},
+                       {"programs",array(std::move(programs))}}));
 }
 void audit(const Json& source, const std::string& grammar_path, const std::string& output) {
   auto spec=task(source.object_v.at("task").string_v);
@@ -358,7 +371,8 @@ Json measure_gagp(const std::vector<gagp::evo::ProgramGenome>& population,
 // Diagnostics use the identical frozen programs/cases but are not headline
 // timing runs. CPU reference, when requested, evaluates every program/case.
 void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
-              const std::vector<gagp::evo::EvalCase>& cases, const std::string& output, const asgp::TaskSpec& spec) {
+              const std::vector<gagp::evo::EvalCase>& cases, const std::string& output, const asgp::TaskSpec& spec,
+              const std::shared_ptr<const gg::CompiledGrammar>& grammar) {
   const double penalty=std::getenv("GAGP_SNAPSHOT_PENALTY") ? std::stod(std::getenv("GAGP_SNAPSHOT_PENALTY")) : 1000;
   if(!std::isfinite(penalty) || penalty<0 ||
      (penalty==0 && !(std::getenv("GAGP_BM_COMMON_FITNESS") && !cases.empty() && cases[0].expected.tag==gagp::ValueTag::IntList)))
@@ -378,19 +392,41 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
   gagp::FitnessSessionGpu session;
   const auto init=session.init(cs.bindings,cs.expected_values,2000000,512,penalty,task_fitness_policy(spec));
   if (!init.ok) throw std::runtime_error(init.err.message);
-  const auto result=session.eval_programs(programs,true);
+  gagp::FitnessEvalResult result;
+  std::string owner_profile="ordinary-bytecode";
+  std::vector<std::array<unsigned,2>> site_metrics;
+  if(std::getenv("GAGP_SNAPSHOT_NATIVE_OWNER")) {
+#ifdef GAGP_HAS_CUDA
+    gagp::evo::repro::NativePhasePopulation owner(grammar,population,cs.input_names);
+    result=owner.evaluate(session,true);
+    owner_profile=owner.profile_name();
+    if(std::getenv("GAGP_SNAPSHOT_SITE_METRICS"))site_metrics=owner.site_metrics();
+#else
+    throw std::runtime_error("native-owner snapshot requires CUDA");
+#endif
+  } else result=session.eval_programs(programs,true);
   if (!result.ok) throw std::runtime_error(result.err.message);
   std::vector<double> cpu;
+  std::vector<unsigned> cpu_wrong;
   std::vector<gagp::CpuFitnessCaseCounts> cpu_counts;
   if (std::getenv("GAGP_SNAPSHOT_CPU"))
-    cpu=gagp::eval_fitness_cpu(programs,cs.bindings,cs.expected_values,2000000,penalty,512,task_fitness_policy(spec),nullptr,&cpu_counts);
+    cpu=gagp::eval_fitness_cpu(programs,cs.bindings,cs.expected_values,2000000,penalty,512,task_fitness_policy(spec),&cpu_wrong,&cpu_counts);
   std::set<std::string> behaviors;
   const bool behavior_probe=std::getenv("GAGP_SNAPSHOT_BEHAVIOR")!=nullptr;
   if(behavior_probe) for(const auto& program:programs) {
     gagp::CpuExecutionSession cpu_session(program);std::string signature;
+    gagp::payload::StagedPayloads temporary_payloads(8U*1024U*1024U);
     for(std::size_t c=0;c<std::min<std::size_t>(32,cs.bindings.size());++c) {
       std::vector<std::pair<int,gagp::Value>> inputs;
       for(const auto& b:cs.bindings[c])inputs.emplace_back(b.idx,b.value);
+      gagp::payload::StagedPayloads::Scope scope(temporary_payloads);
+      try {
+      const auto policy=task_fitness_policy(spec);
+      std::size_t input_cells=0;
+      if(policy.list_allocation_limit)for(const auto& binding:cs.bindings[c])
+        if(binding.idx>=0 && binding.idx<program.n_locals && binding.value.tag==gagp::ValueTag::IntList)
+          input_cells+=gagp::Value::container_len(binding.value);
+      gagp::payload::ListAllocationScope logical_budget(policy.list_allocation_limit,input_cells);
       const auto value=cpu_session.execute(inputs,2000000);
       if(value.is_error)signature+="E"+std::to_string(static_cast<int>(value.err.code))+";";
       else {
@@ -399,9 +435,22 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
           case gagp::ValueTag::Int:case gagp::ValueTag::Char:bits=value.value.i;break;
           case gagp::ValueTag::Bool:bits=value.value.b;break;
           case gagp::ValueTag::Float:std::memcpy(&bits,&value.value.f,sizeof(bits));break;
-          default:throw std::runtime_error("scalar behavior audit received non-scalar output");
+          case gagp::ValueTag::IntList: {
+            std::vector<gagp::Value> items;
+            if(!gagp::payload::lookup_list(value.value,&items))throw std::runtime_error("behavior output is unresolved");
+            signature+="L"+std::to_string(items.size())+":";
+            for(const auto& item:items) {
+              if(item.tag!=gagp::ValueTag::Int)throw std::runtime_error("behavior IntList contains non-Int");
+              signature+=std::to_string(item.i)+",";
+            }
+            signature+=";";continue;
+          }
+          default:throw std::runtime_error("unsupported behavior output type");
         }
         signature+=std::to_string(static_cast<int>(value.value.tag))+":"+std::to_string(bits)+";";
+      }
+      } catch(const gagp::payload::PayloadBudgetExceeded&) {
+        signature+="E"+std::to_string(static_cast<int>(gagp::ErrCode::Value))+";";
       }
     }
     behaviors.insert(std::move(signature));
@@ -412,6 +461,11 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
     auto row=object({{"program",number(i)}, {"nodes",number(population[i].ast.nodes.size())},
       {"fitness",number(result.fitness[i])}, {"cases",number(n[0])}, {"errors",number(n[1])},
       {"timeouts",number(n[2])}, {"fallbacks",number(n[3])}, {"unscored",number(n[4])}});
+    if(!result.wrong.empty())row.object_v["wrong"]=number(result.wrong.at(i));
+    if(!site_metrics.empty()) {
+      row.object_v["grammar_site_nodes"]=number(site_metrics.at(i)[0]);
+      row.object_v["grammar_site_depth"]=number(site_metrics.at(i)[1]);
+    }
     row.object_v["initial_payload_overflow_cases"]=number(result.initial_payload_overflow_cases.at(i));
     const int logical_lanes=result.initial_payload_overflow_logical_lanes;
     if(logical_lanes>0) {
@@ -439,13 +493,16 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
     }
     if (!cpu.empty()) {
       row.object_v["cpu_fitness"]=number(cpu[i]);
+      if(!cpu_wrong.empty())row.object_v["cpu_wrong"]=number(cpu_wrong.at(i));
       row.object_v["cpu_cases"]=number(cpu_counts[i].cases);
       row.object_v["cpu_errors"]=number(cpu_counts[i].errors);
       row.object_v["cpu_timeouts"]=number(cpu_counts[i].timeouts);
     }
     rows.push_back(std::move(row));
   }
-  write(output,object({{"admission_compile_reuses",number(admission_reuses)}, {"compile_ms",number(compile_ms)}, {"gpu_init_ms",number(init.timing.total_ms)},
+  write(output,object({{"task",string(spec.id)},{"population",number(population.size())},
+    {"cases",number(cases.size())},{"diagnostic_owner",string(owner_profile)},
+    {"admission_compile_reuses",number(admission_reuses)}, {"compile_ms",number(compile_ms)}, {"gpu_init_ms",number(init.timing.total_ms)},
     {"eval_ms",number(result.timing.total_ms)}, {"kernel_ms",number(result.timing.kernel_ms)}, {"initial_kernel_wall_ms",number(result.timing.initial_kernel_wall_ms)}, {"initial_kernel_event_ms",number(result.timing.initial_kernel_event_ms)}, {"replay_kernel_event_ms",number(result.timing.replay_kernel_event_ms)},
     {"execution_profile",string(result.execution_profile)}, {"payload_workspace_budget_bytes",number(result.payload_workspace_budget_bytes)},
     {"initial_payload_entry_capacity",number(result.initial_payload_entry_capacity)},
@@ -459,6 +516,36 @@ void snapshot(const std::vector<gagp::evo::ProgramGenome>& population,
     {"cpu_behavior_probe_cases",number(behavior_probe?std::min<std::size_t>(32,cs.bindings.size()):0)},
     {"unique_cpu_behavior_probes",number(behaviors.size())}, {"programs",array(std::move(rows))}}));
 }
+std::vector<int> checkpoint_generations(int generations) {
+  std::vector<int> result;
+  const char* directory = std::getenv("GAGP_SEARCH_CHECKPOINT_DIR");
+  if (!directory) return result;
+  const char* selected = std::getenv("GAGP_SEARCH_CHECKPOINTS");
+  std::stringstream input(selected ? selected : "0");
+  std::string token;
+  while (std::getline(input, token, ',')) {
+    const auto value = std::stoi(token);
+    if (value < 0 || value > generations) throw std::invalid_argument("checkpoint outside search generations");
+    result.push_back(value);
+  }
+  std::sort(result.begin(), result.end());
+  result.erase(std::unique(result.begin(), result.end()), result.end());
+  std::filesystem::create_directories(directory);
+  return result;
+}
+std::string checkpoint_path(int generation, const char* suffix) {
+  return (std::filesystem::path(std::getenv("GAGP_SEARCH_CHECKPOINT_DIR")) /
+      ("gen" + std::to_string(generation) + suffix)).string();
+}
+Json verification_json(const gagp::evo::EvaluationTiming& t) {
+  return object({{"programs",number(t.verification_programs)}, {"cases",number(t.verification_cases)},
+    {"errors",number(t.verification_errors)}, {"timeouts",number(t.verification_timeouts)},
+    {"fitness_corrections",number(t.verification_fitness_corrections)},
+    {"wrong_corrections",number(t.verification_wrong_corrections)},
+    {"best_changes",number(t.verification_best_changes)},
+    {"best_unverified",number(t.verification_best_unverified)},
+    {"wall_ms",number(t.verification_ms)}, {"max_abs_error",number(t.verification_max_abs_error)}});
+}
 void search_asgp(const std::vector<asgp::Individual>& parents, const asgp::TaskSpec& spec,
                  const std::string& output) {
   const auto start=Clock::now();
@@ -469,6 +556,18 @@ void search_asgp(const std::vector<asgp::Individual>& parents, const asgp::TaskS
   const auto seed=std::getenv("GAGP_BM_SEED") ? std::stoull(std::getenv("GAGP_BM_SEED")) : 0;
   const int generations=std::getenv("GAGP_SEARCH_GENERATIONS") ? std::stoi(std::getenv("GAGP_SEARCH_GENERATIONS")) : 4;
   if(generations<=0 || work.empty())throw std::invalid_argument("invalid search dimensions");
+  const auto checkpoints = checkpoint_generations(generations);
+  const auto checkpoint = [&](int gen) {
+    if (!std::binary_search(checkpoints.begin(), checkpoints.end(), gen)) return;
+    std::vector<Json> programs, scores;
+    for (const auto& one : work) {
+      programs.push_back(encode(one,grammar.count));
+      scores.push_back(object({{"fitness",number(-one.fitness.error)},
+          {"wrong",number(one.fitness.wrong)}, {"nodes",number(one.NodeCount())}}));
+    }
+    write(checkpoint_path(gen,".source.json"), object({{"task",string(spec.id)},
+        {"generation",number(gen)}, {"population",array(std::move(programs))}, {"scores",array(std::move(scores))}}));
+  };
   asgp::Rng rng(seed); std::vector<Json> rows,history;
   const double init_ms=elapsed(start);
   const auto evaluate=[&]() {
@@ -478,7 +577,7 @@ void search_asgp(const std::vector<asgp::Individual>& parents, const asgp::TaskS
     return std::min_element(work.begin(),work.end(),[](const auto& a,const auto& b){return asgp::Better(a.fitness,b.fitness);})-work.begin();
   };
   for(int gen=0;gen<generations;++gen) {
-    const auto begin=Clock::now();evaluate();const double eval_ms=elapsed(begin);
+    const auto begin=Clock::now();evaluate();const double eval_ms=elapsed(begin);checkpoint(gen);
     const auto best=best_index();double mean=0,nodes=0;
     for(const auto& one:work){mean-=one.fitness.error;nodes+=one.NodeCount();}
     // Keep the historical best available for held-out evaluation after search.
@@ -510,10 +609,10 @@ void search_asgp(const std::vector<asgp::Individual>& parents, const asgp::TaskS
     history.back().object_v["elapsed_search_ms"]=number(complete_wall_ms);
     if(std::getenv("GAGP_SEARCH_TRACE"))std::cerr<<"generation="<<gen<<" best="<<rows.back().object_v.at("best").number_v<<" generation_ms="<<complete_ms<<" elapsed_ms="<<complete_wall_ms<<'\n';
   }
-  const auto final_begin=Clock::now();evaluate();const double final_ms=elapsed(final_begin);
+  const auto final_begin=Clock::now();evaluate();const double final_ms=elapsed(final_begin);checkpoint(generations);
   const auto best=best_index();const double wall_ms=elapsed(start);
   std::vector<Json> final;std::set<std::string> unique;
-  for(const auto& one:work){final.push_back(object({{"fitness",number(-one.fitness.error)},{"nodes",number(one.NodeCount())}}));unique.insert(gg::canonical_json(encode(one,grammar.count)));}
+  for(const auto& one:work){final.push_back(object({{"fitness",number(-one.fitness.error)},{"wrong",number(one.fitness.wrong)},{"nodes",number(one.NodeCount())}}));unique.insert(gg::canonical_json(encode(one,grammar.count)));}
   if(const char* path=std::getenv("GAGP_SEARCH_HISTORY_EXPORT"))write(path,object({{"history",array(std::move(history))}}));
   if(const char* path=std::getenv("GAGP_SEARCH_EXPORT"))write(path,object({{"task",string(spec.id)},{"best_program",encode(work[best],grammar.count)}}));
   write(output,object({{"mode",string("asgp_1t")},{"population",number(work.size())},{"cases",number(spec.train.size())},
@@ -540,6 +639,23 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   validate_aligned_penalty(cfg.penalty);
   cfg.elite_count=std::getenv("GAGP_BM_ALIGNED_FITNESS") ? 1 : 0;
   cfg.mutation_rate=.3; cfg.mutation_subtree_prob=1; cfg.skip_final_eval=false; cfg.retain_final_population=true;
+  if(const char* value=std::getenv("GAGP_GPU_SITE_DEPTH"))cfg.gpu_phase_site_depth=std::stoi(value);
+  if(const char* value=std::getenv("GAGP_GPU_SITE_PARSIMONY"))cfg.gpu_phase_site_parsimony=std::string(value)=="1";
+  if (const char* value=std::getenv("GAGP_VERIFY_TOP_K"))cfg.cpu_fitness_verification.top_k=std::stoi(value);
+  if (const char* value=std::getenv("GAGP_VERIFY_INTERVAL"))cfg.cpu_fitness_verification.interval=std::stoi(value);
+  if (const char* value=std::getenv("GAGP_VERIFY_NEAR_ZERO"))cfg.cpu_fitness_verification.near_zero_error=std::stod(value);
+  cfg.checkpoint_generations=checkpoint_generations(cfg.generations);
+  if (!cfg.checkpoint_generations.empty())cfg.evaluation_checkpoint=[&](int gen,const std::vector<gagp::evo::ScoredGenome>& members) {
+    std::vector<Json> programs,scores;
+    for(const auto& one:members) {
+      programs.push_back(gagp::cli_detail::JsonParser(gagp::cli_detail::encode_ast_json(one.genome.ast),{true,512}).parse());
+      scores.push_back(object({{"fitness",number(one.fitness)}, {"wrong",number(one.wrong)},
+        {"nodes",number(one.genome.ast.nodes.size())}}));
+    }
+    write(checkpoint_path(gen,".native.json"),object({{"task",string(spec.id)},
+        {"grammar_hash",string(grammar->content_hash())}, {"generation",number(gen)},
+        {"programs",array(std::move(programs))}, {"scores",array(std::move(scores))}}));
+  };
   const auto call_begin=std::chrono::steady_clock::now();
   configure_source_depth(cfg);
   const auto result=gagp::evo::evolve_population(cases,cfg,&population);
@@ -554,11 +670,11 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
       {"payload_workspace_pool_allocations",number(e.payload_workspace_pool_allocations)},
       {"elapsed_search_ms",number(t.elapsed_search_ms)}, {"execution_profile",string(e.execution_profile)}, {"payload_replay_programs",number(e.payload_replay_programs)}, {"payload_replay_cases",number(e.payload_replay_cases)}, {"concat_cache_hits",number(e.concat_cache_stats[0])}, {"concat_cache_misses",number(e.concat_cache_stats[1])}, {"concat_cache_skipped_cells",number(e.concat_cache_stats[2])}, {"payload_replay_launches",number(e.payload_replay_launches)},
       {"eval_ms",number(t.eval_ms)}, {"repro_ms",number(t.repro_ms)},
-      {"compile_ms",number(e.cpu_compile_ms+e.gpu_compile_ms)}, {"eval_kernel_ms",number(e.gpu_eval_kernel_ms)}, {"initial_kernel_wall_ms",number(e.gpu_eval_initial_kernel_wall_ms)}, {"initial_kernel_event_ms",number(e.gpu_eval_initial_kernel_event_ms)}, {"replay_kernel_event_ms",number(e.gpu_eval_replay_kernel_event_ms)},
+      {"verification",verification_json(e)}, {"compile_ms",number(e.cpu_compile_ms+e.gpu_compile_ms)}, {"eval_kernel_ms",number(e.gpu_eval_kernel_ms)}, {"initial_kernel_wall_ms",number(e.gpu_eval_initial_kernel_wall_ms)}, {"initial_kernel_event_ms",number(e.gpu_eval_initial_kernel_event_ms)}, {"replay_kernel_event_ms",number(e.gpu_eval_replay_kernel_event_ms)},
       {"pack_ms",number(e.gpu_eval_pack_ms)}, {"upload_ms",number(e.gpu_eval_upload_ms)},
       {"repro_kernel_ms",number(t.reproduction.kernel_ms)}, {"repro_decode_ms",number(t.reproduction.decode_ms)},
       {"repro_prepare_ms",number(t.reproduction.prepare_inputs_ms)},
-      {"best_nodes",number(result.history_best[i].genome.ast.nodes.size())},
+      {"best_nodes",number(result.history_best[i].genome.ast.nodes.size())}, {"best_wrong",number(result.history_best[i].wrong)},
       {"expected_program_cases",number(population.size()*cases.size())},
       {"case_counters_available",number(mode!="gagp_cpu" && std::getenv("GAGP_GPU_DIAGNOSTICS")!=nullptr)},
       {"best",number(result.history_best_fitness[i])}, {"mean",number(result.history_mean_fitness[i])},
@@ -567,6 +683,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
       {"gpu_donor_generated",number(t.reproduction.gpu_donor_generated)}, {"gpu_donor_fallback",number(t.reproduction.gpu_donor_fallback)},
       {"gpu_donor_setup_ms",number(t.reproduction.gpu_donor_setup_ms)}, {"gpu_donor_device_bytes",number(t.reproduction.gpu_donor_device_bytes)},
       {"changed",number(v.changed_children)}, {"unchanged",number(v.unchanged_children)},
+      {"crossover_attempts",number(v.crossover_attempts)}, {"mutation_attempts",number(v.mutation_attempts)},
       {"operator_fallbacks",number(v.fallback_children)}, {"rejected",number(v.acceptance_rejections)},
       {"contract_rejections",number(v.contract_rejections)}, {"budget_rejections",number(v.budget_rejections)},
       {"generation_rejections",number(v.generation_rejections)}}));
@@ -598,18 +715,30 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
     unique.insert(gg::runtime_cache_identity(one.genome,cs.input_names,cfg.fuel));
     if(i<16 || std::getenv("GAGP_SEARCH_CPU_ALL"))top.push_back(gagp::evo::compile_for_eval(one.genome,cs.input_names));
   }
-  auto cpu=gagp::eval_fitness_cpu(top,cs.bindings,cs.expected_values,cfg.fuel,cfg.penalty,512,cfg.fitness_policy);
+  std::vector<unsigned> cpu_wrong;
+  auto cpu=gagp::eval_fitness_cpu(top,cs.bindings,cs.expected_values,cfg.fuel,cfg.penalty,512,cfg.fitness_policy,&cpu_wrong);
   std::vector<Json> top_rows;
-  std::size_t audit_mismatches=0;
-  for(std::size_t i=0;i<cpu.size();++i)if(gagp::evo::canonicalize_fitness_for_ranking(cpu[i])!=result.final_population[i].fitness)++audit_mismatches;
+  std::size_t audit_mismatches=0,audit_wrong_mismatches=0,audit_wrong_programs=0;
+  for(std::size_t i=0;i<cpu.size();++i) {
+    if(gagp::evo::canonicalize_fitness_for_ranking(cpu[i])!=result.final_population[i].fitness)++audit_mismatches;
+    if(result.final_population[i].wrong>=0) {
+      ++audit_wrong_programs;audit_wrong_mismatches+=int(cpu_wrong[i])!=result.final_population[i].wrong;
+    }
+  }
   for(std::size_t i=0;i<std::min<std::size_t>(16,cpu.size());++i)
     top_rows.push_back(object({{"gpu",number(result.final_population[i].fitness)},{"cpu",number(cpu[i])}}));
   write(output,object({{"mode",string(mode)}, {"case_penalty",number(cfg.penalty)}, {"elite_count",number(cfg.elite_count)}, {"fitness_metric",number(static_cast<int>(cfg.fitness_policy.metric))}, {"list_allocation_limit",number(cfg.fitness_policy.list_allocation_limit)}, {"population",number(population.size())}, {"cases",number(cases.size())},
     {"final_best",number(result.final_population.front().fitness)},
+    {"verification",verification_json(result.timing.evaluation_totals)},
+    {"gpu_phase_site_depth",number(cfg.gpu_phase_site_depth)},
+    {"gpu_phase_site_parsimony",number(cfg.gpu_phase_site_parsimony)},
+    {"verification_top_k",number(cfg.cpu_fitness_verification.top_k)},
+    {"verification_interval",number(cfg.cpu_fitness_verification.interval)},
+    {"verification_near_zero",number(cfg.cpu_fitness_verification.near_zero_error)},
     {"search_contract",search_contract_json(cfg,result.reproduction_profile)},
     {"source_depth_cap",number(cfg.offspring_resource_budget?cfg.offspring_resource_budget->max_depth:0)},
     {"reproduction_profile",string(result.reproduction_profile)}, {"reproduction_fallback_reason",string(result.reproduction_fallback_reason)},
-    {"genotype_device_bytes",number(result.genotype_device_bytes)}, {"top16_cpu",array(std::move(top_rows))},{"cpu_audit_ms",number(elapsed(audit_begin))},{"cpu_audit_program_count",number(cpu.size())},{"cpu_audit_mismatches",number(audit_mismatches)},
+    {"genotype_device_bytes",number(result.genotype_device_bytes)}, {"top16_cpu",array(std::move(top_rows))},{"cpu_audit_ms",number(elapsed(audit_begin))},{"cpu_audit_program_count",number(cpu.size())},{"cpu_audit_mismatches",number(audit_mismatches)}, {"cpu_audit_wrong_mismatches",number(audit_wrong_mismatches)}, {"cpu_audit_wrong_program_count",number(audit_wrong_programs)},
     {"unique_final_genomes",number(unique.size())},{"seed",number(cfg.seed)}, {"generations",array(std::move(rows))},
     {"final_population",array(std::move(final))}, {"evolve_wall_ms",number(evolve_wall_ms)}, {"evolve_call_ms",number(result.timing.total_ms)},
     {"initial_admission_ms",number(result.timing.init_population_ms)}, {"gpu_init_ms",number(result.timing.gpu_eval_init_ms)},
@@ -643,13 +772,15 @@ void measure(const Json& source, const std::string& prepared_path, const std::st
     asgp::FitnessScratch scratch; const auto config=fitness_config(); std::vector<Json> rows;
     for(const auto& one:parents) {
       const auto score=asgp::Score(one,spec,spec.train,config,scratch);
-      rows.push_back(object({{"fitness",number(-score.error)},{"wrong",number(score.wrong)},{"nodes",number(score.nodes)},{"cases",number(spec.train.size())}}));
+      int site_depth=0;
+      for(const auto& phase:one.phases)if(!phase.empty())site_depth=std::max(site_depth,asgp::SubtreeDepth(phase,0));
+      rows.push_back(object({{"logical_depth",number(site_depth)}, {"fitness",number(-score.error)},{"wrong",number(score.wrong)},{"nodes",number(score.nodes)},{"cases",number(spec.train.size())}}));
     }
     write(output,object({{"programs",array(std::move(rows))}})); return;
   }
   if (mode=="search_asgp_1t") { search_asgp(parents,spec,output); return; }
   if (mode.starts_with("search_")) { search(population,cases,grammar,output,mode.substr(7),spec); return; }
-  if (mode=="snapshot") { snapshot(population,cases,output,spec); return; }
+  if (mode=="snapshot") { snapshot(population,cases,output,spec,grammar); return; }
   if (mode=="search") { search(population,cases,grammar,output,"gpu_overlap",spec); return; }
   std::ofstream log(output);
   if (!log) throw std::runtime_error("cannot open result file");

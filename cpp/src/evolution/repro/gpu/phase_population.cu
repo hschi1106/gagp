@@ -48,7 +48,7 @@ struct UploadedProfile {
   domains.upload(h.domains);values.upload(h.values);minimum.upload(h.minimum);
  }
  PhaseGrammarView view(const HostPhaseGrammar& h)const{return {expressions.data,int(h.expressions.size()),productions.data,int(h.productions.size()),
-  nonterminals.data,int(h.nonterminals.size()),domains.data,int(h.domains.size()),values.data,int(h.values.size()),minimum.data,h.depth_count,h.logical_depth_count};}
+  nonterminals.data,int(h.nonterminals.size()),domains.data,int(h.domains.size()),values.data,int(h.values.size()),minimum.data,h.depth_count,h.logical_depth_count,h.site_depth};}
  std::size_t bytes()const{return expressions.bytes()+productions.bytes()+nonterminals.bytes()+domains.bytes()+values.bytes()+minimum.bytes();}
 };
 struct DeviceSlot {PhaseGrammarView grammar;int root,scope,max_depth,logical_depth;ValueTag type;ValueTag locals[8];};
@@ -85,7 +85,21 @@ __global__ void preserve_elites(TreePointers source, TreePointers target,
 }
 __global__ void annotate_import(TreePointers trees,const DeviceSlot* slots,int rows,int slot_count) {
  const int row=blockIdx.x*blockDim.x+threadIdx.x;if(row>=rows)return;const auto& s=slots[row%slot_count];const auto t=trees.view(row);
- if(!valid(trees.lengths[row]) || !annotate_phase_tree(s.grammar,s.root,s.scope,t.nodes,t.origins,t.node_count,trees.output(row).sites))trees.lengths[row].status=PhaseCompileStatus::Invalid;
+ if(!valid(trees.lengths[row]) || !annotate_phase_tree(s.grammar,s.root,s.scope,t.nodes,t.origins,t.node_count,trees.output(row).sites) ||
+     (s.grammar.site_depth && phase_site_depth(t.nodes,trees.output(row).sites,t.node_count)>s.logical_depth))
+   trees.lengths[row].status=PhaseCompileStatus::Invalid;
+}
+__global__ void measure_site_metrics(TreePointers input,int population,int slots,unsigned* output) {
+ const int p=blockIdx.x*blockDim.x+threadIdx.x;if(p>=population)return;
+ unsigned count=0,depth=0;
+ for(int k=0;k<slots;++k) {
+  const auto t=input.view(p*slots+k);
+  for(int i=0;i<t.node_count;++i)count+=t.sites[i].nonterminal>=0;
+  const int height=phase_site_depth(t.nodes,t.sites,t.node_count);
+  if(height<0){output[p*2]=output[p*2+1]=0;return;}
+  depth=unsigned(height)>depth?unsigned(height):depth;
+ }
+ output[p*2]=count;output[p*2+1]=depth;
 }
 // Compact cold transport: offsets and lengths are host-validated before launch.
 struct ImportOffset { std::size_t nodes, constants; };
@@ -198,7 +212,7 @@ __global__ void mutate_population(TreePointers input,TreePointers output,TreePoi
  const auto a=input.view(destination.row);const int end=phase_subtree_end(a,destination.node),depth=phase_node_depth(a,destination.node);
  if(end<0 || depth<0){stat.error=6;return;}
  const auto site=a.sites[destination.node];const auto& slot=slots[destination.row%slot_count];auto tmp=scratch.output(child);
- const int incoming=slot.logical_depth?phase_projected_depth(slot.grammar,a.nodes,a.origins,a.node_count,destination.node):0;
+ const int incoming=slot.logical_depth?phase_projected_depth(slot.grammar,a.nodes,a.origins,a.node_count,destination.node,a.sites):0;
  if(incoming<0 || incoming>slot.logical_depth){stat.error=6;return;}
  const int logical=slot.logical_depth-incoming;
  // A larger whole-program budget does not enlarge the destination phase buffer.
@@ -304,7 +318,7 @@ struct NativePhasePopulation::Impl {
  NativePhaseLayout layout;int population=0,slot_count=0,device=-1;bool healthy=true;
  std::vector<std::unique_ptr<UploadedProfile>> profiles;Buffer<DeviceSlot> slots;
  std::unique_ptr<Trees> current,next,crossed,scratch;
- Buffer<double> fitness;Buffer<OperatorStats> stats;
+ Buffer<double> fitness;Buffer<OperatorStats> stats;Buffer<unsigned> metrics;
  Buffer<gpu_detail::DInstr> code,packed_code;Buffer<Value> constants,packed_constants;
  Buffer<PhaseCompileResult> compiled;Buffer<int> code_offsets,constant_offsets;
  std::vector<int> fixed_stack_bounds,stack_bounds;
@@ -393,7 +407,7 @@ struct NativePhasePopulation::Impl {
  ~Impl(){if(start)cudaEventDestroy(start);if(stop)cudaEventDestroy(stop);}
  void require_device()const{if(!healthy)throw std::logic_error("GPU genotype owner invalidated by a failed step");int now;checked(cudaGetDevice(&now));if(now!=device)throw std::logic_error("GPU genotype device/owner mismatch");}
  std::size_t bytes()const {
-  std::size_t total=(current?current->bytes():0)+(next?next->bytes():0)+(crossed?crossed->bytes():0)+(scratch?scratch->bytes():0)+slots.bytes()+fitness.bytes()+stats.bytes()+code.bytes()+packed_code.bytes()+
+  std::size_t total=(current?current->bytes():0)+(next?next->bytes():0)+(crossed?crossed->bytes():0)+(scratch?scratch->bytes():0)+slots.bytes()+fitness.bytes()+stats.bytes()+metrics.bytes()+code.bytes()+packed_code.bytes()+
       constants.bytes()+packed_constants.bytes()+compiled.bytes()+code_offsets.bytes()+constant_offsets.bytes();
   for(const auto& p:profiles)total+=p->bytes();return total;
  }
@@ -487,7 +501,8 @@ struct NativePhasePopulation::Impl {
 };
 
 NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
-    const std::vector<ProgramGenome>& input,const std::vector<std::string>& input_names,std::optional<grammar::ProjectedBudget> projected):impl_(std::make_unique<Impl>(std::move(grammar))) {
+    const std::vector<ProgramGenome>& input,const std::vector<std::string>& input_names,std::optional<grammar::ProjectedBudget> projected,int site_depth):impl_(std::make_unique<Impl>(std::move(grammar))) {
+ phase_layout_require(site_depth>=0 && site_depth<=15 && !(site_depth && projected),"site depth must be0..15 and cannot combine with projected resource budgets");
  phase_layout_require(impl_->grammar && !input.empty() && input.size()<=16384,"population/grammar capacity");
  std::set<std::string> expected_names,actual_names(input_names.begin(),input_names.end());
  for(const auto& binding:impl_->grammar->inputs())expected_names.insert(binding.name);
@@ -506,7 +521,10 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  const bool reuse_import=std::getenv("GAGP_REUSE_IMPORTED_EXECUTABLE")!=nullptr;
  const auto* evaluator_inputs=reuse_import?&input_names:nullptr;
  impl_->population=input.size();impl_->layout=import_native_phase_layout(*impl_->grammar,input.front(),import_profiles.get(),evaluator_inputs,true,projected?&*projected:nullptr);
- impl_->reproduction_profile=impl_->layout.slots.front().logical_depth?"native-gpu-phase-v3-projected":
+ if(site_depth)for(std::size_t k=0;k<impl_->layout.slots.size();++k)
+  impl_->layout.profiles[k]=compile_phase_variation_grammar(*impl_->grammar,
+      impl_->layout.slots[k].nonterminal,impl_->grammar->search_limits().max_depth,site_depth,true);
+ impl_->reproduction_profile=site_depth?"native-gpu-phase-v4-site-depth"+std::to_string(site_depth):impl_->layout.slots.front().logical_depth?"native-gpu-phase-v3-projected":
      impl_->counted_sites?"native-gpu-phase-v2-counted":"native-gpu-phase-v1";
  if(impl_->source_crossover_gate)impl_->reproduction_profile+="-source-cross07";
  if(impl_->uniform_phase_sites)impl_->reproduction_profile+="-uniform-phase";
@@ -540,7 +558,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   const auto& profile=impl_->layout.profiles[k];const auto& layout=impl_->layout.slots[k];
   impl_->profiles.push_back(std::make_unique<UploadedProfile>(profile));
   const auto& nt=impl_->grammar->nonterminals()[layout.nonterminal];DeviceSlot slot{};
-  slot.grammar=impl_->profiles.back()->view(profile);slot.root=profile.root_expression;slot.scope=nt.scope.size();slot.max_depth=layout.max_depth;slot.logical_depth=layout.logical_depth;
+  slot.grammar=impl_->profiles.back()->view(profile);slot.root=profile.root_expression;slot.scope=nt.scope.size();slot.max_depth=layout.max_depth;slot.logical_depth=site_depth?site_depth:layout.logical_depth;
   const auto tag=[](RType t){return t==RType::Int?ValueTag::Int:t==RType::Bool?ValueTag::Bool:ValueTag::IntList;};
   slot.type=tag(nt.type);for(int j=0;j<slot.scope;++j)slot.locals[j]=tag(nt.scope[j].type);slots.push_back(slot);
  }
@@ -636,7 +654,19 @@ FitnessEvalResult NativePhasePopulation::evaluate(FitnessSessionGpu& session,boo
 }
 const char* NativePhasePopulation::profile_name()const{return impl_->reproduction_profile.c_str();}
 std::size_t NativePhasePopulation::device_bytes()const{return std::max(impl_->bytes(),impl_->peak_transport_bytes);}
-std::vector<unsigned> NativePhasePopulation::node_counts()const {
+std::vector<std::array<unsigned,2>> NativePhasePopulation::site_metrics()const {
+ impl_->require_device();impl_->metrics.reserve(impl_->population*2);
+ measure_site_metrics<<<(impl_->population+63)/64,64>>>(pointers(*impl_->current),impl_->population,impl_->slot_count,impl_->metrics.data);
+ checked(cudaGetLastError());const auto raw=impl_->metrics.read(impl_->population*2);
+ std::vector<std::array<unsigned,2>> out;
+ for(int i=0;i<impl_->population;++i) {
+  if(!raw[i*2] || !raw[i*2+1])throw std::runtime_error("invalid GPU grammar-site metrics");
+  out.push_back({raw[i*2],raw[i*2+1]});
+ }
+ return out;
+}
+std::vector<unsigned> NativePhasePopulation::node_counts(bool grammar_sites)const {
+ if(grammar_sites) {std::vector<unsigned> counts;for(const auto& row:site_metrics())counts.push_back(row[0]);return counts;}
  impl_->require_device();const auto lengths=impl_->current->lengths.read(impl_->population*impl_->slot_count);
  std::vector<unsigned> counts(impl_->population,impl_->layout.fixed_nodes);
  for(int i=0;i<impl_->population;++i)for(int k=0;k<impl_->slot_count;++k)counts[i]+=lengths[i*impl_->slot_count+k].nodes;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <random>
 #include <memory>
 #include <optional>
@@ -20,6 +21,16 @@ namespace gagp::evo {
 enum class EvalEngine {
   CPU,
   GPU,
+};
+
+// Bounded CPU reference scoring of the current GPU leaders on the training set.
+// Disabled by default. It does not certify unverified candidates or replace GPU
+// reproduction. Scheduled generations and the final evaluation verify top_k;
+// near_zero_error >= 0 also triggers when the leading loss is within that value.
+struct CpuFitnessVerification {
+  int top_k = 0;
+  int interval = 1;
+  double near_zero_error = -1.0;
 };
 
 struct EvolutionConfig {
@@ -54,6 +65,18 @@ struct EvolutionConfig {
   // alone retain ordinary backend fallback. Requires GPU eval/reproduction,
   // GAGP_GPU_PHASE_POPULATION, and matching supported initial/offspring budgets.
   bool gpu_projected_phase_profile = false;
+
+  // Optional private GPU operator policy: depth counts grammar invocations,
+  // excluding lowering scaffolds. Independent of physical AST admission.
+  // Zero disables it. Explicit requests fail rather than changing backend.
+  int gpu_phase_site_depth = 0;
+  bool gpu_phase_site_parsimony = false;
+  CpuFitnessVerification cpu_fitness_verification;
+  // Diagnostic snapshots, in original population order, after scoring and before
+  // reproduction. The callback must not retain payload handles past its call.
+  // Generation G is the final evaluation; it is invalid with skip_final_eval.
+  std::vector<int> checkpoint_generations;
+  std::function<void(int, const std::vector<ScoredGenome>&)> evaluation_checkpoint;
 
   bool skip_final_eval = false;
   bool retain_final_population = true;

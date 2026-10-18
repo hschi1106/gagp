@@ -19,7 +19,7 @@ struct HostPhaseGrammar {
   std::vector<PhaseDomain> domains;
   std::vector<Value> values;
   std::vector<unsigned> minimum;
-  int root_expression=-1,depth_count=0,logical_depth_count=1;
+  int root_expression=-1,depth_count=0,logical_depth_count=1; bool site_depth=false;
 };
 // Prove that an alternative with maximum weight is feasible whenever any
 // alternative is feasible at the same depth/capacity. Only then is the dynamic
@@ -57,14 +57,15 @@ inline Opcode phase_opcode(NodeKind kind) {
   }
 }
 inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& grammar,
-    unsigned root, unsigned max_depth=32, unsigned logical_depth=0) {
+    unsigned root, unsigned max_depth=32, unsigned logical_depth=0, bool site_depth=false) {
   using namespace grammar;
   const auto fail=[](const char* reason){throw std::invalid_argument(std::string("GPU phase construction: ")+reason);};
   if(root>=grammar.nonterminals().size() || !max_depth || max_depth>64 || max_depth>grammar.search_limits().max_depth || logical_depth>15)
     fail("invalid root/depth");
   if(grammar.expressions().size()>65536 || grammar.nonterminals().size()>4096 ||
       (grammar.expressions().size()+1)*(max_depth+1)>4*1024*1024)fail("table capacity");
-  HostPhaseGrammar out;out.depth_count=max_depth+1;
+  if(site_depth && !logical_depth)fail("site depth requires a positive depth budget");
+  HostPhaseGrammar out;out.depth_count=max_depth+1;out.site_depth=site_depth;
   out.expressions.resize(grammar.expressions().size());out.nonterminals.resize(grammar.nonterminals().size());
   out.domains.resize(grammar.constants().size());
   std::vector<bool> seen_nt(out.nonterminals.size()),seen_expr(out.expressions.size()),seen_domain(out.domains.size());
@@ -177,12 +178,13 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       computed[offset]=true;
       const auto& e=out.expressions[id];
       if(e.kind==PhaseExpressionKind::Reference) {
+        if(site_depth && !l)return result;
         const auto& nt=out.nonterminals[e.target];
         for(int i=0;i<nt.production_count;++i)
-          result=std::min(result,cost(out.productions[nt.production_offset+i].expression,d,l));
-      } else if(d>0 && l>=e.depth_charge) {
+          result=std::min(result,cost(out.productions[nt.production_offset+i].expression,d,l-(site_depth?1:0)));
+      } else if(d>0 && l>=(site_depth?0:e.depth_charge)) {
         std::uint64_t total=1;
-        for(int i=0;i<e.node.arity;++i)total+=cost(e.children[i],d-1,l-e.depth_charge);
+        for(int i=0;i<e.node.arity;++i)total+=cost(e.children[i],d-1,l-(site_depth?0:e.depth_charge));
         result=total>=kNoGrammarId?kNoGrammarId:static_cast<unsigned>(total);
       }
       return result;

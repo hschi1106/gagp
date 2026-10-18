@@ -1058,3 +1058,35 @@ or overwrites original frozen inputs. Each population gets its own fresh ASGP
 control. Allocation-only retries with8/4GiB scratch are recorded separately from
 the preferred16GiB configuration; failed or unmeasured cells have no speedup.
 Completion belongs to its raw manifests/results, not this planned scope.
+
+### Quality-control diagnostic options
+
+The native adapter accepts these opt-in environment controls for bounded studies:
+
+- `GAGP_DATASET_SEED`: local ASGP dataset pool seed; default20261017 is unchanged.
+- `GAGP_SNAPSHOT_NATIVE_OWNER=1`: evaluate snapshots through the resident native
+  GPU owner; `GAGP_SNAPSHOT_CPU=1` independently scores every candidate on CPU.
+- `GAGP_SNAPSHOT_SITE_METRICS=1`: additionally report grammar invocation count and
+  maximum per-phase depth for resident snapshots. Compare them to source
+  `asgp_snapshot` nodes/logical_depth before making source-count claims.
+- `GAGP_SNAPSHOT_BEHAVIOR=1`: count distinct native CPU output/error signatures
+  over the first min(32,C) training cases, including exact IntList contents.
+  This is a small behavior probe, not full semantic diversity or a test oracle.
+- `GAGP_SEARCH_CHECKPOINT_DIR` and comma-separated `GAGP_SEARCH_CHECKPOINTS`:
+  export complete evaluated populations at selected generations (0..G). Their
+  cost remains in diagnostic search time; use runs without checkpoints for
+  speed estimates.
+- `GAGP_GPU_SITE_DEPTH` and `GAGP_GPU_SITE_PARSIMONY=1`: request the explicit
+  grammar-invocation operator policies documented in the GPU reproduction design.
+- `GAGP_VERIFY_TOP_K`, `GAGP_VERIFY_INTERVAL`, `GAGP_VERIFY_NEAR_ZERO`: configure
+  native CPU training verification; report its counters/time and total search
+  time. Zero top-K disables it. Reproduction remains on GPU.
+- `GAGP_PREPARE_CLASSIFY_REJECTIONS=1`: diagnostic preparation records every
+  rejected source index/reason and accepted source indices. Default preparation
+  still fails at the first rejected member. Never use diagnostic filtering to
+  replace or remove members of a formal initial population.
+
+`search` exports source/native wrong counts, and native CPU final audits report
+fitness and wrong-count mismatches separately. These diagnostics do not establish
+search equivalence. The bounded24h study records live progress and artifacts in
+[quality-control-20261018](../../benchmarks/fixed_asgp/optimization/results/quality-control-20261018/README.md).

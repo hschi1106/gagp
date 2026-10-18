@@ -65,11 +65,74 @@ class TestFixedAsgpNative(unittest.TestCase):
                 self.assertEqual(len(audit['history']),2)
                 self.assertEqual(len(audit['final']['case_results']),3)
                 self.assertLessEqual(audit['unique_audited_programs'],3)
+            # Native resident scoring remains the owner when CPU reference work
+            # is enabled; checkpoints and default-off verification preserve RNG.
+            resident=dict(env,GAGP_GPU_PHASE_POPULATION='1',GAGP_GPU_DIAGNOSTICS='1',
+                          GAGP_BATCH_PHASE_EXPORT='1')
+            artifacts=[]
+            for label,extra in (('off',{}),('guard',{'GAGP_VERIFY_TOP_K':'2','GAGP_VERIFY_INTERVAL':'2'}),
+                                ('zero',{'GAGP_VERIFY_TOP_K':'2','GAGP_VERIFY_INTERVAL':'9','GAGP_VERIFY_NEAR_ZERO':'1000'})):
+                checkpoints=folder/label
+                out=folder/f'{label}.json'
+                self.call('measure',source,prepared,grammar,8,'search_gpu_overlap',out,
+                          env=dict(resident,GAGP_SEARCH_CHECKPOINT_DIR=str(checkpoints),
+                                   GAGP_SEARCH_CHECKPOINTS='0,1,2',**extra))
+                doc=json.loads(out.read_text());artifacts.append(doc)
+                self.assertTrue(doc['reproduction_profile'].startswith('native-gpu-phase-'))
+                self.assertEqual(doc['reproduction_fallback_reason'],'')
+                self.assertEqual(doc['verification']['fitness_corrections'],0)
+                self.assertEqual(doc['verification']['wrong_corrections'],0)
+                expected={'off':0,'guard':4,'zero':6}[label]
+                self.assertEqual(doc['verification']['programs'],expected)
+                self.assertEqual(doc['verification']['cases'],expected*3)
+                self.assertEqual(len(list(checkpoints.glob('gen*.native.json'))),3)
+                for gen in (0,1,2):
+                    snap=json.loads((checkpoints/f'gen{gen}.native.json').read_text())
+                    self.assertEqual(len(snap['programs']),8)
+                    self.assertEqual(len(snap['scores']),8)
+            self.assertEqual(artifacts[0]['final_population'],artifacts[1]['final_population'])
+            self.assertEqual([r['best'] for r in artifacts[0]['generations']],
+                             [r['best'] for r in artifacts[1]['generations']])
+            source_snapshots=folder/'source-checkpoints'
+            self.call('measure',source,prepared,grammar,8,'search_asgp_1t',folder/'asgp.cp.json',
+                      env=dict(env,GAGP_SEARCH_CHECKPOINT_DIR=str(source_snapshots),GAGP_SEARCH_CHECKPOINTS='0,2'))
+            self.assertEqual(len(json.loads((source_snapshots/'gen2.source.json').read_text())['population']),8)
             pool=folder/'pool.json';self.call('dataset','fibonacci',pool,env=base)
             raw=json.loads(pool.read_text())
             self.assertEqual({r['start'] for r in raw['train']},set(range(21)))
             self.assertEqual({r['start'] for r in raw['test']},set(range(31)))
             self.assertTrue(all(r['expected']=='832040' for r in raw['test'] if r['start']==30))
+            fresh_pool=folder/'fresh.pool.json'
+            self.call('dataset','fibonacci',fresh_pool,env=dict(base,GAGP_DATASET_SEED='20261018'))
+            self.assertEqual(json.loads(fresh_pool.read_text())['data_seed'],20261018)
+            snapshot=folder/'resident.snapshot.json';reference=folder/'source.snapshot.json'
+            self.call('measure',source,prepared,grammar,8,'snapshot',snapshot,
+                      env=dict(env,GAGP_SNAPSHOT_CPU='1',GAGP_SNAPSHOT_NATIVE_OWNER='1'))
+            self.call('measure',source,prepared,grammar,8,'asgp_snapshot',reference,env=env)
+            native=json.loads(snapshot.read_text());original=json.loads(reference.read_text())
+            self.assertTrue(native['diagnostic_owner'].startswith('native-gpu-phase-'))
+            self.assertEqual(native['cases'],3);self.assertEqual(native['population'],8)
+            for actual,expected in zip(native['programs'],original['programs']):
+                self.assertEqual(actual['fitness'],actual['cpu_fitness'])
+                self.assertEqual(actual['wrong'],actual['cpu_wrong'])
+                self.assertEqual(actual['cpu_fitness'],expected['fitness'])
+                self.assertEqual(actual['cpu_wrong'],expected['wrong'])
+
+    def test_list_behavior_snapshot(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            folder=Path(temporary)
+            env=dict(os.environ,GAGP_FREEZE_POPULATION='8',GAGP_HOST_THREADS='1',
+                     GAGP_BM_ALIGNED_FITNESS='1',GAGP_BM_CASE_COUNT='3',
+                     GAGP_SNAPSHOT_BEHAVIOR='1',GAGP_SNAPSHOT_CPU='1',GAGP_SNAPSHOT_NATIVE_OWNER='1')
+            source=folder/'source.json';self.call('freeze','filter_odd',source,env=env)
+            doc=json.loads(source.read_text());doc['cases']=doc['cases'][:3];source.write_text(json.dumps(doc))
+            grammar=self.source_grammar('filter_odd',folder,env)
+            prepared=folder/'prepared.json';self.call('prepare',source,grammar,8,prepared,env=env)
+            out=folder/'snapshot.json';self.call('measure',source,prepared,grammar,8,'snapshot',out,env=env)
+            snapshot=json.loads(out.read_text())
+            self.assertEqual(snapshot['cpu_behavior_probe_cases'],3)
+            self.assertGreater(snapshot['unique_cpu_behavior_probes'],0)
+            self.assertLessEqual(snapshot['unique_cpu_behavior_probes'],8)
 
     def test_three_schemes_known_solutions_and_five_modes(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -114,6 +114,53 @@ void check_uniform_phase_sites(const std::shared_ptr<const grammar::CompiledGram
  if(had_counted)setenv("GAGP_COUNTED_SITE_DRAW",counted_saved.c_str(),1);else unsetenv("GAGP_COUNTED_SITE_DRAW");
 }
 
+void check_site_depth(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
+    const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
+    FitnessSessionGpu& session,const std::vector<CaseBindings>& cases,const std::vector<Value>& answers) {
+ repro::NativePhasePopulation reference(grammar,parents,names);
+ const auto initial=reference.site_metrics();std::vector<ProgramGenome> shallow;
+ for(std::size_t i=0;i<parents.size();++i)if(initial[i][1]<=4)shallow.push_back(parents[i]);
+ require(shallow.size()>=2,"site-depth fixture lacks shallow parents");
+ repro::NativePhasePopulation owner(grammar,shallow,names,std::nullopt,4);
+ require(std::string(owner.profile_name()).find("v4-site-depth4")!=std::string::npos,"site depth missing from profile");
+ bool changed=false;
+ for(int gen=0;gen<=16;++gen) {
+  const auto gpu=owner.evaluate(session,true);require(gpu.ok,"site-depth fitness failed");
+  const auto metrics=owner.site_metrics();const auto exported=owner.export_population();
+  std::vector<BytecodeProgram> programs;
+  for(std::size_t i=0;i<exported.size();++i) {
+   auto member=exported[i];member.derivation.reset();
+   const auto witness=grammar::reconstruct_derivation(*grammar,member);
+   const auto layout=repro::import_native_phase_layout(*grammar,member);
+   unsigned count=0,maximum=0;
+   for(const auto& slot:layout.slots)for(const auto& c:witness.choices) {
+    if(c.ast_begin<slot.begin || c.ast_end>slot.end)continue;
+    ++count;unsigned depth=1;
+    for(const auto& parent:witness.choices)
+     if(parent.ast_begin>=slot.begin && parent.ast_end<=slot.end &&
+        parent.ast_begin<=c.ast_begin && parent.ast_end>=c.ast_end && parent.ast_begin!=c.ast_begin)++depth;
+    maximum=std::max(maximum,depth);
+   }
+   require(metrics[i][0]==count && metrics[i][1]==maximum && maximum<=4,
+       "device site metrics/depth differ from independent canonical derivation");
+   programs.push_back(compile_for_eval(member,names));
+   changed|=ast_cache_key(member.ast)!=ast_cache_key(shallow[i].ast);
+  }
+  require(eval_fitness_cpu(programs,cases,answers,10000,1000,512)==gpu.fitness,"site-depth full-population CPU/GPU mismatch");
+  if(gen<16)owner.reproduce(gpu.fitness,2,gen%2?1:.3,UINT64_C(0x98113)+gen,1);
+ }
+ require(changed,"site-depth fixture did not vary");
+ bool deeper=false;for(const auto& row:initial)deeper|=row[1]>1;
+ require(deeper,"site-depth fixture lacks admission boundary");
+ bool declined=false;try{repro::NativePhasePopulation reject(grammar,parents,names,std::nullopt,1);}
+ catch(const std::invalid_argument&){declined=true;}
+ require(declined,"site-depth initial admission silently changed candidates");
+ const grammar::ProjectedBudget projected{grammar->search_limits().max_nodes,4};
+ declined=false;try{repro::NativePhasePopulation reject(grammar,shallow,names,projected,4);}
+ catch(const std::invalid_argument&){declined=true;}
+ require(declined,"site depth combined incompatible projected policy");
+}
+
 void check_inplace_mutation(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
     const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
     FitnessSessionGpu& session) {
@@ -664,6 +711,7 @@ int main(){try {
  unsetenv("GAGP_GPU_PHASE_POPULATION");unsetenv("GAGP_GPU_DIAGNOSTICS");
  FitnessSessionGpu session;require(session.init(cases,answers,10000,512,1000).ok,"GPU session init");
  check_initial_packed_verification(grammar,parents,names,session,cases,answers);
+ check_site_depth(grammar,parents,names,session,cases,answers);
  check_inplace_mutation(grammar,parents,names,session);
  setenv("GAGP_GPU_PHASE_STAGED_BUFFERS","1",1);
  check_inplace_mutation(grammar,parents,names,session);

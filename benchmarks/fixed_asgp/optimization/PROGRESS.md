@@ -1,3 +1,13 @@
+# 品質控制與長代改善24小時 — 2026-10-18（進行中）
+
+- 使用者授權完成前次建議第1–3項：同候選評分與算子診斷、可計量CPU訓練集複核、nsys長代瓶頸改善。新時間窗2026-10-18 01:17:45 UTC至2026-10-19 01:17:45 UTC（台灣10/19 09:17:45），重啟不重設。舊day24結果不改；GPU eval/reproduction、CPU1T、16GiB workspace、2048/24/phase1024固定。
+- 初代30題×1024=30,720候選的ASGP CPU/native CPU/resident GPU fitness及wrong全部一致；native CPU/GPU配對偏好0差異。source/native 491,520抽樣配對中1011對不同（0.206%），受邏輯／physical節點破同分影響。尚不表示中後代或任意輸入一致，也未證明品質落差的單一因果。
+- 新增預設關閉的top-K/interval/near-zero CPU reference訓練集複核、獨立成本／修正／未覆核leader counters，以及指定generation的全population診斷checkpoint。Release重建＋evolution_pipeline/fixed_asgp_bench 2/2 PASS（49.06s）。目前production變更尚未完整回歸、尚未選為最終候選。
+- 串行診斷controller資訊在`logs/quality-control-20261018/diagnose-controller.json`；含兩題G64 nsys、9題×5seed×4算子組合，seed0 ASGP及中後代同候選稽核。新heldout尚未產生／使用；先依training/parity/runtime凍結候選。
+- [工作規格與恢復](results/quality-control-20261018/README.md)、[protocol](results/quality-control-20261018/protocol.json)。工作區仍為gagp-support-20261015，沒有子代理或push。
+
+---
+
 # 單機24小時實驗 — 2026-10-17（已完成）
 
 - 使用者已授權開始。24h從2026-10-17 13:16:49 UTC起算，硬截止2026-10-18 13:16:49 UTC（台灣21:16:49）；重啟不重設預算。先以時間／資源pilot選定速度G16／品質G128，若12h／5h及保留5h的門檻不成立，正式前統一改G8／G64。

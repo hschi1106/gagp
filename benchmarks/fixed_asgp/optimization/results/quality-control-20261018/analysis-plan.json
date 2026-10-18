@@ -1,0 +1,9 @@
+{
+  "recorded_utc": "2026-10-18T01:45:14.676094+00:00",
+  "development_selection": "No fresh held-out evaluation before candidate freeze. Compare count of training-perfect runs, then average within-task paired rank of final training loss. Keep baseline if improvements are inconsistent; report all four existing factorial arms.",
+  "additional_operator_hypothesis": "Count Odds gen32 native mean AST301 vs initial90; ASGP logical mean52 vs initial75. Native depth24 and grammar-site ranking differ from source depth7. Investigate an explicit grammar-invocation depth/parsimony policy; physical admission stays2048/24/phase1024. Any new arm stays separate from the original four-way factorial.",
+  "performance_acceptance": "Same candidate fitness/wrong and complete AST trajectories where optimization should preserve search; measure unprofiled complete searches, preserve failures and all repetitions. nsys time is diagnostic only.",
+  "fresh_validation_scale": "Target9 tasks x20 fresh seeds x common G128 if training-runtime forecast fits original deadline; at least10 paired seeds. Freeze scale and variants before fresh held-out scoring.",
+  "inference": "Report per-task paired outcomes and uncertainty. Do not treat task-seed pool as independent tasks or infer full30 coverage from selected9. Initial champion successes are separated from subsequent successes.",
+  "tuple_profile_safety": "Zero logical cap needs an additional proof that concatenations allocate at most3 cells; decline other programs. Do not silently introduce a logical list cap."
+}

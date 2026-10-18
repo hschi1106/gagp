@@ -32,6 +32,13 @@ enabled; `gagp_cli_support` composes evolution with the JSON/CLI codecs.
 | Fixed ASGP/GAGP comparison | `tools/gagp_tools/experiments/fixed_asgp/runner.py`, `grammar.py` (source-contract coverage uses `source_grammar.py` and `dp_grammar.py`; `low_budget.py` / `low_budget_report.py` own bounded30-task support, cheap quality and one-shot timing; full-case source/native output gates use native `sampled_audit.hpp`), then `cpp/src/bench/fixed_asgp/` for source translation and native timing; `benchmarks/fixed_asgp/optimization/native_candidate.py` serially reruns the checked native opt-in settings without preparing inputs; `multigen.py` runs five-mode changing populations, with `multigen_audit.py` / `multigen_native_audit.py` / `multigen_report.py` for full-case champion audits and plots; `long_search.py`, `long_search_audit.py`, and `long_search_report.py` extend unchanged archived runs under a time budget and render seed-resolved checkpoints; `short_search.py` serializes candidate comparisons on House32/Median64 (optional Sum32) with frozen inputs and explicit binary/settings; `results/expanded-20261014/run.py`, `summarize.py`, and `summarize_best.py` own the Count Odds/Last Index study, with native `expanded_audit.hpp` for independent quality; current Stock/list support is governed by source-contract gates | `docs/guides/fixed-asgp-benchmark.md`; `tools/tests/test_fixed_asgp.py` and optional `gagp_test_fixed_asgp_bench`. Optimization remains GPU evaluation plus GPU reproduction; the CPU benchmark modes are controls. Preserve frozen input hashes and complete generation timing |
 | Build target, test registration, or preset failure | `cpp/CMakeLists.txt`, `cpp/CMakePresets.json`, then the target's source/test | `docs/guides/development.md`; verify the named CTest target exists before running it |
 
+The resident owner also supports explicit CPU training-reference verification
+(`evolution/fitness_verification.hpp` and `EvolutionConfig`) and diagnostic
+population checkpoints. The zero-cap private tuple allocation proof lives in
+`runtime/gpu/private_tuple_policy.hpp`, called by the GPU fitness admission path;
+its matching coverage is `gagp_test_extended_payload_gpu`. Operator site-depth
+sampling remains in the existing phase grammar/generation/variation route.
+
 ## Validation selection
 
 Host parallelism defaults to one application CPU thread; owner is

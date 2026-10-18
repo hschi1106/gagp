@@ -2,6 +2,7 @@
 #include "../../src/runtime/gpu/device/resident_score_device.cuh"
 #include "../../src/runtime/gpu/view_profile.hpp"
 #include "../../src/runtime/gpu/private_global_offsets.hpp"
+#include "../../src/runtime/gpu/private_tuple_policy.hpp"
 
 __global__ void inspect_private_intlist_offsets(Value* cells, std::int64_t* int_cells, Value* source, bool compact, int* failure) {
   using namespace gagp::gpu_detail;
@@ -369,6 +370,82 @@ bool test_private_intlist_region_lifetime() {
     }
   }
   return true;
+}
+
+bool test_private_tuple_fitness() {
+  ScopedEnvironment restore_private("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),
+      restore_tuple("GAGP_GPU_PRIVATE_TUPLE_SCORE"),restore_compact("GAGP_GPU_COMPACT_INTLIST_CELLS"),
+      restore_workspace("GAGP_GPU_PAYLOAD_WORKSPACE_MIB");
+  setenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS","1",1);setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
+  setenv("GAGP_GPU_PAYLOAD_WORKSPACE_MIB","64",1);
+  const auto tuple=[](std::initializer_list<std::int64_t> fields) {
+    std::vector<Value> values;for(auto x:fields)values.push_back(Value::from_int(x));
+    return payload::make_int_list_value(values);
+  };
+  for(int summaries:{0,1,2})for(unsigned limit:{0u,3u,65536u}) {
+    FitnessPolicy policy{FitnessMetric::TupleSummary};policy.summary_count=summaries;
+    policy.summary_weight=.17;policy.summary_cap=7;
+    const auto expected=tuple({INT64_MIN,9007199254740993LL,INT64_MAX});
+    std::vector<Value> answer_fields{Value::from_int(INT64_MIN),Value::from_int(9007199254740993LL),Value::from_int(INT64_MAX)};
+    answer_fields.resize(summaries+1);
+    const auto answer=payload::make_int_list_value(answer_fields);
+    policy.list_allocation_limit=limit;
+    // Include primary-equal/aux-different, signed extremes, invalid lengths,
+    // generated backing, runtime error and an exhausted instruction budget.
+    std::vector<BytecodeProgram> programs;
+    for(const auto value:{answer,expected,tuple({INT64_MAX,INT64_MIN,9007199254740992LL}),tuple({}),tuple({INT64_MIN})}) {
+      BytecodeProgram p;p.consts={value};p.code={ins_a(Opcode::PushConst,0),ins(Opcode::Return)};
+      p.instruction_fuel={1,1};programs.push_back(p);
+    }
+    if(summaries==2) {
+      auto p=programs[0];
+      p.consts={tuple({INT64_MIN}),tuple({9007199254740992LL,INT64_MAX})};
+      p.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),ins_ab(Opcode::CallBuiltin,int(BuiltinId::Concat),2),ins(Opcode::Return)};
+      p.instruction_fuel={1,1,1,1};programs.push_back(p);
+    }
+    for(int fuel:{0,3,100})for(const char* compact:{"0","1"})for(const char* enabled:{"0","1"}) {
+      setenv("GAGP_GPU_COMPACT_INTLIST_CELLS",compact,1);setenv("GAGP_GPU_PRIVATE_TUPLE_SCORE",enabled,1);
+      std::vector<unsigned> wrong;std::vector<CpuFitnessCaseCounts> counts;
+      const auto cpu=eval_fitness_cpu(programs,{{}},{answer},fuel,1000,33,policy,&wrong,&counts);
+      FitnessSessionGpu session;if(!session.init({{}},{answer},fuel,33,1000,policy).ok)return false;
+      const auto gpu=session.eval_programs(programs,true);
+      if(!check(gpu.ok && gpu.fitness==cpu && gpu.wrong==wrong,"private tuple scoring/fuel/primary correctness parity"))return false;
+      const bool active=gpu.execution_profile.find("-private-tuple-score")!=std::string::npos &&
+          gpu.execution_profile.find("-private-tuple-score-declined")==std::string::npos;
+      if(!check(active==(std::string(enabled)=="1"),"private tuple opt-in admission"))return false;
+      for(std::size_t i=0;i<counts.size();++i)
+        if(!check(gpu.case_counts[i][1]==counts[i].errors && gpu.case_counts[i][2]==counts[i].timeouts &&
+            gpu.case_counts[i][4]==0,"private tuple error/timeout counters"))return false;
+    }
+  }
+  setenv("GAGP_GPU_PRIVATE_TUPLE_SCORE","1",1);
+  // A zero-cap program can allocate much more than the private descriptor can
+  // represent, even if it later slices back to a tuple. Reject such allocation
+  // paths before enabling private storage; inputs themselves remain permitted.
+  BytecodeProgram oversized;oversized.n_locals=1;
+  oversized.consts={Value::from_int(0),Value::from_int(3)};
+  oversized.code={ins_a(Opcode::Load,0),ins_a(Opcode::Load,0),
+      ins_ab(Opcode::CallBuiltin,int(BuiltinId::Concat),2),ins_a(Opcode::PushConst,0),
+      ins_a(Opcode::PushConst,1),ins_ab(Opcode::CallBuiltin,int(BuiltinId::Slice),3),ins(Opcode::Return)};
+  std::array<ValueTag,64> types;types.fill(ValueTag::Invalid);types[0]=ValueTag::IntList;
+  if(!check(!gpu_detail::bounded_tuple_allocations(oversized,types),"unbounded zero-cap concat admitted"))return false;
+  const auto input=tuple({1,2,3});FitnessPolicy narrow{FitnessMetric::TupleSummary};narrow.summary_count=2;
+  FitnessSessionGpu ordinary;
+  if(!ordinary.init({{{0,input}}},{input},100,32,1000,narrow).ok)return false;
+  const auto rejected=ordinary.eval_programs({oversized},true);
+  std::vector<unsigned> reference_wrong;
+  const auto reference=eval_fitness_cpu({oversized},{{{0,input}}},{input},100,1000,32,narrow,&reference_wrong);
+  if(!check(rejected.ok && rejected.fitness==reference && rejected.wrong==reference_wrong &&
+      rejected.execution_profile.find("-private-tuple-score-declined")!=std::string::npos,
+      "unsafe tuple allocation must preserve ordinary evaluation"))return false;
+  // Container-identity observations still decline the whole private profile.
+  auto list=tuple({1,2,3});BytecodeProgram identity;identity.consts={list};
+  identity.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,0),ins(Opcode::Eq),ins(Opcode::Return)};
+  FitnessPolicy policy{FitnessMetric::TupleSummary};policy.summary_count=2;
+  FitnessSessionGpu session;if(!session.init({{}},{list},100,32,1000,policy).ok)return false;
+  const auto declined=session.eval_programs({identity},true);
+  return check(declined.ok && declined.execution_profile.find("-private-tuple-score-declined")!=std::string::npos,
+      "tuple container equality must retain ordinary execution");
 }
 
 bool test_private_intlist_fitness() {

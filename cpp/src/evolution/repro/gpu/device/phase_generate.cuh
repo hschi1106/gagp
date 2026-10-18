@@ -36,7 +36,7 @@ struct PhaseGrammarView {
   const PhaseNonterminal* nonterminals=nullptr; int nonterminal_count=0;
   const PhaseDomain* domains=nullptr; int domain_count=0;
   const Value* values=nullptr; int value_count=0;
-  const unsigned* minimum=nullptr; int depth_count=0; int logical_depth_count=1;
+  const unsigned* minimum=nullptr; int depth_count=0; int logical_depth_count=1; bool site_depth=false;
 };
 struct PhaseGenerationResult { PhaseCompileStatus status=PhaseCompileStatus::Invalid; int nodes=0,constants=0,steps=0; };
 
@@ -104,7 +104,9 @@ __device__ inline PhaseGenerationResult generate_phase(
       const auto nt=grammar.nonterminals[expression.target];
       if(nt.scope_count!=expression.scope_count || nt.production_offset<0 || nt.production_count<=0 ||
           nt.production_offset>grammar.production_count || nt.production_count>grammar.production_count-nt.production_offset)return result;
-      Task next{unselected,static_cast<unsigned>(task.depth),static_cast<unsigned>(expression.scope_count),0,task.logical};
+      if(grammar.site_depth && task.logical==0) {result.status=PhaseCompileStatus::Capacity;return result;}
+      Task next{unselected,static_cast<unsigned>(task.depth),static_cast<unsigned>(expression.scope_count),0,
+          static_cast<unsigned>(task.logical-(grammar.site_depth?1:0))};
       for(int i=0;i<next.scope_count;++i) {
         if(expression.scope[i]<0 || expression.scope[i]>=task.scope_count)return result;
         next.scope |= ((task.scope >> (3*expression.scope[i])) & 7U) << (3*i);
@@ -114,24 +116,24 @@ __device__ inline PhaseGenerationResult generate_phase(
       double maximum=nt.normalized_weights?1:0,total=0;
       if(!nt.normalized_weights)for(int i=0;i<nt.production_count;++i) {
         const auto p=grammar.productions[nt.production_offset+i];
-        if(minimum(p.expression,task.depth,task.logical)<=available && p.weight>maximum) maximum=p.weight;
+        if(minimum(p.expression,task.depth,next.logical)<=available && p.weight>maximum) maximum=p.weight;
       }
       if(!(maximum>0)) {result.status=PhaseCompileStatus::Capacity;return result;}
       for(int i=0;i<nt.production_count;++i) {
         const auto p=grammar.productions[nt.production_offset+i];
-        if(minimum(p.expression,task.depth,task.logical)<=available)total+=nt.normalized_weights?p.weight:p.weight/maximum;
+        if(minimum(p.expression,task.depth,next.logical)<=available)total+=nt.normalized_weights?p.weight:p.weight/maximum;
       }
       double choice=static_cast<double>(random.next()>>11)*0x1.0p-53*total;
       for(int i=0;i<nt.production_count;++i) {
         const auto p=grammar.productions[nt.production_offset+i];
-        if(minimum(p.expression,task.depth,task.logical)>available)continue;
+        if(minimum(p.expression,task.depth,next.logical)>available)continue;
         if(p.expression<0 || p.expression>=grammar.expression_count)return result;
         next.expression=p.expression; choice-=nt.normalized_weights?p.weight:p.weight/maximum; if(choice<0)break;
       }
       if(next.expression==unselected || count>=192)return result;
       reserved+=minimum(next.expression,next.depth,next.logical);pending[count++]=next;continue;
     }
-    const int charge=grammar.logical_depth_count>1?expression.depth_charge:0;
+    const int charge=grammar.logical_depth_count>1 && !grammar.site_depth?expression.depth_charge:0;
     if(task.depth<=0 || task.logical<charge || result.nodes>=capacity) {result.status=PhaseCompileStatus::Capacity;return result;}
     auto node=expression.node;
     if(node.arity<0 || node.arity>3)return result;

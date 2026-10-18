@@ -36,8 +36,7 @@ inline SearchContractAudit audit_search_contract(
     bool task_metric_verified = false, bool frozen_initial_population_verified = false) {
   const bool phase_owner=reproduction_profile.rfind("native-gpu-phase-",0)==0;
   const std::string uniform_suffix="-uniform-phase";
-  const bool uniform_phase=phase_owner && reproduction_profile.size()>=uniform_suffix.size() &&
-      reproduction_profile.compare(reproduction_profile.size()-uniform_suffix.size(),uniform_suffix.size(),uniform_suffix)==0;
+  const bool uniform_phase=phase_owner && reproduction_profile.find(uniform_suffix)!=std::string::npos;
   const bool projected_phase=phase_owner && reproduction_profile.rfind("native-gpu-phase-v3-projected",0)==0 &&
       cfg.offspring_resource_budget.has_value();
   const bool source_gate=phase_owner && reproduction_profile.find("-source-cross07")!=std::string::npos;
@@ -67,6 +66,8 @@ inline SearchContractAudit audit_search_contract(
       projected_phase?"remaining projected and physical depth; weighted jointly feasible grammar productions":
                       "compiled request and projected resource admission",false},
     {"phase_limits","source logical phase depth limit 7",
+      cfg.gpu_phase_site_depth?"grammar-invocation phase depth cap "+std::to_string(cfg.gpu_phase_site_depth)+
+          "; independent physical AST/phase capacities":
       cfg.offspring_resource_budget?"projected depth cap "+std::to_string(cfg.offspring_resource_budget->max_depth)+
           "; independent native grammar depth/node budgets and backend physical capacities":
           "native grammar depth/node budgets and backend physical capacities",false},
@@ -75,7 +76,8 @@ inline SearchContractAudit audit_search_contract(
     {"constant_sampler","uniform constant production, uniform range, uniform value",
       "translated ranges are separate weighted productions",false},
     {"ranking","error, wrong cases, source logical phase nodes",
-      "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",false},
+      cfg.gpu_phase_site_parsimony?"40-bit canonical error, wrong cases, mutable grammar-invocation count; deterministic final tie":
+          "40-bit canonical error, wrong cases, native AST nodes; deterministic final tie",false},
     {"tournament_sampling","independent draws with replacement, size 2",
       phase_owner?"independent device draws with replacement":
         gpu?"permuted population tournament groups":"shuffled population tournament groups",
