@@ -3,9 +3,11 @@
 - 使用者授權完成前次建議第1–3項：同候選評分與算子診斷、可計量CPU訓練集複核、nsys長代瓶頸改善。新時間窗2026-10-18 01:17:45 UTC至2026-10-19 01:17:45 UTC（台灣10/19 09:17:45），重啟不重設。舊day24結果不改；GPU eval/reproduction、CPU1T、16GiB workspace、2048/24/phase1024固定。
 - 初代30題×1024=30,720候選的ASGP CPU/native CPU/resident GPU fitness及wrong全部一致；native CPU/GPU配對偏好0差異。source/native 491,520抽樣配對中1011對不同（0.206%），受邏輯／physical節點破同分影響。尚不表示中後代或任意輸入一致，也未證明品質落差的單一因果。
 - 新增預設關閉的top-K/interval/near-zero CPU reference訓練集複核、獨立成本／修正／未覆核leader counters，以及指定generation的全population診斷checkpoint。Release重建＋evolution_pipeline/fixed_asgp_bench 2/2 PASS（49.06s）。後續完整建置／回歸紀錄見下方；尚未選為最終候選。
-- 串行診斷controller資訊在`logs/quality-control-20261018/diagnose-controller.json`；含兩題G64 nsys、9題×5seed×4算子組合，seed0 ASGP及中後代同候選稽核。新heldout尚未產生／使用；先依training/parity/runtime凍結候選。
+- 串行診斷controller資訊在`logs/quality-control-20261018/diagnose-controller.json`；含兩題G64 nsys、9題×5seed×4算子組合，seed0 ASGP及中後代同候選稽核。先依training/parity/runtime凍結候選；正式啟動時間與選定規模見下方新紀錄。
 - 核心實作本地提交4ca0909；Release全建置通過，native130/131唯一文件hash gate失敗修正後gate＋adapter2/2通過，tools122(4skip)、repository24通過；最後raw-score／behavior scope修改pipeline＋adapter2/2通過49.32s。不能描述成單次fresh131全通過。全30題site admission/G1共90/90完成；TupleSummary A/B兩題G64約9.72/9.90×且最終1024 AST、全代champion fitness相同。仍屬開發證據。
 - 新增固定CPUguard劑量screen、9題四個checkpoint的CPU行為多樣性／同候選metrics及嚴格正式矩陣harness；舊training smoke7/7及Python8項通過。正式候選及20×G128優先的全局時間規模規則在fresh heldout之前凍結；詳見analysis-plan及RECOVERY。
+- 2026-10-18 04:22:53 UTC自動凍結`site7`（tuple＋uniform phase sites＋source crossover gate＋grammar-site depth7，parsimony關閉）；僅用舊training，18/45全對、6題改善／3題變差，不作heldout結論。正式9題×20新seeds5–24×5方法，P1024／G64，共900搜尋及1800原生CPU train/test history+final判題；新資料seed20261018於凍結後才準備。見[candidate-selection](results/quality-control-20261018/candidate-selection.json)、[validation-freeze](results/quality-control-20261018/validation-freeze.json)。
+- 固定時間規則20×G128總估24.685h不合，選20×G64：search5.523h、judge1.205h；另計程序成本30分鐘後乘1.5倍緩衝＋準備45分鐘＋報告3h，共14.592h，預測至2026-10-18 18:58:26 UTC（台灣10/19 02:58:26），非保證。原硬截止不變。04:49核對全部前置診斷完成、正式369準備工作成功，38/900搜尋通過、1執行中、0失敗；品質判題尚未開始。Controller3166668及child正常，未重啟或更改frozen harness/binary/settings。
 - [工作規格與恢復](results/quality-control-20261018/README.md)、[protocol](results/quality-control-20261018/protocol.json)。工作區仍為gagp-support-20261015，沒有子代理或push。
 
 ---

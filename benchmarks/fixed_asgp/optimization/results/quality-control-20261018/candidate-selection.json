@@ -1,0 +1,142 @@
+{
+  "selected": "site7",
+  "variants": {
+    "baseline": {
+      "GAGP_GPU_PRIVATE_TUPLE_SCORE": "1"
+    },
+    "phase_gate": {
+      "GAGP_GPU_PRIVATE_TUPLE_SCORE": "1",
+      "GAGP_GPU_UNIFORM_PHASE_SITES": "1",
+      "GAGP_GPU_SOURCE_CROSSOVER_GATE": "1"
+    },
+    "site7": {
+      "GAGP_GPU_PRIVATE_TUPLE_SCORE": "1",
+      "GAGP_GPU_UNIFORM_PHASE_SITES": "1",
+      "GAGP_GPU_SOURCE_CROSSOVER_GATE": "1",
+      "GAGP_GPU_SITE_DEPTH": "7"
+    },
+    "site7_parsimony": {
+      "GAGP_GPU_PRIVATE_TUPLE_SCORE": "1",
+      "GAGP_GPU_UNIFORM_PHASE_SITES": "1",
+      "GAGP_GPU_SOURCE_CROSSOVER_GATE": "1",
+      "GAGP_GPU_SITE_DEPTH": "7",
+      "GAGP_GPU_SITE_PARSIMONY": "1"
+    }
+  },
+  "statistics": [
+    {
+      "variant": "baseline",
+      "training_perfect": 1,
+      "mean_paired_loss_rank": 3.011111111111111,
+      "per_task_training_perfect": {
+        "count_odds": 0,
+        "last_index_of_zero": 0,
+        "cumulative_sum": 1,
+        "is_sorted": 0,
+        "all_equal": 0,
+        "house_robber": 0,
+        "filter_odd": 0,
+        "double_letters": 0,
+        "median": 0
+      },
+      "per_task_mean_wrong": {
+        "count_odds": 155,
+        "last_index_of_zero": 137.6,
+        "cumulative_sum": 156.8,
+        "is_sorted": 40.4,
+        "all_equal": 14.4,
+        "house_robber": 118.2,
+        "filter_odd": 195.4,
+        "double_letters": 132.2,
+        "median": 85.2
+      }
+    },
+    {
+      "variant": "phase_gate",
+      "training_perfect": 11,
+      "mean_paired_loss_rank": 2.588888888888889,
+      "per_task_training_perfect": {
+        "count_odds": 3,
+        "last_index_of_zero": 4,
+        "cumulative_sum": 3,
+        "is_sorted": 0,
+        "all_equal": 0,
+        "house_robber": 0,
+        "filter_odd": 0,
+        "double_letters": 1,
+        "median": 0
+      },
+      "per_task_mean_wrong": {
+        "count_odds": 62.2,
+        "last_index_of_zero": 7,
+        "cumulative_sum": 78.4,
+        "is_sorted": 40.8,
+        "all_equal": 27,
+        "house_robber": 160.4,
+        "filter_odd": 196,
+        "double_letters": 118.2,
+        "median": 94.8
+      }
+    },
+    {
+      "variant": "site7",
+      "training_perfect": 18,
+      "mean_paired_loss_rank": 2.111111111111111,
+      "per_task_training_perfect": {
+        "count_odds": 4,
+        "last_index_of_zero": 5,
+        "cumulative_sum": 5,
+        "is_sorted": 0,
+        "all_equal": 2,
+        "house_robber": 0,
+        "filter_odd": 0,
+        "double_letters": 2,
+        "median": 0
+      },
+      "per_task_mean_wrong": {
+        "count_odds": 30.4,
+        "last_index_of_zero": 0,
+        "cumulative_sum": 0,
+        "is_sorted": 31,
+        "all_equal": 10.8,
+        "house_robber": 163.4,
+        "filter_odd": 195.6,
+        "double_letters": 63.4,
+        "median": 98
+      }
+    },
+    {
+      "variant": "site7_parsimony",
+      "training_perfect": 13,
+      "mean_paired_loss_rank": 2.2888888888888888,
+      "per_task_training_perfect": {
+        "count_odds": 2,
+        "last_index_of_zero": 4,
+        "cumulative_sum": 4,
+        "is_sorted": 0,
+        "all_equal": 2,
+        "house_robber": 0,
+        "filter_odd": 0,
+        "double_letters": 1,
+        "median": 0
+      },
+      "per_task_mean_wrong": {
+        "count_odds": 91,
+        "last_index_of_zero": 10.8,
+        "cumulative_sum": 33,
+        "is_sorted": 29.8,
+        "all_equal": 6.8,
+        "house_robber": 156.4,
+        "filter_odd": 195.8,
+        "double_letters": 77.4,
+        "median": 100.4
+      }
+    }
+  ],
+  "consistency": {
+    "improved_tasks": 6,
+    "worsened_tasks": 3
+  },
+  "rule": "more training-perfect champions, then lower mean within-task/seed rank of common training loss; exact ties prefer fewer controls; adopt only if improved-task count >= worsened-task count; no heldout scores",
+  "selected_epoch": 1792297373.313531
+}

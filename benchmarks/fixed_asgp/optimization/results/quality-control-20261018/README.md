@@ -26,8 +26,14 @@ nsys基準Is Sorted G64搜尋88.856s，評估GPU kernels占99.3% GPU kernel時�
 
 正式驗證harness已用舊training完成7/7程序smoke，包含ASGP／GPU／CPUguard搜尋、原生CPU判題、無初代的共享test fixture形狀及resume不重跑。切分／完整工作與雙fitness+wrong稽核guard的8項Python測試通過。另預先固定CPU校驗劑量比較，詳見[guard-policy-plan](guard-policy-plan.json)；所有CPU校驗均使用當前training且計時。
 
-[恢復入口](RECOVERY.md)列出所有控制程序。`validation_pipeline.py`只在診斷、training判題及checkpoint metrics完成後，依[分析計畫](analysis-plan.json)自動凍結候選／規模，再開始全新heldout。時間規則、命令、binary／來源／fixture雜湊與失敗均留存；不依新test調參。暫時30分鐘monitor在最終交付時停用。新seed／資料的正式結論尚未產生。
+[恢復入口](RECOVERY.md)列出所有控制程序。`validation_pipeline.py`只在診斷、training判題及checkpoint metrics完成後，依[分析計畫](analysis-plan.json)自動凍結候選／規模，再開始全新heldout。時間規則、命令、binary／來源／fixture雜湊與失敗均留存；不依新test調參。暫時30分鐘monitor在最終交付時停用。新seed／資料的正式搜尋已開始；結論尚待全部原生CPU判題。
 
 正式統計與互動report程式已在新heldout之前撰寫，推論規則見[report-analysis-plan](report-analysis-plan.json)。報告將分開execution-only與operator變更，核對兩者的所有已匯出champion AST，且不把相同score/size descriptor當作全population AST相同。新增分析單元測試包含缺漏paired audit與相同descriptor但不同AST的反例；目前未產生任何新heldout報告。
 
 CPU校驗舊training seed0/G64的9題cost screen已全部72/72搜尋／判題程序完成。相對execution-only的逐題wall ratio中位數：top1/i8為1.0108×、top8/i8為1.0819×、top32/i1為2.8081×；受檢program觀測分別81／648／18720，fitness及wrong修正皆0、raw最大差0。這是單一seed的成本資料與受檢範圍觀察，不能當作所有population parity或品質提升證明。完整計數在`logs/quality-control-20261018/guard-development-summary.json`；正式guard仍依預先固定top8/i8，沒有按本輪test選劑量。
+
+正式驗證已於2026-10-18 04:22:53 UTC自動凍結，見[candidate-selection](candidate-selection.json)及[validation-freeze](validation-freeze.json)。僅依舊training選出`site7`：tuple執行路徑、uniform phase sites、source crossover gate與grammar-site depth7，未採site parsimony；physical AST2048/depth24/phase1024不變。舊training全對18/45、共同loss配對rank2.1111，逐題6改善／3變差，只作選擇依據，不能作heldout結論。
+
+正式規模固定9題×新seeds5–24共20組×5方法（ASGP、原GPU、execution-only、operator、operator+top8/i8 CPUguard），P1024／G64，共900次搜尋及1800個原生CPU train/test history+final判題工作。資料seed20261018；凍結後才準備新heldout。全9題資料與180組初代已準備，程序尚在搜尋階段，品質結論待完整判題。所有方法同一pinned binary SHA256 `d347d95617aba1676af11b05d786bf06db882d9eddff6b97756207b3d8d9a48a`；不再按新test或單題結果選設定。
+
+固定時間規則拒絕20×G128（保守總估24.685h），選20×G64：預估search5.523h、judge1.205h；搜尋／判題另計程序額外成本30分鐘，再乘1.5倍緩衝、加準備45分鐘與報告3小時，共14.592h，從凍結時預測至2026-10-18 18:58:26 UTC（台灣10/19 02:58:26）。這是舊training外推，非保證；硬截止仍2026-10-19 01:17:45 UTC。若新軌跡變慢，保留失敗／budget-not-run，不替換seeds或變更代數。
