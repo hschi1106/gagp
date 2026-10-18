@@ -1,3 +1,14 @@
+# 大population與全30題GPU加速優化 — 2026-10-18（執行中）
+
+- 使用者新授權最多24h，固定2026-10-18 11:18:51 UTC至2026-10-19 11:18:51 UTC（台灣10/19 19:18:51），不沿用或重設舊實驗預算。仍在gagp-support-20261015／opt/list-output-5x-20261015；no subagents／push。
+- 保留CPU1T、GPU評分與繁殖、16GiB workspace、physical AST2048/depth24/phase1024；先做IsSorted／AllEqual／HouseRobber P16384/C1024/G8/seed0，ASGP／原GPU／tuple execution-only共9runs，兩GPU方法均完整16384個最終個體CPU fitness+wrong及全AST匯出。沿用已凍結初代／案例雜湊，不替換失敗個體。全30題P1024／16384正式共同G與重複數尚未選定，不挪用歷史ASGP時間當正式分母。
+- Pilot controller PID3196611與首筆child3196617正常；IsSorted tuple-only 8代已結束，目前CPU全population核對中，尚無完整正確性／容量判定。基準binary d347d95617aba1676af11b05d786bf06db882d9eddff6b97756207b3d8d9a48a已另存；controller使用的harness原檔及hash保存於logs/scaling-optimization-20261018/harness-source-at-launch/。
+- 正在加入search-only GPU blocksize設定與相同reduction lanes的CPU audit；尚未build／測試／採用。候選將依development runtime與完整性核對選定，正式前全局凍結。所有重工作共用GPU lock；pilot的輸出解析目前在lock外，因此pilot存活時不啟動其他build／tests／重分析。
+- Development controller PID3197591已啟動等待，會在pilot完整退出／通過後自動build／回歸、nsys2與40筆固定5題×2P×4block development測速，尚無新binary。正式runner已撰寫但尚未啟動；allocation-policy.json先訂共同G／重複數優先序與4h reserve，兩GPU方法rep0的每題／每P均全population CPU核對。Formal freeze需另行完成，不能把development selection當正式完成。
+- 新暫時monitor每30min回本thread，首個nextRun為2026-10-18 12:01:17 UTC，ID在logs/scaling-optimization-20261018-monitor.json，最終交付／取消時停用。兩個舊monitor維持停用。[執行與恢復入口](results/scaling-optimization-20261018/RECOVERY.md)、[規格](results/scaling-optimization-20261018/README.md)。
+
+---
+
 # 品質控制與長代改善24小時 — 2026-10-18（已完成）
 
 - 新時間窗固定2026-10-18 01:17:45 UTC至2026-10-19 01:17:45 UTC，沒有重設。9題 × 20新seeds × 5方法、P1024／G64，共900搜尋＋1800 CPU train/test final/history判題全部完成，0程序失敗／未執行；369個準備工作成功。搜尋08:35:23 UTC、判題09:03:29 UTC結束（起點至此7.762h），所有controller／children已退出；不要resume。CPU1T、GPU評分與繁殖、16GiB workspace、physical2048/24/phase1024固定。

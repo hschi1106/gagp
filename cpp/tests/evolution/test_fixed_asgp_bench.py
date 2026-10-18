@@ -54,6 +54,8 @@ class TestFixedAsgpNative(unittest.TestCase):
                 self.assertEqual(result['cases'],3)
                 self.assertTrue(all(row['expected_program_cases']==24 for row in result['generations']))
                 if mode=='gagp_cpu':
+                    self.assertEqual(result['gpu_blocksize'],512)
+                    self.assertEqual(result['cpu_audit_reduction_lanes'],512)
                     self.assertEqual(result['cpu_audit_mismatches'],0)
                     self.assertEqual(len(json.loads(export.read_text())['programs']),1)
                     self.assertEqual(len(result['final_population']),8)
@@ -93,6 +95,25 @@ class TestFixedAsgpNative(unittest.TestCase):
             self.assertEqual(artifacts[0]['final_population'],artifacts[1]['final_population'])
             self.assertEqual([r['best'] for r in artifacts[0]['generations']],
                              [r['best'] for r in artifacts[1]['generations']])
+            # Launch geometry is an explicit search-only benchmark setting.
+            # Its CPU audit must use the same logical reduction lanes.
+            self.assertEqual(artifacts[0]['gpu_blocksize'],512)
+            tuned=folder/'block128.json'
+            self.call('measure',source,prepared,grammar,8,'search_gpu_overlap',tuned,
+                      env=dict(resident,GAGP_BM_GPU_BLOCKSIZE='128'))
+            tuned_result=json.loads(tuned.read_text())
+            self.assertEqual(tuned_result['gpu_blocksize'],128)
+            self.assertEqual(tuned_result['cpu_audit_reduction_lanes'],128)
+            self.assertEqual(tuned_result['cpu_audit_mismatches'],0)
+            self.assertEqual(tuned_result['cpu_audit_wrong_mismatches'],0)
+            self.assertEqual(tuned_result['final_population'],artifacts[0]['final_population'])
+            for invalid in ('','0','1025','128junk','+128',' 128','999999999999999999999'):
+                with self.subTest(blocksize=invalid):
+                    rejected=subprocess.run([str(BINARY),'measure',str(source),str(prepared),
+                        str(grammar),'8','search_gpu_overlap',str(folder/'invalid-block.json')],
+                        env=dict(resident,GAGP_BM_GPU_BLOCKSIZE=invalid),capture_output=True,text=True)
+                    self.assertNotEqual(rejected.returncode,0)
+                    self.assertIn('GAGP_BM_GPU_BLOCKSIZE',rejected.stderr)
             source_snapshots=folder/'source-checkpoints'
             self.call('measure',source,prepared,grammar,8,'search_asgp_1t',folder/'asgp.cp.json',
                       env=dict(env,GAGP_SEARCH_CHECKPOINT_DIR=str(source_snapshots),GAGP_SEARCH_CHECKPOINTS='0,2'))

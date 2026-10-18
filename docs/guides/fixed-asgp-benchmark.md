@@ -571,6 +571,15 @@ five frozen-parent modes are unchanged; `search` remains the GPU-overlap alias.
 seed. `GAGP_SEARCH_TRACE=1` emits completed-generation progress on stderr. This
 I/O is included in search wall time, outside each generation timer.
 
+GPU search entries additionally accept `GAGP_BM_GPU_BLOCKSIZE=1..1024`
+(strict decimal integer, default512). This controls the existing GPU launch
+geometry and logical fitness reduction lanes; the final CPU reference audit
+uses the same lane count. Search JSON records `gpu_blocksize` and
+`cpu_audit_reduction_lanes`. Freeze one global setting before a formal matrix
+and verify candidate scores/trajectories: changing reduction grouping is not
+an automatic numerical-equivalence guarantee. Source ASGP, native CPU search,
+snapshots and the original frozen-parent modes retain their existing settings.
+
 `GAGP_SEARCH_PENALTY` configures the existing GAGP numeric error cap and runtime
 error penalty for these search entries (positive finite value, default1000).
 `GAGP_SNAPSHOT_PENALTY` configures the independent snapshot audit, with the same

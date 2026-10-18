@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <charconv>
 #include <cstdlib>
 #include <fstream>
 #include <filesystem>
@@ -78,6 +79,16 @@ std::size_t declared_case_count() {
   const int count=value ? std::stoi(value) : 1024;
   if(count<1 || count>4096)throw std::invalid_argument("benchmark case count must be in 1..4096");
   return static_cast<std::size_t>(count);
+}
+int search_gpu_blocksize() {
+  const char* value=std::getenv("GAGP_BM_GPU_BLOCKSIZE");
+  if(!value)return 512;
+  int blocksize=0;
+  const auto end=value+std::strlen(value);
+  const auto parsed=std::from_chars(value,end,blocksize);
+  if(parsed.ec!=std::errc{} || parsed.ptr!=end || blocksize<1 || blocksize>1024)
+    throw std::invalid_argument("GAGP_BM_GPU_BLOCKSIZE must be an integer in 1..1024");
+  return blocksize;
 }
 Json encode_case(const asgp::Example& c,const asgp::TaskSpec& spec) {
   std::vector<Json> values,scalars;
@@ -634,7 +645,9 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   cfg.fuel=2000000; cfg.penalty=std::getenv("GAGP_SEARCH_PENALTY") ? std::stod(std::getenv("GAGP_SEARCH_PENALTY")) : 1000;
   if(!std::isfinite(cfg.penalty) || cfg.penalty<0 ||
      (cfg.penalty==0 && !(std::getenv("GAGP_BM_COMMON_FITNESS") && !cases.empty() && cases[0].expected.tag==gagp::ValueTag::IntList)))
-    throw std::invalid_argument("search penalty must be positive (common list exact policy permits zero)"); cfg.gpu_blocksize=512; cfg.selection_pressure=2;
+    throw std::invalid_argument("search penalty must be positive (common list exact policy permits zero)");
+  cfg.gpu_blocksize=cfg.eval_engine==gagp::evo::EvalEngine::GPU ? search_gpu_blocksize() : 512;
+  cfg.selection_pressure=2;
   cfg.fitness_policy=task_fitness_policy(spec);
   validate_aligned_penalty(cfg.penalty);
   cfg.elite_count=std::getenv("GAGP_BM_ALIGNED_FITNESS") ? 1 : 0;
@@ -716,7 +729,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
     if(i<16 || std::getenv("GAGP_SEARCH_CPU_ALL"))top.push_back(gagp::evo::compile_for_eval(one.genome,cs.input_names));
   }
   std::vector<unsigned> cpu_wrong;
-  auto cpu=gagp::eval_fitness_cpu(top,cs.bindings,cs.expected_values,cfg.fuel,cfg.penalty,512,cfg.fitness_policy,&cpu_wrong);
+  auto cpu=gagp::eval_fitness_cpu(top,cs.bindings,cs.expected_values,cfg.fuel,cfg.penalty,cfg.gpu_blocksize,cfg.fitness_policy,&cpu_wrong);
   std::vector<Json> top_rows;
   std::size_t audit_mismatches=0,audit_wrong_mismatches=0,audit_wrong_programs=0;
   for(std::size_t i=0;i<cpu.size();++i) {
@@ -728,6 +741,8 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   for(std::size_t i=0;i<std::min<std::size_t>(16,cpu.size());++i)
     top_rows.push_back(object({{"gpu",number(result.final_population[i].fitness)},{"cpu",number(cpu[i])}}));
   write(output,object({{"mode",string(mode)}, {"case_penalty",number(cfg.penalty)}, {"elite_count",number(cfg.elite_count)}, {"fitness_metric",number(static_cast<int>(cfg.fitness_policy.metric))}, {"list_allocation_limit",number(cfg.fitness_policy.list_allocation_limit)}, {"population",number(population.size())}, {"cases",number(cases.size())},
+    {"gpu_blocksize",number(cfg.gpu_blocksize)},
+    {"cpu_audit_reduction_lanes",number(cfg.gpu_blocksize)},
     {"final_best",number(result.final_population.front().fitness)},
     {"verification",verification_json(result.timing.evaluation_totals)},
     {"gpu_phase_site_depth",number(cfg.gpu_phase_site_depth)},
