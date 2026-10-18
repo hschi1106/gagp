@@ -27,3 +27,5 @@ nsys基準Is Sorted G64搜尋88.856s，評估GPU kernels占99.3% GPU kernel時�
 正式驗證harness已用舊training完成7/7程序smoke，包含ASGP／GPU／CPUguard搜尋、原生CPU判題、無初代的共享test fixture形狀及resume不重跑。切分／完整工作與雙fitness+wrong稽核guard的8項Python測試通過。另預先固定CPU校驗劑量比較，詳見[guard-policy-plan](guard-policy-plan.json)；所有CPU校驗均使用當前training且計時。
 
 [恢復入口](RECOVERY.md)列出所有控制程序。`validation_pipeline.py`只在診斷、training判題及checkpoint metrics完成後，依[分析計畫](analysis-plan.json)自動凍結候選／規模，再開始全新heldout。時間規則、命令、binary／來源／fixture雜湊與失敗均留存；不依新test調參。暫時30分鐘monitor在最終交付時停用。新seed／資料的正式結論尚未產生。
+
+正式統計與互動report程式已在新heldout之前撰寫，推論規則見[report-analysis-plan](report-analysis-plan.json)。報告將分開execution-only與operator變更，核對兩者的所有已匯出champion AST，且不把相同score/size descriptor當作全population AST相同。新增分析單元測試包含缺漏paired audit與相同descriptor但不同AST的反例；目前未產生任何新heldout報告。

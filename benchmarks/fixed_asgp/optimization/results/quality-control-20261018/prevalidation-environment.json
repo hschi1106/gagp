@@ -1,0 +1,14 @@
+{
+  "recorded_utc": "2026-10-18T03:11:05.167761+00:00",
+  "python": "3.10.12",
+  "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.35",
+  "gpu": "name, uuid, driver_version, memory.total [MiB]\nNVIDIA GeForce RTX 3090, GPU-9c69fabe-a876-c803-9278-b54b8ec52daf, 560.35.05, 24576 MiB\n",
+  "cpu_model": "Intel(R) Core(TM) i9-10900K CPU @ 3.70GHz",
+  "allocator": {
+    "path": "/home/hschi1106/.t3/worktrees/gagp/gagp-opt-20261001/logs/optimization/native-allocator/extracted/usr/lib/x86_64-linux-gnu/libjemalloc.so.2",
+    "sha256": "c769f7591006b37ac8893a69a82fc40d5ac831e8e109670878c4e4d44c8a6ba9"
+  },
+  "cmake_source_dir": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/cpp",
+  "source_commit": "e78080911cc5412acf56f6282354fa20c0458324",
+  "note": "Read-only environment record before fresh validation. Whole-card memory sampling is approximate and includes desktop."
+}

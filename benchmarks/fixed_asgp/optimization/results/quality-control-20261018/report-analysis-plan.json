@@ -1,0 +1,11 @@
+{
+  "scope": "Recorded before any fresh heldout use; all training-selected arms and failed rows remain visible",
+  "primary_quality_comparison": "global operator policy versus execution-only, each task paired by fresh seed; exact McNemar for final joint train/test success with Holm across9 tasks",
+  "secondary_comparisons": "CPU guard versus chosen operator; execution-only versus GPU baseline; each GPU arm versus ASGP. P-values corrected across9 tasks separately for each comparison, not across the entire exploratory family; no selective winner claim.",
+  "accuracy": "per-task mean paired final test-accuracy delta; deterministic paired-seed percentile bootstrap95%,4000 resamples",
+  "speed": "per-task paired ASGP search-wall/GPU search-wall, median/geomean; median paired-seed bootstrap95%; CPU guard included in search wall, posthoc CPU judges separate",
+  "missingness": "all planned runs in operational yield with Wilson95%; only dual-successful audits in paired quality inference; missing rows not imputed as observed quality failures",
+  "success": "final champion has wrong0 on BOTH training and test; separate gen0 champion successes, subsequent final successes and lost initial success; no test-based best generation selection",
+  "curves": "training-selected champion accuracy per observed generation; seed median and IQR are descriptive, not confidence bands; first success timing retrospective only",
+  "limits": "fixed9 selected tasks and one fresh data split per task; seed uncertainty is conditional on those tasks/cases, not evidence of equivalence or general task-population performance"
+}
