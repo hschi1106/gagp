@@ -5,5 +5,8 @@
   "performance_acceptance": "Same candidate fitness/wrong and complete AST trajectories where optimization should preserve search; measure unprofiled complete searches, preserve failures and all repetitions. nsys time is diagnostic only.",
   "fresh_validation_scale": "Target9 tasks x20 fresh seeds x common G128 if training-runtime forecast fits original deadline; at least10 paired seeds. Freeze scale and variants before fresh held-out scoring.",
   "inference": "Report per-task paired outcomes and uncertainty. Do not treat task-seed pool as independent tasks or infer full30 coverage from selected9. Initial champion successes are separated from subsequent successes.",
-  "tuple_profile_safety": "Zero logical cap needs an additional proof that concatenations allocate at most3 cells; decline other programs. Do not silently introduce a logical list cap."
+  "tuple_profile_safety": "Zero logical cap needs an additional proof that concatenations allocate at most3 cells; decline other programs. Do not silently introduce a logical list cap.",
+  "fixed_validation_guard": "top8 every8 generations, final, or summed error<=0; CPU time/cases/corrections included",
+  "timing_scale_rule": "First feasible:20xG128,20xG64,10xG128,10xG64;1.5x training runtime forecast plus45min preparation and3h reporting; frozen before fresh heldout pool is prepared",
+  "checkpoint_scope": "All9 diagnostic tasks, old seed0,gen0/8/32/64; baseline/source/site7/site7_parsimony;32 training-case CPU behavior probes; rejected ASGP imports remain explicit"
 }

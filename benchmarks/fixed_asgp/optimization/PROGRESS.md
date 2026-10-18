@@ -2,8 +2,10 @@
 
 - 使用者授權完成前次建議第1–3項：同候選評分與算子診斷、可計量CPU訓練集複核、nsys長代瓶頸改善。新時間窗2026-10-18 01:17:45 UTC至2026-10-19 01:17:45 UTC（台灣10/19 09:17:45），重啟不重設。舊day24結果不改；GPU eval/reproduction、CPU1T、16GiB workspace、2048/24/phase1024固定。
 - 初代30題×1024=30,720候選的ASGP CPU/native CPU/resident GPU fitness及wrong全部一致；native CPU/GPU配對偏好0差異。source/native 491,520抽樣配對中1011對不同（0.206%），受邏輯／physical節點破同分影響。尚不表示中後代或任意輸入一致，也未證明品質落差的單一因果。
-- 新增預設關閉的top-K/interval/near-zero CPU reference訓練集複核、獨立成本／修正／未覆核leader counters，以及指定generation的全population診斷checkpoint。Release重建＋evolution_pipeline/fixed_asgp_bench 2/2 PASS（49.06s）。目前production變更尚未完整回歸、尚未選為最終候選。
+- 新增預設關閉的top-K/interval/near-zero CPU reference訓練集複核、獨立成本／修正／未覆核leader counters，以及指定generation的全population診斷checkpoint。Release重建＋evolution_pipeline/fixed_asgp_bench 2/2 PASS（49.06s）。後續完整建置／回歸紀錄見下方；尚未選為最終候選。
 - 串行診斷controller資訊在`logs/quality-control-20261018/diagnose-controller.json`；含兩題G64 nsys、9題×5seed×4算子組合，seed0 ASGP及中後代同候選稽核。新heldout尚未產生／使用；先依training/parity/runtime凍結候選。
+- 核心實作本地提交4ca0909；Release全建置通過，native130/131唯一文件hash gate失敗修正後gate＋adapter2/2通過，tools122(4skip)、repository24通過；最後raw-score／behavior scope修改pipeline＋adapter2/2通過49.32s。不能描述成單次fresh131全通過。全30題site admission/G1共90/90完成；TupleSummary A/B兩題G64約9.72/9.90×且最終1024 AST、全代champion fitness相同。仍屬開發證據。
+- 新增固定CPUguard劑量screen、9題四個checkpoint的CPU行為多樣性／同候選metrics及嚴格正式矩陣harness；舊training smoke7/7及Python8項通過。正式候選及20×G128優先的全局時間規模規則在fresh heldout之前凍結；詳見analysis-plan及RECOVERY。
 - [工作規格與恢復](results/quality-control-20261018/README.md)、[protocol](results/quality-control-20261018/protocol.json)。工作區仍為gagp-support-20261015，沒有子代理或push。
 
 ---

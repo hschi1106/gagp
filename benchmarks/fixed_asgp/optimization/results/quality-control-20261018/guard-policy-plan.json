@@ -1,0 +1,11 @@
+{
+  "scope": "Pre-heldout CPU training-reference verification cost screen; old training data seed0 only",
+  "arms": {
+    "exec": {},
+    "guard1_i8": {"GAGP_VERIFY_TOP_K":"1","GAGP_VERIFY_INTERVAL":"8","GAGP_VERIFY_NEAR_ZERO":"0"},
+    "guard8_i8": {"GAGP_VERIFY_TOP_K":"8","GAGP_VERIFY_INTERVAL":"8","GAGP_VERIFY_NEAR_ZERO":"0"},
+    "guard32_i1": {"GAGP_VERIFY_TOP_K":"32","GAGP_VERIFY_INTERVAL":"1","GAGP_VERIFY_NEAR_ZERO":"0"}
+  },
+  "formal_guard": "guard8_i8 on the training-selected global operator policy; this dose is fixed before the cost screen and not chosen from held-out results",
+  "interpretation": "Partial verification protects only checked candidates on the current training cases. All CPU work is counted and included in search wall time; no full-population or unseen-input certificate. Failures remain failures."
+}

@@ -21,3 +21,9 @@ nsys基準Is Sorted G64搜尋88.856s，評估GPU kernels占99.3% GPU kernel時�
 完整Release重建後130/131 native通過（251.68s），唯一失敗為將實驗說明寫入frozen spec造成hash gate失敗；已只移除本輪附加的spec文字，設計文件保留契約，凍結雜湊不改。Repository gate及adapter重跑2/2（49.56s），tools122（4skip）及repository24通過。CPU複核的raw GPU/CPU差異與40-bit ranking corrections進一步分離後，pipeline＋adapter2/2亦通過49.32s；既有failure logs保留，不描述成單次fresh131全通過。
 
 初步未profile的Is Sorted/G64同初代A/B為88.716→9.128s（9.72×）；最終1024 AST、全代champion fitness及1024個最終個體CPU audit皆一致。這是單一seed開發結果，尚非新heldout正式結論。全30初代site metrics發現HeadIndex的native lowering會省略固定InputList子節點：Index of Element／Fuel Cost／Luhn有計數／深度差異；不將grammar invocation count宣稱為普遍等同ASGP source nodes。
+
+核心實作已本地提交`4ca0909`。全30題新site政策初代與G1+final共90/90程序完成；CPU fitness/wrong稽核均通過。HeadIndex省略固定InputList子節點的差異另包含Last Index of Zero；合計4題1274個node-count、61個depth差異，不以native grammar-site政策宣稱ASGP搜尋成本完全一致。All Equal同初代G64 A/B亦完成：89.122→9.006892s（9.90×），完整最終AST與fitness/wrong相同。
+
+正式驗證harness已用舊training完成7/7程序smoke，包含ASGP／GPU／CPUguard搜尋、原生CPU判題、無初代的共享test fixture形狀及resume不重跑。切分／完整工作與雙fitness+wrong稽核guard的8項Python測試通過。另預先固定CPU校驗劑量比較，詳見[guard-policy-plan](guard-policy-plan.json)；所有CPU校驗均使用當前training且計時。
+
+[恢復入口](RECOVERY.md)列出所有控制程序。`validation_pipeline.py`只在診斷、training判題及checkpoint metrics完成後，依[分析計畫](analysis-plan.json)自動凍結候選／規模，再開始全新heldout。時間規則、命令、binary／來源／fixture雜湊與失敗均留存；不依新test調參。暫時30分鐘monitor在最終交付時停用。新seed／資料的正式結論尚未產生。

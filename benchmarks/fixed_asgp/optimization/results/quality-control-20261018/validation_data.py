@@ -66,7 +66,16 @@ def prepare(stage, tasks, seeds):
             stage.m['inputs'][task] = dict(status=job['status']);stage.persist();continue
         old_train = study.read(entry['quality']['0']['source'])['cases']
         old_test = study.read(entry['test_source'])['cases']
-        split = split_pool(study.read(pool_path), old_train+old_test)
+        old_speed = study.read(entry['source'])['cases']
+        try:
+            split = split_pool(study.read(pool_path), old_train+old_test+old_speed)
+        except ValueError as error:
+            stage.m['inputs'][task]=dict(status='invalid_fixture',error=str(error),
+                pool=str(pool_path),pool_sha256=study.sha(pool_path))
+            stage.persist();continue
+        split['metadata'].update(previous_input_sets='old selected quality train/test plus full-case speed fixture',
+            previous_train_cases_sha256=digest_rows(old_train),previous_test_cases_sha256=digest_rows(old_test),
+            previous_speed_cases_sha256=digest_rows(old_speed))
         split_path = folder / 'split.json'
         if split_path.exists():
             assert study.read(split_path) == split, 'resume split differs'
