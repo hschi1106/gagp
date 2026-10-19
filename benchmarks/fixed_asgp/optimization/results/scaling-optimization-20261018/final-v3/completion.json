@@ -1,0 +1,28 @@
+{
+  "status": "report_generated",
+  "science_complete": true,
+  "report_started_epoch": 1792377121.9893236,
+  "report_finished_epoch": 1792377177.403905,
+  "original_start_epoch": 1792322331.0,
+  "original_deadline_epoch": 1792408731.0,
+  "elapsed_h": 15.235112195809682,
+  "within_original_deadline": true,
+  "plotting_and_html_visual_inspection": "pending actual inspection; do not infer from generation",
+  "artifact_sha256": {
+    "summary.json": "616a114fe857b6367c06b09a7629b82abc13bc5dc8533ec7a38120b4f4bf43c1",
+    "generations.csv": "0bca27bff1d28ffacd55e15b2395f2775df663d9977ca036d6490496f53f7503",
+    "cells.csv": "3951244bad39f13f57afd33733e8dbcd323b811ef1e45dce3af35d4d3d4ad1bb",
+    "speedup.pdf": "ead68fd4dfde4756298e4cab03ed76a49c8689076a7125d7cfd6d2cfd580ee2b",
+    "runs.csv": "c3041a27d2a8398b60c2510f958bad46b14909c1a5cf0e5ea3ba34ec91bd051d",
+    "audit.json": "03d1c2d16105e412cb17581f73dfaeba8539f8b31d3747af3a1c290703c5266f",
+    "champions.csv": "90f8217b1eceb96383f60df98abd5e4fbfe8339c6b8cc1fd07cdcd35dd250a0f",
+    "REPORT.zh-TW.md": "c91f540fbead5b327e0de8fde434961ee8dfd6099adca7318c60bc763346530f",
+    "speedup.png": "e58073a9ead20dfa3e4dcae4d9f713c1be65c15742a8159d58b1421f8a48ac9a",
+    "operators.csv": "403ad8d691cbb4b0a580fd3a044d7f463ae7f0164a72ca9e205963da81ac3dd5",
+    "dashboard.html": "f8ff60a11e82358f0493f3bd80252c6664f459c740a44796532e4d5341fe2da5",
+    "costs.csv": "74d0dff6417f91fe52c72063cb8ff15c29259b019e9556b0f6dc46321107bf04",
+    "cost-quality.png": "7168ae1572586c8a099fbe4f3d0ddc0cce65e86129c9445a3f7a7e95699d1756",
+    "judges.csv": "a6b0ea0cfb02fa1f42332c4a1afa23976ba205cf6e7166b3f97d91e260283d1c",
+    "cost-quality.pdf": "36fbb45b0511ac888cf62c29b96dbf69109a687a069f255c9fc6c6694d21443c"
+  }
+}

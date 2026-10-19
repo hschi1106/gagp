@@ -99,7 +99,39 @@ class Stage:
         self.m["elapsed_h"] = (time.time() - START) / 3600
         save(self.out / "manifest.json", self.m)
 
+    def _budget_before_lock(self, tag, args, extra, prefix):
+        command=[*map(str,prefix),str(self.binary),*map(str,args)]
+        job=self.m["jobs"].get(tag)
+        if job is not None:
+            if self.strict:
+                assert job["command"]==command and job["extra"]==(extra or {}), "resume command differs"
+            if job["status"]!="waiting":return job
+        else:
+            job=dict(command=command,extra=extra or {})
+            self.m["jobs"][tag]=job
+        job.update(status="budget_not_run",inputs_not_read=True,
+                   reason="reserve cutoff before input hashing or GPU lock acquisition")
+        self.persist()
+        return job
+
     def run(self, tag, args, extra=None, timeout=600, prefix=(), reserve=3600):
+        # Include immutable input hashing in the same exclusion interval as the
+        # child. No large read or hidden retry occurs after the reserve cutoff.
+        old=self.m['jobs'].get(tag)
+        if time.time()>=DEADLINE-reserve or (old and old['status']=='budget_not_run' and old.get('inputs_not_read')):
+            return self._budget_before_lock(tag,args,extra,prefix)
+        with GPU_LOCK.open("a") as lock:
+            while True:
+                try:
+                    fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:
+                    if time.time()>=DEADLINE-reserve:
+                        return self._budget_before_lock(tag,args,extra,prefix)
+                    time.sleep(.2)
+            return self._run_locked(tag,args,extra,timeout,prefix,reserve)
+
+    def _run_locked(self, tag, args, extra=None, timeout=600, prefix=(), reserve=3600):
         command=[*map(str,prefix),str(self.binary),*map(str,args)]
         hashes={}
         if self.strict:
@@ -123,47 +155,38 @@ class Stage:
             job["status"] = "budget_not_run"
             self.persist()
             return job
-        with GPU_LOCK.open("a") as lock:
-            while True:
-                try:
-                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        env = {k:v for k,v in os.environ.items()
+               if not k.startswith("GAGP_") and k not in ("LD_PRELOAD", "MALLOC_CONF")}
+        env.update(self.m["settings"]); env.update(extra or {})
+        start = time.time(); end = min(start + timeout, DEADLINE - reserve)
+        job.update(status="running", started_epoch=start, log=str(self.out / (tag + ".log")))
+        with Path(job["log"]).open("w") as log:
+            child = subprocess.Popen(job["command"], cwd=ROOT, env=env, stdout=log,
+                                     stderr=subprocess.STDOUT, start_new_session=True)
+            job["pid"] = child.pid; self.persist()
+            peak = 0; reason = None; last = 0; card_peak=0; memory_samples=0; memory_errors=0
+            while child.poll() is None:
+                peak = max(peak, process_group_rss(child.pid))
+                if self.memory:
+                    sample=self.memory.sample()
+                    if sample is None:memory_errors+=1
+                    else:card_peak=max(card_peak,sample);memory_samples+=1
+                if peak > 32 * 1024**3: reason = "host_memory_limit"
+                if time.time() >= end: reason = "timeout"
+                if reason:
+                    os.killpg(child.pid, signal.SIGTERM)
+                    try: child.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(child.pid, signal.SIGKILL); child.wait()
                     break
-                except BlockingIOError:
-                    if time.time() >= DEADLINE - reserve:
-                        job["status"] = "budget_not_run"; self.persist(); return job
-                    time.sleep(1)
-            env = {k:v for k,v in os.environ.items()
-                   if not k.startswith("GAGP_") and k not in ("LD_PRELOAD", "MALLOC_CONF")}
-            env.update(self.m["settings"]); env.update(extra or {})
-            start = time.time(); end = min(start + timeout, DEADLINE - reserve)
-            job.update(status="running", started_epoch=start, log=str(self.out / (tag + ".log")))
-            with Path(job["log"]).open("w") as log:
-                child = subprocess.Popen(job["command"], cwd=ROOT, env=env, stdout=log,
-                                         stderr=subprocess.STDOUT, start_new_session=True)
-                job["pid"] = child.pid; self.persist()
-                peak = 0; reason = None; last = 0; card_peak=0; memory_samples=0; memory_errors=0
-                while child.poll() is None:
-                    peak = max(peak, process_group_rss(child.pid))
-                    if self.memory:
-                        sample=self.memory.sample()
-                        if sample is None:memory_errors+=1
-                        else:card_peak=max(card_peak,sample);memory_samples+=1
-                    if peak > 32 * 1024**3: reason = "host_memory_limit"
-                    if time.time() >= end: reason = "timeout"
-                    if reason:
-                        os.killpg(child.pid, signal.SIGTERM)
-                        try: child.wait(timeout=3)
-                        except subprocess.TimeoutExpired:
-                            os.killpg(child.pid, signal.SIGKILL); child.wait()
-                        break
-                    if time.time() - last > 10:
-                        job.update(process_s=time.time()-start, peak_rss_bytes=peak)
-                        self.persist(); last=time.time()
-                    time.sleep(.2)
-            job.update(status=reason or ("ok" if child.returncode == 0 else "failed"),
-                returncode=child.returncode, process_s=time.time()-start, peak_rss_bytes=peak)
-            if self.memory:job.update(sampled_card_peak_bytes=card_peak,memory_samples=memory_samples,memory_sampling_errors=memory_errors,
-                memory_sampling="whole-card NVML device0 every~200ms; includes desktop, may miss short peaks")
+                if time.time() - last > 10:
+                    job.update(process_s=time.time()-start, peak_rss_bytes=peak)
+                    self.persist(); last=time.time()
+                time.sleep(.2)
+        job.update(status=reason or ("ok" if child.returncode == 0 else "failed"),
+            returncode=child.returncode, process_s=time.time()-start, peak_rss_bytes=peak)
+        if self.memory:job.update(sampled_card_peak_bytes=card_peak,memory_samples=memory_samples,memory_sampling_errors=memory_errors,
+            memory_sampling="whole-card NVML device0 every~200ms; includes desktop, may miss short peaks")
         self.persist()
         print(tag,job["status"],round(job["process_s"],2),flush=True)
         return job

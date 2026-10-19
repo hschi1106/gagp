@@ -1,0 +1,56 @@
+{
+  "format": "gagp-report-presentation-history-v1",
+  "canonical_report": "final-v3",
+  "scientific_values_csv_png_unchanged": true,
+  "archives": [
+    {
+      "original_output_path": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/scaling-optimization-20261018/final",
+      "archived_path": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/scaling-optimization-20261018/report-presentation-attempt0",
+      "unchanged_artifact_sha256": {
+        "summary.json": "51fd357d7e63db3bfdd0676ce22f00381766940fad94d3e6c679e22994d06370",
+        "generations.csv": "0bca27bff1d28ffacd55e15b2395f2775df663d9977ca036d6490496f53f7503",
+        "cells.csv": "3951244bad39f13f57afd33733e8dbcd323b811ef1e45dce3af35d4d3d4ad1bb",
+        "speedup.pdf": "0b37bc2945ba4263c7682dd20fec8337c247175bce2ad8b26c68221e456cac03",
+        "runs.csv": "c3041a27d2a8398b60c2510f958bad46b14909c1a5cf0e5ea3ba34ec91bd051d",
+        "completion.json": "0785098f041d64f8878c9255ccfb16de3cef9cc6e3ee0e11d1c276f4c0f992e3",
+        "audit.json": "075557794ee0597532cdcb24890cac198f0135288df74d7356c0c7403fe966b3",
+        "champions.csv": "90f8217b1eceb96383f60df98abd5e4fbfe8339c6b8cc1fd07cdcd35dd250a0f",
+        "REPORT.zh-TW.md": "e958a97aaacfa31fd0a8d216476c72e234ef5513b53b06790bdcb5fd431adb7d",
+        "speedup.png": "e58073a9ead20dfa3e4dcae4d9f713c1be65c15742a8159d58b1421f8a48ac9a",
+        "operators.csv": "403ad8d691cbb4b0a580fd3a044d7f463ae7f0164a72ca9e205963da81ac3dd5",
+        "dashboard.html": "ba0f0cac1f20188c2e2725357a40d2ccb30cc588f6ef2fbd0cbf948a705d2339",
+        "costs.csv": "74d0dff6417f91fe52c72063cb8ff15c29259b019e9556b0f6dc46321107bf04",
+        "cost-quality.png": "7168ae1572586c8a099fbe4f3d0ddc0cce65e86129c9445a3f7a7e95699d1756",
+        "judges.csv": "a6b0ea0cfb02fa1f42332c4a1afa23976ba205cf6e7166b3f97d91e260283d1c",
+        "cost-quality.pdf": "840292b5b89fd9cbf12abccab69c81db4601001543d7b4474e7b053d154c21a2"
+      }
+    },
+    {
+      "original_output_path": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/scaling-optimization-20261018/final-v2",
+      "archived_path": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/scaling-optimization-20261018/report-presentation-attempt1",
+      "unchanged_artifact_sha256": {
+        "summary.json": "3531a404a594424572d69afc438cb8f0fce23b0ab8f4f69b12a9553ae4c0ab7d",
+        "generations.csv": "0bca27bff1d28ffacd55e15b2395f2775df663d9977ca036d6490496f53f7503",
+        "cells.csv": "3951244bad39f13f57afd33733e8dbcd323b811ef1e45dce3af35d4d3d4ad1bb",
+        "speedup.pdf": "15ad7e1bd10ea5c595085aa097b5b721600911667cea74c9d37fc0db907feaa8",
+        "runs.csv": "c3041a27d2a8398b60c2510f958bad46b14909c1a5cf0e5ea3ba34ec91bd051d",
+        "completion.json": "127bfcd4d33ac44d13f896640df2aa13863ea96098803d17da6c3f695564577a",
+        "audit.json": "3d6e5f15a99e67526ba77e211eafc419aa817c088f7827780223fa16a69a67b9",
+        "champions.csv": "90f8217b1eceb96383f60df98abd5e4fbfe8339c6b8cc1fd07cdcd35dd250a0f",
+        "REPORT.zh-TW.md": "0e147e0fe7f13f478cb3ee6ac807898e40742ab6d6b05378e2ce9173e46c37f4",
+        "speedup.png": "e58073a9ead20dfa3e4dcae4d9f713c1be65c15742a8159d58b1421f8a48ac9a",
+        "operators.csv": "403ad8d691cbb4b0a580fd3a044d7f463ae7f0164a72ca9e205963da81ac3dd5",
+        "dashboard.html": "f8b3b36f50a52652d8cdb02457a8fecae57ec9d1f2242f067f088b3a93b2ec25",
+        "costs.csv": "74d0dff6417f91fe52c72063cb8ff15c29259b019e9556b0f6dc46321107bf04",
+        "cost-quality.png": "7168ae1572586c8a099fbe4f3d0ddc0cce65e86129c9445a3f7a7e95699d1756",
+        "judges.csv": "a6b0ea0cfb02fa1f42332c4a1afa23976ba205cf6e7166b3f97d91e260283d1c",
+        "cost-quality.pdf": "fe7924f4925046f07ea8402cf4ea237efb94f6ab773e35eb5ab5ab80a3bd9a57"
+      }
+    }
+  ],
+  "reasons": [
+    "first HTML exceeded512000-character tool input limit; tool rejected it before rendering",
+    "compact display data passed interactions; actual screenshot exposed low contrast",
+    "final-v3 fixes contrast/padding and passed actual previews; all scientific CSV/PNG unchanged"
+  ]
+}

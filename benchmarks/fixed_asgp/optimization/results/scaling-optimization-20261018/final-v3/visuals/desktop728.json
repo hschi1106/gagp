@@ -1,0 +1,29 @@
+{
+  "width": 728,
+  "contentHeight": 3147,
+  "capturedHeight": 3147,
+  "consoleMessages": [
+    {
+      "level": "log",
+      "text": "DASHBOARD_CHECKS {\"kind\":\"scaling-dashboard-interaction-checks-v1\",\"width\":728,\"checks\":56,\"passed\":56,\"failures\":[],\"originalStateRestored\":true,\"documentWidth\":728}"
+    }
+  ],
+  "screenshot": {
+    "mimeType": "image/png",
+    "width": 728,
+    "height": 3147
+  },
+  "html_sha256": "f8ff60a11e82358f0493f3bd80252c6664f459c740a44796532e4d5341fe2da5",
+  "checks_sha256": "e32439880d8de2d765ab1631a28576199f383c3f4e0bf49ff10836e0e4b12b70",
+  "interaction_checks": {
+    "kind": "scaling-dashboard-interaction-checks-v1",
+    "width": 728,
+    "checks": 56,
+    "passed": 56,
+    "failures": [],
+    "originalStateRestored": true,
+    "documentWidth": 728
+  },
+  "screenshot_file": "desktop728.png",
+  "view": "desktop728"
+}

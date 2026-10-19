@@ -1,0 +1,8 @@
+{
+  "hypothesis": "Reduce per-case tagged root VM stack/local backing for ordinarily verified small roots while preserving512 logical fitness lanes and all reduction order; actual profile97.5/97.9percent GPU kernel time in arena VM, binary168registers/11760stackbytes, so do not assume wider physical blocks improve occupancy",
+  "feature": "GAGP_GPU_COMPACT_ROOT_VM defaultoff, private-list capability + immutable verified root bound<=16 + rootlocals<=8; otherwise unchanged full VM; nested phases use current independent proofs; generic-phase flag retainsfull VM",
+  "development": "Fixed5tasks IsSorted/AllEqual/HouseRobber/FilterOdd/DoubleLetters ×P1024/16384 ×G8/seed0 ×off/on ×2coldprocessrepetitions,40runs; rotate arm order; same new pinned binary, tupleon,block512,16GiB,CPU1T/GPUeval+repro/AST2048-depth24-phase1024",
+  "validation": "Complete Release build/native suite then opt-in resident-owner test; capacity/local-bound/fuel/error/status/overflow-replay tests; all finalAST/descriptors/championAST/fitness and CPUtop16 fitness+wrong equal in everydevelopmentpair. Preservefailedsamples, no reruns or threshold relaxation",
+  "selection": "Before formal outcomes: require all20pairs fidelity/AST/descriptors/history checks. Per10task-P cell take median of two speedup ratios, require minimum>=1/1.1 and geometric mean>=1.03. Choose one global flag, otherwise reject/retainoff. Tasksuccess/testdata never used",
+  "formal": "No automatic formal launch; freeze finalbinary/globalflag and commonG/reps by allocation-policy after inspecting actual results. Headline only unprofiled same-round ASGP ratios; all attempted prototypes remain visible"
+}

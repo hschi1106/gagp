@@ -17,23 +17,27 @@ def main():
     args = parser.parse_args()
     controller_lock = (serial.RAW / 'formal.lock').open('a')
     fcntl.flock(controller_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    for name in ('pilot', 'development', 'extension1024'):
-        p = serial.RAW / (name + '-controller.json')
-        if p.exists():
-            controller = serial.read(p)
-            assert not alive(controller['pid']), f'{name} controller is still active'
+    for p in serial.RAW.glob('*controller.json'):
+        controller = serial.read(p)
+        assert controller['pid'] == os.getpid() or not alive(controller['pid']), f'controller is still active: {p}'
     freeze_path = serial.RAW / 'formal-freeze.json'
     frozen = serial.read(freeze_path)
     assert frozen['started_epoch'] == serial.START and frozen['deadline_epoch'] == serial.DEADLINE
-    assert serial.sha(frozen['binary']) == frozen['binary_sha256']
     assert frozen['generations'] >= 4 and frozen['repetitions'] >= 1
     assert set(frozen['tasks']) == set(serial.PAPER_TASKS) and len(frozen['tasks']) == 30
     assert frozen['populations'] == [1024, 16384]
     assert frozen['settings'] == serial.read(serial.BASE / 'protocol.json')['settings']
     with gpu_lock():
+        assert serial.sha(frozen['binary']) == frozen['binary_sha256']
+        for path, digest in frozen['harness_sha256'].items():
+            assert serial.sha(path) == digest, 'frozen harness changed: ' + path
+        for field in ('external_source_sha256', 'linked_input_sha256'):
+            for path, digest in frozen.get(field, {}).items():
+                assert serial.sha(path) == digest, 'frozen dependency changed: ' + path
         for path, digest in frozen['source_sha256'].items():
             assert serial.sha(serial.ROOT / path) == digest, 'frozen source changed: ' + path
-    stage = serial.Stage('formal', frozen['binary'], settings=frozen['settings'], resume=args.resume)
+    with gpu_lock():
+        stage = serial.Stage('formal', frozen['binary'], settings=frozen['settings'], resume=args.resume)
     digest = serial.sha(freeze_path)
     if 'freeze_sha256' in stage.m:
         assert stage.m['freeze_sha256'] == digest, 'formal freeze changed'
@@ -71,6 +75,8 @@ def main():
                         if mode == 'gpu_overlap':
                             extra.update(GAGP_GPU_PRIVATE_TUPLE_SCORE='1' if variant == 'gpu_improved' else '0',
                                          GAGP_BM_GPU_BLOCKSIZE=str(frozen['gpu_blocksize'] if variant == 'gpu_improved' else 512))
+                            if variant == 'gpu_improved' and frozen['compact_root_vm']:
+                                extra['GAGP_GPU_COMPACT_ROOT_VM'] = '1'
                             if full:
                                 extra['GAGP_SEARCH_CPU_ALL'] = '1'
                         job = stage.run(tag, ['measure', inp['source'], prepared['prepared'],

@@ -1,4 +1,5 @@
 import tempfile
+import fcntl
 from pathlib import Path
 from unittest import TestCase,main,mock
 import serial
@@ -47,6 +48,29 @@ class TestImmutableStages(TestCase):
         s=self.make()
         with mock.patch.object(serial,'DEADLINE',0):j=s.run('late',['--fail'],reserve=0)
         self.assertEqual(j['status'],'budget_not_run');self.assertNotIn('pid',j)
+
+    def test_input_hashing_holds_global_exclusion_lock(self):
+        inputs=[]
+        for i in range(3):
+            p=self.root/f'locked-input{i}';p.write_text(str(i));inputs.append(p)
+        stage=self.make();original=serial.sha;observed=[]
+        def checked_hash(path):
+            if Path(path) in inputs:
+                with serial.GPU_LOCK.open('a') as contender:
+                    with self.assertRaises(BlockingIOError):
+                        fcntl.flock(contender,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                observed.append(Path(path))
+            return original(path)
+        with mock.patch.object(serial,'sha',side_effect=checked_hash):
+            stage.run('locked',['measure',*inputs],reserve=0)
+        self.assertEqual(observed,inputs)
+
+    def test_reserve_cutoff_does_not_read_inputs_or_start_child(self):
+        stage=self.make()
+        with mock.patch.object(serial,'DEADLINE',0),mock.patch.object(serial,'sha',side_effect=AssertionError('late input read')):
+            job=stage.run('late',['measure','absent-a','absent-b','absent-c'],reserve=0)
+        self.assertEqual(job['status'],'budget_not_run')
+        self.assertTrue(job['inputs_not_read']);self.assertNotIn('pid',job)
 
 
 if __name__=='__main__':main()
