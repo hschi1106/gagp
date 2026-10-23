@@ -1,5 +1,7 @@
 #pragma once
 
+#include "phase_register_bank.cuh"
+
 // Host type-flow proof guarantees the instruction/type subset and stack bounds.
 // Keep ordinary numeric conversion, protected arithmetic, and every fuel charge.
 // This execution representation stores proven scalar/view payloads without tags.
@@ -7,14 +9,14 @@ struct DViewPhasePayloadOps {
   __device__ bool convert(Value& value,const DPayloadTables& tables) const {
     return d_convert_list_view(value,tables);
   }
-  __device__ bool call(BuiltinId,long long*,int&,const DPayloadTables&,DResult&) const {return false;}
+  template<class Stack> __device__ __forceinline__ bool call(BuiltinId,Stack&,int&,const DPayloadTables&,DResult&) const {return false;}
 };
 
 template<DPayloadFlavor Flavor>
 struct DPrivatePhasePayloadOps {
   typename DPayloadFlavorTraits<Flavor>::State& state;
   __device__ bool convert(Value&,const DPayloadTables&) const {return true;}
-  __device__ bool call(BuiltinId bid,long long* stack,int& sp,
+  template<class Stack> __device__ __forceinline__ bool call(BuiltinId bid,Stack& stack,int& sp,
       const DPayloadTables& tables,DResult& result) const {
     int count=0;
     switch(bid) {
@@ -44,7 +46,7 @@ struct DPrivatePhasePayloadOps {
 struct DViewPresets {
   const DLocalPreset* presets;
   int preset_count;
-  __device__ ErrCode init(long long* locals, unsigned& local_set,
+  template<class Locals> __device__ __forceinline__ ErrCode init(Locals& locals,unsigned& local_set,
       const DPayloadTables& tables,unsigned&) const {
   for (int i = 0; i < preset_count; ++i) {
     const int local = presets[i].local;
@@ -58,11 +60,11 @@ struct DViewPresets {
   }
 };
 
-template <class Binder,class PayloadOps=DViewPhasePayloadOps>
+template <class Binder,class PayloadOps=DViewPhasePayloadOps,class Stack=DPhaseArrayBank<16>,class Locals=DPhaseArrayBank<8>>
 __device__ __noinline__ DResult d_run_bound_view_phase(
     const DCodeView& view, Binder binder,
     const DPayloadTables& tables, int& fuel, ValueTag expected, PayloadOps payload_ops={}) {
-  long long stack[16], locals[8];
+  Stack stack;Locals locals;
   unsigned local_set=0,wrong_type=0;
   const auto error=binder.init(locals,local_set,tables,wrong_type);
   if (static_cast<int>(error) != -1) return d_error(error);
@@ -88,17 +90,17 @@ __device__ __noinline__ DResult d_run_bound_view_phase(
       case OP_NEG: stack[sp - 1] = vm_semantics::wrap_int_neg(stack[sp - 1]); break;
       case OP_NOT: stack[sp - 1] = !stack[sp - 1]; break;
       case OP_ADD: case OP_SUB: case OP_MUL: case OP_MOD: {
-        const auto right = stack[--sp]; const auto left = stack[sp - 1];
+        const long long right = stack[--sp]; const long long left = stack[sp - 1];
         const auto a = left;
         const auto b = right;
         if (ins.op == OP_ADD) stack[sp - 1] = vm_semantics::wrap_int_add(a, b);
         else if (ins.op == OP_SUB) stack[sp - 1] = vm_semantics::wrap_int_sub(a, b);
         else if (ins.op == OP_MUL) stack[sp - 1] = vm_semantics::wrap_int_mul(a, b);
-        else { if (right == 0) return d_error(ErrCode::ZeroDiv); stack[sp - 1] = vm_semantics::py_int_mod(a, b); }
+        else { if (right == 0) return d_error(ErrCode::ZeroDiv); stack[sp - 1] = d_py_int_mod(a, b); }
         break;
       }
       case OP_EQ: case OP_NE: case OP_LT: case OP_LE: case OP_GT: case OP_GE: {
-        const auto b = stack[--sp]; const auto a = stack[sp - 1];
+        const long long b = stack[--sp]; const long long a = stack[sp - 1];
         bool value = false;
         if (ins.op == OP_EQ) value = a == b;
         else if (ins.op == OP_NE) value = a != b;
@@ -124,7 +126,7 @@ __device__ __noinline__ DResult d_run_bound_view_phase(
         } else if (bid == BuiltinId::Len) {
           stack[sp - 1] = static_cast<std::uint64_t>(stack[sp - 1]) >> 48;
         } else if (bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) {
-          const auto index = stack[--sp]; const auto source = static_cast<std::uint64_t>(stack[sp - 1]);
+          const long long index = stack[--sp]; const auto source = static_cast<std::uint64_t>(stack[sp - 1]);
           long long normalized;
           if (bid == BuiltinId::IndexClampedOrZero) {
             const auto length = source >> 48;
@@ -135,20 +137,20 @@ __device__ __noinline__ DResult d_run_bound_view_phase(
           if (value.tag != ValueTag::Int) return d_error(ErrCode::Type);
           stack[sp - 1] = value.i;
         } else if (bid == BuiltinId::Slice) {
-          const auto hi = stack[--sp], lo = stack[--sp];
+          const long long hi = stack[--sp], lo = stack[--sp];
           const auto source = static_cast<std::uint64_t>(stack[sp - 1]);
           const auto a = d_norm_slice_idx(lo, source >> 48), b = d_norm_slice_idx(hi, source >> 48);
           stack[sp - 1] = Value::pack_container_payload((source & Value::k_container_hash_mask) + a, b > a ? b - a : 0);
         } else if (bid == BuiltinId::Clip) {
-          const auto hi = stack[--sp], lo = stack[--sp], value = stack[sp - 1];
+          const long long hi = stack[--sp], lo = stack[--sp], value = stack[sp - 1];
           const auto lower = value > lo ? value : lo;
           stack[sp - 1] = lower < hi ? lower : hi;
         } else {
-          const auto b = stack[--sp], a = stack[sp - 1];
-          if (bid == BuiltinId::TruncDiv0) stack[sp-1]=vm_semantics::trunc_int_div0(a,b);
-          else if (bid == BuiltinId::TruncMod0) stack[sp-1]=vm_semantics::trunc_int_mod0(a,b);
-          else if (bid == BuiltinId::IDiv0) stack[sp - 1] = b == 0 ? 0 : vm_semantics::wrap_int_div(a, b);
-          else if (bid == BuiltinId::IMod0) stack[sp - 1] = b == 0 ? 0 : vm_semantics::py_int_mod(a, b);
+          const long long b = stack[--sp], a = stack[sp - 1];
+          if (bid == BuiltinId::TruncDiv0) stack[sp-1]=d_trunc_int_div0(a,b);
+          else if (bid == BuiltinId::TruncMod0) stack[sp-1]=d_trunc_int_mod0(a,b);
+          else if (bid == BuiltinId::IDiv0) stack[sp - 1] = b == 0 ? 0 : d_wrap_int_div(a, b);
+          else if (bid == BuiltinId::IMod0) stack[sp - 1] = b == 0 ? 0 : d_py_int_mod(a, b);
           else {
             stack[sp - 1] = bid == BuiltinId::Min ? (a <= b ? a : b) : (a >= b ? a : b);
           }

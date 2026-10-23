@@ -397,6 +397,8 @@ if(GAGP_HAS_CUDA)
   target_sources(gagp_evolution PRIVATE src/evolution/repro/gpu/phase_donors.cu src/evolution/repro/gpu/phase_population.cu)
   add_library(gagp_gpu
     src/runtime/gpu/fitness_gpu.cu
+    src/runtime/gpu/allocation_pool.cu
+    src/runtime/gpu/stage_storage.cu
     src/runtime/gpu/opcode_map_gpu.cpp
     src/runtime/gpu/host_pack_gpu.cu
     src/runtime/payload/payload.cpp
@@ -702,6 +704,30 @@ if(GAGP_HAS_CUDA)
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/phase_donor_scope.json 3)
   set_tests_properties(gagp_test_gpu_phase_generate_scope PROPERTIES LABELS "contract;integration;gpu")
   add_executable(gagp_test_gpu_phase_population tests/gpu/test_gpu_phase_population.cu)
+  add_executable(gagp_test_linear_elite_gpu tests/gpu/test_linear_elite_gpu.cu)
+  target_link_libraries(gagp_test_linear_elite_gpu PRIVATE gagp_gpu)
+  add_test(NAME gagp_test_linear_elite_gpu COMMAND gagp_test_linear_elite_gpu)
+  set_tests_properties(gagp_test_linear_elite_gpu PROPERTIES LABELS "contract;gpu")
+
+  add_executable(gagp_test_cuda_stage_storage tests/gpu/test_cuda_stage_storage.cu)
+  target_link_libraries(gagp_test_cuda_stage_storage PRIVATE gagp_gpu)
+  add_test(NAME gagp_test_cuda_stage_storage COMMAND gagp_test_cuda_stage_storage)
+  set_tests_properties(gagp_test_cuda_stage_storage PROPERTIES LABELS "contract;gpu")
+
+  add_executable(gagp_test_cuda_allocation_pool tests/gpu/test_cuda_allocation_pool.cu)
+  target_link_libraries(gagp_test_cuda_allocation_pool PRIVATE gagp_gpu)
+  add_test(NAME gagp_test_cuda_allocation_pool COMMAND gagp_test_cuda_allocation_pool)
+  set_tests_properties(gagp_test_cuda_allocation_pool PROPERTIES LABELS "contract;gpu" SKIP_RETURN_CODE 77)
+
+  add_executable(gagp_test_phase_register_gpu tests/gpu/test_phase_register_gpu.cu)
+  target_link_libraries(gagp_test_phase_register_gpu PRIVATE gagp_gpu)
+  add_test(NAME gagp_test_phase_register_gpu COMMAND gagp_test_phase_register_gpu)
+  set_tests_properties(gagp_test_phase_register_gpu PROPERTIES LABELS "contract;unit;gpu")
+
+  add_executable(gagp_test_fitness_accumulator_gpu tests/gpu/test_fitness_accumulator_gpu.cu)
+  target_link_libraries(gagp_test_fitness_accumulator_gpu PRIVATE gagp_gpu gagp_runtime_cpu)
+  add_test(NAME gagp_test_fitness_accumulator_gpu COMMAND gagp_test_fitness_accumulator_gpu)
+  set_tests_properties(gagp_test_fitness_accumulator_gpu PROPERTIES LABELS "contract;gpu;cpu_gpu_parity")
   target_link_libraries(gagp_test_gpu_phase_population PRIVATE gagp_cli_support)
   target_compile_definitions(gagp_test_gpu_phase_population PRIVATE GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
   add_test(NAME gagp_test_gpu_phase_population COMMAND gagp_test_gpu_phase_population)

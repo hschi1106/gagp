@@ -1,4 +1,5 @@
 #include <cmath>
+#include "../../src/evolution/repro/gpu/completed_fitness_reuse.hpp"
 #include <iostream>
 #include <limits>
 #include <random>
@@ -9,6 +10,8 @@
 #include "gagp/core/bytecode.hpp"
 #include "../../src/runtime/gpu/payload_workspace_budget.hpp"
 #include "../../src/runtime/gpu/case_sort_policy.hpp"
+#include "../../src/runtime/gpu/case_reuse.hpp"
+#include "../../src/runtime/gpu/shape_partition_cache.hpp"
 #include "gagp/core/value_semantics.hpp"
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 #include "gagp/runtime/payload/payload.hpp"
@@ -38,6 +41,29 @@ gagp::BytecodeProgram returns(const Value& value) {
       {gagp::Opcode::Return, 0, 0, false, false},
   };
   return program;
+}
+
+bool test_completed_fitness_revision() {
+  using gagp::evo::repro::CompletedFitnessReuse;
+  gagp::FitnessEvalResult completed;completed.ok=true;completed.fitness={-1,-2,-3};
+  CompletedFitnessReuse cache(true),disabled(false);
+  if(!check(cache.mapping(1).empty(),"cold completed fitness mapping reused"))return false;
+  cache.record(completed,1);disabled.record(completed,1);
+  if(!check(cache.mapping(1)==std::vector<int>({0,1,2}) && cache.mapping(2).empty() &&
+      cache.mapping(0).empty() && disabled.mapping(1).empty(),"completed fitness crossed revision or disabled scope"))return false;
+  cache.advance({2,-1,0});
+  if(!check(cache.mapping(1)==std::vector<int>({2,-1,0}),"exact parent mapping lost"))return false;
+  cache.advance({0,1,2});
+  if(!check(cache.mapping(1).empty(),"unscored generation gap reused stale parent indices"))return false;
+  cache.record(completed,1);
+  if(!check(cache.mapping(1)==std::vector<int>({0,1,2}),"fresh completion did not rebase generation"))return false;
+  completed.ok=false;cache.record(completed,1);
+  if(!check(cache.mapping(1).empty(),"failed evaluation became completed fitness"))return false;
+  completed.ok=true;cache.record(completed,2);cache.clear();
+  if(!check(cache.mapping(2).empty(),"cleared completed fitness retained entries"))return false;
+  bool rejected=false;try{cache.advance({0,3,1});}catch(const std::logic_error&){rejected=true;}
+  if(!check(rejected,"out-of-range proof parent was accepted"))return false;
+  return true;
 }
 
 bool test_arena_case_sort_proof() {
@@ -91,6 +117,104 @@ bool test_payload_workspace_budget() {
       "workspace zero capacity or overflow boundary");
 }
 
+bool test_integer_case_reuse() {
+  std::vector<Value> values(1024*64),answers;
+  std::vector<unsigned char> assigned(values.size(),0);
+  for(int i=0;i<1024;++i){values[i*64]=Value::from_int(i%7);assigned[i*64]=1;answers.push_back(Value::from_int(i%7+1));}
+  gagp::FitnessPolicy policy{gagp::FitnessMetric::Absolute};
+  using gagp::gpu_detail::integer_case_reuse_plan;
+  auto plan=integer_case_reuse_plan(values,assigned,answers,policy,1000);
+  unsigned total=0;double weighted=0,ordinary=0;
+  for(std::size_t i=0;i<plan.weights.size();++i){total+=plan.weights[i];
+    weighted+=plan.weights[i]*gagp::fitness_case_score(Value::from_int(0),answers[plan.representatives[i]],1000,policy);}
+  for(const auto answer:answers)ordinary+=gagp::fitness_case_score(Value::from_int(0),answer,1000,policy);
+  if(!check(plan.representatives.size()==7 && total==1024 && ordinary==weighted,"exact case multiplicity or score lost"))return false;
+  answers[0]=Value::from_int(99);
+  plan=integer_case_reuse_plan(values,assigned,answers,policy,1000);
+  if(!check(plan.representatives.size()==8,"case reuse merged different targets"))return false;
+  assigned[64]=0;
+  plan=integer_case_reuse_plan(values,assigned,answers,policy,1000);
+  if(!check(plan.representatives.size()==9,"case reuse merged missing effective bindings"))return false;
+  for(auto metric:{gagp::FitnessMetric::Legacy,gagp::FitnessMetric::TupleSummary,gagp::FitnessMetric::Levenshtein}) {
+    policy.metric=metric;
+    if(!check(integer_case_reuse_plan(values,assigned,answers,policy,1000).weights.empty(),"unproved metric admitted for weighted execution"))return false;
+  }
+  policy.metric=gagp::FitnessMetric::Absolute;policy.proximity=gagp::FitnessProximity::Discounted;
+  if(!check(integer_case_reuse_plan(values,assigned,answers,policy,1000).weights.empty(),"fractional policy admitted"))return false;
+  policy.proximity=gagp::FitnessProximity::Capped;
+  if(!check(integer_case_reuse_plan(values,assigned,answers,policy,.5).weights.empty() &&
+      integer_case_reuse_plan(values,assigned,answers,policy,1099511627776.0).weights.empty(),"fractional or excessive error bound admitted"))return false;
+  values[0]=Value::from_float(1.5);
+  return check(integer_case_reuse_plan(values,assigned,answers,policy,1000).weights.empty(),"floating input admitted for integer reuse");
+}
+
+bool test_shape_case_partition() {
+  std::vector<Value> values(1024*64);
+  std::vector<unsigned char> assigned(values.size(),0);
+  for(int i=0;i<1024;++i) {
+    values[i*64]=Value::from_int_list_hash_len(i+1,i%8);
+    values[i*64+1]=Value::from_int((i/8)%2);
+    assigned[i*64]=assigned[i*64+1]=1;
+  }
+  using gagp::gpu_detail::shape_case_plan;
+  auto plan=shape_case_plan(values,assigned);
+  if(!check(plan.representatives.size()==16 && plan.groups.size()==1024,
+      "shape partition must retain scalar bindings but ignore list contents"))return false;
+  for(int i=0;i<1024;++i) {
+    const auto representative=plan.representatives[plan.groups[i]];
+    if(!check(Value::container_len(values[i*64])==Value::container_len(values[representative*64]) &&
+        values[i*64+1].i==values[representative*64+1].i,"non-equivalent input shapes merged"))return false;
+  }
+  assigned[1]=0;
+  if(!check(shape_case_plan(values,assigned).representatives.size()==17,"missing scalar binding merged"))return false;
+  values[0].b=true;
+  if(!check(shape_case_plan(values,assigned).groups.empty(),"public offset view admitted without proof"))return false;
+  values[0]=Value::from_float(1.0);
+  if(!check(shape_case_plan(values,assigned).groups.empty(),"Float input shape admitted"))return false;
+  for(int i=0;i<1024;++i)values[i*64]=Value::from_int(i);
+  return check(shape_case_plan(values,assigned).groups.empty(),"insufficient repetition admitted for shape cache");
+}
+
+bool test_projected_shape_partitions() {
+  using gagp::gpu_detail::ShapePartitionCache;
+  std::vector<Value> values(128*64);
+  std::vector<unsigned char> assigned(values.size(),0);
+  for(int i=0;i<128;++i) {
+    values[i*64]=Value::from_int_list_hash_len(i+1,i%8);assigned[i*64]=1;
+    values[i*64+1]=Value::from_int(i);assigned[i*64+1]=1;
+  }
+  ShapePartitionCache cache;
+  const auto* projected=cache.find_or_add(values,assigned,1);
+  if(!check(projected && projected->count==8 && cache.dirty,"unused scalar prevented projected reuse"))return false;
+  const auto group_offset=projected->group_offset;
+  for(int i=0;i<128;++i)if(!check(cache.groups[group_offset+i]==i%8,"projected group mapping lost a case"))return false;
+  cache.dirty=false;
+  const auto* same=cache.find_or_add(values,assigned,1);
+  if(!check(same && same->count==8 && !cache.dirty && cache.groups.size()==128,
+      "existing partition was rebuilt or uploaded again"))return false;
+  if(!check(!cache.find_or_add(values,assigned,3) && cache.partitions.size()==2 && !cache.dirty,
+      "used varying scalar ignored or declined partition not cached"))return false;
+  values[1]=Value::from_float(1.25);assigned[65]=0;
+  cache.clear();
+  if(!check(cache.groups.empty() && cache.representatives.empty() && cache.partitions.empty() && !cache.dirty,
+      "new session retained old case partitions"))return false;
+  if(!check(cache.find_or_add(values,assigned,1) && !cache.find_or_add(values,assigned,3),
+      "unused Float/missing input was read, or used Float was admitted"))return false;
+  values[1]=Value::from_int(0);
+  for(int i=0;i<128;++i)values[i*64+1]=Value::from_int(i%2);
+  assigned[65]=1;cache.clear();
+  assigned[1]=0;
+  const auto* missing=cache.find_or_add(values,assigned,3);
+  if(!check(missing && missing->count==9,"used missing binding merged with a present binding"))return false;
+  cache.clear();
+  for(int i=0;i<64;++i)(void)cache.find_or_add(values,assigned,std::uint64_t{1}<<i);
+  if(!check(cache.partitions.size()==64 && !cache.find_or_add(values,assigned,0),
+      "partition-count cap did not bound session metadata"))return false;
+  cache.clear();cache.groups.resize(ShapePartitionCache::max_metadata_ints-1);
+  return check(!cache.find_or_add(values,assigned,1) && cache.groups.size()==ShapePartitionCache::max_metadata_ints-1 && !cache.dirty,
+      "partition upload exceeded the4MiB GPU metadata cap");
+}
+
 bool test_exact_length_bound() {
   std::mt19937 random(2718);
   const double penalties[] = {0, -0.0, .25, 1, 2.5, -3, 20,
@@ -126,7 +250,7 @@ bool test_exact_length_bound() {
 }  // namespace
 
 int main() {
-  if(!test_arena_case_sort_proof() || !test_payload_workspace_budget() || !test_exact_length_bound())return 1;
+  if(!test_completed_fitness_revision() || !test_arena_case_sort_proof() || !test_payload_workspace_budget() || !test_exact_length_bound() || !test_integer_case_reuse() || !test_shape_case_partition() || !test_projected_shape_partitions())return 1;
   gagp::payload::clear();
   if (!score_is(Value::from_int(3), Value::from_int(3), 0.0, "numeric exact")) return 1;
   if (!score_is(Value::from_float(7.5), Value::from_int(5), -2.5,

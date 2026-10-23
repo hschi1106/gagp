@@ -2,6 +2,90 @@
 
 This document explains how C++ runtime container values work under `cpp/` and how the exact and fallback paths interact.
 
+## Adjacent immutable private IntList storage
+
+`GAGP_GPU_PRIVATE_ADJACENT_CONCAT=1` permits an admitted private compact,
+contiguous IntList evaluator to join adjacent immutable spans by returning a
+combined span. Interleaved compact cells decline this option. Type, encoded
+length, logical allocation charges and original capacity/overflow checks still
+run in their original order; the optimization never increases the admitted
+list budget or removes a replay. No public payload identity changes.
+
+The arena tracks ordinary reserved cells separately from physically written
+cells. Singleton and non-adjacent concat append to physical storage. A generic
+allocation synchronizes the physical cursor to the ordinary boundary. Returning
+from a scalar region conservatively restarts at its saved ordinary boundary;
+older live spans remain below that boundary. Handles are private to the proven
+whole program; memoized IntList states are excluded by existing admission.
+
+Ownership and operation checks live in `device/builtins_device.cuh`; the
+workspace admission and profile marker are in `fitness_gpu.cu`. These paths are
+relative to `cpp/src/runtime/gpu/`. `gagp_test_extended_payload_gpu` contains an
+independent CPU-vector trace and an append/prepend positive witness retaining
+all immutable prefixes with64 actual cells and2143 reserved/charged cells.
+`gagp_test_gpu_phase_population` compares ON/OFF fitness, wrong counts and case
+coverage throughout evolving private-list owners, alongside its CPU audits.
+Actual test results and search speed remain separate study evidence.
+
+## Private compact-cell interleaving
+
+`GAGP_GPU_PRIVATE_CELL_SOA=1` changes only the physical layout of an admitted
+private compact IntList arena. Within each physical CUDA block, lane `t` stores
+its logical cell `i` at `block_base + i * block_width + t`. Each lane retains
+the same logical capacity; total allocation, list handles, allocation charges,
+overflow/replay decisions and frame/memo ownership keep their existing rules.
+Program scheduling cannot transfer a block's scratch columns to another block.
+
+Private spans carry a stride for compact local cells. Immutable boxed input and
+answer tables remain contiguous. Singleton, concat, slicing, indexing, and
+resident scoring respect the stride; restoring the logical cell cursor restores
+the same lifetime boundary. Cooperative contiguous copying is used only when
+both source and target are contiguous. A strided copy uses the ordinary owner
+loop. The option declines when compact private-list admission is unavailable,
+and `execution_profile` records `private-cell-soa` or `private-cell-soa-declined`.
+
+The ownership/boundary checks are in `private_intlist_offset_checks.cuh` through
+`gagp_test_extended_payload_gpu`: one-lane and 32-lane boxed/compact storage,
+contiguous/interleaved local cells, nested windows, wide integers, resident
+distance scores, cursor restoration and logical/physical overflow. The
+`gagp_test_gpu_phase_population` private-owner evolution fixtures also enable
+the option while retaining their CPU and genotype checks. Test commands and
+measured speed are recorded separately; enabling this layout is not a speed
+claim.
+
+## Private short-pattern edit distance
+
+`GAGP_GPU_SHORT_EDIT_DISTANCE=1` enables an exact scoring path for private
+IntList Levenshtein fitness. Session initialization prepares a sorted dictionary
+of full signed Int64 values and 64-bit position masks from the same decoded,
+immutable answer cache used for GPU upload. Each original case retains its own
+descriptor, so input-case permutations still select the correct answer. Session
+reinitialization clears/rebuilds the tables and invalidates prior fitness reuse.
+Preparation and upload remain inside the ordinary initialization timing; these
+immutable answer tables do not reduce the configured payload workspace cap.
+
+Whole-sequence distance for answers of at most 64 elements uses a one-word
+bit-vector update, with the global-alignment boundary. Longer answers retain
+the original full DP; inputs are never truncated. Equal and empty sequences
+have exact shortcuts after the existing answer-length and penalty guards.
+The result still uses the same capped/discounted conversion and wrong-count
+rules. Evaluation fuel, payload allocations, errors, genotype operators and RNG
+are unaffected by this post-execution scoring calculation.
+
+Descriptors must match the expected raw tag/token/marker and decoded length,
+with in-bounds dictionary entries. Internal/private-marker answers decline
+dictionary preparation and keep ordinary scoring. The runtime does not trust
+caller-supplied program metadata for this optimization. The word update follows
+[Myers (1999)](https://doi.org/10.1145/316542.316550), applied here to full-width
+integer equality rather than a byte alphabet.
+
+The implementation is in `short_edit_distance.hpp`, `short_edit_patterns.hpp`
+and `device/short_edit_device.cuh` under `cpp/src/runtime/gpu/`. Runtime tests
+include `gagp_test_extended_payload_gpu` for 0/63/64/65-element labels, wide
+integers, capped/discounted scores, case ordering and reinitialization, and
+`gagp_test_gpu_phase_population` for native CPU checks of evolving list phases.
+Actual test results and full-search speed remain separate evidence.
+
 ## Why This Layer Exists
 
 `gagp::Value` must stay compact and trivially copyable so it can move through:
@@ -1019,3 +1103,181 @@ reserves those 32 slots plus any active phase cache. Untiled arena evaluation
 still reserves all logical fitness lanes, independent of its physical warp size;
 shrinking untiled storage to the 32 physical threads is unsafe. The phase cache
 starts after the score slots. Case partitions and canonical reductions are unchanged.
+
+### Optional coalesced fitness counters
+
+`GAGP_GPU_COALESCED_COUNTS=1` accumulates integer case, wrong, error, timeout
+and fallback counts per physical lane, then combines them within each physical
+warp before updating the program's counters. Partial warps and lanes with no
+cases remain covered. Unset or other values retain per-case atomic updates.
+The profile appends `-coalesced-counts`; logical case partitions, floating-point
+fitness accumulation/reduction, payload overflow reporting and replay resets
+are unchanged. This is an execution optimization, not a search-rule change.
+
+GPU accumulator canonicalization also returns integral values in the closed
+interval `[-2^48, 2^48]` directly: the existing 48-bit quantization retains all
+such integers exactly. Fractional and larger values use the original rule.
+`gagp_test_fitness_accumulator_gpu` compares both rules at the device bit level;
+fitness parity covers partial physical warps and errors/timeouts, and the native
+phase-population test compares complete counters across changing private lists.
+
+### Optional exact reuse of repeated integer cases
+
+`GAGP_GPU_INTEGER_CASE_REUSE=1`, fixed at GPU session initialization, groups
+identical effective bindings and expected values. It requires at least128 cases,
+at least fourfold repetition, Exact or Absolute/Capped fitness, integral error
+ceilings, and a bounded total absolute score below `2^40`. Every evaluation must
+also pass the existing whole-population Int/Bool/list-view type-flow proof;
+generic, Float, fractional, TupleSummary and arena routes retain ordinary work.
+
+The typed view kernel executes one representative with its integer multiplicity.
+Fitness, wrong, errors and timeouts preserve every original case's contribution.
+Integral weighted sums are exact under the original48-bit accumulator, permitting
+a smaller physical block without changing a score. No examples are discarded,
+no labels are changed, and no result is reused across programs or generations.
+Fuel and logical resource limits remain per invocation. The profile appends
+`-integer-case-reuse` or `-integer-case-reuse-declined`; `physical_case_count` and
+evolution `physical_program_cases` disclose initial physical work separately
+from the original logical case counts and overflow replay work.
+
+Host fitness-contract tests cover multiplicities, differing targets/missing
+bindings and rejected policies. The native GPU phase-population regression
+compares32 changing generations against full-case GPU and independent CPU scores.
+
+### Guarded integer arithmetic and simple private phases
+
+GPU integer division and modulo use a shared helper in
+`integer_arithmetic.cuh`. Zero, unit and signed-power-of-two divisors retain
+their protected/wrapping rules; operands that both fit signed32 use a32-bit
+operation after the overflow cases have been handled. Other operands retain
+full64-bit arithmetic. The device oracle compares all four variants against
+the CPU rules, including `INT64_MIN`, negative divisors and full-width values.
+
+`GAGP_GPU_SIMPLE_PHASES=1` optionally executes a proven single-operation private
+phase directly. Fresh metadata recognizes one to three bound/literal operands,
+their optional type checks, one admitted integer/list primitive and optional
+Return. Complete private typeflow and global IntList normalization are required;
+other phases retain the existing VM. Each original instruction consumes its
+fuel in order, used parameters retain lazy name/type checks, and list primitives
+use the same allocation, charging and overflow-replay helpers. No phase result
+is memoized and reproduction is unchanged. Metadata is cleared and rebuilt
+after every generation. The default is off; profiles append `-simple-phases`
+or `-simple-phases-declined`. `simple_phase_count` counts admitted static phases,
+not dynamic invocations. Native phase-population checks compare enabled/disabled
+execution, low-fuel behavior and independent CPU scores over changing generations.
+
+### Optional shape-only root result cache
+
+`GAGP_GPU_SHAPE_RESULT_CACHE=1`, fixed at session initialization, partitions
+cases by all effective scalar bindings, assignment bits, tags and IntList
+lengths. At least128 cases and fourfold repetition are required, with at most256
+groups. Fresh complete typed-view and direct-root admission is followed by a
+closed primitive check over every phase. Element reads, container identity
+operations, list-key memoization and non-scalar results decline. Unresolved or
+saturated65536-cell backing extents and public offset descriptors also decline.
+A verified literal-true base predicate needs only its base body and boundary:
+cut/request/combine phases remain unreachable, retaining the original predicate
+fuel and timeout checks. A content read in a reachable phase still declines.
+
+For an admitted program, a block executes the original root once per input
+group, with the original invocation fuel, and stores only its scalar result or
+error in shared memory. Each original case then uses its own expected answer,
+status counters, original reduction lane and ordered canonical score update.
+Fractional scoring is therefore retained without a new weighted reduction.
+Private payload descriptors are never cached. No result survives a program or
+generation boundary. Existing repeated-case scheduling must still offer at
+least fourfold additional work reduction before this cache is used.
+
+The profile appends `-shape-result-cache` or `-shape-result-cache-declined`.
+`shape_result_programs` and `shape_result_groups` disclose admission;
+`physical_program_cases` counts actual initial root executions across the
+population, while `physical_case_count` retains the earlier case-scheduling
+count. Logical case counters and overflow replay remain separate. Native tests
+cover different list contents/labels, content-dependent exclusions, fractional
+scoring, fuel boundaries, saturated payload extents and changing populations.
+
+### Optional512-thread view register specialization
+
+`GAGP_GPU_RELAXED_VIEW_REGISTERS=1` selects an additional typed direct-root
+kernel compiled with a512-thread launch bound when its actual physical block
+fits. It gives the compiler a different register/occupancy tradeoff. The actual
+block width, logical case lanes, instruction/fuel semantics, score reduction,
+operators and workspace cap are unchanged. Wider blocks retain the original
+1024-thread-capable kernel. Arena execution retains its original32-thread bound.
+Profiles append `-view-reg512` or `-view-reg512-declined`. Dedicated differential
+tests cover enabled/disabled512 execution and the1024 fallback; changing-generation
+CPU audits exercise the specialization as well. A resource or speed improvement
+must be measured; the launch-bound change alone is not evidence of a gain.
+
+
+### Optional projected shape inputs
+
+With `GAGP_GPU_SHAPE_RESULT_CACHE=1`, session-fixed
+`GAGP_GPU_PROJECT_SHAPE_INPUTS=1` can omit unused caller locals from input-shape
+keys. Fresh direct-root LOADs always remain dependencies. Each reachable phase
+adds Parameter bindings only when its bytecode LOADs that binding; a verified
+literal-true base predicate excludes its unreachable cut/request/combine.
+Boundary dependencies remain included. Complete existing typeflow is still
+required; this dependency check cannot grant admission to a missing or wrongly
+typed parameter that the existing profile declines.
+
+The session retains partitions by64-bit input mask, including declined masks,
+with at most64 partitions and4MiB total GPU group/representative metadata.
+GPU metadata is uploaded again only when an admitted partition is added.
+Reinitializing a session clears every partition. Program metadata selects its
+own group offsets/count; shared result storage fits the largest admitted group.
+Actual root executions remain in `physical_program_cases`;
+`shape_result_groups` reports the maximum admitted count in that evaluation.
+No scalar result/error survives a program or generation boundary. Per-case
+labels, logical coverage, original ordered score updates and the additional
+fourfold-saving threshold remain unchanged.
+
+### Optional private arena compilation geometry
+
+`GAGP_GPU_PRIVATE_LAUNCH_BOUND` accepts0(default),32,512 or1024. The setting
+chooses a separately compiled indexed-arena kernel for admitted private lists;
+both initial evaluation and indexed payload replay use the selected bound.
+It changes the compiler's register allocation constraint. Physical launches
+remain32 threads, with the same workspace, logical score lanes, case order,
+fuel and allocation limits. Nonprivate programs keep the ordinary specialization.
+Invalid values return a configuration error; profiles append
+`-private-launch32/512/1024` when the private arena path applies, otherwise
+`-private-launch-declined`. Static register counts and runtime gains require
+measurement; this option does not imply higher occupancy or faster execution.
+
+`gagp_test_bounded_region_gpu` compares CPU results, counters, low fuel, overflow
+replay and private window boundaries for512/1024. The phase-population regression
+also compares these kernels across changing GPU-generated populations.
+
+### Optional small phase register banks
+
+`GAGP_GPU_REGISTER_PHASE_STACK=1` adds a typed phase implementation for fresh
+verified stack bounds1..4 and at most8 locals. It uses explicit64-bit fields for
+four operand slots and eight local slots, retaining the original bytecode,
+branching, builtin allocation, fuel and error ordering. Used input presence and
+private parameter type checks remain lazy. Other phases retain the array-backed
+VM; generic/Float programs do not acquire typed admission through this flag.
+The profile appends `-register-phase-stack` or its `-declined` suffix. Fixed
+fields permit compiler register allocation; they do not guarantee a resource or
+speed improvement. Device storage-oracle, low-fuel, private list, hybrid stack
+and changing-generation CPU/GPU tests cover this path.
+
+### Optional physical view blocks with fixed logical score lanes
+
+`GAGP_GPU_VIEW_PHYSICAL_BLOCK` accepts0(default),32,64,128,256 or512. Typed view
+execution can use up to that many physical threads while retaining the original
+logical fitness lane count. Each physical thread visits separate logical lanes;
+each logical lane retains its original ordered case accumulation. Strided case
+iteration advances by logical lanes, and shared score storage reserves every
+logical lane before the original warp/final reduction. Private arenas retain
+their existing32-thread execution and replay rules.
+
+This setting changes concurrency and scratch slot geometry, not case coverage,
+score reduction, fuel, reproduction or search parameters. Workspace allocation
+uses physical threads; complete logical score slots remain in shared memory.
+The profile records `-physical-viewN` or `-physical-view-declined`;
+`physical_blocksize` records the initial launch width while benchmark
+`gpu_blocksize`/CPU-audit reduction lanes retain the configured logical width.
+Tests cover partial case counts, sorted integral and ordered fractional scoring,
+32/64/128/256 physical widths,1024 logical lanes, invalid settings and fresh
+GPU-produced populations.

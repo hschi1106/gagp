@@ -5,6 +5,13 @@ namespace gagp::evo {
 
 void accumulate_timing(EvaluationTiming* total, const EvaluationTiming& value) {
   total->program_cases += value.program_cases;
+  total->physical_program_cases += value.physical_program_cases;
+  total->simple_phase_count += value.simple_phase_count;
+  total->physical_blocksize=std::max(total->physical_blocksize,value.physical_blocksize);
+  total->fitness_reused_programs+=value.fitness_reused_programs;
+  total->fitness_reused_program_cases+=value.fitness_reused_program_cases;
+  total->shape_result_programs += value.shape_result_programs;
+  total->shape_result_groups += value.shape_result_groups;
   for(std::size_t i=0;i<total->concat_cache_stats.size();++i)
     total->concat_cache_stats[i] += value.concat_cache_stats[i];
   total->payload_workspace_retained_bytes=std::max(total->payload_workspace_retained_bytes,value.payload_workspace_retained_bytes);

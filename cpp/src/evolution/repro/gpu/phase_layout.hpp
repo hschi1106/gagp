@@ -206,7 +206,7 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   const auto& execution_inputs = evaluator_inputs ? *evaluator_inputs : inputs;
   // Admission above still checks this grammar/request. Executable reuse adds
   // its own exact AST, scalar-constant, input-order and fuel identity check.
-  const auto executable = std::getenv("GAGP_REUSE_IMPORT_CERTIFICATE")
+  const auto executable = !cold_executable && std::getenv("GAGP_REUSE_IMPORT_CERTIFICATE")
       ? admitted_bytecode_for_eval(source, execution_inputs, grammar.execution_limits().fuel)
       : nullptr;
   result.executable = cold_executable ? *cold_executable : executable ? *executable : compile_for_eval(source, verified, execution_inputs);

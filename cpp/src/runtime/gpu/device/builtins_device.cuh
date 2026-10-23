@@ -38,11 +38,15 @@ struct DThreadPayloadStateT {
   bool physical_capacity_exceeded = false;
   unsigned physical_capacity_reason = 0;
   bool fused_list_concat = false;
+  bool private_adjacent_concat = false;
+  int private_cells_used = 0;
+  int private_cursor_checkpoint = 0;
   bool small_int_hash = false;
   static constexpr bool private_intlists = false;
   static constexpr bool private_bound_phases = false;
   static constexpr bool compact_intlist_cells = false;
   static constexpr const std::int64_t* intlist_cells = nullptr;
+  static constexpr int private_cell_stride = 1;
   bool alias_windows = false;
   char string_bytes[(MaxStringBytes > 0) ? MaxStringBytes : 1];
   Value list_values[(MaxListValues > 0) ? MaxListValues : 1];
@@ -73,7 +77,9 @@ struct DArenaPayloadState {
   bool private_typed_phases = false;
   bool compact_intlist_cells = false;
   bool private_warp_copy = false;
+  bool simple_phases = false;
   std::int64_t* intlist_cells = nullptr;
+  int private_cell_stride = 1;
   bool alias_windows = false;
   static constexpr int kMaxStringEntries = 1;
   static constexpr int kMaxListEntries = 1;
@@ -90,6 +96,9 @@ struct DArenaPayloadState {
   bool physical_capacity_exceeded = false;
   unsigned physical_capacity_reason = 0;
   bool fused_list_concat = false;
+  bool private_adjacent_concat = false;
+  int private_cells_used = 0;
+  int private_cursor_checkpoint = 0;
   bool small_int_hash = false;
 };
 
@@ -632,6 +641,12 @@ __device__ inline void d_restore_local_list_storage(State& st,int entries,int va
   if(st.list_entry_count!=entries || st.list_values_used!=values)d_clear_concat_cache(st);
   d_restore_local_list_entries(st,entries);
   st.list_values_used=values;
+  if(st.private_adjacent_concat) {
+    // A scalar-return rewind invalidates newly allocated lists. Older live
+    // spans end before this reservation boundary. Conservatively restart
+    // physical allocation at the ordinary boundary, losing only compression.
+    st.private_cells_used=values;st.private_cursor_checkpoint=values;
+  }
 }
 
 template <typename State>
@@ -680,8 +695,9 @@ struct DPrivateIntListSpan {
   const Value* boxed=nullptr;
   const std::int64_t* integers=nullptr;
   int size=0;
+  int stride=1;
   template<bool Compact> __device__ std::int64_t read(int index) const {
-    if constexpr (Compact)return integers[index];
+    if constexpr (Compact)return integers[static_cast<std::size_t>(index)*stride];
     else return boxed[index].i;
   }
   __device__ std::int64_t at(int index) const {
@@ -706,7 +722,8 @@ __device__ inline bool d_private_intlist_span(const DPayloadTables& tables,
   span={};span.size=length;
   if(!global && state.compact_intlist_cells) {
     if(length && !state.intlist_cells)return false;
-    span.integers=state.intlist_cells?state.intlist_cells+offset:nullptr;
+    span.stride=state.private_cell_stride;
+    span.integers=state.intlist_cells?state.intlist_cells+static_cast<std::size_t>(offset)*span.stride:nullptr;
   } else {
     const auto* backing=global?tables.list_values:state.list_values;
     if(length && !backing)return false;
@@ -718,9 +735,9 @@ __device__ inline bool d_private_intlist_span(const DPayloadTables& tables,
 // Cooperative calls require checked CUDA-global pointers: an append-only compact
 // target and a source that remains immutable for the captured group.
 __device__ inline void d_copy_private_intlist(std::int64_t* target,const DPrivateIntListSpan& source,
-    bool cooperative=false) {
+    bool cooperative=false,int target_stride=1) {
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
-  if(cooperative) {
+  if(cooperative && target_stride==1 && source.stride==1) {
     // Opportunistic membership only: never assume all branch entrants, matching
     // VM positions, or equal spans. Every sampled member executes all collectives.
     const unsigned mask=__activemask();const int participants=__popc(mask);
@@ -749,8 +766,8 @@ __device__ inline void d_copy_private_intlist(std::int64_t* target,const DPrivat
     }
   }
 #endif
-  if(source.integers)for(int i=0;i<source.size;++i)target[i]=source.read<true>(i);
-  else for(int i=0;i<source.size;++i)target[i]=source.read<false>(i);
+  if(source.integers)for(int i=0;i<source.size;++i)target[static_cast<std::size_t>(i)*target_stride]=source.read<true>(i);
+  else for(int i=0;i<source.size;++i)target[static_cast<std::size_t>(i)*target_stride]=source.read<false>(i);
 }
 
 template <typename State>
@@ -828,6 +845,12 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     if(st.private_intlists && (bid==BuiltinId::Singleton || bid==BuiltinId::Concat || bid==BuiltinId::Slice ||
         bid==BuiltinId::Index || bid==BuiltinId::IndexNonnegative || bid==BuiltinId::IndexClampedOrZero)) {
       DPrivateIntListSpan a,b;
+      if(st.private_adjacent_concat && st.list_values_used!=st.private_cursor_checkpoint) {
+        // A generic allocation or external initialization changed the ordinary
+        // cursor. Its writes are beyond all older compressed spans.
+        st.private_cells_used=st.list_values_used;
+        st.private_cursor_checkpoint=st.list_values_used;
+      }
       if(bid==BuiltinId::Singleton) {
         if(argc!=1 || args[0].tag!=ValueTag::Int){err=ErrCode::Type;return false;}
         if(!d_charge_list_allocation(st,1)){err=ErrCode::Value;return false;}
@@ -835,8 +858,10 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
           st.physical_capacity_exceeded=true;st.physical_capacity_reason|=DPAYLOAD_OVERFLOW_VALUES;
           err=ErrCode::Value;return false;
         }
-        const int offset=st.list_values_used++;
-        if(st.compact_intlist_cells)st.intlist_cells[offset]=args[0].i;
+        const int offset=st.private_adjacent_concat?st.private_cells_used++:st.list_values_used;
+        ++st.list_values_used;
+        if(st.private_adjacent_concat)st.private_cursor_checkpoint=st.list_values_used;
+        if(st.compact_intlist_cells)st.intlist_cells[static_cast<std::size_t>(offset)*st.private_cell_stride]=args[0].i;
         else st.list_values[offset]=args[0];
         out=d_private_intlist(offset,1);return true;
       }
@@ -885,15 +910,36 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         st.physical_capacity_exceeded=true;st.physical_capacity_reason|=DPAYLOAD_OVERFLOW_VALUES;
         err=ErrCode::Value;return false;
       }
-      const int offset=st.list_values_used;
+      if(st.private_adjacent_concat) {
+        const auto abits=Value::container_hash48(args[0]);
+        const auto bbits=Value::container_hash48(args[1]);
+        const bool aglobal=!args[0].b || (abits&DPRIVATE_LIST_GLOBAL)!=0;
+        const bool bglobal=!args[1].b || (bbits&DPRIVATE_LIST_GLOBAL)!=0;
+        const bool adjacent=aglobal==bglobal && (aglobal || !st.compact_intlist_cells?
+            a.boxed+n==b.boxed:
+            a.stride==b.stride && a.integers+static_cast<std::size_t>(n)*a.stride==b.integers);
+        if(adjacent) {
+          const int offset=args[0].b?static_cast<int>(abits&DPRIVATE_LIST_OFFSET_MASK):
+              static_cast<int>(a.boxed-tables.list_values);
+          // Keep EXACT ordinary reservation/charge/overflow behavior. Only
+          // physical writes and the opaque private backing offset change.
+          st.list_values_used+=n+m;st.private_cursor_checkpoint=st.list_values_used;
+          out=d_private_intlist(offset,n+m,aglobal);return true;
+        }
+      }
+      const int offset=st.private_adjacent_concat?st.private_cells_used:st.list_values_used;
       if(st.compact_intlist_cells) {
-        d_copy_private_intlist(st.intlist_cells+offset,a,st.private_warp_copy);
-        d_copy_private_intlist(st.intlist_cells+offset+n,b,st.private_warp_copy);
+        d_copy_private_intlist(st.intlist_cells+static_cast<std::size_t>(offset)*st.private_cell_stride,a,st.private_warp_copy,st.private_cell_stride);
+        d_copy_private_intlist(st.intlist_cells+static_cast<std::size_t>(offset+n)*st.private_cell_stride,b,st.private_warp_copy,st.private_cell_stride);
       } else {
         for(int i=0;i<n;++i)st.list_values[offset+i]=a.boxed[i];
         for(int i=0;i<m;++i)st.list_values[offset+n+i]=b.boxed[i];
       }
-      st.list_values_used+=n+m;out=d_private_intlist(offset,n+m);return true;
+      st.list_values_used+=n+m;
+      if(st.private_adjacent_concat) {
+        st.private_cells_used+=n+m;st.private_cursor_checkpoint=st.list_values_used;
+      }
+      out=d_private_intlist(offset,n+m);return true;
     }
   }
 
@@ -1010,9 +1056,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     if (b.i == 0) {
       out = Value::from_int(0);
     } else if (bid == BuiltinId::TruncDiv0 || bid == BuiltinId::TruncMod0) {
-      out=Value::from_int(bid==BuiltinId::TruncDiv0 ? vm_semantics::trunc_int_div0(a.i,b.i) : vm_semantics::trunc_int_mod0(a.i,b.i));
+      out=Value::from_int(bid==BuiltinId::TruncDiv0 ? d_trunc_int_div0(a.i,b.i) : d_trunc_int_mod0(a.i,b.i));
     } else if (bid == BuiltinId::IDiv0) {
-      out = Value::from_int(vm_semantics::wrap_int_div(a.i, b.i));
+      out = Value::from_int(d_wrap_int_div(a.i, b.i));
     } else {
       out = Value::from_int(d_int_mod(a.i, b.i));
     }

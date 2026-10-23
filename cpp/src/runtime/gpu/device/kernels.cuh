@@ -3,19 +3,9 @@
 #include <cmath>
 #include "gagp/core/fitness_policy.hpp"
 #include "execute_bytecode_device.cuh"
+#include "fitness_accumulator.cuh"
 
 namespace gagp::gpu_detail {
-
-__device__ inline double d_canonicalize_fitness_accumulator(double value) {
-  if (!isfinite(value) || value == 0.0) {
-    return value == 0.0 ? 0.0 : value;
-  }
-  int exponent = 0;
-  const double mantissa = frexp(value, &exponent);
-  constexpr int kMantissaBits = 48;
-  const long long quantized_mantissa = llround(ldexp(mantissa, kMantissaBits));
-  return ldexp(static_cast<double>(quantized_mantissa), exponent - kMantissaBits);
-}
 
 // Validation is per block/program, alongside normal evaluation preparation.
 // Public metadata never grants this shortcut: the normal host verifier and
@@ -62,11 +52,11 @@ __device__ inline bool d_measure_cache_eligible(const DRegionPhase& phase,
   return true;
 }
 
-template <DPayloadFlavor Flavor, bool EnableRegions = false, bool DirectRoot = false>
+template <DPayloadFlavor Flavor, bool EnableRegions = false, bool DirectRoot = false,
+    int LaunchThreads = (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) ? 32 : 1024>
 // Arena kernels always launch one physical warp; reserving resources for a
 // hypothetical 1024-thread block needlessly constrains registers in this VM.
-__global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
-    Flavor == DPayloadFlavor::IndexedArena) ? 32 : 1024) void evaluate_fitness_programs_impl(
+__global__ __launch_bounds__(LaunchThreads) void evaluate_fitness_programs_impl(
     int program_count,
     const Value* all_consts, const DInstr* all_code, const DProgramMeta* metas,
     const Value* shared_case_local_vals, const unsigned char* shared_case_local_set,
@@ -83,14 +73,23 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
     const DRegionPhaseBinding* region_bindings = nullptr, int region_binding_count = 0,
     DRegionWorkspace workspace = {}, unsigned int* case_counts = nullptr, const int* case_order = nullptr, const int* program_indices = nullptr, int* next_program = nullptr) {
   const int tid = static_cast<int>(threadIdx.x);
-  const int fitness_lanes = (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) ? workspace.fitness_lanes : blockDim.x;
+  const int fitness_lanes = workspace.fitness_lanes>0?workspace.fitness_lanes:static_cast<int>(blockDim.x);
   if constexpr ((Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena)) {
     const std::size_t slot = static_cast<std::size_t>(blockIdx.x) * blockDim.x + tid;
     if(workspace.payload_string_entries)workspace.payload_string_entries += slot * workspace.payload_entry_capacity;
     if(workspace.payload_list_entries)workspace.payload_list_entries += slot * workspace.payload_entry_capacity;
     if(workspace.payload_string_bytes)workspace.payload_string_bytes += slot * workspace.payload_byte_capacity;
     if(workspace.payload_list_values)workspace.payload_list_values += slot * workspace.payload_value_capacity;
-    if(workspace.payload_intlist_cells)workspace.payload_intlist_cells += slot * workspace.payload_value_capacity;
+    if(workspace.payload_intlist_cells) {
+      // Same number of cells and capacity per lane. Consecutive lanes own
+      // different columns, so element i is coalesced across the physical block.
+      // Program scheduling/replay never changes a block's scratch ownership.
+      if(workspace.private_cell_soa) {
+        workspace.payload_intlist_cells += static_cast<std::size_t>(blockIdx.x)*blockDim.x*
+            workspace.payload_value_capacity+tid;
+        workspace.private_cell_stride=blockDim.x;
+      } else workspace.payload_intlist_cells += slot * workspace.payload_value_capacity;
+    }
     if(workspace.concat_cache)workspace.concat_cache+=slot*DCONCAT_CACHE_SLOTS;
     if constexpr (Flavor == DPayloadFlavor::IndexedArena) {
       if(workspace.payload_list_epoch_index) {
@@ -147,6 +146,22 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
     __syncthreads();
   }
   const DProgramMeta meta = metas[prog_idx];
+  if(meta.reuse_completed_fitness) {
+    // The following tiled reduction still visits every logical slot. Give it
+    // a defined neutral value even though host copyback restores this score.
+    if(tiled_replay && tid==0)workspace.replay_warp_scores[logical_idx]=0.0;
+    // This is block-uniform. Initial buffers remain zero for skipped rows;
+    // exact completed scores/logical counters are restored after copyback.
+    if(next_program) {
+      // Reuse the already-admitted dynamic code/score scratch. Adding
+      // static shared storage would reduce the public shared-memory limit.
+      extern __shared__ unsigned char reuse_queue_scratch[];
+      auto* next_reused_program=reinterpret_cast<int*>(reuse_queue_scratch);
+      if(tid==0)*next_reused_program=atomicAdd(next_program,1);
+      __syncthreads();logical_idx=static_cast<std::size_t>(*next_reused_program);__syncthreads();
+    } else {logical_idx+=gridDim.x;__syncthreads();}
+    continue;
+  }
   const DPayloadTables payload_tables{
       string_payload_entries,
       string_payload_entry_count,
@@ -163,6 +178,7 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
       region_phases, region_phase_count,
       region_bindings, region_binding_count,
   };
+  execution_tables.register_phase_stack=workspace.register_phase_stack;
 
   extern __shared__ DInstr shared_code[];
   if (meta.is_valid && meta.code_len > 0) {
@@ -220,6 +236,8 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
             cache_payload_state.private_bound_phases=workspace.private_bound_phases;
             cache_payload_state.private_typed_phases=workspace.private_typed_phases;
             cache_payload_state.private_warp_copy=workspace.private_warp_copy;
+            cache_payload_state.private_adjacent_concat=workspace.private_adjacent_concat;
+            cache_payload_state.simple_phases=workspace.simple_phases;
           }
           int remaining = fuel;
           const auto result = d_region_phase<Flavor>(region_segments[meta.region_offset],
@@ -242,8 +260,23 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
     }
   }
 
+  DResult* shape_results=nullptr;
+  if constexpr(DirectRoot) {
+    if(meta.shape_result_cache && workspace.shape_result_count>0) {
+      shape_results=reinterpret_cast<DResult*>(shared_bytes+workspace.shape_result_offset);
+      for(int group=tid;group<meta.shape_case_count;group+=blockDim.x) {
+        const int input=workspace.shape_case_representatives[meta.shape_representative_offset+group];
+        shape_results[group]=d_execute_region_root(meta,shared_code,all_consts,shared_case_local_vals,
+            shared_case_local_set,payload_tables,execution_tables,input,fuel,workspace);
+      }
+      __syncthreads();
+    }
+  }
   const int lane_begin = tiled_replay ? tile * 32 : 0;
   const int lane_end = tiled_replay ? min(lane_begin + 32, fitness_lanes) : fitness_lanes;
+  unsigned int local_counts[6] = {};
+  unsigned int* counts = case_counts ? case_counts + prog_idx * 6 : nullptr;
+  const bool coalesce_counts = counts && workspace.coalesce_case_counts;
   for (int logical_tid = lane_begin + tid; logical_tid < lane_end; logical_tid += blockDim.x) {
   double local_score = 0.0;
   const int chunk_start = (meta.case_count * logical_tid) / fitness_lanes;
@@ -251,8 +284,9 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
   const bool strided = (Flavor == DPayloadFlavor::IntListViews || Flavor == DPayloadFlavor::BoundIntListViews) && case_order;
   const int case_begin = strided ? logical_tid : chunk_start;
   const int case_end = strided ? meta.case_count : chunk_end;
-  const int case_step = strided ? static_cast<int>(blockDim.x) : 1;
+  const int case_step = strided ? fitness_lanes : 1;
   for (int local_case = case_begin; local_case < case_end; local_case += case_step) {
+    const unsigned weight = workspace.integer_case_weights ? workspace.integer_case_weights[local_case] : 1u;
     int input_case = local_case;
     if constexpr (Flavor == DPayloadFlavor::IntListViews || Flavor == DPayloadFlavor::BoundIntListViews ||
                   Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena)
@@ -261,8 +295,9 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
     double resident_score = 0;
     bool exact=false;
     if constexpr (DirectRoot) {
-      result = d_execute_region_root(meta, shared_code, all_consts, shared_case_local_vals,
-          shared_case_local_set, payload_tables, execution_tables, input_case, fuel, workspace);
+      result = shape_results?shape_results[workspace.shape_case_groups[meta.shape_case_group_offset+input_case]]:
+          d_execute_region_root(meta, shared_code, all_consts, shared_case_local_vals,
+              shared_case_local_set, payload_tables, execution_tables, input_case, fuel, workspace);
       if(!result.is_error) {
         resident_score=fitness_case_score(result.value,shared_answer[input_case],penalty,policy);
         exact=fitness_case_score(result.value,shared_answer[input_case],penalty,{FitnessMetric::Exact})==0;
@@ -282,23 +317,50 @@ __global__ __launch_bounds__((Flavor == DPayloadFlavor::ArenaMixed ||
             prog_idx * workspace.payload_overflow_mask_words + logical_tid / 32,
             1u << (logical_tid % 32));
     }
-    unsigned int* counts = case_counts ? case_counts + prog_idx * 6 : nullptr;
-    if (counts) { atomicAdd(counts, 1u); if(result.is_error || !exact)atomicAdd(counts+5,1u); }
+    if (coalesce_counts) {
+      local_counts[0] += weight;
+      if (result.is_error || !exact) local_counts[5] += weight;
+    } else if (counts) { atomicAdd(counts, weight); if(result.is_error || !exact)atomicAdd(counts+5,weight); }
     if (result.is_error) {
-      if (counts) {
-        atomicAdd(counts + 1, 1u);
-        if (result.err_code == ErrCode::Timeout) atomicAdd(counts + 2, 1u);
+      if (coalesce_counts) {
+        local_counts[1] += weight;
+        if (result.err_code == ErrCode::Timeout) local_counts[2] += weight;
+      } else if (counts) {
+        atomicAdd(counts + 1, weight);
+        if (result.err_code == ErrCode::Timeout) atomicAdd(counts + 2, weight);
       }
-      local_score = d_canonicalize_fitness_accumulator(local_score - fitness_error_ceiling(policy, penalty));
+      local_score = d_canonicalize_fitness_accumulator(local_score - fitness_error_ceiling(policy, penalty)*weight);
       continue;
     }
 
-    if (counts && result.value.tag == ValueTag::FallbackToken) atomicAdd(counts + 3, 1u);
+    if (counts && result.value.tag == ValueTag::FallbackToken) {
+      if (coalesce_counts) local_counts[3] += weight;
+      else atomicAdd(counts + 3, weight);
+    }
     local_score = d_canonicalize_fitness_accumulator(local_score +
-        resident_score);
+        resident_score*weight);
   }
 
   partial_scores[tiled_replay ? logical_tid - lane_begin : logical_tid] = local_score;
+  }
+  // All physical lanes reach this point, including lanes with no cases.
+  // Integer diagnostic counts are exact under the original case-count bounds;
+  // fitness retains its original logical-lane order and canonical reduction.
+  if (coalesce_counts) {
+    // Independent thread scheduling can reach this join at different times.
+    // Derive the participating mask from the physical block, never from a
+    // transient __activemask() after loops with unequal per-lane trip counts.
+    const int active_lanes = min(32, static_cast<int>(blockDim.x) - (tid & ~31));
+    const unsigned mask = 0xffffffffu >> (32 - active_lanes);
+    __syncwarp(mask);
+    for (int field = 0; field < 6; ++field) {
+      unsigned value = local_counts[field];
+      for (int offset = 16; offset; offset >>= 1) {
+        const unsigned other = __shfl_down_sync(mask, value, offset);
+        if ((tid & 31) + offset < active_lanes) value += other;
+      }
+      if ((tid & 31) == 0 && value) atomicAdd(counts + field, value);
+    }
   }
   __syncthreads();
 

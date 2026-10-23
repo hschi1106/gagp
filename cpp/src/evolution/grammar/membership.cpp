@@ -901,10 +901,40 @@ DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const 
   return reconstruct_derivation(grammar, genome, request, nullptr, nullptr);
 }
 
+// Called only after this very admission validated the complete identity or
+// constructed a fresh certificate. No caller supplies a witness or "verified"
+// boolean to this accessor, and no second identity serialization is needed.
+static std::shared_ptr<const BytecodeProgram> fused_cold_executable_after_admission(
+    const CompiledGrammar& grammar,const ProgramGenome& genome,const DerivationCertificate& proof,
+    const std::vector<std::string>* inputs) {
+  if(!cold_executables_enabled() || !certificates_enabled() ||
+      !std::getenv("GAGP_REUSE_ADMISSION_COMPILE") || !proof.executable)return nullptr;
+  if(inputs) {
+    if(inputs->size()!=grammar.inputs().size())return nullptr;
+    for(std::size_t i=0;i<inputs->size();++i)if((*inputs)[i]!=grammar.inputs()[i].name)return nullptr;
+  }
+  const bool registry=std::any_of(genome.ast.consts.begin(),genome.ast.consts.end(),[](const auto& v) {
+    return v.tag==ValueTag::String || v.tag==ValueTag::IntList || v.tag==ValueTag::FloatList || v.tag==ValueTag::StringList;
+  });
+  if(registry) {
+    if(!payload::StagedPayloads::has_active_scope() || proof.executable_constants.size()!=genome.ast.consts.size())return nullptr;
+    for(std::size_t i=0;i<genome.ast.consts.size();++i) {
+      const auto a=proof.executable_constants[i],b=genome.ast.consts[i];
+      if(a.tag!=b.tag || a.b!=b.b || std::memcmp(&a.i,&b.i,sizeof(a.i))!=0)return nullptr;
+    }
+  } else for(const auto& v:genome.ast.consts) {
+    if(v.tag!=ValueTag::Int && v.tag!=ValueTag::Float && v.tag!=ValueTag::Bool && v.tag!=ValueTag::Char)return nullptr;
+  }
+  return proof.executable;
+}
+
 static DerivationMetadata reconstruct_derivation_impl(const CompiledGrammar& grammar,
     const ProgramGenome& genome, const GenerationRequest& request, VerifiedAst* verified,
     std::vector<std::vector<int>>* choice_lexical_environments,
-    ProgramGenome* compact_owned = nullptr,bool retain_registry_executable = false) {
+    ProgramGenome* compact_owned = nullptr,bool retain_registry_executable = false,
+    std::shared_ptr<const BytecodeProgram>* validated_executable=nullptr,
+    const std::vector<std::string>* execution_inputs=nullptr) {
+  if(validated_executable)validated_executable->reset();
   // A public caller without a read snapshot cannot bind mutable registry
   // contents to one consistent proof. Scalar-only ASTs have no such dependency.
   const bool registry_constants = std::any_of(genome.ast.consts.begin(), genome.ast.consts.end(), [](const auto& value) {
@@ -922,6 +952,7 @@ static DerivationMetadata reconstruct_derivation_impl(const CompiledGrammar& gra
       if (choice_lexical_environments) *choice_lexical_environments = proof.environments;
       auto witness = proof.witness;
       witness.certificate = genome.derivation->certificate;
+      if(validated_executable)*validated_executable=fused_cold_executable_after_admission(grammar,genome,proof,execution_inputs);
       return witness;
     }
   }
@@ -959,13 +990,16 @@ static DerivationMetadata reconstruct_derivation_impl(const CompiledGrammar& gra
     witness.certificate = std::move(proof);
   }
   if (verified) *verified = matcher.take_verified();
+  if(validated_executable && witness.certificate)
+    *validated_executable=fused_cold_executable_after_admission(grammar,genome,*witness.certificate,execution_inputs);
   return witness;
 }
 
 DerivationMetadata detail::reconstruct_cold_import(const CompiledGrammar& grammar,const ProgramGenome& genome,
-    const GenerationRequest& request,VerifiedAst* verified,std::vector<std::vector<int>>* environments) {
+    const GenerationRequest& request,VerifiedAst* verified,std::vector<std::vector<int>>* environments,
+    std::shared_ptr<const BytecodeProgram>* executable,const std::vector<std::string>* inputs) {
   return reconstruct_derivation_impl(grammar,genome,request,verified,environments,nullptr,
-      cold_executables_enabled() && payload::StagedPayloads::has_active_scope());
+      cold_executables_enabled() && payload::StagedPayloads::has_active_scope(),executable,inputs);
 }
 
 DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar,

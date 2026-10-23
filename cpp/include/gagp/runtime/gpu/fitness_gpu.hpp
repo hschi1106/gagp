@@ -52,7 +52,13 @@ struct FitnessEvalResult {
   bool ok = false;
   std::vector<double> fitness;
   std::vector<unsigned> wrong; // Present for configured task metrics.
-  // Opt-in diagnostics: evaluated cases, errors, timeouts (subset of errors),
+  std::size_t physical_case_count = 0; // Case-scheduling count; root caching is accounted below.
+  std::size_t simple_phase_count = 0; // Static admitted phases, not invocation counts.
+  std::uint64_t physical_program_cases = 0;
+  std::uint64_t fitness_reused_programs=0, fitness_reused_program_cases=0;
+  std::size_t physical_blocksize = 0; // Initial launch; logical score lanes stay unchanged.
+  std::uint64_t shape_result_programs = 0, shape_result_groups = 0;
+  // Logical diagnostics (including exact completed-score reuse): cases, errors, timeouts (subset of errors),
   // fallback-token results, and results without a fitness comparison.
   std::vector<std::array<unsigned int, 5>> case_counts;
   // Extra GPU work replacing physical payload failures; logical errors are not replayed.
@@ -105,9 +111,14 @@ class FitnessSessionGpu {
  private:
   friend class evo::repro::NativePhasePopulation;
   bool release_private_workspace() const;
-  FitnessEvalResult eval_owned_programs(const gpu_detail::OwnedGpuPrograms&, bool capture_case_counts) const;
+  std::uint64_t evaluation_revision() const;
+  FitnessEvalResult eval_owned_programs(const gpu_detail::OwnedGpuPrograms&, bool capture_case_counts,
+      const std::vector<int>* reused_parents=nullptr,const FitnessEvalResult* completed=nullptr,
+      std::uint64_t expected_revision=0) const;
   FitnessEvalResult eval_programs_impl(const std::vector<BytecodeProgram>&, bool,
-      const std::function<void()>&, const gpu_detail::OwnedGpuPrograms*) const;
+      const std::function<void()>&, const gpu_detail::OwnedGpuPrograms*,
+      const std::vector<int>* reused_parents=nullptr,const FitnessEvalResult* completed=nullptr,
+      std::uint64_t expected_revision=0) const;
   struct Impl;
   std::unique_ptr<Impl> impl_;
 };

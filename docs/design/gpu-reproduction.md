@@ -923,6 +923,20 @@ lowered during cold admission, including registry constants. It requires the
 existing `GAGP_COLD_PAYLOAD_PROOFS=1` read-only snapshot and
 `GAGP_REUSE_ADMISSION_COMPILE=1`. The existing import-certificate and imported-
 executable settings retain reuse across initialization and owner construction.
+
+`GAGP_FUSED_COLD_EXECUTABLE=1` lets that same admission return its already
+validated immutable executable, avoiding another full identity serialization.
+The private accessor runs only after the current invocation either checked the
+complete certificate identity or constructed a fresh certificate. It still
+checks the actual evaluator input order. Registry constants additionally require
+the current read scope and exact raw tags/bits/markers; speculative artifacts
+remain inside the existing snapshot until its reads validate. Scalar-only
+admission can return its private artifact without a registry transaction.
+Missing artifacts and mismatched input order retain ordinary lowering. Public
+registry lookup and GPU bytecode/physical-capacity verification are unchanged.
+Tests: `gagp_test_grammar_membership`, `gagp_test_gpu_phase_population`, including
+stale scalar provenance, registry aliases, disabled flags, reordered inputs and
+multi-generation full CPU/AST checks on staged and window paths.
 A private cold-import lookup checks the current grammar, request,
 complete decoded AST/constant identity, exact raw constant tokens/markers,
 evaluator input order and fuel inside that snapshot. Only validated, write-free reads publish the candidate; writes or
@@ -1010,3 +1024,105 @@ the view certificate and uses the builtin's ASCII classification with ordinary
 operation fuel. The Char overload remains on the generic executor. Boundary
 coverage lives in `gagp_test_cpu_execution_session`, with GPU phase proof and
 bytecode comparison in `gagp_test_gpu_phase_compile`.
+
+
+## Completed fitness of exact unchanged offspring
+
+`GAGP_GPU_UNCHANGED_FITNESS_REUSE=1` is fixed when a native GPU phase
+population is constructed. Its post-elite device comparison proves every tree
+node, origin, constant tag/bits/flag equal to the selected prior parent. Scores
+are eligible only for finite, fully scored rows from a successful completed GPU evaluation, for the same
+immutable fitness-session revision and either that generation or its immediate
+successor. Reinitialization (including a failed attempt), newly resolved payload backing, another session, a
+missing evaluation, or absent exact equality forces ordinary full evaluation.
+Selection, RNG, GPU variation and lowering are unchanged. No CPU reproduction,
+approximate program equality, output prediction or cached payload result is used.
+
+The GPU skips only certified rows. Host copyback restores their exact scalar
+fitness, wrong and logical error/timeout/case counters. `fitness_reused_programs`
+and `fitness_reused_program_cases` expose inherited observations; physical root
+calls and actual payload replay remain separate. Failed/unscored evaluations
+never supply reused scores. Internal complete counters are retained when this
+option is active, while callers requesting no diagnostics still receive no
+case-counter vector. `gagp_test_gpu_phase_population` covers exact multi-generation
+AST/CPU parity, repeated evaluation, elite replacement, reset/fuel/policy changes,
+separate sessions and unscored generation gaps; host scope guards are tested in
+`gagp_test_fitness_contract`.
+
+`GAGP_GPU_PARENT_FITNESS_CACHE=1` additionally indexes every previous-generation
+genotype on the GPU. It requires unchanged-fitness reuse and is also fixed at
+owner construction. A post-elite child that differs from its selected parent
+may inherit another parent's completed score only after every phase node,
+origin, constant tag, raw numeric bits and boolean flag compares equal. The
+fixed region skeleton and decoding context belong to the same private owner.
+Hashes locate candidates; hash equality alone never authorizes reuse. Up to64
+open-addressing probes are attempted; collisions or saturation can decline
+reuse and retain ordinary evaluation. The table is rebuilt before stage-storage
+overwrites the previous-generation trees. Its buffers are outside the shared
+scratch bank and included in resident-byte accounting (256KiB at P16384).
+
+The same successful-score/session-revision/generation guards above still apply.
+Index construction and exact lookup are charged to reproduction time. Selection,
+variation, RNG and offspring remain unchanged. The phase-population test includes
+forced hash collisions, full-table misses, signed-zero and individual genotype
+field differences, plus full CPU/AST comparisons across generations and session
+changes. This opt-in is experimental; admission and measured gains are recorded
+per immutable study attempt.
+
+
+## Native GPU allocation scope
+
+`GAGP_GPU_CUDA_POOL=1` enables a dedicated CUDA stream-ordered allocation pool
+only during the native phase path, including its cold import. Selection, RNG,
+GPU variation, evaluation and physical capacities are unchanged. Generic and
+overlap paths keep their existing allocation behavior. The device's current pool
+is never changed. Native operations use the existing default stream; this scope
+does not promise ordering for arbitrary external streams.
+
+The 16 GiB release threshold retains unused pool backing between native stages;
+it does not reduce or replace the independent 16 GiB evaluation-workspace budget.
+Live genotype and workspace storage can exceed the retention threshold. Scope
+completion synchronizes and trims unused backing. Session buffers that outlive
+the native owner retain shared ownership; their later matching free releases
+the final pool. Pool creation, retirement and cleanup remain inside timed evolve
+calls. Unsupported pool devices and allocation errors remain explicit failures.
+
+Allocation ownership lives in `runtime/gpu/allocation_pool.cu`; wrappers are
+used by native tree buffers, fitness scratch and host packing. The C++ scope
+header is private and CUDA-header-free. `gagp_test_cuda_allocation_pool` checks
+stream ordering, dirty reuse, nested scopes, late frees, error forwarding and
+unchanged device-pool selection. `gagp_test_gpu_phase_population` compares pooled
+and ordinary native searches with full final AST/champion/fitness/wrong/CPU
+checks, including private staged-list evolution and an escaped fitness session.
+
+
+## Single-elite GPU reduction
+
+`GAGP_GPU_LINEAR_ELITE=1` is fixed at native population construction. With one
+elite, a 256-thread GPU reduction selects the greatest fitness and breaks ties by
+lowest source index, then copies its phase slots into offspring index 0. This
+replaces quadratic rank scanning with linear work; selection RNG and variation
+are unchanged. No elites and multiple elites retain existing behavior. NaNs are
+rejected by the existing reproduction precondition. The ordering oracle covers
+98 populations through 16384, including signed zero and infinities. Native
+generation comparisons cover complete AST/fitness/wrong trajectories, CPU
+evaluation, ties, infinities and the zero/multiple-elite fallback.
+
+
+## Shared storage for sequential GPU stages
+
+The staged native path uses one backing for reproduction scratch and evaluation
+workspace. Pooled staged owners activate it automatically; `GAGP_GPU_STAGE_STORAGE=1`
+also enables it with the metadata pool disabled. The configured evaluation cap
+remains the configured payload budget (16 GiB in the twofold study). Another
+64 KiB covers allocator alignment only. At most 256 transient
+allocations are tracked; unsupported capacity or lifetime overlap is an error.
+
+The current population stays outside this backing. After variation and exact
+parent comparison, a GPU kernel copies active offspring nodes, origins, sites
+and constants into that fixed current storage. It is inside reproduction kernel
+timing. All scratch retires before the next stage. This prevents surviving
+offspring from fragmenting a freed workspace allocation. Default-stream
+ordering, RNG, operators, AST/depth/phase limits, scoring and replay are unchanged.
+Physical reserved/peak stage bytes are reported separately from logical genotype
+allocation sizes and the whole-card sampled VRAM peak.

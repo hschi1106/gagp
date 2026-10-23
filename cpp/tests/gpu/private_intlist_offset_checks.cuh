@@ -4,10 +4,15 @@
 #include "../../src/runtime/gpu/private_global_offsets.hpp"
 #include "../../src/runtime/gpu/private_tuple_policy.hpp"
 
-__global__ void inspect_private_intlist_offsets(Value* cells, std::int64_t* int_cells, Value* source, bool compact, int* failure) {
+__global__ void inspect_private_intlist_offsets(Value* cells, std::int64_t* int_cells, Value* source, bool compact, int cell_stride, int* failure) {
   using namespace gagp::gpu_detail;
-  *failure=0;
+  const int lane=threadIdx.x;
+  failure+=lane;*failure=0;
+  cells+=static_cast<std::size_t>(lane)*65538;
+  source+=static_cast<std::size_t>(lane)*65537;
+  int_cells+=cell_stride==1?static_cast<std::size_t>(lane)*65538:lane;
   DArenaPayloadState st;
+  st.private_cell_stride=cell_stride;
   DListPayloadEntry entries[4]{};
   st.private_intlists=true;st.compact_intlist_cells=compact;
   st.list_values=compact?nullptr:cells;st.intlist_cells=compact?int_cells:nullptr;st.kMaxListValues=65536;
@@ -107,6 +112,7 @@ __global__ void inspect_private_intlist_offsets(Value* cells, std::int64_t* int_
   // Local windows retain their origin through nested slices and later copies.
   // No registry, legacy index, or epoch buffers exist for active private lists.
   DIndexedArenaPayloadState local;local.private_intlists=true;local.compact_intlist_cells=compact;
+  local.private_cell_stride=cell_stride;local.private_warp_copy=true;
   local.list_values=compact?nullptr:cells;local.intlist_cells=compact?int_cells:nullptr;
   local.kMaxListValues=65536;local.logical_list_limit=65536;
   Value x,y,pair,window,nested,joined;
@@ -134,7 +140,7 @@ __global__ void inspect_private_intlist_offsets(Value* cells, std::int64_t* int_
   d_restore_local_list_storage(local,0,saved);
   if(d_private_intlist_span(tables,local,discarded,span) || local.logical_list_used!=7) {*failure=22;return;}
   if(!d_builtin_call<DPayloadFlavor::IndexedArena>(BuiltinId::Singleton,&two,1,tables,local,replacement,error) ||
-     !d_private_intlist_span(tables,local,replacement,span) || span.size!=1 || (compact?span.integers!=int_cells+saved:span.boxed!=cells+saved) || span.at(0)!=8 ||
+     !d_private_intlist_span(tables,local,replacement,span) || span.size!=1 || (compact?span.integers!=int_cells+static_cast<std::size_t>(saved)*cell_stride:span.boxed!=cells+saved) || span.at(0)!=8 ||
      local.list_values_used!=saved+1 || local.logical_list_used!=8 ||
      !d_private_intlist_span(tables,local,joined,span) || span.size!=2 || span.at(0)!=8 || span.at(1)!=7) {*failure=23;return;}
 
@@ -184,17 +190,20 @@ __global__ void inspect_private_intlist_offsets(Value* cells, std::int64_t* int_
 
 bool test_private_intlist_offsets() {
   Value *cells=nullptr,*source=nullptr;std::int64_t* int_cells=nullptr;
-  int *device_failure=nullptr,failure=-1;
-  if(cudaMalloc(reinterpret_cast<void**>(&cells),65538*sizeof(Value))!=cudaSuccess)return false;
-  if(cudaMalloc(reinterpret_cast<void**>(&source),65537*sizeof(Value))!=cudaSuccess){cudaFree(cells);return false;}
-  if(cudaMalloc(reinterpret_cast<void**>(&int_cells),65538*sizeof(std::int64_t))!=cudaSuccess){cudaFree(cells);cudaFree(source);return false;}
-  if(cudaMalloc(reinterpret_cast<void**>(&device_failure),sizeof(int))!=cudaSuccess){cudaFree(cells);cudaFree(source);cudaFree(int_cells);return false;}
+  int *device_failure=nullptr,failure=-1;std::vector<int> failures(32,-1);
+  if(cudaMalloc(reinterpret_cast<void**>(&cells),65538*32*sizeof(Value))!=cudaSuccess)return false;
+  if(cudaMalloc(reinterpret_cast<void**>(&source),65537*32*sizeof(Value))!=cudaSuccess){cudaFree(cells);return false;}
+  if(cudaMalloc(reinterpret_cast<void**>(&int_cells),65538*32*sizeof(std::int64_t))!=cudaSuccess){cudaFree(cells);cudaFree(source);return false;}
+  if(cudaMalloc(reinterpret_cast<void**>(&device_failure),32*sizeof(int))!=cudaSuccess){cudaFree(cells);cudaFree(source);cudaFree(int_cells);return false;}
   bool ok=true;
-  for(bool compact:{false,true}) {
-    inspect_private_intlist_offsets<<<1,1>>>(cells,int_cells,source,compact,device_failure);
+  for(int width:{1,32})for(bool compact:{false,true})for(int stride:{1,32}) {
+    if(!ok || (stride!=1 && (!compact || width!=32)))continue;
+    inspect_private_intlist_offsets<<<1,width>>>(cells,int_cells,source,compact,stride,device_failure);
     ok=cudaGetLastError()==cudaSuccess && cudaDeviceSynchronize()==cudaSuccess &&
-        cudaMemcpy(&failure,device_failure,sizeof(int),cudaMemcpyDeviceToHost)==cudaSuccess && failure==0;
+        cudaMemcpy(failures.data(),device_failure,width*sizeof(int),cudaMemcpyDeviceToHost)==cudaSuccess;
+    for(int lane=0;ok && lane<width;++lane)if(failures[lane]){failure=failures[lane];ok=false;}
     if(!ok)break;
+    failure=0;
   }
   cudaFree(cells);cudaFree(source);cudaFree(int_cells);cudaFree(device_failure);
   return check(ok,"boxed/compact private IntList boundary/origin/precision "+std::to_string(failure));

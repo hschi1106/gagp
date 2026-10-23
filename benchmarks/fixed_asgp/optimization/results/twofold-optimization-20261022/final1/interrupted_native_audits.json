@@ -1,0 +1,10 @@
+[
+  {
+    "task": "luhn",
+    "population": 16384,
+    "variant": "baseline",
+    "status": "interrupted",
+    "process_s_lower_bound": 20.433793306350708,
+    "recovery": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/twofold-optimization-20261022/native-resume2-controller.json"
+  }
+]

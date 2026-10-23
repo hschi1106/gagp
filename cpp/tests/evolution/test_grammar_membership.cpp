@@ -179,13 +179,47 @@ void test_cold_payload_proofs() {
       "changed-read retry published stale proof or reverted external payload replacement");
   payload::register_list(key,{});
 }
-void test_cold_import_executables() {
-  const char* flags[]={"GAGP_COLD_PAYLOAD_PROOFS","GAGP_COLD_IMPORT_EXECUTABLES","GAGP_REUSE_ADMISSION_COMPILE"};
+void test_cold_import_executables(bool fused=false) {
+  const char* flags[]={"GAGP_COLD_PAYLOAD_PROOFS","GAGP_COLD_IMPORT_EXECUTABLES","GAGP_REUSE_ADMISSION_COMPILE","GAGP_FUSED_COLD_EXECUTABLE"};
   struct Restore {
-    const char** flags;std::optional<std::string> saved[3];
-    explicit Restore(const char** f):flags(f){for(int i=0;i<3;++i){const auto* v=std::getenv(f[i]);if(v)saved[i]=v;setenv(f[i],"1",1);}}
-    ~Restore(){for(int i=0;i<3;++i){if(saved[i])setenv(flags[i],saved[i]->c_str(),1);else unsetenv(flags[i]);}}
+    const char** flags;std::optional<std::string> saved[4];
+    explicit Restore(const char** f):flags(f){for(int i=0;i<4;++i){const auto* v=std::getenv(f[i]);if(v)saved[i]=v;setenv(f[i],"1",1);}}
+    ~Restore(){for(int i=0;i<4;++i){if(saved[i])setenv(flags[i],saved[i]->c_str(),1);else unsetenv(flags[i]);}}
   } restore(flags);
+  setenv("GAGP_FUSED_COLD_EXECUTABLE",fused?"1":"0",1);
+  {
+    const auto scalar=compile_grammar(parse_definition(constant_grammar("Int",R"(["1","2"])")));
+    const auto scalar_request=entry_request(scalar);
+    auto value=generate_derivation(scalar,0).genome;value.derivation.reset();
+    std::shared_ptr<const BytecodeProgram> artifact;
+    const auto witness=grammar::detail::reconstruct_cold_derivation(scalar,value,scalar_request,nullptr,nullptr,&artifact);
+    check(bool(artifact)==fused,"scalar cold artifact did not follow fused mode");
+    if(fused) {
+      value.derivation=std::make_shared<const DerivationMetadata>(witness);
+      check(artifact==admitted_bytecode_for_eval(value,{},scalar.execution_limits().fuel),
+          "fused scalar admission did not retain the same private executable");
+      const auto original=artifact;
+      value.ast.consts.front()=Value::from_int(value.ast.consts.front().i==1?2:1);
+      grammar::detail::reconstruct_cold_derivation(scalar,value,scalar_request,nullptr,nullptr,&artifact);
+      check(artifact && artifact!=original,"changed scalar trusted public stale provenance");
+      FitnessPolicy exact;exact.metric=FitnessMetric::Exact;
+      const auto independent=compile_for_eval(value);
+      check(eval_fitness_cpu({*artifact,independent},{{}},{value.ast.consts.front()},100,1000,1,exact)==
+            std::vector<double>({0,0}),"fused scalar differs from independent lowering/CPU fitness");
+      const std::vector<std::string> scalar_wrong{"unexpected"};
+      grammar::detail::reconstruct_cold_derivation(scalar,value,scalar_request,nullptr,nullptr,&artifact,&scalar_wrong);
+      check(!artifact,"wrong scalar input ABI retained a private executable");
+      setenv("GAGP_COLD_IMPORT_EXECUTABLES","0",1);
+      grammar::detail::reconstruct_cold_derivation(scalar,value,scalar_request,nullptr,nullptr,&artifact);
+      check(!artifact,"disabled scalar cold executable flag retained an artifact");
+      setenv("GAGP_COLD_IMPORT_EXECUTABLES","1",1);
+      value.ast.consts.front()=Value::from_int(77);bool rejected=false;
+      try{grammar::detail::reconstruct_cold_derivation(scalar,value,scalar_request,nullptr,nullptr,&artifact);}
+      catch(const std::invalid_argument&){rejected=true;}
+      check(rejected && !artifact,"invalid scalar bypassed canonical admission through stale certificate");
+    }
+  }
+
   const auto grammar=compile_grammar(parse_definition(constant_grammar("IntList","[[]]")));
   const auto request=entry_request(grammar);
   auto genome=generate_derivation(grammar,0).genome;genome.derivation.reset();
@@ -645,6 +679,7 @@ int main() {
       require_membership(mutual, generate_derivation(mutual, seed).genome);
     test_cold_payload_proofs();
     test_cold_import_executables();
+    test_cold_import_executables(true);
     std::cout << "grammar membership passed\n";
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';

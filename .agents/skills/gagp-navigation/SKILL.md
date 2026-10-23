@@ -123,6 +123,13 @@ maintenance, follow the rules in root `AGENTS.md`.
 
 - `GAGP_COLD_IMPORT_EXECUTABLES` additionally retains the already-lowered immutable artifact in cold read-snapshot certificates. Private lookup in `evolution/grammar/cold_admission.hpp`/`membership.cpp` checks decoded identity plus exact raw constant Values and publishes only after snapshot validation; public registry executable reuse stays declined. Contract/tests follow the cold-proof owners above.
 
+- `GAGP_FUSED_COLD_EXECUTABLE=1` returns the executable from the admission that
+  just validated it, avoiding a second identity serialization. The same private
+  cold-proof owners enforce actual input order, registry raw values and snapshot
+  publication; `repro/gpu/phase_layout.hpp` consumes the artifact. GPU bytecode
+  checks remain unchanged. Tests: `gagp_test_grammar_membership`,
+  `gagp_test_gpu_phase_population`.
+
 - `GAGP_REUSE_IMPORT_CERTIFICATE`: `repro/gpu/phase_layout.hpp` retains only
   identity-checked private admission/executable caches on cold import. External
   mutations, grammar/request and evaluator input order still pass validation.
@@ -152,7 +159,35 @@ maintenance, follow the rules in root `AGENTS.md`.
   `gagp_test_gpu_phase_compile`, `gagp_test_gpu_phase_population`. Paths are
   relative to `cpp/src/` (the reproduction paths under `evolution/`).
 
+- Optional `GAGP_GPU_PRIVATE_ADJACENT_CONCAT`: immutable adjacent-span reuse
+  and separate ordinary/physical arena cursors in
+  `runtime/gpu/device/builtins_device.cuh`; compact/non-SoA admission in
+  `runtime/gpu/fitness_gpu.cu`; state propagation in
+  `device/execute_bytecode_device.cuh` and `device/kernels.cuh`. Contract:
+  `docs/design/payload.md`. Tests: `gagp_test_extended_payload_gpu`,
+  `gagp_test_gpu_phase_population`. Runtime paths are relative to `cpp/src/`.
 - Resident payload scoring is shared by the VM and focused GPU probes through `cpp/src/runtime/gpu/device/resident_score_device.cuh`; keep full VM execution headers out of probe translation units that also link `gagp_gpu`.
+- GPU fitness accumulator identity shortcut: `runtime/gpu/device/fitness_accumulator.cuh`, checked by `gagp_test_fitness_accumulator_gpu`. `GAGP_GPU_COALESCED_COUNTS` in `runtime/gpu/fitness_gpu.cu` and `device/kernels.cuh` changes only integer counter updates; partial-warp and changing-population coverage is in fitness parity and `gagp_test_gpu_phase_population`. Contract: `docs/design/payload.md`. Paths relative to `cpp/src/`.
+- Optional `GAGP_GPU_INTEGER_CASE_REUSE`: exact integer-score/multiplicity proof in `runtime/gpu/case_reuse.hpp`, session admission/weighted view launches in `runtime/gpu/fitness_gpu.cu`, weighted case/status updates in `device/kernels.cuh`. Tests: `gagp_test_fitness_contract`, `gagp_test_gpu_phase_population`; contract: `docs/design/payload.md`. Initial physical case counts remain distinct from logical coverage and replay. Paths relative to `cpp/src/`.
+- Guarded GPU integer division/modulo lives in `runtime/gpu/device/integer_arithmetic.cuh`; `gagp_test_fitness_accumulator_gpu` includes the independent CPU arithmetic oracle. Optional `GAGP_GPU_SIMPLE_PHASES` patterns refresh in `runtime/gpu/host_pack_gpu.cu`, dispatch in `device/region_execution_device.cuh`, and execute through `device/simple_phase_device.cuh`. Admission still requires complete private typeflow/global normalization in `fitness_gpu.cu`. Tests: `gagp_test_gpu_phase_population`; contract: `docs/design/payload.md`. Paths relative to `cpp/src/`.
+- Optional `GAGP_GPU_SHAPE_RESULT_CACHE`: input-shape partition in `runtime/gpu/case_reuse.hpp`, additional fresh typed/direct-root dependency proof in `shape_result_cache.hpp`, session/shared-memory admission in `fitness_gpu.cu`, root result reuse with original per-case scoring in `device/kernels.cuh`. Tests: `gagp_test_fitness_contract`, `gagp_test_bounded_region_gpu`, `gagp_test_gpu_phase_population`; contract: `docs/design/payload.md`. Paths relative to `cpp/src/`.
+- Optional `GAGP_GPU_PRIVATE_CELL_SOA`: private compact-cell layout admission in
+  `runtime/gpu/fitness_gpu.cu`, physical block columns in `device/kernels.cuh`,
+  strided private spans/copies in `device/builtins_device.cuh`, state setup in
+  `device/execute_bytecode_device.cuh`; workspace fields in
+  `cpp/include/gagp/runtime/gpu/region_types_gpu.hpp`. Check
+  `gagp_test_extended_payload_gpu` and `gagp_test_gpu_phase_population`;
+  ownership/capacity rules are in `docs/design/payload.md`. Runtime paths above
+  are relative to `cpp/src/`.
+- Optional `GAGP_GPU_SHORT_EDIT_DISTANCE`: `runtime/gpu/fitness_gpu.cu` prepares
+  immutable per-case masks through `short_edit_patterns.hpp`; workspace pointers
+  pass through `device/execute_bytecode_device.cuh` to `resident_score_device.cuh`
+  and `short_edit_device.cuh`. The full-width one-word update and identity/range
+  checks are in `short_edit_distance.hpp`; long labels retain ordinary DP.
+  Tests: `gagp_test_extended_payload_gpu`, `gagp_test_gpu_phase_population`;
+  contract: `docs/design/payload.md`. Paths are relative to `cpp/src/`.
+- Optional `GAGP_GPU_RELAXED_VIEW_REGISTERS`: additional512-thread launch-bound specialization in `runtime/gpu/device/kernels.cuh`, guarded dispatch/profile in `fitness_gpu.cu`. Physical block widths and reduction lanes are unchanged;1024-thread requests retain the old kernel. Tests/contract are the shape-cache owners above. Paths relative to `cpp/src/`.
+- Optional `GAGP_GPU_PRIVATE_LAUNCH_BOUND`: indexed-arena32/512/1024 compile bounds, private-list-only initial/replay dispatch in `runtime/gpu/fitness_gpu.cu`; physical32 threads and logical score lanes stay fixed. Boundary/overflow/fuel coverage: `gagp_test_bounded_region_gpu`; changing GPU populations: `gagp_test_gpu_phase_population`. Contract: `docs/design/payload.md`. Paths relative to `cpp/src/`.
 
 - `GAGP_GPU_COMPACT_INTLIST_CELLS` adds typed int64 local storage only under
   the private IntList proof above. The existing arena VM owns typed span reads
@@ -188,3 +223,56 @@ maintenance, follow the rules in root `AGENTS.md`.
   `docs/design/payload.md`; tests: `gagp_test_bounded_region_gpu` and
   `gagp_test_gpu_phase_population`. Paths relative to `cpp/src/` (device dispatch
   under `runtime/gpu/`). Private results are IntList; unboxed/SoA stays view-only.
+
+
+- Projected shape inputs use fresh root/phase LOAD dependencies in
+  `cpp/src/runtime/gpu/shape_result_cache.hpp`; bounded session partitions live
+  in `shape_partition_cache.hpp`, with device offsets in `device_types_gpu.hpp`.
+  `GAGP_GPU_PROJECT_SHAPE_INPUTS` retains complete typed admission. Contract:
+  `docs/design/payload.md`; tests: fitness-contract, bounded-region GPU and
+  phase-population GPU.
+- Small typed phase register banks live in
+  `cpp/src/runtime/gpu/device/phase_register_bank.cuh`; `view_phase_device.cuh`
+  owns the shared VM/storage interface and `region_execution_device.cuh` guards
+  each fresh bound. `GAGP_GPU_REGISTER_PHASE_STACK` uses the normal fitness
+  workspace/execution-table flag path. Test `gagp_test_phase_register_gpu` adds
+  the independent storage oracle; integrated tests/contracts are the owners above.
+- `GAGP_GPU_VIEW_PHYSICAL_BLOCK` separates typed-view physical thread geometry
+  from original logical score lanes in `fitness_gpu.cu` / `device/kernels.cuh`.
+  Reserve all logical shared scores and stride cases by logical lanes. Native
+  evaluation timing/benchmark rows expose physical launch width. Contract/tests
+  are the same owners above; no operator, case or reduction-budget change.
+
+- Exact unchanged native-offspring fitness reuse: `repro/gpu/completed_fitness_reuse.hpp`
+  owns generation/revision scope; post-elite equality in `phase_population.cu`
+  supplies sealed parent maps. `FitnessSessionGpu` validates session-local
+  completed counters, and `device/kernels.cuh` skips certified rows. Contract:
+  `docs/design/gpu-reproduction.md`; tests `gagp_test_gpu_phase_population` and
+  `gagp_test_fitness_contract`. No public reuse factory or serialized proof.
+  Optional cross-parent lookup uses `evolution/repro/gpu/parent_fitness_cache.cuh`:
+  GPU hashes locate candidates, full genotype equality authorizes reuse, and
+  session/generation guards remain in `completed_fitness_reuse.hpp`.
+
+- Native default-stream allocation scope: `runtime/gpu/cuda_allocation_scope.hpp`
+  and `allocation_pool.cu`, C++ caller in `evolution/evolve.cpp`. Pointer ownership
+  survives the native scope when an outer session retains workspace; late frees
+  release that pool. Public internal wrappers are in
+  `include/gagp/runtime/gpu/allocation_gpu.hpp`, called by host packing, fitness
+  allocation and native phase buffers. Contract: `docs/design/gpu-reproduction.md`;
+  tests `gagp_test_cuda_allocation_pool`, `gagp_test_gpu_phase_population`. This
+  does not change physical workspace caps or activate pooling in generic streams.
+
+- Exact single-elite reduction: `evolution/repro/gpu/linear_elite.cuh` and
+  `phase_population.cu`; `GAGP_GPU_LINEAR_ELITE=1` selects the linear GPU path
+  only for one elite, retaining the existing tie rule and zero/multiple-elite
+  behavior. Contract: `docs/design/gpu-reproduction.md`; ordering and full
+  evolution checks: `gagp_test_linear_elite_gpu`, `gagp_test_gpu_phase_population`.
+
+- Sequential native stage backing: `runtime/gpu/cuda_stage_storage.hpp`,
+  `stage_storage_gpu.hpp` and `stage_storage.cu`; `phase_population.cu` owns the
+  fixed current population and evaluation/reproduction scopes. Explicit fitness
+  workspace routes through `fitness_gpu.cu`; ordinary temporary allocations use
+  the existing pool wrappers. Contract: `docs/design/gpu-reproduction.md`;
+  tests `gagp_test_cuda_stage_storage`, `gagp_test_gpu_phase_population`.
+  Stage reserved/peak bytes are separate from logical genotype bytes in
+  `EvolutionResult` and fixed-ASGP output; they are not additive physical VRAM.

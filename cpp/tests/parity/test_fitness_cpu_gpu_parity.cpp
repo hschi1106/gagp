@@ -1,4 +1,6 @@
 #include <climits>
+#include <cstdlib>
+#include <string>
 #include <thread>
 #include <stdexcept>
 #include <cmath>
@@ -646,6 +648,39 @@ bool check_sparse_case_locals() {
 }  // namespace
 
 int main() {
+  // Exercise full and partial physical warps, including lanes with no cases,
+  // with correct answers, wrong answers, runtime errors and fuel exhaustion.
+  {
+    const char* flag="GAGP_GPU_COALESCED_COUNTS";
+    const char* old=std::getenv(flag);const bool present=old;
+    const std::string saved=old?old:"";
+    const std::vector<BytecodeProgram> programs{make_add_one_program(),
+        make_return_const_program(0),make_type_error_program(),make_timeout_program()};
+    for(int lanes:{1,17,32,33,64,512})for(int count:{1,19,1025}) {
+      std::vector<CaseBindings> cases;
+      std::vector<Value> answers;
+      for(int i=0;i<count;++i){cases.push_back({{0,Value::from_int(i)}});answers.push_back(Value::from_int(i+1));}
+      gagp::FitnessPolicy policy;policy.metric=gagp::FitnessMetric::Absolute;
+      gagp::FitnessSessionGpu session;
+      if(!session.init(cases,answers,20,lanes,7,policy).ok)return 1;
+      unsetenv(flag);const auto original=session.eval_programs(programs,true);
+      setenv(flag,"1",1);const auto coalesced=session.eval_programs(programs,true);
+      const auto compact=session.eval_programs(programs,false);
+      if(!original.ok || !coalesced.ok || !compact.ok ||
+          original.fitness!=coalesced.fitness || original.wrong!=coalesced.wrong ||
+          original.case_counts!=coalesced.case_counts ||
+          original.fitness!=compact.fitness || original.wrong!=compact.wrong) {
+        std::cerr<<"coalesced counts lost partial warp, error or timeout cases: lanes="<<lanes
+            <<" cases="<<count<<" ok="<<original.ok<<'/'<<coalesced.ok<<'/'<<compact.ok
+            <<" errors="<<original.err.message<<'/'<<coalesced.err.message<<'/'<<compact.err.message<<'\n';
+        for(std::size_t i=0;i<original.fitness.size() && i<coalesced.fitness.size();++i)
+          std::cerr<<i<<" fitness="<<original.fitness[i]<<'/'<<coalesced.fitness[i]
+              <<" wrong="<<original.wrong[i]<<'/'<<coalesced.wrong[i]<<'\n';
+        return 1;
+      }
+    }
+    if(present)setenv(flag,saved.c_str(),1);else unsetenv(flag);
+  }
   for (const auto op : {gagp::BuiltinId::IDiv0, gagp::BuiltinId::IMod0}) {
     for (const long long divisor : {-1LL, 0LL, 1LL}) {
       BytecodeProgram program;

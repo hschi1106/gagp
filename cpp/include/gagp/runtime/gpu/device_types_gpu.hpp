@@ -45,6 +45,8 @@ struct DPhaseMeta {
   int add_left_binding = -1;
   int add_right_binding = -1;
   int compare_binding = -1;
+  int simple_operation_ip = -1;
+  int simple_arity = 0;
 };
 
 struct DProgramMeta {
@@ -61,6 +63,9 @@ struct DProgramMeta {
   ErrCode err_code = ErrCode::Value;
   int region_offset = 0;
   int region_count = 0;
+  bool reuse_completed_fitness = false; // Sealed owner proof plus session revision.
+  bool shape_result_cache = false;
+  int shape_case_group_offset=0, shape_representative_offset=0, shape_case_count=0;
 };
 
 // Per-invocation cache keys are resolved immutable backing pointers, not public

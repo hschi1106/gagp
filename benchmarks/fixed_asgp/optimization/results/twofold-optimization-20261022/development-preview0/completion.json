@@ -1,0 +1,29 @@
+{
+  "pid": 3487776,
+  "status": "ok",
+  "started_epoch": 1792724467.0787747,
+  "deadline_epoch": 1792769007.0,
+  "kind": "interim_development_view_smoke",
+  "native_searches_started": 0,
+  "goal_proven": false,
+  "formal_target_proven": false,
+  "independent_quality_proven": false,
+  "source_sha256": {
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/twofold-optimization-20261022/development_view_smoke0.py": "9c0f41a8c1cfd174b9ed4fcb195c11d55b868ffa32b114960fbb8ac8078e56bc",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/twofold-optimization-20261022/development_views.py": "f59050f6e2efa388b7f1c9b380716f88f73c45f56ada887fff80931ca5c16ee8",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/twofold-optimization-20261022/report.py": "7c39079ac3950cdd183ccdf89795eb207e48cf15405f5966106e0e6c6b0eeedc",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/twofold-optimization-20261022/development-evidence-smoke0/manifest.json": "860382d6301170a9fc0e272a651ef4d5b77052b6d2f6dd191c001dd6f6a65be6"
+  },
+  "input_sha256": "53a7a56082256ef6bf4294dece049a054e6a2b9dd5bde7edb9f523cc41bd3ccf",
+  "finished_epoch": 1792724481.5017197,
+  "within_original_deadline": true,
+  "artifact_sha256": {
+    "summary.json": "c13bc23ef4e34758e30a7291f447aee0b879e0f2292183d01ad247a27646ea88",
+    "development_speed.png": "ad1f697f852120f20c44a37a2f8845a311c22f894a82b5da5a0d0e412d772843",
+    "development_cells.csv": "653fdd3ec3812e91aa453da70e28b5dde924fca65fbb64235376d535dafa0500",
+    "REPORT.zh-TW.md": "c1b92d93e76d29375f28d4a63330e3d6109daa4c011494ebd4c4d223549485c8",
+    "development_speed.pdf": "102119df492c08de82c8e1dcaeec8bf7b3f38af3f3008610c4108fff79e90b9e",
+    "dashboard.html": "265852ae28014124abbfa8e3391b6a431f86bac942b73a0cb02a48e6fd151baa",
+    "development_recipes.csv": "1d4bb4b5f9cd6239ece3913d2ac34339fc1cf8be8caf2972050228aad42536cf"
+  }
+}

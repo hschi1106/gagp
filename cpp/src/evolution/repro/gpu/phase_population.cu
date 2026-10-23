@@ -4,6 +4,10 @@
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
 #include "gagp/core/bytecode_verify.hpp"
 #include "phase_population.hpp"
+#include "completed_fitness_reuse.hpp"
+#include "parent_fitness_cache.cuh"
+#include "../../../runtime/gpu/cuda_stage_storage.hpp"
+#include "linear_elite.cuh"
 #include "phase_layout.hpp"
 #include "internal.hpp"
 #include "gagp/runtime/gpu/host_pack_gpu.hpp"
@@ -21,13 +25,13 @@ void checked(cudaError_t status) { if (status != cudaSuccess) throw std::runtime
 template<class T> struct Buffer {
  T* data=nullptr;std::size_t count=0;
  Buffer()=default;Buffer(const Buffer&)=delete;
- ~Buffer(){if(data)cudaFree(data);}
- void clear(){if(data)checked(cudaFree(data));data=nullptr;count=0;}
+ ~Buffer(){if(data)gpu_detail::cuda_pool_free(data);}
+ void clear(){if(data)checked(gpu_detail::cuda_pool_free(data));data=nullptr;count=0;}
  void reserve(std::size_t size) {
   if(size<=count)return;
   if(size>std::numeric_limits<std::size_t>::max()/sizeof(T))throw std::overflow_error("GPU genotype allocation overflow");
-  T* next=nullptr;checked(cudaMalloc(reinterpret_cast<void**>(&next),size*sizeof(T)));
-  if(data)checked(cudaFree(data));data=next;count=size;
+  T* next=nullptr;checked(gpu_detail::cuda_pool_malloc(reinterpret_cast<void**>(&next),size*sizeof(T)));
+  if(data)checked(gpu_detail::cuda_pool_free(data));data=next;count=size;
  }
  void upload(const std::vector<T>& input){reserve(input.size());if(!input.empty())checked(cudaMemcpy(data,input.data(),input.size()*sizeof(T),cudaMemcpyHostToDevice));}
  std::vector<T> read(std::size_t size)const {
@@ -82,6 +86,17 @@ __global__ void preserve_elites(TreePointers source, TreePointers target,
   for(int i=0;i<population;++i)
     if(fitness[i]>fitness[candidate] || (fitness[i]==fitness[candidate] && i<candidate))++rank;
   if(rank<elites)for(int k=0;k<slots;++k)copy_tree(source,candidate*slots+k,target,rank*slots+k);
+}
+// Exactly the same elite destination and source-index tie rule as rank-based
+// preservation. One block finds the winner; slots copy disjoint target rows.
+__global__ void preserve_one_elite(TreePointers source,TreePointers target,
+    const double* fitness,int population,int slots) {
+ const int winner=linear_elite_index(fitness,population);
+ for(int k=threadIdx.x;k<slots;k+=blockDim.x)copy_tree(source,winner*slots+k,target,k);
+}
+__global__ void copy_current_population(TreePointers source,TreePointers target,int rows) {
+ const int row=blockIdx.x*blockDim.x+threadIdx.x;
+ if(row<rows)copy_tree(source,row,target,row);
 }
 __global__ void annotate_import(TreePointers trees,const DeviceSlot* slots,int rows,int slot_count) {
  const int row=blockIdx.x*blockDim.x+threadIdx.x;if(row>=rows)return;const auto& s=slots[row%slot_count];const auto t=trees.view(row);
@@ -155,7 +170,7 @@ __device__ Site choose_site(TreePointers trees,int program,int slots,DGrammarRan
  }
  return selected;
 }
-struct OperatorStats {int parent=-1,crossover_attempted=0,crossover=0,crossover_rejected=0,mutation=0,changed=0,error=0;};
+struct OperatorStats {int parent=-1,crossover_attempted=0,crossover=0,crossover_rejected=0,mutation=0,changed=0,error=0,reusable_parent=-1;};
 __global__ void crossover_population(TreePointers input,TreePointers output,const DeviceSlot* slots,
     int slot_count,int population,int max_variable_nodes,const double* fitness,int pressure,std::uint64_t seed,OperatorStats* stats,bool counted,bool deferred_copy,bool fused_depth,bool uniform_phase,bool source_gate) {
  const int child=blockIdx.x*blockDim.x+threadIdx.x;if(child>=population)return;
@@ -239,7 +254,7 @@ __global__ void mutate_population(TreePointers input,TreePointers output,TreePoi
 __global__ void compare_offspring(TreePointers parents,TreePointers children,int population,int slot_count,OperatorStats* stats) {
  const int child=blockIdx.x*blockDim.x+threadIdx.x;if(child>=population || stats[child].error)return;
  const int parent=stats[child].parent;if(parent<0 || parent>=population){stats[child].error=9;return;}
- bool equal=true;
+ bool equal=true,reusable=true;
  for(int k=0;k<slot_count && equal;++k) {
   const auto a=parents.view(parent*slot_count+k),b=children.view(child*slot_count+k);
   if(a.node_count!=b.node_count || a.constant_count!=b.constant_count){equal=false;break;}
@@ -247,9 +262,32 @@ __global__ void compare_offspring(TreePointers parents,TreePointers children,int
    const auto x=a.nodes[i],y=b.nodes[i];equal=x.kind==y.kind && x.opcode==y.opcode && x.operand==y.operand &&
       x.arity==y.arity && x.fuel==y.fuel && x.merge_fuel==y.merge_fuel && a.origins[i]==b.origins[i];
   }
-  for(int i=0;i<a.constant_count && equal;++i){const auto x=a.constants[i],y=b.constants[i];equal=x.tag==y.tag && (x.tag==ValueTag::Bool?x.b==y.b:x.i==y.i);}
+  for(int i=0;i<a.constant_count && equal;++i){const auto x=a.constants[i],y=b.constants[i];
+   equal=x.tag==y.tag && (x.tag==ValueTag::Bool?x.b==y.b:x.i==y.i);
+   reusable=reusable && x.i==y.i && x.b==y.b;
+  }
  }
  stats[child].changed=!equal;
+ stats[child].reusable_parent=equal && reusable?parent:-1;
+}
+// Index the previous generation before stage-storage overwrites its trees.
+// Separate launches ensure all hash/table writes finish before offspring lookup.
+__global__ void index_fitness_parents(TreePointers parents,int population,int slots,
+    std::uint64_t* hashes,int* table,int mask) {
+ const int parent=blockIdx.x*blockDim.x+threadIdx.x;if(parent>=population)return;
+ const auto hash=parent_cache::hash_program(parents,parent,slots);hashes[parent]=hash;
+ const auto first=static_cast<unsigned>(hash)&static_cast<unsigned>(mask);
+ for(unsigned probe=0;probe<64;++probe) {
+  const int previous=atomicCAS(table+((first+probe)&mask),-1,parent);
+  if(previous<0 || parent_cache::equal_program(parents,parent,parents,previous,slots))return;
+ }
+}
+__global__ void find_fitness_parents(TreePointers parents,TreePointers children,int population,int slots,
+    const std::uint64_t* hashes,const int* table,int mask,OperatorStats* stats) {
+ const int child=blockIdx.x*blockDim.x+threadIdx.x;
+ if(child>=population || stats[child].error || stats[child].reusable_parent>=0)return;
+ const auto hash=parent_cache::hash_program(children,child,slots);
+ stats[child].reusable_parent=parent_cache::find_parent(parents,children,child,slots,hashes,table,mask,hash);
 }
 template<bool SharedNodes, bool CompactFrames = false>
 __global__ void compile_population(TreePointers trees,const DeviceSlot* slots,int slot_count,int rows,
@@ -307,15 +345,22 @@ struct NativePhasePopulation::Impl {
  const bool counted_sites;
  const bool uniform_phase_sites;
  const bool source_crossover_gate;
+ const bool linear_elite=std::getenv("GAGP_GPU_LINEAR_ELITE") && std::string(std::getenv("GAGP_GPU_LINEAR_ELITE"))=="1";
  std::string reproduction_profile;
  const bool inplace_mutation;
  const bool deferred_copy;
  const bool fused_splice_depth;
  const bool compact_compile_frames;
  const bool constructive_export;
+ CompletedFitnessReuse fitness_reuse{std::getenv("GAGP_GPU_UNCHANGED_FITNESS_REUSE") &&
+     std::string(std::getenv("GAGP_GPU_UNCHANGED_FITNESS_REUSE"))=="1"};
+ const bool parent_fitness_cache=fitness_reuse.enabled() && std::getenv("GAGP_GPU_PARENT_FITNESS_CACHE") &&
+     std::string(std::getenv("GAGP_GPU_PARENT_FITNESS_CACHE"))=="1";
+ Buffer<std::uint64_t> parent_hashes;Buffer<int> parent_table;int parent_table_size=0;
  std::size_t peak_transport_bytes=0;
  bool staged_buffers=false;
  NativePhaseLayout layout;int population=0,slot_count=0,device=-1;bool healthy=true;
+ std::unique_ptr<gpu_detail::CudaStageStorage> stage_storage;
  std::vector<std::unique_ptr<UploadedProfile>> profiles;Buffer<DeviceSlot> slots;
  std::unique_ptr<Trees> current,next,crossed,scratch;
  Buffer<double> fitness;Buffer<OperatorStats> stats;Buffer<unsigned> metrics;
@@ -408,7 +453,7 @@ struct NativePhasePopulation::Impl {
  void require_device()const{if(!healthy)throw std::logic_error("GPU genotype owner invalidated by a failed step");int now;checked(cudaGetDevice(&now));if(now!=device)throw std::logic_error("GPU genotype device/owner mismatch");}
  std::size_t bytes()const {
   std::size_t total=(current?current->bytes():0)+(next?next->bytes():0)+(crossed?crossed->bytes():0)+(scratch?scratch->bytes():0)+slots.bytes()+fitness.bytes()+stats.bytes()+metrics.bytes()+code.bytes()+packed_code.bytes()+
-      constants.bytes()+packed_constants.bytes()+compiled.bytes()+code_offsets.bytes()+constant_offsets.bytes();
+      constants.bytes()+packed_constants.bytes()+compiled.bytes()+code_offsets.bytes()+constant_offsets.bytes()+parent_hashes.bytes()+parent_table.bytes();
   for(const auto& p:profiles)total+=p->bytes();return total;
  }
  void reserve_reproduction_buffers() {
@@ -502,6 +547,7 @@ struct NativePhasePopulation::Impl {
 
 NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
     const std::vector<ProgramGenome>& input,const std::vector<std::string>& input_names,std::optional<grammar::ProjectedBudget> projected,int site_depth):impl_(std::make_unique<Impl>(std::move(grammar))) {
+ gpu_detail::CudaStageAllocationScope construction_storage(nullptr,false);
  phase_layout_require(site_depth>=0 && site_depth<=15 && !(site_depth && projected),"site depth must be0..15 and cannot combine with projected resource budgets");
  phase_layout_require(impl_->grammar && !input.empty() && input.size()<=16384,"population/grammar capacity");
  std::set<std::string> expected_names,actual_names(input_names.begin(),input_names.end());
@@ -527,6 +573,13 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  impl_->reproduction_profile=site_depth?"native-gpu-phase-v4-site-depth"+std::to_string(site_depth):impl_->layout.slots.front().logical_depth?"native-gpu-phase-v3-projected":
      impl_->counted_sites?"native-gpu-phase-v2-counted":"native-gpu-phase-v1";
  if(impl_->source_crossover_gate)impl_->reproduction_profile+="-source-cross07";
+ if(impl_->linear_elite)impl_->reproduction_profile+="-elite-linear";
+ if(impl_->parent_fitness_cache) {
+  phase_layout_require(impl_->population<(1<<29),"parent fitness cache population capacity");
+  impl_->parent_table_size=1;while(impl_->parent_table_size<2*impl_->population)impl_->parent_table_size*=2;
+  impl_->parent_hashes.reserve(impl_->population);impl_->parent_table.reserve(impl_->parent_table_size);
+  impl_->reproduction_profile+="-parent-fitness-cache";
+ }
  if(impl_->uniform_phase_sites)impl_->reproduction_profile+="-uniform-phase";
  const auto capability=gpu_detail::pack_programs_with_shared_case_count({impl_->layout.executable},0,0);
  phase_layout_require(capability.metas.size()==1 && capability.metas.front().is_valid,"fixed executable requires GPU fallback");
@@ -549,6 +602,15 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   phase_layout_require(std::string(setting)=="0" || std::string(setting)=="1","staged phase buffers must be 0 or 1");
   impl_->staged_buffers=std::string(setting)=="1";
  }
+ const auto* storage_flag=std::getenv("GAGP_GPU_STAGE_STORAGE");
+ if(storage_flag)phase_layout_require(std::string(storage_flag)=="0" || std::string(storage_flag)=="1","stage storage flag must be0 or1");
+ const bool standalone_storage=storage_flag && std::string(storage_flag)=="1";
+ const auto* pool_flag=std::getenv("GAGP_GPU_CUDA_POOL");
+ const bool requested_storage=standalone_storage || (pool_flag && std::string(pool_flag)=="1");
+ if(requested_storage && impl_->staged_buffers && scratch_budget) {
+  impl_->stage_storage=std::make_unique<gpu_detail::CudaStageStorage>(scratch_budget);
+  impl_->reproduction_profile+="-stage-storage";
+ } else if(standalone_storage)impl_->reproduction_profile+="-stage-storage-declined";
  // Persistent buffers are bounded by population × grammar capacity; no retained
  // ancestral ASTs, intern tables or generation history exist in this owner.
  impl_->current=std::make_unique<Trees>(rows);
@@ -635,25 +697,41 @@ NativePhasePopulation::~NativePhasePopulation() {
 const std::vector<BytecodeProgram>& NativePhasePopulation::programs()const{impl_->require_device();impl_->materialize_programs();return impl_->programs;}
 FitnessEvalResult NativePhasePopulation::evaluate(FitnessSessionGpu& session,bool diagnostics)const {
  impl_->require_device();
+ gpu_detail::CudaStageAllocationScope evaluation_storage(impl_->stage_storage.get(),false);
  const auto finish=[&](FitnessEvalResult result) {
   if(impl_->staged_buffers) {
    const auto begin=Clock::now();
    if(!session.release_private_workspace())throw std::runtime_error("GPU phase evaluation workspace release failed");
    const auto ms=elapsed(begin);result.timing.teardown_ms+=ms;result.timing.total_ms+=ms;
    result.payload_workspace_retained_bytes=0;
+   if(impl_->stage_storage && impl_->stage_storage->live_allocations())throw std::runtime_error("evaluation left live stage scratch");
   }
   return result;
  };
- if(!std::getenv("GAGP_OWNED_PHASE_PACK"))return finish(session.eval_programs(programs(),diagnostics));
+ if(!std::getenv("GAGP_OWNED_PHASE_PACK")) {
+  impl_->fitness_reuse.clear();return finish(session.eval_programs(programs(),diagnostics));
+ }
  const bool capabilities=std::getenv("GAGP_OWNED_PHASE_CAPS") && impl_->views_proven;
  const gpu_detail::OwnedGpuPrograms owned(impl_->programs,impl_->stack_bounds,
      capabilities?&impl_->input_types:nullptr,capabilities && impl_->direct_root_proven,
      impl_->host_packed.get(),[this]{impl_->materialize_programs();},
      impl_->private_intlists_proven?&impl_->input_types:nullptr);
- return finish(session.eval_owned_programs(owned,diagnostics));
+ const auto reuse_begin=Clock::now();
+ const auto revision=session.evaluation_revision();
+ const auto parents=impl_->fitness_reuse.mapping(revision);
+ auto result=finish(session.eval_owned_programs(owned,diagnostics || impl_->fitness_reuse.enabled(),
+     parents.empty()?nullptr:&parents,parents.empty()?nullptr:&impl_->fitness_reuse.completed(),revision));
+ if(impl_->fitness_reuse.enabled()) {
+  impl_->fitness_reuse.record(result,session.evaluation_revision());
+  if(!diagnostics)result.case_counts.clear();
+  result.timing.total_ms=elapsed(reuse_begin);
+ }
+ return result;
 }
 const char* NativePhasePopulation::profile_name()const{return impl_->reproduction_profile.c_str();}
 std::size_t NativePhasePopulation::device_bytes()const{return std::max(impl_->bytes(),impl_->peak_transport_bytes);}
+std::size_t NativePhasePopulation::stage_storage_reserved_bytes()const{return impl_->stage_storage?impl_->stage_storage->reserved_bytes():0;}
+std::size_t NativePhasePopulation::stage_storage_peak_bytes()const{return impl_->stage_storage?impl_->stage_storage->peak_bytes():0;}
 std::vector<std::array<unsigned,2>> NativePhasePopulation::site_metrics()const {
  impl_->require_device();impl_->metrics.reserve(impl_->population*2);
  measure_site_metrics<<<(impl_->population+63)/64,64>>>(pointers(*impl_->current),impl_->population,impl_->slot_count,impl_->metrics.data);
@@ -677,6 +755,7 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
  impl_->require_device();phase_layout_require(completed_fitness.size()==std::size_t(impl_->population) && pressure>0 && pressure<=impl_->population &&
    std::isfinite(probability) && probability>=0 && probability<=1,"selection/mutation contract");
  for(double value:completed_fitness)phase_layout_require(!std::isnan(value),"uncanonical fitness");
+ gpu_detail::CudaStageAllocationScope reproduction_storage(impl_->stage_storage.get(),true);
  impl_->healthy=false;ReproductionStats timing;
  if(impl_->staged_buffers){const auto setup=Clock::now();impl_->reserve_reproduction_buffers();timing.setup_ms+=elapsed(setup);}
  const auto upload=Clock::now();impl_->fitness.upload(completed_fitness);timing.upload_ms=elapsed(upload);
@@ -702,10 +781,19 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
  checked(cudaGetLastError());
  auto& offspring=impl_->inplace_mutation?impl_->crossed:impl_->next;
  if(elite_count) {
-  preserve_elites<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->current),pointers(*offspring),impl_->fitness.data,p,k,elite_count);
+  if(impl_->linear_elite && elite_count==1)preserve_one_elite<<<1,256>>>(pointers(*impl_->current),pointers(*offspring),impl_->fitness.data,p,k);
+  else preserve_elites<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->current),pointers(*offspring),impl_->fitness.data,p,k,elite_count);
   checked(cudaGetLastError());
  }
  compare_offspring<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->current),pointers(*offspring),p,k,impl_->stats.data);checked(cudaGetLastError());
+ if(impl_->parent_fitness_cache) {
+  checked(cudaMemset(impl_->parent_table.data,0xff,impl_->parent_table.bytes()));
+  index_fitness_parents<<<(p+63)/64,64>>>(pointers(*impl_->current),p,k,
+      impl_->parent_hashes.data,impl_->parent_table.data,impl_->parent_table_size-1);checked(cudaGetLastError());
+  find_fitness_parents<<<(p+63)/64,64>>>(pointers(*impl_->current),pointers(*offspring),p,k,
+      impl_->parent_hashes.data,impl_->parent_table.data,impl_->parent_table_size-1,impl_->stats.data);checked(cudaGetLastError());
+ }
+ if(impl_->stage_storage){copy_current_population<<<(p*k+127)/128,128>>>(pointers(*offspring),pointers(*impl_->current),p*k);checked(cudaGetLastError());}
  checked(cudaEventRecord(impl_->stop));checked(cudaEventSynchronize(impl_->stop));float ms;checked(cudaEventElapsedTime(&ms,impl_->start,impl_->stop));timing.kernel_ms=ms;
  const auto stats=impl_->stats.read(p);
  for(const auto& one:stats) {
@@ -715,8 +803,14 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
   timing.variation.changed_children+=one.changed;timing.variation.unchanged_children+=!one.changed;
   timing.variation.fallback_children+=one.crossover_attempted && !one.crossover;
  }
- impl_->current.swap(offspring);impl_->refresh_programs(&timing);
+ if(impl_->fitness_reuse.enabled()) {
+  std::vector<int> parents;parents.reserve(stats.size());
+  for(const auto& one:stats)parents.push_back(one.reusable_parent);
+  impl_->fitness_reuse.advance(std::move(parents));
+ }
+ if(!impl_->stage_storage)impl_->current.swap(offspring);impl_->refresh_programs(&timing);
  if(impl_->staged_buffers){const auto teardown=Clock::now();impl_->release_reproduction_buffers();timing.setup_ms+=elapsed(teardown);}
+ if(impl_->stage_storage && impl_->stage_storage->live_allocations())throw std::runtime_error("reproduction left live stage scratch");
  impl_->healthy=true;return timing;
 }
 std::vector<ProgramGenome> NativePhasePopulation::export_population()const {

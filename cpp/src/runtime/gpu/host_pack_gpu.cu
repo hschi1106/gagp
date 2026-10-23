@@ -2,6 +2,7 @@
 #include "gagp/core/host_threads.hpp"
 #include "gagp/core/semantic_fuel.hpp"
 #include "gagp/core/bytecode_verify.hpp"
+#include "gagp/core/builtin.hpp"
 #include <limits>
 #include <algorithm>
 #include <atomic>
@@ -307,6 +308,50 @@ void refresh_owned_phase_patterns(PackResult& out,std::size_t phase_begin,std::s
     m.trivial_constant_index=-1;m.trivial_load_binding=-1;
     m.scalar_constant_index=-1;m.scalar_constant_fuel=0;
     m.add_left_binding=-1;m.add_right_binding=-1;m.compare_binding=-1;
+    m.simple_operation_ip=-1;m.simple_arity=0;
+  }
+  const char* simple_setting=std::getenv("GAGP_GPU_SIMPLE_PHASES");
+  if(simple_setting && std::string(simple_setting)=="1")for(auto i=phase_begin;i<phase_end;++i) {
+    auto& phase=out.region_phases[i];auto& m=phase.program;
+    if(m.n_locals<0 || m.n_locals>8 || phase.binding_count<0 || phase.binding_count>8 ||
+        m.code_len<2 || m.code_len>9)continue;
+    const auto* code=out.all_phase_code.data()+m.code_offset;
+    int pc=0,leaves=0;bool valid=true;
+    while(pc<m.code_len && (code[pc].op==OP_LOAD || code[pc].op==OP_PUSH_CONST)) {
+      if(++leaves>3){valid=false;break;}
+      const auto& leaf=code[pc++];
+      if(!d_has_a(leaf)){valid=false;break;}
+      if(leaf.op==OP_PUSH_CONST)valid&=leaf.a>=0 && leaf.a<m.const_len;
+      else {
+        int matches=0;
+        for(int j=0;j<phase.binding_count;++j)matches+=out.region_bindings[phase.binding_offset+j].local==leaf.a;
+        valid&=leaf.a>=0 && leaf.a<m.n_locals && matches==1;
+      }
+      if(pc<m.code_len && (code[pc].op==OP_CHECK_INT || code[pc].op==OP_CHECK_LIST))++pc;
+    }
+    if(!valid || !leaves || pc>=m.code_len)continue;
+    const auto& operation=code[pc];int arity=0;
+    switch(operation.op) {
+      case OP_NEG:case OP_NOT:arity=1;break;
+      case OP_ADD:case OP_SUB:case OP_MUL:case OP_MOD:
+      case OP_EQ:case OP_NE:case OP_LT:case OP_LE:case OP_GT:case OP_GE:arity=2;break;
+      case OP_CALL_BUILTIN:
+        if(!d_has_a(operation) || !d_has_b(operation))break;
+        switch(static_cast<BuiltinId>(operation.a)) {
+          case BuiltinId::Len:case BuiltinId::IsLetter:case BuiltinId::Singleton:arity=1;break;
+          case BuiltinId::Concat:case BuiltinId::Index:case BuiltinId::IndexNonnegative:
+          case BuiltinId::IndexClampedOrZero:case BuiltinId::TruncDiv0:case BuiltinId::TruncMod0:
+          case BuiltinId::IDiv0:case BuiltinId::IMod0:case BuiltinId::Min:case BuiltinId::Max:arity=2;break;
+          case BuiltinId::Slice:case BuiltinId::Clip:arity=3;break;
+          default:break;
+        }
+        if(operation.b!=arity)arity=0;
+        break;
+      default:break;
+    }
+    if(arity==leaves && (pc+1==m.code_len || (pc+2==m.code_len && code[pc+1].op==OP_RETURN))) {
+      m.simple_operation_ip=pc;m.simple_arity=arity;
+    }
   }
   const char* trivial=std::getenv("GAGP_GPU_TRIVIAL_PHASES");
   if(trivial && std::string(trivial)=="1")for(auto i=phase_begin;i<phase_end;++i) {
@@ -543,27 +588,27 @@ void pack_shared_cases_only(const std::vector<CaseBindings>& shared_cases,
 }
 
 DeviceArena::~DeviceArena() {
-  if (d_consts) cudaFree(d_consts);
-  if (d_code) cudaFree(d_code);
-  if (d_phase_consts) cudaFree(d_phase_consts);
-  if (d_phase_code) cudaFree(d_phase_code);
-  if (d_region_segments) cudaFree(d_region_segments);
-  if (d_region_phases) cudaFree(d_region_phases);
-  if (d_region_bindings) cudaFree(d_region_bindings);
-  if (d_region_frames) cudaFree(d_region_frames);
-  if (d_region_memo_keys) cudaFree(d_region_memo_keys);
-  if (d_region_memo_values) cudaFree(d_region_memo_values);
-  if (d_metas) cudaFree(d_metas);
-  if (d_shared_case_local_vals) cudaFree(d_shared_case_local_vals);
-  if (d_shared_case_local_set) cudaFree(d_shared_case_local_set);
-  if (d_out) cudaFree(d_out);
-  if (d_expected) cudaFree(d_expected);
-  if (d_fitness) cudaFree(d_fitness);
-  if (d_case_counts) cudaFree(d_case_counts);
-  if (d_string_payload_entries) cudaFree(d_string_payload_entries);
-  if (d_string_payload_bytes) cudaFree(d_string_payload_bytes);
-  if (d_list_payload_entries) cudaFree(d_list_payload_entries);
-  if (d_list_payload_values) cudaFree(d_list_payload_values);
+  if (d_consts) cuda_pool_free(d_consts);
+  if (d_code) cuda_pool_free(d_code);
+  if (d_phase_consts) cuda_pool_free(d_phase_consts);
+  if (d_phase_code) cuda_pool_free(d_phase_code);
+  if (d_region_segments) cuda_pool_free(d_region_segments);
+  if (d_region_phases) cuda_pool_free(d_region_phases);
+  if (d_region_bindings) cuda_pool_free(d_region_bindings);
+  if (d_region_frames) cuda_pool_free(d_region_frames);
+  if (d_region_memo_keys) cuda_pool_free(d_region_memo_keys);
+  if (d_region_memo_values) cuda_pool_free(d_region_memo_values);
+  if (d_metas) cuda_pool_free(d_metas);
+  if (d_shared_case_local_vals) cuda_pool_free(d_shared_case_local_vals);
+  if (d_shared_case_local_set) cuda_pool_free(d_shared_case_local_set);
+  if (d_out) cuda_pool_free(d_out);
+  if (d_expected) cuda_pool_free(d_expected);
+  if (d_fitness) cuda_pool_free(d_fitness);
+  if (d_case_counts) cuda_pool_free(d_case_counts);
+  if (d_string_payload_entries) cuda_pool_free(d_string_payload_entries);
+  if (d_string_payload_bytes) cuda_pool_free(d_string_payload_bytes);
+  if (d_list_payload_entries) cuda_pool_free(d_list_payload_entries);
+  if (d_list_payload_values) cuda_pool_free(d_list_payload_values);
 }
 
 }  // namespace gagp::gpu_detail

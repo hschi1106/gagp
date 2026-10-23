@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include <type_traits>
 
 #include "gagp/core/region_plan.hpp"
@@ -85,7 +86,13 @@ struct DUnboxedCoordinateFrame {
 };
 #undef GAGP_REGION_HD
 
+struct DShortEditPattern;
+struct DShortEditEntry;
 struct DRegionWorkspace {
+  bool short_edit_enabled = false;
+  const DShortEditPattern* short_edit_patterns = nullptr;
+  const DShortEditEntry* short_edit_entries = nullptr;
+  int short_edit_entry_count = 0;
   // Replay owns bounded global payload slices per physical CUDA thread.
   DStringPayloadEntry* payload_string_entries = nullptr;
   DListPayloadEntry* payload_list_entries = nullptr;
@@ -105,7 +112,18 @@ struct DRegionWorkspace {
   bool private_bound_phases = false;
   bool private_typed_phases = false;
   bool compact_intlist_cells = false;
+  bool private_cell_soa = false;
+  bool private_adjacent_concat = false;
+  int private_cell_stride = 1;
   bool private_warp_copy = false;
+  bool coalesce_case_counts = false;
+  const unsigned* integer_case_weights = nullptr;
+  bool simple_phases = false;
+  bool register_phase_stack = false;
+  const int* shape_case_groups = nullptr;
+  const int* shape_case_representatives = nullptr;
+  int shape_result_count = 0;
+  std::size_t shape_result_offset = 0;
   int shared_list_value_count = 0;
   bool fused_list_concat = false;
   bool small_int_hash = false;

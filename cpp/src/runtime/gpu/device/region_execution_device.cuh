@@ -18,7 +18,7 @@ struct DViewRegionBindings {
   const Value* caller_locals;
   std::uint64_t caller_set;
   const DExecutionTables& execution;
-  __device__ ErrCode init(long long* locals, unsigned& local_set,
+  template<class Locals> __device__ __forceinline__ ErrCode init(Locals& locals,unsigned& local_set,
       const DPayloadTables& tables,unsigned&) const {
     if (phase.binding_offset < 0 || phase.binding_count < 0 ||
         phase.binding_count > execution.region_binding_count - phase.binding_offset)
@@ -53,7 +53,7 @@ template<class Frame>
 struct DPrivateRegionBindings {
   const DRegionSegment& segment;const DRegionPhase& phase;const Frame& frame;
   const Value* caller_locals;std::uint64_t caller_set;const DExecutionTables& execution;
-  __device__ ErrCode init(long long* locals,unsigned& local_set,
+  template<class Locals> __device__ __forceinline__ ErrCode init(Locals& locals,unsigned& local_set,
       const DPayloadTables&,unsigned& wrong_type) const {
     if(phase.binding_count<0 || phase.binding_count>8 || phase.binding_offset<0 ||
         phase.binding_count>execution.region_binding_count-phase.binding_offset)return ErrCode::Value;
@@ -147,6 +147,8 @@ __device__ DResult d_region_phase_impl(
   return result;
 }
 
+#include "simple_phase_device.cuh"
+
 template <DPayloadFlavor Flavor, class Frame>
 __device__ DResult d_region_phase(
     const DRegionSegment& segment, int phase_index, ValueTag expected,
@@ -173,6 +175,12 @@ __device__ DResult d_region_phase(
     }
   }
   const auto& constant = tables.region_phases[phase_index].program;
+  if constexpr(Flavor==DPayloadFlavor::ArenaMixed || Flavor==DPayloadFlavor::IndexedArena) {
+    if(payload_state.private_intlists && payload_state.private_typed_phases && payload_state.simple_phases &&
+        constant.simple_operation_ip>=0)
+      return d_run_simple_phase<Flavor>(segment,tables.region_phases[phase_index],expected,frame,
+          caller_locals,caller_set,payload_tables,payload_state,tables,fuel,result_phase);
+  }
   if (constant.scalar_constant_index >= 0) {
     if (fuel < 0 || constant.scalar_constant_fuel > static_cast<unsigned>(fuel))
       return d_error(ErrCode::Timeout);
@@ -264,6 +272,11 @@ __device__ DResult d_region_phase(
         p.n_locals<=8 && p.verified_stack_bound<=16) {
       const DCodeView view{tables.phase_code+p.code_offset,p.code_len,
           tables.phase_consts?tables.phase_consts+p.const_offset:nullptr,p.const_len,p.n_locals};
+      if(tables.register_phase_stack && p.verified_stack_bound>0 && p.verified_stack_bound<=4)
+        return d_run_bound_view_phase<DPrivateRegionBindings<Frame>,DPrivatePhasePayloadOps<Flavor>,
+            DPhaseRegisterBank<4>,DPhaseRegisterBank<8>>(view,
+            DPrivateRegionBindings<Frame>{segment,phase,frame,caller_locals,caller_set,tables},
+            payload_tables,fuel,expected,DPrivatePhasePayloadOps<Flavor>{payload_state});
       return d_run_bound_view_phase(view,
           DPrivateRegionBindings<Frame>{segment,phase,frame,caller_locals,caller_set,tables},
           payload_tables,fuel,expected,DPrivatePhasePayloadOps<Flavor>{payload_state});
@@ -292,6 +305,11 @@ __device__ DResult d_region_phase(
     view.consts = tables.phase_consts ? tables.phase_consts + phase.program.const_offset : nullptr;
     view.const_len = phase.program.const_len;
     view.n_locals = phase.program.n_locals;
+    if(tables.register_phase_stack && phase.program.verified_stack_bound>0 && phase.program.verified_stack_bound<=4)
+      return d_run_bound_view_phase<DViewRegionBindings<Frame>,DViewPhasePayloadOps,
+          DPhaseRegisterBank<4>,DPhaseRegisterBank<8>>(view,
+          DViewRegionBindings<Frame>{segment,phase,frame,caller_locals,caller_set,tables},
+          payload_tables,fuel,expected);
     return d_run_bound_view_phase(view,
         DViewRegionBindings<Frame>{segment, phase, frame, caller_locals, caller_set, tables},
         payload_tables, fuel, expected);

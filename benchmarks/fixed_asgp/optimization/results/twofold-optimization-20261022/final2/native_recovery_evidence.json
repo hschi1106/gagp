@@ -1,0 +1,58 @@
+{
+  "verified": true,
+  "cause_proven": false,
+  "original_search_manifests_unchanged": true,
+  "freeze_unchanged": true,
+  "no_existing_audit_rerun": true,
+  "first_recovery_started_no_audits": true,
+  "rows": [
+    {
+      "variant": "baseline",
+      "prior_attempts": 16,
+      "prior_terminal_attempts": 15,
+      "retained_interrupted_tags": [
+        "luhn.p16384.baseline.final.full-native"
+      ],
+      "newly_recorded_attempts": 44
+    },
+    {
+      "variant": "candidate",
+      "prior_attempts": 15,
+      "prior_terminal_attempts": 15,
+      "retained_interrupted_tags": [],
+      "newly_recorded_attempts": 45
+    }
+  ],
+  "recovery": {
+    "pid": 3532718,
+    "status": "requested_phase_complete",
+    "started_epoch": 1792750679.3731241,
+    "deadline_epoch": 1792769007.0,
+    "freeze": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/twofold-optimization-20261022/best-effort1-speed-freeze.json",
+    "freeze_sha256": "0faf0f0d5fc17406399481da1af4bce8d7aadcb6a4dcbfd9378eb07e4d644be7",
+    "prior_processes_verified_absent": [
+      3508585,
+      3531614,
+      3532705
+    ],
+    "preserved_sha256": {
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/twofold-optimization-20261022/native-resume2-preserved/twofold-optimization-20261022--best-effort1-controller.json": "01cbf33bd8791df5dbb1a9783afb583bb4aa45c0f5c719bd1dbf94a995103cda",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/twofold-optimization-20261022/native-resume2-preserved/twofold-optimization-20261022--best-effort1-quality-controller.json": "6f81eaaa564583d9b158043cc5146f79e606621a888c664806b6abe9dbd57fcb",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/twofold-optimization-20261022/native-resume2-preserved/twofold-optimization-20261022--best-effort1-speed-controller.json": "695d8d9481f0f1776bed34f43e66e1d24849f46a5b41bdf8ee8ecf2275fd4526",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/twofold-optimization-20261022/native-resume2-preserved/best-effort1-speed-full-native-baseline--manifest.json": "f825c039db3f618e3ef40f90bd4b70e9a181b110064f91579e081eec3061d82a",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/twofold-optimization-20261022/native-resume2-preserved/best-effort1-speed-full-native-candidate--manifest.json": "5ad6d8e92491b4cf47f52adee926b4e94973b7548d048e8fe43d7155ca556a83"
+    },
+    "failed_startup_recovery": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/twofold-optimization-20261022/native-resume1-controller.json",
+    "correction": "copy old speed state before assigning new PID; attempt1 launched no audit",
+    "cause": "controller and child absent; no terminal log; cause unproven",
+    "policy": "never rerun any existing audit or search; preserve interrupted failure",
+    "harness_sha256": {
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/twofold-optimization-20261022/resume_native2.py": "d0e8853a1a58a0bddfef5d1a94b6b8ab6806c156d6fc1547338016b0adc23ab0"
+    },
+    "finished_epoch": 1792755914.975299,
+    "full_native_audits_expected": 120,
+    "full_native_audits_ok": 119,
+    "full_native_audits_pass": false
+  },
+  "scope": "interrupted rows remain unknown; successful sibling audits do not replace missing evidence"
+}

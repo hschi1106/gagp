@@ -1,0 +1,8 @@
+{
+  "expected_calls": 120,
+  "elapsed_recorded_calls": 119,
+  "known_elapsed_s": 8337.114610910416,
+  "controller_recorded_calls": 119,
+  "known_controller_cpu_s": 1854.2069660610002,
+  "scope": "native call wall includes child, Python/JSON and lock wait; controller CPU may overlap child wall and must not be added to it; cost coverage is not audit success"
+}

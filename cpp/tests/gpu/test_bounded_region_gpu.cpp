@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <limits>
 #include "../../src/runtime/gpu/view_profile.hpp"
+#include "../../src/runtime/gpu/shape_result_cache.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
@@ -386,7 +387,7 @@ Value sequence(ValueTag tag) {
        payload::make_string_value("b"), payload::make_string_value("tail")});
 }
 
-bool test_private_measure_cache(bool private_window=false) {
+bool test_private_measure_cache(bool private_window=false,int launch_bound=0) {
   struct Environment {
     const char* key; std::string old; bool had;
     explicit Environment(const char* name):key(name),had(std::getenv(name)!=nullptr) {
@@ -397,7 +398,8 @@ bool test_private_measure_cache(bool private_window=false) {
       measure("GAGP_MEASURE_PHASE_CACHE"),private_measure("GAGP_GPU_PRIVATE_MEASURE_CACHE"),
       compact("GAGP_GPU_COMPACT_INTLIST_CELLS"),tiling("GAGP_GPU_TILED_INITIAL_PAYLOAD"),
       frames("GAGP_COMPACT_FRAMES"),window_mode("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR"),
-      leaf("GAGP_GPU_WINDOW_LEAF_DIRECT");
+      leaf("GAGP_GPU_WINDOW_LEAF_DIRECT"),launch("GAGP_GPU_PRIVATE_LAUNCH_BOUND");
+  setenv("GAGP_GPU_PRIVATE_LAUNCH_BOUND",std::to_string(launch_bound).c_str(),1);
   std::vector<BytecodeProgram> programs;
   for(unsigned length:{0u,1u,2u,65u,1024u})for(bool impure:{false,true})
       for(int carried=0;carried<(private_window?2:1);++carried) {
@@ -439,6 +441,13 @@ bool test_private_measure_cache(bool private_window=false) {
   const std::vector<Value> answers(33,payload::make_int_list_value(
       std::vector<Value>(1024,Value::from_int(INT64_MIN))));
   FitnessPolicy policy;policy.metric=FitnessMetric::Exact;policy.list_allocation_limit=65536;
+  if(launch_bound==0) {
+    FitnessSessionGpu invalid;
+    if(!check(invalid.init(cases,answers,1000,32,7,policy).ok,"private launch validation init"))return false;
+    setenv("GAGP_GPU_PRIVATE_LAUNCH_BOUND","511",1);
+    if(!check(!invalid.eval_programs(programs,true).ok,"invalid private launch bound accepted"))return false;
+    setenv("GAGP_GPU_PRIVATE_LAUNCH_BOUND","0",1);
+  }
   for(int lanes:{32,128})for(int fuel:{0,3,40,1000000}) {
     FitnessSessionGpu session;
     if(!check(session.init(cases,answers,fuel,lanes,7,policy).ok,"private Measure cache init"))return false;
@@ -456,6 +465,7 @@ bool test_private_measure_cache(bool private_window=false) {
       const auto on=session.eval_programs(programs,true);
       if(!check(off.ok && on.ok && on.fitness==off.fitness && on.fitness==cpu &&
           on.case_counts==off.case_counts && on.wrong==off.wrong &&
+          (!launch_bound || on.execution_profile.find("-private-launch"+std::to_string(launch_bound))!=std::string::npos) &&
           on.execution_profile.find("-private-measure-cache")!=std::string::npos &&
           on.execution_profile.find("-private-measure-cache-declined")==std::string::npos &&
           (!private_window || (on.execution_profile.find("-private-window")!=std::string::npos &&
@@ -1574,8 +1584,205 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
 
 }  // namespace
 
+// Distinct list contents and targets share only execution results, never scores.
+// The second program reads elements and must retain ordinary per-case execution.
+bool test_shape_result_cache() {
+  const char* flags[]={"GAGP_VIEW_PROFILE","GAGP_TYPED_VIEW_PHASE","GAGP_DIRECT_PHASE","GAGP_DIRECT_ROOT",
+      "GAGP_COMPACT_FRAMES","GAGP_WINDOW_EXECUTOR","GAGP_UNBOXED_WINDOW_FRAMES","GAGP_WINDOW_SOA",
+      "GAGP_SORT_CASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_SHAPE_RESULT_CACHE","GAGP_GPU_RELAXED_VIEW_REGISTERS"};
+  struct Restore {
+    const char** flags;std::string saved[12];bool present[12];
+    explicit Restore(const char** f):flags(f) {for(int i=0;i<12;++i) {
+      const auto* value=std::getenv(flags[i]);present[i]=value;saved[i]=value?value:"";setenv(flags[i],"1",1);
+    }}
+    ~Restore(){for(int i=0;i<12;++i)if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}
+  } restore(flags);
+  auto segment=sequence_segment(ValueTag::IntList);
+  segment.plan.result_type=ValueTag::Int;segment.plan.preparations.resize(1);
+  segment.preparations.resize(1);segment.plan.requests.resize(2);
+  segment.plan.requests[1].states[0]=window(0,endpoint(WindowEndpointKind::InteriorCut,0),endpoint(WindowEndpointKind::End));
+  segment.base_body=constant_phase(Value::from_int(7));
+  segment.combine=phase({}, {ins_a(Opcode::Load,0),ins_a(Opcode::Load,1),ins(Opcode::Add),ins(Opcode::Return)},
+      {{slot(RegionSlotBank::Result,0),0},{slot(RegionSlotBank::Result,1),1}},2);
+  auto shape=invocation(segment,{payload::make_int_list_value({Value::from_int(0)})},1);
+  shape.code[0]=ins_a(Opcode::Load,0);
+  auto content=shape;
+  content.bounded_region_segments[0].base_body=phase({Value::from_int(0)},
+      {ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,0),
+       ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Index),2),ins(Opcode::Return)},
+      {{slot(RegionSlotBank::State,0),0}},1);
+  if(!verify_fixture(shape,"shape cache") || !verify_fixture(content,"element-dependent cache exclusion"))return false;
+  auto early=shape;
+  early.bounded_region_segments[0].base_predicate=constant_phase(Value::from_bool(true));
+  early.bounded_region_segments[0].combine=content.bounded_region_segments[0].base_body;
+  if(!verify_fixture(early,"unreachable content read"))return false;
+  const std::vector<BytecodeProgram> programs{shape,content,early};
+  std::vector<CaseBindings> cases;std::vector<Value> answers;
+  for(int i=0;i<1024;++i) {
+    std::vector<Value> values;
+    for(int j=0;j<i%8;++j)values.push_back(Value::from_int(i*31+j));
+    cases.push_back({{0,payload::make_int_list_value(values)}});
+    answers.push_back(Value::from_int(i%17));
+  }
+  const FitnessPolicy policy{FitnessMetric::Absolute,FitnessProximity::Discounted};
+  for(int fuel:{0,1,2,5,12,1000}) {
+    FitnessSessionGpu ordinary,cached;
+    unsetenv("GAGP_GPU_SHAPE_RESULT_CACHE");
+    if(!ordinary.init(cases,answers,fuel,512,7,policy).ok)return false;
+    setenv("GAGP_GPU_SHAPE_RESULT_CACHE","1",1);
+    if(!cached.init(cases,answers,fuel,512,7,policy).ok)return false;
+    unsetenv("GAGP_GPU_RELAXED_VIEW_REGISTERS");
+    const auto a=ordinary.eval_programs(programs,true);
+    setenv("GAGP_GPU_RELAXED_VIEW_REGISTERS","1",1);
+    const auto b=cached.eval_programs(programs,true);
+    const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,7,512,policy);
+    if(!check(a.ok && b.ok && a.fitness==b.fitness && b.fitness==cpu && a.wrong==b.wrong &&
+        a.case_counts==b.case_counts && b.shape_result_programs==2 && b.shape_result_groups==8 &&
+        b.execution_profile.find("-view-reg512")!=std::string::npos &&
+        b.execution_profile.find("-view-reg512-declined")==std::string::npos &&
+        b.physical_program_cases==1040,"shape cache changed content-dependent result, per-case target or ordered fractional score"))return false;
+  }
+  // Saturated65536 descriptors must not be merged with actual65535 lists.
+  const auto a=payload::make_int_list_value(std::vector<Value>(65535,Value::from_int(1)));
+  const auto b=payload::make_int_list_value(std::vector<Value>(65536,Value::from_int(1)));
+  cases.clear();answers.assign(128,Value::from_int(0));
+  for(int i=0;i<128;++i)cases.push_back({{0,i%2?a:b}});
+  FitnessSessionGpu saturated;
+  if(!saturated.init(cases,answers,1,512,7,policy).ok)return false;
+  const auto excluded=saturated.eval_programs({shape},true);
+  // Requests outside the512-thread specialization retain the original kernel.
+  FitnessSessionGpu wide;
+  if(!wide.init(cases,answers,1,1024,7,policy).ok)return false;
+  const auto fallback=wide.eval_programs({shape},true);
+  if(!check(fallback.ok && fallback.execution_profile.find("-view-reg512-declined")!=std::string::npos &&
+      fallback.fitness==eval_fitness_cpu({shape},cases,answers,1,7,1024,policy),
+      "relaxed-register kernel lost1024-thread fallback"))return false;
+  return check(excluded.ok && excluded.shape_result_programs==0 &&
+      excluded.physical_program_cases==128,"saturated backing extent entered shape cache");
+}
+
+bool test_projected_shape_inputs() {
+  struct Restore {
+    struct Entry{const char* name;bool present;std::string value;};std::vector<Entry> entries;
+    explicit Restore(std::initializer_list<const char*> names) {for(const auto* name:names) {
+      const auto* value=std::getenv(name);entries.push_back({name,bool(value),value?value:""});setenv(name,"1",1);
+    }}
+    ~Restore(){for(const auto& e:entries)if(e.present)setenv(e.name,e.value.c_str(),1);else unsetenv(e.name);}
+  } restore({"GAGP_VIEW_PROFILE","GAGP_TYPED_VIEW_PHASE","GAGP_DIRECT_PHASE","GAGP_DIRECT_ROOT",
+      "GAGP_COMPACT_FRAMES","GAGP_WINDOW_EXECUTOR","GAGP_UNBOXED_WINDOW_FRAMES","GAGP_WINDOW_SOA",
+      "GAGP_SORT_CASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_SHAPE_RESULT_CACHE",
+      "GAGP_GPU_PROJECT_SHAPE_INPUTS","GAGP_GPU_RELAXED_VIEW_REGISTERS","GAGP_GPU_REGISTER_PHASE_STACK","GAGP_GPU_VIEW_PHYSICAL_BLOCK"});
+  setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","128",1);
+  auto segment=sequence_segment(ValueTag::IntList);
+  segment.plan.result_type=ValueTag::Int;segment.plan.preparations.resize(1);segment.preparations.resize(1);
+  segment.plan.requests.resize(2);
+  segment.plan.requests[1].states[0]=window(0,endpoint(WindowEndpointKind::InteriorCut,0),endpoint(WindowEndpointKind::End));
+  segment.plan.parameter_types={ValueTag::Int};segment.parameter_locals={1};
+  segment.base_body=constant_phase(Value::from_int(7));
+  // This declared capture is unused; its distinct scalar values cannot affect the root.
+  segment.base_body.bindings={{{RegionSlotBank::Parameter,0},0}};segment.base_body.program.n_locals=1;
+  segment.combine=phase({}, {ins_a(Opcode::Load,0),ins_a(Opcode::Load,1),ins(Opcode::Add),ins(Opcode::Return)},
+      {{slot(RegionSlotBank::Result,0),0},{slot(RegionSlotBank::Result,1),1}},2);
+  auto unused=invocation(segment,{payload::make_int_list_value({Value::from_int(0)})},3);
+  unused.code[0]=ins_a(Opcode::Load,0);
+  auto used=unused;used.bounded_region_segments[0].base_body=load_phase(RegionSlotBank::Parameter,0);
+  auto unreachable=unused;
+  unreachable.bounded_region_segments[0].base_predicate=constant_phase(Value::from_bool(true));
+  unreachable.bounded_region_segments[0].combine=load_phase(RegionSlotBank::Parameter,0);
+  const std::vector<BytecodeProgram> programs{unused,used,unreachable};
+  for(const auto& program:programs)if(!verify_fixture(program,"projected capture"))return false;
+  const auto packed=gpu_detail::pack_programs_with_shared_case_count(programs,1025,0);
+  const std::uint64_t required[]{1,3,1};
+  for(int i=0;i<3;++i) {
+    std::uint64_t inputs=0;
+    if(!check(gpu_detail::shape_result_program_supported(packed,packed.metas[i],&inputs) && inputs==required[i],
+        "fresh phase dependency mask included unused or omitted used caller input"))return false;
+  }
+  std::vector<CaseBindings> cases;std::vector<Value> answers;
+  for(int i=0;i<1025;++i) {
+    std::vector<Value> values(i%8,Value::from_int(i*31));
+    cases.push_back({{0,payload::make_int_list_value(values)},{1,Value::from_int(i)},
+                     {2,Value::from_float(i+.125)}});
+    answers.push_back(Value::from_int(i%17));
+  }
+  const FitnessPolicy policy{FitnessMetric::Absolute,FitnessProximity::Discounted};
+  for(int fuel:{0,1,3,16,1000})for(int physical:{32,128,256}) {
+    FitnessSessionGpu reference,cached;
+    unsetenv("GAGP_GPU_SHAPE_RESULT_CACHE");
+    if(!reference.init(cases,answers,fuel,512,7,policy).ok)return false;
+    setenv("GAGP_GPU_SHAPE_RESULT_CACHE","1",1);
+    if(!cached.init(cases,answers,fuel,512,7,policy).ok)return false;
+    setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","0",1);
+    unsetenv("GAGP_GPU_REGISTER_PHASE_STACK");
+    const auto a=reference.eval_programs(programs,true);
+    setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK",std::to_string(physical).c_str(),1);
+    setenv("GAGP_GPU_REGISTER_PHASE_STACK","1",1);
+    const auto b=cached.eval_programs(programs,true);
+    if(!check(a.ok && b.ok && a.fitness==b.fitness && b.fitness==eval_fitness_cpu(programs,cases,answers,fuel,7,512,policy) &&
+        a.wrong==b.wrong && a.case_counts==b.case_counts && b.shape_result_programs==2 &&
+        b.shape_result_groups==8 && b.physical_program_cases==1041 && b.physical_blocksize==static_cast<unsigned>(physical),
+        "projection ignored used capture, read unused Float or merged per-case targets"))return false;
+    if(fuel==1000) {
+      auto changed=unused;
+      changed.bounded_region_segments[0].base_body.program.consts[0]=Value::from_int(13);
+      for(const auto& current:std::vector<BytecodeProgram>{unused,used,changed,unreachable,unused}) {
+        const auto result=cached.eval_programs({current},true);
+        if(!check(result.ok && result.fitness==eval_fitness_cpu({current},cases,answers,fuel,7,512,policy),
+            "partition cache reused a previous program result or dependency mask"))return false;
+      }
+    }
+  }
+  // Sorted/strided integral cases also retain their original512 logical lanes.
+  const FitnessPolicy capped{FitnessMetric::Absolute,FitnessProximity::Capped};
+  for(int physical:{32,64,128,256}) {
+    FitnessSessionGpu reference,cached;
+    unsetenv("GAGP_GPU_SHAPE_RESULT_CACHE");
+    if(!reference.init(cases,answers,1000,512,7,capped).ok)return false;
+    setenv("GAGP_GPU_SHAPE_RESULT_CACHE","1",1);
+    if(!cached.init(cases,answers,1000,512,7,capped).ok)return false;
+    setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","0",1);const auto a=reference.eval_programs(programs,true);
+    setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK",std::to_string(physical).c_str(),1);const auto b=cached.eval_programs(programs,true);
+    if(!check(a.ok && b.ok && a.fitness==b.fitness && a.case_counts==b.case_counts && a.wrong==b.wrong &&
+        b.fitness==eval_fitness_cpu(programs,cases,answers,1000,7,512,capped) && b.physical_blocksize==static_cast<unsigned>(physical),
+        "physical view lanes duplicated strided cases or changed canonical score order"))return false;
+  }
+  FitnessSessionGpu wide_reference,wide_cached;
+  unsetenv("GAGP_GPU_SHAPE_RESULT_CACHE");
+  if(!wide_reference.init(cases,answers,1000,1024,7,policy).ok)return false;
+  setenv("GAGP_GPU_SHAPE_RESULT_CACHE","1",1);
+  if(!wide_cached.init(cases,answers,1000,1024,7,policy).ok)return false;
+  setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","0",1);const auto original_wide=wide_reference.eval_programs(programs,true);
+  setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","128",1);const auto virtual_wide=wide_cached.eval_programs(programs,true);
+  if(!check(original_wide.ok && virtual_wide.ok && original_wide.fitness==virtual_wide.fitness &&
+      original_wide.case_counts==virtual_wide.case_counts && virtual_wide.physical_blocksize==128 &&
+      virtual_wide.fitness==eval_fitness_cpu(programs,cases,answers,1000,7,1024,policy),
+      "virtual physical lanes changed1024-lane fractional reduction or overflowed score scratch"))return false;
+  // Missing/wrong USED captures force ordinary admission/execution and retain errors.
+  cases.resize(128);answers.resize(128);
+  for(int i=0;i<128;++i)if(i%2)cases[i][1].value=Value::from_float(i+.25);else cases[i].erase(cases[i].begin()+1);
+  FitnessSessionGpu mismatch;
+  if(!mismatch.init(cases,answers,1000,128,7,policy).ok)return false;
+  const auto used_bad=mismatch.eval_programs({used},true);
+  if(!check(used_bad.ok && used_bad.shape_result_programs==0 &&
+      used_bad.fitness==eval_fitness_cpu({used},cases,answers,1000,7,128,policy),
+      "used missing/wrong capture lost native name/type behavior"))return false;
+  // The same invalid input locals are safe to ignore when not captured or read.
+  auto plain=unused;auto& plain_segment=plain.bounded_region_segments[0];
+  plain_segment.plan.parameter_types.clear();plain_segment.parameter_locals.clear();
+  plain_segment.base_body=constant_phase(Value::from_int(7));
+  setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","127",1);
+  const auto invalid=mismatch.eval_programs({plain},true);
+  if(!check(!invalid.ok,"invalid physical view block setting accepted"))return false;
+  setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","128",1);
+  const auto ignored=mismatch.eval_programs({plain},true);
+  return check(ignored.ok && ignored.shape_result_programs==1 && ignored.shape_result_groups==8 &&
+      ignored.fitness==eval_fitness_cpu({plain},cases,answers,1000,7,128,policy),
+      "unused invalid caller locals prevented or changed proven projected execution");
+}
+
 int main() {
   payload::clear();
+  if (!test_shape_result_cache() || !test_projected_shape_inputs()) return 1;
   if (!test_verified_view_profile() || !test_verified_view_profile(true) || !test_verified_view_profile(true, true)) return 1;
   if (!test_workspace_thread_isolation()) return 1;
   if (!test_phase_binding_capacities()) return 1;
@@ -1586,6 +1793,9 @@ int main() {
   if (!test_sequence_divide_and_conquer()) return 1;
   if (!test_private_measure_cache()) return 1;
   if (!test_private_measure_cache(true)) return 1;
+  for(int bound:{512,1024}) {
+    if (!test_private_measure_cache(false,bound) || !test_private_measure_cache(true,bound)) return 1;
+  }
   if (!test_captured_locals_are_per_case_and_lazy()) return 1;
   if (!test_boundary_base_and_fuel()) return 1;
   if (!test_exact_capacity_exhaustion()) return 1;

@@ -62,6 +62,7 @@ struct DExecutionTables {
   int region_binding_count = 0;
   const DMeasurePhaseCacheEntry* measure_cache = nullptr;
   int measure_cached_phase = -1;
+  bool register_phase_stack = false;
 };
 
 struct DCodeView {
@@ -518,7 +519,10 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
     payload_state.private_typed_phases=workspace.private_typed_phases;
     payload_state.compact_intlist_cells=workspace.compact_intlist_cells;
     payload_state.private_warp_copy=workspace.private_warp_copy;
+    payload_state.private_adjacent_concat=workspace.private_adjacent_concat;
+    payload_state.simple_phases=workspace.simple_phases;
     payload_state.intlist_cells=workspace.payload_intlist_cells;
+    payload_state.private_cell_stride=workspace.private_cell_stride;
     payload_state.concat_cache=workspace.concat_cache;
     payload_state.concat_cache_diagnostics=workspace.concat_cache_stats!=nullptr;
     d_clear_concat_cache(payload_state);
@@ -574,7 +578,9 @@ __device__ __noinline__ DResult d_execute_bytecode_impl(const DProgramMeta& meta
   result.payload_capacity_reason = payload_state.physical_capacity_reason;
   if(score && expected && !result.is_error) {
     if(payload_state.private_intlists || policy.metric==FitnessMetric::Levenshtein || policy.metric==FitnessMetric::TupleSummary)
-      *score=d_score_resident(result.value,*expected,penalty,policy,payload_tables,payload_state_storage.ref(),exact);
+      *score=d_score_resident(result.value,*expected,penalty,policy,payload_tables,payload_state_storage.ref(),exact,
+          workspace.short_edit_enabled,workspace.short_edit_patterns?workspace.short_edit_patterns+local_case:nullptr,
+          workspace.short_edit_entries,workspace.short_edit_entry_count);
     else {
       *score=fitness_case_score(result.value,*expected,penalty,policy);
       if(exact)*exact=fitness_case_score(result.value,*expected,penalty,{FitnessMetric::Exact})==0;

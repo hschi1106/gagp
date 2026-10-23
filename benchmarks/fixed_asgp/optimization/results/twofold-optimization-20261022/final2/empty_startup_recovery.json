@@ -1,0 +1,9 @@
+{
+  "verified": true,
+  "parent_attempt": "best-effort0",
+  "parent_jobs": 0,
+  "parent_status": "stopped_before_any_dataset_or_sample",
+  "scope_unchanged": true,
+  "corrected_field": "first_heldout_use",
+  "original_freeze_hashes_preserved": true
+}

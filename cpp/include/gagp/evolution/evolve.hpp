@@ -96,6 +96,8 @@ struct EvolutionResult {
   std::string reproduction_profile = "native-ast";
   std::string reproduction_fallback_reason;
   std::uint64_t genotype_device_bytes = 0;
+  std::uint64_t gpu_stage_storage_reserved_bytes = 0;
+  std::uint64_t gpu_stage_storage_peak_bytes = 0;
   EvolutionTiming timing;
 };
 

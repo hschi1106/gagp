@@ -29,6 +29,8 @@ class NativePhasePopulation final {
   std::vector<ProgramGenome> export_population() const;
   ProgramGenome export_member(std::size_t index) const;
   std::size_t device_bytes() const;
+  std::size_t stage_storage_reserved_bytes() const;
+  std::size_t stage_storage_peak_bytes() const;
   std::vector<unsigned> node_counts(bool grammar_sites=false) const;
   // Each row: independently mutable grammar roots, maximum per-phase site depth.
   std::vector<std::array<unsigned,2>> site_metrics() const;

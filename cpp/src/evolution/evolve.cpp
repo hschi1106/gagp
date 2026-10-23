@@ -31,6 +31,7 @@
 #ifdef GAGP_HAS_CUDA
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
 #include "repro/gpu/phase_population.hpp"
+#include "../runtime/gpu/cuda_allocation_scope.hpp"
 #include <numeric>
 #endif
 
@@ -276,6 +277,13 @@ std::vector<ScoredGenomeRef> score_population_gpu_refs(
   evaluation.fitness = std::move(fit.fitness);
   evaluation.wrong = std::move(fit.wrong);
   evaluation.timing.execution_profile=fit.execution_profile;
+  evaluation.timing.physical_program_cases=fit.physical_program_cases;
+  evaluation.timing.shape_result_programs=fit.shape_result_programs;
+  evaluation.timing.shape_result_groups=fit.shape_result_groups;
+  evaluation.timing.simple_phase_count=fit.simple_phase_count;
+  evaluation.timing.physical_blocksize=fit.physical_blocksize;
+  evaluation.timing.fitness_reused_programs=fit.fitness_reused_programs;
+  evaluation.timing.fitness_reused_program_cases=fit.fitness_reused_program_cases;
   evaluation.timing.concat_cache_stats=fit.concat_cache_stats;
   evaluation.timing.payload_workspace_retained_bytes=fit.payload_workspace_retained_bytes;
   evaluation.timing.payload_workspace_pool_peak_bytes=fit.payload_workspace_pool_peak_bytes;
@@ -317,6 +325,7 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
   const auto begin = std::chrono::steady_clock::now();
   const auto elapsed = [](auto start) { return std::chrono::duration<double,std::milli>(
       std::chrono::steady_clock::now()-start).count(); };
+  gpu_detail::CudaAllocationScope allocation_scope;
   std::unique_ptr<repro::NativePhasePopulation> owner;
   try {
     const auto entry = grammar::entry_request(*cfg.compiled_grammar);
@@ -334,10 +343,13 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
     if(cfg.gpu_projected_phase_profile || cfg.cpu_fitness_verification.top_k || cfg.gpu_phase_site_depth || cfg.gpu_phase_site_parsimony)throw; // Explicit profiles fail closed
     result.reproduction_fallback_reason = error.what();
     result.timing.init_population_ms += elapsed(begin);
+    owner.reset();allocation_scope.finish();
     return false;
   }
   result.timing.init_population_ms += elapsed(begin);
   result.reproduction_profile = owner->profile_name();
+  result.gpu_stage_storage_reserved_bytes=owner->stage_storage_reserved_bytes();
+  if(allocation_scope.used())result.reproduction_profile+="-cuda-pool";
   if(cfg.gpu_phase_site_parsimony)result.reproduction_profile+="-site-parsimony";
   std::mt19937_64 rng(cfg.seed);
   std::vector<double> fitness, selection_fitness;
@@ -347,6 +359,13 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
     auto fit = owner->evaluate(session,std::getenv("GAGP_GPU_DIAGNOSTICS") != nullptr);
     if (!fit.ok) throw std::runtime_error("native GPU phase fitness failed: " + fit.err.message);
     timing.execution_profile=fit.execution_profile;
+    timing.physical_program_cases=fit.physical_program_cases;
+    timing.shape_result_programs=fit.shape_result_programs;
+    timing.shape_result_groups=fit.shape_result_groups;
+    timing.simple_phase_count=fit.simple_phase_count;
+    timing.physical_blocksize=fit.physical_blocksize;
+    timing.fitness_reused_programs=fit.fitness_reused_programs;
+    timing.fitness_reused_program_cases=fit.fitness_reused_program_cases;
     timing.concat_cache_stats=fit.concat_cache_stats;
     timing.payload_workspace_retained_bytes=fit.payload_workspace_retained_bytes;
     timing.payload_workspace_pool_peak_bytes=fit.payload_workspace_pool_peak_bytes;
@@ -434,6 +453,7 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
         std::clamp(cfg.selection_pressure,1,cfg.population_size),cfg.mutation_rate,rng(),cfg.elite_count));
     timing.repro_ms=elapsed(repro_start);
     result.genotype_device_bytes=std::max<std::uint64_t>(result.genotype_device_bytes,owner->device_bytes());
+    result.gpu_stage_storage_peak_bytes=owner->stage_storage_peak_bytes();
     accumulate_timing(&result.timing.reproduction_totals,timing.reproduction);
     const auto finish=std::chrono::steady_clock::now();
     timing.total_ms=std::chrono::duration<double,std::milli>(finish-start).count();
@@ -454,8 +474,10 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
         result.final_population.push_back({owner->export_member(i),fitness[i],wrong.empty()?-1:int(wrong[i])});
     }
     result.genotype_device_bytes=std::max<std::uint64_t>(result.genotype_device_bytes,owner->device_bytes());
+    result.gpu_stage_storage_peak_bytes=owner->stage_storage_peak_bytes();
     result.timing.final_eval_ms=elapsed(start);
   }
+  owner.reset();allocation_scope.finish();
   return true;
 }
 

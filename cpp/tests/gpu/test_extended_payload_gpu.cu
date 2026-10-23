@@ -1259,8 +1259,11 @@ bool test_sorted_arena_cases() {
 }
 
 #include "private_intlist_offset_checks.cuh"
+#include "private_short_edit_checks.cuh"
+#include "private_adjacent_checks.cuh"
 
 int main() {
+  if(!test_private_short_edit_sessions() || !private_adjacent_checks::run())return 1;
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;

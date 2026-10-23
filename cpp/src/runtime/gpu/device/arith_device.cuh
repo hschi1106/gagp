@@ -2,6 +2,7 @@
 
 #include "gagp/core/value_semantics.hpp"
 #include "gagp/runtime/gpu/device_types_gpu.hpp"
+#include "integer_arithmetic.cuh"
 
 namespace gagp::gpu_detail {
 
@@ -23,7 +24,7 @@ __device__ inline double d_float_mod(double a, double b) {
 }
 
 __device__ inline long long d_int_mod(long long a, long long b) {
-  return vm_semantics::py_int_mod(a, b);
+  return d_py_int_mod(a, b);
 }
 
 __device__ inline bool d_compare(const int op, const Value& a, const Value& b, bool& out_bool,
