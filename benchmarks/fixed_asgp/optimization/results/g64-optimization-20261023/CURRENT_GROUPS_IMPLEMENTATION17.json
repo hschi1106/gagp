@@ -1,0 +1,18 @@
+{
+  "status": "isolated_source_ready",
+  "created_epoch": 1792827574.119856,
+  "deadline_epoch": 1792849888.0,
+  "original_commit": "81b8a9cd7c5a4786272542857be2062c0306b155",
+  "changed_source_sha256": {
+    "cpp/src/evolution/repro/gpu/phase_population.cu": "bbc493546c85fe44296e22354cd334d3cf98e08d6b892c28b71711f91b1de252",
+    "cpp/src/runtime/gpu/fitness_gpu.cu": "476828ed7d62b1e9138b92290d4bd986d9c4c40f2d00de55154476af184d0071",
+    "cpp/src/runtime/gpu/owned_programs.hpp": "3c6dd9b70a4aafc597ea15b3379059183c265e1babf020481f9cb1f8c114ae88",
+    "cpp/tests/gpu/test_gpu_phase_population.cu": "7308ea81c40fc75fb632dd5910acabc056a1dfc079360d9ee378e54d2748b1d8"
+  },
+  "implementation_patch_sha256": "cb1cba4b3d058336ba633b89292d89e191443148dbf3e1289e1cd6622554de6d",
+  "scope": "Exact current-generation score groups; isolated OLD TRAINING only, no packed-frame dependency or formal0 mutation",
+  "source_manifest_sha256": "100b7b5f6f04ce4c1e2c38c06eaa6aa5d1729cf5232a5d9d74ba0d6c7df226fa",
+  "source_file_count": 451,
+  "original_source_file_count": 451,
+  "build_or_native_pass_claim": false
+}

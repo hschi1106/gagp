@@ -36,6 +36,8 @@
 
 [實驗規格](protocol.json) · [品質規模政策](quality-scale-policy.json) · [目前程序與恢復步驟](RECOVERY.md) · [固定候選執行方式](USE_CANDIDATE.md)
 
-完整Release建置通過；本次原生回歸136/136、研究檢查129、工具122（跳過4）、repository24均通過。實際PNG及PDF已檢視；互動頁728／360寬度的篩選、選題、train/test切換與無水平溢位檢查通過，見[UI紀錄](UI_VALIDATION.json)。
+正式版本的完整Release建置通過；正式原生回歸136/136、研究檢查129、工具122（跳過4）、repository24均通過。實際PNG及PDF已檢視；互動頁728／360寬度的篩選、選題、train/test切換與無水平溢位檢查通過，見[UI紀錄](UI_VALIDATION.json)。
 
 [候選preset](candidate_preset.json)已匯出；P1024／P16384操作範例的實際dry-run通過，沒有啟動新搜尋，見[檢查紀錄](PRESET_CHECK.json)。[隔離frame原型](prototype-private-frames/README.md)的儲存／存取檢查與CUDA編譯檢查通過，但未整合、未執行VM或量測加速，不列入正式結果。較早研究與presentations不修改；本輪僅本機提交，不推送。
+
+追加開發已結束：同代精確分組120/120搜尋及6/6定點native完成，但相對本輪選定控制只有0.986×，相對同binary關閉為0.971×，未採用。Packed-frame建置60分鐘逾時，0/150搜尋；沒有性能結論。見[追加報告](appendix-final18/report.md)、[逐題CSV](appendix-final18/tasks.csv)、[PNG](appendix-final18/development.png)／[PDF](appendix-final18/development.pdf)與[實作及限制](PACKED_FOLLOWUP.md)。正式1.079×及1.3未達不變。

@@ -1,3 +1,21 @@
+# OLD TRAINING development appendix — TIMING AND REPORT COMPLETE
+
+All four controllers AND captured build/search descendants EXITED. Do not restart, resume, rerun samples or extend the original clock. New development-only report: [appendix-final18/report.md](appendix-final18/report.md); PNG/PDF/CSV/dashboard are complete. Formal0 remains immutable/delivered at commit81b8a9c: qualified all30/P1024/G64 GM1.079257x, target1.3UNMET.
+
+- Packed15: stopped at07:39:34UTC by frozen3600s build cap. No native step or search;150 planned unrun rows retained in development-packed15/runs.csv. confirm15 not_run_prerequisite_failed. Source-only12, schema failures13/14 and build timeout15 preserved, no retry.
+- Current-groups17: independent official81b8a9c snapshot, actual buildPASS1300.39s, SIX focused native testsPASS458.60s;120/120 oldTRAINING searches,30/30 full four-arm tasks qualified. Finished08:18:37UTC. New binaryed96ff1ce2509d988bd4e1c1796135b7f1039fb22647cec9c24828362c7a3ba8.
+- Incremental GM freshselected-control/groups0.986010818831x; SAMEbinaryoff/groups0.971336232969x; freshbeb-baseline/groups1.042951930657x. All P1024/G64/seed0/R1 OLD TRAINING, no new ASGP/heldout/formal claim. Gain gate>=1.02 failed; confirm17 explicitly not_run_incremental_gain_below2pct. No seeds1/2 or65champion native training audits. Feature not adopted; officialCPP unchanged.
+- Independent reports verify complete final1024ASTs,64champion AST/fitness, finalfitness/wrong descriptors; separate audit verifies all9generation scalar fields.120CPU16final audits=1920program observations,0fitness/wrong mismatches; in-search verification0programs/0corrections. No per-generation all-population CPU proof, independent quality or5ppnoninferiority claim. No newgen0/newsuccess counts without train/test champion judges.
+- Physical program-cases231858061→230022601,0.791631% saved. Existing shape/case cache means grouped_count*logical_cases is only an upper bound. First manual audit draft made that wrong equality assumption; preserved analysis-draft0 and ANALYSIS_REVISION18.json. Corrected standalone appendix_audit18.py/5guardsPASS; raw samples/timing/qualification unchanged. Corrected audit issues=[]; allsource/harness/input/artifact hashes match; allsearchesbeforeoriginalcutoff.
+
+Actual visual checks: PNG and renderedPDF inspected; T3 native728/360 all30task selections ×search/process modes pass/nooverflow, house filter/no-match/reset pass. Headless728/360 screenshots/logs pass. EXACT original appendixHTML rendered attachment ff64ee32-eb57-4a46-966b-22ed62f227c1; APPENDIX_UI_VALIDATION18.json retains actual receipts. No newtest toggle: page is training-only. No generated report/script or sealed formal0 output should be edited after final hash receipt without transparent revision.
+
+DELIVERY cleanup: actual final repository24/24PASS aftertiming; 7sealed analysis files,18formal outputs and451officialCPP hashes unchanged. All43intended staged paths reviewed; no productionCPP/sealedfinal/oldstudy/presentations staged. Own previewtab and HTTPserver exited. Temporarymonitor scheduled-task:7b1b6117-45ae-4bed-b82d-909c72ecd582 disabled(enabled=false,nextRunAt=null); oldmonitors remainoff. Local commit and exactrender/cleanup receipt belong in ignored RAW/APPENDIX_DELIVERY_RECEIPT18.json. No more samples/controllers scheduled; do not mark numeric native goal complete,1.3unmet.
+
+All commands cwd /home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015 branch opt/list-output-5x-20261015. OriginalSTART1792763488/timingcutoff1792835488/HARDdeadline1792849888 unchanged; no subagents/push/oldstudies/presentations edits. Builds/tests/heavyanalysis use originalsharedGPUlock; nsys only. Old monitors remainoff. Prior appendix live records: RECOVERY_APPENDIX_HISTORY18.md; older formalcloseout history follows.
+
+---
+
 # G64 optimization recovery — final verification
 
 Actual formal searches, offline audits, full regressions and report are finished. **Numeric target not achieved:** all30/P1024/G64/R3 old/new GM1.0792574094191294, target1.3. Do not resume a controller, rerun samples, reset the clock, or relabel prototype checks as speed proof.

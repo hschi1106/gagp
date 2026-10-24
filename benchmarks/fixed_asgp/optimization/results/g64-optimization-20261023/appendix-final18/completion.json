@@ -1,0 +1,19 @@
+{
+  "scope": "Development-only appendix; formal0 immutable and1.3target unmet",
+  "inputs_sha256": {
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/development-groups17/results.json": "fb1950b5c9d4920f6abd9a5dbcaa93389f6f2db2a1453dce8daf56eddb2a9b98",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/development-groups17/tasks.csv": "d67fe262351a4202a8851c9c30986e72e5854550a2152161605754e27443856b",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/development-audit18/results.json": "302047a937616f7b5d68c4a20196ba2b65331bbec5bfd7a82c199cfb3f1a6afc",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/development-packed15/results.json": "c770c0c1aacf1784150d0bd0750ae9fb16d2786a7c17046d9ea6eea0ef412ddc"
+  },
+  "source_sha256": "4c19e03bc561e1111e6b02c355ddefea010f97026290e72ec23007aa85e42054",
+  "artifacts_sha256": {
+    "dashboard.html": "d5ca63d6681ebeed637ec78db94bda24e9b72e2c1a04fd3ef2b8fdf23ead51d1",
+    "data.json": "3a4df37c9ceaaa7d3de3e46c39d05f0aea47a291f1e571dd4892f7a6689e9bc4",
+    "development.pdf": "972378731d2e7003e2d196f5dbb7ea46ccf4374f3c6d2fd4084edf7fd1ef6cbd",
+    "development.png": "02b48e6a626476e685c97eb9bd6000745105020532a617cf9a91a45e269ebea7",
+    "report.md": "4414bec223400187550b737b6b2b96f71d87e2081943b7522a08edd0d7ab9449",
+    "tasks.csv": "be6ed435dc17a4c5058524e199974e77cb30a92a885e5f8e7663abbf59fef21a"
+  },
+  "finished_epoch": 1792831108.646982
+}

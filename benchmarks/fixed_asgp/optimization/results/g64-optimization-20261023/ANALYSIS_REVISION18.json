@@ -1,0 +1,11 @@
+{
+  "scope": "Analysis-only correction; no searches, samples, binaries, settings or formal0 changes",
+  "previous_files_sha256": {
+    "supplement-audit.json": "92eb44f0e5831a19c1f08958502b17ffe110b698608c3df2b9da7b072d97df4b",
+    "mechanism.csv": "294cc98eb6b98f3eacdf22d9c9e3d042ba91e8d177df2904329ea4333990b02b"
+  },
+  "preserved_at": "development-groups17/analysis-draft0",
+  "reason": "Existing shape/integer-case caches invalidate physical_saved == grouped_count * logical_cases; check 0 <= actual_delta <= that upper bound instead.",
+  "new_analysis_source": "appendix_audit18.py",
+  "epoch": 1792830919.2175078
+}

@@ -1,0 +1,39 @@
+{
+  "checked_epoch": 1792831586.621339,
+  "formal0_analysis_files_unchanged": 7,
+  "formal0_outputs_unchanged": 18,
+  "official_cpp_files_unchanged": 451,
+  "appendix_output_hashes_match": true,
+  "patches_apply_cleanly_to_official_source": [
+    "current_groups_integration17.patch",
+    "packed_frames_integration15.patch"
+  ],
+  "relative_links_checked": 50,
+  "group_search_rows_ok": 120,
+  "packed_unrun_rows_preserved": 150,
+  "issues": [],
+  "appendix_sha256": {
+    "appendix_audit18.py": "7a3e93d35280eebc1f97844fba7975679ecaf850418aaf94c7325a0f57b1a0e9",
+    "test_packed_frames_report15.py": "9e8f4233356c67b3cc5a1032daf9001a083b8fa3d7e55f98d6c1ac05c286ee99",
+    "packed_frames_report15.py": "501194e4537bdc4e372501cadcdd3517d3348a639605752085683fb297c2169b",
+    "appendix_visuals18.py": "4c19e03bc561e1111e6b02c355ddefea010f97026290e72ec23007aa85e42054",
+    "APPENDIX_UI_VALIDATION18.json": "dffeb184e00c6ac436814d521594d8282bc48706c241103584d88e542755f577",
+    "development-packed15/runs.csv": "fd18143ec9c3acdff1f55a4101514f7acd2ae3400b013f52a09fb6e66a9d8d31",
+    "development-packed15/report.md": "cd5ae10c60a3e86fe46f3375345eca312eea7a9c84737103e185fb7c1cad6d95",
+    "development-packed15/tasks.csv": "34cf7cbc9bc92983ec08048addfc72313c1786043bd64a6e9fbe6ba961669c8a",
+    "development-packed15/results.json": "c770c0c1aacf1784150d0bd0750ae9fb16d2786a7c17046d9ea6eea0ef412ddc",
+    "development-audit18/mechanism.csv": "c831acf533d13d05e1ca64dd37dadc33b4712d26e3e84c06d160544f6d37222a",
+    "development-audit18/results.json": "302047a937616f7b5d68c4a20196ba2b65331bbec5bfd7a82c199cfb3f1a6afc",
+    "appendix-final18/data.json": "3a4df37c9ceaaa7d3de3e46c39d05f0aea47a291f1e571dd4892f7a6689e9bc4",
+    "appendix-final18/completion.json": "12c874a27441f173524128e55285a8bab0d4be9bc2909d50ef5724f1a2c678d2",
+    "appendix-final18/development.pdf": "972378731d2e7003e2d196f5dbb7ea46ccf4374f3c6d2fd4084edf7fd1ef6cbd",
+    "appendix-final18/report.md": "4414bec223400187550b737b6b2b96f71d87e2081943b7522a08edd0d7ab9449",
+    "appendix-final18/dashboard.html": "d5ca63d6681ebeed637ec78db94bda24e9b72e2c1a04fd3ef2b8fdf23ead51d1",
+    "appendix-final18/tasks.csv": "be6ed435dc17a4c5058524e199974e77cb30a92a885e5f8e7663abbf59fef21a",
+    "appendix-final18/development.png": "02b48e6a626476e685c97eb9bd6000745105020532a617cf9a91a45e269ebea7",
+    "development-groups17/runs.csv": "956642b3f1e6953bdca3eb1c49927ad9b1e2601d9c2b8977252c6f14459171cf",
+    "development-groups17/report.md": "653f572b65551cca527f33cef968fcc384a038611df5d6ae3396933824e51194",
+    "development-groups17/tasks.csv": "d67fe262351a4202a8851c9c30986e72e5854550a2152161605754e27443856b",
+    "development-groups17/results.json": "fb1950b5c9d4920f6abd9a5dbcaa93389f6f2db2a1453dce8daf56eddb2a9b98"
+  }
+}

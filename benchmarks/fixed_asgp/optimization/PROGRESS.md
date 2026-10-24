@@ -1,5 +1,11 @@
 # 2026-10-23：G64加速24小時實驗
 
+- 2026-10-24 08:43 UTC：追加舊training開發計時已全退出。Groups17新native6/6、120/120搜尋及30/30題四臂核對完成；freshselected／groups GM0.986011×、samebinaryoff／groups0.971336×，只減少0.7916%physicalcases，未採用，confirm明確未執行。Packed15建置觸及原60分鐘cap，0/150搜尋未執行全保留。已獨立重核來源／harness／input／輸出、逐代fitness／wrong等，CPU16×120=1920筆0不符；分析5guardsPASS。首次counter推導忽略shapecache的草稿及修正保留。新[附錄／CSV／PNG／PDF](results/g64-optimization-20261023/appendix-final18/report.md)、728/360互動／無溢位及原HTML render完成；仍僅OLDTRAINING證據，正式1.079257×／1.3未達不變，沒有新heldout／ASGP／5pp證明。最後repo小檢查24/24PASS，7analysis／18正式輸出／451CPP身份不變，monitor已停用；僅本機提交，不推送。
+
+- 2026-10-24 08:14 UTC：隔離current-groups17建置PASS1300.39s，新增定點native6/6PASS458.60s；binaryed96ff1c…。主控制器3644358已進入舊training全30/P1024/G64四臂新對照，61OK＋1running／120、0終止失敗，15題軌跡核對完成；confirm17仍等實際退出。尚無全表倍率／新增獨立品質結論，原正式1.079257×／1.3未達不變。報告4guards仍未跑；計時期間不啟競爭測試／重分析。
+
+- 2026-10-24 07:51 UTC：使用者同窗口追加開發中。Packed15隔離建置於07:39:34觸及原3600s上限，0新native／0搜尋；confirm15前置失敗而未執行，原紀錄保留。獨立current-groups17已自動接手建置（PID3644358），confirm17等實際退出；未新增測試或加速證據。全30舊training／同代精確genotype分組細節及patch見[開發附錄](results/g64-optimization-20261023/PACKED_FOLLOWUP.md)。正式1.079257×／1.3未達不變；原計時09:51:28及硬截止13:51:28UTC不變，勿競爭build/tests。
+
 - 2026-10-24 06:25:52 UTC：正式全表及完整raw／source／binary／input核對結束，960搜尋與3240離線判題全完成。P1024/G64/R3全30幾何平均**1.079257×**（配對三輪95%CI1.077322–1.081183）、本輪ASGP1T／新GAGP**4.673147×**；P16384/G64/R1另列**1.080212×／8.075849×**。**1.3目標未達**。品質300/300配對冠軍AST／fitness／final描述一致，各90/300次執行最終全對，其中21初代已解、69後續新解；N10不證明5pp非劣性。完整結果見[報告](results/g64-optimization-20261023/final/report.md)。
 - 收尾實際證據：fresh Release buildPASS、native136/136PASS（441.02s）、研究129PASS、tools122（skip4）、repo24PASS；原108及21未跑紀錄已被本次實際全回歸取代。PNG/PDF已看；T3原生及headless728/360篩選／選題／train-test65點／無水平溢位通過。Preset已匯出、兩個P的dry-run通過且無新搜尋；451CPP及7analysis／18輸出SHA重核不變。隔離frame的storage/access及12入口編譯檢查通過，但未整合、未VM執行、無加速結果。既有控制器全部退出；最後僅本機提交／原頁render／停用monitor，實際交付receipt置ignored RAW，數值目標不可標完成。
 

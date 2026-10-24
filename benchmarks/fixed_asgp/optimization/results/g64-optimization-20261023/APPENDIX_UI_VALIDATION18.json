@@ -1,0 +1,91 @@
+{
+  "scope": "Actual T3 native browser and headless previews of the development-only appendix; original dashboard bytes unchanged",
+  "native": {
+    "desktop": {
+      "width": 728,
+      "scrollWidth": 728,
+      "taskSelections": 30,
+      "timeModes": 2,
+      "checks": 60,
+      "failures": [],
+      "tableRows": 30
+    },
+    "mobile": {
+      "width": 360,
+      "scrollWidth": 360,
+      "taskSelections": 30,
+      "timeModes": 2,
+      "checks": 60,
+      "failures": [],
+      "tableRows": 30
+    },
+    "mobile_filter": {
+      "width": 360,
+      "scrollWidth": 360,
+      "rows": 1,
+      "options": 1,
+      "selected": "house_robber"
+    },
+    "mobile_search": {
+      "searchPressed": "true",
+      "values": [
+        "2.203 s",
+        "2.278 s",
+        "2.248 s",
+        "2.393 s"
+      ]
+    },
+    "mobile_no_match": {
+      "rows": 0,
+      "options": 0,
+      "emptyVisible": true,
+      "bars": 0,
+      "width": 360,
+      "scrollWidth": 360
+    },
+    "mobile_reset": {
+      "rows": 30,
+      "options": 30,
+      "width": 360,
+      "scrollWidth": 360
+    }
+  },
+  "headless": {
+    "desktop": {
+      "width": 728,
+      "contentHeight": 2213,
+      "capturedHeight": 2213,
+      "consoleMessages": [
+        {
+          "level": "log",
+          "text": "APPENDIX_LAYOUT {\"width\":728,\"scrollWidth\":728,\"rows\":30,\"options\":30}"
+        }
+      ],
+      "screenshot": {
+        "mimeType": "image/png",
+        "width": 728,
+        "height": 2213
+      }
+    },
+    "mobile": {
+      "width": 360,
+      "contentHeight": 2496,
+      "capturedHeight": 2496,
+      "consoleMessages": [
+        {
+          "level": "log",
+          "text": "APPENDIX_LAYOUT {\"width\":360,\"scrollWidth\":360,\"rows\":30,\"options\":30}"
+        }
+      ],
+      "screenshot": {
+        "mimeType": "image/png",
+        "width": 360,
+        "height": 2496
+      }
+    }
+  },
+  "png_and_rendered_pdf_visually_reviewed": true,
+  "no_train_test_toggle": "This appendix uses training only; the tested toggle switches search wall versus full process time.",
+  "formal0_outputs_unmodified": true,
+  "final_html_render": {"htmlRender":{"attachmentId":"5c8c22b3-13b0-45be-8f40-9ef527aa67b5-ff64ee32-eb57-4a46-966b-22ed62f227c1-html","title":"G64追加開發：同代分組結果","height":2000,"heights":[[320,2579],[375,2453],[430,2369],[520,2346],[640,2236],[728,2213],[860,2143],[1000,2143],[1144,2097]]},"message":"Shown to the reader above your reply. Don't mention or describe the page; reply with only what it doesn't already say."}
+}

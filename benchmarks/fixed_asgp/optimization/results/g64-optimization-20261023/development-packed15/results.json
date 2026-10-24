@@ -1,0 +1,59 @@
+{
+  "scope": "OLD TRAINING development only; not independent quality or formal ASGP result",
+  "kind": "packed",
+  "expected_searches": 150,
+  "actual_searches": 0,
+  "successful_searches": 0,
+  "qualified_cells": 0,
+  "native_regression_pass": false,
+  "expected_native_tests": [
+    "gagp_test_bounded_region_gpu",
+    "gagp_test_extended_payload_gpu",
+    "gagp_test_fitness_accumulator_gpu",
+    "gagp_test_fitness_contract",
+    "gagp_test_fitness_cpu_gpu_parity",
+    "gagp_test_gpu_phase_population"
+  ],
+  "native_step": {},
+  "build_step": {
+    "command": [
+      "cmake",
+      "--build",
+      "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/g64-optimization-20261023/packed-integration15/build",
+      "--target",
+      "gagp_fixed_asgp_bench",
+      "gagp_test_extended_payload_gpu",
+      "gagp_test_fitness_accumulator_gpu",
+      "gagp_test_gpu_phase_population",
+      "gagp_test_fitness_cpu_gpu_parity",
+      "gagp_test_fitness_contract",
+      "gagp_test_bounded_region_gpu",
+      "-j",
+      "2"
+    ],
+    "status": "timeout",
+    "pid": 3641063,
+    "started_epoch": 1792823974.000741,
+    "log": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/g64-optimization-20261023/packed-integration15/build.log",
+    "finished_epoch": 1792827574.0042212
+  },
+  "controller_error": "RuntimeError('build exceeded original budget')",
+  "controller_status": "stopped",
+  "confirmation_status": "not_run_prerequisite_failed",
+  "incremental_means_over_fresh_selected_control": {
+    "ordinary": null,
+    "packed_aos": null,
+    "packed_soa": null
+  },
+  "means_over_fresh_beb_baseline": {
+    "ordinary": null,
+    "packed_aos": null,
+    "packed_soa": null
+  },
+  "issues": [],
+  "formal0_old_over_new": 1.0792574094191294,
+  "formal0_target_reached": false,
+  "source_manifest_sha256": "2be036b564b119913ae9a5e84448095cbcaa68e94fb4314737b94d1515169d8a",
+  "report_source_sha256": "501194e4537bdc4e372501cadcdd3517d3348a639605752085683fb297c2169b",
+  "finished_epoch": 1792830681.5546126
+}
