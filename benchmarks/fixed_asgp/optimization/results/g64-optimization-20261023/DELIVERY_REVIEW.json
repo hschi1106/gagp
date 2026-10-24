@@ -1,0 +1,167 @@
+{
+  "reviewed_epoch": 1792823191.736547,
+  "deadline_epoch": 1792849888,
+  "within_original_deadline": true,
+  "experimental_coverage_complete": true,
+  "numeric_target_reached": false,
+  "primary_old_over_new": 1.0792574094191294,
+  "primary_asgp_over_new": 4.673147009468375,
+  "secondary_old_over_new": 1.080211849133956,
+  "secondary_asgp_over_new": 8.07584926757467,
+  "actual_full_native": {
+    "passed": 136,
+    "failed": 0
+  },
+  "study_tests": 129,
+  "tools_tests": 122,
+  "tools_skipped": 4,
+  "repository_tests": 24,
+  "post_document_repository_check": {
+    "passed": 24,
+    "failed": 0,
+    "process_exit": 0,
+    "runtime_seconds": 0.586,
+    "proof": "Actual exec tool result at2026-10-24 06:25:52UTC"
+  },
+  "links_checked": [
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/README.md",
+      "final/report.md"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/README.md",
+      "final/dashboard.html"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/README.md",
+      "final/tasks.csv"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/README.md",
+      "final/secondary_tasks.csv"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/README.md",
+      "final/quality_pairs.csv"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/README.md",
+      "development_attempts.md"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/README.md",
+      "development_profile.md"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/README.md",
+      "protocol.json"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/README.md",
+      "quality-scale-policy.json"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/README.md",
+      "RECOVERY.md"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/README.md",
+      "USE_CANDIDATE.md"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/README.md",
+      "UI_VALIDATION.json"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/README.md",
+      "candidate_preset.json"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/README.md",
+      "PRESET_CHECK.json"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/README.md",
+      "prototype-private-frames/README.md"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/USE_CANDIDATE.md",
+      "candidate_preset.json"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/USE_CANDIDATE.md",
+      "PRESET_CHECK.json"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/final/report.md",
+      "dashboard.html"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/final/report.md",
+      "speed.csv"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/final/report.md",
+      "secondary_tasks.csv"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/final/report.md",
+      "quality.csv"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/final/report.md",
+      "quality_pairs.csv"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/final/report.md",
+      "speed_quality.csv"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/final/report.md",
+      "audit_costs.csv"
+    ],
+    [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/final/report.md",
+      "results.json"
+    ]
+  ],
+  "sealed_output_hashes_verified": 18,
+  "manual_receipts": {
+    "FINAL_HASH_CHECK.json": "85c217ec63241076be9e8bd081ad12c23e32d3d78a9fb9199765b5f7ed5332f2",
+    "UI_VALIDATION.json": "bf4710b60e3e9bda91557bd5e4d54ecc8451f33f566fe1bfc8ee9473ac1109df",
+    "PRESET_CHECK.json": "328ae153ce7342b4ef642ca2facb0105a93ceefbb18d6db31193e6e069ca899c",
+    "PLOT_REVIEW.json": "9de4cf4cd4e0e6f863156be5e120861c0854ee524b145615311a943ce136dc40"
+  },
+  "no_extra_user_search": true,
+  "limits": [
+    "1.3x numeric target unmet",
+    "N10 does not establish5pp noninferiority or universal equivalence",
+    "P16384 timingsR1; no fullP16384 multiseed quality",
+    "ASGP native integration differs in operators/sites/preparation; no paper replication",
+    "Prototype storage/access/compile-only evidence is not VM execution/performance"
+  ],
+  "remaining": "Local commit, exact original HTML render, monitor disable, owned preview cleanup; actual delivery receipt in ignored RAW",
+  "git_diff_review": {
+    "checked_epoch": 1792823240.2528005,
+    "maintained_source_and_docs_exit": 0,
+    "crlf_csv_preserved": true,
+    "immutable_patch_context_and_serial_eof_exceptions": [
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/native-dense-tiles4.patch:26: trailing whitespace.",
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/native-dense-tiles4.patch:54: trailing whitespace.",
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/native-dense-tiles4.patch:62: trailing whitespace.",
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/native-dense-tiles4.patch:73: trailing whitespace.",
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/native-dense-tiles4.patch:210: trailing whitespace.",
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/native-dense-tiles4.patch:239: trailing whitespace.",
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/native-dense3.patch:78: trailing whitespace.",
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/native-private-layout5.patch:5: trailing whitespace.",
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/native-private-layout5.patch:160: trailing whitespace.",
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/native-private-layout5b.patch:5: trailing whitespace.",
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/native-private-layout5b.patch:160: trailing whitespace.",
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/native-private-layout5c.patch:5: trailing whitespace.",
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/native-private-layout5c.patch:202: trailing whitespace.",
+      "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/serial.py:193: new blank line at EOF."
+    ],
+    "full_log": "logs/g64-optimization-20261023/staged-whitespace-review0.log",
+    "unrelated_presentations_excluded": true
+  }
+}

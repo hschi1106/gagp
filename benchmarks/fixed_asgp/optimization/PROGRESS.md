@@ -1,3 +1,75 @@
+# 2026-10-23：G64加速24小時實驗
+
+- 2026-10-24 06:25:52 UTC：正式全表及完整raw／source／binary／input核對結束，960搜尋與3240離線判題全完成。P1024/G64/R3全30幾何平均**1.079257×**（配對三輪95%CI1.077322–1.081183）、本輪ASGP1T／新GAGP**4.673147×**；P16384/G64/R1另列**1.080212×／8.075849×**。**1.3目標未達**。品質300/300配對冠軍AST／fitness／final描述一致，各90/300次執行最終全對，其中21初代已解、69後續新解；N10不證明5pp非劣性。完整結果見[報告](results/g64-optimization-20261023/final/report.md)。
+- 收尾實際證據：fresh Release buildPASS、native136/136PASS（441.02s）、研究129PASS、tools122（skip4）、repo24PASS；原108及21未跑紀錄已被本次實際全回歸取代。PNG/PDF已看；T3原生及headless728/360篩選／選題／train-test65點／無水平溢位通過。Preset已匯出、兩個P的dry-run通過且無新搜尋；451CPP及7analysis／18輸出SHA重核不變。隔離frame的storage/access及12入口編譯檢查通過，但未整合、未VM執行、無加速結果。既有控制器全部退出；最後僅本機提交／原頁render／停用monitor，實際交付receipt置ignored RAW，數值目標不可標完成。
+
+- 2026-10-24 05:21:19 UTC：P16384於05:13:51正式退出0，90搜尋／420判題全OK、240native controller-pass；30組舊新冠軍軌跡／final描述／full-final AST匯出均同。metadata閉合紀錄secondary-complete-observation0（994740邏輯觀測／886522每次呼叫內去重執行），仍待raw／source／mapping獨立重核，未算solved/gen0或宣稱1.3。原formal五階段皆exit0，所有計時已結束；既有closeout0自動進入full_release_build，當前child3632442，451CPP身份／136study*.py SHA已捕捉，期間勿改Python／另啟build/tests/report。Source7定點6/6及study108為目前實際既有PASS，新全回歸／21guards／report未完成；原截止不變。
+- 2026-10-24 04:20:34 UTC：P16384已69/90搜尋OK、322/420判題OK、0終止失敗；Smallest指定判題完成，Syllables ASGP活躍（live log另存）。hour observer7374正常完成3600s觀測；58/266→60/279→69/312→69/322及真實PIDs／manifestSHA／closure receipt均保留，不是benchmark timeout。補CPU硬體context與既有GPU觀測連結；無新建置／測試／raw重分析。實際108pass、新guards21未跑、analysis snapshot4及1.3未達不變。
+- 2026-10-24 03:17:08 UTC：同一P16控制器已56/90搜尋OK、252/420判題OK、0終止失敗；NegativeToZero ASGP子程序健康。DoubleLetters ASGP已正常退出0／2011.608s，隨後兩GPU及指定判題完成；未重跑。被動hour observer24492正常完成3600s觀測，15分鐘快照／真實PID／manifestSHA與收尾receipt保留，不是benchmark timeout；無新建置／測試／重分析。實際108pass、新guards21未跑／analysis snapshot4、1.3未達（暫定1.079257×）不變。
+- 2026-10-24 01:27:00 UTC：P16384已40/90搜尋OK、182/420判題OK、0終止失敗；ForLoopIndex ASGP child3621703健康，原formal／secondary／closeout正常。observer58567正常900s觀測逾時後核對實際PIDs，未重跑。新增gpu-device-observation0.json保留唯一RTX3090／24576MiB／實際樣本GPU0且無CUDA mask、frozen serial sampler SHA，確認目前NVML取樣對應；非精確peak或全30容量證明。live MCP監控仍2h／enabled，下次03:20UTC；未建置／測試／重分析，實際108pass／新guards21未跑、analysis-source-freeze4與1.3未達不變。
+- 2026-10-24 00:37:57 UTC：補P16384 VRAM可讀取樣覆蓋與CSV的次數／錯誤／scope；原serial在零有效取樣時也初始化peak=0，彙整現在將該情況保留未知，失敗呼叫peak不刪除，搜尋成功與CPU資格分開。3新增guards未跑，新待跑共21（report15＋preset6），實際仍108pass。修改前五檔及新7檔快照analysis-vram-before0／analysis-source-freeze4均留存，凍結矩陣與study_statistics SHA未變；未改採樣／倍率／資格／選樣，也未彙整正式VRAM或品質總數。既有計時流程繼續、無競爭測試。
+- 2026-10-24 00:32:32 UTC：縮短本輪README為37行，保留暫定1.079×／4.673×與未達1.3、P/G/cases、品質重核範圍及ASGP計時／算子限制；操作細節連至既有RECOVERY。修改前完整README與SHA留存readme-before-readability0，未改數據／統計／資格／frozen scripts。逐一確認8個相對連結存在（非回歸套件）；既有P16程序／closeout仍健康，新增guards未執行。
+- 2026-10-24 00:17:13 UTC：原formal／secondary／closeout父子程序健康；P16384已22/90搜尋OK、98/420判題OK、0終止失敗，當前luhn。輕量metadata及實際PID快照留存light-status-20261024-001713.json；未重啟／重跑或執行競爭建置、測試、重分析。P1024暫定1.079257×／ASGP4.673147×未變，1.3目標未達；完整raw重核與18個新guards仍待原矩陣結束。原截止2026-10-24 13:51:28UTC不變。
+- 2026-10-23 23:54:02 UTC：首次輕量封存主表計時彙整（0.1s、未讀大型raw／未開GPU）：P1024/G64全30×3，原／新GAGP暫定1.0792574×，3輪配對時間區間1.0773225–1.0811828×；本輪ASGP1T／新GAGP4.6731470×。90配對與270搜尋／420判題／240native metadata閉合核對，來源SHA與producer保留primary-timing-interim0；1.3時間目標未達，完整raw／source／binary重核仍待final，不宣稱goal完成，未計solved/gen0總數或改設定。P16已18搜尋／84判題OK、0失敗，FuelCost prepare child3617251健康；observer28442後來正常逾時，非重啟理由。原截止／新tests18未跑不變。
+
+- 2026-10-23 23:38:08 UTC：同一P16控制器已推進CumulativeSum，15搜尋OK＋1running／90、0失敗，前5題70判題OK；實際ASGP child3616431在100% CPU執行。被動observer32764正常600s逾時後再核對實際父／子PID，沒有重啟或新樣本。此輪為verified wait；未建置／測試／改凍結設定或計正式倍率，18新增guards仍未跑。原截止及1.3目標不變，非blocked。
+
+- 2026-10-23 23:20:56 UTC：P16已14搜尋OK＋1running／90、0失敗，前4題56判題OK；AllEqual baseline child3615879健康，formal／secondary／closeout仍活躍。被動observer15064正常逾時，非樣本停止。新增browser_probe.js（尚未執行）及圖表cases／seeds／既有CI顯示，analysis-source-freeze3保留7檔，沒有改統計或選樣；新增tests仍18未跑、實際108pass。靜態核對30份grammar與選定CPP SHA，明示ASGP來源phase7與GAGP native2048/depth24／backend1024為不同表示法；主1.3只比原／新GAGP同一native規則。原截止不變、未證明達標，下一步仍等待原矩陣與既有closeout。
+
+- 2026-10-23 22:28:54 UTC：P16已7搜尋OK＋1running／90、0失敗，前2題28判題OK；IsSorted原baseline child3613845健康，formal／secondary／closeout仍活躍。被動observer87207正常600s觀測逾時，主流程未停止。新增candidate_preset工具／使用範例／6個未跑guards，保留完整凍結設定、要求明確cases、同鎖hash核對及失敗receipt；尚無preset匯出／dry-run／新增搜尋，不是新倍率。新增待跑tests共18（report12＋preset6），實際仍108pass；等現有正式工作及closeout之後再匯出／dry-run，原截止不變。
+
+- 2026-10-23 22:17:51 UTC：靜態審查發現full_experiment_coverage原漏查P16384 ASGP，可能在ASGP budget_not_run時誤標整輪完整。已加上同一凍結分母的ASGP有效數檢查與1個未跑回歸案例；修正前來源／當前analysis-source-freeze2皆留存。只改整輪覆蓋標記，不改逐樣本資格、倍率、選樣／程式或實驗；新報告tests共12未跑，最新實際仍108pass。現有formal／secondary／closeout皆活躍，P16已推進IsSorted；被動observer87207等待同一secondary，不重複樣本、不把timeout當失敗。1.3未證明、原截止不變。
+
+- 2026-10-23 22:12:24 UTC：P16384前2題6次搜尋皆OK，第一題FilterOdd的14判題／8native均pass、完整final16384兩GPU核對及配對旗標通過（僅controller metadata；33158邏輯觀測／32652去重CPU執行）。保留原manifest快照於secondary-first-task-observation0，最終raw核對仍待報告。現有secondary3611715／SumOfElements native child3613060健康。修正報告漏列P16 ASGP可讀倍率與逐題表，新增secondary_tasks.csv、共用filter及4個尚未執行guards；先前來源／新7檔快照皆保留，未改統計資格／選樣／正式核心，未讀正式倍率。待計時結束共11個新report tests仍未跑，最新實際study仍108pass；不是1.3達標。
+
+- 2026-10-23 22:04:09 UTC：新增[開發嘗試表](results/g64-optimization-20261023/development_attempts.md)及CSV／來源SHA，核對15個舊training設定與90組確認；明列完整30題1.062079×與8題篩選，未讀正式新資料倍率。初稿ordinary控制組名稱誤標已修正，舊source／輸出保留，全部數值／狀態／scope相同。不是新增回歸通過紀錄。P16384第一題3個搜尋皆OK，baseline判題5OK、candidate完整final native child3612536活躍，正式CPP／設定不變，1.3×尚未達；全回歸與正式報告仍等既有計時流程結束。
+
+- 2026-10-23 21:47:25 UTC：N10獨立品質於21:46:08退出0；600搜尋／2400判題全OK、1200native核對全pass，300配對的冠軍AST／fitness、final descriptors及best export皆一致。40份manifest及完整lattice紀錄保留於quality-complete-observation0.json（78000邏輯觀測／20332去重CPU執行，仍待最終raw/hash重核，不宣稱非劣性或普遍等價）。同一formal0已自動進入P16384／G64，全30題child3611715活躍。被動observer30052收到實際退出事件後完成，無重跑。恢復紀錄已保留完整歷史並整理成單一目前狀態；7個報告新測試仍待計時結束後跑。
+
+- 2026-10-23 21:22:53 UTC：獨立品質395次搜尋OK／600，s35–40完成、s41進行，formal0／child3594394健康。隔離frame新增真實VM的12入口CUDA compile-only probe，packed-executor-compile0 PID3605107目前只等待CPU access oracle；不launch kernel、尚未編譯，不列為VM/parity/速度結果。將在正式closeout與原CPU/CUDA及access檢查後共用鎖執行，含451來源快照／實際CUDA工具鏈／symbol與object SHA。正式核心與設定不變，7個報告新測試仍待計時結束後跑。
+
+- 2026-10-23 21:10:32 UTC：formal0／品質child3594394健康，s35–38完成、s39進行，已282次品質搜尋OK＋1running。隔離packed frame補上state0初始化view、不可複製的local leaf及CUDA存取特化草稿，沒有改正式CPP或frozen runtime。CPU access oracle另排在原CUDA oracle之後，PID3602361目前僅等待；未建置／未測／未整合，沒有新倍率。原oracle輸入SHA未變。主目標1.3仍未證明，原截止不變；詳RECOVERY與prototype README。
+
+- 2026-10-23 20:45:28 UTC：報告成本修正另加入實際搜尋中CPU核對耗時及fitness／wrong／best修正數，移除寫死0；缺漏保留未知，搜尋中耗時仍含於搜尋wall，搜尋後／離線另列。新回歸案例共7個，尚未執行；原108通過紀錄不變。正式核心與frozen runtime未改。
+
+- 2026-10-23 20:39:28 UTC：主速度270／270後，首輪判題420／420也全部OK；240次native核對控制器均pass、mismatch0（73140邏輯觀測／57828去重CPU執行，最終報告仍須重讀原始證據）。同一formal0已自動轉N10獨立品質，child3594394健康、seed35進行；P16384待後續。修正報告未單列CPU稽核區段及漏掉失敗呼叫成本：新增report_costs、audit_costs CSV/JSON及6個回歸案例，原closeout會在計時結束後跑；目前未測，不能增加已通過測試數。正式核心／frozen runtime不變、倍率未重新計算、1.3仍未證明。詳RECOVERY。
+
+- 2026-10-23 20:29:15 UTC：正式主速度270／270搜尋全部OK，原primary_speed於20:29:02 exited0；同一formal0已轉入primary_audits，child3592396及實際native樣本3592431健康。先做完整最終族群（去重後映回1024邏輯個體）與65個冠軍train/test核對，再做N10獨立品質、P16384；尚未整理正式倍率或宣布完整成功。被動pidfd observer15543收到退出事件後完成。新增4題舊training nsys瓶頸表及8份CSV hash核對，僅解釋GPU kernel成本、非正式分母。原1.3目標／固定截止不變；詳RECOVERY頂端。
+
+- 2026-10-23 20:17:41 UTC：formal0／速度child健康，主速度205OK＋1running／270、0執行失敗；未計正式倍率或品質結論。凍結候選及原截止不變，開發1.062079×尚未達1.3×。隔離frame原型另完成CUDA儲存／位址／word ownership檢查原碼；packed-cuda-oracle1 PID3591456僅等待正式closeout及CPU oracle後才編譯執行，現在未建置／未整合。輔助啟動0因缺PYTHONPATH於import前失敗、未開測試，log及SHA保留；確認PID退出後以修正環境的獨立attempt1排程。正式樣本無重跑。詳RECOVERY頂端。
+
+- 2026-10-23 19:58:18 UTC：正式新資料30題×10seeds準備完成，主速度103OK＋1running／270、0失敗；formal0 PID3587036／child3588621健康，無正式倍率／品質結論。原1.3目標仍未達，設定凍結不變。隔離frame壓縮草稿及CPU oracle原碼已寫，未整合／建置／無速度證據；CPU檢查PID3590044排在正式closeout結束後，避免競爭。詳RECOVERY最上LIVE SNAPSHOT。
+
+
+- 2026-10-23 19:20:03 UTC：formal0已於2026-10-23 19:15:16 UTC在新資料前凍結：全30/P1024/G64/R3新ASGP，品質10新seeds35–44，P16384/G64/R1另列；binary81b26bde…／global tuple+hybrid。舊3seeds確認1.06208×（1.3仍未達），SoA/short與register-bank後續均無額外2%收益而拒絕。formal0 PID3587036/prepare child3587038活躍；closeout0 PID3587029已排程正式結束後全Release/native/tools/repo/report，勿重複。容量pilot因原成本規則budget_not_run，P16正式全表仍計畫。108guards與451CPP/source proof通過；schema verifier失敗0／更正版1均留存，沒有樣本重跑。原截止不變；詳RECOVERY。
+
+
+- 2026-10-23 18:48:32 UTC：private7完整六臂180/180與fresh選定60/60完成，global hybrid全30舊TRAINING約1.05879×，未達1.3；編譯特化無額外收益而未選。3舊seed/native確認活躍3583458；新layout8（3583806）測SoA/精確短串列評分與dense交互作用，先8題再完整30控制，正式資料仍未開。取消並保存未啟動樣本的capacity7，容量pilot待最後全域候選；93guards與451CPP/source proof通過，checks14排鎖。詳RECOVERY最新FIRSTNEXT。
+
+
+- 2026-10-23 18:28:48 UTC：native7實際6/6 PASS361.04s；private7全30六臂對照活躍PID3579655，尚無全30新收益／formal freeze。checks11實際85PASS；capacity7條件式pilot與formal-after-target1已排程，後者只在3舊seed確認>=1.3及實際容量配對完整時自動凍結；新容量guard checks12排同鎖。編譯失敗6與舊pre-dispatch gate完整保存，沒有搜尋重跑。詳RECOVERY最新FIRSTNEXT。
+
+- 2026-10-23 17:58:10 UTC：native4實際6/6 PASS；但tile/view方案全30僅1.02567×、geometry17arms無額外2%收益，均拒絕。保留負結果；新全域tuple/hybrid＋private編譯特化build5曾因欄位引用錯誤編譯失敗（0搜尋），已保留並2行修正至新build6活躍PID3578246，private6 PID3578247等待全30六臂→新選定對照→3舊seeds。checks9實際81PASS；舊TRAINING reader/ASGP回讀90/60nativecalls全30通過。未新heldout／freeze／1.3達標。N10最低完整矩陣舊成本latestfreeze19:28UTC，須保留正式驗證時間；RECOVERY頂部有最新FIRSTNEXT。
+
+- 2026-10-23 17:05:56 UTC：build4仍實際ptxas99.8%CPU活躍，native4未PASS；tiles4等待。新增report原始證據／閉合集驗證器、簡潔dashboard模板，checks6／成本preflight2／舊TRAINING reader-readback已排同鎖，尚未PASS／未freeze。最新FIRST NEXT已置於RECOVERY頂部，避免誤用較舊狀態。
+
+- 2026-10-23 17:0xUTC：native3實際6/6 PASS；但dense3只Grade啟用、顯式untiled0全30GM.9890而拒絕。已保留負結果，真實initial/replay dense-tile＋generic sparse-view新實作套用，build4/native活躍PID3571321；tiles4 PID3571322等待六臂對照→全30→3舊seed確認。工具checks5實際64PASS。large舊TRAINING judge成本全30/120成功，未開新heldout／freeze／1.3達標。詳RECOVERY。
+
+- 2026-10-23 16:32:49 UTC：3舊seed設定確認GM1.0291×，P16384/G64三題六樣本全OK、完整AST配對／CPU16抽查通過、sampled whole-card peak21.39GiB；非全30/P16全CPU證明。真正dense native3已套用／建置活躍（CPP6檔，禁止改）；尚無native3 PASS。新正式全範圍runner及來源／budget／統計guards已寫好，來源preflight1成功、ASGP資料夾無Git如實記錄；N20只診斷forecast，未freeze／新heldout。詳RECOVERY最新節。
+
+- 2026-10-23 15:25:07 UTC：build2實際targeted6/6 PASS348.47s、工具38PASS；view128新native只比既有128約1.0123×，未達2%額外門檻而拒絕。nsys四題完成，私有arena／view／mutation瓶頸已定位。新dense-case scheduling原碼patch已完成，apply-dense3→build3→dense3三臂G64驗證排程等待舊來源使用者退出；目前CPP未競爭修改，尚無新native3 PASS／正式freeze／獨立品質或1.3達標。
+
+- 2026-10-23 15:14:47 UTC：全30舊TRAINING設定新對照GM僅1.03547×（子集1.0884×不能外推）；新kernel128已編譯、native前三項PASS，其餘仍在跑。ASGP成本全30＋原生冠軍全30完成；尚無正式新分母。新增nsys G64四題診斷／全族群native成本校準與工具guards排同鎖。原確認／P16384鏈保留，無新heldout／freeze／1.3達標。詳RECOVERY最新節。
+
+- 14:3xUTC：第一版trim native實際4/6，兩項測試抓到漏case。根因Arena採連續分段而非prefix，已拒絕並完整保存failed binaries/source，確認451CPP恢復baseline後改做kernel128編譯規格（目前3CPP變更，未PASS）。Python guard實際26PASS。settings2舊binary測試與ASGP成本／native稽核繼續；build2 PID3555545等待settings2，view3 PID3555590等待native，combined4 PID3555591將跑全30新組合。兩個無樣本queued控制器為修正activation guard而保留取消。沒有新heldout或正式1.3×宣稱，詳RECOVERY最新節。
+
+- 14:1xUTC更正：screen0已完成48/48，view128子集GM1.0895，但BEST_ONLY=0因C++presence契約實際只匯出冠軍；原始記錄保留，不能聲稱全1024AST已驗證（全fitness描述／冠軍軌跡一致仍有效）。取消三個未啟動樣本的舊排隊控制器，保留證據；改development_v2要求真實1024exports，新trim2/settings2/combined2 PIDs3553665/66/67已排程。build1／CPP不改繼續建置；harness-checks0 PID3553682排同鎖，尚未PASS。新quality scale可在開新heldout前依成本擴80seeds，20全相同不足5pp推論。詳細見RECOVERY／RAW/export-scope-correction0.json。
+
+- 使用者新授權：全30題P1024/G64相對目前最快GAGP>=1.3×，1.5／2×延伸；優先保持fitness/wrong及逐代冠軍軌跡；ASGP1T新對照、P16384另列。START2026-10-23 13:51:28UTC／DEADLINE2026-10-24 13:51:28UTC，不重設。新研究[README](results/g64-optimization-20261023/README.md)、[RECOVERY](results/g64-optimization-20261023/RECOVERY.md)。
+- Baseline=a8460b6／pinned beb5585d…；451CPP檔完整對應、30題舊TRAININGhash核對。calibration0完成30/30，0失敗；G64評分／搜尋逐題占比平均66.1%、繁殖21.4%，只是開發成本診斷。
+- 第一版實作已寫入：opt-in省略空initial tile，保持logical lanes／score slots／canonical reduction；新增CPUfractional/fuel/error/replay及fresh-generation/dirty-workspace對照。screen0 PID3552159活躍；build-attempt1 PID3552403等待其退出；trim1 PID3552530等待build/native通過後新三臂G64pilot。尚無新增native PASS或加速結論。
+- CPU1T/GPU評分+繁殖/16GiB/AST2048/depth24/phase1024；所有重工作共用lock；無subagent/push，presentations及舊研究保持不動。新heldout未開啟，最終品質與全30驗證尚未開始。每30分鐘monitor記錄於logs/g64-optimization-20261023-monitor.json，最終停用。
+
 # Latest state — 2026-10-23 13:18:15 UTC — REPORT / UI / EVIDENCE COMPLETE; LOCAL COMMIT + ORIGINAL RENDER CLOSING
 
 - ACTUALoriginalreportfinal/completion.jsonOK/finished1792759853.2407768 (12:50:53UTC), validation_statusPARTIAL/target_reachedFalse/within_original_deadlineTrue. closeout1PID3544397finishedartifacts_ready_manual_review_pending/presetexportPASS. No livebenchmark/source/reportcontrollerremains. One passiveobserver failedProcessLookupError becauseactualreporthadEXITED; immediatelyinspectedterminalOK, no restart.

@@ -1,0 +1,6 @@
+{
+  "status": "launch_failed_before_search",
+  "attempt": 0,
+  "reason": "Parent wrapper omitted PYTHONPATH=tools; import gagp_tools failed before CLI parsing/search. Corrected attempt1 only sets documented launch environment.",
+  "new_search_executed": false
+}

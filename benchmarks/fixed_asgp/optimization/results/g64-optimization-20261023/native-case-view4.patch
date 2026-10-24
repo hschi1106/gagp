@@ -1,0 +1,73 @@
+--- a/cpp/src/runtime/gpu/fitness_gpu.cu
++++ b/cpp/src/runtime/gpu/fitness_gpu.cu
+@@ -933,6 +933,16 @@
+   const int requested_physical_block=std::stoi(physical_text);
+   const bool virtual_view_lanes=use_views && requested_physical_block>0;
+   if(virtual_view_lanes)execution_threads=std::min(execution_threads,requested_physical_block);
++  const auto* case_block_setting=std::getenv("GAGP_GPU_CASE_VIEW_BLOCK");
++  const bool request_case_block=case_block_setting && std::string(case_block_setting)=="1";
++  // Only shrink a sparse view launch: fewer than one quarter of its
++  // logical lanes can own a case. Keep the original score slots/order.
++  const bool case_view_block=request_case_block && use_views && impl_->shared_case_count>0 &&
++      static_cast<long long>(impl_->shared_case_count)*4<fitness_lanes;
++  if(case_view_block) {
++    int cap=32;while(cap<impl_->shared_case_count)cap*=2;
++    execution_threads=std::min(execution_threads,cap);
++  }
+   // Resolve immutable captures against this evaluation's table, without changing
+   // raw session values or surfacing an error for an unused/missing capture.
+   std::vector<Value> prepared_case_views;
+@@ -1843,6 +1853,8 @@
+     if(region_workspace.coalesce_case_counts)out.execution_profile+="-coalesced-counts";
+     if(requested_physical_block)out.execution_profile+=virtual_view_lanes?
+         "-physical-view"+std::to_string(execution_threads):"-physical-view-declined";
++    if(request_case_block)out.execution_profile+=case_view_block?
++        "-case-view-block"+std::to_string(execution_threads):"-case-view-block-declined";
+     if(request_register_stack)out.execution_profile+=region_workspace.register_phase_stack?"-register-phase-stack":"-register-phase-stack-declined";
+     if(request_relaxed)out.execution_profile+=relaxed_view_registers?"-view-reg512":"-view-reg512-declined";
+     if(request_narrow)out.execution_profile+=narrow_view_registers?"-view-bound128":"-view-bound128-declined";
+--- a/cpp/tests/gpu/test_bounded_region_gpu.cpp
++++ b/cpp/tests/gpu/test_bounded_region_gpu.cpp
+@@ -1588,10 +1588,10 @@
+ // The second program reads elements and must retain ordinary per-case execution.
+ bool test_shape_result_cache() {
+   struct RestoreGeometry {
+-    const char* names[2]={"GAGP_GPU_VIEW_BOUND128","GAGP_GPU_VIEW_PHYSICAL_BLOCK"};
+-    std::string saved[2];bool present[2];
+-    RestoreGeometry(){for(int i=0;i<2;++i){const auto* p=std::getenv(names[i]);present[i]=p;saved[i]=p?p:"";setenv(names[i],"0",1);}}
+-    ~RestoreGeometry(){for(int i=0;i<2;++i)if(present[i])setenv(names[i],saved[i].c_str(),1);else unsetenv(names[i]);}
++    const char* names[3]={"GAGP_GPU_VIEW_BOUND128","GAGP_GPU_VIEW_PHYSICAL_BLOCK","GAGP_GPU_CASE_VIEW_BLOCK"};
++    std::string saved[3];bool present[3];
++    RestoreGeometry(){for(int i=0;i<3;++i){const auto* p=std::getenv(names[i]);present[i]=p;saved[i]=p?p:"";setenv(names[i],"0",1);}}
++    ~RestoreGeometry(){for(int i=0;i<3;++i)if(present[i])setenv(names[i],saved[i].c_str(),1);else unsetenv(names[i]);}
+   } restore_geometry;
+   const char* flags[]={"GAGP_VIEW_PROFILE","GAGP_TYPED_VIEW_PHASE","GAGP_DIRECT_PHASE","GAGP_DIRECT_ROOT",
+       "GAGP_COMPACT_FRAMES","GAGP_WINDOW_EXECUTOR","GAGP_UNBOXED_WINDOW_FRAMES","GAGP_WINDOW_SOA",
+@@ -1658,6 +1658,27 @@
+         narrow.execution_profile.find("-view-bound128-declined")==std::string::npos &&
+         narrow.execution_profile.find("-view-reg512-declined")!=std::string::npos,
+         "128-thread compilation changed fractional scores, fuel, per-case targets or diagnostic route"))return false;
++
++    for(int count:{19,81,128}) {
++      std::vector<CaseBindings> subset(cases.begin(),cases.begin()+count);
++      std::vector<Value> expected(answers.begin(),answers.begin()+count);
++      FitnessSessionGpu adaptive;
++      if(!adaptive.init(subset,expected,fuel,512,7,policy).ok)return false;
++      setenv("GAGP_GPU_CASE_VIEW_BLOCK","0",1);
++      const auto fixed=adaptive.eval_programs(programs,true);
++      setenv("GAGP_GPU_CASE_VIEW_BLOCK","1",1);
++      const auto sized=adaptive.eval_programs(programs,true);
++      const auto dirty=adaptive.eval_programs(programs,true);
++      setenv("GAGP_GPU_CASE_VIEW_BLOCK","0",1);
++      std::vector<unsigned> cpu_wrong;
++      const auto reference=eval_fitness_cpu(programs,subset,expected,fuel,7,512,policy,&cpu_wrong);
++      const int physical=count==19?32:count==81?128:512;
++      if(!check(fixed.ok && sized.ok && dirty.ok && fixed.fitness==sized.fitness && sized.fitness==reference &&
++          sized.wrong==cpu_wrong && sized.case_counts==fixed.case_counts && dirty.case_counts==sized.case_counts &&
++          dirty.fitness==sized.fitness && dirty.wrong==sized.wrong && sized.physical_blocksize==physical &&
++          (sized.execution_profile.find("-case-view-block-declined")==std::string::npos)==(count<128),
++          "case-sized view launch changed fractional scores, original logical lanes, fuel/errors or dirty workspace"))return false;
++    }
+   }
+   // Saturated65536 descriptors must not be merged with actual65535 lists.
+   const auto a=payload::make_int_list_value(std::vector<Value>(65535,Value::from_int(1)));

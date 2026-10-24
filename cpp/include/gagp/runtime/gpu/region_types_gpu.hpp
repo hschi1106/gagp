@@ -130,8 +130,10 @@ struct DRegionWorkspace {
   int payload_entry_capacity = 0;
   int payload_value_capacity = 0;
   int payload_byte_capacity = 0;
-  double* replay_warp_scores = nullptr; // Non-null selects logical-warp replay tiles.
+  double* replay_warp_scores = nullptr; // Tile partials, or original-lane scores for dense case tiles.
+  int dense_case_tiles = 0; // Nonzero: tiles cover consecutive cases, scores retain original logical lanes.
   int fitness_lanes = 0; // Original logical block width for exact reduction.
+  bool dense_case_lanes = false; // Untiled arena: schedule nonempty lanes, preserve score slots.
   unsigned int* payload_overflow_lane_masks = nullptr; // Initial pass only.
   int payload_overflow_mask_words = 0;
   unsigned int* payload_overflow_reasons = nullptr; // Per-program OR of physical capacity kinds.

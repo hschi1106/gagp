@@ -1281,3 +1281,78 @@ The profile records `-physical-viewN` or `-physical-view-declined`;
 Tests cover partial case counts, sorted integral and ordered fractional scoring,
 32/64/128/256 physical widths,1024 logical lanes, invalid settings and fresh
 GPU-produced populations.
+
+
+### Optional dense arena case scheduling
+
+`GAGP_GPU_DENSE_CASE_LANES=1` applies to untiled global arenas only when
+`0 < cases <= logical lanes`. Physical lanes visit consecutive case ordinals,
+then scatter their scores to the original logical lanes. Unsupported counts
+and tiled initial evaluation retain the ordinary mapping. The profile appends
+`-dense-case-lanes` or `-dense-case-lanes-declined`.
+
+`GAGP_GPU_DENSE_CASE_TILES=1` applies the same case mapping to tiled initial
+arena evaluation and tiled overflow replay. Each program schedules
+`ceil(cases / 32)` tiles instead of `ceil(logical lanes / 32)`, provided
+`0 < cases <= logical lanes`. The `tuple` mode additionally requires admitted
+private lists and their tuple-summary scoring policy. Other scoring policies
+keep the ordinary tiles, using the same global setting across tasks.
+
+A case ordinal `k` maps back to logical lane
+`ceil((k + 1) * logical lanes / cases) - 1`, retaining the existing arena case
+order. Dense tiles reserve a program-by-logical-lane score buffer inside the
+configured payload workspace budget. Every slot is cleared before initial or
+replay use, including reused storage. `reduce_dense_case_tiles` reconstructs
+the original ordered lane-to-warp and warp-to-total canonical reductions;
+physical tile order is not a replacement score reduction. Private arena entry,
+value, fuel, overflow, error and reproduction limits remain unchanged.
+The execution profile appends `-dense-case-tiles` or its declined suffix.
+
+Tests in `gagp_test_extended_payload_gpu` and
+`gagp_test_gpu_phase_population` compare ordinary/dense execution with an
+independent CPU reference, fractional scores, partial warps, unsupported case
+counts, low fuel, overflow replay, dirty storage and changing populations.
+Dense scheduling is experimental; fewer tiles do not establish a speedup.
+
+### Optional case-based view geometry and narrow compilation
+
+`GAGP_GPU_CASE_VIEW_BLOCK=1` caps admitted typed-view physical blocks at
+`max(32, next_power_of_two(cases))` when `4 * cases < logical lanes`.
+The `hybrid` mode retains this sparse rule. For other positive case counts it
+caps blocks at128 only when no packed phase has a bound-add operand; phases
+with bound addition retain the logical width. An explicit
+`GAGP_GPU_VIEW_PHYSICAL_BLOCK` remains an upper bound. These rules inspect
+current case counts and compiled features, without task names or test labels.
+Both modes preserve original logical lanes, case accumulation and reduction.
+Profiles report `-case-view-blockN` or `-case-view-block-declined`.
+
+`GAGP_GPU_VIEW_BOUND128=1` selects a separate128-thread compilation bound only
+for an admitted direct-root view launch of at most128 physical threads.
+Larger launches and other execution paths retain the existing kernels. When
+this specialization is selected, the optional relaxed512 compilation is
+reported as declined. The profile appends `-view-bound128` or its declined
+suffix; no register, occupancy or timing improvement is implied.
+
+`gagp_test_bounded_region_gpu` and `gagp_test_gpu_phase_population` cover
+physical/logical width separation, bound-add versus non-add admission,
+fractional scoring, low fuel and fresh populations.
+
+### Optional compilation of an admitted private layout
+
+`GAGP_GPU_SPECIALIZE_PRIVATE_LAYOUT=1` exposes an already admitted compact
+private-list layout as compile-time facts in a separate indexed-arena kernel.
+It requires the32-thread compilation bound, compact contiguous cells rather
+than cell SoA, private global offsets, warp copy, trivial/typed/bound phases
+and the private window executor. `PayloadWorkspaceStorage::prepare` already
+clears coordinate/unboxed/SoA view modes and private per-lane registries;
+the specialization makes those existing facts visible to inlined device code.
+Immutable external tables and runtime type, boundary, fuel and allocation
+checks remain in use. Unsupported layouts use the ordinary kernel.
+Initial evaluation and overflow replay use the same guarded dispatch.
+
+Profiles append `-private-layout-specialized` or its declined suffix.
+`gagp_test_gpu_phase_population` checks32 fresh generations against CPU and
+ordinary execution, dirty reusable storage and unsupported-layout fallback;
+`gagp_test_extended_payload_gpu` checks mixed/public payload fallback. These
+are execution checks, not a claim about every intermediate evolved individual
+or a guaranteed performance benefit.

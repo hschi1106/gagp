@@ -1,0 +1,174 @@
+--- a/cpp/include/gagp/runtime/gpu/region_types_gpu.hpp
++++ b/cpp/include/gagp/runtime/gpu/region_types_gpu.hpp
+@@ -132,6 +132,7 @@
+   int payload_byte_capacity = 0;
+   double* replay_warp_scores = nullptr; // Non-null selects logical-warp replay tiles.
+   int fitness_lanes = 0; // Original logical block width for exact reduction.
++  bool dense_case_lanes = false; // Untiled arena: schedule nonempty lanes, preserve score slots.
+   unsigned int* payload_overflow_lane_masks = nullptr; // Initial pass only.
+   int payload_overflow_mask_words = 0;
+   unsigned int* payload_overflow_reasons = nullptr; // Per-program OR of physical capacity kinds.
+--- a/cpp/src/runtime/gpu/device/kernels.cuh
++++ b/cpp/src/runtime/gpu/device/kernels.cuh
+@@ -146,6 +146,8 @@
+     __syncthreads();
+   }
+   const DProgramMeta meta = metas[prog_idx];
++  const bool dense_lanes = (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) &&
++      workspace.dense_case_lanes && !tiled_replay && meta.case_count > 0 && meta.case_count <= fitness_lanes;
+   if(meta.reuse_completed_fitness) {
+     // The following tiled reduction still visits every logical slot. Give it
+     // a defined neutral value even though host copyback restores this score.
+@@ -277,7 +279,18 @@
+   unsigned int local_counts[6] = {};
+   unsigned int* counts = case_counts ? case_counts + prog_idx * 6 : nullptr;
+   const bool coalesce_counts = counts && workspace.coalesce_case_counts;
+-  for (int logical_tid = lane_begin + tid; logical_tid < lane_end; logical_tid += blockDim.x) {
++  // Arena case chunks are contiguous floor(C*lane/L) intervals. For C<=L,
++  // case k belongs to lane ceil((k+1)*L/C)-1. Schedule only those lanes,
++  // leaving every original empty score slot at +0 for the same reduction.
++  if (dense_lanes) {
++    for (int lane = tid; lane < fitness_lanes; lane += blockDim.x) partial_scores[lane] = 0.0;
++    __syncthreads();
++  }
++  const int schedule_begin = dense_lanes ? tid : lane_begin + tid;
++  const int schedule_end = dense_lanes ? meta.case_count : lane_end;
++  for (int scheduled = schedule_begin; scheduled < schedule_end; scheduled += blockDim.x) {
++  const int logical_tid = dense_lanes ?
++      static_cast<int>(((static_cast<long long>(scheduled) + 1) * fitness_lanes - 1) / meta.case_count) : scheduled;
+   double local_score = 0.0;
+   const int chunk_start = (meta.case_count * logical_tid) / fitness_lanes;
+   const int chunk_end = (meta.case_count * (logical_tid + 1)) / fitness_lanes;
+--- a/cpp/src/runtime/gpu/fitness_gpu.cu
++++ b/cpp/src/runtime/gpu/fitness_gpu.cu
+@@ -1289,6 +1289,10 @@
+   const bool tiled_initial=global_payload && initial_tiling &&
+       (std::string(initial_tiling)=="1" ||
+        (std::string(initial_tiling)=="auto" && impl_->shared_max_intlist_input_length>=32));
++  const auto* dense_setting=std::getenv("GAGP_GPU_DENSE_CASE_LANES");
++  const bool request_dense=dense_setting && std::string(dense_setting)=="1";
++  const bool dense_initial=request_dense && global_payload && !tiled_initial &&
++      impl_->shared_case_count>0 && impl_->shared_case_count<=impl_->blocksize;
+   const int initial_warps=(impl_->blocksize+31)/32;
+   const auto initial_tiles_per_program=static_cast<std::size_t>(tiled_initial?initial_warps:1);
+   if(programs.size()>static_cast<std::size_t>(std::numeric_limits<int>::max())/initial_tiles_per_program)
+@@ -1447,6 +1451,9 @@
+       if(tiled_initial && !initial_payload.allocate(
+           reinterpret_cast<void**>(&initial_payload.workspace.replay_warp_scores),initial_partial_bytes))
+         return fitness_eval_single_error(ErrCode::Value,"cuda initial payload partial-score allocation failure");
++      // Replay storage is made from region_workspace and retains the ordinary
++      // mapping. Only this admitted initial arena uses dense physical lanes.
++      initial_payload.workspace.dense_case_lanes=dense_initial;
+       out.initial_payload_tiled=tiled_initial;
+       out.initial_payload_entry_capacity=1024;
+       out.initial_payload_value_capacity=8192;
+@@ -1874,6 +1881,7 @@
+         "-compact-intlist-cells":"-compact-intlist-cells-declined";
+     if(request_dense_memo)out.execution_profile+=region_workspace.dense_coordinate_memo?
+         "-dense-coordinate-memo":"-dense-coordinate-memo-declined";
++    if(request_dense)out.execution_profile+=dense_initial?"-dense-case-lanes":"-dense-case-lanes-declined";
+     if(global_payload) {
+       out.execution_profile+="-global-arena";
+       if(tiled_initial)out.execution_profile+="-initial-tiled";
+--- a/cpp/tests/gpu/test_extended_payload_gpu.cu
++++ b/cpp/tests/gpu/test_extended_payload_gpu.cu
+@@ -1089,6 +1089,53 @@
+   return true;
+ }
+ 
++
++bool test_dense_case_lanes() {
++  ScopedEnvironment dense("GAGP_GPU_DENSE_CASE_LANES"),tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),
++      global("GAGP_GPU_GLOBAL_PAYLOAD"),diag("GAGP_GPU_OVERFLOW_DIAGNOSTICS");
++  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);setenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS","1",1);
++  BytecodeProgram list;list.n_locals=1;
++  list.code={ins_a(Opcode::Load,0),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),ins(Opcode::Return)};
++  list.instruction_fuel={1,1,1};
++  BytecodeProgram wrong;wrong.consts={Value::from_bool(true),Value::from_int(1)};
++  wrong.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),ins(Opcode::Add),ins(Opcode::Return)};
++  wrong.instruction_fuel={1,1,1,1};
++  const std::vector<BytecodeProgram> programs{list,wrong,list};
++  for(int count:{1,19,33,200,513}) for(int lanes:{33,512}) for(int fuel:{2,100}) {
++    std::vector<CaseBindings> cases;std::vector<Value> answers;
++    for(int i=0;i<count;++i) {
++      cases.push_back({{0,Value::from_int(i%3)}});
++      answers.push_back(payload::make_int_list_value({Value::from_int(i%5)}));
++    }
++    FitnessPolicy policy{FitnessMetric::Levenshtein,FitnessProximity::Discounted};
++    policy.list_allocation_limit=65536;
++    std::vector<unsigned> wrong_counts;std::vector<CpuFitnessCaseCounts> counts;
++    const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,2.5,lanes,policy,&wrong_counts,&counts);
++    for(const char* tiled:{"0","1"}) {
++      setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD",tiled,1);
++      setenv("GAGP_GPU_DENSE_CASE_LANES","0",1);
++      FitnessSessionGpu session;if(!session.init(cases,answers,fuel,lanes,2.5,policy).ok)return false;
++      const auto ordinary=session.eval_programs(programs,true);
++      setenv("GAGP_GPU_DENSE_CASE_LANES","1",1);
++      const auto packed=session.eval_programs(programs,true);
++      const auto dirty=session.eval_programs(programs,true);
++      const bool admitted=tiled[0]=='0' && count<=lanes;
++      if(!check(ordinary.ok && packed.ok && dirty.ok && packed.fitness==cpu && packed.wrong==wrong_counts &&
++          packed.fitness==ordinary.fitness && dirty.fitness==packed.fitness && dirty.wrong==packed.wrong &&
++          packed.case_counts==ordinary.case_counts && dirty.case_counts==packed.case_counts &&
++          packed.initial_payload_overflow_cases==ordinary.initial_payload_overflow_cases &&
++          packed.initial_payload_overflow_lane_masks==ordinary.initial_payload_overflow_lane_masks &&
++          packed.execution_profile.find("-dense-case-lanes")!=std::string::npos &&
++          (packed.execution_profile.find("-dense-case-lanes-declined")==std::string::npos)==admitted,
++          "dense arena scheduling changed fractional fitness, original lanes, fuel/errors or fallback"))return false;
++      for(int p=0;p<3;++p)if(!check(packed.case_counts[p][0]==counts[p].cases &&
++          packed.case_counts[p][1]==counts[p].errors && packed.case_counts[p][2]==counts[p].timeouts,
++          "dense arena omitted cases or changed CPU status counts"))return false;
++    }
++  }
++  return true;
++}
++
+ bool test_tiled_initial_payload() {
+   ScopedEnvironment restore_tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),
+       restore_diag("GAGP_GPU_OVERFLOW_DIAGNOSTICS");
+@@ -1278,7 +1325,7 @@
+       if(!test_private_intlist_fitness() || !test_private_tuple_fitness())return 1;
+     }
+   }
+-  if (!test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_initial_payload_capacity_replay() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
++  if (!test_dense_case_lanes() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_initial_payload_capacity_replay() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
+   {
+     ScopedEnvironment epoch("GAGP_GPU_PAYLOAD_EPOCH_INDEX");
+--- a/cpp/tests/gpu/test_gpu_phase_population.cu
++++ b/cpp/tests/gpu/test_gpu_phase_population.cu
+@@ -771,6 +771,10 @@
+   check_pool_evolution(evolution_cases,config,parents);
+   check_private_completed_fitness(grammar,parents,names,cases,answers,policy,audit_fuel);
+  }
++ std::vector<CaseBindings> dense_cases(cases.begin(),cases.begin()+19);
++ std::vector<Value> dense_answers(answers.begin(),answers.begin()+19);
++ FitnessSessionGpu dense_session;
++ require(dense_session.init(dense_cases,dense_answers,audit_fuel,512,1000,policy).ok,"fresh dense private session");
+  bool changed=false,saw_content_match=false,saw_simple=false;
+  for(int generation=0;generation<=32;++generation) {
+   setenv("GAGP_GPU_REUSE_PRIVATE_WORKSPACE","0",1);
+@@ -915,6 +919,23 @@
+    std::cerr<<"private audit generation="<<generation<<" sequence_windows="<<sequence_windows<<" staged="<<staged<<" missing_case_payloads="<<missing<<'\n';
+   }
+   require(gpu.fitness==cpu && gpu.wrong==wrong,"new GPU list phases differ from full-case independent CPU audit");
++  {
++   const char* names[]={"GAGP_GPU_DENSE_CASE_LANES","GAGP_GPU_TILED_INITIAL_PAYLOAD"};
++   std::string saved[2];bool present[2];
++   for(int i=0;i<2;++i){const auto* p=std::getenv(names[i]);present[i]=p;saved[i]=p?p:"";setenv(names[i],"0",1);}
++   const auto before_dense=owner.evaluate(dense_session,true);
++   setenv(names[0],"1",1);const auto dense=owner.evaluate(dense_session,true);
++   const auto dirty_dense=owner.evaluate(dense_session,true);
++   for(int i=0;i<2;++i)if(present[i])setenv(names[i],saved[i].c_str(),1);else unsetenv(names[i]);
++   std::vector<unsigned> dense_wrong;
++   const auto dense_cpu=eval_fitness_cpu(independent,dense_cases,dense_answers,audit_fuel,1000,512,policy,&dense_wrong);
++   require(before_dense.ok && dense.ok && dirty_dense.ok && before_dense.fitness==dense.fitness &&
++       dirty_dense.fitness==dense.fitness && dense.fitness==dense_cpu && dense.wrong==dense_wrong &&
++       before_dense.case_counts==dense.case_counts && dirty_dense.case_counts==dense.case_counts &&
++       dense.execution_profile.find("-dense-case-lanes")!=std::string::npos &&
++       dense.execution_profile.find("-dense-case-lanes-declined")==std::string::npos,
++       "dense scheduling changed fresh private generations, full CPU audit or dirty workspace scores");
++  }
+   for(auto value:wrong)saw_content_match|=value<1024;
+   for(const auto& count:gpu.case_counts)require(count[0]==1024,"private owner omitted cases");
+   if(generation==32)break;

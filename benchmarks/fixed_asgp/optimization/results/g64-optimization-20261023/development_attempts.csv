@@ -1,0 +1,16 @@
+study,arm,description,population,generations,task_count,seed_count,vs_round_initial_gagp,same_stage_control,vs_same_stage_control,all_recorded_final_ast_scores_champions_equal,scope,selection
+private7,ordinary,固定128 threads的view設定,1024,64,30,1,1.0300919514121223,control32,1.0015313434044526,True,old_training_all30,control_or_not_selected
+private7,control32,加上private launch bound32的控制組,1024,64,30,1,1.0285169387815514,control32,1.0,True,old_training_all30,control_or_not_selected
+private7,hybrid,案例密集tiles＋hybrid view block（採用）,1024,64,30,1,1.0592684043061058,control32,1.0298988420754496,True,old_training_all30,selected
+private7,specialized_parent,private layout編譯特化,1024,64,30,1,1.028141610450361,control32,0.9996350781236184,True,old_training_all30,control_or_not_selected
+private7,combined,hybrid加private layout編譯特化,1024,64,30,1,1.0582236985870717,control32,1.028883102149696,True,old_training_all30,control_or_not_selected
+layout8,ordinary,已選hybrid設定（本階段控制組）,1024,64,8,1,1.170371006942369,ordinary,1.0,True,old_training_screen8_only,control_or_not_selected
+layout8,soa,private cells改SoA排列,1024,64,8,1,1.0133854280824985,ordinary,0.8658668251958836,True,old_training_screen8_only,control_or_not_selected
+layout8,short,精確短list edit-distance路徑,1024,64,8,1,1.1742806324124673,ordinary,1.003340500958164,True,old_training_screen8_only,control_or_not_selected
+layout8,soa_short,SoA加精確短list評分,1024,64,8,1,1.0154375071975614,ordinary,0.8676201829797748,True,old_training_screen8_only,control_or_not_selected
+layout8,soa_short_dense,SoA／短list加全面dense tiles,1024,64,8,1,0.9731097802823336,ordinary,0.8314541068687386,True,old_training_screen8_only,control_or_not_selected
+bank9,ordinary,已選hybrid設定（本階段控制組）,1024,64,8,1,1.1693201581122943,ordinary,1.0,True,old_training_screen8_only,control_or_not_selected
+bank9,bank,小型register phase stack,1024,64,8,1,1.1503263250351827,ordinary,0.9837565161728038,True,old_training_screen8_only,control_or_not_selected
+bank9,bank_narrow,register stack加128-thread編譯bound,1024,64,8,1,1.1547760137036638,ordinary,0.98756188003112,True,old_training_screen8_only,control_or_not_selected
+bank9,bank_simple,register stack加simple phase executor,1024,64,8,1,1.1393877034753506,ordinary,0.9744018313296972,True,old_training_screen8_only,control_or_not_selected
+bank9,bank_no_measure,register stack並關閉private measure cache,1024,64,8,1,1.1411629264954193,ordinary,0.9759199981104141,True,old_training_screen8_only,control_or_not_selected

@@ -243,6 +243,17 @@ maintenance, follow the rules in root `AGENTS.md`.
   evaluation timing/benchmark rows expose physical launch width. Contract/tests
   are the same owners above; no operator, case or reduction-budget change.
 
+- Optional `GAGP_GPU_DENSE_CASE_LANES` / `GAGP_GPU_DENSE_CASE_TILES` map arena
+  case ordinals to original logical score slots in `fitness_gpu.cu` and
+  `device/kernels.cuh`; dense tiled initial/replay buffers stay in the payload
+  budget and `reduce_dense_case_tiles` preserves both canonical reductions.
+  `GAGP_GPU_CASE_VIEW_BLOCK` uses case counts/current compiled phase features;
+  `GAGP_GPU_VIEW_BOUND128` guards narrow direct-root compilation.
+  `GAGP_GPU_SPECIALIZE_PRIVATE_LAYOUT` exposes an admitted compact private
+  layout to a separate indexed-arena instantiation, with ordinary fallback.
+  Flags/guards are documented only in `docs/design/payload.md`; tests:
+  extended-payload GPU, bounded-region GPU and phase-population GPU.
+
 - Exact unchanged native-offspring fitness reuse: `repro/gpu/completed_fitness_reuse.hpp`
   owns generation/revision scope; post-elite equality in `phase_population.cu`
   supplies sealed parent maps. `FitnessSessionGpu` validates session-local

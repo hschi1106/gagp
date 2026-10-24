@@ -1,0 +1,18 @@
+{
+  "format": "gagp-g64-preheldout-quality-scale-v1",
+  "epoch": 1792764847.6284072,
+  "protocol_sha256": "0626c5c65bdce21a814dc6ca83d52622155c5744a0d69447f163e8d4078a294d",
+  "heldout_created": false,
+  "original_target_seed_count": 20,
+  "allowed_seed_counts": [
+    80,
+    40,
+    20,
+    10
+  ],
+  "first_seed": 35,
+  "selection_rule": "Before fresh heldout: choose largest fixed cohort whose old-TRAINING timing/preparation/audit and formal speed/ASGP/secondary/source-check forecast fits original timed cutoff with 1.35 safety; no scale changes from heldout results; if minimum cannot fit report partial",
+  "power_note": "With 0 bad seed clusters, one-sided97.5% bound is 1 - .025**(1/N); >=72 seeds needed for <5pp. 80 is a budget-dependent extension, not a claim of evidence.",
+  "deadline_epoch": 1792849888,
+  "report_reserve_s": 14400
+}

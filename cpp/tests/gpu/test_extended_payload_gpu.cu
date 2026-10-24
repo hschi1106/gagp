@@ -1089,7 +1089,54 @@ bool test_initial_payload_capacity_replay() {
   return true;
 }
 
-bool test_tiled_initial_payload() {
+
+bool test_dense_case_lanes() {
+  ScopedEnvironment dense("GAGP_GPU_DENSE_CASE_LANES"),tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),
+      global("GAGP_GPU_GLOBAL_PAYLOAD"),diag("GAGP_GPU_OVERFLOW_DIAGNOSTICS");
+  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);setenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS","1",1);
+  BytecodeProgram list;list.n_locals=1;
+  list.code={ins_a(Opcode::Load,0),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),ins(Opcode::Return)};
+  list.instruction_fuel={1,1,1};
+  BytecodeProgram wrong;wrong.consts={Value::from_bool(true),Value::from_int(1)};
+  wrong.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),ins(Opcode::Add),ins(Opcode::Return)};
+  wrong.instruction_fuel={1,1,1,1};
+  const std::vector<BytecodeProgram> programs{list,wrong,list};
+  for(int count:{1,19,33,200,513}) for(int lanes:{33,512}) for(int fuel:{2,100}) {
+    std::vector<CaseBindings> cases;std::vector<Value> answers;
+    for(int i=0;i<count;++i) {
+      cases.push_back({{0,Value::from_int(i%3)}});
+      answers.push_back(payload::make_int_list_value({Value::from_int(i%5)}));
+    }
+    FitnessPolicy policy{FitnessMetric::Levenshtein,FitnessProximity::Discounted};
+    policy.list_allocation_limit=65536;
+    std::vector<unsigned> wrong_counts;std::vector<CpuFitnessCaseCounts> counts;
+    const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,2.5,lanes,policy,&wrong_counts,&counts);
+    for(const char* tiled:{"0","1"}) {
+      setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD",tiled,1);
+      setenv("GAGP_GPU_DENSE_CASE_LANES","0",1);
+      FitnessSessionGpu session;if(!session.init(cases,answers,fuel,lanes,2.5,policy).ok)return false;
+      const auto ordinary=session.eval_programs(programs,true);
+      setenv("GAGP_GPU_DENSE_CASE_LANES","1",1);
+      const auto packed=session.eval_programs(programs,true);
+      const auto dirty=session.eval_programs(programs,true);
+      const bool admitted=tiled[0]=='0' && count<=lanes;
+      if(!check(ordinary.ok && packed.ok && dirty.ok && packed.fitness==cpu && packed.wrong==wrong_counts &&
+          packed.fitness==ordinary.fitness && dirty.fitness==packed.fitness && dirty.wrong==packed.wrong &&
+          packed.case_counts==ordinary.case_counts && dirty.case_counts==packed.case_counts &&
+          packed.initial_payload_overflow_cases==ordinary.initial_payload_overflow_cases &&
+          packed.initial_payload_overflow_lane_masks==ordinary.initial_payload_overflow_lane_masks &&
+          packed.execution_profile.find("-dense-case-lanes")!=std::string::npos &&
+          (packed.execution_profile.find("-dense-case-lanes-declined")==std::string::npos)==admitted,
+          "dense arena scheduling changed fractional fitness, original lanes, fuel/errors or fallback"))return false;
+      for(int p=0;p<3;++p)if(!check(packed.case_counts[p][0]==counts[p].cases &&
+          packed.case_counts[p][1]==counts[p].errors && packed.case_counts[p][2]==counts[p].timeouts,
+          "dense arena omitted cases or changed CPU status counts"))return false;
+    }
+  }
+  return true;
+}
+
+bool test_tiled_initial_payload(int count=1024) {
   ScopedEnvironment restore_tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),
       restore_diag("GAGP_GPU_OVERFLOW_DIAGNOSTICS");
   setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
@@ -1102,7 +1149,7 @@ bool test_tiled_initial_payload() {
   wrong.instruction_fuel={1,1,1,1};
   const std::vector<BytecodeProgram> programs{list,wrong,list};
   std::vector<CaseBindings> cases;std::vector<Value> answers;
-  for(int i=0;i<1024;++i) {
+  for(int i=0;i<count;++i) {
     cases.push_back({{0,Value::from_int(i%3)}});
     answers.push_back(payload::make_int_list_value({Value::from_int(i%5)}));
   }
@@ -1141,6 +1188,29 @@ bool test_tiled_initial_payload() {
     }
   }
   return true;
+}
+
+
+bool test_dense_case_tiles() {
+  ScopedEnvironment dense("GAGP_GPU_DENSE_CASE_TILES"),replay("GAGP_GPU_TILED_REPLAY");
+  setenv("GAGP_GPU_DENSE_CASE_TILES","1",1);setenv("GAGP_GPU_TILED_REPLAY","1",1);
+  for(int count:{1,19,33,200,513})if(!test_tiled_initial_payload(count))return false;
+  // Overflow retry, subset indices and growth must retain full original lanes.
+  return test_initial_payload_capacity_replay() && test_tiled_replay_entry_growth();
+}
+
+bool test_private_tuple_fitness();
+
+bool test_private_layout_fallbacks() {
+  ScopedEnvironment specialized("GAGP_GPU_SPECIALIZE_PRIVATE_LAYOUT"), tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),
+      dense("GAGP_GPU_DENSE_CASE_TILES"), view("GAGP_GPU_CASE_VIEW_BLOCK");
+  setenv("GAGP_GPU_SPECIALIZE_PRIVATE_LAYOUT","1",1);
+  setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD","1",1);setenv("GAGP_GPU_DENSE_CASE_TILES","tuple",1);
+  setenv("GAGP_GPU_CASE_VIEW_BLOCK","hybrid",1);
+  // Public/mixed payloads and unadmitted layouts retain their ordinary route.
+  // These helpers independently check CPU scores, fractional loss, low fuel,
+  // unsupported value types and initial/replay tile boundaries.
+  return test_extended_payload() && test_dense_case_tiles() && test_private_tuple_fitness();
 }
 
 bool test_auto_initial_payload_inputs() {
@@ -1278,7 +1348,7 @@ int main() {
       if(!test_private_intlist_fitness() || !test_private_tuple_fitness())return 1;
     }
   }
-  if (!test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_initial_payload_capacity_replay() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_private_layout_fallbacks() || !test_dense_case_tiles() || !test_dense_case_lanes() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_initial_payload_capacity_replay() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   {
     ScopedEnvironment epoch("GAGP_GPU_PAYLOAD_EPOCH_INDEX");

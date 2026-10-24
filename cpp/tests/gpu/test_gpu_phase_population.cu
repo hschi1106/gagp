@@ -771,6 +771,10 @@ void test_private_intlist_generations(bool sequence_windows=false,bool staged=fa
   check_pool_evolution(evolution_cases,config,parents);
   check_private_completed_fitness(grammar,parents,names,cases,answers,policy,audit_fuel);
  }
+ std::vector<CaseBindings> dense_cases(cases.begin(),cases.begin()+19);
+ std::vector<Value> dense_answers(answers.begin(),answers.begin()+19);
+ FitnessSessionGpu dense_session;
+ require(dense_session.init(dense_cases,dense_answers,audit_fuel,512,1000,policy).ok,"fresh dense private session");
  bool changed=false,saw_content_match=false,saw_simple=false;
  for(int generation=0;generation<=32;++generation) {
   setenv("GAGP_GPU_REUSE_PRIVATE_WORKSPACE","0",1);
@@ -915,6 +919,60 @@ void test_private_intlist_generations(bool sequence_windows=false,bool staged=fa
    std::cerr<<"private audit generation="<<generation<<" sequence_windows="<<sequence_windows<<" staged="<<staged<<" missing_case_payloads="<<missing<<'\n';
   }
   require(gpu.fitness==cpu && gpu.wrong==wrong,"new GPU list phases differ from full-case independent CPU audit");
+  {
+   const char* names[]={"GAGP_GPU_DENSE_CASE_LANES","GAGP_GPU_TILED_INITIAL_PAYLOAD","GAGP_GPU_DENSE_CASE_TILES","GAGP_GPU_TILED_REPLAY"};
+   std::string saved[4];bool present[4];
+   for(int i=0;i<4;++i){const auto* p=std::getenv(names[i]);present[i]=p;saved[i]=p?p:"";setenv(names[i],"0",1);}
+   const auto before_dense=owner.evaluate(dense_session,true);
+   setenv(names[0],"1",1);const auto dense=owner.evaluate(dense_session,true);
+   const auto dirty_dense=owner.evaluate(dense_session,true);
+   std::vector<unsigned> dense_wrong;
+   const auto dense_cpu=eval_fitness_cpu(independent,dense_cases,dense_answers,audit_fuel,1000,512,policy,&dense_wrong);
+   require(before_dense.ok && dense.ok && dirty_dense.ok && before_dense.fitness==dense.fitness &&
+       dirty_dense.fitness==dense.fitness && dense.fitness==dense_cpu && dense.wrong==dense_wrong &&
+       before_dense.case_counts==dense.case_counts && dirty_dense.case_counts==dense.case_counts &&
+       dense.execution_profile.find("-dense-case-lanes")!=std::string::npos &&
+       dense.execution_profile.find("-dense-case-lanes-declined")==std::string::npos,
+       "dense scheduling changed fresh private generations, full CPU audit or dirty workspace scores");
+
+   setenv(names[0],"0",1);setenv(names[1],"1",1);setenv(names[3],"1",1);
+   const auto ordinary_tiles=owner.evaluate(dense_session,true);
+   setenv(names[2],"1",1);const auto dense_tiles=owner.evaluate(dense_session,true);
+   const auto dirty_tiles=owner.evaluate(dense_session,true);
+   for(int i=0;i<4;++i)if(present[i])setenv(names[i],saved[i].c_str(),1);else unsetenv(names[i]);
+   require(ordinary_tiles.ok && dense_tiles.ok && dirty_tiles.ok && dense_tiles.fitness==dense_cpu &&
+       ordinary_tiles.fitness==dense_tiles.fitness && dirty_tiles.fitness==dense_tiles.fitness &&
+       dense_tiles.wrong==dense_wrong && dense_tiles.case_counts==ordinary_tiles.case_counts &&
+       dirty_tiles.case_counts==dense_tiles.case_counts &&
+       dense_tiles.initial_payload_overflow_lane_masks==ordinary_tiles.initial_payload_overflow_lane_masks &&
+       dense_tiles.execution_profile.find("-dense-case-tiles")!=std::string::npos &&
+       dense_tiles.execution_profile.find("-dense-case-tiles-declined")==std::string::npos,
+       "dense case tiles changed fresh private generations, original lane masks, replay or full CPU audit");
+
+   {
+    const char* flags[]={"GAGP_GPU_SPECIALIZE_PRIVATE_LAYOUT","GAGP_GPU_PRIVATE_LAUNCH_BOUND",
+        "GAGP_GPU_PRIVATE_CELL_SOA","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_PRIVATE_GLOBAL_OFFSETS",
+        "GAGP_GPU_TRIVIAL_PHASES","GAGP_GPU_PRIVATE_TYPED_PHASES","GAGP_GPU_PRIVATE_BOUND_PHASES",
+        "GAGP_GPU_PRIVATE_WARP_COPY","GAGP_GPU_PRIVATE_WINDOW_EXECUTOR"};
+    const char* values[]={"0","32","0","1","1","1","1","1","1","1"};
+    std::string saved[10];bool present[10];
+    for(int i=0;i<10;++i){const auto* p=std::getenv(flags[i]);present[i]=p;saved[i]=p?p:"";setenv(flags[i],values[i],1);}
+    const auto ordinary=owner.evaluate(dense_session,true);
+    setenv(flags[0],"1",1);const auto specialized=owner.evaluate(dense_session,true);
+    const auto dirty=owner.evaluate(dense_session,true);
+    setenv(flags[8],"0",1);const auto declined=owner.evaluate(dense_session,true);
+    for(int i=0;i<10;++i)if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);
+    require(ordinary.ok && specialized.ok && dirty.ok && declined.ok && ordinary.fitness==dense_cpu &&
+        specialized.fitness==dense_cpu && dirty.fitness==dense_cpu && declined.fitness==dense_cpu &&
+        specialized.wrong==dense_wrong && declined.wrong==dense_wrong &&
+        ordinary.case_counts==specialized.case_counts && dirty.case_counts==specialized.case_counts &&
+        declined.case_counts==specialized.case_counts &&
+        specialized.execution_profile.find("-private-layout-specialized")!=std::string::npos &&
+        (specialized.execution_profile.find("-private-layout-specialized-declined")==std::string::npos)==sequence_windows &&
+        declined.execution_profile.find("-private-layout-specialized-declined")!=std::string::npos,
+        "host-proved private layout specialization changed fresh native generations, CPU scores or fallback");
+   }
+  }
   for(auto value:wrong)saw_content_match|=value<1024;
   for(const auto& count:gpu.case_counts)require(count[0]==1024,"private owner omitted cases");
   if(generation==32)break;
@@ -1092,7 +1150,7 @@ int main(){try {
  setenv("GAGP_OWNED_PHASE_CAPS","1",1);setenv("GAGP_VIEW_PROFILE","1",1);
  setenv("GAGP_TYPED_VIEW_PHASE","1",1);setenv("GAGP_DIRECT_PHASE","1",1);setenv("GAGP_DIRECT_ROOT","1",1);
  setenv("GAGP_OWNED_PHASE_PACKED","1",1);setenv("GAGP_OWNED_PHASE_PACK","1",1);setenv("GAGP_GPU_PHASE_POPULATION","1",1);setenv("GAGP_GPU_DIAGNOSTICS","1",1);
- setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","128",1);setenv("GAGP_GPU_REGISTER_PHASE_STACK","1",1);setenv("GAGP_GPU_RELAXED_VIEW_REGISTERS","1",1);setenv("GAGP_REUSE_IMPORTED_EXECUTABLE","1",1);setenv("GAGP_REUSE_PHASE_GRAMMAR","1",1);setenv("GAGP_BATCH_PHASE_IMPORT","1",1);setenv("GAGP_BATCH_PHASE_EXPORT","1",1);
+ setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","128",1);setenv("GAGP_GPU_VIEW_BOUND128","1",1);setenv("GAGP_GPU_REGISTER_PHASE_STACK","1",1);setenv("GAGP_GPU_RELAXED_VIEW_REGISTERS","1",1);setenv("GAGP_REUSE_IMPORTED_EXECUTABLE","1",1);setenv("GAGP_REUSE_PHASE_GRAMMAR","1",1);setenv("GAGP_BATCH_PHASE_IMPORT","1",1);setenv("GAGP_BATCH_PHASE_EXPORT","1",1);
  check_pool_evolution(evolution_cases,config,parents);
  const auto integrated=evolve_population(evolution_cases,config,&parents);
  require(integrated.reproduction_profile=="native-gpu-phase-v2-counted" && integrated.reproduction_fallback_reason.empty(),"GPU genotype evolution adapter not used");
@@ -1227,6 +1285,14 @@ int main(){try {
    require(gpu.case_counts.at(i)[0]==1024,"not all cases evaluated");
   }
   require(owned.ok && owned.fitness==gpu.fitness && owned.case_counts==gpu.case_counts,"owned packing differs from independent full verification");
+  setenv("GAGP_GPU_VIEW_BOUND128","0",1);
+  const auto wide_compilation=owner.evaluate(session,true);
+  setenv("GAGP_GPU_VIEW_BOUND128","1",1);
+  require(wide_compilation.ok && wide_compilation.fitness==owned.fitness &&
+      wide_compilation.wrong==owned.wrong && wide_compilation.case_counts==owned.case_counts &&
+      owned.execution_profile.find("-view-bound128")!=std::string::npos &&
+      owned.execution_profile.find("-view-bound128-declined")==std::string::npos,
+      "128-thread compile bound changed fresh-generation scores or logical counters");
   const auto cpu=eval_fitness_cpu(independent,cases,answers,10000,1000,512);
   require(cpu==gpu.fitness,"resident GPU offspring differs from independently exported CPU programs");
   const auto shape=owner.evaluate(shape_cached,true);

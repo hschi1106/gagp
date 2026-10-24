@@ -1,0 +1,31 @@
+{
+  "status": "development_diagnostic_only",
+  "generated_epoch": 1792787267.0655942,
+  "deadline_epoch": 1792849888.0,
+  "profiled": true,
+  "new_formal_outcomes_used": false,
+  "headline_denominator": false,
+  "manifest": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/g64-optimization-20261023/profile-g64-0/manifest.json",
+  "manifest_sha256": "d55c99c94f161f144e14972686bf9aaa44eae0243a3bfa79df82c22e8406a987",
+  "profile_binary_sha256": "beb5585d6cd478be304ff37795dd6bf303cdf5460f2221a95f1aaf07708d2c57",
+  "verified_csv_sha256": {
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/g64-optimization-20261023/profile-g64-0/is_sorted.s0.g64.profile.cuda_gpu_kern_sum.csv": "4cbccf07888761746fcd1349ff483bc10ddf3a6e6b120af8eab03fbbabd10a7f",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/g64-optimization-20261023/profile-g64-0/is_sorted.s0.g64.profile.nvtx_sum.csv": "c5a4bbfd508f423c16de4412f10ae038f398248fe2821d792bac68910ca7018c",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/g64-optimization-20261023/profile-g64-0/double_letters.s0.g64.profile.cuda_gpu_kern_sum.csv": "d279c9d7e90213499d620c77d85fedcf954740ba438a4f2e5778f7e21b7c616b",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/g64-optimization-20261023/profile-g64-0/double_letters.s0.g64.profile.nvtx_sum.csv": "0e8e676bf0edac3cddb1ee7d97f292f4ccb460cc05141e210e23ac0773b9a15f",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/g64-optimization-20261023/profile-g64-0/median.s0.g64.profile.cuda_gpu_kern_sum.csv": "400637256dc7feabf44818fda9bedca8d9c2d504775ee1f7a4c82068a94bd030",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/g64-optimization-20261023/profile-g64-0/median.s0.g64.profile.nvtx_sum.csv": "3517ca154bab5cb2901655d6d4e16b13460eb774c66438730098db1d77f95b7a",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/g64-optimization-20261023/profile-g64-0/tribonacci.s0.g64.profile.cuda_gpu_kern_sum.csv": "24de10a378dc87279e03b9f6398421a9705d048dabe0eab70ff2e73ffa1041d4",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/logs/g64-optimization-20261023/profile-g64-0/tribonacci.s0.g64.profile.nvtx_sum.csv": "13e5e9db9016657d2d1143a3e16caa1d715ee4c006f0ac69edb79a3267b7928c"
+  },
+  "output_sha256": {
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/development_profile.csv": "de1a481d71880ebeb1a093d662081a524b23ca4602966ff98f5f653a3c8d7399",
+    "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015/benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/development_profile.md": "9351e7c360a7c8acc514e240ef15f0ed7f5e25a08506b8f7abdd1a416454e612"
+  },
+  "limitations": [
+    "Four old-training tasks only",
+    "GPU kernel percentages include profiling overhead, exclude host costs and are not wall-time fractions",
+    "NVTX unavailable for all four captures",
+    "No new speedup, quality or1.3x-target claim"
+  ]
+}

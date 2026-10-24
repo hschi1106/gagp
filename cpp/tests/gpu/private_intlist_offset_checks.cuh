@@ -422,6 +422,13 @@ bool test_private_tuple_fitness() {
       const bool active=gpu.execution_profile.find("-private-tuple-score")!=std::string::npos &&
           gpu.execution_profile.find("-private-tuple-score-declined")==std::string::npos;
       if(!check(active==(std::string(enabled)=="1"),"private tuple opt-in admission"))return false;
+      const auto* dense_mode=std::getenv("GAGP_GPU_DENSE_CASE_TILES");
+      const auto* tile_mode=std::getenv("GAGP_GPU_TILED_INITIAL_PAYLOAD");
+      if(dense_mode && std::string(dense_mode)=="tuple" && tile_mode && std::string(tile_mode)=="1") {
+        const bool dense_active=gpu.execution_profile.find("-dense-case-tiles")!=std::string::npos &&
+            gpu.execution_profile.find("-dense-case-tiles-declined")==std::string::npos;
+        if(!check(dense_active==active,"tuple-only dense tiles changed policy admission or fallback"))return false;
+      }
       for(std::size_t i=0;i<counts.size();++i)
         if(!check(gpu.case_counts[i][1]==counts[i].errors && gpu.case_counts[i][2]==counts[i].timeouts &&
             gpu.case_counts[i][4]==0,"private tuple error/timeout counters"))return false;

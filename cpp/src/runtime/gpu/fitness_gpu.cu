@@ -933,6 +933,23 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   const int requested_physical_block=std::stoi(physical_text);
   const bool virtual_view_lanes=use_views && requested_physical_block>0;
   if(virtual_view_lanes)execution_threads=std::min(execution_threads,requested_physical_block);
+  const auto* case_block_setting=std::getenv("GAGP_GPU_CASE_VIEW_BLOCK");
+  const bool hybrid_view_block=case_block_setting && std::string(case_block_setting)=="hybrid";
+  const bool request_case_block=case_block_setting && (std::string(case_block_setting)=="1" || hybrid_view_block);
+  const bool sparse_view_cases=impl_->shared_case_count>0 &&
+      static_cast<long long>(impl_->shared_case_count)*4<fitness_lanes;
+  const bool case_view_block=request_case_block && use_views && impl_->shared_case_count>0 &&
+      (sparse_view_cases || hybrid_view_block);
+  if(case_view_block) {
+    // One runtime rule, without task names: sparse cases use a small block;
+    // ordinary additive phases retain wide lanes; complex scalar phases can
+    // expose more independent program blocks. Logical reduction stays fixed.
+    int cap=fitness_lanes;
+    if(sparse_view_cases){cap=32;while(cap<impl_->shared_case_count)cap*=2;}
+    else if(hybrid_view_block && !std::any_of(packed.region_phases.begin(),packed.region_phases.end(),
+        [](const auto& phase){return phase.program.add_left_binding>=0;}))cap=128;
+    execution_threads=std::min(execution_threads,cap);
+  }
   // Resolve immutable captures against this evaluation's table, without changing
   // raw session values or surfacing an error for an unused/missing capture.
   std::vector<Value> prepared_case_views;
@@ -996,7 +1013,10 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       ((owned && owned->direct_root_supported()) || std::all_of(programs.begin(), programs.end(), gpu_detail::direct_region_root_supported));
   const auto* relaxed_setting=std::getenv("GAGP_GPU_RELAXED_VIEW_REGISTERS");
   const bool request_relaxed=relaxed_setting && std::string(relaxed_setting)=="1";
-  const bool relaxed_view_registers=request_relaxed && direct_root && execution_threads<=512;
+  const auto* narrow_setting=std::getenv("GAGP_GPU_VIEW_BOUND128");
+  const bool request_narrow=narrow_setting && std::string(narrow_setting)=="1";
+  const bool narrow_view_registers=request_narrow && direct_root && execution_threads<=128;
+  const bool relaxed_view_registers=request_relaxed && direct_root && execution_threads<=512 && !narrow_view_registers;
   const auto pack_t1 = std::chrono::steady_clock::now();
 
   // Compilation geometry only: the arena still launches 32 physical threads
@@ -1286,12 +1306,31 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   const bool tiled_initial=global_payload && initial_tiling &&
       (std::string(initial_tiling)=="1" ||
        (std::string(initial_tiling)=="auto" && impl_->shared_max_intlist_input_length>=32));
+  const auto* dense_setting=std::getenv("GAGP_GPU_DENSE_CASE_LANES");
+  const bool request_dense=dense_setting && std::string(dense_setting)=="1";
+  const bool dense_initial=request_dense && global_payload && !tiled_initial &&
+      impl_->shared_case_count>0 && impl_->shared_case_count<=impl_->blocksize;
+  const auto* private_layout_setting=std::getenv("GAGP_GPU_SPECIALIZE_PRIVATE_LAYOUT");
+  const bool request_private_layout=private_layout_setting && std::string(private_layout_setting)=="1";
+  const bool private_layout=request_private_layout && private_launch_bound==32 && private_intlists &&
+      region_workspace.compact_intlist_cells && !region_workspace.private_cell_soa &&
+      private_global_offsets && region_workspace.private_warp_copy &&
+      region_workspace.trivial_phases && region_workspace.private_typed_phases &&
+      region_workspace.private_bound_phases && region_workspace.window_executor;
+  const auto* dense_tiles_setting=std::getenv("GAGP_GPU_DENSE_CASE_TILES");
+  const bool tuple_dense_tiles=dense_tiles_setting && std::string(dense_tiles_setting)=="tuple";
+  const bool request_dense_tiles=dense_tiles_setting && (std::string(dense_tiles_setting)=="1" || tuple_dense_tiles);
+  const bool dense_tiles_policy=!tuple_dense_tiles || (private_intlists && private_tuple_policy);
+  const bool dense_initial_tiles=request_dense_tiles && dense_tiles_policy && tiled_initial &&
+      impl_->shared_case_count>0 && impl_->shared_case_count<=impl_->blocksize;
+  const int dense_tile_count=(impl_->shared_case_count+31)/32;
   const int initial_warps=(impl_->blocksize+31)/32;
-  const auto initial_tiles_per_program=static_cast<std::size_t>(tiled_initial?initial_warps:1);
+  const auto initial_tiles_per_program=static_cast<std::size_t>(tiled_initial?(dense_initial_tiles?dense_tile_count:initial_warps):1);
   if(programs.size()>static_cast<std::size_t>(std::numeric_limits<int>::max())/initial_tiles_per_program)
     return fitness_eval_single_error(ErrCode::Value,"GPU initial payload task count exceeds addressing capacity");
   const std::size_t initial_tasks=programs.size()*initial_tiles_per_program;
-  const std::size_t initial_partial_bytes=tiled_initial?sizeof(double)*initial_tasks:0;
+  const std::size_t initial_partial_bytes=tiled_initial?sizeof(double)*programs.size()*
+      static_cast<std::size_t>(dense_initial_tiles?impl_->blocksize:initial_warps):0;
   const std::size_t concat_stats_bytes=concat_diagnostics?3*sizeof(unsigned long long):0;
   const std::size_t payload_metadata_bytes=overflow_mask_bytes+overflow_reason_bytes+concat_stats_bytes+
       sizeof(unsigned int)*programs.size()+(global_payload?sizeof(int):0);
@@ -1444,6 +1483,12 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       if(tiled_initial && !initial_payload.allocate(
           reinterpret_cast<void**>(&initial_payload.workspace.replay_warp_scores),initial_partial_bytes))
         return fitness_eval_single_error(ErrCode::Value,"cuda initial payload partial-score allocation failure");
+      // Replay storage is made from region_workspace and retains the ordinary
+      // mapping. Only this admitted initial arena uses dense physical lanes.
+      initial_payload.workspace.dense_case_lanes=dense_initial;
+      initial_payload.workspace.dense_case_tiles=dense_initial_tiles?dense_tile_count:0;
+      if(dense_initial_tiles && cudaMemset(initial_payload.workspace.replay_warp_scores,0,initial_partial_bytes)!=cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value,"cuda dense initial lane-score initialization failure");
       out.initial_payload_tiled=tiled_initial;
       out.initial_payload_entry_capacity=1024;
       out.initial_payload_value_capacity=8192;
@@ -1468,8 +1513,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     }
     const auto kernel_t0 = std::chrono::steady_clock::now();
     if(global_payload) {
-      const auto launch_private=[&](auto bound) {
-      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true,false,decltype(bound)::value>
+      const auto launch_private=[&](auto bound,auto layout) {
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true,false,decltype(bound)::value,decltype(layout)::value>
           <<<static_cast<unsigned>(initial_payload.blocks),PayloadWorkspaceStorage::threads,arena_shared_bytes(initial_payload.workspace)>>>(
               static_cast<int>(initial_tasks),dev.d_consts,dev.d_code,dev.d_metas,
               view_case_values,impl_->d_shared_case_local_set,impl_->d_expected,
@@ -1481,9 +1526,10 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_region_bindings,static_cast<int>(packed.region_bindings.size()),initial_payload.workspace,
               dev.d_case_counts,impl_->d_arena_case_order,nullptr,indices.compact_queue);
       };
-      if(private_launch_bound==512)launch_private(std::integral_constant<int,512>{});
-      else if(private_launch_bound==1024)launch_private(std::integral_constant<int,1024>{});
-      else launch_private(std::integral_constant<int,32>{});
+      if(private_layout)launch_private(std::integral_constant<int,32>{},std::true_type{});
+      else if(private_launch_bound==512)launch_private(std::integral_constant<int,512>{},std::false_type{});
+      else if(private_launch_bound==1024)launch_private(std::integral_constant<int,1024>{},std::false_type{});
+      else launch_private(std::integral_constant<int,32>{},std::false_type{});
       if(tiled_initial) {
         const auto initial_launch_error=cudaGetLastError();
         if(initial_launch_error!=cudaSuccess) {
@@ -1492,11 +1538,25 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         }
         // Default-stream ordering makes reduction part of the initial event
         // interval and enqueues it before the host overlap callback begins.
-        gpu_detail::reduce_payload_replay<<<(programs.size()+127)/128,128>>>(
+        if(dense_initial_tiles)gpu_detail::reduce_dense_case_tiles<<<(programs.size()+127)/128,128>>>(
+            programs.size(),impl_->blocksize,nullptr,initial_payload.workspace.replay_warp_scores,dev.d_fitness);
+        else gpu_detail::reduce_payload_replay<<<(programs.size()+127)/128,128>>>(
             programs.size(),initial_warps,nullptr,initial_payload.workspace.replay_warp_scores,dev.d_fitness);
       }
     } else if (direct_root) {
-      if(relaxed_view_registers) {
+      if(narrow_view_registers) {
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::BoundIntListViews, true, true,128>
+          <<<static_cast<unsigned int>(region_blocks), execution_threads, shared_bytes>>>(
+              static_cast<int>(capability_buckets?compact_indices.size():programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
+              view_case_values, impl_->d_shared_case_local_set, impl_->d_expected,
+              dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
+              dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
+              dev.d_phase_code, dev.d_phase_consts,
+              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness,
+              dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
+              dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
+              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, execution_case_order, indices.compact, indices.compact_queue);
+      } else if(relaxed_view_registers) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::BoundIntListViews, true, true,512>
           <<<static_cast<unsigned int>(region_blocks), execution_threads, shared_bytes>>>(
               static_cast<int>(capability_buckets?compact_indices.size():programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
@@ -1661,6 +1721,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     const bool tiled_replay=std::getenv("GAGP_GPU_TILED_REPLAY") &&
         std::string(std::getenv("GAGP_GPU_TILED_REPLAY"))!="0";
     const int replay_warps=(impl_->blocksize+31)/32;
+    const bool dense_replay_tiles=request_dense_tiles && dense_tiles_policy && tiled_replay &&
+        impl_->shared_case_count>0 && impl_->shared_case_count<=impl_->blocksize;
+    const int replay_tiles_per_program=dense_replay_tiles?dense_tile_count:replay_warps;
     std::vector<unsigned int> overflow_reasons(adaptive_replay?programs.size():0);
     int replay_entries=(tiled_replay || adaptive_replay)?4096:65536;
     int replay_values=static_cast<int>(std::max<unsigned>(adaptive_replay?16384:65536,impl_->policy.list_allocation_limit));
@@ -1671,15 +1734,18 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     int replay_bytes=8192;
     while(!replay_programs.empty()) {
       PayloadWorkspaceStorage replay_storage(payload_workspace_budget,reuse_private?&pool:nullptr);
-      const std::size_t task_count=replay_programs.size()*(tiled_replay?replay_warps:1);
+      const std::size_t task_count=replay_programs.size()*(tiled_replay?replay_tiles_per_program:1);
+      const std::size_t replay_score_bytes=tiled_replay?sizeof(double)*replay_programs.size()*
+          static_cast<std::size_t>(dense_replay_tiles?impl_->blocksize:replay_warps):0;
       if(task_count>static_cast<std::size_t>(std::numeric_limits<int>::max()))
         return fitness_eval_single_error(ErrCode::Value,"GPU replay task count exceeds addressing capacity");
       const std::size_t extra_bytes=payload_metadata_bytes+sizeof(int)*replay_programs.size()+
-          (tiled_replay?sizeof(double)*task_count+sizeof(int):0);
+          (tiled_replay?replay_score_bytes+sizeof(int):0);
       if(!replay_storage.prepare(region_workspace,task_count,impl_->blocksize,
           replay_entries,replay_values,replay_bytes,payload_index,extra_bytes))
         return fitness_eval_single_error(ErrCode::Value,"GPU payload replay workspace capacity/allocation failure; physical overflow remains unscored");
       auto replay_workspace=replay_storage.workspace;
+      replay_workspace.dense_case_tiles=dense_replay_tiles?dense_tile_count:0;
       const auto replay_blocks=replay_storage.blocks;
       constexpr int replay_threads=PayloadWorkspaceStorage::threads;
       int* replay_indices=nullptr;
@@ -1689,10 +1755,12 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       int* replay_queue=nullptr;
       if(tiled_replay) {
         const int start=static_cast<int>(replay_blocks);
-        if(!replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.replay_warp_scores),sizeof(double)*task_count) ||
+        if(!replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.replay_warp_scores),replay_score_bytes) ||
             !replay_storage.allocate(reinterpret_cast<void**>(&replay_queue),sizeof(int)) ||
             cudaMemcpy(replay_queue,&start,sizeof(int),cudaMemcpyHostToDevice)!=cudaSuccess)
           return fitness_eval_single_error(ErrCode::Value,"cuda replay tile allocation failure");
+        if(dense_replay_tiles && cudaMemset(replay_workspace.replay_warp_scores,0,replay_score_bytes)!=cudaSuccess)
+          return fitness_eval_single_error(ErrCode::Value,"cuda dense replay lane-score initialization failure");
       }
       KernelEvents replay_events;
       if(cudaEventCreate(&replay_events.start)!=cudaSuccess || cudaEventCreate(&replay_events.end)!=cudaSuccess ||
@@ -1705,8 +1773,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
           return fitness_eval_single_error(ErrCode::Value,"cuda payload replay reset failure");
       }
       if(payload_index) {
-      const auto launch_private=[&](auto bound) {
-      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true,false,decltype(bound)::value>
+      const auto launch_private=[&](auto bound,auto layout) {
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true,false,decltype(bound)::value,decltype(layout)::value>
           <<<static_cast<unsigned>(replay_blocks),replay_threads,arena_shared_bytes(replay_workspace)>>>(
               static_cast<int>(task_count),dev.d_consts,dev.d_code,dev.d_metas,
               view_case_values,impl_->d_shared_case_local_set,impl_->d_expected,
@@ -1718,9 +1786,10 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_region_bindings,static_cast<int>(packed.region_bindings.size()),replay_workspace,
               dev.d_case_counts,impl_->d_arena_case_order,replay_indices,replay_queue);
       };
-      if(private_launch_bound==512)launch_private(std::integral_constant<int,512>{});
-      else if(private_launch_bound==1024)launch_private(std::integral_constant<int,1024>{});
-      else launch_private(std::integral_constant<int,32>{});
+      if(private_layout)launch_private(std::integral_constant<int,32>{},std::true_type{});
+      else if(private_launch_bound==512)launch_private(std::integral_constant<int,512>{},std::false_type{});
+      else if(private_launch_bound==1024)launch_private(std::integral_constant<int,1024>{},std::false_type{});
+      else launch_private(std::integral_constant<int,32>{},std::false_type{});
       } else {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::ArenaMixed,true>
           <<<static_cast<unsigned>(replay_blocks),replay_threads,arena_shared_bytes(replay_workspace)>>>(
@@ -1735,9 +1804,12 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_case_counts,impl_->d_arena_case_order,replay_indices,replay_queue);
       }
       const auto replay_launch_error=cudaGetLastError();
-      if(tiled_replay)
-        gpu_detail::reduce_payload_replay<<<(replay_programs.size()+127)/128,128>>>(
+      if(tiled_replay) {
+        if(dense_replay_tiles)gpu_detail::reduce_dense_case_tiles<<<(replay_programs.size()+127)/128,128>>>(
+            replay_programs.size(),impl_->blocksize,replay_indices,replay_workspace.replay_warp_scores,dev.d_fitness);
+        else gpu_detail::reduce_payload_replay<<<(replay_programs.size()+127)/128,128>>>(
             replay_programs.size(),replay_warps,replay_indices,replay_workspace.replay_warp_scores,dev.d_fitness);
+      }
       const auto reduce_launch_error=cudaGetLastError();
       const auto replay_event_error=cudaEventRecord(replay_events.end);
       const auto replay_sync_error=cudaDeviceSynchronize();
@@ -1821,6 +1893,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       out.payload_workspace_pool_peak_bytes=pool.peak_bytes;
     }
     out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
+    if(request_private_layout)out.execution_profile+=private_layout && (global_payload || out.payload_replay_programs)?
+        "-private-layout-specialized":"-private-layout-specialized-declined";
     if(requested_private_launch)out.execution_profile+=private_intlists && (global_payload || out.payload_replay_programs)?
         "-private-launch"+std::to_string(private_launch_bound):"-private-launch-declined";
     if(reused_count)out.execution_profile+="-completed-fitness-reuse";
@@ -1828,8 +1902,11 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if(region_workspace.coalesce_case_counts)out.execution_profile+="-coalesced-counts";
     if(requested_physical_block)out.execution_profile+=virtual_view_lanes?
         "-physical-view"+std::to_string(execution_threads):"-physical-view-declined";
+    if(request_case_block)out.execution_profile+=case_view_block?
+        "-case-view-block"+std::to_string(execution_threads):"-case-view-block-declined";
     if(request_register_stack)out.execution_profile+=region_workspace.register_phase_stack?"-register-phase-stack":"-register-phase-stack-declined";
     if(request_relaxed)out.execution_profile+=relaxed_view_registers?"-view-reg512":"-view-reg512-declined";
+    if(request_narrow)out.execution_profile+=narrow_view_registers?"-view-bound128":"-view-bound128-declined";
     if(impl_->project_shape_inputs)out.execution_profile+=shape_result_programs?"-project-shape-inputs":"-project-shape-inputs-declined";
     if(impl_->shape_cache_requested)out.execution_profile+=shape_result_programs?"-shape-result-cache":"-shape-result-cache-declined";
     if(impl_->short_edit_enabled)out.execution_profile+=private_intlists?"-short-edit-exact":"-short-edit-declined";
@@ -1858,6 +1935,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         "-compact-intlist-cells":"-compact-intlist-cells-declined";
     if(request_dense_memo)out.execution_profile+=region_workspace.dense_coordinate_memo?
         "-dense-coordinate-memo":"-dense-coordinate-memo-declined";
+    if(request_dense)out.execution_profile+=dense_initial?"-dense-case-lanes":"-dense-case-lanes-declined";
+    if(request_dense_tiles)out.execution_profile+=(dense_initial_tiles || (dense_replay_tiles && out.payload_replay_programs))?
+        "-dense-case-tiles":"-dense-case-tiles-declined";
     if(global_payload) {
       out.execution_profile+="-global-arena";
       if(tiled_initial)out.execution_profile+="-initial-tiled";
