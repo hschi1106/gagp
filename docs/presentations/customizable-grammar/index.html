@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Learn GAGP grammar through a worked doubling example, then explore its language and GPU limits.">
+<title>GAGP Grammar — A Step-by-Step Introduction</title>
+<style>*{box-sizing:border-box}html{color-scheme:light;scroll-behavior:smooth}body{margin:0;background:#ffffff;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:1.55}main{max-width:1320px;margin:auto}section{padding:48px 64px 42px;min-height:calc(100vh - 66px);border-bottom:1px solid #dddddd;scroll-margin-top:12px}section[hidden]{display:none}h1{font-size:clamp(30px,3.5vw,48px);line-height:1.12;letter-spacing:-.035em;margin:16px 0 30px;max-width:1050px}h2{font-size:18px;line-height:1.4;margin:0 0 12px}p{margin:20px 0}.eyebrow{text-transform:uppercase;letter-spacing:.16em;font-size:12px;color:#555555}.hero{font-size:clamp(30px,4.2vw,57px);line-height:1.16;letter-spacing:-.035em;margin:36px 0}.intro{font-size:22px;max-width:850px;color:#333333}.columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:28px;margin:32px 0}.columns>div{border-top:1px solid #999999;padding-top:20px}.columns p{margin:0;color:#333333}.note{font-size:15px;color:#555555;border-left:2px solid #999999;padding-left:16px}a{color:inherit;text-decoration-thickness:1px;text-underline-offset:4px}a:hover{color:#111111}code{font-family:Consolas,'Liberation Mono',monospace;font-size:.9em}pre{position:relative;background:#f7f7f7;border:1px solid #cccccc;padding:20px 24px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.48;font-size:16px;margin:24px 0}pre[data-language]:before{content:attr(data-language);display:block;color:#555555;font:11px Arial,sans-serif;letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px}table{width:100%;border-collapse:collapse;font-size:17px;line-height:1.45}th{text-align:left;color:#555555;font-size:12px;text-transform:uppercase;letter-spacing:.07em}th,td{padding:13px 16px;border-bottom:1px solid #dddddd;vertical-align:top}th:first-child,td:first-child{padding-left:0}td:first-child{width:24%;font-weight:600}thead{border-top:1px solid #999999}ol{padding-left:26px}li{padding-left:8px;margin:16px 0}.flow{display:flex;gap:28px;margin:30px 0}.step{position:relative;border:1px solid #aaaaaa;padding:18px;flex:1;min-width:0}.step:not(:last-child):after{content:'→';position:absolute;right:-24px;top:40%;color:#555555}.step strong{display:block;font-size:17px}.step span{display:block;margin-top:10px;font-size:15px;color:#555555}.tree{text-align:center;margin:24px auto;max-width:660px}.node{border:1px solid #999999;padding:12px 28px;display:inline-block;background:#ffffff}.branches{display:flex;justify-content:space-around;border-top:1px solid #999999;padding-top:18px;margin-top:18px;position:relative}.branches:before{content:'';position:absolute;height:18px;border-left:1px solid #999999;top:-19px;left:50%}.tree p{font-size:14px;color:#555555}small{font-size:13px;color:#555555}footer{border-top:1px solid #dddddd;margin-top:30px;padding-top:14px;display:flex;gap:18px;justify-content:space-between;font-size:12px;color:#555555}footer .sources{display:flex;flex-wrap:wrap;gap:6px 16px}nav{position:sticky;bottom:0;background:#ffffff;border-top:1px solid #999999;padding:12px 24px;display:flex;align-items:center;gap:12px;min-height:66px;font-size:13px;z-index:2}button,select{font:inherit;border:1px solid #aaaaaa;background:#ffffff;color:#111111;padding:8px 12px;border-radius:0}button{cursor:pointer}button:hover{background:#eeeeee}button:disabled{opacity:.35;cursor:default}:focus-visible{outline:2px solid #111111;outline-offset:4px}select{max-width:360px;flex:1;min-width:100px}#position{white-space:nowrap}nav .hint{margin-left:auto;color:#555555}@media(max-width:720px){body{font-size:16px}section{padding:28px 22px;min-height:0}h1{margin-bottom:24px}.flow{flex-direction:column;gap:25px}.step:not(:last-child):after{content:'↓';right:50%;top:auto;bottom:-26px}.columns{gap:18px}table{font-size:14px}th,td{padding:10px 8px}pre{font-size:13px;padding:15px}.hint{display:none}nav{padding:10px;gap:7px;font-size:12px}button,select{padding:8px}footer{flex-direction:column;gap:8px}.table-wrap{overflow-x:auto}}@media print{@page{size:A4 landscape;margin:10mm}html,body{background:#ffffff!important;color:#111111!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}body{font-size:11pt;line-height:1.4}section,section[hidden]{display:block!important;min-height:0;padding:7mm 9mm;break-after:page;border:0}section:last-child{break-after:auto}h1{font-size:26pt;margin:12px 0 20px}.hero{font-size:32pt}.intro{font-size:15pt}p{margin:12px 0}pre{font-size:9pt;line-height:1.35;margin:14px 0;padding:12px}table{font-size:10pt}th,td{padding:8px}.note{font-size:9pt}.columns{margin:18px 0}.flow{margin:18px 0}.step{padding:12px}.step strong{font-size:11pt}.step span{font-size:10pt}footer{font-size:8pt;margin-top:18px}li{margin:10px 0}nav{display:none}}
+</style>
+</head>
+<body><main>
+<section id="slide-1" aria-labelledby="title-1">
+<div class="eyebrow">GAGP / 01 / Start with one problem</div>
+<h1 id="title-1">Can we discover “double the number”?</h1>
+<p>Suppose we want a program that takes a whole number and returns twice that number. We will use this small problem throughout the report.</p><div class="table-wrap"><table><thead><tr><th>Input</th><th>Wanted output</th></tr></thead><tbody><tr><td>2</td><td>4</td></tr><tr><td>5</td><td>10</td></tr><tr><td>−3</td><td>−6</td></tr></tbody></table></div><p>We could write <code>n + n</code> ourselves. Here, we want GAGP to discover a program from examples. Our job is to choose the building blocks it may use and the rules for putting them together.</p><p>This report starts with that concrete task, then introduces more powerful building blocks and explains what changes when programs run on a GPU.</p><p class="note"><strong>Remember:</strong> You do not need to know compiler terminology. Read the examples first; each technical term is explained when it becomes useful.</p>
+<footer><div class="sources"><a href="../../guides/grammar-authoring.md">Authoring guide</a><a href="../../../spec/grammar.md">Grammar specification</a></div><span>01 / 25</span></footer>
+</section>
+<section id="slide-2" aria-labelledby="title-2">
+<div class="eyebrow">GAGP / 01 / Start with one problem</div>
+<h1 id="title-2">Give the system rules and examples</h1>
+<div class="flow" role="img" aria-label="Allowed pieces → Candidate programs → Example checks"><div class="step"><strong>Allowed pieces</strong><span>For this task: n, 0 and addition.</span></div><div class="step"><strong>Candidate programs</strong><span>Try n, 0, n + n, and other legal combinations.</span></div><div class="step"><strong>Example checks</strong><span>Run each candidate and compare its output with the wanted output.</span></div></div><p>There are three separate things to decide:</p><div class="table-wrap"><table><thead><tr><th>Your decision</th><th>Plain meaning</th><th>Name used by GAGP</th></tr></thead><tbody><tr><td>What may it build?</td><td>The recipe for legal programs.</td><td>Grammar</td></tr><tr><td>What should it do?</td><td>Input/output examples such as 5 → 10.</td><td>Fitness cases</td></tr><tr><td>How far may it search?</td><td>Limits on program size and execution work.</td><td>Search and execution limits</td></tr></tbody></table></div><p>The search repeatedly scores programs and creates new candidates from selected parents. This process is called <strong>evolution</strong>. It can discover a good program, but success is not guaranteed.</p><p class="note"><strong>Remember:</strong> Rules define the available choices. Examples tell the search which choices work.</p>
+<footer><div class="sources"><a href="../../guides/grammar-authoring.md">Authoring guide</a><a href="../../../spec/fitness.md">Scoring rules</a></div><span>02 / 25</span></footer>
+</section>
+<section id="slide-3" aria-labelledby="title-3">
+<div class="eyebrow">GAGP / 01 / Start with one problem</div>
+<h1 id="title-3">Start with three building blocks</h1>
+<pre data-language="Worked example · explanatory notation"><code>n          Read the input number.
+0          Use the fixed number zero.
+add(A, B)  Add the results of two smaller expressions.
+
+If n = 5:
+  n             gives 5
+  add(n, n)     gives 10
+  add(n, 0)     gives 5</code></pre><p>An <strong>expression</strong> is a piece of a program that produces a value. The letters A and B above are places where other expressions can go.</p><p>GAGP already knows how to execute addition. We are deciding whether addition is available to this search, and what may be placed inside it.</p><p class="note"><strong>Remember:</strong> Writing a custom grammar usually means combining existing operations. A new operation that GAGP does not understand requires changes to the native implementation.</p>
+<footer><div class="sources"><a href="../../../spec/grammar.md">Grammar specification</a><a href="../../../spec/grammar_definition.md">Authoring schema</a></div><span>03 / 25</span></footer>
+</section>
+<section id="slide-4" aria-labelledby="title-4">
+<div class="eyebrow">GAGP / 01 / Start with one problem</div>
+<h1 id="title-4">One rule describes many programs</h1>
+<pre data-language="Worked example · explanatory notation"><code>E → n
+  | 0
+  | add(E, E)
+
+Read this as:
+“To build an E, choose the input, zero, or an addition of two Es.”</code></pre><p>The arrow means “may be built as.” The vertical bar means “or.” <strong>E is just the name of a reusable rule.</strong> The formal name for a rule like this is a <em>nonterminal</em>.</p><p>The third choice uses E again. This allows larger expressions to be built from smaller ones. Each choice is called an <em>alternative</em> or <em>production</em>.</p><p>There must be a way to stop expanding. Here, choosing <code>n</code> or <code>0</code> ends that branch. A rule containing only <code>add(E,E)</code> would never finish.</p><p class="note"><strong>Remember:</strong> A grammar is a set of construction rules, not one finished program.</p>
+<footer><div class="sources"><a href="../../../spec/grammar_definition.md">Authoring schema</a></div><span>04 / 25</span></footer>
+</section>
+<section id="slide-5" aria-labelledby="title-5">
+<div class="eyebrow">GAGP / 01 / Start with one problem</div>
+<h1 id="title-5">Watch a candidate grow</h1>
+<div class="flow" role="img" aria-label="Start with E → Choose addition → Fill both children"><div class="step"><strong>Start with E</strong><span>Nothing has been chosen yet.</span></div><div class="step"><strong>Choose addition</strong><span>E becomes add(E, E).</span></div><div class="step"><strong>Fill both children</strong><span>Choose n on each side: add(n, n).</span></div></div><div class="tree" role="img" aria-label="An addition expression with the input n as both children"><div class="node">add</div><div class="branches"><div class="node">n</div><div class="node">n</div></div><p>This expression returns twice the input.</p></div><p>This branching picture is called a <strong>syntax tree</strong>, or AST. The root operation reads the results of its children. For input 5, both children produce 5 and the addition produces 10.</p><p>Another round of choices might build <code>add(n,0)</code>. A deeper one might build <code>add(add(n,n),0)</code>. They all follow the same rule, although they do not all solve the task.</p><p class="note"><strong>Remember:</strong> The grammar permits many possible trees. The search must find useful ones among them.</p>
+<footer><div class="sources"><a href="../../../spec/grammar.md">Grammar specification</a><a href="../../../spec/grammar_definition.md">Authoring schema</a></div><span>05 / 25</span></footer>
+</section>
+<section id="slide-6" aria-labelledby="title-6">
+<div class="eyebrow">GAGP / 01 / Start with one problem</div>
+<h1 id="title-6">Legal does not mean correct</h1>
+<div class="table-wrap"><table><thead><tr><th>Candidate</th><th>Output for n = 2</th><th>Output for n = 5</th><th>Solves these examples?</th></tr></thead><tbody><tr><td>0</td><td>0</td><td>0</td><td>No</td></tr><tr><td>n</td><td>2</td><td>5</td><td>No</td></tr><tr><td>add(n, 0)</td><td>2</td><td>5</td><td>No</td></tr><tr><td>add(n, n)</td><td>4</td><td>10</td><td>Yes</td></tr></tbody></table></div><p>Every row is allowed by our grammar. Only the last row gives the wanted answers here. GAGP runs candidates against the cases and assigns a score called <strong>fitness</strong>.</p><p>Better-scoring candidates influence which parents are selected. New candidates may combine compatible pieces from parents (<strong>crossover</strong>) or change a piece (<strong>mutation</strong>). The resulting programs must still satisfy the grammar.</p><p>Passing examples is evidence, not a general proof. Include negative numbers, zero and other meaningful cases instead of checking just one input.</p><p class="note"><strong>Remember:</strong> Grammar checks legality. Fitness checks how well a legal program solves your examples.</p>
+<footer><div class="sources"><a href="../../../spec/fitness.md">Scoring rules</a><a href="../../../spec/grammar.md">Grammar specification</a></div><span>06 / 25</span></footer>
+</section>
+<section id="slide-7" aria-labelledby="title-7">
+<div class="eyebrow">GAGP / 02 / Choose the language</div>
+<h1 id="title-7">A smaller language can be easier to search</h1>
+<div class="table-wrap"><table><thead><tr><th>Allowed rules</th><th>What changes?</th></tr></thead><tbody><tr><td>E → n | 0</td><td>No candidate can double every input: addition is missing.</td></tr><tr><td>E → n | 0 | add(E,E)</td><td>The answer n + n is available.</td></tr><tr><td>Also allow multiplication, lists and text</td><td>There are more possible constructions to explore; the extra choices may not help this task.</td></tr></tbody></table></div><p>A useful grammar includes the operations needed for a solution without adding unrelated choices. Too narrow, and the answer cannot be expressed. Too broad, and the search has more irrelevant candidates to consider.</p><p>You can change the language without rebuilding GAGP: add an existing operator, remove a choice, change allowed constants, or prescribe a larger structure.</p><p class="note"><strong>Remember:</strong> Before tuning the search, ask: “Can my rules actually express the answer I want?”</p>
+<footer><div class="sources"><a href="../../guides/grammar-authoring.md">Authoring guide</a><a href="../../../spec/grammar_definition.md">Authoring schema</a></div><span>07 / 25</span></footer>
+</section>
+<section id="slide-8" aria-labelledby="title-8">
+<div class="eyebrow">GAGP / 02 / Choose the language</div>
+<h1 id="title-8">Types tell you which pieces fit together</h1>
+<p>A <strong>type</strong> is the kind of value a piece produces. An operation accepts only the kinds of inputs declared for it.</p><div class="table-wrap"><table><thead><tr><th>Kind of data</th><th>GAGP type</th><th>Example</th></tr></thead><tbody><tr><td>Whole number</td><td>Int</td><td>5</td></tr><tr><td>Floating-point number</td><td>Float</td><td>2.5</td></tr><tr><td>Yes / no</td><td>Bool</td><td>true</td></tr><tr><td>One character</td><td>Char</td><td>a</td></tr><tr><td>Text</td><td>String</td><td>hello</td></tr><tr><td>List of whole numbers</td><td>IntList</td><td>[2, 5, 8]</td></tr><tr><td>List of floating-point numbers</td><td>FloatList</td><td>[1.5, 2.5]</td></tr><tr><td>List of text values</td><td>StringList</td><td>["red", "blue"]</td></tr></tbody></table></div><p>Our doubling rule returns Int. Its addition expects two Int expressions. An Int and a Float do not automatically mix, and Bool is not treated as a number.</p><p class="note"><strong>Remember:</strong> There are eight exact types. Lists contain one declared element type; arbitrary mixed or nested lists are not available.</p>
+<footer><div class="sources"><a href="../../../spec/grammar.md">Grammar specification</a><a href="../../guides/grammar-authoring.md">Authoring guide</a></div><span>08 / 25</span></footer>
+</section>
+<section id="slide-9" aria-labelledby="title-9">
+<div class="eyebrow">GAGP / 02 / Choose the language</div>
+<h1 id="title-9">Numbers, decisions and characters</h1>
+<div class="table-wrap"><table><thead><tr><th>What you want to express</th><th>Available building blocks</th><th>Small example</th></tr></thead><tbody><tr><td>Calculate with numbers</td><td>Add, subtract, multiply, divide, modulo, negate</td><td>add(2, 3) → 5</td></tr><tr><td>Compare two values</td><td>Ordering, equality and inequality</td><td>2 < 3 → true</td></tr><tr><td>Choose between answers</td><td>A conditional expression</td><td>If n < 0, use −n; otherwise use n.</td></tr><tr><td>Constrain a number</td><td>abs, min, max, clip</td><td>clip(12, 0, 10) → 10</td></tr><tr><td>Inspect or convert characters</td><td>ord, chr, character tests, case conversion</td><td>to_upper(a) → A</td></tr></tbody></table></div><p>The operation’s full type description is called its <strong>signature</strong>. For example, <code>add(Int,Int)-&gt;Int</code> means “take two Int values and return an Int.”</p><p>Ordinary division returns Float. The special Int operations <code>idiv0</code> and <code>imod0</code> return zero for a zero divisor. Conversion functions are explicit; enabling one signature does not enable every overload.</p><p class="note"><strong>Remember:</strong> Choose the exact version of each operation your rule needs.</p>
+<footer><div class="sources"><a href="../../../spec/grammar.md">Grammar specification</a><a href="../../../spec/builtins_base.md">Scalar and character builtins</a></div><span>09 / 25</span></footer>
+</section>
+<section id="slide-10" aria-labelledby="title-10">
+<div class="eyebrow">GAGP / 02 / Choose the language</div>
+<h1 id="title-10">Working with lists and text</h1>
+<div class="table-wrap"><table><thead><tr><th>Operation</th><th>Example</th><th>What it does</th></tr></thead><tbody><tr><td>len</td><td>len([2,5,8]) → 3</td><td>Count elements.</td></tr><tr><td>index</td><td>index([2,5,8], 1) → 5</td><td>Read an element; indices start at zero.</td></tr><tr><td>slice</td><td>slice([2,5,8], 0, 2) → [2,5]</td><td>Take a range; the end is excluded.</td></tr><tr><td>concat</td><td>concat([2], [5,8]) → [2,5,8]</td><td>Join two sequences of the same type.</td></tr><tr><td>append / prepend</td><td>append([2,5], 8) → [2,5,8]</td><td>Add a correctly typed element to a list.</td></tr><tr><td>reverse</td><td>reverse([2,5,8]) → [8,5,2]</td><td>Reverse the order.</td></tr></tbody></table></div><p>String supports length, indexing, slicing, concatenation and reversal too. String indexing returns a Char. To add a character to text, convert it with <code>char_to_string</code> and concatenate.</p><p>These operations return new values. They do not overwrite the original list. An invalid index can fail, and list elements must match the list’s type.</p><p class="note"><strong>Remember:</strong> The same idea can work on several sequence types, but the exact types still have to match.</p>
+<footer><div class="sources"><a href="../../../spec/builtins_runtime.md">Sequence operations</a></div><span>10 / 25</span></footer>
+</section>
+<section id="slide-11" aria-labelledby="title-11">
+<div class="eyebrow">GAGP / 02 / Choose the language</div>
+<h1 id="title-11">Some tasks need several steps</h1>
+<pre data-language="Worked example · explanatory notation"><code>Conceptual program:
+  total = 0
+  repeat for i = 0, 1, 2:
+    total = total + i
+  return total
+
+The returned answer is 3.</code></pre><p>A <strong>statement</strong> performs a step in a program. GAGP supports assigning variables, choosing between blocks with an if-statement, repeating a block with ForRange, and returning an answer.</p><p>A mutable local variable such as <code>total</code> holds a value that later statements can update. Its type stays fixed. It must be initialized before it is read.</p><p>ForRange evaluates its non-negative integer bound once. It is a specific supported loop form; GAGP does not provide while, break, continue, arbitrary user functions, file access or network access.</p><p class="note"><strong>Remember:</strong> You can build multi-step programs, but only from the control structures GAGP provides. The example above explains behavior; it is not JSON authoring syntax.</p>
+<footer><div class="sources"><a href="../../../spec/grammar.md">Grammar specification</a></div><span>11 / 25</span></footer>
+</section>
+<section id="slide-12" aria-labelledby="title-12">
+<div class="eyebrow">GAGP / 02 / Choose the language</div>
+<h1 id="title-12">To process a list, carry a running answer</h1>
+<p>Suppose the task changes: instead of doubling a number, we want to add every element in a list. A traversal can visit the elements one at a time while carrying a running answer.</p><div class="table-wrap"><table><thead><tr><th>Step</th><th>Current element</th><th>Running answer</th></tr></thead><tbody><tr><td>Before the first element</td><td>—</td><td>0, the starting value</td></tr><tr><td>Visit element 1</td><td>2</td><td>0 + 2 = 2</td></tr><tr><td>Visit element 2</td><td>5</td><td>2 + 5 = 7</td></tr><tr><td>Visit element 3</td><td>8</td><td>7 + 8 = 15</td></tr></tbody></table></div><p>GAGP calls this <strong>Traverse</strong>. You supply the sequence, a starting answer, and a step expression. The step can read the current element, its index, and the current running answer, called the <strong>accumulator</strong>.</p><p>Those names exist only inside the step. That area of visibility is their <strong>scope</strong>. The names are immutable within one step; the step’s result becomes the accumulator for the next step.</p><p class="note"><strong>Remember:</strong> An empty list returns the starting answer. Related forms support reverse order or a selected interval. LetRegion is another scoped form: calculate one value, name it, then use it inside a body.</p>
+<footer><div class="sources"><a href="../../../spec/grammar.md">Grammar specification</a><a href="../../../spec/grammar_definition.md">Authoring schema</a></div><span>12 / 25</span></footer>
+</section>
+<section id="slide-13" aria-labelledby="title-13">
+<div class="eyebrow">GAGP / 03 / Write your own rules</div>
+<h1 id="title-13">Choose constants, preferences and limits</h1>
+<div class="table-wrap"><table><thead><tr><th>Setting</th><th>Doubling example</th><th>Meaning</th></tr></thead><tbody><tr><td>Constant domain</td><td>Only the value 0</td><td>Which literal values a rule may contain.</td></tr><tr><td>Alternative weight</td><td>n: 3, zero: 1, add: 1</td><td>Relative preference among choices that can currently fit.</td></tr><tr><td>Maximum nodes / depth</td><td>9 nodes, depth 5</td><td>How large the generated program may be.</td></tr><tr><td>Fuel</td><td>32</td><td>How much execution work a case may consume.</td></tr></tbody></table></div><p>A <strong>domain</strong> is simply an allowed set of values. It can list specific constants, specify a numeric range, or describe a sequence’s length and elements.</p><p>Weights are preferences, not quotas. Addition cannot be selected when there is too little room for its children. Program-size limits include the generated program structure, not just the expression drawn on page 5.</p><p class="note"><strong>Remember:</strong> Size limits and execution limits answer different questions: “How large may the program be?” and “How much work may it do?”</p>
+<footer><div class="sources"><a href="../../../spec/grammar_definition.md">Authoring schema</a><a href="../../guides/grammar-authoring.md">Authoring guide</a></div><span>13 / 25</span></footer>
+</section>
+<section id="slide-14" aria-labelledby="title-14">
+<div class="eyebrow">GAGP / 03 / Write your own rules</div>
+<h1 id="title-14">The same small grammar, written as JSON</h1>
+<p>This file encodes the rule from page 4. <code>entry</code> chooses the starting rule, <code>inputs</code> names the input, and <code>alternatives</code> lists its three choices. <code>ref</code> means “use this rule here.”</p><pre data-language="Complete grammar · valid JSON"><code>{
+  &quot;format_version&quot;: &quot;grammar-definition-v2&quot;,
+  &quot;entry&quot;: {&quot;nonterminal&quot;: &quot;Authoring.Scalar&quot;, &quot;type&quot;: &quot;Int&quot;},
+  &quot;inputs&quot;: [{&quot;name&quot;: &quot;n&quot;, &quot;type&quot;: &quot;Int&quot;}],
+  &quot;search_limits&quot;: {&quot;max_nodes&quot;: 9, &quot;max_depth&quot;: 5},
+  &quot;execution_limits&quot;: {&quot;fuel&quot;: 32},
+  &quot;nonterminals&quot;: [{
+    &quot;id&quot;: &quot;Authoring.Scalar&quot;,
+    &quot;type&quot;: &quot;Int&quot;,
+    &quot;scope&quot;: [],
+    &quot;alternatives&quot;: [
+      {&quot;id&quot;: &quot;input&quot;, &quot;weight&quot;: 3, &quot;expression&quot;: {&quot;input&quot;: &quot;n&quot;}},
+      {&quot;id&quot;: &quot;zero&quot;, &quot;weight&quot;: 1, &quot;expression&quot;: {&quot;constant&quot;: {&quot;type&quot;: &quot;Int&quot;, &quot;values&quot;: [&quot;0&quot;]}}},
+      {&quot;id&quot;: &quot;sum&quot;, &quot;weight&quot;: 1, &quot;expression&quot;: {
+        &quot;signature&quot;: &quot;add(Int,Int)-&gt;Int&quot;,
+        &quot;args&quot;: [{&quot;ref&quot;: &quot;Authoring.Scalar&quot;}, {&quot;ref&quot;: &quot;Authoring.Scalar&quot;}]
+      }}
+    ]
+  }]
+}</code></pre><p class="note"><strong>Remember:</strong> You can copy this file as a starting point. The name Authoring.Scalar is just the rule’s identifier; it is not a special operation. Int constants are written as decimal strings.</p>
+<footer><div class="sources"><a href="../../../configs/grammar/examples/authoring/scalar.json">Copy this grammar</a><a href="../../../spec/grammar_definition.md">Authoring schema</a></div><span>14 / 25</span></footer>
+</section>
+<section id="slide-15" aria-labelledby="title-15">
+<div class="eyebrow">GAGP / 03 / Write your own rules</div>
+<h1 id="title-15">Change one thing and see what it allows</h1>
+<div class="table-wrap"><table><thead><tr><th>Edit to the previous JSON</th><th>Programs now possible</th><th>Practical effect</th></tr></thead><tbody><tr><td>Change values ["0"] to ["0","1"]</td><td>add(n,1)</td><td>The search can express “add one.”</td></tr><tr><td>Add a mul(Int,Int)-&gt;Int alternative with two references to the same rule</td><td>mul(n,n)</td><td>The search can express squaring while retaining addition.</td></tr><tr><td>Replace the add signature with mul instead</td><td>mul(n,n), but no addition through that alternative</td><td>You remove one choice and replace it with another.</td></tr><tr><td>Increase the add weight</td><td>The same legal language</td><td>You change construction preference, not what the operator means.</td></tr></tbody></table></div><p>A useful workflow is to change one rule, validate the file, and inspect a small generated population. Then change the input/output cases to match the new task.</p><p>If you want floating-point inputs, update the input declarations, rule types, constants, operator signatures and cases consistently. Changing only the input value from 5 to 5.5 is not enough.</p><p class="note"><strong>Remember:</strong> Adding a choice, replacing a choice and changing its weight are three different edits.</p>
+<footer><div class="sources"><a href="../../guides/grammar-authoring.md">Authoring guide</a><a href="../../../spec/grammar_definition.md">Authoring schema</a></div><span>15 / 25</span></footer>
+</section>
+<section id="slide-16" aria-labelledby="title-16">
+<div class="eyebrow">GAGP / 03 / Write your own rules</div>
+<h1 id="title-16">Fix the shape; search only the missing piece</h1>
+<p>Sometimes you know the overall formula already. For example, you want “take some expression and add it to itself.” You only want to search for that expression.</p><pre data-language="Worked example · explanatory notation"><code>Fixed shape:       add(H, H)
+Allowed fillings:  H = n   or   H = 0   or   H = add(n,1)
+
+Examples:
+  add(n, n)
+  add(0, 0)
+  add(add(n,1), add(n,1))</code></pre><p>A <strong>template</strong> is a fixed shape with named openings called <strong>holes</strong>. Each hole declares the type of result it expects and the names it may use.</p><p>Here, both H occurrences mean the same logical hole. They receive the same chosen expression and change together during variation. They still become two physical copies in the program, so both copies count toward its size.</p><p class="note"><strong>Remember:</strong> Templates let you use knowledge about the solution’s structure while leaving selected decisions to evolution.</p>
+<footer><div class="sources"><a href="../../../configs/grammar/examples/authoring/template.json">Working template example</a><a href="../../../spec/grammar_definition.md">Authoring schema</a></div><span>16 / 25</span></footer>
+</section>
+<section id="slide-17" aria-labelledby="title-17">
+<div class="eyebrow">GAGP / 03 / Write your own rules</div>
+<h1 id="title-17">Reuse a larger recipe from a package</h1>
+<p>For a task that divides a list into smaller problems, you can reuse a package instead of rebuilding the whole recursive structure.</p><div class="flow" role="img" aria-label="Fixed recipe → Open decisions → Your custom grammar"><div class="step"><strong>Fixed recipe</strong><span>Split the problem and solve the smaller parts.</span></div><div class="step"><strong>Open decisions</strong><span>Choose the source, small-case answer, split and combination.</span></div><div class="step"><strong>Your custom grammar</strong><span>Fill each opening with rules suited to the task.</span></div></div><pre data-language="Worked example · explanatory notation"><code>The combine opening receives two child answers:
+  left : Int       right : Int
+
+Your rule may choose:
+  add(left, right)     Combine by addition.
+  max(left, right)     Keep the larger answer.</code></pre><p>A <strong>package</strong> is a reusable grammar file. Import it using a relative path, then provide rules for its template holes. The combine rule can use left and right because the hole declares those names in its scope.</p><p class="note"><strong>Remember:</strong> Importing a package reuses data and structure. It does not add arbitrary executable code. Use extend to append choices to an imported rule, or replace to replace a resource completely.</p>
+<footer><div class="sources"><a href="../../../configs/grammar/examples/restricted_combine.json">Complete package-composition example</a><a href="../../guides/grammar-authoring.md">Authoring guide</a><a href="../../../spec/grammar_definition.md">Authoring schema</a></div><span>17 / 25</span></footer>
+</section>
+<section id="slide-18" aria-labelledby="title-18">
+<div class="eyebrow">GAGP / 03 / Write your own rules</div>
+<h1 id="title-18">Recursion must show how it gets smaller</h1>
+<p>Recursion solves a problem by asking for answers to smaller problems. Without a clear stopping rule, it may keep asking forever.</p><pre data-language="Worked example · explanatory notation"><code>A useful split:
+  [2, 5, 8, 1]
+     → [2, 5] and [8, 1]
+     → smaller subproblems until the base case applies
+
+A bad request:
+  solve the same whole problem again, with no progress</code></pre><p>GAGP uses a <strong>BoundedRegion</strong>: a declared plan for state, smaller requests, stopping conditions and how to combine child answers. For sequence problems it checks proper subwindows. For coordinate problems it checks that requests decrease a declared ordering.</p><p><strong>Memoization</strong> means saving a subproblem’s answer for reuse. A <strong>frame</strong> is a record of an unfinished recursive call. Both need explicit capacity limits; arbitrary recursion is not available.</p><p class="note"><strong>Remember:</strong> A valid recursive shape needs a progress argument as well as storage limits. Nested BoundedRegion calls inside its phase bodies are forbidden.</p>
+<footer><div class="sources"><a href="../../../spec/grammar.md">Grammar specification</a><a href="../../../spec/bytecode_isa.md">Bytecode contract</a></div><span>18 / 25</span></footer>
+</section>
+<section id="slide-19" aria-labelledby="title-19">
+<div class="eyebrow">GAGP / 04 / Understand GPU limits</div>
+<h1 id="title-19">The GPU runs programs prepared by the CPU</h1>
+<div class="flow" role="img" aria-label="CPU: prepare → CPU: upload → GPU: evaluate"><div class="step"><strong>CPU: prepare</strong><span>Turn each candidate tree into executable instructions.</span></div><div class="step"><strong>CPU: upload</strong><span>Send instructions, inputs and supporting data to the GPU.</span></div><div class="step"><strong>GPU: evaluate</strong><span>Run candidates on the test cases and produce fitness results.</span></div></div><p>The instruction format is called <strong>bytecode</strong>. A small execution engine reads those instructions on the GPU. GAGP does not turn an arbitrary JSON operation into a new CUDA function.</p><p>The GPU evaluates many cases in parallel, but each case still needs its own temporary values, local variables and any recursive bookkeeping. These per-case resources are bounded.</p><p>GPU evaluation and GPU reproduction are separate choices. You can evaluate on the GPU while creating the next generation on the CPU.</p><p class="note"><strong>Remember:</strong> A legal grammar still has to produce programs that fit the GPU execution profile.</p>
+<footer><div class="sources"><a href="../../../spec/bytecode_isa.md">Bytecode contract</a><a href="../../../cpp/src/runtime/gpu/fitness_gpu.cu">GPU evaluation implementation</a></div><span>19 / 25</span></footer>
+</section>
+<section id="slide-20" aria-labelledby="title-20">
+<div class="eyebrow">GAGP / 04 / Understand GPU limits</div>
+<h1 id="title-20">Each case has limited working space</h1>
+<p>Think of one case as a calculation with a small workbench. Uploaded inputs are available, but temporary calculations and newly built results need working space too.</p><div class="table-wrap"><table><thead><tr><th>Working space</th><th>What it holds</th><th>Current GPU limit</th></tr></thead><tbody><tr><td>Operand stack</td><td>Temporary values waiting for the next operation.</td><td>64 values</td></tr><tr><td>Local slots</td><td>Inputs, named variables and compiler-created helper variables.</td><td>64 per code object</td></tr><tr><td>Region frames</td><td>Unfinished recursive work.</td><td>128 declared per region</td></tr><tr><td>Memo cells</td><td>Saved subproblem results.</td><td>128 declared per region</td></tr></tbody></table></div><p>A short source expression can introduce helper variables when compiled. Conversely, AST depth is not the same quantity as operand-stack depth. You must check the compiled program rather than compare those numbers directly.</p><p>Region declarations above the GPU limits are rejected before upload. During execution, exhausting the declared frame or memo capacity yields Timeout.</p><p class="note"><strong>Remember:</strong> These are limits of the current GAGP GPU implementation. Increasing the grammar’s tree-size limit does not increase them.</p>
+<footer><div class="sources"><a href="../../../cpp/include/gagp/runtime/gpu/constants_gpu.hpp">GPU capacities</a><a href="../../../spec/bytecode_isa.md">Bytecode contract</a></div><span>20 / 25</span></footer>
+</section>
+<section id="slide-21" aria-labelledby="title-21">
+<div class="eyebrow">GAGP / 04 / Understand GPU limits</div>
+<h1 id="title-21">A short program can build a large result</h1>
+<pre data-language="Worked example · explanatory notation"><code>Start with text s of length 100.
+
+concat(s, s)                         length 200
+concat(concat(s, s), concat(s, s))    length 400
+Double again                        length 800</code></pre><p>The program is compact, but its intermediate and final text can grow quickly. The actual characters or list elements are called the value’s <strong>payload</strong>.</p><p>Exact output construction uses bounded per-thread scratch: currently 32 payload entries, 512 string bytes and 128 list Values. Those capacities are shared working space, not universal maximum input lengths. Several smaller intermediate results can also consume it.</p><p>When exact contents cannot be materialized, some operations use a <strong>fallback</strong>: a deterministic internal substitute. A list may retain its type, hash and length without retaining all expanded elements. Other operations can fail when exact contents are missing.</p><p class="note"><strong>Remember:</strong> A substitute that is repeatable is not necessarily a complete answer. If the next step needs to inspect an element, a hash and length are insufficient. More fuel does not create more payload space.</p>
+<footer><div class="sources"><a href="../../design/payload.md">Payload design</a><a href="../../../spec/builtins_runtime.md">Sequence behavior</a></div><span>21 / 25</span></footer>
+</section>
+<section id="slide-22" aria-labelledby="title-22">
+<div class="eyebrow">GAGP / 04 / Understand GPU limits</div>
+<h1 id="title-22">Four different limits need four different fixes</h1>
+<div class="table-wrap"><table><thead><tr><th>What went wrong?</th><th>Why?</th><th>What to inspect</th></tr></thead><tbody><tr><td>A candidate cannot be generated.</td><td>The chosen structure cannot fit the grammar’s construction budget.</td><td>Rules, terminating choices, maximum nodes and depth.</td></tr><tr><td>A case runs out of fuel.</td><td>It performs more charged work than allowed.</td><td>Input size, loops, recursive work and the fuel setting.</td></tr><tr><td>A region does not fit the GPU profile.</td><td>Declared frame or memo limits exceed device support.</td><td>The bounded plan and whether this workload fits the GPU backend.</td></tr><tr><td>A sequence loses exact contents.</td><td>Exact lookup or output materialization is unavailable.</td><td>Payload growth, intermediate results and the operation’s fallback rules.</td></tr></tbody></table></div><p>Fuel is a work allowance, not elapsed milliseconds. It is charged by executed instructions or defined execution events. A larger input may need more fuel even when the program tree stays identical.</p><p>Some restrictions apply to both backends: exact types, the fixed operation catalog, no arbitrary I/O, and restricted recursive forms. Others, such as these device storage capacities, belong to the current GPU profile.</p><p class="note"><strong>Remember:</strong> First identify which limit was reached. Increasing an unrelated limit will not solve the problem.</p>
+<footer><div class="sources"><a href="../../../spec/grammar.md">Grammar specification</a><a href="../../../spec/bytecode_isa.md">Bytecode contract</a><a href="../../design/payload.md">Payload design</a></div><span>22 / 25</span></footer>
+</section>
+<section id="slide-23" aria-labelledby="title-23">
+<div class="eyebrow">GAGP / 05 / Try it yourself</div>
+<h1 id="title-23">Run the doubling example end to end</h1>
+<p>Use the grammar from page 14 with the linked doubling cases: 2 → 4, 5 → 10, −3 → −6, and 0 → 0. The original repository scalar cases test identity instead, so this report supplies separate cases for our task.</p><pre data-language="Executable shell commands · run from repository root"><code>B=cpp/build/release
+G=configs/grammar/examples/authoring/scalar.json
+C=docs/presentations/customizable-grammar/double.cases.json
+
+&quot;$B/gagp_grammar_cli&quot; validate --grammar-definition &quot;$G&quot;
+
+&quot;$B/gagp_generate_cli&quot; --grammar-definition &quot;$G&quot; --cases &quot;$C&quot; \
+  --population-size 16 --seed 7 --out-json /tmp/double.pop.json
+
+&quot;$B/gagp_evolve_cli&quot; --grammar-definition &quot;$G&quot; --cases &quot;$C&quot; \
+  --population-json /tmp/double.pop.json --seed 7 \
+  --engine gpu --repro-backend cpu --repro-overlap off \
+  --generations 2 --out-json /tmp/double.gpu.run.json</code></pre><p>First validate the rules, then generate candidates, then evaluate and evolve them. These commands assume a CUDA-enabled build at the path shown. Change <code>--engine gpu</code> to <code>--engine cpu</code> to use CPU evaluation.</p><p class="note"><strong>Remember:</strong> This is a small demonstration, not a promise that every seed or every new task will converge. Check the returned program and its behavior.</p>
+<footer><div class="sources"><a href="double.cases.json">Doubling cases</a><a href="../../guides/development.md">Build instructions</a><a href="../../guides/grammar-authoring.md">Authoring guide</a></div><span>23 / 25</span></footer>
+</section>
+<section id="slide-24" aria-labelledby="title-24">
+<div class="eyebrow">GAGP / 05 / Try it yourself</div>
+<h1 id="title-24">After the first example works, refine the search</h1>
+<div class="table-wrap"><table><thead><tr><th>Your next question</th><th>Available control</th><th>Important detail</th></tr></thead><tbody><tr><td>Can I start near zero but allow larger evolved values?</td><td>Separate the allowed constant domain from sample_from.</td><td>The allowed domain decides legality; the sampler decides construction draws.</td></tr><tr><td>Can initialization and mutation use different rules?</td><td>generation_stages and mutation_entry.</td><td>This changes how new pieces are constructed; final grammar checks still apply.</td></tr><tr><td>Can I preserve the outer structure?</td><td>Templates and variation controls.</td><td>Freezing one replacement site does not automatically freeze descendants or constants.</td></tr><tr><td>How can constants change?</td><td>Resample, keep, Bool flip, or supported numeric addition.</td><td>Constant mutation has its own policy, separate from subtree replacement.</td></tr></tbody></table></div><p>The check that a completed program belongs to your allowed language is called <strong>membership</strong>. It applies to accepted offspring even when initialization and mutation use different sampling policies.</p><p class="note"><strong>Remember:</strong> You can leave these advanced controls at their defaults while learning. Add them when you can name a specific search behavior you want to change.</p>
+<footer><div class="sources"><a href="../../guides/grammar-authoring.md">Authoring guide</a><a href="../../../spec/grammar_definition.md">Authoring schema</a></div><span>24 / 25</span></footer>
+</section>
+<section id="slide-25" aria-labelledby="title-25">
+<div class="eyebrow">GAGP / 05 / Try it yourself</div>
+<h1 id="title-25">Design a grammar in seven concrete steps</h1>
+<ol><li><strong>Write example answers.</strong> For doubling: 2 → 4, 5 → 10, −3 → −6.</li><li><strong>Choose the data types.</strong> One Int input and one Int result.</li><li><strong>List useful building blocks.</strong> Start with n, 0 and addition.</li><li><strong>Write rules that can finish.</strong> E may become a leaf or an addition of two smaller Es.</li><li><strong>Set separate budgets.</strong> Allow a small program and enough execution work for the cases.</li><li><strong>Generate and inspect programs.</strong> Confirm that useful answers are expressible and generated candidates match your intent.</li><li><strong>Check the intended backend.</strong> Test normal and boundary inputs; inspect errors and exact sequence behavior before scaling up.</li></ol><p>You can now read “typed grammar with scoped template holes” as “rules for compatible pieces, with named openings that can only use specified values.” The terminology describes the construction rules you have already seen.</p><p class="note"><strong>Remember:</strong> Start with a language you can explain using a few example programs. Expand it when the task requires more expressive power, and check its resource needs as you do.</p>
+<footer><div class="sources"><a href="../../guides/grammar-authoring.md">Authoring guide</a><a href="../../../spec/grammar_definition.md">Authoring schema</a><a href="../../../spec/grammar.md">Grammar specification</a><a href="../../design/payload.md">Payload design</a></div><span>25 / 25</span></footer>
+</section>
+</main><nav aria-label="Report navigation"><button id="prev" aria-label="Previous page">← Prev</button><span id="position" aria-live="polite"></span><button id="next" aria-label="Next page">Next →</button><select id="jump" aria-label="Jump to page"><option value="0">01 / Can we discover “double the number”?</option><option value="1">02 / Give the system rules and examples</option><option value="2">03 / Start with three building blocks</option><option value="3">04 / One rule describes many programs</option><option value="4">05 / Watch a candidate grow</option><option value="5">06 / Legal does not mean correct</option><option value="6">07 / A smaller language can be easier to search</option><option value="7">08 / Types tell you which pieces fit together</option><option value="8">09 / Numbers, decisions and characters</option><option value="9">10 / Working with lists and text</option><option value="10">11 / Some tasks need several steps</option><option value="11">12 / To process a list, carry a running answer</option><option value="12">13 / Choose constants, preferences and limits</option><option value="13">14 / The same small grammar, written as JSON</option><option value="14">15 / Change one thing and see what it allows</option><option value="15">16 / Fix the shape; search only the missing piece</option><option value="16">17 / Reuse a larger recipe from a package</option><option value="17">18 / Recursion must show how it gets smaller</option><option value="18">19 / The GPU runs programs prepared by the CPU</option><option value="19">20 / Each case has limited working space</option><option value="20">21 / A short program can build a large result</option><option value="21">22 / Four different limits need four different fixes</option><option value="22">23 / Run the doubling example end to end</option><option value="23">24 / After the first example works, refine the search</option><option value="24">25 / Design a grammar in seven concrete steps</option></select><button id="mode" aria-pressed="false">Read all</button><span class="hint">← → navigate · Home / End</span></nav>
+<script>
+(() => {
+  const pages = [...document.querySelectorAll('main > section')];
+  const prev = document.getElementById('prev'), next = document.getElementById('next');
+  const jump = document.getElementById('jump'), mode = document.getElementById('mode');
+  let current = 0, all = false;
+  function fromHash() { const match = location.hash.match(/^#slide-(\d+)$/); return match ? Math.max(0, Math.min(pages.length - 1, Number(match[1]) - 1)) : 0; }
+  function render(scroll = true) {
+    pages.forEach((page, i) => { page.hidden = !all && i !== current; });
+    document.getElementById('position').textContent = `${current + 1} / ${pages.length}`;
+    jump.value = String(current); prev.disabled = current === 0; next.disabled = current === pages.length - 1;
+    mode.textContent = all ? 'Slide view' : 'Read all'; mode.setAttribute('aria-pressed', String(all));
+    if (scroll) { if (all) pages[current].scrollIntoView({behavior:'instant'}); else window.scrollTo({top:0,behavior:'instant'}); }
+  }
+  function go(index) { current = Math.max(0, Math.min(pages.length - 1, index)); history.replaceState(null, '', `#slide-${current + 1}`); render(); }
+  prev.addEventListener('click', () => go(current - 1)); next.addEventListener('click', () => go(current + 1));
+  jump.addEventListener('change', () => go(Number(jump.value)));
+  mode.addEventListener('click', () => { all = !all; render(); });
+  document.addEventListener('keydown', event => {
+    if (event.altKey || event.ctrlKey || event.metaKey || /INPUT|SELECT|TEXTAREA|BUTTON/.test(event.target.tagName)) return;
+    const target = {ArrowRight:current+1, ArrowLeft:current-1, Home:0, End:pages.length-1}[event.key];
+    if (target !== undefined) { event.preventDefault(); go(target); }
+  });
+  window.addEventListener('hashchange', () => { current = fromHash(); render(); });
+  current = fromHash(); render(false);
+})();
+</script></body></html>

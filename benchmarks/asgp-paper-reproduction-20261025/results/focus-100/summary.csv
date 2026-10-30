@@ -1,0 +1,6 @@
+task,scheme,paper_successes_out_of_100,thesis_successes_out_of_25,planned,completed,infrastructure_failures,missing_seeds,successes,train_solved,raw_successes,overfit,initial_population_successes,wilson95,median_nfe,solver_seconds,mean_success_nodes_before,mean_success_nodes_after,train_cases,test_cases
+sum_of_elements,DC,95,,100,100,0,[],100,100,100,0,68,"[0.9630065017930143, 1.0]",1000.0,8.019999999999987,15.3,6.14,[100],[1000]
+median,DC,99,,100,100,0,[],0,0,0,0,0,"[3.469446951953614e-18, 0.03699349820698568]",500000.0,69.40000000000003,,,[100],[1000]
+fibonacci,DP,23,23,100,100,0,[],100,100,100,0,83,"[0.9630065017930143, 1.0]",1000.0,1.1600000000000008,7.35,4.1,[21],[31]
+house_robber,DP,22,22,100,100,0,[],40,42,34,2,0,"[0.3094012864324589, 0.4979974132089382]",500000.0,1094.0399999999997,53.525,17.775,[100],[1000]
+smallest,DC,100,,100,100,0,[],0,0,0,0,0,"[3.469446951953614e-18, 0.03699349820698568]",500000.0,73.68999999999998,,,[100],[1000]

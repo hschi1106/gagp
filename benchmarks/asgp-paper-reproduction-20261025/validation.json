@@ -1,0 +1,260 @@
+{
+  "format": "asgp-reproduction-validation-v1",
+  "status": "passed",
+  "primary_executions": 800,
+  "primary_unique_task_seed_pairs": 750,
+  "validation_only_executions": 7,
+  "infrastructure_failures": 0,
+  "source_files_matching_archive": 64,
+  "dataset_exports_hashed": 60,
+  "gagp_fixtures_hashed": 120,
+  "independent_reference_cases_checked": 4452,
+  "terminal_result_repeat_checks": 57,
+  "repeat_scope": "success/train/raw flags, NFE, node/rewrites/case counts; not full generation trajectories",
+  "native_author_ctest": {
+    "registered_targets": 1,
+    "passed": 1
+  },
+  "author_python_tests": {
+    "passed": 3
+  },
+  "benchmark_harness_tests": {
+    "passed": 10
+  },
+  "repository_tests": {
+    "passed": 24
+  },
+  "thread_review": {
+    "thread_id": "5c8c22b3-13b0-45be-8f40-9ef527aa67b5",
+    "status": "read-only final check passed with clarifications incorporated",
+    "notes": [
+      "House Robber raw 34/100 to simplified 40/100; six improvements; two final overfits.",
+      "Source simplifier work lies outside search NFE.",
+      "Reference validation is inputs/labels only; GAGP semantics/fitness/grammar/budget not aligned.",
+      "1T/4T checked only sum, median, fibonacci at seed0."
+    ]
+  },
+  "html_previews": [
+    {
+      "cohort": "focus-100",
+      "width": 360,
+      "meta": {
+        "width": 360,
+        "contentHeight": 891,
+        "capturedHeight": 891,
+        "consoleMessages": [
+          {
+            "level": "log",
+            "text": "{\"tasks\":5,\"selectionChecks\":5,\"options\":5,\"overflow\":false}"
+          }
+        ],
+        "screenshot": {
+          "mimeType": "image/png",
+          "width": 360,
+          "height": 891
+        }
+      }
+    },
+    {
+      "cohort": "focus-100",
+      "width": 728,
+      "meta": {
+        "width": 728,
+        "contentHeight": 789,
+        "capturedHeight": 789,
+        "consoleMessages": [
+          {
+            "level": "log",
+            "text": "{\"tasks\":5,\"selectionChecks\":5,\"options\":5,\"overflow\":false}"
+          }
+        ],
+        "screenshot": {
+          "mimeType": "image/png",
+          "width": 728,
+          "height": 789
+        }
+      }
+    },
+    {
+      "cohort": "native-10",
+      "width": 360,
+      "meta": {
+        "width": 360,
+        "contentHeight": 1820,
+        "capturedHeight": 1820,
+        "consoleMessages": [
+          {
+            "level": "log",
+            "text": "{\"tasks\":30,\"selectionChecks\":30,\"options\":30,\"overflow\":false}"
+          }
+        ],
+        "screenshot": {
+          "mimeType": "image/png",
+          "width": 360,
+          "height": 1820
+        }
+      }
+    },
+    {
+      "cohort": "native-10",
+      "width": 728,
+      "meta": {
+        "width": 728,
+        "contentHeight": 1717,
+        "capturedHeight": 1717,
+        "consoleMessages": [
+          {
+            "level": "log",
+            "text": "{\"tasks\":30,\"selectionChecks\":30,\"options\":30,\"overflow\":false}"
+          }
+        ],
+        "screenshot": {
+          "mimeType": "image/png",
+          "width": 728,
+          "height": 1717
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Not exact paper replication; original data/seeds and MATLAB stage unavailable.",
+    "Four-worker diagnostic timings are not an ASGP-1T speedup baseline.",
+    "No GAGP production runtime changes or speedup claims."
+  ],
+  "harness_source_sha256": {
+    "audit_inputs.py": "e21995baac8efd273caaf49a409b629f1206105bebf72bc1c25dc5dc81ce21ef",
+    "convert_cases.py": "838cff211b6826cabce9aa13525fe901d79c1c0559a9894ab30c4ee17be4c569",
+    "export_cases.cpp": "36b4c4f77fcfbf48a5c7e26b2b7a8a1673f2713694fe9da8fdddcd4f90f1f41a",
+    "plot.py": "c1c4ef6936e70bcc5125b6206478ee9344e8001b2dbd48071e59f36b698e9d57",
+    "prepare.py": "fdc742af666fd249281bf4177ed666ea203fd34465d54414cd9d55440d7dda93",
+    "protocol.json": "714ce9f31ecc74ecf2ef482bf316666e414f47115e97f04493dfe5a29da2f970",
+    "report.py": "de7ad618396a8d8349bcdbc58486b3a1033f2dc3b124e2156caf14550772f9bf",
+    "run.py": "168c8234e79a36ee029fbb9dc5e719ed7e14060ac6e157c955d10d095d7cdf1f",
+    "test_convert_cases.py": "c5078854a0cc32c0018b4e5489b8e1beaf7d308517eb5c70dfab9fb0563ac8f5",
+    "test_report.py": "207acdc2384f0deb6944834c3ae4fc9f4092995adcb6e17542d285891004562b"
+  },
+  "raw_log_sha256": {
+    "ctest.log": "f53b76e830d5ce8549f54c60cbc533ab29ea7afffd23d0c7e54e95c3a4d8fa78",
+    "author-python-tests.log": "56326e8c50a4244d4cf6914f371158ce3a2c851c4a65cdcd2921ce2404b46c30",
+    "harness-tests-final.log": "e26ab8b1121094abc16a103408efcd901598fcb6bd9d2013fc64f71121fd25d6",
+    "repository-tests-final.log": "0d4c7e6f11667f1ab695900e088e3b896c1f89c60d728c5595e45f24df2e8239",
+    "input-audit.json": "170bcd3e8941d98de1f127ba28ea753b6fe020e8ecdb3dce6b516e19ebc07a46",
+    "resume-focus.log": "2730b353c88f40ead2a0688bf122710307a7d97e4f3d17d1c323edaa7bb2a6da",
+    "resume-native.log": "257a8b780bc799fa2e11ac1d806065e71c06e10fb59478c2cf267e07ab422990",
+    "final-doc-links.log": "1f70f9ed5c6483dda03541aecb60e8c0b7baa8968d49e8ab68a5ae153a21a754"
+  },
+  "result_sha256": {
+    "focus-100": "91e96df1d0a9d5916fa5903c1025c3f740fb8acad2bb5bc50bba0e09fda521c6",
+    "native-10": "63cb82c55cffea551c432f5b9c8f3d02491c00389438a551f53da2230bee5b78"
+  },
+  "figure_identity_sha256": {
+    "focus-100": "42d11aeb8ff7331b7b2889a41a2ca1d485a13db88e6036c2351a83fa2db6eba9",
+    "native-10": "c6b05d4c9e5ee7209d64cb5087bfcdb48868b0bcc687d9569c98a2a0efa3953d"
+  },
+  "active_asgp_compute_processes_at_delivery": [],
+  "completed_study_resume_verified_without_new_searches": [
+    "focus-100",
+    "native-10"
+  ],
+  "final_document_structure_tests": {
+    "passed": 8
+  },
+  "original_validation_scope": "Original 800-run computation and harness hashes at first delivery; successful execution is not paper-equivalent baseline qualification.",
+  "paper_equivalent_baseline_established": false,
+  "followup_diagnostic": {
+    "path": "results/loss-contract-4seed/diagnostic.json",
+    "sha256": "4ca7458d4d00c271eafb6a15d970f5c3c58c4ac34b5aff89303d80bbeff6d2b2",
+    "runs": 16,
+    "exact_controls_matching_prior_raw_results": 8,
+    "native_tests_passed": 66,
+    "finding": "Both exact and capped-absolute arms have zero solutions for four seeds on each of median/smallest; source hand-written correct programs pass default train/test within depth seven. Root cause unresolved.",
+    "renderer_followup_sha256": "b571de19ed33a46bcea93728ea290032b677af54eb6461bb2d2de3089ed01b84"
+  },
+  "author_provenance": {
+    "author_provided": true,
+    "user_confirmation": "2026-10-26",
+    "record": "provenance.json"
+  },
+  "followup_search_contract": {
+    "path": "results/search-contract-4seed/diagnostic.json",
+    "sha256": "ee79b6ffc070dd7c0f5e62e17df91dd98de5acde85f35a38562b9df645a53d11",
+    "runs": 32,
+    "terminal_control_comparisons_passed": 34,
+    "paper_replication_established": false
+  },
+  "followup_cumsum_witness": {
+    "path": "results/cumsum-grammar-witness/witness.json",
+    "sha256": "8b2bc0b2f438681f1f0d10632226197f7a158a9245682f02deac39f0cd857619",
+    "finding": "Under the fixed default DC/base1 grammar and native simplification, zero test error is impossible: first test has 8 distinct inputs and 9 distinct target values.",
+    "peer_read_only_review_confirmed": true,
+    "scope": "Does not diagnose Median/Smallest and does not assert which paper condition differs."
+  },
+  "available_author_materials": {
+    "only_zip_available": true,
+    "record": "provenance.json"
+  },
+  "followup_author_readme": {
+    "executions": 175,
+    "data_profile": "count-aligned",
+    "training_cases": 100,
+    "test_cases": 1000,
+    "comparison_reference": "bundled-thesis",
+    "separate_from_original_800": true,
+    "cohorts": {
+      "author-readme-finite-dp-25": {
+        "records": 75,
+        "sha256": "e1c46e05f53f8edad25c2561453f3e01b667825adb2dbb3e3f2bb36f163ad685",
+        "complete": true,
+        "data_profile": "count-aligned",
+        "counts": [
+          {
+            "task": "fibonacci",
+            "successes": 25,
+            "completed": 25
+          },
+          {
+            "task": "tribonacci",
+            "successes": 22,
+            "completed": 25
+          },
+          {
+            "task": "fibonacci_array",
+            "successes": 25,
+            "completed": 25
+          }
+        ]
+      },
+      "author-readme-sum-squares-100": {
+        "records": 100,
+        "sha256": "1061439ef67ee8203e1561e6ba59d8a1769d885f87ccd3e61b414b04ed48f862",
+        "complete": true,
+        "data_profile": "count-aligned",
+        "counts": [
+          {
+            "task": "sum_of_squares",
+            "successes": 96,
+            "completed": 100
+          }
+        ]
+      }
+    }
+  },
+  "followup_clean_reproducer": {
+    "index": "author-reproducer.json",
+    "index_sha256": "2b8518a43b4f5967b298d6d1e6e6a0e72057160a6dadc42cf035c30dcda5f992",
+    "archive_sha256": "ed93593d428574ca205d72f35b53bcb17b55eb17d9854647cd641822d2e556c9",
+    "verification_receipt": "/home/hschi1106/gagp/logs/asgp-paper-20261025/author-reproducer-clean-check/verification.json",
+    "verification_sha256": "6952ef95d47e14b251e152c76324f25b7177a933a7e72f7ba394ab895940b250",
+    "status": "passed",
+    "extra_validation_only_executions": 10,
+    "scope": "Fresh author ZIP extraction and Release rebuild; author CTest, CumulativeSum probe, Median/Smallest seed0 smoke and four-run controls. Not additional success-rate samples."
+  },
+  "followup_harness_checks": {
+    "tests_passed": 14,
+    "document_structure_tests_passed": 8,
+    "report_source_sha256": "41ea83ef9f634e120ed5afbdd403cca104ca952ee17a9fb48c94f604ee7e29cc",
+    "report_tests_sha256": "1c7085f1e8c95d6307dd9f42679cf5ed50328fd0c6a95aab58527e66846ea871",
+    "four_cohort_reaudit_passed": true,
+    "original_800_measurements_unchanged": true
+  }
+}

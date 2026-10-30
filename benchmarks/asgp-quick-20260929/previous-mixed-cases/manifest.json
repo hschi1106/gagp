@@ -1,0 +1,77 @@
+{
+  "cells": [
+    [
+      1024,
+      100
+    ],
+    [
+      2048,
+      100
+    ],
+    [
+      4096,
+      100
+    ],
+    [
+      8192,
+      100
+    ],
+    [
+      1024,
+      1024
+    ]
+  ],
+  "seed": 0,
+  "repeats": 3,
+  "warmups": 1,
+  "binary_sha256": "5d86cd3d23b519bb3057f83e4280ab4c59dabfb15f647e98e2bad1d9efc17b68",
+  "grammar_sha256": "ed3cca35889e695f49e30fdb5fc72e5ff4ef3ae1f760ca5bf4ab39752be45fe3",
+  "adapter_sha256": "770bbdd6bdad7ab5686a9a19c3e8e3806be025b4a56f7414e60efe69dafc5c74",
+  "commands": [
+    [
+      "/home/hschi1106/gagp/logs/asgp-quick/quick",
+      "/home/hschi1106/gagp/benchmarks/asgp-quick-20260929/grammar.json",
+      "1024",
+      "100",
+      "0",
+      "3",
+      "/home/hschi1106/gagp/logs/asgp-quick/ready-p1024-c100-s0"
+    ],
+    [
+      "/home/hschi1106/gagp/logs/asgp-quick/quick",
+      "/home/hschi1106/gagp/benchmarks/asgp-quick-20260929/grammar.json",
+      "2048",
+      "100",
+      "0",
+      "3",
+      "/home/hschi1106/gagp/logs/asgp-quick/ready-p2048-c100-s0"
+    ],
+    [
+      "/home/hschi1106/gagp/logs/asgp-quick/quick",
+      "/home/hschi1106/gagp/benchmarks/asgp-quick-20260929/grammar.json",
+      "4096",
+      "100",
+      "0",
+      "3",
+      "/home/hschi1106/gagp/logs/asgp-quick/ready-p4096-c100-s0"
+    ],
+    [
+      "/home/hschi1106/gagp/logs/asgp-quick/quick",
+      "/home/hschi1106/gagp/benchmarks/asgp-quick-20260929/grammar.json",
+      "8192",
+      "100",
+      "0",
+      "3",
+      "/home/hschi1106/gagp/logs/asgp-quick/ready-p8192-c100-s0"
+    ],
+    [
+      "/home/hschi1106/gagp/logs/asgp-quick/quick",
+      "/home/hschi1106/gagp/benchmarks/asgp-quick-20260929/grammar.json",
+      "1024",
+      "1024",
+      "0",
+      "3",
+      "/home/hschi1106/gagp/logs/asgp-quick/ready-p1024-c1024-s0"
+    ]
+  ]
+}

@@ -1,0 +1,31 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{font-family:var(--font-sans,system-ui);color:var(--foreground,#202b35);line-height:1.55;margin:0}
+*{box-sizing:border-box}h2{font-size:23px;margin:0 0 10px}p{margin:8px 0 15px}.muted{color:var(--muted-foreground,#66727d)}
+select{font:inherit;color:inherit;background:var(--background,white);border:1px solid var(--border,#ddd);padding:8px;border-radius:7px;max-width:100%}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}.stat{background:var(--secondary,#f1f5f7);padding:16px;border-radius:var(--radius,10px)}
+.big{font-size:26px;font-weight:650}.bars{margin:20px 0}.bar{height:24px;border-radius:4px;min-width:1px}.track{background:var(--secondary,#eef2f5);border-radius:4px;margin:5px 0 14px}
+.note{background:var(--warning-surface,#fff5db);padding:16px;border-radius:var(--radius,10px);margin-top:20px;font-size:14px}
+.table{overflow:auto;margin-top:22px}table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:8px 6px;border-bottom:1px solid var(--border,#ddd);text-align:left;white-space:nowrap}th{font-weight:600}
+@media(max-width:450px){.stats{gap:6px}.big{font-size:22px}}</style>
+<h2>ASGP：提供程式的復現結果</h2>
+<p class="muted">1 題 · 已完成 100/100 次搜尋 · 每次最多 500,000 NFE · population 1000 · 資料 count-aligned · 對照 學位論文</p>
+<label for="task">題目 </label><select id="task"></select><div class="stats"><div class="stat">簡化後成功<div class="big" id="success"></div></div>
+<div class="stat">文獻成功<div class="big" id="paper"></div></div><div class="stat">初代已成功<div class="big" id="initial"></div></div></div>
+<div id="detail" class="muted"></div><div class="bars"><div id="oursLabel"></div><div class="track"><div id="ours" class="bar" style="background:var(--chart-1,#257e9b)"></div></div>
+<div id="paperLabel"></div><div class="track"><div id="published" class="bar" style="background:var(--chart-2,#bb8b48)"></div></div></div>
+<div class="note">目前僅是作者程式的診斷結果，尚未建立能代表paper的比較baseline。短版 ASGP.pdf Table III 使用 /100；學位論文 Table 5.4 的相同 DP 成功數分母為 /25，本頁依所選文獻標示。產生表格的原始資料／seeds／設定無對照紀錄，C++ simplifier 也缺少 MATLAB symbolic stage。原版 unified 另含 sliding-window，未當作論文 DC&amp;DP。此處四執行緒時間不作為 ASGP-1T 加速比基準。</div>
+<div class="table"><table><thead><tr><th>題目</th><th>完成</th><th>成功</th><th>文獻成功</th><th>95% CI</th></tr></thead><tbody id="rows"></tbody></table></div>
+<script>const rows=[{"task": "sum_of_squares", "scheme": "DC", "paper_successes_out_of_100": 23, "thesis_successes_out_of_25": null, "planned": 100, "completed": 100, "infrastructure_failures": 0, "missing_seeds": [], "successes": 96, "train_solved": 98, "raw_successes": 95, "overfit": 2, "initial_population_successes": 0, "wilson95": [0.9016292856411208, 0.9843366960084523], "median_nfe": 10490.5, "solver_seconds": 92.11999999999998, "mean_success_nodes_before": 27.447916666666668, "mean_success_nodes_after": 9.46875, "train_cases": [100], "test_cases": [1000], "reference_successes": 23, "reference_runs": 100, "reference_title": "學位論文"}];const select=document.getElementById('task');const pct=v=>(100*v).toFixed(1)+'%';
+rows.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=r.task;select.append(o);
+const tr=document.createElement('tr');[r.task,r.completed+'/'+r.planned,r.successes+'/'+r.completed,r.reference_successes+'/'+r.reference_runs,r.wilson95?r.wilson95.map(pct).join(' – '):'待完成'].forEach(t=>{const td=document.createElement('td');td.textContent=t;tr.append(td)});document.getElementById('rows').append(tr)});
+function render(){const r=rows[Number(select.value)];document.getElementById('success').textContent=r.successes+'/'+r.completed;
+document.getElementById('paper').textContent=r.reference_successes+'/'+r.reference_runs;document.getElementById('initial').textContent=r.initial_population_successes;
+document.getElementById('detail').textContent=r.scheme+' · train '+r.train_cases.join('/')+' / test '+r.test_cases.join('/')+' · 簡化前成功 '+r.raw_successes+'/'+r.completed+' · 簡化後過擬合 '+r.overfit+' · 基礎設施失敗 '+r.infrastructure_failures+(r.thesis_successes_out_of_25!==null?' · 學位論文 '+r.thesis_successes_out_of_25+'/25':'');
+const rate=r.completed?r.successes/r.completed:0;document.getElementById('ours').style.width=pct(rate);document.getElementById('published').style.width=pct(r.reference_successes/r.reference_runs);
+document.getElementById('oursLabel').textContent='復現 '+pct(rate)+(r.wilson95?'（Wilson 95% CI '+r.wilson95.map(pct).join(' – ')+'）':'');
+document.getElementById('paperLabel').textContent=r.reference_title+' '+r.reference_successes+'/'+r.reference_runs+'（'+pct(r.reference_successes/r.reference_runs)+'）';}
+select.addEventListener('change',render);select.value=String(Math.max(0,rows.findIndex(r=>r.task==='median')));render();
+const saved=select.value;let selectionChecks=0;rows.forEach((r,i)=>{select.value=String(i);select.dispatchEvent(new Event('change'));
+if(document.getElementById('success').textContent!==r.successes+'/'+r.completed)throw new Error('Selection result mismatch');selectionChecks++});
+select.value=saved;select.dispatchEvent(new Event('change'));
+console.log(JSON.stringify({tasks:rows.length,selectionChecks,options:select.options.length,overflow:document.documentElement.scrollWidth>innerWidth}));</script></html>

@@ -1,0 +1,59 @@
+{
+  "thread_id": "5c8c22b3-13b0-45be-8f40-9ef527aa67b5",
+  "date_taipei": "2026-10-26",
+  "requested_collaboration": "Research discussion and handoff; no edits or experiments in the peer checkout",
+  "confirmed_points": [
+    "Original unified mode includes sliding-window for some carriers and does not match the short paper's DC&DP configuration.",
+    "Native C++ simplification omits the MATLAB symbolic stage.",
+    "Median uses exact loss and base_size=3; this is a possible contributor, not a demonstrated cause of reproduction failure.",
+    "Failed training before simplification cannot be explained by the absent postprocessing stage.",
+    "Final evidence check confirmed House Robber raw success 34/100 versus C++ simplified success 40/100; six runs improve and final overfit count is two. Postprocessing cost is outside search NFE.",
+    "4452 independent reference checks establish input/label correctness only, and three seed0 1T/4T checks do not establish all-configuration equivalence.",
+    "NFE includes initial population and cache hits. Initial-population successes must be reported separately.",
+    "The thesis DP denominator is 25; short paper Table III says 100. Both PDFs were independently checked locally.",
+    "Peer controllers have exited and monitors are disabled; no peer CPU/GPU experiments are active."
+  ],
+  "peer_gagp_handoff": {
+    "worktree": "/home/hschi1106/.t3/worktrees/gagp/gagp-support-20261015",
+    "branch": "opt/list-output-5x-20261015",
+    "formal_cpp_commit": "81b8a9c",
+    "reported_head": "d91d20d",
+    "configuration": "P1024/G64; list-combine-v1 grammar extension",
+    "candidate_instructions": "benchmarks/fixed_asgp/optimization/results/g64-optimization-20261023/USE_CANDIDATE.md",
+    "input_index": "logs/g64-optimization-20261023/formal0-inputs-inputs.json",
+    "limitation": "The peer ASGP control is not the original full 500k-NFE solver and its results cannot be used as this reproduction baseline."
+  },
+  "followup_author_confirmation": "User confirmed the ZIP was provided by the paper author; authorship is established.",
+  "followup_structural_review": {
+    "thread_id": "5c8c22b3-13b0-45be-8f40-9ef527aa67b5",
+    "status": "confirmed by read-only peer inspection",
+    "witness": "results/cumsum-grammar-witness/witness.json",
+    "conclusion": "Fixed default DC/base1 CumulativeSum grammar and native simplifier cannot pass the first heldout case: distinct output at most 8, target has 9. This does not diagnose Median/Smallest."
+  },
+  "followup_search_audit": {
+    "operator_bug_found": false,
+    "cli_help_mismatch": "Default OnePhase attempts crossover/mutation on Solve at 0.7/3 and 0.3/3, although help says per-phase. Paper also describes one phase at a time, so EveryPhase is not proven to be the paper configuration.",
+    "matrix": "results/search-contract-4seed/diagnostic.json",
+    "native_cli_default_matches_prior_results": true
+  },
+  "available_materials_followup": "User confirmed only author-provided ZIP is available; no further commands/settings/successful programs. No pending material question.",
+  "author_document_followup": {
+    "thesis_chapter_4_cases": "100 training / 1000 test",
+    "readme_recommended_profile": "count-aligned",
+    "supplementary_runs": 175,
+    "results": [
+      "results/author-readme-finite-dp-25/measurements.json",
+      "results/author-readme-sum-squares-100/measurements.json"
+    ],
+    "paper_equivalent_baseline_established": false
+  },
+  "clean_reproducer": {
+    "index": "author-reproducer.json",
+    "status": "Clean extraction/build/CTest/probe/eight CLI terminal and printed-program comparisons passed."
+  },
+  "final_handoff": {
+    "client_request_id": "asgp-only-zip-final-handoff-20261026",
+    "thread_id": "5c8c22b3-13b0-45be-8f40-9ef527aa67b5",
+    "scope": "Final evidence and only-ZIP boundary delivered; no further experiments or edits requested."
+  }
+}

@@ -1,0 +1,11 @@
+Build: replay.cpp compiled against the existing Release CUDA sm_86 libraries.
+14 eval settings: 42 formal runs, 14 warmups.
+Original/selected generation settings, overlap off/on: 12 formal runs, 4 warmups.
+Total: 54 formal runs + 18 warmups = 72 timing rows.
+All 16 replay processes passed the exact 1024-entry GPU aggregate fitness comparison.
+Each measured eval repeated the fitness comparison. No CPU/ASGP equality claim.
+Source/binary/grammar/input/library identity checked against manifest.json.
+HTML and Markdown local links: pass; summary CSV: 18 rows.
+Python compilation and bash syntax: pass.
+Repository unittest suite: 24 tests pass.
+No production source changes; prior native regressions remain documented in the original ASGP experiment.

@@ -1,0 +1,53 @@
+{
+  "format_version": "fitness-cases",
+  "cases": [
+    {
+      "inputs": {
+        "n": {
+          "type": "int",
+          "value": 2
+        }
+      },
+      "expected": {
+        "type": "int",
+        "value": 4
+      }
+    },
+    {
+      "inputs": {
+        "n": {
+          "type": "int",
+          "value": 5
+        }
+      },
+      "expected": {
+        "type": "int",
+        "value": 10
+      }
+    },
+    {
+      "inputs": {
+        "n": {
+          "type": "int",
+          "value": -3
+        }
+      },
+      "expected": {
+        "type": "int",
+        "value": -6
+      }
+    },
+    {
+      "inputs": {
+        "n": {
+          "type": "int",
+          "value": 0
+        }
+      },
+      "expected": {
+        "type": "int",
+        "value": 0
+      }
+    }
+  ]
+}

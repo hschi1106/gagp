@@ -1,0 +1,277 @@
+{
+  "status": "complete",
+  "summary": [
+    {
+      "task": "median",
+      "metric": "exact",
+      "runs": 4,
+      "train_solved": 0,
+      "test_successes": 0
+    },
+    {
+      "task": "median",
+      "metric": "absolute",
+      "runs": 4,
+      "train_solved": 0,
+      "test_successes": 0
+    },
+    {
+      "task": "smallest",
+      "metric": "exact",
+      "runs": 4,
+      "train_solved": 0,
+      "test_successes": 0
+    },
+    {
+      "task": "smallest",
+      "metric": "absolute",
+      "runs": 4,
+      "train_solved": 0,
+      "test_successes": 0
+    }
+  ],
+  "exact_controls_match_archived_raw_results": 8,
+  "conclusion": "Switching source exact to capped absolute fitness did not produce solutions for these four seeds; it does not establish the cause of the 100-run discrepancy.",
+  "reference_tests": "Provided AdditionalMedianSolution and AdditionalSmallestSolution pass depth<=7 and all default train/test cases; native suite 66/66 passes.",
+  "manifest_sha256": "fe5397f9c45178802b47d197d5ed2600794b539d2f51f279c6f2d2f058136cc1",
+  "results_sha256": "243afbe20b4f5791120100314bfabab380d2cdda194fb3f1f919111855c72648",
+  "native_reference_suite_tests": 66,
+  "rows": [
+    {
+      "task": "median",
+      "seed": 0,
+      "metric": "exact",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 15,
+      "train_wrong": 50,
+      "train_error_sum": 50,
+      "seconds": 0.515718095
+    },
+    {
+      "task": "median",
+      "seed": 0,
+      "metric": "absolute",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 33,
+      "train_wrong": 68,
+      "train_error_sum": 1816,
+      "seconds": 1.749006507
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "metric": "absolute",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 39,
+      "train_wrong": 68,
+      "train_error_sum": 1738,
+      "seconds": 1.957400109
+    },
+    {
+      "task": "median",
+      "seed": 1,
+      "metric": "exact",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 15,
+      "train_wrong": 44,
+      "train_error_sum": 44,
+      "seconds": 1.015273205
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "metric": "exact",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 20,
+      "train_wrong": 44,
+      "train_error_sum": 44,
+      "seconds": 0.997199344
+    },
+    {
+      "task": "median",
+      "seed": 2,
+      "metric": "absolute",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 46,
+      "train_wrong": 93,
+      "train_error_sum": 1329,
+      "seconds": 1.863247983
+    },
+    {
+      "task": "median",
+      "seed": 3,
+      "metric": "absolute",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 35,
+      "train_wrong": 62,
+      "train_error_sum": 1465,
+      "seconds": 1.466781547
+    },
+    {
+      "task": "median",
+      "seed": 3,
+      "metric": "exact",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 20,
+      "train_wrong": 45,
+      "train_error_sum": 45,
+      "seconds": 0.931264448
+    },
+    {
+      "task": "smallest",
+      "seed": 0,
+      "metric": "exact",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 26,
+      "train_wrong": 53,
+      "train_error_sum": 53,
+      "seconds": 0.666776305
+    },
+    {
+      "task": "smallest",
+      "seed": 0,
+      "metric": "absolute",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 28,
+      "train_wrong": 27,
+      "train_error_sum": 739,
+      "seconds": 1.43949723
+    },
+    {
+      "task": "smallest",
+      "seed": 1,
+      "metric": "absolute",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 43,
+      "train_wrong": 97,
+      "train_error_sum": 1605,
+      "seconds": 1.938906132
+    },
+    {
+      "task": "smallest",
+      "seed": 1,
+      "metric": "exact",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 24,
+      "train_wrong": 53,
+      "train_error_sum": 53,
+      "seconds": 1.264047913
+    },
+    {
+      "task": "smallest",
+      "seed": 2,
+      "metric": "exact",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 21,
+      "train_wrong": 47,
+      "train_error_sum": 47,
+      "seconds": 1.277021297
+    },
+    {
+      "task": "smallest",
+      "seed": 2,
+      "metric": "absolute",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 37,
+      "train_wrong": 58,
+      "train_error_sum": 1434,
+      "seconds": 1.89648531
+    },
+    {
+      "task": "smallest",
+      "seed": 3,
+      "metric": "absolute",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 40,
+      "train_wrong": 70,
+      "train_error_sum": 1333,
+      "seconds": 1.840219001
+    },
+    {
+      "task": "smallest",
+      "seed": 3,
+      "metric": "exact",
+      "train_solved": false,
+      "success": false,
+      "nfe": 500000,
+      "generations": 500,
+      "nodes": 18,
+      "train_wrong": 43,
+      "train_error_sum": 43,
+      "seconds": 0.987218093
+    }
+  ],
+  "manifest": {
+    "scope": "diagnostic variant; not original-source result or paper replication",
+    "tasks": [
+      "median",
+      "smallest"
+    ],
+    "seeds": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "max_nfe": 500000,
+    "population": 1000,
+    "phase_depth": 7,
+    "threads": 4,
+    "data_profile": "legacy",
+    "data_seed": 20260626,
+    "simplify": false,
+    "arms": [
+      "exact",
+      "absolute"
+    ],
+    "caveat": "Switching source metric also changes invalid-case penalty from 1 to 1000; absolute error is capped at 1000 per case and summed over fixed-size train set.",
+    "driver_sha256": "d2fa5267f2b0fcee0df7fab9b140b188e34a458dbcd0426c8f7ddde3a46fc253",
+    "library_sha256": "fc7a105b3573794f1e21a81a7de7a141fe959ed481f46652e5a9cbce0aef8937"
+  },
+  "binary_sha256": "305eb1d6f0de203a2ed29c1c1a9856d3886a4231107a2c3fa89f199410707295"
+}

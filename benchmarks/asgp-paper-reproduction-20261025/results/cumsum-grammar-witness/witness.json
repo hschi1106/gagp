@@ -1,0 +1,62 @@
+{
+  "task": "cumulative_sum",
+  "split": "test",
+  "case_index": 0,
+  "base_size": 1,
+  "max_leaf_output_length": 1,
+  "combine_only_concat_or_result": true,
+  "combine_productions": [
+    {
+      "kind": "concat",
+      "op": 0
+    },
+    {
+      "kind": "r",
+      "op": 0
+    },
+    {
+      "kind": "r",
+      "op": 1
+    }
+  ],
+  "input": [
+    1,
+    16,
+    17,
+    7,
+    12,
+    -9,
+    -11,
+    14,
+    1
+  ],
+  "expected": [
+    1,
+    17,
+    34,
+    41,
+    53,
+    44,
+    33,
+    47,
+    48
+  ],
+  "distinct_inputs": 8,
+  "distinct_expected": 9,
+  "zero_error_possible_for_legal_program": false,
+  "qualification": "structural_counterexample_for_default_author_grammar_and_current_heldout",
+  "source_library_sha256": "fc7a105b3573794f1e21a81a7de7a141fe959ed481f46652e5a9cbce0aef8937",
+  "driver_sha256": "d0bd3ecf257fce8f4a769766abe3fa829c3ce992652c0c15d49c785d8ab246a9",
+  "dataset_sha256": "7d3491f3ab83255ef98276360c20ef4e2e84ba64776e9ea23760b9dae12a69bc",
+  "count_aligned_has_identical_cases": true,
+  "peer_thread_id": "5c8c22b3-13b0-45be-8f40-9ef527aa67b5",
+  "peer_read_only_review": "Confirmed argument, including absence of positional/other context reads and bound preservation under native C++ simplification.",
+  "proof": [
+    "With base_size=1, a valid Solve produces [] or [f(x)] from one singleton value.",
+    "Equal singleton values have identical observable context.",
+    "Combine only concatenates/selects recursive lists and creates no new scalar values.",
+    "Consequently distinct(output)<=distinct(input)=8, but the first test target has 9 distinct values.",
+    "Thus no legal program, before or after native C++ simplification, can achieve zero error on this fixed test."
+  ],
+  "scope_limit": "Does not establish the cause of Median/Smallest failures or establish which published experiment setting differs."
+}

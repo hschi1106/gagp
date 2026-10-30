@@ -1,0 +1,7 @@
+ASGP original CTest suite: 1/1 passed.
+GAGP focused native checks: 4/4 passed.
+Repository unittest checks: 24/24 passed.
+Measurement audit: 5 cells, 75 formal generation trials, 15 formal prepared-eval trials, 30 discarded warmup records.
+All retained input hashes, source/binary identities, medians and speedup ratios verified.
+README artifact links and build.sh shell syntax checked.
+Cross-system fitness mismatch counts are retained; numerical equivalence is not claimed.

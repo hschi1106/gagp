@@ -8,9 +8,12 @@ contract as a second source of truth.
 
 ## Find your next task
 
+- 中文完整導讀：[GAGP：從 GP 搜尋空間到 C++／CUDA 執行系統](guides/project-guide.zh-TW.md)。
+- Grammar introduction: [Understanding GAGP grammars through list summation](guides/list-sum-grammar.md), with a complete JSON grammar and step-by-step field explanations.
 - New user: [Getting started](guides/getting-started.md), then [Troubleshooting](guides/troubleshooting.md).
 - Customize search: [Grammar authoring](guides/grammar-authoring.md) and [cases format](../spec/fitness_cases.md).
 - Save/replay or migrate: [Grammar artifacts](guides/grammar-config.md).
+- 報告投影片：[Customizable Grammar：語法、組合與 GPU 限制](presentations/customizable-grammar/index.html)（[操作與附件](presentations/customizable-grammar/README.md)）。
 - Compare performance: [Benchmarking](guides/benchmarking.md) and [timing fields](reference/timing.md).
 - Develop GAGP: [Contributor workflow](guides/development.md#contributor-workflow) and [architecture](design/architecture.md).
 
@@ -28,6 +31,8 @@ installation instructions or prerequisites for normal use.
 | [`design/source-production-depth-prototype.md`](design/source-production-depth-prototype.md) | Opt-in source-production depth accounting and admission requirements |
 | [`design/gpu-reproduction.md`](design/gpu-reproduction.md) | GPU reproduction pipeline and overlap design |
 | [`design/gpu-phase-variation-comparison.zh-TW.md`](design/gpu-phase-variation-comparison.zh-TW.md) | 中文版本限定解說：native GPU phase profile 的 RNG、variation 新舊比較、範例與證據限制；契約仍由 GPU reproduction design 定義 |
+| [`guides/project-guide.zh-TW.md`](guides/project-guide.zh-TW.md) | Chinese end-to-end tutorial for GA/GP readers; source-linked explanations, worked grammars and Mermaid diagrams |
+| [`guides/list-sum-grammar.md`](guides/list-sum-grammar.md) | Beginner walkthrough of a complete list-sum grammar, bindings and GP alternatives |
 | [`guides/getting-started.md`](guides/getting-started.md) | New-user CPU/CUDA installation and end-to-end custom-grammar tutorial |
 | [`guides/troubleshooting.md`](guides/troubleshooting.md) | Setup, grammar, artifact and GPU failure recovery |
 | [`guides/development.md`](guides/development.md) | Build, test, CLI, and local development workflows |
@@ -40,6 +45,7 @@ installation instructions or prerequisites for normal use.
 | [`reference/timing.md`](reference/timing.md) | Timing field names, scopes, and output mapping |
 | [`reference/repository-cleanup.md`](reference/repository-cleanup.md) | Goal 12 inventory, cleanup rationale, usability changes and final validation |
 | [`reference/custom-grammar-implementation-report.md`](reference/custom-grammar-implementation-report.md) | Verified grammar migration, final-code performance, optimizations, rule differences and acceptance limits |
+| [`presentations/customizable-grammar/README.md`](presentations/customizable-grammar/README.md) | English grammar syntax, composition and GPU evaluation constraints; historical benchmark attachments |
 | [`reference/cli.md`](reference/cli.md) | Mechanically checked native CLI flags and defaults |
 | [`reference/tooling.md`](reference/tooling.md) | Maintained tool and auxiliary executable ownership |
 | [`reference/repository-layout.md`](reference/repository-layout.md) | Mechanically checked stable repository paths and roles |
