@@ -11,7 +11,8 @@ are accepted and disclosed. Runtime semantics remain owned by `spec/`.
 The original `fixed-asgp-v1` workloads and timing/configuration blocks below
 remain the historical frozen contract; they are not the configuration of the
 30-task repair study. The authoritative final-run configuration and cell status
-belong to its [manifest](../../logs/all-task-repair-20261015/final-all30-g4/manifest.json),
+belong to its local manifest artifact
+`logs/all-task-repair-20261015/final-all30-g4/manifest.json`,
 and results and limitations belong to the
 [repair report](../../benchmarks/fixed_asgp/optimization/results/repair-20261015/REPORT.zh-TW.md).
 These artifacts are populated by the final run; their planned paths do not imply
