@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -36,6 +37,10 @@ struct CliOptions {
   std::string show_program = "none";
   std::string timing = "summary";
   std::string out_json;
+  // gagp-search-config-v1 file; its fields may not contradict explicit flags.
+  std::string search_config_path;
+  // Every flag spelled on the command line, for override-conflict checks.
+  std::set<std::string> explicit_flags;
 };
 
 CliOptions parse_cli_options(int argc, char** argv);

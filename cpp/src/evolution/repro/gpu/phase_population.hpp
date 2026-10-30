@@ -6,6 +6,7 @@
 #include "gagp/evolution/genome.hpp"
 #include "gagp/evolution/grammar/compiled.hpp"
 #include "gagp/evolution/repro/stats.hpp"
+#include "gagp/evolution/search_policy.hpp"
 namespace gagp { class FitnessSessionGpu; struct FitnessEvalResult; }
 namespace gagp::evo::repro {
 // Private run owner for the experimental native GPU genotype. Import performs
@@ -15,7 +16,8 @@ class NativePhasePopulation final {
  public:
   NativePhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
       const std::vector<ProgramGenome>& input, const std::vector<std::string>& input_names,
-      std::optional<grammar::ProjectedBudget> projected=std::nullopt, int site_depth=0);
+      std::optional<grammar::ProjectedBudget> projected=std::nullopt, int site_depth=0,
+      const PhaseVariationPolicy& policy=phase_variation_policy_from_environment());
   ~NativePhasePopulation();
   NativePhasePopulation(const NativePhasePopulation&) = delete;
   NativePhasePopulation& operator=(const NativePhasePopulation&) = delete;

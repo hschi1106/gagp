@@ -21,6 +21,7 @@
   - `fitness_cases.md`
   - `grammar_config.md`
   - `grammar_definition.md`
+  - `search_config.md`
   Treat these files as the release 2.0.0 behavioral source of truth. Historical spec
   files are not kept in-tree after the breaking refactor. Release details are
   recorded only in `VERSION.md`.

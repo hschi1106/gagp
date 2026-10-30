@@ -89,6 +89,8 @@ add_library(gagp_evolution
   src/evolution/compiler.cpp
   src/evolution/genome_generation.cpp
   src/evolution/selection.cpp
+  src/evolution/search_policy.cpp
+  src/evolution/repro/gpu/phase_population_cpu.cpp
   src/evolution/repro/prep.cpp
   src/evolution/repro/grammar_prep.cpp
   src/evolution/repro/pack.cpp
@@ -205,6 +207,7 @@ add_library(gagp_cli_support
   src/cli/region_codec.cpp
   src/cli/options.cpp
   src/cli/commands.cpp
+  src/cli/search_config.cpp
 )
 target_include_directories(gagp_cli_support PUBLIC include)
 target_link_libraries(gagp_cli_support PUBLIC gagp_cpu gagp_json gagp_region_plan_json)
@@ -256,6 +259,11 @@ add_executable(gagp_test_grammar_reproduction tests/evolution/test_grammar_repro
 target_link_libraries(gagp_test_grammar_reproduction PRIVATE gagp_evolution)
 add_test(NAME gagp_test_grammar_reproduction COMMAND gagp_test_grammar_reproduction)
 set_tests_properties(gagp_test_grammar_reproduction PROPERTIES LABELS "contract;property;integration")
+
+add_executable(gagp_test_search_config tests/evolution/test_search_config.cpp)
+target_link_libraries(gagp_test_search_config PRIVATE gagp_cli_support)
+add_test(NAME gagp_test_search_config COMMAND gagp_test_search_config)
+set_tests_properties(gagp_test_search_config PROPERTIES LABELS "unit;contract")
 
 add_executable(gagp_test_evolution_pipeline tests/evolution/test_evolution_pipeline.cpp)
 target_link_libraries(gagp_test_evolution_pipeline PRIVATE gagp_cpu)
@@ -732,6 +740,11 @@ if(GAGP_HAS_CUDA)
   target_compile_definitions(gagp_test_gpu_phase_population PRIVATE GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
   add_test(NAME gagp_test_gpu_phase_population COMMAND gagp_test_gpu_phase_population)
   set_tests_properties(gagp_test_gpu_phase_population PROPERTIES LABELS "contract;integration;gpu")
+  add_executable(gagp_test_phase_population_cpu_reference tests/gpu/test_phase_population_cpu_reference.cu)
+  target_link_libraries(gagp_test_phase_population_cpu_reference PRIVATE gagp_cli_support)
+  target_compile_definitions(gagp_test_phase_population_cpu_reference PRIVATE GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+  add_test(NAME gagp_test_phase_population_cpu_reference COMMAND gagp_test_phase_population_cpu_reference)
+  set_tests_properties(gagp_test_phase_population_cpu_reference PROPERTIES LABELS "contract;integration;gpu;cpu_gpu_parity")
   add_executable(gagp_test_gpu_phase_layout tests/gpu/test_gpu_phase_layout.cu)
   target_link_libraries(gagp_test_gpu_phase_layout PRIVATE gagp_cli_support)
   target_compile_definitions(gagp_test_gpu_phase_layout PRIVATE GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")

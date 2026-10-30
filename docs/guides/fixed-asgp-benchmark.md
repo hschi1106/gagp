@@ -566,8 +566,28 @@ remain on disk; a retry uses a fresh output filename.
 ## Multi-generation comparison and fitness configuration
 
 `gagp_fixed_asgp_bench measure` accepts `search_asgp_1t`, `search_gagp_cpu`,
-`search_gpu_eval`, `search_gpu_repro`, and `search_gpu_overlap`. The original
-five frozen-parent modes are unchanged; `search` remains the GPU-overlap alias.
+`search_gpu_eval`, `search_gpu_repro`, `search_gpu_overlap`, and
+`search_phase_cpu`. The original five frozen-parent modes are unchanged;
+`search` remains the GPU-overlap alias.
+
+`search_phase_cpu` runs the CPU reference engine of the native phase
+population: the same operators, random draws and phase lowering as the
+resident GPU owner (`search_gpu_overlap` with `GAGP_GPU_PHASE_POPULATION=1`),
+with CPU evaluation and no GPU. For the same inputs and semantic settings it
+reproduces the GPU trajectory exactly, so it is the same-algorithm CPU control
+for GPU speedups. It uses `GAGP_BM_GPU_BLOCKSIZE` as its fitness reduction lane
+count, defaults to one host thread, and accepts `GAGP_HOST_THREADS=2..20`.
+`search_gagp_cpu` remains the native-AST CPU path with different operators.
+
+`GAGP_SEARCH_CONFIG=FILE` applies a `gagp-search-config-v1` document
+([spec](../../spec/search_config.md), examples in `configs/search/`) after the
+settings below. Its `population_size` must equal the input population and a
+member may not contradict a present `GAGP_SEARCH_GENERATIONS`, `GAGP_BM_SEED`,
+`GAGP_SEARCH_PENALTY`, `GAGP_GPU_SITE_DEPTH` or `GAGP_GPU_SITE_PARSIMONY`.
+An explicit phase policy also rejects disagreeing legacy flags
+(`GAGP_COUNTED_SITE_DRAW`, `GAGP_GPU_UNIFORM_PHASE_SITES`,
+`GAGP_GPU_SOURCE_CROSSOVER_GATE`). Search JSON records the effective document
+as `search_config`.
 `GAGP_SEARCH_GENERATIONS` and `GAGP_BM_SEED` select search length and reproduction
 seed. `GAGP_SEARCH_TRACE=1` emits completed-generation progress on stderr. This
 I/O is included in search wall time, outside each generation timer.

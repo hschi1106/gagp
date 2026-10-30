@@ -9,9 +9,9 @@ namespace gagp::evo::repro {
 // can replay host-generated mutation decisions from the same seed.
 class DGrammarRandom {
  public:
-  __device__ explicit DGrammarRandom(std::uint64_t seed) : state_(seed) {}
+  __host__ __device__ explicit DGrammarRandom(std::uint64_t seed) : state_(seed) {}
 
-  __device__ std::uint64_t next() {
+  __host__ __device__ std::uint64_t next() {
     std::uint64_t value =
         (state_ += UINT64_C(0x9e3779b97f4a7c15));
     value = (value ^ (value >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
@@ -21,7 +21,7 @@ class DGrammarRandom {
 
   // Callers must provide a positive bound, matching GrammarRandom::bounded's
   // successful-call precondition. Device code cannot propagate its exception.
-  __device__ std::uint64_t bounded(std::uint64_t exclusive_upper) {
+  __host__ __device__ std::uint64_t bounded(std::uint64_t exclusive_upper) {
     const std::uint64_t threshold = -exclusive_upper % exclusive_upper;
     for (;;) {
       const std::uint64_t value = next();
@@ -31,7 +31,7 @@ class DGrammarRandom {
 
   // Callers must provide ordered endpoints, matching GrammarRandom::integer's
   // successful-call precondition.
-  __device__ std::int64_t integer(std::int64_t minimum,
+  __host__ __device__ std::int64_t integer(std::int64_t minimum,
                                   std::int64_t maximum) {
     constexpr std::uint64_t sign = UINT64_C(1) << 63;
     const std::uint64_t first = static_cast<std::uint64_t>(minimum) ^ sign;

@@ -23,6 +23,7 @@ not supported; it follows the unknown-argument error contract.
 | `--skip-final-eval` | `skip_final_eval` | `off` | Skip the post-generation final scoring pass |
 | `--retain-final-population` | `retain_final_population` | `off` | Materialize the full final scored population |
 | `--blocksize` | `blocksize` | `1024` | CUDA evaluation block size |
+| `--search-config` | `search_config_path` | `unset` | `gagp-search-config-v1` file ([spec](../../spec/search_config.md)); a member may not set a field whose flag is also given explicitly. The result JSON records the effective `search_config` |
 | `--population-size` | `population_size` | `64` | Generated individuals per generation |
 | `--generations` | `generations` | `40` | Evolution generations |
 | `--mutation-rate` | `mutation_rate` | `0.5` | Per-child post-crossover mutation probability |

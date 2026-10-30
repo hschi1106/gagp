@@ -6,7 +6,8 @@
     "This manifest records the release 2.0.0 normative spec set after the compiled-grammar production cutover and v2 AST/bytecode/artifact version boundary.",
     "The hash gate is intentionally mechanical: if a listed spec changes, update this manifest in the same semantic change.",
     "2026-10-14: document opt-in fused witness admission and its explicit speculative matcher-work accounting; strict membership and materialized execution semantics remain unchanged.",
-    "2026-10-15: document opt-in private IntList content identity, 65536/65537 backing boundaries, and exact compact int64 cell storage. Canonical default behavior and transport format remain unchanged; profile admission and explicit fallback are required."
+    "2026-10-15: document opt-in private IntList content identity, 65536/65537 backing boundaries, and exact compact int64 cell storage. Canonical default behavior and transport format remain unchanged; profile admission and explicit fallback are required.",
+    "2026-10-30: add spec/search_config.md (gagp-search-config-v1): explicit phase-population variation policy, legacy-flag mapping/conflict rule, and CPU reference / GPU owner engine equivalence. Existing specs unchanged."
   ],
   "specs": [
     {
@@ -44,6 +45,10 @@
     {
       "path": "spec/grammar_definition.md",
       "sha256": "088f3eacf1b6d24cdc928eef684cf3cc78492cc9a65989d7c6aabf5b254a9e76"
+    },
+    {
+      "path": "spec/search_config.md",
+      "sha256": "1c87f2dade045f213692257302b0d70575f3d84b3e7b718da4f5f4e0e0ac2e83"
     }
   ],
   "status": "frozen"

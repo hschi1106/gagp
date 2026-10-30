@@ -1,0 +1,263 @@
+// CPU reference engine for the native phase population. A plain host
+// translation unit: the shared __host__ __device__ operator bodies compile as
+// ordinary C++ here, so CPU-only builds provide the same search semantics.
+#ifndef __CUDACC__
+#define __device__
+#define __host__
+#endif
+#include "phase_population_cpu.hpp"
+#include "phase_operators.cuh"
+#include "phase_layout.hpp"
+#include "parent_fitness_cache.cuh"
+#include "../../batch_workers.hpp"
+#include "gagp/evolution/compiler.hpp"
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <cmath>
+#include <set>
+#include <unordered_map>
+
+namespace gagp::evo::repro {
+namespace {
+using namespace phase_ops;
+using Clock = std::chrono::steady_clock;
+double elapsed(Clock::time_point start) { return std::chrono::duration<double,std::milli>(Clock::now()-start).count(); }
+
+// Host rows with the device row layout (fixed capacity per phase row).
+struct HostTrees {
+ std::vector<PhaseTreeNode> nodes;std::vector<int> origins;std::vector<PhaseGeneSite> sites;
+ std::vector<Value> constants;std::vector<PhaseGenerationResult> lengths;
+ explicit HostTrees(std::size_t rows):nodes(rows*capacity),origins(rows*capacity),sites(rows*capacity),constants(rows*capacity),lengths(rows) {}
+ TreePointers pointers(){return {nodes.data(),origins.data(),sites.data(),constants.data(),lengths.data()};}
+ std::size_t bytes()const{return nodes.size()*sizeof(PhaseTreeNode)+origins.size()*sizeof(int)+sites.size()*sizeof(PhaseGeneSite)+
+     constants.size()*sizeof(Value)+lengths.size()*sizeof(PhaseGenerationResult);}
+};
+// Statically normalized tables are exact (see normalize_static_phase_weights),
+// so the reference always uses them, independent of engine flags.
+struct HostProfile {
+ HostPhaseGrammar grammar;std::vector<PhaseProduction> productions;std::vector<PhaseNonterminal> nonterminals;
+ explicit HostProfile(const HostPhaseGrammar& h):grammar(h),productions(h.productions),nonterminals(h.nonterminals) {
+  normalize_static_phase_weights(grammar,nonterminals,productions);
+ }
+ PhaseGrammarView view()const{return {grammar.expressions.data(),int(grammar.expressions.size()),productions.data(),int(productions.size()),
+  nonterminals.data(),int(nonterminals.size()),grammar.domains.data(),int(grammar.domains.size()),grammar.values.data(),int(grammar.values.size()),
+  grammar.minimum.data(),grammar.depth_count,grammar.logical_depth_count,grammar.site_depth};}
+};
+// Default one host thread; GAGP_HOST_THREADS opts into workers. Items are
+// independent, so scheduling never changes any published value.
+template<class Function> void parallel_rows(int count,Function function) {
+ if(gagp::host_thread_limit()<=1 || count<=1){for(int i=0;i<count;++i)function(i);return;}
+ detail::BatchWorkers workers{std::size_t(count)};
+ std::atomic<int> next{0};
+ workers.run([&]{for(int i=next++;i<count;i=next++)function(i);});
+}
+}  // namespace
+
+struct HostPhasePopulation::Impl {
+ std::shared_ptr<const grammar::CompiledGrammar> grammar;
+ OperatorPolicy operators;
+ std::string profile;
+ const bool constructive_export=std::getenv("GAGP_GPU_CONSTRUCTIVE_EXPORT")!=nullptr;
+ NativePhaseLayout layout;int population=0,slot_count=0;
+ std::vector<std::unique_ptr<HostProfile>> profiles;std::vector<DeviceSlot> slots;
+ std::unique_ptr<HostTrees> current,crossed,next,scratch;
+ std::vector<OperatorStats> stats;
+ std::vector<BytecodeProgram> programs;
+ // Completed results of the members currently held in `current`.
+ Evaluation completed;bool have_completed=false;
+ std::vector<int> reuse; // per member: earlier member index with an identical genotype, or -1
+ std::vector<HostPhaseGene> genes(int member)const {
+  std::vector<HostPhaseGene> out(slot_count);
+  auto trees=const_cast<HostTrees&>(*current).pointers();
+  for(int k=0;k<slot_count;++k) {
+   const int row=member*slot_count+k;const auto t=trees.view(row);auto& gene=out[k];
+   gene.nodes.assign(t.nodes,t.nodes+t.node_count);gene.origins.assign(t.origins,t.origins+t.node_count);
+   gene.constants.assign(t.constants,t.constants+t.constant_count);
+  }
+  return out;
+ }
+ ProgramGenome finish_export(ProgramGenome genome)const {
+  if(!constructive_export)
+   genome.derivation=std::make_shared<const grammar::DerivationMetadata>(grammar::reconstruct_derivation(*grammar,genome));
+  return genome;
+ }
+ // Lower every live phase with the shared phase compiler and patch the region
+ // executables exactly as the GPU owner materializes them.
+ void refresh_programs() {
+  const int rows=population*slot_count;std::vector<int> failures(rows,0);
+  parallel_rows(population,[&](int p) {
+   thread_local std::vector<gpu_detail::DInstr> code(code_capacity);thread_local std::vector<Value> values(capacity);
+   const auto trees=current->pointers();
+   for(int k=0;k<slot_count;++k) {
+    const int row=p*slot_count+k;const auto t=trees.view(row);const auto& slot=slots[k];
+    const auto r=valid(trees.lengths[row])?compile_phase_tree<true,true>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.scope,slot.type,
+        code.data(),code_capacity,values.data(),capacity):PhaseCompileResult{};
+    if(r.status!=PhaseCompileStatus::Ok || r.stack_bound<1 || r.stack_bound>gpu_detail::MAX_STACK){failures[row]=1;continue;}
+    auto& program=native_phase_at(programs[p].bounded_region_segments[0],layout.slots[k].ordinal).program;
+    program.code.clear();program.instruction_fuel.clear();program.code.reserve(r.code_count);program.instruction_fuel.reserve(r.code_count);
+    for(int i=0;i<r.code_count;++i){const auto x=code[i];program.code.push_back({static_cast<Opcode>(x.op),x.a,x.b,bool(x.flags&1),bool(x.flags&2)});program.instruction_fuel.push_back(x.fuel);}
+    program.consts.assign(values.begin(),values.begin()+r.constant_count);
+   }
+  });
+  for(int failed:failures)if(failed)throw std::runtime_error("CPU phase compiler rejected a constructed program");
+ }
+};
+
+HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
+    const std::vector<ProgramGenome>& input,const std::vector<std::string>& input_names,
+    std::optional<grammar::ProjectedBudget> projected,int site_depth,const PhaseVariationPolicy& policy):impl_(std::make_unique<Impl>()) {
+ auto& s=*impl_;s.grammar=std::move(grammar);
+ validate_phase_variation_policy(policy);
+ phase_layout_require(site_depth>=0 && site_depth<=15 && !(site_depth && projected),"site depth must be0..15 and cannot combine with projected resource budgets");
+ phase_layout_require(s.grammar && !input.empty() && input.size()<=16384,"population/grammar capacity");
+ std::set<std::string> expected_names,actual_names(input_names.begin(),input_names.end());
+ for(const auto& binding:s.grammar->inputs())expected_names.insert(binding.name);
+ phase_layout_require(actual_names==expected_names && actual_names.size()==input_names.size(),"input names must exactly cover grammar inputs");
+ phase_layout_require(input_names.size()<=64,"input local capacity");
+ s.operators.counted_sites=policy.site_draw==PhaseSiteDraw::Counted;
+ s.operators.uniform_phase=policy.site_scope==PhaseSiteScope::UniformPhase;
+ s.operators.crossover_probability=policy.crossover_probability;
+ s.operators.crossover_attempts=policy.crossover_attempts;
+ s.operators.fused_depth=true; // exact engine variants; serial copies stay eager
+ NativePhaseGrammarProfiles import_profiles(s.grammar);
+ s.population=input.size();
+ s.layout=import_native_phase_layout(*s.grammar,input.front(),&import_profiles,&input_names,true,projected?&*projected:nullptr);
+ if(site_depth)for(std::size_t k=0;k<s.layout.slots.size();++k)
+  s.layout.profiles[k]=compile_phase_variation_grammar(*s.grammar,s.layout.slots[k].nonterminal,s.grammar->search_limits().max_depth,site_depth,true);
+ s.profile=site_depth?"native-cpu-phase-v4-site-depth"+std::to_string(site_depth):s.layout.slots.front().logical_depth?"native-cpu-phase-v3-projected":
+     s.operators.counted_sites?"native-cpu-phase-v2-counted":"native-cpu-phase-v1";
+ s.profile+=phase_variation_profile_suffix(policy);
+ if(s.operators.uniform_phase)s.profile+="-uniform-phase";
+ s.slot_count=s.layout.slots.size();phase_layout_require(s.slot_count>0 && s.slot_count<=8,"phase count capacity");
+ const auto key=native_phase_skeleton_key(s.layout);const std::size_t rows=input.size()*s.slot_count;
+ s.current=std::make_unique<HostTrees>(rows);s.crossed=std::make_unique<HostTrees>(rows);
+ s.next=std::make_unique<HostTrees>(input.size());s.scratch=std::make_unique<HostTrees>(input.size());
+ for(int k=0;k<s.slot_count;++k) {
+  const auto& profile=s.layout.profiles[k];const auto& layout=s.layout.slots[k];
+  s.profiles.push_back(std::make_unique<HostProfile>(profile));
+  const auto& nt=s.grammar->nonterminals()[layout.nonterminal];DeviceSlot slot{};
+  slot.grammar=s.profiles.back()->view();slot.root=profile.root_expression;slot.scope=nt.scope.size();slot.max_depth=layout.max_depth;
+  slot.logical_depth=site_depth?site_depth:layout.logical_depth;
+  const auto tag=[](RType t){return t==RType::Int?ValueTag::Int:t==RType::Bool?ValueTag::Bool:ValueTag::IntList;};
+  slot.type=tag(nt.type);for(int j=0;j<slot.scope;++j)slot.locals[j]=tag(nt.scope[j].type);s.slots.push_back(slot);
+ }
+ auto trees=s.current->pointers();
+ for(std::size_t p=0;p<input.size();++p) {
+  auto imported=p==0?s.layout:import_native_phase_layout(*s.grammar,input[p],&import_profiles,&input_names,false,projected?&*projected:nullptr);
+  phase_layout_require(imported.slots.size()==s.layout.slots.size() && native_phase_skeleton_key(imported)==key,"mixed fixed skeleton requires native fallback");
+  for(int k=0;k<s.slot_count;++k) {
+   const auto& a=imported.slots[k];const auto& b=s.layout.slots[k];
+   phase_layout_require(a.nonterminal==b.nonterminal && a.ordinal==b.ordinal && a.binders==b.binders && a.max_depth==b.max_depth && a.logical_depth==b.logical_depth,"mixed phase contract requires fallback");
+   const int row=p*s.slot_count+k;const auto& gene=imported.genes[k];auto& l=trees.lengths[row];
+   l={};l.status=PhaseCompileStatus::Ok;l.nodes=gene.nodes.size();l.constants=gene.constants.size();
+   phase_layout_require(l.nodes>0 && l.nodes<=capacity && l.constants<=l.nodes,"imported phase capacity");
+   const auto out=trees.output(row);
+   std::copy(gene.nodes.begin(),gene.nodes.end(),out.nodes);std::copy(gene.origins.begin(),gene.origins.end(),out.origins);
+   std::copy(gene.constants.begin(),gene.constants.end(),out.constants);
+   const auto& slot=s.slots[k];const auto t=trees.view(row);
+   phase_layout_require(annotate_phase_tree(slot.grammar,slot.root,slot.scope,t.nodes,t.origins,t.node_count,out.sites) &&
+       !(slot.grammar.site_depth && phase_site_depth(t.nodes,out.sites,t.node_count)>slot.logical_depth),"import site annotation failed");
+  }
+  s.programs.push_back(std::move(imported.executable));
+ }
+ s.stats.resize(s.population);s.reuse.assign(s.population,-1);
+}
+HostPhasePopulation::~HostPhasePopulation()=default;
+
+HostPhasePopulation::Evaluation HostPhasePopulation::evaluate(const std::vector<CaseBindings>& cases,const std::vector<Value>& expected,
+    int fuel,double penalty,int reduction_lanes,const FitnessPolicy& policy) {
+ auto& s=*impl_;Evaluation result;
+ result.fitness.resize(s.population);result.case_counts.resize(s.population);
+ const bool wrong=policy.metric!=FitnessMetric::Legacy;if(wrong)result.wrong.resize(s.population);
+ std::vector<int> pending;
+ for(int i=0;i<s.population;++i) {
+  const int source=s.have_completed?s.reuse[i]:-1;
+  if(source<0){pending.push_back(i);continue;}
+  result.fitness[i]=s.completed.fitness[source];result.case_counts[i]=s.completed.case_counts[source];
+  if(wrong)result.wrong[i]=s.completed.wrong[source];++result.reused_programs;
+ }
+ // Fixed chunks keep each worker's evaluation independent of scheduling.
+ constexpr int chunk=32;const int chunks=(int(pending.size())+chunk-1)/chunk;
+ parallel_rows(chunks,[&](int c) {
+  const int begin=c*chunk,end=std::min<int>(pending.size(),begin+chunk);
+  std::vector<BytecodeProgram> batch;for(int j=begin;j<end;++j)batch.push_back(s.programs[pending[j]]);
+  std::vector<unsigned> batch_wrong;std::vector<CpuFitnessCaseCounts> counts;
+  const auto fitness=eval_fitness_cpu(batch,cases,expected,fuel,penalty,reduction_lanes,policy,wrong?&batch_wrong:nullptr,&counts);
+  for(int j=begin;j<end;++j){const int i=pending[j];result.fitness[i]=fitness[j-begin];result.case_counts[i]=counts.at(j-begin);if(wrong)result.wrong[i]=batch_wrong[j-begin];}
+ });
+ result.evaluated_programs=pending.size();
+ s.completed=result;s.have_completed=true;
+ return result;
+}
+
+ReproductionStats HostPhasePopulation::reproduce(const std::vector<double>& completed_fitness,int pressure,double probability,std::uint64_t seed,int elite_count) {
+ auto& s=*impl_;const int p=s.population,k=s.slot_count,available=s.layout.budget.max_nodes-s.layout.fixed_nodes;
+ phase_layout_require(elite_count>=0 && elite_count<p,"elite count");
+ phase_layout_require(completed_fitness.size()==std::size_t(p) && pressure>0 && pressure<=p &&
+   std::isfinite(probability) && probability>=0 && probability<=1,"selection/mutation contract");
+ for(double value:completed_fitness)phase_layout_require(!std::isnan(value),"uncanonical fitness");
+ ReproductionStats timing;const auto begin=Clock::now();
+ const auto current=s.current->pointers(),crossed=s.crossed->pointers(),next=s.next->pointers(),scratch=s.scratch->pointers();
+ const double* fitness=completed_fitness.data();
+ // Same per-child bodies and draw order as the GPU kernels; children are independent.
+ parallel_rows(p,[&](int child) {
+  crossover_child<false>(child,current,crossed,s.slots.data(),k,p,available,fitness,pressure,seed,s.operators,s.stats[child]);
+  mutate_child<true,true,false>(child,crossed,next,scratch,s.slots.data(),k,available,probability,seed,s.operators,s.stats[child]);
+ });
+ // Elites: highest completed fitness, ties to the lowest source index.
+ if(elite_count) {
+  std::vector<int> order(p);for(int i=0;i<p;++i)order[i]=i;
+  std::stable_sort(order.begin(),order.end(),[&](int a,int b){return fitness[a]>fitness[b];});
+  for(int rank=0;rank<elite_count;++rank)for(int j=0;j<k;++j)copy_tree(current,order[rank]*k+j,crossed,rank*k+j);
+ }
+ parallel_rows(p,[&](int child){compare_child(child,current,crossed,p,k,s.stats[child]);});
+ // Exact identity with any parent also reuses that parent's completed result.
+ std::unordered_multimap<std::uint64_t,int> parents;
+ for(int i=0;i<p;++i)parents.emplace(parent_cache::hash_program(current,i,k),i);
+ for(int child=0;child<p;++child) {
+  auto& stat=s.stats[child];
+  if(stat.error)throw std::runtime_error("CPU genotype variation error "+std::to_string(stat.error));
+  if(stat.reusable_parent<0) {
+   const auto range=parents.equal_range(parent_cache::hash_program(crossed,child,k));
+   for(auto it=range.first;it!=range.second;++it)
+    if(parent_cache::equal_program(current,it->second,crossed,child,k)){stat.reusable_parent=it->second;break;}
+  }
+  timing.variation.crossover_attempts+=stat.crossover_attempted;timing.variation.mutation_attempts+=stat.mutation;
+  timing.variation.contract_rejections+=stat.crossover_rejected;
+  timing.variation.changed_children+=stat.changed;timing.variation.unchanged_children+=!stat.changed;
+  timing.variation.fallback_children+=stat.crossover_attempted && !stat.crossover;
+  s.reuse[child]=stat.reusable_parent;
+ }
+ s.current.swap(s.crossed);
+ // Programs belong to member slots, not lineages: rebuild every member.
+ s.refresh_programs();
+ timing.kernel_ms=elapsed(begin);
+ return timing;
+}
+
+std::vector<ProgramGenome> HostPhasePopulation::export_population()const {
+ std::vector<ProgramGenome> out;out.reserve(impl_->population);
+ for(int i=0;i<impl_->population;++i)out.push_back(export_member(i));
+ return out;
+}
+ProgramGenome HostPhasePopulation::export_member(std::size_t index)const {
+ phase_layout_require(index<std::size_t(impl_->population),"export index");
+ return impl_->finish_export(export_native_phase_layout(*impl_->grammar,impl_->layout,impl_->genes(int(index))));
+}
+std::vector<unsigned> HostPhasePopulation::node_counts(bool grammar_sites)const {
+ const auto& s=*impl_;auto trees=const_cast<HostTrees&>(*s.current).pointers();
+ std::vector<unsigned> counts(s.population,grammar_sites?0:s.layout.fixed_nodes);
+ for(int i=0;i<s.population;++i)for(int k=0;k<s.slot_count;++k) {
+  const auto t=trees.view(i*s.slot_count+k);
+  if(!grammar_sites){counts[i]+=t.node_count;continue;}
+  for(int j=0;j<t.node_count;++j)counts[i]+=t.sites[j].nonterminal>=0;
+ }
+ if(grammar_sites)for(auto c:counts)if(!c)throw std::runtime_error("invalid CPU grammar-site metrics");
+ return counts;
+}
+const char* HostPhasePopulation::profile_name()const{return impl_->profile.c_str();}
+std::size_t HostPhasePopulation::host_bytes()const {
+ const auto& s=*impl_;return s.current->bytes()+s.crossed->bytes()+s.next->bytes()+s.scratch->bytes();
+}
+}  // namespace gagp::evo::repro

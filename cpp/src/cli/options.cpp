@@ -36,7 +36,10 @@ CliOptions parse_cli_options(int argc, char** argv) {
       return argv[++i];
     };
 
-    if (arg == "--cases") {
+    if (arg.rfind("--", 0) == 0) opts.explicit_flags.insert(arg);
+    if (arg == "--search-config") {
+      opts.search_config_path = need_value("--search-config");
+    } else if (arg == "--cases") {
       opts.cases_path = need_value("--cases");
     } else if (arg == "--population-json") {
       opts.population_json = need_value("--population-json");

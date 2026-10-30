@@ -285,4 +285,16 @@ inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& 
   // this output before treating it as an imported executable/member.
   return compact_genome_tables(std::move(out));
 }
+// Mutable phase of a native layout slot inside an executable region segment.
+inline RegionPhase& native_phase_at(BoundedRegionSegment& segment,std::size_t ordinal) {
+ switch(bounded_region_phase_kind(segment.plan,ordinal)) {
+  case RegionPhaseKind::BasePredicate:return segment.base_predicate;
+  case RegionPhaseKind::BaseBody:return segment.base_body;
+  case RegionPhaseKind::Combine:return segment.combine;
+  case RegionPhaseKind::Boundary:return *segment.boundary;
+  case RegionPhaseKind::Preparation:return segment.preparations.at(bounded_region_preparation_ordinal(segment.plan,ordinal));
+  case RegionPhaseKind::Request:return segment.request_expressions.at(ordinal-2-segment.preparations.size());
+ }
+ throw std::logic_error("GPU genotype phase ordinal");
+}
 } // namespace gagp::evo::repro

@@ -30,6 +30,13 @@ struct PhaseExpression {
 struct PhaseProduction { int expression; double weight; };
 struct PhaseNonterminal { int production_offset=0, production_count=0, scope_count=0; bool normalized_weights=false; };
 struct PhaseDomain { int value_offset=0, value_count=0; bool integer_range=false; std::int64_t minimum=0, maximum=0; };
+// Optional exact production-choice tables (warp generation only). For one
+// nonterminal, depth and logical budget, the eligible production set changes
+// only at the sorted minimum costs. Within one set the sequential FP64 weighted
+// draw is monotone in the 53-bit random value, so host-computed integer
+// thresholds select exactly the production the serial loop would select.
+struct PhaseChoiceHeader { int value_offset=0, value_count=-1, empty_status=0; };
+struct PhaseChoiceSet { int status=0, count=0, threshold_offset=0, choice_offset=0; };
 struct PhaseGrammarView {
   const PhaseExpression* expressions=nullptr; int expression_count=0;
   const PhaseProduction* productions=nullptr; int production_count=0;
@@ -37,14 +44,18 @@ struct PhaseGrammarView {
   const PhaseDomain* domains=nullptr; int domain_count=0;
   const Value* values=nullptr; int value_count=0;
   const unsigned* minimum=nullptr; int depth_count=0; int logical_depth_count=1; bool site_depth=false;
+  const PhaseChoiceHeader* choice_headers=nullptr; const unsigned* choice_values=nullptr;
+  const PhaseChoiceSet* choice_sets=nullptr; const std::uint64_t* choice_thresholds=nullptr; const int* choice_expressions=nullptr;
 };
 struct PhaseGenerationResult { PhaseCompileStatus status=PhaseCompileStatus::Invalid; int nodes=0,constants=0,steps=0; };
 
 // This constructs grammar expressions, not merely type-compatible trees. Scope
 // maps and constant domains come from the admitted immutable grammar upload.
 // Each lane owns its bounded output; no CPU reproduction or device allocation.
-template<bool CompactTasks=true, bool EmitSites=false>
-__device__ inline PhaseGenerationResult generate_phase(
+// Warp=true requires one converged warp executing identical arguments. It only
+// replaces the weighted production loop with the exact choice tables above.
+template<bool CompactTasks=true, bool EmitSites=false, bool Warp=false>
+__host__ __device__ inline PhaseGenerationResult generate_phase(
     const PhaseGrammarView& grammar, int root_expression, int scope_count,
     int depth, int capacity, std::uint64_t seed,
     PhaseTreeNode* nodes, int* origins, Value* constants, PhaseGeneSite* sites=nullptr, int logical_depth=0) {
@@ -71,12 +82,12 @@ __device__ inline PhaseGenerationResult generate_phase(
     unsigned logical:4;
     unsigned scope:24;
     CompactTask()=default;
-    __device__ CompactTask(unsigned e,unsigned d,unsigned n,unsigned s,unsigned l=0):expression(e),depth(d),scope_count(n),logical(l),scope(s){}
+    __host__ __device__ CompactTask(unsigned e,unsigned d,unsigned n,unsigned s,unsigned l=0):expression(e),depth(d),scope_count(n),logical(l),scope(s){}
   };
   struct ReferenceTask {
     int expression,depth; unsigned scope_count:28,logical:4; unsigned scope;
     ReferenceTask()=default;
-    __device__ ReferenceTask(unsigned e,unsigned d,unsigned n,unsigned s,unsigned l=0):expression(e),depth(d),scope_count(n),logical(l),scope(s){}
+    __host__ __device__ ReferenceTask(unsigned e,unsigned d,unsigned n,unsigned s,unsigned l=0):expression(e),depth(d),scope_count(n),logical(l),scope(s){}
   };
   static_assert(sizeof(CompactTask)==8 && sizeof(ReferenceTask)==16,"generation task layouts");
   using Task=std::conditional_t<CompactTasks,CompactTask,ReferenceTask>;
@@ -113,6 +124,25 @@ __device__ inline PhaseGenerationResult generate_phase(
       }
       if(reserved>static_cast<unsigned>(capacity-result.nodes)) {result.status=PhaseCompileStatus::Capacity;return result;}
       const unsigned available=static_cast<unsigned>(capacity-result.nodes)-reserved;
+#ifdef __CUDA_ARCH__
+      if constexpr(Warp) if(grammar.choice_headers) {
+        const unsigned full=0xffffffffU;const int lane=threadIdx.x&31;
+        const auto header=grammar.choice_headers[(static_cast<std::size_t>(expression.target)*grammar.depth_count+task.depth)*grammar.logical_depth_count+next.logical];
+        if(header.value_count>=0) {
+          const bool fits=lane<header.value_count && grammar.choice_values[header.value_offset+lane]<=available;
+          const int set_index=__popc(__ballot_sync(full,fits));
+          if(!set_index){if(header.empty_status)result.status=PhaseCompileStatus::Capacity;return result;}
+          const auto set=grammar.choice_sets[header.value_offset+set_index-1];
+          if(set.status==1){result.status=PhaseCompileStatus::Capacity;return result;}
+          if(set.status)return result;
+          const std::uint64_t draw=random.next()>>11;
+          const bool passed=lane<set.count-1 && grammar.choice_thresholds[set.threshold_offset+lane]<=draw;
+          next.expression=grammar.choice_expressions[set.choice_offset+__popc(__ballot_sync(full,passed))];
+          if(count>=192)return result;
+          reserved+=minimum(next.expression,next.depth,next.logical);pending[count++]=next;continue;
+        }
+      }
+#endif
       double maximum=nt.normalized_weights?1:0,total=0;
       if(!nt.normalized_weights)for(int i=0;i<nt.production_count;++i) {
         const auto p=grammar.productions[nt.production_offset+i];

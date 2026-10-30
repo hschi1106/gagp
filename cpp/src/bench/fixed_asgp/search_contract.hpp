@@ -34,10 +34,13 @@ struct SearchContractAudit {
 inline SearchContractAudit audit_search_contract(
     const gagp::evo::EvolutionConfig& cfg, const std::string& reproduction_profile,
     bool task_metric_verified = false, bool frozen_initial_population_verified = false) {
-  const bool phase_owner=reproduction_profile.rfind("native-gpu-phase-",0)==0;
+  // GPU owner and CPU reference owner share the phase operators.
+  const bool phase_owner=reproduction_profile.rfind("native-gpu-phase-",0)==0 ||
+      reproduction_profile.rfind("native-cpu-phase-",0)==0;
   const std::string uniform_suffix="-uniform-phase";
   const bool uniform_phase=phase_owner && reproduction_profile.find(uniform_suffix)!=std::string::npos;
-  const bool projected_phase=phase_owner && reproduction_profile.rfind("native-gpu-phase-v3-projected",0)==0 &&
+  const bool projected_phase=phase_owner && (reproduction_profile.rfind("native-gpu-phase-v3-projected",0)==0 ||
+      reproduction_profile.rfind("native-cpu-phase-v3-projected",0)==0) &&
       cfg.offspring_resource_budget.has_value();
   const bool source_gate=phase_owner && reproduction_profile.find("-source-cross07")!=std::string::npos;
   const bool gpu=cfg.reproduction_backend==gagp::evo::repro::ReproductionBackend::Gpu;
@@ -81,7 +84,7 @@ inline SearchContractAudit audit_search_contract(
     {"tournament_sampling","independent draws with replacement, size 2",
       phase_owner?"independent device draws with replacement":
         gpu?"permuted population tournament groups":"shuffled population tournament groups",
-      gpu && phase_owner && cfg.selection_pressure==2},
+      phase_owner && cfg.selection_pressure==2},
     {"offspring_budget","population minus elites children are generated",
       "population children generated; elites replace first ranked slots",false},
     {"execution_budget","source evaluator steps, recursion and arena limits",

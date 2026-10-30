@@ -622,6 +622,39 @@ mixtures with mutation disabled, eager/deferred clones, projected resource
 admission, and full-case CPU/GPU fitness. This is an experimental search choice,
 not a default or a convergence-equivalence claim.
 
+#### Shared operator bodies and the CPU reference engine
+
+Per-child selection and variation live in `repro/gpu/phase_operators.cuh` as
+`__host__ __device__` bodies: tournament, reservoir/counted site draws,
+crossover with its gate and retries, subtree mutation (generation, splice,
+in-place copy), offspring comparison and phase lowering. The GPU kernels in
+`phase_population.cu` are thin wrappers; `HostPhasePopulation`
+(`phase_population_cpu.cpp`, a plain C++ translation unit) runs the same bodies
+serially or on opt-in host workers. Both owners admit the same input, use the
+same per-child seeds and operation order (crossover, mutation, elites,
+comparison, swap, lowering) and reuse completed results only for genotypes
+identical to a parent. `evolve_population` drives both through one shared
+generation loop, so ranking, selection fitness, verification, history and
+export are common code. `gagp_test_phase_population_cpu_reference` requires
+identical final populations, fitness, wrong counts and champions for several
+policies, host thread counts and GPU engine variants.
+
+The semantic policy (`PhaseVariationPolicy`, [search config](../../spec/search_config.md))
+is a constructor argument of both owners. Exact GPU engine variants remain
+process settings captured at construction:
+
+- `GAGP_GPU_WARP_VARIATION=1` runs crossover and mutation with one warp per
+  child. Lanes execute the serial control flow redundantly; site counting,
+  subtree scans, splice copies and constant renumbering are lane-parallel, while
+  random draws and depth checks keep their serial order. This bounds the
+  per-generation tail set by the largest generated subtree.
+- `GAGP_GPU_CHOICE_TABLES=1` (with warp variation) replaces the weighted
+  production loop of subtree generation by host-built threshold tables
+  (`phase_choice_tables.hpp`). For each nonterminal, depth and logical budget
+  the eligible set changes only at sorted minimum costs, and the sequential
+  IEEE FP64 draw is monotone in the 53-bit random value, so integer thresholds
+  select exactly the production of the serial loop without device FP64 work.
+
 #### Grammar-invocation depth and parsimony
 
 `EvolutionConfig::gpu_phase_site_depth` optionally caps per-phase nesting of

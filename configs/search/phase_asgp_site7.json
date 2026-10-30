@@ -1,0 +1,12 @@
+{
+  "format": "gagp-search-config-v1",
+  "representation": "phase_population",
+  "generations": 64,
+  "selection": {"method": "tournament", "size": 2},
+  "elitism": 1,
+  "crossover": {"probability": 0.7, "attempts": 8},
+  "mutation": {"probability": 0.3},
+  "sites": {"scope": "uniform_phase", "draw": "counted"},
+  "limits": {"site_depth": 7},
+  "ranking": {"tie_break": "ast_nodes"}
+}

@@ -28,6 +28,7 @@ class TestSpecFreeze(unittest.TestCase):
             "spec/fitness_cases.md",
             "spec/grammar_config.md",
             "spec/grammar_definition.md",
+            "spec/search_config.md",
         }
         self.assertEqual(expected, set(paths))
 

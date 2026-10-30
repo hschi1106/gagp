@@ -15,6 +15,7 @@ these contracts.
 | [`fitness_cases.md`](fitness_cases.md) | Fitness-case fixture schema |
 | [`grammar_config.md`](grammar_config.md) | Offline release-1 grammar-config migration boundary |
 | [`grammar_definition.md`](grammar_definition.md) | Sole production grammar construction, imports, scopes, templates, compilation, and artifacts |
+| [`search_config.md`](search_config.md) | `gagp-search-config-v1` search semantics and CPU/GPU phase-population engine equivalence |
 
 Public format identifiers are defined by the specification that owns the
 format. Compatibility and release history belong in [`../VERSION.md`](../VERSION.md),

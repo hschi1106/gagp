@@ -13,6 +13,7 @@
 #include "gagp/evolution/grammar/request.hpp"
 #include "gagp/evolution/input_spec.hpp"
 #include "gagp/evolution/repro/backend.hpp"
+#include "gagp/evolution/search_policy.hpp"
 #include "gagp/evolution/selection.hpp"
 #include "gagp/evolution/timing.hpp"
 
@@ -71,6 +72,14 @@ struct EvolutionConfig {
   // Zero disables it. Explicit requests fail rather than changing backend.
   int gpu_phase_site_depth = 0;
   bool gpu_phase_site_parsimony = false;
+  // Native phase-population representation and operators. Unset keeps the
+  // legacy GPU-only GAGP_GPU_PHASE_POPULATION switch. True selects it for
+  // matching engines: GPU/GPU runs the resident GPU owner, CPU/CPU the CPU
+  // reference owner with the same operators and draws. False disables it.
+  std::optional<bool> phase_population;
+  // Explicit phase variation semantics. Unset reads the legacy environment
+  // flags; when set, a conflicting legacy flag is rejected.
+  std::optional<PhaseVariationPolicy> phase_variation;
   CpuFitnessVerification cpu_fitness_verification;
   // Diagnostic snapshots, in original population order, after scoring and before
   // reproduction. The callback must not retain payload handles past its call.

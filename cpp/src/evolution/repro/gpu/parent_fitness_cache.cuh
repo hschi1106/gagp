@@ -1,5 +1,7 @@
 #pragma once
+#ifdef __CUDACC__
 #include <cuda_runtime.h>
+#endif
 #include <cstdint>
 
 namespace gagp::evo::repro::parent_cache {
@@ -10,7 +12,7 @@ __host__ __device__ inline std::uint64_t mix(std::uint64_t h,std::uint64_t x) {
  return (h^x)*UINT64_C(0x100000001b3);
 }
 template<class Trees>
-__device__ std::uint64_t hash_program(Trees trees,int program,int slots) {
+__host__ __device__ std::uint64_t hash_program(Trees trees,int program,int slots) {
  std::uint64_t h=UINT64_C(0xcbf29ce484222325);
  for(int k=0;k<slots;++k) {
   const auto t=trees.view(program*slots+k);
@@ -28,7 +30,7 @@ __device__ std::uint64_t hash_program(Trees trees,int program,int slots) {
  return h;
 }
 template<class A,class B>
-__device__ bool equal_program(A a,int ai,B b,int bi,int slots) {
+__host__ __device__ bool equal_program(A a,int ai,B b,int bi,int slots) {
  for(int k=0;k<slots;++k) {
   const auto x=a.view(ai*slots+k),y=b.view(bi*slots+k);
   if(x.node_count!=y.node_count || x.constant_count!=y.constant_count)return false;
@@ -45,7 +47,7 @@ __device__ bool equal_program(A a,int ai,B b,int bi,int slots) {
  return true;
 }
 template<class A,class B>
-__device__ int find_parent(A parents,B children,int child,int slots,
+__host__ __device__ int find_parent(A parents,B children,int child,int slots,
     const std::uint64_t* hashes,const int* table,int mask,std::uint64_t hash) {
  const auto first=static_cast<unsigned>(hash)&static_cast<unsigned>(mask);
  for(unsigned probe=0;probe<64;++probe) {

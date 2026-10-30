@@ -26,6 +26,7 @@
 #include "gagp/evolution/repro/pack.hpp"
 #include "gagp/cli/codec.hpp"
 #include "gagp/cli/commands.hpp"
+#include "gagp/cli/search_config.hpp"
 #include "gagp/cli/json.hpp"
 #include "gagp/cli/region_codec.hpp"
 #include "gagp/cli/grammar_artifact.hpp"
@@ -936,6 +937,20 @@ gagp::evo::EvolutionConfig make_evolution_config(const CliOptions& args) {
   cfg.fuel = args.fuel;
   cfg.skip_final_eval = args.skip_final_eval;
   cfg.retain_final_population = args.retain_final_population;
+  if (!args.search_config_path.empty()) {
+    const auto config = gagp::cli_detail::load_search_config(args.search_config_path);
+    const auto conflict = [&](const char* flag, bool present) {
+      if (present && args.explicit_flags.count(flag))
+        throw std::runtime_error(std::string("--search-config and ") + flag + " both set the same field");
+    };
+    conflict("--population-size", config.population_size.has_value());
+    conflict("--generations", config.generations.has_value());
+    conflict("--seed", config.seed.has_value());
+    conflict("--selection-pressure", config.tournament_size.has_value());
+    conflict("--mutation-rate", config.mutation_probability.has_value());
+    conflict("--penalty", config.penalty.has_value());
+    gagp::cli_detail::apply_search_config(config, cfg);
+  }
   return cfg;
 }
 
@@ -1319,6 +1334,7 @@ int gagp::cli_detail::run_evolve_command(const CliOptions& args) {
       out << "    \"retain_final_population\": " << (cfg.retain_final_population ? "true" : "false") << ",\n";
       out << "    \"gpu_blocksize\": " << cfg.gpu_blocksize << ",\n";
       out << "    \"seed\": " << cfg.seed << ",\n";
+      out << "    \"search_config\": " << gagp::evo::grammar::canonical_json(gagp::cli_detail::effective_search_config(cfg)) << ",\n";
       out << "    \"timing\": {\n";
       out << "      \"init_population_ms\": " << std::setprecision(17) << timing.init_population_ms << ",\n";
       out << "      \"gpu_eval_init_ms\": " << timing.gpu_eval_init_ms << ",\n";

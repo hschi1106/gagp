@@ -38,13 +38,13 @@ struct Output {
   int code_capacity, constant_capacity;
   PhaseCompileResult result;
   int stack = 0;
-  __device__ bool emit(Opcode op, unsigned fuel, int a=0, int b=0, unsigned flags=0) {
+  __host__ __device__ bool emit(Opcode op, unsigned fuel, int a=0, int b=0, unsigned flags=0) {
     if (result.code_count >= code_capacity) { result.status=PhaseCompileStatus::Capacity; return false; }
     if (fuel > 0x7fffffffU) { result.status=PhaseCompileStatus::Invalid; return false; }
     code[result.code_count++] = {static_cast<std::uint8_t>(op),static_cast<std::uint8_t>(flags),a,b,fuel};
     return true;
   }
-  __device__ bool push(Value value, unsigned fuel) {
+  __host__ __device__ bool push(Value value, unsigned fuel) {
     if (result.constant_count >= constant_capacity) { result.status=PhaseCompileStatus::Capacity; return false; }
     const int index=result.constant_count++;
     constants[index]=value;
@@ -53,7 +53,7 @@ struct Output {
     return true;
   }
 };
-__device__ inline ValueTag operation_type(const PhaseTreeNode& node, const ValueTag* args) {
+__host__ __device__ inline ValueTag operation_type(const PhaseTreeNode& node, const ValueTag* args) {
   const auto integer=ValueTag::Int, boolean=ValueTag::Bool, list=ValueTag::IntList;
   if (node.opcode==Opcode::Neg || node.opcode==Opcode::CheckInt)
     return node.arity==1 && args[0]==integer ? integer : ValueTag::Invalid;
@@ -91,7 +91,7 @@ __device__ inline ValueTag operation_type(const PhaseTreeNode& node, const Value
 // bounded independently of input metadata. Invalid/unsupported output is never
 // executable. No device allocation, recursive C++ call, or run-time JIT occurs.
 template<bool SharedNodes = false, bool CompactFrames = false>
-__device__ inline PhaseCompileResult compile_phase_tree(
+__host__ __device__ inline PhaseCompileResult compile_phase_tree(
     const PhaseTreeNode* nodes, int node_count,
     const Value* constants, int constant_count,
     const ValueTag* local_types, int local_count, ValueTag expected,

@@ -9,16 +9,22 @@
 #include "../../../runtime/gpu/cuda_stage_storage.hpp"
 #include "linear_elite.cuh"
 #include "phase_layout.hpp"
+#include "phase_operators.cuh"
+#include "phase_choice_tables.hpp"
 #include "internal.hpp"
 #include "gagp/runtime/gpu/host_pack_gpu.hpp"
 #include <cuda_runtime.h>
 #include <chrono>
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
 namespace gagp::evo::repro {
 namespace {
-constexpr int capacity = 1024, code_capacity = 4*capacity;
+using phase_ops::capacity;using phase_ops::code_capacity;
+using phase_ops::TreePointers;using phase_ops::DeviceSlot;using phase_ops::OperatorStats;
+using phase_ops::OperatorPolicy;using phase_ops::valid;using phase_ops::copy_tree;
+bool flag_is_one(const char* name){const char* value=std::getenv(name);return value && std::string(value)=="1";}
 using Clock = std::chrono::steady_clock;
 double elapsed(Clock::time_point start) { return std::chrono::duration<double,std::milli>(Clock::now()-start).count(); }
 void checked(cudaError_t status) { if (status != cudaSuccess) throw std::runtime_error(cudaGetErrorString(status)); }
@@ -43,40 +49,36 @@ template<class T> struct Buffer {
 struct UploadedProfile {
  Buffer<PhaseExpression> expressions;Buffer<PhaseProduction> productions;Buffer<PhaseNonterminal> nonterminals;
  Buffer<PhaseDomain> domains;Buffer<Value> values;Buffer<unsigned> minimum;
- explicit UploadedProfile(const HostPhaseGrammar& h) {
+ Buffer<PhaseChoiceHeader> choice_headers;Buffer<unsigned> choice_values;Buffer<PhaseChoiceSet> choice_sets;
+ Buffer<std::uint64_t> choice_thresholds;Buffer<int> choice_expressions;bool choice_tables=false;
+ UploadedProfile(const HostPhaseGrammar& h,bool with_choice_tables) {
   expressions.upload(h.expressions);
-  if(std::getenv("GAGP_GPU_STATIC_WEIGHTS")) {
-   auto weights=h.productions;auto nts=h.nonterminals;normalize_static_phase_weights(h,nts,weights);
-   productions.upload(weights);nonterminals.upload(nts);
-  } else {productions.upload(h.productions);nonterminals.upload(h.nonterminals);}
+  auto weights=h.productions;auto nts=h.nonterminals;
+  if(std::getenv("GAGP_GPU_STATIC_WEIGHTS"))normalize_static_phase_weights(h,nts,weights);
+  productions.upload(weights);nonterminals.upload(nts);
   domains.upload(h.domains);values.upload(h.values);minimum.upload(h.minimum);
+  if(with_choice_tables) {
+   const auto t=build_phase_choice_tables(h,nts,weights);
+   choice_headers.upload(t.headers);choice_values.upload(t.values);choice_sets.upload(t.sets);
+   choice_thresholds.upload(t.thresholds);choice_expressions.upload(t.expressions);choice_tables=!t.headers.empty();
+  }
  }
- PhaseGrammarView view(const HostPhaseGrammar& h)const{return {expressions.data,int(h.expressions.size()),productions.data,int(h.productions.size()),
-  nonterminals.data,int(h.nonterminals.size()),domains.data,int(h.domains.size()),values.data,int(h.values.size()),minimum.data,h.depth_count,h.logical_depth_count,h.site_depth};}
- std::size_t bytes()const{return expressions.bytes()+productions.bytes()+nonterminals.bytes()+domains.bytes()+values.bytes()+minimum.bytes();}
+ PhaseGrammarView view(const HostPhaseGrammar& h)const{
+  PhaseGrammarView v{expressions.data,int(h.expressions.size()),productions.data,int(h.productions.size()),
+   nonterminals.data,int(h.nonterminals.size()),domains.data,int(h.domains.size()),values.data,int(h.values.size()),minimum.data,h.depth_count,h.logical_depth_count,h.site_depth};
+  if(choice_tables){v.choice_headers=choice_headers.data;v.choice_values=choice_values.data;v.choice_sets=choice_sets.data;
+   v.choice_thresholds=choice_thresholds.data;v.choice_expressions=choice_expressions.data;}
+  return v;
+ }
+ std::size_t bytes()const{return expressions.bytes()+productions.bytes()+nonterminals.bytes()+domains.bytes()+values.bytes()+minimum.bytes()+
+  choice_headers.bytes()+choice_values.bytes()+choice_sets.bytes()+choice_thresholds.bytes()+choice_expressions.bytes();}
 };
-struct DeviceSlot {PhaseGrammarView grammar;int root,scope,max_depth,logical_depth;ValueTag type;ValueTag locals[8];};
 struct Trees {
  Buffer<PhaseTreeNode> nodes;Buffer<int> origins;Buffer<PhaseGeneSite> sites;Buffer<Value> constants;Buffer<PhaseGenerationResult> lengths;
  explicit Trees(std::size_t count){nodes.reserve(count*capacity);origins.reserve(count*capacity);sites.reserve(count*capacity);constants.reserve(count*capacity);lengths.reserve(count);}
  std::size_t bytes()const{return nodes.bytes()+origins.bytes()+sites.bytes()+constants.bytes()+lengths.bytes();}
 };
-struct TreePointers {
- PhaseTreeNode* nodes;int* origins;PhaseGeneSite* sites;Value* constants;PhaseGenerationResult* lengths;
- __device__ PhaseTreeView view(int row)const {return {nodes+std::size_t(row)*capacity,origins+std::size_t(row)*capacity,sites+std::size_t(row)*capacity,
-   constants+std::size_t(row)*capacity,lengths[row].nodes,lengths[row].constants};}
- __device__ MutablePhaseTree output(int row)const{return {nodes+std::size_t(row)*capacity,origins+std::size_t(row)*capacity,
-   sites+std::size_t(row)*capacity,constants+std::size_t(row)*capacity,capacity};}
-};
 TreePointers pointers(Trees& t){return {t.nodes.data,t.origins.data,t.sites.data,t.constants.data,t.lengths.data};}
-__host__ __device__ bool valid(const PhaseGenerationResult& r){return r.status==PhaseCompileStatus::Ok && r.nodes>0 && r.nodes<=capacity && r.constants>=0 && r.constants<=r.nodes;}
-__device__ void copy_tree(TreePointers from,int source,TreePointers to,int target) {
- const auto r=from.lengths[source];to.lengths[target]={};if(!valid(r))return;
- const auto a=from.view(source);const auto b=to.output(target);
- for(int i=0;i<r.nodes;++i){b.nodes[i]=a.nodes[i];b.origins[i]=a.origins[i];b.sites[i]=a.sites[i];}
- for(int i=0;i<r.constants;++i)b.constants[i]=a.constants[i];
- to.lengths[target]=r;
-}
 // Preserve elites entirely on device; strict source-index tie breaking is deterministic.
 __global__ void preserve_elites(TreePointers source, TreePointers target,
     const double* fitness, int population, int slots, int elites) {
@@ -132,143 +134,31 @@ __global__ void gather_export(TreePointers trees,const ImportOffset* offsets,
  for(int i=threadIdx.x;i<r.nodes;i+=blockDim.x){nodes[offset.nodes+i]=input.nodes[i];origins[offset.nodes+i]=input.origins[i];}
  for(int i=threadIdx.x;i<r.constants;i+=blockDim.x)constants[offset.constants+i]=input.constants[i];
 }
-__device__ int tournament(const double* fitness,int population,int pressure,DGrammarRandom& random) {
- int best=random.bounded(population);
- for(int i=1;i<pressure;++i){const int candidate=random.bounded(population);if(fitness[candidate]>fitness[best])best=candidate;}
- return best;
+// Operator kernels delegate to the shared per-child bodies in phase_operators.cuh.
+// Warp kernels own one child per warp; lane 0 publishes the private statistics.
+template<bool Warp> __device__ void publish(OperatorStats* target,const OperatorStats& stat) {
+ if constexpr(Warp){__syncwarp();if((threadIdx.x&31)==0)*target=stat;}
+ else *target=stat;
 }
-struct Site {int row=-1,node=-1;};
-__device__ Site choose_site(TreePointers trees,int program,int slots,DGrammarRandom& random,bool counted,int nt=-1,int scope=-1,int selected_slot=-1) {
- if(selected_slot < -1 || selected_slot>=slots)return {};
- const int first=selected_slot<0?0:selected_slot,last=selected_slot<0?slots:selected_slot+1;
- if(counted) {
-  unsigned count=0;
-  for(int k=first;k<last;++k) {
-   const int row=program*slots+k;if(!valid(trees.lengths[row]))return {};
-   const auto tree=trees.view(row);
-   for(int i=0;i<tree.node_count;++i)if(tree.sites[i].nonterminal>=0 &&
-       (nt<0 || (tree.sites[i].nonterminal==nt && tree.sites[i].scope==scope)))++count;
-  }
-  if(!count)return {};
-  unsigned rank=random.bounded(count);
-  for(int k=first;k<last;++k) {
-   const int row=program*slots+k;const auto tree=trees.view(row);
-   for(int i=0;i<tree.node_count;++i)if(tree.sites[i].nonterminal>=0 &&
-       (nt<0 || (tree.sites[i].nonterminal==nt && tree.sites[i].scope==scope))) {
-     if(rank==0)return {row,i};--rank;
-   }
-  }
-  return {};
- }
- Site selected;unsigned count=0;
- for(int k=first;k<last;++k) {
-  const int row=program*slots+k;if(!valid(trees.lengths[row]))return {};
-  const auto tree=trees.view(row);
-  for(int i=0;i<tree.node_count;++i)if(tree.sites[i].nonterminal>=0 &&
-      (nt<0 || (tree.sites[i].nonterminal==nt && tree.sites[i].scope==scope)))
-    if(random.bounded(++count)==0)selected={row,i};
- }
- return selected;
-}
-struct OperatorStats {int parent=-1,crossover_attempted=0,crossover=0,crossover_rejected=0,mutation=0,changed=0,error=0,reusable_parent=-1;};
+template<bool Warp>
 __global__ void crossover_population(TreePointers input,TreePointers output,const DeviceSlot* slots,
-    int slot_count,int population,int max_variable_nodes,const double* fitness,int pressure,std::uint64_t seed,OperatorStats* stats,bool counted,bool deferred_copy,bool fused_depth,bool uniform_phase,bool source_gate) {
- const int child=blockIdx.x*blockDim.x+threadIdx.x;if(child>=population)return;
- DGrammarRandom random(seed ^ (UINT64_C(0x617089e168) + child));auto& stat=stats[child];stat={};
- const int parent=tournament(fitness,population,pressure,random),donor=tournament(fitness,population,pressure,random);stat.parent=parent;
- int total=0;
- for(int k=0;k<slot_count;++k) {
-  const int row=parent*slot_count+k;
-  if(!valid(input.lengths[row])){stat.error=1;return;}
-  total+=input.lengths[row].nodes;if(!deferred_copy)copy_tree(input,row,output,child*slot_count+k);
- }
- // Skips publish the selected parent before the ordinary mutation pass.
- if(source_gate && static_cast<double>(random.next()>>11)*0x1.0p-53>=0.7) {
-  if(deferred_copy)for(int k=0;k<slot_count;++k)copy_tree(input,parent*slot_count+k,output,child*slot_count+k);
-  return;
- }
- stat.crossover_attempted=1;
- // Choose once per operator, not once per speculative retry.
- const int selected_slot=uniform_phase?int(random.bounded(slot_count)):-1;
- // Bounded retry changes site sampling from the legacy compatible-pair policy.
- // Each rejection is explicit; fitness candidates and full evaluation stay intact.
- for(int attempt=0;attempt<8;++attempt) {
-  const auto destination=choose_site(input,parent,slot_count,random,counted,-1,-1,selected_slot);if(destination.node<0){stat.error=2;return;}
-  const auto a=input.view(destination.row);const auto contract=a.sites[destination.node];
-  const auto source=choose_site(input,donor,slot_count,random,counted,contract.nonterminal,contract.scope,selected_slot);
-  if(source.node<0){++stat.crossover_rejected;continue;}
-  const auto b=input.view(source.row);const int ae=phase_subtree_end(a,destination.node),be=phase_subtree_end(b,source.node);
-  if(ae<0 || be<0){stat.error=3;return;}
-  if(total-(ae-destination.node)+(be-source.node)>max_variable_nodes){++stat.crossover_rejected;continue;}
-  const int slot=destination.row%slot_count,target=child*slot_count+slot;
-  auto r=fused_depth ? splice_phase_tree<true>(a,destination.node,b,source.node,output.output(target),slots[slot].max_depth,slots[slot].logical_depth?&slots[slot].grammar:nullptr,slots[slot].logical_depth)
-      : splice_phase_tree(a,destination.node,b,source.node,output.output(target),slots[slot].max_depth,slots[slot].logical_depth?&slots[slot].grammar:nullptr,slots[slot].logical_depth);
-  if(r.status==PhaseCompileStatus::Ok){
-   output.lengths[target]=r;stat.crossover=1;
-   if(deferred_copy)for(int k=0;k<slot_count;++k)if(k!=slot)copy_tree(input,parent*slot_count+k,output,child*slot_count+k);
-   return;
-  }
-  // Failed speculation may partially write output. Eager copies restore this
-  // phase now; deferred copies restore every nonselected phase at publication.
-  if(!deferred_copy)copy_tree(input,destination.row,output,target);++stat.crossover_rejected;
- }
- if(deferred_copy)for(int k=0;k<slot_count;++k)copy_tree(input,parent*slot_count+k,output,child*slot_count+k);
+    int slot_count,int population,int max_variable_nodes,const double* fitness,int pressure,std::uint64_t seed,OperatorStats* stats,OperatorPolicy policy) {
+ const int child=(blockIdx.x*blockDim.x+threadIdx.x)/(Warp?32:1);if(child>=population)return;
+ OperatorStats stat;
+ phase_ops::crossover_child<Warp>(child,input,output,slots,slot_count,population,max_variable_nodes,fitness,pressure,seed,policy,stat);
+ publish<Warp>(stats+child,stat);
 }
-template<bool InPlace, bool Fused>
+template<bool InPlace,bool Fused,bool Warp>
 __global__ void mutate_population(TreePointers input,TreePointers output,TreePointers scratch,const DeviceSlot* slots,
-    int slot_count,int population,int max_variable_nodes,double probability,std::uint64_t seed,OperatorStats* stats,bool counted,bool fused_depth,bool uniform_phase) {
- const int child=blockIdx.x*blockDim.x+threadIdx.x;if(child>=population)return;auto& stat=stats[child];if(stat.error)return;
- int total=0;
- for(int k=0;k<slot_count;++k){const int row=child*slot_count+k;if(!valid(input.lengths[row])){stat.error=4;return;}total+=input.lengths[row].nodes;if constexpr(!InPlace)copy_tree(input,row,output,row);}
- DGrammarRandom random(seed ^ (UINT64_C(0x124ab512bf01)+child));
- if(static_cast<double>(random.next()>>11)*0x1.0p-53>=probability)return;
- const int selected_slot=uniform_phase?int(random.bounded(slot_count)):-1;
- const auto destination=choose_site(input,child,slot_count,random,counted,-1,-1,selected_slot);if(destination.node<0){stat.error=5;return;}
- const auto a=input.view(destination.row);const int end=phase_subtree_end(a,destination.node),depth=phase_node_depth(a,destination.node);
- if(end<0 || depth<0){stat.error=6;return;}
- const auto site=a.sites[destination.node];const auto& slot=slots[destination.row%slot_count];auto tmp=scratch.output(child);
- const int incoming=slot.logical_depth?phase_projected_depth(slot.grammar,a.nodes,a.origins,a.node_count,destination.node,a.sites):0;
- if(incoming<0 || incoming>slot.logical_depth){stat.error=6;return;}
- const int logical=slot.logical_depth-incoming;
- // A larger whole-program budget does not enlarge the destination phase buffer.
- const int replaced=end-destination.node;
- const int available=min(max_variable_nodes-(total-replaced),capacity-(a.node_count-replaced));
- auto generated=Fused
-   ? generate_phase<true,true>(slot.grammar,site.entry_expression,site.parent_scope,slot.max_depth-depth+1,
-       min(capacity,available),random.next(),tmp.nodes,tmp.origins,tmp.constants,tmp.sites,logical)
-   : generate_phase(slot.grammar,site.entry_expression,site.parent_scope,slot.max_depth-depth+1,
-       min(capacity,available),random.next(),tmp.nodes,tmp.origins,tmp.constants,nullptr,logical);
- if(generated.status!=PhaseCompileStatus::Ok || (!Fused && !annotate_phase_tree(slot.grammar,site.entry_expression,site.parent_scope,
-       tmp.nodes,tmp.origins,generated.nodes,tmp.sites))){stat.error=7;return;}
- scratch.lengths[child]=generated;
- // Splicing may partially write on failure, so its destination must never
- // alias the crossed input. Each child owns a separate temporary row.
- const int target=InPlace?child:destination.row;
- auto r=fused_depth ? splice_phase_tree<true>(a,destination.node,scratch.view(child),0,output.output(target),slot.max_depth,slot.logical_depth?&slot.grammar:nullptr,slot.logical_depth)
-     : splice_phase_tree(a,destination.node,scratch.view(child),0,output.output(target),slot.max_depth,slot.logical_depth?&slot.grammar:nullptr,slot.logical_depth);
- if(r.status!=PhaseCompileStatus::Ok){stat.error=8;return;}
- output.lengths[target]=r;
- if constexpr(InPlace)copy_tree(output,target,input,destination.row);
- stat.mutation=1;
+    int slot_count,int population,int max_variable_nodes,double probability,std::uint64_t seed,OperatorStats* stats,OperatorPolicy policy) {
+ const int child=(blockIdx.x*blockDim.x+threadIdx.x)/(Warp?32:1);if(child>=population)return;
+ OperatorStats stat=stats[child];
+ phase_ops::mutate_child<InPlace,Fused,Warp>(child,input,output,scratch,slots,slot_count,max_variable_nodes,probability,seed,policy,stat);
+ publish<Warp>(stats+child,stat);
 }
 __global__ void compare_offspring(TreePointers parents,TreePointers children,int population,int slot_count,OperatorStats* stats) {
- const int child=blockIdx.x*blockDim.x+threadIdx.x;if(child>=population || stats[child].error)return;
- const int parent=stats[child].parent;if(parent<0 || parent>=population){stats[child].error=9;return;}
- bool equal=true,reusable=true;
- for(int k=0;k<slot_count && equal;++k) {
-  const auto a=parents.view(parent*slot_count+k),b=children.view(child*slot_count+k);
-  if(a.node_count!=b.node_count || a.constant_count!=b.constant_count){equal=false;break;}
-  for(int i=0;i<a.node_count && equal;++i) {
-   const auto x=a.nodes[i],y=b.nodes[i];equal=x.kind==y.kind && x.opcode==y.opcode && x.operand==y.operand &&
-      x.arity==y.arity && x.fuel==y.fuel && x.merge_fuel==y.merge_fuel && a.origins[i]==b.origins[i];
-  }
-  for(int i=0;i<a.constant_count && equal;++i){const auto x=a.constants[i],y=b.constants[i];
-   equal=x.tag==y.tag && (x.tag==ValueTag::Bool?x.b==y.b:x.i==y.i);
-   reusable=reusable && x.i==y.i && x.b==y.b;
-  }
- }
- stats[child].changed=!equal;
- stats[child].reusable_parent=equal && reusable?parent:-1;
+ const int child=blockIdx.x*blockDim.x+threadIdx.x;if(child>=population)return;
+ OperatorStats stat=stats[child];phase_ops::compare_child(child,parents,children,population,slot_count,stat);stats[child]=stat;
 }
 // Index the previous generation before stage-storage overwrites its trees.
 // Separate launches ensure all hash/table writes finish before offspring lookup.
@@ -293,10 +183,7 @@ template<bool SharedNodes, bool CompactFrames = false>
 __global__ void compile_population(TreePointers trees,const DeviceSlot* slots,int slot_count,int rows,
     gpu_detail::DInstr* code,Value* constants,PhaseCompileResult* compiled) {
  const int row=blockIdx.x*blockDim.x+threadIdx.x;if(row>=rows)return;
- const auto t=trees.view(row);const auto& slot=slots[row%slot_count];
- if(!valid(trees.lengths[row])){compiled[row]={};return;}
- compiled[row]=compile_phase_tree<SharedNodes, CompactFrames>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.scope,slot.type,
-     code+std::size_t(row)*code_capacity,code_capacity,constants+std::size_t(row)*capacity,capacity);
+ compiled[row]=phase_ops::compile_row<SharedNodes,CompactFrames>(trees,slots,slot_count,row,code,constants);
 }
 // One block scans all live rows in tiles. The former one-thread dependent
 // global loads/stores made this metadata step approach a millisecond at P=1024.
@@ -327,29 +214,20 @@ __global__ void compact_code(const gpu_detail::DInstr* source_code,const Value* 
  for(int j=threadIdx.x;j<code_offsets[row+1]-code_offsets[row];j+=blockDim.x)code[code_offsets[row]+j]=source_code[std::size_t(row)*code_capacity+j];
  for(int j=threadIdx.x;j<constant_offsets[row+1]-constant_offsets[row];j+=blockDim.x)constants[constant_offsets[row]+j]=source_constants[std::size_t(row)*capacity+j];
 }
-RegionPhase& phase_at(BoundedRegionSegment& segment,std::size_t ordinal) {
- switch(bounded_region_phase_kind(segment.plan,ordinal)) {
-  case RegionPhaseKind::BasePredicate:return segment.base_predicate;
-  case RegionPhaseKind::BaseBody:return segment.base_body;
-  case RegionPhaseKind::Combine:return segment.combine;
-  case RegionPhaseKind::Boundary:return *segment.boundary;
-  case RegionPhaseKind::Preparation:return segment.preparations.at(bounded_region_preparation_ordinal(segment.plan,ordinal));
-  case RegionPhaseKind::Request:return segment.request_expressions.at(ordinal-2-segment.preparations.size());
- }
- throw std::logic_error("GPU genotype phase ordinal");
-}
 } // namespace
 
 struct NativePhasePopulation::Impl {
  std::shared_ptr<const grammar::CompiledGrammar> grammar;
- const bool counted_sites;
- const bool uniform_phase_sites;
- const bool source_crossover_gate;
+ // Search semantics come from the caller's policy; the remaining fields are
+ // exact engine variants captured once at construction.
+ OperatorPolicy operators;
  const bool linear_elite=std::getenv("GAGP_GPU_LINEAR_ELITE") && std::string(std::getenv("GAGP_GPU_LINEAR_ELITE"))=="1";
  std::string reproduction_profile;
  const bool inplace_mutation;
- const bool deferred_copy;
- const bool fused_splice_depth;
+ const bool fused_donor_sites;
+ // Exact warp-per-child variation and threshold-table production draws.
+ const bool warp_variation;
+ const bool choice_tables;
  const bool compact_compile_frames;
  const bool constructive_export;
  CompletedFitnessReuse fitness_reuse{std::getenv("GAGP_GPU_UNCHANGED_FITNESS_REUSE") &&
@@ -418,7 +296,7 @@ struct NativePhasePopulation::Impl {
   const auto& out=*host_packed;
   for(int p=0;p<population;++p)for(int k=0;k<slot_count;++k) {
    const auto& m=out.region_phases.at(packed_phase_indices[p*slot_count+k]).program;
-   auto& program=phase_at(programs[p].bounded_region_segments[0],layout.slots[k].ordinal).program;
+   auto& program=native_phase_at(programs[p].bounded_region_segments[0],layout.slots[k].ordinal).program;
    program.code.clear();program.instruction_fuel.clear();program.code.reserve(m.code_len);program.instruction_fuel.reserve(m.code_len);
    for(int i=m.code_offset;i<m.code_offset+m.code_len;++i) {
     const auto x=out.all_phase_code[i];program.code.push_back({static_cast<Opcode>(x.op),x.a,x.b,bool(x.flags&1),bool(x.flags&2)});program.instruction_fuel.push_back(x.fuel);
@@ -427,12 +305,11 @@ struct NativePhasePopulation::Impl {
   }
   programs_current=true;
  }
- explicit Impl(std::shared_ptr<const grammar::CompiledGrammar> g):grammar(std::move(g)),counted_sites(std::getenv("GAGP_COUNTED_SITE_DRAW")!=nullptr),
-     uniform_phase_sites(std::getenv("GAGP_GPU_UNIFORM_PHASE_SITES") && std::string(std::getenv("GAGP_GPU_UNIFORM_PHASE_SITES"))=="1"),
-     source_crossover_gate(std::getenv("GAGP_GPU_SOURCE_CROSSOVER_GATE") && std::string(std::getenv("GAGP_GPU_SOURCE_CROSSOVER_GATE"))=="1"),
+ explicit Impl(std::shared_ptr<const grammar::CompiledGrammar> g):grammar(std::move(g)),
      inplace_mutation(std::getenv("GAGP_GPU_INPLACE_MUTATION")!=nullptr),
-     deferred_copy(std::getenv("GAGP_GPU_DEFERRED_CROSSOVER_COPY")!=nullptr),
-     fused_splice_depth(std::getenv("GAGP_GPU_FUSED_SPLICE_DEPTH")!=nullptr),
+     fused_donor_sites(std::getenv("GAGP_GPU_FUSED_DONOR_SITES")!=nullptr),
+     warp_variation(flag_is_one("GAGP_GPU_WARP_VARIATION")),
+     choice_tables(warp_variation && flag_is_one("GAGP_GPU_CHOICE_TABLES")),
      compact_compile_frames(std::getenv("GAGP_GPU_COMPACT_COMPILE_FRAMES")!=nullptr),
      constructive_export(std::getenv("GAGP_GPU_CONSTRUCTIVE_EXPORT")!=nullptr){}
  // Only this live owner can publish construction-derived members. Cold import
@@ -504,7 +381,7 @@ struct NativePhasePopulation::Impl {
    views_proven=views_proven && certificates[row].typed_views_proven;
    private_intlists_proven=private_intlists_proven && certificates[row].private_intlists_proven;
    if(host_packed)continue;
-   auto& program=phase_at(programs[p].bounded_region_segments[0],layout.slots[k].ordinal).program;
+   auto& program=native_phase_at(programs[p].bounded_region_segments[0],layout.slots[k].ordinal).program;
    program.code.clear();program.instruction_fuel.clear();program.code.reserve(offsets[row+1]-offsets[row]);program.instruction_fuel.reserve(offsets[row+1]-offsets[row]);
    for(int i=offsets[row];i<offsets[row+1];++i){const auto x=compacted_code[i];program.code.push_back({static_cast<Opcode>(x.op),x.a,x.b,bool(x.flags&1),bool(x.flags&2)});program.instruction_fuel.push_back(x.fuel);}
    program.consts.assign(compacted_constants.begin()+values[row],compacted_constants.begin()+values[row+1]);
@@ -525,10 +402,12 @@ struct NativePhasePopulation::Impl {
    // phases. Preserve that capability contract, including fixed phases.
    phase_layout_require(out.region_phases.size()%population==0,"owned packed phase partition");
    const auto phases_per_program=out.region_phases.size()/population;
+   // Read process settings once: this loop visits every program phase each generation.
+   const bool generic_vm=std::getenv("GAGP_GENERIC_PHASE_VM")!=nullptr;
    for(int p=0;p<population;++p)for(std::size_t k=0;k<phases_per_program;++k)
     out.region_phases[p*phases_per_program+k].program.verified_stack_bound=
-        std::getenv("GAGP_GENERIC_PHASE_VM")?gpu_detail::MAX_STACK:stack_bounds[p];
-   if(std::getenv("GAGP_PER_PHASE_STACK_BOUND") && !std::getenv("GAGP_GENERIC_PHASE_VM")) {
+        generic_vm?gpu_detail::MAX_STACK:stack_bounds[p];
+   if(std::getenv("GAGP_PER_PHASE_STACK_BOUND") && !generic_vm) {
     // Fixed phases retain their cold verified upper bounds. Variable phases use
     // certificates from the exact freshly compiled rows copied above; the owner
     // still publishes the whole-program maximum for kernel bucket admission.
@@ -546,8 +425,16 @@ struct NativePhasePopulation::Impl {
 };
 
 NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
-    const std::vector<ProgramGenome>& input,const std::vector<std::string>& input_names,std::optional<grammar::ProjectedBudget> projected,int site_depth):impl_(std::make_unique<Impl>(std::move(grammar))) {
+    const std::vector<ProgramGenome>& input,const std::vector<std::string>& input_names,std::optional<grammar::ProjectedBudget> projected,int site_depth,
+    const PhaseVariationPolicy& policy):impl_(std::make_unique<Impl>(std::move(grammar))) {
  gpu_detail::CudaStageAllocationScope construction_storage(nullptr,false);
+ validate_phase_variation_policy(policy);
+ impl_->operators.counted_sites=policy.site_draw==PhaseSiteDraw::Counted;
+ impl_->operators.uniform_phase=policy.site_scope==PhaseSiteScope::UniformPhase;
+ impl_->operators.crossover_probability=policy.crossover_probability;
+ impl_->operators.crossover_attempts=policy.crossover_attempts;
+ impl_->operators.deferred_copy=std::getenv("GAGP_GPU_DEFERRED_CROSSOVER_COPY")!=nullptr;
+ impl_->operators.fused_depth=std::getenv("GAGP_GPU_FUSED_SPLICE_DEPTH")!=nullptr;
  phase_layout_require(site_depth>=0 && site_depth<=15 && !(site_depth && projected),"site depth must be0..15 and cannot combine with projected resource budgets");
  phase_layout_require(impl_->grammar && !input.empty() && input.size()<=16384,"population/grammar capacity");
  std::set<std::string> expected_names,actual_names(input_names.begin(),input_names.end());
@@ -571,8 +458,8 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   impl_->layout.profiles[k]=compile_phase_variation_grammar(*impl_->grammar,
       impl_->layout.slots[k].nonterminal,impl_->grammar->search_limits().max_depth,site_depth,true);
  impl_->reproduction_profile=site_depth?"native-gpu-phase-v4-site-depth"+std::to_string(site_depth):impl_->layout.slots.front().logical_depth?"native-gpu-phase-v3-projected":
-     impl_->counted_sites?"native-gpu-phase-v2-counted":"native-gpu-phase-v1";
- if(impl_->source_crossover_gate)impl_->reproduction_profile+="-source-cross07";
+     impl_->operators.counted_sites?"native-gpu-phase-v2-counted":"native-gpu-phase-v1";
+ impl_->reproduction_profile+=phase_variation_profile_suffix(policy);
  if(impl_->linear_elite)impl_->reproduction_profile+="-elite-linear";
  if(impl_->parent_fitness_cache) {
   phase_layout_require(impl_->population<(1<<29),"parent fitness cache population capacity");
@@ -580,7 +467,8 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   impl_->parent_hashes.reserve(impl_->population);impl_->parent_table.reserve(impl_->parent_table_size);
   impl_->reproduction_profile+="-parent-fitness-cache";
  }
- if(impl_->uniform_phase_sites)impl_->reproduction_profile+="-uniform-phase";
+ if(impl_->operators.uniform_phase)impl_->reproduction_profile+="-uniform-phase";
+ if(impl_->warp_variation)impl_->reproduction_profile+=impl_->choice_tables?"-warp-choice":"-warp";
  const auto capability=gpu_detail::pack_programs_with_shared_case_count({impl_->layout.executable},0,0);
  phase_layout_require(capability.metas.size()==1 && capability.metas.front().is_valid,"fixed executable requires GPU fallback");
  impl_->slot_count=impl_->layout.slots.size();phase_layout_require(impl_->slot_count>0 && impl_->slot_count<=8,"phase count capacity");
@@ -618,7 +506,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  std::vector<DeviceSlot> slots;
  for(int k=0;k<impl_->slot_count;++k) {
   const auto& profile=impl_->layout.profiles[k];const auto& layout=impl_->layout.slots[k];
-  impl_->profiles.push_back(std::make_unique<UploadedProfile>(profile));
+  impl_->profiles.push_back(std::make_unique<UploadedProfile>(profile,impl_->choice_tables));
   const auto& nt=impl_->grammar->nonterminals()[layout.nonterminal];DeviceSlot slot{};
   slot.grammar=impl_->profiles.back()->view(profile);slot.root=profile.root_expression;slot.scope=nt.scope.size();slot.max_depth=layout.max_depth;slot.logical_depth=site_depth?site_depth:layout.logical_depth;
   const auto tag=[](RType t){return t==RType::Int?ValueTag::Int:t==RType::Bool?ValueTag::Bool:ValueTag::IntList;};
@@ -759,24 +647,30 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
  impl_->healthy=false;ReproductionStats timing;
  if(impl_->staged_buffers){const auto setup=Clock::now();impl_->reserve_reproduction_buffers();timing.setup_ms+=elapsed(setup);}
  const auto upload=Clock::now();impl_->fitness.upload(completed_fitness);timing.upload_ms=elapsed(upload);
- const bool counted=impl_->counted_sites;
  int threads=64;
  if(const char* setting=std::getenv("GAGP_PHASE_REPRO_THREADS")){threads=std::atoi(setting);phase_layout_require(threads==1 || threads==2 || threads==4 || threads==8 || threads==16 || threads==32 || threads==64 || threads==128,"phase reproduction block size");}
  const int p=impl_->population,k=impl_->slot_count,available=impl_->layout.budget.max_nodes-impl_->layout.fixed_nodes;
+ const auto& policy=impl_->operators;
  checked(cudaEventRecord(impl_->start));
- crossover_population<<<(p+threads-1)/threads,threads>>>(pointers(*impl_->current),pointers(*impl_->crossed),impl_->slots.data,k,p,available,
-    impl_->fitness.data,pressure,seed,impl_->stats.data,counted,impl_->deferred_copy,impl_->fused_splice_depth,impl_->uniform_phase_sites,impl_->source_crossover_gate);checked(cudaGetLastError());
- const bool fused=std::getenv("GAGP_GPU_FUSED_DONOR_SITES")!=nullptr;
- if(impl_->inplace_mutation) {
-  if(fused)mutate_population<true,true><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
-      probability,seed,impl_->stats.data,counted,impl_->fused_splice_depth,impl_->uniform_phase_sites);
-  else mutate_population<true,false><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
-      probability,seed,impl_->stats.data,counted,impl_->fused_splice_depth,impl_->uniform_phase_sites);
+ const auto blocks=(p+threads-1)/threads;
+ if(impl_->warp_variation)crossover_population<true><<<p,32>>>(pointers(*impl_->current),pointers(*impl_->crossed),impl_->slots.data,k,p,available,
+    impl_->fitness.data,pressure,seed,impl_->stats.data,policy);
+ else crossover_population<false><<<blocks,threads>>>(pointers(*impl_->current),pointers(*impl_->crossed),impl_->slots.data,k,p,available,
+    impl_->fitness.data,pressure,seed,impl_->stats.data,policy);
+ checked(cudaGetLastError());
+ const auto mutate=[&](auto kernel,int grid,int block){kernel<<<grid,block>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
+      probability,seed,impl_->stats.data,policy);};
+ const bool fused=impl_->fused_donor_sites,inplace=impl_->inplace_mutation;
+ if(impl_->warp_variation) {
+  if(inplace && fused)mutate(mutate_population<true,true,true>,p,32);
+  else if(inplace)mutate(mutate_population<true,false,true>,p,32);
+  else if(fused)mutate(mutate_population<false,true,true>,p,32);
+  else mutate(mutate_population<false,false,true>,p,32);
  } else {
-  if(fused)mutate_population<false,true><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
-      probability,seed,impl_->stats.data,counted,impl_->fused_splice_depth,impl_->uniform_phase_sites);
-  else mutate_population<false,false><<<(p+threads-1)/threads,threads>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
-      probability,seed,impl_->stats.data,counted,impl_->fused_splice_depth,impl_->uniform_phase_sites);
+  if(inplace && fused)mutate(mutate_population<true,true,false>,blocks,threads);
+  else if(inplace)mutate(mutate_population<true,false,false>,blocks,threads);
+  else if(fused)mutate(mutate_population<false,true,false>,blocks,threads);
+  else mutate(mutate_population<false,false,false>,blocks,threads);
  }
  checked(cudaGetLastError());
  auto& offspring=impl_->inplace_mutation?impl_->crossed:impl_->next;

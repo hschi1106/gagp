@@ -95,6 +95,29 @@ class TestFixedAsgpNative(unittest.TestCase):
             self.assertEqual(artifacts[0]['final_population'],artifacts[1]['final_population'])
             self.assertEqual([r['best'] for r in artifacts[0]['generations']],
                              [r['best'] for r in artifacts[1]['generations']])
+            # The CPU reference engine reproduces the resident GPU search exactly,
+            # and an explicit search config with the same semantics changes nothing.
+            config=folder/'search.json'
+            config.write_text(json.dumps({'format':'gagp-search-config-v1','representation':'phase_population',
+                'generations':2,'crossover':{'probability':1,'attempts':8},
+                'sites':{'scope':'genome','draw':'reservoir'}}))
+            for label,mode,extra in (('cpu','search_phase_cpu',{}),
+                                     ('config','search_gpu_overlap',{'GAGP_SEARCH_CONFIG':str(config)}),
+                                     ('cpuconfig','search_phase_cpu',{'GAGP_SEARCH_CONFIG':str(config)})):
+                out=folder/f'{label}.json'
+                self.call('measure',source,prepared,grammar,8,mode,out,env=dict(resident,**extra))
+                doc=json.loads(out.read_text())
+                self.assertEqual(doc['final_population'],artifacts[0]['final_population'],label)
+                self.assertEqual([(r['best'],r['mean'],r['best_wrong']) for r in doc['generations']],
+                                 [(r['best'],r['mean'],r['best_wrong']) for r in artifacts[0]['generations']],label)
+                self.assertEqual(doc['search_config']['sites'],{'scope':'genome','draw':'reservoir'})
+                self.assertEqual(doc['reproduction_profile'].startswith('native-cpu-phase-'),mode=='search_phase_cpu')
+            config.write_text(json.dumps({'format':'gagp-search-config-v1','generations':3}))
+            conflict=subprocess.run([str(BINARY),'measure',str(source),str(prepared),str(grammar),'8',
+                'search_phase_cpu',str(folder/'conflict.json')],env=dict(resident,GAGP_SEARCH_CONFIG=str(config)),
+                capture_output=True,text=True)
+            self.assertNotEqual(conflict.returncode,0)
+            self.assertIn('GAGP_SEARCH_GENERATIONS',conflict.stderr+conflict.stdout)
             # Launch geometry is an explicit search-only benchmark setting.
             # Its CPU audit must use the same logical reduction lanes.
             self.assertEqual(artifacts[0]['gpu_blocksize'],512)

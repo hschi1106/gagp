@@ -28,6 +28,9 @@
 #include "gagp/evolution/repro/gpu.hpp"
 #include "gagp/evolution/selection.hpp"
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
+#include "repro/gpu/phase_population_cpu.hpp"
+#include <array>
+#include <numeric>
 #ifdef GAGP_HAS_CUDA
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
 #include "repro/gpu/phase_population.hpp"
@@ -38,6 +41,29 @@
 namespace gagp::evo {
 
 namespace {
+enum class PhaseEngine { None, Gpu, Cpu };
+bool legacy_phase_flag_enabled() {
+  const char* value = std::getenv("GAGP_GPU_PHASE_POPULATION");
+  return value && std::string(value) != "0";
+}
+// Explicit requests need matching engines. The legacy switch only ever
+// selected the GPU owner (presence enables it, as before).
+PhaseEngine phase_engine(const EvolutionConfig& cfg) {
+  const bool gpu = cfg.eval_engine == EvalEngine::GPU && cfg.reproduction_backend == repro::ReproductionBackend::Gpu;
+  const bool cpu = cfg.eval_engine == EvalEngine::CPU && cfg.reproduction_backend == repro::ReproductionBackend::Cpu;
+  if (cfg.phase_population) {
+    if (!*cfg.phase_population) return PhaseEngine::None;
+    if (gpu) return PhaseEngine::Gpu;
+    if (cpu) return PhaseEngine::Cpu;
+    throw std::invalid_argument("phase population requires matching CPU/CPU or GPU/GPU evaluation/reproduction engines");
+  }
+  return gpu && std::getenv("GAGP_GPU_PHASE_POPULATION") ? PhaseEngine::Gpu : PhaseEngine::None;
+}
+// Phase-only policies require an enabled owner (explicit, or the legacy GPU switch).
+bool phase_policy_owner_enabled(const EvolutionConfig& cfg) {
+  if (cfg.phase_population) return phase_engine(cfg) != PhaseEngine::None;
+  return phase_engine(cfg) == PhaseEngine::Gpu && legacy_phase_flag_enabled();
+}
 void trace_search_generation(const EvolutionResult& result) {
   if(!std::getenv("GAGP_SEARCH_TRACE")) return;
   const auto& t=result.timing.generations.back();
@@ -314,87 +340,45 @@ std::vector<ScoredGenomeRef> score_population_gpu_refs(
       population, std::move(evaluation), result, generation_timing,
       fitness_sum_out, raw_fitness_out, sort_output);
 }
-// Native evaluator and GPU operators, with a private persistent genotype owner.
-// Cold import is charged once; all changed-child lowering/integration is charged
-// before completing a generation. No host reproduction or hidden AST replay.
-bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& cases,
-    const std::vector<ProgramGenome>& population, FitnessSessionGpu& session,
-    EvolutionResult& result, std::chrono::steady_clock::time_point search_start) {
-  if (!std::getenv("GAGP_GPU_PHASE_POPULATION") || cfg.eval_engine != EvalEngine::GPU ||
-      cfg.reproduction_backend != repro::ReproductionBackend::Gpu) return false;
-  const auto begin = std::chrono::steady_clock::now();
+#endif
+
+// Raw per-member results of one phase-owner evaluation. Canonicalization,
+// ranking and every later search decision are shared by both engines.
+struct PhaseOwnerFitness {
+  std::vector<double> fitness;
+  std::vector<unsigned> wrong;
+  std::vector<std::array<std::uint64_t,5>> counts;  // cases, errors, timeouts, fallbacks, unscored
+};
+// Shared generational loop of the native phase population. `Owner` is the GPU
+// owner or the CPU reference owner; `evaluate_owner` fills engine timing and
+// returns raw results. Selection, verification, history and export are common.
+template<class Owner,class Evaluate>
+void run_phase_population(const EvolutionConfig& cfg,const CaseSet& cases,Owner& owner,Evaluate evaluate_owner,
+    EvolutionResult& result,std::chrono::steady_clock::time_point search_start) {
   const auto elapsed = [](auto start) { return std::chrono::duration<double,std::milli>(
       std::chrono::steady_clock::now()-start).count(); };
-  gpu_detail::CudaAllocationScope allocation_scope;
-  std::unique_ptr<repro::NativePhasePopulation> owner;
-  try {
-    const auto entry = grammar::entry_request(*cfg.compiled_grammar);
-    const auto request = cfg.generation_request.value_or(entry);
-    if (!cfg.additional_generation_requests.empty() || cfg.mutation_subtree_prob != 1.0 ||
-        request.nonterminal != entry.nonterminal || request.type != entry.type ||
-        !request.visible_environment.empty() || request.budget.max_nodes != entry.budget.max_nodes ||
-        request.budget.max_depth != entry.budget.max_depth || request.stage != entry.stage)
-      throw std::invalid_argument("native GPU phase profile requires the exact entry request and default resource/variation policy");
-    if(!cfg.gpu_projected_phase_profile &&
-        (cfg.initial_resource_budget || cfg.offspring_resource_budget))
-      throw std::invalid_argument("projected budgets use generic native GPU reproduction unless gpu_projected_phase_profile is requested");
-    owner = std::make_unique<repro::NativePhasePopulation>(cfg.compiled_grammar,population,cases.input_names,cfg.offspring_resource_budget,cfg.gpu_phase_site_depth);
-  } catch (const std::invalid_argument& error) {
-    if(cfg.gpu_projected_phase_profile || cfg.cpu_fitness_verification.top_k || cfg.gpu_phase_site_depth || cfg.gpu_phase_site_parsimony)throw; // Explicit profiles fail closed
-    result.reproduction_fallback_reason = error.what();
-    result.timing.init_population_ms += elapsed(begin);
-    owner.reset();allocation_scope.finish();
-    return false;
-  }
-  result.timing.init_population_ms += elapsed(begin);
-  result.reproduction_profile = owner->profile_name();
-  result.gpu_stage_storage_reserved_bytes=owner->stage_storage_reserved_bytes();
-  if(allocation_scope.used())result.reproduction_profile+="-cuda-pool";
-  if(cfg.gpu_phase_site_parsimony)result.reproduction_profile+="-site-parsimony";
   std::mt19937_64 rng(cfg.seed);
   std::vector<double> fitness, selection_fitness;
   std::vector<unsigned> wrong;
-  std::vector<std::size_t> ranking(population.size());
+  std::vector<std::size_t> ranking(owner.population_size());
   const auto evaluate = [&](int generation, EvaluationTiming& timing) {
-    auto fit = owner->evaluate(session,std::getenv("GAGP_GPU_DIAGNOSTICS") != nullptr);
-    if (!fit.ok) throw std::runtime_error("native GPU phase fitness failed: " + fit.err.message);
-    timing.execution_profile=fit.execution_profile;
-    timing.physical_program_cases=fit.physical_program_cases;
-    timing.shape_result_programs=fit.shape_result_programs;
-    timing.shape_result_groups=fit.shape_result_groups;
-    timing.simple_phase_count=fit.simple_phase_count;
-    timing.physical_blocksize=fit.physical_blocksize;
-    timing.fitness_reused_programs=fit.fitness_reused_programs;
-    timing.fitness_reused_program_cases=fit.fitness_reused_program_cases;
-    timing.concat_cache_stats=fit.concat_cache_stats;
-    timing.payload_workspace_retained_bytes=fit.payload_workspace_retained_bytes;
-    timing.payload_workspace_pool_peak_bytes=fit.payload_workspace_pool_peak_bytes;
-    timing.payload_workspace_pool_allocations=fit.payload_workspace_pool_allocations;
-    timing.payload_replay_programs=fit.payload_replay_programs;
-    timing.payload_replay_cases=fit.payload_replay_cases;
-    timing.payload_replay_launches=fit.payload_replay_launches;
-
+    auto fit = evaluate_owner(timing);
+    std::vector<double> raw;
     if(cfg.cpu_fitness_verification.top_k) {
       const auto copy_start=std::chrono::steady_clock::now();
-      fitness=fit.fitness; // Keep raw GPU scores for approximation diagnostics.
+      raw=fit.fitness; // Keep raw scores for approximation diagnostics.
       timing.verification_ms+=elapsed(copy_start);
-    } else fitness = std::move(fit.fitness);
+    }
+    fitness = std::move(fit.fitness);
     wrong=std::move(fit.wrong);
-    if (fitness.size()!=population.size()) throw std::runtime_error("phase fitness size mismatch");
+    if (fitness.size()!=owner.population_size()) throw std::runtime_error("phase fitness size mismatch");
     for (auto& f:fitness) f=canonicalize_fitness_for_ranking(f);
-    for (const auto& c:fit.case_counts) {
+    for (const auto& c:fit.counts) {
       timing.program_cases+=c[0];timing.eval_errors+=c[1];timing.eval_timeouts+=c[2];
       timing.eval_fallbacks+=c[3];timing.eval_unscored+=c[4];
     }
-    timing.gpu_eval_call_ms=fit.timing.total_ms;timing.gpu_eval_pack_ms=fit.timing.pack_ms;
-    timing.gpu_eval_launch_prep_ms=fit.timing.launch_prep_ms;timing.gpu_eval_upload_ms=fit.timing.upload_ms;
-    timing.gpu_eval_initial_kernel_wall_ms=fit.timing.initial_kernel_wall_ms;
-    timing.gpu_eval_initial_kernel_event_ms=fit.timing.initial_kernel_event_ms;
-    timing.gpu_eval_replay_kernel_event_ms=fit.timing.replay_kernel_event_ms;
-    timing.gpu_eval_kernel_ms=fit.timing.kernel_ms;timing.gpu_eval_copyback_ms=fit.timing.copyback_ms;
-    timing.gpu_eval_teardown_ms=fit.timing.teardown_ms;
     std::iota(ranking.begin(),ranking.end(),0);
-    const auto nodes=wrong.empty()?std::vector<unsigned>{}:owner->node_counts(cfg.gpu_phase_site_parsimony);
+    const auto nodes=wrong.empty()?std::vector<unsigned>{}:owner.node_counts(cfg.gpu_phase_site_parsimony);
     const auto rank = [&] { std::stable_sort(ranking.begin(),ranking.end(),[&](auto a,auto b){
       if(fitness[a]!=fitness[b])return fitness[a]>fitness[b];
       if(!wrong.empty()) {
@@ -412,12 +396,12 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
       std::vector<std::size_t> indices(ranking.begin(), ranking.begin() + verify.top_k);
       std::vector<BytecodeProgram> programs;
       for (const auto i : indices)
-        programs.push_back(compile_for_eval(owner->export_member(i), cases.input_names));
+        programs.push_back(compile_for_eval(owner.export_member(i), cases.input_names));
       std::vector<unsigned> reference_wrong;
       std::vector<CpuFitnessCaseCounts> counts;
       const auto reference = eval_fitness_cpu(programs, cases.bindings, cases.expected_values,
           cfg.fuel, cfg.penalty, cfg.gpu_blocksize, cfg.fitness_policy, &reference_wrong, &counts);
-      detail::reconcile_reference_fitness(indices, reference, reference_wrong, fitness, wrong, timing, fit.fitness);
+      detail::reconcile_reference_fitness(indices, reference, reference_wrong, fitness, wrong, timing, raw);
       timing.verification_programs = programs.size();
       for (const auto& c : counts) {
         timing.verification_cases += c.cases;
@@ -431,7 +415,7 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
     }
     accumulate_timing(&result.timing.evaluation_totals,timing);
     if (std::binary_search(cfg.checkpoint_generations.begin(), cfg.checkpoint_generations.end(), generation)) {
-      auto exported = owner->export_population();
+      auto exported = owner.export_population();
       std::vector<ScoredGenome> snapshot;
       for (std::size_t i = 0; i < exported.size(); ++i)
         snapshot.push_back({std::move(exported[i]), fitness[i], wrong.empty() ? -1 : int(wrong[i])});
@@ -444,16 +428,16 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
     const auto start=std::chrono::steady_clock::now();GenerationTiming timing;
     evaluate(gen,timing.evaluation);timing.eval_ms=elapsed(start);
     const auto best=ranking.front();
-    result.history_best.push_back({owner->export_member(best),fitness[best],wrong.empty()?-1:int(wrong[best])});
+    result.history_best.push_back({owner.export_member(best),fitness[best],wrong.empty()?-1:int(wrong[best])});
     result.history_best_fitness.push_back(fitness[best]);
     long double sum=0;for(double f:fitness)sum+=f;
     result.history_mean_fitness.push_back(static_cast<double>(sum/fitness.size()));
     const auto repro_start=std::chrono::steady_clock::now();
-    timing.reproduction=reproduction_timing_from_stats(owner->reproduce(selection_fitness,
+    timing.reproduction=reproduction_timing_from_stats(owner.reproduce(selection_fitness,
         std::clamp(cfg.selection_pressure,1,cfg.population_size),cfg.mutation_rate,rng(),cfg.elite_count));
     timing.repro_ms=elapsed(repro_start);
-    result.genotype_device_bytes=std::max<std::uint64_t>(result.genotype_device_bytes,owner->device_bytes());
-    result.gpu_stage_storage_peak_bytes=owner->stage_storage_peak_bytes();
+    result.genotype_device_bytes=std::max<std::uint64_t>(result.genotype_device_bytes,owner.device_bytes());
+    result.gpu_stage_storage_peak_bytes=owner.stage_storage_peak_bytes();
     accumulate_timing(&result.timing.reproduction_totals,timing.reproduction);
     const auto finish=std::chrono::steady_clock::now();
     timing.total_ms=std::chrono::duration<double,std::milli>(finish-start).count();
@@ -465,23 +449,152 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
   else {
     const auto start=std::chrono::steady_clock::now();EvaluationTiming timing;evaluate(cfg.generations,timing);
     if(cfg.retain_final_population && std::getenv("GAGP_BATCH_PHASE_EXPORT")) {
-      auto exported=owner->export_population();
+      auto exported=owner.export_population();
       result.best={exported.at(ranking.front()),fitness[ranking.front()],wrong.empty()?-1:int(wrong[ranking.front()])};
       for(auto i:ranking)result.final_population.push_back({std::move(exported.at(i)),fitness[i],wrong.empty()?-1:int(wrong[i])});
     } else {
-      result.best={owner->export_member(ranking.front()),fitness[ranking.front()],wrong.empty()?-1:int(wrong[ranking.front()])};
+      result.best={owner.export_member(ranking.front()),fitness[ranking.front()],wrong.empty()?-1:int(wrong[ranking.front()])};
       if(cfg.retain_final_population)for(auto i:ranking)
-        result.final_population.push_back({owner->export_member(i),fitness[i],wrong.empty()?-1:int(wrong[i])});
+        result.final_population.push_back({owner.export_member(i),fitness[i],wrong.empty()?-1:int(wrong[i])});
     }
-    result.genotype_device_bytes=std::max<std::uint64_t>(result.genotype_device_bytes,owner->device_bytes());
-    result.gpu_stage_storage_peak_bytes=owner->stage_storage_peak_bytes();
+    result.genotype_device_bytes=std::max<std::uint64_t>(result.genotype_device_bytes,owner.device_bytes());
+    result.gpu_stage_storage_peak_bytes=owner.stage_storage_peak_bytes();
     result.timing.final_eval_ms=elapsed(start);
   }
+}
+// Rejects owner-construction policies that the native phase owners do not support.
+void require_phase_entry_policy(const EvolutionConfig& cfg) {
+  const auto entry = grammar::entry_request(*cfg.compiled_grammar);
+  const auto request = cfg.generation_request.value_or(entry);
+  if (!cfg.additional_generation_requests.empty() || cfg.mutation_subtree_prob != 1.0 ||
+      request.nonterminal != entry.nonterminal || request.type != entry.type ||
+      !request.visible_environment.empty() || request.budget.max_nodes != entry.budget.max_nodes ||
+      request.budget.max_depth != entry.budget.max_depth || request.stage != entry.stage)
+    throw std::invalid_argument("native GPU phase profile requires the exact entry request and default resource/variation policy");
+  if(!cfg.gpu_projected_phase_profile &&
+      (cfg.initial_resource_budget || cfg.offspring_resource_budget))
+    throw std::invalid_argument("projected budgets use generic native GPU reproduction unless gpu_projected_phase_profile is requested");
+}
+PhaseVariationPolicy resolve_phase_variation(const EvolutionConfig& cfg) {
+  if (!cfg.phase_variation) return phase_variation_policy_from_environment();
+  validate_phase_variation_policy(*cfg.phase_variation);
+  require_environment_agrees(*cfg.phase_variation);
+  return *cfg.phase_variation;
+}
+struct CpuPhaseOwner {
+  repro::HostPhasePopulation& owner;
+  std::size_t population;
+  std::size_t population_size() const { return population; }
+  std::vector<unsigned> node_counts(bool sites) const { return owner.node_counts(sites); }
+  ProgramGenome export_member(std::size_t i) const { return owner.export_member(i); }
+  std::vector<ProgramGenome> export_population() const { return owner.export_population(); }
+  repro::ReproductionStats reproduce(const std::vector<double>& f,int t,double m,std::uint64_t s,int e) { return owner.reproduce(f,t,m,s,e); }
+  std::uint64_t device_bytes() const { return 0; }
+  std::uint64_t stage_storage_peak_bytes() const { return 0; }
+};
+#ifdef GAGP_HAS_CUDA
+// Adapter giving the GPU owner the uniform owner interface.
+struct GpuPhaseOwner {
+  repro::NativePhasePopulation& owner;
+  std::size_t population;
+  std::size_t population_size() const { return population; }
+  std::vector<unsigned> node_counts(bool sites) const { return owner.node_counts(sites); }
+  ProgramGenome export_member(std::size_t i) const { return owner.export_member(i); }
+  std::vector<ProgramGenome> export_population() const { return owner.export_population(); }
+  repro::ReproductionStats reproduce(const std::vector<double>& f,int t,double m,std::uint64_t s,int e) { return owner.reproduce(f,t,m,s,e); }
+  std::uint64_t device_bytes() const { return owner.device_bytes(); }
+  std::uint64_t stage_storage_peak_bytes() const { return owner.stage_storage_peak_bytes(); }
+};
+// Native evaluator and GPU operators, with a private persistent genotype owner.
+// Cold import is charged once; all changed-child lowering/integration is charged
+// before completing a generation. No host reproduction or hidden AST replay.
+bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& cases,
+    const std::vector<ProgramGenome>& population, FitnessSessionGpu& session,
+    EvolutionResult& result, std::chrono::steady_clock::time_point search_start) {
+  if (phase_engine(cfg) != PhaseEngine::Gpu) return false;
+  const auto begin = std::chrono::steady_clock::now();
+  const auto elapsed = [](auto start) { return std::chrono::duration<double,std::milli>(
+      std::chrono::steady_clock::now()-start).count(); };
+  gpu_detail::CudaAllocationScope allocation_scope;
+  std::unique_ptr<repro::NativePhasePopulation> owner;
+  const auto policy = resolve_phase_variation(cfg);
+  try {
+    require_phase_entry_policy(cfg);
+    owner = std::make_unique<repro::NativePhasePopulation>(cfg.compiled_grammar,population,cases.input_names,cfg.offspring_resource_budget,cfg.gpu_phase_site_depth,policy);
+  } catch (const std::invalid_argument& error) {
+    if(cfg.phase_population || cfg.gpu_projected_phase_profile || cfg.cpu_fitness_verification.top_k || cfg.gpu_phase_site_depth || cfg.gpu_phase_site_parsimony)throw; // Explicit profiles fail closed
+    result.reproduction_fallback_reason = error.what();
+    result.timing.init_population_ms += elapsed(begin);
+    owner.reset();allocation_scope.finish();
+    return false;
+  }
+  result.timing.init_population_ms += elapsed(begin);
+  result.reproduction_profile = owner->profile_name();
+  result.gpu_stage_storage_reserved_bytes=owner->stage_storage_reserved_bytes();
+  if(allocation_scope.used())result.reproduction_profile+="-cuda-pool";
+  if(cfg.gpu_phase_site_parsimony)result.reproduction_profile+="-site-parsimony";
+  const bool diagnostics=std::getenv("GAGP_GPU_DIAGNOSTICS") != nullptr;
+  const auto evaluate_owner=[&](EvaluationTiming& timing) {
+    auto fit = owner->evaluate(session,diagnostics);
+    if (!fit.ok) throw std::runtime_error("native GPU phase fitness failed: " + fit.err.message);
+    timing.execution_profile=fit.execution_profile;
+    timing.physical_program_cases=fit.physical_program_cases;
+    timing.shape_result_programs=fit.shape_result_programs;
+    timing.shape_result_groups=fit.shape_result_groups;
+    timing.simple_phase_count=fit.simple_phase_count;
+    timing.physical_blocksize=fit.physical_blocksize;
+    timing.fitness_reused_programs=fit.fitness_reused_programs;
+    timing.fitness_reused_program_cases=fit.fitness_reused_program_cases;
+    timing.concat_cache_stats=fit.concat_cache_stats;
+    timing.payload_workspace_retained_bytes=fit.payload_workspace_retained_bytes;
+    timing.payload_workspace_pool_peak_bytes=fit.payload_workspace_pool_peak_bytes;
+    timing.payload_workspace_pool_allocations=fit.payload_workspace_pool_allocations;
+    timing.payload_replay_programs=fit.payload_replay_programs;
+    timing.payload_replay_cases=fit.payload_replay_cases;
+    timing.payload_replay_launches=fit.payload_replay_launches;
+    timing.gpu_eval_call_ms=fit.timing.total_ms;timing.gpu_eval_pack_ms=fit.timing.pack_ms;
+    timing.gpu_eval_launch_prep_ms=fit.timing.launch_prep_ms;timing.gpu_eval_upload_ms=fit.timing.upload_ms;
+    timing.gpu_eval_initial_kernel_wall_ms=fit.timing.initial_kernel_wall_ms;
+    timing.gpu_eval_initial_kernel_event_ms=fit.timing.initial_kernel_event_ms;
+    timing.gpu_eval_replay_kernel_event_ms=fit.timing.replay_kernel_event_ms;
+    timing.gpu_eval_kernel_ms=fit.timing.kernel_ms;timing.gpu_eval_copyback_ms=fit.timing.copyback_ms;
+    timing.gpu_eval_teardown_ms=fit.timing.teardown_ms;
+    PhaseOwnerFitness out;out.fitness=std::move(fit.fitness);out.wrong=std::move(fit.wrong);
+    for(const auto& c:fit.case_counts)out.counts.push_back({std::uint64_t(c[0]),std::uint64_t(c[1]),std::uint64_t(c[2]),std::uint64_t(c[3]),std::uint64_t(c[4])});
+    return out;
+  };
+  GpuPhaseOwner adapter{*owner,population.size()};
+  run_phase_population(cfg,cases,adapter,evaluate_owner,result,search_start);
   owner.reset();allocation_scope.finish();
   return true;
 }
-
 #endif
+// CPU reference engine: same import, operators, draws and lowering as the GPU
+// owner; programs are evaluated by the CPU evaluator on the host only.
+void evolve_cpu_phase_population(const EvolutionConfig& cfg, const CaseSet& cases,
+    const std::vector<ProgramGenome>& population, EvolutionResult& result,
+    std::chrono::steady_clock::time_point search_start) {
+  const auto begin = std::chrono::steady_clock::now();
+  require_phase_entry_policy(cfg);
+  repro::HostPhasePopulation owner(cfg.compiled_grammar,population,cases.input_names,cfg.offspring_resource_budget,
+      cfg.gpu_phase_site_depth,resolve_phase_variation(cfg));
+  result.timing.init_population_ms += std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count();
+  result.reproduction_profile = owner.profile_name();
+  if(cfg.gpu_phase_site_parsimony)result.reproduction_profile+="-site-parsimony";
+  const auto evaluate_owner=[&](EvaluationTiming& timing) {
+    auto fit=owner.evaluate(cases.bindings,cases.expected_values,cfg.fuel,cfg.penalty,cfg.gpu_blocksize,cfg.fitness_policy);
+    timing.execution_profile="cpu-phase-reference";
+    timing.fitness_reused_programs=fit.reused_programs;
+    timing.fitness_reused_program_cases=fit.reused_programs*cases.bindings.size();
+    timing.physical_program_cases=fit.evaluated_programs*cases.bindings.size();
+    PhaseOwnerFitness out;out.fitness=std::move(fit.fitness);out.wrong=std::move(fit.wrong);
+    for(const auto& c:fit.case_counts)out.counts.push_back({c.cases,c.errors,c.timeouts,0,0});
+    return out;
+  };
+  CpuPhaseOwner adapter{owner,population.size()};
+  run_phase_population(cfg,cases,adapter,evaluate_owner,result,search_start);
+}
+
 
 }  // namespace
 
@@ -511,10 +624,8 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
       (cfg.gpu_phase_site_depth && (cfg.initial_resource_budget || cfg.offspring_resource_budget || cfg.gpu_projected_phase_profile)))
     throw std::invalid_argument("invalid GPU phase site depth or conflicting projected budget");
   if(cfg.gpu_phase_site_depth || cfg.gpu_phase_site_parsimony) {
-    const auto* phase=std::getenv("GAGP_GPU_PHASE_POPULATION");
-    if(cfg.eval_engine!=EvalEngine::GPU || cfg.reproduction_backend!=repro::ReproductionBackend::Gpu ||
-        !phase || std::string(phase)=="0")
-      throw std::invalid_argument("GPU phase site policy requires resident GPU evaluation/reproduction");
+    if(!phase_policy_owner_enabled(cfg))
+      throw std::invalid_argument("GPU phase site policy requires resident GPU evaluation/reproduction or the explicit CPU phase reference");
     if(cfg.gpu_phase_site_parsimony && cfg.fitness_policy.metric==FitnessMetric::Legacy)
       throw std::invalid_argument("GPU phase site parsimony requires a task metric with wrong counts");
   }
@@ -523,10 +634,8 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
       !std::isfinite(verify.near_zero_error) || verify.near_zero_error < -1)
     throw std::invalid_argument("invalid CPU fitness verification budget/interval/threshold");
   if (verify.top_k) {
-    const auto* phase = std::getenv("GAGP_GPU_PHASE_POPULATION");
-    if (cfg.eval_engine != EvalEngine::GPU || cfg.reproduction_backend != repro::ReproductionBackend::Gpu ||
-        !phase || std::string(phase) == "0")
-      throw std::invalid_argument("CPU fitness verification requires resident GPU evaluation/reproduction");
+    if (!phase_policy_owner_enabled(cfg))
+      throw std::invalid_argument("CPU fitness verification requires resident GPU evaluation/reproduction or the explicit CPU phase reference");
     if (cfg.fitness_policy.metric == FitnessMetric::Legacy)
       throw std::invalid_argument("CPU fitness verification requires a task metric with wrong counts");
   }
@@ -537,10 +646,8 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
         (cfg.skip_final_eval && cfg.checkpoint_generations.back() == cfg.generations))))
     throw std::invalid_argument("invalid evaluation checkpoints");
   if(cfg.gpu_projected_phase_profile) {
-    const auto* phase_mode=std::getenv("GAGP_GPU_PHASE_POPULATION");
-    if(cfg.eval_engine!=EvalEngine::GPU || cfg.reproduction_backend!=repro::ReproductionBackend::Gpu ||
-        !phase_mode || std::string(phase_mode)=="0")
-      throw std::invalid_argument("gpu_projected_phase_profile requires GPU evaluation/reproduction and GAGP_GPU_PHASE_POPULATION enabled");
+    if(!phase_policy_owner_enabled(cfg))
+      throw std::invalid_argument("gpu_projected_phase_profile requires GPU evaluation/reproduction and GAGP_GPU_PHASE_POPULATION enabled, or an explicit phase population");
     if(!cfg.compiled_grammar || !cfg.initial_resource_budget || !cfg.offspring_resource_budget ||
         cfg.initial_resource_budget->max_nodes!=cfg.offspring_resource_budget->max_nodes ||
         cfg.initial_resource_budget->max_depth!=cfg.offspring_resource_budget->max_depth)
@@ -549,6 +656,8 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
         cfg.offspring_resource_budget->max_depth==0 || cfg.offspring_resource_budget->max_depth>15)
       throw std::invalid_argument("gpu_projected_phase_profile requires the grammar node cap and projected depth in [1,15]");
   }
+  if (cfg.phase_variation && phase_engine(cfg) == PhaseEngine::None)
+    throw std::invalid_argument("phase variation policy requires the native phase population");
   repro::require_reproduction_mode_supported(cfg);
   if (cases.empty()) {
     throw std::invalid_argument("cases must not be empty");
@@ -572,9 +681,7 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
   reproduction_cfg.verification_inputs = case_set.input_specs;
   // The phase owner has independent whole-program and per-phase capacities.
   // Keep ordinary generic preflight early; defer it when phase admission is requested.
-  const bool phase_requested=cfg.eval_engine==EvalEngine::GPU &&
-      cfg.reproduction_backend==repro::ReproductionBackend::Gpu &&
-      std::getenv("GAGP_GPU_PHASE_POPULATION");
+  const bool phase_requested=phase_engine(cfg)!=PhaseEngine::None;
   auto gpu_repro_resources = cfg.reproduction_backend==repro::ReproductionBackend::Gpu && !phase_requested
       ? repro::make_gpu_repro_run_resources(reproduction_cfg) : nullptr;
   const PayloadLifetimeManager initial_payload_lifetime(cases,gpu_repro_resources);
@@ -618,6 +725,14 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
     return result;
   }
 #endif
+  if (phase_engine(cfg) == PhaseEngine::Cpu) {
+    evolve_cpu_phase_population(cfg, case_set, population, result, all_t0);
+    initial_payload_lifetime.retain({},result.history_best,cfg.skip_final_eval ? nullptr : &result.best,
+        cfg.retain_final_population ? &result.final_population : nullptr);
+    result.timing.total_ms=std::chrono::duration<double,std::milli>(
+        std::chrono::steady_clock::now()-all_t0).count();
+    return result;
+  }
 
   const auto checkpoint = [&](int generation, const std::vector<ProgramGenome>& members,
                               const std::vector<ScoredGenomeRef>& scored) {

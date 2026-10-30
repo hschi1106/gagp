@@ -1,5 +1,6 @@
 #include "adapter.hpp"
 #include "search_contract.hpp"
+#include "gagp/cli/search_config.hpp"
 #include "expanded_audit.hpp"
 #include "sampled_audit.hpp"
 #include "source_depth.hpp"
@@ -632,6 +633,26 @@ void search_asgp(const std::vector<asgp::Individual>& parents, const asgp::TaskS
     {"evolve_wall_ms",number(wall_ms)},{"initial_admission_ms",number(init_ms)},{"final_eval_ms",number(final_ms)},
     {"reproduction_profile",string("asgp-fixed-native-elite1")}}));
 }
+// Optional gagp-search-config-v1 file (GAGP_SEARCH_CONFIG). It may not
+// contradict the input population size or a bench environment setting.
+void apply_search_config_file(gagp::evo::EvolutionConfig& cfg,const std::vector<gagp::evo::EvalCase>& cases) {
+  const char* path=std::getenv("GAGP_SEARCH_CONFIG");if(!path)return;
+  const auto config=gagp::cli_detail::load_search_config(path);
+  const auto conflict=[](const char* env,bool differs){
+    if(std::getenv(env) && differs)throw std::invalid_argument(std::string("GAGP_SEARCH_CONFIG contradicts ")+env);};
+  if(config.population_size && *config.population_size!=cfg.population_size)
+    throw std::invalid_argument("GAGP_SEARCH_CONFIG population_size differs from the input population");
+  conflict("GAGP_SEARCH_GENERATIONS",config.generations && *config.generations!=cfg.generations);
+  conflict("GAGP_BM_SEED",config.seed && *config.seed!=cfg.seed);
+  conflict("GAGP_SEARCH_PENALTY",config.penalty && *config.penalty!=cfg.penalty);
+  conflict("GAGP_GPU_SITE_DEPTH",config.site_depth && *config.site_depth!=cfg.gpu_phase_site_depth);
+  conflict("GAGP_GPU_SITE_PARSIMONY",config.grammar_site_ranking && *config.grammar_site_ranking!=cfg.gpu_phase_site_parsimony);
+  gagp::cli_detail::apply_search_config(config,cfg);
+  if(!std::isfinite(cfg.penalty) || cfg.penalty<0 ||
+     (cfg.penalty==0 && !(std::getenv("GAGP_BM_COMMON_FITNESS") && !cases.empty() && cases[0].expected.tag==gagp::ValueTag::IntList)))
+    throw std::invalid_argument("search penalty must be positive (common list exact policy permits zero)");
+  validate_aligned_penalty(cfg.penalty);
+}
 void search(const std::vector<gagp::evo::ProgramGenome>& population,
             const std::vector<gagp::evo::EvalCase>& cases,
             const std::shared_ptr<const gg::CompiledGrammar>& grammar, const std::string& output,
@@ -639,14 +660,18 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   gagp::evo::EvolutionConfig cfg;
   cfg.population_size=population.size(); cfg.generations=std::getenv("GAGP_SEARCH_GENERATIONS") ? std::stoi(std::getenv("GAGP_SEARCH_GENERATIONS")) : 4;
   cfg.seed=std::getenv("GAGP_BM_SEED") ? std::stoull(std::getenv("GAGP_BM_SEED")) : 0;
-  cfg.eval_engine=mode=="gagp_cpu" ? gagp::evo::EvalEngine::CPU : gagp::evo::EvalEngine::GPU;
+  // phase_cpu: CPU reference engine of the native phase population (same
+  // operators and draws as the resident GPU owner, CPU evaluation, no GPU).
+  cfg.eval_engine=(mode=="gagp_cpu" || mode=="phase_cpu") ? gagp::evo::EvalEngine::CPU : gagp::evo::EvalEngine::GPU;
   cfg.reproduction_backend=(mode=="gpu_repro" || mode=="gpu_overlap") ? gagp::evo::repro::ReproductionBackend::Gpu : gagp::evo::repro::ReproductionBackend::Cpu;
+  if(mode=="phase_cpu")cfg.phase_population=true;
   cfg.repro_overlap=mode=="gpu_overlap"; cfg.compiled_grammar=grammar; cfg.generation_request=gg::entry_request(*grammar);
   cfg.fuel=2000000; cfg.penalty=std::getenv("GAGP_SEARCH_PENALTY") ? std::stod(std::getenv("GAGP_SEARCH_PENALTY")) : 1000;
   if(!std::isfinite(cfg.penalty) || cfg.penalty<0 ||
      (cfg.penalty==0 && !(std::getenv("GAGP_BM_COMMON_FITNESS") && !cases.empty() && cases[0].expected.tag==gagp::ValueTag::IntList)))
     throw std::invalid_argument("search penalty must be positive (common list exact policy permits zero)");
-  cfg.gpu_blocksize=cfg.eval_engine==gagp::evo::EvalEngine::GPU ? search_gpu_blocksize() : 512;
+  // The CPU phase reference must use the same fitness reduction lanes as the GPU owner.
+  cfg.gpu_blocksize=(cfg.eval_engine==gagp::evo::EvalEngine::GPU || mode=="phase_cpu") ? search_gpu_blocksize() : 512;
   cfg.selection_pressure=2;
   cfg.fitness_policy=task_fitness_policy(spec);
   validate_aligned_penalty(cfg.penalty);
@@ -654,6 +679,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
   cfg.mutation_rate=.3; cfg.mutation_subtree_prob=1; cfg.skip_final_eval=false; cfg.retain_final_population=true;
   if(const char* value=std::getenv("GAGP_GPU_SITE_DEPTH"))cfg.gpu_phase_site_depth=std::stoi(value);
   if(const char* value=std::getenv("GAGP_GPU_SITE_PARSIMONY"))cfg.gpu_phase_site_parsimony=std::string(value)=="1";
+  apply_search_config_file(cfg,cases);
   if (const char* value=std::getenv("GAGP_VERIFY_TOP_K"))cfg.cpu_fitness_verification.top_k=std::stoi(value);
   if (const char* value=std::getenv("GAGP_VERIFY_INTERVAL"))cfg.cpu_fitness_verification.interval=std::stoi(value);
   if (const char* value=std::getenv("GAGP_VERIFY_NEAR_ZERO"))cfg.cpu_fitness_verification.near_zero_error=std::stod(value);
@@ -758,6 +784,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
     {"verification_interval",number(cfg.cpu_fitness_verification.interval)},
     {"verification_near_zero",number(cfg.cpu_fitness_verification.near_zero_error)},
     {"search_contract",search_contract_json(cfg,result.reproduction_profile)},
+    {"search_config",gagp::cli_detail::effective_search_config(cfg)},
     {"source_depth_cap",number(cfg.offspring_resource_budget?cfg.offspring_resource_budget->max_depth:0)},
     {"reproduction_profile",string(result.reproduction_profile)}, {"reproduction_fallback_reason",string(result.reproduction_fallback_reason)},
     {"genotype_device_bytes",number(result.genotype_device_bytes)}, {"gpu_stage_storage_reserved_bytes",number(result.gpu_stage_storage_reserved_bytes)}, {"gpu_stage_storage_peak_bytes",number(result.gpu_stage_storage_peak_bytes)}, {"top16_cpu",array(std::move(top_rows))},{"cpu_audit_ms",number(elapsed(audit_begin))},{"cpu_audit_program_count",number(cpu.size())},{"cpu_audit_mismatches",number(audit_mismatches)}, {"cpu_audit_wrong_mismatches",number(audit_wrong_mismatches)}, {"cpu_audit_wrong_program_count",number(audit_wrong_programs)},
@@ -768,7 +795,7 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
 }
 void measure(const Json& source, const std::string& prepared_path, const std::string& grammar_path,
              int count, const std::string& mode, const std::string& output) {
-  const std::set<std::string> modes{"asgp_1t","gagp_cpu","gpu_eval","gpu_repro","gpu_overlap","snapshot","asgp_snapshot","search","search_asgp_1t","search_gagp_cpu","search_gpu_eval","search_gpu_repro","search_gpu_overlap"};
+  const std::set<std::string> modes{"asgp_1t","gagp_cpu","gpu_eval","gpu_repro","gpu_overlap","snapshot","asgp_snapshot","search","search_asgp_1t","search_gagp_cpu","search_gpu_eval","search_gpu_repro","search_gpu_overlap","search_phase_cpu"};
   if (!modes.count(mode)) throw std::runtime_error("unknown mode");
   auto spec=task(source.object_v.at("task").string_v);
   std::vector<gagp::evo::EvalCase> cases;
