@@ -11,6 +11,7 @@
 #include "parent_fitness_cache.cuh"
 #include "../../batch_workers.hpp"
 #include "gagp/evolution/compiler.hpp"
+#include "../../../runtime/cpu/phase_sharing_probe.hpp"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -183,11 +184,13 @@ HostPhasePopulation::Evaluation HostPhasePopulation::evaluate(const std::vector<
  parallel_rows(chunks,[&](int c) {
   const int begin=c*chunk,end=std::min<int>(pending.size(),begin+chunk);
   std::vector<BytecodeProgram> batch;for(int j=begin;j<end;++j)batch.push_back(s.programs[pending[j]]);
+  if(gagp::detail::phase_sharing::enabled())gagp::detail::phase_sharing::program_base()=std::uint64_t(begin);
   std::vector<unsigned> batch_wrong;std::vector<CpuFitnessCaseCounts> counts;
   const auto fitness=eval_fitness_cpu(batch,cases,expected,fuel,penalty,reduction_lanes,policy,wrong?&batch_wrong:nullptr,&counts);
   for(int j=begin;j<end;++j){const int i=pending[j];result.fitness[i]=fitness[j-begin];result.case_counts[i]=counts.at(j-begin);if(wrong)result.wrong[i]=batch_wrong[j-begin];}
  });
  result.evaluated_programs=pending.size();
+ if(gagp::detail::phase_sharing::enabled())gagp::detail::phase_sharing::end_generation();
  s.completed=result;s.have_completed=true;
  return result;
 }

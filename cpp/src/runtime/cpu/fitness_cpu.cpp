@@ -1,4 +1,5 @@
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
+#include "phase_sharing_probe.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -109,6 +110,11 @@ std::vector<double> eval_fitness_cpu(
       double local_score = 0.0;
       for (std::size_t c = chunk_start; c < chunk_end; ++c) {
         const auto& inputs = case_inputs[c];
+        if (detail::phase_sharing::enabled())
+          detail::phase_sharing::current_program() = detail::phase_sharing::program_base() + p;
+        if (detail::phase_sharing::enabled())
+          detail::phase_sharing::current_case() = 0x51ed27ULL + c +
+              (std::getenv("GAGP_RESEARCH_PHASE_SHARING_PER_PROGRAM") ? (detail::phase_sharing::program_base() + static_cast<std::uint64_t>(p) + 1) << 32 : 0);
         // Evaluation temporaries live through scoring only; inputs/constants remain
         // in the committed registry. The budget also bounds exponential Concat.
         payload::StagedPayloads::Scope payload_scope(temporary_payloads);
