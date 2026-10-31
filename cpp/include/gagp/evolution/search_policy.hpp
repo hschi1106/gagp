@@ -21,11 +21,15 @@ struct PhaseVariationPolicy {
   double crossover_probability = 1.0;
   // Destination/donor site retries before the child keeps its parent phases.
   int crossover_attempts = 8;
+  // Node cap of a freshly generated mutation subtree; 0 keeps only the phase
+  // capacity. When the cap makes the site infeasible, the child is not mutated.
+  int mutation_max_nodes = 0;
 
   bool operator==(const PhaseVariationPolicy& other) const {
     return site_draw == other.site_draw && site_scope == other.site_scope &&
            crossover_probability == other.crossover_probability &&
-           crossover_attempts == other.crossover_attempts;
+           crossover_attempts == other.crossover_attempts &&
+           mutation_max_nodes == other.mutation_max_nodes;
   }
 };
 

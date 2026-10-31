@@ -19,6 +19,8 @@ void validate_phase_variation_policy(const PhaseVariationPolicy& policy) {
     throw std::invalid_argument("crossover probability must be in [0,1]");
   if (policy.crossover_attempts < 1 || policy.crossover_attempts > 64)
     throw std::invalid_argument("crossover attempts must be in [1,64]");
+  if (policy.mutation_max_nodes < 0 || policy.mutation_max_nodes > 1024)
+    throw std::invalid_argument("mutation max subtree nodes must be 0 (off) or in [1,1024]");
 }
 
 PhaseVariationPolicy phase_variation_policy_from_environment() {
@@ -45,6 +47,7 @@ std::string phase_variation_profile_suffix(const PhaseVariationPolicy& policy) {
   if (policy.crossover_probability == 0.7) out << "-source-cross07";
   else if (policy.crossover_probability != 1) out << "-cross" << policy.crossover_probability;
   if (policy.crossover_attempts != 8) out << "-attempts" << policy.crossover_attempts;
+  if (policy.mutation_max_nodes) out << "-mutcap" << policy.mutation_max_nodes;
   return out.str();
 }
 

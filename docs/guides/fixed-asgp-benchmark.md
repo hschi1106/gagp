@@ -587,7 +587,10 @@ member may not contradict a present `GAGP_SEARCH_GENERATIONS`, `GAGP_BM_SEED`,
 An explicit phase policy also rejects disagreeing legacy flags
 (`GAGP_COUNTED_SITE_DRAW`, `GAGP_GPU_UNIFORM_PHASE_SITES`,
 `GAGP_GPU_SOURCE_CROSSOVER_GATE`). Search JSON records the effective document
-as `search_config`.
+as `search_config`. For GAGP vs ASGP comparisons, use the ASGP comparison profile
+`configs/search/phase_asgp_site7.json`, which aligns the spec's `common`
+members (tree-depth limit, operator rates, site scope, selection, elitism);
+report results under native GAGP defaults only as a separate setting.
 `GAGP_SEARCH_GENERATIONS` and `GAGP_BM_SEED` select search length and reproduction
 seed. `GAGP_SEARCH_TRACE=1` emits completed-generation progress on stderr. This
 I/O is included in search wall time, outside each generation timer.

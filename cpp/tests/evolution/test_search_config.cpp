@@ -43,7 +43,8 @@ void test_parse_and_apply() {
       "\"seed\":\"18446744073709551615\",\"selection\":{\"method\":\"tournament\",\"size\":3},"
       "\"elitism\":1,\"crossover\":{\"probability\":0.7,\"attempts\":4},\"mutation\":{\"probability\":0.3},"
       "\"sites\":{\"scope\":\"uniform_phase\",\"draw\":\"counted\"},\"limits\":{\"site_depth\":7},"
-      "\"ranking\":{\"tie_break\":\"grammar_sites\"},\"fitness\":{\"penalty\":1000}");
+      "\"ranking\":{\"tie_break\":\"grammar_sites\"},\"fitness\":{\"penalty\":1000},"
+      "\"execution\":{\"fuel\":200000}");
   evo::EvolutionConfig cfg;
   apply_search_config(full, cfg);
   require(cfg.phase_population && *cfg.phase_population, "representation");
@@ -51,6 +52,7 @@ void test_parse_and_apply() {
   require(cfg.seed == UINT64_C(18446744073709551615), "64-bit string seed");
   require(cfg.selection_pressure == 3 && cfg.elite_count == 1 && cfg.mutation_rate == 0.3, "selection/elitism/mutation");
   require(cfg.gpu_phase_site_depth == 7 && cfg.gpu_phase_site_parsimony && cfg.penalty == 1000, "limits/ranking/penalty");
+  require(cfg.fuel == 200000, "execution fuel");
   require(cfg.phase_variation && cfg.phase_variation->crossover_probability == 0.7 &&
           cfg.phase_variation->crossover_attempts == 4 &&
           cfg.phase_variation->site_draw == evo::PhaseSiteDraw::Counted &&
@@ -70,6 +72,9 @@ void test_rejections() {
   rejects(",\"crossover\":{\"probability\":1.5}", "crossover.probability");
   rejects(",\"crossover\":{\"attempts\":0}", "crossover.attempts");
   rejects(",\"mutation\":{\"probability\":-0.1}", "mutation.probability");
+  rejects(",\"mutation\":{\"max_subtree_nodes\":1025}", "mutation.max_subtree_nodes");
+  rejects(",\"execution\":{\"fuel\":0}", "execution.fuel");
+  rejects(",\"execution\":{\"steps\":1}", "unknown key execution.steps");
   rejects(",\"generations\":2.5", "generations");
   rejects(",\"limits\":{\"site_depth\":16}", "limits.site_depth");
   rejects(",\"sites\":{\"draw\":\"uniform\"}", "sites.draw");
@@ -91,7 +96,8 @@ void test_effective_round_trip() {
   cfg.phase_population = true;
   cfg.population_size = 256; cfg.generations = 12; cfg.seed = 99; cfg.selection_pressure = 4;
   cfg.elite_count = 2; cfg.mutation_rate = 0.25; cfg.penalty = 7; cfg.gpu_phase_site_depth = 5;
-  cfg.phase_variation = evo::PhaseVariationPolicy{evo::PhaseSiteDraw::Counted, evo::PhaseSiteScope::UniformPhase, 0.6, 5};
+  cfg.fuel = 12345;
+  cfg.phase_variation = evo::PhaseVariationPolicy{evo::PhaseSiteDraw::Counted, evo::PhaseSiteScope::UniformPhase, 0.6, 5, 24};
   const auto document = effective_search_config(cfg);
   evo::EvolutionConfig copy;
   apply_search_config(parse_search_config(parse(evo::grammar::canonical_json(document))), copy);
@@ -99,7 +105,8 @@ void test_effective_round_trip() {
           copy.generations == cfg.generations && copy.seed == cfg.seed &&
           copy.selection_pressure == cfg.selection_pressure && copy.elite_count == cfg.elite_count &&
           copy.mutation_rate == cfg.mutation_rate && copy.penalty == cfg.penalty &&
-          copy.gpu_phase_site_depth == cfg.gpu_phase_site_depth && copy.phase_variation == cfg.phase_variation,
+          copy.gpu_phase_site_depth == cfg.gpu_phase_site_depth && copy.phase_variation == cfg.phase_variation &&
+          copy.fuel == cfg.fuel,
           "effective configuration does not round-trip");
 }
 
@@ -119,6 +126,7 @@ void test_environment_mapping() {
   require(evo::phase_variation_profile_suffix(legacy) == "-source-cross07", "gate profile suffix");
   require(evo::phase_variation_profile_suffix(evo::PhaseVariationPolicy{}).empty(), "default profile suffix");
   bool invalid = false;
+  require(evo::phase_variation_profile_suffix({evo::PhaseSiteDraw::Counted, evo::PhaseSiteScope::Genome, 1, 8, 32}) == "-mutcap32", "cap suffix");
   try { evo::validate_phase_variation_policy({evo::PhaseSiteDraw::Reservoir, evo::PhaseSiteScope::Genome, 1, 65}); }
   catch (const std::invalid_argument&) { invalid = true; }
   require(invalid, "invalid attempts accepted");

@@ -66,12 +66,12 @@ JsonValue make_object() { JsonValue v; v.kind = JsonValue::Kind::Object; return 
 }  // namespace
 
 bool SearchConfig::explicit_phase_variation() const {
-  return crossover_probability || crossover_attempts || site_draw || site_scope;
+  return crossover_probability || crossover_attempts || mutation_max_nodes || site_draw || site_scope;
 }
 
 SearchConfig parse_search_config(const JsonValue& document) {
   expect_object(document, "document", {"format", "representation", "population_size", "generations", "seed",
-      "selection", "elitism", "crossover", "mutation", "sites", "limits", "ranking", "fitness"});
+      "selection", "elitism", "crossover", "mutation", "sites", "limits", "ranking", "fitness", "execution"});
   const auto* format = field(document, "format");
   if (!format || text(*format, "format") != kSearchConfigFormat)
     fail(std::string("format must be \"") + kSearchConfigFormat + "\"");
@@ -98,8 +98,9 @@ SearchConfig parse_search_config(const JsonValue& document) {
     if (const auto* a = field(*v, "attempts")) config.crossover_attempts = integer(*a, "crossover.attempts", 1, 64);
   }
   if (const auto* v = field(document, "mutation")) {
-    expect_object(*v, "mutation", {"probability"});
+    expect_object(*v, "mutation", {"probability", "max_subtree_nodes"});
     if (const auto* p = field(*v, "probability")) config.mutation_probability = probability(*p, "mutation.probability");
+    if (const auto* n = field(*v, "max_subtree_nodes")) config.mutation_max_nodes = integer(*n, "mutation.max_subtree_nodes", 0, 1024);
   }
   if (const auto* v = field(document, "sites")) {
     expect_object(*v, "sites", {"scope", "draw"});
@@ -129,6 +130,10 @@ SearchConfig parse_search_config(const JsonValue& document) {
       else fail("ranking.tie_break must be ast_nodes or grammar_sites");
     }
   }
+  if (const auto* v = field(document, "execution")) {
+    expect_object(*v, "execution", {"fuel"});
+    if (const auto* f = field(*v, "fuel")) config.fuel = integer(*f, "execution.fuel", 1, 2147483647);
+  }
   if (const auto* v = field(document, "fitness")) {
     expect_object(*v, "fitness", {"penalty"});
     if (const auto* p = field(*v, "penalty")) {
@@ -141,6 +146,7 @@ SearchConfig parse_search_config(const JsonValue& document) {
     evo::PhaseVariationPolicy policy;
     if (config.crossover_probability) policy.crossover_probability = *config.crossover_probability;
     if (config.crossover_attempts) policy.crossover_attempts = *config.crossover_attempts;
+    if (config.mutation_max_nodes) policy.mutation_max_nodes = *config.mutation_max_nodes;
     evo::validate_phase_variation_policy(policy);
   }
   return config;
@@ -163,6 +169,7 @@ void apply_search_config(const SearchConfig& config, evo::EvolutionConfig& cfg) 
   if (config.elite_count) cfg.elite_count = *config.elite_count;
   if (config.mutation_probability) cfg.mutation_rate = *config.mutation_probability;
   if (config.penalty) cfg.penalty = *config.penalty;
+  if (config.fuel) cfg.fuel = *config.fuel;
   if (config.site_depth) cfg.gpu_phase_site_depth = *config.site_depth;
   if (config.grammar_site_ranking) cfg.gpu_phase_site_parsimony = *config.grammar_site_ranking;
   if (config.explicit_phase_variation()) {
@@ -171,6 +178,7 @@ void apply_search_config(const SearchConfig& config, evo::EvolutionConfig& cfg) 
     if (config.site_scope) policy.site_scope = *config.site_scope;
     if (config.crossover_probability) policy.crossover_probability = *config.crossover_probability;
     if (config.crossover_attempts) policy.crossover_attempts = *config.crossover_attempts;
+    if (config.mutation_max_nodes) policy.mutation_max_nodes = *config.mutation_max_nodes;
     cfg.phase_variation = policy;
   }
 }
@@ -196,8 +204,12 @@ JsonValue effective_search_config(const evo::EvolutionConfig& cfg) {
   auto fitness = make_object();
   fitness.object_v["penalty"] = make_number(cfg.penalty);
   out.object_v["fitness"] = fitness;
+  auto execution = make_object();
+  execution.object_v["fuel"] = make_number(cfg.fuel);
+  out.object_v["execution"] = execution;
   if (phase) {
     const auto policy = cfg.phase_variation.value_or(evo::phase_variation_policy_from_environment());
+    out.object_v["mutation"].object_v["max_subtree_nodes"] = make_number(policy.mutation_max_nodes);
     auto crossover = make_object();
     crossover.object_v["probability"] = make_number(policy.crossover_probability);
     crossover.object_v["attempts"] = make_number(policy.crossover_attempts);

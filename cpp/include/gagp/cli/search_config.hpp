@@ -19,12 +19,14 @@ struct SearchConfig {
   std::optional<int> population_size, generations, tournament_size, elite_count;
   std::optional<std::uint64_t> seed;
   std::optional<double> mutation_probability, penalty;
+  std::optional<int> fuel;  // "execution.fuel"; may only lower the grammar fuel
   std::optional<int> site_depth;
   std::optional<bool> grammar_site_ranking;  // "ranking.tie_break"
   // Phase variation section. If any of these is present the whole policy is
   // explicit: absent members take the documented defaults, not legacy flags.
   std::optional<double> crossover_probability;
   std::optional<int> crossover_attempts;
+  std::optional<int> mutation_max_nodes;
   std::optional<evo::PhaseSiteDraw> site_draw;
   std::optional<evo::PhaseSiteScope> site_scope;
   bool explicit_phase_variation() const;

@@ -7,7 +7,7 @@
     "The hash gate is intentionally mechanical: if a listed spec changes, update this manifest in the same semantic change.",
     "2026-10-14: document opt-in fused witness admission and its explicit speculative matcher-work accounting; strict membership and materialized execution semantics remain unchanged.",
     "2026-10-15: document opt-in private IntList content identity, 65536/65537 backing boundaries, and exact compact int64 cell storage. Canonical default behavior and transport format remain unchanged; profile admission and explicit fallback are required.",
-    "2026-10-30: add spec/search_config.md (gagp-search-config-v1): explicit phase-population variation policy, legacy-flag mapping/conflict rule, and CPU reference / GPU owner engine equivalence. Existing specs unchanged."
+    "2026-10-30: add spec/search_config.md (gagp-search-config-v1): explicit phase-population variation policy, legacy-flag mapping/conflict rule, and CPU reference / GPU owner engine equivalence. Existing specs unchanged; later: mutation.max_subtree_nodes, lowering-only execution.fuel, and the common/gagp member classes for cross-system comparisons."
   ],
   "specs": [
     {
@@ -48,7 +48,7 @@
     },
     {
       "path": "spec/search_config.md",
-      "sha256": "1c87f2dade045f213692257302b0d70575f3d84b3e7b718da4f5f4e0e0ac2e83"
+      "sha256": "f0d20fb0d83818074dd4adc302c3ca5569ca573324883ce2474a35fa63a321f5"
     }
   ],
   "status": "frozen"

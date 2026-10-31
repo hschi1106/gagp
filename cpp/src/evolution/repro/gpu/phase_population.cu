@@ -433,6 +433,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  impl_->operators.uniform_phase=policy.site_scope==PhaseSiteScope::UniformPhase;
  impl_->operators.crossover_probability=policy.crossover_probability;
  impl_->operators.crossover_attempts=policy.crossover_attempts;
+ impl_->operators.mutation_max_nodes=policy.mutation_max_nodes;
  impl_->operators.deferred_copy=std::getenv("GAGP_GPU_DEFERRED_CROSSOVER_COPY")!=nullptr;
  impl_->operators.fused_depth=std::getenv("GAGP_GPU_FUSED_SPLICE_DEPTH")!=nullptr;
  phase_layout_require(site_depth>=0 && site_depth<=15 && !(site_depth && projected),"site depth must be0..15 and cannot combine with projected resource budgets");

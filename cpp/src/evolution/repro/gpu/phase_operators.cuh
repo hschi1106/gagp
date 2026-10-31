@@ -27,6 +27,7 @@ struct OperatorPolicy {
  bool uniform_phase=false;       // draw one variable phase before its sites
  double crossover_probability=1; // 1 consumes no gate draw
  int crossover_attempts=8;
+ int mutation_max_nodes=0;      // 0: generation bounded only by phase capacity
  bool deferred_copy=false;       // exact: copy parent phases at publication
  bool fused_depth=false;         // exact: depth checked during splice copy
 };
@@ -206,7 +207,9 @@ __host__ __device__ inline void mutate_child(int child,TreePointers input,TreePo
  // A larger whole-program budget does not enlarge the destination phase buffer.
  const int replaced=end-destination.node;
  const int whole=max_variable_nodes-(total-replaced),phase=capacity-(a.node_count-replaced);
- const int available=whole<phase?whole:phase,bounded=available<capacity?available:capacity;
+ const int available=whole<phase?whole:phase,uncapped=available<capacity?available:capacity;
+ const bool capped=policy.mutation_max_nodes>0 && policy.mutation_max_nodes<uncapped;
+ const int bounded=capped?policy.mutation_max_nodes:uncapped;
  PhaseGenerationResult generated;
  if constexpr(Fused)
   generated=generate_phase<true,true,Warp>(slot.grammar,site.entry_expression,site.parent_scope,slot.max_depth-depth+1,
@@ -214,6 +217,8 @@ __host__ __device__ inline void mutate_child(int child,TreePointers input,TreePo
  else
   generated=generate_phase(slot.grammar,site.entry_expression,site.parent_scope,slot.max_depth-depth+1,
       bounded,random.next(),tmp.nodes,tmp.origins,tmp.constants,nullptr,logical);
+ // A configured cap that leaves no feasible derivation skips this mutation.
+ if(capped && generated.status==PhaseCompileStatus::Capacity)return;
  if(generated.status!=PhaseCompileStatus::Ok || (!Fused && !annotate_phase_tree(slot.grammar,site.entry_expression,site.parent_scope,
        tmp.nodes,tmp.origins,generated.nodes,tmp.sites))){stat.error=7;return;}
  scratch.lengths[child]=generated;

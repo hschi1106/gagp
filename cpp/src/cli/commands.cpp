@@ -915,6 +915,10 @@ void apply_compiled_contract(const CliOptions& args,
     cfg->additional_generation_requests.assign(requests.begin() + 1, requests.end());
   }
   cfg->fuel = fuel;
+  // A search config may lower the evaluation fuel (explicit phase population only).
+  if (!args.search_config_path.empty())
+    if (const auto lowered = gagp::cli_detail::load_search_config(args.search_config_path).fuel)
+      cfg->fuel = *lowered;
 }
 
 gagp::evo::EvolutionConfig make_evolution_config(const CliOptions& args) {
@@ -949,6 +953,7 @@ gagp::evo::EvolutionConfig make_evolution_config(const CliOptions& args) {
     conflict("--selection-pressure", config.tournament_size.has_value());
     conflict("--mutation-rate", config.mutation_probability.has_value());
     conflict("--penalty", config.penalty.has_value());
+    conflict("--fuel", config.fuel.has_value());
     gagp::cli_detail::apply_search_config(config, cfg);
   }
   return cfg;

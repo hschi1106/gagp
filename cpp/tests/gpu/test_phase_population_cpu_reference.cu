@@ -110,14 +110,16 @@ int main() { try {
  base.compiled_grammar=compiled;base.generation_request=grammar::entry_request(*compiled);
  base.mutation_subtree_prob=1;base.fuel=compiled->execution_limits().fuel;base.penalty=1000;base.gpu_blocksize=32;
  base.phase_population=true;
- struct Policy{const char* label;PhaseVariationPolicy policy;int site_depth;};
+ struct Policy{const char* label;PhaseVariationPolicy policy;int site_depth;int fuel_divisor=1;};
  const Policy policies[]={
   {"reservoir/genome",{},0},
   {"counted/uniform/gate",{PhaseSiteDraw::Counted,PhaseSiteScope::UniformPhase,0.7,3},0},
   {"counted/site-depth",{PhaseSiteDraw::Counted,PhaseSiteScope::Genome,0.9,8},10},
+  {"counted/mutation-cap",{PhaseSiteDraw::Counted,PhaseSiteScope::Genome,1,8,3},0},
+  {"lowered-fuel",{PhaseSiteDraw::Counted,PhaseSiteScope::Genome,1,8},0,64},
  };
  const auto run=[&](const Policy& p,bool gpu){
-  auto cfg=base;cfg.phase_variation=p.policy;cfg.gpu_phase_site_depth=p.site_depth;
+  auto cfg=base;cfg.phase_variation=p.policy;cfg.gpu_phase_site_depth=p.site_depth;cfg.fuel=base.fuel/p.fuel_divisor;
   cfg.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
   cfg.reproduction_backend=gpu?repro::ReproductionBackend::Gpu:repro::ReproductionBackend::Cpu;
   return trace(evolve_population(cases,cfg,&parents));

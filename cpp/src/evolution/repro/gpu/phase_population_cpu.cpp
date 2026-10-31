@@ -119,6 +119,7 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
  s.operators.uniform_phase=policy.site_scope==PhaseSiteScope::UniformPhase;
  s.operators.crossover_probability=policy.crossover_probability;
  s.operators.crossover_attempts=policy.crossover_attempts;
+ s.operators.mutation_max_nodes=policy.mutation_max_nodes;
  s.operators.fused_depth=true; // exact engine variants; serial copies stay eager
  NativePhaseGrammarProfiles import_profiles(s.grammar);
  s.population=input.size();
