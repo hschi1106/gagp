@@ -565,6 +565,15 @@ remain on disk; a retry uses a fresh output filename.
 
 ## Multi-generation comparison and fitness configuration
 
+`gagp_fixed_asgp_bench measure-batch MANIFEST` runs several `measure` jobs in
+one process (`{"format":"gagp-bench-batch-v1","summary":PATH,"jobs":[{"argv":
+[SOURCE,PREPARED,GRAMMAR,POP,MODE,OUT],"env":{...}}]}`). Each job sets only its
+listed variables for its duration and writes the same outputs as `measure`;
+results equal one-process-per-job runs. Only the first job pays CUDA context
+creation and module loading (about 0.12 s and 0.04 s on the reference
+machine), so later jobs' `evolve_wall_ms` excludes that one-time cost: report
+batch per-run times as warm throughput, separately from cold single runs.
+
 `gagp_fixed_asgp_bench measure` accepts `search_asgp_1t`, `search_gagp_cpu`,
 `search_gpu_eval`, `search_gpu_repro`, `search_gpu_overlap`, and
 `search_phase_cpu`. The original five frozen-parent modes are unchanged;

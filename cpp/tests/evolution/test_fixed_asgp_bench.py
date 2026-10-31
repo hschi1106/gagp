@@ -112,6 +112,18 @@ class TestFixedAsgpNative(unittest.TestCase):
                                  [(r['best'],r['mean'],r['best_wrong']) for r in artifacts[0]['generations']],label)
                 self.assertEqual(doc['search_config']['sites'],{'scope':'genome','draw':'reservoir'})
                 self.assertEqual(doc['reproduction_profile'].startswith('native-cpu-phase-'),mode=='search_phase_cpu')
+            # measure-batch runs jobs in one process; each job equals its own process run.
+            batch=folder/'batch.json'
+            batch.write_text(json.dumps({'format':'gagp-bench-batch-v1','summary':str(folder/'batch.summary.json'),
+                'jobs':[{'argv':[str(source),str(prepared),str(grammar),'8',mode,str(folder/f'batch.{label}.json')],
+                         'env':{'GAGP_SEARCH_CONFIG':str(config)} if label=='config' else {}}
+                        for label,mode in (('gpu','search_gpu_overlap'),('config','search_gpu_overlap'),('cpu','search_phase_cpu'))]}))
+            self.call('measure-batch',batch,env=resident)
+            for label in ('gpu','config','cpu'):
+                doc=json.loads((folder/f'batch.{label}.json').read_text())
+                self.assertEqual(doc['final_population'],artifacts[0]['final_population'],label)
+                self.assertTrue((folder/f'batch.{label}.json.wall.json').exists())
+            self.assertEqual(json.loads((folder/'batch.summary.json').read_text())['failures'],0)
             config.write_text(json.dumps({'format':'gagp-search-config-v1','generations':3}))
             conflict=subprocess.run([str(BINARY),'measure',str(source),str(prepared),str(grammar),'8',
                 'search_phase_cpu',str(folder/'conflict.json')],env=dict(resident,GAGP_SEARCH_CONFIG=str(config)),

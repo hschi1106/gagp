@@ -14,6 +14,7 @@
 #include <sstream>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <set>
 #include <cstring>
 #include <cmath>
@@ -844,7 +845,41 @@ void measure(const Json& source, const std::string& prepared_path, const std::st
   }
 }
 }  // namespace
+// Runs several measure jobs in one process so the CUDA context, loaded modules
+// and allocator pools are created once (fixed-cost amortization). Each job sets
+// only its listed environment variables for its own duration; process-wide
+// engine settings come from the batch environment. Per-job outputs are the
+// same files `measure` writes; the first job alone pays cold initialization.
+int measure_batch(const std::string& manifest_path) {
+  const auto manifest=read(manifest_path);
+  if(manifest.object_v.at("format").string_v!="gagp-bench-batch-v1")throw std::runtime_error("batch manifest format");
+  int failures=0;std::vector<Json> rows;const auto batch_begin=Clock::now();
+  for(const auto& job:manifest.object_v.at("jobs").array_v) {
+    const auto& args=job.object_v.at("argv").array_v;
+    if(args.size()!=6)throw std::runtime_error("batch job argv must be SOURCE PREPARED GRAMMAR POP MODE OUT");
+    std::vector<std::pair<std::string,std::optional<std::string>>> saved;
+    if(job.object_v.count("env"))for(const auto& [key,value]:job.object_v.at("env").object_v) {
+      const char* old=std::getenv(key.c_str());saved.emplace_back(key,old?std::optional<std::string>(old):std::nullopt);
+      setenv(key.c_str(),value.string_v.c_str(),1);
+    }
+    const auto begin=Clock::now();std::string error;
+    try {
+      measure(read(args[0].string_v),args[1].string_v,args[2].string_v,std::stoi(args[3].string_v),args[4].string_v,args[5].string_v);
+      write(args[5].string_v+".wall.json",object({{"input_through_report_ms",number(elapsed(begin))}}));
+    } catch(const std::exception& e){error=e.what();++failures;std::cerr<<args[5].string_v<<": "<<error<<'\n';}
+    for(auto it=saved.rbegin();it!=saved.rend();++it) {
+      if(it->second)setenv(it->first.c_str(),it->second->c_str(),1);else unsetenv(it->first.c_str());
+    }
+    rows.push_back(object({{"output",string(args[5].string_v)},{"ok",number(error.empty())},{"error",string(error)},
+        {"started_after_batch_ms",number(std::chrono::duration<double,std::milli>(begin-batch_begin).count())},
+        {"job_ms",number(elapsed(begin))}}));
+  }
+  if(manifest.object_v.count("summary"))write(manifest.object_v.at("summary").string_v,object({{"jobs",array(std::move(rows))},
+      {"batch_ms",number(elapsed(batch_begin))},{"failures",number(failures)}}));
+  return failures?1:0;
+}
 int main(int argc,char** argv) try {
+  if (argc==3 && std::string(argv[1])=="measure-batch") return measure_batch(argv[2]);
   if (argc==4 && std::string(argv[1])=="contract") write(argv[3],task_contract(argv[2]));
   else if (argc==4 && std::string(argv[1])=="dataset") dataset(argv[2],argv[3]);
   else if ((argc==6 || argc==7) && std::string(argv[1])=="quality-source")
@@ -860,6 +895,6 @@ int main(int argc,char** argv) try {
     measure(read(argv[2]),argv[3],argv[4],std::stoi(argv[5]),argv[6],argv[7]);
     write(std::string(argv[7])+".wall.json",object({{"input_through_report_ms",number(elapsed(begin))}}));
   }
-  else throw std::runtime_error("usage: dataset TASK OUT | quality-source SOURCE EXPORT GRAMMAR OUT [HISTORY] | quality TASK EXPORT GRAMMAR OUT [HISTORY] | freeze TASK OUT | prepare SOURCE GRAMMAR POP OUT | audit SOURCE GRAMMAR OUT | measure SOURCE PREPARED GRAMMAR POP MODE OUT");
+  else throw std::runtime_error("usage: measure-batch MANIFEST | dataset TASK OUT | quality-source SOURCE EXPORT GRAMMAR OUT [HISTORY] | quality TASK EXPORT GRAMMAR OUT [HISTORY] | freeze TASK OUT | prepare SOURCE GRAMMAR POP OUT | audit SOURCE GRAMMAR OUT | measure SOURCE PREPARED GRAMMAR POP MODE OUT");
   return 0;
 } catch (const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }
