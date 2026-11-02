@@ -5,6 +5,8 @@
 #include <random>
 #include <memory>
 #include <optional>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "gagp/evolution/case_set.hpp"
@@ -80,6 +82,9 @@ struct EvolutionConfig {
   // Explicit phase variation semantics. Unset reads the legacy environment
   // flags; when set, a conflicting legacy flag is rejected.
   std::optional<PhaseVariationPolicy> phase_variation;
+  // Research population schedule (islands, async). Unset or default keeps the
+  // generational loop; other values require the CPU reference phase owner.
+  std::optional<PhaseSchedulePolicy> phase_schedule;
   CpuFitnessVerification cpu_fitness_verification;
   // Diagnostic snapshots, in original population order, after scoring and before
   // reproduction. The callback must not retain payload handles past its call.
@@ -108,6 +113,9 @@ struct EvolutionResult {
   std::uint64_t gpu_stage_storage_reserved_bytes = 0;
   std::uint64_t gpu_stage_storage_peak_bytes = 0;
   EvolutionTiming timing;
+  // Named champions captured during an async schedule ("equal_work",
+  // "equal_time"); empty for generational runs.
+  std::vector<std::pair<std::string, ScoredGenome>> schedule_checkpoints;
 };
 
 std::vector<ScoredGenome> evaluate_population(const std::vector<ProgramGenome>& population,

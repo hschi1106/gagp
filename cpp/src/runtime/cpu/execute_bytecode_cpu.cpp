@@ -1,5 +1,6 @@
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
 #include "gagp/runtime/cpu/execution_session.hpp"
+#include "fuel_meter.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -659,9 +660,12 @@ ExecResult CpuExecutionSession::execute(
     const std::vector<std::pair<int, Value>>& inputs, int fuel) {
   if (!impl_) return fail(ErrCode::Value, "execution session has been moved");
   const auto& program = impl_->program;
-  return run_code(CodeView{program.consts, program.code, program.n_locals,
+  const int initial = fuel;
+  auto result = run_code(CodeView{program.consts, program.code, program.n_locals,
                           program.var2idx, program.instruction_fuel, nullptr,
                           &impl_->context}, inputs, {}, fuel, true, &program);
+  detail::fuel_meter::last_used() = initial - fuel;
+  return result;
 }
 
 std::size_t CpuExecutionSession::retained_region_bytes() const noexcept {
@@ -671,8 +675,11 @@ std::size_t CpuExecutionSession::retained_region_bytes() const noexcept {
 ExecResult execute_bytecode_cpu(const BytecodeProgram& program,
                                 const std::vector<std::pair<int, Value>>& inputs,
                                 int fuel) {
-  return run_code(CodeView{program.consts, program.code, program.n_locals, program.var2idx, program.instruction_fuel}, inputs, {}, fuel, true,
+  const int initial = fuel;
+  auto result = run_code(CodeView{program.consts, program.code, program.n_locals, program.var2idx, program.instruction_fuel}, inputs, {}, fuel, true,
                   &program);
+  detail::fuel_meter::last_used() = initial - fuel;
+  return result;
 }
 
 }  // namespace gagp

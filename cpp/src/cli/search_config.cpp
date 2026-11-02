@@ -71,7 +71,8 @@ bool SearchConfig::explicit_phase_variation() const {
 
 SearchConfig parse_search_config(const JsonValue& document) {
   expect_object(document, "document", {"format", "representation", "population_size", "generations", "seed",
-      "selection", "elitism", "crossover", "mutation", "sites", "limits", "ranking", "fitness", "execution"});
+      "selection", "elitism", "crossover", "mutation", "sites", "limits", "ranking", "fitness", "execution",
+      "schedule", "islands"});
   const auto* format = field(document, "format");
   if (!format || text(*format, "format") != kSearchConfigFormat)
     fail(std::string("format must be \"") + kSearchConfigFormat + "\"");
@@ -142,6 +143,34 @@ SearchConfig parse_search_config(const JsonValue& document) {
       config.penalty = penalty;
     }
   }
+  const auto* schedule = field(document, "schedule");
+  const auto* islands = field(document, "islands");
+  if (schedule || islands) {
+    evo::PhaseSchedulePolicy policy;
+    if (schedule) {
+      expect_object(*schedule, "schedule", {"mode", "workers", "replacement_size", "child_overhead", "batch"});
+      if (const auto* m = field(*schedule, "mode")) {
+        const auto name = text(*m, "schedule.mode");
+        if (name == "generational") policy.mode = evo::PhaseScheduleMode::Generational;
+        else if (name == "async") policy.mode = evo::PhaseScheduleMode::Async;
+        else if (name == "steady_state") policy.mode = evo::PhaseScheduleMode::SteadyState;
+        else fail("schedule.mode must be generational, async or steady_state");
+      }
+      if (const auto* w = field(*schedule, "workers")) policy.workers = integer(*w, "schedule.workers", 1, 1 << 20);
+      if (const auto* r = field(*schedule, "replacement_size")) policy.replacement_size = integer(*r, "schedule.replacement_size", 1, 64);
+      if (const auto* o = field(*schedule, "child_overhead")) policy.child_overhead = integer(*o, "schedule.child_overhead", 0, 2147483647);
+      if (const auto* b = field(*schedule, "batch")) policy.batch = integer(*b, "schedule.batch", 1, 1 << 20);
+    }
+    if (islands) {
+      expect_object(*islands, "islands", {"count", "migration_interval", "migrants"});
+      if (const auto* c = field(*islands, "count")) policy.islands = integer(*c, "islands.count", 1, 1024);
+      if (const auto* i = field(*islands, "migration_interval")) policy.migration_interval = integer(*i, "islands.migration_interval", 0, 1 << 20);
+      if (const auto* m = field(*islands, "migrants")) policy.migrants = integer(*m, "islands.migrants", 0, 1 << 20);
+    }
+    try { evo::validate_phase_schedule_policy(policy); }
+    catch (const std::invalid_argument& error) { fail(error.what()); }
+    config.schedule = policy;
+  }
   if (config.explicit_phase_variation()) {
     evo::PhaseVariationPolicy policy;
     if (config.crossover_probability) policy.crossover_probability = *config.crossover_probability;
@@ -172,6 +201,7 @@ void apply_search_config(const SearchConfig& config, evo::EvolutionConfig& cfg) 
   if (config.fuel) cfg.fuel = *config.fuel;
   if (config.site_depth) cfg.gpu_phase_site_depth = *config.site_depth;
   if (config.grammar_site_ranking) cfg.gpu_phase_site_parsimony = *config.grammar_site_ranking;
+  if (config.schedule) cfg.phase_schedule = config.schedule;
   if (config.explicit_phase_variation()) {
     evo::PhaseVariationPolicy policy;
     if (config.site_draw) policy.site_draw = *config.site_draw;
@@ -224,6 +254,26 @@ JsonValue effective_search_config(const evo::EvolutionConfig& cfg) {
     auto ranking = make_object();
     ranking.object_v["tie_break"] = make_string(cfg.gpu_phase_site_parsimony ? "grammar_sites" : "ast_nodes");
     out.object_v["ranking"] = ranking;
+    // Only a non-default schedule is recorded, so generational records are unchanged.
+    if (cfg.phase_schedule && !cfg.phase_schedule->is_default()) {
+      const auto& policy = *cfg.phase_schedule;
+      auto schedule = make_object();
+      const bool async = policy.mode == evo::PhaseScheduleMode::Async;
+      const bool steady = policy.mode == evo::PhaseScheduleMode::SteadyState;
+      schedule.object_v["mode"] = make_string(async ? "async" : steady ? "steady_state" : "generational");
+      if (async) {
+        schedule.object_v["workers"] = make_number(policy.workers);
+        schedule.object_v["child_overhead"] = make_number(policy.child_overhead);
+      }
+      if (steady) schedule.object_v["batch"] = make_number(policy.batch);
+      if (async || steady) schedule.object_v["replacement_size"] = make_number(policy.replacement_size);
+      out.object_v["schedule"] = schedule;
+      auto islands = make_object();
+      islands.object_v["count"] = make_number(policy.islands);
+      islands.object_v["migration_interval"] = make_number(policy.migration_interval);
+      islands.object_v["migrants"] = make_number(policy.migrants);
+      out.object_v["islands"] = islands;
+    }
   }
   return out;
 }

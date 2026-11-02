@@ -639,6 +639,27 @@ export are common code. `gagp_test_phase_population_cpu_reference` requires
 identical final populations, fitness, wrong counts and champions for several
 policies, host thread counts and GPU engine variants.
 
+Research population schedules (`PhaseSchedulePolicy`: islands and an async
+discrete-event simulation, [search config](../../spec/search_config.md#population-schedules-research))
+exist only in the CPU reference owner. Islands run the same bodies on shifted
+row ranges inside `reproduce`; async uses `start_child` / `evaluate_child` /
+`commit_child` per worker row, driven by `run_phase_population_async` in
+`evolve.cpp` instead of the shared generation loop. The GPU owner rejects
+those two schedules.
+
+The synchronous batch steady state (`schedule.mode: steady_state`) runs on both
+owners through `run_phase_population_steady` in `evolve.cpp`. Each owner
+implements `begin_steady` / `make_batch` / `evaluate_batch` / `batch_nodes` /
+`commit_batch`: children of one round occupy offspring rows `0..batch-1`, the
+operator kernels take the child count separately from the parent population,
+the GPU owner lowers and evaluates the batch through a second packed program
+set (`ProgramSet batch`, reusing identical-member results through the completed
+fitness path), and `place_children` copies the placed rows into the population.
+Member programs are not lowered after `begin_steady`. Measured on the formal
+G64 cohort, each evaluation launch has a large latency floor, so `batch` below
+the population size is slower than the generational loop
+(`~/gagp/logs/async-island-eval-20261031/README.md`).
+
 The semantic policy (`PhaseVariationPolicy`, [search config](../../spec/search_config.md))
 is a constructor argument of both owners. Exact GPU engine variants remain
 process settings captured at construction:
