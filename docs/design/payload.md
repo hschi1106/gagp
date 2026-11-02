@@ -992,6 +992,19 @@ Original GPU overflow replay and its adaptive capacities remain available.
 Tests retain entry-only and value-only overflow, unaffected programs, and final
 case/error/timeout coverage at these fixed initial capacities.
 
+`GAGP_GPU_INITIAL_REPLAY_CAPACITY=1` (opt-in) starts the initial global arena
+at the starting replay capacities instead (the entries/values/bytes chosen by
+the replay settings above). It does so only when the workspace cap still admits
+`min(initial tasks, resident blocks)` physical blocks. Resident blocks are the
+CUDA occupancy of the selected initial kernel times the SM count. Otherwise it
+keeps the small capacities. Physical capacity never changes scores: programs
+that would only outgrow the small arena finish in the initial launch rather
+than re-running all of their cases in replay. When the initial launch already
+used the starting replay capacity, the first replay grows it once before
+launching, so it never repeats a capacity that already failed. The extended
+payload GPU test checks CPU fitness/count parity, the large selection, the
+64 MiB fallback, and first-replay growth.
+
 `GAGP_GPU_TILED_INITIAL_PAYLOAD=1` independently forces the existing replay
 warp-tiling mechanism for initial global-arena evaluation. The value `auto`
 enables it only when the maximum `IntList` input length is at least 32 elements
