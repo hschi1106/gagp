@@ -766,8 +766,28 @@ __device__ inline void d_copy_private_intlist(std::int64_t* target,const DPrivat
     }
   }
 #endif
-  if(source.integers)for(int i=0;i<source.size;++i)target[static_cast<std::size_t>(i)*target_stride]=source.read<true>(i);
-  else for(int i=0;i<source.size;++i)target[static_cast<std::size_t>(i)*target_stride]=source.read<false>(i);
+  // The target is a fresh allocation above every live source cell, so loads of
+  // one chunk may all precede its stores: a lone lane keeps K loads in flight.
+  constexpr int K=16;int i=0;
+  if(source.integers) {
+    for(;i+K<=source.size;i+=K) {
+      std::int64_t chunk[K];
+#pragma unroll
+      for(int j=0;j<K;++j)chunk[j]=source.read<true>(i+j);
+#pragma unroll
+      for(int j=0;j<K;++j)target[static_cast<std::size_t>(i+j)*target_stride]=chunk[j];
+    }
+    for(;i<source.size;++i)target[static_cast<std::size_t>(i)*target_stride]=source.read<true>(i);
+  } else {
+    for(;i+K<=source.size;i+=K) {
+      std::int64_t chunk[K];
+#pragma unroll
+      for(int j=0;j<K;++j)chunk[j]=source.read<false>(i+j);
+#pragma unroll
+      for(int j=0;j<K;++j)target[static_cast<std::size_t>(i+j)*target_stride]=chunk[j];
+    }
+    for(;i<source.size;++i)target[static_cast<std::size_t>(i)*target_stride]=source.read<false>(i);
+  }
 }
 
 template <typename State>
