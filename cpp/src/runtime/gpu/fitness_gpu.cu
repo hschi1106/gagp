@@ -88,7 +88,7 @@ struct PayloadWorkspaceStorage {
     allocations.push_back(*p);return true;
   }
   bool prepare(gpu_detail::DRegionWorkspace prototype,std::size_t programs,int lanes,
-      int entries,int values,int bytes,bool indexed,std::size_t extra_bytes=0) {
+      int entries,int values,int bytes,bool indexed,std::size_t extra_bytes=0,std::size_t min_blocks=1) {
     workspace=prototype;
     workspace.compact_intlist_cells=workspace.private_intlists && workspace.compact_intlist_cells;
     if(workspace.compact_intlist_cells)workspace.payload_list_values=nullptr;
@@ -121,7 +121,7 @@ struct PayloadWorkspaceStorage {
         (workspace.concat_cache_enabled?sizeof(gpu_detail::DConcatCacheEntry)*gpu_detail::DCONCAT_CACHE_SLOTS:0);
     blocks=gpu_detail::payload_workspace_block_count(budget,programs,
         payload_bytes+frame_bytes+key_bytes+memo_bytes,extra_bytes);
-    if(!blocks)return false;
+    if(!blocks || blocks<min_blocks)return false;
     const auto slots=blocks*threads;
     if(reusable) {
       if(!workspace.private_intlists || !workspace.compact_intlist_cells || workspace.concat_cache_enabled)return false;
@@ -1298,6 +1298,16 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   const bool adaptive_replay=std::getenv("GAGP_GPU_ADAPTIVE_REPLAY") &&
       std::string(std::getenv("GAGP_GPU_ADAPTIVE_REPLAY"))!="0";
   const std::size_t overflow_reason_bytes=adaptive_replay?programs.size()*sizeof(unsigned int):0;
+  const bool tiled_replay=std::getenv("GAGP_GPU_TILED_REPLAY") &&
+      std::string(std::getenv("GAGP_GPU_TILED_REPLAY"))!="0";
+  int replay_entries=(tiled_replay || adaptive_replay)?4096:65536;
+  int replay_values=static_cast<int>(std::max<unsigned>(adaptive_replay?16384:65536,
+      std::min<unsigned>(impl_->policy.list_allocation_limit,std::numeric_limits<int>::max())));
+  // A clamped external 65536-cell constant plus a one-cell constant charges
+  // 65536 logical cells but copies 65537. Keep the valid boundary in one replay.
+  if(private_intlists && impl_->policy.list_allocation_limit==65536)
+    replay_values=std::max(replay_values,65537);
+  int replay_bytes=8192;
   const int overflow_mask_words = (impl_->blocksize + 31) / 32;
   const std::size_t overflow_mask_bytes = overflow_diagnostics ?
       programs.size() * overflow_mask_words * sizeof(unsigned int) : 0;
@@ -1381,6 +1391,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   {
     gpu_detail::DeviceArena dev;
     PayloadWorkspaceStorage initial_payload(payload_workspace_budget,reuse_private?&pool:nullptr);
+    bool initial_at_replay_capacity=false;
     struct IndexBuffers {
       unsigned long long* concat_stats=nullptr;
       int *compact=nullptr,*generic=nullptr,*compact_queue=nullptr,*generic_queue=nullptr;
@@ -1478,7 +1489,34 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     }
     if(global_payload) {
       impl_->release_region_workspace();
-      if(!initial_payload.prepare(region_workspace,initial_tasks,impl_->blocksize,1024,8192,8192,true,payload_metadata_bytes+initial_partial_bytes))
+      // Physical capacity never changes scores: replay regrows it until each
+      // program fits. Starting at the replay capacity lets programs that only
+      // outgrow the small arena finish here instead of re-running all their
+      // cases in replay, provided the budget still fills every resident slot.
+      // Opt-in so the default small arena keeps exercising replay.
+      const std::size_t initial_extra=payload_metadata_bytes+initial_partial_bytes;
+      const auto* initial_capacity_setting=std::getenv("GAGP_GPU_INITIAL_REPLAY_CAPACITY");
+      if(initial_capacity_setting && std::string(initial_capacity_setting)=="1") {
+        using gpu_detail::DPayloadFlavor;
+        const auto kernel=private_layout?&gpu_detail::evaluate_fitness_programs_impl<DPayloadFlavor::IndexedArena,true,false,32,true>:
+            private_launch_bound==512?&gpu_detail::evaluate_fitness_programs_impl<DPayloadFlavor::IndexedArena,true,false,512,false>:
+            private_launch_bound==1024?&gpu_detail::evaluate_fitness_programs_impl<DPayloadFlavor::IndexedArena,true,false,1024,false>:
+            &gpu_detail::evaluate_fitness_programs_impl<DPayloadFlavor::IndexedArena,true,false,32,false>;
+        const int slots=tiled_initial?32:impl_->blocksize;
+        const bool measure=region_workspace.private_intlists && region_workspace.measure_phase_cache;
+        const std::size_t shared=kernel_shared_bytes(packed.max_code_len,slots)+(measure?measure_bytes:0);
+        int per_sm=0;
+        if(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&per_sm,kernel,PayloadWorkspaceStorage::threads,shared)!=cudaSuccess)
+          return fitness_eval_single_error(ErrCode::Value,"cuda initial payload occupancy query failure");
+        const auto resident=static_cast<std::size_t>(per_sm)*static_cast<std::size_t>(impl_->props.multiProcessorCount);
+        initial_at_replay_capacity=resident && initial_payload.prepare(region_workspace,initial_tasks,impl_->blocksize,
+            replay_entries,replay_values,replay_bytes,true,initial_extra,std::min(initial_tasks,resident));
+        if(!initial_at_replay_capacity)initial_payload.clear();
+      }
+      const int initial_entries=initial_at_replay_capacity?replay_entries:1024;
+      const int initial_values=initial_at_replay_capacity?replay_values:8192;
+      if(!initial_at_replay_capacity && !initial_payload.prepare(region_workspace,initial_tasks,impl_->blocksize,
+          initial_entries,initial_values,8192,true,initial_extra))
         return fitness_eval_single_error(ErrCode::Value,"cuda initial global payload workspace capacity/allocation failure");
       if(tiled_initial && !initial_payload.allocate(
           reinterpret_cast<void**>(&initial_payload.workspace.replay_warp_scores),initial_partial_bytes))
@@ -1490,8 +1528,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       if(dense_initial_tiles && cudaMemset(initial_payload.workspace.replay_warp_scores,0,initial_partial_bytes)!=cudaSuccess)
         return fitness_eval_single_error(ErrCode::Value,"cuda dense initial lane-score initialization failure");
       out.initial_payload_tiled=tiled_initial;
-      out.initial_payload_entry_capacity=1024;
-      out.initial_payload_value_capacity=8192;
+      out.initial_payload_entry_capacity=initial_entries;
+      out.initial_payload_value_capacity=initial_values;
       out.initial_payload_physical_blocks=initial_payload.blocks;
       if(!gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(initial_payload.blocks)},&indices.compact_queue))
         return fitness_eval_single_error(ErrCode::Value,"cuda initial global payload queue allocation failure");
@@ -1718,20 +1756,41 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     out.payload_replay_programs=replay_programs.size();
     if(impl_->policy.list_allocation_limit>static_cast<unsigned>(std::numeric_limits<int>::max()))
       return fitness_eval_single_error(ErrCode::Value,"GPU logical list limit exceeds replay addressing capacity");
-    const bool tiled_replay=std::getenv("GAGP_GPU_TILED_REPLAY") &&
-        std::string(std::getenv("GAGP_GPU_TILED_REPLAY"))!="0";
     const int replay_warps=(impl_->blocksize+31)/32;
     const bool dense_replay_tiles=request_dense_tiles && dense_tiles_policy && tiled_replay &&
         impl_->shared_case_count>0 && impl_->shared_case_count<=impl_->blocksize;
     const int replay_tiles_per_program=dense_replay_tiles?dense_tile_count:replay_warps;
     std::vector<unsigned int> overflow_reasons(adaptive_replay?programs.size():0);
-    int replay_entries=(tiled_replay || adaptive_replay)?4096:65536;
-    int replay_values=static_cast<int>(std::max<unsigned>(adaptive_replay?16384:65536,impl_->policy.list_allocation_limit));
-    // A clamped external 65536-cell constant plus a one-cell constant charges
-    // 65536 logical cells but copies 65537. Keep the valid boundary in one replay.
-    if(private_intlists && impl_->policy.list_allocation_limit==65536)
-      replay_values=std::max(replay_values,65537);
-    int replay_bytes=8192;
+    const auto grow_replay_capacity=[&]()->const char* {
+      if(adaptive_replay) {
+        if(cudaMemcpy(overflow_reasons.data(),indices.overflow_reasons,overflow_reason_bytes,cudaMemcpyDeviceToHost)!=cudaSuccess)
+          return "cuda replay capacity reason copy failure";
+        unsigned reasons=0;
+        for(int program:replay_programs) {
+          const unsigned reason=overflow_reasons[program];
+          // Unknown physical failures retain the conservative growth route.
+          reasons|=(!reason || (reason&~7u))?7u:reason;
+        }
+        const auto grow=[](int& capacity) {
+          if(capacity>std::numeric_limits<int>::max()/2)return false;
+          capacity*=2;return true;
+        };
+        if(((reasons&gpu_detail::DPAYLOAD_OVERFLOW_ENTRIES) && !grow(replay_entries)) ||
+           ((reasons&gpu_detail::DPAYLOAD_OVERFLOW_VALUES) && !grow(replay_values)) ||
+           ((reasons&gpu_detail::DPAYLOAD_OVERFLOW_BYTES) && !grow(replay_bytes)))
+          return "GPU adaptive replay capacity exceeds addressable storage";
+      } else {
+        if(replay_entries>std::numeric_limits<int>::max()/2 || replay_values>std::numeric_limits<int>::max()/2 || replay_bytes>std::numeric_limits<int>::max()/2)
+          return "GPU payload replay capacity exceeds addressable storage";
+        if(tiled_replay && replay_entries<65536) replay_entries*=2;
+        else {replay_entries*=2;replay_values*=2;replay_bytes*=2;}
+      }
+      return nullptr;
+    };
+    // The initial launch already ran at the starting replay capacity; repeating
+    // it could not fit any program it reported.
+    if(initial_at_replay_capacity && !replay_programs.empty())
+      if(const char* error=grow_replay_capacity())return fitness_eval_single_error(ErrCode::Value,error);
     while(!replay_programs.empty()) {
       PayloadWorkspaceStorage replay_storage(payload_workspace_budget,reuse_private?&pool:nullptr);
       const std::size_t task_count=replay_programs.size()*(tiled_replay?replay_tiles_per_program:1);
@@ -1830,31 +1889,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
           [&](int p){return overflow_counts[p]==0;}),replay_programs.end());
       // Capacity growth affects only physical storage, never the policy budget.
       // The fixed global budget makes an unresolved overflow explicit.
-      if(!replay_programs.empty()) {
-        if(adaptive_replay) {
-          if(cudaMemcpy(overflow_reasons.data(),indices.overflow_reasons,overflow_reason_bytes,cudaMemcpyDeviceToHost)!=cudaSuccess)
-            return fitness_eval_single_error(ErrCode::Value,"cuda replay capacity reason copy failure");
-          unsigned reasons=0;
-          for(int program:replay_programs) {
-            const unsigned reason=overflow_reasons[program];
-            // Unknown physical failures retain the conservative growth route.
-            reasons|=(!reason || (reason&~7u))?7u:reason;
-          }
-          const auto grow=[](int& capacity) {
-            if(capacity>std::numeric_limits<int>::max()/2)return false;
-            capacity*=2;return true;
-          };
-          if(((reasons&gpu_detail::DPAYLOAD_OVERFLOW_ENTRIES) && !grow(replay_entries)) ||
-             ((reasons&gpu_detail::DPAYLOAD_OVERFLOW_VALUES) && !grow(replay_values)) ||
-             ((reasons&gpu_detail::DPAYLOAD_OVERFLOW_BYTES) && !grow(replay_bytes)))
-            return fitness_eval_single_error(ErrCode::Value,"GPU adaptive replay capacity exceeds addressable storage");
-        } else {
-          if(replay_entries>std::numeric_limits<int>::max()/2 || replay_values>std::numeric_limits<int>::max()/2 || replay_bytes>std::numeric_limits<int>::max()/2)
-            return fitness_eval_single_error(ErrCode::Value,"GPU payload replay capacity exceeds addressable storage");
-          if(tiled_replay && replay_entries<65536) replay_entries*=2;
-          else {replay_entries*=2;replay_values*=2;replay_bytes*=2;}
-        }
-      }
+      if(!replay_programs.empty())
+        if(const char* error=grow_replay_capacity())return fitness_eval_single_error(ErrCode::Value,error);
     }
     const auto kernel_t1 = std::chrono::steady_clock::now();
 

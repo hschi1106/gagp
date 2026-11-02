@@ -1086,6 +1086,30 @@ bool test_initial_payload_capacity_replay() {
         gpu.case_counts[p][1]==cpu_counts[p].errors && gpu.case_counts[p][2]==cpu_counts[p].timeouts,
         "fixed initial capacity case/error/timeout counts"))return false;
   }
+  // Opt-in: start at the replay capacity when the budget keeps every task
+  // resident; only the program beyond 4096 entries replays, already grown.
+  ScopedEnvironment restore_capacity("GAGP_GPU_INITIAL_REPLAY_CAPACITY"),restore_budget("GAGP_GPU_PAYLOAD_WORKSPACE_MIB");
+  setenv("GAGP_GPU_INITIAL_REPLAY_CAPACITY","1",1);
+  for(const char* budget:{"512","64"}) for(const char* tiled:{"0","1"}) {
+    setenv("GAGP_GPU_PAYLOAD_WORKSPACE_MIB",budget,1);setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD",tiled,1);
+    FitnessSessionGpu session;if(!session.init(cases,answers,100000,33,1000,policy).ok)return false;
+    const auto gpu=session.eval_programs(programs,true);
+    if(!check(gpu.ok && gpu.fitness==cpu,"replay-capacity initial fitness parity"))return false;
+    const bool large=budget[0]=='5';
+    if(!check(large?(gpu.initial_payload_entry_capacity==4096 && gpu.initial_payload_value_capacity==65536 &&
+            gpu.payload_replay_programs==1 && gpu.payload_replay_launches==1 && gpu.payload_replay_entry_capacity==8192):
+        (gpu.initial_payload_entry_capacity==1024 && gpu.initial_payload_value_capacity==8192 && gpu.payload_replay_programs==3),
+        "replay-capacity initial selection, fallback and first replay growth")) {
+      std::cerr<<"budget="<<budget<<" tiled="<<tiled<<" entries="<<gpu.initial_payload_entry_capacity
+          <<" values="<<gpu.initial_payload_value_capacity<<" blocks="<<gpu.initial_payload_physical_blocks
+          <<" replay_programs="<<gpu.payload_replay_programs<<" launches="<<gpu.payload_replay_launches
+          <<" replay_entries="<<gpu.payload_replay_entry_capacity<<'\n';
+      return false;
+    }
+    for(int p=0;p<4;++p)if(!check(gpu.case_counts[p][0]==cpu_counts[p].cases &&
+        gpu.case_counts[p][1]==cpu_counts[p].errors && gpu.case_counts[p][2]==cpu_counts[p].timeouts,
+        "replay-capacity initial case/error/timeout counts"))return false;
+  }
   return true;
 }
 

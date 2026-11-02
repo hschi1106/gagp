@@ -1,5 +1,6 @@
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 #include "phase_sharing_probe.hpp"
+#include "fuel_meter.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -96,6 +97,8 @@ std::vector<double> eval_fitness_cpu(
   }
   std::vector<double> fitness(programs.size(), 0.0);
   const int lanes = std::max(1, reduction_lanes);
+  auto* const fuel_sink = detail::fuel_meter::sink();
+  if (fuel_sink) fuel_sink->assign(programs.size(), {});
   for (std::size_t p = 0; p < programs.size(); ++p) {
     std::unique_ptr<CpuExecutionSession> session;
     if (!programs[p].bounded_region_segments.empty())
@@ -133,8 +136,15 @@ std::vector<double> eval_fitness_cpu(
               input_cells += Value::container_len(input.second);
           }
           payload::ListAllocationScope logical_budget(policy.list_allocation_limit, input_cells);
+          detail::fuel_meter::last_used() = 0;
           out = session ? session->execute(inputs, fuel)
                         : execute_bytecode_cpu(programs[p], inputs, fuel);
+          if (fuel_sink) {
+            auto& used = (*fuel_sink)[p];
+            const auto consumed = static_cast<std::uint32_t>(std::max(0, detail::fuel_meter::last_used()));
+            used.sum += consumed;
+            used.max = std::max(used.max, consumed);
+          }
         } catch (const payload::PayloadBudgetExceeded& error) {
           out.is_error = true;
           out.err = Err{ErrCode::Value, error.what()};

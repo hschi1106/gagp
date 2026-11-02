@@ -33,6 +33,52 @@ struct PhaseVariationPolicy {
   }
 };
 
+// Population schedule of the native phase population. Research semantics
+// simulated by the CPU reference owner only; the GPU owner rejects any
+// non-default schedule. The default is the generational loop, unchanged.
+//
+// Islands split the population into `islands` equal contiguous ranges; each
+// range selects, keeps its elites and (async) replaces only inside itself.
+// Every `migration_interval` generations (async: every interval*population
+// completed children) the best `migrants` members of island i are copied to
+// island (i+1) mod islands, replacing its last offspring slots (generational)
+// or its worst members (async). Async replaces the generation barrier by a
+// discrete-event simulation of `workers` concurrent children: a child is
+// created from the population as it is at its start time, occupies its worker
+// for `child_overhead` plus its largest per-case fuel (overhead only when its
+// fitness is reused), and on completion replaces the loser of an inverse
+// tournament of `replacement_size` members, never the island's best member.
+//
+// SteadyState (both owners) is the synchronous batch steady state: each round
+// selects parents from the whole current population, creates and scores
+// `batch` children together, then places them one by one; each child replaces
+// the loser of an inverse tournament of `replacement_size` members, never the
+// population's best member. Rounds repeat until population * generations
+// children were placed.
+enum class PhaseScheduleMode { Generational, Async, SteadyState };
+struct PhaseSchedulePolicy {
+  PhaseScheduleMode mode = PhaseScheduleMode::Generational;
+  int workers = 0;
+  int replacement_size = 2;
+  int child_overhead = 0;
+  int islands = 1;
+  int migration_interval = 0;
+  int migrants = 0;
+  int batch = 0;
+
+  bool is_default() const {
+    return mode == PhaseScheduleMode::Generational && islands == 1;
+  }
+  bool operator==(const PhaseSchedulePolicy& other) const {
+    return mode == other.mode && workers == other.workers && replacement_size == other.replacement_size &&
+           child_overhead == other.child_overhead && islands == other.islands &&
+           migration_interval == other.migration_interval && migrants == other.migrants && batch == other.batch;
+  }
+};
+// Throws std::invalid_argument for values that do not fit `population`
+// (population < 1 skips population-dependent checks).
+void validate_phase_schedule_policy(const PhaseSchedulePolicy& policy, int population = 0);
+
 // Throws std::invalid_argument for out-of-range values.
 void validate_phase_variation_policy(const PhaseVariationPolicy& policy);
 // Historical environment mapping: GAGP_COUNTED_SITE_DRAW (set),

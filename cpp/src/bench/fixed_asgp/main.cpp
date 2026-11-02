@@ -744,6 +744,12 @@ void search(const std::vector<gagp::evo::ProgramGenome>& population,
       if(std::getenv("GAGP_SEARCH_EXPORT_BEST_ONLY"))break;
     }
     write(path,object({{"programs",array(std::move(asts))}}));
+    // Async schedule champions: <export>.<name>.json, same document shape.
+    for (const auto& [name, one] : result.schedule_checkpoints) {
+      std::vector<Json> champion;
+      champion.push_back(gagp::cli_detail::JsonParser(gagp::cli_detail::encode_ast_json(one.genome.ast),{true,512}).parse());
+      write(std::string(path)+"."+name+".json",object({{"programs",array(std::move(champion))}}));
+    }
   }
   if (const char* path=std::getenv("GAGP_SEARCH_HISTORY_EXPORT")) {
     std::vector<Json> history;

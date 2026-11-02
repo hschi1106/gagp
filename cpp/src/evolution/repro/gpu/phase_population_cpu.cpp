@@ -12,6 +12,7 @@
 #include "../../batch_workers.hpp"
 #include "gagp/evolution/compiler.hpp"
 #include "../../../runtime/cpu/phase_sharing_probe.hpp"
+#include "../../../runtime/cpu/fuel_meter.hpp"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -47,6 +48,11 @@ struct HostProfile {
 };
 // Default one host thread; GAGP_HOST_THREADS opts into workers. Items are
 // independent, so scheduling never changes any published value.
+// Rows [rows, ...) of a tree buffer viewed as its first rows.
+TreePointers shifted(TreePointers t,int rows) {
+ const std::size_t offset=std::size_t(rows)*capacity;
+ return {t.nodes+offset,t.origins+offset,t.sites+offset,t.constants+offset,t.lengths+rows};
+}
 template<class Function> void parallel_rows(int count,Function function) {
  if(gagp::host_thread_limit()<=1 || count<=1){for(int i=0;i<count;++i)function(i);return;}
  detail::BatchWorkers workers{std::size_t(count)};
@@ -68,6 +74,14 @@ struct HostPhasePopulation::Impl {
  // Completed results of the members currently held in `current`.
  Evaluation completed;bool have_completed=false;
  std::vector<int> reuse; // per member: earlier member index with an identical genotype, or -1
+ PhaseSchedulePolicy schedule;int reproductions=0;
+ const bool metering=std::getenv("GAGP_RESEARCH_SCHEDULE_TRACE")!=nullptr;
+ std::vector<MemberFuel> fuel;
+ // Async schedule state: per-worker operator stats and one-program batches.
+ std::vector<OperatorStats> worker_stats;std::vector<std::vector<BytecodeProgram>> worker_programs;
+ std::unordered_multimap<std::uint64_t,int> member_hashes;
+ // Steady state: one lowered program per batch child; members stay unlowered.
+ int batch=0;std::vector<BytecodeProgram> batch_programs;
  std::vector<HostPhaseGene> genes(int member)const {
   std::vector<HostPhaseGene> out(slot_count);
   auto trees=const_cast<HostTrees&>(*current).pointers();
@@ -85,31 +99,45 @@ struct HostPhasePopulation::Impl {
  }
  // Lower every live phase with the shared phase compiler and patch the region
  // executables exactly as the GPU owner materializes them.
+ // Lowers the phases of tree member `member` into `executable`; false on rejection.
+ bool lower_member(TreePointers trees,int member,BytecodeProgram& executable)const {
+  thread_local std::vector<gpu_detail::DInstr> code(code_capacity);thread_local std::vector<Value> values(capacity);
+  bool ok=true;
+  for(int k=0;k<slot_count;++k) {
+   const int row=member*slot_count+k;const auto t=trees.view(row);const auto& slot=slots[k];
+   const auto r=valid(trees.lengths[row])?compile_phase_tree<true,true>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.scope,slot.type,
+       code.data(),code_capacity,values.data(),capacity):PhaseCompileResult{};
+   if(r.status!=PhaseCompileStatus::Ok || r.stack_bound<1 || r.stack_bound>gpu_detail::MAX_STACK){ok=false;continue;}
+   auto& program=native_phase_at(executable.bounded_region_segments[0],layout.slots[k].ordinal).program;
+   program.code.clear();program.instruction_fuel.clear();program.code.reserve(r.code_count);program.instruction_fuel.reserve(r.code_count);
+   for(int i=0;i<r.code_count;++i){const auto x=code[i];program.code.push_back({static_cast<Opcode>(x.op),x.a,x.b,bool(x.flags&1),bool(x.flags&2)});program.instruction_fuel.push_back(x.fuel);}
+   program.consts.assign(values.begin(),values.begin()+r.constant_count);
+  }
+  return ok;
+ }
  void refresh_programs() {
-  const int rows=population*slot_count;std::vector<int> failures(rows,0);
-  parallel_rows(population,[&](int p) {
-   thread_local std::vector<gpu_detail::DInstr> code(code_capacity);thread_local std::vector<Value> values(capacity);
-   const auto trees=current->pointers();
-   for(int k=0;k<slot_count;++k) {
-    const int row=p*slot_count+k;const auto t=trees.view(row);const auto& slot=slots[k];
-    const auto r=valid(trees.lengths[row])?compile_phase_tree<true,true>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.scope,slot.type,
-        code.data(),code_capacity,values.data(),capacity):PhaseCompileResult{};
-    if(r.status!=PhaseCompileStatus::Ok || r.stack_bound<1 || r.stack_bound>gpu_detail::MAX_STACK){failures[row]=1;continue;}
-    auto& program=native_phase_at(programs[p].bounded_region_segments[0],layout.slots[k].ordinal).program;
-    program.code.clear();program.instruction_fuel.clear();program.code.reserve(r.code_count);program.instruction_fuel.reserve(r.code_count);
-    for(int i=0;i<r.code_count;++i){const auto x=code[i];program.code.push_back({static_cast<Opcode>(x.op),x.a,x.b,bool(x.flags&1),bool(x.flags&2)});program.instruction_fuel.push_back(x.fuel);}
-    program.consts.assign(values.begin(),values.begin()+r.constant_count);
-   }
-  });
+  std::vector<int> failures(population,0);
+  parallel_rows(population,[&](int p){failures[p]=!lower_member(current->pointers(),p,programs[p]);});
   for(int failed:failures)if(failed)throw std::runtime_error("CPU phase compiler rejected a constructed program");
+ }
+ unsigned nodes(TreePointers trees,int member,bool grammar_sites)const {
+  unsigned count=grammar_sites?0:layout.fixed_nodes;
+  for(int k=0;k<slot_count;++k) {
+   const auto t=trees.view(member*slot_count+k);
+   if(!grammar_sites){count+=t.node_count;continue;}
+   for(int j=0;j<t.node_count;++j)count+=t.sites[j].nonterminal>=0;
+  }
+  return count;
  }
 };
 
 HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
     const std::vector<ProgramGenome>& input,const std::vector<std::string>& input_names,
-    std::optional<grammar::ProjectedBudget> projected,int site_depth,const PhaseVariationPolicy& policy):impl_(std::make_unique<Impl>()) {
+    std::optional<grammar::ProjectedBudget> projected,int site_depth,const PhaseVariationPolicy& policy,
+    const PhaseSchedulePolicy& schedule):impl_(std::make_unique<Impl>()) {
  auto& s=*impl_;s.grammar=std::move(grammar);
  validate_phase_variation_policy(policy);
+ validate_phase_schedule_policy(schedule,int(input.size()));s.schedule=schedule;
  phase_layout_require(site_depth>=0 && site_depth<=15 && !(site_depth && projected),"site depth must be0..15 and cannot combine with projected resource budgets");
  phase_layout_require(s.grammar && !input.empty() && input.size()<=16384,"population/grammar capacity");
  std::set<std::string> expected_names,actual_names(input_names.begin(),input_names.end());
@@ -131,6 +159,8 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
      s.operators.counted_sites?"native-cpu-phase-v2-counted":"native-cpu-phase-v1";
  s.profile+=phase_variation_profile_suffix(policy);
  if(s.operators.uniform_phase)s.profile+="-uniform-phase";
+ if(schedule.islands>1)s.profile+="-islands"+std::to_string(schedule.islands)+"m"+std::to_string(schedule.migration_interval)+"x"+std::to_string(schedule.migrants);
+ if(schedule.mode==PhaseScheduleMode::Async)s.profile+="-async-w"+std::to_string(schedule.workers);
  s.slot_count=s.layout.slots.size();phase_layout_require(s.slot_count>0 && s.slot_count<=8,"phase count capacity");
  const auto key=native_phase_skeleton_key(s.layout);const std::size_t rows=input.size()*s.slot_count;
  s.current=std::make_unique<HostTrees>(rows);s.crossed=std::make_unique<HostTrees>(rows);
@@ -169,10 +199,11 @@ HostPhasePopulation::~HostPhasePopulation()=default;
 
 HostPhasePopulation::Evaluation HostPhasePopulation::evaluate(const std::vector<CaseBindings>& cases,const std::vector<Value>& expected,
     int fuel,double penalty,int reduction_lanes,const FitnessPolicy& policy) {
- auto& s=*impl_;Evaluation result;
+ auto& s=*impl_;Evaluation result;phase_layout_require(!s.batch,"steady-state members are scored by evaluate_batch");
  result.fitness.resize(s.population);result.case_counts.resize(s.population);
  const bool wrong=policy.metric!=FitnessMetric::Legacy;if(wrong)result.wrong.resize(s.population);
  std::vector<int> pending;
+ s.fuel.assign(s.population,{});
  for(int i=0;i<s.population;++i) {
   const int source=s.have_completed?s.reuse[i]:-1;
   if(source<0){pending.push_back(i);continue;}
@@ -186,7 +217,11 @@ HostPhasePopulation::Evaluation HostPhasePopulation::evaluate(const std::vector<
   std::vector<BytecodeProgram> batch;for(int j=begin;j<end;++j)batch.push_back(s.programs[pending[j]]);
   if(gagp::detail::phase_sharing::enabled())gagp::detail::phase_sharing::program_base()=std::uint64_t(begin);
   std::vector<unsigned> batch_wrong;std::vector<CpuFitnessCaseCounts> counts;
+  std::vector<gagp::detail::fuel_meter::ProgramFuel> meter;
+  if(s.metering)gagp::detail::fuel_meter::sink()=&meter;
   const auto fitness=eval_fitness_cpu(batch,cases,expected,fuel,penalty,reduction_lanes,policy,wrong?&batch_wrong:nullptr,&counts);
+  gagp::detail::fuel_meter::sink()=nullptr;
+  if(s.metering)for(int j=begin;j<end;++j)s.fuel[pending[j]]={meter[j-begin].sum,meter[j-begin].max,true};
   for(int j=begin;j<end;++j){const int i=pending[j];result.fitness[i]=fitness[j-begin];result.case_counts[i]=counts.at(j-begin);if(wrong)result.wrong[i]=batch_wrong[j-begin];}
  });
  result.evaluated_programs=pending.size();
@@ -204,6 +239,7 @@ ReproductionStats HostPhasePopulation::reproduce(const std::vector<double>& comp
  ReproductionStats timing;const auto begin=Clock::now();
  const auto current=s.current->pointers(),crossed=s.crossed->pointers(),next=s.next->pointers(),scratch=s.scratch->pointers();
  const double* fitness=completed_fitness.data();
+ if(s.schedule.islands==1) {
  // Same per-child bodies and draw order as the GPU kernels; children are independent.
  parallel_rows(p,[&](int child) {
   crossover_child<false>(child,current,crossed,s.slots.data(),k,p,available,fitness,pressure,seed,s.operators,s.stats[child]);
@@ -215,6 +251,36 @@ ReproductionStats HostPhasePopulation::reproduce(const std::vector<double>& comp
   std::stable_sort(order.begin(),order.end(),[&](int a,int b){return fitness[a]>fitness[b];});
   for(int rank=0;rank<elite_count;++rank)for(int j=0;j<k;++j)copy_tree(current,order[rank]*k+j,crossed,rank*k+j);
  }
+ } else {
+ // Islands: the same per-child bodies on each island's rows, with a private
+ // draw stream per island; elites and migrants are island-ranked.
+ const int islands=s.schedule.islands,n=p/islands,migrants=s.schedule.migrants;
+ phase_layout_require(pressure<=n && elite_count+migrants<=n,"island selection/elite/migrant contract");
+ const auto island_seed=[&](int island){return seed^(UINT64_C(0x9e3779b97f4a7c15)*std::uint64_t(island+1));};
+ parallel_rows(p,[&](int child) {
+  const int base=child/n*n,local=child-base;const auto draw=island_seed(child/n);
+  crossover_child<false>(local,shifted(current,base*k),shifted(crossed,base*k),s.slots.data(),k,n,available,fitness+base,pressure,draw,s.operators,s.stats[child]);
+  mutate_child<true,true,false>(local,shifted(crossed,base*k),shifted(next,base),shifted(scratch,base),s.slots.data(),k,available,probability,draw,s.operators,s.stats[child]);
+  if(s.stats[child].parent>=0)s.stats[child].parent+=base;
+ });
+ std::vector<std::vector<int>> ranked(islands);
+ for(int island=0;island<islands;++island) {
+  auto& order=ranked[island];for(int i=0;i<n;++i)order.push_back(island*n+i);
+  std::stable_sort(order.begin(),order.end(),[&](int a,int b){return fitness[a]>fitness[b];});
+  for(int rank=0;rank<elite_count;++rank)for(int j=0;j<k;++j)copy_tree(current,order[rank]*k+j,crossed,(island*n+rank)*k+j);
+ }
+ // Ring migration: island i's best replace the last offspring of island i+1.
+ if(migrants && (s.reproductions+1)%s.schedule.migration_interval==0)
+  for(int island=0;island<islands;++island) {
+   const int target=(island+1)%islands;
+   for(int m=0;m<migrants;++m) {
+    const int source=ranked[island][m],slot=target*n+n-migrants+m;
+    for(int j=0;j<k;++j)copy_tree(current,source*k+j,crossed,slot*k+j);
+    s.stats[slot]={};s.stats[slot].parent=source;
+   }
+  }
+ }
+ ++s.reproductions;
  parallel_rows(p,[&](int child){compare_child(child,current,crossed,p,k,s.stats[child]);});
  // Exact identity with any parent also reuses that parent's completed result.
  std::unordered_multimap<std::uint64_t,int> parents;
@@ -240,6 +306,148 @@ ReproductionStats HostPhasePopulation::reproduce(const std::vector<double>& comp
  return timing;
 }
 
+const std::vector<HostPhasePopulation::MemberFuel>& HostPhasePopulation::last_fuel()const{return impl_->fuel;}
+
+void HostPhasePopulation::begin_async(int workers) {
+ auto& s=*impl_;phase_layout_require(workers>=1 && workers<=s.population,"async worker count");
+ s.worker_stats.assign(workers,{});s.worker_programs.assign(workers,{s.programs.front()});
+ s.member_hashes.clear();
+ const auto current=s.current->pointers();
+ for(int i=0;i<s.population;++i)s.member_hashes.emplace(parent_cache::hash_program(current,i,s.slot_count),i);
+}
+int HostPhasePopulation::start_child(int worker,const std::vector<double>& selection_fitness,int first,int count,int pressure,
+    double probability,std::uint64_t seed) {
+ auto& s=*impl_;const int k=s.slot_count,available=s.layout.budget.max_nodes-s.layout.fixed_nodes;
+ phase_layout_require(worker>=0 && worker<int(s.worker_stats.size()) && first>=0 && count>=1 && first+count<=s.population &&
+   pressure>=1 && pressure<=count && selection_fitness.size()==std::size_t(s.population),"async child contract");
+ const auto current=shifted(s.current->pointers(),first*k),crossed=s.crossed->pointers(),next=s.next->pointers(),scratch=s.scratch->pointers();
+ auto& stat=s.worker_stats[worker];
+ crossover_child<false>(worker,current,crossed,s.slots.data(),k,count,available,selection_fitness.data()+first,pressure,seed,s.operators,stat);
+ mutate_child<true,true,false>(worker,crossed,next,scratch,s.slots.data(),k,available,probability,seed,s.operators,stat);
+ compare_child(worker,current,crossed,count,k,stat);
+ if(stat.error)throw std::runtime_error("CPU async genotype variation error "+std::to_string(stat.error));
+ if(stat.reusable_parent>=0)return first+stat.reusable_parent;
+ const auto all=s.current->pointers();
+ const auto range=s.member_hashes.equal_range(parent_cache::hash_program(crossed,worker,k));
+ for(auto it=range.first;it!=range.second;++it)if(parent_cache::equal_program(all,it->second,crossed,worker,k))return it->second;
+ return -1;
+}
+HostPhasePopulation::ChildEvaluation HostPhasePopulation::evaluate_child(int worker,const std::vector<CaseBindings>& cases,
+    const std::vector<Value>& expected,int fuel,double penalty,int reduction_lanes,const FitnessPolicy& policy) {
+ auto& s=*impl_;auto& batch=s.worker_programs.at(worker);
+ if(!s.lower_member(s.crossed->pointers(),worker,batch.front()))throw std::runtime_error("CPU phase compiler rejected an async child");
+ std::vector<gagp::detail::fuel_meter::ProgramFuel> meter;std::vector<unsigned> wrong;std::vector<CpuFitnessCaseCounts> counts;
+ gagp::detail::fuel_meter::sink()=&meter;
+ const auto fitness=eval_fitness_cpu(batch,cases,expected,fuel,penalty,reduction_lanes,policy,
+     policy.metric!=FitnessMetric::Legacy?&wrong:nullptr,&counts);
+ gagp::detail::fuel_meter::sink()=nullptr;
+ ChildEvaluation out;out.fitness=fitness.at(0);out.wrong=wrong.empty()?0:wrong[0];out.counts=counts.at(0);
+ out.fuel_sum=meter.at(0).sum;out.fuel_max=meter.at(0).max;
+ return out;
+}
+unsigned HostPhasePopulation::child_nodes(int worker,bool grammar_sites)const{return impl_->nodes(impl_->crossed->pointers(),worker,grammar_sites);}
+void HostPhasePopulation::commit_child(int worker,int victim) {
+ auto& s=*impl_;const int k=s.slot_count;phase_layout_require(victim>=0 && victim<s.population,"async victim");
+ const auto current=s.current->pointers(),crossed=s.crossed->pointers();
+ const auto range=s.member_hashes.equal_range(parent_cache::hash_program(current,victim,k));
+ for(auto it=range.first;it!=range.second;++it)if(it->second==victim){s.member_hashes.erase(it);break;}
+ for(int j=0;j<k;++j)copy_tree(crossed,worker*k+j,current,victim*k+j);
+ if(!s.lower_member(current,victim,s.programs[victim]))throw std::runtime_error("CPU phase compiler rejected an async member");
+ s.member_hashes.emplace(parent_cache::hash_program(current,victim,k),victim);
+}
+void HostPhasePopulation::copy_member(int source,int target) {
+ auto& s=*impl_;const int k=s.slot_count;phase_layout_require(source>=0 && source<s.population && target>=0 && target<s.population,"async migration");
+ if(source==target)return;
+ const auto current=s.current->pointers();
+ const auto range=s.member_hashes.equal_range(parent_cache::hash_program(current,target,k));
+ for(auto it=range.first;it!=range.second;++it)if(it->second==target){s.member_hashes.erase(it);break;}
+ for(int j=0;j<k;++j)copy_tree(current,source*k+j,current,target*k+j);
+ s.programs[target]=s.programs[source];
+ s.member_hashes.emplace(parent_cache::hash_program(current,target,k),target);
+}
+
+void HostPhasePopulation::begin_steady(int batch) {
+ auto& s=*impl_;phase_layout_require(!s.batch && batch>=1 && batch<=s.population,"steady-state batch contract");
+ s.batch=batch;s.stats.assign(s.population,{});
+ s.batch_programs.assign(s.programs.begin(),s.programs.begin()+batch);
+ s.member_hashes.clear();
+ const auto current=s.current->pointers();
+ for(int i=0;i<s.population;++i)s.member_hashes.emplace(parent_cache::hash_program(current,i,s.slot_count),i);
+}
+std::vector<int> HostPhasePopulation::make_batch(const std::vector<double>& selection_fitness,int pressure,double probability,
+    std::uint64_t seed,ReproductionStats* timing) {
+ auto& s=*impl_;const int p=s.population,k=s.slot_count,b=s.batch,available=s.layout.budget.max_nodes-s.layout.fixed_nodes;
+ phase_layout_require(b && selection_fitness.size()==std::size_t(p) && pressure>=1 && pressure<=p &&
+   std::isfinite(probability) && probability>=0 && probability<=1,"steady-state selection/mutation contract");
+ for(double value:selection_fitness)phase_layout_require(!std::isnan(value),"uncanonical fitness");
+ const auto begin=Clock::now();
+ const auto current=s.current->pointers(),crossed=s.crossed->pointers(),next=s.next->pointers(),scratch=s.scratch->pointers();
+ // The GPU kernel bodies with `b` children drawing parents from all p members.
+ parallel_rows(b,[&](int child) {
+  crossover_child<false>(child,current,crossed,s.slots.data(),k,p,available,selection_fitness.data(),pressure,seed,s.operators,s.stats[child]);
+  mutate_child<true,true,false>(child,crossed,next,scratch,s.slots.data(),k,available,probability,seed,s.operators,s.stats[child]);
+  compare_child(child,current,crossed,p,k,s.stats[child]);
+ });
+ std::vector<int> reuse(b,-1);
+ for(int child=0;child<b;++child) {
+  const auto& stat=s.stats[child];
+  if(stat.error)throw std::runtime_error("CPU genotype variation error "+std::to_string(stat.error));
+  reuse[child]=stat.reusable_parent;
+  if(reuse[child]<0) {
+   const auto range=s.member_hashes.equal_range(parent_cache::hash_program(crossed,child,k));
+   for(auto it=range.first;it!=range.second;++it)if(parent_cache::equal_program(current,it->second,crossed,child,k)){reuse[child]=it->second;break;}
+  }
+  if(timing) {
+   timing->variation.crossover_attempts+=stat.crossover_attempted;timing->variation.mutation_attempts+=stat.mutation;
+   timing->variation.contract_rejections+=stat.crossover_rejected;
+   timing->variation.changed_children+=stat.changed;timing->variation.unchanged_children+=!stat.changed;
+   timing->variation.fallback_children+=stat.crossover_attempted && !stat.crossover;
+  }
+ }
+ if(timing)timing->kernel_ms+=elapsed(begin);
+ return reuse;
+}
+HostPhasePopulation::Evaluation HostPhasePopulation::evaluate_batch(const std::vector<int>& reuse,const std::vector<CaseBindings>& cases,
+    const std::vector<Value>& expected,int fuel,double penalty,int reduction_lanes,const FitnessPolicy& policy) {
+ auto& s=*impl_;const int b=s.batch;phase_layout_require(b && reuse.size()==std::size_t(b),"steady-state batch evaluation contract");
+ Evaluation result;result.fitness.assign(b,0.0);result.case_counts.assign(b,{});
+ const bool wrong=policy.metric!=FitnessMetric::Legacy;if(wrong)result.wrong.assign(b,0);
+ std::vector<int> pending;for(int i=0;i<b;++i)if(reuse[i]<0)pending.push_back(i);
+ std::vector<int> failures(pending.size(),0);
+ parallel_rows(int(pending.size()),[&](int j){failures[j]=!s.lower_member(s.crossed->pointers(),pending[j],s.batch_programs[pending[j]]);});
+ for(int failed:failures)if(failed)throw std::runtime_error("CPU phase compiler rejected a constructed program");
+ constexpr int chunk=32;const int chunks=(int(pending.size())+chunk-1)/chunk;
+ parallel_rows(chunks,[&](int c) {
+  const int begin=c*chunk,end=std::min<int>(pending.size(),begin+chunk);
+  std::vector<BytecodeProgram> programs;for(int j=begin;j<end;++j)programs.push_back(s.batch_programs[pending[j]]);
+  std::vector<unsigned> batch_wrong;std::vector<CpuFitnessCaseCounts> counts;
+  const auto fitness=eval_fitness_cpu(programs,cases,expected,fuel,penalty,reduction_lanes,policy,wrong?&batch_wrong:nullptr,&counts);
+  for(int j=begin;j<end;++j){const int i=pending[j];result.fitness[i]=fitness[j-begin];result.case_counts[i]=counts.at(j-begin);if(wrong)result.wrong[i]=batch_wrong[j-begin];}
+ });
+ result.evaluated_programs=pending.size();result.reused_programs=b-pending.size();
+ return result;
+}
+std::vector<unsigned> HostPhasePopulation::batch_nodes(bool grammar_sites)const {
+ const auto& s=*impl_;phase_layout_require(s.batch,"steady-state batch nodes");
+ std::vector<unsigned> counts(s.batch);
+ for(int i=0;i<s.batch;++i)counts[i]=s.nodes(s.crossed->pointers(),i,grammar_sites);
+ if(grammar_sites)for(auto c:counts)if(!c)throw std::runtime_error("invalid CPU grammar-site metrics");
+ return counts;
+}
+void HostPhasePopulation::commit_batch(const std::vector<std::array<int,2>>& placements) {
+ auto& s=*impl_;const int k=s.slot_count;phase_layout_require(s.batch && placements.size()<=std::size_t(s.batch),"steady-state placements");
+ std::vector<bool> seen(s.population,false);
+ const auto current=s.current->pointers(),crossed=s.crossed->pointers();
+ for(const auto& [member,child]:placements) {
+  phase_layout_require(member>=0 && member<s.population && child>=0 && child<s.batch && !seen[member],"steady-state placement");
+  seen[member]=true;
+  const auto range=s.member_hashes.equal_range(parent_cache::hash_program(current,member,k));
+  for(auto it=range.first;it!=range.second;++it)if(it->second==member){s.member_hashes.erase(it);break;}
+  for(int j=0;j<k;++j)copy_tree(crossed,child*k+j,current,member*k+j);
+  s.member_hashes.emplace(parent_cache::hash_program(current,member,k),member);
+ }
+}
+
 std::vector<ProgramGenome> HostPhasePopulation::export_population()const {
  std::vector<ProgramGenome> out;out.reserve(impl_->population);
  for(int i=0;i<impl_->population;++i)out.push_back(export_member(i));
@@ -251,12 +459,8 @@ ProgramGenome HostPhasePopulation::export_member(std::size_t index)const {
 }
 std::vector<unsigned> HostPhasePopulation::node_counts(bool grammar_sites)const {
  const auto& s=*impl_;auto trees=const_cast<HostTrees&>(*s.current).pointers();
- std::vector<unsigned> counts(s.population,grammar_sites?0:s.layout.fixed_nodes);
- for(int i=0;i<s.population;++i)for(int k=0;k<s.slot_count;++k) {
-  const auto t=trees.view(i*s.slot_count+k);
-  if(!grammar_sites){counts[i]+=t.node_count;continue;}
-  for(int j=0;j<t.node_count;++j)counts[i]+=t.sites[j].nonterminal>=0;
- }
+ std::vector<unsigned> counts(s.population);
+ for(int i=0;i<s.population;++i)counts[i]=s.nodes(trees,i,grammar_sites);
  if(grammar_sites)for(auto c:counts)if(!c)throw std::runtime_error("invalid CPU grammar-site metrics");
  return counts;
 }

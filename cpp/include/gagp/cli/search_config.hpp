@@ -29,6 +29,8 @@ struct SearchConfig {
   std::optional<int> mutation_max_nodes;
   std::optional<evo::PhaseSiteDraw> site_draw;
   std::optional<evo::PhaseSiteScope> site_scope;
+  // "schedule" and "islands" sections (research population schedule).
+  std::optional<evo::PhaseSchedulePolicy> schedule;
   bool explicit_phase_variation() const;
 };
 

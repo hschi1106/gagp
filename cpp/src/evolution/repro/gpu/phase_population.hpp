@@ -38,6 +38,21 @@ class NativePhasePopulation final {
   std::vector<std::array<unsigned,2>> site_metrics() const;
   const char* profile_name() const;
   FitnessEvalResult evaluate(FitnessSessionGpu& session, bool diagnostics) const;
+
+  // Synchronous batch steady state (search_config schedule.mode steady_state).
+  // Children of one batch occupy offspring rows 0..batch-1: make_batch selects
+  // parents from all current members and returns, per child, a current member
+  // with an identical genotype (its result is reused) or -1; evaluate_batch
+  // scores the other children; commit_batch copies {member, child} placements
+  // into the population. After begin_steady the member programs are no longer
+  // lowered, so evaluate() and programs() are rejected.
+  void begin_steady(int batch);
+  std::vector<int> make_batch(const std::vector<double>& selection_fitness, int tournament_size,
+      double mutation_probability, std::uint64_t seed, ReproductionStats* timing = nullptr);
+  FitnessEvalResult evaluate_batch(FitnessSessionGpu& session, const std::vector<int>& reuse,
+      unsigned case_count, bool diagnostics, ReproductionStats* timing = nullptr);
+  std::vector<unsigned> batch_nodes(bool grammar_sites = false) const;
+  void commit_batch(const std::vector<std::array<int, 2>>& placements);
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
