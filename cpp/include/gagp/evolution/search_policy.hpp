@@ -54,7 +54,8 @@ struct PhaseVariationPolicy {
 // `batch` children together, then places them one by one; each child replaces
 // the loser of an inverse tournament of `replacement_size` members, never the
 // population's best member. Rounds repeat until population * generations
-// children were placed.
+// children were placed. `batch` 0 means the population size (one round per
+// generation-equivalent).
 enum class PhaseScheduleMode { Generational, Async, SteadyState };
 struct PhaseSchedulePolicy {
   PhaseScheduleMode mode = PhaseScheduleMode::Generational;
@@ -78,6 +79,8 @@ struct PhaseSchedulePolicy {
 // Throws std::invalid_argument for values that do not fit `population`
 // (population < 1 skips population-dependent checks).
 void validate_phase_schedule_policy(const PhaseSchedulePolicy& policy, int population = 0);
+// The policy with an omitted steady-state batch (0) set to `population`.
+PhaseSchedulePolicy resolve_phase_schedule(PhaseSchedulePolicy policy, int population);
 
 // Throws std::invalid_argument for out-of-range values.
 void validate_phase_variation_policy(const PhaseVariationPolicy& policy);

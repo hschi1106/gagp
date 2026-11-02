@@ -265,7 +265,7 @@ JsonValue effective_search_config(const evo::EvolutionConfig& cfg) {
         schedule.object_v["workers"] = make_number(policy.workers);
         schedule.object_v["child_overhead"] = make_number(policy.child_overhead);
       }
-      if (steady) schedule.object_v["batch"] = make_number(policy.batch);
+      if (steady) schedule.object_v["batch"] = make_number(evo::resolve_phase_schedule(policy, cfg.population_size).batch);
       if (async || steady) schedule.object_v["replacement_size"] = make_number(policy.replacement_size);
       out.object_v["schedule"] = schedule;
       auto islands = make_object();

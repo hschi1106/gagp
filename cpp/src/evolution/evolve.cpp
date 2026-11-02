@@ -643,7 +643,7 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
     const std::vector<ProgramGenome>& population, FitnessSessionGpu& session,
     EvolutionResult& result, std::chrono::steady_clock::time_point search_start) {
   if (phase_engine(cfg) != PhaseEngine::Gpu) return false;
-  const auto schedule=cfg.phase_schedule.value_or(PhaseSchedulePolicy{});
+  const auto schedule=resolve_phase_schedule(cfg.phase_schedule.value_or(PhaseSchedulePolicy{}),int(population.size()));
   const bool steady=schedule.mode==PhaseScheduleMode::SteadyState;
   if (!schedule.is_default() && !steady)
     throw std::invalid_argument("islands and async schedules are simulated by the CPU reference phase owner only");
@@ -876,7 +876,7 @@ void evolve_cpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
     std::chrono::steady_clock::time_point search_start) {
   const auto begin = std::chrono::steady_clock::now();
   require_phase_entry_policy(cfg);
-  const auto schedule=cfg.phase_schedule.value_or(PhaseSchedulePolicy{});
+  const auto schedule=resolve_phase_schedule(cfg.phase_schedule.value_or(PhaseSchedulePolicy{}),int(population.size()));
   repro::HostPhasePopulation owner(cfg.compiled_grammar,population,cases.input_names,cfg.offspring_resource_budget,
       cfg.gpu_phase_site_depth,resolve_phase_variation(cfg),schedule);
   result.timing.init_population_ms += std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count();

@@ -23,11 +23,16 @@ void validate_phase_variation_policy(const PhaseVariationPolicy& policy) {
     throw std::invalid_argument("mutation max subtree nodes must be 0 (off) or in [1,1024]");
 }
 
+PhaseSchedulePolicy resolve_phase_schedule(PhaseSchedulePolicy policy, int population) {
+  if (policy.mode == PhaseScheduleMode::SteadyState && policy.batch == 0) policy.batch = population;
+  return policy;
+}
+
 void validate_phase_schedule_policy(const PhaseSchedulePolicy& policy, int population) {
   const bool async = policy.mode == PhaseScheduleMode::Async;
   const bool steady = policy.mode == PhaseScheduleMode::SteadyState;
-  if (steady ? policy.batch < 1 : policy.batch != 0)
-    throw std::invalid_argument("batch must be >= 1 for steady_state and absent otherwise");
+  if (steady ? policy.batch < 0 : policy.batch != 0)
+    throw std::invalid_argument("batch must be >= 1 (or omitted) for steady_state and absent otherwise");
   if (steady && (policy.islands != 1 || policy.workers || policy.child_overhead))
     throw std::invalid_argument("steady_state takes only batch and replacement_size");
   if (policy.islands < 1 || policy.islands > 1024) throw std::invalid_argument("islands must be in [1,1024]");
@@ -44,7 +49,7 @@ void validate_phase_schedule_policy(const PhaseSchedulePolicy& policy, int popul
   if (!async && !steady && policy.replacement_size != 2)
     throw std::invalid_argument("replacement size is an async or steady_state member");
   if (population < 1) return;
-  if (steady && (policy.batch > population || population % policy.batch))
+  if (steady && policy.batch && (policy.batch > population || population % policy.batch))
     throw std::invalid_argument("steady_state batch must divide the population");
   if (population % policy.islands) throw std::invalid_argument("islands must divide the population");
   const int island = population / policy.islands;

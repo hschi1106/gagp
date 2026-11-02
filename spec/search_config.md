@@ -57,7 +57,7 @@ out-of-range values are rejected; nothing is clamped or ignored.
 | `fitness.penalty` | common | number >= 0 | Fitness penalty; zero is permitted only where the task's fitness policy allows it |
 | `execution.fuel` | common | integer >= 1 | Evaluation fuel per program and case. It may lower, never raise, the grammar's execution fuel, and only for an explicit `representation: phase_population` |
 | `schedule.mode` | gagp | `generational`, `async`, `steady_state` | Population schedule (see below) |
-| `schedule.batch` | gagp | integer 1..population, dividing it | `steady_state` only: children created and scored per round |
+| `schedule.batch` | gagp | integer 1..population, dividing it (default: population) | `steady_state` only: children created and scored per round |
 | `schedule.workers` | gagp | integer 1..population, divisible by `islands.count` | Async only: concurrently simulated children |
 | `schedule.replacement_size` | gagp | integer 1..64 (default 2) | `async` and `steady_state`: inverse-tournament size of the replaced member |
 | `schedule.child_overhead` | gagp | integer >= 0 (default 0) | Async only: simulated time per child, in fuel units |
@@ -125,7 +125,9 @@ Host worker count and GPU engine variants do not change these results.
 
 `schedule.mode: steady_state` is supported by both phase owners (GPU and CPU
 reference) and they publish identical searches. It takes only `batch` and
-`replacement_size`; `islands.count` must be 1. `elitism` is not used: the
+`replacement_size`; `islands.count` must be 1. An omitted `batch` is the
+population size (one round per generation-equivalent); the effective record
+holds the resolved value. `elitism` is not used: the
 population's best member is never replaced instead.
 
 1. The initial population is evaluated and ranked with the generational

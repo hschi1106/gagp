@@ -162,7 +162,16 @@ void test_schedule() {
   evo::EvolutionConfig steady_copy;
   apply_search_config(parse_search_config(parse(evo::grammar::canonical_json(effective_search_config(steady_cfg)))), steady_copy);
   require(steady_copy.phase_schedule == steady_cfg.phase_schedule, "steady_state does not round-trip");
-  rejects(",\"schedule\":{\"mode\":\"steady_state\"}", "batch");
+  // An omitted batch is the population size; the record holds the resolved value.
+  const auto whole = config(",\"schedule\":{\"mode\":\"steady_state\"}");
+  require(whole.schedule && whole.schedule->batch == 0, "omitted steady_state batch");
+  evo::EvolutionConfig whole_cfg; whole_cfg.phase_population = true; whole_cfg.population_size = 512;
+  apply_search_config(whole, whole_cfg);
+  const auto whole_record = effective_search_config(whole_cfg);
+  require(whole_record.object_v.at("schedule").object_v.at("batch").number_v == 512, "omitted batch not recorded as population");
+  require(evo::resolve_phase_schedule(*whole.schedule, 512).batch == 512 &&
+          evo::resolve_phase_schedule(*steady.schedule, 512).batch == 256, "resolve_phase_schedule");
+  evo::validate_phase_schedule_policy(*whole.schedule, 1000);
   rejects(",\"schedule\":{\"mode\":\"steady_state\",\"batch\":8,\"workers\":4}", "steady_state takes only");
   rejects(",\"schedule\":{\"mode\":\"steady_state\",\"batch\":8},\"islands\":{\"count\":2}", "steady_state takes only");
   rejects(",\"schedule\":{\"batch\":8}", "batch");

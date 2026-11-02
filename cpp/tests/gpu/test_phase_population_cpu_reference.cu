@@ -188,6 +188,14 @@ int main() { try {
   const std::string label=std::string(p->label)+" steady_state";
   const auto reference=steady_run(false);
   require(reference.profile.find("-steady8")!=std::string::npos,label+" CPU profile");
+  {  // An omitted batch is the population size, on both owners.
+   auto whole=steady;whole.batch=0;auto explicit_whole=steady;explicit_whole.batch=population;
+   const auto run_with=[&](const PhaseSchedulePolicy& s,bool gpu){auto saved=steady;steady=s;auto t=steady_run(gpu);steady=saved;return t;};
+   const auto full=run_with(explicit_whole,false);
+   require(full.profile.find("-steady"+std::to_string(population))!=std::string::npos,label+" whole-population profile");
+   require_same(full,run_with(whole,false),label+" omitted batch CPU");
+   require_same(full,run_with(whole,true),label+" omitted batch GPU");
+  }
   require(reference.champions.size()==std::size_t(base.generations) && reference.final_asts.size()==std::size_t(population),label+" shape");
   require(reference.final_asts!=run(*p,false).final_asts,label+" equals the generational search");
   for(std::size_t g=1;g<reference.best.size();++g)require(reference.best[g]>=reference.best[g-1],label+" champion regressed");
