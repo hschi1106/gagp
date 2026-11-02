@@ -1,6 +1,6 @@
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
+#include "gagp/core/engine_profile.hpp"
 #include "gagp/runtime/cpu/execution_session.hpp"
-#include "fuel_meter.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -126,7 +126,7 @@ struct RegionRunContext {
     if (!entry.result || entry.caller_n_locals != caller_n_locals) {
       entry.result = verify_bounded_region_segment(segment, caller_n_locals);
       entry.caller_n_locals = caller_n_locals;
-      entry.views_supported = entry.result->ok && std::getenv("GAGP_CPU_REGION_VIEWS") &&
+      entry.views_supported = entry.result->ok && gagp::engine_env("GAGP_CPU_REGION_VIEWS") &&
           detail::cpu_region_views_supported(segment);
     }
     return *entry.result;
@@ -588,7 +588,7 @@ ExecResult run_code_impl(const CodeView& view,
               scratch.memo.set_dense_domain(lower, upper - 1);
           }
           const bool use_views = view.region_context ? view.region_context->validations[ins.a].views_supported :
-              std::getenv("GAGP_CPU_REGION_VIEWS") && detail::cpu_region_views_supported(segment);
+              gagp::engine_env("GAGP_CPU_REGION_VIEWS") && detail::cpu_region_views_supported(segment);
           auto result = use_views
               ? detail::execute_with_cpu_views(layout, initial, adapter, scratch, fuel,
                     parameters, view.region_context ? &view.region_context->list_views : nullptr)
@@ -660,12 +660,9 @@ ExecResult CpuExecutionSession::execute(
     const std::vector<std::pair<int, Value>>& inputs, int fuel) {
   if (!impl_) return fail(ErrCode::Value, "execution session has been moved");
   const auto& program = impl_->program;
-  const int initial = fuel;
-  auto result = run_code(CodeView{program.consts, program.code, program.n_locals,
+  return run_code(CodeView{program.consts, program.code, program.n_locals,
                           program.var2idx, program.instruction_fuel, nullptr,
                           &impl_->context}, inputs, {}, fuel, true, &program);
-  detail::fuel_meter::last_used() = initial - fuel;
-  return result;
 }
 
 std::size_t CpuExecutionSession::retained_region_bytes() const noexcept {
@@ -675,11 +672,8 @@ std::size_t CpuExecutionSession::retained_region_bytes() const noexcept {
 ExecResult execute_bytecode_cpu(const BytecodeProgram& program,
                                 const std::vector<std::pair<int, Value>>& inputs,
                                 int fuel) {
-  const int initial = fuel;
-  auto result = run_code(CodeView{program.consts, program.code, program.n_locals, program.var2idx, program.instruction_fuel}, inputs, {}, fuel, true,
+  return run_code(CodeView{program.consts, program.code, program.n_locals, program.var2idx, program.instruction_fuel}, inputs, {}, fuel, true,
                   &program);
-  detail::fuel_meter::last_used() = initial - fuel;
-  return result;
 }
 
 }  // namespace gagp

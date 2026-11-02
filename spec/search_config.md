@@ -56,14 +56,9 @@ out-of-range values are rejected; nothing is clamped or ignored.
 | `ranking.tie_break` | common | `ast_nodes`, `grammar_sites` | Tie break after fitness and wrong-case count: fewer AST nodes, or fewer mutable grammar invocations |
 | `fitness.penalty` | common | number >= 0 | Fitness penalty; zero is permitted only where the task's fitness policy allows it |
 | `execution.fuel` | common | integer >= 1 | Evaluation fuel per program and case. It may lower, never raise, the grammar's execution fuel, and only for an explicit `representation: phase_population` |
-| `schedule.mode` | gagp | `generational`, `async`, `steady_state` | Population schedule (see below) |
+| `schedule.mode` | gagp | `generational`, `steady_state` | Population schedule (see below) |
 | `schedule.batch` | gagp | integer 1..population, dividing it (default: population) | `steady_state` only: children created and scored per round |
-| `schedule.workers` | gagp | integer 1..population, divisible by `islands.count` | Async only: concurrently simulated children |
-| `schedule.replacement_size` | gagp | integer 1..64 (default 2) | `async` and `steady_state`: inverse-tournament size of the replaced member |
-| `schedule.child_overhead` | gagp | integer >= 0 (default 0) | Async only: simulated time per child, in fuel units |
-| `islands.count` | gagp | integer 1..1024 dividing the population | Equal contiguous islands; 1 disables them |
-| `islands.migration_interval` | gagp | integer >= 0 | Generations (async: population-sized completion epochs) between migrations; 0 only with `migrants: 0` |
-| `islands.migrants` | gagp | integer 0..island size/2 | Best members of each island copied to the next island |
+| `schedule.replacement_size` | gagp | integer 1..64 (default 2) | `steady_state` only: inverse-tournament size of the replaced member |
 
 `Class` separates two kinds of members:
 
@@ -125,7 +120,7 @@ Host worker count and GPU engine variants do not change these results.
 
 `schedule.mode: steady_state` is supported by both phase owners (GPU and CPU
 reference) and they publish identical searches. It takes only `batch` and
-`replacement_size`; `islands.count` must be 1. An omitted `batch` is the
+`replacement_size`. An omitted `batch` is the
 population size (one round per generation-equivalent); the effective record
 holds the resolved value. `elitism` is not used: the
 population's best member is never replaced instead.
@@ -150,41 +145,6 @@ population's best member is never replaced instead.
    after the last round, without a separate final evaluation.
 
 Cumulative checkpoints and CPU fitness verification are not supported.
-
-## Population schedules (research)
-
-`schedule.mode: async` and `islands` change the population dynamics for
-research simulation. They are honored only by the CPU reference owner
-(`representation: phase_population` on CPU evaluation and reproduction); the
-GPU owner and the native AST path reject any non-default value. A schedule
-with `mode: generational` and `islands.count: 1` is the default and is
-omitted from recorded effective configurations, so existing records and
-searches are unchanged.
-
-- Islands: member `i` belongs to island `i / (population / count)`. Each
-  island runs the generational operators on its own rows with its own draw
-  stream: tournaments, crossover donors and `elitism` elites stay inside the
-  island. After reproduction `r` (0-based) with `(r+1) % migration_interval
-  == 0`, the best `migrants` members of island `i` (by completed fitness,
-  ties to the lower index) replace the last `migrants` offspring slots of
-  island `(i+1) % count` unchanged, reusing their completed results.
-- Async: a discrete-event simulation of `workers` concurrent children with
-  no generation barrier, `workers / count` per island. After the initial
-  evaluation every worker starts one child from the population as it is at
-  the start time (tournaments on the current ranking), using the ordinary
-  per-child crossover and mutation bodies with a fresh seed. A child's
-  duration is `child_overhead` plus its largest per-case fuel; a child whose
-  genotype equals a current member reuses that member's result and costs
-  only `child_overhead`. Completions are processed in order of finish time
-  (ties by start order). The completed child replaces the worst of
-  `replacement_size` uniformly drawn members of its island, redrawing if that
-  is the island's best member; the worker then starts its next child. After
-  every `migration_interval * population` completions the best `migrants`
-  members of island `i` replace the worst `migrants` members of island
-  `(i+1) % count`. `population * generations` children are started; the run
-  ends when they have all completed. Every `population` completions record a
-  generation-equivalent champion. The ranking is the generational ranking
-  (fitness, wrong count, tie break, member index).
 
 ## Not configurable here
 
@@ -212,13 +172,3 @@ searches are unchanged.
   `gagp-search-config-v1` object named `search_config` in their result JSON,
   with any legacy-setting policy resolved. Feeding that object back as a file
   reproduces the same search semantics.
-- Research process settings of the CPU reference owner, outside the search
-  configuration: `GAGP_RESEARCH_SCHEDULE_TRACE=PATH` writes metered fuel per
-  evaluated member (generational) or an async simulation summary;
-  `GAGP_RESEARCH_TIME_BUDGET=T` (async) keeps starting children until
-  simulated time `T` and captures the champion of the population at `T` as
-  checkpoint `equal_time`, besides `equal_work` after `population *
-  generations` completions. `GAGP_RESEARCH_COST_BUDGETS=C1,C2,...` (async)
-  keeps starting children until the summed duration of completed children
-  reaches each `Ci` and captures checkpoint `cost<i>` there. The fixed ASGP benchmark writes each checkpoint
-  champion to `<GAGP_SEARCH_EXPORT>.<name>.json`.

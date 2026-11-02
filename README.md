@@ -110,6 +110,28 @@ ranking. Selecting a GPU backend changes execution and scheduling, not the
 language or operator contract. See the [architecture](docs/design/architecture.md)
 and [native dataflow](docs/design/dataflow.md) for the full model.
 
+## Research mainline: exact GPU grammar-guided GP
+
+The research system is the **phase population**: a grammar-defined program
+population that stays resident on the GPU for the whole run. Selection,
+crossover, mutation, lowering to bytecode and fitness evaluation all run on the
+device, and a plain C++ reference engine runs the same operators and random
+draws on the CPU. For the same inputs and seed both engines publish
+bit-identical champions, histories and final populations, so every speed
+optimization is checked against the reference rather than trusted.
+
+- [Research mainline](docs/design/research-mainline.md): claim, components,
+  exactness checks, engine profile and retired designs.
+- [Fixed ASGP benchmark](docs/guides/fixed-asgp-benchmark.md): GAGP GPU, GAGP
+  CPU reference and the original ASGP solver on identical frozen inputs.
+- [Final experiment report (zh-TW)](docs/reports/gagp-final-report.zh-TW.md)
+  and [its data](benchmarks/final-scale-20261103/README.md).
+
+Exact engine optimizations are on by default through the engine profile
+(`include/gagp/core/engine_profile.hpp`); `GAGP_ENGINE_PROFILE=legacy` turns
+them all off for ablations. Changes of search dynamics are search
+configuration members ([spec](spec/search_config.md)), never engine switches.
+
 ## Operational tools
 
 The dependency-free Python package handles PSB datasets, fixture conversion,
@@ -148,6 +170,7 @@ Follow the complete artifact pipeline in the
 | [Grammar definitions and migration](docs/guides/grammar-config.md) | Compiled search spaces, artifacts, and offline v1 migration |
 | [Grammar authoring](docs/guides/grammar-authoring.md) | Start, validate, inspect, resolve, customize, and run a definition |
 | [Implementation and performance report](docs/reference/custom-grammar-implementation-report.md) | Verified grammar migration, retained optimizations, p1024 speedup, accepted results and measured limitations |
+| [Research mainline](docs/design/research-mainline.md) | Exact GPU phase population, CPU reference engine, engine profile |
 | [Documentation index](docs/README.md) | Ownership of every maintained document |
 
 ## Repository layout

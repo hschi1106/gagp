@@ -174,4 +174,4 @@ frames; list view state remains stored even when Value tags are structural.
 `host_pack_gpu.cu` also recognizes bound scalar Add phases, mapping loads to
 initialized frame slots. Both retain generic fallback and original fuel. The
 current opt-in settings and support limits are recorded with the
-[native GPU execution profiles](../guides/fixed-asgp-benchmark.md#native-gpu-execution-profiles).
+[native GPU execution profiles](../reference/fixed-asgp-history.md#native-gpu-execution-profiles).

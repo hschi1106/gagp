@@ -1,7 +1,0 @@
-{
-  "recorded_utc": "2026-10-18T02:47:23.245931+00:00",
-  "scope": "before any fresh validation input generation or held-out scoring",
-  "additional_exclusion": "Exclude previous full-case speed fixture inputs, in addition to previous selected quality train/test and new training inputs, from fresh held-out inputs.",
-  "reason": "The previous speed/parity fixtures also informed implementation; their inputs should not reappear in independent validation.",
-  "selection": "input identity only; labels or test scores do not choose settings or cases"
-}

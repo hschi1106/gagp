@@ -1,7 +1,0 @@
-population,variant,tasks,generations,cases,repetitions,geometric_mean,full_final_ast_descriptors_champion_fidelity,scope
-1024,case_only,30,8,1024,1,1.0680788249246485,True,old TRAINING development only
-1024,shape,30,8,1024,1,1.1761918904595878,True,old TRAINING development only
-1024,combined,30,8,1024,1,1.154529335128176,True,old TRAINING development only
-16384,case_only,30,8,1024,1,1.1009184598697745,True,old TRAINING development only
-16384,shape,30,8,1024,1,1.2615310946126828,True,old TRAINING development only
-16384,combined,30,8,1024,1,1.2507737454609122,True,old TRAINING development only

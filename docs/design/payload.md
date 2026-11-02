@@ -559,7 +559,7 @@ fast path, generic fallback, numeric boundaries and exact fuel/capacity exhausti
 
 Further opt-ins specialize direct phase/root execution, verified window regions,
 unboxed window frames and bound scalar Add phases. Their support and cost
-contracts are maintained in the [fixed benchmark guide](../guides/fixed-asgp-benchmark.md#architecture-experiments-2026-10-01-second-round).
+contracts are maintained in the [fixed benchmark history](../reference/fixed-asgp-history.md#architecture-experiments-2026-10-01-second-round).
 They do not change cases, numerical precision or resource/fuel limits.
 
 ## Exact Path vs Fallback Path

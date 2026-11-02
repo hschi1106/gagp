@@ -465,11 +465,11 @@ inside an active scope; checking there would silently disable the optimization.
 Every child still receives membership, native/lowering and budget validation.
 Invalid parent evidence falls back to ordinary parent analysis.
 
-### Experimental native GPU phase population
+### Native GPU phase population
 
-For a checkpoint-specific Chinese explanation with old/new examples and evidence
-limits, see [GPU phase variation comparison](gpu-phase-variation-comparison.zh-TW.md).
-This section remains the owning implementation contract.
+This is the representation of the research mainline; the
+[research mainline overview](research-mainline.md) explains how it fits
+together. This section remains the owning implementation contract.
 
 `GAGP_GPU_PHASE_POPULATION=1` requests a run-owned GPU genotype in the existing
 GPU evaluation + GPU reproduction modes. It uses one host thread. The default
@@ -639,14 +639,6 @@ export are common code. `gagp_test_phase_population_cpu_reference` requires
 identical final populations, fitness, wrong counts and champions for several
 policies, host thread counts and GPU engine variants.
 
-Research population schedules (`PhaseSchedulePolicy`: islands and an async
-discrete-event simulation, [search config](../../spec/search_config.md#population-schedules-research))
-exist only in the CPU reference owner. Islands run the same bodies on shifted
-row ranges inside `reproduce`; async uses `start_child` / `evaluate_child` /
-`commit_child` per worker row, driven by `run_phase_population_async` in
-`evolve.cpp` instead of the shared generation loop. The GPU owner rejects
-those two schedules.
-
 The synchronous batch steady state (`schedule.mode: steady_state`) runs on both
 owners through `run_phase_population_steady` in `evolve.cpp`. Each owner
 implements `begin_steady` / `make_batch` / `evaluate_batch` / `batch_nodes` /
@@ -659,10 +651,10 @@ Staged owners allocate the batch buffers per round (inside the stage bank when
 stage storage is active), lower the batch, then `stash_children` copies the
 child rows compactly into persistent buffers and the batch buffers are released
 before evaluation, so the bank serves the payload workspace; `place_stashed`
-places from the stash. Member programs are not lowered after `begin_steady`. Measured on the formal
-G64 cohort, each evaluation launch has a large latency floor, so `batch` below
-the population size is slower than the generational loop
-(`~/gagp/logs/async-island-eval-20261031/README.md`).
+places from the stash. Member programs are not lowered after `begin_steady`. Each
+evaluation launch has a large latency floor, so `batch` below the population
+size is slower than the generational loop; the default `batch` is therefore the
+population size (see [research mainline](research-mainline.md)).
 
 The semantic policy (`PhaseVariationPolicy`, [search config](../../spec/search_config.md))
 is a constructor argument of both owners. Exact GPU engine variants remain

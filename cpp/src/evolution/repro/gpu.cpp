@@ -1,4 +1,5 @@
 #include "gagp/core/host_threads.hpp"
+#include "gagp/core/engine_profile.hpp"
 #include "../batch_workers.hpp"
 #include "pack_internal.hpp"
 #include "prep_internal.hpp"
@@ -241,7 +242,7 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
       return owner->resource_invariant_roots(roots);
     });
   }
-  const bool selected_sites = std::getenv("GAGP_SELECTED_SITES") && gagp::host_thread_limit() == 1 &&
+  const bool selected_sites = gagp::engine_env("GAGP_SELECTED_SITES") && gagp::host_thread_limit() == 1 &&
       context->requests().size() == 1 && !context->offspring_budget() &&
       !payload::StagedPayloads::has_active_scope() &&
       std::all_of(population.begin(), population.end(), [](const auto& genome) {
@@ -252,7 +253,7 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
       });
   std::vector<ProgramGenome> execution_parents;
   std::shared_ptr<const grammar::variation_detail::OwnedScalarPopulation> owned_parents;
-  if (selected_sites && std::getenv("GAGP_OWNED_PREPARATION") &&
+  if (selected_sites && gagp::engine_env("GAGP_OWNED_PREPARATION") &&
       !std::getenv("GAGP_NO_DERIVATION_CERTIFICATES")) {
     if (continuation) {
       if (&population != &continuation->genomes() || !continuation->matches(*context))
@@ -482,7 +483,7 @@ ReproductionResult run_compiled_prepared(const std::vector<ScoredGenomeRef>& sco
     const auto decode_start = std::chrono::steady_clock::now();
     PassResult children;
     const auto* cert = pass.parent_certificates.get();
-    if (retain_owned && std::getenv("GAGP_OWNED_CROSSOVER_HANDOFF") && cert && cert->owned_parents &&
+    if (retain_owned && gagp::engine_env("GAGP_OWNED_CROSSOVER_HANDOFF") && cert && cert->owned_parents &&
         cert->sources == pass.packed.compiled_sources && cert->context.get() == &context &&
         cert->owned_parents->matches(context) &&
         cert->owned_parents->genomes().size() == static_cast<std::size_t>(pass.config.population_size) &&

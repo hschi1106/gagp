@@ -17,7 +17,8 @@ When comparing with another system, align every `common` member of the
 [spec](../../spec/search_config.md) to that system and record the profile
 used; `gagp` members are evaluated only by GAGP ablations.
 
-The final GAGP speed measurements also enable the exact engine options
-`GAGP_GPU_WARP_VARIATION=1`, `GAGP_GPU_CHOICE_TABLES=1` and
-`GAGP_GPU_INITIAL_REPLAY_CAPACITY=1` (stage storage stays at its default).
-They change only speed, never the search.
+Engine options are not part of these files. The exact engine options used by
+the final measurements (`GAGP_GPU_WARP_VARIATION=1`, `GAGP_GPU_CHOICE_TABLES=1`,
+`GAGP_GPU_INITIAL_REPLAY_CAPACITY=1` and the formal runtime settings) are the
+defaults of the engine profile (`cpp/include/gagp/core/engine_profile.hpp`);
+they change only speed, never the search.

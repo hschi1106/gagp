@@ -86,7 +86,8 @@ not evidence of incorrect evaluation. This prototype rejects those entire
 populations rather than weakening equality or adding a larger charge. Together
 with the two tuple certificate failures, six tasks are unsupported. Evidence,
 source hashes, executable hashes, and per-task commands are recorded in
-[`parent-gate.json`](../../benchmarks/fixed_asgp/optimization/results/source-depth-20261015/parent-gate.json).
+`benchmarks/fixed_asgp/optimization/results/source-depth-20261015/parent-gate.json`
+(removed from the tree on 2026-11-03; recover it from git history, commit `51aa1dc`).
 
 The benchmark includes profile configuration and its canonical resource-invariance
 certification inside `evolve_wall_ms`. Initial experimental records before the

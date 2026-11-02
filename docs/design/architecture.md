@@ -165,6 +165,13 @@ typed-subtree crossover, constant/subtree mutation, atomic repeated holes,
 destination budgets, and final membership certification. Backend choice does
 not change language or operator semantics.
 
+The phase-population representation (the research mainline) keeps the genotype
+resident on the GPU and has a CPU reference engine that runs the same
+per-child operators; both publish identical searches. Its components, the
+engine profile that supplies defaults for exact engine switches
+(`include/gagp/core/engine_profile.hpp`), and the parity tests are described in
+[research-mainline.md](research-mainline.md).
+
 Constant domains include finite values, inclusive integer ranges, finite Float
 intervals, and bounded
 typed sequences. Sequence domains describe complete alphabets/element domains

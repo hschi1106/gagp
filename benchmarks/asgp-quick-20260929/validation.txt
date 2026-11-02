@@ -1,7 +1,0 @@
-1024-case matrix: 4 populations, 60 formal generation trials, 12 formal prepared-evaluation trials, 24 discarded warmup records.
-One adapter/binary/grammar identity for all four cells; all hashes and measured medians/ratios verified.
-Identical 1024-case data and nested population prefixes verified across all four sizes.
-GAGP CPU diagnostic subprocess SIGFPE recorded at populations 4096 and 8192; measured ASGP/GPU backends completed all repetitions.
-Unchanged native libraries retain prior checks: ASGP 1/1 CTest; GAGP focused native 4/4.
-Repository unittest: 24/24 passed.
-Cross-system numerical equivalence is not claimed.

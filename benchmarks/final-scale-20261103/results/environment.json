@@ -1,0 +1,20 @@
+{
+ "binary_sha256": "415fe9c7ed9a40235efcb985a129e2f33f032b2f36ed69f1544dcc66f532f561",
+ "binary_source_commit": "51aa1dc (research/gagp-final), Release build with -DGAGP_BUILD_BENCHMARKS=ON",
+ "cpu": "Intel(R) Core(TM) i9-10900K CPU @ 3.70GHz",
+ "cpu_count": "20",
+ "memory": "125 GiB",
+ "gpus": [
+  "NVIDIA GeForce RTX 3090, 24576 MiB, 560.35.05"
+ ],
+ "cuda": "Cuda compilation tools, release 12.6, V12.6.85",
+ "os": "Linux-6.8.0-138-generic-x86_64-with-glibc2.35",
+ "kernel": "6.8.0-138-generic",
+ "asgp_source": "~/r13921069 (author archive, unmodified; sha256 over sorted src/ + CMakeLists.txt file hashes: ec20d79430245b4a90bc25b89b1cd4e047e946f4dc233959db42ef9cd1964af3)",
+ "pinning": {
+  "cpu_queue (ASGP-1T, CPU reference)": "8 single-thread workers on CPUs 0-7,10-17",
+  "gpu_queue (GAGP GPU)": "CPUs 8,18; serial under /tmp/gagp-support-20261015-gpu.lock",
+  "build, input preparation, judging": "CPUs 9,19 at nice 19"
+ },
+ "allocator": "jemalloc 5 via LD_PRELOAD, MALLOC_CONF=background_thread:false,narenas:1 (all arms)"
+}

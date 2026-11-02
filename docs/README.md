@@ -15,6 +15,7 @@ contract as a second source of truth.
 - Save/replay or migrate: [Grammar artifacts](guides/grammar-config.md).
 - 報告投影片：[Customizable Grammar：語法、組合與 GPU 限制](presentations/customizable-grammar/index.html)（[操作與附件](presentations/customizable-grammar/README.md)）。
 - Compare performance: [Benchmarking](guides/benchmarking.md) and [timing fields](reference/timing.md).
+- Research mainline: [Exact GPU grammar-guided GP](design/research-mainline.md), the [fixed ASGP benchmark](guides/fixed-asgp-benchmark.md) and the [final experiment report](reports/gagp-final-report.zh-TW.md).
 - Develop GAGP: [Contributor workflow](guides/development.md#contributor-workflow) and [architecture](design/architecture.md).
 
 Historical execution records below substantiate past results; they are not
@@ -25,19 +26,20 @@ installation instructions or prerequisites for normal use.
 | Document | Owns |
 | --- | --- |
 | [`../spec/README.md`](../spec/README.md) | Normative language, bytecode, builtin, fitness, fixture, compiled-definition, and migration behavior |
+| [`design/research-mainline.md`](design/research-mainline.md) | Research claim, phase-population components and owners, exactness checks, engine profile and retired designs |
+| [`reports/gagp-final-report.zh-TW.md`](reports/gagp-final-report.zh-TW.md) | 中文最終研究報告：機制、架構、最終規模實驗結果、負結果與論文主軸 |
 | [`design/architecture.md`](design/architecture.md) | Native component boundaries and invariants |
 | [`design/dataflow.md`](design/dataflow.md) | End-to-end execution and evolution dataflow |
 | [`design/payload.md`](design/payload.md) | Host/device payload transport implementation |
 | [`design/source-production-depth-prototype.md`](design/source-production-depth-prototype.md) | Opt-in source-production depth accounting and admission requirements |
 | [`design/gpu-reproduction.md`](design/gpu-reproduction.md) | GPU reproduction pipeline and overlap design |
-| [`design/gpu-phase-variation-comparison.zh-TW.md`](design/gpu-phase-variation-comparison.zh-TW.md) | 中文版本限定解說：native GPU phase profile 的 RNG、variation 新舊比較、範例與證據限制；契約仍由 GPU reproduction design 定義 |
 | [`guides/project-guide.zh-TW.md`](guides/project-guide.zh-TW.md) | Chinese end-to-end tutorial for GA/GP readers; source-linked explanations, worked grammars and Mermaid diagrams |
 | [`guides/list-sum-grammar.md`](guides/list-sum-grammar.md) | Beginner walkthrough of a complete list-sum grammar, bindings and GP alternatives |
 | [`guides/getting-started.md`](guides/getting-started.md) | New-user CPU/CUDA installation and end-to-end custom-grammar tutorial |
 | [`guides/troubleshooting.md`](guides/troubleshooting.md) | Setup, grammar, artifact and GPU failure recovery |
 | [`guides/development.md`](guides/development.md) | Build, test, CLI, and local development workflows |
 | [`guides/benchmarking.md`](guides/benchmarking.md) | Fixed-population timing and canonical native run workflows |
-| [`guides/fixed-asgp-benchmark.md`](guides/fixed-asgp-benchmark.md) | Fixed ASGP/GAGP contract, source-derived 30-task support gates and bounded quality/timing commands |
+| [`guides/fixed-asgp-benchmark.md`](guides/fixed-asgp-benchmark.md) | Fixed ASGP/GAGP benchmark: inputs, modes, run settings and the scale experiment |
 | [`guides/psb-workflow.md`](guides/psb-workflow.md) | PSB dataset, regression, comparison, and manifest workflows |
 | [`guides/grammar-config.md`](guides/grammar-config.md) | Compiled grammar use, artifacts, and offline release-1 migration |
 | [`guides/grammar-authoring.md`](guides/grammar-authoring.md) | User workflow for creating, checking, resolving, customizing, and running grammars |
@@ -72,6 +74,7 @@ compatibility history. Those files link here rather than duplicating this map.
 | [`reference/grammar-migration/goal-11.5-resume.md`](reference/grammar-migration/goal-11.5-resume.md) | Preserved Stage B rollback evidence and resumed Stage A speedup optimization |
 | [`reference/grammar-migration/goal-11.5-final-measurements.md`](reference/grammar-migration/goal-11.5-final-measurements.md) | Final six-workload generation, steady evaluation, five-generation and cold-process timings |
 | [`reference/grammar-migration/semantic-coverage.md`](reference/grammar-migration/semantic-coverage.md) | Semantic baseline evidence mapped to requirements and remaining gaps |
+| [`reference/fixed-asgp-history.md`](reference/fixed-asgp-history.md) | Earlier fixed ASGP/GAGP contracts, probes and optimization rounds (2026-10) |
 | [`refactor/README.md`](refactor/README.md) | Evidence retained for the Python-retirement/native-verifier refactor |
 
 ## Editing rules

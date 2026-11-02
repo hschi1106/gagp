@@ -1,6 +1,7 @@
 #pragma once
 
 #include <limits>
+#include "gagp/core/engine_profile.hpp"
 #include <cstdlib>
 #include <unordered_map>
 #include <optional>
@@ -11,7 +12,6 @@
 #include "gagp/runtime/cpu/builtins_cpu.hpp"
 #include "bounded_region.hpp"
 #include "../view_profile.hpp"
-#include "phase_sharing_probe.hpp"
 
 namespace gagp::detail {
 
@@ -32,10 +32,10 @@ struct BoundPhaseInputs {
 };
 
 struct RegionPhaseScratch {
-  bool coordinate_enabled = std::getenv("GAGP_CPU_COORDINATE_DRIVER") != nullptr;
-  bool dense_enabled = std::getenv("GAGP_CPU_DENSE_MEMO") != nullptr;
-  bool typed_enabled = std::getenv("GAGP_CPU_TYPED_PHASE") != nullptr;
-  bool direct_enabled = typed_enabled || std::getenv("GAGP_CPU_BOUND_PHASE") != nullptr;
+  bool coordinate_enabled = gagp::engine_env("GAGP_CPU_COORDINATE_DRIVER") != nullptr;
+  bool dense_enabled = gagp::engine_env("GAGP_CPU_DENSE_MEMO") != nullptr;
+  bool typed_enabled = gagp::engine_env("GAGP_CPU_TYPED_PHASE") != nullptr;
+  bool direct_enabled = typed_enabled || gagp::engine_env("GAGP_CPU_BOUND_PHASE") != nullptr;
   struct SegmentBindings {
     std::vector<DirectPhaseBindings> phases;
     bool coordinate = false;
@@ -113,31 +113,6 @@ struct RegionAdapter {
   ExecResult run(const RegionPhase& phase, ValueTag expected,
                  const RegionFrame& frame, int& fuel, bool result_phase = false,
                  std::size_t binding_index = 0) {
-    if (!phase_sharing::enabled()) return run_phase(phase, expected, frame, fuel, result_phase, binding_index);
-    // RESEARCH probe: key = phase content + every bound input value.
-    const std::uint64_t content = phase_sharing::program_key(phase.program);
-    std::uint64_t key = phase_sharing::mix(phase_sharing::mix(content,
-        static_cast<std::uint64_t>(expected)), phase_sharing::current_case());
-    for (const auto& binding : phase.bindings) {
-      const auto slot = binding.source.slot;
-      key = phase_sharing::mix(key, static_cast<std::uint64_t>(binding.source.bank) * 64 + slot);
-      switch (binding.source.bank) {
-        case RegionSlotBank::State: key = phase_sharing::value_key(key, frame.state[slot]); break;
-        case RegionSlotBank::Parameter: if (parameters[slot]) key = phase_sharing::value_key(key, *parameters[slot]); break;
-        case RegionSlotBank::Prepared: key = phase_sharing::value_key(key, frame.prepared[slot]); break;
-        case RegionSlotBank::Result: key = phase_sharing::value_key(key, frame.results[slot]); break;
-        case RegionSlotBank::Measure:
-          key = phase_sharing::mix(key, Value::container_len(frame.state[segment.plan.sequence_state])); break;
-      }
-    }
-    const int before = fuel;
-    auto result = run_phase(phase, expected, frame, fuel, result_phase, binding_index);
-    phase_sharing::record(key, static_cast<std::uint64_t>(before > fuel ? before - fuel : 0), content);
-    return result;
-  }
-  ExecResult run_phase(const RegionPhase& phase, ValueTag expected,
-                 const RegionFrame& frame, int& fuel, bool result_phase,
-                 std::size_t binding_index) {
     const auto& program = phase.program;
     // Verified constant phases have no observable local reads. Avoid building
     // bindings and an interpreter frame, preserving the full instruction charge

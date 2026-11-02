@@ -1,4 +1,5 @@
 #include "../../../runtime/gpu/owned_programs.hpp"
+#include "gagp/core/engine_profile.hpp"
 #include "../../../runtime/gpu/view_profile.hpp"
 #include "../../../runtime/gpu/payload_workspace_budget.hpp"
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
@@ -24,7 +25,7 @@ namespace {
 using phase_ops::capacity;using phase_ops::code_capacity;
 using phase_ops::TreePointers;using phase_ops::DeviceSlot;using phase_ops::OperatorStats;
 using phase_ops::OperatorPolicy;using phase_ops::valid;using phase_ops::copy_tree;
-bool flag_is_one(const char* name){const char* value=std::getenv(name);return value && std::string(value)=="1";}
+bool flag_is_one(const char* name){const char* value=gagp::engine_env(name);return value && std::string(value)=="1";}
 using Clock = std::chrono::steady_clock;
 double elapsed(Clock::time_point start) { return std::chrono::duration<double,std::milli>(Clock::now()-start).count(); }
 void checked(cudaError_t status) { if (status != cudaSuccess) throw std::runtime_error(cudaGetErrorString(status)); }
@@ -54,7 +55,7 @@ struct UploadedProfile {
  UploadedProfile(const HostPhaseGrammar& h,bool with_choice_tables) {
   expressions.upload(h.expressions);
   auto weights=h.productions;auto nts=h.nonterminals;
-  if(std::getenv("GAGP_GPU_STATIC_WEIGHTS"))normalize_static_phase_weights(h,nts,weights);
+  if(gagp::engine_env("GAGP_GPU_STATIC_WEIGHTS"))normalize_static_phase_weights(h,nts,weights);
   productions.upload(weights);nonterminals.upload(nts);
   domains.upload(h.domains);values.upload(h.values);minimum.upload(h.minimum);
   if(with_choice_tables) {
@@ -250,7 +251,7 @@ struct NativePhasePopulation::Impl {
  // Search semantics come from the caller's policy; the remaining fields are
  // exact engine variants captured once at construction.
  OperatorPolicy operators;
- const bool linear_elite=std::getenv("GAGP_GPU_LINEAR_ELITE") && std::string(std::getenv("GAGP_GPU_LINEAR_ELITE"))=="1";
+ const bool linear_elite=gagp::engine_env("GAGP_GPU_LINEAR_ELITE") && std::string(gagp::engine_env("GAGP_GPU_LINEAR_ELITE"))=="1";
  std::string reproduction_profile;
  const bool inplace_mutation;
  const bool fused_donor_sites;
@@ -259,10 +260,10 @@ struct NativePhasePopulation::Impl {
  const bool choice_tables;
  const bool compact_compile_frames;
  const bool constructive_export;
- CompletedFitnessReuse fitness_reuse{std::getenv("GAGP_GPU_UNCHANGED_FITNESS_REUSE") &&
-     std::string(std::getenv("GAGP_GPU_UNCHANGED_FITNESS_REUSE"))=="1"};
- const bool parent_fitness_cache=fitness_reuse.enabled() && std::getenv("GAGP_GPU_PARENT_FITNESS_CACHE") &&
-     std::string(std::getenv("GAGP_GPU_PARENT_FITNESS_CACHE"))=="1";
+ CompletedFitnessReuse fitness_reuse{gagp::engine_env("GAGP_GPU_UNCHANGED_FITNESS_REUSE") &&
+     std::string(gagp::engine_env("GAGP_GPU_UNCHANGED_FITNESS_REUSE"))=="1"};
+ const bool parent_fitness_cache=fitness_reuse.enabled() && gagp::engine_env("GAGP_GPU_PARENT_FITNESS_CACHE") &&
+     std::string(gagp::engine_env("GAGP_GPU_PARENT_FITNESS_CACHE"))=="1";
  Buffer<std::uint64_t> parent_hashes;Buffer<int> parent_table;int parent_table_size=0;
  std::size_t peak_transport_bytes=0;
  bool staged_buffers=false;
@@ -274,8 +275,8 @@ struct NativePhasePopulation::Impl {
  Buffer<gpu_detail::DInstr> code,packed_code;Buffer<Value> constants,packed_constants;
  Buffer<PhaseCompileResult> compiled;Buffer<int> code_offsets,constant_offsets;
  std::array<ValueTag,64> input_types;bool views_proven=true,direct_root_proven=true;
- bool private_intlists_proven=std::getenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS") &&
-     std::string(std::getenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"))=="1";
+ bool private_intlists_proven=gagp::engine_env("GAGP_GPU_PRIVATE_INTLIST_OFFSETS") &&
+     std::string(gagp::engine_env("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"))=="1";
  // Executable state of one program set: the population members, or the
  // children of one steady-state batch (rows 0..count-1 of a tree buffer).
  struct ProgramSet {
@@ -350,12 +351,12 @@ struct NativePhasePopulation::Impl {
   set.programs_current=true;
  }
  explicit Impl(std::shared_ptr<const grammar::CompiledGrammar> g):grammar(std::move(g)),
-     inplace_mutation(std::getenv("GAGP_GPU_INPLACE_MUTATION")!=nullptr),
-     fused_donor_sites(std::getenv("GAGP_GPU_FUSED_DONOR_SITES")!=nullptr),
+     inplace_mutation(gagp::engine_env("GAGP_GPU_INPLACE_MUTATION")!=nullptr),
+     fused_donor_sites(gagp::engine_env("GAGP_GPU_FUSED_DONOR_SITES")!=nullptr),
      warp_variation(flag_is_one("GAGP_GPU_WARP_VARIATION")),
      choice_tables(warp_variation && flag_is_one("GAGP_GPU_CHOICE_TABLES")),
-     compact_compile_frames(std::getenv("GAGP_GPU_COMPACT_COMPILE_FRAMES")!=nullptr),
-     constructive_export(std::getenv("GAGP_GPU_CONSTRUCTIVE_EXPORT")!=nullptr){}
+     compact_compile_frames(gagp::engine_env("GAGP_GPU_COMPACT_COMPILE_FRAMES")!=nullptr),
+     constructive_export(gagp::engine_env("GAGP_GPU_CONSTRUCTIVE_EXPORT")!=nullptr){}
  // Only this live owner can publish construction-derived members. Cold import
  // admits the fixed skeleton and all initial phases. GPU generation samples the
  // admitted grammar/domains; same-nonterminal/scope splices preserve membership,
@@ -494,7 +495,7 @@ struct NativePhasePopulation::Impl {
    for(int p=0;p<population;++p)for(std::size_t k=0;k<phases_per_program;++k)
     out.region_phases[p*phases_per_program+k].program.verified_stack_bound=
         generic_vm?gpu_detail::MAX_STACK:stack_bounds[p];
-   if(std::getenv("GAGP_PER_PHASE_STACK_BOUND") && !generic_vm) {
+   if(gagp::engine_env("GAGP_PER_PHASE_STACK_BOUND") && !generic_vm) {
     // Fixed phases retain their cold verified upper bounds. Variable phases use
     // certificates from the exact freshly compiled rows copied above; the owner
     // still publishes the whole-program maximum for kernel bucket admission.
@@ -521,8 +522,8 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  impl_->operators.crossover_probability=policy.crossover_probability;
  impl_->operators.crossover_attempts=policy.crossover_attempts;
  impl_->operators.mutation_max_nodes=policy.mutation_max_nodes;
- impl_->operators.deferred_copy=std::getenv("GAGP_GPU_DEFERRED_CROSSOVER_COPY")!=nullptr;
- impl_->operators.fused_depth=std::getenv("GAGP_GPU_FUSED_SPLICE_DEPTH")!=nullptr;
+ impl_->operators.deferred_copy=gagp::engine_env("GAGP_GPU_DEFERRED_CROSSOVER_COPY")!=nullptr;
+ impl_->operators.fused_depth=gagp::engine_env("GAGP_GPU_FUSED_SPLICE_DEPTH")!=nullptr;
  phase_layout_require(site_depth>=0 && site_depth<=15 && !(site_depth && projected),"site depth must be0..15 and cannot combine with projected resource budgets");
  phase_layout_require(impl_->grammar && !input.empty() && input.size()<=16384,"population/grammar capacity");
  std::set<std::string> expected_names,actual_names(input_names.begin(),input_names.end());
@@ -538,8 +539,8 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  }
  std::string error;if(!initialize_gpu_repro_runtime(&error))throw std::runtime_error(error);checked(cudaGetDevice(&impl_->device));
  std::unique_ptr<NativePhaseGrammarProfiles> import_profiles;
- if(std::getenv("GAGP_REUSE_PHASE_GRAMMAR"))import_profiles=std::make_unique<NativePhaseGrammarProfiles>(impl_->grammar);
- const bool reuse_import=std::getenv("GAGP_REUSE_IMPORTED_EXECUTABLE")!=nullptr;
+ if(gagp::engine_env("GAGP_REUSE_PHASE_GRAMMAR"))import_profiles=std::make_unique<NativePhaseGrammarProfiles>(impl_->grammar);
+ const bool reuse_import=gagp::engine_env("GAGP_REUSE_IMPORTED_EXECUTABLE")!=nullptr;
  const auto* evaluator_inputs=reuse_import?&input_names:nullptr;
  impl_->population=input.size();impl_->layout=import_native_phase_layout(*impl_->grammar,input.front(),import_profiles.get(),evaluator_inputs,true,projected?&*projected:nullptr);
  if(site_depth)for(std::size_t k=0;k<impl_->layout.slots.size();++k)
@@ -566,8 +567,8 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  const std::size_t estimated=(2*rows+mutation_rows+input.size())*tree_bytes+rows*(code_capacity*sizeof(gpu_detail::DInstr)+capacity*sizeof(Value));
  phase_layout_require(estimated<=std::size_t(12)*1024*1024*1024,"resident genotype workspace capacity requires native fallback");
  std::size_t scratch_budget=0,free_bytes=0,total_bytes=0;
- if(std::getenv("GAGP_GPU_GLOBAL_PAYLOAD"))
-  phase_layout_require(gpu_detail::parse_payload_workspace_budget(std::getenv("GAGP_GPU_PAYLOAD_WORKSPACE_MIB"),scratch_budget),"invalid payload workspace budget");
+ if(gagp::engine_env("GAGP_GPU_GLOBAL_PAYLOAD"))
+  phase_layout_require(gpu_detail::parse_payload_workspace_budget(gagp::engine_env("GAGP_GPU_PAYLOAD_WORKSPACE_MIB"),scratch_budget),"invalid payload workspace budget");
  checked(cudaMemGetInfo(&free_bytes,&total_bytes));
  // Kernel local-memory backing also needs device space. Retire buffers that
  // belong exclusively to the other stage before admitting the full scratch cap.
@@ -578,10 +579,10 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   phase_layout_require(std::string(setting)=="0" || std::string(setting)=="1","staged phase buffers must be 0 or 1");
   impl_->staged_buffers=std::string(setting)=="1";
  }
- const auto* storage_flag=std::getenv("GAGP_GPU_STAGE_STORAGE");
+ const auto* storage_flag=gagp::engine_env("GAGP_GPU_STAGE_STORAGE");
  if(storage_flag)phase_layout_require(std::string(storage_flag)=="0" || std::string(storage_flag)=="1","stage storage flag must be0 or1");
  const bool standalone_storage=storage_flag && std::string(storage_flag)=="1";
- const auto* pool_flag=std::getenv("GAGP_GPU_CUDA_POOL");
+ const auto* pool_flag=gagp::engine_env("GAGP_GPU_CUDA_POOL");
  const bool requested_storage=standalone_storage || (pool_flag && std::string(pool_flag)=="1");
  if(requested_storage && impl_->staged_buffers && scratch_budget) {
   impl_->stage_storage=std::make_unique<gpu_detail::CudaStageStorage>(scratch_budget);
@@ -601,7 +602,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   slot.type=tag(nt.type);for(int j=0;j<slot.scope;++j)slot.locals[j]=tag(nt.scope[j].type);slots.push_back(slot);
  }
  impl_->slots.upload(slots);std::vector<PhaseGenerationResult> lengths(rows);
- const bool batch_import=std::getenv("GAGP_BATCH_PHASE_IMPORT")!=nullptr;
+ const bool batch_import=gagp::engine_env("GAGP_BATCH_PHASE_IMPORT")!=nullptr;
  std::vector<PhaseTreeNode> import_nodes;std::vector<int> import_origins;std::vector<Value> import_constants;
  std::vector<ImportOffset> import_offsets; if(batch_import)import_offsets.reserve(rows);
  // Upload live imports only, avoiding full-capacity host staging arrays.
@@ -656,7 +657,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  annotate_import<<<(rows+63)/64,64>>>(pointers(*impl_->current),impl_->slots.data,rows,impl_->slot_count);checked(cudaGetLastError());
  for(const auto& r:impl_->current->lengths.read(rows))phase_layout_require(valid(r),"import site annotation failed");
  if(!impl_->staged_buffers)impl_->reserve_reproduction_buffers();
- if(std::getenv("GAGP_OWNED_PHASE_PACKED")) {
+ if(gagp::engine_env("GAGP_OWNED_PHASE_PACKED")) {
   // Every program above passed cold GPU bytecode verification with the same
   // local/stack limits. No reproduction or program mutation has occurred.
   // Borrow that exact immutable vector and its bounds only for this synchronous
@@ -686,10 +687,10 @@ FitnessEvalResult NativePhasePopulation::evaluate(FitnessSessionGpu& session,boo
   }
   return result;
  };
- if(!std::getenv("GAGP_OWNED_PHASE_PACK")) {
+ if(!gagp::engine_env("GAGP_OWNED_PHASE_PACK")) {
   impl_->fitness_reuse.clear();return finish(session.eval_programs(programs(),diagnostics));
  }
- const bool capabilities=std::getenv("GAGP_OWNED_PHASE_CAPS") && impl_->views_proven;
+ const bool capabilities=gagp::engine_env("GAGP_OWNED_PHASE_CAPS") && impl_->views_proven;
  const gpu_detail::OwnedGpuPrograms owned(impl_->members.programs,impl_->members.stack_bounds,
      capabilities?&impl_->input_types:nullptr,capabilities && impl_->direct_root_proven,
      impl_->members.host_packed.get(),[this]{impl_->materialize_programs(impl_->members);},
@@ -739,7 +740,7 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
  if(impl_->staged_buffers){const auto setup=Clock::now();impl_->reserve_reproduction_buffers();timing.setup_ms+=elapsed(setup);}
  const auto upload=Clock::now();impl_->fitness.upload(completed_fitness);timing.upload_ms=elapsed(upload);
  int threads=64;
- if(const char* setting=std::getenv("GAGP_PHASE_REPRO_THREADS")){threads=std::atoi(setting);phase_layout_require(threads==1 || threads==2 || threads==4 || threads==8 || threads==16 || threads==32 || threads==64 || threads==128,"phase reproduction block size");}
+ if(const char* setting=gagp::engine_env("GAGP_PHASE_REPRO_THREADS")){threads=std::atoi(setting);phase_layout_require(threads==1 || threads==2 || threads==4 || threads==8 || threads==16 || threads==32 || threads==64 || threads==128,"phase reproduction block size");}
  const int p=impl_->population,k=impl_->slot_count,available=impl_->layout.budget.max_nodes-impl_->layout.fixed_nodes;
  const auto& policy=impl_->operators;
  checked(cudaEventRecord(impl_->start));
@@ -835,7 +836,7 @@ std::vector<int> NativePhasePopulation::make_batch(const std::vector<double>& se
  if(s.staged_buffers){const auto setup=Clock::now();s.reserve_batch_buffers(b);if(timing)timing->setup_ms+=elapsed(setup);}
  const auto upload=Clock::now();s.fitness.upload(selection_fitness);if(timing)timing->upload_ms+=elapsed(upload);
  int threads=64;
- if(const char* setting=std::getenv("GAGP_PHASE_REPRO_THREADS")){threads=std::atoi(setting);phase_layout_require(threads>=1 && threads<=128 && (threads&(threads-1))==0,"phase reproduction block size");}
+ if(const char* setting=gagp::engine_env("GAGP_PHASE_REPRO_THREADS")){threads=std::atoi(setting);phase_layout_require(threads>=1 && threads<=128 && (threads&(threads-1))==0,"phase reproduction block size");}
  const auto& policy=s.operators;const auto blocks=(b+threads-1)/threads;
  checked(cudaEventRecord(s.start));
  if(s.warp_variation)crossover_population<true><<<b,32>>>(pointers(*s.current),pointers(*s.crossed),s.slots.data,k,p,available,
@@ -893,7 +894,7 @@ FitnessEvalResult NativePhasePopulation::evaluate_batch(FitnessSessionGpu& sessi
  phase_layout_require(s.steady && reuse.size()==std::size_t(b),"steady-state batch evaluation contract");
  s.healthy=false;(void)timing;
  gpu_detail::CudaStageAllocationScope evaluation_storage(s.stage_storage.get(),false);
- const bool capabilities=std::getenv("GAGP_OWNED_PHASE_CAPS") && s.views_proven;
+ const bool capabilities=gagp::engine_env("GAGP_OWNED_PHASE_CAPS") && s.views_proven;
  const gpu_detail::OwnedGpuPrograms owned(s.batch.programs,s.batch.stack_bounds,
      capabilities?&s.input_types:nullptr,capabilities && s.direct_root_proven,
      s.batch.host_packed.get(),[&s]{s.materialize_programs(s.batch);},

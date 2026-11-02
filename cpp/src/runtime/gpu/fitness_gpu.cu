@@ -1,4 +1,5 @@
 #include "owned_programs.hpp"
+#include "gagp/core/engine_profile.hpp"
 #include "gagp/core/semantic_fuel.hpp"
 
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
@@ -553,7 +554,7 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
                                                  int blocksize,
                                                  double penalty, FitnessPolicy policy) {
   impl_->short_edit_enabled=false;
-  const char* short_edit_setting=std::getenv("GAGP_GPU_SHORT_EDIT_DISTANCE");
+  const char* short_edit_setting=gagp::engine_env("GAGP_GPU_SHORT_EDIT_DISTANCE");
   impl_->short_edit_requested=short_edit_setting && std::string(short_edit_setting)=="1";
   // Every init attempt invalidates prior owner scores, including failed reinit.
   impl_->evaluation_revision=next_fitness_revision.fetch_add(1,std::memory_order_relaxed);
@@ -626,7 +627,7 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
       policy.metric == FitnessMetric::Exact ||
       (policy.metric == FitnessMetric::Absolute && policy.proximity == FitnessProximity::Capped);
   const double case_ceiling = fitness_error_ceiling(policy, penalty);
-  if (sortable_policy && std::getenv("GAGP_SORT_CASES") && std::isfinite(case_ceiling) && std::floor(case_ceiling) == case_ceiling &&
+  if (sortable_policy && gagp::engine_env("GAGP_SORT_CASES") && std::isfinite(case_ceiling) && std::floor(case_ceiling) == case_ceiling &&
       shared_cases.size() * std::max(1.0, case_ceiling) < 1099511627776.0 &&
       std::all_of(shared_answer.begin(), shared_answer.end(), [](const auto& v) { return v.tag == ValueTag::Int || v.tag == ValueTag::Bool; })) {
     std::vector<std::uint64_t> lengths(shared_cases.size(), 0);
@@ -640,7 +641,7 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
     std::stable_sort(case_order.begin(), case_order.end(), [&](int a, int b) { return lengths[a] < lengths[b]; });
   }
   std::vector<int> arena_case_order;
-  if(std::getenv("GAGP_GPU_SORT_ARENA_CASES") && std::string(std::getenv("GAGP_GPU_SORT_ARENA_CASES"))=="1" &&
+  if(gagp::engine_env("GAGP_GPU_SORT_ARENA_CASES") && std::string(gagp::engine_env("GAGP_GPU_SORT_ARENA_CASES"))=="1" &&
       gpu_detail::arena_case_sort_is_exact(policy,penalty,shared_cases.size())) {
     std::vector<std::uint64_t> lengths(shared_cases.size(),0);
     for(std::size_t c=0;c<shared_cases.size();++c)
@@ -656,7 +657,7 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   }
   const auto shared_case_pack_t1 = std::chrono::steady_clock::now();
 
-  const char* reuse_cases=std::getenv("GAGP_GPU_INTEGER_CASE_REUSE");
+  const char* reuse_cases=gagp::engine_env("GAGP_GPU_INTEGER_CASE_REUSE");
   impl_->case_reuse_requested=reuse_cases && std::string(reuse_cases)=="1";
   impl_->integer_case_reuse=impl_->case_reuse_requested?
       gpu_detail::integer_case_reuse_plan(packed_case_local_vals,packed_case_local_set,shared_answer,policy,penalty):
@@ -668,8 +669,8 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   impl_->shared_string_tokens.clear();
   impl_->shared_list_tokens.clear();
   append_payload_tokens_from_values(packed_case_local_vals, &impl_->shared_string_tokens, &impl_->shared_list_tokens);
-  impl_->private_answers_prepared=std::getenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS") &&
-      std::string(std::getenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"))=="1";
+  impl_->private_answers_prepared=gagp::engine_env("GAGP_GPU_PRIVATE_INTLIST_OFFSETS") &&
+      std::string(gagp::engine_env("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"))=="1";
   if(policy.metric==FitnessMetric::Levenshtein || policy.metric==FitnessMetric::TupleSummary)
     append_payload_tokens_from_values(shared_answer, &impl_->shared_string_tokens, &impl_->shared_list_tokens);
   impl_->private_answer_tokens.clear();
@@ -682,9 +683,9 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   populate_payload_cache(impl_->shared_string_tokens, impl_->shared_list_tokens, &impl_->host_string_payloads,
                          &impl_->host_list_payloads);
   impl_->host_case_local_vals = packed_case_local_vals;
-  const auto* shape_setting=std::getenv("GAGP_GPU_SHAPE_RESULT_CACHE");
+  const auto* shape_setting=gagp::engine_env("GAGP_GPU_SHAPE_RESULT_CACHE");
   impl_->shape_cache_requested=shape_setting && std::string(shape_setting)=="1";
-  const auto* project_setting=std::getenv("GAGP_GPU_PROJECT_SHAPE_INPUTS");
+  const auto* project_setting=gagp::engine_env("GAGP_GPU_PROJECT_SHAPE_INPUTS");
   impl_->project_shape_inputs=project_setting && std::string(project_setting)=="1";
   impl_->shape_partitions.clear();
   impl_->host_case_local_set=packed_case_local_set;
@@ -786,7 +787,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   }
 
   std::size_t payload_workspace_budget=0;
-  if(!gpu_detail::parse_payload_workspace_budget(std::getenv("GAGP_GPU_PAYLOAD_WORKSPACE_MIB"),
+  if(!gpu_detail::parse_payload_workspace_budget(gagp::engine_env("GAGP_GPU_PAYLOAD_WORKSPACE_MIB"),
       payload_workspace_budget))
     return fitness_eval_single_error(ErrCode::Value,
         "GAGP_GPU_PAYLOAD_WORKSPACE_MIB must be a decimal integer in [64,16384]");
@@ -796,13 +797,13 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   // The private packed carrier keeps a native reference on demand. A session
   // with different input types must perform its ordinary capability analysis
   // on current phase bytecode, not the owner's cold import snapshot.
-  const bool request_private=std::getenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS") &&
-      std::string(std::getenv("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"))=="1";
-  const bool request_private_globals=std::getenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS") &&
-      std::string(std::getenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS"))=="1";
-  const bool request_compact=std::getenv("GAGP_GPU_COMPACT_INTLIST_CELLS") &&
-      std::string(std::getenv("GAGP_GPU_COMPACT_INTLIST_CELLS"))=="1";
-  const char* tuple_setting=std::getenv("GAGP_GPU_PRIVATE_TUPLE_SCORE");
+  const bool request_private=gagp::engine_env("GAGP_GPU_PRIVATE_INTLIST_OFFSETS") &&
+      std::string(gagp::engine_env("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"))=="1";
+  const bool request_private_globals=gagp::engine_env("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS") &&
+      std::string(gagp::engine_env("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS"))=="1";
+  const bool request_compact=gagp::engine_env("GAGP_GPU_COMPACT_INTLIST_CELLS") &&
+      std::string(gagp::engine_env("GAGP_GPU_COMPACT_INTLIST_CELLS"))=="1";
+  const char* tuple_setting=gagp::engine_env("GAGP_GPU_PRIVATE_TUPLE_SCORE");
   const bool request_private_tuple=tuple_setting && std::string(tuple_setting)=="1";
   // TupleSummary observes Int fields and the primary result, never identity.
   // The same whole-program private-list proof excludes container Eq and list
@@ -815,7 +816,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       impl_->policy.list_allocation_limit<=65536;
   const bool private_static_eligible=request_private && impl_->private_answers_prepared &&
       (private_sequence_policy || private_tuple_policy) &&
-      std::getenv("GAGP_GPU_GLOBAL_PAYLOAD") && std::string(std::getenv("GAGP_GPU_GLOBAL_PAYLOAD"))!="0";
+      gagp::engine_env("GAGP_GPU_GLOBAL_PAYLOAD") && std::string(gagp::engine_env("GAGP_GPU_GLOBAL_PAYLOAD"))!="0";
   const bool tuple_zero_cap=private_tuple_policy && impl_->policy.list_allocation_limit==0;
   // Fresh code is needed for the extra bounded-allocation proof. A stale cold
   // executable or typeflow-only certificate cannot establish this property.
@@ -895,7 +896,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
           std::move(normal_needed_strings),std::move(normal_needed_lists));
     }
   }
-  const bool use_views = !private_intlists && std::getenv("GAGP_VIEW_PROFILE") != nullptr && !packed.region_segments.empty() &&
+  const bool use_views = !private_intlists && gagp::engine_env("GAGP_VIEW_PROFILE") != nullptr && !packed.region_segments.empty() &&
       payload_pack.list_entries.size() == required_list_count &&
       std::all_of(payload_pack.list_entries.begin(), payload_pack.list_entries.end(), [](const auto& entry) { return entry.tag == ValueTag::IntList; }) &&
       std::all_of(payload_pack.list_values.begin(), payload_pack.list_values.end(), [](const auto& value) { return value.tag == ValueTag::Int; }) &&
@@ -904,7 +905,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
          return gpu_detail::view_program_supported(program, impl_->shared_input_types);
        }));
   if (use_views) {
-    if (std::getenv("GAGP_TYPED_VIEW_PHASE"))
+    if (gagp::engine_env("GAGP_TYPED_VIEW_PHASE"))
       for (auto& phase : packed.region_phases) phase.program.typed_view = true;
     for (auto& value : packed.all_consts) if (value.tag == ValueTag::IntList) value.b = false;
     for (auto& value : packed.all_phase_consts) if (value.tag == ValueTag::IntList) value.b = false;
@@ -925,7 +926,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     execution_threads=std::min(execution_threads,impl_->blocksize);
   }
   const int fitness_lanes=execution_threads;
-  const auto* physical_setting=std::getenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK");
+  const auto* physical_setting=gagp::engine_env("GAGP_GPU_VIEW_PHYSICAL_BLOCK");
   const std::string physical_text=physical_setting?physical_setting:"0";
   if(physical_text!="0" && physical_text!="32" && physical_text!="64" && physical_text!="128" &&
       physical_text!="256" && physical_text!="512")
@@ -933,7 +934,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   const int requested_physical_block=std::stoi(physical_text);
   const bool virtual_view_lanes=use_views && requested_physical_block>0;
   if(virtual_view_lanes)execution_threads=std::min(execution_threads,requested_physical_block);
-  const auto* case_block_setting=std::getenv("GAGP_GPU_CASE_VIEW_BLOCK");
+  const auto* case_block_setting=gagp::engine_env("GAGP_GPU_CASE_VIEW_BLOCK");
   const bool hybrid_view_block=case_block_setting && std::string(case_block_setting)=="hybrid";
   const bool request_case_block=case_block_setting && (std::string(case_block_setting)=="1" || hybrid_view_block);
   const bool sparse_view_cases=impl_->shared_case_count>0 &&
@@ -954,7 +955,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   // raw session values or surfacing an error for an unused/missing capture.
   std::vector<Value> prepared_case_views;
   const bool private_global_offsets=private_intlists && request_private_globals;
-  const char* private_typed_setting=std::getenv("GAGP_GPU_PRIVATE_TYPED_PHASES");
+  const char* private_typed_setting=gagp::engine_env("GAGP_GPU_PRIVATE_TYPED_PHASES");
   const bool request_private_typed=private_typed_setting && std::string(private_typed_setting)=="1";
   bool complete_private_normalization=private_global_offsets;
   if(private_global_offsets) {
@@ -971,7 +972,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         [](const auto& value){return value.tag==ValueTag::IntList;}))complete_private_normalization=false;
   }
   if (use_views && !impl_->shared_list_tokens.empty() &&
-      std::getenv("GAGP_PREPARED_CASE_VIEWS") &&
+      gagp::engine_env("GAGP_PREPARED_CASE_VIEWS") &&
       std::any_of(packed.region_segments.begin(), packed.region_segments.end(), [](const auto& segment) {
         return std::find(segment.parameter_types, segment.parameter_types + segment.parameter_count,
             ValueTag::IntList) != segment.parameter_types + segment.parameter_count;
@@ -988,8 +989,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       value.b = true;
     }
   }
-  const int direct_stack_limit = std::getenv("GAGP_HYBRID_PHASE_EXECUTOR") ? gpu_detail::MAX_STACK : 16;
-  bool direct_phases = use_views && !std::getenv("GAGP_GENERIC_PHASE_VM") && std::getenv("GAGP_DIRECT_PHASE") &&
+  const int direct_stack_limit = gagp::engine_env("GAGP_HYBRID_PHASE_EXECUTOR") ? gpu_detail::MAX_STACK : 16;
+  bool direct_phases = use_views && !std::getenv("GAGP_GENERIC_PHASE_VM") && gagp::engine_env("GAGP_DIRECT_PHASE") &&
       std::all_of(packed.region_phases.begin(), packed.region_phases.end(), [&](const auto& phase) {
         return phase.program.typed_view && phase.program.n_locals <= 8 &&
             phase.program.verified_stack_bound <= direct_stack_limit;
@@ -998,8 +999,8 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   // Both kernels consume the same packed tables; indices restore the original
   // fitness/diagnostic rows directly, without bytecode copies or repacking.
   std::vector<int> compact_indices,generic_indices;
-  if (!direct_phases && owned && use_views && !std::getenv("GAGP_GENERIC_PHASE_VM") && std::getenv("GAGP_DIRECT_PHASE") &&
-      std::getenv("GAGP_PHASE_CAP_BUCKETS") &&
+  if (!direct_phases && owned && use_views && !std::getenv("GAGP_GENERIC_PHASE_VM") && gagp::engine_env("GAGP_DIRECT_PHASE") &&
+      gagp::engine_env("GAGP_PHASE_CAP_BUCKETS") &&
       std::all_of(packed.region_phases.begin(),packed.region_phases.end(),[](const auto& phase) {
         return phase.program.typed_view && phase.program.n_locals<=8;
       })) {
@@ -1009,11 +1010,11 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     else direct_phases=true;
   }
   const bool capability_buckets=!compact_indices.empty();
-  const bool direct_root = direct_phases && std::getenv("GAGP_DIRECT_ROOT") &&
+  const bool direct_root = direct_phases && gagp::engine_env("GAGP_DIRECT_ROOT") &&
       ((owned && owned->direct_root_supported()) || std::all_of(programs.begin(), programs.end(), gpu_detail::direct_region_root_supported));
-  const auto* relaxed_setting=std::getenv("GAGP_GPU_RELAXED_VIEW_REGISTERS");
+  const auto* relaxed_setting=gagp::engine_env("GAGP_GPU_RELAXED_VIEW_REGISTERS");
   const bool request_relaxed=relaxed_setting && std::string(relaxed_setting)=="1";
-  const auto* narrow_setting=std::getenv("GAGP_GPU_VIEW_BOUND128");
+  const auto* narrow_setting=gagp::engine_env("GAGP_GPU_VIEW_BOUND128");
   const bool request_narrow=narrow_setting && std::string(narrow_setting)=="1";
   const bool narrow_view_registers=request_narrow && direct_root && execution_threads<=128;
   const bool relaxed_view_registers=request_relaxed && direct_root && execution_threads<=512 && !narrow_view_registers;
@@ -1021,7 +1022,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
 
   // Compilation geometry only: the arena still launches 32 physical threads
   // and keeps the same logical score lanes, workspace layout and case order.
-  const char* private_launch_setting=std::getenv("GAGP_GPU_PRIVATE_LAUNCH_BOUND");
+  const char* private_launch_setting=gagp::engine_env("GAGP_GPU_PRIVATE_LAUNCH_BOUND");
   int requested_private_launch=0;
   if(private_launch_setting) {
     const std::string value(private_launch_setting);
@@ -1061,12 +1062,12 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         extended_payload |= needs_payload(phase.program.code);
     }
   }
-  const bool global_payload = extended_payload && !use_views && std::getenv("GAGP_GPU_GLOBAL_PAYLOAD") &&
-      std::string(std::getenv("GAGP_GPU_GLOBAL_PAYLOAD"))!="0";
-  const bool global_window_aliases = extended_payload && !use_views && std::getenv("GAGP_GPU_GLOBAL_WINDOW_ALIASES") &&
-      std::string(std::getenv("GAGP_GPU_GLOBAL_WINDOW_ALIASES"))!="0";
-  const bool payload_index = global_payload || (extended_payload && !use_views && std::getenv("GAGP_GPU_PAYLOAD_INDEX") &&
-      std::string(std::getenv("GAGP_GPU_PAYLOAD_INDEX"))!="0");
+  const bool global_payload = extended_payload && !use_views && gagp::engine_env("GAGP_GPU_GLOBAL_PAYLOAD") &&
+      std::string(gagp::engine_env("GAGP_GPU_GLOBAL_PAYLOAD"))!="0";
+  const bool global_window_aliases = extended_payload && !use_views && gagp::engine_env("GAGP_GPU_GLOBAL_WINDOW_ALIASES") &&
+      std::string(gagp::engine_env("GAGP_GPU_GLOBAL_WINDOW_ALIASES"))!="0";
+  const bool payload_index = global_payload || (extended_payload && !use_views && gagp::engine_env("GAGP_GPU_PAYLOAD_INDEX") &&
+      std::string(gagp::engine_env("GAGP_GPU_PAYLOAD_INDEX"))!="0");
 
   std::size_t shared_bytes = kernel_shared_bytes(packed.max_code_len, fitness_lanes);
   if (shared_bytes > static_cast<std::size_t>(impl_->props.sharedMemPerBlock)) {
@@ -1076,7 +1077,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   gpu_detail::DRegionWorkspace region_workspace;
   region_workspace.integer_case_weights=reuse_integer_cases?impl_->d_reuse_weights:nullptr;
   region_workspace.fitness_lanes=fitness_lanes;
-  const char* count_setting=std::getenv("GAGP_GPU_COALESCED_COUNTS");
+  const char* count_setting=gagp::engine_env("GAGP_GPU_COALESCED_COUNTS");
   region_workspace.coalesce_case_counts=count_setting && std::string(count_setting)=="1";
   region_workspace.payload_window_aliases=global_window_aliases;
   region_workspace.private_intlists=private_intlists;
@@ -1084,44 +1085,44 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   region_workspace.short_edit_patterns=impl_->d_short_edit_patterns;
   region_workspace.short_edit_entries=impl_->d_short_edit_entries;
   region_workspace.short_edit_entry_count=impl_->short_edit_entry_count;
-  const char* trivial_setting=std::getenv("GAGP_GPU_TRIVIAL_PHASES");
+  const char* trivial_setting=gagp::engine_env("GAGP_GPU_TRIVIAL_PHASES");
   const bool request_trivial=trivial_setting && std::string(trivial_setting)=="1";
   region_workspace.trivial_phases=request_trivial && private_intlists;
-  const char* private_bound_setting=std::getenv("GAGP_GPU_PRIVATE_BOUND_PHASES");
+  const char* private_bound_setting=gagp::engine_env("GAGP_GPU_PRIVATE_BOUND_PHASES");
   const bool request_private_bound=private_bound_setting && std::string(private_bound_setting)=="1";
   region_workspace.private_bound_phases=request_private_bound && private_intlists;
   region_workspace.private_typed_phases=request_private_typed && complete_private_normalization;
-  const char* simple_setting=std::getenv("GAGP_GPU_SIMPLE_PHASES");
+  const char* simple_setting=gagp::engine_env("GAGP_GPU_SIMPLE_PHASES");
   const bool request_simple=simple_setting && std::string(simple_setting)=="1";
   region_workspace.simple_phases=request_simple && region_workspace.private_typed_phases;
-  const auto* register_stack_setting=std::getenv("GAGP_GPU_REGISTER_PHASE_STACK");
+  const auto* register_stack_setting=gagp::engine_env("GAGP_GPU_REGISTER_PHASE_STACK");
   const bool request_register_stack=register_stack_setting && std::string(register_stack_setting)=="1";
   region_workspace.register_phase_stack=request_register_stack && (direct_phases || region_workspace.private_typed_phases);
   region_workspace.compact_intlist_cells=private_intlists && request_compact;
-  const char* cell_soa_setting=std::getenv("GAGP_GPU_PRIVATE_CELL_SOA");
+  const char* cell_soa_setting=gagp::engine_env("GAGP_GPU_PRIVATE_CELL_SOA");
   const bool request_cell_soa=cell_soa_setting && std::string(cell_soa_setting)=="1";
   region_workspace.private_cell_soa=request_cell_soa && region_workspace.compact_intlist_cells;
-  const char* adjacent_setting=std::getenv("GAGP_GPU_PRIVATE_ADJACENT_CONCAT");
+  const char* adjacent_setting=gagp::engine_env("GAGP_GPU_PRIVATE_ADJACENT_CONCAT");
   const bool request_adjacent=adjacent_setting && std::string(adjacent_setting)=="1";
   // Whole-program private admission excludes memoized list states and public
   // handle escape. Keep the tested compact, contiguous per-lane backing only.
   region_workspace.private_adjacent_concat=request_adjacent &&
       region_workspace.compact_intlist_cells && !region_workspace.private_cell_soa;
-  const char* warp_copy_setting=std::getenv("GAGP_GPU_PRIVATE_WARP_COPY");
+  const char* warp_copy_setting=gagp::engine_env("GAGP_GPU_PRIVATE_WARP_COPY");
   const bool request_warp_copy=warp_copy_setting && std::string(warp_copy_setting)=="1";
   region_workspace.private_warp_copy=request_warp_copy && region_workspace.compact_intlist_cells;
   region_workspace.shared_list_value_count=static_cast<int>(payload_pack.list_values.size());
-  region_workspace.payload_epoch_index=payload_index && std::getenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX") &&
-      std::string(std::getenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX"))=="1";
-  region_workspace.fused_list_concat=std::getenv("GAGP_GPU_FUSED_LIST_CONCAT") &&
-      std::string(std::getenv("GAGP_GPU_FUSED_LIST_CONCAT"))!="0";
+  region_workspace.payload_epoch_index=payload_index && gagp::engine_env("GAGP_GPU_PAYLOAD_EPOCH_INDEX") &&
+      std::string(gagp::engine_env("GAGP_GPU_PAYLOAD_EPOCH_INDEX"))=="1";
+  region_workspace.fused_list_concat=gagp::engine_env("GAGP_GPU_FUSED_LIST_CONCAT") &&
+      std::string(gagp::engine_env("GAGP_GPU_FUSED_LIST_CONCAT"))!="0";
   region_workspace.small_int_hash=region_workspace.fused_list_concat &&
-      std::getenv("GAGP_GPU_SMALL_INT_HASH") && std::string(std::getenv("GAGP_GPU_SMALL_INT_HASH"))!="0";
+      gagp::engine_env("GAGP_GPU_SMALL_INT_HASH") && std::string(gagp::engine_env("GAGP_GPU_SMALL_INT_HASH"))!="0";
   region_workspace.concat_cache_enabled=!private_intlists && region_workspace.fused_list_concat &&
-      std::getenv("GAGP_GPU_CONCAT_CACHE") && std::string(std::getenv("GAGP_GPU_CONCAT_CACHE"))!="0";
+      gagp::engine_env("GAGP_GPU_CONCAT_CACHE") && std::string(gagp::engine_env("GAGP_GPU_CONCAT_CACHE"))!="0";
   const bool concat_diagnostics=region_workspace.concat_cache_enabled &&
       std::getenv("GAGP_GPU_CONCAT_CACHE_DIAGNOSTICS") && std::string(std::getenv("GAGP_GPU_CONCAT_CACHE_DIAGNOSTICS"))!="0";
-  region_workspace.compact_frames = std::getenv("GAGP_COMPACT_FRAMES") &&
+  region_workspace.compact_frames = gagp::engine_env("GAGP_COMPACT_FRAMES") &&
       std::all_of(packed.region_segments.begin(), packed.region_segments.end(), [](const auto& segment) {
         return segment.state_count <= 2 && segment.preparation_count <= 1 && segment.request_count <= 2;
       });
@@ -1129,9 +1130,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       std::any_of(packed.region_segments.begin(), packed.region_segments.end(), [](const auto& segment) {
         return segment.state_count > 1;
       });
-  const char* private_window_setting=std::getenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR");
+  const char* private_window_setting=gagp::engine_env("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR");
   const bool request_private_window=private_window_setting && std::string(private_window_setting)=="1";
-  region_workspace.window_executor = ((direct_phases && std::getenv("GAGP_WINDOW_EXECUTOR")) ||
+  region_workspace.window_executor = ((direct_phases && gagp::engine_env("GAGP_WINDOW_EXECUTOR")) ||
       (private_intlists && request_private_window)) &&
       has_regions && region_workspace.compact_frames &&
       std::all_of(packed.region_segments.begin(),packed.region_segments.end(),[&](const auto& s) {
@@ -1148,7 +1149,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
             s.requests[1][0].kind==RegionTransitionKind::SequenceWindow &&
             s.requests[0][0].source_state==0 && s.requests[1][0].source_state==0;
       });
-  region_workspace.coordinate_executor = direct_phases && std::getenv("GAGP_COORDINATE_EXECUTOR") &&
+  region_workspace.coordinate_executor = direct_phases && gagp::engine_env("GAGP_COORDINATE_EXECUTOR") &&
       std::all_of(packed.region_segments.begin(),packed.region_segments.end(),[](const auto& s) {
         if(s.progress!=RegionProgressKind::Coordinates || s.state_count!=1 || s.state_types[0]!=ValueTag::Int ||
             s.result_type!=ValueTag::Int || s.coordinate_count!=1 || s.coordinate_slots[0]!=0 ||
@@ -1160,7 +1161,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
           if(s.requests[r][0].kind!=RegionTransitionKind::CoordinateOffset || s.requests[r][0].source_state!=0)return false;
         return true;
       });
-  region_workspace.coordinate_ring_memo=region_workspace.coordinate_executor && std::getenv("GAGP_COORDINATE_RING_MEMO") &&
+  region_workspace.coordinate_ring_memo=region_workspace.coordinate_executor && gagp::engine_env("GAGP_COORDINATE_RING_MEMO") &&
       std::all_of(packed.region_segments.begin(),packed.region_segments.end(),[&](const auto& s) {
         if(!s.memoized || s.requests[0][0].offset!=-1)return false;
         for(unsigned r=0;r<s.request_count;++r)if(s.requests[r][0].offset>=0 || s.requests[r][0].offset < -4)return false;
@@ -1175,7 +1176,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
             (code[2].op==gpu_detail::OP_LT || code[2].op==gpu_detail::OP_LE) :
             (code[2].op==gpu_detail::OP_GT || code[2].op==gpu_detail::OP_GE);
       });
-  const char* dense_memo_setting=std::getenv("GAGP_GPU_DENSE_COORDINATE_MEMO");
+  const char* dense_memo_setting=gagp::engine_env("GAGP_GPU_DENSE_COORDINATE_MEMO");
   const bool request_dense_memo=dense_memo_setting && std::string(dense_memo_setting)=="1";
   region_workspace.dense_coordinate_memo=request_dense_memo && !region_workspace.coordinate_executor &&
       dense_coordinate_memo_supported(packed);
@@ -1183,10 +1184,10 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   // Large-stack capability buckets need this reuse just as compact ones do.
   const std::size_t measure_bytes = sizeof(gpu_detail::DMeasurePhaseCacheEntry) *
       (gpu_detail::DMEASURE_CACHE_MAX + 1) + sizeof(int);
-  const char* private_measure_setting=std::getenv("GAGP_GPU_PRIVATE_MEASURE_CACHE");
+  const char* private_measure_setting=gagp::engine_env("GAGP_GPU_PRIVATE_MEASURE_CACHE");
   const bool request_private_measure=private_measure_setting && std::string(private_measure_setting)=="1";
   region_workspace.measure_phase_cache = (use_views || (private_intlists && request_private_measure)) && has_regions &&
-      std::getenv("GAGP_MEASURE_PHASE_CACHE") &&
+      gagp::engine_env("GAGP_MEASURE_PHASE_CACHE") &&
       shared_bytes + measure_bytes <= static_cast<std::size_t>(impl_->props.sharedMemPerBlock);
   if (region_workspace.measure_phase_cache && !private_intlists) shared_bytes += measure_bytes;
   std::size_t shape_result_programs=0,shape_result_invocations=0,max_shape_groups=0;
@@ -1229,10 +1230,10 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     return kernel_shared_bytes(packed.max_code_len,slots)+
         (workspace.measure_phase_cache?measure_bytes:0);
   };
-  region_workspace.window_leaf_direct = std::getenv("GAGP_GPU_WINDOW_LEAF_DIRECT") &&
-      std::string(std::getenv("GAGP_GPU_WINDOW_LEAF_DIRECT")) != "0";
-  region_workspace.unboxed_window_frames = !private_intlists && region_workspace.window_executor && std::getenv("GAGP_UNBOXED_WINDOW_FRAMES");
-  region_workspace.window_soa = region_workspace.unboxed_window_frames && std::getenv("GAGP_WINDOW_SOA");
+  region_workspace.window_leaf_direct = gagp::engine_env("GAGP_GPU_WINDOW_LEAF_DIRECT") &&
+      std::string(gagp::engine_env("GAGP_GPU_WINDOW_LEAF_DIRECT")) != "0";
+  region_workspace.unboxed_window_frames = !private_intlists && region_workspace.window_executor && gagp::engine_env("GAGP_UNBOXED_WINDOW_FRAMES");
+  region_workspace.window_soa = region_workspace.unboxed_window_frames && gagp::engine_env("GAGP_WINDOW_SOA");
   std::size_t frame_size = region_workspace.coordinate_executor ? sizeof(gpu_detail::DUnboxedCoordinateFrame) : region_workspace.unboxed_window_frames ?
       (region_workspace.two_state_frames ? sizeof(gpu_detail::DUnboxedWindowFrame<2>) : sizeof(gpu_detail::DUnboxedWindowFrame<1>)) : !region_workspace.compact_frames ? sizeof(gpu_detail::DRegionFrame) :
       (region_workspace.two_state_frames ? sizeof(gpu_detail::DCompactPairRegionFrame) :
@@ -1268,7 +1269,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   std::size_t generic_blocks=capability_buckets?std::min(region_blocks,generic_indices.size()):0;
   std::size_t workspace_threads=region_blocks*execution_threads;
   std::size_t workspace_frame_bytes=workspace_threads*region_workspace.frame_capacity*frame_size;
-  const bool bucket_workspace=capability_buckets && std::getenv("GAGP_BUCKET_WORKSPACE");
+  const bool bucket_workspace=capability_buckets && gagp::engine_env("GAGP_BUCKET_WORKSPACE");
   if(bucket_workspace) {
     const auto threads=static_cast<std::size_t>(execution_threads);
     const auto compact_frames=threads*region_workspace.frame_capacity*compact_frame_size;
@@ -1295,11 +1296,11 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
 
   const bool overflow_diagnostics = std::getenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS") &&
       std::string(std::getenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS")) != "0";
-  const bool adaptive_replay=std::getenv("GAGP_GPU_ADAPTIVE_REPLAY") &&
-      std::string(std::getenv("GAGP_GPU_ADAPTIVE_REPLAY"))!="0";
+  const bool adaptive_replay=gagp::engine_env("GAGP_GPU_ADAPTIVE_REPLAY") &&
+      std::string(gagp::engine_env("GAGP_GPU_ADAPTIVE_REPLAY"))!="0";
   const std::size_t overflow_reason_bytes=adaptive_replay?programs.size()*sizeof(unsigned int):0;
-  const bool tiled_replay=std::getenv("GAGP_GPU_TILED_REPLAY") &&
-      std::string(std::getenv("GAGP_GPU_TILED_REPLAY"))!="0";
+  const bool tiled_replay=gagp::engine_env("GAGP_GPU_TILED_REPLAY") &&
+      std::string(gagp::engine_env("GAGP_GPU_TILED_REPLAY"))!="0";
   int replay_entries=(tiled_replay || adaptive_replay)?4096:65536;
   int replay_values=static_cast<int>(std::max<unsigned>(adaptive_replay?16384:65536,
       std::min<unsigned>(impl_->policy.list_allocation_limit,std::numeric_limits<int>::max())));
@@ -1312,22 +1313,22 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   const std::size_t overflow_mask_bytes = overflow_diagnostics ?
       programs.size() * overflow_mask_words * sizeof(unsigned int) : 0;
   // One warp of input elements is a scheduling heuristic, not a semantic limit.
-  const char* initial_tiling=std::getenv("GAGP_GPU_TILED_INITIAL_PAYLOAD");
+  const char* initial_tiling=gagp::engine_env("GAGP_GPU_TILED_INITIAL_PAYLOAD");
   const bool tiled_initial=global_payload && initial_tiling &&
       (std::string(initial_tiling)=="1" ||
        (std::string(initial_tiling)=="auto" && impl_->shared_max_intlist_input_length>=32));
-  const auto* dense_setting=std::getenv("GAGP_GPU_DENSE_CASE_LANES");
+  const auto* dense_setting=gagp::engine_env("GAGP_GPU_DENSE_CASE_LANES");
   const bool request_dense=dense_setting && std::string(dense_setting)=="1";
   const bool dense_initial=request_dense && global_payload && !tiled_initial &&
       impl_->shared_case_count>0 && impl_->shared_case_count<=impl_->blocksize;
-  const auto* private_layout_setting=std::getenv("GAGP_GPU_SPECIALIZE_PRIVATE_LAYOUT");
+  const auto* private_layout_setting=gagp::engine_env("GAGP_GPU_SPECIALIZE_PRIVATE_LAYOUT");
   const bool request_private_layout=private_layout_setting && std::string(private_layout_setting)=="1";
   const bool private_layout=request_private_layout && private_launch_bound==32 && private_intlists &&
       region_workspace.compact_intlist_cells && !region_workspace.private_cell_soa &&
       private_global_offsets && region_workspace.private_warp_copy &&
       region_workspace.trivial_phases && region_workspace.private_typed_phases &&
       region_workspace.private_bound_phases && region_workspace.window_executor;
-  const auto* dense_tiles_setting=std::getenv("GAGP_GPU_DENSE_CASE_TILES");
+  const auto* dense_tiles_setting=gagp::engine_env("GAGP_GPU_DENSE_CASE_TILES");
   const bool tuple_dense_tiles=dense_tiles_setting && std::string(dense_tiles_setting)=="tuple";
   const bool request_dense_tiles=dense_tiles_setting && (std::string(dense_tiles_setting)=="1" || tuple_dense_tiles);
   const bool dense_tiles_policy=!tuple_dense_tiles || (private_intlists && private_tuple_policy);
@@ -1346,7 +1347,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       sizeof(unsigned int)*programs.size()+(global_payload?sizeof(int):0);
   if(payload_metadata_bytes>=payload_workspace_budget)
     return fitness_eval_single_error(ErrCode::Value,"GPU payload workspace metadata exceeds configured scratch cap");
-  const char* reuse_setting=std::getenv("GAGP_GPU_REUSE_PRIVATE_WORKSPACE");
+  const char* reuse_setting=gagp::engine_env("GAGP_GPU_REUSE_PRIVATE_WORKSPACE");
   const bool request_reuse=reuse_setting && std::string(reuse_setting)=="1";
   const bool reuse_private=request_reuse && global_payload && private_intlists && region_workspace.compact_intlist_cells &&
       !region_workspace.concat_cache_enabled;
@@ -1436,7 +1437,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       region_workspace.payload_overflow_lane_masks=indices.overflow_lane_masks;
       region_workspace.payload_overflow_mask_words=overflow_mask_words;
     }
-    if (has_regions && !global_payload && std::getenv("GAGP_DYNAMIC_PROGRAM_QUEUE")) {
+    if (has_regions && !global_payload && gagp::engine_env("GAGP_DYNAMIC_PROGRAM_QUEUE")) {
       if (!gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(region_blocks)}, &indices.compact_queue) ||
           (capability_buckets && !gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(generic_blocks)}, &indices.generic_queue)))
         return fitness_eval_single_error(ErrCode::Value, "cuda program queue allocation failure");
@@ -1495,7 +1496,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       // cases in replay, provided the budget still fills every resident slot.
       // Opt-in so the default small arena keeps exercising replay.
       const std::size_t initial_extra=payload_metadata_bytes+initial_partial_bytes;
-      const auto* initial_capacity_setting=std::getenv("GAGP_GPU_INITIAL_REPLAY_CAPACITY");
+      const auto* initial_capacity_setting=gagp::engine_env("GAGP_GPU_INITIAL_REPLAY_CAPACITY");
       if(initial_capacity_setting && std::string(initial_capacity_setting)=="1") {
         using gpu_detail::DPayloadFlavor;
         const auto kernel=private_layout?&gpu_detail::evaluate_fitness_programs_impl<DPayloadFlavor::IndexedArena,true,false,32,true>:
@@ -1928,7 +1929,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       out.payload_workspace_pool_allocations=pool.allocations;
       out.payload_workspace_pool_peak_bytes=pool.peak_bytes;
     }
-    out.execution_profile = use_views ? (std::getenv("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
+    out.execution_profile = use_views ? (gagp::engine_env("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
     if(request_private_layout)out.execution_profile+=private_layout && (global_payload || out.payload_replay_programs)?
         "-private-layout-specialized":"-private-layout-specialized-declined";
     if(requested_private_launch)out.execution_profile+=private_intlists && (global_payload || out.payload_replay_programs)?
@@ -1995,7 +1996,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if (use_views && impl_->d_case_order) out.execution_profile += "-sorted";
     if (direct_phases) out.execution_profile += "-direct";
     if (direct_root) out.execution_profile += "-root";
-    if (direct_phases && std::getenv("GAGP_HYBRID_PHASE_EXECUTOR")) out.execution_profile += "-hybrid";
+    if (direct_phases && gagp::engine_env("GAGP_HYBRID_PHASE_EXECUTOR")) out.execution_profile += "-hybrid";
     if (region_workspace.measure_phase_cache) out.execution_profile += "-measure-cache";
     if(request_private_measure)out.execution_profile+=private_intlists && region_workspace.measure_phase_cache?
         "-private-measure-cache":"-private-measure-cache-declined";

@@ -81,6 +81,17 @@
   opt-in; the fair ASGP-1T comparison uses `GAGP_HOST_THREADS=1`.
 - Historical CPU fragment/phase-bank measurements are retired records, not
   maintained implementation paths or recommended optimization entry points.
+- The research mainline is described in `docs/design/research-mainline.md`.
+  Exact engine switches take their defaults from
+  `cpp/include/gagp/core/engine_profile.hpp` (read through
+  `gagp::engine_env`); an explicitly set variable wins and
+  `GAGP_ENGINE_PROFILE=legacy` restores the all-unset behavior. A new exact
+  switch is added to that profile only after CPU-reference parity passes;
+  anything that changes search results belongs in the search configuration
+  (`spec/search_config.md`), not in an environment switch.
+- Islands, asynchronous evolution, small steady-state batches and
+  population-wide phase sharing were measured and retired; see the retired
+  designs table in `docs/design/research-mainline.md` before reopening them.
 
 ## Profiling Guidelines
 - GPU profiling uses `nsys` only. Do not use `ncu` in this project environment.

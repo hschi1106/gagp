@@ -1,8 +1,0 @@
-from pathlib import Path
-from argparse import Namespace
-from gagp_tools.experiments.fixed_asgp.low_budget import Study
-r=Path.cwd();b=r/'logs/list-5x-20261015';old=r/'logs/all-task-repair-20261015'
-a=Namespace(out=b/'cold-host-perf',binary=old/'smallhash-screen/bench',settings=b/'settings.json',stage='cpu-perf-diagnostic-only',generations=4,rss_gib=4,budget=45,timeout=20,native_depth=24,source_balanced=True)
-s=Study(a);s.manifest.update(binary_source_head='8249c0d',note='CPU sampling diagnostic only. Profiled wall times are not speedup evidence. Includes whole CLI; distinguish import/evolution from parsing/audit stacks.');s.persist()
-t='small_or_large';f=old/'support-balanced'/t
-s.run(t,'perf',['perf','record','-e','cycles:u','-F','999','--call-graph','dwarf,8192','-o',s.out/'perf.data','--',a.binary,'measure',f/'source.json',old/'benchmark-all-g4'/f'{t}.p1024.prepared.json',f/'grammar.json',1024,'search_gpu_overlap',s.out/'search.json'],{'GAGP_SEARCH_GENERATIONS':'4','GAGP_BM_SEED':'0'})

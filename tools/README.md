@@ -70,7 +70,7 @@ Dataset commands own acquisition and conversion only. They emit typed
 ## Experiment commands
 
 The `benchmark fixed-asgp prepare` and `benchmark fixed-asgp run` commands implement
-the [fixed ASGP/GAGP daily and scaling workflow](../docs/guides/fixed-asgp-benchmark.md).
+the [fixed ASGP/GAGP daily and scaling workflow](../docs/reference/fixed-asgp-history.md#build-and-run) (historical; the current benchmark is described in [the fixed ASGP benchmark guide](../docs/guides/fixed-asgp-benchmark.md)).
 They require the optional native benchmark target and an external ASGP checkout.
 
 ```bash

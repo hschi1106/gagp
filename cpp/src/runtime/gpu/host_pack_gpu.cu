@@ -1,4 +1,5 @@
 #include "owned_programs.hpp"
+#include "gagp/core/engine_profile.hpp"
 #include "gagp/core/host_threads.hpp"
 #include "gagp/core/semantic_fuel.hpp"
 #include "gagp/core/bytecode_verify.hpp"
@@ -310,7 +311,7 @@ void refresh_owned_phase_patterns(PackResult& out,std::size_t phase_begin,std::s
     m.add_left_binding=-1;m.add_right_binding=-1;m.compare_binding=-1;
     m.simple_operation_ip=-1;m.simple_arity=0;
   }
-  const char* simple_setting=std::getenv("GAGP_GPU_SIMPLE_PHASES");
+  const char* simple_setting=gagp::engine_env("GAGP_GPU_SIMPLE_PHASES");
   if(simple_setting && std::string(simple_setting)=="1")for(auto i=phase_begin;i<phase_end;++i) {
     auto& phase=out.region_phases[i];auto& m=phase.program;
     if(m.n_locals<0 || m.n_locals>8 || phase.binding_count<0 || phase.binding_count>8 ||
@@ -353,7 +354,7 @@ void refresh_owned_phase_patterns(PackResult& out,std::size_t phase_begin,std::s
       m.simple_operation_ip=pc;m.simple_arity=arity;
     }
   }
-  const char* trivial=std::getenv("GAGP_GPU_TRIVIAL_PHASES");
+  const char* trivial=gagp::engine_env("GAGP_GPU_TRIVIAL_PHASES");
   if(trivial && std::string(trivial)=="1")for(auto i=phase_begin;i<phase_end;++i) {
     auto& phase=out.region_phases[i];auto& m=phase.program;
     if(m.n_locals<0 || m.n_locals>8 || phase.binding_count<0 || phase.binding_count>8 ||
@@ -374,7 +375,7 @@ void refresh_owned_phase_patterns(PackResult& out,std::size_t phase_begin,std::s
         m.trivial_load_binding=selected;
     }
   }
-  if (std::getenv("GAGP_BOUND_ADD_PHASE")) {
+  if (gagp::engine_env("GAGP_BOUND_ADD_PHASE")) {
     for(auto i=phase_begin;i<phase_end;++i) {
       auto& phase=out.region_phases[i];auto& m=phase.program;
       if((m.code_len!=3 && m.code_len!=4) || phase.binding_count<1 || phase.binding_count>2)continue;
@@ -389,7 +390,7 @@ void refresh_owned_phase_patterns(PackResult& out,std::size_t phase_begin,std::s
       if(only_used && left>=0 && right>=0){m.add_left_binding=left;m.add_right_binding=right;}
     }
   }
-  if(std::getenv("GAGP_BOUND_COMPARE_PHASE")) {
+  if(gagp::engine_env("GAGP_BOUND_COMPARE_PHASE")) {
     for(auto i=phase_begin;i<phase_end;++i) {
       auto& phase=out.region_phases[i];auto& m=phase.program;
       if((m.code_len!=3 && m.code_len!=4) || phase.binding_count!=1)continue;
@@ -405,7 +406,7 @@ void refresh_owned_phase_patterns(PackResult& out,std::size_t phase_begin,std::s
       m.compare_binding=phase.binding_offset;
     }
   }
-  if (std::getenv("GAGP_CONSTANT_PHASE")) {
+  if (gagp::engine_env("GAGP_CONSTANT_PHASE")) {
     for (auto i = phase_begin; i < phase_end; ++i) {
       auto& phase = out.region_phases[i]; auto& m = phase.program;
       if (phase.binding_count != 0 || m.n_locals != 0 || (m.code_len != 1 && m.code_len != 2)) continue;

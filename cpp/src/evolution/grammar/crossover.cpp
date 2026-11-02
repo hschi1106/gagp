@@ -1,4 +1,5 @@
 #include "gagp/evolution/crossover.hpp"
+#include "gagp/core/engine_profile.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -46,14 +47,14 @@ std::pair<ProgramGenome, ProgramGenome> crossover_analyzed(const ProgramGenome& 
   // Same uniform distribution over every feasible pair, but one rank draw
   // instead of one reservoir draw per pair. The deterministic RNG trajectory
   // is deliberately distinct. Nonlocal projected-resource trials retain legacy.
-  const bool counted = std::getenv("GAGP_CPU_COUNTED_PAIRS") &&
+  const bool counted = gagp::engine_env("GAGP_CPU_COUNTED_PAIRS") &&
       (!context.offspring_budget() ||
        (std::all_of(analysis_a->sites.begin(), analysis_a->sites.end(),
             [](const auto& site) { return site.has_projected_allowance; }) &&
         std::all_of(analysis_b->sites.begin(), analysis_b->sites.end(),
             [](const auto& site) { return site.has_projected_allowance; })));
   if (counted) {
-    const bool use_all_fit = std::getenv("GAGP_CPU_ALL_FIT_PAIRS");
+    const bool use_all_fit = gagp::engine_env("GAGP_CPU_ALL_FIT_PAIRS");
     struct Group {
       std::vector<const VariationSite*> sites;
       CrossoverGroupBounds bounds;

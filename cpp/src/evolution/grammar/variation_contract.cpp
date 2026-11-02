@@ -1,4 +1,5 @@
 #include "gagp/evolution/grammar/variation_contract.hpp"
+#include "gagp/core/engine_profile.hpp"
 #include "selected_variation.hpp"
 #include "gagp/evolution/grammar/resource_projection.hpp"
 #include "gagp/evolution/grammar/derivation_resources.hpp"
@@ -173,7 +174,7 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
       std::uint32_t, bool, bool, std::string_view>;
   std::vector<ContractShape> shapes;
   std::map<ContractShape, std::string> contract_keys;
-  const bool reuse_contracts = std::getenv("GAGP_REUSE_SITE_CONTRACTS") != nullptr;
+  const bool reuse_contracts = gagp::engine_env("GAGP_REUSE_SITE_CONTRACTS") != nullptr;
   for (std::size_t choice_index = 0; choice_index < witness.choices.size(); ++choice_index) {
     if (selector && (choice_groups[choice_index] == std::numeric_limits<std::size_t>::max() ||
                      !selected_groups[choice_groups[choice_index]])) continue;

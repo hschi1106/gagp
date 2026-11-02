@@ -1,4 +1,5 @@
 #include "gagp/core/host_threads.hpp"
+#include "gagp/core/engine_profile.hpp"
 #include "batch_workers.hpp"
 #include "fitness_verification.hpp"
 #include <cmath>
@@ -146,7 +147,7 @@ CompiledPopulation compile_population(const std::vector<ProgramGenome>& populati
     bool key_ready = false;
     std::chrono::steady_clock::time_point compile_begin{}, compile_end{};
   };
-  const bool single_identity = std::getenv("GAGP_SINGLE_EVAL_IDENTITY") != nullptr;
+  const bool single_identity = gagp::engine_env("GAGP_SINGLE_EVAL_IDENTITY") != nullptr;
   const auto identity_for = [&](const ProgramGenome& genome) {
     if (single_identity) return grammar::detail::evaluation_identity(
         genome, input_names, static_cast<std::uint32_t>(fuel));
@@ -452,7 +453,7 @@ void run_phase_population(const EvolutionConfig& cfg,const CaseSet& cases,Owner&
   if(cfg.skip_final_eval)result.final_eval_skipped=true;
   else {
     const auto start=std::chrono::steady_clock::now();EvaluationTiming timing;evaluate(cfg.generations,timing);
-    if(cfg.retain_final_population && std::getenv("GAGP_BATCH_PHASE_EXPORT")) {
+    if(cfg.retain_final_population && gagp::engine_env("GAGP_BATCH_PHASE_EXPORT")) {
       auto exported=owner.export_population();
       result.best={exported.at(ranking.front()),fitness[ranking.front()],wrong.empty()?-1:int(wrong[ranking.front()])};
       for(auto i:ranking)result.final_population.push_back({std::move(exported.at(i)),fitness[i],wrong.empty()?-1:int(wrong[i])});
@@ -645,8 +646,6 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
   if (phase_engine(cfg) != PhaseEngine::Gpu) return false;
   const auto schedule=resolve_phase_schedule(cfg.phase_schedule.value_or(PhaseSchedulePolicy{}),int(population.size()));
   const bool steady=schedule.mode==PhaseScheduleMode::SteadyState;
-  if (!schedule.is_default() && !steady)
-    throw std::invalid_argument("islands and async schedules are simulated by the CPU reference phase owner only");
   const auto begin = std::chrono::steady_clock::now();
   const auto elapsed = [](auto start) { return std::chrono::duration<double,std::milli>(
       std::chrono::steady_clock::now()-start).count(); };
@@ -721,154 +720,6 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
   return true;
 }
 #endif
-// Async schedule of the CPU reference owner: a discrete-event simulation of
-// `workers` concurrent children without generation barriers (see
-// PhaseSchedulePolicy). Simulated time is in fuel units. Every P completed
-// children record one generation-equivalent history entry. The champion after
-// P*G completed children is checkpoint "equal_work"; with
-// GAGP_RESEARCH_TIME_BUDGET=T children keep starting until time T and the
-// champion of the population at time T is checkpoint "equal_time". With
-// GAGP_RESEARCH_COST_BUDGETS=C1,C2,... children keep starting until the summed
-// duration of completed children reaches each Ci (checkpoint "cost<i>").
-// GAGP_RESEARCH_SYNC_BATCHES=1 (control) gives every child the constant duration
-// child_overhead and commits all completions of one instant before any new
-// start: a synchronous steady state with batches of `workers` children.
-// Costs still use overhead plus max-case fuel.
-void run_phase_population_async(const EvolutionConfig& cfg,const CaseSet& cases,repro::HostPhasePopulation& owner,
-    const PhaseSchedulePolicy& schedule,EvolutionResult& result,std::chrono::steady_clock::time_point search_start) {
-  using Clock=std::chrono::steady_clock;
-  const auto elapsed=[](auto start){return std::chrono::duration<double,std::milli>(Clock::now()-start).count();};
-  const int P=cfg.population_size,W=schedule.workers,K=schedule.islands,n=P/K,per_island=W/K;
-  const int pressure=std::clamp(cfg.selection_pressure,1,n);
-  std::mt19937_64 rng(cfg.seed);
-  auto previous=Clock::now();
-  auto fit=owner.evaluate(cases.bindings,cases.expected_values,cfg.fuel,cfg.penalty,cfg.gpu_blocksize,cfg.fitness_policy);
-  std::vector<double> fitness=std::move(fit.fitness);
-  for(auto& f:fitness)f=canonicalize_fitness_for_ranking(f);
-  std::vector<unsigned> wrong=std::move(fit.wrong);const bool has_wrong=!wrong.empty();
-  std::vector<unsigned> nodes=has_wrong?owner.node_counts(cfg.gpu_phase_site_parsimony):std::vector<unsigned>(P,0);
-  // The generational ranking: fitness, wrong count, nodes, member index.
-  const auto better=[&](int a,int b){
-    if(fitness[a]!=fitness[b])return fitness[a]>fitness[b];
-    if(has_wrong){if(wrong[a]!=wrong[b])return wrong[a]<wrong[b];if(nodes[a]!=nodes[b])return nodes[a]<nodes[b];}
-    return a<b;
-  };
-  std::vector<int> order(P);std::iota(order.begin(),order.end(),0);std::sort(order.begin(),order.end(),better);
-  std::vector<double> selection(P);
-  const auto ranks=[&]{if(has_wrong)for(int r=0;r<P;++r)selection[order[r]]=double(P-r);};
-  selection=fitness;ranks();
-  const auto reposition=[&](int member){
-    order.erase(std::find(order.begin(),order.end(),member));
-    order.insert(std::lower_bound(order.begin(),order.end(),member,better),member);
-    if(has_wrong)ranks();else selection[member]=fitness[member];
-  };
-  const auto scored=[&](int member){return ScoredGenome{owner.export_member(member),fitness[member],has_wrong?int(wrong[member]):-1};};
-  const auto record=[&]{
-    const int best=order.front();
-    result.history_best.push_back(scored(best));result.history_best_fitness.push_back(fitness[best]);
-    long double sum=0;for(double f:fitness)sum+=f;
-    result.history_mean_fitness.push_back(static_cast<double>(sum/P));
-    GenerationTiming timing;timing.total_ms=elapsed(previous);previous=Clock::now();
-    timing.elapsed_search_ms=elapsed(search_start);result.timing.generations.push_back(timing);
-    trace_search_generation(result);
-  };
-  record();
-  const auto island_best=[&](int island){for(int m:order)if(m/n==island)return m;return -1;};
-  // Inverse tournament inside the island; its best member is never replaced.
-  const auto victim_of=[&](int island){
-    const int base=island*n,best=island_best(island);
-    for(;;) {
-      int worst=base+int(rng()%std::uint64_t(n));
-      for(int i=1;i<schedule.replacement_size;++i){const int c=base+int(rng()%std::uint64_t(n));if(better(worst,c))worst=c;}
-      if(worst!=best)return worst;
-    }
-  };
-  const auto migrate=[&]{
-    std::vector<std::vector<int>> sources(K);
-    for(int m:order)if(int(sources[m/n].size())<schedule.migrants)sources[m/n].push_back(m);
-    for(int island=0;island<K;++island) {
-      const int target=(island+1)%K;std::vector<int> victims;
-      for(auto it=order.rbegin();it!=order.rend() && int(victims.size())<schedule.migrants;++it)if(*it/n==target)victims.push_back(*it);
-      for(int m=0;m<schedule.migrants;++m) {
-        const int from=sources[island][m],to=victims[m];owner.copy_member(from,to);
-        fitness[to]=fitness[from];if(has_wrong)wrong[to]=wrong[from];nodes[to]=nodes[from];reposition(to);
-      }
-    }
-  };
-  struct Child{double fitness=0;unsigned wrong=0,nodes=0;std::uint64_t start=0,start_completed=0;std::uint32_t fuel_max=0;bool evaluated=false;};
-  std::vector<Child> flight(W);
-  using Event=std::tuple<std::uint64_t,std::uint64_t,int>;  // finish time, start sequence, worker
-  std::priority_queue<Event,std::vector<Event>,std::greater<Event>> events;
-  std::uint64_t now=0,sequence=0,started=0,completed=0,evaluated=0,staleness=0,work_time=0;
-  const std::uint64_t work=std::uint64_t(P)*std::uint64_t(cfg.generations);
-  const char* budget_text=std::getenv("GAGP_RESEARCH_TIME_BUDGET");
-  const std::uint64_t budget=budget_text?std::stoull(budget_text):0;
-  std::vector<std::uint64_t> cost_budgets;
-  if(const char* text=std::getenv("GAGP_RESEARCH_COST_BUDGETS")) {
-    std::stringstream list(text);std::string item;
-    while(std::getline(list,item,','))cost_budgets.push_back(std::stoull(item));
-  }
-  const std::uint64_t cost_limit=cost_budgets.empty()?0:*std::max_element(cost_budgets.begin(),cost_budgets.end());
-  std::uint64_t cost=0;std::vector<bool> cost_done(cost_budgets.size(),false);
-  const bool sync_batches=std::getenv("GAGP_RESEARCH_SYNC_BATCHES")!=nullptr;
-  if(sync_batches && schedule.child_overhead<1)throw std::invalid_argument("synchronous batches need child_overhead >= 1");
-  std::ostringstream durations;
-  owner.begin_async(W);
-  const auto start=[&](int worker){
-    const int reuse=owner.start_child(worker,selection,worker/per_island*n,n,pressure,cfg.mutation_rate,rng());
-    auto& c=flight[worker];c={};c.start=now;c.start_completed=completed;
-    if(reuse>=0){c.fitness=fitness[reuse];c.wrong=has_wrong?wrong[reuse]:0;c.nodes=nodes[reuse];}
-    else {
-      const auto e=owner.evaluate_child(worker,cases.bindings,cases.expected_values,cfg.fuel,cfg.penalty,cfg.gpu_blocksize,cfg.fitness_policy);
-      c.fitness=canonicalize_fitness_for_ranking(e.fitness);c.wrong=e.wrong;
-      c.nodes=has_wrong?owner.child_nodes(worker,cfg.gpu_phase_site_parsimony):0;c.fuel_max=e.fuel_max;c.evaluated=true;++evaluated;
-    }
-    events.emplace(now+std::uint64_t(schedule.child_overhead)+(sync_batches?0:c.fuel_max),sequence++,worker);++started;
-  };
-  for(int worker=0;worker<W;++worker)start(worker);
-  bool time_done=false;std::vector<int> waiting;
-  while(!events.empty()) {
-    const auto [finish,unused,worker]=events.top();events.pop();(void)unused;
-    if(budget && !time_done && finish>budget){result.schedule_checkpoints.push_back({"equal_time",scored(order.front())});time_done=true;}
-    now=finish;
-    const auto& c=flight[worker];const int victim=victim_of(worker/per_island);
-    owner.commit_child(worker,victim);
-    fitness[victim]=c.fitness;if(has_wrong)wrong[victim]=c.wrong;nodes[victim]=c.nodes;reposition(victim);
-    staleness+=completed-c.start_completed;++completed;
-    cost+=std::uint64_t(schedule.child_overhead)+c.fuel_max;
-    for(std::size_t i=0;i<cost_budgets.size();++i)if(!cost_done[i] && cost>=cost_budgets[i]) {
-      result.schedule_checkpoints.push_back({"cost"+std::to_string(i+1),scored(order.front())});cost_done[i]=true;
-    }
-    durations<<(completed>1?",":"")<<(c.evaluated?std::int64_t(c.fuel_max):-1);
-    if(completed%std::uint64_t(P)==0 && result.history_best.size()<std::size_t(cfg.generations))record();
-    if(completed==work){result.schedule_checkpoints.push_back({"equal_work",scored(order.front())});work_time=now;}
-    if(schedule.migrants && completed%(std::uint64_t(P)*std::uint64_t(schedule.migration_interval))==0)migrate();
-    const auto more=[&]{return started<work || (budget && now<budget) || cost<cost_limit;};
-    if(!sync_batches){if(more())start(worker);continue;}
-    // Synchronous batch: start the next batch only after its last completion.
-    waiting.push_back(worker);
-    if(events.empty() || std::get<0>(events.top())!=now) {
-      for(int next:waiting)if(more())start(next);
-      waiting.clear();
-    }
-  }
-  if(budget && !time_done)result.schedule_checkpoints.push_back({"equal_time",scored(order.front())});
-  for(std::size_t i=0;i<cost_budgets.size();++i)if(!cost_done[i])result.schedule_checkpoints.push_back({"cost"+std::to_string(i+1),scored(order.front())});
-  const auto final_start=Clock::now();
-  result.best=scored(order.front());
-  if(cfg.retain_final_population)for(int i:order)result.final_population.push_back(scored(i));
-  result.timing.final_eval_ms=elapsed(final_start);
-  if(const char* path=std::getenv("GAGP_RESEARCH_SCHEDULE_TRACE")) {
-    std::ofstream out(path);
-    out<<"{\"schedule\":\"async\",\"population\":"<<P<<",\"workers\":"<<W<<",\"islands\":"<<K
-       <<",\"child_overhead\":"<<schedule.child_overhead<<",\"cases\":"<<cases.bindings.size()
-       <<",\"time_budget\":"<<budget<<",\"completed_cost\":"<<cost<<",\"sync_batches\":"<<sync_batches<<",\"end_time\":"<<now<<",\"equal_work_time\":"<<work_time
-       <<",\"started\":"<<started<<",\"completed\":"<<completed<<",\"evaluated\":"<<evaluated
-       <<",\"staleness_mean\":"<<std::setprecision(17)<<double(staleness)/double(completed)
-       <<",\"completed_fuel_max\":["<<durations.str()<<"]}\n";
-    if(!out)throw std::runtime_error("cannot write schedule trace");
-  }
-}
 // CPU reference engine: same import, operators, draws and lowering as the GPU
 // owner; programs are evaluated by the CPU evaluator on the host only.
 void evolve_cpu_phase_population(const EvolutionConfig& cfg, const CaseSet& cases,
@@ -878,11 +729,10 @@ void evolve_cpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
   require_phase_entry_policy(cfg);
   const auto schedule=resolve_phase_schedule(cfg.phase_schedule.value_or(PhaseSchedulePolicy{}),int(population.size()));
   repro::HostPhasePopulation owner(cfg.compiled_grammar,population,cases.input_names,cfg.offspring_resource_budget,
-      cfg.gpu_phase_site_depth,resolve_phase_variation(cfg),schedule);
+      cfg.gpu_phase_site_depth,resolve_phase_variation(cfg));
   result.timing.init_population_ms += std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count();
   result.reproduction_profile = owner.profile_name();
   if(cfg.gpu_phase_site_parsimony)result.reproduction_profile+="-site-parsimony";
-  if(schedule.mode==PhaseScheduleMode::Async){run_phase_population_async(cfg,cases,owner,schedule,result,search_start);return;}
   if(schedule.mode==PhaseScheduleMode::SteadyState) {
     result.reproduction_profile+="-steady"+std::to_string(schedule.batch);
     const auto evaluate_owner=[&](EvaluationTiming& timing) {
@@ -904,16 +754,8 @@ void evolve_cpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
     run_phase_population_steady(cfg,cases,adapter,evaluate_owner,evaluate_batch,schedule,result,search_start);
     return;
   }
-  // Research trace: metered fuel of every member of every evaluation.
-  const char* trace_path=std::getenv("GAGP_RESEARCH_SCHEDULE_TRACE");
-  std::ostringstream trace;
   const auto evaluate_owner=[&](EvaluationTiming& timing) {
     auto fit=owner.evaluate(cases.bindings,cases.expected_values,cfg.fuel,cfg.penalty,cfg.gpu_blocksize,cfg.fitness_policy);
-    if(trace_path) {
-      std::ostringstream max,sum;bool first=true;
-      for(const auto& f:owner.last_fuel()){max<<(first?"":",")<<(f.evaluated?std::int64_t(f.max):-1);sum<<(first?"":",")<<f.sum;first=false;}
-      trace<<(trace.tellp()>0?",":"")<<"{\"max\":["<<max.str()<<"],\"sum\":["<<sum.str()<<"]}";
-    }
     timing.execution_profile="cpu-phase-reference";
     timing.fitness_reused_programs=fit.reused_programs;
     timing.fitness_reused_program_cases=fit.reused_programs*cases.bindings.size();
@@ -924,12 +766,6 @@ void evolve_cpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
   };
   CpuPhaseOwner adapter{owner,population.size()};
   run_phase_population(cfg,cases,adapter,evaluate_owner,result,search_start);
-  if(trace_path) {
-    std::ofstream out(trace_path);
-    out<<"{\"schedule\":\"generational\",\"population\":"<<population.size()<<",\"islands\":"<<schedule.islands
-       <<",\"cases\":"<<cases.bindings.size()<<",\"evaluations\":["<<trace.str()<<"]}\n";
-    if(!out)throw std::runtime_error("cannot write schedule trace");
-  }
 }
 
 
@@ -997,13 +833,11 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
     throw std::invalid_argument("phase variation policy requires the native phase population");
   if (cfg.phase_schedule && !cfg.phase_schedule->is_default()) {
     validate_phase_schedule_policy(*cfg.phase_schedule, cfg.population_size);
-    const bool steady = cfg.phase_schedule->mode == PhaseScheduleMode::SteadyState;
-    if (steady ? phase_engine(cfg) == PhaseEngine::None : phase_engine(cfg) != PhaseEngine::Cpu)
-      throw std::invalid_argument(steady ? "steady_state requires the native phase population"
-                                         : "islands and async schedules require the CPU reference phase population");
-    if (cfg.phase_schedule->mode != PhaseScheduleMode::Generational &&
-        (cfg.cpu_fitness_verification.top_k || !cfg.checkpoint_generations.empty() || cfg.skip_final_eval))
-      throw std::invalid_argument("async and steady_state schedules support neither verification, checkpoints nor skipped final evaluation");
+    // A non-default schedule is steady_state.
+    if (phase_engine(cfg) == PhaseEngine::None)
+      throw std::invalid_argument("steady_state requires the native phase population");
+    if (cfg.cpu_fitness_verification.top_k || !cfg.checkpoint_generations.empty() || cfg.skip_final_eval)
+      throw std::invalid_argument("steady_state supports neither verification, checkpoints nor skipped final evaluation");
   }
   repro::require_reproduction_mode_supported(cfg);
   if (cases.empty()) {

@@ -1,4 +1,5 @@
 #include "cuda_allocation_scope.hpp"
+#include "gagp/core/engine_profile.hpp"
 #include "stage_storage_gpu.hpp"
 #include "gagp/runtime/gpu/allocation_gpu.hpp"
 
@@ -39,7 +40,7 @@ struct Pool {
 std::mutex allocation_mutex;
 std::unordered_map<void*,std::shared_ptr<Pool>> allocations;
 bool requested() {
-  const auto* value=std::getenv("GAGP_GPU_CUDA_POOL");
+  const auto* value=gagp::engine_env("GAGP_GPU_CUDA_POOL");
   if(!value || std::string(value)=="0")return false;
   if(std::string(value)!="1")throw std::runtime_error("GAGP_GPU_CUDA_POOL must be0 or1");
   return true;

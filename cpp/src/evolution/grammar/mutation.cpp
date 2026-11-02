@@ -1,4 +1,5 @@
 #include "gagp/evolution/mutation.hpp"
+#include "gagp/core/engine_profile.hpp"
 
 #include <cmath>
 #include <iterator>
@@ -21,7 +22,7 @@ ProgramGenome mutate(const ProgramGenome& genome, std::uint64_t seed,
   if (!std::isfinite(mutation_subtree_prob) || mutation_subtree_prob < 0 || mutation_subtree_prob > 1)
     throw std::invalid_argument("compiled mutation subtree probability must be in [0,1]");
   ++context.counters().mutation_attempts;
-  if (std::getenv("GAGP_CPU_SELECTED_MUTATION") && !context.offspring_budget()) {
+  if (gagp::engine_env("GAGP_CPU_SELECTED_MUTATION") && !context.offspring_budget()) {
     GrammarRandom selected_random(seed);
     const double branch = static_cast<double>(selected_random.next() >> 11) * 0x1.0p-53;
     if (branch < mutation_subtree_prob) {

@@ -2,7 +2,7 @@
 
 本輪建立 profiler baseline 並提出優化方案，**未實作性能優化，也未修改 production C++ source**。NVTX 標記只加入 ignored `logs/profiler-baseline-20261001/source/cpp/` 的獨立副本。使用 Nsight Systems 2024.5.1；沒有使用 ncu。使用者所稱 medium 按既有題目 Median 解讀。
 
-量測沿用 [fixed-asgp-v1](../../../docs/guides/fixed-asgp-benchmark.md)：每題 1024 個固定父代、1024 cases，每個 process 暖機一次、三次正式量測；完整 eval + selection + reproduction，不計初始 admission、case/session 初始化與 offline translation。每次仍產生下一代；没有 fitness 重用、減少 cases 或篩選父代。
+量測沿用 [fixed-asgp-v1](../../../docs/reference/fixed-asgp-history.md)：每題 1024 個固定父代、1024 cases，每個 process 暖機一次、三次正式量測；完整 eval + selection + reproduction，不計初始 admission、case/session 初始化與 offline translation。每次仍產生下一代；没有 fitness 重用、減少 cases 或篩選父代。
 
 RTX 3090（82 SM）、i9-10900K、CUDA 12.6、Release、blocksize 512、GPU 0。原始 source 以 commit `02aec6f` 加當前未提交 fixed BM 為基底，完整 source/binary/input hashes 保留。九組 GPU cells 各執行 original binary、NVTX binary 無 profiler、NVTX binary 有 profiler；ASGP 1T 另重新量測。所有非 timing JSON 欄位（fitness、variation counters 等）逐 repetition 相同。
 

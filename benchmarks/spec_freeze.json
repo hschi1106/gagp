@@ -9,7 +9,8 @@
     "2026-10-15: document opt-in private IntList content identity, 65536/65537 backing boundaries, and exact compact int64 cell storage. Canonical default behavior and transport format remain unchanged; profile admission and explicit fallback are required.",
     "2026-10-30: add spec/search_config.md (gagp-search-config-v1): explicit phase-population variation policy, legacy-flag mapping/conflict rule, and CPU reference / GPU owner engine equivalence. Existing specs unchanged; later: mutation.max_subtree_nodes, lowering-only execution.fuel, and the common/gagp member classes for cross-system comparisons.",
     "2026-11-01: spec/search_config.md adds population schedules: schedule.mode steady_state (synchronous batch steady state, both owners) and the CPU-reference-only research schedules (islands, async simulation). Existing members and the generational default unchanged.",
-    "2026-11-02: schedule.batch may be omitted for steady_state and then equals the population size; the effective record holds the resolved value. Explicit batches unchanged."
+    "2026-11-02: schedule.batch may be omitted for steady_state and then equals the population size; the effective record holds the resolved value. Explicit batches unchanged.",
+    "2026-11-03: spec/search_config.md removes the CPU-reference-only research schedules (islands, async simulation); only generational and synchronous batch steady_state remain. Existing generational and steady_state semantics unchanged."
   ],
   "specs": [
     {
@@ -50,7 +51,7 @@
     },
     {
       "path": "spec/search_config.md",
-      "sha256": "de9e74427b93b22f936ed159a2f518c19bb44d4e95c05ef8b1b7d184ab72e787"
+      "sha256": "b775e4bb0e975af2f8e537ce7a89994b0b14e5bdcf42ae4347eab760d2b2d2b8"
     }
   ],
   "status": "frozen"

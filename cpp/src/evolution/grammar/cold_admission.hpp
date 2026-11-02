@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include "gagp/core/engine_profile.hpp"
 #include <cstdlib>
 #include <exception>
 #include <string>
@@ -41,13 +42,13 @@ inline DerivationMetadata reconstruct_cold_derivation(const CompiledGrammar& gra
     const ProgramGenome& genome,const GenerationRequest& request,VerifiedAst* verified=nullptr,
     std::vector<std::vector<int>>* environments=nullptr,
     std::shared_ptr<const BytecodeProgram>* executable=nullptr,const std::vector<std::string>* inputs=nullptr) {
-  const char* fused_setting=std::getenv("GAGP_FUSED_COLD_EXECUTABLE");
+  const char* fused_setting=gagp::engine_env("GAGP_FUSED_COLD_EXECUTABLE");
   const bool fused=executable && fused_setting && std::string(fused_setting)=="1";
   const auto has_registry=[&] {return std::any_of(genome.ast.consts.begin(),genome.ast.consts.end(),[](const auto& value) {
     return value.tag==ValueTag::String || value.tag==ValueTag::IntList ||
         value.tag==ValueTag::FloatList || value.tag==ValueTag::StringList;
   });};
-  const char* enabled=std::getenv("GAGP_COLD_PAYLOAD_PROOFS");
+  const char* enabled=gagp::engine_env("GAGP_COLD_PAYLOAD_PROOFS");
   const auto ordinary=[&] {
     // Scalar artifacts need no registry read transaction. The private callee
     // still validates this invocation's full identity before publishing one.

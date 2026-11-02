@@ -133,22 +133,6 @@ void test_environment_mapping() {
 }
 void test_schedule() {
   require(!config("").schedule, "schedule set by an empty document");
-  const auto both = config(",\"schedule\":{\"mode\":\"async\",\"workers\":256,\"replacement_size\":3,\"child_overhead\":200},"
-                           "\"islands\":{\"count\":8,\"migration_interval\":4,\"migrants\":2}");
-  evo::EvolutionConfig cfg;
-  cfg.phase_population = true; cfg.population_size = 1024;
-  apply_search_config(both, cfg);
-  require(cfg.phase_schedule && cfg.phase_schedule->mode == evo::PhaseScheduleMode::Async &&
-          cfg.phase_schedule->workers == 256 && cfg.phase_schedule->replacement_size == 3 &&
-          cfg.phase_schedule->child_overhead == 200 && cfg.phase_schedule->islands == 8 &&
-          cfg.phase_schedule->migration_interval == 4 && cfg.phase_schedule->migrants == 2, "schedule fields");
-  evo::validate_phase_schedule_policy(*cfg.phase_schedule, 1024);
-  evo::EvolutionConfig copy;
-  apply_search_config(parse_search_config(parse(evo::grammar::canonical_json(effective_search_config(cfg)))), copy);
-  require(copy.phase_schedule == cfg.phase_schedule, "schedule does not round-trip");
-  const auto islands = config(",\"islands\":{\"count\":4,\"migration_interval\":8,\"migrants\":1}");
-  require(islands.schedule && islands.schedule->mode == evo::PhaseScheduleMode::Generational && islands.schedule->islands == 4,
-          "generational islands");
   // A default schedule leaves the effective record unchanged.
   evo::EvolutionConfig plain; plain.phase_population = true;
   const auto before = evo::grammar::canonical_json(effective_search_config(plain));
@@ -172,32 +156,17 @@ void test_schedule() {
   require(evo::resolve_phase_schedule(*whole.schedule, 512).batch == 512 &&
           evo::resolve_phase_schedule(*steady.schedule, 512).batch == 256, "resolve_phase_schedule");
   evo::validate_phase_schedule_policy(*whole.schedule, 1000);
-  rejects(",\"schedule\":{\"mode\":\"steady_state\",\"batch\":8,\"workers\":4}", "steady_state takes only");
-  rejects(",\"schedule\":{\"mode\":\"steady_state\",\"batch\":8},\"islands\":{\"count\":2}", "steady_state takes only");
+  rejects(",\"schedule\":{\"mode\":\"steady_state\",\"batch\":8,\"workers\":4}", "unknown key schedule.workers");
+  rejects(",\"islands\":{\"count\":2}", "unknown key document.islands");
+  rejects(",\"schedule\":{\"replacement_size\":3}", "steady_state member");
   rejects(",\"schedule\":{\"batch\":8}", "batch");
   evo::PhaseSchedulePolicy uneven; uneven.mode = evo::PhaseScheduleMode::SteadyState; uneven.batch = 48;
   bool uneven_rejected = false;
   try { evo::validate_phase_schedule_policy(uneven, 1024); } catch (const std::invalid_argument&) { uneven_rejected = true; }
   require(uneven_rejected, "batch that does not divide the population accepted");
   rejects(",\"schedule\":{\"mode\":\"steady\"}", "schedule.mode");
-  rejects(",\"schedule\":{\"mode\":\"async\"}", "workers");
-  rejects(",\"schedule\":{\"workers\":4}", "workers");
-  rejects(",\"schedule\":{\"child_overhead\":5}", "async member");
+  rejects(",\"schedule\":{\"mode\":\"async\"}", "schedule.mode");
   rejects(",\"schedule\":{\"lag\":1}", "unknown key schedule.lag");
-  rejects(",\"islands\":{\"count\":4,\"migrants\":1}", "migration");
-  rejects(",\"islands\":{\"count\":1,\"migration_interval\":2,\"migrants\":1}", "migration");
-  const auto fails = [](const evo::PhaseSchedulePolicy& policy, int population) {
-    try { evo::validate_phase_schedule_policy(policy, population); } catch (const std::invalid_argument&) { return true; }
-    return false;
-  };
-  evo::PhaseSchedulePolicy split; split.islands = 3;
-  require(fails(split, 64), "islands that do not divide the population accepted");
-  split.islands = 8; split.migration_interval = 2; split.migrants = 5;
-  require(fails(split, 64), "migrants above half an island accepted");
-  evo::PhaseSchedulePolicy async; async.mode = evo::PhaseScheduleMode::Async; async.workers = 65;
-  require(fails(async, 64), "more workers than members accepted");
-  async.workers = 6; async.islands = 4;
-  require(fails(async, 64), "workers not divisible by islands accepted");
 }
 }  // namespace
 

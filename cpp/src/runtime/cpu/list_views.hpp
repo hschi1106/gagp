@@ -1,5 +1,6 @@
 #pragma once
 #include "coordinate_region.hpp"
+#include "gagp/core/engine_profile.hpp"
 #include <algorithm>
 #include <cstdlib>
 #include <optional>
@@ -13,7 +14,7 @@
 namespace gagp::detail {
 inline bool cpu_region_views_supported(const BoundedRegionSegment& segment) {
   const auto& plan = segment.plan;
-  const bool coordinate_views = std::getenv("GAGP_CPU_COORDINATE_VIEWS") &&
+  const bool coordinate_views = gagp::engine_env("GAGP_CPU_COORDINATE_VIEWS") &&
       plan.progress == RegionProgressKind::Coordinates &&
       std::find(plan.parameter_types.begin(), plan.parameter_types.end(), ValueTag::IntList) !=
           plan.parameter_types.end();
@@ -21,7 +22,7 @@ inline bool cpu_region_views_supported(const BoundedRegionSegment& segment) {
   // Snapshot setup pays off on proven recursive windows. Arbitrary predicates
   // may terminate at the root, where eager payload copying is needless work.
   const auto& predicate = segment.base_predicate.program;
-  const bool scalar_views = std::getenv("GAGP_CPU_SCALAR_VIEWS") != nullptr;
+  const bool scalar_views = gagp::engine_env("GAGP_CPU_SCALAR_VIEWS") != nullptr;
   if (!coordinate_views && !scalar_views && ((predicate.code.size() != 1 &&
        !(predicate.code.size() == 2 && predicate.code[1].op == Opcode::Return)) ||
       predicate.code[0].op != Opcode::PushConst || predicate.code[0].a < 0 ||

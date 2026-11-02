@@ -1,0 +1,16 @@
+{
+ "asgp/fuel_cost.s1.p16384": {
+  "arm": "asgp",
+  "code": 0,
+  "export": "fuel_cost.s1.p16384.export.json",
+  "final_best": 0,
+  "history": "fuel_cost.s1.p16384.history.json",
+  "output": "fuel_cost.s1.p16384.json",
+  "pop": 16384,
+  "process_s": 3322.2855446338654,
+  "search_s": 3319.687816184,
+  "seed": 1,
+  "started": 1793642071.0819693,
+  "task": "fuel_cost"
+ }
+}

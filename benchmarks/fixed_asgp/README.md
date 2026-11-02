@@ -1,6 +1,6 @@
 # Fixed ASGP/GAGP benchmark results
 
-Contract 與重跑方式見 [fixed-asgp-v1](../../docs/guides/fixed-asgp-benchmark.md)。
+Contract 與重跑方式見 [fixed-asgp-v1 歷史紀錄](../../docs/reference/fixed-asgp-history.md)；目前的 benchmark 用法見 [fixed ASGP benchmark guide](../../docs/guides/fixed-asgp-benchmark.md)。
 本目錄保存可供比較的量測證據；大型固定父代、cases 與 process logs 保留在
 `logs/fixed-asgp/`。
 

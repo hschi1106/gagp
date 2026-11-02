@@ -144,38 +144,6 @@ int main() { try {
    env.set("GAGP_GPU_WARP_VARIATION",nullptr);env.set("GAGP_GPU_CHOICE_TABLES",nullptr);
   }
  }
- // Research schedules (CPU reference only): deterministic, independent of host
- // workers, distinct from the generational search, and rejected by the GPU owner.
- {
-  const Policy& p=policies[1];
-  const auto schedule_run=[&](const PhaseSchedulePolicy& schedule,bool gpu){
-   auto cfg=base;cfg.phase_variation=p.policy;cfg.phase_schedule=schedule;
-   cfg.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
-   cfg.reproduction_backend=gpu?repro::ReproductionBackend::Gpu:repro::ReproductionBackend::Cpu;
-   return trace(evolve_population(cases,cfg,&parents));
-  };
-  const auto generational=run(p,false);
-  require_same(generational,schedule_run(PhaseSchedulePolicy{},false),"default schedule");
-  PhaseSchedulePolicy islands;islands.islands=4;islands.migration_interval=2;islands.migrants=2;
-  PhaseSchedulePolicy async;async.mode=PhaseScheduleMode::Async;async.workers=8;async.child_overhead=5;
-  PhaseSchedulePolicy combined=async;combined.islands=2;combined.migration_interval=1;combined.migrants=2;
-  for(const auto& [label,schedule]:{std::pair{"islands",islands},std::pair{"async",async},std::pair{"async islands",combined}}) {
-   const auto one=schedule_run(schedule,false);
-   require(one.profile.find(schedule.mode==PhaseScheduleMode::Async?"-async-w":"-islands")!=std::string::npos,std::string(label)+" profile");
-   require(one.final_asts.size()==std::size_t(population) && one.champions.size()==std::size_t(base.generations),std::string(label)+" shape");
-   require(one.final_asts!=generational.final_asts,std::string(label)+" equals the generational search");
-   env.set("GAGP_HOST_THREADS","4");require_same(one,schedule_run(schedule,false),std::string(label)+" CPU 4 threads");env.set("GAGP_HOST_THREADS",nullptr);
-   bool gpu_rejected=false;
-   try{(void)schedule_run(schedule,true);}catch(const std::invalid_argument&){gpu_rejected=true;}
-   require(gpu_rejected,std::string(label)+" accepted by the GPU owner");
-  }
-  // The final champion never regresses: elites (islands) and the protected best (async).
-  for(const auto& schedule:{islands,async,combined}) {
-   const auto one=schedule_run(schedule,false);
-   for(std::size_t g=1;g<one.best.size();++g)require(one.best[g]>=one.best[g-1],"schedule champion regressed");
-   require(one.final_fitness.front()>=one.best.back(),"schedule final champion regressed");
-  }
- }
  // Synchronous batch steady state: both owners publish identical searches.
  for(const Policy* p:{&policies[1],&policies[3]}) {
   PhaseSchedulePolicy steady;steady.mode=PhaseScheduleMode::SteadyState;steady.batch=8;

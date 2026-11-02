@@ -1,1 +1,0 @@
-Rejected exact sequence-end trimming: P64 full1024 fixed snapshots CPU/status parity passed; eval reductions about2.2%,0.8%,0.2% forFilter/DoubleLetters/Replace, insufficientconsistentgain. Implementation/spec/featuretests reverted d9b1291. No adopted speedup claim. Rawbinary+logs remain logs/all-task-repair-20261015/trim-screen.

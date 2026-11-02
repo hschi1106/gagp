@@ -1090,3 +1090,24 @@ add_executable(gagp_test_host_threads tests/evolution/test_host_threads.cpp)
 target_link_libraries(gagp_test_host_threads PRIVATE gagp_evolution)
 target_compile_options(gagp_test_host_threads PRIVATE -UNDEBUG)
 add_test(NAME gagp_test_host_threads COMMAND gagp_test_host_threads)
+
+add_executable(gagp_test_engine_profile tests/runtime/test_engine_profile.cpp)
+target_include_directories(gagp_test_engine_profile PRIVATE include)
+add_test(NAME gagp_test_engine_profile COMMAND gagp_test_engine_profile)
+set_tests_properties(gagp_test_engine_profile PROPERTIES LABELS "unit;contract")
+
+# Engine profile (include/gagp/core/engine_profile.hpp). The tests above were
+# written against the historical "every engine switch unset" defaults and keep
+# them; the *_mainline entries rerun the CPU/GPU equivalence tests with the
+# default mainline profile that ordinary runs use.
+get_property(gagp_registered_tests DIRECTORY PROPERTY TESTS)
+foreach(gagp_registered_test IN LISTS gagp_registered_tests)
+  set_property(TEST ${gagp_registered_test} APPEND PROPERTY ENVIRONMENT GAGP_ENGINE_PROFILE=legacy)
+endforeach()
+if(GAGP_HAS_CUDA)
+  foreach(gagp_mainline_test IN ITEMS fitness_cpu_gpu_parity evolution_cpu_gpu_parity phase_population_cpu_reference)
+    add_test(NAME gagp_test_${gagp_mainline_test}_mainline COMMAND gagp_test_${gagp_mainline_test})
+    set_tests_properties(gagp_test_${gagp_mainline_test}_mainline PROPERTIES
+      ENVIRONMENT GAGP_ENGINE_PROFILE=mainline LABELS "contract;integration;gpu;cpu_gpu_parity")
+  endforeach()
+endif()
