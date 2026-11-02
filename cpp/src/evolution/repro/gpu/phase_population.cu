@@ -222,6 +222,27 @@ __global__ void place_children(TreePointers children,TreePointers members,const 
  const int pair=item/slots,k=item%slots,member=placements[2*pair],child=placements[2*pair+1];
  copy_tree(children,child*slots+k,members,member*slots+k);
 }
+// Staged steady state: compact copies of one batch's child rows survive
+// evaluation outside the stage bank (the bank serves the payload workspace).
+__global__ void stash_children(TreePointers trees,const ImportOffset* offsets,PhaseTreeNode* nodes,int* origins,
+    PhaseGeneSite* sites,Value* constants,PhaseGenerationResult* lengths) {
+ const int row=blockIdx.x;const auto r=trees.lengths[row];if(threadIdx.x==0)lengths[row]=r;if(!valid(r))return;
+ const auto offset=offsets[row];const auto input=trees.view(row);
+ for(int i=threadIdx.x;i<r.nodes;i+=blockDim.x){nodes[offset.nodes+i]=input.nodes[i];origins[offset.nodes+i]=input.origins[i];sites[offset.nodes+i]=input.sites[i];}
+ for(int i=threadIdx.x;i<r.constants;i+=blockDim.x)constants[offset.constants+i]=input.constants[i];
+}
+// Same result as place_children/copy_tree, reading the compact stash.
+__global__ void place_stashed(TreePointers members,const int* placements,int slots,const ImportOffset* offsets,
+    const PhaseTreeNode* nodes,const int* origins,const PhaseGeneSite* sites,const Value* constants,const PhaseGenerationResult* lengths) {
+ const int pair=blockIdx.x/slots,k=blockIdx.x%slots,member=placements[2*pair]*slots+k,child=placements[2*pair+1]*slots+k;
+ const auto r=lengths[child];
+ if(valid(r)) {
+  const auto offset=offsets[child];const auto out=members.output(member);
+  for(int i=threadIdx.x;i<r.nodes;i+=blockDim.x){out.nodes[i]=nodes[offset.nodes+i];out.origins[i]=origins[offset.nodes+i];out.sites[i]=sites[offset.nodes+i];}
+  for(int i=threadIdx.x;i<r.constants;i+=blockDim.x)out.constants[i]=constants[offset.constants+i];
+ }
+ if(threadIdx.x==0)members.lengths[member]=valid(r)?r:PhaseGenerationResult{};
+}
 } // namespace
 
 struct NativePhasePopulation::Impl {
@@ -268,6 +289,11 @@ struct NativePhasePopulation::Impl {
  };
  ProgramSet members,batch;
  bool steady=false;Buffer<int> placements;
+ // Staged owners: compact batch rows plus host node metrics (see stash_children).
+ Buffer<PhaseTreeNode> stash_nodes;Buffer<int> stash_origins;Buffer<PhaseGeneSite> stash_sites;Buffer<Value> stash_constants;
+ Buffer<PhaseGenerationResult> stash_lengths;Buffer<ImportOffset> stash_offsets;
+ std::vector<unsigned> stash_site_metrics,stash_node_counts;
+ std::size_t stash_bytes()const{return stash_nodes.bytes()+stash_origins.bytes()+stash_sites.bytes()+stash_constants.bytes()+stash_lengths.bytes()+stash_offsets.bytes();}
  cudaEvent_t start=nullptr,stop=nullptr;
  void initialize_host_packed(ProgramSet& set,const gpu_detail::OwnedGpuPrograms& initial) {
   auto& host_packed=set.host_packed;auto& initial_phase_stack_bounds=set.initial_phase_stack_bounds;
@@ -348,7 +374,7 @@ struct NativePhasePopulation::Impl {
  void require_device()const{if(!healthy)throw std::logic_error("GPU genotype owner invalidated by a failed step");int now;checked(cudaGetDevice(&now));if(now!=device)throw std::logic_error("GPU genotype device/owner mismatch");}
  std::size_t bytes()const {
   std::size_t total=(current?current->bytes():0)+(next?next->bytes():0)+(crossed?crossed->bytes():0)+(scratch?scratch->bytes():0)+slots.bytes()+fitness.bytes()+stats.bytes()+metrics.bytes()+code.bytes()+packed_code.bytes()+
-      constants.bytes()+packed_constants.bytes()+compiled.bytes()+code_offsets.bytes()+constant_offsets.bytes()+parent_hashes.bytes()+parent_table.bytes();
+      constants.bytes()+packed_constants.bytes()+compiled.bytes()+code_offsets.bytes()+constant_offsets.bytes()+parent_hashes.bytes()+parent_table.bytes()+stash_bytes()+placements.bytes();
   for(const auto& p:profiles)total+=p->bytes();return total;
  }
  void reserve_reproduction_buffers() {
@@ -376,6 +402,33 @@ struct NativePhasePopulation::Impl {
   next.reset();crossed.reset();scratch.reset();
   fitness.clear();stats.clear();code.clear();constants.clear();compiled.clear();
   code_offsets.clear();constant_offsets.clear();packed_code.clear();packed_constants.clear();
+ }
+ // Copies batch rows 0..b*slot_count-1 into the persistent compact stash and
+ // records their node metrics, so the staged batch buffers can be released.
+ void stash_batch(Trees& trees,int b) {
+  const std::size_t rows=std::size_t(b)*slot_count;
+  const auto lengths=trees.lengths.read(rows);
+  std::vector<ImportOffset> offsets(rows);std::size_t nodes=0,values=0;
+  stash_node_counts.assign(b,layout.fixed_nodes);
+  for(std::size_t row=0;row<rows;++row) {
+   offsets[row]={nodes,values};
+   if(!valid(lengths[row]))continue;
+   nodes+=lengths[row].nodes;values+=lengths[row].constants;
+   stash_node_counts[row/slot_count]+=lengths[row].nodes;
+  }
+  metrics.reserve(std::size_t(b)*2);
+  measure_site_metrics<<<(b+63)/64,64>>>(pointers(trees),b,slot_count,metrics.data);checked(cudaGetLastError());
+  stash_site_metrics=metrics.read(std::size_t(b)*2);metrics.clear();
+  {
+   gpu_detail::CudaStageAllocationScope persistent(nullptr,false);
+   stash_nodes.reserve(std::max<std::size_t>(nodes,1));stash_origins.reserve(std::max<std::size_t>(nodes,1));
+   stash_sites.reserve(std::max<std::size_t>(nodes,1));stash_constants.reserve(std::max<std::size_t>(values,1));
+   stash_lengths.reserve(rows);stash_offsets.upload(offsets);
+  }
+  stash_children<<<rows,128>>>(pointers(trees),stash_offsets.data,stash_nodes.data,stash_origins.data,stash_sites.data,
+      stash_constants.data,stash_lengths.data);
+  checked(cudaGetLastError());checked(cudaDeviceSynchronize());
+  peak_transport_bytes=std::max(peak_transport_bytes,bytes());
  }
  // Lowers rows 0..set.count*slot_count-1 of `trees` into the program set.
  void refresh_programs(ProgramSet& set,Trees& trees,ReproductionStats* timing) {
@@ -748,8 +801,9 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
 void NativePhasePopulation::begin_steady(int batch) {
  auto& s=*impl_;s.require_device();
  phase_layout_require(!s.steady && batch>=1 && batch<=s.population,"steady-state batch contract");
- phase_layout_require(!s.stage_storage,"steady state keeps child rows across evaluation; disable GAGP_GPU_STAGE_STORAGE");
- s.reserve_batch_buffers(batch);
+ // Staged owners allocate batch buffers per round (in the stage bank when
+ // present) and stash the children before evaluation.
+ if(!s.staged_buffers)s.reserve_batch_buffers(batch);
  if(!s.parent_table_size) {
   phase_layout_require(s.population<(1<<29),"parent fitness cache population capacity");
   s.parent_table_size=1;while(s.parent_table_size<2*s.population)s.parent_table_size*=2;
@@ -777,6 +831,8 @@ std::vector<int> NativePhasePopulation::make_batch(const std::vector<double>& se
    std::isfinite(probability) && probability>=0 && probability<=1,"steady-state selection/mutation contract");
  for(double value:selection_fitness)phase_layout_require(!std::isnan(value),"uncanonical fitness");
  s.healthy=false;
+ gpu_detail::CudaStageAllocationScope reproduction_storage(s.stage_storage.get(),true);
+ if(s.staged_buffers){const auto setup=Clock::now();s.reserve_batch_buffers(b);if(timing)timing->setup_ms+=elapsed(setup);}
  const auto upload=Clock::now();s.fitness.upload(selection_fitness);if(timing)timing->upload_ms+=elapsed(upload);
  int threads=64;
  if(const char* setting=std::getenv("GAGP_PHASE_REPRO_THREADS")){threads=std::atoi(setting);phase_layout_require(threads>=1 && threads<=128 && (threads&(threads-1))==0,"phase reproduction block size");}
@@ -823,15 +879,20 @@ std::vector<int> NativePhasePopulation::make_batch(const std::vector<double>& se
   }
  }
  if(timing)timing->kernel_ms+=ms;
+ s.refresh_programs(s.batch,*offspring,timing);
+ if(s.staged_buffers) {
+  const auto teardown=Clock::now();s.stash_batch(*offspring,b);s.release_reproduction_buffers();
+  if(timing)timing->setup_ms+=elapsed(teardown);
+  if(s.stage_storage && s.stage_storage->live_allocations())throw std::runtime_error("steady-state batch left live stage scratch");
+ }
  s.healthy=true;return reuse;
 }
 FitnessEvalResult NativePhasePopulation::evaluate_batch(FitnessSessionGpu& session,const std::vector<int>& reuse,unsigned case_count,
     bool diagnostics,ReproductionStats* timing) {
  auto& s=*impl_;s.require_device();const int b=s.batch.count;
  phase_layout_require(s.steady && reuse.size()==std::size_t(b),"steady-state batch evaluation contract");
- s.healthy=false;
- s.refresh_programs(s.batch,*(s.inplace_mutation?s.crossed:s.next),timing);
- gpu_detail::CudaStageAllocationScope evaluation_storage(nullptr,false);
+ s.healthy=false;(void)timing;
+ gpu_detail::CudaStageAllocationScope evaluation_storage(s.stage_storage.get(),false);
  const bool capabilities=std::getenv("GAGP_OWNED_PHASE_CAPS") && s.views_proven;
  const gpu_detail::OwnedGpuPrograms owned(s.batch.programs,s.batch.stack_bounds,
      capabilities?&s.input_types:nullptr,capabilities && s.direct_root_proven,
@@ -847,11 +908,18 @@ FitnessEvalResult NativePhasePopulation::evaluate_batch(FitnessSessionGpu& sessi
  }
  auto result=session.eval_owned_programs(owned,true,any?&mapping:nullptr,any?&placeholder:nullptr,session.evaluation_revision());
  if(s.staged_buffers && !session.release_private_workspace())throw std::runtime_error("GPU phase evaluation workspace release failed");
+ if(s.stage_storage && s.stage_storage->live_allocations())throw std::runtime_error("steady-state evaluation left live stage scratch");
  if(!diagnostics)result.case_counts.clear();
  s.healthy=true;return result;
 }
 std::vector<unsigned> NativePhasePopulation::batch_nodes(bool grammar_sites)const {
  const auto& s=*impl_;s.require_device();const int b=s.batch.count;phase_layout_require(s.steady,"steady-state batch nodes");
+ if(s.staged_buffers) {
+  if(!grammar_sites)return s.stash_node_counts;
+  std::vector<unsigned> out;out.reserve(b);
+  for(int i=0;i<b;++i){if(!s.stash_site_metrics[i*2] || !s.stash_site_metrics[i*2+1])throw std::runtime_error("invalid GPU grammar-site metrics");out.push_back(s.stash_site_metrics[i*2]);}
+  return out;
+ }
  auto& offspring=s.inplace_mutation?*s.crossed:*s.next;
  if(grammar_sites) {
   impl_->metrics.reserve(b*2);
@@ -875,7 +943,9 @@ void NativePhasePopulation::commit_batch(const std::vector<std::array<int,2>>& p
  }
  s.healthy=false;s.placements.upload(flat);
  const int items=int(placements.size())*s.slot_count;
- place_children<<<(items+127)/128,128>>>(pointers(*(s.inplace_mutation?s.crossed:s.next)),pointers(*s.current),s.placements.data,int(placements.size()),s.slot_count);
+ if(s.staged_buffers)place_stashed<<<items,128>>>(pointers(*s.current),s.placements.data,s.slot_count,s.stash_offsets.data,s.stash_nodes.data,
+     s.stash_origins.data,s.stash_sites.data,s.stash_constants.data,s.stash_lengths.data);
+ else place_children<<<(items+127)/128,128>>>(pointers(*(s.inplace_mutation?s.crossed:s.next)),pointers(*s.current),s.placements.data,int(placements.size()),s.slot_count);
  checked(cudaGetLastError());checked(cudaDeviceSynchronize());
  s.healthy=true;
 }

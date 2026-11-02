@@ -202,6 +202,17 @@ int main() { try {
    require_same(reference,steady_run(true),label+" GPU warp choice tables");
    env.set("GAGP_GPU_WARP_VARIATION",nullptr);env.set("GAGP_GPU_CHOICE_TABLES",nullptr);
   }
+  // Staged owners stash each batch compactly; with stage storage the bank is
+  // released to the evaluation workspace between reproduction and placement.
+  env.set("GAGP_GPU_PHASE_STAGED_BUFFERS","1");
+  require_same(reference,steady_run(true),label+" GPU staged");
+  env.set("GAGP_GPU_GLOBAL_PAYLOAD","1");env.set("GAGP_GPU_PAYLOAD_WORKSPACE_MIB","256");env.set("GAGP_GPU_STAGE_STORAGE","1");
+  const auto stored=steady_run(true);
+  require(stored.profile.find("-stage-storage")!=std::string::npos && stored.profile.find("-declined")==std::string::npos,
+      label+" stage storage not used: "+stored.profile);
+  require_same(reference,stored,label+" GPU staged stage storage");
+  for(const char* flag:{"GAGP_GPU_PHASE_STAGED_BUFFERS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_GPU_PAYLOAD_WORKSPACE_MIB","GAGP_GPU_STAGE_STORAGE"})
+   env.set(flag,nullptr);
  }
  // A conflicting legacy semantic flag is rejected for explicit policies.
  env.set("GAGP_COUNTED_SITE_DRAW","1");

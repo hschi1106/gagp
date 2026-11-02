@@ -655,7 +655,11 @@ operator kernels take the child count separately from the parent population,
 the GPU owner lowers and evaluates the batch through a second packed program
 set (`ProgramSet batch`, reusing identical-member results through the completed
 fitness path), and `place_children` copies the placed rows into the population.
-Member programs are not lowered after `begin_steady`. Measured on the formal
+Staged owners allocate the batch buffers per round (inside the stage bank when
+stage storage is active), lower the batch, then `stash_children` copies the
+child rows compactly into persistent buffers and the batch buffers are released
+before evaluation, so the bank serves the payload workspace; `place_stashed`
+places from the stash. Member programs are not lowered after `begin_steady`. Measured on the formal
 G64 cohort, each evaluation launch has a large latency floor, so `batch` below
 the population size is slower than the generational loop
 (`~/gagp/logs/async-island-eval-20261031/README.md`).

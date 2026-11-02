@@ -506,11 +506,9 @@ void run_phase_population_steady(const EvolutionConfig& cfg,const CaseSet& cases
   std::vector<double> selection=fitness;
   const auto ranks=[&]{if(has_wrong)for(int r=0;r<P;++r)selection[order[r]]=double(P-r);};
   ranks();
-  const auto reposition=[&](int member){
-    order.erase(std::find(order.begin(),order.end(),member));
-    order.insert(std::lower_bound(order.begin(),order.end(),member,better),member);
-    if(!has_wrong)selection[member]=fitness[member];
-  };
+  // `better` is a strict total order, so within a round only the best member
+  // is tracked (a victim is never the best) and `order` is re-sorted once.
+  int best=order.front();
   const auto scored=[&](int member){return ScoredGenome{owner.export_member(member),fitness[member],has_wrong?int(wrong[member]):-1};};
   const auto record=[&]{
     const int best=order.front();
@@ -524,7 +522,6 @@ void run_phase_population_steady(const EvolutionConfig& cfg,const CaseSet& cases
     epoch=GenerationTiming{};epoch_start=Clock::now();
   };
   const auto victim=[&]{
-    const int best=order.front();
     for(;;) {
       int worst=int(rng()%std::uint64_t(P));
       for(int i=1;i<schedule.replacement_size;++i){const int c=int(rng()%std::uint64_t(P));if(better(worst,c))worst=c;}
@@ -561,8 +558,12 @@ void run_phase_population_steady(const EvolutionConfig& cfg,const CaseSet& cases
     }
     for(int b=0;b<B;++b) {
       const int v=victim();
-      fitness[v]=child_fitness[b];if(has_wrong)wrong[v]=child_wrong[b];nodes[v]=child_count[b];placed[v]=b;reposition(v);
+      fitness[v]=child_fitness[b];if(has_wrong)wrong[v]=child_wrong[b];nodes[v]=child_count[b];placed[v]=b;
+      if(!has_wrong)selection[v]=fitness[v];
+      if(better(v,best))best=v;
     }
+    std::sort(order.begin(),order.end(),better);
+    if(order.front()!=best)throw std::logic_error("steady-state best tracking");
     if(has_wrong)ranks();
     placements.clear();
     for(int m=0;m<P;++m)if(placed[m]>=0)placements.push_back({m,placed[m]});
@@ -576,8 +577,12 @@ void run_phase_population_steady(const EvolutionConfig& cfg,const CaseSet& cases
     accumulate_timing(&result.timing.reproduction_totals,epoch.reproduction);
   }
   const auto final_start=Clock::now();
-  result.best=scored(order.front());
-  if(cfg.retain_final_population)for(int i:order)result.final_population.push_back(scored(i));
+  if(cfg.retain_final_population) {
+    auto genomes=owner.export_population();
+    if(genomes.size()!=std::size_t(P))throw std::runtime_error("steady-state final population size");
+    for(int i:order)result.final_population.push_back(ScoredGenome{std::move(genomes[i]),fitness[i],has_wrong?int(wrong[i]):-1});
+    result.best=result.final_population.front();
+  } else result.best=scored(order.front());
   result.timing.final_eval_ms=elapsed(final_start);
 }
 // Rejects owner-construction policies that the native phase owners do not support.
