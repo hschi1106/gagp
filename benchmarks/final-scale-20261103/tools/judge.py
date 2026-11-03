@@ -36,7 +36,7 @@ def judge(item):
 if __name__ == "__main__":
     workers = int(sys.argv[1])
     runs = {}
-    for kind in ("gpu", "cpu", "gpugen"):
+    for kind in ("gpu", "cpu", "gpugen", "gpuclean"):
         p = c.ROOT / f"record_{kind}.json"
         if p.exists(): runs.update({k: v for k, v in c.read(p).items() if v.get("code") == 0})
     summary_path = c.ROOT / "judge.json"

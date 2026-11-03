@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent)); import common as c
 ASGP_P1024_200 = {k.split("|")[1]: v["search_s"] for k, v in
                   c.read(c.HERE / "config/asgp_p1024_200_estimates.json").items()
                   if k.startswith("asgp|") and v.get("code") == 0}
-MODE = {"gagp": "search_gpu_overlap", "gagp_gen": "search_gpu_overlap", "gagp_g8": "search_gpu_overlap", "cpuref": "search_phase_cpu",
+MODE = {"gagp_clean": "search_gpu_overlap", "gagp": "search_gpu_overlap", "gagp_gen": "search_gpu_overlap", "gagp_g8": "search_gpu_overlap", "cpuref": "search_phase_cpu",
         "cpuref_g8": "search_phase_cpu", "asgp": "search_asgp_1t"}
 
 
@@ -26,14 +26,14 @@ def estimate(job):
 def run(job, out_root=None):
     out = (out_root or c.ROOT / "runs") / job["arm"]; out.mkdir(parents=True, exist_ok=True)
     stem = out / f"{job['task']}.s{job['seed']}.p{job['pop']}"
-    env = c.base_env(job["task"])
+    env = c.base_env(job["task"]) if job["arm"] != "gagp_clean" else c.clean_env()
     g8 = job["arm"].endswith("_g8")
     env.update(GAGP_BM_CASE_COUNT=str(c.TRAIN), GAGP_BM_SEED=str(job["seed"]), GAGP_SEARCH_GENERATIONS="8" if g8 else str(c.GENERATIONS),
                GAGP_SEARCH_EXPORT=f"{stem}.export.json", GAGP_SEARCH_EXPORT_BEST_ONLY="1", GAGP_SEARCH_HISTORY_EXPORT=f"{stem}.history.json")
     if job["arm"] != "asgp":
-        env.update(c.ENGINE)
+        if job["arm"] != "gagp_clean": env.update(c.ENGINE)
         env["GAGP_SEARCH_CONFIG"] = str(c.CONFIG_GEN if job["arm"] == "gagp_gen" else c.CONFIG_G8 if g8 else c.CONFIG)
-    cmd = [str(c.BIN), "measure", str(c.source(job["task"], job["seed"])), str(c.prepared(job["task"], job["seed"])),
+    cmd = [str(c.BIN_CLEAN if job["arm"] == "gagp_clean" else c.BIN), "measure", str(c.source(job["task"], job["seed"])), str(c.prepared(job["task"], job["seed"])),
            str(c.grammar(job["task"])), str(job["pop"]), MODE[job["arm"]], f"{stem}.json"]
     t0 = time.time()
     try:
@@ -71,7 +71,10 @@ def cpu_jobs(seeds):
     jobs = asgp(seeds[0])
     jobs += lpt([dict(arm="cpuref", task=t, seed=1, pop=1024, timeout=3 * 3600) for t in c.TASKS] +
                 [dict(arm="cpuref_g8", task=t, seed=1, pop=p, timeout=3 * 3600) for p in (4096, 16384) for t in c.TASKS])
-    for s in seeds[1:]: jobs += asgp(s)
+    # Seeds 2.. at P1024 and P4096 first, then P16384 seed by seed: P16384 ASGP-1T runs take
+    # 1-3 h each, so full P16384 coverage of all seeds does not fit the time budget.
+    for p in (1024, 4096): jobs += lpt([dict(arm="asgp", task=t, seed=s, pop=p) for s in seeds[1:] for t in c.TASKS])
+    for s in seeds[1:]: jobs += lpt([dict(arm="asgp", task=t, seed=s, pop=16384) for t in c.TASKS])
     return jobs
 
 
@@ -79,8 +82,9 @@ if __name__ == "__main__":
     kind = sys.argv[1]
     seeds = [int(x) for x in sys.argv[2].split(",")]
     rec = Record(c.ROOT / f"record_{kind}.json")
-    if kind in ("gpu", "gpugen"):
-        jobs = gpu_jobs(seeds) if kind == "gpu" else [dict(arm="gagp_gen", task=t, seed=s, pop=p, timeout=3600) for s in seeds for p in c.POPS for t in c.TASKS]
+    if kind in ("gpu", "gpugen", "gpuclean"):
+        arm = {"gpugen": "gagp_gen", "gpuclean": "gagp_clean"}.get(kind)
+        jobs = gpu_jobs(seeds) if kind == "gpu" else [dict(arm=arm, task=t, seed=s, pop=p, timeout=3600) for s in seeds for p in c.POPS for t in c.TASKS]
         for job in jobs:
             if rec.done(job) or not c.prepared(job["task"], job["seed"]).exists(): continue
             with c.LOCK.open("a") as lock:

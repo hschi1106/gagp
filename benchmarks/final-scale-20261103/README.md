@@ -31,6 +31,7 @@ prefixes) and the same 1024 training cases.
 | `gagp` | `search_gpu_overlap`: GPU reproduction + GPU evaluation, final search profile [`gagp_final_asgp.json`](../../configs/search/gagp_final_asgp.json) (synchronous steady state, batch = P), G64 | 30 tasks x 3 P x 5 seeds |
 | `asgp` | `search_asgp_1t`: original ASGP solver, one thread, generational, G64 | 30 tasks x 3 P x 5 seeds, as far as the time budget allowed |
 | `cpuref` | `search_phase_cpu`: GAGP CPU reference engine, same configuration, G64 | 30 tasks, P1024, seed 1 |
+| `gagp_clean` | The `gagp` runs repeated with the committed engine (commit `0178362`, engine-profile defaults; no engine switch, no diagnostics or trace). Every run must reproduce its `gagp` run exactly; its times are the headline speed numbers | 30 tasks x 3 P x 5 seeds |
 | `gagp_gen` | `search_gpu_overlap` with the generational schedule ([`phase_asgp_site7.json`](../../configs/search/phase_asgp_site7.json), otherwise identical), G64; schedule ablation added once the GPU queue had finished early | 30 tasks x 3 P x 5 seeds |
 | `gagp_g8`, `cpuref_g8` | GPU and CPU reference engines with the same profile at G8 ([config](config/gagp_final_asgp_g8.json)) | 30 tasks, P4096 and P16384, seed 1 |
 
@@ -65,6 +66,12 @@ size.
 
 - Search time is `evolve_wall_ms` (initial evaluation through final
   population; no input loading or translation). No run was profiled.
+- The `gagp`, `gagp_gen` and `cpuref` arms ran the binary of commit `51aa1dc` with the
+  formal settings, which also enable `GAGP_GPU_DIAGNOSTICS` and `GAGP_SEARCH_TRACE`
+  (extra counters and per-generation output, 1.4% slower in geometric mean). `gagp_clean`
+  reruns the same searches with the committed engine and no diagnostics; the seed-1
+  `gagp_clean` cells were run a second time to measure timing repeatability
+  (`results/repeat.json`).
 - Host: Intel Core i9-10900K (10 cores / 20 threads), one RTX 3090, CUDA 12.6
   ([`results/environment.json`](results/environment.json)). All arms preload
   jemalloc and use `GAGP_HOST_THREADS=1`.
@@ -86,8 +93,11 @@ size.
 
 The experiment had a 24-hour budget starting 2026-11-03 01:54. The CPU queue
 ran ASGP-1T seed 1 (all P, longest first), then the CPU reference runs, then
-ASGP-1T seeds 2 to 5; a job started only if its estimated duration fitted
-before 21:54. The GPU queue ran seed by seed. Cells that did not run are
+ASGP-1T seeds 2 to 5 at P1024, then at P4096, then P16384 seed by seed; a job
+started only if its estimated duration fitted before 21:54. (The queue was
+restarted once at 07:01 to apply this order to seeds 2 to 5; one in-flight
+ASGP-1T run was restarted from scratch.) The GPU queue ran seed by seed, then
+the `gagp_gen` arm, the `gagp_clean` arm and the timing repeat. Cells that did not run are
 listed as missing in the results; no cell was dropped after it ran.
 
 ## Reproduce
@@ -100,8 +110,11 @@ export GAGP_FINAL_SCALE_BIN=$PWD/cpp/build/release/gagp_fixed_asgp_bench
 python3 benchmarks/final-scale-20261103/tools/prep.py all 1,2,3,4,5 4
 python3 benchmarks/final-scale-20261103/tools/run.py gpu 1,2,3,4,5
 python3 benchmarks/final-scale-20261103/tools/run.py cpu 1,2,3,4,5 8 DEADLINE_EPOCH
+python3 benchmarks/final-scale-20261103/tools/run.py gpugen 1,2,3,4,5     # gagp_gen arm
+python3 benchmarks/final-scale-20261103/tools/run.py gpuclean 1,2,3,4,5   # gagp_clean arm
 python3 benchmarks/final-scale-20261103/tools/judge.py 2
 python3 benchmarks/final-scale-20261103/tools/analyze.py OUTDIR
+python3 benchmarks/final-scale-20261103/tools/charts.py OUTDIR/results.json OUTDIR
 ```
 
 The recorded runs used the binary built from commit `51aa1dc`, with the exact
@@ -120,6 +133,10 @@ stay in the data directory.
 | `tools/judge.py` | Champion re-scoring on test and train |
 | `tools/analyze.py` | Speed, exactness and quality statistics |
 | `tools/isolation.py` | Reruns a subset of CPU jobs alone to measure the 8-worker contention factor |
+| `tools/verify_clean.py` | Reruns the seed-1 P1024 cells with the committed binary (GPU or CPU reference) and compares them with the recorded runs |
+| `tools/repeat_clean.py` | Second committed-engine run of the seed-1 cells (timing repeatability) |
+| `tools/charts.py` | Report figures from `results/results.json` |
+| `tools/ctest_key.sh` | The native tests run before the experiment |
 | `tools/quality_data.py` | Input identity helper (vendored) |
 | `config/` | Engine settings, G8 configuration, task grammars, ASGP time estimates used for ordering |
 | `results/` | Run records, judge summary, split sizes, environment, analysis tables |

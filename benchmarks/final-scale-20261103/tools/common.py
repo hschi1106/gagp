@@ -9,7 +9,9 @@ from pathlib import Path
 # HERE: this benchmark directory (configuration); ROOT: the data directory with inputs and runs.
 HERE = Path(__file__).resolve().parent.parent
 ROOT = Path(os.environ.get("GAGP_FINAL_SCALE_DIR", HERE.parents[1] / "logs/final-scale-20261103"))
+# BIN ran the recorded arms (commit 51aa1dc); BIN_CLEAN the committed engine (0178362).
 BIN = Path(os.environ.get("GAGP_FINAL_SCALE_BIN", ROOT / "bins/bench"))
+BIN_CLEAN = Path(os.environ.get("GAGP_FINAL_SCALE_BIN_CLEAN", ROOT / "bins/bench-clean"))
 CONFIG = HERE.parents[1] / "configs/search/gagp_final_asgp.json"
 CONFIG_G8 = HERE / "config/gagp_final_asgp_g8.json"
 CONFIG_GEN = HERE.parents[1] / "configs/search/phase_asgp_site7.json"
@@ -45,4 +47,13 @@ def base_env(task):
     env = {k: v for k, v in os.environ.items() if not k.startswith("GAGP_") and k not in ("LD_PRELOAD", "MALLOC_CONF")}
     env.update(s["settings"]); env.update(s["extras"][task])
     env["GAGP_HOST_THREADS"] = "1"
+    return env
+
+
+def clean_env():
+    """Committed engine (profile defaults): only the benchmark, allocator and thread settings."""
+    s = read(HERE / "config/settings.json")["settings"]
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GAGP_") and k not in ("LD_PRELOAD", "MALLOC_CONF")}
+    env.update({k: s[k] for k in ("LD_PRELOAD", "MALLOC_CONF", "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")})
+    env.update(GAGP_HOST_THREADS="1", GAGP_BM_ALIGNED_FITNESS="1", GAGP_BM_GPU_BLOCKSIZE="512")
     return env
