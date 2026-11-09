@@ -1,6 +1,5 @@
 #pragma once
 #include "../grammar/owned_population.hpp"
-#include "gpu/phase_donors.hpp"
 #include "gagp/evolution/repro/prep.hpp"
 #include "gagp/evolution/grammar/variation_cache.hpp"
 
@@ -14,6 +13,5 @@ PreprocessOutput preprocess_warmed_population(const std::vector<ProgramGenome>& 
 PreprocessOutput preprocess_selected_population(const std::vector<ProgramGenome>& population,
     const GpuReproConfig& config, grammar::VariationContext& context,
     std::shared_ptr<const ConstantMutationDomains> domains, bool prepare_donors,
-    const grammar::variation_detail::OwnedScalarPopulation* owned = nullptr,
-    GpuPhaseDonorSession* phase_donors = nullptr);
+    const grammar::variation_detail::OwnedScalarPopulation* owned = nullptr);
 }

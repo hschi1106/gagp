@@ -297,15 +297,6 @@ void test_deferred_candidate_analysis() {
   }
 }
 void test_parallel_population_analysis() {
-  struct HandoffEnvironment {
-    bool had = std::getenv("GAGP_POPULATION_HANDOFF") != nullptr;
-    std::string old = had ? std::getenv("GAGP_POPULATION_HANDOFF") : "";
-    HandoffEnvironment() { setenv("GAGP_POPULATION_HANDOFF", "1", 1); }
-    ~HandoffEnvironment() {
-      if (had) setenv("GAGP_POPULATION_HANDOFF", old.c_str(), 1);
-      else unsetenv("GAGP_POPULATION_HANDOFF");
-    }
-  } environment;
   const auto config = gagp::test::mixed_population_config();
   std::vector<GenerationRequest> requests{*config.generation_request};
   requests.insert(requests.end(), config.additional_generation_requests.begin(),

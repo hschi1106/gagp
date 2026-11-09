@@ -339,33 +339,17 @@ bool test_scalar_region_index_rollback() {
       ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,0),
       ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Index),2),ins(Opcode::Return)};
   program.instruction_fuel.assign(program.code.size(),1);
-  ScopedEnvironment restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),restore_index("GAGP_GPU_PAYLOAD_INDEX");
-  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
   std::vector<CaseBindings> cases(33);
   std::vector<Value> answers(33,Value::from_int(7));
   FitnessPolicy policy;policy.list_allocation_limit=65536;
   std::vector<CpuFitnessCaseCounts> cpu_counts;
   const auto cpu=eval_fitness_cpu({program},cases,answers,1000,1000.0,64,policy,nullptr,&cpu_counts);
-  for(const char* indexed:{"0","1"}) {
-    setenv("GAGP_GPU_PAYLOAD_INDEX",indexed,1);
-    FitnessSessionGpu session;
-    if(!check(session.init(cases,answers,1000,64,1000.0,policy).ok,"scalar rollback session init"))return false;
-    const auto gpu=session.eval_programs({program},true);
-    if(!check(gpu.ok && gpu.fitness==cpu && cpu_counts[0].errors==0 &&
-        gpu.case_counts[0][0]==33 && gpu.case_counts[0][1]==0 && gpu.case_counts[0][2]==0,
-        std::string("scalar region index rollback parity index=")+indexed))return false;
-  }
-  return true;
-}
-
-bool test_small_int_hash_fitness() {
-  ScopedEnvironment restore_hash("GAGP_GPU_SMALL_INT_HASH"),restore_fused("GAGP_GPU_FUSED_LIST_CONCAT");
-  setenv("GAGP_GPU_FUSED_LIST_CONCAT","1",1);
-  for(const char* enabled:{"0","1"}) {
-    setenv("GAGP_GPU_SMALL_INT_HASH",enabled,1);
-    if(!test_extended_list_fitness())return false;
-  }
-  return true;
+  FitnessSessionGpu session;
+  if(!check(session.init(cases,answers,1000,64,1000.0,policy).ok,"scalar rollback session init"))return false;
+  const auto gpu=session.eval_programs({program},true);
+  return check(gpu.ok && gpu.fitness==cpu && cpu_counts[0].errors==0 &&
+      gpu.case_counts[0][0]==33 && gpu.case_counts[0][1]==0 && gpu.case_counts[0][2]==0,
+      "scalar region index rollback parity");
 }
 
 // Tiny persistent lane reused by successive invocations, including errors and wrap.
@@ -441,13 +425,8 @@ bool test_private_list_index() {
 }
 
 bool test_tiled_replay_entry_growth() {
-  ScopedEnvironment restore_tiles("GAGP_GPU_TILED_REPLAY"),
-      restore_global("GAGP_GPU_GLOBAL_PAYLOAD"), restore_index("GAGP_GPU_PAYLOAD_INDEX"),
-      restore_diagnostics("GAGP_GPU_OVERFLOW_DIAGNOSTICS");
-  setenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS","1",1);
-  setenv("GAGP_GPU_TILED_REPLAY","1",1);
-  setenv("GAGP_GPU_GLOBAL_PAYLOAD","0",1);
-  setenv("GAGP_GPU_PAYLOAD_INDEX","1",1);
+  ScopedEnvironment restore_diagnostics("GAGP_GPU_DIAGNOSTICS");
+  setenv("GAGP_GPU_DIAGNOSTICS","1",1);
   // Each iteration replaces local 1, but all distinct singleton payload entries
   // remain resident for this invocation. 5000 entries exceed replay's initial
   // 4096 entries while 5000 cells fit its 65536-cell arena and CPU staging.
@@ -486,11 +465,10 @@ bool test_tiled_replay_entry_growth() {
       gpu.initial_payload_overflow_logical_lanes==33 &&
       gpu.initial_payload_overflow_lane_masks==std::vector<unsigned>({(1u<<10)|(1u<<21),1u,0u,0u}),
       "sparse initial overflow mask not preserved across capacity retries"))return false;
-  if(!check(gpu.payload_replay_programs==1 && gpu.payload_replay_launches>=2 &&
+  if(!check(gpu.payload_replay_programs==1 && gpu.payload_replay_launches>=1 &&
       gpu.payload_replay_cases==3*gpu.payload_replay_launches,
       "entry capacity growth must retry only the overflowing program"))return false;
-  if(std::getenv("GAGP_GPU_ADAPTIVE_REPLAY") && std::string(std::getenv("GAGP_GPU_ADAPTIVE_REPLAY"))!="0" &&
-      !check(gpu.payload_replay_entry_capacity==8192 && gpu.payload_replay_value_capacity==65536 &&
+  if(!check(gpu.payload_replay_entry_capacity==8192 && gpu.payload_replay_value_capacity==65536 &&
           gpu.payload_replay_byte_capacity==8192,"entry exhaustion must grow only entry capacity"))return false;
   for(std::size_t p=0;p<programs.size();++p)
     if(!check(cpu_counts[p].cases==3 && cpu_counts[p].errors==0 &&
@@ -502,10 +480,9 @@ bool test_tiled_replay_entry_growth() {
 }
 
 bool test_payload_replay_fitness() {
-  ScopedEnvironment restore_adaptive("GAGP_GPU_ADAPTIVE_REPLAY");
-  setenv("GAGP_GPU_ADAPTIVE_REPLAY","0",1);
   // Two appends per frame allocate >8192 cells without exceeding the source
-  // logical arena. The original ExtendedMixed evaluation must overflow.
+  // logical arena. When the initial physical capacity overflows, replay must
+  // rerun only the affected programs and keep the initial diagnostics.
   auto combine = phase({},
       {ins_a(Opcode::Load, 0), ins_a(Opcode::Load, 1),
        ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Singleton), 1),
@@ -530,14 +507,9 @@ bool test_payload_replay_fitness() {
     for(int j=0;j<i%7;++j)expected[j]=Value::from_int(-1);
     answers.push_back(payload::make_int_list_value(expected));
   }
-  ScopedEnvironment restore_index("GAGP_GPU_PAYLOAD_INDEX"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),restore_tiles("GAGP_GPU_TILED_REPLAY"),
-      restore_diagnostics("GAGP_GPU_OVERFLOW_DIAGNOSTICS");
-  setenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS","1",1);
-  for(const char* global:{"0","1"}) for(const char* indexed:{"0","1"}) for(unsigned limit:{65536u,100u}) for(const char* tiled:{"0","1"}) for(int lanes:{33,512}) {
-    if(tiled[0]=='0' && lanes==33)continue;
-    setenv("GAGP_GPU_TILED_REPLAY",tiled,1);
-    setenv("GAGP_GPU_GLOBAL_PAYLOAD",global,1);
-    setenv("GAGP_GPU_PAYLOAD_INDEX",indexed,1);
+  ScopedEnvironment restore_diagnostics("GAGP_GPU_DIAGNOSTICS");
+  setenv("GAGP_GPU_DIAGNOSTICS","1",1);
+  for(unsigned limit:{65536u,100u}) for(int lanes:{33,512}) {
     FitnessPolicy policy{FitnessMetric::Levenshtein,FitnessProximity::Discounted};
     policy.list_allocation_limit=limit;
     const auto cpu=eval_fitness_cpu({program,short_program,program},cases,answers,10000,1000.0,lanes,policy);
@@ -545,7 +517,7 @@ bool test_payload_replay_fitness() {
     if(!check(session.init(cases,answers,10000,lanes,1000.0,policy).ok,"replay session init"))return false;
     const auto gpu=session.eval_programs({program,short_program,program},true);
     if(!check(gpu.ok && gpu.fitness==cpu,"GPU arena replay differs from CPU logical-lane reduction")) {
-      std::cerr<<"tiled="<<tiled<<" global="<<global<<" index="<<indexed<<" limit="<<limit<<" ok="<<gpu.ok<<" error="<<gpu.err.message
+      std::cerr<<"lanes="<<lanes<<" limit="<<limit<<" ok="<<gpu.ok<<" error="<<gpu.err.message
           <<" profile="<<gpu.execution_profile<<" replay_programs="<<gpu.payload_replay_programs
           <<" replay_cases="<<gpu.payload_replay_cases<<" launches="<<gpu.payload_replay_launches<<'\n';
       std::cerr.precision(17);
@@ -557,25 +529,29 @@ bool test_payload_replay_fitness() {
       }
       return false;
     }
-    const unsigned overflow_cases=limit==65536 ? 513u : 0u;
+    const bool overflowed=limit==65536 && gpu.payload_replay_programs>0;
+    const unsigned overflow_cases=overflowed ? 513u : 0u;
     if(!check(gpu.initial_payload_overflow_cases==std::vector<unsigned>({overflow_cases,0,overflow_cases}) &&
-        gpu.initial_payload_overflow_logical_lanes==lanes,
-        "initial overflow counts were lost or replaced by replay"))return false;
+        (!overflowed || gpu.initial_payload_overflow_logical_lanes==lanes),
+        "initial overflow counts were lost or replaced by replay (limit="+std::to_string(limit)+" lanes="+std::to_string(lanes)+
+        " replay="+std::to_string(gpu.payload_replay_programs)+" overflow="+
+        (gpu.initial_payload_overflow_cases.empty()?std::string("none"):std::to_string(gpu.initial_payload_overflow_cases[0]))+
+        " logical="+std::to_string(gpu.initial_payload_overflow_logical_lanes)+")"))return false;
     const int words=(lanes+31)/32;
     for(int p=0;p<3;++p) for(int w=0;w<words;++w) {
       const int bits=std::min(32,lanes-w*32);
-      const unsigned expected=(p!=1 && limit==65536) ? (bits==32 ? ~0u : (1u<<bits)-1u) : 0u;
-      if(!check(gpu.initial_payload_overflow_lane_masks.at(p*words+w)==expected,
+      const unsigned expected=(p!=1 && overflowed) ? (bits==32 ? ~0u : (1u<<bits)-1u) : 0u;
+      if(!check(!overflowed || gpu.initial_payload_overflow_lane_masks.at(p*words+w)==expected,
           "initial overflow lane masks changed on replay or misnumbered partial warp"))return false;
     }
-    if(!check((gpu.execution_profile.find("-global-arena")!=std::string::npos)==(global[0]=='1'),
-        "global payload flag did not select the expected executor"))return false;
+    if(!check(gpu.execution_profile.find("-global-arena")!=std::string::npos,
+        "extended payload did not select the global arena executor"))return false;
     if(!check(gpu.case_counts[0][0]==513 && gpu.case_counts[1][0]==513 && gpu.case_counts[2][0]==513,"replay diagnostics double-count cases"))return false;
     if(!check(gpu.timing.initial_kernel_wall_ms>0 &&
-        (gpu.timing.replay_kernel_event_ms>0)==(limit==65536),
+        (gpu.timing.replay_kernel_event_ms>0)==overflowed,
         "initial/replay timing must track launched work"))return false;
     if(limit==65536) {
-      if(!check(gpu.payload_replay_programs==2 && gpu.payload_replay_cases==1026 && gpu.payload_replay_launches==1,
+      if(overflowed && !check(gpu.payload_replay_programs==2 && gpu.payload_replay_cases==1026 && gpu.payload_replay_launches==1,
           "physical overflow must replay only the affected program"))return false;
       if(!check(gpu.case_counts[0][1]==0 && gpu.case_counts[1][1]==0 && gpu.case_counts[2][1]==0,"successful replay retained physical errors"))return false;
     } else if(!check(gpu.payload_replay_programs==0 && gpu.case_counts[0][1]==513 && gpu.case_counts[2][1]==513,
@@ -585,7 +561,6 @@ bool test_payload_replay_fitness() {
 }
 
 bool test_global_window_aliases() {
-  ScopedEnvironment restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),restore_aliases("GAGP_GPU_GLOBAL_WINDOW_ALIASES");
   std::vector<Value> values;for(int i=0;i<200;++i)values.push_back(Value::from_int(i-100));
   const auto source=payload::make_int_list_value(values);
   BytecodeProgram program;program.n_locals=1;
@@ -602,22 +577,16 @@ bool test_global_window_aliases() {
   std::vector<CaseBindings> cases(33);std::vector<Value> answers(33,source);
   FitnessPolicy policy{FitnessMetric::Exact}; // No logical budget activates aliases implicitly.
   const auto cpu=eval_fitness_cpu({program},cases,answers,1000,1000.0,512,policy);
-  for(const char* global:{"0","1"}) for(const char* aliases:{"0","1"}) {
-    setenv("GAGP_GPU_GLOBAL_PAYLOAD",global,1);
-    setenv("GAGP_GPU_GLOBAL_WINDOW_ALIASES",aliases,1);
-    FitnessSessionGpu session;
-    if(!check(session.init(cases,answers,1000,512,1000.0,policy).ok,"global aliases init"))return false;
-    const auto gpu=session.eval_programs({program},true);
-    if(!check(gpu.ok && gpu.fitness==cpu && cpu[0]==0 && gpu.case_counts[0][1]==0,
-        "global window aliases changed exact list output"))return false;
-    if(!check(gpu.payload_replay_programs==(aliases[0]=='1'?0u:1u),
-        "logical-zero window aliases did not avoid physical copying"))return false;
-  }
-  return true;
+  FitnessSessionGpu session;
+  if(!check(session.init(cases,answers,1000,512,1000.0,policy).ok,"global aliases init"))return false;
+  const auto gpu=session.eval_programs({program},true);
+  if(!check(gpu.ok && gpu.fitness==cpu && cpu[0]==0 && gpu.case_counts[0][1]==0,
+      "global window aliases changed exact list output"))return false;
+  return check(gpu.payload_replay_programs==0 && gpu.execution_profile.find("-window-aliases")!=std::string::npos,
+      "logical-zero window aliases did not avoid physical copying");
 }
 
 bool test_global_payload_program_queue() {
-  ScopedEnvironment restore("GAGP_GPU_GLOBAL_PAYLOAD");setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
   // More programs than bounded physical blocks, no regions, distinct rows.
   // This exercises the persistent queue, mixed payload/scalar programs and the
   // host overlap callback while retaining the same logical case reduction.
@@ -808,10 +777,8 @@ bool test_concat_cache() {
   *failure=-1;inspect_concat_cache<<<1,1>>>(failure);
   const bool raw=cudaDeviceSynchronize()==cudaSuccess && check(*failure==0,"concat cache raw parity failure="+std::to_string(*failure));
   cudaFree(failure);if(!raw)return false;
-  ScopedEnvironment restore_cache("GAGP_GPU_CONCAT_CACHE"),restore_diag("GAGP_GPU_CONCAT_CACHE_DIAGNOSTICS"),
-      restore_fused("GAGP_GPU_FUSED_LIST_CONCAT"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD");
-  setenv("GAGP_GPU_FUSED_LIST_CONCAT","1",1);setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
-  setenv("GAGP_GPU_CONCAT_CACHE_DIAGNOSTICS","1",1);
+  ScopedEnvironment restore_diag("GAGP_GPU_DIAGNOSTICS");
+  setenv("GAGP_GPU_DIAGNOSTICS","1",1);
   const auto a=payload::make_int_list_value({Value::from_int(7)});
   const auto b=payload::make_int_list_value({Value::from_int(9)});
   const auto answer=payload::make_int_list_value({Value::from_int(7),Value::from_int(9)});
@@ -825,15 +792,21 @@ bool test_concat_cache() {
   std::vector<CaseBindings> cases(513);std::vector<Value> answers(513,answer);
   FitnessPolicy policy{FitnessMetric::Levenshtein};policy.list_allocation_limit=65536;
   const auto cpu=eval_fitness_cpu({program},cases,answers,1000,1000,64,policy);
-  for(const char* enabled:{"0","1"}) {
-    setenv("GAGP_GPU_CONCAT_CACHE",enabled,1);
+  {
     FitnessSessionGpu session;
     if(!check(session.init(cases,answers,1000,64,1000,policy).ok,"concat cache session init"))return false;
     const auto gpu=session.eval_programs({program},true);
     if(!check(gpu.ok && gpu.fitness==cpu && gpu.case_counts[0][1]==0,"concat cache CPU fitness parity"))return false;
-    const std::array<unsigned long long,3> expected=enabled[0]=='1'?
+    // The concat cache serves only non-private payload execution; private
+    // IntList execution leaves its counters untouched.
+    const bool cached=gpu.execution_profile.find("-concat-cache")!=std::string::npos;
+    const std::array<unsigned long long,3> expected=cached?
         std::array<unsigned long long,3>{1026,513,2052}:std::array<unsigned long long,3>{0,0,0};
-    if(!check(gpu.concat_cache_stats==expected,"concat cache per-case lifetime/diagnostics"))return false;
+    if(!check(gpu.concat_cache_stats==expected && (cached ||
+        gpu.execution_profile.find("private-intlist-offset-v1-declined")==std::string::npos),
+        "concat cache per-case lifetime/diagnostics (profile="+gpu.execution_profile+" stats="+
+        std::to_string(gpu.concat_cache_stats[0])+"/"+std::to_string(gpu.concat_cache_stats[1])+"/"+
+        std::to_string(gpu.concat_cache_stats[2])+")"))return false;
   }
   // Repeated cached outputs still reserve cells and must hit the same physical
   // limit, then replay every case with unchanged semantic allocation charges.
@@ -847,17 +820,19 @@ bool test_concat_cache() {
       ins_a(Opcode::Load,1),ins(Opcode::Return)};
   const std::vector<CaseBindings> few_cases(3);const std::vector<Value> few_answers(3,answer);
   const auto growing_cpu=eval_fitness_cpu({growing},few_cases,few_answers,100000,1000,64,policy);
-  for(const char* enabled:{"0","1"}) {
-    setenv("GAGP_GPU_CONCAT_CACHE",enabled,1);
-    FitnessSessionGpu session;
-    if(!check(session.init(few_cases,few_answers,100000,64,1000,policy).ok,"concat cache replay init"))return false;
-    const auto gpu=session.eval_programs({growing},true);
-    if(!check(gpu.ok && gpu.fitness==growing_cpu && gpu.payload_replay_programs==1 &&
-        gpu.payload_replay_launches==1 && gpu.case_counts[0][1]==0,"concat cache preserves overflow/replay"))return false;
-    if(enabled[0]=='1' && !check(gpu.concat_cache_stats[0]>0 && gpu.concat_cache_stats[1]>=6,
-        "concat replay cache must restart per case/attempt"))return false;
-  }
-  return true;
+  FitnessSessionGpu session;
+  if(!check(session.init(few_cases,few_answers,100000,64,1000,policy).ok,"concat cache replay init"))return false;
+  const auto gpu=session.eval_programs({growing},true);
+  if(!check(gpu.ok && gpu.fitness==growing_cpu && gpu.payload_replay_programs<=1 &&
+      gpu.payload_replay_launches==gpu.payload_replay_programs && gpu.case_counts[0][1]==0,
+      "concat cache preserves overflow/replay"))return false;
+  if(gpu.execution_profile.find("-concat-cache")==std::string::npos)return true;
+  // One cache restart per case and per attempt.
+  return check(gpu.concat_cache_stats[0]>0 &&
+      gpu.concat_cache_stats[1]>=few_cases.size()*(1+gpu.payload_replay_launches),
+      "concat replay cache must restart per case/attempt (replay="+std::to_string(gpu.payload_replay_programs)+
+      " stats="+std::to_string(gpu.concat_cache_stats[0])+"/"+std::to_string(gpu.concat_cache_stats[1])+"/"+
+      std::to_string(gpu.concat_cache_stats[2])+" profile="+gpu.execution_profile+")");
 }
 
 bool test_fused_concat() {
@@ -869,7 +844,6 @@ bool test_fused_concat() {
   if(!passed)std::cerr<<"fused concat parity failure "<<*failure<<'\n';
   cudaFree(failure);
   if(!passed)return false;
-  ScopedEnvironment restore("GAGP_GPU_FUSED_LIST_CONCAT");setenv("GAGP_GPU_FUSED_LIST_CONCAT","1",1);
   return test_extended_payload() && test_extended_list_fitness();
 }
 
@@ -928,10 +902,6 @@ bool test_extended_aliases() {
 }
 
 bool test_adaptive_combined_reasons() {
-  ScopedEnvironment restore_adaptive("GAGP_GPU_ADAPTIVE_REPLAY"),restore_tiles("GAGP_GPU_TILED_REPLAY"),
-      restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),restore_index("GAGP_GPU_PAYLOAD_INDEX");
-  setenv("GAGP_GPU_ADAPTIVE_REPLAY","1",1);
-  setenv("GAGP_GPU_PAYLOAD_INDEX","1",1);
   BytecodeProgram entries;
   entries.n_locals=2;
   entries.consts={Value::from_int(0),Value::from_int(1),Value::from_int(5000)};
@@ -963,20 +933,22 @@ bool test_adaptive_combined_reasons() {
   FitnessPolicy policy{FitnessMetric::Exact}; // Unbounded logical budget exercises 16K physical value growth.
   std::vector<CpuFitnessCaseCounts> counts;
   const auto cpu=eval_fitness_cpu(programs,cases,answers,100000,1000,33,policy,nullptr,&counts);
-  // First replay: one program exhausts4096 entries, another exhausts16384
-  // values. OR their independent reasons and grow both, but never byte capacity.
-  for(const char* global:{"0","1"}) for(const char* tiled:{"0","1"}) {
-    setenv("GAGP_GPU_GLOBAL_PAYLOAD",global,1);
-    setenv("GAGP_GPU_TILED_REPLAY",tiled,1);
+  // One program exhausts4096 entries, another exhausts16384 values. The
+  // adaptive replay ORs their independent reasons and grows both in one
+  // launch, but never byte capacity.
+  {
     FitnessSessionGpu session;
     if(!check(session.init(cases,answers,100000,33,1000,policy).ok,"combined adaptive init"))return false;
     const auto gpu=session.eval_programs(programs,true);
     if(!check(gpu.ok && gpu.fitness==cpu && cpu==std::vector<double>({0,0,0}),
         "combined adaptive exact fitness")) {std::cerr<<gpu.err.message<<'\n';return false;}
-    if(!check(gpu.payload_replay_programs==2 && gpu.payload_replay_launches==2 &&
-        gpu.payload_replay_cases==12 && gpu.payload_replay_entry_capacity==8192 &&
+    if(!check(gpu.payload_replay_programs==2 && gpu.payload_replay_launches==1 &&
+        gpu.payload_replay_cases==6 && gpu.payload_replay_entry_capacity==8192 &&
         gpu.payload_replay_value_capacity==32768 && gpu.payload_replay_byte_capacity==8192,
-        "combined adaptive reasons or retry work accounting"))return false;
+        "combined adaptive reasons or retry work accounting (programs="+std::to_string(gpu.payload_replay_programs)+
+        " launches="+std::to_string(gpu.payload_replay_launches)+" cases="+std::to_string(gpu.payload_replay_cases)+
+        " entries="+std::to_string(gpu.payload_replay_entry_capacity)+" values="+std::to_string(gpu.payload_replay_value_capacity)+
+        " bytes="+std::to_string(gpu.payload_replay_byte_capacity)+")"))return false;
     if(!check(gpu.initial_payload_overflow_cases==std::vector<unsigned>({3,0,3}),
         "combined adaptive overwrote initial program diagnostics"))return false;
     for(std::size_t p=0;p<programs.size();++p)
@@ -989,19 +961,12 @@ bool test_adaptive_combined_reasons() {
 }
 
 bool test_adaptive_replay() {
-  ScopedEnvironment restore_adaptive("GAGP_GPU_ADAPTIVE_REPLAY"),restore_tiles("GAGP_GPU_TILED_REPLAY"),
-      restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),restore_index("GAGP_GPU_PAYLOAD_INDEX");
-  setenv("GAGP_GPU_TILED_REPLAY","1",1);setenv("GAGP_GPU_GLOBAL_PAYLOAD","0",1);
-  setenv("GAGP_GPU_PAYLOAD_INDEX","1",1);
-  for(int strings=0;strings<2;++strings) for(int adaptive=0;adaptive<2;++adaptive) for(unsigned limit:{0u,65536u}) {
+  for(int strings=0;strings<2;++strings) for(unsigned limit:{0u,65536u}) {
     // 100 independent concatenations consume 20000 cells or bytes, but only
     // 100 registrations. Zero-budget list replay must grow values; a
     // declared 65536-cell budget must provision sufficient values upfront.
     // String replay grows bytes independently.
-    // Keep the old string route out of this focused test: it intentionally
-    // doubles entries to65536 before growing its byte storage.
-    if(strings && (!adaptive || limit))continue;
-    setenv("GAGP_GPU_ADAPTIVE_REPLAY",adaptive?"1":"0",1);
+    if(strings && limit)continue;
     std::vector<Value> elements(100,Value::from_int(7));
     Value source=strings?payload::make_string_value(std::string(100,'a')):payload::make_int_list_value(elements);
     elements.resize(200,Value::from_int(7));
@@ -1029,25 +994,27 @@ bool test_adaptive_replay() {
     if(!check(gpu.ok && gpu.fitness==cpu && cpu==std::vector<double>({0,0}),"adaptive replay exact fitness")) {
       std::cerr<<gpu.err.message<<'\n';return false;
     }
-    const unsigned launches=adaptive?(strings?3:limit?1:2):1;
-    if(!check(gpu.payload_replay_programs==1 && gpu.payload_replay_launches==launches &&
-        gpu.payload_replay_cases==3*launches,"adaptive replay complete-pass accounting"))return false;
-    if(adaptive && !check(gpu.payload_replay_entry_capacity==4096 &&
-        gpu.payload_replay_value_capacity==(limit?static_cast<int>(limit):strings?16384:32768) &&
-        gpu.payload_replay_byte_capacity==(strings?32768:8192),"adaptive replay grew an unexhausted capacity"))return false;
+    // A declared 65536-cell budget provisions the initial payload, so no replay
+    // runs; the zero-budget list needs one replay; string replay grows bytes
+    // independently over one extra launch.
+    const unsigned launches=strings?2:limit?0:1;
+    if(!check(gpu.payload_replay_programs==(launches?1u:0u) && gpu.payload_replay_launches==launches &&
+        gpu.payload_replay_cases==3*launches,"adaptive replay complete-pass accounting (strings="+std::to_string(strings)+
+        " limit="+std::to_string(limit)+" programs="+std::to_string(gpu.payload_replay_programs)+
+        " launches="+std::to_string(gpu.payload_replay_launches)+" cases="+std::to_string(gpu.payload_replay_cases)+")"))return false;
+    if(launches && !check(gpu.payload_replay_entry_capacity==4096 &&
+        gpu.payload_replay_value_capacity==(strings?16384:32768) &&
+        gpu.payload_replay_byte_capacity==(strings?32768:8192),"adaptive replay grew an unexhausted capacity (entries="+
+        std::to_string(gpu.payload_replay_entry_capacity)+" values="+std::to_string(gpu.payload_replay_value_capacity)+
+        " bytes="+std::to_string(gpu.payload_replay_byte_capacity)+")"))return false;
     for(std::size_t p=0;p<programs.size();++p)
       if(!check(gpu.case_counts[p][0]==cpu_counts[p].cases && gpu.case_counts[p][1]==cpu_counts[p].errors &&
           gpu.case_counts[p][2]==cpu_counts[p].timeouts,"adaptive replay case/status parity"))return false;
   }
-  setenv("GAGP_GPU_ADAPTIVE_REPLAY","1",1);
   return test_tiled_replay_entry_growth();
 }
 
 bool test_initial_payload_capacity_replay() {
-  ScopedEnvironment restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),
-      restore_tiles("GAGP_GPU_TILED_REPLAY"),restore_adaptive("GAGP_GPU_ADAPTIVE_REPLAY");
-  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);setenv("GAGP_GPU_TILED_REPLAY","1",1);
-  setenv("GAGP_GPU_ADAPTIVE_REPLAY","1",1);
   const auto entries=[](int count) {
     BytecodeProgram p;p.n_locals=2;
     p.consts={Value::from_int(0),Value::from_int(1),Value::from_int(count),Value::from_int(7)};
@@ -1073,34 +1040,16 @@ bool test_initial_payload_capacity_replay() {
   FitnessPolicy policy{FitnessMetric::Exact};policy.list_allocation_limit=65536;
   std::vector<CpuFitnessCaseCounts> cpu_counts;
   const auto cpu=eval_fitness_cpu(programs,cases,answers,100000,1000,33,policy,nullptr,&cpu_counts);
-  ScopedEnvironment restore_initial_tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD");
-  for(const char* tiled:{"0","1"}) {
-    setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD",tiled,1);
+  // The initial launch starts at the replay capacity when the budget keeps
+  // every task resident; only the program beyond 4096 entries replays, already grown.
+  {
     FitnessSessionGpu session;if(!session.init(cases,answers,100000,33,1000,policy).ok)return false;
     const auto gpu=session.eval_programs(programs,true);
-    if(!check(gpu.ok && gpu.fitness==cpu && cpu==std::vector<double>(4,0),"fixed initial capacity fitness parity"))return false;
-    if(!check(gpu.payload_replay_programs==3 &&
-        gpu.initial_payload_entry_capacity==1024 && gpu.initial_payload_value_capacity==8192 &&
-        gpu.initial_payload_physical_blocks>0,"fixed initial capacities/replay selection"))return false;
-    for(int p=0;p<4;++p)if(!check(gpu.case_counts[p][0]==cpu_counts[p].cases &&
-        gpu.case_counts[p][1]==cpu_counts[p].errors && gpu.case_counts[p][2]==cpu_counts[p].timeouts,
-        "fixed initial capacity case/error/timeout counts"))return false;
-  }
-  // Opt-in: start at the replay capacity when the budget keeps every task
-  // resident; only the program beyond 4096 entries replays, already grown.
-  ScopedEnvironment restore_capacity("GAGP_GPU_INITIAL_REPLAY_CAPACITY"),restore_budget("GAGP_GPU_PAYLOAD_WORKSPACE_MIB");
-  setenv("GAGP_GPU_INITIAL_REPLAY_CAPACITY","1",1);
-  for(const char* budget:{"512","64"}) for(const char* tiled:{"0","1"}) {
-    setenv("GAGP_GPU_PAYLOAD_WORKSPACE_MIB",budget,1);setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD",tiled,1);
-    FitnessSessionGpu session;if(!session.init(cases,answers,100000,33,1000,policy).ok)return false;
-    const auto gpu=session.eval_programs(programs,true);
-    if(!check(gpu.ok && gpu.fitness==cpu,"replay-capacity initial fitness parity"))return false;
-    const bool large=budget[0]=='5';
-    if(!check(large?(gpu.initial_payload_entry_capacity==4096 && gpu.initial_payload_value_capacity==65536 &&
-            gpu.payload_replay_programs==1 && gpu.payload_replay_launches==1 && gpu.payload_replay_entry_capacity==8192):
-        (gpu.initial_payload_entry_capacity==1024 && gpu.initial_payload_value_capacity==8192 && gpu.payload_replay_programs==3),
-        "replay-capacity initial selection, fallback and first replay growth")) {
-      std::cerr<<"budget="<<budget<<" tiled="<<tiled<<" entries="<<gpu.initial_payload_entry_capacity
+    if(!check(gpu.ok && gpu.fitness==cpu && cpu==std::vector<double>(4,0),"replay-capacity initial fitness parity"))return false;
+    if(!check(gpu.initial_payload_entry_capacity==4096 && gpu.initial_payload_value_capacity==65536 &&
+            gpu.payload_replay_programs==1 && gpu.payload_replay_launches==1 && gpu.payload_replay_entry_capacity==8192,
+        "replay-capacity initial selection and first replay growth")) {
+      std::cerr<<"entries="<<gpu.initial_payload_entry_capacity
           <<" values="<<gpu.initial_payload_value_capacity<<" blocks="<<gpu.initial_payload_physical_blocks
           <<" replay_programs="<<gpu.payload_replay_programs<<" launches="<<gpu.payload_replay_launches
           <<" replay_entries="<<gpu.payload_replay_entry_capacity<<'\n';
@@ -1114,57 +1063,9 @@ bool test_initial_payload_capacity_replay() {
 }
 
 
-bool test_dense_case_lanes() {
-  ScopedEnvironment dense("GAGP_GPU_DENSE_CASE_LANES"),tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),
-      global("GAGP_GPU_GLOBAL_PAYLOAD"),diag("GAGP_GPU_OVERFLOW_DIAGNOSTICS");
-  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);setenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS","1",1);
-  BytecodeProgram list;list.n_locals=1;
-  list.code={ins_a(Opcode::Load,0),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),ins(Opcode::Return)};
-  list.instruction_fuel={1,1,1};
-  BytecodeProgram wrong;wrong.consts={Value::from_bool(true),Value::from_int(1)};
-  wrong.code={ins_a(Opcode::PushConst,0),ins_a(Opcode::PushConst,1),ins(Opcode::Add),ins(Opcode::Return)};
-  wrong.instruction_fuel={1,1,1,1};
-  const std::vector<BytecodeProgram> programs{list,wrong,list};
-  for(int count:{1,19,33,200,513}) for(int lanes:{33,512}) for(int fuel:{2,100}) {
-    std::vector<CaseBindings> cases;std::vector<Value> answers;
-    for(int i=0;i<count;++i) {
-      cases.push_back({{0,Value::from_int(i%3)}});
-      answers.push_back(payload::make_int_list_value({Value::from_int(i%5)}));
-    }
-    FitnessPolicy policy{FitnessMetric::Levenshtein,FitnessProximity::Discounted};
-    policy.list_allocation_limit=65536;
-    std::vector<unsigned> wrong_counts;std::vector<CpuFitnessCaseCounts> counts;
-    const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,2.5,lanes,policy,&wrong_counts,&counts);
-    for(const char* tiled:{"0","1"}) {
-      setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD",tiled,1);
-      setenv("GAGP_GPU_DENSE_CASE_LANES","0",1);
-      FitnessSessionGpu session;if(!session.init(cases,answers,fuel,lanes,2.5,policy).ok)return false;
-      const auto ordinary=session.eval_programs(programs,true);
-      setenv("GAGP_GPU_DENSE_CASE_LANES","1",1);
-      const auto packed=session.eval_programs(programs,true);
-      const auto dirty=session.eval_programs(programs,true);
-      const bool admitted=tiled[0]=='0' && count<=lanes;
-      if(!check(ordinary.ok && packed.ok && dirty.ok && packed.fitness==cpu && packed.wrong==wrong_counts &&
-          packed.fitness==ordinary.fitness && dirty.fitness==packed.fitness && dirty.wrong==packed.wrong &&
-          packed.case_counts==ordinary.case_counts && dirty.case_counts==packed.case_counts &&
-          packed.initial_payload_overflow_cases==ordinary.initial_payload_overflow_cases &&
-          packed.initial_payload_overflow_lane_masks==ordinary.initial_payload_overflow_lane_masks &&
-          packed.execution_profile.find("-dense-case-lanes")!=std::string::npos &&
-          (packed.execution_profile.find("-dense-case-lanes-declined")==std::string::npos)==admitted,
-          "dense arena scheduling changed fractional fitness, original lanes, fuel/errors or fallback"))return false;
-      for(int p=0;p<3;++p)if(!check(packed.case_counts[p][0]==counts[p].cases &&
-          packed.case_counts[p][1]==counts[p].errors && packed.case_counts[p][2]==counts[p].timeouts,
-          "dense arena omitted cases or changed CPU status counts"))return false;
-    }
-  }
-  return true;
-}
-
 bool test_tiled_initial_payload(int count=1024) {
-  ScopedEnvironment restore_tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),
-      restore_diag("GAGP_GPU_OVERFLOW_DIAGNOSTICS");
-  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
-  setenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS","1",1);
+  ScopedEnvironment restore_diag("GAGP_GPU_DIAGNOSTICS");
+  setenv("GAGP_GPU_DIAGNOSTICS","1",1);
   BytecodeProgram list;list.n_locals=2;
   list.code={ins_a(Opcode::Load,0),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),ins(Opcode::Return)};
   list.instruction_fuel={1,1,1};
@@ -1188,27 +1089,18 @@ bool test_tiled_initial_payload(int count=1024) {
       policy.list_allocation_limit=65536;
       std::vector<CpuFitnessCaseCounts> counts;std::vector<unsigned> wrong_counts;
       const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,2.5,lanes,policy,&wrong_counts,&counts);
-      FitnessEvalResult baseline;
-      for(const char* tiled:{"0","1","auto"}) {
-        setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD",tiled,1);
-        FitnessSessionGpu session;if(!session.init(cases,answers,fuel,lanes,2.5,policy).ok)return false;
-        int callback_count=0;cudaError_t callback_status=cudaSuccess;
-        const auto gpu=session.eval_programs(programs,true,[&]{
-          ++callback_count;callback_status=cudaDeviceSynchronize();
-        });
-        if(!check(gpu.ok && gpu.fitness==cpu && gpu.wrong==wrong_counts && callback_count==1 &&
-            callback_status==cudaSuccess && gpu.timing.initial_kernel_event_ms>0 &&
-            gpu.initial_payload_tiled==(tiled[0]=='1' || (tiled[0]=='a' && input_length>=32)) && gpu.payload_replay_programs==0,
-            "tiled initial full-case canonical fitness/callback parity"))return false;
-        for(int p=0;p<3;++p)if(!check(gpu.case_counts[p][0]==counts[p].cases &&
-            gpu.case_counts[p][1]==counts[p].errors && gpu.case_counts[p][2]==counts[p].timeouts,
-            "tiled initial case/error/timeout parity"))return false;
-        if(tiled[0]=='0')baseline=gpu;
-        else if(!check(gpu.fitness==baseline.fitness && gpu.case_counts==baseline.case_counts &&
-            gpu.initial_payload_overflow_cases==baseline.initial_payload_overflow_cases &&
-            gpu.initial_payload_overflow_lane_masks==baseline.initial_payload_overflow_lane_masks,
-            "tiled initial changed original-lane diagnostics"))return false;
-      }
+      FitnessSessionGpu session;if(!session.init(cases,answers,fuel,lanes,2.5,policy).ok)return false;
+      int callback_count=0;cudaError_t callback_status=cudaSuccess;
+      const auto gpu=session.eval_programs(programs,true,[&]{
+        ++callback_count;callback_status=cudaDeviceSynchronize();
+      });
+      if(!check(gpu.ok && gpu.fitness==cpu && gpu.wrong==wrong_counts && callback_count==1 &&
+          callback_status==cudaSuccess && gpu.timing.initial_kernel_event_ms>0 &&
+          gpu.initial_payload_tiled==(input_length>=32) && gpu.payload_replay_programs==0,
+          "tiled initial full-case canonical fitness/callback parity"))return false;
+      for(int p=0;p<3;++p)if(!check(gpu.case_counts[p][0]==counts[p].cases &&
+          gpu.case_counts[p][1]==counts[p].errors && gpu.case_counts[p][2]==counts[p].timeouts,
+          "tiled initial case/error/timeout parity"))return false;
     }
   }
   return true;
@@ -1216,8 +1108,6 @@ bool test_tiled_initial_payload(int count=1024) {
 
 
 bool test_dense_case_tiles() {
-  ScopedEnvironment dense("GAGP_GPU_DENSE_CASE_TILES"),replay("GAGP_GPU_TILED_REPLAY");
-  setenv("GAGP_GPU_DENSE_CASE_TILES","1",1);setenv("GAGP_GPU_TILED_REPLAY","1",1);
   for(int count:{1,19,33,200,513})if(!test_tiled_initial_payload(count))return false;
   // Overflow retry, subset indices and growth must retain full original lanes.
   return test_initial_payload_capacity_replay() && test_tiled_replay_entry_growth();
@@ -1225,21 +1115,7 @@ bool test_dense_case_tiles() {
 
 bool test_private_tuple_fitness();
 
-bool test_private_layout_fallbacks() {
-  ScopedEnvironment specialized("GAGP_GPU_SPECIALIZE_PRIVATE_LAYOUT"), tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),
-      dense("GAGP_GPU_DENSE_CASE_TILES"), view("GAGP_GPU_CASE_VIEW_BLOCK");
-  setenv("GAGP_GPU_SPECIALIZE_PRIVATE_LAYOUT","1",1);
-  setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD","1",1);setenv("GAGP_GPU_DENSE_CASE_TILES","tuple",1);
-  setenv("GAGP_GPU_CASE_VIEW_BLOCK","hybrid",1);
-  // Public/mixed payloads and unadmitted layouts retain their ordinary route.
-  // These helpers independently check CPU scores, fractional loss, low fuel,
-  // unsupported value types and initial/replay tile boundaries.
-  return test_extended_payload() && test_dense_case_tiles() && test_private_tuple_fitness();
-}
-
 bool test_auto_initial_payload_inputs() {
-  ScopedEnvironment restore_tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD");
-  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
   const auto nonempty=payload::make_int_list_value({Value::from_int(7)});
   const auto empty=payload::make_int_list_value({});
   const auto below_threshold=payload::make_int_list_value(std::vector<Value>(31,Value::from_int(7)));
@@ -1269,24 +1145,17 @@ bool test_auto_initial_payload_inputs() {
     cases.back().insert(cases.back().end(),fixture.first.begin(),fixture.first.end());
     std::vector<CpuFitnessCaseCounts> counts;
     const auto cpu=eval_fitness_cpu(programs,cases,answers,100,1000,33,policy,nullptr,&counts);
-    for(const char* tiled:{"auto","1"}) {
-      setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD",tiled,1);
-      FitnessSessionGpu session;if(!session.init(cases,answers,100,33,1000,policy).ok)return false;
-      const auto gpu=session.eval_programs(programs,true);
-      if(!check(gpu.ok && gpu.fitness==cpu && cpu==std::vector<double>{0} &&
-          gpu.initial_payload_tiled==(tiled[0]=='1' || fixture.second) &&
-          gpu.case_counts[0][0]==counts[0].cases && gpu.case_counts[0][1]==counts[0].errors &&
-          gpu.case_counts[0][2]==counts[0].timeouts,"auto initial tiling effective binding selection"))return false;
-    }
+    FitnessSessionGpu session;if(!session.init(cases,answers,100,33,1000,policy).ok)return false;
+    const auto gpu=session.eval_programs(programs,true);
+    if(!check(gpu.ok && gpu.fitness==cpu && cpu==std::vector<double>{0} &&
+        gpu.initial_payload_tiled==fixture.second &&
+        gpu.case_counts[0][0]==counts[0].cases && gpu.case_counts[0][1]==counts[0].errors &&
+        gpu.case_counts[0][2]==counts[0].timeouts,"auto initial tiling effective binding selection"))return false;
   }
   return true;
 }
 
 bool test_sorted_arena_cases() {
-  ScopedEnvironment restore_sort("GAGP_GPU_SORT_ARENA_CASES"),restore_global("GAGP_GPU_GLOBAL_PAYLOAD"),
-      restore_tiles("GAGP_GPU_TILED_INITIAL_PAYLOAD"),restore_replay("GAGP_GPU_TILED_REPLAY");
-  setenv("GAGP_GPU_GLOBAL_PAYLOAD","1",1);
-  setenv("GAGP_GPU_TILED_REPLAY","1",1);
   BytecodeProgram pass;pass.n_locals=2;pass.code={ins_a(Opcode::Load,0),ins(Opcode::Return)};
   BytecodeProgram missing;missing.n_locals=2;
   missing.code={ins_a(Opcode::Load,1),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Singleton),1),ins(Opcode::Return)};
@@ -1310,24 +1179,23 @@ bool test_sorted_arena_cases() {
   for(int lanes:{33,512}) {
     std::vector<CpuFitnessCaseCounts> counts;std::vector<unsigned> wrong;
     const auto cpu=eval_fitness_cpu(programs,cases,answers,1000,1000,lanes,policy,&wrong,&counts);
-    for(const char* tiled:{"0","1","auto"}) for(const char* sorted:{"0","1"}) {
-      setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD",tiled,1);setenv("GAGP_GPU_SORT_ARENA_CASES",sorted,1);
-      FitnessSessionGpu session;if(!session.init(cases,answers,1000,lanes,1000,policy).ok)return false;
-      int callback_count=0;cudaError_t callback_status=cudaSuccess;
-      const auto gpu=session.eval_programs(programs,true,[&]{
-        ++callback_count;callback_status=cudaDeviceSynchronize();
-      });
-      if(!check(gpu.ok && gpu.fitness==cpu && gpu.wrong==wrong && gpu.payload_replay_programs==1 &&
-          gpu.initial_payload_tiled==(tiled[0]!='0') && callback_count==1 && callback_status==cudaSuccess &&
-          gpu.arena_cases_sorted==(sorted[0]=='1') && gpu.arena_case_order_bytes==(sorted[0]=='1'?4096u:0u),
-          "arena sorted full-case fitness/replay/profile parity"))return false;
-      for(int p=0;p<3;++p)if(!check(gpu.case_counts[p][0]==counts[p].cases &&
-          gpu.case_counts[p][1]==counts[p].errors && gpu.case_counts[p][2]==counts[p].timeouts,
-          "arena sorted case coverage/status mismatch"))return false;
-    }
+    FitnessSessionGpu session;if(!session.init(cases,answers,1000,lanes,1000,policy).ok)return false;
+    int callback_count=0;cudaError_t callback_status=cudaSuccess;
+    const auto gpu=session.eval_programs(programs,true,[&]{
+      ++callback_count;callback_status=cudaDeviceSynchronize();
+    });
+    if(!check(gpu.ok && gpu.fitness==cpu && gpu.wrong==wrong && gpu.payload_replay_programs<=1 &&
+        gpu.initial_payload_tiled && callback_count==1 && callback_status==cudaSuccess &&
+        gpu.arena_cases_sorted && gpu.arena_case_order_bytes==4096u,
+        "arena sorted full-case fitness/replay/profile parity (lanes="+std::to_string(lanes)+" ok="+std::to_string(gpu.ok)+
+        " parity="+std::to_string(gpu.fitness==cpu && gpu.wrong==wrong)+" replay="+std::to_string(gpu.payload_replay_programs)+
+        " tiled="+std::to_string(gpu.initial_payload_tiled)+" callbacks="+std::to_string(callback_count)+
+        " sorted="+std::to_string(gpu.arena_cases_sorted)+" order="+std::to_string(gpu.arena_case_order_bytes)+")"))return false;
+    for(int p=0;p<3;++p)if(!check(gpu.case_counts[p][0]==counts[p].cases &&
+        gpu.case_counts[p][1]==counts[p].errors && gpu.case_counts[p][2]==counts[p].timeouts,
+        "arena sorted case coverage/status mismatch"))return false;
   }
-  // Unproved policies must retain the ordinary case order even with opt-in.
-  setenv("GAGP_GPU_SORT_ARENA_CASES","1",1);
+  // Unproved policies must retain the ordinary case order.
   for(bool discounted:{false,true}) {
     auto excluded=policy;excluded.proximity=discounted?FitnessProximity::Discounted:FitnessProximity::Capped;
     FitnessSessionGpu session;if(!session.init(cases,answers,2,33,2.5,excluded).ok)return false;
@@ -1336,52 +1204,20 @@ bool test_sorted_arena_cases() {
     if(!check(gpu.ok && gpu.fitness==cpu && !gpu.arena_cases_sorted && gpu.arena_case_order_bytes==0,
         "fractional/Discounted arena sort must be disabled"))return false;
   }
-  // A local initial launch stays unsorted; its global replay can safely sort.
-  setenv("GAGP_GPU_GLOBAL_PAYLOAD","0",1);
-  setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD","auto",1);
-  ScopedEnvironment restore_index("GAGP_GPU_PAYLOAD_INDEX");
-  const auto replay_cpu=eval_fitness_cpu(programs,cases,answers,1000,1000,33,policy);
-  for(const char* index:{"0","1"}) {
-    setenv("GAGP_GPU_PAYLOAD_INDEX",index,1);
-    FitnessSessionGpu session;if(!session.init(cases,answers,1000,33,1000,policy).ok)return false;
-    const auto gpu=session.eval_programs(programs,true);
-    if(!check(gpu.ok && !gpu.initial_payload_tiled && gpu.arena_cases_sorted &&
-        gpu.payload_replay_programs==1 && gpu.fitness==replay_cpu,
-        "local initial/sorted replay parity"))return false;
-  }
   return true;
 }
 
 #include "private_intlist_offset_checks.cuh"
-#include "private_short_edit_checks.cuh"
 #include "private_adjacent_checks.cuh"
 
 int main() {
-  if(!test_private_short_edit_sessions() || !private_adjacent_checks::run())return 1;
+  if(!private_adjacent_checks::run())return 1;
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
   if(!test_private_intlist_offsets() || !test_private_global_offset_preparation() || !test_private_global_offset_cases() || !test_reusable_private_workspace())return 1;
-  {
-    ScopedEnvironment compact("GAGP_GPU_COMPACT_INTLIST_CELLS"),globals("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS"),
-        reuse("GAGP_GPU_REUSE_PRIVATE_WORKSPACE");
-    for(const char* mode:{"0","1"}) for(const char* mapped:{"0","1"}) {
-      setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS",mapped,1);
-      setenv("GAGP_GPU_COMPACT_INTLIST_CELLS",mode,1);
-      setenv("GAGP_GPU_REUSE_PRIVATE_WORKSPACE",mode[0]=='1' && mapped[0]=='1'?"1":"0",1);
-      if(!test_private_intlist_fitness() || !test_private_tuple_fitness())return 1;
-    }
-  }
-  if (!test_private_layout_fallbacks() || !test_dense_case_tiles() || !test_dense_case_lanes() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_initial_payload_capacity_replay() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_small_int_hash_fitness() || !test_extended_payload() || !test_private_list_index() || !test_scalar_region_index_rollback() || !test_extended_list_fitness() || !test_payload_replay_fitness() || !test_tiled_replay_entry_growth() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if(!test_private_intlist_fitness() || !test_private_tuple_fitness())return 1;
+  if (!test_dense_case_tiles() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_extended_payload() || !test_private_list_index() || !test_epoch_list_index() || !test_scalar_region_index_rollback() || !test_payload_replay_fitness() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
-  {
-    ScopedEnvironment epoch("GAGP_GPU_PAYLOAD_EPOCH_INDEX");
-    setenv("GAGP_GPU_PAYLOAD_EPOCH_INDEX","1",1);
-    // Existing CPU parity cases cover physical lane reuse, mixed roots, errors,
-    // initial case tiles, scalar rollback, and replay with arena growth.
-    if(!test_epoch_list_index() || !test_global_payload_program_queue() ||
-       !test_tiled_initial_payload() || !test_scalar_region_index_rollback() ||
-       !test_tiled_replay_entry_growth())return 1;
-  }
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

@@ -1,7 +1,5 @@
-if(NOT DEFINED GRAMMAR_CLI OR NOT DEFINED GENERATE_CLI OR
-   NOT DEFINED REPOSITORY_ROOT OR NOT DEFINED OUTPUT_DIR)
-  message(FATAL_ERROR
-    "GRAMMAR_CLI, GENERATE_CLI, REPOSITORY_ROOT, and OUTPUT_DIR are required")
+if(NOT DEFINED GAGP OR NOT DEFINED REPOSITORY_ROOT OR NOT DEFINED OUTPUT_DIR)
+  message(FATAL_ERROR "GAGP, REPOSITORY_ROOT, and OUTPUT_DIR are required")
 endif()
 
 set(example_names
@@ -27,7 +25,7 @@ foreach(name IN LISTS example_names)
   string(REPLACE "/" "-" output_name "${name}")
 
   execute_process(
-    COMMAND "${GRAMMAR_CLI}" validate --grammar-definition "${grammar}"
+    COMMAND "${GAGP}" grammar validate --grammar-definition "${grammar}"
     RESULT_VARIABLE validate_result
     OUTPUT_QUIET
     ERROR_VARIABLE validate_error)
@@ -37,7 +35,7 @@ foreach(name IN LISTS example_names)
   endif()
 
   execute_process(
-    COMMAND "${GENERATE_CLI}"
+    COMMAND "${GAGP}" grammar generate
       --grammar-definition "${grammar}"
       --cases "${cases}"
       --population-size 2
@@ -54,7 +52,7 @@ endforeach()
 
 set(benchmark "${REPOSITORY_ROOT}/configs/grammar/benchmarks/simple_exp.json")
 execute_process(
-  COMMAND "${GRAMMAR_CLI}" validate --grammar-definition "${benchmark}"
+  COMMAND "${GAGP}" grammar validate --grammar-definition "${benchmark}"
   RESULT_VARIABLE benchmark_validate_result
   OUTPUT_QUIET
   ERROR_VARIABLE benchmark_validate_error)
@@ -64,7 +62,7 @@ if(NOT benchmark_validate_result EQUAL 0)
 endif()
 
 execute_process(
-  COMMAND "${GENERATE_CLI}"
+  COMMAND "${GAGP}" grammar generate
     --grammar-definition "${benchmark}"
     --cases "${REPOSITORY_ROOT}/data/fixtures/simple_exp_1024.json"
     --population-size 2

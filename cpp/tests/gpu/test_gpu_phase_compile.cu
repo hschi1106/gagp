@@ -7,7 +7,7 @@
 #include <random>
 #include <stdexcept>
 #include <vector>
-#include "gagp/cli/commands.hpp"
+#include "gagp/cli/program_json.hpp"
 #include "gagp/core/bytecode_verify.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 #include "gagp/evolution/compiler.hpp"

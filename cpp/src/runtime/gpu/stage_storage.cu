@@ -102,7 +102,7 @@ CudaStageAllocationScope::CudaStageAllocationScope(const CudaStageStorage* stora
 CudaStageAllocationScope::~CudaStageAllocationScope()=default;
 bool cuda_stage_reproduction_active(){return detail::active_stage && detail::reproduction_stage;}
 cudaError_t cuda_stage_workspace_malloc(void** pointer,std::size_t bytes) {
-  if(!detail::active_stage)return cuda_pool_malloc(pointer,bytes);
+  if(!detail::active_stage)return device_malloc(pointer,bytes);
   return allocate(detail::active_stage,pointer,bytes);
 }
 bool cuda_stage_free_if_owned(void* pointer,cudaError_t* status) {

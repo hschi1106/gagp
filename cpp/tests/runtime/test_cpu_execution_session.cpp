@@ -137,14 +137,7 @@ bool compare_range(CpuExecutionSession* session,
                    const std::vector<std::pair<int, Value>>& inputs,
                    int maximum, const std::string& label) {
   for (int fuel = 0; fuel <= maximum; ++fuel) {
-    std::vector<std::pair<std::string, std::string>> flags;
-    for (const char* name : {"GAGP_CPU_COORDINATE_DRIVER", "GAGP_CPU_BOUND_PHASE", "GAGP_CPU_REGION_VIEWS",
-                             "GAGP_CPU_COORDINATE_VIEWS", "GAGP_CPU_TYPED_PHASE", "GAGP_CPU_DENSE_MEMO"}) {
-      if (const char* value = std::getenv(name)) flags.emplace_back(name, value);
-      unsetenv(name);
-    }
     const ExecResult expected = execute_bytecode_cpu(program, inputs, fuel);
-    for (const auto& flag : flags) setenv(flag.first.c_str(), flag.second.c_str(), 1);
     const ExecResult actual = session->execute(inputs, fuel);
     if (!check(same_result(expected, actual),
                label + " differs at fuel " + std::to_string(fuel))) {
@@ -444,8 +437,6 @@ bool test_typed_integer_oracles() {
 }
 
 bool test_coordinate_capture_views() {
-  setenv("GAGP_CPU_REGION_VIEWS", "1", 1);
-  setenv("GAGP_CPU_COORDINATE_VIEWS", "1", 1);
   auto program = counter_program();
   auto& segment = program.bounded_region_segments[0];
   segment.plan.parameter_types = {ValueTag::IntList};
@@ -471,8 +462,6 @@ bool test_coordinate_capture_views() {
       }
     }
   }
-  unsetenv("GAGP_CPU_COORDINATE_VIEWS");
-  unsetenv("GAGP_CPU_REGION_VIEWS");
   return true;
 }
 
@@ -629,14 +618,6 @@ bool test_clamped_index() {
 
 int main() {
   try {
-    for (int direct = 0; direct < 4; ++direct) {
-      if (direct == 3) setenv("GAGP_CPU_COORDINATE_DRIVER", "1", 1);
-      if (direct == 2) {
-        setenv("GAGP_CPU_TYPED_PHASE", "1", 1);
-        setenv("GAGP_CPU_DENSE_MEMO", "1", 1);
-      }
-      if (direct) setenv("GAGP_CPU_BOUND_PHASE", "1", 1);
-      else unsetenv("GAGP_CPU_BOUND_PHASE");
     if (!test_fitness_optional_case_counts() || !test_integer_letter_views() || !test_clamped_index() || !test_nonnegative_index() || !test_compact_coordinate_branches() ||
         !test_typed_numeric_boundaries_and_replay() ||
         !test_typed_integer_oracles() ||
@@ -649,7 +630,6 @@ int main() {
         !test_fitness_batch_reuses_without_state_leaks() ||
         !test_two_segments_share_no_invocation_state()) {
       return 1;
-    }
     }
     return 0;
   } catch (const std::exception& error) {

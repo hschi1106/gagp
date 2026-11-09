@@ -1,5 +1,4 @@
 #include "owned_programs.hpp"
-#include "gagp/core/engine_profile.hpp"
 #include "gagp/core/semantic_fuel.hpp"
 
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
@@ -32,7 +31,6 @@
 #include "case_reuse.hpp"
 #include "shape_result_cache.hpp"
 #include "shape_partition_cache.hpp"
-#include "short_edit_patterns.hpp"
 #include "private_global_offsets.hpp"
 #include "private_tuple_policy.hpp"
 #include "stage_storage_gpu.hpp"
@@ -54,7 +52,7 @@ struct ReusablePrivateWorkspace {
   bool clear() {
     if(!data)return true;
     int previous=-1;cudaGetDevice(&previous);
-    const auto status=cudaSetDevice(device)==cudaSuccess?gpu_detail::cuda_pool_free(data):cudaErrorInvalidDevice;
+    const auto status=cudaSetDevice(device)==cudaSuccess?gpu_detail::device_free(data):cudaErrorInvalidDevice;
     if(previous>=0 && previous!=device)cudaSetDevice(previous);
     if(status!=cudaSuccess)return false;
     data=nullptr;capacity=0;return true;
@@ -82,7 +80,7 @@ struct PayloadWorkspaceStorage {
   gpu_detail::DRegionWorkspace workspace{};
   std::size_t blocks=0;
   ~PayloadWorkspaceStorage(){clear();}
-  void clear(){for(auto p:allocations)gpu_detail::cuda_pool_free(p);allocations.clear();}
+  void clear(){for(auto p:allocations)gpu_detail::device_free(p);allocations.clear();}
   bool allocate(void** p,std::size_t bytes) {
     if(!bytes){*p=nullptr;return true;}
     if(gpu_detail::cuda_stage_workspace_malloc(p,bytes)!=cudaSuccess)return false;
@@ -444,10 +442,6 @@ struct FitnessSessionGpu::Impl {
   std::uint64_t evaluation_revision=0;
   ReusablePrivateWorkspace private_workspace;
   bool ready = false;
-  bool short_edit_requested = false,short_edit_enabled = false;
-  gpu_detail::DShortEditPattern* d_short_edit_patterns = nullptr;
-  gpu_detail::DShortEditEntry* d_short_edit_entries = nullptr;
-  int short_edit_entry_count = 0;
   int device_id = -1;
   int fuel = 10000;
   int blocksize = 1024;
@@ -457,7 +451,6 @@ struct FitnessSessionGpu::Impl {
   unsigned shared_input_payload_mask = 0U;
   std::uint32_t shared_max_intlist_input_length = 0;
   std::array<ValueTag, 64> shared_input_types{};
-  bool private_answers_prepared = false;
   std::vector<Value> private_answer_tokens;
   std::size_t shared_bytes = 0;
   std::vector<Value> host_case_local_vals;
@@ -469,13 +462,10 @@ struct FitnessSessionGpu::Impl {
   gpu_detail::IntegerCaseReusePlan integer_case_reuse;
   int* d_reuse_representatives = nullptr;
   unsigned* d_reuse_weights = nullptr;
-  bool case_reuse_requested = false;
   gpu_detail::ShapePartitionCache shape_partitions;
   std::vector<unsigned char> host_case_local_set;
-  bool project_shape_inputs=false;
   int* d_shape_representatives = nullptr;
   int* d_shape_groups = nullptr;
-  bool shape_cache_requested = false;
   mutable HostStringPayloadLookup host_string_payloads;
   mutable HostListPayloadLookup host_list_payloads;
   std::vector<std::int64_t> shared_string_tokens;
@@ -490,9 +480,9 @@ struct FitnessSessionGpu::Impl {
   std::size_t region_value_bytes = 0;
 
   void release_region_workspace() {
-    if (region_frames) gpu_detail::cuda_pool_free(region_frames);
-    if (region_memo_keys) gpu_detail::cuda_pool_free(region_memo_keys);
-    if (region_memo_values) gpu_detail::cuda_pool_free(region_memo_values);
+    if (region_frames) gpu_detail::device_free(region_frames);
+    if (region_memo_keys) gpu_detail::device_free(region_memo_keys);
+    if (region_memo_values) gpu_detail::device_free(region_memo_values);
     region_frames = nullptr;
     region_memo_keys = nullptr;
     region_memo_values = nullptr;
@@ -506,9 +496,9 @@ struct FitnessSessionGpu::Impl {
     // Replace the whole layout so retained high-water marks from different
     // frame/memo configurations cannot exceed the workspace budget.
     release_region_workspace();
-    if ((frames && gpu_detail::cuda_pool_malloc(reinterpret_cast<void**>(&region_frames), frames) != cudaSuccess) ||
-        (keys && gpu_detail::cuda_pool_malloc(reinterpret_cast<void**>(&region_memo_keys), keys) != cudaSuccess) ||
-        (values && gpu_detail::cuda_pool_malloc(reinterpret_cast<void**>(&region_memo_values), values) != cudaSuccess)) {
+    if ((frames && gpu_detail::device_malloc(reinterpret_cast<void**>(&region_frames), frames) != cudaSuccess) ||
+        (keys && gpu_detail::device_malloc(reinterpret_cast<void**>(&region_memo_keys), keys) != cudaSuccess) ||
+        (values && gpu_detail::device_malloc(reinterpret_cast<void**>(&region_memo_values), values) != cudaSuccess)) {
       release_region_workspace();
       return false;
     }
@@ -520,17 +510,15 @@ struct FitnessSessionGpu::Impl {
 
   ~Impl() {
     release_region_workspace();
-    if (d_shared_case_local_vals) gpu_detail::cuda_pool_free(d_shared_case_local_vals);
-    if (d_shared_case_local_set) gpu_detail::cuda_pool_free(d_shared_case_local_set);
-    if (d_expected) gpu_detail::cuda_pool_free(d_expected);
-    if (d_short_edit_patterns) gpu_detail::cuda_pool_free(d_short_edit_patterns);
-    if (d_short_edit_entries) gpu_detail::cuda_pool_free(d_short_edit_entries);
-    if (d_case_order) gpu_detail::cuda_pool_free(d_case_order);
-    if (d_arena_case_order) gpu_detail::cuda_pool_free(d_arena_case_order);
-    if (d_reuse_representatives) gpu_detail::cuda_pool_free(d_reuse_representatives);
-    if (d_reuse_weights) gpu_detail::cuda_pool_free(d_reuse_weights);
-    if (d_shape_representatives) gpu_detail::cuda_pool_free(d_shape_representatives);
-    if (d_shape_groups) gpu_detail::cuda_pool_free(d_shape_groups);
+    if (d_shared_case_local_vals) gpu_detail::device_free(d_shared_case_local_vals);
+    if (d_shared_case_local_set) gpu_detail::device_free(d_shared_case_local_set);
+    if (d_expected) gpu_detail::device_free(d_expected);
+    if (d_case_order) gpu_detail::device_free(d_case_order);
+    if (d_arena_case_order) gpu_detail::device_free(d_arena_case_order);
+    if (d_reuse_representatives) gpu_detail::device_free(d_reuse_representatives);
+    if (d_reuse_weights) gpu_detail::device_free(d_reuse_weights);
+    if (d_shape_representatives) gpu_detail::device_free(d_shape_representatives);
+    if (d_shape_groups) gpu_detail::device_free(d_shape_groups);
   }
 };
 
@@ -553,9 +541,6 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
                                                  int fuel,
                                                  int blocksize,
                                                  double penalty, FitnessPolicy policy) {
-  impl_->short_edit_enabled=false;
-  const char* short_edit_setting=gagp::engine_env("GAGP_GPU_SHORT_EDIT_DISTANCE");
-  impl_->short_edit_requested=short_edit_setting && std::string(short_edit_setting)=="1";
   // Every init attempt invalidates prior owner scores, including failed reinit.
   impl_->evaluation_revision=next_fitness_revision.fetch_add(1,std::memory_order_relaxed);
   if(!valid_fitness_policy(policy))return fitness_init_single_error(ErrCode::Value,"invalid fitness policy");
@@ -627,7 +612,7 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
       policy.metric == FitnessMetric::Exact ||
       (policy.metric == FitnessMetric::Absolute && policy.proximity == FitnessProximity::Capped);
   const double case_ceiling = fitness_error_ceiling(policy, penalty);
-  if (sortable_policy && gagp::engine_env("GAGP_SORT_CASES") && std::isfinite(case_ceiling) && std::floor(case_ceiling) == case_ceiling &&
+  if (sortable_policy && std::isfinite(case_ceiling) && std::floor(case_ceiling) == case_ceiling &&
       shared_cases.size() * std::max(1.0, case_ceiling) < 1099511627776.0 &&
       std::all_of(shared_answer.begin(), shared_answer.end(), [](const auto& v) { return v.tag == ValueTag::Int || v.tag == ValueTag::Bool; })) {
     std::vector<std::uint64_t> lengths(shared_cases.size(), 0);
@@ -641,8 +626,7 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
     std::stable_sort(case_order.begin(), case_order.end(), [&](int a, int b) { return lengths[a] < lengths[b]; });
   }
   std::vector<int> arena_case_order;
-  if(gagp::engine_env("GAGP_GPU_SORT_ARENA_CASES") && std::string(gagp::engine_env("GAGP_GPU_SORT_ARENA_CASES"))=="1" &&
-      gpu_detail::arena_case_sort_is_exact(policy,penalty,shared_cases.size())) {
+  if(gpu_detail::arena_case_sort_is_exact(policy,penalty,shared_cases.size())) {
     std::vector<std::uint64_t> lengths(shared_cases.size(),0);
     for(std::size_t c=0;c<shared_cases.size();++c)
       for(int local=0;local<64;++local) {
@@ -657,11 +641,8 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   }
   const auto shared_case_pack_t1 = std::chrono::steady_clock::now();
 
-  const char* reuse_cases=gagp::engine_env("GAGP_GPU_INTEGER_CASE_REUSE");
-  impl_->case_reuse_requested=reuse_cases && std::string(reuse_cases)=="1";
-  impl_->integer_case_reuse=impl_->case_reuse_requested?
-      gpu_detail::integer_case_reuse_plan(packed_case_local_vals,packed_case_local_set,shared_answer,policy,penalty):
-      gpu_detail::IntegerCaseReusePlan{};
+  impl_->integer_case_reuse=
+      gpu_detail::integer_case_reuse_plan(packed_case_local_vals,packed_case_local_set,shared_answer,policy,penalty);
 
   const auto payload_cache_t0 = std::chrono::steady_clock::now();
   impl_->host_string_payloads.clear();
@@ -669,12 +650,10 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   impl_->shared_string_tokens.clear();
   impl_->shared_list_tokens.clear();
   append_payload_tokens_from_values(packed_case_local_vals, &impl_->shared_string_tokens, &impl_->shared_list_tokens);
-  impl_->private_answers_prepared=gagp::engine_env("GAGP_GPU_PRIVATE_INTLIST_OFFSETS") &&
-      std::string(gagp::engine_env("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"))=="1";
   if(policy.metric==FitnessMetric::Levenshtein || policy.metric==FitnessMetric::TupleSummary)
     append_payload_tokens_from_values(shared_answer, &impl_->shared_string_tokens, &impl_->shared_list_tokens);
   impl_->private_answer_tokens.clear();
-  if(impl_->private_answers_prepared && policy.metric==FitnessMetric::Exact) {
+  if(policy.metric==FitnessMetric::Exact) {
     std::vector<std::int64_t> unused_strings;
     append_payload_tokens_from_values(shared_answer,&unused_strings,&impl_->private_answer_tokens);
   }
@@ -683,60 +662,34 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   populate_payload_cache(impl_->shared_string_tokens, impl_->shared_list_tokens, &impl_->host_string_payloads,
                          &impl_->host_list_payloads);
   impl_->host_case_local_vals = packed_case_local_vals;
-  const auto* shape_setting=gagp::engine_env("GAGP_GPU_SHAPE_RESULT_CACHE");
-  impl_->shape_cache_requested=shape_setting && std::string(shape_setting)=="1";
-  const auto* project_setting=gagp::engine_env("GAGP_GPU_PROJECT_SHAPE_INPUTS");
-  impl_->project_shape_inputs=project_setting && std::string(project_setting)=="1";
   impl_->shape_partitions.clear();
   impl_->host_case_local_set=packed_case_local_set;
-  gpu_detail::HostShortEditPatterns short_edit_plan;
-  if(impl_->short_edit_requested && policy.metric==FitnessMetric::Levenshtein) {
-    short_edit_plan=gpu_detail::prepare_short_edit_patterns(shared_answer,[&](const Value& answer)->const std::vector<Value>* {
-      const auto found=impl_->host_list_payloads.find(HostListPayloadKey{answer.tag,answer.i});
-      return found==impl_->host_list_payloads.end()?nullptr:&found->second;
-    });
-  }
   const auto payload_cache_t1 = std::chrono::steady_clock::now();
   const auto upload_t0 = std::chrono::steady_clock::now();
-  if(impl_->d_short_edit_patterns){gpu_detail::cuda_pool_free(impl_->d_short_edit_patterns);impl_->d_short_edit_patterns=nullptr;}
-  if(impl_->d_short_edit_entries){gpu_detail::cuda_pool_free(impl_->d_short_edit_entries);impl_->d_short_edit_entries=nullptr;}
-  impl_->short_edit_entry_count=0;
-  if(short_edit_plan.eligible) {
-    if(!gpu_detail::cuda_alloc_and_copy_in(short_edit_plan.patterns,&impl_->d_short_edit_patterns) ||
-        !gpu_detail::cuda_alloc_and_copy_in(short_edit_plan.entries,&impl_->d_short_edit_entries))
-      return fitness_init_single_error(ErrCode::Value,"cuda short edit pattern allocation failure");
-    impl_->short_edit_entry_count=static_cast<int>(short_edit_plan.entries.size());
-  }
-  if(impl_->d_shape_representatives){gpu_detail::cuda_pool_free(impl_->d_shape_representatives);impl_->d_shape_representatives=nullptr;}
-  if(impl_->d_shape_groups){gpu_detail::cuda_pool_free(impl_->d_shape_groups);impl_->d_shape_groups=nullptr;}
+  if(impl_->d_shape_representatives){gpu_detail::device_free(impl_->d_shape_representatives);impl_->d_shape_representatives=nullptr;}
+  if(impl_->d_shape_groups){gpu_detail::device_free(impl_->d_shape_groups);impl_->d_shape_groups=nullptr;}
 
-  if(impl_->d_reuse_representatives){gpu_detail::cuda_pool_free(impl_->d_reuse_representatives);impl_->d_reuse_representatives=nullptr;}
-  if(impl_->d_reuse_weights){gpu_detail::cuda_pool_free(impl_->d_reuse_weights);impl_->d_reuse_weights=nullptr;}
+  if(impl_->d_reuse_representatives){gpu_detail::device_free(impl_->d_reuse_representatives);impl_->d_reuse_representatives=nullptr;}
+  if(impl_->d_reuse_weights){gpu_detail::device_free(impl_->d_reuse_weights);impl_->d_reuse_weights=nullptr;}
   if(!impl_->integer_case_reuse.representatives.empty() &&
       (!gpu_detail::cuda_alloc_and_copy_in(impl_->integer_case_reuse.representatives,&impl_->d_reuse_representatives) ||
        !gpu_detail::cuda_alloc_and_copy_in(impl_->integer_case_reuse.weights,&impl_->d_reuse_weights)))
     return fitness_init_single_error(ErrCode::Value,"cuda exact case reuse allocation failure");
-  if (impl_->d_case_order) { gpu_detail::cuda_pool_free(impl_->d_case_order); impl_->d_case_order = nullptr; }
+  if (impl_->d_case_order) { gpu_detail::device_free(impl_->d_case_order); impl_->d_case_order = nullptr; }
   if (!case_order.empty() && !gpu_detail::cuda_alloc_and_copy_in(case_order, &impl_->d_case_order))
     return fitness_init_single_error(ErrCode::Value, "cuda case permutation allocation failure");
-  if(impl_->d_arena_case_order){gpu_detail::cuda_pool_free(impl_->d_arena_case_order);impl_->d_arena_case_order=nullptr;}
+  if(impl_->d_arena_case_order){gpu_detail::device_free(impl_->d_arena_case_order);impl_->d_arena_case_order=nullptr;}
   if(!arena_case_order.empty() && !gpu_detail::cuda_alloc_and_copy_in(arena_case_order,&impl_->d_arena_case_order))
     return fitness_init_single_error(ErrCode::Value,"cuda arena case permutation allocation failure");
-  std::vector<Value> normalized_answers;
-  const auto* device_answers=&shared_answer;
-  if(impl_->private_answers_prepared) {
-    normalized_answers=shared_answer;
-    for(auto& value:normalized_answers)if(value.tag==ValueTag::IntList)value.b=false;
-    device_answers=&normalized_answers;
-  }
+  std::vector<Value> normalized_answers=shared_answer;
+  for(auto& value:normalized_answers)if(value.tag==ValueTag::IntList)value.b=false;
   if (!gpu_detail::cuda_alloc_and_copy_in(packed_case_local_vals, &impl_->d_shared_case_local_vals) ||
       !gpu_detail::cuda_alloc_and_copy_in(packed_case_local_set, &impl_->d_shared_case_local_set) ||
-      !gpu_detail::cuda_alloc_and_copy_in(*device_answers, &impl_->d_expected)) {
+      !gpu_detail::cuda_alloc_and_copy_in(normalized_answers, &impl_->d_expected)) {
     return fitness_init_single_error(ErrCode::Value, "cuda allocation failure");
   }
   const auto upload_t1 = std::chrono::steady_clock::now();
 
-  impl_->short_edit_enabled=impl_->short_edit_requested && policy.metric==FitnessMetric::Levenshtein;
   impl_->ready = true;
   impl_->device_id = device_id;
   impl_->fuel = fuel;
@@ -786,37 +739,23 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     return fitness_eval_single_error(ErrCode::Value, "cuda set device failure");
   }
 
-  std::size_t payload_workspace_budget=0;
-  if(!gpu_detail::parse_payload_workspace_budget(gagp::engine_env("GAGP_GPU_PAYLOAD_WORKSPACE_MIB"),
-      payload_workspace_budget))
-    return fitness_eval_single_error(ErrCode::Value,
-        "GAGP_GPU_PAYLOAD_WORKSPACE_MIB must be a decimal integer in [64,16384]");
+  const std::size_t payload_workspace_budget=gpu_detail::kPayloadWorkspaceBytes;
 
   const auto all_t0 = std::chrono::steady_clock::now();
   const auto pack_t0 = std::chrono::steady_clock::now();
   // The private packed carrier keeps a native reference on demand. A session
   // with different input types must perform its ordinary capability analysis
   // on current phase bytecode, not the owner's cold import snapshot.
-  const bool request_private=gagp::engine_env("GAGP_GPU_PRIVATE_INTLIST_OFFSETS") &&
-      std::string(gagp::engine_env("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"))=="1";
-  const bool request_private_globals=gagp::engine_env("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS") &&
-      std::string(gagp::engine_env("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS"))=="1";
-  const bool request_compact=gagp::engine_env("GAGP_GPU_COMPACT_INTLIST_CELLS") &&
-      std::string(gagp::engine_env("GAGP_GPU_COMPACT_INTLIST_CELLS"))=="1";
-  const char* tuple_setting=gagp::engine_env("GAGP_GPU_PRIVATE_TUPLE_SCORE");
-  const bool request_private_tuple=tuple_setting && std::string(tuple_setting)=="1";
   // TupleSummary observes Int fields and the primary result, never identity.
   // The same whole-program private-list proof excludes container Eq and list
   // memo keys. Zero logical cap retains its existing policy; physical scratch
   // exhaustion still replays on GPU. No policy/fuel/grammar limit is changed.
-  const bool private_tuple_policy=request_private_tuple && impl_->policy.metric==FitnessMetric::TupleSummary &&
+  const bool private_tuple_policy=impl_->policy.metric==FitnessMetric::TupleSummary &&
       impl_->policy.list_allocation_limit<=65536;
   const bool private_sequence_policy=(impl_->policy.metric==FitnessMetric::Exact ||
       impl_->policy.metric==FitnessMetric::Levenshtein) && impl_->policy.list_allocation_limit>0 &&
       impl_->policy.list_allocation_limit<=65536;
-  const bool private_static_eligible=request_private && impl_->private_answers_prepared &&
-      (private_sequence_policy || private_tuple_policy) &&
-      gagp::engine_env("GAGP_GPU_GLOBAL_PAYLOAD") && std::string(gagp::engine_env("GAGP_GPU_GLOBAL_PAYLOAD"))!="0";
+  const bool private_static_eligible=private_sequence_policy || private_tuple_policy;
   const bool tuple_zero_cap=private_tuple_policy && impl_->policy.list_allocation_limit==0;
   // Fresh code is needed for the extra bounded-allocation proof. A stale cold
   // executable or typeflow-only certificate cannot establish this property.
@@ -896,7 +835,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
           std::move(normal_needed_strings),std::move(normal_needed_lists));
     }
   }
-  const bool use_views = !private_intlists && gagp::engine_env("GAGP_VIEW_PROFILE") != nullptr && !packed.region_segments.empty() &&
+  const bool use_views = !private_intlists && !packed.region_segments.empty() &&
       payload_pack.list_entries.size() == required_list_count &&
       std::all_of(payload_pack.list_entries.begin(), payload_pack.list_entries.end(), [](const auto& entry) { return entry.tag == ValueTag::IntList; }) &&
       std::all_of(payload_pack.list_values.begin(), payload_pack.list_values.end(), [](const auto& value) { return value.tag == ValueTag::Int; }) &&
@@ -905,8 +844,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
          return gpu_detail::view_program_supported(program, impl_->shared_input_types);
        }));
   if (use_views) {
-    if (gagp::engine_env("GAGP_TYPED_VIEW_PHASE"))
-      for (auto& phase : packed.region_phases) phase.program.typed_view = true;
+    for (auto& phase : packed.region_phases) phase.program.typed_view = true;
     for (auto& value : packed.all_consts) if (value.tag == ValueTag::IntList) value.b = false;
     for (auto& value : packed.all_phase_consts) if (value.tag == ValueTag::IntList) value.b = false;
   }
@@ -926,37 +864,23 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     execution_threads=std::min(execution_threads,impl_->blocksize);
   }
   const int fitness_lanes=execution_threads;
-  const auto* physical_setting=gagp::engine_env("GAGP_GPU_VIEW_PHYSICAL_BLOCK");
-  const std::string physical_text=physical_setting?physical_setting:"0";
-  if(physical_text!="0" && physical_text!="32" && physical_text!="64" && physical_text!="128" &&
-      physical_text!="256" && physical_text!="512")
-    return fitness_eval_single_error(ErrCode::Value,"GAGP_GPU_VIEW_PHYSICAL_BLOCK must be0,32,64,128,256 or512");
-  const int requested_physical_block=std::stoi(physical_text);
-  const bool virtual_view_lanes=use_views && requested_physical_block>0;
-  if(virtual_view_lanes)execution_threads=std::min(execution_threads,requested_physical_block);
-  const auto* case_block_setting=gagp::engine_env("GAGP_GPU_CASE_VIEW_BLOCK");
-  const bool hybrid_view_block=case_block_setting && std::string(case_block_setting)=="hybrid";
-  const bool request_case_block=case_block_setting && (std::string(case_block_setting)=="1" || hybrid_view_block);
   const bool sparse_view_cases=impl_->shared_case_count>0 &&
       static_cast<long long>(impl_->shared_case_count)*4<fitness_lanes;
-  const bool case_view_block=request_case_block && use_views && impl_->shared_case_count>0 &&
-      (sparse_view_cases || hybrid_view_block);
+  const bool case_view_block=use_views && impl_->shared_case_count>0;
   if(case_view_block) {
     // One runtime rule, without task names: sparse cases use a small block;
     // ordinary additive phases retain wide lanes; complex scalar phases can
     // expose more independent program blocks. Logical reduction stays fixed.
     int cap=fitness_lanes;
     if(sparse_view_cases){cap=32;while(cap<impl_->shared_case_count)cap*=2;}
-    else if(hybrid_view_block && !std::any_of(packed.region_phases.begin(),packed.region_phases.end(),
+    else if(!std::any_of(packed.region_phases.begin(),packed.region_phases.end(),
         [](const auto& phase){return phase.program.add_left_binding>=0;}))cap=128;
     execution_threads=std::min(execution_threads,cap);
   }
   // Resolve immutable captures against this evaluation's table, without changing
   // raw session values or surfacing an error for an unused/missing capture.
   std::vector<Value> prepared_case_views;
-  const bool private_global_offsets=private_intlists && request_private_globals;
-  const char* private_typed_setting=gagp::engine_env("GAGP_GPU_PRIVATE_TYPED_PHASES");
-  const bool request_private_typed=private_typed_setting && std::string(private_typed_setting)=="1";
+  const bool private_global_offsets=private_intlists;
   bool complete_private_normalization=private_global_offsets;
   if(private_global_offsets) {
     const auto prepare=[&](Value& value) {
@@ -968,11 +892,10 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if(!impl_->shared_list_tokens.empty()) {
       prepared_case_views=impl_->host_case_local_vals;
       for(auto& value:prepared_case_views)prepare(value);
-    } else if(request_private_typed && std::any_of(impl_->host_case_local_vals.begin(),impl_->host_case_local_vals.end(),
+    } else if(std::any_of(impl_->host_case_local_vals.begin(),impl_->host_case_local_vals.end(),
         [](const auto& value){return value.tag==ValueTag::IntList;}))complete_private_normalization=false;
   }
   if (use_views && !impl_->shared_list_tokens.empty() &&
-      gagp::engine_env("GAGP_PREPARED_CASE_VIEWS") &&
       std::any_of(packed.region_segments.begin(), packed.region_segments.end(), [](const auto& segment) {
         return std::find(segment.parameter_types, segment.parameter_types + segment.parameter_count,
             ValueTag::IntList) != segment.parameter_types + segment.parameter_count;
@@ -989,18 +912,16 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       value.b = true;
     }
   }
-  const int direct_stack_limit = gagp::engine_env("GAGP_HYBRID_PHASE_EXECUTOR") ? gpu_detail::MAX_STACK : 16;
-  bool direct_phases = use_views && !std::getenv("GAGP_GENERIC_PHASE_VM") && gagp::engine_env("GAGP_DIRECT_PHASE") &&
+  bool direct_phases = use_views &&
       std::all_of(packed.region_phases.begin(), packed.region_phases.end(), [&](const auto& phase) {
         return phase.program.typed_view && phase.program.n_locals <= 8 &&
-            phase.program.verified_stack_bound <= direct_stack_limit;
+            phase.program.verified_stack_bound <= gpu_detail::MAX_STACK;
       });
   // Partition the owned population by its already-verified stack capability.
   // Both kernels consume the same packed tables; indices restore the original
   // fitness/diagnostic rows directly, without bytecode copies or repacking.
   std::vector<int> compact_indices,generic_indices;
-  if (!direct_phases && owned && use_views && !std::getenv("GAGP_GENERIC_PHASE_VM") && gagp::engine_env("GAGP_DIRECT_PHASE") &&
-      gagp::engine_env("GAGP_PHASE_CAP_BUCKETS") &&
+  if (!direct_phases && owned && use_views &&
       std::all_of(packed.region_phases.begin(),packed.region_phases.end(),[](const auto& phase) {
         return phase.program.typed_view && phase.program.n_locals<=8;
       })) {
@@ -1010,29 +931,11 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     else direct_phases=true;
   }
   const bool capability_buckets=!compact_indices.empty();
-  const bool direct_root = direct_phases && gagp::engine_env("GAGP_DIRECT_ROOT") &&
+  const bool direct_root = direct_phases &&
       ((owned && owned->direct_root_supported()) || std::all_of(programs.begin(), programs.end(), gpu_detail::direct_region_root_supported));
-  const auto* relaxed_setting=gagp::engine_env("GAGP_GPU_RELAXED_VIEW_REGISTERS");
-  const bool request_relaxed=relaxed_setting && std::string(relaxed_setting)=="1";
-  const auto* narrow_setting=gagp::engine_env("GAGP_GPU_VIEW_BOUND128");
-  const bool request_narrow=narrow_setting && std::string(narrow_setting)=="1";
-  const bool narrow_view_registers=request_narrow && direct_root && execution_threads<=128;
-  const bool relaxed_view_registers=request_relaxed && direct_root && execution_threads<=512 && !narrow_view_registers;
+  const bool relaxed_view_registers=direct_root && execution_threads<=512;
   const auto pack_t1 = std::chrono::steady_clock::now();
 
-  // Compilation geometry only: the arena still launches 32 physical threads
-  // and keeps the same logical score lanes, workspace layout and case order.
-  const char* private_launch_setting=gagp::engine_env("GAGP_GPU_PRIVATE_LAUNCH_BOUND");
-  int requested_private_launch=0;
-  if(private_launch_setting) {
-    const std::string value(private_launch_setting);
-    if(value=="32")requested_private_launch=32;
-    else if(value=="512")requested_private_launch=512;
-    else if(value=="1024")requested_private_launch=1024;
-    else if(value!="0")return fitness_eval_single_error(ErrCode::Value,"invalid private GPU launch bound");
-  }
-  const int private_launch_bound=private_intlists && requested_private_launch?
-      requested_private_launch:32;
   const auto launch_prep_t0 = std::chrono::steady_clock::now();
   const bool has_regions = !packed.region_segments.empty();
   bool extended_payload = private_intlists;
@@ -1062,12 +965,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         extended_payload |= needs_payload(phase.program.code);
     }
   }
-  const bool global_payload = extended_payload && !use_views && gagp::engine_env("GAGP_GPU_GLOBAL_PAYLOAD") &&
-      std::string(gagp::engine_env("GAGP_GPU_GLOBAL_PAYLOAD"))!="0";
-  const bool global_window_aliases = extended_payload && !use_views && gagp::engine_env("GAGP_GPU_GLOBAL_WINDOW_ALIASES") &&
-      std::string(gagp::engine_env("GAGP_GPU_GLOBAL_WINDOW_ALIASES"))!="0";
-  const bool payload_index = global_payload || (extended_payload && !use_views && gagp::engine_env("GAGP_GPU_PAYLOAD_INDEX") &&
-      std::string(gagp::engine_env("GAGP_GPU_PAYLOAD_INDEX"))!="0");
+  const bool global_payload = extended_payload && !use_views;
+  const bool global_window_aliases = global_payload;
+  const bool payload_index = global_payload;
 
   std::size_t shared_bytes = kernel_shared_bytes(packed.max_code_len, fitness_lanes);
   if (shared_bytes > static_cast<std::size_t>(impl_->props.sharedMemPerBlock)) {
@@ -1077,52 +977,24 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   gpu_detail::DRegionWorkspace region_workspace;
   region_workspace.integer_case_weights=reuse_integer_cases?impl_->d_reuse_weights:nullptr;
   region_workspace.fitness_lanes=fitness_lanes;
-  const char* count_setting=gagp::engine_env("GAGP_GPU_COALESCED_COUNTS");
-  region_workspace.coalesce_case_counts=count_setting && std::string(count_setting)=="1";
   region_workspace.payload_window_aliases=global_window_aliases;
   region_workspace.private_intlists=private_intlists;
-  region_workspace.short_edit_enabled=impl_->short_edit_enabled && private_intlists;
-  region_workspace.short_edit_patterns=impl_->d_short_edit_patterns;
-  region_workspace.short_edit_entries=impl_->d_short_edit_entries;
-  region_workspace.short_edit_entry_count=impl_->short_edit_entry_count;
-  const char* trivial_setting=gagp::engine_env("GAGP_GPU_TRIVIAL_PHASES");
-  const bool request_trivial=trivial_setting && std::string(trivial_setting)=="1";
-  region_workspace.trivial_phases=request_trivial && private_intlists;
-  const char* private_bound_setting=gagp::engine_env("GAGP_GPU_PRIVATE_BOUND_PHASES");
-  const bool request_private_bound=private_bound_setting && std::string(private_bound_setting)=="1";
-  region_workspace.private_bound_phases=request_private_bound && private_intlists;
-  region_workspace.private_typed_phases=request_private_typed && complete_private_normalization;
-  const char* simple_setting=gagp::engine_env("GAGP_GPU_SIMPLE_PHASES");
-  const bool request_simple=simple_setting && std::string(simple_setting)=="1";
-  region_workspace.simple_phases=request_simple && region_workspace.private_typed_phases;
-  const auto* register_stack_setting=gagp::engine_env("GAGP_GPU_REGISTER_PHASE_STACK");
-  const bool request_register_stack=register_stack_setting && std::string(register_stack_setting)=="1";
-  region_workspace.register_phase_stack=request_register_stack && (direct_phases || region_workspace.private_typed_phases);
-  region_workspace.compact_intlist_cells=private_intlists && request_compact;
-  const char* cell_soa_setting=gagp::engine_env("GAGP_GPU_PRIVATE_CELL_SOA");
-  const bool request_cell_soa=cell_soa_setting && std::string(cell_soa_setting)=="1";
-  region_workspace.private_cell_soa=request_cell_soa && region_workspace.compact_intlist_cells;
-  const char* adjacent_setting=gagp::engine_env("GAGP_GPU_PRIVATE_ADJACENT_CONCAT");
-  const bool request_adjacent=adjacent_setting && std::string(adjacent_setting)=="1";
+  region_workspace.trivial_phases=private_intlists;
+  region_workspace.private_bound_phases=private_intlists;
+  region_workspace.private_typed_phases=complete_private_normalization;
+  region_workspace.compact_intlist_cells=private_intlists;
   // Whole-program private admission excludes memoized list states and public
   // handle escape. Keep the tested compact, contiguous per-lane backing only.
-  region_workspace.private_adjacent_concat=request_adjacent &&
-      region_workspace.compact_intlist_cells && !region_workspace.private_cell_soa;
-  const char* warp_copy_setting=gagp::engine_env("GAGP_GPU_PRIVATE_WARP_COPY");
-  const bool request_warp_copy=warp_copy_setting && std::string(warp_copy_setting)=="1";
-  region_workspace.private_warp_copy=request_warp_copy && region_workspace.compact_intlist_cells;
+  region_workspace.private_adjacent_concat=region_workspace.compact_intlist_cells;
+  region_workspace.private_warp_copy=region_workspace.compact_intlist_cells;
   region_workspace.shared_list_value_count=static_cast<int>(payload_pack.list_values.size());
-  region_workspace.payload_epoch_index=payload_index && gagp::engine_env("GAGP_GPU_PAYLOAD_EPOCH_INDEX") &&
-      std::string(gagp::engine_env("GAGP_GPU_PAYLOAD_EPOCH_INDEX"))=="1";
-  region_workspace.fused_list_concat=gagp::engine_env("GAGP_GPU_FUSED_LIST_CONCAT") &&
-      std::string(gagp::engine_env("GAGP_GPU_FUSED_LIST_CONCAT"))!="0";
-  region_workspace.small_int_hash=region_workspace.fused_list_concat &&
-      gagp::engine_env("GAGP_GPU_SMALL_INT_HASH") && std::string(gagp::engine_env("GAGP_GPU_SMALL_INT_HASH"))!="0";
-  region_workspace.concat_cache_enabled=!private_intlists && region_workspace.fused_list_concat &&
-      gagp::engine_env("GAGP_GPU_CONCAT_CACHE") && std::string(gagp::engine_env("GAGP_GPU_CONCAT_CACHE"))!="0";
+  region_workspace.payload_epoch_index=payload_index;
+  region_workspace.fused_list_concat=true;
+  region_workspace.small_int_hash=true;
+  region_workspace.concat_cache_enabled=!private_intlists;
   const bool concat_diagnostics=region_workspace.concat_cache_enabled &&
-      std::getenv("GAGP_GPU_CONCAT_CACHE_DIAGNOSTICS") && std::string(std::getenv("GAGP_GPU_CONCAT_CACHE_DIAGNOSTICS"))!="0";
-  region_workspace.compact_frames = gagp::engine_env("GAGP_COMPACT_FRAMES") &&
+      std::getenv("GAGP_GPU_DIAGNOSTICS") && std::string(std::getenv("GAGP_GPU_DIAGNOSTICS"))!="0";
+  region_workspace.compact_frames =
       std::all_of(packed.region_segments.begin(), packed.region_segments.end(), [](const auto& segment) {
         return segment.state_count <= 2 && segment.preparation_count <= 1 && segment.request_count <= 2;
       });
@@ -1130,10 +1002,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       std::any_of(packed.region_segments.begin(), packed.region_segments.end(), [](const auto& segment) {
         return segment.state_count > 1;
       });
-  const char* private_window_setting=gagp::engine_env("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR");
-  const bool request_private_window=private_window_setting && std::string(private_window_setting)=="1";
-  region_workspace.window_executor = ((direct_phases && gagp::engine_env("GAGP_WINDOW_EXECUTOR")) ||
-      (private_intlists && request_private_window)) &&
+  region_workspace.window_executor = (direct_phases || private_intlists) &&
       has_regions && region_workspace.compact_frames &&
       std::all_of(packed.region_segments.begin(),packed.region_segments.end(),[&](const auto& s) {
         return s.progress==RegionProgressKind::SequenceWindows && s.sequence_state==0 && (s.state_count==1 ||
@@ -1149,7 +1018,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
             s.requests[1][0].kind==RegionTransitionKind::SequenceWindow &&
             s.requests[0][0].source_state==0 && s.requests[1][0].source_state==0;
       });
-  region_workspace.coordinate_executor = direct_phases && gagp::engine_env("GAGP_COORDINATE_EXECUTOR") &&
+  region_workspace.coordinate_executor = direct_phases &&
       std::all_of(packed.region_segments.begin(),packed.region_segments.end(),[](const auto& s) {
         if(s.progress!=RegionProgressKind::Coordinates || s.state_count!=1 || s.state_types[0]!=ValueTag::Int ||
             s.result_type!=ValueTag::Int || s.coordinate_count!=1 || s.coordinate_slots[0]!=0 ||
@@ -1161,7 +1030,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
           if(s.requests[r][0].kind!=RegionTransitionKind::CoordinateOffset || s.requests[r][0].source_state!=0)return false;
         return true;
       });
-  region_workspace.coordinate_ring_memo=region_workspace.coordinate_executor && gagp::engine_env("GAGP_COORDINATE_RING_MEMO") &&
+  region_workspace.coordinate_ring_memo=region_workspace.coordinate_executor &&
       std::all_of(packed.region_segments.begin(),packed.region_segments.end(),[&](const auto& s) {
         if(!s.memoized || s.requests[0][0].offset!=-1)return false;
         for(unsigned r=0;r<s.request_count;++r)if(s.requests[r][0].offset>=0 || s.requests[r][0].offset < -4)return false;
@@ -1176,22 +1045,17 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
             (code[2].op==gpu_detail::OP_LT || code[2].op==gpu_detail::OP_LE) :
             (code[2].op==gpu_detail::OP_GT || code[2].op==gpu_detail::OP_GE);
       });
-  const char* dense_memo_setting=gagp::engine_env("GAGP_GPU_DENSE_COORDINATE_MEMO");
-  const bool request_dense_memo=dense_memo_setting && std::string(dense_memo_setting)=="1";
-  region_workspace.dense_coordinate_memo=request_dense_memo && !region_workspace.coordinate_executor &&
+  region_workspace.dense_coordinate_memo=!region_workspace.coordinate_executor &&
       dense_coordinate_memo_supported(packed);
   // The block validates the actual phase dependencies before filling a table.
   // Large-stack capability buckets need this reuse just as compact ones do.
   const std::size_t measure_bytes = sizeof(gpu_detail::DMeasurePhaseCacheEntry) *
       (gpu_detail::DMEASURE_CACHE_MAX + 1) + sizeof(int);
-  const char* private_measure_setting=gagp::engine_env("GAGP_GPU_PRIVATE_MEASURE_CACHE");
-  const bool request_private_measure=private_measure_setting && std::string(private_measure_setting)=="1";
-  region_workspace.measure_phase_cache = (use_views || (private_intlists && request_private_measure)) && has_regions &&
-      gagp::engine_env("GAGP_MEASURE_PHASE_CACHE") &&
+  region_workspace.measure_phase_cache = (use_views || private_intlists) && has_regions &&
       shared_bytes + measure_bytes <= static_cast<std::size_t>(impl_->props.sharedMemPerBlock);
   if (region_workspace.measure_phase_cache && !private_intlists) shared_bytes += measure_bytes;
   std::size_t shape_result_programs=0,shape_result_invocations=0,max_shape_groups=0;
-  if(direct_root && impl_->shape_cache_requested &&
+  if(direct_root &&
       std::all_of(payload_pack.list_entries.begin(),payload_pack.list_entries.end(),[](const auto& entry) {
         return entry.len>=0 && entry.len<65536 &&
             entry.len==static_cast<int>(static_cast<std::uint64_t>(entry.packed)>>48);
@@ -1201,7 +1065,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       meta.shape_result_cache=false;meta.shape_case_count=0;
       std::uint64_t inputs=0;
       if(!gpu_detail::shape_result_program_supported(packed,meta,&inputs))continue;
-      if(!impl_->project_shape_inputs)inputs=~std::uint64_t{0};
+      inputs=~std::uint64_t{0};
       const auto* partition=impl_->shape_partitions.find_or_add(impl_->host_case_local_vals,impl_->host_case_local_set,inputs);
       if(!partition || static_cast<std::size_t>(partition->count)*4>static_cast<std::size_t>(base_cases))continue;
       meta.shape_result_cache=true;meta.shape_case_count=partition->count;
@@ -1230,10 +1094,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     return kernel_shared_bytes(packed.max_code_len,slots)+
         (workspace.measure_phase_cache?measure_bytes:0);
   };
-  region_workspace.window_leaf_direct = gagp::engine_env("GAGP_GPU_WINDOW_LEAF_DIRECT") &&
-      std::string(gagp::engine_env("GAGP_GPU_WINDOW_LEAF_DIRECT")) != "0";
-  region_workspace.unboxed_window_frames = !private_intlists && region_workspace.window_executor && gagp::engine_env("GAGP_UNBOXED_WINDOW_FRAMES");
-  region_workspace.window_soa = region_workspace.unboxed_window_frames && gagp::engine_env("GAGP_WINDOW_SOA");
+  region_workspace.window_leaf_direct = true;
+  region_workspace.unboxed_window_frames = !private_intlists && region_workspace.window_executor;
+  region_workspace.window_soa = region_workspace.unboxed_window_frames;
   std::size_t frame_size = region_workspace.coordinate_executor ? sizeof(gpu_detail::DUnboxedCoordinateFrame) : region_workspace.unboxed_window_frames ?
       (region_workspace.two_state_frames ? sizeof(gpu_detail::DUnboxedWindowFrame<2>) : sizeof(gpu_detail::DUnboxedWindowFrame<1>)) : !region_workspace.compact_frames ? sizeof(gpu_detail::DRegionFrame) :
       (region_workspace.two_state_frames ? sizeof(gpu_detail::DCompactPairRegionFrame) :
@@ -1269,8 +1132,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   std::size_t generic_blocks=capability_buckets?std::min(region_blocks,generic_indices.size()):0;
   std::size_t workspace_threads=region_blocks*execution_threads;
   std::size_t workspace_frame_bytes=workspace_threads*region_workspace.frame_capacity*frame_size;
-  const bool bucket_workspace=capability_buckets && gagp::engine_env("GAGP_BUCKET_WORKSPACE");
-  if(bucket_workspace) {
+  if(capability_buckets) {
     const auto threads=static_cast<std::size_t>(execution_threads);
     const auto compact_frames=threads*region_workspace.frame_capacity*compact_frame_size;
     const auto generic_frames=threads*region_workspace.frame_capacity*frame_size;
@@ -1294,15 +1156,11 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   }
   const auto launch_prep_t1 = std::chrono::steady_clock::now();
 
-  const bool overflow_diagnostics = std::getenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS") &&
-      std::string(std::getenv("GAGP_GPU_OVERFLOW_DIAGNOSTICS")) != "0";
-  const bool adaptive_replay=gagp::engine_env("GAGP_GPU_ADAPTIVE_REPLAY") &&
-      std::string(gagp::engine_env("GAGP_GPU_ADAPTIVE_REPLAY"))!="0";
-  const std::size_t overflow_reason_bytes=adaptive_replay?programs.size()*sizeof(unsigned int):0;
-  const bool tiled_replay=gagp::engine_env("GAGP_GPU_TILED_REPLAY") &&
-      std::string(gagp::engine_env("GAGP_GPU_TILED_REPLAY"))!="0";
-  int replay_entries=(tiled_replay || adaptive_replay)?4096:65536;
-  int replay_values=static_cast<int>(std::max<unsigned>(adaptive_replay?16384:65536,
+  const bool overflow_diagnostics = std::getenv("GAGP_GPU_DIAGNOSTICS") &&
+      std::string(std::getenv("GAGP_GPU_DIAGNOSTICS")) != "0";
+  const std::size_t overflow_reason_bytes=programs.size()*sizeof(unsigned int);
+  int replay_entries=4096;
+  int replay_values=static_cast<int>(std::max<unsigned>(16384,
       std::min<unsigned>(impl_->policy.list_allocation_limit,std::numeric_limits<int>::max())));
   // A clamped external 65536-cell constant plus a one-cell constant charges
   // 65536 logical cells but copies 65537. Keep the valid boundary in one replay.
@@ -1313,26 +1171,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   const std::size_t overflow_mask_bytes = overflow_diagnostics ?
       programs.size() * overflow_mask_words * sizeof(unsigned int) : 0;
   // One warp of input elements is a scheduling heuristic, not a semantic limit.
-  const char* initial_tiling=gagp::engine_env("GAGP_GPU_TILED_INITIAL_PAYLOAD");
-  const bool tiled_initial=global_payload && initial_tiling &&
-      (std::string(initial_tiling)=="1" ||
-       (std::string(initial_tiling)=="auto" && impl_->shared_max_intlist_input_length>=32));
-  const auto* dense_setting=gagp::engine_env("GAGP_GPU_DENSE_CASE_LANES");
-  const bool request_dense=dense_setting && std::string(dense_setting)=="1";
-  const bool dense_initial=request_dense && global_payload && !tiled_initial &&
-      impl_->shared_case_count>0 && impl_->shared_case_count<=impl_->blocksize;
-  const auto* private_layout_setting=gagp::engine_env("GAGP_GPU_SPECIALIZE_PRIVATE_LAYOUT");
-  const bool request_private_layout=private_layout_setting && std::string(private_layout_setting)=="1";
-  const bool private_layout=request_private_layout && private_launch_bound==32 && private_intlists &&
-      region_workspace.compact_intlist_cells && !region_workspace.private_cell_soa &&
-      private_global_offsets && region_workspace.private_warp_copy &&
-      region_workspace.trivial_phases && region_workspace.private_typed_phases &&
-      region_workspace.private_bound_phases && region_workspace.window_executor;
-  const auto* dense_tiles_setting=gagp::engine_env("GAGP_GPU_DENSE_CASE_TILES");
-  const bool tuple_dense_tiles=dense_tiles_setting && std::string(dense_tiles_setting)=="tuple";
-  const bool request_dense_tiles=dense_tiles_setting && (std::string(dense_tiles_setting)=="1" || tuple_dense_tiles);
-  const bool dense_tiles_policy=!tuple_dense_tiles || (private_intlists && private_tuple_policy);
-  const bool dense_initial_tiles=request_dense_tiles && dense_tiles_policy && tiled_initial &&
+  const bool tiled_initial=global_payload && impl_->shared_max_intlist_input_length>=32;
+  const bool dense_tiles_policy=private_intlists && private_tuple_policy;
+  const bool dense_initial_tiles=dense_tiles_policy && tiled_initial &&
       impl_->shared_case_count>0 && impl_->shared_case_count<=impl_->blocksize;
   const int dense_tile_count=(impl_->shared_case_count+31)/32;
   const int initial_warps=(impl_->blocksize+31)/32;
@@ -1347,9 +1188,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       sizeof(unsigned int)*programs.size()+(global_payload?sizeof(int):0);
   if(payload_metadata_bytes>=payload_workspace_budget)
     return fitness_eval_single_error(ErrCode::Value,"GPU payload workspace metadata exceeds configured scratch cap");
-  const char* reuse_setting=gagp::engine_env("GAGP_GPU_REUSE_PRIVATE_WORKSPACE");
-  const bool request_reuse=reuse_setting && std::string(reuse_setting)=="1";
-  const bool reuse_private=request_reuse && global_payload && private_intlists && region_workspace.compact_intlist_cells &&
+  const bool reuse_private=global_payload && private_intlists && region_workspace.compact_intlist_cells &&
       !region_workspace.concat_cache_enabled;
   auto& pool=impl_->private_workspace;
   if(!reuse_private) {
@@ -1385,8 +1224,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
   out.shape_result_groups=region_workspace.shape_result_count;
   for(const auto& meta:packed.metas)if(!meta.reuse_completed_fitness)
     out.physical_program_cases+=meta.shape_result_cache?meta.shape_case_count:out.physical_case_count;
-  if(region_workspace.simple_phases)out.simple_phase_count=std::count_if(
-      packed.region_phases.begin(),packed.region_phases.end(),[](const auto& phase){return phase.program.simple_operation_ip>=0;});
   out.payload_workspace_budget_bytes=payload_workspace_budget;
   std::chrono::steady_clock::time_point teardown_t0;
   {
@@ -1399,13 +1236,13 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       unsigned int* overflows=nullptr;
       unsigned int* overflow_reasons=nullptr;
       unsigned int* overflow_lane_masks=nullptr;
-      ~IndexBuffers(){if(concat_stats)gpu_detail::cuda_pool_free(concat_stats);if(overflow_reasons)gpu_detail::cuda_pool_free(overflow_reasons);if(overflow_lane_masks)gpu_detail::cuda_pool_free(overflow_lane_masks);if(overflows)gpu_detail::cuda_pool_free(overflows);if(compact)gpu_detail::cuda_pool_free(compact);if(generic)gpu_detail::cuda_pool_free(generic);if(compact_queue)gpu_detail::cuda_pool_free(compact_queue);if(generic_queue)gpu_detail::cuda_pool_free(generic_queue);}
+      ~IndexBuffers(){if(concat_stats)gpu_detail::device_free(concat_stats);if(overflow_reasons)gpu_detail::device_free(overflow_reasons);if(overflow_lane_masks)gpu_detail::device_free(overflow_lane_masks);if(overflows)gpu_detail::device_free(overflows);if(compact)gpu_detail::device_free(compact);if(generic)gpu_detail::device_free(generic);if(compact_queue)gpu_detail::device_free(compact_queue);if(generic_queue)gpu_detail::device_free(generic_queue);}
     } indices;
     const auto upload_t0 = std::chrono::steady_clock::now();
     if(shape_result_programs) {
       if(impl_->shape_partitions.dirty) {
-        if(impl_->d_shape_representatives){gpu_detail::cuda_pool_free(impl_->d_shape_representatives);impl_->d_shape_representatives=nullptr;}
-        if(impl_->d_shape_groups){gpu_detail::cuda_pool_free(impl_->d_shape_groups);impl_->d_shape_groups=nullptr;}
+        if(impl_->d_shape_representatives){gpu_detail::device_free(impl_->d_shape_representatives);impl_->d_shape_representatives=nullptr;}
+        if(impl_->d_shape_groups){gpu_detail::device_free(impl_->d_shape_groups);impl_->d_shape_groups=nullptr;}
         if(!gpu_detail::cuda_alloc_and_copy_in(impl_->shape_partitions.representatives,&impl_->d_shape_representatives) ||
             !gpu_detail::cuda_alloc_and_copy_in(impl_->shape_partitions.groups,&impl_->d_shape_groups))
           return fitness_eval_single_error(ErrCode::Value,"cuda projected shape partition upload failure");
@@ -1414,30 +1251,28 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       region_workspace.shape_case_groups=impl_->d_shape_groups;
       region_workspace.shape_case_representatives=impl_->d_shape_representatives;
     }
-    if (gpu_detail::cuda_pool_malloc(reinterpret_cast<void**>(&indices.overflows), sizeof(unsigned int)*programs.size()) != cudaSuccess ||
+    if (gpu_detail::device_malloc(reinterpret_cast<void**>(&indices.overflows), sizeof(unsigned int)*programs.size()) != cudaSuccess ||
         cudaMemset(indices.overflows,0,sizeof(unsigned int)*programs.size()) != cudaSuccess)
       return fitness_eval_single_error(ErrCode::Value,"cuda payload overflow diagnostics allocation failure");
     region_workspace.payload_overflows=indices.overflows;
     if(concat_diagnostics) {
-      if(gpu_detail::cuda_pool_malloc(reinterpret_cast<void**>(&indices.concat_stats),concat_stats_bytes)!=cudaSuccess ||
+      if(gpu_detail::device_malloc(reinterpret_cast<void**>(&indices.concat_stats),concat_stats_bytes)!=cudaSuccess ||
           cudaMemset(indices.concat_stats,0,concat_stats_bytes)!=cudaSuccess)
         return fitness_eval_single_error(ErrCode::Value,"cuda concat cache diagnostics allocation failure");
       region_workspace.concat_cache_stats=indices.concat_stats;
     }
-    if(adaptive_replay) {
-      if(gpu_detail::cuda_pool_malloc(reinterpret_cast<void**>(&indices.overflow_reasons),overflow_reason_bytes)!=cudaSuccess ||
-          cudaMemset(indices.overflow_reasons,0,overflow_reason_bytes)!=cudaSuccess)
-        return fitness_eval_single_error(ErrCode::Value,"cuda payload overflow reason allocation failure");
-      region_workspace.payload_overflow_reasons=indices.overflow_reasons;
-    }
+    if(gpu_detail::device_malloc(reinterpret_cast<void**>(&indices.overflow_reasons),overflow_reason_bytes)!=cudaSuccess ||
+        cudaMemset(indices.overflow_reasons,0,overflow_reason_bytes)!=cudaSuccess)
+      return fitness_eval_single_error(ErrCode::Value,"cuda payload overflow reason allocation failure");
+    region_workspace.payload_overflow_reasons=indices.overflow_reasons;
     if (overflow_diagnostics) {
-      if (gpu_detail::cuda_pool_malloc(reinterpret_cast<void**>(&indices.overflow_lane_masks),overflow_mask_bytes)!=cudaSuccess ||
+      if (gpu_detail::device_malloc(reinterpret_cast<void**>(&indices.overflow_lane_masks),overflow_mask_bytes)!=cudaSuccess ||
           cudaMemset(indices.overflow_lane_masks,0,overflow_mask_bytes)!=cudaSuccess)
         return fitness_eval_single_error(ErrCode::Value,"cuda initial overflow lane diagnostics allocation failure");
       region_workspace.payload_overflow_lane_masks=indices.overflow_lane_masks;
       region_workspace.payload_overflow_mask_words=overflow_mask_words;
     }
-    if (has_regions && !global_payload && gagp::engine_env("GAGP_DYNAMIC_PROGRAM_QUEUE")) {
+    if (has_regions && !global_payload) {
       if (!gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(region_blocks)}, &indices.compact_queue) ||
           (capability_buckets && !gpu_detail::cuda_alloc_and_copy_in(std::vector<int>{static_cast<int>(generic_blocks)}, &indices.generic_queue)))
         return fitness_eval_single_error(ErrCode::Value, "cuda program queue allocation failure");
@@ -1464,12 +1299,12 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         !gpu_detail::cuda_alloc_and_copy_in(payload_pack.list_values, &dev.d_list_payload_values)) {
       return fitness_eval_single_error(ErrCode::Value, "cuda allocation failure");
     }
-    if (gpu_detail::cuda_pool_malloc(reinterpret_cast<void**>(&dev.d_fitness), sizeof(double) * programs.size()) != cudaSuccess) {
+    if (gpu_detail::device_malloc(reinterpret_cast<void**>(&dev.d_fitness), sizeof(double) * programs.size()) != cudaSuccess) {
       return fitness_eval_single_error(ErrCode::Value, "cuda allocation failure");
     }
     if (capture_case_counts || impl_->policy.metric!=FitnessMetric::Legacy) {
       const auto bytes = sizeof(unsigned int) * 6 * programs.size();
-      if (gpu_detail::cuda_pool_malloc(reinterpret_cast<void**>(&dev.d_case_counts), bytes) != cudaSuccess ||
+      if (gpu_detail::device_malloc(reinterpret_cast<void**>(&dev.d_case_counts), bytes) != cudaSuccess ||
           cudaMemset(dev.d_case_counts, 0, bytes) != cudaSuccess)
         return fitness_eval_single_error(ErrCode::Value, "cuda diagnostics allocation failure");
     }
@@ -1494,15 +1329,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       // program fits. Starting at the replay capacity lets programs that only
       // outgrow the small arena finish here instead of re-running all their
       // cases in replay, provided the budget still fills every resident slot.
-      // Opt-in so the default small arena keeps exercising replay.
       const std::size_t initial_extra=payload_metadata_bytes+initial_partial_bytes;
-      const auto* initial_capacity_setting=gagp::engine_env("GAGP_GPU_INITIAL_REPLAY_CAPACITY");
-      if(initial_capacity_setting && std::string(initial_capacity_setting)=="1") {
-        using gpu_detail::DPayloadFlavor;
-        const auto kernel=private_layout?&gpu_detail::evaluate_fitness_programs_impl<DPayloadFlavor::IndexedArena,true,false,32,true>:
-            private_launch_bound==512?&gpu_detail::evaluate_fitness_programs_impl<DPayloadFlavor::IndexedArena,true,false,512,false>:
-            private_launch_bound==1024?&gpu_detail::evaluate_fitness_programs_impl<DPayloadFlavor::IndexedArena,true,false,1024,false>:
-            &gpu_detail::evaluate_fitness_programs_impl<DPayloadFlavor::IndexedArena,true,false,32,false>;
+      {
+        const auto kernel=&gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true,false,32>;
         const int slots=tiled_initial?32:impl_->blocksize;
         const bool measure=region_workspace.private_intlists && region_workspace.measure_phase_cache;
         const std::size_t shared=kernel_shared_bytes(packed.max_code_len,slots)+(measure?measure_bytes:0);
@@ -1524,7 +1353,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         return fitness_eval_single_error(ErrCode::Value,"cuda initial payload partial-score allocation failure");
       // Replay storage is made from region_workspace and retains the ordinary
       // mapping. Only this admitted initial arena uses dense physical lanes.
-      initial_payload.workspace.dense_case_lanes=dense_initial;
       initial_payload.workspace.dense_case_tiles=dense_initial_tiles?dense_tile_count:0;
       if(dense_initial_tiles && cudaMemset(initial_payload.workspace.replay_warp_scores,0,initial_partial_bytes)!=cudaSuccess)
         return fitness_eval_single_error(ErrCode::Value,"cuda dense initial lane-score initialization failure");
@@ -1552,8 +1380,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     }
     const auto kernel_t0 = std::chrono::steady_clock::now();
     if(global_payload) {
-      const auto launch_private=[&](auto bound,auto layout) {
-      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true,false,decltype(bound)::value,decltype(layout)::value>
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true,false,32>
           <<<static_cast<unsigned>(initial_payload.blocks),PayloadWorkspaceStorage::threads,arena_shared_bytes(initial_payload.workspace)>>>(
               static_cast<int>(initial_tasks),dev.d_consts,dev.d_code,dev.d_metas,
               view_case_values,impl_->d_shared_case_local_set,impl_->d_expected,
@@ -1564,11 +1391,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_region_phases,static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings,static_cast<int>(packed.region_bindings.size()),initial_payload.workspace,
               dev.d_case_counts,impl_->d_arena_case_order,nullptr,indices.compact_queue);
-      };
-      if(private_layout)launch_private(std::integral_constant<int,32>{},std::true_type{});
-      else if(private_launch_bound==512)launch_private(std::integral_constant<int,512>{},std::false_type{});
-      else if(private_launch_bound==1024)launch_private(std::integral_constant<int,1024>{},std::false_type{});
-      else launch_private(std::integral_constant<int,32>{},std::false_type{});
       if(tiled_initial) {
         const auto initial_launch_error=cudaGetLastError();
         if(initial_launch_error!=cudaSuccess) {
@@ -1583,19 +1405,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
             programs.size(),initial_warps,nullptr,initial_payload.workspace.replay_warp_scores,dev.d_fitness);
       }
     } else if (direct_root) {
-      if(narrow_view_registers) {
-      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::BoundIntListViews, true, true,128>
-          <<<static_cast<unsigned int>(region_blocks), execution_threads, shared_bytes>>>(
-              static_cast<int>(capability_buckets?compact_indices.size():programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
-              view_case_values, impl_->d_shared_case_local_set, impl_->d_expected,
-              dev.d_string_payload_entries, static_cast<int>(payload_pack.string_entries.size()), dev.d_string_payload_bytes,
-              dev.d_list_payload_entries, static_cast<int>(payload_pack.list_entries.size()), dev.d_list_payload_values,
-              dev.d_phase_code, dev.d_phase_consts,
-              impl_->fuel, impl_->penalty, impl_->policy, dev.d_fitness,
-              dev.d_region_segments, static_cast<int>(packed.region_segments.size()),
-              dev.d_region_phases, static_cast<int>(packed.region_phases.size()),
-              dev.d_region_bindings, static_cast<int>(packed.region_bindings.size()), region_workspace, dev.d_case_counts, execution_case_order, indices.compact, indices.compact_queue);
-      } else if(relaxed_view_registers) {
+      if(relaxed_view_registers) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::BoundIntListViews, true, true,512>
           <<<static_cast<unsigned int>(region_blocks), execution_threads, shared_bytes>>>(
               static_cast<int>(capability_buckets?compact_indices.size():programs.size()), dev.d_consts, dev.d_code, dev.d_metas,
@@ -1758,34 +1568,27 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if(impl_->policy.list_allocation_limit>static_cast<unsigned>(std::numeric_limits<int>::max()))
       return fitness_eval_single_error(ErrCode::Value,"GPU logical list limit exceeds replay addressing capacity");
     const int replay_warps=(impl_->blocksize+31)/32;
-    const bool dense_replay_tiles=request_dense_tiles && dense_tiles_policy && tiled_replay &&
+    const bool dense_replay_tiles=dense_tiles_policy &&
         impl_->shared_case_count>0 && impl_->shared_case_count<=impl_->blocksize;
     const int replay_tiles_per_program=dense_replay_tiles?dense_tile_count:replay_warps;
-    std::vector<unsigned int> overflow_reasons(adaptive_replay?programs.size():0);
+    std::vector<unsigned int> overflow_reasons(programs.size());
     const auto grow_replay_capacity=[&]()->const char* {
-      if(adaptive_replay) {
-        if(cudaMemcpy(overflow_reasons.data(),indices.overflow_reasons,overflow_reason_bytes,cudaMemcpyDeviceToHost)!=cudaSuccess)
-          return "cuda replay capacity reason copy failure";
-        unsigned reasons=0;
-        for(int program:replay_programs) {
-          const unsigned reason=overflow_reasons[program];
-          // Unknown physical failures retain the conservative growth route.
-          reasons|=(!reason || (reason&~7u))?7u:reason;
-        }
-        const auto grow=[](int& capacity) {
-          if(capacity>std::numeric_limits<int>::max()/2)return false;
-          capacity*=2;return true;
-        };
-        if(((reasons&gpu_detail::DPAYLOAD_OVERFLOW_ENTRIES) && !grow(replay_entries)) ||
-           ((reasons&gpu_detail::DPAYLOAD_OVERFLOW_VALUES) && !grow(replay_values)) ||
-           ((reasons&gpu_detail::DPAYLOAD_OVERFLOW_BYTES) && !grow(replay_bytes)))
-          return "GPU adaptive replay capacity exceeds addressable storage";
-      } else {
-        if(replay_entries>std::numeric_limits<int>::max()/2 || replay_values>std::numeric_limits<int>::max()/2 || replay_bytes>std::numeric_limits<int>::max()/2)
-          return "GPU payload replay capacity exceeds addressable storage";
-        if(tiled_replay && replay_entries<65536) replay_entries*=2;
-        else {replay_entries*=2;replay_values*=2;replay_bytes*=2;}
+      if(cudaMemcpy(overflow_reasons.data(),indices.overflow_reasons,overflow_reason_bytes,cudaMemcpyDeviceToHost)!=cudaSuccess)
+        return "cuda replay capacity reason copy failure";
+      unsigned reasons=0;
+      for(int program:replay_programs) {
+        const unsigned reason=overflow_reasons[program];
+        // Unknown physical failures retain the conservative growth route.
+        reasons|=(!reason || (reason&~7u))?7u:reason;
       }
+      const auto grow=[](int& capacity) {
+        if(capacity>std::numeric_limits<int>::max()/2)return false;
+        capacity*=2;return true;
+      };
+      if(((reasons&gpu_detail::DPAYLOAD_OVERFLOW_ENTRIES) && !grow(replay_entries)) ||
+         ((reasons&gpu_detail::DPAYLOAD_OVERFLOW_VALUES) && !grow(replay_values)) ||
+         ((reasons&gpu_detail::DPAYLOAD_OVERFLOW_BYTES) && !grow(replay_bytes)))
+        return "GPU adaptive replay capacity exceeds addressable storage";
       return nullptr;
     };
     // The initial launch already ran at the starting replay capacity; repeating
@@ -1794,13 +1597,13 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       if(const char* error=grow_replay_capacity())return fitness_eval_single_error(ErrCode::Value,error);
     while(!replay_programs.empty()) {
       PayloadWorkspaceStorage replay_storage(payload_workspace_budget,reuse_private?&pool:nullptr);
-      const std::size_t task_count=replay_programs.size()*(tiled_replay?replay_tiles_per_program:1);
-      const std::size_t replay_score_bytes=tiled_replay?sizeof(double)*replay_programs.size()*
-          static_cast<std::size_t>(dense_replay_tiles?impl_->blocksize:replay_warps):0;
+      const std::size_t task_count=replay_programs.size()*replay_tiles_per_program;
+      const std::size_t replay_score_bytes=sizeof(double)*replay_programs.size()*
+          static_cast<std::size_t>(dense_replay_tiles?impl_->blocksize:replay_warps);
       if(task_count>static_cast<std::size_t>(std::numeric_limits<int>::max()))
         return fitness_eval_single_error(ErrCode::Value,"GPU replay task count exceeds addressing capacity");
       const std::size_t extra_bytes=payload_metadata_bytes+sizeof(int)*replay_programs.size()+
-          (tiled_replay?replay_score_bytes+sizeof(int):0);
+          replay_score_bytes+sizeof(int);
       if(!replay_storage.prepare(region_workspace,task_count,impl_->blocksize,
           replay_entries,replay_values,replay_bytes,payload_index,extra_bytes))
         return fitness_eval_single_error(ErrCode::Value,"GPU payload replay workspace capacity/allocation failure; physical overflow remains unscored");
@@ -1813,28 +1616,23 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
           cudaMemcpy(replay_indices,replay_programs.data(),sizeof(int)*replay_programs.size(),cudaMemcpyHostToDevice)!=cudaSuccess)
         return fitness_eval_single_error(ErrCode::Value,"cuda payload replay index allocation failure");
       int* replay_queue=nullptr;
-      if(tiled_replay) {
-        const int start=static_cast<int>(replay_blocks);
-        if(!replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.replay_warp_scores),replay_score_bytes) ||
-            !replay_storage.allocate(reinterpret_cast<void**>(&replay_queue),sizeof(int)) ||
-            cudaMemcpy(replay_queue,&start,sizeof(int),cudaMemcpyHostToDevice)!=cudaSuccess)
-          return fitness_eval_single_error(ErrCode::Value,"cuda replay tile allocation failure");
-        if(dense_replay_tiles && cudaMemset(replay_workspace.replay_warp_scores,0,replay_score_bytes)!=cudaSuccess)
-          return fitness_eval_single_error(ErrCode::Value,"cuda dense replay lane-score initialization failure");
-      }
+      const int start=static_cast<int>(replay_blocks);
+      if(!replay_storage.allocate(reinterpret_cast<void**>(&replay_workspace.replay_warp_scores),replay_score_bytes) ||
+          !replay_storage.allocate(reinterpret_cast<void**>(&replay_queue),sizeof(int)) ||
+          cudaMemcpy(replay_queue,&start,sizeof(int),cudaMemcpyHostToDevice)!=cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value,"cuda replay tile allocation failure");
+      if(dense_replay_tiles && cudaMemset(replay_workspace.replay_warp_scores,0,replay_score_bytes)!=cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value,"cuda dense replay lane-score initialization failure");
       KernelEvents replay_events;
       if(cudaEventCreate(&replay_events.start)!=cudaSuccess || cudaEventCreate(&replay_events.end)!=cudaSuccess ||
           cudaEventRecord(replay_events.start)!=cudaSuccess)
         return fitness_eval_single_error(ErrCode::Value,"cuda payload replay timing failure");
-      if(tiled_replay) {
-        gpu_detail::reset_payload_replay<<<(replay_programs.size()+127)/128,128>>>(
-            replay_programs.size(),replay_indices,indices.overflows,dev.d_case_counts,indices.overflow_reasons);
-        if(cudaGetLastError()!=cudaSuccess)
-          return fitness_eval_single_error(ErrCode::Value,"cuda payload replay reset failure");
-      }
+      gpu_detail::reset_payload_replay<<<(replay_programs.size()+127)/128,128>>>(
+          replay_programs.size(),replay_indices,indices.overflows,dev.d_case_counts,indices.overflow_reasons);
+      if(cudaGetLastError()!=cudaSuccess)
+        return fitness_eval_single_error(ErrCode::Value,"cuda payload replay reset failure");
       if(payload_index) {
-      const auto launch_private=[&](auto bound,auto layout) {
-      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true,false,decltype(bound)::value,decltype(layout)::value>
+      gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true,false,32>
           <<<static_cast<unsigned>(replay_blocks),replay_threads,arena_shared_bytes(replay_workspace)>>>(
               static_cast<int>(task_count),dev.d_consts,dev.d_code,dev.d_metas,
               view_case_values,impl_->d_shared_case_local_set,impl_->d_expected,
@@ -1845,11 +1643,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_region_phases,static_cast<int>(packed.region_phases.size()),
               dev.d_region_bindings,static_cast<int>(packed.region_bindings.size()),replay_workspace,
               dev.d_case_counts,impl_->d_arena_case_order,replay_indices,replay_queue);
-      };
-      if(private_layout)launch_private(std::integral_constant<int,32>{},std::true_type{});
-      else if(private_launch_bound==512)launch_private(std::integral_constant<int,512>{},std::false_type{});
-      else if(private_launch_bound==1024)launch_private(std::integral_constant<int,1024>{},std::false_type{});
-      else launch_private(std::integral_constant<int,32>{},std::false_type{});
       } else {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::ArenaMixed,true>
           <<<static_cast<unsigned>(replay_blocks),replay_threads,arena_shared_bytes(replay_workspace)>>>(
@@ -1864,12 +1657,10 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_case_counts,impl_->d_arena_case_order,replay_indices,replay_queue);
       }
       const auto replay_launch_error=cudaGetLastError();
-      if(tiled_replay) {
-        if(dense_replay_tiles)gpu_detail::reduce_dense_case_tiles<<<(replay_programs.size()+127)/128,128>>>(
-            replay_programs.size(),impl_->blocksize,replay_indices,replay_workspace.replay_warp_scores,dev.d_fitness);
-        else gpu_detail::reduce_payload_replay<<<(replay_programs.size()+127)/128,128>>>(
-            replay_programs.size(),replay_warps,replay_indices,replay_workspace.replay_warp_scores,dev.d_fitness);
-      }
+      if(dense_replay_tiles)gpu_detail::reduce_dense_case_tiles<<<(replay_programs.size()+127)/128,128>>>(
+          replay_programs.size(),impl_->blocksize,replay_indices,replay_workspace.replay_warp_scores,dev.d_fitness);
+      else gpu_detail::reduce_payload_replay<<<(replay_programs.size()+127)/128,128>>>(
+          replay_programs.size(),replay_warps,replay_indices,replay_workspace.replay_warp_scores,dev.d_fitness);
       const auto reduce_launch_error=cudaGetLastError();
       const auto replay_event_error=cudaEventRecord(replay_events.end);
       const auto replay_sync_error=cudaDeviceSynchronize();
@@ -1929,51 +1720,38 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       out.payload_workspace_pool_allocations=pool.allocations;
       out.payload_workspace_pool_peak_bytes=pool.peak_bytes;
     }
-    out.execution_profile = use_views ? (gagp::engine_env("GAGP_TYPED_VIEW_PHASE") ? "int-list-views-typed" : "int-list-views") : (extended_payload ? "extended-payload" : "mixed");
-    if(request_private_layout)out.execution_profile+=private_layout && (global_payload || out.payload_replay_programs)?
-        "-private-layout-specialized":"-private-layout-specialized-declined";
-    if(requested_private_launch)out.execution_profile+=private_intlists && (global_payload || out.payload_replay_programs)?
-        "-private-launch"+std::to_string(private_launch_bound):"-private-launch-declined";
+    out.execution_profile = use_views ? "int-list-views-typed" : (extended_payload ? "extended-payload" : "mixed");
+    out.execution_profile+=private_intlists && (global_payload || out.payload_replay_programs)?
+        "-private-launch32":"-private-launch-declined";
     if(reused_count)out.execution_profile+="-completed-fitness-reuse";
-    if(impl_->case_reuse_requested)out.execution_profile+=reuse_integer_cases?"-integer-case-reuse":"-integer-case-reuse-declined";
-    if(region_workspace.coalesce_case_counts)out.execution_profile+="-coalesced-counts";
-    if(requested_physical_block)out.execution_profile+=virtual_view_lanes?
-        "-physical-view"+std::to_string(execution_threads):"-physical-view-declined";
-    if(request_case_block)out.execution_profile+=case_view_block?
+    out.execution_profile+=reuse_integer_cases?"-integer-case-reuse":"-integer-case-reuse-declined";
+    out.execution_profile+=case_view_block?
         "-case-view-block"+std::to_string(execution_threads):"-case-view-block-declined";
-    if(request_register_stack)out.execution_profile+=region_workspace.register_phase_stack?"-register-phase-stack":"-register-phase-stack-declined";
-    if(request_relaxed)out.execution_profile+=relaxed_view_registers?"-view-reg512":"-view-reg512-declined";
-    if(request_narrow)out.execution_profile+=narrow_view_registers?"-view-bound128":"-view-bound128-declined";
-    if(impl_->project_shape_inputs)out.execution_profile+=shape_result_programs?"-project-shape-inputs":"-project-shape-inputs-declined";
-    if(impl_->shape_cache_requested)out.execution_profile+=shape_result_programs?"-shape-result-cache":"-shape-result-cache-declined";
-    if(impl_->short_edit_enabled)out.execution_profile+=private_intlists?"-short-edit-exact":"-short-edit-declined";
-    if(request_simple)out.execution_profile+=region_workspace.simple_phases?"-simple-phases":"-simple-phases-declined";
-    if(request_reuse)out.execution_profile+=reuse_private?
+    out.execution_profile+=relaxed_view_registers?"-view-reg512":"-view-reg512-declined";
+    out.execution_profile+=shape_result_programs?"-shape-result-cache":"-shape-result-cache-declined";
+    out.execution_profile+=reuse_private?
         "-reuse-private-workspace":"-reuse-private-workspace-declined";
-    if(request_private)out.execution_profile+=private_intlists?
+    out.execution_profile+=private_intlists?
         "-private-intlist-offset-v1":"-private-intlist-offset-v1-declined";
-    if(request_private_globals)out.execution_profile+=private_global_offsets?
+    out.execution_profile+=private_global_offsets?
         "-private-global-offsets":"-private-global-offsets-declined";
-    if(request_private_tuple)out.execution_profile+=private_intlists && private_tuple_policy?
+    out.execution_profile+=private_intlists && private_tuple_policy?
         "-private-tuple-score":"-private-tuple-score-declined";
-    if(request_warp_copy)out.execution_profile+=region_workspace.private_warp_copy?
+    out.execution_profile+=region_workspace.private_warp_copy?
         "-private-warp-copy":"-private-warp-copy-declined";
-    if(request_private_typed)out.execution_profile+=region_workspace.private_typed_phases?
+    out.execution_profile+=region_workspace.private_typed_phases?
         "-private-typed-phases":"-private-typed-phases-declined";
-    if(request_private_bound)out.execution_profile+=region_workspace.private_bound_phases?
+    out.execution_profile+=region_workspace.private_bound_phases?
         "-private-bound-phases":"-private-bound-phases-declined";
-    if(request_trivial)out.execution_profile+=region_workspace.trivial_phases?
+    out.execution_profile+=region_workspace.trivial_phases?
         "-trivial-phases":"-trivial-phases-declined";
-    if(request_adjacent)out.execution_profile+=region_workspace.private_adjacent_concat?
+    out.execution_profile+=region_workspace.private_adjacent_concat?
         "-private-adjacent-concat":"-private-adjacent-concat-declined";
-    if(request_cell_soa)out.execution_profile+=region_workspace.private_cell_soa?
-        "-private-cell-soa":"-private-cell-soa-declined";
-    if(request_compact)out.execution_profile+=region_workspace.compact_intlist_cells?
+    out.execution_profile+=region_workspace.compact_intlist_cells?
         "-compact-intlist-cells":"-compact-intlist-cells-declined";
-    if(request_dense_memo)out.execution_profile+=region_workspace.dense_coordinate_memo?
+    out.execution_profile+=region_workspace.dense_coordinate_memo?
         "-dense-coordinate-memo":"-dense-coordinate-memo-declined";
-    if(request_dense)out.execution_profile+=dense_initial?"-dense-case-lanes":"-dense-case-lanes-declined";
-    if(request_dense_tiles)out.execution_profile+=(dense_initial_tiles || (dense_replay_tiles && out.payload_replay_programs))?
+    out.execution_profile+=(dense_initial_tiles || (dense_replay_tiles && out.payload_replay_programs))?
         "-dense-case-tiles":"-dense-case-tiles-declined";
     if(global_payload) {
       out.execution_profile+="-global-arena";
@@ -1988,27 +1766,26 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       if(region_workspace.payload_epoch_index)out.execution_profile+="-epoch";
     }
     if(out.payload_replay_programs)out.execution_profile+="-gpu-arena-replay";
-    if(tiled_replay && out.payload_replay_programs)out.execution_profile+="-tiled";
-    if(adaptive_replay && out.payload_replay_programs)out.execution_profile+="-adaptive";
+    if(out.payload_replay_programs)out.execution_profile+="-tiled-adaptive";
     out.arena_cases_sorted=impl_->d_arena_case_order && (global_payload || out.payload_replay_programs);
     out.arena_case_order_bytes=impl_->d_arena_case_order?sizeof(int)*static_cast<std::size_t>(impl_->shared_case_count):0;
     if(out.arena_cases_sorted)out.execution_profile+="-arena-sorted";
     if (use_views && impl_->d_case_order) out.execution_profile += "-sorted";
     if (direct_phases) out.execution_profile += "-direct";
     if (direct_root) out.execution_profile += "-root";
-    if (direct_phases && gagp::engine_env("GAGP_HYBRID_PHASE_EXECUTOR")) out.execution_profile += "-hybrid";
+    if (direct_phases) out.execution_profile += "-hybrid";
     if (region_workspace.measure_phase_cache) out.execution_profile += "-measure-cache";
-    if(request_private_measure)out.execution_profile+=private_intlists && region_workspace.measure_phase_cache?
+    out.execution_profile+=private_intlists && region_workspace.measure_phase_cache?
         "-private-measure-cache":"-private-measure-cache-declined";
     if (region_workspace.coordinate_executor) out.execution_profile += "-coordinate";
     if (region_workspace.window_executor) out.execution_profile += "-window";
-    if(request_private_window)out.execution_profile+=private_intlists && region_workspace.window_executor?
+    out.execution_profile+=private_intlists && region_workspace.window_executor?
         "-private-window":"-private-window-declined";
     if (region_workspace.unboxed_window_frames) out.execution_profile += "-unboxed";
     if(direct_phases && std::any_of(packed.region_phases.begin(),packed.region_phases.end(),
         [](const auto& p){return p.program.add_left_binding>=0;}))out.execution_profile+="-bound-add";
     if(capability_buckets)out.execution_profile+="-cap-buckets";
-    if(bucket_workspace)out.execution_profile+="-bucket-workspace";
+    if(capability_buckets)out.execution_profile+="-bucket-workspace";
     if(region_workspace.coordinate_ring_memo)out.execution_profile+="-ring4";
     out.fitness = std::move(host_fitness);
     out.timing.pack_ms = ms_between(pack_t0, pack_t1);

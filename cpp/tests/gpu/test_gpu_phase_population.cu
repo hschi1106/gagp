@@ -8,8 +8,7 @@
 #include <stdexcept>
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/evolution/case_set.hpp"
-#include "../../src/runtime/gpu/cuda_allocation_scope.hpp"
-#include "../../src/runtime/gpu/cuda_stage_storage.hpp"
+#include "gagp/evolution/search_policy.hpp"
 #include "gagp/evolution/selection.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
@@ -84,139 +83,78 @@ void check_parent_cache_keys() {
      "parent cache accepted hash collision, altered genotype field, signed zero or incomplete key");
 }
 
-template<class Function>
-auto with_fused_cold(Function function)->decltype(function()) {
- const char* flag="GAGP_FUSED_COLD_EXECUTABLE";const char* value=std::getenv(flag);
- struct Restore {const char* flag;bool present;std::string value;~Restore(){if(present)setenv(flag,value.c_str(),1);else unsetenv(flag);}}
-     restore{flag,value!=nullptr,value?value:""};
- setenv(flag,"1",1);return function();
+
+// Every exported member is independently admitted and lowered from its AST alone.
+std::vector<BytecodeProgram> independent_programs(const grammar::CompiledGrammar& grammar,
+    std::vector<ProgramGenome> members,const std::vector<std::string>& names) {
+ std::vector<BytecodeProgram> programs;
+ for(auto& member:members) {
+  member.derivation.reset();grammar::require_membership(grammar,member);
+  programs.push_back(compile_for_eval(member,names));
+ }
+ return programs;
 }
-void check_pool_evolution(const std::vector<EvalCase>& cases,EvolutionConfig config,
+// The owner's scores equal full-case CPU scores of its independently exported members.
+void require_cpu_scores(const grammar::CompiledGrammar& grammar,const repro::NativePhasePopulation& owner,
+    const std::vector<std::string>& names,const std::vector<CaseBindings>& cases,const std::vector<Value>& answers,
+    const FitnessEvalResult& gpu,const char* what,int fuel=10000,int blocksize=512,FitnessPolicy policy={}) {
+ std::vector<unsigned> wrong;
+ const auto cpu=eval_fitness_cpu(independent_programs(grammar,owner.export_population(),names),cases,answers,
+     fuel,1000,blocksize,policy,&wrong);
+ require(gpu.ok && cpu==gpu.fitness && (policy.metric==FitnessMetric::Legacy || wrong==gpu.wrong),what);
+}
+// The public entry point with the resident GPU owner: complete history, ranked
+// final members and final scores equal to independent CPU evaluation.
+void check_evolution_final_scores(const std::vector<EvalCase>& cases,EvolutionConfig config,
     const std::vector<ProgramGenome>& parents) {
- const char* flags[]={"GAGP_GPU_CUDA_POOL","GAGP_GPU_PHASE_STAGED_BUFFERS","GAGP_GPU_PHASE_POPULATION","GAGP_GPU_UNCHANGED_FITNESS_REUSE","GAGP_GPU_STAGE_STORAGE","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_GPU_PAYLOAD_WORKSPACE_MIB"};
- std::string saved[7];bool present[7];
- for(int i=0;i<7;++i){const auto* value=std::getenv(flags[i]);present[i]=value;saved[i]=value?value:"";}
- setenv(flags[2],"1",1);setenv(flags[4],"0",1);setenv(flags[5],"1",1);setenv(flags[6],"16384",1);
  config.generations=4;config.seed=0x617ba;config.retain_final_population=true;config.skip_final_eval=false;
- for(bool staged:{false,true}) {
-  setenv(flags[1],staged?"1":"0",1);setenv(flags[0],"0",1);setenv(flags[3],"0",1);
-  const auto before=evolve_population(cases,config,&parents);
-  const auto initial=gpu_detail::cuda_pool_debug_stats();const auto stage_initial=gpu_detail::cuda_stage_debug_stats();setenv(flags[0],"1",1);setenv(flags[3],"1",1);
-  const auto after=evolve_population(cases,config,&parents);
-  require(before.reproduction_fallback_reason.empty() && after.reproduction_fallback_reason.empty() &&
-      before.reproduction_profile.find("-cuda-pool")==std::string::npos &&
-      after.reproduction_profile.find("-cuda-pool")!=std::string::npos,
-      "CUDA pool did not use the strict native GPU reproduction path");
-  require(before.final_population.size()==parents.size() && after.final_population.size()==parents.size() &&
-      before.history_best.size()==4 && before.history_best_fitness==after.history_best_fitness &&
-      before.final_population.size()==after.final_population.size() && before.history_best.size()==after.history_best.size(),
-      "CUDA pool changed complete history/score coverage");
-  for(std::size_t i=0;i<before.history_best.size();++i)
-   require(ast_cache_key(before.history_best[i].genome.ast)==ast_cache_key(after.history_best[i].genome.ast) &&
-       before.history_best[i].wrong==after.history_best[i].wrong,"CUDA pool changed selected champion trajectory");
-  std::vector<BytecodeProgram> programs;const auto cs=prepare_case_set(cases);
-  for(std::size_t i=0;i<before.final_population.size();++i) {
-   const auto& a=before.final_population[i];const auto& b=after.final_population[i];
-   require(ast_cache_key(a.genome.ast)==ast_cache_key(b.genome.ast) && a.fitness==b.fitness && a.wrong==b.wrong,
-       "CUDA pool changed offspring AST, fitness or wrong");
-   programs.push_back(compile_for_eval(b.genome,cs.input_names));
-  }
-  std::vector<unsigned> wrong;
-  const auto cpu=eval_fitness_cpu(programs,cs.bindings,cs.expected_values,config.fuel,config.penalty,
-      config.gpu_blocksize,config.fitness_policy,&wrong);
-  for(std::size_t i=0;i<cpu.size();++i)
-   require(canonicalize_fitness_for_ranking(cpu[i])==after.final_population[i].fitness &&
-       (after.final_population[i].wrong<0 || wrong[i]==static_cast<unsigned>(after.final_population[i].wrong)),
-       "CUDA pool result differs from independent full CPU final evaluation");
-  require((after.gpu_stage_storage_reserved_bytes>0)==staged &&
-      (!staged || (after.gpu_stage_storage_reserved_bytes==UINT64_C(16384)*1024*1024+64*1024 &&
-                   after.gpu_stage_storage_peak_bytes>0 && after.gpu_stage_storage_peak_bytes<=after.gpu_stage_storage_reserved_bytes)),
-      "staged storage not active or requested workspace capacity changed");
-  const auto stage_final=gpu_detail::cuda_stage_debug_stats();
-  require(stage_final.banks_alive==stage_initial.banks_alive && stage_final.live_allocations==stage_initial.live_allocations &&
-      stage_final.cleanup_errors==stage_initial.cleanup_errors && stage_final.failed_allocations==stage_initial.failed_allocations &&
-      (!staged || stage_final.allocations>stage_initial.allocations),"shared stages leaked, failed or did not allocate");
-  const auto final=gpu_detail::cuda_pool_debug_stats();
-  require(final.pools_created>initial.pools_created && final.allocations>initial.allocations &&
-      final.pools_alive==initial.pools_alive && final.live_allocations==initial.live_allocations &&
-      final.cleanup_errors==initial.cleanup_errors,"CUDA pool leaked session allocations or cleanup errors");
+ config.phase_population=true;
+ const auto result=evolve_population(cases,config,&parents);
+ require(result.reproduction_profile.rfind("native-gpu-phase-",0)==0,"resident evolution did not use the GPU phase owner");
+ require(result.history_best.size()==std::size_t(config.generations) &&
+     result.final_population.size()==parents.size(),"resident evolution omitted history or final members");
+ std::vector<std::string> names;for(const auto& input:config.compiled_grammar->inputs())names.push_back(input.name);
+ std::vector<CaseBindings> bindings;std::vector<Value> answers;
+ for(const auto& c:cases) {
+  CaseBindings row;for(std::size_t j=0;j<names.size();++j)row.push_back({int(j),c.inputs.at(names[j])});
+  bindings.push_back(std::move(row));answers.push_back(c.expected);
  }
- for(int i=0;i<7;++i)if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);
+ std::vector<ProgramGenome> members;for(const auto& scored:result.final_population)members.push_back(scored.genome);
+ const auto cpu=eval_fitness_cpu(independent_programs(*config.compiled_grammar,members,names),bindings,answers,
+     config.fuel,config.penalty,config.gpu_blocksize,config.fitness_policy);
+ for(std::size_t i=0;i<cpu.size();++i) {
+  require(canonicalize_fitness_for_ranking(cpu[i])==result.final_population[i].fitness,
+      "resident evolution final score differs from independent CPU evaluation");
+  if(i)require(result.final_population[i-1].fitness>=result.final_population[i].fitness,"final ranking reversed");
+ }
 }
 
-void check_pool_session_lifetime(const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
-    const std::vector<CaseBindings>& cases,const std::vector<Value>& answers) {
- const auto initial=gpu_detail::cuda_pool_debug_stats();
- auto session=std::make_unique<FitnessSessionGpu>();FitnessEvalResult before;
- std::vector<BytecodeProgram> programs;for(const auto& parent:parents)programs.push_back(compile_for_eval(parent,names));
- {
-  gpu_detail::CudaAllocationScope scope(true);
-  require(session->init(cases,answers,10000,512,1000).ok,"escaped pool session init");
-  before=session->eval_programs(programs,true);require(before.ok && scope.used(),"escaped session did not allocate in pool");
-  scope.finish();
-  require(gpu_detail::cuda_pool_debug_stats().live_allocations>initial.live_allocations,"scope discarded a live session's backing");
- }
- const auto again=session->eval_programs(programs,true);
- require(again.ok && again.fitness==before.fitness && again.wrong==before.wrong && again.case_counts==before.case_counts,
-     "session retained after native scope lost valid GPU case/frame storage");
- session.reset();const auto final=gpu_detail::cuda_pool_debug_stats();
- require(final.pools_alive==initial.pools_alive && final.live_allocations==initial.live_allocations &&
-     final.cleanup_errors==initial.cleanup_errors,"escaped session pool was not released on actual destruction");
-}
-
-void check_linear_elite_evolution(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
+void check_elite_evolution(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
     const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
     const std::vector<CaseBindings>& cases,const std::vector<Value>& answers) {
- const char* flag="GAGP_GPU_LINEAR_ELITE";const auto* prior=std::getenv(flag);
- const bool present=prior;const std::string saved=prior?prior:"";
- setenv(flag,"0",1);repro::NativePhasePopulation reference(grammar,parents,names);
- setenv(flag,"1",1);repro::NativePhasePopulation linear(grammar,parents,names);
- if(present)setenv(flag,saved.c_str(),1);else unsetenv(flag);
- require(std::string(linear.profile_name()).find("-elite-linear")!=std::string::npos &&
-     std::string(reference.profile_name()).find("-elite-linear")==std::string::npos,"linear elite constructor policy was not retained");
+ repro::NativePhasePopulation owner(grammar,parents,names);
  FitnessSessionGpu session;const FitnessPolicy policy{FitnessMetric::Exact};
- require(session.init(cases,answers,10000,512,1000,policy).ok,"linear elite fitness session");
+ require(session.init(cases,answers,10000,512,1000,policy).ok,"elite fitness session");
  for(int generation=0;generation<=16;++generation) {
-  const auto a=reference.evaluate(session,true),b=linear.evaluate(session,true);
-  require(a.ok && b.ok && a.fitness==b.fitness && a.wrong==b.wrong && a.case_counts==b.case_counts,
-      "linear elite changed GPU scores, counters or coverage");
-  const auto x=reference.export_population(),y=linear.export_population();std::vector<BytecodeProgram> programs;
-  require(x.size()==parents.size() && y.size()==parents.size(),"linear elite lost final members");
-  for(std::size_t i=0;i<x.size();++i) {
-   require(ast_cache_key(x[i].ast)==ast_cache_key(y[i].ast),"linear elite changed complete offspring AST trajectory");
-   auto fresh=y[i];fresh.derivation.reset();grammar::require_membership(*grammar,fresh);
-   programs.push_back(compile_for_eval(fresh,names));
-  }
-  std::vector<unsigned> wrong;
-  const auto cpu=eval_fitness_cpu(programs,cases,answers,10000,1000,512,policy,&wrong);
-  require(cpu==b.fitness && wrong==b.wrong,"linear elite offspring differs from independent full CPU evaluation");
+  const auto gpu=owner.evaluate(session,true);
+  require_cpu_scores(*grammar,owner,names,cases,answers,gpu,"elite offspring differs from independent full CPU evaluation",10000,512,policy);
   if(generation==16)break;
-  auto selection=a.fitness;
+  auto selection=gpu.fitness;
   if(generation%4==0)std::fill(selection.begin(),selection.end(),0.0);
   if(generation%4==1)std::fill(selection.begin(),selection.end(),-std::numeric_limits<double>::infinity());
   if(generation%4==2)for(std::size_t i=0;i<selection.size();++i)
    selection[i]=i%3==0?std::numeric_limits<double>::infinity():i%3==1?-0.:0.;
   const int elites=generation%4==3?3:generation%4==0?0:1;
   const auto seed=UINT64_C(0x691be4)+generation;const double mutation=generation%3==0?0:generation%3==1?.3:1;
-  reference.reproduce(selection,2,mutation,seed,elites);linear.reproduce(selection,2,mutation,seed,elites);
+  owner.reproduce(selection,2,mutation,seed,elites);
  }
 }
 
-void check_unchanged_fitness_reuse(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
+void check_completed_fitness_reuse(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
     const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
-    const std::vector<CaseBindings>& cases,const std::vector<Value>& answers,bool cross_parent=false) {
- const char* cache_flag="GAGP_GPU_PARENT_FITNESS_CACHE";
- const auto* cache_prior=std::getenv(cache_flag);const bool cache_present=cache_prior;
- const std::string cache_saved=cache_prior?cache_prior:"";unsetenv(cache_flag);
- const char* flag="GAGP_GPU_UNCHANGED_FITNESS_REUSE";const auto* prior=std::getenv(flag);
- const bool present=prior;const std::string saved=prior?prior:"";
- unsetenv(flag);repro::NativePhasePopulation reference(grammar,parents,names);
- setenv(flag,"1",1);if(cross_parent)setenv(cache_flag,"1",1);
- repro::NativePhasePopulation cached(grammar,parents,names);
- require((std::string(cached.profile_name()).find("-parent-fitness-cache")!=std::string::npos)==cross_parent,
-     "parent fitness index policy was not retained");
- if(cache_present)setenv(cache_flag,cache_saved.c_str(),1);else unsetenv(cache_flag);
- if(present)setenv(flag,saved.c_str(),1);else unsetenv(flag); // Constructor-fixed, not a live switch.
+    const std::vector<CaseBindings>& cases,const std::vector<Value>& answers) {
+ repro::NativePhasePopulation owner(grammar,parents,names);
+ require(std::string(owner.profile_name()).find("-parent-fitness-cache")!=std::string::npos,"parent fitness index missing from profile");
  FitnessSessionGpu session;const FitnessPolicy policy{FitnessMetric::Exact};
  require(session.init(cases,answers,10000,512,1000,policy).ok,"completed fitness session init");
  std::size_t reused=0;
@@ -224,27 +162,21 @@ void check_unchanged_fitness_reuse(const std::shared_ptr<const grammar::Compiled
   require(a.ok && b.ok && a.fitness==b.fitness && a.wrong==b.wrong && a.case_counts==b.case_counts,
       "completed fitness changed score, wrong, errors, timeouts or logical cases");
  };
+ // The same programs scored by the ordinary path, which has no completed-score map.
+ const auto ordinary=[&](FitnessSessionGpu& target){return target.eval_programs(owner.programs(),true);};
  for(int generation=0;generation<=16;++generation) {
-  const auto a=reference.evaluate(session,true),b=cached.evaluate(session,true);compare(a,b);
-  const auto x=reference.export_population(),y=cached.export_population();
-  std::vector<BytecodeProgram> programs;
-  for(std::size_t i=0;i<x.size();++i) {
-   require(ast_cache_key(x[i].ast)==ast_cache_key(y[i].ast),"completed fitness changed offspring AST trajectory");
-   auto fresh=y[i];fresh.derivation.reset();grammar::require_membership(*grammar,fresh);
-   programs.push_back(compile_for_eval(fresh,names));
-  }
-  std::vector<unsigned> wrong;const auto cpu=eval_fitness_cpu(programs,cases,answers,10000,1000,512,policy,&wrong);
-  require(cpu==b.fitness && wrong==b.wrong,"completed fitness differs from independent full CPU execution");
+  const auto b=owner.evaluate(session,true);compare(ordinary(session),b);
+  require_cpu_scores(*grammar,owner,names,cases,answers,b,"completed fitness differs from independent full CPU execution",10000,512,policy);
   reused+=b.fitness_reused_programs;
-  const auto repeated=cached.evaluate(session,true);compare(a,repeated);
+  const auto repeated=owner.evaluate(session,true);compare(b,repeated);
   require(repeated.fitness_reused_programs==parents.size() && repeated.physical_program_cases==0 &&
       repeated.fitness_reused_program_cases==parents.size()*cases.size(),"same-generation scores not completely reused or physical work misreported");
-  const auto no_diagnostics=cached.evaluate(session,false);
-  require(no_diagnostics.ok && no_diagnostics.fitness==a.fitness && no_diagnostics.wrong==a.wrong &&
+  const auto no_diagnostics=owner.evaluate(session,false);
+  require(no_diagnostics.ok && no_diagnostics.fitness==b.fitness && no_diagnostics.wrong==b.wrong &&
       no_diagnostics.case_counts.empty(),"completed fitness changed optional diagnostics contract");
   if(generation<16) {
    const auto seed=UINT64_C(0x81a9cc)+generation;const double mutation=generation%3==0?0:generation%3==1?.3:1;
-   reference.reproduce(a.fitness,2,mutation,seed,3);cached.reproduce(b.fitness,2,mutation,seed,3);
+   owner.reproduce(b.fitness,2,mutation,seed,3);
   }
  }
  require(reused>0,"unchanged-offspring fixture never reused a previous-generation score");
@@ -252,69 +184,56 @@ void check_unchanged_fitness_reuse(const std::shared_ptr<const grammar::Compiled
  auto changed_answers=answers;for(auto& answer:changed_answers)answer=Value::from_int(answer.i+101);
  const FitnessPolicy discounted{FitnessMetric::Absolute,FitnessProximity::Discounted};
  require(session.init(cases,changed_answers,10000,128,7,discounted).ok,"completed fitness reinit labels/policy");
- auto a=reference.evaluate(session,true),b=cached.evaluate(session,true);compare(a,b);
+ auto b=owner.evaluate(session,true);compare(ordinary(session),b);
  require(b.fitness_reused_programs==0,"session reinit reused scores from prior labels/policy");
- compare(a,cached.evaluate(session,true));
+ compare(b,owner.evaluate(session,true));
  for(int fuel:{0,1}) {
   require(session.init(cases,answers,fuel,512,1000,policy).ok,"completed fitness low-fuel reinit");
-  a=reference.evaluate(session,true);b=cached.evaluate(session,true);compare(a,b);
+  b=owner.evaluate(session,true);compare(ordinary(session),b);
   require(b.fitness_reused_programs==0,"new fuel retained completed scores");
-  compare(a,cached.evaluate(session,true));
+  compare(b,owner.evaluate(session,true));
  }
  // A failed init attempt also invalidates a previously ready context's cache.
  require(!session.init(cases,{},10000,512,1000,policy).ok,"invalid init accepted");
- a=reference.evaluate(session,true);b=cached.evaluate(session,true);compare(a,b);
- require(b.fitness_reused_programs==0,"failed reinit failed to invalidate owner cache");
  require(session.init(cases,answers,10000,512,1000,policy).ok,"completed fitness restore context");
- a=reference.evaluate(session,true);b=cached.evaluate(session,true);compare(a,b);
+ b=owner.evaluate(session,true);compare(ordinary(session),b);
+ require(b.fitness_reused_programs==0,"failed reinit failed to invalidate owner cache");
  // Skip an evaluation: one-generation maps cannot be followed across the gap.
- for(int i=0;i<2;++i) {
-  reference.reproduce(a.fitness,2,.3,UINT64_C(0x151529)+i,1);
-  cached.reproduce(a.fitness,2,.3,UINT64_C(0x151529)+i,1);
- }
- a=reference.evaluate(session,true);b=cached.evaluate(session,true);compare(a,b);
+ for(int i=0;i<2;++i)owner.reproduce(b.fitness,2,.3,UINT64_C(0x151529)+i,1);
+ b=owner.evaluate(session,true);compare(ordinary(session),b);
  require(b.fitness_reused_programs==0,"unscored generation gap reused obsolete parent indices");
  FitnessSessionGpu other;
  require(other.init(cases,changed_answers,10000,512,1000,policy).ok,"other completed context init");
- a=reference.evaluate(other,true);b=cached.evaluate(other,true);compare(a,b);
+ b=owner.evaluate(other,true);compare(ordinary(other),b);
  require(b.fitness_reused_programs==0,"different session reused completed scores");
 }
 
 void check_source_crossover_gate(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
     const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
     FitnessSessionGpu& session,const std::vector<CaseBindings>& cases,const std::vector<Value>& answers) {
- const char* flags[]={"GAGP_GPU_SOURCE_CROSSOVER_GATE","GAGP_GPU_DEFERRED_CROSSOVER_COPY","GAGP_GPU_UNIFORM_PHASE_SITES"};
- std::string saved[3];bool present[3];
- for(int i=0;i<3;++i){const auto* value=std::getenv(flags[i]);present[i]=value;saved[i]=value?value:"";}
  const grammar::ProjectedBudget budget{grammar->search_limits().max_nodes,grammar->search_limits().max_depth};
- for(bool deferred:{false,true}) {
-  if(deferred){setenv(flags[1],"1",1);setenv(flags[2],"1",1);}
-  else {unsetenv(flags[1]);unsetenv(flags[2]);}
-  unsetenv(flags[0]);repro::NativePhasePopulation reference(grammar,parents,names,budget);
-  setenv(flags[0],"0",1);repro::NativePhasePopulation disabled(grammar,parents,names,budget);
-  setenv(flags[0],"1",1);repro::NativePhasePopulation candidate(grammar,parents,names,budget);
-  unsetenv(flags[0]); // Gate policy is owned by the population.
-  require(std::string(reference.profile_name())==disabled.profile_name(),"zero crossover gate changed profile");
-  require(std::string(candidate.profile_name()).find("-source-cross07")!=std::string::npos,"crossover gate missing from profile");
+ for(bool uniform:{false,true}) {
+  PhaseVariationPolicy base;base.site_scope=uniform?PhaseSiteScope::UniformPhase:PhaseSiteScope::Genome;
+  auto gated=base;gated.crossover_probability=.7;
+  repro::NativePhasePopulation reference(grammar,parents,names,budget,0,base);
+  repro::NativePhasePopulation candidate(grammar,parents,names,budget,0,gated);
+  require(std::string(candidate.profile_name()).find("-source-cross07")!=std::string::npos &&
+      std::string(reference.profile_name()).find("-source-cross07")==std::string::npos,"crossover gate missing from profile");
   unsigned attempts=0,skips=0;
   for(int generation=0;generation<=8;++generation) {
-   const auto before=reference.evaluate(session,true),off=disabled.evaluate(session,true),on=candidate.evaluate(session,true);
-   require(before.ok && off.ok && on.ok && before.fitness==off.fitness && before.case_counts==off.case_counts,"disabled crossover gate changed evaluation");
-   const auto a=reference.export_population(),b=disabled.export_population(),c=candidate.export_population();
-   require(a.size()==b.size() && a.size()==c.size(),"crossover gate lost offspring");
-   std::vector<BytecodeProgram> programs;
-   for(std::size_t i=0;i<a.size();++i) {
-    require(ast_cache_key(a[i].ast)==ast_cache_key(b[i].ast),"disabled crossover gate changed RNG trajectory");
+   const auto before=reference.evaluate(session,true),on=candidate.evaluate(session,true);
+   require(before.ok && on.ok,"crossover gate evaluation");
+   const auto c=candidate.export_population();
+   require(c.size()==parents.size(),"crossover gate lost offspring");
+   for(std::size_t i=0;i<c.size();++i) {
     auto fresh=c[i];fresh.derivation.reset();const auto witness=grammar::reconstruct_derivation(*grammar,fresh);
     require(budget.accepts(witness.resources->subtree()),"crossover gate violated projected budget");
-    programs.push_back(compile_for_eval(fresh,names));
     require(on.case_counts.at(i)[0]==cases.size(),"crossover gate omitted cases");
    }
-   require(eval_fitness_cpu(programs,cases,answers,10000,1000,512)==on.fitness,"gated offspring GPU/CPU fitness mismatch");
+   require_cpu_scores(*grammar,candidate,names,cases,answers,on,"gated offspring GPU/CPU fitness mismatch");
    if(generation==8)break;
    const auto seed=UINT64_C(0x673219)+generation;
    const auto old=reference.reproduce(before.fitness,2,0,seed);
-   disabled.reproduce(off.fitness,2,0,seed);
    const auto now=candidate.reproduce(on.fitness,2,0,seed);
    require(old.variation.crossover_attempts==parents.size(),"default crossover stopped attempting every child");
    const auto tried=now.variation.crossover_attempts;
@@ -326,55 +245,40 @@ void check_source_crossover_gate(const std::shared_ptr<const grammar::CompiledGr
   }
   require(attempts>0 && skips>0,"crossover gate fixture did not cover attempts and clones");
  }
- for(int i=0;i<3;++i)if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);
 }
 
 void check_uniform_phase_sites(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
     const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
     FitnessSessionGpu& session,const std::vector<CaseBindings>& cases,
     const std::vector<Value>& answers) {
- const char* flag="GAGP_GPU_UNIFORM_PHASE_SITES";
- const auto* prior=std::getenv(flag);const bool had_prior=prior;const std::string saved=prior?prior:"";
- const auto* counted_prior=std::getenv("GAGP_COUNTED_SITE_DRAW");
- const bool had_counted=counted_prior;const std::string counted_saved=counted_prior?counted_prior:"";
  for(bool counted:{false,true}) {
-  if(counted)setenv("GAGP_COUNTED_SITE_DRAW","1",1);else unsetenv("GAGP_COUNTED_SITE_DRAW");
-  unsetenv(flag);repro::NativePhasePopulation reference(grammar,parents,names);
-  setenv(flag,"0",1);repro::NativePhasePopulation disabled(grammar,parents,names);
-  setenv(flag,"1",1);repro::NativePhasePopulation candidate(grammar,parents,names);
-  unsetenv(flag); // Policy is captured by the owner, not reread each generation.
-  require(std::string(reference.profile_name())==disabled.profile_name(),"zero flag changed profile");
-  require(std::string(candidate.profile_name())==std::string(reference.profile_name())+"-uniform-phase",
+  PhaseVariationPolicy base;base.site_draw=counted?PhaseSiteDraw::Counted:PhaseSiteDraw::Reservoir;
+  auto uniform=base;uniform.site_scope=PhaseSiteScope::UniformPhase;
+  repro::NativePhasePopulation reference(grammar,parents,names,std::nullopt,0,base);
+  repro::NativePhasePopulation candidate(grammar,parents,names,std::nullopt,0,uniform);
+  require(std::string(candidate.profile_name()).find("-uniform-phase")!=std::string::npos &&
+      std::string(reference.profile_name()).find("-uniform-phase")==std::string::npos,
       "uniform-phase search policy omitted from profile");
   bool trajectory_changed=false;
   for(int generation=0;generation<8;++generation) {
-   const auto before=reference.evaluate(session,true),off=disabled.evaluate(session,true),on=candidate.evaluate(session,true);
-   require(before.ok && off.ok && on.ok && before.fitness==off.fitness && before.case_counts==off.case_counts,
-       "disabled uniform-phase policy changed evaluation");
-   const auto a=reference.export_population(),b=disabled.export_population(),c=candidate.export_population();
-   require(a.size()==b.size() && a.size()==c.size(),"uniform-phase policy lost offspring");
-   std::vector<BytecodeProgram> programs;
+   const auto before=reference.evaluate(session,true),on=candidate.evaluate(session,true);
+   require(before.ok && on.ok,"uniform-phase evaluation");
+   const auto a=reference.export_population(),c=candidate.export_population();
+   require(a.size()==c.size(),"uniform-phase policy lost offspring");
    for(std::size_t i=0;i<a.size();++i) {
-    require(ast_cache_key(a[i].ast)==ast_cache_key(b[i].ast),"disabled uniform-phase policy changed RNG trajectory");
     trajectory_changed|=ast_cache_key(a[i].ast)!=ast_cache_key(c[i].ast);
-    auto fresh=c[i];fresh.derivation.reset();grammar::require_membership(*grammar,fresh);
-    programs.push_back(compile_for_eval(fresh,names));
     require(on.case_counts.at(i)[0]==cases.size(),"uniform-phase policy omitted cases");
    }
-   require(eval_fitness_cpu(programs,cases,answers,10000,1000,512)==on.fitness,
-       "uniform-phase offspring GPU/CPU fitness mismatch");
+   require_cpu_scores(*grammar,candidate,names,cases,answers,on,"uniform-phase offspring GPU/CPU fitness mismatch");
    const double mutation=generation%3==0?0:generation%3==1?.3:1;
    const auto seed=UINT64_C(0x89103)+generation;
    reference.reproduce(before.fitness,2,mutation,seed);
-   disabled.reproduce(off.fitness,2,mutation,seed);
    const auto stats=candidate.reproduce(on.fitness,2,mutation,seed);
    require(stats.variation.changed_children+stats.variation.unchanged_children==parents.size(),
        "uniform-phase offspring accounting incomplete");
   }
   require(trajectory_changed,"uniform-phase fixture did not exercise changed draws");
  }
- if(had_prior)setenv(flag,saved.c_str(),1);else unsetenv(flag);
- if(had_counted)setenv("GAGP_COUNTED_SITE_DRAW",counted_saved.c_str(),1);else unsetenv("GAGP_COUNTED_SITE_DRAW");
 }
 
 void check_site_depth(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
@@ -424,133 +328,57 @@ void check_site_depth(const std::shared_ptr<const grammar::CompiledGrammar>& gra
  require(declined,"site depth combined incompatible projected policy");
 }
 
-void check_inplace_mutation(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
-    const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
-    FitnessSessionGpu& session) {
- const char* setting=std::getenv("GAGP_GPU_INPLACE_MUTATION");
- const bool enabled=setting!=nullptr;const std::string saved=setting?setting:"";
- unsetenv("GAGP_GPU_INPLACE_MUTATION");repro::NativePhasePopulation reference(grammar,parents,names);
- setenv("GAGP_GPU_INPLACE_MUTATION","1",1);repro::NativePhasePopulation candidate(grammar,parents,names);
- if(enabled)setenv("GAGP_GPU_INPLACE_MUTATION",saved.c_str(),1);else unsetenv("GAGP_GPU_INPLACE_MUTATION");
- require(candidate.device_bytes()<=reference.device_bytes(),"in-place mutation increased persistent capacity");
- for(int generation=0;generation<=32;++generation) {
-  const auto before=reference.evaluate(session,true),after=candidate.evaluate(session,true);
-  require(before.ok && after.ok && before.fitness==after.fitness && before.case_counts==after.case_counts,
-      "in-place mutation changed full-case evaluation");
-  const auto a=reference.export_population(),b=candidate.export_population();
-  require(a.size()==b.size(),"in-place mutation lost an offspring");
-  for(std::size_t i=0;i<a.size();++i)
-   require(ast_cache_key(a[i].ast)==ast_cache_key(b[i].ast),"in-place mutation changed exact genotype");
-  if(generation==32)break;
-  const double probability=generation%3==0?0:generation%3==1?.3:1;
-  const auto x=reference.reproduce(before.fitness,2,probability,UINT64_C(0x16653)+generation);
-  const auto y=candidate.reproduce(after.fitness,2,probability,UINT64_C(0x16653)+generation);
-  require(x.variation.crossover_attempts==y.variation.crossover_attempts &&
-      x.variation.mutation_attempts==y.variation.mutation_attempts &&
-      x.variation.contract_rejections==y.variation.contract_rejections &&
-      x.variation.changed_children==y.variation.changed_children &&
-      x.variation.unchanged_children==y.variation.unchanged_children &&
-      x.variation.fallback_children==y.variation.fallback_children,
-      "in-place mutation changed operator accounting");
- }
-}
 
-void check_splice_policy(const char* flag, const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
+// Exports carry no derivation or certificate; each is independently admitted.
+void check_export_contract(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
     const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
     FitnessSessionGpu& session) {
- const char* setting=std::getenv(flag);
- const bool enabled=setting!=nullptr;const std::string saved=setting?setting:"";
- unsetenv(flag);repro::NativePhasePopulation reference(grammar,parents,names);
- setenv(flag,"1",1);repro::NativePhasePopulation candidate(grammar,parents,names);
- if(enabled)setenv(flag,saved.c_str(),1);else unsetenv(flag);
- require(candidate.device_bytes()<=reference.device_bytes(),"splice policy increased persistent capacity");
- for(int generation=0;generation<=32;++generation) {
-  const auto before=reference.evaluate(session,true),after=candidate.evaluate(session,true);
-  require(before.ok && after.ok && before.fitness==after.fitness && before.case_counts==after.case_counts,
-      "splice policy changed full-case evaluation");
-  const auto a=reference.export_population(),b=candidate.export_population();
-  require(a.size()==b.size(),"splice policy lost an offspring");
-  for(std::size_t i=0;i<a.size();++i)
-   require(ast_cache_key(a[i].ast)==ast_cache_key(b[i].ast),"splice policy changed exact genotype");
-  if(generation==32)break;
-  const double probability=generation%3==0?0:generation%3==1?.3:1;
-  const auto x=reference.reproduce(before.fitness,2,probability,UINT64_C(0x16653)+generation);
-  const auto y=candidate.reproduce(after.fitness,2,probability,UINT64_C(0x16653)+generation);
-  require(x.variation.crossover_attempts==y.variation.crossover_attempts &&
-      x.variation.mutation_attempts==y.variation.mutation_attempts &&
-      x.variation.contract_rejections==y.variation.contract_rejections &&
-      x.variation.changed_children==y.variation.changed_children &&
-      x.variation.unchanged_children==y.variation.unchanged_children &&
-      x.variation.fallback_children==y.variation.fallback_children,
-      "splice policy changed operator accounting");
- }
-}
-
-void check_constructive_export(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
-    const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
-    FitnessSessionGpu& session) {
- const char* setting=std::getenv("GAGP_GPU_CONSTRUCTIVE_EXPORT");
- const bool enabled=setting!=nullptr;const std::string saved=setting?setting:"";
- unsetenv("GAGP_GPU_CONSTRUCTIVE_EXPORT");repro::NativePhasePopulation reference(grammar,parents,names);
- setenv("GAGP_GPU_CONSTRUCTIVE_EXPORT","1",1);repro::NativePhasePopulation candidate(grammar,parents,names);
- unsetenv("GAGP_GPU_CONSTRUCTIVE_EXPORT"); // policy belongs to the original owner
+ repro::NativePhasePopulation owner(grammar,parents,names);
  for(int generation=0;generation<8;++generation) {
-  const auto a=reference.export_population(),b=candidate.export_population();
-  require(a.size()==b.size(),"constructive export population length changed");
-  for(std::size_t i=0;i<a.size();++i) {
-   require(a[i].derivation && !b[i].derivation,"constructive owner policy did not control optional canonical cache");
-   require(ast_cache_key(a[i].ast)==ast_cache_key(b[i].ast) && a[i].meta.program_key==b[i].meta.program_key,
-       "constructive export changed AST or metadata");
-   require(!candidate.export_member(i).derivation,"member export unexpectedly retains canonical cache");
-   grammar::require_membership(*grammar,b[i]); // independent, no supplied witness
+  const auto all=owner.export_population();
+  require(all.size()==parents.size(),"export population length changed");
+  for(std::size_t i=0;i<all.size();++i) {
+   const auto member=owner.export_member(i);
+   require(!all[i].derivation && !member.derivation,"export retained a derivation cache");
+   require(ast_cache_key(all[i].ast)==ast_cache_key(member.ast) && all[i].meta.program_key==member.meta.program_key,
+       "bulk export differs from member export");
+   grammar::require_membership(*grammar,all[i]); // independent, no supplied witness
   }
-  const auto x=reference.evaluate(session,true),y=candidate.evaluate(session,true);
-  require(x.ok && y.ok && x.fitness==y.fitness && x.case_counts==y.case_counts,"constructive export changed full-case GPU results");
-  reference.reproduce(x.fitness,2,generation%2?.3:1,UINT64_C(0x16754)+generation);
-  candidate.reproduce(y.fitness,2,generation%2?.3:1,UINT64_C(0x16754)+generation);
+  const auto x=owner.evaluate(session,true);require(x.ok,"export contract evaluation");
+  owner.reproduce(x.fitness,2,generation%2?.3:1,UINT64_C(0x16754)+generation);
  }
- auto external=candidate.export_member(0);external.ast.nodes.clear();
+ auto external=owner.export_member(0);external.ast.nodes.clear();
  bool rejected=false;try{repro::NativePhasePopulation invalid(grammar,{external},names);}catch(const std::invalid_argument&){rejected=true;}
- require(rejected,"constructive export granted authority to an externally modified AST");
- if(enabled)setenv("GAGP_GPU_CONSTRUCTIVE_EXPORT",saved.c_str(),1);
+ require(rejected,"export granted authority to an externally modified AST");
 }
 
 void check_initial_packed_verification(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
     const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
     FitnessSessionGpu& session,const std::vector<CaseBindings>& cases,const std::vector<Value>& answers) {
- const char* flags[]={"GAGP_OWNED_PHASE_PACKED","GAGP_REUSE_IMPORTED_EXECUTABLE"};
- std::string saved[2];bool present[2];
- for(int i=0;i<2;++i){const auto* value=std::getenv(flags[i]);present[i]=value;saved[i]=value?value:"";}
- for(int packed=0;packed<2;++packed)for(int reuse=0;reuse<2;++reuse) {
-  if(packed)setenv(flags[0],"1",1);else unsetenv(flags[0]);
-  if(reuse)setenv(flags[1],"1",1);else unsetenv(flags[1]);
-  auto external=std::vector<ProgramGenome>{parents.front(),parents.back()};
-  repro::NativePhasePopulation owner(grammar,external,names);
-  external.front().ast.nodes.clear(); // Cannot mutate the owner's admitted copy.
-  for(int generation=0;generation<2;++generation) {
-   const auto result=owner.evaluate(session,true);
-   const auto ordinary=session.eval_programs(owner.programs(),true);
-   const auto cpu=eval_fitness_cpu(owner.programs(),cases,answers,10000,1000,512);
-   require(result.ok && ordinary.ok && result.fitness==ordinary.fitness && result.fitness==cpu &&
-       result.case_counts==ordinary.case_counts,"initial private pack or subsequent lowering changed scores");
-   if(!generation)owner.reproduce(result.fitness,2,1.0,9183);
-  }
-  bool rejected=false;
-  try{repro::NativePhasePopulation bad(grammar,external,names);}catch(const std::invalid_argument&){rejected=true;}
-  require(rejected,"initial private packing trusted altered external AST");
-  rejected=false;
-  try{repro::NativePhasePopulation bad(grammar,{},names);}catch(const std::invalid_argument&){rejected=true;}
-  require(rejected,"empty population passed initial private packing");
-  rejected=false;
-  try{repro::NativePhasePopulation bad(grammar,std::vector<ProgramGenome>(8193),names);}catch(const std::invalid_argument&){rejected=true;}
-  require(rejected,"oversized population passed initial private packing");
+ auto external=std::vector<ProgramGenome>{parents.front(),parents.back()};
+ repro::NativePhasePopulation owner(grammar,external,names);
+ external.front().ast.nodes.clear(); // Cannot mutate the owner's admitted copy.
+ for(int generation=0;generation<2;++generation) {
+  const auto result=owner.evaluate(session,true);
+  const auto ordinary=session.eval_programs(owner.programs(),true);
+  const auto cpu=eval_fitness_cpu(owner.programs(),cases,answers,10000,1000,512);
+  require(result.ok && ordinary.ok && result.fitness==ordinary.fitness && result.fitness==cpu &&
+      result.case_counts==ordinary.case_counts,"initial private pack or subsequent lowering changed scores");
+  if(!generation)owner.reproduce(result.fitness,2,1.0,9183);
  }
- for(int i=0;i<2;++i)if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);
+ bool rejected=false;
+ try{repro::NativePhasePopulation bad(grammar,external,names);}catch(const std::invalid_argument&){rejected=true;}
+ require(rejected,"initial private packing trusted altered external AST");
+ rejected=false;
+ try{repro::NativePhasePopulation bad(grammar,{},names);}catch(const std::invalid_argument&){rejected=true;}
+ require(rejected,"empty population passed initial private packing");
+ rejected=false;
+ try{repro::NativePhasePopulation bad(grammar,std::vector<ProgramGenome>(16385),names);}catch(const std::invalid_argument&){rejected=true;}
+ require(rejected,"oversized population passed initial private packing");
 }
 
 void test_packed_pattern_refresh() {
  using namespace gpu_detail;
- setenv("GAGP_CONSTANT_PHASE","1",1);setenv("GAGP_BOUND_ADD_PHASE","1",1);setenv("GAGP_BOUND_COMPARE_PHASE","1",1);
  PackResult pack;pack.region_phases.resize(1);auto& phase=pack.region_phases[0];auto& m=phase.program;
  const auto instruction=[](unsigned char op,int a=0,unsigned fuel=1) { DInstr i;i.op=op;i.a=a;i.flags=DINSTR_HAS_A;i.fuel=fuel;return i; };
  pack.all_phase_code={instruction(OP_RETURN),instruction(OP_PUSH_CONST,0,3),instruction(OP_RETURN,0,2)};
@@ -574,11 +402,9 @@ void test_packed_pattern_refresh() {
  refresh_owned_phase_patterns(pack,0,1);
  require(m.scalar_constant_index==-1 && m.add_left_binding==-1 && m.compare_binding==-1,"phase shrink retained stale pattern metadata");
 }
-}
+
 void test_trivial_pattern_refresh() {
  using namespace gpu_detail;
- const char* flag="GAGP_GPU_TRIVIAL_PHASES";const bool present=std::getenv(flag)!=nullptr;
- const std::string saved=present?std::getenv(flag):"";setenv(flag,"1",1);
  PackResult pack;pack.region_phases.resize(1);auto& phase=pack.region_phases[0];auto& m=phase.program;
  pack.all_phase_code={{OP_PUSH_CONST,DINSTR_HAS_A,0,0,3},{OP_RETURN,0,0,0,2}};
  pack.all_phase_consts={Value::from_int(0),Value::from_int_list_hash_len(17,0)};
@@ -614,61 +440,24 @@ void test_trivial_pattern_refresh() {
  require(m.trivial_constant_index==-1,"private shortcut exceeded eight-local contract");
  m.n_locals=8;phase.binding_count=9;refresh_owned_phase_patterns(pack,0,1);
  require(m.trivial_constant_index==-1,"private shortcut exceeded eight-binding contract");
- phase.binding_count=8;refresh_owned_phase_patterns(pack,0,1);setenv(flag,"0",1);
- refresh_owned_phase_patterns(pack,0,1);
- require(m.trivial_constant_index==-1 && m.trivial_load_binding==-1,"disabled refresh retained private shortcut");
- if(present)setenv(flag,saved.c_str(),1);else unsetenv(flag);
-}
-
-void test_simple_pattern_refresh() {
- using namespace gpu_detail;
- const char* flag="GAGP_GPU_SIMPLE_PHASES";const char* prior=std::getenv(flag);
- const bool present=prior;const std::string saved=prior?prior:"";setenv(flag,"1",1);
- PackResult pack;pack.region_phases.resize(1);auto& phase=pack.region_phases[0];auto& m=phase.program;
- phase.binding_count=2;m.n_locals=2;m.const_len=1;pack.all_phase_consts={Value::from_int(3)};
- pack.region_bindings={{RegionSlotBank::State,0,0},{RegionSlotBank::Parameter,0,1}};
- pack.all_phase_code={{OP_LOAD,DINSTR_HAS_A,0,0,2},{OP_CHECK_INT,0,0,0,1},
-   {OP_LOAD,DINSTR_HAS_A,1,0,3},{OP_CHECK_INT,0,0,0,1},{OP_SUB,0,0,0,4},{OP_RETURN,0,0,0,1}};
- m.code_len=6;refresh_owned_phase_patterns(pack,0,1);
- require(m.simple_operation_ip==4 && m.simple_arity==2,"single-operation operand/check pattern not recognized");
- pack.all_phase_code[2].flags=0;refresh_owned_phase_patterns(pack,0,1);
- require(m.simple_operation_ip==-1,"missing operand flags entered simple phase");
- pack.all_phase_code={{OP_PUSH_CONST,DINSTR_HAS_A,0,0,1},{OP_RETURN,0,0,0,0}};m.code_len=2;
- refresh_owned_phase_patterns(pack,0,1);
- require(m.simple_operation_ip==-1 && m.simple_arity==0,"phase shrink retained stale single-operation metadata");
- if(present)setenv(flag,saved.c_str(),1);else unsetenv(flag);
 }
 
 void check_private_completed_fitness(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
     const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
     const std::vector<CaseBindings>& cases,const std::vector<Value>& answers,FitnessPolicy policy,int fuel) {
- const char* flags[]={"GAGP_GPU_UNCHANGED_FITNESS_REUSE","GAGP_GPU_PHASE_STAGED_BUFFERS"};
- std::string saved[2];bool present[2];
- for(int i=0;i<2;++i){const auto* value=std::getenv(flags[i]);present[i]=value;saved[i]=value?value:"";}
- setenv(flags[1],"1",1);unsetenv(flags[0]);repro::NativePhasePopulation reference(grammar,parents,names);
- setenv(flags[0],"1",1);repro::NativePhasePopulation cached(grammar,parents,names);
- for(int i=0;i<2;++i)if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);
+ repro::NativePhasePopulation owner(grammar,parents,names);
  FitnessSessionGpu session;require(session.init(cases,answers,fuel,32,1000,policy).ok,"private completed-score session");
  for(int generation=0;generation<=4;++generation) {
-  const auto a=reference.evaluate(session,true),b=cached.evaluate(session,true),again=cached.evaluate(session,true);
+  const auto b=owner.evaluate(session,true),again=owner.evaluate(session,true);
+  const auto a=session.eval_programs(owner.programs(),true);
   require(a.ok && b.ok && again.ok && a.fitness==b.fitness && a.fitness==again.fitness &&
       a.wrong==b.wrong && a.wrong==again.wrong && a.case_counts==b.case_counts && a.case_counts==again.case_counts,
       "private completed scores retained payload references or changed replay results");
   require(again.fitness_reused_programs==parents.size() && again.physical_program_cases==0 &&
-      again.payload_replay_programs==0 && again.payload_workspace_retained_bytes==0,
-      "cached private completed scores repeated payload work or retained staged workspace");
-  const auto x=reference.export_population(),y=cached.export_population();std::vector<BytecodeProgram> programs;
-  for(std::size_t i=0;i<x.size();++i) {
-   require(ast_cache_key(x[i].ast)==ast_cache_key(y[i].ast),"private completed-score reuse changed RNG/AST");
-   auto fresh=y[i];fresh.derivation.reset();grammar::require_membership(*grammar,fresh);programs.push_back(compile_for_eval(fresh,names));
-  }
-  std::vector<unsigned> wrong;
-  require(eval_fitness_cpu(programs,cases,answers,fuel,1000,32,policy,&wrong)==b.fitness && wrong==b.wrong,
-      "private completed scores differ from full independent CPU fitness/wrong");
-  if(generation<4) {
-   const auto seed=UINT64_C(0x917355)+generation;
-   reference.reproduce(a.fitness,2,.3,seed,1);cached.reproduce(b.fitness,2,.3,seed,1);
-  }
+      again.payload_replay_programs==0,"cached private completed scores repeated payload work");
+  require_cpu_scores(*grammar,owner,names,cases,answers,b,
+      "private completed scores differ from full independent CPU fitness/wrong",fuel,32,policy);
+  if(generation<4)owner.reproduce(b.fitness,2,.3,UINT64_C(0x917355)+generation,1);
  }
  const auto missing=Value::from_int_list_hash_len(UINT64_C(0x7ede192d),4);std::vector<Value> unresolved;
  require(!payload::lookup_list(missing,&unresolved),"late payload fixture is already registered");
@@ -676,66 +465,38 @@ void check_private_completed_fitness(const std::shared_ptr<const grammar::Compil
  for(auto& binding:missing_case)if(names[binding.idx]=="source")binding.value=missing;
  FitnessSessionGpu late;
  require(late.init({missing_case},{answers.front()},fuel,32,1000,policy).ok,"late payload session init");
- auto before=reference.evaluate(late,true),cold=cached.evaluate(late,true),warm=cached.evaluate(late,true);
+ auto cold=owner.evaluate(late,true),warm=owner.evaluate(late,true);
+ auto before=late.eval_programs(owner.programs(),true);
  require(before.ok && cold.ok && warm.ok && before.fitness==cold.fitness && before.wrong==cold.wrong &&
      warm.fitness_reused_programs==parents.size(),"unresolved backing did not establish complete prior scores");
  payload::register_list(missing,{Value::from_int(4),Value::from_int(-7),Value::from_int(12),Value::from_int(2)});
- auto resolved=cached.evaluate(late,true); // Must reject its old revision inside eval_programs_impl.
- auto expected=reference.evaluate(late,true);
+ auto resolved=owner.evaluate(late,true); // Must reject its old revision inside eval_programs_impl.
+ auto expected=late.eval_programs(owner.programs(),true);
  require(resolved.ok && expected.ok && resolved.fitness==expected.fitness && resolved.wrong==expected.wrong &&
      resolved.case_counts==expected.case_counts && resolved.fitness_reused_programs==0,
      "newly available payload reused obsolete error/fitness observations");
- auto resolved_again=cached.evaluate(late,true);
+ auto resolved_again=owner.evaluate(late,true);
  require(resolved_again.ok && resolved_again.fitness==expected.fitness &&
      resolved_again.fitness_reused_programs==parents.size(),"post-resolution revision was not recorded");
-
 }
 
-void test_private_intlist_generations(bool sequence_windows=false,bool staged=false,bool edit_distance=false) {
- const char* flags[]={"GAGP_GPU_PRIVATE_INTLIST_OFFSETS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_OWNED_PHASE_PACK","GAGP_OWNED_PHASE_PACKED","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_TRIVIAL_PHASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_PRIVATE_MEASURE_CACHE","GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","GAGP_COMPACT_FRAMES","GAGP_GPU_WINDOW_LEAF_DIRECT","GAGP_GPU_PRIVATE_BOUND_PHASES","GAGP_BOUND_ADD_PHASE","GAGP_BOUND_COMPARE_PHASE","GAGP_GPU_PRIVATE_TYPED_PHASES","GAGP_GPU_PRIVATE_WARP_COPY","GAGP_COLD_PAYLOAD_PROOFS","GAGP_COLD_IMPORT_EXECUTABLES","GAGP_REUSE_IMPORT_CERTIFICATE","GAGP_REUSE_ADMISSION_COMPILE","GAGP_REUSE_IMPORTED_EXECUTABLE","GAGP_GPU_REUSE_PRIVATE_WORKSPACE","GAGP_GPU_SIMPLE_PHASES","GAGP_GPU_REGISTER_PHASE_STACK"};
- struct Restore {
-  const char** flags;std::string saved[25];bool present[25];
-  explicit Restore(const char** f):flags(f){for(int i=0;i<25;++i){const auto* v=std::getenv(f[i]);present[i]=v;saved[i]=v?v:"";setenv(f[i],"1",1);}}
-  ~Restore(){for(int i=0;i<25;++i){if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}}
- } restore(flags);
- if(!sequence_windows)setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","0",1);
+void test_private_intlist_generations(bool sequence_windows=false,bool edit_distance=false) {
  const auto grammar=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
      grammar::load_definition(sequence_windows?GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_measure_intlist.json":
          GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_intlist.json")));
  std::vector<std::string> names;for(const auto& binding:grammar->inputs())names.push_back(binding.name);
  std::vector<ProgramGenome> parents;for(int i=0;i<8;++i)parents.push_back(grammar::generate_derivation(*grammar,721+i).genome);
- bool retained_cold_artifact=false,certified_cold_miss=false;
- for(std::size_t i=0;i<parents.size();++i) {
-  auto& parent=parents[i];
+ for(auto& parent:parents) {
   const bool registry=std::any_of(parent.ast.consts.begin(),parent.ast.consts.end(),
       [](const Value& value){return value.tag==ValueTag::IntList;});
   require(registry==!sequence_windows,"private owner fixture registry constants changed");
   // Serialized external parents carry no public derivation or certificate.
   parent.derivation.reset();
   std::shared_ptr<const BytecodeProgram> artifact;
-  if(i==0 && registry) {
-   // Keep one valid membership certificate created without executable retention.
-   // Enabling reuse must preserve that miss and take ordinary import lowering.
-   setenv("GAGP_COLD_IMPORT_EXECUTABLES","0",1);
-   parent.derivation=std::make_shared<const grammar::DerivationMetadata>(
-       grammar::detail::reconstruct_cold_derivation(*grammar,parent,grammar::entry_request(*grammar)));
-   require(bool(parent.derivation->certificate),"cold fallback fixture lacks certificate");
-   setenv("GAGP_COLD_IMPORT_EXECUTABLES","1",1);
-   const auto reused=grammar::detail::reconstruct_cold_derivation(
-       *grammar,parent,grammar::entry_request(*grammar),nullptr,nullptr,&artifact,&names);
-   require(!artifact && reused.certificate==parent.derivation->certificate,"certified miss forced unnecessary lowering");
-   certified_cold_miss=true;
-  } else {
-   parent.derivation=std::make_shared<const grammar::DerivationMetadata>(
-       grammar::detail::reconstruct_cold_derivation(*grammar,parent,grammar::entry_request(*grammar),nullptr,nullptr,&artifact,&names));
-   const char* fused=std::getenv("GAGP_FUSED_COLD_EXECUTABLE");
-   require(bool(artifact)==(registry || (fused && std::string(fused)=="1")),"cold executable retention differs from actual admission mode");
-  }
-  retained_cold_artifact|=bool(artifact);
+  parent.derivation=std::make_shared<const grammar::DerivationMetadata>(
+      grammar::detail::reconstruct_cold_derivation(*grammar,parent,grammar::entry_request(*grammar),nullptr,nullptr,&artifact,&names));
+  require(bool(artifact)==registry,"cold executable retention differs from the admission mode");
  }
- const char* fused=std::getenv("GAGP_FUSED_COLD_EXECUTABLE");
- require(retained_cold_artifact==(!sequence_windows || (fused && std::string(fused)=="1")) && certified_cold_miss==!sequence_windows,
-     "private owner fixture must cover registry reuse/miss and scalar ordinary lowering");
  std::vector<CaseBindings> cases;std::vector<Value> answers;
  for(int i=0;i<1024;++i) {
   CaseBindings row;
@@ -747,17 +508,8 @@ void test_private_intlist_generations(bool sequence_windows=false,bool staged=fa
  FitnessPolicy policy;policy.metric=edit_distance?FitnessMetric::Levenshtein:FitnessMetric::Exact;policy.list_allocation_limit=65536;
  const int audit_fuel=sequence_windows?100000:10000;
  FitnessSessionGpu session;require(session.init(cases,answers,audit_fuel,32,1000,policy).ok,"private list owner session");
- const auto* stage_prior=std::getenv("GAGP_GPU_PHASE_STAGED_BUFFERS");
- const bool stage_present=stage_prior;const std::string stage_saved=stage_prior?stage_prior:"";
- setenv("GAGP_GPU_PHASE_STAGED_BUFFERS","0",1);
- setenv("GAGP_COLD_IMPORT_EXECUTABLES","0",1);
- repro::NativePhasePopulation cold_control(grammar,parents,names);
- setenv("GAGP_GPU_PHASE_STAGED_BUFFERS",staged?"1":"0",1);
- setenv("GAGP_COLD_IMPORT_EXECUTABLES","1",1);
  repro::NativePhasePopulation owner(grammar,parents,names);
- if(stage_present)setenv("GAGP_GPU_PHASE_STAGED_BUFFERS",stage_saved.c_str(),1);else unsetenv("GAGP_GPU_PHASE_STAGED_BUFFERS");
- if(staged)require(owner.device_bytes()<cold_control.device_bytes(),"staged owner retained reproduction buffers at cold admission");
- if(sequence_windows && staged) {
+ if(sequence_windows) {
   std::vector<EvalCase> evolution_cases;
   for(std::size_t i=0;i<cases.size();++i){EvalCase row;row.expected=answers[i];
    for(const auto& binding:cases[i])row.inputs[names[binding.idx]]=binding.value;
@@ -766,222 +518,51 @@ void test_private_intlist_generations(bool sequence_windows=false,bool staged=fa
   config.generation_request=grammar::entry_request(*grammar);config.eval_engine=EvalEngine::GPU;
   config.reproduction_backend=repro::ReproductionBackend::Gpu;config.mutation_subtree_prob=1;
   config.fuel=grammar->execution_limits().fuel;config.penalty=1000;config.gpu_blocksize=32;config.fitness_policy=policy;
-  config.retain_final_population=true;
   // Keep all case payload roots: evolve may prune the global registry.
-  check_pool_evolution(evolution_cases,config,parents);
+  check_evolution_final_scores(evolution_cases,config,parents);
   check_private_completed_fitness(grammar,parents,names,cases,answers,policy,audit_fuel);
  }
  std::vector<CaseBindings> dense_cases(cases.begin(),cases.begin()+19);
  std::vector<Value> dense_answers(answers.begin(),answers.begin()+19);
  FitnessSessionGpu dense_session;
  require(dense_session.init(dense_cases,dense_answers,audit_fuel,512,1000,policy).ok,"fresh dense private session");
- bool changed=false,saw_content_match=false,saw_simple=false;
+ bool changed=false,saw_content_match=false;
  for(int generation=0;generation<=32;++generation) {
-  setenv("GAGP_GPU_REUSE_PRIVATE_WORKSPACE","0",1);
-  setenv("GAGP_GPU_PRIVATE_WARP_COPY","0",1);
-  setenv("GAGP_GPU_PRIVATE_TYPED_PHASES","0",1);
-  setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","0",1);
-  setenv("GAGP_GPU_PRIVATE_BOUND_PHASES","0",1);
-  setenv("GAGP_GPU_PRIVATE_MEASURE_CACHE","0",1);
-  setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","0",1);
-  const auto uncached=owner.evaluate(session,true);
-  setenv("GAGP_GPU_PRIVATE_MEASURE_CACHE","1",1);
-  setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR",sequence_windows?"1":"0",1);
-  setenv("GAGP_GPU_COMPACT_INTLIST_CELLS","0",1);
-  setenv("GAGP_GPU_PRIVATE_WARP_COPY","1",1);
-  const auto boxed=owner.evaluate(session,true);
-  setenv("GAGP_GPU_PRIVATE_WARP_COPY","0",1);
-  setenv("GAGP_GPU_COMPACT_INTLIST_CELLS","1",1);
-  const auto no_bound=owner.evaluate(session,true);
-  setenv("GAGP_GPU_PRIVATE_BOUND_PHASES","1",1);
-  const auto canonical=owner.evaluate(session,true);
-  setenv("GAGP_GPU_PRIVATE_GLOBAL_OFFSETS","1",1);
-  const auto untyped=owner.evaluate(session,true);
-  setenv("GAGP_GPU_PRIVATE_TYPED_PHASES","1",1);
-  const auto no_warp=owner.evaluate(session,true);
-  setenv("GAGP_GPU_PRIVATE_WARP_COPY","1",1);
-  const auto unpooled=owner.evaluate(session,true);
-  setenv("GAGP_GPU_REUSE_PRIVATE_WORKSPACE","1",1);
   const auto gpu=owner.evaluate(session,true);
-  saw_simple|=gpu.simple_phase_count>0;
-  const auto dirty=owner.evaluate(session,true);
-  const char* adjacent_prior=std::getenv("GAGP_GPU_PRIVATE_ADJACENT_CONCAT");
-  const bool adjacent_present=adjacent_prior!=nullptr;
-  const std::string adjacent_saved=adjacent_prior?adjacent_prior:"";
-  const char* soa_prior=std::getenv("GAGP_GPU_PRIVATE_CELL_SOA");
-  const bool soa_present=soa_prior!=nullptr;
-  const std::string soa_saved=soa_prior?soa_prior:"";
-  setenv("GAGP_GPU_PRIVATE_ADJACENT_CONCAT","0",1);
-  const auto adjacent_off=owner.evaluate(session,true);
-  setenv("GAGP_GPU_PRIVATE_ADJACENT_CONCAT","1",1);
-  const auto adjacent_current=owner.evaluate(session,true);
-  require(adjacent_current.ok && adjacent_off.ok && adjacent_current.fitness==adjacent_off.fitness &&
-      adjacent_current.wrong==adjacent_off.wrong && adjacent_current.case_counts==adjacent_off.case_counts &&
-      adjacent_current.fitness==gpu.fitness && adjacent_current.wrong==gpu.wrong,
-      "private adjacent request changed results with existing layout");
-  require(adjacent_current.execution_profile.find("-private-adjacent-concat")!=std::string::npos &&
-      (adjacent_current.execution_profile.find("-private-adjacent-concat-declined")!=std::string::npos)==(soa_saved=="1"),
-      "private adjacent admission must decline the existing interleaved layout");
-  setenv("GAGP_GPU_PRIVATE_CELL_SOA","0",1);
-  setenv("GAGP_GPU_PRIVATE_ADJACENT_CONCAT","0",1);
-  const auto adjacent_contiguous_off=owner.evaluate(session,true);
-  setenv("GAGP_GPU_PRIVATE_ADJACENT_CONCAT","1",1);
-  const auto adjacent_contiguous_on=owner.evaluate(session,true);
-  if(soa_present)setenv("GAGP_GPU_PRIVATE_CELL_SOA",soa_saved.c_str(),1);
-  else unsetenv("GAGP_GPU_PRIVATE_CELL_SOA");
-  if(adjacent_present)setenv("GAGP_GPU_PRIVATE_ADJACENT_CONCAT",adjacent_saved.c_str(),1);
-  else unsetenv("GAGP_GPU_PRIVATE_ADJACENT_CONCAT");
-  require(adjacent_contiguous_on.ok && adjacent_contiguous_off.ok &&
-      adjacent_contiguous_on.fitness==adjacent_contiguous_off.fitness &&
-      adjacent_contiguous_on.wrong==adjacent_contiguous_off.wrong &&
-      adjacent_contiguous_on.case_counts==adjacent_contiguous_off.case_counts &&
-      adjacent_contiguous_on.fitness==gpu.fitness && adjacent_contiguous_on.wrong==gpu.wrong &&
-      adjacent_contiguous_on.execution_profile.find("-private-adjacent-concat")!=std::string::npos &&
-      adjacent_contiguous_on.execution_profile.find("-private-adjacent-concat-declined")==std::string::npos,
-      "private adjacent contiguous backing changed full-case cross-generation results");
-  const char* launch_prior=std::getenv("GAGP_GPU_PRIVATE_LAUNCH_BOUND");
-  const bool launch_present=launch_prior!=nullptr;
-  const std::string launch_saved=launch_prior?launch_prior:"";
-  const int compile_bound=generation%2?512:1024;
-  setenv("GAGP_GPU_PRIVATE_LAUNCH_BOUND",std::to_string(compile_bound).c_str(),1);
-  const auto launch_tuned=owner.evaluate(session,true);
-  if(launch_present)setenv("GAGP_GPU_PRIVATE_LAUNCH_BOUND",launch_saved.c_str(),1);
-  else unsetenv("GAGP_GPU_PRIVATE_LAUNCH_BOUND");
-  require(launch_tuned.ok && launch_tuned.fitness==gpu.fitness && launch_tuned.wrong==gpu.wrong &&
-      launch_tuned.case_counts==gpu.case_counts &&
-      launch_tuned.execution_profile.find("-private-launch"+std::to_string(compile_bound))!=std::string::npos,
-      "private launch geometry changed cross-generation full-case evaluation");
-  setenv("GAGP_GPU_REGISTER_PHASE_STACK","0",1);
-  setenv("GAGP_GPU_SIMPLE_PHASES","0",1);const auto simple_off=owner.evaluate(session,true);
-  setenv("GAGP_GPU_SIMPLE_PHASES","1",1);setenv("GAGP_GPU_REGISTER_PHASE_STACK","1",1);
-  require(simple_off.ok && simple_off.fitness==gpu.fitness && simple_off.wrong==gpu.wrong &&
-      simple_off.case_counts==gpu.case_counts,"single-operation private phase changed fitness/status counters");
-  if(generation%16==0)for(int low_fuel:{0,1,2,3,7,16}) {
-    FitnessSessionGpu limited;
-    require(limited.init({cases.front()},{answers.front()},low_fuel,32,1000,policy).ok,"simple phase low-fuel init");
-    const auto fast=owner.evaluate(limited,true);
-    setenv("GAGP_GPU_SIMPLE_PHASES","0",1);const auto ordinary=owner.evaluate(limited,true);
-    setenv("GAGP_GPU_SIMPLE_PHASES","1",1);
-    require(fast.ok && ordinary.ok && fast.fitness==ordinary.fitness && fast.wrong==ordinary.wrong &&
-        fast.case_counts==ordinary.case_counts,"single-operation phase changed fuel/error ordering");
-  }
-  const char* count_prior=std::getenv("GAGP_GPU_COALESCED_COUNTS");
-  const bool count_present=count_prior;const std::string count_saved=count_prior?count_prior:"";
-  setenv("GAGP_GPU_COALESCED_COUNTS","1",1);
-  const auto coalesced=owner.evaluate(session,true);
-  if(count_present)setenv("GAGP_GPU_COALESCED_COUNTS",count_saved.c_str(),1);
-  else unsetenv("GAGP_GPU_COALESCED_COUNTS");
-  require(coalesced.ok && coalesced.fitness==gpu.fitness && coalesced.wrong==gpu.wrong &&
-      coalesced.case_counts==gpu.case_counts && coalesced.execution_profile.find("-coalesced-counts")!=std::string::npos,
-      "coalesced GPU counts changed full-case fitness, errors, timeouts or wrong counts");
-  require(unpooled.ok && unpooled.fitness==gpu.fitness && unpooled.wrong==gpu.wrong && unpooled.case_counts==gpu.case_counts &&
-      dirty.ok && dirty.fitness==gpu.fitness && dirty.wrong==gpu.wrong && dirty.case_counts==gpu.case_counts &&
-      (staged?gpu.payload_workspace_retained_bytes==0:gpu.payload_workspace_retained_bytes>0) && gpu.payload_workspace_pool_peak_bytes<=gpu.payload_workspace_budget_bytes &&
-      dirty.payload_workspace_pool_peak_bytes<=dirty.payload_workspace_budget_bytes,
-      "fresh-generation pooled cells/frames/memo differ from ordinary execution");
-  const auto cold_off=cold_control.evaluate(session,true);
-  require(cold_off.ok && cold_off.fitness==gpu.fitness && cold_off.wrong==gpu.wrong && cold_off.case_counts==gpu.case_counts,
-      "cold executable reuse changed fresh-generation full-case fitness");
-  require(no_warp.ok && no_warp.fitness==gpu.fitness && no_warp.wrong==gpu.wrong &&
-      no_warp.case_counts==gpu.case_counts && no_warp.payload_replay_programs==gpu.payload_replay_programs &&
-      no_warp.payload_replay_value_capacity==gpu.payload_replay_value_capacity && no_warp.execution_profile.find("-private-warp-copy")==std::string::npos &&
-      gpu.execution_profile.find("-private-warp-copy")!=std::string::npos &&
-      boxed.execution_profile.find("-private-warp-copy-declined")!=std::string::npos &&
-      untyped.ok && untyped.fitness==gpu.fitness && untyped.wrong==gpu.wrong &&
-      untyped.case_counts==gpu.case_counts && untyped.execution_profile.find("-private-typed-phases")==std::string::npos &&
-      gpu.execution_profile.find("-private-typed-phases")!=std::string::npos &&
-      no_bound.ok && no_bound.fitness==gpu.fitness && no_bound.wrong==gpu.wrong &&
-      no_bound.case_counts==gpu.case_counts && no_bound.execution_profile.find("-private-bound-phases")==std::string::npos &&
-      gpu.execution_profile.find("-private-bound-phases")!=std::string::npos &&
-      uncached.ok && boxed.ok && gpu.ok && uncached.fitness==gpu.fitness && uncached.wrong==gpu.wrong &&
-      uncached.case_counts==gpu.case_counts && gpu.execution_profile.find("-private-measure-cache")!=std::string::npos &&
-      boxed.fitness==gpu.fitness && boxed.wrong==gpu.wrong,"cached/uncached fresh private phases differ");
-  require(canonical.ok && gpu.ok && canonical.fitness==gpu.fitness && canonical.wrong==gpu.wrong &&
-      canonical.case_counts==gpu.case_counts && gpu.execution_profile.find("-private-global-offsets")!=std::string::npos,
-      "global descriptor staging changed fresh GPU phases");
-  require(boxed.ok && gpu.ok && boxed.fitness==gpu.fitness && boxed.wrong==gpu.wrong &&
-      boxed.case_counts==gpu.case_counts && boxed.execution_profile.find("-compact-intlist-cells")==std::string::npos &&
-      gpu.execution_profile.find("-compact-intlist-cells")!=std::string::npos,
-      "private bound/boxed/compact phases differ across fresh GPU generations");
+  const auto ordinary=session.eval_programs(owner.programs(),true);
+  require(gpu.ok && ordinary.ok && gpu.fitness==ordinary.fitness && gpu.wrong==ordinary.wrong &&
+      gpu.case_counts==ordinary.case_counts && gpu.payload_workspace_pool_peak_bytes<=gpu.payload_workspace_budget_bytes,
+      "owned private phases differ from the ordinary evaluation path");
   require(!sequence_windows || (gpu.execution_profile.find("-private-window")!=std::string::npos && gpu.execution_profile.find("-private-window-declined")==std::string::npos),"sequence private driver declined");
-  require(gpu.ok && gpu.execution_profile.find("-trivial-phases")!=std::string::npos && gpu.execution_profile.find("private-intlist-offset-v1")!=std::string::npos &&
-      gpu.execution_profile.find("-declined")==std::string::npos,"fresh list generation lost capability");
-  std::vector<BytecodeProgram> independent;
-  for(auto genome:owner.export_population()) {
-   genome.derivation.reset();grammar::require_membership(*grammar,genome);
-   independent.push_back(compile_for_eval(genome,names));
-  }
+  // The profile lists every capability, accepted or "-declined".
+  const auto accepted=[&](const std::string& token){const auto& p=gpu.execution_profile;
+   return p.find(token)!=std::string::npos && p.find(token+"-declined")==std::string::npos;};
+  require(accepted("-trivial-phases") && accepted("-private-intlist-offset-v1"),"fresh list generation lost capability");
+  const auto independent=independent_programs(*grammar,owner.export_population(),names);
   std::vector<unsigned> wrong;
   const auto cpu=eval_fitness_cpu(independent,cases,answers,audit_fuel,1000,32,policy,&wrong);
-  if(gpu.fitness!=cpu || gpu.wrong!=wrong) {
-   std::size_t missing=0;for(const auto& row:cases)for(const auto& binding:row)
-    if(binding.value.tag==ValueTag::IntList){std::vector<Value> contents;missing+=!payload::lookup_list(binding.value,&contents);}
-   std::cerr<<"private audit generation="<<generation<<" sequence_windows="<<sequence_windows<<" staged="<<staged<<" missing_case_payloads="<<missing<<'\n';
-  }
   require(gpu.fitness==cpu && gpu.wrong==wrong,"new GPU list phases differ from full-case independent CPU audit");
-  {
-   const char* names[]={"GAGP_GPU_DENSE_CASE_LANES","GAGP_GPU_TILED_INITIAL_PAYLOAD","GAGP_GPU_DENSE_CASE_TILES","GAGP_GPU_TILED_REPLAY"};
-   std::string saved[4];bool present[4];
-   for(int i=0;i<4;++i){const auto* p=std::getenv(names[i]);present[i]=p;saved[i]=p?p:"";setenv(names[i],"0",1);}
-   const auto before_dense=owner.evaluate(dense_session,true);
-   setenv(names[0],"1",1);const auto dense=owner.evaluate(dense_session,true);
-   const auto dirty_dense=owner.evaluate(dense_session,true);
-   std::vector<unsigned> dense_wrong;
-   const auto dense_cpu=eval_fitness_cpu(independent,dense_cases,dense_answers,audit_fuel,1000,512,policy,&dense_wrong);
-   require(before_dense.ok && dense.ok && dirty_dense.ok && before_dense.fitness==dense.fitness &&
-       dirty_dense.fitness==dense.fitness && dense.fitness==dense_cpu && dense.wrong==dense_wrong &&
-       before_dense.case_counts==dense.case_counts && dirty_dense.case_counts==dense.case_counts &&
-       dense.execution_profile.find("-dense-case-lanes")!=std::string::npos &&
-       dense.execution_profile.find("-dense-case-lanes-declined")==std::string::npos,
-       "dense scheduling changed fresh private generations, full CPU audit or dirty workspace scores");
-
-   setenv(names[0],"0",1);setenv(names[1],"1",1);setenv(names[3],"1",1);
-   const auto ordinary_tiles=owner.evaluate(dense_session,true);
-   setenv(names[2],"1",1);const auto dense_tiles=owner.evaluate(dense_session,true);
-   const auto dirty_tiles=owner.evaluate(dense_session,true);
-   for(int i=0;i<4;++i)if(present[i])setenv(names[i],saved[i].c_str(),1);else unsetenv(names[i]);
-   require(ordinary_tiles.ok && dense_tiles.ok && dirty_tiles.ok && dense_tiles.fitness==dense_cpu &&
-       ordinary_tiles.fitness==dense_tiles.fitness && dirty_tiles.fitness==dense_tiles.fitness &&
-       dense_tiles.wrong==dense_wrong && dense_tiles.case_counts==ordinary_tiles.case_counts &&
-       dirty_tiles.case_counts==dense_tiles.case_counts &&
-       dense_tiles.initial_payload_overflow_lane_masks==ordinary_tiles.initial_payload_overflow_lane_masks &&
-       dense_tiles.execution_profile.find("-dense-case-tiles")!=std::string::npos &&
-       dense_tiles.execution_profile.find("-dense-case-tiles-declined")==std::string::npos,
-       "dense case tiles changed fresh private generations, original lane masks, replay or full CPU audit");
-
-   {
-    const char* flags[]={"GAGP_GPU_SPECIALIZE_PRIVATE_LAYOUT","GAGP_GPU_PRIVATE_LAUNCH_BOUND",
-        "GAGP_GPU_PRIVATE_CELL_SOA","GAGP_GPU_COMPACT_INTLIST_CELLS","GAGP_GPU_PRIVATE_GLOBAL_OFFSETS",
-        "GAGP_GPU_TRIVIAL_PHASES","GAGP_GPU_PRIVATE_TYPED_PHASES","GAGP_GPU_PRIVATE_BOUND_PHASES",
-        "GAGP_GPU_PRIVATE_WARP_COPY","GAGP_GPU_PRIVATE_WINDOW_EXECUTOR"};
-    const char* values[]={"0","32","0","1","1","1","1","1","1","1"};
-    std::string saved[10];bool present[10];
-    for(int i=0;i<10;++i){const auto* p=std::getenv(flags[i]);present[i]=p;saved[i]=p?p:"";setenv(flags[i],values[i],1);}
-    const auto ordinary=owner.evaluate(dense_session,true);
-    setenv(flags[0],"1",1);const auto specialized=owner.evaluate(dense_session,true);
-    const auto dirty=owner.evaluate(dense_session,true);
-    setenv(flags[8],"0",1);const auto declined=owner.evaluate(dense_session,true);
-    for(int i=0;i<10;++i)if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);
-    require(ordinary.ok && specialized.ok && dirty.ok && declined.ok && ordinary.fitness==dense_cpu &&
-        specialized.fitness==dense_cpu && dirty.fitness==dense_cpu && declined.fitness==dense_cpu &&
-        specialized.wrong==dense_wrong && declined.wrong==dense_wrong &&
-        ordinary.case_counts==specialized.case_counts && dirty.case_counts==specialized.case_counts &&
-        declined.case_counts==specialized.case_counts &&
-        specialized.execution_profile.find("-private-layout-specialized")!=std::string::npos &&
-        (specialized.execution_profile.find("-private-layout-specialized-declined")==std::string::npos)==sequence_windows &&
-        declined.execution_profile.find("-private-layout-specialized-declined")!=std::string::npos,
-        "host-proved private layout specialization changed fresh native generations, CPU scores or fallback");
-   }
+  if(generation%16==0)for(int low_fuel:{0,1,2,3,7,16}) {
+    FitnessSessionGpu limited;
+    require(limited.init({cases.front()},{answers.front()},low_fuel,32,1000,policy).ok,"private low-fuel init");
+    const auto fast=owner.evaluate(limited,true);
+    std::vector<unsigned> limited_wrong;
+    const auto limited_cpu=eval_fitness_cpu(independent,{cases.front()},{answers.front()},low_fuel,1000,32,policy,&limited_wrong);
+    require(fast.ok && fast.fitness==limited_cpu && fast.wrong==limited_wrong,"private phases changed fuel/error ordering");
   }
+  const auto dense=owner.evaluate(dense_session,true),dirty_dense=owner.evaluate(dense_session,true);
+  std::vector<unsigned> dense_wrong;
+  const auto dense_cpu=eval_fitness_cpu(independent,dense_cases,dense_answers,audit_fuel,1000,512,policy,&dense_wrong);
+  require(dense.ok && dirty_dense.ok && dense.fitness==dense_cpu && dense.wrong==dense_wrong &&
+      dirty_dense.fitness==dense.fitness && dirty_dense.case_counts==dense.case_counts,
+      "short case set changed fresh private generations or full CPU audit");
   for(auto value:wrong)saw_content_match|=value<1024;
   for(const auto& count:gpu.case_counts)require(count[0]==1024,"private owner omitted cases");
   if(generation==32)break;
   const auto stats=owner.reproduce(gpu.fitness,2,.3,UINT64_C(9831)+generation);
-  cold_control.reproduce(gpu.fitness,2,.3,UINT64_C(9831)+generation);
   changed|=stats.variation.changed_children!=0;
  }
  require(changed && saw_content_match,"private list owner did not generate new phases/content matches");
- require(saw_simple,"single-operation phase fixture never activated the shortcut");
  // Same input types but an unsupported policy must use ordinary current phases.
  auto unsupported_policy=policy;unsupported_policy.list_allocation_limit=0;
  FitnessSessionGpu unsupported_session;
@@ -991,12 +572,7 @@ void test_private_intlist_generations(bool sequence_windows=false,bool staged=fa
  const auto policy_ordinary=unsupported_session.eval_programs(owner.programs(),true);
  require(policy_declined.ok && policy_ordinary.ok && policy_declined.fitness==policy_ordinary.fitness &&
      policy_declined.wrong==policy_ordinary.wrong &&
-     policy_declined.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos &&
-     policy_declined.execution_profile.find("compact-intlist-cells-declined")!=std::string::npos &&
-     policy_declined.execution_profile.find("-trivial-phases-declined")!=std::string::npos &&
-     policy_declined.execution_profile.find("-private-bound-phases-declined")!=std::string::npos &&
-     policy_declined.execution_profile.find("-private-typed-phases-declined")!=std::string::npos &&
-     policy_declined.execution_profile.find("-private-warp-copy-declined")!=std::string::npos,
+     policy_declined.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos,
      "unsupported policy retained cold native phases/private profile");
  auto wrong_cases=cases;
  for(auto& binding:wrong_cases[0])if(names[binding.idx]=="base_value" || names[binding.idx]=="source")binding.value=Value::from_float(1.5);
@@ -1005,14 +581,10 @@ void test_private_intlist_generations(bool sequence_windows=false,bool staged=fa
  const auto declined=owner.evaluate(wrong_session,true);
  const auto ordinary=wrong_session.eval_programs(owner.programs(),true);
  require(declined.ok && ordinary.ok && declined.fitness==ordinary.fitness && declined.wrong==ordinary.wrong &&
-     declined.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos &&
-     declined.execution_profile.find("compact-intlist-cells-declined")!=std::string::npos &&
-     declined.execution_profile.find("-trivial-phases-declined")!=std::string::npos &&
-     declined.execution_profile.find("-private-bound-phases-declined")!=std::string::npos &&
-     declined.execution_profile.find("-private-typed-phases-declined")!=std::string::npos &&
-     declined.execution_profile.find("-private-warp-copy-declined")!=std::string::npos,
+     declined.execution_profile.find("private-intlist-offset-v1-declined")!=std::string::npos,
      "different session reused stale private capability instead of current generic fallback");
 }
+
 
 // Whole-program capacity is independent of the fixed per-phase allocation.
 void test_whole_program_node_budget() {
@@ -1075,43 +647,31 @@ void test_whole_program_node_budget() {
  for(std::size_t i=0;i<cases.size();++i){EvalCase row;row.expected=answers[i];
   for(std::size_t j=0;j<names.size();++j)row.inputs[names[j]]=cases[i][j].value;
   evolution_cases.push_back(std::move(row));}
- const char* flag="GAGP_GPU_PHASE_POPULATION";const auto* prior=std::getenv(flag);
- const bool had_prior=prior;const std::string saved=prior?prior:"";setenv(flag,"1",1);
+ config.phase_population=true;
  const std::vector<ProgramGenome> parents{parent,parent};
  const auto integrated=evolve_population(evolution_cases,config,&parents);
- require(integrated.reproduction_profile.rfind("native-gpu-phase-",0)==0 && integrated.reproduction_fallback_reason.empty(),
+ require(integrated.reproduction_profile.rfind("native-gpu-phase-",0)==0,
      "large whole-AST entry point did not use the admitted GPU phase owner");
  std::vector<BytecodeProgram> final_programs;
  for(const auto& member:integrated.final_population)final_programs.push_back(compile_for_eval(member.genome,names));
  const auto cpu=eval_fitness_cpu(final_programs,cases,answers,10000,1000,32);
  for(std::size_t i=0;i<cpu.size();++i)require(canonicalize_fitness_for_ranking(cpu[i])==integrated.final_population[i].fitness,
      "large whole-AST public evolution CPU/GPU mismatch");
- config.mutation_subtree_prob=.5;declined=false;
+ // The generic native-AST reproduction keeps its own 1024-node kernel limit.
+ config.phase_population=false;config.mutation_subtree_prob=.5;declined=false;
  try{(void)evolve_population(evolution_cases,config,&parents);}catch(const std::invalid_argument& e){
   declined=std::string(e.what()).find("generation request max_nodes=2048 exceeds kernel maximum 1024")!=std::string::npos;}
  require(declined,"generic GPU fallback silently exceeded its independent 1024-node capacity");
- if(had_prior)setenv(flag,saved.c_str(),1);else unsetenv(flag);
 }
+} // namespace
 
 int main(){try {
- // Exercise actual private window/staged/reused-workspace paths and complete
- // CPU/origin/fuel/evolution guards with the new interleaved layout enabled.
- setenv("GAGP_GPU_PRIVATE_CELL_SOA","1",1);
- const char* short_prior=std::getenv("GAGP_GPU_SHORT_EDIT_DISTANCE");
- const bool short_present=short_prior!=nullptr;const std::string short_saved=short_prior?short_prior:"";
- setenv("GAGP_GPU_SHORT_EDIT_DISTANCE","1",1);
- test_private_intlist_generations(false,true,true);
- if(short_present)setenv("GAGP_GPU_SHORT_EDIT_DISTANCE",short_saved.c_str(),1);else unsetenv("GAGP_GPU_SHORT_EDIT_DISTANCE");
- test_simple_pattern_refresh();
  test_whole_program_node_budget();
  test_packed_pattern_refresh();
  test_trivial_pattern_refresh();
  test_private_intlist_generations();
- test_private_intlist_generations(true);
  test_private_intlist_generations(false,true);
- test_private_intlist_generations(true,true);
- with_fused_cold([]{test_private_intlist_generations(false,true);});
- with_fused_cold([]{test_private_intlist_generations(true);});
+ test_private_intlist_generations(true);
  auto definition=grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json");
  // Keep the original oversized fixture as a required explicit rejection.
  // The positive fixture is a separately authored GPU-capacity contract.
@@ -1146,30 +706,23 @@ int main(){try {
  config.compiled_grammar=grammar;config.generation_request=grammar::entry_request(*grammar);
  config.eval_engine=EvalEngine::GPU;config.reproduction_backend=repro::ReproductionBackend::Gpu;
  config.mutation_subtree_prob=1;config.fuel=10000;config.penalty=1000;config.gpu_blocksize=512;
- setenv("GAGP_COUNTED_SITE_DRAW","1",1);
- setenv("GAGP_OWNED_PHASE_CAPS","1",1);setenv("GAGP_VIEW_PROFILE","1",1);
- setenv("GAGP_TYPED_VIEW_PHASE","1",1);setenv("GAGP_DIRECT_PHASE","1",1);setenv("GAGP_DIRECT_ROOT","1",1);
- setenv("GAGP_OWNED_PHASE_PACKED","1",1);setenv("GAGP_OWNED_PHASE_PACK","1",1);setenv("GAGP_GPU_PHASE_POPULATION","1",1);setenv("GAGP_GPU_DIAGNOSTICS","1",1);
- setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","128",1);setenv("GAGP_GPU_VIEW_BOUND128","1",1);setenv("GAGP_GPU_REGISTER_PHASE_STACK","1",1);setenv("GAGP_GPU_RELAXED_VIEW_REGISTERS","1",1);setenv("GAGP_REUSE_IMPORTED_EXECUTABLE","1",1);setenv("GAGP_REUSE_PHASE_GRAMMAR","1",1);setenv("GAGP_BATCH_PHASE_IMPORT","1",1);setenv("GAGP_BATCH_PHASE_EXPORT","1",1);
- check_pool_evolution(evolution_cases,config,parents);
+ config.phase_population=true;
+ PhaseVariationPolicy counted;counted.site_draw=PhaseSiteDraw::Counted;config.phase_variation=counted;
+ check_evolution_final_scores(evolution_cases,config,parents);
+ // Per-case counts are diagnostics: the evaluator reports them only on request.
+ setenv("GAGP_GPU_DIAGNOSTICS","1",1);
  const auto integrated=evolve_population(evolution_cases,config,&parents);
- require(integrated.reproduction_profile=="native-gpu-phase-v2-counted" && integrated.reproduction_fallback_reason.empty(),"GPU genotype evolution adapter not used");
- // Existing projected-budget callers must retain generic GPU fallback unless
- // they explicitly request the strict projected phase profile.
- auto legacy=config;legacy.generations=1;legacy.gpu_blocksize=32;
- legacy.initial_resource_budget=grammar::ProjectedBudget{grammar->search_limits().max_nodes,grammar->search_limits().max_depth};
- legacy.offspring_resource_budget=legacy.initial_resource_budget;
- legacy.mutation_subtree_prob=.5; // Unsupported phase policy, valid generic policy.
+ unsetenv("GAGP_GPU_DIAGNOSTICS");
+ require(integrated.reproduction_profile.rfind("native-gpu-phase-v2-counted",0)==0,"GPU genotype evolution adapter not used");
  const std::vector<EvalCase> small_cases{evolution_cases.front()};
- // Positive strict opt-in must select the projected owner and publish members
- // independently admitted under the same budget, not merely reject bad flags.
+ const grammar::ProjectedBudget budget{grammar->search_limits().max_nodes,grammar->search_limits().max_depth};
+ // Projected budgets select the projected owner only on explicit request; its
+ // members are independently admitted under the same budget.
  auto projected=config;projected.generations=1;projected.gpu_blocksize=32;
  projected.gpu_projected_phase_profile=true;
- projected.initial_resource_budget=legacy.initial_resource_budget;
- projected.offspring_resource_budget=legacy.offspring_resource_budget;
+ projected.initial_resource_budget=budget;projected.offspring_resource_budget=budget;
  const auto projected_result=evolve_population(small_cases,projected,&parents);
- require(projected_result.reproduction_profile=="native-gpu-phase-v3-projected" &&
-     projected_result.reproduction_fallback_reason.empty(),"positive projected opt-in did not use phase owner");
+ require(projected_result.reproduction_profile.rfind("native-gpu-phase-v3-projected",0)==0,"positive projected opt-in did not use phase owner");
  std::vector<BytecodeProgram> projected_programs;
  for(const auto& scored:projected_result.final_population) {
   auto fresh=scored.genome;fresh.derivation.reset();
@@ -1181,47 +734,39 @@ int main(){try {
  for(std::size_t i=0;i<projected_cpu.size();++i)
   require(canonicalize_fitness_for_ranking(projected_cpu[i])==projected_result.final_population[i].fitness,
       "positive projected opt-in offspring CPU fitness mismatch");
- const auto generic=evolve_population(small_cases,legacy,&parents);
- require(generic.reproduction_profile=="native-ast" && !generic.reproduction_fallback_reason.empty(),
-     "legacy projected budgets no longer fall back to generic GPU reproduction");
- auto strict=legacy;strict.gpu_projected_phase_profile=true;
- bool strict_rejected=false;
- try{(void)evolve_population(small_cases,strict,&parents);}catch(const std::invalid_argument& error){
-   strict_rejected=std::string(error.what()).find("default resource/variation policy")!=std::string::npos;}
- require(strict_rejected,"explicit projected phase profile silently fell back");
- legacy.mutation_subtree_prob=1;
- --legacy.offspring_resource_budget->max_depth;
- const auto asymmetric=evolve_population(small_cases,legacy,&parents);
- require(asymmetric.reproduction_profile=="native-ast" && !asymmetric.reproduction_fallback_reason.empty(),
-     "legacy asymmetric resource budgets no longer retain generic GPU controls");
+ // The phase population is explicit: unsupported policies fail closed.
+ const auto rejected_with=[&](EvolutionConfig bad,const char* needle) {
+  try{(void)evolve_population(small_cases,bad,&parents);}
+  catch(const std::invalid_argument& error){return std::string(error.what()).find(needle)!=std::string::npos;}
+  return false;
+ };
+ auto unsupported_policy=projected;unsupported_policy.mutation_subtree_prob=.5;
+ require(rejected_with(unsupported_policy,"default resource/variation policy"),"unsupported phase policy did not fail closed");
+ auto asymmetric=projected;--asymmetric.offspring_resource_budget->max_depth;
+ require(rejected_with(asymmetric,"matching initial/offspring budgets"),"asymmetric projected budgets accepted");
+ auto implicit=config;implicit.generations=1;
+ implicit.initial_resource_budget=budget;implicit.offspring_resource_budget=budget;
+ require(rejected_with(implicit,"gpu_projected_phase_profile is requested"),"projected budgets without the projected profile accepted");
  require(integrated.timing.generations[0].elapsed_search_ms>=integrated.timing.init_population_ms+integrated.timing.gpu_eval_init_ms &&
      integrated.timing.generations[1].elapsed_search_ms>integrated.timing.generations[0].elapsed_search_ms,
      "search completion timestamps omit initialization or are not monotonic");
  require(integrated.final_population.size()==population && integrated.history_best.size()==2,"phase evolution omitted output/history");
- require(integrated.timing.generations[0].evaluation.program_cases==population*1024,"phase evolution incomplete cases");
+ {
+  // Offspring identical to a scored parent reuse its completed fitness.
+  const auto& first=integrated.timing.generations[0].evaluation;
+  const std::string counts="phase evolution incomplete cases: program_cases="+std::to_string(first.program_cases)+
+      " reused="+std::to_string(first.fitness_reused_program_cases)+" expected="+std::to_string(population*1024);
+  require(first.program_cases+first.fitness_reused_program_cases==population*1024,counts.c_str());
+ }
  for(std::size_t i=1;i<integrated.final_population.size();++i)
    require(integrated.final_population[i-1].fitness>=integrated.final_population[i].fitness,"phase final fitness ranking reversed");
- config.mutation_subtree_prob=.5;config.generations=1;config.skip_final_eval=true;
- const auto fallback=evolve_population(evolution_cases,config,&parents);
- require(fallback.reproduction_profile=="native-ast" && !fallback.reproduction_fallback_reason.empty(),"unsupported policy lacks explicit fallback");
- unsetenv("GAGP_GPU_PHASE_POPULATION");unsetenv("GAGP_GPU_DIAGNOSTICS");
  FitnessSessionGpu session;require(session.init(cases,answers,10000,512,1000).ok,"GPU session init");
- check_pool_session_lifetime(parents,names,cases,answers);
  check_parent_cache_keys();
- check_linear_elite_evolution(grammar,parents,names,cases,answers);
- check_unchanged_fitness_reuse(grammar,parents,names,cases,answers);
- check_unchanged_fitness_reuse(grammar,parents,names,cases,answers,true);
+ check_elite_evolution(grammar,parents,names,cases,answers);
+ check_completed_fitness_reuse(grammar,parents,names,cases,answers);
  check_initial_packed_verification(grammar,parents,names,session,cases,answers);
  check_site_depth(grammar,parents,names,session,cases,answers);
- check_inplace_mutation(grammar,parents,names,session);
- setenv("GAGP_GPU_PHASE_STAGED_BUFFERS","1",1);
- check_inplace_mutation(grammar,parents,names,session);
- unsetenv("GAGP_GPU_PHASE_STAGED_BUFFERS");
- check_splice_policy("GAGP_GPU_PHASE_STAGED_BUFFERS",grammar,parents,names,session);
- check_splice_policy("GAGP_GPU_DEFERRED_CROSSOVER_COPY",grammar,parents,names,session);
- check_splice_policy("GAGP_GPU_FUSED_SPLICE_DEPTH",grammar,parents,names,session);
- check_splice_policy("GAGP_GPU_COMPACT_COMPILE_FRAMES",grammar,parents,names,session);
- check_constructive_export(grammar,parents,names,session);
+ check_export_contract(grammar,parents,names,session);
  check_uniform_phase_sites(grammar,parents,names,session,cases,answers);
  check_source_crossover_gate(grammar,parents,names,session,cases,answers);
  repro::NativePhasePopulation owner(grammar,parents,names);
@@ -1229,10 +774,10 @@ int main(){try {
   auto reversed_names=names;std::reverse(reversed_names.begin(),reversed_names.end());
   auto reversed_cases=cases;
   for(auto& bindings:reversed_cases)for(auto& binding:bindings)binding.idx=names.size()-1-binding.idx;
-  auto reordered=with_fused_cold([&]{return std::make_unique<repro::NativePhasePopulation>(grammar,parents,reversed_names);});
+  repro::NativePhasePopulation reordered(grammar,parents,reversed_names);
   FitnessSessionGpu reordered_session;
   require(reordered_session.init(reversed_cases,answers,10000,512,1000).ok,"reordered import session");
-  const auto normal=owner.evaluate(session,true), reversed=reordered->evaluate(reordered_session,true);
+  const auto normal=owner.evaluate(session,true), reversed=reordered.evaluate(reordered_session,true);
   require(normal.ok && reversed.ok && normal.fitness==reversed.fitness && normal.case_counts==reversed.case_counts,
       "reused admitted executable lost actual evaluator input order");
  }
@@ -1244,19 +789,9 @@ int main(){try {
  const auto initial_memory=owner.device_bytes();std::size_t stable_memory=0;std::set<std::string> seen;
  std::vector<CaseBindings> repeated_cases;std::vector<Value> repeated_answers;
  for(int i=0;i<1024;++i){repeated_cases.push_back(cases[i%8]);repeated_answers.push_back(answers[i%8]);}
- const char* reuse_prior=std::getenv("GAGP_GPU_INTEGER_CASE_REUSE");
- const bool reuse_present=reuse_prior;const std::string reuse_saved=reuse_prior?reuse_prior:"";
- unsetenv("GAGP_GPU_INTEGER_CASE_REUSE");FitnessSessionGpu repeated_reference;
  const FitnessPolicy repeated_policy{FitnessMetric::Exact};
- require(repeated_reference.init(repeated_cases,repeated_answers,10000,512,1000,repeated_policy).ok,"repeated reference init");
- setenv("GAGP_GPU_INTEGER_CASE_REUSE","1",1);FitnessSessionGpu repeated_cached;
- require(repeated_cached.init(repeated_cases,repeated_answers,10000,512,1000,repeated_policy).ok,"repeated cached init");
- if(reuse_present)setenv("GAGP_GPU_INTEGER_CASE_REUSE",reuse_saved.c_str(),1);else unsetenv("GAGP_GPU_INTEGER_CASE_REUSE");
- const auto* shape_prior=std::getenv("GAGP_GPU_SHAPE_RESULT_CACHE");
- const bool shape_present=shape_prior;const std::string shape_saved=shape_prior?shape_prior:"";
- setenv("GAGP_GPU_PROJECT_SHAPE_INPUTS","1",1);setenv("GAGP_GPU_SHAPE_RESULT_CACHE","1",1);FitnessSessionGpu shape_cached;
- require(shape_cached.init(cases,answers,10000,512,1000).ok,"shape-result cache session");
- if(shape_present)setenv("GAGP_GPU_SHAPE_RESULT_CACHE",shape_saved.c_str(),1);else unsetenv("GAGP_GPU_SHAPE_RESULT_CACHE");
+ FitnessSessionGpu repeated_session;
+ require(repeated_session.init(repeated_cases,repeated_answers,10000,512,1000,repeated_policy).ok,"repeated-case session init");
  {
   auto pack=gpu_detail::pack_programs_with_shared_case_count(owner.programs(),1024,0);
   require(gpu_detail::shape_result_program_supported(pack,pack.metas[0]),"scalar memo fixture lacks shape proof");
@@ -1273,52 +808,33 @@ int main(){try {
  for(int generation=0;generation<=32;++generation) {
   const auto owned=owner.evaluate(session,true); // exercise packed current generation before lazy reference materialization
   const auto gpu=session.eval_programs(owner.programs(),true);if(!gpu.ok)throw std::runtime_error("GPU phase population evaluation failed at generation "+std::to_string(generation)+": "+gpu.err.message);
-  std::vector<BytecodeProgram> independent;
   auto all_exported=owner.export_population();
   require(all_exported.size()==population,"bulk export count");
   for(int i=0;i<population;++i) {
-   auto genome=owner.export_member(i);
-   require(ast_cache_key(genome.ast)==ast_cache_key(all_exported.at(i).ast),"bulk export differs from member export");
-   genome.derivation.reset(); // force independent membership, including reference-cache mode
-   grammar::require_membership(*grammar,genome);seen.insert(ast_cache_key(genome.ast));
-   independent.push_back(compile_for_eval(genome,names));
+   require(ast_cache_key(owner.export_member(i).ast)==ast_cache_key(all_exported.at(i).ast),"bulk export differs from member export");
+   seen.insert(ast_cache_key(all_exported[i].ast));
    require(gpu.case_counts.at(i)[0]==1024,"not all cases evaluated");
   }
+  const auto independent=independent_programs(*grammar,all_exported,names);
   require(owned.ok && owned.fitness==gpu.fitness && owned.case_counts==gpu.case_counts,"owned packing differs from independent full verification");
-  setenv("GAGP_GPU_VIEW_BOUND128","0",1);
-  const auto wide_compilation=owner.evaluate(session,true);
-  setenv("GAGP_GPU_VIEW_BOUND128","1",1);
-  require(wide_compilation.ok && wide_compilation.fitness==owned.fitness &&
-      wide_compilation.wrong==owned.wrong && wide_compilation.case_counts==owned.case_counts &&
-      owned.execution_profile.find("-view-bound128")!=std::string::npos &&
-      owned.execution_profile.find("-view-bound128-declined")==std::string::npos,
-      "128-thread compile bound changed fresh-generation scores or logical counters");
   const auto cpu=eval_fitness_cpu(independent,cases,answers,10000,1000,512);
   require(cpu==gpu.fitness,"resident GPU offspring differs from independently exported CPU programs");
-  const auto shape=owner.evaluate(shape_cached,true);
-  require(shape.ok && shape.fitness==gpu.fitness && shape.wrong==gpu.wrong &&
-      shape.case_counts==gpu.case_counts && shape.shape_result_programs>0 &&
-      shape.physical_program_cases<population*1024 &&
-      shape.execution_profile.find("-shape-result-cache")!=std::string::npos,
-      "shape-result cache changed scores, labels, errors or logical case coverage");
+  // The shape-result cache groups programs; logical case coverage is unchanged.
+  require(owned.shape_result_programs>0 && owned.physical_program_cases<population*1024 &&
+      owned.execution_profile.find("-shape-result-cache")!=std::string::npos,
+      "shape-result cache inactive on the scalar memo fixture");
   if(generation%16==0)for(int low_fuel:{0,1,3,16}) {
-    FitnessSessionGpu limited,cached_limited;
-    unsetenv("GAGP_GPU_SHAPE_RESULT_CACHE");
-    require(limited.init(cases,answers,low_fuel,512,1000).ok,"ordinary low-fuel shape session");
-    setenv("GAGP_GPU_SHAPE_RESULT_CACHE","1",1);
-    require(cached_limited.init(cases,answers,low_fuel,512,1000).ok,"cached low-fuel shape session");
-    if(shape_present)setenv("GAGP_GPU_SHAPE_RESULT_CACHE",shape_saved.c_str(),1);else unsetenv("GAGP_GPU_SHAPE_RESULT_CACHE");
-    const auto a=owner.evaluate(limited,true),b=owner.evaluate(cached_limited,true);
-    require(a.ok && b.ok && a.fitness==b.fitness && a.wrong==b.wrong && a.case_counts==b.case_counts,
+    FitnessSessionGpu limited;
+    require(limited.init(cases,answers,low_fuel,512,1000).ok,"low-fuel shape session");
+    const auto a=owner.evaluate(limited,true);
+    require(a.ok && a.fitness==eval_fitness_cpu(independent,cases,answers,low_fuel,1000,512),
         "shape-result cache changed original invocation fuel/error ordering");
   }
-  const auto repeated=owner.evaluate(repeated_reference,true),cached=owner.evaluate(repeated_cached,true);
-  require(repeated.ok && cached.ok && repeated.fitness==cached.fitness && repeated.wrong==cached.wrong &&
-      repeated.case_counts==cached.case_counts && cached.physical_case_count<=8 &&
-      cached.execution_profile.find("-integer-case-reuse")!=std::string::npos,
-      "weighted repeated inputs changed evolving fitness, wrong, errors or case coverage");
+  const auto cached=owner.evaluate(repeated_session,true);
   const auto repeated_cpu=eval_fitness_cpu(independent,repeated_cases,repeated_answers,10000,1000,512,repeated_policy);
-  require(repeated_cpu==cached.fitness,"weighted case reuse differs from full-case CPU execution");
+  require(cached.ok && repeated_cpu==cached.fitness && cached.physical_case_count<=8 &&
+      cached.execution_profile.find("-integer-case-reuse")!=std::string::npos,
+      "weighted repeated inputs differ from full-case CPU execution");
   if(generation==32)break;
   const auto stats=owner.reproduce(gpu.fitness,2,.3,UINT64_C(0x16653)+generation);
   require(stats.variation.changed_children+stats.variation.unchanged_children==population,"final offspring not completely classified");
@@ -1338,7 +854,7 @@ int main(){try {
   const auto owned=fallback_owner.evaluate(different,true); // wrong-type fallback before programs() materializes
   const auto ordinary=different.eval_programs(fallback_owner.programs(),true);
   require(ordinary.ok && owned.ok && ordinary.fitness==owned.fitness && ordinary.case_counts==owned.case_counts &&
-      owned.execution_profile.rfind("mixed",0)==0 && owned.execution_profile.find("-view-reg512-declined")!=std::string::npos,"owner capability proof applied to different case types");
+      owned.execution_profile.rfind("mixed",0)==0,"owner capability proof applied to different case types");
  }
  // A large right-nested expression forces the compact stack capability to
  // differ between two valid members. Every row must retain its original index.
@@ -1370,38 +886,17 @@ int main(){try {
   // 257 rows exercises both a complete scan tile and a partial final tile.
   const auto seeds=members;while(members.size()<257)members.push_back(seeds[members.size()%seeds.size()]);
   repro::NativePhasePopulation mixed(wide,members,names);
-  unsetenv("GAGP_PHASE_CAP_BUCKETS");const auto ordinary=mixed.evaluate(session,true);
-  setenv("GAGP_PHASE_CAP_BUCKETS","1",1);const auto bucketed=mixed.evaluate(session,true);
-  require(bucketed.ok && bucketed.execution_profile.find("-cap-buckets")!=std::string::npos &&
-      bucketed.fitness==ordinary.fitness && bucketed.case_counts==ordinary.case_counts,
-      "mixed stack capability buckets changed cases, results or population ordering");
-  // A fresh owner is the conservative whole-program-bound control. Both
-  // refresh exactly the same compiled offspring rows under different settings.
-  repro::NativePhasePopulation conservative(wide,members,names);
-  unsetenv("GAGP_PER_PHASE_STACK_BOUND");
-  conservative.reproduce(bucketed.fitness,2,0,91);
-  setenv("GAGP_PER_PHASE_STACK_BOUND","1",1);
-  mixed.reproduce(bucketed.fitness,2,0,91);
-  const auto conservative_result=conservative.evaluate(session,true);
-  const auto next_bucketed=mixed.evaluate(session,true);
-  const auto next_ordinary=session.eval_programs(mixed.programs(),true);
-  require(conservative_result.ok && conservative_result.fitness==next_bucketed.fitness &&
-      conservative_result.case_counts==next_bucketed.case_counts,"per-phase compiler certificates changed mixed-stack fitness");
-  require(next_bucketed.ok && next_bucketed.fitness==next_ordinary.fitness &&
-      next_bucketed.case_counts==next_ordinary.case_counts,"partial-tile lowering offsets changed evaluation");
-  std::vector<BytecodeProgram> independently_compiled;
-  for(std::size_t i=0;i<members.size();++i){auto member=mixed.export_member(i);
-    grammar::require_membership(*wide,member);independently_compiled.push_back(compile_for_eval(member,names));}
-  require(eval_fitness_cpu(independently_compiled,cases,answers,10000,1000,512)==next_bucketed.fitness,
-      "mixed bucket offspring differs from independent CPU evaluation");
-  setenv("GAGP_GENERIC_PHASE_VM","1",1);
-  mixed.reproduce(next_bucketed.fitness,2,0,93);
-  const auto forced_generic=mixed.evaluate(session,true);
-  const auto forced_reference=session.eval_programs(mixed.programs(),true);
-  require(forced_generic.ok && forced_generic.fitness==forced_reference.fitness &&
-      forced_generic.case_counts==forced_reference.case_counts,"generic VM override lost mixed-stack certificate safety");
-  unsetenv("GAGP_GENERIC_PHASE_VM");unsetenv("GAGP_PER_PHASE_STACK_BOUND");
-  unsetenv("GAGP_PHASE_CAP_BUCKETS");
+  for(int generation=0;generation<3;++generation) {
+   const auto bucketed=mixed.evaluate(session,true);
+   const auto ordinary=session.eval_programs(mixed.programs(),true);
+   // Stacks up to MAX_STACK run on the direct phase executor; the 257-row
+   // population still spans a complete and a partial scan tile.
+   require(bucketed.ok && ordinary.ok && bucketed.fitness==ordinary.fitness && bucketed.case_counts==ordinary.case_counts,
+       "mixed stack depths or partial-tile lowering changed cases, results or ordering");
+   require(eval_fitness_cpu(independent_programs(*wide,mixed.export_population(),names),cases,answers,10000,1000,512)==bucketed.fitness,
+       "mixed bucket offspring differs from independent CPU evaluation");
+   mixed.reproduce(bucketed.fitness,2,0,91+2*generation);
+  }
  }
  bool rejected=false;
  try{(void)owner.export_member(population);}catch(const std::invalid_argument&){rejected=true;}

@@ -214,13 +214,7 @@ int main() {
   rejects(strict,"requires GPU evaluation/reproduction");
   strict.eval_engine=gagp::evo::EvalEngine::GPU;
   strict.reproduction_backend=gagp::evo::repro::ReproductionBackend::Gpu;
-  const char* old_phase=std::getenv("GAGP_GPU_PHASE_POPULATION");
-  const bool had_phase=old_phase!=nullptr;const std::string saved_phase=old_phase?old_phase:"";
-  unsetenv("GAGP_GPU_PHASE_POPULATION");
-  rejects(strict,"GAGP_GPU_PHASE_POPULATION");
-  setenv("GAGP_GPU_PHASE_POPULATION","0",1);
-  rejects(strict,"GAGP_GPU_PHASE_POPULATION");
-  setenv("GAGP_GPU_PHASE_POPULATION","1",1);
+  strict.phase_population=true;
   rejects(strict,"matching initial/offspring budgets");
   strict.initial_resource_budget=gagp::evo::grammar::ProjectedBudget{strict.compiled_grammar->search_limits().max_nodes,7};
   strict.offspring_resource_budget=gagp::evo::grammar::ProjectedBudget{strict.compiled_grammar->search_limits().max_nodes,6};
@@ -228,7 +222,6 @@ int main() {
   strict.offspring_resource_budget=strict.initial_resource_budget;
   strict.offspring_resource_budget->max_depth=strict.initial_resource_budget->max_depth=16;
   rejects(strict,"projected depth in [1,15]");
-  if(had_phase)setenv("GAGP_GPU_PHASE_POPULATION",saved_phase.c_str(),1);else unsetenv("GAGP_GPU_PHASE_POPULATION");
   // Partial reference scoring corrects only the explicitly selected indices.
   std::vector<double> approximate{-1.0,-3.0,-9.0};
   std::vector<unsigned> approximate_wrong{0,3,9};

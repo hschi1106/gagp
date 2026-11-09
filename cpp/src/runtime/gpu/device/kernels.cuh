@@ -53,8 +53,7 @@ __device__ inline bool d_measure_cache_eligible(const DRegionPhase& phase,
 }
 
 template <DPayloadFlavor Flavor, bool EnableRegions = false, bool DirectRoot = false,
-    int LaunchThreads = (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) ? 32 : 1024,
-    bool PrivateLayout = false>
+    int LaunchThreads = (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) ? 32 : 1024>
 // Arena kernels always launch one physical warp; reserving resources for a
 // hypothetical 1024-thread block needlessly constrains registers in this VM.
 __global__ __launch_bounds__(LaunchThreads) void evaluate_fitness_programs_impl(
@@ -73,32 +72,6 @@ __global__ __launch_bounds__(LaunchThreads) void evaluate_fitness_programs_impl(
     const DRegionPhase* region_phases = nullptr, int region_phase_count = 0,
     const DRegionPhaseBinding* region_bindings = nullptr, int region_binding_count = 0,
     DRegionWorkspace workspace = {}, unsigned int* case_counts = nullptr, const int* case_order = nullptr, const int* program_indices = nullptr, int* next_program = nullptr) {
-  if constexpr (PrivateLayout) {
-    static_assert(Flavor == DPayloadFlavor::IndexedArena && EnableRegions);
-    // The host selects this instantiation only when every fact below already
-    // holds. Expose those facts to inlined VM code; retain all runtime checks,
-    // logical resources, scratch capacities and external immutable tables.
-    workspace.private_intlists = true;
-    workspace.compact_intlist_cells = true;
-    workspace.private_cell_soa = false;
-    workspace.private_warp_copy = true;
-    workspace.trivial_phases = true;
-    workspace.private_typed_phases = true;
-    workspace.private_bound_phases = true;
-    workspace.window_executor = true;
-    workspace.coordinate_executor = false;
-    workspace.unboxed_window_frames = false;
-    workspace.window_soa = false;
-    workspace.concat_cache_enabled = false;
-    workspace.concat_cache = nullptr;
-    workspace.payload_string_entries = nullptr;
-    workspace.payload_list_entries = nullptr;
-    workspace.payload_string_bytes = nullptr;
-    workspace.payload_list_values = nullptr;
-    workspace.payload_list_index = nullptr;
-    workspace.payload_list_epoch_index = nullptr;
-    workspace.payload_list_epoch = nullptr;
-  }
   const int tid = static_cast<int>(threadIdx.x);
   const int fitness_lanes = workspace.fitness_lanes>0?workspace.fitness_lanes:static_cast<int>(blockDim.x);
   if constexpr ((Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena)) {
@@ -107,16 +80,7 @@ __global__ __launch_bounds__(LaunchThreads) void evaluate_fitness_programs_impl(
     if(workspace.payload_list_entries)workspace.payload_list_entries += slot * workspace.payload_entry_capacity;
     if(workspace.payload_string_bytes)workspace.payload_string_bytes += slot * workspace.payload_byte_capacity;
     if(workspace.payload_list_values)workspace.payload_list_values += slot * workspace.payload_value_capacity;
-    if(workspace.payload_intlist_cells) {
-      // Same number of cells and capacity per lane. Consecutive lanes own
-      // different columns, so element i is coalesced across the physical block.
-      // Program scheduling/replay never changes a block's scratch ownership.
-      if(workspace.private_cell_soa) {
-        workspace.payload_intlist_cells += static_cast<std::size_t>(blockIdx.x)*blockDim.x*
-            workspace.payload_value_capacity+tid;
-        workspace.private_cell_stride=blockDim.x;
-      } else workspace.payload_intlist_cells += slot * workspace.payload_value_capacity;
-    }
+    if(workspace.payload_intlist_cells)workspace.payload_intlist_cells += slot * workspace.payload_value_capacity;
     if(workspace.concat_cache)workspace.concat_cache+=slot*DCONCAT_CACHE_SLOTS;
     if constexpr (Flavor == DPayloadFlavor::IndexedArena) {
       if(workspace.payload_list_epoch_index) {
@@ -175,8 +139,6 @@ __global__ __launch_bounds__(LaunchThreads) void evaluate_fitness_programs_impl(
     __syncthreads();
   }
   const DProgramMeta meta = metas[prog_idx];
-  const bool dense_lanes = (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) &&
-      workspace.dense_case_lanes && !tiled_replay && meta.case_count > 0 && meta.case_count <= fitness_lanes;
   if(meta.reuse_completed_fitness) {
     // The following tiled reduction still visits every logical slot. Give it
     // a defined neutral value even though host copyback restores this score.
@@ -209,7 +171,6 @@ __global__ __launch_bounds__(LaunchThreads) void evaluate_fitness_programs_impl(
       region_phases, region_phase_count,
       region_bindings, region_binding_count,
   };
-  execution_tables.register_phase_stack=workspace.register_phase_stack;
 
   extern __shared__ DInstr shared_code[];
   if (meta.is_valid && meta.code_len > 0) {
@@ -268,7 +229,6 @@ __global__ __launch_bounds__(LaunchThreads) void evaluate_fitness_programs_impl(
             cache_payload_state.private_typed_phases=workspace.private_typed_phases;
             cache_payload_state.private_warp_copy=workspace.private_warp_copy;
             cache_payload_state.private_adjacent_concat=workspace.private_adjacent_concat;
-            cache_payload_state.simple_phases=workspace.simple_phases;
           }
           int remaining = fuel;
           const auto result = d_region_phase<Flavor>(region_segments[meta.region_offset],
@@ -305,20 +265,14 @@ __global__ __launch_bounds__(LaunchThreads) void evaluate_fitness_programs_impl(
   }
   const int lane_begin = tiled_replay ? tile * 32 : 0;
   const int lane_end = tiled_replay ? min(lane_begin + 32, fitness_lanes) : fitness_lanes;
-  unsigned int local_counts[6] = {};
   unsigned int* counts = case_counts ? case_counts + prog_idx * 6 : nullptr;
-  const bool coalesce_counts = counts && workspace.coalesce_case_counts;
-  // Arena case chunks are contiguous floor(C*lane/L) intervals. For C<=L,
-  // case k belongs to lane ceil((k+1)*L/C)-1. Schedule only those lanes,
-  // leaving every original empty score slot at +0 for the same reduction.
-  if (dense_lanes) {
-    for (int lane = tid; lane < fitness_lanes; lane += blockDim.x) partial_scores[lane] = 0.0;
-    __syncthreads();
-  }
-  const int schedule_begin = dense_tiled ? tile*32 + tid : dense_lanes ? tid : lane_begin + tid;
-  const int schedule_end = dense_tiled ? min((tile+1)*32,meta.case_count) : dense_lanes ? meta.case_count : lane_end;
+  // Dense tiles: arena case chunks are contiguous floor(C*lane/L) intervals.
+  // For C<=L, case k belongs to lane ceil((k+1)*L/C)-1. Schedule only those
+  // lanes, leaving every original empty score slot at +0 for the same reduction.
+  const int schedule_begin = dense_tiled ? tile*32 + tid : lane_begin + tid;
+  const int schedule_end = dense_tiled ? min((tile+1)*32,meta.case_count) : lane_end;
   for (int scheduled = schedule_begin; scheduled < schedule_end; scheduled += blockDim.x) {
-  const int logical_tid = (dense_lanes || dense_tiled) ?
+  const int logical_tid = dense_tiled ?
       static_cast<int>(((static_cast<long long>(scheduled) + 1) * fitness_lanes - 1) / meta.case_count) : scheduled;
   double local_score = 0.0;
   const int chunk_start = (meta.case_count * logical_tid) / fitness_lanes;
@@ -359,15 +313,9 @@ __global__ __launch_bounds__(LaunchThreads) void evaluate_fitness_programs_impl(
             prog_idx * workspace.payload_overflow_mask_words + logical_tid / 32,
             1u << (logical_tid % 32));
     }
-    if (coalesce_counts) {
-      local_counts[0] += weight;
-      if (result.is_error || !exact) local_counts[5] += weight;
-    } else if (counts) { atomicAdd(counts, weight); if(result.is_error || !exact)atomicAdd(counts+5,weight); }
+    if (counts) { atomicAdd(counts, weight); if(result.is_error || !exact)atomicAdd(counts+5,weight); }
     if (result.is_error) {
-      if (coalesce_counts) {
-        local_counts[1] += weight;
-        if (result.err_code == ErrCode::Timeout) local_counts[2] += weight;
-      } else if (counts) {
+      if (counts) {
         atomicAdd(counts + 1, weight);
         if (result.err_code == ErrCode::Timeout) atomicAdd(counts + 2, weight);
       }
@@ -375,10 +323,7 @@ __global__ __launch_bounds__(LaunchThreads) void evaluate_fitness_programs_impl(
       continue;
     }
 
-    if (counts && result.value.tag == ValueTag::FallbackToken) {
-      if (coalesce_counts) local_counts[3] += weight;
-      else atomicAdd(counts + 3, weight);
-    }
+    if (counts && result.value.tag == ValueTag::FallbackToken) atomicAdd(counts + 3, weight);
     local_score = d_canonicalize_fitness_accumulator(local_score +
         resident_score*weight);
   }
@@ -387,24 +332,7 @@ __global__ __launch_bounds__(LaunchThreads) void evaluate_fitness_programs_impl(
   else partial_scores[tiled_replay ? logical_tid - lane_begin : logical_tid] = local_score;
   }
   // All physical lanes reach this point, including lanes with no cases.
-  // Integer diagnostic counts are exact under the original case-count bounds;
-  // fitness retains its original logical-lane order and canonical reduction.
-  if (coalesce_counts) {
-    // Independent thread scheduling can reach this join at different times.
-    // Derive the participating mask from the physical block, never from a
-    // transient __activemask() after loops with unequal per-lane trip counts.
-    const int active_lanes = min(32, static_cast<int>(blockDim.x) - (tid & ~31));
-    const unsigned mask = 0xffffffffu >> (32 - active_lanes);
-    __syncwarp(mask);
-    for (int field = 0; field < 6; ++field) {
-      unsigned value = local_counts[field];
-      for (int offset = 16; offset; offset >>= 1) {
-        const unsigned other = __shfl_down_sync(mask, value, offset);
-        if ((tid & 31) + offset < active_lanes) value += other;
-      }
-      if ((tid & 31) == 0 && value) atomicAdd(counts + field, value);
-    }
-  }
+  // Fitness retains its original logical-lane order and canonical reduction.
   __syncthreads();
 
   // Logical warp grouping is independent of replay's physical block width.

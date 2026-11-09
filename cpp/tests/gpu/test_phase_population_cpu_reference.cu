@@ -1,13 +1,12 @@
 // The CPU reference and the GPU owner of the native phase population must
 // publish identical searches: same final population ASTs, fitness, wrong
-// counts and per-generation champions, across policies and engine variants.
-#include <cstdlib>
+// counts and per-generation champions, across policies and schedules.
 #include <iostream>
-#include <map>
 #include <random>
 #include <stdexcept>
 #include <string>
-#include "gagp/cli/commands.hpp"
+#include "gagp/cli/program_json.hpp"
+#include "gagp/core/host_threads.hpp"
 #include "gagp/evolution/evolve.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/grammar/definition.hpp"
@@ -17,14 +16,6 @@
 namespace {
 using namespace gagp;using namespace gagp::evo;
 void require(bool value,const std::string& message){if(!value)throw std::runtime_error(message);}
-struct Env {
- std::map<std::string,std::optional<std::string>> saved;
- void set(const char* name,const char* value) {
-  if(!saved.count(name)){const char* old=std::getenv(name);saved[name]=old?std::optional<std::string>(old):std::nullopt;}
-  if(value)setenv(name,value,1);else unsetenv(name);
- }
- ~Env(){for(const auto& [name,value]:saved)if(value)setenv(name.c_str(),value->c_str(),1);else unsetenv(name.c_str());}
-};
 struct Trace {
  std::vector<std::string> final_asts;std::vector<double> final_fitness;std::vector<int> final_wrong;
  std::vector<std::string> champions;std::vector<double> best,mean;std::string profile;
@@ -85,14 +76,6 @@ void check_choice_tables(const std::shared_ptr<const grammar::CompiledGrammar>& 
 }  // namespace
 
 int main() { try {
- Env env;
- // Engine flags of the resident GPU owner (all exact variants).
- for(const char* flag:{"GAGP_OWNED_PHASE_CAPS","GAGP_VIEW_PROFILE","GAGP_TYPED_VIEW_PHASE","GAGP_DIRECT_PHASE","GAGP_DIRECT_ROOT",
-     "GAGP_OWNED_PHASE_PACKED","GAGP_OWNED_PHASE_PACK","GAGP_REUSE_IMPORTED_EXECUTABLE","GAGP_REUSE_PHASE_GRAMMAR",
-     "GAGP_BATCH_PHASE_IMPORT","GAGP_BATCH_PHASE_EXPORT"})env.set(flag,"1");
- // Semantic legacy flags must be absent: the policies below are explicit.
- for(const char* flag:{"GAGP_COUNTED_SITE_DRAW","GAGP_GPU_UNIFORM_PHASE_SITES","GAGP_GPU_SOURCE_CROSSOVER_GATE","GAGP_GPU_PHASE_POPULATION",
-     "GAGP_GPU_WARP_VARIATION","GAGP_GPU_CHOICE_TABLES","GAGP_HOST_THREADS"})env.set(flag,nullptr);
  auto definition=grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json");
  definition.document.object_v.at("templates").array_v[0].object_v.at("body").object_v.at("structured").object_v.at("plan").object_v.at("limits").object_v.at("cells").number_v=128;
  const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(definition.document))));
@@ -127,22 +110,12 @@ int main() { try {
  for(const auto& p:policies) {
   const auto reference=run(p,false);
   require(reference.profile.rfind("native-cpu-phase-",0)==0,std::string(p.label)+": CPU reference owner not used");
-  env.set("GAGP_HOST_THREADS","4");require_same(reference,run(p,false),std::string(p.label)+" CPU 4 threads");env.set("GAGP_HOST_THREADS",nullptr);
-  // Serial GPU kernels, with and without the eager/fused/in-place engine variants.
-  for(bool variants:{false,true}) {
-   for(const char* flag:{"GAGP_GPU_INPLACE_MUTATION","GAGP_GPU_FUSED_DONOR_SITES","GAGP_GPU_FUSED_SPLICE_DEPTH","GAGP_GPU_DEFERRED_CROSSOVER_COPY"})
-    env.set(flag,variants?"1":nullptr);
-   const auto serial=run(p,true);
-   require(serial.profile.rfind("native-gpu-phase-",0)==0,std::string(p.label)+": GPU owner not used");
-   require_same(reference,serial,std::string(p.label)+(variants?" GPU variants":" GPU plain"));
-   env.set("GAGP_GPU_WARP_VARIATION","1");
-   require_same(reference,run(p,true),std::string(p.label)+" GPU warp");
-   env.set("GAGP_GPU_CHOICE_TABLES","1");
-   const auto tables=run(p,true);
-   require(tables.profile.find("-warp-choice")!=std::string::npos,"warp choice profile suffix");
-   require_same(reference,tables,std::string(p.label)+" GPU warp choice tables");
-   env.set("GAGP_GPU_WARP_VARIATION",nullptr);env.set("GAGP_GPU_CHOICE_TABLES",nullptr);
-  }
+  gagp::set_host_thread_limit(4);require_same(reference,run(p,false),std::string(p.label)+" CPU 4 threads");gagp::set_host_thread_limit(1);
+  // Warp-per-child GPU kernels with threshold-table draws.
+  const auto gpu=run(p,true);
+  require(gpu.profile.rfind("native-gpu-phase-",0)==0 && gpu.profile.find("-warp-choice")!=std::string::npos,
+      std::string(p.label)+": GPU owner not used");
+  require_same(reference,gpu,std::string(p.label)+" GPU");
  }
  // Synchronous batch steady state: both owners publish identical searches.
  for(const Policy* p:{&policies[1],&policies[3]}) {
@@ -167,34 +140,11 @@ int main() { try {
   require(reference.champions.size()==std::size_t(base.generations) && reference.final_asts.size()==std::size_t(population),label+" shape");
   require(reference.final_asts!=run(*p,false).final_asts,label+" equals the generational search");
   for(std::size_t g=1;g<reference.best.size();++g)require(reference.best[g]>=reference.best[g-1],label+" champion regressed");
-  env.set("GAGP_HOST_THREADS","4");require_same(reference,steady_run(false),label+" CPU 4 threads");env.set("GAGP_HOST_THREADS",nullptr);
-  for(bool variants:{false,true}) {
-   for(const char* flag:{"GAGP_GPU_INPLACE_MUTATION","GAGP_GPU_FUSED_DONOR_SITES","GAGP_GPU_FUSED_SPLICE_DEPTH","GAGP_GPU_DEFERRED_CROSSOVER_COPY"})
-    env.set(flag,variants?"1":nullptr);
-   const auto gpu=steady_run(true);
-   require(gpu.profile.rfind("native-gpu-phase-",0)==0 && gpu.profile.find("-steady8")!=std::string::npos,label+" GPU owner not used");
-   require_same(reference,gpu,label+(variants?" GPU variants":" GPU plain"));
-   env.set("GAGP_GPU_WARP_VARIATION","1");env.set("GAGP_GPU_CHOICE_TABLES","1");
-   require_same(reference,steady_run(true),label+" GPU warp choice tables");
-   env.set("GAGP_GPU_WARP_VARIATION",nullptr);env.set("GAGP_GPU_CHOICE_TABLES",nullptr);
-  }
-  // Staged owners stash each batch compactly; with stage storage the bank is
-  // released to the evaluation workspace between reproduction and placement.
-  env.set("GAGP_GPU_PHASE_STAGED_BUFFERS","1");
-  require_same(reference,steady_run(true),label+" GPU staged");
-  env.set("GAGP_GPU_GLOBAL_PAYLOAD","1");env.set("GAGP_GPU_PAYLOAD_WORKSPACE_MIB","256");env.set("GAGP_GPU_STAGE_STORAGE","1");
-  const auto stored=steady_run(true);
-  require(stored.profile.find("-stage-storage")!=std::string::npos && stored.profile.find("-declined")==std::string::npos,
-      label+" stage storage not used: "+stored.profile);
-  require_same(reference,stored,label+" GPU staged stage storage");
-  for(const char* flag:{"GAGP_GPU_PHASE_STAGED_BUFFERS","GAGP_GPU_GLOBAL_PAYLOAD","GAGP_GPU_PAYLOAD_WORKSPACE_MIB","GAGP_GPU_STAGE_STORAGE"})
-   env.set(flag,nullptr);
+  gagp::set_host_thread_limit(4);require_same(reference,steady_run(false),label+" CPU 4 threads");gagp::set_host_thread_limit(1);
+  const auto gpu=steady_run(true);
+  require(gpu.profile.rfind("native-gpu-phase-",0)==0 && gpu.profile.find("-steady8")!=std::string::npos,label+" GPU owner not used");
+  require_same(reference,gpu,label+" GPU");
  }
- // A conflicting legacy semantic flag is rejected for explicit policies.
- env.set("GAGP_COUNTED_SITE_DRAW","1");
- bool rejected=false;
- try{(void)run(policies[0],false);}catch(const std::invalid_argument&){rejected=true;}
- require(rejected,"conflicting legacy site-draw flag accepted");
  std::cout<<"phase population CPU reference tests passed\n";
  return 0;
 } catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;} }

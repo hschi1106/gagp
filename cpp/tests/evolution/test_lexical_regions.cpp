@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-#include "gagp/cli/commands.hpp"
+#include "gagp/cli/program_json.hpp"
 #include "gagp/cli/json.hpp"
 #include "gagp/core/errors.hpp"
 #include "gagp/core/value.hpp"

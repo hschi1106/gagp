@@ -6,7 +6,6 @@
 #define __host__
 #endif
 #include "phase_population_cpu.hpp"
-#include "gagp/core/engine_profile.hpp"
 #include "phase_operators.cuh"
 #include "phase_layout.hpp"
 #include "parent_fitness_cache.cuh"
@@ -45,7 +44,7 @@ struct HostProfile {
   nonterminals.data(),int(nonterminals.size()),grammar.domains.data(),int(grammar.domains.size()),grammar.values.data(),int(grammar.values.size()),
   grammar.minimum.data(),grammar.depth_count,grammar.logical_depth_count,grammar.site_depth};}
 };
-// Default one host thread; GAGP_HOST_THREADS opts into workers. Items are
+// Default one host thread; `gagp run --threads` opts into workers. Items are
 // independent, so scheduling never changes any published value.
 template<class Function> void parallel_rows(int count,Function function) {
  if(gagp::host_thread_limit()<=1 || count<=1){for(int i=0;i<count;++i)function(i);return;}
@@ -59,7 +58,6 @@ struct HostPhasePopulation::Impl {
  std::shared_ptr<const grammar::CompiledGrammar> grammar;
  OperatorPolicy operators;
  std::string profile;
- const bool constructive_export=gagp::engine_env("GAGP_GPU_CONSTRUCTIVE_EXPORT")!=nullptr;
  NativePhaseLayout layout;int population=0,slot_count=0;
  std::vector<std::unique_ptr<HostProfile>> profiles;std::vector<DeviceSlot> slots;
  std::unique_ptr<HostTrees> current,crossed,next,scratch;
@@ -81,11 +79,6 @@ struct HostPhasePopulation::Impl {
    gene.constants.assign(t.constants,t.constants+t.constant_count);
   }
   return out;
- }
- ProgramGenome finish_export(ProgramGenome genome)const {
-  if(!constructive_export)
-   genome.derivation=std::make_shared<const grammar::DerivationMetadata>(grammar::reconstruct_derivation(*grammar,genome));
-  return genome;
  }
  // Lower every live phase with the shared phase compiler and patch the region
  // executables exactly as the GPU owner materializes them.
@@ -137,7 +130,7 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
  s.operators.crossover_probability=policy.crossover_probability;
  s.operators.crossover_attempts=policy.crossover_attempts;
  s.operators.mutation_max_nodes=policy.mutation_max_nodes;
- s.operators.fused_depth=true; // exact engine variants; serial copies stay eager
+ // Serial copies stay eager (deferred_copy=false); both schedules are exact.
  NativePhaseGrammarProfiles import_profiles(s.grammar);
  s.population=input.size();
  s.layout=import_native_phase_layout(*s.grammar,input.front(),&import_profiles,&input_names,true,projected?&*projected:nullptr);
@@ -221,7 +214,7 @@ ReproductionStats HostPhasePopulation::reproduce(const std::vector<double>& comp
  // Same per-child bodies and draw order as the GPU kernels; children are independent.
  parallel_rows(p,[&](int child) {
   crossover_child<false>(child,current,crossed,s.slots.data(),k,p,available,fitness,pressure,seed,s.operators,s.stats[child]);
-  mutate_child<true,true,false>(child,crossed,next,scratch,s.slots.data(),k,available,probability,seed,s.operators,s.stats[child]);
+  mutate_child<false>(child,crossed,next,scratch,s.slots.data(),k,available,probability,seed,s.operators,s.stats[child]);
  });
  // Elites: highest completed fitness, ties to the lowest source index.
  if(elite_count) {
@@ -273,7 +266,7 @@ std::vector<int> HostPhasePopulation::make_batch(const std::vector<double>& sele
  // The GPU kernel bodies with `b` children drawing parents from all p members.
  parallel_rows(b,[&](int child) {
   crossover_child<false>(child,current,crossed,s.slots.data(),k,p,available,selection_fitness.data(),pressure,seed,s.operators,s.stats[child]);
-  mutate_child<true,true,false>(child,crossed,next,scratch,s.slots.data(),k,available,probability,seed,s.operators,s.stats[child]);
+  mutate_child<false>(child,crossed,next,scratch,s.slots.data(),k,available,probability,seed,s.operators,s.stats[child]);
   compare_child(child,current,crossed,p,k,s.stats[child]);
  });
  std::vector<int> reuse(b,-1);
@@ -343,7 +336,7 @@ std::vector<ProgramGenome> HostPhasePopulation::export_population()const {
 }
 ProgramGenome HostPhasePopulation::export_member(std::size_t index)const {
  phase_layout_require(index<std::size_t(impl_->population),"export index");
- return impl_->finish_export(export_native_phase_layout(*impl_->grammar,impl_->layout,impl_->genes(int(index))));
+ return export_native_phase_layout(*impl_->grammar,impl_->layout,impl_->genes(int(index)));
 }
 std::vector<unsigned> HostPhasePopulation::node_counts(bool grammar_sites)const {
  const auto& s=*impl_;auto trees=const_cast<HostTrees&>(*s.current).pointers();

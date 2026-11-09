@@ -17,7 +17,7 @@ class NativePhasePopulation final {
   NativePhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
       const std::vector<ProgramGenome>& input, const std::vector<std::string>& input_names,
       std::optional<grammar::ProjectedBudget> projected=std::nullopt, int site_depth=0,
-      const PhaseVariationPolicy& policy=phase_variation_policy_from_environment());
+      const PhaseVariationPolicy& policy=PhaseVariationPolicy{});
   ~NativePhasePopulation();
   NativePhasePopulation(const NativePhasePopulation&) = delete;
   NativePhasePopulation& operator=(const NativePhasePopulation&) = delete;

@@ -74,11 +74,11 @@ bool cuda_alloc_and_copy_in(const std::vector<T>& host, T** dev) {
     *dev = nullptr;
     return false;
   }
-  if (cuda_pool_malloc(reinterpret_cast<void**>(dev), sizeof(T) * host.size()) != cudaSuccess) {
+  if (device_malloc(reinterpret_cast<void**>(dev), sizeof(T) * host.size()) != cudaSuccess) {
     return false;
   }
   if (cudaMemcpy(*dev, host.data(), sizeof(T) * host.size(), cudaMemcpyHostToDevice) != cudaSuccess) {
-    cuda_pool_free(*dev);
+    device_free(*dev);
     *dev = nullptr;
     return false;
   }

@@ -2,7 +2,6 @@
 
 #include "gagp/core/fitness_policy.hpp"
 #include "builtins_device.cuh"
-#include "short_edit_device.cuh"
 
 namespace gagp::gpu_detail {
 
@@ -10,9 +9,7 @@ namespace gagp::gpu_detail {
 // Admission proves all elements are Int, so comparisons retain all 64 bits.
 template<bool CompactA,bool CompactB>
 __device__ __forceinline__ double d_score_private_intlist_spans(const DPrivateIntListSpan& a,
-    const DPrivateIntListSpan& b,double penalty,FitnessPolicy policy,bool* exact,
-    bool short_edit=false,const DShortEditPattern* pattern=nullptr,
-    const DShortEditEntry* entries=nullptr) {
+    const DPrivateIntListSpan& b,double penalty,FitnessPolicy policy,bool* exact) {
   const int n=a.size,m=b.size;
   if(policy.metric==FitnessMetric::TupleSummary) {
     if(exact)*exact=false;
@@ -32,14 +29,6 @@ __device__ __forceinline__ double d_score_private_intlist_spans(const DPrivateIn
   if(policy.metric==FitnessMetric::Exact)return same?0:-fitness_error_ceiling(policy,penalty);
   if(m>kFitnessMaxSequence)return -fitness_error_ceiling(policy,penalty);
   if(fitness_sequence_length_saturates(n,m,penalty,policy))return -fabs(penalty);
-  if(short_edit && (same || !n || !m || pattern)) {
-    // Existing maximum-answer and penalty guards run first. Canonical whole
-    // sequence equality, empty sequences and one-word patterns are exact;
-    // unsupported labels keep the original full DP, without truncation.
-    const int distance=same?0:!n?m:!m?n:d_short_edit_distance<CompactA>(a,*pattern,entries);
-    const double error=distance;
-    return policy.proximity==FitnessProximity::Discounted?-error/(1+error):-fmin(error,fabs(penalty));
-  }
   unsigned row[kFitnessMaxSequence+1];
   for(int j=0;j<=m;++j)row[j]=j;
   for(int i=1;i<=n;++i) {
@@ -57,9 +46,7 @@ __device__ __forceinline__ double d_score_private_intlist_spans(const DPrivateIn
 
 template<class State>
 __device__ __noinline__ double d_score_resident(const Value& actual,const Value& expected,
-    double penalty,FitnessPolicy policy,const DPayloadTables& tables,const State& state,bool* exact,
-    bool short_edit=false,const DShortEditPattern* pattern=nullptr,
-    const DShortEditEntry* entries=nullptr,int entry_count=0) {
+    double penalty,FitnessPolicy policy,const DPayloadTables& tables,const State& state,bool* exact) {
   if(state.private_intlists && (actual.tag==ValueTag::IntList || expected.tag==ValueTag::IntList)) {
     if(exact)*exact=false;
     if(actual.tag!=ValueTag::IntList || expected.tag!=ValueTag::IntList)
@@ -67,14 +54,12 @@ __device__ __noinline__ double d_score_resident(const Value& actual,const Value&
     DPrivateIntListSpan a,b;
     if(!d_private_intlist_span(tables,state,actual,a) || !d_private_intlist_span(tables,state,expected,b))
       return -fitness_error_ceiling(policy,penalty);
-    if(pattern && (!short_edit_pattern_matches(*pattern,expected,b.size,entry_count) ||
-        (pattern->count && !entries)))pattern=nullptr;
     if(a.integers) {
-      if(b.integers)return d_score_private_intlist_spans<true,true>(a,b,penalty,policy,exact,short_edit,pattern,entries);
-      return d_score_private_intlist_spans<true,false>(a,b,penalty,policy,exact,short_edit,pattern,entries);
+      if(b.integers)return d_score_private_intlist_spans<true,true>(a,b,penalty,policy,exact);
+      return d_score_private_intlist_spans<true,false>(a,b,penalty,policy,exact);
     }
-    if(b.integers)return d_score_private_intlist_spans<false,true>(a,b,penalty,policy,exact,short_edit,pattern,entries);
-    return d_score_private_intlist_spans<false,false>(a,b,penalty,policy,exact,short_edit,pattern,entries);
+    if(b.integers)return d_score_private_intlist_spans<false,true>(a,b,penalty,policy,exact);
+    return d_score_private_intlist_spans<false,false>(a,b,penalty,policy,exact);
   }
   if(exact)*exact=fitness_case_score(actual,expected,penalty,{FitnessMetric::Exact})==0;
   if(policy.metric!=FitnessMetric::Levenshtein && policy.metric!=FitnessMetric::TupleSummary)

@@ -7,7 +7,7 @@ namespace gagp::evo {
 // Search-semantic policy of the native phase-population operators. Every field
 // changes the variation distribution or the random-draw sequence; engine
 // choices (CPU reference or GPU, warp kernels, buffer strategies) must not.
-// Defaults reproduce the historical behavior with no legacy flags set.
+// Defaults reproduce the historical reservoir/genome behavior.
 enum class PhaseSiteDraw { Reservoir, Counted };
 enum class PhaseSiteScope { Genome, UniformPhase };
 struct PhaseVariationPolicy {
@@ -63,12 +63,6 @@ PhaseSchedulePolicy resolve_phase_schedule(PhaseSchedulePolicy policy, int popul
 
 // Throws std::invalid_argument for out-of-range values.
 void validate_phase_variation_policy(const PhaseVariationPolicy& policy);
-// Historical environment mapping: GAGP_COUNTED_SITE_DRAW (set),
-// GAGP_GPU_UNIFORM_PHASE_SITES=1 and GAGP_GPU_SOURCE_CROSSOVER_GATE=1 (0.7).
-PhaseVariationPolicy phase_variation_policy_from_environment();
-// Explicit policies own these semantics. A legacy flag that is present and
-// disagrees with the explicit value is rejected rather than silently ignored.
-void require_environment_agrees(const PhaseVariationPolicy& policy);
 // Stable suffixes appended to reproduction profile names.
 std::string phase_variation_profile_suffix(const PhaseVariationPolicy& policy);
 

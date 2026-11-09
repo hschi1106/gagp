@@ -46,11 +46,11 @@ gagp::BytecodeProgram returns(const Value& value) {
 bool test_completed_fitness_revision() {
   using gagp::evo::repro::CompletedFitnessReuse;
   gagp::FitnessEvalResult completed;completed.ok=true;completed.fitness={-1,-2,-3};
-  CompletedFitnessReuse cache(true),disabled(false);
+  CompletedFitnessReuse cache;
   if(!check(cache.mapping(1).empty(),"cold completed fitness mapping reused"))return false;
-  cache.record(completed,1);disabled.record(completed,1);
+  cache.record(completed,1);
   if(!check(cache.mapping(1)==std::vector<int>({0,1,2}) && cache.mapping(2).empty() &&
-      cache.mapping(0).empty() && disabled.mapping(1).empty(),"completed fitness crossed revision or disabled scope"))return false;
+      cache.mapping(0).empty(),"completed fitness crossed revision"))return false;
   cache.advance({2,-1,0});
   if(!check(cache.mapping(1)==std::vector<int>({2,-1,0}),"exact parent mapping lost"))return false;
   cache.advance({0,1,2});
@@ -84,26 +84,14 @@ bool test_arena_case_sort_proof() {
 }
 
 bool test_payload_workspace_budget() {
-  using gagp::gpu_detail::parse_payload_workspace_budget;
   using gagp::gpu_detail::payload_workspace_block_count;
   constexpr std::size_t mib=1024u*1024u;
-  std::size_t bytes=0;
-  if(!check(parse_payload_workspace_budget(nullptr,bytes) && bytes==512*mib,
-      "default payload workspace budget"))return false;
-  for(const char* text:{"64","512","2048","4096","8192","8193","16383","16384"}) {
-    if(!check(parse_payload_workspace_budget(text,bytes) && bytes==std::stoull(text)*mib,
-        "valid explicit payload workspace budget"))return false;
+  for(const std::size_t bytes:{64*mib,512*mib,8193*mib,gagp::gpu_detail::kPayloadWorkspaceBytes}) {
     const std::size_t lane_bytes=2*mib+37,extra=12345;
     const auto blocks=payload_workspace_block_count(bytes,1024,lane_bytes,extra);
     if(!check(blocks*32*lane_bytes+extra<=bytes &&
         (blocks==1024 || (blocks+1)*32*lane_bytes+extra>bytes),
         "workspace capacity does not obey exact configured cap"))return false;
-  }
-  for(const char* text:{"","0","63","16385","163840","-512","+512","512.0","512MiB"," 512","512 ",
-      "184467440737095516160000000000000000"}) {
-    bytes=123;
-    if(!check(!parse_payload_workspace_budget(text,bytes) && bytes==123,
-        "invalid workspace budget accepted or output mutated"))return false;
   }
   if(!check(payload_workspace_block_count(8192*mib,1024,mib,0)==256 &&
       payload_workspace_block_count(16384*mib,1024,mib,0)==512 &&

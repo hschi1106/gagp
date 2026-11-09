@@ -1,5 +1,4 @@
 #include "gagp/core/host_threads.hpp"
-#include "gagp/core/engine_profile.hpp"
 #include "../batch_workers.hpp"
 #include "gagp/evolution/grammar/variation_cache.hpp"
 
@@ -148,8 +147,7 @@ void VariationAnalysisCache::prepare_population(const std::vector<ProgramGenome>
     handoff->clear();
     // The opt-in continuation is owned by this generation, independently of the
     // bounded FIFO cache. Its consumers still validate exact identity/read sets.
-    if (population.size() > capacity_ && !gagp::engine_env("GAGP_POPULATION_HANDOFF")) handoff = nullptr;
-    else handoff->resize(population.size());
+    handoff->resize(population.size());
   }
   validate_population_requests(*grammar_, requests);
   if (!max_workers) throw std::invalid_argument("analysis worker limit must be positive");

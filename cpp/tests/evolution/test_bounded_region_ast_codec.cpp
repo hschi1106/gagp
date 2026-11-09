@@ -6,7 +6,7 @@
 #include <string>
 #include <utility>
 
-#include "gagp/cli/commands.hpp"
+#include "gagp/cli/program_json.hpp"
 #include "gagp/cli/json.hpp"
 #include "gagp/core/region_plan.hpp"
 #include "gagp/evolution/ast_program.hpp"

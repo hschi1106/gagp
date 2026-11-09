@@ -341,12 +341,19 @@ void check_lazy_capture_and_implicit_var_guard() {
           "structure-only compilation accepted an implicit phase VAR capture");
 }
 
+bool same_result(const ExecResult& a, const ExecResult& b) {
+  return a.is_error == b.is_error && (a.is_error ? a.err.code == b.err.code : exact_value(a.value,b.value));
+}
+
+// A reusable session (cached validation and view storage) must match one-shot
+// execution at every fuel boundary.
+void require_session_matches_one_shot(const BytecodeProgram& program, int max_fuel, const char* what) {
+  CpuExecutionSession session(program);
+  for (int fuel=0; fuel<=max_fuel; ++fuel)
+    require(same_result(session.execute({},fuel), execute_bytecode_cpu(program,{},fuel)), what);
+}
+
 void check_cpu_region_views() {
-  struct Restore {
-    bool present = std::getenv("GAGP_CPU_REGION_VIEWS") != nullptr;
-    std::string value = present ? std::getenv("GAGP_CPU_REGION_VIEWS") : "";
-    ~Restore() { if (present) setenv("GAGP_CPU_REGION_VIEWS",value.c_str(),1); else unsetenv("GAGP_CPU_REGION_VIEWS"); }
-  } restore;
   for (std::size_t length=0; length<=4; ++length) {
     for (int variant=0; variant<3; ++variant) {
       auto program = compile_checked(count_program(int_list(length)));
@@ -369,28 +376,14 @@ void check_cpu_region_views() {
       require(detail::cpu_region_views_supported(segment), "scalar view fixture failed capability proof");
       for (unsigned frames : {0u,1u,32u}) {
         segment.plan.limits.frames = frames;
-        unsetenv("GAGP_CPU_REGION_VIEWS"); CpuExecutionSession reference(program);
-        std::vector<ExecResult> expected;
-        for (int fuel=0; fuel<=100; ++fuel) expected.push_back(reference.execute({},fuel));
-        setenv("GAGP_CPU_REGION_VIEWS","1",1); CpuExecutionSession candidate(program);
-        for (int fuel=0; fuel<=100; ++fuel) {
-          const auto actual = candidate.execute({},fuel); const auto& old = expected[fuel];
-          require(actual.is_error == old.is_error && (actual.is_error ? actual.err.code == old.err.code : exact_value(actual.value,old.value)),
-              "CPU list view changed scalar output/error/fuel/frame boundary");
-        }
+        require_session_matches_one_shot(program, 100,
+            "CPU list view session changed scalar output/error/fuel/frame boundary");
       }
     }
   }
   auto terminal = compile_checked(count_program(int_list(4)));
   auto& predicate = terminal.bounded_region_segments[0].base_predicate.program;
   predicate.consts[predicate.code[0].a] = Value::from_bool(true);
-  const char* scalar_flag = std::getenv("GAGP_CPU_SCALAR_VIEWS");
-  const bool had_scalar_flag = scalar_flag != nullptr;
-  const std::string scalar_value = scalar_flag ? scalar_flag : "";
-  unsetenv("GAGP_CPU_SCALAR_VIEWS");
-  require(!detail::cpu_region_views_supported(terminal.bounded_region_segments[0]),
-      "legacy terminal predicate should not pay eager view setup");
-  setenv("GAGP_CPU_SCALAR_VIEWS", "1", 1);
   require(detail::cpu_region_views_supported(terminal.bounded_region_segments[0]),
       "proven scalar terminal phase should admit optional typed view setup");
   auto indexed_terminal = terminal;
@@ -399,22 +392,8 @@ void check_cpu_region_views() {
   indexed_body.code = {{Opcode::Load,0,0,true,false}, {Opcode::PushConst,0,0,true,false},
       {Opcode::CallBuiltin,static_cast<int>(BuiltinId::Index),2,true,true}, {Opcode::Return}};
   indexed_body.instruction_fuel.assign(indexed_body.code.size(),1);
-  unsetenv("GAGP_CPU_REGION_VIEWS"); CpuExecutionSession scalar_reference(indexed_terminal);
-  std::vector<ExecResult> scalar_expected;
-  for (int fuel=0; fuel<=30; ++fuel) scalar_expected.push_back(scalar_reference.execute({},fuel));
-  setenv("GAGP_CPU_REGION_VIEWS","1",1); CpuExecutionSession scalar_candidate(indexed_terminal);
-  for (int fuel=0; fuel<=30; ++fuel) {
-    const auto& a=scalar_expected[fuel]; const auto b=scalar_candidate.execute({},fuel);
-    require(a.is_error==b.is_error && (a.is_error ? a.err.code==b.err.code : exact_value(a.value,b.value)),
-        "optional terminal view changed Index output or fuel order");
-  }
-  if (had_scalar_flag) setenv("GAGP_CPU_SCALAR_VIEWS", scalar_value.c_str(), 1);
-  else unsetenv("GAGP_CPU_SCALAR_VIEWS");
-  unsetenv("GAGP_CPU_REGION_VIEWS");const auto terminal_reference=execute_bytecode_cpu(terminal,{},100);
-  setenv("GAGP_CPU_REGION_VIEWS","1",1);const auto terminal_actual=execute_bytecode_cpu(terminal,{},100);
-  require(terminal_reference.is_error==terminal_actual.is_error &&
-      (terminal_reference.is_error ? terminal_reference.err.code==terminal_actual.err.code : exact_value(terminal_reference.value,terminal_actual.value)),
-      "terminal profile fallback changed execution");
+  require_session_matches_one_shot(indexed_terminal, 30, "terminal view session changed Index output or fuel order");
+  require_session_matches_one_shot(terminal, 100, "terminal view session changed execution");
   // Unsupported result types and container-key memo keep the reference path.
   auto unsupported = compile_checked(identity_program(int_list(4)));
   require(!detail::cpu_region_views_supported(unsupported.bounded_region_segments[0]), "escaping list admitted as a private view");
@@ -467,10 +446,7 @@ void check_cpu_region_views() {
   state[0] = missing;
   require(!views.prepare(state,1,parameters),"missing payload did not decline view conversion");
   auto program = compile_checked(count_program(short_token));
-  unsetenv("GAGP_CPU_REGION_VIEWS"); const auto a=execute_bytecode_cpu(program,{},100);
-  setenv("GAGP_CPU_REGION_VIEWS","1",1); const auto b=execute_bytecode_cpu(program,{},100);
-  require(a.is_error == b.is_error && (a.is_error ? a.err.code==b.err.code : exact_value(a.value,b.value)),
-      "failed conversion did not restore generic region inputs");
+  require_session_matches_one_shot(program, 100, "failed conversion did not restore generic region inputs");
 }
 
 }  // namespace

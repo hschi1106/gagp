@@ -285,66 +285,47 @@ void test_backend_replay_and_owned_ref_parity() {
       "task wrong-case ranking lost across owned/ref reproduction overloads");
 }
 
-void test_deferred_site_analysis_matches_eager() {
-  const char* previous_selected = std::getenv("GAGP_CPU_SELECTED_PARENTS");
-  const std::optional<std::string> saved_selected = previous_selected
-      ? std::optional<std::string>(previous_selected) : std::nullopt;
-  const char* previous = std::getenv("GAGP_CPU_LAZY_ANALYSIS");
-  const std::optional<std::string> saved = previous
-      ? std::optional<std::string>(previous) : std::nullopt;
+void test_deferred_site_analysis_replays() {
+  // Sites are analyzed lazily for the selected parents only; replaying the same
+  // scored population and RNG must reproduce offspring, accounting and draws.
   for (const auto& grammar : {repeated_hole_grammar(), local_grammar(), many_sites_grammar()}) {
     for (double mutation_rate : {0.0, 0.3, 1.0}) {
       auto population = generated_population(*grammar, 7, 819);
       auto cfg = compiled_config(grammar, 7);
       cfg.mutation_rate = mutation_rate;
-      std::mt19937_64 eager_rng(749), lazy_rng(749);
+      std::mt19937_64 first_rng(749), replay_rng(749);
       for (int generation = 0; generation < 8; ++generation) {
         const auto scored = score_owned(population);
-        unsetenv("GAGP_CPU_LAZY_ANALYSIS");
-        unsetenv("GAGP_CPU_SELECTED_PARENTS");
-        const auto eager = repro::run_reproduction_backend(scored, cfg, eager_rng);
-        setenv("GAGP_CPU_LAZY_ANALYSIS", "1", 1);
-        setenv("GAGP_CPU_SELECTED_PARENTS", "1", 1);
-        const auto lazy = repro::run_reproduction_backend(scored, cfg, lazy_rng);
-        check_same_population(eager.next_population, lazy.next_population,
-            "deferred site analysis changed offspring across generations");
-        check_same_counters(eager.stats.variation, lazy.stats.variation,
-            "deferred site analysis changed variation accounting");
-        check(eager_rng == lazy_rng, "deferred site analysis changed RNG consumption");
-        require_population_membership(*grammar, lazy.next_population);
-        population = lazy.next_population;
+        const auto first = repro::run_reproduction_backend(scored, cfg, first_rng);
+        const auto replay = repro::run_reproduction_backend(scored, cfg, replay_rng);
+        check_same_population(first.next_population, replay.next_population,
+            "deferred site analysis is not replayable");
+        check_same_counters(first.stats.variation, replay.stats.variation,
+            "deferred site analysis changed variation accounting on replay");
+        check(first_rng == replay_rng, "deferred site analysis changed RNG consumption on replay");
+        require_population_membership(*grammar, replay.next_population);
+        population = replay.next_population;
       }
     }
   }
-  if (saved) setenv("GAGP_CPU_LAZY_ANALYSIS", saved->c_str(), 1);
-  else unsetenv("GAGP_CPU_LAZY_ANALYSIS");
-  if (saved_selected) setenv("GAGP_CPU_SELECTED_PARENTS", saved_selected->c_str(), 1);
-  else unsetenv("GAGP_CPU_SELECTED_PARENTS");
 }
 
-void test_selected_mutation_matches_eager() {
-  const char* previous = std::getenv("GAGP_CPU_SELECTED_MUTATION");
-  const std::optional<std::string> saved = previous
-      ? std::optional<std::string>(previous) : std::nullopt;
+void test_selected_mutation_membership() {
   for (const auto& grammar : {repeated_hole_grammar(), local_grammar(), many_sites_grammar()}) {
     auto parent = generate_derivation(*grammar, 32).genome;
     for (double probability : {0.0, 0.3, 1.0}) {
       for (std::uint64_t seed = 0; seed < 32; ++seed) {
-        VariationContext eager_context(grammar), selected_context(grammar);
-        unsetenv("GAGP_CPU_SELECTED_MUTATION");
-        const auto eager = mutate(parent, seed, eager_context, probability);
-        setenv("GAGP_CPU_SELECTED_MUTATION", "1", 1);
-        const auto selected = mutate(parent, seed, selected_context, probability);
-        check_same_population({eager}, {selected}, "selected mutation changed the logical site/RNG");
-        check_same_counters(eager_context.counters(), selected_context.counters(),
-            "selected mutation changed counters");
-        require_membership(*grammar, selected);
-        parent = selected;
+        VariationContext first_context(grammar), replay_context(grammar);
+        const auto first = mutate(parent, seed, first_context, probability);
+        const auto replay = mutate(parent, seed, replay_context, probability);
+        check_same_population({first}, {replay}, "selected mutation is not replayable");
+        check_same_counters(first_context.counters(), replay_context.counters(),
+            "selected mutation changed counters on replay");
+        require_membership(*grammar, replay);
+        parent = replay;
       }
     }
   }
-  if (saved) setenv("GAGP_CPU_SELECTED_MUTATION", saved->c_str(), 1);
-  else unsetenv("GAGP_CPU_SELECTED_MUTATION");
 }
 
 void test_selected_parent_ownership() {
@@ -877,21 +858,14 @@ void test_counted_crossover_exact_feasible_pairs() {
       for (const auto& sa : aa->sites) for (const auto& sb : ab->sites)
         if (compatible_sites(sa, sb) && donor_fits(sa, sb) && donor_fits(sb, sa))
           feasible.emplace_back(&sa, &sb);
-      unsetenv("GAGP_CPU_COUNTED_PAIRS");
       (void)variation_detail::crossover_with_sites(a, b, seed, reference, nullptr);
-      setenv("GAGP_CPU_COUNTED_PAIRS", "1", 1);
       variation_detail::SelectedCrossoverSites selected;
-      unsetenv("GAGP_CPU_ALL_FIT_PAIRS");
       const auto children = variation_detail::crossover_with_sites(a, b, seed, counted, &selected);
-      setenv("GAGP_CPU_ALL_FIT_PAIRS", "1", 1);
       const auto again = variation_detail::crossover_with_sites(a, b, seed, replay, nullptr);
       check(ast_cache_key(children.first.ast) == ast_cache_key(again.first.ast) &&
             ast_cache_key(children.second.ast) == ast_cache_key(again.second.ast),
-            "all-fit shortcut changed counted crossover offspring");
-      check_same_counters(counted.counters(), replay.counters(), "all-fit shortcut changed counters");
-      check(counted.counters().contract_rejections == reference.counters().contract_rejections &&
-            counted.counters().budget_rejections == reference.counters().budget_rejections,
-            "counted crossover changed feasible-pair rejection accounting");
+            "counted crossover offspring are not replayable");
+      check_same_counters(counted.counters(), replay.counters(), "counted crossover changed counters on replay");
       check(bool(selected) == !feasible.empty(), "counted crossover lost feasible pairs");
       if (selected) {
         GrammarRandom random(seed);
@@ -916,8 +890,6 @@ void test_counted_crossover_exact_feasible_pairs() {
       require_population_membership(*grammar, current);
     }
   }
-  unsetenv("GAGP_CPU_COUNTED_PAIRS");
-  unsetenv("GAGP_CPU_ALL_FIT_PAIRS");
 }
 
 int main() {
@@ -928,9 +900,9 @@ int main() {
     test_nonterminal_variation_policy();
     test_backend_replay_and_owned_ref_parity();
     test_manual_selection_crossover_mutation_replay();
-    test_deferred_site_analysis_matches_eager();
+    test_deferred_site_analysis_replays();
     test_selected_parent_ownership();
-    test_selected_mutation_matches_eager();
+    test_selected_mutation_membership();
     test_repeated_holes_and_local_children_remain_members();
     test_all_parents_are_validated_before_selection();
     test_prepared_ablation(repro::CpuReproAblation::GpuCandidates);

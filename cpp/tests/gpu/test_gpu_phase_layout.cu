@@ -2,7 +2,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <optional>
-#include "gagp/cli/commands.hpp"
+#include "gagp/cli/program_json.hpp"
 #include "gagp/evolution/grammar/derivation_resources.hpp"
 #include "../../src/evolution/repro/gpu/phase_layout.hpp"
 #include "../../src/evolution/region_plan_equal.hpp"
@@ -91,9 +91,6 @@ void check_import(const grammar::CompiledGrammar& grammar,const ProgramGenome& g
  auto stale=genome;stale.ast.consts.push_back(Value::invalid());bool rejected=false;
  try{(void)import_native_phase_layout(grammar,stale);}catch(const std::invalid_argument&){rejected=true;}
  require(rejected,"cold import ignored malformed unused constants");
- const char* prior=std::getenv("GAGP_REUSE_IMPORT_CERTIFICATE");
- const std::optional<std::string> saved=prior?std::optional<std::string>(prior):std::nullopt;
- setenv("GAGP_REUSE_IMPORT_CERTIFICATE","1",1);
  auto admitted=genome;
  admitted.derivation=std::make_shared<const grammar::DerivationMetadata>(
      grammar::detail::reconstruct_cold_derivation(grammar,admitted,grammar::entry_request(grammar)));
@@ -112,13 +109,9 @@ void check_import(const grammar::CompiledGrammar& grammar,const ProgramGenome& g
  admitted.ast.consts.push_back(Value::invalid());rejected=false;
  try{(void)import_native_phase_layout(grammar,admitted);}catch(const std::invalid_argument&){rejected=true;}
  require(rejected,"import reused a private certificate after AST mutation");
- if(saved)setenv("GAGP_REUSE_IMPORT_CERTIFICATE",saved->c_str(),1);
- else unsetenv("GAGP_REUSE_IMPORT_CERTIFICATE");
 }
 }
 int main(int argc,char** argv) {try {
- setenv("GAGP_COLD_PAYLOAD_PROOFS","1",1);setenv("GAGP_COLD_IMPORT_EXECUTABLES","1",1);
- setenv("GAGP_REUSE_ADMISSION_COMPILE","1",1);
  require(argc==1 || argc==3,"usage: test_gpu_phase_layout [PREPARED_JSON GRAMMAR_JSON]");
  const auto grammar_owner=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(grammar::load_definition(argc==3?argv[2]:
      GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json")));
@@ -212,7 +205,6 @@ int main(int argc,char** argv) {try {
     require(grammar::ProjectedBudget{bounded.search_limits().max_nodes,bounded.search_limits().max_depth}.accepts(projected.subtree()),
         "zero-charge fixture must fit authored budget");
     member.derivation=std::make_shared<const grammar::DerivationMetadata>(grammar::reconstruct_derivation(initial,member));
-    setenv("GAGP_REUSE_IMPORT_CERTIFICATE","1",1);
     std::string reason;
     try{(void)import_native_phase_layout(bounded,member);}catch(const std::invalid_argument& e){reason=e.what();}
     require(reason.find(depth_limit?"materialized depth budget":"materialized node budget")!=std::string::npos,

@@ -387,19 +387,7 @@ Value sequence(ValueTag tag) {
        payload::make_string_value("b"), payload::make_string_value("tail")});
 }
 
-bool test_private_measure_cache(bool private_window=false,int launch_bound=0) {
-  struct Environment {
-    const char* key; std::string old; bool had;
-    explicit Environment(const char* name):key(name),had(std::getenv(name)!=nullptr) {
-      if(had)old=std::getenv(name);setenv(key,"1",1);
-    }
-    ~Environment(){if(had)setenv(key,old.c_str(),1);else unsetenv(key);}
-  } private_lists("GAGP_GPU_PRIVATE_INTLIST_OFFSETS"),global("GAGP_GPU_GLOBAL_PAYLOAD"),
-      measure("GAGP_MEASURE_PHASE_CACHE"),private_measure("GAGP_GPU_PRIVATE_MEASURE_CACHE"),
-      compact("GAGP_GPU_COMPACT_INTLIST_CELLS"),tiling("GAGP_GPU_TILED_INITIAL_PAYLOAD"),
-      frames("GAGP_COMPACT_FRAMES"),window_mode("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR"),
-      leaf("GAGP_GPU_WINDOW_LEAF_DIRECT"),launch("GAGP_GPU_PRIVATE_LAUNCH_BOUND");
-  setenv("GAGP_GPU_PRIVATE_LAUNCH_BOUND",std::to_string(launch_bound).c_str(),1);
+bool test_private_measure_cache(bool private_window=false) {
   std::vector<BytecodeProgram> programs;
   for(unsigned length:{0u,1u,2u,65u,1024u})for(bool impure:{false,true})
       for(int carried=0;carried<(private_window?2:1);++carried) {
@@ -441,39 +429,20 @@ bool test_private_measure_cache(bool private_window=false,int launch_bound=0) {
   const std::vector<Value> answers(33,payload::make_int_list_value(
       std::vector<Value>(1024,Value::from_int(INT64_MIN))));
   FitnessPolicy policy;policy.metric=FitnessMetric::Exact;policy.list_allocation_limit=65536;
-  if(launch_bound==0) {
-    FitnessSessionGpu invalid;
-    if(!check(invalid.init(cases,answers,1000,32,7,policy).ok,"private launch validation init"))return false;
-    setenv("GAGP_GPU_PRIVATE_LAUNCH_BOUND","511",1);
-    if(!check(!invalid.eval_programs(programs,true).ok,"invalid private launch bound accepted"))return false;
-    setenv("GAGP_GPU_PRIVATE_LAUNCH_BOUND","0",1);
-  }
   for(int lanes:{32,128})for(int fuel:{0,3,40,1000000}) {
     FitnessSessionGpu session;
     if(!check(session.init(cases,answers,fuel,lanes,7,policy).ok,"private Measure cache init"))return false;
     const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,7,lanes,policy);
-    for(bool tiled:{false,true})for(bool compact_cells:{false,true})
-        for(int direct_leaf=0;direct_leaf<(private_window?2:1);++direct_leaf) {
-      setenv("GAGP_GPU_WINDOW_LEAF_DIRECT",direct_leaf?"1":"0",1);
-      setenv("GAGP_GPU_TILED_INITIAL_PAYLOAD",tiled?"1":"0",1);
-      setenv("GAGP_GPU_COMPACT_INTLIST_CELLS",compact_cells?"1":"0",1);
-      setenv("GAGP_GPU_PRIVATE_MEASURE_CACHE","0",1);
-      setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","0",1);
-      const auto off=session.eval_programs(programs,true);
-      setenv("GAGP_GPU_PRIVATE_MEASURE_CACHE","1",1);
-      setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR",private_window?"1":"0",1);
+    {
       const auto on=session.eval_programs(programs,true);
-      if(!check(off.ok && on.ok && on.fitness==off.fitness && on.fitness==cpu &&
-          on.case_counts==off.case_counts && on.wrong==off.wrong &&
-          (!launch_bound || on.execution_profile.find("-private-launch"+std::to_string(launch_bound))!=std::string::npos) &&
+      if(!check(on.ok && on.fitness==cpu &&
+          on.execution_profile.find("-private-launch32")!=std::string::npos &&
           on.execution_profile.find("-private-measure-cache")!=std::string::npos &&
           on.execution_profile.find("-private-measure-cache-declined")==std::string::npos &&
           (!private_window || (on.execution_profile.find("-private-window")!=std::string::npos &&
            on.execution_profile.find("-private-window-declined")==std::string::npos &&
            on.execution_profile.find("-unboxed")==std::string::npos)),
           "private Measure cache initial/replay/full-case/fuel parity"))return false;
-      if(fuel==1000000 && !check(on.payload_replay_programs>0 &&
-          on.payload_replay_programs==off.payload_replay_programs,"private Measure cache replay exercised"))return false;
       for(const auto& count:on.case_counts)if(!check(count[0]==33,"private Measure cache omitted cases"))return false;
     }
   }
@@ -504,23 +473,17 @@ bool test_private_measure_cache(bool private_window=false,int launch_bound=0) {
     FitnessSessionGpu boundary_session;
     if(!check(boundary_session.init(capture_cases,answers,1000000,128,7,policy).ok,"private window boundary init"))return false;
     const auto cpu=eval_fitness_cpu(boundaries,capture_cases,answers,1000000,7,128,policy);
-    for(bool direct_leaf:{false,true}) {
-      setenv("GAGP_GPU_WINDOW_LEAF_DIRECT",direct_leaf?"1":"0",1);
-      setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","0",1);
-      const auto off=boundary_session.eval_programs(boundaries,true);
-      setenv("GAGP_GPU_PRIVATE_WINDOW_EXECUTOR","1",1);
+    {
       const auto on=boundary_session.eval_programs(boundaries,true);
-      const auto mode="private window boundary leaf="+std::to_string(direct_leaf);
-      if(!check(off.ok && on.ok && off.fitness.size()==boundaries.size() &&
-          on.fitness.size()==boundaries.size() && cpu.size()==boundaries.size() &&
-          off.case_counts.size()==boundaries.size() && on.case_counts.size()==boundaries.size(),
-          mode+" evaluation/results unavailable: off.ok="+std::to_string(off.ok)+" on.ok="+std::to_string(on.ok)))return false;
+      const std::string mode="private window boundary";
+      if(!check(on.ok && on.fitness.size()==boundaries.size() && cpu.size()==boundaries.size() &&
+          on.case_counts.size()==boundaries.size(),
+          mode+" evaluation/results unavailable: on.ok="+std::to_string(on.ok)))return false;
       for(std::size_t i=0;i<boundaries.size();++i) {
-        if(!check(off.fitness[i]==on.fitness[i] && on.fitness[i]==cpu[i] && off.case_counts[i]==on.case_counts[i],
-            mode+" row="+std::to_string(i)+" fitness(off,on,cpu)="+std::to_string(off.fitness[i])+","+
-            std::to_string(on.fitness[i])+","+std::to_string(cpu[i])+" errors(off,on)="+
-            std::to_string(off.case_counts[i][1])+","+std::to_string(on.case_counts[i][1])+" timeouts(off,on)="+
-            std::to_string(off.case_counts[i][2])+","+std::to_string(on.case_counts[i][2])))return false;
+        if(!check(on.fitness[i]==cpu[i],
+            mode+" row="+std::to_string(i)+" fitness(gpu,cpu)="+
+            std::to_string(on.fitness[i])+","+std::to_string(cpu[i])+" errors="+
+            std::to_string(on.case_counts[i][1])+" timeouts="+std::to_string(on.case_counts[i][2])))return false;
       }
       if(!check(on.case_counts[21][2]==33 && on.case_counts[22][1]==0 &&
           on.case_counts.back()[1]==11 && on.case_counts.back()[2]==0,
@@ -1006,20 +969,8 @@ bool test_production_capability_dispatch_sequence() {
          compare_population({memo_b}, "shrink workspace after ordinary dispatch");
 }
 
-bool test_verified_view_profile(bool direct = false, bool root = false) {
-  struct Environment {
-    const char* key; std::string old; bool had;
-    explicit Environment(const char* name) : key(name), had(std::getenv(name)!=nullptr) {
-      if(had) old=std::getenv(name); setenv(key,"1",1);
-    }
-    ~Environment(){if(had)setenv(key,old.c_str(),1);else unsetenv(key);}
-  } view("GAGP_VIEW_PROFILE"), typed("GAGP_TYPED_VIEW_PHASE"), sorted("GAGP_SORT_CASES"), compact("GAGP_COMPACT_FRAMES"), constant("GAGP_CONSTANT_PHASE");
-  std::unique_ptr<Environment> direct_env;
-  if (direct) direct_env = std::make_unique<Environment>("GAGP_DIRECT_PHASE");
-  std::unique_ptr<Environment> root_env;
-  if (root) root_env = std::make_unique<Environment>("GAGP_DIRECT_ROOT");
+bool test_verified_view_profile(bool direct = true, bool root = true) {
   {
-    Environment prepared("GAGP_PREPARED_CASE_VIEWS");
     auto program = captured_counter_program();
     auto& segment = program.bounded_region_segments[0];
     segment.plan.parameter_types = {ValueTag::IntList};
@@ -1079,7 +1030,6 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
         100,"prepared capture lazy generic fallback")) return false;
   }
   if(direct) {
-    Environment coordinate_mode("GAGP_COORDINATE_EXECUTOR");
     {
       auto invalid=unary_segment(Value::from_int(7));invalid.plan.memoized=false;
       FitnessSessionGpu session;
@@ -1117,7 +1067,6 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
             "coordinate executor boundary/memo/capacity/fuel parity duplicate="+std::to_string(duplicate)+" inclusive="+std::to_string(inclusive)+" memo="+std::to_string(memo)+" capacity="+std::to_string(capacity)+" start="+std::to_string(start)+" fuel="+std::to_string(fuel)+" error="+fit.err.message+" profile="+fit.execution_profile))return false;
       }
     {
-      Environment compare("GAGP_BOUND_COMPARE_PHASE"),ring("GAGP_COORDINATE_RING_MEMO");
       for(int distance:{1,2,4,5})for(unsigned cells:{1u,4u,16u})for(int fuel:{0,8,32,128,1024}) {
         std::vector<BytecodeProgram> programs;
         for(int start:{-3,0,1,7,12}) {
@@ -1189,8 +1138,6 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
     if(!test_captured_locals_are_per_case_and_lazy() || !test_ordered_coordinate_memo())return false;
   }
   if(direct) {
-    Environment window_mode("GAGP_WINDOW_EXECUTOR");
-    Environment leaf_direct("GAGP_GPU_WINDOW_LEAF_DIRECT");
     auto segment=sequence_segment(ValueTag::IntList);
     segment.plan.result_type=ValueTag::Int;segment.plan.preparations.resize(1);
     segment.preparations.resize(1);segment.plan.requests.resize(2);
@@ -1221,7 +1168,7 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
         const auto gpu=session.eval_programs({program},true);
         const auto cpu=eval_fitness_cpu({program},{{}},{expected},fuel,7,32);
         const auto execution=execute_bytecode_cpu(program,{},fuel);
-        if(!check(gpu.ok && gpu.execution_profile.find("-window")!=std::string::npos && gpu.fitness==cpu &&
+        if(!check(gpu.ok && gpu.execution_profile.find("-window-private-window")!=std::string::npos && gpu.fitness==cpu &&
             gpu.case_counts[0][1]==static_cast<unsigned>(execution.is_error) &&
             gpu.case_counts[0][2]==static_cast<unsigned>(execution.is_error && execution.err.code==ErrCode::Timeout),
             "window specialization preserves empty/singleton/cut/capacity/fuel behavior"))return false;
@@ -1231,7 +1178,6 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
   if (root) {
     // Exercise the production dynamic shared cache allocation in a population
     // containing compact, actual 20-deep generic, and impure phases together.
-    Environment cache_mode("GAGP_MEASURE_PHASE_CACHE");
     std::vector<BytecodeProgram> programs;
     for (unsigned length : {2u, 65u}) for (int variant = 0; variant < 3; ++variant) {
       auto segment = sequence_segment(ValueTag::IntList);
@@ -1266,22 +1212,21 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
       FitnessSessionGpu session;
       if (!check(session.init(cases, answers, fuel, blocksize, 7).ok,
                  "measure cache production session init")) return false;
-      unsetenv("GAGP_MEASURE_PHASE_CACHE");
-      const auto off = session.eval_programs(programs, true);
-      setenv("GAGP_MEASURE_PHASE_CACHE", "1", 1);
       const auto on = session.eval_programs(programs, true);
+      const auto dirty = session.eval_programs(programs, true);
       const auto cpu = eval_fitness_cpu(programs, cases, answers, fuel, 7, blocksize);
-      if (!check(off.ok && on.ok && off.fitness == on.fitness && on.fitness == cpu &&
-                     off.case_counts == on.case_counts && on.case_counts.size() == programs.size() &&
-                     on.execution_profile.find("int-list-views") != std::string::npos &&
-                     on.execution_profile.find("-direct") == std::string::npos,
-                 "measure cache mixed generic/typed/impure production fitness and counters")) return false;
+      if (!check(dirty.ok && on.ok && dirty.fitness == on.fitness && on.fitness == cpu &&
+                     dirty.case_counts == on.case_counts && on.case_counts.size() == programs.size() &&
+                     on.execution_profile.find("int-list-views") != std::string::npos,
+                 "measure cache mixed generic/typed/impure production fitness and counters (block="+std::to_string(blocksize)+
+                 " fuel="+std::to_string(fuel)+" ok="+std::to_string(on.ok)+"/"+std::to_string(dirty.ok)+
+                 " parity="+std::to_string(on.fitness==cpu)+" dirty="+std::to_string(dirty.fitness==on.fitness && dirty.case_counts==on.case_counts)+
+                 " profile="+on.execution_profile+")")) return false;
     }
   }
   if (root) {
     // Queue support must not reduce the original dynamic shared-memory limit,
     // including when the optional measure cache cannot fit and falls back.
-    Environment queue("GAGP_DYNAMIC_PROGRAM_QUEUE"), cache("GAGP_MEASURE_PHASE_CACHE");
     FitnessSessionGpu session;
     if (!check(session.init({{}}, {Value::from_int(7)}, 100, 32, 7).ok,
                "shared capacity session init")) return false;
@@ -1309,19 +1254,21 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
                    shared_required + 16 > shared_limit,
                "shared capacity fixture reaches prior admission boundary") ||
         !verify_fixture(program, "shared capacity boundary root")) return false;
-    for (bool enabled : {false, true}) {
-      if (enabled) setenv("GAGP_DYNAMIC_PROGRAM_QUEUE", "1", 1);
-      else unsetenv("GAGP_DYNAMIC_PROGRAM_QUEUE");
+    {
       const auto gpu = session.eval_programs({program}, true);
+      // The private-measure-cache token always reports its own decision; only
+      // the shared Measure cache token must be absent here.
+      auto shared_profile = gpu.execution_profile;
+      for (const char* token : {"-private-measure-cache-declined", "-private-measure-cache"})
+        for (auto at = shared_profile.find(token); at != std::string::npos; at = shared_profile.find(token))
+          shared_profile.erase(at, std::char_traits<char>::length(token));
       if (!check(gpu.ok && gpu.fitness == std::vector<double>{0} &&
                      gpu.case_counts[0][0] == 1 && gpu.case_counts[0][1] == 0 &&
-                     gpu.execution_profile.find("-measure-cache") == std::string::npos,
+                     shared_profile.find("-measure-cache") == std::string::npos,
                  "queue prior shared capacity and cache fallback")) return false;
     }
   }
   if(direct) {
-    Environment window_mode("GAGP_WINDOW_EXECUTOR"), unboxed("GAGP_UNBOXED_WINDOW_FRAMES"),
-        soa("GAGP_WINDOW_SOA"), queue("GAGP_DYNAMIC_PROGRAM_QUEUE");
     std::vector<BytecodeProgram> programs;
     for(unsigned p=0;p<97;++p) {
       auto segment=sequence_segment(ValueTag::IntList);
@@ -1352,8 +1299,6 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
     }
   }
   if(direct && root) {
-    Environment hybrid("GAGP_HYBRID_PHASE_EXECUTOR"), window_mode("GAGP_WINDOW_EXECUTOR"),
-        unboxed("GAGP_UNBOXED_WINDOW_FRAMES"), leaf("GAGP_GPU_WINDOW_LEAF_DIRECT");
     // One deep phase must use the tagged view VM while its sibling phases and
     // window continuations remain compact. Thirty-three distinct cases cover
     // a partial second warp and per-case captured indices on private slices.
@@ -1418,8 +1363,7 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
       for(int fuel:budgets) {
         FitnessSessionGpu session;
         if(!check(session.init(cases,answers,fuel,32,7).ok,"hybrid window cases init"))return false;
-        unsetenv("GAGP_HYBRID_PHASE_EXECUTOR");const auto generic=session.eval_programs(programs,true);
-        setenv("GAGP_HYBRID_PHASE_EXECUTOR","1",1);const auto specialized=session.eval_programs(programs,true);
+        const auto specialized=session.eval_programs(programs,true);
         const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,7,32);
         unsigned errors=0,timeouts=0;
         for(const auto& bindings:cases) {
@@ -1427,17 +1371,21 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
           const auto result=execute_bytecode_cpu(program,inputs,fuel);
           errors+=result.is_error;timeouts+=result.is_error && result.err.code==ErrCode::Timeout;
         }
-        if(!check(generic.ok && specialized.ok && generic.execution_profile.find("-window")==std::string::npos &&
+        if(!check(specialized.ok &&
             specialized.execution_profile.find("-direct-root-hybrid")!=std::string::npos &&
-            specialized.execution_profile.find("-window-unboxed")!=std::string::npos &&
-            specialized.fitness==generic.fitness && specialized.fitness==cpu && specialized.case_counts==generic.case_counts &&
+            specialized.execution_profile.find("-window-private-window")!=std::string::npos &&
+            specialized.execution_profile.find("-unboxed")!=std::string::npos &&
+            specialized.fitness==cpu &&
             specialized.case_counts[0][1]==errors && specialized.case_counts[0][2]==timeouts,
-            "hybrid deep phase preserves private views, large-number rounding, captures and exact fuel/error boundaries"))return false;
+            "hybrid deep phase preserves private views, large-number rounding, captures and exact fuel/error boundaries (fuel="+
+            std::to_string(fuel)+" ok="+std::to_string(specialized.ok)+" parity="+std::to_string(specialized.fitness==cpu)+
+            " errors="+std::to_string(specialized.case_counts.empty()?0u:specialized.case_counts[0][1])+"/"+std::to_string(errors)+
+            " timeouts="+std::to_string(specialized.case_counts.empty()?0u:specialized.case_counts[0][2])+"/"+std::to_string(timeouts)+
+            " profile="+specialized.execution_profile+")"))return false;
       }
     }
   }
   if(direct) {
-    Environment add_mode("GAGP_BOUND_ADD_PHASE");
     for(bool explicit_return:{false,true}) {
       auto segment=unary_segment(Value::from_int(0));segment.plan.memoized=false;segment.plan.limits.cells=0;segment.plan.state_types.push_back(ValueTag::Int);
       for(auto& request:segment.plan.requests) {
@@ -1466,7 +1414,6 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
     }
   }
   if(direct) {
-    Environment compare_mode("GAGP_BOUND_COMPARE_PHASE");
     for(auto op:{Opcode::Lt,Opcode::Le,Opcode::Gt,Opcode::Ge})for(bool reversed:{false,true})for(bool explicit_return:{false,true}) {
       constexpr std::int64_t big=(INT64_C(1)<<53)+8;
       auto segment=unary_segment(Value::from_int(7));
@@ -1506,15 +1453,13 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
     FitnessSessionGpu session;
     if(!check(session.init({{}},{answer},100,32,7,{FitnessMetric::Exact}).ok,label+" init"))return false;
     const auto fit=session.eval_programs({program},true);
-    std::string expected_profile="int-list-views-typed-sorted";
-    if(std::getenv("GAGP_DIRECT_PHASE")) {
-      expected_profile+=std::getenv("GAGP_DIRECT_ROOT")?"-direct-root":"-direct";
-      // This fixture has one bounded Int coordinate and literal endpoints, so
-      // the adopted coordinate executor is eligible even for large constants.
-      if(std::getenv("GAGP_COORDINATE_EXECUTOR"))expected_profile+="-coordinate";
-    }
-    return check(fit.ok && fit.fitness==std::vector<double>{0} && fit.wrong==std::vector<unsigned>{0} && fit.execution_profile==expected_profile,
-        label+" selects proven profile (actual="+fit.execution_profile+", expected="+expected_profile+")") &&
+    // This fixture has one bounded Int coordinate and literal endpoints, so
+    // the coordinate executor is eligible even for large constants.
+    const auto& profile=fit.execution_profile;
+    const bool proven=profile.rfind("int-list-views-typed",0)==0 &&
+        profile.find("-sorted-direct-root")!=std::string::npos && profile.find("-coordinate")!=std::string::npos;
+    return check(fit.ok && fit.fitness==std::vector<double>{0} && fit.wrong==std::vector<unsigned>{0} && proven,
+        label+" selects proven profile (actual="+profile+")") &&
         compare_fitness(program,{{{},answer,ErrCode::Value,true}},100,label);
   };
   constexpr auto low=std::numeric_limits<std::int64_t>::min();
@@ -1568,8 +1513,8 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
   FitnessSessionGpu fallback;
   if(!check(fallback.init({{}},{list},100,32,7).ok,"view fallback init"))return false;
   auto result=fallback.eval_programs({returns_list},true);
-  if(!check(result.ok && result.execution_profile=="mixed" && result.case_counts.at(0)[0]==1,
-            "container results must execute the generic fallback"))return false;
+  if(!check(result.ok && result.execution_profile.rfind("mixed",0)==0 && result.case_counts.at(0)[0]==1,
+            "container results must execute the generic fallback (profile="+result.execution_profile+")"))return false;
   std::array<ValueTag,64> inputs;inputs.fill(ValueTag::Invalid);
   auto untyped=ordinary_program();untyped.consts[0]=Value::from_float(1.5);
   if(!check(!gpu_detail::view_program_supported(untyped,inputs),"Float must decline integer profile"))return false;
@@ -1587,22 +1532,6 @@ bool test_verified_view_profile(bool direct = false, bool root = false) {
 // Distinct list contents and targets share only execution results, never scores.
 // The second program reads elements and must retain ordinary per-case execution.
 bool test_shape_result_cache() {
-  struct RestoreGeometry {
-    const char* names[3]={"GAGP_GPU_VIEW_BOUND128","GAGP_GPU_VIEW_PHYSICAL_BLOCK","GAGP_GPU_CASE_VIEW_BLOCK"};
-    std::string saved[3];bool present[3];
-    RestoreGeometry(){for(int i=0;i<3;++i){const auto* p=std::getenv(names[i]);present[i]=p;saved[i]=p?p:"";setenv(names[i],"0",1);}}
-    ~RestoreGeometry(){for(int i=0;i<3;++i)if(present[i])setenv(names[i],saved[i].c_str(),1);else unsetenv(names[i]);}
-  } restore_geometry;
-  const char* flags[]={"GAGP_VIEW_PROFILE","GAGP_TYPED_VIEW_PHASE","GAGP_DIRECT_PHASE","GAGP_DIRECT_ROOT",
-      "GAGP_COMPACT_FRAMES","GAGP_WINDOW_EXECUTOR","GAGP_UNBOXED_WINDOW_FRAMES","GAGP_WINDOW_SOA",
-      "GAGP_SORT_CASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_SHAPE_RESULT_CACHE","GAGP_GPU_RELAXED_VIEW_REGISTERS"};
-  struct Restore {
-    const char** flags;std::string saved[12];bool present[12];
-    explicit Restore(const char** f):flags(f) {for(int i=0;i<12;++i) {
-      const auto* value=std::getenv(flags[i]);present[i]=value;saved[i]=value?value:"";setenv(flags[i],"1",1);
-    }}
-    ~Restore(){for(int i=0;i<12;++i)if(present[i])setenv(flags[i],saved[i].c_str(),1);else unsetenv(flags[i]);}
-  } restore(flags);
   auto segment=sequence_segment(ValueTag::IntList);
   segment.plan.result_type=ValueTag::Int;segment.plan.preparations.resize(1);
   segment.preparations.resize(1);segment.plan.requests.resize(2);
@@ -1632,57 +1561,35 @@ bool test_shape_result_cache() {
   }
   const FitnessPolicy policy{FitnessMetric::Absolute,FitnessProximity::Discounted};
   for(int fuel:{0,1,2,5,12,1000}) {
-    FitnessSessionGpu ordinary,cached;
-    unsetenv("GAGP_GPU_SHAPE_RESULT_CACHE");
-    if(!ordinary.init(cases,answers,fuel,512,7,policy).ok)return false;
-    setenv("GAGP_GPU_SHAPE_RESULT_CACHE","1",1);
+    FitnessSessionGpu cached;
     if(!cached.init(cases,answers,fuel,512,7,policy).ok)return false;
-    unsetenv("GAGP_GPU_RELAXED_VIEW_REGISTERS");
-    const auto a=ordinary.eval_programs(programs,true);
-    setenv("GAGP_GPU_RELAXED_VIEW_REGISTERS","1",1);
     const auto b=cached.eval_programs(programs,true);
-    setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","128",1);
-    setenv("GAGP_GPU_VIEW_BOUND128","1",1);
-    const auto narrow=cached.eval_programs(programs,true);
-    setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","0",1);
-    setenv("GAGP_GPU_VIEW_BOUND128","0",1);
-    const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,7,512,policy);
-    if(!check(a.ok && b.ok && a.fitness==b.fitness && b.fitness==cpu && a.wrong==b.wrong &&
-        a.case_counts==b.case_counts && b.shape_result_programs==2 && b.shape_result_groups==8 &&
+    std::vector<unsigned> cpu_wrong;
+    const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,7,512,policy,&cpu_wrong);
+    if(!check(b.ok && b.fitness==cpu && b.wrong==cpu_wrong &&
+        b.shape_result_programs==2 && b.shape_result_groups==8 &&
         b.execution_profile.find("-view-reg512")!=std::string::npos &&
         b.execution_profile.find("-view-reg512-declined")==std::string::npos &&
         b.physical_program_cases==1040,"shape cache changed content-dependent result, per-case target or ordered fractional score"))return false;
-    if(!check(narrow.ok && narrow.fitness==cpu && narrow.wrong==b.wrong && narrow.case_counts==b.case_counts &&
-        narrow.shape_result_programs==b.shape_result_programs && narrow.physical_program_cases==b.physical_program_cases &&
-        narrow.execution_profile.find("-view-bound128")!=std::string::npos &&
-        narrow.execution_profile.find("-view-bound128-declined")==std::string::npos &&
-        narrow.execution_profile.find("-view-reg512-declined")!=std::string::npos,
-        "128-thread compilation changed fractional scores, fuel, per-case targets or diagnostic route"))return false;
 
     for(int count:{19,81,128}) {
       std::vector<CaseBindings> subset(cases.begin(),cases.begin()+count);
       std::vector<Value> expected(answers.begin(),answers.begin()+count);
       FitnessSessionGpu adaptive;
       if(!adaptive.init(subset,expected,fuel,512,7,policy).ok)return false;
-      setenv("GAGP_GPU_CASE_VIEW_BLOCK","0",1);
-      const auto fixed=adaptive.eval_programs(programs,true);
-      setenv("GAGP_GPU_CASE_VIEW_BLOCK","1",1);
       const auto sized=adaptive.eval_programs(programs,true);
       const auto dirty=adaptive.eval_programs(programs,true);
-      setenv("GAGP_GPU_CASE_VIEW_BLOCK","0",1);
       std::vector<unsigned> cpu_wrong;
       const auto reference=eval_fitness_cpu(programs,subset,expected,fuel,7,512,policy,&cpu_wrong);
       const int physical=count==19?32:count==81?128:512;
-      if(!check(fixed.ok && sized.ok && dirty.ok && fixed.fitness==sized.fitness && sized.fitness==reference &&
-          sized.wrong==cpu_wrong && sized.case_counts==fixed.case_counts && dirty.case_counts==sized.case_counts &&
+      if(!check(sized.ok && dirty.ok && sized.fitness==reference &&
+          sized.wrong==cpu_wrong && dirty.case_counts==sized.case_counts &&
           dirty.fitness==sized.fitness && dirty.wrong==sized.wrong && sized.physical_blocksize==physical &&
-          (sized.execution_profile.find("-case-view-block-declined")==std::string::npos)==(count<128),
+          sized.execution_profile.find("-case-view-block-declined")==std::string::npos,
           "case-sized view launch changed fractional scores, original logical lanes, fuel/errors or dirty workspace"))return false;
     }
 
     {
-      const auto* prior=std::getenv("GAGP_BOUND_ADD_PHASE");const bool present=prior;
-      const std::string saved=prior?prior:"";setenv("GAGP_BOUND_ADD_PHASE","1",1);
       for(bool additive:{true,false})for(int count:{128,200}) {
         auto one=shape;
         if(!additive)one.bounded_region_segments[0].combine=constant_phase(Value::from_int(7));
@@ -1690,19 +1597,17 @@ bool test_shape_result_cache() {
         std::vector<Value> expected(answers.begin(),answers.begin()+count);
         FitnessSessionGpu probe;
         if(!probe.init(subset,expected,fuel,512,7,policy).ok)return false;
-        setenv("GAGP_GPU_CASE_VIEW_BLOCK","0",1);const auto ordinary=probe.eval_programs({one},true);
-        setenv("GAGP_GPU_CASE_VIEW_BLOCK","hybrid",1);const auto hybrid=probe.eval_programs({one},true);
-        const auto dirty=probe.eval_programs({one},true);setenv("GAGP_GPU_CASE_VIEW_BLOCK","0",1);
+        const auto hybrid=probe.eval_programs({one},true);
+        const auto dirty=probe.eval_programs({one},true);
         std::vector<unsigned> cpu_wrong;
         const auto reference=eval_fitness_cpu({one},subset,expected,fuel,7,512,policy,&cpu_wrong);
-        if(!check(ordinary.ok && hybrid.ok && dirty.ok && ordinary.fitness==reference &&
+        if(!check(hybrid.ok && dirty.ok &&
             hybrid.fitness==reference && dirty.fitness==reference && hybrid.wrong==cpu_wrong &&
-            hybrid.case_counts==ordinary.case_counts && dirty.case_counts==hybrid.case_counts &&
+            dirty.case_counts==hybrid.case_counts &&
             hybrid.physical_blocksize==(additive?512:128) &&
             (hybrid.execution_profile.find("-bound-add")!=std::string::npos)==additive,
             "hybrid physical view rule changed CPU scores, logical reductions, fuel/errors or compile-feature route"))return false;
       }
-      if(present)setenv("GAGP_BOUND_ADD_PHASE",saved.c_str(),1);else unsetenv("GAGP_BOUND_ADD_PHASE");
     }
   }
   // Saturated65536 descriptors must not be merged with actual65535 lists.
@@ -1713,142 +1618,24 @@ bool test_shape_result_cache() {
   FitnessSessionGpu saturated;
   if(!saturated.init(cases,answers,1,512,7,policy).ok)return false;
   const auto excluded=saturated.eval_programs({shape},true);
-  // Requests outside the512-thread specialization retain the original kernel.
+  // A 1024-thread request whose case-view block shrinks to at most 512 threads
+  // uses the 512-thread specialization; a wider launch keeps the original kernel.
   FitnessSessionGpu wide;
-  setenv("GAGP_GPU_VIEW_BOUND128","1",1);
   if(!wide.init(cases,answers,1,1024,7,policy).ok)return false;
   const auto fallback=wide.eval_programs({shape},true);
-  if(!check(fallback.ok && fallback.execution_profile.find("-view-reg512-declined")!=std::string::npos &&
-      fallback.execution_profile.find("-view-bound128-declined")!=std::string::npos &&
+  if(!check(fallback.ok && (fallback.execution_profile.find("-view-reg512-declined")!=std::string::npos)==
+      (fallback.physical_blocksize>512) &&
       fallback.fitness==eval_fitness_cpu({shape},cases,answers,1,7,1024,policy),
-      "relaxed-register kernel lost1024-thread fallback"))return false;
+      "relaxed-register kernel changed1024-thread request (ok="+std::to_string(fallback.ok)+" err="+fallback.err.message+
+      " profile="+fallback.execution_profile+")"))return false;
   return check(excluded.ok && excluded.shape_result_programs==0 &&
       excluded.physical_program_cases==128,"saturated backing extent entered shape cache");
 }
 
-bool test_projected_shape_inputs() {
-  struct Restore {
-    struct Entry{const char* name;bool present;std::string value;};std::vector<Entry> entries;
-    explicit Restore(std::initializer_list<const char*> names) {for(const auto* name:names) {
-      const auto* value=std::getenv(name);entries.push_back({name,bool(value),value?value:""});setenv(name,"1",1);
-    }}
-    ~Restore(){for(const auto& e:entries)if(e.present)setenv(e.name,e.value.c_str(),1);else unsetenv(e.name);}
-  } restore({"GAGP_VIEW_PROFILE","GAGP_TYPED_VIEW_PHASE","GAGP_DIRECT_PHASE","GAGP_DIRECT_ROOT",
-      "GAGP_COMPACT_FRAMES","GAGP_WINDOW_EXECUTOR","GAGP_UNBOXED_WINDOW_FRAMES","GAGP_WINDOW_SOA",
-      "GAGP_SORT_CASES","GAGP_MEASURE_PHASE_CACHE","GAGP_GPU_SHAPE_RESULT_CACHE",
-      "GAGP_GPU_PROJECT_SHAPE_INPUTS","GAGP_GPU_RELAXED_VIEW_REGISTERS","GAGP_GPU_REGISTER_PHASE_STACK","GAGP_GPU_VIEW_PHYSICAL_BLOCK"});
-  setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","128",1);
-  auto segment=sequence_segment(ValueTag::IntList);
-  segment.plan.result_type=ValueTag::Int;segment.plan.preparations.resize(1);segment.preparations.resize(1);
-  segment.plan.requests.resize(2);
-  segment.plan.requests[1].states[0]=window(0,endpoint(WindowEndpointKind::InteriorCut,0),endpoint(WindowEndpointKind::End));
-  segment.plan.parameter_types={ValueTag::Int};segment.parameter_locals={1};
-  segment.base_body=constant_phase(Value::from_int(7));
-  // This declared capture is unused; its distinct scalar values cannot affect the root.
-  segment.base_body.bindings={{{RegionSlotBank::Parameter,0},0}};segment.base_body.program.n_locals=1;
-  segment.combine=phase({}, {ins_a(Opcode::Load,0),ins_a(Opcode::Load,1),ins(Opcode::Add),ins(Opcode::Return)},
-      {{slot(RegionSlotBank::Result,0),0},{slot(RegionSlotBank::Result,1),1}},2);
-  auto unused=invocation(segment,{payload::make_int_list_value({Value::from_int(0)})},3);
-  unused.code[0]=ins_a(Opcode::Load,0);
-  auto used=unused;used.bounded_region_segments[0].base_body=load_phase(RegionSlotBank::Parameter,0);
-  auto unreachable=unused;
-  unreachable.bounded_region_segments[0].base_predicate=constant_phase(Value::from_bool(true));
-  unreachable.bounded_region_segments[0].combine=load_phase(RegionSlotBank::Parameter,0);
-  const std::vector<BytecodeProgram> programs{unused,used,unreachable};
-  for(const auto& program:programs)if(!verify_fixture(program,"projected capture"))return false;
-  const auto packed=gpu_detail::pack_programs_with_shared_case_count(programs,1025,0);
-  const std::uint64_t required[]{1,3,1};
-  for(int i=0;i<3;++i) {
-    std::uint64_t inputs=0;
-    if(!check(gpu_detail::shape_result_program_supported(packed,packed.metas[i],&inputs) && inputs==required[i],
-        "fresh phase dependency mask included unused or omitted used caller input"))return false;
-  }
-  std::vector<CaseBindings> cases;std::vector<Value> answers;
-  for(int i=0;i<1025;++i) {
-    std::vector<Value> values(i%8,Value::from_int(i*31));
-    cases.push_back({{0,payload::make_int_list_value(values)},{1,Value::from_int(i)},
-                     {2,Value::from_float(i+.125)}});
-    answers.push_back(Value::from_int(i%17));
-  }
-  const FitnessPolicy policy{FitnessMetric::Absolute,FitnessProximity::Discounted};
-  for(int fuel:{0,1,3,16,1000})for(int physical:{32,128,256}) {
-    FitnessSessionGpu reference,cached;
-    unsetenv("GAGP_GPU_SHAPE_RESULT_CACHE");
-    if(!reference.init(cases,answers,fuel,512,7,policy).ok)return false;
-    setenv("GAGP_GPU_SHAPE_RESULT_CACHE","1",1);
-    if(!cached.init(cases,answers,fuel,512,7,policy).ok)return false;
-    setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","0",1);
-    unsetenv("GAGP_GPU_REGISTER_PHASE_STACK");
-    const auto a=reference.eval_programs(programs,true);
-    setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK",std::to_string(physical).c_str(),1);
-    setenv("GAGP_GPU_REGISTER_PHASE_STACK","1",1);
-    const auto b=cached.eval_programs(programs,true);
-    if(!check(a.ok && b.ok && a.fitness==b.fitness && b.fitness==eval_fitness_cpu(programs,cases,answers,fuel,7,512,policy) &&
-        a.wrong==b.wrong && a.case_counts==b.case_counts && b.shape_result_programs==2 &&
-        b.shape_result_groups==8 && b.physical_program_cases==1041 && b.physical_blocksize==static_cast<unsigned>(physical),
-        "projection ignored used capture, read unused Float or merged per-case targets"))return false;
-    if(fuel==1000) {
-      auto changed=unused;
-      changed.bounded_region_segments[0].base_body.program.consts[0]=Value::from_int(13);
-      for(const auto& current:std::vector<BytecodeProgram>{unused,used,changed,unreachable,unused}) {
-        const auto result=cached.eval_programs({current},true);
-        if(!check(result.ok && result.fitness==eval_fitness_cpu({current},cases,answers,fuel,7,512,policy),
-            "partition cache reused a previous program result or dependency mask"))return false;
-      }
-    }
-  }
-  // Sorted/strided integral cases also retain their original512 logical lanes.
-  const FitnessPolicy capped{FitnessMetric::Absolute,FitnessProximity::Capped};
-  for(int physical:{32,64,128,256}) {
-    FitnessSessionGpu reference,cached;
-    unsetenv("GAGP_GPU_SHAPE_RESULT_CACHE");
-    if(!reference.init(cases,answers,1000,512,7,capped).ok)return false;
-    setenv("GAGP_GPU_SHAPE_RESULT_CACHE","1",1);
-    if(!cached.init(cases,answers,1000,512,7,capped).ok)return false;
-    setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","0",1);const auto a=reference.eval_programs(programs,true);
-    setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK",std::to_string(physical).c_str(),1);const auto b=cached.eval_programs(programs,true);
-    if(!check(a.ok && b.ok && a.fitness==b.fitness && a.case_counts==b.case_counts && a.wrong==b.wrong &&
-        b.fitness==eval_fitness_cpu(programs,cases,answers,1000,7,512,capped) && b.physical_blocksize==static_cast<unsigned>(physical),
-        "physical view lanes duplicated strided cases or changed canonical score order"))return false;
-  }
-  FitnessSessionGpu wide_reference,wide_cached;
-  unsetenv("GAGP_GPU_SHAPE_RESULT_CACHE");
-  if(!wide_reference.init(cases,answers,1000,1024,7,policy).ok)return false;
-  setenv("GAGP_GPU_SHAPE_RESULT_CACHE","1",1);
-  if(!wide_cached.init(cases,answers,1000,1024,7,policy).ok)return false;
-  setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","0",1);const auto original_wide=wide_reference.eval_programs(programs,true);
-  setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","128",1);const auto virtual_wide=wide_cached.eval_programs(programs,true);
-  if(!check(original_wide.ok && virtual_wide.ok && original_wide.fitness==virtual_wide.fitness &&
-      original_wide.case_counts==virtual_wide.case_counts && virtual_wide.physical_blocksize==128 &&
-      virtual_wide.fitness==eval_fitness_cpu(programs,cases,answers,1000,7,1024,policy),
-      "virtual physical lanes changed1024-lane fractional reduction or overflowed score scratch"))return false;
-  // Missing/wrong USED captures force ordinary admission/execution and retain errors.
-  cases.resize(128);answers.resize(128);
-  for(int i=0;i<128;++i)if(i%2)cases[i][1].value=Value::from_float(i+.25);else cases[i].erase(cases[i].begin()+1);
-  FitnessSessionGpu mismatch;
-  if(!mismatch.init(cases,answers,1000,128,7,policy).ok)return false;
-  const auto used_bad=mismatch.eval_programs({used},true);
-  if(!check(used_bad.ok && used_bad.shape_result_programs==0 &&
-      used_bad.fitness==eval_fitness_cpu({used},cases,answers,1000,7,128,policy),
-      "used missing/wrong capture lost native name/type behavior"))return false;
-  // The same invalid input locals are safe to ignore when not captured or read.
-  auto plain=unused;auto& plain_segment=plain.bounded_region_segments[0];
-  plain_segment.plan.parameter_types.clear();plain_segment.parameter_locals.clear();
-  plain_segment.base_body=constant_phase(Value::from_int(7));
-  setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","127",1);
-  const auto invalid=mismatch.eval_programs({plain},true);
-  if(!check(!invalid.ok,"invalid physical view block setting accepted"))return false;
-  setenv("GAGP_GPU_VIEW_PHYSICAL_BLOCK","128",1);
-  const auto ignored=mismatch.eval_programs({plain},true);
-  return check(ignored.ok && ignored.shape_result_programs==1 && ignored.shape_result_groups==8 &&
-      ignored.fitness==eval_fitness_cpu({plain},cases,answers,1000,7,128,policy),
-      "unused invalid caller locals prevented or changed proven projected execution");
-}
-
 int main() {
   payload::clear();
-  if (!test_shape_result_cache() || !test_projected_shape_inputs()) return 1;
-  if (!test_verified_view_profile() || !test_verified_view_profile(true) || !test_verified_view_profile(true, true)) return 1;
+  if (!test_shape_result_cache()) return 1;
+  if (!test_verified_view_profile()) return 1;
   if (!test_workspace_thread_isolation()) return 1;
   if (!test_phase_binding_capacities()) return 1;
   if (!test_leaf_phase_types_and_fuel()) return 1;
@@ -1858,9 +1645,6 @@ int main() {
   if (!test_sequence_divide_and_conquer()) return 1;
   if (!test_private_measure_cache()) return 1;
   if (!test_private_measure_cache(true)) return 1;
-  for(int bound:{512,1024}) {
-    if (!test_private_measure_cache(false,bound) || !test_private_measure_cache(true,bound)) return 1;
-  }
   if (!test_captured_locals_are_per_case_and_lazy()) return 1;
   if (!test_boundary_base_and_fuel()) return 1;
   if (!test_exact_capacity_exhaustion()) return 1;

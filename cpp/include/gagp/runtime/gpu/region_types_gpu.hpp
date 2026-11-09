@@ -86,13 +86,7 @@ struct DUnboxedCoordinateFrame {
 };
 #undef GAGP_REGION_HD
 
-struct DShortEditPattern;
-struct DShortEditEntry;
 struct DRegionWorkspace {
-  bool short_edit_enabled = false;
-  const DShortEditPattern* short_edit_patterns = nullptr;
-  const DShortEditEntry* short_edit_entries = nullptr;
-  int short_edit_entry_count = 0;
   // Replay owns bounded global payload slices per physical CUDA thread.
   DStringPayloadEntry* payload_string_entries = nullptr;
   DListPayloadEntry* payload_list_entries = nullptr;
@@ -112,14 +106,9 @@ struct DRegionWorkspace {
   bool private_bound_phases = false;
   bool private_typed_phases = false;
   bool compact_intlist_cells = false;
-  bool private_cell_soa = false;
   bool private_adjacent_concat = false;
-  int private_cell_stride = 1;
   bool private_warp_copy = false;
-  bool coalesce_case_counts = false;
   const unsigned* integer_case_weights = nullptr;
-  bool simple_phases = false;
-  bool register_phase_stack = false;
   const int* shape_case_groups = nullptr;
   const int* shape_case_representatives = nullptr;
   int shape_result_count = 0;
@@ -133,7 +122,6 @@ struct DRegionWorkspace {
   double* replay_warp_scores = nullptr; // Tile partials, or original-lane scores for dense case tiles.
   int dense_case_tiles = 0; // Nonzero: tiles cover consecutive cases, scores retain original logical lanes.
   int fitness_lanes = 0; // Original logical block width for exact reduction.
-  bool dense_case_lanes = false; // Untiled arena: schedule nonempty lanes, preserve score slots.
   unsigned int* payload_overflow_lane_masks = nullptr; // Initial pass only.
   int payload_overflow_mask_words = 0;
   unsigned int* payload_overflow_reasons = nullptr; // Per-program OR of physical capacity kinds.

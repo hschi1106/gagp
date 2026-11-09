@@ -58,7 +58,7 @@ struct Capture {
 };
 
 int run(std::vector<std::string> arguments) {
-  arguments.insert(arguments.begin(), "gagp_grammar_cli");
+  arguments.insert(arguments.begin(), "gagp");
   std::vector<char*> argv;
   for (auto& argument : arguments) argv.push_back(argument.data());
   return run_grammar_author_command(static_cast<int>(argv.size()), argv.data());

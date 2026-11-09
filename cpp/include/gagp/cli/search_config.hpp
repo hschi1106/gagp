@@ -23,7 +23,7 @@ struct SearchConfig {
   std::optional<int> site_depth;
   std::optional<bool> grammar_site_ranking;  // "ranking.tie_break"
   // Phase variation section. If any of these is present the whole policy is
-  // explicit: absent members take the documented defaults, not legacy flags.
+  // explicit: absent members take the documented defaults.
   std::optional<double> crossover_probability;
   std::optional<int> crossover_attempts;
   std::optional<int> mutation_max_nodes;

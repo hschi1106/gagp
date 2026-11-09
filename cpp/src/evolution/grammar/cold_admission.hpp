@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include "gagp/core/engine_profile.hpp"
 #include <cstdlib>
 #include <exception>
 #include <string>
@@ -13,8 +12,7 @@ namespace gagp::evo::grammar::detail {
 
 // Called only by the cold wrapper below, inside its speculative read scope.
 DerivationMetadata reconstruct_cold_import(const CompiledGrammar& grammar,const ProgramGenome& genome,
-    const GenerationRequest& request,VerifiedAst* verified,std::vector<std::vector<int>>* environments,
-    std::shared_ptr<const BytecodeProgram>* executable=nullptr,const std::vector<std::string>* inputs=nullptr);
+    const GenerationRequest& request,VerifiedAst* verified,std::vector<std::vector<int>>* environments);
 
 // Internal accessor: requires a validated private certificate and an active read scope.
 std::shared_ptr<const BytecodeProgram> cold_import_bytecode(const CompiledGrammar& grammar,
@@ -42,35 +40,25 @@ inline DerivationMetadata reconstruct_cold_derivation(const CompiledGrammar& gra
     const ProgramGenome& genome,const GenerationRequest& request,VerifiedAst* verified=nullptr,
     std::vector<std::vector<int>>* environments=nullptr,
     std::shared_ptr<const BytecodeProgram>* executable=nullptr,const std::vector<std::string>* inputs=nullptr) {
-  const char* fused_setting=gagp::engine_env("GAGP_FUSED_COLD_EXECUTABLE");
-  const bool fused=executable && fused_setting && std::string(fused_setting)=="1";
-  const auto has_registry=[&] {return std::any_of(genome.ast.consts.begin(),genome.ast.consts.end(),[](const auto& value) {
-    return value.tag==ValueTag::String || value.tag==ValueTag::IntList ||
-        value.tag==ValueTag::FloatList || value.tag==ValueTag::StringList;
-  });};
-  const char* enabled=gagp::engine_env("GAGP_COLD_PAYLOAD_PROOFS");
   const auto ordinary=[&] {
-    // Scalar artifacts need no registry read transaction. The private callee
-    // still validates this invocation's full identity before publishing one.
-    if(fused && !has_registry())return reconstruct_cold_import(grammar,genome,request,verified,environments,executable,inputs);
     auto witness=reconstruct_derivation(grammar,genome,request,verified,environments);
     if(executable)executable->reset();
     return witness;
   };
-  if(!enabled || std::string(enabled)!="1" || payload::StagedPayloads::has_active_scope())return ordinary();
+  // Registry constants (strings and lists) are admitted inside a payload
+  // snapshot; scalar programs need no registry read transaction.
   const bool registry=std::any_of(genome.ast.consts.begin(),genome.ast.consts.end(),[](const auto& value) {
     return value.tag==ValueTag::String || value.tag==ValueTag::IntList ||
         value.tag==ValueTag::FloatList || value.tag==ValueTag::StringList;
   });
-  if(!registry)return ordinary();
+  if(payload::StagedPayloads::has_active_scope() || !registry)return ordinary();
   VerifiedAst prepared;
   std::vector<std::vector<int>> lexical;
   struct Candidate {DerivationMetadata witness;std::shared_ptr<const BytecodeProgram> executable;};
   auto candidate=snapshot_cold_admission([&] {
     Candidate result;
-    result.witness=reconstruct_cold_import(grammar,genome,request,verified?&prepared:nullptr,environments?&lexical:nullptr,
-        fused?&result.executable:nullptr,inputs);
-    if(executable && !fused)result.executable=cold_import_bytecode(grammar,genome,result.witness,request,inputs);
+    result.witness=reconstruct_cold_import(grammar,genome,request,verified?&prepared:nullptr,environments?&lexical:nullptr);
+    if(executable)result.executable=cold_import_bytecode(grammar,genome,result.witness,request,inputs);
     return result;
   });
   if(verified)*verified=std::move(prepared);

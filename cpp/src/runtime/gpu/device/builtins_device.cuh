@@ -77,9 +77,8 @@ struct DArenaPayloadState {
   bool private_typed_phases = false;
   bool compact_intlist_cells = false;
   bool private_warp_copy = false;
-  bool simple_phases = false;
   std::int64_t* intlist_cells = nullptr;
-  int private_cell_stride = 1;
+  static constexpr int private_cell_stride = 1;
   bool alias_windows = false;
   static constexpr int kMaxStringEntries = 1;
   static constexpr int kMaxListEntries = 1;

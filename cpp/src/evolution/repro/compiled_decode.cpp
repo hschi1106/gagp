@@ -372,7 +372,7 @@ std::shared_ptr<const OwnedScalarPopulation> OwnedScalarPopulation::from_gpu_pas
   if (!certificates.owned_parents || !certificates.owned_parents->matches(context) ||
       certificates.sources != packed.compiled_sources || certificates.context.get() != &context ||
       certificates.owned_parents->genomes().size() != static_cast<std::size_t>(packed.config.population_size) ||
-      payload::StagedPayloads::has_active_scope() || std::getenv("GAGP_NO_DERIVATION_CERTIFICATES"))
+      payload::StagedPayloads::has_active_scope())
     throw std::invalid_argument("decoded ownership requires matching immutable scalar sources");
   return adopt_decoded(repro::decode_compiled_pass(packed, view, context, &certificates), context);
 }

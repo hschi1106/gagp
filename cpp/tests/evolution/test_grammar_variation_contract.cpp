@@ -50,23 +50,7 @@ bool equal_site(const VariationSite& a, const VariationSite& b) {
 // resource budgets and imported/compacted tables using all existing fixtures.
 template<class... Args>
 VariationAnalysis checked_analysis(Args&&... args) {
-  struct Restore {
-    bool present = std::getenv("GAGP_REUSE_SITE_CONTRACTS") != nullptr;
-    std::string saved = present ? std::getenv("GAGP_REUSE_SITE_CONTRACTS") : "";
-    ~Restore() {
-      if (present) setenv("GAGP_REUSE_SITE_CONTRACTS", saved.c_str(), 1);
-      else unsetenv("GAGP_REUSE_SITE_CONTRACTS");
-    }
-  } restore;
-  unsetenv("GAGP_REUSE_SITE_CONTRACTS");
-  const auto reference = analyze_variation(args...);
-  setenv("GAGP_REUSE_SITE_CONTRACTS", "1", 1);
-  auto candidate = analyze_variation(args...);
-  check(reference.sites.size() == candidate.sites.size(), "contract reuse changed site count");
-  for (std::size_t i = 0; i < reference.sites.size(); ++i)
-    check(reference.sites[i].compatibility_key == candidate.sites[i].compatibility_key &&
-          reference.sites[i].compatibility_id == candidate.sites[i].compatibility_id,
-          "contract reuse changed exact scope/nonterminal/group compatibility");
+  auto reference = analyze_variation(args...);
   const auto arguments = std::forward_as_tuple(args...);
   const auto& grammar = std::get<0>(arguments);
   const auto& genome = std::get<1>(arguments);
@@ -91,7 +75,7 @@ VariationAnalysis checked_analysis(Args&&... args) {
     } catch (const std::invalid_argument&) { rejected=true; }
     check(rejected, "invalid selected logical site indices accepted");
   }
-  return candidate;
+  return reference;
 }
 
 CompiledGrammar compile(const std::string& text) {

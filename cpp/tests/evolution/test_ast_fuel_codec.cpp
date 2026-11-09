@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "gagp/cli/commands.hpp"
+#include "gagp/cli/program_json.hpp"
 #include "gagp/cli/json.hpp"
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/fuel_events.hpp"

@@ -7,7 +7,7 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "gagp/cli/commands.hpp"
+#include "gagp/cli/program_json.hpp"
 #include "gagp/cli/json.hpp"
 
 namespace gagp::cli_detail {

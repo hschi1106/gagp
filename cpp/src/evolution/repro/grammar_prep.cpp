@@ -120,8 +120,7 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
                                        std::shared_ptr<const ConstantMutationDomains> domains,
                                        bool prepare_donors,
                                        const std::vector<grammar::WarmPopulationMember>* handoff, bool selected_only = false,
-                                       const grammar::variation_detail::OwnedScalarPopulation* owned = nullptr,
-                                       GpuPhaseDonorSession* phase_donors = nullptr) {
+                                       const grammar::variation_detail::OwnedScalarPopulation* owned = nullptr) {
   if (owned && (!selected_only || &population != &owned->genomes() || !owned->matches(context)))
     throw std::invalid_argument("owned preparation population/context mismatch");
   if (config.population_size <= 0 || config.population_size > 65536 ||
@@ -301,8 +300,6 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
         ++candidate.donor_count;
       }
   };
-  std::vector<grammar::DonorPoolJob> deferred_jobs;
-  std::vector<std::pair<std::size_t,std::size_t>> deferred_sites;
   for (std::size_t parent_index = 0; parent_index < population.size(); ++parent_index) {
     if (parent_index == preview_end) {
       if (planned_pools && planned_cursor != planned_pools->size())
@@ -424,12 +421,6 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
         const auto donor_seed = random.next();
         if (needs_donors) donor_seeds.push_back(donor_seed);
       }
-      if (phase_donors && !donor_seeds.empty()) {
-        deferred_jobs.push_back({&parent,site,std::move(donor_seeds)});
-        deferred_sites.emplace_back(parent_index,out.candidates[parent_index].size());
-        out.candidates[parent_index].push_back(candidate);
-        continue;
-      }
       grammar::DonorPool donor_pool;
       if (planned_pools && needs_donors) {
         if (planned_cursor >= planned_pools->size() ||
@@ -443,53 +434,8 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
     }
   }
 
-  if (!deferred_jobs.empty()) {
-#ifdef GAGP_HAS_CUDA
-    GpuPhaseDonorMetrics metrics;
-    const auto constructed = construct_gpu_phase_donors(*phase_donors,context.grammar(),deferred_jobs,&metrics);
-    out.gpu_donor_setup_ms=metrics.setup_ms;out.gpu_donor_device_bytes=metrics.device_bytes;
-    for (std::size_t i=0;i<deferred_jobs.size();++i) {
-      const auto& job=deferred_jobs[i];
-      auto& candidate=out.candidates[deferred_sites[i].first][deferred_sites[i].second];
-      candidate.donor_offset=as_int(out.donor_pool.size(),"deferred donor offset");
-      // Constant-pool transport has its own limit; preserve the existing native
-      // donor fallback if this GPU construction cannot fit that representation.
-      const bool supported=constructed[i] && std::all_of(constructed[i]->begin(),constructed[i]->end(),[](const auto& donor) {
-        return donor.fragment.consts.size()<=kGpuReproMaxConsts;
-      });
-      if (!supported) {
-        out.gpu_donor_fallback += job.seeds.size();
-        append_native_donors(grammar::generate_donor_pool(context,job.seeds,job.site,*job.destination),job.site,candidate);
-        continue;
-      }
-      out.gpu_donor_generated += constructed[i]->size();
-      for (const auto& donor:*constructed[i]) {
-        const auto& binders=job.site.occurrence_binder_ids.front();
-        require_room(out.donor_pool.size(),1,"GPU constructed donor count");
-        require_room(out.donor_binder_ids.size(),binders.size(),"GPU constructed donor binders");
-        out.donor_constant_streams.push_back(as_int(constants->streams.size(),"GPU donor constant stream"));
-        append_constructed_constant_mutation_stream(*constants,donor.fragment,donor.origins);
-        out.donor_identities.push_back(grammar::runtime_cache_identity(donor.fragment,input_names,context.grammar().execution_limits().fuel));
-        out.donor_pool.push_back({donor.fragment,job.site.type});
-        out.donor_contracts.push_back({job.site.compatibility_id,as_int(donor.fragment.nodes.size(),"GPU donor nodes"),
-            as_int(donor.depth,"GPU donor depth"),0,as_int(out.donor_binder_ids.size(),"GPU donor binder offset"),as_int(binders.size(),"GPU donor binder count")});
-        out.donor_binder_ids.insert(out.donor_binder_ids.end(),binders.begin(),binders.end());
-        ++candidate.donor_count;
-      }
-    }
-#else
-    throw std::logic_error("GPU donor construction requires a CUDA build");
-#endif
-  }
-
   if (planned_pools && planned_cursor != planned_pools->size())
     throw std::logic_error("prefetched donor schedule has unconsumed pools");
-  if (phase_donors) {
-    std::size_t requested=0;
-    for (const auto& job:deferred_jobs) requested+=job.seeds.size();
-    if (out.gpu_donor_generated+out.gpu_donor_fallback!=requested)
-      throw std::logic_error("GPU donor preparation left deferred requests unprocessed");
-  }
   out.compatibility_keys = selected_only ? selected_registry.keys() : context.cache().registry().keys();
   return out;
 }
@@ -497,10 +443,10 @@ static PreprocessOutput preprocess_population_impl(const std::vector<ProgramGeno
 PreprocessOutput preprocess_selected_population(const std::vector<ProgramGenome>& population,
     const GpuReproConfig& config, grammar::VariationContext& context,
     std::shared_ptr<const ConstantMutationDomains> domains, bool prepare_donors,
-    const grammar::variation_detail::OwnedScalarPopulation* owned, GpuPhaseDonorSession* phase_donors) {
+    const grammar::variation_detail::OwnedScalarPopulation* owned) {
   if (context.offspring_budget() || context.requests().size() != 1 || gagp::host_thread_limit() != 1)
     throw std::logic_error("selected preparation requires its scalar single-root 1T admission path");
-  return preprocess_population_impl(population, config, context, std::move(domains), prepare_donors, nullptr, true, owned, phase_donors);
+  return preprocess_population_impl(population, config, context, std::move(domains), prepare_donors, nullptr, true, owned);
 }
 
 PreprocessOutput preprocess_population(const std::vector<ProgramGenome>& population,

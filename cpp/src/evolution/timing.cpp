@@ -6,7 +6,6 @@ namespace gagp::evo {
 void accumulate_timing(EvaluationTiming* total, const EvaluationTiming& value) {
   total->program_cases += value.program_cases;
   total->physical_program_cases += value.physical_program_cases;
-  total->simple_phase_count += value.simple_phase_count;
   total->physical_blocksize=std::max(total->physical_blocksize,value.physical_blocksize);
   total->fitness_reused_programs+=value.fitness_reused_programs;
   total->fitness_reused_program_cases+=value.fitness_reused_program_cases;
@@ -56,10 +55,6 @@ void accumulate_timing(ReproductionTiming* total, const ReproductionTiming& valu
   total->prepare_inputs_ms += value.prepare_inputs_ms;
   total->setup_ms += value.setup_ms;
   total->preprocess_ms += value.preprocess_ms;
-  total->gpu_donor_generated += value.gpu_donor_generated;
-  total->gpu_donor_fallback += value.gpu_donor_fallback;
-  total->gpu_donor_setup_ms += value.gpu_donor_setup_ms;
-  total->gpu_donor_device_bytes = std::max(total->gpu_donor_device_bytes,value.gpu_donor_device_bytes);
   total->pack_ms += value.pack_ms;
   total->upload_ms += value.upload_ms;
   total->kernel_ms += value.kernel_ms;

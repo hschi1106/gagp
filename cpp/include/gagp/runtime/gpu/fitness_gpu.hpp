@@ -53,7 +53,6 @@ struct FitnessEvalResult {
   std::vector<double> fitness;
   std::vector<unsigned> wrong; // Present for configured task metrics.
   std::size_t physical_case_count = 0; // Case-scheduling count; root caching is accounted below.
-  std::size_t simple_phase_count = 0; // Static admitted phases, not invocation counts.
   std::uint64_t physical_program_cases = 0;
   std::uint64_t fitness_reused_programs=0, fitness_reused_program_cases=0;
   std::size_t physical_blocksize = 0; // Initial launch; logical score lanes stay unchanged.

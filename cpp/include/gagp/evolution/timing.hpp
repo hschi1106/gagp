@@ -15,7 +15,6 @@ struct EvaluationTiming {
   std::uint64_t program_cases = 0, eval_errors = 0, eval_timeouts = 0,
                 eval_fallbacks = 0, eval_unscored = 0;
   std::uint64_t physical_program_cases = 0; // Initial invocations, excluding overflow replay.
-  std::uint64_t simple_phase_count = 0;
   std::uint64_t physical_blocksize = 0;
   std::uint64_t fitness_reused_programs=0,fitness_reused_program_cases=0;
   std::uint64_t shape_result_programs = 0, shape_result_groups = 0;
@@ -48,10 +47,6 @@ struct EvaluationTiming {
 };
 
 struct ReproductionTiming {
-  std::uint64_t gpu_donor_generated = 0;
-  std::uint64_t gpu_donor_fallback = 0;
-  std::uint64_t gpu_donor_device_bytes = 0;
-  double gpu_donor_setup_ms = 0;
 
   double selection_ms = 0.0;
   double crossover_ms = 0.0;

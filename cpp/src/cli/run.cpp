@@ -11,10 +11,13 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "gagp/cli/commands.hpp"
+#include "gagp/cli/grammar_population_artifact.hpp"
 #include "gagp/cli/json.hpp"
+#include "gagp/cli/program_json.hpp"
 #include "gagp/cli/search_config.hpp"
 #include "gagp/cli/task.hpp"
+#include "gagp/core/host_threads.hpp"
+#include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/evolution/evolve.hpp"
 #include "gagp/evolution/grammar/definition.hpp"
@@ -44,6 +47,17 @@ constexpr const char* kDefaultSearch = R"({
   "limits": {"site_depth": 7},
   "ranking": {"tie_break": "ast_nodes"},
   "schedule": {"mode": "steady_state", "replacement_size": 2}
+})";
+// The same search for the native AST representation, which has no phase
+// sites, site-depth limit or phase schedule (generational).
+constexpr const char* kDefaultNativeSearch = R"({
+  "format": "gagp-search-config-v1",
+  "representation": "native_ast",
+  "population_size": 1024,
+  "generations": 64,
+  "selection": {"method": "tournament", "size": 2},
+  "elitism": 1,
+  "mutation": {"probability": 0.3}
 })";
 // Both engines reduce case scores in the same lane order; this keeps the GPU
 // and CPU reference results bit-identical.
@@ -85,6 +99,7 @@ struct RunArgs {
   std::string engine = "gpu";
   std::optional<std::uint64_t> seed;
   std::optional<int> population, generations;
+  int threads = 1;
   bool save_all = false;
   bool quiet = false;
 };
@@ -116,6 +131,10 @@ RunArgs parse_run_args(const std::vector<std::string>& args) {
     }
     else if (arg == "--population") out.population = integer(2);
     else if (arg == "--generations") out.generations = integer(1);
+    else if (arg == "--threads") {
+      out.threads = integer(1);
+      if (out.threads > static_cast<int>(kMaxHostThreads)) usage_error("--threads needs an integer <= 64");
+    }
     else if (arg == "--save-all") out.save_all = true;
     else if (arg == "--quiet") out.quiet = true;
     else if (!arg.empty() && arg[0] == '-') usage_error("unknown option " + arg);
@@ -127,27 +146,36 @@ RunArgs parse_run_args(const std::vector<std::string>& args) {
   return out;
 }
 
+// Reads the first `count` programs of a population: a gagp-population-v1
+// document (`gagp run --save-all`) or a grammar-population-v2 document
+// (`gagp grammar generate`).
 std::vector<evo::ProgramGenome> load_population(const std::string& path, const gg::CompiledGrammar& grammar,
                                                 std::size_t count) {
-  const Json doc = JsonParser(read_file(path), {true, 512}).parse();
-  if (doc.kind != Json::Kind::Object || !doc.object_v.count("programs"))
-    throw std::invalid_argument(path + ": expected a population document with a programs array");
-  if (const auto it = doc.object_v.find("grammar_hash"); it != doc.object_v.end() &&
-      it->second.string_v != grammar.content_hash())
-    throw std::invalid_argument(path + ": population was made for a different grammar");
-  const auto& programs = doc.object_v.at("programs").array_v;
-  if (programs.size() < count)
-    throw std::invalid_argument(path + ": has " + std::to_string(programs.size()) +
-                                " programs, the run needs " + std::to_string(count));
+  const std::string text = read_file(path);
+  const Json doc = JsonParser(text, {true, 512}).parse();
   std::vector<evo::ProgramGenome> population;
-  population.reserve(count);
-  for (std::size_t i = 0; i < count; ++i) {
-    evo::ProgramGenome g;
-    g.ast = decode_ast_json(programs[i]);
-    g.meta = evo::build_genome_meta(g.ast);
-    g.derivation = std::make_shared<gg::DerivationMetadata>(gg::reconstruct_derivation(grammar, g));
-    population.push_back(std::move(g));
+  if (const auto format = doc.object_v.find("format_version"); format != doc.object_v.end() &&
+      format->second.string_v == kGeneratedGrammarPopulationArtifactVersion) {
+    population = replay_generated_population_artifact(text, &grammar);
+  } else {
+    if (doc.kind != Json::Kind::Object || !doc.object_v.count("programs"))
+      throw std::invalid_argument(path + ": expected a population document with a programs array");
+    if (const auto it = doc.object_v.find("grammar_hash"); it != doc.object_v.end() &&
+        it->second.string_v != grammar.content_hash())
+      throw std::invalid_argument(path + ": population was made for a different grammar");
+    const auto& programs = doc.object_v.at("programs").array_v;
+    for (std::size_t i = 0; i < std::min(count, programs.size()); ++i) {
+      evo::ProgramGenome g;
+      g.ast = decode_ast_json(programs[i]);
+      g.meta = evo::build_genome_meta(g.ast);
+      g.derivation = std::make_shared<gg::DerivationMetadata>(gg::reconstruct_derivation(grammar, g));
+      population.push_back(std::move(g));
+    }
   }
+  if (population.size() < count)
+    throw std::invalid_argument(path + ": has " + std::to_string(population.size()) +
+                                " programs, the run needs " + std::to_string(count));
+  population.resize(count);
   return population;
 }
 
@@ -224,13 +252,14 @@ std::shared_ptr<const gg::CompiledGrammar> load_grammar(const std::string& path)
 
 std::string run_usage() {
   return "usage: gagp run TASK.json [--seed N] [--population N] [--generations N]\n"
-         "                [--engine gpu|cpu] [--search SEARCH.json] [--init POPULATION.json]\n"
+         "                [--engine gpu|cpu] [--threads N] [--search SEARCH.json] [--init POPULATION.json]\n"
          "                [--out DIR] [--save-all] [--quiet]\n"
          "       gagp eval TASK.json PROGRAM.json [--split train|test]";
 }
 
 int run_task_command(const std::vector<std::string>& argv) {
   const RunArgs args = parse_run_args(argv);
+  set_host_thread_limit(static_cast<unsigned>(args.threads));
   const Task task = load_task(args.task_path);
   const auto grammar = load_grammar(task.grammar_path);
   const auto cases = load_fitness_cases(task.train_path);
@@ -252,8 +281,10 @@ int run_task_command(const std::vector<std::string>& argv) {
   cfg.mutation_subtree_prob = 1;
   cfg.skip_final_eval = false;
   cfg.retain_final_population = true;
-  apply_search_config(parse_search_config(JsonParser(kDefaultSearch).parse()), cfg);
-  if (!args.search_path.empty()) apply_search_config(load_search_config(args.search_path), cfg);
+  const auto search = args.search_path.empty() ? SearchConfig{} : load_search_config(args.search_path);
+  const bool native = search.phase_population == false;
+  apply_search_config(parse_search_config(JsonParser(native ? kDefaultNativeSearch : kDefaultSearch).parse()), cfg);
+  apply_search_config(search, cfg);
   if (args.population) cfg.population_size = *args.population;
   if (args.generations) cfg.generations = *args.generations;
   if (args.seed) cfg.seed = *args.seed;
@@ -279,7 +310,7 @@ int run_task_command(const std::vector<std::string>& argv) {
         {"elapsed_ms", num(t.elapsed_search_ms)}, {"eval_ms", num(t.eval_ms)}, {"repro_ms", num(t.repro_ms)}}));
   }
   Json summary = obj({{"format", str("gagp-run-v1")}, {"task", str(task.name)}, {"engine", str(args.engine)},
-      {"population", num(cfg.population_size)}, {"generations", num(cfg.generations)},
+      {"threads", num(args.threads)}, {"population", num(cfg.population_size)}, {"generations", num(cfg.generations)},
       {"seed", str(std::to_string(cfg.seed))}, {"train_cases", num(cases.size())},
       {"search", effective_search_config(cfg)},
       {"best", obj({{"fitness", num(best.fitness)}, {"wrong", num(best.wrong)},
@@ -339,11 +370,15 @@ int eval_program_command(const std::vector<std::string>& argv) {
   const Json* program = &doc;
   if (doc.object_v.count("best")) program = &doc.object_v.at("best").object_v.at("program");
   else if (doc.object_v.count("programs")) program = &doc.object_v.at("programs").array_v.at(0);
+  const auto cases = load_fitness_cases(cases_path);
   evo::ProgramGenome genome;
   genome.ast = decode_ast_json(*program);
+  if (const auto verified = evo::verify_ast(genome.ast, evo::canonical_input_specs(cases)); !verified)
+    throw std::invalid_argument(std::string("invalid AST (") + evo::verify_code_name(verified.diagnostic.code) +
+                                ") at " + verified.diagnostic.path + ": " + verified.diagnostic.message);
   genome.meta = evo::build_genome_meta(genome.ast);
   gg::require_membership(*grammar, genome);
-  auto verdict = judge(genome, load_fitness_cases(cases_path), task, static_cast<int>(grammar->execution_limits().fuel));
+  auto verdict = judge(genome, cases, task, static_cast<int>(grammar->execution_limits().fuel));
   verdict.object_v["task"] = str(task.name);
   verdict.object_v["split"] = str(split);
   std::cout << gg::canonical_json(verdict) << '\n';

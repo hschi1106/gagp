@@ -10,7 +10,6 @@
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
 #include "../../src/evolution/repro/gpu/phase_grammar.hpp"
-#include "../../src/evolution/repro/gpu/phase_donors.hpp"
 #include "../../src/evolution/repro/prep_internal.hpp"
 #include "../../src/evolution/repro/constant_prep.hpp"
 namespace {
@@ -81,14 +80,11 @@ void check_native_preparation() {
  constexpr int population=32;
  for(int i=0;i<population;++i)parents.push_back(grammar::generate_derivation(*owner,i+1).genome);
  const auto owned=grammar::variation_detail::OwnedScalarPopulation::create(parents,context);
- auto session=make_gpu_phase_donor_session(owner);
  GpuReproConfig cfg;cfg.population_size=population;cfg.max_nodes=owner->search_limits().max_nodes;
  cfg.max_expr_depth=owner->search_limits().max_depth;cfg.candidates_per_program=8;cfg.donor_pool_size_per_site=4;
  cfg.compiled_pass=CompiledVariationPass::Mutation;cfg.seed=8129;cfg.mutation_ratio=1;cfg.mutation_subtree_ratio=1;
- const auto result=preprocess_selected_population(owned->genomes(),cfg,context,prepare_constant_mutation_domains(owner),true,owned.get(),session.get());
- require(result.gpu_donor_generated==population*4 && result.gpu_donor_fallback==0,
-     "selected mutation preparation failed to execute all deferred GPU donor requests");
- require(result.donor_pool.size()==population*4,"native preparation lost GPU donors");
+ const auto result=preprocess_selected_population(owned->genomes(),cfg,context,prepare_constant_mutation_domains(owner),true,owned.get());
+ require(result.donor_pool.size()==population*4,"native preparation lost donors");
  for(const auto& row:result.candidates) {
    int prepared=0;for(const auto& site:row)prepared+=site.donor_count;
    require(prepared==4,"native preparation left a parent's mutation site without donors");
@@ -156,37 +152,6 @@ void run_root(const std::shared_ptr<const grammar::CompiledGrammar>& owner,unsig
    const auto admitted=grammar::reconstruct_derivation_in_frame(grammar,genome,request,frame);
    require(admitted.lowered_instructions>0,"independent lowering missing");
    unique.insert(ast_cache_key(ast));node_total+=r.nodes;
- }
- // Exercise the exact native preparation API and its run-owned table lifetime.
- auto session=make_gpu_phase_donor_session(owner);
- grammar::DonorPoolJob job;job.site.nonterminal=root;job.site.type=nt.type;job.site.context=nt.context;
- job.site.visible_environment=nt.scope;job.site.occurrence_binder_ids={frame.binder_ids};
- job.site.replacement_budget={static_cast<unsigned>(capacity),static_cast<unsigned>(depth)};job.seeds={17,97,893};
- GpuPhaseDonorMetrics first_metrics,second_metrics;
- const auto first=construct_gpu_phase_donors(*session,grammar,{job},&first_metrics);
- const auto second=construct_gpu_phase_donors(*session,grammar,{job},&second_metrics);
- require(first[0] && second[0] && first[0]->size()==job.seeds.size(),"native GPU donor API declined admitted request");
- require(first_metrics.setup_ms>0 && second_metrics.setup_ms==0 && first_metrics.device_bytes==second_metrics.device_bytes,
-     "run-owned grammar tables were rebuilt or storage grew on identical requests");
- for(std::size_t i=0;i<first[0]->size();++i) {
-   const auto& donor=first[0]->at(i);
-   require(ast_cache_key(donor.fragment)==ast_cache_key(second[0]->at(i).fragment),"GPU donor seed replay changed");
-   ProgramGenome exported;exported.ast=donor.fragment;
-   exported.ast.nodes.insert(exported.ast.nodes.begin(),{{NodeKind::PROGRAM},{NodeKind::BLOCK_CONS},{NodeKind::RETURN}});
-   exported.ast.nodes.push_back({NodeKind::BLOCK_NIL});for(auto& fuel:exported.ast.fuel_specs)fuel.node_index+=3;
-   grammar::require_membership_in_frame(grammar,exported,request,frame);
- }
- const auto copied_grammar=grammar;
- bool wrong_owner=false;
- try{(void)construct_gpu_phase_donors(*session,copied_grammar,{job});}catch(const std::invalid_argument&){wrong_owner=true;}
- require(wrong_owner,"equal-content foreign grammar reused GPU donor owner");
- auto unsupported_job=job;unsupported_job.site.replacement_budget.max_nodes=1025;
- require(!construct_gpu_phase_donors(*session,grammar,{unsupported_job})[0],"unsupported capacity did not request fallback");
- unsupported_job=job;unsupported_job.site.type=RType::Invalid;
- require(!construct_gpu_phase_donors(*session,grammar,{unsupported_job})[0],"wrong site type admitted");
- if(!nt.scope.empty()) {
-   unsupported_job=job;unsupported_job.site.occurrence_binder_ids[0][0]=-1;
-   require(!construct_gpu_phase_donors(*session,grammar,{unsupported_job})[0],"unset lexical binding admitted");
  }
  // Rejected requests cannot become valid output. Exercise the actual device
  // guard, including a zero capacity that shares the same output base pointer.

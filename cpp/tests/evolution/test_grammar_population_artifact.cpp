@@ -4,7 +4,7 @@
 #include <stdexcept>
 
 #include "gagp/cli/grammar_population_artifact.hpp"
-#include "gagp/cli/commands.hpp"
+#include "gagp/cli/program_json.hpp"
 #include "gagp/evolution/grammar/values.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 #include "gagp/evolution/population_init.hpp"

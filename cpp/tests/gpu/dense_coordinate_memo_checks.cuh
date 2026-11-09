@@ -2,17 +2,6 @@
 
 namespace dense_memo_test {
 
-struct Environment {
-  std::string previous; bool present;
-  Environment():present(std::getenv("GAGP_GPU_DENSE_COORDINATE_MEMO")!=nullptr) {
-    if(present)previous=std::getenv("GAGP_GPU_DENSE_COORDINATE_MEMO");
-  }
-  ~Environment() {
-    if(present)setenv("GAGP_GPU_DENSE_COORDINATE_MEMO",previous.c_str(),1);
-    else unsetenv("GAGP_GPU_DENSE_COORDINATE_MEMO");
-  }
-};
-
 BytecodeProgram fixture(unsigned axes, bool capture=false, int bias=0) {
   BoundedRegionSegment segment;
   auto& plan=segment.plan;
@@ -209,7 +198,6 @@ bool test_fuel_hits_and_fallback() {
 }
 
 bool test_fitness_cases_and_ownership() {
-  Environment environment;
   std::vector<CaseBindings> cases;std::vector<Value> answers;
   for(int c=0;c<1024;++c) {
     cases.push_back(c%47==0?CaseBindings{}:CaseBindings{{0,c%53==0?Value::from_float(1.5):Value::from_int(c%11)}});
@@ -222,15 +210,13 @@ bool test_fitness_cases_and_ownership() {
       std::vector<BytecodeProgram> programs{fixture(2,true,generation*13),fixture(3,true,generation*7),fixture(4,true,generation)};
       auto switches=fixture(2,true,generation*3);
       switches.bounded_region_segments[0].plan.limits.cells=generation?128:8;
-      programs.push_back(std::move(switches)); // Reuse the same backing across generic/dense invocations.
+      programs.push_back(std::move(switches)); // Reuse the same backing across invocations.
       std::vector<CpuFitnessCaseCounts> counts;std::vector<unsigned> wrong;
       const auto cpu=eval_fitness_cpu(programs,cases,answers,100000,1000,lanes,policy,&wrong,&counts);
-      setenv("GAGP_GPU_DENSE_COORDINATE_MEMO","0",1);const auto generic=session.eval_programs(programs,true);
-      setenv("GAGP_GPU_DENSE_COORDINATE_MEMO","1",1);const auto dense=session.eval_programs(programs,true);
-      if(!check(generic.ok && dense.ok && generic.fitness==cpu && dense.fitness==cpu &&
-          generic.wrong==wrong && dense.wrong==wrong && generic.case_counts==dense.case_counts &&
+      const auto dense=session.eval_programs(programs,true);
+      if(!check(dense.ok && dense.fitness==cpu && dense.wrong==wrong &&
           dense.execution_profile.find("-dense-coordinate-memo")!=std::string::npos &&
-          dense.execution_profile.find("-declined")==std::string::npos,
+          dense.execution_profile.find("-dense-coordinate-memo-declined")==std::string::npos,
           "dense full-case multi-program/session/phase CPU parity"))return false;
       for(unsigned p=0;p<programs.size();++p)
         if(!check(dense.case_counts[p][0]==1024 && dense.case_counts[p][1]==counts[p].errors &&

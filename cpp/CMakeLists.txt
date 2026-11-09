@@ -201,8 +201,7 @@ add_library(gagp_cli_support
   src/cli/grammar_author.cpp
   src/cli/codec.cpp
   src/cli/region_codec.cpp
-  src/cli/options.cpp
-  src/cli/commands.cpp
+  src/cli/program_json.cpp
   src/cli/search_config.cpp
   src/cli/task.cpp
   src/cli/run.cpp
@@ -212,12 +211,16 @@ target_link_libraries(gagp_cli_support PUBLIC gagp_cpu gagp_json gagp_region_pla
 
 add_executable(gagp src/cli/gagp_main.cpp)
 target_link_libraries(gagp PRIVATE gagp_cli_support)
-
-add_executable(gagp_generate_cli src/cli/generate_cli.cpp)
-target_link_libraries(gagp_generate_cli PRIVATE gagp_cli_support)
-
-add_executable(gagp_grammar_cli src/cli/grammar_cli.cpp)
-target_link_libraries(gagp_grammar_cli PRIVATE gagp_cli_support)
+add_test(
+  NAME gagp_test_cli
+  COMMAND ${CMAKE_COMMAND}
+    -DGAGP=$<TARGET_FILE:gagp>
+    -DFIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/cli
+    -DAST_FIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures
+    -DWORK=${CMAKE_CURRENT_BINARY_DIR}/gagp_test_cli
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli/check_gagp_cli.cmake
+)
+set_tests_properties(gagp_test_cli PROPERTIES LABELS "contract;integration")
 
 add_executable(gagp_test_ast_verify_exact_scope tests/evolution/test_ast_verify_exact_scope.cpp)
 target_link_libraries(gagp_test_ast_verify_exact_scope PRIVATE gagp_evolution)
@@ -347,8 +350,7 @@ set_tests_properties(gagp_test_grammar_author_cli PROPERTIES LABELS "contract;in
 
 add_test(NAME gagp_test_grammar_examples
   COMMAND ${CMAKE_COMMAND}
-    -DGRAMMAR_CLI=$<TARGET_FILE:gagp_grammar_cli>
-    -DGENERATE_CLI=$<TARGET_FILE:gagp_generate_cli>
+    -DGAGP=$<TARGET_FILE:gagp>
     -DREPOSITORY_ROOT=${CMAKE_CURRENT_SOURCE_DIR}/..
     -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/grammar-example-test
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/evolution/check_grammar_examples.cmake)
@@ -369,37 +371,11 @@ target_link_libraries(gagp_test_grammar_artifact PRIVATE gagp_cli_support)
 add_test(NAME gagp_test_grammar_artifact COMMAND gagp_test_grammar_artifact)
 set_tests_properties(gagp_test_grammar_artifact PROPERTIES LABELS "contract;integration")
 
-add_executable(gagp_evolve_cli
-  src/cli/evolve_cli.cpp
-)
-target_link_libraries(gagp_evolve_cli PRIVATE gagp_cli_support)
-add_test(
-  NAME gagp_test_ast_json_boundary
-  COMMAND ${CMAKE_COMMAND}
-    -DCLI=$<TARGET_FILE:gagp_evolve_cli>
-    -DCASES=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ast_eval_cases.json
-    -DVALID_AST=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ast_eval_valid.json
-    -DINVALID_AST=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ast_eval_invalid.json
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_ast_json_boundary.cmake
-)
-set_tests_properties(gagp_test_ast_json_boundary PROPERTIES LABELS "contract;integration")
-add_test(
-  NAME gagp_test_evolve_cli_contract
-  COMMAND ${CMAKE_COMMAND}
-    -DCLI=$<TARGET_FILE:gagp_evolve_cli>
-    -DGENERATOR=$<TARGET_FILE:gagp_generate_cli>
-    -DCASES=${CMAKE_CURRENT_SOURCE_DIR}/../configs/grammar/examples/restricted_combine.cases.json
-    -DGRAMMAR=${CMAKE_CURRENT_SOURCE_DIR}/../configs/grammar/examples/restricted_combine.json
-    -DLEGACY_GRAMMAR=${CMAKE_CURRENT_SOURCE_DIR}/../configs/grammar/migration/v1/all.json
-    -DOUT_JSON=${CMAKE_CURRENT_BINARY_DIR}/evolve_cli_contract.run.json
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/check_evolve_cli_contract.cmake
-)
-set_tests_properties(gagp_test_evolve_cli_contract PROPERTIES LABELS "contract;integration")
 if(GAGP_HAS_CUDA)
-  target_sources(gagp_evolution PRIVATE src/evolution/repro/gpu/phase_donors.cu src/evolution/repro/gpu/phase_population.cu)
+  target_sources(gagp_evolution PRIVATE src/evolution/repro/gpu/phase_population.cu)
   add_library(gagp_gpu
     src/runtime/gpu/fitness_gpu.cu
-    src/runtime/gpu/allocation_pool.cu
+    src/runtime/gpu/device_allocation.cu
     src/runtime/gpu/stage_storage.cu
     src/runtime/gpu/opcode_map_gpu.cpp
     src/runtime/gpu/host_pack_gpu.cu
@@ -457,13 +433,6 @@ add_executable(gagp_test_cli_json
 target_link_libraries(gagp_test_cli_json PRIVATE gagp_cli_support)
 add_test(NAME gagp_test_cli_json COMMAND gagp_test_cli_json)
 set_tests_properties(gagp_test_cli_json PROPERTIES LABELS "unit;contract")
-
-add_executable(gagp_test_cli_options
-  tests/runtime/test_cli_options.cpp
-)
-target_link_libraries(gagp_test_cli_options PRIVATE gagp_cli_support)
-add_test(NAME gagp_test_cli_options COMMAND gagp_test_cli_options)
-set_tests_properties(gagp_test_cli_options PROPERTIES LABELS "unit;contract")
 
 add_executable(gagp_test_vm_cli_harness
   tests/runtime/test_vm_cli_harness.cpp
@@ -709,15 +678,7 @@ if(GAGP_HAS_CUDA)
   add_test(NAME gagp_test_cuda_stage_storage COMMAND gagp_test_cuda_stage_storage)
   set_tests_properties(gagp_test_cuda_stage_storage PROPERTIES LABELS "contract;gpu")
 
-  add_executable(gagp_test_cuda_allocation_pool tests/gpu/test_cuda_allocation_pool.cu)
-  target_link_libraries(gagp_test_cuda_allocation_pool PRIVATE gagp_gpu)
-  add_test(NAME gagp_test_cuda_allocation_pool COMMAND gagp_test_cuda_allocation_pool)
-  set_tests_properties(gagp_test_cuda_allocation_pool PROPERTIES LABELS "contract;gpu" SKIP_RETURN_CODE 77)
 
-  add_executable(gagp_test_phase_register_gpu tests/gpu/test_phase_register_gpu.cu)
-  target_link_libraries(gagp_test_phase_register_gpu PRIVATE gagp_gpu)
-  add_test(NAME gagp_test_phase_register_gpu COMMAND gagp_test_phase_register_gpu)
-  set_tests_properties(gagp_test_phase_register_gpu PROPERTIES LABELS "contract;unit;gpu")
 
   add_executable(gagp_test_fitness_accumulator_gpu tests/gpu/test_fitness_accumulator_gpu.cu)
   target_link_libraries(gagp_test_fitness_accumulator_gpu PRIVATE gagp_gpu gagp_runtime_cpu)
@@ -936,23 +897,3 @@ target_link_libraries(gagp_test_host_threads PRIVATE gagp_evolution)
 target_compile_options(gagp_test_host_threads PRIVATE -UNDEBUG)
 add_test(NAME gagp_test_host_threads COMMAND gagp_test_host_threads)
 
-add_executable(gagp_test_engine_profile tests/runtime/test_engine_profile.cpp)
-target_include_directories(gagp_test_engine_profile PRIVATE include)
-add_test(NAME gagp_test_engine_profile COMMAND gagp_test_engine_profile)
-set_tests_properties(gagp_test_engine_profile PROPERTIES LABELS "unit;contract")
-
-# Engine profile (include/gagp/core/engine_profile.hpp). The tests above were
-# written against the historical "every engine switch unset" defaults and keep
-# them; the *_mainline entries rerun the CPU/GPU equivalence tests with the
-# default mainline profile that ordinary runs use.
-get_property(gagp_registered_tests DIRECTORY PROPERTY TESTS)
-foreach(gagp_registered_test IN LISTS gagp_registered_tests)
-  set_property(TEST ${gagp_registered_test} APPEND PROPERTY ENVIRONMENT GAGP_ENGINE_PROFILE=legacy)
-endforeach()
-if(GAGP_HAS_CUDA)
-  foreach(gagp_mainline_test IN ITEMS fitness_cpu_gpu_parity evolution_cpu_gpu_parity phase_population_cpu_reference)
-    add_test(NAME gagp_test_${gagp_mainline_test}_mainline COMMAND gagp_test_${gagp_mainline_test})
-    set_tests_properties(gagp_test_${gagp_mainline_test}_mainline PROPERTIES
-      ENVIRONMENT GAGP_ENGINE_PROFILE=mainline LABELS "contract;integration;gpu;cpu_gpu_parity")
-  endforeach()
-endif()

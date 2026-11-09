@@ -1,0 +1,15 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "E", "type": "Int"},
+  "inputs": [{"name": "input1", "type": "Int"}],
+  "search_limits": {"max_nodes": 15, "max_depth": 5},
+  "execution_limits": {"fuel": 1000},
+  "nonterminals": [
+    {"id": "E", "type": "Int", "scope": [], "alternatives": [
+      {"id": "x", "weight": 2, "expression": {"input": "input1"}},
+      {"id": "one", "weight": 1, "expression": {"constant": {"type": "Int", "values": ["1"]}}},
+      {"id": "add", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"ref": "E"}, {"ref": "E"}]}},
+      {"id": "mul", "weight": 1, "expression": {"signature": "mul(Int,Int)->Int", "args": [{"ref": "E"}, {"ref": "E"}]}}
+    ]}
+  ]
+}

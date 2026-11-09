@@ -1,5 +1,4 @@
 #include "../region_plan_equal.hpp"
-#include "gagp/core/engine_profile.hpp"
 #include "gagp/evolution/grammar/variation.hpp"
 
 #include <stdexcept>
@@ -178,7 +177,7 @@ ProgramGenome certify(ProgramGenome genome, VariationContext& context,
 }
 
 ProgramGenome certify_execution(ProgramGenome genome, VariationContext& context) {
-  if (gagp::engine_env("GAGP_CPU_COMPACT_ADMISSION") && context.requests().size() == 1 &&
+  if (context.requests().size() == 1 &&
       !genome.derivation && std::all_of(genome.ast.consts.begin(), genome.ast.consts.end(),
           [](const Value& value) {
             return value.tag == ValueTag::Int || value.tag == ValueTag::Float ||

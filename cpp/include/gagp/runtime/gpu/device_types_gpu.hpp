@@ -45,8 +45,6 @@ struct DPhaseMeta {
   int add_left_binding = -1;
   int add_right_binding = -1;
   int compare_binding = -1;
-  int simple_operation_ip = -1;
-  int simple_arity = 0;
 };
 
 struct DProgramMeta {

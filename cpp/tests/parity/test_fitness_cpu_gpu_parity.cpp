@@ -651,9 +651,6 @@ int main() {
   // Exercise full and partial physical warps, including lanes with no cases,
   // with correct answers, wrong answers, runtime errors and fuel exhaustion.
   {
-    const char* flag="GAGP_GPU_COALESCED_COUNTS";
-    const char* old=std::getenv(flag);const bool present=old;
-    const std::string saved=old?old:"";
     const std::vector<BytecodeProgram> programs{make_add_one_program(),
         make_return_const_program(0),make_type_error_program(),make_timeout_program()};
     for(int lanes:{1,17,32,33,64,512})for(int count:{1,19,1025}) {
@@ -663,23 +660,25 @@ int main() {
       gagp::FitnessPolicy policy;policy.metric=gagp::FitnessMetric::Absolute;
       gagp::FitnessSessionGpu session;
       if(!session.init(cases,answers,20,lanes,7,policy).ok)return 1;
-      unsetenv(flag);const auto original=session.eval_programs(programs,true);
-      setenv(flag,"1",1);const auto coalesced=session.eval_programs(programs,true);
+      const auto counted=session.eval_programs(programs,true);
       const auto compact=session.eval_programs(programs,false);
-      if(!original.ok || !coalesced.ok || !compact.ok ||
-          original.fitness!=coalesced.fitness || original.wrong!=coalesced.wrong ||
-          original.case_counts!=coalesced.case_counts ||
-          original.fitness!=compact.fitness || original.wrong!=compact.wrong) {
-        std::cerr<<"coalesced counts lost partial warp, error or timeout cases: lanes="<<lanes
-            <<" cases="<<count<<" ok="<<original.ok<<'/'<<coalesced.ok<<'/'<<compact.ok
-            <<" errors="<<original.err.message<<'/'<<coalesced.err.message<<'/'<<compact.err.message<<'\n';
-        for(std::size_t i=0;i<original.fitness.size() && i<coalesced.fitness.size();++i)
-          std::cerr<<i<<" fitness="<<original.fitness[i]<<'/'<<coalesced.fitness[i]
-              <<" wrong="<<original.wrong[i]<<'/'<<coalesced.wrong[i]<<'\n';
+      std::vector<unsigned> cpu_wrong;
+      std::vector<gagp::CpuFitnessCaseCounts> cpu_counts;
+      const auto cpu=gagp::eval_fitness_cpu(programs,cases,answers,20,7,lanes,policy,&cpu_wrong,&cpu_counts);
+      bool counts_ok=counted.case_counts.size()==programs.size() && cpu_counts.size()==programs.size();
+      for(std::size_t i=0;counts_ok && i<programs.size();++i)
+        counts_ok=counted.case_counts[i][0]==cpu_counts[i].cases && counted.case_counts[i][1]==cpu_counts[i].errors &&
+            counted.case_counts[i][2]==cpu_counts[i].timeouts;
+      if(!counted.ok || !compact.ok || counted.fitness!=cpu || counted.wrong!=cpu_wrong || !counts_ok ||
+          counted.fitness!=compact.fitness || counted.wrong!=compact.wrong) {
+        std::cerr<<"case counts lost partial warp, error or timeout cases: lanes="<<lanes
+            <<" cases="<<count<<" ok="<<counted.ok<<'/'<<compact.ok
+            <<" errors="<<counted.err.message<<'/'<<compact.err.message<<'\n';
+        for(std::size_t i=0;i<counted.fitness.size() && i<cpu.size();++i)
+          std::cerr<<i<<" fitness="<<counted.fitness[i]<<'/'<<cpu[i]<<'\n';
         return 1;
       }
     }
-    if(present)setenv(flag,saved.c_str(),1);else unsetenv(flag);
   }
   for (const auto op : {gagp::BuiltinId::IDiv0, gagp::BuiltinId::IMod0}) {
     for (const long long divisor : {-1LL, 0LL, 1LL}) {

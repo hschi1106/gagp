@@ -1,5 +1,4 @@
 #include "gagp/evolution/crossover.hpp"
-#include "gagp/core/engine_profile.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -47,14 +46,13 @@ std::pair<ProgramGenome, ProgramGenome> crossover_analyzed(const ProgramGenome& 
   // Same uniform distribution over every feasible pair, but one rank draw
   // instead of one reservoir draw per pair. The deterministic RNG trajectory
   // is deliberately distinct. Nonlocal projected-resource trials retain legacy.
-  const bool counted = gagp::engine_env("GAGP_CPU_COUNTED_PAIRS") &&
+  const bool counted =
       (!context.offspring_budget() ||
        (std::all_of(analysis_a->sites.begin(), analysis_a->sites.end(),
             [](const auto& site) { return site.has_projected_allowance; }) &&
         std::all_of(analysis_b->sites.begin(), analysis_b->sites.end(),
             [](const auto& site) { return site.has_projected_allowance; })));
   if (counted) {
-    const bool use_all_fit = gagp::engine_env("GAGP_CPU_ALL_FIT_PAIRS");
     struct Group {
       std::vector<const VariationSite*> sites;
       CrossoverGroupBounds bounds;
@@ -64,7 +62,7 @@ std::pair<ProgramGenome, ProgramGenome> crossover_analyzed(const ProgramGenome& 
       if (!site.compatibility_key.empty()) {
         auto& group = groups[site.compatibility_key];
         group.sites.push_back(&site);
-        if (use_all_fit) group.bounds.include(site);
+        group.bounds.include(site);
       }
     std::vector<std::uint64_t> row_counts(analysis_a->sites.size(), 0);
     std::vector<bool> all_fit(analysis_a->sites.size(), false);
@@ -77,7 +75,7 @@ std::pair<ProgramGenome, ProgramGenome> crossover_analyzed(const ProgramGenome& 
       context.counters().contract_rejections += analysis_b->sites.size() -
           (group == groups.end() ? 0 : group->second.sites.size());
       if (group == groups.end()) continue;
-      all_fit[row] = use_all_fit && group->second.bounds.all_fit(site);
+      all_fit[row] = group->second.bounds.all_fit(site);
       if (all_fit[row]) row_counts[row] = group->second.sites.size();
       else for (const auto* donor : group->second.sites) {
         if (fits(site, *donor)) ++row_counts[row];

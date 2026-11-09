@@ -1,5 +1,4 @@
 #include "gagp/evolution/grammar/variation_contract.hpp"
-#include "gagp/core/engine_profile.hpp"
 #include "selected_variation.hpp"
 #include "gagp/evolution/grammar/resource_projection.hpp"
 #include "gagp/evolution/grammar/derivation_resources.hpp"
@@ -174,7 +173,6 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
       std::uint32_t, bool, bool, std::string_view>;
   std::vector<ContractShape> shapes;
   std::map<ContractShape, std::string> contract_keys;
-  const bool reuse_contracts = gagp::engine_env("GAGP_REUSE_SITE_CONTRACTS") != nullptr;
   for (std::size_t choice_index = 0; choice_index < witness.choices.size(); ++choice_index) {
     if (selector && (choice_groups[choice_index] == std::numeric_limits<std::size_t>::max() ||
                      !selected_groups[choice_groups[choice_index]])) continue;
@@ -226,8 +224,7 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
       site.remaining_template_nesting = 256;
       const auto id = result.sites.size();
       if (selector) built_indices.push_back(choice_groups[choice_index]);
-      if (reuse_contracts)
-        shapes.emplace_back(site.nonterminal, site.template_id, site.slot,
+      shapes.emplace_back(site.nonterminal, site.template_id, site.slot,
             nt.category == NodeCategory::Program ? kNoGrammarId : verified.expression_scope_ids.at(choice.ast_begin),
             materialized_scope, site.crossover_closed, std::string_view(production.crossover_group));
       result.sites.push_back(std::move(site)); found = groups.emplace(group, id).first;
@@ -296,7 +293,7 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
     if (site.crossover_closed)
       for (const auto& span : site.occurrences)
         site.crossover_closed = site.crossover_closed && lexically_closed(genome.ast, span);
-    if (reuse_contracts && site.occurrences.size() == 1) {
+    if (site.occurrences.size() == 1) {
       auto shape = shapes.at(site_index);
       std::get<5>(shape) = site.crossover_closed;
       const auto cached = contract_keys.find(shape);

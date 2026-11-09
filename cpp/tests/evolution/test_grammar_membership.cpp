@@ -21,6 +21,7 @@
 #include "gagp/evolution/grammar/cache.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
+#include "gagp/evolution/grammar/derivation_resources.hpp"
 #include "gagp/evolution/repro/pack.hpp"
 
 using namespace gagp;
@@ -33,54 +34,24 @@ void check(bool condition, const char* message) {
 }
 void differential_admission(const CompiledGrammar& grammar, ProgramGenome genome) {
   genome.derivation.reset();  // Never compare a cached certificate with itself.
-  const char* setting = std::getenv("GAGP_CPU_FUSED_ADMISSION");
-  const std::optional<std::string> previous = setting ? std::optional<std::string>(setting) : std::nullopt;
-  DerivationMetadata witnesses[2];
-  std::vector<std::vector<int>> environments[2];
+  // Admission defers the membership walk into witness construction; the plain
+  // matcher (resource projection) is the independent oracle.
+  const auto request = entry_request(grammar);
+  DerivationMetadata witness;
+  std::vector<std::vector<int>> environments;
   bool accepted[2] = {};
-  for (int mode = 0; mode < 2; ++mode) {
-    if (mode) setenv("GAGP_CPU_FUSED_ADMISSION", "1", 1);
-    else unsetenv("GAGP_CPU_FUSED_ADMISSION");
-    try {
-      witnesses[mode] = reconstruct_derivation(grammar, genome, entry_request(grammar),
-          nullptr, &environments[mode]);
-      accepted[mode] = true;
-    } catch (const std::invalid_argument&) {}
-  }
-  if (previous) setenv("GAGP_CPU_FUSED_ADMISSION", previous->c_str(), 1);
-  else unsetenv("GAGP_CPU_FUSED_ADMISSION");
-  check(accepted[0] == accepted[1], "fused admission changed membership");
+  try { witness = reconstruct_derivation(grammar, genome, request, nullptr, &environments); accepted[0] = true; }
+  catch (const std::invalid_argument&) {}
+  std::optional<ResourceProjection> plain;
+  try { plain = project_derivation_resources(grammar, genome, request); accepted[1] = true; }
+  catch (const std::invalid_argument&) {}
+  check(accepted[0] == accepted[1], "deferred admission changed membership");
   if (!accepted[0]) return;
-  const auto& a = witnesses[0]; const auto& b = witnesses[1];
-  check(a.logical_steps == b.logical_steps && a.derived_nodes == b.derived_nodes &&
-      a.lowered_instructions == b.lowered_instructions && a.nodes.size() == b.nodes.size() &&
-      a.choices.size() == b.choices.size() && a.templates.size() == b.templates.size() &&
-      a.holes.size() == b.holes.size() && environments[0] == environments[1],
-      "fused admission changed witness dimensions or exact scope");
-  for (std::size_t i = 0; i < a.nodes.size(); ++i) {
-    const auto& x = a.nodes[i]; const auto& y = b.nodes[i];
-    check(std::tie(x.expression, x.production, x.nonterminal, x.logical_instance,
-        x.template_instance, x.slot, x.fixed, x.template_depth) ==
-        std::tie(y.expression, y.production, y.nonterminal, y.logical_instance,
-        y.template_instance, y.slot, y.fixed, y.template_depth), "fused node origin differs");
-    const auto& r = a.resources->subtree(i); const auto& q = b.resources->subtree(i);
+  check(environments.size() == witness.choices.size(), "admission lost exact choice scopes");
+  for (std::size_t i = 0; i < genome.ast.nodes.size(); ++i) {
+    const auto& r = witness.resources->subtree(i); const auto& q = plain->subtree(i);
     check(std::tie(r.nodes, r.carried_depth, r.reset_depth) ==
-        std::tie(q.nodes, q.carried_depth, q.reset_depth), "fused resource projection differs");
-  }
-  for (std::size_t i = 0; i < a.choices.size(); ++i) {
-    const auto& x = a.choices[i]; const auto& y = b.choices[i];
-    check(std::tie(x.nonterminal, x.production, x.parent, x.ast_begin, x.ast_end,
-        x.template_instance, x.slot, x.enclosing_template_depth) ==
-        std::tie(y.nonterminal, y.production, y.parent, y.ast_begin, y.ast_end,
-        y.template_instance, y.slot, y.enclosing_template_depth), "fused canonical choice differs");
-  }
-  for (std::size_t i = 0; i < a.templates.size(); ++i)
-    check(std::tie(a.templates[i].template_id, a.templates[i].parent) ==
-        std::tie(b.templates[i].template_id, b.templates[i].parent), "fused template owner differs");
-  for (std::size_t i = 0; i < a.holes.size(); ++i) {
-    const auto& x = a.holes[i]; const auto& y = b.holes[i];
-    check(std::tie(x.template_instance, x.slot, x.ast_begin, x.ast_end) ==
-        std::tie(y.template_instance, y.slot, y.ast_begin, y.ast_end), "fused hole occurrence differs");
+        std::tie(q.nodes, q.carried_depth, q.reset_depth), "deferred resource projection differs");
   }
 }
 void rejects(const CompiledGrammar& grammar, const ProgramGenome& genome) {
@@ -103,10 +74,6 @@ std::string constant_grammar(const std::string& type, const std::string& values)
     {"id":"constant","weight":1,"expression":{"constant":{"type":")" + type + R"(","values":)" + values + "}}}]}]}";
 }
 void test_cold_payload_proofs() {
-  const char* enabled=std::getenv("GAGP_COLD_PAYLOAD_PROOFS");
-  const std::optional<std::string> previous=enabled?std::optional<std::string>(enabled):std::nullopt;
-  struct Restore {std::optional<std::string> value;~Restore(){if(value)setenv("GAGP_COLD_PAYLOAD_PROOFS",value->c_str(),1);else unsetenv("GAGP_COLD_PAYLOAD_PROOFS");}} restore{previous};
-  setenv("GAGP_COLD_PAYLOAD_PROOFS","1",1);
   const auto grammar=compile_grammar(parse_definition(constant_grammar("IntList","[[]]")));
   const auto request=entry_request(grammar);
   auto genome=generate_derivation(grammar,0).genome;genome.derivation.reset();
@@ -121,9 +88,6 @@ void test_cold_payload_proofs() {
       reused.resources->subtree().nodes==proof.resources->subtree().nodes,
       "cold registry proof did not preserve exact admission outputs");
   check(!admitted_bytecode_for_eval(genome,{},grammar.execution_limits().fuel),"cold registry proof authorized executable reuse");
-  setenv("GAGP_COLD_PAYLOAD_PROOFS","0",1);
-  check(!grammar::detail::reconstruct_cold_derivation(grammar,genome,request).certificate,"disabled cold proof retained registry certificate");
-  setenv("GAGP_COLD_PAYLOAD_PROOFS","1",1);
   const auto rejects_cold=[&](const CompiledGrammar& owner,const ProgramGenome& source,const GenerationRequest& root) {
     VerifiedAst output;output.max_expression_depth=999;
     std::vector<std::vector<int>> scopes{{999}};bool rejected=false;
@@ -179,45 +143,16 @@ void test_cold_payload_proofs() {
       "changed-read retry published stale proof or reverted external payload replacement");
   payload::register_list(key,{});
 }
-void test_cold_import_executables(bool fused=false) {
-  const char* flags[]={"GAGP_COLD_PAYLOAD_PROOFS","GAGP_COLD_IMPORT_EXECUTABLES","GAGP_REUSE_ADMISSION_COMPILE","GAGP_FUSED_COLD_EXECUTABLE"};
-  struct Restore {
-    const char** flags;std::optional<std::string> saved[4];
-    explicit Restore(const char** f):flags(f){for(int i=0;i<4;++i){const auto* v=std::getenv(f[i]);if(v)saved[i]=v;setenv(f[i],"1",1);}}
-    ~Restore(){for(int i=0;i<4;++i){if(saved[i])setenv(flags[i],saved[i]->c_str(),1);else unsetenv(flags[i]);}}
-  } restore(flags);
-  setenv("GAGP_FUSED_COLD_EXECUTABLE",fused?"1":"0",1);
+void test_cold_import_executables() {
   {
+    // Scalar programs need no registry snapshot: cold admission certifies them
+    // but leaves lowering to the ordinary admitted-bytecode path.
     const auto scalar=compile_grammar(parse_definition(constant_grammar("Int",R"(["1","2"])")));
     const auto scalar_request=entry_request(scalar);
     auto value=generate_derivation(scalar,0).genome;value.derivation.reset();
     std::shared_ptr<const BytecodeProgram> artifact;
-    const auto witness=grammar::detail::reconstruct_cold_derivation(scalar,value,scalar_request,nullptr,nullptr,&artifact);
-    check(bool(artifact)==fused,"scalar cold artifact did not follow fused mode");
-    if(fused) {
-      value.derivation=std::make_shared<const DerivationMetadata>(witness);
-      check(artifact==admitted_bytecode_for_eval(value,{},scalar.execution_limits().fuel),
-          "fused scalar admission did not retain the same private executable");
-      const auto original=artifact;
-      value.ast.consts.front()=Value::from_int(value.ast.consts.front().i==1?2:1);
-      grammar::detail::reconstruct_cold_derivation(scalar,value,scalar_request,nullptr,nullptr,&artifact);
-      check(artifact && artifact!=original,"changed scalar trusted public stale provenance");
-      FitnessPolicy exact;exact.metric=FitnessMetric::Exact;
-      const auto independent=compile_for_eval(value);
-      check(eval_fitness_cpu({*artifact,independent},{{}},{value.ast.consts.front()},100,1000,1,exact)==
-            std::vector<double>({0,0}),"fused scalar differs from independent lowering/CPU fitness");
-      const std::vector<std::string> scalar_wrong{"unexpected"};
-      grammar::detail::reconstruct_cold_derivation(scalar,value,scalar_request,nullptr,nullptr,&artifact,&scalar_wrong);
-      check(!artifact,"wrong scalar input ABI retained a private executable");
-      setenv("GAGP_COLD_IMPORT_EXECUTABLES","0",1);
-      grammar::detail::reconstruct_cold_derivation(scalar,value,scalar_request,nullptr,nullptr,&artifact);
-      check(!artifact,"disabled scalar cold executable flag retained an artifact");
-      setenv("GAGP_COLD_IMPORT_EXECUTABLES","1",1);
-      value.ast.consts.front()=Value::from_int(77);bool rejected=false;
-      try{grammar::detail::reconstruct_cold_derivation(scalar,value,scalar_request,nullptr,nullptr,&artifact);}
-      catch(const std::invalid_argument&){rejected=true;}
-      check(rejected && !artifact,"invalid scalar bypassed canonical admission through stale certificate");
-    }
+    (void)grammar::detail::reconstruct_cold_derivation(scalar,value,scalar_request,nullptr,nullptr,&artifact);
+    check(!artifact,"scalar cold admission retained a private executable");
   }
 
   const auto grammar=compile_grammar(parse_definition(constant_grammar("IntList","[[]]")));
@@ -239,14 +174,6 @@ void test_cold_import_executables(bool fused=false) {
     check(scores==std::vector<double>({0,0}),"retained cold executable differs from independent CPU fitness");
   };
   check_fitness(*reused,genome);
-  setenv("GAGP_COLD_IMPORT_EXECUTABLES","0",1);
-  grammar::detail::reconstruct_cold_derivation(grammar,genome,request,nullptr,nullptr,&reused);
-  check(!reused,"disabled cold executable flag reused a stored artifact");
-  setenv("GAGP_COLD_IMPORT_EXECUTABLES","1",1);
-  setenv("GAGP_COLD_PAYLOAD_PROOFS","0",1);
-  grammar::detail::reconstruct_cold_derivation(grammar,genome,request,nullptr,nullptr,&reused);
-  check(!reused,"cold executable reuse bypassed disabled read-snapshot proof");
-  setenv("GAGP_COLD_PAYLOAD_PROOFS","1",1);
   std::vector<std::string> wrong_inputs{"extra"};
   grammar::detail::reconstruct_cold_derivation(grammar,genome,request,nullptr,nullptr,&reused,&wrong_inputs);
   check(!reused,"wrong input order reused cold executable");
@@ -324,7 +251,6 @@ void test_cold_import_executables(bool fused=false) {
 
 int main() {
   try {
-    setenv("GAGP_REUSE_ADMISSION_COMPILE", "1", 1);
     const auto scalar_doc = json(R"({"format_version":"grammar-definition-v2",
       "entry":{"nonterminal":"Expr","type":"Int"},
       "search_limits":{"max_nodes":40,"max_depth":12},"execution_limits":{"fuel":1000},
@@ -679,7 +605,6 @@ int main() {
       require_membership(mutual, generate_derivation(mutual, seed).genome);
     test_cold_payload_proofs();
     test_cold_import_executables();
-    test_cold_import_executables(true);
     std::cout << "grammar membership passed\n";
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';

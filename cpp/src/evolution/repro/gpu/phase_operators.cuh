@@ -21,7 +21,7 @@ struct TreePointers {
 };
 struct DeviceSlot {PhaseGrammarView grammar;int root,scope,max_depth,logical_depth;ValueTag type;ValueTag locals[8];};
 struct OperatorStats {int parent=-1,crossover_attempted=0,crossover=0,crossover_rejected=0,mutation=0,changed=0,error=0,reusable_parent=-1;};
-// Semantic operator policy (changes the search) plus exact engine variants.
+// Semantic operator policy (changes the search) plus the exact copy schedule.
 struct OperatorPolicy {
  bool counted_sites=false;       // counted rank draw instead of reservoir draws
  bool uniform_phase=false;       // draw one variable phase before its sites
@@ -29,7 +29,6 @@ struct OperatorPolicy {
  int crossover_attempts=8;
  int mutation_max_nodes=0;      // 0: generation bounded only by phase capacity
  bool deferred_copy=false;       // exact: copy parent phases at publication
- bool fused_depth=false;         // exact: depth checked during splice copy
 };
 struct Site {int row=-1,node=-1;};
 
@@ -134,12 +133,11 @@ template<bool Warp> __host__ __device__ inline int subtree_end(const PhaseTreeVi
  return phase_subtree_end(tree,start);
 }
 template<bool Warp> __host__ __device__ inline PhaseGenerationResult splice(const PhaseTreeView& base,int destination,
-    const PhaseTreeView& donor,int source,MutablePhaseTree output,int max_depth,const PhaseGrammarView* projected,int logical_depth,bool fused_depth) {
+    const PhaseTreeView& donor,int source,MutablePhaseTree output,int max_depth,const PhaseGrammarView* projected,int logical_depth) {
 #ifdef __CUDA_ARCH__
- if constexpr(Warp) if(fused_depth)return splice_phase_tree_warp(base,destination,donor,source,output,max_depth,projected,logical_depth);
+ if constexpr(Warp)return splice_phase_tree_warp(base,destination,donor,source,output,max_depth,projected,logical_depth);
 #endif
- return fused_depth ? splice_phase_tree<true>(base,destination,donor,source,output,max_depth,projected,logical_depth)
-                    : splice_phase_tree(base,destination,donor,source,output,max_depth,projected,logical_depth);
+ return splice_phase_tree<true>(base,destination,donor,source,output,max_depth,projected,logical_depth);
 }
 
 template<bool Warp=false>
@@ -173,7 +171,7 @@ __host__ __device__ inline void crossover_child(int child,TreePointers input,Tre
   if(total-(ae-destination.node)+(be-source.node)>max_variable_nodes){++stat.crossover_rejected;continue;}
   const int slot=destination.row%slot_count,target=child*slot_count+slot;
   const DeviceSlot s=slots[slot];
-  const auto r=splice<Warp>(a,destination.node,b,source.node,output.output(target),s.max_depth,s.logical_depth?&s.grammar:nullptr,s.logical_depth,policy.fused_depth);
+  const auto r=splice<Warp>(a,destination.node,b,source.node,output.output(target),s.max_depth,s.logical_depth?&s.grammar:nullptr,s.logical_depth);
   if(r.status==PhaseCompileStatus::Ok){
    output.lengths[target]=r;stat.crossover=1;
    if(policy.deferred_copy)for(int k=0;k<slot_count;++k)if(k!=slot)copy_row<Warp>(input,parent*slot_count+k,output,child*slot_count+k);
@@ -186,13 +184,13 @@ __host__ __device__ inline void crossover_child(int child,TreePointers input,Tre
  if(policy.deferred_copy)for(int k=0;k<slot_count;++k)copy_row<Warp>(input,parent*slot_count+k,output,child*slot_count+k);
 }
 
-// InPlace keeps one output row per child; otherwise output mirrors every row.
-template<bool InPlace,bool Fused,bool Warp=false>
+// Mutates the crossed rows in place; `output` holds one spliced row per child.
+template<bool Warp=false>
 __host__ __device__ inline void mutate_child(int child,TreePointers input,TreePointers output,TreePointers scratch,const DeviceSlot* slots,
     int slot_count,int max_variable_nodes,double probability,std::uint64_t seed,const OperatorPolicy& policy,OperatorStats& stat) {
  if(stat.error)return;
  int total=0;
- for(int k=0;k<slot_count;++k){const int row=child*slot_count+k;if(!valid(input.lengths[row])){stat.error=4;return;}total+=input.lengths[row].nodes;if constexpr(!InPlace)copy_row<Warp>(input,row,output,row);}
+ for(int k=0;k<slot_count;++k){const int row=child*slot_count+k;if(!valid(input.lengths[row])){stat.error=4;return;}total+=input.lengths[row].nodes;}
  DGrammarRandom random(seed ^ (UINT64_C(0x124ab512bf01)+child));
  if(static_cast<double>(random.next()>>11)*0x1.0p-53>=probability)return;
  const int selected_slot=policy.uniform_phase?int(random.bounded(slot_count)):-1;
@@ -210,29 +208,23 @@ __host__ __device__ inline void mutate_child(int child,TreePointers input,TreePo
  const int available=whole<phase?whole:phase,uncapped=available<capacity?available:capacity;
  const bool capped=policy.mutation_max_nodes>0 && policy.mutation_max_nodes<uncapped;
  const int bounded=capped?policy.mutation_max_nodes:uncapped;
- PhaseGenerationResult generated;
- if constexpr(Fused)
-  generated=generate_phase<true,true,Warp>(slot.grammar,site.entry_expression,site.parent_scope,slot.max_depth-depth+1,
-      bounded,random.next(),tmp.nodes,tmp.origins,tmp.constants,tmp.sites,logical);
- else
-  generated=generate_phase(slot.grammar,site.entry_expression,site.parent_scope,slot.max_depth-depth+1,
-      bounded,random.next(),tmp.nodes,tmp.origins,tmp.constants,nullptr,logical);
+ const auto generated=generate_phase<true,true,Warp>(slot.grammar,site.entry_expression,site.parent_scope,slot.max_depth-depth+1,
+     bounded,random.next(),tmp.nodes,tmp.origins,tmp.constants,tmp.sites,logical);
  // A configured cap that leaves no feasible derivation skips this mutation.
  if(capped && generated.status==PhaseCompileStatus::Capacity)return;
- if(generated.status!=PhaseCompileStatus::Ok || (!Fused && !annotate_phase_tree(slot.grammar,site.entry_expression,site.parent_scope,
-       tmp.nodes,tmp.origins,generated.nodes,tmp.sites))){stat.error=7;return;}
+ if(generated.status!=PhaseCompileStatus::Ok){stat.error=7;return;}
  scratch.lengths[child]=generated;
 #ifdef __CUDA_ARCH__
  if constexpr(Warp)__syncwarp();
 #endif
  // Splicing may partially write on failure, so its destination must never
  // alias the crossed input. Each child owns a separate temporary row.
- const int target=InPlace?child:destination.row;
+ const int target=child;
  const auto r=splice<Warp>(a,destination.node,scratch.view(child),0,output.output(target),slot.max_depth,
-     slot.logical_depth?&slot.grammar:nullptr,slot.logical_depth,policy.fused_depth);
+     slot.logical_depth?&slot.grammar:nullptr,slot.logical_depth);
  if(r.status!=PhaseCompileStatus::Ok){stat.error=8;return;}
  output.lengths[target]=r;
- if constexpr(InPlace)copy_row<Warp>(output,target,input,destination.row);
+ copy_row<Warp>(output,target,input,destination.row);
  stat.mutation=1;
 }
 
@@ -256,12 +248,11 @@ __host__ __device__ inline void compare_child(int child,TreePointers parents,Tre
  stat.reusable_parent=equal && reusable?parent:-1;
 }
 
-template<bool SharedNodes,bool CompactFrames=false>
 __host__ __device__ inline PhaseCompileResult compile_row(TreePointers trees,const DeviceSlot* slots,int slot_count,int row,
     gpu_detail::DInstr* code,Value* constants) {
  const auto t=trees.view(row);const auto& slot=slots[row%slot_count];
  if(!valid(trees.lengths[row]))return {};
- return compile_phase_tree<SharedNodes,CompactFrames>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.scope,slot.type,
+ return compile_phase_tree<true,true>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.scope,slot.type,
      code+std::size_t(row)*code_capacity,code_capacity,constants+std::size_t(row)*capacity,capacity);
 }
 // Rank-based elite rule: highest fitness, then lowest source index.

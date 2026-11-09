@@ -804,20 +804,6 @@ int main() {
     test_destination_resource_interpretation(); test_certified_donor_budget_rejection(); test_scalar_resource_pool();
     test_independent_donor_pool_batch(); test_payload_pool_conflict_replay(); test_donor_resource_flow(); test_projected_offspring_admission();
         test_crossover_admission_matches_full_analysis();
-    {
-      const char* old = std::getenv("GAGP_CPU_COUNTED_PAIRS");
-      const std::optional<std::string> saved = old ? std::optional<std::string>{old} : std::nullopt;
-      setenv("GAGP_CPU_COUNTED_PAIRS", "1", 1);
-      const char* old_fit = std::getenv("GAGP_CPU_ALL_FIT_PAIRS");
-      const std::optional<std::string> saved_fit = old_fit ? std::optional<std::string>{old_fit} : std::nullopt;
-      setenv("GAGP_CPU_ALL_FIT_PAIRS", "1", 1);
-      // Nonlocal projected admission must retain the exact reservoir oracle.
-      test_crossover_admission_matches_full_analysis();
-      if (saved_fit) setenv("GAGP_CPU_ALL_FIT_PAIRS", saved_fit->c_str(), 1);
-      else unsetenv("GAGP_CPU_ALL_FIT_PAIRS");
-      if (saved) setenv("GAGP_CPU_COUNTED_PAIRS", saved->c_str(), 1);
-      else unsetenv("GAGP_CPU_COUNTED_PAIRS");
-    }
     test_projected_generation_and_initialization();
         test_shared_hole_tradeoffs(); test_recursive_frontier(); }
   catch (const std::exception& error) { std::cerr<<error.what()<<'\n'; return 1; }

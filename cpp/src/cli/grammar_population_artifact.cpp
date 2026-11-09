@@ -1,5 +1,5 @@
 #include "gagp/cli/grammar_population_artifact.hpp"
-#include "gagp/cli/commands.hpp"
+#include "gagp/cli/program_json.hpp"
 
 #include <cmath>
 #include <optional>

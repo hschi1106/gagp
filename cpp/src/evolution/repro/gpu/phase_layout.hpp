@@ -1,6 +1,5 @@
 #pragma once
 #include "phase_variation.hpp"
-#include "gagp/core/engine_profile.hpp"
 #include "../../grammar/cold_admission.hpp"
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/bounded_region.hpp"
@@ -72,7 +71,6 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   // complete runtime identity, and reconstructs on a miss. Population
   // initialization has already created such certificates for unchanged inputs.
   auto source = external;
-  if (!gagp::engine_env("GAGP_REUSE_IMPORT_CERTIFICATE")) source.derivation.reset();
   std::shared_ptr<const BytecodeProgram> cold_executable;
   const auto witness = grammar::detail::reconstruct_cold_derivation(grammar, source, entry_request(grammar),
       &verified, &environments,&cold_executable,evaluator_inputs);
@@ -207,7 +205,7 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   const auto& execution_inputs = evaluator_inputs ? *evaluator_inputs : inputs;
   // Admission above still checks this grammar/request. Executable reuse adds
   // its own exact AST, scalar-constant, input-order and fuel identity check.
-  const auto executable = !cold_executable && gagp::engine_env("GAGP_REUSE_IMPORT_CERTIFICATE")
+  const auto executable = !cold_executable
       ? admitted_bytecode_for_eval(source, execution_inputs, grammar.execution_limits().fuel)
       : nullptr;
   result.executable = cold_executable ? *cold_executable : executable ? *executable : compile_for_eval(source, verified, execution_inputs);

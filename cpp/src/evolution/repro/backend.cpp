@@ -1,5 +1,4 @@
 #include "gagp/evolution/repro/backend.hpp"
-#include "gagp/core/engine_profile.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -196,15 +195,11 @@ ReproductionResult run_cpu_backend_impl(const std::vector<ScoredGenomeRef>& scor
   const auto prepare_t0 = std::chrono::steady_clock::now();
   grammar::VariationContext context(cfg.compiled_grammar, population_requests(cfg), 128,
       cfg.offspring_resource_budget);
-  const bool lazy_analysis = gagp::engine_env("GAGP_CPU_LAZY_ANALYSIS") != nullptr;
-  context.defer_offspring_site_analysis(lazy_analysis);
+  context.defer_offspring_site_analysis(true);
   for (const auto& parent : scored) {
     if (!parent.genome) throw std::invalid_argument("compiled reproduction has a null parent");
-    if (lazy_analysis)
-      (void)grammar::reconstruct_population_derivation(
-          context.grammar(), *parent.genome, context.requests());
-    else
-      (void)context.analyze(*parent.genome);
+    (void)grammar::reconstruct_population_derivation(
+        context.grammar(), *parent.genome, context.requests());
   }
   std::vector<std::vector<grammar::VariationSite>> candidates;
   std::optional<PreprocessOutput> prepared;
@@ -267,8 +262,7 @@ ReproductionResult run_cpu_backend_impl(const std::vector<ScoredGenomeRef>& scor
   out.stats.selection_ms = std::chrono::duration<double, std::milli>(
       std::chrono::steady_clock::now() - selection_t0).count();
 
-  const bool selected_parent_reuse = gagp::engine_env("GAGP_CPU_SELECTED_PARENTS") != nullptr &&
-      cfg.cpu_repro_ablation == CpuReproAblation::None;
+  const bool selected_parent_reuse = cfg.cpu_repro_ablation == CpuReproAblation::None;
   std::vector<std::unique_ptr<const grammar::variation_detail::CertifiedCrossoverParent>> parents(
       selected_parent_reuse ? scored.size() : 0);
   const auto prepare_selected = [&](std::size_t index) {

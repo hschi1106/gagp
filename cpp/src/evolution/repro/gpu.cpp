@@ -1,5 +1,4 @@
 #include "gagp/core/host_threads.hpp"
-#include "gagp/core/engine_profile.hpp"
 #include "../batch_workers.hpp"
 #include "pack_internal.hpp"
 #include "prep_internal.hpp"
@@ -97,7 +96,6 @@ struct GpuReproRunResources {
   std::optional<grammar::ProjectedBudget> offspring_budget;
   std::mutex mutex;
   std::shared_ptr<const ConstantMutationDomains> domains;
-  std::shared_ptr<GpuPhaseDonorSession> phase_donors;
   std::vector<std::weak_ptr<const ConstantMutationDomains>> proposal_domains;
 };
 
@@ -242,7 +240,7 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
       return owner->resource_invariant_roots(roots);
     });
   }
-  const bool selected_sites = gagp::engine_env("GAGP_SELECTED_SITES") && gagp::host_thread_limit() == 1 &&
+  const bool selected_sites = gagp::host_thread_limit() == 1 &&
       context->requests().size() == 1 && !context->offspring_budget() &&
       !payload::StagedPayloads::has_active_scope() &&
       std::all_of(population.begin(), population.end(), [](const auto& genome) {
@@ -253,8 +251,7 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
       });
   std::vector<ProgramGenome> execution_parents;
   std::shared_ptr<const grammar::variation_detail::OwnedScalarPopulation> owned_parents;
-  if (selected_sites && gagp::engine_env("GAGP_OWNED_PREPARATION") &&
-      !std::getenv("GAGP_NO_DERIVATION_CERTIFICATES")) {
+  if (selected_sites) {
     if (continuation) {
       if (&population != &continuation->genomes() || !continuation->matches(*context))
         throw std::invalid_argument("mutation preparation ownership mismatch");
@@ -321,24 +318,14 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
       live.push_back(domains);
     }
   }
-#ifdef GAGP_HAS_CUDA
-  if (selected_sites && owned_parents && pass == CompiledVariationPass::Mutation &&
-      std::getenv("GAGP_GPU_DONORS") && !resources->phase_donors)
-    resources->phase_donors = make_gpu_phase_donor_session(context->grammar_owner());
-#endif
   const PreprocessOutput prep = selected_sites ?
       preprocess_selected_population(packed_population, out.config, *context, domains,
-          pass == CompiledVariationPass::Mutation, owned_parents.get(),
-          pass == CompiledVariationPass::Mutation ? resources->phase_donors.get() : nullptr) :
+          pass == CompiledVariationPass::Mutation, owned_parents.get()) :
       preprocess_warmed_population(packed_population, out.config, *context, domains,
           pass == CompiledVariationPass::Mutation, warmed_members);
   const auto prep_t1 = std::chrono::steady_clock::now();
   if (stats != nullptr) {
     stats->preprocess_ms += std::chrono::duration<double, std::milli>(prep_t1 - prep_t0).count();
-    stats->gpu_donor_generated += prep.gpu_donor_generated;
-    stats->gpu_donor_fallback += prep.gpu_donor_fallback;
-    stats->gpu_donor_setup_ms += prep.gpu_donor_setup_ms;
-    stats->gpu_donor_device_bytes = std::max(stats->gpu_donor_device_bytes,prep.gpu_donor_device_bytes);
   }
 
   const auto pack_t0 = std::chrono::steady_clock::now();
@@ -483,11 +470,11 @@ ReproductionResult run_compiled_prepared(const std::vector<ScoredGenomeRef>& sco
     const auto decode_start = std::chrono::steady_clock::now();
     PassResult children;
     const auto* cert = pass.parent_certificates.get();
-    if (retain_owned && gagp::engine_env("GAGP_OWNED_CROSSOVER_HANDOFF") && cert && cert->owned_parents &&
+    if (retain_owned && cert && cert->owned_parents &&
         cert->sources == pass.packed.compiled_sources && cert->context.get() == &context &&
         cert->owned_parents->matches(context) &&
         cert->owned_parents->genomes().size() == static_cast<std::size_t>(pass.config.population_size) &&
-        !payload::StagedPayloads::has_active_scope() && !std::getenv("GAGP_NO_DERIVATION_CERTIFICATES")) {
+        !payload::StagedPayloads::has_active_scope()) {
       children.owned = grammar::variation_detail::OwnedScalarPopulation::from_gpu_pass(
           pass.packed, view, context, *cert);
     } else {

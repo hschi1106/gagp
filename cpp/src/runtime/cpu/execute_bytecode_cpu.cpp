@@ -1,5 +1,4 @@
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
-#include "gagp/core/engine_profile.hpp"
 #include "gagp/runtime/cpu/execution_session.hpp"
 
 #include <cstddef>
@@ -126,8 +125,7 @@ struct RegionRunContext {
     if (!entry.result || entry.caller_n_locals != caller_n_locals) {
       entry.result = verify_bounded_region_segment(segment, caller_n_locals);
       entry.caller_n_locals = caller_n_locals;
-      entry.views_supported = entry.result->ok && gagp::engine_env("GAGP_CPU_REGION_VIEWS") &&
-          detail::cpu_region_views_supported(segment);
+      entry.views_supported = entry.result->ok && detail::cpu_region_views_supported(segment);
     }
     return *entry.result;
   }
@@ -577,7 +575,7 @@ ExecResult run_code_impl(const CodeView& view,
           detail::RegionScratch one_shot_scratch;
           auto& scratch = view.region_context ? view.region_context->scratch : one_shot_scratch;
           scratch.memo.disable_dense_domain();
-          if (buffers.phases.dense_enabled && plan.memoized &&
+          if (plan.memoized &&
               plan.progress == RegionProgressKind::Coordinates &&
               plan.state_types.size() == 1 && plan.state_types[0] == ValueTag::Int &&
               domains.size() == 1 && plan.coordinate_slots[0] == 0) {
@@ -588,7 +586,7 @@ ExecResult run_code_impl(const CodeView& view,
               scratch.memo.set_dense_domain(lower, upper - 1);
           }
           const bool use_views = view.region_context ? view.region_context->validations[ins.a].views_supported :
-              gagp::engine_env("GAGP_CPU_REGION_VIEWS") && detail::cpu_region_views_supported(segment);
+              detail::cpu_region_views_supported(segment);
           auto result = use_views
               ? detail::execute_with_cpu_views(layout, initial, adapter, scratch, fuel,
                     parameters, view.region_context ? &view.region_context->list_views : nullptr)

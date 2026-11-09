@@ -169,7 +169,7 @@ struct TempFiles {
 };
 
 int run(std::vector<std::string> arguments) {
-  arguments.insert(arguments.begin(), "gagp_generate_cli");
+  arguments.insert(arguments.begin(), "gagp");
   std::vector<char*> argv;
   for (auto& argument : arguments) argv.push_back(argument.data());
   return run_grammar_generate_command(static_cast<int>(argv.size()), argv.data());

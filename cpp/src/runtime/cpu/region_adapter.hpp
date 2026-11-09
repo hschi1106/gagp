@@ -1,7 +1,6 @@
 #pragma once
 
 #include <limits>
-#include "gagp/core/engine_profile.hpp"
 #include <cstdlib>
 #include <unordered_map>
 #include <optional>
@@ -32,22 +31,17 @@ struct BoundPhaseInputs {
 };
 
 struct RegionPhaseScratch {
-  bool coordinate_enabled = gagp::engine_env("GAGP_CPU_COORDINATE_DRIVER") != nullptr;
-  bool dense_enabled = gagp::engine_env("GAGP_CPU_DENSE_MEMO") != nullptr;
-  bool typed_enabled = gagp::engine_env("GAGP_CPU_TYPED_PHASE") != nullptr;
-  bool direct_enabled = typed_enabled || gagp::engine_env("GAGP_CPU_BOUND_PHASE") != nullptr;
   struct SegmentBindings {
     std::vector<DirectPhaseBindings> phases;
     bool coordinate = false;
   };
   std::unordered_map<const BoundedRegionSegment*, SegmentBindings> segments;
   SegmentBindings* select_segment(const BoundedRegionSegment& segment) {
-    if (!direct_enabled) return nullptr;
     auto [it, inserted] = segments.try_emplace(&segment);
     if (inserted) {
       it->second.phases.resize(4 + segment.preparations.size() + segment.request_expressions.size());
       const auto& p = segment.plan;
-      it->second.coordinate = coordinate_enabled && p.progress == RegionProgressKind::Coordinates &&
+      it->second.coordinate = p.progress == RegionProgressKind::Coordinates &&
           p.state_types.size() == 1 && p.state_types[0] == ValueTag::Int &&
           p.result_type == ValueTag::Int && p.coordinate_slots.size() == 1 &&
           p.coordinate_slots[0] == 0 && p.coordinate_domains.size() == 1 &&
@@ -70,7 +64,7 @@ struct RegionPhaseScratch {
       if (result.supported) {
         result.locals.resize(phase.program.n_locals, nullptr);
         for (const auto& binding : phase.bindings) result.locals[binding.local] = &binding;
-        if (typed_enabled && phase.program.n_locals <= 64) {
+        if (phase.program.n_locals <= 64) {
           result.types.fill(ValueTag::Invalid);
           for (const auto& binding : phase.bindings) {
             const auto slot = binding.source.slot;
@@ -133,16 +127,14 @@ struct RegionAdapter {
         return region_failure(ErrCode::Type, "bounded region phase result type mismatch");
       return {false, value, {ErrCode::Value, ""}};
     }
-    if (scratch.direct_enabled) {
-      const auto& bindings = scratch.bindings(profiles->phases[binding_index], phase, segment.plan, expected);
-      if (bindings.supported) {
-        const BoundPhaseInputs inputs{bindings, frame, parameters, segment.plan};
-        auto result = phase_runner(phase.program, {}, {}, fuel, &inputs);
-        if (!result.is_error && result.value.tag != expected &&
-            !(result_phase && result.value.tag == ValueTag::FallbackToken))
-          return region_failure(ErrCode::Type, "bounded region phase result type mismatch");
-        return result;
-      }
+    if (const auto& bindings = scratch.bindings(profiles->phases[binding_index], phase, segment.plan, expected);
+        bindings.supported) {
+      const BoundPhaseInputs inputs{bindings, frame, parameters, segment.plan};
+      auto result = phase_runner(phase.program, {}, {}, fuel, &inputs);
+      if (!result.is_error && result.value.tag != expected &&
+          !(result_phase && result.value.tag == ValueTag::FallbackToken))
+        return region_failure(ErrCode::Type, "bounded region phase result type mismatch");
+      return result;
     }
     auto& presets = scratch.presets;
     auto& types = scratch.types;

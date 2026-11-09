@@ -29,11 +29,6 @@ void rejects(const std::string& body, const std::string& fragment) {
   }
   throw std::runtime_error("accepted invalid search config: " + body);
 }
-struct EnvGuard {
-  const char* name; bool present; std::string value;
-  explicit EnvGuard(const char* n) : name(n), present(std::getenv(n) != nullptr), value(present ? std::getenv(n) : "") {}
-  ~EnvGuard() { if (present) setenv(name, value.c_str(), 1); else unsetenv(name); }
-};
 
 void test_parse_and_apply() {
   const auto empty = config("");
@@ -110,20 +105,9 @@ void test_effective_round_trip() {
           "effective configuration does not round-trip");
 }
 
-void test_environment_mapping() {
-  EnvGuard counted("GAGP_COUNTED_SITE_DRAW"), uniform("GAGP_GPU_UNIFORM_PHASE_SITES"), gate("GAGP_GPU_SOURCE_CROSSOVER_GATE");
-  unsetenv("GAGP_COUNTED_SITE_DRAW"); unsetenv("GAGP_GPU_UNIFORM_PHASE_SITES"); unsetenv("GAGP_GPU_SOURCE_CROSSOVER_GATE");
-  require(evo::phase_variation_policy_from_environment() == evo::PhaseVariationPolicy{}, "default environment policy");
-  setenv("GAGP_COUNTED_SITE_DRAW", "1", 1); setenv("GAGP_GPU_UNIFORM_PHASE_SITES", "1", 1); setenv("GAGP_GPU_SOURCE_CROSSOVER_GATE", "1", 1);
-  const auto legacy = evo::phase_variation_policy_from_environment();
-  require(legacy.site_draw == evo::PhaseSiteDraw::Counted && legacy.site_scope == evo::PhaseSiteScope::UniformPhase &&
-          legacy.crossover_probability == 0.7 && legacy.crossover_attempts == 8, "legacy environment policy");
-  evo::require_environment_agrees(legacy);
-  bool conflict = false;
-  try { evo::require_environment_agrees(evo::PhaseVariationPolicy{}); }
-  catch (const std::invalid_argument&) { conflict = true; }
-  require(conflict, "conflicting legacy flag accepted");
-  require(evo::phase_variation_profile_suffix(legacy) == "-source-cross07", "gate profile suffix");
+void test_profile_suffix() {
+  const evo::PhaseVariationPolicy gate{evo::PhaseSiteDraw::Counted, evo::PhaseSiteScope::UniformPhase, 0.7, 8};
+  require(evo::phase_variation_profile_suffix(gate) == "-source-cross07", "gate profile suffix");
   require(evo::phase_variation_profile_suffix(evo::PhaseVariationPolicy{}).empty(), "default profile suffix");
   bool invalid = false;
   require(evo::phase_variation_profile_suffix({evo::PhaseSiteDraw::Counted, evo::PhaseSiteScope::Genome, 1, 8, 32}) == "-mutcap32", "cap suffix");
@@ -175,7 +159,7 @@ int main() {
     test_parse_and_apply();
     test_rejections();
     test_effective_round_trip();
-    test_environment_mapping();
+    test_profile_suffix();
     test_schedule();
   } catch (const std::exception& error) {
     std::cerr << "FAIL: " << error.what() << '\n';

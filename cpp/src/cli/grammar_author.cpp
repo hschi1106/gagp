@@ -402,8 +402,8 @@ Json diagnostic_json(const std::string& action, const std::string& phase,
 }
 
 void usage() {
-  std::cout << "Usage: gagp_grammar_cli {validate|inspect|resolve} --grammar-definition PATH [--out-json PATH]\n"
-               "       gagp_grammar_cli --help\n";
+  std::cout << "Usage: gagp grammar {validate|inspect|resolve} --grammar-definition PATH [--out-json PATH]\n"
+               "       gagp grammar --help\n";
 }
 }  // namespace
 

@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "gagp/cli/commands.hpp"
+#include "gagp/cli/program_json.hpp"
 #include "gagp/cli/json.hpp"
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/grammar/cache.hpp"

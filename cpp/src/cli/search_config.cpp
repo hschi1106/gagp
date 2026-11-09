@@ -203,9 +203,7 @@ void apply_search_config(const SearchConfig& config, evo::EvolutionConfig& cfg) 
 JsonValue effective_search_config(const evo::EvolutionConfig& cfg) {
   JsonValue out = make_object();
   out.object_v["format"] = make_string(kSearchConfigFormat);
-  const bool legacy_phase = !cfg.phase_population && std::getenv("GAGP_GPU_PHASE_POPULATION") &&
-      cfg.eval_engine == evo::EvalEngine::GPU && cfg.reproduction_backend == evo::repro::ReproductionBackend::Gpu;
-  const bool phase = cfg.phase_population.value_or(legacy_phase);
+  const bool phase = cfg.phase_population.value_or(false);
   out.object_v["representation"] = make_string(phase ? "phase_population" : "native_ast");
   out.object_v["population_size"] = make_number(cfg.population_size);
   out.object_v["generations"] = make_number(cfg.generations);
@@ -225,7 +223,7 @@ JsonValue effective_search_config(const evo::EvolutionConfig& cfg) {
   execution.object_v["fuel"] = make_number(cfg.fuel);
   out.object_v["execution"] = execution;
   if (phase) {
-    const auto policy = cfg.phase_variation.value_or(evo::phase_variation_policy_from_environment());
+    const auto policy = cfg.phase_variation.value_or(evo::PhaseVariationPolicy{});
     out.object_v["mutation"].object_v["max_subtree_nodes"] = make_number(policy.mutation_max_nodes);
     auto crossover = make_object();
     crossover.object_v["probability"] = make_number(policy.crossover_probability);
