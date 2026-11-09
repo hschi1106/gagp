@@ -13,7 +13,6 @@ from pathlib import Path
 EXAMPLE_NAMES = ("scalar", "sequence", "template", "memo")
 AUTHORING_EXAMPLES = Path("configs/grammar/examples/authoring")
 DEFAULT_GRAMMAR_NATIVE = Path("cpp/build/gagp_grammar_cli")
-DEFAULT_MIGRATE_NATIVE = Path("cpp/build/gagp_migrate_artifact")
 
 
 def _parents(path: Path) -> tuple[Path, ...]:
@@ -133,28 +132,3 @@ def resolve_main() -> int:
     return _grammar_native_main("resolve", accepts_out=True)
 
 
-def migrate_main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Run the native legacy-artifact migration adapter."
-    )
-    parser.add_argument("--native", type=Path, default=DEFAULT_MIGRATE_NATIVE)
-    parser.add_argument("--input", required=True, type=Path)
-    parser.add_argument("--out", required=True, type=Path)
-    parser.add_argument("--cases", type=Path)
-    parser.add_argument("--conversion-profile")
-    parser.add_argument("--fuel")
-    parser.add_argument("--max-nodes")
-    parser.add_argument("--max-depth")
-    args = parser.parse_args()
-
-    command = [str(args.native), "--input", str(args.input), "--out", str(args.out)]
-    for option, value in (
-        ("--cases", args.cases),
-        ("--conversion-profile", args.conversion_profile),
-        ("--fuel", args.fuel),
-        ("--max-nodes", args.max_nodes),
-        ("--max-depth", args.max_depth),
-    ):
-        if value is not None:
-            command.extend([option, str(value)])
-    return _run_native(command)

@@ -1,2 +1,0 @@
-task,scheme,paper_successes_out_of_100,thesis_successes_out_of_25,planned,completed,infrastructure_failures,missing_seeds,successes,train_solved,raw_successes,overfit,initial_population_successes,wilson95,median_nfe,solver_seconds,mean_success_nodes_before,mean_success_nodes_after,train_cases,test_cases
-sum_of_squares,DC,23,,100,100,0,[],96,98,95,2,0,"[0.9016292856411208, 0.9843366960084523]",10490.5,92.11999999999998,27.447916666666668,9.46875,[100],[1000]

@@ -9,10 +9,6 @@ enable_testing()
 option(GAGP_ENABLE_CUDA "Build CUDA runtime and parity targets" ON)
 option(GAGP_ENABLE_SANITIZERS "Enable CPU AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(GAGP_BUILD_FUZZERS "Build Clang libFuzzer targets" OFF)
-option(GAGP_BUILD_BENCHMARKS "Build auxiliary benchmark executables" OFF)
-option(GAGP_BUILD_EXPERIMENTS "Build auxiliary experiment probes" OFF)
-set(GAGP_ASGP_SOURCE_DIR "" CACHE PATH "Optional ASGP checkout for the fixed comparison benchmark")
-option(GAGP_ASGP_LIST_COMBINE_EXTENSION "Build the explicit symmetric list-combine-v1 benchmark contract" OFF)
 option(GAGP_ENABLE_OPENSSL_SHA256 "Use system OpenSSL SHA-256 when available" ON)
 
 if((GAGP_ENABLE_SANITIZERS OR GAGP_BUILD_FUZZERS) AND GAGP_ENABLE_CUDA)
@@ -208,9 +204,14 @@ add_library(gagp_cli_support
   src/cli/options.cpp
   src/cli/commands.cpp
   src/cli/search_config.cpp
+  src/cli/task.cpp
+  src/cli/run.cpp
 )
 target_include_directories(gagp_cli_support PUBLIC include)
 target_link_libraries(gagp_cli_support PUBLIC gagp_cpu gagp_json gagp_region_plan_json)
+
+add_executable(gagp src/cli/gagp_main.cpp)
+target_link_libraries(gagp PRIVATE gagp_cli_support)
 
 add_executable(gagp_generate_cli src/cli/generate_cli.cpp)
 target_link_libraries(gagp_generate_cli PRIVATE gagp_cli_support)
@@ -368,13 +369,6 @@ target_link_libraries(gagp_test_grammar_artifact PRIVATE gagp_cli_support)
 add_test(NAME gagp_test_grammar_artifact COMMAND gagp_test_grammar_artifact)
 set_tests_properties(gagp_test_grammar_artifact PROPERTIES LABELS "contract;integration")
 
-if(GAGP_BUILD_BENCHMARKS)
-  add_executable(gagp_runtime_multi_bench
-    src/bench/runtime_multi_bench.cpp
-  )
-  target_link_libraries(gagp_runtime_multi_bench PRIVATE gagp_cpu)
-endif()
-
 add_executable(gagp_evolve_cli
   src/cli/evolve_cli.cpp
 )
@@ -441,13 +435,6 @@ if(GAGP_HAS_CUDA)
   add_test(NAME gagp_test_evolution_cpu_gpu_parity COMMAND gagp_test_evolution_cpu_gpu_parity)
   set_tests_properties(gagp_test_evolution_cpu_gpu_parity
     PROPERTIES LABELS "gpu;cpu_gpu_parity")
-
-  if(GAGP_BUILD_EXPERIMENTS)
-    add_executable(gagp_simple_exp_population_probe
-      src/experiments/simple_exp_population_probe.cpp
-    )
-    target_link_libraries(gagp_simple_exp_population_probe PRIVATE gagp_cli_support gagp_gpu)
-  endif()
 
 endif()
 
@@ -860,149 +847,7 @@ target_link_libraries(gagp_test_fuel_optimization PRIVATE gagp_cpu)
 add_test(NAME gagp_test_fuel_optimization COMMAND gagp_test_fuel_optimization)
 set_tests_properties(gagp_test_fuel_optimization PROPERTIES LABELS "contract;unit")
 
-# Transition-only oracle adapter; production executables do not link this target.
-add_library(gagp_transition
-  src/migration/typed_storage.cpp
-  src/migration/legacy_budget.cpp
-  src/migration/legacy_constants.cpp
-  src/migration/artifact.cpp
-  src/migration/legacy_grammar_config.cpp
-  src/transition/legacy_ast_v1.cpp
-  src/transition/linear_rec.cpp
-  src/transition/bounded_regions.cpp)
-target_include_directories(gagp_transition PUBLIC include)
-target_link_libraries(gagp_transition PUBLIC gagp_cpu gagp_cli_support)
-
-add_executable(gagp_test_typed_storage tests/migration/test_typed_storage.cpp)
-add_executable(gagp_test_legacy_budget tests/migration/test_legacy_budget.cpp)
-target_link_libraries(gagp_test_legacy_budget PRIVATE gagp_transition)
-add_test(NAME gagp_test_legacy_budget COMMAND gagp_test_legacy_budget)
-set_tests_properties(gagp_test_legacy_budget PROPERTIES LABELS "contract;migration;unit")
-target_link_libraries(gagp_test_typed_storage PRIVATE gagp_transition)
-add_test(NAME gagp_test_typed_storage COMMAND gagp_test_typed_storage)
-set_tests_properties(gagp_test_typed_storage PROPERTIES LABELS "contract;migration;integration")
-
-add_executable(gagp_migrate_artifact src/migration/migrate_artifact_cli.cpp)
-target_link_libraries(gagp_migrate_artifact PRIVATE gagp_transition)
-
-if(GAGP_BUILD_BENCHMARKS)
-  # Goal 11 comparison adapter. It is deliberately transition-only and is not
-  # linked into either production CLI.
-  add_executable(gagp_final_candidate_bench
-    src/bench/final_candidate_bench.cpp
-    src/bench/final_candidate_snapshot.cpp)
-  target_link_libraries(gagp_final_candidate_bench PRIVATE gagp_transition)
-  add_executable(gagp_final_candidate_stats
-    src/bench/final_candidate_stats.cpp
-    src/bench/final_candidate_snapshot.cpp)
-  target_link_libraries(gagp_final_candidate_stats PRIVATE gagp_transition)
-  if(GAGP_HAS_CUDA)
-    target_link_libraries(gagp_final_candidate_stats PRIVATE gagp_gpu)
-    target_link_libraries(gagp_final_candidate_bench PRIVATE gagp_gpu)
-  endif()
-  if(GAGP_ASGP_SOURCE_DIR)
-    if(NOT GAGP_HAS_CUDA)
-      message(FATAL_ERROR "The fixed ASGP comparison requires CUDA")
-    endif()
-    add_subdirectory("${GAGP_ASGP_SOURCE_DIR}/src" "external-asgp" EXCLUDE_FROM_ALL)
-    if(GAGP_ASGP_LIST_COMBINE_EXTENSION)
-      find_package(Python3 COMPONENTS Interpreter REQUIRED)
-      set(asgp_overlay "${CMAKE_CURRENT_BINARY_DIR}/asgp-list-combine-v1")
-      set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/bench/fixed_asgp/list_combine_overlay.py"
-        "${GAGP_ASGP_SOURCE_DIR}/src/lang/grammar.cc"
-        "${GAGP_ASGP_SOURCE_DIR}/src/eval/interpreter.cc"
-        "${GAGP_ASGP_SOURCE_DIR}/src/lang/printer.cc")
-      execute_process(COMMAND ${Python3_EXECUTABLE}
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/bench/fixed_asgp/list_combine_overlay.py"
-        "${GAGP_ASGP_SOURCE_DIR}/src" "${asgp_overlay}"
-        COMMAND_ERROR_IS_FATAL ANY)
-      get_target_property(asgp_sources asgp_core SOURCES)
-      foreach(source IN ITEMS lang/grammar.cc eval/interpreter.cc lang/printer.cc)
-        list(REMOVE_ITEM asgp_sources "${source}")
-        list(APPEND asgp_sources "${asgp_overlay}/${source}")
-      endforeach()
-      set_property(TARGET asgp_core PROPERTY SOURCES "${asgp_sources}")
-      target_compile_definitions(asgp_core PUBLIC GAGP_ASGP_LIST_COMBINE_EXTENSION=1)
-    endif()
-    target_compile_features(asgp_core PUBLIC cxx_std_20)
-    add_executable(gagp_fixed_asgp_bench
-      src/bench/fixed_asgp/main.cpp
-      src/bench/fixed_asgp/adapter.cpp)
-    target_compile_features(gagp_fixed_asgp_bench PRIVATE cxx_std_20)
-    target_link_libraries(gagp_fixed_asgp_bench PRIVATE gagp_cli_support gagp_gpu asgp_core)
-  endif()
-endif()
-
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
-if(TARGET gagp_fixed_asgp_bench)
-  if(GAGP_ASGP_LIST_COMBINE_EXTENSION)
-    add_executable(gagp_test_fixed_asgp_list_combine tests/evolution/test_fixed_asgp_list_combine.cpp)
-    target_link_libraries(gagp_test_fixed_asgp_list_combine PRIVATE asgp_core)
-    add_test(NAME gagp_test_fixed_asgp_list_combine COMMAND gagp_test_fixed_asgp_list_combine)
-  endif()
-  add_test(NAME gagp_test_fixed_asgp_source_arithmetic
-    COMMAND ${Python3_EXECUTABLE}
-      ${CMAKE_CURRENT_SOURCE_DIR}/tests/evolution/test_fixed_asgp_source_arithmetic.py
-      $<TARGET_FILE:gagp_fixed_asgp_bench> ${CMAKE_CURRENT_SOURCE_DIR}/..)
-  set_tests_properties(gagp_test_fixed_asgp_source_arithmetic PROPERTIES
-    LABELS "contract;integration;benchmark;cpu" TIMEOUT 90)
-  add_test(NAME gagp_test_fixed_asgp_bench
-    COMMAND ${Python3_EXECUTABLE}
-      ${CMAKE_CURRENT_SOURCE_DIR}/tests/evolution/test_fixed_asgp_bench.py
-      $<TARGET_FILE:gagp_fixed_asgp_bench> ${CMAKE_CURRENT_SOURCE_DIR}/..)
-  set_tests_properties(gagp_test_fixed_asgp_bench PROPERTIES
-    LABELS "contract;integration;benchmark;gpu" TIMEOUT 180)
-endif()
-add_test(NAME gagp_test_migrate_artifact_cli
-  COMMAND ${Python3_EXECUTABLE}
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/migration/test_migrate_artifact_cli.py
-    $<TARGET_FILE:gagp_migrate_artifact>
-    ${CMAKE_CURRENT_SOURCE_DIR}/..
-    $<TARGET_FILE:gagp_evolve_cli>)
-set_tests_properties(gagp_test_migrate_artifact_cli PROPERTIES
-  LABELS "contract;integration;migration")
-
-if(GAGP_BUILD_BENCHMARKS)
-  add_test(NAME gagp_test_final_candidate_bench
-    COMMAND ${Python3_EXECUTABLE}
-      ${CMAKE_CURRENT_SOURCE_DIR}/tests/migration/test_final_candidate_bench.py
-      $<TARGET_FILE:gagp_final_candidate_bench>
-      $<TARGET_FILE:gagp_generate_cli>)
-  set_tests_properties(gagp_test_final_candidate_bench PROPERTIES
-    LABELS "contract;integration;migration;benchmark")
-  add_test(NAME gagp_test_final_candidate_stats
-    COMMAND ${Python3_EXECUTABLE}
-      ${CMAKE_CURRENT_SOURCE_DIR}/tests/migration/test_final_candidate_stats.py
-      $<TARGET_FILE:gagp_final_candidate_bench>
-      $<TARGET_FILE:gagp_final_candidate_stats>
-      $<TARGET_FILE:gagp_generate_cli>
-      ${CMAKE_CURRENT_SOURCE_DIR}/..
-      $<BOOL:${GAGP_HAS_CUDA}>)
-  set_tests_properties(gagp_test_final_candidate_stats PROPERTIES
-    LABELS "contract;integration;migration;benchmark")
-  if(GAGP_HAS_CUDA)
-    set_property(TEST gagp_test_final_candidate_stats APPEND PROPERTY LABELS gpu)
-  endif()
-endif()
-
-add_executable(gagp_test_legacy_ast_migration_boundary
-  tests/evolution/test_legacy_ast_migration_boundary.cpp)
-target_link_libraries(gagp_test_legacy_ast_migration_boundary PRIVATE gagp_transition)
-add_test(NAME gagp_test_legacy_ast_migration_boundary
-  COMMAND gagp_test_legacy_ast_migration_boundary)
-set_tests_properties(gagp_test_legacy_ast_migration_boundary PROPERTIES
-  LABELS "contract;integration;migration")
-
-add_executable(gagp_test_legacy_package_equivalence
-  tests/migration/test_legacy_package_equivalence.cpp)
-target_link_libraries(gagp_test_legacy_package_equivalence PRIVATE gagp_transition)
-target_compile_definitions(gagp_test_legacy_package_equivalence PRIVATE
-  GAGP_REPOSITORY_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
-add_test(NAME gagp_test_legacy_package_equivalence
-  COMMAND gagp_test_legacy_package_equivalence)
-set_tests_properties(gagp_test_legacy_package_equivalence PROPERTIES
-  LABELS "contract;integration;migration")
 
 add_executable(gagp_test_source_fuel_preservation tests/evolution/test_source_fuel_preservation.cpp)
 target_link_libraries(gagp_test_source_fuel_preservation PRIVATE gagp_cli_support)

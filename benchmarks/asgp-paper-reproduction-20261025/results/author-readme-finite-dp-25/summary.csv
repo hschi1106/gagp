@@ -1,4 +1,0 @@
-task,scheme,paper_successes_out_of_100,thesis_successes_out_of_25,planned,completed,infrastructure_failures,missing_seeds,successes,train_solved,raw_successes,overfit,initial_population_successes,wilson95,median_nfe,solver_seconds,mean_success_nodes_before,mean_success_nodes_after,train_cases,test_cases
-fibonacci,DP,23,23,25,25,0,[],25,25,25,0,20,"[0.8668077490609515, 0.9999999999999999]",1000,0.9000000000000006,5.4,4.24,[100],[1000]
-tribonacci,DP,19,19,25,25,0,[],22,22,22,0,0,"[0.7004420607907267, 0.9583318284955964]",29971,54.18999999999999,42.27272727272727,10.727272727272727,[100],[1000]
-fibonacci_array,DP,17,17,25,25,0,[],25,25,25,0,1,"[0.8668077490609515, 0.9999999999999999]",2998,3.42,7.44,4,[100],[1000]
