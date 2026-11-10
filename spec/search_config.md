@@ -98,7 +98,7 @@ These rules define `crossover`, `sites`, `limits` and `ranking` for
   derivation of the selected site fits, the child is not mutated; random draws
   already consumed for that child are not replayed.
 - `limits.site_depth` counts nested grammar invocations, excluding lowering
-  scaffolds. It cannot combine with projected resource budgets.
+  scaffolds.
 - A `resident` run with `limits.site_depth > 0` and no initial
   population generates its own: one program generated from `seed` fixes the
   skeleton outside the phases, and every phase of member `i` is grown by the

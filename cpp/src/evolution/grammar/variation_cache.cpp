@@ -10,7 +10,6 @@
 #include <string_view>
 
 #include "gagp/evolution/grammar/cache.hpp"
-#include "gagp/evolution/grammar/derivation_resources.hpp"
 #include "../../runtime/payload/staging.hpp"
 
 namespace gagp::evo::grammar {
@@ -29,12 +28,10 @@ void append_number(std::string& output, std::uint32_t value) {
 }  // namespace
 
 VariationAnalysisCache::VariationAnalysisCache(
-    std::shared_ptr<const CompiledGrammar> grammar, std::size_t capacity,
-    std::optional<ProjectedBudget> projected_budget)
+    std::shared_ptr<const CompiledGrammar> grammar, std::size_t capacity)
     : grammar_(std::move(grammar)), capacity_(capacity) {
   if (!grammar_) throw std::invalid_argument("variation analysis cache requires a grammar");
   if (capacity_ == 0) throw std::invalid_argument("variation analysis cache capacity must be positive");
-  if (projected_budget && resource_charges_are_local(*grammar_)) local_projected_budget_ = projected_budget;
   input_names_.reserve(grammar_->inputs().size());
   for (const auto& input : grammar_->inputs()) input_names_.push_back(input.name);
   entries_.reserve(capacity_);
@@ -79,8 +76,7 @@ std::shared_ptr<const VariationAnalysis> VariationAnalysisCache::analyze(
   ++counters_.misses;
   if (auto prepared = take_prepared(cache_key)) return remember(cache_key, std::move(prepared));
   auto analysis = std::make_shared<const VariationAnalysis>(
-      analyze_variation(*grammar_, genome, request, &registry_,
-          local_projected_budget_ ? &*local_projected_budget_ : nullptr));
+      analyze_variation(*grammar_, genome, request, &registry_));
   return remember(cache_key, std::move(analysis));
 }
 
@@ -188,8 +184,7 @@ void VariationAnalysisCache::prepare_population(const std::vector<ProgramGenome>
             const auto found = entries_.find(keys[i]);
             if (found != entries_.end()) { cached[i] = found->second; continue; }
             computed[i] = std::make_shared<VariationAnalysis>(analyze_population_variation(
-                *grammar_, population[begin + i], requests, nullptr,
-                local_projected_budget_ ? &*local_projected_budget_ : nullptr));
+                *grammar_, population[begin + i], requests, nullptr));
           } catch (...) { errors[i] = std::current_exception(); }
         }
     });
@@ -246,8 +241,7 @@ std::shared_ptr<const VariationAnalysis> VariationAnalysisCache::analyze_member(
   ++counters_.misses;
   if (auto prepared = take_prepared(cache_key)) return remember(cache_key, std::move(prepared));
   return remember(std::move(cache_key), std::make_shared<const VariationAnalysis>(
-      analyze_population_variation(*grammar_, genome, requests, &registry_,
-          local_projected_budget_ ? &*local_projected_budget_ : nullptr)));
+      analyze_population_variation(*grammar_, genome, requests, &registry_)));
 }
 
 std::shared_ptr<const VariationAnalysis> VariationAnalysisCache::analyze(

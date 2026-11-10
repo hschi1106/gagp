@@ -26,8 +26,7 @@ ReproductionResult run_cpu_backend_impl(const std::vector<ScoredGenomeRef>& scor
   if (scored.empty()) throw std::invalid_argument("compiled reproduction requires a nonempty population");
   ReproductionResult out;
   const auto prepare_t0 = std::chrono::steady_clock::now();
-  grammar::VariationContext context(cfg.compiled_grammar, population_requests(cfg), 128,
-      cfg.offspring_resource_budget);
+  grammar::VariationContext context(cfg.compiled_grammar, population_requests(cfg), 128);
   context.defer_offspring_site_analysis(true);
   for (const auto& parent : scored) {
     if (!parent.genome) throw std::invalid_argument("compiled reproduction has a null parent");
@@ -110,10 +109,7 @@ void require_reproduction_mode_supported(const EvolutionConfig& cfg) {
       !std::isfinite(cfg.mutation_subtree_prob) || cfg.mutation_subtree_prob < 0 ||
       cfg.mutation_subtree_prob > 1)
     throw std::invalid_argument("compiled reproduction mutation probabilities must be in [0,1]");
-  if (cfg.additional_generation_requests.empty())
-    (void)grammar::validate_request(*cfg.compiled_grammar, *cfg.generation_request);
-  else
-    grammar::validate_population_requests(*cfg.compiled_grammar, population_requests(cfg));
+  (void)grammar::validate_request(*cfg.compiled_grammar, *cfg.generation_request);
 }
 
 ReproductionResult run_cpu_backend(const std::vector<ScoredGenome>& scored,

@@ -27,14 +27,11 @@ struct ContextualFrameCostCacheCounters {
 class VariationContext {
  public:
   explicit VariationContext(std::shared_ptr<const CompiledGrammar> grammar,
-      std::size_t cache_capacity = 128,
-      std::optional<ProjectedBudget> offspring_budget = std::nullopt);
+      std::size_t cache_capacity = 128);
   VariationContext(std::shared_ptr<const CompiledGrammar> grammar,
-      GenerationRequest request, std::size_t cache_capacity = 128,
-      std::optional<ProjectedBudget> offspring_budget = std::nullopt);
+      GenerationRequest request, std::size_t cache_capacity = 128);
   VariationContext(std::shared_ptr<const CompiledGrammar> grammar,
-      std::vector<GenerationRequest> requests, std::size_t cache_capacity = 128,
-      std::optional<ProjectedBudget> offspring_budget = std::nullopt);
+      std::vector<GenerationRequest> requests, std::size_t cache_capacity = 128);
   // Optional identity is the decoded identity used by this lookup, not provenance.
   std::shared_ptr<const VariationAnalysis> analyze(const ProgramGenome& genome,
       std::string* runtime_identity = nullptr);
@@ -48,9 +45,6 @@ class VariationContext {
   VariationAnalysisCache& cache() { return cache_; }
   VariationCounters& counters() { return counters_; }
   const VariationCounters& counters() const { return counters_; }
-  // Additional admission rule for changed offspring. Parent membership remains
-  // separate, allowing repair of initial trees above the variation depth limit.
-  const std::optional<ProjectedBudget>& offspring_budget() const { return offspring_budget_; }
   // Internal donor-generation cache. The grammar identity is owned by this
   // context; exact local availability and effective depth form the key.
   std::shared_ptr<const ContextualFrameCostTable> find_frame_costs(
@@ -69,7 +63,6 @@ class VariationContext {
   VariationAnalysisCache cache_;
   VariationCounters counters_;
   bool defer_offspring_sites_ = false;
-  std::optional<ProjectedBudget> offspring_budget_;
   std::size_t frame_cost_cache_capacity_ = 0;
   ContextualFrameCostCacheCounters frame_cost_cache_counters_;
   std::deque<FrameCostCacheKey> frame_cost_cache_order_;

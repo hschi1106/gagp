@@ -23,7 +23,6 @@
 #include "gagp/evolution/population_init.hpp"
 #include "gagp/evolution/repro/backend.hpp"
 #include "gagp/evolution/selection.hpp"
-#include "../fixtures/mixed_population.hpp"
 #include "../../src/evolution/grammar/variation_internal.hpp"
 
 using namespace gagp;
@@ -407,78 +406,6 @@ void test_all_parents_are_validated_before_selection() {
       "referenced compiled backend did not validate every scored parent");
 }
 
-void test_mixed_population_initialization_and_evolution() {
-  const std::vector<EvalCase> cases{{{}, Value::from_int(0)}};
-  const auto case_set = prepare_case_set(cases);
-  auto cfg = gagp::test::mixed_population_config();
-  const auto initialized = initialize_population(cfg, case_set);
-  check(initialized.population.size() == 16 && !initialized.replayed,
-        "mixed initialization did not generate the requested population");
-  std::vector<int> types(8);
-  const auto requests = population_requests(cfg);
-  for (std::size_t i = 0; i < initialized.population.size(); ++i) {
-    const auto& genome = initialized.population[i];
-    const auto& request = requests[i % 8];
-    require_membership(*cfg.compiled_grammar, genome, request);
-    ++types.at(static_cast<std::size_t>(genome.derivation->request.type));
-  }
-  check(std::all_of(types.begin(), types.end(), [](int count) { return count == 2; }),
-        "mixed initialization omitted an exact runtime type");
-  auto imported = initialized.population;
-  for (auto& genome : imported) {
-    auto forged = std::make_shared<DerivationMetadata>(*genome.derivation);
-    forged->request = *cfg.generation_request;
-    genome.derivation = forged;
-  }
-  const auto replayed = initialize_population(cfg, case_set, &imported);
-  check(replayed.replayed, "mixed replay was regenerated");
-  check_same_population(replayed.population, initialized.population,
-      "mixed replay changed program identities");
-  for (std::size_t i = 0; i < replayed.population.size(); ++i)
-    check(replayed.population[i].derivation->request.type ==
-          initialized.population[i].derivation->request.type,
-          "mixed replay trusted forged root metadata");
-
-  // Expected output may match any admitted root, while all input contracts
-  // remain exact. The first root is not privileged by fitness validation.
-  std::swap(*cfg.generation_request, cfg.additional_generation_requests.front());
-  validate_grammar_case_set(cfg, case_set);
-  std::vector<EvalCase> mixed_cases;
-  for (std::size_t i = 0; i < 8; ++i)
-    mixed_cases.push_back({{}, initialized.population[i].ast.consts.front()});
-  const auto mixed_case_set = prepare_case_set(mixed_cases);
-  check(mixed_case_set.expected_return_type == RType::Invalid,
-        "fixture did not contain mixed expected types");
-  validate_grammar_case_set(cfg, mixed_case_set);
-  auto missing_root = cfg;
-  missing_root.additional_generation_requests.pop_back();
-  rejects_invalid_argument([&] { validate_grammar_case_set(missing_root, mixed_case_set); },
-      "mixed cases accepted an expected type absent from the root set");
-  auto invalid_expected = mixed_case_set;
-  invalid_expected.expected_values.front() = Value::invalid();
-  rejects_invalid_argument([&] { validate_grammar_case_set(cfg, invalid_expected); },
-      "mixed cases accepted an invalid expected Value tag");
-  auto invalid = cfg;
-  invalid.additional_generation_requests.push_back(*invalid.generation_request);
-  rejects_invalid_argument([&] { (void)initialize_population(invalid, case_set); },
-      "mixed initialization accepted duplicate root types");
-
-  {
-    cfg = gagp::test::mixed_population_config();
-    const auto population = initialize_population(cfg, case_set).population;
-    const auto result = evolve_population(cases, cfg, &population);
-    check(result.history_best.size() == 3 && result.final_population.size() == 16,
-          "mixed evolution did not complete generations and final evaluation");
-    check(result.history_mean_fitness.front() < 0 && result.history_mean_fitness[1] == 0,
-          "mixed evolution partitioned tournament selection by root type");
-    for (const auto& scored : result.final_population) {
-      check(scored.genome.derivation->request.type == RType::Int && scored.fitness == 0,
-            "global tournament did not replace weaker root types");
-      require_membership(*cfg.compiled_grammar, scored.genome, *cfg.generation_request);
-    }
-  }
-}
-
 void test_compiled_initialization_and_evolve_validation() {
   const auto grammar = repeated_hole_grammar();
   auto cfg = compiled_config(grammar, 5);
@@ -659,39 +586,31 @@ void test_crossover_group_bounds() {
   a.remaining_template_nesting = b.remaining_template_nesting = 5;
   variation_detail::CrossoverGroupBounds empty;
   check(!empty.all_fit(a), "empty crossover group cannot prove fits");
-  for (int scenario = 0; scenario < 7; ++scenario) {
+  for (int scenario = 0; scenario < 6; ++scenario) {
     auto c = b;
     if (scenario == 1) c.materialized_nodes = 21;
     if (scenario == 2) c.replacement_budget.max_depth = 1;
     if (scenario == 3) c.template_nesting = 6;
-    if (scenario == 4) c.has_projected_allowance = true;
-    if (scenario == 5) c.materialized_nodes = 0;
-    if (scenario == 6) c.remaining_template_nesting = 0;
+    if (scenario == 4) c.materialized_nodes = 0;
+    if (scenario == 5) c.remaining_template_nesting = 0;
     variation_detail::CrossoverGroupBounds bounds;
     bounds.include(b); bounds.include(c);
     check(bounds.all_fit(a) == (scenario == 0), "group bounds accepted a mixed/nonordinary group");
     if (bounds.all_fit(a)) for (const auto* donor : {&b, &c})
       check(donor_fits(a, *donor) && donor_fits(*donor, a), "group bound disagrees with pair oracle");
-    auto projected = a; projected.has_projected_allowance = true;
-    check(!bounds.all_fit(projected), "projected receiver must use exact pair checks");
   }
 }
 
 void test_counted_crossover_exact_feasible_pairs() {
   for (const auto& grammar : {repeated_hole_grammar(), local_grammar(), many_sites_grammar()}) {
     const auto population = generated_population(*grammar, 7, 107);
-    for (const auto budget : {std::optional<ProjectedBudget>{}, std::optional<ProjectedBudget>{{40, 12}}})
     for (std::uint64_t seed = 0; seed < 32; ++seed) {
       const auto& a = population[seed % population.size()];
       const auto& b = population[(seed + 1) % population.size()];
-      VariationContext reference(grammar,128,budget), counted(grammar,128,budget), replay(grammar,128,budget);
+      VariationContext reference(grammar,128), counted(grammar,128), replay(grammar,128);
       const auto ca = variation_detail::certify(a, reference);
       const auto cb = variation_detail::certify(b, reference);
       const auto aa = reference.analyze(ca), ab = reference.analyze(cb);
-      if (budget) for (const auto* analysis : {aa.get(), ab.get()})
-        check(std::all_of(analysis->sites.begin(), analysis->sites.end(),
-            [](const auto& site) { return site.has_projected_allowance; }),
-            "counted rank resource oracle requires local projected allowances");
       std::vector<std::pair<const VariationSite*, const VariationSite*>> feasible;
       for (const auto& sa : aa->sites) for (const auto& sb : ab->sites)
         if (compatible_sites(sa, sb) && donor_fits(sa, sb) && donor_fits(sb, sa))
@@ -743,7 +662,6 @@ int main() {
     test_selected_mutation_membership();
     test_repeated_holes_and_local_children_remain_members();
     test_all_parents_are_validated_before_selection();
-    test_mixed_population_initialization_and_evolution();
     test_compiled_initialization_and_evolve_validation();
     test_nonentry_request_is_used_end_to_end();
     test_odd_population_counts_discarded_crossover_child();

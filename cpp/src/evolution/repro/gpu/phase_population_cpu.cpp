@@ -67,7 +67,7 @@ std::vector<ProgramGenome> generate_phase_initial_population(
  const int slots=layout.slots.size();phase_layout_require(slots>0 && slots<=8,"phase count capacity");
  std::vector<std::unique_ptr<HostProfile>> profiles;
  for(const auto& slot:layout.slots)profiles.push_back(std::make_unique<HostProfile>(
-     compile_phase_variation_grammar(grammar,slot.nonterminal,grammar.search_limits().max_depth,site_depth,true,&input_names)));
+     compile_phase_variation_grammar(grammar,slot.nonterminal,grammar.search_limits().max_depth,site_depth,&input_names)));
  const int available=int(layout.budget.max_nodes)-int(layout.fixed_nodes);
  const auto minimum=[&](int k,int logical)->long {
   const auto& g=profiles[k]->grammar;const int depth=layout.slots[k].max_depth;
@@ -175,10 +175,10 @@ struct HostPhasePopulation::Impl {
 
 HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
     const std::vector<ProgramGenome>& input,const std::vector<std::string>& input_names,
-    std::optional<grammar::ProjectedBudget> projected,int site_depth,const PhaseVariationPolicy& policy):impl_(std::make_unique<Impl>()) {
+    int site_depth,const PhaseVariationPolicy& policy):impl_(std::make_unique<Impl>()) {
  auto& s=*impl_;s.grammar=std::move(grammar);
  validate_phase_variation_policy(policy);
- phase_layout_require(site_depth>=0 && site_depth<=15 && !(site_depth && projected),"site depth must be0..15 and cannot combine with projected resource budgets");
+ phase_layout_require(site_depth>=0 && site_depth<=15,"site depth must be0..15");
  phase_layout_require(s.grammar && !input.empty() && input.size()<=16384,"population/grammar capacity");
  std::set<std::string> expected_names,actual_names(input_names.begin(),input_names.end());
  for(const auto& binding:s.grammar->inputs())expected_names.insert(binding.name);
@@ -192,10 +192,10 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
  // Serial copies stay eager (deferred_copy=false); both schedules are exact.
  NativePhaseGrammarProfiles import_profiles(s.grammar,input_names);
  s.population=input.size();
- s.layout=import_native_phase_layout(*s.grammar,input.front(),&import_profiles,&input_names,true,projected?&*projected:nullptr);
+ s.layout=import_native_phase_layout(*s.grammar,input.front(),&import_profiles,&input_names,true);
  if(site_depth)for(std::size_t k=0;k<s.layout.slots.size();++k)
-  s.layout.profiles[k]=compile_phase_variation_grammar(*s.grammar,s.layout.slots[k].nonterminal,s.grammar->search_limits().max_depth,site_depth,true,&input_names);
- s.profile=site_depth?"resident-cpu-v4-site-depth"+std::to_string(site_depth):s.layout.slots.front().logical_depth?"resident-cpu-v3-projected":
+  s.layout.profiles[k]=compile_phase_variation_grammar(*s.grammar,s.layout.slots[k].nonterminal,s.grammar->search_limits().max_depth,site_depth,&input_names);
+ s.profile=site_depth?"resident-cpu-v4-site-depth"+std::to_string(site_depth):
      s.operators.counted_sites?"resident-cpu-v2-counted":"resident-cpu-v1";
  s.profile+=phase_variation_profile_suffix(policy);
  if(s.operators.uniform_phase)s.profile+="-uniform-phase";
@@ -208,7 +208,7 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
   s.profiles.push_back(std::make_unique<HostProfile>(profile));
   const auto& nt=s.grammar->nonterminals()[layout.nonterminal];DeviceSlot slot{};
   slot.grammar=s.profiles.back()->view();slot.root=profile.root_expression;slot.scope=nt.scope.size();slot.max_depth=layout.max_depth;
-  slot.logical_depth=site_depth?site_depth:layout.logical_depth;
+  slot.logical_depth=site_depth;
   slot.type=s.layout.program_terminator || !s.layout.whole_program?phase_value_tag(nt.type):kPhaseStatement;
   if(s.layout.whole_program) {
    slot.local_count=input_names.size();
@@ -219,11 +219,11 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
  }
  auto trees=s.current->pointers();
  for(std::size_t p=0;p<input.size();++p) {
-  auto imported=p==0?s.layout:import_native_phase_layout(*s.grammar,input[p],&import_profiles,&input_names,false,projected?&*projected:nullptr);
+  auto imported=p==0?s.layout:import_native_phase_layout(*s.grammar,input[p],&import_profiles,&input_names,false);
   phase_layout_require(imported.slots.size()==s.layout.slots.size() && native_phase_skeleton_key(imported)==key,"mixed fixed skeleton requires native fallback");
   for(int k=0;k<s.slot_count;++k) {
    const auto& a=imported.slots[k];const auto& b=s.layout.slots[k];
-   phase_layout_require(a.nonterminal==b.nonterminal && a.ordinal==b.ordinal && a.binders==b.binders && a.max_depth==b.max_depth && a.logical_depth==b.logical_depth,"mixed phase contract requires fallback");
+   phase_layout_require(a.nonterminal==b.nonterminal && a.ordinal==b.ordinal && a.binders==b.binders && a.max_depth==b.max_depth,"mixed phase contract requires fallback");
    const int row=p*s.slot_count+k;const auto& gene=imported.genes[k];auto& l=trees.lengths[row];
    l={};l.status=PhaseCompileStatus::Ok;l.nodes=gene.nodes.size();l.constants=gene.constants.size();
    phase_layout_require(l.nodes>0 && l.nodes<=capacity && l.constants<=l.nodes,"imported phase capacity");

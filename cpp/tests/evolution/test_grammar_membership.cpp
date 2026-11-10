@@ -21,7 +21,6 @@
 #include "gagp/evolution/grammar/cache.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
-#include "gagp/evolution/grammar/derivation_resources.hpp"
 #include "gagp/evolution/repro/pack.hpp"
 
 using namespace gagp;
@@ -35,24 +34,18 @@ void check(bool condition, const char* message) {
 void differential_admission(const CompiledGrammar& grammar, ProgramGenome genome) {
   genome.derivation.reset();  // Never compare a cached certificate with itself.
   // Admission defers the membership walk into witness construction; the plain
-  // matcher (resource projection) is the independent oracle.
+  // matcher (require_membership) is the independent oracle.
   const auto request = entry_request(grammar);
   DerivationMetadata witness;
   std::vector<std::vector<int>> environments;
   bool accepted[2] = {};
   try { witness = reconstruct_derivation(grammar, genome, request, nullptr, &environments); accepted[0] = true; }
   catch (const std::invalid_argument&) {}
-  std::optional<ResourceProjection> plain;
-  try { plain = project_derivation_resources(grammar, genome, request); accepted[1] = true; }
+  try { require_membership(grammar, genome, request); accepted[1] = true; }
   catch (const std::invalid_argument&) {}
   check(accepted[0] == accepted[1], "deferred admission changed membership");
   if (!accepted[0]) return;
   check(environments.size() == witness.choices.size(), "admission lost exact choice scopes");
-  for (std::size_t i = 0; i < genome.ast.nodes.size(); ++i) {
-    const auto& r = witness.resources->subtree(i); const auto& q = plain->subtree(i);
-    check(std::tie(r.nodes, r.carried_depth, r.reset_depth) ==
-        std::tie(q.nodes, q.carried_depth, q.reset_depth), "deferred resource projection differs");
-  }
 }
 void rejects(const CompiledGrammar& grammar, const ProgramGenome& genome) {
   differential_admission(grammar, genome);
@@ -85,7 +78,7 @@ void test_cold_payload_proofs() {
   const auto reused=grammar::detail::reconstruct_cold_derivation(grammar,genome,request,&verified,&environments);
   check(reused.certificate==proof.certificate && verified.subtree_end.size()==genome.ast.nodes.size() &&
       environments.size()==reused.choices.size() && reused.lowered_instructions==proof.lowered_instructions &&
-      reused.resources->subtree().nodes==proof.resources->subtree().nodes,
+      reused.nodes.size()==proof.nodes.size(),
       "cold registry proof did not preserve exact admission outputs");
   check(!admitted_bytecode_for_eval(genome,{},grammar.execution_limits().fuel),"cold registry proof authorized executable reuse");
   const auto rejects_cold=[&](const CompiledGrammar& owner,const ProgramGenome& source,const GenerationRequest& root) {

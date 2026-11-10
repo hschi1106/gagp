@@ -7,7 +7,7 @@
 namespace gagp::evo::grammar::variation_detail {
 
 // Resource-only sufficient condition for a whole exact compatibility group.
-// Projected allowances deliberately decline; this never proves membership.
+// It never proves membership.
 struct CrossoverGroupBounds {
   std::uint32_t max_nodes = 0, max_depth = 0, max_nesting = 0;
   std::uint32_t min_nodes = 0, min_depth = 0, min_nesting = 0;

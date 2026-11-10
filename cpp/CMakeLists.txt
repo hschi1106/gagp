@@ -132,8 +132,7 @@ add_library(gagp_grammar
   src/evolution/grammar/request.cpp
   src/evolution/grammar/frame.cpp
   src/evolution/grammar/budget.cpp
-  src/evolution/grammar/joint_budget.cpp
-  src/evolution/grammar/resource_projection.cpp
+  src/evolution/grammar/resource_charge.cpp
 )
 target_include_directories(gagp_grammar PUBLIC include)
 target_link_libraries(gagp_grammar PUBLIC gagp_core gagp_json gagp_region_plan_json)
@@ -149,8 +148,6 @@ target_sources(gagp_evolution PRIVATE
   src/evolution/grammar/values.cpp
   src/evolution/grammar/cache.cpp
   src/evolution/grammar/membership.cpp
-  src/evolution/grammar/derivation_resources.cpp
-  src/evolution/grammar/resource_invariance.cpp
   src/evolution/grammar/donor.cpp
   src/evolution/grammar/variation.cpp
   src/evolution/grammar/crossover.cpp
@@ -278,21 +275,6 @@ add_executable(gagp_test_grammar_numeric_constants tests/evolution/test_grammar_
 target_link_libraries(gagp_test_grammar_numeric_constants PRIVATE gagp_evolution)
 add_test(NAME gagp_test_grammar_numeric_constants COMMAND gagp_test_grammar_numeric_constants)
 set_tests_properties(gagp_test_grammar_numeric_constants PROPERTIES LABELS "contract;property")
-
-add_executable(gagp_test_resource_projection tests/evolution/test_resource_projection.cpp)
-target_link_libraries(gagp_test_resource_projection PRIVATE gagp_grammar)
-add_test(NAME gagp_test_resource_projection COMMAND gagp_test_resource_projection)
-set_tests_properties(gagp_test_resource_projection PROPERTIES LABELS "contract;property")
-
-add_executable(gagp_test_phase_projected_depth tests/evolution/test_phase_projected_depth.cpp)
-target_link_libraries(gagp_test_phase_projected_depth PRIVATE gagp_evolution)
-add_test(NAME gagp_test_phase_projected_depth COMMAND gagp_test_phase_projected_depth)
-set_tests_properties(gagp_test_phase_projected_depth PROPERTIES LABELS "contract;property")
-
-add_executable(gagp_test_derivation_resources tests/evolution/test_derivation_resources.cpp)
-target_link_libraries(gagp_test_derivation_resources PRIVATE gagp_evolution)
-add_test(NAME gagp_test_derivation_resources COMMAND gagp_test_derivation_resources)
-set_tests_properties(gagp_test_derivation_resources PROPERTIES LABELS "contract;property")
 
 add_executable(gagp_test_grammar_crossover tests/evolution/test_grammar_crossover.cpp)
 target_link_libraries(gagp_test_grammar_crossover PRIVATE gagp_evolution)

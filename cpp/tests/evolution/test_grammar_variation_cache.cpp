@@ -199,12 +199,10 @@ void test_grammar_and_payload_boundaries() {
 }
 
 void test_population_root_reconstruction() {
-  const auto config = gagp::test::mixed_population_config();
-  const auto& grammar = *config.compiled_grammar;
-  std::vector<GenerationRequest> requests{*config.generation_request};
-  requests.insert(requests.end(), config.additional_generation_requests.begin(),
-      config.additional_generation_requests.end());
-  VariationAnalysisCache cache(config.compiled_grammar);
+  const auto mixed = gagp::test::mixed_population();
+  const auto& grammar = *mixed.grammar;
+  const auto& requests = mixed.requests;
+  VariationAnalysisCache cache(mixed.grammar);
   for (const auto& request : requests) {
     const auto genome = generate_derivation(grammar, 7, request).genome;
     const auto explicit_root = analyze_variation(grammar, genome, request);
@@ -233,18 +231,16 @@ void test_population_root_reconstruction() {
 }
 
 void test_deferred_candidate_analysis() {
-  const auto config = gagp::test::mixed_population_config();
-  std::vector<GenerationRequest> requests{*config.generation_request};
-  requests.insert(requests.end(), config.additional_generation_requests.begin(),
-      config.additional_generation_requests.end());
+  const auto mixed = gagp::test::mixed_population();
+  const auto& requests = mixed.requests;
   std::vector<ProgramGenome> candidates;
   for (std::uint64_t i = 0; i < 160; ++i)
-    candidates.push_back(generate_derivation(*config.compiled_grammar, i,
+    candidates.push_back(generate_derivation(*mixed.grammar, i,
         requests[i % requests.size()]).genome);
   candidates[17].ast.nodes.pop_back();
   for (const auto capacity : {std::size_t{3}, std::size_t{256}}) {
-    VariationAnalysisCache ordered(config.compiled_grammar, capacity);
-    VariationAnalysisCache deferred(config.compiled_grammar, capacity);
+    VariationAnalysisCache ordered(mixed.grammar, capacity);
+    VariationAnalysisCache deferred(mixed.grammar, capacity);
     deferred.warm_candidates(candidates, requests, 4);
     check(deferred.registry().keys().empty() && deferred.counters().hits == 0 &&
           deferred.counters().misses == 0 && deferred.counters().evictions == 0,
@@ -271,17 +267,15 @@ void test_deferred_candidate_analysis() {
   }
 }
 void test_parallel_population_analysis() {
-  const auto config = gagp::test::mixed_population_config();
-  std::vector<GenerationRequest> requests{*config.generation_request};
-  requests.insert(requests.end(), config.additional_generation_requests.begin(),
-      config.additional_generation_requests.end());
+  const auto mixed = gagp::test::mixed_population();
+  const auto& requests = mixed.requests;
   std::vector<ProgramGenome> population;
   for (std::uint64_t i = 0; i < 160; ++i)
-    population.push_back(generate_derivation(*config.compiled_grammar, i,
+    population.push_back(generate_derivation(*mixed.grammar, i,
         requests[i % requests.size()]).genome);
   for (const auto capacity : {std::size_t{3}, std::size_t{256}}) {
-    VariationAnalysisCache sequential(config.compiled_grammar, capacity);
-    VariationAnalysisCache parallel(config.compiled_grammar, capacity);
+    VariationAnalysisCache sequential(mixed.grammar, capacity);
+    VariationAnalysisCache parallel(mixed.grammar, capacity);
     sequential.warm_population(population, requests, 1);
     std::vector<WarmPopulationMember> owned;
     parallel.warm_population(population, requests, 4, &owned);
@@ -311,7 +305,7 @@ void test_parallel_population_analysis() {
               "parallel analysis changed a site contract");
     }
   }
-  VariationAnalysisCache invalid(config.compiled_grammar);
+  VariationAnalysisCache invalid(mixed.grammar);
   population[17].ast.nodes.pop_back();
   rejects([&] { invalid.warm_population(population, requests, 4); },
           "parallel analysis swallowed malformed AST");

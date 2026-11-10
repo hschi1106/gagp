@@ -13,8 +13,7 @@
 namespace gagp::evo::grammar::variation_detail {
 
 void CrossoverGroupBounds::include(const VariationSite& site) {
-  ordinary = ordinary && !site.has_projected_allowance &&
-      site.materialized_nodes > 0 && site.materialized_depth > 0;
+  ordinary = ordinary && site.materialized_nodes > 0 && site.materialized_depth > 0;
   max_nodes = std::max(max_nodes, site.materialized_nodes);
   max_depth = std::max(max_depth, site.materialized_depth);
   max_nesting = std::max(max_nesting, site.template_nesting);
@@ -25,8 +24,7 @@ void CrossoverGroupBounds::include(const VariationSite& site) {
 }
 
 bool CrossoverGroupBounds::all_fit(const VariationSite& site) const {
-  return initialized && ordinary && !site.has_projected_allowance &&
-      donor_fits(site, max_nodes, max_depth, max_nesting) &&
+  return initialized && ordinary && donor_fits(site, max_nodes, max_depth, max_nesting) &&
       site.materialized_nodes > 0 && site.materialized_depth > 0 &&
       site.materialized_nodes <= min_nodes && site.materialized_depth <= min_depth &&
       site.template_nesting <= min_nesting;
@@ -43,110 +41,54 @@ std::pair<ProgramGenome, ProgramGenome> crossover_analyzed(const ProgramGenome& 
   const VariationSite* selected_a = nullptr;
   const VariationSite* selected_b = nullptr;
   std::uint64_t eligible = 0;
-  // Same uniform distribution over every feasible pair, but one rank draw
-  // instead of one reservoir draw per pair. The deterministic RNG trajectory
-  // is deliberately distinct. Nonlocal projected-resource trials retain legacy.
-  const bool counted =
-      (!context.offspring_budget() ||
-       (std::all_of(analysis_a->sites.begin(), analysis_a->sites.end(),
-            [](const auto& site) { return site.has_projected_allowance; }) &&
-        std::all_of(analysis_b->sites.begin(), analysis_b->sites.end(),
-            [](const auto& site) { return site.has_projected_allowance; })));
-  if (counted) {
-    struct Group {
-      std::vector<const VariationSite*> sites;
-      CrossoverGroupBounds bounds;
-    };
-    std::unordered_map<std::string, Group> groups;
-    for (const auto& site : analysis_b->sites)
-      if (!site.compatibility_key.empty()) {
-        auto& group = groups[site.compatibility_key];
-        group.sites.push_back(&site);
-        group.bounds.include(site);
-      }
-    std::vector<std::uint64_t> row_counts(analysis_a->sites.size(), 0);
-    std::vector<bool> all_fit(analysis_a->sites.size(), false);
-    const auto fits = [](const auto& a, const auto& b) {
-      return donor_fits(a, b) && donor_fits(b, a);
-    };
-    for (std::size_t row = 0; row < analysis_a->sites.size(); ++row) {
-      const auto& site = analysis_a->sites[row];
-      const auto group = groups.find(site.compatibility_key);
-      context.counters().contract_rejections += analysis_b->sites.size() -
-          (group == groups.end() ? 0 : group->second.sites.size());
-      if (group == groups.end()) continue;
-      all_fit[row] = group->second.bounds.all_fit(site);
-      if (all_fit[row]) row_counts[row] = group->second.sites.size();
-      else for (const auto* donor : group->second.sites) {
-        if (fits(site, *donor)) ++row_counts[row];
-        else ++context.counters().budget_rejections;
-      }
-      if (row_counts[row] > std::numeric_limits<std::uint64_t>::max() - eligible)
-        throw std::overflow_error("crossover feasible pair count overflow");
-      eligible += row_counts[row];
+  // Uniform over every feasible pair, with one rank draw.
+  struct Group {
+    std::vector<const VariationSite*> sites;
+    CrossoverGroupBounds bounds;
+  };
+  std::unordered_map<std::string, Group> groups;
+  for (const auto& site : analysis_b->sites)
+    if (!site.compatibility_key.empty()) {
+      auto& group = groups[site.compatibility_key];
+      group.sites.push_back(&site);
+      group.bounds.include(site);
     }
-    if (eligible) {
-      auto rank = random.bounded(eligible);
-      for (std::size_t row = 0; row < row_counts.size(); ++row) {
-        if (rank >= row_counts[row]) { rank -= row_counts[row]; continue; }
-        selected_a = &analysis_a->sites[row];
-        const auto& group = groups.at(selected_a->compatibility_key).sites;
-        if (all_fit[row]) selected_b = group[rank];
-        else for (const auto* donor : group) {
-          if (!fits(*selected_a, *donor)) continue;
-          if (rank == 0) { selected_b = donor; break; }
-          --rank;
-        }
-        break;
-      }
-      if (!selected_a || !selected_b) throw std::logic_error("counted crossover lost feasible rank");
+  std::vector<std::uint64_t> row_counts(analysis_a->sites.size(), 0);
+  std::vector<bool> all_fit(analysis_a->sites.size(), false);
+  const auto fits = [](const auto& a, const auto& b) {
+    return donor_fits(a, b) && donor_fits(b, a);
+  };
+  for (std::size_t row = 0; row < analysis_a->sites.size(); ++row) {
+    const auto& site = analysis_a->sites[row];
+    const auto group = groups.find(site.compatibility_key);
+    context.counters().contract_rejections += analysis_b->sites.size() -
+        (group == groups.end() ? 0 : group->second.sites.size());
+    if (group == groups.end()) continue;
+    all_fit[row] = group->second.bounds.all_fit(site);
+    if (all_fit[row]) row_counts[row] = group->second.sites.size();
+    else for (const auto* donor : group->second.sites) {
+      if (fits(site, *donor)) ++row_counts[row];
+      else ++context.counters().budget_rejections;
     }
-  } else for (const auto& site_a : analysis_a->sites) {
-    for (const auto& site_b : analysis_b->sites) {
-      if (!compatible_sites(site_a, site_b)) {
-        ++context.counters().contract_rejections;
-        continue;
+    if (row_counts[row] > std::numeric_limits<std::uint64_t>::max() - eligible)
+      throw std::overflow_error("crossover feasible pair count overflow");
+    eligible += row_counts[row];
+  }
+  if (eligible) {
+    auto rank = random.bounded(eligible);
+    for (std::size_t row = 0; row < row_counts.size(); ++row) {
+      if (rank >= row_counts[row]) { rank -= row_counts[row]; continue; }
+      selected_a = &analysis_a->sites[row];
+      const auto& group = groups.at(selected_a->compatibility_key).sites;
+      if (all_fit[row]) selected_b = group[rank];
+      else for (const auto* donor : group) {
+        if (!fits(*selected_a, *donor)) continue;
+        if (rank == 0) { selected_b = donor; break; }
+        --rank;
       }
-      if (!donor_fits(site_a, site_b) || !donor_fits(site_b, site_a)) {
-        ++context.counters().budget_rejections;
-        continue;
-      }
-      if (context.offspring_budget() && !(site_a.has_projected_allowance && site_b.has_projected_allowance)) {
-        // Charges can change when a splice selects a different canonical
-        // ancestor production. Check the whole child, not independent subtree
-        // minima or a transplanted source witness.
-        bool invalid_contract = false;
-        const auto fits = [&](const ProgramGenome& base, const VariationSite& destination,
-                              const ProgramGenome& donor, const VariationSite& source,
-                              const GenerationRequest& request) {
-          ProgramGenome child;
-          child.ast = variation_detail::splice(base.ast, destination, donor.ast,
-              source.occurrences.front(), source.occurrence_binder_ids.front());
-          try {
-            // Trial children need native verification, canonical membership,
-            // lowering and resource accounting, but not their future variation
-            // sites. Selected children still receive full acceptance below.
-            return context.offspring_budget()->accepts(
-                reconstruct_derivation(context.grammar(), child, request).resources->subtree());
-          } catch (const std::invalid_argument&) {
-            invalid_contract = true;
-            return false;
-          }
-        };
-        if (!fits(a, site_a, b, site_b, analysis_a->witness.request) ||
-            !fits(b, site_b, a, site_a, analysis_b->witness.request)) {
-          if (invalid_contract) ++context.counters().contract_rejections;
-          else ++context.counters().budget_rejections;
-          continue;
-        }
-      }
-      // Reservoir selection is uniform over feasible pairs without storing the
-      // Cartesian product or biasing toward contracts with fewer alternatives.
-      if (random.bounded(++eligible) == 0) {
-        selected_a = &site_a;
-        selected_b = &site_b;
-      }
+      break;
     }
+    if (!selected_a || !selected_b) throw std::logic_error("counted crossover lost feasible rank");
   }
   if (!selected_a) return {variation_detail::fallback(a, context), variation_detail::fallback(b, context)};
   if (selected) selected->emplace(*selected_a, *selected_b);

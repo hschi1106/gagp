@@ -443,14 +443,11 @@ void run_phase_population_steady(const EvolutionConfig& cfg,const CaseSet& cases
 void require_phase_entry_policy(const EvolutionConfig& cfg) {
   const auto entry = grammar::entry_request(*cfg.compiled_grammar);
   const auto request = cfg.generation_request.value_or(entry);
-  if (!cfg.additional_generation_requests.empty() || cfg.mutation_subtree_prob != 1.0 ||
+  if (cfg.mutation_subtree_prob != 1.0 ||
       request.nonterminal != entry.nonterminal || request.type != entry.type ||
       !request.visible_environment.empty() || request.budget.max_nodes != entry.budget.max_nodes ||
       request.budget.max_depth != entry.budget.max_depth)
     throw std::invalid_argument("native GPU phase profile requires the exact entry request and default resource/variation policy");
-  if(!cfg.gpu_projected_phase_profile &&
-      (cfg.initial_resource_budget || cfg.offspring_resource_budget))
-    throw std::invalid_argument("projected budgets use generic native GPU reproduction unless gpu_projected_phase_profile is requested");
 }
 PhaseVariationPolicy resolve_phase_variation(const EvolutionConfig& cfg) {
   if (!cfg.phase_variation) return {};
@@ -504,7 +501,7 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
   // The phase population is an explicit request: unsupported policies fail closed.
   require_phase_entry_policy(cfg);
   auto owner = admit_resident([&] { return std::make_unique<repro::NativePhasePopulation>(cfg.compiled_grammar,
-      population,cases.input_names,cfg.offspring_resource_budget,cfg.gpu_phase_site_depth,resolve_phase_variation(cfg)); });
+      population,cases.input_names,cfg.gpu_phase_site_depth,resolve_phase_variation(cfg)); });
   result.timing.init_population_ms += elapsed(begin);
   result.reproduction_profile = owner->profile_name();
   result.gpu_stage_storage_reserved_bytes=owner->stage_storage_reserved_bytes();
@@ -569,7 +566,7 @@ void evolve_cpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
   require_phase_entry_policy(cfg);
   const auto schedule=resolve_phase_schedule(cfg.phase_schedule.value_or(PhaseSchedulePolicy{}),int(population.size()));
   auto host = admit_resident([&] { return std::make_unique<repro::HostPhasePopulation>(cfg.compiled_grammar,
-      population,cases.input_names,cfg.offspring_resource_budget,cfg.gpu_phase_site_depth,resolve_phase_variation(cfg)); });
+      population,cases.input_names,cfg.gpu_phase_site_depth,resolve_phase_variation(cfg)); });
   auto& owner = *host;
   result.timing.init_population_ms += std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count();
   result.reproduction_profile = owner.profile_name();
@@ -635,25 +632,13 @@ namespace {
 EvolutionResult evolve_population_once(const std::vector<EvalCase>& cases,
                                        const EvolutionConfig& cfg,
                                        const std::vector<ProgramGenome>* initial_population) {
-  if(cfg.gpu_phase_site_depth<0 || cfg.gpu_phase_site_depth>15 ||
-      (cfg.gpu_phase_site_depth && (cfg.initial_resource_budget || cfg.offspring_resource_budget || cfg.gpu_projected_phase_profile)))
-    throw std::invalid_argument("invalid GPU phase site depth or conflicting projected budget");
+  if(cfg.gpu_phase_site_depth<0 || cfg.gpu_phase_site_depth>15)
+    throw std::invalid_argument("invalid GPU phase site depth");
   if(cfg.gpu_phase_site_depth || cfg.gpu_phase_site_parsimony) {
     if(!phase_policy_owner_enabled(cfg))
       throw std::invalid_argument("GPU phase site policy requires resident GPU evaluation/reproduction or the explicit CPU phase reference");
     if(cfg.gpu_phase_site_parsimony && cfg.fitness_policy.metric==FitnessMetric::Legacy)
       throw std::invalid_argument("GPU phase site parsimony requires a task metric with wrong counts");
-  }
-  if(cfg.gpu_projected_phase_profile) {
-    if(!phase_policy_owner_enabled(cfg))
-      throw std::invalid_argument("gpu_projected_phase_profile requires GPU evaluation/reproduction and GAGP_GPU_PHASE_POPULATION enabled, or an explicit phase population");
-    if(!cfg.compiled_grammar || !cfg.initial_resource_budget || !cfg.offspring_resource_budget ||
-        cfg.initial_resource_budget->max_nodes!=cfg.offspring_resource_budget->max_nodes ||
-        cfg.initial_resource_budget->max_depth!=cfg.offspring_resource_budget->max_depth)
-      throw std::invalid_argument("gpu_projected_phase_profile requires a compiled grammar and matching initial/offspring budgets");
-    if(cfg.offspring_resource_budget->max_nodes!=cfg.compiled_grammar->search_limits().max_nodes ||
-        cfg.offspring_resource_budget->max_depth==0 || cfg.offspring_resource_budget->max_depth>15)
-      throw std::invalid_argument("gpu_projected_phase_profile requires the grammar node cap and projected depth in [1,15]");
   }
   if (cfg.phase_variation && phase_engine(cfg) == PhaseEngine::None)
     throw std::invalid_argument("phase variation policy requires the native phase population");
@@ -845,7 +830,6 @@ EvolutionConfig native_fallback_config(const EvolutionConfig& cfg) {
   native.phase_population = false;
   native.gpu_phase_site_depth = 0;
   native.gpu_phase_site_parsimony = false;
-  native.gpu_projected_phase_profile = false;
   native.phase_variation.reset();
   native.phase_schedule.reset();
   // Native reproduction runs on the host; evaluation keeps its engine.

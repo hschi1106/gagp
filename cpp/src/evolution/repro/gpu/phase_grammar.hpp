@@ -100,16 +100,15 @@ static_assert(int(PhaseFuelEvent::Result)==int(FuelEvent::Result) && int(PhaseFu
 // number above 15, declines the profile; identity-mapped grammars always
 // number by lexical position.
 inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& grammar,
-    unsigned root, unsigned max_depth=32, unsigned logical_depth=0, bool site_depth=false,
+    unsigned root, unsigned max_depth=32, unsigned site_depth=0,
     const std::vector<std::string>* inputs=nullptr) {
   using namespace grammar;
   const auto fail=[](const char* reason){throw std::invalid_argument(std::string("GPU phase construction: ")+reason);};
-  if(root>=grammar.nonterminals().size() || !max_depth || max_depth>64 || max_depth>grammar.search_limits().max_depth || logical_depth>15)
+  if(root>=grammar.nonterminals().size() || !max_depth || max_depth>64 || max_depth>grammar.search_limits().max_depth || site_depth>15)
     fail("invalid root/depth");
   if(grammar.expressions().size()>65536 || grammar.nonterminals().size()>4096 ||
       (grammar.expressions().size()+1)*(max_depth+1)>4*1024*1024)fail("table capacity");
-  if(site_depth && !logical_depth)fail("site depth requires a positive depth budget");
-  HostPhaseGrammar out;out.depth_count=max_depth+1;out.site_depth=site_depth;
+  HostPhaseGrammar out;out.depth_count=max_depth+1;out.site_depth=site_depth>0;
   out.expressions.resize(grammar.expressions().size());out.nonterminals.resize(grammar.nonterminals().size());
   out.domains.resize(grammar.constants().size());
   std::vector<bool> seen_nt(out.nonterminals.size()),seen_expr(out.expressions.size()),seen_domain(out.domains.size());
@@ -163,7 +162,6 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     seen_expr[id]=true;expr_environment[id]=environment;
     const auto& e=grammar.expressions().at(id);auto& x=out.expressions[id];
     if(environment.size()>15)fail("lexical environment capacity");
-    x.depth_charge=e.resource_charge.depth;
     const bool statement=phase_statement_category(e.category);
     const bool let=e.kind==ExpressionKind::Primitive &&
         PrimitiveCatalog::standard().at(e.target).lowering_node==NodeKind::LET_REGION;
@@ -458,7 +456,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
   // tree within the physical depth budget, bound the open traversals, lets,
   // loops and value ifs on one path and the temporaries they hold (a traversal
   // holds at most nine, a let or a loop one) next to the inputs and grammar
-  // locals. Projected depth only shortens trees, so it is ignored here.
+  // locals. Site depth only shortens trees, so it is ignored here.
   {
     enum {Temporaries,Walks,Lets,Loops,Ifs,Count};
     using Hold=std::array<int,Count>;
@@ -498,13 +496,14 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         h[Loops]>kPhaseLoops || (h[Walks] && h[Ifs]>kPhaseIfs))
       fail("lowering capacity within the depth budget requires native fallback");
   }
-  if(logical_depth) {
-    out.logical_depth_count=logical_depth+1;
+  if(site_depth) {
+    // Site depth: a second table dimension counts grammar invocations. Only a
+    // reference consumes it; physical depth is consumed by nodes. The admitted
+    // profile forbids production-root aliases, so recursion always reduces d or l.
+    out.logical_depth_count=site_depth+1;
     const auto size=out.expressions.size()*out.depth_count*out.logical_depth_count;
-    if(size>4*1024*1024)fail("projected table capacity");
+    if(size>4*1024*1024)fail("site depth table capacity");
     out.minimum.assign(size,kNoGrammarId);
-    // References do not consume physical or projected depth. The admitted
-    // profile forbids production-root aliases, so recursion always reduces d.
     std::vector<bool> computed(size);
     std::function<unsigned(int,int,int)> cost=[&](int id,int d,int l)->unsigned {
       const auto offset=(std::size_t(id)*out.depth_count+d)*out.logical_depth_count+l;
@@ -515,19 +514,19 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       if(e.kind==PhaseExpressionKind::Alias) {
         result=cost(e.children[0],d,l);
       } else if(e.kind==PhaseExpressionKind::Reference) {
-        if(site_depth && !l)return result;
+        if(!l)return result;
         const auto& nt=out.nonterminals[e.target];
         for(int i=0;i<nt.production_count;++i)
-          result=std::min(result,cost(out.productions[nt.production_offset+i].expression,d,l-(site_depth?1:0)));
-      } else if(d>0 && l>=(site_depth?0:e.depth_charge)) {
+          result=std::min(result,cost(out.productions[nt.production_offset+i].expression,d,l-1));
+      } else if(d>0) {
         std::uint64_t total=1;
-        for(int i=0;i<e.node.arity;++i)total+=cost(e.children[i],d-1,l-(site_depth?0:e.depth_charge));
+        for(int i=0;i<e.node.arity;++i)total+=cost(e.children[i],d-1,l);
         result=total>=kNoGrammarId?kNoGrammarId:static_cast<unsigned>(total);
       }
       return result;
     };
     for(std::size_t i=0;i<out.expressions.size();++i)if(i==std::size_t(out.root_expression) || seen_expr[i])
-      for(unsigned d=0;d<=max_depth;++d)for(unsigned l=0;l<=logical_depth;++l)cost(i,d,l);
+      for(unsigned d=0;d<=max_depth;++d)for(unsigned l=0;l<=site_depth;++l)cost(i,d,l);
   }
   return out;
 }

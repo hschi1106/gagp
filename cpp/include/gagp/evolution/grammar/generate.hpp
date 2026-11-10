@@ -73,9 +73,6 @@ struct DerivationMetadata {
   std::vector<DerivationChoice> choices;
   std::vector<TemplateInstance> templates;
   std::vector<HoleOccurrence> holes;
-  // Resources of this witness, including the native expression envelope.
-  // Imported provenance is never a resource certificate: membership rebuilds it.
-  std::shared_ptr<const ResourceProjection> resources;
 };
 
 struct GeneratedDerivation {
@@ -89,14 +86,6 @@ struct GeneratedDerivation {
 GeneratedDerivation generate_derivation(const CompiledGrammar& grammar, std::uint64_t seed);
 GeneratedDerivation generate_derivation(const CompiledGrammar& grammar, std::uint64_t seed,
     const GenerationRequest& request);
-// Bounded rejection sampling retains every original construction alternative.
-// The first attempt uses seed unchanged; accepted provenance records the actual
-// attempt seed for ordinary replay. Exhaustion is an error, not infeasibility.
-// Admission uses canonical membership costs, not attached generation metadata.
-GeneratedDerivation generate_derivation(const CompiledGrammar& grammar, std::uint64_t seed,
-    const GenerationRequest& request, ProjectedBudget projected_budget,
-    std::size_t maximum_attempts = 64);
-
 // Isolated donor validation may bind declared native locals as explicit inputs.
 // The returned complete AST is frame-dependent and is not an original seed artifact.
 GeneratedDerivation generate_derivation_in_frame(const CompiledGrammar& grammar, std::uint64_t seed,

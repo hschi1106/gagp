@@ -34,8 +34,7 @@ struct VariationCacheCounters {
 class VariationAnalysisCache {
  public:
   explicit VariationAnalysisCache(std::shared_ptr<const CompiledGrammar> grammar,
-                                  std::size_t capacity = 128,
-                                  std::optional<ProjectedBudget> projected_budget = std::nullopt);
+                                  std::size_t capacity = 128);
 
   std::shared_ptr<const VariationAnalysis> analyze(const ProgramGenome& genome,
                                                    const GenerationRequest& request, std::string* runtime_identity = nullptr);
@@ -75,7 +74,6 @@ class VariationAnalysisCache {
       std::shared_ptr<const VariationAnalysis> analysis);
   std::shared_ptr<const CompiledGrammar> grammar_;
   std::size_t capacity_ = 0;
-  std::optional<ProjectedBudget> local_projected_budget_;
   std::vector<std::string> input_names_;
   std::unordered_map<std::string, std::shared_ptr<VariationAnalysis>> prepared_;
   CompatibilityRegistry registry_;

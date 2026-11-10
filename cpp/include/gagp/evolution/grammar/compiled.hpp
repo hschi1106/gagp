@@ -14,7 +14,7 @@
 #include "gagp/evolution/grammar/constants.hpp"
 #include "gagp/evolution/grammar/definition.hpp"
 #include "gagp/evolution/grammar/structured.hpp"
-#include "gagp/evolution/grammar/resource_projection.hpp"
+#include "gagp/evolution/grammar/resource_charge.hpp"
 
 namespace gagp::evo::grammar {
 
@@ -148,8 +148,6 @@ class CompiledGrammar {
   const std::vector<std::uint32_t>& productions_for_type(RType type) const;
   // Conservative reachability query across all construction stages.
   bool generates_payload(std::uint32_t nonterminal) const;
-  // Shared immutable-root certificates; unsupported analyses cache false.
-  std::vector<bool> resource_invariant_roots(const std::vector<std::uint32_t>& roots) const;
   void require_executable() const;
   void require_executable(std::uint32_t nonterminal) const;
 
@@ -163,10 +161,8 @@ class CompiledGrammar {
   std::vector<CompiledNonterminal> nonterminals_;
   struct ExecutableCache {
     std::mutex mutex;
-    std::mutex resource_mutex;
     std::unordered_set<std::uint32_t> verified_roots;
     std::unordered_map<std::uint32_t, bool> payload_roots;
-    std::unordered_map<std::uint32_t, bool> resource_roots;
   };
   // Copies have identical immutable grammar contents and may share certificates.
   std::shared_ptr<ExecutableCache> executable_cache_ = std::make_shared<ExecutableCache>();

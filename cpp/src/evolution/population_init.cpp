@@ -9,7 +9,6 @@
 #include "gagp/evolution/grammar/compiled.hpp"
 #include "gagp/evolution/grammar/request.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
-#include "gagp/evolution/grammar/variation.hpp"
 #include "grammar/cold_admission.hpp"
 
 namespace gagp::evo {
@@ -32,50 +31,18 @@ void validate_grammar_inputs(const grammar::CompiledGrammar& grammar, const Case
     }
   }
 }
-
-RType exact_expected_type(const Value& value) {
-  switch (value.tag) {
-    case ValueTag::Int: return RType::Int;
-    case ValueTag::Float: return RType::Float;
-    case ValueTag::Bool: return RType::Bool;
-    case ValueTag::Char: return RType::Char;
-    case ValueTag::String: return RType::String;
-    case ValueTag::IntList: return RType::IntList;
-    case ValueTag::FloatList: return RType::FloatList;
-    case ValueTag::StringList: return RType::StringList;
-    default: return RType::Invalid;
-  }
-}
 }  // namespace
 
 std::vector<grammar::GenerationRequest> population_requests(const EvolutionConfig& config) {
   if (!config.generation_request)
     throw std::invalid_argument("evolution requires an explicit generation request");
-  std::vector<grammar::GenerationRequest> requests{*config.generation_request};
-  requests.insert(requests.end(), config.additional_generation_requests.begin(),
-                  config.additional_generation_requests.end());
-  return requests;
+  return {*config.generation_request};
 }
 
 void validate_grammar_case_set(const EvolutionConfig& config, const CaseSet& case_set) {
   if (!config.compiled_grammar || !config.generation_request)
     throw std::invalid_argument("evolution case validation requires a grammar and request");
-  if (config.additional_generation_requests.empty()) {
-    validate_grammar_case_set(*config.compiled_grammar, case_set, *config.generation_request);
-    return;
-  }
-  const auto requests = population_requests(config);
-  grammar::validate_population_requests(*config.compiled_grammar, requests);
-  validate_grammar_inputs(*config.compiled_grammar, case_set);
-  if (case_set.expected_values.empty())
-    throw std::invalid_argument("mixed evolution requires nonempty fitness cases");
-  for (const auto& expected : case_set.expected_values) {
-    const auto type = exact_expected_type(expected);
-    bool admitted = false;
-    for (const auto& request : requests) admitted |= request.type == type;
-    if (!admitted)
-      throw std::invalid_argument("case expected type must match an admitted population root type");
-  }
+  validate_grammar_case_set(*config.compiled_grammar, case_set, *config.generation_request);
 }
 
 void validate_grammar_case_set(const grammar::CompiledGrammar& grammar,
@@ -125,43 +92,10 @@ PopulationInitialization initialize_population(
   const auto& grammar = *config.compiled_grammar;
   const auto& request = *config.generation_request;
   validate_grammar_case_set(config, case_set);
-  const auto generate = [&](std::uint64_t seed, const grammar::GenerationRequest& root) {
-    if (config.initial_resource_budget)
-      return grammar::generate_derivation(grammar, seed, root, *config.initial_resource_budget).genome;
-    return generate_random_genome(seed, grammar, root);
-  };
-  const auto require_initial_budget = [&](const grammar::DerivationMetadata& witness) {
-    if (config.initial_resource_budget &&
-        !config.initial_resource_budget->accepts(witness.resources->subtree()))
-      throw std::invalid_argument("initial population exceeds projected resource budget");
-  };
-  if (!config.additional_generation_requests.empty()) {
-    const auto requests = population_requests(config);
-    if (!replay_population) {
-      out.population.reserve(static_cast<std::size_t>(config.population_size));
-      for (int i = 0; i < config.population_size; ++i)
-        out.population.push_back(generate(
-            config.seed + static_cast<std::uint64_t>(i),
-            requests[static_cast<std::size_t>(i) % requests.size()]));
-    } else {
-      if (replay_population->size() != static_cast<std::size_t>(config.population_size))
-        throw std::invalid_argument("initial_population size must match population_size");
-      grammar::VariationContext context(config.compiled_grammar, requests);
-      out.population = *replay_population;
-      out.replayed = true;
-      for (auto& genome : out.population) {
-        const auto analysis = context.analyze(genome);
-        require_initial_budget(analysis->witness);
-        genome.meta = build_genome_meta(genome.ast);
-        genome.derivation = std::make_shared<const grammar::DerivationMetadata>(analysis->witness);
-      }
-    }
-    return out;
-  }
   if (!replay_population) {
     out.population.reserve(static_cast<std::size_t>(config.population_size));
     for (int i = 0; i < config.population_size; ++i)
-      out.population.push_back(generate(config.seed + static_cast<std::uint64_t>(i), request));
+      out.population.push_back(generate_random_genome(config.seed + static_cast<std::uint64_t>(i), grammar, request));
     return out;
   }
   if (replay_population->size() != static_cast<std::size_t>(config.population_size))
@@ -170,7 +104,6 @@ PopulationInitialization initialize_population(
   out.replayed = true;
   for (auto& genome : out.population) {
     auto witness = grammar::detail::reconstruct_cold_derivation(grammar, genome, request);
-    require_initial_budget(witness);
     genome.meta = build_genome_meta(genome.ast);
     genome.derivation = std::make_shared<const grammar::DerivationMetadata>(std::move(witness));
   }

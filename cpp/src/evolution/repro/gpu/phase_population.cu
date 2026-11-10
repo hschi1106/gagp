@@ -335,8 +335,6 @@ struct NativePhasePopulation::Impl {
  // admits the fixed skeleton and all initial phases. GPU generation samples the
  // admitted grammar/domains; same-nonterminal/scope splices preserve membership,
  // and checked physical node/depth bounds imply the admitted grammar budgets.
- // Projected profiles additionally check weighted depth on every splice; cold
- // canonical resource invariance makes construction origins valid for export.
  // export_native_phase_layout still validates node/origin/fuel/index transport.
  // A canonical reverse-parsed witness is optional cache data, not this proof.
  ProgramGenome finish_export(ProgramGenome genome) const {
@@ -488,7 +486,7 @@ struct NativePhasePopulation::Impl {
 };
 
 NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
-    const std::vector<ProgramGenome>& input,const std::vector<std::string>& input_names,std::optional<grammar::ProjectedBudget> projected,int site_depth,
+    const std::vector<ProgramGenome>& input,const std::vector<std::string>& input_names,int site_depth,
     const PhaseVariationPolicy& policy):impl_(std::make_unique<Impl>(std::move(grammar))) {
  gpu_detail::CudaStageAllocationScope construction_storage(nullptr,false);
  validate_phase_variation_policy(policy);
@@ -498,7 +496,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  impl_->operators.crossover_attempts=policy.crossover_attempts;
  impl_->operators.mutation_max_nodes=policy.mutation_max_nodes;
  impl_->operators.deferred_copy=true;
- phase_layout_require(site_depth>=0 && site_depth<=15 && !(site_depth && projected),"site depth must be0..15 and cannot combine with projected resource budgets");
+ phase_layout_require(site_depth>=0 && site_depth<=15,"site depth must be0..15");
  phase_layout_require(impl_->grammar && !input.empty() && input.size()<=16384,"population/grammar capacity");
  std::set<std::string> expected_names,actual_names(input_names.begin(),input_names.end());
  for(const auto& binding:impl_->grammar->inputs())expected_names.insert(binding.name);
@@ -514,11 +512,11 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  int devices=0;if(const auto e=cudaGetDeviceCount(&devices);e!=cudaSuccess)throw std::runtime_error(std::string("cuda runtime initialization failed: ")+cudaGetErrorString(e));checked(cudaGetDevice(&impl_->device));
  const auto import_profiles=std::make_unique<NativePhaseGrammarProfiles>(impl_->grammar,input_names);
  const auto* evaluator_inputs=&input_names;
- impl_->population=input.size();impl_->layout=import_native_phase_layout(*impl_->grammar,input.front(),import_profiles.get(),evaluator_inputs,true,projected?&*projected:nullptr);
+ impl_->population=input.size();impl_->layout=import_native_phase_layout(*impl_->grammar,input.front(),import_profiles.get(),evaluator_inputs,true);
  if(site_depth)for(std::size_t k=0;k<impl_->layout.slots.size();++k)
   impl_->layout.profiles[k]=compile_phase_variation_grammar(*impl_->grammar,
-      impl_->layout.slots[k].nonterminal,impl_->grammar->search_limits().max_depth,site_depth,true,&input_names);
- impl_->reproduction_profile=site_depth?"resident-gpu-v4-site-depth"+std::to_string(site_depth):impl_->layout.slots.front().logical_depth?"resident-gpu-v3-projected":
+      impl_->layout.slots[k].nonterminal,impl_->grammar->search_limits().max_depth,site_depth,&input_names);
+ impl_->reproduction_profile=site_depth?"resident-gpu-v4-site-depth"+std::to_string(site_depth):
      impl_->operators.counted_sites?"resident-gpu-v2-counted":"resident-gpu-v1";
  impl_->reproduction_profile+=phase_variation_profile_suffix(policy);
  impl_->reproduction_profile+="-elite-linear";
@@ -558,7 +556,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   const auto& profile=impl_->layout.profiles[k];const auto& layout=impl_->layout.slots[k];
   impl_->profiles.push_back(std::make_unique<UploadedProfile>(profile));
   const auto& nt=impl_->grammar->nonterminals()[layout.nonterminal];DeviceSlot slot{};
-  slot.grammar=impl_->profiles.back()->view(profile);slot.root=profile.root_expression;slot.scope=nt.scope.size();slot.max_depth=layout.max_depth;slot.logical_depth=site_depth?site_depth:layout.logical_depth;
+  slot.grammar=impl_->profiles.back()->view(profile);slot.root=profile.root_expression;slot.scope=nt.scope.size();slot.max_depth=layout.max_depth;slot.logical_depth=site_depth;
   slot.type=impl_->layout.program_terminator || !impl_->layout.whole_program?phase_value_tag(nt.type):kPhaseStatement;
   if(impl_->layout.whole_program) {
    slot.local_count=input_names.size();
@@ -572,11 +570,11 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  std::vector<ImportOffset> import_offsets;import_offsets.reserve(rows);
  // Upload live imports only, avoiding full-capacity host staging arrays.
  for(std::size_t p=0;p<input.size();++p) {
-  auto imported=p==0?impl_->layout:import_native_phase_layout(*impl_->grammar,input[p],import_profiles.get(),evaluator_inputs,false,projected?&*projected:nullptr);
+  auto imported=p==0?impl_->layout:import_native_phase_layout(*impl_->grammar,input[p],import_profiles.get(),evaluator_inputs,false);
   phase_layout_require(imported.slots.size()==impl_->layout.slots.size() && native_phase_skeleton_key(imported)==key,"mixed fixed skeleton requires native fallback");
   for(int k=0;k<impl_->slot_count;++k) {
    const auto& a=imported.slots[k];const auto& b=impl_->layout.slots[k];
-   phase_layout_require(a.nonterminal==b.nonterminal && a.ordinal==b.ordinal && a.binders==b.binders && a.max_depth==b.max_depth && a.logical_depth==b.logical_depth,"mixed phase contract requires fallback");
+   phase_layout_require(a.nonterminal==b.nonterminal && a.ordinal==b.ordinal && a.binders==b.binders && a.max_depth==b.max_depth,"mixed phase contract requires fallback");
    const int row=p*impl_->slot_count+k;const auto& gene=imported.genes[k];auto& l=lengths[row];l.status=PhaseCompileStatus::Ok;l.nodes=gene.nodes.size();l.constants=gene.constants.size();
    phase_layout_require(l.nodes>0 && l.nodes<=capacity && l.constants<=l.nodes,"imported phase capacity");
    import_offsets.push_back({import_nodes.size(),import_constants.size()});

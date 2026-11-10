@@ -21,6 +21,7 @@ struct TreePointers {
 };
 // `scope` is the generation scope of the phase nonterminal; `locals` are the
 // lowering locals (the phase binders, or the program inputs in whole-program mode).
+// `logical_depth` is the site-depth budget (0: no site-depth limit).
 struct DeviceSlot {PhaseGrammarView grammar;int root,scope,max_depth,logical_depth;ValueTag type;int local_count;ValueTag locals[64];};
 struct OperatorStats {int parent=-1,crossover_attempted=0,crossover=0,crossover_rejected=0,mutation=0,changed=0,error=0,reusable_parent=-1;};
 // Semantic operator policy (changes the search) plus the exact copy schedule.
@@ -136,11 +137,11 @@ template<bool Warp> __host__ __device__ inline int subtree_end(const PhaseTreeVi
  return phase_subtree_end(tree,start);
 }
 template<bool Warp> __host__ __device__ inline PhaseGenerationResult splice(const PhaseTreeView& base,int destination,
-    const PhaseTreeView& donor,int source,MutablePhaseTree output,int max_depth,const PhaseGrammarView* projected,int logical_depth) {
+    const PhaseTreeView& donor,int source,MutablePhaseTree output,int max_depth,int site_depth) {
 #ifdef __CUDA_ARCH__
- if constexpr(Warp)return splice_phase_tree_warp(base,destination,donor,source,output,max_depth,projected,logical_depth);
+ if constexpr(Warp)return splice_phase_tree_warp(base,destination,donor,source,output,max_depth,site_depth);
 #endif
- return splice_phase_tree<true>(base,destination,donor,source,output,max_depth,projected,logical_depth);
+ return splice_phase_tree<true>(base,destination,donor,source,output,max_depth,site_depth);
 }
 
 // A statement program must read only definitely assigned grammar locals.
@@ -184,7 +185,7 @@ __host__ __device__ inline void crossover_child(int child,TreePointers input,Tre
   if(total-(ae-destination.node)+(be-source.node)>max_variable_nodes){++stat.crossover_rejected;continue;}
   const int slot=destination.row%slot_count,target=child*slot_count+slot;
   const DeviceSlot s=slots[slot];
-  const auto r=splice<Warp>(a,destination.node,b,source.node,output.output(target),s.max_depth,s.logical_depth?&s.grammar:nullptr,s.logical_depth);
+  const auto r=splice<Warp>(a,destination.node,b,source.node,output.output(target),s.max_depth,s.logical_depth);
   if(r.status==PhaseCompileStatus::Ok && locals_defined<Warp>(s,output.output(target).nodes,r.nodes)){
    output.lengths[target]=r;stat.crossover=1;
    if(policy.deferred_copy)for(int k=0;k<slot_count;++k)if(k!=slot)copy_row<Warp>(input,parent*slot_count+k,output,child*slot_count+k);
@@ -212,7 +213,7 @@ __host__ __device__ inline void mutate_child(int child,TreePointers input,TreePo
  if(end<0 || depth<0){stat.error=6;return;}
  // A private slot copy keeps grammar table pointers out of aliased memory.
  const auto site=a.sites[destination.node];const DeviceSlot slot=slots[destination.row%slot_count];auto tmp=scratch.output(child);
- const int incoming=slot.logical_depth?phase_projected_depth(slot.grammar,a.nodes,a.origins,a.node_count,destination.node,a.sites):0;
+ const int incoming=slot.logical_depth?phase_site_depth(a.nodes,a.sites,a.node_count,destination.node):0;
  if(incoming<0 || incoming>slot.logical_depth){stat.error=6;return;}
  const int logical=slot.logical_depth-incoming;
  // A larger whole-program budget does not enlarge the destination phase buffer.
@@ -234,7 +235,7 @@ __host__ __device__ inline void mutate_child(int child,TreePointers input,TreePo
  // alias the crossed input. Each child owns a separate temporary row.
  const int target=child;
  const auto r=splice<Warp>(a,destination.node,scratch.view(child),0,output.output(target),slot.max_depth,
-     slot.logical_depth?&slot.grammar:nullptr,slot.logical_depth);
+     slot.logical_depth);
  if(r.status!=PhaseCompileStatus::Ok){stat.error=8;return;}
  // An undefined local read rejects this mutation; the crossed child stands.
  if(!locals_defined<Warp>(slot,output.output(target).nodes,r.nodes))return;

@@ -211,12 +211,11 @@ void check_completed_fitness_reuse(const std::shared_ptr<const grammar::Compiled
 void check_source_crossover_gate(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
     const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
     FitnessSessionGpu& session,const std::vector<CaseBindings>& cases,const std::vector<Value>& answers) {
- const grammar::ProjectedBudget budget{grammar->search_limits().max_nodes,grammar->search_limits().max_depth};
  for(bool uniform:{false,true}) {
   PhaseVariationPolicy base;base.site_scope=uniform?PhaseSiteScope::UniformPhase:PhaseSiteScope::Genome;
   auto gated=base;gated.crossover_probability=.7;
-  repro::NativePhasePopulation reference(grammar,parents,names,budget,0,base);
-  repro::NativePhasePopulation candidate(grammar,parents,names,budget,0,gated);
+  repro::NativePhasePopulation reference(grammar,parents,names,0,base);
+  repro::NativePhasePopulation candidate(grammar,parents,names,0,gated);
   require(std::string(candidate.profile_name()).find("-source-cross07")!=std::string::npos &&
       std::string(reference.profile_name()).find("-source-cross07")==std::string::npos,"crossover gate missing from profile");
   unsigned attempts=0,skips=0;
@@ -226,8 +225,7 @@ void check_source_crossover_gate(const std::shared_ptr<const grammar::CompiledGr
    const auto c=candidate.export_population();
    require(c.size()==parents.size(),"crossover gate lost offspring");
    for(std::size_t i=0;i<c.size();++i) {
-    auto fresh=c[i];fresh.derivation.reset();const auto witness=grammar::reconstruct_derivation(*grammar,fresh);
-    require(budget.accepts(witness.resources->subtree()),"crossover gate violated projected budget");
+    auto fresh=c[i];fresh.derivation.reset();(void)grammar::reconstruct_derivation(*grammar,fresh);
     require(on.case_counts.at(i)[0]==cases.size(),"crossover gate omitted cases");
    }
    require_cpu_scores(*grammar,candidate,names,cases,answers,on,"gated offspring GPU/CPU fitness mismatch");
@@ -254,8 +252,8 @@ void check_uniform_phase_sites(const std::shared_ptr<const grammar::CompiledGram
  for(bool counted:{false,true}) {
   PhaseVariationPolicy base;base.site_draw=counted?PhaseSiteDraw::Counted:PhaseSiteDraw::Reservoir;
   auto uniform=base;uniform.site_scope=PhaseSiteScope::UniformPhase;
-  repro::NativePhasePopulation reference(grammar,parents,names,std::nullopt,0,base);
-  repro::NativePhasePopulation candidate(grammar,parents,names,std::nullopt,0,uniform);
+  repro::NativePhasePopulation reference(grammar,parents,names,0,base);
+  repro::NativePhasePopulation candidate(grammar,parents,names,0,uniform);
   require(std::string(candidate.profile_name()).find("-uniform-phase")!=std::string::npos &&
       std::string(reference.profile_name()).find("-uniform-phase")==std::string::npos,
       "uniform-phase search policy omitted from profile");
@@ -288,7 +286,7 @@ void check_site_depth(const std::shared_ptr<const grammar::CompiledGrammar>& gra
  const auto initial=reference.site_metrics();std::vector<ProgramGenome> shallow;
  for(std::size_t i=0;i<parents.size();++i)if(initial[i][1]<=4)shallow.push_back(parents[i]);
  require(shallow.size()>=2,"site-depth fixture lacks shallow parents");
- repro::NativePhasePopulation owner(grammar,shallow,names,std::nullopt,4);
+ repro::NativePhasePopulation owner(grammar,shallow,names,4);
  require(std::string(owner.profile_name()).find("v4-site-depth4")!=std::string::npos,"site depth missing from profile");
  bool changed=false;
  for(int gen=0;gen<=16;++gen) {
@@ -319,13 +317,9 @@ void check_site_depth(const std::shared_ptr<const grammar::CompiledGrammar>& gra
  require(changed,"site-depth fixture did not vary");
  bool deeper=false;for(const auto& row:initial)deeper|=row[1]>1;
  require(deeper,"site-depth fixture lacks admission boundary");
- bool declined=false;try{repro::NativePhasePopulation reject(grammar,parents,names,std::nullopt,1);}
+ bool declined=false;try{repro::NativePhasePopulation reject(grammar,parents,names,1);}
  catch(const std::invalid_argument&){declined=true;}
  require(declined,"site-depth initial admission silently changed candidates");
- const grammar::ProjectedBudget projected{grammar->search_limits().max_nodes,4};
- declined=false;try{repro::NativePhasePopulation reject(grammar,shallow,names,projected,4);}
- catch(const std::invalid_argument&){declined=true;}
- require(declined,"site depth combined incompatible projected policy");
 }
 
 
@@ -710,38 +704,15 @@ int main(){try {
  unsetenv("GAGP_GPU_DIAGNOSTICS");
  require(integrated.reproduction_profile.rfind("resident-gpu-v2-counted",0)==0,"GPU genotype evolution adapter not used");
  const std::vector<EvalCase> small_cases{evolution_cases.front()};
- const grammar::ProjectedBudget budget{grammar->search_limits().max_nodes,grammar->search_limits().max_depth};
- // Projected budgets select the projected owner only on explicit request; its
- // members are independently admitted under the same budget.
- auto projected=config;projected.generations=1;projected.gpu_blocksize=32;
- projected.gpu_projected_phase_profile=true;
- projected.initial_resource_budget=budget;projected.offspring_resource_budget=budget;
- const auto projected_result=evolve_population(small_cases,projected,&parents);
- require(projected_result.reproduction_profile.rfind("resident-gpu-v3-projected",0)==0,"positive projected opt-in did not use phase owner");
- std::vector<BytecodeProgram> projected_programs;
- for(const auto& scored:projected_result.final_population) {
-  auto fresh=scored.genome;fresh.derivation.reset();
-  const auto witness=grammar::reconstruct_derivation(*grammar,fresh);
-  require(projected.offspring_resource_budget->accepts(witness.resources->subtree()),"projected offspring exceeds canonical budget");
-  projected_programs.push_back(compile_for_eval(fresh,names));
- }
- const auto projected_cpu=eval_fitness_cpu(projected_programs,{cases.front()},{answers.front()},10000,1000,32);
- for(std::size_t i=0;i<projected_cpu.size();++i)
-  require(canonicalize_fitness_for_ranking(projected_cpu[i])==projected_result.final_population[i].fitness,
-      "positive projected opt-in offspring CPU fitness mismatch");
  // The phase population is explicit: unsupported policies fail closed.
  const auto rejected_with=[&](EvolutionConfig bad,const char* needle) {
   try{(void)evolve_population(small_cases,bad,&parents);}
   catch(const std::invalid_argument& error){return std::string(error.what()).find(needle)!=std::string::npos;}
   return false;
  };
- auto unsupported_policy=projected;unsupported_policy.mutation_subtree_prob=.5;
+ auto unsupported_policy=config;unsupported_policy.generations=1;unsupported_policy.gpu_blocksize=32;
+ unsupported_policy.mutation_subtree_prob=.5;
  require(rejected_with(unsupported_policy,"default resource/variation policy"),"unsupported phase policy did not fail closed");
- auto asymmetric=projected;--asymmetric.offspring_resource_budget->max_depth;
- require(rejected_with(asymmetric,"matching initial/offspring budgets"),"asymmetric projected budgets accepted");
- auto implicit=config;implicit.generations=1;
- implicit.initial_resource_budget=budget;implicit.offspring_resource_budget=budget;
- require(rejected_with(implicit,"gpu_projected_phase_profile is requested"),"projected budgets without the projected profile accepted");
  require(integrated.timing.generations[0].elapsed_search_ms>=integrated.timing.init_population_ms+integrated.timing.gpu_eval_init_ms &&
      integrated.timing.generations[1].elapsed_search_ms>integrated.timing.generations[0].elapsed_search_ms,
      "search completion timestamps omit initialization or are not monotonic");

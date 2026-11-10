@@ -2,7 +2,6 @@
 #include "cold_admission.hpp"
 #include "gagp/evolution/repro/pack.hpp"
 #include "variation_internal.hpp"
-#include "gagp/evolution/grammar/derivation_resources.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/grammar/values.hpp"
 #include "gagp/evolution/ast_verify.hpp"
@@ -520,8 +519,7 @@ class WitnessBuilder {
     out_.execution_limits = grammar.execution_limits();
     out_.nodes.resize(genome.ast.nodes.size());
   }
-  DerivationMetadata run(bool validate_lowering = true, const ProjectedBudget* budget = nullptr,
-      std::shared_ptr<const BytecodeProgram>* executable = nullptr) {
+  DerivationMetadata run(std::shared_ptr<const BytecodeProgram>* executable = nullptr) {
     if (choice_lexical_environments_out_) choice_lexical_environments_out_->clear();
     const auto nt = out_.request.nonterminal;
     const bool wrap = grammar_.nonterminals()[nt].category == NodeCategory::Expression;
@@ -532,16 +530,7 @@ class WitnessBuilder {
     lexical_environment_ = frame_ ? frame_environment(grammar_, out_.request, *frame_) :
         std::vector<int>(grammar_.nonterminals()[nt].scope.size(), -1);
     derive(nt, wrap ? 3 : 0);
-    std::vector<ResourceCharge> charges(out_.nodes.size());
-    for (std::size_t i = 0; i < charges.size(); ++i)
-      if (out_.nodes[i].expression != kNoGrammarId)
-        charges[i] = grammar_.expressions().at(out_.nodes[i].expression).resource_charge;
-    out_.resources = std::make_shared<const ResourceProjection>(verified_.subtree_end, charges);
     out_.derived_nodes = static_cast<std::uint32_t>(genome_.ast.nodes.size() - (wrap ? 4 : 0));
-    // Resource-only queries never admit a child for execution. Full witness
-    // reconstruction still checks lowering at generation/acceptance boundaries.
-    if (!validate_lowering || (budget && !budget->accepts(out_.resources->subtree())))
-      return std::move(out_);
     auto lowered = [&] {
       if (frame_) {
         auto projected = project_frame(grammar_, out_.request, *frame_, genome_.ast);
@@ -865,7 +854,7 @@ static DerivationMetadata reconstruct_derivation_impl(const CompiledGrammar& gra
   std::vector<std::vector<int>> environments;
   std::shared_ptr<const BytecodeProgram> executable;
   auto witness = WitnessBuilder(grammar, genome, request, matcher, nullptr,
-      cache ? &environments : choice_lexical_environments).run(true, nullptr,
+      cache ? &environments : choice_lexical_environments).run(
           cache && (!registry_constants || retain_registry_executable)
               ? &executable : nullptr);
   if (compact_owned) {
@@ -937,34 +926,6 @@ DerivationMetadata reconstruct_population_derivation(const CompiledGrammar& gram
       choice_lexical_environments).run();
   if (verified) *verified = matcher.take_verified();
   return witness;
-}
-
-bool validate_budgeted_derivation(const CompiledGrammar& grammar, const ProgramGenome& genome,
-    const GenerationRequest& request, const ProjectedBudget& budget) {
-  Matcher matcher(grammar, genome.ast, request);
-  matcher.run();
-  const auto witness = WitnessBuilder(grammar, genome, request, matcher).run(true, &budget);
-  return budget.accepts(witness.resources->subtree());
-}
-
-ResourceProjection project_derivation_resources(const CompiledGrammar& grammar,
-    const ProgramGenome& genome, const GenerationRequest& request) {
-  Matcher matcher(grammar, genome.ast, request);
-  matcher.run();
-  const auto witness = WitnessBuilder(grammar, genome, request, matcher).run(false);
-  return *witness.resources;
-}
-
-ResourceProjection project_derivation_resources(const CompiledGrammar& grammar,
-    const ProgramGenome& genome) {
-  return project_derivation_resources(grammar, genome, entry_request(grammar));
-}
-
-ResourceProjection project_derivation_resources_in_frame(const CompiledGrammar& grammar,
-    const ProgramGenome& genome, const GenerationRequest& request, const GenerationFrame& frame) {
-  Matcher matcher(grammar, genome.ast, request, false, &frame);
-  matcher.run();
-  return *WitnessBuilder(grammar, genome, request, matcher, &frame).run(false).resources;
 }
 
 void require_membership_in_frame(const CompiledGrammar& grammar, const ProgramGenome& genome,

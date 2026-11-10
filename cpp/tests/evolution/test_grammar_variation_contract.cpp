@@ -29,11 +29,7 @@ bool equal_site(const VariationSite& a, const VariationSite& b) {
       x.context, x.template_id, x.slot,
       x.replacement_budget.max_nodes, x.replacement_budget.max_depth,
       x.remaining_template_nesting, x.materialized_nodes, x.materialized_depth,
-      x.template_nesting, x.projected_resources.nodes, x.projected_resources.carried_depth,
-      x.projected_resources.reset_depth, x.has_projected_allowance,
-      x.projected_allowance.surrounding_fits, x.projected_allowance.max_nodes,
-      x.projected_allowance.max_carried_depth, x.projected_allowance.max_reset_depth,
-      x.compatibility_key, x.occurrence_binder_ids); };
+      x.template_nesting, x.compatibility_key, x.occurrence_binder_ids); };
   if (scalar(a) != scalar(b) || a.occurrences.size() != b.occurrences.size()) return false;
   for (std::size_t i=0; i<a.occurrences.size(); ++i)
     if (a.occurrences[i].begin != b.occurrences[i].begin || a.occurrences[i].end != b.occurrences[i].end) return false;

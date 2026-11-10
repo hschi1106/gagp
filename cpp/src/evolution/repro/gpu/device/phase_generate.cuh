@@ -27,7 +27,6 @@ struct PhaseExpression {
   PhaseExpressionKind kind = PhaseExpressionKind::Operation;
   PhaseTreeNode node;
   int native_kind = -1;
-  int depth_charge = 1;
   int target = -1;
   int children[kPhaseMaxArity]{-1,-1,-1,-1,-1,-1,-1,-1};
   int scope_count = 0;
@@ -181,8 +180,7 @@ __host__ __device__ inline PhaseGenerationResult generate_phase(
       auto next=task;next.expression=child;next.scope_count=phase_child_scope(expression,0,task.scope_count);
       reserved+=minimum(child,task.depth,task.logical);pending[count++]=next;continue;
     }
-    const int charge=grammar.logical_depth_count>1 && !grammar.site_depth?expression.depth_charge:0;
-    if(task.depth<=0 || task.logical<charge || result.nodes>=capacity) {result.status=PhaseCompileStatus::Capacity;return result;}
+    if(task.depth<=0 || result.nodes>=capacity) {result.status=PhaseCompileStatus::Capacity;return result;}
     auto node=expression.node;
     if(node.arity<0 || node.arity>kPhaseMaxArity)return result;
     if(expression.kind==PhaseExpressionKind::Bound) {
@@ -205,11 +203,11 @@ __host__ __device__ inline PhaseGenerationResult generate_phase(
     origins[result.nodes]=task.expression;nodes[result.nodes++]=node;
     for(int i=node.arity-1;i>=0;--i) {
       if(count>=192) {result.status=PhaseCompileStatus::Capacity;return result;}
-      const int child=expression.children[i];const auto need=minimum(child,task.depth-1,task.logical-charge);
+      const int child=expression.children[i];const auto need=minimum(child,task.depth-1,task.logical);
       if(need>static_cast<unsigned>(capacity-result.nodes) || reserved>static_cast<unsigned>(capacity-result.nodes)-need) {
         result.status=PhaseCompileStatus::Capacity;return result;
       }
-      auto next=task;next.expression=child;--next.depth;next.logical-=charge;
+      auto next=task;next.expression=child;--next.depth;
       next.scope_count=phase_child_scope(expression,i,task.scope_count);
       pending[count++]=next;reserved+=need;
     }

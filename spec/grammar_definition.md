@@ -322,34 +322,12 @@ control nodes, executable primitives and bounded structured nodes, including
 fixed template bodies. References, template invocations, holes and abstract
 nonmaterialized primitives cannot own a charge.
 
-`project_derivation_resources` reconstructs canonical grammar membership and
-projects these charges over the verified materialized tree. Node charges sum;
-depth charges accumulate along a path and a reset starts depth accounting anew
-at that node. Earlier ancestor peaks still count. Each physical occurrence of a
-repeated hole contributes its own charge. Implicit expression envelopes have
-the default unit charge; use an explicit Program production to author different
-structural charges. Attached provenance is not trusted for this calculation.
-Ambiguous derivations use the canonical reconstructed membership witness, not
-an asserted seed history. Charges participate in grammar identity and do not
-change program ASTs or execution fuel.
-
-This projection is currently an accounting interface. The serialized
-`search_limits`, generation feasibility and production variation limits still
-count physical nodes/depth; resource annotations alone never authorize a larger
-search space. Enforcing separate projected budgets remains pending integration.
-
-`joint_resource_frontier` computes nondominated structural construction costs
-within both a request's physical limits and supplied projected node/depth limits.
-Each row retains physical node count and projected node/carried-depth/reset-depth
-costs from one derivation. A repeated template hole
-selects one shared cost alternative at its tightest physical depth, rather than
-mixing alternatives independently across copies. Reference cycles use a bounded
-fixed point over physical depth. Unproductive joint budgets return an empty set;
-state-capacity or construction-work exhaustion throws rather than silently
-discarding feasible alternatives. The default retained-state cap is 1,000,000;
-construction work is capped at 64,000,000 steps. This is derivation-based structural
-feasibility, not native validity or contextual-frame admission; ambiguous
-membership choices must still be resolved when enforcing a projected budget.
+A charge is validated and participates in grammar identity (the content
+hash); it never changes program ASTs or execution fuel, and the search does
+not budget it: search limits, generation feasibility and variation limits
+count physical nodes and depth only. Its one effect is an admission decline
+of the resident GPU engine, described in
+[GPU reproduction](../docs/design/gpu-reproduction.md#genome-layouts).
 
 Compilation is bounded to 4,096 nonterminals, 4,096 templates, 65,536 productions,
 and 65,536 compiled expressions. It rejects every nonterminal lacking a finite

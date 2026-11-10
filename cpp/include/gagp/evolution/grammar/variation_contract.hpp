@@ -29,11 +29,6 @@ struct VariationSite {
   std::uint32_t materialized_nodes = 0;
   std::uint32_t materialized_depth = 0;
   std::uint32_t template_nesting = 0;
-  // Per-occurrence cost from the reconstructed membership witness.
-  ProjectedResources projected_resources;
-  // Only populated when the grammar certifies context-independent charges.
-  bool has_projected_allowance = false;
-  ProjectedAllowance projected_allowance;
   std::vector<RegionBinding> visible_environment;
   std::vector<RegionBinding> available_locals;
   std::vector<RegionBinding> free_locals;
@@ -58,14 +53,13 @@ struct VariationAnalysis {
 };
 
 VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const ProgramGenome& genome,
-    const GenerationRequest& request, CompatibilityRegistry* registry = nullptr,
-    const ProjectedBudget* local_projected_budget = nullptr);
+    const GenerationRequest& request, CompatibilityRegistry* registry = nullptr);
 VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const ProgramGenome& genome,
     CompatibilityRegistry* registry = nullptr);
 
 VariationAnalysis analyze_population_variation(const CompiledGrammar& grammar,
     const ProgramGenome& genome, const std::vector<GenerationRequest>& requests,
-    CompatibilityRegistry* registry = nullptr, const ProjectedBudget* local_projected_budget = nullptr);
+    CompatibilityRegistry* registry = nullptr);
 
 // Equality of contracts and fit of the donor are separate predicates.
 bool compatible_sites(const VariationSite& left, const VariationSite& right);

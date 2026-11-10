@@ -3,7 +3,7 @@
 #include "gagp/evolution/grammar/identity.hpp"
 #include "gagp/evolution/grammar/constants.hpp"
 #include "gagp/evolution/fuel_events.hpp"
-#include "gagp/evolution/grammar/resource_projection.hpp"
+#include "gagp/evolution/grammar/resource_charge.hpp"
 #include "gagp/serialization/region_plan_json.hpp"
 
 #include <algorithm>

@@ -25,22 +25,21 @@ GenerationRequest checked_entry(const std::shared_ptr<const CompiledGrammar>& gr
 }  // namespace
 
 VariationContext::VariationContext(std::shared_ptr<const CompiledGrammar> grammar,
-    std::size_t cache_capacity, std::optional<ProjectedBudget> offspring_budget)
-    : VariationContext(grammar, checked_entry(grammar), cache_capacity, offspring_budget) {}
+    std::size_t cache_capacity)
+    : VariationContext(grammar, checked_entry(grammar), cache_capacity) {}
 
 VariationContext::VariationContext(std::shared_ptr<const CompiledGrammar> grammar,
-    GenerationRequest request, std::size_t cache_capacity, std::optional<ProjectedBudget> offspring_budget)
-    : grammar_(std::move(grammar)), request_(std::move(request)), requests_{request_}, cache_(grammar_, cache_capacity, offspring_budget),
-      offspring_budget_(offspring_budget), frame_cost_cache_capacity_(cache_capacity) {
+    GenerationRequest request, std::size_t cache_capacity)
+    : grammar_(std::move(grammar)), request_(std::move(request)), requests_{request_}, cache_(grammar_, cache_capacity),
+      frame_cost_cache_capacity_(cache_capacity) {
   (void)validate_request(*grammar_, request_);
   grammar_->require_executable(request_.nonterminal);
 }
 
 VariationContext::VariationContext(std::shared_ptr<const CompiledGrammar> grammar,
-    std::vector<GenerationRequest> requests, std::size_t cache_capacity,
-    std::optional<ProjectedBudget> offspring_budget)
+    std::vector<GenerationRequest> requests, std::size_t cache_capacity)
     : VariationContext(grammar, requests.empty() ? checked_entry(grammar) : requests.front(),
-                       cache_capacity, offspring_budget) {
+                       cache_capacity) {
   validate_population_requests(*grammar_, requests);
   requests_ = std::move(requests);
 }
@@ -218,13 +217,6 @@ ProgramGenome accept(AstProgram candidate, const ProgramGenome& certified_parent
       throw std::invalid_argument("variation changed the parent root contract");
   } catch (const std::invalid_argument&) {
     ++context.counters().acceptance_rejections;
-    return fallback(certified_parent, context);
-  }
-  // certify reconstructed this witness from the candidate AST. Never trust a
-  // copied parent's resource index or generation's potentially ambiguous choice.
-  if (context.offspring_budget() &&
-      !context.offspring_budget()->accepts(child.derivation->resources->subtree())) {
-    ++context.counters().budget_rejections;
     return fallback(certified_parent, context);
   }
   // Compare referenced values, not table indices or sharing. Atomic copying can

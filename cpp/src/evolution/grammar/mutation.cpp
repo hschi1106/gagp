@@ -21,28 +21,26 @@ ProgramGenome mutate(const ProgramGenome& genome, std::uint64_t seed,
   if (!std::isfinite(mutation_subtree_prob) || mutation_subtree_prob < 0 || mutation_subtree_prob > 1)
     throw std::invalid_argument("compiled mutation subtree probability must be in [0,1]");
   ++context.counters().mutation_attempts;
-  if (!context.offspring_budget()) {
-    GrammarRandom selected_random(seed);
-    const double branch = static_cast<double>(selected_random.next() >> 11) * 0x1.0p-53;
-    if (branch < mutation_subtree_prob) {
-      auto parent = variation_detail::certify_execution(genome, context);
-      const auto selected = variation_detail::analyze_selected_variation(
-          context.grammar(), parent, context.requests(), [&](std::size_t count) {
-            return count ? std::vector<std::size_t>{selected_random.bounded(count)}
-                         : std::vector<std::size_t>{};
-          });
-      if (selected.sites.empty()) return variation_detail::fallback(parent, context);
-      const auto& site = selected.sites.front();
-      ContextualDonor donor;
-      try {
-        donor = generate_donor(context, selected_random.next(), site, parent);
-      } catch (const std::runtime_error&) {
-        ++context.counters().generation_rejections;
-        return variation_detail::fallback(parent, context);
-      }
-      return variation_detail::accept(variation_detail::splice(parent.ast, site,
-          donor.genome.ast, donor.payload, site.occurrence_binder_ids.front()), parent, context);
+  GrammarRandom selected_random(seed);
+  const double branch = static_cast<double>(selected_random.next() >> 11) * 0x1.0p-53;
+  if (branch < mutation_subtree_prob) {
+    auto parent = variation_detail::certify_execution(genome, context);
+    const auto selected = variation_detail::analyze_selected_variation(
+        context.grammar(), parent, context.requests(), [&](std::size_t count) {
+          return count ? std::vector<std::size_t>{selected_random.bounded(count)}
+                       : std::vector<std::size_t>{};
+        });
+    if (selected.sites.empty()) return variation_detail::fallback(parent, context);
+    const auto& site = selected.sites.front();
+    ContextualDonor donor;
+    try {
+      donor = generate_donor(context, selected_random.next(), site);
+    } catch (const std::runtime_error&) {
+      ++context.counters().generation_rejections;
+      return variation_detail::fallback(parent, context);
     }
+    return variation_detail::accept(variation_detail::splice(parent.ast, site,
+        donor.genome.ast, donor.payload, site.occurrence_binder_ids.front()), parent, context);
   }
   std::shared_ptr<const VariationAnalysis> analysis;
   auto parent = variation_detail::certify(genome, context, &analysis);
@@ -82,7 +80,7 @@ ProgramGenome mutate(const ProgramGenome& genome, std::uint64_t seed,
   const auto& site = analysis->sites[random.bounded(analysis->sites.size())];
   ContextualDonor donor;
   try {
-    donor = generate_donor(context, random.next(), site, parent);
+    donor = generate_donor(context, random.next(), site);
   } catch (const std::runtime_error&) {
     ++context.counters().generation_rejections;
     return variation_detail::fallback(parent, context);

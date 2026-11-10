@@ -4,7 +4,9 @@
 #include <stdexcept>
 #include <optional>
 #include "gagp/cli/program_json.hpp"
-#include "gagp/evolution/grammar/derivation_resources.hpp"
+#include "gagp/evolution/grammar/generate.hpp"
+#include "gagp/evolution/grammar/membership.hpp"
+#include "gagp/evolution/node_descriptor.hpp"
 #include "../../src/evolution/repro/gpu/phase_layout.hpp"
 #include "../../src/evolution/region_plan_equal.hpp"
 #include "../fixtures/bounded_capture.hpp"
@@ -191,35 +193,34 @@ int main(int argc,char** argv) {try {
     require(reason.find("weighted/reset skeleton")!=std::string::npos,"weighted/reset skeleton did not explicitly decline");
   }
   for (const bool depth_limit : {false,true}) {
+    // The materialized depth the membership check bounds (prefix stack height).
+    const auto prefix_depth=[](const AstProgram& ast) {
+      std::vector<int> pending{1};std::size_t peak=0;
+      for(const auto& node:ast.nodes) {
+        while(!pending.empty() && pending.back()==0)pending.pop_back();
+        peak=std::max(peak,pending.size());--pending.back();
+        if(const auto arity=node_prefix_arity(node))pending.push_back(arity);
+      }
+      return peak;
+    };
     auto document=cli_detail::JsonParser(fixture).parse();
-    document.object_v.at("templates").array_v[0].object_v.at("body").object_v["resource_charge"]=
-        cli_detail::JsonParser(R"({"nodes":0,"depth":0,"resets_depth":false})").parse();
     const auto initial=grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(document)));
     auto member=grammar::generate_derivation(initial,17).genome;
     std::uint64_t largest=0;
     for(unsigned seed=0;seed<64;++seed) {
       auto candidate=grammar::generate_derivation(initial,seed).genome;
-      VerifiedAst tree;
-      (void)grammar::reconstruct_derivation(initial,candidate,grammar::entry_request(initial),&tree);
-      grammar::ResourceProjection resources(tree.subtree_end);
-      const auto size=depth_limit?resources.subtree().peak():candidate.ast.nodes.size();
+      const auto size=depth_limit?prefix_depth(candidate.ast):candidate.ast.nodes.size();
       if(size>largest){largest=size;member=std::move(candidate);}
     }
-    VerifiedAst physical;
-    (void)grammar::reconstruct_derivation(initial,member,grammar::entry_request(initial),&physical);
-    grammar::ResourceProjection physical_resources(physical.subtree_end);
-    const auto limit=depth_limit ? physical_resources.subtree().peak()-1 : member.ast.nodes.size()-1;
+    const auto limit=(depth_limit?prefix_depth(member.ast):member.ast.nodes.size())-1;
     document.object_v.at("search_limits").object_v.at(depth_limit?"max_depth":"max_nodes").number_v=limit;
     const auto bounded=grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(document)));
     check_import(initial,member);
-    const auto projected=grammar::project_derivation_resources(initial,member);
-    require(grammar::ProjectedBudget{bounded.search_limits().max_nodes,bounded.search_limits().max_depth}.accepts(projected.subtree()),
-        "zero-charge fixture must fit authored budget");
     member.derivation=std::make_shared<const grammar::DerivationMetadata>(grammar::reconstruct_derivation(initial,member));
     std::string reason;
     try{(void)import_native_phase_layout(bounded,member);}catch(const std::invalid_argument& e){reason=e.what();}
     require(reason.find(depth_limit?"materialized depth budget":"materialized node budget")!=std::string::npos,
-        "physical budget overflow must decline before allowance subtraction");
+        "physical budget overflow must decline");
   }
 
  }

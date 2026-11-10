@@ -1,7 +1,5 @@
 #include "gagp/evolution/grammar/variation_contract.hpp"
 #include "selected_variation.hpp"
-#include "gagp/evolution/grammar/resource_projection.hpp"
-#include "gagp/evolution/grammar/derivation_resources.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -79,12 +77,10 @@ VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const Progra
 
 static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, const ProgramGenome& genome,
     const GenerationRequest& initial_request, CompatibilityRegistry* registry,
-    const ProjectedBudget* local_projected_budget, const std::vector<GenerationRequest>* requests,
+    const std::vector<GenerationRequest>* requests,
     const variation_detail::SiteSelector* selector = nullptr,
     std::vector<std::size_t>* selected_indices = nullptr, std::size_t* total_sites = nullptr) {
   VariationAnalysis result;
-  if (local_projected_budget && !resource_charges_are_local(grammar))
-    throw std::invalid_argument("projected candidate allowance requires context-independent resource charges");
   std::vector<std::vector<int>> choice_environments;
   result.witness = requests ?
       reconstruct_population_derivation(grammar, genome, *requests, &result.verified, &choice_environments) :
@@ -190,7 +186,6 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
     site.occurrence_binder_ids.push_back(environments.at(choice_index));
     site.remaining_template_nesting = std::min(site.remaining_template_nesting, 256 - choice.enclosing_template_depth);
     site.materialized_nodes = choice.ast_end - choice.ast_begin;
-    site.projected_resources = witness.resources->subtree(choice.ast_begin);
     for (auto index = choice.ast_begin; index < choice.ast_end; ++index) {
       site.materialized_depth = std::max(site.materialized_depth, depths[index] - depths[choice.ast_begin] + 1);
       if (witness.nodes[index].template_depth < choice.enclosing_template_depth)
@@ -207,13 +202,6 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
   }
   std::size_t site_index = 0;
   for (auto& site : result.sites) {
-    if (local_projected_budget) {
-      std::vector<std::size_t> roots;
-      for (const auto& span : site.occurrences) roots.push_back(span.begin);
-      site.has_projected_allowance = true;
-      site.projected_allowance = witness.resources->replacement(roots,
-          local_projected_budget->max_nodes, local_projected_budget->max_depth);
-    }
     // Witness traversal is in prefix order; preserve the parallel binder mapping.
     if (!std::is_sorted(site.occurrences.begin(), site.occurrences.end(), [](const auto& a, const auto& b) {
           return a.begin < b.begin;
@@ -223,13 +211,11 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
       if (span.begin < last_end) throw std::logic_error("logical variation occurrences overlap");
       removed += span.end - span.begin; last_end = span.end;
     }
-    // The verified parent fits physical limits, so the depth limit is a proved
-    // upper bound for untouched nodes. Unit charges need no weighted index or
-    // extra per-site allocation; use the same allowance formula as projections.
-    const auto allowance = resource_detail::allowance_after_validation(genome.ast.nodes.size(), removed,
-        site.occurrences.size(), request.budget.max_depth - site.replacement_budget.max_depth,
-        request.budget.max_nodes, request.budget.max_depth);
-    site.replacement_budget.max_nodes = static_cast<std::uint32_t>(allowance.max_nodes);
+    // The verified parent fits physical limits, so the untouched nodes fit and
+    // the per-occurrence node allowance cannot underflow.
+    site.replacement_budget.max_nodes = static_cast<std::uint32_t>(
+        (std::uint64_t{request.budget.max_nodes} - genome.ast.nodes.size() + removed) /
+        site.occurrences.size());
     std::map<std::string, RType> free;
     if (site.category == NodeCategory::Expression) {
       const auto span = site.occurrences.front();
@@ -268,16 +254,15 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
 }
 
 VariationAnalysis analyze_variation(const CompiledGrammar& grammar, const ProgramGenome& genome,
-    const GenerationRequest& request, CompatibilityRegistry* registry,
-    const ProjectedBudget* local_projected_budget) {
-  return analyze_variation_impl(grammar, genome, request, registry, local_projected_budget, nullptr);
+    const GenerationRequest& request, CompatibilityRegistry* registry) {
+  return analyze_variation_impl(grammar, genome, request, registry, nullptr);
 }
 
 VariationAnalysis analyze_population_variation(const CompiledGrammar& grammar,
     const ProgramGenome& genome, const std::vector<GenerationRequest>& requests,
-    CompatibilityRegistry* registry, const ProjectedBudget* local_projected_budget) {
+    CompatibilityRegistry* registry) {
   if (requests.empty()) throw std::invalid_argument("population requires a root request");
-  return analyze_variation_impl(grammar, genome, requests.front(), registry, local_projected_budget, &requests);
+  return analyze_variation_impl(grammar, genome, requests.front(), registry, &requests);
 }
 
 bool compatible_sites(const VariationSite& left, const VariationSite& right) {
@@ -302,19 +287,17 @@ GenerationRequest donor_request(const VariationSite& site) {
 }
 
 bool donor_fits(const VariationSite& destination, const VariationSite& donor) {
-  return donor_fits(destination, donor.materialized_nodes, donor.materialized_depth, donor.template_nesting) &&
-      (!destination.has_projected_allowance || destination.projected_allowance.accepts(donor.projected_resources));
+  return donor_fits(destination, donor.materialized_nodes, donor.materialized_depth, donor.template_nesting);
 }
 
 namespace variation_detail {
 SelectedVariationAnalysis analyze_selected_variation(const CompiledGrammar& grammar,
     const ProgramGenome& genome, const std::vector<GenerationRequest>& requests,
-    const SiteSelector& select, CompatibilityRegistry* registry,
-    const ProjectedBudget* local_projected_budget) {
+    const SiteSelector& select, CompatibilityRegistry* registry) {
   if (requests.empty()) throw std::invalid_argument("population requires a root request");
   SelectedVariationAnalysis selected;
   auto result = analyze_variation_impl(grammar, genome, requests.front(), registry,
-      local_projected_budget, &requests, &select, &selected.original_indices, &selected.total_sites);
+      &requests, &select, &selected.original_indices, &selected.total_sites);
   selected.witness = std::move(result.witness);
   selected.verified = std::move(result.verified);
   selected.sites = std::move(result.sites);

@@ -67,7 +67,9 @@ Templates and holes are zero-node wrappers: a site on a template production
 passes to its first physical node, so production roots must resolve to
 distinct nodes. A hole repeated in its template body is admitted only when its
 fill is fixed. A grammar whose only member is one fixed program uses the
-native fallback.
+native fallback, and so does a genome whose fixed template structure carries a
+`resource_charge` other than the default (more than one node or depth level,
+or a depth reset).
 
 ## Capacities
 

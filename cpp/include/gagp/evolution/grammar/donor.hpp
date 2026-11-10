@@ -20,26 +20,10 @@ struct ContextualDonor {
   std::uint32_t nodes = 0;
   std::uint32_t depth = 0;
   std::uint32_t template_nesting = 0;
-  // Canonically reconstructed in the destination frame, excluding envelope.
-  ProjectedResources projected_resources;
 };
 
 ContextualDonor generate_donor(const CompiledGrammar& grammar, std::uint64_t seed,
     const VariationSite& site);
 ContextualDonor generate_donor(VariationContext& context, std::uint64_t seed,
     const VariationSite& site);
-// With an offspring budget, test the complete spliced destination, so ambiguous
-// membership and ancestor charges cannot make a subtree-only estimate unsound.
-ContextualDonor generate_donor(VariationContext& context, std::uint64_t seed,
-    const VariationSite& site, const ProgramGenome& destination,
-    std::size_t maximum_attempts = 64);
-
-// Same bounded per-seed generation, with admission reuse confined to this pool.
-// A runtime generation failure is represented by an empty slot, without resampling.
-std::vector<std::optional<ContextualDonor>> generate_donor_pool(VariationContext& context,
-    const std::vector<std::uint64_t>& seeds, const VariationSite& site,
-    const ProgramGenome& destination, std::size_t maximum_attempts = 64);
-
-using DonorPool = std::vector<std::optional<ContextualDonor>>;
-
 }  // namespace gagp::evo::grammar

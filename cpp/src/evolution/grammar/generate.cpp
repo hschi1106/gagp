@@ -75,11 +75,6 @@ class Generator {
     if (!verified) throw std::invalid_argument("generated derivation failed native verification: " + verified.diagnostic.message);
     if (verified.verified.return_type != entry.type) throw std::logic_error("generated return type violates grammar entry");
     require_membership(grammar_, out_.genome, out_.derivation.request);
-    std::vector<ResourceCharge> charges(out_.derivation.nodes.size());
-    for (std::size_t i = 0; i < charges.size(); ++i)
-      if (out_.derivation.nodes[i].expression != kNoGrammarId)
-        charges[i] = grammar_.expressions().at(out_.derivation.nodes[i].expression).resource_charge;
-    out_.derivation.resources = std::make_shared<const ResourceProjection>(verified.verified.subtree_end, charges);
     std::vector<std::string> input_names;
     for (const auto& input : inputs) input_names.push_back(input.name);
     const auto lowered = compile_for_eval(out_.genome, verified.verified, input_names);
@@ -637,22 +632,6 @@ GeneratedDerivation generate_derivation(const CompiledGrammar& grammar, std::uin
 GeneratedDerivation generate_derivation(const CompiledGrammar& grammar, std::uint64_t seed,
     const GenerationRequest& request) {
   return Generator(grammar, seed, request).run();
-}
-
-GeneratedDerivation generate_derivation(const CompiledGrammar& grammar, std::uint64_t seed,
-    const GenerationRequest& request, ProjectedBudget projected_budget,
-    std::size_t maximum_attempts) {
-  if (!maximum_attempts)
-    throw std::invalid_argument("projected generation requires a positive attempt limit");
-  GrammarRandom attempts(seed);
-  auto attempt_seed = seed;
-  for (std::size_t attempt = 0; attempt < maximum_attempts; ++attempt) {
-    auto generated = Generator(grammar, attempt_seed, request).run();
-    const auto witness = reconstruct_derivation(grammar, generated.genome, request);
-    if (projected_budget.accepts(witness.resources->subtree())) return generated;
-    attempt_seed = attempts.next();
-  }
-  throw std::runtime_error("projected generation exhausted its attempt limit; feasibility is unresolved");
 }
 
 GeneratedDerivation generate_derivation_in_frame(const CompiledGrammar& grammar, std::uint64_t seed,

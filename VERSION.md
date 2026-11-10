@@ -35,6 +35,13 @@ runtime semantic identity stays `gagp-native-2.0.0`.
   fixed-ASGP benchmark harness, host worker threads, CPU fitness verification
   and evaluation checkpoints.
 - Release-1 migration (`grammar-config`, `ast-prefix` v1, `grammar-materialized-v2`).
+- Library-only projected resource budgets, which `gagp` could not reach: the
+  `EvolutionConfig` members `initial_resource_budget`,
+  `offspring_resource_budget`, `gpu_projected_phase_profile` and
+  `additional_generation_requests`, the `resident-gpu-v3-projected` engine
+  profile, and the grammar-layer projection (`ProjectedBudget`,
+  `project_derivation_resources`, `joint_resource_frontier`, budgeted donor
+  pools). `resource_charge` stays in the grammar format and its hash.
 
 Search results of 3.0 equal those of the last 2.x build for the same inputs
 and search settings (checked on 65 golden runs). On ASGP-shaped searches

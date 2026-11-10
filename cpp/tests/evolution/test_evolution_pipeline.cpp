@@ -193,26 +193,14 @@ int main() {
   for(std::size_t i=1;i<elitist.history_best_fitness.size();++i)
     assert(elitist.history_best_fitness[i]>=elitist.history_best_fitness[i-1]);
   assert(elitist.best.fitness>=elitist.history_best_fitness.back());
-  // Explicit profile errors are validated before device initialization, even in
-  // CPU-only builds. Ordinary CPU and GPU-budget controls do not imply opt-in.
-  auto strict=timing_config;strict.gpu_projected_phase_profile=true;
+  // Site policy errors are validated before device initialization, even in
+  // CPU-only builds.
   auto rejects=[&](const gagp::evo::EvolutionConfig& cfg,const char* message) {
     bool rejected=false;
     try{(void)gagp::evo::evolve_population(timing_cases,cfg);}
     catch(const std::invalid_argument& error){rejected=std::string(error.what()).find(message)!=std::string::npos;}
     assert(rejected);
   };
-  rejects(strict,"requires GPU evaluation/reproduction");
-  strict.eval_engine=gagp::evo::EvalEngine::GPU;
-  strict.reproduction_backend=gagp::evo::repro::ReproductionBackend::Gpu;
-  strict.phase_population=true;
-  rejects(strict,"matching initial/offspring budgets");
-  strict.initial_resource_budget=gagp::evo::grammar::ProjectedBudget{strict.compiled_grammar->search_limits().max_nodes,7};
-  strict.offspring_resource_budget=gagp::evo::grammar::ProjectedBudget{strict.compiled_grammar->search_limits().max_nodes,6};
-  rejects(strict,"matching initial/offspring budgets");
-  strict.offspring_resource_budget=strict.initial_resource_budget;
-  strict.offspring_resource_budget->max_depth=strict.initial_resource_budget->max_depth=16;
-  rejects(strict,"projected depth in [1,15]");
   auto bad_site=timing_config;bad_site.gpu_phase_site_depth=7;
   rejects(bad_site,"site policy requires resident GPU");
   bad_site.gpu_phase_site_depth=16;rejects(bad_site,"invalid GPU phase site depth");

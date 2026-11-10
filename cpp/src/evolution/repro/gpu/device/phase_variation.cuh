@@ -141,35 +141,13 @@ __host__ __device__ inline int phase_site_depth(const PhaseTreeNode* nodes,
   return depth?-1:maximum;
 }
 
-// Weighted prefix occurrences use certified expression origins, never opcode
-// guesses. position<0 returns the complete height; otherwise incoming depth at
-// that occurrence is returned (excluding its own charge).
-__host__ __device__ inline int phase_projected_depth(const PhaseGrammarView& grammar,
-    const PhaseTreeNode* nodes,const int* origins,int count,int position=-1,const PhaseGeneSite* sites=nullptr) {
-  if(grammar.site_depth)return phase_site_depth(nodes,sites,count,position);
-  if(!nodes || !origins || !grammar.expressions || count<=0 || count>1024 || position>=count)return -1;
-  int pending[64],incoming[64];int depth=1,maximum=0;pending[0]=1;incoming[0]=0;
-  for(int i=0;i<count;++i) {
-    while(depth && !pending[depth-1])--depth;
-    if(!depth)return -1;
-    if(i==position)return incoming[depth-1];
-    const int origin=origins[i];if(origin<0 || origin>=grammar.expression_count)return -1;
-    const int charge=grammar.expressions[origin].depth_charge;
-    const int arity=nodes[i].arity;if(charge<0 || charge>1 || arity<0 || arity>kPhaseMaxArity)return -1;
-    const int value=incoming[depth-1]+charge;maximum=value>maximum?value:maximum;--pending[depth-1];
-    if(arity) {if(depth==64)return -1;pending[depth]=arity;incoming[depth++]=value;}
-  }
-  while(depth && !pending[depth-1])--depth;
-  return depth?-1:maximum;
-}
-
 // Output must not alias either immutable input. The run owner supplies distinct
 // generation buffers; this primitive never retains pointers across calls.
 // Same type alone is insufficient: nonterminal and lexical scope must agree.
 template<bool FusedDepth = false>
 __host__ __device__ inline PhaseGenerationResult splice_phase_tree(const PhaseTreeView& base,
     int destination, const PhaseTreeView& donor, int source,
-    MutablePhaseTree output, int max_depth, const PhaseGrammarView* projected=nullptr, int logical_depth=0) {
+    MutablePhaseTree output, int max_depth, int site_depth=0) {
   PhaseGenerationResult result;
   if (!base.nodes || !base.origins || !base.sites || !donor.nodes || !donor.origins || !donor.sites ||
       !output.nodes || !output.origins || !output.sites || !output.constants ||
@@ -220,10 +198,10 @@ __host__ __device__ inline PhaseGenerationResult splice_phase_tree(const PhaseTr
     if (maximum < 0) return result;
   }
   if (maximum > max_depth) { result.status = PhaseCompileStatus::Capacity; return result; }
-  if(projected) {
-    const int height=phase_projected_depth(*projected,output.nodes,output.origins,length,-1,output.sites);
+  if(site_depth) {
+    const int height=phase_site_depth(output.nodes,output.sites,length);
     if(height<0)return result;
-    if(height>logical_depth){result.status=PhaseCompileStatus::Capacity;return result;}
+    if(height>site_depth){result.status=PhaseCompileStatus::Capacity;return result;}
   }
   result.nodes = length; result.status = PhaseCompileStatus::Ok; return result;
 }
@@ -251,7 +229,7 @@ __device__ inline int phase_subtree_end_warp(const PhaseTreeView& tree, int star
 }
 __device__ inline PhaseGenerationResult splice_phase_tree_warp(const PhaseTreeView& base,
     int destination, const PhaseTreeView& donor, int source,
-    MutablePhaseTree output, int max_depth, const PhaseGrammarView* projected=nullptr, int logical_depth=0) {
+    MutablePhaseTree output, int max_depth, int site_depth=0) {
   PhaseGenerationResult result;
   if (!base.nodes || !base.origins || !base.sites || !donor.nodes || !donor.origins || !donor.sites ||
       !output.nodes || !output.origins || !output.sites || !output.constants ||
@@ -304,10 +282,10 @@ __device__ inline PhaseGenerationResult splice_phase_tree_warp(const PhaseTreeVi
   while (depth && !pending[depth - 1]) --depth;
   if (depth) return result;
   if (maximum > max_depth) { result.status = PhaseCompileStatus::Capacity; return result; }
-  if(projected) {
-    const int height=phase_projected_depth(*projected,output.nodes,output.origins,length,-1,output.sites);
+  if(site_depth) {
+    const int height=phase_site_depth(output.nodes,output.sites,length);
     if(height<0)return result;
-    if(height>logical_depth){result.status=PhaseCompileStatus::Capacity;return result;}
+    if(height>site_depth){result.status=PhaseCompileStatus::Capacity;return result;}
   }
   result.nodes = length; result.status = PhaseCompileStatus::Ok; return result;
 }

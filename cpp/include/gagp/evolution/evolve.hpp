@@ -43,20 +43,6 @@ struct EvolutionConfig {
   // Own the immutable compiled search space across worker copies.
   std::shared_ptr<const grammar::CompiledGrammar> compiled_grammar;
   std::optional<grammar::GenerationRequest> generation_request;
-  // Optional exact roots in the same grammar; selection remains population-wide.
-  // Empty retains the single-request generation and replay contract.
-  std::vector<grammar::GenerationRequest> additional_generation_requests;
-  // Optional authored-cost admission for offspring, independent of physical
-  // allocation limits and initial-population admission.
-  std::optional<grammar::ProjectedBudget> offspring_resource_budget;
-  // Separate initial admission permits source profiles whose construction and
-  // variation use different depth rules. No option changes physical capacities.
-  std::optional<grammar::ProjectedBudget> initial_resource_budget;
-  // Explicit strict native GPU projected-phase profile. Generic resource budgets
-  // alone retain ordinary backend fallback. Requires GPU eval/reproduction,
-  // GAGP_GPU_PHASE_POPULATION, and matching supported initial/offspring budgets.
-  bool gpu_projected_phase_profile = false;
-
   // Optional private GPU operator policy: depth counts grammar invocations,
   // excluding lowering scaffolds. Independent of physical AST admission.
   // Zero disables it. Explicit requests fail rather than changing backend.

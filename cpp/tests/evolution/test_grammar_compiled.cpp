@@ -68,6 +68,29 @@ int main() {
     const auto copied_scalar = grammar;
     check(!copied_scalar.generates_payload(copied_scalar.entry()), "copied grammar lost its certificate");
     rejects([&] { grammar.generates_payload(kNoGrammarId); }, "unknown construction nonterminal");
+    // resource_charge is validated and part of grammar identity; it does not
+    // change the compiled expression otherwise.
+    const auto charged_root = [&](const std::string& charge) {
+      auto doc = json(custom);
+      alternatives(doc).array_v[0].object_v.at("expression").object_v["resource_charge"] = json(charge);
+      return doc;
+    };
+    const auto charged = compile(charged_root(R"({"nodes":3,"depth":0,"resets_depth":true})"));
+    std::size_t charged_expressions = 0;
+    for (const auto& expression : charged.expressions())
+      charged_expressions += expression.resource_charge.nodes == 3 && expression.resource_charge.depth == 0 &&
+          expression.resource_charge.resets_depth;
+    check(charged_expressions == 1, "resource_charge was not compiled");
+    check(charged.content_hash() != grammar.content_hash(), "resource_charge omitted from grammar identity");
+    for (const auto* text : {R"({"nodes":-1,"depth":0,"resets_depth":false})",
+        R"({"nodes":1.5,"depth":0,"resets_depth":false})", R"({"nodes":65537,"depth":0,"resets_depth":false})",
+        R"({"nodes":1,"depth":257,"resets_depth":false})", R"({"nodes":1,"depth":0,"resets_depth":0})",
+        R"({"nodes":1,"depth":0})", R"({"nodes":1,"depth":0,"resets_depth":false,"extra":0})"})
+      rejects([&] { (void)compile(charged_root(text)); }, "resource_charge");
+    auto charged_reference = json(custom);
+    alternatives(charged_reference).array_v[2].object_v.at("expression").object_v.at("args").array_v[0]
+        .object_v["resource_charge"] = json(R"({"nodes":1,"depth":1,"resets_depth":false})");
+    rejects([&] { (void)compile(charged_reference); }, "resource_charge");
     GrammarRandom golden(0);
     check(golden.next() == UINT64_C(0xe220a8397b1dcdaf) && golden.next() == UINT64_C(0x6e789e6aa1b965f4) &&
           golden.next() == UINT64_C(0x06c45d188009454f), "grammar RNG version changed");

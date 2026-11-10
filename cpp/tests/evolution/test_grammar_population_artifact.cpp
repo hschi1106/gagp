@@ -135,9 +135,9 @@ void test_population() {
 }
 
 void test_mixed_population() {
-  const auto cfg = gagp::test::mixed_population_config();
-  const auto& grammar = *cfg.compiled_grammar;
-  const auto requests = population_requests(cfg);
+  const auto mixed = gagp::test::mixed_population();
+  const auto& grammar = *mixed.grammar;
+  const auto& requests = mixed.requests;
   std::vector<ProgramGenome> population;
   for (std::size_t i = 0; i < requests.size(); ++i)
     population.push_back(generate_derivation(grammar, i, requests[i]).genome);

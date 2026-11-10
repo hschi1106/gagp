@@ -32,7 +32,7 @@ class HostPhasePopulation final {
  public:
   HostPhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
       const std::vector<ProgramGenome>& input, const std::vector<std::string>& input_names,
-      std::optional<grammar::ProjectedBudget> projected, int site_depth,
+      int site_depth,
       const PhaseVariationPolicy& policy);
   ~HostPhasePopulation();
   HostPhasePopulation(const HostPhasePopulation&) = delete;
