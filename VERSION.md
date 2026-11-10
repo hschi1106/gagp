@@ -1,6 +1,18 @@
 # Version
 
-Current release: 3.0.0
+Current release: 3.0.1
+
+## 3.0.1
+
+Faster evaluation; search results are unchanged (65 golden runs, and the 30
+P16384 runs below with identical champions and best-of-generation histories).
+
+- The bounded-tuple allocation proof is memoized per fitness session.
+- Freed GPU transport buffers are cached and reused by the next evaluation.
+
+On ASGP-shaped searches with population 16384, 3.0.1 is 1.016x faster than
+3.0.0 (geometric mean; up to 1.07x on `all_equal` and `is_sorted`) and 1.17x
+faster than 2.x.
 
 ## 3.0.0
 

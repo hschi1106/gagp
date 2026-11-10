@@ -118,3 +118,10 @@ runs on both engines):
 - Quick runs, GPU vs CPU reference (P1024, G16, seed 1): the same result on all
   6 tasks; speedup from 5.2x (the median task) to 185x (double_letters), geometric mean
   30x, 129x in total time.
+- ASGP-shaped searches, release 3.0.1: the frozen ASGP-initialized
+  populations of the final scale study (P16384, G64, seed 1, default search),
+  1263 s of GAGP runs for the 30 tasks. Champions and best-of-generation
+  histories equal those of 2.x on all 30; 2.x took 1.17x longer (geometric
+  mean), single-threaded ASGP 95x longer (about 74x after correcting for the
+  contention of its 8 concurrent workers). These inputs and ASGP timings are
+  not part of the repository.

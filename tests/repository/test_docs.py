@@ -106,7 +106,7 @@ class TestDocumentation(unittest.TestCase):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertTrue(readme.startswith("# GAGP\n"))
         self.assertIn("README.zh-TW.md", readme)
-        self.assertIn("Current release: 3.0.0", (ROOT / "VERSION.md").read_text(encoding="utf-8"))
+        self.assertIn("Current release: 3.0.1", (ROOT / "VERSION.md").read_text(encoding="utf-8"))
         presets = json.loads((ROOT / "cpp" / "CMakePresets.json").read_text(encoding="utf-8"))
         names = {preset["name"] for preset in presets["configurePresets"]}
         self.assertTrue({"debug", "release", "cuda-parity", "sanitizer", "fuzz"} <= names)

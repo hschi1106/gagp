@@ -114,4 +114,4 @@ ctest --test-dir cpp/build --output-on-failure
 ```
 
 See [development](docs/guides/development.md) for tests, presets and how to
-make changes, and [VERSION.md](VERSION.md) for the release (3.0.0).
+make changes, and [VERSION.md](VERSION.md) for the release (3.0.1).

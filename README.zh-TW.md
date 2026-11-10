@@ -103,4 +103,4 @@ ctest --test-dir cpp/build --output-on-failure
 ```
 
 測試、preset 與修改流程見 [development](docs/guides/development.md)；版本資訊見
-[VERSION.md](VERSION.md)（3.0.0）。
+[VERSION.md](VERSION.md)（3.0.1）。

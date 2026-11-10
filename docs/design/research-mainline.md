@@ -77,8 +77,8 @@ Measured on one RTX 3090 with the default search; details in
   the GPU than on the single-threaded CPU reference engine (geometric mean
   30x) with identical results.
 - **GPU vs ASGP.** On frozen ASGP-initialized populations of 16384 members
-  (30 tasks, seed 1), single-threaded ASGP took 93x longer than GAGP
-  (geometric mean; about 73x after correcting for machine contention during
+  (30 tasks, seed 1), single-threaded ASGP took 95x longer than GAGP
+  (geometric mean; about 74x after correcting for machine contention during
   the ASGP runs). ASGP is not part of this repository; this comparison is
   thesis evidence, not a benchmark the repository reproduces. It compares
   speed on the same inputs, not search quality, and GAGP's search is not
