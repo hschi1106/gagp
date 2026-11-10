@@ -1,150 +1,169 @@
-# Native CLI Reference
+# Command Reference
 
-This table is mechanically checked against `CliOptions` and the parser in
-`cpp/include/gagp/cli/options.hpp` and `cpp/src/cli/options.cpp`. Update all
-three together when a flag or default changes.
+Everything GAGP does from the command line goes through one program,
+`cpp/build/gagp` (see the [README](../../README.md) for the build):
 
-`gagp_evolve_cli` requires `--cases` and, for evolution, `--grammar-definition`.
-It supports evolution by default and
-switches to one-AST evaluation when `--eval-ast-json` is supplied. `--help` is
-not supported; it follows the unknown-argument error contract.
+| Command | Purpose |
+| --- | --- |
+| `gagp run TASK.json [options]` | Search for a program that solves a task |
+| `gagp eval TASK.json PROGRAM.json [--split train\|test]` | Score a program on a task's cases |
+| `gagp grammar validate\|inspect\|resolve --grammar-definition FILE` | Check and explore a grammar |
+| `gagp grammar generate ...` | Generate a random initial population from a grammar |
 
-| Flag | Field | Default | Meaning |
-| --- | --- | --- | --- |
-| `--cases` | `cases_path` | `required` | Fitness-case input path |
-| `--population-json` | `population_json` | `unset` | Fixed `grammar-population-v2` replay path |
-| `--grammar-definition` | `grammar_definition_path` | `unset` | Required compiled grammar definition path for evolution |
-| `--population-roots` | `population_roots` | grammar entry | Ordered comma-separated root IDs with distinct exact result types |
-| `--eval-ast-json` | `eval_ast_json` | `unset` | Evaluate one native AST or generated grammar artifact on CPU |
-| `--engine` | `engine` | `cpu` | Fitness backend: `cpu` or `gpu` |
-| `--repro-backend` | `repro_backend` | `cpu` | Reproduction backend: `cpu` or `gpu` |
-| `--cpu-repro-ablation` | `cpu_repro_ablation` | `none` | CPU experiment mode. Compiled-grammar reproduction supports `none`, `gpu_selection`, `gpu_candidates`, and `gpu_coupled_donor`. Candidate mode uses GPU-prepared sites; coupled-donor mode retains the CPU crossover site for prepared-donor subtree mutation. All ablations require CPU reproduction. |
-| `--repro-overlap` | `repro_overlap` | `off` | Overlap GPU reproduction preparation with GPU evaluation |
-| `--skip-final-eval` | `skip_final_eval` | `off` | Skip the post-generation final scoring pass |
-| `--retain-final-population` | `retain_final_population` | `off` | Materialize the full final scored population |
-| `--blocksize` | `blocksize` | `1024` | CUDA evaluation block size |
-| `--search-config` | `search_config_path` | `unset` | `gagp-search-config-v1` file ([spec](../../spec/search_config.md)); a member may not set a field whose flag is also given explicitly. The result JSON records the effective `search_config` |
-| `--population-size` | `population_size` | `64` | Generated individuals per generation |
-| `--generations` | `generations` | `40` | Evolution generations |
-| `--mutation-rate` | `mutation_rate` | `0.5` | Per-child post-crossover mutation probability |
-| `--mutation-subtree-prob` | `mutation_subtree_prob` | `0.8` | Subtree versus constant mutation probability |
-| `--penalty` | `penalty` | `1.0` | Non-negative fitness penalty |
-| `--selection-pressure` | `selection_pressure` | `2` | Round-based tournament size |
-| `--seed` | `seed` | `0` | Deterministic RNG seed |
-| `--fuel` | `fuel` | `20000` | Explicit values must equal the grammar definition's execution fuel |
-| `--max-expr-depth` | `max_expr_depth` | `7` | Explicit values must equal the grammar definition's maximum depth |
-| `--max-total-nodes` | `max_total_nodes` | `80` | Explicit values must equal the grammar definition's maximum nodes |
-| `--show-program` | `show_program` | `none` | Program output: `none`, `ast`, `bytecode`, or `both` |
-| `--timing` | `timing` | `summary` | Timing output: `none`, `summary`, `per_gen`, or `all` |
-| `--out-json` | `out_json` | `unset` | Optional result JSON path |
+Every command prints its usage with `--help`. Errors exit with status 2 and a
+one-line diagnostic on standard error.
 
-Fixed-population timing should use `--population-json`, `--generations 1`,
-`--skip-final-eval on`, and `--timing all`. See
-[`../guides/benchmarking.md`](../guides/benchmarking.md) for the complete fair
-comparison procedure.
+## The task file
 
-Evolution uses the same canonical definition loader and compiler as
-`gagp_generate_cli`. Result `meta.grammar_definition` records the source path,
-canonical resolved `content_sha256`, `format_version`, `catalog_version`,
-`normalization_version`, `semantic_version`, `generator_version`, and
-`rng_version`. Together with cases, seed, and generation request, this is the
-deterministic same-version identity tuple. Passing a
-legacy `format_version=grammar-config` file to `--grammar-definition` reports that it
-must be migrated offline to `grammar-definition-v2`. `--population-json` accepts materialized
-`grammar-population-v2` artifacts; seed-only `population-seeds` files are rejected
-with instructions to materialize them in the frozen release-1 build and migrate the ASTs.
-There is no production `--grammar-config` flag or alias.
+A task names a grammar, its training cases, optional held-out test cases, and
+how answers are scored. Paths are relative to the task file.
 
-`--eval-ast-json` also accepts `grammar-generated-v2` and
-`grammar-materialized-v2` artifacts. This evaluates
-the stored materialized AST without requiring its generator version or resolved grammar.
-The case file must match the recorded exact input schema and return type. Execution uses
-the artifact's fuel; an explicit `--fuel` must equal that value. The result JSON reports
-the fuel actually used. Native `ast-prefix-v2` inputs retain the normal CLI fuel behavior.
-This evaluation establishes native validity; it does not replay or certify grammar
-provenance. The C++ artifact replay APIs provide that separate check.
-
-
-`gagp_generate_cli` creates `grammar-population-v2` initial-population
-artifacts. Generation requires `--grammar-definition`, `--cases` and `--out-json`;
-`--population-size` defaults to 1 (maximum 65536), and `--seed` defaults to 0 and accepts
-a canonical unsigned 64-bit decimal. Replay uses `--replay-json` with `--cases` and
-`--out-json`; an optional `--grammar-definition` imposes a required grammar identity.
-Replay rejects explicit size/seed overrides. This CLI supports `--help`, rejects
-unknown/duplicate flags, validates inputs before output replacement, and refuses to
-overwrite a direct input file. It generates and replays populations without invoking
-legacy reproduction.
-
-`gagp_migrate_artifact` is the offline release-1 conversion command. It requires
-`--input PATH` and `--out PATH`; input and output must identify different files.
-Its remaining options are route-specific:
-
-| Flag | Applies to | Meaning |
-| --- | --- | --- |
-| `--cases PATH` | `grammar-config`, `ast-prefix` | Exact fitness-case input and return schema |
-| `--conversion-profile constrained-intent-v1` | `grammar-config` only | Required, explicitly lossy search-space conversion profile |
-| `--fuel N` | `ast-prefix` only | Positive execution limit for a plain materialized AST |
-| `--max-nodes N` | `ast-prefix` only | Positive recorded node limit |
-| `--max-depth N` | `ast-prefix` only | Positive recorded prefix-depth limit |
-
-The three numeric options must be supplied together. `grammar-config` uses its
-embedded search limits and rejects the numeric triplet. A complete
-`grammar-generated-v1` member uses its embedded schema, limits, fuel, semantic
-identity, AST shape, and detached constants, so it needs neither cases nor
-overrides. `grammar-population-v1` is rejected as a container; extract and migrate
-each complete member independently. Bytecode and seed-only populations have no
-exact direct route.
-
-The command parses and validates the complete input before touching the output.
-It writes a temporary file in the output directory, flushes that file, and renames
-it over the destination; a conversion or write failure removes the temporary file
-and leaves an existing destination unchanged. Unknown or duplicate options, missing
-option values, incomplete numeric triplets, and unsupported route/option combinations
-exit with status 2 and a diagnostic on standard error. The command has no `--help`
-mode.
-
-`gagp_grammar_cli` provides native authoring diagnostics:
-
-```text
-gagp_grammar_cli {validate|inspect|resolve} --grammar-definition PATH [--out-json PATH]
-gagp_grammar_cli --help
+```json
+{
+  "format": "gagp-task-v1",
+  "name": "square_plus_one",
+  "grammar": "grammar.json",
+  "train": "train.cases.json",
+  "test": "test.cases.json",
+  "fitness": {"metric": "absolute", "case_cap": 1000}
+}
 ```
 
-All three actions require `--grammar-definition`. `validate` emits
-`grammar-validation-v1` with resolved identity, entry, limits, counts, and
-entry executability. `inspect` emits `grammar-inspection-v1` with compiled
-nonterminals, productions, contexts, scopes, templates, minimum costs, and the
-same identity. `resolve` emits canonical import-resolved
-`grammar-definition-v2`. Without `--out-json`, the artifact is written to
-stdout. With it, the command writes atomically and stdout reports the action
-and grammar hash. Root or imported-source overwrite, duplicate/unknown flags, resolution
-failures, and compilation failures return status 2 with a structured
-`grammar-diagnostic-v1` on stderr.
+| Member | Required | Meaning |
+| --- | --- | --- |
+| `format` | yes | `gagp-task-v1` |
+| `name` | no | Label used in output (default: the task file's directory name) |
+| `grammar` | yes | `grammar-definition-v2` file ([spec](../../spec/grammar_definition.md), [authoring guide](../guides/grammar-authoring.md)) |
+| `train` | yes | Fitness cases used by the search ([format](../../spec/fitness_cases.md)) |
+| `test` | no | Held-out cases; `gagp run` judges the best program on them |
+| `fitness.metric` | yes | `absolute`, `exact`, `levenshtein` or `tuple_summary` ([definitions](../../spec/fitness.md)) |
+| `fitness.case_cap` | no | Largest error one case can add (default 1000); also the error of a runtime failure |
+| `fitness.proximity` | no | `capped` (default) or `discounted` (`error/(1+error)` instead of the cap) |
+| `fitness.summaries` | `tuple_summary` only | `{"count": 1 or 2, "weight": 0.1, "cap": 100}` |
+| `fitness.list_allocation_limit` | no | Per-case limit on list cells a program may allocate |
 
+Unknown members are rejected.
 
-Compiled-grammar variation counters are exposed alongside reproduction timing. The nine
-suffixes are `crossover_attempts`, `mutation_attempts`, `contract_rejections`,
-`budget_rejections`, `generation_rejections`, `acceptance_rejections`, `fallback_children`,
-`unchanged_children`, and `changed_children`. Aggregate JSON keys and summary stdout phases
-use `generations_repro_<suffix>_total`; per-generation fields/JSON series use
-`generation_repro_<suffix>`. Summary stdout uses `count=` for these integer values.
-Legacy operators currently report zero. Counters classify operator outputs, including
-both crossover children and subsequent mutation outputs, rather than only retained
-population members; see [GPU reproduction](../design/gpu-reproduction.md).
+## `gagp run`
 
-For a mixed population, pass `--population-roots RootInt,RootFloat` with a grammar
-that defines both roots. Up to eight roots may be selected; they must be closed,
-executable, and have distinct exact result types. All use the grammar's search
-limits. Generated populations cycle through the ordered roots at initialization;
-selection then operates on the whole population, so later type proportions can
-change. Every case's expected type must be admitted by the selected roots.
-`meta.population_roots` records the effective ordered IDs, including the default
-single entry. With `--population-json`, select the full intended root set explicitly;
-each stored member is checked against it. The flag applies only to evolution.
+```text
+gagp run TASK.json [--search FILE] [--population N] [--generations N] [--seed N]
+                   [--engine gpu|cpu] [--init FILE] [--out DIR] [--save-all] [--quiet]
+```
 
-`gagp_generate_cli` accepts the same `--population-roots` list for generation and
-`--replay-json`. Supply that list when replaying a mixed artifact, including when
-using its embedded grammar. Replay preserves the artifact bytes and checks every
-member against the selected root contracts and case schema before writing output.
-The `gagp-tools benchmark population` wrapper accepts `--population-roots` with
-the same ordering and validation; omitting it selects the grammar entry.
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--search FILE` | built-in, identical to [`configs/search/default.json`](../../configs/search/default.json) | Search configuration ([below](#search-configuration)) |
+| `--population N` | 1024, or the search file's | Population size (at least 2) |
+| `--generations N` | 64, or the search file's | Number of generations |
+| `--seed N` | 0, or the search file's | Random seed; the same seed and inputs give the same result |
+| `--engine gpu\|cpu` | `gpu` | `cpu` is the reference engine: the same results, much slower |
+| `--init FILE` | generated | Start from a saved population (`--save-all` output or `gagp grammar generate`) instead of generating one |
+| `--out DIR` | none | Write `DIR/result.json` |
+| `--save-all` | off | Also write `DIR/population.json` (final population, usable with `--init`) and `DIR/history.json` (best program of each generation) |
+| `--quiet` | off | Print nothing on standard error |
+
+Options given on the command line override the search file.
+
+Without `--quiet`, the run prints its settings, the best training fitness and,
+when the task has test cases, how many test cases the best program solves.
+
+### `result.json`
+
+| Member | Meaning |
+| --- | --- |
+| `format` | `gagp-run-v1` |
+| `task`, `engine`, `population`, `generations`, `seed`, `train_cases` | Run settings |
+| `search` | The complete effective search configuration; passing it back as `--search` repeats the run |
+| `best` | `fitness`, `wrong` (wrong training cases), `nodes` and `program` of the best final program |
+| `test` | When the task has test cases: `cases`, `correct`, `wrong`, `runtime_errors`, `mean_loss`, `solved` |
+| `history` | Per generation: `best_fitness`, `mean_fitness`, `best_wrong`, `best_nodes`, `elapsed_ms`, `eval_ms`, `repro_ms` |
+| `time_ms` | `total` (wall clock), `search`, `initialization` |
+| `resident_declined` | Present only when the resident engine could not hold the grammar ([below](#representations)) |
+
+Fitness is the negative total error over the training cases: 0 is a perfect
+program.
+
+## Search configuration
+
+A search configuration is a `gagp-search-config-v1` JSON file. The
+[specification](../../spec/search_config.md) defines every member; the default
+is [`configs/search/default.json`](../../configs/search/default.json):
+
+| Member | Default | Meaning |
+| --- | --- | --- |
+| `representation` | `resident` | Genotype representation ([below](#representations)) |
+| `population_size`, `generations`, `seed` | 1024, 64, 0 | As the options above |
+| `selection` | tournament of 2 | Parent selection |
+| `elitism` | 1 | Best members copied unchanged |
+| `crossover` | probability 0.7, 8 attempts | Per-child crossover gate and site retries |
+| `mutation` | probability 0.3 | Per-child subtree mutation after crossover |
+| `sites` | one uniformly drawn phase, counted draw | Where crossover and mutation apply |
+| `limits.site_depth` | 7 | Grammar-invocation depth cap of variation (0: no cap) |
+| `ranking.tie_break` | `ast_nodes` | Equal fitness prefers fewer nodes |
+| `schedule` | steady state, inverse tournament of 2 | Each generation's children replace losers of an inverse tournament, never the best |
+| `fitness.penalty`, `execution.fuel` | the task's `case_cap`, the grammar's fuel | Fuel may only be lowered |
+
+A search file only needs the members it changes. For example, a plain
+generational search with a larger population:
+
+```json
+{"format": "gagp-search-config-v1", "population_size": 4096,
+ "schedule": {"mode": "generational"}}
+```
+
+The search configuration decides results; the engine (`--engine`, the GPU
+device) never does.
+
+### Representations
+
+- `resident` (default): the population lives on the GPU as fixed-shape phase
+  genes, and selection, crossover, mutation, lowering to bytecode and
+  evaluation all run there. This is the fast path. It accepts any grammar whose
+  programs fit its capacity ([admission rules](../../spec/search_config.md#resident-admission)).
+- `native_ast`: a typed AST population, evaluated on the selected engine and
+  reproduced on the CPU host. When the resident engine declines a grammar,
+  `gagp run` reruns the same search this way automatically, prints a notice,
+  and records the reason in `result.json`.
+
+## `gagp eval`
+
+```text
+gagp eval TASK.json PROGRAM.json [--split train|test]
+```
+
+Scores one program on the task's test cases (default) or training cases, and
+prints `{"cases", "correct", "wrong", "runtime_errors", "mean_loss", "solved",
+"task", "split"}` as JSON. `PROGRAM.json` may be a `result.json` (its best
+program), a `population.json` (its first program) or a single program. A
+program that does not belong to the task's grammar is rejected.
+
+## `gagp grammar`
+
+```text
+gagp grammar {validate|inspect|resolve} --grammar-definition FILE [--out-json FILE]
+gagp grammar generate --grammar-definition FILE --cases FILE --out-json FILE
+                      [--population-size N] [--seed N]
+gagp grammar generate --replay-json FILE --cases FILE --out-json FILE
+```
+
+- `validate` reports the grammar's identity, entry, limits and whether its
+  entry can produce a program.
+- `inspect` lists the compiled nonterminals, productions, scopes, templates and
+  minimum costs.
+- `resolve` writes the grammar with imports resolved.
+- `generate` writes `--population-size` (default 1, at most 65536) random
+  programs as a `grammar-population-v2` file, usable with `gagp run --init`;
+  `--replay-json` re-derives a saved population and checks it.
+
+Without `--out-json` the first three write to standard output. Failures print a
+`grammar-diagnostic-v1` document on standard error. See the
+[grammar authoring guide](../guides/grammar-authoring.md).
+
+## Environment variables
+
+| Variable | Meaning |
+| --- | --- |
+| `GAGP_CUDA_DEVICE=N` | Use visible GPU `N` (default: the least used one) |
+| `GAGP_GPU_DIAGNOSTICS=1` | Collect GPU evaluation counters and diagnostics (developer use; slower) |
+| `GAGP_SEARCH_TRACE=1` | Print each generation's best and mean fitness and timings on standard error |

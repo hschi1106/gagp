@@ -178,14 +178,11 @@ Cumulative checkpoints and CPU fitness verification are not supported.
 
 ## Entry points and records
 
-- `gagp_evolve_cli --search-config PATH`: a member may not set the same field
-  as an explicitly given flag (`--population-size`, `--generations`, `--seed`,
-  `--selection-pressure`, `--mutation-rate`, `--penalty`, `--fuel`).
-- Fixed ASGP benchmark: `GAGP_SEARCH_CONFIG=PATH`. `population_size` must equal
-  the input population, and a member may not contradict a benchmark setting
-  that is present (`GAGP_SEARCH_GENERATIONS`, `GAGP_BM_SEED`,
-  `GAGP_SEARCH_PENALTY`, `GAGP_GPU_SITE_DEPTH`, `GAGP_GPU_SITE_PARSIMONY`).
-- Both entry points record the complete effective configuration as a
-  `gagp-search-config-v1` object named `search_config` in their result JSON,
-  with any legacy-setting policy resolved. Feeding that object back as a file
-  reproduces the same search semantics.
+- `gagp run TASK.json --search PATH`: an absent member keeps the built-in
+  default (`configs/search/default.json`); the `--population`,
+  `--generations` and `--seed` options override the file. Penalty defaults to
+  the task's `fitness.case_cap` and fuel to the grammar's execution fuel.
+- `result.json` records the complete effective configuration as a
+  `gagp-search-config-v1` object named `search`. Feeding that object back as a
+  file reproduces the same search semantics. After a resident decline it
+  records the native configuration that actually ran.

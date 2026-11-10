@@ -224,6 +224,7 @@ add_test(
     -DGAGP=$<TARGET_FILE:gagp>
     -DFIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/cli
     -DAST_FIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures
+    -DCONFIGS=${CMAKE_CURRENT_SOURCE_DIR}/../configs
     -DWORK=${CMAKE_CURRENT_BINARY_DIR}/gagp_test_cli
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli/check_gagp_cli.cmake
 )

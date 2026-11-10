@@ -85,7 +85,7 @@ Both engines implement both schedules and publish identical results.
   default `batch = P` one round is one generation-equivalent, so the GPU
   launch shape is unchanged while the population dynamics change. This is the
   final GAGP search profile
-  ([`configs/search/gagp_final_asgp.json`](../../configs/search/gagp_final_asgp.json)).
+  ([`configs/search/default.json`](../../configs/search/default.json), the built-in default of `gagp run`).
   A smaller `batch` pays the evaluation launch floor more often and was slower
   in every measured setting.
 

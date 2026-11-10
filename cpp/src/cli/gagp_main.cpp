@@ -13,9 +13,11 @@ constexpr const char* kUsage =
     "gagp - grammar-guided genetic programming on the GPU\n"
     "\n"
     "  gagp run TASK.json [options]        search for a program (see `gagp run --help`)\n"
-    "  gagp eval TASK.json PROGRAM.json    score a program on the task's test cases\n"
+    "  gagp eval TASK.json PROGRAM.json    score a program (see `gagp eval --help`)\n"
     "  gagp grammar validate|inspect|resolve ...   check and explore a grammar definition\n"
-    "  gagp grammar generate ...           generate programs from a grammar\n";
+    "  gagp grammar generate ...           generate programs from a grammar\n"
+    "\n"
+    "Documentation: README.md and docs/reference/cli.md.\n";
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -27,7 +29,7 @@ int main(int argc, char** argv) {
   try {
     const std::vector<std::string> rest(args.begin() + 1, args.end());
     if ((args[0] == "run" || args[0] == "eval") && !rest.empty() && (rest[0] == "--help" || rest[0] == "-h")) {
-      std::cout << gagp::cli_detail::run_usage() << '\n';
+      std::cout << (args[0] == "run" ? gagp::cli_detail::run_usage() : gagp::cli_detail::eval_usage()) << '\n';
       return 0;
     }
     if (args[0] == "run") return gagp::cli_detail::run_task_command(rest);

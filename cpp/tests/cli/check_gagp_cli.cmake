@@ -1,6 +1,7 @@
-# End-to-end contract of the `gagp` command (docs/usage/cli.md).
-# Inputs: GAGP (binary), FIXTURES (tests/fixtures/cli), AST_FIXTURES (tests/fixtures), WORK (scratch dir).
-foreach(required GAGP FIXTURES AST_FIXTURES WORK)
+# End-to-end contract of the `gagp` command (docs/reference/cli.md).
+# Inputs: GAGP (binary), FIXTURES (tests/fixtures/cli), AST_FIXTURES (tests/fixtures),
+# CONFIGS (repository configs/), WORK (scratch dir).
+foreach(required GAGP FIXTURES AST_FIXTURES CONFIGS WORK)
   if(NOT DEFINED ${required})
     message(FATAL_ERROR "${required} is required")
   endif()
@@ -34,10 +35,12 @@ require_text("${last_stdout}" "gagp run TASK.json" "no-argument usage")
 gagp_expect_exit(0 --help)
 gagp_expect_exit(0 run --help)
 require_text("${last_stdout}" "--population" "run usage")
+gagp_expect_exit(0 eval --help)
+require_text("${last_stdout}" "--split" "eval usage")
 gagp_expect_exit(2 run)
 require_text("${last_stderr}" "missing TASK" "missing task diagnostic")
 gagp_expect_exit(2 run "${task}" --bogus)
-require_text("${last_stderr}" "unknown option --bogus" "unknown option diagnostic")
+require_text("${last_stderr}" "unknown option --bogus (see `gagp run --help`)" "unknown option diagnostic")
 gagp_expect_exit(2 run "${task}" --engine tpu)
 gagp_expect_exit(2 run "${task}" --population 1)
 gagp_expect_exit(2 run "${task}" --threads 4)
@@ -79,6 +82,17 @@ string(JSON representation GET "${resident_result}" search representation)
 string(JSON declined ERROR_VARIABLE no_decline GET "${resident_result}" resident_declined)
 if(NOT representation STREQUAL "resident" OR NOT declined MATCHES "NOTFOUND$")
   message(FATAL_ERROR "default run did not stay resident: ${resident_result}")
+endif()
+# configs/search/default.json is the built-in default search, member for member.
+gagp_expect_exit(0 run "${task}" --engine cpu --seed 7 --population 32 --generations 2
+                 --search "${CONFIGS}/search/default.json" --out "${WORK}/default_file" --quiet)
+file(READ "${WORK}/default_file/result.json" file_result)
+string(JSON built_in_search GET "${resident_result}" search)
+string(JSON file_search GET "${file_result}" search)
+string(JSON built_in_best GET "${resident_result}" best program)
+string(JSON file_best GET "${file_result}" best program)
+if(NOT built_in_search STREQUAL file_search OR NOT built_in_best STREQUAL file_best)
+  message(FATAL_ERROR "configs/search/default.json differs from the built-in search:\n${built_in_search}\n${file_search}")
 endif()
 gagp_expect_exit(0 run "${FIXTURES}/declined_task.json" --engine cpu --seed 7 --population 32 --generations 2
                  --out "${WORK}/declined")

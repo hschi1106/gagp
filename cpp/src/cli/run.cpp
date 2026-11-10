@@ -86,8 +86,8 @@ Json program_json(const evo::AstProgram& ast) {
   return JsonParser(encode_ast_json(ast), {true, 512}).parse();
 }
 
-[[noreturn]] void usage_error(const std::string& message) {
-  throw std::invalid_argument(message + "\n" + run_usage());
+[[noreturn]] void usage_error(const std::string& message, const char* command = "run") {
+  throw std::invalid_argument(message + " (see `gagp " + command + " --help`)");
 }
 
 struct RunArgs {
@@ -245,10 +245,31 @@ std::shared_ptr<const gg::CompiledGrammar> load_grammar(const std::string& path)
 }  // namespace
 
 std::string run_usage() {
-  return "usage: gagp run TASK.json [--seed N] [--population N] [--generations N]\n"
-         "                [--engine gpu|cpu] [--search SEARCH.json] [--init POPULATION.json]\n"
-         "                [--out DIR] [--save-all] [--quiet]\n"
-         "       gagp eval TASK.json PROGRAM.json [--split train|test]";
+  return "usage: gagp run TASK.json [options]\n"
+         "\n"
+         "Search for a program that solves TASK.json (grammar, train cases, optional test cases).\n"
+         "\n"
+         "  --search FILE       search configuration (gagp-search-config-v1); default:\n"
+         "                      configs/search/default.json, built in\n"
+         "  --population N      population size (default 1024, or the search file's)\n"
+         "  --generations N     generations (default 64, or the search file's)\n"
+         "  --seed N            random seed (default 0)\n"
+         "  --engine gpu|cpu    gpu (default), or the cpu reference engine: same results, slower\n"
+         "  --init FILE         initial population from `gagp run --save-all` or\n"
+         "                      `gagp grammar generate`\n"
+         "  --out DIR           write DIR/result.json\n"
+         "  --save-all          also write DIR/population.json and DIR/history.json\n"
+         "  --quiet             no progress output\n"
+         "\n"
+         "GAGP_CUDA_DEVICE=N selects a visible GPU (default: the least used one).";
+}
+
+std::string eval_usage() {
+  return "usage: gagp eval TASK.json PROGRAM.json [--split train|test]\n"
+         "\n"
+         "Score a program on the task's test cases (default) or train cases. PROGRAM.json\n"
+         "is a result.json (its best program), a population.json (its first program) or\n"
+         "a single program.";
 }
 
 int run_task_command(const std::vector<std::string>& argv) {
@@ -350,13 +371,13 @@ int eval_program_command(const std::vector<std::string>& argv) {
   std::string split = "test";
   for (std::size_t i = 0; i < argv.size(); ++i) {
     if (argv[i] == "--split") {
-      if (i + 1 >= argv.size()) usage_error("--split requires a value");
+      if (i + 1 >= argv.size()) usage_error("--split requires a value", "eval");
       split = argv[++i];
-    } else if (!argv[i].empty() && argv[i][0] == '-') usage_error("unknown option " + argv[i]);
+    } else if (!argv[i].empty() && argv[i][0] == '-') usage_error("unknown option " + argv[i], "eval");
     else positional.push_back(argv[i]);
   }
-  if (positional.size() != 2) usage_error("eval needs TASK.json and PROGRAM.json");
-  if (split != "train" && split != "test") usage_error("--split must be train or test");
+  if (positional.size() != 2) usage_error("eval needs TASK.json and PROGRAM.json", "eval");
+  if (split != "train" && split != "test") usage_error("--split must be train or test", "eval");
   const Task task = load_task(positional[0]);
   const auto& cases_path = split == "train" ? task.train_path : task.test_path;
   if (cases_path.empty()) throw std::invalid_argument("task has no " + split + " split");

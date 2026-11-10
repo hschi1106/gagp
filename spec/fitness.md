@@ -277,7 +277,7 @@ logical limit error as recoverable. This policy does not change fuel or frame
 limits. The aligned fixed-ASGP list-output benchmark selects the source arena
 limit of 65536 cells; source character lists use native IntList cells too.
 
-The explicit experimental `GAGP_GPU_PRIVATE_INTLIST_OFFSETS=1` profile scores
+The GPU private IntList profile, admitted automatically per population, scores
 resident IntList outputs by content for Exact and Levenshtein, including exact
 wrong-case counts. Its generated local list identity is collision-independent,
 so it intentionally differs from canonical transport-registry aliasing under a
@@ -290,7 +290,6 @@ payloads through 65537 elements: clamped length 65535 plus length one charges
 backing; numeric list observations retain the existing encoded-length rules.
 It preserves the logical allocation policy, fuel, complete case coverage and
 physical-overflow replay above. See `docs/design/payload.md` for its private
-descriptor lifetime and per-generation capability requirements. The additional
-`GAGP_GPU_COMPACT_INTLIST_CELLS=1` storage opt-in requires an admitted private
-profile and preserves its scores, wrong counts and resource charges exactly;
-only local physical cells change from boxed Values to signed 64-bit integers.
+descriptor lifetime and per-generation capability requirements. Its compact
+cell storage preserves scores, wrong counts and resource charges exactly; only
+local physical cells change from boxed Values to signed 64-bit integers.

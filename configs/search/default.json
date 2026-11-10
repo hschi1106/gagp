@@ -1,6 +1,7 @@
 {
   "format": "gagp-search-config-v1",
   "representation": "resident",
+  "population_size": 1024,
   "generations": 64,
   "selection": {"method": "tournament", "size": 2},
   "elitism": 1,
