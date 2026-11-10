@@ -268,7 +268,8 @@ __host__ __device__ inline PhaseCompileResult compile_row(TreePointers trees,con
  const auto t=trees.view(row);const auto& slot=slots[row%slot_count];
  if(!valid(trees.lengths[row]))return {};
  return compile_phase_tree<true,true>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.local_count,slot.type,
-     code+std::size_t(row)*code_capacity,code_capacity,constants+std::size_t(row)*capacity,capacity);
+     code+std::size_t(row)*code_capacity,code_capacity,constants+std::size_t(row)*capacity,capacity,
+     slot.grammar.regions,slot.grammar.region_count);
 }
 // Rank-based elite rule: highest fitness, then lowest source index.
 inline int elite_rank(const double* fitness,int population,int candidate) {

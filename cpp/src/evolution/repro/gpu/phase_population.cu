@@ -50,8 +50,9 @@ struct UploadedProfile {
  Buffer<PhaseDomain> domains;Buffer<Value> values;Buffer<unsigned> minimum;
  Buffer<PhaseChoiceHeader> choice_headers;Buffer<unsigned> choice_values;Buffer<PhaseChoiceSet> choice_sets;
  Buffer<std::uint64_t> choice_thresholds;Buffer<int> choice_expressions;bool choice_tables=false;
+ Buffer<PhaseRegionInfo> regions;
  explicit UploadedProfile(const HostPhaseGrammar& h) {
-  expressions.upload(h.expressions);
+  expressions.upload(h.expressions);regions.upload(h.regions);
   auto weights=h.productions;auto nts=h.nonterminals;
   normalize_static_phase_weights(h,nts,weights);
   productions.upload(weights);nonterminals.upload(nts);
@@ -65,10 +66,11 @@ struct UploadedProfile {
    nonterminals.data,int(h.nonterminals.size()),domains.data,int(h.domains.size()),values.data,int(h.values.size()),minimum.data,h.depth_count,h.logical_depth_count,h.site_depth};
   if(choice_tables){v.choice_headers=choice_headers.data;v.choice_values=choice_values.data;v.choice_sets=choice_sets.data;
    v.choice_thresholds=choice_thresholds.data;v.choice_expressions=choice_expressions.data;}
+  v.regions=regions.data;v.region_count=int(h.regions.size());
   return v;
  }
  std::size_t bytes()const{return expressions.bytes()+productions.bytes()+nonterminals.bytes()+domains.bytes()+values.bytes()+minimum.bytes()+
-  choice_headers.bytes()+choice_values.bytes()+choice_sets.bytes()+choice_thresholds.bytes()+choice_expressions.bytes();}
+  choice_headers.bytes()+choice_values.bytes()+choice_sets.bytes()+choice_thresholds.bytes()+choice_expressions.bytes()+regions.bytes();}
 };
 struct Trees {
  Buffer<PhaseTreeNode> nodes;Buffer<int> origins;Buffer<PhaseGeneSite> sites;Buffer<Value> constants;Buffer<PhaseGenerationResult> lengths;
@@ -420,8 +422,9 @@ struct NativePhasePopulation::Impl {
   if(offsets.back()<0 || values.back()<0)throw std::runtime_error("GPU genotype lowering rejected a constructed program");
   // The program budget covers all variable phases, not one phase buffer.
   const std::size_t variable_nodes=layout.budget.max_nodes-layout.fixed_nodes;
-  // A for_range lowers to at most 8 instructions and 2 constants per node.
-  phase_layout_require(std::size_t(offsets.back())<=std::size_t(population)*variable_nodes*8 &&
+  // A for_range lowers to at most 8 instructions and 2 constants per node; a
+  // bounded region adds at most 2*kPhaseMaxArity+1 record headers.
+  phase_layout_require(std::size_t(offsets.back())<=std::size_t(population)*variable_nodes*(8+2*kPhaseMaxArity+1) &&
       std::size_t(values.back())<=std::size_t(population)*variable_nodes*2,"whole-program compiled capacity");
   const auto setup=Clock::now();packed_code.reserve(offsets.back());packed_constants.reserve(values.back());
   if(timing)timing->setup_ms+=elapsed(setup);checked(cudaEventRecord(start));

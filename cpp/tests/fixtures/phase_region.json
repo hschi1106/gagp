@@ -1,0 +1,878 @@
+{
+ "format_version": "grammar-definition-v2",
+ "entry": {
+  "nonterminal": "Region.Top",
+  "type": "Int"
+ },
+ "inputs": [
+  {
+   "name": "row",
+   "type": "Int"
+  },
+  {
+   "name": "column",
+   "type": "Int"
+  },
+  {
+   "name": "rows",
+   "type": "Int"
+  },
+  {
+   "name": "columns",
+   "type": "Int"
+  },
+  {
+   "name": "base_value",
+   "type": "Int"
+  }
+ ],
+ "search_limits": {
+  "max_nodes": 64,
+  "max_depth": 12
+ },
+ "execution_limits": {
+  "fuel": 10000
+ },
+ "nonterminals": [
+  {
+   "id": "Region.Top",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "memo",
+     "weight": 2,
+     "expression": {
+      "structured": {
+       "family": "bounded",
+       "plan": {
+        "version": 1,
+        "state_types": [
+         "Int",
+         "Int"
+        ],
+        "result_type": "Int",
+        "parameter_types": [
+         "Int"
+        ],
+        "preparations": [],
+        "request_expression_types": [],
+        "bound_operand_count": 2,
+        "requests": [
+         {
+          "states": [
+           {
+            "kind": "coordinate_offset",
+            "source_state": 0,
+            "offset": "-1",
+            "window": {
+             "begin": {
+              "kind": "begin",
+              "cut": 0
+             },
+             "end": {
+              "kind": "begin",
+              "cut": 0
+             }
+            },
+            "expression": 0
+           },
+           {
+            "kind": "coordinate_offset",
+            "source_state": 1,
+            "offset": "1",
+            "window": {
+             "begin": {
+              "kind": "begin",
+              "cut": 0
+             },
+             "end": {
+              "kind": "begin",
+              "cut": 0
+             }
+            },
+            "expression": 0
+           }
+          ]
+         },
+         {
+          "states": [
+           {
+            "kind": "coordinate_offset",
+            "source_state": 0,
+            "offset": "0",
+            "window": {
+             "begin": {
+              "kind": "begin",
+              "cut": 0
+             },
+             "end": {
+              "kind": "begin",
+              "cut": 0
+             }
+            },
+            "expression": 0
+           },
+           {
+            "kind": "coordinate_offset",
+            "source_state": 1,
+            "offset": "-1",
+            "window": {
+             "begin": {
+              "kind": "begin",
+              "cut": 0
+             },
+             "end": {
+              "kind": "begin",
+              "cut": 0
+             }
+            },
+            "expression": 0
+           }
+          ]
+         }
+        ],
+        "limits": {
+         "frames": 64,
+         "cells": 256,
+         "entry_fuel": 1
+        },
+        "memoized": true,
+        "duplicate_policy": "reject",
+        "progress": "coordinates",
+        "coordinate_slots": [
+         0,
+         1
+        ],
+        "coordinate_rank": [
+         {
+          "coordinate": 0,
+          "direction": 1
+         },
+         {
+          "coordinate": 1,
+          "direction": 1
+         }
+        ],
+        "coordinate_domains": [
+         {
+          "lower": {
+           "kind": "literal",
+           "literal": "0",
+           "operand": 0
+          },
+          "upper": {
+           "kind": "operand",
+           "literal": "0",
+           "operand": 2
+          }
+         },
+         {
+          "lower": {
+           "kind": "literal",
+           "literal": "0",
+           "operand": 0
+          },
+          "upper": {
+           "kind": "operand",
+           "literal": "0",
+           "operand": 3
+          }
+         }
+        ],
+        "coordinate_endpoint": "exclusive",
+        "sequence_state": 0
+       }
+      },
+      "captures": [
+       {
+        "input": "base_value"
+       }
+      ],
+      "phases": [
+       {
+        "argument": 4,
+        "bindings": [
+         {
+          "bank": "state",
+          "slot": 0,
+          "name": "current_row"
+         }
+        ]
+       },
+       {
+        "argument": 5,
+        "bindings": [
+         {
+          "bank": "parameter",
+          "slot": 0,
+          "name": "base"
+         }
+        ]
+       },
+       {
+        "argument": 6,
+        "bindings": [
+         {
+          "bank": "result",
+          "slot": 0,
+          "name": "diagonal"
+         },
+         {
+          "bank": "result",
+          "slot": 1,
+          "name": "previous"
+         }
+        ]
+       },
+       {
+        "argument": 7,
+        "bindings": []
+       }
+      ],
+      "args": [
+       {
+        "ref": "Region.Coord"
+       },
+       {
+        "ref": "Region.Coord"
+       },
+       {
+        "input": "rows"
+       },
+       {
+        "input": "columns"
+       },
+       {
+        "ref": "Region.Predicate"
+       },
+       {
+        "ref": "Region.Base"
+       },
+       {
+        "ref": "Region.Combine"
+       },
+       {
+        "ref": "Region.Boundary"
+       }
+      ],
+      "fuel_events": {
+       "operation": 0
+      }
+     }
+    },
+    {
+     "id": "let",
+     "weight": 2,
+     "expression": {
+      "signature": "let(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "Region.Coord"
+       },
+       {
+        "ref": "Region.Body"
+       }
+      ],
+      "bind": {
+       "1": [
+        "k"
+       ]
+      },
+      "fuel_events": {
+       "bind": 0
+      }
+     }
+    },
+    {
+     "id": "add",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "Region.Top"
+       },
+       {
+        "ref": "Region.Coord"
+       }
+      ]
+     }
+    },
+    {
+     "id": "base",
+     "weight": 1,
+     "expression": {
+      "input": "base_value"
+     }
+    }
+   ]
+  },
+  {
+   "id": "Region.Body",
+   "type": "Int",
+   "scope": [
+    {
+     "name": "k",
+     "type": "Int"
+    }
+   ],
+   "alternatives": [
+    {
+     "id": "memo",
+     "weight": 2,
+     "expression": {
+      "structured": {
+       "family": "bounded",
+       "plan": {
+        "version": 1,
+        "state_types": [
+         "Int",
+         "Int"
+        ],
+        "result_type": "Int",
+        "parameter_types": [
+         "Int"
+        ],
+        "preparations": [],
+        "request_expression_types": [],
+        "bound_operand_count": 2,
+        "requests": [
+         {
+          "states": [
+           {
+            "kind": "coordinate_offset",
+            "source_state": 0,
+            "offset": "-1",
+            "window": {
+             "begin": {
+              "kind": "begin",
+              "cut": 0
+             },
+             "end": {
+              "kind": "begin",
+              "cut": 0
+             }
+            },
+            "expression": 0
+           },
+           {
+            "kind": "coordinate_offset",
+            "source_state": 1,
+            "offset": "1",
+            "window": {
+             "begin": {
+              "kind": "begin",
+              "cut": 0
+             },
+             "end": {
+              "kind": "begin",
+              "cut": 0
+             }
+            },
+            "expression": 0
+           }
+          ]
+         },
+         {
+          "states": [
+           {
+            "kind": "coordinate_offset",
+            "source_state": 0,
+            "offset": "0",
+            "window": {
+             "begin": {
+              "kind": "begin",
+              "cut": 0
+             },
+             "end": {
+              "kind": "begin",
+              "cut": 0
+             }
+            },
+            "expression": 0
+           },
+           {
+            "kind": "coordinate_offset",
+            "source_state": 1,
+            "offset": "-1",
+            "window": {
+             "begin": {
+              "kind": "begin",
+              "cut": 0
+             },
+             "end": {
+              "kind": "begin",
+              "cut": 0
+             }
+            },
+            "expression": 0
+           }
+          ]
+         }
+        ],
+        "limits": {
+         "frames": 64,
+         "cells": 256,
+         "entry_fuel": 1
+        },
+        "memoized": true,
+        "duplicate_policy": "reject",
+        "progress": "coordinates",
+        "coordinate_slots": [
+         0,
+         1
+        ],
+        "coordinate_rank": [
+         {
+          "coordinate": 0,
+          "direction": 1
+         },
+         {
+          "coordinate": 1,
+          "direction": 1
+         }
+        ],
+        "coordinate_domains": [
+         {
+          "lower": {
+           "kind": "literal",
+           "literal": "0",
+           "operand": 0
+          },
+          "upper": {
+           "kind": "operand",
+           "literal": "0",
+           "operand": 2
+          }
+         },
+         {
+          "lower": {
+           "kind": "literal",
+           "literal": "0",
+           "operand": 0
+          },
+          "upper": {
+           "kind": "operand",
+           "literal": "0",
+           "operand": 3
+          }
+         }
+        ],
+        "coordinate_endpoint": "exclusive",
+        "sequence_state": 0
+       }
+      },
+      "captures": [
+       {
+        "bound": "k"
+       }
+      ],
+      "phases": [
+       {
+        "argument": 4,
+        "bindings": [
+         {
+          "bank": "state",
+          "slot": 0,
+          "name": "current_row"
+         }
+        ]
+       },
+       {
+        "argument": 5,
+        "bindings": [
+         {
+          "bank": "parameter",
+          "slot": 0,
+          "name": "base"
+         }
+        ]
+       },
+       {
+        "argument": 6,
+        "bindings": [
+         {
+          "bank": "result",
+          "slot": 0,
+          "name": "diagonal"
+         },
+         {
+          "bank": "result",
+          "slot": 1,
+          "name": "previous"
+         }
+        ]
+       },
+       {
+        "argument": 7,
+        "bindings": []
+       }
+      ],
+      "args": [
+       {
+        "bound": "k"
+       },
+       {
+        "ref": "Region.Coord"
+       },
+       {
+        "input": "rows"
+       },
+       {
+        "input": "columns"
+       },
+       {
+        "ref": "Region.Predicate"
+       },
+       {
+        "ref": "Region.Base"
+       },
+       {
+        "ref": "Region.Combine"
+       },
+       {
+        "ref": "Region.Boundary"
+       }
+      ],
+      "fuel_events": {
+       "operation": 0
+      }
+     }
+    },
+    {
+     "id": "k",
+     "weight": 1,
+     "expression": {
+      "bound": "k"
+     }
+    },
+    {
+     "id": "sub",
+     "weight": 1,
+     "expression": {
+      "signature": "sub(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "Region.Body"
+       },
+       {
+        "bound": "k"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "Region.Coord",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "row",
+     "weight": 2,
+     "expression": {
+      "input": "row"
+     }
+    },
+    {
+     "id": "column",
+     "weight": 2,
+     "expression": {
+      "input": "column"
+     }
+    },
+    {
+     "id": "k",
+     "weight": 1,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "values": [
+        "0",
+        "1",
+        "2",
+        "3"
+       ]
+      }
+     }
+    },
+    {
+     "id": "add",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "Region.Coord"
+       },
+       {
+        "ref": "Region.Coord"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "Region.Predicate",
+   "type": "Bool",
+   "scope": [
+    {
+     "name": "current_row",
+     "type": "Int"
+    }
+   ],
+   "alternatives": [
+    {
+     "id": "eq",
+     "weight": 2,
+     "expression": {
+      "signature": "eq(Int,Int)->Bool",
+      "args": [
+       {
+        "bound": "current_row"
+       },
+       {
+        "constant": {
+         "type": "Int",
+         "values": [
+          "0",
+          "1"
+         ]
+        }
+       }
+      ]
+     }
+    },
+    {
+     "id": "lt",
+     "weight": 1,
+     "expression": {
+      "signature": "lt(Int,Int)->Bool",
+      "args": [
+       {
+        "bound": "current_row"
+       },
+       {
+        "constant": {
+         "type": "Int",
+         "values": [
+          "1",
+          "2"
+         ]
+        }
+       }
+      ]
+     }
+    },
+    {
+     "id": "or",
+     "weight": 1,
+     "expression": {
+      "signature": "or(Bool,Bool)->Bool",
+      "args": [
+       {
+        "ref": "Region.Predicate"
+       },
+       {
+        "ref": "Region.Predicate"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "Region.Base",
+   "type": "Int",
+   "scope": [
+    {
+     "name": "base",
+     "type": "Int"
+    }
+   ],
+   "alternatives": [
+    {
+     "id": "base",
+     "weight": 2,
+     "expression": {
+      "bound": "base"
+     }
+    },
+    {
+     "id": "add",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "Region.Base"
+       },
+       {
+        "constant": {
+         "type": "Int",
+         "values": [
+          "1",
+          "2"
+         ]
+        }
+       }
+      ]
+     }
+    },
+    {
+     "id": "let",
+     "weight": 1,
+     "expression": {
+      "signature": "let(Int,Int)->Int",
+      "args": [
+       {
+        "bound": "base"
+       },
+       {
+        "ref": "Region.Twice"
+       }
+      ],
+      "bind": {
+       "1": [
+        "b"
+       ]
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "Region.Twice",
+   "type": "Int",
+   "scope": [
+    {
+     "name": "base",
+     "type": "Int"
+    },
+    {
+     "name": "b",
+     "type": "Int"
+    }
+   ],
+   "alternatives": [
+    {
+     "id": "mul",
+     "weight": 1,
+     "expression": {
+      "signature": "mul(Int,Int)->Int",
+      "args": [
+       {
+        "bound": "b"
+       },
+       {
+        "bound": "base"
+       }
+      ]
+     }
+    },
+    {
+     "id": "b",
+     "weight": 1,
+     "expression": {
+      "bound": "b"
+     }
+    }
+   ]
+  },
+  {
+   "id": "Region.Combine",
+   "type": "Int",
+   "scope": [
+    {
+     "name": "diagonal",
+     "type": "Int"
+    },
+    {
+     "name": "previous",
+     "type": "Int"
+    }
+   ],
+   "alternatives": [
+    {
+     "id": "diagonal",
+     "weight": 2,
+     "expression": {
+      "bound": "diagonal"
+     }
+    },
+    {
+     "id": "previous",
+     "weight": 2,
+     "expression": {
+      "bound": "previous"
+     }
+    },
+    {
+     "id": "add",
+     "weight": 2,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "Region.Combine"
+       },
+       {
+        "ref": "Region.Combine"
+       }
+      ]
+     }
+    },
+    {
+     "id": "if",
+     "weight": 1,
+     "expression": {
+      "signature": "if(Bool,Int,Int)->Int",
+      "args": [
+       {
+        "signature": "lt(Int,Int)->Bool",
+        "args": [
+         {
+          "bound": "diagonal"
+         },
+         {
+          "bound": "previous"
+         }
+        ]
+       },
+       {
+        "ref": "Region.Combine"
+       },
+       {
+        "ref": "Region.Combine"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "Region.Boundary",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "k",
+     "weight": 1,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "values": [
+        "0",
+        "1",
+        "2"
+       ]
+      }
+     }
+    }
+   ]
+  }
+ ]
+}

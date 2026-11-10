@@ -56,7 +56,7 @@ __host__ __device__ inline bool annotate_phase_tree(const PhaseGrammarView& g, i
     if (origins[cursor] != task.expression || node.kind != expression.node.kind ||
         node.opcode != expression.node.opcode || node.arity != expression.node.arity ||
         node.fuel != expression.node.fuel || node.merge_fuel != expression.node.merge_fuel || node.type != expression.node.type ||
-        node.arity < 0 || node.arity > 3) return false;
+        node.arity < 0 || node.arity > kPhaseMaxArity) return false;
     if (expression.kind == PhaseExpressionKind::Bound) {
       if (expression.target < 0 || expression.target >= task.scope || node.operand != expression.target)
         return false;
@@ -68,7 +68,7 @@ __host__ __device__ inline bool annotate_phase_tree(const PhaseGrammarView& g, i
     sites[cursor++] = task.site;
     for (int i = node.arity - 1; i >= 0; --i) {
       if (pending_count >= 192) return false;
-      pending[pending_count++] = {expression.children[i], task.scope + (i == expression.bind_argument ? 1 : 0), {}};
+      pending[pending_count++] = {expression.children[i], phase_child_scope(expression, i, task.scope), {}};
     }
   }
   return cursor == count;
@@ -79,7 +79,7 @@ __host__ __device__ inline int phase_subtree_end(const PhaseTreeView& tree, int 
   int pending = 1;
   for (int i = start; i < tree.node_count; ++i) {
     const int arity = tree.nodes[i].arity;
-    if (arity < 0 || arity > 3) return -1;
+    if (arity < 0 || arity > kPhaseMaxArity) return -1;
     pending += arity - 1;
     if (!pending) return i + 1;
   }
@@ -94,7 +94,7 @@ __host__ __device__ inline int phase_node_depth(const PhaseTreeView& tree, int p
     if (i == position) return depth;
     --pending[depth - 1];
     const int arity = tree.nodes[i].arity;
-    if (arity < 0 || arity > 3) return -1;
+    if (arity < 0 || arity > kPhaseMaxArity) return -1;
     if (arity) { if (depth == 64) return -1; pending[depth++] = arity; }
   }
   return -1;
@@ -107,7 +107,7 @@ __host__ __device__ inline int phase_tree_depth(const PhaseTreeNode* nodes, int 
     if (depth > maximum) maximum = depth;
     --pending[depth - 1];
     const int arity = nodes[i].arity;
-    if (arity < 0 || arity > 3) return -1;
+    if (arity < 0 || arity > kPhaseMaxArity) return -1;
     if (arity) {
       if (depth == 64) return -1;
       pending[depth++] = arity;
@@ -128,7 +128,7 @@ __host__ __device__ inline int phase_site_depth(const PhaseTreeNode* nodes,
     while(depth && !pending[depth-1])--depth;
     if(!depth)return -1;
     if(i==position)return incoming[depth-1];
-    const int arity=nodes[i].arity;if(arity<0 || arity>3)return -1;
+    const int arity=nodes[i].arity;if(arity<0 || arity>kPhaseMaxArity)return -1;
     const int value=incoming[depth-1]+(sites[i].nonterminal>=0?1:0);
     maximum=value>maximum?value:maximum;--pending[depth-1];
     if(arity) {if(depth==64)return -1;pending[depth]=arity;incoming[depth++]=value;}
@@ -151,7 +151,7 @@ __host__ __device__ inline int phase_projected_depth(const PhaseGrammarView& gra
     if(i==position)return incoming[depth-1];
     const int origin=origins[i];if(origin<0 || origin>=grammar.expression_count)return -1;
     const int charge=grammar.expressions[origin].depth_charge;
-    const int arity=nodes[i].arity;if(charge<0 || charge>1 || arity<0 || arity>3)return -1;
+    const int arity=nodes[i].arity;if(charge<0 || charge>1 || arity<0 || arity>kPhaseMaxArity)return -1;
     const int value=incoming[depth-1]+charge;maximum=value>maximum?value:maximum;--pending[depth-1];
     if(arity) {if(depth==64)return -1;pending[depth]=arity;incoming[depth++]=value;}
   }
@@ -190,7 +190,7 @@ __host__ __device__ inline PhaseGenerationResult splice_phase_tree(const PhaseTr
     auto node = tree.nodes[index];
     if constexpr (FusedDepth) {
       while (depth && !pending[depth - 1]) --depth;
-      if (!depth || node.arity < 0 || node.arity > 3) return result;
+      if (!depth || node.arity < 0 || node.arity > kPhaseMaxArity) return result;
       maximum = depth > maximum ? depth : maximum;
       --pending[depth - 1];
       if (node.arity) {
@@ -235,7 +235,7 @@ __device__ inline int phase_subtree_end_warp(const PhaseTreeView& tree, int star
   for (int chunk = start; chunk < tree.node_count; chunk += 32) {
     const int i = chunk + lane; const bool live = i < tree.node_count;
     const int arity = live ? tree.nodes[i].arity : 1;
-    const bool invalid = live && (arity < 0 || arity > 3);
+    const bool invalid = live && (arity < 0 || arity > kPhaseMaxArity);
     int scan = live ? arity - 1 : 0;
     for (int offset = 1; offset < 32; offset <<= 1) { const int up = __shfl_up_sync(full, scan, offset); if (lane >= offset) scan += up; }
     const bool hit = live && !invalid && pending + scan == 0;
@@ -277,7 +277,7 @@ __device__ inline PhaseGenerationResult splice_phase_tree_warp(const PhaseTreeVi
     for (int j = 0; j < lanes; ++j) {
       const int arity = __shfl_sync(full, node.arity, j);
       while (depth && !pending[depth - 1]) --depth;
-      if (!depth || arity < 0 || arity > 3) { bad = true; break; }
+      if (!depth || arity < 0 || arity > kPhaseMaxArity) { bad = true; break; }
       maximum = depth > maximum ? depth : maximum;
       --pending[depth - 1];
       if (arity) { if (depth == 64) { bad = true; break; } pending[depth++] = arity; }

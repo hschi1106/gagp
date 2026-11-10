@@ -13,10 +13,31 @@ namespace gagp::evo::repro {
 // Let (value, body) binds lexical index `operand` for its body; Bound reads a
 // lexical index: the innermost active Let binder, otherwise binder local
 // `operand` of a region phase.
-enum class PhaseTreeKind : int { Constant, Local, Operation, If, And, Or, Program, Block, Nil, Assign, Return, ForRange, Var, Let, Bound };
+// Region (operands..., phases...) is a bounded region of grammar region table
+// entry `operand`: operands lower in place, each phase lowers as a separate
+// program whose locals start with the phase bindings (see PhaseRegionInfo).
+enum class PhaseTreeKind : int { Constant, Local, Operation, If, And, Or, Program, Block, Nil, Assign, Return, ForRange, Var, Let, Bound, Region };
 // Completion tag of a statement; never a runtime value tag.
 constexpr ValueTag kPhaseStatement = static_cast<ValueTag>(0xF0);
 constexpr int kPhaseNamedLocals = 16;
+// Widest node: a bounded region with its operands and phases.
+constexpr int kPhaseMaxArity = 8;
+// Bounded regions per lowered program and the lowering record marker below.
+constexpr int kPhaseMaxRegions = 4;
+constexpr std::uint8_t kPhaseRegionRecord = 0xFF;
+enum class PhaseCaptureKind : int { Input, Local, Bound };
+// Static shape of one grammar bounded region. Captures name an evaluator input
+// position, a grammar local, or a lexical index; phase p sees phase_bindings[p]
+// binder locals typed binding_types[p][...] and yields phase_type[p].
+struct PhaseRegionInfo {
+  int operands = 0, phases = 0, captures = 0;
+  ValueTag operand_types[kPhaseMaxArity]{};
+  PhaseCaptureKind capture_kind[kPhaseMaxArity]{};
+  int capture_target[kPhaseMaxArity]{};
+  int phase_bindings[kPhaseMaxArity]{};
+  ValueTag phase_type[kPhaseMaxArity]{};
+  ValueTag binding_types[kPhaseMaxArity][kPhaseMaxArity]{};
+};
 struct PhaseTreeNode {
   PhaseTreeKind kind = PhaseTreeKind::Constant;
   Opcode opcode = Opcode::PushConst;
@@ -49,6 +70,13 @@ struct PhaseCompileResult {
   // A lexical binder or checked conversion was lowered: like the native
   // compiler, the program keeps its per-instruction fuel table even when unit.
   bool general_regions = false;
+  // With bounded regions, code_count/constant_count also cover the region
+  // records that follow the main code (main_* counts): per region, in
+  // completion order, a header {a: region table entry, b: phases, fuel:
+  // captures}, one {a: caller local} per capture, then per phase a header
+  // {a: code, b: constants, fuel: locals | 1<<16 if general} and its code.
+  // Phase constants follow the main constants in the same order.
+  int region_count = 0, main_code_count = 0, main_constant_count = 0;
 };
 namespace phase_compile_detail {
 using gpu_detail::DInstr;
@@ -151,20 +179,23 @@ __host__ __device__ inline bool phase_locals_defined(const PhaseTreeNode* nodes,
 // One thread per phase. All cursors/output writes are capacity checked; depth is
 // bounded independently of input metadata. Invalid/unsupported output is never
 // executable. No device allocation, recursive C++ call, or run-time JIT occurs.
-template<bool SharedNodes = false, bool CompactFrames = false>
+// Regions=false lowers one region phase (no nested regions); the Regions=true
+// instantiation calls it once per phase, so no recursive call arises.
+template<bool SharedNodes = false, bool CompactFrames = false, bool Regions = true>
 __host__ __device__ inline PhaseCompileResult compile_phase_tree(
     const PhaseTreeNode* nodes, int node_count,
     const Value* constants, int constant_count,
     const ValueTag* local_types, int local_count, ValueTag expected,
-    gpu_detail::DInstr* code, int code_capacity, Value* output_constants, int constant_capacity) {
+    gpu_detail::DInstr* code, int code_capacity, Value* output_constants, int constant_capacity,
+    const PhaseRegionInfo* regions = nullptr, int region_info_count = 0) {
   using namespace phase_compile_detail;
   static_assert(!CompactFrames || SharedNodes, "compact frames use immutable node indices");
   if constexpr (CompactFrames) {
     // The generic helper accepts larger code buffers. Preserve that contract
     // instead of narrowing it to the native owner's bounded compact indices.
     if (node_count > 4096 || code_capacity > 32767)
-      return compile_phase_tree<SharedNodes, false>(nodes,node_count,constants,constant_count,
-          local_types,local_count,expected,code,code_capacity,output_constants,constant_capacity);
+      return compile_phase_tree<SharedNodes, false, Regions>(nodes,node_count,constants,constant_count,
+          local_types,local_count,expected,code,code_capacity,output_constants,constant_capacity,regions,region_info_count);
   }
   Output out{code,output_constants,code_capacity,constant_capacity,{}};
   if (expected==kPhaseStatement && nodes && node_count>0 && !phase_locals_defined(nodes,node_count)) return out.result;
@@ -180,6 +211,10 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
   struct SharedNode { FrameIndex index; };
   using StoredNode = typename std::conditional<SharedNodes, SharedNode, CopiedNode>::type;
   struct Frame { StoredNode source; FrameIndex base_stack, first_jump, second_jump; ValueTag args[3]; ChildCount seen; };
+  // Bounded regions in completion order (the native segment order): the
+  // phase subtree bounds and each capture's caller local.
+  struct RegionRecord { int info, captures[kPhaseMaxArity], bounds[kPhaseMaxArity+1]; };
+  RegionRecord records[Regions ? kPhaseMaxRegions : 1]; int region_count=0;
   static_assert(!CompactFrames || sizeof(Frame)==12, "compact lowering frame layout");
   Frame frames[64]; int depth=0, cursor=0;
   ValueTag completed=ValueTag::Invalid;
@@ -215,6 +250,38 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
     const int slot=free_count ? freed[--free_count] : fresh_local();
     if (slot>=0) live[live_count++]=static_cast<std::int8_t>(slot);
     return slot;
+  };
+  // The operands are on the stack. Like the native compiler, resolve the
+  // captures, set the phase subtrees aside and emit BoundedRegion.
+  const auto finish_region=[&](const PhaseTreeNode& node) -> bool {
+    if constexpr (!Regions) { out.result.status=PhaseCompileStatus::Unsupported; return false; }
+    else {
+      if (region_count==kPhaseMaxRegions) { out.result.status=PhaseCompileStatus::Capacity; return false; }
+      const auto& info=regions[node.operand]; auto& record=records[region_count];
+      record.info=node.operand;
+      for (int c=0; c<info.captures; ++c) {
+        const int target=info.capture_target[c]; int slot=-1;
+        if (info.capture_kind[c]==PhaseCaptureKind::Input) slot=target>=0 ? variable_slot(-1-target) : -1;
+        else if (info.capture_kind[c]==PhaseCaptureKind::Local) slot=variable_slot(target);
+        else if (target>=0 && target<8) slot=env_slot[target];
+        if (slot<0) return false;
+        record.captures[c]=slot;
+      }
+      for (int p=0; p<info.phases; ++p) {
+        record.bounds[p]=cursor; int pending=1;
+        while (pending) {
+          if (cursor>=node_count) return false;
+          const int arity=nodes[cursor++].arity;
+          if (arity<0 || arity>kPhaseMaxArity) return false;
+          pending+=arity-1;
+        }
+      }
+      record.bounds[info.phases]=cursor;
+      if (!out.emit(Opcode::BoundedRegion,node.fuel,region_count,0,gpu_detail::DINSTR_HAS_A)) return false;
+      out.stack-=info.operands; out.grow(1); ++region_count;
+      typed_views=private_intlists=false; completed=node.type;
+      return true;
+    }
   };
   for (;;) {
     if (!have_value) {
@@ -257,6 +324,23 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
         const int slot=variable_slot(node.operand); if (slot<0) return out.result;
         if (!out.emit(Opcode::Load,node.fuel,slot,0,gpu_detail::DINSTR_HAS_A)) return out.result;
         out.grow(1); typed_views=private_intlists=false; completed=node.type; have_value=true;
+      } else if (node.kind==PhaseTreeKind::Region) {
+        if (!regions || node.operand<0 || node.operand>=region_info_count) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
+        const auto& info=regions[node.operand];
+        if (info.phases<1 || info.operands<0 || info.captures<0 || info.captures>kPhaseMaxArity ||
+            node.arity!=info.operands+info.phases || node.arity>kPhaseMaxArity) return out.result;
+        if (info.operands==0) {
+          // Without operands the main code sees a leaf.
+          if (!finish_region(node)) return out.result;
+          have_value=true;
+        } else {
+          if (depth==64) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
+          StoredNode source;
+          if constexpr (SharedNodes) source.index=cursor-1;
+          else source.node=node;
+          frames[depth++]={source,static_cast<FrameIndex>(out.stack),-1,-1,{},0};
+          continue;
+        }
       } else {
         if (node.arity<1 || node.arity>3) return out.result;
         if (node.kind==PhaseTreeKind::If) { if (node.arity!=3) return out.result; }
@@ -294,6 +378,29 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
       out.result.local_count=total_locals; out.result.general_regions=general;
       for (int g=0; g<kPhaseNamedLocals; ++g)
         out.result.named_slots[g]=named_mask>>g & 1U ? static_cast<std::int8_t>(named[g]+1) : 0;
+      out.result.main_code_count=out.result.code_count; out.result.main_constant_count=out.result.constant_count;
+      if constexpr (Regions) {
+        out.result.region_count=region_count;
+        for (int r=0; r<region_count; ++r) {
+          const auto& record=records[r]; const auto& info=regions[record.info];
+          if (!out.emit(static_cast<Opcode>(kPhaseRegionRecord),info.captures,record.info,info.phases)) return out.result;
+          for (int c=0; c<info.captures; ++c)
+            if (!out.emit(static_cast<Opcode>(kPhaseRegionRecord),0,record.captures[c])) return out.result;
+          for (int p=0; p<info.phases; ++p) {
+            const int header=out.result.code_count;
+            if (!out.emit(static_cast<Opcode>(kPhaseRegionRecord),0)) return out.result;
+            const auto phase=compile_phase_tree<SharedNodes,CompactFrames,false>(nodes+record.bounds[p],record.bounds[p+1]-record.bounds[p],
+                constants,constant_count,info.binding_types[p],info.phase_bindings[p],info.phase_type[p],
+                out.code+out.result.code_count,code_capacity-out.result.code_count,
+                out.constants+out.result.constant_count,constant_capacity-out.result.constant_count);
+            if (phase.status!=PhaseCompileStatus::Ok) { out.result.status=phase.status; return out.result; }
+            out.code[header].a=phase.code_count; out.code[header].b=phase.constant_count;
+            out.code[header].fuel=static_cast<unsigned>(phase.local_count)|(phase.general_regions ? 1U<<16 : 0U);
+            out.result.code_count+=phase.code_count; out.result.constant_count+=phase.constant_count;
+            if (phase.stack_bound>out.result.stack_bound) out.result.stack_bound=phase.stack_bound;
+          }
+        }
+      }
       return out.result;
     }
     auto& frame=frames[depth-1];
@@ -301,7 +408,15 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
       if constexpr (SharedNodes) return nodes[frame.source.index];
       else return frame.source.node;
     }();
-    frame.args[frame.seen++]=completed;
+    if (frame.seen<3) frame.args[frame.seen]=completed;
+    ++frame.seen;
+    if (node.kind==PhaseTreeKind::Region) {
+      const auto& info=regions[node.operand];
+      if (completed!=info.operand_types[frame.seen-1]) return out.result;
+      if (frame.seen<info.operands) { have_value=false; continue; }
+      if (!finish_region(node)) return out.result;
+      --depth; continue;
+    }
     const bool branch=node.kind==PhaseTreeKind::If || node.kind==PhaseTreeKind::And || node.kind==PhaseTreeKind::Or;
     if (branch && frame.seen==1) {
       if (completed!=ValueTag::Bool) return out.result;
@@ -421,5 +536,11 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
     }
     --depth;
   }
+}
+// nvcc emits device code for the region-phase instantiations, which only other
+// instantiations of the same template call, once they are named here.
+__host__ __device__ inline void phase_compile_region_instantiations() {
+  (void)&compile_phase_tree<true, true, false>; (void)&compile_phase_tree<true, false, false>;
+  (void)&compile_phase_tree<false, false, false>;
 }
 }  // namespace gagp::evo::repro

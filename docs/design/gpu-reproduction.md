@@ -469,14 +469,14 @@ GPU evaluation + GPU reproduction modes. It uses one host thread. The default
 native AST backend remains the explicit fallback, with the reason recorded in
 `EvolutionResult`. This profile admits one fixed root region template with
 independent whole-phase holes, identity scopes and unit variable-phase resource
-charges. A grammar without bounded regions whose entry is an expression is
+charges. A grammar without templates whose entry is an expression is
 admitted as one whole-program phase: the entry expression is the only variable
 phase, grammar inputs lower to preset locals in evaluator input order, and the
 lowered code is completed by the native program terminator
 (`patch_whole_program` in `phase_layout.hpp`). Phase expressions may use all
 eight value types, any catalog operation whose arity matches, grammar inputs,
 finite constant domains of any type and Int ranges.
-A Program entry without regions is admitted the same way, with the whole
+A Program entry without templates is admitted the same way, with the whole
 Program as its phase and no appended terminator: statements (`assign`,
 `return`, `if_stmt`, `for_range`, blocks), up to 16 grammar locals and named
 input targets lower exactly as the native compiler does, including the
@@ -494,11 +494,22 @@ position) for its body, and a bound reference reads the innermost active
 binder. Lowering mirrors the native compiler: the binder temporary is
 allocated before the value, and temporaries are recycled LIFO when the body
 ends. Programs that contain a binder or a checked conversion keep the native
-per-instruction fuel table. Let binders inside bounded-region phases, and
-`let` with authored fuel charges, decline the profile. Grammars whose only
+per-instruction fuel table. A `let` bind fuel charge prices its binding
+store. Let binders inside the phases of the region-template layout above decline
+the profile.
+Whole-program phases may also contain bounded regions (`PhaseTreeKind::Region`,
+at most 8 operands plus phases, 8 captures and 4 regions per program). Operands
+lower in place; each phase is a separate program whose locals start with its
+bindings, and a phase child sees only those bindings (`child_scope`), so
+variation inside a phase uses the phase's own lexical scope. Input, local and
+lexical captures resolve to caller locals exactly as the native compiler does.
+The phase compiler appends one record per region after the main code
+(`PhaseCompileResult`), and `patch_whole_program` assembles them into the
+native `BoundedRegionSegment`s, which `verify_bounded_region_segment` checks.
+Region phases may not reach inputs, grammar locals, statements or nested
+regions, matching the native compiler. Grammars whose only
 member is one fixed program (no nonterminal reference and no constant choice),
-bounded regions inside variable subtrees, traversals and templates outside a
-region use the native fallback.
+traversals and templates outside a region use the native fallback.
 Fixed skeleton charges must be at most one node/level without depth resets.
 The profile conservatively enforces physical whole-program node/depth budgets,
 including zero-charge administrative nodes; weighted/reset skeletons and inputs

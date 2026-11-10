@@ -4,9 +4,11 @@
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/bounded_region.hpp"
 #include "gagp/evolution/compiler.hpp"
+#include "gagp/core/bytecode_verify.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/repro/pack.hpp"
 #include <algorithm>
+#include <array>
 #include <map>
 #include <set>
 #include <cstdlib>
@@ -76,9 +78,10 @@ class NativePhaseGrammarProfiles final {
   std::map<std::tuple<unsigned,unsigned,unsigned>,HostPhaseGrammar> profiles_;
 };
 
-// Lexical operands of a let-carrying gene: a Bound reads its environment
-// position and a Let binds the next position (identity scope maps). This is
-// the same walk the device recognizer checks.
+// Lexical operands of a let- or region-carrying gene: a Bound reads its
+// environment position, a Let binds the next position (identity scope maps)
+// and a region phase starts with its own bindings. This is the same walk the
+// device recognizer checks.
 inline void assign_phase_binders(const HostPhaseGrammar& profile, std::size_t scope, HostPhaseGene& gene) {
   struct Task { int expression, scope; };
   std::vector<Task> pending{{profile.root_expression, static_cast<int>(scope)}};
@@ -98,7 +101,7 @@ inline void assign_phase_binders(const HostPhaseGrammar& profile, std::size_t sc
       phase_layout_require(task.scope < 8, "lexical capacity"); node.operand = task.scope;
     }
     for (int i = node.arity - 1; i >= 0; --i)
-      pending.push_back({expression.children[i], task.scope + (i == expression.bind_argument ? 1 : 0)});
+      pending.push_back({expression.children[i], phase_child_scope(expression, i, task.scope)});
   }
   phase_layout_require(cursor == gene.nodes.size(), "binder walk");
 }
@@ -139,12 +142,11 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
     depths[i] = pending.size(); --pending.back();
     const auto arity = node_prefix_arity(ast.nodes[i]); if (arity) pending.push_back(arity);
   }
-  if (ast.bounded_region_specs.empty()) {
+  if (witness.templates.empty()) {
     // Whole-program mode: the entry nonterminal's outermost choice is the phase.
-    // Let regions are phase nodes; the phase grammar rejects every other
-    // lexical region primitive, and traversals carry their own specs.
-    phase_layout_require(ast.traversal_specs.empty() && witness.templates.empty(),
-        "whole-program phase requires no bounded regions, traversals or templates");
+    // Let and bounded regions are phase nodes; the phase grammar rejects every
+    // other lexical region primitive, and traversals carry their own specs.
+    phase_layout_require(ast.traversal_specs.empty(), "whole-program phase requires no traversals");
     for (const auto& region : ast.lexical_regions)
       phase_layout_require(ast.nodes.at(region.node_index).kind == NodeKind::LET_REGION, "whole-program lexical region");
     const auto& entry = grammar.nonterminals()[grammar.entry()];
@@ -304,8 +306,7 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   for (const auto& local : grammar.locals()) result.local_names.push_back(local.name);
   if (result.whole_program && result.program_terminator) {
     const auto& code = result.executable.code;
-    phase_layout_require(!code.empty() && code.back().op == Opcode::Return &&
-        result.executable.bounded_region_segments.empty(), "whole-program executable must end in Return");
+    phase_layout_require(!code.empty() && code.back().op == Opcode::Return, "whole-program executable must end in Return");
     result.program_return = code.back();
     result.program_return_fuel = result.executable.instruction_fuel.empty() ? 1 : result.executable.instruction_fuel.back();
   }
@@ -324,8 +325,10 @@ inline std::string native_phase_skeleton_key(const NativePhaseLayout& layout) {
   else {remap[i]=ast.nodes.size();ast.nodes.push_back(layout.prototype.nodes[i]);++i;}
  }
  for(const auto& fuel:layout.prototype.fuel_specs)if(remap.at(fuel.node_index)!=std::size_t(-1))ast.fuel_specs.push_back({remap[fuel.node_index],fuel.charges});
- for(auto& region:ast.bounded_region_specs)region.node_index=remap.at(region.node_index);
- // Let binders belong to the phase they occur in, never to the skeleton.
+ // Bounded regions and let binders inside a phase belong to that phase.
+ std::vector<BoundedRegionSpec> fixed_regions;
+ for(auto region:ast.bounded_region_specs)if(remap.at(region.node_index)!=std::size_t(-1)){region.node_index=remap[region.node_index];fixed_regions.push_back(std::move(region));}
+ ast.bounded_region_specs=std::move(fixed_regions);
  std::vector<LexicalRegion> fixed_lexical;
  for(auto region:ast.lexical_regions)if(remap.at(region.node_index)!=std::size_t(-1)){region.node_index=remap[region.node_index];fixed_lexical.push_back(std::move(region));}
  ast.lexical_regions=std::move(fixed_lexical);
@@ -350,23 +353,35 @@ inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& 
   ProgramGenome out; auto& ast = out.ast; ast = layout.prototype; ast.nodes.clear(); ast.fuel_specs.clear();
   std::vector<std::size_t> remap(layout.prototype.nodes.size(), std::size_t(-1));
   std::size_t slot_index = 0;
-  // Let binders live only inside phases; fresh IDs avoid every fixed binder.
+  const auto inside_slot = [&](std::size_t index) {
+    return std::any_of(layout.slots.begin(), layout.slots.end(), [&](const auto& slot) {
+      return index >= slot.begin && index < slot.end; });
+  };
+  // Let and region binders live only inside phases; fresh IDs avoid every
+  // fixed binder.
   int next_binder = 0;
-  for (const auto& region : ast.bounded_region_specs)
+  std::vector<BoundedRegionSpec> fixed_regions, phase_regions;
+  for (const auto& region : ast.bounded_region_specs) {
     for (const auto& phase : region.phases)
       for (const auto& binding : phase.bindings) next_binder = std::max(next_binder, binding.binder_id + 1);
+    if (!inside_slot(region.node_index)) fixed_regions.push_back(region);
+  }
   for (const auto& region : ast.lexical_regions) {
-    phase_layout_require(std::any_of(layout.slots.begin(), layout.slots.end(), [&](const auto& slot) {
-      return region.node_index >= slot.begin && region.node_index < slot.end; }), "fixed lexical region");
+    phase_layout_require(inside_slot(region.node_index), "fixed lexical region");
     for (const auto& binding : region.bindings) next_binder = std::max(next_binder, binding.id + 1);
   }
   ast.lexical_regions.clear();
+  const auto name_index = [&](const std::string& name) {
+    auto found = std::find(ast.names.begin(), ast.names.end(), name);
+    if (found == ast.names.end()) found = ast.names.insert(ast.names.end(), name);
+    return static_cast<int>(found - ast.names.begin());
+  };
   for (std::size_t i = 0; i < layout.prototype.nodes.size();) {
     if (slot_index < layout.slots.size() && layout.slots[slot_index].begin == i) {
       const auto& slot = layout.slots[slot_index]; const auto& gene = genes[slot_index];
+      const auto& profile = layout.profiles.at(slot_index);
       phase_layout_require(!gene.nodes.empty() && gene.nodes.size() <= layout.budget.max_nodes &&
           gene.nodes.size() == gene.origins.size(), "invalid gene shape");
-      // Subtree ends locate each let body; active binders shadow LIFO.
       std::vector<std::size_t> ends(gene.nodes.size());
       {
         std::vector<std::size_t> sizes;
@@ -380,57 +395,79 @@ inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& 
         }
         phase_layout_require(sizes.size() == 1 && sizes.back() == gene.nodes.size(), "invalid gene shape");
       }
-      struct Active { int index, binder, saved; std::size_t end; };
-      std::vector<Active> active; std::vector<std::pair<std::size_t, Active>> starts;
-      int env[8]; std::fill(env, env + 8, -1);
-      for (std::size_t j = 0; j < gene.nodes.size(); ++j) {
-        while (!active.empty() && active.back().end <= j) { env[active.back().index] = active.back().saved; active.pop_back(); }
-        if (!starts.empty() && starts.back().first == j) {
-          auto a = starts.back().second; starts.pop_back();
-          a.saved = env[a.index]; env[a.index] = a.binder; active.push_back(a);
-        }
+      // `env` maps each lexical index to its native binder: a let body adds
+      // one, and a region phase sees only its own bindings. Recursion depth is
+      // bounded by the phase depth budget.
+      using Environment = std::array<int, 8>;
+      std::function<void(std::size_t, const Environment&)> emit = [&](std::size_t j, const Environment& env) {
         const int id = gene.origins[j];
         phase_layout_require(id >= 0 && std::size_t(id) < grammar.expressions().size(), "unknown expression origin");
-        const auto& e = grammar.expressions()[id]; const auto& model = layout.profiles[slot_index].expressions.at(id);
+        const auto& e = grammar.expressions()[id]; const auto& model = profile.expressions.at(id);
         const auto node = gene.nodes[j]; AstNode native{static_cast<NodeKind>(model.native_kind)};
         phase_layout_require(node.kind == model.node.kind && node.opcode == model.node.opcode &&
             node.arity == model.node.arity && node.fuel == model.node.fuel && node.merge_fuel == model.node.merge_fuel,
             "gene/expression contract mismatch");
+        int let_binder = -1; std::optional<BoundedRegionSpec> region;
         if (e.kind == grammar::ExpressionKind::Constant) {
           phase_layout_require(node.operand >= 0 && std::size_t(node.operand) < gene.constants.size(), "constant index");
           native.i0 = ast.consts.size(); ast.consts.push_back(gene.constants[node.operand]);
         } else if (e.kind == grammar::ExpressionKind::Input) {
-          const auto& name = grammar.inputs().at(e.target).name;
-          auto found = std::find(ast.names.begin(), ast.names.end(), name);
-          if (found == ast.names.end()) found = ast.names.insert(ast.names.end(), name);
-          native.i0 = static_cast<int>(found - ast.names.begin());
+          native.i0 = name_index(grammar.inputs().at(e.target).name);
         } else if (e.kind == grammar::ExpressionKind::Bound) {
-          phase_layout_require(node.operand >= 0 && node.operand < 8, "lexical index");
-          if (env[node.operand] >= 0) native.i0 = env[node.operand];
-          else {
-            phase_layout_require(std::size_t(node.operand) < slot.binders.size(), "lexical index");
-            native.i0 = slot.binders[node.operand];
-          }
+          phase_layout_require(node.operand >= 0 && node.operand < 8 && env[node.operand] >= 0, "lexical index");
+          native.i0 = env[node.operand];
         } else if (model.bind_argument >= 0) {
           phase_layout_require(node.operand >= 0 && node.operand < 8 && model.bind_argument < node.arity &&
               e.regions.size() == 1 && e.regions[0].bindings.size() == 1, "let binder");
-          std::size_t body = j + 1;
-          for (int c = 0; c < model.bind_argument; ++c) body = ends[body];
-          const int binder = next_binder++;
-          ast.lexical_regions.push_back({ast.nodes.size(), model.bind_argument, {{binder, e.regions[0].bindings[0].type}}});
-          phase_layout_require(starts.empty() || starts.back().first > body, "let binder order");
-          starts.push_back({body, {node.operand, binder, -1, ends[body]}});
+          let_binder = next_binder++;
+          ast.lexical_regions.push_back({ast.nodes.size(), model.bind_argument, {{let_binder, e.regions[0].bindings[0].type}}});
+        } else if (e.kind == grammar::ExpressionKind::Structured) {
+          phase_layout_require(node.operand == model.node.operand && node.operand >= 0 &&
+              std::size_t(node.operand) < profile.region_sources.size() &&
+              profile.region_sources[node.operand].expression == unsigned(id), "region operand");
+          native.i0 = node.arity;
+          region.emplace(); region->plan = profile.region_sources[node.operand].plan;
+          for (const auto& capture : e.captures) {
+            if (capture.kind == grammar::CompiledCaptureKind::Input)
+              region->parameters.push_back({RegionCaptureKind::Name, name_index(grammar.inputs().at(capture.target).name)});
+            else if (capture.kind == grammar::CompiledCaptureKind::Local)
+              region->parameters.push_back({RegionCaptureKind::Name, name_index(grammar.locals().at(capture.target).name)});
+            else {
+              phase_layout_require(capture.target < 8 && env[capture.target] >= 0, "region capture");
+              region->parameters.push_back({RegionCaptureKind::Lexical, env[capture.target]});
+            }
+          }
+          for (std::size_t p = 0; p < e.phases.size(); ++p) {
+            RegionAstPhase phase; phase.argument = e.phases[p].argument;
+            for (const auto& source : e.phases[p].sources) phase.bindings.push_back({source, next_binder++});
+            region->phases.push_back(std::move(phase));
+          }
         } else {
           phase_layout_require(node.operand == model.node.operand, "operation operand");
-          if (const auto* name = phase_target_name(grammar, e)) {
-            auto found = std::find(ast.names.begin(), ast.names.end(), *name);
-            if (found == ast.names.end()) found = ast.names.insert(ast.names.end(), *name);
-            native.i0 = static_cast<int>(found - ast.names.begin());
-          }
+          if (const auto* name = phase_target_name(grammar, e)) native.i0 = name_index(*name);
         }
-        if (!e.fuel_charges.empty()) ast.fuel_specs.push_back({ast.nodes.size(),e.fuel_charges});
+        const auto index = ast.nodes.size();
+        if (!e.fuel_charges.empty()) ast.fuel_specs.push_back({index, e.fuel_charges});
         ast.nodes.push_back(native);
-      }
+        std::size_t child = j + 1;
+        for (int c = 0; c < node.arity; ++c) {
+          phase_layout_require(child < gene.nodes.size(), "invalid gene shape");
+          Environment inner = env;
+          if (region && c >= int(region->plan.state_types.size() + region->plan.bound_operand_count)) {
+            const auto& phase = region->phases.at(c - region->plan.state_types.size() - region->plan.bound_operand_count);
+            phase_layout_require(phase.argument == unsigned(c) && phase.bindings.size() < 8, "region phase layout");
+            inner.fill(-1);
+            for (std::size_t b = 0; b < phase.bindings.size(); ++b) inner[b] = phase.bindings[b].binder_id;
+          } else if (let_binder >= 0 && c == model.bind_argument) inner[node.operand] = let_binder;
+          emit(child, inner); child = ends[child];
+        }
+        // Native generation records a region after its subtrees.
+        if (region) { region->node_index = index; phase_regions.push_back(std::move(*region)); }
+      };
+      Environment env; env.fill(-1);
+      phase_layout_require(slot.binders.size() <= env.size(), "lexical capacity");
+      for (std::size_t b = 0; b < slot.binders.size(); ++b) env[b] = slot.binders[b];
+      emit(0, env);
       i = slot.end; ++slot_index;
     } else {
       remap[i] = ast.nodes.size(); ast.nodes.push_back(layout.prototype.nodes[i]); ++i;
@@ -438,10 +475,12 @@ inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& 
   }
   for (const auto& fuel : layout.prototype.fuel_specs)
     if (remap.at(fuel.node_index) != std::size_t(-1)) ast.fuel_specs.push_back({remap[fuel.node_index],fuel.charges});
-  for (auto& region : ast.bounded_region_specs) {
+  for (auto& region : fixed_regions) {
     phase_layout_require(remap.at(region.node_index) != std::size_t(-1), "region overwritten by phase");
     region.node_index = remap[region.node_index];
   }
+  phase_layout_require(fixed_regions.empty() || phase_regions.empty(), "bounded region inside a region phase");
+  ast.bounded_region_specs = fixed_regions.empty() ? std::move(phase_regions) : std::move(fixed_regions);
   // Compaction is only serialization cleanup; the independent caller audits
   // this output before treating it as an imported executable/member.
   return compact_genome_tables(std::move(out));
@@ -452,27 +491,78 @@ template<class Code>
 inline void patch_whole_program(BytecodeProgram& program, const NativePhaseLayout& layout,
     const Code* code, int code_count, const Value* constants, int constant_count, const PhaseCompileResult& lowered) {
   phase_layout_require(layout.whole_program, "whole-program patch on a region layout");
+  const auto instruction = [](const Code& x) {
+    return Instr{static_cast<Opcode>(x.op), x.a, x.b, bool(x.flags & 1), bool(x.flags & 2)};
+  };
+  // The native compiler leaves an all-unit charge table empty unless the
+  // program lowered a lexical binder or checked conversion.
+  const auto settle_fuel = [](std::vector<std::uint32_t>& fuel, bool general) {
+    if (!general && std::all_of(fuel.begin(), fuel.end(), [](std::uint32_t f) { return f == 1; })) fuel.clear();
+  };
+  const int main_code = lowered.region_count ? lowered.main_code_count : code_count;
+  const int main_constants = lowered.region_count ? lowered.main_constant_count : constant_count;
+  phase_layout_require(main_code >= 0 && main_code <= code_count && main_constants >= 0 &&
+      main_constants <= constant_count, "whole-program region records");
   program.code.clear(); program.instruction_fuel.clear();
-  program.code.reserve(code_count + 1); program.instruction_fuel.reserve(code_count + 1);
-  for (int i = 0; i < code_count; ++i) {
-    const auto x = code[i];
-    program.code.push_back({static_cast<Opcode>(x.op), x.a, x.b, bool(x.flags & 1), bool(x.flags & 2)});
-    program.instruction_fuel.push_back(x.fuel);
+  program.code.reserve(main_code + 1); program.instruction_fuel.reserve(main_code + 1);
+  for (int i = 0; i < main_code; ++i) {
+    program.code.push_back(instruction(code[i])); program.instruction_fuel.push_back(code[i].fuel);
   }
   if (layout.program_terminator) {
     program.code.push_back(layout.program_return); program.instruction_fuel.push_back(layout.program_return_fuel);
   }
-  // The native compiler leaves an all-unit charge table empty unless the
-  // program lowered a lexical binder or checked conversion.
-  if (!lowered.general_regions && std::all_of(program.instruction_fuel.begin(), program.instruction_fuel.end(), [](std::uint32_t f) { return f == 1; }))
-    program.instruction_fuel.clear();
-  program.consts.assign(constants, constants + constant_count);
+  settle_fuel(program.instruction_fuel, lowered.general_regions);
+  program.consts.assign(constants, constants + main_constants);
   // Named locals enter the native variable map on first use, after the inputs.
   program.n_locals = lowered.local_count;
   program.var2idx.clear();
   for (std::size_t i = 0; i < layout.input_names.size(); ++i) program.var2idx[layout.input_names[i]] = int(i);
   for (int g = 0; g < kPhaseNamedLocals; ++g)
     if (lowered.named_slots[g]) program.var2idx[layout.local_names.at(g)] = lowered.named_slots[g] - 1;
+  // Region records (see PhaseCompileResult) become the native segments, in the
+  // native compiler's completion order.
+  program.bounded_region_segments.clear();
+  int cursor = main_code, value = main_constants;
+  const auto next = [&]() -> const Code& {
+    phase_layout_require(cursor < code_count, "whole-program region records");
+    return code[cursor++];
+  };
+  for (int r = 0; r < lowered.region_count; ++r) {
+    const auto& header = next();
+    phase_layout_require(header.op == kPhaseRegionRecord && header.a >= 0 &&
+        std::size_t(header.a) < layout.profiles.at(0).region_sources.size(), "whole-program region record");
+    const auto& source = layout.profiles[0].region_sources[header.a];
+    phase_layout_require(std::size_t(header.b) == source.sources.size() &&
+        header.fuel == unsigned(layout.profiles[0].regions[header.a].captures), "whole-program region record");
+    BoundedRegionSegment segment; segment.plan = source.plan;
+    for (unsigned c = 0; c < header.fuel; ++c) segment.parameter_locals.push_back(next().a);
+    for (std::size_t p = 0; p < source.sources.size(); ++p) {
+      const auto& phase_header = next();
+      phase_layout_require(phase_header.op == kPhaseRegionRecord && phase_header.a >= 0 && phase_header.b >= 0 &&
+          cursor + phase_header.a <= code_count && value + phase_header.b <= constant_count, "whole-program region phase");
+      RegionPhase phase;
+      for (int i = 0; i < phase_header.a; ++i) {
+        phase.program.code.push_back(instruction(code[cursor + i])); phase.program.instruction_fuel.push_back(code[cursor + i].fuel);
+      }
+      settle_fuel(phase.program.instruction_fuel, phase_header.fuel >> 16 & 1U);
+      phase.program.consts.assign(constants + value, constants + value + phase_header.b);
+      phase.program.n_locals = int(phase_header.fuel & 0xffffU);
+      for (std::size_t b = 0; b < source.sources[p].size(); ++b) phase.bindings.push_back({source.sources[p][b], int(b)});
+      cursor += phase_header.a; value += phase_header.b;
+      switch (bounded_region_phase_kind(segment.plan, p)) {
+        case RegionPhaseKind::BasePredicate: segment.base_predicate = std::move(phase); break;
+        case RegionPhaseKind::BaseBody: segment.base_body = std::move(phase); break;
+        case RegionPhaseKind::Preparation: segment.preparations.push_back(std::move(phase)); break;
+        case RegionPhaseKind::Request: segment.request_expressions.push_back(std::move(phase)); break;
+        case RegionPhaseKind::Combine: segment.combine = std::move(phase); break;
+        case RegionPhaseKind::Boundary: segment.boundary = std::move(phase); break;
+      }
+    }
+    const auto verified = verify_bounded_region_segment(segment, program.n_locals);
+    phase_layout_require(bool(verified), "lowered bounded region segment");
+    program.bounded_region_segments.push_back(std::move(segment));
+  }
+  phase_layout_require(cursor == code_count && value == constant_count, "whole-program region records");
 }
 // Mutable phase of a native layout slot inside an executable region segment.
 inline RegionPhase& native_phase_at(BoundedRegionSegment& segment,std::size_t ordinal) {

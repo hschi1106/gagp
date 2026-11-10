@@ -42,7 +42,8 @@ struct HostProfile {
  }
  PhaseGrammarView view()const{return {grammar.expressions.data(),int(grammar.expressions.size()),productions.data(),int(productions.size()),
   nonterminals.data(),int(nonterminals.size()),grammar.domains.data(),int(grammar.domains.size()),grammar.values.data(),int(grammar.values.size()),
-  grammar.minimum.data(),grammar.depth_count,grammar.logical_depth_count,grammar.site_depth};}
+  grammar.minimum.data(),grammar.depth_count,grammar.logical_depth_count,grammar.site_depth,
+  grammar.regions.data(),int(grammar.regions.size())};}
 };
 // The CPU reference engine is single-threaded.
 template<class Function> void each_row(int count,Function function) {
@@ -146,7 +147,7 @@ struct HostPhasePopulation::Impl {
   for(int k=0;k<slot_count;++k) {
    const int row=member*slot_count+k;const auto t=trees.view(row);const auto& slot=slots[k];
    const auto r=valid(trees.lengths[row])?compile_phase_tree<true,true>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.local_count,slot.type,
-       code.data(),code_capacity,values.data(),capacity):PhaseCompileResult{};
+       code.data(),code_capacity,values.data(),capacity,slot.grammar.regions,slot.grammar.region_count):PhaseCompileResult{};
    if(r.status!=PhaseCompileStatus::Ok || r.stack_bound<1 || r.stack_bound>gpu_detail::MAX_STACK){ok=false;continue;}
    if(layout.whole_program){patch_whole_program(executable,layout,code.data(),r.code_count,values.data(),r.constant_count,r);continue;}
    auto& program=native_phase_at(executable.bounded_region_segments[0],layout.slots[k].ordinal).program;

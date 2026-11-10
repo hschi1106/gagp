@@ -6,6 +6,7 @@
 #include <functional>
 #include <stdexcept>
 #include <vector>
+#include "gagp/core/region_plan.hpp"
 #include "gagp/evolution/grammar/budget.hpp"
 #include "gagp/evolution/grammar/values.hpp"
 #include "gagp/evolution/node_descriptor.hpp"
@@ -22,8 +23,18 @@ struct HostPhaseGrammar {
   int root_expression=-1,depth_count=0,logical_depth_count=1; bool site_depth=false;
   // Statements, controls or grammar locals were reached: whole programs only.
   bool statements=false;
-  // A let binder was reached: gene binder operands follow lexical positions.
+  // A let binder or bounded region was reached: gene binder operands follow
+  // lexical positions.
   bool lets=false;
+  // Bounded regions by table entry (PhaseTreeNode::operand of a Region node),
+  // with the host-only plan and phase binding sources for native assembly.
+  std::vector<PhaseRegionInfo> regions;
+  struct RegionSource {
+    unsigned expression=0;
+    RegionPlan plan;
+    std::vector<std::vector<RegionValueSlot>> sources;
+  };
+  std::vector<RegionSource> region_sources;
 };
 inline bool phase_statement_category(NodeCategory category) {
   return category==NodeCategory::Program || category==NodeCategory::Block ||
@@ -118,7 +129,8 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     const bool statement=phase_statement_category(e.category);
     const bool let=e.kind==ExpressionKind::Primitive &&
         PrimitiveCatalog::standard().at(e.target).lowering_node==NodeKind::LET_REGION;
-    if((e.category!=NodeCategory::Expression && !statement) || (!e.regions.empty() && !let) || phase_value_tag(e.type)==ValueTag::Invalid ||
+    const bool region=e.kind==ExpressionKind::Structured;
+    if((e.category!=NodeCategory::Expression && !statement) || (!e.regions.empty() && !let && !region) || phase_value_tag(e.type)==ValueTag::Invalid ||
         (statement && e.kind!=ExpressionKind::Reference && e.kind!=ExpressionKind::Control))
       fail("expression type or binder introduction");
     // A statement completes without a value; its type is the enclosing result.
@@ -129,7 +141,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       for(std::size_t i=0;i<e.scope_mapping.size();++i)x.scope[i]=e.scope_mapping[i];
       visit_nonterminal(e.target);return;
     }
-    if(e.children.size()>3)fail("arity capacity");
+    if(e.children.size()>(region?std::size_t(kPhaseMaxArity):3))fail("arity capacity");
     x.node.arity=e.children.size();for(std::size_t i=0;i<e.children.size();++i)x.children[i]=e.children[i];
     if(e.kind==ExpressionKind::Constant) {
       x.kind=PhaseExpressionKind::Constant;x.target=e.target;x.native_kind=static_cast<int>(NodeKind::CONST);x.node.kind=PhaseTreeKind::Constant;
@@ -167,7 +179,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         // One binder for the body argument; the binder index is the
         // environment size, so it must stay within the eight lexical indices.
         if(e.regions.size()!=1 || e.regions[0].bindings.size()!=1 || e.regions[0].argument>=e.children.size() ||
-            phase_value_tag(e.regions[0].bindings[0].type)==ValueTag::Invalid || !e.fuel_charges.empty() || environment>=8)
+            phase_value_tag(e.regions[0].bindings[0].type)==ValueTag::Invalid || environment>=8)
           fail("let capability");
         x.node.kind=PhaseTreeKind::Let;x.bind_argument=e.regions[0].argument;out.lets=true;
       } else if(kind==NodeKind::IF_EXPR)x.node.kind=PhaseTreeKind::If;
@@ -213,16 +225,95 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       // Assign/Return carry the exact stored or returned value type.
       if(x.node.kind==PhaseTreeKind::Assign || x.node.kind==PhaseTreeKind::Return)
         x.node.type=phase_value_tag(grammar.expressions().at(e.children.at(0)).type);
+    } else if(region) {
+      // A bounded region: operands in place, then phases that see only their
+      // own bindings. Phases are separate programs without regions, program
+      // variables or statements (checked after the walk).
+      const auto& contract=grammar.structured_contracts().at(e.target);
+      if(contract.family!=StructuredFamily::BoundedRegion || !contract.plan)fail("structured capability");
+      const auto& plan=*contract.plan;
+      const auto operands=plan.state_types.size()+plan.bound_operand_count;
+      const auto phases=e.phases.size();
+      if(e.children.size()!=bounded_region_arity(plan) || operands+phases!=e.children.size() || !phases ||
+          e.regions.size()!=phases || e.captures.size()!=plan.parameter_types.size() ||
+          e.captures.size()>std::size_t(kPhaseMaxArity) || out.regions.size()>=1024)
+        fail("bounded region capability");
+      PhaseRegionInfo info;info.operands=operands;info.phases=phases;info.captures=e.captures.size();
+      HostPhaseGrammar::RegionSource source{id,plan,{}};
+      for(std::size_t i=0;i<operands;++i) {
+        info.operand_types[i]=phase_value_tag(grammar.expressions().at(e.children[i]).type);
+        if(info.operand_types[i]==ValueTag::Invalid)fail("bounded region operand type");
+      }
+      for(std::size_t c=0;c<e.captures.size();++c) {
+        const auto& capture=e.captures[c];int target=capture.target;
+        if(capture.kind==CompiledCaptureKind::Input) {
+          info.capture_kind[c]=PhaseCaptureKind::Input;
+          if(inputs) {
+            const auto found=std::find(inputs->begin(),inputs->end(),grammar.inputs().at(capture.target).name);
+            if(found==inputs->end())fail("region capture missing from evaluator order");
+            target=found-inputs->begin();
+          }
+          if(target>=64)fail("input local capacity");
+        } else if(capture.kind==CompiledCaptureKind::Local) {
+          info.capture_kind[c]=PhaseCaptureKind::Local;
+          if(target>=kPhaseNamedLocals)fail("grammar local capacity");
+          out.statements=true;
+        } else {
+          info.capture_kind[c]=PhaseCaptureKind::Bound;
+          if(capture.target>=environment)fail("region capture outside its environment");
+        }
+        info.capture_target[c]=target;
+      }
+      for(std::size_t p=0;p<phases;++p) {
+        const auto& slot=e.regions[p];
+        if(e.phases[p].argument!=operands+p || slot.argument!=operands+p ||
+            e.phases[p].sources.size()!=slot.bindings.size() || slot.bindings.size()>=8)
+          fail("bounded region phase layout");
+        info.phase_bindings[p]=slot.bindings.size();
+        info.phase_type[p]=bounded_region_phase_type(plan,p);
+        if(info.phase_type[p]!=phase_value_tag(grammar.expressions().at(e.children[operands+p]).type))
+          fail("bounded region phase type");
+        for(std::size_t b=0;b<slot.bindings.size();++b) {
+          info.binding_types[p][b]=phase_value_tag(slot.bindings[b].type);
+          if(info.binding_types[p][b]==ValueTag::Invalid)fail("bounded region binding type");
+        }
+        x.child_scope[operands+p]=static_cast<std::int8_t>(slot.bindings.size());
+        source.sources.push_back(e.phases[p].sources);
+      }
+      x.kind=PhaseExpressionKind::Operation;x.native_kind=static_cast<int>(NodeKind::BOUNDED_REGION);
+      x.node.kind=PhaseTreeKind::Region;x.node.operand=out.regions.size();out.lets=true;
+      out.regions.push_back(info);out.region_sources.push_back(std::move(source));
     } else fail("templates, repeated holes and nested regions require native fallback");
     for(const auto& charge:e.fuel_charges) {
-      if(charge.event==FuelEvent::Operation || charge.event==FuelEvent::BranchTest)x.node.fuel=charge.cost;
-      else if(charge.event==FuelEvent::BranchMerge)x.node.merge_fuel=charge.cost;
+      // A let charges its binding Store; a region its BoundedRegion entry.
+      if(let) {
+        if(charge.event==FuelEvent::Bind)x.node.fuel=charge.cost;
+        else fail("let fuel profile capability");
+      } else if(charge.event==FuelEvent::Operation || charge.event==FuelEvent::BranchTest)x.node.fuel=charge.cost;
+      else if(charge.event==FuelEvent::BranchMerge && !region)x.node.merge_fuel=charge.cost;
       else fail("fuel profile capability");
     }
     for(std::size_t i=0;i<e.children.size();++i)
-      visit_expression(e.children[i],environment+(static_cast<int>(i)==x.bind_argument?1:0));
+      visit_expression(e.children[i],x.child_scope[i]>=0?unsigned(x.child_scope[i]):environment+(static_cast<int>(i)==x.bind_argument?1:0));
   };
   visit_nonterminal(root);
+  // Like the native compiler, a region phase reads only its bindings: no
+  // program variable, statement or nested structured region is reachable.
+  for(const auto& source:out.region_sources) {
+    const auto& e=grammar.expressions().at(source.expression);
+    std::vector<bool> closed(grammar.expressions().size());
+    std::function<void(unsigned)> check=[&](unsigned id) {
+      if(closed.at(id))return;closed[id]=true;
+      const auto& c=grammar.expressions()[id];
+      if(c.kind==ExpressionKind::Input || c.kind==ExpressionKind::Local || c.kind==ExpressionKind::Control ||
+          c.kind==ExpressionKind::Structured || c.category!=NodeCategory::Expression)
+        fail("region phase reaches a program variable, statement or nested region");
+      if(c.kind==ExpressionKind::Reference)
+        for(auto production:grammar.nonterminals().at(c.target).productions)check(grammar.productions().at(production).expression);
+      for(auto child:c.children)check(child);
+    };
+    for(std::size_t p=0;p<e.phases.size();++p)check(e.children.at(e.phases[p].argument));
+  }
   // No zero-node alias loops: every selected production must consume a native
   // node before referring to another nonterminal. Regular recursion is allowed.
   for(const auto& p:out.productions)

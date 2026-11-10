@@ -5,9 +5,9 @@
 
 namespace gagp::evo::repro {
 // Internal construction metadata, never an external grammar certificate.
-// The current profile requires identity reference scope maps; inside a phase it
-// admits let binders (whole-program phases only) but no aliases, templates or
-// coupled holes. Each position denotes a
+// The current profile requires identity reference scope maps; it admits let
+// binders and bounded regions (whole-program phases only) but no aliases,
+// templates or coupled holes. Each position denotes a
 // distinct logical site, even when two subtrees have identical contents.
 struct PhaseGeneSite {
   int nonterminal = -1;
@@ -27,13 +27,20 @@ struct PhaseExpression {
   int native_kind = -1;
   int depth_charge = 1;
   int target = -1;
-  int children[3]{-1,-1,-1};
+  int children[kPhaseMaxArity]{-1,-1,-1,-1,-1,-1,-1,-1};
   int scope_count = 0;
   int scope[8]{};
   // Let: the child at this argument also sees one new binder, appended at the
   // next lexical index (identity scope maps keep index == position).
   int bind_argument = -1;
+  // Region phase children see only their own n bindings (identity scope of
+  // size n); -1 keeps the parent's environment.
+  std::int8_t child_scope[kPhaseMaxArity]{-1,-1,-1,-1,-1,-1,-1,-1};
 };
+// Environment of child `i`: a phase starts afresh, a let body gains a binder.
+__host__ __device__ inline int phase_child_scope(const PhaseExpression& expression, int i, int scope) {
+  return expression.child_scope[i]>=0 ? expression.child_scope[i] : scope+(i==expression.bind_argument ? 1 : 0);
+}
 struct PhaseProduction { int expression; double weight; };
 struct PhaseNonterminal { int production_offset=0, production_count=0, scope_count=0; bool normalized_weights=false, fixed=false; };
 struct PhaseDomain { int value_offset=0, value_count=0; bool integer_range=false; std::int64_t minimum=0, maximum=0; };
@@ -51,6 +58,7 @@ struct PhaseGrammarView {
   const PhaseDomain* domains=nullptr; int domain_count=0;
   const Value* values=nullptr; int value_count=0;
   const unsigned* minimum=nullptr; int depth_count=0; int logical_depth_count=1; bool site_depth=false;
+  const PhaseRegionInfo* regions=nullptr; int region_count=0;
   const PhaseChoiceHeader* choice_headers=nullptr; const unsigned* choice_values=nullptr;
   const PhaseChoiceSet* choice_sets=nullptr; const std::uint64_t* choice_thresholds=nullptr; const int* choice_expressions=nullptr;
 };
@@ -174,7 +182,7 @@ __host__ __device__ inline PhaseGenerationResult generate_phase(
     const int charge=grammar.logical_depth_count>1 && !grammar.site_depth?expression.depth_charge:0;
     if(task.depth<=0 || task.logical<charge || result.nodes>=capacity) {result.status=PhaseCompileStatus::Capacity;return result;}
     auto node=expression.node;
-    if(node.arity<0 || node.arity>3)return result;
+    if(node.arity<0 || node.arity>kPhaseMaxArity)return result;
     if(expression.kind==PhaseExpressionKind::Bound) {
       if(expression.target<0 || expression.target>=task.scope_count || node.arity!=0)return result;
       node.operand=(task.scope >> (3*expression.target)) & 7U;
@@ -207,7 +215,10 @@ __host__ __device__ inline PhaseGenerationResult generate_phase(
         result.status=PhaseCompileStatus::Capacity;return result;
       }
       auto next=task;next.expression=child;--next.depth;next.logical-=charge;
-      if(i==expression.bind_argument) {next.scope|=binder<<(3*task.scope_count);next.scope_count=task.scope_count+1;}
+      if(expression.child_scope[i]>=0) {
+        next.scope_count=expression.child_scope[i];next.scope=0;
+        for(unsigned j=0;j<next.scope_count;++j)next.scope|=j<<(3*j);
+      } else if(i==expression.bind_argument) {next.scope|=binder<<(3*task.scope_count);next.scope_count=task.scope_count+1;}
       pending[count++]=next;reserved+=need;
     }
   }
