@@ -497,7 +497,7 @@ void require_phase_entry_policy(const EvolutionConfig& cfg) {
   if (!cfg.additional_generation_requests.empty() || cfg.mutation_subtree_prob != 1.0 ||
       request.nonterminal != entry.nonterminal || request.type != entry.type ||
       !request.visible_environment.empty() || request.budget.max_nodes != entry.budget.max_nodes ||
-      request.budget.max_depth != entry.budget.max_depth || request.stage != entry.stage)
+      request.budget.max_depth != entry.budget.max_depth)
     throw std::invalid_argument("native GPU phase profile requires the exact entry request and default resource/variation policy");
   if(!cfg.gpu_projected_phase_profile &&
       (cfg.initial_resource_budget || cfg.offspring_resource_budget))

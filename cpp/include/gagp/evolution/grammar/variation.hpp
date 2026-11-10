@@ -52,19 +52,17 @@ class VariationContext {
   // separate, allowing repair of initial trees above the variation depth limit.
   const std::optional<ProjectedBudget>& offspring_budget() const { return offspring_budget_; }
   // Internal donor-generation cache. The grammar identity is owned by this
-  // context; exact local availability, effective depth and stage form the key.
+  // context; exact local availability and effective depth form the key.
   std::shared_ptr<const ContextualFrameCostTable> find_frame_costs(
-      const std::vector<bool>& local_availability, std::uint32_t effective_depth_limit,
-      GenerationStage stage = GenerationStage::Initial);
+      const std::vector<bool>& local_availability, std::uint32_t effective_depth_limit);
   std::shared_ptr<const ContextualFrameCostTable> remember_frame_costs(
       const std::vector<bool>& local_availability, std::uint32_t effective_depth_limit,
-      std::shared_ptr<const ContextualFrameCostTable> costs,
-      GenerationStage stage = GenerationStage::Initial);
+      std::shared_ptr<const ContextualFrameCostTable> costs);
   const ContextualFrameCostCacheCounters& frame_cost_cache_counters() const {
     return frame_cost_cache_counters_;
   }
  private:
-  using FrameCostCacheKey = std::tuple<std::vector<bool>, std::uint32_t, GenerationStage>;
+  using FrameCostCacheKey = std::tuple<std::vector<bool>, std::uint32_t>;
   std::shared_ptr<const CompiledGrammar> grammar_;
   GenerationRequest request_;
   std::vector<GenerationRequest> requests_;

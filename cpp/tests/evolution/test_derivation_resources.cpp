@@ -220,13 +220,6 @@ void test_joint_tradeoffs() {
   try { (void)joint_resource_frontier(grammar,request,{20,8},1); }
   catch (const std::runtime_error&) { exhausted = true; }
   check(exhausted,"frontier capacity silently truncated alternatives");
-  auto document = tradeoffs();
-  auto& alternatives = document.object_v.at("nonterminals").array_v[0].object_v.at("alternatives").array_v;
-  alternatives[0].object_v["generation_stages"] = json(R"(["initial"])");
-  alternatives[1].object_v["generation_stages"] = json(R"(["mutation"])");
-  const auto staged = compile(document); auto mutation = entry_request(staged); mutation.stage = GenerationStage::Mutation;
-  check(joint_resource_frontier(staged,entry_request(staged),{5,8}).empty() &&
-        joint_resource_frontier(staged,mutation,{5,8}).size() == 1,"resource frontier mixed generation stages");
 }
 void test_donor_resource_flow() {
   auto grammar = std::make_shared<const CompiledGrammar>(compile(tradeoffs()));
@@ -324,7 +317,7 @@ void test_crossover_admission_matches_full_analysis() {
                             const ProgramGenome& donor, const VariationSite& source) {
         ProgramGenome child;
         child.ast = variation_detail::splice(base.ast, destination, donor.ast,
-            source.occurrences.front(), source.occurrence_binder_ids.front(), destination.crossover_closed);
+            source.occurrences.front(), source.occurrence_binder_ids.front());
         try { return reference.offspring_budget()->accepts(reference.analyze(child)->witness.resources->subtree()); }
         catch (const std::invalid_argument&) { invalid = true; return false; }
       };
@@ -346,9 +339,9 @@ void test_crossover_admission_matches_full_analysis() {
       check(same_site(selected->first, *left) && same_site(selected->second, *right),
           "crossover changed selected coordinates despite equivalent ASTs");
       const auto expected_a = variation_detail::accept(variation_detail::splice(a.ast, *left, b.ast,
-          right->occurrences.front(), right->occurrence_binder_ids.front(), left->crossover_closed), a, reference);
+          right->occurrences.front(), right->occurrence_binder_ids.front()), a, reference);
       const auto expected_b = variation_detail::accept(variation_detail::splice(b.ast, *right, a.ast,
-          left->occurrences.front(), left->occurrence_binder_ids.front(), right->crossover_closed), b, reference);
+          left->occurrences.front(), left->occurrence_binder_ids.front()), b, reference);
       check(ast_cache_key(children.first.ast) == ast_cache_key(expected_a.ast) &&
           ast_cache_key(children.second.ast) == ast_cache_key(expected_b.ast),
           "crossover reservoir selection differs from full-analysis oracle");
@@ -488,28 +481,6 @@ void test_projected_donor_retry_sequence() {
       check(ast_cache_key(pool[i]->genome.ast) == ast_cache_key(independent->genome.ast),
             "pool admission reuse changed the selected donor");
   }
-}
-void test_destination_resource_interpretation() {
-  auto document = tradeoffs();
-  auto& nonterminals = document.object_v.at("nonterminals").array_v;
-  nonterminals[0].object_v["mutation_entry"] = json(R"("M")");
-  nonterminals.push_back(json(R"({"id":"M","type":"Int","scope":[],"alternatives":[
-    {"id":"donor","weight":1,"expression":{"constant":{"type":"Int","values":["1"]},
-    "resource_charge":{"nodes":20,"depth":1,"resets_depth":false}}}]})"));
-  auto grammar = std::make_shared<const CompiledGrammar>(compile(document));
-  VariationContext context(grammar, 128, ProjectedBudget{12, 5});
-  const auto parent = generate_derivation(*grammar, 42).genome;
-  const auto site = context.analyze(parent)->sites.front();
-  check(!site.has_projected_allowance && grammar->resource_invariant_roots({grammar->entry()}).front(),
-        "destination interpretation fixture did not use root invariance");
-  const auto donor = generate_donor(context, 1, site);
-  check(donor.projected_resources.nodes == 20, "mutation entry cost fixture changed");
-  const auto target = project_derivation_resources_in_frame(*grammar, donor.genome,
-      donor_request(site), donor.frame);
-  check(target.subtree(donor.payload.begin).nodes == 8, "destination cost was not reconstructed");
-  const auto accepted = generate_donor(context, 1, site, parent, 1);
-  check(ast_cache_key(accepted.genome.ast) == ast_cache_key(donor.genome.ast),
-        "mutation-entry cost incorrectly rejected a destination-valid donor");
 }
 void test_certified_donor_budget_rejection() {
   auto document = tradeoffs();
@@ -724,7 +695,7 @@ void test_recursive_frontier() {
 int main() {
   try { test_projection_and_provenance(); test_repeated_holes(); test_invalid_charges();
         test_resource_invariance_certificate(); test_joint_tradeoffs(); test_projected_donor_retry_sequence();
-    test_destination_resource_interpretation(); test_certified_donor_budget_rejection(); test_scalar_resource_pool();
+    test_certified_donor_budget_rejection(); test_scalar_resource_pool();
     test_payload_pool_collision(); test_donor_resource_flow(); test_projected_offspring_admission();
         test_crossover_admission_matches_full_analysis();
     test_projected_generation_and_initialization();

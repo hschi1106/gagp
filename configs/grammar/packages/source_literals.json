@@ -7,41 +7,8 @@
       "scope": [],
       "alternatives": [
         {
-          "id": "initial",
+          "id": "literal",
           "weight": 1,
-          "generation_stages": [
-            "initial"
-          ],
-          "expression": {
-            "constant": {
-              "type": "Int",
-              "range": [
-                "-9223372036854775808",
-                "9223372036854775807"
-              ],
-              "sample_from": {
-                "type": "Int",
-                "range": [
-                  "-8",
-                  "8"
-                ]
-              },
-              "mutation": {
-                "kind": "add",
-                "range": [
-                  "-2",
-                  "2"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "id": "mutation",
-          "weight": 1,
-          "generation_stages": [
-            "mutation"
-          ],
           "expression": {
             "constant": {
               "type": "Int",
@@ -74,43 +41,8 @@
       "scope": [],
       "alternatives": [
         {
-          "id": "initial",
+          "id": "literal",
           "weight": 1,
-          "generation_stages": [
-            "initial"
-          ],
-          "expression": {
-            "constant": {
-              "type": "Float",
-              "range": [
-                -1.7976931348623157e+308,
-                1.7976931348623157e+308
-              ],
-              "sample_from": {
-                "type": "Float",
-                "range": [
-                  -8,
-                  8
-                ],
-                "quantization_scale": 1000
-              },
-              "mutation": {
-                "kind": "add",
-                "range": [
-                  -1,
-                  1
-                ],
-                "gpu_grid_steps": 65535
-              }
-            }
-          }
-        },
-        {
-          "id": "mutation",
-          "weight": 1,
-          "generation_stages": [
-            "mutation"
-          ],
           "expression": {
             "constant": {
               "type": "Float",
@@ -145,28 +77,8 @@
       "scope": [],
       "alternatives": [
         {
-          "id": "initial",
+          "id": "literal",
           "weight": 1,
-          "generation_stages": [
-            "initial"
-          ],
-          "expression": {
-            "constant": {
-              "type": "Bool",
-              "values": [
-                false,
-                true
-              ],
-              "mutation": "flip"
-            }
-          }
-        },
-        {
-          "id": "mutation",
-          "weight": 1,
-          "generation_stages": [
-            "mutation"
-          ],
           "expression": {
             "constant": {
               "type": "Bool",
@@ -186,11 +98,8 @@
       "scope": [],
       "alternatives": [
         {
-          "id": "initial",
+          "id": "literal",
           "weight": 1,
-          "generation_stages": [
-            "initial"
-          ],
           "expression": {
             "constant": {
               "type": "Char",
@@ -236,47 +145,6 @@
               "mutation": "keep"
             }
           }
-        },
-        {
-          "id": "mutation",
-          "weight": 1,
-          "generation_stages": [
-            "mutation"
-          ],
-          "expression": {
-            "constant": {
-              "type": "Char",
-              "values": [
-                "a",
-                "b",
-                "c",
-                "d",
-                "e",
-                "f",
-                "g",
-                "h",
-                "i",
-                "j",
-                "k",
-                "l",
-                "m",
-                "n",
-                "o",
-                "p",
-                "q",
-                "r",
-                "s",
-                "t",
-                "u",
-                "v",
-                "w",
-                "x",
-                "y",
-                "z"
-              ],
-              "mutation": "keep"
-            }
-          }
         }
       ]
     },
@@ -286,61 +154,8 @@
       "scope": [],
       "alternatives": [
         {
-          "id": "initial",
+          "id": "literal",
           "weight": 1,
-          "generation_stages": [
-            "initial"
-          ],
-          "expression": {
-            "constant": {
-              "type": "String",
-              "sequence": {
-                "length": [
-                  0,
-                  8
-                ],
-                "element": {
-                  "type": "Char",
-                  "values": [
-                    "a",
-                    "b",
-                    "c",
-                    "d",
-                    "e",
-                    "f",
-                    "g",
-                    "h",
-                    "i",
-                    "j",
-                    "k",
-                    "l",
-                    "m",
-                    "n",
-                    "o",
-                    "p",
-                    "q",
-                    "r",
-                    "s",
-                    "t",
-                    "u",
-                    "v",
-                    "w",
-                    "x",
-                    "y",
-                    "z"
-                  ]
-                }
-              },
-              "mutation": "keep"
-            }
-          }
-        },
-        {
-          "id": "mutation",
-          "weight": 1,
-          "generation_stages": [
-            "mutation"
-          ],
           "expression": {
             "constant": {
               "type": "String",
@@ -393,11 +208,8 @@
       "scope": [],
       "alternatives": [
         {
-          "id": "initial",
+          "id": "literal",
           "weight": 1,
-          "generation_stages": [
-            "initial"
-          ],
           "expression": {
             "constant": {
               "type": "IntList",
@@ -405,32 +217,6 @@
                 "length": [
                   0,
                   5
-                ],
-                "element": {
-                  "type": "Int",
-                  "range": [
-                    "-8",
-                    "8"
-                  ]
-                }
-              },
-              "mutation": "keep"
-            }
-          }
-        },
-        {
-          "id": "mutation",
-          "weight": 1,
-          "generation_stages": [
-            "mutation"
-          ],
-          "expression": {
-            "constant": {
-              "type": "IntList",
-              "sequence": {
-                "length": [
-                  0,
-                  4
                 ],
                 "element": {
                   "type": "Int",
@@ -452,11 +238,8 @@
       "scope": [],
       "alternatives": [
         {
-          "id": "initial",
+          "id": "literal",
           "weight": 1,
-          "generation_stages": [
-            "initial"
-          ],
           "expression": {
             "constant": {
               "type": "FloatList",
@@ -464,33 +247,6 @@
                 "length": [
                   0,
                   5
-                ],
-                "element": {
-                  "type": "Float",
-                  "range": [
-                    -8,
-                    8
-                  ],
-                  "quantization_scale": 1000
-                }
-              },
-              "mutation": "keep"
-            }
-          }
-        },
-        {
-          "id": "mutation",
-          "weight": 1,
-          "generation_stages": [
-            "mutation"
-          ],
-          "expression": {
-            "constant": {
-              "type": "FloatList",
-              "sequence": {
-                "length": [
-                  0,
-                  4
                 ],
                 "element": {
                   "type": "Float",
@@ -513,11 +269,8 @@
       "scope": [],
       "alternatives": [
         {
-          "id": "initial",
+          "id": "literal",
           "weight": 1,
-          "generation_stages": [
-            "initial"
-          ],
           "expression": {
             "constant": {
               "type": "StringList",
@@ -532,65 +285,6 @@
                     "length": [
                       0,
                       8
-                    ],
-                    "element": {
-                      "type": "Char",
-                      "values": [
-                        "a",
-                        "b",
-                        "c",
-                        "d",
-                        "e",
-                        "f",
-                        "g",
-                        "h",
-                        "i",
-                        "j",
-                        "k",
-                        "l",
-                        "m",
-                        "n",
-                        "o",
-                        "p",
-                        "q",
-                        "r",
-                        "s",
-                        "t",
-                        "u",
-                        "v",
-                        "w",
-                        "x",
-                        "y",
-                        "z"
-                      ]
-                    }
-                  }
-                }
-              },
-              "mutation": "keep"
-            }
-          }
-        },
-        {
-          "id": "mutation",
-          "weight": 1,
-          "generation_stages": [
-            "mutation"
-          ],
-          "expression": {
-            "constant": {
-              "type": "StringList",
-              "sequence": {
-                "length": [
-                  0,
-                  4
-                ],
-                "element": {
-                  "type": "String",
-                  "sequence": {
-                    "length": [
-                      0,
-                      5
                     ],
                     "element": {
                       "type": "Char",

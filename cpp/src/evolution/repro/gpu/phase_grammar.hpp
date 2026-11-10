@@ -104,14 +104,10 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     auto& target=out.nonterminals[id];target.scope_count=nt.scope.size();target.production_offset=out.productions.size();
     for(auto production:nt.productions) {
       const auto& p=grammar.productions().at(production);
-      // No subset of a language is silently compiled. Union productions are
-      // inspected below even when this construction stage does not select them.
-      if(p.generates(GenerationStage::Mutation)) {
-        if(!std::isfinite(p.weight) || p.weight<=0)fail("production weight");
-        out.productions.push_back({static_cast<int>(p.expression),p.weight});++target.production_count;
-      }
+      if(!std::isfinite(p.weight) || p.weight<=0)fail("production weight");
+      out.productions.push_back({static_cast<int>(p.expression),p.weight});++target.production_count;
     }
-    if(!target.production_count)fail("no mutation production");
+    if(!target.production_count)fail("no production");
     for(auto production:nt.productions)visit_expression(grammar.productions().at(production).expression,nt.scope.size());
   };
   // `environment` counts the lexical binders visible to expression `id`.
@@ -232,16 +228,12 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
   for(const auto& p:out.productions)
     if(out.expressions[p.expression].kind==PhaseExpressionKind::Reference)fail("root aliases require native fallback");
   out.minimum.assign((out.expressions.size()+1)*out.depth_count,kNoGrammarId);
-  const NonterminalBudgetLookup mutation_cost=[&](unsigned nt,unsigned depth) {
-    const auto& costs=grammar.nonterminals().at(nt).generation_costs(GenerationStage::Mutation);
-    return costs.at(depth);
-  };
   for(std::size_t i=0;i<seen_expr.size();++i)if(seen_expr[i])
-    for(unsigned d=0;d<=max_depth;++d)out.minimum[i*out.depth_count+d]=minimum_expression_nodes(grammar,i,d,{},mutation_cost);
+    for(unsigned d=0;d<=max_depth;++d)out.minimum[i*out.depth_count+d]=minimum_expression_nodes(grammar,i,d,{});
   PhaseExpression entry;entry.kind=PhaseExpressionKind::Reference;entry.target=root;entry.scope_count=grammar.nonterminals()[root].scope.size();
   for(int i=0;i<entry.scope_count;++i)entry.scope[i]=i;
   out.root_expression=out.expressions.size();out.expressions.push_back(entry);
-  for(unsigned d=0;d<=max_depth;++d)out.minimum[out.root_expression*out.depth_count+d]=mutation_cost(root,d);
+  for(unsigned d=0;d<=max_depth;++d)out.minimum[out.root_expression*out.depth_count+d]=grammar.nonterminals().at(root).minimum_nodes_by_depth.at(d);
   if(logical_depth) {
     out.logical_depth_count=logical_depth+1;
     const auto size=out.expressions.size()*out.depth_count*out.logical_depth_count;

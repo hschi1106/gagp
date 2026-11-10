@@ -135,9 +135,9 @@ std::pair<ProgramGenome, ProgramGenome> candidate_crossover(
       if (!compatible_sites(left, right) || !fits(left, right)) continue;
       if (rank-- != 0) continue;
       auto child_a = variation_detail::splice(a.ast, left, b.ast,
-          right.occurrences.front(), right.occurrence_binder_ids.front(), left.crossover_closed);
+          right.occurrences.front(), right.occurrence_binder_ids.front());
       auto child_b = variation_detail::splice(b.ast, right, a.ast,
-          left.occurrences.front(), left.occurrence_binder_ids.front(), right.crossover_closed);
+          left.occurrences.front(), left.occurrence_binder_ids.front());
       return {variation_detail::accept(std::move(child_a), a, context),
               variation_detail::accept(std::move(child_b), b, context)};
     }

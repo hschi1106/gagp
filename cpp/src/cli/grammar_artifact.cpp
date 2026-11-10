@@ -133,8 +133,6 @@ Json generated_artifact_value(const CompiledGrammar& grammar,
   Json request = object();
   request.object_v["nonterminal"] = integer(metadata.request.nonterminal);
   request.object_v["type"] = string(std::string(type_name(metadata.request.type)));
-  if (metadata.request.stage != GenerationStage::Initial)
-    request.object_v["generation_stage"] = string(generation_stage_name(metadata.request.stage));
   request.object_v["visible_environment"] = array();
   for (const auto& binding : metadata.request.visible_environment) {
     Json value = object();
@@ -274,8 +272,6 @@ evo::grammar::GeneratedDerivation replay_parsed_generated_artifact(
     throw std::invalid_argument("artifact seed must be a canonical unsigned 64-bit decimal string");
   const auto& recorded_request = require_object_field(root, "request");
   GenerationRequest request;
-  if (recorded_request.object_v.count("generation_stage"))
-    request.stage = parse_generation_stage(require_string(recorded_request.object_v.at("generation_stage"), "generation_stage"));
   request.nonterminal = index_value(require_object_field(recorded_request, "nonterminal"));
   request.type = parse_type(require_string(require_object_field(recorded_request, "type"), "request type"));
   for (const auto& binding : elements(require_object_field(recorded_request, "visible_environment")))

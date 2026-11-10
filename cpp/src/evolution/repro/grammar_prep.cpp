@@ -72,7 +72,6 @@ CandidateRange make_candidate(const grammar::VariationSite& site,
                                        : CandidateTag::Expr);
   candidate.aux = static_cast<int>(site.type);
   candidate.compatibility_id = site.compatibility_id;
-  candidate.crossover_closed = site.crossover_closed;
   candidate.occurrence_offset = as_int(occurrence_offset, "candidate occurrence offset");
   candidate.occurrence_count = as_int(site.occurrences.size(), "candidate occurrence count");
   candidate.replacement_max_nodes =

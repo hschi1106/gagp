@@ -12,17 +12,8 @@ inline HostPhaseGrammar compile_phase_variation_grammar(
   };
   for (std::size_t i = 0; i < profile.nonterminals.size(); ++i) {
     if (!profile.nonterminals[i].production_count) continue;
-    const auto& nt = grammar.nonterminals()[i];
-    if (nt.mutation_entry != grammar::kNoGrammarId) fail("variation policy requires native fallback");
     // A disabled nonterminal keeps its invocation sites out of variation.
-    profile.nonterminals[i].fixed = !nt.variation_enabled;
-    for (auto p : nt.productions) {
-      const auto& production = grammar.productions()[p];
-      if (!production.variation_enabled || production.closed_crossover ||
-          !production.crossover_group.empty() || production.unbound_variation ||
-          production.generation_mask != 3)
-        fail("production policy requires native fallback");
-    }
+    profile.nonterminals[i].fixed = !grammar.nonterminals()[i].variation_enabled;
   }
   std::vector<bool> visited(grammar.expressions().size());
   std::function<void(unsigned)> visit = [&](unsigned id) {

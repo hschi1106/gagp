@@ -154,13 +154,6 @@ Performance claims require measured benchmark artifacts; this design contract
 does not assert a cutover speedup.
 
 
-Donor generation selects the grammar's `mutation` generation stage, on both CPU
-and GPU preparation paths. Stage-specific feasibility and frame-cache entries
-prevent initial-only alternatives from supplying a donor or a false budget
-minimum. Request identity, including stage, is checked when reusing GPU run
-resources. Device selection/splicing and decoded-child union membership remain
-unchanged; the stage does not partition crossover compatibility.
-
 
 Compiled device splicing rebuilds name and constant tables from surviving node
 references in first-use order. Removed parent entries consume no output slots;

@@ -51,8 +51,8 @@ std::shared_ptr<const VariationAnalysis> VariationContext::analyze(const Program
 }
 
 std::shared_ptr<const ContextualFrameCostTable> VariationContext::find_frame_costs(
-    const std::vector<bool>& local_availability, std::uint32_t effective_depth_limit, GenerationStage stage) {
-  const FrameCostCacheKey key{local_availability, effective_depth_limit, stage};
+    const std::vector<bool>& local_availability, std::uint32_t effective_depth_limit) {
+  const FrameCostCacheKey key{local_availability, effective_depth_limit};
   const auto found = frame_cost_cache_.find(key);
   if (found == frame_cost_cache_.end()) {
     ++frame_cost_cache_counters_.misses;
@@ -64,10 +64,10 @@ std::shared_ptr<const ContextualFrameCostTable> VariationContext::find_frame_cos
 
 std::shared_ptr<const ContextualFrameCostTable> VariationContext::remember_frame_costs(
     const std::vector<bool>& local_availability, std::uint32_t effective_depth_limit,
-    std::shared_ptr<const ContextualFrameCostTable> costs, GenerationStage stage) {
+    std::shared_ptr<const ContextualFrameCostTable> costs) {
   if (!costs) throw std::invalid_argument("variation context cannot cache null frame costs");
   if (frame_cost_cache_capacity_ == 0) return costs;
-  const FrameCostCacheKey key{local_availability, effective_depth_limit, stage};
+  const FrameCostCacheKey key{local_availability, effective_depth_limit};
   const auto existing = frame_cost_cache_.find(key);
   if (existing != frame_cost_cache_.end()) return existing->second;
   if (frame_cost_cache_.size() == frame_cost_cache_capacity_) {
@@ -237,18 +237,14 @@ ProgramGenome accept(AstProgram candidate, const ProgramGenome& certified_parent
 }
 
 AstProgram splice(const AstProgram& base, const VariationSite& destination,
-    const AstProgram& donor, VariationSpan payload, const std::vector<int>& donor_binder_ids,
-    bool closed_crossover) {
-  if (closed_crossover && (!destination.crossover_closed || !lexically_closed(donor, payload)))
-    throw std::logic_error("closed crossover has an external lexical capture");
-  const std::vector<int> empty_ids;
-  const auto& source_ids = closed_crossover ? empty_ids : donor_binder_ids;
+    const AstProgram& donor, VariationSpan payload, const std::vector<int>& donor_binder_ids) {
+  const auto& source_ids = donor_binder_ids;
   AstProgram result = base;
   // Sites come from the certified analysis. Descending physical indices leave
   // earlier original spans stable while all copies receive the identical donor.
   for (std::size_t i = destination.occurrences.size(); i-- > 0;) {
     const auto& span = destination.occurrences[i];
-    const auto& target_ids = closed_crossover ? empty_ids : destination.occurrence_binder_ids.at(i);
+    const auto& target_ids = destination.occurrence_binder_ids.at(i);
     if (target_ids.size() != source_ids.size())
       throw std::logic_error("variation donor and destination lexical scopes differ");
     std::map<int, int> remap;

@@ -45,7 +45,6 @@ std::vector<GenerationRequest> named_population_requests(const CompiledGrammar& 
 
 std::vector<std::uint32_t> validate_request(const CompiledGrammar& grammar,
     const GenerationRequest& request) {
-  (void)generation_stage_name(request.stage);
   if (request.nonterminal >= grammar.nonterminals().size())
     throw std::invalid_argument("generation request has an unknown nonterminal ID");
   const auto& target = grammar.nonterminals()[request.nonterminal];

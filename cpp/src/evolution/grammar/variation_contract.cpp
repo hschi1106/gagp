@@ -28,20 +28,14 @@ std::string contract_key(const CompiledGrammar& grammar, const VariationSite& si
   field(key, "grammar-variation-contract-v1");
   field(key, grammar.content_hash());
   field(key, kGrammarSemanticVersion);
-  field(key, site.crossover_group.empty() ? "exact" : "group");
-  if (site.crossover_group.empty()) {
-    number(key, site.nonterminal);
-    number(key, site.template_id); number(key, site.slot);
-  } else {
-    field(key, site.crossover_group);
-  }
+  field(key, "exact");
+  number(key, site.nonterminal);
+  number(key, site.template_id); number(key, site.slot);
   number(key, static_cast<std::uint32_t>(site.type));
   number(key, static_cast<std::uint32_t>(site.category));
-  field(key, site.crossover_closed ? "closed" : "exact-scope");
-  if (!site.crossover_closed) {
-    number(key, site.context);
-    bindings(key, site.visible_environment);
-  }
+  field(key, "exact-scope");
+  number(key, site.context);
+  bindings(key, site.visible_environment);
   bindings(key, site.available_locals);
   return key;
 }
@@ -67,28 +61,6 @@ void intersect(std::vector<RegionBinding>& left, const std::vector<RegionBinding
   }), left.end());
 }
 }  // namespace
-
-bool lexically_closed(const AstProgram& ast, VariationSpan payload) {
-  if (payload.begin >= payload.end || payload.end > ast.nodes.size())
-    throw std::invalid_argument("invalid lexical closure payload");
-  std::set<int> declarations;
-  for (const auto& region : ast.lexical_regions)
-    if (region.node_index >= payload.begin && region.node_index < payload.end)
-      for (const auto& binding : region.bindings) declarations.insert(binding.id);
-  for (const auto& region : ast.bounded_region_specs)
-    if (region.node_index >= payload.begin && region.node_index < payload.end)
-      for (const auto& phase : region.phases)
-        for (const auto& binding : phase.bindings) declarations.insert(binding.binder_id);
-  for (auto i = payload.begin; i < payload.end; ++i)
-    if (ast.nodes[i].kind == NodeKind::REGION_VAR && !declarations.count(ast.nodes[i].i0))
-      return false;
-  for (const auto& region : ast.bounded_region_specs)
-    if (region.node_index >= payload.begin && region.node_index < payload.end)
-      for (const auto& capture : region.parameters)
-        if (capture.kind == RegionCaptureKind::Lexical && !declarations.count(capture.index))
-          return false;
-  return true;
-}
 
 std::uint32_t CompatibilityRegistry::intern(const std::string& key) {
   if (key.empty()) throw std::invalid_argument("cannot intern an empty grammar compatibility contract");
@@ -141,15 +113,8 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
     for (std::size_t i = 0; i < witness.choices.size(); ++i) {
       const auto& choice = witness.choices[i];
       const auto& nt = grammar.nonterminals().at(choice.nonterminal);
-      const auto& production = grammar.productions().at(choice.production);
-      if (!nt.variation_enabled || !production.variation_enabled ||
+      if (!nt.variation_enabled ||
           (nt.category != NodeCategory::Expression && nt.category != NodeCategory::Program)) continue;
-      if (production.unbound_variation) {
-        bool bound = false;
-        for (auto j = choice.ast_begin; j < choice.ast_end; ++j)
-          bound |= genome.ast.nodes[j].kind == NodeKind::REGION_VAR && !witness.nodes[j].fixed;
-        if (bound) continue;
-      }
       const Group key{choice.nonterminal, witness.nodes.at(choice.ast_begin).logical_instance,
           choice.template_instance, choice.slot};
       const auto inserted = logical_groups.emplace(key, logical_groups.size());
@@ -170,7 +135,7 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
   // Within this verified AST/request, scope IDs identify exact locals and
   // nonterminal IDs identify formal environments. The cache never escapes it.
   using ContractShape = std::tuple<std::uint32_t, std::uint32_t, std::uint32_t,
-      std::uint32_t, bool, bool, std::string_view>;
+      std::uint32_t, bool>;
   std::vector<ContractShape> shapes;
   std::map<ContractShape, std::string> contract_keys;
   for (std::size_t choice_index = 0; choice_index < witness.choices.size(); ++choice_index) {
@@ -178,17 +143,7 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
                      !selected_groups[choice_groups[choice_index]])) continue;
     const auto& choice = witness.choices[choice_index];
     const auto& nt = grammar.nonterminals().at(choice.nonterminal);
-    const auto& production = grammar.productions().at(choice.production);
-    if (!nt.variation_enabled || !production.variation_enabled) continue;
-    if (production.unbound_variation) {
-      bool contains_binding = false;
-      for (auto i = choice.ast_begin; i < choice.ast_end; ++i)
-        if (genome.ast.nodes[i].kind == NodeKind::REGION_VAR && !witness.nodes[i].fixed) {
-          contains_binding = true;
-          break;
-        }
-      if (contains_binding) continue;
-    }
+    if (!nt.variation_enabled) continue;
     // Complete Program and expression donors share the existing generation request
     // contract. Structural Block/Stmt fragments need their own contextual lowering.
     if (nt.category != NodeCategory::Expression && nt.category != NodeCategory::Program) continue;
@@ -210,8 +165,6 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
     if (found == groups.end()) {
       VariationSite site;
       site.nonterminal = choice.nonterminal; site.type = nt.type; site.category = nt.category;
-      site.crossover_group = grammar.productions().at(choice.production).crossover_group;
-      site.crossover_closed = grammar.productions().at(choice.production).closed_crossover;
       site.context = nt.context; site.slot = choice.slot;
       if (choice.template_instance != kNoGrammarId)
         site.template_id = witness.templates.at(choice.template_instance).template_id;
@@ -226,7 +179,7 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
       if (selector) built_indices.push_back(choice_groups[choice_index]);
       shapes.emplace_back(site.nonterminal, site.template_id, site.slot,
             nt.category == NodeCategory::Program ? kNoGrammarId : verified.expression_scope_ids.at(choice.ast_begin),
-            materialized_scope, site.crossover_closed, std::string_view(production.crossover_group));
+            materialized_scope);
       result.sites.push_back(std::move(site)); found = groups.emplace(group, id).first;
     }
     auto& site = result.sites[found->second];
@@ -290,12 +243,8 @@ static VariationAnalysis analyze_variation_impl(const CompiledGrammar& grammar, 
       if (std::none_of(site.available_locals.begin(), site.available_locals.end(), [&](const auto& available) {
         return binding.name == available.name && binding.type == available.type;
       })) throw std::logic_error("logical variation site has a free local unavailable at an occurrence");
-    if (site.crossover_closed)
-      for (const auto& span : site.occurrences)
-        site.crossover_closed = site.crossover_closed && lexically_closed(genome.ast, span);
     if (site.occurrences.size() == 1) {
-      auto shape = shapes.at(site_index);
-      std::get<5>(shape) = site.crossover_closed;
+      const auto& shape = shapes.at(site_index);
       const auto cached = contract_keys.find(shape);
       if (cached != contract_keys.end()) site.compatibility_key = cached->second;
       else {
@@ -350,7 +299,7 @@ GenerationRequest donor_request(const VariationSite& site) {
     budget.max_nodes += 4; budget.max_depth += 3;
   } else if (site.category != NodeCategory::Program)
     throw std::invalid_argument("variation donor requires an Expression or Program nonterminal");
-  return {site.nonterminal, site.type, site.visible_environment, budget, GenerationStage::Mutation};
+  return {site.nonterminal, site.type, site.visible_environment, budget};
 }
 
 bool donor_fits(const VariationSite& destination, const VariationSite& donor) {

@@ -67,7 +67,6 @@ struct CandidateRange {
   bool has_projected_allowance = false;
   grammar::ProjectedAllowance projected_allowance;
   grammar::ProjectedResources projected_resources;
-  bool crossover_closed = false;
 };
 
 struct PlainNode {

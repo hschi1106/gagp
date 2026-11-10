@@ -290,7 +290,7 @@ void source_schema(const Json& document) {
     if (!document.object_v.count(category)) continue;
     for (const auto& resource : elements(document.object_v.at(category))) {
       const bool nt = std::string(category) == "nonterminals";
-      if (nt) keys(resource, {"id", "operation", "type", "scope", "category", "alternatives", "variation", "mutation_entry"}, "nonterminal");
+      if (nt) keys(resource, {"id", "operation", "type", "scope", "category", "alternatives", "variation"}, "nonterminal");
       else keys(resource, {"id", "operation", "type", "scope", "category", "holes", "body"}, "template");
       const auto operation = resource.object_v.count("operation") ? require_string(resource.object_v.at("operation"), "operation") : "define";
       if (operation == "extend") {
@@ -302,30 +302,11 @@ void source_schema(const Json& document) {
         source_category(resource);
       }
       if (nt) {
-        const auto mutation_entry = resource.object_v.find("mutation_entry");
-        if (mutation_entry != resource.object_v.end())
-          (void)require_string(mutation_entry->second, "mutation_entry");
         const auto variation = resource.object_v.find("variation");
         if (variation != resource.object_v.end() && variation->second.kind != Kind::Bool)
           throw std::invalid_argument("nonterminal variation must be Boolean");
         for (const auto& alternative : elements(require_object_field(resource, "alternatives"))) {
-          keys(alternative, {"id", "weight", "expression", "generation_stages", "crossover_group", "crossover_scope", "variation"}, "alternative");
-          const auto variation = alternative.object_v.find("variation");
-          if (variation != alternative.object_v.end() &&
-              variation->second.kind != Json::Kind::Bool &&
-              !(variation->second.kind == Json::Kind::String && variation->second.string_v == "unbound"))
-            throw std::invalid_argument("alternative variation must be boolean or unbound");
-          const auto group = alternative.object_v.find("crossover_group");
-          if (group != alternative.object_v.end() &&
-              require_string(group->second, "crossover_group").empty())
-            throw std::invalid_argument("crossover_group must be nonempty");
-          const auto scope_policy = alternative.object_v.find("crossover_scope");
-          if (scope_policy != alternative.object_v.end()) {
-            const auto policy = require_string(scope_policy->second, "crossover_scope");
-            if (group == alternative.object_v.end() || (policy != "exact" && policy != "closed"))
-              throw std::invalid_argument("crossover_scope requires a group and exact or closed policy");
-          }
-          (void)production_generation_mask(alternative);
+          keys(alternative, {"id", "weight", "expression"}, "alternative");
           const auto& weight = require_object_field(alternative, "weight");
           if (weight.kind != Kind::Number || !std::isfinite(weight.number_v) || weight.number_v <= 0)
             throw std::invalid_argument("production weight must be positive and finite");
@@ -525,33 +506,6 @@ class Resolver {
   std::set<std::string> sources_;
 };
 }  // namespace
-
-const char* generation_stage_name(GenerationStage stage) {
-  switch (stage) {
-    case GenerationStage::Initial: return "initial";
-    case GenerationStage::Mutation: return "mutation";
-  }
-  throw std::invalid_argument("unknown generation stage");
-}
-GenerationStage parse_generation_stage(const std::string& name) {
-  if (name == "initial") return GenerationStage::Initial;
-  if (name == "mutation") return GenerationStage::Mutation;
-  throw std::invalid_argument("unknown generation stage: " + name);
-}
-std::uint8_t production_generation_mask(const cli_detail::JsonValue& alternative) {
-  const auto found = alternative.object_v.find("generation_stages");
-  if (found == alternative.object_v.end()) return 3;
-  std::uint8_t result = 0;
-  for (const auto& value : elements(found->second)) {
-    if (value.kind != Kind::String)
-      throw std::invalid_argument("generation stage must be a string");
-    const auto stage = parse_generation_stage(value.string_v);
-    const auto bit = static_cast<std::uint8_t>(1u << static_cast<unsigned>(stage));
-    if (result & bit) throw std::invalid_argument("duplicate generation stage");
-    result |= bit;
-  }
-  return result;
-}
 
 std::string canonical_json(const cli_detail::JsonValue& value) {
   std::ostringstream out; out.imbue(std::locale::classic()); emit(out, value); return out.str();

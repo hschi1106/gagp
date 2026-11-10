@@ -732,7 +732,7 @@ flowchart TD
 
 Duplicate keys、unknown fields、invalid Unicode、non-finite numbers 和不相容 version 都會被拒絕。被 override 蓋掉的舊定義也不能藏非法欄位；原始 shape 會先檢查。
 
-這能避免拼錯 `generation_stages` 後系統默默忽略，卻讓你以為政策已生效。
+這能避免拼錯欄位名稱後系統默默忽略，卻讓你以為政策已生效。
 
 ### 12.2 Identity 算的是什麼
 
@@ -765,44 +765,15 @@ Expression root 生成時要預留四個實體 nodes：PROGRAM、BLOCK_CONS、RE
 <a id="c13"></a>
 ## 13. 進階搜尋政策：不只開關某個 operator
 
-### 13.1 generation_stages
-
-| 設定 | 初代生成 | Subtree donor 生成 | Membership／crossover 可辨識 |
-| --- | --- | --- | --- |
-| 省略 | 是 | 是 | 是 |
-| `["initial"]` | 是 | 否 | 是 |
-| `["mutation"]` | 否 | 是 | 是 |
-| `[]` | 否 | 否 | 是 |
-
-Stage filtering 作用於整個遞迴展開過程，不只是 entry。某 stage 沒有符合 budget 的解，會失敗，不會借用另一 stage 的 production。
-
-它控制 construction，不控制 runtime，也不重新定義常數 perturbation。
-
-### 13.2 variation 有不同層次
+### 13.1 variation 只在 nonterminal 層級
 
 - Nonterminal `variation:false`：不把該 occurrence 當作 subtree replacement site。
-- Alternative `variation:false`：只排除該 production 對應的 site。
-- Alternative `variation:"unbound"`：當 subtree 含非固定的 lexical bound reference 時排除該 site。
 - Descendant rules 仍保有自己的 variation policy。
 - Constant mutation 是另一套 domain policy，不會自動一起關閉。
 
 「固定根部」不是「整棵樹永遠不動」。要凍結哪些部分，需明確設計 template、descendant eligibility 和常數政策。
 
-### 13.3 mutation_entry
-
-有時希望某 rule 在生成大結構時使用很窄的 construction distribution，但單獨被 mutation 選中時換成較寬的 donor distribution。
-
-`mutation_entry` 指向另一個相同 exact type、category、ordered scope 的 rule。Redirect 只在選中位置套用一次，不會無限追蹤轉向；目的位置原本的 membership 仍必須通過。
-
-### 13.4 crossover_group 與 closed scope
-
-預設 compatibility 保留 nonterminal／template-hole 的結構角色。若作者確認兩種 role 可互換，可在 alternatives 上設定相同 `crossover_group`。
-
-這只放寬指定的角色 identity，**不會取消 type、category、ordinary local、budget 和完整孩子 membership 的檢查**。
-
-再設定 `crossover_scope:"closed"` 時，系統會檢查實際 subtree 是否完全沒有外部 lexical capture。通過證明的 closed subtree，才能跨不同未使用外層 bindings 的 scope 交換。只是寫下 closed，不等於自動被相信。
-
-### 13.5 Semantic fuel 與 projected resource
+### 13.2 Semantic fuel 與 projected resource
 
 `fuel_events` 修改具體 AST node 的語意事件計費。它不能掛在純 wrapper 的 `ref`／template invocation／hole 上，也不能創造 zero-cost cycle。
 
@@ -1151,7 +1122,7 @@ Cases 的 expected types 必須被所選 roots 接納；原本 scoring 公式不
 - 所屬 grammar／semantic identity。
 - Exact type 與語法 category。
 - 目的位置可見的 lexical scope 和 ordinary locals。
-- Nonterminal、template instance／slot 或明確 crossover group。
+- Nonterminal 與 template instance／slot。
 - Repeated-hole 的所有 occurrences。
 - 目的位置可承受的 node、depth、template nesting 預算。
 - 選用 projected resource budget 時的完整成本。
@@ -1977,7 +1948,6 @@ flowchart TD
 | Missing／unknown hole | Template invocation 沒填齊，或名稱寫錯 | 對照 holes declarations |
 | Scope mismatch | Donor 需要不存在的 bound name | 查目的 hole／rule scope 與 bind mapping |
 | Cannot fit budget | Envelope／fixed copies／siblings 最低成本超出 | 用 inspect 看 minimum costs，重算完整 AST |
-| Initial 可以生成，mutation 失敗 | Mutation stage 的可行 alternatives 不足 | 查 generation_stages／mutation_entry |
 | Grammar hash mismatch | 改了權重、domain、transitive source 或版本 | 不要混用舊 artifact identity |
 | Replay rejected | AST／constant／request／provenance 已改或版本不同 | 分清 replay 與 materialized execution |
 | Unknown `--grammar-config` | 使用 release-1 介面 | 用 v2 definition；舊資料離線 migrate |
@@ -2004,7 +1974,7 @@ flowchart TD
 | Grammar JSON 與 imports | [definition.cpp](../../cpp/src/evolution/grammar/definition.cpp)、[identity.cpp](../../cpp/src/evolution/grammar/identity.cpp) | test_grammar_definition、artifact tests |
 | Primitive signatures | [catalog.cpp](../../cpp/src/evolution/grammar/catalog.cpp) | test_grammar_catalog |
 | Compile grammar tables | [compiled.cpp](../../cpp/src/evolution/grammar/compiled.cpp) | test_grammar_compiled、request／frame tests |
-| 生成與 budget | [generate.cpp](../../cpp/src/evolution/grammar/generate.cpp)、[budget.cpp](../../cpp/src/evolution/grammar/budget.cpp) | generation、generation_stages、sequence constants |
+| 生成與 budget | [generate.cpp](../../cpp/src/evolution/grammar/generate.cpp)、[budget.cpp](../../cpp/src/evolution/grammar/budget.cpp) | generation、sequence constants |
 | Membership | [membership.cpp](../../cpp/src/evolution/grammar/membership.cpp) | membership、witness、template／bounded membership |
 | AST node 與 verification | [node_descriptor.cpp](../../cpp/src/evolution/node_descriptor.cpp)、[ast_type_verify.cpp](../../cpp/src/evolution/ast_type_verify.cpp) | ast_verify_structure／types／exact_scope |
 | Lowering | [compiler.cpp](../../cpp/src/evolution/compiler.cpp) | compiler_lowering、bounded compile、fuel preservation |
@@ -2209,7 +2179,7 @@ CPU／GPU 都產生合法 children、甚至最終 best fitness 一樣，仍可�
 | [authoring memo](../../configs/grammar/examples/authoring/memo.json) | 完整 bounded plan、coordinate rank、phase bank bindings |
 | [typed roots](../../configs/grammar/examples/types/) | 八個公開型別的 root 與 paired cases |
 | [restricted combine](../../configs/grammar/examples/restricted_combine.json) | Import package 並限制 combine language |
-| [source_literals](../../configs/grammar/packages/source_literals.json) | 可重用 literal policy、initial／mutation domains 的區分 |
+| [source_literals](../../configs/grammar/packages/source_literals.json) | 可重用 literal policy |
 | [linear recursion package](../../configs/grammar/packages/linear_rec_intlist_int.json) | 用一般 v2 結構描述相容的線性遞迴 intent |
 | [divide-and-conquer package](../../configs/grammar/packages/dc_intlist_int.json) | Sequence progress 與固定分治骨架 |
 | [DP1D package](../../configs/grammar/packages/dp1d_int.json)、[DP2D package](../../configs/grammar/packages/dp2d_int.json) | 座標遞迴與 memo template 的組合方式 |

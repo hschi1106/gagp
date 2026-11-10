@@ -11,8 +11,6 @@ struct GenerationRequest {
   std::vector<RegionBinding> visible_environment;
   // Complete native-program allowance, including an expression's envelope.
   GrammarLimits budget;
-  // Construction policy only; membership and crossover use the union grammar.
-  GenerationStage stage = GenerationStage::Initial;
 };
 
 // A mixed population remains a finite set of exact, closed root contracts.

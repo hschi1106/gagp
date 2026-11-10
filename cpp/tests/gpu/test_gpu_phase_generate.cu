@@ -129,7 +129,7 @@ void run_root(const std::shared_ptr<const grammar::CompiledGrammar>& owner,unsig
   }
  }
  n.upload(host.nonterminals);p.upload(host.productions);
- grammar::GenerationRequest request{root,nt.type,nt.scope,grammar.search_limits(),grammar::GenerationStage::Mutation};
+ grammar::GenerationRequest request{root,nt.type,nt.scope,grammar.search_limits()};
  grammar::GenerationFrame frame;for(std::size_t i=0;i<nt.scope.size();++i)frame.binder_ids.push_back(100+int(i));
  std::set<std::string> unique;std::size_t node_total=0;
  for(int i=0;i<count;++i) {

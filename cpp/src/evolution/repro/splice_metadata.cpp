@@ -259,13 +259,6 @@ void reconstruct_compiled_child_metadata(
     formals = binder_slice(packed.occurrence_binder_ids,
                            occurrence.binder_offset, occurrence.binder_count);
     source = &packed.compiled_sources->parents[splice.source_index];
-    if (destination.crossover_closed != contract.crossover_closed) fail();
-    if (destination.crossover_closed) {
-      if (!grammar::lexically_closed(*source,
-          {static_cast<std::uint32_t>(splice.source_begin), static_cast<std::uint32_t>(splice.source_end)})) fail();
-      formals.clear();
-      for (auto& occurrence : occurrences) occurrence.binder_ids.clear();
-    }
     compatibility = contract.compatibility_id;
     nodes = contract.materialized_nodes; depth = contract.materialized_depth;
     nesting = contract.template_nesting;

@@ -62,7 +62,6 @@ std::string VariationAnalysisCache::key(const std::string& identity,
   }
   append_number(result, request.budget.max_nodes);
   append_number(result, request.budget.max_depth);
-  append_number(result, static_cast<std::uint32_t>(request.stage));
   return result;
 }
 
@@ -113,7 +112,6 @@ std::string VariationAnalysisCache::member_key(const std::string& identity,
   for (std::size_t i = 1; i < requests.size(); ++i) {
     append_number(cache_key, requests[i].nonterminal);
     append_number(cache_key, static_cast<std::uint32_t>(requests[i].type));
-    append_number(cache_key, static_cast<std::uint32_t>(requests[i].stage));
     // Validation requires closed roots and equal budgets, already in the key.
   }
   return cache_key;

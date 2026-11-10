@@ -24,7 +24,6 @@
 #include "gagp/evolution/lifecycle.hpp"
 #include "gagp/evolution/population_init.hpp"
 #include "../fixtures/mixed_population.hpp"
-#include "../fixtures/closed_crossover.hpp"
 #include "../fixtures/bounded_capture.hpp"
 #include "gagp/evolution/repro/backend.hpp"
 #include "gagp/evolution/repro/gpu.hpp"
@@ -613,26 +612,6 @@ void test_source_identity_normalizes_unused_tables() {
   }, "compaction bypassed validation of an unused opaque payload");
 }
 
-void test_closed_cross_scope_crossover() {
-  const auto grammar = std::make_shared<const CompiledGrammar>(
-      gagp::evo::grammar::compile_grammar(gagp::evo::grammar::parse_definition(kClosedCrossoverGrammar)));
-  const auto config = compiled_config(grammar, 16, 0.0, 0.0, true);
-  const auto population = source_population(*grammar, 16, 3);
-  const auto scored = score_manually(population, 3);
-  std::mt19937_64 rng(17);
-  const auto result = gagp::evo::repro::run_gpu_repro_backend(scored, config, rng);
-  bool crossed = false;
-  for (const auto& child : result.next_population) {
-    const auto value = execute_int(child);
-    require(value >= 2 && value <= 4, "closed GPU crossover produced an invalid value");
-    crossed |= value != 3;
-  }
-  require(crossed, "GPU did not exchange payloads across different lexical arities");
-  require(result.stats.kernel_ms > 0 && result.stats.variation.fallback_children == 0 &&
-      result.stats.variation.acceptance_rejections == 0,
-      "closed GPU crossover fell back or failed child admission");
-}
-
 void exercise_three_generations(int population_size, bool explicit_request,
                                 double mutation_rate,
                                 double subtree_probability) {
@@ -1151,54 +1130,6 @@ void test_int_addition_on_gpu() {
           overlap.timing.reproduction_totals.kernel_ms > 0,"Int addition overlap changed evolution");
 }
 
-void test_generation_stages_on_gpu() {
-  using namespace gagp;
-  using namespace gagp::evo;
-  using namespace gagp::evo::grammar;
-  const auto grammar = std::make_shared<const CompiledGrammar>(compile_grammar(parse_definition(R"({
-    "format_version":"grammar-definition-v2","entry":{"nonterminal":"Value","type":"Int"},
-    "search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":100},
-    "nonterminals":[{"id":"Value","type":"Int","scope":[],"alternatives":[
-      {"id":"initial","weight":1,"generation_stages":["initial"],
-       "expression":{"constant":{"type":"Int","values":["1"]}}},
-      {"id":"mutation","weight":1,"generation_stages":["mutation"],
-       "expression":{"constant":{"type":"Int","values":["2"]}}}]}]
-  })")));
-  auto config = compiled_config(grammar, 8, 1.0, 1.0, true);
-  const auto population = std::vector<ProgramGenome>(8, generate_derivation(*grammar, 9).genome);
-  const auto resources = repro::make_gpu_repro_run_resources(config);
-  const auto prepared = repro::prepare_gpu_repro_backend_inputs(population, config, 101, nullptr, resources);
-  auto wrong_stage = config;
-  wrong_stage.generation_request->stage = GenerationStage::Mutation;
-  expect_invalid([&] {
-    (void)repro::prepare_gpu_repro_backend_inputs(population, wrong_stage, 101, nullptr, resources);
-  }, "GPU run resources ignored request stage");
-  const auto result = repro::run_gpu_repro_backend_prepared(score_manually(population), config, prepared, nullptr);
-  require(result.stats.kernel_ms > 0 && result.stats.variation.fallback_children == 0 &&
-          result.stats.variation.acceptance_rejections == 0, "staged GPU donor used fallback or rejection: kernel=" + std::to_string(result.stats.kernel_ms) +
-          " fallback=" + std::to_string(result.stats.variation.fallback_children) +
-          " rejected=" + std::to_string(result.stats.variation.acceptance_rejections) +
-          " generation=" + std::to_string(result.stats.variation.generation_rejections) +
-          " budget=" + std::to_string(result.stats.variation.budget_rejections) +
-          " contract=" + std::to_string(result.stats.variation.contract_rejections) +
-          " donors=" + std::to_string(prepared.config.compiled_donor_count));
-  for (const auto& child : result.next_population)
-    require(execute_int(child) == 2, "GPU subtree mutation sampled initial productions");
-  config.eval_engine = EvalEngine::GPU;
-  const std::vector<EvalCase> cases{{{}, Value::from_int(2)}};
-  auto direct_population = population;
-  const auto direct = evolve_population(cases, config, &direct_population);
-  config.repro_overlap = true;
-  auto overlap_population = population;
-  const auto overlap = evolve_population(cases, config, &overlap_population);
-  require(direct.history_best_fitness == overlap.history_best_fitness &&
-          direct.history_mean_fitness == overlap.history_mean_fitness &&
-          overlap.timing.reproduction_totals.kernel_ms > 0,
-          "staged donor overlap changed evolution or omitted GPU reproduction");
-  for (const auto& child : overlap.final_population)
-    require(execute_int(child.genome) == 2, "overlap offspring escaped mutation stage");
-}
-
 void test_public_modes_and_overlap() {
   exercise_three_generations(3, false, 0.0, 0.0);
   exercise_three_generations(3, true, 1.0, 0.0);
@@ -1438,11 +1369,9 @@ int main() {
     test_run_resources_retain_grammar_payloads();
     test_source_identity_normalizes_unused_tables();
     test_compacted_analysis_drops_unused_inputs();
-    test_closed_cross_scope_crossover();
     test_public_modes_and_overlap();
     test_mixed_roots_across_all_modes();
     test_sequence_constant_proposals_and_overlap();
-    test_generation_stages_on_gpu();
     test_constant_policies_on_gpu();
     test_int_addition_on_gpu();
     test_float_range_on_gpu(false);

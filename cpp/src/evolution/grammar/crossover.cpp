@@ -121,7 +121,7 @@ std::pair<ProgramGenome, ProgramGenome> crossover_analyzed(const ProgramGenome& 
                               const GenerationRequest& request) {
           ProgramGenome child;
           child.ast = variation_detail::splice(base.ast, destination, donor.ast,
-              source.occurrences.front(), source.occurrence_binder_ids.front(), destination.crossover_closed);
+              source.occurrences.front(), source.occurrence_binder_ids.front());
           try {
             // Trial children need native verification, canonical membership,
             // lowering and resource accounting, but not their future variation
@@ -150,8 +150,8 @@ std::pair<ProgramGenome, ProgramGenome> crossover_analyzed(const ProgramGenome& 
   }
   if (!selected_a) return {variation_detail::fallback(a, context), variation_detail::fallback(b, context)};
   if (selected) selected->emplace(*selected_a, *selected_b);
-  auto child_a = variation_detail::splice(a.ast, *selected_a, b.ast, selected_b->occurrences.front(), selected_b->occurrence_binder_ids.front(), selected_a->crossover_closed);
-  auto child_b = variation_detail::splice(b.ast, *selected_b, a.ast, selected_a->occurrences.front(), selected_a->occurrence_binder_ids.front(), selected_b->crossover_closed);
+  auto child_a = variation_detail::splice(a.ast, *selected_a, b.ast, selected_b->occurrences.front(), selected_b->occurrence_binder_ids.front());
+  auto child_b = variation_detail::splice(b.ast, *selected_b, a.ast, selected_a->occurrences.front(), selected_a->occurrence_binder_ids.front());
   return {variation_detail::accept(std::move(child_a), a, context),
       variation_detail::accept(std::move(child_b), b, context)};
 }

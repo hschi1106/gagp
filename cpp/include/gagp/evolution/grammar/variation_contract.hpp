@@ -18,8 +18,6 @@ struct VariationSite {
   std::uint32_t context = kNoGrammarId;
   std::uint32_t template_id = kNoGrammarId;
   std::uint32_t slot = kNoGrammarId;
-  std::string crossover_group;
-  bool crossover_closed = false;
   // All occurrences of this logical choice must be replaced atomically.
   std::vector<VariationSpan> occurrences;
   // Physical IDs in ordered formal scope, aligned with occurrences. IDs are
@@ -71,8 +69,6 @@ VariationAnalysis analyze_population_variation(const CompiledGrammar& grammar,
 
 // Equality of contracts and fit of the donor are separate predicates.
 bool compatible_sites(const VariationSite& left, const VariationSite& right);
-// True only when every lexical reference is declared inside the payload.
-bool lexically_closed(const AstProgram& ast, VariationSpan payload);
 bool donor_fits(const VariationSite& destination, std::uint32_t nodes,
     std::uint32_t depth, std::uint32_t template_nesting);
 bool donor_fits(const VariationSite& destination, const VariationSite& donor);

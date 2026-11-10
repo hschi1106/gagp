@@ -159,7 +159,7 @@ class GrammarCompiler {
     const auto& rules = array(require_object_field(doc, "nonterminals"));
     if (rules.empty() || rules.size() > 4096) throw std::invalid_argument("grammar requires 1..4096 nonterminals");
     for (const auto& rule : rules) {
-      keys(rule, {"id", "type", "scope", "alternatives", "category", "variation", "mutation_entry"}, "nonterminal");
+      keys(rule, {"id", "type", "scope", "alternatives", "category", "variation"}, "nonterminal");
       CompiledNonterminal nt;
       nt.id = static_cast<std::uint32_t>(out_.nonterminals_.size());
       nt.stable_id = field(rule, "id"); nt.type = parse_type(field(rule, "type"));
@@ -173,14 +173,6 @@ class GrammarCompiler {
       nt.scope = scope(require_object_field(rule, "scope"));
       nt.context = intern_context(nt.scope);
       ids_.emplace(nt.stable_id, nt.id); out_.nonterminals_.push_back(std::move(nt));
-    }
-    for (std::size_t i = 0; i < rules.size(); ++i) {
-      if (!rules[i].object_v.count("mutation_entry")) continue;
-      auto& nt = out_.nonterminals_[i];
-      nt.mutation_entry = reference(field(rules[i], "mutation_entry"));
-      const auto& donor = out_.nonterminals_[nt.mutation_entry];
-      if (donor.type != nt.type || donor.category != nt.category || donor.context != nt.context)
-        throw std::invalid_argument("mutation_entry requires identical type, category and ordered scope");
     }
     declare_templates(array(require_object_field(doc, "templates")));
     for (std::uint32_t id = 0; id < out_.templates_.size(); ++id)
@@ -200,7 +192,7 @@ class GrammarCompiler {
       auto& nt = out_.nonterminals_[i];
       for (const auto& alternative : alternatives) {
         if (out_.productions_.size() >= 65536) throw std::invalid_argument("grammar production capacity exceeded");
-        keys(alternative, {"id", "weight", "expression", "generation_stages", "crossover_group", "crossover_scope", "variation"}, "alternative");
+        keys(alternative, {"id", "weight", "expression"}, "alternative");
         const auto& weight = require_object_field(alternative, "weight");
         if (weight.kind != Kind::Number || !std::isfinite(weight.number_v) || weight.number_v <= 0)
           throw std::invalid_argument("production weight must be positive and finite");
@@ -208,16 +200,6 @@ class GrammarCompiler {
         production.id = static_cast<std::uint32_t>(out_.productions_.size());
         production.stable_id = nt.stable_id + "/" + field(alternative, "id");
         production.nonterminal = nt.id; production.weight = weight.number_v;
-        if (alternative.object_v.count("crossover_group"))
-          production.crossover_group = field(alternative, "crossover_group");
-        const auto variation = alternative.object_v.find("variation");
-        if (variation != alternative.object_v.end()) {
-          production.variation_enabled = variation->second.kind != Json::Kind::Bool || variation->second.bool_v;
-          production.unbound_variation = variation->second.kind == Json::Kind::String;
-        }
-        production.closed_crossover = alternative.object_v.count("crossover_scope") &&
-            field(alternative, "crossover_scope") == "closed";
-        production.generation_mask = production_generation_mask(alternative);
         production.expression = expression(require_object_field(alternative, "expression"), nt.scope, 0);
         if (out_.expressions_[production.expression].type != nt.type || out_.expressions_[production.expression].category != nt.category)
           throw std::invalid_argument("production result type mismatch: " + production.stable_id);
@@ -734,32 +716,6 @@ class GrammarCompiler {
           if (nodes < target) { target = nodes; changed = true; }
         }
       } while (changed);
-    }
-    if (std::any_of(out_.productions_.begin(), out_.productions_.end(),
-        [](const auto& production) { return production.generation_mask != 3; })) {
-      for (auto stage : {GenerationStage::Initial, GenerationStage::Mutation}) {
-        const auto index = static_cast<std::size_t>(stage);
-        for (auto& nt : out_.nonterminals_)
-          nt.generation_minimum_nodes[index].assign(depths + 1, kNoGrammarId);
-        for (auto& production : out_.productions_)
-          production.generation_minimum_nodes[index].assign(depths + 1, kNoGrammarId);
-        for (std::uint32_t depth = 1; depth <= depths; ++depth) {
-          bool changed;
-          do {
-            changed = false;
-            for (auto& production : out_.productions_) {
-              if (!production.generates(stage)) continue;
-              const auto nodes = minimum_expression_nodes(out_, production.expression, depth, {},
-                  [&](std::uint32_t nt, std::uint32_t d) {
-                    return out_.nonterminals_[nt].generation_minimum_nodes[index][d];
-                  });
-              production.generation_minimum_nodes[index][depth] = nodes;
-              auto& target = out_.nonterminals_[production.nonterminal].generation_minimum_nodes[index][depth];
-              if (nodes < target) { target = nodes; changed = true; }
-            }
-          } while (changed);
-        }
-      }
     }
     for (auto& nt : out_.nonterminals_) {
       for (std::uint32_t depth = 1; depth <= depths; ++depth) {

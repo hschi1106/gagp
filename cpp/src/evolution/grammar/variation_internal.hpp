@@ -66,7 +66,6 @@ ProgramGenome accept(AstProgram candidate, const ProgramGenome& certified_parent
     VariationContext& context, std::optional<std::uint32_t> owned_parent_root = std::nullopt,
     AdmissionUse use = AdmissionUse::Variation);
 AstProgram splice(const AstProgram& base, const VariationSite& destination,
-    const AstProgram& donor, VariationSpan payload, const std::vector<int>& donor_binder_ids,
-    bool closed_crossover = false);
+    const AstProgram& donor, VariationSpan payload, const std::vector<int>& donor_binder_ids);
 
 }  // namespace gagp::evo::grammar::variation_detail

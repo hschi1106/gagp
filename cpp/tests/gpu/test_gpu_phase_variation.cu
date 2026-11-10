@@ -213,7 +213,7 @@ std::size_t audit(const grammar::CompiledGrammar& grammar,unsigned root,const Ho
   lower<<<(population+63)/64,64>>>(pointers(trees),locals.data,types.size(),tag(nt.type),code.data,constants.data,result.data);check(cudaGetLastError());
   compiled_code=code.read();compiled_constants=constants.read();lowered=result.read();
  }
- grammar::GenerationRequest request{root,nt.type,nt.scope,grammar.search_limits(),grammar::GenerationStage::Mutation};
+ grammar::GenerationRequest request{root,nt.type,nt.scope,grammar.search_limits()};
  grammar::GenerationFrame frame;for(std::size_t i=0;i<nt.scope.size();++i)frame.binder_ids.push_back(100+int(i));
  for(int i=0;i<population;++i) {
   const auto r=results[i];require(r.status==PhaseCompileStatus::Ok,"device variation produced invalid output");

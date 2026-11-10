@@ -67,74 +67,21 @@ selection on both CPU and GPU. Descendant nonterminals retain their own policy;
 constant perturbation is governed separately by constant domains. Generation,
 membership and execution do not change. This policy is part of grammar identity.
 Extensions cannot change it; use an explicit definition/override.
-Optional `mutation_entry` names the nonterminal used to construct a subtree donor
-when this nonterminal is selected for mutation. The referenced rule must have the
-same exact type, category and ordered lexical scope. Ordinary construction, even
-inside a larger mutation donor, still uses this rule's own productions. The
-redirected request uses the mutation generation stage and the destination's
-physical and projected budgets. Redirection is applied once, not recursively.
-Destination membership and crossover remain unchanged; generated donors outside
-the destination language are rejected by normal offspring admission. This permits
-fixed construction values with broader standalone replacement distributions.
-The field participates in grammar identity and cannot be changed by an extension.
 Optional `category` defaults to Expression and also supports Program, Block and
 Statement. For structural categories, `type` is the enclosing program result contract,
 not a runtime value produced by a statement or block. Entry may be Expression or
 Program, and its optional category must match the referenced nonterminal. Each
-alternative has `id`, a positive finite `weight`, and `expression`. Its stable
+alternative has exactly `id`, a positive finite `weight`, and `expression`. Its stable
 production ID is `nonterminal-id/alternative-id`. Numeric IDs follow sorted stable
 IDs and are meaningful only with the grammar identity.
 
-An alternative may opt into a nonempty string `crossover_group`. For a site
-reconstructed through that alternative, group identity replaces the nonterminal
-ID and enclosing template/slot IDs in the crossover compatibility key. Exact
-result type, category, formal scope and available ordinary locals must still
-match. Ungrouped alternatives retain the original exact contract and never match
-grouped alternatives. Different groups never match. This permits explicitly
-interchangeable rules or holes while distinguishing alternatives with different
-structural roles. Grouping does not alter construction, mutation donor selection,
-atomic repeated-hole replacement, budgets or destination membership admission;
-an exchanged child outside its destination language is still rejected. Authors
-should group mutually admissible languages to avoid rejected offspring. The
-authored group is part of grammar identity and shared CPU/GPU site analysis.
-
-Grouped alternatives may additionally declare `crossover_scope: "closed"`
-(default `"exact"`). Canonical site analysis checks every physical occurrence
-for lexical closure, including REGION_VAR references and lexical bounded-region
-captures. A reference is internal only if its declaration lies inside the
-replaced subtree. Proven closed sites in the same group may exchange across
-different formal lexical contexts; ordinary local availability and exact result
-type/category still match. Sites with an external lexical capture retain exact
-scope matching and cannot match a proven closed site. The actual AST determines
-closure; the authored policy alone never certifies it. Mutation retains the full
-destination frame and its donor rules. CPU splice and GPU metadata reconstruction
-check the incoming payload before omitting external binder remapping. Atomic
-replacement, budget checks and destination membership remain in force. Without
-a crossover group this scope policy is rejected.
-
-An alternative may also declare `generation_stages`, an array containing distinct
-`"initial"` and/or `"mutation"` strings. Omission enables both stages; an empty
-array retains the production for membership but excludes it from generation.
-Unknown, duplicate or non-string stages are errors, including in overridden
-source definitions. This field filters every recursive production choice, not
-only the entry rule. Each alternative retains its own expression and constant
-domains, so stages may use different terminal ranges or skeletons without changing
-the nonterminal's type/scope identity. Positive weights are normalized over the
-feasible alternatives enabled for the selected stage.
-
-Membership, derivation reconstruction and crossover compatibility use the union
-of all alternatives, including membership-only productions. Generation stages do
-not impose an additional runtime validity restriction. Constant perturbation is
-not production generation and retains its separately defined domain policy.
-Compilation checks union productivity and computes stage-specific minimum costs;
-a nonterminal may be unproductive in one or both generation stages. A generation
-request fails if its selected stage cannot fit the budget, even when the union
-would fit. Disabled alternatives never provide an alias exit or a template-hole
-minimum. Unrestricted grammars share their existing cost tables and retain their
-sampling order and RNG consumption in the reference backend. Explicitly selected
-experimental reproduction profiles may use different reproducible RNG streams and
-site sampling, with their support and operator contract declared separately in
-`docs/design/gpu-reproduction.md`; grammar membership is not relaxed by that choice.
+Crossover compatibility is exact: two sites match only when they share the
+nonterminal, enclosing template/slot, result type, category, formal scope and
+available ordinary locals. Every alternative takes part in generation, mutation
+donors and membership with the same weights. Explicitly selected reproduction
+profiles may use different reproducible RNG streams and site sampling, with their
+support and operator contract declared in `docs/design/gpu-reproduction.md`;
+grammar membership is not relaxed by that choice.
 
 A scope is an ordered array of `{name,type}` bindings. Binding names match
 `[A-Za-z_][A-Za-z0-9_]*`; duplicates and lexical shadowing are rejected. A reference
@@ -394,7 +341,7 @@ search space. Enforcing separate projected budgets remains pending integration.
 `joint_resource_frontier` computes nondominated structural construction costs
 within both a request's physical limits and supplied projected node/depth limits.
 Each row retains physical node count and projected node/carried-depth/reset-depth
-costs from one derivation. Production stages apply. A repeated template hole
+costs from one derivation. A repeated template hole
 selects one shared cost alternative at its tightest physical depth, rather than
 mixing alternatives independently across copies. Reference cycles use a bounded
 fixed point over physical depth. Unproductive joint budgets return an empty set;
@@ -607,7 +554,7 @@ implements variation/reconstruction acceptance.
 
 Generation/derivation cache identity includes canonical grammar content and all
 schema/catalog/normalization versions, generator/RNG version, requested nonterminal,
-exact context/binding mapping, generation stage, search and execution limits, fixture input-schema
+exact context/binding mapping, search and execution limits, fixture input-schema
 identity and the configured payload-seeding policy. Changing production weights or
 transitive content invalidates construction caches. Node-analysis/variation caches
 also include materialized AST content, scope/provenance identity and destination
@@ -841,16 +788,12 @@ checks the grammar entry and full limits. Executability preflight follows the re
 nonterminal, so an unrelated unsupported default entry does not block another executable
 request. All recursive production choices remain within that request's structural budget.
 
-Generation requests default to the `initial` stage. CPU subtree mutation and GPU
-donor preparation select `mutation` through the shared donor request constructor.
-Contextual feasibility tables and analysis cache provenance distinguish the
-selected stage, including when available locals and budgets otherwise match.
-The stage does not enter crossover compatibility IDs. Both modes still require
-native verification and union membership for accepted children.
+CPU subtree mutation and GPU donor preparation build donor requests through one
+shared constructor. Both still require native verification and membership for
+accepted children.
 
 Generated artifacts record `request` with `nonterminal`, `type`, `visible_environment`
-and `scope_mapping`; a non-default stage adds `generation_stage: "mutation"`.
-Omission means `initial`, preserving the default canonical encoding. The request
+and `scope_mapping`. The request
 budget is the artifact's `search_limits`. Exact replay
 reconstructs the request and validates the complete rematerialized artifact, including
 scope mapping and requested return type. Materialized execution still checks native
@@ -940,14 +883,3 @@ exact type must match the control signature. Input writes update the same native
 slot subsequently read by an `input` expression, for that execution only. They
 do not mutate the external case data. Other controls reject both target fields.
 Local declarations still cannot conflict with input names.
-
-### Production variation eligibility
-
-An alternative may set `variation` to `true` (default), `false`, or `"unbound"`.
-The owning nonterminal must also enable variation. `false` excludes the selected
-production's site without excluding descendant choices. `"unbound"` excludes
-that site when its materialized subtree contains a non-fixed lexical bound
-reference. Fixed references in template implementation bodies do not count;
-references supplied through holes do. Membership reconstruction, not imported
-provenance, determines fixed origins. This policy controls both subtree mutation
-and crossover candidate enumeration, and leaves constant perturbation unchanged.

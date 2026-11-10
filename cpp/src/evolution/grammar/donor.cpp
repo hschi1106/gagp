@@ -87,9 +87,7 @@ ContextualDonor generate_donor_impl(const CompiledGrammar& grammar, VariationCon
   validate_site(grammar, site);
 
   try {
-    auto request = donor_request(site);
-    const auto mutation_entry = grammar.nonterminals()[site.nonterminal].mutation_entry;
-    if (mutation_entry != kNoGrammarId) request.nonterminal = mutation_entry;
+    const auto request = donor_request(site);
     const auto frame = donor_frame(grammar, site);
     auto generated = context ? generate_derivation_in_frame(*context, seed, request, frame) :
         generate_derivation_in_frame(grammar, seed, request, frame);

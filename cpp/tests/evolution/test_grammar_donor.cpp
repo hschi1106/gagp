@@ -273,60 +273,6 @@ void test_malformed_site_rejection() {
       "donor generation accepted a destination local with the wrong exact type");
 }
 
-void test_mutation_entry() {
-  const std::string source = R"({
-    "format_version":"grammar-definition-v2",
-    "entry":{"nonterminal":"Fixed","type":"Int"},
-    "inputs":[],"locals":[],"templates":[],
-    "search_limits":{"max_nodes":8,"max_depth":6},
-    "execution_limits":{"fuel":100},
-    "nonterminals":[
-      {"id":"Fixed","type":"Int","scope":[],"mutation_entry":"Donor",
-       "alternatives":[{"id":"fixed","weight":1,"expression":{"constant":{
-         "type":"Int","range":["-8","8"],
-         "sample_from":{"type":"Int","values":["2"]}}}}]},
-      {"id":"Donor","type":"Int","scope":[],"variation":false,
-       "alternatives":[{"id":"seven","weight":1,"expression":{
-         "constant":{"type":"Int","values":["7"]}}}]}
-    ]})";
-  const auto grammar = std::make_shared<const CompiledGrammar>(compile(source));
-  const auto parent = generate_derivation(*grammar, 3).genome;
-  const auto value = [](const ProgramGenome& genome) {
-    return genome.ast.consts.at(genome.ast.nodes.at(3).i0).i;
-  };
-  check(value(parent) == 2, "mutation entry changed ordinary construction");
-  auto construction = entry_request(*grammar);
-  construction.stage = GenerationStage::Mutation;
-  check(value(generate_derivation(*grammar, 3, construction).genome) == 2,
-      "nested mutation construction incorrectly redirected a nonterminal");
-  VariationContext context(grammar);
-  const auto child = mutate(parent, 19, context, 1.0);
-  check(value(child) == 7, "subtree mutation ignored its construction entry");
-  check(context.analyze(child)->sites.size() == 1,
-      "mutated child lost destination membership or exposed helper sites");
-
-  auto escaping = source;
-  escaping.replace(escaping.find("[\"7\"]"), 5, "[\"9\"]");
-  const auto escaping_grammar = std::make_shared<const CompiledGrammar>(compile(escaping));
-  VariationContext escaping_context(escaping_grammar);
-  const auto escaping_parent = generate_derivation(*escaping_grammar, 3).genome;
-  check(value(mutate(escaping_parent, 19, escaping_context, 1.0)) == 2,
-      "mutation entry bypassed destination membership");
-
-  // A differently typed construction entry is rejected before generation.
-  auto invalid = source;
-  const auto position = invalid.find("\"id\":\"Donor\",\"type\":\"Int\"");
-  check(position != std::string::npos, "mutation entry fixture lost donor declaration");
-  invalid.replace(position, std::string("\"id\":\"Donor\",\"type\":\"Int\"").size(),
-      "\"id\":\"Donor\",\"type\":\"Bool\"");
-  bool rejected = false;
-  try { (void)compile(invalid); }
-  catch (const std::invalid_argument& error) {
-    rejected = std::string(error.what()).find("mutation_entry") != std::string::npos;
-  }
-  check(rejected, "mutation entry accepted a different exact type");
-}
-
 }  // namespace
 
 int main() {
@@ -335,7 +281,6 @@ int main() {
     test_exact_budget_and_template_nesting_boundaries();
     test_worker_frame_cost_cache_identity_and_keys();
     test_malformed_site_rejection();
-    test_mutation_entry();
     std::cout << "grammar donor facade: contextual payload, inputs, provenance, and boundaries passed\n";
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';

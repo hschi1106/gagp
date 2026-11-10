@@ -365,13 +365,6 @@ separate target checks. This helper is not enabled implicitly by migration,
 production evolution, or timing entrypoints.
 
 
-Grammar production `generation_stages` separates construction policy from union
-membership. Compilation retains union costs and, for restricted grammars, builds
-initial/mutation feasibility tables. Generation follows the request stage at all
-recursive choices; shared CPU/GPU donor requests select mutation. Reconstruction
-and crossover use the union contract, while frame caches and replay provenance
-retain stage identity. Default unrestricted grammars reuse their existing tables.
-
 
 Executable-root checks on an immutable compiled grammar retain successful
 reachability certificates per root. Copies share a synchronized certificate cache;

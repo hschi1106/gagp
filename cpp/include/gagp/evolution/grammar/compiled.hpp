@@ -89,23 +89,9 @@ struct CompiledProduction {
   std::string stable_id;
   std::uint32_t nonterminal = 0;
   double weight = 0;
-  std::string crossover_group;
-  bool closed_crossover = false;
-  bool variation_enabled = true;
-  bool unbound_variation = false;
-  std::uint8_t generation_mask = 3;
-  bool generates(GenerationStage stage) const {
-    return (generation_mask & (1u << static_cast<unsigned>(stage))) != 0;
-  }
   std::uint32_t expression = 0;
   // Index d gives minimum materialized nodes at depth <= d; UINT_MAX is impossible.
   std::vector<std::uint32_t> minimum_nodes_by_depth;
-  // Empty for unrestricted grammars: share the union membership cost table.
-  std::array<std::vector<std::uint32_t>, 2> generation_minimum_nodes;
-  const std::vector<std::uint32_t>& generation_costs(GenerationStage stage) const {
-    const auto& costs = generation_minimum_nodes.at(static_cast<std::size_t>(stage));
-    return costs.empty() ? minimum_nodes_by_depth : costs;
-  }
 };
 
 struct CompiledNonterminal {
@@ -113,18 +99,9 @@ struct CompiledNonterminal {
   std::string stable_id;
   RType type = RType::Invalid;
   bool variation_enabled = true;
-  // Optional construction entry for subtree mutation; destination membership
-  // and crossover continue to use this nonterminal's own language.
-  std::uint32_t mutation_entry = kNoGrammarId;
   std::vector<RegionBinding> scope;
   std::vector<std::uint32_t> productions;
   std::vector<std::uint32_t> minimum_nodes_by_depth;
-  // Empty for unrestricted grammars: share the union membership cost table.
-  std::array<std::vector<std::uint32_t>, 2> generation_minimum_nodes;
-  const std::vector<std::uint32_t>& generation_costs(GenerationStage stage) const {
-    const auto& costs = generation_minimum_nodes.at(static_cast<std::size_t>(stage));
-    return costs.empty() ? minimum_nodes_by_depth : costs;
-  }
   std::uint32_t minimum_depth = kNoGrammarId;
   std::uint32_t minimum_nodes = kNoGrammarId;
   std::uint32_t context = kNoGrammarId;

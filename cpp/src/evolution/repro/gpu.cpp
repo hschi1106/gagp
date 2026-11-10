@@ -358,7 +358,7 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
 }
 
 bool same_request(const grammar::GenerationRequest& a, const grammar::GenerationRequest& b) {
-  if (a.nonterminal != b.nonterminal || a.type != b.type || a.stage != b.stage ||
+  if (a.nonterminal != b.nonterminal || a.type != b.type ||
       a.budget.max_nodes != b.budget.max_nodes || a.budget.max_depth != b.budget.max_depth ||
       a.visible_environment.size() != b.visible_environment.size()) return false;
   for (std::size_t i = 0; i < a.visible_environment.size(); ++i)

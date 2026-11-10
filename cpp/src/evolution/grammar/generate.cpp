@@ -50,8 +50,8 @@ class Generator {
         throw std::invalid_argument("expression entry needs four envelope nodes and three prefix levels in addition to its derivation");
       depth -= 3; budget -= 4;
     }
-    if (entry.generation_costs(out_.derivation.request.stage).at(depth) > budget)
-      throw std::invalid_argument("generation request has no feasible derivation in selected stage");
+    if (entry.minimum_nodes_by_depth.at(depth) > budget)
+      throw std::invalid_argument("generation request has no feasible derivation");
     if (wrap) {
       emit({NodeKind::PROGRAM, 0, 0}, {}); emit({NodeKind::BLOCK_CONS, 0, 0}, {});
       emit({NodeKind::RETURN, 0, 0}, {});
@@ -107,12 +107,7 @@ class Generator {
 
   std::uint32_t contextual_minimum(std::uint32_t id, std::uint32_t depth,
       const HoleBudgetLookup& enclosing = {}) const {
-    if (!frame_costs_ && grammar_.nonterminals().front().generation_minimum_nodes[0].empty())
-      return minimum_expression_nodes(grammar_, id, depth, enclosing);
-    if (!frame_costs_) return minimum_expression_nodes(grammar_, id, depth, enclosing,
-        [&](std::uint32_t nt, std::uint32_t d) {
-          return grammar_.nonterminals()[nt].generation_costs(out_.derivation.request.stage).at(d);
-        });
+    if (!frame_costs_) return minimum_expression_nodes(grammar_, id, depth, enclosing);
     return minimum_expression_nodes(grammar_, id, depth, enclosing,
         [&](std::uint32_t nt, std::uint32_t d) { return frame_costs_->at(nt).at(d); },
         [&](const CompiledExpression& expression, std::uint32_t) -> std::optional<std::uint32_t> {
@@ -125,11 +120,8 @@ class Generator {
     std::vector<std::uint32_t> pending;
     std::unordered_set<std::uint32_t> visited;
     const auto append_productions = [&](std::uint32_t nt) {
-      for (auto id : grammar_.nonterminals()[nt].productions) {
-        const auto& production = grammar_.productions()[id];
-        if (production.generates(out_.derivation.request.stage))
-          pending.push_back(production.expression);
-      }
+      for (auto id : grammar_.nonterminals()[nt].productions)
+        pending.push_back(grammar_.productions()[id].expression);
     };
     append_productions(out_.derivation.request.nonterminal);
     while (!pending.empty()) {
@@ -148,7 +140,7 @@ class Generator {
 
   void prepare_frame_costs() {
     // A frame cannot change feasibility of a construction that never reads locals.
-    // Reuse the compiled stage cost tables, including template/shared-hole costs.
+    // Reuse the compiled cost tables, including template/shared-hole costs.
     if (!reachable_local_dependency()) return;
     available_locals_.assign(grammar_.locals().size(), false);
     for (std::size_t i = 0; i < grammar_.locals().size(); ++i)
@@ -157,7 +149,7 @@ class Generator {
       });
     const auto depth_limit = out_.derivation.request.budget.max_depth - 3;
     if (variation_context_)
-      frame_costs_ = variation_context_->find_frame_costs(available_locals_, depth_limit, out_.derivation.request.stage);
+      frame_costs_ = variation_context_->find_frame_costs(available_locals_, depth_limit);
     if (!frame_costs_) {
       auto costs = std::make_shared<ContextualFrameCostTable>(grammar_.nonterminals().size(),
         std::vector<std::uint32_t>(depth_limit + 1, kNoGrammarId));
@@ -172,11 +164,8 @@ class Generator {
           for (const auto& nt : grammar_.nonterminals()) {
             if (nt.category != NodeCategory::Expression) continue;
             auto best = costs->at(nt.id).at(depth);
-            for (auto id : nt.productions) {
-              const auto& production = grammar_.productions()[id];
-              if (production.generates(out_.derivation.request.stage))
-                best = std::min(best, contextual_minimum(production.expression, depth));
-            }
+            for (auto id : nt.productions)
+              best = std::min(best, contextual_minimum(grammar_.productions()[id].expression, depth));
             if (best < costs->at(nt.id).at(depth)) {
               costs->at(nt.id).at(depth) = best;
               changed = true;
@@ -186,7 +175,7 @@ class Generator {
       }
       if (variation_context_)
         frame_costs_ = variation_context_->remember_frame_costs(
-            available_locals_, depth_limit, std::move(costs), out_.derivation.request.stage);
+            available_locals_, depth_limit, std::move(costs));
     }
     // Node feasibility remains request-specific because max_nodes is deliberately
     // absent from the deterministic table's cache key.
@@ -421,8 +410,7 @@ class Generator {
       std::vector<std::uint32_t> eligible;
       for (auto id : grammar_.nonterminals()[nt].productions) {
         const auto& production = grammar_.productions()[id];
-        if (!production.generates(out_.derivation.request.stage)) continue;
-        const auto required = !frame_costs_ ? production.generation_costs(out_.derivation.request.stage).at(depth) :
+        const auto required = !frame_costs_ ? production.minimum_nodes_by_depth.at(depth) :
             contextual_minimum(production.expression, depth);
         if (required <= budget &&
             feasible_alias_exit(production.expression, depth, budget, aliases)) eligible.push_back(id);
@@ -459,10 +447,8 @@ class Generator {
         if (minimum(id, depth) <= budget) return true;
       } else if (!visited[node.target]) {
         visited[node.target] = true;
-        for (auto id : grammar_.nonterminals()[node.target].productions) {
-          const auto& production = grammar_.productions()[id];
-          if (production.generates(out_.derivation.request.stage)) pending.push_back(production.expression);
-        }
+        for (auto id : grammar_.nonterminals()[node.target].productions)
+          pending.push_back(grammar_.productions()[id].expression);
       }
     }
     return false;

@@ -31,7 +31,6 @@ class JointBudget {
       do {
         changed = false;
         for (const auto& production : grammar_.productions()) {
-          if (!production.generates(request_.stage)) continue;
           auto candidates = expression(production.expression,d);
           auto& target = tables_.at(production.nonterminal).at(d);
           for (const auto& candidate : candidates) {

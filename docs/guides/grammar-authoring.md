@@ -344,17 +344,6 @@ The checked tree and package roles are indexed in
 [configs/grammar/README.md](../../configs/grammar/README.md).
 
 
-Production generation stages can preserve different initialization and subtree
-mutation rules while keeping one membership contract. Add
-`"generation_stages": ["initial"]` or `["mutation"]` to an alternative; omit the
-field to enable both. `[]` makes an alternative available only to membership and
-reconstruction. For example, two alternatives on the same String nonterminal
-can use different sequence length bounds for initial programs and mutation
-donors. All referenced productions and template holes follow the selected stage.
-If the stage has no budget-feasible derivation, generation fails rather than
-using another stage's alternatives. Crossover still uses the complete grammar.
-This setting does not alter constant perturbation or runtime execution.
-
 Set `"variation":false` on a nonterminal to omit that occurrence from subtree
 replacement candidates. For example, a Program root can keep its outer structure
 while referenced expression nonterminals remain evolvable. The default is true.
@@ -362,40 +351,13 @@ This does not freeze descendants or change constant mutation; use their own
 nonterminal and constant-domain policies for those controls. CPU and GPU use the
 same filtered site analysis.
 
-Alternatives can declare `"crossover_group":"coordinate-int"` to explicitly
-permit exchanges across different nonterminals or template holes. Use matching
-groups only for mutually admissible replacements; exact type and scope still
-have to match, and normal child validation remains active. Different groups
-separate structural roles even within one nonterminal. Omit the field to retain
-the default exact nonterminal/template-hole contract. Grouping does not change
-which subtree mutation donors are generated.
-
-Add `"crossover_scope":"closed"` to a grouped alternative when complete
-subtrees should exchange even if their declarations list different unused outer
-bindings. The runtime first proves that the actual subtree has no external
-lexical references. A capturing subtree keeps exact scope matching. This is
-useful for moving a complete nested traversal whose bindings are all internal;
-it does not permit moving a body that depends on an enclosing traversal element.
-Mutation continues to use the destination's full lexical frame.
-
-Use `"mutation_entry":"OtherRule"` when a node needs one construction
-distribution inside a newly generated structure and another when selected for
-subtree mutation. For example, a coordinate rule can sample the fixed value 2
-while admitting the full Int range, and redirect standalone mutation to a rule
-sampling integers from -8 to 8. Both rules must declare the same exact type,
-category and ordered scope. The redirect applies once at the selected site;
-referenced children still construct normally. It does not widen membership or
-crossover compatibility, and an inadmissible replacement is rejected. Set
-`variation:false` on helper rules when they should not add replacement sites.
 
 `configs/grammar/packages/source_literals.json` supplies reusable
 `Source.Literal.Int`, `Float`, `Bool`, `Char`, `String`, `IntList`, `FloatList`
 and `StringList` expression nonterminals (each uses the `Source.Literal.` prefix).
 Import it and reference the desired nonterminal to use the frozen release-1
-ordinary literal policy. Initial and mutation construction are separate:
-lists allow lengths 0–5 and 0–4 respectively, nested StringList strings allow
-0–8 and 0–5, and Char uses letters/digits/space initially versus letters for
-donors. Standalone strings use 0–8 lowercase letters in both stages.
+ordinary literal policy: lists allow lengths 0–5, strings (standalone or nested
+in a StringList) 0–8 lowercase letters, and Char letters, digits or space.
 Int/Float sampling uses the original [-8,8] numeric domains and Float quantizer;
 membership remains wide enough for additive perturbation. Bool flips, while
 Char and sequence constants retain their value when selected for constant
@@ -441,7 +403,3 @@ with `input_name: "x"` writes the declared Float input slot; subsequent
 `{"input":"x"}` expressions read that updated value. The declaration type stays
 fixed, and the original fitness case is unchanged.
 
-Use alternative `variation: "unbound"` to exclude choices containing authored
-bound references from subtree operators while retaining their independent
-descendant choices. Fixed template implementation references do not exclude
-a site. Alternative `variation: false` disables only that alternative's site.
