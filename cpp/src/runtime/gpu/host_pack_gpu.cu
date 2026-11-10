@@ -296,10 +296,6 @@ DRegionSegment pack_region_segment(
 
 }  // namespace
 
-DPayloadFlavor classify_payload_flavor_for_program(const BytecodeProgram& prog, unsigned shared_input_payload_mask) {
-  return classify_payload_flavor(prog, shared_input_payload_mask);
-}
-
 void refresh_owned_phase_patterns(PackResult& out,std::size_t phase_begin,std::size_t phase_end) {
   if(phase_begin>phase_end || phase_end>out.region_phases.size())throw std::logic_error("owned phase pattern range");
   for(auto i=phase_begin;i<phase_end;++i) {

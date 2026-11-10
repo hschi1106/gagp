@@ -24,16 +24,6 @@ void accumulate_timing(EvaluationTiming* total, const EvaluationTiming& value) {
   total->eval_timeouts += value.eval_timeouts;
   total->eval_fallbacks += value.eval_fallbacks;
   total->eval_unscored += value.eval_unscored;
-  total->verification_programs += value.verification_programs;
-  total->verification_cases += value.verification_cases;
-  total->verification_errors += value.verification_errors;
-  total->verification_timeouts += value.verification_timeouts;
-  total->verification_fitness_corrections += value.verification_fitness_corrections;
-  total->verification_wrong_corrections += value.verification_wrong_corrections;
-  total->verification_best_changes += value.verification_best_changes;
-  total->verification_best_unverified += value.verification_best_unverified;
-  total->verification_ms += value.verification_ms;
-  total->verification_max_abs_error = std::max(total->verification_max_abs_error, value.verification_max_abs_error);
   total->cpu_compile_ms += value.cpu_compile_ms;
   total->gpu_compile_ms += value.gpu_compile_ms;
   total->gpu_eval_call_ms += value.gpu_eval_call_ms;

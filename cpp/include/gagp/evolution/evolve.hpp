@@ -26,16 +26,6 @@ enum class EvalEngine {
   GPU,
 };
 
-// Bounded CPU reference scoring of the current GPU leaders on the training set.
-// Disabled by default. It does not certify unverified candidates or replace GPU
-// reproduction. Scheduled generations and the final evaluation verify top_k;
-// near_zero_error >= 0 also triggers when the leading loss is within that value.
-struct CpuFitnessVerification {
-  int top_k = 0;
-  int interval = 1;
-  double near_zero_error = -1.0;
-};
-
 struct EvolutionConfig {
   int population_size = 64;
   int generations = 40;
@@ -83,13 +73,6 @@ struct EvolutionConfig {
   // Population schedule of the phase population (generational or synchronous
   // batch steady state). Unset keeps the generational loop.
   std::optional<PhaseSchedulePolicy> phase_schedule;
-  CpuFitnessVerification cpu_fitness_verification;
-  // Diagnostic snapshots, in original population order, after scoring and before
-  // reproduction. The callback must not retain payload handles past its call.
-  // Generation G is the final evaluation; it is invalid with skip_final_eval.
-  std::vector<int> checkpoint_generations;
-  std::function<void(int, const std::vector<ScoredGenome>&)> evaluation_checkpoint;
-
   bool skip_final_eval = false;
   bool retain_final_population = true;
   // Derived by evolve_population for verifier checks at reproduction boundaries.
