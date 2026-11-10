@@ -3,6 +3,7 @@
 // counts and per-generation champions, across policies and schedules.
 #include <iostream>
 #include <random>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include "gagp/cli/program_json.hpp"
@@ -11,6 +12,7 @@
 #include "gagp/evolution/grammar/definition.hpp"
 #include "../../src/evolution/repro/gpu/phase_layout.hpp"
 #include "../../src/evolution/repro/gpu/phase_choice_tables.hpp"
+#include "../../src/evolution/repro/gpu/phase_population_cpu.hpp"
 
 namespace {
 using namespace gagp;using namespace gagp::evo;
@@ -115,6 +117,24 @@ int main() { try {
   require(gpu.profile.rfind("native-gpu-phase-",0)==0 && gpu.profile.find("-warp-choice")!=std::string::npos,
       std::string(p.label)+": GPU owner not used");
   require_same(reference,gpu,std::string(p.label)+" GPU");
+ }
+ // A site-depth run without a saved population grows its own phase genes; both
+ // owners start from the same generated population and publish one search.
+ {
+  const auto initial=repro::generate_phase_initial_population(*compiled,*base.generation_request,names,population,base.seed,policies[2].site_depth);
+  require(initial.size()==std::size_t(population),"generated initial population size");
+  std::set<std::size_t> sizes;for(const auto& member:initial)sizes.insert(member.ast.nodes.size());
+  require(sizes.size()>1,"generated initial population is not ramped");
+  const auto again=repro::generate_phase_initial_population(*compiled,*base.generation_request,names,population,base.seed,policies[2].site_depth);
+  for(std::size_t i=0;i<initial.size();++i)
+   require(cli_detail::encode_ast_json(initial[i].ast)==cli_detail::encode_ast_json(again[i].ast),"generated initial population is not deterministic");
+  const auto fresh=[&](bool gpu){
+   auto cfg=base;cfg.phase_variation=policies[2].policy;cfg.gpu_phase_site_depth=policies[2].site_depth;
+   cfg.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+   cfg.reproduction_backend=gpu?repro::ReproductionBackend::Gpu:repro::ReproductionBackend::Cpu;
+   return trace(evolve_population(cases,cfg,nullptr));
+  };
+  require_same(fresh(false),fresh(true),"site-depth without initial population");
  }
  // Synchronous batch steady state: both owners publish identical searches.
  for(const Policy* p:{&policies[1],&policies[3]}) {

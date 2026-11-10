@@ -6,11 +6,22 @@
 #include "gagp/core/fitness_policy.hpp"
 #include "gagp/evolution/genome.hpp"
 #include "gagp/evolution/grammar/compiled.hpp"
+#include "gagp/evolution/grammar/request.hpp"
 #include "gagp/evolution/repro/stats.hpp"
 #include "gagp/evolution/search_policy.hpp"
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 
 namespace gagp::evo::repro {
+// Initial population of a site-depth phase run that starts without a saved
+// population. One generated program fixes the shared skeleton; every phase gene
+// is then grown by the phase generator under the owner's site-depth profile,
+// ramped over invocation depths 2..site_depth (member i uses depth
+// 2 + i mod (site_depth - 1)). The result depends only on the grammar, request,
+// size, seed and site depth, so CPU and GPU owners start identically.
+std::vector<ProgramGenome> generate_phase_initial_population(
+    const grammar::CompiledGrammar& grammar, const grammar::GenerationRequest& request,
+    const std::vector<std::string>& input_names, int population, std::uint64_t seed, int site_depth);
+
 // CPU reference owner of the native phase population. It admits the same
 // population as NativePhasePopulation and runs the identical per-child operator
 // bodies (phase_operators.cuh) serially on the host, then lowers changed phases

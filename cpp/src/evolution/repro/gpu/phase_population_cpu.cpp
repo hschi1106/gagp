@@ -10,6 +10,7 @@
 #include "phase_layout.hpp"
 #include "parent_fitness_cache.cuh"
 #include "gagp/evolution/compiler.hpp"
+#include "gagp/evolution/genome_generation.hpp"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -48,6 +49,56 @@ template<class Function> void each_row(int count,Function function) {
  for(int i=0;i<count;++i)function(i);
 }
 }  // namespace
+
+std::vector<ProgramGenome> generate_phase_initial_population(
+    const grammar::CompiledGrammar& grammar, const grammar::GenerationRequest& request,
+    const std::vector<std::string>& input_names, int population, std::uint64_t seed, int site_depth) {
+ phase_layout_require(population>0 && population<=16384 && site_depth>=1 && site_depth<=15,"initial population size/site depth");
+ const auto layout=import_native_phase_layout(grammar,generate_random_genome(seed,grammar,request),nullptr,&input_names,true);
+ const int slots=layout.slots.size();phase_layout_require(slots>0 && slots<=8,"phase count capacity");
+ std::vector<std::unique_ptr<HostProfile>> profiles;
+ for(const auto& slot:layout.slots)profiles.push_back(std::make_unique<HostProfile>(
+     compile_phase_variation_grammar(grammar,slot.nonterminal,grammar.search_limits().max_depth,site_depth,true)));
+ const int available=int(layout.budget.max_nodes)-int(layout.fixed_nodes);
+ const auto minimum=[&](int k,int logical)->long {
+  const auto& g=profiles[k]->grammar;const int depth=layout.slots[k].max_depth;
+  if(depth<=0 || depth>=g.depth_count || logical>=g.logical_depth_count)return 0xffffffffL;
+  return g.minimum[(std::size_t(g.root_expression)*g.depth_count+depth)*g.logical_depth_count+logical];
+ };
+ const auto mix=[](std::uint64_t x){x+=UINT64_C(0x9e3779b97f4a7c15);x=(x^(x>>30))*UINT64_C(0xbf58476d1ce4e5b9);
+  x=(x^(x>>27))*UINT64_C(0x94d049bb133111eb);return x^(x>>31);};
+ std::vector<ProgramGenome> out;out.reserve(population);
+ std::vector<PhaseTreeNode> nodes(capacity);std::vector<int> origins(capacity);std::vector<Value> constants(capacity);
+ for(int i=0;i<population;++i) {
+  const int ramp=site_depth<2?site_depth:2+i%(site_depth-1);
+  std::vector<HostPhaseGene> genes(slots);int used=0;
+  for(int k=0;k<slots;++k) {
+   const auto& slot=layout.slots[k];const auto& profile=*profiles[k];
+   const auto& nt=grammar.nonterminals()[slot.nonterminal];
+   PhaseGenerationResult generated;
+   // A shallower depth that cannot derive the phase moves up to the cap; each
+   // retry draws a fresh seed, so the outcome is a pure function of (seed,i,k).
+   for(int logical=ramp,attempt=0;logical<=site_depth && generated.status!=PhaseCompileStatus::Ok;++attempt) {
+    long reserve=0;for(int j=k+1;j<slots;++j)reserve+=minimum(j,site_depth);
+    const long room=std::min<long>(capacity,long(available)-used-reserve);
+    phase_layout_require(room>0,"initial phase budget");
+    generated=generate_phase<true,false,false>(profile.view(),profile.grammar.root_expression,int(nt.scope.size()),
+        slot.max_depth,int(room),mix(seed^mix((std::uint64_t(i)*8+k)*64+attempt)),
+        nodes.data(),origins.data(),constants.data(),nullptr,logical);
+    if(generated.status!=PhaseCompileStatus::Ok && attempt%4==3)++logical;
+    phase_layout_require(attempt<64,"initial phase generation failed");
+   }
+   phase_layout_require(generated.status==PhaseCompileStatus::Ok,"initial phase generation failed");
+   auto& gene=genes[k];
+   gene.nodes.assign(nodes.begin(),nodes.begin()+generated.nodes);
+   gene.origins.assign(origins.begin(),origins.begin()+generated.nodes);
+   gene.constants.assign(constants.begin(),constants.begin()+generated.constants);
+   used+=generated.nodes;
+  }
+  out.push_back(export_native_phase_layout(grammar,layout,genes));
+ }
+ return out;
+}
 
 struct HostPhasePopulation::Impl {
  std::shared_ptr<const grammar::CompiledGrammar> grammar;

@@ -99,6 +99,14 @@ These rules define `crossover`, `sites`, `limits` and `ranking` for
   already consumed for that child are not replayed.
 - `limits.site_depth` counts nested grammar invocations, excluding lowering
   scaffolds. It cannot combine with projected resource budgets.
+- A `phase_population` run with `limits.site_depth > 0` and no initial
+  population generates its own: one program generated from `seed` fixes the
+  skeleton outside the phases, and every phase of member `i` is grown by the
+  phase generator under the site-depth profile with invocation depth
+  `2 + i mod (site_depth - 1)` (or `site_depth` when it is 1). A depth that
+  cannot derive the phase is retried with fresh draws and then raised by one,
+  up to `site_depth`. Phases are filled in order, each leaving room for the
+  minimum size of the later phases within the grammar's `max_nodes`.
 - `ranking.tie_break: grammar_sites` requires a task metric with wrong counts.
 
 Legacy process settings remain accepted when no explicit policy is given:

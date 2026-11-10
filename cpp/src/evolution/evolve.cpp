@@ -780,6 +780,15 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
   }
 
   const auto init_t0 = std::chrono::steady_clock::now();
+  // A site-depth phase run without a saved population grows its own phase
+  // genes; native generation does not respect the invocation-depth cap.
+  std::vector<ProgramGenome> phase_initial;
+  if (!initial_population && cfg.gpu_phase_site_depth && phase_engine(cfg) != PhaseEngine::None) {
+    require_phase_entry_policy(cfg);
+    phase_initial = repro::generate_phase_initial_population(*cfg.compiled_grammar, *cfg.generation_request,
+        case_set.input_names, cfg.population_size, cfg.seed, cfg.gpu_phase_site_depth);
+    initial_population = &phase_initial;
+  }
   PopulationInitialization initialization =
       initialize_population(cfg, case_set, initial_population);
   std::vector<ProgramGenome> population = std::move(initialization.population);
