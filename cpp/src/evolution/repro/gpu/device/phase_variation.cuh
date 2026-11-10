@@ -24,7 +24,7 @@ __host__ __device__ inline bool annotate_phase_tree(const PhaseGrammarView& g, i
     int scope, const PhaseTreeNode* nodes, const int* origins, int count,
     PhaseGeneSite* sites) {
   if (!nodes || !origins || !sites || !g.expressions || !g.nonterminals || !g.productions ||
-      root < 0 || root >= g.expression_count || scope < 0 || scope > 8 || count <= 0 || count > 1024)
+      root < 0 || root >= g.expression_count || scope < 0 || scope > 15 || count <= 0 || count > 1024)
     return false;
   struct Task { int expression, scope; PhaseGeneSite site; };
   Task pending[192]; int pending_count = 1, cursor = 0, steps = 0;
@@ -36,20 +36,30 @@ __host__ __device__ inline bool annotate_phase_tree(const PhaseGrammarView& g, i
     const auto expression = g.expressions[task.expression];
     if (expression.kind == PhaseExpressionKind::Reference) {
       if (expression.target < 0 || expression.target >= g.nonterminal_count ||
-          expression.scope_count < 0 || expression.scope_count > task.scope ||
-          pending_count >= 192 || task.site.nonterminal >= 0) return false; // no zero-node aliases
-      for (int i = 0; i < expression.scope_count; ++i)
-        if (expression.scope[i] != i) return false;
+          expression.scope_count < 0 || expression.scope_count > 8 ||
+          pending_count >= 192 || task.site.nonterminal >= 0) return false; // one site per node
       const auto nt = g.nonterminals[expression.target];
       if (nt.scope_count != expression.scope_count || nt.production_offset < 0 || nt.production_count <= 0 ||
           nt.production_offset > g.production_count || nt.production_count > g.production_count - nt.production_offset)
         return false;
-      bool found = false;
-      for (int i = 0; i < nt.production_count; ++i)
-        found |= g.productions[nt.production_offset + i].expression == origins[cursor];
-      if (!found) return false;
-      pending[pending_count++] = {origins[cursor], expression.scope_count,
+      // The first node's origin names the production, through any template
+      // wrappers at its root (the profile keeps resolved roots unique).
+      int production = -1;
+      for (int i = 0; i < nt.production_count && production < 0; ++i) {
+        int e = g.productions[nt.production_offset + i].expression;
+        for (int hop = 0; hop < 64 && e >= 0 && e < g.expression_count &&
+             g.expressions[e].kind == PhaseExpressionKind::Alias; ++hop) e = g.expressions[e].children[0];
+        if (e == origins[cursor]) production = g.productions[nt.production_offset + i].expression;
+      }
+      if (production < 0) return false;
+      pending[pending_count++] = {production, expression.scope_count,
           {expression.target, task.expression, task.scope, expression.scope_count | (nt.fixed ? kPhaseFixedSite : 0)}};
+      continue;
+    }
+    if (expression.kind == PhaseExpressionKind::Alias) {
+      // A template or hole wrapper passes a pending site to its first node.
+      if (pending_count >= 192) return false;
+      pending[pending_count++] = {expression.children[0], phase_child_scope(expression, 0, task.scope), task.site};
       continue;
     }
     const auto node = nodes[cursor];
@@ -57,14 +67,8 @@ __host__ __device__ inline bool annotate_phase_tree(const PhaseGrammarView& g, i
         node.opcode != expression.node.opcode || node.arity != expression.node.arity ||
         node.fuel != expression.node.fuel || node.merge_fuel != expression.node.merge_fuel || node.type != expression.node.type ||
         node.arity < 0 || node.arity > kPhaseMaxArity) return false;
-    if (expression.kind == PhaseExpressionKind::Bound) {
-      if (expression.target < 0 || expression.target >= task.scope || node.operand != expression.target)
-        return false;
-    } else if (expression.bind_argument >= 0) {
-      if (expression.bind_argument >= node.arity || task.scope >= 8 || node.operand != task.scope) return false;
-    } else if ((expression.kind == PhaseExpressionKind::Operation || expression.kind == PhaseExpressionKind::Input) &&
-               node.operand != expression.node.operand)
-      return false;
+    // Every operand but a constant's table index is static.
+    if (expression.kind != PhaseExpressionKind::Constant && node.operand != expression.node.operand) return false;
     sites[cursor++] = task.site;
     for (int i = node.arity - 1; i >= 0; --i) {
       if (pending_count >= 192) return false;

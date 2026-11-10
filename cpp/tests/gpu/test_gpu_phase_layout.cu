@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -162,10 +163,20 @@ int main(int argc,char** argv) {try {
     auto& literal=alternatives.back().object_v.at("expression").object_v.at("args").array_v[0]
         .object_v.at("args").array_v[1].object_v.at("constant").object_v.at("values").array_v[0];
     literal=cli_detail::JsonParser(R"(["1"])").parse();
+    // The phase profile materializes payload constants of any value, but a
+    // bounded-region genome carrying a nonempty list constant falls back.
     const auto nonempty=grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(document)));
-    bool declined=false;
-    try{(void)compile_phase_grammar(nonempty,1,12);}catch(const std::invalid_argument&){declined=true;}
-    require(declined,"nonempty list constant silently admitted to GPU construction");
+    (void)compile_phase_grammar(nonempty,1,12);
+    int declined=0;
+    for(unsigned seed=0;seed<64;++seed) {
+      const auto member=grammar::generate_derivation(nonempty,seed).genome;
+      const bool listed=std::any_of(member.ast.consts.begin(),member.ast.consts.end(),
+          [](const Value& v){return v.tag==ValueTag::IntList && Value::container_len(v)>0;});
+      if(!listed)continue;
+      try{(void)import_native_phase_layout(nonempty,member);}catch(const std::invalid_argument&){++declined;continue;}
+      require(false,"nonempty list constant silently admitted to a bounded-region phase");
+    }
+    require(declined>0,"list grammar test failed to exercise nonempty payload constants");
   }
   for (const auto* charge : {R"({"nodes":2,"depth":1,"resets_depth":false})",
                             R"({"nodes":1,"depth":0,"resets_depth":true})"}) {

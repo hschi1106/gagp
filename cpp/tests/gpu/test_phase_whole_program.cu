@@ -1,8 +1,11 @@
 // Grammars without templates run on the phase engine as one whole-program
 // slot: expression entries across all eight value types, and Program entries
 // with statements, loops, branches and grammar locals, lexical let binders
-// (nested, shadowing, dropped by a reference), and the shipped bounded-region
-// grammars (memoized and recursive regions, captures, let bind fuel). The phase compiler must
+// (nested, shadowing, dropped by a reference), the shipped bounded-region
+// grammars (memoized and recursive regions, captures, let bind fuel), and
+// templates over all four traversal forms (profiled and plain fuel, nested
+// traversals, lets inside step bodies, and binders hidden by a scope map). The
+// phase compiler must
 // lower every generated genome to the native compiler's exact bytecode, and the
 // CPU reference and GPU owner must publish one search of verified members.
 #include <algorithm>
@@ -123,7 +126,7 @@ std::optional<ProgramGenome> generated(const grammar::CompiledGrammar& grammar,u
  try{return grammar::generate_derivation(grammar,seed).genome;}
  catch(const std::invalid_argument&){return std::nullopt;}
 }
-enum class Fixture{Expressions,Statements,Lets,Regions,Captures};
+enum class Fixture{Expressions,Statements,Lets,Regions,Captures,Traversals,Templates};
 // `fixture` is relative to the repository root. Without `search`, only
 // lowering parity runs (the GPU evaluator rejects the grammar's region limits).
 void check(const char* fixture,Fixture mode,bool search=true) {
@@ -133,7 +136,7 @@ void check(const char* fixture,Fixture mode,bool search=true) {
  std::vector<std::string> names;for(const auto& input:compiled->inputs())names.push_back(input.name);
  auto reordered=names;std::reverse(reordered.begin(),reordered.end());
  // Lowering parity over generated programs, in grammar and reversed input order.
- std::set<int> kinds;std::set<ValueTag> constant_tags;int programs=0,rejected=0,nested=0,regions=0,lexical=0;
+ std::set<int> kinds;std::set<ValueTag> constant_tags;int programs=0,rejected=0,nested=0,regions=0,lexical=0,reversed=0;
  for(unsigned seed=0;seed<256;++seed) {
   const auto genome=generated(*compiled,seed);
   if(!genome){++rejected;continue;}
@@ -155,6 +158,8 @@ void check(const char* fixture,Fixture mode,bool search=true) {
   for(const auto& region:genome->ast.bounded_region_specs)
    lexical+=std::any_of(region.parameters.begin(),region.parameters.end(),[](const auto& p){return p.kind==RegionCaptureKind::Lexical;});
   for(const auto& value:genome->ast.consts)constant_tags.insert(value.tag);
+  reversed+=std::any_of(genome->ast.traversal_specs.begin(),genome->ast.traversal_specs.end(),
+      [](const auto& t){return t.direction==TraversalDirection::Reverse;});
  }
  if(statements) {
   for(auto kind:{NodeKind::FOR_RANGE,NodeKind::IF_STMT,NodeKind::ASSIGN,NodeKind::RETURN,NodeKind::BLOCK_NIL,NodeKind::VAR,NodeKind::IF_EXPR})
@@ -170,6 +175,14 @@ void check(const char* fixture,Fixture mode,bool search=true) {
   for(auto kind:{NodeKind::LET_REGION,NodeKind::REGION_VAR,NodeKind::CALL_LEN})
    require(kinds.count(int(kind)),"let fixture did not exercise node kind "+std::to_string(int(kind)));
   require(nested>=32,"let fixture must nest binders: "+std::to_string(nested));
+ } else if(mode==Fixture::Templates) {
+  require(rejected==0,"template grammar generation failed");
+ } else if(mode==Fixture::Traversals) {
+  require(rejected==0,"traversal grammar generation failed");
+  for(auto kind:{NodeKind::TRAVERSE,NodeKind::TRAVERSE_RANGE,NodeKind::LET_REGION,NodeKind::IF_EXPR})
+   require(kinds.count(int(kind)),"traversal fixture did not exercise node kind "+std::to_string(int(kind)));
+  require(nested>=64 && reversed>=32,"traversal fixture must nest and reverse traversals: "+
+      std::to_string(nested)+"/"+std::to_string(reversed));
  } else {
   require(rejected==0,"expression grammar generation failed");
   require(constant_tags.size()>=7,"fixture did not exercise constants of most value types");
@@ -222,6 +235,11 @@ int main() { try {
  for(const char* grammar:{"configs/grammar_definitions/bounded_memo.json","configs/grammar_definitions/bounded_sequence.json",
      "configs/grammar/examples/acyclic_memo.json","configs/grammar/examples/changed_recursive_split.json"})
   check(grammar,Fixture::Regions,false);
+ check("cpp/tests/fixtures/phase_traversal.json",Fixture::Traversals);
+ // Shipped templates: a fold whose step and last holes are the only choices,
+ // and a single program with a repeated hole of fixed fill.
+ check("configs/grammar/compat/linear_rec_intlist_int.json",Fixture::Templates,false);
+ check("configs/grammar/examples/authoring/template.json",Fixture::Templates,false);
  std::cout<<"phase whole-program: lowering parity and CPU/GPU searches identical\n";
  return 0;
 } catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<"\n";return 1;} }

@@ -33,7 +33,7 @@ void check_generation_task_limits() {
  constexpr int root=65536,depth_count=65;
  std::vector<PhaseExpression> expressions(root+1);
  expressions[0].kind=PhaseExpressionKind::Bound;expressions[0].target=0;
- expressions[0].node.kind=PhaseTreeKind::Local;expressions[0].node.opcode=Opcode::Load;
+ expressions[0].node.kind=PhaseTreeKind::Local;expressions[0].node.opcode=Opcode::Load;expressions[0].node.operand=7;
  auto& entry=expressions[root];entry.kind=PhaseExpressionKind::Reference;entry.target=0;entry.scope_count=8;
  for(int i=0;i<8;++i)entry.scope[i]=7-i;
  std::vector<unsigned> minimum(std::size_t(root+1)*depth_count,0xffffffffu);
@@ -49,7 +49,7 @@ void check_generation_task_limits() {
   generate_many<<<1,1>>>(view,root,8,64,1,1,nodes.data,origins.data,values.data,results.data,compact);
   check(cudaGetLastError());check(cudaDeviceSynchronize());const auto r=results.read()[0];
   require(r.status==PhaseCompileStatus::Ok && r.nodes==1 && r.steps==2 && nodes.read()[0].operand==7 && origins.read()[0]==0,
-      "generator task truncated 17-bit expression/depth64/eight-slot permutation");
+      "generator task truncated 17-bit expression/depth64/eight-slot reference");
   auto invalid=view;invalid.expression_count=131072;
   generate_many<<<1,1>>>(invalid,root,8,64,1,1,nodes.data,origins.data,values.data,results.data,compact);
   check(cudaGetLastError());check(cudaDeviceSynchronize());
@@ -156,7 +156,7 @@ void run_root(const std::shared_ptr<const grammar::CompiledGrammar>& owner,unsig
  // Rejected requests cannot become valid output. Exercise the actual device
  // guard, including a zero capacity that shares the same output base pointer.
  launch(nt.scope.size(),0,capacity);for(const auto& r:results.read())require(r.status!=PhaseCompileStatus::Ok,"zero depth accepted");
- launch(9,depth,capacity);for(const auto& r:results.read())require(r.status!=PhaseCompileStatus::Ok,"scope overflow accepted");
+ launch(16,depth,capacity);for(const auto& r:results.read())require(r.status!=PhaseCompileStatus::Ok,"scope overflow accepted");
  launch(nt.scope.size(),depth,0);for(const auto& r:results.read())require(r.status!=PhaseCompileStatus::Ok,"zero capacity accepted");
  std::cout<<"{\"root\":\""<<nt.stable_id<<"\",\"generated\":"<<count<<",\"unique\":"<<unique.size()<<",\"mean_nodes\":"<<double(node_total)/count
    <<",\"cold_ms\":"<<cold_ms<<",\"warm_ms\":["<<warm[0]<<","<<warm[1]<<","<<warm[2]<<"]}"<<std::endl;

@@ -1,0 +1,108 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "Trav.Top", "type": "Int"},
+  "inputs": [{"name": "xs", "type": "IntList"}, {"name": "s", "type": "String"}, {"name": "n", "type": "Int"}],
+  "search_limits": {"max_nodes": 64, "max_depth": 10},
+  "execution_limits": {"fuel": 4096},
+  "templates": [{"id": "Trav.Fold", "type": "Int", "scope": [], "holes": [{"id": "src", "type": "IntList", "scope": []}, {"id": "init", "type": "Int", "scope": []}, {"id": "step", "type": "Int", "scope": [{"name": "acc", "type": "Int"}, {"name": "sum", "type": "Int"}]}], "body": {"signature": "traverse(IntList,Int,Int,Int)->Int", "args": [{"hole": "src"}, {"constant": {"type": "Int", "values": ["0"]}}, {"hole": "init"}, {"signature": "let(Int,Int)->Int", "args": [{"signature": "add(Int,Int)->Int", "args": [{"bound": "e"}, {"bound": "acc"}]}, {"hole": "step"}], "bind": {"1": ["sum"]}}], "bind": {"3": ["e", "i", "acc"]}}}],
+  "nonterminals": [
+    {"id": "Trav.Top", "type": "Int", "scope": [], "alternatives": [
+      {"id": "n", "weight": 2, "expression": {"input": "n"}},
+      {"id": "k", "weight": 2, "expression": {"constant": {"type": "Int", "range": ["-2", "3"]}}},
+      {"id": "add", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"ref": "Trav.Top"}, {"ref": "Trav.Top"}]}},
+      {"id": "empty", "weight": 1, "expression": {"signature": "if(Bool,Int,Int)->Int", "args": [{"signature": "eq(Int,Int)->Bool", "args": [{"signature": "len(IntList)->Int", "args": [{"input": "xs"}]}, {"constant": {"type": "Int", "values": ["0"]}}]}, {"ref": "Trav.Top"}, {"ref": "Trav.Top"}]}},
+      {"id": "let", "weight": 1, "expression": {"signature": "let(Int,Int)->Int", "args": [{"ref": "Trav.Top"}, {"ref": "Trav.Body"}], "bind": {"1": ["x"]}}},
+      {"id": "forward", "weight": 2, "expression": {"signature": "traverse(IntList,Int,Int,Int)->Int", "args": [{"ref": "Trav.List"}, {"ref": "Trav.Index"}, {"ref": "Trav.Leaf"}, {"ref": "Trav.Step"}], "bind": {"3": ["e", "i", "acc"]}}},
+      {"id": "reverse", "weight": 1, "expression": {"signature": "traverse_reverse(IntList,Int,Int,Int)->Int", "args": [{"ref": "Trav.List"}, {"ref": "Trav.Index"}, {"ref": "Trav.Leaf"}, {"ref": "Trav.Step"}], "bind": {"3": ["e", "i", "acc"]}, "fuel_events": {"store_sequence": 0, "check_start": 0, "test_cursor": 0, "read_element": 0, "bind_element": 2, "advance_cursor": 0}}},
+      {"id": "range", "weight": 2, "expression": {"signature": "traverse_range(IntList,Int,Int,Int,Int,Int)->Int", "args": [{"ref": "Trav.List"}, {"ref": "Trav.Index"}, {"ref": "Trav.Index"}, {"ref": "Trav.Index"}, {"ref": "Trav.Leaf"}, {"ref": "Trav.Step"}], "bind": {"5": ["e", "i", "acc"]}}},
+      {"id": "range_reverse", "weight": 1, "expression": {"signature": "traverse_range_reverse(IntList,Int,Int,Int,Int,Int)->Int", "args": [{"ref": "Trav.List"}, {"ref": "Trav.Index"}, {"ref": "Trav.Index"}, {"ref": "Trav.Index"}, {"ref": "Trav.Leaf"}, {"ref": "Trav.Step"}], "bind": {"5": ["e", "i", "acc"]}, "fuel_events": {"store_sequence": 0, "store_start": 0, "store_begin": 0, "store_end": 0, "check_start": 0, "check_begin": 0, "check_end": 0, "observe_sequence": 0, "clamp_begin": 0, "clamp_end": 0, "initialize_state": 1, "initialize_cursor": 0, "test_cursor": 2, "read_element": 3, "bind_element": 1, "compute_index": 2, "update_state": 1, "advance_cursor": 0, "repeat": 1, "result": 1}}},
+      {"id": "bounded", "weight": 1, "expression": {"signature": "let(IntList,Int)->Int", "args": [{"ref": "Trav.List"}, {"ref": "Trav.Measured"}], "bind": {"1": ["ys"]}}},
+      {"id": "collect", "weight": 1, "expression": {"signature": "len(IntList)->Int", "args": [{"signature": "traverse(IntList,Int,IntList,IntList)->IntList", "args": [{"ref": "Trav.List"}, {"ref": "Trav.Index"}, {"ref": "Trav.List"}, {"ref": "Trav.Collect"}], "bind": {"3": ["e", "i", "ys"]}}]}},
+      {"id": "chars", "weight": 1, "expression": {"signature": "traverse_reverse(String,Int,Int,Int)->Int", "args": [{"input": "s"}, {"ref": "Trav.Index"}, {"ref": "Trav.Leaf"}, {"ref": "Trav.Chars"}], "bind": {"3": ["c", "i", "acc"]}}},
+      {"id": "fold", "weight": 1, "expression": {"template": "Trav.Fold", "holes": {"src": {"ref": "Trav.List"}, "init": {"ref": "Trav.Leaf"}, "step": {"ref": "Trav.FoldStep"}}}}
+    ]},
+    {"id": "Trav.Body", "type": "Int", "scope": [{"name": "x", "type": "Int"}], "alternatives": [
+      {"id": "x", "weight": 2, "expression": {"bound": "x"}},
+      {"id": "add", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"bound": "x"}, {"ref": "Trav.Top"}]}}
+    ]},
+    {"id": "Trav.Leaf", "type": "Int", "scope": [], "alternatives": [
+      {"id": "n", "weight": 2, "expression": {"input": "n"}},
+      {"id": "k", "weight": 2, "expression": {"constant": {"type": "Int", "range": ["-2", "3"]}}},
+      {"id": "len", "weight": 1, "expression": {"signature": "len(IntList)->Int", "args": [{"input": "xs"}]}}
+    ]},
+    {"id": "Trav.Hidden", "type": "Int", "scope": [], "alternatives": [
+      {"id": "let", "weight": 1, "expression": {"signature": "let(Int,Int)->Int", "args": [{"ref": "Trav.Leaf"}, {"ref": "Trav.HiddenBody"}], "bind": {"1": ["x"]}}},
+      {"id": "walk", "weight": 1, "expression": {"signature": "traverse_reverse(IntList,Int,Int,Int)->Int", "args": [{"ref": "Trav.List"}, {"ref": "Trav.Index"}, {"ref": "Trav.Leaf"}, {"ref": "Trav.Plain"}], "bind": {"3": ["e", "i", "acc"]}}}
+    ]},
+    {"id": "Trav.HiddenBody", "type": "Int", "scope": [{"name": "x", "type": "Int"}], "alternatives": [
+      {"id": "x", "weight": 1, "expression": {"bound": "x"}},
+      {"id": "mul", "weight": 1, "expression": {"signature": "mul(Int,Int)->Int", "args": [{"bound": "x"}, {"ref": "Trav.Leaf"}]}}
+    ]},
+    {"id": "Trav.Plain", "type": "Int", "scope": [{"name": "e", "type": "Int"}, {"name": "i", "type": "Int"}, {"name": "acc", "type": "Int"}], "alternatives": [
+      {"id": "sum", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"bound": "e"}, {"bound": "acc"}]}},
+      {"id": "index", "weight": 1, "expression": {"signature": "sub(Int,Int)->Int", "args": [{"bound": "acc"}, {"bound": "i"}]}}
+    ]},
+    {"id": "Trav.List", "type": "IntList", "scope": [], "alternatives": [
+      {"id": "xs", "weight": 4, "expression": {"input": "xs"}},
+      {"id": "append", "weight": 1, "expression": {"signature": "append(IntList,Int)->IntList", "args": [{"ref": "Trav.List"}, {"ref": "Trav.Index"}]}}
+    ]},
+    {"id": "Trav.Index", "type": "Int", "scope": [], "alternatives": [
+      {"id": "n", "weight": 1, "expression": {"input": "n"}},
+      {"id": "k", "weight": 2, "expression": {"constant": {"type": "Int", "range": ["0", "2"]}}},
+      {"id": "len", "weight": 1, "expression": {"signature": "len(IntList)->Int", "args": [{"ref": "Trav.List"}]}},
+      {"id": "short", "weight": 1, "expression": {"signature": "sub(Int,Int)->Int", "args": [{"signature": "len(IntList)->Int", "args": [{"input": "xs"}]}, {"constant": {"type": "Int", "values": ["1"]}}]}}
+    ]},
+    {"id": "Trav.Step", "type": "Int", "scope": [{"name": "e", "type": "Int"}, {"name": "i", "type": "Int"}, {"name": "acc", "type": "Int"}], "alternatives": [
+      {"id": "e", "weight": 2, "expression": {"bound": "e"}},
+      {"id": "i", "weight": 1, "expression": {"bound": "i"}},
+      {"id": "acc", "weight": 2, "expression": {"bound": "acc"}},
+      {"id": "add", "weight": 2, "expression": {"signature": "add(Int,Int)->Int", "args": [{"ref": "Trav.Step"}, {"ref": "Trav.Step"}]}},
+      {"id": "sub", "weight": 1, "expression": {"signature": "sub(Int,Int)->Int", "args": [{"bound": "acc"}, {"bound": "e"}]}},
+      {"id": "let", "weight": 1, "expression": {"signature": "let(Int,Int)->Int", "args": [{"ref": "Trav.Step"}, {"ref": "Trav.StepLet"}], "bind": {"1": ["t"]}}},
+      {"id": "hidden", "weight": 1, "expression": {"signature": "neg(Int)->Int", "args": [{"ref": "Trav.Hidden"}]}},
+      {"id": "inner", "weight": 1, "expression": {"signature": "traverse(IntList,Int,Int,Int)->Int", "args": [{"input": "xs"}, {"ref": "Trav.Index"}, {"ref": "Trav.Leaf"}, {"ref": "Trav.Inner"}], "bind": {"3": ["e2", "i2", "acc2"]}}}
+    ]},
+    {"id": "Trav.StepLet", "type": "Int", "scope": [{"name": "e", "type": "Int"}, {"name": "acc", "type": "Int"}, {"name": "t", "type": "Int"}], "alternatives": [
+      {"id": "t", "weight": 2, "expression": {"bound": "t"}},
+      {"id": "add", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"bound": "t"}, {"bound": "e"}]}},
+      {"id": "sub", "weight": 1, "expression": {"signature": "sub(Int,Int)->Int", "args": [{"bound": "t"}, {"bound": "acc"}]}}
+    ]},
+    {"id": "Trav.Inner", "type": "Int", "scope": [{"name": "acc", "type": "Int"}, {"name": "e2", "type": "Int"}, {"name": "acc2", "type": "Int"}], "alternatives": [
+      {"id": "acc", "weight": 1, "expression": {"bound": "acc"}},
+      {"id": "e2", "weight": 1, "expression": {"bound": "e2"}},
+      {"id": "sum", "weight": 2, "expression": {"signature": "add(Int,Int)->Int", "args": [{"bound": "acc2"}, {"bound": "e2"}]}},
+      {"id": "mix", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"bound": "acc"}, {"bound": "acc2"}]}}
+    ]},
+    {"id": "Trav.Measured", "type": "Int", "scope": [{"name": "ys", "type": "IntList"}], "alternatives": [
+      {"id": "length", "weight": 1, "expression": {"signature": "let(Int,Int)->Int", "args": [{"signature": "len(IntList)->Int", "args": [{"bound": "ys"}]}, {"ref": "Trav.Ranged"}], "bind": {"1": ["m"]}}}
+    ]},
+    {"id": "Trav.Ranged", "type": "Int", "scope": [{"name": "ys", "type": "IntList"}, {"name": "m", "type": "Int"}], "alternatives": [
+      {"id": "guarded", "weight": 1, "expression": {"signature": "if(Bool,Int,Int)->Int", "args": [{"signature": "eq(Int,Int)->Bool", "args": [{"bound": "m"}, {"constant": {"type": "Int", "values": ["0"]}}]}, {"ref": "Trav.Top"}, {"signature": "traverse_range_reverse(IntList,Int,Int,Int,Int,Int)->Int", "args": [{"bound": "ys"}, {"ref": "Trav.Index"}, {"constant": {"type": "Int", "values": ["0"]}}, {"signature": "sub(Int,Int)->Int", "args": [{"bound": "m"}, {"constant": {"type": "Int", "values": ["1"]}}]}, {"ref": "Trav.Leaf"}, {"ref": "Trav.Folded"}], "bind": {"5": ["e", "i", "acc"]}, "fuel_events": {"store_sequence": 0, "store_start": 0, "store_begin": 0, "store_end": 0, "check_start": 0, "check_begin": 0, "check_end": 0, "observe_sequence": 0, "clamp_begin": 0, "clamp_end": 0, "initialize_cursor": 0, "advance_cursor": 0}}]}},
+      {"id": "plain", "weight": 1, "expression": {"signature": "traverse_range(IntList,Int,Int,Int,Int,Int)->Int", "args": [{"bound": "ys"}, {"ref": "Trav.Index"}, {"ref": "Trav.Index"}, {"bound": "m"}, {"bound": "m"}, {"ref": "Trav.Folded"}], "bind": {"5": ["e", "i", "acc"]}}}
+    ]},
+    {"id": "Trav.Folded", "type": "Int", "scope": [{"name": "e", "type": "Int"}, {"name": "i", "type": "Int"}, {"name": "acc", "type": "Int"}], "alternatives": [
+      {"id": "sum", "weight": 2, "expression": {"signature": "add(Int,Int)->Int", "args": [{"bound": "e"}, {"bound": "acc"}]}},
+      {"id": "indexed", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"bound": "i"}, {"bound": "acc"}]}},
+      {"id": "acc", "weight": 1, "expression": {"bound": "acc"}}
+    ]},
+    {"id": "Trav.Collect", "type": "IntList", "scope": [{"name": "e", "type": "Int"}, {"name": "i", "type": "Int"}, {"name": "ys", "type": "IntList"}], "alternatives": [
+      {"id": "ys", "weight": 1, "expression": {"bound": "ys"}},
+      {"id": "element", "weight": 2, "expression": {"signature": "append(IntList,Int)->IntList", "args": [{"bound": "ys"}, {"bound": "e"}]}},
+      {"id": "index", "weight": 1, "expression": {"signature": "append(IntList,Int)->IntList", "args": [{"bound": "ys"}, {"bound": "i"}]}}
+    ]},
+    {"id": "Trav.Chars", "type": "Int", "scope": [{"name": "c", "type": "Char"}, {"name": "i", "type": "Int"}, {"name": "acc", "type": "Int"}], "alternatives": [
+      {"id": "acc", "weight": 1, "expression": {"bound": "acc"}},
+      {"id": "count", "weight": 2, "expression": {"signature": "add(Int,Int)->Int", "args": [{"bound": "acc"}, {"constant": {"type": "Int", "values": ["1"]}}]}},
+      {"id": "index", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"bound": "acc"}, {"bound": "i"}]}}
+    ]},
+    {"id": "Trav.FoldStep", "type": "Int", "scope": [{"name": "acc", "type": "Int"}, {"name": "sum", "type": "Int"}], "alternatives": [
+      {"id": "sum", "weight": 2, "expression": {"bound": "sum"}},
+      {"id": "acc", "weight": 1, "expression": {"bound": "acc"}},
+      {"id": "let", "weight": 1, "expression": {"signature": "let(Int,Int)->Int", "args": [{"bound": "sum"}, {"ref": "Trav.FoldInner"}], "bind": {"1": ["t"]}}}
+    ]},
+    {"id": "Trav.FoldInner", "type": "Int", "scope": [{"name": "acc", "type": "Int"}, {"name": "t", "type": "Int"}], "alternatives": [
+      {"id": "t", "weight": 1, "expression": {"bound": "t"}},
+      {"id": "add", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"bound": "t"}, {"bound": "acc"}]}}
+    ]}
+  ]
+}

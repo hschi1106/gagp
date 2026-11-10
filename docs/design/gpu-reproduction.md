@@ -488,15 +488,42 @@ keeps the crossed child, and initialization draws again. Sites of a
 nonterminal with `"variation": false` count toward site depth but are never
 chosen. Physical and site-depth budgets ignore authored resource charges;
 projected budgets still require unit charges.
-Whole-program phases may also use `let` binders. A `let` node binds the next
-lexical index (the environment size; identity scope maps keep index equal to
-position) for its body, and a bound reference reads the innermost active
-binder. Lowering mirrors the native compiler: the binder temporary is
-allocated before the value, and temporaries are recycled LIFO when the body
-ends. Programs that contain a binder or a checked conversion keep the native
-per-instruction fuel table. A `let` bind fuel charge prices its binding
-store. Let binders inside the phases of the region-template layout above decline
-the profile.
+Whole-program phases may also use `let` binders. Binder numbers are static
+(`compile_phase_grammar` in `phase_grammar.hpp`): every nonterminal is entered
+under exactly one environment, a list of binder numbers whose root of scope
+size n is 0..n-1. A `let` binds one more than the largest visible number, a
+traversal binds the next three, and scope maps of references, templates and
+holes project the enclosing environment, so a bound reference's operand is
+fixed in the profile and generation never renumbers. A grammar that reaches a
+nonterminal under two environments, or needs a binder number of 16 or more,
+declines the profile. A number may be rebound while a scope map hides its outer
+owner; lowering saves and restores the owner's local. Lowering mirrors the
+native compiler: the binder temporary is allocated before the value, and
+temporaries are recycled LIFO when the body ends. Programs that contain a
+binder or a checked conversion keep the native per-instruction fuel table. A
+`let` bind fuel charge prices its binding store. Let binders inside the phases
+of the region-template layout above decline the profile.
+Whole-program phases may also contain the four traversals (`traverse`,
+`traverse_reverse`, `traverse_range`, `traverse_range_reverse`) as
+`PhaseTreeKind::Traverse`, whose operand indexes the profile's region table
+(direction, range, binders, result types and per-event fuel costs). Lowering
+reproduces the native prefix exactly, including its aliasing of stored sources,
+zero-cost events and length facts, which the phase compiler tracks per binder
+number through lets and `if` conditions comparing a length with zero.
+Templates and holes are zero-node wrappers (`PhaseExpressionKind::Alias`): a
+site on a template production passes to its first physical node, and a site is
+mapped back to its production through the wrapper chain, so production roots
+must resolve to distinct nodes. A hole repeated in its template body is
+admitted only when its fill is fixed (no reference and only single-value
+constants). A genome uses the region-template layout only when it has
+templates, exactly one bounded region and the grammar has no `let` or traversal
+primitive; every other admitted genome is one whole-program phase.
+Lowering tables are fixed: at most 8 open traversals, 16 lets, 16 loops and 16
+analysed value `if`s on one path, and 64 locals. The profile bounds each over
+every tree within the physical depth budget (a traversal holds at most nine
+temporaries, a let or loop one, next to the inputs and grammar locals) and
+declines a grammar that could exceed one, so variation never produces a program
+it cannot lower.
 Whole-program phases may also contain bounded regions (`PhaseTreeKind::Region`,
 at most 8 operands plus phases, 8 captures and 4 regions per program). Operands
 lower in place; each phase is a separate program whose locals start with its
@@ -508,15 +535,15 @@ The phase compiler appends one record per region after the main code
 native `BoundedRegionSegment`s, which `verify_bounded_region_segment` checks.
 Region phases may not reach inputs, grammar locals, statements or nested
 regions, matching the native compiler. Grammars whose only
-member is one fixed program (no nonterminal reference and no constant choice),
-traversals and templates outside a region use the native fallback.
+member is one fixed program (no nonterminal reference and no constant choice)
+use the native fallback.
 Fixed skeleton charges must be at most one node/level without depth resets.
 The profile conservatively enforces physical whole-program node/depth budgets,
 including zero-charge administrative nodes; weighted/reset skeletons and inputs
 whose physical size exceeds those budgets explicitly fall back. Import
 independently checks grammar membership; type compatibility alone is insufficient.
-Repeated holes, lexical capture, nested templates, projected budgets and mixed
-root contracts decline this profile. Declared execution capacities are preserved.
+In the region-template layout, repeated holes, lexical capture, nested
+templates, projected budgets and mixed root contracts decline this profile. Declared execution capacities are preserved.
 
 Selection, subtree crossover, fresh subtree mutation and phase lowering execute
 on GPU. Private double buffers retain site contracts across operators and
@@ -874,15 +901,16 @@ execution, exercise changed-input fallback before reference materialization,
 and check stale optimization hints across growth, shrink and constant changes.
 
 The native GPU grammar generator stores each pending task in eight bytes using
-exact17-bit expression,7-bit depth,4-bit scope-count and24-bit scope-map fields.
-These cover existing admitted limits (at most65536 source expressions plus an
-entry wrapper, depth64, eight lexical slots); this does not narrow supported
+exact 17-bit expression, 7-bit depth, 4-bit scope-count and 4-bit projected
+depth fields; the remaining 24 bits stay zero because binder numbers are static.
+These cover existing admitted limits (at most 65536 source expressions plus an
+entry wrapper, depth 64, 15 lexical slots); this does not narrow supported
 grammars or change RNG/operator semantics. Invalid expression IDs are rejected
 before assignment, and reservation subtraction is checked before unsigned
 arithmetic. The16-byte task layout is instantiated only by differential tests,
 not exposed as a runtime experiment setting. Test coverage includes complete
 node/origin/constant/fuel/status/step equality, large expression IDs, maximum
-depth and lexical permutations. This reduces pending-array traffic, not the
+depth and an eight-slot reference. This reduces pending-array traffic, not the
 kernel's reported maximum local frame: other native operations still require
 that frame. Measured improvement is modest and concentrated in reproduction.
 

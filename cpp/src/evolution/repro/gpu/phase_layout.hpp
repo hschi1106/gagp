@@ -78,32 +78,12 @@ class NativePhaseGrammarProfiles final {
   std::map<std::tuple<unsigned,unsigned,unsigned>,HostPhaseGrammar> profiles_;
 };
 
-// Lexical operands of a let- or region-carrying gene: a Bound reads its
-// environment position, a Let binds the next position (identity scope maps)
-// and a region phase starts with its own bindings. This is the same walk the
-// device recognizer checks.
-inline void assign_phase_binders(const HostPhaseGrammar& profile, std::size_t scope, HostPhaseGene& gene) {
-  struct Task { int expression, scope; };
-  std::vector<Task> pending{{profile.root_expression, static_cast<int>(scope)}};
-  std::size_t cursor = 0;
-  while (!pending.empty()) {
-    const auto task = pending.back(); pending.pop_back();
-    const auto& expression = profile.expressions.at(task.expression);
-    if (expression.kind == PhaseExpressionKind::Reference) {
-      phase_layout_require(cursor < gene.origins.size(), "binder walk");
-      pending.push_back({gene.origins[cursor], expression.scope_count}); continue;
-    }
-    phase_layout_require(cursor < gene.nodes.size() && gene.origins[cursor] == task.expression, "binder walk");
-    auto& node = gene.nodes[cursor++];
-    if (expression.kind == PhaseExpressionKind::Bound) {
-      phase_layout_require(expression.target < task.scope, "lexical index"); node.operand = expression.target;
-    } else if (expression.bind_argument >= 0) {
-      phase_layout_require(task.scope < 8, "lexical capacity"); node.operand = task.scope;
-    }
-    for (int i = node.arity - 1; i >= 0; --i)
-      pending.push_back({expression.children[i], phase_child_scope(expression, i, task.scope)});
-  }
-  phase_layout_require(cursor == gene.nodes.size(), "binder walk");
+// A grammar with let or traversal primitives runs whole programs: only the
+// ASGP shape (one root template around one bounded region) keeps region mode.
+inline bool phase_grammar_binds_lexically(const grammar::CompiledGrammar& grammar) {
+  for (const auto& e : grammar.expressions())
+    if (e.kind == grammar::ExpressionKind::Primitive && !e.regions.empty()) return true;
+  return false;
 }
 
 // A secondary population import may omit duplicate profile storage: it is used
@@ -142,13 +122,15 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
     depths[i] = pending.size(); --pending.back();
     const auto arity = node_prefix_arity(ast.nodes[i]); if (arity) pending.push_back(arity);
   }
-  if (witness.templates.empty()) {
+  if (witness.templates.empty() || ast.bounded_region_specs.size() != 1 || phase_grammar_binds_lexically(grammar)) {
     // Whole-program mode: the entry nonterminal's outermost choice is the phase.
-    // Let and bounded regions are phase nodes; the phase grammar rejects every
-    // other lexical region primitive, and traversals carry their own specs.
-    phase_layout_require(ast.traversal_specs.empty(), "whole-program phase requires no traversals");
-    for (const auto& region : ast.lexical_regions)
-      phase_layout_require(ast.nodes.at(region.node_index).kind == NodeKind::LET_REGION, "whole-program lexical region");
+    // Templates, lets, traversals and bounded regions are phase nodes; the
+    // phase grammar rejects every other lexical region primitive.
+    for (const auto& region : ast.lexical_regions) {
+      const auto kind = ast.nodes.at(region.node_index).kind;
+      phase_layout_require(kind == NodeKind::LET_REGION || kind == NodeKind::TRAVERSE || kind == NodeKind::TRAVERSE_RANGE,
+          "whole-program lexical region");
+    }
     const auto& entry = grammar.nonterminals()[grammar.entry()];
     phase_layout_require(entry.category == NodeCategory::Expression || entry.category == NodeCategory::Program,
         "whole-program phase requires an expression or program entry");
@@ -272,8 +254,8 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
         phase_layout_require(actual.i0 >= 0 && std::size_t(actual.i0) < ast.names.size() &&
             ast.names[actual.i0] == grammar.inputs().at(e.target).name, "input name mismatch");
       } else if (e.kind == ExpressionKind::Bound) {
-        // Let binders are resolved below by lexical position; membership has
-        // already bound every reference to its innermost binder.
+        // Binder numbers are static (see compile_phase_grammar); membership
+        // has already bound every reference to its innermost binder.
         if (!profile.lets) {
           const auto binder = std::find(slot.binders.begin(), slot.binders.end(), actual.i0);
           phase_layout_require(binder != slot.binders.end(), "uncaptured lexical reference");
@@ -286,7 +268,6 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
       gene.nodes.push_back(node); gene.origins.push_back(expression);
     }
     phase_layout_require(gene.nodes.size() <= 1024, "per-phase genotype capacity requires fallback");
-    if (profile.lets) assign_phase_binders(profile, slot.binders.size(), gene);
     phase_layout_require(result.whole_program || !profile.lets, "let binders inside region phases require native fallback");
     if (retain_profiles) {
       if (profiles) result.profiles.push_back(profile);
@@ -332,6 +313,9 @@ inline std::string native_phase_skeleton_key(const NativePhaseLayout& layout) {
  std::vector<LexicalRegion> fixed_lexical;
  for(auto region:ast.lexical_regions)if(remap.at(region.node_index)!=std::size_t(-1)){region.node_index=remap[region.node_index];fixed_lexical.push_back(std::move(region));}
  ast.lexical_regions=std::move(fixed_lexical);
+ std::vector<TraversalSpec> fixed_traversals;
+ for(auto traversal:ast.traversal_specs)if(remap.at(traversal.node_index)!=std::size_t(-1)){traversal.node_index=remap[traversal.node_index];fixed_traversals.push_back(traversal);}
+ ast.traversal_specs=std::move(fixed_traversals);
  // Stable table compaction alone retains parent-dependent interning order:
  // a variable phase can intern a constant before a later fixed phase uses it.
  // Serialize each fixed occurrence through a fresh, traversal-ordered table.
@@ -370,7 +354,8 @@ inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& 
     phase_layout_require(inside_slot(region.node_index), "fixed lexical region");
     for (const auto& binding : region.bindings) next_binder = std::max(next_binder, binding.id + 1);
   }
-  ast.lexical_regions.clear();
+  for (const auto& traversal : ast.traversal_specs) phase_layout_require(inside_slot(traversal.node_index), "fixed traversal");
+  ast.lexical_regions.clear(); ast.traversal_specs.clear();
   const auto name_index = [&](const std::string& name) {
     auto found = std::find(ast.names.begin(), ast.names.end(), name);
     if (found == ast.names.end()) found = ast.names.insert(ast.names.end(), name);
@@ -395,10 +380,10 @@ inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& 
         }
         phase_layout_require(sizes.size() == 1 && sizes.back() == gene.nodes.size(), "invalid gene shape");
       }
-      // `env` maps each lexical index to its native binder: a let body adds
-      // one, and a region phase sees only its own bindings. Recursion depth is
-      // bounded by the phase depth budget.
-      using Environment = std::array<int, 8>;
+      // `env` maps each binder number to its native binder: a let or
+      // traversal body binds its numbers, and a region phase sees only its own
+      // bindings. Recursion depth is bounded by the phase depth budget.
+      using Environment = std::array<int, kPhaseBinders>;
       std::function<void(std::size_t, const Environment&)> emit = [&](std::size_t j, const Environment& env) {
         const int id = gene.origins[j];
         phase_layout_require(id >= 0 && std::size_t(id) < grammar.expressions().size(), "unknown expression origin");
@@ -407,17 +392,29 @@ inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& 
         phase_layout_require(node.kind == model.node.kind && node.opcode == model.node.opcode &&
             node.arity == model.node.arity && node.fuel == model.node.fuel && node.merge_fuel == model.node.merge_fuel,
             "gene/expression contract mismatch");
-        int let_binder = -1; std::optional<BoundedRegionSpec> region;
+        int let_binder = -1; std::optional<BoundedRegionSpec> region; std::array<int, 3> walk{-1, -1, -1};
         if (e.kind == grammar::ExpressionKind::Constant) {
           phase_layout_require(node.operand >= 0 && std::size_t(node.operand) < gene.constants.size(), "constant index");
           native.i0 = ast.consts.size(); ast.consts.push_back(gene.constants[node.operand]);
         } else if (e.kind == grammar::ExpressionKind::Input) {
           native.i0 = name_index(grammar.inputs().at(e.target).name);
         } else if (e.kind == grammar::ExpressionKind::Bound) {
-          phase_layout_require(node.operand >= 0 && node.operand < 8 && env[node.operand] >= 0, "lexical index");
+          phase_layout_require(node.operand >= 0 && node.operand < kPhaseBinders && env[node.operand] >= 0, "lexical index");
           native.i0 = env[node.operand];
+        } else if (node.kind == PhaseTreeKind::Traverse) {
+          phase_layout_require(node.operand == model.node.operand && node.operand >= 0 &&
+              std::size_t(node.operand) < profile.regions.size() && profile.regions[node.operand].traversal &&
+              e.regions.size() == 1 && e.regions[0].bindings.size() == 3, "traversal operand");
+          // Native generation records a traversal before its subtrees.
+          LexicalRegion lexical{ast.nodes.size(), static_cast<int>(e.regions[0].argument), {}};
+          for (std::size_t k = 0; k < 3; ++k) {
+            walk[k] = next_binder++; lexical.bindings.push_back({walk[k], e.regions[0].bindings[k].type});
+          }
+          ast.lexical_regions.push_back(std::move(lexical));
+          ast.traversal_specs.push_back({ast.nodes.size(), profile.regions[node.operand].traversal == 2 ?
+              TraversalDirection::Reverse : TraversalDirection::Forward});
         } else if (model.bind_argument >= 0) {
-          phase_layout_require(node.operand >= 0 && node.operand < 8 && model.bind_argument < node.arity &&
+          phase_layout_require(node.operand >= 0 && node.operand < kPhaseBinders && model.bind_argument < node.arity &&
               e.regions.size() == 1 && e.regions[0].bindings.size() == 1, "let binder");
           let_binder = next_binder++;
           ast.lexical_regions.push_back({ast.nodes.size(), model.bind_argument, {{let_binder, e.regions[0].bindings[0].type}}});
@@ -427,14 +424,16 @@ inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& 
               profile.region_sources[node.operand].expression == unsigned(id), "region operand");
           native.i0 = node.arity;
           region.emplace(); region->plan = profile.region_sources[node.operand].plan;
-          for (const auto& capture : e.captures) {
+          for (std::size_t c = 0; c < e.captures.size(); ++c) {
+            const auto& capture = e.captures[c];
             if (capture.kind == grammar::CompiledCaptureKind::Input)
               region->parameters.push_back({RegionCaptureKind::Name, name_index(grammar.inputs().at(capture.target).name)});
             else if (capture.kind == grammar::CompiledCaptureKind::Local)
               region->parameters.push_back({RegionCaptureKind::Name, name_index(grammar.locals().at(capture.target).name)});
             else {
-              phase_layout_require(capture.target < 8 && env[capture.target] >= 0, "region capture");
-              region->parameters.push_back({RegionCaptureKind::Lexical, env[capture.target]});
+              const int number = profile.regions[node.operand].capture_target[c];
+              phase_layout_require(number >= 0 && number < kPhaseBinders && env[number] >= 0, "region capture");
+              region->parameters.push_back({RegionCaptureKind::Lexical, env[number]});
             }
           }
           for (std::size_t p = 0; p < e.phases.size(); ++p) {
@@ -459,6 +458,8 @@ inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& 
             inner.fill(-1);
             for (std::size_t b = 0; b < phase.bindings.size(); ++b) inner[b] = phase.bindings[b].binder_id;
           } else if (let_binder >= 0 && c == model.bind_argument) inner[node.operand] = let_binder;
+          else if (walk[0] >= 0 && c == node.arity - 1)
+            for (std::size_t k = 0; k < 3; ++k) inner[profile.regions[node.operand].binders[k]] = walk[k];
           emit(child, inner); child = ends[child];
         }
         // Native generation records a region after its subtrees.

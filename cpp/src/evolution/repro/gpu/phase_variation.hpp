@@ -24,8 +24,6 @@ inline HostPhaseGrammar compile_phase_variation_grammar(
     if (logical_depth && !site_depth && (e.resource_charge.nodes != 1 || e.resource_charge.depth > 1 || e.resource_charge.resets_depth))
       fail("projected resource charge requires native fallback");
     if (e.kind == grammar::ExpressionKind::Reference) {
-      for (std::size_t j = 0; j < e.scope_mapping.size(); ++j)
-        if (e.scope_mapping[j] != j) fail("nonidentity lexical mapping requires native fallback");
       for (auto p : grammar.nonterminals()[e.target].productions)
         visit(grammar.productions()[p].expression);
     }

@@ -16,20 +16,43 @@ namespace gagp::evo::repro {
 // Region (operands..., phases...) is a bounded region of grammar region table
 // entry `operand`: operands lower in place, each phase lowers as a separate
 // program whose locals start with the phase bindings (see PhaseRegionInfo).
-enum class PhaseTreeKind : int { Constant, Local, Operation, If, And, Or, Program, Block, Nil, Assign, Return, ForRange, Var, Let, Bound, Region };
+// Traverse (source, start, [begin, end,] initial, body) is the native
+// traversal primitive of region table entry `operand` (see PhaseRegionInfo).
+enum class PhaseTreeKind : int { Constant, Local, Operation, If, And, Or, Program, Block, Nil, Assign, Return, ForRange, Var, Let, Bound, Region, Traverse };
 // Completion tag of a statement; never a runtime value tag.
 constexpr ValueTag kPhaseStatement = static_cast<ValueTag>(0xF0);
 constexpr int kPhaseNamedLocals = 16;
+// Open traversals, lets, loops and analysed value ifs on one lowering path.
+constexpr int kPhaseWalks = 8, kPhaseLets = 16, kPhaseLoops = 16, kPhaseIfs = 16;
 // Widest node: a bounded region with its operands and phases.
 constexpr int kPhaseMaxArity = 8;
 // Bounded regions per lowered program and the lowering record marker below.
 constexpr int kPhaseMaxRegions = 4;
 constexpr std::uint8_t kPhaseRegionRecord = 0xFF;
+// Lexical binder numbers of a whole-program phase (Let, Traverse and Bound
+// operands); a region phase numbers its own bindings from zero.
+constexpr int kPhaseBinders = 16;
+// Source fuel events, numbered as the native FuelEvent enumeration.
+enum class PhaseFuelEvent : int {
+  Operation, Bind, BranchTest, BranchMerge, StoreSequence, StoreStart, StoreBegin, StoreEnd,
+  CheckStart, CheckBegin, CheckEnd, ObserveSequence, ClampBegin, ClampEnd, SetBegin, SetEnd,
+  InitializeState, InitializeCursor, TestCursor, ReadElement, BindElement, ComputeIndex,
+  UpdateState, AdvanceCursor, Repeat, Result, Count
+};
 enum class PhaseCaptureKind : int { Input, Local, Bound };
 // Static shape of one grammar bounded region. Captures name an evaluator input
-// position, a grammar local, or a lexical index; phase p sees phase_bindings[p]
+// position, a grammar local, or a binder number; phase p sees phase_bindings[p]
 // binder locals typed binding_types[p][...] and yields phase_type[p].
+// A traversal entry (traversal != 0) instead types its children by
+// operand_types, its element/index/state bindings by binding_types[0] and its
+// result by phase_type[0]; the body binds numbers binders[0..2]. With a source
+// fuel profile, each lowering event charges event_cost on its first
+// instruction and nothing on the rest; without one every instruction costs 1.
 struct PhaseRegionInfo {
+  int traversal = 0;  // 0: bounded region, 1: forward, 2: reverse traversal
+  bool ranged = false, fuel_profile = false;
+  int binders[3]{};
+  unsigned event_cost[static_cast<int>(PhaseFuelEvent::Count)]{};
   int operands = 0, phases = 0, captures = 0;
   ValueTag operand_types[kPhaseMaxArity]{};
   PhaseCaptureKind capture_kind[kPhaseMaxArity]{};
@@ -225,14 +248,32 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
   int total_locals=local_count, live_count=0, free_count=0, loop_depth=0;
   unsigned named_mask=0; std::int8_t named[kPhaseNamedLocals], live[64], freed[64];
   struct Loop { int bound, counter, head, end_jump, one, live_begin; };
-  Loop loops[16];
+  Loop loops[kPhaseLoops];
   // Lexical let binders, mirroring the native compiler: the binder temporary
   // precedes the value expression, and every temporary allocated inside the
   // let is recycled LIFO once its body finishes.
-  struct LetScope { int index, slot, live_begin, saved_slot; ValueTag saved_type; };
-  LetScope lets[16]; int let_depth=0;
-  int env_slot[8]; ValueTag env_type[8];
-  for (int i=0; i<8; ++i) { env_slot[i]=-1; env_type[i]=ValueTag::Invalid; }
+  // Native traversal lowering analyses (compiler.cpp), keyed by binder number
+  // instead of native binder identity: an Int-valued binder, a binder equal to
+  // len(source)+offset, the binder holding len(source) and a source proven
+  // nonempty in the current branch. Entering a binder saves and clears the
+  // facts of its number, which a hidden outer binder may still own, and
+  // leaving restores them, so the facts follow native identities exactly.
+  // Only traversal lowering reads them; without one they are never computed.
+  struct Facts { bool integer, positive; int length_source, length_offset, observed; };
+  struct LetScope { int index, slot, live_begin, saved_slot, node, observed_source, saved_observed; ValueTag saved_type; Facts saved; };
+  LetScope lets[kPhaseLets]; int let_depth=0;
+  int env_slot[kPhaseBinders]; ValueTag env_type[kPhaseBinders]; Facts facts[kPhaseBinders];
+  for (int i=0; i<kPhaseBinders; ++i) { env_slot[i]=-1; env_type[i]=ValueTag::Invalid; facts[i]={false,false,-1,0,-1}; }
+  bool analyze=false;
+  if constexpr (Regions) for (int r=0; regions && r<region_info_count; ++r) analyze|=regions[r].traversal!=0;
+  struct IfFact { int frame, source; bool positive_then, already; };
+  IfFact ifs[kPhaseIfs]; int if_count=0;
+  struct TraverseScope {
+    int info, live_begin, args[6], xs, start, begin, limit, length, counter, element, index, state, loop_head, done_jump;
+    bool source_alias, start_alias, end_alias, length_alias, constant_begin, decrement;
+    int saved_slot[3]; ValueTag saved_type[3]; Facts saved[3];
+  };
+  TraverseScope walks[kPhaseWalks]; int walk_depth=0;
   const auto fresh_local=[&]() -> int {
     if (total_locals>=64) { out.result.status=PhaseCompileStatus::Capacity; return -1; }
     return total_locals++;
@@ -263,7 +304,7 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
         const int target=info.capture_target[c]; int slot=-1;
         if (info.capture_kind[c]==PhaseCaptureKind::Input) slot=target>=0 ? variable_slot(-1-target) : -1;
         else if (info.capture_kind[c]==PhaseCaptureKind::Local) slot=variable_slot(target);
-        else if (target>=0 && target<8) slot=env_slot[target];
+        else if (target>=0 && target<kPhaseBinders) slot=env_slot[target];
         if (slot<0) return false;
         record.captures[c]=slot;
       }
@@ -283,6 +324,234 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
       return true;
     }
   };
+  const auto subtree_end=[&](int i) -> int {
+    int pending=1;
+    while (pending) {
+      if (i<0 || i>=node_count) return -1;
+      const int arity=nodes[i++].arity;
+      if (arity<0 || arity>kPhaseMaxArity) return -1;
+      pending+=arity-1;
+    }
+    return i;
+  };
+  // Binder number of a lexical read in the main code, else -1.
+  const auto binder_at=[&](int i) -> int {
+    if (i<0 || i>=node_count) return -1;
+    const auto& n=nodes[i];
+    return n.kind==PhaseTreeKind::Bound && n.operand>=0 && n.operand<kPhaseBinders && env_slot[n.operand]>=0 ? n.operand : -1;
+  };
+  const auto int_constant=[&](int i, std::int64_t& value) -> bool {
+    if (i<0 || i>=node_count) return false;
+    const auto& n=nodes[i];
+    if (n.kind!=PhaseTreeKind::Constant || n.operand<0 || n.operand>=constant_count || constants[n.operand].tag!=ValueTag::Int) return false;
+    value=constants[n.operand].i; return true;
+  };
+  const auto is_len=[&](int i) {
+    const auto& n=nodes[i];
+    return n.kind==PhaseTreeKind::Operation && n.opcode==Opcode::CallBuiltin && n.operand==int(BuiltinId::Len) && n.arity==1;
+  };
+  const auto is_add_sub=[&](int i) {
+    const auto& n=nodes[i];
+    return n.kind==PhaseTreeKind::Operation && (n.opcode==Opcode::Add || n.opcode==Opcode::Sub) && n.arity==2;
+  };
+  struct Length { int source, offset; };
+  // Native length_offset: a binder, len(binder) or such a value plus/minus
+  // small Int constants along the left spine.
+  const auto length_offset=[&](int i, Length& result) -> bool {
+    int spine[64]; int n=0;
+    while (i>=0 && i<node_count && is_add_sub(i)) { if (n==64) return false; spine[n++]=i++; }
+    Length relation{};
+    const int binder=binder_at(i);
+    if (binder>=0) {
+      if (facts[binder].length_source<0) return false;
+      relation={facts[binder].length_source,facts[binder].length_offset};
+    } else if (i>=0 && i+1<node_count && is_len(i) && binder_at(i+1)>=0) relation={binder_at(i+1),0};
+    else return false;
+    while (n) {
+      const int owner=spine[--n]; std::int64_t value;
+      if (!int_constant(subtree_end(owner+1),value) || value<-65535 || value>65535) return false;
+      const std::int64_t offset=relation.offset+(nodes[owner].opcode==Opcode::Add ? value : -value);
+      if (offset<-65535 || offset>65535) return false;
+      relation.offset=static_cast<int>(offset);
+    }
+    result=relation; return true;
+  };
+  const auto proven_integer=[&](int i) -> bool {
+    int pending[64]; int n=0; pending[n++]=i;
+    while (n) {
+      const int j=pending[--n];
+      if (j<0 || j>=node_count) return false;
+      const auto& node=nodes[j]; std::int64_t value;
+      if (node.kind==PhaseTreeKind::Operation && (node.opcode==Opcode::CheckInt || is_len(j))) continue;
+      if (node.kind==PhaseTreeKind::Constant) { if (!int_constant(j,value)) return false; continue; }
+      if (node.kind==PhaseTreeKind::Bound) { const int b=binder_at(j); if (b<0 || !facts[b].integer) return false; continue; }
+      if (!is_add_sub(j) || n+2>64) return false;
+      pending[n++]=subtree_end(j+1); pending[n++]=j+1;
+    }
+    return true;
+  };
+  // Native zero_compared_length: the source of `len(source)+0 ==/!= 0`.
+  const auto zero_compared_length=[&](int i) -> int {
+    if (i<0 || i>=node_count) return -1;
+    const auto& node=nodes[i];
+    if (node.kind!=PhaseTreeKind::Operation || (node.opcode!=Opcode::Eq && node.opcode!=Opcode::Ne) || node.arity!=2) return -1;
+    const int left=i+1, right=subtree_end(left);
+    const int pairs[2][2]={{left,right},{right,left}};
+    for (const auto& pair : pairs) {
+      Length relation; std::int64_t value;
+      if (length_offset(pair[0],relation) && relation.offset==0 && int_constant(pair[1],value) && value==0) return relation.source;
+    }
+    return -1;
+  };
+  const auto zero_event=[&](const PhaseRegionInfo& info, PhaseFuelEvent event) {
+    return info.fuel_profile && info.event_cost[static_cast<int>(event)]==0;
+  };
+  // An uncharged lexical operand stored by an uncharged event aliases its binder.
+  const auto zero_capture=[&](const PhaseRegionInfo& info, int argument, PhaseFuelEvent store) -> int {
+    const int binder=binder_at(argument);
+    return binder>=0 && zero_event(info,store) && nodes[argument].fuel==0 ? env_slot[binder] : -1;
+  };
+  const auto zero_clamp_identity=[&](const PhaseRegionInfo& info, int source, int argument, PhaseFuelEvent event) -> bool {
+    if (!zero_event(info,event)) return false;
+    std::int64_t value;
+    if (int_constant(argument,value) && value==0) return true;
+    Length relation; const int binder=binder_at(source);
+    return length_offset(argument,relation) && binder>=0 && relation.source==binder &&
+        (relation.offset==0 || (relation.offset==-1 && facts[binder].positive));
+  };
+  // One source fuel event of a traversal: its first instruction carries the
+  // event charge and the rest none; without a fuel profile each costs one.
+  bool event_profile=false; unsigned event_first=1; int event_count=0;
+  const auto event=[&](const PhaseRegionInfo& info, PhaseFuelEvent which) {
+    event_profile=info.fuel_profile; event_first=event_profile ? info.event_cost[static_cast<int>(which)] : 1U; event_count=0;
+  };
+  const auto put=[&](Opcode op, int a, int b, unsigned flags, int delta) -> bool {
+    const unsigned fuel=event_profile ? (event_count++ ? 0U : event_first) : 1U;
+    if (!out.emit(op,fuel,a,b,flags)) return false;
+    if (delta>0) out.grow(delta); else out.stack+=delta;
+    return true;
+  };
+  const auto put_load=[&](int slot) { return put(Opcode::Load,slot,0,gpu_detail::DINSTR_HAS_A,1); };
+  const auto put_store=[&](int slot) { return put(Opcode::Store,slot,0,gpu_detail::DINSTR_HAS_A,-1); };
+  const auto put_int=[&](std::int64_t value) {
+    const int index=out.add(Value::from_int(value));
+    return index>=0 && put(Opcode::PushConst,index,0,gpu_detail::DINSTR_HAS_A,1);
+  };
+  const auto put_jump=[&](Opcode op, int delta) -> int {
+    const int at=out.result.code_count;
+    return put(op,0,0,gpu_detail::DINSTR_HAS_A,delta) ? at : -1;
+  };
+  // Native compile_region_prefix for a traversal, after child `c` completed or
+  // was skipped. Children: source, start, [begin, end,] initial state, body.
+  const auto walk_after=[&](TraverseScope& walk, int c) -> bool {
+    using E=PhaseFuelEvent;
+    const auto& info=regions[walk.info];
+    const bool reverse=info.traversal==2; const int arity=info.ranged ? 6 : 4;
+    const auto begin_value=[&]() { return walk.constant_begin ? put_int(0) : put_load(walk.begin); };
+    if (c==0 && !walk.source_alias) { event(info,E::StoreSequence); if (!put_store(walk.xs)) return false; }
+    if (c==1 && !walk.start_alias) { event(info,E::StoreStart); if (!put_store(walk.start)) return false; }
+    if (info.ranged && c==2 && !walk.constant_begin) { event(info,E::StoreBegin); if (!put_store(walk.begin)) return false; }
+    if (info.ranged && c==3 && !walk.end_alias) { event(info,E::StoreEnd); if (!put_store(walk.limit)) return false; }
+    if (c==(info.ranged ? 3 : 1)) {
+      // A dominating checked/constructed Int needs no repeated uncharged check.
+      const int slots[3]={walk.start,walk.begin,walk.limit};
+      const E checks[3]={E::CheckStart,E::CheckBegin,E::CheckEnd};
+      const int arguments[3]={walk.args[1],walk.args[2],walk.args[info.ranged ? 3 : 2]};
+      for (int role=0; role<(info.ranged ? 3 : 1); ++role) {
+        if (zero_event(info,checks[role]) && proven_integer(arguments[role])) continue;
+        event(info,checks[role]);
+        if (!put_load(slots[role]) || !put(Opcode::CheckInt,0,0,0,0) || !put_store(slots[role])) return false;
+      }
+      if (!walk.length_alias) {
+        event(info,E::ObserveSequence);
+        if (!put_load(walk.xs) || !put(Opcode::CallBuiltin,int(BuiltinId::Len),1,gpu_detail::DINSTR_HAS_A|gpu_detail::DINSTR_HAS_B,0) ||
+            !put_store(walk.length)) return false;
+      }
+      if (info.ranged) {
+        for (int k=0; k<2; ++k) {
+          const int slot=k ? walk.limit : walk.begin, argument=k ? walk.args[3] : walk.args[2];
+          const E clamp=k ? E::ClampEnd : E::ClampBegin;
+          if (zero_clamp_identity(info,walk.args[0],argument,clamp)) continue;
+          Length relation; const int source=binder_at(walk.args[0]);
+          const bool related=length_offset(argument,relation);
+          const bool upper_redundant=zero_event(info,clamp) && related && source>=0 && relation.source==source && relation.offset<=0;
+          event(info,clamp);
+          if (!put_load(slot) || !put_int(0) || !put(Opcode::Lt,0,0,0,-1)) return false;
+          const int nonnegative=put_jump(Opcode::JmpIfFalse,-1); if (nonnegative<0) return false;
+          if (!put_int(0) || !put_store(slot)) return false;
+          const int clamped=put_jump(Opcode::Jmp,0); if (clamped<0) return false;
+          out.code[nonnegative].a=out.result.code_count;
+          int above=-1;
+          if (!upper_redundant) {
+            if (!put_load(slot) || !put_load(walk.length) || !put(Opcode::Gt,0,0,0,-1)) return false;
+            above=put_jump(Opcode::JmpIfFalse,-1); if (above<0) return false;
+            if (!put_load(walk.length) || !put_store(slot)) return false;
+          }
+          out.code[clamped].a=out.result.code_count;
+          if (above>=0) out.code[above].a=out.result.code_count;
+        }
+      } else {
+        if (!walk.constant_begin) { event(info,E::SetBegin); if (!put_int(0) || !put_store(walk.begin)) return false; }
+        event(info,E::SetEnd);
+        if (!put_load(walk.length) || !put_store(walk.limit)) return false;
+      }
+    }
+    if (c==arity-2) {
+      event(info,E::InitializeState); if (!put_store(walk.state)) return false;
+      event(info,E::InitializeCursor);
+      if (!(reverse ? put_load(walk.limit) : begin_value())) return false;
+      if (reverse && !walk.decrement && (!put_int(1) || !put(Opcode::Sub,0,0,0,-1))) return false;
+      if (!put_store(walk.counter)) return false;
+      walk.loop_head=out.result.code_count;
+      event(info,E::TestCursor);
+      if (!put_load(walk.counter) || !(reverse ? begin_value() : put_load(walk.limit)) ||
+          !put(reverse ? (walk.decrement ? Opcode::Gt : Opcode::Ge) : Opcode::Lt,0,0,0,-1)) return false;
+      walk.done_jump=put_jump(Opcode::JmpIfFalse,-1); if (walk.done_jump<0) return false;
+      event(info,E::ReadElement);
+      if (walk.decrement && (!put_load(walk.counter) || !put_int(1) || !put(Opcode::Sub,0,0,0,-1) || !put_store(walk.counter))) return false;
+      if (!put_load(walk.xs) || !put_load(walk.counter) ||
+          !put(Opcode::CallBuiltin,int(BuiltinId::Index),2,gpu_detail::DINSTR_HAS_A|gpu_detail::DINSTR_HAS_B,-1)) return false;
+      event(info,E::BindElement); if (!put_store(walk.element)) return false;
+      event(info,E::ComputeIndex);
+      if (!put_load(walk.start) || !put_load(walk.counter) || !put(Opcode::Add,0,0,0,-1) || !put_store(walk.index)) return false;
+      const int slots[3]={walk.element,walk.index,walk.state};
+      for (int k=0; k<3; ++k) {
+        const int number=info.binders[k];
+        walk.saved_slot[k]=env_slot[number]; walk.saved_type[k]=env_type[number]; walk.saved[k]=facts[number];
+        env_slot[number]=slots[k]; env_type[number]=info.binding_types[0][k]; facts[number]={false,false,-1,0,-1};
+      }
+    }
+    if (c==arity-1) {
+      for (int k=2; k>=0; --k) {
+        const int number=info.binders[k];
+        env_slot[number]=walk.saved_slot[k]; env_type[number]=walk.saved_type[k]; facts[number]=walk.saved[k];
+      }
+      event(info,E::UpdateState); if (!put_store(walk.state)) return false;
+      if (!walk.decrement) {
+        event(info,E::AdvanceCursor);
+        if (!put_load(walk.counter) || !put_int(1) || !put(reverse ? Opcode::Sub : Opcode::Add,0,0,0,-1) || !put_store(walk.counter)) return false;
+      }
+      event(info,E::Repeat); if (!put(Opcode::Jmp,walk.loop_head,0,gpu_detail::DINSTR_HAS_A,0)) return false;
+      out.code[walk.done_jump].a=out.result.code_count;
+      event(info,E::Result); if (!put_load(walk.state)) return false;
+    }
+    event_profile=false;
+    return true;
+  };
+  // Skip the children native lowering never compiles (aliased or constant
+  // operands), running their completion steps.
+  const auto walk_skip=[&](TraverseScope& walk, Frame& frame) -> bool {
+    const auto& info=regions[walk.info];
+    for (;;) {
+      const int c=frame.seen;
+      const bool skipped=(c==0 && walk.source_alias) || (c==1 && walk.start_alias) ||
+          (info.ranged && c==2 && walk.constant_begin) || (info.ranged && c==3 && walk.end_alias);
+      if (!skipped) return true;
+      cursor=walk.args[c+1];
+      if (!walk_after(walk,c)) return false;
+      ++frame.seen;
+    }
+  };
   for (;;) {
     if (!have_value) {
       if (cursor>=node_count) return out.result;
@@ -298,7 +567,7 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
         if(value.tag==ValueTag::IntList)typed_views=false;
         if (!out.push(value,node.fuel)) return out.result;
         completed=value.tag; have_value=true;
-      } else if (node.kind==PhaseTreeKind::Bound && node.operand>=0 && node.operand<8 && env_slot[node.operand]>=0) {
+      } else if (node.kind==PhaseTreeKind::Bound && node.operand>=0 && node.operand<kPhaseBinders && env_slot[node.operand]>=0) {
         if (node.arity!=0) return out.result;
         completed=env_type[node.operand];
         if (node.type!=ValueTag::Invalid && node.type!=completed) return out.result;
@@ -324,6 +593,49 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
         const int slot=variable_slot(node.operand); if (slot<0) return out.result;
         if (!out.emit(Opcode::Load,node.fuel,slot,0,gpu_detail::DINSTR_HAS_A)) return out.result;
         out.grow(1); typed_views=private_intlists=false; completed=node.type; have_value=true;
+      } else if (node.kind==PhaseTreeKind::Traverse) {
+        if (!Regions || !analyze || node.operand<0 || node.operand>=region_info_count || !regions[node.operand].traversal) {
+          out.result.status=PhaseCompileStatus::Unsupported; return out.result;
+        }
+        const auto& info=regions[node.operand];
+        if (node.arity!=(info.ranged ? 6 : 4)) return out.result;
+        for (int k=0; k<3; ++k) if (info.binders[k]<0 || info.binders[k]>=kPhaseBinders) return out.result;
+        if (depth==64 || walk_depth==kPhaseWalks) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
+        auto& walk=walks[walk_depth++]; walk.info=node.operand; walk.live_begin=live_count;
+        int child=cursor;
+        for (int c=0; c<node.arity; ++c) { if (child<0) return out.result; walk.args[c]=child; child=subtree_end(child); }
+        if (child<0) return out.result;
+        using E=PhaseFuelEvent;
+        const int source=walk.args[0], begin_argument=walk.args[2], end_argument=walk.args[info.ranged ? 3 : 2];
+        walk.decrement=info.traversal==2 && zero_event(info,E::InitializeCursor) && zero_event(info,E::AdvanceCursor);
+        walk.constant_begin=!info.ranged && zero_event(info,E::SetBegin);
+        std::int64_t value;
+        if (info.ranged && nodes[begin_argument].kind==PhaseTreeKind::Constant)
+          walk.constant_begin=int_constant(begin_argument,value) && value==0 && nodes[begin_argument].fuel==0 &&
+              zero_event(info,E::StoreBegin) && zero_event(info,E::CheckBegin) && zero_event(info,E::ClampBegin);
+        const int source_alias=zero_capture(info,source,E::StoreSequence);
+        const int start_alias=zero_capture(info,walk.args[1],E::StoreStart);
+        const int end_alias=info.ranged && zero_clamp_identity(info,source,end_argument,E::ClampEnd) ?
+            zero_capture(info,end_argument,E::StoreEnd) : -1;
+        int length_alias=-1;
+        if (zero_event(info,E::ObserveSequence) && binder_at(source)>=0) length_alias=facts[binder_at(source)].observed;
+        walk.source_alias=source_alias>=0; walk.start_alias=start_alias>=0; walk.end_alias=end_alias>=0; walk.length_alias=length_alias>=0;
+        // Native temporary order; immutable aliased operands share storage.
+        walk.xs=walk.source_alias ? source_alias : temporary();
+        walk.start=walk.start_alias ? start_alias : temporary();
+        walk.begin=walk.constant_begin ? -1 : temporary();
+        walk.limit=walk.end_alias ? end_alias : temporary();
+        walk.length=walk.length_alias ? length_alias : temporary();
+        walk.counter=temporary(); walk.element=temporary(); walk.index=temporary(); walk.state=temporary();
+        if (walk.xs<0 || walk.start<0 || (!walk.constant_begin && walk.begin<0) || walk.limit<0 || walk.length<0 ||
+            walk.counter<0 || walk.element<0 || walk.index<0 || walk.state<0) return out.result;
+        general=true; typed_views=private_intlists=false;
+        StoredNode stored;
+        if constexpr (SharedNodes) stored.index=cursor-1;
+        else stored.node=node;
+        frames[depth++]={stored,static_cast<FrameIndex>(out.stack),-1,-1,{},0};
+        if (!walk_skip(walk,frames[depth-1])) return out.result;
+        continue;
       } else if (node.kind==PhaseTreeKind::Region) {
         if (!regions || node.operand<0 || node.operand>=region_info_count) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
         const auto& info=regions[node.operand];
@@ -353,14 +665,21 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
         if (depth==64) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
         if (node.kind==PhaseTreeKind::ForRange) {
           // The bound temporary precedes the bound expression's own locals.
-          if (loop_depth==16) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
+          if (loop_depth==kPhaseLoops) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
           auto& loop=loops[loop_depth++]; loop.live_begin=live_count;
           loop.bound=temporary(); if (loop.bound<0) return out.result;
         } else if (node.kind==PhaseTreeKind::Let) {
-          if (node.operand<0 || node.operand>=8) return out.result;
-          if (let_depth==16) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
-          auto& scope=lets[let_depth++]; scope.index=node.operand; scope.live_begin=live_count; general=true;
+          if (node.operand<0 || node.operand>=kPhaseBinders) return out.result;
+          if (let_depth==kPhaseLets) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
+          auto& scope=lets[let_depth++]; scope.index=node.operand; scope.live_begin=live_count; scope.node=cursor-1; general=true;
           scope.slot=temporary(); if (scope.slot<0) return out.result;
+        }
+        if (analyze && node.kind==PhaseTreeKind::If && node.type!=kPhaseStatement) {
+          const int source=zero_compared_length(cursor);
+          if (source>=0) {
+            if (if_count==kPhaseIfs) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
+            ifs[if_count++]={depth,source,nodes[cursor].opcode==Opcode::Ne,facts[source].positive};
+          }
         }
         StoredNode source;
         if constexpr (SharedNodes) source.index=cursor-1;
@@ -410,6 +729,16 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
     }();
     if (frame.seen<3) frame.args[frame.seen]=completed;
     ++frame.seen;
+    if (node.kind==PhaseTreeKind::Traverse) {
+      auto& walk=walks[walk_depth-1]; const auto& info=regions[walk.info];
+      if (completed!=info.operand_types[frame.seen-1] || !walk_after(walk,frame.seen-1)) return out.result;
+      if (frame.seen<node.arity) {
+        if (!walk_skip(walk,frame)) return out.result;
+        have_value=false; continue;
+      }
+      while (live_count>walk.live_begin) freed[free_count++]=live[--live_count];
+      --walk_depth; completed=info.phase_type[0]; --depth; continue;
+    }
     if (node.kind==PhaseTreeKind::Region) {
       const auto& info=regions[node.operand];
       if (completed!=info.operand_types[frame.seen-1]) return out.result;
@@ -424,11 +753,17 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
       if (!out.emit(node.kind==PhaseTreeKind::Or ? Opcode::JmpIfTrue : Opcode::JmpIfFalse,
                     node.fuel,0,0,gpu_detail::DINSTR_HAS_A)) return out.result;
       --out.stack;
+      if (if_count && ifs[if_count-1].frame==depth-1 && ifs[if_count-1].positive_then) facts[ifs[if_count-1].source].positive=true;
     } else if (node.kind==PhaseTreeKind::If && frame.seen==2) {
       frame.second_jump=out.result.code_count;
       if (!out.emit(Opcode::Jmp,node.merge_fuel,0,0,gpu_detail::DINSTR_HAS_A)) return out.result;
       out.code[frame.first_jump].a=out.result.code_count;
       out.stack=frame.base_stack;
+      if (if_count && ifs[if_count-1].frame==depth-1) {
+        const auto fact=ifs[if_count-1];
+        if (!fact.already) facts[fact.source].positive=false;
+        if (!fact.positive_then) facts[fact.source].positive=true;
+      }
     }
     if (node.kind==PhaseTreeKind::ForRange && frame.seen==1) {
       // Native for_range: validate the stored bound (a non-Int or negative
@@ -477,12 +812,27 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
       if (!out.emit(Opcode::Store,node.fuel,scope.slot,0,gpu_detail::DINSTR_HAS_A)) return out.result;
       out.stack=frame.base_stack;
       scope.saved_slot=env_slot[scope.index]; scope.saved_type=env_type[scope.index];
+      scope.observed_source=-1;
+      if (analyze) {
+        const int value=scope.node+1; Facts fresh{false,false,-1,0,-1}; Length relation;
+        fresh.integer=proven_integer(value);
+        if (length_offset(value,relation)) { fresh.length_source=relation.source; fresh.length_offset=relation.offset; }
+        if (is_len(value)) scope.observed_source=binder_at(value+1);
+        scope.saved=facts[scope.index]; facts[scope.index]=fresh;
+        if (scope.observed_source>=0) {
+          scope.saved_observed=facts[scope.observed_source].observed; facts[scope.observed_source].observed=scope.slot;
+        }
+      }
       env_slot[scope.index]=scope.slot; env_type[scope.index]=completed;
     }
     if (frame.seen<node.arity) { have_value=false; continue; }
     if (node.kind==PhaseTreeKind::If) {
       if (frame.args[1]!=frame.args[2]) return out.result;
       out.code[frame.second_jump].a=out.result.code_count;
+      if (if_count && ifs[if_count-1].frame==depth-1) {
+        if (!ifs[if_count-1].already) facts[ifs[if_count-1].source].positive=false;
+        --if_count;
+      }
     } else if (node.kind==PhaseTreeKind::Program) {
       if (completed!=kPhaseStatement) return out.result;
     } else if (node.kind==PhaseTreeKind::Block) {
@@ -509,6 +859,10 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
     } else if (node.kind==PhaseTreeKind::Let) {
       if (completed==kPhaseStatement || (node.type!=ValueTag::Invalid && node.type!=completed)) return out.result;
       const auto scope=lets[--let_depth];
+      if (analyze) {
+        if (scope.observed_source>=0) facts[scope.observed_source].observed=scope.saved_observed;
+        facts[scope.index]=scope.saved;
+      }
       env_slot[scope.index]=scope.saved_slot; env_type[scope.index]=scope.saved_type;
       while (live_count>scope.live_begin) freed[free_count++]=live[--live_count];
     } else if (node.kind==PhaseTreeKind::And || node.kind==PhaseTreeKind::Or) {
