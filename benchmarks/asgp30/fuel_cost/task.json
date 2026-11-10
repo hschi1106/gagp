@@ -1,0 +1,11 @@
+{
+  "format": "gagp-task-v1",
+  "name": "fuel_cost",
+  "grammar": "grammar.json",
+  "train": "train.cases.json",
+  "test": "test.cases.json",
+  "fitness": {
+    "metric": "absolute",
+    "case_cap": 1000
+  }
+}

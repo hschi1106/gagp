@@ -42,5 +42,3 @@ data/*
 !data/fixtures/
 data/fixtures/*
 !data/fixtures/*.json
-!data/fixtures/psb1/
-!data/fixtures/psb1/*.json

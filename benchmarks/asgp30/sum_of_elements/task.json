@@ -1,0 +1,11 @@
+{
+  "format": "gagp-task-v1",
+  "name": "sum_of_elements",
+  "grammar": "grammar.json",
+  "train": "train.cases.json",
+  "test": "test.cases.json",
+  "fitness": {
+    "metric": "absolute",
+    "case_cap": 1000
+  }
+}

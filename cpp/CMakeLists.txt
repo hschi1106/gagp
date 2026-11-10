@@ -532,6 +532,10 @@ if(Python3_Interpreter_FOUND)
   set_tests_properties(gagp_test_repository_contract PROPERTIES
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
     LABELS "tooling;contract")
+  add_test(NAME gagp_test_bench_runner COMMAND ${Python3_EXECUTABLE} -m unittest benchmarks/test_run.py)
+  set_tests_properties(gagp_test_bench_runner PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
+    LABELS "tooling")
 endif()
 
 add_executable(gagp_test_region_plan tests/runtime/test_region_plan.cpp)

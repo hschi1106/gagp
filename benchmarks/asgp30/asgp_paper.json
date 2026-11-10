@@ -1,0 +1,175 @@
+{
+ "format": "asgp-paper-reference-v1",
+ "sources": {
+  "paper": "ASGP short paper, Table III (native DC & DP schemes): successful runs out of 100 per task",
+  "thesis": "ASGP thesis, Table 5.4: the six dynamic-programming tasks, successful runs out of 25. The counts are the same numbers as the paper's; only the denominator differs, so the two must not be mixed"
+ },
+ "paper_setup": {
+  "population": 1000,
+  "evaluations": 500000,
+  "max_phase_depth": 7,
+  "crossover": 0.7,
+  "mutation": 0.3,
+  "tournament": 2,
+  "elitism": 1,
+  "note": "The paper does not publish its data files, data seeds or train/test sizes. This suite's cases come from ASGP's task generator with 1024 training cases, so the paper columns are a reference, not a matched baseline."
+ },
+ "tasks": [
+  {
+   "task": "filter_odd",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 94
+  },
+  {
+   "task": "sum_of_elements",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 95
+  },
+  {
+   "task": "is_sorted",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 27
+  },
+  {
+   "task": "index_of_element",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 64
+  },
+  {
+   "task": "all_equal",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 100
+  },
+  {
+   "task": "cumulative_sum",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 3
+  },
+  {
+   "task": "fuel_cost",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 0
+  },
+  {
+   "task": "luhn",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 0
+  },
+  {
+   "task": "min",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 100
+  },
+  {
+   "task": "mpi",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 72
+  },
+  {
+   "task": "count_odds",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 97
+  },
+  {
+   "task": "last_index_of_zero",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 100
+  },
+  {
+   "task": "small_or_large",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 36
+  },
+  {
+   "task": "for_loop_index",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 11
+  },
+  {
+   "task": "double_letters",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 2
+  },
+  {
+   "task": "replace_space_with_newline",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 39
+  },
+  {
+   "task": "even_squares",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 0
+  },
+  {
+   "task": "sum_of_squares",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 23
+  },
+  {
+   "task": "negative_to_zero",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 100
+  },
+  {
+   "task": "scrabble_score",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 0
+  },
+  {
+   "task": "grade",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 15
+  },
+  {
+   "task": "median",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 99
+  },
+  {
+   "task": "smallest",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 100
+  },
+  {
+   "task": "syllables",
+   "scheme": "divide_and_conquer",
+   "paper_solved_of_100": 21
+  },
+  {
+   "task": "fibonacci",
+   "scheme": "dynamic_programming",
+   "paper_solved_of_100": 23,
+   "thesis_solved_of_25": 23
+  },
+  {
+   "task": "tribonacci",
+   "scheme": "dynamic_programming",
+   "paper_solved_of_100": 19,
+   "thesis_solved_of_25": 19
+  },
+  {
+   "task": "house_robber",
+   "scheme": "dynamic_programming",
+   "paper_solved_of_100": 22,
+   "thesis_solved_of_25": 22
+  },
+  {
+   "task": "subregion_sum",
+   "scheme": "dynamic_programming",
+   "paper_solved_of_100": 17,
+   "thesis_solved_of_25": 17
+  },
+  {
+   "task": "fibonacci_array",
+   "scheme": "dynamic_programming",
+   "paper_solved_of_100": 17,
+   "thesis_solved_of_25": 17
+  },
+  {
+   "task": "stock_with_cooldown",
+   "scheme": "dynamic_programming",
+   "paper_solved_of_100": 4,
+   "thesis_solved_of_25": 4
+  }
+ ]
+}

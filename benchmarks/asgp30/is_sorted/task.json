@@ -1,0 +1,16 @@
+{
+  "format": "gagp-task-v1",
+  "name": "is_sorted",
+  "grammar": "grammar.json",
+  "train": "train.cases.json",
+  "test": "test.cases.json",
+  "fitness": {
+    "metric": "tuple_summary",
+    "case_cap": 1000,
+    "summaries": {
+      "count": 2,
+      "weight": 0.1,
+      "cap": 10
+    }
+  }
+}
