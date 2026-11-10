@@ -60,13 +60,15 @@ __host__ __device__ inline bool annotate_phase_tree(const PhaseGrammarView& g, i
     if (expression.kind == PhaseExpressionKind::Bound) {
       if (expression.target < 0 || expression.target >= task.scope || node.operand != expression.target)
         return false;
+    } else if (expression.bind_argument >= 0) {
+      if (expression.bind_argument >= node.arity || task.scope >= 8 || node.operand != task.scope) return false;
     } else if ((expression.kind == PhaseExpressionKind::Operation || expression.kind == PhaseExpressionKind::Input) &&
                node.operand != expression.node.operand)
       return false;
     sites[cursor++] = task.site;
     for (int i = node.arity - 1; i >= 0; --i) {
       if (pending_count >= 192) return false;
-      pending[pending_count++] = {expression.children[i], task.scope, {}};
+      pending[pending_count++] = {expression.children[i], task.scope + (i == expression.bind_argument ? 1 : 0), {}};
     }
   }
   return cursor == count;

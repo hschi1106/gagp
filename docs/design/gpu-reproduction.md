@@ -495,6 +495,17 @@ keeps the crossed child, and initialization draws again. Sites of a
 nonterminal with `"variation": false` count toward site depth but are never
 chosen. Physical and site-depth budgets ignore authored resource charges;
 projected budgets still require unit charges.
+Whole-program phases may also use `let` binders. A `let` node binds the next
+lexical index (the environment size; identity scope maps keep index equal to
+position) for its body, and a bound reference reads the innermost active
+binder. Lowering mirrors the native compiler: the binder temporary is
+allocated before the value, and temporaries are recycled LIFO when the body
+ends. Programs that contain a binder or a checked conversion keep the native
+per-instruction fuel table. Let binders inside bounded-region phases, and
+`let` with authored fuel charges, decline the profile. Grammars whose only
+member is one fixed program (no nonterminal reference and no constant choice),
+bounded regions inside variable subtrees, traversals and templates outside a
+region use the native fallback.
 Fixed skeleton charges must be at most one node/level without depth resets.
 The profile conservatively enforces physical whole-program node/depth budgets,
 including zero-charge administrative nodes; weighted/reset skeletons and inputs

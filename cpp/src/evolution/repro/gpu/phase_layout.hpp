@@ -76,6 +76,33 @@ class NativePhaseGrammarProfiles final {
   std::map<std::tuple<unsigned,unsigned,unsigned>,HostPhaseGrammar> profiles_;
 };
 
+// Lexical operands of a let-carrying gene: a Bound reads its environment
+// position and a Let binds the next position (identity scope maps). This is
+// the same walk the device recognizer checks.
+inline void assign_phase_binders(const HostPhaseGrammar& profile, std::size_t scope, HostPhaseGene& gene) {
+  struct Task { int expression, scope; };
+  std::vector<Task> pending{{profile.root_expression, static_cast<int>(scope)}};
+  std::size_t cursor = 0;
+  while (!pending.empty()) {
+    const auto task = pending.back(); pending.pop_back();
+    const auto& expression = profile.expressions.at(task.expression);
+    if (expression.kind == PhaseExpressionKind::Reference) {
+      phase_layout_require(cursor < gene.origins.size(), "binder walk");
+      pending.push_back({gene.origins[cursor], expression.scope_count}); continue;
+    }
+    phase_layout_require(cursor < gene.nodes.size() && gene.origins[cursor] == task.expression, "binder walk");
+    auto& node = gene.nodes[cursor++];
+    if (expression.kind == PhaseExpressionKind::Bound) {
+      phase_layout_require(expression.target < task.scope, "lexical index"); node.operand = expression.target;
+    } else if (expression.bind_argument >= 0) {
+      phase_layout_require(task.scope < 8, "lexical capacity"); node.operand = task.scope;
+    }
+    for (int i = node.arity - 1; i >= 0; --i)
+      pending.push_back({expression.children[i], task.scope + (i == expression.bind_argument ? 1 : 0)});
+  }
+  phase_layout_require(cursor == gene.nodes.size(), "binder walk");
+}
+
 // A secondary population import may omit duplicate profile storage: it is used
 // only as transport and must not itself serve as an export template. Admission
 // still runs against its own AST. A matching private certificate may reuse the
@@ -114,8 +141,12 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   }
   if (ast.bounded_region_specs.empty()) {
     // Whole-program mode: the entry nonterminal's outermost choice is the phase.
-    phase_layout_require(ast.lexical_regions.empty() && ast.traversal_specs.empty() && witness.templates.empty(),
-        "whole-program phase requires no regions or templates");
+    // Let regions are phase nodes; the phase grammar rejects every other
+    // lexical region primitive, and traversals carry their own specs.
+    phase_layout_require(ast.traversal_specs.empty() && witness.templates.empty(),
+        "whole-program phase requires no bounded regions, traversals or templates");
+    for (const auto& region : ast.lexical_regions)
+      phase_layout_require(ast.nodes.at(region.node_index).kind == NodeKind::LET_REGION, "whole-program lexical region");
     const auto& entry = grammar.nonterminals()[grammar.entry()];
     phase_layout_require(entry.category == NodeCategory::Expression || entry.category == NodeCategory::Program,
         "whole-program phase requires an expression or program entry");
@@ -239,9 +270,13 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
         phase_layout_require(actual.i0 >= 0 && std::size_t(actual.i0) < ast.names.size() &&
             ast.names[actual.i0] == grammar.inputs().at(e.target).name, "input name mismatch");
       } else if (e.kind == ExpressionKind::Bound) {
-        const auto binder = std::find(slot.binders.begin(), slot.binders.end(), actual.i0);
-        phase_layout_require(binder != slot.binders.end(), "uncaptured lexical reference");
-        node.operand = binder - slot.binders.begin();
+        // Let binders are resolved below by lexical position; membership has
+        // already bound every reference to its innermost binder.
+        if (!profile.lets) {
+          const auto binder = std::find(slot.binders.begin(), slot.binders.end(), actual.i0);
+          phase_layout_require(binder != slot.binders.end(), "uncaptured lexical reference");
+          node.operand = binder - slot.binders.begin();
+        }
       } else if (const auto* name = phase_target_name(grammar, e)) {
         phase_layout_require(actual.i0 >= 0 && std::size_t(actual.i0) < ast.names.size() &&
             ast.names[actual.i0] == *name, "local or target name mismatch");
@@ -249,6 +284,8 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
       gene.nodes.push_back(node); gene.origins.push_back(expression);
     }
     phase_layout_require(gene.nodes.size() <= 1024, "per-phase genotype capacity requires fallback");
+    if (profile.lets) assign_phase_binders(profile, slot.binders.size(), gene);
+    phase_layout_require(result.whole_program || !profile.lets, "let binders inside region phases require native fallback");
     if (retain_profiles) {
       if (profiles) result.profiles.push_back(profile);
       else result.profiles.push_back(std::move(uncached_profile));
@@ -288,6 +325,10 @@ inline std::string native_phase_skeleton_key(const NativePhaseLayout& layout) {
  }
  for(const auto& fuel:layout.prototype.fuel_specs)if(remap.at(fuel.node_index)!=std::size_t(-1))ast.fuel_specs.push_back({remap[fuel.node_index],fuel.charges});
  for(auto& region:ast.bounded_region_specs)region.node_index=remap.at(region.node_index);
+ // Let binders belong to the phase they occur in, never to the skeleton.
+ std::vector<LexicalRegion> fixed_lexical;
+ for(auto region:ast.lexical_regions)if(remap.at(region.node_index)!=std::size_t(-1)){region.node_index=remap[region.node_index];fixed_lexical.push_back(std::move(region));}
+ ast.lexical_regions=std::move(fixed_lexical);
  // Stable table compaction alone retains parent-dependent interning order:
  // a variable phase can intern a constant before a later fixed phase uses it.
  // Serialize each fixed occurrence through a fresh, traversal-ordered table.
@@ -309,12 +350,45 @@ inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& 
   ProgramGenome out; auto& ast = out.ast; ast = layout.prototype; ast.nodes.clear(); ast.fuel_specs.clear();
   std::vector<std::size_t> remap(layout.prototype.nodes.size(), std::size_t(-1));
   std::size_t slot_index = 0;
+  // Let binders live only inside phases; fresh IDs avoid every fixed binder.
+  int next_binder = 0;
+  for (const auto& region : ast.bounded_region_specs)
+    for (const auto& phase : region.phases)
+      for (const auto& binding : phase.bindings) next_binder = std::max(next_binder, binding.binder_id + 1);
+  for (const auto& region : ast.lexical_regions) {
+    phase_layout_require(std::any_of(layout.slots.begin(), layout.slots.end(), [&](const auto& slot) {
+      return region.node_index >= slot.begin && region.node_index < slot.end; }), "fixed lexical region");
+    for (const auto& binding : region.bindings) next_binder = std::max(next_binder, binding.id + 1);
+  }
+  ast.lexical_regions.clear();
   for (std::size_t i = 0; i < layout.prototype.nodes.size();) {
     if (slot_index < layout.slots.size() && layout.slots[slot_index].begin == i) {
       const auto& slot = layout.slots[slot_index]; const auto& gene = genes[slot_index];
       phase_layout_require(!gene.nodes.empty() && gene.nodes.size() <= layout.budget.max_nodes &&
           gene.nodes.size() == gene.origins.size(), "invalid gene shape");
+      // Subtree ends locate each let body; active binders shadow LIFO.
+      std::vector<std::size_t> ends(gene.nodes.size());
+      {
+        std::vector<std::size_t> sizes;
+        for (std::size_t j = gene.nodes.size(); j-- > 0;) {
+          std::size_t size = 1;
+          for (int c = 0; c < gene.nodes[j].arity; ++c) {
+            phase_layout_require(!sizes.empty(), "invalid gene shape");
+            size += sizes.back(); sizes.pop_back();
+          }
+          sizes.push_back(size); ends[j] = j + size;
+        }
+        phase_layout_require(sizes.size() == 1 && sizes.back() == gene.nodes.size(), "invalid gene shape");
+      }
+      struct Active { int index, binder, saved; std::size_t end; };
+      std::vector<Active> active; std::vector<std::pair<std::size_t, Active>> starts;
+      int env[8]; std::fill(env, env + 8, -1);
       for (std::size_t j = 0; j < gene.nodes.size(); ++j) {
+        while (!active.empty() && active.back().end <= j) { env[active.back().index] = active.back().saved; active.pop_back(); }
+        if (!starts.empty() && starts.back().first == j) {
+          auto a = starts.back().second; starts.pop_back();
+          a.saved = env[a.index]; env[a.index] = a.binder; active.push_back(a);
+        }
         const int id = gene.origins[j];
         phase_layout_require(id >= 0 && std::size_t(id) < grammar.expressions().size(), "unknown expression origin");
         const auto& e = grammar.expressions()[id]; const auto& model = layout.profiles[slot_index].expressions.at(id);
@@ -331,8 +405,21 @@ inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& 
           if (found == ast.names.end()) found = ast.names.insert(ast.names.end(), name);
           native.i0 = static_cast<int>(found - ast.names.begin());
         } else if (e.kind == grammar::ExpressionKind::Bound) {
-          phase_layout_require(node.operand >= 0 && std::size_t(node.operand) < slot.binders.size(), "lexical index");
-          native.i0 = slot.binders[node.operand];
+          phase_layout_require(node.operand >= 0 && node.operand < 8, "lexical index");
+          if (env[node.operand] >= 0) native.i0 = env[node.operand];
+          else {
+            phase_layout_require(std::size_t(node.operand) < slot.binders.size(), "lexical index");
+            native.i0 = slot.binders[node.operand];
+          }
+        } else if (model.bind_argument >= 0) {
+          phase_layout_require(node.operand >= 0 && node.operand < 8 && model.bind_argument < node.arity &&
+              e.regions.size() == 1 && e.regions[0].bindings.size() == 1, "let binder");
+          std::size_t body = j + 1;
+          for (int c = 0; c < model.bind_argument; ++c) body = ends[body];
+          const int binder = next_binder++;
+          ast.lexical_regions.push_back({ast.nodes.size(), model.bind_argument, {{binder, e.regions[0].bindings[0].type}}});
+          phase_layout_require(starts.empty() || starts.back().first > body, "let binder order");
+          starts.push_back({body, {node.operand, binder, -1, ends[body]}});
         } else {
           phase_layout_require(node.operand == model.node.operand, "operation operand");
           if (const auto* name = phase_target_name(grammar, e)) {
@@ -375,8 +462,9 @@ inline void patch_whole_program(BytecodeProgram& program, const NativePhaseLayou
   if (layout.program_terminator) {
     program.code.push_back(layout.program_return); program.instruction_fuel.push_back(layout.program_return_fuel);
   }
-  // The native compiler leaves an all-unit charge table empty.
-  if (std::all_of(program.instruction_fuel.begin(), program.instruction_fuel.end(), [](std::uint32_t f) { return f == 1; }))
+  // The native compiler leaves an all-unit charge table empty unless the
+  // program lowered a lexical binder or checked conversion.
+  if (!lowered.general_regions && std::all_of(program.instruction_fuel.begin(), program.instruction_fuel.end(), [](std::uint32_t f) { return f == 1; }))
     program.instruction_fuel.clear();
   program.consts.assign(constants, constants + constant_count);
   // Named locals enter the native variable map on first use, after the inputs.

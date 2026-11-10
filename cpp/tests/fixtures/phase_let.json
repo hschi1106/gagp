@@ -1,0 +1,50 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "Let.Top", "type": "Float"},
+  "inputs": [{"name": "x", "type": "Float"}, {"name": "n", "type": "Int"}, {"name": "s", "type": "String"}, {"name": "xs", "type": "IntList"}, {"name": "fs", "type": "FloatList"}, {"name": "ws", "type": "StringList"}, {"name": "c", "type": "Char"}, {"name": "b", "type": "Bool"}],
+  "search_limits": {"max_nodes": 60, "max_depth": 10},
+  "execution_limits": {"fuel": 512},
+  "nonterminals": [
+    {"id": "Let.Top", "type": "Float", "scope": [], "alternatives": [
+      {"id": "x", "weight": 1, "expression": {"input": "x"}},
+      {"id": "div", "weight": 2, "expression": {"signature": "div(Int,Int)->Float", "args": [{"ref": "Let.Expr"}, {"ref": "Let.Expr"}]}},
+      {"id": "add", "weight": 1, "expression": {"signature": "add(Float,Float)->Float", "args": [{"ref": "Let.Top"}, {"ref": "Let.Top"}]}},
+      {"id": "let", "weight": 2, "expression": {"signature": "let(Float,Float)->Float", "args": [{"ref": "Let.Top"}, {"ref": "Let.FBody"}], "bind": {"1": ["f"]}}}
+    ]},
+    {"id": "Let.FBody", "type": "Float", "scope": [{"name": "f", "type": "Float"}], "alternatives": [
+      {"id": "f", "weight": 2, "expression": {"bound": "f"}},
+      {"id": "mul", "weight": 1, "expression": {"signature": "mul(Float,Float)->Float", "args": [{"bound": "f"}, {"ref": "Let.FBody"}]}},
+      {"id": "div", "weight": 1, "expression": {"signature": "div(Int,Int)->Float", "args": [{"ref": "Let.Expr"}, {"ref": "Let.Expr"}]}}
+    ]},
+    {"id": "Let.Expr", "type": "Int", "scope": [], "alternatives": [
+      {"id": "n", "weight": 2, "expression": {"input": "n"}},
+      {"id": "k", "weight": 2, "expression": {"constant": {"type": "Int", "range": ["-2", "3"]}}},
+      {"id": "len", "weight": 1, "expression": {"signature": "len(IntList)->Int", "args": [{"ref": "Let.List"}]}},
+      {"id": "add", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"ref": "Let.Expr"}, {"ref": "Let.Expr"}]}},
+      {"id": "if", "weight": 1, "expression": {"signature": "if(Bool,Int,Int)->Int", "args": [{"input": "b"}, {"ref": "Let.Expr"}, {"ref": "Let.Expr"}]}},
+      {"id": "let", "weight": 2, "expression": {"signature": "let(Int,Int)->Int", "args": [{"ref": "Let.Expr"}, {"ref": "Let.Body"}], "bind": {"1": ["x"]}}},
+      {"id": "let_list", "weight": 1, "expression": {"signature": "let(IntList,Int)->Int", "args": [{"ref": "Let.List"}, {"ref": "Let.ListBody"}], "bind": {"1": ["ys"]}}}
+    ]},
+    {"id": "Let.List", "type": "IntList", "scope": [], "alternatives": [
+      {"id": "xs", "weight": 2, "expression": {"input": "xs"}},
+      {"id": "append", "weight": 1, "expression": {"signature": "append(IntList,Int)->IntList", "args": [{"ref": "Let.List"}, {"ref": "Let.Expr"}]}}
+    ]},
+    {"id": "Let.Body", "type": "Int", "scope": [{"name": "x", "type": "Int"}], "alternatives": [
+      {"id": "x", "weight": 3, "expression": {"bound": "x"}},
+      {"id": "sub", "weight": 1, "expression": {"signature": "sub(Int,Int)->Int", "args": [{"ref": "Let.Body"}, {"ref": "Let.Body"}]}},
+      {"id": "outer", "weight": 1, "expression": {"signature": "neg(Int)->Int", "args": [{"ref": "Let.Expr"}]}},
+      {"id": "inner", "weight": 1, "expression": {"signature": "let(Int,Int)->Int", "args": [{"ref": "Let.Body"}, {"ref": "Let.Pair"}], "bind": {"1": ["y"]}}},
+      {"id": "nested", "weight": 1, "expression": {"signature": "let(Int,Int)->Int", "args": [{"signature": "mul(Int,Int)->Int", "args": [{"bound": "x"}, {"ref": "Let.Expr"}]}, {"ref": "Let.Expr"}], "bind": {"1": ["z"]}}}
+    ]},
+    {"id": "Let.Pair", "type": "Int", "scope": [{"name": "x", "type": "Int"}, {"name": "y", "type": "Int"}], "alternatives": [
+      {"id": "x", "weight": 1, "expression": {"bound": "x"}},
+      {"id": "y", "weight": 2, "expression": {"bound": "y"}},
+      {"id": "add", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"ref": "Let.Pair"}, {"ref": "Let.Pair"}]}},
+      {"id": "body", "weight": 1, "expression": {"signature": "neg(Int)->Int", "args": [{"ref": "Let.Body"}]}}
+    ]},
+    {"id": "Let.ListBody", "type": "Int", "scope": [{"name": "ys", "type": "IntList"}], "alternatives": [
+      {"id": "len", "weight": 2, "expression": {"signature": "len(IntList)->Int", "args": [{"bound": "ys"}]}},
+      {"id": "index", "weight": 1, "expression": {"signature": "index(IntList,Int)->Int", "args": [{"bound": "ys"}, {"ref": "Let.Expr"}]}}
+    ]}
+  ]
+}

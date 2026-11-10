@@ -10,7 +10,10 @@ namespace gagp::evo::repro {
 // their children, Nil is an empty block, Assign/ForRange name a variable by
 // operand (>=0 grammar local, <0 preset input slot -1-operand), Var reads a
 // grammar local. If also lowers if_stmt with statement branches.
-enum class PhaseTreeKind : int { Constant, Local, Operation, If, And, Or, Program, Block, Nil, Assign, Return, ForRange, Var };
+// Let (value, body) binds lexical index `operand` for its body; Bound reads a
+// lexical index: the innermost active Let binder, otherwise binder local
+// `operand` of a region phase.
+enum class PhaseTreeKind : int { Constant, Local, Operation, If, And, Or, Program, Block, Nil, Assign, Return, ForRange, Var, Let, Bound };
 // Completion tag of a statement; never a runtime value tag.
 constexpr ValueTag kPhaseStatement = static_cast<ValueTag>(0xF0);
 constexpr int kPhaseNamedLocals = 16;
@@ -43,6 +46,9 @@ struct PhaseCompileResult {
   // allocated in the native compiler's first-use order.
   int local_count = 0;
   std::int8_t named_slots[kPhaseNamedLocals] = {};
+  // A lexical binder or checked conversion was lowered: like the native
+  // compiler, the program keeps its per-instruction fuel table even when unit.
+  bool general_regions = false;
 };
 namespace phase_compile_detail {
 using gpu_detail::DInstr;
@@ -177,7 +183,7 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
   static_assert(!CompactFrames || sizeof(Frame)==12, "compact lowering frame layout");
   Frame frames[64]; int depth=0, cursor=0;
   ValueTag completed=ValueTag::Invalid;
-  bool have_value=false,typed_views=true,private_intlists=true;
+  bool have_value=false,typed_views=true,private_intlists=true,general=false;
   // Statement lowering state, mirroring the native compiler: preset locals
   // first, grammar locals on first use, loop temporaries recycled LIFO once
   // their for_range finishes. Untouched by expression-only phases.
@@ -185,6 +191,13 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
   unsigned named_mask=0; std::int8_t named[kPhaseNamedLocals], live[64], freed[64];
   struct Loop { int bound, counter, head, end_jump, one, live_begin; };
   Loop loops[16];
+  // Lexical let binders, mirroring the native compiler: the binder temporary
+  // precedes the value expression, and every temporary allocated inside the
+  // let is recycled LIFO once its body finishes.
+  struct LetScope { int index, slot, live_begin, saved_slot; ValueTag saved_type; };
+  LetScope lets[16]; int let_depth=0;
+  int env_slot[8]; ValueTag env_type[8];
+  for (int i=0; i<8; ++i) { env_slot[i]=-1; env_type[i]=ValueTag::Invalid; }
   const auto fresh_local=[&]() -> int {
     if (total_locals>=64) { out.result.status=PhaseCompileStatus::Capacity; return -1; }
     return total_locals++;
@@ -218,8 +231,15 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
         if(value.tag==ValueTag::IntList)typed_views=false;
         if (!out.push(value,node.fuel)) return out.result;
         completed=value.tag; have_value=true;
-      } else if (node.kind==PhaseTreeKind::Local) {
+      } else if (node.kind==PhaseTreeKind::Bound && node.operand>=0 && node.operand<8 && env_slot[node.operand]>=0) {
+        if (node.arity!=0) return out.result;
+        completed=env_type[node.operand];
+        if (node.type!=ValueTag::Invalid && node.type!=completed) return out.result;
+        if (!out.emit(Opcode::Load,node.fuel,env_slot[node.operand],0,gpu_detail::DINSTR_HAS_A)) return out.result;
+        out.grow(1); typed_views=private_intlists=false; general=have_value=true;
+      } else if (node.kind==PhaseTreeKind::Local || node.kind==PhaseTreeKind::Bound) {
         if (node.arity!=0 || node.operand<0 || node.operand>=local_count) return out.result;
+        general|=node.kind==PhaseTreeKind::Bound;
         completed=local_types[node.operand];
         if (completed==ValueTag::Invalid || completed==ValueTag::FallbackToken) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
         if (!certified_type(completed)) typed_views=private_intlists=false;
@@ -243,7 +263,7 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
         else if (node.kind==PhaseTreeKind::And || node.kind==PhaseTreeKind::Or) { if (node.arity!=2) return out.result; }
         else if (node.kind==PhaseTreeKind::Program || node.kind==PhaseTreeKind::Assign || node.kind==PhaseTreeKind::Return) {
           if (node.arity!=1) return out.result; typed_views=private_intlists=false;
-        } else if (node.kind==PhaseTreeKind::Block || node.kind==PhaseTreeKind::ForRange) {
+        } else if (node.kind==PhaseTreeKind::Block || node.kind==PhaseTreeKind::ForRange || node.kind==PhaseTreeKind::Let) {
           if (node.arity!=2) return out.result; typed_views=private_intlists=false;
         } else if (node.kind!=PhaseTreeKind::Operation) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
         if (depth==64) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
@@ -252,6 +272,11 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
           if (loop_depth==16) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
           auto& loop=loops[loop_depth++]; loop.live_begin=live_count;
           loop.bound=temporary(); if (loop.bound<0) return out.result;
+        } else if (node.kind==PhaseTreeKind::Let) {
+          if (node.operand<0 || node.operand>=8) return out.result;
+          if (let_depth==16) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
+          auto& scope=lets[let_depth++]; scope.index=node.operand; scope.live_begin=live_count; general=true;
+          scope.slot=temporary(); if (scope.slot<0) return out.result;
         }
         StoredNode source;
         if constexpr (SharedNodes) source.index=cursor-1;
@@ -266,7 +291,7 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
       out.result.status=PhaseCompileStatus::Ok; out.result.result_type=completed;
       out.result.typed_views_proven=typed_views;
       out.result.private_intlists_proven=private_intlists;
-      out.result.local_count=total_locals;
+      out.result.local_count=total_locals; out.result.general_regions=general;
       for (int g=0; g<kPhaseNamedLocals; ++g)
         out.result.named_slots[g]=named_mask>>g & 1U ? static_cast<std::int8_t>(named[g]+1) : 0;
       return out.result;
@@ -331,6 +356,14 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
       if (!out.emit(Opcode::Store,1,user,0,DINSTR_HAS_A)) return out.result;
       out.stack=frame.base_stack;
     }
+    if (node.kind==PhaseTreeKind::Let && frame.seen==1) {
+      auto& scope=lets[let_depth-1];
+      if (completed==kPhaseStatement) return out.result;
+      if (!out.emit(Opcode::Store,node.fuel,scope.slot,0,gpu_detail::DINSTR_HAS_A)) return out.result;
+      out.stack=frame.base_stack;
+      scope.saved_slot=env_slot[scope.index]; scope.saved_type=env_type[scope.index];
+      env_slot[scope.index]=scope.slot; env_type[scope.index]=completed;
+    }
     if (frame.seen<node.arity) { have_value=false; continue; }
     if (node.kind==PhaseTreeKind::If) {
       if (frame.args[1]!=frame.args[2]) return out.result;
@@ -358,6 +391,11 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
           !out.emit(Opcode::Jmp,1,loop.head,0,DINSTR_HAS_A)) return out.result;
       out.code[loop.end_jump].a=out.result.code_count; out.stack=frame.base_stack;
       while (live_count>loop.live_begin) freed[free_count++]=live[--live_count];
+    } else if (node.kind==PhaseTreeKind::Let) {
+      if (completed==kPhaseStatement || (node.type!=ValueTag::Invalid && node.type!=completed)) return out.result;
+      const auto scope=lets[--let_depth];
+      env_slot[scope.index]=scope.saved_slot; env_type[scope.index]=scope.saved_type;
+      while (live_count>scope.live_begin) freed[free_count++]=live[--live_count];
     } else if (node.kind==PhaseTreeKind::And || node.kind==PhaseTreeKind::Or) {
       if (completed!=ValueTag::Bool) return out.result;
       if (!out.emit(Opcode::Not,node.fuel) || !out.emit(Opcode::Not,node.fuel)) return out.result;
@@ -378,6 +416,7 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
         if(node.operand==int(BuiltinId::Concat) || node.operand==int(BuiltinId::Singleton))typed_views=false;
         if (!out.emit(node.opcode,node.fuel,node.operand,node.arity,gpu_detail::DINSTR_HAS_A|gpu_detail::DINSTR_HAS_B)) return out.result;
       } else if (!out.emit(node.opcode,node.fuel)) return out.result;
+      general|=node.opcode==Opcode::CheckInt || node.opcode==Opcode::CheckList;
       out.stack-=node.arity-1;
     }
     --depth;

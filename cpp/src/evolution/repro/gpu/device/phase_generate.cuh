@@ -5,8 +5,9 @@
 
 namespace gagp::evo::repro {
 // Internal construction metadata, never an external grammar certificate.
-// The current profile requires identity reference scope maps and no binders,
-// aliases, templates or coupled holes inside a phase. Each position denotes a
+// The current profile requires identity reference scope maps; inside a phase it
+// admits let binders (whole-program phases only) but no aliases, templates or
+// coupled holes. Each position denotes a
 // distinct logical site, even when two subtrees have identical contents.
 struct PhaseGeneSite {
   int nonterminal = -1;
@@ -29,6 +30,9 @@ struct PhaseExpression {
   int children[3]{-1,-1,-1};
   int scope_count = 0;
   int scope[8]{};
+  // Let: the child at this argument also sees one new binder, appended at the
+  // next lexical index (identity scope maps keep index == position).
+  int bind_argument = -1;
 };
 struct PhaseProduction { int expression; double weight; };
 struct PhaseNonterminal { int production_offset=0, production_count=0, scope_count=0; bool normalized_weights=false, fixed=false; };
@@ -188,6 +192,12 @@ __host__ __device__ inline PhaseGenerationResult generate_phase(
       if(value.tag==ValueTag::Invalid || value.tag==ValueTag::FallbackToken)return result;
       node.operand=result.constants;constants[result.constants++]=value;
     } else if(expression.kind!=PhaseExpressionKind::Operation && expression.kind!=PhaseExpressionKind::Input)return result;
+    unsigned binder=0;
+    if(expression.bind_argument>=0) {
+      for(unsigned i=0;i<task.scope_count;++i) {const unsigned used=((task.scope>>(3*i))&7U)+1;if(used>binder)binder=used;}
+      if(expression.bind_argument>=node.arity || task.scope_count>=8 || binder>=8)return result;
+      node.operand=static_cast<int>(binder);
+    }
     if constexpr(EmitSites) {sites[result.nodes]=next_site;next_site={};}
     origins[result.nodes]=task.expression;nodes[result.nodes++]=node;
     for(int i=node.arity-1;i>=0;--i) {
@@ -196,7 +206,9 @@ __host__ __device__ inline PhaseGenerationResult generate_phase(
       if(need>static_cast<unsigned>(capacity-result.nodes) || reserved>static_cast<unsigned>(capacity-result.nodes)-need) {
         result.status=PhaseCompileStatus::Capacity;return result;
       }
-      auto next=task;next.expression=child;--next.depth;next.logical-=charge;pending[count++]=next;reserved+=need;
+      auto next=task;next.expression=child;--next.depth;next.logical-=charge;
+      if(i==expression.bind_argument) {next.scope|=binder<<(3*task.scope_count);next.scope_count=task.scope_count+1;}
+      pending[count++]=next;reserved+=need;
     }
   }
   if(reserved || !result.nodes)return result;

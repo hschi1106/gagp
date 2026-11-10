@@ -22,6 +22,8 @@ struct HostPhaseGrammar {
   int root_expression=-1,depth_count=0,logical_depth_count=1; bool site_depth=false;
   // Statements, controls or grammar locals were reached: whole programs only.
   bool statements=false;
+  // A let binder was reached: gene binder operands follow lexical positions.
+  bool lets=false;
 };
 inline bool phase_statement_category(NodeCategory category) {
   return category==NodeCategory::Program || category==NodeCategory::Block ||
@@ -87,7 +89,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
   out.expressions.resize(grammar.expressions().size());out.nonterminals.resize(grammar.nonterminals().size());
   out.domains.resize(grammar.constants().size());
   std::vector<bool> seen_nt(out.nonterminals.size()),seen_expr(out.expressions.size()),seen_domain(out.domains.size());
-  std::function<void(unsigned)> visit_expression,visit_nonterminal;
+  std::function<void(unsigned,unsigned)> visit_expression;std::function<void(unsigned)> visit_nonterminal;
   visit_nonterminal=[&](unsigned id) {
     if(seen_nt.at(id))return;seen_nt[id]=true;
     const auto& nt=grammar.nonterminals().at(id);
@@ -110,14 +112,17 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       }
     }
     if(!target.production_count)fail("no mutation production");
-    for(auto production:nt.productions)visit_expression(grammar.productions().at(production).expression);
+    for(auto production:nt.productions)visit_expression(grammar.productions().at(production).expression,nt.scope.size());
   };
-  visit_expression=[&](unsigned id) {
+  // `environment` counts the lexical binders visible to expression `id`.
+  visit_expression=[&](unsigned id,unsigned environment) {
     if(seen_expr.at(id))return;seen_expr[id]=true;
     const auto& e=grammar.expressions().at(id);auto& x=out.expressions[id];
     x.depth_charge=e.resource_charge.depth;
     const bool statement=phase_statement_category(e.category);
-    if((e.category!=NodeCategory::Expression && !statement) || !e.regions.empty() || phase_value_tag(e.type)==ValueTag::Invalid ||
+    const bool let=e.kind==ExpressionKind::Primitive &&
+        PrimitiveCatalog::standard().at(e.target).lowering_node==NodeKind::LET_REGION;
+    if((e.category!=NodeCategory::Expression && !statement) || (!e.regions.empty() && !let) || phase_value_tag(e.type)==ValueTag::Invalid ||
         (statement && e.kind!=ExpressionKind::Reference && e.kind!=ExpressionKind::Control))
       fail("expression type or binder introduction");
     // A statement completes without a value; its type is the enclosing result.
@@ -156,12 +161,20 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       x.kind=PhaseExpressionKind::Input;x.target=position;x.native_kind=static_cast<int>(NodeKind::VAR);
       x.node.kind=PhaseTreeKind::Local;x.node.operand=position;
     } else if(e.kind==ExpressionKind::Bound) {
-      x.kind=PhaseExpressionKind::Bound;x.target=e.target;x.native_kind=static_cast<int>(NodeKind::REGION_VAR);x.node.kind=PhaseTreeKind::Local;
+      x.kind=PhaseExpressionKind::Bound;x.target=e.target;x.native_kind=static_cast<int>(NodeKind::REGION_VAR);x.node.kind=PhaseTreeKind::Bound;
+      if(e.target>=environment)fail("bound reference outside its environment");
     } else if(e.kind==ExpressionKind::Primitive) {
       const auto& signature=PrimitiveCatalog::standard().at(e.target);
-      if(!signature.lowering_node || !signature.regions.empty())fail("primitive capability");
+      if(!signature.lowering_node || (!signature.regions.empty() && !let))fail("primitive capability");
       const auto kind=*signature.lowering_node;const auto& descriptor=node_descriptor(kind);x.native_kind=static_cast<int>(kind);
-      if(kind==NodeKind::IF_EXPR)x.node.kind=PhaseTreeKind::If;
+      if(let) {
+        // One binder for the body argument; the binder index is the
+        // environment size, so it must stay within the eight lexical indices.
+        if(e.regions.size()!=1 || e.regions[0].bindings.size()!=1 || e.regions[0].argument>=e.children.size() ||
+            phase_value_tag(e.regions[0].bindings[0].type)==ValueTag::Invalid || !e.fuel_charges.empty() || environment>=8)
+          fail("let capability");
+        x.node.kind=PhaseTreeKind::Let;x.bind_argument=e.regions[0].argument;out.lets=true;
+      } else if(kind==NodeKind::IF_EXPR)x.node.kind=PhaseTreeKind::If;
       else if(kind==NodeKind::AND || kind==NodeKind::OR)x.node.kind=kind==NodeKind::AND?PhaseTreeKind::And:PhaseTreeKind::Or;
       else if(descriptor.is_builtin()) {
         if(descriptor.builtin_arity!=static_cast<int>(e.children.size()))fail("builtin arity");
@@ -210,7 +223,8 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       else if(charge.event==FuelEvent::BranchMerge)x.node.merge_fuel=charge.cost;
       else fail("fuel profile capability");
     }
-    for(auto child:e.children)visit_expression(child);
+    for(std::size_t i=0;i<e.children.size();++i)
+      visit_expression(e.children[i],environment+(static_cast<int>(i)==x.bind_argument?1:0));
   };
   visit_nonterminal(root);
   // No zero-node alias loops: every selected production must consume a native

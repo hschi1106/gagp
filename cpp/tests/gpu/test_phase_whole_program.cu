@@ -1,6 +1,7 @@
 // Grammars without bounded regions run on the phase engine as one whole-program
 // slot: expression entries across all eight value types, and Program entries
-// with statements, loops, branches and grammar locals. The phase compiler must
+// with statements, loops, branches and grammar locals, and lexical let binders
+// (nested, shadowing, dropped by a reference). The phase compiler must
 // lower every generated genome to the native compiler's exact bytecode, and the
 // CPU reference and GPU owner must publish one search of verified members.
 #include <algorithm>
@@ -85,13 +86,15 @@ std::optional<ProgramGenome> generated(const grammar::CompiledGrammar& grammar,u
  try{return grammar::generate_derivation(grammar,seed).genome;}
  catch(const std::invalid_argument&){return std::nullopt;}
 }
-void check(const char* fixture,bool statements) {
+enum class Fixture{Expressions,Statements,Lets};
+void check(const char* fixture,Fixture mode) {
+ const bool statements=mode==Fixture::Statements;
  const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
      grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/")+fixture)));
  std::vector<std::string> names;for(const auto& input:compiled->inputs())names.push_back(input.name);
  auto reordered=names;std::reverse(reordered.begin(),reordered.end());
  // Lowering parity over generated programs, in grammar and reversed input order.
- std::set<int> kinds;std::set<ValueTag> constant_tags;int programs=0,rejected=0;
+ std::set<int> kinds;std::set<ValueTag> constant_tags;int programs=0,rejected=0,nested=0;
  for(unsigned seed=0;seed<256;++seed) {
   const auto genome=generated(*compiled,seed);
   if(!genome){++rejected;continue;}
@@ -108,12 +111,18 @@ void check(const char* fixture,bool statements) {
    same_program(compile_for_eval(restored,*order),native,"export");
   }
   for(const auto& node:genome->ast.nodes)kinds.insert(int(node.kind));
+  if(genome->ast.lexical_regions.size()>=2)++nested;
   for(const auto& value:genome->ast.consts)constant_tags.insert(value.tag);
  }
  if(statements) {
   for(auto kind:{NodeKind::FOR_RANGE,NodeKind::IF_STMT,NodeKind::ASSIGN,NodeKind::RETURN,NodeKind::BLOCK_NIL,NodeKind::VAR,NodeKind::IF_EXPR})
    require(kinds.count(int(kind)),"statement fixture did not exercise node kind "+std::to_string(int(kind)));
   require(programs>=64 && rejected>0,"statement fixture must mix verified and undefined-local programs: "+std::to_string(programs)+"/"+std::to_string(rejected));
+ } else if(mode==Fixture::Lets) {
+  require(rejected==0,"let grammar generation failed");
+  for(auto kind:{NodeKind::LET_REGION,NodeKind::REGION_VAR,NodeKind::CALL_LEN})
+   require(kinds.count(int(kind)),"let fixture did not exercise node kind "+std::to_string(int(kind)));
+  require(nested>=32,"let fixture must nest binders: "+std::to_string(nested));
  } else {
   require(rejected==0,"expression grammar generation failed");
   require(constant_tags.size()>=7,"fixture did not exercise constants of most value types");
@@ -154,8 +163,9 @@ void check(const char* fixture,bool statements) {
 }  // namespace
 
 int main() { try {
- check("phase_whole_program.json",false);
- check("phase_statements.json",true);
+ check("phase_whole_program.json",Fixture::Expressions);
+ check("phase_statements.json",Fixture::Statements);
+ check("phase_let.json",Fixture::Lets);
  std::cout<<"phase whole-program: lowering parity and CPU/GPU searches identical\n";
  return 0;
 } catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<"\n";return 1;} }
