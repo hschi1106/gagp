@@ -1,147 +1,104 @@
 # Research Mainline: Exact GPU Grammar-Guided GP
 
-This page is the map of the research system. It explains what the mainline
-is, which files own each part, what "exact" means and how it is checked, and
-which explored designs were retired. Normative details stay in the linked
-specifications and design contracts.
+This page summarizes the research system: what it claims, what "exact" means
+and how it is checked, what was measured, and which designs were tried and
+retired. The implementation contract is [gpu-reproduction.md](gpu-reproduction.md).
 
 ## Claim
 
 GAGP is a grammar-guided genetic programming (GGGP) system for program
 synthesis whose whole search loop runs on the GPU:
 
-- **User-definable grammars.** The search space is a compiled grammar
-  definition ([grammar_definition.md](../../spec/grammar_definition.md)), not
-  a hard-coded instruction set. ASGP-style "phase" programs are one grammar
-  family among others.
+- **User-defined grammars.** The search space is a compiled grammar definition
+  ([grammar_definition.md](../../spec/grammar_definition.md)), not a fixed
+  instruction set. Algorithm schemes such as ASGP's divide-and-conquer and
+  dynamic-programming templates are ordinary grammars; so is a three-line
+  arithmetic grammar.
 - **GPU evaluation and GPU reproduction.** Selection, crossover, mutation,
   lowering of changed children to bytecode and fitness evaluation all run on
-  the device. The host only ranks fitness vectors and records history.
-- **Semantically verifiable.** A plain C++ CPU reference engine runs the same
-  operators and draws. For the same inputs and seed, the GPU engine publishes
-  bit-identical genotypes, fitness values, champions and final populations.
-  Every speed optimization is checked against this reference, so speed gains
-  never silently change the search.
-- **Distortion only by declaration.** Any change of search dynamics (for
-  example the steady-state schedule) is a named member of the search
-  configuration ([search_config.md](../../spec/search_config.md)), implemented
-  identically by both engines, and evaluated as an ablation.
+  the device. The host ranks the fitness vector and records history.
+- **Exactness.** A plain C++ reference engine runs the same operators and
+  random draws on the CPU. For the same inputs and seed the GPU engine
+  publishes bit-identical genotypes, fitness values, champions and final
+  populations, so a speed optimization can never silently change the search.
+- **Changes of search dynamics are declared.** Anything that changes which
+  programs are explored, such as the steady-state schedule, is a member of the
+  search configuration ([search_config.md](../../spec/search_config.md)),
+  implemented identically by both engines.
 
-## Two representations
+## Representations
 
-| Representation | Where used | Notes |
+| Representation | Used for | Reproduction |
 | --- | --- | --- |
-| Resident (`representation: resident`) | `gagp run` default, research mainline, fixed ASGP benchmark | Phase genes: a whole program as one phase, or a fixed root template with up to 8 independently varied phases (chosen automatically, see [gpu-reproduction.md](gpu-reproduction.md#resident-engine)). The genotype stays resident on the device for the whole run. |
-| Native AST (`representation: native_ast`) | Explicit choice, and the automatic fallback when the resident engine declines a grammar | Typed AST population with CPU or GPU evaluation and host reproduction ([search_config.md](../../spec/search_config.md#resident-admission)). |
+| `resident` (default) | Every grammar the resident engine admits | GPU (`--engine gpu`) or the CPU reference (`--engine cpu`) |
+| `native_ast` | Grammars the resident engine declines (automatic), or an explicit choice | Host; evaluation on the selected engine |
 
-The rest of this page is about the resident representation.
+The resident engine admits whole-program grammars over all eight value types,
+with statements, `let` binders, traversals and bounded regions, and fixed
+region templates with up to 8 varied phases
+([admission](gpu-reproduction.md#genome-layouts)). The `native_ast`
+representation exists so that any valid grammar runs; it is not the fast path.
 
-## Components and owners
+## Default search
 
-| Part | File(s) | Role |
-| --- | --- | --- |
-| Search configuration | `spec/search_config.md`, `src/cli/search_config.cpp`, `include/gagp/evolution/search_policy.hpp` | Every member that changes search semantics: selection, elitism, crossover/mutation probabilities, site draw and scope, depth limit, tie break, schedule. Recorded in every result as `search_config`. |
-| Shared generation loops | `src/evolution/evolve.cpp` (`run_phase_population`, `run_phase_population_steady`) | Ranking, selection fitness, history, verification and export; common to both engines. |
-| Per-child operators | `src/evolution/repro/gpu/phase_operators.cuh` | `__host__ __device__` bodies of tournament, site draw, crossover, mutation, child comparison and lowering. Compiled into the GPU kernels and into the CPU reference. |
-| GPU engine | `src/evolution/repro/gpu/phase_population.cu` (`NativePhasePopulation`) | Device-resident genotype, operator kernels, phase compiler, stage storage. |
-| GPU evaluation | `src/runtime/gpu/fitness_gpu.cu` | Bytecode VM over (program, case) lanes, payload arena for list values, replay of overflowing cases, fitness reduction. |
-| CPU reference engine | `src/evolution/repro/gpu/phase_population_cpu.cpp` (`HostPhasePopulation`), `src/runtime/cpu/fitness_cpu.cpp` | Same operators on the host, CPU bytecode evaluator. Never touches CUDA. |
-| Engine profile | `include/gagp/core/engine_profile.hpp` | Defaults of all exact engine switches (see below). |
-| Fixed ASGP benchmark | `src/bench/fixed_asgp/` (`gagp_fixed_asgp_bench`) | Freezes ASGP-initialized populations and cases, translates them into the task grammar, and runs GAGP GPU, GAGP CPU reference and ASGP-1T on identical inputs ([guide](../guides/fixed-asgp-benchmark.md)). |
-
-## One generation on the GPU
-
-```mermaid
-flowchart LR
-    A[Device genotype<br/>P members x K phases] --> B[Lower changed phases<br/>to bytecode on GPU]
-    B --> C[Evaluate P x N cases<br/>GPU VM]
-    C --> D[Host: rank fitness vector,<br/>record champion]
-    D --> E[Selection + crossover +<br/>mutation kernels]
-    E --> F[Compare child with parent:<br/>unchanged children reuse fitness]
-    F --> A
-```
-
-Only the fitness vector and per-generation champion cross the PCIe bus.
-Children identical to their parent (or to any parent) reuse the parent's
-completed result instead of being evaluated again.
-
-Measured cost split on the formal cohort: GPU evaluation is about three
-quarters of search time, reproduction about 2%. The long tail of evaluation is
-single-lane recursive list work (concatenation, list builders) replayed for
-the few cases whose intermediate lists overflow the per-lane workspace; it is
-inherent to interpreting variable-length programs in SIMT lanes.
-
-## Schedules
-
-Both engines implement both schedules and publish identical results.
-
-- `generational` (default): every generation creates `P` children, keeps
-  `elitism` elites, evaluates every changed child and ends with a final
-  evaluation.
-- `steady_state` (synchronous batch steady state): each round creates `batch`
-  children with the same per-child operators, evaluates them together, then
-  places them one by one; each child replaces the loser of an inverse
-  tournament of `replacement_size` members, never the current best. With the
-  default `batch = P` one round is one generation-equivalent, so the GPU
-  launch shape is unchanged while the population dynamics change. This is the
-  final GAGP search profile
-  ([`configs/search/default.json`](../../configs/search/default.json), the built-in default of `gagp run`).
-  A smaller `batch` pays the evaluation launch floor more often and was slower
-  in every measured setting.
+The default search ([`configs/search/default.json`](../../configs/search/default.json))
+aligns every parameter ASGP also has (tournament 2, crossover 0.7, mutation
+0.3, one phase per operator, phase depth 7, elitism 1, fuel 2,000,000) and
+uses a synchronous steady state: each round creates `P` children with the
+ordinary operators, evaluates them in one launch, and places each into the
+population by replacing the loser of an inverse tournament of 2, never the
+best member. With one round per generation-equivalent the GPU launch shape is
+that of a generational run while the population dynamics are steady state.
 
 ## Exactness and how it is checked
 
-"Exact" means: the GPU engine, any exact engine switch and any host worker
-count produce the same published values as the CPU reference.
+"Exact" means that the GPU engine publishes the same values as the CPU
+reference for the same task, search configuration, initial population and
+seed.
 
-- `gagp_test_phase_population_cpu_reference`: CPU reference vs GPU engine,
-  several search policies, both schedules, host thread counts and every GPU
-  engine variant; final populations, fitness, wrong counts and champions must
-  be identical.
+- `gagp_test_phase_population_cpu_reference`: CPU reference vs GPU engine over
+  several search policies and both schedules; final populations, fitness,
+  wrong counts and champions must be identical.
 - `gagp_test_fitness_cpu_gpu_parity`, `gagp_test_evolution_cpu_gpu_parity`:
   evaluator and native-AST parity.
-- The `*_mainline` CTest entries rerun those tests with the default engine
-  profile; the others pin `GAGP_ENGINE_PROFILE=legacy`.
-- Experiments additionally compare exported champions and history byte for
-  byte between engines and builds.
+- `benchmarks/run.py report` checks that GPU and CPU runs of the same
+  configuration found the same best program with the same fitness history.
+- Engine changes are also checked against golden runs: exported champions and
+  histories compared byte for byte with the previous build.
 
-## Engine switches and the engine profile
+## Results
 
-Each optimization of the engine was introduced behind an environment switch
-so that it could be validated against the reference before becoming the
-default. All of these switches are exact. `engine_profile.hpp` lists the
-mainline value of every switch; an unset switch takes that value, an
-explicitly set one wins, and `GAGP_ENGINE_PROFILE=legacy` restores the
-historical "all unset" behavior for ablations. Ordinary runs therefore need no
-switch at all. Search semantics are never engine switches: they are search
-configuration members.
+Measured on one RTX 3090 with the default search; details in
+[benchmarks/README.md](../../benchmarks/README.md#recorded-results).
 
-Settings that remain explicit per run:
+- **Quality.** On the 30 ASGP tasks (`benchmarks/asgp30`, P1024, 64
+  generations, 5 seeds) GAGP solves 56 of 150 runs.
+- **GPU vs the CPU reference.** The same searches run 5x to 185x faster on
+  the GPU than on the single-threaded CPU reference engine (geometric mean
+  30x) with identical results.
+- **GPU vs ASGP.** On frozen ASGP-initialized populations of 16384 members
+  (30 tasks, seed 1), single-threaded ASGP took 93x longer than GAGP
+  (geometric mean; about 73x after correcting for machine contention during
+  the ASGP runs). ASGP is not part of this repository; this comparison is
+  thesis evidence, not a benchmark the repository reproduces. It compares
+  speed on the same inputs, not search quality, and GAGP's search is not
+  claimed to beat ASGP's.
 
-| Setting | Meaning |
-| --- | --- |
-| `GAGP_HOST_THREADS` | Host worker threads (default 1; the ASGP-1T comparison uses 1). |
-| `GAGP_CUDA_DEVICE` | Pin a visible CUDA device (default: least-used). |
-| `GAGP_GPU_DIAGNOSTICS`, `GAGP_SEARCH_TRACE` | Extra counters and per-generation trace. |
-| `GAGP_SEARCH_CONFIG` | Search configuration file for the fixed benchmark. |
+Where the GPU time goes: evaluation is about three quarters of search time
+and reproduction a few percent. The long tail of evaluation is single-lane
+recursive list work replayed for the few cases whose intermediate lists
+overflow the per-lane workspace ([payload.md](payload.md)).
 
 ## Retired designs
 
-The following were implemented, measured and removed from the mainline; the
-final report summarizes the evidence and git history keeps the code.
+These were implemented, measured and removed; git history keeps the code.
 
 | Design | Outcome |
 | --- | --- |
-| Islands with ring migration | CPU-reference simulation, formal 300-run protocol: 8 islands +3.0 pp (not significant), 32 islands failed non-inferiority, no simulated speed gain. |
-| Asynchronous (barrier-free) evolution | Same quality at equal children; measured GPU speedup bound about 1.08 to 1.3x; loses determinism and therefore CPU-reference parity. Its workload saving comes from steady-state replacement, which the synchronous steady state keeps. |
-| Small steady-state batches (`batch < P`) | Each evaluation launch has a latency floor of about 25 to 30 ms, so `batch = 256` was 0.65x the speed of `batch = P`. |
-| Population-wide phase sharing (cross-program memoization) | 70 to 84% of phase fuel belongs to phases used by a single program; no-go as a main direction. |
-| CPU worker reproduction, LPT scheduling, CPU fragment/phase banks | Not GPU mainline speedups; retired records only. |
-
-## Where to go next
-
-- [Fixed ASGP benchmark guide](../guides/fixed-asgp-benchmark.md): inputs,
-  modes and the scale experiment.
-- [GPU reproduction contract](gpu-reproduction.md) and
-  [payload design](payload.md): implementation contracts.
-- [Search configuration](../../spec/search_config.md): every semantic member.
+| Islands with ring migration | CPU-reference simulation, 300-run protocol: 8 islands +3.0 pp (not significant), 32 islands failed non-inferiority, no simulated speed gain |
+| Asynchronous (barrier-free) evolution | Same quality at equal children; GPU speedup bound about 1.08-1.3x; loses determinism and therefore reference parity. Its saving comes from steady-state replacement, which the synchronous steady state keeps |
+| Small steady-state batches (`batch < P`) | Each evaluation launch has a 25-30 ms floor; `batch = 256` ran at 0.65x the speed of `batch = P` |
+| Population-wide phase sharing | 70-84% of phase fuel belongs to phases used by a single program |
+| GPU reproduction of native ASTs | Slower than the resident engine on the same grammars; removed in 3.0 |
+| CPU worker reproduction, CPU fragment and phase banks | Not GPU speedups; removed |
+| Engine environment switches | Every exact optimization became unconditional once it passed the reference checks; removed in 3.0 |

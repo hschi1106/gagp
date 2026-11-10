@@ -23,7 +23,7 @@ On an RTX 3090 the quick run takes about 10 seconds and the full suite about
 `--tasks`; `--jobs N` runs N CPU runs at once, which disturbs their timing.
 
 Runs land in `logs/bench/asgp30/<engine>/p<population>-g<generations>/<task>/s<seed>/`
-(`result.json`, the [`gagp run` result](../docs/reference/cli.md#resultjson)).
+(`result.json`, the [`gagp run` result](../spec/task.md#run-result)).
 A run that already has a `result.json` is skipped, so rerunning the same
 command resumes an interrupted benchmark. Every `run` rewrites `report.md`.
 

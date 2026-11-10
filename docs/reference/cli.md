@@ -21,7 +21,7 @@ how answers are scored. Paths are relative to the task file.
 ```json
 {
   "format": "gagp-task-v1",
-  "name": "square_plus_one",
+  "name": "polynomial",
   "grammar": "grammar.json",
   "train": "train.cases.json",
   "test": "test.cases.json",
@@ -29,19 +29,8 @@ how answers are scored. Paths are relative to the task file.
 }
 ```
 
-| Member | Required | Meaning |
-| --- | --- | --- |
-| `format` | yes | `gagp-task-v1` |
-| `name` | no | Label used in output (default: the task file's directory name) |
-| `grammar` | yes | `grammar-definition-v2` file ([spec](../../spec/grammar_definition.md), [authoring guide](../guides/grammar-authoring.md)) |
-| `train` | yes | Fitness cases used by the search ([format](../../spec/fitness_cases.md)) |
-| `test` | no | Held-out cases; `gagp run` judges the best program on them |
-| `fitness.metric` | yes | `absolute`, `exact`, `levenshtein` or `tuple_summary` ([definitions](../../spec/fitness.md)) |
-| `fitness.case_cap` | no | Largest error one case can add (default 1000); also the error of a runtime failure |
-| `fitness.proximity` | no | `capped` (default) or `discounted` (`error/(1+error)` instead of the cap) |
-| `fitness.summaries` | `tuple_summary` only | `{"count": 1 or 2, "weight": 0.1, "cap": 100}` |
-| `fitness.list_allocation_limit` | no | Per-case limit on list cells a program may allocate |
-
+The [task specification](../../spec/task.md#task-file) lists every member;
+[`examples/polynomial`](../../examples/polynomial) is a complete task.
 Unknown members are rejected.
 
 ## `gagp run`
@@ -65,24 +54,16 @@ gagp run TASK.json [--search FILE] [--population N] [--generations N] [--seed N]
 
 Options given on the command line override the search file.
 
-Without `--quiet`, the run prints its settings, the best training fitness and,
-when the task has test cases, how many test cases the best program solves.
+Without `--quiet`, the run prints its settings, the best training fitness, the
+best program as text (`program: (sub 1 (mul x x))`) and, when the task has test
+cases, how many test cases the best program solves.
 
-### `result.json`
-
-| Member | Meaning |
-| --- | --- |
-| `format` | `gagp-run-v1` |
-| `task`, `engine`, `population`, `generations`, `seed`, `train_cases` | Run settings |
-| `search` | The complete effective search configuration; passing it back as `--search` repeats the run |
-| `best` | `fitness`, `wrong` (wrong training cases), `nodes` and `program` of the best final program |
-| `test` | When the task has test cases: `cases`, `correct`, `wrong`, `runtime_errors`, `mean_loss`, `solved` |
-| `history` | Per generation: `best_fitness`, `mean_fitness`, `best_wrong`, `best_nodes`, `elapsed_ms`, `eval_ms`, `repro_ms` |
-| `time_ms` | `total` (wall clock), `search`, `initialization` |
-| `resident_declined` | Present only when the resident engine could not hold the grammar ([below](#representations)) |
-
-Fitness is the negative total error over the training cases: 0 is a perfect
-program.
+`result.json` holds the settings, the effective search configuration, the best
+program (`best.program` as `ast-prefix-v2` JSON and `best.text` as readable
+text), its test verdict, the per-generation history and timings. Fitness is the
+negative total training error: 0 is a perfect program. The
+[run result specification](../../spec/task.md#run-result) defines every member
+and the `--save-all` files.
 
 ## Search configuration
 

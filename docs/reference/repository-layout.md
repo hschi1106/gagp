@@ -1,44 +1,37 @@
 # Repository Layout
 
-This reference lists stable, maintained repository paths. The repository test
-suite parses the first column and fails when a path disappears, so it replaces
-the former hand-maintained tree drawing. Detailed file ownership belongs in the
-nearest component documentation, not here.
+Where things are. The repository tests check that every path in the first
+column exists.
 
-| Checked path | Role |
+| Path | Contents |
 | --- | --- |
-| `.agents/skills/gagp-navigation/` | On-demand coding-agent routes to implementation owners, contracts, and tests |
-| `AGENTS.md` | Contributor and coding-agent rules |
-| `README.md` | Product entry point and quick start |
-| `VERSION.md` | Release and compatibility history |
-| `cpp/include/gagp/` | Public native headers |
-| `cpp/src/runtime/` | CPU/GPU runtime and payload implementation |
-| `cpp/src/evolution/` | Compiler, generation, evaluation, selection, and reproduction |
-| `cpp/src/transition/` | Migration-only lowering adapters used by offline conversion and oracle tests |
-| `cpp/src/migration/` | Offline release-1 readers and conversion implementation |
-| `cpp/src/serialization/` | Shared execution-plan JSON codec without CLI dependencies |
-| `cpp/src/cli/` | Native CLI parsing, codecs, commands, and output adaptation |
-| `cpp/src/bench/` | Opt-in native benchmarks |
-| `cpp/src/experiments/` | Opt-in experiment probes |
-| `cpp/tests/` | Native unit, contract, property, parity, and GPU tests |
-| `configs/grammar/` | Checked grammar definitions and package documentation |
-| `configs/grammar/examples/authoring/` | Copyable scalar, sequence, template, and memo authoring roots with cases |
-| `configs/grammar/examples/types/` | Checked roots and cases for all public value types |
-| `configs/grammar/benchmarks/` | Grammar definitions paired with maintained benchmark fixtures |
-| `configs/psb_schemas/` | PSB fixture schema overrides |
-| `configs/psb_tolerances/` | Versioned PSB quality-gate policies |
-| `data/fixtures/` | Maintained runtime and benchmark fixtures |
-| `docs/design/` | Implementation boundaries and rationale |
-| `docs/guides/` | Reproducible development and experiment workflows |
-| `docs/reference/` | Mechanically checked interfaces and inventories |
-| `docs/refactor/` | Historical refactor evidence |
-| `spec/` | Normative behavior contracts |
-| `tools/gagp_tools/` | Installable operational tool package |
-| `tools/tests/` | Operational tool tests |
-| `tests/repository/` | Runtime-independent repository contract checks |
-| `benchmarks/` | Compact committed validation manifests |
+| `README.md` | What GAGP is, results, build and quick start |
+| `README.zh-TW.md` | The same in Traditional Chinese |
+| `VERSION.md` | Releases and compatibility |
+| `AGENTS.md` | Rules for coding agents and contributors |
+| `.agents/skills/gagp-navigation/SKILL.md` | Where to find the code, contract and tests of a feature |
+| `examples/` | Complete runnable tasks |
+| `benchmarks/` | The `asgp30` benchmark suite and its runner, `run.py` |
+| `configs/search/default.json` | The default search configuration |
+| `configs/grammar/` | Grammar packages and example grammars |
+| `configs/grammar_definitions/` | Grammars used by the bounded-region tests |
+| `data/fixtures/` | Case fixtures used by tests |
+| `spec/` | Normative formats and semantics |
+| `docs/` | Guides, design notes and references ([index](../README.md)) |
+| `cpp/CMakeLists.txt` | Every native target and test |
+| `cpp/include/gagp/` | Public headers, grouped like `cpp/src` |
+| `cpp/src/cli/` | The `gagp` program: commands, task and search files, JSON codecs |
+| `cpp/src/evolution/` | ASTs, verification, compilation, population initialization, the evolution loop |
+| `cpp/src/evolution/grammar/` | Grammar loading, compilation, generation, membership and variation |
+| `cpp/src/evolution/repro/backend.cpp` | Host reproduction of native AST populations |
+| `cpp/src/evolution/repro/gpu/` | The resident engine: GPU and CPU-reference phase populations |
+| `cpp/src/runtime/` | Bytecode verification and bounded-region plans |
+| `cpp/src/runtime/cpu/` | The CPU interpreter, builtins and fitness |
+| `cpp/src/runtime/gpu/` | The CUDA interpreter, GPU fitness and payload arena |
+| `cpp/src/runtime/payload/` | The host payload registry for strings and lists |
+| `cpp/src/serialization/` | JSON codec of region plans |
+| `cpp/tests/` | Native tests, by area (`cli`, `evolution`, `gpu`, `parity`, `runtime`, `fuzz`) |
+| `tests/repository/` | Repository and documentation checks |
 
-Generated `logs/`, build directories, downloaded datasets, and the historical
-ignored `experiment/` working directory are intentionally absent. The
-canonical maintained experiment protocol is
-[`../guides/experiment-protocol.md`](../guides/experiment-protocol.md).
+Build trees (`cpp/build*`), run outputs (`logs/`, `runs/`) and downloaded data
+are not versioned.

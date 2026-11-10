@@ -1,17 +1,15 @@
 # Bytecode ISA
 
-This document defines the release 2.0.0 bytecode execution contract shared by
+This document defines the bytecode execution contract shared by
 the compiler, CPU runtime, and GPU runtime. JSON encoding is defined in
 [bytecode_format.md](bytecode_format.md).
 
 ## Version boundary
 
-Release-2 bytecode uses `bytecode-json-v2` and `bytecode-fixture-v2`.
-Release-1 `bytecode-json`, `bytecode-fixture`, and migration bytecode
-snapshots are rejected by production decoders. Bytecode migration is
-unsupported because bytecode lacks source AST, type/scope, and derivation
-provenance. Migrate the source `ast-prefix` artifact offline and compile the
-resulting `ast-prefix-v2`.
+Bytecode uses `bytecode-json-v2` and `bytecode-fixture-v2`. Release-1
+`bytecode-json`, `bytecode-fixture`, and migration bytecode snapshots are
+rejected: bytecode lacks the source AST, type/scope, and derivation provenance
+needed to convert it. Compile the program from its `ast-prefix-v2` source.
 
 Numeric opcode values are fixed:
 

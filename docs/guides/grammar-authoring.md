@@ -1,405 +1,180 @@
 # Grammar Authoring
 
-Build the native commands and install the thin Python command wrapper from the
-repository root:
+The grammar is GAGP's search space: every program in the initial population,
+every crossover site and every mutation is drawn from it. This guide shows how
+to write one, check it and run it. The normative format is
+[grammar_definition.md](../../spec/grammar_definition.md); a complete worked
+example of a grammar with a traversal is the
+[list-sum walkthrough](list-sum-grammar.md).
 
-```bash
-cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug
-cmake --build cpp/build -j
-python3 -m venv .venv-tools
-.venv-tools/bin/pip install -e tools
+## Anatomy
+
+```json
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "Expr", "type": "Int"},
+  "inputs": [{"name": "x", "type": "Int"}],
+  "search_limits": {"max_nodes": 31, "max_depth": 8},
+  "execution_limits": {"fuel": 1000},
+  "nonterminals": [
+    {"id": "Expr", "type": "Int", "scope": [], "alternatives": [
+      {"id": "x", "weight": 3, "expression": {"input": "x"}},
+      {"id": "small", "weight": 2, "expression": {"constant": {"type": "Int", "values": ["1", "2", "3"]}}},
+      {"id": "add", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"ref": "Expr"}, {"ref": "Expr"}]}}
+    ]}
+  ]
+}
 ```
 
-`gagp-tools` does not interpret a grammar. `init` copies a checked example;
-`validate`, `inspect`, and `resolve` invoke `cpp/build/gagp_grammar_cli`; and
-`migrate` invokes the offline native migration adapter. Use `/tmp` for the
-workflows below and `logs/` for results that must be retained.
+- **`inputs`** are the program's arguments. Their names and types must equal
+  the inputs of the cases, and `entry.type` the type of their expected values.
+- **`nonterminals`** each have a type and a list of **alternatives**. Generation
+  picks an alternative with probability proportional to its `weight`.
+- An **expression** is one of: `{"input": name}`, `{"constant": domain}`,
+  `{"ref": nonterminal}`, `{"bound": name}` (a variable in scope), an operation
+  `{"signature": "op(T,...)->R", "args": [...]}`, or a template use.
+  The available operations and their semantics are in
+  [builtins_base.md](../../spec/builtins_base.md) and
+  [builtins_runtime.md](../../spec/builtins_runtime.md).
+- **`search_limits`** bound program size (`max_nodes`) and depth (`max_depth`)
+  during generation, crossover and mutation. **`execution_limits.fuel`** bounds
+  the instructions one program may execute per case; a program out of fuel
+  fails that case.
 
-## Authoring commands
+Types are `Int`, `Float`, `Bool`, `Char`, `String`, `IntList`, `FloatList` and
+`StringList`; in case files they are written `int`, `float`, `bool`, `char`,
+`string`, `int_list`, `float_list` and `string_list`. Lists are homogeneous and
+never nested, and there are no implicit conversions. One example grammar per
+type, with cases, is in `configs/grammar/examples/types/`.
+
+## Check, inspect, run
 
 ```bash
-.venv-tools/bin/gagp-tools grammar init \
-  --example scalar --out /tmp/my-grammar.json
-.venv-tools/bin/gagp-tools grammar validate \
-  --grammar-definition /tmp/my-grammar.json
-.venv-tools/bin/gagp-tools grammar inspect \
-  --grammar-definition /tmp/my-grammar.json
-.venv-tools/bin/gagp-tools grammar resolve \
-  --grammar-definition /tmp/my-grammar.json \
-  --out /tmp/my-grammar.resolved.json
-.venv-tools/bin/gagp-tools grammar migrate \
-  --input configs/grammar/migration/v1/scalar.json \
-  --cases configs/grammar/examples/authoring/scalar.cases.json \
-  --conversion-profile constrained-intent-v1 \
-  --out /tmp/scalar.migrated-v2.json
+cpp/build/gagp grammar validate --grammar-definition my-task/grammar.json
+cpp/build/gagp grammar inspect  --grammar-definition my-task/grammar.json
+cpp/build/gagp run my-task/task.json
 ```
 
-`init` accepts `scalar`, `sequence`, `template`, or `memo` and refuses to
-overwrite its output. `validate` checks resolution, compilation, productivity,
-types, scopes, limits, and whether the entry is executable. `inspect` emits the
-compiled IDs, contexts, scopes, costs, counts, and version identity. `resolve`
-writes canonical, import-resolved `grammar-definition-v2` JSON and refuses to
-overwrite the root definition or any imported source file.
+- `validate` checks imports, types, scopes and limits, and that the entry can
+  produce a program within the limits. Errors name the offending field.
+- `inspect` shows the compiled grammar: nonterminals, productions, scopes,
+  templates and the minimum size of each choice.
+- `resolve --out-json FILE` writes the grammar with all imports inlined.
 
-The deterministic identity tuple reported by validation/inspection is:
+A grammar is identified by `grammar_hash`, a hash of its resolved content.
+Weights, domains and limits are content; file names and import paths are not.
+Results and saved populations record the hash, and `gagp run --init` and
+`gagp eval` reject programs that do not belong to the task's grammar.
+
+Edits take effect on the next run; nothing needs rebuilding.
+
+## Constants
+
+A constant domain has exactly one of `values`, an Int or Float `range`, or a
+`sequence`:
 
 ```text
-definition_version = grammar-definition-v2
-catalog_version = gagp-primitives-v3
-normalization_version = 1
-semantic_version = gagp-native-2.0.0
-generator_version = typed-derivation-v2
-rng_version = splitmix64-rejection-v1
+{"constant": {"type": "Int", "values": ["0", "1"]}}
+{"constant": {"type": "Int", "range": ["-8", "8"]}}
+{"constant": {"type": "Float", "range": [-5, 5], "quantization_scale": 1000}}
+{"constant": {"type": "IntList", "sequence": {"length": [0, 5],
+              "element": {"type": "Int", "range": ["-8", "8"]}}}}
 ```
 
-The tuple plus the canonical resolved-content `grammar_hash`, seed, generation
-request, and exact case schema identifies same-version generation. Moving or
-renaming a root or imported package without changing resolved content preserves
-the hash; changing resolved content changes it. A JSON edit is loaded on the
-next command and needs no C++ rebuild or Python reinstall.
+- Int bounds are decimal strings; ranges include both ends.
+- `quantization_scale: 1000` rounds sampled Floats to three decimals.
+- A `sequence` draws a length uniformly, then each element from its domain.
+  `String` elements are `Char`; list elements are the list's element type.
+- `sample_from` draws new constants from a narrower domain while membership
+  accepts the wider one, so evolved values may drift outside it:
+  `{"type": "Float", "range": [-100, 100], "sample_from": {"type": "Float", "range": [-8, 8]}}`.
+- `mutation` chooses how constant mutation changes a value: `"resample"`
+  (default), `"keep"`, `"flip"` (Bool), or
+  `{"kind": "add", "range": ["-2", "2"]}` to perturb a number.
 
-## Workflow 1: scalar grammar
+The package `configs/grammar/packages/source_literals.json` provides ready-made
+literal nonterminals for every type (`Source.Literal.Int`, ...).
 
-Start with `Authoring.Scalar`, whose entry and input are `Int`. It initially
-chooses input `n` with weight 3, constant zero with weight 1, or recursive
-`add(Int,Int)->Int` with weight 1, within 9 nodes, depth 5, and fuel 32.
+## Scopes, statements and loops
 
-```bash
-.venv-tools/bin/gagp-tools grammar init \
-  --example scalar --out /tmp/scalar.json
-.venv-tools/bin/gagp-tools grammar validate \
-  --grammar-definition /tmp/scalar.json
-.venv-tools/bin/gagp-tools grammar inspect \
-  --grammar-definition /tmp/scalar.json
-cpp/build/gagp_generate_cli \
-  --grammar-definition /tmp/scalar.json \
-  --cases configs/grammar/examples/authoring/scalar.cases.json \
-  --population-size 16 --seed 7 \
-  --out-json /tmp/scalar.population-v2.json
-cpp/build/gagp_generate_cli \
-  --replay-json /tmp/scalar.population-v2.json \
-  --grammar-definition /tmp/scalar.json \
-  --cases configs/grammar/examples/authoring/scalar.cases.json \
-  --out-json /tmp/scalar.replayed.population-v2.json
-cmp /tmp/scalar.population-v2.json /tmp/scalar.replayed.population-v2.json
-cpp/build/gagp_evolve_cli \
-  --cases configs/grammar/examples/authoring/scalar.cases.json \
-  --grammar-definition /tmp/scalar.json \
-  --engine cpu --repro-backend cpu --repro-overlap off \
-  --population-size 16 --generations 2 \
-  --out-json /tmp/scalar.cpu.run.json
-```
+Every nonterminal declares the variables visible in it (`scope`), and a
+`{"bound": name}` expression may only read a variable in scope. Operations
+that introduce variables, such as `let` and the traversals, bind them for their
+body; statements (`assign`, `if_stmt`, `for_range`, `return`) build whole
+programs with locals. The [list-sum walkthrough](list-sum-grammar.md) explains
+binding and scopes step by step with a traversal. To let a program overwrite an input, use
+`input_name` on its assignment instead of `name`.
 
-For a concrete customization, change the `sum` production signature from
-`add(Int,Int)->Int` to `mul(Int,Int)->Int`, change its weight from 1 to 3, and
-change `input` from 3 to 1. Keep both recursive arguments as
-`{"ref":"Authoring.Scalar"}` and keep the result type `Int`; then rerun
-validate and inspect before generation.
+Set `"variation": false` on a nonterminal to keep its occurrences out of
+crossover and mutation sites, for example to freeze a program skeleton while
+its expressions keep evolving.
 
-## Workflow 2: typed sequence grammar
+## Templates, imports and recursion
 
-Numeric terminals may use `{"type":"Float","range":[-5,5]}` or an Int range
-with decimal-string endpoints. Float interval membership includes both endpoints;
-generation and constant resampling use `[minimum,maximum)`, with a singleton
-returning its endpoint exactly. Both endpoints must be finite. This also works
-as the element domain of a `FloatList` sequence. A range controls resampling,
-not additive perturbation of the previous value.
-
-To round sampled Floats to three decimal places, add
-`"quantization_scale":1000` to the Float range domain. Sampling then rounds
-the continuous draw, preserving half-width endpoint cells and negative zero.
-Endpoints must lie on the grid; scaled endpoint magnitudes must not exceed
-`2^50`. The same option works for FloatList element domains and on-device
-scalar constant mutation.
-
-Set `"mutation":"keep"` on a constant domain to preserve its value when the
-constant mutation branch selects it. It remains a selectable candidate; this is
-an accepted unchanged result, not a request for subtree mutation. For Bool domains
-containing both values, `"mutation":"flip"` complements the current value.
-Omission or `"resample"` retains ordinary domain sampling. These policies do not
-change generation or membership and cannot be set on sequence elements or nested
-`sample_from` domains.
-
-For a numeric range, use `"mutation":{"kind":"add","range":[-1,1]}`
-to perturb the current Float value; Int delta endpoints use decimal strings,
-such as `["-2","2"]`. Keep membership broad enough to admit evolved values and
-use `sample_from` for narrow construction. Addition never reapplies construction
-quantization. A sum outside membership (or overflowing its type) retains the old
-value without retry or fallback. Quantized outer membership is not supported for
-addition. Float mutation may also specify `"gpu_grid_steps":65535`: GPU uses
-65536 equally weighted closed-interval grid indices, while CPU retains continuous
-sampling. Omit it for continuous deltas on both backends.
-
-Use `sample_from` on a numeric range when construction should draw from a smaller
-domain than membership allows. For example:
+A **template** is a fixed body with typed **holes**; a use fills each hole
+with an expression:
 
 ```json
-{"type":"Float","range":[-100,100],"sample_from":{
-  "type":"Float","range":[-8,8],"quantization_scale":1000
-}}
+{"templates": [{"id": "Twice", "type": "Int", "scope": [],
+  "holes": [{"id": "value", "type": "Int", "scope": []}],
+  "body": {"signature": "add(Int,Int)->Int", "args": [{"hole": "value"}, {"hole": "value"}]}}]}
 ```
 
-This constructs three-decimal values between -8 and 8, but also admits values
-such as 42.125. The sampler must have the same type, remain within the outer
-domain and must not contain another `sample_from`. Current constant resampling
-also uses this sampler; this option alone does not perform additive mutation.
+Grammars can `import` other grammar files and use their templates and
+nonterminals. The packages in `configs/grammar/packages/` provide bounded
+recursion schemes as templates: divide and conquer (`dc_intlist_int.json`),
+linear recursion over a list (`linear_rec_intlist_int.json`), and one- and
+two-dimensional dynamic programming (`dp1d_int.json`, `dp2d_int.json`). Each
+scheme's holes (`solve`, `divide`, `combine`, ...) are filled by your own
+nonterminals with the scopes the scheme requires; see
+`configs/grammar/examples/restricted_combine.json`, and the 30 grammars of
+[`benchmarks/asgp30`](../../benchmarks/asgp30) for complete uses. Recursion
+always runs inside a bounded region with frame, memo and fuel limits, and every
+recursive request must make progress, so programs terminate
+([templates and regions](../../spec/grammar_definition.md#templates-and-fixed-regions)).
 
-Constant domains accept exactly one of `values`, an inclusive `Int` `range`, or
-`sequence`. A sequence describes lengths and an exact element domain without
-enumerating every possible payload:
+## Making the GPU engine take the grammar
 
-```json
-{"constant":{"type":"StringList","sequence":{
-  "length":[0,5],
-  "element":{"type":"String","sequence":{
-    "length":[0,8],"element":{"type":"Char","values":["a","b","c"]}
-  }}
-}}}
-```
+The resident GPU engine holds the population on the device and admits a
+grammar when every program it can derive fits its capacity: at most 2048
+nodes and depth 64 over the whole program, 1024 nodes per varied phase, 16
+locals in statement programs, and up to 8 varied phases around a fixed
+template ([full rules](../design/gpu-reproduction.md#genome-layouts)). A
+grammar outside these limits still runs: `gagp run` prints
+`resident engine declined this grammar (...)` and uses the slower host
+reproduction with the same evaluation engine. Tighter `search_limits` are the
+usual fix.
 
-`String` elements must be `Char`; `IntList`, `FloatList`, and `StringList`
-elements must be `Int`, `Float`, and `String`, respectively. Lists cannot nest.
-String length counts Unicode scalars, including NUL, rather than UTF-8 bytes.
-Lengths are inclusive integers from 0 through 65536. Compilation bounds a
-sample's expansion by 16 MiB, charging eight bytes per scalar/sequence and the
-decoded bytes of finite String elements. This is a construction bound, not a
-runtime payload limit or a measurement of allocator overhead.
+## Initial populations
 
-Sampling first chooses a length uniformly, then independently samples each
-element from its declared domain. Duplicate finite values retain their declared
-sampling weight. Generation, constant mutation, subtree donors and membership
-share these domains. Fixed template skeletons still require singleton `values`;
-put a variable sequence domain in an evolvable hole. Saved program constants
-remain concrete singleton-domain payloads, and existing finite/range seeds keep
-their sampling sequence.
-
-`Authoring.Sequence` takes and returns `IntList`. Its alternatives are input
-(weight 2), `reverse(IntList)->IntList` (1), and
-`concat(IntList,IntList)->IntList` with the original and reversed input (1).
-Changing `concat_with_reverse` from weight 1 to weight 3 changes sampling only;
-it does not change its operator or type.
+`gagp run` generates its initial population from the grammar and the seed. To
+generate one separately, for inspection or to share between runs:
 
 ```bash
-.venv-tools/bin/gagp-tools grammar init \
-  --example sequence --out /tmp/sequence.json
-.venv-tools/bin/gagp-tools grammar validate \
-  --grammar-definition /tmp/sequence.json
-cpp/build/gagp_generate_cli \
-  --grammar-definition /tmp/sequence.json \
-  --cases configs/grammar/examples/authoring/sequence.cases.json \
-  --population-size 16 --seed 9 \
-  --out-json /tmp/sequence.population-v2.json
-cpp/build/gagp_evolve_cli \
-  --cases configs/grammar/examples/authoring/sequence.cases.json \
-  --grammar-definition /tmp/sequence.json \
-  --engine gpu --repro-backend gpu --repro-overlap on \
-  --population-size 16 --generations 2 \
-  --out-json /tmp/sequence.gpu.run.json
+cpp/build/gagp grammar generate --grammar-definition my-task/grammar.json \
+  --cases my-task/train.cases.json --population-size 1024 --seed 7 --out-json pop.json
+cpp/build/gagp grammar generate --replay-json pop.json \
+  --cases my-task/train.cases.json --out-json replayed.json   # identical to pop.json
+cpp/build/gagp run my-task/task.json --init pop.json
 ```
 
-Fixture tags convert to grammar types exactly as follows:
+The population file records the grammar's identity and the generator version;
+replay re-derives every member and fails if anything differs.
 
-| Fitness-case tag | Grammar type |
+## Starting points
+
+| File | Shows |
 | --- | --- |
-| `int` | `Int` |
-| `float` | `Float` |
-| `bool` | `Bool` |
-| `char` | `Char` |
-| `string` | `String` |
-| `int_list` | `IntList` |
-| `float_list` | `FloatList` |
-| `string_list` | `StringList` |
+| [`examples/polynomial/grammar.json`](../../examples/polynomial/grammar.json) | Arithmetic expressions |
+| [`examples/list-sum/grammar.json`](../../examples/list-sum/grammar.json) | A list traversal with bound variables |
+| `configs/grammar/examples/authoring/scalar.json` | The smallest grammar |
+| `configs/grammar/examples/authoring/sequence.json` | `IntList` operations |
+| `configs/grammar/examples/authoring/template.json` | A template with a shared hole |
+| `configs/grammar/examples/authoring/memo.json` | A memoized two-coordinate recurrence |
+| `configs/grammar/examples/types/` | One grammar per value type |
+| `configs/grammar/examples/restricted_combine.json` | Filling a divide-and-conquer package |
+| [`benchmarks/asgp30/`](../../benchmarks/asgp30) | 30 complete program-synthesis tasks |
 
-Checked single-type roots and paired cases for every row live under
-`configs/grammar/examples/types/`. Lists are homogeneous and typed; there is no
-public generic list, numeric-list union, nested list, or implicit numeric/list
-conversion. The current fitness-case codec accepts `char` only as a one-byte,
-length-1 JSON string (the checked example uses `q`); grammar constant domains
-have their own Char parsing rules. Input names, ordered input declarations, and
-the return type must also match the cases exactly.
-
-## Workflow 3: templates, recursion, and memoization
-
-The small template example shows a shared hole: `Authoring.Twice.value` has
-type `Int`, scope `[]`, and occurs twice in `add(Int,Int)->Int`. Start it with:
-
-```bash
-.venv-tools/bin/gagp-tools grammar init \
-  --example template --out /tmp/template.json
-.venv-tools/bin/gagp-tools grammar validate \
-  --grammar-definition /tmp/template.json
-cpp/build/gagp_generate_cli \
-  --grammar-definition /tmp/template.json \
-  --cases configs/grammar/examples/authoring/template.cases.json \
-  --population-size 8 --seed 3 \
-  --out-json /tmp/template.population-v2.json
-```
-
-For an imported divide-and-conquer package, copy the root and package while
-preserving their relative directory layout. Customize the `combine` hole through
-`Example.RestrictedCombine.Combine`; do not edit the imported package. Its
-required scope is exactly `left:Int, right:Int`. Change the existing
-`maximum` alternative to ID `sum`, signature `add(Int,Int)->Int`, arguments
-`left` and `right`, and weight 3. Add a second `maximum` alternative with
-signature `max(Int,Int)->Int`, the same arguments and scope, and weight 1.
-Validate and exercise the derived definition with:
-
-```bash
-mkdir -p /tmp/gagp-derived/examples /tmp/gagp-derived/packages
-cp configs/grammar/examples/restricted_combine.json \
-  /tmp/gagp-derived/examples/derived.json
-cp configs/grammar/packages/dc_intlist_int.json \
-  /tmp/gagp-derived/packages/dc_intlist_int.json
-.venv-tools/bin/gagp-tools grammar resolve \
-  --grammar-definition /tmp/gagp-derived/examples/derived.json \
-  --out /tmp/gagp-derived.before.json
-mv /tmp/gagp-derived/packages/dc_intlist_int.json \
-  /tmp/gagp-derived/packages/renamed-dc.json
-sed -i 's#../packages/dc_intlist_int.json#../packages/renamed-dc.json#' \
-  /tmp/gagp-derived/examples/derived.json
-.venv-tools/bin/gagp-tools grammar resolve \
-  --grammar-definition /tmp/gagp-derived/examples/derived.json \
-  --out /tmp/gagp-derived.after-rename.json
-cmp /tmp/gagp-derived.before.json /tmp/gagp-derived.after-rename.json
-.venv-tools/bin/gagp-tools grammar validate \
-  --grammar-definition /tmp/gagp-derived/examples/derived.json \
-  > /tmp/gagp-derived.before-edit.validation.json
-```
-
-The successful `cmp` proves that a package filename/import-path rename does not
-change resolved content or its grammar hash. Make the `sum`/`maximum` edits
-described above, then confirm that the content edit changes the reported hash:
-
-```bash
-.venv-tools/bin/gagp-tools grammar validate \
-  --grammar-definition /tmp/gagp-derived/examples/derived.json \
-  > /tmp/gagp-derived.after-edit.validation.json
-grep -o '"grammar_hash":"[^"]*"' \
-  /tmp/gagp-derived.before-edit.validation.json \
-  /tmp/gagp-derived.after-edit.validation.json
-.venv-tools/bin/gagp-tools grammar inspect \
-  --grammar-definition /tmp/gagp-derived/examples/derived.json
-cpp/build/gagp_generate_cli \
-  --grammar-definition /tmp/gagp-derived/examples/derived.json \
-  --cases configs/grammar/examples/restricted_combine.cases.json \
-  --population-size 16 --seed 11 \
-  --out-json /tmp/derived.population-v2.json
-```
-
-The memo example is a complete bounded two-coordinate recurrence with
-`row:Int`, `column:Int`, rank `(0,+1),(1,+1)`, decreasing requests
-`(-1,+2)` and `(0,-1)`, and limits of 128 frames and 128 cells. Inspect it
-before altering dependencies: every request must still strictly decrease at
-its first nonzero ranked coordinate, remain overflow-safe for the declared
-domain, and fit the frame/cell limits.
-
-```bash
-.venv-tools/bin/gagp-tools grammar init \
-  --example memo --out /tmp/memo.json
-.venv-tools/bin/gagp-tools grammar validate \
-  --grammar-definition /tmp/memo.json
-.venv-tools/bin/gagp-tools grammar inspect \
-  --grammar-definition /tmp/memo.json
-cpp/build/gagp_generate_cli \
-  --grammar-definition /tmp/memo.json \
-  --cases configs/grammar/examples/authoring/memo.cases.json \
-  --population-size 8 --seed 5 \
-  --out-json /tmp/memo.population-v2.json
-```
-
-## Bounds and comparison limits
-
-`search_limits.max_nodes` and `search_limits.max_depth` bound construction,
-generation, membership, and variation. `execution_limits.fuel` bounds program
-execution. Structured regions additionally own explicit frame/cell/entry-fuel
-bounds. Search bounds do not increase execution fuel, and execution bounds do
-not enlarge the authoring search space. The production runner accepts only
-`--grammar-definition`; there is no `--grammar-config` alias.
-
-Use these exact backend combinations for smoke or comparative runs; the
-[benchmarking guide](benchmarking.md) gives complete commands that reuse one
-population across all four:
-
-| Mode | `--engine` | `--repro-backend` | `--repro-overlap` |
-| --- | --- | --- | --- |
-| CPU | `cpu` | `cpu` | `off` |
-| GPU evaluation, CPU reproduction | `gpu` | `cpu` | `off` |
-| GPU evaluation and synchronous GPU reproduction | `gpu` | `gpu` | `off` |
-| GPU evaluation and overlapped GPU reproduction | `gpu` | `gpu` | `on` |
-
-Release-1 `grammar-config` migration preserves only representable ordinary
-enable/disable intent under an explicit schema and profile. It cannot recover
-exact literal domains, typed scopes/holes, structured dependencies, package
-choices, or seed replay. Materialized AST/member migration preserves values and
-execution behavior within its documented boundary, but cannot recreate the old
-search process. Cross-version results are oracle/context comparisons, not exact
-generator replay. Research comparisons must also hold cases, resolved grammar
-hash, limits, seed budget, backend policy, and hardware constant; CPU speedup is
-relative to this repository's sequential CPU backend.
-
-The normative fields and validation rules are in
-[grammar_definition.md](../../spec/grammar_definition.md); the release-1
-conversion boundary is in [grammar_config.md](../../spec/grammar_config.md).
-The checked tree and package roles are indexed in
-[configs/grammar/README.md](../../configs/grammar/README.md).
-
-
-Set `"variation":false` on a nonterminal to omit that occurrence from subtree
-replacement candidates. For example, a Program root can keep its outer structure
-while referenced expression nonterminals remain evolvable. The default is true.
-This does not freeze descendants or change constant mutation; use their own
-nonterminal and constant-domain policies for those controls. CPU and GPU use the
-same filtered site analysis.
-
-
-`configs/grammar/packages/source_literals.json` supplies reusable
-`Source.Literal.Int`, `Float`, `Bool`, `Char`, `String`, `IntList`, `FloatList`
-and `StringList` expression nonterminals (each uses the `Source.Literal.` prefix).
-Import it and reference the desired nonterminal to use the frozen release-1
-ordinary literal policy: lists allow lengths 0–5, strings (standalone or nested
-in a StringList) 0–8 lowercase letters, and Char letters, digits or space.
-Int/Float sampling uses the original [-8,8] numeric domains and Float quantizer;
-membership remains wide enough for additive perturbation. Bool flips, while
-Char and sequence constants retain their value when selected for constant
-mutation. This package does not define operator weights, binder scopes,
-structured skeleton literals, or the special [-6,6] index/slice parameters.
-
-For resource correspondence studies, a materialized expression can declare
-`"resource_charge":{"nodes":0,"depth":0,"resets_depth":false}` to represent
-administrative expansion without construction cost. The C++
-`project_derivation_resources` interface derives costs from verified grammar
-membership; explicit structural nodes can use `resets_depth:true` to model
-expression-depth accounting. Physical `search_limits` always still apply.
-Native callers can additionally set `EvolutionConfig.initial_resource_budget`
-and `offspring_resource_budget` to enforce projected admission at initialization
-and CPU/GPU reproduction. These budgets alone retain generic backend fallback;
-the experimental strict GPU phase path requires the separate
-[`gpu_projected_phase_profile` opt-in](../design/source-production-depth-prototype.md).
-These optional budgets are not CLI options. Generation
-uses bounded retries, so exhaustion does not prove that a grammar is infeasible.
-Admission reconstructs membership instead of trusting attached derivation metadata.
-
-The LinearRec, DC, DP1D and DP2D compatibility packages annotate each source
-operation with unit cost and its expansion-only helper nodes with zero cost.
-Their source operands retain their own costs. DP coordinate inputs count as
-source operands; boundary constants stored as source metadata do not. A standalone
-expression still has the native four-node program envelope; its full projected
-depth therefore includes that envelope. A source expression-depth comparison must
-use the expression subtree, or an explicitly authored structural depth reset.
-These package annotations alone do not reproduce a complete legacy search profile.
-The legacy grammar-config converter also annotates explicit program, block and
-statement nodes with one node, zero depth, and a depth reset. Whole-program
-projected depth then measures source expression depth, without subtracting an
-assumed fixed envelope from programs containing branches or multiple statements.
-
-The C++ `joint_resource_frontier` query can check structural feasibility against
-physical and projected limits together. An empty result means no admitted cost
-combination; a capacity exception means the query did not finish. Neither result
-substitutes for native/contextual validation or enables larger production limits.
-
-To preserve a program that updates an input variable, use `input_name` instead
-of `name` on its assignment control. For example, an `assign(Float)->Statement`
-with `input_name: "x"` writes the declared Float input slot; subsequent
-`{"input":"x"}` expressions read that updated value. The declaration type stays
-fixed, and the original fitness case is unchanged.
-
+Each `configs/grammar/examples` grammar comes with a `.cases.json` file; to run
+one, put both next to a task file as in the
+[getting started guide](getting-started.md#3-set-up-your-own-problem).

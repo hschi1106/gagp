@@ -1,6 +1,6 @@
 # Grammar
 
-This document defines the release 2.0.0 source grammar, type rules, structured
+This document defines the source grammar, type rules, structured
 forms, and production generation/variation contract. All programs use the
 prefix `AstProgram` representation. Production authoring, generation,
 membership, crossover, and mutation use a compiled `grammar-definition-v2`.
@@ -132,13 +132,13 @@ upload. No production path invokes a target-specific interpreter.
 ## Removed release-1 forms
 
 `MapList`, `FilterList`, `LinearRec`, `AsgpDC`, `AsgpDP1D`,
-`AsgpDP2D`, and all DP dependency-pattern nodes are not release-2 AST forms.
+`AsgpDP2D`, and all DP dependency-pattern nodes are not AST forms.
 Equivalent search intent is authored as compiled templates using the general
 lexical, traversal, and bounded-region contracts. Package filenames may retain
 historical names to describe the intent they reproduce; names do not create
 native node kinds, runtime schemes, or compiler branches.
 
-Numeric AST kinds 53 through 70 are permanently unassigned. Release-2 general
+Numeric AST kinds 53 through 70 are permanently unassigned. General region
 forms begin at 71. The normal AST decoder accepts only `ast-prefix-v2` and
 rejects these holes.
 
@@ -173,18 +173,12 @@ control-flow cycle.
 Runtime errors are `NameError`, `TypeError`, `ZeroDiv`, `ValueError`,
 and `Timeout`. The first error terminates the case.
 
-## Version and migration boundary
+## Version boundary
 
-The public AST version is `ast-prefix-v2`. Release-1 materialized ASTs must be
-converted by the offline migration command, which owns the only legacy decoder.
-Normal evaluation, evolution, generation, verification, compiler, CPU runtime,
-and GPU runtime do not decode release-1 node tables or side metadata.
-
-Old bytecode cannot be converted into an AST because source type, scope, and
-grammar provenance were erased; migrate the source AST and recompile it. A
-seed-only release-1 artifact also cannot guarantee identical regeneration under
-the v2 generator/RNG mapping. Materialize it with the frozen release-1 build,
-then migrate the resulting AST.
+The public AST version is `ast-prefix-v2`. Evaluation, evolution, generation,
+verification, the compiler and both runtimes decode only this version; release-1
+node tables, side metadata, bytecode and seed-only populations are rejected, and
+no conversion tool ships with GAGP.
 
 ## Unsupported constructs
 

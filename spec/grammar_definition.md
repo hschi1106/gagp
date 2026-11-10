@@ -1,9 +1,9 @@
 # Typed grammar definitions
 
 This document defines the production `grammar-definition-v2` construction
-format. It is the sole release-2 authoring and search-space input for generation,
-membership, CPU/GPU variation, and evolution. Release-1 `grammar-config` inputs
-must be converted offline as specified in [grammar_config.md](grammar_config.md).
+format. It is the only authoring and search-space input for generation,
+membership, CPU/GPU variation, and evolution. The release-1 `grammar-config`
+format is rejected.
 
 ## Types and entry
 
@@ -582,7 +582,7 @@ Source shape validation runs before override resolution discards definitions; an
 
 ## Staged materialization policy
 
-The internal generator identifies its sampling algorithm as `typed-derivation-v1`
+The internal generator identifies its sampling algorithm as `typed-derivation-v2`
 and its RNG as `splitmix64-rejection-v1`. Bounded integer sampling uses rejection
 before modulo reduction; the complete signed 64-bit domain is supported without
 signed overflow. Weights are normalized by the maximum eligible weight before
@@ -662,23 +662,8 @@ evaluation CLI applies these bounds before dispatching by artifact format. Mater
 nodes and prefix depth 256; structural numeric fields must be signed 32-bit integers
 before conversion by the native AST codec.
 
-Offline migration of a complete `grammar-generated-v1` member is a materialization
-route, not generator replay. The migration reader requires its release-1 semantic,
-generator, RNG and payload-seeding versions, verifies its grammar and input-schema
-hashes and provenance shape, and takes the exact input/return contract, search limits,
-fuel, AST shape and detached constants from the member. A plain release-1
-`ast-prefix` artifact instead requires an exact `fitness-cases` schema plus explicit
-fuel, maximum-node and maximum-depth values because it does not embed that contract.
-
-Both exact program routes emit `grammar-materialized-v2`. The envelope records target
-runtime `semantic_version` `gagp-native-2.0.0`, a content hash and format identity for
-the release-1 source, exact schemas and limits, an `ast-prefix-v2` shape whose native
-constant table is empty, and exactly one detached `constants` array using the lossless
-singleton-domain codec above. Decoding rejects an incompatible semantic version, a
-missing detached pool, or constants present in both locations. This contract preserves
-materialized values and behavior; it makes no claim that a release-1 seed regenerates
-the same program under v2. A `grammar-population-v1` container has no whole-container
-conversion: callers must extract and migrate each complete materialized member.
+Release-1 `grammar-generated-v1` members, `grammar-population-v1` containers and
+plain `ast-prefix` artifacts are rejected; no conversion ships with GAGP.
 
 
 ### Materialized membership and population generation
@@ -704,8 +689,7 @@ The compiled-grammar overload of population initialization requires a positive s
 exact case input names/types (order-independent), and an expected return type matching
 the entry. Individual seeds are `seed + index` modulo 2^64. Each member retains its
 immutable derivation metadata. The domain-only policy ignores expected values when
-sampling constants. There is no production grammar-config population or reproduction
-path; the release-1 reader is isolated in offline migration tooling.
+sampling constants. There is no grammar-config population or reproduction path.
 
 
 `grammar-population-v2` bundles an initial population with exactly four root fields:
@@ -718,24 +702,23 @@ root fields/count, required grammar identity when supplied, and each member's co
 replay. This format reconstructs generated initial populations; varied populations
 require a future artifact version with variation provenance.
 
-The existing one-AST CLI evaluation path can consume a generated artifact as a
-materialized program. It verifies the case schema, applies the recorded fuel, and
-rejects a conflicting explicit fuel override. This path does not certify generation
-provenance.
+`gagp eval` scores one materialized `ast-prefix-v2` program (bare, or taken from a
+run result or saved population). It verifies the AST against the case schema, requires
+grammar membership and applies the grammar's execution fuel. It does not certify
+generation provenance.
 
 
 Before accepting a generated program, generation lowers it through the native compiler
 and its bytecode verifier, records the ordinary instruction count, and enforces the
 implementation capacity of 1,048,576 lowered instructions. This count is separate from
 logical sampling steps and materialized AST nodes. Typed definitions lower only to
-the general release-2 AST and bytecode forms. Compilation and membership verification are included in
+the general AST and bytecode forms. Compilation and membership verification are included in
 initialization timing; later compilation caches do not move this work outside the gate.
 
 Generated-program runtime compilation identities include the runtime semantic version,
 materialized AST structure, exact constant contents, ordered input names and actual
 execution fuel. Grammar file paths, production weights, seed and derivation metadata
-are excluded. Specialized release-1 metadata is rejected. Migrated materialized
-programs use the same release-2 compilation identity after conversion.
+are excluded. Specialized release-1 metadata is rejected.
 Materialized artifact execution requires the recorded runtime semantic version even
 when the generator is unavailable; an incompatible runtime version is rejected.
 

@@ -1,7 +1,7 @@
 # Bytecode Format
 
-This document defines the release 2.0.0 JSON wire formats used by runtime
-harnesses, parity tooling, and fixtures.
+This document defines the JSON wire formats used by runtime
+harnesses, parity tests, and fixtures.
 
 ## Format identifiers
 
@@ -17,7 +17,6 @@ compatibility mode and numeric opcode values are never reinterpreted.
 ```jsonc
 {
   "format_version": "bytecode-json-v2",
-  "engine": "cpu",
   "fuel": 20000,
   "programs": [{
     "n_locals": 3,
@@ -59,7 +58,7 @@ exactly one supported character. Lists are homogeneous and cannot nest.
 {"op": "PUSH_CONST", "a": 0, "b": 0}
 ```
 
-`op` must be a release-2 name from [bytecode_isa.md](bytecode_isa.md).
+`op` must be a name from [bytecode_isa.md](bytecode_isa.md).
 `a` and `b` are signed integer operands whose allowed domains depend on the
 opcode. The codec rejects unknown names and the reserved numeric opcode holes
 25–27.
@@ -161,9 +160,8 @@ numbers; 53–70 are unassigned; `LET_REGION`, `TRAVERSE`,
 prefix arity, duplicate/missing metadata, invalid lexical scope, or metadata
 owned by the wrong node are rejected.
 
-There are no release-2 `linear_rec_binders`, ASGP binder/spec arrays, or DP
-bounds arrays. Those keys are valid only to the offline release-1 migration
-reader.
+There are no `linear_rec_binders`, ASGP binder/spec arrays, or DP bounds
+arrays; release-1 documents that carry them are rejected.
 
 ## Fixture schema
 
@@ -183,11 +181,11 @@ reader.
 `expected` contains exactly one of `ok` or `error`. Error names use the
 runtime error set from the ISA. Fixtures are verified before execution.
 
-## Migration
+## Release-1 bytecode
 
-Release-1 bytecode is deliberately not migratable. Recompile a migrated source
-AST so type/scope and general-region metadata are regenerated and verified.
-Normal codecs issue this instruction when they see a release-1 identifier.
+Release-1 bytecode is rejected and cannot be converted: it lacks the source
+type, scope and general-region metadata. Recompile the program from its
+`ast-prefix-v2` source.
 
 The `ast-prefix-v2` node kinds 78 and 79 are `CALL_TRUNC_DIV0` and
 `CALL_TRUNC_MOD0`, respectively. They are binary Int expressions lowering to

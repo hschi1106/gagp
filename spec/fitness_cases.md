@@ -1,13 +1,14 @@
 # Fitness Cases
 
-This document defines the `fitness-cases` fixture schema used by release 2.0.0
-evolution, parity tests, PSB conversion, and benchmark entrypoints.
+This document defines the `fitness-cases` schema of the training and test
+cases a task names ([task.md](task.md)), also used by parity tests and
+benchmarks.
 
 See also:
 
 - [grammar.md](./grammar.md)
 - [fitness.md](./fitness.md)
-- [grammar_config.md](./grammar_config.md)
+- [task.md](./task.md)
 
 ## Top-Level Schema
 
@@ -15,8 +16,8 @@ See also:
 {
   "format_version": "fitness-cases",
   "meta": {
-    "suite": "psb1",
-    "problem": "count-odds",
+    "suite": "asgp30",
+    "problem": "count_odds",
     "case_count": 2
   },
   "schema": {
@@ -86,7 +87,7 @@ Rules:
 - `string_list.value` must be an array of JSON strings.
 - empty lists are valid because the direct list tag is explicit.
 
-Invalid release 2.0.0 value tags:
+Invalid value tags:
 
 - `none`
 - `num_list`
@@ -104,7 +105,7 @@ Required behavior:
 - one input name must have the same runtime type in every case.
 - `IntList` and `FloatList` are different input types.
 - `Char` and `String` are different input types.
-- grammar config must not reinterpret an input value as another runtime type.
+- a grammar must not reinterpret an input value as another runtime type.
 
 ## Expected Output Types
 
@@ -112,38 +113,10 @@ Expected output values are scored according to
 [fitness.md](./fitness.md).
 
 When all cases have the same expected runtime type, evolution may use that
-exact type for expected-output-aware initial generation if the active grammar
-config enables it.
+exact type for expected-output-aware initial generation if the grammar enables
+it.
 
-## Old Fixture Migration
+## Removed forms
 
-Public `None` has no release 2.0.0 representation.
-
-Old `num_list` migration requires an explicit destination tag:
-
-- all-`Int` non-empty lists may become `int_list`.
-- all-`Float` non-empty lists may become `float_list`.
-- mixed numeric lists must be normalized explicitly by the dataset schema or
-  rejected.
-- empty numeric lists require an explicit destination tag from the problem
-  schema.
-
-Migration must not use the active grammar config to infer runtime value types.
-
-## PSB Schema Requirements
-
-PSB conversion tools must use per-problem schemas whenever raw data contains
-ambiguous empty lists or numeric lists.
-
-Required metadata for generated PSB fixtures:
-
-- source suite
-- source problem
-- source files
-- sampling seed
-- train/test split
-- schema hash
-- field schemas
-
-The compatibility profile uses the fixture schema to translate old
-`NumList` search-space choices into `IntList` or `FloatList`.
+Public `None` has no representation, and the release-1 `num_list` tag is
+rejected: numeric lists are `int_list` or `float_list`.

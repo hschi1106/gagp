@@ -1,6 +1,6 @@
 # Fitness
 
-This document defines release 2.0.0 scoring rules used by evolution and benchmark
+This document defines scoring rules used by evolution and benchmark
 entrypoints.
 
 Current preserves the old scoring shape, removes public `None`, removes public
@@ -169,20 +169,11 @@ Reason:
 - every exact-match hit contributes `1`
 - any mismatch, runtime error, or type mismatch prevents the target score
 
-## PSB Regression Interpretation
+## Solved programs
 
-PSB regression reports must record:
-
-- train solved flag
-- test solved flag when a test fixture is available
-- best train fitness
-- best test fitness when available
-- best-fitness history
-- first solved generation when available
-- runtime error, timeout, and type error rates when available
-
-For `compat`, compare these values against the baseline and gates recorded in
-the relevant benchmark manifest.
+A run's best program is *train perfect* when it makes no training error and
+*solved* when it answers every held-out test case of its task
+([task.md](task.md)); `gagp run` records both in its result.
 
 ### CPU payload allocation boundary
 
@@ -274,8 +265,9 @@ allocation that exceeds the limit produces the ordinary error penalty. Physical
 storage exhaustion remains a separate backend constraint; a GPU result marks
 physical payload exhaustion separately for bounded replay without treating a
 logical limit error as recoverable. This policy does not change fuel or frame
-limits. The aligned fixed-ASGP list-output benchmark selects the source arena
-limit of 65536 cells; source character lists use native IntList cells too.
+limits. The `benchmarks/asgp30` list-output tasks set a limit of 65536 cells
+through the task's `list_allocation_limit`; source character lists use native
+IntList cells too.
 
 The GPU private IntList profile, admitted automatically per population, scores
 resident IntList outputs by content for Exact and Levenshtein, including exact

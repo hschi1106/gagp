@@ -1,290 +1,37 @@
 ---
 name: gagp-navigation
-description: Use when a GAGP coding task needs implementation or benchmark ownership, call paths, cross-module impact, or matching tests across native C++/CUDA, grammar evolution, payloads, or Python tooling. Skip when the edit and its contract/test are already localized.
+description: Use when a GAGP coding task needs to locate the implementation, contract and tests of a feature, or to judge cross-module impact. Skip when the edit and its test are already localized.
 ---
 
-# GAGP change navigation
+# GAGP navigation
 
-All paths below are relative to the repository root. GAGP's native flow is
-grammar definition and cases -> verified prefix-AST -> bytecode -> CPU/CUDA
-fitness -> shared ranking -> CPU/CUDA reproduction -> verified next population.
-Python tools orchestrate data and experiments; runtime semantics belong to C++.
-Treat routes as starting points: inspect the implementation, direct callers, and
-one matching test before editing. Expand only when the change crosses a boundary.
-If ownership remains unclear, read only the `Dependency direction`,
-`Component boundaries`, or `Evolution` section of
-`docs/design/architecture.md`, not the entire design document.
-The main orchestration symbol is `evolve_population`; CLI commands reach it
-through `parse_cli_options` and `run_evolve_command`.
-For target ownership, use `cpp/CMakeLists.txt`: `gagp_runtime_cpu` links
-`gagp_core`; `gagp_evolution` adds `gagp_grammar` and CUDA `gagp_gpu` when
-enabled; `gagp_cli_support` composes evolution with the JSON/CLI codecs.
+Flow of one run: task, grammar and cases -> initial population -> verified
+AST -> bytecode -> CPU or CUDA fitness -> ranking -> reproduction (resident
+GPU engine, its CPU reference, or host AST reproduction) -> next population.
+The overview is `docs/design/architecture.md`; read the section you need, not
+the whole file. Read the owner, its direct callers and one matching test
+before editing; stop expanding once those and the governing spec are clear.
 
-| Task or symptom | Read first and follow | Contract and validation |
-| --- | --- | --- |
-| CLI option, command dispatch, or artifact replay | `cpp/src/cli/options.cpp`, `cpp/src/cli/commands.cpp`, then the relevant entry under `cpp/src/cli/` and target in `cpp/CMakeLists.txt` | `docs/reference/cli.md`; `cpp/tests/runtime/test_cli_options.cpp` (`gagp_test_cli_options`) or `gagp_test_evolve_cli_contract` (`ctest -R '<target>'`) |
-| Grammar definition, generation, membership, or variation | `cpp/src/evolution/grammar/definition.cpp`, `cpp/src/evolution/grammar/compiled.cpp`, `cpp/src/evolution/grammar/generate.cpp`, `cpp/src/evolution/grammar/membership.cpp`, `cpp/src/evolution/grammar/variation.cpp`, `cpp/src/evolution/grammar/crossover.cpp`, and `cpp/src/evolution/grammar/mutation.cpp`; inspect `cpp/src/evolution/population_init.cpp` or `cpp/src/evolution/repro/grammar_prep.cpp` if its caller is affected | `spec/grammar_definition.md`, `docs/guides/grammar-authoring.md`; matching tests `gagp_test_grammar_definition`, `gagp_test_grammar_generation`, `gagp_test_grammar_membership`, `gagp_test_grammar_variation_contract`, `gagp_test_grammar_crossover`, `gagp_test_grammar_mutation`, or `gagp_test_grammar_reproduction`. Generated and accepted children must satisfy active grammar membership, not only AST type/scope checks |
-| AST node, type/scope rule, lowering, builtin, or bytecode behavior | `cpp/src/evolution/node_descriptor.cpp`, `cpp/src/evolution/ast_verify.cpp`, `cpp/src/evolution/ast_type_verify.cpp`, `cpp/src/evolution/compiler.cpp`; then CPU `cpp/src/runtime/cpu/` and the corresponding CUDA `cpp/src/runtime/gpu/` implementation when behavior is shared | `spec/grammar.md`, `spec/bytecode_isa.md`, and the relevant builtin spec; `gagp_test_compiler_lowering`, `gagp_test_ast_verify_exact_scope`, `gagp_test_ast_verify_structure`, `gagp_test_ast_verify_types`, and CPU/GPU parity tests when backend-visible |
-| Fitness result or payload/sequence ownership | `cpp/include/gagp/core/fitness_policy.hpp` for configurable metrics, then `cpp/src/runtime/cpu/fitness_cpu.cpp`, `cpp/src/runtime/gpu/fitness_gpu.cu` (`FitnessSessionGpu::eval_programs`), `cpp/src/runtime/view_profile.hpp` for shared opt-in capability proofs, `cpu/list_views.hpp` for invocation-owned CPU window views, `gpu/view_profile.hpp` for GPU root admission and `device/window_execution_device.cuh` for admitted window execution, `cpp/src/runtime/payload/payload.cpp`, `cpp/src/runtime/gpu/host_pack_gpu.cu`; inspect `PayloadLifetimeManager` in `cpp/src/evolution/lifecycle.cpp` if retention changes | `spec/fitness.md`, `docs/design/payload.md`; `gagp_test_payload_staging`, `gagp_test_compiled_payload_evolution_gpu`, and `gagp_test_fitness_cpu_gpu_parity` when shared semantics change. Preserve payload lifetime, typed tags, error/fuel results, and documented fallback behavior |
-| Evolution, reproduction, or overlap scheduling | `evolve_population` in `cpp/src/evolution/evolve.cpp`, `cpp/src/evolution/lifecycle.cpp` (`gpu_reproduction_overlap_enabled`), `cpp/src/evolution/repro/prep.cpp`, `cpp/src/evolution/repro/pack.cpp`, `cpp/src/evolution/repro/gpu.cpp` (opt-in scalar selected-site preparation uses private `grammar/selected_variation.hpp` and execution-only canonical admission; `grammar/owned_population.hpp` owns optional immutable scalar admission continuations), then `cpp/src/evolution/repro/gpu/launch.cu` and only the affected device kernel; isolated lowering prototype `gpu/device/phase_compile.cuh` is tested by `gagp_test_gpu_phase_compile`; experimental GPU donor construction uses `gpu/phase_donors.cu`, `gpu/phase_grammar.hpp` and `gpu/device/phase_generate.cuh`, with `gagp_test_gpu_phase_generate` for independent grammar checks | `docs/design/dataflow.md`, `docs/design/gpu-reproduction.md`; `gagp_test_evolution_pipeline`, `gagp_test_grammar_reproduction`, and relevant GPU/evolution parity tests. Selection consumes completed fitness; overlap changes preparation scheduling and payload lifetime |
-| Performance measurement or GPU optimization | `cpp/src/bench/final_candidate_bench.cpp`, `cpp/src/evolution/timing.cpp`; for migration comparisons, `tools/gagp_tools/experiments/grammar_migration.py` and its matching report module | `docs/guides/benchmarking.md`, `docs/guides/experiment-protocol.md`, `docs/reference/grammar-migration/README.md`; enable benchmark targets explicitly in CMake. Keep binary, inputs, and mode identity fixed; use `nsys` for GPU timelines; do not use `ncu` in this environment |
-| Python operational command or experiment report | `tools/gagp_tools/cli.py` dispatch -> the matching module under `tools/gagp_tools/`; inspect its direct caller and paired `tools/tests/` test | `tools/README.md` for workflow; Python tools do not define product execution semantics |
-| Fixed ASGP/GAGP comparison or the research mainline | `docs/design/research-mainline.md` for owners; `cpp/src/bench/fixed_asgp/main.cpp` (`dataset`, `freeze`, `prepare`, `measure`, `quality-source`) and `adapter.cpp` for translation and timing; phase population in `cpp/src/evolution/evolve.cpp` (`run_phase_population`, `run_phase_population_steady`), `repro/gpu/phase_population.cu`, `repro/gpu/phase_population_cpu.cpp`, `repro/gpu/phase_operators.cuh`; exact engine defaults in `cpp/include/gagp/core/engine_profile.hpp`; task grammars from `tools/gagp_tools/experiments/fixed_asgp/grammar.py` (`source_grammar.py`, `dp_grammar.py`); the scale experiment harness in `benchmarks/final-scale-20261103/tools/` | `docs/guides/fixed-asgp-benchmark.md`, `spec/search_config.md`; `gagp_test_phase_population_cpu_reference` (and its `_mainline` entry), `gagp_test_engine_profile`, `gagp_test_search_config`, `tools/tests/test_fixed_asgp.py`, optional `gagp_test_fixed_asgp_bench`. Optimization remains GPU evaluation plus GPU reproduction; the CPU modes are controls and the reference. Preserve frozen input hashes and complete search timing |
-| Build target, test registration, or preset failure | `cpp/CMakeLists.txt`, `cpp/CMakePresets.json`, then the target's source/test | `docs/guides/development.md`; verify the named CTest target exists before running it |
+| Task | Start in | Contract | Tests |
+| --- | --- | --- | --- |
+| `gagp` command, option, task or result format | `cpp/src/cli/gagp_main.cpp`, `run.cpp`, `task.cpp`, `search_config.cpp`, `grammar_author.cpp`, `grammar_generate.cpp` | `spec/task.md`, `spec/search_config.md`, `docs/reference/cli.md` | `gagp_test_cli`, `gagp_test_search_config`, `gagp_test_repository_contract` |
+| JSON codecs for programs, bytecode, cases | `cpp/src/cli/codec.cpp`, `program_json.cpp`, `region_codec.cpp`, `json.cpp` | `spec/grammar.md`, `spec/bytecode_format.md`, `spec/fitness_cases.md` | `gagp_test_cli_json`, `gagp_test_fixture_codec`, `gagp_test_region_codec` |
+| Grammar loading, generation, membership, variation | `cpp/src/evolution/grammar/` (`definition.cpp`, `compiled.cpp`, `generate.cpp`, `membership.cpp`, `crossover.cpp`, `mutation.cpp`) | `spec/grammar_definition.md`, `docs/guides/grammar-authoring.md` | `gagp_test_grammar_*` |
+| AST node, typing, lowering | `cpp/src/evolution/node_descriptor.cpp`, `ast_verify.cpp`, `ast_type_verify.cpp`, `compiler.cpp` | `spec/grammar.md`, `spec/bytecode_isa.md` | `gagp_test_compiler_lowering`, `gagp_test_ast_verify_*`, parity tests |
+| Builtin or bytecode semantics | `cpp/src/runtime/cpu/builtins_cpu.cpp`, `execute_bytecode_cpu.cpp`; the CUDA mirror in `cpp/src/runtime/gpu/device/` | `spec/builtins_base.md`, `spec/builtins_runtime.md`, `spec/bytecode_isa.md` | `gagp_test_runtime_*`, `gagp_test_fitness_cpu_gpu_parity`, `gagp_test_vm_gpu_smoke` |
+| Bounded regions (recursion, memo) | `cpp/src/runtime/region_plan.cpp`, `cpp/src/evolution/bounded_region.cpp`, `cpu/bounded_region.hpp`, `gpu/device/region_execution_device.cuh` | `spec/grammar_definition.md`, `spec/bytecode_isa.md` | `gagp_test_bounded_region*`, `gagp_test_region_*` |
+| Fitness metrics and payloads | `cpp/include/gagp/core/fitness_policy.hpp`, `cpu/fitness_cpu.cpp`, `gpu/fitness_gpu.cu`, `gpu/host_pack_gpu.cu`, `cpp/src/runtime/payload/payload.cpp` | `spec/fitness.md`, `docs/design/payload.md` | `gagp_test_fitness_contract`, `gagp_test_extended_payload_gpu`, `gagp_test_payload_*` |
+| Evolution loop, schedules, fallback | `evolve_population`, `run_phase_population`, `run_phase_population_steady` in `cpp/src/evolution/evolve.cpp` | `spec/search_config.md` | `gagp_test_evolution_pipeline`, `gagp_test_evolution_cpu_gpu_parity` |
+| Resident GPU engine | `cpp/src/evolution/repro/gpu/`: `phase_operators.cuh` (shared per-child steps), `phase_population.cu` (GPU), `phase_population_cpu.cpp` (CPU reference), `phase_layout.hpp`, `phase_grammar.hpp`, `device/phase_compile.cuh` | `docs/design/gpu-reproduction.md`, `spec/search_config.md` | `gagp_test_phase_population_cpu_reference`, `gagp_test_gpu_phase_*`, `gagp_test_phase_whole_program` |
+| Host AST reproduction | `cpp/src/evolution/repro/backend.cpp` | `spec/search_config.md` | `gagp_test_grammar_reproduction` |
+| Benchmarks | `benchmarks/run.py`, `benchmarks/asgp30/` | `benchmarks/README.md` | `gagp_test_bench_runner` |
+| Build or test registration | `cpp/CMakeLists.txt`, `cpp/CMakePresets.json` | `docs/guides/development.md` | check the test exists with `ctest -N` |
 
-The resident owner also supports explicit CPU training-reference verification
-(`evolution/fitness_verification.hpp` and `EvolutionConfig`) and diagnostic
-population checkpoints. The zero-cap private tuple allocation proof lives in
-`runtime/gpu/private_tuple_policy.hpp`, called by the GPU fitness admission path;
-its matching coverage is `gagp_test_extended_payload_gpu`. Operator site-depth
-sampling remains in the existing phase grammar/generation/variation route.
+Rules that matter across modules:
 
-## Validation selection
-
-Host parallelism defaults to one application CPU thread; owner is
-`cpp/include/gagp/core/host_threads.hpp`. `GAGP_HOST_THREADS=2..20` opts into
-workers. Single-thread GPU overlap uses the evaluator post-launch callback;
-fair ASGP comparisons explicitly use `GAGP_HOST_THREADS=1`.
-
-- Native focused checks: `ctest --test-dir cpp/build -R '<test-name-regex>' --output-on-failure`.
-- Python tools and repository checks: use the two `unittest discover` commands
-  in root `AGENTS.md`; narrow discovery to the affected test when practical.
-- CUDA-enabled configuration fails if its compiler is unavailable; set
-  `CMAKE_CUDA_COMPILER` explicitly or choose `GAGP_ENABLE_CUDA=OFF` intentionally.
-- Run CPU/GPU parity checks only in a CUDA-enabled build with a usable device.
-  GPU paths choose the least-used visible device; `GAGP_CUDA_DEVICE` can select
-  one. GPU profiling uses `nsys` only; do not use `ncu` in this environment.
-  Formal timings are unprofiled.
-- Use the full suite when the change spans contracts or several modules, or when
-  a focused result cannot cover the affected boundary. Do not infer that an
-  unconfigured or skipped GPU test passed.
-
-## Stop rule
-
-Stop expanding the read set once the changed owner, affected callers, governing
-contract, and matching tests are clear. For implementation-time documentation
-maintenance, follow the rules in root `AGENTS.md`.
-
-- Private evaluation identity/executable lookup: `cpp/src/evolution/grammar/evaluation_identity.hpp`, implemented beside certificates in `membership.cpp`; regression coverage in `test_grammar_membership.cpp`.
-- Native immutable crossover continuation: `grammar/owned_population.hpp` (`from_gpu_pass`), `repro/compiled_decode.cpp`, `repro/gpu.cpp`; safety coverage in `cpp/tests/gpu/test_compiled_transport_gpu.cu`. Paths without `cpp/` are relative to `cpp/src/evolution/`.
-
-- Native phase-population operators and engines: per-child bodies in `repro/gpu/phase_operators.cuh` (host+device), GPU owner `repro/gpu/phase_population.cu`, CPU reference `repro/gpu/phase_population_cpu.cpp`, exact choice tables `repro/gpu/phase_choice_tables.hpp`, shared loops `run_phase_population` (generational) and `run_phase_population_steady` (synchronous batch steady state, owner `make_batch`/`evaluate_batch`/`commit_batch`) in `evolve.cpp`. Exact engine defaults: `cpp/include/gagp/core/engine_profile.hpp` (`gagp::engine_env`, test `gagp_test_engine_profile`). Search semantics: `gagp/evolution/search_policy.hpp` and `gagp-search-config-v1` (`spec/search_config.md`, parser `cpp/src/cli/search_config.cpp`). Tests: `gagp_test_phase_population_cpu_reference` (CPU vs GPU identical searches), `gagp_test_search_config`.
-- Isolated GPU subtree variation primitive: `cpp/src/evolution/repro/gpu/device/phase_variation.cuh`, host capability check `gpu/phase_variation.hpp`, test `gagp_test_gpu_phase_variation`. It underlies the opt-in native GPU genotype; grammar-site construction metadata is distinct from canonical admission. Unsupported scope/variation/resource policies decline the profile.
-- Cold GPU genotype import/export adapter: `cpp/src/evolution/repro/gpu/phase_layout.hpp`, test `gagp_test_gpu_phase_layout`; `gpu/phase_population.cu` owns live GPU selection/variation/lowering, reached through `GAGP_GPU_PHASE_POPULATION` in `evolve.cpp`. `gagp_test_gpu_phase_population` covers full-case cross-generation CPU reevaluation, capacity rejection and explicit legacy fallback.
-- GPU owner-only executable packing proof: `cpp/src/runtime/gpu/owned_programs.hpp`; only `NativePhasePopulation` constructs a borrowed view. `FitnessSessionGpu` and `host_pack_gpu.cu` consume it synchronously. External bytecode packing remains fully verified; `gagp_test_gpu_phase_population` compares owned, ordinary GPU and independent CPU evaluation every generation. `GAGP_OWNED_PHASE_PACKED` keeps private static packed tables plus current GPU-lowered phases; `programs()` materializes the reference on demand, and wrong-input-type sessions do so before fallback analysis. Specialization settings are owner-lifetime-fixed; direct metadata refresh lives in `refresh_owned_phase_patterns`.
-- Opt-in single-coordinate executor: `gpu/device/coordinate_execution_device.cuh`, capability selection in `fitness_gpu.cu`, frame slicing in `device/kernels.cuh`; regression matrix and full-case multi-program isolation in `gagp_test_bounded_region_gpu`. Shape fallback and original fuel/memo capacity semantics remain required.
-- `GAGP_GPU_DENSE_COORDINATE_MEMO`: `gpu/dense_coordinate_memo.hpp` proves complete literal Int coordinate domains; `gpu/device/region_execution_device.cuh` reuses invocation-owned key backing for dense lookup. Ownership/profile gate: `gpu/fitness_gpu.cu`. Contract: `docs/design/architecture.md`; tests: `gagp_test_bounded_region_gpu_results` (`dense_coordinate_memo_checks.cuh`). Paths relative to `cpp/src/runtime/` unless stated otherwise.
-- Owned compact/generic capability buckets use index-mapped launches in `gpu/fitness_gpu.cu` and `device/kernels.cuh`, enabled by `GAGP_PHASE_CAP_BUCKETS`; native reproduction block scheduling uses `GAGP_PHASE_REPRO_THREADS` in `repro/gpu/phase_population.cu`. `gagp_test_gpu_phase_population` covers mixed stack bounds, original output ordering, partial offset-scan tiles, and independent CPU reevaluation. These settings do not alter the search rules.
-
-- Optional native CPU deferred site analysis and reproduction-call-local selected
-  parent ownership: `repro/backend.cpp`, `grammar/crossover.cpp`,
-  `grammar/variation_internal.hpp`; flags `GAGP_CPU_LAZY_ANALYSIS` and
-  `GAGP_CPU_SELECTED_PARENTS`, tests `gagp_test_grammar_reproduction`.
-  Scalar-only ownership cannot cross reproduction calls; mutable/registry-backed
-  inputs keep full admission. This is the native CPU control path, not GPU repro.
-
-- `GAGP_CPU_SELECTED_MUTATION`: native `grammar/mutation.cpp` constructs just
-  the exact selected logical subtree site via `selected_variation.hpp`; ordinary
-  constant/projected-budget paths remain. Differential RNG/site coverage is in
-  `gagp_test_grammar_reproduction`.
-
-- Opt-in CPU compact phase execution: `runtime/cpu/typed_phase.hpp` and session-owned binding tables in `region_adapter.hpp`; `list_views.hpp` admits coordinate capture views, `recurrence_memo.hpp` owns bounded dense CPU memo slots. `coordinate_region.hpp` selects compact one-coordinate CPU frames after cached segment capability checks; other shapes keep the generic driver. These are CPU evaluator optimizations, not reproduction backends. Validate `gagp_test_cpu_execution_session`, `gagp_test_recurrence_memo`, `gagp_test_region_execution`, `gagp_test_bounded_region_sequence_compile` and CPU/GPU fitness parity. Paths are relative to `cpp/src/`.
-- `GAGP_CPU_COUNTED_PAIRS`: native `grammar/crossover.cpp` groups exact
-  compatibility keys and uniformly selects a rank over all feasible pairs.
-  This changes RNG trajectories, not the feasible-pair distribution. Nonlocal
-  projected-resource trial paths stay reservoir-based. Oracle/replay coverage
-  is in `gagp_test_grammar_reproduction` and `gagp_test_derivation_resources`.
-
-- `GAGP_GPU_INPLACE_MUTATION`: `repro/gpu/phase_population.cu` splices GPU mutation into a per-child temporary, then publishes only the changed phase to the crossed population. No input/output splice aliasing or RNG changes; `gagp_test_gpu_phase_population` compares both paths for 32 generations and full-case CPU audit.
-
-- `GAGP_GPU_FUSED_DONOR_SITES`: private mutation generation emits exact construction sites in `gpu/device/phase_generate.cuh`; `gpu/phase_population.cu` chooses a dedicated kernel specialization. Import annotation remains independent. `gagp_test_gpu_phase_variation` compares sites to the annotation oracle and exercises scoped/unscoped generations.
-- Opt-in fused single-root witness admission: `grammar/membership.cpp`, flag
-  `GAGP_CPU_FUSED_ADMISSION`; exact node-local production proofs and repeated-hole
-  checks replace the duplicated matching traversal, with ambiguous/alias fallback.
-  It also affects public reconstruction and GPU imports; speculative work guard
-  accounting differs. Contract: `spec/grammar_definition.md`; differential tests
-  in `gagp_test_grammar_membership`, reproduction/resources tests above.
-
-- Private scalar admission/compaction continuation: `grammar/membership.cpp`
-  (`admit_and_compact_execution`), reached from `grammar/variation.cpp` through
-  `GAGP_CPU_COMPACT_ADMISSION`. Original input is admitted before compaction;
-  changed name tables rerun ordinary reconstruction. Fresh scalar single-root
-  inputs only; proof is sealed against the final AST. Tests:
-  `gagp_test_grammar_membership`, `gagp_test_grammar_reproduction`.
-
-- `GAGP_GPU_CONSTRUCTIVE_EXPORT`: private `NativePhasePopulation::Impl::finish_export` in `gpu/phase_population.cu` omits optional canonical export caches using the live grammar-construction invariant. External import stays strict. `gagp_test_gpu_phase_population` clears supplied derivations for all-member grammar/CPU validation and checks owner lifetime, exact AST replay and modified-export rejection.
-
-- `GAGP_COLD_PAYLOAD_PROOFS=1`: `evolution/grammar/cold_admission.hpp`
-  scopes cold replay/import membership reads in existing payload snapshots;
-  `evolution/population_init.cpp` and `evolution/repro/gpu/phase_layout.hpp`
-  retain exact certificates only after read-only validation. Writes/conflicts
-  discard speculative results and retry ordinary admission. This is not a hot
-  generation transaction or registry-bytecode trust. Test:
-  `gagp_test_grammar_membership`; integration: `gagp_test_gpu_phase_layout`.
-
-- `GAGP_COLD_IMPORT_EXECUTABLES` additionally retains the already-lowered immutable artifact in cold read-snapshot certificates. Private lookup in `evolution/grammar/cold_admission.hpp`/`membership.cpp` checks decoded identity plus exact raw constant Values and publishes only after snapshot validation; public registry executable reuse stays declined. Contract/tests follow the cold-proof owners above.
-
-- `GAGP_FUSED_COLD_EXECUTABLE=1` returns the executable from the admission that
-  just validated it, avoiding a second identity serialization. The same private
-  cold-proof owners enforce actual input order, registry raw values and snapshot
-  publication; `repro/gpu/phase_layout.hpp` consumes the artifact. GPU bytecode
-  checks remain unchanged. Tests: `gagp_test_grammar_membership`,
-  `gagp_test_gpu_phase_population`.
-
-- `GAGP_REUSE_IMPORT_CERTIFICATE`: `repro/gpu/phase_layout.hpp` retains only
-  identity-checked private admission/executable caches on cold import. External
-  mutations, grammar/request and evaluator input order still pass validation.
-  Contract: `docs/design/gpu-reproduction.md`; test: `gagp_test_gpu_phase_layout`.
-
-- `GAGP_PREPARED_CASE_VIEWS`: `runtime/gpu/fitness_gpu.cu` prepares per-evaluation
-  private list views only for admitted view programs with list parameters.
-  Raw session inputs remain available for generic fallback. Ownership/timing:
-  `docs/design/payload.md`; test: `gagp_test_bounded_region_gpu_results`.
-
-- Native owner reproduction work policies: `GAGP_GPU_DEFERRED_CROSSOVER_COPY`
-  and `GAGP_GPU_FUSED_SPLICE_DEPTH` in `repro/gpu/phase_population.cu` and
-  `gpu/device/phase_variation.cuh`; compact indexed lowering frames use
-  `GAGP_GPU_COMPACT_COMPILE_FRAMES` and `gpu/device/phase_compile.cuh`.
-  These retain logical sites, scopes, RNG and fuel; no persistent shared genotype
-  or incremental executable cache is introduced. Tests:
-  `gagp_test_gpu_phase_population`, `gagp_test_gpu_phase_compile`.
-  Paths are relative to `cpp/src/evolution/` unless starting with `gpu/`, which
-  is relative to `cpp/src/evolution/repro/`. Contract and owner lifetimes:
-  `docs/design/gpu-reproduction.md`.
-
-- Experimental `GAGP_GPU_PRIVATE_INTLIST_OFFSETS`: shared typeflow in
-  `runtime/view_profile.hpp`, existing arena builtins and resident scoring under
-  `runtime/gpu/device/`, private `OwnedGpuPrograms` capability composed with
-  each fresh `phase_compile.cuh` result in `repro/gpu/phase_population.cu`.
-  Contract: `docs/design/payload.md`; tests `gagp_test_extended_payload_gpu`,
-  `gagp_test_gpu_phase_compile`, `gagp_test_gpu_phase_population`. Paths are
-  relative to `cpp/src/` (the reproduction paths under `evolution/`).
-
-- Optional `GAGP_GPU_PRIVATE_ADJACENT_CONCAT`: immutable adjacent-span reuse
-  and separate ordinary/physical arena cursors in
-  `runtime/gpu/device/builtins_device.cuh`; compact/non-SoA admission in
-  `runtime/gpu/fitness_gpu.cu`; state propagation in
-  `device/execute_bytecode_device.cuh` and `device/kernels.cuh`. Contract:
-  `docs/design/payload.md`. Tests: `gagp_test_extended_payload_gpu`,
-  `gagp_test_gpu_phase_population`. Runtime paths are relative to `cpp/src/`.
-- Resident payload scoring is shared by the VM and focused GPU probes through `cpp/src/runtime/gpu/device/resident_score_device.cuh`; keep full VM execution headers out of probe translation units that also link `gagp_gpu`.
-- GPU fitness accumulator identity shortcut: `runtime/gpu/device/fitness_accumulator.cuh`, checked by `gagp_test_fitness_accumulator_gpu`. `GAGP_GPU_COALESCED_COUNTS` in `runtime/gpu/fitness_gpu.cu` and `device/kernels.cuh` changes only integer counter updates; partial-warp and changing-population coverage is in fitness parity and `gagp_test_gpu_phase_population`. Contract: `docs/design/payload.md`. Paths relative to `cpp/src/`.
-- Optional `GAGP_GPU_INTEGER_CASE_REUSE`: exact integer-score/multiplicity proof in `runtime/gpu/case_reuse.hpp`, session admission/weighted view launches in `runtime/gpu/fitness_gpu.cu`, weighted case/status updates in `device/kernels.cuh`. Tests: `gagp_test_fitness_contract`, `gagp_test_gpu_phase_population`; contract: `docs/design/payload.md`. Initial physical case counts remain distinct from logical coverage and replay. Paths relative to `cpp/src/`.
-- Guarded GPU integer division/modulo lives in `runtime/gpu/device/integer_arithmetic.cuh`; `gagp_test_fitness_accumulator_gpu` includes the independent CPU arithmetic oracle. Optional `GAGP_GPU_SIMPLE_PHASES` patterns refresh in `runtime/gpu/host_pack_gpu.cu`, dispatch in `device/region_execution_device.cuh`, and execute through `device/simple_phase_device.cuh`. Admission still requires complete private typeflow/global normalization in `fitness_gpu.cu`. Tests: `gagp_test_gpu_phase_population`; contract: `docs/design/payload.md`. Paths relative to `cpp/src/`.
-- Optional `GAGP_GPU_SHAPE_RESULT_CACHE`: input-shape partition in `runtime/gpu/case_reuse.hpp`, additional fresh typed/direct-root dependency proof in `shape_result_cache.hpp`, session/shared-memory admission in `fitness_gpu.cu`, root result reuse with original per-case scoring in `device/kernels.cuh`. Tests: `gagp_test_fitness_contract`, `gagp_test_bounded_region_gpu`, `gagp_test_gpu_phase_population`; contract: `docs/design/payload.md`. Paths relative to `cpp/src/`.
-- Optional `GAGP_GPU_PRIVATE_CELL_SOA`: private compact-cell layout admission in
-  `runtime/gpu/fitness_gpu.cu`, physical block columns in `device/kernels.cuh`,
-  strided private spans/copies in `device/builtins_device.cuh`, state setup in
-  `device/execute_bytecode_device.cuh`; workspace fields in
-  `cpp/include/gagp/runtime/gpu/region_types_gpu.hpp`. Check
-  `gagp_test_extended_payload_gpu` and `gagp_test_gpu_phase_population`;
-  ownership/capacity rules are in `docs/design/payload.md`. Runtime paths above
-  are relative to `cpp/src/`.
-- Optional `GAGP_GPU_SHORT_EDIT_DISTANCE`: `runtime/gpu/fitness_gpu.cu` prepares
-  immutable per-case masks through `short_edit_patterns.hpp`; workspace pointers
-  pass through `device/execute_bytecode_device.cuh` to `resident_score_device.cuh`
-  and `short_edit_device.cuh`. The full-width one-word update and identity/range
-  checks are in `short_edit_distance.hpp`; long labels retain ordinary DP.
-  Tests: `gagp_test_extended_payload_gpu`, `gagp_test_gpu_phase_population`;
-  contract: `docs/design/payload.md`. Paths are relative to `cpp/src/`.
-- Optional `GAGP_GPU_RELAXED_VIEW_REGISTERS`: additional512-thread launch-bound specialization in `runtime/gpu/device/kernels.cuh`, guarded dispatch/profile in `fitness_gpu.cu`. Physical block widths and reduction lanes are unchanged;1024-thread requests retain the old kernel. Tests/contract are the shape-cache owners above. Paths relative to `cpp/src/`.
-- Optional `GAGP_GPU_PRIVATE_LAUNCH_BOUND`: indexed-arena32/512/1024 compile bounds, private-list-only initial/replay dispatch in `runtime/gpu/fitness_gpu.cu`; physical32 threads and logical score lanes stay fixed. Boundary/overflow/fuel coverage: `gagp_test_bounded_region_gpu`; changing GPU populations: `gagp_test_gpu_phase_population`. Contract: `docs/design/payload.md`. Paths relative to `cpp/src/`.
-
-- `GAGP_GPU_COMPACT_INTLIST_CELLS` adds typed int64 local storage only under
-  the private IntList proof above. The existing arena VM owns typed span reads
-  in `cpp/src/runtime/gpu/device/builtins_device.cuh` and resident scoring in
-  `resident_score_device.cuh`; `fitness_gpu.cu` owns byte accounting/allocation.
-  Contract and tests are the same private-list owners above.
-  `GAGP_GPU_REUSE_PRIVATE_WORKSPACE` optionally retains one session-owned
-  allocation for those cells/frames/memo, repartitioned after synchronization;
-  `fitness_gpu.cu` accounts retained capacity plus current auxiliary scratch.
-  Allocation/resident-byte diagnostics flow through evolution timing and fixed
-  benchmark JSON. `test_reusable_private_workspace` covers headroom, dirty reuse,
-  callbacks, moves, reset and fallback. The same 32-generation owner audit covers
-  current pooled execution.
-
-- `GAGP_GPU_PRIVATE_GLOBAL_OFFSETS`: `runtime/gpu/private_global_offsets.hpp` checks host descriptors; `runtime/gpu/fitness_gpu.cu` prepares current-table cases/constants and reuses the prepared-case upload for initial/replay execution. Contract: `docs/design/payload.md`; tests: `gagp_test_extended_payload_gpu`, `gagp_test_gpu_phase_population`.
-- `GAGP_GPU_TRIVIAL_PHASES`: `runtime/gpu/host_pack_gpu.cu` refreshes constant/single-Load metadata (up to eight declared bindings); `runtime/gpu/device/region_execution_device.cuh` consumes it only in admitted private arenas. Contract: `docs/design/payload.md`; static counts: `docs/reference/trivial-private-phase-counts.json`; tests: `gagp_test_bounded_region_gpu_results`, `gagp_test_gpu_phase_population`. Paths relative to `cpp/src/` unless stated otherwise.
-- `GAGP_GPU_PRIVATE_BOUND_PHASES`: `runtime/gpu/fitness_gpu.cu` gates existing compare/add metadata dispatch in `runtime/gpu/device/region_execution_device.cuh` on the current private-arena proof; matchers are unchanged. Contract: `docs/design/payload.md`; tests: `gagp_test_bounded_region_gpu_results`, `gagp_test_gpu_phase_population`.
-- `GAGP_GPU_PRIVATE_TYPED_PHASES`: `runtime/gpu/fitness_gpu.cu` requires complete current global normalization plus private typeflow; `runtime/gpu/device/view_phase_device.cuh` reuses the typed loop with private builtins and `region_execution_device.cuh` binds captures lazily. Contract: `docs/design/payload.md`; tests: `gagp_test_bounded_region_gpu_results`, `gagp_test_extended_payload_gpu`, `gagp_test_gpu_phase_population`.
-- `GAGP_GPU_PRIVATE_WARP_COPY`: `runtime/gpu/fitness_gpu.cu` requires private compact storage; `runtime/gpu/device/builtins_device.cuh` cooperates only among sampled active lanes on checked global-buffer copies, with initial/final memory ordering barriers. Contract: `docs/design/payload.md`; tests: `gagp_test_bounded_region_gpu_results`, `gagp_test_gpu_phase_population`.
-
-- `GAGP_GPU_PRIVATE_MEASURE_CACHE` extends the existing Measure-only preparation
-  cache to admitted private arenas; dependency admission/build lives in
-  `runtime/gpu/device/kernels.cuh`, hits in `region_execution_device.cuh`, and
-  actual-block shared-memory admission/launch sizing in `runtime/gpu/fitness_gpu.cu`.
-  Contract: `docs/design/payload.md`; tests: `gagp_test_bounded_region_gpu`,
-  `gagp_test_bounded_region_gpu_results`, `gagp_test_gpu_phase_population`.
-  Paths relative to `cpp/src/`.
-
-- `GAGP_GPU_PRIVATE_WINDOW_EXECUTOR` admits existing tagged compact arena frames
-  to the two-window driver in `runtime/gpu/device/window_execution_device.cuh`;
-  selection and replay propagation live in `runtime/gpu/fitness_gpu.cu`, with
-  flavor dispatch in `device/region_execution_device.cuh`. Contract:
-  `docs/design/payload.md`; tests: `gagp_test_bounded_region_gpu` and
-  `gagp_test_gpu_phase_population`. Paths relative to `cpp/src/` (device dispatch
-  under `runtime/gpu/`). Private results are IntList; unboxed/SoA stays view-only.
-
-
-- Projected shape inputs use fresh root/phase LOAD dependencies in
-  `cpp/src/runtime/gpu/shape_result_cache.hpp`; bounded session partitions live
-  in `shape_partition_cache.hpp`, with device offsets in `device_types_gpu.hpp`.
-  `GAGP_GPU_PROJECT_SHAPE_INPUTS` retains complete typed admission. Contract:
-  `docs/design/payload.md`; tests: fitness-contract, bounded-region GPU and
-  phase-population GPU.
-- Small typed phase register banks live in
-  `cpp/src/runtime/gpu/device/phase_register_bank.cuh`; `view_phase_device.cuh`
-  owns the shared VM/storage interface and `region_execution_device.cuh` guards
-  each fresh bound. `GAGP_GPU_REGISTER_PHASE_STACK` uses the normal fitness
-  workspace/execution-table flag path. Test `gagp_test_phase_register_gpu` adds
-  the independent storage oracle; integrated tests/contracts are the owners above.
-- `GAGP_GPU_VIEW_PHYSICAL_BLOCK` separates typed-view physical thread geometry
-  from original logical score lanes in `fitness_gpu.cu` / `device/kernels.cuh`.
-  Reserve all logical shared scores and stride cases by logical lanes. Native
-  evaluation timing/benchmark rows expose physical launch width. Contract/tests
-  are the same owners above; no operator, case or reduction-budget change.
-
-- Optional `GAGP_GPU_DENSE_CASE_LANES` / `GAGP_GPU_DENSE_CASE_TILES` map arena
-  case ordinals to original logical score slots in `fitness_gpu.cu` and
-  `device/kernels.cuh`; dense tiled initial/replay buffers stay in the payload
-  budget and `reduce_dense_case_tiles` preserves both canonical reductions.
-  `GAGP_GPU_CASE_VIEW_BLOCK` uses case counts/current compiled phase features;
-  `GAGP_GPU_VIEW_BOUND128` guards narrow direct-root compilation.
-  `GAGP_GPU_SPECIALIZE_PRIVATE_LAYOUT` exposes an admitted compact private
-  layout to a separate indexed-arena instantiation, with ordinary fallback.
-  Flags/guards are documented only in `docs/design/payload.md`; tests:
-  extended-payload GPU, bounded-region GPU and phase-population GPU.
-
-- Exact unchanged native-offspring fitness reuse: `repro/gpu/completed_fitness_reuse.hpp`
-  owns generation/revision scope; post-elite equality in `phase_population.cu`
-  supplies sealed parent maps. `FitnessSessionGpu` validates session-local
-  completed counters, and `device/kernels.cuh` skips certified rows. Contract:
-  `docs/design/gpu-reproduction.md`; tests `gagp_test_gpu_phase_population` and
-  `gagp_test_fitness_contract`. No public reuse factory or serialized proof.
-  Optional cross-parent lookup uses `evolution/repro/gpu/parent_fitness_cache.cuh`:
-  GPU hashes locate candidates, full genotype equality authorizes reuse, and
-  session/generation guards remain in `completed_fitness_reuse.hpp`.
-
-- Native default-stream allocation scope: `runtime/gpu/cuda_allocation_scope.hpp`
-  and `allocation_pool.cu`, C++ caller in `evolution/evolve.cpp`. Pointer ownership
-  survives the native scope when an outer session retains workspace; late frees
-  release that pool. Public internal wrappers are in
-  `include/gagp/runtime/gpu/allocation_gpu.hpp`, called by host packing, fitness
-  allocation and native phase buffers. Contract: `docs/design/gpu-reproduction.md`;
-  tests `gagp_test_cuda_allocation_pool`, `gagp_test_gpu_phase_population`. This
-  does not change physical workspace caps or activate pooling in generic streams.
-
-- Exact single-elite reduction: `evolution/repro/gpu/linear_elite.cuh` and
-  `phase_population.cu`; `GAGP_GPU_LINEAR_ELITE=1` selects the linear GPU path
-  only for one elite, retaining the existing tie rule and zero/multiple-elite
-  behavior. Contract: `docs/design/gpu-reproduction.md`; ordering and full
-  evolution checks: `gagp_test_linear_elite_gpu`, `gagp_test_gpu_phase_population`.
-
-- Sequential native stage backing: `runtime/gpu/cuda_stage_storage.hpp`,
-  `stage_storage_gpu.hpp` and `stage_storage.cu`; `phase_population.cu` owns the
-  fixed current population and evaluation/reproduction scopes. Explicit fitness
-  workspace routes through `fitness_gpu.cu`; ordinary temporary allocations use
-  the existing pool wrappers. Contract: `docs/design/gpu-reproduction.md`;
-  tests `gagp_test_cuda_stage_storage`, `gagp_test_gpu_phase_population`.
-  Stage reserved/peak bytes are separate from logical genotype bytes in
-  `EvolutionResult` and fixed-ASGP output; they are not additive physical VRAM.
+- The GPU engine and the CPU reference must publish identical results; any
+  engine change keeps `gagp_test_phase_population_cpu_reference` passing.
+- Anything that changes which programs are explored belongs in the search
+  configuration, implemented by both engines, never in an environment switch.
+- GPU paths pick the least used device; `GAGP_CUDA_DEVICE` forces one. Profile
+  with `nsys` only. A skipped GPU test is not a pass.

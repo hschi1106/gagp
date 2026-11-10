@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
-class TestGoal09CoreGuard(unittest.TestCase):
+class TestCoreGuard(unittest.TestCase):
     def production_sources(self) -> list[Path]:
         roots = (
             ROOT / "cpp" / "include" / "gagp",
@@ -62,28 +62,17 @@ class TestGoal09CoreGuard(unittest.TestCase):
             "cpp/tests/evolution/test_ast_verify_asgp.cpp",
             "cpp/tests/evolution/test_genome.cpp",
             "cpp/tests/runtime/test_asgp_semantics.cpp",
-            "tools/gagp_tools/experiments/capture_cpu_reproduction.py",
-            "tools/gagp_tools/experiments/capture_gpu_oracle.py",
-            "tools/gagp_tools/experiments/capture_migration_oracle.py",
+            "cpp/include/gagp/core/engine_profile.hpp",
+            "cpp/src/bench",
+            "tools",
         )
         self.assertEqual([], [path for path in retired if (ROOT / path).exists()])
 
-    def test_production_targets_do_not_link_migration(self) -> None:
+    def test_gagp_is_the_only_program(self) -> None:
         cmake = (ROOT / "cpp" / "CMakeLists.txt").read_text(encoding="utf-8")
-        for target in (
-            "gagp_core",
-            "gagp_runtime_cpu",
-            "gagp_gpu",
-            "gagp_grammar",
-            "gagp_evolution",
-            "gagp_cli_support",
-            "gagp_evolve_cli",
-            "gagp_generate_cli",
-        ):
-            links = re.findall(
-                rf"target_link_libraries\({target}\s+([^\)]*)\)", cmake, re.DOTALL
-            )
-            self.assertTrue(all("gagp_transition" not in one for one in links), target)
+        programs = [name for name in re.findall(r"add_executable\((\w+)", cmake)
+                    if not name.startswith(("gagp_test_", "gagp_fuzz_"))]
+        self.assertEqual(["gagp"], programs)
 
     def test_native_test_sources_are_registered(self) -> None:
         cmake = (ROOT / "cpp" / "CMakeLists.txt").read_text(encoding="utf-8")
@@ -95,14 +84,6 @@ class TestGoal09CoreGuard(unittest.TestCase):
             if path.name not in cmake and relative not in cmake:
                 unregistered.append(relative)
         self.assertEqual([], sorted(unregistered))
-
-    def test_current_presets_are_v2_definitions(self) -> None:
-        for name in ("all", "num_list", "scalar", "sequence", "string", "string_list"):
-            path = ROOT / "configs" / "grammar" / f"{name}.json"
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual("grammar-definition-v2", payload.get("format_version"), name)
-            self.assertNotIn("asgp", payload, name)
-            self.assertNotIn("expressions", payload, name)
 
     def test_numeric_holes_stay_reserved(self) -> None:
         opcode = (ROOT / "cpp" / "include" / "gagp" / "core" / "opcode.hpp").read_text(

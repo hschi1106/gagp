@@ -1,197 +1,117 @@
 # Development
 
-## Build configurations
+How to build, test and change GAGP. Read the
+[architecture](../design/architecture.md) and the
+[repository layout](../reference/repository-layout.md) first.
 
-The default native build includes the product CLI and maintained test targets.
-From the repository root:
+## Build
 
 ```bash
 cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug
 cmake --build cpp/build -j
 ```
 
-CUDA is enabled by default and configuration fails if its compiler cannot be
-found. Select `-DGAGP_ENABLE_CUDA=OFF` for CPU-only use, or pass
-`-DCMAKE_CUDA_COMPILER=/path/to/cuda/bin/nvcc` for a toolkit outside PATH. This
-prevents a requested CUDA test build from silently losing its GPU targets.
+This builds `gagp` and every test. Use a separate Release tree for timing.
 
-Grammar identities use system OpenSSL Crypto for SHA-256 when CMake finds it.
-OpenSSL is optional: without it, the built-in implementation is used. Configure
-with `-DGAGP_ENABLE_OPENSSL_SHA256=OFF` to explicitly select the built-in path.
-Both implementations produce identical grammar and cache identities; artifacts
-do not depend on which implementation built them.
+| CMake option | Default | Meaning |
+| --- | --- | --- |
+| `GAGP_ENABLE_CUDA` | `ON` | Build the GPU runtime and GPU tests; configuration fails if no CUDA compiler is found |
+| `GAGP_ENABLE_OPENSSL_SHA256` | `ON` | Use OpenSSL for grammar hashes when found; the built-in SHA-256 gives identical hashes |
+| `GAGP_ENABLE_SANITIZERS` | `OFF` | AddressSanitizer and UndefinedBehaviorSanitizer (CPU only) |
+| `GAGP_BUILD_FUZZERS` | `OFF` | libFuzzer targets (Clang, CPU only) |
 
-Install the dependency-free operational tools in a separate virtual
-environment. This editable install exposes `gagp-tools`, including the thin
-wrappers around the native grammar commands:
+`cpp/CMakePresets.json` defines the presets `debug`, `release`,
+`cuda-parity`, `sanitizer` and `fuzz`, each building into
+`cpp/build/<preset>`:
 
 ```bash
-python3 -m venv .venv-tools
-.venv-tools/bin/pip install -e tools
-.venv-tools/bin/gagp-tools --help
+cmake --preset release -S cpp
+cmake --build cpp/build/release -j
 ```
 
-Rebuild after changing C++ or CUDA. A grammar definition is JSON loaded at
-process startup, so editing one under `configs/grammar/` or `/tmp` needs only a
-fresh validate/generate/evolve command, not a rebuild or reinstall.
-
-`cpp/CMakePresets.json` also defines `debug`, `release`, `cuda-parity`,
-`sanitizer`, and `fuzz` configure presets. For example:
+## Test
 
 ```bash
-cmake --preset debug -S cpp
-cmake --build cpp/build/debug -j
-ctest --test-dir cpp/build/debug --output-on-failure
-```
-
-Benchmarks and experiment probes are excluded from the default graph. Enable
-them intentionally:
-
-```bash
-cmake -S cpp -B cpp/build/aux \
-  -DGAGP_BUILD_BENCHMARKS=ON \
-  -DGAGP_BUILD_EXPERIMENTS=ON
-cmake --build cpp/build/aux -j \
-  --target gagp_runtime_multi_bench gagp_simple_exp_population_probe
-```
-
-The experiment probe requires CUDA. See the
-[tooling reference](../reference/tooling.md) for ownership and support status.
-
-## Test layers
-
-Run the complete configured suite:
-
-```bash
-ctest --test-dir cpp/build --output-on-failure
-```
-
-Focused labels are available for `unit`, `contract`, `property`,
-`cpu_gpu_parity`, `gpu`, and `tooling`:
-
-```bash
-ctest --test-dir cpp/build -L contract --output-on-failure
-ctest --test-dir cpp/build -L property --output-on-failure
+ctest --test-dir cpp/build --output-on-failure                 # everything
+ctest --test-dir cpp/build -L gpu --output-on-failure          # GPU tests
 ctest --test-dir cpp/build -L cpu_gpu_parity --output-on-failure
-```
-
-The runtime semantic corpus is split into independently named scalar,
-control-flow, builtin, typed-value, lexical/traversal, and bounded-region contracts.
-Fixture data lives under `cpp/tests/fixtures/runtime/`; tests do not compile C++
-sources ad hoc.
-
-When Python 3 is available during CMake configuration, CTest also registers the
-runtime-independent repository contract suite with the `tooling` label. It can
-always be run directly, together with operational tool tests:
-
-```bash
 python3 -m unittest discover -s tests/repository -p 'test_*.py' -v
-python3 -m unittest discover -s tools/tests -p 'test_*.py' -v
 ```
 
-Neither suite imports a product/runtime Python package or needs `PYTHONPATH`.
+| Label | Covers |
+| --- | --- |
+| `unit` | Single components |
+| `contract` | Specified behavior: formats, errors, fuel, types |
+| `property` | Randomized and corpus checks |
+| `integration` | Whole runs through several components |
+| `gpu` | Needs a CUDA device |
+| `cpu_gpu_parity` | CPU and GPU produce identical results |
+| `tooling` | Repository checks (`tests/repository`) and the benchmark runner |
+
+The most important checks for engine changes:
+
+- `gagp_test_phase_population_cpu_reference`: the GPU resident engine and the
+  CPU reference engine produce identical populations, fitness values and
+  champions;
+- `gagp_test_fitness_cpu_gpu_parity` and `gagp_test_evolution_cpu_gpu_parity`:
+  the CPU and GPU evaluators agree;
+- `gagp_test_cli`: the command-line contract.
+
+`tests/repository` checks the documentation: relative links resolve, the
+indexes list every document, the [repository layout](../reference/repository-layout.md)
+matches the tree, and the [command reference](../reference/cli.md) lists exactly
+the options and environment variables the code accepts.
 
 ### Sanitizers and fuzzing
-
-The `sanitizer` preset is a CPU-only ASan/UBSan configuration:
 
 ```bash
 cmake --preset sanitizer -S cpp
 cmake --build cpp/build/sanitizer -j
 ctest --test-dir cpp/build/sanitizer -L 'unit|contract|property' --output-on-failure
-```
 
-The Clang-only `fuzz` preset builds bytecode-JSON and AST-JSON/prefix-stream
-libFuzzer targets. Copy the seed corpus before a campaign so minimized inputs do
-not modify the source tree:
-
-```bash
 cmake --preset fuzz -S cpp
-cmake --build cpp/build/fuzz -j \
-  --target gagp_fuzz_bytecode_json gagp_fuzz_ast_verify
-cp -a cpp/tests/fuzz/corpus/json /tmp/gagp-json-corpus
-cpp/build/fuzz/gagp_fuzz_bytecode_json -runs=1000 /tmp/gagp-json-corpus
-cpp/build/fuzz/gagp_fuzz_ast_verify -runs=1000 /tmp/gagp-json-corpus
+cmake --build cpp/build/fuzz -j --target gagp_fuzz_bytecode_json gagp_fuzz_ast_verify
+cp -a cpp/tests/fuzz/corpus/json /tmp/gagp-corpus
+cpp/build/fuzz/gagp_fuzz_bytecode_json -runs=1000 /tmp/gagp-corpus
+cpp/build/fuzz/gagp_fuzz_ast_verify -runs=1000 /tmp/gagp-corpus
 ```
 
-Keep any smallest reproducer as a named corpus or deterministic property-test
-regression.
+Copy the corpus first so a campaign does not modify the source tree. Keep a
+minimized reproducer as a corpus file or a property test.
 
-## Spec freeze
+## Benchmarks and profiling
 
-`benchmarks/spec_freeze.json` records hashes of the normative spec set. A spec
-change must update its conformance tests and this manifest in the same change:
+`python3 benchmarks/run.py run --quick` runs a smoke subset of the benchmark
+suite; see [benchmarks/README.md](../../benchmarks/README.md). Report speedups
+from Release builds without a profiler attached. Profile the GPU with Nsight
+Systems (`nsys profile cpp/build/gagp run ...`); `GAGP_GPU_DIAGNOSTICS=1` adds
+evaluation counters, and `GAGP_SEARCH_TRACE=1` prints per-generation timings.
 
-```bash
-python3 -m unittest tests.repository.test_spec_freeze -v
-```
+## Making changes
 
-## GPU run policy
+**A grammar or example.** Grammars are JSON read at run time; no rebuild is
+needed. Put reusable templates in `configs/grammar/packages/` and runnable
+examples with their cases in `configs/grammar/examples/` or `examples/`. The
+native code must never branch on a package or grammar name.
 
-GPU-capable native paths select the least-used visible CUDA device. To force a
-visible-device index:
+**A primitive or runtime behavior.**
 
-```bash
-GAGP_CUDA_DEVICE=0 cpp/build/gagp_evolve_cli \
-  --cases data/fixtures/simple_exp_1024.json \
-  --grammar-definition configs/grammar/benchmarks/simple_exp.json \
-  --engine gpu --repro-backend gpu --repro-overlap on \
-  --population-size 64 --generations 2
-```
+1. Find the owning specification in [spec/](../../spec/README.md) and the
+   compiler, verifier and CPU and CUDA runtime code that implement it.
+2. Change types, scopes, errors, fuel and resource bounds together. AST kinds
+   and opcodes are numbered; never reuse a retired number.
+3. Add contract tests and CPU/GPU parity coverage, registered in
+   `cpp/CMakeLists.txt`.
+4. Update the specification in the same change.
 
-Use `nsys` only when profiling is needed; do not use `ncu` in this environment.
+**The resident engine.** Every operator step is a `__host__ __device__`
+function in `phase_operators.cuh` shared by both engines. An optimization is
+accepted only if `gagp_test_phase_population_cpu_reference` and the parity
+tests still pass and exported champions and histories are unchanged. Anything
+that changes which programs are explored belongs in the
+[search configuration](../../spec/search_config.md), implemented by both
+engines; see [gpu-reproduction.md](../design/gpu-reproduction.md).
 
-## Native CLI
-
-[`../reference/cli.md`](../reference/cli.md) is the checked flag/default
-reference for `gagp_evolve_cli`. The parser requires `--cases`; `--help` is not
-a supported flag and exits through the unknown-argument error contract. Command
-stdout and top-level JSON keys are locked by the native CLI contract test.
-
-Compiled grammar definitions control generation and reproduction search space,
-not execution of a materialized AST/bytecode program. Operational use and
-offline release-1 conversion are in [grammar-config.md](grammar-config.md);
-the authoring loop is in [grammar-authoring.md](grammar-authoring.md);
-the production schema is normative in
-[`../../spec/grammar_definition.md`](../../spec/grammar_definition.md).
-
-## Related workflows
-
-- [Benchmarking](benchmarking.md): fixed-population timing and canonical runs
-- [PSB workflow](psb-workflow.md): datasets, regression, comparison, manifests
-- [Experiment protocol](experiment-protocol.md): controlled formal studies
-- [Operational tools](../../tools/README.md): unified commands and artifacts
-
-## Contributor workflow
-
-Start with the [repository map](../reference/repository-layout.md) and the
-[architecture boundaries](../design/architecture.md). Public C++ headers belong
-under `cpp/include/gagp`; implementation details stay with their owning module.
-Python `gagp_tools` handles orchestration and reports, never runtime semantics.
-Compatibility command wrappers are maintained entry points, not duplicate logic.
-
-For a grammar-only change, copy a checked root, adjust its JSON, validate it and
-run the authoring tutorial against matching cases. Add a new grammar package under
-`configs/grammar/packages` only when its definitions are reusable; keep runnable
-roots and cases under examples. Check generation, membership, variation and replay
-for the new package without adding package-name branches to the native core.
-
-For a primitive or behavior change:
-
-1. Identify the owning specification and catalog entry; read the matching compiler,
-   verifier and CPU/CUDA runtime callers before editing. The navigation routes in
-   [the repository skill](../../.agents/skills/gagp-navigation/SKILL.md) map these owners.
-2. Update types, scopes, error/fuel behavior and resource bounds together. Preserve
-   reserved numeric holes and versioned artifact contracts; document any deliberate
-   compatibility boundary in `VERSION.md`.
-3. Add meaningful native contract tests and CPU/GPU parity coverage. Register new
-   test sources in `cpp/CMakeLists.txt`; update operational tests only if tool flow
-   changes. Keep test fixtures small and independent of downloaded datasets.
-4. Run the affected checks, then the integration suite for cross-module changes.
-   Update the owning spec (and spec-freeze hash when changed), design, user guide
-   and navigation links only where their contract or ownership changed.
-
-Use `feat:`, `fix:`, `refactor:`, `docs:`, `test:` or `chore:` commits. Explain the
-observable change, validation and limitations in review. Do not commit generated
-builds, dataset mirrors, virtual environments or raw run logs. Retain compact,
-reviewed manifests and put unique raw evidence in a documented archive.
+Commits use `<type>: <summary>` with `feat`, `fix`, `refactor`, `docs`,
+`test` or `chore`. Do not commit builds, run outputs (`logs/`, `runs/`) or
+datasets.

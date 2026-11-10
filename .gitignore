@@ -42,3 +42,6 @@ data/*
 !data/fixtures/
 data/fixtures/*
 !data/fixtures/*.json
+
+# gagp run outputs from the guides
+runs/

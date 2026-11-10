@@ -12,7 +12,7 @@ Output: 15
 
 We will first look at the program we want to generate, then read its complete grammar, and finally give GP a choice of programs to search through.
 
-This is a tutorial. The [grammar definition specification](../../spec/grammar_definition.md) and [runtime builtins specification](../../spec/builtins_runtime.md) define the authoritative behavior. For broader project context, see the [Chinese project guide](project-guide.zh-TW.md).
+This is a tutorial. The [grammar definition specification](../../spec/grammar_definition.md) and [runtime builtins specification](../../spec/builtins_runtime.md) define the authoritative behavior.
 
 ## 1. What program do we want to generate?
 
@@ -531,7 +531,27 @@ flowchart TD
 
 The search space is deliberately small to illustrate how grammar choices define what GP can explore. Here, `Tutorial.Sum` fixes how to traverse the list, while `Tutorial.Step` determines the calculation performed at each step. Designing a custom grammar means deciding which parts to fix and which parts to let GP search over.
 
-## 10. Field reference for this example
+## 10. Run it
+
+[`examples/list-sum`](../../examples/list-sum) is the grammar of this tutorial
+with the three `Tutorial.Step` alternatives of section 9, plus random training
+and test lists:
+
+```bash
+cpp/build/gagp run examples/list-sum/task.json
+```
+
+```text
+program: (traverse xs 0 0 [v6 v7 v8] (add v8 v6))
+test: 50 of 50 correct (solved)
+```
+
+The program text lists the traversal's arguments in order: the list, the start
+position, the initial accumulator, then the per-step expression after the
+variables it binds. `v6`, `v7` and `v8` are `element`, `index` and `acc`, in the
+order of the `bind` list, so `(add v8 v6)` is `acc + element`.
+
+## 11. Field reference for this example
 
 | Field | Plain-language meaning | Role in this example |
 | --- | --- | --- |

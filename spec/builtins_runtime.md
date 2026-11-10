@@ -1,6 +1,6 @@
 # Builtins Runtime
 
-This document defines release 2.0.0 sequence, list-construction, and payload-backed
+This document defines sequence, list-construction, and payload-backed
 builtin behavior.
 
 See also:
