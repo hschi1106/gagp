@@ -14,6 +14,9 @@ struct PhaseTreeNode {
   int arity = 0;
   unsigned fuel = 1;
   unsigned merge_fuel = 1;
+  // Grammar result type of the producing expression. It is a function of the
+  // node's origin (which genotype equality compares), so it is never hashed.
+  ValueTag type = ValueTag::Invalid;
 };
 enum class PhaseCompileStatus : int { Ok, Invalid, Unsupported, Capacity };
 struct PhaseCompileResult {
@@ -53,6 +56,10 @@ struct Output {
     return true;
   }
 };
+// Types the typed-view and private-IntList evaluator certificates cover.
+__host__ __device__ inline bool certified_type(ValueTag tag) {
+  return tag==ValueTag::Int || tag==ValueTag::Bool || tag==ValueTag::IntList;
+}
 __host__ __device__ inline ValueTag operation_type(const PhaseTreeNode& node, const ValueTag* args) {
   const auto integer=ValueTag::Int, boolean=ValueTag::Bool, list=ValueTag::IntList;
   if (node.opcode==Opcode::Neg || node.opcode==Opcode::CheckInt)
@@ -121,7 +128,7 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
   static_assert(!CompactFrames || sizeof(Frame)==12, "compact lowering frame layout");
   Frame frames[64]; int depth=0, cursor=0;
   ValueTag completed=ValueTag::Invalid;
-  bool have_value=false,typed_views=true;
+  bool have_value=false,typed_views=true,private_intlists=true;
   for (;;) {
     if (!have_value) {
       if (cursor>=node_count) return out.result;
@@ -130,15 +137,18 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
       if (node.kind==PhaseTreeKind::Constant) {
         if (node.arity!=0 || node.operand<0 || node.operand>=constant_count) return out.result;
         const auto value=constants[node.operand];
-        if (value.tag!=ValueTag::Int && value.tag!=ValueTag::Bool &&
-            !(value.tag==ValueTag::IntList && Value::container_len(value)==0)) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
+        if (value.tag==ValueTag::Invalid || value.tag==ValueTag::FallbackToken) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
+        // Only scalar and canonical empty IntList constants keep the certificates.
+        if (!(value.tag==ValueTag::Int || value.tag==ValueTag::Bool ||
+              (value.tag==ValueTag::IntList && Value::container_len(value)==0))) typed_views=private_intlists=false;
         if(value.tag==ValueTag::IntList)typed_views=false;
         if (!out.push(value,node.fuel)) return out.result;
         completed=value.tag; have_value=true;
       } else if (node.kind==PhaseTreeKind::Local) {
         if (node.arity!=0 || node.operand<0 || node.operand>=local_count) return out.result;
         completed=local_types[node.operand];
-        if (completed!=ValueTag::Int && completed!=ValueTag::Bool && completed!=ValueTag::IntList) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
+        if (completed==ValueTag::Invalid || completed==ValueTag::FallbackToken) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
+        if (!certified_type(completed)) typed_views=private_intlists=false;
         if (!out.emit(Opcode::Load,node.fuel,node.operand,0,gpu_detail::DINSTR_HAS_A)) return out.result;
         ++out.stack; if (out.stack>out.result.stack_bound) out.result.stack_bound=out.stack;
         have_value=true;
@@ -160,7 +170,7 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
       if (out.result.stack_bound>gpu_detail::MAX_STACK) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
       out.result.status=PhaseCompileStatus::Ok; out.result.result_type=completed;
       out.result.typed_views_proven=typed_views;
-      out.result.private_intlists_proven=true;
+      out.result.private_intlists_proven=private_intlists;
       return out.result;
     }
     auto& frame=frames[depth-1];
@@ -197,7 +207,11 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
       out.code[finish].a=out.result.code_count;
     } else {
       completed=operation_type(node,frame.args);
-      if (completed==ValueTag::Invalid) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
+      if (completed==ValueTag::Invalid) {
+        // Outside the certified set the typed grammar fixes the result type.
+        if (node.type==ValueTag::Invalid || node.type==ValueTag::FallbackToken) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
+        completed=node.type;typed_views=private_intlists=false;
+      } else if (node.type!=ValueTag::Invalid && node.type!=completed) return out.result;
       if (node.opcode==Opcode::CallBuiltin) {
         if(node.operand==int(BuiltinId::Concat) || node.operand==int(BuiltinId::Singleton))typed_views=false;
         if (!out.emit(node.opcode,node.fuel,node.operand,node.arity,gpu_detail::DINSTR_HAS_A|gpu_detail::DINSTR_HAS_B)) return out.result;

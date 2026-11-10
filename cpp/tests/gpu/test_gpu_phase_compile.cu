@@ -45,6 +45,7 @@ struct Fixture {
   PhaseCompileStatus status=PhaseCompileStatus::Ok;
   int code_limit=-1,constant_limit=-1;
   bool views=true;
+  bool lists=true;  // expected private-list certificate
 };
 struct Row { int node_offset,node_count,const_offset,const_count,local_offset,local_count,code_offset,code_capacity,out_const_offset,const_capacity; ValueTag expected; };
 template<bool SharedNodes, bool CompactFrames = false>
@@ -158,11 +159,14 @@ std::vector<Fixture> generated() {
   auto list_eq=empty;list_eq.result=ValueTag::Bool;
   list_eq.nodes={{PhaseTreeKind::Operation,Opcode::Eq,0,2,1,1},empty.nodes[0],empty.nodes[0]};
   list_eq.status=PhaseCompileStatus::Unsupported;out.push_back(list_eq);
-  auto nonempty=empty;nonempty.constants={payload::make_int_list_value({Value::from_int(1)})};
-  nonempty.status=PhaseCompileStatus::Unsupported;out.push_back(nonempty);
+  auto nonempty=empty;nonempty.constants={payload::make_int_list_value({Value::from_int(1)})};nonempty.reference.consts=nonempty.constants;
+  // Nonempty list constants compile without view or private-list capability.
+  nonempty.lists=false;out.push_back(nonempty);
   auto invalid=leaf;invalid.nodes[0].operand=1;invalid.status=PhaseCompileStatus::Invalid;out.push_back(invalid);
   invalid=leaf;invalid.nodes.push_back(invalid.nodes[0]);invalid.status=PhaseCompileStatus::Invalid;out.push_back(invalid);
-  invalid=leaf;invalid.constants[0]=Value::from_float(1);invalid.status=PhaseCompileStatus::Unsupported;out.push_back(invalid);
+  // A Float constant is supported, but not as an Int result: ill-typed.
+  invalid=leaf;invalid.constants[0]=Value::from_float(1);invalid.status=PhaseCompileStatus::Invalid;out.push_back(invalid);
+  auto real=leaf;real.constants[0]=Value::from_float(1.5);real.reference.consts=real.constants;real.result=ValueTag::Float;real.views=false;real.lists=false;out.push_back(real);
   invalid=leaf;invalid.nodes.insert(invalid.nodes.begin(),65,{PhaseTreeKind::Operation,Opcode::Neg,0,1,1,1});invalid.status=PhaseCompileStatus::Capacity;out.push_back(invalid);
   invalid=leaf;invalid.nodes.insert(invalid.nodes.begin(),{PhaseTreeKind::Operation,Opcode::Add,0,2,1,1});invalid.nodes.push_back(leaf.nodes[0]);invalid.code_limit=1;invalid.status=PhaseCompileStatus::Capacity;out.push_back(invalid);
   invalid.constant_limit=1;invalid.code_limit=-1;out.push_back(invalid);
@@ -252,12 +256,12 @@ void run(const std::vector<Fixture>& fixtures) {
     require(verified.ok && r.stack_bound==int(verified.verified.max_stack_depth),
         "GPU stack certificate disagrees with independent bytecode verifier fixture "+std::to_string(i));
     require(r.result_type==f.result,"GPU result-type certificate mismatch fixture "+std::to_string(i));
-    require(r.private_intlists_proven,"fresh successful GPU phase lacks private-list certificate");
+    require(r.private_intlists_proven==f.lists,"GPU private-list certificate mismatch fixture "+std::to_string(i));
     std::array<ValueTag,64> view_inputs;view_inputs.fill(ValueTag::Invalid);
     std::copy(f.locals.begin(),f.locals.end(),view_inputs.begin());
     require(r.typed_views_proven==f.views && (!r.typed_views_proven || detail::view_code_supported(f.reference.code,f.reference.consts,
         f.reference.n_locals,view_inputs,f.result)),"GPU capability proof disagrees with independent runtime analysis");
-    require(detail::view_code_supported(f.reference.code,f.reference.consts,
+    require(!f.lists || detail::view_code_supported(f.reference.code,f.reference.consts,
         f.reference.n_locals,view_inputs,f.result,nullptr,true),
         "private-list certificate disagrees with independent host typeflow");
     require(r.code_count==int(f.reference.code.size()) && r.constant_count==int(f.reference.consts.size()),"lowering shape mismatch fixture "+std::to_string(i));

@@ -19,7 +19,9 @@ struct TreePointers {
  __host__ __device__ MutablePhaseTree output(int row)const{return {nodes+std::size_t(row)*capacity,origins+std::size_t(row)*capacity,
    sites+std::size_t(row)*capacity,constants+std::size_t(row)*capacity,capacity};}
 };
-struct DeviceSlot {PhaseGrammarView grammar;int root,scope,max_depth,logical_depth;ValueTag type;ValueTag locals[8];};
+// `scope` is the generation scope of the phase nonterminal; `locals` are the
+// lowering locals (the phase binders, or the program inputs in whole-program mode).
+struct DeviceSlot {PhaseGrammarView grammar;int root,scope,max_depth,logical_depth;ValueTag type;int local_count;ValueTag locals[64];};
 struct OperatorStats {int parent=-1,crossover_attempted=0,crossover=0,crossover_rejected=0,mutation=0,changed=0,error=0,reusable_parent=-1;};
 // Semantic operator policy (changes the search) plus the exact copy schedule.
 struct OperatorPolicy {
@@ -252,7 +254,7 @@ __host__ __device__ inline PhaseCompileResult compile_row(TreePointers trees,con
     gpu_detail::DInstr* code,Value* constants) {
  const auto t=trees.view(row);const auto& slot=slots[row%slot_count];
  if(!valid(trees.lengths[row]))return {};
- return compile_phase_tree<true,true>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.scope,slot.type,
+ return compile_phase_tree<true,true>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.local_count,slot.type,
      code+std::size_t(row)*code_capacity,code_capacity,constants+std::size_t(row)*capacity,capacity);
 }
 // Rank-based elite rule: highest fitness, then lowest source index.

@@ -80,8 +80,9 @@ walkthrough, follow [Getting started](docs/guides/getting-started.md).
 
 ### CUDA route
 
-Use a separate build with `-DGAGP_ENABLE_CUDA=ON` and the correct
-`-DCMAKE_CUDA_ARCHITECTURES` for your GPU (86 for RTX 3090; 89 for RTX 4090).
+Use a separate build with `-DGAGP_ENABLE_CUDA=ON`. CMake targets the visible
+GPUs' compute capabilities (via `nvidia-smi`); pass `-DCMAKE_CUDA_ARCHITECTURES`
+to override (86 for RTX 3090; 89 for RTX 4090).
 CMake must detect the CUDA compiler. Then select
 `--engine gpu --repro-backend gpu --repro-overlap on`.
 The [CUDA tutorial](docs/guides/getting-started.md#run-on-cuda-optional) includes

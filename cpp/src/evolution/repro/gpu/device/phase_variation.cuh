@@ -55,12 +55,13 @@ __host__ __device__ inline bool annotate_phase_tree(const PhaseGrammarView& g, i
     const auto node = nodes[cursor];
     if (origins[cursor] != task.expression || node.kind != expression.node.kind ||
         node.opcode != expression.node.opcode || node.arity != expression.node.arity ||
-        node.fuel != expression.node.fuel || node.merge_fuel != expression.node.merge_fuel ||
+        node.fuel != expression.node.fuel || node.merge_fuel != expression.node.merge_fuel || node.type != expression.node.type ||
         node.arity < 0 || node.arity > 3) return false;
     if (expression.kind == PhaseExpressionKind::Bound) {
       if (expression.target < 0 || expression.target >= task.scope || node.operand != expression.target)
         return false;
-    } else if (expression.kind == PhaseExpressionKind::Operation && node.operand != expression.node.operand)
+    } else if ((expression.kind == PhaseExpressionKind::Operation || expression.kind == PhaseExpressionKind::Input) &&
+               node.operand != expression.node.operand)
       return false;
     sites[cursor++] = task.site;
     for (int i = node.arity - 1; i >= 0; --i) {

@@ -6,6 +6,7 @@
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/repro/pack.hpp"
+#include <algorithm>
 #include <map>
 #include <set>
 #include <cstdlib>
@@ -33,6 +34,12 @@ struct NativePhaseLayout {
   std::vector<HostPhaseGene> genes;
   std::size_t fixed_nodes = 0;
   grammar::GrammarLimits budget;
+  // Whole-program mode: one phase is the returned expression of a program
+  // without regions. Its executable main code is the lowered phase followed
+  // by this terminator; locals are the evaluator inputs.
+  bool whole_program = false;
+  Instr program_return;
+  std::uint32_t program_return_fuel = 1;
 };
 inline void phase_layout_require(bool condition, const char* reason) {
   if (!condition) throw std::invalid_argument(std::string("native GPU phase layout: ") + reason);
@@ -42,16 +49,20 @@ inline void phase_layout_require(bool condition, const char* reason) {
 // admission or per-program witness is cached here; every import is still checked.
 class NativePhaseGrammarProfiles final {
  public:
-  explicit NativePhaseGrammarProfiles(std::shared_ptr<const grammar::CompiledGrammar> owner)
-      : owner_(std::move(owner)) { phase_layout_require(bool(owner_),"missing profile grammar owner"); }
+  // `inputs` fixes the evaluator input-local order of Input expressions.
+  explicit NativePhaseGrammarProfiles(std::shared_ptr<const grammar::CompiledGrammar> owner,
+      std::vector<std::string> inputs={})
+      : owner_(std::move(owner)),inputs_(std::move(inputs)) { phase_layout_require(bool(owner_),"missing profile grammar owner"); }
   const HostPhaseGrammar& get(const grammar::CompiledGrammar& grammar,unsigned nonterminal,unsigned depth,unsigned logical_depth=0) {
     phase_layout_require(owner_.get()==&grammar,"phase profile grammar owner mismatch");
     const auto key=std::make_tuple(nonterminal,depth,logical_depth);const auto found=profiles_.find(key);
     if(found!=profiles_.end())return found->second;
-    return profiles_.emplace(key,compile_phase_variation_grammar(grammar,nonterminal,depth,logical_depth)).first->second;
+    return profiles_.emplace(key,compile_phase_variation_grammar(grammar,nonterminal,depth,logical_depth,false,
+        inputs_.empty()?nullptr:&inputs_)).first->second;
   }
  private:
   std::shared_ptr<const grammar::CompiledGrammar> owner_;
+  std::vector<std::string> inputs_;
   std::map<std::tuple<unsigned,unsigned,unsigned>,HostPhaseGrammar> profiles_;
 };
 
@@ -83,6 +94,35 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
         "initial parent exceeds projected search budget");
   }
   const auto& ast = source.ast;
+  // Cold canonical membership already checked physical node/depth budgets.
+  std::vector<unsigned> depths(ast.nodes.size()); std::vector<int> pending{1};
+  for (std::size_t i = 0; i < ast.nodes.size(); ++i) {
+    while (!pending.empty() && !pending.back()) pending.pop_back();
+    phase_layout_require(!pending.empty(), "invalid admitted shape");
+    depths[i] = pending.size(); --pending.back();
+    const auto arity = node_prefix_arity(ast.nodes[i]); if (arity) pending.push_back(arity);
+  }
+  if (ast.bounded_region_specs.empty()) {
+    // Whole-program mode: the entry nonterminal's outermost choice is the phase.
+    phase_layout_require(ast.lexical_regions.empty() && ast.traversal_specs.empty() && witness.templates.empty(),
+        "whole-program phase requires no regions or templates");
+    const auto& entry = grammar.nonterminals()[grammar.entry()];
+    phase_layout_require(entry.category == NodeCategory::Expression, "whole-program phase requires an expression entry");
+    std::size_t best = witness.choices.size();
+    for (std::size_t i = 0; i < witness.choices.size(); ++i) {
+      const auto& c = witness.choices[i];
+      if (c.nonterminal != grammar.entry()) continue;
+      if (best == witness.choices.size() || c.ast_begin < witness.choices[best].ast_begin) best = i;
+    }
+    phase_layout_require(best < witness.choices.size(), "entry choice missing from admission witness");
+    const auto& choice = witness.choices[best];
+    phase_layout_require(environments.at(best).empty(), "whole-program phase has no lexical binders");
+    phase_layout_require(choice.ast_end <= ast.nodes.size() && choice.ast_begin < choice.ast_end, "entry choice span");
+    NativePhaseSlot slot{grammar.entry(), choice.ast_begin, choice.ast_end, 0,
+        grammar.search_limits().max_depth - depths.at(choice.ast_begin) + 1, {}};
+    result.slots.push_back(std::move(slot));
+    result.whole_program = true;
+  } else {
   phase_layout_require(ast.bounded_region_specs.size() == 1 && ast.lexical_regions.empty() &&
       ast.traversal_specs.empty(), "requires one bounded region and no outer lexical/traversal regions");
   phase_layout_require(witness.templates.size() == 1, "requires one independent root template");
@@ -131,14 +171,6 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   for (std::size_t i = 0; i < region.phases.size(); ++i) {
     const auto end = verified.subtree_end.at(cursor); phases.emplace(cursor, std::make_pair(end,i)); cursor = end;
   }
-  // Cold canonical membership already checked physical node/depth budgets.
-  std::vector<unsigned> depths(ast.nodes.size()); std::vector<int> pending{1};
-  for (std::size_t i = 0; i < ast.nodes.size(); ++i) {
-    while (!pending.empty() && !pending.back()) pending.pop_back();
-    phase_layout_require(!pending.empty(), "invalid admitted shape");
-    depths[i] = pending.size(); --pending.back();
-    const auto arity = node_prefix_arity(ast.nodes[i]); if (arity) pending.push_back(arity);
-  }
   std::set<unsigned> found_holes;
   for (const auto& hole : witness.holes) {
     const auto found = variable_holes.find(hole.slot);
@@ -168,6 +200,7 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
     result.slots.push_back(std::move(slot));
   }
   phase_layout_require(found_holes.size() == variable_holes.size(), "variable hole missing from admission witness");
+  }
   std::sort(result.slots.begin(), result.slots.end(), [](const auto& a,const auto& b){return a.begin < b.begin;});
   result.fixed_nodes = ast.nodes.size(); result.budget = grammar.search_limits();
   phase_layout_require(result.budget.max_nodes <= 2048 && result.budget.max_depth <= 64,
@@ -175,7 +208,7 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   for (const auto& slot : result.slots) {
     result.fixed_nodes -= slot.end - slot.begin;
     HostPhaseGrammar uncached_profile;
-    if (!profiles) uncached_profile = compile_phase_variation_grammar(grammar,slot.nonterminal,result.budget.max_depth,slot.logical_depth);
+    if (!profiles) uncached_profile = compile_phase_variation_grammar(grammar,slot.nonterminal,result.budget.max_depth,slot.logical_depth,false,evaluator_inputs);
     const auto& profile = profiles ? profiles->get(grammar,slot.nonterminal,result.budget.max_depth,slot.logical_depth)
                                    : uncached_profile;
     HostPhaseGene gene;
@@ -187,6 +220,9 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
       phase_layout_require(actual.kind == static_cast<NodeKind>(profile.expressions[expression].native_kind), "origin/native node mismatch");
       if (e.kind == ExpressionKind::Constant) {
         node.operand = gene.constants.size(); gene.constants.push_back(ast.consts.at(actual.i0));
+      } else if (e.kind == ExpressionKind::Input) {
+        phase_layout_require(actual.i0 >= 0 && std::size_t(actual.i0) < ast.names.size() &&
+            ast.names[actual.i0] == grammar.inputs().at(e.target).name, "input name mismatch");
       } else if (e.kind == ExpressionKind::Bound) {
         const auto binder = std::find(slot.binders.begin(), slot.binders.end(), actual.i0);
         phase_layout_require(binder != slot.binders.end(), "uncaptured lexical reference");
@@ -209,6 +245,13 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
       ? admitted_bytecode_for_eval(source, execution_inputs, grammar.execution_limits().fuel)
       : nullptr;
   result.executable = cold_executable ? *cold_executable : executable ? *executable : compile_for_eval(source, verified, execution_inputs);
+  if (result.whole_program) {
+    const auto& code = result.executable.code;
+    phase_layout_require(!code.empty() && code.back().op == Opcode::Return &&
+        result.executable.bounded_region_segments.empty(), "whole-program executable must end in Return");
+    result.program_return = code.back();
+    result.program_return_fuel = result.executable.instruction_fuel.empty() ? 1 : result.executable.instruction_fuel.back();
+  }
   result.prototype = std::move(source.ast);
   return result;
 }
@@ -262,6 +305,11 @@ inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& 
         if (e.kind == grammar::ExpressionKind::Constant) {
           phase_layout_require(node.operand >= 0 && std::size_t(node.operand) < gene.constants.size(), "constant index");
           native.i0 = ast.consts.size(); ast.consts.push_back(gene.constants[node.operand]);
+        } else if (e.kind == grammar::ExpressionKind::Input) {
+          const auto& name = grammar.inputs().at(e.target).name;
+          auto found = std::find(ast.names.begin(), ast.names.end(), name);
+          if (found == ast.names.end()) found = ast.names.insert(ast.names.end(), name);
+          native.i0 = static_cast<int>(found - ast.names.begin());
         } else if (e.kind == grammar::ExpressionKind::Bound) {
           phase_layout_require(node.operand >= 0 && std::size_t(node.operand) < slot.binders.size(), "lexical index");
           native.i0 = slot.binders[node.operand];
@@ -283,6 +331,25 @@ inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& 
   // Compaction is only serialization cleanup; the independent caller audits
   // this output before treating it as an imported executable/member.
   return compact_genome_tables(std::move(out));
+}
+// Whole-program mode: replace the main code with lowered phase code plus the
+// prototype terminator. Locals, inputs and the variable map stay unchanged.
+template<class Code>
+inline void patch_whole_program(BytecodeProgram& program, const NativePhaseLayout& layout,
+    const Code* code, int code_count, const Value* constants, int constant_count) {
+  phase_layout_require(layout.whole_program, "whole-program patch on a region layout");
+  program.code.clear(); program.instruction_fuel.clear();
+  program.code.reserve(code_count + 1); program.instruction_fuel.reserve(code_count + 1);
+  for (int i = 0; i < code_count; ++i) {
+    const auto x = code[i];
+    program.code.push_back({static_cast<Opcode>(x.op), x.a, x.b, bool(x.flags & 1), bool(x.flags & 2)});
+    program.instruction_fuel.push_back(x.fuel);
+  }
+  program.code.push_back(layout.program_return); program.instruction_fuel.push_back(layout.program_return_fuel);
+  // The native compiler leaves an all-unit charge table empty.
+  if (std::all_of(program.instruction_fuel.begin(), program.instruction_fuel.end(), [](std::uint32_t f) { return f == 1; }))
+    program.instruction_fuel.clear();
+  program.consts.assign(constants, constants + constant_count);
 }
 // Mutable phase of a native layout slot inside an executable region segment.
 inline RegionPhase& native_phase_at(BoundedRegionSegment& segment,std::size_t ordinal) {

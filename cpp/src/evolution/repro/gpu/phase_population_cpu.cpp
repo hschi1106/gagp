@@ -58,7 +58,7 @@ std::vector<ProgramGenome> generate_phase_initial_population(
  const int slots=layout.slots.size();phase_layout_require(slots>0 && slots<=8,"phase count capacity");
  std::vector<std::unique_ptr<HostProfile>> profiles;
  for(const auto& slot:layout.slots)profiles.push_back(std::make_unique<HostProfile>(
-     compile_phase_variation_grammar(grammar,slot.nonterminal,grammar.search_limits().max_depth,site_depth,true)));
+     compile_phase_variation_grammar(grammar,slot.nonterminal,grammar.search_limits().max_depth,site_depth,true,&input_names)));
  const int available=int(layout.budget.max_nodes)-int(layout.fixed_nodes);
  const auto minimum=[&](int k,int logical)->long {
   const auto& g=profiles[k]->grammar;const int depth=layout.slots[k].max_depth;
@@ -134,9 +134,10 @@ struct HostPhasePopulation::Impl {
   bool ok=true;
   for(int k=0;k<slot_count;++k) {
    const int row=member*slot_count+k;const auto t=trees.view(row);const auto& slot=slots[k];
-   const auto r=valid(trees.lengths[row])?compile_phase_tree<true,true>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.scope,slot.type,
+   const auto r=valid(trees.lengths[row])?compile_phase_tree<true,true>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.local_count,slot.type,
        code.data(),code_capacity,values.data(),capacity):PhaseCompileResult{};
    if(r.status!=PhaseCompileStatus::Ok || r.stack_bound<1 || r.stack_bound>gpu_detail::MAX_STACK){ok=false;continue;}
+   if(layout.whole_program){patch_whole_program(executable,layout,code.data(),r.code_count,values.data(),r.constant_count);continue;}
    auto& program=native_phase_at(executable.bounded_region_segments[0],layout.slots[k].ordinal).program;
    program.code.clear();program.instruction_fuel.clear();program.code.reserve(r.code_count);program.instruction_fuel.reserve(r.code_count);
    for(int i=0;i<r.code_count;++i){const auto x=code[i];program.code.push_back({static_cast<Opcode>(x.op),x.a,x.b,bool(x.flags&1),bool(x.flags&2)});program.instruction_fuel.push_back(x.fuel);}
@@ -177,11 +178,11 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
  s.operators.crossover_attempts=policy.crossover_attempts;
  s.operators.mutation_max_nodes=policy.mutation_max_nodes;
  // Serial copies stay eager (deferred_copy=false); both schedules are exact.
- NativePhaseGrammarProfiles import_profiles(s.grammar);
+ NativePhaseGrammarProfiles import_profiles(s.grammar,input_names);
  s.population=input.size();
  s.layout=import_native_phase_layout(*s.grammar,input.front(),&import_profiles,&input_names,true,projected?&*projected:nullptr);
  if(site_depth)for(std::size_t k=0;k<s.layout.slots.size();++k)
-  s.layout.profiles[k]=compile_phase_variation_grammar(*s.grammar,s.layout.slots[k].nonterminal,s.grammar->search_limits().max_depth,site_depth,true);
+  s.layout.profiles[k]=compile_phase_variation_grammar(*s.grammar,s.layout.slots[k].nonterminal,s.grammar->search_limits().max_depth,site_depth,true,&input_names);
  s.profile=site_depth?"native-cpu-phase-v4-site-depth"+std::to_string(site_depth):s.layout.slots.front().logical_depth?"native-cpu-phase-v3-projected":
      s.operators.counted_sites?"native-cpu-phase-v2-counted":"native-cpu-phase-v1";
  s.profile+=phase_variation_profile_suffix(policy);
@@ -196,8 +197,13 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
   const auto& nt=s.grammar->nonterminals()[layout.nonterminal];DeviceSlot slot{};
   slot.grammar=s.profiles.back()->view();slot.root=profile.root_expression;slot.scope=nt.scope.size();slot.max_depth=layout.max_depth;
   slot.logical_depth=site_depth?site_depth:layout.logical_depth;
-  const auto tag=[](RType t){return t==RType::Int?ValueTag::Int:t==RType::Bool?ValueTag::Bool:ValueTag::IntList;};
-  slot.type=tag(nt.type);for(int j=0;j<slot.scope;++j)slot.locals[j]=tag(nt.scope[j].type);s.slots.push_back(slot);
+  slot.type=phase_value_tag(nt.type);
+  if(s.layout.whole_program) {
+   slot.local_count=input_names.size();
+   for(int j=0;j<slot.local_count;++j)for(const auto& binding:s.grammar->inputs())
+    if(binding.name==input_names[j])slot.locals[j]=phase_value_tag(binding.type);
+  } else {slot.local_count=slot.scope;for(int j=0;j<slot.scope;++j)slot.locals[j]=phase_value_tag(nt.scope[j].type);}
+  s.slots.push_back(slot);
  }
  auto trees=s.current->pointers();
  for(std::size_t p=0;p<input.size();++p) {

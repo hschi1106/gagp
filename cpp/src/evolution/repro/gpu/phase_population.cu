@@ -439,6 +439,11 @@ struct NativePhasePopulation::Impl {
    views_proven=views_proven && certificates[row].typed_views_proven;
    private_intlists_proven=private_intlists_proven && certificates[row].private_intlists_proven;
    if(host_packed)continue;
+   if(layout.whole_program) {
+    patch_whole_program(programs[p],layout,compacted_code.data()+offsets[row],offsets[row+1]-offsets[row],
+        compacted_constants.data()+values[row],values[row+1]-values[row]);
+    continue;
+   }
    auto& program=native_phase_at(programs[p].bounded_region_segments[0],layout.slots[k].ordinal).program;
    program.code.clear();program.instruction_fuel.clear();program.code.reserve(offsets[row+1]-offsets[row]);program.instruction_fuel.reserve(offsets[row+1]-offsets[row]);
    for(int i=offsets[row];i<offsets[row+1];++i){const auto x=compacted_code[i];program.code.push_back({static_cast<Opcode>(x.op),x.a,x.b,bool(x.flags&1),bool(x.flags&2)});program.instruction_fuel.push_back(x.fuel);}
@@ -504,12 +509,12 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   impl_->input_types[index]=type;if(type==ValueTag::Invalid)impl_->views_proven=false;
  }
  std::string error;if(!initialize_gpu_repro_runtime(&error))throw std::runtime_error(error);checked(cudaGetDevice(&impl_->device));
- const auto import_profiles=std::make_unique<NativePhaseGrammarProfiles>(impl_->grammar);
+ const auto import_profiles=std::make_unique<NativePhaseGrammarProfiles>(impl_->grammar,input_names);
  const auto* evaluator_inputs=&input_names;
  impl_->population=input.size();impl_->layout=import_native_phase_layout(*impl_->grammar,input.front(),import_profiles.get(),evaluator_inputs,true,projected?&*projected:nullptr);
  if(site_depth)for(std::size_t k=0;k<impl_->layout.slots.size();++k)
   impl_->layout.profiles[k]=compile_phase_variation_grammar(*impl_->grammar,
-      impl_->layout.slots[k].nonterminal,impl_->grammar->search_limits().max_depth,site_depth,true);
+      impl_->layout.slots[k].nonterminal,impl_->grammar->search_limits().max_depth,site_depth,true,&input_names);
  impl_->reproduction_profile=site_depth?"native-gpu-phase-v4-site-depth"+std::to_string(site_depth):impl_->layout.slots.front().logical_depth?"native-gpu-phase-v3-projected":
      impl_->operators.counted_sites?"native-gpu-phase-v2-counted":"native-gpu-phase-v1";
  impl_->reproduction_profile+=phase_variation_profile_suffix(policy);
@@ -551,8 +556,13 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   impl_->profiles.push_back(std::make_unique<UploadedProfile>(profile));
   const auto& nt=impl_->grammar->nonterminals()[layout.nonterminal];DeviceSlot slot{};
   slot.grammar=impl_->profiles.back()->view(profile);slot.root=profile.root_expression;slot.scope=nt.scope.size();slot.max_depth=layout.max_depth;slot.logical_depth=site_depth?site_depth:layout.logical_depth;
-  const auto tag=[](RType t){return t==RType::Int?ValueTag::Int:t==RType::Bool?ValueTag::Bool:ValueTag::IntList;};
-  slot.type=tag(nt.type);for(int j=0;j<slot.scope;++j)slot.locals[j]=tag(nt.scope[j].type);slots.push_back(slot);
+  slot.type=phase_value_tag(nt.type);
+  if(impl_->layout.whole_program) {
+   slot.local_count=input_names.size();
+   for(int j=0;j<slot.local_count;++j)for(const auto& binding:impl_->grammar->inputs())
+    if(binding.name==input_names[j])slot.locals[j]=phase_value_tag(binding.type);
+  } else {slot.local_count=slot.scope;for(int j=0;j<slot.scope;++j)slot.locals[j]=phase_value_tag(nt.scope[j].type);}
+  slots.push_back(slot);
  }
  impl_->slots.upload(slots);std::vector<PhaseGenerationResult> lengths(rows);
  std::vector<PhaseTreeNode> import_nodes;std::vector<int> import_origins;std::vector<Value> import_constants;
@@ -608,8 +618,10 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   // local/stack limits. No reproduction or program mutation has occurred.
   // Borrow that exact immutable vector and its bounds only for this synchronous
   // pack; later generations retain the existing checked lowering/refresh path.
+  // Region programs keep a resident packed form with variable phase slots.
+  // Whole-program members are repacked by the session after each lowering.
   const gpu_detail::OwnedGpuPrograms initial(impl_->members.programs,impl_->members.fixed_stack_bounds);
-  impl_->initialize_host_packed(impl_->members,initial);
+  if(!impl_->layout.whole_program)impl_->initialize_host_packed(impl_->members,initial);
  }
  checked(cudaEventCreate(&impl_->start));checked(cudaEventCreate(&impl_->stop));
 }

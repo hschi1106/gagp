@@ -16,7 +16,7 @@ struct PhaseGeneSite {
 };
 // Private uploaded grammar tables. The host compiler admits every reachable
 // production; an unsupported alternative declines the whole requested profile.
-enum class PhaseExpressionKind : int { Operation, Constant, Bound, Reference };
+enum class PhaseExpressionKind : int { Operation, Constant, Bound, Reference, Input };
 struct PhaseExpression {
   PhaseExpressionKind kind = PhaseExpressionKind::Operation;
   PhaseTreeNode node;
@@ -181,10 +181,9 @@ __host__ __device__ inline PhaseGenerationResult generate_phase(
             domain.value_count>grammar.value_count-domain.value_offset)return result;
         value=grammar.values[domain.value_offset+random.bounded(domain.value_count)];
       }
-      if(value.tag!=ValueTag::Int && value.tag!=ValueTag::Bool &&
-          !(value.tag==ValueTag::IntList && Value::container_len(value)==0))return result;
+      if(value.tag==ValueTag::Invalid || value.tag==ValueTag::FallbackToken)return result;
       node.operand=result.constants;constants[result.constants++]=value;
-    } else if(expression.kind!=PhaseExpressionKind::Operation)return result;
+    } else if(expression.kind!=PhaseExpressionKind::Operation && expression.kind!=PhaseExpressionKind::Input)return result;
     if constexpr(EmitSites) {sites[result.nodes]=next_site;next_site={};}
     origins[result.nodes]=task.expression;nodes[result.nodes++]=node;
     for(int i=node.arity-1;i>=0;--i) {

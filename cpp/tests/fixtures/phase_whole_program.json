@@ -1,0 +1,81 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "Mix.Float", "type": "Float"},
+  "inputs": [{"name": "x", "type": "Float"}, {"name": "n", "type": "Int"}, {"name": "s", "type": "String"}, {"name": "xs", "type": "IntList"}, {"name": "fs", "type": "FloatList"}, {"name": "ws", "type": "StringList"}, {"name": "c", "type": "Char"}, {"name": "b", "type": "Bool"}],
+  "search_limits": {"max_nodes": 48, "max_depth": 7},
+  "execution_limits": {"fuel": 512},
+  "nonterminals": [
+    {"id": "Mix.Float", "type": "Float", "scope": [], "alternatives": [
+      {"id": "x", "weight": 3, "expression": {"input": "x"}},
+      {"id": "k", "weight": 2, "expression": {"constant": {"type": "Float", "values": [0.5, -1.25, 3.0]}}},
+      {"id": "add", "expression": {"signature": "add(Float,Float)->Float", "args": [{"ref": "Mix.Float"}, {"ref": "Mix.Float"}]}, "weight": 1},
+      {"id": "mul", "expression": {"signature": "mul(Float,Float)->Float", "args": [{"ref": "Mix.Float"}, {"ref": "Mix.Float"}]}, "weight": 1},
+      {"id": "div", "expression": {"signature": "div(Float,Float)->Float", "args": [{"ref": "Mix.Float"}, {"ref": "Mix.Float"}]}, "weight": 1},
+      {"id": "idiv", "expression": {"signature": "div(Int,Int)->Float", "args": [{"ref": "Mix.Int"}, {"ref": "Mix.Int"}]}, "weight": 1},
+      {"id": "neg", "expression": {"signature": "neg(Float)->Float", "args": [{"ref": "Mix.Float"}]}, "weight": 1},
+      {"id": "abs", "expression": {"signature": "abs(Float)->Float", "args": [{"ref": "Mix.Float"}]}, "weight": 1},
+      {"id": "if", "expression": {"signature": "if(Bool,Float,Float)->Float", "args": [{"ref": "Mix.Bool"}, {"ref": "Mix.Float"}, {"ref": "Mix.Float"}]}, "weight": 1},
+      {"id": "index", "expression": {"signature": "index(FloatList,Int)->Float", "args": [{"ref": "Mix.FloatList"}, {"ref": "Mix.Int"}]}, "weight": 1},
+      {"id": "clip", "expression": {"signature": "clip(Float,Float,Float)->Float", "args": [{"signature": "min(Float,Float)->Float", "args": [{"ref": "Mix.Float"}, {"ref": "Mix.Float"}]}, {"constant": {"type": "Float", "values": [-8.0]}}, {"constant": {"type": "Float", "values": [8.0]}}]}, "weight": 1}
+    ]},
+    {"id": "Mix.Int", "type": "Int", "scope": [], "alternatives": [
+      {"id": "n", "weight": 2, "expression": {"input": "n"}},
+      {"id": "k", "weight": 2, "expression": {"constant": {"type": "Int", "range": ["-3", "4"]}}},
+      {"id": "len_s", "expression": {"signature": "len(String)->Int", "args": [{"ref": "Mix.String"}]}, "weight": 1},
+      {"id": "len_xs", "expression": {"signature": "len(IntList)->Int", "args": [{"ref": "Mix.IntList"}]}, "weight": 1},
+      {"id": "len_ws", "expression": {"signature": "len(StringList)->Int", "args": [{"ref": "Mix.StringList"}]}, "weight": 1},
+      {"id": "ord", "expression": {"signature": "ord(Char)->Int", "args": [{"ref": "Mix.Char"}]}, "weight": 1},
+      {"id": "find", "expression": {"signature": "find(String,String)->Int", "args": [{"ref": "Mix.String"}, {"ref": "Mix.String"}]}, "weight": 1},
+      {"id": "idiv0", "expression": {"signature": "idiv0(Int,Int)->Int", "args": [{"ref": "Mix.Int"}, {"ref": "Mix.Int"}]}, "weight": 1},
+      {"id": "sub", "expression": {"signature": "sub(Int,Int)->Int", "args": [{"ref": "Mix.Int"}, {"ref": "Mix.Int"}]}, "weight": 1},
+      {"id": "index", "expression": {"signature": "index(IntList,Int)->Int", "args": [{"ref": "Mix.IntList"}, {"ref": "Mix.Int"}]}, "weight": 1}
+    ]},
+    {"id": "Mix.Bool", "type": "Bool", "scope": [], "alternatives": [
+      {"id": "b", "expression": {"input": "b"}, "weight": 1},
+      {"id": "k", "expression": {"constant": {"type": "Bool", "values": [true, false]}}, "weight": 1},
+      {"id": "lt", "expression": {"signature": "lt(Float,Float)->Bool", "args": [{"ref": "Mix.Float"}, {"ref": "Mix.Float"}]}, "weight": 1},
+      {"id": "eq", "expression": {"signature": "eq(Int,Int)->Bool", "args": [{"ref": "Mix.Int"}, {"ref": "Mix.Int"}]}, "weight": 1},
+      {"id": "eq_s", "expression": {"signature": "eq(String,String)->Bool", "args": [{"ref": "Mix.String"}, {"ref": "Mix.String"}]}, "weight": 1},
+      {"id": "contains", "expression": {"signature": "contains(String,String)->Bool", "args": [{"ref": "Mix.String"}, {"ref": "Mix.String"}]}, "weight": 1},
+      {"id": "letter", "expression": {"signature": "is_letter(Char)->Bool", "args": [{"ref": "Mix.Char"}]}, "weight": 1},
+      {"id": "and", "expression": {"signature": "and(Bool,Bool)->Bool", "args": [{"ref": "Mix.Bool"}, {"ref": "Mix.Bool"}]}, "weight": 1},
+      {"id": "not", "expression": {"signature": "not(Bool)->Bool", "args": [{"ref": "Mix.Bool"}]}, "weight": 1}
+    ]},
+    {"id": "Mix.Char", "type": "Char", "scope": [], "alternatives": [
+      {"id": "c", "weight": 2, "expression": {"input": "c"}},
+      {"id": "k", "expression": {"constant": {"type": "Char", "values": ["a", "Z"]}}, "weight": 1},
+      {"id": "first", "expression": {"signature": "string_to_char(String)->Char", "args": [{"ref": "Mix.String"}]}, "weight": 1},
+      {"id": "chr", "expression": {"signature": "chr(Int)->Char", "args": [{"ref": "Mix.Int"}]}, "weight": 1},
+      {"id": "upper", "expression": {"signature": "to_upper(Char)->Char", "args": [{"ref": "Mix.Char"}]}, "weight": 1}
+    ]},
+    {"id": "Mix.String", "type": "String", "scope": [], "alternatives": [
+      {"id": "s", "weight": 2, "expression": {"input": "s"}},
+      {"id": "k", "expression": {"constant": {"type": "String", "values": ["ab", "", "xyz"]}}, "weight": 1},
+      {"id": "concat", "expression": {"signature": "concat(String,String)->String", "args": [{"ref": "Mix.String"}, {"ref": "Mix.String"}]}, "weight": 1},
+      {"id": "reverse", "expression": {"signature": "reverse(String)->String", "args": [{"ref": "Mix.String"}]}, "weight": 1},
+      {"id": "slice", "expression": {"signature": "slice(String,Int,Int)->String", "args": [{"ref": "Mix.String"}, {"ref": "Mix.Int"}, {"ref": "Mix.Int"}]}, "weight": 1},
+      {"id": "of_char", "expression": {"signature": "char_to_string(Char)->String", "args": [{"ref": "Mix.Char"}]}, "weight": 1},
+      {"id": "of_int", "expression": {"signature": "to_string(Int)->String", "args": [{"ref": "Mix.Int"}]}, "weight": 1},
+      {"id": "word", "expression": {"signature": "index(StringList,Int)->String", "args": [{"ref": "Mix.StringList"}, {"ref": "Mix.Int"}]}, "weight": 1}
+    ]},
+    {"id": "Mix.IntList", "type": "IntList", "scope": [], "alternatives": [
+      {"id": "xs", "weight": 2, "expression": {"input": "xs"}},
+      {"id": "k", "expression": {"constant": {"type": "IntList", "values": [[], ["1", "2", "3"]]}}, "weight": 1},
+      {"id": "append", "expression": {"signature": "append(IntList,Int)->IntList", "args": [{"ref": "Mix.IntList"}, {"ref": "Mix.Int"}]}, "weight": 1},
+      {"id": "reverse", "expression": {"signature": "reverse(IntList)->IntList", "args": [{"ref": "Mix.IntList"}]}, "weight": 1},
+      {"id": "concat", "expression": {"signature": "concat(IntList,IntList)->IntList", "args": [{"ref": "Mix.IntList"}, {"ref": "Mix.IntList"}]}, "weight": 1}
+    ]},
+    {"id": "Mix.FloatList", "type": "FloatList", "scope": [], "alternatives": [
+      {"id": "fs", "weight": 2, "expression": {"input": "fs"}},
+      {"id": "k", "expression": {"constant": {"type": "FloatList", "values": [[0.5, -2.0]]}}, "weight": 1},
+      {"id": "append", "expression": {"signature": "append(FloatList,Float)->FloatList", "args": [{"ref": "Mix.FloatList"}, {"ref": "Mix.Float"}]}, "weight": 1},
+      {"id": "slice", "expression": {"signature": "slice(FloatList,Int,Int)->FloatList", "args": [{"ref": "Mix.FloatList"}, {"ref": "Mix.Int"}, {"ref": "Mix.Int"}]}, "weight": 1}
+    ]},
+    {"id": "Mix.StringList", "type": "StringList", "scope": [], "alternatives": [
+      {"id": "ws", "weight": 2, "expression": {"input": "ws"}},
+      {"id": "k", "expression": {"constant": {"type": "StringList", "values": [["hi", "yo"]]}}, "weight": 1},
+      {"id": "append", "expression": {"signature": "append(StringList,String)->StringList", "args": [{"ref": "Mix.StringList"}, {"ref": "Mix.String"}]}, "weight": 1},
+      {"id": "reverse", "expression": {"signature": "reverse(StringList)->StringList", "args": [{"ref": "Mix.StringList"}]}, "weight": 1}
+    ]}
+  ]
+}

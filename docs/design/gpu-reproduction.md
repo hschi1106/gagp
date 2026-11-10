@@ -475,8 +475,14 @@ together. This section remains the owning implementation contract.
 GPU evaluation + GPU reproduction modes. It uses one host thread. The default
 native AST backend remains the explicit fallback, with the reason recorded in
 `EvolutionResult`. This profile admits one fixed root region template with
-independent whole-phase holes and pure Int/Bool/IntList expressions, scalar
-Int/Bool constants, identity scopes and unit variable-phase resource charges.
+independent whole-phase holes, identity scopes and unit variable-phase resource
+charges. A grammar without bounded regions whose entry is an expression is
+admitted as one whole-program phase: the entry expression is the only variable
+phase, grammar inputs lower to preset locals in evaluator input order, and the
+lowered code is completed by the native program terminator
+(`patch_whole_program` in `phase_layout.hpp`). Phase expressions may use all
+eight value types, any catalog operation whose arity matches, grammar inputs,
+finite constant domains of any type and Int ranges.
 Fixed skeleton charges must be at most one node/level without depth resets.
 The profile conservatively enforces physical whole-program node/depth budgets,
 including zero-charge administrative nodes; weighted/reset skeletons and inputs

@@ -114,8 +114,9 @@ The one-AST evaluation command currently supports CPU only.
 Keep the CPU build and create a separate CUDA build. Install an NVIDIA driver and
 CUDA toolkit compatible with your GPU and host compiler. The verified environment
 includes RTX 3090 / CUDA 12.6 / GCC 11.4. This example uses architecture **86** for
-RTX 3090; use **89** for RTX 4090, or your device's compute capability. CMake's
-current default is 89, so pass this explicitly for other devices.
+RTX 3090; use **89** for RTX 4090, or your device's compute capability. Without
+the option, CMake targets the compute capabilities `nvidia-smi` reports (89 when
+no driver is visible).
 
 ```bash
 cmake -S cpp -B cpp/build-cuda -DCMAKE_BUILD_TYPE=Release -DGAGP_ENABLE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86

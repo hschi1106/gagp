@@ -206,7 +206,7 @@ std::size_t audit(const grammar::CompiledGrammar& grammar,unsigned root,const Ho
  const auto& nt=grammar.nonterminals().at(root);
  std::vector<gpu_detail::DInstr> compiled_code;std::vector<Value> compiled_constants;std::vector<PhaseCompileResult> lowered;
  if(check_lowering) {
-  const auto tag=[](RType type){return type==RType::Int?ValueTag::Int:type==RType::Bool?ValueTag::Bool:ValueTag::IntList;};
+  const auto tag=[](RType type){return phase_value_tag(type);};
   std::vector<ValueTag> types;for(const auto& slot:nt.scope)types.push_back(tag(slot.type));
   Device<ValueTag> locals(types.size());locals.upload(types);
   Device<gpu_detail::DInstr> code(population*code_capacity);Device<Value> constants(population*capacity);Device<PhaseCompileResult> result(population);
@@ -261,7 +261,7 @@ void run(const grammar::CompiledGrammar& grammar,unsigned root,const HostPhaseGr
  PhaseGrammarView g{e.data,int(e.count),p.data,int(p.count),n.data,int(n.count),d.data,int(d.count),v.data,int(v.count),m.data,host.depth_count};
  Trees a,b,donors,oracle;Device<int> destinations(population),changed(population),cross_changed(population),metadata_valid(population),equivalent(population);
  Device<PhaseGeneSite> audit_sites(population*capacity);
- const auto tag=[](RType t){return t==RType::Int?ValueTag::Int:t==RType::Bool?ValueTag::Bool:ValueTag::IntList;};
+ const auto tag=[](RType t){return phase_value_tag(t);};
  std::vector<ValueTag> types;for(const auto& slot:grammar.nonterminals()[root].scope)types.push_back(tag(slot.type));
  Device<ValueTag> locals(types.size());locals.upload(types);
  Device<gpu_detail::DInstr> code(population*code_capacity);Device<Value> constants(population*capacity);Device<PhaseCompileResult> lowered(population);

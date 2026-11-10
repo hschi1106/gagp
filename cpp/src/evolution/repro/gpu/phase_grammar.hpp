@@ -44,10 +44,20 @@ inline void normalize_static_phase_weights(const HostPhaseGrammar& host,
     nt.normalized_weights=true;
   }
 }
+// Exact runtime tag of a grammar value type; Invalid for non-value types.
+inline ValueTag phase_value_tag(RType type) {
+  switch(type) {
+    case RType::Int:return ValueTag::Int;case RType::Float:return ValueTag::Float;
+    case RType::Bool:return ValueTag::Bool;case RType::Char:return ValueTag::Char;
+    case RType::String:return ValueTag::String;case RType::IntList:return ValueTag::IntList;
+    case RType::FloatList:return ValueTag::FloatList;case RType::StringList:return ValueTag::StringList;
+    default:return ValueTag::Invalid;
+  }
+}
 inline Opcode phase_opcode(NodeKind kind) {
   switch(kind) {
     case NodeKind::ADD:return Opcode::Add;case NodeKind::SUB:return Opcode::Sub;
-    case NodeKind::MUL:return Opcode::Mul;case NodeKind::MOD:return Opcode::Mod;
+    case NodeKind::MUL:return Opcode::Mul;case NodeKind::DIV:return Opcode::Div;case NodeKind::MOD:return Opcode::Mod;
     case NodeKind::NEG:return Opcode::Neg;case NodeKind::NOT:return Opcode::Not;
     case NodeKind::LT:return Opcode::Lt;case NodeKind::LE:return Opcode::Le;
     case NodeKind::GT:return Opcode::Gt;case NodeKind::GE:return Opcode::Ge;
@@ -56,8 +66,10 @@ inline Opcode phase_opcode(NodeKind kind) {
     default:throw std::invalid_argument("GPU phase construction: unsupported primitive opcode");
   }
 }
+// `inputs` is the evaluator's input-local order; null means grammar order.
 inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& grammar,
-    unsigned root, unsigned max_depth=32, unsigned logical_depth=0, bool site_depth=false) {
+    unsigned root, unsigned max_depth=32, unsigned logical_depth=0, bool site_depth=false,
+    const std::vector<std::string>* inputs=nullptr) {
   using namespace grammar;
   const auto fail=[](const char* reason){throw std::invalid_argument(std::string("GPU phase construction: ")+reason);};
   if(root>=grammar.nonterminals().size() || !max_depth || max_depth>64 || max_depth>grammar.search_limits().max_depth || logical_depth>15)
@@ -73,10 +85,10 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
   visit_nonterminal=[&](unsigned id) {
     if(seen_nt.at(id))return;seen_nt[id]=true;
     const auto& nt=grammar.nonterminals().at(id);
-    if(nt.category!=NodeCategory::Expression || nt.scope.size()>8 ||
-        (nt.type!=RType::Int && nt.type!=RType::Bool && nt.type!=RType::IntList))fail("nonterminal capability");
+    if(nt.category!=NodeCategory::Expression || nt.scope.size()>8 || phase_value_tag(nt.type)==ValueTag::Invalid)
+      fail("nonterminal capability");
     for(const auto& slot:nt.scope)
-      if(slot.type!=RType::Int && slot.type!=RType::Bool && slot.type!=RType::IntList)fail("scope type");
+      if(phase_value_tag(slot.type)==ValueTag::Invalid)fail("scope type");
     // Reserve each production range before recursively visiting references.
     auto& target=out.nonterminals[id];target.scope_count=nt.scope.size();target.production_offset=out.productions.size();
     for(auto production:nt.productions) {
@@ -95,8 +107,9 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     if(seen_expr.at(id))return;seen_expr[id]=true;
     const auto& e=grammar.expressions().at(id);auto& x=out.expressions[id];
     x.depth_charge=e.resource_charge.depth;
-    if(e.category!=NodeCategory::Expression || !e.regions.empty() ||
-        (e.type!=RType::Int && e.type!=RType::Bool && e.type!=RType::IntList))fail("expression type or binder introduction");
+    if(e.category!=NodeCategory::Expression || !e.regions.empty() || phase_value_tag(e.type)==ValueTag::Invalid)
+      fail("expression type or binder introduction");
+    x.node.type=phase_value_tag(e.type);
     if(e.kind==ExpressionKind::Reference) {
       if(e.scope_mapping.size()>8)fail("scope capacity");
       x.kind=PhaseExpressionKind::Reference;x.target=e.target;x.scope_count=e.scope_mapping.size();
@@ -109,19 +122,27 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       x.kind=PhaseExpressionKind::Constant;x.target=e.target;x.native_kind=static_cast<int>(NodeKind::CONST);x.node.kind=PhaseTreeKind::Constant;
       if(!seen_domain.at(e.target)) {
         seen_domain[e.target]=true;const auto& d=grammar.constants().at(e.target);auto& domain=out.domains[e.target];
-        if((d.type!=RType::Int && d.type!=RType::Bool && d.type!=RType::IntList) || d.sampling || d.elements || d.float_range)fail("constant domain capability");
+        if(phase_value_tag(d.type)==ValueTag::Invalid || d.sampling || d.elements || d.float_range ||
+            (d.integer_range && d.type!=RType::Int))fail("constant domain capability");
         domain.integer_range=d.integer_range;domain.minimum=d.minimum;domain.maximum=d.maximum;
         if(!d.integer_range) {
           domain.value_offset=out.values.size();domain.value_count=d.values.size();
           if(d.values.empty() || d.values.size()>65536 || out.values.size()+d.values.size()>1024*1024)fail("finite domain capacity");
-          for(const auto& value:d.values) {
-            // Only the canonical empty list needs no mutable payload transport.
-            if(d.type==RType::IntList && !std::get<std::vector<std::int64_t>>(value).empty())
-              fail("nonempty list constant requires native fallback");
-            out.values.push_back(materialize_constant(d.type,value));
-          }
+          // Payload values are materialized once here; generation copies them.
+          for(const auto& value:d.values)out.values.push_back(materialize_constant(d.type,value));
         }
       }
+    } else if(e.kind==ExpressionKind::Input) {
+      // A program input is a fixed evaluator local; its operand never varies.
+      const auto& name=grammar.inputs().at(e.target).name;int position=e.target;
+      if(inputs) {
+        const auto found=std::find(inputs->begin(),inputs->end(),name);
+        if(found==inputs->end())fail("input missing from evaluator order");
+        position=found-inputs->begin();
+      }
+      if(position>=64)fail("input local capacity");
+      x.kind=PhaseExpressionKind::Input;x.target=position;x.native_kind=static_cast<int>(NodeKind::VAR);
+      x.node.kind=PhaseTreeKind::Local;x.node.operand=position;
     } else if(e.kind==ExpressionKind::Bound) {
       x.kind=PhaseExpressionKind::Bound;x.target=e.target;x.native_kind=static_cast<int>(NodeKind::REGION_VAR);x.node.kind=PhaseTreeKind::Local;
     } else if(e.kind==ExpressionKind::Primitive) {
@@ -131,15 +152,10 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       if(kind==NodeKind::IF_EXPR)x.node.kind=PhaseTreeKind::If;
       else if(kind==NodeKind::AND || kind==NodeKind::OR)x.node.kind=kind==NodeKind::AND?PhaseTreeKind::And:PhaseTreeKind::Or;
       else if(descriptor.is_builtin()) {
-        const auto builtin=static_cast<BuiltinId>(descriptor.builtin_id);
-        switch(builtin) {
-          case BuiltinId::TruncDiv0: case BuiltinId::TruncMod0: case BuiltinId::IDiv0:case BuiltinId::IMod0:case BuiltinId::Min:case BuiltinId::Max:case BuiltinId::Clip:
-          case BuiltinId::IsLetter:case BuiltinId::Concat:case BuiltinId::Singleton:case BuiltinId::Len:case BuiltinId::IndexClampedOrZero:case BuiltinId::IndexNonnegative: case BuiltinId::Index:case BuiltinId::Slice:break;
-          default:fail("builtin capability");
-        }
+        if(descriptor.builtin_arity!=static_cast<int>(e.children.size()))fail("builtin arity");
         x.node.kind=PhaseTreeKind::Operation;x.node.opcode=Opcode::CallBuiltin;x.node.operand=descriptor.builtin_id;
       } else {x.node.kind=PhaseTreeKind::Operation;x.node.opcode=phase_opcode(kind);}
-    } else fail("templates, repeated holes, inputs, locals and nested regions require native fallback");
+    } else fail("templates, repeated holes, locals and nested regions require native fallback");
     for(const auto& charge:e.fuel_charges) {
       if(charge.event==FuelEvent::Operation || charge.event==FuelEvent::BranchTest)x.node.fuel=charge.cost;
       else if(charge.event==FuelEvent::BranchMerge)x.node.merge_fuel=charge.cost;
