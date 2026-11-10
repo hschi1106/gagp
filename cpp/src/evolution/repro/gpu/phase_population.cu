@@ -12,6 +12,7 @@
 #include "phase_operators.cuh"
 #include "phase_choice_tables.hpp"
 #include "gagp/runtime/gpu/host_pack_gpu.hpp"
+#include "gagp/runtime/gpu/allocation_gpu.hpp"
 #include <cuda_runtime.h>
 #include <chrono>
 #include <algorithm>
@@ -537,7 +538,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  const std::size_t estimated=(2*rows+mutation_rows+input.size())*tree_bytes+rows*(code_capacity*sizeof(gpu_detail::DInstr)+capacity*sizeof(Value));
  phase_layout_require(estimated<=std::size_t(12)*1024*1024*1024,"resident genotype workspace capacity requires native fallback");
  std::size_t scratch_budget=gpu_detail::kPayloadWorkspaceBytes,free_bytes=0,total_bytes=0;
- checked(cudaMemGetInfo(&free_bytes,&total_bytes));
+ gpu_detail::release_cached_device_memory();checked(cudaMemGetInfo(&free_bytes,&total_bytes));
  // Kernel local-memory backing also needs device space. Retire buffers that
  // belong exclusively to the other stage before admitting the full scratch cap.
  constexpr std::size_t launch_headroom=std::size_t(2)*1024*1024*1024;

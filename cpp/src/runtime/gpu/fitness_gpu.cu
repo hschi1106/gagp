@@ -441,6 +441,7 @@ namespace {std::atomic<std::uint64_t> next_fitness_revision{1};}
 struct FitnessSessionGpu::Impl {
   std::uint64_t evaluation_revision=0;
   ReusablePrivateWorkspace private_workspace;
+  gpu_detail::TupleProofMemo tuple_proof_memo; // Pure memo of bounded_tuple_allocations analyses.
   bool ready = false;
   int device_id = -1;
   int fuel = 10000;
@@ -788,7 +789,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
        std::all_of(programs.begin(),programs.end(),[&](const auto& program) {
          return gpu_detail::private_intlist_program_supported(program,impl_->shared_input_types);
        })) && (!tuple_zero_cap || std::all_of(programs.begin(),programs.end(),[&](const auto& program) {
-         return gpu_detail::bounded_tuple_allocations(program,impl_->shared_input_types);
+         return gpu_detail::bounded_tuple_allocations(program,impl_->shared_input_types,&impl_->tuple_proof_memo);
        }));
   std::vector<Value> normal_needed_lists;
   std::vector<std::int64_t> normal_needed_strings;

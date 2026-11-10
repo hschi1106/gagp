@@ -2,7 +2,10 @@
 
 #include <algorithm>
 #include <array>
+#include <cstring>
 #include <optional>
+#include <string>
+#include <unordered_map>
 #include <vector>
 #include "gagp/core/bytecode.hpp"
 #include "gagp/core/builtin.hpp"
@@ -16,8 +19,19 @@ namespace gagp::gpu_detail {
 // results are inductively <=3: base/combine/boundary prove that invariant using
 // the same bound for child results. No source task names or answer values enter
 // this proof. Ordinary verification and private typeflow must also pass.
+//
+// The analysis of one code block depends only on its code, constants, initial
+// local bounds, result requirement and (for root code) the segment plans. A
+// memo keyed by exactly these contents, compared in full, returns the same
+// answer as a fresh analysis. Code reading an IntList constant also depends on
+// registry contents and is never memoized.
+struct TupleProofMemo {
+  static constexpr std::size_t kMaxEntries = std::size_t(1) << 20;
+  std::unordered_map<std::string,bool> entries;
+};
+
 inline bool bounded_tuple_allocations(const BytecodeProgram& program,
-    const std::array<ValueTag,64>& input_types) {
+    const std::array<ValueTag,64>& input_types, TupleProofMemo* memo = nullptr) {
   struct State { std::vector<int> stack, locals; };
   constexpr int scalar=-1, input_bound=65536, tuple_bound=3;
   const auto analyze=[&](const auto& code,const auto& constants,int local_count,
@@ -113,6 +127,39 @@ inline bool bounded_tuple_allocations(const BytecodeProgram& program,
     }
     return returned;
   };
+  const auto append=[](std::string& key,const void* data,std::size_t bytes) {
+    key.append(static_cast<const char*>(data),bytes);
+  };
+  const auto memo_analyze=[&](const auto& code,const auto& constants,int local_count,
+      const std::vector<int>& initial,bool tuple_result,bool root)->bool {
+    if(!memo || std::any_of(constants.begin(),constants.end(),[](const Value& v){return v.tag==ValueTag::IntList;}))
+      return analyze(code,constants,local_count,initial,tuple_result,root);
+    std::string key;
+    key.reserve(16+initial.size()*4+code.size()*12+constants.size()*10);
+    const std::uint64_t header[4]={std::uint64_t(local_count),std::uint64_t(tuple_result)|std::uint64_t(root)<<1,
+        initial.size(),code.size()};
+    append(key,header,sizeof(header));
+    append(key,initial.data(),initial.size()*sizeof(int));
+    for(const auto& ins:code) {
+      const std::int32_t words[3]={std::int32_t(ins.op),ins.a,ins.b};
+      append(key,words,sizeof(words));key.push_back(char(ins.has_a | ins.has_b<<1));
+    }
+    const std::uint64_t count=constants.size();append(key,&count,sizeof(count));
+    for(const auto& value:constants){append(key,&value.i,sizeof(value.i));key.push_back(char(value.tag));key.push_back(char(value.b));}
+    if(root) {
+      const std::uint64_t segments=program.bounded_region_segments.size();append(key,&segments,sizeof(segments));
+      for(const auto& segment:program.bounded_region_segments) {
+        const std::uint64_t words[2]={segment.plan.state_types.size()+std::uint64_t(segment.plan.bound_operand_count),
+            std::uint64_t(segment.plan.result_type)};
+        append(key,words,sizeof(words));
+      }
+    }
+    if(const auto found=memo->entries.find(key);found!=memo->entries.end())return found->second;
+    const bool result=analyze(code,constants,local_count,initial,tuple_result,root);
+    if(memo->entries.size()>=TupleProofMemo::kMaxEntries)memo->entries.clear();
+    memo->entries.emplace(std::move(key),result);
+    return result;
+  };
   for(const auto& segment:program.bounded_region_segments) {
     const auto& plan=segment.plan;
     const auto phase=[&](const RegionPhase& p,bool result)->bool {
@@ -130,7 +177,7 @@ inline bool bounded_tuple_allocations(const BytecodeProgram& program,
         }
         locals[binding.local]=type==ValueTag::IntList?bound:scalar;
       }
-      return analyze(p.program.code,p.program.consts,p.program.n_locals,locals,
+      return memo_analyze(p.program.code,p.program.consts,p.program.n_locals,locals,
           result && plan.result_type==ValueTag::IntList,false);
     };
     if(!phase(segment.base_predicate,false) || !phase(segment.base_body,true) || !phase(segment.combine,true) ||
@@ -141,7 +188,7 @@ inline bool bounded_tuple_allocations(const BytecodeProgram& program,
   if(program.n_locals<0 || program.n_locals>64)return false;
   std::vector<int> locals(program.n_locals,scalar);
   for(std::size_t i=0;i<locals.size();++i)if(input_types[i]==ValueTag::IntList)locals[i]=input_bound;
-  return analyze(program.code,program.consts,program.n_locals,locals,false,true);
+  return memo_analyze(program.code,program.consts,program.n_locals,locals,false,true);
 }
 
 } // namespace gagp::gpu_detail

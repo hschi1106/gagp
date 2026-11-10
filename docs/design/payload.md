@@ -61,7 +61,14 @@ concatenation, warp-cooperative copies, fused concatenation, and typed
 interpreters for small phases (`fitness_gpu.cu`, around the
 `DRegionWorkspace` setup). Each is admitted only after a proof over the whole
 population; otherwise the generic path runs. Their suffixes are appended to
-the execution profile.
+the execution profile. A session memoizes the bounded-tuple allocation proof
+per code block, keyed by the complete code, constants and local bounds (blocks
+that read `IntList` constants are always analyzed afresh).
+
+Transport buffers freed after an evaluation are kept in power-of-two buckets
+per device (blocks up to 256 MiB, at most 1 GiB cached) and reused by the next
+evaluation (`device_allocation.cu`). The cache is released when an allocation
+fails and before the resident engine measures free memory.
 
 ### Overflow replay
 

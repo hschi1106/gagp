@@ -406,6 +406,35 @@ bool test_private_tuple_fitness() {
       ins_a(Opcode::PushConst,1),ins_ab(Opcode::CallBuiltin,int(BuiltinId::Slice),3),ins(Opcode::Return)};
   std::array<ValueTag,64> types;types.fill(ValueTag::Invalid);types[0]=ValueTag::IntList;
   if(!check(!gpu_detail::bounded_tuple_allocations(oversized,types),"unbounded zero-cap concat admitted"))return false;
+  // The proof memo must answer exactly as a fresh analysis, also for programs
+  // that differ in one operand, a constant, a local bound or an IntList constant.
+  {
+    const auto chain=[](int singletons,bool list_constant) {
+      BytecodeProgram p;p.n_locals=1;
+      p.consts={list_constant?payload::make_int_list_value({Value::from_int(4)}):Value::from_int(4)};
+      for(int i=0;i<singletons;++i) {
+        p.code.push_back(ins_a(Opcode::PushConst,0));
+        if(!list_constant)p.code.push_back(ins_ab(Opcode::CallBuiltin,int(BuiltinId::Singleton),1));
+        if(i)p.code.push_back(ins_ab(Opcode::CallBuiltin,int(BuiltinId::Concat),2));
+      }
+      p.code.push_back(ins(Opcode::Return));
+      return p;
+    };
+    std::vector<BytecodeProgram> cases{oversized};
+    for(int n=1;n<=4;++n)for(bool list:{false,true})cases.push_back(chain(n,list));
+    auto widened=chain(3,false);widened.code[1].b=2;cases.push_back(widened);
+    auto reads_input=chain(2,false);reads_input.code[0]=ins_a(Opcode::Load,0);cases.push_back(reads_input);
+    std::array<ValueTag,64> scalar_types;scalar_types.fill(ValueTag::Invalid);scalar_types[0]=ValueTag::Int;
+    gpu_detail::TupleProofMemo memo;int admitted=0;
+    for(int round=0;round<2;++round)for(const auto* input_types:{&types,&scalar_types})for(const auto& p:cases) {
+      const bool fresh=gpu_detail::bounded_tuple_allocations(p,*input_types);
+      admitted+=round==0 && fresh;
+      if(!check(gpu_detail::bounded_tuple_allocations(p,*input_types,&memo)==fresh,"tuple proof memo changes the answer"))
+        return false;
+    }
+    if(!check(admitted>0 && admitted<int(2*cases.size()) && !memo.entries.empty(),
+        "tuple proof memo test must cover admitted, rejected and memoized programs"))return false;
+  }
   const auto input=tuple({1,2,3});FitnessPolicy narrow{FitnessMetric::TupleSummary};narrow.summary_count=2;
   FitnessSessionGpu ordinary;
   if(!ordinary.init({{{0,input}}},{input},100,32,1000,narrow).ok)return false;
