@@ -464,10 +464,15 @@ This is the representation of the research mainline; the
 [research mainline overview](research-mainline.md) explains how it fits
 together. This section remains the owning implementation contract.
 
-`GAGP_GPU_PHASE_POPULATION=1` requests a run-owned GPU genotype in the existing
-GPU evaluation + GPU reproduction modes. It uses one host thread. The default
-native AST backend remains the explicit fallback, with the reason recorded in
-`EvolutionResult`. This profile admits one fixed root region template with
+`representation: resident` (the default search of `gagp run`) requests a
+run-owned genotype: on the device with GPU evaluation and GPU reproduction, or
+on the host with the CPU reference engine. It uses one host thread. If the
+profile declines the grammar, or cold import declines an initial member,
+`evolve_population` reruns the same search with `native_fallback_config`
+(native AST, host reproduction, unchanged evaluation engine) and records the
+reason in `EvolutionResult::resident_declined`; `gagp run` prints it and writes
+it to `result.json` ([search_config.md](../../spec/search_config.md#resident-admission)).
+Only admission declines fall back; policy errors still fail. This profile admits one fixed root region template with
 independent whole-phase holes, identity scopes and unit variable-phase resource
 charges. A grammar without templates whose entry is an expression is
 admitted as one whole-program phase: the entry expression is the only variable
@@ -741,9 +746,8 @@ Cold import annotates and checks every initial member; crossover checks the
 spliced site's annotated depth, and mutation samples from a joint physical-node,
 physical-depth and invocation-depth feasibility table. Synthetic nodes inside a
 production consume physical resources but no invocation level. The profile is
-`native-gpu-phase-v4-site-depthN`. Explicit requests require the resident GPU
-owner and fail on unsupported policies or initial members; they cannot combine
-with authored projected-resource budgets. This counts private construction
+`resident-gpu-v4-site-depthN`. It requires a resident owner and cannot
+combine with authored projected-resource budgets. This counts private construction
 sites, rather than treating canonical projected resources as interchangeable.
 
 `gpu_phase_site_parsimony` independently uses the number of mutable grammar

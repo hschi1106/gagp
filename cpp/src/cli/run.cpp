@@ -35,7 +35,7 @@ using Json = JsonValue;
 // phase population, steady state with the whole population as batch.
 constexpr const char* kDefaultSearch = R"({
   "format": "gagp-search-config-v1",
-  "representation": "phase_population",
+  "representation": "resident",
   "population_size": 1024,
   "generations": 64,
   "selection": {"method": "tournament", "size": 2},
@@ -305,16 +305,21 @@ int run_task_command(const std::vector<std::string>& argv) {
   Json summary = obj({{"format", str("gagp-run-v1")}, {"task", str(task.name)}, {"engine", str(args.engine)},
       {"population", num(cfg.population_size)}, {"generations", num(cfg.generations)},
       {"seed", str(std::to_string(cfg.seed))}, {"train_cases", num(cases.size())},
-      {"search", effective_search_config(cfg)},
+      {"search", effective_search_config(result.resident_declined.empty() ? cfg : evo::native_fallback_config(cfg))},
       {"best", obj({{"fitness", num(best.fitness)}, {"wrong", num(best.wrong)},
                     {"nodes", num(best.genome.ast.nodes.size())}, {"program", program_json(best.genome.ast)}})},
       {"history", arr(std::move(history))},
       {"time_ms", obj({{"total", num(wall_ms)}, {"search", num(result.timing.total_ms)},
                        {"initialization", num(result.timing.init_population_ms)}})}});
+  if (!result.resident_declined.empty())
+    summary.object_v["resident_declined"] = str(result.resident_declined);
   if (!task.test_path.empty())
     summary.object_v["test"] = judge(best.genome, load_fitness_cases(task.test_path), task, cfg.fuel);
 
   if (!args.quiet) {
+    if (!result.resident_declined.empty())
+      std::fprintf(stderr, "resident engine declined this grammar (%s); ran the native representation "
+                   "with host reproduction instead\n", result.resident_declined.c_str());
     std::fprintf(stderr, "best fitness %.6g, wrong %d of %zu train cases, %zu nodes; %.1f s\n", best.fitness, best.wrong,
                  cases.size(), best.genome.ast.nodes.size(), wall_ms / 1000);
     if (summary.object_v.count("test")) {

@@ -108,6 +108,9 @@ struct EvolutionResult {
   std::vector<ScoredGenome> final_population;
   bool final_eval_skipped = false;
   std::string reproduction_profile = "native-ast";
+  // Non-empty when the resident engine declined the grammar or a genome at
+  // admission and the search ran on the native representation instead.
+  std::string resident_declined;
   std::uint64_t genotype_device_bytes = 0;
   std::uint64_t gpu_stage_storage_reserved_bytes = 0;
   std::uint64_t gpu_stage_storage_peak_bytes = 0;
@@ -117,9 +120,14 @@ struct EvolutionResult {
 std::vector<ScoredGenome> evaluate_population(const std::vector<ProgramGenome>& population,
                                               const std::vector<EvalCase>& cases,
                                               const EvolutionConfig& cfg);
+// Runs the resident engine when requested; if it declines at admission, the
+// same search reruns with native_fallback_config(cfg).
 EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
                                   const EvolutionConfig& cfg,
                                   const std::vector<ProgramGenome>* initial_population = nullptr);
+// The native-representation config used after a resident decline: phase-only
+// policies cleared, host reproduction, unchanged evaluation engine.
+EvolutionConfig native_fallback_config(const EvolutionConfig& cfg);
 
 std::string eval_engine_name(EvalEngine engine);
 

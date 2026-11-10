@@ -195,8 +195,8 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
  s.layout=import_native_phase_layout(*s.grammar,input.front(),&import_profiles,&input_names,true,projected?&*projected:nullptr);
  if(site_depth)for(std::size_t k=0;k<s.layout.slots.size();++k)
   s.layout.profiles[k]=compile_phase_variation_grammar(*s.grammar,s.layout.slots[k].nonterminal,s.grammar->search_limits().max_depth,site_depth,true,&input_names);
- s.profile=site_depth?"native-cpu-phase-v4-site-depth"+std::to_string(site_depth):s.layout.slots.front().logical_depth?"native-cpu-phase-v3-projected":
-     s.operators.counted_sites?"native-cpu-phase-v2-counted":"native-cpu-phase-v1";
+ s.profile=site_depth?"resident-cpu-v4-site-depth"+std::to_string(site_depth):s.layout.slots.front().logical_depth?"resident-cpu-v3-projected":
+     s.operators.counted_sites?"resident-cpu-v2-counted":"resident-cpu-v1";
  s.profile+=phase_variation_profile_suffix(policy);
  if(s.operators.uniform_phase)s.profile+="-uniform-phase";
  s.slot_count=s.layout.slots.size();phase_layout_require(s.slot_count>0 && s.slot_count<=8,"phase count capacity");

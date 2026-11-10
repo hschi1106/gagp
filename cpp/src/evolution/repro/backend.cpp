@@ -327,11 +327,10 @@ void require_reproduction_mode_supported(const EvolutionConfig& cfg, bool) {
   if (cfg.cpu_repro_ablation != CpuReproAblation::None &&
       cfg.reproduction_backend != ReproductionBackend::Cpu)
     throw std::invalid_argument("CPU reproduction ablations require the CPU reproduction backend");
-  // An explicit phase population may lower the evaluation fuel below the
-  // grammar's execution fuel (search config `execution.fuel`), never raise it.
+  // The search config `execution.fuel` may lower the evaluation fuel below the
+  // grammar's execution fuel, never raise it.
   const auto grammar_fuel = cfg.compiled_grammar->execution_limits().fuel;
-  const bool lowered = cfg.phase_population.value_or(false) && cfg.fuel > 0 &&
-                       static_cast<std::uint32_t>(cfg.fuel) < grammar_fuel;
+  const bool lowered = cfg.fuel > 0 && static_cast<std::uint32_t>(cfg.fuel) < grammar_fuel;
   if (cfg.fuel <= 0 || (static_cast<std::uint32_t>(cfg.fuel) != grammar_fuel && !lowered))
     throw std::invalid_argument("compiled grammar execution fuel must match EvolutionConfig fuel");
   if (cfg.population_size <= 0)

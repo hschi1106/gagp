@@ -117,7 +117,7 @@ Trace trace(const EvolutionResult& r) {
  t.best=r.history_best_fitness;t.mean=r.history_mean_fitness;return t;
 }
 void require_same(const Trace& a,const Trace& b,const std::string& label) {
- require(a.profile.rfind("native-cpu-phase-",0)==0 && b.profile.rfind("native-gpu-phase-",0)==0,label+": phase owners not used");
+ require(a.profile.rfind("resident-cpu-",0)==0 && b.profile.rfind("resident-gpu-",0)==0,label+": phase owners not used");
  require(!a.asts.empty() && a.asts==b.asts && a.fitness==b.fitness && a.best==b.best && a.mean==b.mean,label+": CPU and GPU searches differ");
 }
 // Native generation verifies each program; statement grammars may read a local
@@ -221,6 +221,37 @@ void check(const char* fixture,Fixture mode,bool search=true) {
  require_same(run(7,&fresh.asts,false),run(7,&fresh.asts,true),label+" exported population");
  std::cout<<fixture<<": "<<programs<<" programs, "<<rejected<<" undefined-local rejections\n";
 }
+// A grammar whose traversals nest deeper than the resident capacity is
+// declined at admission; the search then reruns on the native representation
+// with host reproduction, exactly as native_fallback_config describes.
+void check_declined(const char* fixture) {
+ const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/")+fixture)));
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+ EvolutionConfig cfg;cfg.population_size=32;cfg.generations=3;cfg.seed=11;cfg.elite_count=1;cfg.mutation_rate=0.3;
+ cfg.compiled_grammar=compiled;cfg.generation_request=grammar::entry_request(*compiled);
+ cfg.mutation_subtree_prob=1;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+ cfg.phase_population=true;cfg.gpu_phase_site_depth=7;cfg.phase_variation={PhaseSiteDraw::Counted,PhaseSiteScope::Genome,0.9,8};
+ cfg.phase_schedule=PhaseSchedulePolicy{PhaseScheduleMode::SteadyState,2,32};
+ for(const bool gpu:{false,true}) {
+  auto run=cfg;
+  run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  run.reproduction_backend=gpu?ReproductionBackend::Gpu:ReproductionBackend::Cpu;
+  const auto label=std::string(fixture)+(gpu?" GPU":" CPU");
+  const auto result=evolve_population(cases,run);
+  require(result.resident_declined.find("lowering capacity")!=std::string::npos,label+": resident engine was not declined: "+result.resident_declined);
+  require(result.reproduction_profile.rfind("resident-",0)!=0,label+": declined run used a resident owner");
+  const auto native=native_fallback_config(run);
+  require(!native.phase_population.value_or(true) && !native.gpu_phase_site_depth && !native.phase_variation && !native.phase_schedule &&
+      native.reproduction_backend==ReproductionBackend::Cpu && native.eval_engine==run.eval_engine,label+": fallback config");
+  const auto direct=evolve_population(cases,native);
+  require(direct.resident_declined.empty(),label+": native run reported a decline");
+  const auto a=trace(result),b=trace(direct);
+  require(!a.asts.empty() && a.asts==b.asts && a.fitness==b.fitness && a.best==b.best,label+": fallback differs from the native search");
+  for(const auto& member:result.final_population)grammar::require_membership(*compiled,member.genome);
+ }
+ std::cout<<fixture<<": declined, native fallback identical on CPU and GPU evaluation\n";
+}
 }  // namespace
 
 int main() { try {
@@ -240,6 +271,7 @@ int main() { try {
  // and a single program with a repeated hole of fixed fill.
  check("configs/grammar/compat/linear_rec_intlist_int.json",Fixture::Templates,false);
  check("configs/grammar/examples/authoring/template.json",Fixture::Templates,false);
+ check_declined("cpp/tests/fixtures/phase_declined.json");
  std::cout<<"phase whole-program: lowering parity and CPU/GPU searches identical\n";
  return 0;
 } catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<"\n";return 1;} }

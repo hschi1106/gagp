@@ -79,9 +79,9 @@ SearchConfig parse_search_config(const JsonValue& document) {
   SearchConfig config;
   if (const auto* v = field(document, "representation")) {
     const auto name = text(*v, "representation");
-    if (name == "phase_population") config.phase_population = true;
+    if (name == "resident") config.phase_population = true;
     else if (name == "native_ast") config.phase_population = false;
-    else fail("representation must be phase_population or native_ast");
+    else fail("representation must be resident or native_ast");
   }
   if (const auto* v = field(document, "population_size")) config.population_size = integer(*v, "population_size", 1, 1 << 20);
   if (const auto* v = field(document, "generations")) config.generations = integer(*v, "generations", 1, 1 << 20);
@@ -204,7 +204,7 @@ JsonValue effective_search_config(const evo::EvolutionConfig& cfg) {
   JsonValue out = make_object();
   out.object_v["format"] = make_string(kSearchConfigFormat);
   const bool phase = cfg.phase_population.value_or(false);
-  out.object_v["representation"] = make_string(phase ? "phase_population" : "native_ast");
+  out.object_v["representation"] = make_string(phase ? "resident" : "native_ast");
   out.object_v["population_size"] = make_number(cfg.population_size);
   out.object_v["generations"] = make_number(cfg.generations);
   out.object_v["seed"] = make_string(std::to_string(cfg.seed));

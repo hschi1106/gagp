@@ -1,0 +1,10 @@
+{
+  "format": "gagp-task-v1",
+  "name": "declined_sum",
+  "grammar": "../phase_declined.json",
+  "train": "declined.cases.json",
+  "fitness": {
+    "metric": "absolute",
+    "case_cap": 1000
+  }
+}

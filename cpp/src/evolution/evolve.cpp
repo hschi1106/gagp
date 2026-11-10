@@ -43,6 +43,13 @@ namespace gagp::evo {
 
 namespace {
 enum class PhaseEngine { None, Gpu, Cpu };
+// The resident engine declined the grammar or a genome at admission; the
+// search reruns on the native representation (see evolve_population).
+struct ResidentDeclined : std::runtime_error { using std::runtime_error::runtime_error; };
+template<class F> auto admit_resident(F&& f) -> decltype(f()) {
+  try { return f(); }
+  catch (const std::invalid_argument& e) { throw ResidentDeclined(e.what()); }
+}
 // Phase population is requested by the search configuration and needs
 // matching evaluation and reproduction engines.
 PhaseEngine phase_engine(const EvolutionConfig& cfg) {
@@ -554,8 +561,8 @@ bool evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
       std::chrono::steady_clock::now()-start).count(); };
   // The phase population is an explicit request: unsupported policies fail closed.
   require_phase_entry_policy(cfg);
-  auto owner = std::make_unique<repro::NativePhasePopulation>(cfg.compiled_grammar,population,cases.input_names,
-      cfg.offspring_resource_budget,cfg.gpu_phase_site_depth,resolve_phase_variation(cfg));
+  auto owner = admit_resident([&] { return std::make_unique<repro::NativePhasePopulation>(cfg.compiled_grammar,
+      population,cases.input_names,cfg.offspring_resource_budget,cfg.gpu_phase_site_depth,resolve_phase_variation(cfg)); });
   result.timing.init_population_ms += elapsed(begin);
   result.reproduction_profile = owner->profile_name();
   result.gpu_stage_storage_reserved_bytes=owner->stage_storage_reserved_bytes();
@@ -620,8 +627,9 @@ void evolve_cpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
   const auto begin = std::chrono::steady_clock::now();
   require_phase_entry_policy(cfg);
   const auto schedule=resolve_phase_schedule(cfg.phase_schedule.value_or(PhaseSchedulePolicy{}),int(population.size()));
-  repro::HostPhasePopulation owner(cfg.compiled_grammar,population,cases.input_names,cfg.offspring_resource_budget,
-      cfg.gpu_phase_site_depth,resolve_phase_variation(cfg));
+  auto host = admit_resident([&] { return std::make_unique<repro::HostPhasePopulation>(cfg.compiled_grammar,
+      population,cases.input_names,cfg.offspring_resource_budget,cfg.gpu_phase_site_depth,resolve_phase_variation(cfg)); });
+  auto& owner = *host;
   result.timing.init_population_ms += std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count();
   result.reproduction_profile = owner.profile_name();
   if(cfg.gpu_phase_site_parsimony)result.reproduction_profile+="-site-parsimony";
@@ -682,9 +690,10 @@ std::vector<ScoredGenome> evaluate_population(const std::vector<ProgramGenome>& 
       nullptr, nullptr, true));
 }
 
-EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
-                                  const EvolutionConfig& cfg,
-                                  const std::vector<ProgramGenome>* initial_population) {
+namespace {
+EvolutionResult evolve_population_once(const std::vector<EvalCase>& cases,
+                                       const EvolutionConfig& cfg,
+                                       const std::vector<ProgramGenome>* initial_population) {
   if(cfg.gpu_phase_site_depth<0 || cfg.gpu_phase_site_depth>15 ||
       (cfg.gpu_phase_site_depth && (cfg.initial_resource_budget || cfg.offspring_resource_budget || cfg.gpu_projected_phase_profile)))
     throw std::invalid_argument("invalid GPU phase site depth or conflicting projected budget");
@@ -785,8 +794,8 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
   std::vector<ProgramGenome> phase_initial;
   if (!initial_population && cfg.gpu_phase_site_depth && phase_engine(cfg) != PhaseEngine::None) {
     require_phase_entry_policy(cfg);
-    phase_initial = repro::generate_phase_initial_population(*cfg.compiled_grammar, *cfg.generation_request,
-        case_set.input_names, cfg.population_size, cfg.seed, cfg.gpu_phase_site_depth);
+    phase_initial = admit_resident([&] { return repro::generate_phase_initial_population(*cfg.compiled_grammar,
+        *cfg.generation_request, case_set.input_names, cfg.population_size, cfg.seed, cfg.gpu_phase_site_depth); });
     initial_population = &phase_initial;
   }
   PopulationInitialization initialization =
@@ -948,6 +957,35 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
   result.timing.total_ms =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - all_t0).count();
   return result;
+}
+
+}  // namespace
+
+EvolutionConfig native_fallback_config(const EvolutionConfig& cfg) {
+  EvolutionConfig native = cfg;
+  native.phase_population = false;
+  native.gpu_phase_site_depth = 0;
+  native.gpu_phase_site_parsimony = false;
+  native.gpu_projected_phase_profile = false;
+  native.phase_variation.reset();
+  native.phase_schedule.reset();
+  native.cpu_fitness_verification.top_k = 0;
+  // Native reproduction runs on the host; evaluation keeps its engine.
+  native.reproduction_backend = repro::ReproductionBackend::Cpu;
+  native.repro_overlap = false;
+  return native;
+}
+
+EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
+                                  const EvolutionConfig& cfg,
+                                  const std::vector<ProgramGenome>* initial_population) {
+  try {
+    return evolve_population_once(cases, cfg, initial_population);
+  } catch (const ResidentDeclined& declined) {
+    auto result = evolve_population_once(cases, native_fallback_config(cfg), initial_population);
+    result.resident_declined = declined.what();
+    return result;
+  }
 }
 
 }  // namespace gagp::evo

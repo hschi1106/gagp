@@ -110,7 +110,7 @@ void check_evolution_final_scores(const std::vector<EvalCase>& cases,EvolutionCo
  config.generations=4;config.seed=0x617ba;config.retain_final_population=true;config.skip_final_eval=false;
  config.phase_population=true;
  const auto result=evolve_population(cases,config,&parents);
- require(result.reproduction_profile.rfind("native-gpu-phase-",0)==0,"resident evolution did not use the GPU phase owner");
+ require(result.reproduction_profile.rfind("resident-gpu-",0)==0,"resident evolution did not use the GPU phase owner");
  require(result.history_best.size()==std::size_t(config.generations) &&
      result.final_population.size()==parents.size(),"resident evolution omitted history or final members");
  std::vector<std::string> names;for(const auto& input:config.compiled_grammar->inputs())names.push_back(input.name);
@@ -650,7 +650,7 @@ void test_whole_program_node_budget() {
  config.phase_population=true;
  const std::vector<ProgramGenome> parents{parent,parent};
  const auto integrated=evolve_population(evolution_cases,config,&parents);
- require(integrated.reproduction_profile.rfind("native-gpu-phase-",0)==0,
+ require(integrated.reproduction_profile.rfind("resident-gpu-",0)==0,
      "large whole-AST entry point did not use the admitted GPU phase owner");
  std::vector<BytecodeProgram> final_programs;
  for(const auto& member:integrated.final_population)final_programs.push_back(compile_for_eval(member.genome,names));
@@ -713,7 +713,7 @@ int main(){try {
  setenv("GAGP_GPU_DIAGNOSTICS","1",1);
  const auto integrated=evolve_population(evolution_cases,config,&parents);
  unsetenv("GAGP_GPU_DIAGNOSTICS");
- require(integrated.reproduction_profile.rfind("native-gpu-phase-v2-counted",0)==0,"GPU genotype evolution adapter not used");
+ require(integrated.reproduction_profile.rfind("resident-gpu-v2-counted",0)==0,"GPU genotype evolution adapter not used");
  const std::vector<EvalCase> small_cases{evolution_cases.front()};
  const grammar::ProjectedBudget budget{grammar->search_limits().max_nodes,grammar->search_limits().max_depth};
  // Projected budgets select the projected owner only on explicit request; its
@@ -722,7 +722,7 @@ int main(){try {
  projected.gpu_projected_phase_profile=true;
  projected.initial_resource_budget=budget;projected.offspring_resource_budget=budget;
  const auto projected_result=evolve_population(small_cases,projected,&parents);
- require(projected_result.reproduction_profile.rfind("native-gpu-phase-v3-projected",0)==0,"positive projected opt-in did not use phase owner");
+ require(projected_result.reproduction_profile.rfind("resident-gpu-v3-projected",0)==0,"positive projected opt-in did not use phase owner");
  std::vector<BytecodeProgram> projected_programs;
  for(const auto& scored:projected_result.final_population) {
   auto fresh=scored.genome;fresh.derivation.reset();

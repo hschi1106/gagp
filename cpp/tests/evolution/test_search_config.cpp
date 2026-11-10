@@ -34,7 +34,7 @@ void test_parse_and_apply() {
   const auto empty = config("");
   require(!empty.generations && !empty.explicit_phase_variation(), "empty document set fields");
   const auto full = config(
-      ",\"representation\":\"phase_population\",\"population_size\":1024,\"generations\":64,"
+      ",\"representation\":\"resident\",\"population_size\":1024,\"generations\":64,"
       "\"seed\":\"18446744073709551615\",\"selection\":{\"method\":\"tournament\",\"size\":3},"
       "\"elitism\":1,\"crossover\":{\"probability\":0.7,\"attempts\":4},\"mutation\":{\"probability\":0.3},"
       "\"sites\":{\"scope\":\"uniform_phase\",\"draw\":\"counted\"},\"limits\":{\"site_depth\":7},"

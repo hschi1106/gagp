@@ -1,0 +1,14 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "Deep.Top", "type": "Int"},
+  "inputs": [{"name": "xs", "type": "IntList"}, {"name": "n", "type": "Int"}],
+  "search_limits": {"max_nodes": 64, "max_depth": 12},
+  "execution_limits": {"fuel": 4096},
+  "nonterminals": [
+    {"id": "Deep.Top", "type": "Int", "scope": [], "alternatives": [
+      {"id": "n", "weight": 3, "expression": {"input": "n"}},
+      {"id": "add", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"ref": "Deep.Top"}, {"ref": "Deep.Top"}]}},
+      {"id": "walk", "weight": 1, "expression": {"signature": "traverse(IntList,Int,Int,Int)->Int", "args": [{"input": "xs"}, {"constant": {"type": "Int", "values": ["0"]}}, {"ref": "Deep.Top"}, {"ref": "Deep.Top"}], "bind": {"3": ["e", "i", "acc"]}}}
+    ]}
+  ]
+}

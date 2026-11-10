@@ -8,8 +8,8 @@ endforeach()
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}")
 set(task "${FIXTURES}/task.json")
-# The fixture grammar has no bounded region, so it runs on the native AST
-# representation (the resident phase population needs one bounded region).
+# Most checks pin the native AST representation; the default (resident) and its
+# decline fallback are checked separately below.
 set(native --search "${FIXTURES}/search_native.json")
 
 function(gagp_expect_exit code)
@@ -69,6 +69,27 @@ foreach(saved population.json history.json)
     message(FATAL_ERROR "--save-all did not write ${saved}")
   endif()
 endforeach()
+
+# The default search runs the resident representation. A grammar the resident
+# engine cannot hold reruns on the native representation, says so, and records
+# the reason with the effective (native) search configuration.
+gagp_expect_exit(0 run "${task}" --engine cpu --seed 7 --population 32 --generations 2 --out "${WORK}/resident" --quiet)
+file(READ "${WORK}/resident/result.json" resident_result)
+string(JSON representation GET "${resident_result}" search representation)
+string(JSON declined ERROR_VARIABLE no_decline GET "${resident_result}" resident_declined)
+if(NOT representation STREQUAL "resident" OR NOT declined MATCHES "NOTFOUND$")
+  message(FATAL_ERROR "default run did not stay resident: ${resident_result}")
+endif()
+gagp_expect_exit(0 run "${FIXTURES}/declined_task.json" --engine cpu --seed 7 --population 32 --generations 2
+                 --out "${WORK}/declined")
+require_text("${last_stderr}" "resident engine declined this grammar" "decline notice")
+file(READ "${WORK}/declined/result.json" declined_result)
+string(JSON representation GET "${declined_result}" search representation)
+string(JSON declined GET "${declined_result}" resident_declined)
+if(NOT representation STREQUAL "native_ast")
+  message(FATAL_ERROR "declined run recorded ${representation}")
+endif()
+require_text("${declined}" "lowering capacity" "decline reason")
 
 # A run that starts from a saved population reproduces it.
 gagp_expect_exit(0 run "${task}" --engine cpu ${native} --seed 7 --generations 1 --population 32

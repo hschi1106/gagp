@@ -31,10 +31,10 @@ synthesis whose whole search loop runs on the GPU:
 
 | Representation | Where used | Notes |
 | --- | --- | --- |
-| Native AST (`representation: native_ast`) | `gagp_evolve_cli` default, general grammars | Typed AST population, CPU or GPU evaluation, CPU or GPU reproduction ([gpu-reproduction.md](gpu-reproduction.md)). |
-| Phase population (`representation: phase_population`) | Research mainline, fixed ASGP benchmark | A fixed root template with up to 8 independently varied phases; the genotype stays resident on the device for the whole run. |
+| Resident (`representation: resident`) | `gagp run` default, research mainline, fixed ASGP benchmark | Phase genes: a whole program as one phase, or a fixed root template with up to 8 independently varied phases (chosen automatically, see [gpu-reproduction.md](gpu-reproduction.md#native-gpu-phase-population)). The genotype stays resident on the device for the whole run. |
+| Native AST (`representation: native_ast`) | Explicit choice, and the automatic fallback when the resident engine declines a grammar | Typed AST population with CPU or GPU evaluation; host reproduction after a decline ([search_config.md](../../spec/search_config.md#resident-admission)). |
 
-The rest of this page is about the phase population.
+The rest of this page is about the resident representation.
 
 ## Components and owners
 

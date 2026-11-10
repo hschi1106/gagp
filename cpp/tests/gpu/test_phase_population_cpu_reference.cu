@@ -110,11 +110,11 @@ int main() { try {
  };
  for(const auto& p:policies) {
   const auto reference=run(p,false);
-  require(reference.profile.rfind("native-cpu-phase-",0)==0,std::string(p.label)+": CPU reference owner not used");
+  require(reference.profile.rfind("resident-cpu-",0)==0,std::string(p.label)+": CPU reference owner not used");
 
   // Warp-per-child GPU kernels with threshold-table draws.
   const auto gpu=run(p,true);
-  require(gpu.profile.rfind("native-gpu-phase-",0)==0 && gpu.profile.find("-warp-choice")!=std::string::npos,
+  require(gpu.profile.rfind("resident-gpu-",0)==0 && gpu.profile.find("-warp-choice")!=std::string::npos,
       std::string(p.label)+": GPU owner not used");
   require_same(reference,gpu,std::string(p.label)+" GPU");
  }
@@ -161,7 +161,7 @@ int main() { try {
   for(std::size_t g=1;g<reference.best.size();++g)require(reference.best[g]>=reference.best[g-1],label+" champion regressed");
 
   const auto gpu=steady_run(true);
-  require(gpu.profile.rfind("native-gpu-phase-",0)==0 && gpu.profile.find("-steady8")!=std::string::npos,label+" GPU owner not used");
+  require(gpu.profile.rfind("resident-gpu-",0)==0 && gpu.profile.find("-steady8")!=std::string::npos,label+" GPU owner not used");
   require_same(reference,gpu,label+" GPU");
  }
  std::cout<<"phase population CPU reference tests passed\n";
