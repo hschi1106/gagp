@@ -1,4 +1,3 @@
-#include "gagp/core/host_threads.hpp"
 #include <iostream>
 #include <cstdlib>
 #include <future>
@@ -20,7 +19,6 @@
 #include "gagp/evolution/evolve.hpp"
 #include "gagp/evolution/population_init.hpp"
 #include "../../src/evolution/grammar/variation_internal.hpp"
-#include "../../src/evolution/grammar/donor_internal.hpp"
 #include "../../src/runtime/payload/staging.hpp"
 
 using namespace gagp;
@@ -608,52 +606,7 @@ void test_scalar_resource_pool() {
   }
 }
 
-void test_independent_donor_pool_batch() {
-  auto grammar = std::make_shared<const CompiledGrammar>(compile(tradeoffs()));
-  VariationContext context(grammar, 128, ProjectedBudget{5, 5});
-  std::vector<ProgramGenome> parents;
-  for (std::uint64_t seed = 0; seed < 137; ++seed) parents.push_back(generate_derivation(*grammar, seed).genome);
-  std::vector<DonorPoolJob> jobs;
-  for (std::size_t i = 0; i < parents.size(); ++i)
-    jobs.push_back({&parents[i], context.analyze(parents[i])->sites.front(), {i * 4, i * 4 + 1, i * 4 + 2, i * 4 + 3}});
-  const auto batch = try_generate_donor_pools(context, jobs, 4);
-  if (gagp::host_thread_limit() == 1) check(!batch, "1T must decline optional parallel donor batching");
-  if (gagp::host_thread_limit() > 1) {
-    check(bool(batch), "independent scalar donor batch unexpectedly declined");
-    check(batch->size() == jobs.size(), "donor batch changed pool count");
-    std::vector<WarmPopulationMember> proofs;
-    for (const auto& parent : parents) {
-      WarmPopulationMember proof;
-      proof.reads = std::make_shared<payload::StagedPayloads>();
-      {
-        payload::StagedPayloads::Scope scope(*proof.reads);
-        proof.analysis = context.analyze(parent, &proof.runtime_identity);
-      }
-      proofs.push_back(std::move(proof));
-    }
-    const auto warmed = try_generate_warmed_donor_pools(context, jobs, proofs, 4);
-    auto poisoned = std::make_shared<VariationAnalysis>(*proofs.front().analysis);
-    poisoned->sites.clear();
-    proofs.front().analysis = std::move(poisoned);
-    proofs.front().reads = std::make_shared<payload::StagedPayloads>();
-    const auto invalidated = try_generate_warmed_donor_pools(context, jobs, proofs, 4);
-    check(warmed && invalidated, "donor handoff failed reuse or unsealed-proof fallback");
-    for (std::size_t i = 0; i < jobs.size(); ++i) {
-      const auto reference = generate_donor_pool(context, jobs[i].seeds, jobs[i].site, *jobs[i].destination, 4);
-      check((*batch)[i].size() == reference.size(), "donor batch changed seed count");
-      for (std::size_t j = 0; j < reference.size(); ++j)
-        for (const auto* result : {&*batch, &*warmed, &*invalidated})
-          check((reference[j] ? ast_cache_key(reference[j]->genome.ast) : std::string{}) ==
-              ((*result)[i][j] ? ast_cache_key((*result)[i][j]->genome.ast) : std::string{}),
-              "donor batch changed seeded proposals or bounded exhaustion");
-    }
-  }
-  rejects([&] { (void)try_generate_donor_pools(context, jobs, 0); });
-  jobs[0].seeds.resize(1);
-  check(!try_generate_donor_pools(context, jobs, 4), "single-seed registry behavior must retain original path");
-}
-
-void test_payload_pool_conflict_replay() {
+void test_payload_pool_collision() {
   auto document = tradeoffs();
   document.object_v.at("entry").object_v.at("type").string_v = "String";
   auto& nt = document.object_v.at("nonterminals").array_v[0];
@@ -678,11 +631,6 @@ void test_payload_pool_conflict_replay() {
   check(saw_a, "collision fixture did not exercise the target key");
   const auto colliding = payload::make_string_value("a");
   payload::register_string(colliding, "z");
-  const std::vector<DonorPoolJob> jobs{{&parent, site, seeds}, {&parent, site, seeds}};
-  check(!try_generate_donor_pools(context, jobs, 4), "colliding batch must decline atomic commit");
-  std::string unchanged;
-  check(payload::lookup_string(colliding, &unchanged) && unchanged == "z",
-        "failed donor batch changed committed payload contents");
   const auto pool = generate_donor_pool(context, seeds, site, parent, 4);
   check(pool.size() == seeds.size(), "conflict replay dropped seed slots");
   for (std::size_t i = 0; i < pool.size(); ++i) {
@@ -695,35 +643,10 @@ void test_payload_pool_conflict_replay() {
   check(payload::lookup_string(colliding, &committed) && committed == "a",
         "conflict did not replay sequential registry writes");
   payload::clear();
-  (void)payload::make_string_value("b");  // Keep the destination valid; "a" must be newly committed.
-  const auto batch = try_generate_donor_pools(context, jobs, 4);
-  if (gagp::host_thread_limit() == 1) check(!batch, "1T must decline optional parallel donor batching");
-  if (gagp::host_thread_limit() > 1) {
-    check(bool(batch), "nonconflicting payload batch declined");
-    for (const auto& result : *batch) for (std::size_t i = 0; i < result.size(); ++i) {
-      std::string text;
-      check(result[i] && payload::lookup_string(result[i]->genome.ast.consts.front(), &text) &&
-            text == expected[i], "payload batch changed proposal order or lost committed contents");
-    }
-    check(payload::lookup_string(colliding, &committed) && committed == "a",
-          "successful batch did not publish its new payload");
-    WarmPopulationMember proof;
-    proof.reads = std::make_shared<payload::StagedPayloads>();
-    {
-      payload::StagedPayloads::Scope scope(*proof.reads);
-      proof.analysis = context.analyze(parent, &proof.runtime_identity);
-    }
-    payload::register_string(parent.ast.consts.front(), "outside-domain");
-    rejects([&] { (void)try_generate_warmed_donor_pools(context, jobs, {proof, proof}, 4); });
-    payload::register_string(parent.ast.consts.front(), "b");
-  }
-  payload::clear();
   {
     payload::StagedPayloads transaction;
     payload::StagedPayloads::Scope scope(transaction);
     (void)payload::make_string_value("b");
-    check(!try_generate_donor_pools(context, jobs, 4),
-          "donor batch must defer to the enclosing uncommitted payload view");
     const auto nested = generate_donor_pool(context, seeds, site, parent, 4);
     check(nested.size() == seeds.size(), "enclosing transaction lost donor seed slots");
     for (std::size_t i = 0; i < nested.size(); ++i) {
@@ -802,7 +725,7 @@ int main() {
   try { test_projection_and_provenance(); test_repeated_holes(); test_invalid_charges();
         test_resource_invariance_certificate(); test_joint_tradeoffs(); test_projected_donor_retry_sequence();
     test_destination_resource_interpretation(); test_certified_donor_budget_rejection(); test_scalar_resource_pool();
-    test_independent_donor_pool_batch(); test_payload_pool_conflict_replay(); test_donor_resource_flow(); test_projected_offspring_admission();
+    test_payload_pool_collision(); test_donor_resource_flow(); test_projected_offspring_admission();
         test_crossover_admission_matches_full_analysis();
     test_projected_generation_and_initialization();
         test_shared_hole_tradeoffs(); test_recursive_frontier(); }

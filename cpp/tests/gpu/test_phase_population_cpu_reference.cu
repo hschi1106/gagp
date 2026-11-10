@@ -6,7 +6,6 @@
 #include <stdexcept>
 #include <string>
 #include "gagp/cli/program_json.hpp"
-#include "gagp/core/host_threads.hpp"
 #include "gagp/evolution/evolve.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/grammar/definition.hpp"
@@ -110,7 +109,7 @@ int main() { try {
  for(const auto& p:policies) {
   const auto reference=run(p,false);
   require(reference.profile.rfind("native-cpu-phase-",0)==0,std::string(p.label)+": CPU reference owner not used");
-  gagp::set_host_thread_limit(4);require_same(reference,run(p,false),std::string(p.label)+" CPU 4 threads");gagp::set_host_thread_limit(1);
+
   // Warp-per-child GPU kernels with threshold-table draws.
   const auto gpu=run(p,true);
   require(gpu.profile.rfind("native-gpu-phase-",0)==0 && gpu.profile.find("-warp-choice")!=std::string::npos,
@@ -140,7 +139,7 @@ int main() { try {
   require(reference.champions.size()==std::size_t(base.generations) && reference.final_asts.size()==std::size_t(population),label+" shape");
   require(reference.final_asts!=run(*p,false).final_asts,label+" equals the generational search");
   for(std::size_t g=1;g<reference.best.size();++g)require(reference.best[g]>=reference.best[g-1],label+" champion regressed");
-  gagp::set_host_thread_limit(4);require_same(reference,steady_run(false),label+" CPU 4 threads");gagp::set_host_thread_limit(1);
+
   const auto gpu=steady_run(true);
   require(gpu.profile.rfind("native-gpu-phase-",0)==0 && gpu.profile.find("-steady8")!=std::string::npos,label+" GPU owner not used");
   require_same(reference,gpu,label+" GPU");

@@ -9,7 +9,6 @@
 #include "phase_operators.cuh"
 #include "phase_layout.hpp"
 #include "parent_fitness_cache.cuh"
-#include "../../batch_workers.hpp"
 #include "gagp/evolution/compiler.hpp"
 #include <algorithm>
 #include <atomic>
@@ -44,13 +43,9 @@ struct HostProfile {
   nonterminals.data(),int(nonterminals.size()),grammar.domains.data(),int(grammar.domains.size()),grammar.values.data(),int(grammar.values.size()),
   grammar.minimum.data(),grammar.depth_count,grammar.logical_depth_count,grammar.site_depth};}
 };
-// Default one host thread; `gagp run --threads` opts into workers. Items are
-// independent, so scheduling never changes any published value.
-template<class Function> void parallel_rows(int count,Function function) {
- if(gagp::host_thread_limit()<=1 || count<=1){for(int i=0;i<count;++i)function(i);return;}
- detail::BatchWorkers workers{std::size_t(count)};
- std::atomic<int> next{0};
- workers.run([&]{for(int i=next++;i<count;i=next++)function(i);});
+// The CPU reference engine is single-threaded.
+template<class Function> void each_row(int count,Function function) {
+ for(int i=0;i<count;++i)function(i);
 }
 }  // namespace
 
@@ -100,7 +95,7 @@ struct HostPhasePopulation::Impl {
  }
  void refresh_programs() {
   std::vector<int> failures(population,0);
-  parallel_rows(population,[&](int p){failures[p]=!lower_member(current->pointers(),p,programs[p]);});
+  each_row(population,[&](int p){failures[p]=!lower_member(current->pointers(),p,programs[p]);});
   for(int failed:failures)if(failed)throw std::runtime_error("CPU phase compiler rejected a constructed program");
  }
  unsigned nodes(TreePointers trees,int member,bool grammar_sites)const {
@@ -190,7 +185,7 @@ HostPhasePopulation::Evaluation HostPhasePopulation::evaluate(const std::vector<
  }
  // Fixed chunks keep each worker's evaluation independent of scheduling.
  constexpr int chunk=32;const int chunks=(int(pending.size())+chunk-1)/chunk;
- parallel_rows(chunks,[&](int c) {
+ each_row(chunks,[&](int c) {
   const int begin=c*chunk,end=std::min<int>(pending.size(),begin+chunk);
   std::vector<BytecodeProgram> batch;for(int j=begin;j<end;++j)batch.push_back(s.programs[pending[j]]);
   std::vector<unsigned> batch_wrong;std::vector<CpuFitnessCaseCounts> counts;
@@ -212,7 +207,7 @@ ReproductionStats HostPhasePopulation::reproduce(const std::vector<double>& comp
  const auto current=s.current->pointers(),crossed=s.crossed->pointers(),next=s.next->pointers(),scratch=s.scratch->pointers();
  const double* fitness=completed_fitness.data();
  // Same per-child bodies and draw order as the GPU kernels; children are independent.
- parallel_rows(p,[&](int child) {
+ each_row(p,[&](int child) {
   crossover_child<false>(child,current,crossed,s.slots.data(),k,p,available,fitness,pressure,seed,s.operators,s.stats[child]);
   mutate_child<false>(child,crossed,next,scratch,s.slots.data(),k,available,probability,seed,s.operators,s.stats[child]);
  });
@@ -222,7 +217,7 @@ ReproductionStats HostPhasePopulation::reproduce(const std::vector<double>& comp
   std::stable_sort(order.begin(),order.end(),[&](int a,int b){return fitness[a]>fitness[b];});
   for(int rank=0;rank<elite_count;++rank)for(int j=0;j<k;++j)copy_tree(current,order[rank]*k+j,crossed,rank*k+j);
  }
- parallel_rows(p,[&](int child){compare_child(child,current,crossed,p,k,s.stats[child]);});
+ each_row(p,[&](int child){compare_child(child,current,crossed,p,k,s.stats[child]);});
  // Exact identity with any parent also reuses that parent's completed result.
  std::unordered_multimap<std::uint64_t,int> parents;
  for(int i=0;i<p;++i)parents.emplace(parent_cache::hash_program(current,i,k),i);
@@ -264,7 +259,7 @@ std::vector<int> HostPhasePopulation::make_batch(const std::vector<double>& sele
  const auto begin=Clock::now();
  const auto current=s.current->pointers(),crossed=s.crossed->pointers(),next=s.next->pointers(),scratch=s.scratch->pointers();
  // The GPU kernel bodies with `b` children drawing parents from all p members.
- parallel_rows(b,[&](int child) {
+ each_row(b,[&](int child) {
   crossover_child<false>(child,current,crossed,s.slots.data(),k,p,available,selection_fitness.data(),pressure,seed,s.operators,s.stats[child]);
   mutate_child<false>(child,crossed,next,scratch,s.slots.data(),k,available,probability,seed,s.operators,s.stats[child]);
   compare_child(child,current,crossed,p,k,s.stats[child]);
@@ -295,10 +290,10 @@ HostPhasePopulation::Evaluation HostPhasePopulation::evaluate_batch(const std::v
  const bool wrong=policy.metric!=FitnessMetric::Legacy;if(wrong)result.wrong.assign(b,0);
  std::vector<int> pending;for(int i=0;i<b;++i)if(reuse[i]<0)pending.push_back(i);
  std::vector<int> failures(pending.size(),0);
- parallel_rows(int(pending.size()),[&](int j){failures[j]=!s.lower_member(s.crossed->pointers(),pending[j],s.batch_programs[pending[j]]);});
+ each_row(int(pending.size()),[&](int j){failures[j]=!s.lower_member(s.crossed->pointers(),pending[j],s.batch_programs[pending[j]]);});
  for(int failed:failures)if(failed)throw std::runtime_error("CPU phase compiler rejected a constructed program");
  constexpr int chunk=32;const int chunks=(int(pending.size())+chunk-1)/chunk;
- parallel_rows(chunks,[&](int c) {
+ each_row(chunks,[&](int c) {
   const int begin=c*chunk,end=std::min<int>(pending.size(),begin+chunk);
   std::vector<BytecodeProgram> programs;for(int j=begin;j<end;++j)programs.push_back(s.batch_programs[pending[j]]);
   std::vector<unsigned> batch_wrong;std::vector<CpuFitnessCaseCounts> counts;

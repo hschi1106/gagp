@@ -40,7 +40,7 @@ gagp_expect_exit(2 run "${task}" --bogus)
 require_text("${last_stderr}" "unknown option --bogus" "unknown option diagnostic")
 gagp_expect_exit(2 run "${task}" --engine tpu)
 gagp_expect_exit(2 run "${task}" --population 1)
-gagp_expect_exit(2 run "${task}" --threads 0)
+gagp_expect_exit(2 run "${task}" --threads 4)
 gagp_expect_exit(2 frobnicate)
 
 # A short CPU run writes a result with the best program and its test verdict.
@@ -70,16 +70,9 @@ foreach(saved population.json history.json)
   endif()
 endforeach()
 
-# A run that starts from a saved population, and a multi-threaded CPU run, reproduce it.
+# A run that starts from a saved population reproduces it.
 gagp_expect_exit(0 run "${task}" --engine cpu ${native} --seed 7 --generations 1 --population 32
                  --init "${WORK}/a/population.json" --out "${WORK}/init" --quiet)
-gagp_expect_exit(0 run "${task}" --engine cpu ${native} --seed 7 --population 32 --generations 3
-                 --threads 4 --out "${WORK}/threads" --quiet)
-file(READ "${WORK}/threads/result.json" result_threads)
-string(JSON program_threads GET "${result_threads}" best program)
-if(NOT program_threads STREQUAL program_a)
-  message(FATAL_ERROR "--threads 4 changed the search result")
-endif()
 
 # eval scores a result, a population or a bare program; invalid programs are rejected.
 gagp_expect_exit(0 eval "${task}" "${WORK}/a/result.json")

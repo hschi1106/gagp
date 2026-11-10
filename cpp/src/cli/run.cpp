@@ -16,7 +16,6 @@
 #include "gagp/cli/program_json.hpp"
 #include "gagp/cli/search_config.hpp"
 #include "gagp/cli/task.hpp"
-#include "gagp/core/host_threads.hpp"
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/evolution/evolve.hpp"
@@ -99,7 +98,6 @@ struct RunArgs {
   std::string engine = "gpu";
   std::optional<std::uint64_t> seed;
   std::optional<int> population, generations;
-  int threads = 1;
   bool save_all = false;
   bool quiet = false;
 };
@@ -131,10 +129,6 @@ RunArgs parse_run_args(const std::vector<std::string>& args) {
     }
     else if (arg == "--population") out.population = integer(2);
     else if (arg == "--generations") out.generations = integer(1);
-    else if (arg == "--threads") {
-      out.threads = integer(1);
-      if (out.threads > static_cast<int>(kMaxHostThreads)) usage_error("--threads needs an integer <= 64");
-    }
     else if (arg == "--save-all") out.save_all = true;
     else if (arg == "--quiet") out.quiet = true;
     else if (!arg.empty() && arg[0] == '-') usage_error("unknown option " + arg);
@@ -252,14 +246,13 @@ std::shared_ptr<const gg::CompiledGrammar> load_grammar(const std::string& path)
 
 std::string run_usage() {
   return "usage: gagp run TASK.json [--seed N] [--population N] [--generations N]\n"
-         "                [--engine gpu|cpu] [--threads N] [--search SEARCH.json] [--init POPULATION.json]\n"
+         "                [--engine gpu|cpu] [--search SEARCH.json] [--init POPULATION.json]\n"
          "                [--out DIR] [--save-all] [--quiet]\n"
          "       gagp eval TASK.json PROGRAM.json [--split train|test]";
 }
 
 int run_task_command(const std::vector<std::string>& argv) {
   const RunArgs args = parse_run_args(argv);
-  set_host_thread_limit(static_cast<unsigned>(args.threads));
   const Task task = load_task(args.task_path);
   const auto grammar = load_grammar(task.grammar_path);
   const auto cases = load_fitness_cases(task.train_path);
@@ -310,7 +303,7 @@ int run_task_command(const std::vector<std::string>& argv) {
         {"elapsed_ms", num(t.elapsed_search_ms)}, {"eval_ms", num(t.eval_ms)}, {"repro_ms", num(t.repro_ms)}}));
   }
   Json summary = obj({{"format", str("gagp-run-v1")}, {"task", str(task.name)}, {"engine", str(args.engine)},
-      {"threads", num(args.threads)}, {"population", num(cfg.population_size)}, {"generations", num(cfg.generations)},
+      {"population", num(cfg.population_size)}, {"generations", num(cfg.generations)},
       {"seed", str(std::to_string(cfg.seed))}, {"train_cases", num(cases.size())},
       {"search", effective_search_config(cfg)},
       {"best", obj({{"fitness", num(best.fitness)}, {"wrong", num(best.wrong)},

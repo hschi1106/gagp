@@ -1,4 +1,3 @@
-#include "gagp/core/host_threads.hpp"
 #include "../batch_workers.hpp"
 #include "pack_internal.hpp"
 #include "prep_internal.hpp"
@@ -45,9 +44,9 @@ struct OwnedCompactedAnalysis {
     for (const auto& input : context.grammar().inputs()) input_names.push_back(input.name);
     std::atomic<std::size_t> next{0};
     std::vector<std::future<void>> pending;
-    const auto workers = gagp::host_thread_limit();
+    const auto workers = 1u;
     for (unsigned worker = 0; worker < workers; ++worker)
-      pending.push_back(std::async(gagp::host_launch_policy(), [&] {
+      pending.push_back(std::async(std::launch::deferred, [&] {
         for (;;) {
           const auto i = next.fetch_add(1, std::memory_order_relaxed);
           if (i >= before.size()) break;
@@ -177,7 +176,7 @@ std::vector<ProgramGenome> compact_prepared_population(const std::vector<Program
   if (population.size() < 32 || payload::StagedPayloads::has_active_scope())
     return compact_population_tables(population);
   std::vector<ProgramGenome> result(population.size());
-  const auto workers = gagp::host_thread_limit();
+  const auto workers = 1u;
   constexpr std::size_t batch = 128;
   detail::BatchWorkers team(workers);
   for (std::size_t begin = 0; begin < population.size(); begin += batch) {
@@ -236,11 +235,11 @@ GpuReproPreparedData prepare_backend_inputs(const std::vector<ProgramGenome>& po
       cfg.offspring_resource_budget && !grammar::resource_charges_are_local(*cfg.compiled_grammar)) {
     std::vector<std::uint32_t> roots;
     for (const auto& request : context->requests()) roots.push_back(request.nonterminal);
-    resource_proof = std::async(gagp::host_launch_policy(), [owner = cfg.compiled_grammar, roots] {
+    resource_proof = std::async(std::launch::deferred, [owner = cfg.compiled_grammar, roots] {
       return owner->resource_invariant_roots(roots);
     });
   }
-  const bool selected_sites = gagp::host_thread_limit() == 1 &&
+  const bool selected_sites =
       context->requests().size() == 1 && !context->offspring_budget() &&
       !payload::StagedPayloads::has_active_scope() &&
       std::all_of(population.begin(), population.end(), [](const auto& genome) {
@@ -558,7 +557,7 @@ OwnedGpuReproOverlap start_owned_gpu_repro_overlap(
   require_reproduction_mode_supported(config, true);
   OwnedGpuReproOverlap out;
   out.population = std::make_shared<const std::vector<ProgramGenome>>(std::move(population));
-  out.completion = std::async(gagp::host_launch_policy(),
+  out.completion = std::async(std::launch::deferred,
       [population = out.population, config, seed, resources]() {
     auto reads = std::make_shared<payload::StagedPayloads>();
     {

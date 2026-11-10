@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <cstdlib>
-#include <atomic>
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -13,7 +12,6 @@
 #include "gagp/runtime/payload/payload.hpp"
 #include "../fixtures/mixed_population.hpp"
 #include "../../src/runtime/payload/staging.hpp"
-#include "../../src/evolution/batch_workers.hpp"
 
 using namespace gagp;
 using namespace gagp::evo;
@@ -32,30 +30,6 @@ void rejects(const std::function<void()>& action, const char* message) {
     return;
   }
   throw std::runtime_error(message);
-}
-
-void test_batch_worker_barrier() {
-  const unsigned workers = std::min(4u, gagp::host_thread_limit());
-  detail::BatchWorkers team(4);
-  for (unsigned batch = 0; batch < 8; ++batch) {
-    std::atomic<unsigned> completed{0};
-    std::atomic<unsigned> started{0};
-    bool failed = false;
-    try {
-      team.run([&] {
-        payload::StagedPayloads reads;
-        check(!payload::StagedPayloads::has_active_scope(),
-              "worker retained a previous payload scope");
-        payload::StagedPayloads::Scope scope(reads);
-        const auto index = started.fetch_add(1);
-        if (batch % 2 && index == 0) throw std::invalid_argument("batch failure");
-        completed.fetch_add(1);
-      });
-    } catch (const std::invalid_argument&) { failed = true; }
-    check(failed == bool(batch % 2), "worker exception was lost or crossed batches");
-    check(started == workers && completed == workers - (batch % 2),
-          "batch returned before every worker finished");
-  }
 }
 
 std::shared_ptr<const CompiledGrammar> fixture(int root_weight = 1) {
@@ -349,7 +323,6 @@ void test_parallel_population_analysis() {
 
 int main() {
   try {
-    test_batch_worker_barrier();
     test_identity_and_requests();
     test_population_root_reconstruction();
     test_parallel_population_analysis();

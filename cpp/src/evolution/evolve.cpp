@@ -1,5 +1,3 @@
-#include "gagp/core/host_threads.hpp"
-#include "batch_workers.hpp"
 #include "fitness_verification.hpp"
 #include <cmath>
 #include "repro/owned_overlap.hpp"
@@ -114,94 +112,25 @@ ReproductionTiming reproduction_timing_from_stats(
 
 CompiledPopulation compile_population(const std::vector<ProgramGenome>& population,
                                       const std::vector<std::string>& input_names,
-                                      CompileCache* compile_cache, int fuel, bool parallel_allowed = false) {
+                                      CompileCache* compile_cache, int fuel) {
   CompiledPopulation out;
   out.programs.reserve(population.size());
   CompileCache local_cache;
   CompileCache* cache = (compile_cache != nullptr) ? compile_cache : &local_cache;
-  constexpr std::size_t batch_size = 128;
-  const auto workers = parallel_allowed ? gagp::host_thread_limit() : 1u;
-  const bool parallel = population.size() >= 32 && workers > 1 &&
-      !payload::StagedPayloads::has_active_scope();
-  struct PreparedCompile {
-    grammar::detail::EvaluationIdentity identity;
-    std::optional<BytecodeProgram> bytecode;
-    std::unique_ptr<payload::StagedPayloads> reads;
-    std::exception_ptr error;
-    bool key_ready = false;
-    std::chrono::steady_clock::time_point compile_begin{}, compile_end{};
-  };
-  const auto identity_for = [&](const ProgramGenome& genome) {
-    return grammar::detail::evaluation_identity(genome, input_names, static_cast<std::uint32_t>(fuel));
-  };
-  const auto compile_one = [&](const ProgramGenome& genome,
-                               const grammar::detail::EvaluationIdentity& identity) {
-    if (identity.executable) return *identity.executable;
-    return compile_for_eval(genome, input_names);
-  };
-  std::unique_ptr<detail::BatchWorkers> team;
-  if (parallel) team = std::make_unique<detail::BatchWorkers>(workers);
-  for (std::size_t begin = 0; begin < population.size(); begin += batch_size) {
-    const auto count = std::min(batch_size, population.size() - begin);
-    std::vector<PreparedCompile> prepared(parallel ? count : 0);
-    bool valid = parallel;
-    if (parallel) {
-      std::atomic<std::size_t> next{0};
-      team->run([&] {
-          for (;;) {
-            const auto i = next.fetch_add(1, std::memory_order_relaxed);
-            if (i >= count) break;
-            auto& row = prepared[i];
-            row.reads = std::make_unique<payload::StagedPayloads>();
-            try {
-              payload::StagedPayloads::Scope scope(*row.reads);
-              const auto& genome = population[begin + i];
-              row.identity = identity_for(genome);
-              row.key_ready = true;
-              if (cache->by_program.find(row.identity.key) != cache->by_program.end()) continue;
-              row.compile_begin = std::chrono::steady_clock::now();
-              row.bytecode = compile_one(genome, row.identity);
-              row.compile_end = std::chrono::steady_clock::now();
-            } catch (...) { row.error = std::current_exception(); }
-          }
-      });
-      std::vector<payload::StagedPayloads*> reads;
-      for (const auto& row : prepared) reads.push_back(row.reads.get());
-      valid = payload::StagedPayloads::commit_all(reads);
+  // Publish in source order. Duplicate keys keep the first compiled result.
+  for (const auto& genome : population) {
+    auto identity = grammar::detail::evaluation_identity(genome, input_names, static_cast<std::uint32_t>(fuel));
+    auto& key = identity.key;
+    const auto found = cache->by_program.find(key);
+    if (found != cache->by_program.end()) {
+      out.programs.push_back(found->second);
+      continue;
     }
-    std::optional<std::chrono::steady_clock::time_point> compile_begin, compile_end;
-    // Publish in source order. Duplicate keys keep the first compiled result;
-    // errors and payload conflicts retain the ordinary sequential behavior.
-    for (std::size_t i = 0; i < count; ++i) {
-      const auto& genome = population[begin + i];
-      if (valid && prepared[i].error && !prepared[i].key_ready)
-        std::rethrow_exception(prepared[i].error);
-      auto identity = valid ? std::move(prepared[i].identity) : identity_for(genome);
-      auto& key = identity.key;
-      const auto found = cache->by_program.find(key);
-      if (found != cache->by_program.end()) {
-        out.programs.push_back(found->second);
-        continue;
-      }
-      BytecodeProgram bc;
-      if (valid) {
-        if (prepared[i].error) std::rethrow_exception(prepared[i].error);
-        bc = std::move(*prepared[i].bytecode);
-        compile_begin = compile_begin ? std::min(*compile_begin, prepared[i].compile_begin)
-                                      : prepared[i].compile_begin;
-        compile_end = compile_end ? std::max(*compile_end, prepared[i].compile_end)
-                                  : prepared[i].compile_end;
-      } else {
-        const auto t0 = std::chrono::steady_clock::now();
-        bc = compile_one(genome, identity);
-        out.compile_ms += std::chrono::duration<double, std::milli>(
-            std::chrono::steady_clock::now() - t0).count();
-      }
-      cache->by_program.emplace(std::move(key), bc);
-      out.programs.push_back(std::move(bc));
-    }
-    if (compile_begin)
-      out.compile_ms += std::chrono::duration<double, std::milli>(*compile_end - *compile_begin).count();
+    const auto t0 = std::chrono::steady_clock::now();
+    BytecodeProgram bc = identity.executable ? *identity.executable : compile_for_eval(genome, input_names);
+    out.compile_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    cache->by_program.emplace(std::move(key), bc);
+    out.programs.push_back(std::move(bc));
   }
   return out;
 }
@@ -277,7 +206,7 @@ std::vector<ScoredGenomeRef> score_population_gpu_refs(
     double* fitness_sum_out,
     std::vector<double>* raw_fitness_out,
     bool sort_output, const std::function<void()>& while_gpu_runs = {}) {
-  const CompiledPopulation compiled = compile_population(population, input_names, compile_cache, fuel, true);
+  const CompiledPopulation compiled = compile_population(population, input_names, compile_cache, fuel);
   FitnessEvalResult fit = session->eval_programs(compiled.programs, std::getenv("GAGP_GPU_DIAGNOSTICS") != nullptr, while_gpu_runs);
   if (!fit.ok) {
     throw std::runtime_error("gpu fitness evaluation failed: " + fit.err.message);
@@ -908,7 +837,7 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
       scored = score_population_gpu_refs(evaluated_population, case_set.input_names, &gpu_session, cfg.fuel, nullptr,
                                          &result, &generation_timing, &fitness_sum,
                                          gpu_repro_resources ? &raw_fitness : nullptr, true,
-                                         overlap_gpu && gagp::host_thread_limit() == 1
+                                         overlap_gpu
                                              ? std::function<void()>([&] { overlap.completion.wait(); })
                                              : std::function<void()>{});
 #else

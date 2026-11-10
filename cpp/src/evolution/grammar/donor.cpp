@@ -1,9 +1,6 @@
-#include "gagp/core/host_threads.hpp"
 #include "gagp/evolution/grammar/donor.hpp"
 
 #include <algorithm>
-#include <atomic>
-#include <future>
 #include <thread>
 #include <set>
 #include <stdexcept>
@@ -17,7 +14,6 @@
 #include "gagp/evolution/grammar/variation.hpp"
 #include "gagp/evolution/node_descriptor.hpp"
 #include "variation_internal.hpp"
-#include "donor_internal.hpp"
 #include "../../runtime/payload/staging.hpp"
 
 namespace gagp::evo::grammar {
@@ -294,65 +290,6 @@ std::vector<std::optional<ContextualDonor>> generate_donor_pool(VariationContext
     const ProgramGenome& destination, std::size_t maximum_attempts) {
   // Crossover and unselected mutation sites have no donor work.
   if (seeds.empty()) return {};
-  const auto* entry = site.nonterminal < context.grammar().nonterminals().size() ?
-      &context.grammar().nonterminals()[site.nonterminal] : nullptr;
-  const auto root = entry ? (entry->mutation_entry == kNoGrammarId ? entry->id : entry->mutation_entry) : kNoGrammarId;
-  const auto hardware_workers = gagp::host_thread_limit();
-  if (seeds.size() > 1 && entry && hardware_workers > 1 &&
-      !payload::StagedPayloads::has_active_scope()) {
-    const bool writes_payload = context.grammar().generates_payload(root);
-    PoolDestination shared_destination;
-    if (context.offspring_budget() && maximum_attempts) {
-      try {
-        prepare_destination(context, site, destination, shared_destination);
-      } catch (const std::runtime_error&) {
-        return std::vector<std::optional<ContextualDonor>>(seeds.size());
-      }
-    }
-    struct PreparedSeed {
-      std::optional<ContextualDonor> donor;
-      std::unique_ptr<payload::StagedPayloads> payloads;
-    };
-    std::vector<PreparedSeed> prepared;
-    prepared.reserve(seeds.size());
-    const auto max_workers = std::min<std::size_t>(4, hardware_workers);
-    for (std::size_t begin = 0; begin < seeds.size(); begin += max_workers) {
-      std::vector<std::future<PreparedSeed>> pending;
-      for (auto i = begin; i < std::min(seeds.size(), begin + max_workers); ++i)
-        pending.push_back(std::async(gagp::host_launch_policy(), [&, seed = seeds[i]] {
-          VariationContext worker(context.grammar_owner(), context.requests(), 128,
-              context.offspring_budget());
-          PreparedSeed result;
-          auto worker_destination = shared_destination;
-          std::unordered_map<std::string, bool> admissions;
-          const auto generate = [&] {
-            try {
-              result.donor = generate_budgeted_donor(worker, seed, site, destination,
-                  maximum_attempts, admissions, worker_destination, false);
-            } catch (const std::runtime_error&) {
-              result.donor.reset();
-            }
-          };
-          if (writes_payload) {
-            result.payloads = std::make_unique<payload::StagedPayloads>();
-            payload::StagedPayloads::Scope scope(*result.payloads);
-            generate();
-          } else generate();
-          return result;
-        }));
-      for (auto& task : pending) prepared.push_back(task.get());
-    }
-    std::vector<payload::StagedPayloads*> transactions;
-    for (auto& seed : prepared) if (seed.payloads) transactions.push_back(seed.payloads.get());
-    if (transactions.empty() || payload::StagedPayloads::commit_all(transactions)) {
-      std::vector<std::optional<ContextualDonor>> result;
-      result.reserve(prepared.size());
-      for (auto& seed : prepared) result.push_back(std::move(seed.donor));
-      return result;
-    }
-    // No staged write was committed. Replay the original sequential pool so
-    // collisions and cross-seed dependencies retain the established behavior.
-  }
   // The cache cannot escape this one destination/site/frame. Exact decoded donor
   // identities therefore imply the same spliced child and admission result.
   std::unordered_map<std::string, bool> admissions;
@@ -368,85 +305,6 @@ std::vector<std::optional<ContextualDonor>> generate_donor_pool(VariationContext
     }
   }
   return result;
-}
-
-static std::optional<std::vector<DonorPool>> generate_donor_pools_impl(VariationContext& context,
-    const std::vector<DonorPoolJob>& jobs, std::size_t maximum_attempts,
-    const std::vector<WarmPopulationMember>* certificates) {
-  if (!maximum_attempts) throw std::invalid_argument("donor batches require a positive attempt limit");
-  // Parallel workers cannot observe the caller's uncommitted payload view,
-  // and their transactions cannot commit inside that enclosing scope.
-  if (payload::StagedPayloads::has_active_scope()) return std::nullopt;
-  const auto workers = std::min<std::size_t>({20, gagp::host_thread_limit(), jobs.size()});
-  // The old single-seed path retains analyses in the caller's registry. Keep it
-  // on that path instead of changing observable preparation identities.
-  if (workers < 2 || jobs.size() > 1024 ||
-      std::any_of(jobs.begin(), jobs.end(), [](const auto& job) { return job.seeds.size() < 2; }))
-    return std::nullopt;
-  std::size_t donor_count = 0;
-  const auto donor_limit = std::size_t{1048576} / context.request().budget.max_nodes;
-  for (const auto& job : jobs) {
-    if (job.seeds.size() > 64 || job.seeds.size() > donor_limit - donor_count) return std::nullopt;
-    donor_count += job.seeds.size();
-  }
-  std::vector<PoolDestination> destinations(jobs.size());
-  for (std::size_t i = 0; i < jobs.size(); ++i) {
-    if (!jobs[i].destination) throw std::invalid_argument("donor batch has no destination");
-    if (context.offspring_budget()) {
-      if (certificates && certificates->size() == jobs.size()) {
-        const auto& proof = certificates->at(i);
-        if (proof.analysis && proof.reads && proof.reads->read_snapshot_unchanged())
-          destinations[i].analysis = proof.analysis;
-      }
-      prepare_destination(context, jobs[i].site, *jobs[i].destination, destinations[i]);
-    }
-  }
-  std::vector<DonorPool> results(jobs.size());
-  std::vector<std::unique_ptr<payload::StagedPayloads>> payloads(jobs.size());
-  std::vector<std::exception_ptr> errors(jobs.size());
-  std::atomic<std::size_t> next{0};
-  std::vector<std::future<void>> pending;
-  for (std::size_t worker_index = 0; worker_index < workers; ++worker_index)
-    pending.push_back(std::async(gagp::host_launch_policy(), [&] {
-      VariationContext worker(context.grammar_owner(), context.requests(), 128, context.offspring_budget());
-      for (;;) {
-        const auto index = next.fetch_add(1, std::memory_order_relaxed);
-        if (index >= jobs.size()) break;
-        try {
-          const auto& job = jobs[index];
-          payloads[index] = std::make_unique<payload::StagedPayloads>();
-          payload::StagedPayloads::Scope scope(*payloads[index]);
-          auto destination = destinations[index];
-          auto& result = results[index]; result.reserve(job.seeds.size());
-          for (auto seed : job.seeds) {
-            // Keep the existing parallel pool's independent per-seed retries.
-            std::unordered_map<std::string, bool> admissions;
-            try {
-              result.emplace_back(generate_budgeted_donor(worker, seed, job.site, *job.destination,
-                  maximum_attempts, admissions, destination, false));
-            } catch (const std::runtime_error&) { result.emplace_back(std::nullopt); }
-          }
-        } catch (...) { errors[index] = std::current_exception(); }
-      }
-    }));
-  for (auto& task : pending) task.get();
-  if (std::any_of(errors.begin(), errors.end(), [](const auto& error) { return bool(error); }))
-    return std::nullopt;
-  std::vector<payload::StagedPayloads*> transactions;
-  for (auto& transaction : payloads) transactions.push_back(transaction.get());
-  if (!payload::StagedPayloads::commit_all(transactions)) return std::nullopt;
-  return results;
-}
-
-std::optional<std::vector<DonorPool>> try_generate_donor_pools(VariationContext& context,
-    const std::vector<DonorPoolJob>& jobs, std::size_t maximum_attempts) {
-  return generate_donor_pools_impl(context, jobs, maximum_attempts, nullptr);
-}
-
-std::optional<std::vector<DonorPool>> try_generate_warmed_donor_pools(
-    VariationContext& context, const std::vector<DonorPoolJob>& jobs,
-    const std::vector<WarmPopulationMember>& certificates, std::size_t maximum_attempts) {
-  return generate_donor_pools_impl(context, jobs, maximum_attempts, &certificates);
 }
 
 }  // namespace gagp::evo::grammar

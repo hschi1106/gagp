@@ -1,5 +1,3 @@
-#include "gagp/core/host_threads.hpp"
-#include "../batch_workers.hpp"
 #include "compiled_decode.hpp"
 #include "../../runtime/payload/staging.hpp"
 
@@ -186,7 +184,6 @@ std::vector<ProgramGenome> decode_compiled_pass(
   std::vector<std::shared_ptr<payload::StagedPayloads>> admission_reads;
   std::vector<std::shared_ptr<payload::StagedPayloads>> parent_reads;
   std::vector<std::optional<std::uint32_t>> parent_roots;
-  std::unique_ptr<detail::BatchWorkers> team;
   for (int i = 0; i < accepted_count; ++i) {
     if (i % analysis_batch == 0) {
       const auto count = std::min(analysis_batch, accepted_count - i);
@@ -208,23 +205,7 @@ std::vector<ProgramGenome> decode_compiled_pass(
           staged_indices[offset] = -1;
         }
       };
-      if (count >= 32 && certificates &&
-          certificates->sources == packed.compiled_sources &&
-          certificates->context.get() == &context &&
-          !payload::StagedPayloads::has_active_scope()) {
-        if (!team) team = std::make_unique<detail::BatchWorkers>(
-            gagp::host_thread_limit());
-        std::atomic<int> next{0};
-        team->run([&] {
-          for (;;) {
-            const int offset = next.fetch_add(1, std::memory_order_relaxed);
-            if (offset >= count) break;
-            reconstruct(offset);
-          }
-        });
-      } else {
-        for (int offset = 0; offset < count; ++offset) reconstruct(offset);
-      }
+      for (int offset = 0; offset < count; ++offset) reconstruct(offset);
       for (int offset = 0; offset < count; ++offset) {
         if (!reconstructed[offset]) continue;
         staged_indices[offset] = static_cast<int>(staged.size());
@@ -234,68 +215,6 @@ std::vector<ProgramGenome> decode_compiled_pass(
       admission_counts.assign(count, {});
       admission_reads.clear(); admission_reads.resize(count);
       parent_reads.assign(count, nullptr); parent_roots.assign(count, std::nullopt);
-      bool parallel_admission = gagp::host_thread_limit() > 1 && staged.size() >= 32 && certificates &&
-          certificates->sources == packed.compiled_sources &&
-          certificates->context.get() == &context &&
-          !payload::StagedPayloads::has_active_scope();
-      std::vector<const ProgramGenome*> bases(count, nullptr);
-      if (parallel_admission) {
-        try {
-          for (int offset = 0; offset < count; ++offset) {
-            if (staged_indices[offset] < 0) continue;
-            const int index = i + offset;
-            const auto parent_index = mutation ? index :
-                (index % 2 ? view.parent_b[index / 2] : view.parent_a[index / 2]);
-            bases[offset] = &parent(parent_index);
-            if (certificates->analyses.size() == parents.size() &&
-                certificates->metadata.size() == parents.size()) {
-              const auto& row = certificates->analyses[parent_index];
-              if (row.analysis && row.reads && row.reads->read_snapshot_unchanged()) {
-                parent_reads[offset] = row.reads;
-                parent_roots[offset] = row.analysis->witness.request.nonterminal;
-              }
-            }
-          }
-        } catch (const std::exception&) { parallel_admission = false; }
-      }
-      if (parallel_admission) {
-        std::atomic<int> next{0};
-        if (!team) team = std::make_unique<detail::BatchWorkers>(
-            gagp::host_thread_limit());
-        team->run([&] {
-            grammar::VariationContext local(context.grammar_owner(), context.requests(),
-                128, context.offspring_budget());
-            for (;;) {
-              const int offset = next.fetch_add(1, std::memory_order_relaxed);
-              if (offset >= count) break;
-              if (staged_indices[offset] < 0) continue;
-              try {
-                // Validate before entering the worker's own payload scope:
-                // snapshots conservatively decline reuse inside any active scope.
-                const auto root = parent_reads[offset] && parent_reads[offset]->read_snapshot_unchanged()
-                    ? parent_roots[offset] : std::nullopt;
-                admission_reads[offset] = std::make_shared<payload::StagedPayloads>();
-                payload::StagedPayloads::Scope scope(*admission_reads[offset]);
-                local.counters() = {};
-                admitted[offset] = grammar::variation_detail::accept(
-                    staged[staged_indices[offset]].ast, *bases[offset], local, root, admission_use);
-                admission_counts[offset] = local.counters();
-              } catch (const std::exception&) { admitted[offset].reset(); }
-            }
-        });
-        std::vector<payload::StagedPayloads*> reads;
-        for (const auto& read : admission_reads) if (read) reads.push_back(read.get());
-        if (!payload::StagedPayloads::commit_all(reads))
-          for (auto& child : admitted) child.reset();
-      } else {
-        try {
-          // On 1T, ordered admission below owns the same cache used by the
-          // next mutation preparation. Speculatively admitting into throwaway
-          // worker contexts would discard that analysis and repeat it next pass.
-          if (gagp::host_thread_limit() > 1 && staged.size() >= 32)
-            context.cache().warm_candidates(staged, context.requests());
-        } catch (const std::exception&) {}
-      }
     }
     const auto& splice = view.child_splices[i];
     const int expected_parent = mutation ? i : (i % 2 ? view.parent_b[i / 2] : view.parent_a[i / 2]);

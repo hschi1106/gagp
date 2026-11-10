@@ -40,16 +40,6 @@ std::vector<std::optional<ContextualDonor>> generate_donor_pool(VariationContext
     const std::vector<std::uint64_t>& seeds, const VariationSite& site,
     const ProgramGenome& destination, std::size_t maximum_attempts = 64);
 
-struct DonorPoolJob {
-  const ProgramGenome* destination = nullptr;
-  VariationSite site;
-  std::vector<std::uint64_t> seeds;
-};
 using DonorPool = std::vector<std::optional<ContextualDonor>>;
-// Speculative pools preserve job/seed order and commit payloads atomically.
-// nullopt leaves payloads unchanged: callers must replay their original complete
-// interleaved preparation, not just postpone all sequential pools until assembly.
-std::optional<std::vector<DonorPool>> try_generate_donor_pools(VariationContext& context,
-    const std::vector<DonorPoolJob>& jobs, std::size_t maximum_attempts = 64);
 
 }  // namespace gagp::evo::grammar

@@ -892,8 +892,4 @@ target_compile_definitions(gagp_test_grammar_bounded_artifact PRIVATE GAGP_REPOS
 add_test(NAME gagp_test_grammar_bounded_artifact COMMAND gagp_test_grammar_bounded_artifact)
 set_tests_properties(gagp_test_grammar_bounded_artifact PROPERTIES LABELS "contract;integration")
 
-add_executable(gagp_test_host_threads tests/evolution/test_host_threads.cpp)
-target_link_libraries(gagp_test_host_threads PRIVATE gagp_evolution)
-target_compile_options(gagp_test_host_threads PRIVATE -UNDEBUG)
-add_test(NAME gagp_test_host_threads COMMAND gagp_test_host_threads)
 

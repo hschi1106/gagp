@@ -1,6 +1,6 @@
-#include "gagp/core/host_threads.hpp"
 #include "gagp/evolution/lifecycle.hpp"
 
+#include <future>
 #include <stdexcept>
 
 #include "gagp/evolution/evolve.hpp"
@@ -75,7 +75,7 @@ std::future<OverlapPrepared> start_gpu_reproduction_overlap(
   // The worker owns its population snapshot and mutable preparation context.
   // Only host preparation runs here; finish() joins before touching the shared
   // CUDA reproduction arena or allowing the evolution loop to sweep payloads.
-  return std::async(gagp::host_launch_policy(), [population, config, seed, resources]() {
+  return std::async(std::launch::deferred, [population, config, seed, resources]() {
     OverlapPrepared out;
     out.prepared = repro::prepare_gpu_repro_backend_inputs(
         population, config, seed, &out.stats, resources);

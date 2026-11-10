@@ -114,7 +114,7 @@ the resident GPU phase owner (GPU evaluation and GPU reproduction) and the CPU
 reference owner (CPU evaluation and CPU reproduction) execute the same
 per-child operators, consume the same random draws and publish the same
 genotypes, fitness values, wrong counts, champions and final population.
-Host worker count and GPU engine variants do not change these results.
+GPU engine variants do not change these results.
 
 ## Synchronous batch steady state
 
