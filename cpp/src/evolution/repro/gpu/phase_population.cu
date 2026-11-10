@@ -420,8 +420,9 @@ struct NativePhasePopulation::Impl {
   if(offsets.back()<0 || values.back()<0)throw std::runtime_error("GPU genotype lowering rejected a constructed program");
   // The program budget covers all variable phases, not one phase buffer.
   const std::size_t variable_nodes=layout.budget.max_nodes-layout.fixed_nodes;
-  phase_layout_require(std::size_t(offsets.back())<=std::size_t(population)*variable_nodes*4 &&
-      std::size_t(values.back())<=std::size_t(population)*variable_nodes,"whole-program compiled capacity");
+  // A for_range lowers to at most 8 instructions and 2 constants per node.
+  phase_layout_require(std::size_t(offsets.back())<=std::size_t(population)*variable_nodes*8 &&
+      std::size_t(values.back())<=std::size_t(population)*variable_nodes*2,"whole-program compiled capacity");
   const auto setup=Clock::now();packed_code.reserve(offsets.back());packed_constants.reserve(values.back());
   if(timing)timing->setup_ms+=elapsed(setup);checked(cudaEventRecord(start));
   compact_code<<<rows,128>>>(code.data,constants.data,code_offsets.data,constant_offsets.data,rows,packed_code.data,packed_constants.data);checked(cudaGetLastError());
@@ -441,7 +442,7 @@ struct NativePhasePopulation::Impl {
    if(host_packed)continue;
    if(layout.whole_program) {
     patch_whole_program(programs[p],layout,compacted_code.data()+offsets[row],offsets[row+1]-offsets[row],
-        compacted_constants.data()+values[row],values[row+1]-values[row]);
+        compacted_constants.data()+values[row],values[row+1]-values[row],certificates[row]);
     continue;
    }
    auto& program=native_phase_at(programs[p].bounded_region_segments[0],layout.slots[k].ordinal).program;
@@ -556,7 +557,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   impl_->profiles.push_back(std::make_unique<UploadedProfile>(profile));
   const auto& nt=impl_->grammar->nonterminals()[layout.nonterminal];DeviceSlot slot{};
   slot.grammar=impl_->profiles.back()->view(profile);slot.root=profile.root_expression;slot.scope=nt.scope.size();slot.max_depth=layout.max_depth;slot.logical_depth=site_depth?site_depth:layout.logical_depth;
-  slot.type=phase_value_tag(nt.type);
+  slot.type=impl_->layout.program_terminator || !impl_->layout.whole_program?phase_value_tag(nt.type):kPhaseStatement;
   if(impl_->layout.whole_program) {
    slot.local_count=input_names.size();
    for(int j=0;j<slot.local_count;++j)for(const auto& binding:impl_->grammar->inputs())

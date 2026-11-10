@@ -13,8 +13,9 @@ inline HostPhaseGrammar compile_phase_variation_grammar(
   for (std::size_t i = 0; i < profile.nonterminals.size(); ++i) {
     if (!profile.nonterminals[i].production_count) continue;
     const auto& nt = grammar.nonterminals()[i];
-    if (!nt.variation_enabled || nt.mutation_entry != grammar::kNoGrammarId)
-      fail("variation policy requires native fallback");
+    if (nt.mutation_entry != grammar::kNoGrammarId) fail("variation policy requires native fallback");
+    // A disabled nonterminal keeps its invocation sites out of variation.
+    profile.nonterminals[i].fixed = !nt.variation_enabled;
     for (auto p : nt.productions) {
       const auto& production = grammar.productions()[p];
       if (!production.variation_enabled || production.closed_crossover ||
@@ -28,7 +29,8 @@ inline HostPhaseGrammar compile_phase_variation_grammar(
     if (visited.at(id)) return;
     visited[id] = true;
     const auto& e = grammar.expressions()[id];
-    if (e.resource_charge.nodes != 1 || (logical_depth?e.resource_charge.depth>1:e.resource_charge.depth!=1) || e.resource_charge.resets_depth)
+    // Physical and site-depth budgets never read authored resource charges.
+    if (logical_depth && !site_depth && (e.resource_charge.nodes != 1 || e.resource_charge.depth > 1 || e.resource_charge.resets_depth))
       fail("projected resource charge requires native fallback");
     if (e.kind == grammar::ExpressionKind::Reference) {
       for (std::size_t j = 0; j < e.scope_mapping.size(); ++j)

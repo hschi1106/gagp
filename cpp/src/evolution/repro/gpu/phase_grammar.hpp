@@ -20,7 +20,13 @@ struct HostPhaseGrammar {
   std::vector<Value> values;
   std::vector<unsigned> minimum;
   int root_expression=-1,depth_count=0,logical_depth_count=1; bool site_depth=false;
+  // Statements, controls or grammar locals were reached: whole programs only.
+  bool statements=false;
 };
+inline bool phase_statement_category(NodeCategory category) {
+  return category==NodeCategory::Program || category==NodeCategory::Block ||
+      category==NodeCategory::Statement;
+}
 // Prove that an alternative with maximum weight is feasible whenever any
 // alternative is feasible at the same depth/capacity. Only then is the dynamic
 // normalizing maximum invariant; division and the first scan can move to import.
@@ -85,8 +91,11 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
   visit_nonterminal=[&](unsigned id) {
     if(seen_nt.at(id))return;seen_nt[id]=true;
     const auto& nt=grammar.nonterminals().at(id);
-    if(nt.category!=NodeCategory::Expression || nt.scope.size()>8 || phase_value_tag(nt.type)==ValueTag::Invalid)
+    const bool statement=phase_statement_category(nt.category);
+    if((nt.category!=NodeCategory::Expression && !statement) || nt.scope.size()>8 || (statement && !nt.scope.empty()) ||
+        phase_value_tag(nt.type)==ValueTag::Invalid)
       fail("nonterminal capability");
+    out.statements|=statement;
     for(const auto& slot:nt.scope)
       if(phase_value_tag(slot.type)==ValueTag::Invalid)fail("scope type");
     // Reserve each production range before recursively visiting references.
@@ -107,9 +116,12 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     if(seen_expr.at(id))return;seen_expr[id]=true;
     const auto& e=grammar.expressions().at(id);auto& x=out.expressions[id];
     x.depth_charge=e.resource_charge.depth;
-    if(e.category!=NodeCategory::Expression || !e.regions.empty() || phase_value_tag(e.type)==ValueTag::Invalid)
+    const bool statement=phase_statement_category(e.category);
+    if((e.category!=NodeCategory::Expression && !statement) || !e.regions.empty() || phase_value_tag(e.type)==ValueTag::Invalid ||
+        (statement && e.kind!=ExpressionKind::Reference && e.kind!=ExpressionKind::Control))
       fail("expression type or binder introduction");
-    x.node.type=phase_value_tag(e.type);
+    // A statement completes without a value; its type is the enclosing result.
+    x.node.type=statement?kPhaseStatement:phase_value_tag(e.type);
     if(e.kind==ExpressionKind::Reference) {
       if(e.scope_mapping.size()>8)fail("scope capacity");
       x.kind=PhaseExpressionKind::Reference;x.target=e.target;x.scope_count=e.scope_mapping.size();
@@ -155,7 +167,44 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         if(descriptor.builtin_arity!=static_cast<int>(e.children.size()))fail("builtin arity");
         x.node.kind=PhaseTreeKind::Operation;x.node.opcode=Opcode::CallBuiltin;x.node.operand=descriptor.builtin_id;
       } else {x.node.kind=PhaseTreeKind::Operation;x.node.opcode=phase_opcode(kind);}
-    } else fail("templates, repeated holes, locals and nested regions require native fallback");
+    } else if(e.kind==ExpressionKind::Local) {
+      if(e.target>=static_cast<unsigned>(kPhaseNamedLocals))fail("grammar local capacity");
+      x.kind=PhaseExpressionKind::Operation;x.native_kind=static_cast<int>(NodeKind::VAR);
+      x.node.kind=PhaseTreeKind::Var;x.node.operand=e.target;out.statements=true;
+    } else if(e.kind==ExpressionKind::Control) {
+      const auto& signature=PrimitiveCatalog::standard().control_signatures().at(e.target);
+      switch(signature.lowering_node) {
+        case NodeKind::PROGRAM:x.node.kind=PhaseTreeKind::Program;break;
+        case NodeKind::BLOCK_CONS:x.node.kind=PhaseTreeKind::Block;break;
+        case NodeKind::BLOCK_NIL:x.node.kind=PhaseTreeKind::Nil;break;
+        case NodeKind::ASSIGN:x.node.kind=PhaseTreeKind::Assign;break;
+        case NodeKind::RETURN:x.node.kind=PhaseTreeKind::Return;break;
+        case NodeKind::IF_STMT:x.node.kind=PhaseTreeKind::If;break;
+        case NodeKind::FOR_RANGE:x.node.kind=PhaseTreeKind::ForRange;break;
+        default:fail("control capability");
+      }
+      x.kind=PhaseExpressionKind::Operation;x.native_kind=static_cast<int>(signature.lowering_node);out.statements=true;
+      if(!e.fuel_charges.empty())fail("statement fuel profile capability");
+      if(signature.requires_name) {
+        if(e.target_input) {
+          // Input targets are preset evaluator slots, encoded as -1-position.
+          const auto& name=grammar.inputs().at(e.local).name;int position=e.local;
+          if(inputs) {
+            const auto found=std::find(inputs->begin(),inputs->end(),name);
+            if(found==inputs->end())fail("input target missing from evaluator order");
+            position=found-inputs->begin();
+          }
+          if(position>=64)fail("input local capacity");
+          x.node.operand=-1-position;
+        } else {
+          if(e.local>=static_cast<unsigned>(kPhaseNamedLocals))fail("grammar local capacity");
+          x.node.operand=e.local;
+        }
+      }
+      // Assign/Return carry the exact stored or returned value type.
+      if(x.node.kind==PhaseTreeKind::Assign || x.node.kind==PhaseTreeKind::Return)
+        x.node.type=phase_value_tag(grammar.expressions().at(e.children.at(0)).type);
+    } else fail("templates, repeated holes and nested regions require native fallback");
     for(const auto& charge:e.fuel_charges) {
       if(charge.event==FuelEvent::Operation || charge.event==FuelEvent::BranchTest)x.node.fuel=charge.cost;
       else if(charge.event==FuelEvent::BranchMerge)x.node.merge_fuel=charge.cost;

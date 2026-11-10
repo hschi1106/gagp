@@ -1,0 +1,58 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"category": "Program", "nonterminal": "St.Program", "type": "Float"},
+  "inputs": [{"name": "x", "type": "Float"}, {"name": "n", "type": "Int"}, {"name": "s", "type": "String"}, {"name": "xs", "type": "IntList"}, {"name": "fs", "type": "FloatList"}, {"name": "ws", "type": "StringList"}, {"name": "c", "type": "Char"}, {"name": "b", "type": "Bool"}],
+  "locals": [{"name": "acc", "type": "Float"}, {"name": "i", "type": "Int"}, {"name": "k", "type": "Int"}, {"name": "ys", "type": "IntList"}],
+  "search_limits": {"max_nodes": 120, "max_depth": 12},
+  "execution_limits": {"fuel": 4096},
+  "nonterminals": [
+    {"id": "St.Program", "category": "Program", "type": "Float", "scope": [], "variation": false, "alternatives": [
+      {"id": "program", "weight": 1, "expression": {"control": "program(Block)->Program", "type": "Float", "args": [
+        {"control": "block_cons(Statement,Block)->Block", "type": "Float", "args": [
+          {"control": "assign(Float)->Statement", "type": "Float", "name": "acc", "args": [{"ref": "St.Float"}]},
+          {"ref": "St.Tail"}]}]}}]},
+    {"id": "St.Tail", "category": "Block", "type": "Float", "scope": [], "alternatives": [
+      {"id": "more", "weight": 3, "expression": {"control": "block_cons(Statement,Block)->Block", "type": "Float", "args": [{"ref": "St.Stmt"}, {"ref": "St.Tail"}]}},
+      {"id": "final", "weight": 1, "expression": {"control": "block_cons(Statement,Block)->Block", "type": "Float", "args": [
+        {"control": "return(Float)->Statement", "type": "Float", "args": [{"ref": "St.Float"}]},
+        {"control": "block_nil()->Block", "type": "Float", "args": []}]}}]},
+    {"id": "St.Body", "category": "Block", "type": "Float", "scope": [], "alternatives": [
+      {"id": "nil", "weight": 2, "expression": {"control": "block_nil()->Block", "type": "Float", "args": []}},
+      {"id": "cons", "weight": 2, "expression": {"control": "block_cons(Statement,Block)->Block", "type": "Float", "args": [{"ref": "St.Stmt"}, {"ref": "St.Body"}]}}]},
+    {"id": "St.Stmt", "category": "Statement", "type": "Float", "scope": [], "alternatives": [
+      {"id": "acc", "weight": 2, "expression": {"control": "assign(Float)->Statement", "type": "Float", "name": "acc", "args": [{"ref": "St.Float"}]}},
+      {"id": "k", "weight": 1, "expression": {"control": "assign(Int)->Statement", "type": "Float", "name": "k", "args": [{"ref": "St.Int"}]}},
+      {"id": "ys", "weight": 1, "expression": {"control": "assign(IntList)->Statement", "type": "Float", "name": "ys", "args": [{"ref": "St.List"}]}},
+      {"id": "n", "weight": 1, "expression": {"control": "assign(Int)->Statement", "type": "Float", "input_name": "n", "args": [{"ref": "St.Int"}]}},
+      {"id": "for", "weight": 2, "expression": {"control": "for_range(Int,Block)->Statement", "type": "Float", "name": "i", "args": [{"ref": "St.Int"}, {"ref": "St.Body"}]}},
+      {"id": "for_n", "weight": 1, "expression": {"control": "for_range(Int,Block)->Statement", "type": "Float", "input_name": "n", "args": [{"constant": {"type": "Int", "range": ["0", "3"]}}, {"ref": "St.Body"}]}},
+      {"id": "if", "weight": 1, "expression": {"control": "if_stmt(Bool,Block,Block)->Statement", "type": "Float", "args": [{"ref": "St.Bool"}, {"ref": "St.Body"}, {"ref": "St.Body"}]}},
+      {"id": "return", "weight": 1, "expression": {"control": "return(Float)->Statement", "type": "Float", "args": [{"ref": "St.Float"}]}}]},
+    {"id": "St.Float", "type": "Float", "scope": [], "alternatives": [
+      {"id": "x", "weight": 2, "expression": {"input": "x"}},
+      {"id": "k", "weight": 1, "expression": {"constant": {"type": "Float", "values": [0.5, 2.0]}}},
+      {"id": "acc", "weight": 2, "expression": {"local": "acc"}},
+      {"id": "add", "weight": 1, "expression": {"signature": "add(Float,Float)->Float", "args": [{"ref": "St.Float"}, {"ref": "St.Float"}]}},
+      {"id": "mul", "weight": 1, "expression": {"signature": "mul(Float,Float)->Float", "args": [{"ref": "St.Float"}, {"ref": "St.Float"}]}},
+      {"id": "idiv", "weight": 1, "expression": {"signature": "div(Int,Int)->Float", "args": [{"ref": "St.Int"}, {"ref": "St.Int"}]}},
+      {"id": "if", "weight": 1, "expression": {"signature": "if(Bool,Float,Float)->Float", "args": [{"ref": "St.Bool"}, {"ref": "St.Float"}, {"ref": "St.Float"}]}}]},
+    {"id": "St.Int", "type": "Int", "scope": [], "alternatives": [
+      {"id": "n", "weight": 2, "expression": {"input": "n"}},
+      {"id": "k", "weight": 2, "expression": {"constant": {"type": "Int", "range": ["-2", "3"]}}},
+      {"id": "i", "weight": 1, "expression": {"local": "i"}},
+      {"id": "kk", "weight": 1, "expression": {"local": "k"}},
+      {"id": "len", "weight": 1, "expression": {"signature": "len(IntList)->Int", "args": [{"ref": "St.List"}]}},
+      {"id": "add", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"ref": "St.Int"}, {"ref": "St.Int"}]}},
+      {"id": "sub", "weight": 1, "expression": {"signature": "sub(Int,Int)->Int", "args": [{"ref": "St.Int"}, {"ref": "St.Int"}]}}]},
+    {"id": "St.Bool", "type": "Bool", "scope": [], "alternatives": [
+      {"id": "b", "weight": 1, "expression": {"input": "b"}},
+      {"id": "k", "weight": 1, "expression": {"constant": {"type": "Bool", "values": [true, false]}}},
+      {"id": "lt", "weight": 2, "expression": {"signature": "lt(Int,Int)->Bool", "args": [{"ref": "St.Int"}, {"ref": "St.Int"}]}},
+      {"id": "and", "weight": 1, "expression": {"signature": "and(Bool,Bool)->Bool", "args": [{"ref": "St.Bool"}, {"ref": "St.Bool"}]}}]},
+    {"id": "St.List", "type": "IntList", "scope": [], "alternatives": [
+      {"id": "xs", "weight": 1, "expression": {"input": "xs"}},
+      {"id": "ys", "weight": 1, "expression": {"local": "ys"}},
+      {"id": "append", "weight": 1, "expression": {"signature": "append(IntList,Int)->IntList", "args": [{"ref": "St.List"}, {"ref": "St.Int"}]}},
+      {"id": "empty", "weight": 1, "expression": {"constant": {"type": "IntList", "values": [[]]}}}]}
+  ]
+}

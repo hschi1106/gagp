@@ -483,6 +483,18 @@ lowered code is completed by the native program terminator
 (`patch_whole_program` in `phase_layout.hpp`). Phase expressions may use all
 eight value types, any catalog operation whose arity matches, grammar inputs,
 finite constant domains of any type and Int ranges.
+A Program entry without regions is admitted the same way, with the whole
+Program as its phase and no appended terminator: statements (`assign`,
+`return`, `if_stmt`, `for_range`, blocks), up to 16 grammar locals and named
+input targets lower exactly as the native compiler does, including the
+first-use local order and for-range temporary reuse (`compile_phase_tree` in
+`phase_compile.cuh`). Statement programs are limited to 512 nodes. A child that
+reads a local before native definite assignment would define it
+(`phase_locals_defined`) is rejected: crossover tries its next site, mutation
+keeps the crossed child, and initialization draws again. Sites of a
+nonterminal with `"variation": false` count toward site depth but are never
+chosen. Physical and site-depth budgets ignore authored resource charges;
+projected budgets still require unit charges.
 Fixed skeleton charges must be at most one node/level without depth resets.
 The profile conservatively enforces physical whole-program node/depth budgets,
 including zero-charge administrative nodes; weighted/reset skeletons and inputs

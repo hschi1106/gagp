@@ -35,14 +35,24 @@ struct NativePhaseLayout {
   std::size_t fixed_nodes = 0;
   grammar::GrammarLimits budget;
   // Whole-program mode: one phase is the returned expression of a program
-  // without regions. Its executable main code is the lowered phase followed
-  // by this terminator; locals are the evaluator inputs.
+  // without regions, or the complete Program of a Program-entry grammar. The
+  // executable main code is the lowered phase, followed by this terminator for
+  // an expression entry; preset locals are the evaluator inputs.
   bool whole_program = false;
+  bool program_terminator = true;
   Instr program_return;
   std::uint32_t program_return_fuel = 1;
+  std::vector<std::string> input_names, local_names;
 };
 inline void phase_layout_require(bool condition, const char* reason) {
   if (!condition) throw std::invalid_argument(std::string("native GPU phase layout: ") + reason);
+}
+// Native name of a grammar local read or a named control target; null otherwise.
+inline const std::string* phase_target_name(const grammar::CompiledGrammar& grammar, const grammar::CompiledExpression& e) {
+  if (e.kind == grammar::ExpressionKind::Local) return &grammar.locals().at(e.target).name;
+  if (e.kind != grammar::ExpressionKind::Control ||
+      !grammar::PrimitiveCatalog::standard().control_signatures().at(e.target).requires_name) return nullptr;
+  return e.target_input ? &grammar.inputs().at(e.local).name : &grammar.locals().at(e.local).name;
 }
 
 // Pure grammar compilation cache, bound to one immutable grammar owner. No AST
@@ -107,7 +117,9 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
     phase_layout_require(ast.lexical_regions.empty() && ast.traversal_specs.empty() && witness.templates.empty(),
         "whole-program phase requires no regions or templates");
     const auto& entry = grammar.nonterminals()[grammar.entry()];
-    phase_layout_require(entry.category == NodeCategory::Expression, "whole-program phase requires an expression entry");
+    phase_layout_require(entry.category == NodeCategory::Expression || entry.category == NodeCategory::Program,
+        "whole-program phase requires an expression or program entry");
+    result.program_terminator = entry.category == NodeCategory::Expression;
     std::size_t best = witness.choices.size();
     for (std::size_t i = 0; i < witness.choices.size(); ++i) {
       const auto& c = witness.choices[i];
@@ -215,6 +227,9 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
     for (auto i = slot.begin; i < slot.end; ++i) {
       const auto expression = witness.nodes.at(i).expression;
       phase_layout_require(expression != kNoGrammarId && expression < profile.expressions.size(), "missing expression origin");
+      if (i == slot.begin)
+        phase_layout_require(!profile.statements || (result.whole_program && !result.program_terminator &&
+            result.budget.max_nodes <= 512), "statements require a Program-entry whole program of at most 512 nodes");
       const auto& e = grammar.expressions().at(expression); auto node = profile.expressions[expression].node;
       const auto& actual = ast.nodes[i];
       phase_layout_require(actual.kind == static_cast<NodeKind>(profile.expressions[expression].native_kind), "origin/native node mismatch");
@@ -227,6 +242,9 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
         const auto binder = std::find(slot.binders.begin(), slot.binders.end(), actual.i0);
         phase_layout_require(binder != slot.binders.end(), "uncaptured lexical reference");
         node.operand = binder - slot.binders.begin();
+      } else if (const auto* name = phase_target_name(grammar, e)) {
+        phase_layout_require(actual.i0 >= 0 && std::size_t(actual.i0) < ast.names.size() &&
+            ast.names[actual.i0] == *name, "local or target name mismatch");
       }
       gene.nodes.push_back(node); gene.origins.push_back(expression);
     }
@@ -245,7 +263,9 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
       ? admitted_bytecode_for_eval(source, execution_inputs, grammar.execution_limits().fuel)
       : nullptr;
   result.executable = cold_executable ? *cold_executable : executable ? *executable : compile_for_eval(source, verified, execution_inputs);
-  if (result.whole_program) {
+  result.input_names = execution_inputs;
+  for (const auto& local : grammar.locals()) result.local_names.push_back(local.name);
+  if (result.whole_program && result.program_terminator) {
     const auto& code = result.executable.code;
     phase_layout_require(!code.empty() && code.back().op == Opcode::Return &&
         result.executable.bounded_region_segments.empty(), "whole-program executable must end in Return");
@@ -313,7 +333,14 @@ inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& 
         } else if (e.kind == grammar::ExpressionKind::Bound) {
           phase_layout_require(node.operand >= 0 && std::size_t(node.operand) < slot.binders.size(), "lexical index");
           native.i0 = slot.binders[node.operand];
-        } else phase_layout_require(node.operand == model.node.operand, "operation operand");
+        } else {
+          phase_layout_require(node.operand == model.node.operand, "operation operand");
+          if (const auto* name = phase_target_name(grammar, e)) {
+            auto found = std::find(ast.names.begin(), ast.names.end(), *name);
+            if (found == ast.names.end()) found = ast.names.insert(ast.names.end(), *name);
+            native.i0 = static_cast<int>(found - ast.names.begin());
+          }
+        }
         if (!e.fuel_charges.empty()) ast.fuel_specs.push_back({ast.nodes.size(),e.fuel_charges});
         ast.nodes.push_back(native);
       }
@@ -333,10 +360,10 @@ inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& 
   return compact_genome_tables(std::move(out));
 }
 // Whole-program mode: replace the main code with lowered phase code plus the
-// prototype terminator. Locals, inputs and the variable map stay unchanged.
+// prototype terminator, and the locals with the phase compiler's allocation.
 template<class Code>
 inline void patch_whole_program(BytecodeProgram& program, const NativePhaseLayout& layout,
-    const Code* code, int code_count, const Value* constants, int constant_count) {
+    const Code* code, int code_count, const Value* constants, int constant_count, const PhaseCompileResult& lowered) {
   phase_layout_require(layout.whole_program, "whole-program patch on a region layout");
   program.code.clear(); program.instruction_fuel.clear();
   program.code.reserve(code_count + 1); program.instruction_fuel.reserve(code_count + 1);
@@ -345,11 +372,19 @@ inline void patch_whole_program(BytecodeProgram& program, const NativePhaseLayou
     program.code.push_back({static_cast<Opcode>(x.op), x.a, x.b, bool(x.flags & 1), bool(x.flags & 2)});
     program.instruction_fuel.push_back(x.fuel);
   }
-  program.code.push_back(layout.program_return); program.instruction_fuel.push_back(layout.program_return_fuel);
+  if (layout.program_terminator) {
+    program.code.push_back(layout.program_return); program.instruction_fuel.push_back(layout.program_return_fuel);
+  }
   // The native compiler leaves an all-unit charge table empty.
   if (std::all_of(program.instruction_fuel.begin(), program.instruction_fuel.end(), [](std::uint32_t f) { return f == 1; }))
     program.instruction_fuel.clear();
   program.consts.assign(constants, constants + constant_count);
+  // Named locals enter the native variable map on first use, after the inputs.
+  program.n_locals = lowered.local_count;
+  program.var2idx.clear();
+  for (std::size_t i = 0; i < layout.input_names.size(); ++i) program.var2idx[layout.input_names[i]] = int(i);
+  for (int g = 0; g < kPhaseNamedLocals; ++g)
+    if (lowered.named_slots[g]) program.var2idx[layout.local_names.at(g)] = lowered.named_slots[g] - 1;
 }
 // Mutable phase of a native layout slot inside an executable region segment.
 inline RegionPhase& native_phase_at(BoundedRegionSegment& segment,std::size_t ordinal) {

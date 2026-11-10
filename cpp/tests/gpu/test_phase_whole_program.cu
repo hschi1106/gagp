@@ -1,9 +1,11 @@
-// Expression grammars without bounded regions run on the phase engine as one
-// whole-program slot. The phase compiler must lower every generated genome to
-// the native compiler's exact bytecode across all eight value types, and the
-// CPU reference and GPU owner must publish one search.
+// Grammars without bounded regions run on the phase engine as one whole-program
+// slot: expression entries across all eight value types, and Program entries
+// with statements, loops, branches and grammar locals. The phase compiler must
+// lower every generated genome to the native compiler's exact bytecode, and the
+// CPU reference and GPU owner must publish one search of verified members.
 #include <algorithm>
 #include <iostream>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -44,9 +46,10 @@ BytecodeProgram phase_lowered(const NativePhaseLayout& layout,const grammar::Com
  const auto& gene=layout.genes.at(0);
  std::vector<gpu_detail::DInstr> code(4096);std::vector<Value> values(4096);
  const auto r=compile_phase_tree<true,true>(gene.nodes.data(),int(gene.nodes.size()),gene.constants.data(),int(gene.constants.size()),
-     locals,int(names.size()),phase_value_tag(grammar.nonterminals().at(layout.slots.at(0).nonterminal).type),code.data(),int(code.size()),values.data(),int(values.size()));
+     locals,int(names.size()),layout.program_terminator?phase_value_tag(grammar.nonterminals().at(layout.slots.at(0).nonterminal).type):kPhaseStatement,
+     code.data(),int(code.size()),values.data(),int(values.size()));
  require(r.status==PhaseCompileStatus::Ok && r.stack_bound>=1 && r.stack_bound<=gpu_detail::MAX_STACK,"phase compiler rejected a grammar program");
- auto program=layout.executable;patch_whole_program(program,layout,code.data(),r.code_count,values.data(),r.constant_count);
+ auto program=layout.executable;patch_whole_program(program,layout,code.data(),r.code_count,values.data(),r.constant_count,r);
  return program;
 }
 std::string cases_json() {
@@ -76,32 +79,46 @@ void require_same(const Trace& a,const Trace& b,const std::string& label) {
  require(a.profile.rfind("native-cpu-phase-",0)==0 && b.profile.rfind("native-gpu-phase-",0)==0,label+": phase owners not used");
  require(!a.asts.empty() && a.asts==b.asts && a.fitness==b.fitness && a.best==b.best && a.mean==b.mean,label+": CPU and GPU searches differ");
 }
-}  // namespace
-
-int main() { try {
+// Native generation verifies each program; statement grammars may read a local
+// before any assignment, which the native verifier (and the phase engine) rejects.
+std::optional<ProgramGenome> generated(const grammar::CompiledGrammar& grammar,unsigned seed) {
+ try{return grammar::generate_derivation(grammar,seed).genome;}
+ catch(const std::invalid_argument&){return std::nullopt;}
+}
+void check(const char* fixture,bool statements) {
  const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
-     grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_whole_program.json")));
+     grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/")+fixture)));
  std::vector<std::string> names;for(const auto& input:compiled->inputs())names.push_back(input.name);
  auto reordered=names;std::reverse(reordered.begin(),reordered.end());
  // Lowering parity over generated programs, in grammar and reversed input order.
- std::set<int> kinds;std::set<ValueTag> constant_tags;
+ std::set<int> kinds;std::set<ValueTag> constant_tags;int programs=0,rejected=0;
  for(unsigned seed=0;seed<256;++seed) {
-  const auto genome=grammar::generate_derivation(*compiled,seed).genome;
+  const auto genome=generated(*compiled,seed);
+  if(!genome){++rejected;continue;}
+  ++programs;
   for(const auto* order:{&names,&reordered}) {
-   const auto layout=import_native_phase_layout(*compiled,genome,nullptr,order);
-   require(layout.whole_program && layout.slots.size()==1,"expression grammar did not import as one whole-program slot");
-   const auto native=compile_for_eval(genome,*order);
+   const auto layout=import_native_phase_layout(*compiled,*genome,nullptr,order);
+   require(layout.whole_program && layout.slots.size()==1 && layout.program_terminator!=statements,
+       "grammar did not import as one whole-program slot");
+   const auto native=compile_for_eval(*genome,*order);
    same_program(layout.executable,native,"import");
    same_program(phase_lowered(layout,*compiled,*order),native,"phase lowering seed "+std::to_string(seed));
    const auto restored=export_native_phase_layout(*compiled,layout,layout.genes);
    grammar::require_membership(*compiled,restored);
    same_program(compile_for_eval(restored,*order),native,"export");
   }
-  for(const auto& node:genome.ast.nodes)kinds.insert(int(node.kind));
-  for(const auto& value:genome.ast.consts)constant_tags.insert(value.tag);
+  for(const auto& node:genome->ast.nodes)kinds.insert(int(node.kind));
+  for(const auto& value:genome->ast.consts)constant_tags.insert(value.tag);
  }
- require(constant_tags.size()>=7,"fixture did not exercise constants of most value types");
- require(kinds.size()>=20,"fixture did not exercise enough node kinds");
+ if(statements) {
+  for(auto kind:{NodeKind::FOR_RANGE,NodeKind::IF_STMT,NodeKind::ASSIGN,NodeKind::RETURN,NodeKind::BLOCK_NIL,NodeKind::VAR,NodeKind::IF_EXPR})
+   require(kinds.count(int(kind)),"statement fixture did not exercise node kind "+std::to_string(int(kind)));
+  require(programs>=64 && rejected>0,"statement fixture must mix verified and undefined-local programs: "+std::to_string(programs)+"/"+std::to_string(rejected));
+ } else {
+  require(rejected==0,"expression grammar generation failed");
+  require(constant_tags.size()>=7,"fixture did not exercise constants of most value types");
+  require(kinds.size()>=20,"fixture did not exercise enough node kinds");
+ }
 
  // CPU reference and GPU owner publish one search from generated parents, from
  // a site-depth initial population, and from that search's exported population.
@@ -120,13 +137,25 @@ int main() { try {
   cfg.reproduction_backend=gpu?ReproductionBackend::Gpu:ReproductionBackend::Cpu;
   std::vector<ProgramGenome> parents;
   if(exported)for(const auto& text:*exported){ProgramGenome g;g.ast=cli_detail::decode_ast_json(cli_detail::JsonParser(text,{true,512}).parse());parents.push_back(std::move(g));}
-  else if(!site_depth)for(int i=0;i<population;++i)parents.push_back(grammar::generate_derivation(*compiled,901+i).genome);
-  return trace(evolve_population(cases,cfg,parents.empty()?nullptr:&parents));
+  else if(!site_depth)for(unsigned seed=901;int(parents.size())<population;++seed)if(auto g=generated(*compiled,seed))parents.push_back(std::move(*g));
+  const auto result=evolve_population(cases,cfg,parents.empty()?nullptr:&parents);
+  // Every published member, including rejected-variation fallbacks, is native valid.
+  for(const auto& member:result.final_population)grammar::require_membership(*compiled,member.genome);
+  return trace(result);
  };
- require_same(run(0,nullptr,false),run(0,nullptr,true),"generated parents");
+ const std::string label=fixture;
+ require_same(run(0,nullptr,false),run(0,nullptr,true),label+" generated parents");
  const auto fresh=run(7,nullptr,false);
- require_same(fresh,run(7,nullptr,true),"site-depth initial population");
- require_same(run(7,&fresh.asts,false),run(7,&fresh.asts,true),"exported population");
+ require(std::set<std::string>(fresh.asts.begin(),fresh.asts.end()).size()>population/4,label+": search did not vary programs");
+ require_same(fresh,run(7,nullptr,true),label+" site-depth initial population");
+ require_same(run(7,&fresh.asts,false),run(7,&fresh.asts,true),label+" exported population");
+ std::cout<<fixture<<": "<<programs<<" programs, "<<rejected<<" undefined-local rejections\n";
+}
+}  // namespace
+
+int main() { try {
+ check("phase_whole_program.json",false);
+ check("phase_statements.json",true);
  std::cout<<"phase whole-program: lowering parity and CPU/GPU searches identical\n";
  return 0;
 } catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<"\n";return 1;} }

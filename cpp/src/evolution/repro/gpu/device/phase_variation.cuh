@@ -49,7 +49,7 @@ __host__ __device__ inline bool annotate_phase_tree(const PhaseGrammarView& g, i
         found |= g.productions[nt.production_offset + i].expression == origins[cursor];
       if (!found) return false;
       pending[pending_count++] = {origins[cursor], expression.scope_count,
-          {expression.target, task.expression, task.scope, expression.scope_count}};
+          {expression.target, task.expression, task.scope, expression.scope_count | (nt.fixed ? kPhaseFixedSite : 0)}};
       continue;
     }
     const auto node = nodes[cursor];

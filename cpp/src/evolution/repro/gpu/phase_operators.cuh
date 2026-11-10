@@ -48,7 +48,8 @@ __host__ __device__ inline int tournament(const double* fitness,int population,i
  return best;
 }
 __host__ __device__ inline bool site_matches(const PhaseTreeView& tree,int i,int nt,int scope) {
- return tree.sites[i].nonterminal>=0 && (nt<0 || (tree.sites[i].nonterminal==nt && tree.sites[i].scope==scope));
+ return tree.sites[i].nonterminal>=0 && !(tree.sites[i].scope&kPhaseFixedSite) &&
+     (nt<0 || (tree.sites[i].nonterminal==nt && tree.sites[i].scope==scope));
 }
 __host__ __device__ inline Site choose_site(TreePointers trees,int program,int slots,DGrammarRandom& random,bool counted,int nt=-1,int scope=-1,int selected_slot=-1) {
  if(selected_slot < -1 || selected_slot>=slots)return {};
@@ -142,6 +143,15 @@ template<bool Warp> __host__ __device__ inline PhaseGenerationResult splice(cons
  return splice_phase_tree<true>(base,destination,donor,source,output,max_depth,projected,logical_depth);
 }
 
+// A statement program must read only definitely assigned grammar locals.
+template<bool Warp> __host__ __device__ inline bool locals_defined(const DeviceSlot& slot,const PhaseTreeNode* nodes,int count) {
+ if(slot.type!=kPhaseStatement)return true;
+#ifdef __CUDA_ARCH__
+ if constexpr(Warp)__syncwarp();
+#endif
+ return phase_locals_defined(nodes,count);
+}
+
 template<bool Warp=false>
 __host__ __device__ inline void crossover_child(int child,TreePointers input,TreePointers output,const DeviceSlot* slots,
     int slot_count,int population,int max_variable_nodes,const double* fitness,int pressure,std::uint64_t seed,
@@ -164,7 +174,8 @@ __host__ __device__ inline void crossover_child(int child,TreePointers input,Tre
  const int selected_slot=policy.uniform_phase?int(random.bounded(slot_count)):-1;
  // Each rejected attempt is explicit; fitness candidates and evaluation stay intact.
  for(int attempt=0;attempt<policy.crossover_attempts;++attempt) {
-  const auto destination=draw_site<Warp>(input,parent,slot_count,random,policy.counted_sites,-1,-1,selected_slot);if(destination.node<0){stat.error=2;return;}
+  // Only variation-disabled sites: the operator publishes the parent.
+  const auto destination=draw_site<Warp>(input,parent,slot_count,random,policy.counted_sites,-1,-1,selected_slot);if(destination.node<0)break;
   const auto a=input.view(destination.row);const auto contract=a.sites[destination.node];
   const auto source=draw_site<Warp>(input,donor,slot_count,random,policy.counted_sites,contract.nonterminal,contract.scope,selected_slot);
   if(source.node<0){++stat.crossover_rejected;continue;}
@@ -174,7 +185,7 @@ __host__ __device__ inline void crossover_child(int child,TreePointers input,Tre
   const int slot=destination.row%slot_count,target=child*slot_count+slot;
   const DeviceSlot s=slots[slot];
   const auto r=splice<Warp>(a,destination.node,b,source.node,output.output(target),s.max_depth,s.logical_depth?&s.grammar:nullptr,s.logical_depth);
-  if(r.status==PhaseCompileStatus::Ok){
+  if(r.status==PhaseCompileStatus::Ok && locals_defined<Warp>(s,output.output(target).nodes,r.nodes)){
    output.lengths[target]=r;stat.crossover=1;
    if(policy.deferred_copy)for(int k=0;k<slot_count;++k)if(k!=slot)copy_row<Warp>(input,parent*slot_count+k,output,child*slot_count+k);
    return;
@@ -196,7 +207,7 @@ __host__ __device__ inline void mutate_child(int child,TreePointers input,TreePo
  DGrammarRandom random(seed ^ (UINT64_C(0x124ab512bf01)+child));
  if(static_cast<double>(random.next()>>11)*0x1.0p-53>=probability)return;
  const int selected_slot=policy.uniform_phase?int(random.bounded(slot_count)):-1;
- const auto destination=draw_site<Warp>(input,child,slot_count,random,policy.counted_sites,-1,-1,selected_slot);if(destination.node<0){stat.error=5;return;}
+ const auto destination=draw_site<Warp>(input,child,slot_count,random,policy.counted_sites,-1,-1,selected_slot);if(destination.node<0)return;
  const auto a=input.view(destination.row);const int end=subtree_end<Warp>(a,destination.node),depth=phase_node_depth(a,destination.node);
  if(end<0 || depth<0){stat.error=6;return;}
  // A private slot copy keeps grammar table pointers out of aliased memory.
@@ -225,6 +236,8 @@ __host__ __device__ inline void mutate_child(int child,TreePointers input,TreePo
  const auto r=splice<Warp>(a,destination.node,scratch.view(child),0,output.output(target),slot.max_depth,
      slot.logical_depth?&slot.grammar:nullptr,slot.logical_depth);
  if(r.status!=PhaseCompileStatus::Ok){stat.error=8;return;}
+ // An undefined local read rejects this mutation; the crossed child stands.
+ if(!locals_defined<Warp>(slot,output.output(target).nodes,r.nodes))return;
  output.lengths[target]=r;
  copy_row<Warp>(output,target,input,destination.row);
  stat.mutation=1;

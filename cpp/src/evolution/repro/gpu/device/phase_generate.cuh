@@ -14,6 +14,9 @@ struct PhaseGeneSite {
   int parent_scope = 0;
   int scope = 0;
 };
+// Site scope flag of a nonterminal with variation disabled: the invocation
+// still counts toward site depth, but never matches a variation site.
+constexpr int kPhaseFixedSite = 1 << 30;
 // Private uploaded grammar tables. The host compiler admits every reachable
 // production; an unsupported alternative declines the whole requested profile.
 enum class PhaseExpressionKind : int { Operation, Constant, Bound, Reference, Input };
@@ -28,7 +31,7 @@ struct PhaseExpression {
   int scope[8]{};
 };
 struct PhaseProduction { int expression; double weight; };
-struct PhaseNonterminal { int production_offset=0, production_count=0, scope_count=0; bool normalized_weights=false; };
+struct PhaseNonterminal { int production_offset=0, production_count=0, scope_count=0; bool normalized_weights=false, fixed=false; };
 struct PhaseDomain { int value_offset=0, value_count=0; bool integer_range=false; std::int64_t minimum=0, maximum=0; };
 // Optional exact production-choice tables (warp generation only). For one
 // nonterminal, depth and logical budget, the eligible production set changes
@@ -110,7 +113,8 @@ __host__ __device__ inline PhaseGenerationResult generate_phase(
       if constexpr(EmitSites) {
         if(next_site.nonterminal>=0 || expression.scope_count>task.scope_count)return result;
         for(int i=0;i<expression.scope_count;++i)if(expression.scope[i]!=i)return result;
-        next_site={expression.target,static_cast<int>(task.expression),static_cast<int>(task.scope_count),expression.scope_count};
+        next_site={expression.target,static_cast<int>(task.expression),static_cast<int>(task.scope_count),
+            expression.scope_count|(grammar.nonterminals[expression.target].fixed?kPhaseFixedSite:0)};
       }
       const auto nt=grammar.nonterminals[expression.target];
       if(nt.scope_count!=expression.scope_count || nt.production_offset<0 || nt.production_count<=0 ||

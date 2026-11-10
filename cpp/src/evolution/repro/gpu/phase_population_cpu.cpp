@@ -54,7 +54,15 @@ std::vector<ProgramGenome> generate_phase_initial_population(
     const grammar::CompiledGrammar& grammar, const grammar::GenerationRequest& request,
     const std::vector<std::string>& input_names, int population, std::uint64_t seed, int site_depth) {
  phase_layout_require(population>0 && population<=16384 && site_depth>=1 && site_depth<=15,"initial population size/site depth");
- const auto layout=import_native_phase_layout(grammar,generate_random_genome(seed,grammar,request),nullptr,&input_names,true);
+ // The layout prototype is any verified member. A statement grammar may
+ // generate a read of an unassigned local; the next seed is tried instead.
+ const auto prototype=[&] {
+  for(std::uint64_t attempt=0;;++attempt) {
+   try{return generate_random_genome(seed+attempt,grammar,request);}
+   catch(const std::invalid_argument&){phase_layout_require(attempt<255,"no verified prototype program");}
+  }
+ }();
+ const auto layout=import_native_phase_layout(grammar,prototype,nullptr,&input_names,true);
  const int slots=layout.slots.size();phase_layout_require(slots>0 && slots<=8,"phase count capacity");
  std::vector<std::unique_ptr<HostProfile>> profiles;
  for(const auto& slot:layout.slots)profiles.push_back(std::make_unique<HostProfile>(
@@ -76,17 +84,20 @@ std::vector<ProgramGenome> generate_phase_initial_population(
    const auto& slot=layout.slots[k];const auto& profile=*profiles[k];
    const auto& nt=grammar.nonterminals()[slot.nonterminal];
    PhaseGenerationResult generated;
-   // A shallower depth that cannot derive the phase moves up to the cap; each
+   // A shallower depth that cannot derive the phase moves up to the cap, where
+   // retries continue (a statement program may read an unassigned local); each
    // retry draws a fresh seed, so the outcome is a pure function of (seed,i,k).
-   for(int logical=ramp,attempt=0;logical<=site_depth && generated.status!=PhaseCompileStatus::Ok;++attempt) {
+   for(int logical=ramp,attempt=0;generated.status!=PhaseCompileStatus::Ok;++attempt) {
     long reserve=0;for(int j=k+1;j<slots;++j)reserve+=minimum(j,site_depth);
     const long room=std::min<long>(capacity,long(available)-used-reserve);
     phase_layout_require(room>0,"initial phase budget");
     generated=generate_phase<true,false,false>(profile.view(),profile.grammar.root_expression,int(nt.scope.size()),
         slot.max_depth,int(room),mix(seed^mix((std::uint64_t(i)*8+k)*64+attempt)),
         nodes.data(),origins.data(),constants.data(),nullptr,logical);
-    if(generated.status!=PhaseCompileStatus::Ok && attempt%4==3)++logical;
-    phase_layout_require(attempt<64,"initial phase generation failed");
+    if(generated.status==PhaseCompileStatus::Ok && layout.whole_program && !layout.program_terminator &&
+        !phase_locals_defined(nodes.data(),generated.nodes))generated.status=PhaseCompileStatus::Invalid;
+    if(generated.status!=PhaseCompileStatus::Ok && attempt%4==3 && logical<site_depth)++logical;
+    phase_layout_require(attempt<256,"initial phase generation failed");
    }
    phase_layout_require(generated.status==PhaseCompileStatus::Ok,"initial phase generation failed");
    auto& gene=genes[k];
@@ -137,7 +148,7 @@ struct HostPhasePopulation::Impl {
    const auto r=valid(trees.lengths[row])?compile_phase_tree<true,true>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.local_count,slot.type,
        code.data(),code_capacity,values.data(),capacity):PhaseCompileResult{};
    if(r.status!=PhaseCompileStatus::Ok || r.stack_bound<1 || r.stack_bound>gpu_detail::MAX_STACK){ok=false;continue;}
-   if(layout.whole_program){patch_whole_program(executable,layout,code.data(),r.code_count,values.data(),r.constant_count);continue;}
+   if(layout.whole_program){patch_whole_program(executable,layout,code.data(),r.code_count,values.data(),r.constant_count,r);continue;}
    auto& program=native_phase_at(executable.bounded_region_segments[0],layout.slots[k].ordinal).program;
    program.code.clear();program.instruction_fuel.clear();program.code.reserve(r.code_count);program.instruction_fuel.reserve(r.code_count);
    for(int i=0;i<r.code_count;++i){const auto x=code[i];program.code.push_back({static_cast<Opcode>(x.op),x.a,x.b,bool(x.flags&1),bool(x.flags&2)});program.instruction_fuel.push_back(x.fuel);}
@@ -197,7 +208,7 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
   const auto& nt=s.grammar->nonterminals()[layout.nonterminal];DeviceSlot slot{};
   slot.grammar=s.profiles.back()->view();slot.root=profile.root_expression;slot.scope=nt.scope.size();slot.max_depth=layout.max_depth;
   slot.logical_depth=site_depth?site_depth:layout.logical_depth;
-  slot.type=phase_value_tag(nt.type);
+  slot.type=s.layout.program_terminator || !s.layout.whole_program?phase_value_tag(nt.type):kPhaseStatement;
   if(s.layout.whole_program) {
    slot.local_count=input_names.size();
    for(int j=0;j<slot.local_count;++j)for(const auto& binding:s.grammar->inputs())
