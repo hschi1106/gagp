@@ -1,0 +1,10 @@
+{
+  "format": "gagp-task-v1",
+  "name": "list-sum",
+  "grammar": "grammar.json",
+  "train": "train.cases.json",
+  "test": "test.cases.json",
+  "fitness": {
+    "metric": "absolute"
+  }
+}

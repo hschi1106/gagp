@@ -21,6 +21,7 @@
 #include "gagp/evolution/fuel_events.hpp"
 #include "gagp/evolution/genome_generation.hpp"
 #include "gagp/evolution/genome.hpp"
+#include "gagp/evolution/node_descriptor.hpp"
 #include "gagp/evolution/grammar/catalog.hpp"
 #include "gagp/evolution/grammar/definition.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
@@ -856,3 +857,94 @@ std::string gagp::cli_detail::encode_ast_json(const evo::AstProgram& ast) {
   return out.str();
 }
 
+
+namespace {
+
+using gagp::evo::NodeKind;
+
+std::string constant_text(const gagp::Value& v) {
+  if (v.tag == ValueTag::Int) return std::to_string(v.i);
+  if (v.tag == ValueTag::Bool) return v.b ? "true" : "false";
+  // Every other type: the "value" member of its typed JSON form.
+  std::ostringstream typed;
+  write_typed_value_json(typed, v);
+  const std::string json = typed.str();
+  const std::size_t start = json.find("\"value\":") + 8;
+  return json.substr(start, json.size() - start - 1);
+}
+
+class ProgramPrinter {
+ public:
+  explicit ProgramPrinter(const gagp::evo::AstProgram& ast) : ast_(ast) {}
+
+  std::string print() {
+    std::string out;
+    // A program that is a single `return e` reads as just `e`.
+    const auto& n = ast_.nodes;
+    if (n.size() >= 4 && n[0].kind == NodeKind::PROGRAM && n[1].kind == NodeKind::BLOCK_CONS &&
+        n[2].kind == NodeKind::RETURN && n.back().kind == NodeKind::BLOCK_NIL) {
+      pos_ = 3;
+      node(out);
+      if (pos_ == n.size() - 1) return out;
+      out.clear();
+    }
+    pos_ = 0;
+    node(out);
+    return out;
+  }
+
+ private:
+  void node(std::string& out) {
+    if (pos_ >= ast_.nodes.size()) throw std::runtime_error("truncated AST program");
+    const std::size_t index = pos_;
+    const gagp::evo::AstNode& node_value = ast_.nodes[pos_++];
+    switch (node_value.kind) {
+      case NodeKind::CONST: out += constant_text(ast_.consts.at(node_value.i0)); return;
+      case NodeKind::VAR:
+      case NodeKind::BOUND_VAR: out += ast_.names.at(node_value.i0); return;
+      case NodeKind::REGION_VAR: out += "v" + std::to_string(node_value.i0); return;
+      case NodeKind::PROGRAM: node(out); return;
+      case NodeKind::BLOCK_NIL: out += "(block)"; return;
+      case NodeKind::BLOCK_CONS: {
+        out += "(block";
+        do {
+          out += ' ';
+          node(out);
+        } while (ast_.nodes.at(pos_).kind == NodeKind::BLOCK_CONS && ++pos_);
+        ++pos_;  // the closing BLOCK_NIL
+        out += ')';
+        return;
+      }
+      default: break;
+    }
+    const auto& descriptor = gagp::evo::node_descriptor(node_value.kind);
+    std::string_view name = descriptor.serialized_name;
+    if (name.substr(0, 5) == "call_") name.remove_prefix(5);
+    out += '(';
+    out += name;
+    if (descriptor.i0_role == gagp::evo::NodeIndexRole::Name) out += " " + ast_.names.at(node_value.i0);
+    // A binder argument shows its bound variables first: `[v6 v7 v8] body`.
+    const gagp::evo::LexicalRegion* binder = nullptr;
+    for (const auto& region : ast_.lexical_regions)
+      if (region.node_index == index) binder = &region;
+    const int arity = gagp::evo::node_prefix_arity(node_value);
+    for (int i = 0; i < arity; ++i) {
+      out += ' ';
+      if (binder && i == binder->body_argument) {
+        out += '[';
+        for (std::size_t b = 0; b < binder->bindings.size(); ++b)
+          out += (b ? " v" : "v") + std::to_string(binder->bindings[b].id);
+        out += "] ";
+      }
+      node(out);
+    }
+    out += ')';
+  }
+
+  const gagp::evo::AstProgram& ast_;
+  std::size_t pos_ = 0;
+};
+
+}  // namespace
+
+std::string gagp::cli_detail::program_text(const evo::AstProgram& ast) { return ProgramPrinter(ast).print(); }

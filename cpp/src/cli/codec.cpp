@@ -29,8 +29,8 @@ BytecodeJsonFormat require_bytecode_json_format(const JsonValue& root) {
     throw std::runtime_error(
         "unsupported bytecode format_version '" + version +
         "' (release 1.0.0); bytecode migration is unsupported because source "
-        "AST/type provenance is absent. Migrate the source ast-prefix artifact, "
-        "then recompile with this release.");
+        "AST/type provenance is absent. Recompile the program from its "
+        "ast-prefix-v2 source.");
   }
   throw std::runtime_error(
       "unsupported bytecode format_version '" + version +

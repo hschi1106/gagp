@@ -64,7 +64,7 @@ std::vector<evo::ProgramGenome> replay_generated_population_artifact(const std::
   if (version == "population-seeds")
     throw std::invalid_argument(
         "legacy population-seeds cannot replay compiled grammar evolution exactly; "
-        "materialize the population with the frozen legacy build, then migrate it");
+        "generate a grammar-population-v2 file with `gagp grammar generate`");
   if (version != kGeneratedGrammarPopulationArtifactVersion)
     throw std::invalid_argument("unsupported grammar population artifact version");
   if (root.object_v.size() != 4)

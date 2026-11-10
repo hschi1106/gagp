@@ -327,7 +327,8 @@ int run_task_command(const std::vector<std::string>& argv) {
       {"seed", str(std::to_string(cfg.seed))}, {"train_cases", num(cases.size())},
       {"search", effective_search_config(result.resident_declined.empty() ? cfg : evo::native_fallback_config(cfg))},
       {"best", obj({{"fitness", num(best.fitness)}, {"wrong", num(best.wrong)},
-                    {"nodes", num(best.genome.ast.nodes.size())}, {"program", program_json(best.genome.ast)}})},
+                    {"nodes", num(best.genome.ast.nodes.size())}, {"text", str(cli_detail::program_text(best.genome.ast))},
+                    {"program", program_json(best.genome.ast)}})},
       {"history", arr(std::move(history))},
       {"time_ms", obj({{"total", num(wall_ms)}, {"search", num(result.timing.total_ms)},
                        {"initialization", num(result.timing.init_population_ms)}})}});
@@ -342,6 +343,8 @@ int run_task_command(const std::vector<std::string>& argv) {
                    "with host reproduction instead\n", result.resident_declined.c_str());
     std::fprintf(stderr, "best fitness %.6g, wrong %d of %zu train cases, %zu nodes; %.1f s\n", best.fitness, best.wrong,
                  cases.size(), best.genome.ast.nodes.size(), wall_ms / 1000);
+    const std::string& text = summary.object_v.at("best").object_v.at("text").string_v;
+    if (text.size() <= 400) std::fprintf(stderr, "program: %s\n", text.c_str());
     if (summary.object_v.count("test")) {
       const auto& t = summary.object_v.at("test").object_v;
       std::fprintf(stderr, "test: %g of %g correct%s\n", t.at("correct").number_v, t.at("cases").number_v,

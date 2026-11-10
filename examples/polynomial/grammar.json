@@ -1,0 +1,16 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "Expr", "type": "Int"},
+  "inputs": [{"name": "x", "type": "Int"}],
+  "search_limits": {"max_nodes": 31, "max_depth": 8},
+  "execution_limits": {"fuel": 1000},
+  "nonterminals": [
+    {"id": "Expr", "type": "Int", "scope": [], "alternatives": [
+      {"id": "x", "weight": 3, "expression": {"input": "x"}},
+      {"id": "small", "weight": 2, "expression": {"constant": {"type": "Int", "values": ["1", "2", "3"]}}},
+      {"id": "add", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"ref": "Expr"}, {"ref": "Expr"}]}},
+      {"id": "sub", "weight": 1, "expression": {"signature": "sub(Int,Int)->Int", "args": [{"ref": "Expr"}, {"ref": "Expr"}]}},
+      {"id": "mul", "weight": 1, "expression": {"signature": "mul(Int,Int)->Int", "args": [{"ref": "Expr"}, {"ref": "Expr"}]}}
+    ]}
+  ]
+}

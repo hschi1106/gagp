@@ -67,6 +67,11 @@ endif()
 if(NOT program_a STREQUAL program_b)
   message(FATAL_ERROR "the same seed found different programs")
 endif()
+# The readable form uses the grammar's names: input1, add, mul.
+string(JSON text_a GET "${result_a}" best text)
+if(NOT text_a MATCHES "^(input1|1|\\((add|mul) .*\\))$")
+  message(FATAL_ERROR "unexpected readable program: ${text_a}")
+endif()
 foreach(saved population.json history.json)
   if(NOT EXISTS "${WORK}/a/${saved}")
     message(FATAL_ERROR "--save-all did not write ${saved}")
@@ -132,3 +137,14 @@ gagp_expect_exit(0 grammar generate --grammar-definition "${FIXTURES}/grammar.js
 gagp_expect_exit(0 run "${task}" --engine cpu ${native} --population 16 --generations 1
                  --init "${WORK}/generated.json" --quiet)
 gagp_expect_exit(0 grammar validate --grammar-definition "${FIXTURES}/grammar.json")
+
+# The documented examples run and solve their tasks on the CPU reference engine.
+foreach(example polynomial list-sum)
+  gagp_expect_exit(0 run "${CONFIGS}/../examples/${example}/task.json" --engine cpu --quiet
+                   --out "${WORK}/example-${example}")
+  file(READ "${WORK}/example-${example}/result.json" example_result)
+  string(JSON example_solved GET "${example_result}" test solved)
+  if(NOT example_solved)
+    message(FATAL_ERROR "examples/${example} was not solved:\n${example_result}")
+  endif()
+endforeach()

@@ -1,0 +1,116 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {
+    "nonterminal": "Tutorial.Sum",
+    "type": "Int"
+  },
+  "inputs": [
+    {
+      "name": "xs",
+      "type": "IntList"
+    }
+  ],
+  "search_limits": {
+    "max_nodes": 32,
+    "max_depth": 12
+  },
+  "execution_limits": {
+    "fuel": 512
+  },
+  "nonterminals": [
+    {
+      "id": "Tutorial.Sum",
+      "type": "Int",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "fold",
+          "weight": 1,
+          "expression": {
+            "signature": "traverse(IntList,Int,Int,Int)->Int",
+            "args": [
+              {
+                "input": "xs"
+              },
+              {
+                "constant": {
+                  "type": "Int",
+                  "values": [
+                    "0"
+                  ]
+                }
+              },
+              {
+                "constant": {
+                  "type": "Int",
+                  "values": [
+                    "0"
+                  ]
+                }
+              },
+              {
+                "ref": "Tutorial.Step"
+              }
+            ],
+            "bind": {
+              "3": [
+                "element",
+                "index",
+                "acc"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Tutorial.Step",
+      "type": "Int",
+      "scope": [
+        {
+          "name": "element",
+          "type": "Int"
+        },
+        {
+          "name": "index",
+          "type": "Int"
+        },
+        {
+          "name": "acc",
+          "type": "Int"
+        }
+      ],
+      "alternatives": [
+        {
+          "id": "add_element",
+          "weight": 1,
+          "expression": {
+            "signature": "add(Int,Int)->Int",
+            "args": [
+              {
+                "bound": "acc"
+              },
+              {
+                "bound": "element"
+              }
+            ]
+          }
+        },
+        {
+          "id": "keep_acc",
+          "weight": 1,
+          "expression": {
+            "bound": "acc"
+          }
+        },
+        {
+          "id": "take_element",
+          "weight": 1,
+          "expression": {
+            "bound": "element"
+          }
+        }
+      ]
+    }
+  ]
+}
