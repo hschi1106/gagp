@@ -104,30 +104,6 @@ std::shared_ptr<const CompiledGrammar> many_sites_grammar() {
     arguments + "}}}]}]}");
 }
 
-std::shared_ptr<const CompiledGrammar> captured_hole_grammar() {
-  return compile_shared(R"({
-    "format_version":"grammar-definition-v2",
-    "entry":{"nonterminal":"Main","type":"Int"},
-    "search_limits":{"max_nodes":30,"max_depth":12},
-    "execution_limits":{"fuel":100},
-    "templates":[{"id":"Twice","type":"Int","scope":[],
-      "holes":[{"id":"value","type":"Int","scope":[{"name":"x","type":"Int"}]}],
-      "body":{"signature":"add(Int,Int)->Int","args":[
-        {"signature":"let(Int,Int)->Int","args":[
-          {"constant":{"type":"Int","values":["1"]}},{"hole":"value"}],"bind":{"1":["x"]}},
-        {"signature":"let(Int,Int)->Int","args":[
-          {"constant":{"type":"Int","values":["2"]}},{"hole":"value"}],"bind":{"1":["x"]}}]}}],
-    "nonterminals":[
-      {"id":"Main","type":"Int","scope":[],"alternatives":[
-        {"id":"main","weight":1,"expression":{"template":"Twice","holes":{"value":{"ref":"Scoped"}}}}]},
-      {"id":"Scoped","type":"Int","scope":[{"name":"x","type":"Int"}],"alternatives":[
-        {"id":"bound","weight":1,"expression":{"bound":"x"}},
-        {"id":"offset","weight":1,"expression":{"signature":"add(Int,Int)->Int","args":[
-          {"bound":"x"},{"constant":{"type":"Int","values":["3","4","5"]}}]}}]}
-    ]
-  })");
-}
-
 std::shared_ptr<const CompiledGrammar> local_grammar() {
   return compile_shared(R"({
     "format_version":"grammar-definition-v2",
@@ -431,140 +407,6 @@ void test_all_parents_are_validated_before_selection() {
       "referenced compiled backend did not validate every scored parent");
 }
 
-void test_prepared_ablation(repro::CpuReproAblation ablation) {
-  bool observed_distinct_candidates = false;
-  for (const auto& grammar : {repeated_hole_grammar(), local_grammar(), many_sites_grammar(), captured_hole_grammar()}) {
-    const auto population = generated_population(*grammar, 6, 40);
-    const auto scored = score_owned(population);
-    const auto refs = score_refs(scored);
-    for (int size : {5, 6}) {
-      for (double mutation : {0.0, 1.0}) {
-        auto cfg = compiled_config(grammar, size);
-        cfg.cpu_repro_ablation = ablation;
-        cfg.mutation_rate = mutation;
-        cfg.mutation_subtree_prob = 1.0;
-        for (std::uint64_t seed : {11, 12345, 87654}) {
-          std::mt19937_64 owned_rng(seed), ref_rng(seed), plain_rng(seed);
-          const auto owned = repro::run_reproduction_backend(scored, cfg, owned_rng);
-          const auto referenced = repro::run_reproduction_backend(refs, cfg, ref_rng);
-          check_same_population(owned.next_population, referenced.next_population,
-              "GPU candidate ablation owned/ref replay differs");
-          check_same_counters(owned.stats.variation, referenced.stats.variation,
-              "GPU candidate ablation replay counters differ");
-          check(owned_rng == ref_rng, "candidate replay consumed different RNG streams");
-          require_population_membership(*grammar, owned.next_population);
-          const auto& counters = owned.stats.variation;
-          check(owned.next_population.size() == static_cast<std::size_t>(size),
-              "candidate ablation did not cap odd populations");
-          check(counters.crossover_attempts == static_cast<std::uint64_t>((size + 1) / 2) &&
-                counters.mutation_attempts == static_cast<std::uint64_t>(mutation * size),
-              "candidate ablation changed crossover/mutation scheduling");
-          check(counters.changed_children + counters.unchanged_children ==
-                2 * counters.crossover_attempts + counters.mutation_attempts,
-              "candidate ablation lost operator output classifications");
-          check(counters.acceptance_rejections == 0,
-              "candidate ablation broke repeated-hole or local membership");
-          cfg.cpu_repro_ablation = repro::CpuReproAblation::None;
-          const auto plain = repro::run_reproduction_backend(scored, cfg, plain_rng);
-          cfg.cpu_repro_ablation = ablation;
-          if (ablation == repro::CpuReproAblation::GpuCoupledDonor && mutation == 0)
-            check_same_population(owned.next_population, plain.next_population,
-                "coupled donor ablation changed ordinary CPU crossover");
-          for (std::size_t i = 0; i < owned.next_population.size(); ++i)
-            observed_distinct_candidates |= owned.next_population[i].meta.program_key !=
-                plain.next_population[i].meta.program_key;
-          check(owned_rng == plain_rng,
-              "candidate preparation perturbed tournament/operator RNG scheduling");
-        }
-      }
-    }
-    auto cfg = compiled_config(grammar, 6);
-    cfg.cpu_repro_ablation = ablation;
-    cfg.reproduction_backend = repro::ReproductionBackend::Gpu;
-    rejects_invalid_argument([&] { repro::require_reproduction_mode_supported(cfg); },
-        "CPU candidate ablation was silently ignored by GPU reproduction");
-  }
-  check(observed_distinct_candidates,
-      "candidate ablation silently used ordinary CPU candidate selection");
-
-  // Candidate preparation must respect a non-entry request, not regenerate the
-  // grammar entry or weaken the imported-parent membership check.
-  const auto grammar = repeated_hole_grammar();
-  auto cfg = compiled_config(grammar, 6);
-  cfg.cpu_repro_ablation = ablation;
-  cfg.generation_request->nonterminal = nonterminal(*grammar, "Value");
-  const auto population = generated_population(*grammar, 6, 55, &*cfg.generation_request);
-  auto scored = score_owned(population);
-  std::mt19937_64 rng(27);
-  const auto result = repro::run_reproduction_backend(scored, cfg, rng);
-  require_population_membership(*grammar, result.next_population, &*cfg.generation_request);
-  first_constant_node(scored.back().genome).i0 = 999;
-  scored.back().fitness = -1000000;
-  rejects_invalid_argument([&] { (void)repro::run_reproduction_backend(scored, cfg, rng); },
-      "candidate ablation accepted an invalid unselected parent");
-}
-
-void test_coupled_mutation_keeps_crossover_site() {
-  const auto grammar = many_sites_grammar();
-  const auto population = generated_population(*grammar, 6, 40);
-  const auto scored = score_owned(population);
-  auto cfg = compiled_config(grammar, 6);
-  cfg.cpu_repro_ablation = repro::CpuReproAblation::GpuCoupledDonor;
-  cfg.mutation_rate = 1;
-  cfg.mutation_subtree_prob = 1;
-  int checked_nonroot_sites = 0;
-  int changed = 0;
-  for (std::uint64_t seed : {11, 27, 88, 125}) {
-    std::mt19937_64 backend_rng(seed), replay_rng(seed);
-    const auto result = repro::run_reproduction_backend(scored, cfg, backend_rng);
-    auto selected = tournament_selection_indices_without_replacement(
-        scored, replay_rng, cfg.selection_pressure, cfg.population_size);
-    std::shuffle(selected.begin(), selected.end(), replay_rng);
-    std::uniform_int_distribution<std::uint64_t> operator_seed(0, 2000000000ULL);
-    std::uniform_real_distribution<double> probability(0, 1);
-    VariationContext context(grammar);
-    for (std::size_t i = 0; i < selected.size(); i += 2) {
-      variation_detail::SelectedCrossoverSites sites;
-      (void)variation_detail::crossover_with_sites(scored[selected[i]].genome,
-          scored[selected[i + 1]].genome, operator_seed(replay_rng), context, &sites);
-      check(sites.has_value(), "fixture has no coupled crossover site");
-      for (std::size_t side = 0; side < 2; ++side) {
-        (void)probability(replay_rng);
-        (void)operator_seed(replay_rng);
-        const auto& original = scored[selected[i + side]].genome;
-        const auto& child = result.next_population[i + side];
-        const auto& site = side ? sites->second : sites->first;
-        check(child.ast.nodes.size() == original.ast.nodes.size(),
-              "fixed-shape coupled fixture changed structure");
-        if (site.materialized_nodes == 1) ++checked_nonroot_sites;
-        changed += child.meta.program_key != original.meta.program_key;
-        for (std::size_t node = 0; node < original.ast.nodes.size(); ++node) {
-          const bool in_site = std::any_of(site.occurrences.begin(), site.occurrences.end(),
-              [&](const VariationSpan& span) { return node >= span.begin && node < span.end; });
-          if (in_site || original.ast.nodes[node].kind != NodeKind::CONST) continue;
-          const auto& before = original.ast.consts.at(original.ast.nodes[node].i0);
-          const auto& after = child.ast.consts.at(child.ast.nodes[node].i0);
-          check(before.tag == after.tag && before.i == after.i,
-                "coupled donor changed a constant outside the original crossover site");
-        }
-      }
-    }
-    check(backend_rng == replay_rng, "coupled mutation changed outer RNG consumption");
-  }
-  check(checked_nonroot_sites >= 4 && changed > 0,
-        "coupling regression did not exercise changing proper subtrees");
-
-  // The constant branch operates on the crossed child using ordinary constant
-  // mutation, instead of replacing that child with an original-parent donor.
-  cfg.mutation_subtree_prob = 0;
-  std::mt19937_64 coupled_rng(19), plain_rng(19);
-  const auto coupled = repro::run_reproduction_backend(scored, cfg, coupled_rng);
-  cfg.cpu_repro_ablation = repro::CpuReproAblation::None;
-  const auto plain = repro::run_reproduction_backend(scored, cfg, plain_rng);
-  check_same_population(coupled.next_population, plain.next_population,
-      "coupled constant branch differs from ordinary post-crossover mutation");
-}
-
 void test_mixed_population_initialization_and_evolution() {
   const std::vector<EvalCase> cases{{{}, Value::from_int(0)}};
   const auto case_set = prepare_case_set(cases);
@@ -621,12 +463,8 @@ void test_mixed_population_initialization_and_evolution() {
   rejects_invalid_argument([&] { (void)initialize_population(invalid, case_set); },
       "mixed initialization accepted duplicate root types");
 
-  for (const auto ablation : {repro::CpuReproAblation::None,
-       repro::CpuReproAblation::GpuSelection, repro::CpuReproAblation::GpuCandidates,
-       repro::CpuReproAblation::GpuCoupledDonor}) {
+  {
     cfg = gagp::test::mixed_population_config();
-    cfg.cpu_repro_ablation = ablation;
-    // Regenerate payloads after each evolution run's live-root sweep.
     const auto population = initialize_population(cfg, case_set).population;
     const auto result = evolve_population(cases, cfg, &population);
     check(result.history_best.size() == 3 && result.final_population.size() == 16,
@@ -905,9 +743,6 @@ int main() {
     test_selected_mutation_membership();
     test_repeated_holes_and_local_children_remain_members();
     test_all_parents_are_validated_before_selection();
-    test_prepared_ablation(repro::CpuReproAblation::GpuCandidates);
-    test_prepared_ablation(repro::CpuReproAblation::GpuCoupledDonor);
-    test_coupled_mutation_keeps_crossover_site();
     test_mixed_population_initialization_and_evolution();
     test_compiled_initialization_and_evolve_validation();
     test_nonentry_request_is_used_end_to_end();

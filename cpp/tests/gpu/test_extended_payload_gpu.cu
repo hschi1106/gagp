@@ -588,7 +588,7 @@ bool test_global_window_aliases() {
 
 bool test_global_payload_program_queue() {
   // More programs than bounded physical blocks, no regions, distinct rows.
-  // This exercises the persistent queue, mixed payload/scalar programs and the
+  // retaining the same logical case reduction.
   // host overlap callback while retaining the same logical case reduction.
   std::vector<BytecodeProgram> programs(96);
   for(std::size_t i=0;i<programs.size();++i) {
@@ -606,9 +606,8 @@ bool test_global_payload_program_queue() {
   const auto cpu=eval_fitness_cpu(programs,cases,answers,1000,1000.0,512,policy);
   FitnessSessionGpu session;
   if(!check(session.init(cases,answers,1000,512,1000.0,policy).ok,"global payload queue init"))return false;
-  bool callback=false;
-  const auto gpu=session.eval_programs(programs,true,[&]{callback=true;});
-  if(!check(gpu.ok && gpu.fitness==cpu && callback,"global payload mixed program queue/overlap parity")) {
+  const auto gpu=session.eval_programs(programs,true);
+  if(!check(gpu.ok && gpu.fitness==cpu,"global payload mixed program queue parity")) {
     std::cerr<<gpu.err.message<<'\n';return false;
   }
   if(!check(gpu.execution_profile.find("-global-arena")!=std::string::npos && gpu.payload_replay_programs==0,
@@ -1090,14 +1089,10 @@ bool test_tiled_initial_payload(int count=1024) {
       std::vector<CpuFitnessCaseCounts> counts;std::vector<unsigned> wrong_counts;
       const auto cpu=eval_fitness_cpu(programs,cases,answers,fuel,2.5,lanes,policy,&wrong_counts,&counts);
       FitnessSessionGpu session;if(!session.init(cases,answers,fuel,lanes,2.5,policy).ok)return false;
-      int callback_count=0;cudaError_t callback_status=cudaSuccess;
-      const auto gpu=session.eval_programs(programs,true,[&]{
-        ++callback_count;callback_status=cudaDeviceSynchronize();
-      });
-      if(!check(gpu.ok && gpu.fitness==cpu && gpu.wrong==wrong_counts && callback_count==1 &&
-          callback_status==cudaSuccess && gpu.timing.initial_kernel_event_ms>0 &&
+      const auto gpu=session.eval_programs(programs,true);
+      if(!check(gpu.ok && gpu.fitness==cpu && gpu.wrong==wrong_counts &&
           gpu.initial_payload_tiled==(input_length>=32) && gpu.payload_replay_programs==0,
-          "tiled initial full-case canonical fitness/callback parity"))return false;
+          "tiled initial full-case canonical fitness parity"))return false;
       for(int p=0;p<3;++p)if(!check(gpu.case_counts[p][0]==counts[p].cases &&
           gpu.case_counts[p][1]==counts[p].errors && gpu.case_counts[p][2]==counts[p].timeouts,
           "tiled initial case/error/timeout parity"))return false;
@@ -1180,16 +1175,13 @@ bool test_sorted_arena_cases() {
     std::vector<CpuFitnessCaseCounts> counts;std::vector<unsigned> wrong;
     const auto cpu=eval_fitness_cpu(programs,cases,answers,1000,1000,lanes,policy,&wrong,&counts);
     FitnessSessionGpu session;if(!session.init(cases,answers,1000,lanes,1000,policy).ok)return false;
-    int callback_count=0;cudaError_t callback_status=cudaSuccess;
-    const auto gpu=session.eval_programs(programs,true,[&]{
-      ++callback_count;callback_status=cudaDeviceSynchronize();
-    });
+    const auto gpu=session.eval_programs(programs,true);
     if(!check(gpu.ok && gpu.fitness==cpu && gpu.wrong==wrong && gpu.payload_replay_programs<=1 &&
-        gpu.initial_payload_tiled && callback_count==1 && callback_status==cudaSuccess &&
+        gpu.initial_payload_tiled &&
         gpu.arena_cases_sorted && gpu.arena_case_order_bytes==4096u,
         "arena sorted full-case fitness/replay/profile parity (lanes="+std::to_string(lanes)+" ok="+std::to_string(gpu.ok)+
         " parity="+std::to_string(gpu.fitness==cpu && gpu.wrong==wrong)+" replay="+std::to_string(gpu.payload_replay_programs)+
-        " tiled="+std::to_string(gpu.initial_payload_tiled)+" callbacks="+std::to_string(callback_count)+
+        " tiled="+std::to_string(gpu.initial_payload_tiled)+
         " sorted="+std::to_string(gpu.arena_cases_sorted)+" order="+std::to_string(gpu.arena_case_order_bytes)+")"))return false;
     for(int p=0;p<3;++p)if(!check(gpu.case_counts[p][0]==counts[p].cases &&
         gpu.case_counts[p][1]==counts[p].errors && gpu.case_counts[p][2]==counts[p].timeouts,

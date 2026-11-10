@@ -10,7 +10,6 @@
 #include "gagp/evolution/grammar/variation.hpp"
 #include "gagp/evolution/mutation.hpp"
 #include "gagp/runtime/payload/payload.hpp"
-#include "../../src/evolution/repro/constant_prep.hpp"
 
 using namespace gagp;
 using namespace gagp::evo;
@@ -102,25 +101,6 @@ void test_generation_variation_and_proposals() {
       check(context.counters().changed_children > 0 && context.counters().acceptance_rejections == 0,
           "sequence mutation fell back or never changed");
     }
-    const auto base = repro::prepare_constant_mutation_domains(grammar);
-    const auto first = repro::sample_constant_mutation_domains(base, 1, 64);
-    const auto replay = repro::sample_constant_mutation_domains(base, 1, 64);
-    const auto next = repro::sample_constant_mutation_domains(base, 2, 64);
-    bool changed = false;
-    check(base->values.empty() && first->base_domains == base, "proposals polluted run-level domain cache");
-    for (std::size_t i = 0; i < first->values.size(); ++i) {
-      check(constant_domain_contains(domain, first->values[i]), "GPU proposal escaped sequence domain");
-      if (domain.elements && domain.elements->sampling) {
-        std::vector<Value> elements;
-        check(payload::lookup_list(first->values[i],&elements), "sample_from proposal lacks exact payload");
-        for (const auto& element : elements)
-          check(constant_domain_contains(*domain.elements->sampling,element), "sequence proposal ignored sample_from");
-      }
-      check(encoding(first->values[i]) == encoding(replay->values[i]), "GPU proposal seed replay changed");
-      changed |= encoding(first->values[i]) != encoding(next->values[i]);
-    }
-    check(changed && first->values.size() == 64, "GPU proposals were frozen across preparations");
-    rejects([&] { repro::sample_constant_mutation_domains(first, 2, 64); });
     auto forged = generate_derivation(*grammar, 4).genome;
     forged.derivation.reset();
     forged.ast.consts.at(forged.ast.nodes[3].i0) = domain.type == RType::String

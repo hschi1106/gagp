@@ -12,7 +12,6 @@
 #include "gagp/evolution/grammar/values.hpp"
 #include "gagp/evolution/grammar/variation.hpp"
 #include "gagp/evolution/mutation.hpp"
-#include "../../src/evolution/repro/constant_prep.hpp"
 
 using namespace gagp;
 using namespace gagp::evo;
@@ -105,10 +104,6 @@ void test_sampling_domains() {
     "alternatives":[{"id":"integer","weight":1,"expression":{"constant":{"type":"Int","range":["-100","100"],
     "sample_from":{"type":"Int","values":["-1","1"]}}}}]}]})");
   auto grammar = std::make_shared<const CompiledGrammar>(compile_grammar(parse_definition(canonical_json(definition))));
-  const auto prepared = repro::prepare_constant_mutation_domains(grammar);
-  check(prepared->domains.front().integer_range == 0 && prepared->domains.front().value_count == 2 &&
-        prepared->values.at(0).i == -1 && prepared->values.at(1).i == 1,
-        "GPU descriptor used Int membership instead of its sampling subset");
   GrammarRandom random(131);
   for (unsigned i = 0; i < 1024; ++i) {
     check(constant_domain_contains(*floats.sampling,sample_constant(floats,random)), "Float escaped sample_from");
@@ -145,14 +140,6 @@ void test_generation_mutation(bool quantized, bool separated = false) {
   }
   auto grammar = std::make_shared<const CompiledGrammar>(compile_grammar(parse_definition(canonical_json(definition))));
   const auto& domain = grammar->constants().front();
-  auto prepared = repro::prepare_constant_mutation_domains(grammar);
-  check(prepared->values.empty() && prepared->domains.front().float_range == 1 &&
-        prepared->domains.front().float_minimum == -5 && prepared->domains.front().float_maximum == 5,
-        "GPU preparation narrowed Float range to a finite table");
-  check(repro::sample_constant_mutation_domains(prepared, 42, 64) == prepared,
-        "scalar Float range unexpectedly needs host proposals");
-  check(prepared->domains.front().float_quantization_scale == (quantized ? 1000 : 0),
-        "GPU preparation lost quantization policy");
   for (double probability : {0.0, 1.0}) {
     VariationContext context(grammar);
     auto parent = generate_derivation(*grammar, 42).genome;
@@ -227,9 +214,6 @@ void test_additive_mutation() {
     auto& nt = definition.object_v.at("nonterminals").array_v[0]; nt.object_v.at("type").string_v = type;
     nt.object_v.at("alternatives").array_v[0].object_v.at("expression").object_v.at("constant") = domain_json;
     auto grammar = std::make_shared<const CompiledGrammar>(compile_grammar(parse_definition(canonical_json(definition))));
-    const auto prepared = repro::prepare_constant_mutation_domains(grammar);
-    check(prepared->values.empty() && prepared->domains.front().mutation == ConstantMutationPolicy::Add,
-          "additive preparation used sampler proposals");
     const auto& domain = grammar->constants().front();
     VariationContext context(grammar);
     auto parent = generate_derivation(*grammar,42).genome;
@@ -278,12 +262,6 @@ void test_mutation_policies() {
         {"id":"constant","weight":1,"expression":{"constant":)" + text + R"(}}]}]})";
     auto grammar = std::make_shared<const CompiledGrammar>(compile_grammar(parse_definition(definition)));
     const bool flip = type == "Bool";
-    auto prepared = repro::prepare_constant_mutation_domains(grammar);
-    check(prepared->domains.front().mutation == (flip ? ConstantMutationPolicy::Flip : ConstantMutationPolicy::Keep),
-          "preparation lost mutation policy");
-    if (!flip) check(prepared->values.empty() && !prepared->has_sequence_domains &&
-        repro::sample_constant_mutation_domains(prepared, 1, 8) == prepared,
-        "keep policy generated unused host proposals");
     VariationContext context(grammar);
     auto parent = generate_derivation(*grammar, 42).genome;
     for (unsigned seed = 0; seed < 64; ++seed) {

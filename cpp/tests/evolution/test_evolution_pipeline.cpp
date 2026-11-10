@@ -123,7 +123,7 @@ int main() {
   assert(eval_total.gpu_eval_kernel_ms == 0.0);
 
   gagp::evo::ReproductionTiming repro_a;
-  repro_a.prepare_inputs_ms = 1.0;
+  repro_a.setup_ms = 1.0;
   repro_a.decode_ms = 4.0;
   repro_a.variation.crossover_attempts = 1;
   repro_a.variation.mutation_attempts = 2;
@@ -137,7 +137,7 @@ int main() {
   gagp::evo::ReproductionTiming repro_total;
   gagp::evo::accumulate_timing(&repro_total, repro_a);
   gagp::evo::accumulate_timing(&repro_total, repro_a);
-  assert(repro_total.prepare_inputs_ms == 2.0);
+  assert(repro_total.setup_ms == 2.0);
   assert(repro_total.decode_ms == 8.0);
   assert(repro_total.kernel_ms == 0.0);
   assert(repro_total.variation.crossover_attempts == 2);
@@ -149,14 +149,6 @@ int main() {
   assert(repro_total.variation.fallback_children == 14);
   assert(repro_total.variation.unchanged_children == 16);
   assert(repro_total.variation.changed_children == 18);
-
-  gagp::evo::EvolutionConfig overlap_config;
-  assert(!gagp::evo::gpu_reproduction_overlap_enabled(overlap_config));
-  overlap_config.eval_engine = gagp::evo::EvalEngine::GPU;
-  overlap_config.reproduction_backend =
-      gagp::evo::repro::ReproductionBackend::Gpu;
-  overlap_config.repro_overlap = true;
-  assert(gagp::evo::gpu_reproduction_overlap_enabled(overlap_config));
 
   gagp::payload::clear();
   const Value retained = gagp::payload::make_string_value("retained");

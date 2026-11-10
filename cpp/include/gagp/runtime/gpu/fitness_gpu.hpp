@@ -40,7 +40,6 @@ struct FitnessEvalTiming {
   // Separate initial launch/wait wall time and CUDA event time.
   // Initial event time is zero when no host overlap callback is supplied.
   double initial_kernel_wall_ms = 0.0;
-  double initial_kernel_event_ms = 0.0;
   double replay_kernel_event_ms = 0.0;
   double copyback_ms = 0.0;
   double teardown_ms = 0.0;
@@ -103,8 +102,7 @@ class FitnessSessionGpu {
                                 int fuel = 10000,
                                 int blocksize = 1024,
                                 double penalty = 1.0, FitnessPolicy policy = {});
-  FitnessEvalResult eval_programs(const std::vector<BytecodeProgram>& programs, bool capture_case_counts = false,
-      const std::function<void()>& while_gpu_runs = {}) const;
+  FitnessEvalResult eval_programs(const std::vector<BytecodeProgram>& programs, bool capture_case_counts = false) const;
   bool is_ready() const;
 
  private:
@@ -115,7 +113,7 @@ class FitnessSessionGpu {
       const std::vector<int>* reused_parents=nullptr,const FitnessEvalResult* completed=nullptr,
       std::uint64_t expected_revision=0) const;
   FitnessEvalResult eval_programs_impl(const std::vector<BytecodeProgram>&, bool,
-      const std::function<void()>&, const gpu_detail::OwnedGpuPrograms*,
+      const gpu_detail::OwnedGpuPrograms*,
       const std::vector<int>* reused_parents=nullptr,const FitnessEvalResult* completed=nullptr,
       std::uint64_t expected_revision=0) const;
   struct Impl;

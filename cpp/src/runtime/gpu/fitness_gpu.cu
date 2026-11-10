@@ -711,17 +711,17 @@ FitnessSessionInitResult FitnessSessionGpu::init(const std::vector<CaseBindings>
   return out;
 }
 
-FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodeProgram>& programs, bool capture_case_counts,
-    const std::function<void()>& while_gpu_runs) const {
-  return eval_programs_impl(programs,capture_case_counts,while_gpu_runs,nullptr);
+FitnessEvalResult FitnessSessionGpu::eval_programs(const std::vector<BytecodeProgram>& programs,
+    bool capture_case_counts) const {
+  return eval_programs_impl(programs,capture_case_counts,nullptr);
 }
 FitnessEvalResult FitnessSessionGpu::eval_owned_programs(const gpu_detail::OwnedGpuPrograms& owned,
     bool capture_case_counts,const std::vector<int>* reused_parents,const FitnessEvalResult* completed,
     std::uint64_t expected_revision) const {
-  return eval_programs_impl(owned.programs(),capture_case_counts,{},&owned,reused_parents,completed,expected_revision);
+  return eval_programs_impl(owned.programs(),capture_case_counts,&owned,reused_parents,completed,expected_revision);
 }
 FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<BytecodeProgram>& programs,
-    bool capture_case_counts,const std::function<void()>& while_gpu_runs,
+    bool capture_case_counts,
     const gpu_detail::OwnedGpuPrograms* owned,const std::vector<int>* reused_parents,
     const FitnessEvalResult* completed,std::uint64_t expected_revision) const {
   if (!impl_ || !impl_->ready) {
@@ -1371,13 +1371,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
         if (start) cudaEventDestroy(start);
         if (end) cudaEventDestroy(end);
       }
-    } events;
-    if (while_gpu_runs) {
-      if (cudaEventCreate(&events.start) != cudaSuccess ||
-          cudaEventCreate(&events.end) != cudaSuccess ||
-          cudaEventRecord(events.start) != cudaSuccess)
-        return fitness_eval_single_error(ErrCode::Value, "cuda overlap timing failure");
-    }
+    };
     const auto kernel_t0 = std::chrono::steady_clock::now();
     if(global_payload) {
       gpu_detail::evaluate_fitness_programs_impl<gpu_detail::DPayloadFlavor::IndexedArena,true,false,32>
@@ -1515,17 +1509,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
               dev.d_case_counts,execution_case_order,indices.generic,indices.generic_queue);
     }
     const cudaError_t launch_err = cudaGetLastError();
-    if (while_gpu_runs && launch_err == cudaSuccess) {
-      if (cudaEventRecord(events.end) != cudaSuccess) {
-        cudaDeviceSynchronize();
-        return fitness_eval_single_error(ErrCode::Value, "cuda overlap timing failure");
-      }
-      try { while_gpu_runs(); }
-      catch (...) { if(reuse_private)cudaSetDevice(impl_->device_id);cudaDeviceSynchronize(); throw; }
-      if(reuse_private && cudaSetDevice(impl_->device_id)!=cudaSuccess) {
-        pool.clear();return fitness_eval_single_error(ErrCode::Value,"cuda private workspace device restore failure");
-      }
-    }
     const cudaError_t sync_err = cudaDeviceSynchronize();
     if (launch_err != cudaSuccess || sync_err != cudaSuccess) {
       std::string msg = "cuda kernel execution failure";
@@ -1794,13 +1777,6 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     out.timing.kernel_ms = ms_between(kernel_t0, kernel_t1);
     out.timing.initial_kernel_wall_ms = ms_between(kernel_t0, initial_kernel_t1);
     out.timing.replay_kernel_event_ms = replay_kernel_ms;
-    if (while_gpu_runs) {
-      float elapsed = 0;
-      if (cudaEventElapsedTime(&elapsed, events.start, events.end) != cudaSuccess)
-        return fitness_eval_single_error(ErrCode::Value, "cuda overlap timing failure");
-      out.timing.initial_kernel_event_ms = elapsed;
-      out.timing.kernel_ms = elapsed + replay_kernel_ms;
-    }
     out.timing.copyback_ms = ms_between(copy_t0, copy_t1);
     out.err = Err{ErrCode::Value, ""};
     teardown_t0 = std::chrono::steady_clock::now();

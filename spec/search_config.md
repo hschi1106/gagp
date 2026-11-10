@@ -3,7 +3,7 @@
 This document defines the `gagp-search-config-v1` document: the user-tunable
 search semantics of an evolution run. It does not select an execution engine.
 Engine choices (CPU or GPU evaluation and reproduction, warp kernels, buffer
-strategies, overlap) must not change any published result of a configured
+strategies) must not change any published result of a configured
 search.
 
 See also:
@@ -39,7 +39,7 @@ out-of-range values are rejected; nothing is clamped or ignored.
 
 | Member | Class | Values | Meaning |
 | --- | --- | --- | --- |
-| `representation` | gagp | `resident`, `native_ast` | `resident` selects the phase-gene genotype and operators below (see [Resident admission](#resident-admission)); `native_ast` selects the generic AST reproduction path |
+| `representation` | gagp | `resident`, `native_ast` | `resident` selects the phase-gene genotype and operators below (see [Resident admission](#resident-admission)); `native_ast` selects the typed AST population with host reproduction |
 | `population_size` | common | integer 1..2^20 | Individuals per generation |
 | `generations` | common | integer 1..2^20 | Reproduction rounds; a final evaluation follows unless the entry point skips it |
 | `seed` | common | integer 0..2^53, or a decimal string 0..2^64-1 | Run seed; larger seeds must use the string form |

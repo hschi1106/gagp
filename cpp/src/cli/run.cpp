@@ -261,7 +261,6 @@ int run_task_command(const std::vector<std::string>& argv) {
   cfg.eval_engine = args.engine == "gpu" ? evo::EvalEngine::GPU : evo::EvalEngine::CPU;
   cfg.reproduction_backend = args.engine == "gpu" ? evo::repro::ReproductionBackend::Gpu
                                                   : evo::repro::ReproductionBackend::Cpu;
-  cfg.repro_overlap = args.engine == "gpu";
   cfg.gpu_blocksize = kReductionLanes;
   cfg.compiled_grammar = grammar;
   cfg.generation_request = gg::entry_request(*grammar);

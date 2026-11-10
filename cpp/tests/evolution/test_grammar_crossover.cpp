@@ -11,7 +11,6 @@
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/evolution/crossover.hpp"
 #include "gagp/evolution/mutation.hpp"
-#include "gagp/evolution/repro/prep.hpp"
 #include "../../src/evolution/grammar/variation_internal.hpp"
 #include "gagp/evolution/grammar/definition.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
@@ -393,20 +392,6 @@ void test_mixed_exact_root_variation() {
   }
   check(context.counters().changed_children > 0 && context.counters().fallback_children == 0,
         "mixed roots did not exchange shared nonterminal subtrees");
-  repro::GpuReproConfig config;
-  config.population_size = 2;
-  config.pair_count = 1;
-  config.max_nodes = static_cast<int>(integer_request.budget.max_nodes);
-  config.max_expr_depth = static_cast<int>(integer_request.budget.max_depth);
-  const auto prepared = repro::preprocess_population({integer, real}, config, context);
-  check(prepared.candidates.size() == 2 && !prepared.candidates[0].empty() &&
-        !prepared.candidates[1].empty() && !prepared.donor_pool.empty(),
-        "shared GPU preparation dropped a mixed root or its donors");
-  bool shared_contract = false;
-  for (const auto& left : prepared.candidates[0])
-    for (const auto& right : prepared.candidates[1])
-      shared_contract |= left.compatibility_id == right.compatibility_id;
-  check(shared_contract, "mixed GPU preparation partitioned shared subtree contracts");
   const auto first = context.analyze(integer);
   const auto hits = context.cache().counters().hits;
   auto forged = std::make_shared<DerivationMetadata>(*integer.derivation);

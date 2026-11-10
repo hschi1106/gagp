@@ -570,27 +570,6 @@ bool test_codec_round_trip_and_malformed_metadata() {
   return check(false, "AST codec should reject malformed lexical binding types");
 }
 
-bool test_gpu_reproduction_pack_requires_compiled_preparation() {
-  AstProgram ast = return_program(
-      let_region(leaf(NodeKind::CONST, 0), leaf(NodeKind::REGION_VAR, 401)),
-      {Value::from_int(6)});
-  add_let_metadata(&ast, 3, 401, RType::Int);
-  const auto verified = gagp::evo::verify_ast(ast, {});
-  if (!check(verified.ok, "GPU reproduction rejection fixture should verify")) {
-    return false;
-  }
-  try {
-    (void)gagp::evo::repro::pack_population(
-        {genome(ast)}, gagp::evo::repro::PreprocessOutput{},
-        gagp::evo::repro::GpuReproConfig{});
-  } catch (const std::invalid_argument& err) {
-    return check(std::string(err.what()).find("complete preparation metadata") !=
-                     std::string::npos,
-                 "GPU reproduction should report its compiled-preparation boundary");
-  }
-  return check(false, "GPU reproduction should reject missing compiled preparation");
-}
-
 }  // namespace
 
 int main() {
@@ -605,7 +584,6 @@ int main() {
   if (!test_wrapping_exposed_index()) return 1;
   if (!test_lazy_seed_body_and_runtime_check_order()) return 1;
   if (!test_codec_round_trip_and_malformed_metadata()) return 1;
-  if (!test_gpu_reproduction_pack_requires_compiled_preparation()) return 1;
   std::cout << "gagp_test_lexical_regions: OK\n";
   return 0;
 }

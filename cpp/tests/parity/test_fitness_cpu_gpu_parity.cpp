@@ -552,19 +552,7 @@ gagp::FitnessEvalResult eval_gpu_via_session(const std::vector<BytecodeProgram>&
     out.err = init.err;
     return out;
   }
-  const auto caller = std::this_thread::get_id();
-  unsigned callbacks = 0;
-  auto overlapped = session.eval_programs(programs, false, [&] {
-    if (std::this_thread::get_id() != caller)
-      throw std::runtime_error("GPU overlap callback left the calling CPU thread");
-    ++callbacks;
-  });
-  if (overlapped.ok && callbacks != 1)
-    throw std::runtime_error("GPU overlap callback was not invoked exactly once");
-  const auto ordinary = session.eval_programs(programs);
-  if (overlapped.ok != ordinary.ok || overlapped.fitness != ordinary.fitness)
-    throw std::runtime_error("GPU overlap callback changed fitness");
-  return overlapped;
+  return session.eval_programs(programs);
 }
 
 bool check_single_cpu_gpu_exact(const BytecodeProgram& program,

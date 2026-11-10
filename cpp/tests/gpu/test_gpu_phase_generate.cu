@@ -10,8 +10,6 @@
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
 #include "../../src/evolution/repro/gpu/phase_grammar.hpp"
-#include "../../src/evolution/repro/prep_internal.hpp"
-#include "../../src/evolution/repro/constant_prep.hpp"
 namespace {
 using namespace gagp;using namespace gagp::evo;using namespace gagp::evo::repro;
 void require(bool b,const std::string& why){if(!b)throw std::runtime_error(why);}
@@ -74,22 +72,6 @@ std::string scalar_definition(){return R"({"format_version":"grammar-definition-
  {"id":"Bool","type":"Bool","scope":[],"alternatives":[
  {"id":"literal","weight":1,"expression":{"constant":{"type":"Bool","values":[true,false]}}},
  {"id":"compare","weight":1,"expression":{"signature":"lt(Int,Int)->Bool","args":[{"ref":"Int"},{"ref":"Int"}]}}]}]})";}
-void check_native_preparation() {
- const auto owner=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(grammar::parse_definition(scalar_definition())));
- grammar::VariationContext context(owner);std::vector<ProgramGenome> parents;
- constexpr int population=32;
- for(int i=0;i<population;++i)parents.push_back(grammar::generate_derivation(*owner,i+1).genome);
- const auto owned=grammar::variation_detail::OwnedScalarPopulation::create(parents,context);
- GpuReproConfig cfg;cfg.population_size=population;cfg.max_nodes=owner->search_limits().max_nodes;
- cfg.max_expr_depth=owner->search_limits().max_depth;cfg.candidates_per_program=8;cfg.donor_pool_size_per_site=4;
- cfg.compiled_pass=CompiledVariationPass::Mutation;cfg.seed=8129;cfg.mutation_ratio=1;cfg.mutation_subtree_ratio=1;
- const auto result=preprocess_selected_population(owned->genomes(),cfg,context,prepare_constant_mutation_domains(owner),true,owned.get());
- require(result.donor_pool.size()==population*4,"native preparation lost donors");
- for(const auto& row:result.candidates) {
-   int prepared=0;for(const auto& site:row)prepared+=site.donor_count;
-   require(prepared==4,"native preparation left a parent's mutation site without donors");
- }
-}
 void run_root(const std::shared_ptr<const grammar::CompiledGrammar>& owner,unsigned root,const HostPhaseGrammar& host) {
  const auto& grammar=*owner;
  const auto& nt=grammar.nonterminals().at(root);constexpr int count=256;
@@ -169,7 +151,6 @@ int main(int argc,char** argv){try{
  const auto& grammar=*owner;
  FitnessSessionGpu session;require(session.init({{}},{Value::from_int(0)},1,1,1.0).ok,"CUDA initialization");
  check_generation_task_limits();
- check_native_preparation();
  int admitted=0,unsupported=0;
  for(const auto& nt:grammar.nonterminals()) {
    HostPhaseGrammar profile;

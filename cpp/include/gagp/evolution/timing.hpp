@@ -36,7 +36,6 @@ struct EvaluationTiming {
   double gpu_eval_upload_ms = 0.0;
   double gpu_eval_kernel_ms = 0.0;
   double gpu_eval_initial_kernel_wall_ms = 0.0;
-  double gpu_eval_initial_kernel_event_ms = 0.0;
   double gpu_eval_replay_kernel_event_ms = 0.0;
   double gpu_eval_copyback_ms = 0.0;
   double gpu_eval_teardown_ms = 0.0;
@@ -51,17 +50,13 @@ struct ReproductionTiming {
   double selection_ms = 0.0;
   double crossover_ms = 0.0;
   double mutation_ms = 0.0;
-  double prepare_inputs_ms = 0.0;
   double setup_ms = 0.0;
   double preprocess_ms = 0.0;
-  double pack_ms = 0.0;
   double upload_ms = 0.0;
   double kernel_ms = 0.0;
   double copyback_ms = 0.0;
   double decode_ms = 0.0;
   double teardown_ms = 0.0;
-  double selection_kernel_ms = 0.0;
-  double variation_kernel_ms = 0.0;
   grammar::VariationCounters variation;
 };
 

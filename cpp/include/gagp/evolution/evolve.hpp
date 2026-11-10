@@ -46,8 +46,6 @@ struct EvolutionConfig {
   int elite_count = 0;
   EvalEngine eval_engine = EvalEngine::CPU;
   repro::ReproductionBackend reproduction_backend = repro::ReproductionBackend::Cpu;
-  repro::CpuReproAblation cpu_repro_ablation = repro::CpuReproAblation::None;
-  bool repro_overlap = false;
   int gpu_blocksize = 1024;
   int selection_pressure = 2;
   std::uint64_t seed = 0;

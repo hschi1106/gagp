@@ -277,10 +277,9 @@ bool test_private_global_offset_cases() {
     std::vector<unsigned> wrong;std::vector<CpuFitnessCaseCounts> counts;
     const auto cpu=eval_fitness_cpu(programs,current,expected,1000,1000,33,policy,&wrong,&counts);
     if(!session.init(current,expected,1000,33,1000,policy).ok)return false;
-    int callbacks=0;
-    const auto result=session.eval_programs(programs,true,[&]{++callbacks;});
+    const auto result=session.eval_programs(programs,true);
     const bool active=iteration==0 || iteration==3;
-    if(!check(result.ok && result.fitness==cpu && result.wrong==wrong && callbacks==1 &&
+    if(!check(result.ok && result.fitness==cpu && result.wrong==wrong &&
         (result.execution_profile.find("-private-global-offsets-declined")==std::string::npos)==active,
         "private global full-case/session reinit/decline CPU parity"))return false;
     if(!check((result.execution_profile.find("-private-typed-phases-declined")==std::string::npos)==active,
@@ -346,9 +345,8 @@ bool test_private_intlist_region_lifetime() {
     std::vector<unsigned> wrong;std::vector<CpuFitnessCaseCounts> counts;
     const auto cpu=eval_fitness_cpu({program},cases,answers,1000,1000,33,policy,&wrong,&counts);
     FitnessSessionGpu session;if(!session.init(cases,answers,1000,33,1000,policy).ok)return false;
-    int callbacks=0;cudaError_t callback_status=cudaSuccess;
-    const auto result=session.eval_programs({program},true,[&]{++callbacks;callback_status=cudaDeviceSynchronize();});
-    if(!check(result.ok && result.fitness==cpu && result.wrong==wrong && callbacks==1 && callback_status==cudaSuccess &&
+    const auto result=session.eval_programs({program},true);
+    if(!check(result.ok && result.fitness==cpu && result.wrong==wrong &&
         result.execution_profile.find("private-intlist-offset-v1-declined")==std::string::npos &&
         result.execution_profile.find("private-intlist-offset-v1")!=std::string::npos &&
         result.case_counts[0][0]==1024 && result.case_counts[0][1]==counts[0].errors &&
@@ -548,20 +546,13 @@ bool test_reusable_private_workspace() {
   FitnessPolicy policy;policy.metric=FitnessMetric::Exact;policy.list_allocation_limit=65536;
   const auto cpu=eval_fitness_cpu(population,cases,answers,100,1000,1024,policy);
   FitnessSessionGpu session;if(!session.init(cases,answers,100,1024,1000,policy).ok)return false;
-  bool nested_rejected=false;int callbacks=0;
-  const auto first=session.eval_programs(population,true,[&] {
-    ++callbacks;
-    const auto nested=session.eval_programs(population,true);
-    const auto reset=session.init(cases,answers,100,1024,1000,policy);
-    nested_rejected=!nested.ok && !reset.ok && nested.err.message.find("in use")!=std::string::npos &&
-        reset.err.message.find("in use")!=std::string::npos;
-  });
+  const auto first=session.eval_programs(population,true);
   const auto budget=first.payload_workspace_budget_bytes;
-  if(!check(first.ok && first.fitness==cpu && callbacks==1 && nested_rejected &&
+  if(!check(first.ok && first.fitness==cpu &&
       first.payload_workspace_pool_allocations==1 && first.payload_workspace_retained_bytes>0 &&
       first.payload_workspace_pool_peak_bytes<=budget &&
       first.execution_profile.find("-reuse-private-workspace-declined")==std::string::npos,
-      "single bounded backing/callback lease must preserve complete work"))return false;
+      "single bounded backing lease must preserve complete work"))return false;
   auto different=program;different.consts={Value::from_int(INT64_MAX)};different.code[0]=ins_a(Opcode::PushConst,0);
   for(const auto& current:{std::vector<BytecodeProgram>(65,different),population}) {
     const auto expected=eval_fitness_cpu(current,cases,answers,100,1000,1024,policy);
@@ -570,12 +561,6 @@ bool test_reusable_private_workspace() {
         result.payload_workspace_retained_bytes==first.payload_workspace_retained_bytes &&
         result.payload_workspace_pool_peak_bytes<=budget,"dirty pooled cells changed CPU content fitness"))return false;
   }
-  bool threw=false;
-  try {(void)session.eval_programs(population,true,[]{throw std::runtime_error("pooled callback test");});}
-  catch(const std::runtime_error&){threw=true;}
-  const auto recovered=session.eval_programs(population,true);
-  if(!check(threw && recovered.ok && recovered.fitness==cpu && recovered.payload_workspace_pool_allocations==0,
-      "throwing callback left pooled storage leased or unsafe"))return false;
   const std::vector<BytecodeProgram> many(4096,program);
   const auto larger=session.eval_programs(many,true);
   if(!check(larger.ok && larger.fitness==std::vector<double>(4096,0) &&

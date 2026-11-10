@@ -11,7 +11,6 @@
 #include "phase_layout.hpp"
 #include "phase_operators.cuh"
 #include "phase_choice_tables.hpp"
-#include "internal.hpp"
 #include "gagp/runtime/gpu/host_pack_gpu.hpp"
 #include <cuda_runtime.h>
 #include <chrono>
@@ -512,7 +511,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
       binding.type==RType::IntList?ValueTag::IntList:ValueTag::Invalid;
   impl_->input_types[index]=type;if(type==ValueTag::Invalid)impl_->views_proven=false;
  }
- std::string error;if(!initialize_gpu_repro_runtime(&error))throw std::runtime_error(error);checked(cudaGetDevice(&impl_->device));
+ int devices=0;if(const auto e=cudaGetDeviceCount(&devices);e!=cudaSuccess)throw std::runtime_error(std::string("cuda runtime initialization failed: ")+cudaGetErrorString(e));checked(cudaGetDevice(&impl_->device));
  const auto import_profiles=std::make_unique<NativePhaseGrammarProfiles>(impl_->grammar,input_names);
  const auto* evaluator_inputs=&input_names;
  impl_->population=input.size();impl_->layout=import_native_phase_layout(*impl_->grammar,input.front(),import_profiles.get(),evaluator_inputs,true,projected?&*projected:nullptr);

@@ -1,464 +1,24 @@
-# GPU Reproduction Backend
+# GPU Reproduction
 
 ## Purpose
 
-GPU reproduction implements tournament selection, typed-subtree crossover,
-and mutation from compiled-grammar contracts. The public behavior matches CPU
-reproduction; child-for-child RNG identity across backends is not promised.
+GAGP reproduces on the GPU only through the resident phase engine
+(`representation: resident`, the default of `gagp run`). The population lives
+on the device as fixed phase slots; tournament selection, typed crossover,
+mutation, elitism and lowering to bytecode run as GPU kernels, and evaluation
+reads the lowered programs without a host round trip. `HostPhasePopulation` is
+the CPU reference engine with the same operators; GPU and CPU runs of the same
+seed follow the same operator schedule, and the parity tests compare them.
+
+A grammar the resident profile declines runs as the native AST representation
+(`representation: native_ast`). Native AST reproduction always runs on the host
+(`cpp/src/evolution/repro/backend.cpp`); evaluation still uses the selected
+engine. Earlier releases also had a GPU backend for native ASTs and CPU/GPU
+reproduction ablations; they were removed in release 3.0 because the resident
+engine covers the same grammars faster.
+
+## Resident engine
 
-## Inputs
-
-The backend receives:
-
-- the immutable `grammar-definition-v2` compilation;
-- the exact generation request and search limits;
-- verified parent ASTs with reconstructed membership witnesses;
-- the completed fitness vector;
-- mutation, selection, and seed settings.
-
-There is no grammar-config mode, specialized candidate bucket, LinearRec binder
-array, ASGP phase table, or DP-pattern metadata.
-
-## Pipeline
-
-### Prepare
-
-Host preparation reconstructs each parent, groups logical replacement sites,
-assigns dense compatibility IDs, computes destination node/depth/template
-budgets, and generates contextual donors from the same compiled grammar.
-Crossover-only preparation omits mutation donor pools. Mutation preparation uses
-the shared seed schedule to anticipate the single candidate pool that each child
-may read, including the constant-to-subtree fallback, and builds only those pools.
-All candidate rows and donor-seed draws remain in their original order. The GPU
-still makes the mutation decisions, samples the candidate and donor, and performs
-the splice; anticipation only avoids preparing data that cannot be consumed.
-
-Repeated template-hole occurrences remain one atomic site.
-
-GPU reproduction supports at most 1024 physical AST nodes per program. Compiled
-crossover and mutation allocate their shared origin workspace for the configured
-physical node limit, rather than reserving the maximum for every launch. Source
-name and constant tables must each fit their device capacity before host packing;
-the union-capacity cap used for offspring must never truncate an input buffer.
-
-An optional projected offspring budget is separate from physical allocation limits.
-When each native-kind/fuel-profile pair has a unique resource charge throughout the
-grammar, cached analysis can certify exact local replacement allowances. Packed
-candidates carry projected node cost, carried/reset depth, and destination limits;
-device selection checks both directions before choosing a pair. Grammars without
-this sufficient certificate retain all candidates admitted by the physical and
-grammar contracts, with projected admission checked on the complete copied-back
-child. This prevents unsafe pruning when canonical ancestor matching changes costs.
-Budgeted donor preparation already checks the complete spliced destination.
-
-Finite constant values and Int/Float range descriptors remain cached per grammar.
-Constant domain descriptors also carry the mutation policy. The default resamples;
-`flip` complements a selected Bool and atomically updates its logical copies;
-`keep` returns applied without changing the child or generating host proposals.
-Both policies retain candidate eligibility and never request subtree fallback.
-Numeric `add` descriptors retain the outer membership range and a separate delta
-range. The kernel samples and applies the delta directly, checking signed overflow
-or Float/nonmember results before publishing all logical copies. Rejected sums
-keep the old value without a fallback. Optional Float `gpu_grid_steps` samples
-equally weighted closed grid indices on-device, preserving its explicit backend
-sampling law without a large finite host table.
-Float intervals are sampled directly on the device using the same separately
-rounded interpolation as the CPU; no host proposal table narrows scalar ranges.
-Optional Float quantization is also performed on-device after interval sampling,
-with the declared scale retained in the immutable domain descriptor. CPU/GPU
-sampling agrees bit-for-bit for a shared RNG word, including signed zero.
-For numeric `sample_from`, these cached descriptors describe the sampling subset;
-the compiled grammar retains the outer membership domain for child acceptance.
-Bounded sequence domains use fresh host-prepared proposals: each preparation
-samples one value per population member per sequence domain, including length
-and every scalar element, from the full declared domain. The device selects
-among those proposals and performs the constant replacement. Proposals are not
-an enumerated replacement grammar and are not cached for the whole run; there
-is no CPU reproduction fallback. This can correlate children that select the
-same proposal, just as a shared contextual donor pool can. CPU/GPU random
-trajectories are not required to match.
-
-Each immutable proposal snapshot records its seed and population count and
-retains the shared grammar table. Live preparations retain their own snapshots;
-run-level payload root collection includes every live snapshot and nested
-StringList payload. Capacity checks reject more than one million prepared
-values or more than 256 MiB of the sequence expansion bound, before sampling.
-
-Preparation may overlap GPU evaluation because it depends only on immutable
-population/grammar state. Tournament selection still waits for fitness.
-
-### Pack and upload
-
-Packing verifies grammar/search identities and flattens AST nodes, names,
-constants, lexical/traversal/bounded-region metadata, site groups, contracts,
-domains, and donors. It prescans capacities and never truncates a compiled
-payload. General bounded-region plans are transported as ordinary v2 AST
-metadata; authoring package files are not required.
-
-Buffers are explicitly compiled mode. Low-level entry points reject a mismatched
-mode before allocation, pointer access, or kernel launch. Arena buffers are
-reused when capacities permit.
-
-### Select and vary
-
-Selection consumes the completed fitness vector and produces parent pairs.
-Crossover samples compatible logical sites, checks independent destination
-budgets, and replaces every physical occurrence in the selected logical group.
-Mutation either regenerates an admitted subtree from packed contextual donors
-or resamples a mutable constant using its compiled finite/range domain or the
-current preparation's bounded-sequence proposals.
-
-The device preserves prefix validity, lexical ID remapping, metadata ownership,
-atomic occurrence groups, and explicit provenance for copyback. A failed
-attempt returns the certified parent according to the shared fallback contract
-and updates the corresponding counter.
-
-### Copy back and certify
-
-Compact device results are copied to host storage, decoded as
-`ast-prefix-v2`, structurally/type verified, and reconstructed against the
-active compiled grammar. A child that cannot satisfy the complete contract is
-rejected. No release-1 side table is decoded during copyback.
-Projected admission always uses reconstructed canonical costs, including for
-constant mutation. Prepared data and reusable GPU resources cannot be used with
-a different projected budget. Failure returns the certified parent and records
-the resource rejection; it does not substitute CPU reproduction for a GPU operation.
-
-## Correctness
-
-CPU and GPU backends share:
-
-- tournament selection semantics and crossover-before-mutation order;
-- exact type/scope/template compatibility keys;
-- atomic repeated-hole handling;
-- destination node, depth, and template budgets;
-- constant domains and contextual donor frames;
-- accepted-child AST verification and grammar membership;
-- variation counter meanings.
-
-The GPU uses fixed transport limits for programs, metadata, names, constants,
-and total padded storage. Capacity rejection is explicit and does not silently
-change the grammar or execute reproduction through an old host path.
-
-## Overlap and timing
-
-`--repro-overlap on` schedules preparation around GPU evaluation. It may hide
-some prepare/preprocess/pack wall time; selection, variation, copyback, decode,
-and certification remain ordered after their dependencies. Timing field names
-and aggregation rules are defined in
-[the timing reference](../reference/timing.md).
-
-Variation counters classify operator outputs, including both crossover
-children and subsequent mutation outputs. They are not final-population counts.
-Performance claims require measured benchmark artifacts; this design contract
-does not assert a cutover speedup.
-
-
-
-Compiled device splicing rebuilds name and constant tables from surviving node
-references in first-use order. Removed parent entries consume no output slots;
-repeated copies share equal values, with Float equality preserving signed-zero
-bits. Packing reserves up to the union of two source tables, bounded by the
-existing 128-entry device capacities. Search node/depth limits are unchanged.
-Metadata-only names continue through the existing sidecar reconstruction by
-value; device splice selection and node materialization stay on GPU. True table
-exhaustion remains transactional and returns the original parent.
-
-## Constant-branch donor preparation
-
-When the shared mutation schedule selects a constant operation and the certified
-parent stream has at least one constant group, preprocessing omits its subtree
-donor pool. The GPU still executes the constant operation; only its NoGroups
-outcome can fall through to subtree mutation. Empty-group streams retain donor
-preparation for that fallback. Host donor seeds are consumed for omitted pools
-as well, preserving subsequent candidate sampling.
-
-Prepared donor pools share a bounded admission cache only within one destination
-and variation site. Its decoded AST identity includes the full donor structure,
-constant values, inputs and fuel. Repeated identities reuse the same full-child
-admission result; generation and per-seed retry order remain unchanged. At most
-256 identities are retained, and failed seed slots are preserved when forming
-the GPU pool. No admission certificate crosses a pool boundary.
-
-Within a budgeted donor pool, destination membership and the certified variation
-site are resolved once and owned by the pool. Holding the analysis keeps site
-references valid even when accepted children evict the parent from the analysis
-cache. Retry seeds, per-donor admission checks, and the pool-scoped decoded-AST
-admission cache are unchanged.
-
-GPU preparation sizes its worker-owned variation analysis cache to four times
-the population, clamped to 128–4096 entries. This retains some parent analyses through
-preparation and decoding while allowing bounded headroom for generated children;
-entries remain exact-runtime-identity keyed and eviction does not relax admission.
-
-Parent analysis warm-up uses bounded batches of at most 128 programs with up to
-20 readers (limited by hardware concurrency) in the GPU backend. Each reader reconstructs native
-membership, lowering and variation sites without writing the payload registry or
-compatibility registry. After all readers finish a batch, the owning thread commits results
-in population order and interns compatibility IDs in site order. Exact decoded
-runtime keys are recomputed before cache lookup, including payload liveness.
-Payload registration during parent warm-up is prohibited. Populations below
-32 members use the serial path. Failed analyses propagate in population order;
-no worker survives the call, including exception unwinding. The call owns one
-worker team reused across batches; its barrier completes every callback before
-payload validation and ordered publication. Exceptions wait for all readers
-before propagating. GPU compilation, parent compaction and private complete-child
-admission use the same operation-owned team mechanism.
-
-Private child admission uses batches of at most 256 children. Its operation-owned
-team first reconstructs independent device child ASTs and metadata into indexed
-slots, then joins before collecting them in child order and running full admission.
-Metadata reconstruction reads only immutable prepared tables and private outputs;
-it does not publish payloads or choose variations. Enclosing payload scopes and
-unmatched source/context ownership keep reconstruction sequential. Speculative
-failures repeat on the ordered path, preserving the original error position.
-The team remains capped at 20 workers; each batch bounds reconstruction and
-admission storage, including an odd discarded crossover sibling.
-
-Donor pools may evaluate independent seeds with at most four concurrent workers.
-The pool resolves and owns the destination analysis once; workers share that
-immutable certificate while keeping separate VariationContexts, admission caches,
-and retry sequences. The caller collects seed results in order.
-
-The compiled mutation-entry graph conservatively identifies reachable String or
-typed-list construction across all stages and expanded children/references.
-Payload-free workers need no registry transaction. Payload-producing workers use
-private staged writes and captured reads, then join before the pool commits all
-transactions atomically. Conflicting values or changed read dependencies discard
-all staged writes and replay the entire pool sequentially in seed order. This
-preserves collision behavior and cross-seed dependencies. Full membership,
-resource acceptance, retry limits, and failed seed slots remain intact.
-
-Short-lived donor seed workers validate candidate membership, canonical projected
-resources and execution lowering without constructing future variation sites.
-Membership and witness reconstruction run once: over-budget children skip lowering,
-while admitted children still check lowering and the instruction limit. The CPU
-and sequential fallback retain their full analysis cache for subsequent reuse.
-The full-analysis oracle tests preserve admission decisions and retry ordering.
-
-Budgeted donor generation also uses a certified site's projected replacement
-allowance as an early rejection filter. The site is recovered from the parent
-analysis rather than trusting caller-provided allowance fields. This is enabled
-only by the existing grammar-wide, context-independent resource-charge
-certificate. A rejection consumes the same retry seed and records the same
-pool-local negative admission. Passing this filter does not admit the donor:
-complete child membership and execution validation remain required. Grammars
-with ambiguous resource interpretations retain full reconstruction for every
-uncached attempt.
-
-A separate bounded resource-invariance checker compares derivations within given
-roots using a relaxed tree-grammar product. It drops constant-domain restrictions,
-lexical mappings and linked-hole equality, retaining only disjointness conditions
-also enforced by membership. Alias closure is finite; a least fixed point admits
-only productive pairs. Charge conflicts then propagate through productive pairs.
-A root is certified only when productive and conflict-free. Work/state/edge/group
-and closure-storage limits conservatively return no certificates. The stronger
-checker is shared by immutable grammar copies and keyed by root ID. For certified
-roots, expression donors are reconstructed in the destination nonterminal/frame
-before their charges participate in early rejection; mutation-entry provenance is
-not sufficient. A failed destination match falls back to whole-child analysis,
-since a different enclosing production may accept that child. Surviving proposals
-still receive complete admission. Before product construction, partition refinement merges bisimilar states of the
-relaxed weighted grammar. Initial partitions include native labels and resource
-charges; refinement uses each ordered child's set of reachable partition IDs.
-Only a fixed point is merged, preserving recursive languages and node costs.
-This reduces certificate startup work without changing donor admission rules.
-
-Application host work defaults to one CPU thread. `GAGP_HOST_THREADS=2..20`
-opts into the worker paths described below. On 1T, overlap preparation executes
-on the caller after GPU eval launch; decode admits children in source order in
-the run's existing VariationContext, so the following mutation preparation can
-reuse their analyses. It does not speculate into discarded worker contexts.
-Admission, payload validation and GPU variation kernels remain unchanged.
-
-GPU copyback prepares changed-child ASTs in bounded batches of 128. With at least
-32 proposals, an owned prepared-source/context continuation can perform complete
-child admission using at most 20 readers, capped by hardware concurrency. Workers
-use separate variation contexts and payload snapshots; they perform ordinary
-native/grammar certification, lowering, root-contract and resource checks.
-Every worker joins before atomic read validation. Provenance and physical metadata
-remain checked in the original child order before results and admission counters
-are published. Failed speculation or changed payloads falls back to ordinary
-ordered admission. Enclosing payload scopes and callers without the owned
-continuation keep deferred analysis warming and the existing ordered path.
-Worker cache/registry IDs do not escape into the owning context; only certified
-children and the five admission-result counters are transferred.
-
-The donor module provides the speculative multi-pool API used by bounded mutation
-prefetch. Up to 20 workers process independent pools while preserving the
-returned job/seed order. Each pool stages payload writes; only a successful atomic
-commit publishes results. On conflict or unsupported batching it returns no result,
-and the caller must replay its original complete interleaved preparation. Merely
-generating all pools sequentially before later assembly would not preserve payload
-collision behavior. Single-seed pools keep their existing caller-registry path.
-Batches are limited to 1024 jobs, 64 seeds per job and at most 1,048,576 declared
-physical donor nodes across their outputs; exceeding a bound declines speculation.
-
-### Population order across overlap modes
-
-The evolution loop supplies GPU reproduction with fitness aligned to the original population order in both direct and overlap modes. Candidate shuffles, donor seeds and tournament indices therefore refer to the same members for a fixed seed. A separate ranked view identifies the best member for reporting. Previously, direct execution prepared fitness-sorted parents while overlap prepared original-order parents, changing seeded trajectories when fitness differed. The correction changes the direct GPU trajectory to match overlap; it does not change evaluation order, tournament distribution, or CPU reproduction ordering. Lower-level prepared reproduction still requires callers to supply fitness and genomes aligned with the prepared source order.
-
-Parent analyses are first warmed on the original tables, preserving validation
-of unused constants and payloads. Private parent compaction processes batches of
-at most 128 members with up to 20 readers outside enclosing payload transactions.
-Read conflicts fall back to sequential compaction and errors retain source order.
-
-When stable compaction removes table entries, its owning preparation call can
-transport the validated analysis: physical nodes, types, binders, witness and
-resource charges remain unchanged; native scope name indexes are remapped,
-unused input names are removed from expression scopes, duplicate scopes are
-interned again, and affected compatibility keys are rebuilt. Program-root input
-contracts remain unchanged. Exact runtime identities and payload reads are
-revalidated before ordered cache publication. Existing compatibility IDs are
-reused only in their original live context registry. Transport is bounded by the
-warm-handoff ownership policy below and never accepts caller-supplied provenance.
-Unavailable handoffs, enclosing transactions, failed remapping or changed reads
-use full compacted-population analysis. No-removal compaction skips the extra
-analysis stage.
-
-Donor-pool calls inside an active staged payload transaction use sequential generation in the caller's view. Optional cross-pool batching declines in that situation. This keeps uncommitted destination values visible and leaves all donor writes owned by the enclosing transaction, including rollback. Worker-local transactions are used only outside an enclosing transaction.
-
-Mutation preprocessing may preview donor work for a bounded window of up to 1024 parents (at least 128 parents are required). The preview stops before its next selected parent would exceed the declared donor-node storage bound; the next window resumes at that parent. A copied RNG reproduces the existing site-shuffle and donor-seed schedule; only the anticipated subtree-mutation site creates a pool job. Bounded pool workers generate in parallel, then commit payload transactions atomically. The ordinary loop consumes results in its original parent/site/seed order, checking the preview against the actual schedule. If speculative work declines or fails, it publishes no writes and the loop generates donors through the existing per-site path. Populations below 128 members and crossover preparation bypass prefetch. This changes scheduling, not proposal weights, seeds, fallback decisions or acceptance validation.
-
-The donor preview is bypassed when mutation is disabled or fewer than two hardware threads are reported, since no parallel donor work can result. The ordinary loop still consumes its established site and donor-seed schedule.
-
-
-The compiled preprocessing path obtains each parent's materialized runtime identity
-from the same variation-analysis lookup that validates it. This avoids separately
-serializing and hashing the parent immediately before cache lookup. The identity
-is still decoded on each lookup; the optional output adds no persistent identity
-memo and does not trust mutable genome provenance or bypass payload validation.
-
-Empty donor seed pools return before hardware-concurrency discovery or any
-preparation. Crossover and unselected mutation sites still preserve their random
-schedule and candidate metadata, but do not pay donor setup costs when no donor
-is requested.
-
-Identity checks at packing and prepared-source validation read existing ASTs
-through the runtime identity API. They do not copy AST tables into temporary
-genomes just to compute a key. The genome overload forwards to the same AST
-implementation; full decoded-constant, metadata, input-name and fuel validation
-still runs for each check, including detection of changed payload registry values.
-
-For the private owned packing continuation, pools of at least 128 donors compute
-these complete identities with up to 20 operation-owned workers in chunks of 16.
-The caller joins the workers before consuming results and reports errors in the
-original donor order. This adds one byte and one exception pointer per donor,
-plus worker-local identity strings; it does not cache or omit decoded identities.
-Public packing and callers with an active payload scope keep the sequential path
-so transaction reads remain on their owning thread.
-
-Table compaction takes ownership of its working genome. Callers retaining their
-source pass an lvalue and receive a compacted copy; certification transfers its
-already-owned genome with a move. Native index checks, survivor order, remapping,
-and metadata refresh remain the same in both paths.
-When all name and constant entries are referenced, compaction stops after its
-index-validation pass and metadata refresh. Stable survivor order makes remapping
-the identity operation in this case, so no replacement tables are allocated.
-
-Mutation prefetch retains each previewed parent's analysis and identity for the
-current bounded window. Identity/analysis reads run in one payload snapshot;
-before the ordered parent loop consumes them, it validates that snapshot against
-the registry. Changed reads fall back to normal analysis. An enclosing payload
-transaction disables this handoff and keeps the caller's original payload view.
-No mutable public preparation or packing check is bypassed.
-
-The private mutation preparation pass consumes the compact, certified output of
-crossover decoding directly. It does not copy and compact that entire population
-again. The original population warm/validation call still runs, including payload
-reads; ordinary external crossover preparation retains full compaction. No public
-caller can select the internal already-compacted mutation path.
-
-Grammar membership and changed-child classification compare bounded region plans
-by their fields after validating both plans. They no longer build canonical JSON
-objects just to compare plans. All fields, including execution limits, progress,
-rank/domain and window descriptors, participate; validation still rejects invalid
-enums and noncanonical inactive fields. The JSON encoding remains unchanged.
-
-The private backend now carries warm-up analyses, runtime identities and sealed
-read-only payload snapshots into preprocessing. This continuation requires the
-same population ASTs, grammar, requests and context; table compaction that
-changes the representation triggers another warm-up. Each consumer revalidates
-payload reads before reuse and falls back to ordinary analysis on a mismatch.
-Public preprocessing accepts no such handoff. By default retention is capped by
-analysis-cache capacity. Setting `GAGP_POPULATION_HANDOFF=1` instead retains one
-analysis/read snapshot per population member in the prepared generation, even
-when the FIFO cache evicts it. The persistent cache keeps its 128–4096-entry cap;
-the continuation adds memory proportional to the current population and its
-analysis sizes, and releases that ownership with prepared generation state.
-This prevents oversized populations from repeating warm analysis serially during
-preprocessing and parent certification. The same exact-identity, owner and
-payload-read checks apply. Sequential/enclosing-scope warm-up paths still use
-ordinary preprocessing. Registry IDs are still published in
-population order. Tests compare candidate fields, identities and donor ordering
-with public preprocessing, including a changed unused String constant payload
-that must invalidate the saved identity.
-
-Prepared backend state also retains an opaque parent-certificate continuation
-following the warm-analysis ownership policy above. It owns the exact immutable packed source
-set, its variation context, freshly built compact-parent metadata and warm
-analyses/read snapshots. Decode reuses it only when source/context owners match,
-row counts agree, and the payload snapshot remains valid; otherwise normal parent
-certification runs. Public standalone pack/decode has no continuation by default.
-This avoids rebuilding parent identities and native metadata after preparation.
-Child verification, splice provenance checks and copied-fallback comparison remain
-unchanged. A 128-member GPU oracle compares enabled/disabled continuations and
-checks metadata freshness plus fallback from unusable payload snapshots.
-
-Private packing of that same unchanged population can reuse warm parent runtime
-identities after revalidating their payload read snapshots. It still compares
-those identities with preprocessing output and retains all shape, candidate,
-capacity and donor checks. Public packing always recomputes identities. Missing
-or invalid snapshots also take the ordinary identity path. Tests compare physical
-nodes/names/contracts with public packing and reject forged identities, including
-an old identity after a payload change.
-
-Immediate direct reproduction enters the private executor after building its own
-prepared state. The source population remains owned and unchanged throughout
-that call, so it does not run the public replay identity comparison again.
-Preparation still validates imports, execution fuel, grammar requests, resource
-ownership, packed shapes and payload identities. Public prepared replay (including
-caller-supplied overlap state) retains full validation against scored genomes.
-A direct-versus-replay oracle checks offspring, variation counters and host RNG
-consumption; malformed imported ASTs and mismatched fuel are still rejected.
-
-The evolution loop also has a private owned overlap continuation in
-`cpp/src/evolution/repro/owned_overlap.hpp`. Evaluation and preparation share one
-const population owner; the continuation captures its configuration and consumes
-fitness once, without exposing mutable prepared data. Source payload values,
-including unused constants, are snapshotted before preparation. If that snapshot
-changes before execution, preparation is repeated with the same seed and full
-validation. Public lifecycle overlap/replay APIs retain their existing source
-checks. The old population and prepared state are released before the generation
-timer ends and before the payload sweep.
-
-For GPU crossover preparation with a projected offspring budget and subsequent
-mutation, nonlocal resource-invariance analysis can run concurrently with parent
-preparation. It is joined within preparation, retains the same roots and proof
-work limits, and uses a separate certificate-cache mutex so executable-root
-lookups can proceed. No proof work is moved outside the generation.
-
-Device reproduction arrays share one allocation with individually aligned typed
-slices. Their capacities and transport checks are unchanged. Growth replaces the
-allocation and clears the uploaded-domain owner; sufficient capacity is reused.
-Pinned host staging retains separate allocations. Its reuse predicate compares only pair, node, name and constant capacities used by staging; donor/domain dimensions do not force a staging reallocation. Allocation and copyback use the same predicate.
-
-Private donor prefetch can reuse the destination analysis already held by its
-owned preparation window after checking its payload snapshot. Public donor APIs
-still reconstruct/lookup their own destination analysis. Within each fixed
-destination/site/frame admission cache, a newly generated scalar donor can reuse
-its freshly rebuilt native key when that key is at most 256 bytes. Longer keys
-and payload-backed donors retain decoded runtime identities; no input artifact
-metadata is trusted and all original seeds/retries are retained.
-
-Parallel child admission can also reuse the validated parent's root contract.
-The parent snapshot is checked before entering the worker's payload scope and
-again before publishing its result. Snapshot checks deliberately reject reuse
-inside an active scope; checking there would silently disable the optimization.
-Every child still receives membership, native/lowering and budget validation.
-Invalid parent evidence falls back to ordinary parent analysis.
-
-### Native GPU phase population
 
 This is the representation of the research mainline; the
 [research mainline overview](research-mainline.md) explains how it fits
@@ -571,10 +131,9 @@ the first drawn candidate on ties, as the legacy GPU tournament already did.
 Every accepted phase remains in its original nonterminal and
 scope. It does not change numeric, fuel or evaluator semantics. Changed/unchanged
 counts classify final children against their selected parent; crossover fallback
-counts may include children subsequently changed by mutation. Both overlap modes
-use the same dependency schedule here because host donor preparation is absent.
+counts may include children subsequently changed by mutation.
 Results must identify this profile and cannot be presented as identical evolving
-populations to legacy reproduction. GPU memory is bounded by live population and
+populations to native AST reproduction. GPU memory is bounded by live population and
 grammar capacities, without ancestral proof/source retention.
 
 The physical whole-program grammar budget may be at most 2048 nodes and 64
@@ -687,7 +246,7 @@ mixtures with mutation disabled, eager/deferred clones, projected resource
 admission, and full-case CPU/GPU fitness. This is an experimental search choice,
 not a default or a convergence-equivalence claim.
 
-#### Shared operator bodies and the CPU reference engine
+### Shared operator bodies and the CPU reference engine
 
 Per-child selection and variation live in `repro/gpu/phase_operators.cuh` as
 `__host__ __device__` bodies: tournament, reservoir/counted site draws,
@@ -737,7 +296,7 @@ process settings captured at construction:
   IEEE FP64 draw is monotone in the 53-bit random value, so integer thresholds
   select exactly the production of the serial loop without device FP64 work.
 
-#### Grammar-invocation depth and parsimony
+### Grammar-invocation depth and parsimony
 
 `EvolutionConfig::gpu_phase_site_depth` optionally caps per-phase nesting of
 independently mutable grammar invocation roots (1–15; zero disables the policy).
@@ -758,7 +317,7 @@ shortcut. Device metrics are checked against independent canonical derivations
 in the owner regression. Matching a source's counts on audited programs does not
 establish equivalent RNG, donor filtering or search distributions.
 
-#### Optional CPU training reference verification
+### Optional CPU training reference verification
 
 `EvolutionConfig::cpu_fitness_verification` is disabled when `top_k=0`. Otherwise
 it evaluates the leading `top_k` resident GPU candidates on the same training
@@ -793,7 +352,7 @@ Callbacks must finish using payload handles during the call. Native populations
 export only requested checkpoints; callback/export cost is charged to the run.
 They are intended for diagnostics, not headline timing.
 
-#### Optional batched native GPU import/export transport
+### Optional batched native GPU import/export transport
 
 `GAGP_BATCH_PHASE_IMPORT=1` flattens admitted live genes once, uploads compact
 arrays, and scatters them into the existing fixed-capacity device owner. The
@@ -865,7 +424,7 @@ uses the same double conversion and every original instruction fuel charge.
 The recognized form is a general bytecode condition, independent of task names,
 answers or particular comparison constants. Tests include operand reversal,
 large integer rounding and fuel/return boundaries against CPU execution.
-#### Owner-bound packed executable carrier
+### Owner-bound packed executable carrier
 
 Initial packed-table construction reuses the private owner's cold GPU bytecode
 verification and recorded stack bounds through `OwnedGpuPrograms`. The borrow
@@ -1189,8 +748,8 @@ per immutable study attempt.
 
 `GAGP_GPU_CUDA_POOL=1` enables a dedicated CUDA stream-ordered allocation pool
 only during the native phase path, including its cold import. Selection, RNG,
-GPU variation, evaluation and physical capacities are unchanged. Generic and
-overlap paths keep their existing allocation behavior. The device's current pool
+GPU variation, evaluation and physical capacities are unchanged. The native AST
+path keeps its existing allocation behavior. The device's current pool
 is never changed. Native operations use the existing default stream; this scope
 does not promise ordering for arbitrary external streams.
 

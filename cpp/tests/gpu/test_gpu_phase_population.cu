@@ -657,11 +657,6 @@ void test_whole_program_node_budget() {
  const auto cpu=eval_fitness_cpu(final_programs,cases,answers,10000,1000,32);
  for(std::size_t i=0;i<cpu.size();++i)require(canonicalize_fitness_for_ranking(cpu[i])==integrated.final_population[i].fitness,
      "large whole-AST public evolution CPU/GPU mismatch");
- // The generic native-AST reproduction keeps its own 1024-node kernel limit.
- config.phase_population=false;config.mutation_subtree_prob=.5;declined=false;
- try{(void)evolve_population(evolution_cases,config,&parents);}catch(const std::invalid_argument& e){
-  declined=std::string(e.what()).find("generation request max_nodes=2048 exceeds kernel maximum 1024")!=std::string::npos;}
- require(declined,"generic GPU fallback silently exceeded its independent 1024-node capacity");
 }
 } // namespace
 

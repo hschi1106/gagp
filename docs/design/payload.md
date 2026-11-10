@@ -853,11 +853,8 @@ A raw ExtendedMixed regression also covers nested aliases of immutable table
 payloads and local Concat allocations for IntList, FloatList and StringList,
 including empty slices, full cell storage, and full registry errors.
 
-Diagnostic fixed-ASGP results separately report `initial_kernel_wall_ms`,
-`initial_kernel_event_ms` and `replay_kernel_event_ms`. Initial wall timing
-includes launch/wait and any host overlap callback. Initial event timing is
-populated only when a host overlap callback enables CUDA events; otherwise it
-is zero. Replay event timing sums the replay CUDA events. The existing
+Diagnostic fixed-ASGP results separately report `initial_kernel_wall_ms` and
+`replay_kernel_event_ms`. Initial wall timing includes launch and wait. Replay event timing sums the replay CUDA events. The existing
 `kernel_ms` retains its compatibility behavior: wall time including replay
 allocation and retry orchestration without overlap, summed kernel event time
 with overlap. Total evaluation time includes all allocations and frees.
