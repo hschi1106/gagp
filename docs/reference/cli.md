@@ -102,7 +102,7 @@ mutation, lowering to bytecode and evaluation all run on the selected engine
 (the GPU, or the CPU reference with `--engine cpu`). It accepts any grammar
 whose programs fit its
 [capacities](../../spec/search_config.md#resident-capacities) and that uses none
-of the constructs it does not yet hold
+of the [language restrictions](../../spec/search_config.md#language-restrictions)
 ([admission rules](../../spec/search_config.md#resident-admission)). For any
 other grammar `gagp run` prints
 `resident engine cannot admit this grammar or initial population: ...` with the

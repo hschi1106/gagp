@@ -263,3 +263,9 @@ Synthesis Problems in Genetic Programming*, Table 3) and the thesis (Table 4.3),
 100 runs each. The EuroGP 2017 and thesis grammars are not identical, since the
 thesis states that its grammars were combined automatically and tweaked after the
 paper.
+
+## Recorded results
+
+The numbers below are for the commit that the report names.
+
+<!-- FREEZE-RESULTS-PSB1 -->

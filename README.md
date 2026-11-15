@@ -91,8 +91,23 @@ different families run on the same engine:
   dynamic-programming schemes with bounded recursion, filled by operator sets.
 - **Statement grammars in the style of published G3P work.** Six PSB1 problems
   ([`benchmarks/psb1_g3p`](benchmarks/psb1_g3p/README.md)): assignments, `if`,
-  `for` loops and list and string builtins, ported from the grammars of
-  Forstenlechner's G3P.
+  `for` and `while` loops and list and string builtins, ported from the
+  grammars of Forstenlechner's G3P.
+
+The language has what these grammars need:
+
+- **Bounded `while`.** `while_stmt(Int, Bool, Block)` runs its body until the
+  condition is false or the bound is reached, then leaves normally
+  ([program grammar](spec/grammar.md#program-grammar)).
+- **List and string builtins.** `insert`, `remove_at`, `set_at`, `index_mod`,
+  list `contains`, `range`, `strip`, `lstrip`, `rstrip`, `startswith`,
+  `endswith` and `capitalize` run on both engines
+  ([list builtins](spec/builtins_runtime.md), [string builtins](spec/builtins_base.md)).
+- **An allocation rule.** When a task sets `fitness.list_allocation_limit`,
+  every list and string a program creates and every input counts toward it, and
+  exceeding it is a scored case error. Physical memory exhaustion is never a
+  score and stops the run ([task file](spec/task.md#task-file),
+  [allocation boundary](spec/fitness.md#cpu-payload-allocation-boundary)).
 
 Both suites are run by `benchmarks/run.py`. The PSB1 case files come from a
 PonyGE2 checkout, which the second command converts:
@@ -157,24 +172,19 @@ searches and reaches the same counts, only slowly.
 
 ## Limits
 
-- **No unbounded loops.** The language has `for_range`, traversals of a list or
-  string and bounded recursion regions with frame, memo and fuel limits, and no
-  `while`. Fuel bounds every program, and a program that runs out of fuel fails
-  that case. This is why the PSB1 grammars have no `while`.
+- **No unbounded loops.** The language has `for_range`, bounded `while_stmt`,
+  traversals of a list or string and bounded recursion regions with frame, memo
+  and fuel limits. Fuel bounds every program, and a program that runs out of
+  fuel fails that case.
 - **Admission capacities.** The resident engine holds the population in
   fixed-size genes, so a grammar must fit its limits: at most 2048 nodes and
   depth 64 per program, 1024 nodes per varied phase, a population of at most
   16384, and more
   ([resident capacities](spec/search_config.md#resident-capacities)).
-- **Constructs it rejects.** The language has three constructs that the resident
-  engine does not yet hold: `sequence` constant domains, a nonterminal reached
-  under two different lexical binder environments, and a traversal inside a
-  bounded region phase
-  ([resident admission](spec/search_config.md#resident-admission)).
-- **Site depth of statement grammars.** With the default `limits.site_depth` of
-  7, five of the six `psb1_g3p` grammars are rejected with
-  `import site annotation failed`. Each problem's `search.json` sets `site_depth` to 0, and
-  `--search` passes it to `gagp run`.
+- **Language restrictions.** The resident engine rejects two constructs of the
+  grammar language: `sequence` constant domains and a nonterminal reached under
+  two different lexical binder environments. They are listed once in
+  [language restrictions](spec/search_config.md#language-restrictions).
 - **Rejection is an error.** A grammar that cannot be admitted stops `gagp run`
   before the first generation with exit status 2 and a message that names the
   construct or capacity and the offending value. There is no fallback engine.

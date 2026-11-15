@@ -67,15 +67,20 @@ Phase expressions may use all eight value types, any catalog operation of
 matching arity, grammar inputs, finite constant domains of any type, Int
 ranges, Float ranges (quantized or not, sampled by `numeric_sampling.hpp`
 exactly as native construction) and `sample_from` samplers. `sequence`
-constant domains are not held yet. Whole-program phases may also contain:
+constant domains are a
+[language restriction](../../spec/search_config.md#language-restrictions).
+Whole-program phases may also contain:
 
 - **`let` binders**, numbered statically: every nonterminal is entered under
   exactly one binder environment, so generation never renumbers. A grammar that
-  reaches a nonterminal under two environments, or needs 16 or more binder
-  numbers, is rejected.
+  reaches a nonterminal under two environments (the other
+  [language restriction](../../spec/search_config.md#language-restrictions)) or
+  exceeds the capacity of static binder numbers is rejected.
 - **Traversals** (`traverse`, `traverse_reverse`, `traverse_range`,
   `traverse_range_reverse`), lowered to the native prefix exactly, including
-  its aliasing of stored sources and its length facts.
+  its aliasing of stored sources and its length facts. A traversal or `let`
+  inside a bounded region phase is held: the phase lowers as a program of its
+  own whose first locals are its bindings.
 - **Bounded regions** (at most 8 operands plus phases, 8 captures, 4 regions
   per program). Each region phase is a separate program whose locals start
   with its bindings, and variation inside a phase uses the phase's own scope.

@@ -12,7 +12,8 @@ GPU, with a CPU reference engine that produces identical results. Start with
   specification in the same change.
 - `docs/`: guides, design notes and references, indexed by `docs/README.md`.
 - `configs/`: grammars and the default search configuration.
-- `examples/`: runnable tasks. `benchmarks/`: the `asgp30` suite and `run.py`.
+- `examples/`: runnable tasks. `benchmarks/`: the `asgp30` and `psb1_g3p`
+  suites and `run.py`.
 - `tests/repository/`: documentation and repository checks.
 
 The full map is [docs/reference/repository-layout.md](docs/reference/repository-layout.md).
