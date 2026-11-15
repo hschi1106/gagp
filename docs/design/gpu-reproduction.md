@@ -30,6 +30,14 @@ with a message that begins `resident engine cannot admit this grammar or
 initial population:` and names the construct. `gagp run` prints it and exits
 with status 2 without writing a result. No other engine runs instead.
 
+GPU construction admits every member on the host (import, phase grammar
+tables, bytecode verification and the packed evaluator form) before its first
+CUDA call. `evolve_population` meanwhile initializes the evaluation session,
+whose cost is mostly CUDA context creation, on a second thread, and the owner
+waits for it right before that first call. Neither thread evaluates or
+reproduces programs. A failed session is still reported before any admission
+error.
+
 ## Genome layouts
 
 A genome is one of two layouts, chosen by `import_native_phase_population`

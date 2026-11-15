@@ -345,6 +345,41 @@ void check_export_contract(const std::shared_ptr<const grammar::CompiledGrammar>
  require(rejected,"export granted authority to an externally modified AST");
 }
 
+// Construction admits every member on the host before its first CUDA call.
+// The await hook runs once, after host admission, and its failure aborts the
+// owner. evolve_population creates the session context concurrently with that
+// host work and still reports a failed session before any admission error.
+void check_device_await(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
+    const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
+    FitnessSessionGpu& session,const std::vector<EvalCase>& evolution_cases,const EvolutionConfig& config) {
+ int awaited=0;
+ repro::NativePhasePopulation plain(grammar,parents,names);
+ repro::NativePhasePopulation hooked(grammar,parents,names,0,PhaseVariationPolicy{},[&]{++awaited;});
+ require(awaited==1,"device await hook did not run exactly once");
+ const auto a=plain.evaluate(session,true),b=hooked.evaluate(session,true);
+ require(a.ok && b.ok && a.fitness==b.fitness && a.case_counts==b.case_counts,"device await hook changed scores");
+ auto external=parents.front();external.ast.nodes.clear();
+ bool rejected=false;awaited=0;
+ try{repro::NativePhasePopulation bad(grammar,{external},names,0,PhaseVariationPolicy{},[&]{++awaited;});}
+ catch(const std::invalid_argument&){rejected=true;}
+ require(rejected && awaited==0,"host admission did not precede the device await");
+ rejected=false;
+ try{repro::NativePhasePopulation failed(grammar,parents,names,0,PhaseVariationPolicy{},[]{throw std::runtime_error("await");});}
+ catch(const std::runtime_error& e){rejected=std::string(e.what())=="await";}
+ require(rejected,"a failed device await did not abort construction");
+ auto bad_session=config;bad_session.gpu_blocksize=4096;
+ std::string message;
+ try{(void)evolve_population(evolution_cases,bad_session,&parents);}catch(const std::exception& e){message=e.what();}
+ require(message.find("gpu fitness session init failed")==0,"session failure not reported");
+ std::vector<ProgramGenome> inadmissible=parents;inadmissible.front()=external;
+ message.clear();
+ try{(void)evolve_population(evolution_cases,bad_session,&inadmissible);}catch(const std::exception& e){message=e.what();}
+ require(message.find("gpu fitness session init failed")==0,"admission error displaced the earlier session failure");
+ message.clear();
+ try{(void)evolve_population(evolution_cases,config,&inadmissible);}catch(const std::invalid_argument& e){message=e.what();}
+ require(!message.empty(),"inadmissible population accepted beside a valid session");
+}
+
 void check_initial_packed_verification(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,
     const std::vector<ProgramGenome>& parents,const std::vector<std::string>& names,
     FitnessSessionGpu& session,const std::vector<CaseBindings>& cases,const std::vector<Value>& answers) {
@@ -712,7 +747,9 @@ int main(){try {
  auto unsupported_policy=config;unsupported_policy.generations=1;unsupported_policy.gpu_blocksize=32;
  unsupported_policy.phase_variation->crossover_attempts=0;
  require(rejected_with(unsupported_policy,"crossover attempts must be in [1,64]"),"invalid phase policy did not fail closed");
- require(integrated.timing.generations[0].elapsed_search_ms>=integrated.timing.init_population_ms+integrated.timing.gpu_eval_init_ms &&
+ // Session setup overlaps host admission, so each is bounded by the first row.
+ require(integrated.timing.generations[0].elapsed_search_ms>=std::max(integrated.timing.init_population_ms,integrated.timing.gpu_eval_init_ms) &&
+     integrated.timing.gpu_eval_init_ms>0 &&
      integrated.timing.generations[1].elapsed_search_ms>integrated.timing.generations[0].elapsed_search_ms,
      "search completion timestamps omit initialization or are not monotonic");
  require(integrated.final_population.size()==population && integrated.history_best.size()==2,"phase evolution omitted output/history");
@@ -730,6 +767,7 @@ int main(){try {
  check_elite_evolution(grammar,parents,names,cases,answers);
  check_completed_fitness_reuse(grammar,parents,names,cases,answers);
  check_initial_packed_verification(grammar,parents,names,session,cases,answers);
+ check_device_await(grammar,parents,names,session,evolution_cases,config);
  check_site_depth(grammar,parents,names,session,cases,answers);
  check_export_contract(grammar,parents,names,session);
  check_uniform_phase_sites(grammar,parents,names,session,cases,answers);
