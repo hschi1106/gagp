@@ -400,18 +400,6 @@ std::vector<CaseBindings> decode_cases(const JsonValue& v) {
   return out;
 }
 
-std::vector<Value> decode_shared_answer(const JsonValue& v) {
-  if (v.kind != JsonValue::Kind::Array) {
-    throw std::runtime_error("shared_answer must be array");
-  }
-  std::vector<Value> out;
-  out.reserve(v.array_v.size());
-  for (const JsonValue& item : v.array_v) {
-    out.push_back(decode_typed_value(item));
-  }
-  return out;
-}
-
 std::vector<BytecodeProgram> decode_programs(const JsonValue& v) {
   if (v.kind != JsonValue::Kind::Array) {
     throw std::runtime_error("programs must be array");

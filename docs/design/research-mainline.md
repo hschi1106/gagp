@@ -26,18 +26,15 @@ synthesis whose whole search loop runs on the GPU:
   search configuration ([search_config.md](../../spec/search_config.md)),
   implemented identically by both engines.
 
-## Representations
+## Representation
 
-| Representation | Used for | Reproduction |
-| --- | --- | --- |
-| `resident` (default) | Every grammar the resident engine admits | GPU (`--engine gpu`) or the CPU reference (`--engine cpu`) |
-| `native_ast` | Grammars the resident engine declines (automatic), or an explicit choice | Host; evaluation on the selected engine |
-
+Every search runs on the resident phase population. Reproduction runs on the
+GPU (`--engine gpu`) or in the CPU reference engine (`--engine cpu`).
 The resident engine admits whole-program grammars over all eight value types,
 with statements, `let` binders, traversals and bounded regions, and fixed
 region templates with up to 8 varied phases
-([admission](gpu-reproduction.md#genome-layouts)). The `native_ast`
-representation exists so that any valid grammar runs; it is not the fast path.
+([admission](gpu-reproduction.md#genome-layouts)). A grammar outside these
+limits is rejected with an error before the search starts.
 
 ## Default search
 
@@ -59,8 +56,7 @@ seed.
 - `gagp_test_phase_population_cpu_reference`: CPU reference vs GPU engine over
   several search policies and both schedules; final populations, fitness,
   wrong counts and champions must be identical.
-- `gagp_test_fitness_cpu_gpu_parity`, `gagp_test_evolution_cpu_gpu_parity`:
-  evaluator and native-AST parity.
+- `gagp_test_fitness_cpu_gpu_parity`: CPU and GPU evaluator parity.
 - `benchmarks/run.py report` checks that GPU and CPU runs of the same
   configuration found the same best program with the same fitness history.
 - Engine changes are also checked against golden runs: exported champions and
@@ -100,5 +96,6 @@ These were implemented, measured and removed; git history keeps the code.
 | Small steady-state batches (`batch < P`) | Each evaluation launch has a 25-30 ms floor; `batch = 256` ran at 0.65x the speed of `batch = P` |
 | Population-wide phase sharing | 70-84% of phase fuel belongs to phases used by a single program |
 | GPU reproduction of native ASTs | Slower than the resident engine on the same grammars; removed in 3.0 |
+| Host native AST population and automatic fallback | A second genotype with its own operators duplicated the search and hid admission failures. An inadmissible grammar is an error |
 | CPU worker reproduction, CPU fragment and phase banks | Not GPU speedups; removed |
 | Engine environment switches | Every exact optimization became unconditional once it passed the reference checks; removed in 3.0 |

@@ -3,7 +3,6 @@
 #include <algorithm>
 
 #include "gagp/evolution/node_descriptor.hpp"
-#include "subtree_utils.hpp"
 
 namespace gagp::evo {
 

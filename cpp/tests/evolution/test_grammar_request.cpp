@@ -269,7 +269,7 @@ void test_bound_runtime_boundary(const CompiledGrammar& grammar) {
   check(validate_request(grammar, bound) == std::vector<std::uint32_t>({0}),
         "valid Bound request failed before the execution boundary");
   rejects([&] { generate_derivation(grammar, 0, bound); },
-      "external Bound request reached materialization", "materialization frame");
+      "external Bound request reached materialization", "no bound value in this request");
   GenerationRequest unrelated{nonterminal(grammar, "OtherInt"), RType::Int, {}, {5, 4}};
   const auto constant = generate_derivation(grammar, 0, unrelated);
   rejects([&] { require_membership(grammar, constant.genome, bound); },

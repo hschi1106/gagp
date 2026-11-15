@@ -10,7 +10,6 @@
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/evolution/grammar/definition.hpp"
-#include "gagp/evolution/grammar/frame.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
@@ -238,7 +237,7 @@ void test_repeated_hole_alpha_mapping() {
         "alpha-renamed repeated counter holes returned the wrong result");
 }
 
-void test_unused_local_capture_in_empty_frame() {
+void test_unused_local_capture() {
   const std::string grammar_text =
       R"({"format_version":"grammar-definition-v2",
         "entry":{"nonterminal":"Main","type":"Int"},
@@ -250,8 +249,7 @@ void test_unused_local_capture_in_empty_frame() {
       counter_expression(R"({"local":"optional_seed"})", false) +
       R"(}]}]})";
   const CompiledGrammar grammar = compile_text(grammar_text);
-  const GeneratedDerivation generated = generate_derivation_in_frame(
-      grammar, 11, entry_request(grammar), GenerationFrame{});
+  const GeneratedDerivation generated = generate_derivation(grammar, 11);
   check(generated.genome.ast.bounded_region_specs.size() == 1 &&
             generated.genome.ast.bounded_region_specs[0].parameters[0].kind ==
                 RegionCaptureKind::Name,
@@ -262,7 +260,9 @@ void test_unused_local_capture_in_empty_frame() {
         "unused unset local capture affected bounded execution");
 }
 
-void test_external_lexical_capture_in_donor_frame() {
+// A bounded region inside a scoped nonterminal captures an enclosing let
+// binder as a lexical capture, nested or not.
+void test_external_lexical_capture() {
   for (bool nested : {false, true}) {
     auto expression = cli_detail::JsonParser(
         counter_expression(R"({"bound":"x"})", true), {true, 256}).parse();
@@ -274,64 +274,27 @@ void test_external_lexical_capture_in_donor_frame() {
           R"(],"bind":{"1":["inner"]}})", {true, 256}).parse();
     const auto grammar = compile_text(R"({
       "format_version":"grammar-definition-v2",
-      "entry":{"nonterminal":"Safe","type":"Int"},
-      "inputs":[{"name":"__gagp_frame_binder_0","type":"Bool"}],
-      "search_limits":{"max_nodes":40,"max_depth":14},"execution_limits":{"fuel":10000},
+      "entry":{"nonterminal":"Main","type":"Int"},
+      "search_limits":{"max_nodes":48,"max_depth":16},"execution_limits":{"fuel":10000},
       "nonterminals":[
-        {"id":"Safe","type":"Int","scope":[],"alternatives":[
-          {"id":"zero","weight":1,"expression":{"constant":{"type":"Int","values":["0"]}}}]},
+        {"id":"Main","type":"Int","scope":[],"alternatives":[
+          {"id":"bind","weight":1,"expression":{"signature":"let(Int,Int)->Int","args":[
+            {"constant":{"type":"Int","values":["7"]}},{"ref":"Captured"}],"bind":{"1":["x"]}}}]},
         {"id":"Captured","type":"Int","scope":[{"name":"x","type":"Int"}],
          "alternatives":[{"id":"counter","weight":1,"expression":)" +
         canonical_json(expression) + R"(}]}]})");
-    auto request = entry_request(grammar);
-    for (const auto& nt : grammar.nonterminals())
-      if (nt.stable_id == "Captured") request.nonterminal = nt.id;
-    request.visible_environment = {{"x", RType::Int}};
-    const GenerationFrame frame{{}, {41}};
-    const auto generated = generate_derivation_in_frame(grammar, 3, request, frame);
-    require_membership_in_frame(grammar, generated.genome, request, frame);
-    const auto before = ast_cache_key(generated.genome.ast);
-    auto projected = project_frame(grammar, request, frame, generated.genome.ast);
-    const auto outer = [](const AstProgram& ast) -> const BoundedRegionSpec& {
-      const auto found = std::find_if(ast.bounded_region_specs.begin(), ast.bounded_region_specs.end(),
-          [](const auto& region) { return region.node_index == 3; });
-      check(found != ast.bounded_region_specs.end(), "donor fixture lost its outer bounded region");
-      return *found;
-    };
-    check(ast_cache_key(generated.genome.ast) == before,
-          "frame projection mutated the contextual donor");
-    check(outer(generated.genome.ast).parameters.front().kind ==
-              RegionCaptureKind::Lexical &&
-          outer(generated.genome.ast).parameters.front().index == 41,
-          "contextual donor lost its original external capture");
-    const auto& capture = outer(projected.ast).parameters.front();
-    check(capture.kind == RegionCaptureKind::Name &&
-          projected.ast.names.at(capture.index) == "__gagp_frame_binder_1",
-          "bounded external capture was not projected to a collision-free synthetic input");
-    if (nested)
-      for (const auto& region : projected.ast.bounded_region_specs)
-        if (region.node_index != 3)
-          check(region.parameters.front().kind == RegionCaptureKind::Lexical,
-                "projection rewrote an internally introduced region capture");
-    const auto verified = verify_ast(projected.ast, projected.inputs);
-    check(verified.ok, "projected bounded donor is not independently native-valid");
-    ProgramGenome closed; closed.ast = projected.ast;
-    std::vector<std::string> input_names;
-    for (const auto& input : projected.inputs) input_names.push_back(input.name);
-    const auto lowered = compile_for_eval(closed, verified.verified, input_names);
-    const auto result = execute_bytecode_cpu(lowered, {{1, Value::from_int(7)}}, 10000);
+    const auto generated = generate_derivation(grammar, 3);
+    check_generated(grammar, generated);
+    check_phase_binders(generated.genome.ast);
+    const bool lexical = std::any_of(generated.genome.ast.bounded_region_specs.begin(),
+        generated.genome.ast.bounded_region_specs.end(), [](const BoundedRegionSpec& region) {
+          return !region.parameters.empty() && region.parameters.front().kind == RegionCaptureKind::Lexical;
+        });
+    check(lexical, "bounded region did not capture the enclosing let binder lexically");
+    const ExecResult result = execute(grammar, generated);
     check(!result.is_error && result.value.tag == ValueTag::Int &&
           result.value.i == 10,
-          "projected bounded donor changed captured-value execution");
-    check(generated.derivation.lowered_instructions == bytecode_instruction_count(lowered),
-          "contextual witness did not account for projected bounded instructions");
-
-    auto collision = generated.genome.ast;
-    collision.bounded_region_specs.front().phases.front().bindings.front().binder_id = 41;
-    bool rejected = false;
-    try { (void)project_frame(grammar, request, frame, collision); }
-    catch (const std::invalid_argument&) { rejected = true; }
-    check(rejected, "frame projection accepted an introduced phase binder colliding with a capture");
+          "lexically captured value changed bounded execution");
   }
 }
 
@@ -341,8 +304,8 @@ int main() {
   try {
     test_standalone_examples();
     test_repeated_hole_alpha_mapping();
-    test_unused_local_capture_in_empty_frame();
-    test_external_lexical_capture_in_donor_frame();
+    test_unused_local_capture();
+    test_external_lexical_capture();
     return 0;
   } catch (const std::exception& error) {
     std::cerr << "FAIL: " << error.what() << '\n';

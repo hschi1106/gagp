@@ -108,7 +108,6 @@ void require_cpu_scores(const grammar::CompiledGrammar& grammar,const repro::Nat
 void check_evolution_final_scores(const std::vector<EvalCase>& cases,EvolutionConfig config,
     const std::vector<ProgramGenome>& parents) {
  config.generations=4;config.seed=0x617ba;config.retain_final_population=true;config.skip_final_eval=false;
- config.phase_population=true;
  const auto result=evolve_population(cases,config,&parents);
  require(result.reproduction_profile.rfind("resident-gpu-",0)==0,"resident evolution did not use the GPU phase owner");
  require(result.history_best.size()==std::size_t(config.generations) &&
@@ -508,9 +507,7 @@ void test_private_intlist_generations(bool sequence_windows=false,bool edit_dist
   for(std::size_t i=0;i<cases.size();++i){EvalCase row;row.expected=answers[i];
    for(const auto& binding:cases[i])row.inputs[names[binding.idx]]=binding.value;
    evolution_cases.push_back(std::move(row));}
-  EvolutionConfig config;config.population_size=parents.size();config.compiled_grammar=grammar;
-  config.generation_request=grammar::entry_request(*grammar);config.eval_engine=EvalEngine::GPU;
-  config.reproduction_backend=repro::ReproductionBackend::Gpu;config.mutation_subtree_prob=1;
+  EvolutionConfig config;config.population_size=parents.size();config.compiled_grammar=grammar;config.eval_engine=EvalEngine::GPU;
   config.fuel=grammar->execution_limits().fuel;config.penalty=1000;config.gpu_blocksize=32;config.fitness_policy=policy;
   // Keep all case payload roots: evolve may prune the global registry.
   check_evolution_final_scores(evolution_cases,config,parents);
@@ -633,15 +630,13 @@ void test_whole_program_node_budget() {
  }
  // Exercise the public entry point, including generic GPU preflight ordering.
  EvolutionConfig config;config.population_size=2;config.generations=2;
- config.compiled_grammar=owner_grammar;config.generation_request=grammar::entry_request(*owner_grammar);
- config.eval_engine=EvalEngine::GPU;config.reproduction_backend=repro::ReproductionBackend::Gpu;
- config.mutation_subtree_prob=1;config.fuel=10000;config.penalty=1000;config.gpu_blocksize=32;
+ config.compiled_grammar=owner_grammar; config.eval_engine=EvalEngine::GPU;
+ config.fuel=10000;config.penalty=1000;config.gpu_blocksize=32;
  config.retain_final_population=true;config.skip_final_eval=false;
  std::vector<EvalCase> evolution_cases;
  for(std::size_t i=0;i<cases.size();++i){EvalCase row;row.expected=answers[i];
   for(std::size_t j=0;j<names.size();++j)row.inputs[names[j]]=cases[i][j].value;
   evolution_cases.push_back(std::move(row));}
- config.phase_population=true;
  const std::vector<ProgramGenome> parents{parent,parent};
  const auto integrated=evolve_population(evolution_cases,config,&parents);
  require(integrated.reproduction_profile.rfind("resident-gpu-",0)==0,
@@ -692,10 +687,8 @@ int main(){try {
    for(std::size_t j=0;j<names.size();++j)c.inputs[names[j]]=cases[i][j].value;
    evolution_cases.push_back(std::move(c));}
  EvolutionConfig config;config.population_size=population;config.generations=2;
- config.compiled_grammar=grammar;config.generation_request=grammar::entry_request(*grammar);
- config.eval_engine=EvalEngine::GPU;config.reproduction_backend=repro::ReproductionBackend::Gpu;
- config.mutation_subtree_prob=1;config.fuel=10000;config.penalty=1000;config.gpu_blocksize=512;
- config.phase_population=true;
+ config.compiled_grammar=grammar; config.eval_engine=EvalEngine::GPU;
+ config.fuel=10000;config.penalty=1000;config.gpu_blocksize=512;
  PhaseVariationPolicy counted;counted.site_draw=PhaseSiteDraw::Counted;config.phase_variation=counted;
  check_evolution_final_scores(evolution_cases,config,parents);
  // Per-case counts are diagnostics: the evaluator reports them only on request.
@@ -711,8 +704,8 @@ int main(){try {
   return false;
  };
  auto unsupported_policy=config;unsupported_policy.generations=1;unsupported_policy.gpu_blocksize=32;
- unsupported_policy.mutation_subtree_prob=.5;
- require(rejected_with(unsupported_policy,"default resource/variation policy"),"unsupported phase policy did not fail closed");
+ unsupported_policy.phase_variation->crossover_attempts=0;
+ require(rejected_with(unsupported_policy,"crossover attempts must be in [1,64]"),"invalid phase policy did not fail closed");
  require(integrated.timing.generations[0].elapsed_search_ms>=integrated.timing.init_population_ms+integrated.timing.gpu_eval_init_ms &&
      integrated.timing.generations[1].elapsed_search_ms>integrated.timing.generations[0].elapsed_search_ms,
      "search completion timestamps omit initialization or are not monotonic");

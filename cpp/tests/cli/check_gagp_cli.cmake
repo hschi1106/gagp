@@ -9,9 +9,6 @@ endforeach()
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}")
 set(task "${FIXTURES}/task.json")
-# Most checks pin the native AST representation; the default (resident) and its
-# decline fallback are checked separately below.
-set(native --search "${FIXTURES}/search_native.json")
 
 function(gagp_expect_exit code)
   execute_process(COMMAND "${GAGP}" ${ARGN} RESULT_VARIABLE result OUTPUT_VARIABLE out ERROR_VARIABLE err)
@@ -48,7 +45,7 @@ gagp_expect_exit(2 frobnicate)
 
 # A short CPU run writes a result with the best program and its test verdict.
 foreach(name a b)
-  gagp_expect_exit(0 run "${task}" --engine cpu ${native} --seed 7 --population 32 --generations 3
+  gagp_expect_exit(0 run "${task}" --engine cpu --seed 7 --population 32 --generations 3
                    --out "${WORK}/${name}" --save-all --quiet)
   if(NOT last_stderr STREQUAL "")
     message(FATAL_ERROR "--quiet run wrote to stderr: ${last_stderr}")
@@ -78,15 +75,12 @@ foreach(saved population.json history.json)
   endif()
 endforeach()
 
-# The default search runs the resident representation. A grammar the resident
-# engine cannot hold reruns on the native representation, says so, and records
-# the reason with the effective (native) search configuration.
+# The result records the effective search configuration.
 gagp_expect_exit(0 run "${task}" --engine cpu --seed 7 --population 32 --generations 2 --out "${WORK}/resident" --quiet)
 file(READ "${WORK}/resident/result.json" resident_result)
-string(JSON representation GET "${resident_result}" search representation)
-string(JSON declined ERROR_VARIABLE no_decline GET "${resident_result}" resident_declined)
-if(NOT representation STREQUAL "resident" OR NOT declined MATCHES "NOTFOUND$")
-  message(FATAL_ERROR "default run did not stay resident: ${resident_result}")
+string(JSON site_depth GET "${resident_result}" search limits site_depth)
+if(NOT site_depth EQUAL 7)
+  message(FATAL_ERROR "default run did not record the default search: ${resident_result}")
 endif()
 # configs/search/default.json is the built-in default search, member for member.
 gagp_expect_exit(0 run "${task}" --engine cpu --seed 7 --population 32 --generations 2
@@ -99,19 +93,17 @@ string(JSON file_best GET "${file_result}" best program)
 if(NOT built_in_search STREQUAL file_search OR NOT built_in_best STREQUAL file_best)
   message(FATAL_ERROR "configs/search/default.json differs from the built-in search:\n${built_in_search}\n${file_search}")
 endif()
-gagp_expect_exit(0 run "${FIXTURES}/declined_task.json" --engine cpu --seed 7 --population 32 --generations 2
+# A grammar the resident engine cannot admit fails with the reason and writes no result.
+gagp_expect_exit(2 run "${FIXTURES}/declined_task.json" --engine cpu --seed 7 --population 32 --generations 2
                  --out "${WORK}/declined")
-require_text("${last_stderr}" "resident engine declined this grammar" "decline notice")
-file(READ "${WORK}/declined/result.json" declined_result)
-string(JSON representation GET "${declined_result}" search representation)
-string(JSON declined GET "${declined_result}" resident_declined)
-if(NOT representation STREQUAL "native_ast")
-  message(FATAL_ERROR "declined run recorded ${representation}")
+require_text("${last_stderr}" "resident engine cannot admit this grammar" "admission error")
+require_text("${last_stderr}" "lowering capacity" "admission error reason")
+if(EXISTS "${WORK}/declined/result.json")
+  message(FATAL_ERROR "a rejected run wrote a result")
 endif()
-require_text("${declined}" "lowering capacity" "decline reason")
 
 # A run that starts from a saved population reproduces it.
-gagp_expect_exit(0 run "${task}" --engine cpu ${native} --seed 7 --generations 1 --population 32
+gagp_expect_exit(0 run "${task}" --engine cpu --seed 7 --generations 1 --population 32
                  --init "${WORK}/a/population.json" --out "${WORK}/init" --quiet)
 
 # eval scores a result, a population or a bare program; invalid programs are rejected.
@@ -134,7 +126,7 @@ require_text("${last_stderr}" "invalid AST (name_index_out_of_range)" "malformed
 gagp_expect_exit(0 grammar generate --grammar-definition "${FIXTURES}/grammar.json"
                  --cases "${FIXTURES}/train.cases.json" --population-size 16 --seed 3
                  --out-json "${WORK}/generated.json")
-gagp_expect_exit(0 run "${task}" --engine cpu ${native} --population 16 --generations 1
+gagp_expect_exit(0 run "${task}" --engine cpu --population 16 --generations 1
                  --init "${WORK}/generated.json" --quiet)
 gagp_expect_exit(0 grammar validate --grammar-definition "${FIXTURES}/grammar.json")
 

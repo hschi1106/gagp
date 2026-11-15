@@ -14,6 +14,12 @@ namespace grammar { class CompiledGrammar; struct GenerationRequest; }
 void validate_grammar_case_set(const grammar::CompiledGrammar& grammar,
     const CaseSet& case_set, const grammar::GenerationRequest& request);
 
+// Rejects a configuration without a compiled grammar, with a fuel above the
+// grammar's execution fuel, a nonpositive population or a mutation
+// probability outside [0,1].
+void validate_evolution_config(const EvolutionConfig& config);
+
+// Checks the case set against the grammar entry.
 void validate_grammar_case_set(const EvolutionConfig& config, const CaseSet& case_set);
 
 struct PopulationInitialization {

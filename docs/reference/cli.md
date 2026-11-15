@@ -73,7 +73,6 @@ is [`configs/search/default.json`](../../configs/search/default.json):
 
 | Member | Default | Meaning |
 | --- | --- | --- |
-| `representation` | `resident` | Genotype representation ([below](#representations)) |
 | `population_size`, `generations`, `seed` | 1024, 64, 0 | As the options above |
 | `selection` | tournament of 2 | Parent selection |
 | `elitism` | 1 | Best members copied unchanged |
@@ -96,16 +95,16 @@ generational search with a larger population:
 The search configuration decides results; the engine (`--engine`, the GPU
 device) never does.
 
-### Representations
+### Resident engine
 
-- `resident` (default): the population lives on the GPU as fixed-shape phase
-  genes, and selection, crossover, mutation, lowering to bytecode and
-  evaluation all run there. This is the fast path. It accepts any grammar whose
-  programs fit its capacity ([admission rules](../../spec/search_config.md#resident-admission)).
-- `native_ast`: a typed AST population, evaluated on the selected engine and
-  reproduced on the CPU host. When the resident engine declines a grammar,
-  `gagp run` reruns the same search this way automatically, prints a notice,
-  and records the reason in `result.json`.
+The population lives as fixed-shape phase genes, and selection, crossover,
+mutation, lowering to bytecode and evaluation all run on the selected engine
+(the GPU, or the CPU reference with `--engine cpu`). It accepts any grammar
+whose programs fit its capacity
+([admission rules](../../spec/search_config.md#resident-admission)). For any
+other grammar `gagp run` prints
+`resident engine cannot admit this grammar or initial population: ...` with the
+construct that does not fit, exits with status 2 and writes no result.
 
 ## `gagp eval`
 

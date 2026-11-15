@@ -21,8 +21,7 @@ the research system, has its own document, [gpu-reproduction.md](gpu-reproductio
  gagp_grammar                     resident engine
  (src/evolution/grammar)          (src/evolution/repro/gpu)
  definitions, compiled tables,    GPU: NativePhasePopulation
- generation, membership,          CPU: HostPhasePopulation
- variation contracts
+ generation, membership          CPU: HostPhasePopulation
           |                              |
           v                              v
  gagp_runtime_cpu (src/runtime/cpu)   gagp_gpu (src/runtime/gpu)
@@ -37,8 +36,8 @@ the research system, has its own document, [gpu-reproduction.md](gpu-reproductio
 | `gagp_core` | `Value`, opcodes, the bytecode verifier, bounded-region plans and progress proofs, fitness policy |
 | `gagp_runtime_cpu` | The CPU bytecode interpreter, builtins and CPU fitness |
 | `gagp_gpu` (CUDA builds) | The GPU interpreter over (program, case) lanes, GPU fitness, the device payload arena and overflow replay |
-| `gagp_grammar` | Loading, import resolution and SHA-256 identity of `grammar-definition-v2`; compiled tables; generation, membership and variation contracts |
-| `gagp_evolution` | ASTs, verification, compilation, population initialization, the evolution loop, native AST reproduction and the resident engine |
+| `gagp_grammar` | Loading, import resolution and SHA-256 identity of `grammar-definition-v2`; compiled tables; generation and membership |
+| `gagp_evolution` | ASTs, verification, compilation, population initialization, the evolution loop and the resident engine |
 | `gagp_cli_support` | JSON codecs, task and search-configuration files, result output, the `gagp` commands |
 
 Dependencies point downward only. The runtimes never see grammars or authoring
@@ -55,8 +54,10 @@ of initial programs, crossover sites and mutation domains.
    (`search_config.cpp`); turns it into an `EvolutionConfig`.
 2. Calls `evolve_population` (`cpp/src/evolution/evolve.cpp`), which creates
    the initial population from the grammar and the seed, or imports `--init`.
-3. Runs the generations. With the default `resident` representation, one of
-   two engines owns the population:
+3. Admits the grammar and the initial population into the resident engine.
+   A grammar or genome it cannot hold stops the run with an error before the
+   first generation ([admission](../../spec/search_config.md#resident-admission)).
+4. Runs the generations. One of two engines owns the population:
 
    ```mermaid
    flowchart LR
@@ -73,10 +74,6 @@ of initial programs, crossover sites and mutation domains.
    same operator code on the CPU with the CPU evaluator (`--engine cpu`).
    Both are driven by the same generation loop, so ranking, history and export
    are shared code.
-4. When the resident engine declines the grammar, the loop reruns as the
-   `native_ast` representation: a typed AST population, verified and compiled
-   to bytecode every generation, evaluated on the selected engine and
-   reproduced on the host (`cpp/src/evolution/repro/backend.cpp`).
 5. Judges the best program on the test cases with the CPU interpreter and
    writes `result.json` ([format](../../spec/task.md#run-result)).
 

@@ -154,13 +154,12 @@ span, template instance, and logical repeated-hole identity. Reconstruction of
 an imported AST is deterministic but records `seed_replayable=false`: it
 certifies structure, not an original RNG history.
 
-Replacement contracts contain the grammar/semantic identity, exact type and
-category, visible lexical environment, native variable environment, template
-slot, and destination budgets. Repeated hole occurrences vary atomically.
-Typed-subtree crossover uses equal contracts; mutation either regenerates an
-admitted subtree or resamples a mutable constant from its exact domain. Every
-accepted complete child is verified and reconstructed under the original input
-schema. CPU and GPU reproduction consume the same compiled contracts.
+Variation runs in the resident phase population
+([search_config.md](search_config.md)). Typed-subtree crossover exchanges
+subtrees between compatible sites of one nonterminal, and mutation regenerates
+the subtree of a site from its nonterminal within the remaining budgets. Fixed
+template structure is never a site. The GPU engine and the CPU reference apply
+the same operator bodies, and every child remains a member of the grammar.
 
 ## Fuel and errors
 

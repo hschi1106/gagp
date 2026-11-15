@@ -10,8 +10,6 @@
 #include "gagp/evolution/grammar/numeric_sampling.hpp"
 #include "gagp/evolution/grammar/random.hpp"
 #include "gagp/evolution/grammar/values.hpp"
-#include "gagp/evolution/grammar/variation.hpp"
-#include "gagp/evolution/mutation.hpp"
 
 using namespace gagp;
 using namespace gagp::evo;
@@ -122,7 +120,7 @@ void test_sampling_domains() {
   (void)parse_constant_domain(json(R"({"type":"Float","range":[-1,1],"quantization_scale":1000,
     "sample_from":{"type":"Float","range":[0,0]}})"));
 }
-void test_generation_mutation(bool quantized, bool separated = false) {
+void test_generation(bool quantized, bool separated = false) {
   auto definition = json(R"({
     "format_version":"grammar-definition-v2","entry":{"nonterminal":"F","type":"Float"},
     "search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":10},
@@ -140,30 +138,27 @@ void test_generation_mutation(bool quantized, bool separated = false) {
   }
   auto grammar = std::make_shared<const CompiledGrammar>(compile_grammar(parse_definition(canonical_json(definition))));
   const auto& domain = grammar->constants().front();
-  for (double probability : {0.0, 1.0}) {
-    VariationContext context(grammar);
-    auto parent = generate_derivation(*grammar, 42).genome;
-    if (separated) {
-      parent.ast.consts.at(parent.ast.nodes.at(3).i0) = Value::from_float(42.125);
-      parent.derivation.reset();
-      require_membership(*grammar,parent);
-    }
-    std::set<double> seen;
-    for (unsigned seed = 0; seed < 256; ++seed) {
-      auto first = mutate(parent, seed, context, probability);
-      auto replay = mutate(parent, seed, context, probability);
-      const auto& value = first.ast.consts.at(first.ast.nodes.at(3).i0);
-      check(value.f == replay.ast.consts.at(replay.ast.nodes.at(3).i0).f, "Float seed replay changed");
-      check(constant_domain_contains(domain,value), "Float mutation escaped domain");
-      if (domain.sampling)
-        check(constant_domain_contains(*domain.sampling,value), "mutation ignored narrow sampler");
-      first.derivation.reset();
-      require_membership(*grammar, first);
-      seen.insert(value.f);
-      parent = first;
-    }
-    check(seen.size() > 200 && context.counters().acceptance_rejections == 0,
-          "Float variation was narrowed or rejected");
+  const auto first = generate_derivation(*grammar, 42).genome;
+  const auto replay = generate_derivation(*grammar, 42).genome;
+  check(first.ast.consts.at(first.ast.nodes.at(3).i0).f == replay.ast.consts.at(replay.ast.nodes.at(3).i0).f,
+        "Float seed replay changed");
+  std::set<double> seen;
+  for (unsigned seed = 0; seed < 256; ++seed) {
+    const auto generated = generate_derivation(*grammar, seed).genome;
+    const auto& value = generated.ast.consts.at(generated.ast.nodes.at(3).i0);
+    check(constant_domain_contains(domain,value), "generated Float escaped domain");
+    if (domain.sampling)
+      check(constant_domain_contains(*domain.sampling,value), "generation ignored narrow sampler");
+    require_membership(*grammar, generated);
+    seen.insert(value.f);
+  }
+  check(seen.size() > 200, "Float generation was narrowed");
+  if (separated) {
+    // Membership is the full support, not the narrower construction sampler.
+    auto outside = first;
+    outside.ast.consts.at(outside.ast.nodes.at(3).i0) = Value::from_float(42.125);
+    outside.derivation.reset();
+    require_membership(*grammar, outside);
   }
 }
 void test_additive_mutation() {
@@ -179,61 +174,12 @@ void test_additive_mutation() {
       R"({"type":"Int","range":["-8","8"],"mutation":{"kind":"multiply","range":["-2","2"]}})",
       R"({"type":"Int","range":["-8","8"],"mutation":{"kind":"add","range":["-2","2"],"extra":1}})"})
     rejects([&] { parse_constant_domain(json(text)); });
-  const std::int64_t low = INT64_MIN, high = INT64_MAX;
-  for (auto previous : {low,low+1,INT64_C(-1),INT64_C(0),INT64_C(1),high-1,high})
-    for (auto delta : {low,low+1,INT64_C(-2),INT64_C(0),INT64_C(2),high-1,high}) {
-      const __int128 mathematical = static_cast<__int128>(previous) + delta;
-      const auto expected = mathematical < low || mathematical > high ? previous : static_cast<std::int64_t>(mathematical);
-      check(add_integer_in_range(previous,delta,low,high) == expected,"signed overflow in additive mutation");
-    }
-  check(add_integer_in_range(9,2,-10,10) == 9,"integer boundary was clamped rather than retained");
-  const double maximum = std::numeric_limits<double>::max();
-  check(add_float_in_range(maximum,maximum,-maximum,maximum) == maximum,"Float overflow escaped membership");
-  check(add_float_in_range(-maximum,-maximum,-maximum,maximum) == -maximum,"negative Float overflow escaped membership");
-  check(add_float_in_range(9,2,-10,10) == 9,"Float boundary was clamped rather than retained");
-  std::set<double> grid;
-  for (std::uint32_t index = 0; index <= 65535; ++index) {
-    volatile double fraction = static_cast<double>(index) / 65535.0;
-    volatile double scaled = fraction * 2.0;
-    const double expected = scaled - 1.0;
-    const auto value = sample_float_grid(-1,1,index,65535);
-    check(value == expected,"GPU delta grid differs from frozen source law"); grid.insert(value);
-  }
-  check(grid.size() == 65536 && *grid.begin() == -1 && *grid.rbegin() == 1 && !grid.count(0),
-        "GPU delta grid narrowed or lost endpoint weighting");
+  // Valid additive policies parse; the search operators regenerate subtrees.
   for (const auto text : {
       R"({"type":"Int","range":["-100","100"],"sample_from":{"type":"Int","values":["0"]},"mutation":{"kind":"add","range":["1","2"]}})",
       R"({"type":"Float","range":[-100,100],"sample_from":{"type":"Float","range":[0,0],"quantization_scale":1000},"mutation":{"kind":"add","range":[0.25,0.75],"gpu_grid_steps":65535}})"}) {
-    const auto domain_json = json(text);
-    const auto type = domain_json.object_v.at("type").string_v;
-    auto definition = json(R"({"format_version":"grammar-definition-v2","entry":{"nonterminal":"N","type":"Int"},
-      "search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":100},
-      "nonterminals":[{"id":"N","type":"Int","scope":[],"alternatives":[
-      {"id":"number","weight":1,"expression":{"constant":{"type":"Int","values":["0"]}}}]}]})");
-    definition.object_v.at("entry").object_v.at("type").string_v = type;
-    auto& nt = definition.object_v.at("nonterminals").array_v[0]; nt.object_v.at("type").string_v = type;
-    nt.object_v.at("alternatives").array_v[0].object_v.at("expression").object_v.at("constant") = domain_json;
-    auto grammar = std::make_shared<const CompiledGrammar>(compile_grammar(parse_definition(canonical_json(definition))));
-    const auto& domain = grammar->constants().front();
-    VariationContext context(grammar);
-    auto parent = generate_derivation(*grammar,42).genome;
-    for (unsigned seed = 0; seed < 256; ++seed) {
-      auto child = mutate(parent,seed,context,0);
-      const auto replay = mutate(parent,seed,context,0);
-      const auto& before = parent.ast.consts.at(parent.ast.nodes.at(3).i0);
-      const auto& after = child.ast.consts.at(child.ast.nodes.at(3).i0);
-      check(canonical_json(encode_constant(after)) == canonical_json(encode_constant(replay.ast.consts.at(replay.ast.nodes.at(3).i0))),
-            "additive replay changed");
-      const double difference = type == "Int" ? static_cast<double>(after.i-before.i) : after.f-before.f;
-      check(difference == 0 || (type == "Int" ? difference >= 1 && difference <= 2 : difference >= 0.25 && difference <= 0.75),
-            "additive mutation resampled or quantized its result");
-      check(constant_domain_contains(domain,after),"additive mutation escaped membership");
-      child.derivation.reset(); require_membership(*grammar,child); parent = std::move(child);
-    }
-    const auto& final = parent.ast.consts.at(parent.ast.nodes.at(3).i0);
-    check((type == "Int" ? final.i : final.f) > 99,"additive mutation never left construction support");
-    check(context.counters().fallback_children == 0 && context.counters().acceptance_rejections == 0,
-          "out-of-range additive proposal counted as fallback/rejection");
+    const auto domain = parse_constant_domain(json(text));
+    check(domain.mutation == ConstantMutationPolicy::Add, "additive policy was not parsed");
   }
 }
 
@@ -262,22 +208,9 @@ void test_mutation_policies() {
         {"id":"constant","weight":1,"expression":{"constant":)" + text + R"(}}]}]})";
     auto grammar = std::make_shared<const CompiledGrammar>(compile_grammar(parse_definition(definition)));
     const bool flip = type == "Bool";
-    VariationContext context(grammar);
-    auto parent = generate_derivation(*grammar, 42).genome;
-    for (unsigned seed = 0; seed < 64; ++seed) {
-      auto child = mutate(parent,seed,context,0);
-      const auto& before = parent.ast.consts.at(parent.ast.nodes.at(3).i0);
-      const auto& after = child.ast.consts.at(child.ast.nodes.at(3).i0);
-      check(flip ? (before.b != after.b) :
-          canonical_json(encode_constant(before)) == canonical_json(encode_constant(after)),
-          "constant mutation did not apply keep/flip");
-      child.derivation.reset(); require_membership(*grammar,child);
-      parent = std::move(child);
-    }
-    check(context.counters().fallback_children == 0 && context.counters().acceptance_rejections == 0 &&
-          context.counters().mutation_attempts == 64 &&
-          (flip ? context.counters().changed_children : context.counters().unchanged_children) == 64,
-          "keep/flip was reported as fallback or resampling");
+    check(grammar->constants().front().mutation == (flip ? ConstantMutationPolicy::Flip : ConstantMutationPolicy::Keep),
+          "keep/flip policy was not compiled");
+    require_membership(*grammar, generate_derivation(*grammar, 42).genome);
   }
 }
 }  // namespace
@@ -286,8 +219,8 @@ int main() {
     test_intervals(); test_quantization(); test_sampling_domains();
     test_mutation_policies();
     test_additive_mutation();
-    test_generation_mutation(false); test_generation_mutation(true);
-    test_generation_mutation(false,true); test_generation_mutation(true,true);
+    test_generation(false); test_generation(true);
+    test_generation(false,true); test_generation(true,true);
   }
   catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
   std::cout << "gagp_test_grammar_numeric_constants: OK\n";

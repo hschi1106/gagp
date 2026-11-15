@@ -56,53 +56,6 @@ GAGP_NUMERIC_HD inline double quantize_float(double value, double scale) {
 #endif
 }
 
-// Preconditions: finite ordered endpoints, 1 <= steps, index <= steps.
-// Unlike rounded continuous sampling, every grid index has equal probability.
-GAGP_NUMERIC_HD inline double sample_float_grid(
-    double minimum, double maximum, std::uint64_t index, std::uint32_t steps) {
-  if (minimum == maximum || index == 0) return minimum;
-  if (index == steps) return maximum;
-  double result;
-#ifdef __CUDA_ARCH__
-  const double fraction = __ddiv_rn(static_cast<double>(index),static_cast<double>(steps));
-  const double width = __dsub_rn(maximum,minimum);
-  result = width <= DBL_MAX ? __dadd_rn(minimum,__dmul_rn(fraction,width)) :
-      __dadd_rn(__dmul_rn(minimum,__dsub_rn(1.0,fraction)),__dmul_rn(maximum,fraction));
-#else
-  volatile double fraction = static_cast<double>(index) / static_cast<double>(steps);
-  volatile double width = maximum - minimum;
-  if (width <= DBL_MAX) {
-    volatile double offset = fraction * width;
-    result = minimum + offset;
-  } else {
-    volatile double complement = 1.0 - fraction;
-    volatile double left = minimum * complement, right = maximum * fraction;
-    result = left + right;
-  }
-#endif
-  return result < minimum ? minimum : result > maximum ? maximum : result;
-}
-
-// Out-of-domain/overflow proposals retain the old value without resampling or
-// clamping. Check signed overflow before evaluating the addition.
-GAGP_NUMERIC_HD inline std::int64_t add_integer_in_range(
-    std::int64_t previous, std::int64_t delta, std::int64_t minimum, std::int64_t maximum) {
-  if ((delta > 0 && previous > INT64_MAX - delta) ||
-      (delta < 0 && previous < INT64_MIN - delta)) return previous;
-  const auto result = previous + delta;
-  return result >= minimum && result <= maximum ? result : previous;
-}
-
-GAGP_NUMERIC_HD inline double add_float_in_range(
-    double previous, double delta, double minimum, double maximum) {
-#ifdef __CUDA_ARCH__
-  const double result = __dadd_rn(previous,delta);
-#else
-  const double result = previous + delta;
-#endif
-  return result >= minimum && result <= maximum ? result : previous;
-}
-
 // The grid-index bound leaves enough precision that quantizing a constructed
 // value is idempotent, so membership can recognize exactly the declared grid.
 GAGP_NUMERIC_HD inline bool valid_float_quantization(

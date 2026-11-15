@@ -9,6 +9,7 @@
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
 #include "../../src/evolution/repro/gpu/phase_variation.hpp"
+#include "phase_fragment_oracle.hpp"
 namespace {
 using namespace gagp; using namespace gagp::evo; using namespace gagp::evo::repro;
 void require(bool b, const std::string& why) { if (!b) throw std::runtime_error(why); }
@@ -213,30 +214,27 @@ std::size_t audit(const grammar::CompiledGrammar& grammar,unsigned root,const Ho
   lower<<<(population+63)/64,64>>>(pointers(trees),locals.data,types.size(),tag(nt.type),code.data,constants.data,result.data);check(cudaGetLastError());
   compiled_code=code.read();compiled_constants=constants.read();lowered=result.read();
  }
- grammar::GenerationRequest request{root,nt.type,nt.scope,grammar.search_limits()};
- grammar::GenerationFrame frame;for(std::size_t i=0;i<nt.scope.size();++i)frame.binder_ids.push_back(100+int(i));
+ const test::PhaseFragmentOracle oracle(grammar,root);
  for(int i=0;i<population;++i) {
   const auto r=results[i];require(r.status==PhaseCompileStatus::Ok,"device variation produced invalid output");
   require(r.nodes>0 && r.nodes<=capacity && r.constants>=0 && r.constants<=r.nodes,"tree capacity");
-  ProgramGenome genome;auto& ast=genome.ast;ast.nodes={{NodeKind::PROGRAM},{NodeKind::BLOCK_CONS},{NodeKind::RETURN}};
-  ast.consts.assign(values.begin()+i*capacity,values.begin()+i*capacity+r.constants);
+  test::PhaseFragment fragment;
+  fragment.consts.assign(values.begin()+i*capacity,values.begin()+i*capacity+r.constants);
   for(int j=0;j<r.nodes;++j) {
    const auto id=origins[i*capacity+j];const auto& e=grammar.expressions().at(id);const auto& model=host.expressions.at(id);const auto node=nodes[i*capacity+j];
    AstNode native{static_cast<NodeKind>(model.native_kind)};
-   if(e.kind==grammar::ExpressionKind::Constant)native.i0=node.operand;
-   else if(e.kind==grammar::ExpressionKind::Bound)native.i0=frame.binder_ids.at(node.operand);
-   if(!e.fuel_charges.empty())ast.fuel_specs.push_back({ast.nodes.size(),e.fuel_charges});
-   ast.nodes.push_back(native);
+   auto role=test::PhaseFragment::Role::Plain;
+   if(e.kind==grammar::ExpressionKind::Constant){native.i0=node.operand;role=test::PhaseFragment::Role::Constant;}
+   else if(e.kind==grammar::ExpressionKind::Bound){native.i0=node.operand;role=test::PhaseFragment::Role::Bound;}
+   fragment.push(native,role,e.fuel_charges);
   }
-  ast.nodes.push_back({NodeKind::BLOCK_NIL});
-  grammar::require_membership_in_frame(grammar,genome,request,frame);
+  oracle.require_member(fragment);
+  const auto key=ast_cache_key(oracle.splice(fragment).ast);
   if(check_lowering) {
-   auto projected=grammar::project_frame(grammar,request,frame,ast);ProgramGenome native;native.ast=std::move(projected.ast);
-   std::vector<std::string> names;
+   const auto projected=oracle.project(fragment);const auto& native=projected.genome;
    // Pure phase profiles reference only lexical inputs, never ordinary inputs.
-   for(std::size_t j=projected.inputs.size()-nt.scope.size();j<projected.inputs.size();++j)names.push_back(projected.inputs[j].name);
    const auto verified=verify_ast(native.ast,projected.inputs);require(verified.ok,"independent CPU verification");
-   const auto reference=compile_for_eval(native,verified.verified,names);const auto r=lowered[i];
+   const auto reference=compile_for_eval(native,verified.verified,projected.scope_names);const auto r=lowered[i];
    require(r.status==PhaseCompileStatus::Ok && r.code_count+1==int(reference.code.size()) &&
            r.constant_count==int(reference.consts.size()),"GPU lowering shape differs from independent CPU lowering");
    require(reference.code.back().op==Opcode::Return,"CPU envelope return missing");
@@ -250,7 +248,7 @@ std::size_t audit(const grammar::CompiledGrammar& grammar,unsigned root,const Ho
     require(x.tag==y.tag && (x.tag==ValueTag::Bool?x.b==y.b:x.i==y.i),"GPU constant differs from CPU");
    }
   }
-  unique.insert(ast_cache_key(ast));current.insert(ast_cache_key(ast));
+  unique.insert(key);current.insert(key);
  }
  return current.size();
 }

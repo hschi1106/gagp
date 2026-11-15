@@ -16,7 +16,6 @@
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/repro/pack.hpp"
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
-#include "subtree_utils.hpp"
 
 namespace {
 using gagp::ErrCode;
@@ -126,7 +125,7 @@ bool test_codec_and_identities() {
                "fuel event costs must participate in runtime cache identity");
 }
 
-bool test_compaction_and_splice() {
+bool test_compaction_and_composed_profiles() {
   ProgramGenome padded = genome(profiled_add());
   padded.ast.names = {"dead"};
   padded.ast.consts.insert(padded.ast.consts.begin(), Value::from_int(99));
@@ -140,39 +139,34 @@ bool test_compaction_and_splice() {
     return false;
   }
 
-  AstProgram donor;
-  donor.consts = {Value::from_int(4)};
-  donor.nodes = {
+  // add(neg 4, 10) with an operation profile on every node: the composed
+  // program charges 7 + 4 + 5 + 3 fuel plus one return.
+  AstProgram composed = profiled_add();
+  composed.nodes = {
+      AstNode{NodeKind::PROGRAM, 0, 0},
+      AstNode{NodeKind::BLOCK_CONS, 0, 0},
+      AstNode{NodeKind::RETURN, 0, 0},
+      AstNode{NodeKind::ADD, 0, 0},
       AstNode{NodeKind::NEG, 0, 0},
       AstNode{NodeKind::CONST, 0, 0},
+      AstNode{NodeKind::CONST, 1, 0},
+      AstNode{NodeKind::BLOCK_NIL, 0, 0},
   };
-  donor.fuel_specs = {
-      {0, {{FuelEvent::Operation, 4}}},
-      {1, {{FuelEvent::Operation, 5}}},
+  composed.fuel_specs = {
+      {3, {{FuelEvent::Operation, 7}}},
+      {4, {{FuelEvent::Operation, 4}}},
+      {5, {{FuelEvent::Operation, 5}}},
+      {6, {{FuelEvent::Operation, 3}}},
   };
-  const AstProgram spliced = gagp::evo::subtree::replace_subtree(
-      profiled_add(), 4, 5, donor, 0, donor.nodes.size());
-  if (!check(spliced.fuel_specs.size() == 4,
-             "splice must remove the replaced profile and retain/copy the others") ||
-      !check(spliced.fuel_specs[0].node_index == 3 &&
-                 spliced.fuel_specs[1].node_index == 6 &&
-                 spliced.fuel_specs[2].node_index == 4 &&
-                 spliced.fuel_specs[3].node_index == 5,
-             "splice must retain, shift, and copy profile node indexes") ||
-      !check(spliced.fuel_specs[0].charges[0].cost == 7 &&
-                 spliced.fuel_specs[1].charges[0].cost == 3 &&
-                 spliced.fuel_specs[2].charges[0].cost == 4 &&
-                 spliced.fuel_specs[3].charges[0].cost == 5,
-             "splice changed retained or donor fuel charges") ||
-      !check(is_int(execute(spliced, 20), 6) && times_out(execute(spliced, 19)),
-             "splice changed the composed exact fuel boundary")) {
+  if (!check(is_int(execute(composed, 20), 6) && times_out(execute(composed, 19)),
+             "composed profiles changed the exact fuel boundary")) {
     return false;
   }
-  const std::string encoded = gagp::cli_detail::encode_ast_json(spliced);
+  const std::string encoded = gagp::cli_detail::encode_ast_json(composed);
   const AstProgram decoded = gagp::cli_detail::decode_ast_json(
       gagp::cli_detail::JsonParser(encoded).parse());
   return check(is_int(execute(decoded, 20), 6) && times_out(execute(decoded, 19)),
-               "post-splice materialized codec changed the exact fuel boundary");
+               "materialized codec changed the exact fuel boundary");
 }
 
 bool test_membership_and_gpu_rejections() {
@@ -200,7 +194,7 @@ bool test_membership_and_gpu_rejections() {
 
 int main() {
   if (!test_codec_and_identities()) return 1;
-  if (!test_compaction_and_splice()) return 1;
+  if (!test_compaction_and_composed_profiles()) return 1;
   if (!test_membership_and_gpu_rejections()) return 1;
   std::cout << "gagp_test_source_fuel_preservation: OK\n";
   return 0;

@@ -15,7 +15,6 @@ namespace gagp::cli_detail {
 // out-of-range values are rejected. Only search semantics live here; engine
 // choices (CPU/GPU, warp kernels, buffers) are never part of this document.
 struct SearchConfig {
-  std::optional<bool> phase_population;  // "representation"
   std::optional<int> population_size, generations, tournament_size, elite_count;
   std::optional<std::uint64_t> seed;
   std::optional<double> mutation_probability, penalty;
@@ -41,7 +40,7 @@ SearchConfig load_search_config(const std::string& path);
 // Applies present fields to `cfg`. Phase variation fields set cfg.phase_variation.
 void apply_search_config(const SearchConfig& config, evo::EvolutionConfig& cfg);
 // Effective search semantics of `cfg` as a complete gagp-search-config-v1
-// document. A legacy-environment phase policy is resolved before encoding.
+// document. An unset phase variation policy is encoded with its defaults.
 JsonValue effective_search_config(const evo::EvolutionConfig& cfg);
 
 }  // namespace gagp::cli_detail

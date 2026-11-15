@@ -70,19 +70,13 @@ bool SearchConfig::explicit_phase_variation() const {
 }
 
 SearchConfig parse_search_config(const JsonValue& document) {
-  expect_object(document, "document", {"format", "representation", "population_size", "generations", "seed",
+  expect_object(document, "document", {"format", "population_size", "generations", "seed",
       "selection", "elitism", "crossover", "mutation", "sites", "limits", "ranking", "fitness", "execution",
       "schedule"});
   const auto* format = field(document, "format");
   if (!format || text(*format, "format") != kSearchConfigFormat)
     fail(std::string("format must be \"") + kSearchConfigFormat + "\"");
   SearchConfig config;
-  if (const auto* v = field(document, "representation")) {
-    const auto name = text(*v, "representation");
-    if (name == "resident") config.phase_population = true;
-    else if (name == "native_ast") config.phase_population = false;
-    else fail("representation must be resident or native_ast");
-  }
   if (const auto* v = field(document, "population_size")) config.population_size = integer(*v, "population_size", 1, 1 << 20);
   if (const auto* v = field(document, "generations")) config.generations = integer(*v, "generations", 1, 1 << 20);
   if (const auto* v = field(document, "seed")) config.seed = seed_value(*v);
@@ -177,7 +171,6 @@ SearchConfig load_search_config(const std::string& path) {
 }
 
 void apply_search_config(const SearchConfig& config, evo::EvolutionConfig& cfg) {
-  if (config.phase_population) cfg.phase_population = config.phase_population;
   if (config.population_size) cfg.population_size = *config.population_size;
   if (config.generations) cfg.generations = *config.generations;
   if (config.seed) cfg.seed = *config.seed;
@@ -203,8 +196,6 @@ void apply_search_config(const SearchConfig& config, evo::EvolutionConfig& cfg) 
 JsonValue effective_search_config(const evo::EvolutionConfig& cfg) {
   JsonValue out = make_object();
   out.object_v["format"] = make_string(kSearchConfigFormat);
-  const bool phase = cfg.phase_population.value_or(false);
-  out.object_v["representation"] = make_string(phase ? "resident" : "native_ast");
   out.object_v["population_size"] = make_number(cfg.population_size);
   out.object_v["generations"] = make_number(cfg.generations);
   out.object_v["seed"] = make_string(std::to_string(cfg.seed));
@@ -222,32 +213,30 @@ JsonValue effective_search_config(const evo::EvolutionConfig& cfg) {
   auto execution = make_object();
   execution.object_v["fuel"] = make_number(cfg.fuel);
   out.object_v["execution"] = execution;
-  if (phase) {
-    const auto policy = cfg.phase_variation.value_or(evo::PhaseVariationPolicy{});
-    out.object_v["mutation"].object_v["max_subtree_nodes"] = make_number(policy.mutation_max_nodes);
-    auto crossover = make_object();
-    crossover.object_v["probability"] = make_number(policy.crossover_probability);
-    crossover.object_v["attempts"] = make_number(policy.crossover_attempts);
-    out.object_v["crossover"] = crossover;
-    auto sites = make_object();
-    sites.object_v["scope"] = make_string(policy.site_scope == evo::PhaseSiteScope::UniformPhase ? "uniform_phase" : "genome");
-    sites.object_v["draw"] = make_string(policy.site_draw == evo::PhaseSiteDraw::Counted ? "counted" : "reservoir");
-    out.object_v["sites"] = sites;
-    auto limits = make_object();
-    limits.object_v["site_depth"] = make_number(cfg.gpu_phase_site_depth);
-    out.object_v["limits"] = limits;
-    auto ranking = make_object();
-    ranking.object_v["tie_break"] = make_string(cfg.gpu_phase_site_parsimony ? "grammar_sites" : "ast_nodes");
-    out.object_v["ranking"] = ranking;
-    // Only a non-default schedule is recorded, so generational records are unchanged.
-    if (cfg.phase_schedule && !cfg.phase_schedule->is_default()) {
-      const auto& policy = *cfg.phase_schedule;
-      auto schedule = make_object();
-      schedule.object_v["mode"] = make_string("steady_state");
-      schedule.object_v["batch"] = make_number(evo::resolve_phase_schedule(policy, cfg.population_size).batch);
-      schedule.object_v["replacement_size"] = make_number(policy.replacement_size);
-      out.object_v["schedule"] = schedule;
-    }
+  const auto policy = cfg.phase_variation.value_or(evo::PhaseVariationPolicy{});
+  out.object_v["mutation"].object_v["max_subtree_nodes"] = make_number(policy.mutation_max_nodes);
+  auto crossover = make_object();
+  crossover.object_v["probability"] = make_number(policy.crossover_probability);
+  crossover.object_v["attempts"] = make_number(policy.crossover_attempts);
+  out.object_v["crossover"] = crossover;
+  auto sites = make_object();
+  sites.object_v["scope"] = make_string(policy.site_scope == evo::PhaseSiteScope::UniformPhase ? "uniform_phase" : "genome");
+  sites.object_v["draw"] = make_string(policy.site_draw == evo::PhaseSiteDraw::Counted ? "counted" : "reservoir");
+  out.object_v["sites"] = sites;
+  auto limits = make_object();
+  limits.object_v["site_depth"] = make_number(cfg.gpu_phase_site_depth);
+  out.object_v["limits"] = limits;
+  auto ranking = make_object();
+  ranking.object_v["tie_break"] = make_string(cfg.gpu_phase_site_parsimony ? "grammar_sites" : "ast_nodes");
+  out.object_v["ranking"] = ranking;
+  // Only a non-default schedule is recorded, so generational records are unchanged.
+  if (cfg.phase_schedule && !cfg.phase_schedule->is_default()) {
+    const auto& policy = *cfg.phase_schedule;
+    auto schedule = make_object();
+    schedule.object_v["mode"] = make_string("steady_state");
+    schedule.object_v["batch"] = make_number(evo::resolve_phase_schedule(policy, cfg.population_size).batch);
+    schedule.object_v["replacement_size"] = make_number(policy.replacement_size);
+    out.object_v["schedule"] = schedule;
   }
   return out;
 }

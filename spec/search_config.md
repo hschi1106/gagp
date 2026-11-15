@@ -1,10 +1,11 @@
 # Search Configuration
 
 This document defines the `gagp-search-config-v1` document: the user-tunable
-search semantics of an evolution run. It does not select an execution engine.
-Engine choices (CPU or GPU evaluation and reproduction, warp kernels, buffer
-strategies) must not change any published result of a configured
-search.
+search semantics of an evolution run. The search always runs on the resident
+phase population (the phase-gene genotype below). The document does not
+select an execution engine. Engine choices (the GPU owner or the CPU reference
+owner, warp kernels, buffer strategies) must not change any published result
+of a configured search.
 
 See also:
 
@@ -17,7 +18,6 @@ See also:
 ```json
 {
   "format": "gagp-search-config-v1",
-  "representation": "resident",
   "population_size": 1024,
   "generations": 64,
   "seed": "35",
@@ -39,19 +39,18 @@ out-of-range values are rejected; nothing is clamped or ignored.
 
 | Member | Class | Values | Meaning |
 | --- | --- | --- | --- |
-| `representation` | gagp | `resident`, `native_ast` | `resident` selects the phase-gene genotype and operators below (see [Resident admission](#resident-admission)); `native_ast` selects the typed AST population with host reproduction |
 | `population_size` | common | integer 1..2^20 | Individuals per generation |
 | `generations` | common | integer 1..2^20 | Reproduction rounds; a final evaluation follows unless the entry point skips it |
 | `seed` | common | integer 0..2^53, or a decimal string 0..2^64-1 | Run seed; larger seeds must use the string form |
 | `selection.method` | common | `tournament` | Only tournament selection is defined |
-| `selection.size` | common | integer >= 1 | Tournament size. The resident representation draws contestants independently with replacement; the native AST path keeps its round-based tournaments |
+| `selection.size` | common | integer >= 1 | Tournament size. Contestants are drawn independently with replacement |
 | `elitism` | common | integer >= 0, < population size | Best members copied unchanged into the first offspring slots (highest fitness, ties to the lowest source index) |
-| `crossover.probability` | common | number in [0,1] | Per-child crossover gate (resident) |
-| `crossover.attempts` | gagp | integer 1..64 | Destination/donor site retries per crossover (resident) |
+| `crossover.probability` | common | number in [0,1] | Per-child crossover gate |
+| `crossover.attempts` | gagp | integer 1..64 | Destination/donor site retries per crossover |
 | `mutation.probability` | common | number in [0,1] | Per-child post-crossover mutation probability |
-| `mutation.max_subtree_nodes` | common | integer 0..1024 | Node cap of a generated mutation subtree; 0 disables it (resident) |
-| `sites.scope` | common | `genome`, `uniform_phase` | Site population for crossover and mutation (resident) |
-| `sites.draw` | gagp | `reservoir`, `counted` | Uniform site draw method (resident) |
+| `mutation.max_subtree_nodes` | common | integer 0..1024 | Node cap of a generated mutation subtree; 0 disables it |
+| `sites.scope` | common | `genome`, `uniform_phase` | Site population for crossover and mutation |
+| `sites.draw` | gagp | `reservoir`, `counted` | Uniform site draw method |
 | `limits.site_depth` | common | integer 0..15 | Grammar-invocation depth cap of phase-population variation; 0 disables it |
 | `ranking.tie_break` | common | `ast_nodes`, `grammar_sites` | Tie break after fitness and wrong-case count: fewer AST nodes, or fewer mutable grammar invocations |
 | `fitness.penalty` | common | number >= 0 | Fitness penalty; zero is permitted only where the task's fitness policy allows it |
@@ -68,14 +67,13 @@ out-of-range values are rejected; nothing is clamped or ignored.
   a different search budget, tree-size limit or operator rate. A run must
   record which comparison profile it used.
 - `gagp`: a GAGP mechanism without a direct counterpart in other systems
-  (genotype representation, site-draw implementation, bounded crossover
-  retries). These are GAGP design choices; they are evaluated by ablation
+  (site-draw implementation, bounded crossover retries, population
+  schedule). These are GAGP design choices; they are evaluated by ablation
   against GAGP's own configurations, not aligned per comparison.
 
-## Resident variation
+## Variation
 
-These rules define `crossover`, `sites`, `limits` and `ranking` for
-`representation: resident`.
+These rules define `crossover`, `sites`, `limits` and `ranking`.
 
 - If any member of `crossover` or `sites`, or `mutation.max_subtree_nodes`,
   is present, the whole variation policy is explicit. Absent members then take
@@ -99,7 +97,7 @@ These rules define `crossover`, `sites`, `limits` and `ranking` for
   already consumed for that child are not replayed.
 - `limits.site_depth` counts nested grammar invocations, excluding lowering
   scaffolds.
-- A `resident` run with `limits.site_depth > 0` and no initial
+- A run with `limits.site_depth > 0` and no initial
   population generates its own: one program generated from `seed` fixes the
   skeleton outside the phases, and every phase of member `i` is grown by the
   phase generator under the site-depth profile with invocation depth
@@ -111,18 +109,15 @@ These rules define `crossover`, `sites`, `limits` and `ranking` for
 
 ### Resident admission
 
-A `resident` run first admits the grammar and every initial genome into the
-phase-gene genotype. The grammar is declined when a construct cannot be held
-by that genotype (for example lowering capacity within the depth budget, or
-productions sharing a root node); a genome is declined when it does not share
-the population's fixed skeleton. A decline is not an error: the same search
-reruns with `representation: native_ast`, generational schedule, host
-reproduction and the same evaluation engine. All `crossover` and `sites`
-members, `limits.site_depth`, `mutation.max_subtree_nodes`,
-`ranking.tie_break: grammar_sites` and `schedule` exist only for `resident`
-and are dropped; every other member is kept. The effective search
-configuration then records `native_ast`, and the result records the decline
-reason (`resident_declined` in the `result.json` of `gagp run`).
+A run first admits the grammar and every initial genome into the phase-gene
+genotype. A grammar is rejected when a construct cannot be held by that
+genotype (for example lowering capacity within the depth budget, or
+productions sharing a root node). A genome is rejected when it does not share
+the population's fixed skeleton. Rejection is an error raised before the first
+generation: the run stops with a diagnostic that begins with
+`resident engine cannot admit this grammar or initial population:` and names
+the construct. `gagp run` then exits with status 2 and writes no result. No
+other engine runs instead.
 
 ### Engine equivalence
 
@@ -173,8 +168,7 @@ Cumulative checkpoints and CPU fitness verification are not supported.
 - Physical genotype capacity of the phase population (1024 nodes per phase
   row, at most 8 variable phases): fixed implementation limits. Inputs or
   offspring that exceed them are rejected, never truncated.
-- Phase-population mutation always replaces a whole subtree
-  (`mutation_subtree_prob` must be 1).
+- Mutation always replaces a whole subtree.
 
 ## Entry points and records
 
@@ -184,5 +178,4 @@ Cumulative checkpoints and CPU fitness verification are not supported.
   the task's `fitness.case_cap` and fuel to the grammar's execution fuel.
 - `result.json` records the complete effective configuration as a
   `gagp-search-config-v1` object named `search`. Feeding that object back as a
-  file reproduces the same search semantics. After a resident decline it
-  records the native configuration that actually ran.
+  file reproduces the same search semantics.

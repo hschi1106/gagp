@@ -91,9 +91,7 @@ int main() { try {
   cases.push_back(std::move(c));
  }
  EvolutionConfig base;base.population_size=population;base.generations=5;base.seed=11;base.elite_count=1;base.mutation_rate=0.3;
- base.compiled_grammar=compiled;base.generation_request=grammar::entry_request(*compiled);
- base.mutation_subtree_prob=1;base.fuel=compiled->execution_limits().fuel;base.penalty=1000;base.gpu_blocksize=32;
- base.phase_population=true;
+ base.compiled_grammar=compiled;base.fuel=compiled->execution_limits().fuel;base.penalty=1000;base.gpu_blocksize=32;
  struct Policy{const char* label;PhaseVariationPolicy policy;int site_depth;int fuel_divisor=1;};
  const Policy policies[]={
   {"reservoir/genome",{},0},
@@ -105,7 +103,6 @@ int main() { try {
  const auto run=[&](const Policy& p,bool gpu){
   auto cfg=base;cfg.phase_variation=p.policy;cfg.gpu_phase_site_depth=p.site_depth;cfg.fuel=base.fuel/p.fuel_divisor;
   cfg.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
-  cfg.reproduction_backend=gpu?repro::ReproductionBackend::Gpu:repro::ReproductionBackend::Cpu;
   return trace(evolve_population(cases,cfg,&parents));
  };
  for(const auto& p:policies) {
@@ -121,17 +118,16 @@ int main() { try {
  // A site-depth run without a saved population grows its own phase genes; both
  // owners start from the same generated population and publish one search.
  {
-  const auto initial=repro::generate_phase_initial_population(*compiled,*base.generation_request,names,population,base.seed,policies[2].site_depth);
+  const auto initial=repro::generate_phase_initial_population(*compiled,grammar::entry_request(*compiled),names,population,base.seed,policies[2].site_depth);
   require(initial.size()==std::size_t(population),"generated initial population size");
   std::set<std::size_t> sizes;for(const auto& member:initial)sizes.insert(member.ast.nodes.size());
   require(sizes.size()>1,"generated initial population is not ramped");
-  const auto again=repro::generate_phase_initial_population(*compiled,*base.generation_request,names,population,base.seed,policies[2].site_depth);
+  const auto again=repro::generate_phase_initial_population(*compiled,grammar::entry_request(*compiled),names,population,base.seed,policies[2].site_depth);
   for(std::size_t i=0;i<initial.size();++i)
    require(cli_detail::encode_ast_json(initial[i].ast)==cli_detail::encode_ast_json(again[i].ast),"generated initial population is not deterministic");
   const auto fresh=[&](bool gpu){
    auto cfg=base;cfg.phase_variation=policies[2].policy;cfg.gpu_phase_site_depth=policies[2].site_depth;
    cfg.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
-   cfg.reproduction_backend=gpu?repro::ReproductionBackend::Gpu:repro::ReproductionBackend::Cpu;
    return trace(evolve_population(cases,cfg,nullptr));
   };
   require_same(fresh(false),fresh(true),"site-depth without initial population");
@@ -142,7 +138,6 @@ int main() { try {
   const auto steady_run=[&](bool gpu){
    auto cfg=base;cfg.phase_variation=p->policy;cfg.phase_schedule=steady;
    cfg.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
-   cfg.reproduction_backend=gpu?repro::ReproductionBackend::Gpu:repro::ReproductionBackend::Cpu;
    return trace(evolve_population(cases,cfg,&parents));
   };
   const std::string label=std::string(p->label)+" steady_state";

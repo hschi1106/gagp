@@ -76,7 +76,6 @@ The verdict is `{"cases", "correct", "wrong", "runtime_errors", "mean_loss",
 | `test` | Present when the task has test cases: the verdict of `best` on them |
 | `history` | One entry per generation: `generation`, `best_fitness`, `mean_fitness`, `best_wrong`, `best_nodes`, `elapsed_ms`, `eval_ms`, `repro_ms` |
 | `time_ms` | `total` (wall clock of the run), `search`, `initialization` |
-| `resident_declined` | Present only when the resident representation declined the grammar; the reason |
 
 `best.program` is the program as [`ast-prefix-v2`](grammar.md) JSON.
 `best.text` is a readable s-expression of it (`(sub 1 (mul x x))`) for people;

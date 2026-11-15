@@ -34,7 +34,7 @@ void test_parse_and_apply() {
   const auto empty = config("");
   require(!empty.generations && !empty.explicit_phase_variation(), "empty document set fields");
   const auto full = config(
-      ",\"representation\":\"resident\",\"population_size\":1024,\"generations\":64,"
+      ",\"population_size\":1024,\"generations\":64,"
       "\"seed\":\"18446744073709551615\",\"selection\":{\"method\":\"tournament\",\"size\":3},"
       "\"elitism\":1,\"crossover\":{\"probability\":0.7,\"attempts\":4},\"mutation\":{\"probability\":0.3},"
       "\"sites\":{\"scope\":\"uniform_phase\",\"draw\":\"counted\"},\"limits\":{\"site_depth\":7},"
@@ -42,7 +42,6 @@ void test_parse_and_apply() {
       "\"execution\":{\"fuel\":200000}");
   evo::EvolutionConfig cfg;
   apply_search_config(full, cfg);
-  require(cfg.phase_population && *cfg.phase_population, "representation");
   require(cfg.population_size == 1024 && cfg.generations == 64, "size/generations");
   require(cfg.seed == UINT64_C(18446744073709551615), "64-bit string seed");
   require(cfg.selection_pressure == 3 && cfg.elite_count == 1 && cfg.mutation_rate == 0.3, "selection/elitism/mutation");
@@ -79,7 +78,7 @@ void test_rejections() {
   rejects(",\"fitness\":{\"penalty\":-1}", "fitness.penalty");
   rejects(",\"seed\":-1", "seed");
   rejects(",\"seed\":\"12x\"", "seed");
-  rejects(",\"representation\":\"tree\"", "representation");
+  rejects(",\"representation\":\"resident\"", "unknown key document.representation");
   bool format_rejected = false;
   try { (void)parse_search_config(parse("{\"format\":\"v0\"}")); }
   catch (const std::invalid_argument&) { format_rejected = true; }
@@ -88,7 +87,6 @@ void test_rejections() {
 
 void test_effective_round_trip() {
   evo::EvolutionConfig cfg;
-  cfg.phase_population = true;
   cfg.population_size = 256; cfg.generations = 12; cfg.seed = 99; cfg.selection_pressure = 4;
   cfg.elite_count = 2; cfg.mutation_rate = 0.25; cfg.penalty = 7; cfg.gpu_phase_site_depth = 5;
   cfg.fuel = 12345;
@@ -96,7 +94,7 @@ void test_effective_round_trip() {
   const auto document = effective_search_config(cfg);
   evo::EvolutionConfig copy;
   apply_search_config(parse_search_config(parse(evo::grammar::canonical_json(document))), copy);
-  require(copy.phase_population == cfg.phase_population && copy.population_size == cfg.population_size &&
+  require(copy.population_size == cfg.population_size &&
           copy.generations == cfg.generations && copy.seed == cfg.seed &&
           copy.selection_pressure == cfg.selection_pressure && copy.elite_count == cfg.elite_count &&
           copy.mutation_rate == cfg.mutation_rate && copy.penalty == cfg.penalty &&
@@ -118,14 +116,14 @@ void test_profile_suffix() {
 void test_schedule() {
   require(!config("").schedule, "schedule set by an empty document");
   // A default schedule leaves the effective record unchanged.
-  evo::EvolutionConfig plain; plain.phase_population = true;
+  evo::EvolutionConfig plain;
   const auto before = evo::grammar::canonical_json(effective_search_config(plain));
   plain.phase_schedule = evo::PhaseSchedulePolicy{};
   require(evo::grammar::canonical_json(effective_search_config(plain)) == before, "default schedule changed the record");
   const auto steady = config(",\"schedule\":{\"mode\":\"steady_state\",\"batch\":256,\"replacement_size\":3}");
   require(steady.schedule && steady.schedule->mode == evo::PhaseScheduleMode::SteadyState && steady.schedule->batch == 256 &&
           steady.schedule->replacement_size == 3, "steady_state fields");
-  evo::EvolutionConfig steady_cfg; steady_cfg.phase_population = true; steady_cfg.population_size = 1024;
+  evo::EvolutionConfig steady_cfg; steady_cfg.population_size = 1024;
   apply_search_config(steady, steady_cfg);
   evo::EvolutionConfig steady_copy;
   apply_search_config(parse_search_config(parse(evo::grammar::canonical_json(effective_search_config(steady_cfg)))), steady_copy);
@@ -133,7 +131,7 @@ void test_schedule() {
   // An omitted batch is the population size; the record holds the resolved value.
   const auto whole = config(",\"schedule\":{\"mode\":\"steady_state\"}");
   require(whole.schedule && whole.schedule->batch == 0, "omitted steady_state batch");
-  evo::EvolutionConfig whole_cfg; whole_cfg.phase_population = true; whole_cfg.population_size = 512;
+  evo::EvolutionConfig whole_cfg; whole_cfg.population_size = 512;
   apply_search_config(whole, whole_cfg);
   const auto whole_record = effective_search_config(whole_cfg);
   require(whole_record.object_v.at("schedule").object_v.at("batch").number_v == 512, "omitted batch not recorded as population");

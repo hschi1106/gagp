@@ -4,11 +4,9 @@
 #include "gagp/evolution/grammar/compiled.hpp"
 #include "gagp/evolution/grammar/random.hpp"
 #include "gagp/evolution/grammar/request.hpp"
-#include "gagp/evolution/grammar/frame.hpp"
 
 namespace gagp::evo::grammar {
 
-class VariationContext;
 class DerivationCertificate;
 
 inline constexpr const char* kGrammarSemanticVersion = "gagp-native-2.0.0";
@@ -86,11 +84,5 @@ struct GeneratedDerivation {
 GeneratedDerivation generate_derivation(const CompiledGrammar& grammar, std::uint64_t seed);
 GeneratedDerivation generate_derivation(const CompiledGrammar& grammar, std::uint64_t seed,
     const GenerationRequest& request);
-// Isolated donor validation may bind declared native locals as explicit inputs.
-// The returned complete AST is frame-dependent and is not an original seed artifact.
-GeneratedDerivation generate_derivation_in_frame(const CompiledGrammar& grammar, std::uint64_t seed,
-    const GenerationRequest& request, const GenerationFrame& frame);
-GeneratedDerivation generate_derivation_in_frame(VariationContext& context, std::uint64_t seed,
-    const GenerationRequest& request, const GenerationFrame& frame);
 
 }  // namespace gagp::evo::grammar

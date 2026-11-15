@@ -1,5 +1,6 @@
 #include "gagp/evolution/population_init.hpp"
 
+#include <cmath>
 #include <cstdint>
 #include <stdexcept>
 #include <unordered_map>
@@ -33,16 +34,25 @@ void validate_grammar_inputs(const grammar::CompiledGrammar& grammar, const Case
 }
 }  // namespace
 
-std::vector<grammar::GenerationRequest> population_requests(const EvolutionConfig& config) {
-  if (!config.generation_request)
-    throw std::invalid_argument("evolution requires an explicit generation request");
-  return {*config.generation_request};
+void validate_evolution_config(const EvolutionConfig& cfg) {
+  if (!cfg.compiled_grammar)
+    throw std::invalid_argument("evolution requires a compiled grammar");
+  // The search config `execution.fuel` may lower the evaluation fuel below the
+  // grammar's execution fuel, never raise it.
+  const auto grammar_fuel = cfg.compiled_grammar->execution_limits().fuel;
+  const bool lowered = cfg.fuel > 0 && static_cast<std::uint32_t>(cfg.fuel) < grammar_fuel;
+  if (cfg.fuel <= 0 || (static_cast<std::uint32_t>(cfg.fuel) != grammar_fuel && !lowered))
+    throw std::invalid_argument("compiled grammar execution fuel must match EvolutionConfig fuel");
+  if (cfg.population_size <= 0)
+    throw std::invalid_argument("population_size must be positive");
+  if (!std::isfinite(cfg.mutation_rate) || cfg.mutation_rate < 0 || cfg.mutation_rate > 1)
+    throw std::invalid_argument("mutation probability must be in [0,1]");
 }
 
 void validate_grammar_case_set(const EvolutionConfig& config, const CaseSet& case_set) {
-  if (!config.compiled_grammar || !config.generation_request)
-    throw std::invalid_argument("evolution case validation requires a grammar and request");
-  validate_grammar_case_set(*config.compiled_grammar, case_set, *config.generation_request);
+  if (!config.compiled_grammar)
+    throw std::invalid_argument("evolution case validation requires a grammar");
+  validate_grammar_case_set(*config.compiled_grammar, case_set, grammar::entry_request(*config.compiled_grammar));
 }
 
 void validate_grammar_case_set(const grammar::CompiledGrammar& grammar,
@@ -86,11 +96,9 @@ PopulationInitialization initialize_population(
     const CaseSet& case_set,
     const std::vector<ProgramGenome>* replay_population) {
   PopulationInitialization out;
-  if (config.population_size <= 0)
-    throw std::invalid_argument("population_size must be positive");
-  repro::require_reproduction_mode_supported(config);
+  validate_evolution_config(config);
   const auto& grammar = *config.compiled_grammar;
-  const auto& request = *config.generation_request;
+  const auto request = grammar::entry_request(grammar);
   validate_grammar_case_set(config, case_set);
   if (!replay_population) {
     out.population.reserve(static_cast<std::size_t>(config.population_size));

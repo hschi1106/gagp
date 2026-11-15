@@ -1,7 +1,6 @@
 #include "evaluation_identity.hpp"
 #include "cold_admission.hpp"
 #include "gagp/evolution/repro/pack.hpp"
-#include "variation_internal.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/grammar/values.hpp"
 #include "gagp/evolution/ast_verify.hpp"
@@ -108,10 +107,9 @@ void extend_region_scope(std::vector<int>& environment, const CompiledExpression
 
 class Matcher {
  public:
-  Matcher(const CompiledGrammar& grammar, const AstProgram& ast, const GenerationRequest& request, bool capture_exact_scopes = false, const GenerationFrame* frame = nullptr,
-      const std::vector<GenerationRequest>* population_requests = nullptr)
+  Matcher(const CompiledGrammar& grammar, const AstProgram& ast, const GenerationRequest& request, bool capture_exact_scopes = false)
       : grammar_(grammar), ast_(ast), request_(request),
-        capture_exact_scopes_(capture_exact_scopes), frame_(frame), population_requests_(population_requests) {}
+        capture_exact_scopes_(capture_exact_scopes) {}
   void run(bool defer_membership = false) {
     deferred_ = defer_membership;
     (void)validate_request(grammar_, request_);
@@ -131,24 +129,11 @@ class Matcher {
     for (auto count : pending) if (count) fail("missing prefix children");
     VerifyOptions options;
     options.capture_exact_scopes = capture_exact_scopes_;
-    AstVerifyResult result;
-    if (frame_) {
-      const auto projected = project_frame(grammar_, request_, *frame_, ast_);
-      result = verify_ast(projected.ast, projected.inputs, options);
-    } else {
-      std::vector<InputSpec> inputs;
-      for (const auto& input : grammar_.inputs()) inputs.push_back({input.name, input.type});
-      result = verify_ast(ast_, inputs, options);
-    }
+    std::vector<InputSpec> inputs;
+    for (const auto& input : grammar_.inputs()) inputs.push_back({input.name, input.type});
+    AstVerifyResult result = verify_ast(ast_, inputs, options);
     if (!result) fail("native verification: " + result.diagnostic.message);
     verified_ = std::move(result.verified);
-    if (population_requests_) {
-      const auto selected = std::find_if(population_requests_->begin(), population_requests_->end(),
-          [&](const GenerationRequest& candidate) { return candidate.type == verified_.return_type; });
-      if (selected == population_requests_->end())
-        fail("mixed population member has no admitted root result type");
-      request_ = *selected;
-    }
     fuel_specs_.assign(ast_.nodes.size(), nullptr);
     for (const NodeFuelSpec& spec : ast_.fuel_specs)
       fuel_specs_.at(spec.node_index) = &spec;
@@ -164,8 +149,7 @@ class Matcher {
         fail("expression entry requires its single-return envelope");
       start = 3;
     }
-    lexical_environment_ = frame_ ? frame_environment(grammar_, request_, *frame_) :
-        std::vector<int>(entry.scope.size(), -1);
+    lexical_environment_ = std::vector<int>(entry.scope.size(), -1);
     if (!deferred_ && !nonterminal(request_.nonterminal, start)) fail("AST cannot be derived from the grammar entry");
   }
   const GenerationRequest& request() const { return request_; }
@@ -496,8 +480,6 @@ class Matcher {
   std::vector<const NodeFuelSpec*> fuel_specs_;
   ProductionDecisions decisions_;
   bool capture_exact_scopes_ = false;
-  const GenerationFrame* frame_ = nullptr;
-  const std::vector<GenerationRequest>* population_requests_ = nullptr;
   std::uint32_t steps_ = 0, depth_ = 0;
 };
 
@@ -506,10 +488,10 @@ class Matcher {
 class WitnessBuilder {
  public:
   WitnessBuilder(const CompiledGrammar& grammar, const ProgramGenome& genome,
-      const GenerationRequest& request, Matcher& matcher, const GenerationFrame* frame = nullptr,
+      const GenerationRequest& request, Matcher& matcher,
       std::vector<std::vector<int>>* choice_lexical_environments = nullptr)
       : grammar_(grammar), genome_(genome), verified_(matcher.verified()),
-        matcher_(matcher), frame_(frame),
+        matcher_(matcher),
         choice_lexical_environments_out_(choice_lexical_environments) {
     out_.seed_replayable = false;
     out_.request = request;
@@ -527,23 +509,12 @@ class WitnessBuilder {
       for (const auto index : {std::size_t{0}, std::size_t{1}, std::size_t{2}, out_.nodes.size() - 1})
         out_.nodes[index].fixed = true;
     }
-    lexical_environment_ = frame_ ? frame_environment(grammar_, out_.request, *frame_) :
-        std::vector<int>(grammar_.nonterminals()[nt].scope.size(), -1);
+    lexical_environment_ = std::vector<int>(grammar_.nonterminals()[nt].scope.size(), -1);
     derive(nt, wrap ? 3 : 0);
     out_.derived_nodes = static_cast<std::uint32_t>(genome_.ast.nodes.size() - (wrap ? 4 : 0));
-    auto lowered = [&] {
-      if (frame_) {
-        auto projected = project_frame(grammar_, out_.request, *frame_, genome_.ast);
-        auto projected_genome = genome_;
-        projected_genome.ast = std::move(projected.ast);
-        std::vector<std::string> inputs;
-        for (const auto& input : projected.inputs) inputs.push_back(input.name);
-        return compile_for_eval(projected_genome, verified_, inputs);
-      }
-      std::vector<std::string> inputs;
-      for (const auto& input : grammar_.inputs()) inputs.push_back(input.name);
-      return compile_for_eval(genome_, verified_, inputs);
-    }();
+    std::vector<std::string> inputs;
+    for (const auto& input : grammar_.inputs()) inputs.push_back(input.name);
+    auto lowered = compile_for_eval(genome_, verified_, inputs);
     const auto lowered_instructions = bytecode_instruction_count(lowered);
     if (lowered_instructions > kGrammarMaxLoweredInstructions)
       throw std::invalid_argument("grammar witness exceeds 1048576 lowered instructions");
@@ -747,7 +718,6 @@ class WitnessBuilder {
   const ProgramGenome& genome_;
   const VerifiedAst& verified_;
   Matcher& matcher_;
-  const GenerationFrame* frame_ = nullptr;
   DerivationMetadata out_;
   std::uint32_t depth_ = 0;
   std::uint32_t current_choice_ = kNoGrammarId;
@@ -829,7 +799,7 @@ DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar, const 
 static DerivationMetadata reconstruct_derivation_impl(const CompiledGrammar& grammar,
     const ProgramGenome& genome, const GenerationRequest& request, VerifiedAst* verified,
     std::vector<std::vector<int>>* choice_lexical_environments,
-    ProgramGenome* compact_owned = nullptr,bool retain_registry_executable = false) {
+    bool retain_registry_executable = false) {
   // A public caller without a read snapshot cannot bind mutable registry
   // contents to one consistent proof. Scalar-only ASTs have no such dependency.
   const bool registry_constants = std::any_of(genome.ast.consts.begin(), genome.ast.consts.end(), [](const auto& value) {
@@ -837,7 +807,7 @@ static DerivationMetadata reconstruct_derivation_impl(const CompiledGrammar& gra
         value.tag == ValueTag::FloatList || value.tag == ValueTag::StringList;
   });
   const bool cache = (!registry_constants || payload::StagedPayloads::has_active_scope());
-  if (cache && !compact_owned && genome.derivation && genome.derivation->certificate) {
+  if (cache && genome.derivation && genome.derivation->certificate) {
     const auto& proof = *genome.derivation->certificate;
     if (proof.witness.grammar_hash == grammar.content_hash() &&
         same_certificate_request(proof.witness.request, request) &&
@@ -853,24 +823,10 @@ static DerivationMetadata reconstruct_derivation_impl(const CompiledGrammar& gra
   matcher.run(true);
   std::vector<std::vector<int>> environments;
   std::shared_ptr<const BytecodeProgram> executable;
-  auto witness = WitnessBuilder(grammar, genome, request, matcher, nullptr,
+  auto witness = WitnessBuilder(grammar, genome, request, matcher,
       cache ? &environments : choice_lexical_environments).run(
           cache && (!registry_constants || retain_registry_executable)
               ? &executable : nullptr);
-  if (compact_owned) {
-    // Original tables, including unused entries, have already passed full
-    // verification, canonical membership and lowering. Only this synchronous
-    // owner can mutate the AST before the new certificate is published.
-    const auto names = genome.ast.names.size();
-    *compact_owned = repro::compact_genome_tables(std::move(*compact_owned));
-    if (genome.ast.names.size() != names)
-      return reconstruct_derivation_impl(grammar, genome, request, verified,
-          choice_lexical_environments);
-    // Stable constant-only compaction preserves all referenced decoded values,
-    // node coordinates, exact scopes, canonical choices and resource charges.
-    // Native lowering copies referenced values in traversal order; it does not
-    // retain AST table indices or pointers into the original constant table.
-  }
   if (cache) {
     auto proof = std::make_shared<DerivationCertificate>();
     proof->identity = certificate_identity(grammar, genome);
@@ -888,7 +844,7 @@ static DerivationMetadata reconstruct_derivation_impl(const CompiledGrammar& gra
 
 DerivationMetadata detail::reconstruct_cold_import(const CompiledGrammar& grammar,const ProgramGenome& genome,
     const GenerationRequest& request,VerifiedAst* verified,std::vector<std::vector<int>>* environments) {
-  return reconstruct_derivation_impl(grammar,genome,request,verified,environments,nullptr,
+  return reconstruct_derivation_impl(grammar,genome,request,verified,environments,
       payload::StagedPayloads::has_active_scope());
 }
 
@@ -897,51 +853,6 @@ DerivationMetadata reconstruct_derivation(const CompiledGrammar& grammar,
     std::vector<std::vector<int>>* choice_lexical_environments) {
   return reconstruct_derivation_impl(grammar, genome, request, verified,
       choice_lexical_environments);
-}
-
-ProgramGenome variation_detail::admit_and_compact_execution(
-    ProgramGenome genome, VariationContext& context) {
-  if (context.requests().size() != 1 ||
-      std::any_of(genome.ast.consts.begin(), genome.ast.consts.end(), [](const Value& value) {
-        return value.tag != ValueTag::Int && value.tag != ValueTag::Float &&
-            value.tag != ValueTag::Bool && value.tag != ValueTag::Char;
-      }))
-    throw std::invalid_argument("owned compaction requires a scalar single-root input");
-  // Admission is performed here, not supplied as mutable provenance by callers.
-  auto witness = reconstruct_derivation_impl(context.grammar(), genome,
-      context.request(), nullptr, nullptr, &genome);
-  genome.derivation = std::make_shared<const DerivationMetadata>(std::move(witness));
-  return genome;
-}
-
-DerivationMetadata reconstruct_population_derivation(const CompiledGrammar& grammar,
-    const ProgramGenome& genome, const std::vector<GenerationRequest>& requests,
-    VerifiedAst* verified, std::vector<std::vector<int>>* choice_lexical_environments) {
-  validate_population_requests(grammar, requests);
-  if (requests.size() == 1)
-    return reconstruct_derivation(grammar, genome, requests.front(), verified, choice_lexical_environments);
-  Matcher matcher(grammar, genome.ast, requests.front(), verified != nullptr, nullptr, &requests);
-  matcher.run();
-  auto witness = WitnessBuilder(grammar, genome, matcher.request(), matcher, nullptr,
-      choice_lexical_environments).run();
-  if (verified) *verified = matcher.take_verified();
-  return witness;
-}
-
-void require_membership_in_frame(const CompiledGrammar& grammar, const ProgramGenome& genome,
-    const GenerationRequest& request, const GenerationFrame& frame) {
-  Matcher(grammar, genome.ast, request, false, &frame).run();
-}
-
-DerivationMetadata reconstruct_derivation_in_frame(const CompiledGrammar& grammar, const ProgramGenome& genome,
-    const GenerationRequest& request, const GenerationFrame& frame, VerifiedAst* verified,
-    std::vector<std::vector<int>>* choice_lexical_environments) {
-  Matcher matcher(grammar, genome.ast, request, verified != nullptr, &frame);
-  matcher.run();
-  auto witness = WitnessBuilder(grammar, genome, request, matcher, &frame,
-      choice_lexical_environments).run();
-  if (verified) *verified = matcher.take_verified();
-  return witness;
 }
 
 }  // namespace gagp::evo::grammar

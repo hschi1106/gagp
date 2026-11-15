@@ -24,8 +24,6 @@ void accumulate_timing(EvaluationTiming* total, const EvaluationTiming& value) {
   total->eval_timeouts += value.eval_timeouts;
   total->eval_fallbacks += value.eval_fallbacks;
   total->eval_unscored += value.eval_unscored;
-  total->cpu_compile_ms += value.cpu_compile_ms;
-  total->gpu_compile_ms += value.gpu_compile_ms;
   total->gpu_eval_call_ms += value.gpu_eval_call_ms;
   total->gpu_eval_pack_ms += value.gpu_eval_pack_ms;
   total->gpu_eval_launch_prep_ms += value.gpu_eval_launch_prep_ms;
@@ -38,11 +36,7 @@ void accumulate_timing(EvaluationTiming* total, const EvaluationTiming& value) {
 }
 
 void accumulate_timing(ReproductionTiming* total, const ReproductionTiming& value) {
-  total->selection_ms += value.selection_ms;
-  total->crossover_ms += value.crossover_ms;
-  total->mutation_ms += value.mutation_ms;
   total->setup_ms += value.setup_ms;
-  total->preprocess_ms += value.preprocess_ms;
   total->upload_ms += value.upload_ms;
   total->kernel_ms += value.kernel_ms;
   total->copyback_ms += value.copyback_ms;
@@ -51,9 +45,6 @@ void accumulate_timing(ReproductionTiming* total, const ReproductionTiming& valu
   total->variation.crossover_attempts += value.variation.crossover_attempts;
   total->variation.mutation_attempts += value.variation.mutation_attempts;
   total->variation.contract_rejections += value.variation.contract_rejections;
-  total->variation.budget_rejections += value.variation.budget_rejections;
-  total->variation.generation_rejections += value.variation.generation_rejections;
-  total->variation.acceptance_rejections += value.variation.acceptance_rejections;
   total->variation.fallback_children += value.variation.fallback_children;
   total->variation.unchanged_children += value.variation.unchanged_children;
   total->variation.changed_children += value.variation.changed_children;

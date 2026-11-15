@@ -106,24 +106,6 @@ Value sample_constant(const ConstantDomain& domain, GrammarRandom& random) {
   throw std::invalid_argument("sequence constant requires an exact sequence type");
 }
 
-Value mutate_constant_value(const ConstantDomain& domain, const Value& previous, GrammarRandom& random) {
-  switch (domain.mutation) {
-    case ConstantMutationPolicy::Keep: return previous;
-    case ConstantMutationPolicy::Flip: return Value::from_bool(!previous.b);
-    case ConstantMutationPolicy::Resample: return sample_constant(domain,random);
-    case ConstantMutationPolicy::Add:
-      if (domain.integer_range && previous.tag == ValueTag::Int)
-        return Value::from_int(add_integer_in_range(previous.i,
-            random.integer(domain.delta.integer_minimum,domain.delta.integer_maximum),domain.minimum,domain.maximum));
-      if (domain.float_range && previous.tag == ValueTag::Float)
-        return Value::from_float(add_float_in_range(previous.f,
-            sample_float_interval(domain.delta.float_minimum,domain.delta.float_maximum,random.next()),
-            domain.float_minimum,domain.float_maximum));
-      break;
-  }
-  throw std::invalid_argument("constant mutation policy/value mismatch");
-}
-
 bool constant_domain_contains(const ConstantDomain& domain, const Value& value) {
   if (domain.integer_range)
     return value.tag == ValueTag::Int && value.i >= domain.minimum && value.i <= domain.maximum;
