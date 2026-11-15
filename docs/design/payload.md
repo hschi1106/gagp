@@ -70,6 +70,14 @@ per device (blocks up to 256 MiB, at most 1 GiB cached) and reused by the next
 evaluation (`device_allocation.cu`). The cache is released when an allocation
 fails and before the resident engine measures free memory.
 
+When every program shares one global payload workspace (the extended profile,
+private `IntList` arenas or the generic string and list registry), a session
+keeps that workspace as a single backing within the 16 GiB budget and carves
+the next evaluation's buffers from it, growing it only when needed. Reused
+bytes are as unspecified as freshly allocated ones. Kernels reset the per-case
+tables and caches, and the epoch index is zeroed on every preparation, so
+reuse never changes a score. Other profiles release the backing.
+
 ### Overflow replay
 
 Running out of physical scratch is not a semantic error. The kernel marks the

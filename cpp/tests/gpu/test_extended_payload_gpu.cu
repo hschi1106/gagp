@@ -1202,12 +1202,68 @@ bool test_sorted_arena_cases() {
 #include "private_intlist_offset_checks.cuh"
 #include "private_adjacent_checks.cuh"
 
+// Generic (registry) global-payload lanes lease the session's single backing:
+// the first evaluation allocates it once, later ones reuse dirty bytes and must
+// still equal the CPU reference. Strings and a non-private IntList metric both
+// take this path.
+bool test_reusable_generic_workspace() {
+  BytecodeProgram twice;twice.n_locals=1;
+  twice.code={ins_a(Opcode::Load,0),ins_a(Opcode::Load,0),ins_ab(Opcode::CallBuiltin,int(BuiltinId::Concat),2),ins(Opcode::Return)};
+  BytecodeProgram length=twice;
+  length.code={ins_a(Opcode::Load,0),ins_a(Opcode::Load,0),ins_ab(Opcode::CallBuiltin,int(BuiltinId::Concat),2),
+      ins_ab(Opcode::CallBuiltin,int(BuiltinId::Len),1),ins(Opcode::Return)};
+  BytecodeProgram suffix=twice;suffix.consts={payload::make_string_value("xyz")};
+  suffix.code={ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,0),ins_ab(Opcode::CallBuiltin,int(BuiltinId::Concat),2),ins(Opcode::Return)};
+  struct Variant {const char* name;std::vector<CaseBindings> cases;std::vector<Value> answers;FitnessPolicy policy;
+      std::vector<BytecodeProgram> first,second;};
+  std::vector<Variant> variants;
+  {
+    Variant v{"string"};v.policy.metric=FitnessMetric::Levenshtein;
+    for(const char* s:{"ab","","hello world","a b c"}) {
+      v.cases.push_back({{0,payload::make_string_value(s)}});v.answers.push_back(payload::make_string_value(std::string(s)+s));
+    }
+    v.first.assign(65,twice);v.second.assign(65,suffix);for(int i=0;i<65;i+=2)v.second[i]=twice;
+    variants.push_back(std::move(v));
+  }
+  {
+    Variant v{"intlist-absolute"};v.policy.metric=FitnessMetric::Absolute;
+    for(int n:{0,1,5,40}) {
+      std::vector<Value> xs;for(int i=0;i<n;++i)xs.push_back(Value::from_int(i-3));
+      v.cases.push_back({{0,payload::make_int_list_value(xs)}});v.answers.push_back(Value::from_int(n+(n&1)));
+    }
+    v.first.assign(65,length);v.second.assign(130,length);
+    variants.push_back(std::move(v));
+  }
+  for(const auto& v:variants) {
+    const std::string name=v.name;
+    FitnessSessionGpu session;if(!session.init(v.cases,v.answers,100,1024,1000,v.policy).ok)return false;
+    const auto first=session.eval_programs(v.first,true);
+    const auto budget=first.payload_workspace_budget_bytes;
+    if(!check(first.ok && first.fitness==eval_fitness_cpu(v.first,v.cases,v.answers,100,1000,1024,v.policy) &&
+        first.payload_workspace_pool_allocations==1 && first.payload_workspace_retained_bytes>0 &&
+        first.payload_workspace_pool_peak_bytes<=budget &&
+        first.execution_profile.find("-reuse-generic-workspace")!=std::string::npos &&
+        first.execution_profile.find("-reuse-generic-workspace-declined")==std::string::npos,
+        name+": generic global payload must lease one bounded backing"))return false;
+    for(const auto* current:{&v.second,&v.first}) {
+      const auto result=session.eval_programs(*current,true);
+      if(!check(result.ok && result.fitness==eval_fitness_cpu(*current,v.cases,v.answers,100,1000,1024,v.policy) &&
+          result.payload_workspace_pool_peak_bytes<=budget &&
+          (current->size()>v.first.size() || (result.payload_workspace_pool_allocations==0 &&
+              result.payload_workspace_retained_bytes==first.payload_workspace_retained_bytes)),
+          name+": dirty generic workspace changed CPU fitness or reallocated"))return false;
+    }
+  }
+  return true;
+}
+
 int main() {
   if(!private_adjacent_checks::run())return 1;
   // Session initialization selects the least-used visible device before raw kernels.
   FitnessSessionGpu selection;
   if (!selection.init({{}}, {Value::from_int(0)}, 1, 32, 1.0).ok) return 1;
-  if(!test_private_intlist_offsets() || !test_private_global_offset_preparation() || !test_private_global_offset_cases() || !test_reusable_private_workspace())return 1;
+  if(!test_private_intlist_offsets() || !test_private_global_offset_preparation() || !test_private_global_offset_cases() || !test_reusable_private_workspace() ||
+      !test_reusable_generic_workspace())return 1;
   if(!test_private_intlist_fitness() || !test_private_tuple_fitness())return 1;
   if (!test_dense_case_tiles() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_extended_payload() || !test_private_list_index() || !test_epoch_list_index() || !test_scalar_region_index_rollback() || !test_payload_replay_fitness() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
