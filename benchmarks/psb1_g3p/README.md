@@ -101,7 +101,7 @@ and the whole per-generation history.
 | Runs | 100 | 100 |
 
 The constants that are a choice of this port are named at the top of
-[`build.py`](build.py): `FUEL`, `MAX_DEPTH`, `BODY_NODES`, the loop translation
+[`build.py`](build.py): `FUEL`, `LOOP_BOUND`, `MAX_DEPTH`, `BODY_NODES`, the loop translation
 (`LOOP_COUNTER`, `SLICE_END`) and `CHAR_MODULUS`. They may be retuned, and the
 committed files then change with them.
 
@@ -120,6 +120,7 @@ and not a claim about results.
 | --- | --- | --- |
 | `v = e`, `v op= e` (`+ - *`) | `assign`, with `op=` as `v = op(v, e)` | yes |
 | `if` with and without `else` | `if_stmt` with an empty or a full else block | yes |
+| `while <bool>` with the `loopBreak` guard | `while_stmt(LOOP_BOUND, <bool>, body)` | bounded, see below |
 | `for forCounter in <list_int>` | `for_range(len(<list_int>), body)` | yes except the loop note below |
 | `for <int_var> in <list_int>` | `for_range(len(L), [v = index_mod(L, k)] + body)` with the hidden counter `k`, for a list variable `L` only | restricted, see below |
 | `<list>.append(e)` | `L = append(L, e)` | yes |
@@ -146,14 +147,20 @@ and not a claim about results.
 
 ### Constructs that could not be ported or are changed
 
-- **`while` loops** are removed, because the language has no `while`. This is
-  the one structural difference. In the original `<compound_stmt>` has three
-  productions (`for`, `if`, `while`) for the list problems and two (`if`,
-  `while`) for the others, so `while` had 1/6 of `<statement>` for
-  `count_odds` and `negative_to_zero`, and 1/4 for `smallest`, `median`,
-  `small_or_large` and `replace_space_with_newline`. The remaining productions
-  of `<compound_stmt>` share its probability, so `for` and `if` are 1/4 each of
-  `<statement>` in the list problems and `if` is 1/2 in the others.
+- **`while` loops** are ported with a bound. `while <bool>: <code>` is
+  `while_stmt(LOOP_BOUND, <bool>, <code>)`: the loop leaves normally after
+  `LOOP_BOUND` iterations or when the condition is false, and reaching the bound
+  is not an error. It keeps its original probability, 1/6 of `<statement>` for
+  `count_odds` and `negative_to_zero` (where `<compound_stmt>` has `for`, `if`,
+  `while`) and 1/4 for `smallest`, `median`, `small_or_large` and
+  `replace_space_with_newline` (`if`, `while`), so every original production has
+  its original probability. `LOOP_BOUND` is 200. It is a choice of this port: the
+  thesis sets `loopBreakConst` in a header but its text does not give the value,
+  and the PonyGE2 grammars never define it. The longest input of these six
+  problems is a list of 49 integers or a string of 20 characters (checked against
+  the Train and Test files), so 200 covers a loop over any input, and it leaves
+  about 100 instructions of fuel per iteration at fuel 20,000. A `for` loop has
+  no such bound here beyond its list length and fuel.
 - **`for <int_var> in <list_int>`** iterates a list variable only. Its source
   is one of the 4 or 5 list variables of the problem, with the production's
   probability unchanged. A slice or `range` source would need the list stored in
@@ -189,10 +196,17 @@ and not a claim about results.
   characters (space, tab, newline, carriage return, form feed, vertical tab).
   Python's `str.strip()` also removes the control characters 28 to 31. They can
   occur only through `saveChr`.
-- **Loop counters.** The original grammars add a `loopBreak` counter to every
-  loop that stops all loops after `loopBreakConst` iterations in total. That
-  counter is not ported. Fuel bounds every program.
-
+- **Loop counters.** Every original loop ends with
+  `if loopBreak% > loopBreakConst or stop.value: break` followed by
+  `loopBreak% += 1`, and starts with the line `loopBreak% = 0`. PonyGE2's
+  `src/fitness/progsys.py` (`format_individual`) deletes every `loopBreak% = 0`
+  line and replaces `loopBreak%` by `loopBreak`, so in the formatted program the
+  counter is one name shared by all loops and nothing resets it at loop entry. The
+  Embed files of the checkout do not initialize `loopBreak` or define
+  `loopBreakConst` either. How the thesis' own implementation sets them is not
+  visible in these files. Here each `while` has its own counter that starts at
+  zero on entry, and `for` loops have none (the original's `for` carries the same
+  guard). The wall-clock guard `stop.value` is replaced by fuel.
 ### Fitness
 
 Thesis Table A.1 against `task.json`:

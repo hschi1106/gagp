@@ -1284,7 +1284,7 @@
     },
     {
      "id": "a31",
-     "weight": 0.2500000000000001,
+     "weight": 0.12500000000000006,
      "expression": {
       "control": "if_stmt(Bool,Block,Block)->Statement",
       "type": "Int",
@@ -1305,7 +1305,7 @@
     },
     {
      "id": "a32",
-     "weight": 0.2500000000000001,
+     "weight": 0.12500000000000006,
      "expression": {
       "control": "if_stmt(Bool,Block,Block)->Statement",
       "type": "Int",
@@ -1315,6 +1315,30 @@
        },
        {
         "ref": "G.Code"
+       },
+       {
+        "ref": "G.Code"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a33",
+     "weight": 0.2500000000000001,
+     "expression": {
+      "control": "while_stmt(Int,Bool,Block)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "constant": {
+         "type": "Int",
+         "values": [
+          "200"
+         ]
+        }
+       },
+       {
+        "ref": "G.Bool"
        },
        {
         "ref": "G.Code"
