@@ -325,9 +325,8 @@ nonmaterialized primitives cannot own a charge.
 A charge is validated and participates in grammar identity (the content
 hash); it never changes program ASTs or execution fuel, and the search does
 not budget it: search limits, generation feasibility and variation limits
-count physical nodes and depth only. Its one effect is an admission decline
-of the resident GPU engine, described in
-[GPU reproduction](../docs/design/gpu-reproduction.md#genome-layouts).
+count physical nodes and depth only. It has no effect on either search
+representation.
 
 Compilation is bounded to 4,096 nonterminals, 4,096 templates, 65,536 productions,
 and 65,536 compiled expressions. It rejects every nonterminal lacking a finite

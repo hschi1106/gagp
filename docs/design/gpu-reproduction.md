@@ -35,24 +35,33 @@ invalid search policies still fail.
 
 ## Genome layouts
 
-A genome is one of two layouts, chosen from the grammar:
+A genome is one of two layouts, chosen by `import_native_phase_population`
+(`phase_layout.hpp`) from the grammar and the initial population. The rule is
+in [Resident admission](../../spec/search_config.md#resident-admission).
 
-- **Whole program.** Every grammar that does not take the region-template
-  layout is admitted as one phase holding the whole program. An expression entry is lowered and completed by
+- **Region template.** A candidate grammar (entry with one template
+  production, no `let` or traversal primitive) keeps the template fixed and
+  varies up to 8 independent phases, the holes of its one bounded region. The
+  population first imports exactly as each member's own import chooses; it
+  keeps this layout only when every member takes it with one fixed skeleton.
+  A phase grammar with Float, String or nonempty list constant domains never
+  takes it, because variation would draw constants the layout does not hold.
+- **Whole program.** Every other population, including a candidate's whose
+  members do not all fit the region template, is imported again as one phase
+  holding the whole program. An expression entry is lowered and completed by
   the native program terminator (`patch_whole_program`); a Program entry
   lowers its statements (`assign`, `return`, `if_stmt`, `for_range`, blocks,
   up to 16 grammar locals) exactly as the native compiler does, including its
-  first-use local order. Statement programs are limited to 512 nodes.
-- **Region template.** A grammar whose only entry production is a template,
-  whose genomes hold exactly one bounded region, and which has no `let` or
-  traversal primitive keeps the template fixed and varies up to 8 independent
-  phases (the holes of the template). Members of any other grammar never take
-  this layout, so a population of a grammar with a bounded region behind one
-  of several entry alternatives imports as whole programs.
+  first-use local order.
+
+Initial population generation (`generate_phase_initial_population`) applies
+the same rule to its prototype program.
 
 Phase expressions may use all eight value types, any catalog operation of
-matching arity, grammar inputs, finite constant domains of any type and Int
-ranges. Whole-program phases may also contain:
+matching arity, grammar inputs, finite constant domains of any type, Int
+ranges, Float ranges (quantized or not, sampled by `numeric_sampling.hpp`
+exactly as native construction) and `sample_from` samplers. `sequence`
+constant domains are not held yet. Whole-program phases may also contain:
 
 - **`let` binders**, numbered statically: every nonterminal is entered under
   exactly one binder environment, so generation never renumbers. A grammar that
@@ -93,24 +102,29 @@ rebuilt program over the node, depth or site-depth budget is rejected. Import
 renames the copies of a native member (whose copies carry the first
 occurrence's ids) the same way, and annotation checks that every copy is
 exact. A grammar whose only member is one fixed program is admitted with no
-variable site. A genome whose fixed template structure carries a
-`resource_charge` other than the default (more than one node or depth level,
-or a depth reset) still uses the native fallback in the region-template
-layout.
+variable site. A `resource_charge` is ignored: it never changes a layout or a
+search.
 
 ## Capacities
 
-Admission bounds every resource over every program the grammar can derive
-within its depth budget, so variation never produces a program the engine
-cannot lower or hold:
+The capacities are the language's limits on the resident engine, listed with
+their values in [Resident capacities](../../spec/search_config.md#resident-capacities).
+Admission checks them in three places, each message naming the limit and the
+offending value:
 
-| Resource | Limit |
-| --- | --- |
-| Population | 16384 members |
-| Whole-program grammar budget | 2048 nodes, depth 64 |
-| One variable phase | 1024 nodes |
-| Open traversals / lets / loops / analysed value `if`s on one path | 8 / 16 / 16 / 16 |
-| Locals | 64 |
+- `compile_phase_grammar` (`phase_grammar.hpp`): every bound over the
+  programs the grammar can derive within its depth budget (scopes, bindings,
+  binder numbers, inputs, grammar locals, region shapes, constant domains,
+  tables, unit inlining, and the lowering bound on locals, open traversals,
+  lets, loops and value `if`s), so variation never produces a program the
+  engine cannot lower or hold.
+- `import_native_phase_layout` (`phase_layout.hpp`): `search_limits`, the
+  nodes and bounded regions of each imported phase and the statement program
+  size. Generation and variation reject a candidate with more than 4 bounded
+  regions (`phase_region_count`), as they reject one over the node budget.
+- The owners' constructors: population size, program inputs, phase count and,
+  on the GPU, the genotype workspace and the evaluator's local, frame and
+  memo capacities of the first member.
 
 A child that reads a local before native definite assignment would define it
 is rejected: crossover tries its next site, mutation keeps the crossed child,

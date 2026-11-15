@@ -10,7 +10,7 @@
 // redundantly executing a child; only memory traffic and scans are spread over
 // lanes, never the order of random draws or floating-point accumulation.
 namespace gagp::evo::repro::phase_ops {
-constexpr int capacity = 1024, code_capacity = 4*capacity;
+constexpr int capacity = kPhaseRowNodes, code_capacity = 4*capacity;
 
 struct TreePointers {
  PhaseTreeNode* nodes;int* origins;PhaseGeneSite* sites;Value* constants;PhaseGenerationResult* lengths;
@@ -144,13 +144,15 @@ template<bool Warp> __host__ __device__ inline PhaseGenerationResult splice(cons
  return splice_phase_tree<true>(base,destination,donor,source,output,max_depth,site_depth);
 }
 
-// A statement program must read only definitely assigned grammar locals.
+// A statement program must read only definitely assigned grammar locals, and
+// a phase that can hold bounded regions at most kPhaseMaxRegions of them.
 template<bool Warp> __host__ __device__ inline bool locals_defined(const DeviceSlot& slot,const PhaseTreeNode* nodes,int count) {
- if(slot.type!=kPhaseStatement)return true;
+ if(slot.type!=kPhaseStatement && !slot.grammar.region_count)return true;
 #ifdef __CUDA_ARCH__
  if constexpr(Warp)__syncwarp();
 #endif
- return phase_locals_defined(nodes,count);
+ if(slot.grammar.region_count && phase_region_count(nodes,count)>kPhaseMaxRegions)return false;
+ return slot.type!=kPhaseStatement || phase_locals_defined(nodes,count);
 }
 
 // A profile with repeated template holes rebuilds every later occurrence from

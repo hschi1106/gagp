@@ -138,8 +138,8 @@ recursive request must make progress, so programs terminate
 The resident GPU engine holds the population on the device and admits a
 grammar when every program it can derive fits its capacity: at most 2048
 nodes and depth 64 over the whole program, 1024 nodes per varied phase, 16
-locals in statement programs, and up to 8 varied phases around a fixed
-template ([full rules](../design/gpu-reproduction.md#genome-layouts)). A
+grammar locals, and 512 nodes in statement programs
+([all capacities](../../spec/search_config.md#resident-capacities)). A
 grammar outside these limits still runs: `gagp run` prints
 `resident engine declined this grammar (...)` and uses the slower host
 reproduction with the same evaluation engine. Tighter `search_limits` are the

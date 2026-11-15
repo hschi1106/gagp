@@ -11,6 +11,7 @@
 // lower every generated genome to the native compiler's exact bytecode, and the
 // CPU reference and GPU owner must publish one search of verified members.
 #include <algorithm>
+#include <functional>
 #include <iostream>
 #include <optional>
 #include <set>
@@ -128,7 +129,11 @@ std::optional<ProgramGenome> generated(const grammar::CompiledGrammar& grammar,u
  try{return grammar::generate_derivation(grammar,seed).genome;}
  catch(const std::invalid_argument&){return std::nullopt;}
 }
-enum class Fixture{Expressions,Statements,Lets,Regions,Captures,Traversals,Templates};
+// RegionFallback: a region-template candidate whose members do not all take
+// the region layout, so the population imports whole programs. ManyRegions: a
+// grammar that derives programs over the capacity of bounded regions per
+// program, which import refuses and generation and variation reject.
+enum class Fixture{Expressions,Statements,Lets,Regions,Captures,Traversals,Templates,RegionFallback,Ranges,ManyRegions};
 // `fixture` is relative to the repository root. Without `search`, only
 // lowering parity runs (the GPU evaluator rejects the grammar's region limits).
 // Without `vary`, the grammar has one member, so no search can vary it.
@@ -139,13 +144,33 @@ void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
  std::vector<std::string> names;for(const auto& input:compiled->inputs())names.push_back(input.name);
  auto reordered=names;std::reverse(reordered.begin(),reordered.end());
  // Lowering parity over generated programs, in grammar and reversed input order.
- std::set<int> kinds;std::set<ValueTag> constant_tags;int programs=0,rejected=0,nested=0,regions=0,lexical=0,reversed=0;
+ std::set<int> kinds;std::set<ValueTag> constant_tags;int programs=0,rejected=0,nested=0,regions=0,lexical=0,reversed=0,declined=0,over=0;
+ const bool fallback=mode==Fixture::RegionFallback,many=mode==Fixture::ManyRegions;std::vector<ProgramGenome> members;
+ const auto region_nodes=[](const ProgramGenome& g){return std::count_if(g.ast.nodes.begin(),g.ast.nodes.end(),
+     [](const auto& node){return node.kind==NodeKind::BOUNDED_REGION;});};
+ const auto too_many=[&](const ProgramGenome& g){return many && region_nodes(g)>kPhaseMaxRegions;};
  for(unsigned seed=0;seed<256;++seed) {
   const auto genome=generated(*compiled,seed);
   if(!genome){++rejected;continue;}
+  if(too_many(*genome)) {
+   const auto count=std::to_string(region_nodes(*genome));
+   for(const bool whole:{false,true}) {
+    try{import_native_phase_layout(*compiled,*genome,nullptr,&names,true,whole);require(false,"over-capacity member imported");}
+    catch(const std::invalid_argument& e) {
+     require(std::string(e.what())=="resident phase layout: a program of "+count+
+         " bounded regions exceeds the capacity of 4 bounded regions per program",std::string("region capacity message: ")+e.what());
+    }
+   }
+   ++over;continue;
+  }
   ++programs;
+  if(fallback) {
+   members.push_back(*genome);
+   try{declined+=import_native_phase_layout(*compiled,*genome,nullptr,&names).whole_program;}
+   catch(const std::invalid_argument&){++declined;}
+  }
   for(const auto* order:{&names,&reordered}) {
-   const auto layout=import_native_phase_layout(*compiled,*genome,nullptr,order);
+   const auto layout=import_native_phase_layout(*compiled,*genome,nullptr,order,true,fallback);
    require(layout.whole_program && layout.slots.size()==1 && layout.program_terminator!=statements,
        "grammar did not import as one whole-program slot");
    const auto native=compile_for_eval(*genome,*order);
@@ -180,6 +205,15 @@ void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
   require(nested>=32,"let fixture must nest binders: "+std::to_string(nested));
  } else if(mode==Fixture::Templates) {
   require(rejected==0,"template grammar generation failed");
+ } else if(many) {
+  require(rejected==0 && over>0 && regions>0,"region capacity fixture must derive members over and within the capacity: "+
+      std::to_string(over)+"/"+std::to_string(regions));
+ } else if(mode==Fixture::Ranges) {
+  require(rejected==0 && constant_tags.count(ValueTag::Float) && constant_tags.count(ValueTag::Int),"range fixture did not draw Float and Int constants");
+ } else if(fallback) {
+  require(rejected==0 && declined>0,"fallback fixture must have members outside the region layout");
+  const auto imported=import_native_phase_population(*compiled,members,nullptr,&names);
+  require(imported.front().whole_program && imported.front().slots.size()==1,"fallback population did not import whole programs");
  } else if(mode==Fixture::Traversals) {
   require(rejected==0,"traversal grammar generation failed");
   for(auto kind:{NodeKind::TRAVERSE,NodeKind::TRAVERSE_RANGE,NodeKind::LET_REGION,NodeKind::IF_EXPR})
@@ -211,11 +245,16 @@ void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
   cfg.reproduction_backend=gpu?ReproductionBackend::Gpu:ReproductionBackend::Cpu;
   std::vector<ProgramGenome> parents;
   if(exported)for(const auto& text:*exported){ProgramGenome g;g.ast=cli_detail::decode_ast_json(cli_detail::JsonParser(text,{true,512}).parse());parents.push_back(std::move(g));}
-  else if(!site_depth)for(unsigned seed=901;int(parents.size())<population;++seed)if(auto g=generated(*compiled,seed))parents.push_back(std::move(*g));
+  else if(!site_depth)for(unsigned seed=901;int(parents.size())<population;++seed)
+   if(auto g=generated(*compiled,seed);g && !too_many(*g))parents.push_back(std::move(*g));
   const auto result=evolve_population(cases,cfg,parents.empty()?nullptr:&parents);
   require(result.resident_declined.empty(),label+": resident engine declined: "+result.resident_declined);
   // Every published member, including rejected-variation fallbacks, is native valid.
-  for(const auto& member:result.final_population)grammar::require_membership(*compiled,member.genome);
+  for(const auto& member:result.final_population) {
+   grammar::require_membership(*compiled,member.genome);
+   require(std::count_if(member.genome.ast.nodes.begin(),member.genome.ast.nodes.end(),[](const auto& node){return node.kind==NodeKind::BOUNDED_REGION;})<=
+       kPhaseMaxRegions,label+": published member over the region capacity");
+  }
   return trace(result);
  };
  require_same(run(0,nullptr,false),run(0,nullptr,true),label+" generated parents");
@@ -225,6 +264,52 @@ void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
  require_same(fresh,run(7,nullptr,true),label+" site-depth initial population");
  require_same(run(7,&fresh.asts,false),run(7,&fresh.asts,true),label+" exported population");
  std::cout<<fixture<<": "<<programs<<" programs, "<<rejected<<" undefined-local rejections\n";
+}
+// A resource charge on a region template's fixed skeleton never changes
+// search: the charged grammar keeps the region layout and publishes the same
+// populations, on both owners, as the grammar without the charges.
+void check_charged(const char* fixture) {
+ const auto path=std::string(GAGP_REPOSITORY_ROOT "/")+fixture;
+ auto document=grammar::load_definition(path).document;
+ const auto charged=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(grammar::load_definition(path)));
+ std::function<void(cli_detail::JsonValue&)> strip=[&](cli_detail::JsonValue& v) {
+  v.object_v.erase("resource_charge");
+  for(auto& [key,child]:v.object_v)strip(child);
+  for(auto& child:v.array_v)strip(child);
+ };
+ strip(document);
+ const auto plain=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::parse_definition(grammar::canonical_json(document))));
+ require(charged->content_hash()!=plain->content_hash(),"charge fixture carries no charge");
+ std::vector<std::string> names;for(const auto& input:charged->inputs())names.push_back(input.name);
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*charged),{true,64}).parse());
+ const auto run=[&](const std::shared_ptr<const grammar::CompiledGrammar>& g,int site_depth,bool gpu) {
+  EvolutionConfig cfg;cfg.population_size=64;cfg.generations=6;cfg.seed=5;cfg.elite_count=1;cfg.mutation_rate=0.3;
+  cfg.compiled_grammar=g;cfg.generation_request=grammar::entry_request(*g);
+  cfg.mutation_subtree_prob=1;cfg.fuel=g->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+  cfg.phase_population=true;cfg.gpu_phase_site_depth=site_depth;
+  if(site_depth)cfg.phase_variation={PhaseSiteDraw::Counted,PhaseSiteScope::Genome,0.9,8};
+  cfg.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  cfg.reproduction_backend=gpu?ReproductionBackend::Gpu:ReproductionBackend::Cpu;
+  std::vector<ProgramGenome> parents;
+  if(!site_depth)for(unsigned seed=901;parents.size()<64;++seed)parents.push_back(grammar::generate_derivation(*g,seed).genome);
+  const auto result=evolve_population(cases,cfg,parents.empty()?nullptr:&parents);
+  require(result.resident_declined.empty(),std::string(fixture)+": resident engine declined: "+result.resident_declined);
+  for(const auto& member:result.final_population)grammar::require_membership(*g,member.genome);
+  return trace(result);
+ };
+ for(unsigned seed=0;seed<16;++seed)
+  require(!import_native_phase_layout(*charged,grammar::generate_derivation(*charged,seed).genome,nullptr,&names).whole_program,
+      "a charged region template left the region layout");
+ for(const int site_depth:{0,7}) {
+  const auto label=std::string(fixture)+" site depth "+std::to_string(site_depth);
+  const auto cpu=run(charged,site_depth,false);
+  require_same(cpu,run(charged,site_depth,true),label);
+  const auto twin=run(plain,site_depth,false);
+  require(cpu.asts==twin.asts && cpu.fitness==twin.fitness && cpu.best==twin.best && cpu.mean==twin.mean,
+      label+": a resource charge changed the search");
+ }
+ std::cout<<fixture<<": region layout, identical to the uncharged grammar on CPU and GPU\n";
 }
 // A grammar whose traversals nest deeper than the resident capacity is
 // declined at admission; the search then reruns on the native representation
@@ -280,6 +365,18 @@ int main() { try {
  // Repeated holes share one derivation: recursive, skewed in depth, with a
  // constant in the fill, forwarded through a nested template, and under a let.
  check("cpp/tests/fixtures/phase_repeated.json",Fixture::Templates);
+ // Region-template candidates whose members leave the region layout: Float,
+ // String and nonempty list constants in a phase, and a hole that may derive a
+ // second bounded region. The whole population imports whole programs.
+ check("cpp/tests/fixtures/phase_region_constants.json",Fixture::RegionFallback);
+ check("cpp/tests/fixtures/phase_region_extra.json",Fixture::RegionFallback);
+ // Float ranges (continuous and quantized) and sample_from on Int and Float ranges.
+ check("cpp/tests/fixtures/phase_float_range.json",Fixture::Ranges);
+ // Programs with more bounded regions than lowering holds: import refuses
+ // them, and generation and variation draw or try again.
+ check("cpp/tests/fixtures/phase_many_regions.json",Fixture::ManyRegions);
+ // Weighted and depth-resetting charges on a region template's skeleton.
+ check_charged("cpp/tests/fixtures/phase_region_charged.json");
  // Shipped templates: a fold whose step and last holes are the only choices,
  // and a single program with a repeated hole of fixed fill (children equal parents).
  check("configs/grammar/compat/linear_rec_intlist_int.json",Fixture::Templates,false);

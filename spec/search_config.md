@@ -130,15 +130,38 @@ These rules define `crossover`, `sites`, `limits` and `ranking` for
   `grammar_sites`.
 - A grammar whose only member is one fixed program has no variable site:
   every child equals its parent.
+- Generation draws a constant from a domain's `sample_from` sampler when it
+  has one, and samples a Float range with the native construction law and
+  quantization ([constant domains](grammar_definition.md#constant-domains)).
 
 ### Resident admission
 
 A `resident` run first admits the grammar and every initial genome into the
 phase-gene genotype. Unit productions, alias cycles, repeated template holes
 and single-program grammars are admitted (see [Resident variation](#resident-variation)).
-The grammar is declined when a construct cannot be held by that genotype (for
-example lowering capacity within the depth budget); a genome is declined when
-it does not share the population's fixed skeleton. A decline is not an error: the same search
+
+The genome layout is a function of the grammar and the initial population:
+
+1. A grammar whose entry has exactly one production, a template, and which
+   uses no `let` or traversal primitive is a region-template candidate. Its
+   population takes the region-template layout (the template fixed, the holes
+   of its one bounded region varied as separate phases) when every member
+   takes it with one fixed skeleton. A member does not take it when its
+   template holds anything other than one bounded region whose variable holes
+   are exactly its phases, more than 8 variable phases, a phase grammar with a
+   `let` or with constant domains other than Int, Bool and the empty IntList,
+   or a skeleton constant outside those types.
+2. Every other population, including a candidate's whose members do not all
+   take the region-template layout, takes the whole-program layout: one phase
+   holding the whole program.
+
+A `resource_charge` has no effect on admission or on search.
+
+The grammar is declined when it exceeds a [resident capacity](#resident-capacities).
+The resident engine does not yet hold three constructs of the language, which
+are declined as well: `sequence` constant domains, a nonterminal reached under
+two different lexical binder environments, and a traversal inside a bounded
+region phase. A decline is not an error: the same search
 reruns with `representation: native_ast`, generational schedule, host
 reproduction and the same evaluation engine. All `crossover` and `sites`
 members, `limits.site_depth`, `mutation.max_subtree_nodes`,
@@ -146,6 +169,47 @@ members, `limits.site_depth`, `mutation.max_subtree_nodes`,
 and are dropped; every other member is kept. The effective search
 configuration then records `native_ast`, and the result records the decline
 reason (`resident_declined` in the `result.json` of `gagp run`).
+
+### Resident capacities
+
+These are the limits of the language on the resident engine: a grammar, an
+initial population or a run that exceeds one is declined at admission, and the
+message names the limit and the offending value. Program-shape limits are
+proven over every program the grammar can derive within its `search_limits`,
+so variation never builds a program beyond them. The one exception is the
+number of bounded regions in one program, which is checked per program like
+`max_nodes`: admission refuses an initial member with more, and generation
+and variation reject a candidate with more and draw or try again.
+
+| Resource | Limit |
+| --- | --- |
+| Population | 16384 members |
+| `search_limits.max_depth` | 64 |
+| `search_limits.max_nodes` | 2048 |
+| Nodes of one phase (in the whole-program layout, of the whole program) | 1024 |
+| `search_limits.max_nodes` of a Program-entry grammar | 512 |
+| Program inputs | 64 |
+| Grammar locals referenced by the grammar | 16 |
+| Locals of a lowered program (inputs, grammar locals and temporaries) on one path | 64 |
+| Open traversals / `let`s / loops on one path | 8 / 16 / 16 |
+| Analysed value `if`s on one path under an open traversal | 16 |
+| Visible lexical bindings | 15 |
+| Static binder numbers (`let` and traversal bindings) | 16 |
+| Bindings in the scope of a nonterminal, reference, template or hole | 8 |
+| Operands plus phases of one bounded region | 8 |
+| Captures of one bounded region | 8 |
+| Bindings of one bounded region phase | 7 |
+| Bounded regions in one program | 4 |
+| Reachable traversal and bounded region expressions | 1024 |
+| Values of one finite constant domain / of all reachable domains | 65536 / 1048576 |
+| Grammar table: (expressions + 1) x (`max_depth` + 1), and with `limits.site_depth` expressions x (`max_depth` + 1) x (`site_depth` + 1) | 4194304 entries |
+| Alternatives produced by inlining unit productions | 65536 |
+| GPU genotype workspace (population x phases x 1024 nodes) | 12 GiB |
+
+The GPU evaluator additionally bounds the frames and memo cells of a bounded
+region plan (`DMAX_REGION_FRAMES`, `DMAX_REGION_MEMO` in
+`cpp/include/gagp/runtime/gpu/region_types_gpu.hpp`, see the
+[region workspace](../docs/design/payload.md#region-workspace)).
 
 ### Engine equivalence
 

@@ -233,20 +233,38 @@ int main(int argc,char** argv) {try {
     auto& literal=alternatives.back().object_v.at("expression").object_v.at("args").array_v[0]
         .object_v.at("args").array_v[1].object_v.at("constant").object_v.at("values").array_v[0];
     literal=cli_detail::JsonParser(R"(["1"])").parse();
-    // The phase profile materializes payload constants of any value, but a
-    // bounded-region genome carrying a nonempty list constant falls back.
+    // The phase profile materializes payload constants of any value, but the
+    // region-template layout holds only Int, Bool and empty IntList constant
+    // domains: every member of a grammar with a nonempty list constant domain
+    // declines it, and the population imports whole programs.
     const auto nonempty=grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(document)));
     (void)compile_phase_grammar(nonempty,1,12);
-    int declined=0;
+    int declined=0,listed=0;std::vector<ProgramGenome> members;
     for(unsigned seed=0;seed<64;++seed) {
-      const auto member=grammar::generate_derivation(nonempty,seed).genome;
-      const bool listed=std::any_of(member.ast.consts.begin(),member.ast.consts.end(),
+      const auto member=grammar::generate_derivation(nonempty,seed).genome;members.push_back(member);
+      listed+=std::any_of(member.ast.consts.begin(),member.ast.consts.end(),
           [](const Value& v){return v.tag==ValueTag::IntList && Value::container_len(v)>0;});
-      if(!listed)continue;
       try{(void)import_native_phase_layout(nonempty,member);}catch(const std::invalid_argument&){++declined;continue;}
-      require(false,"nonempty list constant silently admitted to a bounded-region phase");
+      require(false,"a nonempty list constant domain silently admitted to a bounded-region phase");
     }
-    require(declined>0,"list grammar test failed to exercise nonempty payload constants");
+    require(declined==64 && listed>0,"list grammar test failed to exercise nonempty payload constants");
+    const auto imported=import_native_phase_population(nonempty,members,nullptr,nullptr);
+    require(imported.size()==members.size() && imported.front().whole_program && imported.front().slots.size()==1,
+        "a population with a nonempty list constant did not import whole programs");
+    for(std::size_t m=0;m<members.size();++m) {
+      same_bytecode(imported[m].executable,import_native_phase_layout(nonempty,members[m],nullptr,nullptr,true,true).executable);
+      if(m==0) {
+        const auto restored=export_native_phase_layout(nonempty,imported[0],imported[0].genes);
+        grammar::require_membership(nonempty,restored);
+        std::vector<std::string> inputs;for(const auto& input:nonempty.inputs())inputs.push_back(input.name);
+        same_bytecode(compile_for_eval(restored,inputs),imported[0].executable);
+      }
+    }
+    // The list-free grammar keeps the region layout for the same seeds.
+    std::vector<ProgramGenome> regional;
+    for(unsigned seed=0;seed<64;++seed)regional.push_back(grammar::generate_derivation(lists,seed).genome);
+    require(!import_native_phase_population(lists,regional,nullptr,nullptr).front().whole_program,
+        "a region-template population changed layout");
   }
   for (const auto* charge : {R"({"nodes":2,"depth":1,"resets_depth":false})",
                             R"({"nodes":1,"depth":0,"resets_depth":true})"}) {
@@ -256,9 +274,17 @@ int main(int argc,char** argv) {try {
     const auto weighted=grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(document)));
     auto member=grammar::generate_derivation(weighted,17).genome;
     grammar::require_membership(weighted,member); // A valid grammar/member, not malformed input.
-    std::string reason;
-    try{(void)import_native_phase_layout(weighted,member);}catch(const std::invalid_argument& e){reason=e.what();}
-    require(reason.find("weighted/reset skeleton")!=std::string::npos,"weighted/reset skeleton did not explicitly decline");
+    // A charge never changes search: the region layout holds the member
+    // exactly as it holds the uncharged grammar's member of the same seed.
+    const auto plain=grammar::compile_grammar(grammar::parse_definition(fixture));
+    const auto plain_member=grammar::generate_derivation(plain,17).genome;
+    require(ast_cache_key(plain_member.ast)==ast_cache_key(member.ast),"a resource charge changed generation");
+    const auto charged=import_native_phase_layout(weighted,member),uncharged=import_native_phase_layout(plain,plain_member);
+    require(!charged.whole_program && charged.slots.size()==uncharged.slots.size() && charged.genes.size()==uncharged.genes.size(),
+        "a resource charge changed the layout");
+    for(std::size_t k=0;k<charged.genes.size();++k)require(charged.genes[k].origins==uncharged.genes[k].origins &&
+        charged.genes[k].nodes.size()==uncharged.genes[k].nodes.size(),"a resource charge changed a phase gene");
+    same_bytecode(charged.executable,uncharged.executable);
   }
   for (const bool depth_limit : {false,true}) {
     // The materialized depth the membership check bounds (prefix stack height).
