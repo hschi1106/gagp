@@ -26,7 +26,6 @@ std::vector<Instr> decode_code(const JsonValue& code);
 BytecodeProgram decode_program(const JsonValue& bc);
 CaseBindings decode_input_case(const JsonValue& v);
 std::vector<CaseBindings> decode_cases(const JsonValue& v);
-std::vector<Value> decode_shared_answer(const JsonValue& v);
 std::vector<BytecodeProgram> decode_programs(const JsonValue& v);
 void print_value(const Value& v);
 

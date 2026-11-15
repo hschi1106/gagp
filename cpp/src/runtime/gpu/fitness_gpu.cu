@@ -564,7 +564,6 @@ FitnessSessionGpu::~FitnessSessionGpu() = default;
 FitnessSessionGpu::FitnessSessionGpu(FitnessSessionGpu&&) noexcept = default;
 FitnessSessionGpu& FitnessSessionGpu::operator=(FitnessSessionGpu&&) noexcept = default;
 
-bool FitnessSessionGpu::is_ready() const { return impl_ && impl_->ready; }
 std::uint64_t FitnessSessionGpu::evaluation_revision() const {
   return impl_ && impl_->ready?impl_->evaluation_revision:0;
 }
