@@ -24,6 +24,7 @@
 #include "gagp/runtime/cpu/execution_session.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 #include "../runtime/payload/staging.hpp"
+#include "../runtime/cpu/fitness_cpu_overlay.hpp"
 
 namespace gagp::cli_detail {
 namespace {
@@ -195,26 +196,26 @@ CaseVerdict judge_case(const ExecResult& result, const Value& expected, const Ta
 
 Json judge(const evo::ProgramGenome& genome, const std::vector<evo::EvalCase>& cases, const Task& task, int fuel) {
   const auto set = evo::prepare_case_set(cases);
-  CpuExecutionSession session(evo::compile_for_eval(genome, set.input_names));
+  const BytecodeProgram program = evo::compile_for_eval(genome, set.input_names);
+  CpuExecutionSession session(program);
   std::size_t correct = 0, errors = 0;
   double loss = 0;
   for (std::size_t i = 0; i < cases.size(); ++i) {
     CaseVerdict v;
     try {
-      payload::StagedPayloads payloads(8u << 20);
+      payload::StagedPayloads payloads(payload::kCpuCasePayloadBytes);
       payload::StagedPayloads::Scope scope(payloads);
-      std::size_t input_cells = 0;
       std::vector<std::pair<int, Value>> inputs;
-      for (const auto& b : set.bindings[i]) {
-        inputs.emplace_back(b.idx, b.value);
-        std::vector<Value> cells;
-        if (b.value.tag == ValueTag::IntList && payload::lookup_list(b.value, &cells)) input_cells += cells.size();
-      }
-      payload::ListAllocationScope budget(task.fitness.list_allocation_limit, input_cells);
+      for (const auto& b : set.bindings[i]) inputs.emplace_back(b.idx, b.value);
+      const std::size_t limit = task.fitness.list_allocation_limit;
+      payload::ListAllocationScope budget(limit,
+          limit ? payload::charged_input_cells(inputs, program.n_locals) : 0);
       v = judge_case(session.execute(inputs, fuel), set.expected_values[i], task);
-    } catch (const payload::PayloadBudgetExceeded&) {
+    } catch (const payload::ListAllocationExceeded&) {
       v.error = true;
       v.loss = task.fitness.metric == FitnessMetric::Absolute ? task.case_cap : 1;
+    } catch (const payload::PayloadBudgetExceeded&) {
+      throw std::runtime_error(physical_exhaustion_message(payload::kCpuCasePayloadBytes));
     }
     correct += v.correct;
     errors += v.error;

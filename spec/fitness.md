@@ -177,11 +177,14 @@ A run's best program is *train perfect* when it makes no training error and
 
 ### CPU payload allocation boundary
 
-CPU fitness evaluation permits at most 8 MiB of cumulative generated payload
-data and registry keys per case. Exceeding this limit is a runtime Value error
-and receives the ordinary error penalty. Temporary payloads are released after
-that case is scored. This resource bound is independent of instruction fuel;
-backend-specific resource limits need not be equal.
+Physical payload storage is never part of a score. CPU fitness evaluation
+gives each case an overlay of 1 GiB of cumulative generated payload data and
+registry keys, released after the case is scored. Exhausting it stops the
+evaluation with an error that asks for a lower `list_allocation_limit`, as GPU
+evaluation stops when replay cannot supply the physical capacity. The two
+engines therefore publish identical scores or the run stops. Tasks that need a
+bound on generated data set `list_allocation_limit`, which is a semantic limit
+and a scored case error on both engines.
 ## Opt-in task metrics and elitism
 
 `FitnessPolicy` defaults to `Legacy`, preserving the scores above. Native CPU

@@ -145,10 +145,23 @@ and check consumed fuel, because both can receive the same fitness penalty.
 
 Each CPU fitness case runs inside a discard-only payload overlay: generated
 strings and lists are visible until the case is scored and then released,
-while case, answer and program payloads stay. The overlay allows 8 MiB of
-generated data per case; exhausting it is a `ValueError` and the normal case
-penalty. This is a CPU resource bound, not a claim that the GPU arena has
-equal capacity.
+while case, answer and program payloads stay. The overlay holds 1 GiB of
+generated data and registry keys per case (`kCpuCasePayloadBytes` in
+`cpp/src/runtime/payload/staging.hpp`), counted cumulatively, so a list copied
+by every `append` counts every copy. Exhausting it is not a score: the
+evaluation stops with an error that asks for a lower `list_allocation_limit`,
+as the GPU stops when replay cannot fit (`spec/fitness.md`). `gagp run` and
+`gagp eval` judge test cases with the same overlay and limit.
+
+The size covers what a case can reach under a logical limit. With a limit of
+65536 everything charged stays below about 2 MiB. Only `slice` is free: a
+list built from charged operations has at most 32768 cells (doubling charges
+about twice the final length), so one slice copies at most 512 KiB, and a
+counted loop pays at least about 14 fuel per slice. Fuel 20000 then allows
+about 1400 slices, roughly 0.7 GiB. A larger fuel, a grammar whose fuel
+profile makes loops cheaper, or no limit at all can still exhaust the overlay,
+and then the run stops. The GPU replays at most 512 MiB per lane
+(`payload_workspace_budget.hpp`), so it stops on such a program too.
 
 Grammar variation can stage payload writes in a `StagedPayloads::Scope`
 (`cpp/src/runtime/payload/staging.hpp`): writes stay private until committed
