@@ -107,7 +107,7 @@ void require_cpu_scores(const grammar::CompiledGrammar& grammar,const repro::Nat
 // final members and final scores equal to independent CPU evaluation.
 void check_evolution_final_scores(const std::vector<EvalCase>& cases,EvolutionConfig config,
     const std::vector<ProgramGenome>& parents) {
- config.generations=4;config.seed=0x617ba;config.retain_final_population=true;config.skip_final_eval=false;
+ config.generations=12;config.seed=0x617ba;config.retain_final_population=true;config.skip_final_eval=false;
  const auto result=evolve_population(cases,config,&parents);
  require(result.reproduction_profile.rfind("resident-gpu-",0)==0,"resident evolution did not use the GPU phase owner");
  require(result.history_best.size()==std::size_t(config.generations) &&
@@ -126,6 +126,15 @@ void check_evolution_final_scores(const std::vector<EvalCase>& cases,EvolutionCo
       "resident evolution final score differs from independent CPU evaluation");
   if(i)require(result.final_population[i-1].fitness>=result.final_population[i].fitness,"final ranking reversed");
  }
+ // A history row repeats the previous champion while no placed child became
+ // the best. Every row must still hold the genome its score belongs to.
+ std::vector<ProgramGenome> champions;
+ for(const auto& row:result.history_best)champions.push_back(row.genome);
+ const auto history=eval_fitness_cpu(independent_programs(*config.compiled_grammar,champions,names),bindings,answers,
+     config.fuel,config.penalty,config.gpu_blocksize,config.fitness_policy);
+ for(std::size_t g=0;g<history.size();++g)
+  require(canonicalize_fitness_for_ranking(history[g])==result.history_best[g].fitness &&
+      result.history_best[g].fitness==result.history_best_fitness[g],"history champion differs from its recorded score");
 }
 
 void check_elite_evolution(const std::shared_ptr<const grammar::CompiledGrammar>& grammar,

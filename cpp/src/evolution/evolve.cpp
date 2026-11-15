@@ -191,9 +191,15 @@ void run_phase_population_steady(const EvolutionConfig& cfg,const CaseSet& cases
   // is tracked (a victim is never the best) and `order` is re-sorted once.
   int best=order.front();
   const auto scored=[&](int member){return ScoredGenome{owner.export_member(member),fitness[member],has_wrong?int(wrong[member]):-1};};
+  // The best member is never a victim, so until a placed child becomes the
+  // best its genome and scores are those of the previous history row.
+  bool best_placed=true;
   const auto record=[&]{
     const int best=order.front();
-    result.history_best.push_back(scored(best));result.history_best_fitness.push_back(fitness[best]);
+    if(best_placed)result.history_best.push_back(scored(best));
+    else result.history_best.push_back(result.history_best.back());
+    best_placed=false;
+    result.history_best_fitness.push_back(fitness[best]);
     long double sum=0;for(double f:fitness)sum+=f;
     result.history_mean_fitness.push_back(static_cast<double>(sum/P));
     epoch.total_ms=elapsed(epoch_start);epoch.elapsed_search_ms=elapsed(search_start);
@@ -241,7 +247,7 @@ void run_phase_population_steady(const EvolutionConfig& cfg,const CaseSet& cases
       const int v=victim();
       fitness[v]=child_fitness[b];if(has_wrong)wrong[v]=child_wrong[b];nodes[v]=child_count[b];placed[v]=b;
       if(!has_wrong)selection[v]=fitness[v];
-      if(better(v,best))best=v;
+      if(better(v,best)){best=v;best_placed=true;}
     }
     std::sort(order.begin(),order.end(),better);
     if(order.front()!=best)throw std::logic_error("steady-state best tracking");

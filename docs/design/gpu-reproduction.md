@@ -12,8 +12,9 @@ system is [research-mainline.md](research-mainline.md).
 The population lives on the device for the whole run as fixed-shape *phase genes*.
 Tournament selection, typed subtree crossover, subtree mutation, elitism and
 lowering of changed programs to bytecode all run as GPU kernels, and the GPU
-evaluator reads the lowered programs in place. Only the fitness vector and
-each generation's champion return to the host.
+evaluator reads the lowered programs in place. Only the fitness vector returns
+to the host each generation. A champion is exported only when a newly placed
+child becomes the best, and otherwise the history repeats the previous one.
 
 | Owner | File | Engine |
 | --- | --- | --- |
