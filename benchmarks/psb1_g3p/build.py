@@ -92,9 +92,9 @@ CHAR_MODULUS = 128
 # Constants of the fitness policy: the error of a failed case (it is also the
 # error of a runtime error) is large so that it never hides behind the cap.
 CASE_CAP = 1000000
-# Logical list-cell limit per case, set for every task. It makes the
-# list resource policy explicit and identical on both engines (without it the engines'
-# physical payload storage differs once a program builds hundreds of thousands of cells).
+# Logical limit on the list cells and string bytes one case may allocate, set on every task.
+# It bounds what a program can build within its fuel, so both engines score every program
+# instead of stopping when their physical payload storage runs out.
 LIST_ALLOCATION_LIMIT = 65536
 # Thesis Table 4.1.
 POPULATION = 1000
@@ -295,7 +295,8 @@ def search(p: Problem) -> dict:
 
 def task(p: Problem) -> dict:
     return {"format": "gagp-task-v1", "name": p.key, "grammar": "grammar.json", "train": "train.cases.json",
-            "test": "test.cases.json", "fitness": {**p.fitness, "list_allocation_limit": LIST_ALLOCATION_LIMIT, "case_cap": CASE_CAP}}
+            "test": "test.cases.json", "fitness": {**p.fitness, "list_allocation_limit": LIST_ALLOCATION_LIMIT,
+                                                     "case_cap": CASE_CAP}}
 
 
 def dump(document: dict, indent: int) -> str:

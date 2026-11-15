@@ -2,10 +2,12 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+#include <string>
 #include "gagp/runtime/payload/payload.hpp"
 #include "gagp/runtime/cpu/builtins_cpu.hpp"
 #include "gagp/runtime/cpu/fitness_cpu.hpp"
 #include "../../src/runtime/payload/staging.hpp"
+#include "../../src/runtime/cpu/fitness_cpu_overlay.hpp"
 
 using namespace gagp;
 using namespace gagp::payload;
@@ -137,10 +139,22 @@ int main() {
     }
     amplified.code.push_back({Opcode::Load, 0, 0, true, false});
     amplified.code.push_back({Opcode::Return, 0, 0, false, false});
-    const auto bounded_score = eval_fitness_cpu({amplified}, std::vector<CaseBindings>(2),
-                                               {input, input}, 1000, 1000.0);
+    // Physical exhaustion is never a score: the evaluation stops with advice.
+    bool stopped = false;
+    try {
+      (void)eval_fitness_cpu_with_overlay({amplified}, std::vector<CaseBindings>(2),
+          {input, input}, 1000, 1000.0, 1, {}, nullptr, nullptr, 4096);
+    } catch (const std::runtime_error& error) {
+      stopped = std::string(error.what()) == physical_exhaustion_message(4096) &&
+          std::string(error.what()).find("list_allocation_limit") != std::string::npos;
+    }
+    check(stopped, "physical payload exhaustion was scored instead of stopping the evaluation");
+    FitnessPolicy capped;
+    capped.list_allocation_limit = 1024;
+    const auto bounded_score = eval_fitness_cpu_with_overlay({amplified}, std::vector<CaseBindings>(2),
+        {input, input}, 1000, 1000.0, 1, capped, nullptr, nullptr, 1u << 20);
     check(bounded_score.size() == 1 && bounded_score[0] == -2000.0,
-          "payload exhaustion did not produce the ordinary fitness penalty");
+          "a logical limit below the overlay must turn exponential concat into a case error");
     check(stats().list_value_count == before.list_value_count,
           "resource-limited fitness retained case temporaries");
     bool limited = false;
@@ -177,7 +191,7 @@ int main() {
             "logical arena rejected exact capacity");
       bool exhausted = false;
       try { (void)builtin_call(BuiltinId::Singleton, {Value::from_int(7)}); }
-      catch (const PayloadBudgetExceeded&) { exhausted = true; }
+      catch (const ListAllocationExceeded&) { exhausted = true; }
       check(exhausted, "logical arena deduplicated repeated allocation");
     }
     check(!list_allocation_budget_active(), "logical arena escaped invocation");

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -11,6 +12,7 @@
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
 #include "gagp/runtime/cpu/execution_session.hpp"
 #include "../payload/staging.hpp"
+#include "fitness_cpu_overlay.hpp"
 
 namespace gagp {
 
@@ -54,6 +56,12 @@ double canonicalize_fitness_accumulator(double value) {
 
 }  // namespace
 
+std::string physical_exhaustion_message(std::size_t case_payload_bytes) {
+  return "CPU fitness case exceeded its " + std::to_string(case_payload_bytes >> 20) +
+      " MiB payload overlay; physical exhaustion is never scored. Set or lower "
+      "fitness.list_allocation_limit in the task";
+}
+
 std::vector<double> eval_fitness_cpu(
     const std::vector<BytecodeProgram>& programs,
     const std::vector<CaseBindings>& shared_cases,
@@ -62,6 +70,18 @@ std::vector<double> eval_fitness_cpu(
     double penalty,
     int reduction_lanes, FitnessPolicy policy, std::vector<unsigned>* wrong,
     std::vector<CpuFitnessCaseCounts>* case_counts) {
+  return eval_fitness_cpu_with_overlay(programs, shared_cases, shared_answer, fuel, penalty,
+      reduction_lanes, policy, wrong, case_counts, payload::kCpuCasePayloadBytes);
+}
+
+std::vector<double> eval_fitness_cpu_with_overlay(
+    const std::vector<BytecodeProgram>& programs,
+    const std::vector<CaseBindings>& shared_cases,
+    const std::vector<Value>& shared_answer,
+    int fuel,
+    double penalty,
+    int reduction_lanes, FitnessPolicy policy, std::vector<unsigned>* wrong,
+    std::vector<CpuFitnessCaseCounts>* case_counts, std::size_t case_payload_bytes) {
   if (case_counts) case_counts->assign(programs.size(), {});
   if(wrong)wrong->assign(programs.size(),0);
   if(!valid_fitness_policy(policy))throw std::invalid_argument("invalid fitness policy");
@@ -99,7 +119,7 @@ std::vector<double> eval_fitness_cpu(
     std::unique_ptr<CpuExecutionSession> session;
     if (!programs[p].bounded_region_segments.empty())
       session = std::make_unique<CpuExecutionSession>(programs[p]);
-    payload::StagedPayloads temporary_payloads(8U * 1024U * 1024U);
+    payload::StagedPayloads temporary_payloads(case_payload_bytes);
     std::vector<double> partial_scores(static_cast<std::size_t>(lanes), 0.0);
     for (int lane = 0; lane < lanes; ++lane) {
       const std::size_t chunk_start =
@@ -110,28 +130,21 @@ std::vector<double> eval_fitness_cpu(
       for (std::size_t c = chunk_start; c < chunk_end; ++c) {
         const auto& inputs = case_inputs[c];
         // Evaluation temporaries live through scoring only; inputs/constants remain
-        // in the committed registry. The budget also bounds exponential Concat.
+        // in the committed registry. The overlay bounds physical storage only.
         payload::StagedPayloads::Scope payload_scope(temporary_payloads);
         ExecResult out;
         try {
-          std::size_t input_cells = 0;
-          if (policy.list_allocation_limit) for (std::size_t i = 0; i < inputs.size(); ++i) {
-            const auto& input = inputs[i];
-            // Match the local loader: ignore out-of-range bindings and use the
-            // last value when a slot is bound more than once.
-            if (input.first < 0 || input.first >= programs[p].n_locals) continue;
-            const bool shadowed = std::any_of(inputs.begin() + i + 1, inputs.end(),
-                [&](const auto& later) { return later.first == input.first; });
-            if (!shadowed && (input.second.tag == ValueTag::IntList ||
-                input.second.tag == ValueTag::FloatList || input.second.tag == ValueTag::StringList))
-              input_cells += Value::container_len(input.second);
-          }
-          payload::ListAllocationScope logical_budget(policy.list_allocation_limit, input_cells);
+          payload::ListAllocationScope logical_budget(policy.list_allocation_limit,
+              policy.list_allocation_limit ? payload::charged_input_cells(inputs, programs[p].n_locals) : 0);
           out = session ? session->execute(inputs, fuel)
                         : execute_bytecode_cpu(programs[p], inputs, fuel);
-        } catch (const payload::PayloadBudgetExceeded& error) {
+        } catch (const payload::ListAllocationExceeded& error) {
           out.is_error = true;
           out.err = Err{ErrCode::Value, error.what()};
+        } catch (const payload::PayloadBudgetExceeded&) {
+          // Physical storage is not part of the semantics. Like unreplayable GPU
+          // overflow, exhaustion stops the evaluation instead of scoring a case.
+          throw std::runtime_error(physical_exhaustion_message(case_payload_bytes));
         }
         if (case_counts) {
           auto& counts = (*case_counts)[p];

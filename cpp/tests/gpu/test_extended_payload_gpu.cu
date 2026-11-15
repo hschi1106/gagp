@@ -1,6 +1,7 @@
 #include <cuda_runtime.h>
 #include <algorithm>
 #include <cstdlib>
+#include <functional>
 #include <iostream>
 #include <new>
 #include <string>
@@ -1258,6 +1259,349 @@ bool test_reusable_generic_workspace() {
   return true;
 }
 
+bool test_tail_append_fitness() {
+  ScopedEnvironment restore_diagnostics("GAGP_GPU_DIAGNOSTICS");
+  setenv("GAGP_GPU_DIAGNOSTICS","1",1);
+  // list = append(list, i) for i < n. Each source ends at the arena cursor, so
+  // the device extends it in place: n cells instead of n(n+1)/2. With n=500 a
+  // copy needs 125250 cells, far beyond the 8192-cell initial arena, while the
+  // CPU copies stay inside its 8 MiB staging budget and the forked answer fits
+  // the 1024-element sequence metric.
+  constexpr int kAppends=500;
+  const auto build=[](bool fork) {
+    BytecodeProgram p;
+    p.n_locals=3;
+    p.consts={Value::from_int(0),Value::from_int(1),Value::from_int(kAppends),
+        payload::make_int_list_value({}),Value::from_int(7),Value::from_int(8)};
+    p.code={ins_a(Opcode::PushConst,3),ins_a(Opcode::Store,1),
+        ins_a(Opcode::PushConst,0),ins_a(Opcode::Store,0),
+        ins_a(Opcode::Load,1),ins_a(Opcode::Load,0),
+        ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Append),2),ins_a(Opcode::Store,1),
+        ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,1),ins(Opcode::Add),ins_a(Opcode::Store,0),
+        ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,2),ins(Opcode::Lt),ins_a(Opcode::JmpIfTrue,4)};
+    if(fork) {
+      // The first fork takes the cell after the shared prefix. The second must
+      // copy, and must not disturb the prefix or the first fork.
+      p.code.insert(p.code.end(),{ins_a(Opcode::Load,1),ins_a(Opcode::PushConst,4),
+          ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Append),2),ins_a(Opcode::Store,2),
+          ins_a(Opcode::Load,1),ins_a(Opcode::PushConst,5),
+          ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Append),2),
+          ins_a(Opcode::Load,2),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Concat),2),
+          ins_a(Opcode::Load,1),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Len),1),
+          ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Append),2)});
+    } else {
+      p.code.push_back(ins_a(Opcode::Load,1));
+    }
+    p.code.push_back(ins(Opcode::Return));
+    p.instruction_fuel.assign(p.code.size(),1);
+    return p;
+  };
+  const auto grow=build(false),fork=build(true);
+  std::vector<Value> prefix;
+  for(int i=0;i<kAppends;++i)prefix.push_back(Value::from_int(i));
+  auto forked=prefix;forked.push_back(Value::from_int(8));
+  forked.insert(forked.end(),prefix.begin(),prefix.end());
+  forked.push_back(Value::from_int(7));forked.push_back(Value::from_int(kAppends));
+  for(const auto& expected:{prefix,forked}) {
+    const std::vector<BytecodeProgram> programs{grow,fork};
+    const std::vector<CaseBindings> cases(3);
+    const std::vector<Value> answers(3,payload::make_int_list_value(expected));
+    // append charges len+1, so 500 appends charge 125250 cells: the limited
+    // run uses a limit above that.
+    for(unsigned limit:{0u,1u<<20}) {
+      FitnessPolicy policy{FitnessMetric::Levenshtein};
+      policy.list_allocation_limit=limit;
+      std::vector<CpuFitnessCaseCounts> cpu_counts;
+      const auto cpu=eval_fitness_cpu(programs,cases,answers,100000,1000,33,policy,nullptr,&cpu_counts);
+      FitnessSessionGpu session;
+      if(!check(session.init(cases,answers,100000,33,1000,policy).ok,"tail append session init"))return false;
+      const auto gpu=session.eval_programs(programs,true);
+      const std::string name=" (limit="+std::to_string(limit)+" answer="+std::to_string(expected.size())+")";
+      if(!check(gpu.ok && gpu.fitness==cpu,"tail append differs from CPU copies"+name)) {
+        std::cerr<<gpu.err.message<<" profile="<<gpu.execution_profile<<'\n';return false;
+      }
+      const bool grown=expected.size()==prefix.size();
+      if(!check(cpu[grown?0:1]==0 && cpu[grown?1:0]<0 && cpu_counts[0].errors==0 && cpu_counts[1].errors==0,
+          "tail append programs must build their exact lists"+name))return false;
+      if(!check(gpu.execution_profile.find("-global-arena")!=std::string::npos,
+          "tail append did not run on the generic global arena"+name))return false;
+      if(!check(gpu.payload_replay_programs==0 && gpu.payload_replay_launches==0 &&
+          gpu.initial_payload_overflow_cases==std::vector<unsigned>({0,0}),
+          "appending to the newest list must not exhaust the initial arena"+name))return false;
+    }
+  }
+  return true;
+}
+
+// Counted loop over local 0 (an Int input): acc = body(acc, i) for i < n, or
+// i < n*n when squared. Returns len(acc). Local 3 holds an optional input.
+BytecodeProgram counted_loop(Value init, bool init_from_input, std::vector<Instr> body,
+                             std::vector<Value> extra_consts = {}, bool squared = false) {
+  BytecodeProgram p;
+  p.n_locals = 4;
+  p.consts = {init, Value::from_int(0), Value::from_int(1)};
+  for (const auto& value : extra_consts) p.consts.push_back(value);
+  p.code = {init_from_input ? ins_a(Opcode::Load, 3) : ins_a(Opcode::PushConst, 0), ins_a(Opcode::Store, 1),
+            ins_a(Opcode::PushConst, 1), ins_a(Opcode::Store, 2)};
+  const int head = static_cast<int>(p.code.size());
+  p.code.insert(p.code.end(), {ins_a(Opcode::Load, 2), ins_a(Opcode::Load, 0)});
+  if (squared) p.code.insert(p.code.end(), {ins_a(Opcode::Load, 0), ins(Opcode::Mul)});
+  p.code.push_back(ins(Opcode::Lt));
+  const std::size_t exit_jump = p.code.size();
+  p.code.push_back(ins_a(Opcode::JmpIfFalse, 0));
+  p.code.insert(p.code.end(), body.begin(), body.end());
+  p.code.insert(p.code.end(), {ins_a(Opcode::Store, 1), ins_a(Opcode::Load, 2), ins_a(Opcode::PushConst, 2),
+                               ins(Opcode::Add), ins_a(Opcode::Store, 2), ins_a(Opcode::Jmp, head)});
+  p.code[exit_jump].a = static_cast<int>(p.code.size());
+  p.code.insert(p.code.end(), {ins_a(Opcode::Load, 1),
+                               ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Len), 1), ins(Opcode::Return)});
+  p.instruction_fuel.assign(p.code.size(), 1);
+  return p;
+}
+
+struct ChargeScenario {
+  std::string name;
+  BytecodeProgram program;
+  Value input;                    // bound to local 3 when valid
+  std::vector<int> counts;        // one case per count
+  std::vector<long long> lengths; // len(acc) when the case succeeds
+  std::vector<bool> over;         // the case exceeds the limit
+  unsigned limit;
+  bool replay;                    // the cases outgrow the initial global arena
+};
+
+// Case c expects length+2^c, so a success scores -2^c and an error -1000: the
+// total names the failing cases. CPU and GPU must agree bit for bit.
+bool run_charge_scenario(const ChargeScenario& s) {
+  std::vector<CaseBindings> cases;
+  std::vector<Value> answers;
+  double expected = 0;
+  for (std::size_t c = 0; c < s.counts.size(); ++c) {
+    CaseBindings bindings{{0, Value::from_int(s.counts[c])}};
+    if (s.input.tag != ValueTag::Invalid) bindings.push_back({3, s.input});
+    cases.push_back(bindings);
+    answers.push_back(Value::from_int(s.lengths[c] + (1LL << c)));
+    expected -= s.over[c] ? 1000.0 : static_cast<double>(1LL << c);
+  }
+  FitnessPolicy policy{FitnessMetric::Absolute};
+  policy.list_allocation_limit = s.limit;
+  std::vector<CpuFitnessCaseCounts> cpu_counts;
+  const auto cpu = eval_fitness_cpu({s.program}, cases, answers, 100000, 1000, 32, policy, nullptr, &cpu_counts);
+  FitnessSessionGpu session;
+  const std::string name = s.name + " (limit=" + std::to_string(s.limit) + ")";
+  if (!check(session.init(cases, answers, 100000, 32, 1000, policy).ok, name + ": session init")) return false;
+  const auto gpu = session.eval_programs({s.program}, true);
+  if (!check(gpu.ok && gpu.fitness == cpu && cpu.size() == 1 && cpu[0] == expected,
+             name + ": CPU and GPU must charge the same cases")) {
+    std::cerr.precision(17);
+    std::cerr << "expected=" << expected << " cpu=" << (cpu.empty() ? 0.0 : cpu[0])
+              << " gpu=" << (gpu.fitness.empty() ? 0.0 : gpu.fitness[0]) << " error=" << gpu.err.message << '\n';
+    return false;
+  }
+  const unsigned errors = static_cast<unsigned>(std::count(s.over.begin(), s.over.end(), true));
+  if (!check(cpu_counts[0].errors == errors && cpu_counts[0].timeouts == 0 &&
+             gpu.case_counts[0][1] == errors && gpu.case_counts[0][2] == 0,
+             name + ": logical exhaustion must be a ValueError in exactly the over-limit cases")) return false;
+  return check(!s.replay || gpu.payload_replay_programs > 0,
+               name + ": scenario did not reach overflow replay");
+}
+
+bool test_allocation_charge_parity() {
+  ScopedEnvironment restore_diagnostics("GAGP_GPU_DIAGNOSTICS");
+  setenv("GAGP_GPU_DIAGNOSTICS", "1", 1);
+  const auto call = [](BuiltinId id, int argc) { return ins_ab(Opcode::CallBuiltin, static_cast<int>(id), argc); };
+  const auto empty = payload::make_int_list_value({});
+  const auto ints = [](int n) {
+    std::vector<Value> xs;
+    for (int i = 0; i < n; ++i) xs.push_back(Value::from_int(i - n / 2));
+    return payload::make_int_list_value(xs);
+  };
+  const auto triangle = [](long long n) { return static_cast<unsigned>(n * (n + 1) / 2); };
+  const std::vector<int> around100{99, 100, 101, 1000};
+  const std::vector<bool> two_over{false, false, true, true}, none_over(4, false);
+  std::vector<ChargeScenario> scenarios;
+  const auto add = [&](ChargeScenario s, bool unlimited_replay) {
+    // The same cases without a limit charge nothing and all succeed.
+    auto unlimited = s;
+    unlimited.name += " unlimited";
+    unlimited.limit = 0;
+    unlimited.over = none_over;
+    unlimited.replay = unlimited_replay;
+    scenarios.push_back(std::move(s));
+    scenarios.push_back(std::move(unlimited));
+  };
+  // Small populations start at the replay capacity, max(16384, limit) cells,
+  // so a charged loop under the limit never replays. Every limited scenario
+  // still crosses the 8192-cell per-lane arena or stays inside it as named,
+  // and the unlimited variants replay where they outgrow 16384 cells or bytes.
+  // append and prepend charge len(xs)+1, so n steps charge n(n+1)/2.
+  const auto append = counted_loop(empty, false, {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 2), call(BuiltinId::Append, 2)});
+  const auto prepend = counted_loop(empty, false, {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 2), call(BuiltinId::Prepend, 2)});
+  add({"append in arena", append, Value::invalid(), around100, {99, 100, 101, 1000}, two_over, triangle(100), false}, false);
+  add({"prepend in arena", prepend, Value::invalid(), around100, {99, 100, 101, 1000}, two_over, triangle(100), false}, true);
+  add({"prepend beyond the lane arena", prepend, Value::invalid(), {360, 361, 362, 2000}, {360, 361, 362, 2000},
+       two_over, triangle(361), false}, true);
+  // reverse charges len(x). The input list is charged once when the case opens.
+  const auto reverse = counted_loop(empty, true, {ins_a(Opcode::Load, 1), call(BuiltinId::Reverse, 1)});
+  add({"reverse in arena", reverse, ints(50), around100, {50, 50, 50, 50}, two_over, 50 + 50 * 100, false}, true);
+  add({"reverse beyond the lane arena", reverse, ints(500), {129, 130, 131, 1000}, {500, 500, 500, 500},
+       two_over, 500 + 500 * 130, false}, true);
+  // s = concat(s, s) from a 2-byte input: n steps charge 2^(n+2)-2 bytes.
+  const auto doubling = counted_loop(empty, true, {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 1), call(BuiltinId::Concat, 2)});
+  const auto ab = payload::make_string_value("ab");
+  // Unlimited doubling past the arena is physical exhaustion, so these run
+  // only under the limit. The unlimited case below stays addressable.
+  scenarios.push_back({"string doubling in arena", doubling, ab, {9, 10, 11, 40}, {1024, 2048, 4096, 0},
+                       two_over, (1u << 12) - 2, false});
+  scenarios.push_back({"string doubling beyond the lane arena", doubling, ab, {13, 14, 15, 40},
+                       {16384, 32768, 65536, 0}, two_over, 65536, false});
+  scenarios.push_back({"string doubling unlimited", doubling, ab, {9, 10, 11, 13}, {1024, 2048, 4096, 16384},
+                       none_over, 0, true});
+  // s = concat(s, f(x)) charges the new string and then the concatenation.
+  // The first concatenation has an empty operand and is free.
+  const auto string_steps = [](const std::vector<int>& widths) {
+    unsigned long long charged = 0, length = 0;
+    for (int width : widths) {
+      charged += width + (length ? length + width : 0);
+      length += width;
+    }
+    return std::pair<unsigned long long, unsigned long long>{charged, length};
+  };
+  const auto blank = payload::make_string_value("");
+  for (BuiltinId id : {BuiltinId::CharToString, BuiltinId::Singleton}) {
+    const auto chars = counted_loop(blank, false, {ins_a(Opcode::Load, 1), ins_a(Opcode::PushConst, 3), call(id, 1),
+        call(BuiltinId::Concat, 2)}, {Value::from_char('a')});
+    const auto limit = static_cast<unsigned>(string_steps(std::vector<int>(100, 1)).first);
+    add({std::string(builtin_name(id)) + " in arena", chars, Value::invalid(), around100, {99, 100, 101, 1000},
+         two_over, limit, false}, true);
+  }
+  const auto digits = [&](int n) {
+    std::vector<int> widths;
+    for (int i = 0; i < n; ++i) widths.push_back(static_cast<int>(std::to_string(i).size()));
+    return string_steps(widths);
+  };
+  const auto numbers = counted_loop(blank, false, {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 2),
+      call(BuiltinId::ToString, 1), call(BuiltinId::Concat, 2)});
+  add({"to_string in arena", numbers, Value::invalid(), {39, 40, 41, 1000},
+       {static_cast<long long>(digits(39).second), static_cast<long long>(digits(40).second),
+        static_cast<long long>(digits(41).second), static_cast<long long>(digits(1000).second)},
+       two_over, static_cast<unsigned>(digits(40).first), false}, true);
+  // The G3P list edits charge their result length: insert len+1, set_at len,
+  // remove_at len-1 (nothing on an empty list, which is returned unchanged).
+  const auto zero_index = Value::from_int(0);
+  const auto insert = counted_loop(empty, false, {ins_a(Opcode::Load, 1), ins_a(Opcode::PushConst, 3),
+      ins_a(Opcode::Load, 2), call(BuiltinId::Insert, 3)}, {zero_index});
+  add({"insert in arena", insert, Value::invalid(), around100, {99, 100, 101, 1000}, two_over, triangle(100), false},
+      true);
+  const auto set_at = counted_loop(empty, true, {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 2),
+      ins_a(Opcode::Load, 2), call(BuiltinId::SetAt, 3)});
+  add({"set_at in arena", set_at, ints(50), around100, {50, 50, 50, 50}, two_over, 50 + 50 * 100, false}, true);
+  add({"set_at beyond the lane arena", set_at, ints(500), {129, 130, 131, 1000}, {500, 500, 500, 500},
+       two_over, 500 + 500 * 130, false}, true);
+  const auto remove_at = counted_loop(empty, true, {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 2),
+      call(BuiltinId::RemoveAt, 2)});
+  const auto removed = [](long long m, long long n) {
+    long long charged = m;
+    for (long long k = 0; k < std::min(m, n); ++k) charged += m - 1 - k;
+    return static_cast<unsigned>(charged);
+  };
+  add({"remove_at", remove_at, ints(200), around100, {101, 100, 99, 0}, two_over, removed(200, 100), false}, false);
+
+  // String builtins, simulated on std::string with the same charging rules:
+  // a concat with an empty operand is free, every other result is charged.
+  using StringStep = std::function<std::string(const std::string&, int, unsigned long long&)>;
+  const auto simulate = [](const StringStep& step, int n, unsigned long long charged) {
+    std::string acc;
+    for (int i = 0; i < n; ++i) acc = step(acc, i, charged);
+    return std::pair<unsigned long long, long long>{charged, static_cast<long long>(acc.size())};
+  };
+  const auto concat_charge = [](const std::string& a, const std::string& b) {
+    return a.empty() || b.empty() ? 0ULL : static_cast<unsigned long long>(a.size() + b.size());
+  };
+  const auto add_string = [&](const std::string& name, const BytecodeProgram& program, Value input,
+                              unsigned long long base, const StringStep& step, bool unlimited_replay) {
+    ChargeScenario s{name, program, input, around100, {}, two_over,
+                     static_cast<unsigned>(simulate(step, 100, base).first), false};
+    for (int n : s.counts) s.lengths.push_back(simulate(step, n, base).second);
+    add(s, unlimited_replay);
+  };
+  // acc = concat(acc, index_mod(s, i)): one charged byte, then the concat.
+  // The 3-byte input is charged when the case opens.
+  const auto abc = payload::make_string_value("abc");
+  const auto index_mod = counted_loop(blank, false, {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 3),
+      ins_a(Opcode::Load, 2), call(BuiltinId::IndexMod, 2), call(BuiltinId::Concat, 2)});
+  add_string("index_mod on a string", index_mod, abc, 3, [&](const std::string& acc, int i, unsigned long long& c) {
+    const std::string piece(1, "abc"[i % 3]);
+    c += 1 + concat_charge(acc, piece);
+    return acc + piece;
+  }, true);
+  // acc = capitalize(concat(acc, "x")): the concat, then the whole string.
+  const auto capitalize = counted_loop(blank, false, {ins_a(Opcode::Load, 1), ins_a(Opcode::PushConst, 3),
+      call(BuiltinId::Concat, 2), call(BuiltinId::Capitalize, 1)}, {payload::make_string_value("x")});
+  add_string("capitalize", capitalize, Value::invalid(), 0, [&](const std::string& acc, int, unsigned long long& c) {
+    c += concat_charge(acc, "x") + acc.size() + 1;
+    return acc + "x";
+  }, true);
+  // acc = strip(concat(acc, " a ")) and the other five forms: the concat, then
+  // the stripped result.
+  const std::string piece = " a ";
+  for (BuiltinId id : {BuiltinId::Strip, BuiltinId::LStrip, BuiltinId::RStrip, BuiltinId::StripChars,
+                       BuiltinId::LStripChars, BuiltinId::RStripChars}) {
+    const bool with_chars = id == BuiltinId::StripChars || id == BuiltinId::LStripChars || id == BuiltinId::RStripChars;
+    const bool left = id != BuiltinId::RStrip && id != BuiltinId::RStripChars;
+    const bool right = id != BuiltinId::LStrip && id != BuiltinId::LStripChars;
+    std::vector<Instr> body{ins_a(Opcode::Load, 1), ins_a(Opcode::PushConst, 3), call(BuiltinId::Concat, 2)};
+    if (with_chars) body.push_back(ins_a(Opcode::PushConst, 4));
+    body.push_back(call(id, with_chars ? 2 : 1));
+    const auto strip = counted_loop(blank, false, body,
+        {payload::make_string_value(piece), payload::make_string_value(" ")});
+    add_string(builtin_name(id), strip, Value::invalid(), 0, [&, left, right](const std::string& acc, int,
+                                                                            unsigned long long& c) {
+      const std::string joined = acc + piece;
+      std::size_t begin = 0, end = joined.size();
+      if (left) while (begin < end && joined[begin] == ' ') ++begin;
+      if (right) while (end > begin && joined[end - 1] == ' ') --end;
+      c += concat_charge(acc, piece) + (end - begin);
+      return joined.substr(begin, end - begin);
+    }, false);
+  }
+  for (const auto& s : scenarios)
+    if (!run_charge_scenario(s)) return false;
+
+  // The nested append loop that once scored differently: CPU stopped at its
+  // old 8 MiB overlay while the GPU replayed. Fuel 20000 as in the task.
+  const auto nested = counted_loop(empty, false, {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 2),
+      call(BuiltinId::Append, 2)}, {}, true);
+  std::vector<CaseBindings> cases;
+  std::vector<Value> answers;
+  for (int n : {10, 30, 31, 32, 33, 36, 40, 44}) {
+    cases.push_back({{0, Value::from_int(n)}});
+    answers.push_back(Value::from_int(n * n));
+  }
+  for (unsigned limit : {0u, 65536u}) {
+    FitnessPolicy policy{FitnessMetric::Absolute};
+    policy.list_allocation_limit = limit;
+    std::vector<CpuFitnessCaseCounts> cpu_counts;
+    const auto cpu = eval_fitness_cpu({nested}, cases, answers, 20000, 1000, 32, policy, nullptr, &cpu_counts);
+    FitnessSessionGpu session;
+    if (!check(session.init(cases, answers, 20000, 32, 1000, policy).ok, "nested append session init")) return false;
+    const auto gpu = session.eval_programs({nested}, true);
+    // Without a limit the only errors are fuel timeouts of the largest n. Under
+    // the limit every case past 361 appends (n >= 20) is a ValueError first.
+    const auto& counts = cpu_counts[0];
+    const bool expected = limit ? counts.errors == 7 && counts.timeouts == 0
+                                : counts.errors > 0 && counts.errors == counts.timeouts;
+    if (!check(gpu.ok && gpu.fitness == cpu && expected && gpu.case_counts[0][1] == counts.errors &&
+               gpu.case_counts[0][2] == counts.timeouts,
+               "nested append loop diverges between engines (limit=" + std::to_string(limit) + ")")) {
+      std::cerr << "cpu=" << cpu[0] << " errors=" << cpu_counts[0].errors << " timeouts=" << cpu_counts[0].timeouts
+                << " gpu=" << (gpu.fitness.empty() ? 0.0 : gpu.fitness[0]) << ' ' << gpu.err.message << '\n';
+      return false;
+    }
+  }
+  return true;
+}
+
 int main() {
   if(!private_adjacent_checks::run())return 1;
   // Session initialization selects the least-used visible device before raw kernels.
@@ -1267,7 +1611,7 @@ int main() {
       !test_reusable_generic_workspace())return 1;
   if(!test_private_intlist_fitness() || !test_private_tuple_fitness())return 1;
   if(!g3p_builtin_checks::run())return 1;
-  if (!test_dense_case_tiles() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_extended_payload() || !test_private_list_index() || !test_epoch_list_index() || !test_scalar_region_index_rollback() || !test_payload_replay_fitness() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_dense_case_tiles() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_extended_payload() || !test_private_list_index() || !test_epoch_list_index() || !test_scalar_region_index_rollback() || !test_payload_replay_fitness() || !test_tail_append_fitness() || !test_allocation_charge_parity() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

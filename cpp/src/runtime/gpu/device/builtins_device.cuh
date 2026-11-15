@@ -847,6 +847,29 @@ __device__ inline bool d_charge_list_allocation(State& state, unsigned cells) {
   return true;
 }
 
+// Exact payload length of a list or string source, as the CPU reference reads it.
+template <typename State>
+__device__ inline bool d_exact_payload_length(const DPayloadTables& tables, const State& state,
+                                              const Value& value, int& length) {
+  length = 0;
+  if (value.tag == ValueTag::String) {
+    const char* bytes = nullptr;
+    return d_lookup_string_payload(tables, state, value, bytes, length);
+  }
+  const Value* elements = nullptr;
+  return d_is_typed_list_tag(value.tag) && d_lookup_list_payload(tables, state, value, elements, length);
+}
+
+// Charges a result built from an exact source of the given length plus extra
+// cells. A fallback source builds no payload on either engine and is free.
+template <typename State>
+__device__ inline bool d_charge_derived_allocation(const DPayloadTables& tables, State& state,
+                                                   const Value& source, int extra) {
+  if (!state.logical_list_limit) return true;
+  int length = 0;
+  if (!d_exact_payload_length(tables, state, source, length)) return true;
+  return d_charge_list_allocation(state, static_cast<unsigned>(length + extra));
+}
 
 // Mathematical modulo for a positive modulus; `%` alone leaves negative indices
 // negative.
@@ -1165,6 +1188,15 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     const Value& a = args[0];
     const Value& b = args[1];
     if (a.tag == ValueTag::String && b.tag == ValueTag::String) {
+      if (payload_state.logical_list_limit) {
+        int al = 0, bl = 0;
+        if (d_exact_payload_length(tables, payload_state, a, al) &&
+            d_exact_payload_length(tables, payload_state, b, bl)) {
+          if (!al) { out = b; return true; }
+          if (!bl) { out = a; return true; }
+          if (!d_charge_list_allocation(payload_state, static_cast<unsigned>(al + bl))) { err = ErrCode::Value; return false; }
+        }
+      }
       if constexpr (PayloadTraits::kHasString) {
         auto& st = payload_state;
         const char* ap = nullptr;
@@ -1439,15 +1471,24 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       err = ErrCode::Type;
       return false;
     }
+    if (!d_charge_derived_allocation(tables, payload_state, xs, 1)) { err = ErrCode::Value; return false; }
     if constexpr (PayloadTraits::kHasList) {
       auto& st = payload_state;
       const Value* xp = nullptr;
       int xl = 0;
-      if (d_lookup_list_payload(tables, st, xs, xp, xl) && st.list_values_used + xl + 1 <= st.kMaxListValues) {
-        const int off = st.list_values_used;
-        for (int i = 0; i < xl; ++i) st.list_values[off + i] = xp[i];
+      // A source span that ends at the cursor is extended in place: cells below
+      // the cursor are immutable, so the source keeps its span and the result
+      // shares it. Contents, hash and registration equal those of a copy; only
+      // physical cells (and so overflow replay) shrink from O(n^2) to O(n).
+      const bool found = d_lookup_list_payload(tables, st, xs, xp, xl);
+      const bool tail = found && !st.private_intlists && xl > 0 && xl <= st.list_values_used &&
+          xp == st.list_values + (st.list_values_used - xl);
+      const int cells = tail ? 1 : xl + 1;
+      if (found && st.list_values_used + cells <= st.kMaxListValues) {
+        const int off = tail ? st.list_values_used - xl : st.list_values_used;
+        if (!tail) for (int i = 0; i < xl; ++i) st.list_values[off + i] = xp[i];
         st.list_values[off + xl] = elem;
-        st.list_values_used += xl + 1;
+        st.list_values_used += cells;
         const std::uint64_t h = d_hash_list_payload(st.list_values + off, xl + 1);
         out = d_make_list_hash_len(xs.tag, h, static_cast<std::uint32_t>(xl + 1));
         if (!d_register_local_list(st, out, off, xl + 1)) { err = ErrCode::Value; return false; }
@@ -1474,6 +1515,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       err = ErrCode::Type;
       return false;
     }
+    if (!d_charge_derived_allocation(tables, payload_state, xs, 1)) { err = ErrCode::Value; return false; }
     if constexpr (PayloadTraits::kHasList) {
       auto& st = payload_state;
       const Value* xp = nullptr;
@@ -1505,6 +1547,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     }
     const Value& x = args[0];
     if (x.tag == ValueTag::String) {
+      if (!d_charge_derived_allocation(tables, payload_state, x, 0)) { err = ErrCode::Value; return false; }
       if constexpr (PayloadTraits::kHasString) {
         auto& st = payload_state;
         const char* xp = nullptr;
@@ -1532,6 +1575,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       err = ErrCode::Type;
       return false;
     }
+    if (!d_charge_derived_allocation(tables, payload_state, x, 0)) { err = ErrCode::Value; return false; }
     if constexpr (PayloadTraits::kHasList) {
       auto& st = payload_state;
       const Value* xp = nullptr;
@@ -1632,6 +1676,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       err = (argc == 1 && args[0].tag == ValueTag::Char) ? ErrCode::Value : ErrCode::Type;
       return false;
     }
+    if (!d_charge_list_allocation(payload_state, 1)) { err = ErrCode::Value; return false; }
     if constexpr (PayloadTraits::kHasString) {
       auto& st = payload_state;
       if (st.string_bytes_used + 1 <= st.kMaxStringBytes) {
@@ -1719,6 +1764,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     const int len = args[0].tag == ValueTag::Int
                         ? d_append_int_decimal(tmp, args[0].i)
                         : d_append_float_decimal(tmp, args[0].f);
+    if (!d_charge_list_allocation(payload_state, static_cast<unsigned>(len))) { err = ErrCode::Value; return false; }
     if constexpr (PayloadTraits::kHasString) {
       auto& st = payload_state;
       if (st.string_bytes_used + len <= st.kMaxStringBytes) {
@@ -1749,6 +1795,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         err = ErrCode::Value;
         return false;
       }
+      if (!d_charge_list_allocation(payload_state, 1)) { err = ErrCode::Value; return false; }
       if constexpr (PayloadTraits::kHasString) {
         auto& st = payload_state;
         if (st.string_bytes_used + 1 <= st.kMaxStringBytes) {
@@ -1818,6 +1865,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       if (d_lookup_list_payload(tables, st, xs, xp, xl)) {
         if (bid != BuiltinId::Insert && xl == 0) { out = xs; return true; }
         const int nl = bid == BuiltinId::Insert ? xl + 1 : (bid == BuiltinId::SetAt ? xl : xl - 1);
+        if (!d_charge_list_allocation(st, static_cast<unsigned>(nl))) { err = ErrCode::Value; return false; }
         if (st.list_values_used + nl <= st.kMaxListValues) {
           const int off = st.list_values_used;
           if (bid == BuiltinId::Insert) {
@@ -1881,6 +1929,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         if (d_lookup_string_payload(tables, payload_state, x, xp, xl)) {
           if (xl == 0) return d_emit_string<Flavor>(payload_state, nullptr, 0, false, out, err);
           const int exact_j = static_cast<int>(d_mod_positive(index, xl));
+          if (!d_charge_list_allocation(payload_state, 1U)) { err = ErrCode::Value; return false; }
           return d_emit_string<Flavor>(payload_state, xp + exact_j, 1, false, out, err);
         }
       }
@@ -1980,6 +2029,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         };
         if (left) while (begin < end && strippable(sp[begin])) ++begin;
         if (right) while (end > begin && strippable(sp[end - 1])) --end;
+        if (!d_charge_list_allocation(st, static_cast<unsigned>(end - begin))) { err = ErrCode::Value; return false; }
         return d_emit_string<Flavor>(st, sp + begin, end - begin, false, out, err);
       }
     }
@@ -2023,6 +2073,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       const char* sp = nullptr;
       int sl = 0;
       if (d_lookup_string_payload(tables, st, args[0], sp, sl)) {
+        if (!d_charge_list_allocation(st, static_cast<unsigned>(sl))) { err = ErrCode::Value; return false; }
         return d_emit_string<Flavor>(st, sp, sl, true, out, err);
       }
     }
