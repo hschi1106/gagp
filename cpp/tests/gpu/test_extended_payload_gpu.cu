@@ -1261,6 +1261,49 @@ bool test_reusable_generic_workspace() {
   return true;
 }
 
+bool test_deep_string_registry_fitness() {
+  // first = capitalize("b") is the oldest local string. Each of kLoops steps
+  // makes x = concat(strip(" a "), first): strip yields a local "a" equal to
+  // the external constant "a" and to every earlier "a", and concat reads the
+  // oldest entry. The lane registers two strings per step, far beyond the
+  // replay entry capacity, so lookups run over thousands of entries.
+  constexpr int kLoops=2500;
+  BytecodeProgram p;
+  p.n_locals=3;
+  p.consts={Value::from_int(0),Value::from_int(1),Value::from_int(kLoops),payload::make_string_value(" a "),
+      payload::make_string_value("b"),payload::make_string_value("a"),payload::make_string_value("")};
+  const auto call=[](BuiltinId id,int argc){return ins_ab(Opcode::CallBuiltin,static_cast<int>(id),argc);};
+  p.code={ins_a(Opcode::PushConst,4),call(BuiltinId::Capitalize,1),ins_a(Opcode::Store,2),
+      ins_a(Opcode::PushConst,6),ins_a(Opcode::Store,1),ins_a(Opcode::PushConst,0),ins_a(Opcode::Store,0),
+      ins_a(Opcode::PushConst,3),call(BuiltinId::Strip,1),ins_a(Opcode::Load,2),call(BuiltinId::Concat,2),
+      ins_a(Opcode::Store,1),
+      ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,1),ins(Opcode::Add),ins_a(Opcode::Store,0),
+      ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,2),ins(Opcode::Lt),ins_a(Opcode::JmpIfTrue,7),
+      ins_a(Opcode::Load,1),ins_a(Opcode::PushConst,5),call(BuiltinId::Concat,2),ins(Opcode::Return)};
+  p.instruction_fuel.assign(p.code.size(),1);
+  const std::vector<BytecodeProgram> programs{p};
+  const std::vector<CaseBindings> cases(3);
+  for(const std::string answer:{"aBa","aB","zzzz"}) {
+    const std::vector<Value> answers(3,payload::make_string_value(answer));
+    for(unsigned limit:{0u,65536u}) {
+      FitnessPolicy policy{FitnessMetric::Levenshtein};
+      policy.list_allocation_limit=limit;
+      std::vector<CpuFitnessCaseCounts> cpu_counts;
+      const auto cpu=eval_fitness_cpu(programs,cases,answers,100000,1000,33,policy,nullptr,&cpu_counts);
+      FitnessSessionGpu session;
+      if(!check(session.init(cases,answers,100000,33,1000,policy).ok,"deep string registry session init"))return false;
+      const auto gpu=session.eval_programs(programs,true);
+      const std::string name=" (limit="+std::to_string(limit)+" answer="+answer+")";
+      if(!check(gpu.ok && gpu.fitness==cpu,"deep string registry differs from CPU"+name)) {
+        std::cerr<<gpu.err.message<<" profile="<<gpu.execution_profile<<'\n';return false;
+      }
+      if(!check(cpu_counts[0].errors==0 && (answer=="aBa")==(cpu[0]==0),
+          "deep string registry program must return aBa"+name))return false;
+    }
+  }
+  return true;
+}
+
 bool test_tail_append_fitness() {
   ScopedEnvironment restore_diagnostics("GAGP_GPU_DIAGNOSTICS");
   setenv("GAGP_GPU_DIAGNOSTICS","1",1);
@@ -1740,7 +1783,7 @@ int main() {
       !test_reusable_generic_workspace())return 1;
   if(!test_private_intlist_fitness() || !test_private_tuple_fitness())return 1;
   if(!g3p_builtin_checks::run())return 1;
-  if (!test_dense_case_tiles() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_extended_payload() || !test_private_list_index() || !test_epoch_list_index() || !test_scalar_region_index_rollback() || !test_payload_replay_fitness() || !test_tail_append_fitness() || !test_allocation_charge_parity() || !test_region_physical_exhaustion() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_dense_case_tiles() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_extended_payload() || !test_private_list_index() || !test_epoch_list_index() || !test_scalar_region_index_rollback() || !test_payload_replay_fitness() || !test_tail_append_fitness() || !test_allocation_charge_parity() || !test_deep_string_registry_fitness() || !test_region_physical_exhaustion() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

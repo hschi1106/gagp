@@ -73,6 +73,14 @@ changes: a loop that keeps appending to its newest list uses n cells instead
 of n(n+1)/2 and reaches overflow replay much later. Private `IntList` arenas
 still copy.
 
+A string operand is resolved by a binary search of the sorted external table
+first and then by a scan of the lane's string entries from the newest one.
+Each entry's packed hash and length are computed from its own bytes, so every
+match holds the same string and the order cannot change a result. A loop whose
+body derives many strings from constants and recent results (common in the
+`psb1_g3p` string grammars) then finds each operand in a few steps instead of
+scanning every string the case has made, which made such lanes quadratic.
+
 Transport buffers freed after an evaluation are kept in power-of-two buckets
 per device (blocks up to 256 MiB, at most 1 GiB cached) and reused by the next
 evaluation (`device_allocation.cu`). The cache is released when an allocation
