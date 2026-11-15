@@ -237,7 +237,9 @@ not the multiple instructions charged by an authored conditional/clamp macro.
 ## Pure list edits and `range`
 
 These builtins return a new value and never mutate their arguments. Each
-charges one ordinary builtin operation of fuel. Argument types are checked
+charges one ordinary builtin operation of fuel. A resident result counts toward
+the logical allocation limit by its length (`insert`, `remove_at`, `set_at`,
+`range`), as listed in [fitness.md](./fitness.md). Argument types are checked
 before any value: a non-list first argument, a non-`Int` index or bound, or an
 element that is not the list's element type is a `TypeError`.
 
@@ -273,8 +275,7 @@ element that is not the list's element type is a `TypeError`.
 
 - arity: `2`; inputs: `Int`, `Int`; result: `IntList`
 - result: `[a, a+1, ..., b-1]`, empty when `b <= a`.
-- The `b - a` cells count toward the logical list allocation limit exactly like
-  `concat` and `singleton` (see [fitness.md](./fitness.md)); an empty range
+- The `b - a` cells count toward the logical allocation limit; an empty range
   allocates nothing. The count is computed in unsigned arithmetic, so no
   bound pair overflows, and the limit is checked before any cell is produced.
 - A range of more than 65535 cells (`Value::k_container_len_max`) is a

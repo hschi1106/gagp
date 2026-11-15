@@ -1865,6 +1865,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       if (d_lookup_list_payload(tables, st, xs, xp, xl)) {
         if (bid != BuiltinId::Insert && xl == 0) { out = xs; return true; }
         const int nl = bid == BuiltinId::Insert ? xl + 1 : (bid == BuiltinId::SetAt ? xl : xl - 1);
+        if (!d_charge_list_allocation(st, static_cast<unsigned>(nl))) { err = ErrCode::Value; return false; }
         if (st.list_values_used + nl <= st.kMaxListValues) {
           const int off = st.list_values_used;
           if (bid == BuiltinId::Insert) {

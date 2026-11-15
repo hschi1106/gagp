@@ -271,12 +271,15 @@ results:
 | `concat` of two nonempty lists or strings | the combined length |
 | `append`, `prepend` | length of the list plus one |
 | `reverse` | length of the list or string |
+| `insert` | length of the list plus one |
+| `set_at` | length of the list (nothing when empty) |
+| `remove_at` | length of the list minus one (nothing when empty) |
 | `range(a, b)` | `b - a` (nothing when empty) |
 | `char_to_string` | 1 |
 | `to_string` | length of the decimal text |
 
 A `concat` with an empty operand returns the other operand without allocation,
-and `slice` consumes nothing. An operation whose operand has no readable
+and `slice` consumes nothing, for lists and strings alike. An operation whose operand has no readable
 payload builds an opaque token and consumes nothing. The next allocation that
 exceeds the limit is a Value error with the ordinary error penalty. A GPU
 result marks physical payload exhaustion separately for bounded replay without

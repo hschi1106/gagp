@@ -1485,6 +1485,27 @@ bool test_allocation_charge_parity() {
        {static_cast<long long>(digits(39).second), static_cast<long long>(digits(40).second),
         static_cast<long long>(digits(41).second), static_cast<long long>(digits(1000).second)},
        two_over, static_cast<unsigned>(digits(40).first), false}, true);
+  // The G3P list edits charge their result length: insert len+1, set_at len,
+  // remove_at len-1 (nothing on an empty list, which is returned unchanged).
+  const auto zero_index = Value::from_int(0);
+  const auto insert = counted_loop(empty, false, {ins_a(Opcode::Load, 1), ins_a(Opcode::PushConst, 3),
+      ins_a(Opcode::Load, 2), call(BuiltinId::Insert, 3)}, {zero_index});
+  add({"insert in arena", insert, Value::invalid(), around100, {99, 100, 101, 1000}, two_over, triangle(100), false},
+      true);
+  const auto set_at = counted_loop(empty, true, {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 2),
+      ins_a(Opcode::Load, 2), call(BuiltinId::SetAt, 3)});
+  add({"set_at in arena", set_at, ints(50), around100, {50, 50, 50, 50}, two_over, 50 + 50 * 100, false}, true);
+  add({"set_at beyond the lane arena", set_at, ints(500), {129, 130, 131, 1000}, {500, 500, 500, 500},
+       two_over, 500 + 500 * 130, false}, true);
+  const auto remove_at = counted_loop(empty, true, {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 2),
+      call(BuiltinId::RemoveAt, 2)});
+  const auto removed = [](long long m, long long n) {
+    long long charged = m;
+    for (long long k = 0; k < std::min(m, n); ++k) charged += m - 1 - k;
+    return static_cast<unsigned>(charged);
+  };
+  add({"remove_at", remove_at, ints(200), around100, {101, 100, 99, 0}, two_over, removed(200, 100), false}, false);
+
   for (const auto& s : scenarios)
     if (!run_charge_scenario(s)) return false;
 

@@ -680,9 +680,11 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     if (payload::lookup_list(xs, &lx)) {
       const long long n = static_cast<long long>(lx.size());
       if (id == BuiltinId::Insert) {
+        payload::charge_list_allocation(lx.size() + 1);
         lx.insert(lx.begin() + insert_position(index.i, n), elem);
       } else {
         if (n == 0) return BuiltinResult{false, xs, Err{ErrCode::Value, ""}};
+        payload::charge_list_allocation(lx.size());
         lx[static_cast<std::size_t>(vm_semantics::py_int_mod(index.i, n))] = elem;
       }
       return make_exact_list(xs.tag, std::move(lx));
@@ -711,6 +713,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     std::vector<Value> lx;
     if (payload::lookup_list(xs, &lx)) {
       if (lx.empty()) return BuiltinResult{false, xs, Err{ErrCode::Value, ""}};
+      payload::charge_list_allocation(lx.size() - 1);
       const long long n = static_cast<long long>(lx.size());
       lx.erase(lx.begin() + vm_semantics::py_int_mod(index.i, n));
       return make_exact_list(xs.tag, std::move(lx));
