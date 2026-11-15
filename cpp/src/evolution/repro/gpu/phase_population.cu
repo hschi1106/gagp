@@ -522,6 +522,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   impl_->layout.profiles[k]=compile_phase_variation_grammar(*impl_->grammar,
       impl_->layout.slots[k].nonterminal,impl_->grammar->search_limits().max_depth,site_depth,&input_names);
  require_phase_import_site_depth(*impl_->grammar,imports,*import_profiles,site_depth);
+ require_phase_executable_capacity(imports);
  impl_->reproduction_profile=site_depth?"resident-gpu-v4-site-depth"+std::to_string(site_depth):
      impl_->operators.counted_sites?"resident-gpu-v2-counted":"resident-gpu-v1";
  impl_->reproduction_profile+=phase_variation_profile_suffix(policy);

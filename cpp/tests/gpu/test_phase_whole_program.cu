@@ -68,7 +68,7 @@ void same_program(const BytecodeProgram& a,const BytecodeProgram& b,const std::s
 }
 // Phase lowering of the imported gene, patched into the prototype executable.
 BytecodeProgram phase_lowered(const NativePhaseLayout& layout,const grammar::CompiledGrammar& grammar,
-    const std::vector<std::string>& names) {
+    const std::vector<std::string>& names,int* local_count=nullptr) {
  ValueTag locals[64];
  for(std::size_t j=0;j<names.size();++j)for(const auto& input:grammar.inputs())if(input.name==names[j])locals[j]=phase_value_tag(input.type);
  const auto& gene=layout.genes.at(0);const auto& regions=layout.profiles.at(0).regions;
@@ -77,6 +77,10 @@ BytecodeProgram phase_lowered(const NativePhaseLayout& layout,const grammar::Com
      locals,int(names.size()),layout.program_terminator?phase_value_tag(grammar.nonterminals().at(layout.slots.at(0).nonterminal).type):kPhaseStatement,
      code.data(),int(code.size()),values.data(),int(values.size()),regions.data(),int(regions.size()));
  require(r.status==PhaseCompileStatus::Ok && r.stack_bound>=1 && r.stack_bound<=gpu_detail::MAX_STACK,"phase compiler rejected a grammar program");
+ // Admission bounds the lowered locals of every program the grammar derives.
+ require(r.local_count<=layout.profiles.at(0).lowering_locals,"a program of "+std::to_string(r.local_count)+
+     " lowered locals exceeds the admission bound of "+std::to_string(layout.profiles.at(0).lowering_locals));
+ if(local_count)*local_count=r.local_count;
  auto program=layout.executable;patch_whole_program(program,layout,code.data(),r.code_count,values.data(),r.constant_count,r);
  return program;
 }
@@ -471,11 +475,13 @@ void check_unused_local() {
 }
 // A for_range holds its bound and its counter through the body. 58 inputs and
 // three nested loops over an input need exactly 64 locals: admitted, and both
-// owners publish the same search. 60 inputs and four loops need 68: rejected
-// at admission on both, naming the count.
+// owners publish the same search. 60 inputs and four loops need 68, and 61
+// inputs with a for_range inside a while_stmt need 65: rejected at admission
+// on both, naming the count.
 void check_loop_locals() {
- for(const int locals:{64,68}) {
-  const auto fixture=std::string("phase_loop_locals_")+std::to_string(locals)+".json";
+ const std::vector<std::pair<const char*,int>> fixtures{{"64",64},{"68",68},{"while",65}};
+ for(const auto& [name,locals]:fixtures) {
+  const auto fixture=std::string("phase_loop_locals_")+name+".json";
   const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
       grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/")+fixture)));
   const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
@@ -489,11 +495,22 @@ void check_loop_locals() {
    const auto label=fixture+(gpu?" GPU":" CPU");
    if(locals==64)require(error.empty(),label+": "+error);
    else require(error.find("resident engine cannot admit")!=std::string::npos &&
-       error.find("up to 68 locals (capacity 64)")!=std::string::npos,label+": "+error);
+       error.find("up to "+std::to_string(locals)+" locals (capacity 64)")!=std::string::npos,label+": "+error);
   }
-  if(locals==64)require_same(traces[0],traces[1],fixture);
+  if(locals!=64)continue;
+  require_same(traces[0],traces[1],fixture);
+  // The bound is tight here: generated programs lower to at most 64 locals
+  // (phase_lowered checks the admission bound) and some reach 64.
+  std::vector<std::string> names;for(const auto& input:compiled->inputs())names.push_back(input.name);
+  int most=0;
+  for(unsigned seed=0;seed<256;++seed) {
+   const auto genome=generated(*compiled,seed);if(!genome)continue;
+   const auto layout=import_native_phase_layout(*compiled,*genome,nullptr,&names,true,false);
+   int count=0;phase_lowered(layout,*compiled,names,&count);most=std::max(most,count);
+  }
+  require(most==64,fixture+": the most lowered locals is "+std::to_string(most)+", not 64");
  }
- std::cout<<"phase_loop_locals: a for_range counts its bound and counter, 64 locals identical on CPU and GPU, 68 rejected on both\n";
+ std::cout<<"phase_loop_locals: a for_range counts its bound and counter, 64 locals identical on CPU and GPU, 65 and 68 rejected on both\n";
 }
 // limits.site_depth. phase_site_ambiguous derives neg(add(x,x)) through p1
 // (two nested invocations) and through p0 (three), and the importer

@@ -464,6 +464,20 @@ inline void require_phase_import_site_depth(const grammar::CompiledGrammar& gram
   }
 }
 
+// The imported executables within the evaluator limits, checked on the host
+// by both owners with one message: the CPU reference evaluates them without
+// a fixed local table, so it must refuse exactly what the GPU owner refuses.
+inline void require_phase_executable_capacity(const std::vector<NativePhaseLayout>& members) {
+  BytecodeVerifyOptions options; options.max_locals_per_code = gpu_detail::MAX_LOCALS; options.max_stack_depth = gpu_detail::MAX_STACK;
+  for (std::size_t p = 0; p < members.size(); ++p) {
+    const auto& program = members[p].executable;
+    phase_layout_require(program.n_locals <= gpu_detail::MAX_LOCALS, "initial member " + std::to_string(p) + ": a program of " +
+        std::to_string(program.n_locals) + " locals exceeds the resident capacity of " + std::to_string(gpu_detail::MAX_LOCALS) + " locals");
+    phase_layout_require(bool(verify_bytecode(program, options)), "initial member " + std::to_string(p) +
+        ": the executable exceeds the evaluator's local or stack limits");
+  }
+}
+
 // Export only. The caller supplies a private run's current device copyback;
 // external/imported gene buffers must never bypass independent admission.
 inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& grammar,

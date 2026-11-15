@@ -249,6 +249,7 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
  if(site_depth)for(std::size_t k=0;k<s.layout.slots.size();++k)
   s.layout.profiles[k]=compile_phase_variation_grammar(*s.grammar,s.layout.slots[k].nonterminal,s.grammar->search_limits().max_depth,site_depth,&input_names);
  require_phase_import_site_depth(*s.grammar,imports,import_profiles,site_depth);
+ require_phase_executable_capacity(imports);
  s.profile=site_depth?"resident-cpu-v4-site-depth"+std::to_string(site_depth):
      s.operators.counted_sites?"resident-cpu-v2-counted":"resident-cpu-v1";
  s.profile+=phase_variation_profile_suffix(policy);

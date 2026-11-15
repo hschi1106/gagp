@@ -28,6 +28,9 @@ struct HostPhaseGrammar {
   // A let, traversal or bounded region was reached: Bound operands are binder
   // numbers (whole-program phases only).
   bool lets=false;
+  // Admission's upper bound on the locals of a lowered program of this phase
+  // grammar: inputs, reached grammar locals and temporaries on one path.
+  int lowering_locals=0;
   // Bounded regions and traversals by table entry (PhaseTreeNode::operand of a
   // Region or Traverse node), with the host-only bounded region plan and phase
   // binding sources for native assembly (empty for a traversal).
@@ -693,6 +696,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     }
     const int inputs_count=static_cast<int>(inputs?inputs->size():grammar.inputs().size());
     int named=0;for(unsigned m=reached_locals;m;m&=m-1)++named;
+    out.lowering_locals=inputs_count+named+h[Temporaries];
     if(inputs_count+named+h[Temporaries]>gpu_detail::MAX_LOCALS || h[Walks]>kPhaseWalks || h[Lets]>kPhaseLets ||
         h[Loops]>kPhaseLoops || (h[Walks] && h[Ifs]>kPhaseIfs))
       fail("lowering capacity within the depth budget: up to "+std::to_string(inputs_count+named+h[Temporaries])+" locals (capacity "+

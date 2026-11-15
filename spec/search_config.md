@@ -220,6 +220,11 @@ nodes of one phase and the bounded regions in one program, which are checked
 per program like `max_nodes`: generation redraws an initial member over one
 (see [Variation](#variation)), admission refuses a supplied initial member
 over one, and variation rejects a candidate over one and draws or tries again.
+Before the first generation, both owners also verify the executable of every
+initial member against the evaluator's limits of 64 locals and its stack
+depth, with the same message (`initial member P: a program of N locals
+exceeds the resident capacity of 64 locals`). The CPU reference therefore
+never evaluates a program that the GPU owner refuses.
 
 | Resource | Limit |
 | --- | --- |
