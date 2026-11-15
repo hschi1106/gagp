@@ -95,7 +95,7 @@ BoundedRegionSegment region_segment() {
   RegionBound upper;
   upper.literal = std::numeric_limits<std::int64_t>::max();
   plan.coordinate_domains = {{lower, upper}};
-  plan.limits.frames = std::numeric_limits<std::uint32_t>::max();
+  plan.limits.frames = gagp::kRegionFrameLimitMax;
   plan.limits.entry_fuel = static_cast<std::uint32_t>(std::numeric_limits<int>::max());
 
   segment.parameter_locals = {0, 1, 2, 3, 4, 5, 6, 7};

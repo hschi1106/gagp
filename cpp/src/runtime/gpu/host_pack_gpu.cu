@@ -57,20 +57,8 @@ int verify_bounded_program_or_throw(const BytecodeProgram& prog) {
         " instruction " + std::to_string(diagnostic.instruction_index) +
         ": " + diagnostic.message);
   }
-  for (std::size_t i = 0; i < prog.bounded_region_segments.size(); ++i) {
-    const RegionExecutionLimits& limits =
-        prog.bounded_region_segments[i].plan.limits;
-    if (limits.frames > DMAX_REGION_FRAMES) {
-      throw std::invalid_argument(
-          "bounded region segment " + std::to_string(i) +
-          " frame limit exceeds GPU capacity 128");
-    }
-    if (limits.cells > DMAX_REGION_MEMO) {
-      throw std::invalid_argument(
-          "bounded region segment " + std::to_string(i) +
-          " cell limit exceeds GPU capacity " + std::to_string(DMAX_REGION_MEMO));
-    }
-  }
+  // Verification validated every region plan, including the language frame
+  // and cell limits; evaluation sizes its scratch from those declarations.
   return static_cast<int>(verified.verified.max_stack_depth);
 }
 
@@ -522,6 +510,7 @@ DeviceArena::~DeviceArena() {
   if (d_region_frames) device_free(d_region_frames);
   if (d_region_memo_keys) device_free(d_region_memo_keys);
   if (d_region_memo_values) device_free(d_region_memo_values);
+  if (d_region_memo_index) device_free(d_region_memo_index);
   if (d_metas) device_free(d_metas);
   if (d_shared_case_local_vals) device_free(d_shared_case_local_vals);
   if (d_shared_case_local_set) device_free(d_shared_case_local_set);

@@ -46,6 +46,26 @@ using gpu_detail::DProgramMeta;
 using gpu_detail::DResult;
 using gpu_detail::DStringPayloadEntry;
 
+// Bound transient region scratch independently of population size. This limits
+// only concurrent program blocks, never a program's declared frame or memo limits.
+constexpr std::size_t kRegionWorkspaceBudget = 512u * 1024u * 1024u;
+
+// Memo scratch per lane: keys for every state slot, values, and the hash index
+// that plans above the linear-scan threshold use.
+std::size_t region_memo_lane_bytes(std::uint32_t cells, std::uint32_t index_slots) {
+  return (sizeof(std::int64_t) * gpu_detail::DMAX_REGION_STATES + sizeof(Value)) * cells +
+         sizeof(std::uint32_t) * index_slots;
+}
+
+// The language limits must leave room for one full-width block of the widest
+// frame, so no plan accepted by validation is refused for lack of GPU scratch.
+static_assert(std::size_t{1024} *
+                  (sizeof(gpu_detail::DRegionFrame) * kRegionFrameLimitMax +
+                   (sizeof(std::int64_t) * gpu_detail::DMAX_REGION_STATES + sizeof(Value)) *
+                       kRegionCellLimitMax +
+                   sizeof(std::uint32_t) * gpu_detail::region_memo_index_slots(kRegionCellLimitMax)) <=
+              kRegionWorkspaceBudget);
+
 // One backing only: unused retained capacity counts against every current stage.
 struct ReusablePrivateWorkspace {
   void* data=nullptr;std::size_t capacity=0,allocations=0,peak_bytes=0;int device=-1;bool busy=false;
@@ -104,6 +124,7 @@ struct PayloadWorkspaceStorage {
     const auto frame_bytes=frame_size*workspace.frame_capacity;
     const auto key_bytes=sizeof(std::int64_t)*gpu_detail::DMAX_REGION_STATES*workspace.memo_capacity;
     const auto memo_bytes=sizeof(Value)*workspace.memo_capacity;
+    const auto index_bytes=sizeof(std::uint32_t)*workspace.memo_index_capacity;
     // Private lists use checked offsets; only the immutable external table
     // retains a registry. No per-lane string/registry/index scratch is needed.
     const bool registry=!workspace.private_intlists;
@@ -119,7 +140,7 @@ struct PayloadWorkspaceStorage {
         (workspace.compact_intlist_cells?sizeof(std::int64_t):sizeof(Value))+
         (workspace.concat_cache_enabled?sizeof(gpu_detail::DConcatCacheEntry)*gpu_detail::DCONCAT_CACHE_SLOTS:0);
     blocks=gpu_detail::payload_workspace_block_count(budget,programs,
-        payload_bytes+frame_bytes+key_bytes+memo_bytes,extra_bytes);
+        payload_bytes+frame_bytes+key_bytes+memo_bytes+index_bytes,extra_bytes);
     if(!blocks || blocks<min_blocks)return false;
     const auto slots=blocks*threads;
     if(reusable && !(workspace.private_intlists && workspace.compact_intlist_cells && !workspace.concat_cache_enabled)) {
@@ -133,11 +154,11 @@ struct PayloadWorkspaceStorage {
       static_assert(alignof(gpu_detail::DRegionFrame)<=8 && alignof(gpu_detail::DConcatCacheEntry)<=8 &&
           alignof(gpu_detail::DStringPayloadEntry)<=8 && alignof(gpu_detail::DListPayloadEntry)<=8 && alignof(Value)<=8);
       const auto carve=[&](void** p,std::size_t n){*p=nullptr;if(n){parts.push_back({p,offset});offset+=(n+7)&~std::size_t(7);}};
-      const auto index_bytes=slots*std::size_t(entries)*2*sizeof(std::uint64_t);
+      const auto epoch_bytes=slots*std::size_t(entries)*2*sizeof(std::uint64_t);
       if(workspace.concat_cache_enabled)
         carve(reinterpret_cast<void**>(&workspace.concat_cache),slots*sizeof(gpu_detail::DConcatCacheEntry)*gpu_detail::DCONCAT_CACHE_SLOTS);
       if(epoch_index) {
-        carve(reinterpret_cast<void**>(&workspace.payload_list_epoch_index),index_bytes);
+        carve(reinterpret_cast<void**>(&workspace.payload_list_epoch_index),epoch_bytes);
         carve(reinterpret_cast<void**>(&workspace.payload_list_epoch),slots*sizeof(unsigned));
       }
       if(registry && indexed && !epoch_index)
@@ -153,10 +174,11 @@ struct PayloadWorkspaceStorage {
       carve(reinterpret_cast<void**>(&workspace.frames),slots*frame_bytes);
       carve(reinterpret_cast<void**>(&workspace.memo_keys),slots*key_bytes);
       carve(reinterpret_cast<void**>(&workspace.memo_values),slots*memo_bytes);
+      carve(reinterpret_cast<void**>(&workspace.memo_index),slots*index_bytes);
       if(offset && !reusable->reserve(offset,budget-extra_bytes,extra_bytes))return false;
       auto* base=static_cast<unsigned char*>(reusable->data);
       for(const auto& part:parts)*part.first=base+part.second;
-      return !epoch_index || (cudaMemset(workspace.payload_list_epoch_index,0,index_bytes)==cudaSuccess &&
+      return !epoch_index || (cudaMemset(workspace.payload_list_epoch_index,0,epoch_bytes)==cudaSuccess &&
           cudaMemset(workspace.payload_list_epoch,0,slots*sizeof(unsigned))==cudaSuccess);
     }
     if(reusable) {
@@ -164,22 +186,23 @@ struct PayloadWorkspaceStorage {
       static_assert(alignof(gpu_detail::DRegionFrame)<=8 && alignof(gpu_detail::DCompactPairRegionFrame)<=8 &&
           alignof(gpu_detail::DCompactRegionFrame)<=8 && alignof(Value)<=8);
       const auto cell_bytes=slots*std::size_t(values)*sizeof(std::int64_t);
-      const auto required=cell_bytes+slots*(frame_bytes+key_bytes+memo_bytes);
+      const auto required=cell_bytes+slots*(frame_bytes+key_bytes+memo_bytes+index_bytes);
       if(!reusable->reserve(required,budget-extra_bytes,extra_bytes))return false;
       auto* base=static_cast<unsigned char*>(reusable->data);
       workspace.payload_intlist_cells=reinterpret_cast<std::int64_t*>(base);
       workspace.frames=frame_bytes?reinterpret_cast<gpu_detail::DRegionFrame*>(base+cell_bytes):nullptr;
       workspace.memo_keys=key_bytes?reinterpret_cast<std::int64_t*>(base+cell_bytes+slots*frame_bytes):nullptr;
       workspace.memo_values=memo_bytes?reinterpret_cast<Value*>(base+cell_bytes+slots*(frame_bytes+key_bytes)):nullptr;
+      workspace.memo_index=index_bytes?reinterpret_cast<std::uint32_t*>(base+cell_bytes+slots*(frame_bytes+key_bytes+memo_bytes)):nullptr;
       return true;
     }
     if(workspace.concat_cache_enabled && !allocate(reinterpret_cast<void**>(&workspace.concat_cache),
         slots*sizeof(gpu_detail::DConcatCacheEntry)*gpu_detail::DCONCAT_CACHE_SLOTS))return false;
     if(epoch_index) {
-      const auto index_bytes=slots*entries*2*sizeof(std::uint64_t);
-      if(!allocate(reinterpret_cast<void**>(&workspace.payload_list_epoch_index),index_bytes) ||
+      const auto epoch_bytes=slots*entries*2*sizeof(std::uint64_t);
+      if(!allocate(reinterpret_cast<void**>(&workspace.payload_list_epoch_index),epoch_bytes) ||
          !allocate(reinterpret_cast<void**>(&workspace.payload_list_epoch),slots*sizeof(unsigned)) ||
-         cudaMemset(workspace.payload_list_epoch_index,0,index_bytes)!=cudaSuccess ||
+         cudaMemset(workspace.payload_list_epoch_index,0,epoch_bytes)!=cudaSuccess ||
          cudaMemset(workspace.payload_list_epoch,0,slots*sizeof(unsigned))!=cudaSuccess)return false;
     }
     return (!registry || !indexed || epoch_index || allocate(reinterpret_cast<void**>(&workspace.payload_list_index),slots*entries*2*sizeof(int))) &&
@@ -191,7 +214,8 @@ struct PayloadWorkspaceStorage {
             allocate(reinterpret_cast<void**>(&workspace.payload_list_values),slots*values*sizeof(Value))) &&
         allocate(reinterpret_cast<void**>(&workspace.frames),slots*frame_bytes) &&
         allocate(reinterpret_cast<void**>(&workspace.memo_keys),slots*key_bytes) &&
-        allocate(reinterpret_cast<void**>(&workspace.memo_values),slots*memo_bytes);
+        allocate(reinterpret_cast<void**>(&workspace.memo_values),slots*memo_bytes) &&
+        allocate(reinterpret_cast<void**>(&workspace.memo_index),slots*index_bytes);
   }
 };
 
@@ -1057,7 +1081,9 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       });
   region_workspace.coordinate_executor = direct_phases &&
       std::all_of(packed.region_segments.begin(),packed.region_segments.end(),[](const auto& s) {
+        // Its memo scan stays linear, so larger memo plans use the indexed generic driver.
         if(s.progress!=RegionProgressKind::Coordinates || s.state_count!=1 || s.state_types[0]!=ValueTag::Int ||
+            s.limits.cells>gpu_detail::DLINEAR_REGION_MEMO ||
             s.result_type!=ValueTag::Int || s.coordinate_count!=1 || s.coordinate_slots[0]!=0 ||
             s.bound_operand_count!=0 || s.preparation_count!=0 || s.request_expression_count!=0 ||
             s.request_count<1 || s.request_count>2 ||
@@ -1150,15 +1176,15 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     if (segment.memoized) {
       region_workspace.memo_capacity =
           std::max(region_workspace.memo_capacity, segment.limits.cells);
+      region_workspace.memo_index_capacity =
+          std::max(region_workspace.memo_index_capacity,
+                   gpu_detail::region_memo_index_slots(segment.limits.cells));
     }
   }
-  // Bound transient scratch independently of population size. This limits only
-  // concurrent program blocks, never a program's declared frame or memo limits.
-  constexpr std::size_t kRegionWorkspaceBudget = 512u * 1024u * 1024u;
+  const std::size_t memo_lane_bytes = region_memo_lane_bytes(
+      region_workspace.memo_capacity, region_workspace.memo_index_capacity);
   const std::size_t workspace_bytes_per_thread =
-      frame_size * region_workspace.frame_capacity +
-      (sizeof(std::int64_t) * gpu_detail::DMAX_REGION_STATES + sizeof(Value)) *
-          region_workspace.memo_capacity;
+      frame_size * region_workspace.frame_capacity + memo_lane_bytes;
   const std::size_t workspace_bytes_per_block =
       workspace_bytes_per_thread * static_cast<std::size_t>(execution_threads);
   std::size_t region_blocks = workspace_bytes_per_block == 0 ? programs.size() :
@@ -1173,8 +1199,7 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
     const auto threads=static_cast<std::size_t>(execution_threads);
     const auto compact_frames=threads*region_workspace.frame_capacity*compact_frame_size;
     const auto generic_frames=threads*region_workspace.frame_capacity*frame_size;
-    const auto memo=threads*region_workspace.memo_capacity*
-        (sizeof(std::int64_t)*gpu_detail::DMAX_REGION_STATES+sizeof(Value));
+    const auto memo=threads*memo_lane_bytes;
     const auto required=[&](std::size_t c,std::size_t g) {
       return std::max(c*compact_frames,g*generic_frames)+std::max(c,g)*memo;
     };
@@ -1356,13 +1381,18 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
       const std::size_t frame_bytes = workspace_frame_bytes;
       const std::size_t key_bytes = workspace_threads * region_workspace.memo_capacity *
                                     gpu_detail::DMAX_REGION_STATES * sizeof(std::int64_t);
+      // The memo index shares the key allocation, after every lane's keys.
+      const std::size_t index_bytes =
+          workspace_threads * region_workspace.memo_index_capacity * sizeof(std::uint32_t);
       const std::size_t value_bytes = workspace_threads * region_workspace.memo_capacity * sizeof(Value);
-      if (!impl_->reserve_region_workspace(frame_bytes, key_bytes, value_bytes)) {
+      if (!impl_->reserve_region_workspace(frame_bytes, key_bytes + index_bytes, value_bytes)) {
         return fitness_eval_single_error(ErrCode::Value, "cuda region workspace allocation failure");
       }
       region_workspace.frames = impl_->region_frames;
       region_workspace.memo_keys = impl_->region_memo_keys;
       region_workspace.memo_values = impl_->region_memo_values;
+      region_workspace.memo_index = index_bytes ? reinterpret_cast<std::uint32_t*>(
+          reinterpret_cast<unsigned char*>(impl_->region_memo_keys) + key_bytes) : nullptr;
     }
     if(global_payload) {
       impl_->release_region_workspace();

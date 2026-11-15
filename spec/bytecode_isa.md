@@ -99,10 +99,11 @@ requests run serially, and combine runs after all children succeed. Frame or
 memo capacity exhaustion yields `Timeout`. Memo keys cover all state slots;
 cached values retain exact runtime tags.
 
-GPU transport supports at most 128 declared frames and 128 declared memo cells
-per region and rejects larger declarations before upload. It does not clamp
-limits or execute phases on the host. CPU and GPU preserve request order,
-error order, fuel charges, result tags, and memo behavior within that profile.
+Both engines run every verified plan, up to the language limits of 1,024
+declared frames and 4,096 declared memo cells per region. GPU scratch is sized
+from the declarations of the evaluated programs; the GPU does not clamp limits
+or execute phases on the host. CPU and GPU preserve request order, error order,
+fuel charges, result tags, and memo behavior.
 
 ## Compiler lowering
 

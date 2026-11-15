@@ -116,6 +116,7 @@ __global__ __launch_bounds__(LaunchThreads) void evaluate_fitness_programs_impl(
     if (workspace.memo_keys)
       workspace.memo_keys += block_base * workspace.memo_capacity * DMAX_REGION_STATES + tid;
     if (workspace.memo_values) workspace.memo_values += block_base * workspace.memo_capacity + tid;
+    if (workspace.memo_index) workspace.memo_index += block_base * workspace.memo_index_capacity + tid;
   }
 
   // Each block owns its workspace slices throughout the launch. Grid-stride

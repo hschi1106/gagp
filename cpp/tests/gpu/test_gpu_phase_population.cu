@@ -662,14 +662,20 @@ int main(){try {
  test_private_intlist_generations(false,true);
  test_private_intlist_generations(true);
  auto definition=grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json");
- // Keep the original oversized fixture as a required explicit rejection.
- // The positive fixture is a separately authored GPU-capacity contract.
- const auto oversized=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(definition));
- std::vector<std::string> oversized_names;for(const auto& x:oversized->inputs())oversized_names.push_back(x.name);
- bool unsupported=false;
- try {repro::NativePhasePopulation reject(oversized,{grammar::generate_derivation(*oversized,7).genome},oversized_names);}
- catch(const std::invalid_argument& e){unsupported=std::string(e.what()).find("capacity 256")!=std::string::npos;}
- require(unsupported,"oversized declared memo capacity was silently reduced or accepted");
+ // The fixture's 1024-cell declaration exceeds the former 256-cell GPU profile
+ // and is admitted as declared. Only the language cell limit is rejected, by
+ // plan validation, before any engine sees the grammar.
+ {
+  const auto declared=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(definition));
+  std::vector<std::string> declared_names;for(const auto& x:declared->inputs())declared_names.push_back(x.name);
+  repro::NativePhasePopulation accept(declared,{grammar::generate_derivation(*declared,7).genome},declared_names);
+  auto oversized=definition.document;
+  oversized.object_v.at("templates").array_v[0].object_v.at("body").object_v.at("structured").object_v.at("plan").object_v.at("limits").object_v.at("cells").number_v=kRegionCellLimitMax+1;
+  bool rejected=false;
+  try {(void)grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(oversized)));}
+  catch(const std::invalid_argument& e){rejected=std::string(e.what()).find("region cell limit exceeds 4096")!=std::string::npos;}
+  require(rejected,"a cell limit above the language limit was accepted or rejected for another reason");
+ }
  definition.document.object_v.at("templates").array_v[0].object_v.at("body").object_v.at("structured").object_v.at("plan").object_v.at("limits").object_v.at("cells").number_v=128;
  const auto grammar=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(definition.document))));
  std::vector<ProgramGenome> parents;constexpr int population=16;

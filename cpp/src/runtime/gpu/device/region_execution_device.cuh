@@ -321,6 +321,45 @@ __device__ inline bool d_region_endpoint(
   return out > 0 && out < static_cast<std::int64_t>(length);
 }
 
+// Hashes only a frame's state keys. The index stores cell ordinals; a lookup
+// still compares every key, so it returns exactly the cell a scan would.
+template <class Frame>
+__device__ __forceinline__ unsigned d_region_memo_hash(const Frame& frame, std::uint32_t states) {
+  std::uint64_t hash = 0x6a09e667f3bcc909ULL;
+  for (std::uint32_t axis = 0; axis < states; ++axis) {
+    hash = (hash ^ static_cast<std::uint64_t>(frame.state[axis].i)) * 0x9e3779b97f4a7c15ULL;
+    hash ^= hash >> 29;
+  }
+  return static_cast<unsigned>(hash ^ (hash >> 32));
+}
+
+template <class Frame>
+__device__ __forceinline__ std::uint32_t d_region_memo_index_find(
+    const std::int64_t* keys, const std::uint32_t* index, std::size_t stride,
+    std::uint32_t slots, std::uint32_t states, const Frame& frame) {
+  for (unsigned slot = d_region_memo_hash(frame, states) & (slots - 1);;
+       slot = (slot + 1) & (slots - 1)) {
+    const auto entry = index[slot * stride];
+    if (!entry) return 0;
+    bool matches = true;
+    for (std::uint32_t axis = 0; axis < states; ++axis)
+      matches &= keys[((entry - 1) * DMAX_REGION_STATES + axis) * stride] == frame.state[axis].i;
+    if (matches) return entry;
+  }
+}
+
+// Keys are distinct: a cell is stored only after its lookup missed.
+__device__ __forceinline__ void d_region_memo_index_insert(
+    const std::int64_t* keys, std::uint32_t* index, std::size_t stride,
+    std::uint32_t slots, std::uint32_t states, std::uint32_t cell) {
+  struct KeyFrame { struct { std::int64_t i; } state[DMAX_REGION_STATES]; } frame;
+  for (std::uint32_t axis = 0; axis < states; ++axis)
+    frame.state[axis].i = keys[(cell * DMAX_REGION_STATES + axis) * stride];
+  unsigned slot = d_region_memo_hash(frame, states) & (slots - 1);
+  while (index[slot * stride]) slot = (slot + 1) & (slots - 1);
+  index[slot * stride] = cell + 1;
+}
+
 #include "window_execution_device.cuh"
 #include "coordinate_execution_device.cuh"
 
@@ -333,7 +372,7 @@ __device__ __noinline__ DResult d_run_bounded_region_impl(
     const DExecutionTables& tables, int& fuel, DRegionWorkspace workspace) {
   if (segment.state_count == 0 || segment.state_count > DMAX_REGION_STATES ||
       segment.request_count == 0 || segment.request_count > DMAX_REGION_REQUESTS ||
-      segment.limits.frames > DMAX_REGION_FRAMES || segment.limits.cells > DMAX_REGION_MEMO)
+      segment.limits.frames > kRegionFrameLimitMax || segment.limits.cells > kRegionCellLimitMax)
     return d_error(ErrCode::Value);
   for (std::uint32_t i = 0; i < segment.bound_operand_count; ++i)
     if (operands[segment.state_count + i].tag != ValueTag::Int) return d_error(ErrCode::Type);
@@ -387,6 +426,11 @@ __device__ __noinline__ DResult d_run_bounded_region_impl(
   // The index occupies only this invocation's existing key backing. No ordinary
   // key is written while dense lookup is active; values keep insertion order.
   for(unsigned i=0;i<dense_cells;++i)memo_keys[i*stride]=0;
+  const std::uint32_t index_slots=segment.memoized && !dense_cells?region_memo_index_slots(segment.limits.cells):0;
+  if(index_slots && (!workspace.memo_index || workspace.memo_index_capacity<index_slots))
+    return d_error(ErrCode::Value);
+  std::uint32_t* memo_index=workspace.memo_index;
+  bool indexed=false; // Lookups scan until the index is built.
   std::uint32_t depth = 1;
   for (std::uint32_t i = 0; i < segment.state_count; ++i) frames[0].state[i] = operands[i];
   frames[0].next_request = -1;
@@ -428,6 +472,9 @@ __device__ __noinline__ DResult d_run_bounded_region_impl(
           if(dense_cells) {
             const auto encoded=memo_keys[dense_coordinate_memo_slot(segment,frame)*stride];
             if(encoded) {result=d_ok(memo_values[(encoded-1)*stride]);completed=true;}
+          } else if(indexed) {
+            const auto entry=d_region_memo_index_find(memo_keys,memo_index,stride,index_slots,segment.state_count,frame);
+            if(entry) {result=d_ok(memo_values[(entry-1)*stride]);completed=true;}
           } else for (std::uint32_t cell = 0; cell < memo_count; ++cell) {
             bool matches = true;
             for (std::uint32_t axis = 0; axis < segment.state_count; ++axis)
@@ -508,6 +555,13 @@ __device__ __noinline__ DResult d_run_bounded_region_impl(
           memo_keys[(memo_count * DMAX_REGION_STATES + i) * stride] = frame.state[i].i;
         memo_values[memo_count * stride] = result.value;
         ++memo_count;
+        if(indexed)d_region_memo_index_insert(memo_keys,memo_index,stride,index_slots,segment.state_count,memo_count-1);
+        else if(index_slots && memo_count==DREGION_MEMO_INDEX_BUILD) {
+          for(std::uint32_t i=0;i<index_slots;++i)memo_index[i*stride]=0;
+          for(std::uint32_t cell=0;cell<memo_count;++cell)
+            d_region_memo_index_insert(memo_keys,memo_index,stride,index_slots,segment.state_count,cell);
+          indexed=true;
+        }
       }
     }
     if (--depth == 0) return result;

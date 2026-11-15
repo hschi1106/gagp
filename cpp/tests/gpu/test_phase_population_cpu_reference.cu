@@ -118,6 +118,24 @@ int main() { try {
       std::string(p.label)+": GPU owner not used");
   require_same(reference,gpu,std::string(p.label)+" GPU");
  }
+ // The fixture's own 1024-cell declaration exceeds the former 256-cell GPU
+ // profile; the indexed GPU memo publishes the CPU reference search.
+ {
+  const auto declared=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+      grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json")));
+  std::vector<ProgramGenome> declared_parents;
+  for(int i=0;i<population;++i)declared_parents.push_back(grammar::generate_derivation(*declared,1937+i).genome);
+  const auto search=[&](bool gpu){
+   auto cfg=base;cfg.compiled_grammar=declared;cfg.generation_request=grammar::entry_request(*declared);
+   cfg.phase_variation=policies[1].policy;
+   cfg.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+   cfg.reproduction_backend=gpu?repro::ReproductionBackend::Gpu:repro::ReproductionBackend::Cpu;
+   return trace(evolve_population(cases,cfg,&declared_parents));
+  };
+  const auto reference=search(false),gpu=search(true);
+  require(gpu.profile.rfind("resident-gpu-",0)==0,"1024-cell declaration: GPU owner not used");
+  require_same(reference,gpu,"1024-cell declaration GPU");
+ }
  // A site-depth run without a saved population grows its own phase genes; both
  // owners start from the same generated population and publish one search.
  {

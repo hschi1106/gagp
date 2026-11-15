@@ -96,7 +96,14 @@ the run timing.
 
 Bounded regions keep frame and memo cells in explicitly owned global device
 slices (512 MiB, reused across evaluations; memoized answers are never carried
-between programs). Payload scratch stays live through all descendants and memo
+between programs). Each lane's slice is sized from the largest frame and cell
+limits among the evaluated plans, and the budget bounds only how many program
+blocks run at once. The language limits (1,024 frames, 4,096 cells) keep one
+full 1,024-lane block of the widest frame inside the budget, which
+`fitness_gpu.cu` checks at compile time. A plan with at most 256 cells scans
+its stored keys (or uses the dense coordinate table); a larger plan adds a
+per-lane hash index of cell ordinals, built after 32 insertions, that compares
+full keys and so hits exactly the cell the CPU's memo returns. Payload scratch stays live through all descendants and memo
 hits; a region with a scalar result may restore the scratch counters once it
 completes.
 

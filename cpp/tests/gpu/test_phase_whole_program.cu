@@ -261,8 +261,7 @@ int main() { try {
  check("cpp/tests/fixtures/phase_region.json",Fixture::Captures);
  check("configs/grammar/compat/dp1d_int.json",Fixture::Regions);
  check("configs/grammar/compat/dp2d_int.json",Fixture::Regions);
- // A 1024-cell memo table exceeds the GPU evaluator's region capacity, and a
- // grammar of one fixed program has nothing to search.
+ // Each of these grammars is one fixed program, so there is nothing to search.
  for(const char* grammar:{"configs/grammar_definitions/bounded_memo.json","configs/grammar_definitions/bounded_sequence.json",
      "configs/grammar/examples/acyclic_memo.json","configs/grammar/examples/changed_recursive_split.json"})
   check(grammar,Fixture::Regions,false);

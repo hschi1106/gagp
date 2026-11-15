@@ -458,6 +458,8 @@ constructor from that same source. Other arbitrary request expressions are
 permitted for unranked state slots and must have that slot's exact type.
 Memoization requires coordinates covering every state slot, so its key omits no
 changing state. Nonmemoized plans have a canonical zero cell limit.
+A plan declares at most 1,024 frames and 4,096 memo cells. Plan validation
+rejects larger declarations, so both engines accept exactly the same plans.
 Materialized plans require a frame-entry charge in `[1, INT_MAX]`; thus every
 visited state is metered even when its phase instructions have zero charges.
 
