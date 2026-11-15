@@ -35,6 +35,17 @@ identical populations, fitness values and champions on both engines).
 - A bounded region plan declares at most 1,024 frames and 4,096 memo cells.
   Plan validation enforces this on both engines, replacing the GPU-only limits
   of 128 frames and 256 cells. Large plans use a per-lane hash index on the GPU.
+- `list_allocation_limit` counts list cells and string bytes. Every builtin
+  that builds a list or a string charges the length of its result (`append`,
+  `prepend`, `reverse`, the list edits, the string conversions, the `strip`
+  family and `capitalize` now charge too, `slice` stays free), and string
+  inputs are charged like list inputs ([spec/fitness.md](spec/fitness.md)).
+  Tasks without the limit are unchanged.
+- Physical payload exhaustion is never a score. The CPU engine gives each case
+  a 1 GiB overlay (it was 8 MiB and its exhaustion scored as a runtime error)
+  and stops the run when a case exceeds it, as the GPU stops when replay cannot
+  fit. The message asks for a lower `list_allocation_limit`.
+- Every `psb1_g3p` task sets `list_allocation_limit` 65536.
 
 **New**
 
