@@ -65,6 +65,14 @@ the execution profile. A session memoizes the bounded-tuple allocation proof
 per code block, keyed by the complete code, constants and local bounds (blocks
 that read `IntList` constants are always analyzed afresh).
 
+Arena cells below the cursor are never rewritten. In the generic arena,
+`append` to a list whose span ends at the cursor writes only the new element
+and registers a span that shares the source's cells. The result's contents,
+hash and registration equal those of a copy, so only the physical cell count
+changes: a loop that keeps appending to its newest list uses n cells instead
+of n(n+1)/2 and reaches overflow replay much later. Private `IntList` arenas
+still copy.
+
 Transport buffers freed after an evaluation are kept in power-of-two buckets
 per device (blocks up to 256 MiB, at most 1 GiB cached) and reused by the next
 evaluation (`device_allocation.cu`). The cache is released when an allocation

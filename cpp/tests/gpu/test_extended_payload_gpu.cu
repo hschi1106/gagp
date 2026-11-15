@@ -1257,6 +1257,78 @@ bool test_reusable_generic_workspace() {
   return true;
 }
 
+bool test_tail_append_fitness() {
+  ScopedEnvironment restore_diagnostics("GAGP_GPU_DIAGNOSTICS");
+  setenv("GAGP_GPU_DIAGNOSTICS","1",1);
+  // list = append(list, i) for i < n. Each source ends at the arena cursor, so
+  // the device extends it in place: n cells instead of n(n+1)/2. With n=500 a
+  // copy needs 125250 cells, far beyond the 8192-cell initial arena, while the
+  // CPU copies stay inside its 8 MiB staging budget and the forked answer fits
+  // the 1024-element sequence metric.
+  constexpr int kAppends=500;
+  const auto build=[](bool fork) {
+    BytecodeProgram p;
+    p.n_locals=3;
+    p.consts={Value::from_int(0),Value::from_int(1),Value::from_int(kAppends),
+        payload::make_int_list_value({}),Value::from_int(7),Value::from_int(8)};
+    p.code={ins_a(Opcode::PushConst,3),ins_a(Opcode::Store,1),
+        ins_a(Opcode::PushConst,0),ins_a(Opcode::Store,0),
+        ins_a(Opcode::Load,1),ins_a(Opcode::Load,0),
+        ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Append),2),ins_a(Opcode::Store,1),
+        ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,1),ins(Opcode::Add),ins_a(Opcode::Store,0),
+        ins_a(Opcode::Load,0),ins_a(Opcode::PushConst,2),ins(Opcode::Lt),ins_a(Opcode::JmpIfTrue,4)};
+    if(fork) {
+      // The first fork takes the cell after the shared prefix. The second must
+      // copy, and must not disturb the prefix or the first fork.
+      p.code.insert(p.code.end(),{ins_a(Opcode::Load,1),ins_a(Opcode::PushConst,4),
+          ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Append),2),ins_a(Opcode::Store,2),
+          ins_a(Opcode::Load,1),ins_a(Opcode::PushConst,5),
+          ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Append),2),
+          ins_a(Opcode::Load,2),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Concat),2),
+          ins_a(Opcode::Load,1),ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Len),1),
+          ins_ab(Opcode::CallBuiltin,static_cast<int>(BuiltinId::Append),2)});
+    } else {
+      p.code.push_back(ins_a(Opcode::Load,1));
+    }
+    p.code.push_back(ins(Opcode::Return));
+    p.instruction_fuel.assign(p.code.size(),1);
+    return p;
+  };
+  const auto grow=build(false),fork=build(true);
+  std::vector<Value> prefix;
+  for(int i=0;i<kAppends;++i)prefix.push_back(Value::from_int(i));
+  auto forked=prefix;forked.push_back(Value::from_int(8));
+  forked.insert(forked.end(),prefix.begin(),prefix.end());
+  forked.push_back(Value::from_int(7));forked.push_back(Value::from_int(kAppends));
+  for(const auto& expected:{prefix,forked}) {
+    const std::vector<BytecodeProgram> programs{grow,fork};
+    const std::vector<CaseBindings> cases(3);
+    const std::vector<Value> answers(3,payload::make_int_list_value(expected));
+    for(unsigned limit:{0u,65536u}) {
+      FitnessPolicy policy{FitnessMetric::Levenshtein};
+      policy.list_allocation_limit=limit;
+      std::vector<CpuFitnessCaseCounts> cpu_counts;
+      const auto cpu=eval_fitness_cpu(programs,cases,answers,100000,1000,33,policy,nullptr,&cpu_counts);
+      FitnessSessionGpu session;
+      if(!check(session.init(cases,answers,100000,33,1000,policy).ok,"tail append session init"))return false;
+      const auto gpu=session.eval_programs(programs,true);
+      const std::string name=" (limit="+std::to_string(limit)+" answer="+std::to_string(expected.size())+")";
+      if(!check(gpu.ok && gpu.fitness==cpu,"tail append differs from CPU copies"+name)) {
+        std::cerr<<gpu.err.message<<" profile="<<gpu.execution_profile<<'\n';return false;
+      }
+      const bool grown=expected.size()==prefix.size();
+      if(!check(cpu[grown?0:1]==0 && cpu[grown?1:0]<0 && cpu_counts[0].errors==0 && cpu_counts[1].errors==0,
+          "tail append programs must build their exact lists"+name))return false;
+      if(!check(gpu.execution_profile.find("-global-arena")!=std::string::npos,
+          "tail append did not run on the generic global arena"+name))return false;
+      if(!check(gpu.payload_replay_programs==0 && gpu.payload_replay_launches==0 &&
+          gpu.initial_payload_overflow_cases==std::vector<unsigned>({0,0}),
+          "appending to the newest list must not exhaust the initial arena"+name))return false;
+    }
+  }
+  return true;
+}
+
 int main() {
   if(!private_adjacent_checks::run())return 1;
   // Session initialization selects the least-used visible device before raw kernels.
@@ -1265,7 +1337,7 @@ int main() {
   if(!test_private_intlist_offsets() || !test_private_global_offset_preparation() || !test_private_global_offset_cases() || !test_reusable_private_workspace() ||
       !test_reusable_generic_workspace())return 1;
   if(!test_private_intlist_fitness() || !test_private_tuple_fitness())return 1;
-  if (!test_dense_case_tiles() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_extended_payload() || !test_private_list_index() || !test_epoch_list_index() || !test_scalar_region_index_rollback() || !test_payload_replay_fitness() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_dense_case_tiles() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_extended_payload() || !test_private_list_index() || !test_epoch_list_index() || !test_scalar_region_index_rollback() || !test_payload_replay_fitness() || !test_tail_append_fitness() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

@@ -1384,11 +1384,19 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       auto& st = payload_state;
       const Value* xp = nullptr;
       int xl = 0;
-      if (d_lookup_list_payload(tables, st, xs, xp, xl) && st.list_values_used + xl + 1 <= st.kMaxListValues) {
-        const int off = st.list_values_used;
-        for (int i = 0; i < xl; ++i) st.list_values[off + i] = xp[i];
+      // A source span that ends at the cursor is extended in place: cells below
+      // the cursor are immutable, so the source keeps its span and the result
+      // shares it. Contents, hash and registration equal those of a copy; only
+      // physical cells (and so overflow replay) shrink from O(n^2) to O(n).
+      const bool found = d_lookup_list_payload(tables, st, xs, xp, xl);
+      const bool tail = found && !st.private_intlists && xl > 0 && xl <= st.list_values_used &&
+          xp == st.list_values + (st.list_values_used - xl);
+      const int cells = tail ? 1 : xl + 1;
+      if (found && st.list_values_used + cells <= st.kMaxListValues) {
+        const int off = tail ? st.list_values_used - xl : st.list_values_used;
+        if (!tail) for (int i = 0; i < xl; ++i) st.list_values[off + i] = xp[i];
         st.list_values[off + xl] = elem;
-        st.list_values_used += xl + 1;
+        st.list_values_used += cells;
         const std::uint64_t h = d_hash_list_payload(st.list_values + off, xl + 1);
         out = d_make_list_hash_len(xs.tag, h, static_cast<std::uint32_t>(xl + 1));
         if (!d_register_local_list(st, out, off, xl + 1)) { err = ErrCode::Value; return false; }
