@@ -22,6 +22,7 @@
 #include "gagp/runtime/cpu/builtins_cpu.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 #include "value_stack.hpp"
+#include "../payload/staging.hpp"
 
 namespace gagp {
 
@@ -593,6 +594,13 @@ ExecResult run_code_impl(const CodeView& view,
               : detail::execute_selected_region(layout, initial, adapter, scratch, fuel);
           if (result.is_error) return result;
           stack.push_back(result.value);
+        } catch (const payload::PayloadBudgetExceeded&) {
+          // Physical exhaustion is never a score: it stops the evaluation in
+          // the fitness loop, as it does outside a region.
+          throw;
+        } catch (const payload::ListAllocationExceeded&) {
+          // The fitness loop scores the logical limit, as outside a region.
+          throw;
         } catch (const std::exception& error) {
           return fail(ErrCode::Value, error.what());
         }

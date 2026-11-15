@@ -13,6 +13,8 @@
 #include "gagp/runtime/gpu/fitness_gpu.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 #include "../../src/runtime/gpu/device/builtins_device.cuh"
+#include "../../src/runtime/cpu/fitness_cpu_overlay.hpp"
+#include "../../src/runtime/payload/staging.hpp"
 using namespace gagp;
 Instr ins(Opcode op) { return {op, 0, 0, false, false}; }
 Instr ins_a(Opcode op, int a) { return {op, a, 0, true, false}; }
@@ -1602,6 +1604,133 @@ bool test_allocation_charge_parity() {
   return true;
 }
 
+// Builds range(0, length) `repeats` times and returns 0. With `in_region` the
+// loop is the base body of a one-frame bounded region.
+BytecodeProgram range_loop(int length, int repeats, bool in_region) {
+  const auto call = [](BuiltinId id, int argc) { return ins_ab(Opcode::CallBuiltin, static_cast<int>(id), argc); };
+  BytecodeProgram body;
+  body.n_locals = 2;
+  body.consts = {Value::from_int(0), Value::from_int(1), Value::from_int(length), Value::from_int(repeats)};
+  body.code = {ins_a(Opcode::PushConst, 0), ins_a(Opcode::Store, 0),
+               ins_a(Opcode::PushConst, 0), ins_a(Opcode::PushConst, 2), call(BuiltinId::Range, 2),
+               ins_a(Opcode::Store, 1), ins_a(Opcode::Load, 0), ins_a(Opcode::PushConst, 1), ins(Opcode::Add),
+               ins_a(Opcode::Store, 0), ins_a(Opcode::Load, 0), ins_a(Opcode::PushConst, 3), ins(Opcode::Lt),
+               ins_a(Opcode::JmpIfTrue, 2), ins_a(Opcode::PushConst, 0), ins(Opcode::Return)};
+  if (!in_region) return body;
+  const auto constant = [](Value v) {
+    RegionPhase phase;
+    phase.program.consts = {v};
+    phase.program.code = {ins_a(Opcode::PushConst, 0), ins(Opcode::Return)};
+    return phase;
+  };
+  BoundedRegionSegment segment;
+  segment.plan.state_types = {ValueTag::Int};
+  segment.plan.result_type = ValueTag::Int;
+  RegionStateTransition step;
+  step.kind = RegionTransitionKind::CoordinateOffset;
+  step.offset = -1;
+  segment.plan.requests = {{{step}}};
+  segment.plan.limits = {8, 8, 1};
+  segment.plan.memoized = true;
+  segment.plan.coordinate_slots = {0};
+  segment.plan.coordinate_rank = {{0, 1}};
+  RegionBound lower, upper;
+  lower.literal = 0;
+  upper.literal = 8;
+  segment.plan.coordinate_domains = {{lower, upper}};
+  segment.plan.coordinate_endpoint = DomainEndpoint::Inclusive;
+  segment.boundary = constant(Value::from_int(0));
+  segment.base_predicate = constant(Value::from_bool(true));
+  segment.base_body.program.consts = body.consts;
+  segment.base_body.program.code = body.code;
+  segment.base_body.program.n_locals = body.n_locals;
+  segment.combine = constant(Value::from_int(0));
+  BytecodeProgram root;
+  root.consts = {Value::from_int(0)};
+  root.code = {ins_a(Opcode::PushConst, 0), ins_a(Opcode::BoundedRegion, 0), ins(Opcode::Return)};
+  root.bounded_region_segments = {segment};
+  return root;
+}
+
+// Physical payload exhaustion stops the evaluation on both engines, inside a
+// bounded region as outside it, and the logical limit is scored the same way
+// in both places (it once became a ValueError inside the region's catch).
+bool test_region_physical_exhaustion() {
+  const std::vector<CaseBindings> cases(1);
+  const std::vector<Value> answers{Value::from_int(0)};
+  for (bool in_region : {false, true}) {
+    const std::string where = in_region ? " inside a region" : " outside a region";
+    for (int repeats : {1, 10}) {
+      // 100 cells take 1600 bytes, so one range fits a 4096-byte overlay and
+      // ten do not.
+      FitnessPolicy policy{FitnessMetric::Exact};
+      std::vector<CpuFitnessCaseCounts> counts;
+      std::string stopped;
+      std::vector<double> fitness;
+      try {
+        fitness = eval_fitness_cpu_with_overlay({range_loop(100, repeats, in_region)}, cases, answers, 100000, 1000,
+                                                32, policy, nullptr, &counts, 4096);
+      } catch (const std::runtime_error& error) {
+        stopped = error.what();
+      }
+      if (repeats == 1 && !check(stopped.empty() && fitness == std::vector<double>{0.0} && counts[0].errors == 0,
+                                 "one range must fit the overlay" + where)) return false;
+      if (repeats == 10 && !check(stopped == physical_exhaustion_message(4096) && fitness.empty(),
+                                  "CPU overlay exhaustion must stop the evaluation" + where)) {
+        std::cerr << "fitness=" << (fitness.empty() ? 0.0 : fitness[0]) << " error=" << stopped << '\n';
+        return false;
+      }
+    }
+    // The reviewer's reproducer: 1200 ranges of 65535 cells, about 1.2 GiB,
+    // exceed the 1 GiB CPU overlay and the GPU replay storage. Neither scores.
+    if (in_region) {
+      FitnessPolicy policy{FitnessMetric::Exact};
+      const auto program = range_loop(65535, 1200, true);
+      std::string stopped;
+      try {
+        (void)eval_fitness_cpu({program}, cases, answers, 100000, 1000, 32, policy);
+      } catch (const std::runtime_error& error) {
+        stopped = error.what();
+      }
+      if (!check(stopped == physical_exhaustion_message(payload::kCpuCasePayloadBytes),
+                 "CPU must stop on a region that exhausts its 1 GiB overlay")) {
+        std::cerr << "error=" << stopped << '\n';
+        return false;
+      }
+      FitnessSessionGpu session;
+      if (!check(session.init(cases, answers, 100000, 32, 1000, policy).ok, "region exhaustion session init"))
+        return false;
+      const auto gpu = session.eval_programs({program}, true);
+      if (!check(!gpu.ok && gpu.err.message.find("unscored") != std::string::npos,
+                 "GPU must stop on a region that exhausts its replay storage")) {
+        std::cerr << "gpu ok=" << gpu.ok << " error=" << gpu.err.message << '\n';
+        return false;
+      }
+    }
+    // Under a limit of 65536 one range fits and the second exceeds the limit:
+    // a ValueError on both engines, inside and outside the region.
+    for (int repeats : {1, 2, 1200}) {
+      FitnessPolicy policy{FitnessMetric::Exact};
+      policy.list_allocation_limit = 65536;
+      const auto program = range_loop(65535, repeats, in_region);
+      std::vector<CpuFitnessCaseCounts> counts;
+      const auto cpu = eval_fitness_cpu({program}, cases, answers, 100000, 1000, 32, policy, nullptr, &counts);
+      FitnessSessionGpu session;
+      if (!check(session.init(cases, answers, 100000, 32, 1000, policy).ok, "region limit session init")) return false;
+      const auto gpu = session.eval_programs({program}, true);
+      const unsigned errors = repeats == 1 ? 0U : 1U;
+      if (!check(gpu.ok && gpu.fitness == cpu && counts[0].errors == errors && counts[0].timeouts == 0 &&
+                 gpu.case_counts[0][1] == errors,
+                 "logical limit must score alike" + where + " (repeats=" + std::to_string(repeats) + ")")) {
+        std::cerr << "cpu=" << cpu[0] << " errors=" << counts[0].errors
+                  << " gpu=" << (gpu.fitness.empty() ? 0.0 : gpu.fitness[0]) << ' ' << gpu.err.message << '\n';
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 int main() {
   if(!private_adjacent_checks::run())return 1;
   // Session initialization selects the least-used visible device before raw kernels.
@@ -1611,7 +1740,7 @@ int main() {
       !test_reusable_generic_workspace())return 1;
   if(!test_private_intlist_fitness() || !test_private_tuple_fitness())return 1;
   if(!g3p_builtin_checks::run())return 1;
-  if (!test_dense_case_tiles() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_extended_payload() || !test_private_list_index() || !test_epoch_list_index() || !test_scalar_region_index_rollback() || !test_payload_replay_fitness() || !test_tail_append_fitness() || !test_allocation_charge_parity() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_dense_case_tiles() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_extended_payload() || !test_private_list_index() || !test_epoch_list_index() || !test_scalar_region_index_rollback() || !test_payload_replay_fitness() || !test_tail_append_fitness() || !test_allocation_charge_parity() || !test_region_physical_exhaustion() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }

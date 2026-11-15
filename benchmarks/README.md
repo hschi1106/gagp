@@ -114,8 +114,8 @@ Provenance:
   `list-combine-v1` operator set) written as GAGP `grammar-definition-v2`
   files: at most 2048 nodes, depth 24, fuel 2,000,000.
 - **Fitness** follows ASGP's per-task metric: absolute error, exact match,
-  Levenshtein distance for list outputs (with a 65,536-cell list limit), or
-  tuple summary. The case-error cap is 1000.
+  Levenshtein distance for list outputs (with a limit of 65,536 list cells per
+  case, input lists included), or tuple summary. The case-error cap is 1000.
 
 These files were produced from the ASGP generator output by the GAGP 2.x
 fixed-ASGP adapter (git tag `gagp-pre-3.0`), the same inputs as GAGP's final
