@@ -6,6 +6,7 @@
   "test": "test.cases.json",
   "fitness": {
     "metric": "exact",
+    "list_allocation_limit": 65536,
     "case_cap": 1000000
   }
 }

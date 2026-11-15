@@ -70,6 +70,8 @@ def statement_kind(expression: dict) -> str:
         return "if"
     if kind.startswith("for_range"):
         return "for"
+    if kind.startswith("while_stmt"):
+        return "while"
     assert kind.startswith("assign"), kind
     argument = expression["args"][0]
     if argument.get("local") == expression.get("name") and expression.get("name") == "i0":
@@ -119,7 +121,7 @@ class CommittedFilesTest(unittest.TestCase):
             self.assertEqual(document["fitness"]["metric"], metric)
         for problem in build.PROBLEMS:
             limit = load(problem.key, "task")["fitness"].get("list_allocation_limit")
-            self.assertEqual(limit, 65536 if problem.list_vars else None, problem.key)
+            self.assertEqual(limit, 65536, problem.key)
 
     def test_named_constants_reach_the_grammars(self) -> None:
         for problem in build.PROBLEMS:
@@ -147,23 +149,32 @@ class ProbabilityTest(unittest.TestCase):
                 self.assertAlmostEqual(1.0, sum(a["weight"] for a in nonterminal["alternatives"]), places=12,
                                        msg=f"{problem.key} {nonterminal['id']}")
 
-    def test_while_loops_are_the_only_removed_statement(self) -> None:
+    def test_statement_shares_are_the_original_ones(self) -> None:
         for problem in build.PROBLEMS:
             grammar = load(problem.key)
-            text = json.dumps(grammar)
-            self.assertNotIn("while", text)
             kinds = shares(grammar, "G.Stmt", statement_kind)
             if problem.key in LIST_PROBLEMS:
                 # <statement>: simple 1/2 (call 1/2: append, insert, deleteListItem, setListIndexTo; assign 1/2),
-                # compound 1/2 (for and if, which share the removed while third).
-                expected = {"append": 1 / 16, "insert": 1 / 16, "assign": 1 / 4, "for": 1 / 4, "if": 1 / 4,
+                # compound 1/2 (for, if and while, a third each).
+                expected = {"append": 1 / 16, "insert": 1 / 16, "assign": 1 / 4, "for": 1 / 6, "if": 1 / 6,
+                            "while": 1 / 6,
                             # deleteListItem and setListIndexTo: 1/3 edit a list variable, 2/3 a temporary
                             "remove_at": 1 / 48, "set_at": 1 / 48, "nothing": 2 * 2 / 3 / 16}
             else:
-                expected = {"assign": 1 / 2, "if": 1 / 2}
+                expected = {"assign": 1 / 2, "if": 1 / 4, "while": 1 / 4}
             self.assertEqual(sorted(expected), sorted(kinds), problem.key)
             for kind, share in expected.items():
                 self.assertAlmostEqual(share, kinds[kind], places=12, msg=f"{problem.key} {kind}")
+
+    def test_while_is_bounded_by_the_named_constant(self) -> None:
+        self.assertEqual(build.LOOP_BOUND, 200)
+        for problem in build.PROBLEMS:
+            loops = [a["expression"] for a in alternatives(load(problem.key), "G.Stmt")
+                     if top(a["expression"]).startswith("while_stmt")]
+            self.assertEqual(len(loops), 1, problem.key)
+            bound, condition, body = loops[0]["args"]
+            self.assertEqual(bound, {"constant": {"type": "Int", "values": [str(build.LOOP_BOUND)]}})
+            self.assertEqual((condition, body), ({"ref": "G.Bool"}, {"ref": "G.Code"}))
 
     def test_int_productions_are_uniform(self) -> None:
         for problem in build.PROBLEMS:
