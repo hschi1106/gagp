@@ -29,9 +29,10 @@ struct HostPhaseGrammar {
   // A let, traversal or bounded region was reached: Bound operands are binder
   // numbers (whole-program phases only).
   bool lets=false;
-  // Admission's upper bound on the locals of a lowered program of this phase
-  // grammar: inputs, reached grammar locals and temporaries on one path.
-  int lowering_locals=0;
+  // Admission's upper bounds on the locals of a lowered program of this phase
+  // grammar (inputs, reached grammar locals and temporaries on one path) and
+  // of one lowered bounded region phase (its bindings and temporaries).
+  int lowering_locals=0,region_lowering_locals=0;
   // Bounded regions and traversals by table entry (PhaseTreeNode::operand of a
   // Region or Traverse node), with the host-only bounded region plan and phase
   // binding sources for native assembly (empty for a traversal).
@@ -679,7 +680,12 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
           if(feasible(child,d))merge(h,need(child,d));
         }
       } else if(d>0) {
-        for(int i=0;i<e.node.arity;++i)if(feasible(e.children[i],d-1))merge(h,need(e.children[i],d-1));
+        // A bounded region's phases are separately lowered programs (their
+        // locals are bounded below), so their temporaries take no root local.
+        const int operands=e.node.kind==PhaseTreeKind::Region?out.regions.at(e.node.operand).operands:e.node.arity;
+        for(int i=0;i<e.node.arity;++i)if(feasible(e.children[i],d-1)) {
+          auto child=need(e.children[i],d-1);if(i>=operands)child[Temporaries]=0;merge(h,child);
+        }
         switch(e.node.kind) {
           case PhaseTreeKind::Traverse:h[Temporaries]+=9;++h[Walks];break;
           case PhaseTreeKind::Let:++h[Temporaries];++h[Lets];break;
@@ -700,6 +706,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       if(e.kind!=ExpressionKind::Structured || !seen_expr.at(source.expression))continue;
       for(std::size_t p=0;p<e.phases.size();++p) {
         const int locals=static_cast<int>(e.regions.at(p).bindings.size())+need(e.children.at(e.phases[p].argument),max_depth)[Temporaries];
+        out.region_lowering_locals=std::max(out.region_lowering_locals,locals);
         if(locals>gpu_detail::MAX_LOCALS)
           fail("lowering capacity within the depth budget: a bounded region phase of up to "+std::to_string(locals)+
               " locals exceeds the capacity of "+std::to_string(gpu_detail::MAX_LOCALS));

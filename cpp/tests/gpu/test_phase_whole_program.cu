@@ -81,6 +81,18 @@ BytecodeProgram phase_lowered(const NativePhaseLayout& layout,const grammar::Com
  require(r.local_count<=layout.profiles.at(0).lowering_locals,"a program of "+std::to_string(r.local_count)+
      " lowered locals exceeds the admission bound of "+std::to_string(layout.profiles.at(0).lowering_locals));
  if(local_count)*local_count=r.local_count;
+ // Each bounded region phase is lowered on its own, after the main code: a
+ // region record (fuel: captures, b: phases), one record per capture, then
+ // per phase a header (fuel: its locals, a: its code records) and its code.
+ for(int region=0,at=r.main_code_count;region<r.region_count;++region) {
+  const auto phases=code.at(at).b;at+=1+int(code.at(at).fuel);
+  for(int p=0;p<phases;++p) {
+   const int phase_locals=int(code.at(at).fuel&0xffffu);
+   require(phase_locals<=layout.profiles.at(0).region_lowering_locals,"a bounded region phase of "+std::to_string(phase_locals)+
+       " lowered locals exceeds the admission bound of "+std::to_string(layout.profiles.at(0).region_lowering_locals));
+   at+=1+code.at(at).a;
+  }
+ }
  auto program=layout.executable;patch_whole_program(program,layout,code.data(),r.code_count,values.data(),r.constant_count,r);
  return program;
 }
@@ -398,6 +410,26 @@ void check_unit_weight_underflow() {
  require_same(traces[0],traces[1],"unit weight underflow");
  std::cout<<"phase_unit_scale_underflow.json: a positive weight stays positive after scaling, identical on CPU and GPU\n";
 }
+// 64 inputs and a traversal inside a bounded region phase: the root program
+// lowers to 64 locals and the phase to 11 of its own. Admission bounds each
+// against its own capacity (it charged the phase temporaries to the root, 73,
+// and rejected), and both owners publish the same search.
+void check_region_phase_locals() {
+ const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_region_input_capacity.json")));
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+ EvolutionConfig cfg;cfg.population_size=8;cfg.generations=2;cfg.seed=0;cfg.elite_count=1;cfg.mutation_rate=0.5;
+ cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+ std::vector<Trace> traces;
+ for(const bool gpu:{false,true}) {
+  auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  std::string error;
+  try{traces.push_back(trace(evolve_population(cases,run)));}catch(const std::exception& e){error=e.what();}
+  require(error.empty(),std::string("phase_region_input_capacity.json ")+(gpu?"GPU: ":"CPU: ")+error);
+ }
+ require_same(traces[0],traces[1],"phase_region_input_capacity.json");
+ std::cout<<"phase_region_input_capacity.json: root and region phase locals bounded separately, identical on CPU and GPU\n";
+}
 // Generated initial members over a per-program capacity of the genotype
 // (bounded regions per program, nodes of a phase row) are redrawn, and only
 // those: a member admissible at its first draw is the plain draw seed + i.
@@ -648,6 +680,7 @@ int main() { try {
  check_shared_hole_records();
  check_unused_local();
  check_loop_locals();
+ check_region_phase_locals();
  check_site_depth();
  check_language_restrictions();
  // Repeated holes share one derivation: recursive, skewed in depth, with a
