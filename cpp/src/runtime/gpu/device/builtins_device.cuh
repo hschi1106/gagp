@@ -868,13 +868,36 @@ __device__ inline bool d_exact_payload_length(const DPayloadTables& tables, cons
 
 // Charges a result built from an exact source of the given length plus extra
 // cells. A fallback source builds no payload on either engine and is free.
+// Only the check of the limit is inlined. The charge with its payload lookups
+// is out of line, so a builtin under no limit does not carry it.
+template <typename State>
+__device__ __noinline__ bool d_charge_derived_allocation_limited(const DPayloadTables& tables, State& state,
+                                                                 const Value& source, int extra) {
+  int length = 0;
+  if (!d_exact_payload_length(tables, state, source, length)) return true;
+  return d_charge_list_allocation(state, static_cast<unsigned>(length + extra));
+}
+
 template <typename State>
 __device__ inline bool d_charge_derived_allocation(const DPayloadTables& tables, State& state,
                                                    const Value& source, int extra) {
   if (!state.logical_list_limit) return true;
-  int length = 0;
-  if (!d_exact_payload_length(tables, state, source, length)) return true;
-  return d_charge_list_allocation(state, static_cast<unsigned>(length + extra));
+  return d_charge_derived_allocation_limited(tables, state, source, extra);
+}
+
+// String concat under a logical limit: an empty exact operand returns the
+// other one (1), a failed charge is a ValueError (2), otherwise 0 continues.
+template <typename State>
+__device__ __noinline__ int d_charge_string_concat(const DPayloadTables& tables, State& state,
+                                                   const Value& a, const Value& b, Value& out) {
+  int al = 0, bl = 0;
+  if (d_exact_payload_length(tables, state, a, al) &&
+      d_exact_payload_length(tables, state, b, bl)) {
+    if (!al) { out = b; return 1; }
+    if (!bl) { out = a; return 1; }
+    if (!d_charge_list_allocation(state, static_cast<unsigned>(al + bl))) return 2;
+  }
+  return 0;
 }
 
 // Mathematical modulo for a positive modulus; `%` alone leaves negative indices
@@ -1454,13 +1477,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     const Value& b = args[1];
     if (a.tag == ValueTag::String && b.tag == ValueTag::String) {
       if (payload_state.logical_list_limit) {
-        int al = 0, bl = 0;
-        if (d_exact_payload_length(tables, payload_state, a, al) &&
-            d_exact_payload_length(tables, payload_state, b, bl)) {
-          if (!al) { out = b; return true; }
-          if (!bl) { out = a; return true; }
-          if (!d_charge_list_allocation(payload_state, static_cast<unsigned>(al + bl))) { err = ErrCode::Value; return false; }
-        }
+        const int charged = d_charge_string_concat(tables, payload_state, a, b, out);
+        if (charged == 1) return true;
+        if (charged == 2) { err = ErrCode::Value; return false; }
       }
       if constexpr (PayloadTraits::kHasString) {
         auto& st = payload_state;
