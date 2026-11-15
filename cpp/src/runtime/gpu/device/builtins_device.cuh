@@ -868,13 +868,36 @@ __device__ inline bool d_exact_payload_length(const DPayloadTables& tables, cons
 
 // Charges a result built from an exact source of the given length plus extra
 // cells. A fallback source builds no payload on either engine and is free.
+// Only the check of the limit is inlined. The charge with its payload lookups
+// is out of line, so a builtin under no limit does not carry it.
+template <typename State>
+__device__ __noinline__ bool d_charge_derived_allocation_limited(const DPayloadTables& tables, State& state,
+                                                                 const Value& source, int extra) {
+  int length = 0;
+  if (!d_exact_payload_length(tables, state, source, length)) return true;
+  return d_charge_list_allocation(state, static_cast<unsigned>(length + extra));
+}
+
 template <typename State>
 __device__ inline bool d_charge_derived_allocation(const DPayloadTables& tables, State& state,
                                                    const Value& source, int extra) {
   if (!state.logical_list_limit) return true;
-  int length = 0;
-  if (!d_exact_payload_length(tables, state, source, length)) return true;
-  return d_charge_list_allocation(state, static_cast<unsigned>(length + extra));
+  return d_charge_derived_allocation_limited(tables, state, source, extra);
+}
+
+// String concat under a logical limit: an empty exact operand returns the
+// other one (1), a failed charge is a ValueError (2), otherwise 0 continues.
+template <typename State>
+__device__ __noinline__ int d_charge_string_concat(const DPayloadTables& tables, State& state,
+                                                   const Value& a, const Value& b, Value& out) {
+  int al = 0, bl = 0;
+  if (d_exact_payload_length(tables, state, a, al) &&
+      d_exact_payload_length(tables, state, b, bl)) {
+    if (!al) { out = b; return 1; }
+    if (!bl) { out = a; return 1; }
+    if (!d_charge_list_allocation(state, static_cast<unsigned>(al + bl))) return 2;
+  }
+  return 0;
 }
 
 // Mathematical modulo for a positive modulus; `%` alone leaves negative indices
@@ -935,147 +958,280 @@ __device__ inline bool d_emit_string(typename DPayloadFlavorTraits<Flavor>::Stat
   return true;
 }
 
+// The G3P builtins (ids Insert through Capitalize) stay out of the inlined
+// dispatch in d_builtin_call. Populations that never call them then evaluate
+// faster (about 4% for all_equal and is_sorted in IndexedArena).
 template <DPayloadFlavor Flavor>
-__device__ inline bool d_builtin_call(BuiltinId bid,
-                                      const Value* args,
-                                      int argc,
-                                      const DPayloadTables& tables,
-                                      typename DPayloadFlavorTraits<Flavor>::State& payload_state,
-                                      Value& out,
-                                      ErrCode& err) {
+__device__ __noinline__ bool d_g3p_builtin_call(BuiltinId bid,
+                                                const Value* args,
+                                                int argc,
+                                                const DPayloadTables& tables,
+                                                typename DPayloadFlavorTraits<Flavor>::State& payload_state,
+                                                Value& out,
+                                                ErrCode& err) {
   using PayloadTraits = DPayloadFlavorTraits<Flavor>;
 
-  // This branch is reachable only after whole-program capability admission.
-  // It shares the arena, fuel driver, charging and physical-overflow replay.
-  if constexpr (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) {
-    auto& st=payload_state;
-    if(st.private_intlists && (bid==BuiltinId::Singleton || bid==BuiltinId::Concat || bid==BuiltinId::Slice ||
-        bid==BuiltinId::Index || bid==BuiltinId::IndexNonnegative || bid==BuiltinId::IndexClampedOrZero)) {
-      DPrivateIntListSpan a,b;
-      if(st.private_adjacent_concat && st.list_values_used!=st.private_cursor_checkpoint) {
-        // A generic allocation or external initialization changed the ordinary
-        // cursor. Its writes are beyond all older compressed spans.
-        st.private_cells_used=st.list_values_used;
-        st.private_cursor_checkpoint=st.list_values_used;
-      }
-      if(bid==BuiltinId::Singleton) {
-        if(argc!=1 || args[0].tag!=ValueTag::Int){err=ErrCode::Type;return false;}
-        if(!d_charge_list_allocation(st,1)){err=ErrCode::Value;return false;}
-        if(st.list_values_used>=st.kMaxListValues) {
-          st.physical_capacity_exceeded=true;st.physical_capacity_reason|=DPAYLOAD_OVERFLOW_VALUES;
-          err=ErrCode::Value;return false;
-        }
-        const int offset=st.private_adjacent_concat?st.private_cells_used++:st.list_values_used;
-        ++st.list_values_used;
-        if(st.private_adjacent_concat)st.private_cursor_checkpoint=st.list_values_used;
-        if(st.compact_intlist_cells)st.intlist_cells[static_cast<std::size_t>(offset)*st.private_cell_stride]=args[0].i;
-        else st.list_values[offset]=args[0];
-        out=d_private_intlist(offset,1);return true;
-      }
-      if(bid==BuiltinId::Index || bid==BuiltinId::IndexNonnegative || bid==BuiltinId::IndexClampedOrZero) {
-        if(argc!=2 || args[0].tag!=ValueTag::IntList || args[1].tag!=ValueTag::Int){err=ErrCode::Type;return false;}
-        const auto length=static_cast<long long>(Value::container_len(args[0]));
-        long long index=0;
-        if(bid==BuiltinId::IndexClampedOrZero) {
-          if(!length){out=Value::from_int(0);return true;}
-          index=args[1].i<0?0:args[1].i>=length?length-1:args[1].i;
-        } else if((bid==BuiltinId::IndexNonnegative && args[1].i<0) ||
-            !d_norm_index_idx(args[1].i,length,index)){err=ErrCode::Value;return false;}
-        if(!d_private_intlist_span(tables,st,args[0],a) || index>=a.size){err=ErrCode::Value;return false;}
-        out=Value::from_int(a.at(static_cast<int>(index)));return true;
-      }
-      if(argc!=(bid==BuiltinId::Concat?2:3) || args[0].tag!=ValueTag::IntList ||
-          (bid==BuiltinId::Concat?args[1].tag!=ValueTag::IntList:
-           (args[1].tag!=ValueTag::Int || args[2].tag!=ValueTag::Int))) {
-        err=ErrCode::Type;return false;
-      }
-      if(!d_private_intlist_span(tables,st,args[0],a)) {err=ErrCode::Value;return false;}
-      if(bid==BuiltinId::Slice) {
-        const auto length=static_cast<long long>(Value::container_len(args[0]));
-        const int lo=static_cast<int>(d_norm_slice_idx(args[1].i,length));
-        const int hi=static_cast<int>(d_norm_slice_idx(args[2].i,length));
-        const int count=hi>lo?hi-lo:0;
-        // Positive logical allocation admission already selects immutable window
-        // aliasing in the ordinary arena; no copy policy is removed here.
-        if(args[0].b) {
-          const auto bits=Value::container_hash48(args[0]);
-          out=d_private_intlist(static_cast<int>(bits&DPRIVATE_LIST_OFFSET_MASK)+lo,count,
-              (bits&DPRIVATE_LIST_GLOBAL)!=0);
-        } else {
-          const int entry=d_find_list_payload_entry(tables,ValueTag::IntList,args[0].i);
-          if(entry<0){err=ErrCode::Value;return false;}
-          out=d_private_intlist(tables.list_entries[entry].offset+lo,count,true);
-        }
-        return true;
-      }
-      if(!d_private_intlist_span(tables,st,args[1],b)){err=ErrCode::Value;return false;}
-      const auto left=Value::container_len(args[0]),right=Value::container_len(args[1]);
-      if(!left){out=args[1];return true;}if(!right){out=args[0];return true;}
-      if(!d_charge_list_allocation(st,left+right)){err=ErrCode::Value;return false;}
-      const int n=a.size,m=b.size;
-      if(n<0 || m<0 || n>65537-m || n+m>st.kMaxListValues-st.list_values_used) {
-        st.physical_capacity_exceeded=true;st.physical_capacity_reason|=DPAYLOAD_OVERFLOW_VALUES;
-        err=ErrCode::Value;return false;
-      }
-      if(st.private_adjacent_concat) {
-        const auto abits=Value::container_hash48(args[0]);
-        const auto bbits=Value::container_hash48(args[1]);
-        const bool aglobal=!args[0].b || (abits&DPRIVATE_LIST_GLOBAL)!=0;
-        const bool bglobal=!args[1].b || (bbits&DPRIVATE_LIST_GLOBAL)!=0;
-        const bool adjacent=aglobal==bglobal && (aglobal || !st.compact_intlist_cells?
-            a.boxed+n==b.boxed:
-            a.stride==b.stride && a.integers+static_cast<std::size_t>(n)*a.stride==b.integers);
-        if(adjacent) {
-          const int offset=args[0].b?static_cast<int>(abits&DPRIVATE_LIST_OFFSET_MASK):
-              static_cast<int>(a.boxed-tables.list_values);
-          // Keep EXACT ordinary reservation/charge/overflow behavior. Only
-          // physical writes and the opaque private backing offset change.
-          st.list_values_used+=n+m;st.private_cursor_checkpoint=st.list_values_used;
-          out=d_private_intlist(offset,n+m,aglobal);return true;
-        }
-      }
-      const int offset=st.private_adjacent_concat?st.private_cells_used:st.list_values_used;
-      if(st.compact_intlist_cells) {
-        d_copy_private_intlist(st.intlist_cells+static_cast<std::size_t>(offset)*st.private_cell_stride,a,st.private_warp_copy,st.private_cell_stride);
-        d_copy_private_intlist(st.intlist_cells+static_cast<std::size_t>(offset+n)*st.private_cell_stride,b,st.private_warp_copy,st.private_cell_stride);
-      } else {
-        for(int i=0;i<n;++i)st.list_values[offset+i]=a.boxed[i];
-        for(int i=0;i<m;++i)st.list_values[offset+n+i]=b.boxed[i];
-      }
-      st.list_values_used+=n+m;
-      if(st.private_adjacent_concat) {
-        st.private_cells_used+=n+m;st.private_cursor_checkpoint=st.list_values_used;
-      }
-      out=d_private_intlist(offset,n+m);return true;
+  if (bid == BuiltinId::Insert || bid == BuiltinId::SetAt || bid == BuiltinId::RemoveAt) {
+    const bool has_element = bid != BuiltinId::RemoveAt;
+    if (argc != (has_element ? 3 : 2)) {
+      err = ErrCode::Type;
+      return false;
     }
+    const Value& xs = args[0];
+    if (!d_is_typed_list_tag(xs.tag) || args[1].tag != ValueTag::Int ||
+        (has_element && !d_list_accepts_elem(xs.tag, args[2]))) {
+      err = ErrCode::Type;
+      return false;
+    }
+    const long long index = args[1].i;
+    const std::uint32_t source_length = Value::container_len(xs);
+    if (bid != BuiltinId::Insert) {
+      // An empty list is returned unchanged, with or without contents.
+      if (source_length == 0U) { out = xs; return true; }
+    }
+    if constexpr (PayloadTraits::kHasList) {
+      auto& st = payload_state;
+      const Value* xp = nullptr;
+      int xl = 0;
+      if (d_lookup_list_payload(tables, st, xs, xp, xl)) {
+        if (bid != BuiltinId::Insert && xl == 0) { out = xs; return true; }
+        const int nl = bid == BuiltinId::Insert ? xl + 1 : (bid == BuiltinId::SetAt ? xl : xl - 1);
+        if (!d_charge_list_allocation(st, static_cast<unsigned>(nl))) { err = ErrCode::Value; return false; }
+        if (st.list_values_used + nl <= st.kMaxListValues) {
+          const int off = st.list_values_used;
+          if (bid == BuiltinId::Insert) {
+            const int pos = static_cast<int>(d_insert_position(index, xl));
+            for (int i = 0; i < pos; ++i) st.list_values[off + i] = xp[i];
+            st.list_values[off + pos] = args[2];
+            for (int i = pos; i < xl; ++i) st.list_values[off + i + 1] = xp[i];
+          } else {
+            const int pos = static_cast<int>(d_mod_positive(index, xl));
+            for (int i = 0; i < pos; ++i) st.list_values[off + i] = xp[i];
+            if (bid == BuiltinId::SetAt) {
+              st.list_values[off + pos] = args[2];
+              for (int i = pos + 1; i < xl; ++i) st.list_values[off + i] = xp[i];
+            } else {
+              for (int i = pos + 1; i < xl; ++i) st.list_values[off + i - 1] = xp[i];
+            }
+          }
+          st.list_values_used += nl;
+          const std::uint64_t h = d_hash_list_payload(st.list_values + off, nl);
+          out = d_make_list_hash_len(xs.tag, h, static_cast<std::uint32_t>(nl));
+          if (!d_register_local_list(st, out, off, nl)) { err = ErrCode::Value; return false; }
+          return true;
+        }
+      }
+    }
+    if constexpr (d_exact_payload_flavor<Flavor>) {
+      if (d_has_exact_payload(tables, payload_state, xs)) {
+        payload_state.physical_capacity_exceeded = true;
+        payload_state.physical_capacity_reason |= DPAYLOAD_OVERFLOW_VALUES;
+        err = ErrCode::Value;
+        return false;
+      }
+    }
+    const std::uint64_t h = Value::derived_container_hash48(
+        d_list_type_code(xs), static_cast<std::uint8_t>(bid), xs, index,
+        has_element ? Value::shallow_hash64(args[2]) : 0U);
+    const std::uint32_t len = bid == BuiltinId::Insert ? Value::saturating_len_add(source_length, 1U)
+        : (bid == BuiltinId::SetAt ? source_length : source_length - 1U);
+    out = d_make_list_hash_len(xs.tag, h, len);
+    return true;
   }
 
-  if constexpr ((Flavor == DPayloadFlavor::IntListViews || Flavor == DPayloadFlavor::BoundIntListViews)) {
-    if ((bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) || bid == BuiltinId::Slice) {
-      if (argc != ((bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) ? 2 : 3) || args[0].tag != ValueTag::IntList ||
-          args[1].tag != ValueTag::Int || (argc == 3 && args[2].tag != ValueTag::Int)) {
-        err = ErrCode::Type; return false;
+  if (bid == BuiltinId::IndexMod) {
+    if (argc != 2) {
+      err = ErrCode::Type;
+      return false;
+    }
+    const Value& x = args[0];
+    if (!(x.tag == ValueTag::String || d_is_typed_list_tag(x.tag)) || args[1].tag != ValueTag::Int) {
+      err = ErrCode::Type;
+      return false;
+    }
+    const long long index = args[1].i;
+    const long long n = static_cast<long long>(Value::container_len(x));
+    if (x.tag == ValueTag::String) {
+      if (n == 0) return d_emit_string<Flavor>(payload_state, nullptr, 0, false, out, err);
+      const long long j = d_mod_positive(index, n);
+      if constexpr (PayloadTraits::kHasString) {
+        const char* xp = nullptr;
+        int xl = 0;
+        if (d_lookup_string_payload(tables, payload_state, x, xp, xl)) {
+          if (xl == 0) return d_emit_string<Flavor>(payload_state, nullptr, 0, false, out, err);
+          const int exact_j = static_cast<int>(d_mod_positive(index, xl));
+          if (!d_charge_list_allocation(payload_state, 1U)) { err = ErrCode::Value; return false; }
+          return d_emit_string<Flavor>(payload_state, xp + exact_j, 1, false, out, err);
+        }
       }
-      Value source = args[0];
-      if (!d_convert_list_view(source, tables)) { err = ErrCode::Value; return false; }
-      const auto offset = Value::container_hash48(source);
-      const auto length = static_cast<long long>(Value::container_len(source));
-      if (bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) {
-        long long index;
-        if (bid == BuiltinId::IndexClampedOrZero) {
-          if (!length) { out = Value::from_int(0); return true; }
-          index = args[1].i < 0 ? 0 : (args[1].i >= length ? length-1 : args[1].i);
-        } else if ((bid == BuiltinId::IndexNonnegative && args[1].i < 0) || !d_norm_index_idx(args[1].i, length, index)) { err = ErrCode::Value; return false; }
-        out = tables.list_values[offset + index];
-        if (bid == BuiltinId::IndexClampedOrZero && out.tag != ValueTag::Int) { err = ErrCode::Type; return false; }
-      } else {
-        const auto lo = d_norm_slice_idx(args[1].i, length);
-        const auto hi = d_norm_slice_idx(args[2].i, length);
-        out = d_list_view(offset + lo, static_cast<std::uint32_t>(hi > lo ? hi - lo : 0));
-      }
+      out = Value::from_fallback_token(Value::index_container_token64(5U, x, j));
       return true;
     }
+    const auto zero_value = [&]() -> bool {
+      if (x.tag == ValueTag::IntList) { out = Value::from_int(0); return true; }
+      if (x.tag == ValueTag::FloatList) { out = Value::from_float(0.0); return true; }
+      return d_emit_string<Flavor>(payload_state, nullptr, 0, false, out, err);
+    };
+    if constexpr (PayloadTraits::kHasList) {
+      const Value* xp = nullptr;
+      int xl = 0;
+      if (d_lookup_list_payload(tables, payload_state, x, xp, xl)) {
+        if (xl == 0) return zero_value();
+        out = xp[static_cast<int>(d_mod_positive(index, xl))];
+        return true;
+      }
+    }
+    if (n == 0) return zero_value();
+    out = Value::from_fallback_token(Value::index_container_token64(d_list_type_code(x), x, d_mod_positive(index, n)));
+    return true;
   }
+
+  if (bid == BuiltinId::Range) {
+    if (argc != 2 || args[0].tag != ValueTag::Int || args[1].tag != ValueTag::Int) {
+      err = ErrCode::Type;
+      return false;
+    }
+    const long long a = args[0].i;
+    const long long b = args[1].i;
+    int count = 0;
+    if (b > a) {
+      // b > a, so the unsigned difference is exact. The length cap and the
+      // logical budget are checked before any cell is written.
+      const std::uint64_t wide = static_cast<std::uint64_t>(b) - static_cast<std::uint64_t>(a);
+      if (wide > Value::k_container_len_max) { err = ErrCode::Value; return false; }
+      count = static_cast<int>(wide);
+      if (!d_charge_list_allocation(payload_state, static_cast<unsigned>(count))) { err = ErrCode::Value; return false; }
+    }
+    if constexpr (PayloadTraits::kHasList) {
+      auto& st = payload_state;
+      if (st.list_values_used + count <= st.kMaxListValues) {
+        const int off = st.list_values_used;
+        for (int i = 0; i < count; ++i) {
+          st.list_values[off + i] = Value::from_int(static_cast<long long>(static_cast<unsigned long long>(a) + static_cast<unsigned long long>(i)));
+        }
+        st.list_values_used += count;
+        out = d_make_list_hash_len(ValueTag::IntList, d_hash_list_payload(st.list_values + off, count),
+                                   static_cast<std::uint32_t>(count));
+        if (!d_register_local_list(st, out, off, count)) { err = ErrCode::Value; return false; }
+        return true;
+      }
+    }
+    if constexpr (d_exact_payload_flavor<Flavor>) {
+      payload_state.physical_capacity_exceeded = true;
+      payload_state.physical_capacity_reason |= DPAYLOAD_OVERFLOW_VALUES;
+      err = ErrCode::Value;
+      return false;
+    }
+    std::uint64_t h = Value::fnv1a_init();
+    h = Value::fnv1a_mix_u8(h, 0xA1U);
+    h = Value::fnv1a_mix_u64(h, static_cast<std::uint64_t>(count));
+    for (int i = 0; i < count; ++i) {
+      h = Value::fnv1a_mix_u64(h, d_hash_value_shallow(Value::from_int(static_cast<long long>(
+          static_cast<unsigned long long>(a) + static_cast<unsigned long long>(i)))));
+    }
+    out = d_make_list_hash_len(ValueTag::IntList, h, static_cast<std::uint32_t>(count));
+    return true;
+  }
+
+  if (bid == BuiltinId::Strip || bid == BuiltinId::LStrip || bid == BuiltinId::RStrip ||
+      bid == BuiltinId::StripChars || bid == BuiltinId::LStripChars || bid == BuiltinId::RStripChars) {
+    const bool with_chars = bid == BuiltinId::StripChars || bid == BuiltinId::LStripChars || bid == BuiltinId::RStripChars;
+    const bool left = bid != BuiltinId::RStrip && bid != BuiltinId::RStripChars;
+    const bool right = bid != BuiltinId::LStrip && bid != BuiltinId::LStripChars;
+    if (argc != (with_chars ? 2 : 1) || args[0].tag != ValueTag::String ||
+        (with_chars && args[1].tag != ValueTag::String)) {
+      err = ErrCode::Type;
+      return false;
+    }
+    if constexpr (PayloadTraits::kHasString) {
+      auto& st = payload_state;
+      const char* sp = nullptr;
+      const char* cp = nullptr;
+      int sl = 0;
+      int cl = 0;
+      if (d_lookup_string_payload(tables, st, args[0], sp, sl) &&
+          (!with_chars || d_lookup_string_payload(tables, st, args[1], cp, cl))) {
+        int begin = 0;
+        int end = sl;
+        const auto strippable = [&](char c) {
+          if (!with_chars) return d_is_ascii_space(static_cast<unsigned char>(c));
+          for (int i = 0; i < cl; ++i) if (cp[i] == c) return true;
+          return false;
+        };
+        if (left) while (begin < end && strippable(sp[begin])) ++begin;
+        if (right) while (end > begin && strippable(sp[end - 1])) --end;
+        if (!d_charge_list_allocation(st, static_cast<unsigned>(end - begin))) { err = ErrCode::Value; return false; }
+        return d_emit_string<Flavor>(st, sp + begin, end - begin, false, out, err);
+      }
+    }
+    const std::uint64_t h = Value::derived_container_hash48(
+        1U, static_cast<std::uint8_t>(bid), args[0], with_chars ? args[1].i : 0, 0U);
+    out = Value::from_fallback_token(Value::pack_container_payload(h, Value::container_len(args[0])));
+    return true;
+  }
+
+  if (bid == BuiltinId::StartsWith || bid == BuiltinId::EndsWith) {
+    if (argc != 2 || args[0].tag != ValueTag::String || args[1].tag != ValueTag::String) {
+      err = ErrCode::Type;
+      return false;
+    }
+    if constexpr (PayloadTraits::kHasString) {
+      auto& st = payload_state;
+      const char* sp = nullptr;
+      const char* ap = nullptr;
+      int sl = 0;
+      int al = 0;
+      if (d_lookup_string_payload(tables, st, args[0], sp, sl) &&
+          d_lookup_string_payload(tables, st, args[1], ap, al)) {
+        bool matches = al <= sl;
+        const int base = bid == BuiltinId::StartsWith ? 0 : sl - al;
+        for (int i = 0; matches && i < al; ++i) matches = sp[base + i] == ap[i];
+        out = Value::from_bool(matches);
+        return true;
+      }
+    }
+    err = ErrCode::Value;
+    return false;
+  }
+
+  if (bid == BuiltinId::Capitalize) {
+    if (argc != 1 || args[0].tag != ValueTag::String) {
+      err = ErrCode::Type;
+      return false;
+    }
+    if constexpr (PayloadTraits::kHasString) {
+      auto& st = payload_state;
+      const char* sp = nullptr;
+      int sl = 0;
+      if (d_lookup_string_payload(tables, st, args[0], sp, sl)) {
+        if (!d_charge_list_allocation(st, static_cast<unsigned>(sl))) { err = ErrCode::Value; return false; }
+        return d_emit_string<Flavor>(st, sp, sl, true, out, err);
+      }
+    }
+    const std::uint64_t h = Value::derived_container_hash48(1U, static_cast<std::uint8_t>(bid), args[0], 0, 0U);
+    out = Value::from_fallback_token(Value::pack_container_payload(h, Value::container_len(args[0])));
+    return true;
+  }
+
+  err = ErrCode::Name;
+  return false;
+}
+
+// The builtins after the private IntList and view fast paths. Only the
+// kCharged instantiation holds the G3P builtins, the in-place append and the
+// charges added with the G3P builtins (string concat, append, prepend,
+// reverse, char_to_string, to_string, singleton of a Char). Without a logical
+// limit those charges are free, so the other instantiation differs only for
+// calls that d_builtin_needs_charged routes away from it.
+template <DPayloadFlavor Flavor, bool kCharged>
+__device__ inline bool d_builtin_call_generic(BuiltinId bid,
+                                              const Value* args,
+                                              int argc,
+                                              const DPayloadTables& tables,
+                                              typename DPayloadFlavorTraits<Flavor>::State& payload_state,
+                                              Value& out,
+                                              ErrCode& err) {
+  using PayloadTraits = DPayloadFlavorTraits<Flavor>;
 
   if (bid == BuiltinId::Abs) {
     if (argc != 1) {
@@ -1194,13 +1350,11 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     const Value& a = args[0];
     const Value& b = args[1];
     if (a.tag == ValueTag::String && b.tag == ValueTag::String) {
-      if (payload_state.logical_list_limit) {
-        int al = 0, bl = 0;
-        if (d_exact_payload_length(tables, payload_state, a, al) &&
-            d_exact_payload_length(tables, payload_state, b, bl)) {
-          if (!al) { out = b; return true; }
-          if (!bl) { out = a; return true; }
-          if (!d_charge_list_allocation(payload_state, static_cast<unsigned>(al + bl))) { err = ErrCode::Value; return false; }
+      if constexpr (kCharged) {
+        if (payload_state.logical_list_limit) {
+          const int charged = d_charge_string_concat(tables, payload_state, a, b, out);
+          if (charged == 1) return true;
+          if (charged == 2) { err = ErrCode::Value; return false; }
         }
       }
       if constexpr (PayloadTraits::kHasString) {
@@ -1477,7 +1631,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       err = ErrCode::Type;
       return false;
     }
-    if (!d_charge_derived_allocation(tables, payload_state, xs, 1)) { err = ErrCode::Value; return false; }
+    if constexpr (kCharged) {
+      if (!d_charge_derived_allocation(tables, payload_state, xs, 1)) { err = ErrCode::Value; return false; }
+    }
     if constexpr (PayloadTraits::kHasList) {
       auto& st = payload_state;
       const Value* xp = nullptr;
@@ -1487,8 +1643,11 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       // shares it. Contents, hash and registration equal those of a copy; only
       // physical cells (and so overflow replay) shrink from O(n^2) to O(n).
       const bool found = d_lookup_list_payload(tables, st, xs, xp, xl);
-      const bool tail = found && !st.private_intlists && xl > 0 && xl <= st.list_values_used &&
-          xp == st.list_values + (st.list_values_used - xl);
+      bool tail = false;
+      if constexpr (kCharged) {
+        tail = found && !st.private_intlists && xl > 0 && xl <= st.list_values_used &&
+            xp == st.list_values + (st.list_values_used - xl);
+      }
       const int cells = tail ? 1 : xl + 1;
       if (found && st.list_values_used + cells <= st.kMaxListValues) {
         const int off = tail ? st.list_values_used - xl : st.list_values_used;
@@ -1521,7 +1680,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       err = ErrCode::Type;
       return false;
     }
-    if (!d_charge_derived_allocation(tables, payload_state, xs, 1)) { err = ErrCode::Value; return false; }
+    if constexpr (kCharged) {
+      if (!d_charge_derived_allocation(tables, payload_state, xs, 1)) { err = ErrCode::Value; return false; }
+    }
     if constexpr (PayloadTraits::kHasList) {
       auto& st = payload_state;
       const Value* xp = nullptr;
@@ -1553,7 +1714,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     }
     const Value& x = args[0];
     if (x.tag == ValueTag::String) {
-      if (!d_charge_derived_allocation(tables, payload_state, x, 0)) { err = ErrCode::Value; return false; }
+      if constexpr (kCharged) {
+        if (!d_charge_derived_allocation(tables, payload_state, x, 0)) { err = ErrCode::Value; return false; }
+      }
       if constexpr (PayloadTraits::kHasString) {
         auto& st = payload_state;
         const char* xp = nullptr;
@@ -1581,7 +1744,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       err = ErrCode::Type;
       return false;
     }
-    if (!d_charge_derived_allocation(tables, payload_state, x, 0)) { err = ErrCode::Value; return false; }
+    if constexpr (kCharged) {
+      if (!d_charge_derived_allocation(tables, payload_state, x, 0)) { err = ErrCode::Value; return false; }
+    }
     if constexpr (PayloadTraits::kHasList) {
       auto& st = payload_state;
       const Value* xp = nullptr;
@@ -1682,7 +1847,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       err = (argc == 1 && args[0].tag == ValueTag::Char) ? ErrCode::Value : ErrCode::Type;
       return false;
     }
-    if (!d_charge_list_allocation(payload_state, 1)) { err = ErrCode::Value; return false; }
+    if constexpr (kCharged) {
+      if (!d_charge_list_allocation(payload_state, 1)) { err = ErrCode::Value; return false; }
+    }
     if constexpr (PayloadTraits::kHasString) {
       auto& st = payload_state;
       if (st.string_bytes_used + 1 <= st.kMaxStringBytes) {
@@ -1770,7 +1937,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     const int len = args[0].tag == ValueTag::Int
                         ? d_append_int_decimal(tmp, args[0].i)
                         : d_append_float_decimal(tmp, args[0].f);
-    if (!d_charge_list_allocation(payload_state, static_cast<unsigned>(len))) { err = ErrCode::Value; return false; }
+    if constexpr (kCharged) {
+      if (!d_charge_list_allocation(payload_state, static_cast<unsigned>(len))) { err = ErrCode::Value; return false; }
+    }
     if constexpr (PayloadTraits::kHasString) {
       auto& st = payload_state;
       if (st.string_bytes_used + len <= st.kMaxStringBytes) {
@@ -1801,7 +1970,9 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         err = ErrCode::Value;
         return false;
       }
-      if (!d_charge_list_allocation(payload_state, 1)) { err = ErrCode::Value; return false; }
+      if constexpr (kCharged) {
+        if (!d_charge_list_allocation(payload_state, 1)) { err = ErrCode::Value; return false; }
+      }
       if constexpr (PayloadTraits::kHasString) {
         auto& st = payload_state;
         if (st.string_bytes_used + 1 <= st.kMaxStringBytes) {
@@ -1846,250 +2017,201 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     return false;
   }
 
-  if (bid == BuiltinId::Insert || bid == BuiltinId::SetAt || bid == BuiltinId::RemoveAt) {
-    const bool has_element = bid != BuiltinId::RemoveAt;
-    if (argc != (has_element ? 3 : 2)) {
-      err = ErrCode::Type;
-      return false;
+  if constexpr (kCharged) {
+    if (bid >= BuiltinId::Insert && bid <= BuiltinId::Capitalize) {
+      return d_g3p_builtin_call<Flavor>(bid, args, argc, tables, payload_state, out, err);
     }
-    const Value& xs = args[0];
-    if (!d_is_typed_list_tag(xs.tag) || args[1].tag != ValueTag::Int ||
-        (has_element && !d_list_accepts_elem(xs.tag, args[2]))) {
-      err = ErrCode::Type;
-      return false;
-    }
-    const long long index = args[1].i;
-    const std::uint32_t source_length = Value::container_len(xs);
-    if (bid != BuiltinId::Insert) {
-      // An empty list is returned unchanged, with or without contents.
-      if (source_length == 0U) { out = xs; return true; }
-    }
-    if constexpr (PayloadTraits::kHasList) {
-      auto& st = payload_state;
-      const Value* xp = nullptr;
-      int xl = 0;
-      if (d_lookup_list_payload(tables, st, xs, xp, xl)) {
-        if (bid != BuiltinId::Insert && xl == 0) { out = xs; return true; }
-        const int nl = bid == BuiltinId::Insert ? xl + 1 : (bid == BuiltinId::SetAt ? xl : xl - 1);
-        if (!d_charge_list_allocation(st, static_cast<unsigned>(nl))) { err = ErrCode::Value; return false; }
-        if (st.list_values_used + nl <= st.kMaxListValues) {
-          const int off = st.list_values_used;
-          if (bid == BuiltinId::Insert) {
-            const int pos = static_cast<int>(d_insert_position(index, xl));
-            for (int i = 0; i < pos; ++i) st.list_values[off + i] = xp[i];
-            st.list_values[off + pos] = args[2];
-            for (int i = pos; i < xl; ++i) st.list_values[off + i + 1] = xp[i];
-          } else {
-            const int pos = static_cast<int>(d_mod_positive(index, xl));
-            for (int i = 0; i < pos; ++i) st.list_values[off + i] = xp[i];
-            if (bid == BuiltinId::SetAt) {
-              st.list_values[off + pos] = args[2];
-              for (int i = pos + 1; i < xl; ++i) st.list_values[off + i] = xp[i];
-            } else {
-              for (int i = pos + 1; i < xl; ++i) st.list_values[off + i - 1] = xp[i];
-            }
-          }
-          st.list_values_used += nl;
-          const std::uint64_t h = d_hash_list_payload(st.list_values + off, nl);
-          out = d_make_list_hash_len(xs.tag, h, static_cast<std::uint32_t>(nl));
-          if (!d_register_local_list(st, out, off, nl)) { err = ErrCode::Value; return false; }
-          return true;
-        }
-      }
-    }
-    if constexpr (d_exact_payload_flavor<Flavor>) {
-      if (d_has_exact_payload(tables, payload_state, xs)) {
-        payload_state.physical_capacity_exceeded = true;
-        payload_state.physical_capacity_reason |= DPAYLOAD_OVERFLOW_VALUES;
-        err = ErrCode::Value;
-        return false;
-      }
-    }
-    const std::uint64_t h = Value::derived_container_hash48(
-        d_list_type_code(xs), static_cast<std::uint8_t>(bid), xs, index,
-        has_element ? Value::shallow_hash64(args[2]) : 0U);
-    const std::uint32_t len = bid == BuiltinId::Insert ? Value::saturating_len_add(source_length, 1U)
-        : (bid == BuiltinId::SetAt ? source_length : source_length - 1U);
-    out = d_make_list_hash_len(xs.tag, h, len);
-    return true;
-  }
-
-  if (bid == BuiltinId::IndexMod) {
-    if (argc != 2) {
-      err = ErrCode::Type;
-      return false;
-    }
-    const Value& x = args[0];
-    if (!(x.tag == ValueTag::String || d_is_typed_list_tag(x.tag)) || args[1].tag != ValueTag::Int) {
-      err = ErrCode::Type;
-      return false;
-    }
-    const long long index = args[1].i;
-    const long long n = static_cast<long long>(Value::container_len(x));
-    if (x.tag == ValueTag::String) {
-      if (n == 0) return d_emit_string<Flavor>(payload_state, nullptr, 0, false, out, err);
-      const long long j = d_mod_positive(index, n);
-      if constexpr (PayloadTraits::kHasString) {
-        const char* xp = nullptr;
-        int xl = 0;
-        if (d_lookup_string_payload(tables, payload_state, x, xp, xl)) {
-          if (xl == 0) return d_emit_string<Flavor>(payload_state, nullptr, 0, false, out, err);
-          const int exact_j = static_cast<int>(d_mod_positive(index, xl));
-          if (!d_charge_list_allocation(payload_state, 1U)) { err = ErrCode::Value; return false; }
-          return d_emit_string<Flavor>(payload_state, xp + exact_j, 1, false, out, err);
-        }
-      }
-      out = Value::from_fallback_token(Value::index_container_token64(5U, x, j));
-      return true;
-    }
-    const auto zero_value = [&]() -> bool {
-      if (x.tag == ValueTag::IntList) { out = Value::from_int(0); return true; }
-      if (x.tag == ValueTag::FloatList) { out = Value::from_float(0.0); return true; }
-      return d_emit_string<Flavor>(payload_state, nullptr, 0, false, out, err);
-    };
-    if constexpr (PayloadTraits::kHasList) {
-      const Value* xp = nullptr;
-      int xl = 0;
-      if (d_lookup_list_payload(tables, payload_state, x, xp, xl)) {
-        if (xl == 0) return zero_value();
-        out = xp[static_cast<int>(d_mod_positive(index, xl))];
-        return true;
-      }
-    }
-    if (n == 0) return zero_value();
-    out = Value::from_fallback_token(Value::index_container_token64(d_list_type_code(x), x, d_mod_positive(index, n)));
-    return true;
-  }
-
-  if (bid == BuiltinId::Range) {
-    if (argc != 2 || args[0].tag != ValueTag::Int || args[1].tag != ValueTag::Int) {
-      err = ErrCode::Type;
-      return false;
-    }
-    const long long a = args[0].i;
-    const long long b = args[1].i;
-    int count = 0;
-    if (b > a) {
-      // b > a, so the unsigned difference is exact. The length cap and the
-      // logical budget are checked before any cell is written.
-      const std::uint64_t wide = static_cast<std::uint64_t>(b) - static_cast<std::uint64_t>(a);
-      if (wide > Value::k_container_len_max) { err = ErrCode::Value; return false; }
-      count = static_cast<int>(wide);
-      if (!d_charge_list_allocation(payload_state, static_cast<unsigned>(count))) { err = ErrCode::Value; return false; }
-    }
-    if constexpr (PayloadTraits::kHasList) {
-      auto& st = payload_state;
-      if (st.list_values_used + count <= st.kMaxListValues) {
-        const int off = st.list_values_used;
-        for (int i = 0; i < count; ++i) {
-          st.list_values[off + i] = Value::from_int(static_cast<long long>(static_cast<unsigned long long>(a) + static_cast<unsigned long long>(i)));
-        }
-        st.list_values_used += count;
-        out = d_make_list_hash_len(ValueTag::IntList, d_hash_list_payload(st.list_values + off, count),
-                                   static_cast<std::uint32_t>(count));
-        if (!d_register_local_list(st, out, off, count)) { err = ErrCode::Value; return false; }
-        return true;
-      }
-    }
-    if constexpr (d_exact_payload_flavor<Flavor>) {
-      payload_state.physical_capacity_exceeded = true;
-      payload_state.physical_capacity_reason |= DPAYLOAD_OVERFLOW_VALUES;
-      err = ErrCode::Value;
-      return false;
-    }
-    std::uint64_t h = Value::fnv1a_init();
-    h = Value::fnv1a_mix_u8(h, 0xA1U);
-    h = Value::fnv1a_mix_u64(h, static_cast<std::uint64_t>(count));
-    for (int i = 0; i < count; ++i) {
-      h = Value::fnv1a_mix_u64(h, d_hash_value_shallow(Value::from_int(static_cast<long long>(
-          static_cast<unsigned long long>(a) + static_cast<unsigned long long>(i)))));
-    }
-    out = d_make_list_hash_len(ValueTag::IntList, h, static_cast<std::uint32_t>(count));
-    return true;
-  }
-
-  if (bid == BuiltinId::Strip || bid == BuiltinId::LStrip || bid == BuiltinId::RStrip ||
-      bid == BuiltinId::StripChars || bid == BuiltinId::LStripChars || bid == BuiltinId::RStripChars) {
-    const bool with_chars = bid == BuiltinId::StripChars || bid == BuiltinId::LStripChars || bid == BuiltinId::RStripChars;
-    const bool left = bid != BuiltinId::RStrip && bid != BuiltinId::RStripChars;
-    const bool right = bid != BuiltinId::LStrip && bid != BuiltinId::LStripChars;
-    if (argc != (with_chars ? 2 : 1) || args[0].tag != ValueTag::String ||
-        (with_chars && args[1].tag != ValueTag::String)) {
-      err = ErrCode::Type;
-      return false;
-    }
-    if constexpr (PayloadTraits::kHasString) {
-      auto& st = payload_state;
-      const char* sp = nullptr;
-      const char* cp = nullptr;
-      int sl = 0;
-      int cl = 0;
-      if (d_lookup_string_payload(tables, st, args[0], sp, sl) &&
-          (!with_chars || d_lookup_string_payload(tables, st, args[1], cp, cl))) {
-        int begin = 0;
-        int end = sl;
-        const auto strippable = [&](char c) {
-          if (!with_chars) return d_is_ascii_space(static_cast<unsigned char>(c));
-          for (int i = 0; i < cl; ++i) if (cp[i] == c) return true;
-          return false;
-        };
-        if (left) while (begin < end && strippable(sp[begin])) ++begin;
-        if (right) while (end > begin && strippable(sp[end - 1])) --end;
-        if (!d_charge_list_allocation(st, static_cast<unsigned>(end - begin))) { err = ErrCode::Value; return false; }
-        return d_emit_string<Flavor>(st, sp + begin, end - begin, false, out, err);
-      }
-    }
-    const std::uint64_t h = Value::derived_container_hash48(
-        1U, static_cast<std::uint8_t>(bid), args[0], with_chars ? args[1].i : 0, 0U);
-    out = Value::from_fallback_token(Value::pack_container_payload(h, Value::container_len(args[0])));
-    return true;
-  }
-
-  if (bid == BuiltinId::StartsWith || bid == BuiltinId::EndsWith) {
-    if (argc != 2 || args[0].tag != ValueTag::String || args[1].tag != ValueTag::String) {
-      err = ErrCode::Type;
-      return false;
-    }
-    if constexpr (PayloadTraits::kHasString) {
-      auto& st = payload_state;
-      const char* sp = nullptr;
-      const char* ap = nullptr;
-      int sl = 0;
-      int al = 0;
-      if (d_lookup_string_payload(tables, st, args[0], sp, sl) &&
-          d_lookup_string_payload(tables, st, args[1], ap, al)) {
-        bool matches = al <= sl;
-        const int base = bid == BuiltinId::StartsWith ? 0 : sl - al;
-        for (int i = 0; matches && i < al; ++i) matches = sp[base + i] == ap[i];
-        out = Value::from_bool(matches);
-        return true;
-      }
-    }
-    err = ErrCode::Value;
-    return false;
-  }
-
-  if (bid == BuiltinId::Capitalize) {
-    if (argc != 1 || args[0].tag != ValueTag::String) {
-      err = ErrCode::Type;
-      return false;
-    }
-    if constexpr (PayloadTraits::kHasString) {
-      auto& st = payload_state;
-      const char* sp = nullptr;
-      int sl = 0;
-      if (d_lookup_string_payload(tables, st, args[0], sp, sl)) {
-        if (!d_charge_list_allocation(st, static_cast<unsigned>(sl))) { err = ErrCode::Value; return false; }
-        return d_emit_string<Flavor>(st, sp, sl, true, out, err);
-      }
-    }
-    const std::uint64_t h = Value::derived_container_hash48(1U, static_cast<std::uint8_t>(bid), args[0], 0, 0U);
-    out = Value::from_fallback_token(Value::pack_container_payload(h, Value::container_len(args[0])));
-    return true;
   }
 
   err = ErrCode::Name;
   return false;
+}
+
+template <DPayloadFlavor Flavor, bool kCharged>
+__device__ inline bool d_builtin_call_impl(BuiltinId bid,
+                                           const Value* args,
+                                           int argc,
+                                           const DPayloadTables& tables,
+                                           typename DPayloadFlavorTraits<Flavor>::State& payload_state,
+                                           Value& out,
+                                           ErrCode& err) {
+  using PayloadTraits = DPayloadFlavorTraits<Flavor>;
+
+  // This branch is reachable only after whole-program capability admission.
+  // It shares the arena, fuel driver, charging and physical-overflow replay.
+  if constexpr (Flavor == DPayloadFlavor::ArenaMixed || Flavor == DPayloadFlavor::IndexedArena) {
+    auto& st=payload_state;
+    if(st.private_intlists && (bid==BuiltinId::Singleton || bid==BuiltinId::Concat || bid==BuiltinId::Slice ||
+        bid==BuiltinId::Index || bid==BuiltinId::IndexNonnegative || bid==BuiltinId::IndexClampedOrZero)) {
+      DPrivateIntListSpan a,b;
+      if(st.private_adjacent_concat && st.list_values_used!=st.private_cursor_checkpoint) {
+        // A generic allocation or external initialization changed the ordinary
+        // cursor. Its writes are beyond all older compressed spans.
+        st.private_cells_used=st.list_values_used;
+        st.private_cursor_checkpoint=st.list_values_used;
+      }
+      if(bid==BuiltinId::Singleton) {
+        if(argc!=1 || args[0].tag!=ValueTag::Int){err=ErrCode::Type;return false;}
+        if(!d_charge_list_allocation(st,1)){err=ErrCode::Value;return false;}
+        if(st.list_values_used>=st.kMaxListValues) {
+          st.physical_capacity_exceeded=true;st.physical_capacity_reason|=DPAYLOAD_OVERFLOW_VALUES;
+          err=ErrCode::Value;return false;
+        }
+        const int offset=st.private_adjacent_concat?st.private_cells_used++:st.list_values_used;
+        ++st.list_values_used;
+        if(st.private_adjacent_concat)st.private_cursor_checkpoint=st.list_values_used;
+        if(st.compact_intlist_cells)st.intlist_cells[static_cast<std::size_t>(offset)*st.private_cell_stride]=args[0].i;
+        else st.list_values[offset]=args[0];
+        out=d_private_intlist(offset,1);return true;
+      }
+      if(bid==BuiltinId::Index || bid==BuiltinId::IndexNonnegative || bid==BuiltinId::IndexClampedOrZero) {
+        if(argc!=2 || args[0].tag!=ValueTag::IntList || args[1].tag!=ValueTag::Int){err=ErrCode::Type;return false;}
+        const auto length=static_cast<long long>(Value::container_len(args[0]));
+        long long index=0;
+        if(bid==BuiltinId::IndexClampedOrZero) {
+          if(!length){out=Value::from_int(0);return true;}
+          index=args[1].i<0?0:args[1].i>=length?length-1:args[1].i;
+        } else if((bid==BuiltinId::IndexNonnegative && args[1].i<0) ||
+            !d_norm_index_idx(args[1].i,length,index)){err=ErrCode::Value;return false;}
+        if(!d_private_intlist_span(tables,st,args[0],a) || index>=a.size){err=ErrCode::Value;return false;}
+        out=Value::from_int(a.at(static_cast<int>(index)));return true;
+      }
+      if(argc!=(bid==BuiltinId::Concat?2:3) || args[0].tag!=ValueTag::IntList ||
+          (bid==BuiltinId::Concat?args[1].tag!=ValueTag::IntList:
+           (args[1].tag!=ValueTag::Int || args[2].tag!=ValueTag::Int))) {
+        err=ErrCode::Type;return false;
+      }
+      if(!d_private_intlist_span(tables,st,args[0],a)) {err=ErrCode::Value;return false;}
+      if(bid==BuiltinId::Slice) {
+        const auto length=static_cast<long long>(Value::container_len(args[0]));
+        const int lo=static_cast<int>(d_norm_slice_idx(args[1].i,length));
+        const int hi=static_cast<int>(d_norm_slice_idx(args[2].i,length));
+        const int count=hi>lo?hi-lo:0;
+        // Positive logical allocation admission already selects immutable window
+        // aliasing in the ordinary arena; no copy policy is removed here.
+        if(args[0].b) {
+          const auto bits=Value::container_hash48(args[0]);
+          out=d_private_intlist(static_cast<int>(bits&DPRIVATE_LIST_OFFSET_MASK)+lo,count,
+              (bits&DPRIVATE_LIST_GLOBAL)!=0);
+        } else {
+          const int entry=d_find_list_payload_entry(tables,ValueTag::IntList,args[0].i);
+          if(entry<0){err=ErrCode::Value;return false;}
+          out=d_private_intlist(tables.list_entries[entry].offset+lo,count,true);
+        }
+        return true;
+      }
+      if(!d_private_intlist_span(tables,st,args[1],b)){err=ErrCode::Value;return false;}
+      const auto left=Value::container_len(args[0]),right=Value::container_len(args[1]);
+      if(!left){out=args[1];return true;}if(!right){out=args[0];return true;}
+      if(!d_charge_list_allocation(st,left+right)){err=ErrCode::Value;return false;}
+      const int n=a.size,m=b.size;
+      if(n<0 || m<0 || n>65537-m || n+m>st.kMaxListValues-st.list_values_used) {
+        st.physical_capacity_exceeded=true;st.physical_capacity_reason|=DPAYLOAD_OVERFLOW_VALUES;
+        err=ErrCode::Value;return false;
+      }
+      if(st.private_adjacent_concat) {
+        const auto abits=Value::container_hash48(args[0]);
+        const auto bbits=Value::container_hash48(args[1]);
+        const bool aglobal=!args[0].b || (abits&DPRIVATE_LIST_GLOBAL)!=0;
+        const bool bglobal=!args[1].b || (bbits&DPRIVATE_LIST_GLOBAL)!=0;
+        const bool adjacent=aglobal==bglobal && (aglobal || !st.compact_intlist_cells?
+            a.boxed+n==b.boxed:
+            a.stride==b.stride && a.integers+static_cast<std::size_t>(n)*a.stride==b.integers);
+        if(adjacent) {
+          const int offset=args[0].b?static_cast<int>(abits&DPRIVATE_LIST_OFFSET_MASK):
+              static_cast<int>(a.boxed-tables.list_values);
+          // Keep EXACT ordinary reservation/charge/overflow behavior. Only
+          // physical writes and the opaque private backing offset change.
+          st.list_values_used+=n+m;st.private_cursor_checkpoint=st.list_values_used;
+          out=d_private_intlist(offset,n+m,aglobal);return true;
+        }
+      }
+      const int offset=st.private_adjacent_concat?st.private_cells_used:st.list_values_used;
+      if(st.compact_intlist_cells) {
+        d_copy_private_intlist(st.intlist_cells+static_cast<std::size_t>(offset)*st.private_cell_stride,a,st.private_warp_copy,st.private_cell_stride);
+        d_copy_private_intlist(st.intlist_cells+static_cast<std::size_t>(offset+n)*st.private_cell_stride,b,st.private_warp_copy,st.private_cell_stride);
+      } else {
+        for(int i=0;i<n;++i)st.list_values[offset+i]=a.boxed[i];
+        for(int i=0;i<m;++i)st.list_values[offset+n+i]=b.boxed[i];
+      }
+      st.list_values_used+=n+m;
+      if(st.private_adjacent_concat) {
+        st.private_cells_used+=n+m;st.private_cursor_checkpoint=st.list_values_used;
+      }
+      out=d_private_intlist(offset,n+m);return true;
+    }
+  }
+
+  if constexpr ((Flavor == DPayloadFlavor::IntListViews || Flavor == DPayloadFlavor::BoundIntListViews)) {
+    if ((bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) || bid == BuiltinId::Slice) {
+      if (argc != ((bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) ? 2 : 3) || args[0].tag != ValueTag::IntList ||
+          args[1].tag != ValueTag::Int || (argc == 3 && args[2].tag != ValueTag::Int)) {
+        err = ErrCode::Type; return false;
+      }
+      Value source = args[0];
+      if (!d_convert_list_view(source, tables)) { err = ErrCode::Value; return false; }
+      const auto offset = Value::container_hash48(source);
+      const auto length = static_cast<long long>(Value::container_len(source));
+      if (bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) {
+        long long index;
+        if (bid == BuiltinId::IndexClampedOrZero) {
+          if (!length) { out = Value::from_int(0); return true; }
+          index = args[1].i < 0 ? 0 : (args[1].i >= length ? length-1 : args[1].i);
+        } else if ((bid == BuiltinId::IndexNonnegative && args[1].i < 0) || !d_norm_index_idx(args[1].i, length, index)) { err = ErrCode::Value; return false; }
+        out = tables.list_values[offset + index];
+        if (bid == BuiltinId::IndexClampedOrZero && out.tag != ValueTag::Int) { err = ErrCode::Type; return false; }
+      } else {
+        const auto lo = d_norm_slice_idx(args[1].i, length);
+        const auto hi = d_norm_slice_idx(args[2].i, length);
+        out = d_list_view(offset + lo, static_cast<std::uint32_t>(hi > lo ? hi - lo : 0));
+      }
+      return true;
+    }
+  }
+
+  return d_builtin_call_generic<Flavor, kCharged>(bid, args, argc, tables, payload_state, out, err);
+}
+
+// The inlined builtin dispatch. It leaves out the G3P builtins, the in-place
+// append and the charges added with them, so it holds no out-of-line call.
+// Every call site except the bytecode VM passes only builtins for which
+// d_builtin_needs_charged is false (slice, index, len, concat of IntLists,
+// singleton of an Int and scalar builtins). The VM routes the others to
+// d_builtin_call_charged.
+template <DPayloadFlavor Flavor>
+__device__ inline bool d_builtin_call(BuiltinId bid,
+                                      const Value* args,
+                                      int argc,
+                                      const DPayloadTables& tables,
+                                      typename DPayloadFlavorTraits<Flavor>::State& payload_state,
+                                      Value& out,
+                                      ErrCode& err) {
+  return d_builtin_call_impl<Flavor, false>(bid, args, argc, tables, payload_state, out, err);
+}
+
+template <DPayloadFlavor Flavor>
+__device__ __noinline__ bool d_builtin_call_charged(BuiltinId bid,
+                                                    const Value* args,
+                                                    int argc,
+                                                    const DPayloadTables& tables,
+                                                    typename DPayloadFlavorTraits<Flavor>::State& payload_state,
+                                                    Value& out,
+                                                    ErrCode& err) {
+  return d_builtin_call_impl<Flavor, true>(bid, args, argc, tables, payload_state, out, err);
+}
+
+// True when the call needs d_builtin_call_charged: the G3P builtins, every
+// append, and under a logical limit the builtins that charge a derived result.
+template <typename State>
+__device__ inline bool d_builtin_needs_charged(BuiltinId bid, const Value* args, int argc, const State& state) {
+  if (bid >= BuiltinId::Insert && bid <= BuiltinId::Capitalize) return true;
+  if (bid == BuiltinId::Append) return true;
+  if (!state.logical_list_limit) return false;
+  if (bid == BuiltinId::Concat)
+    return argc == 2 && args[0].tag == ValueTag::String && args[1].tag == ValueTag::String;
+  if (bid == BuiltinId::Singleton) return argc == 1 && args[0].tag == ValueTag::Char;
+  return bid == BuiltinId::Prepend || bid == BuiltinId::Reverse || bid == BuiltinId::CharToString ||
+         bid == BuiltinId::ToString;
 }
 
 }  // namespace gagp::gpu_detail
