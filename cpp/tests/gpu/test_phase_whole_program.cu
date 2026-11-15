@@ -469,6 +469,32 @@ void check_unused_local() {
  require_same(traces[0],traces[1],"phase_unused_local.json");
  std::cout<<"phase_unused_local.json: an unused local takes no lowering local, identical on CPU and GPU\n";
 }
+// A for_range holds its bound and its counter through the body. 58 inputs and
+// three nested loops over an input need exactly 64 locals: admitted, and both
+// owners publish the same search. 60 inputs and four loops need 68: rejected
+// at admission on both, naming the count.
+void check_loop_locals() {
+ for(const int locals:{64,68}) {
+  const auto fixture=std::string("phase_loop_locals_")+std::to_string(locals)+".json";
+  const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+      grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/")+fixture)));
+  const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+  EvolutionConfig cfg;cfg.population_size=8;cfg.generations=2;cfg.seed=0;cfg.elite_count=1;cfg.mutation_rate=0.5;
+  cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+  std::vector<Trace> traces;
+  for(const bool gpu:{false,true}) {
+   auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+   std::string error;
+   try{traces.push_back(trace(evolve_population(cases,run)));}catch(const std::exception& e){error=e.what();}
+   const auto label=fixture+(gpu?" GPU":" CPU");
+   if(locals==64)require(error.empty(),label+": "+error);
+   else require(error.find("resident engine cannot admit")!=std::string::npos &&
+       error.find("up to 68 locals (capacity 64)")!=std::string::npos,label+": "+error);
+  }
+  if(locals==64)require_same(traces[0],traces[1],fixture);
+ }
+ std::cout<<"phase_loop_locals: a for_range counts its bound and counter, 64 locals identical on CPU and GPU, 68 rejected on both\n";
+}
 // The two language restrictions of the resident engine: a sequence constant
 // domain and a nonterminal reached under two binder environments (Step under
 // a traversal at binders 0..2 and under a let and a traversal at 1..3). Both
@@ -525,6 +551,7 @@ int main() { try {
  check_initial_capacity();
  check_shared_hole_records();
  check_unused_local();
+ check_loop_locals();
  check_language_restrictions();
  // Repeated holes share one derivation: recursive, skewed in depth, with a
  // constant in the fill, forwarded through a nested template, and under a let.

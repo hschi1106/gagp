@@ -642,7 +642,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
   // Lowering never runs out of its fixed tables during a search: over every
   // tree within the physical depth budget, bound the open traversals, lets,
   // loops and value ifs on one path and the temporaries they hold (a traversal
-  // holds at most nine, a let or a loop one) next to the inputs and the
+  // holds at most nine, a let one, a loop two) next to the inputs and the
   // reached grammar locals. Site depth only shortens trees, so it is ignored.
   {
     enum {Temporaries,Walks,Lets,Loops,Ifs,Count};
@@ -669,9 +669,9 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         switch(e.node.kind) {
           case PhaseTreeKind::Traverse:h[Temporaries]+=9;++h[Walks];break;
           case PhaseTreeKind::Let:++h[Temporaries];++h[Lets];break;
-          case PhaseTreeKind::ForRange:++h[Temporaries];++h[Loops];break;
-          // A while_stmt holds its bound and its counter.
-          case PhaseTreeKind::While:h[Temporaries]+=2;++h[Loops];break;
+          // A for_range or while_stmt holds its bound and its counter through
+          // the body (the counter is allocated after the bound expression).
+          case PhaseTreeKind::ForRange:case PhaseTreeKind::While:h[Temporaries]+=2;++h[Loops];break;
           case PhaseTreeKind::If:h[Ifs]+=e.node.type!=kPhaseStatement;break;
           default:break;
         }
