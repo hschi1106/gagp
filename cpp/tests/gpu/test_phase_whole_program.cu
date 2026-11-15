@@ -425,6 +425,22 @@ void check_shared_hole_records() {
  }
  std::cout<<"phase_shared_holes: 32 nested repeated holes identical on CPU and GPU, 33 rejected at admission on both\n";
 }
+// 64 inputs and one declared but unused grammar local: admitted, and both
+// owners publish the same search.
+void check_unused_local() {
+ const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_unused_local.json")));
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+ EvolutionConfig cfg;cfg.population_size=8;cfg.generations=2;cfg.seed=0;cfg.elite_count=1;cfg.mutation_rate=0.5;
+ cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+ std::vector<Trace> traces;
+ for(const bool gpu:{false,true}) {
+  auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  traces.push_back(trace(evolve_population(cases,run)));
+ }
+ require_same(traces[0],traces[1],"phase_unused_local.json");
+ std::cout<<"phase_unused_local.json: an unused local takes no lowering local, identical on CPU and GPU\n";
+}
 }  // namespace
 
 int main() { try {
@@ -448,6 +464,7 @@ int main() { try {
  check_unit_weight_overflow();
  check_initial_capacity();
  check_shared_hole_records();
+ check_unused_local();
  // Repeated holes share one derivation: recursive, skewed in depth, with a
  // constant in the fill, forwarded through a nested template, and under a let.
  check("cpp/tests/fixtures/phase_repeated.json",Fixture::Templates);

@@ -198,6 +198,15 @@ void check_repeated_holes() {
       ("33 nested repeated holes: "+error).c_str());
  }
 }
+// Lowering allocates a grammar local on its first use, so a declared local no
+// expression names takes no local: 64 inputs and one unused local fit the 64.
+void check_unused_locals() {
+ const auto g=grammar::compile_grammar(grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_unused_local.json"));
+ require(g.inputs().size()==64 && g.locals().size()==1,"unused-local fixture shape");
+ std::string error;
+ try{(void)compile_phase_grammar(g,g.entry(),g.search_limits().max_depth);}catch(const std::invalid_argument& e){error=e.what();}
+ require(error.empty(),("an unused grammar local counted toward the lowering locals: "+error).c_str());
+}
 int main(int argc,char** argv) {try {
  require(argc==1 || argc==3,"usage: test_gpu_phase_layout [PREPARED_JSON GRAMMAR_JSON]");
  const auto grammar_owner=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(grammar::load_definition(argc==3?argv[2]:
@@ -342,7 +351,7 @@ int main(int argc,char** argv) {try {
   }
 
  }
- if(argc==1){check_unit_productions();check_repeated_holes();}
+ if(argc==1){check_unit_productions();check_repeated_holes();check_unused_locals();}
  std::cout<<"roundtrip_programs="<<population.size()<<" all_instructions_constants_fuel_bindings_plans_exact=true\n";
  return 0;
 } catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

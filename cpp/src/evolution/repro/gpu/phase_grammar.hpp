@@ -148,6 +148,9 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
   std::function<void(unsigned,const Environment&)> visit_expression;std::function<void(unsigned,const Environment&)> visit_nonterminal;
   // Hole occurrence groups (prefix order) of every repeated template hole.
   std::vector<std::vector<unsigned>> repeated;std::vector<unsigned> instances,owners;
+  // Grammar locals a reached expression names: lowering allocates exactly
+  // these, each on first use, so unused declarations take no local.
+  unsigned reached_locals=0;
   visit_nonterminal=[&](unsigned id,const Environment& environment) {
     if(seen_nt.at(id)) {
       if(nt_environment[id]!=environment)fail("nonterminal entered under two lexical environments");
@@ -316,7 +319,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     } else if(e.kind==ExpressionKind::Local) {
       if(e.target>=static_cast<unsigned>(kPhaseNamedLocals))fail("grammar local "+std::to_string(e.target)+" exceeds the resident capacity of "+std::to_string(kPhaseNamedLocals)+" grammar locals");
       x.kind=PhaseExpressionKind::Operation;x.native_kind=static_cast<int>(NodeKind::VAR);
-      x.node.kind=PhaseTreeKind::Var;x.node.operand=e.target;out.statements=true;
+      x.node.kind=PhaseTreeKind::Var;x.node.operand=e.target;out.statements=true;reached_locals|=1U<<e.target;
     } else if(e.kind==ExpressionKind::Control) {
       const auto& signature=PrimitiveCatalog::standard().control_signatures().at(e.target);
       switch(signature.lowering_node) {
@@ -344,7 +347,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
           x.node.operand=-1-position;
         } else {
           if(e.local>=static_cast<unsigned>(kPhaseNamedLocals))fail("grammar local "+std::to_string(e.local)+" exceeds the resident capacity of "+std::to_string(kPhaseNamedLocals)+" grammar locals");
-          x.node.operand=e.local;
+          x.node.operand=e.local;reached_locals|=1U<<e.local;
         }
       }
       // Assign/Return carry the exact stored or returned value type.
@@ -384,7 +387,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         } else if(capture.kind==CompiledCaptureKind::Local) {
           info.capture_kind[c]=PhaseCaptureKind::Local;
           if(target>=kPhaseNamedLocals)fail("grammar local "+std::to_string(target)+" exceeds the resident capacity of "+std::to_string(kPhaseNamedLocals)+" grammar locals");
-          out.statements=true;
+          out.statements=true;reached_locals|=1U<<target;
         } else {
           info.capture_kind[c]=PhaseCaptureKind::Bound;
           if(capture.target>=environment.size())fail("region capture outside its environment");
@@ -629,8 +632,8 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
   // Lowering never runs out of its fixed tables during a search: over every
   // tree within the physical depth budget, bound the open traversals, lets,
   // loops and value ifs on one path and the temporaries they hold (a traversal
-  // holds at most nine, a let or a loop one) next to the inputs and grammar
-  // locals. Site depth only shortens trees, so it is ignored here.
+  // holds at most nine, a let or a loop one) next to the inputs and the
+  // reached grammar locals. Site depth only shortens trees, so it is ignored.
   {
     enum {Temporaries,Walks,Lets,Loops,Ifs,Count};
     using Hold=std::array<int,Count>;
@@ -665,7 +668,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     };
     const auto h=need(out.root_expression,max_depth);
     const int inputs_count=static_cast<int>(inputs?inputs->size():grammar.inputs().size());
-    const int named=static_cast<int>(std::min<std::size_t>(grammar.locals().size(),kPhaseNamedLocals));
+    int named=0;for(unsigned m=reached_locals;m;m&=m-1)++named;
     if(inputs_count+named+h[Temporaries]>gpu_detail::MAX_LOCALS || h[Walks]>kPhaseWalks || h[Lets]>kPhaseLets ||
         h[Loops]>kPhaseLoops || (h[Walks] && h[Ifs]>kPhaseIfs))
       fail("lowering capacity within the depth budget: up to "+std::to_string(inputs_count+named+h[Temporaries])+" locals (capacity "+
