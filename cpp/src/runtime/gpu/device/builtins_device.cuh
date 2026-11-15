@@ -847,6 +847,30 @@ __device__ inline bool d_charge_list_allocation(State& state, unsigned cells) {
   return true;
 }
 
+// Exact payload length of a list or string source, as the CPU reference reads it.
+template <typename State>
+__device__ inline bool d_exact_payload_length(const DPayloadTables& tables, const State& state,
+                                              const Value& value, int& length) {
+  length = 0;
+  if (value.tag == ValueTag::String) {
+    const char* bytes = nullptr;
+    return d_lookup_string_payload(tables, state, value, bytes, length);
+  }
+  const Value* elements = nullptr;
+  return d_is_typed_list_tag(value.tag) && d_lookup_list_payload(tables, state, value, elements, length);
+}
+
+// Charges a result built from an exact source of the given length plus extra
+// cells. A fallback source builds no payload on either engine and is free.
+template <typename State>
+__device__ inline bool d_charge_derived_allocation(const DPayloadTables& tables, State& state,
+                                                   const Value& source, int extra) {
+  if (!state.logical_list_limit) return true;
+  int length = 0;
+  if (!d_exact_payload_length(tables, state, source, length)) return true;
+  return d_charge_list_allocation(state, static_cast<unsigned>(length + extra));
+}
+
 template <DPayloadFlavor Flavor>
 __device__ inline bool d_builtin_call(BuiltinId bid,
                                       const Value* args,
@@ -1380,6 +1404,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       err = ErrCode::Type;
       return false;
     }
+    if (!d_charge_derived_allocation(tables, payload_state, xs, 1)) { err = ErrCode::Value; return false; }
     if constexpr (PayloadTraits::kHasList) {
       auto& st = payload_state;
       const Value* xp = nullptr;
@@ -1423,6 +1448,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       err = ErrCode::Type;
       return false;
     }
+    if (!d_charge_derived_allocation(tables, payload_state, xs, 1)) { err = ErrCode::Value; return false; }
     if constexpr (PayloadTraits::kHasList) {
       auto& st = payload_state;
       const Value* xp = nullptr;
@@ -1481,6 +1507,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       err = ErrCode::Type;
       return false;
     }
+    if (!d_charge_derived_allocation(tables, payload_state, x, 0)) { err = ErrCode::Value; return false; }
     if constexpr (PayloadTraits::kHasList) {
       auto& st = payload_state;
       const Value* xp = nullptr;

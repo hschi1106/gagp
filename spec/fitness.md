@@ -255,20 +255,28 @@ case score is integral and the bounded total is below 2^40. The view type-flow
 proof excludes floating-point outputs; expected values must be Int or Bool.
 Errors count with the same policy ceiling. Nonintegral error ceilings, discounted absolute proximity, and tuple-summary
 scores retain the original reduction order. Exact scoring always has ceiling one. This changes scheduling only, not case coverage, scores, or wrong counts.
-`FitnessPolicy::list_allocation_limit` optionally supplies a logical list-cell
-arena limit (zero leaves the existing backend policy unchanged). Each case starts
-with the sum of its effective typed-list input lengths: only slots in
+`FitnessPolicy::list_allocation_limit` optionally supplies a logical
+list-cell limit (zero means no logical limit). Each case starts with the sum
+of its effective typed-list input lengths: only slots in
 `[0, program.n_locals)` count, and duplicate bindings use the last value, as in
 the VM local loader. A binding outside this range is ignored even when it names
-a list. `Singleton` consumes one cell;
-`Concat` of two nonempty lists consumes their combined length on every execution,
-including repeated identical results. An empty-list concat returns the other
-operand without allocation, and slicing consumes no logical cells. The next
-allocation that exceeds the limit produces the ordinary error penalty. Physical
-storage exhaustion remains a separate backend constraint; a GPU result marks
-physical payload exhaustion separately for bounded replay without treating a
-logical limit error as recoverable. This policy does not change fuel or frame
-limits. The `benchmarks/asgp30` list-output tasks set a limit of 65536 cells
+a list. Every builtin that creates a list charges the length of its result, on every execution and including repeated identical
+results:
+
+| Builtin | Charge |
+| --- | --- |
+| `singleton` | 1 |
+| `concat` of two nonempty lists | the combined length |
+| `append`, `prepend` | length of the list plus one |
+| `reverse` | length of the list |
+
+A `concat` with an empty operand returns the other operand without allocation,
+and `slice` consumes nothing. An operation whose operand has no readable
+payload builds an opaque token and consumes nothing. The next allocation that
+exceeds the limit is a Value error with the ordinary error penalty. A GPU
+result marks physical payload exhaustion separately for bounded replay without
+treating a logical limit error as recoverable. This policy does not change fuel
+or frame limits. The `benchmarks/asgp30` list-output tasks set a limit of 65536 cells
 through the task's `list_allocation_limit`; source character lists use native
 IntList cells too.
 

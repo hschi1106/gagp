@@ -396,6 +396,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     }
     std::vector<Value> lx;
     if (payload::lookup_list(xs, &lx)) {
+      payload::charge_list_allocation(lx.size() + 1);
       lx.push_back(elem);
       return make_exact_list(xs.tag, std::move(lx));
     }
@@ -426,6 +427,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     }
     std::vector<Value> lx;
     if (payload::lookup_list(xs, &lx)) {
+      payload::charge_list_allocation(lx.size() + 1);
       lx.insert(lx.begin(), elem);
       return make_exact_list(xs.tag, std::move(lx));
     }
@@ -457,6 +459,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     }
     std::vector<Value> lx;
     if (payload::lookup_list(x, &lx)) {
+      payload::charge_list_allocation(lx.size());
       std::reverse(lx.begin(), lx.end());
       return make_exact_list(x.tag, std::move(lx));
     }
