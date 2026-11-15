@@ -37,16 +37,18 @@ invalid search policies still fail.
 
 A genome is one of two layouts, chosen from the grammar:
 
-- **Whole program.** A grammar without templates is admitted as one phase
-  holding the whole program. An expression entry is lowered and completed by
+- **Whole program.** Every grammar that does not take the region-template
+  layout is admitted as one phase holding the whole program. An expression entry is lowered and completed by
   the native program terminator (`patch_whole_program`); a Program entry
   lowers its statements (`assign`, `return`, `if_stmt`, `for_range`, blocks,
   up to 16 grammar locals) exactly as the native compiler does, including its
   first-use local order. Statement programs are limited to 512 nodes.
-- **Region template.** A grammar whose genomes share one fixed root template
-  with exactly one bounded region, and no `let` or traversal primitive, keeps
-  the template fixed and varies up to 8 independent phases (the holes of the
-  template).
+- **Region template.** A grammar whose only entry production is a template,
+  whose genomes hold exactly one bounded region, and which has no `let` or
+  traversal primitive keeps the template fixed and varies up to 8 independent
+  phases (the holes of the template). Members of any other grammar never take
+  this layout, so a population of a grammar with a bounded region behind one
+  of several entry alternatives imports as whole programs.
 
 Phase expressions may use all eight value types, any catalog operation of
 matching arity, grammar inputs, finite constant domains of any type and Int
@@ -64,12 +66,37 @@ ranges. Whole-program phases may also contain:
   with its bindings, and variation inside a phase uses the phase's own scope.
 
 Templates and holes are zero-node wrappers: a site on a template production
-passes to its first physical node, so production roots must resolve to
-distinct nodes. A hole repeated in its template body is admitted only when its
-fill is fixed. A grammar whose only member is one fixed program uses the
-native fallback, and so does a genome whose fixed template structure carries a
+passes to its first physical node, and site annotation recovers a production
+from that node's expression id. Phase grammar construction
+(`compile_phase_grammar`, shared by both owners) therefore inlines every unit
+production: an alternative that resolves through wrappers to a reference is
+replaced by the referenced alternatives with multiplied weights, alias-cycle
+alternatives are dropped and diamonds are merged (the rules are in
+[Resident variation](../../spec/search_config.md#resident-variation)). Every
+production root then resolves to a node, and the alternatives of one
+nonterminal to distinct nodes. An inlined chain carries the outermost
+nonterminal's site only, so `variation: false` on an inner nonterminal of the
+chain has no effect at that node, and an inner variable nonterminal under a
+fixed outer one is not a separate site.
+
+A hole repeated in its template body is one shared derivation
+(`PhaseSharedHole`). Fills are compiled separately per occurrence, in
+post-order, so the first fill's expressions (up to references) occupy a
+contiguous id range and each later fill is the same shape shifted by a
+constant; construction verifies this. The genotype holds every occurrence:
+`share_phase_tree` walks a tree, records the first occurrence in prefix order
+and makes each later one an exact copy, with its own fill's expression ids,
+binder numbers and region entries, the first's choices below references and
+constant values, and fixed sites. Generation, crossover and mutation run
+unchanged and then rebuild the copies through the child's scratch row; a
+rebuilt program over the node, depth or site-depth budget is rejected. Import
+renames the copies of a native member (whose copies carry the first
+occurrence's ids) the same way, and annotation checks that every copy is
+exact. A grammar whose only member is one fixed program is admitted with no
+variable site. A genome whose fixed template structure carries a
 `resource_charge` other than the default (more than one node or depth level,
-or a depth reset).
+or a depth reset) still uses the native fallback in the region-template
+layout.
 
 ## Capacities
 

@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -114,6 +115,65 @@ void check_import(const grammar::CompiledGrammar& grammar,const ProgramGenome& g
  require(rejected,"import reused a private certificate after AST mutation");
 }
 }
+// Unit productions inline into their callers: each inlined alternative
+// carries w_unit * w / W, alias cycles drop out, and a diamond (one expression
+// reached through two chains) is one alternative with both weights.
+void check_unit_productions() {
+ const auto grammar=grammar::compile_grammar(grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_units.json"));
+ const auto id=[&](const std::string& name){
+  for(const auto& nt:grammar.nonterminals())if(nt.stable_id==name)return nt.id;
+  throw std::runtime_error("missing nonterminal "+name);
+ };
+ const auto profile=compile_phase_grammar(grammar,id("U.Top"),8);
+ const auto weights=[&](const char* name){
+  const auto& nt=profile.nonterminals.at(id(name));std::vector<double> w;
+  for(int i=0;i<nt.production_count;++i)w.push_back(profile.productions[nt.production_offset+i].weight);
+  std::sort(w.begin(),w.end());return w;
+ };
+ const auto near=[](const std::vector<double>& a,const std::vector<double>& b) {
+  if(a.size()!=b.size())return false;
+  for(std::size_t i=0;i<a.size();++i)if(std::abs(a[i]-b[i])>1e-12)return false;
+  return true;
+ };
+ // Top: expr 3 (through Expr and Atom), leaf 1 (diamond with Atom's leaf),
+ // wrapped 1 (Cycle, whose loop back to itself drops out), let 1.
+ require(near(weights("U.Top"),{1.0/3,0.5,0.5,2.0/3,0.75,0.75,0.75,0.75,1}),"unit production weights");
+ require(near(weights("U.Cycle"),{1,2}) && near(weights("U.Loop"),{1,1}),"alias cycle weights");
+ for(const auto& p:profile.productions) {
+  int e=p.expression;
+  while(profile.expressions[e].kind==PhaseExpressionKind::Alias)e=profile.expressions[e].children[0];
+  require(profile.expressions[e].kind!=PhaseExpressionKind::Reference,"a unit production survived inlining");
+ }
+}
+// Imported members of a grammar with repeated holes name every copy after its
+// own occurrence; a copy whose fill differs from the first is rejected.
+void check_repeated_holes() {
+ const auto grammar=grammar::compile_grammar(grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_repeated.json"));
+ std::vector<std::string> inputs;for(const auto& input:grammar.inputs())inputs.push_back(input.name);
+ int copies=0,tampered=0;
+ for(unsigned seed=0;seed<128;++seed) {
+  const auto member=grammar::generate_derivation(grammar,seed).genome;
+  const auto layout=import_native_phase_layout(grammar,member,nullptr,&inputs);
+  const auto& profile=layout.profiles.at(0);auto gene=layout.genes.at(0);
+  require(!profile.shared.empty(),"repeated holes compiled without a shared table");
+  const auto view=phase_structure_view(profile);const int count=gene.nodes.size(),constants=gene.constants.size();
+  std::vector<PhaseGeneSite> sites(count);
+  require(annotate_phase_tree(view,profile.root_expression,0,gene.nodes.data(),gene.origins.data(),count,sites.data(),
+      gene.constants.data(),constants),"canonical repeated-hole copies rejected");
+  for(int i=0;i<count;++i) {
+   copies+=sites[i].nonterminal>=0 && (sites[i].scope&kPhaseFixedSite);
+   // A constant of a later occurrence's own fill.
+   const bool copied=std::any_of(profile.shared.begin(),profile.shared.end(),[&](const PhaseSharedHole& h){
+     return h.first>=0 && h.delta && gene.origins[i]>=h.low+h.delta && gene.origins[i]<=h.high+h.delta;});
+   if(!copied || gene.nodes[i].kind!=PhaseTreeKind::Constant)continue;
+   auto& value=gene.constants.at(gene.nodes[i].operand);const auto saved=value;value=Value::from_int(saved.i+1);
+   require(!annotate_phase_tree(view,profile.root_expression,0,gene.nodes.data(),gene.origins.data(),count,sites.data(),
+       gene.constants.data(),constants),"a differing repeated-hole copy was accepted");
+   value=saved;++tampered;
+  }
+ }
+ require(copies>0 && tampered>0,"repeated-hole fixture did not exercise copies");
+}
 int main(int argc,char** argv) {try {
  require(argc==1 || argc==3,"usage: test_gpu_phase_layout [PREPARED_JSON GRAMMAR_JSON]");
  const auto grammar_owner=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(grammar::load_definition(argc==3?argv[2]:
@@ -142,9 +202,17 @@ int main(int argc,char** argv) {try {
  require(wrong_owner,"grammar profile cache accepted foreign owner");
  if(argc==1) {
   const auto coupled=grammar::compile_grammar(grammar::parse_definition(test::bounded_capture_definition()));
-  const auto genome=grammar::generate_derivation(coupled,17).genome;bool rejected=false;
-  try{(void)import_native_phase_layout(coupled,genome);}catch(const std::invalid_argument&){rejected=true;}
-  require(rejected,"coupled/lexical region combination did not request native fallback");
+  // A repeated hole under two lets, each copy capturing its own binder: one
+  // shared derivation in whole-program mode, lowered and exported exactly.
+  std::vector<std::string> names;for(const auto& input:coupled.inputs())names.push_back(input.name);
+  for(unsigned seed:{3u,17u,29u}) {
+   const auto genome=grammar::generate_derivation(coupled,seed).genome;
+   const auto layout=import_native_phase_layout(coupled,genome,nullptr,&names);
+   require(layout.whole_program && !layout.profiles.at(0).shared.empty(),"coupled repeated hole did not share one derivation");
+   same_bytecode(layout.executable,compile_for_eval(genome,names));
+   const auto restored=export_native_phase_layout(coupled,layout,layout.genes);
+   grammar::require_membership(coupled,restored);same_bytecode(compile_for_eval(restored,names),layout.executable);
+  }
   std::ifstream source(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json");
   const std::string fixture((std::istreambuf_iterator<char>(source)),{});
   {
@@ -224,6 +292,7 @@ int main(int argc,char** argv) {try {
   }
 
  }
+ if(argc==1){check_unit_productions();check_repeated_holes();}
  std::cout<<"roundtrip_programs="<<population.size()<<" all_instructions_constants_fuel_bindings_plans_exact=true\n";
  return 0;
 } catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

@@ -50,9 +50,9 @@ struct UploadedProfile {
  Buffer<PhaseDomain> domains;Buffer<Value> values;Buffer<unsigned> minimum;
  Buffer<PhaseChoiceHeader> choice_headers;Buffer<unsigned> choice_values;Buffer<PhaseChoiceSet> choice_sets;
  Buffer<std::uint64_t> choice_thresholds;Buffer<int> choice_expressions;bool choice_tables=false;
- Buffer<PhaseRegionInfo> regions;
+ Buffer<PhaseRegionInfo> regions;Buffer<PhaseSharedHole> shared;
  explicit UploadedProfile(const HostPhaseGrammar& h) {
-  expressions.upload(h.expressions);regions.upload(h.regions);
+  expressions.upload(h.expressions);regions.upload(h.regions);shared.upload(h.shared);
   auto weights=h.productions;auto nts=h.nonterminals;
   normalize_static_phase_weights(h,nts,weights);
   productions.upload(weights);nonterminals.upload(nts);
@@ -67,10 +67,11 @@ struct UploadedProfile {
   if(choice_tables){v.choice_headers=choice_headers.data;v.choice_values=choice_values.data;v.choice_sets=choice_sets.data;
    v.choice_thresholds=choice_thresholds.data;v.choice_expressions=choice_expressions.data;}
   v.regions=regions.data;v.region_count=int(h.regions.size());
+  v.shared=h.shared.empty()?nullptr:shared.data;
   return v;
  }
  std::size_t bytes()const{return expressions.bytes()+productions.bytes()+nonterminals.bytes()+domains.bytes()+values.bytes()+minimum.bytes()+
-  choice_headers.bytes()+choice_values.bytes()+choice_sets.bytes()+choice_thresholds.bytes()+choice_expressions.bytes()+regions.bytes();}
+  choice_headers.bytes()+choice_values.bytes()+choice_sets.bytes()+choice_thresholds.bytes()+choice_expressions.bytes()+regions.bytes()+shared.bytes();}
 };
 struct Trees {
  Buffer<PhaseTreeNode> nodes;Buffer<int> origins;Buffer<PhaseGeneSite> sites;Buffer<Value> constants;Buffer<PhaseGenerationResult> lengths;
@@ -101,7 +102,7 @@ __global__ void copy_current_population(TreePointers source,TreePointers target,
 }
 __global__ void annotate_import(TreePointers trees,const DeviceSlot* slots,int rows,int slot_count) {
  const int row=blockIdx.x*blockDim.x+threadIdx.x;if(row>=rows)return;const auto& s=slots[row%slot_count];const auto t=trees.view(row);
- if(!valid(trees.lengths[row]) || !annotate_phase_tree(s.grammar,s.root,s.scope,t.nodes,t.origins,t.node_count,trees.output(row).sites) ||
+ if(!valid(trees.lengths[row]) || !annotate_phase_tree(s.grammar,s.root,s.scope,t.nodes,t.origins,t.node_count,trees.output(row).sites,t.constants,t.constant_count) ||
      (s.grammar.site_depth && phase_site_depth(t.nodes,trees.output(row).sites,t.node_count)>s.logical_depth))
    trees.lengths[row].status=PhaseCompileStatus::Invalid;
 }
@@ -139,12 +140,12 @@ __device__ void publish(OperatorStats* target,const OperatorStats& stat) {
  __syncwarp();if((threadIdx.x&31)==0)*target=stat;
 }
 // `children` offspring rows draw their parents from `population` members.
-__global__ void crossover_population(TreePointers input,TreePointers output,const DeviceSlot* slots,
+__global__ void crossover_population(TreePointers input,TreePointers output,TreePointers scratch,const DeviceSlot* slots,
     int slot_count,int population,int max_variable_nodes,const double* fitness,int pressure,std::uint64_t seed,OperatorStats* stats,OperatorPolicy policy,
     int children) {
  const int child=(blockIdx.x*blockDim.x+threadIdx.x)/32;if(child>=children)return;
  OperatorStats stat;
- phase_ops::crossover_child<true>(child,input,output,slots,slot_count,population,max_variable_nodes,fitness,pressure,seed,policy,stat);
+ phase_ops::crossover_child<true>(child,input,output,scratch,slots,slot_count,population,max_variable_nodes,fitness,pressure,seed,policy,stat);
  publish(stats+child,stat);
 }
 __global__ void mutate_population(TreePointers input,TreePointers output,TreePointers scratch,const DeviceSlot* slots,
@@ -698,7 +699,7 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
  const int p=impl_->population,k=impl_->slot_count,available=impl_->layout.budget.max_nodes-impl_->layout.fixed_nodes;
  const auto& policy=impl_->operators;
  checked(cudaEventRecord(impl_->start));
- crossover_population<<<p,32>>>(pointers(*impl_->current),pointers(*impl_->crossed),impl_->slots.data,k,p,available,
+ crossover_population<<<p,32>>>(pointers(*impl_->current),pointers(*impl_->crossed),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
     impl_->fitness.data,pressure,seed,impl_->stats.data,policy,p);
  checked(cudaGetLastError());
  const auto mutate=[&](auto kernel,int grid,int block){kernel<<<grid,block>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
@@ -778,7 +779,7 @@ std::vector<int> NativePhasePopulation::make_batch(const std::vector<double>& se
  constexpr int threads=1; // block size of the per-member bookkeeping kernels
  const auto& policy=s.operators;const auto blocks=(b+threads-1)/threads;
  checked(cudaEventRecord(s.start));
- crossover_population<<<b,32>>>(pointers(*s.current),pointers(*s.crossed),s.slots.data,k,p,available,
+ crossover_population<<<b,32>>>(pointers(*s.current),pointers(*s.crossed),pointers(*s.scratch),s.slots.data,k,p,available,
     s.fitness.data,pressure,seed,s.stats.data,policy,b);
  checked(cudaGetLastError());
  const auto mutate=[&](auto kernel,int grid,int block){kernel<<<grid,block>>>(pointers(*s.crossed),pointers(*s.next),pointers(*s.scratch),s.slots.data,k,b,available,

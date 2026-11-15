@@ -1,0 +1,42 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "R.Top", "type": "Int"},
+  "inputs": [{"name": "n", "type": "Int"}, {"name": "m", "type": "Int"}, {"name": "xs", "type": "IntList"}],
+  "search_limits": {"max_nodes": 48, "max_depth": 9},
+  "execution_limits": {"fuel": 512},
+  "templates": [
+    {"id": "R.Twice", "type": "Int", "scope": [],
+     "holes": [{"id": "v", "type": "Int", "scope": []}],
+     "body": {"signature": "add(Int,Int)->Int", "args": [{"hole": "v"}, {"hole": "v"}]}},
+    {"id": "R.Skew", "type": "Int", "scope": [],
+     "holes": [{"id": "h", "type": "Int", "scope": []}, {"id": "k", "type": "Int", "scope": []}],
+     "body": {"signature": "sub(Int,Int)->Int", "args": [
+       {"hole": "h"},
+       {"signature": "mul(Int,Int)->Int", "args": [{"hole": "k"}, {"signature": "neg(Int)->Int", "args": [{"hole": "h"}]}]}]}},
+    {"id": "R.Outer", "type": "Int", "scope": [],
+     "holes": [{"id": "a", "type": "Int", "scope": []}],
+     "body": {"signature": "max(Int,Int)->Int", "args": [{"template": "R.Twice", "holes": {"v": {"hole": "a"}}}, {"hole": "a"}]}},
+    {"id": "R.Bind", "type": "Int", "scope": [],
+     "holes": [{"id": "e", "type": "Int", "scope": []}],
+     "body": {"signature": "let(Int,Int)->Int", "args": [{"hole": "e"},
+       {"signature": "add(Int,Int)->Int", "args": [{"hole": "e"}, {"bound": "t"}]}], "bind": {"1": ["t"]}}}
+  ],
+  "nonterminals": [
+    {"id": "R.Top", "type": "Int", "scope": [], "alternatives": [
+      {"id": "atom", "weight": 2, "expression": {"ref": "R.Atom"}},
+      {"id": "twice", "weight": 2, "expression": {"template": "R.Twice", "holes": {"v": {"ref": "R.Top"}}}},
+      {"id": "skew", "weight": 1, "expression": {"template": "R.Skew", "holes": {"h": {"ref": "R.Atom"}, "k": {"ref": "R.Top"}}}},
+      {"id": "fill", "weight": 1, "expression": {"template": "R.Twice", "holes": {"v": {"signature": "sub(Int,Int)->Int", "args": [
+        {"ref": "R.Atom"}, {"constant": {"type": "Int", "range": ["0", "9"]}}]}}}},
+      {"id": "outer", "weight": 1, "expression": {"template": "R.Outer", "holes": {"a": {"ref": "R.Atom"}}}},
+      {"id": "bind", "weight": 1, "expression": {"template": "R.Bind", "holes": {"e": {"ref": "R.Top"}}}},
+      {"id": "add", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"ref": "R.Top"}, {"ref": "R.Atom"}]}}
+    ]},
+    {"id": "R.Atom", "type": "Int", "scope": [], "alternatives": [
+      {"id": "n", "weight": 2, "expression": {"input": "n"}},
+      {"id": "m", "weight": 1, "expression": {"input": "m"}},
+      {"id": "k", "weight": 2, "expression": {"constant": {"type": "Int", "range": ["-3", "4"]}}},
+      {"id": "len", "weight": 1, "expression": {"signature": "len(IntList)->Int", "args": [{"input": "xs"}]}}
+    ]}
+  ]
+}

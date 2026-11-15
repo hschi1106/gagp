@@ -49,6 +49,17 @@ struct PhaseDomain { int value_offset=0, value_count=0; bool integer_range=false
 // only at the sorted minimum costs. Within one set the sequential FP64 weighted
 // draw is monotone in the 53-bit random value, so host-computed integer
 // thresholds select exactly the production the serial loop would select.
+// A template hole that occurs more than once in its body is one shared
+// derivation: generation derives every occurrence independently, then
+// share_phase_tree replaces each later occurrence (in prefix order) with a copy
+// of the first. Indexed by expression. `instance` marks a template instance
+// with a repeated hole; `first` is the first occurrence of a repeated hole
+// (itself for the first one) and -1 elsewhere; `owner` is the instance of a
+// first occurrence. A later occurrence maps every
+// expression of the first fill's subtree (ids low..high, contiguous because
+// fills compile in post-order) to its own by adding `delta`; nodes derived
+// below a reference keep their expression.
+struct PhaseSharedHole { int first=-1, delta=0, low=0, high=-1, owner=-1; bool instance=false; };
 struct PhaseChoiceHeader { int value_offset=0, value_count=-1, empty_status=0; };
 struct PhaseChoiceSet { int status=0, count=0, threshold_offset=0, choice_offset=0; };
 struct PhaseGrammarView {
@@ -61,6 +72,8 @@ struct PhaseGrammarView {
   const PhaseRegionInfo* regions=nullptr; int region_count=0;
   const PhaseChoiceHeader* choice_headers=nullptr; const unsigned* choice_values=nullptr;
   const PhaseChoiceSet* choice_sets=nullptr; const std::uint64_t* choice_thresholds=nullptr; const int* choice_expressions=nullptr;
+  // Null unless the profile has a repeated template hole (expression_count entries).
+  const PhaseSharedHole* shared=nullptr;
 };
 struct PhaseGenerationResult { PhaseCompileStatus status=PhaseCompileStatus::Invalid; int nodes=0,constants=0,steps=0; };
 

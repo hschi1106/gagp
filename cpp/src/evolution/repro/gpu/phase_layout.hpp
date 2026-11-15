@@ -112,7 +112,12 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
     depths[i] = pending.size(); --pending.back();
     const auto arity = node_prefix_arity(ast.nodes[i]); if (arity) pending.push_back(arity);
   }
-  if (witness.templates.empty() || ast.bounded_region_specs.size() != 1 || phase_grammar_binds_lexically(grammar)) {
+  // Region mode needs a grammar whose only entry production is a template, so
+  // members of any other grammar all import in whole-program mode.
+  const auto& entry_nt = grammar.nonterminals()[grammar.entry()];
+  const bool root_template = entry_nt.category == NodeCategory::Expression && entry_nt.productions.size() == 1 &&
+      grammar.expressions()[grammar.productions()[entry_nt.productions[0]].expression].kind == ExpressionKind::Template;
+  if (!root_template || witness.templates.empty() || ast.bounded_region_specs.size() != 1 || phase_grammar_binds_lexically(grammar)) {
     // Whole-program mode: the entry nonterminal's outermost choice is the phase.
     // Templates, lets, traversals and bounded regions are phase nodes; the
     // phase grammar rejects every other lexical region primitive.
@@ -252,6 +257,21 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
       gene.nodes.push_back(node); gene.origins.push_back(expression);
     }
     phase_layout_require(gene.nodes.size() <= 1024, "per-phase genotype capacity requires fallback");
+    if (!profile.shared.empty()) {
+      // A native derivation copies a repeated hole's first fill with its own
+      // expression ids; the phase genotype names every copy after its
+      // occurrence (see share_phase_tree), which this rebuild establishes.
+      const int count = gene.nodes.size(), constants = gene.constants.size();
+      std::vector<PhaseTreeNode> nodes(1024); std::vector<int> origins(1024);
+      std::vector<PhaseGeneSite> sites(1024); std::vector<Value> values(1024);
+      const PhaseTreeView in{gene.nodes.data(), gene.origins.data(), nullptr, gene.constants.data(), count, constants};
+      const auto shared = share_phase_tree<true>(phase_structure_view(profile), int(profile.root_expression),
+          int(grammar.nonterminals().at(slot.nonterminal).scope.size()), in, {nodes.data(), origins.data(), sites.data(), values.data(), 1024});
+      phase_layout_require(shared.status == PhaseCompileStatus::Ok && shared.nodes == count && shared.constants == constants,
+                           "repeated hole copies differ");
+      gene.nodes.assign(nodes.begin(), nodes.begin() + count); gene.origins.assign(origins.begin(), origins.begin() + count);
+      gene.constants.assign(values.begin(), values.begin() + constants);
+    }
     phase_layout_require(result.whole_program || !profile.lets, "let binders inside region phases require native fallback");
     if (retain_profiles) {
       if (profiles) result.profiles.push_back(profile);

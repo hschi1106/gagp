@@ -1,0 +1,21 @@
+{
+  "format_version": "grammar-definition-v2",
+  "imports": ["../../../configs/grammar/packages/dp1d_int.json"],
+  "entry": {"nonterminal": "Mixed.Root", "type": "Int"},
+  "inputs": [{"name": "state", "type": "Int"}],
+  "search_limits": {"max_nodes": 64, "max_depth": 24},
+  "execution_limits": {"fuel": 20000},
+  "templates": [{
+    "id": "Mixed.Wrap", "type": "Int", "scope": [],
+    "holes": [{"id": "dp", "type": "Int", "scope": []}],
+    "body": {"signature": "neg(Int)->Int", "args": [{"hole": "dp"}]}
+  }],
+  "nonterminals": [
+    {"id": "Mixed.Root", "type": "Int", "scope": [], "alternatives": [
+      {"id": "dp", "weight": 1, "expression": {"template": "Mixed.Wrap", "holes": {"dp": {"ref": "Package.DP1D.Int"}}}},
+      {"id": "k", "weight": 1, "expression": {"constant": {"type": "Int", "range": ["-4", "4"]}}},
+      {"id": "state", "weight": 1, "expression": {"input": "state"}},
+      {"id": "sub", "weight": 1, "expression": {"signature": "sub(Int,Int)->Int", "args": [{"ref": "Mixed.Root"}, {"ref": "Mixed.Root"}]}}
+    ]}
+  ]
+}

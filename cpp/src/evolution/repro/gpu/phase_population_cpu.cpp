@@ -43,7 +43,7 @@ struct HostProfile {
  PhaseGrammarView view()const{return {grammar.expressions.data(),int(grammar.expressions.size()),productions.data(),int(productions.size()),
   nonterminals.data(),int(nonterminals.size()),grammar.domains.data(),int(grammar.domains.size()),grammar.values.data(),int(grammar.values.size()),
   grammar.minimum.data(),grammar.depth_count,grammar.logical_depth_count,grammar.site_depth,
-  grammar.regions.data(),int(grammar.regions.size())};}
+  grammar.regions.data(),int(grammar.regions.size()),{},{},{},{},{},grammar.shared.empty()?nullptr:grammar.shared.data()};}
 };
 // The CPU reference engine is single-threaded.
 template<class Function> void each_row(int count,Function function) {
@@ -78,6 +78,8 @@ std::vector<ProgramGenome> generate_phase_initial_population(
   x=(x^(x>>27))*UINT64_C(0x94d049bb133111eb);return x^(x>>31);};
  std::vector<ProgramGenome> out;out.reserve(population);
  std::vector<PhaseTreeNode> nodes(capacity);std::vector<int> origins(capacity);std::vector<Value> constants(capacity);
+ std::vector<PhaseTreeNode> shared_nodes(capacity);std::vector<int> shared_origins(capacity);std::vector<Value> shared_constants(capacity);
+ std::vector<PhaseGeneSite> shared_sites(capacity);
  for(int i=0;i<population;++i) {
   const int ramp=site_depth<2?site_depth:2+i%(site_depth-1);
   std::vector<HostPhaseGene> genes(slots);int used=0;
@@ -95,6 +97,20 @@ std::vector<ProgramGenome> generate_phase_initial_population(
     generated=generate_phase<true,false,false>(profile.view(),profile.grammar.root_expression,int(nt.scope.size()),
         slot.max_depth,int(room),mix(seed^mix((std::uint64_t(i)*8+k)*64+attempt)),
         nodes.data(),origins.data(),constants.data(),nullptr,logical);
+    // Repeated template holes: every later occurrence becomes a copy of the
+    // first, which must still fit the room, the depth and the site depth.
+    if(generated.status==PhaseCompileStatus::Ok && !profile.grammar.shared.empty()) {
+     const PhaseTreeView in{nodes.data(),origins.data(),nullptr,constants.data(),generated.nodes,generated.constants};
+     const auto shared=share_phase_tree<true>(profile.view(),profile.grammar.root_expression,int(nt.scope.size()),in,
+         {shared_nodes.data(),shared_origins.data(),shared_sites.data(),shared_constants.data(),capacity});
+     const int depth=shared.status==PhaseCompileStatus::Ok?phase_tree_depth(shared_nodes.data(),shared.nodes):-1;
+     const int height=depth>0?phase_site_depth(shared_nodes.data(),shared_sites.data(),shared.nodes):-1;
+     if(shared.nodes>room || depth<=0 || depth>int(slot.max_depth) || height<0 || height>logical)generated.status=PhaseCompileStatus::Capacity;
+     else {
+      std::copy_n(shared_nodes.begin(),shared.nodes,nodes.begin());std::copy_n(shared_origins.begin(),shared.nodes,origins.begin());
+      std::copy_n(shared_constants.begin(),shared.constants,constants.begin());generated.nodes=shared.nodes;generated.constants=shared.constants;
+     }
+    }
     if(generated.status==PhaseCompileStatus::Ok && layout.whole_program && !layout.program_terminator &&
         !phase_locals_defined(nodes.data(),generated.nodes))generated.status=PhaseCompileStatus::Invalid;
     if(generated.status!=PhaseCompileStatus::Ok && attempt%4==3 && logical<site_depth)++logical;
@@ -231,7 +247,7 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
    std::copy(gene.nodes.begin(),gene.nodes.end(),out.nodes);std::copy(gene.origins.begin(),gene.origins.end(),out.origins);
    std::copy(gene.constants.begin(),gene.constants.end(),out.constants);
    const auto& slot=s.slots[k];const auto t=trees.view(row);
-   phase_layout_require(annotate_phase_tree(slot.grammar,slot.root,slot.scope,t.nodes,t.origins,t.node_count,out.sites) &&
+   phase_layout_require(annotate_phase_tree(slot.grammar,slot.root,slot.scope,t.nodes,t.origins,t.node_count,out.sites,t.constants,t.constant_count) &&
        !(slot.grammar.site_depth && phase_site_depth(t.nodes,out.sites,t.node_count)>slot.logical_depth),"import site annotation failed");
   }
   s.programs.push_back(std::move(imported.executable));
@@ -277,7 +293,7 @@ ReproductionStats HostPhasePopulation::reproduce(const std::vector<double>& comp
  const double* fitness=completed_fitness.data();
  // Same per-child bodies and draw order as the GPU kernels; children are independent.
  each_row(p,[&](int child) {
-  crossover_child<false>(child,current,crossed,s.slots.data(),k,p,available,fitness,pressure,seed,s.operators,s.stats[child]);
+  crossover_child<false>(child,current,crossed,scratch,s.slots.data(),k,p,available,fitness,pressure,seed,s.operators,s.stats[child]);
   mutate_child<false>(child,crossed,next,scratch,s.slots.data(),k,available,probability,seed,s.operators,s.stats[child]);
  });
  // Elites: highest completed fitness, ties to the lowest source index.
@@ -329,7 +345,7 @@ std::vector<int> HostPhasePopulation::make_batch(const std::vector<double>& sele
  const auto current=s.current->pointers(),crossed=s.crossed->pointers(),next=s.next->pointers(),scratch=s.scratch->pointers();
  // The GPU kernel bodies with `b` children drawing parents from all p members.
  each_row(b,[&](int child) {
-  crossover_child<false>(child,current,crossed,s.slots.data(),k,p,available,selection_fitness.data(),pressure,seed,s.operators,s.stats[child]);
+  crossover_child<false>(child,current,crossed,scratch,s.slots.data(),k,p,available,selection_fitness.data(),pressure,seed,s.operators,s.stats[child]);
   mutate_child<false>(child,crossed,next,scratch,s.slots.data(),k,available,probability,seed,s.operators,s.stats[child]);
   compare_child(child,current,crossed,p,k,s.stats[child]);
  });

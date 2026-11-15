@@ -1,0 +1,55 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "U.Top", "type": "Int"},
+  "inputs": [{"name": "n", "type": "Int"}, {"name": "m", "type": "Int"}, {"name": "b", "type": "Bool"}, {"name": "xs", "type": "IntList"}],
+  "search_limits": {"max_nodes": 40, "max_depth": 8},
+  "execution_limits": {"fuel": 512},
+  "templates": [{
+    "id": "U.Wrap", "type": "Int", "scope": [],
+    "holes": [{"id": "inner", "type": "Int", "scope": []}],
+    "body": {"hole": "inner"}
+  }],
+  "nonterminals": [
+    {"id": "U.Top", "type": "Int", "scope": [], "alternatives": [
+      {"id": "expr", "weight": 3, "expression": {"ref": "U.Expr"}},
+      {"id": "leaf", "weight": 1, "expression": {"ref": "U.Leaf"}},
+      {"id": "wrapped", "weight": 1, "expression": {"template": "U.Wrap", "holes": {"inner": {"ref": "U.Cycle"}}}},
+      {"id": "let", "weight": 1, "expression": {"signature": "let(Int,Int)->Int", "args": [{"ref": "U.Expr"}, {"ref": "U.Scoped"}], "bind": {"1": ["v"]}}}
+    ]},
+    {"id": "U.Expr", "type": "Int", "scope": [], "alternatives": [
+      {"id": "atom", "weight": 2, "expression": {"ref": "U.Atom"}},
+      {"id": "add", "weight": 1, "expression": {"signature": "add(Int,Int)->Int", "args": [{"ref": "U.Top"}, {"ref": "U.Expr"}]}},
+      {"id": "if", "weight": 1, "expression": {"signature": "if(Bool,Int,Int)->Int", "args": [{"ref": "U.Cond"}, {"ref": "U.Expr"}, {"ref": "U.Expr"}]}}
+    ]},
+    {"id": "U.Atom", "type": "Int", "scope": [], "alternatives": [
+      {"id": "leaf", "weight": 1, "expression": {"ref": "U.Leaf"}},
+      {"id": "k", "weight": 1, "expression": {"constant": {"type": "Int", "range": ["-2", "3"]}}},
+      {"id": "len", "weight": 1, "expression": {"signature": "len(IntList)->Int", "args": [{"input": "xs"}]}}
+    ]},
+    {"id": "U.Leaf", "type": "Int", "scope": [], "variation": false, "alternatives": [
+      {"id": "n", "weight": 1, "expression": {"input": "n"}},
+      {"id": "m", "weight": 1, "expression": {"input": "m"}}
+    ]},
+    {"id": "U.Cycle", "type": "Int", "scope": [], "alternatives": [
+      {"id": "loop", "weight": 2, "expression": {"ref": "U.Loop"}},
+      {"id": "n", "weight": 1, "expression": {"input": "n"}}
+    ]},
+    {"id": "U.Loop", "type": "Int", "scope": [], "alternatives": [
+      {"id": "back", "weight": 1, "expression": {"ref": "U.Cycle"}},
+      {"id": "sub", "weight": 1, "expression": {"signature": "sub(Int,Int)->Int", "args": [{"ref": "U.Cycle"}, {"ref": "U.Atom"}]}}
+    ]},
+    {"id": "U.Scoped", "type": "Int", "scope": [{"name": "v", "type": "Int"}], "alternatives": [
+      {"id": "v", "weight": 2, "expression": {"bound": "v"}},
+      {"id": "outer", "weight": 1, "expression": {"ref": "U.Expr"}},
+      {"id": "inner", "weight": 1, "expression": {"ref": "U.Pair"}}
+    ]},
+    {"id": "U.Pair", "type": "Int", "scope": [{"name": "v", "type": "Int"}], "alternatives": [
+      {"id": "v", "weight": 1, "expression": {"bound": "v"}},
+      {"id": "mul", "weight": 1, "expression": {"signature": "mul(Int,Int)->Int", "args": [{"bound": "v"}, {"ref": "U.Scoped"}]}}
+    ]},
+    {"id": "U.Cond", "type": "Bool", "scope": [], "alternatives": [
+      {"id": "b", "weight": 1, "expression": {"input": "b"}},
+      {"id": "lt", "weight": 1, "expression": {"signature": "lt(Int,Int)->Bool", "args": [{"ref": "U.Atom"}, {"ref": "U.Atom"}]}}
+    ]}
+  ]
+}

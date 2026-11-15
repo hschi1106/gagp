@@ -108,14 +108,37 @@ These rules define `crossover`, `sites`, `limits` and `ranking` for
   up to `site_depth`. Phases are filled in order, each leaving room for the
   minimum size of the later phases within the grammar's `max_nodes`.
 - `ranking.tie_break: grammar_sites` requires a task metric with wrong counts.
+- A unit production (an alternative that is only a nonterminal reference,
+  possibly inside template or hole wrappers) is inlined: it is replaced by the
+  referenced nonterminal's alternatives, recursively, each weighted
+  `w_unit * w / W`, where `W` sums the referenced alternatives that remain. An
+  alternative that would revisit a nonterminal of the chain without deriving a
+  node is dropped, as in native generation, and an expression reached through
+  two chains is one alternative carrying both weights. One draw then follows
+  the native distribution whenever every alternative fits the budget. An
+  inlined chain is one grammar invocation: its root node carries one site, of
+  the outermost nonterminal, which is the only variation site of the chain and
+  counts one level of `limits.site_depth`.
+- A template hole that occurs more than once in its body is one shared
+  derivation. Generation, crossover and mutation work on the first occurrence
+  in prefix order (later occurrences are derived or spliced like any subtree),
+  and then every later occurrence is rebuilt as a copy of the first. A rebuilt
+  program that exceeds `max_nodes`, `max_depth` or `limits.site_depth` is
+  rejected: an initial phase is regenerated, a crossover attempt counts as
+  rejected, and a mutation is skipped (the crossed child stands). Sites inside
+  a copy are never selected, but count toward `limits.site_depth` and
+  `grammar_sites`.
+- A grammar whose only member is one fixed program has no variable site:
+  every child equals its parent.
 
 ### Resident admission
 
 A `resident` run first admits the grammar and every initial genome into the
-phase-gene genotype. The grammar is declined when a construct cannot be held
-by that genotype (for example lowering capacity within the depth budget, or
-productions sharing a root node); a genome is declined when it does not share
-the population's fixed skeleton. A decline is not an error: the same search
+phase-gene genotype. Unit productions, alias cycles, repeated template holes
+and single-program grammars are admitted (see [Resident variation](#resident-variation)).
+The grammar is declined when a construct cannot be held by that genotype (for
+example lowering capacity within the depth budget); a genome is declined when
+it does not share the population's fixed skeleton. A decline is not an error: the same search
 reruns with `representation: native_ast`, generational schedule, host
 reproduction and the same evaluation engine. All `crossover` and `sites`
 members, `limits.site_depth`, `mutation.max_subtree_nodes`,

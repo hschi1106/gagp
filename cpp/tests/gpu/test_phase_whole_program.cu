@@ -4,8 +4,10 @@
 // (nested, shadowing, dropped by a reference), the shipped bounded-region
 // grammars (memoized and recursive regions, captures, let bind fuel), and
 // templates over all four traversal forms (profiled and plain fuel, nested
-// traversals, lets inside step bodies, and binders hidden by a scope map). The
-// phase compiler must
+// traversals, lets inside step bodies, and binders hidden by a scope map),
+// unit productions (chains, diamonds, alias cycles, scoped and statement
+// units), repeated template holes with varying fills, a bounded region behind
+// one of several entry alternatives, and a grammar of one fixed program. The phase compiler must
 // lower every generated genome to the native compiler's exact bytecode, and the
 // CPU reference and GPU owner must publish one search of verified members.
 #include <algorithm>
@@ -129,7 +131,8 @@ std::optional<ProgramGenome> generated(const grammar::CompiledGrammar& grammar,u
 enum class Fixture{Expressions,Statements,Lets,Regions,Captures,Traversals,Templates};
 // `fixture` is relative to the repository root. Without `search`, only
 // lowering parity runs (the GPU evaluator rejects the grammar's region limits).
-void check(const char* fixture,Fixture mode,bool search=true) {
+// Without `vary`, the grammar has one member, so no search can vary it.
+void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
  const bool statements=mode==Fixture::Statements;
  const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
      grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/")+fixture)));
@@ -200,6 +203,7 @@ void check(const char* fixture,Fixture mode,bool search=true) {
  base.phase_population=true;
  // Evolution prunes unreachable payloads, so every run rebuilds its parents:
  // generated, none (site-depth initializer), or decoded from exported ASTs.
+ const std::string label=fixture;
  const auto run=[&](int site_depth,const std::vector<std::string>* exported,bool gpu){
   auto cfg=base;cfg.gpu_phase_site_depth=site_depth;
   if(site_depth)cfg.phase_variation={PhaseSiteDraw::Counted,PhaseSiteScope::Genome,0.9,8};
@@ -209,14 +213,15 @@ void check(const char* fixture,Fixture mode,bool search=true) {
   if(exported)for(const auto& text:*exported){ProgramGenome g;g.ast=cli_detail::decode_ast_json(cli_detail::JsonParser(text,{true,512}).parse());parents.push_back(std::move(g));}
   else if(!site_depth)for(unsigned seed=901;int(parents.size())<population;++seed)if(auto g=generated(*compiled,seed))parents.push_back(std::move(*g));
   const auto result=evolve_population(cases,cfg,parents.empty()?nullptr:&parents);
+  require(result.resident_declined.empty(),label+": resident engine declined: "+result.resident_declined);
   // Every published member, including rejected-variation fallbacks, is native valid.
   for(const auto& member:result.final_population)grammar::require_membership(*compiled,member.genome);
   return trace(result);
  };
- const std::string label=fixture;
  require_same(run(0,nullptr,false),run(0,nullptr,true),label+" generated parents");
  const auto fresh=run(7,nullptr,false);
- require(std::set<std::string>(fresh.asts.begin(),fresh.asts.end()).size()>population/4,label+": search did not vary programs");
+ const auto distinct=std::set<std::string>(fresh.asts.begin(),fresh.asts.end()).size();
+ require(vary?distinct>population/4:distinct==1,label+": search did not vary programs");
  require_same(fresh,run(7,nullptr,true),label+" site-depth initial population");
  require_same(run(7,&fresh.asts,false),run(7,&fresh.asts,true),label+" exported population");
  std::cout<<fixture<<": "<<programs<<" programs, "<<rejected<<" undefined-local rejections\n";
@@ -261,16 +266,24 @@ int main() { try {
  check("cpp/tests/fixtures/phase_region.json",Fixture::Captures);
  check("configs/grammar/compat/dp1d_int.json",Fixture::Regions);
  check("configs/grammar/compat/dp2d_int.json",Fixture::Regions);
- // A 1024-cell memo table exceeds the GPU evaluator's region capacity, and a
- // grammar of one fixed program has nothing to search.
+ // A bounded region reached through one entry alternative's template: every
+ // member, with or without the region, shares the whole-program layout.
+ check("cpp/tests/fixtures/phase_mixed_root.json",Fixture::Templates);
+ // A 1024-cell memo table exceeds the GPU evaluator's region capacity.
  for(const char* grammar:{"configs/grammar_definitions/bounded_memo.json","configs/grammar_definitions/bounded_sequence.json",
      "configs/grammar/examples/acyclic_memo.json","configs/grammar/examples/changed_recursive_split.json"})
   check(grammar,Fixture::Regions,false);
  check("cpp/tests/fixtures/phase_traversal.json",Fixture::Traversals);
+ // Unit productions inline into their callers, in expression and statement grammars.
+ check("cpp/tests/fixtures/phase_units.json",Fixture::Templates);
+ check("cpp/tests/fixtures/phase_unit_statements.json",Fixture::Statements);
+ // Repeated holes share one derivation: recursive, skewed in depth, with a
+ // constant in the fill, forwarded through a nested template, and under a let.
+ check("cpp/tests/fixtures/phase_repeated.json",Fixture::Templates);
  // Shipped templates: a fold whose step and last holes are the only choices,
- // and a single program with a repeated hole of fixed fill.
+ // and a single program with a repeated hole of fixed fill (children equal parents).
  check("configs/grammar/compat/linear_rec_intlist_int.json",Fixture::Templates,false);
- check("configs/grammar/examples/authoring/template.json",Fixture::Templates,false);
+ check("configs/grammar/examples/authoring/template.json",Fixture::Templates,true,false);
  check_declined("cpp/tests/fixtures/phase_declined.json");
  std::cout<<"phase whole-program: lowering parity and CPU/GPU searches identical\n";
  return 0;
