@@ -34,6 +34,7 @@ enum class GrammarFeature {
   StatementAssign,
   StatementIf,
   StatementForRange,
+  StatementWhile,
   StatementReturn,
   ExpressionConst,
   ExpressionVar,
@@ -105,6 +106,7 @@ enum class NodeTypingRule {
   Assign,
   IfStatement,
   ForRange,
+  While,
   Return,
   Constant,
   Variable,
@@ -141,7 +143,7 @@ struct NodeDescriptor {
   constexpr bool is_builtin() const noexcept { return builtin_id >= 0; }
 };
 
-inline constexpr std::size_t k_node_kind_count = 78;
+inline constexpr std::size_t k_node_kind_count = 79;
 
 const std::array<NodeDescriptor, k_node_kind_count>& all_node_descriptors() noexcept;
 const NodeDescriptor& node_descriptor(NodeKind kind);

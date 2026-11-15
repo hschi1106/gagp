@@ -188,11 +188,17 @@ class Compiler {
     return cur;
   }
 
-  std::size_t compile_for_loop_body(const std::string& user_name, int bound_local, const AstProgram& program, std::size_t body_idx) {
+  // Counts a hidden counter from zero up to the stored bound. A for_range
+  // copies the counter into its named index before the body. A while_stmt
+  // (has_condition) instead leaves the loop when its condition, evaluated
+  // before every iteration, is false. Returns the node after the body.
+  std::size_t compile_counted_loop(const std::string* user_name, int bound_local,
+                                   const AstProgram& program, std::size_t body_idx,
+                                   bool has_condition = false) {
     const int idx_0 = add_const(Value::from_int(0));
     const int idx_1 = add_const(Value::from_int(1));
     const int counter_i = temporary();
-    const int user_i = local(user_name);
+    const int user_i = user_name != nullptr ? local(*user_name) : -1;
 
     const std::string loop_label = new_label("for_loop");
     const std::string end_label = new_label("for_end");
@@ -206,8 +212,13 @@ class Compiler {
     emit(Opcode::Lt);
     emit_jump(Opcode::JmpIfFalse, end_label);
 
-    emit(Opcode::Load, counter_i, true);
-    emit(Opcode::Store, user_i, true);
+    if (has_condition) {
+      body_idx = compile_expr_prefix(program, body_idx);
+      emit_jump(Opcode::JmpIfFalse, end_label);
+    } else {
+      emit(Opcode::Load, counter_i, true);
+      emit(Opcode::Store, user_i, true);
+    }
 
     const std::size_t next = compile_block_prefix(program, body_idx);
 
@@ -217,6 +228,27 @@ class Compiler {
     emit(Opcode::Store, counter_i, true);
     emit_jump(Opcode::Jmp, loop_label);
     mark_label(end_label);
+    return next;
+  }
+
+  // Evaluates a loop bound into bound_local. A non-Int or negative bound
+  // reaches Neg(true), a runtime TypeError. Returns the node after the bound.
+  std::size_t compile_loop_bound(const AstProgram& program, std::size_t bound_idx, int bound_local) {
+    const std::string valid_label = new_label("for_valid");
+    const std::string bad_label = new_label("for_bad");
+    const std::size_t next = compile_expr_prefix(program, bound_idx);
+    emit(Opcode::Store, bound_local, true);
+    emit(Opcode::Load, bound_local, true);
+    emit(Opcode::CallBuiltin, static_cast<int>(gagp::BuiltinId::IsInt), true, 1, true);
+    emit_jump(Opcode::JmpIfFalse, bad_label);
+    emit(Opcode::Load, bound_local, true);
+    emit(Opcode::PushConst, add_const(Value::from_int(0)), true);
+    emit(Opcode::Lt);
+    emit_jump(Opcode::JmpIfFalse, valid_label);
+    mark_label(bad_label);
+    emit(Opcode::PushConst, add_const(Value::from_bool(true)), true);
+    emit(Opcode::Neg);
+    mark_label(valid_label);
     return next;
   }
 
@@ -915,25 +947,13 @@ class Compiler {
       mark_label(end_label);
       return next;
     }
-    if (node.kind == NodeKind::FOR_RANGE) {
+    if (node.kind == NodeKind::FOR_RANGE || node.kind == NodeKind::WHILE_STMT) {
       TemporaryScope temporaries(*this);
       const int bound_local = temporary();
-      const std::string valid_label = new_label("for_valid");
-      const std::string bad_label = new_label("for_bad");
-      std::size_t next = compile_expr_prefix(program, idx + 1);
-      emit(Opcode::Store, bound_local, true);
-      emit(Opcode::Load, bound_local, true);
-      emit(Opcode::CallBuiltin, static_cast<int>(gagp::BuiltinId::IsInt), true, 1, true);
-      emit_jump(Opcode::JmpIfFalse, bad_label);
-      emit(Opcode::Load, bound_local, true);
-      emit(Opcode::PushConst, add_const(Value::from_int(0)), true);
-      emit(Opcode::Lt);
-      emit_jump(Opcode::JmpIfFalse, valid_label);
-      mark_label(bad_label);
-      emit(Opcode::PushConst, add_const(Value::from_bool(true)), true);
-      emit(Opcode::Neg);
-      mark_label(valid_label);
-      return compile_for_loop_body(name_at(program, node.i0), bound_local, program, next);
+      const std::size_t next = compile_loop_bound(program, idx + 1, bound_local);
+      if (node.kind == NodeKind::WHILE_STMT)
+        return compile_counted_loop(nullptr, bound_local, program, next, true);
+      return compile_counted_loop(&name_at(program, node.i0), bound_local, program, next);
     }
     throw std::runtime_error("prefix compile: expected stmt node");
   }

@@ -22,11 +22,10 @@ Porting rules
   (<statement> ::= <simple_stmt> | <compound_stmt> ...) are inlined with the
   probabilities multiplied, so every original production keeps its selection
   probability at its nonterminal.
-- The only production family the language cannot express is the `while` loop.
-  It is removed from <compound_stmt> and the remaining productions of that
-  nonterminal share its probability (the thesis' grammar combiner removes
-  productions the same way). Its share of <statement> was 1/6 for the list
-  problems and 1/4 for the others.
+- `while <bool>: <code>` is while_stmt(LOOP_BOUND, <bool>, <code>), the bounded
+  loop of the language. It keeps its original probability: 1/6 of <statement>
+  for the list problems (<compound_stmt> has for, if, while) and 1/4 for the
+  others (if, while).
 - `v op= e` is v = op(v, e). `L.append(e)` is L = append(L, e), and likewise
   insert, deleteListItem and setListIndexTo become insert, remove_at and set_at
   (list edits here return a new list). deleteListItem and setListIndexTo whose
@@ -76,6 +75,14 @@ MAX_DEPTH = 40
 # nodes of the body (the fixed prologue is added on top), and one AST node
 # stands for about 1.5 derivation-tree nodes, so 250 / 1.5 is about 170.
 BODY_NODES = 170
+# Bound of every `while`. The original guards each loop with
+# `if loopBreak% > loopBreakConst: break`. The thesis sets loopBreakConst in a
+# header but its text does not give the value, and the PonyGE2 grammars never
+# define it, so 200 is a choice of this port. The longest input of these six
+# problems is a list of 49 integers (count_odds, negative_to_zero) or a string of
+# 20 characters (replace_space_with_newline), so 200 covers a loop over any input
+# with margin, and it leaves about 100 instructions of fuel per iteration at FUEL.
+LOOP_BOUND = 200
 # Loop translation: the hidden counter of for_range, and the slice end that
 # stands for `L[a:]` (slices clamp, and no list or string reaches this length).
 LOOP_COUNTER = "k"
@@ -85,7 +92,7 @@ CHAR_MODULUS = 128
 # Constants of the fitness policy: the error of a failed case (it is also the
 # error of a runtime error) is large so that it never hides behind the cap.
 CASE_CAP = 1000000
-# Logical list-cell limit per case, set for every task whose grammar has lists. It makes the
+# Logical list-cell limit per case, set for every task. It makes the
 # list resource policy explicit and identical on both engines (without it the engines'
 # physical payload storage differs once a program builds hundreds of thousands of cells).
 LIST_ALLOCATION_LIMIT = 65536
@@ -123,13 +130,13 @@ PROBLEMS = [
     Problem("median", "Median", ("Int",) * 3, "Int", INT3 + ("res0", "in0", "in1", "in2"), (), (), (),
             200, {"metric": "exact"}),
     Problem("count_odds", "Count Odds", ("IntList",), "Int", INT3 + ("res0",), ("li0", "li1", "li2", "in0"), (), (),
-            300, {"metric": "absolute", "list_allocation_limit": LIST_ALLOCATION_LIMIT}),
+            300, {"metric": "absolute"}),
     Problem("small_or_large", "Small Or Large", ("Int",), "String", INT3 + ("in0",), (),
             ("s0", "s1", "s2", "res0"), ("small", "large"), 300, {"metric": "levenshtein"}),
     Problem("replace_space_with_newline", "Replace Space with Newline", ("String",), "String", INT3 + ("res1",), (),
             ("s0", "s1", "s2", "res0", "in0"), (), 300, {"metric": "levenshtein"}),
     Problem("negative_to_zero", "Negative To Zero", ("IntList",), "IntList", INT3, ("li0", "li1", "li2", "res0", "in0"),
-            (), (), 300, {"metric": "levenshtein", "list_allocation_limit": LIST_ALLOCATION_LIMIT}),
+            (), (), 300, {"metric": "levenshtein"}),
 ]
 BY_KEY = {p.key: p for p in PROBLEMS}
 
@@ -223,7 +230,8 @@ def grammar(p: Problem) -> dict:
             (1, with_chars("lstrip")), (1, with_chars("rstrip")), (1, with_chars("strip")),
             (1, ending("capitalize"))]))
     # Statements, flattened: <statement> ::= <simple_stmt> | <compound_stmt> (list problems)
-    # or <assign> | <compound_stmt>, <compound_stmt> ::= <for> | <if> | while.
+    # or <assign> | <compound_stmt>, <compound_stmt> ::= <for> | <if> | <while> (list
+    # problems) or <if> | <while> (the others).
     nil = ctl("block_nil()->Block")
     int_assign = split(1 / 2, [assign(v, ref(I)) for v in p.int_vars]) + split(1 / 2, [
         assign(v, sig(f"{o}(Int,Int)->Int", read(v), ref(I))) for v in p.int_vars for o in ("add", "sub", "mul")])
@@ -233,6 +241,7 @@ def grammar(p: Problem) -> dict:
     assigns = [(w / len(groups), e) for group in groups for w, e in group]
     ifs = [(1 / 2, ctl("if_stmt(Bool,Block,Block)->Statement", ref(B), ref(C), nil)),
            (1 / 2, ctl("if_stmt(Bool,Block,Block)->Statement", ref(B), ref(C), ref(C)))]
+    whiles = [(1, ctl("while_stmt(Int,Bool,Block)->Statement", const("Int", [str(LOOP_BOUND)]), ref(B), ref(C)))]
     if p.list_vars:
         each = [ctl("for_range(Int,Block)->Statement", sig("len(IntList)->Int", read(lv)),
                     ctl("block_cons(Statement,Block)->Block",
@@ -252,9 +261,9 @@ def grammar(p: Problem) -> dict:
             + scale(1 / 4, on_variable(lambda x: sig("remove_at(IntList,Int)->IntList", x, ref(I)))) \
             + scale(1 / 4, on_variable(lambda x: sig("set_at(IntList,Int,Int)->IntList", x, ref(I), ref(I))))
         simple = scale(1 / 2, calls) + scale(1 / 2, assigns)
-        compound = scale(1 / 2, fors) + scale(1 / 2, ifs)
+        compound = scale(1 / 3, fors) + scale(1 / 3, ifs) + scale(1 / 3, whiles)
     else:
-        simple, compound = assigns, ifs
+        simple, compound = assigns, scale(1 / 2, ifs) + scale(1 / 2, whiles)
     stmts = scale(1 / 2, simple) + scale(1 / 2, compound)
     nts.append(nt("G.Stmt", O, stmts, category="Statement"))
     nts.append(nt(C, O, [(1, ctl("block_cons(Statement,Block)->Block", ref("G.Stmt"), ref(C))),
@@ -286,7 +295,7 @@ def search(p: Problem) -> dict:
 
 def task(p: Problem) -> dict:
     return {"format": "gagp-task-v1", "name": p.key, "grammar": "grammar.json", "train": "train.cases.json",
-            "test": "test.cases.json", "fitness": {**p.fitness, "case_cap": CASE_CAP}}
+            "test": "test.cases.json", "fitness": {**p.fitness, "list_allocation_limit": LIST_ALLOCATION_LIMIT, "case_cap": CASE_CAP}}
 
 
 def dump(document: dict, indent: int) -> str:

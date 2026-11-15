@@ -51,6 +51,10 @@ identical populations, fitness values and champions on both engines).
   `capitalize`.
 - The `psb1_g3p` benchmark of six PSB1 problems with G3P grammars, and the
   `--suite` option of `benchmarks/run.py`.
+- The bounded loop `while_stmt(Int,Bool,Block)->Statement` on both engines. It
+  stops quietly after `bound` iterations or when its condition is false, the
+  shape of the guarded `while` loops of published G3P grammars
+  ([spec/grammar.md](spec/grammar.md#program-grammar)).
 
 ## 3.0.1
 

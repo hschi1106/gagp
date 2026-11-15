@@ -4,47 +4,21 @@
 [繁體中文說明](README.zh-TW.md)
 
 GAGP searches for programs that solve a task given by input/output examples.
-You describe the space of candidate programs with a grammar (its inputs,
-constants, operations, statements, loops and bounded recursion schemes), and
-GAGP evolves a population of programs from that grammar with genetic
-programming: tournament selection, typed subtree crossover and mutation.
+You describe the space of candidate programs with a grammar, and GAGP evolves a
+population of programs from that grammar with tournament selection and typed
+subtree crossover and mutation. The whole search loop runs on the GPU. A plain
+C++ reference engine runs the same operators on the CPU and publishes identical
+populations, fitness values and champions, so every speedup is measured on the
+same search.
 
-The whole search loop runs on the GPU. Selection, crossover, mutation,
-compilation of new programs to bytecode and their evaluation on every case all
-happen on the device; the host only ranks the fitness vector. A plain C++
-reference engine runs the same operators on the CPU, and for the same inputs
-and seed both engines produce bit-identical results, so speed never changes
-the search.
+## Quick start
 
-## Results
-
-On one RTX 3090, with the default search (population 1024, 64 generations):
-
-- **Speed.** The GPU engine runs the same searches 5x to 185x faster than the
-  single-threaded CPU reference engine (geometric mean 30x), with identical
-  results.
-- **Benchmark.** On the 30 program-synthesis tasks of the ASGP paper
-  ([`benchmarks/asgp30`](benchmarks/README.md)), GAGP solves 56 of 150 runs
-  (5 seeds per task), judged on held-out test cases.
-
-Details and the research context are in
-[research-mainline.md](docs/design/research-mainline.md).
-
-## Build
-
-Requirements: Linux, CMake 3.16+, a C++17 compiler, and for the GPU engine an
+You need Linux, CMake 3.16+, a C++17 compiler and, for the GPU engine, an
 NVIDIA GPU with the CUDA toolkit (verified: RTX 3090, CUDA 12.6, GCC 11.4).
 
 ```bash
 cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
 cmake --build cpp/build -j --target gagp
-```
-
-Without a GPU, add `-DGAGP_ENABLE_CUDA=OFF` and run with `--engine cpu`.
-
-## Quick start
-
-```bash
 cpp/build/gagp run examples/polynomial/task.json --out runs/polynomial
 ```
 
@@ -56,8 +30,12 @@ test: 40 of 40 correct (solved)
 ```
 
 GAGP found a program for `x³ - 2x + 1` from 21 examples and checked it on 40
-held-out ones. `runs/polynomial/result.json` holds the program, its scores,
-the per-generation history and the exact search settings.
+held-out ones. `runs/polynomial/result.json` holds the program, its scores, the
+per-generation history and the exact search settings.
+
+If CMake cannot find `nvcc`, set `CUDACXX=/usr/local/cuda/bin/nvcc`, and add
+`-DCMAKE_CUDA_ARCHITECTURES=86` (your GPU's compute capability) to build for one
+GPU. Without a GPU, add `-DGAGP_ENABLE_CUDA=OFF` and run with `--engine cpu`.
 
 A task is a small JSON file naming a grammar, training cases, optional test
 cases and an error measure:
@@ -72,8 +50,137 @@ cases and an error measure:
 }
 ```
 
-The [getting started guide](docs/guides/getting-started.md) walks through
-writing your own task and grammar.
+The [getting started guide](docs/guides/getting-started.md) shows how to write
+your own task and grammar.
+
+## What GAGP shows
+
+Each claim below lists what it means, the evidence in this repository and the
+commands that reproduce it. Measurements are from one RTX 3090 with the default
+search, and the linked records give the population size, generations and seeds.
+GAGP does not
+claim that its search is better than ASGP's, that it reaches the state of the
+art on PSB1, or that it reproduces the numbers of the ASGP paper. The published
+counts that the benchmark reports print are context, not a matched baseline.
+
+### 1. The whole loop runs on the GPU
+
+Selection, crossover, mutation, compilation of new programs to bytecode and
+evaluation on every case all run on the device, including for programs that
+work on strings and lists. The host only ranks the fitness vector and records
+history. The design is in [gpu-reproduction.md](docs/design/gpu-reproduction.md)
+and the string and list storage in [payload.md](docs/design/payload.md).
+
+Evidence: the resident engine and its tests (`ctest -L gpu`), and the
+`eval_ms` and `repro_ms` of every generation in `result.json`. The `asgp30`
+tasks work on lists and the `psb1_g3p` tasks on strings and lists. The string
+task needs the case files of claim 2:
+
+```bash
+cpp/build/gagp run benchmarks/asgp30/filter_odd/task.json --generations 16
+cpp/build/gagp run benchmarks/psb1_g3p/small_or_large/task.json --search benchmarks/psb1_g3p/small_or_large/search.json --generations 16
+```
+
+### 2. User-defined grammars run
+
+The search space is a grammar file, not a fixed instruction set. Two very
+different families run on the same engine:
+
+- **Algorithm-structured templates.** The 30 tasks of ASGP
+  ([`benchmarks/asgp30`](benchmarks/README.md)): divide-and-conquer and
+  dynamic-programming schemes with bounded recursion, filled by operator sets.
+- **Statement grammars in the style of published G3P work.** Six PSB1 problems
+  ([`benchmarks/psb1_g3p`](benchmarks/psb1_g3p/README.md)): assignments, `if`,
+  `for` loops and list and string builtins, ported from the grammars of
+  Forstenlechner's G3P.
+
+Both suites are run by `benchmarks/run.py`. The PSB1 case files come from a
+PonyGE2 checkout, which the second command converts:
+
+```bash
+python3 benchmarks/run.py run --quick
+git clone https://github.com/PonyGE/PonyGE2 /path/to/PonyGE2
+python3 benchmarks/psb1_g3p/build.py cases --data /path/to/PonyGE2
+python3 benchmarks/run.py run --suite psb1_g3p --quick
+```
+
+The grammar format is explained in the
+[grammar authoring guide](docs/guides/grammar-authoring.md).
+
+### 3. It is fast
+
+- **Against GAGP's CPU reference engine.** The same searches run 5x to 185x
+  faster on the GPU than on one CPU thread (geometric mean 30x), with identical
+  results.
+- **Against ASGP on one CPU thread.** On frozen ASGP-initialized populations of
+  16384 members (30 tasks), single-threaded ASGP took 95x longer than GAGP
+  (geometric mean, about 74x after correcting for machine contention). ASGP
+  and these populations are not part of this repository, so this comparison is
+  recorded but not reproducible here
+  ([details](docs/design/research-mainline.md#results)).
+
+Run both engines on the same tasks and compare them. The report lists the
+speedup per task and checks that both engines found the same best program with
+the same fitness history. The CPU engine is slow, so select a few tasks:
+
+```bash
+python3 benchmarks/run.py run --quick
+python3 benchmarks/run.py run --quick --engine cpu --tasks median,smallest
+python3 benchmarks/run.py report
+```
+
+The native test that compares the two engines on complete populations:
+
+```bash
+ctest --test-dir cpp/build -R gagp_test_phase_population_cpu_reference --output-on-failure
+```
+
+Report speedups from a Release build, without a profiler attached.
+
+### 4. Quality does not get worse
+
+The speed is not bought with search quality. The search configuration decides
+which programs are explored, and the engine never does, so an optimization is
+accepted only when exported champions and histories stay identical to the
+previous build. On the 30 ASGP tasks (population 1024, 64 generations) the GPU
+engine solves 56 of 150 runs (5 seeds per task, judged on held-out test cases),
+and `report.md` prints the published ASGP success counts next to GAGP's
+([recorded results](benchmarks/README.md#recorded-results)).
+
+```bash
+python3 benchmarks/run.py run
+python3 benchmarks/run.py report
+```
+
+The full run takes about 9 minutes on the GPU. `--engine cpu` runs the same
+searches and reaches the same counts, only slowly.
+
+## Limits
+
+- **No unbounded loops.** The language has `for_range`, traversals of a list or
+  string and bounded recursion regions with frame, memo and fuel limits, and no
+  `while`. Fuel bounds every program, and a program that runs out of fuel fails
+  that case. This is why the PSB1 grammars have no `while`.
+- **Admission capacities.** The resident engine holds the population in
+  fixed-size genes, so a grammar must fit its limits: at most 2048 nodes and
+  depth 64 per program, 1024 nodes per varied phase, a population of at most
+  16384, and more
+  ([resident capacities](spec/search_config.md#resident-capacities)).
+- **Constructs it rejects.** The language has three constructs that the resident
+  engine does not yet hold: `sequence` constant domains, a nonterminal reached
+  under two different lexical binder environments, and a traversal inside a
+  bounded region phase
+  ([resident admission](spec/search_config.md#resident-admission)).
+- **Site depth of statement grammars.** With the default `limits.site_depth` of
+  7, five of the six `psb1_g3p` grammars are rejected with
+  `import site annotation failed`. Each problem's `search.json` sets `site_depth` to 0, and
+  `--search` passes it to `gagp run`.
+- **Rejection is an error.** A grammar that cannot be admitted stops `gagp run`
+  before the first generation with exit status 2 and a message that names the
+  construct or capacity and the offending value. There is no fallback engine.
+- **Smaller limits of the language.** Selection is tournament only, lists are
+  never nested and there are eight value types
+  ([types](docs/guides/grammar-authoring.md#anatomy)).
 
 ## Commands
 
@@ -83,10 +190,10 @@ writing your own task and grammar.
 | `gagp eval TASK.json PROGRAM.json` | Score a program on the test or training cases |
 | `gagp grammar validate\|inspect\|resolve` | Check and explore a grammar |
 | `gagp grammar generate` | Generate an initial population |
-| `python3 benchmarks/run.py run --quick` | Run the benchmark suite (a 10-second smoke test) |
+| `python3 benchmarks/run.py run [--suite asgp30\|psb1_g3p]` | Run a benchmark suite |
 
-Search parameters live in one file, [`configs/search/default.json`](configs/search/default.json);
-`--search` takes a file with just the members to change. Every option is in
+Search parameters live in one file, [`configs/search/default.json`](configs/search/default.json),
+and `--search` takes a file with just the members to change. Every option is in
 the [command reference](docs/reference/cli.md).
 
 ## Documentation
@@ -97,6 +204,7 @@ the [command reference](docs/reference/cli.md).
 | [Grammar authoring](docs/guides/grammar-authoring.md) | Writing grammars: constants, scopes, templates, recursion |
 | [Command reference](docs/reference/cli.md) | Every command, option and setting |
 | [Benchmarks](benchmarks/README.md) | The `asgp30` and `psb1_g3p` suites and recorded results |
+| [Research mainline](docs/design/research-mainline.md) | The claims, what exact means, measurements, retired designs |
 | [Architecture](docs/design/architecture.md) | Components and how one run flows through them |
 | [Specifications](spec/README.md) | Normative formats and semantics |
 | [Documentation index](docs/README.md) | Every document |
@@ -106,11 +214,12 @@ the [command reference](docs/reference/cli.md).
 `cpp/` holds the C++/CUDA implementation and its tests, `spec/` the
 specifications, `docs/` the guides and design notes, `configs/` grammars and
 the default search, `examples/` runnable tasks and `benchmarks/` the benchmark
-suite ([layout](docs/reference/repository-layout.md)).
+suites ([layout](docs/reference/repository-layout.md)).
 
 ```bash
 cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug && cmake --build cpp/build -j
 ctest --test-dir cpp/build --output-on-failure
+python3 -m unittest discover -s tests/repository -p 'test_*.py' -v
 ```
 
 See [development](docs/guides/development.md) for tests, presets and how to

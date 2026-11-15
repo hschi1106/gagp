@@ -339,6 +339,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         case NodeKind::RETURN:x.node.kind=PhaseTreeKind::Return;break;
         case NodeKind::IF_STMT:x.node.kind=PhaseTreeKind::If;break;
         case NodeKind::FOR_RANGE:x.node.kind=PhaseTreeKind::ForRange;break;
+        case NodeKind::WHILE_STMT:x.node.kind=PhaseTreeKind::While;break;
         default:fail("control capability");
       }
       x.kind=PhaseExpressionKind::Operation;x.native_kind=static_cast<int>(signature.lowering_node);out.statements=true;
@@ -669,6 +670,8 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
           case PhaseTreeKind::Traverse:h[Temporaries]+=9;++h[Walks];break;
           case PhaseTreeKind::Let:++h[Temporaries];++h[Lets];break;
           case PhaseTreeKind::ForRange:++h[Temporaries];++h[Loops];break;
+          // A while_stmt holds its bound and its counter.
+          case PhaseTreeKind::While:h[Temporaries]+=2;++h[Loops];break;
           case PhaseTreeKind::If:h[Ifs]+=e.node.type!=kPhaseStatement;break;
           default:break;
         }

@@ -1,18 +1,23 @@
 # Benchmarks
 
 Two suites, both run by `run.py` (`--suite asgp30`, the default, or
-`--suite psb1_g3p`):
+`--suite psb1_g3p`). They are the evidence for three of GAGP's claims: that
+user-defined grammars of two very different families run, that the GPU engine is
+fast, and that its search quality does not get worse. Each suite runs on either
+engine (`--engine gpu|cpu`), and the report compares the two.
 
 | Suite | What it is |
 | --- | --- |
-| `asgp30/` | The 30 tasks of the ASGP paper, compared with its published success counts (below) |
-| [`psb1_g3p/`](psb1_g3p/README.md) | Six PSB1 problems with the G3P grammars and settings of Forstenlechner, compared with the published G3P counts |
+| `asgp30/` | The 30 tasks of the ASGP paper, shown beside its published success counts (below) |
+| [`psb1_g3p/`](psb1_g3p/README.md) | Six PSB1 problems with the G3P grammars and settings of Forstenlechner, shown beside the published G3P counts |
 
-`asgp30/` is the benchmark of GAGP against the ASGP paper: the 30 program
-synthesis tasks of *Grammar-Guided Program Synthesis for Algorithm-Structured
-Programs* (ASGP), each as a ready-to-run `gagp run` task. `run.py` runs the
-suite and writes a report with the paper's published success counts next to
-GAGP's. Only GAGP runs here; ASGP itself is not needed.
+`asgp30/` holds the 30 program synthesis tasks of *Grammar-Guided Program
+Synthesis for Algorithm-Structured Programs* (ASGP), each as a ready-to-run
+`gagp run` task. `run.py` runs the suite and writes a report with the paper's
+published success counts next to GAGP's. Only GAGP runs here, and ASGP itself
+is not needed. The published counts are context. They are not a matched
+baseline, and GAGP does not claim that its search beats ASGP's, matches it, or
+reaches the state of the art on PSB1.
 
 ## Run it
 
@@ -28,7 +33,7 @@ python3 benchmarks/run.py report                     # rewrite logs/bench/asgp30
 On an RTX 3090 the quick run takes about 10 seconds and the full suite about
 9 minutes. The CPU reference engine is 5 to 185 times slower on one thread
 (its quick run takes about 14 minutes), so use it with `--quick` or a few
-`--tasks`; `--jobs N` runs N CPU runs at once, which disturbs their timing.
+`--tasks`. `--jobs N` runs N CPU runs at once, which disturbs their timing.
 
 Runs land in `logs/bench/asgp30/<engine>/p<population>-g<generations>/<task>/s<seed>/`
 (`result.json`, the [`gagp run` result](../spec/task.md#run-result)).
@@ -59,7 +64,7 @@ For each engine and configuration, `report.md` lists per task:
   still fail test cases).
 - **Median time**: wall-clock seconds of a whole run, including initialization.
 - **ASGP paper /100** and **ASGP thesis /25**: the published success counts.
-  The short paper (Table III) reports 100 runs per task; the thesis
+  The short paper (Table III) reports 100 runs per task. The thesis
   (Table 5.4) reports the six dynamic-programming tasks with 25 runs each and
   the same counts. Keep the two denominators apart.
 
@@ -87,7 +92,7 @@ grammar and the seed.
 ## The `asgp30` suite
 
 Each task directory holds `task.json`, `grammar.json`, `train.cases.json` and
-`test.cases.json`; `asgp_paper.json` holds the published success counts. 24
+`test.cases.json`. `asgp_paper.json` holds the published success counts. 24
 tasks use ASGP's divide-and-conquer scheme and 6 its dynamic-programming
 scheme.
 
@@ -110,7 +115,7 @@ Provenance:
   files: at most 2048 nodes, depth 24, fuel 2,000,000.
 - **Fitness** follows ASGP's per-task metric: absolute error, exact match,
   Levenshtein distance for list outputs (with a 65,536-cell list limit), or
-  tuple summary; the case-error cap is 1000.
+  tuple summary. The case-error cap is 1000.
 
 These files were produced from the ASGP generator output by the GAGP 2.x
 fixed-ASGP adapter (git tag `gagp-pre-3.0`), the same inputs as GAGP's final
@@ -125,12 +130,12 @@ runs on both engines):
   total. GAGP's final scale study (ASGP-initialized populations, otherwise the
   same search) solved 52/150.
 - Quick runs, GPU vs CPU reference (P1024, G16, seed 1): the same result on all
-  6 tasks; speedup from 5.2x (the median task) to 185x (double_letters), geometric mean
+  6 tasks. Speedup from 5.2x (the median task) to 185x (double_letters), geometric mean
   30x, 129x in total time.
 - ASGP-shaped searches, release 3.0.1: the frozen ASGP-initialized
   populations of the final scale study (P16384, G64, seed 1, default search),
   1263 s of GAGP runs for the 30 tasks. Champions and best-of-generation
-  histories equal those of 2.x on all 30; 2.x took 1.17x longer (geometric
+  histories equal those of 2.x on all 30. 2.x took 1.17x longer (geometric
   mean), single-threaded ASGP 95x longer (about 74x after correcting for the
   contention of its 8 concurrent workers). These inputs and ASGP timings are
   not part of the repository.

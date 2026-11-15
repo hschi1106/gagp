@@ -104,6 +104,7 @@ enum class NodeKind {
   CALL_STARTSWITH,
   CALL_ENDSWITH,
   CALL_CAPITALIZE,
+  WHILE_STMT,
   COUNT,
 };
 

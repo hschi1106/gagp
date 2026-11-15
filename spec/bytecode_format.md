@@ -196,6 +196,8 @@ The `ast-prefix-v2` node kinds 78 and 79 are `CALL_TRUNC_DIV0` and
 `CALL_LSTRIP_CHARS`, `CALL_RSTRIP_CHARS`, `CALL_STARTSWITH`, `CALL_ENDSWITH` and
 `CALL_CAPITALIZE`; each lowers to the `CALL_BUILTIN` ID of the same name (32
 through 45) with the node's arity. The program JSON spells them `call_insert`,
-`call_remove_at`, and so on. List `contains` reuses `CALL_CONTAINS`. Existing numeric node kinds remain unchanged,
+`call_remove_at`, and so on. List `contains` reuses `CALL_CONTAINS`.
+Kind 96 is the statement `WHILE_STMT` (`while_stmt`), which lowers to existing
+load, store, comparison and jump instructions. Existing numeric node kinds remain unchanged,
 including reserved legacy kinds 53 through 70. Their contract is in
 [builtins_base.md](builtins_base.md).

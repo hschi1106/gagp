@@ -47,9 +47,9 @@ in [Resident admission](../../spec/search_config.md#resident-admission).
   members do not all fit the region template, is imported again as one phase
   holding the whole program. An expression entry is lowered and completed by
   the native program terminator (`patch_whole_program`); a Program entry
-  lowers its statements (`assign`, `return`, `if_stmt`, `for_range`, blocks,
-  up to 16 grammar locals) exactly as the native compiler does, including its
-  first-use local order.
+  lowers its statements (`assign`, `return`, `if_stmt`, `for_range`,
+  `while_stmt`, blocks, up to 16 grammar locals) exactly as the native
+  compiler does, including its first-use local order.
 
 Initial population generation (`generate_phase_initial_population`) applies
 the same rule to its prototype program.
@@ -174,8 +174,9 @@ Both owners implement both schedules and publish identical results.
 mutable grammar invocations within a phase; physical node and depth budgets
 remain separate checks. Cold import checks every initial member, crossover
 checks the spliced site's depth, and mutation samples from a joint
-node/depth/invocation-depth feasibility table. The engine profile reported by
-the run is `resident-gpu-v4-site-depthN`.
+node/depth/invocation-depth feasibility table. The GPU owner names its profile
+`resident-gpu-v4-site-depthN` (`EvolutionResult::reproduction_profile`, not a
+`result.json` member).
 
 `ranking.tie_break: grammar_sites` breaks fitness and wrong-count ties by the
 number of mutable grammar invocations instead of AST nodes. It changes

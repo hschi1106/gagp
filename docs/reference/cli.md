@@ -29,7 +29,7 @@ how answers are scored. Paths are relative to the task file.
 }
 ```
 
-The [task specification](../../spec/task.md#task-file) lists every member;
+The [task specification](../../spec/task.md#task-file) lists every member.
 [`examples/polynomial`](../../examples/polynomial) is a complete task.
 Unknown members are rejected.
 
@@ -45,7 +45,7 @@ gagp run TASK.json [--search FILE] [--population N] [--generations N] [--seed N]
 | `--search FILE` | built-in, identical to [`configs/search/default.json`](../../configs/search/default.json) | Search configuration ([below](#search-configuration)) |
 | `--population N` | 1024, or the search file's | Population size (at least 2) |
 | `--generations N` | 64, or the search file's | Number of generations |
-| `--seed N` | 0, or the search file's | Random seed; the same seed and inputs give the same result |
+| `--seed N` | 0, or the search file's | Random seed. The same seed and inputs give the same result |
 | `--engine gpu\|cpu` | `gpu` | `cpu` is the reference engine: the same results, much slower |
 | `--init FILE` | generated | Start from a saved population (`--save-all` output or `gagp grammar generate`) instead of generating one |
 | `--out DIR` | none | Write `DIR/result.json` |
@@ -68,7 +68,7 @@ and the `--save-all` files.
 ## Search configuration
 
 A search configuration is a `gagp-search-config-v1` JSON file. The
-[specification](../../spec/search_config.md) defines every member; the default
+[specification](../../spec/search_config.md) defines every member. The default
 is [`configs/search/default.json`](../../configs/search/default.json):
 
 | Member | Default | Meaning |
@@ -77,11 +77,11 @@ is [`configs/search/default.json`](../../configs/search/default.json):
 | `selection` | tournament of 2 | Parent selection |
 | `elitism` | 1 | Best members copied unchanged |
 | `crossover` | probability 0.7, 8 attempts | Per-child crossover gate and site retries |
-| `mutation` | probability 0.3 | Per-child subtree mutation after crossover |
+| `mutation` | probability 0.3 | Per-child subtree mutation after crossover. `max_subtree_nodes` (default 0, no cap) bounds the generated subtree |
 | `sites` | one uniformly drawn phase, counted draw | Where crossover and mutation apply |
 | `limits.site_depth` | 7 | Grammar-invocation depth cap of variation (0: no cap) |
 | `ranking.tie_break` | `ast_nodes` | Equal fitness prefers fewer nodes |
-| `schedule` | steady state, inverse tournament of 2 | Each generation's children replace losers of an inverse tournament, never the best |
+| `schedule` | steady state, inverse tournament of 2 | Each generation's children replace losers of an inverse tournament, never the best. `batch` (default: the population size) sets the children per round and `generational` selects the other schedule |
 | `fitness.penalty`, `execution.fuel` | the task's `case_cap`, the grammar's fuel | Fuel may only be lowered |
 
 A search file only needs the members it changes. For example, a plain
@@ -92,7 +92,7 @@ generational search with a larger population:
  "schedule": {"mode": "generational"}}
 ```
 
-The search configuration decides results; the engine (`--engine`, the GPU
+The search configuration decides results. The engine (`--engine`, the GPU
 device) never does.
 
 ### Resident engine
@@ -100,11 +100,14 @@ device) never does.
 The population lives as fixed-shape phase genes, and selection, crossover,
 mutation, lowering to bytecode and evaluation all run on the selected engine
 (the GPU, or the CPU reference with `--engine cpu`). It accepts any grammar
-whose programs fit its capacity
+whose programs fit its
+[capacities](../../spec/search_config.md#resident-capacities) and that uses none
+of the constructs it does not yet hold
 ([admission rules](../../spec/search_config.md#resident-admission)). For any
 other grammar `gagp run` prints
 `resident engine cannot admit this grammar or initial population: ...` with the
-construct that does not fit, exits with status 2 and writes no result.
+capacity or construct that does not fit and the offending value, exits with
+status 2 and writes no result. No other engine runs instead.
 
 ## `gagp eval`
 
@@ -133,7 +136,7 @@ gagp grammar generate --replay-json FILE --cases FILE --out-json FILE
   minimum costs.
 - `resolve` writes the grammar with imports resolved.
 - `generate` writes `--population-size` (default 1, at most 65536) random
-  programs as a `grammar-population-v2` file, usable with `gagp run --init`;
+  programs as a `grammar-population-v2` file, usable with `gagp run --init`.
   `--replay-json` re-derives a saved population and checks it.
 
 Without `--out-json` the first three write to standard output. Failures print a
@@ -145,5 +148,5 @@ Without `--out-json` the first three write to standard output. Failures print a
 | Variable | Meaning |
 | --- | --- |
 | `GAGP_CUDA_DEVICE=N` | Use visible GPU `N` (default: the least used one) |
-| `GAGP_GPU_DIAGNOSTICS=1` | Collect GPU evaluation counters and diagnostics (developer use; slower) |
+| `GAGP_GPU_DIAGNOSTICS=1` | Collect GPU evaluation counters and diagnostics (developer use, slower) |
 | `GAGP_SEARCH_TRACE=1` | Print each generation's best and mean fitness and timings on standard error |
