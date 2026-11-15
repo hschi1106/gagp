@@ -1,0 +1,530 @@
+{
+ "format_version": "grammar-definition-v2",
+ "entry": {
+  "nonterminal": "G3.Int",
+  "type": "Int"
+ },
+ "inputs": [
+  {
+   "name": "n",
+   "type": "Int"
+  },
+  {
+   "name": "s",
+   "type": "String"
+  },
+  {
+   "name": "xs",
+   "type": "IntList"
+  }
+ ],
+ "search_limits": {
+  "max_nodes": 64,
+  "max_depth": 8
+ },
+ "execution_limits": {
+  "fuel": 1024
+ },
+ "nonterminals": [
+  {
+   "id": "G3.Int",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "n",
+     "weight": 2,
+     "expression": {
+      "input": "n"
+     }
+    },
+    {
+     "id": "k",
+     "weight": 2,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "-3",
+        "4"
+       ]
+      }
+     }
+    },
+    {
+     "id": "len_s",
+     "weight": 1,
+     "expression": {
+      "signature": "len(String)->Int",
+      "args": [
+       {
+        "ref": "G3.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "len_xs",
+     "weight": 1,
+     "expression": {
+      "signature": "len(IntList)->Int",
+      "args": [
+       {
+        "ref": "G3.IntList"
+       }
+      ]
+     }
+    },
+    {
+     "id": "at",
+     "weight": 2,
+     "expression": {
+      "signature": "index_mod(IntList,Int)->Int",
+      "args": [
+       {
+        "ref": "G3.IntList"
+       },
+       {
+        "ref": "G3.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "find",
+     "weight": 1,
+     "expression": {
+      "signature": "find(String,String)->Int",
+      "args": [
+       {
+        "ref": "G3.String"
+       },
+       {
+        "ref": "G3.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "add",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G3.Int"
+       },
+       {
+        "ref": "G3.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "sub",
+     "weight": 1,
+     "expression": {
+      "signature": "sub(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G3.Int"
+       },
+       {
+        "ref": "G3.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "if",
+     "weight": 1,
+     "expression": {
+      "signature": "if(Bool,Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G3.Bool"
+       },
+       {
+        "ref": "G3.Int"
+       },
+       {
+        "ref": "G3.Int"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G3.Bool",
+   "type": "Bool",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "k",
+     "weight": 1,
+     "expression": {
+      "constant": {
+       "type": "Bool",
+       "values": [
+        true,
+        false
+       ]
+      }
+     }
+    },
+    {
+     "id": "lt",
+     "weight": 1,
+     "expression": {
+      "signature": "lt(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G3.Int"
+       },
+       {
+        "ref": "G3.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "has",
+     "weight": 2,
+     "expression": {
+      "signature": "contains(IntList,Int)->Bool",
+      "args": [
+       {
+        "ref": "G3.IntList"
+       },
+       {
+        "ref": "G3.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "starts",
+     "weight": 2,
+     "expression": {
+      "signature": "startswith(String,String)->Bool",
+      "args": [
+       {
+        "ref": "G3.String"
+       },
+       {
+        "ref": "G3.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "ends",
+     "weight": 2,
+     "expression": {
+      "signature": "endswith(String,String)->Bool",
+      "args": [
+       {
+        "ref": "G3.String"
+       },
+       {
+        "ref": "G3.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "not",
+     "weight": 1,
+     "expression": {
+      "signature": "not(Bool)->Bool",
+      "args": [
+       {
+        "ref": "G3.Bool"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G3.String",
+   "type": "String",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "s",
+     "weight": 2,
+     "expression": {
+      "input": "s"
+     }
+    },
+    {
+     "id": "k",
+     "weight": 1,
+     "expression": {
+      "constant": {
+       "type": "String",
+       "values": [
+        "  ab ",
+        "x",
+        "",
+        "Hello\t"
+       ]
+      }
+     }
+    },
+    {
+     "id": "strip",
+     "weight": 1,
+     "expression": {
+      "signature": "strip(String)->String",
+      "args": [
+       {
+        "ref": "G3.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "lstrip",
+     "weight": 1,
+     "expression": {
+      "signature": "lstrip(String)->String",
+      "args": [
+       {
+        "ref": "G3.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "rstrip",
+     "weight": 1,
+     "expression": {
+      "signature": "rstrip(String)->String",
+      "args": [
+       {
+        "ref": "G3.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "strip_chars",
+     "weight": 1,
+     "expression": {
+      "signature": "strip(String,String)->String",
+      "args": [
+       {
+        "ref": "G3.String"
+       },
+       {
+        "ref": "G3.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "lstrip_chars",
+     "weight": 1,
+     "expression": {
+      "signature": "lstrip(String,String)->String",
+      "args": [
+       {
+        "ref": "G3.String"
+       },
+       {
+        "ref": "G3.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "rstrip_chars",
+     "weight": 1,
+     "expression": {
+      "signature": "rstrip(String,String)->String",
+      "args": [
+       {
+        "ref": "G3.String"
+       },
+       {
+        "ref": "G3.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "capitalize",
+     "weight": 2,
+     "expression": {
+      "signature": "capitalize(String)->String",
+      "args": [
+       {
+        "ref": "G3.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "char_at",
+     "weight": 1,
+     "expression": {
+      "signature": "index_mod(String,Int)->String",
+      "args": [
+       {
+        "ref": "G3.String"
+       },
+       {
+        "ref": "G3.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "concat",
+     "weight": 1,
+     "expression": {
+      "signature": "concat(String,String)->String",
+      "args": [
+       {
+        "ref": "G3.String"
+       },
+       {
+        "ref": "G3.String"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G3.IntList",
+   "type": "IntList",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "xs",
+     "weight": 2,
+     "expression": {
+      "input": "xs"
+     }
+    },
+    {
+     "id": "k",
+     "weight": 1,
+     "expression": {
+      "constant": {
+       "type": "IntList",
+       "values": [
+        [],
+        [
+         "1",
+         "2",
+         "3"
+        ]
+       ]
+      }
+     }
+    },
+    {
+     "id": "insert",
+     "weight": 2,
+     "expression": {
+      "signature": "insert(IntList,Int,Int)->IntList",
+      "args": [
+       {
+        "ref": "G3.IntList"
+       },
+       {
+        "ref": "G3.Int"
+       },
+       {
+        "ref": "G3.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "remove_at",
+     "weight": 2,
+     "expression": {
+      "signature": "remove_at(IntList,Int)->IntList",
+      "args": [
+       {
+        "ref": "G3.IntList"
+       },
+       {
+        "ref": "G3.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "set_at",
+     "weight": 2,
+     "expression": {
+      "signature": "set_at(IntList,Int,Int)->IntList",
+      "args": [
+       {
+        "ref": "G3.IntList"
+       },
+       {
+        "ref": "G3.Int"
+       },
+       {
+        "ref": "G3.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "range",
+     "weight": 2,
+     "expression": {
+      "signature": "range(Int,Int)->IntList",
+      "args": [
+       {
+        "ref": "G3.Int"
+       },
+       {
+        "ref": "G3.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "append",
+     "weight": 1,
+     "expression": {
+      "signature": "append(IntList,Int)->IntList",
+      "args": [
+       {
+        "ref": "G3.IntList"
+       },
+       {
+        "ref": "G3.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "concat",
+     "weight": 1,
+     "expression": {
+      "signature": "concat(IntList,IntList)->IntList",
+      "args": [
+       {
+        "ref": "G3.IntList"
+       },
+       {
+        "ref": "G3.IntList"
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}
