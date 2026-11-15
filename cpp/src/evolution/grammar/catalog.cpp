@@ -149,6 +149,26 @@ PrimitiveCatalog::PrimitiveCatalog() {
           range_region, TraversalDirection::Reverse);
     }
   }
+  for (auto sequence : {std::pair{RType::IntList, RType::Int}, {RType::FloatList, RType::Float},
+                        {RType::StringList, RType::String}}) {
+    const auto list = sequence.first, element = sequence.second;
+    add("insert", {list, RType::Int, element}, list, NodeKind::CALL_INSERT);
+    add("remove_at", {list, RType::Int}, list, NodeKind::CALL_REMOVE_AT);
+    add("set_at", {list, RType::Int, element}, list, NodeKind::CALL_SET_AT);
+    add("index_mod", {list, RType::Int}, element, NodeKind::CALL_INDEX_MOD);
+    add("contains", {list, element}, RType::Bool, NodeKind::CALL_CONTAINS);
+  }
+  add("index_mod", {RType::String, RType::Int}, RType::String, NodeKind::CALL_INDEX_MOD);
+  add("range", {RType::Int, RType::Int}, RType::IntList, NodeKind::CALL_RANGE);
+  for (auto entry : {std::pair{"strip", NodeKind::CALL_STRIP}, {"lstrip", NodeKind::CALL_LSTRIP},
+                     {"rstrip", NodeKind::CALL_RSTRIP}})
+    add(entry.first, {RType::String}, RType::String, entry.second);
+  for (auto entry : {std::pair{"strip", NodeKind::CALL_STRIP_CHARS}, {"lstrip", NodeKind::CALL_LSTRIP_CHARS},
+                     {"rstrip", NodeKind::CALL_RSTRIP_CHARS}})
+    add(entry.first, {RType::String, RType::String}, RType::String, entry.second);
+  add("startswith", {RType::String, RType::String}, RType::Bool, NodeKind::CALL_STARTSWITH);
+  add("endswith", {RType::String, RType::String}, RType::Bool, NodeKind::CALL_ENDSWITH);
+  add("capitalize", {RType::String}, RType::String, NodeKind::CALL_CAPITALIZE);
   add("find", {RType::String, RType::String}, RType::Int, NodeKind::CALL_FIND);
   add("contains", {RType::String, RType::String}, RType::Bool, NodeKind::CALL_CONTAINS);
   add("char_to_string", {RType::Char}, RType::String, NodeKind::CALL_CHAR_TO_STRING);
