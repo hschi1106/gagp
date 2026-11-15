@@ -364,8 +364,10 @@ __device__ __noinline__ DResult d_run_code_core(const DCodeView& view,
       sp -= argc;
       ErrCode derr = ErrCode::Type;
       Value ret = Value::invalid();
-      if (!d_builtin_call<Flavor>(
-              bid, args_buf, argc, payload_tables, payload_state, ret, derr)) {
+      const bool ok = d_builtin_needs_charged(bid, args_buf, argc, payload_state)
+          ? d_builtin_call_charged<Flavor>(bid, args_buf, argc, payload_tables, payload_state, ret, derr)
+          : d_builtin_call<Flavor>(bid, args_buf, argc, payload_tables, payload_state, ret, derr);
+      if (!ok) {
         d_fail(result, derr);
         break;
       }
