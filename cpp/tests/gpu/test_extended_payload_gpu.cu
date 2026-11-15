@@ -1201,6 +1201,7 @@ bool test_sorted_arena_cases() {
 
 #include "private_intlist_offset_checks.cuh"
 #include "private_adjacent_checks.cuh"
+#include "g3p_builtin_checks.cuh"
 
 // Generic (registry) global-payload lanes lease the session's single backing:
 // the first evaluation allocates it once, later ones reuse dirty bytes and must
@@ -1529,6 +1530,7 @@ int main() {
   if(!test_private_intlist_offsets() || !test_private_global_offset_preparation() || !test_private_global_offset_cases() || !test_reusable_private_workspace() ||
       !test_reusable_generic_workspace())return 1;
   if(!test_private_intlist_fitness() || !test_private_tuple_fitness())return 1;
+  if(!g3p_builtin_checks::run())return 1;
   if (!test_dense_case_tiles() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_extended_payload() || !test_private_list_index() || !test_epoch_list_index() || !test_scalar_region_index_rollback() || !test_payload_replay_fitness() || !test_tail_append_fitness() || !test_allocation_charge_parity() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";

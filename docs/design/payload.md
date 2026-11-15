@@ -119,8 +119,12 @@ completes.
 
 While the contents are available, container operations are exact on both
 CPU and GPU: `concat`, `slice`, `append`, `reverse` build the real value;
-`find` and `contains` inspect strings; `index` returns the element with its
-type (`Char` for a `String`, `Int`/`Float`/`String` for the typed lists).
+`find` and `contains` inspect strings and lists; `index` returns the element
+with its type (`Char` for a `String`, `Int`/`Float`/`String` for the typed
+lists). The G3P builtins (`insert`, `remove_at`, `set_at`, `index_mod`, `range`,
+the `strip` family, `startswith`, `endswith`, `capitalize`) follow the same
+split: exact values while contents are resident, deterministic hash-only
+results otherwise.
 
 When contents are unavailable, results are deterministic but opaque:
 
@@ -128,7 +132,17 @@ When contents are unavailable, results are deterministic but opaque:
   `FallbackToken`;
 - list operations return a token of the correct list tag with a deterministic
   hash and length;
-- `find` and `contains` return a `ValueError`.
+- `find`, `contains`, `startswith` and `endswith` return a `ValueError`;
+- list edits (`insert`, `remove_at`, `set_at`) return a hash-only list token of
+  the edited length, the `strip` family and `capitalize` a hash-only string
+  token of the source length, and `index_mod` the same token as `index`.
+
+On the GPU, builtins that produce payload values (list edits, `range`, the
+`strip` family, `capitalize`, `index_mod`) select the extended
+payload path, write into the per-lane arena (a physical overflow replays the
+program in `ArenaMixed`) and are not in the typed-view or private IntList
+whitelists, so a population that uses one runs in the generic profile. `range`
+also charges the logical list allocation limit.
 
 Contents can be unavailable when a token was built directly
 (`Value::from_int_list_hash_len` and similar) without `payload::make_*`, after

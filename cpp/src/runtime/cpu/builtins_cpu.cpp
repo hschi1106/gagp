@@ -125,6 +125,46 @@ long long ascii_to_upper(long long c) {
   return (c >= 'a' && c <= 'z') ? c - ('a' - 'A') : c;
 }
 
+bool list_accepts_element(ValueTag list, const Value& element) {
+  if (list == ValueTag::IntList) return element.tag == ValueTag::Int;
+  if (list == ValueTag::FloatList) return element.tag == ValueTag::Float;
+  return list == ValueTag::StringList && element.tag == ValueTag::String;
+}
+
+// Same equality as the VM's `eq` on two values of one tag: integers by value,
+// floats by IEEE comparison, strings by token.
+bool list_elements_equal(const Value& a, const Value& b) {
+  return a.tag == ValueTag::Float ? a.f == b.f : a.i == b.i;
+}
+
+// Python slicing-free insert position: negative indices count from the end, then
+// the position clamps to [0, n].
+long long insert_position(long long index, long long n) {
+  long long j = index;
+  if (j < 0) j += n;
+  if (j < 0) j = 0;
+  if (j > n) j = n;
+  return j;
+}
+
+std::uint8_t derived_op(BuiltinId id) { return static_cast<std::uint8_t>(id); }
+
+bool is_strip_family(BuiltinId id) {
+  return id == BuiltinId::Strip || id == BuiltinId::LStrip || id == BuiltinId::RStrip ||
+         id == BuiltinId::StripChars || id == BuiltinId::LStripChars || id == BuiltinId::RStripChars;
+}
+
+BuiltinResult exact_string(const std::string& text) {
+  return BuiltinResult{false, payload::make_string_value(text), Err{ErrCode::Value, ""}};
+}
+
+BuiltinResult derived_string_token(BuiltinId id, const Value& source, std::int64_t operand) {
+  const std::uint64_t h = Value::derived_container_hash48(1U, derived_op(id), source, operand, 0U);
+  BuiltinResult out;
+  out.value = Value::from_fallback_token(Value::pack_container_payload(h, Value::container_len(source)));
+  return out;
+}
+
 }  // namespace
 
 BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
@@ -481,6 +521,21 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     }
     const Value& haystack = args[0];
     const Value& needle = args[1];
+    if (id == BuiltinId::Contains && is_list_tag(haystack.tag)) {
+      if (!list_accepts_element(haystack.tag, needle)) {
+        return fail(ErrCode::Type, "contains expects an element of the list's type");
+      }
+      std::vector<Value> scratch;
+      const auto* elements = payload::read_list(haystack, scratch);
+      if (!elements) return fail(ErrCode::Value, "contains requires exact list payload");
+      bool found = false;
+      for (const Value& element : *elements) {
+        if (list_elements_equal(element, needle)) { found = true; break; }
+      }
+      BuiltinResult out;
+      out.value = Value::from_bool(found);
+      return out;
+    }
     if (haystack.tag != ValueTag::String || needle.tag != ValueTag::String) {
       return fail(ErrCode::Type, std::string(builtin_name(id)) + " expects (string,string)");
     }
@@ -602,6 +657,201 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       return BuiltinResult{false, payload::make_string_list_value({x}), Err{ErrCode::Value, ""}};
     }
     return fail(ErrCode::Type, "singleton expects int, float, string, or char");
+  }
+
+  if (id == BuiltinId::Insert || id == BuiltinId::SetAt) {
+    const std::string name = builtin_name(id);
+    if (argc != 3) {
+      return fail(ErrCode::Type, name + " expects 3 arguments");
+    }
+    const Value& xs = args[0];
+    const Value& index = args[1];
+    const Value& elem = args[2];
+    if (!is_list_tag(xs.tag)) {
+      return fail(ErrCode::Type, name + " expects typed-list as first argument");
+    }
+    if (index.tag != ValueTag::Int) {
+      return fail(ErrCode::Type, name + " expects integer index");
+    }
+    if (!list_accepts_element(xs.tag, elem)) {
+      return fail(ErrCode::Type, name + " expects an element of the list's type");
+    }
+    std::vector<Value> lx;
+    if (payload::lookup_list(xs, &lx)) {
+      const long long n = static_cast<long long>(lx.size());
+      if (id == BuiltinId::Insert) {
+        lx.insert(lx.begin() + insert_position(index.i, n), elem);
+      } else {
+        if (n == 0) return BuiltinResult{false, xs, Err{ErrCode::Value, ""}};
+        lx[static_cast<std::size_t>(vm_semantics::py_int_mod(index.i, n))] = elem;
+      }
+      return make_exact_list(xs.tag, std::move(lx));
+    }
+    const std::uint32_t length = Value::container_len(xs);
+    if (id == BuiltinId::SetAt && length == 0U) return BuiltinResult{false, xs, Err{ErrCode::Value, ""}};
+    const std::uint64_t h = Value::derived_container_hash48(list_type_code(xs), derived_op(id), xs, index.i,
+                                                            Value::shallow_hash64(elem));
+    BuiltinResult out;
+    out.value = make_list_hash_len(xs, h, id == BuiltinId::Insert ? Value::saturating_len_add(length, 1U) : length);
+    return out;
+  }
+
+  if (id == BuiltinId::RemoveAt) {
+    if (argc != 2) {
+      return fail(ErrCode::Type, "remove_at expects 2 arguments");
+    }
+    const Value& xs = args[0];
+    const Value& index = args[1];
+    if (!is_list_tag(xs.tag)) {
+      return fail(ErrCode::Type, "remove_at expects typed-list as first argument");
+    }
+    if (index.tag != ValueTag::Int) {
+      return fail(ErrCode::Type, "remove_at expects integer index");
+    }
+    std::vector<Value> lx;
+    if (payload::lookup_list(xs, &lx)) {
+      if (lx.empty()) return BuiltinResult{false, xs, Err{ErrCode::Value, ""}};
+      const long long n = static_cast<long long>(lx.size());
+      lx.erase(lx.begin() + vm_semantics::py_int_mod(index.i, n));
+      return make_exact_list(xs.tag, std::move(lx));
+    }
+    const std::uint32_t length = Value::container_len(xs);
+    if (length == 0U) return BuiltinResult{false, xs, Err{ErrCode::Value, ""}};
+    const std::uint64_t h = Value::derived_container_hash48(list_type_code(xs), derived_op(id), xs, index.i, 0U);
+    BuiltinResult out;
+    out.value = make_list_hash_len(xs, h, length - 1U);
+    return out;
+  }
+
+  if (id == BuiltinId::IndexMod) {
+    if (argc != 2) {
+      return fail(ErrCode::Type, "index_mod expects 2 arguments: index_mod(x, i)");
+    }
+    const Value& x = args[0];
+    const Value& index = args[1];
+    if (!is_container(x)) {
+      return fail(ErrCode::Type, "index_mod expects string/typed-list as first argument");
+    }
+    if (index.tag != ValueTag::Int) {
+      return fail(ErrCode::Type, "index_mod expects integer index");
+    }
+    const auto zero_value = [&]() {
+      if (x.tag == ValueTag::IntList) return BuiltinResult{false, Value::from_int(0), Err{ErrCode::Value, ""}};
+      if (x.tag == ValueTag::FloatList) return BuiltinResult{false, Value::from_float(0.0), Err{ErrCode::Value, ""}};
+      return exact_string("");
+    };
+    if (x.tag == ValueTag::String) {
+      std::string text;
+      if (payload::lookup_string(x, &text)) {
+        if (text.empty()) return exact_string("");
+        const long long j = vm_semantics::py_int_mod(index.i, static_cast<long long>(text.size()));
+        return exact_string(std::string(1, text[static_cast<std::size_t>(j)]));
+      }
+      const long long n = static_cast<long long>(Value::container_len(x));
+      if (n == 0) return exact_string("");
+      const long long j = vm_semantics::py_int_mod(index.i, n);
+      BuiltinResult out;
+      out.value = Value::from_fallback_token(Value::index_container_token64(5U, x, j));
+      return out;
+    }
+    std::vector<Value> scratch;
+    if (const auto* elements = payload::read_list(x, scratch)) {
+      if (elements->empty()) return zero_value();
+      const long long j = vm_semantics::py_int_mod(index.i, static_cast<long long>(elements->size()));
+      return BuiltinResult{false, (*elements)[static_cast<std::size_t>(j)], Err{ErrCode::Value, ""}};
+    }
+    const long long n = static_cast<long long>(Value::container_len(x));
+    if (n == 0) return zero_value();
+    const long long j = vm_semantics::py_int_mod(index.i, n);
+    BuiltinResult out;
+    out.value = Value::from_fallback_token(Value::index_container_token64(list_type_code(x), x, j));
+    return out;
+  }
+
+  if (id == BuiltinId::Range) {
+    if (argc != 2) {
+      return fail(ErrCode::Type, "range expects 2 arguments: range(a, b)");
+    }
+    if (args[0].tag != ValueTag::Int || args[1].tag != ValueTag::Int) {
+      return fail(ErrCode::Type, "range expects integer bounds");
+    }
+    const long long a = args[0].i;
+    const long long b = args[1].i;
+    if (b <= a) return make_exact_list(ValueTag::IntList, {});
+    // b > a, so the unsigned difference is exact; nothing is allocated before
+    // the length cap and the logical allocation budget have been checked.
+    const std::uint64_t count = static_cast<std::uint64_t>(b) - static_cast<std::uint64_t>(a);
+    if (count > Value::k_container_len_max) {
+      return fail(ErrCode::Value, "range exceeds the maximum list length");
+    }
+    payload::charge_list_allocation(static_cast<std::size_t>(count));
+    payload::check_allocation_budget(static_cast<std::size_t>(count) * sizeof(Value));
+    std::vector<Value> elems;
+    elems.reserve(static_cast<std::size_t>(count));
+    for (std::uint64_t k = 0; k < count; ++k) {
+      elems.push_back(Value::from_int(vm_semantics::wrap_int_add(a, static_cast<long long>(k))));
+    }
+    return make_exact_list(ValueTag::IntList, std::move(elems));
+  }
+
+  if (is_strip_family(id)) {
+    const bool with_chars = id == BuiltinId::StripChars || id == BuiltinId::LStripChars || id == BuiltinId::RStripChars;
+    const bool left = id != BuiltinId::RStrip && id != BuiltinId::RStripChars;
+    const bool right = id != BuiltinId::LStrip && id != BuiltinId::LStripChars;
+    if (argc != (with_chars ? 2U : 1U)) {
+      return fail(ErrCode::Type, std::string(builtin_name(id)) + (with_chars ? " expects 2 arguments" : " expects 1 argument"));
+    }
+    if (args[0].tag != ValueTag::String || (with_chars && args[1].tag != ValueTag::String)) {
+      return fail(ErrCode::Type, std::string(builtin_name(id)) + " expects string arguments");
+    }
+    std::string text;
+    std::string chars;
+    if (!payload::lookup_string(args[0], &text) || (with_chars && !payload::lookup_string(args[1], &chars))) {
+      return derived_string_token(id, args[0], with_chars ? args[1].i : 0);
+    }
+    const auto strippable = [&](char c) {
+      return with_chars ? chars.find(c) != std::string::npos
+                        : is_ascii_space(static_cast<unsigned char>(c));
+    };
+    std::size_t begin = 0;
+    std::size_t end = text.size();
+    if (left) while (begin < end && strippable(text[begin])) ++begin;
+    if (right) while (end > begin && strippable(text[end - 1])) --end;
+    return exact_string(text.substr(begin, end - begin));
+  }
+
+  if (id == BuiltinId::StartsWith || id == BuiltinId::EndsWith) {
+    if (argc != 2) {
+      return fail(ErrCode::Type, std::string(builtin_name(id)) + " expects 2 arguments");
+    }
+    if (args[0].tag != ValueTag::String || args[1].tag != ValueTag::String) {
+      return fail(ErrCode::Type, std::string(builtin_name(id)) + " expects (string,string)");
+    }
+    std::string text;
+    std::string affix;
+    if (!payload::lookup_string(args[0], &text) || !payload::lookup_string(args[1], &affix)) {
+      return fail(ErrCode::Value, std::string(builtin_name(id)) + " requires exact string payload");
+    }
+    const bool fits = affix.size() <= text.size();
+    const bool matches = fits && (id == BuiltinId::StartsWith
+        ? text.compare(0, affix.size(), affix) == 0
+        : text.compare(text.size() - affix.size(), affix.size(), affix) == 0);
+    BuiltinResult out;
+    out.value = Value::from_bool(matches);
+    return out;
+  }
+
+  if (id == BuiltinId::Capitalize) {
+    if (argc != 1 || args[0].tag != ValueTag::String) {
+      return fail(ErrCode::Type, "capitalize expects string");
+    }
+    std::string text;
+    if (!payload::lookup_string(args[0], &text)) return derived_string_token(id, args[0], 0);
+    for (std::size_t i = 0; i < text.size(); ++i) {
+      const long long c = static_cast<unsigned char>(text[i]);
+      text[i] = static_cast<char>(i == 0 ? ascii_to_upper(c) : ascii_to_lower(c));
+    }
+    return exact_string(text);
   }
 
   return fail(ErrCode::Name, "unknown builtin");

@@ -43,6 +43,20 @@ enum class BuiltinId : std::int32_t {
   TruncMod0 = 29,
   IndexNonnegative = 30,
   IndexClampedOrZero = 31,
+  Insert = 32,
+  RemoveAt = 33,
+  SetAt = 34,
+  IndexMod = 35,
+  Range = 36,
+  Strip = 37,
+  LStrip = 38,
+  RStrip = 39,
+  StripChars = 40,
+  LStripChars = 41,
+  RStripChars = 42,
+  StartsWith = 43,
+  EndsWith = 44,
+  Capitalize = 45,
 };
 
 GAGP_BUILTIN_HD inline const char* builtin_name(BuiltinId id) {
@@ -107,12 +121,26 @@ GAGP_BUILTIN_HD inline const char* builtin_name(BuiltinId id) {
       return "to_string";
     case BuiltinId::Singleton:
       return "singleton";
+    case BuiltinId::Insert: return "insert";
+    case BuiltinId::RemoveAt: return "remove_at";
+    case BuiltinId::SetAt: return "set_at";
+    case BuiltinId::IndexMod: return "index_mod";
+    case BuiltinId::Range: return "range";
+    case BuiltinId::Strip:
+    case BuiltinId::StripChars: return "strip";
+    case BuiltinId::LStrip:
+    case BuiltinId::LStripChars: return "lstrip";
+    case BuiltinId::RStrip:
+    case BuiltinId::RStripChars: return "rstrip";
+    case BuiltinId::StartsWith: return "startswith";
+    case BuiltinId::EndsWith: return "endswith";
+    case BuiltinId::Capitalize: return "capitalize";
   }
   return "";
 }
 
 GAGP_BUILTIN_HD inline bool builtin_id_from_int(int value, BuiltinId& out) {
-  if (value < static_cast<int>(BuiltinId::Abs) || value > static_cast<int>(BuiltinId::IndexClampedOrZero)) {
+  if (value < static_cast<int>(BuiltinId::Abs) || value > static_cast<int>(BuiltinId::Capitalize)) {
     return false;
   }
   out = static_cast<BuiltinId>(value);

@@ -1,0 +1,1825 @@
+{
+ "format_version": "grammar-definition-v2",
+ "entry": {
+  "category": "Program",
+  "nonterminal": "G.Program",
+  "type": "String"
+ },
+ "inputs": [
+  {
+   "name": "in0",
+   "type": "Int"
+  }
+ ],
+ "locals": [
+  {
+   "name": "i0",
+   "type": "Int"
+  },
+  {
+   "name": "i1",
+   "type": "Int"
+  },
+  {
+   "name": "i2",
+   "type": "Int"
+  },
+  {
+   "name": "b0",
+   "type": "Bool"
+  },
+  {
+   "name": "b1",
+   "type": "Bool"
+  },
+  {
+   "name": "b2",
+   "type": "Bool"
+  },
+  {
+   "name": "s0",
+   "type": "String"
+  },
+  {
+   "name": "s1",
+   "type": "String"
+  },
+  {
+   "name": "s2",
+   "type": "String"
+  },
+  {
+   "name": "res0",
+   "type": "String"
+  },
+  {
+   "name": "k",
+   "type": "Int"
+  }
+ ],
+ "search_limits": {
+  "max_nodes": 207,
+  "max_depth": 40
+ },
+ "execution_limits": {
+  "fuel": 20000
+ },
+ "nonterminals": [
+  {
+   "id": "G.Program",
+   "type": "String",
+   "scope": [],
+   "category": "Program",
+   "variation": false,
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 1.0,
+     "expression": {
+      "control": "program(Block)->Program",
+      "type": "String",
+      "args": [
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "String",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "String",
+          "args": [
+           {
+            "constant": {
+             "type": "Int",
+             "values": [
+              "0"
+             ]
+            }
+           }
+          ],
+          "name": "i0"
+         },
+         {
+          "control": "block_cons(Statement,Block)->Block",
+          "type": "String",
+          "args": [
+           {
+            "control": "assign(Int)->Statement",
+            "type": "String",
+            "args": [
+             {
+              "constant": {
+               "type": "Int",
+               "values": [
+                "0"
+               ]
+              }
+             }
+            ],
+            "name": "i1"
+           },
+           {
+            "control": "block_cons(Statement,Block)->Block",
+            "type": "String",
+            "args": [
+             {
+              "control": "assign(Int)->Statement",
+              "type": "String",
+              "args": [
+               {
+                "constant": {
+                 "type": "Int",
+                 "values": [
+                  "0"
+                 ]
+                }
+               }
+              ],
+              "name": "i2"
+             },
+             {
+              "control": "block_cons(Statement,Block)->Block",
+              "type": "String",
+              "args": [
+               {
+                "control": "assign(Bool)->Statement",
+                "type": "String",
+                "args": [
+                 {
+                  "constant": {
+                   "type": "Bool",
+                   "values": [
+                    false
+                   ]
+                  }
+                 }
+                ],
+                "name": "b0"
+               },
+               {
+                "control": "block_cons(Statement,Block)->Block",
+                "type": "String",
+                "args": [
+                 {
+                  "control": "assign(Bool)->Statement",
+                  "type": "String",
+                  "args": [
+                   {
+                    "constant": {
+                     "type": "Bool",
+                     "values": [
+                      false
+                     ]
+                    }
+                   }
+                  ],
+                  "name": "b1"
+                 },
+                 {
+                  "control": "block_cons(Statement,Block)->Block",
+                  "type": "String",
+                  "args": [
+                   {
+                    "control": "assign(Bool)->Statement",
+                    "type": "String",
+                    "args": [
+                     {
+                      "constant": {
+                       "type": "Bool",
+                       "values": [
+                        false
+                       ]
+                      }
+                     }
+                    ],
+                    "name": "b2"
+                   },
+                   {
+                    "control": "block_cons(Statement,Block)->Block",
+                    "type": "String",
+                    "args": [
+                     {
+                      "control": "assign(String)->Statement",
+                      "type": "String",
+                      "args": [
+                       {
+                        "constant": {
+                         "type": "String",
+                         "values": [
+                          ""
+                         ]
+                        }
+                       }
+                      ],
+                      "name": "s0"
+                     },
+                     {
+                      "control": "block_cons(Statement,Block)->Block",
+                      "type": "String",
+                      "args": [
+                       {
+                        "control": "assign(String)->Statement",
+                        "type": "String",
+                        "args": [
+                         {
+                          "constant": {
+                           "type": "String",
+                           "values": [
+                            ""
+                           ]
+                          }
+                         }
+                        ],
+                        "name": "s1"
+                       },
+                       {
+                        "control": "block_cons(Statement,Block)->Block",
+                        "type": "String",
+                        "args": [
+                         {
+                          "control": "assign(String)->Statement",
+                          "type": "String",
+                          "args": [
+                           {
+                            "constant": {
+                             "type": "String",
+                             "values": [
+                              ""
+                             ]
+                            }
+                           }
+                          ],
+                          "name": "s2"
+                         },
+                         {
+                          "control": "block_cons(Statement,Block)->Block",
+                          "type": "String",
+                          "args": [
+                           {
+                            "control": "assign(String)->Statement",
+                            "type": "String",
+                            "args": [
+                             {
+                              "constant": {
+                               "type": "String",
+                               "values": [
+                                ""
+                               ]
+                              }
+                             }
+                            ],
+                            "name": "res0"
+                           },
+                           {
+                            "control": "block_cons(Statement,Block)->Block",
+                            "type": "String",
+                            "args": [
+                             {
+                              "control": "assign(Int)->Statement",
+                              "type": "String",
+                              "args": [
+                               {
+                                "constant": {
+                                 "type": "Int",
+                                 "values": [
+                                  "0"
+                                 ]
+                                }
+                               }
+                              ],
+                              "name": "k"
+                             },
+                             {
+                              "ref": "G.Main"
+                             }
+                            ]
+                           }
+                          ]
+                         }
+                        ]
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.Int",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.025,
+     "expression": {
+      "local": "i0"
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.025,
+     "expression": {
+      "local": "i1"
+     }
+    },
+    {
+     "id": "a2",
+     "weight": 0.025,
+     "expression": {
+      "local": "i2"
+     }
+    },
+    {
+     "id": "a3",
+     "weight": 0.025,
+     "expression": {
+      "input": "in0"
+     }
+    },
+    {
+     "id": "a4",
+     "weight": 0.05,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "0",
+        "9"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a5",
+     "weight": 0.025,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "10",
+        "99"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a6",
+     "weight": 0.0125,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "100",
+        "999"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a7",
+     "weight": 0.00625,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "1000",
+        "9999"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a8",
+     "weight": 0.00625,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "10000",
+        "99999"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a9",
+     "weight": 0.1,
+     "expression": {
+      "signature": "neg(Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a10",
+     "weight": 0.03333333333333333,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a11",
+     "weight": 0.03333333333333333,
+     "expression": {
+      "signature": "sub(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a12",
+     "weight": 0.03333333333333333,
+     "expression": {
+      "signature": "mul(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a13",
+     "weight": 0.05,
+     "expression": {
+      "signature": "idiv0(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a14",
+     "weight": 0.05,
+     "expression": {
+      "signature": "imod0(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a15",
+     "weight": 0.1,
+     "expression": {
+      "signature": "min(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a16",
+     "weight": 0.1,
+     "expression": {
+      "signature": "max(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a17",
+     "weight": 0.1,
+     "expression": {
+      "signature": "abs(Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a18",
+     "weight": 0.1,
+     "expression": {
+      "signature": "len(String)->Int",
+      "args": [
+       {
+        "ref": "G.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a19",
+     "weight": 0.1,
+     "expression": {
+      "signature": "ord(Char)->Int",
+      "args": [
+       {
+        "signature": "string_to_char(String)->Char",
+        "args": [
+         {
+          "signature": "index_mod(String,Int)->String",
+          "args": [
+           {
+            "signature": "concat(String,String)->String",
+            "args": [
+             {
+              "ref": "G.String"
+             },
+             {
+              "constant": {
+               "type": "String",
+               "values": [
+                " "
+               ]
+              }
+             }
+            ]
+           },
+           {
+            "constant": {
+             "type": "Int",
+             "range": [
+              "0",
+              "0"
+             ]
+            }
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.Bool",
+   "type": "Bool",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.030303030303030297,
+     "expression": {
+      "local": "b0"
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.030303030303030297,
+     "expression": {
+      "local": "b1"
+     }
+    },
+    {
+     "id": "a2",
+     "weight": 0.030303030303030297,
+     "expression": {
+      "local": "b2"
+     }
+    },
+    {
+     "id": "a3",
+     "weight": 0.0909090909090909,
+     "expression": {
+      "constant": {
+       "type": "Bool",
+       "values": [
+        true,
+        false
+       ]
+      }
+     }
+    },
+    {
+     "id": "a4",
+     "weight": 0.0909090909090909,
+     "expression": {
+      "signature": "not(Bool)->Bool",
+      "args": [
+       {
+        "ref": "G.Bool"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a5",
+     "weight": 0.04545454545454545,
+     "expression": {
+      "signature": "and(Bool,Bool)->Bool",
+      "args": [
+       {
+        "ref": "G.Bool"
+       },
+       {
+        "ref": "G.Bool"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a6",
+     "weight": 0.04545454545454545,
+     "expression": {
+      "signature": "or(Bool,Bool)->Bool",
+      "args": [
+       {
+        "ref": "G.Bool"
+       },
+       {
+        "ref": "G.Bool"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a7",
+     "weight": 0.015151515151515148,
+     "expression": {
+      "signature": "lt(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a8",
+     "weight": 0.015151515151515148,
+     "expression": {
+      "signature": "gt(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a9",
+     "weight": 0.015151515151515148,
+     "expression": {
+      "signature": "eq(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a10",
+     "weight": 0.015151515151515148,
+     "expression": {
+      "signature": "ge(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a11",
+     "weight": 0.015151515151515148,
+     "expression": {
+      "signature": "le(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a12",
+     "weight": 0.015151515151515148,
+     "expression": {
+      "signature": "ne(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a13",
+     "weight": 0.0909090909090909,
+     "expression": {
+      "signature": "contains(String,String)->Bool",
+      "args": [
+       {
+        "ref": "G.String"
+       },
+       {
+        "ref": "G.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a14",
+     "weight": 0.0909090909090909,
+     "expression": {
+      "signature": "not(Bool)->Bool",
+      "args": [
+       {
+        "signature": "contains(String,String)->Bool",
+        "args": [
+         {
+          "ref": "G.String"
+         },
+         {
+          "ref": "G.String"
+         }
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "a15",
+     "weight": 0.0909090909090909,
+     "expression": {
+      "signature": "eq(String,String)->Bool",
+      "args": [
+       {
+        "ref": "G.String"
+       },
+       {
+        "ref": "G.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a16",
+     "weight": 0.0909090909090909,
+     "expression": {
+      "signature": "ne(String,String)->Bool",
+      "args": [
+       {
+        "ref": "G.String"
+       },
+       {
+        "ref": "G.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a17",
+     "weight": 0.0909090909090909,
+     "expression": {
+      "signature": "startswith(String,String)->Bool",
+      "args": [
+       {
+        "ref": "G.String"
+       },
+       {
+        "ref": "G.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a18",
+     "weight": 0.0909090909090909,
+     "expression": {
+      "signature": "endswith(String,String)->Bool",
+      "args": [
+       {
+        "ref": "G.String"
+       },
+       {
+        "ref": "G.String"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.String",
+   "type": "String",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.019230769230769232,
+     "expression": {
+      "local": "s0"
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.019230769230769232,
+     "expression": {
+      "local": "s1"
+     }
+    },
+    {
+     "id": "a2",
+     "weight": 0.019230769230769232,
+     "expression": {
+      "local": "s2"
+     }
+    },
+    {
+     "id": "a3",
+     "weight": 0.019230769230769232,
+     "expression": {
+      "local": "res0"
+     }
+    },
+    {
+     "id": "a4",
+     "weight": 0.02564102564102564,
+     "expression": {
+      "constant": {
+       "type": "String",
+       "values": [
+        "\n",
+        "\t",
+        "",
+        " ",
+        "!",
+        "\"",
+        "#",
+        "$",
+        "%",
+        "&",
+        "'",
+        "(",
+        ")",
+        "*",
+        "+",
+        ",",
+        "-",
+        ".",
+        "/",
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        ":",
+        ";",
+        "<",
+        "=",
+        ">",
+        "?",
+        "@",
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K",
+        "L",
+        "M",
+        "N",
+        "O",
+        "P",
+        "Q",
+        "R",
+        "S",
+        "T",
+        "U",
+        "V",
+        "W",
+        "X",
+        "Y",
+        "Z",
+        "[",
+        "\\",
+        "]",
+        "^",
+        "_",
+        "`",
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j",
+        "k",
+        "l",
+        "m",
+        "n",
+        "o",
+        "p",
+        "q",
+        "r",
+        "s",
+        "t",
+        "u",
+        "v",
+        "w",
+        "x",
+        "y",
+        "z",
+        "{",
+        "|",
+        "}"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a5",
+     "weight": 0.02564102564102564,
+     "expression": {
+      "constant": {
+       "type": "String",
+       "values": [
+        "small"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a6",
+     "weight": 0.02564102564102564,
+     "expression": {
+      "constant": {
+       "type": "String",
+       "values": [
+        "large"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a7",
+     "weight": 0.02564102564102564,
+     "expression": {
+      "signature": "slice(String,Int,Int)->String",
+      "args": [
+       {
+        "ref": "G.String"
+       },
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a8",
+     "weight": 0.02564102564102564,
+     "expression": {
+      "signature": "slice(String,Int,Int)->String",
+      "args": [
+       {
+        "ref": "G.String"
+       },
+       {
+        "constant": {
+         "type": "Int",
+         "range": [
+          "0",
+          "0"
+         ]
+        }
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a9",
+     "weight": 0.02564102564102564,
+     "expression": {
+      "signature": "slice(String,Int,Int)->String",
+      "args": [
+       {
+        "ref": "G.String"
+       },
+       {
+        "ref": "G.Int"
+       },
+       {
+        "constant": {
+         "type": "Int",
+         "values": [
+          "1000000"
+         ]
+        }
+       }
+      ]
+     }
+    },
+    {
+     "id": "a10",
+     "weight": 0.07692307692307693,
+     "expression": {
+      "signature": "index_mod(String,Int)->String",
+      "args": [
+       {
+        "ref": "G.String"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a11",
+     "weight": 0.07692307692307693,
+     "expression": {
+      "signature": "char_to_string(Char)->String",
+      "args": [
+       {
+        "signature": "chr(Int)->Char",
+        "args": [
+         {
+          "signature": "imod0(Int,Int)->Int",
+          "args": [
+           {
+            "ref": "G.Int"
+           },
+           {
+            "constant": {
+             "type": "Int",
+             "values": [
+              "128"
+             ]
+            }
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "a12",
+     "weight": 0.07692307692307693,
+     "expression": {
+      "signature": "concat(String,String)->String",
+      "args": [
+       {
+        "ref": "G.String"
+       },
+       {
+        "ref": "G.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a13",
+     "weight": 0.07692307692307693,
+     "expression": {
+      "signature": "lstrip(String)->String",
+      "args": [
+       {
+        "ref": "G.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a14",
+     "weight": 0.07692307692307693,
+     "expression": {
+      "signature": "rstrip(String)->String",
+      "args": [
+       {
+        "ref": "G.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a15",
+     "weight": 0.07692307692307693,
+     "expression": {
+      "signature": "strip(String)->String",
+      "args": [
+       {
+        "ref": "G.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a16",
+     "weight": 0.07692307692307693,
+     "expression": {
+      "signature": "lstrip(String,String)->String",
+      "args": [
+       {
+        "ref": "G.String"
+       },
+       {
+        "ref": "G.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a17",
+     "weight": 0.07692307692307693,
+     "expression": {
+      "signature": "rstrip(String,String)->String",
+      "args": [
+       {
+        "ref": "G.String"
+       },
+       {
+        "ref": "G.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a18",
+     "weight": 0.07692307692307693,
+     "expression": {
+      "signature": "strip(String,String)->String",
+      "args": [
+       {
+        "ref": "G.String"
+       },
+       {
+        "ref": "G.String"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a19",
+     "weight": 0.07692307692307693,
+     "expression": {
+      "signature": "capitalize(String)->String",
+      "args": [
+       {
+        "ref": "G.String"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.Stmt",
+   "type": "String",
+   "scope": [],
+   "category": "Statement",
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.055555555555555566,
+     "expression": {
+      "control": "assign(Bool)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.Bool"
+       }
+      ],
+      "name": "b0"
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.055555555555555566,
+     "expression": {
+      "control": "assign(Bool)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.Bool"
+       }
+      ],
+      "name": "b1"
+     }
+    },
+    {
+     "id": "a2",
+     "weight": 0.055555555555555566,
+     "expression": {
+      "control": "assign(Bool)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.Bool"
+       }
+      ],
+      "name": "b2"
+     }
+    },
+    {
+     "id": "a3",
+     "weight": 0.020833333333333336,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ],
+      "name": "i0"
+     }
+    },
+    {
+     "id": "a4",
+     "weight": 0.020833333333333336,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ],
+      "name": "i1"
+     }
+    },
+    {
+     "id": "a5",
+     "weight": 0.020833333333333336,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ],
+      "name": "i2"
+     }
+    },
+    {
+     "id": "a6",
+     "weight": 0.020833333333333336,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ],
+      "input_name": "in0"
+     }
+    },
+    {
+     "id": "a7",
+     "weight": 0.006944444444444446,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "signature": "add(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i0"
+     }
+    },
+    {
+     "id": "a8",
+     "weight": 0.006944444444444446,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "signature": "sub(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i0"
+     }
+    },
+    {
+     "id": "a9",
+     "weight": 0.006944444444444446,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "signature": "mul(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i0"
+     }
+    },
+    {
+     "id": "a10",
+     "weight": 0.006944444444444446,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "signature": "add(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i1"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i1"
+     }
+    },
+    {
+     "id": "a11",
+     "weight": 0.006944444444444446,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "signature": "sub(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i1"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i1"
+     }
+    },
+    {
+     "id": "a12",
+     "weight": 0.006944444444444446,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "signature": "mul(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i1"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i1"
+     }
+    },
+    {
+     "id": "a13",
+     "weight": 0.006944444444444446,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "signature": "add(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i2"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i2"
+     }
+    },
+    {
+     "id": "a14",
+     "weight": 0.006944444444444446,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "signature": "sub(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i2"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i2"
+     }
+    },
+    {
+     "id": "a15",
+     "weight": 0.006944444444444446,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "signature": "mul(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i2"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i2"
+     }
+    },
+    {
+     "id": "a16",
+     "weight": 0.006944444444444446,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "signature": "add(Int,Int)->Int",
+        "args": [
+         {
+          "input": "in0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in0"
+     }
+    },
+    {
+     "id": "a17",
+     "weight": 0.006944444444444446,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "signature": "sub(Int,Int)->Int",
+        "args": [
+         {
+          "input": "in0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in0"
+     }
+    },
+    {
+     "id": "a18",
+     "weight": 0.006944444444444446,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "signature": "mul(Int,Int)->Int",
+        "args": [
+         {
+          "input": "in0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in0"
+     }
+    },
+    {
+     "id": "a19",
+     "weight": 0.04166666666666667,
+     "expression": {
+      "control": "assign(String)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.String"
+       }
+      ],
+      "name": "s0"
+     }
+    },
+    {
+     "id": "a20",
+     "weight": 0.04166666666666667,
+     "expression": {
+      "control": "assign(String)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.String"
+       }
+      ],
+      "name": "s1"
+     }
+    },
+    {
+     "id": "a21",
+     "weight": 0.04166666666666667,
+     "expression": {
+      "control": "assign(String)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.String"
+       }
+      ],
+      "name": "s2"
+     }
+    },
+    {
+     "id": "a22",
+     "weight": 0.04166666666666667,
+     "expression": {
+      "control": "assign(String)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.String"
+       }
+      ],
+      "name": "res0"
+     }
+    },
+    {
+     "id": "a23",
+     "weight": 0.25000000000000006,
+     "expression": {
+      "control": "if_stmt(Bool,Block,Block)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.Bool"
+       },
+       {
+        "ref": "G.Code"
+       },
+       {
+        "control": "block_nil()->Block",
+        "type": "String",
+        "args": []
+       }
+      ]
+     }
+    },
+    {
+     "id": "a24",
+     "weight": 0.25000000000000006,
+     "expression": {
+      "control": "if_stmt(Bool,Block,Block)->Statement",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.Bool"
+       },
+       {
+        "ref": "G.Code"
+       },
+       {
+        "ref": "G.Code"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.Code",
+   "type": "String",
+   "scope": [],
+   "category": "Block",
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.5,
+     "expression": {
+      "control": "block_cons(Statement,Block)->Block",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.Stmt"
+       },
+       {
+        "ref": "G.Code"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.5,
+     "expression": {
+      "control": "block_cons(Statement,Block)->Block",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.Stmt"
+       },
+       {
+        "control": "block_nil()->Block",
+        "type": "String",
+        "args": []
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.Main",
+   "type": "String",
+   "scope": [],
+   "category": "Block",
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.5,
+     "expression": {
+      "control": "block_cons(Statement,Block)->Block",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.Stmt"
+       },
+       {
+        "ref": "G.Main"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.5,
+     "expression": {
+      "control": "block_cons(Statement,Block)->Block",
+      "type": "String",
+      "args": [
+       {
+        "ref": "G.Stmt"
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "String",
+        "args": [
+         {
+          "control": "return(String)->Statement",
+          "type": "String",
+          "args": [
+           {
+            "local": "res0"
+           }
+          ]
+         },
+         {
+          "control": "block_nil()->Block",
+          "type": "String",
+          "args": []
+         }
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

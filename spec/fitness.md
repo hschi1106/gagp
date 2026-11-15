@@ -271,6 +271,7 @@ results:
 | `concat` of two nonempty lists or strings | the combined length |
 | `append`, `prepend` | length of the list plus one |
 | `reverse` | length of the list or string |
+| `range(a, b)` | `b - a` (nothing when empty) |
 | `char_to_string` | 1 |
 | `to_string` | length of the decimal text |
 

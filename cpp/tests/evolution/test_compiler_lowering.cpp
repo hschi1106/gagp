@@ -10,6 +10,7 @@
 #include "gagp/evolution/genome.hpp"
 #include "gagp/evolution/input_spec.hpp"
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
+#include "gagp/runtime/payload/payload.hpp"
 
 namespace {
 
@@ -163,9 +164,68 @@ bool test_sequential_loops_reuse_only_hidden_locals() {
                "named count and loop variable must survive temporary reuse");
 }
 
+// Every G3P builtin node: AST typing, lowering and execution agree, and a
+// mistyped call is rejected by the verifier.
+bool test_g3p_builtin_nodes() {
+  const auto I = [](std::int64_t v) { return Value::from_int(v); };
+  const auto S = [](const std::string& v) { return gagp::payload::make_string_value(v); };
+  struct Item {
+    std::string label;
+    std::vector<AstNode> expression;
+    std::vector<Value> consts;
+    Value expected;
+  };
+  const auto c = [](int i) { return AstNode{NodeKind::CONST, i, 0}; };
+  const auto n = [](NodeKind k) { return AstNode{k, 0, 0}; };
+  const Value yes = Value::from_bool(true);
+  const std::vector<Item> items{
+      {"insert", {n(NodeKind::CALL_LEN), n(NodeKind::CALL_INSERT), n(NodeKind::CALL_RANGE), c(0), c(1), c(2), c(3)},
+       {I(0), I(4), I(1), I(9)}, I(5)},
+      {"remove_at", {n(NodeKind::CALL_LEN), n(NodeKind::CALL_REMOVE_AT), n(NodeKind::CALL_RANGE), c(0), c(1), c(2)},
+       {I(0), I(4), I(5)}, I(3)},
+      {"set_at", {n(NodeKind::CALL_INDEX_MOD), n(NodeKind::CALL_SET_AT), n(NodeKind::CALL_RANGE), c(0), c(1), c(2), c(3), c(4)},
+       {I(0), I(4), I(-1), I(42), I(3)}, I(42)},
+      {"index_mod string", {n(NodeKind::CALL_LEN), n(NodeKind::CALL_INDEX_MOD), c(0), c(1)}, {S("abc"), I(-8)}, I(1)},
+      {"contains list", {n(NodeKind::CALL_CONTAINS), n(NodeKind::CALL_RANGE), c(0), c(1), c(2)}, {I(0), I(4), I(3)}, yes},
+      {"strip", {n(NodeKind::CALL_LEN), n(NodeKind::CALL_STRIP), c(0)}, {S("  ab ")}, I(2)},
+      {"lstrip", {n(NodeKind::CALL_LEN), n(NodeKind::CALL_LSTRIP), c(0)}, {S("  ab ")}, I(3)},
+      {"rstrip", {n(NodeKind::CALL_LEN), n(NodeKind::CALL_RSTRIP), c(0)}, {S("  ab ")}, I(4)},
+      {"strip chars", {n(NodeKind::CALL_LEN), n(NodeKind::CALL_STRIP_CHARS), c(0), c(1)}, {S("xxhixx"), S("x")}, I(2)},
+      {"lstrip chars", {n(NodeKind::CALL_LEN), n(NodeKind::CALL_LSTRIP_CHARS), c(0), c(1)}, {S("xxhixx"), S("x")}, I(4)},
+      {"rstrip chars", {n(NodeKind::CALL_LEN), n(NodeKind::CALL_RSTRIP_CHARS), c(0), c(1)}, {S("xxhixx"), S("x")}, I(4)},
+      {"startswith", {n(NodeKind::CALL_STARTSWITH), c(0), c(1)}, {S("hello"), S("he")}, yes},
+      {"endswith", {n(NodeKind::CALL_ENDSWITH), c(0), c(1)}, {S("hello"), S("he")}, Value::from_bool(false)},
+      {"capitalize", {n(NodeKind::EQ), n(NodeKind::CALL_CAPITALIZE), c(0), c(1)}, {S("hELLO"), S("Hello")}, yes},
+  };
+  for (const auto& item : items) {
+    AstProgram ast;
+    ast.consts = item.consts;
+    ast.nodes = {n(NodeKind::PROGRAM), n(NodeKind::BLOCK_CONS), n(NodeKind::RETURN)};
+    ast.nodes.insert(ast.nodes.end(), item.expression.begin(), item.expression.end());
+    ast.nodes.push_back(n(NodeKind::BLOCK_NIL));
+    const auto verified = gagp::evo::verify_ast(ast, {});
+    if (!check(verified.ok, item.label + ": AST should verify")) return false;
+    const auto bytecode = gagp::evo::compile_for_eval(genome(ast), verified.verified);
+    const auto result = gagp::execute_bytecode_cpu(bytecode, {}, 1000);
+    if (!check(!result.is_error && result.value.tag == item.expected.tag && result.value.i == item.expected.i,
+               item.label + ": lowered program result")) return false;
+    // A Bool in place of the first constant mistypes every node.
+    AstProgram bad = ast;
+    bad.consts[0] = Value::from_bool(true);
+    if (!check(!gagp::evo::verify_ast(bad, {}).ok, item.label + ": mistyped argument must be rejected")) return false;
+  }
+  // The element must match the list: insert(IntList, Int, String) is rejected.
+  AstProgram mixed;
+  mixed.consts = {I(0), I(2), I(0), S("x")};
+  mixed.nodes = {n(NodeKind::PROGRAM), n(NodeKind::BLOCK_CONS), n(NodeKind::RETURN), n(NodeKind::CALL_LEN),
+                 n(NodeKind::CALL_INSERT), n(NodeKind::CALL_RANGE), c(0), c(1), c(2), c(3), n(NodeKind::BLOCK_NIL)};
+  return check(!gagp::evo::verify_ast(mixed, {}).ok, "insert of a String into an IntList must be rejected");
+}
+
 }  // namespace
 
 int main() {
+  if (!test_g3p_builtin_nodes()) return 1;
   if (!test_for_range_bound_is_evaluated_once()) return 1;
   if (!test_sequential_loops_reuse_only_hidden_locals()) return 1;
   if (!test_logical_operators_short_circuit()) return 1;

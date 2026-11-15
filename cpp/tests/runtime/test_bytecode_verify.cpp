@@ -97,6 +97,19 @@ int main() {
                   ins(Opcode::Return)};
   if (!expect_code(program, BytecodeVerifyCode::InvalidBuiltinArity, "builtin arity")) return 1;
 
+  // The G3P builtins have fixed arities; wrong ones are rejected and IDs past
+  // the last builtin are unknown.
+  for (const auto& arity : std::vector<std::pair<BuiltinId, int>>{
+           {BuiltinId::Insert, 3}, {BuiltinId::RemoveAt, 2}, {BuiltinId::SetAt, 3}, {BuiltinId::IndexMod, 2},
+           {BuiltinId::Range, 2}, {BuiltinId::Strip, 1}, {BuiltinId::LStrip, 1}, {BuiltinId::RStrip, 1},
+           {BuiltinId::StripChars, 2}, {BuiltinId::LStripChars, 2}, {BuiltinId::RStripChars, 2},
+           {BuiltinId::StartsWith, 2}, {BuiltinId::EndsWith, 2}, {BuiltinId::Capitalize, 1}}) {
+    program.code = {ins_ab(Opcode::CallBuiltin, static_cast<int>(arity.first), arity.second + 1), ins(Opcode::Return)};
+    if (!expect_code(program, BytecodeVerifyCode::InvalidBuiltinArity, "G3P builtin arity")) return 1;
+  }
+  program.code = {ins_ab(Opcode::CallBuiltin, static_cast<int>(BuiltinId::Capitalize) + 1, 1), ins(Opcode::Return)};
+  if (!expect_code(program, BytecodeVerifyCode::InvalidBuiltinId, "builtin id after capitalize")) return 1;
+
   program.consts = {Value::from_bool(true), Value::from_int(1)};
   program.code = {ins_a(Opcode::PushConst, 0), ins_a(Opcode::JmpIfFalse, 4),
                   ins_a(Opcode::PushConst, 1), ins_a(Opcode::Jmp, 5),

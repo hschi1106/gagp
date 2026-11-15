@@ -90,7 +90,12 @@ bool program_has_exact_payload_builtin(const BytecodeProgram& prog) {
     if (bid == BuiltinId::Concat || bid == BuiltinId::Slice || (bid == BuiltinId::Index || bid == BuiltinId::IndexNonnegative || bid == BuiltinId::IndexClampedOrZero) ||
         bid == BuiltinId::Append || bid == BuiltinId::Prepend || bid == BuiltinId::Reverse ||
         bid == BuiltinId::Find || bid == BuiltinId::Contains || bid == BuiltinId::CharToString ||
-        bid == BuiltinId::StringToChar || bid == BuiltinId::Singleton) {
+        bid == BuiltinId::StringToChar || bid == BuiltinId::Singleton ||
+        bid == BuiltinId::Insert || bid == BuiltinId::RemoveAt || bid == BuiltinId::SetAt ||
+        bid == BuiltinId::IndexMod || bid == BuiltinId::Range || bid == BuiltinId::Strip ||
+        bid == BuiltinId::LStrip || bid == BuiltinId::RStrip || bid == BuiltinId::StripChars ||
+        bid == BuiltinId::LStripChars || bid == BuiltinId::RStripChars ||
+        bid == BuiltinId::StartsWith || bid == BuiltinId::EndsWith || bid == BuiltinId::Capitalize) {
       return true;
     }
   }
