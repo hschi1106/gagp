@@ -112,6 +112,6 @@ that changes which programs are explored belongs in the
 [search configuration](../../spec/search_config.md), implemented by both
 engines; see [gpu-reproduction.md](../design/gpu-reproduction.md).
 
-Commits use `<type>: <summary>` with `feat`, `fix`, `refactor`, `docs`,
-`test` or `chore`. Do not commit builds, run outputs (`logs/`, `runs/`) or
+Commits use `<type>: <summary>` with `feat`, `fix`, `perf`, `refactor`,
+`docs`, `test` or `chore`. Do not commit builds, run outputs (`logs/`, `runs/`) or
 datasets.

@@ -68,8 +68,8 @@ timing. Details are in [docs/guides/development.md](docs/guides/development.md).
 - C++17 and CUDA, matching the style of neighboring files; Python with
   4-space indentation and type hints; `snake_case` functions, `PascalCase`
   types, `UPPER_CASE` constants. Python tests use `unittest`.
-- Commits: `<type>: <summary>` with `feat`, `fix`, `refactor`, `docs`, `test`
-  or `chore`. Do not commit builds, run outputs (`logs/`, `runs/`) or datasets.
+- Commits: `<type>: <summary>` with `feat`, `fix`, `perf`, `refactor`, `docs`,
+  `test` or `chore`. Do not commit builds, run outputs (`logs/`, `runs/`) or datasets.
 
 ## Agent workflow
 
