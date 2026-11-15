@@ -371,6 +371,7 @@ bool test_allocation_limits() {
   length_of_range("range reversed", 10, -3);
   length_of_range("range huge", INT64_MIN, INT64_MAX);
   length_of_range("range over the cap", 0, 70000);
+  length_of_range("range at the cap", -30000, 35535);
   cases.push_back({"two ranges", {push(0), push(1), call(BuiltinId::Range, 2), push(0), push(1), call(BuiltinId::Range, 2),
                    call(BuiltinId::Concat, 2), call(BuiltinId::Len, 1), ins(Opcode::Return)}, {I(0), I(5)}});
   cases.push_back({"range then singleton", {push(0), push(1), call(BuiltinId::Range, 2), push(0), call(BuiltinId::Singleton, 1),
@@ -395,7 +396,8 @@ bool test_allocation_limits() {
       FitnessEvalResult gpu;
       if (!compare_population(programs, {{}}, {I(10)}, policy, "g3p allocation limit " + std::to_string(limit), &gpu, &counts)) return false;
       if (!check(counts[0].errors == 0U && counts[1].errors == (limit >= 11 ? 0U : 1U) &&
-                 counts[2].errors == 0U && counts[3].errors == 1U && counts[4].errors == 1U,
+                 counts[2].errors == 0U && counts[3].errors == 1U && counts[4].errors == 1U &&
+                 counts[5].errors == (limit >= 65535 ? 0U : 1U),
                  "g3p allocation limit expectation for range at limit " + std::to_string(limit))) return false;
     }
   }
