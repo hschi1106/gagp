@@ -174,6 +174,7 @@ replay re-derives every member and fails if anything differs.
 | `configs/grammar/examples/types/` | One grammar per value type |
 | `configs/grammar/examples/restricted_combine.json` | Filling a divide-and-conquer package |
 | [`benchmarks/asgp30/`](../../benchmarks/asgp30) | 30 complete program-synthesis tasks |
+| [`benchmarks/psb1_g3p/`](../../benchmarks/psb1_g3p) | Six PSB1 tasks with ported G3P grammars (statements, loops, list and string builtins) |
 
 Each `configs/grammar/examples` grammar comes with a `.cases.json` file; to run
 one, put both next to a task file as in the

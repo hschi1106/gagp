@@ -1,0 +1,2640 @@
+{
+ "format_version": "grammar-definition-v2",
+ "entry": {
+  "category": "Program",
+  "nonterminal": "G.Program",
+  "type": "IntList"
+ },
+ "inputs": [
+  {
+   "name": "in0",
+   "type": "IntList"
+  }
+ ],
+ "locals": [
+  {
+   "name": "i0",
+   "type": "Int"
+  },
+  {
+   "name": "i1",
+   "type": "Int"
+  },
+  {
+   "name": "i2",
+   "type": "Int"
+  },
+  {
+   "name": "b0",
+   "type": "Bool"
+  },
+  {
+   "name": "b1",
+   "type": "Bool"
+  },
+  {
+   "name": "b2",
+   "type": "Bool"
+  },
+  {
+   "name": "li0",
+   "type": "IntList"
+  },
+  {
+   "name": "li1",
+   "type": "IntList"
+  },
+  {
+   "name": "li2",
+   "type": "IntList"
+  },
+  {
+   "name": "res0",
+   "type": "IntList"
+  },
+  {
+   "name": "k",
+   "type": "Int"
+  }
+ ],
+ "search_limits": {
+  "max_nodes": 207,
+  "max_depth": 40
+ },
+ "execution_limits": {
+  "fuel": 20000
+ },
+ "nonterminals": [
+  {
+   "id": "G.Program",
+   "type": "IntList",
+   "scope": [],
+   "category": "Program",
+   "variation": false,
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 1.0,
+     "expression": {
+      "control": "program(Block)->Program",
+      "type": "IntList",
+      "args": [
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "constant": {
+             "type": "Int",
+             "values": [
+              "0"
+             ]
+            }
+           }
+          ],
+          "name": "i0"
+         },
+         {
+          "control": "block_cons(Statement,Block)->Block",
+          "type": "IntList",
+          "args": [
+           {
+            "control": "assign(Int)->Statement",
+            "type": "IntList",
+            "args": [
+             {
+              "constant": {
+               "type": "Int",
+               "values": [
+                "0"
+               ]
+              }
+             }
+            ],
+            "name": "i1"
+           },
+           {
+            "control": "block_cons(Statement,Block)->Block",
+            "type": "IntList",
+            "args": [
+             {
+              "control": "assign(Int)->Statement",
+              "type": "IntList",
+              "args": [
+               {
+                "constant": {
+                 "type": "Int",
+                 "values": [
+                  "0"
+                 ]
+                }
+               }
+              ],
+              "name": "i2"
+             },
+             {
+              "control": "block_cons(Statement,Block)->Block",
+              "type": "IntList",
+              "args": [
+               {
+                "control": "assign(Bool)->Statement",
+                "type": "IntList",
+                "args": [
+                 {
+                  "constant": {
+                   "type": "Bool",
+                   "values": [
+                    false
+                   ]
+                  }
+                 }
+                ],
+                "name": "b0"
+               },
+               {
+                "control": "block_cons(Statement,Block)->Block",
+                "type": "IntList",
+                "args": [
+                 {
+                  "control": "assign(Bool)->Statement",
+                  "type": "IntList",
+                  "args": [
+                   {
+                    "constant": {
+                     "type": "Bool",
+                     "values": [
+                      false
+                     ]
+                    }
+                   }
+                  ],
+                  "name": "b1"
+                 },
+                 {
+                  "control": "block_cons(Statement,Block)->Block",
+                  "type": "IntList",
+                  "args": [
+                   {
+                    "control": "assign(Bool)->Statement",
+                    "type": "IntList",
+                    "args": [
+                     {
+                      "constant": {
+                       "type": "Bool",
+                       "values": [
+                        false
+                       ]
+                      }
+                     }
+                    ],
+                    "name": "b2"
+                   },
+                   {
+                    "control": "block_cons(Statement,Block)->Block",
+                    "type": "IntList",
+                    "args": [
+                     {
+                      "control": "assign(IntList)->Statement",
+                      "type": "IntList",
+                      "args": [
+                       {
+                        "constant": {
+                         "type": "IntList",
+                         "values": [
+                          []
+                         ]
+                        }
+                       }
+                      ],
+                      "name": "li0"
+                     },
+                     {
+                      "control": "block_cons(Statement,Block)->Block",
+                      "type": "IntList",
+                      "args": [
+                       {
+                        "control": "assign(IntList)->Statement",
+                        "type": "IntList",
+                        "args": [
+                         {
+                          "constant": {
+                           "type": "IntList",
+                           "values": [
+                            []
+                           ]
+                          }
+                         }
+                        ],
+                        "name": "li1"
+                       },
+                       {
+                        "control": "block_cons(Statement,Block)->Block",
+                        "type": "IntList",
+                        "args": [
+                         {
+                          "control": "assign(IntList)->Statement",
+                          "type": "IntList",
+                          "args": [
+                           {
+                            "constant": {
+                             "type": "IntList",
+                             "values": [
+                              []
+                             ]
+                            }
+                           }
+                          ],
+                          "name": "li2"
+                         },
+                         {
+                          "control": "block_cons(Statement,Block)->Block",
+                          "type": "IntList",
+                          "args": [
+                           {
+                            "control": "assign(IntList)->Statement",
+                            "type": "IntList",
+                            "args": [
+                             {
+                              "constant": {
+                               "type": "IntList",
+                               "values": [
+                                []
+                               ]
+                              }
+                             }
+                            ],
+                            "name": "res0"
+                           },
+                           {
+                            "control": "block_cons(Statement,Block)->Block",
+                            "type": "IntList",
+                            "args": [
+                             {
+                              "control": "assign(Int)->Statement",
+                              "type": "IntList",
+                              "args": [
+                               {
+                                "constant": {
+                                 "type": "Int",
+                                 "values": [
+                                  "0"
+                                 ]
+                                }
+                               }
+                              ],
+                              "name": "k"
+                             },
+                             {
+                              "ref": "G.Main"
+                             }
+                            ]
+                           }
+                          ]
+                         }
+                        ]
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.Int",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.03333333333333333,
+     "expression": {
+      "local": "i0"
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.03333333333333333,
+     "expression": {
+      "local": "i1"
+     }
+    },
+    {
+     "id": "a2",
+     "weight": 0.03333333333333333,
+     "expression": {
+      "local": "i2"
+     }
+    },
+    {
+     "id": "a3",
+     "weight": 0.05,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "0",
+        "9"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a4",
+     "weight": 0.025,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "10",
+        "99"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a5",
+     "weight": 0.0125,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "100",
+        "999"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a6",
+     "weight": 0.00625,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "1000",
+        "9999"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a7",
+     "weight": 0.00625,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "10000",
+        "99999"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a8",
+     "weight": 0.1,
+     "expression": {
+      "signature": "neg(Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a9",
+     "weight": 0.03333333333333333,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a10",
+     "weight": 0.03333333333333333,
+     "expression": {
+      "signature": "sub(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a11",
+     "weight": 0.03333333333333333,
+     "expression": {
+      "signature": "mul(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a12",
+     "weight": 0.05,
+     "expression": {
+      "signature": "idiv0(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a13",
+     "weight": 0.05,
+     "expression": {
+      "signature": "imod0(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a14",
+     "weight": 0.1,
+     "expression": {
+      "signature": "min(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a15",
+     "weight": 0.1,
+     "expression": {
+      "signature": "max(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a16",
+     "weight": 0.1,
+     "expression": {
+      "signature": "abs(Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a17",
+     "weight": 0.1,
+     "expression": {
+      "signature": "index_mod(IntList,Int)->Int",
+      "args": [
+       {
+        "ref": "G.IntList"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a18",
+     "weight": 0.1,
+     "expression": {
+      "signature": "len(IntList)->Int",
+      "args": [
+       {
+        "ref": "G.IntList"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.Bool",
+   "type": "Bool",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.0476190476190476,
+     "expression": {
+      "local": "b0"
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.0476190476190476,
+     "expression": {
+      "local": "b1"
+     }
+    },
+    {
+     "id": "a2",
+     "weight": 0.0476190476190476,
+     "expression": {
+      "local": "b2"
+     }
+    },
+    {
+     "id": "a3",
+     "weight": 0.14285714285714282,
+     "expression": {
+      "constant": {
+       "type": "Bool",
+       "values": [
+        true,
+        false
+       ]
+      }
+     }
+    },
+    {
+     "id": "a4",
+     "weight": 0.14285714285714282,
+     "expression": {
+      "signature": "not(Bool)->Bool",
+      "args": [
+       {
+        "ref": "G.Bool"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a5",
+     "weight": 0.07142857142857141,
+     "expression": {
+      "signature": "and(Bool,Bool)->Bool",
+      "args": [
+       {
+        "ref": "G.Bool"
+       },
+       {
+        "ref": "G.Bool"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a6",
+     "weight": 0.07142857142857141,
+     "expression": {
+      "signature": "or(Bool,Bool)->Bool",
+      "args": [
+       {
+        "ref": "G.Bool"
+       },
+       {
+        "ref": "G.Bool"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a7",
+     "weight": 0.0238095238095238,
+     "expression": {
+      "signature": "lt(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a8",
+     "weight": 0.0238095238095238,
+     "expression": {
+      "signature": "gt(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a9",
+     "weight": 0.0238095238095238,
+     "expression": {
+      "signature": "eq(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a10",
+     "weight": 0.0238095238095238,
+     "expression": {
+      "signature": "ge(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a11",
+     "weight": 0.0238095238095238,
+     "expression": {
+      "signature": "le(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a12",
+     "weight": 0.0238095238095238,
+     "expression": {
+      "signature": "ne(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a13",
+     "weight": 0.07142857142857141,
+     "expression": {
+      "signature": "contains(IntList,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.IntList"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a14",
+     "weight": 0.07142857142857141,
+     "expression": {
+      "signature": "not(Bool)->Bool",
+      "args": [
+       {
+        "signature": "contains(IntList,Int)->Bool",
+        "args": [
+         {
+          "ref": "G.IntList"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "a15",
+     "weight": 0.07142857142857141,
+     "expression": {
+      "signature": "eq(IntList,IntList)->Bool",
+      "args": [
+       {
+        "ref": "G.IntList"
+       },
+       {
+        "ref": "G.IntList"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a16",
+     "weight": 0.07142857142857141,
+     "expression": {
+      "signature": "ne(IntList,IntList)->Bool",
+      "args": [
+       {
+        "ref": "G.IntList"
+       },
+       {
+        "ref": "G.IntList"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.IntList",
+   "type": "IntList",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.06666666666666667,
+     "expression": {
+      "local": "li0"
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.06666666666666667,
+     "expression": {
+      "local": "li1"
+     }
+    },
+    {
+     "id": "a2",
+     "weight": 0.06666666666666667,
+     "expression": {
+      "local": "li2"
+     }
+    },
+    {
+     "id": "a3",
+     "weight": 0.06666666666666667,
+     "expression": {
+      "local": "res0"
+     }
+    },
+    {
+     "id": "a4",
+     "weight": 0.06666666666666667,
+     "expression": {
+      "input": "in0"
+     }
+    },
+    {
+     "id": "a5",
+     "weight": 0.33333333333333326,
+     "expression": {
+      "signature": "range(Int,Int)->IntList",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a6",
+     "weight": 0.11111111111111109,
+     "expression": {
+      "signature": "slice(IntList,Int,Int)->IntList",
+      "args": [
+       {
+        "ref": "G.IntList"
+       },
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a7",
+     "weight": 0.11111111111111109,
+     "expression": {
+      "signature": "slice(IntList,Int,Int)->IntList",
+      "args": [
+       {
+        "ref": "G.IntList"
+       },
+       {
+        "constant": {
+         "type": "Int",
+         "range": [
+          "0",
+          "0"
+         ]
+        }
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a8",
+     "weight": 0.11111111111111109,
+     "expression": {
+      "signature": "slice(IntList,Int,Int)->IntList",
+      "args": [
+       {
+        "ref": "G.IntList"
+       },
+       {
+        "ref": "G.Int"
+       },
+       {
+        "constant": {
+         "type": "Int",
+         "values": [
+          "1000000"
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.Stmt",
+   "type": "IntList",
+   "scope": [],
+   "category": "Statement",
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.012500000000000002,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "append(IntList,Int)->IntList",
+        "args": [
+         {
+          "local": "li0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "li0"
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.012500000000000002,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "append(IntList,Int)->IntList",
+        "args": [
+         {
+          "local": "li1"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "li1"
+     }
+    },
+    {
+     "id": "a2",
+     "weight": 0.012500000000000002,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "append(IntList,Int)->IntList",
+        "args": [
+         {
+          "local": "li2"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "li2"
+     }
+    },
+    {
+     "id": "a3",
+     "weight": 0.012500000000000002,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "append(IntList,Int)->IntList",
+        "args": [
+         {
+          "local": "res0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "res0"
+     }
+    },
+    {
+     "id": "a4",
+     "weight": 0.012500000000000002,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "append(IntList,Int)->IntList",
+        "args": [
+         {
+          "input": "in0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in0"
+     }
+    },
+    {
+     "id": "a5",
+     "weight": 0.012500000000000002,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "insert(IntList,Int,Int)->IntList",
+        "args": [
+         {
+          "local": "li0"
+         },
+         {
+          "ref": "G.Int"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "li0"
+     }
+    },
+    {
+     "id": "a6",
+     "weight": 0.012500000000000002,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "insert(IntList,Int,Int)->IntList",
+        "args": [
+         {
+          "local": "li1"
+         },
+         {
+          "ref": "G.Int"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "li1"
+     }
+    },
+    {
+     "id": "a7",
+     "weight": 0.012500000000000002,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "insert(IntList,Int,Int)->IntList",
+        "args": [
+         {
+          "local": "li2"
+         },
+         {
+          "ref": "G.Int"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "li2"
+     }
+    },
+    {
+     "id": "a8",
+     "weight": 0.012500000000000002,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "insert(IntList,Int,Int)->IntList",
+        "args": [
+         {
+          "local": "res0"
+         },
+         {
+          "ref": "G.Int"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "res0"
+     }
+    },
+    {
+     "id": "a9",
+     "weight": 0.012500000000000002,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "insert(IntList,Int,Int)->IntList",
+        "args": [
+         {
+          "input": "in0"
+         },
+         {
+          "ref": "G.Int"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in0"
+     }
+    },
+    {
+     "id": "a10",
+     "weight": 0.0041666666666666675,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "remove_at(IntList,Int)->IntList",
+        "args": [
+         {
+          "local": "li0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "li0"
+     }
+    },
+    {
+     "id": "a11",
+     "weight": 0.0041666666666666675,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "remove_at(IntList,Int)->IntList",
+        "args": [
+         {
+          "local": "li1"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "li1"
+     }
+    },
+    {
+     "id": "a12",
+     "weight": 0.0041666666666666675,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "remove_at(IntList,Int)->IntList",
+        "args": [
+         {
+          "local": "li2"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "li2"
+     }
+    },
+    {
+     "id": "a13",
+     "weight": 0.0041666666666666675,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "remove_at(IntList,Int)->IntList",
+        "args": [
+         {
+          "local": "res0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "res0"
+     }
+    },
+    {
+     "id": "a14",
+     "weight": 0.0041666666666666675,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "remove_at(IntList,Int)->IntList",
+        "args": [
+         {
+          "input": "in0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in0"
+     }
+    },
+    {
+     "id": "a15",
+     "weight": 0.04166666666666667,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "local": "i0"
+       }
+      ],
+      "name": "i0"
+     }
+    },
+    {
+     "id": "a16",
+     "weight": 0.0041666666666666675,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "set_at(IntList,Int,Int)->IntList",
+        "args": [
+         {
+          "local": "li0"
+         },
+         {
+          "ref": "G.Int"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "li0"
+     }
+    },
+    {
+     "id": "a17",
+     "weight": 0.0041666666666666675,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "set_at(IntList,Int,Int)->IntList",
+        "args": [
+         {
+          "local": "li1"
+         },
+         {
+          "ref": "G.Int"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "li1"
+     }
+    },
+    {
+     "id": "a18",
+     "weight": 0.0041666666666666675,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "set_at(IntList,Int,Int)->IntList",
+        "args": [
+         {
+          "local": "li2"
+         },
+         {
+          "ref": "G.Int"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "li2"
+     }
+    },
+    {
+     "id": "a19",
+     "weight": 0.0041666666666666675,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "set_at(IntList,Int,Int)->IntList",
+        "args": [
+         {
+          "local": "res0"
+         },
+         {
+          "ref": "G.Int"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "res0"
+     }
+    },
+    {
+     "id": "a20",
+     "weight": 0.0041666666666666675,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "set_at(IntList,Int,Int)->IntList",
+        "args": [
+         {
+          "input": "in0"
+         },
+         {
+          "ref": "G.Int"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in0"
+     }
+    },
+    {
+     "id": "a21",
+     "weight": 0.04166666666666667,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "local": "i0"
+       }
+      ],
+      "name": "i0"
+     }
+    },
+    {
+     "id": "a22",
+     "weight": 0.02777777777777778,
+     "expression": {
+      "control": "assign(Bool)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.Bool"
+       }
+      ],
+      "name": "b0"
+     }
+    },
+    {
+     "id": "a23",
+     "weight": 0.02777777777777778,
+     "expression": {
+      "control": "assign(Bool)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.Bool"
+       }
+      ],
+      "name": "b1"
+     }
+    },
+    {
+     "id": "a24",
+     "weight": 0.02777777777777778,
+     "expression": {
+      "control": "assign(Bool)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.Bool"
+       }
+      ],
+      "name": "b2"
+     }
+    },
+    {
+     "id": "a25",
+     "weight": 0.01388888888888889,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ],
+      "name": "i0"
+     }
+    },
+    {
+     "id": "a26",
+     "weight": 0.01388888888888889,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ],
+      "name": "i1"
+     }
+    },
+    {
+     "id": "a27",
+     "weight": 0.01388888888888889,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ],
+      "name": "i2"
+     }
+    },
+    {
+     "id": "a28",
+     "weight": 0.00462962962962963,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "add(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i0"
+     }
+    },
+    {
+     "id": "a29",
+     "weight": 0.00462962962962963,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "sub(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i0"
+     }
+    },
+    {
+     "id": "a30",
+     "weight": 0.00462962962962963,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "mul(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i0"
+     }
+    },
+    {
+     "id": "a31",
+     "weight": 0.00462962962962963,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "add(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i1"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i1"
+     }
+    },
+    {
+     "id": "a32",
+     "weight": 0.00462962962962963,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "sub(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i1"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i1"
+     }
+    },
+    {
+     "id": "a33",
+     "weight": 0.00462962962962963,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "mul(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i1"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i1"
+     }
+    },
+    {
+     "id": "a34",
+     "weight": 0.00462962962962963,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "add(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i2"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i2"
+     }
+    },
+    {
+     "id": "a35",
+     "weight": 0.00462962962962963,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "sub(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i2"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i2"
+     }
+    },
+    {
+     "id": "a36",
+     "weight": 0.00462962962962963,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "mul(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i2"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i2"
+     }
+    },
+    {
+     "id": "a37",
+     "weight": 0.01666666666666667,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.IntList"
+       }
+      ],
+      "name": "li0"
+     }
+    },
+    {
+     "id": "a38",
+     "weight": 0.01666666666666667,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.IntList"
+       }
+      ],
+      "name": "li1"
+     }
+    },
+    {
+     "id": "a39",
+     "weight": 0.01666666666666667,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.IntList"
+       }
+      ],
+      "name": "li2"
+     }
+    },
+    {
+     "id": "a40",
+     "weight": 0.01666666666666667,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.IntList"
+       }
+      ],
+      "name": "res0"
+     }
+    },
+    {
+     "id": "a41",
+     "weight": 0.01666666666666667,
+     "expression": {
+      "control": "assign(IntList)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.IntList"
+       }
+      ],
+      "input_name": "in0"
+     }
+    },
+    {
+     "id": "a42",
+     "weight": 0.12500000000000003,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "ref": "G.IntList"
+         }
+        ]
+       },
+       {
+        "ref": "G.Code"
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a43",
+     "weight": 0.008333333333333335,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "local": "li0"
+         }
+        ]
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "signature": "index_mod(IntList,Int)->Int",
+            "args": [
+             {
+              "local": "li0"
+             },
+             {
+              "local": "k"
+             }
+            ]
+           }
+          ],
+          "name": "i0"
+         },
+         {
+          "ref": "G.Code"
+         }
+        ]
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a44",
+     "weight": 0.008333333333333335,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "local": "li1"
+         }
+        ]
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "signature": "index_mod(IntList,Int)->Int",
+            "args": [
+             {
+              "local": "li1"
+             },
+             {
+              "local": "k"
+             }
+            ]
+           }
+          ],
+          "name": "i0"
+         },
+         {
+          "ref": "G.Code"
+         }
+        ]
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a45",
+     "weight": 0.008333333333333335,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "local": "li2"
+         }
+        ]
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "signature": "index_mod(IntList,Int)->Int",
+            "args": [
+             {
+              "local": "li2"
+             },
+             {
+              "local": "k"
+             }
+            ]
+           }
+          ],
+          "name": "i0"
+         },
+         {
+          "ref": "G.Code"
+         }
+        ]
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a46",
+     "weight": 0.008333333333333335,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "local": "res0"
+         }
+        ]
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "signature": "index_mod(IntList,Int)->Int",
+            "args": [
+             {
+              "local": "res0"
+             },
+             {
+              "local": "k"
+             }
+            ]
+           }
+          ],
+          "name": "i0"
+         },
+         {
+          "ref": "G.Code"
+         }
+        ]
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a47",
+     "weight": 0.008333333333333335,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "input": "in0"
+         }
+        ]
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "signature": "index_mod(IntList,Int)->Int",
+            "args": [
+             {
+              "input": "in0"
+             },
+             {
+              "local": "k"
+             }
+            ]
+           }
+          ],
+          "name": "i0"
+         },
+         {
+          "ref": "G.Code"
+         }
+        ]
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a48",
+     "weight": 0.008333333333333335,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "local": "li0"
+         }
+        ]
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "signature": "index_mod(IntList,Int)->Int",
+            "args": [
+             {
+              "local": "li0"
+             },
+             {
+              "local": "k"
+             }
+            ]
+           }
+          ],
+          "name": "i1"
+         },
+         {
+          "ref": "G.Code"
+         }
+        ]
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a49",
+     "weight": 0.008333333333333335,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "local": "li1"
+         }
+        ]
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "signature": "index_mod(IntList,Int)->Int",
+            "args": [
+             {
+              "local": "li1"
+             },
+             {
+              "local": "k"
+             }
+            ]
+           }
+          ],
+          "name": "i1"
+         },
+         {
+          "ref": "G.Code"
+         }
+        ]
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a50",
+     "weight": 0.008333333333333335,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "local": "li2"
+         }
+        ]
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "signature": "index_mod(IntList,Int)->Int",
+            "args": [
+             {
+              "local": "li2"
+             },
+             {
+              "local": "k"
+             }
+            ]
+           }
+          ],
+          "name": "i1"
+         },
+         {
+          "ref": "G.Code"
+         }
+        ]
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a51",
+     "weight": 0.008333333333333335,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "local": "res0"
+         }
+        ]
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "signature": "index_mod(IntList,Int)->Int",
+            "args": [
+             {
+              "local": "res0"
+             },
+             {
+              "local": "k"
+             }
+            ]
+           }
+          ],
+          "name": "i1"
+         },
+         {
+          "ref": "G.Code"
+         }
+        ]
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a52",
+     "weight": 0.008333333333333335,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "input": "in0"
+         }
+        ]
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "signature": "index_mod(IntList,Int)->Int",
+            "args": [
+             {
+              "input": "in0"
+             },
+             {
+              "local": "k"
+             }
+            ]
+           }
+          ],
+          "name": "i1"
+         },
+         {
+          "ref": "G.Code"
+         }
+        ]
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a53",
+     "weight": 0.008333333333333335,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "local": "li0"
+         }
+        ]
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "signature": "index_mod(IntList,Int)->Int",
+            "args": [
+             {
+              "local": "li0"
+             },
+             {
+              "local": "k"
+             }
+            ]
+           }
+          ],
+          "name": "i2"
+         },
+         {
+          "ref": "G.Code"
+         }
+        ]
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a54",
+     "weight": 0.008333333333333335,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "local": "li1"
+         }
+        ]
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "signature": "index_mod(IntList,Int)->Int",
+            "args": [
+             {
+              "local": "li1"
+             },
+             {
+              "local": "k"
+             }
+            ]
+           }
+          ],
+          "name": "i2"
+         },
+         {
+          "ref": "G.Code"
+         }
+        ]
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a55",
+     "weight": 0.008333333333333335,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "local": "li2"
+         }
+        ]
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "signature": "index_mod(IntList,Int)->Int",
+            "args": [
+             {
+              "local": "li2"
+             },
+             {
+              "local": "k"
+             }
+            ]
+           }
+          ],
+          "name": "i2"
+         },
+         {
+          "ref": "G.Code"
+         }
+        ]
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a56",
+     "weight": 0.008333333333333335,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "local": "res0"
+         }
+        ]
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "signature": "index_mod(IntList,Int)->Int",
+            "args": [
+             {
+              "local": "res0"
+             },
+             {
+              "local": "k"
+             }
+            ]
+           }
+          ],
+          "name": "i2"
+         },
+         {
+          "ref": "G.Code"
+         }
+        ]
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a57",
+     "weight": 0.008333333333333335,
+     "expression": {
+      "control": "for_range(Int,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "input": "in0"
+         }
+        ]
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "signature": "index_mod(IntList,Int)->Int",
+            "args": [
+             {
+              "input": "in0"
+             },
+             {
+              "local": "k"
+             }
+            ]
+           }
+          ],
+          "name": "i2"
+         },
+         {
+          "ref": "G.Code"
+         }
+        ]
+       }
+      ],
+      "name": "k"
+     }
+    },
+    {
+     "id": "a58",
+     "weight": 0.12500000000000003,
+     "expression": {
+      "control": "if_stmt(Bool,Block,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.Bool"
+       },
+       {
+        "ref": "G.Code"
+       },
+       {
+        "control": "block_nil()->Block",
+        "type": "IntList",
+        "args": []
+       }
+      ]
+     }
+    },
+    {
+     "id": "a59",
+     "weight": 0.12500000000000003,
+     "expression": {
+      "control": "if_stmt(Bool,Block,Block)->Statement",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.Bool"
+       },
+       {
+        "ref": "G.Code"
+       },
+       {
+        "ref": "G.Code"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.Code",
+   "type": "IntList",
+   "scope": [],
+   "category": "Block",
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.5,
+     "expression": {
+      "control": "block_cons(Statement,Block)->Block",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.Stmt"
+       },
+       {
+        "ref": "G.Code"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.5,
+     "expression": {
+      "control": "block_cons(Statement,Block)->Block",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.Stmt"
+       },
+       {
+        "control": "block_nil()->Block",
+        "type": "IntList",
+        "args": []
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.Main",
+   "type": "IntList",
+   "scope": [],
+   "category": "Block",
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.5,
+     "expression": {
+      "control": "block_cons(Statement,Block)->Block",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.Stmt"
+       },
+       {
+        "ref": "G.Main"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.5,
+     "expression": {
+      "control": "block_cons(Statement,Block)->Block",
+      "type": "IntList",
+      "args": [
+       {
+        "ref": "G.Stmt"
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "IntList",
+        "args": [
+         {
+          "control": "return(IntList)->Statement",
+          "type": "IntList",
+          "args": [
+           {
+            "local": "res0"
+           }
+          ]
+         },
+         {
+          "control": "block_nil()->Block",
+          "type": "IntList",
+          "args": []
+         }
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

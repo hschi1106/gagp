@@ -11,7 +11,8 @@ column exists.
 | `AGENTS.md` | Rules for coding agents and contributors |
 | `.agents/skills/gagp-navigation/SKILL.md` | Where to find the code, contract and tests of a feature |
 | `examples/` | Complete runnable tasks |
-| `benchmarks/` | The `asgp30` benchmark suite and its runner, `run.py` |
+| `benchmarks/` | The `asgp30` and `psb1_g3p` benchmark suites and their runner, `run.py` |
+| `benchmarks/psb1_g3p/build.py` | Generator of the `psb1_g3p` grammars, tasks and case files |
 | `configs/search/default.json` | The default search configuration |
 | `configs/grammar/` | Grammar packages and example grammars |
 | `configs/grammar_definitions/` | Grammars used by the bounded-region tests |

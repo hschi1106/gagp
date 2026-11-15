@@ -1,0 +1,22 @@
+{
+ "format": "gagp-search-config-v1",
+ "population_size": 1000,
+ "generations": 300,
+ "selection": {
+  "method": "tournament",
+  "size": 7
+ },
+ "elitism": 1,
+ "crossover": {
+  "probability": 0.9
+ },
+ "mutation": {
+  "probability": 0.05
+ },
+ "limits": {
+  "site_depth": 0
+ },
+ "schedule": {
+  "mode": "generational"
+ }
+}

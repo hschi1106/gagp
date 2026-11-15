@@ -24,7 +24,7 @@ before editing; stop expanding once those and the governing spec are clear.
 | Evolution loop, schedules, fallback | `evolve_population`, `run_phase_population`, `run_phase_population_steady` in `cpp/src/evolution/evolve.cpp` | `spec/search_config.md` | `gagp_test_evolution_pipeline`, `gagp_test_evolution_cpu_gpu_parity` |
 | Resident GPU engine | `cpp/src/evolution/repro/gpu/`: `phase_operators.cuh` (shared per-child steps), `phase_population.cu` (GPU), `phase_population_cpu.cpp` (CPU reference), `phase_layout.hpp`, `phase_grammar.hpp`, `device/phase_compile.cuh` | `docs/design/gpu-reproduction.md`, `spec/search_config.md` | `gagp_test_phase_population_cpu_reference`, `gagp_test_gpu_phase_*`, `gagp_test_phase_whole_program` |
 | Host AST reproduction | `cpp/src/evolution/repro/backend.cpp` | `spec/search_config.md` | `gagp_test_grammar_reproduction` |
-| Benchmarks | `benchmarks/run.py`, `benchmarks/asgp30/` | `benchmarks/README.md` | `gagp_test_bench_runner` |
+| Benchmarks | `benchmarks/run.py`, `benchmarks/asgp30/`, `benchmarks/psb1_g3p/` (`build.py` generates its grammars) | `benchmarks/README.md`, `benchmarks/psb1_g3p/README.md` | `gagp_test_bench_runner`, `tests/repository/test_psb1_g3p.py` |
 | Build or test registration | `cpp/CMakeLists.txt`, `cpp/CMakePresets.json` | `docs/guides/development.md` | check the test exists with `ctest -N` |
 
 Rules that matter across modules:
