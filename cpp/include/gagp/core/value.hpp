@@ -192,6 +192,22 @@ struct Value {
     return (h & k_container_hash_mask);
   }
 
+  // Deterministic hash48 of a container derived from `src` by operation `op`
+  // when the source contents are unavailable (insert, remove_at, set_at, the
+  // strip family, capitalize). `idx` and `extra` carry the scalar operands.
+  GAGP_HD static std::uint64_t derived_container_hash48(std::uint8_t type_code, std::uint8_t op,
+                                                        const Value& src, std::int64_t idx,
+                                                        std::uint64_t extra) {
+    std::uint64_t h = fnv1a_init();
+    h = fnv1a_mix_u8(h, type_code);
+    h = fnv1a_mix_u8(h, op);
+    h = fnv1a_mix_u64(h, container_hash48(src));
+    h = fnv1a_mix_u64(h, static_cast<std::uint64_t>(container_len(src)));
+    h = fnv1a_mix_u64(h, static_cast<std::uint64_t>(idx));
+    h = fnv1a_mix_u64(h, extra);
+    return (h & k_container_hash_mask);
+  }
+
   GAGP_HD static Value from_string_hash_len(std::uint64_t h, std::uint32_t len) {
     Value out;
     out.i = pack_container_payload(h, len);

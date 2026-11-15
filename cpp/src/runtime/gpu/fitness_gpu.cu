@@ -1008,6 +1008,12 @@ FitnessEvalResult FitnessSessionGpu::eval_programs_impl(const std::vector<Byteco
             id == BuiltinId::Append || id == BuiltinId::Prepend ||
             id == BuiltinId::CharToString || id == BuiltinId::ToString ||
             id == BuiltinId::Slice || id == BuiltinId::Reverse) return true;
+        // Every new builtin that publishes a list or string needs the arena.
+        if (id == BuiltinId::Insert || id == BuiltinId::RemoveAt || id == BuiltinId::SetAt ||
+            id == BuiltinId::IndexMod || id == BuiltinId::Range || id == BuiltinId::Strip ||
+            id == BuiltinId::LStrip || id == BuiltinId::RStrip || id == BuiltinId::StripChars ||
+            id == BuiltinId::LStripChars || id == BuiltinId::RStripChars ||
+            id == BuiltinId::Capitalize) return true;
       }
       return false;
     };

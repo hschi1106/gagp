@@ -257,7 +257,8 @@ arena limit (zero leaves the existing backend policy unchanged). Each case start
 with the sum of its effective typed-list input lengths: only slots in
 `[0, program.n_locals)` count, and duplicate bindings use the last value, as in
 the VM local loader. A binding outside this range is ignored even when it names
-a list. `Singleton` consumes one cell;
+a list. `Singleton` consumes one cell; `range(a, b)` consumes `b - a` cells
+(none when empty);
 `Concat` of two nonempty lists consumes their combined length on every execution,
 including repeated identical results. An empty-list concat returns the other
 operand without allocation, and slicing consumes no logical cells. The next

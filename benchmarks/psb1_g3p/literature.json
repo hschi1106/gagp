@@ -1,0 +1,80 @@
+{
+ "format": "gagp-bench-literature-v1",
+ "note": "Published G3P success counts for the six problems of this suite: runs out of 100 whose best program solves every test case. The rows were transcribed from the paper and thesis tables and checked against them on 2026-11-10. Other systems' rows (PushGP) are not listed because the report does not use them. These runs used PTC2 initialization, a 250-node derivation-tree limit and a 1 s execution limit, with the grammars of this suite ported in README.md, so the counts are context and not a matched baseline.",
+ "sources": [
+  {
+   "id": "eurogp2017_tournament",
+   "label": "EuroGP 2017 tournament",
+   "selection": "tournament",
+   "citation": "Forstenlechner, Fagan, Nicolau, O'Neill: A Grammar Design Pattern for Arbitrary Program Synthesis Problems in Genetic Programming, EuroGP 2017, Table 3",
+   "population": 1000,
+   "generations": "300",
+   "runs": 100
+  },
+  {
+   "id": "thesis_tournament",
+   "label": "Thesis tournament",
+   "selection": "tournament, size 7",
+   "citation": "Forstenlechner, PhD thesis, Table 4.3 (tournament columns), settings of Table 4.1; the grammars were re-run and corrected relative to EuroGP 2017",
+   "population": 1000,
+   "generations": "300, 200 for Median and Smallest",
+   "runs": 100
+  },
+  {
+   "id": "eurogp2017_lexicase",
+   "label": "EuroGP 2017 lexicase",
+   "selection": "lexicase",
+   "citation": "same paper, Table 3, lexicase",
+   "population": 1000,
+   "generations": "300",
+   "runs": 100
+  },
+  {
+   "id": "thesis_lexicase",
+   "label": "Thesis lexicase",
+   "selection": "lexicase",
+   "citation": "Forstenlechner, PhD thesis, Table 4.3 (lexicase columns)",
+   "population": 1000,
+   "generations": "300, 200 for Median and Smallest",
+   "runs": 100
+  }
+ ],
+ "solved_of_runs": {
+  "smallest": {
+   "eurogp2017_tournament": 96,
+   "thesis_tournament": 97,
+   "eurogp2017_lexicase": 89,
+   "thesis_lexicase": 94
+  },
+  "median": {
+   "eurogp2017_tournament": 62,
+   "thesis_tournament": 48,
+   "eurogp2017_lexicase": 65,
+   "thesis_lexicase": 79
+  },
+  "count_odds": {
+   "eurogp2017_tournament": 0,
+   "thesis_tournament": 0,
+   "eurogp2017_lexicase": 10,
+   "thesis_lexicase": 12
+  },
+  "small_or_large": {
+   "eurogp2017_tournament": 25,
+   "thesis_tournament": 8,
+   "eurogp2017_lexicase": 24,
+   "thesis_lexicase": 6
+  },
+  "replace_space_with_newline": {
+   "eurogp2017_tournament": 0,
+   "thesis_tournament": 0,
+   "eurogp2017_lexicase": 0,
+   "thesis_lexicase": 0
+  },
+  "negative_to_zero": {
+   "eurogp2017_tournament": 94,
+   "thesis_tournament": 79,
+   "eurogp2017_lexicase": 98,
+   "thesis_lexicase": 63
+  }
+ }
+}

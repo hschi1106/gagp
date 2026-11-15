@@ -134,12 +134,13 @@ std::optional<ProgramGenome> generated(const grammar::CompiledGrammar& grammar,u
 // grammar that derives programs over the capacity of bounded regions per
 // program, which import refuses and generation and variation reject.
 // RegionTraversals: traversals inside bounded region phases.
-enum class Fixture{Expressions,Statements,Lets,Regions,Captures,Traversals,Templates,RegionFallback,Ranges,ManyRegions,RegionTraversals};
+enum class Fixture{Expressions,Statements,Lets,Regions,Captures,Traversals,Templates,RegionFallback,Ranges,ManyRegions,RegionTraversals,
+    Builtins,BuiltinStatements};
 // `fixture` is relative to the repository root. Without `search`, only
 // lowering parity runs (the GPU evaluator rejects the grammar's region limits).
 // Without `vary`, the grammar has one member, so no search can vary it.
 void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
- const bool statements=mode==Fixture::Statements;
+ const bool statements=mode==Fixture::Statements || mode==Fixture::BuiltinStatements;
  const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
      grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/")+fixture)));
  std::vector<std::string> names;for(const auto& input:compiled->inputs())names.push_back(input.name);
@@ -195,6 +196,16 @@ void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
   for(auto kind:{NodeKind::FOR_RANGE,NodeKind::IF_STMT,NodeKind::ASSIGN,NodeKind::RETURN,NodeKind::BLOCK_NIL,NodeKind::VAR,NodeKind::IF_EXPR})
    require(kinds.count(int(kind)),"statement fixture did not exercise node kind "+std::to_string(int(kind)));
   require(programs>=64 && rejected>0,"statement fixture must mix verified and undefined-local programs: "+std::to_string(programs)+"/"+std::to_string(rejected));
+  if(mode==Fixture::BuiltinStatements) {
+   // Undefined-local rejections thin the verified sample; the expression fixture
+   // covers every builtin, this one must mix several into statement bodies.
+   int seen=0;
+   for(auto kind:{NodeKind::CALL_INSERT,NodeKind::CALL_REMOVE_AT,NodeKind::CALL_SET_AT,NodeKind::CALL_INDEX_MOD,NodeKind::CALL_CONTAINS,
+       NodeKind::CALL_RANGE,NodeKind::CALL_STRIP,NodeKind::CALL_LSTRIP,NodeKind::CALL_STRIP_CHARS,NodeKind::CALL_RSTRIP_CHARS,
+       NodeKind::CALL_STARTSWITH,NodeKind::CALL_ENDSWITH,NodeKind::CALL_CAPITALIZE})
+    seen+=kinds.count(int(kind));
+   require(seen>=4,"statement builtin fixture exercised too few new builtins: "+std::to_string(seen));
+  }
  } else if(mode==Fixture::Regions) {
   require(rejected==0 && regions>=128,"region grammar must generate bounded regions: "+std::to_string(regions));
  } else if(mode==Fixture::Captures) {
@@ -205,6 +216,14 @@ void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
   for(auto kind:{NodeKind::LET_REGION,NodeKind::REGION_VAR,NodeKind::CALL_LEN})
    require(kinds.count(int(kind)),"let fixture did not exercise node kind "+std::to_string(int(kind)));
   require(nested>=32,"let fixture must nest binders: "+std::to_string(nested));
+ } else if(mode==Fixture::Builtins) {
+  // Every G3P builtin must appear in generated programs, so the lowering and
+  // the search below exercise each one.
+  require(rejected==0,"builtin grammar generation failed");
+  for(auto kind:{NodeKind::CALL_INSERT,NodeKind::CALL_REMOVE_AT,NodeKind::CALL_SET_AT,NodeKind::CALL_INDEX_MOD,NodeKind::CALL_CONTAINS,
+      NodeKind::CALL_RANGE,NodeKind::CALL_STRIP,NodeKind::CALL_LSTRIP,NodeKind::CALL_RSTRIP,NodeKind::CALL_STRIP_CHARS,
+      NodeKind::CALL_LSTRIP_CHARS,NodeKind::CALL_RSTRIP_CHARS,NodeKind::CALL_STARTSWITH,NodeKind::CALL_ENDSWITH,NodeKind::CALL_CAPITALIZE})
+   require(kinds.count(int(kind)),"builtin fixture did not exercise node kind "+std::to_string(int(kind)));
  } else if(mode==Fixture::Templates) {
   require(rejected==0,"template grammar generation failed");
  } else if(many) {
@@ -478,6 +497,8 @@ void check_language_restrictions() {
 int main() { try {
  check("cpp/tests/fixtures/phase_whole_program.json",Fixture::Expressions);
  check("cpp/tests/fixtures/phase_statements.json",Fixture::Statements);
+ check("cpp/tests/fixtures/phase_g3p_builtins.json",Fixture::Builtins);
+ check("cpp/tests/fixtures/phase_g3p_statements.json",Fixture::BuiltinStatements);
  check("cpp/tests/fixtures/phase_let.json",Fixture::Lets);
  check("cpp/tests/fixtures/phase_region.json",Fixture::Captures);
  check("configs/grammar/compat/dp1d_int.json",Fixture::Regions);

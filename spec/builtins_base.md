@@ -38,6 +38,13 @@ Character and conversion builtins:
 - `to_upper(c)`
 - `to_string(x)`
 
+String builtins:
+
+- `strip(s)`, `lstrip(s)`, `rstrip(s)`
+- `strip(s, chars)`, `lstrip(s, chars)`, `rstrip(s, chars)`
+- `startswith(s, prefix)`, `endswith(s, suffix)`
+- `capitalize(s)`
+
 Only names listed in this document and
 [builtins_runtime.md](./builtins_runtime.md) are valid source
 builtins.
@@ -239,3 +246,23 @@ decimal point, and normalize negative zero to `0`.
 For non-finite `Float`, the canonical spellings are `nan`, `inf`, and `-inf`.
 
 `to_string(Char)` is not defined. Use `char_to_string`.
+
+### String builtins
+
+All take only `String` arguments (anything else is a `TypeError`), return a new
+string, and charge one ordinary builtin operation of fuel. When a string
+argument's contents are not resident, the strip family and `capitalize`
+publish a deterministic hash-only string token of the source length, and
+`startswith` and `endswith` yield `ValueError`, as `find` does.
+
+- `strip(s)`, `lstrip(s)`, `rstrip(s)`: remove leading and/or trailing
+  characters that `is_space` accepts (ASCII whitespace). An all-whitespace or
+  empty string yields `""`.
+- `strip(s, chars)`, `lstrip(s, chars)`, `rstrip(s, chars)`: Python
+  `str.strip(chars)`: remove leading and/or trailing characters that occur in
+  `chars`. An empty `chars` removes nothing.
+- `startswith(s, prefix)`, `endswith(s, suffix)`: result `Bool`. Python
+  semantics; an empty affix is always true and an affix longer than `s` is
+  false.
+- `capitalize(s)`: the first character through the `to_upper` mapping and every
+  other character through `to_lower`; `""` stays `""`.

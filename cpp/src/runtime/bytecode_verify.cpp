@@ -173,6 +173,8 @@ int expected_builtin_arity(BuiltinId id) {
     case BuiltinId::ToLower:
     case BuiltinId::ToUpper:
     case BuiltinId::ToString:
+    case BuiltinId::Strip: case BuiltinId::LStrip: case BuiltinId::RStrip:
+    case BuiltinId::Capitalize:
     case BuiltinId::Singleton: return 1;
     case BuiltinId::Min:
     case BuiltinId::Max:
@@ -183,8 +185,12 @@ int expected_builtin_arity(BuiltinId id) {
     case BuiltinId::Contains:
     case BuiltinId::TruncDiv0: case BuiltinId::TruncMod0: case BuiltinId::IDiv0:
     case BuiltinId::IMod0:
+    case BuiltinId::IndexMod: case BuiltinId::RemoveAt: case BuiltinId::Range:
+    case BuiltinId::StripChars: case BuiltinId::LStripChars: case BuiltinId::RStripChars:
+    case BuiltinId::StartsWith: case BuiltinId::EndsWith:
     case BuiltinId::Prepend: return 2;
     case BuiltinId::Clip:
+    case BuiltinId::Insert: case BuiltinId::SetAt:
     case BuiltinId::Slice: return 3;
   }
   return -1;
@@ -201,12 +207,17 @@ AbstractType builtin_result_type(BuiltinId id, const std::vector<AbstractType>& 
     case BuiltinId::Append:
     case BuiltinId::Prepend:
     case BuiltinId::Reverse:
+    case BuiltinId::Insert:
+    case BuiltinId::RemoveAt:
+    case BuiltinId::SetAt:
       return args.empty() ? AbstractType::Unknown : args.front();
     case BuiltinId::Len:
     case BuiltinId::Find:
     case BuiltinId::Ord:
     case BuiltinId::TruncDiv0: case BuiltinId::TruncMod0: case BuiltinId::IDiv0:
     case BuiltinId::IMod0: return AbstractType::Int;
+    case BuiltinId::StartsWith:
+    case BuiltinId::EndsWith:
     case BuiltinId::Contains:
     case BuiltinId::IsInt:
     case BuiltinId::IsLetter:
@@ -214,7 +225,18 @@ AbstractType builtin_result_type(BuiltinId id, const std::vector<AbstractType>& 
     case BuiltinId::IsSpace:
     case BuiltinId::IsVowel: return AbstractType::Bool;
     case BuiltinId::CharToString:
+    case BuiltinId::Strip: case BuiltinId::LStrip: case BuiltinId::RStrip:
+    case BuiltinId::StripChars: case BuiltinId::LStripChars: case BuiltinId::RStripChars:
+    case BuiltinId::Capitalize:
     case BuiltinId::ToString: return AbstractType::String;
+    case BuiltinId::Range: return AbstractType::IntList;
+    case BuiltinId::IndexMod:
+      if (args.empty()) return AbstractType::Unknown;
+      if (args.front() == AbstractType::String) return AbstractType::String;
+      if (args.front() == AbstractType::IntList) return AbstractType::Int;
+      if (args.front() == AbstractType::FloatList) return AbstractType::Float;
+      if (args.front() == AbstractType::StringList) return AbstractType::String;
+      return AbstractType::Unknown;
     case BuiltinId::StringToChar:
     case BuiltinId::Chr:
     case BuiltinId::ToLower:

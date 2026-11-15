@@ -2,6 +2,49 @@
 
 Current release: 3.0.1
 
+## Unreleased
+
+One engine, wider admission, and more of the language on both engines. Search
+results of grammars that were already admitted are unchanged (checked on the
+`asgp30` tasks `count_odds`, `fibonacci`, `house_robber` and `is_sorted`, with
+identical populations, fitness values and champions on both engines).
+
+**Removed**
+
+- The native AST engine and its automatic fallback. A grammar or initial
+  population the resident engine cannot admit is an error raised before the
+  first generation: `gagp run` prints
+  `resident engine cannot admit this grammar or initial population: ...` and
+  exits with status 2. There is no host reproduction and no second genotype.
+- The `representation` member of `gagp-search-config-v1` and the
+  `resident_declined` field of the run result.
+- The constant mutation policy (`mutation` in a constant domain) from
+  `grammar-definition-v2`. Mutation always replaced whole subtrees, so the
+  member never changed a search. A grammar that still carries it fails to
+  parse with an error that names it.
+
+**Changed**
+
+- The resident engine admits unit productions, repeated template holes,
+  single-program grammars, root-template grammars whose members do not fit the
+  region-template layout (they take the whole-program layout), Float ranges,
+  more than 4 bounded regions per program (a capacity, rejected per candidate)
+  and non-default `resource_charge`. Every rejection names the limit and the
+  offending value. The limits are listed once in the
+  [capacity table](spec/search_config.md#resident-capacities).
+- A bounded region plan declares at most 1,024 frames and 4,096 memo cells.
+  Plan validation enforces this on both engines, replacing the GPU-only limits
+  of 128 frames and 256 cells. Large plans use a per-lane hash index on the GPU.
+
+**New**
+
+- Fourteen builtins on the CPU, the GPU and in the grammar catalog: `insert`,
+  `remove_at`, `set_at`, `index_mod`, list `contains`, `range`, `strip`,
+  `lstrip` and `rstrip` (one and two arguments), `startswith`, `endswith` and
+  `capitalize`.
+- The `psb1_g3p` benchmark of six PSB1 problems with G3P grammars, and the
+  `--suite` option of `benchmarks/run.py`.
+
 ## 3.0.1
 
 Faster evaluation; search results are unchanged (65 golden runs, and the 30
@@ -33,8 +76,9 @@ runtime semantic identity stays `gagp-native-2.0.0`.
   2, crossover 0.7, mutation 0.3, elitism 1.
 - `benchmarks/asgp30`: the 30 tasks of the ASGP paper as ready-to-run tasks,
   with `benchmarks/run.py`.
-- Automatic fallback: a grammar the resident GPU engine cannot hold runs with
-  host reproduction instead of failing, and the result records why.
+- Automatic fallback (removed after 3.0.1, see Unreleased): in 3.0.0 a grammar
+  the resident GPU engine could not hold ran with host reproduction instead of
+  failing, and the result recorded why.
 
 **Removed**
 
