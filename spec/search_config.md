@@ -171,10 +171,11 @@ A `resource_charge` has no effect on admission or on search.
 A grammar or initial population is rejected when it exceeds a
 [resident capacity](#resident-capacities), when a construct cannot be held by
 the genotype (for example lowering capacity within the depth budget), or when
-it uses one of three constructs of the language that the resident engine does
-not yet hold: `sequence` constant domains, a nonterminal reached under two
-different lexical binder environments, and a traversal inside a bounded region
-phase. A genome is rejected when it does not share the population's fixed
+it uses one of two constructs of the language that the resident engine does
+not yet hold: `sequence` constant domains and a nonterminal reached under two
+different lexical binder environments. A traversal or `let` inside a bounded
+region phase is held: the phase lowers as a program of its own whose first
+locals are its bindings. A genome is rejected when it does not share the population's fixed
 skeleton. Rejection is an error raised before the first generation: the run
 stops with a diagnostic that begins with
 `resident engine cannot admit this grammar or initial population:` and names
@@ -204,6 +205,7 @@ over one, and variation rejects a candidate over one and draws or tries again.
 | Program inputs | 64 |
 | Grammar locals referenced by the grammar | 16 |
 | Locals of a lowered program (inputs, grammar locals the grammar references and temporaries) on one path | 64 |
+| Locals of one lowered bounded region phase (its bindings and the temporaries of its traversals and `let`s) on one path | 64 |
 | Open traversals / `let`s / loops on one path | 8 / 16 / 16 |
 | Analysed value `if`s on one path under an open traversal | 16 |
 | Visible lexical bindings | 15 |

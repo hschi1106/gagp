@@ -438,7 +438,8 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     visit_nonterminal(root,environment);
   }
   // Like the native compiler, a region phase reads only its bindings: no
-  // program variable, statement or nested structured region is reachable.
+  // program variable, statement or nested structured region is reachable. A
+  // traversal or let inside a phase binds within the phase program.
   for(const auto& source:out.region_sources) {
     const auto& e=grammar.expressions().at(source.expression);
     if(e.kind!=ExpressionKind::Structured)continue;
@@ -447,9 +448,8 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       if(closed.at(id))return;closed[id]=true;
       const auto& c=grammar.expressions()[id];
       if(c.kind==ExpressionKind::Input || c.kind==ExpressionKind::Local || c.kind==ExpressionKind::Control ||
-          c.kind==ExpressionKind::Structured || c.category!=NodeCategory::Expression ||
-          (c.kind==ExpressionKind::Primitive && PrimitiveCatalog::standard().at(c.target).traversal_direction))
-        fail("region phase reaches a program variable, statement, traversal or nested region");
+          c.kind==ExpressionKind::Structured || c.category!=NodeCategory::Expression)
+        fail("region phase reaches a program variable, statement or nested region");
       if(c.kind==ExpressionKind::Reference)
         for(auto production:grammar.nonterminals().at(c.target).productions)check(grammar.productions().at(production).expression);
       for(auto child:c.children)check(child);
@@ -667,6 +667,18 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       done[key]=true;return hold[key]=h;
     };
     const auto h=need(out.root_expression,max_depth);
+    // A region phase is a program of its own: its bindings and the
+    // temporaries of its traversals and lets share the local capacity.
+    for(const auto& source:out.region_sources) {
+      const auto& e=grammar.expressions().at(source.expression);
+      if(e.kind!=ExpressionKind::Structured || !seen_expr.at(source.expression))continue;
+      for(std::size_t p=0;p<e.phases.size();++p) {
+        const int locals=static_cast<int>(e.regions.at(p).bindings.size())+need(e.children.at(e.phases[p].argument),max_depth)[Temporaries];
+        if(locals>gpu_detail::MAX_LOCALS)
+          fail("lowering capacity within the depth budget: a bounded region phase of up to "+std::to_string(locals)+
+              " locals exceeds the capacity of "+std::to_string(gpu_detail::MAX_LOCALS));
+      }
+    }
     const int inputs_count=static_cast<int>(inputs?inputs->size():grammar.inputs().size());
     int named=0;for(unsigned m=reached_locals;m;m&=m-1)++named;
     if(inputs_count+named+h[Temporaries]>gpu_detail::MAX_LOCALS || h[Walks]>kPhaseWalks || h[Lets]>kPhaseLets ||

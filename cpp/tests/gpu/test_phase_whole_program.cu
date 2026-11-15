@@ -133,7 +133,8 @@ std::optional<ProgramGenome> generated(const grammar::CompiledGrammar& grammar,u
 // the region layout, so the population imports whole programs. ManyRegions: a
 // grammar that derives programs over the capacity of bounded regions per
 // program, which import refuses and generation and variation reject.
-enum class Fixture{Expressions,Statements,Lets,Regions,Captures,Traversals,Templates,RegionFallback,Ranges,ManyRegions};
+// RegionTraversals: traversals inside bounded region phases.
+enum class Fixture{Expressions,Statements,Lets,Regions,Captures,Traversals,Templates,RegionFallback,Ranges,ManyRegions,RegionTraversals};
 // `fixture` is relative to the repository root. Without `search`, only
 // lowering parity runs (the GPU evaluator rejects the grammar's region limits).
 // Without `vary`, the grammar has one member, so no search can vary it.
@@ -144,7 +145,7 @@ void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
  std::vector<std::string> names;for(const auto& input:compiled->inputs())names.push_back(input.name);
  auto reordered=names;std::reverse(reordered.begin(),reordered.end());
  // Lowering parity over generated programs, in grammar and reversed input order.
- std::set<int> kinds;std::set<ValueTag> constant_tags;int programs=0,rejected=0,nested=0,regions=0,lexical=0,reversed=0,declined=0,over=0;
+ std::set<int> kinds;std::set<ValueTag> constant_tags;int programs=0,rejected=0,nested=0,regions=0,lexical=0,reversed=0,declined=0,over=0,walked=0;
  const bool fallback=mode==Fixture::RegionFallback,many=mode==Fixture::ManyRegions;std::vector<ProgramGenome> members;
  const auto region_nodes=[](const ProgramGenome& g){return std::count_if(g.ast.nodes.begin(),g.ast.nodes.end(),
      [](const auto& node){return node.kind==NodeKind::BOUNDED_REGION;});};
@@ -188,6 +189,7 @@ void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
   for(const auto& value:genome->ast.consts)constant_tags.insert(value.tag);
   reversed+=std::any_of(genome->ast.traversal_specs.begin(),genome->ast.traversal_specs.end(),
       [](const auto& t){return t.direction==TraversalDirection::Reverse;});
+  walked+=!genome->ast.traversal_specs.empty() && !genome->ast.bounded_region_specs.empty();
  }
  if(statements) {
   for(auto kind:{NodeKind::FOR_RANGE,NodeKind::IF_STMT,NodeKind::ASSIGN,NodeKind::RETURN,NodeKind::BLOCK_NIL,NodeKind::VAR,NodeKind::IF_EXPR})
@@ -214,6 +216,12 @@ void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
   require(rejected==0 && declined>0,"fallback fixture must have members outside the region layout");
   const auto imported=import_native_phase_population(*compiled,members,nullptr,&names);
   require(imported.front().whole_program && imported.front().slots.size()==1,"fallback population did not import whole programs");
+ } else if(mode==Fixture::RegionTraversals) {
+  // The entry is the region template, so every traversal is in a region phase.
+  require(rejected==0,"region traversal grammar generation failed");
+  for(auto kind:{NodeKind::TRAVERSE,NodeKind::TRAVERSE_RANGE,NodeKind::LET_REGION,NodeKind::IF_EXPR,NodeKind::BOUNDED_REGION})
+   require(kinds.count(int(kind)),"region traversal fixture did not exercise node kind "+std::to_string(int(kind)));
+  require(walked>=64 && reversed>=16,"region traversal fixture must traverse inside phases: "+std::to_string(walked)+"/"+std::to_string(reversed));
  } else if(mode==Fixture::Traversals) {
   require(rejected==0,"traversal grammar generation failed");
   for(auto kind:{NodeKind::TRAVERSE,NodeKind::TRAVERSE_RANGE,NodeKind::LET_REGION,NodeKind::IF_EXPR})
@@ -458,6 +466,9 @@ int main() { try {
      "configs/grammar/examples/acyclic_memo.json","configs/grammar/examples/changed_recursive_split.json"})
   check(grammar,Fixture::Regions,false);
  check("cpp/tests/fixtures/phase_traversal.json",Fixture::Traversals);
+ // Traversals inside region phases: forward, reversed with an aliased phase
+ // binding, and ranged under a nonempty-length fact on a phase binding.
+ check("cpp/tests/fixtures/phase_region_traversal.json",Fixture::RegionTraversals);
  // Unit productions inline into their callers, in expression and statement grammars.
  check("cpp/tests/fixtures/phase_units.json",Fixture::Templates);
  check("cpp/tests/fixtures/phase_unit_statements.json",Fixture::Statements);

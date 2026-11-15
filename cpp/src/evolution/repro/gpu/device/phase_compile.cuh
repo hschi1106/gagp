@@ -279,7 +279,7 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
   int env_slot[kPhaseBinders]; ValueTag env_type[kPhaseBinders]; Facts facts[kPhaseBinders];
   for (int i=0; i<kPhaseBinders; ++i) { env_slot[i]=-1; env_type[i]=ValueTag::Invalid; facts[i]={false,false,-1,0,-1}; }
   bool analyze=false;
-  if constexpr (Regions) for (int r=0; regions && r<region_info_count; ++r) analyze|=regions[r].traversal!=0;
+  for (int r=0; regions && r<region_info_count; ++r) analyze|=regions[r].traversal!=0;
   struct IfFact { int frame, source; bool positive_then, already; };
   IfFact ifs[kPhaseIfs]; int if_count=0;
   struct TraverseScope {
@@ -348,12 +348,16 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
     }
     return i;
   };
-  // Binder number of a lexical read in the main code, else -1.
+  // Binder number of a lexical read, else -1. In a region phase the native
+  // compiler pushes each phase binding as a binder in local order, so a read
+  // of binding b (a preset local) is binder b of slot b.
   const auto binder_at=[&](int i) -> int {
     if (i<0 || i>=node_count) return -1;
     const auto& n=nodes[i];
-    return n.kind==PhaseTreeKind::Bound && n.operand>=0 && n.operand<kPhaseBinders && env_slot[n.operand]>=0 ? n.operand : -1;
+    if (n.kind!=PhaseTreeKind::Bound || n.operand<0 || n.operand>=kPhaseBinders) return -1;
+    return env_slot[n.operand]>=0 || (!Regions && n.operand<local_count) ? n.operand : -1;
   };
+  const auto binder_slot=[&](int binder) { return env_slot[binder]>=0 ? env_slot[binder] : binder; };
   const auto int_constant=[&](int i, std::int64_t& value) -> bool {
     if (i<0 || i>=node_count) return false;
     const auto& n=nodes[i];
@@ -423,7 +427,7 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
   // An uncharged lexical operand stored by an uncharged event aliases its binder.
   const auto zero_capture=[&](const PhaseRegionInfo& info, int argument, PhaseFuelEvent store) -> int {
     const int binder=binder_at(argument);
-    return binder>=0 && zero_event(info,store) && nodes[argument].fuel==0 ? env_slot[binder] : -1;
+    return binder>=0 && zero_event(info,store) && nodes[argument].fuel==0 ? binder_slot(binder) : -1;
   };
   const auto zero_clamp_identity=[&](const PhaseRegionInfo& info, int source, int argument, PhaseFuelEvent event) -> bool {
     if (!zero_event(info,event)) return false;
@@ -608,7 +612,7 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
         if (!out.emit(Opcode::Load,node.fuel,slot,0,gpu_detail::DINSTR_HAS_A)) return out.result;
         out.grow(1); typed_views=private_intlists=false; completed=node.type; have_value=true;
       } else if (node.kind==PhaseTreeKind::Traverse) {
-        if (!Regions || !analyze || node.operand<0 || node.operand>=region_info_count || !regions[node.operand].traversal) {
+        if (!analyze || node.operand<0 || node.operand>=region_info_count || !regions[node.operand].traversal) {
           out.result.status=PhaseCompileStatus::Unsupported; return out.result;
         }
         const auto& info=regions[node.operand];
@@ -725,7 +729,7 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
             const auto phase=compile_phase_tree<SharedNodes,CompactFrames,false>(nodes+record.bounds[p],record.bounds[p+1]-record.bounds[p],
                 constants,constant_count,info.binding_types[p],info.phase_bindings[p],info.phase_type[p],
                 out.code+out.result.code_count,code_capacity-out.result.code_count,
-                out.constants+out.result.constant_count,constant_capacity-out.result.constant_count);
+                out.constants+out.result.constant_count,constant_capacity-out.result.constant_count,regions,region_info_count);
             if (phase.status!=PhaseCompileStatus::Ok) { out.result.status=phase.status; return out.result; }
             out.code[header].a=phase.code_count; out.code[header].b=phase.constant_count;
             out.code[header].fuel=static_cast<unsigned>(phase.local_count)|(phase.general_regions ? 1U<<16 : 0U);
