@@ -447,7 +447,19 @@ void check_code_record_capacity() {
   try{evolve_population(cases,run);}catch(const std::exception& e){error=e.what();}
   require(error.rfind(expected,0)==0,std::string("phase_region_code_capacity.json ")+(gpu?"GPU: ":"CPU: ")+error);
  }
- std::cout<<"phase_region_code_capacity.json: a program over 4096 code records stops both owners with one message\n";
+ // Steady state without crossover or mutation: every child copies an initial
+ // member and reuses its fitness. Initial members run their native bytecode,
+ // so the copy is first lowered here, and both owners must stop.
+ auto steady=cfg;steady.phase_schedule=PhaseSchedulePolicy{PhaseScheduleMode::SteadyState,2,2};
+ PhaseVariationPolicy variation;variation.crossover_probability=0;steady.phase_variation=variation;
+ for(const bool gpu:{false,true}) {
+  auto run=steady;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  std::string error;
+  try{evolve_population(cases,run);}catch(const std::exception& e){error=e.what();}
+  require(error.rfind(expected,0)==0,std::string("phase_region_code_capacity.json steady state ")+(gpu?"GPU: ":"CPU: ")+error);
+ }
+ std::cout<<"phase_region_code_capacity.json: a program over 4096 code records stops both owners with one message, "
+     "also when steady state reuses its fitness\n";
 }
 // Generated initial members over a per-program capacity of the genotype
 // (bounded regions per program, nodes of a phase row) are redrawn, and only

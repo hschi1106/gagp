@@ -209,8 +209,9 @@ struct HostPhasePopulation::Impl {
  // Lower every live phase with the shared phase compiler and patch the region
  // executables exactly as the GPU owner materializes them.
  // Lowers the phases of tree member `member` into `executable`; false on rejection.
- // `failure` receives the result of the first rejected phase.
- bool lower_member(TreePointers trees,int member,BytecodeProgram& executable,PhaseCompileResult* failure=nullptr)const {
+ // `failure` receives the result of the first rejected phase. Without
+ // `patch` the phases are only checked, and `executable` is left alone.
+ bool lower_member(TreePointers trees,int member,BytecodeProgram& executable,PhaseCompileResult* failure=nullptr,bool patch=true)const {
   thread_local std::vector<gpu_detail::DInstr> code(code_capacity);thread_local std::vector<Value> values(capacity);
   bool ok=true;
   for(int k=0;k<slot_count;++k) {
@@ -221,6 +222,7 @@ struct HostPhasePopulation::Impl {
     if(ok && failure){*failure=r;if(r.status==PhaseCompileStatus::Ok)failure->status=PhaseCompileStatus::Invalid;}
     ok=false;continue;
    }
+   if(!patch)continue;
    if(layout.whole_program){patch_whole_program(executable,layout,code.data(),r.code_count,values.data(),r.constant_count,r);continue;}
    auto& program=native_phase_at(executable.bounded_region_segments[0],layout.slots[k].ordinal).program;
    program.code.clear();program.instruction_fuel.clear();program.code.reserve(r.code_count);program.instruction_fuel.reserve(r.code_count);
@@ -432,9 +434,13 @@ HostPhasePopulation::Evaluation HostPhasePopulation::evaluate_batch(const std::v
  Evaluation result;result.fitness.assign(b,0.0);result.case_counts.assign(b,{});
  const bool wrong=policy.metric!=FitnessMetric::Legacy;if(wrong)result.wrong.assign(b,0);
  std::vector<int> pending;for(int i=0;i<b;++i)if(reuse[i]<0)pending.push_back(i);
- std::vector<int> failures(pending.size(),0);std::vector<PhaseCompileResult> results(pending.size());
- each_row(int(pending.size()),[&](int j){failures[j]=!s.lower_member(s.crossed->pointers(),pending[j],s.batch_programs[pending[j]],&results[j]);});
- for(std::size_t j=0;j<pending.size();++j)if(failures[j])throw std::runtime_error(phase_lowering_error(results[j]));
+ // The GPU owner lowers every child of the batch. A reused child copies a
+ // member that may never have been lowered (initial members run their native
+ // bytecode), so it is checked against the lowering capacities too, without
+ // patching or evaluating it, and the first rejected child stops the run.
+ std::vector<int> failures(b,0);std::vector<PhaseCompileResult> results(b);
+ each_row(b,[&](int i){failures[i]=!s.lower_member(s.crossed->pointers(),i,s.batch_programs[i],&results[i],reuse[i]<0);});
+ for(int i=0;i<b;++i)if(failures[i])throw std::runtime_error(phase_lowering_error(results[i]));
  constexpr int chunk=32;const int chunks=(int(pending.size())+chunk-1)/chunk;
  each_row(chunks,[&](int c) {
   const int begin=c*chunk,end=std::min<int>(pending.size(),begin+chunk);
