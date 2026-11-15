@@ -119,7 +119,7 @@ class CommittedFilesTest(unittest.TestCase):
             self.assertEqual(document["fitness"]["metric"], metric)
         for problem in build.PROBLEMS:
             limit = load(problem.key, "task")["fitness"].get("list_allocation_limit")
-            self.assertEqual(limit, 65536 if problem.list_vars else None, problem.key)
+            self.assertEqual(limit, 65536, problem.key)
 
     def test_named_constants_reach_the_grammars(self) -> None:
         for problem in build.PROBLEMS:

@@ -85,9 +85,9 @@ CHAR_MODULUS = 128
 # Constants of the fitness policy: the error of a failed case (it is also the
 # error of a runtime error) is large so that it never hides behind the cap.
 CASE_CAP = 1000000
-# Logical list-cell limit per case, set for every task whose grammar has lists. It makes the
-# list resource policy explicit and identical on both engines (without it the engines'
-# physical payload storage differs once a program builds hundreds of thousands of cells).
+# Logical limit on the list cells and string bytes one case may allocate, set on every task.
+# It bounds what a program can build within its fuel, so both engines score every program
+# instead of stopping when their physical payload storage runs out.
 LIST_ALLOCATION_LIMIT = 65536
 # Thesis Table 4.1.
 POPULATION = 1000
@@ -123,13 +123,13 @@ PROBLEMS = [
     Problem("median", "Median", ("Int",) * 3, "Int", INT3 + ("res0", "in0", "in1", "in2"), (), (), (),
             200, {"metric": "exact"}),
     Problem("count_odds", "Count Odds", ("IntList",), "Int", INT3 + ("res0",), ("li0", "li1", "li2", "in0"), (), (),
-            300, {"metric": "absolute", "list_allocation_limit": LIST_ALLOCATION_LIMIT}),
+            300, {"metric": "absolute"}),
     Problem("small_or_large", "Small Or Large", ("Int",), "String", INT3 + ("in0",), (),
             ("s0", "s1", "s2", "res0"), ("small", "large"), 300, {"metric": "levenshtein"}),
     Problem("replace_space_with_newline", "Replace Space with Newline", ("String",), "String", INT3 + ("res1",), (),
             ("s0", "s1", "s2", "res0", "in0"), (), 300, {"metric": "levenshtein"}),
     Problem("negative_to_zero", "Negative To Zero", ("IntList",), "IntList", INT3, ("li0", "li1", "li2", "res0", "in0"),
-            (), (), 300, {"metric": "levenshtein", "list_allocation_limit": LIST_ALLOCATION_LIMIT}),
+            (), (), 300, {"metric": "levenshtein"}),
 ]
 BY_KEY = {p.key: p for p in PROBLEMS}
 
@@ -286,7 +286,8 @@ def search(p: Problem) -> dict:
 
 def task(p: Problem) -> dict:
     return {"format": "gagp-task-v1", "name": p.key, "grammar": "grammar.json", "train": "train.cases.json",
-            "test": "test.cases.json", "fitness": {**p.fitness, "case_cap": CASE_CAP}}
+            "test": "test.cases.json", "fitness": {**p.fitness, "list_allocation_limit": LIST_ALLOCATION_LIMIT,
+                                                     "case_cap": CASE_CAP}}
 
 
 def dump(document: dict, indent: int) -> str:

@@ -97,7 +97,7 @@ and the whole per-generation history.
 | Schedule | generational | generational |
 | Node limit | 170 AST nodes of the body (see below) | 250 derivation-tree nodes |
 | Variables per type | 3 temporaries per type | 3 |
-| Execution limit | 20,000 fuel | 1 second of wall time |
+| Execution limit | 20,000 fuel, 65,536 allocated list cells and string bytes per case | 1 second of wall time |
 | Runs | 100 | 100 |
 
 The constants that are a choice of this port are named at the top of
@@ -174,8 +174,9 @@ and not a claim about results.
   differently. Each case also starts from fresh copies of its inputs.
 - **`range` and `saveRange`.** `saveRange(a, b)` returns at most 10,000 numbers.
   `range(a, b)` returns up to 65,535 numbers and fails with a value error beyond
-  that, and the list cells of one case are limited to 65,536 by the task's
-  `list_allocation_limit`. Programs that build longer ranges differ.
+  that, and the list cells and string bytes one case allocates are limited to
+  65,536 by the task's `list_allocation_limit`. Programs that build longer
+  ranges, lists or strings differ.
 - **Integers** are 64-bit signed values that wrap on `+ - *`. Python integers have
   no bound.
 - **`divInt` and `mod`** become `idiv0` and `imod0`. The original returns the
