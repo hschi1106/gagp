@@ -28,10 +28,17 @@ identical populations, fitness values and champions on both engines).
 - The resident engine admits unit productions, repeated template holes,
   single-program grammars, root-template grammars whose members do not fit the
   region-template layout (they take the whole-program layout), Float ranges,
-  more than 4 bounded regions per program (a capacity, rejected per candidate)
-  and non-default `resource_charge`. Every rejection names the limit and the
-  offending value. The limits are listed once in the
-  [capacity table](spec/search_config.md#resident-capacities).
+  more than 4 bounded regions per program (a capacity, rejected per candidate),
+  traversals inside bounded region phases and non-default `resource_charge`.
+  Every rejection names the limit and the offending value. The limits are
+  listed once in the
+  [capacity table](spec/search_config.md#resident-capacities). Sequence
+  constant domains and a nonterminal reached under two lexical binder
+  environments remain
+  [language restrictions](spec/search_config.md#language-restrictions).
+- A generated initial member that exceeds a per-program capacity is redrawn
+  from a derived seed, up to 256 times, identically on both engines. Members
+  that fit on the first draw are unchanged.
 - A bounded region plan declares at most 1,024 frames and 4,096 memo cells.
   Plan validation enforces this on both engines, replacing the GPU-only limits
   of 128 frames and 256 cells. Large plans use a per-lane hash index on the GPU.
