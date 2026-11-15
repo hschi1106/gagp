@@ -56,20 +56,25 @@ std::vector<ProgramGenome> generate_phase_initial_population(
     const std::vector<std::string>& input_names, int population, std::uint64_t seed, int site_depth) {
  phase_layout_require(population>0 && site_depth>=1 && site_depth<=15,"initial population size/site depth");
  phase_layout_require(population<=kPhasePopulation,"population of "+std::to_string(population)+" members exceeds the resident capacity of "+std::to_string(kPhasePopulation));
- // The layout prototype is any verified member. A statement grammar may
- // generate a read of an unassigned local; the next seed is tried instead.
- const auto prototype=[&] {
-  for(std::uint64_t attempt=0;;++attempt) {
-   try{return generate_random_genome(seed+attempt,grammar,request);}
-   catch(const std::invalid_argument&){phase_layout_require(attempt<255,"no verified prototype program");}
-  }
- }();
- // The prototype's layout follows import_native_phase_population: region
- // template when the prototype takes it, whole program otherwise.
+ // The layout prototype is any verified member within the per-program
+ // capacities. A statement grammar may generate a read of an unassigned local,
+ // and a program may exceed a capacity; the next seed is tried instead. The
+ // prototype's layout follows import_native_phase_population: region template
+ // when the prototype takes it, whole program otherwise.
  const auto layout=[&] {
-  if(phase_region_template_candidate(grammar))
-   try{return import_native_phase_layout(grammar,prototype,nullptr,&input_names,true);}catch(const std::invalid_argument&){}
-  return import_native_phase_layout(grammar,prototype,nullptr,&input_names,true,true);
+  for(std::uint64_t attempt=0;;++attempt) {
+   ProgramGenome prototype;
+   try{prototype=generate_random_genome(seed+attempt,grammar,request);}
+   catch(const std::invalid_argument&){phase_layout_require(attempt<255,"no verified prototype program");continue;}
+   try {
+    if(phase_region_template_candidate(grammar))
+     try{return import_native_phase_layout(grammar,prototype,nullptr,&input_names,true);}
+     catch(const PhaseMemberCapacityError&){throw;}catch(const std::invalid_argument&){}
+    return import_native_phase_layout(grammar,prototype,nullptr,&input_names,true,true);
+   } catch(const PhaseMemberCapacityError& e) {
+    phase_layout_require(attempt<255,"no prototype program within the per-program capacities in 256 draws, last: "+e.reason);
+   }
+  }
  }();
  const int slots=layout.slots.size();phase_layout_require(slots>0 && slots<=kPhaseSlots,"phase count");
  std::vector<std::unique_ptr<HostProfile>> profiles;
@@ -135,6 +140,16 @@ std::vector<ProgramGenome> generate_phase_initial_population(
   out.push_back(export_native_phase_layout(grammar,layout,genes));
  }
  return out;
+}
+
+MemberCapacityCheck phase_member_capacity_check(std::shared_ptr<const grammar::CompiledGrammar> grammar,
+    const std::vector<std::string>& input_names) {
+ auto profiles=std::make_shared<NativePhaseGrammarProfiles>(grammar,input_names);
+ return [grammar,profiles,input_names](const ProgramGenome& member)->std::string {
+  try{require_phase_member_capacity(*grammar,member,profiles.get(),&input_names);}
+  catch(const PhaseMemberCapacityError& e){return e.what();}
+  return {};
+ };
 }
 
 struct HostPhasePopulation::Impl {

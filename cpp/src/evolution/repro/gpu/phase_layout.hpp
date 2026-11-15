@@ -49,6 +49,16 @@ inline void phase_layout_require(bool condition, const char* reason) {
   if (!condition) throw std::invalid_argument(std::string("resident phase layout: ") + reason);
 }
 inline void phase_layout_require(bool condition, const std::string& reason) { phase_layout_require(condition, reason.c_str()); }
+// A member over a per-program capacity of the genotype (nodes of a phase row,
+// bounded regions per program). Initial generation redraws such a member.
+struct PhaseMemberCapacityError : std::invalid_argument {
+  explicit PhaseMemberCapacityError(const std::string& capacity)
+      : std::invalid_argument("resident phase layout: " + capacity), reason(capacity) {}
+  std::string reason;
+};
+inline void phase_member_capacity_require(bool condition, const std::string& reason) {
+  if (!condition) throw PhaseMemberCapacityError(reason);
+}
 // Native name of a grammar local read or a named control target; null otherwise.
 inline const std::string* phase_target_name(const grammar::CompiledGrammar& grammar, const grammar::CompiledExpression& e) {
   if (e.kind == grammar::ExpressionKind::Local) return &grammar.locals().at(e.target).name;
@@ -271,10 +281,10 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
       }
       gene.nodes.push_back(node); gene.origins.push_back(expression);
     }
-    phase_layout_require(gene.nodes.size() <= kPhaseRowNodes, "a phase of " + std::to_string(gene.nodes.size()) +
+    phase_member_capacity_require(gene.nodes.size() <= kPhaseRowNodes, "a phase of " + std::to_string(gene.nodes.size()) +
         " nodes exceeds the phase capacity of " + std::to_string(kPhaseRowNodes) + " nodes");
     const int regions = phase_region_count(gene.nodes.data(), static_cast<int>(gene.nodes.size()));
-    phase_layout_require(regions <= kPhaseMaxRegions, "a program of " + std::to_string(regions) +
+    phase_member_capacity_require(regions <= kPhaseMaxRegions, "a program of " + std::to_string(regions) +
         " bounded regions exceeds the capacity of " + std::to_string(kPhaseMaxRegions) + " bounded regions per program");
     if (!profile.shared.empty()) {
       // A native derivation copies a repeated hole's first fill with its own
@@ -397,6 +407,22 @@ inline std::vector<NativePhaseLayout> import_native_phase_population(const gramm
     try { return import_all(false); } catch (const std::invalid_argument&) {}
   }
   return import_all(true);
+}
+
+// Checks one member against the per-program capacities in the layout it
+// takes on its own (import_native_phase_population tries the same order).
+// Throws PhaseMemberCapacityError only. Any other rejection is left to the
+// population import, which reports it unchanged.
+inline void require_phase_member_capacity(const grammar::CompiledGrammar& grammar, const ProgramGenome& member,
+    NativePhaseGrammarProfiles* profiles, const std::vector<std::string>* evaluator_inputs) {
+  if (phase_region_template_candidate(grammar)) {
+    try { (void)import_native_phase_layout(grammar, member, profiles, evaluator_inputs, false); return; }
+    catch (const PhaseMemberCapacityError&) { throw; }
+    catch (const std::invalid_argument&) {}
+  }
+  try { (void)import_native_phase_layout(grammar, member, profiles, evaluator_inputs, false, true); }
+  catch (const PhaseMemberCapacityError&) { throw; }
+  catch (const std::invalid_argument&) {}
 }
 
 // Export only. The caller supplies a private run's current device copyback;

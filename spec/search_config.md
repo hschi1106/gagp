@@ -98,13 +98,22 @@ These rules define `crossover`, `sites`, `limits` and `ranking`.
 - `limits.site_depth` counts nested grammar invocations, excluding lowering
   scaffolds.
 - A run with `limits.site_depth > 0` and no initial
-  population generates its own: one program generated from `seed` fixes the
-  skeleton outside the phases, and every phase of member `i` is grown by the
+  population generates its own: the first program generated from `seed`,
+  `seed + 1`, ... that verifies and fits the per-program
+  [resident capacities](#resident-capacities) fixes the skeleton outside the
+  phases (256 draws at most), and every phase of member `i` is grown by the
   phase generator under the site-depth profile with invocation depth
   `2 + i mod (site_depth - 1)` (or `site_depth` when it is 1). A depth that
   cannot derive the phase is retried with fresh draws and then raised by one,
   up to `site_depth`. Phases are filled in order, each leaving room for the
   minimum size of the later phases within the grammar's `max_nodes`.
+- A run with `limits.site_depth` 0 and no initial population generates member
+  `i` from `seed + i` ([population initialization](grammar_definition.md)).
+  A member over a per-program resident capacity is redrawn from a seed derived
+  from `seed + i` and the attempt number, in the layout the member takes on
+  its own. A member that fits at its first draw consumes no further draw.
+  After 256 draws of one member the run is rejected, naming the capacity. A
+  supplied initial population is never redrawn.
 - `ranking.tie_break: grammar_sites` requires a task metric with wrong counts.
 - A unit production (an alternative that is only a nonterminal reference,
   possibly inside template or hole wrappers) is inlined: it is replaced by the
@@ -178,10 +187,11 @@ These are the limits of the language on the resident engine: a grammar, an
 initial population or a run that exceeds one is rejected at admission, and the
 message names the limit and the offending value. Program-shape limits are
 proven over every program the grammar can derive within its `search_limits`,
-so variation never builds a program beyond them. The one exception is the
-number of bounded regions in one program, which is checked per program like
-`max_nodes`: admission refuses an initial member with more, and generation
-and variation reject a candidate with more and draw or try again.
+so variation never builds a program beyond them. The exceptions are the
+nodes of one phase and the bounded regions in one program, which are checked
+per program like `max_nodes`: generation redraws an initial member over one
+(see [Variation](#variation)), admission refuses a supplied initial member
+over one, and variation rejects a candidate over one and draws or tries again.
 
 | Resource | Limit |
 | --- | --- |
@@ -189,7 +199,7 @@ and variation reject a candidate with more and draw or try again.
 | `search_limits.max_depth` | 64 |
 | `search_limits.max_nodes` | 2048 |
 | Nodes of one phase (in the whole-program layout, of the whole program) | 1024 |
-| Effective node limit of the whole-program layout | min(`search_limits.max_nodes`, 1024), because the program is one phase in a row of 1024 nodes. A larger `max_nodes` is accepted, but generation, crossover and mutation stay within the row and an initial member over it is rejected, identically on both engines |
+| Effective node limit of the whole-program layout | min(`search_limits.max_nodes`, 1024), because the program is one phase in a row of 1024 nodes. A larger `max_nodes` is accepted, but generation, crossover and mutation stay within the row, a generated initial member over it is redrawn and a supplied one is rejected, identically on both engines |
 | `search_limits.max_nodes` of a Program-entry grammar | 512 |
 | Program inputs | 64 |
 | Grammar locals referenced by the grammar | 16 |

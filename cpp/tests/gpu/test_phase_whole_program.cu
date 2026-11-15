@@ -346,6 +346,60 @@ void check_unit_weight_overflow() {
  require_same(traces[0],traces[1],"unit weight overflow");
  std::cout<<"phase_unit_weights.json: overflowing unit weights keep every alternative on CPU and GPU\n";
 }
+// Generated initial members over a per-program capacity of the genotype
+// (bounded regions per program, nodes of a phase row) are redrawn, and only
+// those: a member admissible at its first draw is the plain draw seed + i.
+// The review reproducers: phase_many_regions at site depth 0 seed 0 P16 and
+// site depth 7 seed 8 P2 (an over-capacity prototype), phase_row_fixed (one
+// alternative of 1025 nodes) at site depth 0 seed 2 and 7 seed 3, P2.
+void check_initial_capacity() {
+ const auto load=[](const char* fixture){return std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/")+fixture)));};
+ const auto configure=[](const std::shared_ptr<const grammar::CompiledGrammar>& g,int site_depth,std::uint64_t seed,int population) {
+  EvolutionConfig cfg;cfg.population_size=population;cfg.generations=1;cfg.seed=seed;cfg.elite_count=1;cfg.mutation_rate=0.3;
+  cfg.compiled_grammar=g;cfg.fuel=g->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;cfg.gpu_phase_site_depth=site_depth;
+  return cfg;
+ };
+ struct Case{const char* fixture;int site_depth;std::uint64_t seed;int population;};
+ for(const Case c:{Case{"phase_many_regions.json",0,0,16},Case{"phase_many_regions.json",7,8,2},
+     Case{"phase_row_fixed.json",0,2,2},Case{"phase_row_fixed.json",7,3,2}}) {
+  const auto compiled=load(c.fixture);
+  const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+  const auto cfg=configure(compiled,c.site_depth,c.seed,c.population);
+  const auto label=std::string(c.fixture)+" site depth "+std::to_string(c.site_depth)+" seed "+std::to_string(c.seed);
+  if(!c.site_depth) {
+   std::vector<std::string> names;for(const auto& input:compiled->inputs())names.push_back(input.name);
+   const auto check=phase_member_capacity_check(compiled,names);
+   const auto initial=initialize_population(cfg,prepare_case_set(cases),nullptr,check).population;
+   int redrawn=0;
+   for(int i=0;i<c.population;++i) {
+    const auto first=grammar::generate_derivation(*compiled,c.seed+i).genome;
+    require(check(initial[i]).empty(),label+": an initial member exceeds a capacity");
+    if(check(first).empty())require(cli_detail::encode_ast_json(initial[i].ast)==cli_detail::encode_ast_json(first.ast),
+        label+": an admissible first draw was redrawn");
+    else ++redrawn;
+   }
+   require(redrawn>0,label+": no first draw exceeded a capacity");
+  }
+  std::vector<Trace> traces;
+  for(const bool gpu:{false,true}) {
+   auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+   traces.push_back(trace(evolve_population(cases,run)));
+  }
+  require_same(traces[0],traces[1],label+" redrawn initial population");
+ }
+ // A grammar whose every program exceeds the phase row fails, naming it.
+ const auto over=load("phase_row_overflow.json");
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*over),{true,64}).parse());
+ for(const int site_depth:{0,7})for(const bool gpu:{false,true}) {
+  auto cfg=configure(over,site_depth,0,2);cfg.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  std::string error;
+  try{(void)evolve_population(cases,cfg);}catch(const std::invalid_argument& e){error=e.what();}
+  require(error.find("256 draws")!=std::string::npos && error.find("a phase of 1025 nodes exceeds the phase capacity of 1024 nodes")!=std::string::npos,
+      std::string("phase_row_overflow.json site depth ")+std::to_string(site_depth)+(gpu?" GPU":" CPU")+": "+error);
+ }
+ std::cout<<"initial populations: over-capacity draws redrawn identically on CPU and GPU, admissible draws unchanged\n";
+}
 }  // namespace
 
 int main() { try {
@@ -367,6 +421,7 @@ int main() { try {
  check("cpp/tests/fixtures/phase_units.json",Fixture::Templates);
  check("cpp/tests/fixtures/phase_unit_statements.json",Fixture::Statements);
  check_unit_weight_overflow();
+ check_initial_capacity();
  // Repeated holes share one derivation: recursive, skewed in depth, with a
  // constant in the fill, forwarded through a nested template, and under a let.
  check("cpp/tests/fixtures/phase_repeated.json",Fixture::Templates);
