@@ -1,0 +1,63 @@
+{
+ "format_version": "grammar-definition-v2",
+ "entry": {
+  "nonterminal": "S",
+  "type": "Int"
+ },
+ "inputs": [
+  {
+   "name": "x",
+   "type": "Int"
+  }
+ ],
+ "search_limits": {
+  "max_nodes": 8,
+  "max_depth": 5
+ },
+ "execution_limits": {
+  "fuel": 64
+ },
+ "nonterminals": [
+  {
+   "id": "S",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "input",
+     "weight": 1,
+     "expression": {
+      "input": "x"
+     }
+    },
+    {
+     "id": "length",
+     "weight": 1,
+     "expression": {
+      "signature": "len(IntList)->Int",
+      "args": [
+       {
+        "constant": {
+         "type": "IntList",
+         "sequence": {
+          "length": [
+           0,
+           3
+          ],
+          "element": {
+           "type": "Int",
+           "range": [
+            "0",
+            "9"
+           ]
+          }
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

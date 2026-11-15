@@ -144,6 +144,19 @@ void check_unit_productions() {
   while(profile.expressions[e].kind==PhaseExpressionKind::Alias)e=profile.expressions[e].children[0];
   require(profile.expressions[e].kind!=PhaseExpressionKind::Reference,"a unit production survived inlining");
  }
+ // Weights near the largest finite value: the inner total of A (two weights
+ // of 1e308) and the diamond merge through A and B (1.7e308 each) overflow
+ // unless the expansion scales; the expanded ratios stay exact.
+ const auto expanded=[&](const char* fixture) {
+  const auto g=grammar::compile_grammar(grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/")+fixture));
+  const auto p=compile_phase_grammar(g,g.entry(),4);const auto& nt=p.nonterminals.at(g.entry());std::vector<double> w;
+  for(int i=0;i<nt.production_count;++i){w.push_back(p.productions[nt.production_offset+i].weight);require(std::isfinite(w.back()) && w.back()>0,"expanded weight not positive and finite");}
+  std::sort(w.begin(),w.end());return w;
+ };
+ const auto overflow=expanded("phase_unit_weights.json");
+ require(overflow.size()==3 && overflow[0]==overflow[1] && overflow[2]==2*overflow[0],"overflowing unit production weights");
+ const auto diamond=expanded("phase_unit_weights_diamond.json");
+ require(diamond.size()==2 && std::abs(diamond[1]/diamond[0]-3.4)<1e-12,"overflowing diamond weights");
 }
 // Imported members of a grammar with repeated holes name every copy after its
 // own occurrence; a copy whose fill differs from the first is rejected.
@@ -173,6 +186,26 @@ void check_repeated_holes() {
   }
  }
  require(copies>0 && tampered>0,"repeated-hole fixture did not exercise copies");
+ // 32 and 33 nested forwarding templates around add(v,v): the repeated-hole
+ // walk holds one record per nested instance, so 33 exceed its capacity.
+ for(const int nested:{32,33}) {
+  const auto path=std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_shared_holes_")+std::to_string(nested)+".json";
+  const auto chain=grammar::compile_grammar(grammar::load_definition(path));
+  std::string error;
+  try{(void)compile_phase_grammar(chain,chain.entry(),chain.search_limits().max_depth);}catch(const std::invalid_argument& e){error=e.what();}
+  if(nested==32)require(error.empty(),("32 nested repeated holes rejected: "+error).c_str());
+  else require(error.find("up to 33 repeated holes of nested template instances on one path exceed the capacity of 32")!=std::string::npos,
+      ("33 nested repeated holes: "+error).c_str());
+ }
+}
+// Lowering allocates a grammar local on its first use, so a declared local no
+// expression names takes no local: 64 inputs and one unused local fit the 64.
+void check_unused_locals() {
+ const auto g=grammar::compile_grammar(grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_unused_local.json"));
+ require(g.inputs().size()==64 && g.locals().size()==1,"unused-local fixture shape");
+ std::string error;
+ try{(void)compile_phase_grammar(g,g.entry(),g.search_limits().max_depth);}catch(const std::invalid_argument& e){error=e.what();}
+ require(error.empty(),("an unused grammar local counted toward the lowering locals: "+error).c_str());
 }
 int main(int argc,char** argv) {try {
  require(argc==1 || argc==3,"usage: test_gpu_phase_layout [PREPARED_JSON GRAMMAR_JSON]");
@@ -318,7 +351,7 @@ int main(int argc,char** argv) {try {
   }
 
  }
- if(argc==1){check_unit_productions();check_repeated_holes();}
+ if(argc==1){check_unit_productions();check_repeated_holes();check_unused_locals();}
  std::cout<<"roundtrip_programs="<<population.size()<<" all_instructions_constants_fuel_bindings_plans_exact=true\n";
  return 0;
 } catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

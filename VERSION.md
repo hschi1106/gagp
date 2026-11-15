@@ -28,10 +28,34 @@ identical populations, fitness values and champions on both engines).
 - The resident engine admits unit productions, repeated template holes,
   single-program grammars, root-template grammars whose members do not fit the
   region-template layout (they take the whole-program layout), Float ranges,
-  more than 4 bounded regions per program (a capacity, rejected per candidate)
-  and non-default `resource_charge`. Every rejection names the limit and the
-  offending value. The limits are listed once in the
-  [capacity table](spec/search_config.md#resident-capacities).
+  more than 4 bounded regions per program (a capacity, rejected per candidate),
+  traversals inside bounded region phases and non-default `resource_charge`.
+  Every rejection names the limit and the offending value. The limits are
+  listed once in the
+  [capacity table](spec/search_config.md#resident-capacities). Sequence
+  constant domains and a nonterminal reached under two lexical binder
+  environments remain
+  [language restrictions](spec/search_config.md#language-restrictions).
+- A generated initial member that exceeds a per-program capacity is redrawn
+  from a derived seed, up to 256 times, identically on both engines. Members
+  that fit on the first draw are unchanged.
+- With `limits.site_depth` above 0, a generated initial member whose
+  derivation as the import reconstructs it (the first, for an ambiguous
+  grammar) exceeds the site depth is redrawn, so the `psb1_g3p` grammars run
+  under the default search. A grammar with no program within the site depth
+  is rejected at admission, naming the depth it needs.
+- Admission counts two locals for each `for_range` and `while_stmt` (its bound
+  and its counter), as lowering holds them, where it counted one. A grammar
+  whose deepest path needs more than 64 locals is now rejected at admission on
+  both engines. The CPU engine also refuses an initial executable over 64
+  locals, as the GPU engine does, so the two never disagree on a grammar.
+- Admission bounds the locals of the root program and of each bounded region
+  phase separately, each against 64, so phase temporaries no longer count
+  against the root. A program over 4,096 code records or 1,024 constants
+  stops both engines with one message that names the capacity. A positive
+  grammar weight stays positive when unit inlining scales it. A phase that
+  has no program within `limits.site_depth` at its own depth is rejected
+  naming the site depth it needs.
 - A bounded region plan declares at most 1,024 frames and 4,096 memo cells.
   Plan validation enforces this on both engines, replacing the GPU-only limits
   of 128 frames and 256 cells. Large plans use a per-lane hash index on the GPU.

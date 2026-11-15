@@ -1,0 +1,370 @@
+{
+ "format_version": "grammar-definition-v2",
+ "entry": {
+  "category": "Program",
+  "nonterminal": "S",
+  "type": "Int"
+ },
+ "inputs": [
+  {
+   "name": "x0",
+   "type": "Int"
+  },
+  {
+   "name": "x1",
+   "type": "Int"
+  },
+  {
+   "name": "x2",
+   "type": "Int"
+  },
+  {
+   "name": "x3",
+   "type": "Int"
+  },
+  {
+   "name": "x4",
+   "type": "Int"
+  },
+  {
+   "name": "x5",
+   "type": "Int"
+  },
+  {
+   "name": "x6",
+   "type": "Int"
+  },
+  {
+   "name": "x7",
+   "type": "Int"
+  },
+  {
+   "name": "x8",
+   "type": "Int"
+  },
+  {
+   "name": "x9",
+   "type": "Int"
+  },
+  {
+   "name": "x10",
+   "type": "Int"
+  },
+  {
+   "name": "x11",
+   "type": "Int"
+  },
+  {
+   "name": "x12",
+   "type": "Int"
+  },
+  {
+   "name": "x13",
+   "type": "Int"
+  },
+  {
+   "name": "x14",
+   "type": "Int"
+  },
+  {
+   "name": "x15",
+   "type": "Int"
+  },
+  {
+   "name": "x16",
+   "type": "Int"
+  },
+  {
+   "name": "x17",
+   "type": "Int"
+  },
+  {
+   "name": "x18",
+   "type": "Int"
+  },
+  {
+   "name": "x19",
+   "type": "Int"
+  },
+  {
+   "name": "x20",
+   "type": "Int"
+  },
+  {
+   "name": "x21",
+   "type": "Int"
+  },
+  {
+   "name": "x22",
+   "type": "Int"
+  },
+  {
+   "name": "x23",
+   "type": "Int"
+  },
+  {
+   "name": "x24",
+   "type": "Int"
+  },
+  {
+   "name": "x25",
+   "type": "Int"
+  },
+  {
+   "name": "x26",
+   "type": "Int"
+  },
+  {
+   "name": "x27",
+   "type": "Int"
+  },
+  {
+   "name": "x28",
+   "type": "Int"
+  },
+  {
+   "name": "x29",
+   "type": "Int"
+  },
+  {
+   "name": "x30",
+   "type": "Int"
+  },
+  {
+   "name": "x31",
+   "type": "Int"
+  },
+  {
+   "name": "x32",
+   "type": "Int"
+  },
+  {
+   "name": "x33",
+   "type": "Int"
+  },
+  {
+   "name": "x34",
+   "type": "Int"
+  },
+  {
+   "name": "x35",
+   "type": "Int"
+  },
+  {
+   "name": "x36",
+   "type": "Int"
+  },
+  {
+   "name": "x37",
+   "type": "Int"
+  },
+  {
+   "name": "x38",
+   "type": "Int"
+  },
+  {
+   "name": "x39",
+   "type": "Int"
+  },
+  {
+   "name": "x40",
+   "type": "Int"
+  },
+  {
+   "name": "x41",
+   "type": "Int"
+  },
+  {
+   "name": "x42",
+   "type": "Int"
+  },
+  {
+   "name": "x43",
+   "type": "Int"
+  },
+  {
+   "name": "x44",
+   "type": "Int"
+  },
+  {
+   "name": "x45",
+   "type": "Int"
+  },
+  {
+   "name": "x46",
+   "type": "Int"
+  },
+  {
+   "name": "x47",
+   "type": "Int"
+  },
+  {
+   "name": "x48",
+   "type": "Int"
+  },
+  {
+   "name": "x49",
+   "type": "Int"
+  },
+  {
+   "name": "x50",
+   "type": "Int"
+  },
+  {
+   "name": "x51",
+   "type": "Int"
+  },
+  {
+   "name": "x52",
+   "type": "Int"
+  },
+  {
+   "name": "x53",
+   "type": "Int"
+  },
+  {
+   "name": "x54",
+   "type": "Int"
+  },
+  {
+   "name": "x55",
+   "type": "Int"
+  },
+  {
+   "name": "x56",
+   "type": "Int"
+  },
+  {
+   "name": "x57",
+   "type": "Int"
+  }
+ ],
+ "search_limits": {
+  "max_nodes": 64,
+  "max_depth": 14
+ },
+ "execution_limits": {
+  "fuel": 256
+ },
+ "nonterminals": [
+  {
+   "id": "S",
+   "category": "Program",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "program",
+     "weight": 1,
+     "expression": {
+      "control": "program(Block)->Program",
+      "type": "Int",
+      "args": [
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "Int",
+        "args": [
+         {
+          "control": "for_range(Int,Block)->Statement",
+          "type": "Int",
+          "input_name": "x0",
+          "args": [
+           {
+            "constant": {
+             "type": "Int",
+             "range": [
+              "0",
+              "2"
+             ]
+            }
+           },
+           {
+            "control": "block_cons(Statement,Block)->Block",
+            "type": "Int",
+            "args": [
+             {
+              "control": "for_range(Int,Block)->Statement",
+              "type": "Int",
+              "input_name": "x0",
+              "args": [
+               {
+                "constant": {
+                 "type": "Int",
+                 "range": [
+                  "0",
+                  "2"
+                 ]
+                }
+               },
+               {
+                "control": "block_cons(Statement,Block)->Block",
+                "type": "Int",
+                "args": [
+                 {
+                  "control": "for_range(Int,Block)->Statement",
+                  "type": "Int",
+                  "input_name": "x0",
+                  "args": [
+                   {
+                    "constant": {
+                     "type": "Int",
+                     "range": [
+                      "0",
+                      "2"
+                     ]
+                    }
+                   },
+                   {
+                    "control": "block_nil()->Block",
+                    "type": "Int",
+                    "args": []
+                   }
+                  ]
+                 },
+                 {
+                  "control": "block_nil()->Block",
+                  "type": "Int",
+                  "args": []
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "control": "block_nil()->Block",
+              "type": "Int",
+              "args": []
+             }
+            ]
+           }
+          ]
+         },
+         {
+          "control": "block_cons(Statement,Block)->Block",
+          "type": "Int",
+          "args": [
+           {
+            "control": "return(Int)->Statement",
+            "type": "Int",
+            "args": [
+             {
+              "input": "x57"
+             }
+            ]
+           },
+           {
+            "control": "block_nil()->Block",
+            "type": "Int",
+            "args": []
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

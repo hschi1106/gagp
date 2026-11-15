@@ -56,20 +56,25 @@ std::vector<ProgramGenome> generate_phase_initial_population(
     const std::vector<std::string>& input_names, int population, std::uint64_t seed, int site_depth) {
  phase_layout_require(population>0 && site_depth>=1 && site_depth<=15,"initial population size/site depth");
  phase_layout_require(population<=kPhasePopulation,"population of "+std::to_string(population)+" members exceeds the resident capacity of "+std::to_string(kPhasePopulation));
- // The layout prototype is any verified member. A statement grammar may
- // generate a read of an unassigned local; the next seed is tried instead.
- const auto prototype=[&] {
-  for(std::uint64_t attempt=0;;++attempt) {
-   try{return generate_random_genome(seed+attempt,grammar,request);}
-   catch(const std::invalid_argument&){phase_layout_require(attempt<255,"no verified prototype program");}
-  }
- }();
- // The prototype's layout follows import_native_phase_population: region
- // template when the prototype takes it, whole program otherwise.
+ // The layout prototype is any verified member within the per-program
+ // capacities. A statement grammar may generate a read of an unassigned local,
+ // and a program may exceed a capacity; the next seed is tried instead. The
+ // prototype's layout follows import_native_phase_population: region template
+ // when the prototype takes it, whole program otherwise.
  const auto layout=[&] {
-  if(phase_region_template_candidate(grammar))
-   try{return import_native_phase_layout(grammar,prototype,nullptr,&input_names,true);}catch(const std::invalid_argument&){}
-  return import_native_phase_layout(grammar,prototype,nullptr,&input_names,true,true);
+  for(std::uint64_t attempt=0;;++attempt) {
+   ProgramGenome prototype;
+   try{prototype=generate_random_genome(seed+attempt,grammar,request);}
+   catch(const std::invalid_argument&){phase_layout_require(attempt<255,"no verified prototype program");continue;}
+   try {
+    if(phase_region_template_candidate(grammar))
+     try{return import_native_phase_layout(grammar,prototype,nullptr,&input_names,true);}
+     catch(const PhaseMemberCapacityError&){throw;}catch(const std::invalid_argument&){}
+    return import_native_phase_layout(grammar,prototype,nullptr,&input_names,true,true);
+   } catch(const PhaseMemberCapacityError& e) {
+    phase_layout_require(attempt<255,"no prototype program within the per-program capacities in 256 draws, last: "+e.reason);
+   }
+  }
  }();
  const int slots=layout.slots.size();phase_layout_require(slots>0 && slots<=kPhaseSlots,"phase count");
  std::vector<std::unique_ptr<HostProfile>> profiles;
@@ -87,8 +92,31 @@ std::vector<ProgramGenome> generate_phase_initial_population(
  std::vector<PhaseTreeNode> nodes(capacity);std::vector<int> origins(capacity);std::vector<Value> constants(capacity);
  std::vector<PhaseTreeNode> shared_nodes(capacity);std::vector<int> shared_origins(capacity);std::vector<Value> shared_constants(capacity);
  std::vector<PhaseGeneSite> shared_sites(capacity);
- for(int i=0;i<population;++i) {
+ // Admission proves a program within the site depth at search_limits
+ // max_depth, but a phase has only the depth its layout leaves (the program
+ // envelope takes the rest). A phase with no program at its own depth within
+ // the site depth is a configuration error, named with the depth it needs.
+ for(int k=0;k<slots;++k) {
+  if(minimum(k,site_depth)<long(grammar::kNoGrammarId))continue;
+  const int depth=int(layout.slots[k].max_depth);int needed=0;
+  try {
+   const auto wide=compile_phase_variation_grammar(grammar,layout.slots[k].nonterminal,grammar.search_limits().max_depth,15,&input_names);
+   for(int l=site_depth+1;!needed && l<wide.logical_depth_count && depth>0 && depth<wide.depth_count;++l)
+    if(wide.minimum[(std::size_t(wide.root_expression)*wide.depth_count+depth)*wide.logical_depth_count+l]!=grammar::kNoGrammarId)needed=l;
+  } catch(const std::invalid_argument&) {}
+  phase_layout_require(false,"no program within limits.site_depth "+std::to_string(site_depth)+" at the depth "+std::to_string(depth)+
+      " of phase "+std::to_string(k)+" (search_limits max_depth "+std::to_string(grammar.search_limits().max_depth)+
+      " less the program envelope): "+(needed?"it needs limits.site_depth "+std::to_string(needed):std::string("no site depth up to 15 suffices"))+
+      " (limits.site_depth 0 disables the cap)");
+ }
+ // An ambiguous grammar derives some programs two ways, and the importer
+ // reconstructs the first derivation, which may nest more grammar invocations
+ // than the generated one. A member whose reconstruction exceeds the site
+ // depth is redrawn from a salted seed, so first draws are unchanged.
+ NativePhaseGrammarProfiles import_profiles(std::shared_ptr<const grammar::CompiledGrammar>(&grammar,[](const auto*){}),input_names);
+ for(int i=0;i<population;++i)for(std::uint64_t draw=0;;++draw) {
   const int ramp=site_depth<2?site_depth:2+i%(site_depth-1);
+  const std::uint64_t draw_seed=draw?seed^mix(UINT64_C(0xd1b54a32d192ed03)*draw):seed;
   std::vector<HostPhaseGene> genes(slots);int used=0;
   for(int k=0;k<slots;++k) {
    const auto& slot=layout.slots[k];const auto& profile=*profiles[k];
@@ -102,7 +130,7 @@ std::vector<ProgramGenome> generate_phase_initial_population(
     const long room=std::min<long>(capacity,long(available)-used-reserve);
     phase_layout_require(room>0,"initial phase budget");
     generated=generate_phase<true,false,false>(profile.view(),profile.grammar.root_expression,int(nt.scope.size()),
-        slot.max_depth,int(room),mix(seed^mix((std::uint64_t(i)*8+k)*64+attempt)),
+        slot.max_depth,int(room),mix(draw_seed^mix((std::uint64_t(i)*8+k)*64+attempt)),
         nodes.data(),origins.data(),constants.data(),nullptr,logical);
     // Repeated template holes: every later occurrence becomes a copy of the
     // first, which must still fit the room, the depth and the site depth.
@@ -132,9 +160,24 @@ std::vector<ProgramGenome> generate_phase_initial_population(
    gene.constants.assign(constants.begin(),constants.begin()+generated.constants);
    used+=generated.nodes;
   }
-  out.push_back(export_native_phase_layout(grammar,layout,genes));
+  auto member=export_native_phase_layout(grammar,layout,genes);
+  const auto imported=import_native_phase_layout(grammar,member,&import_profiles,&input_names,false,layout.whole_program);
+  const int depth=phase_member_site_depth(grammar,imported,import_profiles);
+  if(depth>=0 && depth<=site_depth){out.push_back(std::move(member));break;}
+  phase_layout_require(draw<255,"initial member "+std::to_string(i)+": in each of 256 draws the importer reconstructs a derivation over "
+      "limits.site_depth "+std::to_string(site_depth)+", last with "+std::to_string(depth)+" nested grammar invocations (0 disables the cap)");
  }
  return out;
+}
+
+MemberCapacityCheck phase_member_capacity_check(std::shared_ptr<const grammar::CompiledGrammar> grammar,
+    const std::vector<std::string>& input_names) {
+ auto profiles=std::make_shared<NativePhaseGrammarProfiles>(grammar,input_names);
+ return [grammar,profiles,input_names](const ProgramGenome& member)->std::string {
+  try{require_phase_member_capacity(*grammar,member,profiles.get(),&input_names);}
+  catch(const PhaseMemberCapacityError& e){return e.what();}
+  return {};
+ };
 }
 
 struct HostPhasePopulation::Impl {
@@ -166,14 +209,18 @@ struct HostPhasePopulation::Impl {
  // Lower every live phase with the shared phase compiler and patch the region
  // executables exactly as the GPU owner materializes them.
  // Lowers the phases of tree member `member` into `executable`; false on rejection.
- bool lower_member(TreePointers trees,int member,BytecodeProgram& executable)const {
+ // `failure` receives the result of the first rejected phase.
+ bool lower_member(TreePointers trees,int member,BytecodeProgram& executable,PhaseCompileResult* failure=nullptr)const {
   thread_local std::vector<gpu_detail::DInstr> code(code_capacity);thread_local std::vector<Value> values(capacity);
   bool ok=true;
   for(int k=0;k<slot_count;++k) {
    const int row=member*slot_count+k;const auto t=trees.view(row);const auto& slot=slots[k];
    const auto r=valid(trees.lengths[row])?compile_phase_tree<true,true>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.local_count,slot.type,
        code.data(),code_capacity,values.data(),capacity,slot.grammar.regions,slot.grammar.region_count):PhaseCompileResult{};
-   if(r.status!=PhaseCompileStatus::Ok || r.stack_bound<1 || r.stack_bound>gpu_detail::MAX_STACK){ok=false;continue;}
+   if(r.status!=PhaseCompileStatus::Ok || r.stack_bound<1 || r.stack_bound>gpu_detail::MAX_STACK) {
+    if(ok && failure){*failure=r;if(r.status==PhaseCompileStatus::Ok)failure->status=PhaseCompileStatus::Invalid;}
+    ok=false;continue;
+   }
    if(layout.whole_program){patch_whole_program(executable,layout,code.data(),r.code_count,values.data(),r.constant_count,r);continue;}
    auto& program=native_phase_at(executable.bounded_region_segments[0],layout.slots[k].ordinal).program;
    program.code.clear();program.instruction_fuel.clear();program.code.reserve(r.code_count);program.instruction_fuel.reserve(r.code_count);
@@ -183,9 +230,9 @@ struct HostPhasePopulation::Impl {
   return ok;
  }
  void refresh_programs() {
-  std::vector<int> failures(population,0);
-  each_row(population,[&](int p){failures[p]=!lower_member(current->pointers(),p,programs[p]);});
-  for(int failed:failures)if(failed)throw std::runtime_error("CPU phase compiler rejected a constructed program");
+  std::vector<int> failures(population,0);std::vector<PhaseCompileResult> results(population);
+  each_row(population,[&](int p){failures[p]=!lower_member(current->pointers(),p,programs[p],&results[p]);});
+  for(int p=0;p<population;++p)if(failures[p])throw std::runtime_error(phase_lowering_error(results[p]));
  }
  unsigned nodes(TreePointers trees,int member,bool grammar_sites)const {
   unsigned count=grammar_sites?0:layout.fixed_nodes;
@@ -222,6 +269,8 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
  s.layout=imports.front();
  if(site_depth)for(std::size_t k=0;k<s.layout.slots.size();++k)
   s.layout.profiles[k]=compile_phase_variation_grammar(*s.grammar,s.layout.slots[k].nonterminal,s.grammar->search_limits().max_depth,site_depth,&input_names);
+ require_phase_import_site_depth(*s.grammar,imports,import_profiles,site_depth);
+ require_phase_executable_capacity(imports);
  s.profile=site_depth?"resident-cpu-v4-site-depth"+std::to_string(site_depth):
      s.operators.counted_sites?"resident-cpu-v2-counted":"resident-cpu-v1";
  s.profile+=phase_variation_profile_suffix(policy);
@@ -256,7 +305,8 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
    std::copy(gene.constants.begin(),gene.constants.end(),out.constants);
    const auto& slot=s.slots[k];const auto t=trees.view(row);
    phase_layout_require(annotate_phase_tree(slot.grammar,slot.root,slot.scope,t.nodes,t.origins,t.node_count,out.sites,t.constants,t.constant_count) &&
-       !(slot.grammar.site_depth && phase_site_depth(t.nodes,out.sites,t.node_count)>slot.logical_depth),"import site annotation failed");
+       !(slot.grammar.site_depth && phase_site_depth(t.nodes,out.sites,t.node_count)>slot.logical_depth),
+       "the phase genes of initial member "+std::to_string(p)+" do not annotate against the site-depth phase grammar");
   }
   s.programs.push_back(std::move(imported.executable));
  }
@@ -382,9 +432,9 @@ HostPhasePopulation::Evaluation HostPhasePopulation::evaluate_batch(const std::v
  Evaluation result;result.fitness.assign(b,0.0);result.case_counts.assign(b,{});
  const bool wrong=policy.metric!=FitnessMetric::Legacy;if(wrong)result.wrong.assign(b,0);
  std::vector<int> pending;for(int i=0;i<b;++i)if(reuse[i]<0)pending.push_back(i);
- std::vector<int> failures(pending.size(),0);
- each_row(int(pending.size()),[&](int j){failures[j]=!s.lower_member(s.crossed->pointers(),pending[j],s.batch_programs[pending[j]]);});
- for(int failed:failures)if(failed)throw std::runtime_error("CPU phase compiler rejected a constructed program");
+ std::vector<int> failures(pending.size(),0);std::vector<PhaseCompileResult> results(pending.size());
+ each_row(int(pending.size()),[&](int j){failures[j]=!s.lower_member(s.crossed->pointers(),pending[j],s.batch_programs[pending[j]],&results[j]);});
+ for(std::size_t j=0;j<pending.size();++j)if(failures[j])throw std::runtime_error(phase_lowering_error(results[j]));
  constexpr int chunk=32;const int chunks=(int(pending.size())+chunk-1)/chunk;
  each_row(chunks,[&](int c) {
   const int begin=c*chunk,end=std::min<int>(pending.size(),begin+chunk);

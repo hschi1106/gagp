@@ -1,0 +1,153 @@
+{
+ "format_version": "grammar-definition-v2",
+ "entry": {
+  "nonterminal": "S",
+  "type": "Int"
+ },
+ "inputs": [
+  {
+   "name": "source",
+   "type": "IntList"
+  }
+ ],
+ "search_limits": {
+  "max_nodes": 16,
+  "max_depth": 6
+ },
+ "execution_limits": {
+  "fuel": 4096
+ },
+ "nonterminals": [
+  {
+   "id": "S",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "walk",
+     "weight": 1,
+     "expression": {
+      "signature": "traverse(IntList,Int,Int,Int)->Int",
+      "args": [
+       {
+        "input": "source"
+       },
+       {
+        "constant": {
+         "type": "Int",
+         "values": [
+          "0"
+         ]
+        }
+       },
+       {
+        "constant": {
+         "type": "Int",
+         "values": [
+          "0"
+         ]
+        }
+       },
+       {
+        "ref": "Step"
+       }
+      ],
+      "bind": {
+       "3": [
+        "e",
+        "i",
+        "acc"
+       ]
+      }
+     }
+    },
+    {
+     "id": "measured",
+     "weight": 1,
+     "expression": {
+      "signature": "let(Int,Int)->Int",
+      "args": [
+       {
+        "signature": "len(IntList)->Int",
+        "args": [
+         {
+          "input": "source"
+         }
+        ]
+       },
+       {
+        "signature": "traverse(IntList,Int,Int,Int)->Int",
+        "args": [
+         {
+          "input": "source"
+         },
+         {
+          "constant": {
+           "type": "Int",
+           "values": [
+            "0"
+           ]
+          }
+         },
+         {
+          "bound": "m"
+         },
+         {
+          "ref": "Step"
+         }
+        ],
+        "bind": {
+         "3": [
+          "e",
+          "i",
+          "acc"
+         ]
+        }
+       }
+      ],
+      "bind": {
+       "1": [
+        "m"
+       ]
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "Step",
+   "type": "Int",
+   "scope": [
+    {
+     "name": "e",
+     "type": "Int"
+    },
+    {
+     "name": "i",
+     "type": "Int"
+    },
+    {
+     "name": "acc",
+     "type": "Int"
+    }
+   ],
+   "alternatives": [
+    {
+     "id": "sum",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "bound": "e"
+       },
+       {
+        "bound": "acc"
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

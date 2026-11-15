@@ -49,6 +49,16 @@ inline void phase_layout_require(bool condition, const char* reason) {
   if (!condition) throw std::invalid_argument(std::string("resident phase layout: ") + reason);
 }
 inline void phase_layout_require(bool condition, const std::string& reason) { phase_layout_require(condition, reason.c_str()); }
+// A member over a per-program capacity of the genotype (nodes of a phase row,
+// bounded regions per program). Initial generation redraws such a member.
+struct PhaseMemberCapacityError : std::invalid_argument {
+  explicit PhaseMemberCapacityError(const std::string& capacity)
+      : std::invalid_argument("resident phase layout: " + capacity), reason(capacity) {}
+  std::string reason;
+};
+inline void phase_member_capacity_require(bool condition, const std::string& reason) {
+  if (!condition) throw PhaseMemberCapacityError(reason);
+}
 // Native name of a grammar local read or a named control target; null otherwise.
 inline const std::string* phase_target_name(const grammar::CompiledGrammar& grammar, const grammar::CompiledExpression& e) {
   if (e.kind == grammar::ExpressionKind::Local) return &grammar.locals().at(e.target).name;
@@ -271,10 +281,10 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
       }
       gene.nodes.push_back(node); gene.origins.push_back(expression);
     }
-    phase_layout_require(gene.nodes.size() <= kPhaseRowNodes, "a phase of " + std::to_string(gene.nodes.size()) +
+    phase_member_capacity_require(gene.nodes.size() <= kPhaseRowNodes, "a phase of " + std::to_string(gene.nodes.size()) +
         " nodes exceeds the phase capacity of " + std::to_string(kPhaseRowNodes) + " nodes");
     const int regions = phase_region_count(gene.nodes.data(), static_cast<int>(gene.nodes.size()));
-    phase_layout_require(regions <= kPhaseMaxRegions, "a program of " + std::to_string(regions) +
+    phase_member_capacity_require(regions <= kPhaseMaxRegions, "a program of " + std::to_string(regions) +
         " bounded regions exceeds the capacity of " + std::to_string(kPhaseMaxRegions) + " bounded regions per program");
     if (!profile.shared.empty()) {
       // A native derivation copies a repeated hole's first fill with its own
@@ -286,6 +296,8 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
       const PhaseTreeView in{gene.nodes.data(), gene.origins.data(), nullptr, gene.constants.data(), count, constants};
       const auto shared = share_phase_tree<true>(phase_structure_view(profile), int(profile.root_expression),
           int(grammar.nonterminals().at(slot.nonterminal).scope.size()), in, {nodes.data(), origins.data(), sites.data(), values.data(), 1024});
+      phase_member_capacity_require(shared.status != PhaseCompileStatus::Capacity,
+          "the repeated hole walk of a phase exceeds its capacity");
       phase_layout_require(shared.status == PhaseCompileStatus::Ok && shared.nodes == count && shared.constants == constants,
                            "repeated hole copies differ");
       gene.nodes.assign(nodes.begin(), nodes.begin() + count); gene.origins.assign(origins.begin(), origins.begin() + count);
@@ -397,6 +409,73 @@ inline std::vector<NativePhaseLayout> import_native_phase_population(const gramm
     try { return import_all(false); } catch (const std::invalid_argument&) {}
   }
   return import_all(true);
+}
+
+// Checks one member against the per-program capacities in the layout it
+// takes on its own (import_native_phase_population tries the same order).
+// Throws PhaseMemberCapacityError only. Any other rejection is left to the
+// population import, which reports it unchanged.
+inline void require_phase_member_capacity(const grammar::CompiledGrammar& grammar, const ProgramGenome& member,
+    NativePhaseGrammarProfiles* profiles, const std::vector<std::string>* evaluator_inputs) {
+  if (phase_region_template_candidate(grammar)) {
+    try { (void)import_native_phase_layout(grammar, member, profiles, evaluator_inputs, false); return; }
+    catch (const PhaseMemberCapacityError&) { throw; }
+    catch (const std::invalid_argument&) {}
+  }
+  try { (void)import_native_phase_layout(grammar, member, profiles, evaluator_inputs, false, true); }
+  catch (const PhaseMemberCapacityError&) { throw; }
+  catch (const std::invalid_argument&) {}
+}
+
+// The site depth of an imported member: the most grammar invocations on one
+// root path of the derivation the importer reconstructed, over all its
+// phases, or -1 when a phase gene does not follow its phase grammar. An
+// ambiguous grammar derives some programs two ways, and the importer takes
+// the first derivation, which may nest deeper than the one generated.
+inline int phase_member_site_depth(const grammar::CompiledGrammar& grammar, const NativePhaseLayout& member,
+    NativePhaseGrammarProfiles& profiles) {
+  int depth = 0;
+  for (std::size_t k = 0; k < member.slots.size(); ++k) {
+    const auto& slot = member.slots[k]; const auto& gene = member.genes.at(k);
+    const auto& profile = profiles.get(grammar, slot.nonterminal, member.budget.max_depth);
+    const int count = static_cast<int>(gene.nodes.size());
+    std::vector<PhaseGeneSite> sites(std::max(count, 1));
+    if (!annotate_phase_tree(phase_structure_view(profile), int(profile.root_expression),
+            int(grammar.nonterminals().at(slot.nonterminal).scope.size()), gene.nodes.data(), gene.origins.data(), count,
+            sites.data(), gene.constants.data(), int(gene.constants.size()))) return -1;
+    const int phase = phase_site_depth(gene.nodes.data(), sites.data(), count);
+    if (phase < 0) return -1;
+    depth = std::max(depth, phase);
+  }
+  return depth;
+}
+// Every imported member must derive within limits.site_depth (0 is no cap).
+// Both owners check this on the host before annotating their phase genes.
+inline void require_phase_import_site_depth(const grammar::CompiledGrammar& grammar,
+    const std::vector<NativePhaseLayout>& members, NativePhaseGrammarProfiles& profiles, int site_depth) {
+  if (!site_depth) return;
+  for (std::size_t p = 0; p < members.size(); ++p) {
+    const int depth = phase_member_site_depth(grammar, members[p], profiles);
+    phase_layout_require(depth >= 0, "the phase genes of initial member " + std::to_string(p) +
+        " do not follow their phase grammar");
+    phase_layout_require(depth <= site_depth, "initial member " + std::to_string(p) + " derives with " +
+        std::to_string(depth) + " nested grammar invocations on one path, over limits.site_depth " +
+        std::to_string(site_depth) + " (0 disables the cap)");
+  }
+}
+
+// The imported executables within the evaluator limits, checked on the host
+// by both owners with one message: the CPU reference evaluates them without
+// a fixed local table, so it must refuse exactly what the GPU owner refuses.
+inline void require_phase_executable_capacity(const std::vector<NativePhaseLayout>& members) {
+  BytecodeVerifyOptions options; options.max_locals_per_code = gpu_detail::MAX_LOCALS; options.max_stack_depth = gpu_detail::MAX_STACK;
+  for (std::size_t p = 0; p < members.size(); ++p) {
+    const auto& program = members[p].executable;
+    phase_layout_require(program.n_locals <= gpu_detail::MAX_LOCALS, "initial member " + std::to_string(p) + ": a program of " +
+        std::to_string(program.n_locals) + " locals exceeds the resident capacity of " + std::to_string(gpu_detail::MAX_LOCALS) + " locals");
+    phase_layout_require(bool(verify_bytecode(program, options)), "initial member " + std::to_string(p) +
+        ": the executable exceeds the evaluator's local or stack limits");
+  }
 }
 
 // Export only. The caller supplies a private run's current device copyback;

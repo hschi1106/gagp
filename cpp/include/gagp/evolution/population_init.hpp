@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
+#include <string>
 #include <vector>
 
 #include "gagp/evolution/case_set.hpp"
@@ -40,9 +42,21 @@ PopulationInitialization initialize_population(
     std::uint64_t seed,
     const grammar::GenerationRequest& request);
 
+// Returns an empty string for an admissible generated member, otherwise the
+// capacity it exceeds.
+using MemberCapacityCheck = std::function<std::string(const ProgramGenome&)>;
+
+// Generates member i from seed + i, or replays a saved population. With a
+// capacity check, a generated member over a capacity is redrawn from a seed
+// derived from (seed + i, attempt). A member admissible at its first draw
+// consumes nothing more, so such runs are unchanged. After
+// kMemberCapacityAttempts draws of one member the initialization fails,
+// naming the capacity. Replayed members are never redrawn.
+constexpr int kMemberCapacityAttempts = 256;
 PopulationInitialization initialize_population(
     const EvolutionConfig& config,
     const CaseSet& case_set,
-    const std::vector<ProgramGenome>* replay_population = nullptr);
+    const std::vector<ProgramGenome>* replay_population = nullptr,
+    const MemberCapacityCheck& capacity = {});
 
 }  // namespace gagp::evo

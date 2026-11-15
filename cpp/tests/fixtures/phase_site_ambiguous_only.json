@@ -1,0 +1,91 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {
+    "nonterminal": "S",
+    "type": "Int"
+  },
+  "inputs": [
+    {
+      "name": "x",
+      "type": "Int"
+    }
+  ],
+  "search_limits": {
+    "max_nodes": 32,
+    "max_depth": 8
+  },
+  "execution_limits": {
+    "fuel": 100
+  },
+  "nonterminals": [
+    {
+      "id": "S",
+      "type": "Int",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "p0",
+          "weight": 1,
+          "expression": {
+            "signature": "neg(Int)->Int",
+            "args": [
+              {
+                "ref": "A"
+              }
+            ]
+          }
+        },
+        {
+          "id": "p1",
+          "weight": 1,
+          "expression": {
+            "signature": "neg(Int)->Int",
+            "args": [
+              {
+                "signature": "neg(Int)->Int",
+                "args": [
+                  {
+                    "input": "x"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "A",
+      "type": "Int",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "p0",
+          "weight": 1,
+          "expression": {
+            "signature": "neg(Int)->Int",
+            "args": [
+              {
+                "ref": "B"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "type": "Int",
+      "scope": [],
+      "alternatives": [
+        {
+          "id": "p0",
+          "weight": 1,
+          "expression": {
+            "input": "x"
+          }
+        }
+      ]
+    }
+  ]
+}

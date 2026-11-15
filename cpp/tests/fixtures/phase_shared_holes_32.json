@@ -1,0 +1,687 @@
+{
+ "format_version": "grammar-definition-v2",
+ "entry": {
+  "nonterminal": "S",
+  "type": "Int"
+ },
+ "inputs": [],
+ "search_limits": {
+  "max_nodes": 16,
+  "max_depth": 8
+ },
+ "execution_limits": {
+  "fuel": 100
+ },
+ "templates": [
+  {
+   "id": "T0",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T1",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T1",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T2",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T2",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T3",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T3",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T4",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T4",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T5",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T5",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T6",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T6",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T7",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T7",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T8",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T8",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T9",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T9",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T10",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T10",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T11",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T11",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T12",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T12",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T13",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T13",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T14",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T14",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T15",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T15",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T16",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T16",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T17",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T17",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T18",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T18",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T19",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T19",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T20",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T20",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T21",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T21",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T22",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T22",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T23",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T23",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T24",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T24",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T25",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T25",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T26",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T26",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T27",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T27",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T28",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T28",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T29",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T29",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T30",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T30",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "template": "T31",
+    "holes": {
+     "v": {
+      "hole": "v"
+     }
+    }
+   }
+  },
+  {
+   "id": "T31",
+   "type": "Int",
+   "scope": [],
+   "holes": [
+    {
+     "id": "v",
+     "type": "Int",
+     "scope": []
+    }
+   ],
+   "body": {
+    "signature": "add(Int,Int)->Int",
+    "args": [
+     {
+      "hole": "v"
+     },
+     {
+      "hole": "v"
+     }
+    ]
+   }
+  }
+ ],
+ "nonterminals": [
+  {
+   "id": "S",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "t",
+     "weight": 1,
+     "expression": {
+      "template": "T0",
+      "holes": {
+       "v": {
+        "constant": {
+         "type": "Int",
+         "range": [
+          "0",
+          "1"
+         ]
+        }
+       }
+      }
+     }
+    }
+   ]
+  }
+ ]
+}

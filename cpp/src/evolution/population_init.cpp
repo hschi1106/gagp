@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdint>
 #include <stdexcept>
+#include <string>
 #include <unordered_map>
 
 #include "gagp/evolution/evolve.hpp"
@@ -31,6 +32,14 @@ void validate_grammar_inputs(const grammar::CompiledGrammar& grammar, const Case
       throw std::invalid_argument("case input schema must match grammar inputs by name and exact type");
     }
   }
+}
+// A redraw seed of member seed `base`: a SplitMix64 step away from every
+// first-draw seed seed + i of nearby members.
+std::uint64_t redraw_seed(std::uint64_t base, int attempt) {
+  std::uint64_t x = base + UINT64_C(0x9e3779b97f4a7c15) * static_cast<std::uint64_t>(attempt);
+  x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+  x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
+  return x ^ (x >> 31);
 }
 }  // namespace
 
@@ -94,7 +103,8 @@ PopulationInitialization initialize_population(
 PopulationInitialization initialize_population(
     const EvolutionConfig& config,
     const CaseSet& case_set,
-    const std::vector<ProgramGenome>* replay_population) {
+    const std::vector<ProgramGenome>* replay_population,
+    const MemberCapacityCheck& capacity) {
   PopulationInitialization out;
   validate_evolution_config(config);
   const auto& grammar = *config.compiled_grammar;
@@ -102,8 +112,19 @@ PopulationInitialization initialize_population(
   validate_grammar_case_set(config, case_set);
   if (!replay_population) {
     out.population.reserve(static_cast<std::size_t>(config.population_size));
-    for (int i = 0; i < config.population_size; ++i)
-      out.population.push_back(generate_random_genome(config.seed + static_cast<std::uint64_t>(i), grammar, request));
+    for (int i = 0; i < config.population_size; ++i) {
+      const std::uint64_t base = config.seed + static_cast<std::uint64_t>(i);
+      auto genome = generate_random_genome(base, grammar, request);
+      for (int attempt = 1; capacity; ++attempt) {
+        const auto exceeded = capacity(genome);
+        if (exceeded.empty()) break;
+        if (attempt == kMemberCapacityAttempts)
+          throw std::invalid_argument("initial member " + std::to_string(i) + " exceeds a capacity in each of " +
+              std::to_string(kMemberCapacityAttempts) + " draws, last: " + exceeded);
+        genome = generate_random_genome(redraw_seed(base, attempt), grammar, request);
+      }
+      out.population.push_back(std::move(genome));
+    }
     return out;
   }
   if (replay_population->size() != static_cast<std::size_t>(config.population_size))

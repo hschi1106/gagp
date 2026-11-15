@@ -1,0 +1,261 @@
+{
+ "format_version": "grammar-definition-v2",
+ "entry": {
+  "nonterminal": "S",
+  "type": "Int"
+ },
+ "inputs": [],
+ "search_limits": {
+  "max_nodes": 2048,
+  "max_depth": 16
+ },
+ "execution_limits": {
+  "fuel": 100000
+ },
+ "nonterminals": [
+  {
+   "id": "S",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "big",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "E9"
+       },
+       {
+        "constant": {
+         "type": "Int",
+         "values": [
+          "1"
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "E0",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "fixed",
+     "weight": 1,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "values": [
+        "1"
+       ]
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "E1",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "fixed",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "E0"
+       },
+       {
+        "ref": "E0"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "E2",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "fixed",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "E1"
+       },
+       {
+        "ref": "E1"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "E3",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "fixed",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "E2"
+       },
+       {
+        "ref": "E2"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "E4",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "fixed",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "E3"
+       },
+       {
+        "ref": "E3"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "E5",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "fixed",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "E4"
+       },
+       {
+        "ref": "E4"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "E6",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "fixed",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "E5"
+       },
+       {
+        "ref": "E5"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "E7",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "fixed",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "E6"
+       },
+       {
+        "ref": "E6"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "E8",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "fixed",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "E7"
+       },
+       {
+        "ref": "E7"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "E9",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "fixed",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "E8"
+       },
+       {
+        "ref": "E8"
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

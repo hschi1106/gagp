@@ -46,14 +46,15 @@ __host__ __device__ inline PhaseGenerationResult share_phase_tree(const PhaseGra
   struct Task { int expression, scope, close; PhaseGeneSite site; };
   // A first occurrence spans [begin,end) of the output.
   struct Record { int first, begin, end; };
-  Task pending[192]; Record records[32];
+  Task pending[192]; Record records[kPhaseSharedRecords];
   int pending_count = 1, record_count = 0, cursor = 0, written = 0, steps = 0;
   pending[0] = {root, scope, -1, {}};
   const PhaseTreeNode* source_nodes = Rewrite ? out.nodes : in.nodes;
   const int* source_origins = Rewrite ? out.origins : in.origins;
   const Value* source_constants = Rewrite ? out.constants : in.constants;
   while (pending_count) {
-    if (++steps > 8192) return result;
+    // The walk's own tables: pending tasks and steps report Capacity.
+    if (++steps > 8192) { result.status = PhaseCompileStatus::Capacity; return result; }
     const auto task = pending[--pending_count];
     if (task.close >= 0) { records[task.close].end = written; continue; }
     if (task.close <= -2) {
@@ -66,7 +67,8 @@ __host__ __device__ inline PhaseGenerationResult share_phase_tree(const PhaseGra
     const auto expression = g.expressions[task.expression];
     if (expression.kind == PhaseExpressionKind::Reference) {
       if (expression.target < 0 || expression.target >= g.nonterminal_count || cursor >= in.node_count ||
-          expression.scope_count < 0 || expression.scope_count > 8 || pending_count >= 192 || task.site.nonterminal >= 0) return result;
+          expression.scope_count < 0 || expression.scope_count > 8 || task.site.nonterminal >= 0) return result;
+      if (pending_count >= 192) { result.status = PhaseCompileStatus::Capacity; return result; }
       const auto nt = g.nonterminals[expression.target];
       if (nt.scope_count != expression.scope_count || nt.production_offset < 0 || nt.production_count <= 0 ||
           nt.production_offset > g.production_count || nt.production_count > g.production_count - nt.production_offset)
@@ -86,10 +88,12 @@ __host__ __device__ inline PhaseGenerationResult share_phase_tree(const PhaseGra
     if (expression.kind == PhaseExpressionKind::Alias) {
       const auto shared = g.shared[task.expression];
       if (shared.instance) {
-        if (pending_count >= 191) return result;
+        if (pending_count >= 191) { result.status = PhaseCompileStatus::Capacity; return result; }
         pending[pending_count++] = {task.expression, 0, -2 - record_count, {}};
       } else if (shared.first == task.expression) {
-        if (record_count >= 32 || pending_count >= 191) return result;
+        // Admission bounds the records (compile_phase_grammar).
+        if (record_count >= kPhaseSharedRecords) { result.status = PhaseCompileStatus::Capacity; return result; }
+        if (pending_count >= 191) { result.status = PhaseCompileStatus::Capacity; return result; }
         records[record_count] = {task.expression, written, -1};
         pending[pending_count++] = {-1, 0, record_count++, {}};
       } else if (shared.first >= 0) {
@@ -139,7 +143,7 @@ __host__ __device__ inline PhaseGenerationResult share_phase_tree(const PhaseGra
         continue;
       }
       // A template or hole wrapper passes a pending site to its first node.
-      if (pending_count >= 192) return result;
+      if (pending_count >= 192) { result.status = PhaseCompileStatus::Capacity; return result; }
       pending[pending_count++] = {expression.children[0], phase_child_scope(expression, 0, task.scope), -1, task.site};
       continue;
     }
@@ -160,7 +164,7 @@ __host__ __device__ inline PhaseGenerationResult share_phase_tree(const PhaseGra
     }
     out.sites[written++] = task.site; ++cursor;
     for (int i = node.arity - 1; i >= 0; --i) {
-      if (pending_count >= 192) return result;
+      if (pending_count >= 192) { result.status = PhaseCompileStatus::Capacity; return result; }
       pending[pending_count++] = {expression.children[i], phase_child_scope(expression, i, task.scope), -1, {}};
     }
   }

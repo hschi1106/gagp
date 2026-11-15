@@ -425,7 +425,13 @@ struct NativePhasePopulation::Impl {
   const auto begin=Clock::now();auto offsets=code_offsets.read(rows+1),values=constant_offsets.read(rows+1);
   const auto certificates=compiled.read(rows);
   if(timing)timing->copyback_ms+=elapsed(begin);
-  if(offsets.back()<0 || values.back()<0)throw std::runtime_error("GPU genotype lowering rejected a constructed program");
+  // The first rejected phase by member, then slot, as the CPU owner reports it.
+  for(int row=0;row<rows;++row) {
+   auto r=certificates[row];
+   if(r.status==PhaseCompileStatus::Ok && r.stack_bound>=1 && r.stack_bound<=gpu_detail::MAX_STACK)continue;
+   if(r.status==PhaseCompileStatus::Ok)r.status=PhaseCompileStatus::Invalid;
+   throw std::runtime_error(phase_ops::phase_lowering_error(r));
+  }
   // The program budget covers all variable phases, not one phase buffer.
   const std::size_t variable_nodes=layout.budget.max_nodes-layout.fixed_nodes;
   // A for_range lowers to at most 8 instructions and 2 constants per node; a
@@ -530,6 +536,8 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  if(site_depth)for(std::size_t k=0;k<impl_->layout.slots.size();++k)
   impl_->layout.profiles[k]=compile_phase_variation_grammar(*impl_->grammar,
       impl_->layout.slots[k].nonterminal,impl_->grammar->search_limits().max_depth,site_depth,&input_names);
+ require_phase_import_site_depth(*impl_->grammar,imports,*import_profiles,site_depth);
+ require_phase_executable_capacity(imports);
  impl_->reproduction_profile=site_depth?"resident-gpu-v4-site-depth"+std::to_string(site_depth):
      impl_->operators.counted_sites?"resident-gpu-v2-counted":"resident-gpu-v1";
  impl_->reproduction_profile+=phase_variation_profile_suffix(policy);
@@ -635,7 +643,13 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   checked(cudaGetLastError());checked(cudaDeviceSynchronize());
  }
  annotate_import<<<(rows+63)/64,64>>>(pointers(*impl_->current),impl_->slots.data,rows,impl_->slot_count);checked(cudaGetLastError());
- for(const auto& r:impl_->current->lengths.read(rows))phase_layout_require(valid(r),"import site annotation failed");
+ {
+  // The host already checked each member's site depth; this is the device
+  // annotation of the same derivation.
+  const auto lengths=impl_->current->lengths.read(rows);
+  for(std::size_t row=0;row<lengths.size();++row)phase_layout_require(valid(lengths[row]),
+      "the phase genes of initial member "+std::to_string(row/impl_->slot_count)+" do not annotate against the site-depth phase grammar");
+ }
  if(!impl_->staged_buffers)impl_->reserve_reproduction_buffers();
  checked(cudaEventCreate(&impl_->start));checked(cudaEventCreate(&impl_->stop));
 }

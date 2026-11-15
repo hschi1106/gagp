@@ -96,15 +96,36 @@ These rules define `crossover`, `sites`, `limits` and `ranking`.
   derivation of the selected site fits, the child is not mutated; random draws
   already consumed for that child are not replayed.
 - `limits.site_depth` counts nested grammar invocations, excluding lowering
-  scaffolds.
+  scaffolds. For an ambiguous grammar the site depth of a program is that of
+  the derivation the population import reconstructs (the first matching
+  production at each step), not the shallowest derivation. A program that
+  only an ambiguous later production derives within the cap is therefore
+  over it. When every draw is read back over the cap, the run is rejected
+  naming `limits.site_depth`, its value and the depth reconstructed.
 - A run with `limits.site_depth > 0` and no initial
-  population generates its own: one program generated from `seed` fixes the
-  skeleton outside the phases, and every phase of member `i` is grown by the
+  population generates its own: the first program generated from `seed`,
+  `seed + 1`, ... that verifies and fits the per-program
+  [resident capacities](#resident-capacities) fixes the skeleton outside the
+  phases (256 draws at most), and every phase of member `i` is grown by the
   phase generator under the site-depth profile with invocation depth
   `2 + i mod (site_depth - 1)` (or `site_depth` when it is 1). A depth that
   cannot derive the phase is retried with fresh draws and then raised by one,
   up to `site_depth`. Phases are filled in order, each leaving room for the
-  minimum size of the later phases within the grammar's `max_nodes`.
+  minimum size of the later phases within the grammar's `max_nodes`. The
+  member is then checked as the population import reads it. An ambiguous
+  grammar derives some programs two ways, and the import reconstructs the
+  first derivation, which may nest more grammar invocations than the
+  generated one. A member whose reconstructed derivation exceeds
+  `site_depth` is generated again with every seed salted by the draw number
+  (256 draws at most, then the run is rejected naming the depth). A member
+  that fits at its first draw consumes no further draw.
+- A run with `limits.site_depth` 0 and no initial population generates member
+  `i` from `seed + i` ([population initialization](grammar_definition.md)).
+  A member over a per-program resident capacity is redrawn from a seed derived
+  from `seed + i` and the attempt number, in the layout the member takes on
+  its own. A member that fits at its first draw consumes no further draw.
+  After 256 draws of one member the run is rejected, naming the capacity. A
+  supplied initial population is never redrawn.
 - `ranking.tie_break: grammar_sites` requires a task metric with wrong counts.
 - A unit production (an alternative that is only a nonterminal reference,
   possibly inside template or hole wrappers) is inlined: it is replaced by the
@@ -112,7 +133,14 @@ These rules define `crossover`, `sites`, `limits` and `ranking`.
   `w_unit * w / W`, where `W` sums the referenced alternatives that remain. An
   alternative that would revisit a nonterminal of the chain without deriving a
   node is dropped, and an expression reached through two chains is one
-  alternative carrying both weights. One draw then equals choosing through the
+  alternative carrying both weights. When `W`, or the sum of the two weights
+  of such an expression, would exceed the largest finite double, the weights
+  being summed are first scaled by the same power of two, which keeps every
+  ratio, so no alternative loses its weight. A positive weight that this
+  scaling (or the division by `W`) would round to zero keeps the smallest
+  positive double, so an alternative never becomes undrawable. Finite sums are
+  not scaled. One
+  draw then equals choosing through the
   chain one reference at a time whenever every alternative fits the budget. An
   inlined chain is one grammar invocation: its root node carries one site, of
   the outermost nonterminal, which is the only variation site of the chain and
@@ -158,15 +186,40 @@ A `resource_charge` has no effect on admission or on search.
 A grammar or initial population is rejected when it exceeds a
 [resident capacity](#resident-capacities), when a construct cannot be held by
 the genotype (for example lowering capacity within the depth budget), or when
-it uses one of three constructs of the language that the resident engine does
-not yet hold: `sequence` constant domains, a nonterminal reached under two
-different lexical binder environments, and a traversal inside a bounded region
-phase. A genome is rejected when it does not share the population's fixed
-skeleton. Rejection is an error raised before the first generation: the run
+it uses one of the two [language restrictions](#language-restrictions). A
+traversal or `let` inside a bounded region phase is held: the phase lowers as
+a program of its own whose first locals are its bindings. A genome is rejected when it does not share the population's fixed
+skeleton. With `limits.site_depth` above 0, a grammar with no program whose
+derivation nests at most `site_depth` grammar invocations on one path is
+rejected, and the message names the fewest invocations a derivation needs
+and that 0 disables the cap. This proof uses the grammar's `max_depth`,
+while a phase has only the depth its layout leaves after the program
+envelope. A phase with no program within the cap at its own depth is
+rejected before generation, naming `limits.site_depth`, its value, the phase
+depth and the site depth it needs. A supplied initial member whose reconstructed
+derivation exceeds `site_depth` is rejected, naming its depth. Rejection is an error raised before the first generation: the run
 stops with a diagnostic that begins with
 `resident engine cannot admit this grammar or initial population:` and names
 the limit or construct and the offending value. `gagp run` then exits with
 status 2 and writes no result. No other engine runs instead.
+
+### Language restrictions
+
+Two constructs of the grammar language are not held by the resident engine.
+Both owners reject a grammar that reaches one at admission, and the message
+names the construct, the offending value and "a language restriction".
+
+- A `sequence` constant domain (String or a typed list,
+  [constant domains](grammar_definition.md#constant-domains)), reported as
+  `constant domain N (T) is a sequence domain`. A String or list value is a
+  token of a content hash and a length whose content lives in the host
+  payload store, which phase generation on the device cannot build.
+- A nonterminal or expression reached under two different lexical binder
+  environments, reported with both lists of binder numbers. Binder numbers
+  are static: a phase gene stores the binder number of every lexical read,
+  and the bounded region and traversal tables hold fixed binder numbers, so
+  each nonterminal has one environment. Giving each context its own
+  nonterminal avoids the restriction.
 
 ### Resident capacities
 
@@ -174,10 +227,16 @@ These are the limits of the language on the resident engine: a grammar, an
 initial population or a run that exceeds one is rejected at admission, and the
 message names the limit and the offending value. Program-shape limits are
 proven over every program the grammar can derive within its `search_limits`,
-so variation never builds a program beyond them. The one exception is the
-number of bounded regions in one program, which is checked per program like
-`max_nodes`: admission refuses an initial member with more, and generation
-and variation reject a candidate with more and draw or try again.
+so variation never builds a program beyond them. The exceptions are the
+nodes of one phase and the bounded regions in one program, which are checked
+per program like `max_nodes`: generation redraws an initial member over one
+(see [Variation](#variation)), admission refuses a supplied initial member
+over one, and variation rejects a candidate over one and draws or tries again.
+Before the first generation, both owners also verify the executable of every
+initial member against the evaluator's limits of 64 locals and its stack
+depth, with the same message (`initial member P: a program of N locals
+exceeds the resident capacity of 64 locals`). The CPU reference therefore
+never evaluates a program that the GPU owner refuses.
 
 | Resource | Limit |
 | --- | --- |
@@ -185,16 +244,19 @@ and variation reject a candidate with more and draw or try again.
 | `search_limits.max_depth` | 64 |
 | `search_limits.max_nodes` | 2048 |
 | Nodes of one phase (in the whole-program layout, of the whole program) | 1024 |
-| Effective node limit of the whole-program layout | min(`search_limits.max_nodes`, 1024), because the program is one phase in a row of 1024 nodes. A larger `max_nodes` is accepted, but generation, crossover and mutation stay within the row and an initial member over it is rejected, identically on both engines |
+| Effective node limit of the whole-program layout | min(`search_limits.max_nodes`, 1024), because the program is one phase in a row of 1024 nodes. A larger `max_nodes` is accepted, but generation, crossover and mutation stay within the row, a generated initial member over it is redrawn and a supplied one is rejected, identically on both engines |
 | `search_limits.max_nodes` of a Program-entry grammar | 512 |
 | Program inputs | 64 |
 | Grammar locals referenced by the grammar | 16 |
-| Locals of a lowered program (inputs, grammar locals and temporaries) on one path | 64 |
+| Locals of a lowered program (inputs, grammar locals the grammar references and temporaries: nine per traversal, one per `let`, two per `for_range` or `while_stmt`) on one path, not counting the bounded region phases, which are lowered separately | 64 |
+| Code records / constants of one lowered program, its bounded region phases included | 4096 / 1024. Admission does not bound them. A program over one stops the run on both engines at its first lowering with `resident phase lowering: a constructed program needs more than the resident capacity of 4096 code records` (or `1024 constants`) |
+| Locals of one lowered bounded region phase (its bindings and the temporaries of its traversals and `let`s) on one path | 64 |
 | Open traversals / `let`s / loops on one path | 8 / 16 / 16 |
 | Analysed value `if`s on one path under an open traversal | 16 |
 | Visible lexical bindings | 15 |
 | Static binder numbers (`let` and traversal bindings) | 16 |
 | Bindings in the scope of a nonterminal, reference, template or hole | 8 |
+| Repeated holes of the template instances nested on one path | 32 |
 | Operands plus phases of one bounded region | 8 |
 | Captures of one bounded region | 8 |
 | Bindings of one bounded region phase | 7 |

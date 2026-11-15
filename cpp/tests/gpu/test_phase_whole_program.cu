@@ -68,7 +68,7 @@ void same_program(const BytecodeProgram& a,const BytecodeProgram& b,const std::s
 }
 // Phase lowering of the imported gene, patched into the prototype executable.
 BytecodeProgram phase_lowered(const NativePhaseLayout& layout,const grammar::CompiledGrammar& grammar,
-    const std::vector<std::string>& names) {
+    const std::vector<std::string>& names,int* local_count=nullptr) {
  ValueTag locals[64];
  for(std::size_t j=0;j<names.size();++j)for(const auto& input:grammar.inputs())if(input.name==names[j])locals[j]=phase_value_tag(input.type);
  const auto& gene=layout.genes.at(0);const auto& regions=layout.profiles.at(0).regions;
@@ -77,6 +77,22 @@ BytecodeProgram phase_lowered(const NativePhaseLayout& layout,const grammar::Com
      locals,int(names.size()),layout.program_terminator?phase_value_tag(grammar.nonterminals().at(layout.slots.at(0).nonterminal).type):kPhaseStatement,
      code.data(),int(code.size()),values.data(),int(values.size()),regions.data(),int(regions.size()));
  require(r.status==PhaseCompileStatus::Ok && r.stack_bound>=1 && r.stack_bound<=gpu_detail::MAX_STACK,"phase compiler rejected a grammar program");
+ // Admission bounds the lowered locals of every program the grammar derives.
+ require(r.local_count<=layout.profiles.at(0).lowering_locals,"a program of "+std::to_string(r.local_count)+
+     " lowered locals exceeds the admission bound of "+std::to_string(layout.profiles.at(0).lowering_locals));
+ if(local_count)*local_count=r.local_count;
+ // Each bounded region phase is lowered on its own, after the main code: a
+ // region record (fuel: captures, b: phases), one record per capture, then
+ // per phase a header (fuel: its locals, a: its code records) and its code.
+ for(int region=0,at=r.main_code_count;region<r.region_count;++region) {
+  const auto phases=code.at(at).b;at+=1+int(code.at(at).fuel);
+  for(int p=0;p<phases;++p) {
+   const int phase_locals=int(code.at(at).fuel&0xffffu);
+   require(phase_locals<=layout.profiles.at(0).region_lowering_locals,"a bounded region phase of "+std::to_string(phase_locals)+
+       " lowered locals exceeds the admission bound of "+std::to_string(layout.profiles.at(0).region_lowering_locals));
+   at+=1+code.at(at).a;
+  }
+ }
  auto program=layout.executable;patch_whole_program(program,layout,code.data(),r.code_count,values.data(),r.constant_count,r);
  return program;
 }
@@ -133,7 +149,9 @@ std::optional<ProgramGenome> generated(const grammar::CompiledGrammar& grammar,u
 // the region layout, so the population imports whole programs. ManyRegions: a
 // grammar that derives programs over the capacity of bounded regions per
 // program, which import refuses and generation and variation reject.
-enum class Fixture{Expressions,Statements,WhileStatements,Lets,Regions,Captures,Traversals,Templates,RegionFallback,Ranges,ManyRegions,Builtins,BuiltinStatements};
+// RegionTraversals: traversals inside bounded region phases.
+enum class Fixture{Expressions,Statements,WhileStatements,Lets,Regions,Captures,Traversals,Templates,RegionFallback,Ranges,ManyRegions,
+    RegionTraversals,Builtins,BuiltinStatements};
 // `fixture` is relative to the repository root. Without `search`, only
 // lowering parity runs (the GPU evaluator rejects the grammar's region limits).
 // Without `vary`, the grammar has one member, so no search can vary it.
@@ -144,7 +162,7 @@ void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
  std::vector<std::string> names;for(const auto& input:compiled->inputs())names.push_back(input.name);
  auto reordered=names;std::reverse(reordered.begin(),reordered.end());
  // Lowering parity over generated programs, in grammar and reversed input order.
- std::set<int> kinds;std::set<ValueTag> constant_tags;int programs=0,rejected=0,nested=0,regions=0,lexical=0,reversed=0,declined=0,over=0;
+ std::set<int> kinds;std::set<ValueTag> constant_tags;int programs=0,rejected=0,nested=0,regions=0,lexical=0,reversed=0,declined=0,over=0,walked=0;
  const bool fallback=mode==Fixture::RegionFallback,many=mode==Fixture::ManyRegions;std::vector<ProgramGenome> members;
  const auto region_nodes=[](const ProgramGenome& g){return std::count_if(g.ast.nodes.begin(),g.ast.nodes.end(),
      [](const auto& node){return node.kind==NodeKind::BOUNDED_REGION;});};
@@ -188,6 +206,7 @@ void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
   for(const auto& value:genome->ast.consts)constant_tags.insert(value.tag);
   reversed+=std::any_of(genome->ast.traversal_specs.begin(),genome->ast.traversal_specs.end(),
       [](const auto& t){return t.direction==TraversalDirection::Reverse;});
+  walked+=!genome->ast.traversal_specs.empty() && !genome->ast.bounded_region_specs.empty();
  }
  if(statements) {
   for(auto kind:{NodeKind::FOR_RANGE,NodeKind::IF_STMT,NodeKind::ASSIGN,NodeKind::RETURN,NodeKind::BLOCK_NIL,NodeKind::VAR,NodeKind::IF_EXPR})
@@ -233,6 +252,12 @@ void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
   require(rejected==0 && declined>0,"fallback fixture must have members outside the region layout");
   const auto imported=import_native_phase_population(*compiled,members,nullptr,&names);
   require(imported.front().whole_program && imported.front().slots.size()==1,"fallback population did not import whole programs");
+ } else if(mode==Fixture::RegionTraversals) {
+  // The entry is the region template, so every traversal is in a region phase.
+  require(rejected==0,"region traversal grammar generation failed");
+  for(auto kind:{NodeKind::TRAVERSE,NodeKind::TRAVERSE_RANGE,NodeKind::LET_REGION,NodeKind::IF_EXPR,NodeKind::BOUNDED_REGION})
+   require(kinds.count(int(kind)),"region traversal fixture did not exercise node kind "+std::to_string(int(kind)));
+  require(walked>=64 && reversed>=16,"region traversal fixture must traverse inside phases: "+std::to_string(walked)+"/"+std::to_string(reversed));
  } else if(mode==Fixture::Traversals) {
   require(rejected==0,"traversal grammar generation failed");
   for(auto kind:{NodeKind::TRAVERSE,NodeKind::TRAVERSE_RANGE,NodeKind::LET_REGION,NodeKind::IF_EXPR})
@@ -344,6 +369,328 @@ void check_declined(const char* fixture) {
  }
  std::cout<<fixture<<": rejected at admission on CPU and GPU\n";
 }
+// Unit inlining with weights near the largest finite value: S -> A | 2 with
+// A -> 0 | 1 each weighted 1e308. Mutation regenerates every root, so every
+// final member is a fresh draw, which must reach all three programs.
+void check_unit_weight_overflow() {
+ const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_unit_weights.json")));
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+ EvolutionConfig cfg;cfg.population_size=64;cfg.generations=1;cfg.seed=3;cfg.elite_count=0;cfg.mutation_rate=1;
+ cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+ std::vector<Trace> traces;
+ for(const bool gpu:{false,true}) {
+  auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  const auto result=evolve_population(cases,run);std::set<std::int64_t> values;
+  for(const auto& member:result.final_population)
+   for(const auto& node:member.genome.ast.nodes)if(node.kind==NodeKind::CONST)values.insert(member.genome.ast.consts.at(node.i0).i);
+  require(values==std::set<std::int64_t>{0,1,2},std::string("unit weight overflow lost alternatives on ")+(gpu?"GPU":"CPU"));
+  traces.push_back(trace(result));
+ }
+ require_same(traces[0],traces[1],"unit weight overflow");
+ std::cout<<"phase_unit_weights.json: overflowing unit weights keep every alternative on CPU and GPU\n";
+}
+// A literal weighted 5e-324 beside two unit chains weighted 1.7e308: the
+// merge overflow halves every weight, which must not round the literal to
+// zero. With max_nodes 5 the literal is the only feasible alternative of a
+// small mutation site, so a zero weight stopped mutation (variation error 7).
+void check_unit_weight_underflow() {
+ const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_unit_scale_underflow.json")));
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+ EvolutionConfig cfg;cfg.population_size=16;cfg.generations=4;cfg.seed=0;cfg.elite_count=0;cfg.mutation_rate=1;
+ cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+ std::vector<Trace> traces;
+ for(const bool gpu:{false,true}) {
+  auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  std::string error;
+  try{traces.push_back(trace(evolve_population(cases,run)));}catch(const std::exception& e){error=e.what();}
+  require(error.empty(),std::string("unit weight underflow on ")+(gpu?"GPU: ":"CPU: ")+error);
+ }
+ require_same(traces[0],traces[1],"unit weight underflow");
+ std::cout<<"phase_unit_scale_underflow.json: a positive weight stays positive after scaling, identical on CPU and GPU\n";
+}
+// 64 inputs and a traversal inside a bounded region phase: the root program
+// lowers to 64 locals and the phase to 11 of its own. Admission bounds each
+// against its own capacity (it charged the phase temporaries to the root, 73,
+// and rejected), and both owners publish the same search.
+void check_region_phase_locals() {
+ const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_region_input_capacity.json")));
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+ EvolutionConfig cfg;cfg.population_size=8;cfg.generations=2;cfg.seed=0;cfg.elite_count=1;cfg.mutation_rate=0.5;
+ cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+ std::vector<Trace> traces;
+ for(const bool gpu:{false,true}) {
+  auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  std::string error;
+  try{traces.push_back(trace(evolve_population(cases,run)));}catch(const std::exception& e){error=e.what();}
+  require(error.empty(),std::string("phase_region_input_capacity.json ")+(gpu?"GPU: ":"CPU: ")+error);
+ }
+ require_same(traces[0],traces[1],"phase_region_input_capacity.json");
+ std::cout<<"phase_region_input_capacity.json: root and region phase locals bounded separately, identical on CPU and GPU\n";
+}
+// A balanced sum of 128 traversals inside a bounded region phase (775
+// nodes) is admitted, but lowers to about 5000 code records, over the 4096
+// of a lowered program. Admission does not bound code records, so both owners
+// stop at the first lowering with one message that names the capacity.
+void check_code_record_capacity() {
+ const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_region_code_capacity.json")));
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+ EvolutionConfig cfg;cfg.population_size=2;cfg.generations=1;cfg.seed=0;cfg.elite_count=0;cfg.mutation_rate=0;
+ cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+ const std::string expected="resident phase lowering: a constructed program needs more than the resident capacity of 4096 code records";
+ for(const bool gpu:{false,true}) {
+  auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  std::string error;
+  try{evolve_population(cases,run);}catch(const std::exception& e){error=e.what();}
+  require(error.rfind(expected,0)==0,std::string("phase_region_code_capacity.json ")+(gpu?"GPU: ":"CPU: ")+error);
+ }
+ std::cout<<"phase_region_code_capacity.json: a program over 4096 code records stops both owners with one message\n";
+}
+// Generated initial members over a per-program capacity of the genotype
+// (bounded regions per program, nodes of a phase row) are redrawn, and only
+// those: a member admissible at its first draw is the plain draw seed + i.
+// The review reproducers: phase_many_regions at site depth 0 seed 0 P16 and
+// site depth 7 seed 8 P2 (an over-capacity prototype), phase_row_fixed (one
+// alternative of 1025 nodes) at site depth 0 seed 2 and 7 seed 3, P2.
+void check_initial_capacity() {
+ const auto load=[](const char* fixture){return std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/")+fixture)));};
+ const auto configure=[](const std::shared_ptr<const grammar::CompiledGrammar>& g,int site_depth,std::uint64_t seed,int population) {
+  EvolutionConfig cfg;cfg.population_size=population;cfg.generations=1;cfg.seed=seed;cfg.elite_count=1;cfg.mutation_rate=0.3;
+  cfg.compiled_grammar=g;cfg.fuel=g->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;cfg.gpu_phase_site_depth=site_depth;
+  return cfg;
+ };
+ struct Case{const char* fixture;int site_depth;std::uint64_t seed;int population;};
+ for(const Case c:{Case{"phase_many_regions.json",0,0,16},Case{"phase_many_regions.json",7,8,2},
+     Case{"phase_row_fixed.json",0,2,2},Case{"phase_row_fixed.json",7,3,2}}) {
+  const auto compiled=load(c.fixture);
+  const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+  const auto cfg=configure(compiled,c.site_depth,c.seed,c.population);
+  const auto label=std::string(c.fixture)+" site depth "+std::to_string(c.site_depth)+" seed "+std::to_string(c.seed);
+  if(!c.site_depth) {
+   std::vector<std::string> names;for(const auto& input:compiled->inputs())names.push_back(input.name);
+   const auto check=phase_member_capacity_check(compiled,names);
+   const auto initial=initialize_population(cfg,prepare_case_set(cases),nullptr,check).population;
+   int redrawn=0;
+   for(int i=0;i<c.population;++i) {
+    const auto first=grammar::generate_derivation(*compiled,c.seed+i).genome;
+    require(check(initial[i]).empty(),label+": an initial member exceeds a capacity");
+    if(check(first).empty())require(cli_detail::encode_ast_json(initial[i].ast)==cli_detail::encode_ast_json(first.ast),
+        label+": an admissible first draw was redrawn");
+    else ++redrawn;
+   }
+   require(redrawn>0,label+": no first draw exceeded a capacity");
+  }
+  std::vector<Trace> traces;
+  for(const bool gpu:{false,true}) {
+   auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+   traces.push_back(trace(evolve_population(cases,run)));
+  }
+  require_same(traces[0],traces[1],label+" redrawn initial population");
+ }
+ // A grammar whose every program exceeds the phase row fails, naming it.
+ const auto over=load("phase_row_overflow.json");
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*over),{true,64}).parse());
+ for(const int site_depth:{0,7})for(const bool gpu:{false,true}) {
+  auto cfg=configure(over,site_depth,0,2);cfg.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  std::string error;
+  try{(void)evolve_population(cases,cfg);}catch(const std::invalid_argument& e){error=e.what();}
+  require(error.find("256 draws")!=std::string::npos && error.find("a phase of 1025 nodes exceeds the phase capacity of 1024 nodes")!=std::string::npos,
+      std::string("phase_row_overflow.json site depth ")+std::to_string(site_depth)+(gpu?" GPU":" CPU")+": "+error);
+ }
+ std::cout<<"initial populations: over-capacity draws redrawn identically on CPU and GPU, admissible draws unchanged\n";
+}
+// 32 nested forwarding templates around add(v,v) search identically on both
+// owners. 33 exceed the repeated-hole records and are rejected at admission
+// on both, naming the capacity.
+void check_shared_hole_records() {
+ for(const int nested:{32,33}) {
+  const auto fixture=std::string("phase_shared_holes_")+std::to_string(nested)+".json";
+  const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+      grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/")+fixture)));
+  const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+  EvolutionConfig cfg;cfg.population_size=8;cfg.generations=2;cfg.seed=0;cfg.elite_count=1;cfg.mutation_rate=0.5;
+  cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+  std::vector<Trace> traces;
+  for(const bool gpu:{false,true}) {
+   auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+   std::string error;
+   try{traces.push_back(trace(evolve_population(cases,run)));}catch(const std::invalid_argument& e){error=e.what();}
+   const auto label=fixture+(gpu?" GPU":" CPU");
+   if(nested==32)require(error.empty(),label+": "+error);
+   else require(error.find("resident engine cannot admit")!=std::string::npos &&
+       error.find("up to 33 repeated holes of nested template instances on one path exceed the capacity of 32")!=std::string::npos,label+": "+error);
+  }
+  if(nested==32)require_same(traces[0],traces[1],fixture);
+ }
+ std::cout<<"phase_shared_holes: 32 nested repeated holes identical on CPU and GPU, 33 rejected at admission on both\n";
+}
+// 64 inputs and one declared but unused grammar local: admitted, and both
+// owners publish the same search.
+void check_unused_local() {
+ const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_unused_local.json")));
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+ EvolutionConfig cfg;cfg.population_size=8;cfg.generations=2;cfg.seed=0;cfg.elite_count=1;cfg.mutation_rate=0.5;
+ cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+ std::vector<Trace> traces;
+ for(const bool gpu:{false,true}) {
+  auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  traces.push_back(trace(evolve_population(cases,run)));
+ }
+ require_same(traces[0],traces[1],"phase_unused_local.json");
+ std::cout<<"phase_unused_local.json: an unused local takes no lowering local, identical on CPU and GPU\n";
+}
+// A for_range holds its bound and its counter through the body. 58 inputs and
+// three nested loops over an input need exactly 64 locals: admitted, and both
+// owners publish the same search. 60 inputs and four loops need 68, and 61
+// inputs with a for_range inside a while_stmt need 65: rejected at admission
+// on both, naming the count.
+void check_loop_locals() {
+ const std::vector<std::pair<const char*,int>> fixtures{{"64",64},{"68",68},{"while",65}};
+ for(const auto& [name,locals]:fixtures) {
+  const auto fixture=std::string("phase_loop_locals_")+name+".json";
+  const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+      grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/")+fixture)));
+  const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+  EvolutionConfig cfg;cfg.population_size=8;cfg.generations=2;cfg.seed=0;cfg.elite_count=1;cfg.mutation_rate=0.5;
+  cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+  std::vector<Trace> traces;
+  for(const bool gpu:{false,true}) {
+   auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+   std::string error;
+   try{traces.push_back(trace(evolve_population(cases,run)));}catch(const std::exception& e){error=e.what();}
+   const auto label=fixture+(gpu?" GPU":" CPU");
+   if(locals==64)require(error.empty(),label+": "+error);
+   else require(error.find("resident engine cannot admit")!=std::string::npos &&
+       error.find("up to "+std::to_string(locals)+" locals (capacity 64)")!=std::string::npos,label+": "+error);
+  }
+  if(locals!=64)continue;
+  require_same(traces[0],traces[1],fixture);
+  // The bound is tight here: generated programs lower to at most 64 locals
+  // (phase_lowered checks the admission bound) and some reach 64.
+  std::vector<std::string> names;for(const auto& input:compiled->inputs())names.push_back(input.name);
+  int most=0;
+  for(unsigned seed=0;seed<256;++seed) {
+   const auto genome=generated(*compiled,seed);if(!genome)continue;
+   const auto layout=import_native_phase_layout(*compiled,*genome,nullptr,&names,true,false);
+   int count=0;phase_lowered(layout,*compiled,names,&count);most=std::max(most,count);
+  }
+  require(most==64,fixture+": the most lowered locals is "+std::to_string(most)+", not 64");
+ }
+ std::cout<<"phase_loop_locals: a for_range counts its bound and counter, 64 locals identical on CPU and GPU, 65 and 68 rejected on both\n";
+}
+// limits.site_depth. phase_site_ambiguous derives neg(add(x,x)) through p1
+// (two nested invocations) and through p0 (three), and the importer
+// reconstructs p0, the first production. At site depth 2 every generated
+// neg(add(x,x)) is redrawn, identically on both owners, and a supplied one is
+// rejected naming the depth. phase_site_depth_9
+// nests 9 invocations in its only program: admitted at site depth 9, and at
+// 8 rejected at admission on both owners, naming the depth it needs.
+void check_site_depth() {
+ const auto load=[](const char* fixture){return std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/")+fixture)));};
+ const auto configure=[](const std::shared_ptr<const grammar::CompiledGrammar>& g,int site_depth,bool gpu) {
+  EvolutionConfig cfg;cfg.population_size=16;cfg.generations=2;cfg.seed=0;cfg.elite_count=1;cfg.mutation_rate=0.5;
+  cfg.compiled_grammar=g;cfg.fuel=g->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+  cfg.gpu_phase_site_depth=site_depth;cfg.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  return cfg;
+ };
+ const auto run=[](const std::vector<EvalCase>& cases,const EvolutionConfig& cfg,const std::vector<ProgramGenome>* initial,
+     std::optional<Trace>& traced) {
+  try{traced=trace(evolve_population(cases,cfg,initial));return std::string();}catch(const std::exception& e){return std::string(e.what());}
+ };
+ {
+  const auto ambiguous=load("phase_site_ambiguous.json");
+  const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*ambiguous),{true,64}).parse());
+  std::vector<std::string> names{"x"};
+  const auto population=repro::generate_phase_initial_population(*ambiguous,grammar::entry_request(*ambiguous),names,16,0,2);
+  for(const auto& member:population)for(const auto& node:member.ast.nodes)
+   require(node.kind!=NodeKind::ADD,"phase_site_ambiguous.json: a member over site depth 2 as the import reads it was kept");
+  std::vector<Trace> traces;
+  for(const bool gpu:{false,true}) {
+   std::optional<Trace> traced;const auto error=run(cases,configure(ambiguous,2,gpu),nullptr,traced);
+   require(error.empty(),std::string("phase_site_ambiguous.json")+(gpu?" GPU: ":" CPU: ")+error);traces.push_back(*traced);
+  }
+  require_same(traces[0],traces[1],"phase_site_ambiguous.json site depth 2");
+  std::optional<ProgramGenome> two;
+  for(unsigned seed=0;!two;++seed){
+   auto g=generated(*ambiguous,seed);
+   if(g && std::count_if(g->ast.nodes.begin(),g->ast.nodes.end(),[](const AstNode& n){return n.kind==NodeKind::ADD;})==1)two=g;
+  }
+  const std::vector<ProgramGenome> supplied(16,*two);
+  for(const bool gpu:{false,true}) {
+   std::optional<Trace> traced;const auto error=run(cases,configure(ambiguous,2,gpu),&supplied,traced);
+   require(error.find("initial member 0 derives with 3 nested grammar invocations on one path, over limits.site_depth 2 (0 disables the cap)")!=
+       std::string::npos,std::string("phase_site_ambiguous.json supplied")+(gpu?" GPU: ":" CPU: ")+error);
+  }
+ }
+ const auto deep=load("phase_site_depth_9.json");
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*deep),{true,64}).parse());
+ std::vector<Trace> traces;
+ for(const int site_depth:{9,8})for(const bool gpu:{false,true}) {
+  std::optional<Trace> traced;const auto error=run(cases,configure(deep,site_depth,gpu),nullptr,traced);
+  const auto label=std::string("phase_site_depth_9.json site depth ")+std::to_string(site_depth)+(gpu?" GPU: ":" CPU: ");
+  if(site_depth==9){require(error.empty(),label+error);traces.push_back(*traced);}
+  else require(error.find("resident engine cannot admit")!=std::string::npos && error.find("no program within limits.site_depth 8: "
+      "every derivation nests at least 9 grammar invocations on one path (limits.site_depth 0 disables the cap)")!=std::string::npos,label+error);
+ }
+ require_same(traces[0],traces[1],"phase_site_depth_9.json site depth 9");
+ // phase_site_depth_budget: neg(neg(neg(x))) in one invocation, or neg(neg(x))
+ // in three. The program envelope leaves the phase a depth of 3, where only
+ // the second fits: site depth 3 runs, and site depth 2 is rejected on both
+ // owners naming the cap, the phase depth and the depth it needs.
+ const auto budget=load("phase_site_depth_budget.json");
+ const auto budget_cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*budget),{true,64}).parse());
+ std::vector<Trace> budget_traces;
+ for(const int site_depth:{3,2})for(const bool gpu:{false,true}) {
+  std::optional<Trace> traced;const auto error=run(budget_cases,configure(budget,site_depth,gpu),nullptr,traced);
+  const auto label=std::string("phase_site_depth_budget.json site depth ")+std::to_string(site_depth)+(gpu?" GPU: ":" CPU: ");
+  if(site_depth==3){require(error.empty(),label+error);budget_traces.push_back(*traced);}
+  else require(error.find("no program within limits.site_depth 2 at the depth 3 of phase 0 (search_limits max_depth 6 less the "
+      "program envelope): it needs limits.site_depth 3 (limits.site_depth 0 disables the cap)")!=std::string::npos,label+error);
+ }
+ require_same(budget_traces[0],budget_traces[1],"phase_site_depth_budget.json site depth 3");
+ // phase_site_ambiguous_only: S -> neg(A) | neg(neg(x)), A -> neg(B),
+ // B -> x. Every program is read back through neg(A) at site depth 3, so at
+ // site depth 1 all 256 draws fail and both owners name the cap.
+ const auto only=load("phase_site_ambiguous_only.json");
+ const auto only_cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*only),{true,64}).parse());
+ for(const bool gpu:{false,true}) {
+  std::optional<Trace> traced;const auto error=run(only_cases,configure(only,1,gpu),nullptr,traced);
+  require(error.find("initial member 0: in each of 256 draws the importer reconstructs a derivation over limits.site_depth 1, "
+      "last with 3 nested grammar invocations (0 disables the cap)")!=std::string::npos,
+      std::string("phase_site_ambiguous_only.json")+(gpu?" GPU: ":" CPU: ")+error);
+ }
+ std::cout<<"limits.site_depth: ambiguous reconstructions redrawn or rejected by name, too shallow a cap rejected by name, on CPU and GPU\n";
+}
+// The two language restrictions of the resident engine: a sequence constant
+// domain and a nonterminal reached under two binder environments (Step under
+// a traversal at binders 0..2 and under a let and a traversal at 1..3). Both
+// owners reject them at admission with the construct and the offending value.
+void check_language_restrictions() {
+ const std::pair<const char*,const char*> restricted[]={
+  {"phase_sequence_domain.json","constant domain 0 (IntList) is a sequence domain, which the resident engine does not hold"},
+  {"phase_two_environments.json","nonterminal Step is reached under two lexical binder environments, binder numbers [1,2,3] and [0,1,2]"}};
+ for(const auto& [fixture,reason]:restricted) {
+  const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+      grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/")+fixture)));
+  const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+  for(const int site_depth:{0,7})for(const bool gpu:{false,true}) {
+   EvolutionConfig cfg;cfg.population_size=8;cfg.generations=1;cfg.seed=0;cfg.elite_count=1;cfg.mutation_rate=0.5;
+   cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+   cfg.gpu_phase_site_depth=site_depth;cfg.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+   std::string error;
+   try{(void)evolve_population(cases,cfg);}catch(const std::invalid_argument& e){error=e.what();}
+   require(error.find("resident engine cannot admit")!=std::string::npos && error.find(reason)!=std::string::npos,
+       std::string(fixture)+(gpu?" GPU":" CPU")+" site depth "+std::to_string(site_depth)+": "+error);
+  }
+ }
+ std::cout<<"language restrictions: sequence domains and two binder environments rejected on CPU and GPU\n";
+}
 }  // namespace
 
 int main() { try {
@@ -363,12 +710,25 @@ int main() { try {
      "configs/grammar/examples/acyclic_memo.json","configs/grammar/examples/changed_recursive_split.json"})
   check(grammar,Fixture::Regions,false);
  check("cpp/tests/fixtures/phase_traversal.json",Fixture::Traversals);
+ // Traversals inside region phases: forward, reversed with an aliased phase
+ // binding, and ranged under a nonempty-length fact on a phase binding.
+ check("cpp/tests/fixtures/phase_region_traversal.json",Fixture::RegionTraversals);
  // Unit productions inline into their callers, in expression and statement grammars.
  check("cpp/tests/fixtures/phase_units.json",Fixture::Templates);
  check("cpp/tests/fixtures/phase_unit_statements.json",Fixture::Statements);
  // while_stmt with evolved and constant bounds (one negative), conditions that
  // the body changes, and nesting with for_range and if_stmt.
  check("cpp/tests/fixtures/phase_while_statements.json",Fixture::WhileStatements);
+ check_unit_weight_overflow();
+ check_unit_weight_underflow();
+ check_initial_capacity();
+ check_shared_hole_records();
+ check_unused_local();
+ check_loop_locals();
+ check_region_phase_locals();
+ check_code_record_capacity();
+ check_site_depth();
+ check_language_restrictions();
  // Repeated holes share one derivation: recursive, skewed in depth, with a
  // constant in the fill, forwarded through a nested template, and under a let.
  check("cpp/tests/fixtures/phase_repeated.json",Fixture::Templates);

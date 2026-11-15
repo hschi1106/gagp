@@ -2,6 +2,7 @@
 #include "device/phase_variation.cuh"
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 // Per-child selection, variation and lowering of the native phase population.
 // These bodies are shared verbatim by the CUDA kernels and the CPU reference
@@ -11,6 +12,16 @@
 // lanes, never the order of random draws or floating-point accumulation.
 namespace gagp::evo::repro::phase_ops {
 constexpr int capacity = kPhaseRowNodes, code_capacity = 4*capacity;
+// The error both owners raise when lowering rejects a constructed program,
+// from the result of the first rejected phase (by member, then slot).
+inline std::string phase_lowering_error(const PhaseCompileResult& r) {
+ const auto prefix=std::string("resident phase lowering: a constructed program ");
+ if(r.code_overflow)return prefix+"needs more than the resident capacity of "+std::to_string(code_capacity)+
+     " code records (see Resident capacities in spec/search_config.md)";
+ if(r.constant_overflow)return prefix+"needs more than the resident capacity of "+std::to_string(capacity)+
+     " constants (see Resident capacities in spec/search_config.md)";
+ return prefix+"was rejected";
+}
 
 struct TreePointers {
  PhaseTreeNode* nodes;int* origins;PhaseGeneSite* sites;Value* constants;PhaseGenerationResult* lengths;

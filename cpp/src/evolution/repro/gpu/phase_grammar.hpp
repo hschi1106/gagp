@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 #include "gagp/core/region_plan.hpp"
@@ -28,6 +29,10 @@ struct HostPhaseGrammar {
   // A let, traversal or bounded region was reached: Bound operands are binder
   // numbers (whole-program phases only).
   bool lets=false;
+  // Admission's upper bounds on the locals of a lowered program of this phase
+  // grammar (inputs, reached grammar locals and temporaries on one path) and
+  // of one lowered bounded region phase (its bindings and temporaries).
+  int lowering_locals=0,region_lowering_locals=0;
   // Bounded regions and traversals by table entry (PhaseTreeNode::operand of a
   // Region or Traverse node), with the host-only bounded region plan and phase
   // binding sources for native assembly (empty for a traversal).
@@ -56,6 +61,12 @@ inline bool phase_statement_category(NodeCategory category) {
   return category==NodeCategory::Program || category==NodeCategory::Block ||
       category==NodeCategory::Statement;
 }
+// A positive weight stays positive: scaling that underflows to zero keeps the
+// smallest positive double instead, so the alternative stays drawable when it
+// is the only feasible one. Weights that do not underflow are unchanged.
+inline double positive_phase_weight(double weight) {
+  return weight>0?weight:std::numeric_limits<double>::denorm_min();
+}
 // Prove that an alternative with maximum weight is feasible whenever any
 // alternative is feasible at the same depth/capacity. Only then is the dynamic
 // normalizing maximum invariant; division and the first scan can move to import.
@@ -75,7 +86,7 @@ inline void normalize_static_phase_weights(const HostPhaseGrammar& host,
       proven=cheapest==max_weight_cheapest;
     }
     if(!proven)continue;
-    for(int i=0;i<nt.production_count;++i)productions.at(nt.production_offset+i).weight/=maximum;
+    for(int i=0;i<nt.production_count;++i){auto& w=productions.at(nt.production_offset+i).weight;w=positive_phase_weight(w/maximum);}
     nt.normalized_weights=true;
   }
 }
@@ -148,9 +159,20 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
   std::function<void(unsigned,const Environment&)> visit_expression;std::function<void(unsigned,const Environment&)> visit_nonterminal;
   // Hole occurrence groups (prefix order) of every repeated template hole.
   std::vector<std::vector<unsigned>> repeated;std::vector<unsigned> instances,owners;
+  // Grammar locals a reached expression names: lowering allocates exactly
+  // these, each on first use, so unused declarations take no local.
+  unsigned reached_locals=0;
+  // A language restriction: binder numbers are static, so a nonterminal or
+  // expression is reached under one environment of binder numbers.
+  const auto two_environments=[&](const std::string& what,const Environment& a,const Environment& b) {
+    const auto list=[](const Environment& e){std::string s="[";for(std::size_t i=0;i<e.size();++i)s+=(i?",":"")+std::to_string(e[i]);return s+"]";};
+    fail(what+" is reached under two lexical binder environments, binder numbers "+list(a)+" and "+list(b)+
+        ", which the resident engine does not hold (a language restriction)");
+  };
   visit_nonterminal=[&](unsigned id,const Environment& environment) {
     if(seen_nt.at(id)) {
-      if(nt_environment[id]!=environment)fail("nonterminal entered under two lexical environments");
+      if(nt_environment[id]!=environment)
+        two_environments("nonterminal "+grammar.nonterminals().at(id).stable_id,nt_environment[id],environment);
       return;
     }
     seen_nt[id]=true;nt_environment[id]=environment;
@@ -177,7 +199,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
   // `environment` holds the binder numbers visible to expression `id`.
   visit_expression=[&](unsigned id,const Environment& environment) {
     if(seen_expr.at(id)) {
-      if(expr_environment[id]!=environment)fail("expression entered under two lexical environments");
+      if(expr_environment[id]!=environment)two_environments("expression "+std::to_string(id),expr_environment[id],environment);
       return;
     }
     seen_expr[id]=true;expr_environment[id]=environment;
@@ -237,7 +259,8 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         // Generation samples a `sample_from` domain's sampler; membership of
         // the sample in the outer domain is proven by grammar compilation.
         const auto& d=grammar.constants().at(e.target).sampling?*grammar.constants().at(e.target).sampling:grammar.constants().at(e.target);
-        if(d.elements)fail("constant domain "+std::to_string(e.target)+" is a sequence domain, which resident generation does not sample");
+        if(d.elements)fail("constant domain "+std::to_string(e.target)+" ("+std::string(type_name(d.type))+
+            ") is a sequence domain, which the resident engine does not hold (a language restriction)");
         if(phase_value_tag(d.type)==ValueTag::Invalid || (d.integer_range && d.type!=RType::Int) || (d.float_range && d.type!=RType::Float))
           fail("constant domain capability");
         domain.integer_range=d.integer_range;domain.minimum=d.minimum;domain.maximum=d.maximum;
@@ -316,7 +339,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     } else if(e.kind==ExpressionKind::Local) {
       if(e.target>=static_cast<unsigned>(kPhaseNamedLocals))fail("grammar local "+std::to_string(e.target)+" exceeds the resident capacity of "+std::to_string(kPhaseNamedLocals)+" grammar locals");
       x.kind=PhaseExpressionKind::Operation;x.native_kind=static_cast<int>(NodeKind::VAR);
-      x.node.kind=PhaseTreeKind::Var;x.node.operand=e.target;out.statements=true;
+      x.node.kind=PhaseTreeKind::Var;x.node.operand=e.target;out.statements=true;reached_locals|=1U<<e.target;
     } else if(e.kind==ExpressionKind::Control) {
       const auto& signature=PrimitiveCatalog::standard().control_signatures().at(e.target);
       switch(signature.lowering_node) {
@@ -345,7 +368,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
           x.node.operand=-1-position;
         } else {
           if(e.local>=static_cast<unsigned>(kPhaseNamedLocals))fail("grammar local "+std::to_string(e.local)+" exceeds the resident capacity of "+std::to_string(kPhaseNamedLocals)+" grammar locals");
-          x.node.operand=e.local;
+          x.node.operand=e.local;reached_locals|=1U<<e.local;
         }
       }
       // Assign/Return carry the exact stored or returned value type.
@@ -385,7 +408,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         } else if(capture.kind==CompiledCaptureKind::Local) {
           info.capture_kind[c]=PhaseCaptureKind::Local;
           if(target>=kPhaseNamedLocals)fail("grammar local "+std::to_string(target)+" exceeds the resident capacity of "+std::to_string(kPhaseNamedLocals)+" grammar locals");
-          out.statements=true;
+          out.statements=true;reached_locals|=1U<<target;
         } else {
           info.capture_kind[c]=PhaseCaptureKind::Bound;
           if(capture.target>=environment.size())fail("region capture outside its environment");
@@ -436,7 +459,8 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     visit_nonterminal(root,environment);
   }
   // Like the native compiler, a region phase reads only its bindings: no
-  // program variable, statement or nested structured region is reachable.
+  // program variable, statement or nested structured region is reachable. A
+  // traversal or let inside a phase binds within the phase program.
   for(const auto& source:out.region_sources) {
     const auto& e=grammar.expressions().at(source.expression);
     if(e.kind!=ExpressionKind::Structured)continue;
@@ -445,9 +469,8 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       if(closed.at(id))return;closed[id]=true;
       const auto& c=grammar.expressions()[id];
       if(c.kind==ExpressionKind::Input || c.kind==ExpressionKind::Local || c.kind==ExpressionKind::Control ||
-          c.kind==ExpressionKind::Structured || c.category!=NodeCategory::Expression ||
-          (c.kind==ExpressionKind::Primitive && PrimitiveCatalog::standard().at(c.target).traversal_direction))
-        fail("region phase reaches a program variable, statement, traversal or nested region");
+          c.kind==ExpressionKind::Structured || c.category!=NodeCategory::Expression)
+        fail("region phase reaches a program variable, statement or nested region");
       if(c.kind==ExpressionKind::Reference)
         for(auto production:grammar.nonterminals().at(c.target).productions)check(grammar.productions().at(production).expression);
       for(auto child:c.children)check(child);
@@ -471,8 +494,20 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     std::vector<char> on_path(out.nonterminals.size());std::size_t expanded=0;
     std::function<std::vector<PhaseProduction>(int)> expand=[&](int id)->std::vector<PhaseProduction> {
       std::vector<PhaseProduction> result;on_path[id]=1;
+      // Weights are finite, but a sum of them can overflow. Both fallbacks
+      // run only on overflow and scale by powers of two, which keeps every
+      // ratio exact, so finite sums keep their weights bit for bit. A weight
+      // the scaling would underflow to zero keeps the smallest positive value.
+      double list_scale=1;  // halved on each merge overflow, for every weight
       const auto add=[&](int expression,double weight) {
-        for(auto& p:result)if(p.expression==expression){p.weight+=weight;return;}
+        weight=positive_phase_weight(weight*list_scale);
+        for(auto& p:result)if(p.expression==expression) {
+          if(!std::isfinite(p.weight+weight)) {
+            for(auto& q:result)q.weight=positive_phase_weight(q.weight*0.5);
+            weight=positive_phase_weight(weight*0.5);list_scale*=0.5;
+          }
+          p.weight+=weight;return;
+        }
         if(++expanded>65536)fail("unit production inlining exceeds the resident capacity of 65536 alternatives");
         result.push_back({expression,weight});
       };
@@ -481,9 +516,14 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         const auto p=out.productions[nt.production_offset+i];const auto& r=out.expressions[resolve(p.expression)];
         if(r.kind!=PhaseExpressionKind::Reference){add(p.expression,p.weight);continue;}
         if(on_path[r.target])continue;
-        const auto inner=expand(r.target);double total=0;
+        const auto inner=expand(r.target);double total=0,scale=1;
         for(const auto& q:inner)total+=q.weight;
-        for(const auto& q:inner)add(q.expression,p.weight*(q.weight/total));
+        if(!std::isfinite(total)) {
+          double maximum=0;for(const auto& q:inner)maximum=std::max(maximum,q.weight);
+          int exponent=0;std::frexp(maximum,&exponent);scale=std::ldexp(1.0,-exponent);
+          total=0;for(const auto& q:inner)total+=q.weight*scale;
+        }
+        for(const auto& q:inner)add(q.expression,positive_phase_weight(p.weight*(q.weight*scale/total)));
       }
       on_path[id]=0;return result;
     };
@@ -585,11 +625,40 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       if(cheapest!=out.minimum[i*out.depth_count+d])fail("unit production budget differs from its alternatives");
     }
   }
+  // Repeated holes: share_phase_tree holds one record per repeated hole of
+  // each open template instance, from the hole's first occurrence until the
+  // instance closes. Over every tree within the depth budget, the most records
+  // at once is the largest sum of repeated holes over nested instances.
+  if(!out.shared.empty()) {
+    std::vector<int> holes(out.expressions.size());
+    for(std::size_t i=0;i<out.shared.size();++i)if(out.shared[i].first==int(i))++holes.at(out.shared[i].owner);
+    const std::size_t depths=out.depth_count;
+    const auto feasible=[&](int id,int d){return out.minimum[std::size_t(id)*depths+d]!=kNoGrammarId;};
+    std::vector<int> most(out.expressions.size()*depths,-1);
+    // A reference and its production root share a depth; every production
+    // root resolves to a node (checked above), so the recursion terminates.
+    std::function<int(int,int)> records=[&](int id,int d)->int {
+      if(most[std::size_t(id)*depths+d]>=0)return most[std::size_t(id)*depths+d];
+      const auto& e=out.expressions[id];int r=0;
+      if(e.kind==PhaseExpressionKind::Alias)r=records(e.children[0],d)+(out.shared[id].instance?holes[id]:0);
+      else if(e.kind==PhaseExpressionKind::Reference) {
+        const auto& nt=out.nonterminals[e.target];
+        for(int i=0;i<nt.production_count;++i) {
+          const int child=out.productions[nt.production_offset+i].expression;
+          if(feasible(child,d))r=std::max(r,records(child,d));
+        }
+      } else if(d>0)for(int i=0;i<e.node.arity;++i)if(feasible(e.children[i],d-1))r=std::max(r,records(e.children[i],d-1));
+      return most[std::size_t(id)*depths+d]=r;
+    };
+    const int r=records(out.root_expression,max_depth);
+    if(r>kPhaseSharedRecords)fail("repeated hole capacity within the depth budget: up to "+std::to_string(r)+
+        " repeated holes of nested template instances on one path exceed the capacity of "+std::to_string(kPhaseSharedRecords));
+  }
   // Lowering never runs out of its fixed tables during a search: over every
   // tree within the physical depth budget, bound the open traversals, lets,
   // loops and value ifs on one path and the temporaries they hold (a traversal
-  // holds at most nine, a let or a loop one) next to the inputs and grammar
-  // locals. Site depth only shortens trees, so it is ignored here.
+  // holds at most nine, a let one, a loop two) next to the inputs and the
+  // reached grammar locals. Site depth only shortens trees, so it is ignored.
   {
     enum {Temporaries,Walks,Lets,Loops,Ifs,Count};
     using Hold=std::array<int,Count>;
@@ -611,13 +680,18 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
           if(feasible(child,d))merge(h,need(child,d));
         }
       } else if(d>0) {
-        for(int i=0;i<e.node.arity;++i)if(feasible(e.children[i],d-1))merge(h,need(e.children[i],d-1));
+        // A bounded region's phases are separately lowered programs (their
+        // locals are bounded below), so their temporaries take no root local.
+        const int operands=e.node.kind==PhaseTreeKind::Region?out.regions.at(e.node.operand).operands:e.node.arity;
+        for(int i=0;i<e.node.arity;++i)if(feasible(e.children[i],d-1)) {
+          auto child=need(e.children[i],d-1);if(i>=operands)child[Temporaries]=0;merge(h,child);
+        }
         switch(e.node.kind) {
           case PhaseTreeKind::Traverse:h[Temporaries]+=9;++h[Walks];break;
           case PhaseTreeKind::Let:++h[Temporaries];++h[Lets];break;
-          case PhaseTreeKind::ForRange:++h[Temporaries];++h[Loops];break;
-          // A while_stmt holds its bound and its counter.
-          case PhaseTreeKind::While:h[Temporaries]+=2;++h[Loops];break;
+          // A for_range or while_stmt holds its bound and its counter through
+          // the body (the counter is allocated after the bound expression).
+          case PhaseTreeKind::ForRange:case PhaseTreeKind::While:h[Temporaries]+=2;++h[Loops];break;
           case PhaseTreeKind::If:h[Ifs]+=e.node.type!=kPhaseStatement;break;
           default:break;
         }
@@ -625,8 +699,22 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       done[key]=true;return hold[key]=h;
     };
     const auto h=need(out.root_expression,max_depth);
+    // A region phase is a program of its own: its bindings and the
+    // temporaries of its traversals and lets share the local capacity.
+    for(const auto& source:out.region_sources) {
+      const auto& e=grammar.expressions().at(source.expression);
+      if(e.kind!=ExpressionKind::Structured || !seen_expr.at(source.expression))continue;
+      for(std::size_t p=0;p<e.phases.size();++p) {
+        const int locals=static_cast<int>(e.regions.at(p).bindings.size())+need(e.children.at(e.phases[p].argument),max_depth)[Temporaries];
+        out.region_lowering_locals=std::max(out.region_lowering_locals,locals);
+        if(locals>gpu_detail::MAX_LOCALS)
+          fail("lowering capacity within the depth budget: a bounded region phase of up to "+std::to_string(locals)+
+              " locals exceeds the capacity of "+std::to_string(gpu_detail::MAX_LOCALS));
+      }
+    }
     const int inputs_count=static_cast<int>(inputs?inputs->size():grammar.inputs().size());
-    const int named=static_cast<int>(std::min<std::size_t>(grammar.locals().size(),kPhaseNamedLocals));
+    int named=0;for(unsigned m=reached_locals;m;m&=m-1)++named;
+    out.lowering_locals=inputs_count+named+h[Temporaries];
     if(inputs_count+named+h[Temporaries]>gpu_detail::MAX_LOCALS || h[Walks]>kPhaseWalks || h[Lets]>kPhaseLets ||
         h[Loops]>kPhaseLoops || (h[Walks] && h[Ifs]>kPhaseIfs))
       fail("lowering capacity within the depth budget: up to "+std::to_string(inputs_count+named+h[Temporaries])+" locals (capacity "+
@@ -666,6 +754,36 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     };
     for(std::size_t i=0;i<out.expressions.size();++i)if(i==std::size_t(out.root_expression) || seen_expr[i])
       for(unsigned d=0;d<=max_depth;++d)for(unsigned l=0;l<=site_depth;++l)cost(i,d,l);
+    // No program within the site depth is a configuration error, decided
+    // here on both owners before any generation or import. The message names
+    // the fewest nested invocations a derivation within the physical depth
+    // needs: a reference adds one to its cheapest production, a node takes
+    // the most of its children.
+    if(out.minimum[(std::size_t(out.root_expression)*out.depth_count+max_depth)*out.logical_depth_count+site_depth]==kNoGrammarId) {
+      constexpr unsigned none=~0U;
+      std::vector<unsigned> fewest(out.expressions.size()*out.depth_count,none);std::vector<char> known(fewest.size());
+      std::function<unsigned(int,int)> nested=[&](int id,int d)->unsigned {
+        const auto key=std::size_t(id)*out.depth_count+d;
+        if(known[key])return fewest[key];
+        known[key]=true;const auto& e=out.expressions[id];unsigned r=none;
+        if(e.kind==PhaseExpressionKind::Alias)r=nested(e.children[0],d);
+        else if(e.kind==PhaseExpressionKind::Reference) {
+          const auto& nt=out.nonterminals[e.target];
+          for(int i=0;i<nt.production_count;++i) {
+            const unsigned child=nested(out.productions[nt.production_offset+i].expression,d);
+            if(child!=none)r=std::min(r,child+1);
+          }
+        } else if(d>0) {
+          r=0;
+          for(int i=0;i<e.node.arity && r!=none;++i){const unsigned child=nested(e.children[i],d-1);r=child==none?none:std::max(r,child);}
+        }
+        return fewest[key]=r;
+      };
+      const unsigned needed=nested(out.root_expression,max_depth);
+      fail("no program within limits.site_depth "+std::to_string(site_depth)+(needed!=none?
+          ": every derivation nests at least "+std::to_string(needed)+" grammar invocations on one path":std::string())+
+          " (limits.site_depth 0 disables the cap)");
+    }
   }
   return out;
 }

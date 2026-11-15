@@ -5,6 +5,7 @@
 #include <vector>
 #include "gagp/core/fitness_policy.hpp"
 #include "gagp/evolution/genome.hpp"
+#include "gagp/evolution/population_init.hpp"
 #include "gagp/evolution/grammar/compiled.hpp"
 #include "gagp/evolution/grammar/request.hpp"
 #include "gagp/evolution/repro/stats.hpp"
@@ -21,6 +22,12 @@ namespace gagp::evo::repro {
 std::vector<ProgramGenome> generate_phase_initial_population(
     const grammar::CompiledGrammar& grammar, const grammar::GenerationRequest& request,
     const std::vector<std::string>& input_names, int population, std::uint64_t seed, int site_depth);
+
+// The per-program capacity check of generated initial members (see
+// initialize_population): a member is checked in the layout it takes on its
+// own, and the check names the capacity it exceeds. Shared by both owners.
+MemberCapacityCheck phase_member_capacity_check(std::shared_ptr<const grammar::CompiledGrammar> grammar,
+    const std::vector<std::string>& input_names);
 
 // CPU reference owner of the native phase population. It admits the same
 // population as NativePhasePopulation and runs the identical per-child operator

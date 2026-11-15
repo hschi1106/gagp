@@ -495,8 +495,9 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
           cfg.gpu_phase_site_depth); });
       initial_population = &phase_initial;
     }
-    PopulationInitialization initialization =
-        initialize_population(cfg, case_set, initial_population);
+    // Generated members over a per-program capacity of the genotype are redrawn.
+    PopulationInitialization initialization = initialize_population(cfg, case_set, initial_population,
+        initial_population ? MemberCapacityCheck{} : repro::phase_member_capacity_check(cfg.compiled_grammar, case_set.input_names));
     std::vector<ProgramGenome> population = std::move(initialization.population);
     result.timing.init_population_ms =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - init_t0).count();
