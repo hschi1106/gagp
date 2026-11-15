@@ -449,6 +449,30 @@ void check_unused_local() {
  require_same(traces[0],traces[1],"phase_unused_local.json");
  std::cout<<"phase_unused_local.json: an unused local takes no lowering local, identical on CPU and GPU\n";
 }
+// The two language restrictions of the resident engine: a sequence constant
+// domain and a nonterminal reached under two binder environments (Step under
+// a traversal at binders 0..2 and under a let and a traversal at 1..3). Both
+// owners reject them at admission with the construct and the offending value.
+void check_language_restrictions() {
+ const std::pair<const char*,const char*> restricted[]={
+  {"phase_sequence_domain.json","constant domain 0 (IntList) is a sequence domain, which the resident engine does not hold"},
+  {"phase_two_environments.json","nonterminal Step is reached under two lexical binder environments, binder numbers [1,2,3] and [0,1,2]"}};
+ for(const auto& [fixture,reason]:restricted) {
+  const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+      grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/")+fixture)));
+  const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+  for(const int site_depth:{0,7})for(const bool gpu:{false,true}) {
+   EvolutionConfig cfg;cfg.population_size=8;cfg.generations=1;cfg.seed=0;cfg.elite_count=1;cfg.mutation_rate=0.5;
+   cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+   cfg.gpu_phase_site_depth=site_depth;cfg.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+   std::string error;
+   try{(void)evolve_population(cases,cfg);}catch(const std::invalid_argument& e){error=e.what();}
+   require(error.find("resident engine cannot admit")!=std::string::npos && error.find(reason)!=std::string::npos,
+       std::string(fixture)+(gpu?" GPU":" CPU")+" site depth "+std::to_string(site_depth)+": "+error);
+  }
+ }
+ std::cout<<"language restrictions: sequence domains and two binder environments rejected on CPU and GPU\n";
+}
 }  // namespace
 
 int main() { try {
@@ -476,6 +500,7 @@ int main() { try {
  check_initial_capacity();
  check_shared_hole_records();
  check_unused_local();
+ check_language_restrictions();
  // Repeated holes share one derivation: recursive, skewed in depth, with a
  // constant in the fill, forwarded through a nested template, and under a let.
  check("cpp/tests/fixtures/phase_repeated.json",Fixture::Templates);

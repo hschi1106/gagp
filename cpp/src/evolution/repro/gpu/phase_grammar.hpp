@@ -151,9 +151,17 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
   // Grammar locals a reached expression names: lowering allocates exactly
   // these, each on first use, so unused declarations take no local.
   unsigned reached_locals=0;
+  // A language restriction: binder numbers are static, so a nonterminal or
+  // expression is reached under one environment of binder numbers.
+  const auto two_environments=[&](const std::string& what,const Environment& a,const Environment& b) {
+    const auto list=[](const Environment& e){std::string s="[";for(std::size_t i=0;i<e.size();++i)s+=(i?",":"")+std::to_string(e[i]);return s+"]";};
+    fail(what+" is reached under two lexical binder environments, binder numbers "+list(a)+" and "+list(b)+
+        ", which the resident engine does not hold (a language restriction)");
+  };
   visit_nonterminal=[&](unsigned id,const Environment& environment) {
     if(seen_nt.at(id)) {
-      if(nt_environment[id]!=environment)fail("nonterminal entered under two lexical environments");
+      if(nt_environment[id]!=environment)
+        two_environments("nonterminal "+grammar.nonterminals().at(id).stable_id,nt_environment[id],environment);
       return;
     }
     seen_nt[id]=true;nt_environment[id]=environment;
@@ -180,7 +188,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
   // `environment` holds the binder numbers visible to expression `id`.
   visit_expression=[&](unsigned id,const Environment& environment) {
     if(seen_expr.at(id)) {
-      if(expr_environment[id]!=environment)fail("expression entered under two lexical environments");
+      if(expr_environment[id]!=environment)two_environments("expression "+std::to_string(id),expr_environment[id],environment);
       return;
     }
     seen_expr[id]=true;expr_environment[id]=environment;
@@ -240,7 +248,8 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         // Generation samples a `sample_from` domain's sampler; membership of
         // the sample in the outer domain is proven by grammar compilation.
         const auto& d=grammar.constants().at(e.target).sampling?*grammar.constants().at(e.target).sampling:grammar.constants().at(e.target);
-        if(d.elements)fail("constant domain "+std::to_string(e.target)+" is a sequence domain, which resident generation does not sample");
+        if(d.elements)fail("constant domain "+std::to_string(e.target)+" ("+std::string(type_name(d.type))+
+            ") is a sequence domain, which the resident engine does not hold (a language restriction)");
         if(phase_value_tag(d.type)==ValueTag::Invalid || (d.integer_range && d.type!=RType::Int) || (d.float_range && d.type!=RType::Float))
           fail("constant domain capability");
         domain.integer_range=d.integer_range;domain.minimum=d.minimum;domain.maximum=d.maximum;

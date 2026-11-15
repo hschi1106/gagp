@@ -171,16 +171,32 @@ A `resource_charge` has no effect on admission or on search.
 A grammar or initial population is rejected when it exceeds a
 [resident capacity](#resident-capacities), when a construct cannot be held by
 the genotype (for example lowering capacity within the depth budget), or when
-it uses one of two constructs of the language that the resident engine does
-not yet hold: `sequence` constant domains and a nonterminal reached under two
-different lexical binder environments. A traversal or `let` inside a bounded
-region phase is held: the phase lowers as a program of its own whose first
-locals are its bindings. A genome is rejected when it does not share the population's fixed
+it uses one of the two [language restrictions](#language-restrictions). A
+traversal or `let` inside a bounded region phase is held: the phase lowers as
+a program of its own whose first locals are its bindings. A genome is rejected when it does not share the population's fixed
 skeleton. Rejection is an error raised before the first generation: the run
 stops with a diagnostic that begins with
 `resident engine cannot admit this grammar or initial population:` and names
 the limit or construct and the offending value. `gagp run` then exits with
 status 2 and writes no result. No other engine runs instead.
+
+### Language restrictions
+
+Two constructs of the grammar language are not held by the resident engine.
+Both owners reject a grammar that reaches one at admission, and the message
+names the construct, the offending value and "a language restriction".
+
+- A `sequence` constant domain (String or a typed list,
+  [constant domains](grammar_definition.md#constant-domains)), reported as
+  `constant domain N (T) is a sequence domain`. A String or list value is a
+  token of a content hash and a length whose content lives in the host
+  payload store, which phase generation on the device cannot build.
+- A nonterminal or expression reached under two different lexical binder
+  environments, reported with both lists of binder numbers. Binder numbers
+  are static: a phase gene stores the binder number of every lexical read,
+  and the bounded region and traversal tables hold fixed binder numbers, so
+  each nonterminal has one environment. Giving each context its own
+  nonterminal avoids the restriction.
 
 ### Resident capacities
 
