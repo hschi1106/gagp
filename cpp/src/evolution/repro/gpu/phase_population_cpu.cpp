@@ -192,14 +192,18 @@ struct HostPhasePopulation::Impl {
  // Lower every live phase with the shared phase compiler and patch the region
  // executables exactly as the GPU owner materializes them.
  // Lowers the phases of tree member `member` into `executable`; false on rejection.
- bool lower_member(TreePointers trees,int member,BytecodeProgram& executable)const {
+ // `failure` receives the result of the first rejected phase.
+ bool lower_member(TreePointers trees,int member,BytecodeProgram& executable,PhaseCompileResult* failure=nullptr)const {
   thread_local std::vector<gpu_detail::DInstr> code(code_capacity);thread_local std::vector<Value> values(capacity);
   bool ok=true;
   for(int k=0;k<slot_count;++k) {
    const int row=member*slot_count+k;const auto t=trees.view(row);const auto& slot=slots[k];
    const auto r=valid(trees.lengths[row])?compile_phase_tree<true,true>(t.nodes,t.node_count,t.constants,t.constant_count,slot.locals,slot.local_count,slot.type,
        code.data(),code_capacity,values.data(),capacity,slot.grammar.regions,slot.grammar.region_count):PhaseCompileResult{};
-   if(r.status!=PhaseCompileStatus::Ok || r.stack_bound<1 || r.stack_bound>gpu_detail::MAX_STACK){ok=false;continue;}
+   if(r.status!=PhaseCompileStatus::Ok || r.stack_bound<1 || r.stack_bound>gpu_detail::MAX_STACK) {
+    if(ok && failure){*failure=r;if(r.status==PhaseCompileStatus::Ok)failure->status=PhaseCompileStatus::Invalid;}
+    ok=false;continue;
+   }
    if(layout.whole_program){patch_whole_program(executable,layout,code.data(),r.code_count,values.data(),r.constant_count,r);continue;}
    auto& program=native_phase_at(executable.bounded_region_segments[0],layout.slots[k].ordinal).program;
    program.code.clear();program.instruction_fuel.clear();program.code.reserve(r.code_count);program.instruction_fuel.reserve(r.code_count);
@@ -209,9 +213,9 @@ struct HostPhasePopulation::Impl {
   return ok;
  }
  void refresh_programs() {
-  std::vector<int> failures(population,0);
-  each_row(population,[&](int p){failures[p]=!lower_member(current->pointers(),p,programs[p]);});
-  for(int failed:failures)if(failed)throw std::runtime_error("CPU phase compiler rejected a constructed program");
+  std::vector<int> failures(population,0);std::vector<PhaseCompileResult> results(population);
+  each_row(population,[&](int p){failures[p]=!lower_member(current->pointers(),p,programs[p],&results[p]);});
+  for(int p=0;p<population;++p)if(failures[p])throw std::runtime_error(phase_lowering_error(results[p]));
  }
  unsigned nodes(TreePointers trees,int member,bool grammar_sites)const {
   unsigned count=grammar_sites?0:layout.fixed_nodes;
@@ -411,9 +415,9 @@ HostPhasePopulation::Evaluation HostPhasePopulation::evaluate_batch(const std::v
  Evaluation result;result.fitness.assign(b,0.0);result.case_counts.assign(b,{});
  const bool wrong=policy.metric!=FitnessMetric::Legacy;if(wrong)result.wrong.assign(b,0);
  std::vector<int> pending;for(int i=0;i<b;++i)if(reuse[i]<0)pending.push_back(i);
- std::vector<int> failures(pending.size(),0);
- each_row(int(pending.size()),[&](int j){failures[j]=!s.lower_member(s.crossed->pointers(),pending[j],s.batch_programs[pending[j]]);});
- for(int failed:failures)if(failed)throw std::runtime_error("CPU phase compiler rejected a constructed program");
+ std::vector<int> failures(pending.size(),0);std::vector<PhaseCompileResult> results(pending.size());
+ each_row(int(pending.size()),[&](int j){failures[j]=!s.lower_member(s.crossed->pointers(),pending[j],s.batch_programs[pending[j]],&results[j]);});
+ for(std::size_t j=0;j<pending.size();++j)if(failures[j])throw std::runtime_error(phase_lowering_error(results[j]));
  constexpr int chunk=32;const int chunks=(int(pending.size())+chunk-1)/chunk;
  each_row(chunks,[&](int c) {
   const int begin=c*chunk,end=std::min<int>(pending.size(),begin+chunk);

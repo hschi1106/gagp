@@ -425,7 +425,13 @@ struct NativePhasePopulation::Impl {
   const auto begin=Clock::now();auto offsets=code_offsets.read(rows+1),values=constant_offsets.read(rows+1);
   const auto certificates=compiled.read(rows);
   if(timing)timing->copyback_ms+=elapsed(begin);
-  if(offsets.back()<0 || values.back()<0)throw std::runtime_error("GPU genotype lowering rejected a constructed program");
+  // The first rejected phase by member, then slot, as the CPU owner reports it.
+  for(int row=0;row<rows;++row) {
+   auto r=certificates[row];
+   if(r.status==PhaseCompileStatus::Ok && r.stack_bound>=1 && r.stack_bound<=gpu_detail::MAX_STACK)continue;
+   if(r.status==PhaseCompileStatus::Ok)r.status=PhaseCompileStatus::Invalid;
+   throw std::runtime_error(phase_ops::phase_lowering_error(r));
+  }
   // The program budget covers all variable phases, not one phase buffer.
   const std::size_t variable_nodes=layout.budget.max_nodes-layout.fixed_nodes;
   // A for_range lowers to at most 8 instructions and 2 constants per node; a

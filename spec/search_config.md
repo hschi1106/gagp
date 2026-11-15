@@ -240,6 +240,7 @@ never evaluates a program that the GPU owner refuses.
 | Program inputs | 64 |
 | Grammar locals referenced by the grammar | 16 |
 | Locals of a lowered program (inputs, grammar locals the grammar references and temporaries: nine per traversal, one per `let`, two per `for_range` or `while_stmt`) on one path, not counting the bounded region phases, which are lowered separately | 64 |
+| Code records / constants of one lowered program, its bounded region phases included | 4096 / 1024. Admission does not bound them. A program over one stops the run on both engines at its first lowering with `resident phase lowering: a constructed program needs more than the resident capacity of 4096 code records` (or `1024 constants`) |
 | Locals of one lowered bounded region phase (its bindings and the temporaries of its traversals and `let`s) on one path | 64 |
 | Open traversals / `let`s / loops on one path | 8 / 16 / 16 |
 | Analysed value `if`s on one path under an open traversal | 16 |

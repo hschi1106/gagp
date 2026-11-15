@@ -107,6 +107,9 @@ struct PhaseCompileResult {
   // {a: code, b: constants, fuel: locals | 1<<16 if general} and its code.
   // Phase constants follow the main constants in the same order.
   int region_count = 0, main_code_count = 0, main_constant_count = 0;
+  // A Capacity status caused by the code-record or constant buffer (of this
+  // program or of one of its bounded region phases).
+  bool code_overflow = false, constant_overflow = false;
 };
 namespace phase_compile_detail {
 using gpu_detail::DInstr;
@@ -117,13 +120,13 @@ struct Output {
   PhaseCompileResult result;
   int stack = 0;
   __host__ __device__ bool emit(Opcode op, unsigned fuel, int a=0, int b=0, unsigned flags=0) {
-    if (result.code_count >= code_capacity) { result.status=PhaseCompileStatus::Capacity; return false; }
+    if (result.code_count >= code_capacity) { result.status=PhaseCompileStatus::Capacity; result.code_overflow=true; return false; }
     if (fuel > 0x7fffffffU) { result.status=PhaseCompileStatus::Invalid; return false; }
     code[result.code_count++] = {static_cast<std::uint8_t>(op),static_cast<std::uint8_t>(flags),a,b,fuel};
     return true;
   }
   __host__ __device__ int add(Value value) {
-    if (result.constant_count >= constant_capacity) { result.status=PhaseCompileStatus::Capacity; return -1; }
+    if (result.constant_count >= constant_capacity) { result.status=PhaseCompileStatus::Capacity; result.constant_overflow=true; return -1; }
     constants[result.constant_count]=value;
     return result.constant_count++;
   }
@@ -737,7 +740,10 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
                 constants,constant_count,info.binding_types[p],info.phase_bindings[p],info.phase_type[p],
                 out.code+out.result.code_count,code_capacity-out.result.code_count,
                 out.constants+out.result.constant_count,constant_capacity-out.result.constant_count,regions,region_info_count);
-            if (phase.status!=PhaseCompileStatus::Ok) { out.result.status=phase.status; return out.result; }
+            if (phase.status!=PhaseCompileStatus::Ok) {
+              out.result.status=phase.status; out.result.code_overflow=phase.code_overflow;
+              out.result.constant_overflow=phase.constant_overflow; return out.result;
+            }
             out.code[header].a=phase.code_count; out.code[header].b=phase.constant_count;
             out.code[header].fuel=static_cast<unsigned>(phase.local_count)|(phase.general_regions ? 1U<<16 : 0U);
             out.result.code_count+=phase.code_count; out.result.constant_count+=phase.constant_count;

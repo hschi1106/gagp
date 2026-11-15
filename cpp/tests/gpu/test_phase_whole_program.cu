@@ -430,6 +430,25 @@ void check_region_phase_locals() {
  require_same(traces[0],traces[1],"phase_region_input_capacity.json");
  std::cout<<"phase_region_input_capacity.json: root and region phase locals bounded separately, identical on CPU and GPU\n";
 }
+// A balanced sum of 128 traversals inside a bounded region phase (775
+// nodes) is admitted, but lowers to about 5000 code records, over the 4096
+// of a lowered program. Admission does not bound code records, so both owners
+// stop at the first lowering with one message that names the capacity.
+void check_code_record_capacity() {
+ const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_region_code_capacity.json")));
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+ EvolutionConfig cfg;cfg.population_size=2;cfg.generations=1;cfg.seed=0;cfg.elite_count=0;cfg.mutation_rate=0;
+ cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+ const std::string expected="resident phase lowering: a constructed program needs more than the resident capacity of 4096 code records";
+ for(const bool gpu:{false,true}) {
+  auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  std::string error;
+  try{evolve_population(cases,run);}catch(const std::exception& e){error=e.what();}
+  require(error.rfind(expected,0)==0,std::string("phase_region_code_capacity.json ")+(gpu?"GPU: ":"CPU: ")+error);
+ }
+ std::cout<<"phase_region_code_capacity.json: a program over 4096 code records stops both owners with one message\n";
+}
 // Generated initial members over a per-program capacity of the genotype
 // (bounded regions per program, nodes of a phase row) are redrawn, and only
 // those: a member admissible at its first draw is the plain draw seed + i.
@@ -681,6 +700,7 @@ int main() { try {
  check_unused_local();
  check_loop_locals();
  check_region_phase_locals();
+ check_code_record_capacity();
  check_site_depth();
  check_language_restrictions();
  // Repeated holes share one derivation: recursive, skewed in depth, with a
